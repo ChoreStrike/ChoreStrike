@@ -1,0 +1,9 @@
+# ChoreWars AI Guidelines
+
+- **Language:** ALL code, comments, commit messages, and documentation must be in **English only**. Chatting with the user in German is allowed.
+- **Auto-Commit:** After completing a logical package or bugfix, automatically execute `git add` and `git commit` with a meaningful message. Update docs and backlog accordingly.
+- **KISS & DRY:** Keep it simple, stupid. Don't repeat yourself. Max ~30 lines per method, ~300 lines per file.
+- **Architecture:** Clean Architecture. Thin APIs/Controllers. No business logic in the routing layer. Nextcloud App ecosystem standards.
+- **Docs:** Read `AGENTS.md` before proposing changes. Add documentation comments to EVERY public member.
+- **Testing:** Every new feature needs unit tests. Every bug fix needs a regression test. Use BDD style naming.
+- **Questions:** Batch questions at the end of the session with 2-3 options. Don't guess.

@@ -1,0 +1,38 @@
+# Private/Local Development Files
+/private/
+*.local
+.env
+.env.local
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+/build/
+/dist/
+/js/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Nextcloud
+/data/
+/config/config.php
+
+# Logs
+*.log
+
+# Testing
+/coverage/
+/.phpunit.result.cache

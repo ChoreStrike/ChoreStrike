@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Simple house icon with a broom for ChoreWars -->
+  <g fill="currentColor">
+    <!-- House -->
+    <path d="M32 8L8 28v28h16V40h16v16h16V28L32 8z" fill="#4CAF50" opacity="0.8"/>
+    <path d="M32 8L8 28h8L32 16l16 12h8L32 8z" fill="#2E7D32"/>
+    
+    <!-- Broom -->
+    <g transform="translate(40, 35)">
+      <rect x="8" y="0" width="2" height="20" fill="#8D6E63"/>
+      <path d="M6 20 L12 20 L11 28 L7 28 Z" fill="#FFA726"/>
+    </g>
+    
+    <!-- Shield (defense theme) -->
+    <path d="M32 12 L28 14 L28 20 L32 22 L36 20 L36 14 Z" fill="#FFD54F" opacity="0.9"/>
+  </g>
+</svg>
