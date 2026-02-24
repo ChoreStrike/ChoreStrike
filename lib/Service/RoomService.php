@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Service;
+namespace OCA\ChoreWars\Service;
 
-use OCA\ChoreStrike\Db\Room;
-use OCA\ChoreStrike\Db\RoomMapper;
-use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreWars\Db\Room;
+use OCA\ChoreWars\Db\RoomMapper;
+use OCA\ChoreWars\Db\RoomTask;
+use OCA\ChoreWars\Db\RoomTaskMapper;
+use OCA\ChoreWars\Db\Task;
+use OCA\ChoreWars\Db\TaskMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
@@ -191,7 +191,7 @@ class RoomService {
 			$nextDue->add(new \DateInterval('P1D'));
 		}
 
-		return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, null, $assignedToUserId);
+		return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $assignedToUserId);
 	}
 
 	/**
@@ -243,13 +243,7 @@ class RoomService {
 		$room = $roomTaskData['room'];
 
 		// Mark task as completed and calculate next due date
-		$roomTask->markCompleted(
-			new \DateTime(),
-			$task->getFrequencyType(),
-			$task->getFrequencyValue(),
-			$task->getRecurrenceMode(),
-			$task->getActiveUntil()
-		);
+		$roomTask->markCompleted(new \DateTime(), $task->getFrequencyType(), $task->getFrequencyValue());
 		$this->roomTaskMapper->update($roomTask);
 
 		// Update room cleanliness based on task energy cost

@@ -8,7 +8,7 @@ Keep the game layer fun and motivating while preserving a supportive family tone
 
 1. Task becomes due.
 2. Visual room state reflects pending work.
-3. User completes task in ChoreStrike or task client.
+3. User completes task in ChoreWars or task client.
 4. System awards positive rewards and updates cooperative progress.
 
 ## Reward Language Policy

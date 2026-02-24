@@ -1,75 +1,75 @@
-# Agent Guidelines for ChoreStrike Development
+# Agent Guidelines für ChoreWars Entwicklung
 
-This document defines how AI agents should operate while building ChoreStrike.
+Dieses Dokument definiert, wie AI-Agents bei der Entwicklung von ChoreWars agieren sollen.
 
-## 🎯 Project Context
+## 🎯 Projekt-Kontext
 
-**ChoreStrike** is an open-source Nextcloud extension for gamified household task management.
+**ChoreWars** ist eine Open-Source Nextcloud-Erweiterung für gamifiziertes Haushaltsaufgaben-Management.
 
-### Core Principles
-1. **Open Source First**: Everything is public (MIT license).
-2. **Privacy**: No external services, all data stays in Nextcloud.
-3. **Motivate, do not punish**: Positive gamification.
-4. **Family-friendly design**: Playful but professional experience.
-5. **Multilingual by default**: i18n-ready from day one.
+### Kernprinzipien
+1. **Open Source First**: Alles ist öffentlich (MIT Lizenz)
+2. **Privacy**: Keine externen Dienste, alles lokal in Nextcloud
+3. **Motivieren, nicht bestrafen**: Positive Gamification
+4. **Erwachsenentauglich**: Professionelles Design trotz Spielmechanik
+5. **Mehrsprachigkeit**: Von Anfang an i18n-ready
 
-## Project Structure
+## 📁 Projekt-Struktur
 
-### Public vs. Private Separation
+### Public vs. Private Trennung
 
 ```
-ChoreStrike/
-├── public/              # Everything committed to the repository
-│   ├── src/            # Source code
-│   ├── docs/           # Documentation
-│   ├── l10n/           # Translations
+ChoreWars/
+├── public/              # Alles was ins Repository kommt
+│   ├── src/            # Quellcode
+│   ├── docs/           # Dokumentation
+│   ├── l10n/           # Übersetzungen
 │   └── tests/          # Tests
-└── private/            # Local development data (gitignored)
+└── private/            # Lokale Entwicklung (gitignored)
     ├── config.local.php
     ├── test-data/
     └── notes/
 ```
 
-**Important**: Agents must NEVER write private data (API keys, passwords, personal notes) into public areas.
+**Wichtig**: Agents dürfen NIEMALS private Daten (API-Keys, Passwörter, persönliche Notizen) in public-Bereiche schreiben.
 
-## Agent Behavior
+## 🤖 Agent-Verhalten
 
-### 1. Code Generation
+### 1. Code-Generierung
 
 #### DO ✅
-- Follow Nextcloud App API standards
-- Use Vue.js 3 Composition API
-- Use TypeScript for stronger type safety where practical
-- Follow PSR-12 for PHP code
-- Write comments in English
-- Use i18n strings for all UI text
-- Consider accessibility (a11y)
-- Optimize performance (lazy loading, etc.)
+- Nextcloud App API Standards befolgen
+- Vue.js 3 Composition API verwenden
+- TypeScript für bessere Type-Safety nutzen (wo möglich)
+- PSR-12 für PHP Code
+- Kommentare in Englisch schreiben
+- i18n-Strings für alle UI-Texte verwenden
+- Accessibility (a11y) beachten
+- Performance optimieren (lazy loading, etc.)
 
 #### DON'T ❌
-- No hardcoded strings in UI components
-- No external API calls without explicit approval
-- No inline styles (use CSS classes)
-- No console.log() in production code
-- No sensitive data in commits
+- Keine hardcodierten Strings in UI-Komponenten
+- Keine externen API-Calls ohne Zustimmung
+- Keine Inline-Styles (CSS-Klassen verwenden)
+- Keine console.log() in Production-Code
+- Keine sensiblen Daten in Code committen
 
-### 2. Database Design
+### 2. Datenbankdesign
 
-#### Principles
-- Use Nextcloud DB abstraction layer
-- Use migrations for schema changes
-- Add indexes for frequent queries
-- Use foreign keys for data integrity
-- Use soft deletes where appropriate
+#### Prinzipien
+- Nextcloud DB Abstraction Layer verwenden
+- Migrations für Schema-Änderungen
+- Indizes für häufige Queries
+- Foreign Keys für Integrität
+- Soft Deletes wo sinnvoll
 
-#### Example Migration
+#### Beispiel Migration
 ```php
 public function changeSchema(IOutput $output, Closure $schemaClosure, array $options) {
     /** @var ISchemaWrapper $schema */
     $schema = $schemaClosure();
     
-    if (!$schema->hasTable('chorestrike_rooms')) {
-        $table = $schema->createTable('chorestrike_rooms');
+    if (!$schema->hasTable('chorewars_rooms')) {
+        $table = $schema->createTable('chorewars_rooms');
         $table->addColumn('id', Types::BIGINT, [
             'autoincrement' => true,
             'notnull' => true,
@@ -78,7 +78,7 @@ public function changeSchema(IOutput $output, Closure $schemaClosure, array $opt
             'notnull' => true,
             'length' => 200,
         ]);
-        // ... more fields
+        // ... weitere Felder
         $table->setPrimaryKey(['id']);
     }
     
@@ -86,9 +86,9 @@ public function changeSchema(IOutput $output, Closure $schemaClosure, array $opt
 }
 ```
 
-### 3. Frontend Development
+### 3. Frontend-Entwicklung
 
-#### Vue.js Component Structure
+#### Vue.js Komponenten-Struktur
 ```vue
 <template>
   <!-- Template -->
@@ -98,7 +98,7 @@ public function changeSchema(IOutput $output, Closure $schemaClosure, array $opt
 export default {
   name: 'ComponentName',
   props: {
-    // Props with validation
+    // Props mit Validierung
   },
   emits: ['event-name'],
   setup(props, { emit }) {
@@ -113,70 +113,66 @@ export default {
 ```
 
 #### State Management
-- Use Pinia for global state (Nextcloud standard)
-- Use props/emits for component communication
-- Use provide/inject for deeply nested data
+- Pinia für globalen State (Nextcloud Standard)
+- Props/Emits für Komponenten-Kommunikation
+- Provide/Inject für tief verschachtelte Daten
 
-### 4. Gamification Logic
+### 4. Gamification-Logik
 
-#### Monster Spawn Algorithm
+#### Monster-Spawn-Algorithmus
 ```javascript
 function calculateMonsterCount(task) {
   const now = Date.now();
   const dueDate = task.next_due;
   const overdueDays = Math.max(0, (now - dueDate) / (1000 * 60 * 60 * 24));
   
-  // Base value: task energy cost
-  const baseMonsters = task.energy_cost;
+  // Basis: Schwierigkeit der Aufgabe
+  const baseMonsters = task.difficulty;
   
-  // Multiplier based on priority
+  // Multiplikator basierend auf Priorität
   const priorityMultiplier = {
-    1: 2.0,
-    2: 1.0,
-    3: 0.5
+    1: 2.0,   // Hoch
+    2: 1.0,   // Normal
+    3: 0.5    // Niedrig
   }[task.priority];
   
-  // Exponential growth with a cap
+  // Exponentielles Wachstum, aber gedeckelt
   const monsters = Math.min(
     baseMonsters * priorityMultiplier * Math.pow(1.5, overdueDays),
-    20  // Maximum 20 monsters per room
+    20  // Max 20 Monster pro Raum
   );
   
   return Math.floor(monsters);
 }
 ```
 
-#### Reward Calculation
+#### Punkte-Berechnung
 ```javascript
-function calculateRewards(task, wasCombo = false) {
-  const baseContribution = task.energy_cost * 5;
-  const baseTeamSparks = task.energy_cost * 10;
+function calculatePoints(task, wasCombo = false) {
+  const basePoints = task.difficulty * 10;
   const priorityBonus = {
-    1: 1.5,
-    2: 1.0,
-    3: 0.8
+    1: 1.5,   // Hoch: +50%
+    2: 1.0,   // Normal: +0%
+    3: 0.8    // Niedrig: -20%
   }[task.priority];
   
   const comboMultiplier = wasCombo ? 1.5 : 1.0;
   
-  return {
-    contributionScore: Math.round(baseContribution * priorityBonus),
-    teamSparks: Math.round(baseTeamSparks * priorityBonus * comboMultiplier)
-  };
+  return Math.round(basePoints * priorityBonus * comboMultiplier);
 }
 ```
 
-### 5. Internationalization
+### 5. Internationalisierung
 
-#### String Extraction
+#### String-Extraktion
 ```javascript
 // Vue Component
 import { translate as t } from '@nextcloud/l10n'
 
 export default {
   setup() {
-    const welcomeText = t('chorestrike', 'Welcome to ChoreStrike!')
-    const taskCount = (n) => n('chorestrike', 
+    const welcomeText = t('chorewars', 'Welcome to ChoreWars!')
+    const taskCount = (n) => n('chorewars', 
       '%n task', 
       '%n tasks', 
       count
@@ -240,32 +236,32 @@ describe('TaskItem', () => {
 })
 ```
 
-### 7. Performance Guidelines
+### 7. Performance-Richtlinien
 
 #### Frontend
-- Lazy loading for routes
-- Virtual scrolling for long lists
-- Debouncing for search/filter
-- Image sprites for monsters
-- Prefer CSS animations over JS where possible
+- Lazy Loading für Routen
+- Virtual Scrolling für lange Listen
+- Debouncing für Search/Filter
+- Image Sprites für Monster
+- CSS Animations statt JS (wo möglich)
 
 #### Backend
-- Query optimization (avoid N+1)
-- Caching for frequent lookups
-- Batch operations
-- Pagination for large datasets
+- Query-Optimierung (N+1 vermeiden)
+- Caching für häufige Abfragen
+- Batch-Operations
+- Pagination für große Datensätze
 
 ### 8. Security
 
 #### Input Validation
 ```php
-// Always validate
+// Immer validieren
 public function createRoom(string $name, int $floorId) {
     if (strlen($name) < 1 || strlen($name) > 200) {
         throw new ValidationException('Invalid room name');
     }
     
-    // Check that floor exists and user has access
+    // Prüfen ob Floor existiert und User Zugriff hat
     $floor = $this->floorMapper->find($floorId);
     if (!$this->hasAccess($floor)) {
         throw new ForbiddenException();
@@ -277,20 +273,20 @@ public function createRoom(string $name, int $floorId) {
 
 #### SQL Injection Prevention
 ```php
-// NEVER use direct string concatenation
+// NIEMALS direkte String-Konkatenation
 // ❌ BAD
 $sql = "SELECT * FROM rooms WHERE name = '" . $name . "'";
 
-// GOOD - use query builder
+// ✅ GOOD - Query Builder verwenden
 $qb = $this->db->getQueryBuilder();
 $qb->select('*')
-   ->from('chorestrike_rooms')
+   ->from('chorewars_rooms')
    ->where($qb->expr()->eq('name', $qb->createNamedParameter($name)));
 ```
 
-### 9. Documentation
+### 9. Dokumentation
 
-#### Code Comments
+#### Code-Kommentare
 ```php
 /**
  * Calculate the next due date for a task based on its frequency
@@ -306,16 +302,16 @@ public function calculateNextDue(Task $task, ?\DateTime $fromDate = null): \Date
 ```
 
 #### README Updates
-- Document new features
-- Highlight breaking changes
-- Add migration guides for API changes
+- Neue Features dokumentieren
+- Breaking Changes hervorheben
+- Migration-Guides bei API-Änderungen
 
 ### 10. Git Workflow
 
 #### Commit Messages
 ```
 feat: Add monster spawn animation
-fix: Correct reward calculation for combo tasks
+fix: Correct point calculation for combo tasks
 docs: Update API documentation
 refactor: Simplify room state calculation
 test: Add unit tests for TaskScheduler
@@ -325,84 +321,84 @@ i18n: Add German translations for settings
 Format: `<type>: <description>`
 
 Types:
-- `feat`: New features
-- `fix`: Bug fixes
-- `docs`: Documentation
-- `refactor`: Code restructuring
+- `feat`: Neue Features
+- `fix`: Bugfixes
+- `docs`: Dokumentation
+- `refactor`: Code-Umstrukturierung
 - `test`: Tests
-- `i18n`: Translations
-- `perf`: Performance improvements
+- `i18n`: Übersetzungen
+- `perf`: Performance-Verbesserungen
 - `chore`: Maintenance
 
-#### Branch Strategy
+#### Branch-Strategie
 - `main`: Stable releases
 - `develop`: Development branch
 - `feature/*`: Feature branches
 - `fix/*`: Bugfix branches
 
-## Design Decisions
+## 🎨 Design-Entscheidungen
 
-### When to Use Which Technology
+### Wann welche Technologie?
 
-#### Animations
-- **CSS Transitions**: Simple state changes (hover, active)
-- **CSS Animations**: Loops and simple sequences
+#### Animationen
+- **CSS Transitions**: Einfache State-Changes (hover, active)
+- **CSS Animations**: Loops, einfache Sequenzen
 - **Vue Transitions**: Component mount/unmount
-- **Canvas/WebGL**: Complex monster animations (many sprites)
+- **Canvas/WebGL**: Komplexe Monster-Animationen (viele Sprites)
 
 #### State Management
 - **Component State**: UI-only State
-- **Pinia Store**: App-wide state (tasks, rooms, users)
-- **Backend**: Source of truth for all persistent data
+- **Pinia Store**: App-weiter State (tasks, rooms, user)
+- **Backend**: Source of Truth für alle Daten
 
 ### Accessibility Checklist
-- [ ] Keyboard navigation works
-- [ ] Screen reader labels are present
-- [ ] Contrast ratios meet WCAG AA
-- [ ] Focus indicators are visible
-- [ ] ARIA attributes are used where needed
+- [ ] Keyboard-Navigation funktioniert
+- [ ] Screen-Reader Labels vorhanden
+- [ ] Kontrast-Verhältnisse eingehalten (WCAG AA)
+- [ ] Focus-Indikatoren sichtbar
+- [ ] ARIA-Attribute wo nötig
 
-## Iterative Development Process
+## 🔄 Iterativer Entwicklungsprozess
 
-### For New Features
+### Bei neuen Features
 
-1. **Clarify the concept**
-   - Which problem does it solve?
-   - How does it fit the overall vision?
-   - Is there a simpler solution?
+1. **Konzept klären**
+   - Welches Problem löst es?
+   - Wie passt es zur Gesamt-Vision?
+   - Gibt es einfachere Lösungen?
 
-2. **Draft the design**
-   - UI mockup (can be simple)
-   - Data model
-   - API endpoints
+2. **Design entwerfen**
+   - UI-Mockup (kann einfach sein)
+   - Datenmodell
+   - API-Endpoints
 
-3. **Implement**
-   - Backend first (API)
-   - Frontend after backend contract is stable
-   - Tests in parallel
+3. **Implementieren**
+   - Backend zuerst (API)
+   - Frontend danach
+   - Tests parallel
 
 4. **Review**
-   - Code quality
+   - Code-Qualität
    - Performance
    - UX
-   - i18n complete?
+   - i18n vollständig?
 
-5. **Document**
-   - Code comments
-   - API docs
-   - User docs where needed
+5. **Dokumentieren**
+   - Code-Kommentare
+   - API-Docs
+   - User-Docs (wenn nötig)
 
-## Debugging Strategy
+## 🐛 Debugging-Strategie
 
 ### Frontend
 ```javascript
 // Development-Mode Logging
 if (process.env.NODE_ENV === 'development') {
-  console.log('[ChoreStrike]', debugInfo)
+  console.log('[ChoreWars]', debugInfo)
 }
 
-// Use Vue DevTools
-// Use browser console for network/performance
+// Vue DevTools nutzen
+// Browser Console für Network/Performance
 ```
 
 ### Backend
@@ -411,30 +407,30 @@ if (process.env.NODE_ENV === 'development') {
 $this->logger->debug('Task created', ['taskId' => $task->getId()]);
 $this->logger->error('Failed to save task', ['exception' => $e]);
 
-// Adjust log level in config.php
+// Log-Level in config.php anpassen
 ```
 
-## Metrics and Monitoring
+## 📊 Metriken & Monitoring
 
-### What to track
-- Number of active houses/users
-- Average tasks per house
-- Completion rate
-- Most used task types
-- Performance metrics (load times)
+### Was tracken?
+- Anzahl aktiver Häuser/User
+- Durchschnittliche Tasks pro Haus
+- Completion-Rate
+- Beliebte Task-Typen
+- Performance-Metriken (Load-Times)
 
-**Important**: Only anonymized, aggregated data. No user-level tracking.
+**Wichtig**: Nur anonymisierte, aggregierte Daten. Keine User-Tracking.
 
-## Release Process
+## 🚀 Release-Prozess
 
 ### Versioning (Semantic Versioning)
 - `MAJOR.MINOR.PATCH`
-- `1.0.0`: First stable release
-- `1.1.0`: New features (backward compatible)
-- `1.1.1`: Bug fixes
+- `1.0.0`: Erste stabile Version
+- `1.1.0`: Neue Features (backwards compatible)
+- `1.1.1`: Bugfixes
 - `2.0.0`: Breaking Changes
 
-### Maintain Changelog
+### Changelog pflegen
 ```markdown
 ## [1.1.0] - 2026-03-15
 
@@ -451,23 +447,23 @@ $this->logger->error('Failed to save task', ['exception' => $e]);
 - Improved task scheduling algorithm
 ```
 
-## Collaboration with Humans
+## 🤝 Zusammenarbeit mit Humans
 
-### When to ask
-- Unclear requirements
-- UX/design decisions
-- Breaking changes
-- Security-relevant changes
-- License questions
+### Wann nachfragen?
+- Unklare Requirements
+- Design-Entscheidungen (UX)
+- Breaking Changes
+- Sicherheits-relevante Änderungen
+- Lizenz-Fragen
 
-### When to decide autonomously
-- Code structure when best practices are clear
-- Obvious bug fixes
-- Performance optimizations
-- Improve test coverage
-- Refactoring without behavior changes
+### Wann selbstständig entscheiden?
+- Code-Struktur (wenn Best Practices klar)
+- Bug-Fixes (offensichtliche Fehler)
+- Performance-Optimierungen
+- Test-Coverage erhöhen
+- Refactoring (ohne Behavior-Change)
 
-## Resources
+## 📚 Ressourcen
 
 ### Nextcloud Development
 - [Nextcloud App Tutorial](https://docs.nextcloud.com/server/latest/developer_manual/app_development/tutorial.html)
@@ -483,4 +479,4 @@ $this->logger->error('Failed to save task', ['exception' => $e]);
 
 ---
 
-**Most important rule**: If unsure, ask. Prefer one extra clarification over one wrong assumption. 🤖✨
+**Wichtigste Regel**: Wenn unsicher → nachfragen! Lieber einmal zu viel kommunizieren als eine falsche Annahme treffen. 🤖✨

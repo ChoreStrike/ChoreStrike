@@ -15,8 +15,8 @@
 1. **Clone the repository**
    ```bash
    cd /path/to/nextcloud/apps/
-   git clone https://github.com/yourorg/chorestrike.git
-   cd chorestrike
+   git clone https://github.com/yourorg/chorewars.git
+   cd chorewars
    ```
 
 2. **Install PHP dependencies**
@@ -38,7 +38,7 @@
 
 5. **Enable the app in Nextcloud**
    ```bash
-   php occ app:enable chorestrike
+   php occ app:enable chorewars
    ```
 
 ## Development Workflow
@@ -86,20 +86,20 @@ composer test
 
 **Create a new migration:**
 ```bash
-php occ migrations:generate chorestrike
+php occ migrations:generate chorewars
 ```
 
 This creates a file in `lib/Migration/` with the current timestamp.
 
 **Run migrations:**
 ```bash
-php occ migrations:migrate chorestrike
+php occ migrations:migrate chorewars
 ```
 
 **Migration template:**
 ```php
 <?php
-namespace OCA\ChoreStrike\Migration;
+namespace OCA\ChoreWars\Migration;
 
 use OCP\DB\ISchemaWrapper;
 use OCP\Migration\IOutput;
@@ -134,10 +134,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed structure.
 **Example:**
 ```php
 <?php
-namespace OCA\ChoreStrike\Service;
+namespace OCA\ChoreWars\Service;
 
-use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreWars\Db\Task;
+use OCA\ChoreWars\Db\TaskMapper;
 
 class TaskService {
     private TaskMapper $mapper;
@@ -226,9 +226,9 @@ Located in `tests/Unit/`
 **Example:**
 ```php
 <?php
-namespace OCA\ChoreStrike\Tests\Unit\Service;
+namespace OCA\ChoreWars\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Service\PointsCalculator;
+use OCA\ChoreWars\Service\PointsCalculator;
 use PHPUnit\Framework\TestCase;
 
 class PointsCalculatorTest extends TestCase {
@@ -307,7 +307,7 @@ Install the Vue DevTools browser extension for debugging.
 **Console Logging (Development only):**
 ```javascript
 if (process.env.NODE_ENV === 'development') {
-  console.log('[ChoreStrike]', debugInfo)
+  console.log('[ChoreWars]', debugInfo)
 }
 ```
 
@@ -359,7 +359,7 @@ tail -f /path/to/nextcloud/data/nextcloud.log
 4. **Add frontend API call** in `src/services/api.js`:
    ```javascript
    export async function myNewEndpoint(param) {
-       const response = await axios.post('/apps/chorestrike/api/v1/tasks/new', { param })
+       const response = await axios.post('/apps/chorewars/api/v1/tasks/new', { param })
        return response.data
    }
    ```
@@ -402,7 +402,7 @@ tail -f /path/to/nextcloud/data/nextcloud.log
    ```javascript
    import { translate as t } from '@nextcloud/l10n'
    
-   const message = t('chorestrike', 'Hello World')
+   const message = t('chorewars', 'Hello World')
    ```
 
 2. **Mark strings in PHP:**
@@ -412,7 +412,7 @@ tail -f /path/to/nextcloud/data/nextcloud.log
 
 3. **Extract strings:**
    ```bash
-   # This generates/updates l10n/templates/chorestrike.pot
+   # This generates/updates l10n/templates/chorewars.pot
    npm run l10n:extract
    ```
 
@@ -443,7 +443,7 @@ tail -f /path/to/nextcloud/data/nextcloud.log
 ### App not showing in Nextcloud
 
 1. Check if enabled: `php occ app:list`
-2. Enable: `php occ app:enable chorestrike`
+2. Enable: `php occ app:enable chorewars`
 3. Check logs: `tail -f data/nextcloud.log`
 
 ### Frontend not updating
@@ -454,13 +454,13 @@ tail -f /path/to/nextcloud/data/nextcloud.log
 
 ### Database errors
 
-1. Check migration status: `php occ migrations:status chorestrike`
-2. Run migrations: `php occ migrations:migrate chorestrike`
+1. Check migration status: `php occ migrations:status chorewars`
+2. Run migrations: `php occ migrations:migrate chorewars`
 3. Check database connection in Nextcloud config
 
 ### Permission errors
 
-1. Check file permissions: `chown -R www-data:www-data /path/to/nextcloud/apps/chorestrike`
+1. Check file permissions: `chown -R www-data:www-data /path/to/nextcloud/apps/chorewars`
 2. Check Nextcloud permissions in admin panel
 
 ## Git Workflow

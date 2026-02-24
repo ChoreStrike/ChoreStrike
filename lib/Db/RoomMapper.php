@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Db;
+namespace OCA\ChoreWars\Db;
 
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\QBMapper;
@@ -15,7 +15,7 @@ use OCP\IDBConnection;
 class RoomMapper extends QBMapper {
 
 	public function __construct(IDBConnection $db) {
-		parent::__construct($db, 'chorestrike_rooms', Room::class);
+		parent::__construct($db, 'chorewars_rooms', Room::class);
 	}
 
 	/**

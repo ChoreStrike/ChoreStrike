@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Service;
+namespace OCA\ChoreWars\Service;
 
-use OCA\ChoreStrike\Db\House;
-use OCA\ChoreStrike\Db\HouseMapper;
-use OCA\ChoreStrike\Db\Floor;
-use OCA\ChoreStrike\Db\FloorMapper;
-use OCA\ChoreStrike\Db\Room;
-use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreWars\Db\House;
+use OCA\ChoreWars\Db\HouseMapper;
+use OCA\ChoreWars\Db\Floor;
+use OCA\ChoreWars\Db\FloorMapper;
+use OCA\ChoreWars\Db\Room;
+use OCA\ChoreWars\Db\RoomMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 

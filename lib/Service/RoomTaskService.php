@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Service;
+namespace OCA\ChoreWars\Service;
 
-use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Db\Room;
-use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreWars\Db\RoomTask;
+use OCA\ChoreWars\Db\RoomTaskMapper;
+use OCA\ChoreWars\Db\Task;
+use OCA\ChoreWars\Db\TaskMapper;
+use OCA\ChoreWars\Db\Room;
+use OCA\ChoreWars\Db\RoomMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
@@ -53,17 +53,6 @@ class RoomTaskService {
 	 */
 	public function getRoomTasks(int $roomId, bool $activeOnly = true): array {
 		return $this->roomTaskMapper->findByRoomId($roomId, $activeOnly);
-	}
-
-	/**
-	 * Get all room tasks for a scope.
-	 *
-	 * @param int $scopeId The scope ID
-	 * @param bool $activeOnly Whether to return only active tasks
-	 * @return RoomTask[]
-	 */
-	public function getScopeTasks(int $scopeId, bool $activeOnly = true): array {
-		return $this->roomTaskMapper->findByScopeId($scopeId, $activeOnly);
 	}
 
 	/**
@@ -120,7 +109,6 @@ class RoomTaskService {
 		int $roomId,
 		int $taskId,
 		?\DateTime $nextDue = null,
-		?int $scopeId = null,
 		?string $assignedToUserId = null
 	): RoomTask {
 		// Verify room exists
@@ -140,7 +128,7 @@ class RoomTaskService {
 			$nextDue->add(new \DateInterval('P1D'));
 		}
 
-		return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $scopeId, $assignedToUserId);
+		return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $assignedToUserId);
 	}
 
 	/**

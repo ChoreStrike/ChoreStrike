@@ -2,7 +2,7 @@
 
 ## Mission
 
-ChoreStrike turns household maintenance into a cooperative, motivating experience for families and shared homes.
+ChoreWars turns household maintenance into a cooperative, motivating experience for families and shared homes.
 
 ## Design Principles
 
@@ -17,7 +17,7 @@ ChoreStrike turns household maintenance into a cooperative, motivating experienc
 
 - Households can define recurring chores that are actually completed.
 - Every member gets a fair share based on time budget and availability.
-- Completion can happen from ChoreStrike UI or any connected task client.
+- Completion can happen from ChoreWars UI or any connected task client.
 - Progress stays visible and encouraging without military language.
 
 ## Non-Goals

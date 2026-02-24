@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Db;
+namespace OCA\ChoreWars\Db;
 
 use JsonSerializable;
 use OCP\AppFramework\Db\Entity;
@@ -26,18 +26,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setEstimatedMinutes(int $estimatedMinutes)
  * @method string getCategory()
  * @method void setCategory(string $category)
- * @method string getScopeType()
- * @method void setScopeType(string $scopeType)
- * @method string|null getScopeLabel()
- * @method void setScopeLabel(?string $scopeLabel)
- * @method string getRecurrenceMode()
- * @method void setRecurrenceMode(string $recurrenceMode)
- * @method \DateTime|null getActiveFrom()
- * @method void setActiveFrom(?\DateTime $activeFrom)
- * @method \DateTime|null getActiveUntil()
- * @method void setActiveUntil(?\DateTime $activeUntil)
- * @method bool getIsVoluntary()
- * @method void setIsVoluntary(bool $isVoluntary)
  * @method bool getIsTemplate()
  * @method void setIsTemplate(bool $isTemplate)
  * @method \DateTime getCreatedAt()
@@ -69,24 +57,6 @@ class Task extends Entity implements JsonSerializable {
 	/** @var string */
 	protected $category = 'cleaning';
 
-	/** @var string */
-	protected $scopeType = 'room';
-
-	/** @var string|null */
-	protected $scopeLabel;
-
-	/** @var string */
-	protected $recurrenceMode = 'recurring';
-
-	/** @var \DateTime|null */
-	protected $activeFrom;
-
-	/** @var \DateTime|null */
-	protected $activeUntil;
-
-	/** @var bool */
-	protected $isVoluntary = false;
-
 	/** @var bool */
 	protected $isTemplate = false;
 
@@ -103,12 +73,6 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('frequencyValue', 'integer');
 		$this->addType('estimatedMinutes', 'integer');
 		$this->addType('category', 'string');
-		$this->addType('scopeType', 'string');
-		$this->addType('scopeLabel', 'string');
-		$this->addType('recurrenceMode', 'string');
-		$this->addType('activeFrom', 'datetime');
-		$this->addType('activeUntil', 'datetime');
-		$this->addType('isVoluntary', 'boolean');
 		$this->addType('isTemplate', 'boolean');
 		$this->addType('createdAt', 'datetime');
 	}
@@ -127,12 +91,6 @@ class Task extends Entity implements JsonSerializable {
 			'frequencyValue' => $this->frequencyValue,
 			'estimatedMinutes' => $this->estimatedMinutes,
 			'category' => $this->category,
-			'scopeType' => $this->scopeType,
-			'scopeLabel' => $this->scopeLabel,
-			'recurrenceMode' => $this->recurrenceMode,
-			'activeFrom' => $this->activeFrom?->format('c'),
-			'activeUntil' => $this->activeUntil?->format('c'),
-			'isVoluntary' => $this->isVoluntary,
 			'isTemplate' => $this->isTemplate,
 			'createdAt' => $this->createdAt?->format('c'),
 		];
@@ -185,28 +143,12 @@ class Task extends Entity implements JsonSerializable {
 			$errors[] = 'Estimated time must be between 1 and 480 minutes';
 		}
 
-		if (!in_array($this->frequencyType, ['daily', 'weekly', 'monthly', 'custom'], true)) {
+		if (!in_array($this->frequencyType, ['daily', 'weekly', 'monthly', 'custom'])) {
 			$errors[] = 'Invalid frequency type';
-		}
-
-		if (!in_array($this->scopeType, ['room', 'garden', 'home', 'outside', 'work'], true)) {
-			$errors[] = 'Invalid scope type';
-		}
-
-		if (!in_array($this->recurrenceMode, ['one_time', 'recurring'], true)) {
-			$errors[] = 'Invalid recurrence mode';
 		}
 
 		if ($this->frequencyValue < 1) {
 			$errors[] = 'Frequency value must be at least 1';
-		}
-
-		if (
-			$this->activeFrom !== null
-			&& $this->activeUntil !== null
-			&& $this->activeUntil < $this->activeFrom
-		) {
-			$errors[] = 'Active until must be equal or after active from';
 		}
 
 		return $errors;

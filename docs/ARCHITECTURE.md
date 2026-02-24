@@ -1,8 +1,8 @@
-# ChoreStrike Architecture
+# ChoreWars Architecture
 
 ## Overview
 
-ChoreStrike is built as a Nextcloud app following the standard Nextcloud app architecture with Vue.js 3 frontend and PHP backend.
+ChoreWars is built as a Nextcloud app following the standard Nextcloud app architecture with Vue.js 3 frontend and PHP backend.
 
 ## Technology Stack
 
@@ -26,7 +26,7 @@ ChoreStrike is built as a Nextcloud app following the standard Nextcloud app arc
 ## Directory Structure
 
 ```
-ChoreStrike/
+ChoreWars/
 ├── appinfo/
 │   ├── info.xml              # App metadata
 │   ├── routes.php            # API routes
@@ -126,7 +126,7 @@ ChoreStrike/
 │           └── combo.mp3
 ├── l10n/                     # Translations
 │   ├── templates/
-│   │   └── chorestrike.pot
+│   │   └── chorewars.pot
 │   ├── de.po
 │   ├── de.json
 │   ├── en.po
@@ -203,13 +203,13 @@ Component Update (Reactive)
 4. **API request** → `POST /api/v1/room-tasks/{id}/complete`
 5. **Controller** → `RoomTaskController::complete()`
 6. **Service logic** → `GameLogicService::handleTaskCompletion()`
-   - Calculate contribution score and Team Sparks
+   - Calculate points
    - Check for combos
    - Update room cleanliness
    - Reduce monster count
    - Award medals if applicable
 7. **Database update** → Multiple mappers
-8. **Response** → Updated task, rewards, streak state, and game state
+8. **Response** → Updated task, points, game state
 9. **Store update** → Reactive state changes
 10. **UI updates** → Animation plays, monsters disappear
 
@@ -217,7 +217,7 @@ Component Update (Reactive)
 
 ### Core Tables
 
-#### `chorestrike_houses`
+#### `chorewars_houses`
 - `id` (bigint, PK)
 - `nextcloud_instance_id` (string) - For multi-instance support
 - `name` (string)
@@ -225,14 +225,14 @@ Component Update (Reactive)
 - `created_at` (datetime)
 - `updated_at` (datetime)
 
-#### `chorestrike_floors`
+#### `chorewars_floors`
 - `id` (bigint, PK)
 - `house_id` (bigint, FK)
 - `name` (string)
 - `sort_order` (int)
 - `created_at` (datetime)
 
-#### `chorestrike_rooms`
+#### `chorewars_rooms`
 - `id` (bigint, PK)
 - `floor_id` (bigint, FK)
 - `name` (string)
@@ -241,11 +241,11 @@ Component Update (Reactive)
 - `last_cleaned` (datetime, nullable)
 - `created_at` (datetime)
 
-#### `chorestrike_tasks`
+#### `chorewars_tasks`
 - `id` (bigint, PK)
 - `name` (string)
 - `description` (text, nullable)
-- `energy_cost` (int, 1-5)
+- `difficulty` (int, 1-5)
 - `priority` (int, 1-3)
 - `frequency_type` (enum: daily, weekly, monthly, custom)
 - `frequency_value` (int) - e.g., every 3 days
@@ -254,7 +254,7 @@ Component Update (Reactive)
 - `is_template` (boolean)
 - `created_at` (datetime)
 
-#### `chorestrike_room_tasks`
+#### `chorewars_room_tasks`
 - `id` (bigint, PK)
 - `room_id` (bigint, FK)
 - `task_id` (bigint, FK)
@@ -264,31 +264,30 @@ Component Update (Reactive)
 - `is_active` (boolean)
 - `created_at` (datetime)
 
-#### `chorestrike_house_users`
+#### `chorewars_house_users`
 - `id` (bigint, PK)
 - `house_id` (bigint, FK)
 - `nextcloud_user_id` (string)
 - `display_name` (string)
-- `contribution_score` (int)
-- `team_sparks` (int)
+- `total_points` (int)
 - `current_streak` (int)
 - `last_activity` (datetime)
 - `role` (enum: owner, member, child)
 - `joined_at` (datetime)
 
-#### `chorestrike_completed_tasks`
+#### `chorewars_completed_tasks`
 - `id` (bigint, PK)
 - `room_task_id` (bigint, FK)
 - `user_id` (bigint, FK)
 - `completed_at` (datetime)
-- `sparks_earned` (int) - Team Sparks reward amount
+- `points_earned` (int)
 - `was_combo` (boolean)
 - `combo_with_user_id` (bigint, FK, nullable)
 
-#### `chorestrike_medals`
+#### `chorewars_medals`
 - `id` (bigint, PK)
 - `user_id` (bigint, FK)
-- `medal_type` (enum: team_anchor, flow_keeper, room_guardian, team_player, streak_keeper)
+- `medal_type` (enum: tank, scout, specialist, teamplayer, streak_keeper)
 - `week_start` (date)
 - `value` (int) - e.g., number of tasks
 - `awarded_at` (datetime)
@@ -297,11 +296,11 @@ Component Update (Reactive)
 
 ```sql
 -- Performance indexes
-CREATE INDEX idx_room_tasks_next_due ON chorestrike_room_tasks(next_due);
-CREATE INDEX idx_room_tasks_room_id ON chorestrike_room_tasks(room_id);
-CREATE INDEX idx_completed_tasks_user_id ON chorestrike_completed_tasks(user_id);
-CREATE INDEX idx_completed_tasks_completed_at ON chorestrike_completed_tasks(completed_at);
-CREATE INDEX idx_house_users_house_id ON chorestrike_house_users(house_id);
+CREATE INDEX idx_room_tasks_next_due ON chorewars_room_tasks(next_due);
+CREATE INDEX idx_room_tasks_room_id ON chorewars_room_tasks(room_id);
+CREATE INDEX idx_completed_tasks_user_id ON chorewars_completed_tasks(user_id);
+CREATE INDEX idx_completed_tasks_completed_at ON chorewars_completed_tasks(completed_at);
+CREATE INDEX idx_house_users_house_id ON chorewars_house_users(house_id);
 ```
 
 ## API Design
@@ -462,7 +461,7 @@ CREATE INDEX idx_house_users_house_id ON chorestrike_house_users(house_id);
 
 ### Unit Tests (PHP)
 - Service logic
-- Contribution score and Team Sparks calculation
+- Point calculation
 - Task scheduling
 - Game mechanics
 
@@ -501,7 +500,7 @@ composer install --no-dev --optimize-autoloader
 ```
 
 ### Nextcloud Installation
-1. Copy app to `apps/chorestrike/`
+1. Copy app to `apps/chorewars/`
 2. Enable in Nextcloud admin panel
 3. Database migrations run automatically
 
@@ -519,7 +518,7 @@ $this->logger->info('Task completed', [
 ```javascript
 window.addEventListener('error', (event) => {
     // Log to Nextcloud
-    console.error('[ChoreStrike]', event.error)
+    console.error('[ChoreWars]', event.error)
 })
 ```
 

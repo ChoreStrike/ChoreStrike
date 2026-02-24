@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Db;
+namespace OCA\ChoreWars\Db;
 
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\QBMapper;
@@ -15,7 +15,7 @@ use OCP\IDBConnection;
 class RoomTaskMapper extends QBMapper {
 
 	public function __construct(IDBConnection $db) {
-		parent::__construct($db, 'chorestrike_room_tasks', RoomTask::class);
+		parent::__construct($db, 'chorewars_room_tasks', RoomTask::class);
 	}
 
 	/**
@@ -41,29 +41,6 @@ class RoomTaskMapper extends QBMapper {
 		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-
-		if ($activeOnly) {
-			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-		}
-
-		$qb->orderBy('next_due', 'ASC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
-	 * Get all room tasks for a scope.
-	 *
-	 * @param int $scopeId The scope ID
-	 * @param bool $activeOnly Whether to return only active tasks
-	 * @return RoomTask[]
-	 */
-	public function findByScopeId(int $scopeId, bool $activeOnly = true): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('scope_id', $qb->createNamedParameter($scopeId, IQueryBuilder::PARAM_INT)));
 
 		if ($activeOnly) {
 			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
@@ -184,21 +161,13 @@ class RoomTaskMapper extends QBMapper {
 	 * @param int $roomId The room ID
 	 * @param int $taskId The task ID
 	 * @param \DateTime $nextDue The next due date
-	 * @param int|null $scopeId Optional scope ID
 	 * @param string|null $assignedToUserId Optional assigned user ID
 	 */
-	public function create(
-		int $roomId,
-		int $taskId,
-		\DateTime $nextDue,
-		?int $scopeId = null,
-		?string $assignedToUserId = null
-	): RoomTask {
+	public function create(int $roomId, int $taskId, \DateTime $nextDue, ?string $assignedToUserId = null): RoomTask {
 		$roomTask = new RoomTask();
 		$roomTask->setRoomId($roomId);
 		$roomTask->setTaskId($taskId);
 		$roomTask->setNextDue($nextDue);
-		$roomTask->setScopeId($scopeId);
 		$roomTask->setAssignedToUserId($assignedToUserId);
 		$roomTask->setIsActive(true);
 		$roomTask->setCreatedAt(new \DateTime());
@@ -210,9 +179,9 @@ class RoomTaskMapper extends QBMapper {
 	 * Assign task to user
 	 *
 	 * @param int $roomTaskId The room task ID
-	 * @param string|null $userId The user ID
+	 * @param string $userId The user ID
 	 */
-	public function assignToUser(int $roomTaskId, ?string $userId): void {
+	public function assignToUser(int $roomTaskId, string $userId): void {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->update($this->getTableName())
@@ -285,25 +254,5 @@ class RoomTaskMapper extends QBMapper {
 
 		$result = $qb->executeQuery();
 		return $result->fetchOne() !== false;
-	}
-
-	/**
-	 * Find room task by linked Nextcloud task ID
-	 *
-	 * @param int $nextcloudTaskId The Nextcloud task ID
-	 * @return RoomTask|null The room task or null if not found
-	 */
-	public function findByNextcloudTaskId(int $nextcloudTaskId): ?RoomTask {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('nextcloud_task_id', $qb->createNamedParameter($nextcloudTaskId, IQueryBuilder::PARAM_INT)));
-
-		try {
-			return $this->findEntity($qb);
-		} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
-			return null;
-		}
 	}
 }

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Simple house icon with a broom for ChoreStrike -->
+  <!-- Simple house icon with a broom for ChoreWars -->
   <g fill="currentColor">
     <!-- House -->
     <path d="M32 8L8 28v28h16V40h16v16h16V28L32 8z" fill="#4CAF50" opacity="0.8"/>
