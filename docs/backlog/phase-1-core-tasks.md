@@ -442,4 +442,123 @@ A task is considered done when:
 
 ---
 
+---
+
+## Code Review Findings (2026-02-24) — Remaining Items
+
+### [P1] Streak logic ignores absence days (concept violation)
+
+**Status**: Planned  
+**Priority**: High
+
+#### Description
+`HouseUser::incrementStreak()` blindly increments on every task completion.
+The concept (`GAMIFICATION_AND_REWARDS.md`) requires: absence days must never break a streak.
+The streak must only count available days (from scheduling preferences).
+
+#### Acceptance Criteria
+- [ ] Streak check uses configured presence days from `schedulingPreferences`
+- [ ] Absence days are skipped, not counted as missed
+- [ ] Regression tests for absence-day streak scenarios
+
+---
+
+### [P1] `GameLogicService::getGameState()` uses `rand()` — non-deterministic
+
+**Status**: Planned  
+**Priority**: Medium
+
+#### Description
+Monster positions in `getGameState()` use `rand(0, 100)` which makes responses
+non-deterministic and untestable. Position should be derived from a stable seed
+(e.g., room ID + monster index) or removed from the API response.
+
+#### Acceptance Criteria
+- [ ] Replace `rand()` with deterministic position calculation
+- [ ] Unit test for `getGameState()` can assert stable output
+
+---
+
+### [P1] `TaskSyncService` uses `int $userId` but domain uses `string $userId`
+
+**Status**: Planned  
+**Priority**: Medium
+
+#### Description
+`TaskSyncService::completeTask()` takes `int $userId` (house user ID), while
+`RoomTaskService::completeTask()` takes `string $userId` (Nextcloud user ID).
+This inconsistency across the completion chain can cause silent misrouting.
+`CompletedTask::userId` should be clarified as house user `int` ID throughout.
+
+#### Acceptance Criteria
+- [ ] Audit all `userId` / `nextcloudUserId` usage in completion flow
+- [ ] Align parameter types and names consistently across services
+- [ ] Update affected unit tests
+
+---
+
+### [P1] `RoomService::completeRoomTask()` does not integrate `GameLogicService`
+
+**Status**: Planned  
+**Priority**: High
+
+#### Description
+When a task is completed via `RoomService::completeRoomTask()`, the game logic
+(sparks, contribution score, combo detection, medals) is **not triggered**.
+`GameLogicService::handleTaskCompletion()` exists but is never called from this path.
+Only `TaskSyncService` creates `CompletedTask` records independently.
+
+#### Acceptance Criteria
+- [ ] `RoomService::completeRoomTask()` or `RoomTaskService::completeTask()` must call `GameLogicService::handleTaskCompletion()`
+- [ ] Single completion flow: no duplicate `CompletedTask` inserts
+- [ ] Integration test verifies sparks are awarded on task completion
+
+---
+
+### [P1] No authorization checks on any API endpoint
+
+**Status**: Planned  
+**Priority**: High (Security)
+
+#### Description
+All controllers use `@PublicPage` and `@NoAdminRequired` annotations, meaning
+**any authenticated or even unauthenticated user** can access any endpoint.
+There is no ownership check (e.g., "does this user belong to this house?").
+
+#### Acceptance Criteria
+- [ ] Remove `@PublicPage` from all endpoints that require authentication
+- [ ] Add house membership check in all controllers that access house resources
+- [ ] Add middleware or service layer authorization helper
+- [ ] Security regression tests
+
+---
+
+### [P1] `TaskService::validateTaskData()` uses `is_numeric()` on already-typed ints
+
+**Status**: Planned  
+**Priority**: Low (Code Quality)
+
+#### Description
+`validateTaskData()` calls `is_numeric()` on `energyCost`, `priority`, etc., which
+are already typed as `int` in the controller. The check is redundant for typed
+callers but fine for array input. Method should use stricter `is_int()` or rely
+on typed function params to avoid confusion.
+
+---
+
+### [P1] `HouseService::resetHouse()` resets cleanliness to 50 instead of 100
+
+**Status**: Planned  
+**Priority**: Low
+
+#### Description
+`resetHouse()` sets room cleanliness to `50` (neutral) but `monsterCount` to `0`.
+A reset should be fully clean: cleanliness should start at `100` to match a freshly
+cleaned house, consistent with the empty-house default.
+
+#### Acceptance Criteria
+- [ ] Change `$room->setCleanliness(50)` to `$room->setCleanliness(100)` in `HouseService::resetHouse()`
+
+---
+
 **Last Updated**: 2026-02-24
