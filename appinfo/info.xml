@@ -22,18 +22,16 @@ Keep your home clean by completing tasks and watch cute pixel monsters disappear
     <version>0.1.0</version>
     <licence>MIT</licence>
     
-    <author mail="">ChoreWars Contributors</author>
+    <author>ChoreWars Contributors</author>
     
     <namespace>ChoreWars</namespace>
     
     <category>organization</category>
     <category>games</category>
     
-    <website>https://github.com/yourorg/chorewars</website>
-    <bugs>https://github.com/yourorg/chorewars/issues</bugs>
-    <repository type="git">https://github.com/yourorg/chorewars.git</repository>
-    
-    <screenshot>https://raw.githubusercontent.com/yourorg/chorewars/main/screenshots/dashboard.png</screenshot>
+    <website>https://github.com/ChoreStrike/ChoreStrike</website>
+    <bugs>https://github.com/ChoreStrike/ChoreStrike/issues</bugs>
+    <repository type="git">https://github.com/ChoreStrike/ChoreStrike.git</repository>
     
     <dependencies>
         <nextcloud min-version="27" max-version="30"/>
