@@ -1,6 +1,6 @@
 # Project Backlog
 
-This directory contains the project backlog and task tracking for ChoreWars.
+This directory contains the project backlog and task tracking for ChoreStrike.
 
 ## Purpose
 

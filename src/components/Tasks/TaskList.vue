@@ -2,16 +2,16 @@
 	<div class="task-list">
 		<div v-if="loading" class="loading-state">
 			<div class="loading-spinner" />
-			<p>{{ t('chorewars', 'Loading tasks...') }}</p>
+			<p>{{ t('chorestrike', 'Loading tasks...') }}</p>
 		</div>
 
 		<div v-else-if="roomTasks.length === 0" class="empty-state">
 			<div class="empty-icon">
 				📋
 			</div>
-			<p>{{ t('chorewars', 'No tasks yet') }}</p>
+			<p>{{ t('chorestrike', 'No tasks yet') }}</p>
 			<p class="empty-hint">
-				{{ t('chorewars', 'Add your first task to get started') }}
+				{{ t('chorestrike', 'Add your first task to get started') }}
 			</p>
 		</div>
 
@@ -58,7 +58,7 @@
 								🔄 {{ frequencyLabel(item.task) }}
 							</span>
 							<span v-if="item.roomTask.assignedToUserId" class="meta-item assigned">
-								👤 {{ t('chorewars', 'Assigned') }}
+								👤 {{ t('chorestrike', 'Assigned') }}
 							</span>
 						</div>
 
@@ -130,15 +130,15 @@ export default {
 		}
 
 		const priorityLabel = (priority) => {
-			return { 1: t('chorewars', 'Low'), 2: t('chorewars', 'Medium'), 3: t('chorewars', 'High') }[priority]
+			return { 1: t('chorestrike', 'Low'), 2: t('chorestrike', 'Medium'), 3: t('chorestrike', 'High') }[priority]
 		}
 
 		const frequencyLabel = (task) => {
 			const labels = {
-				daily: t('chorewars', 'Daily'),
-				weekly: task.frequencyValue === 1 ? t('chorewars', 'Weekly') : t('chorewars', 'Every {n} weeks', { n: task.frequencyValue }),
-				monthly: task.frequencyValue === 1 ? t('chorewars', 'Monthly') : t('chorewars', 'Every {n} months', { n: task.frequencyValue }),
-				custom: t('chorewars', 'Custom'),
+				daily: t('chorestrike', 'Daily'),
+				weekly: task.frequencyValue === 1 ? t('chorestrike', 'Weekly') : t('chorestrike', 'Every {n} weeks', { n: task.frequencyValue }),
+				monthly: task.frequencyValue === 1 ? t('chorestrike', 'Monthly') : t('chorestrike', 'Every {n} months', { n: task.frequencyValue }),
+				custom: t('chorestrike', 'Custom'),
 			}
 			return labels[task.frequencyType] || task.frequencyType
 		}
@@ -157,14 +157,14 @@ export default {
 		}
 
 		const dueText = (roomTask) => {
-			if (!roomTask.isActive) return t('chorewars', 'Completed')
+			if (!roomTask.isActive) return t('chorestrike', 'Completed')
 			const due = new Date(roomTask.nextDue)
 			const now = new Date()
 			const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24))
-			if (diffDays < 0) return t('chorewars', 'Overdue by {days} days', { days: Math.abs(diffDays) })
-			if (diffDays === 0) return t('chorewars', 'Due today')
-			if (diffDays === 1) return t('chorewars', 'Due tomorrow')
-			return t('chorewars', 'Due in {days} days', { days: diffDays })
+			if (diffDays < 0) return t('chorestrike', 'Overdue by {days} days', { days: Math.abs(diffDays) })
+			if (diffDays === 0) return t('chorestrike', 'Due today')
+			if (diffDays === 1) return t('chorestrike', 'Due tomorrow')
+			return t('chorestrike', 'Due in {days} days', { days: diffDays })
 		}
 
 		return {

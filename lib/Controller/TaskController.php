@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Controller;
+namespace OCA\ChoreStrike\Controller;
 
-use OCA\ChoreWars\Service\TaskService;
+use OCA\ChoreStrike\Service\TaskService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -89,9 +89,46 @@ class TaskController extends OCSController {
 		int $frequencyValue = 1,
 		int $estimatedMinutes = 15,
 		string $category = 'cleaning',
+		string $scopeType = 'room',
+		?string $scopeLabel = null,
+		string $recurrenceMode = 'recurring',
+		?string $activeFrom = null,
+		?string $activeUntil = null,
+		bool $isVoluntary = false,
 		bool $isTemplate = false
 	): JSONResponse {
 		try {
+			$activeFromDate = null;
+			$activeUntilDate = null;
+
+			if ($activeFrom !== null) {
+				try {
+					$activeFromDate = new \DateTime($activeFrom);
+				} catch (\Exception $exception) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => [
+							'code' => 'VALIDATION_ERROR',
+							'message' => 'Invalid active from date'
+						]
+					], 400);
+				}
+			}
+
+			if ($activeUntil !== null) {
+				try {
+					$activeUntilDate = new \DateTime($activeUntil);
+				} catch (\Exception $exception) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => [
+							'code' => 'VALIDATION_ERROR',
+							'message' => 'Invalid active until date'
+						]
+					], 400);
+				}
+			}
+
 			// Validate input
 			$errors = $this->taskService->validateTaskData([
 				'name' => $name,
@@ -99,7 +136,11 @@ class TaskController extends OCSController {
 				'priority' => $priority,
 				'frequencyType' => $frequencyType,
 				'frequencyValue' => $frequencyValue,
-				'estimatedMinutes' => $estimatedMinutes
+				'estimatedMinutes' => $estimatedMinutes,
+				'scopeType' => $scopeType,
+				'recurrenceMode' => $recurrenceMode,
+				'activeFrom' => $activeFrom,
+				'activeUntil' => $activeUntil,
 			]);
 
 			if (!empty($errors)) {
@@ -122,6 +163,12 @@ class TaskController extends OCSController {
 				$frequencyValue,
 				$estimatedMinutes,
 				$category,
+				$scopeType,
+				$scopeLabel,
+				$recurrenceMode,
+				$activeFromDate,
+				$activeUntilDate,
+				$isVoluntary,
 				$isTemplate
 			);
 			

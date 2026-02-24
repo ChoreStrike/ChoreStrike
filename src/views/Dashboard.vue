@@ -1,44 +1,47 @@
 <template>
-	<div class="dashboard">
+	<div class="dashboard" data-testid="dashboard-view">
 		<!-- Header -->
 		<div class="dashboard-header">
 			<div class="header-content">
 				<div class="header-text">
-					<h1>{{ t('chorewars', 'ChoreWars Dashboard') }}</h1>
-					<p class="tagline">{{ t('chorewars', 'Defend your Home Base. Together.') }}</p>
+					<h1>{{ t('chorestrike', 'ChoreStrike Dashboard') }}</h1>
+					<p class="tagline">
+						{{ t('chorestrike', 'Defend your Home Base. Together.') }}
+					</p>
 				</div>
 				<div class="header-actions">
-					<button 
-						@click="refreshAll"
+					<button
 						class="refresh-all-button"
 						:disabled="globalLoading"
-					>
+						@click="refreshAll">
 						<span class="icon">🔄</span>
-						{{ t('chorewars', 'Refresh All') }}
+						{{ t('chorestrike', 'Refresh All') }}
 					</button>
 				</div>
 			</div>
 		</div>
 
 		<!-- Loading State -->
-		<div v-if="globalLoading && !isInitialized" class="initial-loading">
-			<div class="loading-spinner"></div>
-			<p>{{ t('chorewars', 'Loading your home base...') }}</p>
+		<div v-if="globalLoading && !isInitialized" class="initial-loading" data-testid="dashboard-loading">
+			<div class="loading-spinner" />
+			<p>{{ t('chorestrike', 'Loading your home base...') }}</p>
 		</div>
 
 		<!-- Error State -->
-		<div v-else-if="globalError" class="error-state">
-			<div class="error-icon">⚠️</div>
-			<h3>{{ t('chorewars', 'Something went wrong') }}</h3>
+		<div v-else-if="globalError" class="error-state" data-testid="dashboard-error">
+			<div class="error-icon">
+				⚠️
+			</div>
+			<h3>{{ t('chorestrike', 'Something went wrong') }}</h3>
 			<p>{{ globalError }}</p>
-			<button @click="retryInitialization" class="retry-button">
+			<button class="retry-button" @click="retryInitialization">
 				<span class="icon">🔄</span>
-				{{ t('chorewars', 'Retry') }}
+				{{ t('chorestrike', 'Retry') }}
 			</button>
 		</div>
 
 		<!-- Main Dashboard Content -->
-		<div v-else class="dashboard-content">
+		<div v-else class="dashboard-content" data-testid="dashboard-content">
 			<!-- House Health Bar -->
 			<HouseHealthBar :show-refresh-button="true" />
 
@@ -50,12 +53,14 @@
 
 			<!-- Empty State for New Users -->
 			<div v-if="!hasHouse && !globalLoading" class="empty-state">
-				<div class="empty-icon">🏠</div>
-				<h2>{{ t('chorewars', 'Welcome to ChoreWars!') }}</h2>
-				<p>{{ t('chorewars', 'Let\'s set up your home base and start your gamified household management journey.') }}</p>
-				<button @click="initializeHouse" class="primary-button">
+				<div class="empty-icon">
+					🏠
+				</div>
+				<h2>{{ t('chorestrike', 'Welcome to ChoreStrike!') }}</h2>
+				<p>{{ t('chorestrike', 'Let\'s set up your home base and start your gamified household management journey.') }}</p>
+				<button class="primary-button" @click="initializeHouse">
 					<span class="icon">🚀</span>
-					{{ t('chorewars', 'Get Started') }}
+					{{ t('chorestrike', 'Get Started') }}
 				</button>
 			</div>
 		</div>
@@ -121,11 +126,9 @@ export default {
 
 		const initializeHouse = async () => {
 			try {
-				// This would initialize the house for new users
-				console.log('Initializing house for new user')
 				await initializeDashboard()
 			} catch (error) {
-				console.error('Failed to initialize house:', error)
+				initializationError.value = error.message || 'Failed to initialize house'
 			}
 		}
 
@@ -348,36 +351,36 @@ export default {
 	.dashboard {
 		padding: 1rem;
 	}
-	
+
 	.header-content {
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 1rem;
 	}
-	
+
 	.dashboard h1 {
 		font-size: 1.5rem;
 	}
-	
+
 	.tagline {
 		font-size: 1rem;
 	}
-	
+
 	.refresh-all-button {
 		padding: 0.5rem 0.75rem;
 		font-size: 13px;
 	}
-	
+
 	.initial-loading,
 	.error-state,
 	.empty-state {
 		padding: 2rem 1rem;
 	}
-	
+
 	.empty-icon {
 		font-size: 48px;
 	}
-	
+
 	.primary-button,
 	.retry-button {
 		padding: 0.5rem 1rem;
@@ -389,11 +392,11 @@ export default {
 	.dashboard {
 		padding: 0.5rem;
 	}
-	
+
 	.dashboard h1 {
 		font-size: 1.25rem;
 	}
-	
+
 	.tagline {
 		font-size: 0.9rem;
 	}

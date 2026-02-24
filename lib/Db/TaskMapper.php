@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Db;
+namespace OCA\ChoreStrike\Db;
 
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\QBMapper;
@@ -15,7 +15,7 @@ use OCP\IDBConnection;
 class TaskMapper extends QBMapper {
 
 	public function __construct(IDBConnection $db) {
-		parent::__construct($db, 'chorewars_tasks', Task::class);
+		parent::__construct($db, 'chorestrike_tasks', Task::class);
 	}
 
 	/**
@@ -100,6 +100,12 @@ class TaskMapper extends QBMapper {
 	 * @param int $frequencyValue The frequency value
 	 * @param int $estimatedMinutes Estimated time in minutes
 	 * @param string $category The task category
+	 * @param string $scopeType The task scope type
+	 * @param string|null $scopeLabel Optional custom scope label
+	 * @param string $recurrenceMode The recurrence mode
+	 * @param \DateTime|null $activeFrom Optional start date for activation window
+	 * @param \DateTime|null $activeUntil Optional end date for activation window
+	 * @param bool $isVoluntary Whether task is voluntary
 	 * @param bool $isTemplate Whether this is a template
 	 */
 	public function create(
@@ -111,6 +117,12 @@ class TaskMapper extends QBMapper {
 		int $frequencyValue,
 		int $estimatedMinutes,
 		string $category,
+		string $scopeType = 'room',
+		?string $scopeLabel = null,
+		string $recurrenceMode = 'recurring',
+		?\DateTime $activeFrom = null,
+		?\DateTime $activeUntil = null,
+		bool $isVoluntary = false,
 		bool $isTemplate = false
 	): Task {
 		$task = new Task();
@@ -122,6 +134,12 @@ class TaskMapper extends QBMapper {
 		$task->setFrequencyValue($frequencyValue);
 		$task->setEstimatedMinutes($estimatedMinutes);
 		$task->setCategory($category);
+		$task->setScopeType($scopeType);
+		$task->setScopeLabel($scopeLabel);
+		$task->setRecurrenceMode($recurrenceMode);
+		$task->setActiveFrom($activeFrom);
+		$task->setActiveUntil($activeUntil);
+		$task->setIsVoluntary($isVoluntary);
 		$task->setIsTemplate($isTemplate);
 		$task->setCreatedAt(new \DateTime());
 
@@ -146,6 +164,12 @@ class TaskMapper extends QBMapper {
 			$template->getFrequencyValue(),
 			$template->getEstimatedMinutes(),
 			$template->getCategory(),
+			$template->getScopeType(),
+			$template->getScopeLabel(),
+			$template->getRecurrenceMode(),
+			$template->getActiveFrom(),
+			$template->getActiveUntil(),
+			$template->getIsVoluntary(),
 			false // Not a template
 		);
 	}

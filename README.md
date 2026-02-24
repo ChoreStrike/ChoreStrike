@@ -1,15 +1,15 @@
-# ChoreWars
+# ChoreStrike
 
 **Defend your Home Base. Together.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Codeberg](https://img.shields.io/badge/Codeberg-292929?style=flat&logo=codeberg&logoColor=white)](https://github.com/ChoreStrike/ChoreStrike)
 
-ChoreWars is a gamified household task management app for Nextcloud that transforms cleaning into a cooperative base defense game. Keep your home clean by defending it against "The Dust" - cute but persistent creatures that invade neglected rooms.
+ChoreStrike is a gamified household task management app for Nextcloud that transforms cleaning into a cooperative base defense game. Keep your home clean by defending it against "The Dust" - cute but persistent creatures that invade neglected rooms.
 
 ## 🎮 Concept
 
-ChoreWars combines practical household task management with engaging game mechanics:
+ChoreStrike combines practical household task management with engaging game mechanics:
 
 - **Cooperative Base Defense**: Your home is your base. Work together to keep it clean.
 - **Visual Motivation**: See rooms get invaded by cute dust monsters when tasks are overdue
@@ -26,7 +26,7 @@ ChoreWars combines practical household task management with engaging game mechan
 - **Multi-Room Tasks**: Assign tasks to multiple rooms (e.g., vacuuming with robot)
 - **Smart Scheduling**: Plan tasks based on availability, presence days, and daily energy budgets
 - **Reminder Settings**: Configurable task reminders synchronized with Nextcloud task clients
-- **Bidirectional Completion Sync**: Complete tasks in ChoreWars UI or in synced task clients
+- **Bidirectional Completion Sync**: Complete tasks in ChoreStrike UI or in synced task clients
 
 ### Gamification
 - **The Dust Invasion**: Cute pixel monsters spawn in overdue rooms
@@ -43,7 +43,7 @@ ChoreWars combines practical household task management with engaging game mechan
 
 ## 🌍 Multilingual
 
-ChoreWars is designed to be fully multilingual from the start. Currently planned languages:
+ChoreStrike is designed to be fully multilingual from the start. Currently planned languages:
 - German
 - English
 - (More to come - contributions welcome!)
@@ -62,7 +62,7 @@ ChoreWars is designed to be fully multilingual from the start. Currently planned
 
 ## 🤝 Contributing
 
-ChoreWars is an open source project and welcomes contributions! Whether you're a developer, designer, translator, or just have ideas - we'd love your help.
+ChoreStrike is an open source project and welcomes contributions! Whether you're a developer, designer, translator, or just have ideas - we'd love your help.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 

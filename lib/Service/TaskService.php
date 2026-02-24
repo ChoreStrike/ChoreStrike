@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Service;
+namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreWars\Db\Task;
-use OCA\ChoreWars\Db\TaskMapper;
+use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
@@ -49,6 +49,12 @@ class TaskService {
 	 * @param int $frequencyValue The frequency value
 	 * @param int $estimatedMinutes Estimated time in minutes
 	 * @param string $category The task category
+	 * @param string $scopeType The task scope type
+	 * @param string|null $scopeLabel Optional custom scope label
+	 * @param string $recurrenceMode The recurrence mode
+	 * @param \DateTime|null $activeFrom Optional activation start
+	 * @param \DateTime|null $activeUntil Optional activation end
+	 * @param bool $isVoluntary Whether the task is voluntary
 	 * @param bool $isTemplate Whether this is a template
 	 */
 	public function createTask(
@@ -60,6 +66,12 @@ class TaskService {
 		int $frequencyValue,
 		int $estimatedMinutes,
 		string $category,
+		string $scopeType = 'room',
+		?string $scopeLabel = null,
+		string $recurrenceMode = 'recurring',
+		?\DateTime $activeFrom = null,
+		?\DateTime $activeUntil = null,
+		bool $isVoluntary = false,
 		bool $isTemplate = false
 	): Task {
 		$task = $this->taskMapper->create(
@@ -71,6 +83,12 @@ class TaskService {
 			$frequencyValue,
 			$estimatedMinutes,
 			$category,
+			$scopeType,
+			$scopeLabel,
+			$recurrenceMode,
+			$activeFrom,
+			$activeUntil,
+			$isVoluntary,
 			$isTemplate
 		);
 
@@ -87,6 +105,14 @@ class TaskService {
 		$task = $this->taskMapper->find($taskId);
 
 		foreach ($updates as $field => $value) {
+			if (in_array($field, ['activeFrom', 'activeUntil'], true)) {
+				if ($value === null || $value === '') {
+					$value = null;
+				} else {
+					$value = new \DateTime((string)$value);
+				}
+			}
+
 			$method = 'set' . ucfirst($field);
 			if (method_exists($task, $method)) {
 				$task->$method($value);
@@ -154,26 +180,28 @@ class TaskService {
 	}
 
 	/**
-	 * Create task template
+	 * Create a task template
 	 *
-	 * @param string $name The template name
-	 * @param string|null $description The template description
-	 * @param int $energyCost The energy cost (1-5)
-	 * @param int $priority The priority (1-3)
-	 * @param string $frequencyType The frequency type
-	 * @param int $frequencyValue The frequency value
+	 * @param string $name Template name
+	 * @param string $description Template description
+	 * @param int $energyCost Energy cost (1-5)
+	 * @param int $priority Priority (1-3)
+	 * @param string $frequencyType Frequency type (daily, weekly, monthly, custom)
+	 * @param int $frequencyValue Frequency value
 	 * @param int $estimatedMinutes Estimated time in minutes
-	 * @param string $category The task category
+	 * @param string $category Task category
+	 * @param string $scopeType Scope type (room, garden, home, outside, work)
 	 */
 	public function createTaskTemplate(
 		string $name,
-		?string $description,
+		string $description,
 		int $energyCost,
 		int $priority,
 		string $frequencyType,
 		int $frequencyValue,
 		int $estimatedMinutes,
-		string $category
+		string $category,
+		string $scopeType = 'room'
 	): Task {
 		return $this->createTask(
 			$name,
@@ -184,6 +212,12 @@ class TaskService {
 			$frequencyValue,
 			$estimatedMinutes,
 			$category,
+			$scopeType,
+			null,
+			'recurring',
+			null,
+			null,
+			false,
 			true // isTemplate = true
 		);
 	}
@@ -225,15 +259,65 @@ class TaskService {
 		// Frequency type validation
 		if (isset($taskData['frequencyType'])) {
 			$validTypes = ['daily', 'weekly', 'monthly', 'custom'];
-			if (!in_array($taskData['frequencyType'], $validTypes)) {
+			if (!in_array($taskData['frequencyType'], $validTypes, true)) {
 				$errors[] = 'Invalid frequency type';
 			}
+		}
+
+		if (isset($taskData['scopeType'])) {
+			$validScopeTypes = ['room', 'garden', 'home', 'outside', 'work'];
+			if (!in_array($taskData['scopeType'], $validScopeTypes, true)) {
+				$errors[] = 'Invalid scope type';
+			}
+		}
+
+		if (isset($taskData['recurrenceMode'])) {
+			$validRecurrenceModes = ['one_time', 'recurring'];
+			if (!in_array($taskData['recurrenceMode'], $validRecurrenceModes, true)) {
+				$errors[] = 'Invalid recurrence mode';
+			}
+		}
+
+		if (isset($taskData['isVoluntary']) && !is_bool($taskData['isVoluntary'])) {
+			$errors[] = 'Voluntary flag must be boolean';
 		}
 
 		// Frequency value validation
 		if (isset($taskData['frequencyValue'])) {
 			if (!is_numeric($taskData['frequencyValue']) || $taskData['frequencyValue'] < 1) {
 				$errors[] = 'Frequency value must be at least 1';
+			}
+		}
+
+		if (isset($taskData['activeFrom']) && $taskData['activeFrom'] !== null) {
+			try {
+				new \DateTime((string)$taskData['activeFrom']);
+			} catch (\Exception $exception) {
+				$errors[] = 'Invalid active from date';
+			}
+		}
+
+		if (isset($taskData['activeUntil']) && $taskData['activeUntil'] !== null) {
+			try {
+				new \DateTime((string)$taskData['activeUntil']);
+			} catch (\Exception $exception) {
+				$errors[] = 'Invalid active until date';
+			}
+		}
+
+		if (
+			isset($taskData['activeFrom'], $taskData['activeUntil'])
+			&& $taskData['activeFrom'] !== null
+			&& $taskData['activeUntil'] !== null
+		) {
+			try {
+				$activeFrom = new \DateTime((string)$taskData['activeFrom']);
+				$activeUntil = new \DateTime((string)$taskData['activeUntil']);
+				if ($activeUntil < $activeFrom) {
+					$errors[] = 'Active until must be equal or after active from';
+				}
+			} catch (\Exception $exception) {
+				// Individual parsing errors are already collected above.
 			}
 		}
 
@@ -248,41 +332,55 @@ class TaskService {
 	public function createDefaultTemplates(): array {
 		$templates = [
 			// Cleaning tasks
-			['name' => 'Vacuum floor', 'description' => 'Vacuum all floors in the room', 'energyCost' => 2, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 20, 'category' => 'cleaning'],
-			['name' => 'Dust surfaces', 'description' => 'Dust all surfaces including shelves and furniture', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'cleaning'],
-			['name' => 'Clean windows', 'description' => 'Clean inside and outside of windows', 'energyCost' => 3, 'priority' => 1, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 30, 'category' => 'cleaning'],
-			['name' => 'Mop floor', 'description' => 'Mop hard floors', 'energyCost' => 2, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 25, 'category' => 'cleaning'],
-			
+			['nameKey' => 'template.vacuum_floor', 'descKey' => 'template.vacuum_floor.desc', 'energyCost' => 2, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 20, 'category' => 'cleaning', 'scopeType' => 'room'],
+			['nameKey' => 'template.dust_surfaces', 'descKey' => 'template.dust_surfaces.desc', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'cleaning', 'scopeType' => 'room'],
+			['nameKey' => 'template.clean_windows', 'descKey' => 'template.clean_windows.desc', 'energyCost' => 3, 'priority' => 1, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 30, 'category' => 'cleaning', 'scopeType' => 'room'],
+			['nameKey' => 'template.mop_floor', 'descKey' => 'template.mop_floor.desc', 'energyCost' => 2, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 25, 'category' => 'cleaning', 'scopeType' => 'room'],
+			['nameKey' => 'template.clean_fridge', 'descKey' => 'template.clean_fridge.desc', 'energyCost' => 3, 'priority' => 1, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 30, 'category' => 'cleaning', 'scopeType' => 'home'],
+			['nameKey' => 'template.take_out_trash', 'descKey' => 'template.take_out_trash.desc', 'energyCost' => 1, 'priority' => 3, 'frequencyType' => 'weekly', 'frequencyValue' => 2, 'estimatedMinutes' => 10, 'category' => 'cleaning', 'scopeType' => 'home'],
+
 			// Kitchen tasks
-			['name' => 'Clean countertops', 'description' => 'Wipe down and disinfect kitchen countertops', 'energyCost' => 1, 'priority' => 3, 'frequencyType' => 'daily', 'frequencyValue' => 1, 'estimatedMinutes' => 10, 'category' => 'kitchen'],
-			['name' => 'Clean microwave', 'description' => 'Clean inside and outside of microwave', 'energyCost' => 2, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'kitchen'],
-			['name' => 'Clean oven', 'description' => 'Deep clean oven and stovetop', 'energyCost' => 4, 'priority' => 1, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 60, 'category' => 'kitchen'],
-			
+			['nameKey' => 'template.clean_countertops', 'descKey' => 'template.clean_countertops.desc', 'energyCost' => 1, 'priority' => 3, 'frequencyType' => 'daily', 'frequencyValue' => 1, 'estimatedMinutes' => 10, 'category' => 'kitchen', 'scopeType' => 'room'],
+			['nameKey' => 'template.clean_microwave', 'descKey' => 'template.clean_microwave.desc', 'energyCost' => 2, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'kitchen', 'scopeType' => 'room'],
+			['nameKey' => 'template.clean_oven', 'descKey' => 'template.clean_oven.desc', 'energyCost' => 4, 'priority' => 1, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 60, 'category' => 'kitchen', 'scopeType' => 'room'],
+			['nameKey' => 'template.load_dishwasher', 'descKey' => 'template.load_dishwasher.desc', 'energyCost' => 1, 'priority' => 3, 'frequencyType' => 'daily', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'kitchen', 'scopeType' => 'room'],
+			['nameKey' => 'template.unload_dishwasher', 'descKey' => 'template.unload_dishwasher.desc', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'daily', 'frequencyValue' => 1, 'estimatedMinutes' => 10, 'category' => 'kitchen', 'scopeType' => 'room'],
+
 			// Bathroom tasks
-			['name' => 'Clean toilet', 'description' => 'Clean and disinfect toilet', 'energyCost' => 2, 'priority' => 3, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'bathroom'],
-			['name' => 'Clean shower/bath', 'description' => 'Clean shower walls, tub, and fixtures', 'energyCost' => 3, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 30, 'category' => 'bathroom'],
-			['name' => 'Clean mirror', 'description' => 'Clean bathroom mirror and fixtures', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 10, 'category' => 'bathroom'],
-			
+			['nameKey' => 'template.clean_toilet', 'descKey' => 'template.clean_toilet.desc', 'energyCost' => 2, 'priority' => 3, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'bathroom', 'scopeType' => 'room'],
+			['nameKey' => 'template.clean_shower', 'descKey' => 'template.clean_shower.desc', 'energyCost' => 3, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 30, 'category' => 'bathroom', 'scopeType' => 'room'],
+			['nameKey' => 'template.clean_mirror', 'descKey' => 'template.clean_mirror.desc', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 10, 'category' => 'bathroom', 'scopeType' => 'room'],
+			['nameKey' => 'template.wash_towels', 'descKey' => 'template.wash_towels.desc', 'energyCost' => 2, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 5, 'category' => 'bathroom', 'scopeType' => 'room'],
+			['nameKey' => 'template.clean_sink', 'descKey' => 'template.clean_sink.desc', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 2, 'estimatedMinutes' => 10, 'category' => 'bathroom', 'scopeType' => 'room'],
+
 			// Organizing tasks
-			['name' => 'Organize closet', 'description' => 'Organize clothes and accessories', 'energyCost' => 3, 'priority' => 1, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 45, 'category' => 'organizing'],
-			['name' => 'Sort mail', 'description' => 'Sort and organize mail and papers', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'organizing'],
-			
+			['nameKey' => 'template.organize_closet', 'descKey' => 'template.organize_closet.desc', 'energyCost' => 3, 'priority' => 1, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 45, 'category' => 'organizing', 'scopeType' => 'room'],
+			['nameKey' => 'template.sort_mail', 'descKey' => 'template.sort_mail.desc', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'organizing', 'scopeType' => 'home'],
+			['nameKey' => 'template.organize_pantry', 'descKey' => 'template.organize_pantry.desc', 'energyCost' => 2, 'priority' => 1, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 30, 'category' => 'organizing', 'scopeType' => 'room'],
+
 			// Maintenance tasks
-			['name' => 'Replace air filter', 'description' => 'Replace HVAC air filter', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'monthly', 'frequencyValue' => 3, 'estimatedMinutes' => 10, 'category' => 'maintenance'],
-			['name' => 'Test smoke detectors', 'description' => 'Test and replace batteries in smoke detectors', 'energyCost' => 1, 'priority' => 3, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'maintenance'],
+			['nameKey' => 'template.replace_air_filter', 'descKey' => 'template.replace_air_filter.desc', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'monthly', 'frequencyValue' => 3, 'estimatedMinutes' => 10, 'category' => 'maintenance', 'scopeType' => 'home'],
+			['nameKey' => 'template.test_smoke_detectors', 'descKey' => 'template.test_smoke_detectors.desc', 'energyCost' => 1, 'priority' => 3, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'maintenance', 'scopeType' => 'home'],
+			['nameKey' => 'template.check_carbon_monoxide', 'descKey' => 'template.check_carbon_monoxide.desc', 'energyCost' => 1, 'priority' => 3, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 5, 'category' => 'maintenance', 'scopeType' => 'home'],
+
+			// Laundry tasks
+			['nameKey' => 'template.do_laundry', 'descKey' => 'template.do_laundry.desc', 'energyCost' => 2, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 2, 'estimatedMinutes' => 45, 'category' => 'laundry', 'scopeType' => 'home'],
+			['nameKey' => 'template.fold_laundry', 'descKey' => 'template.fold_laundry.desc', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'weekly', 'frequencyValue' => 2, 'estimatedMinutes' => 30, 'category' => 'laundry', 'scopeType' => 'home'],
+			['nameKey' => 'template.iron_clothes', 'descKey' => 'template.iron_clothes.desc', 'energyCost' => 2, 'priority' => 1, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 40, 'category' => 'laundry', 'scopeType' => 'home'],
 		];
 
 		$createdTemplates = [];
 		foreach ($templates as $templateData) {
 			$createdTemplates[] = $this->createTaskTemplate(
-				$templateData['name'],
-				$templateData['description'],
+				$this->l10n->t($templateData['nameKey']),
+				$this->l10n->t($templateData['descKey']),
 				$templateData['energyCost'],
 				$templateData['priority'],
 				$templateData['frequencyType'],
 				$templateData['frequencyValue'],
 				$templateData['estimatedMinutes'],
-				$templateData['category']
+				$templateData['category'],
+				$templateData['scopeType']
 			);
 		}
 

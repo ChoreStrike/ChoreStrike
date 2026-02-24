@@ -1,8 +1,8 @@
-# ChoreWars API Documentation
+# ChoreStrike API Documentation
 
 ## Base URL
 
-All API endpoints are prefixed with `/apps/chorewars/api/v1`
+All API endpoints are prefixed with `/apps/chorestrike/api/v1`
 
 The API reflects the MVP concept decisions:
 
@@ -169,6 +169,8 @@ List all tasks.
 
 **Query Parameters:**
 - `is_template` (boolean): Filter templates
+- `scope_type` (optional): `room`, `garden`, `home`, `outside`, `work`
+- `recurrence_mode` (optional): `one_time`, `recurring`
 
 **Response:**
 ```json
@@ -181,7 +183,13 @@ List all tasks.
     "priority": 2,
     "frequency_type": "weekly",
     "frequency_value": 1,
+    "recurrence_mode": "recurring",
+    "active_from": null,
+    "active_until": null,
     "estimated_minutes": 30,
+    "scope_type": "room",
+    "scope_label": "Kitchen",
+    "is_voluntary": false,
     "reminder": {
       "mode": "before_due",
       "minutes_before": 30,
@@ -223,7 +231,13 @@ Create a new task.
   "priority": 3,
   "frequency_type": "monthly",
   "frequency_value": 1,
+  "recurrence_mode": "one_time",
+  "active_from": "2026-12-01T00:00:00Z",
+  "active_until": "2027-03-01T00:00:00Z",
   "estimated_minutes": 60,
+  "scope_type": "outside",
+  "scope_label": "Errands",
+  "is_voluntary": true,
   "reminder": {
     "mode": "before_due",
     "minutes_before": 1440,
@@ -246,6 +260,7 @@ List all room-task assignments.
 
 **Query Parameters:**
 - `room_id` (optional): Filter by room
+- `scope_id` (optional): Filter by task scope
 - `status` (optional): `due`, `overdue`, `upcoming`
 
 **Response:**
@@ -254,6 +269,7 @@ List all room-task assignments.
   {
     "id": 1,
     "room_id": 1,
+    "scope_id": 3,
     "task_id": 1,
     "task_name": "Vacuum",
     "energy_cost": 3,
@@ -274,6 +290,7 @@ Assign task to room(s).
 ```json
 {
   "task_id": 1,
+  "scope_id": 3,
   "room_ids": [1, 2, 3],
   "assigned_to_user_id": null
 }
@@ -309,9 +326,12 @@ Mark task as completed.
   },
   "new_cleanliness": 85,
   "monsters_defeated": 2,
-  "next_due": "2026-02-25T15:30:00Z"
+  "next_due": "2026-02-25T15:30:00Z",
+  "is_active": true
 }
 ```
+
+For tasks with `recurrence_mode = "one_time"`, completion deactivates the room-task assignment (`is_active = false`).
 
 #### POST /room-tasks/{id}/pass
 Use one Task Pass to reassign a task to another available member.
@@ -562,6 +582,16 @@ On success:
 - `reminder.minutes_before` must be between `1` and `10080`
 - `reminder.repeat_while_overdue` must be boolean
 
+### Task scope and lifecycle (`tasks` create/update)
+
+- `scope_type` in: `room`, `garden`, `home`, `outside`, `work`
+- `scope_label` optional, max length 255
+- `recurrence_mode` in: `one_time`, `recurring`
+- `active_from` optional ISO datetime
+- `active_until` optional ISO datetime
+- `active_until` must be equal or greater than `active_from` when both are present
+- `is_voluntary` must be boolean
+
 ## Endpoint Error Matrix
 
 ### `POST /room-tasks/{id}/pass`
@@ -571,16 +601,159 @@ On success:
 - `RULE_VIOLATION`: no Task Pass available, target unavailable, or task not passable
 - `VALIDATION_ERROR`: invalid payload
 
-### `GET /game/streaks`
+### Scheduling
 
-- `FORBIDDEN`: caller is not a house member
-- `INTERNAL_ERROR`: streak calculation failed
+Manage member availability and energy budgets for fair task scheduling.
 
-### `PUT /game/role-title-pack`
+#### `GET /scheduling/preferences`
 
-- `VALIDATION_ERROR`: invalid or missing `pack_id`
-- `FORBIDDEN`: caller lacks permission to change house settings
-- `NOT_FOUND`: pack id not found
+Get current user's scheduling preferences.
+
+**Response:**
+```json
+{
+  "userId": 1,
+  "energyBudget": {
+    "monday": 10,
+    "tuesday": 10,
+    "wednesday": 10,
+    "thursday": 10,
+    "friday": 10,
+    "saturday": 15,
+    "sunday": 15
+  },
+  "weekdayAvailability": {
+    "monday": true,
+    "tuesday": true,
+    "wednesday": true,
+    "thursday": true,
+    "friday": true,
+    "saturday": true,
+    "sunday": true
+  }
+}
+```
+
+#### `PUT /scheduling/energy`
+
+Update energy budget for a specific day.
+
+**Request:**
+```json
+{
+  "day": "monday",
+  "energy": 12
+}
+```
+
+**Validation:**
+- `energy` must be between 1 and 20
+
+#### `PUT /scheduling/availability`
+
+Update availability for a specific day.
+
+**Request:**
+```json
+{
+  "day": "saturday",
+  "available": false
+}
+```
+
+#### `GET /scheduling/members`
+
+Get all member availability (house owner only).
+
+**Response:**
+```json
+[
+  {
+    "userId": 1,
+    "userName": "Alice",
+    "energyBudget": { ... },
+    "weekdayAvailability": { ... }
+  }
+]
+```
+
+### Task Sync
+
+Synchronize task completion with Nextcloud Tasks (CalDAV).
+
+#### `POST /sync/complete/{roomTaskId}`
+
+Complete a room task and sync to Nextcloud Tasks.
+
+**Request:**
+```json
+{
+  "nextcloudTaskId": 123
+}
+```
+
+**Response:**
+```json
+{
+  "roomTaskId": 1,
+  "taskName": "Clean Kitchen",
+  "completedAt": "2026-02-24T10:00:00Z",
+  "nextDue": "2026-03-03",
+  "synced": false
+}
+```
+
+#### `POST /sync/from-nextcloud`
+
+Sync completion from Nextcloud Task back to ChoreStrike.
+
+**Request:**
+```json
+{
+  "nextcloudTaskId": 123,
+  "completedAt": "2026-02-24T10:00:00Z",
+  "roomTaskId": 1
+}
+```
+
+#### `GET /sync/reminders/{roomTaskId}`
+
+Get reminder mapping for a room task.
+
+**Response:**
+```json
+{
+  "type": "absolute",
+  "value": "2026-02-24T10:00:00Z"
+}
+```
+
+#### `GET /sync/pending`
+
+Get pending completions that need to be synced to Nextcloud.
+
+#### `POST /sync/link/{roomTaskId}`
+
+Link a room task to a Nextcloud task.
+
+**Request:**
+```json
+{
+  "nextcloudTaskId": 123
+}
+```
+
+### Scheduling Error Codes
+
+- `VALIDATION_ERROR`: energy value not between 1-20
+- `FORBIDDEN`: not house owner for member availability access
+
+### Task Sync Error Codes
+
+- `SYNC_COMPLETE_ERROR`: failed to complete task sync
+- `SYNC_FROM_NEXTCLOUD_ERROR`: failed to sync from Nextcloud
+- `TASK_NOT_FOUND`: room task not found
+- `LINK_ERROR`: failed to link tasks
 
 ## Audit Event Schema
 
@@ -621,6 +794,129 @@ Common fields:
 
 No rate limiting currently implemented. May be added in future versions.
 
-## Webhooks (Future)
+## Pagination
 
-Planned for future versions to support real-time notifications.
+List endpoints support pagination via query parameters:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | 50 | Maximum items per page (max: 100) |
+| `offset` | integer | 0 | Number of items to skip |
+
+**Example:**
+```
+GET /tasks?limit=20&offset=40
+```
+
+**Paginated Response:**
+```json
+{
+  "success": true,
+  "data": [...],
+  "pagination": {
+    "total": 150,
+    "limit": 20,
+    "offset": 40,
+    "has_more": true,
+    "next_offset": 60
+  }
+}
+```
+
+## HTTP Status Codes
+
+| Status | Meaning | Usage |
+|--------|---------|-------|
+| 200 | OK | Successful GET, PUT, DELETE |
+| 201 | Created | Successful POST (resource created) |
+| 400 | Bad Request | Validation errors, malformed JSON |
+| 401 | Unauthorized | Not authenticated or session expired |
+| 403 | Forbidden | Insufficient permissions |
+| 404 | Not Found | Resource does not exist |
+| 409 | Conflict | Resource conflict (e.g., duplicate name) |
+| 422 | Unprocessable Entity | Business rule violation |
+| 500 | Internal Server Error | Unexpected server error |
+| 503 | Service Unavailable | Maintenance or overload |
+
+## Quick Reference
+
+### Common Operations
+
+**Setup a new house:**
+```bash
+# 1. Get or create house
+GET /house
+
+# 2. Create floors
+POST /floors
+{ "name": "Ground Floor", "sort_order": 0 }
+
+# 3. Create rooms
+POST /rooms
+{ "floor_id": 1, "name": "Kitchen" }
+
+# 4. Create tasks from templates
+GET /tasks/templates
+POST /tasks
+{ "name": "Vacuum", "energy_cost": 2, ... }
+
+# 5. Assign tasks to rooms
+POST /room-tasks
+{ "task_id": 1, "room_id": 1 }
+```
+
+**Daily workflow:**
+```bash
+# Get overdue tasks
+GET /room-tasks?status=overdue
+
+# Complete a task
+POST /room-tasks/{id}/complete
+
+# Check leaderboard
+GET /game/leaderboard
+
+# View medals
+GET /game/medals
+```
+
+### API Versioning
+
+Current version: **v1**
+
+Version is specified in the URL path: `/apps/chorestrike/api/v1/`
+
+Future versions will use `/api/v2/`, etc. v1 will be supported for at least 6 months after v2 release.
+
+## SDKs and Tools
+
+### Official SDKs
+- JavaScript/TypeScript: `@chorestrike/sdk` (planned)
+- Python: `chorestrike-python` (planned)
+
+### Community SDKs
+None yet - contributions welcome!
+
+## Support
+
+### Getting Help
+- GitHub Issues: [github.com/chorestrike/issues](https://github.com/chorestrike/issues)
+- Documentation: [docs.chorestrike.com](https://docs.chorestrike.com)
+- API Status: [status.chorestrike.com](https://status.chorestrike.com)
+
+### Reporting Issues
+When reporting API issues, please include:
+- Request URL and method
+- Request headers (redact sensitive data)
+- Request body (if applicable)
+- Response status code
+- Response body
+- Timestamp of request
+
+---
+
+**Last Updated**: 2026-02-24
+
+**Document Version**: 1.0
+
+**API Version**: v1

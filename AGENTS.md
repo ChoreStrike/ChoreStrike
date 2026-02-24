@@ -1,6 +1,6 @@
-# ChoreWars – AI Development Guidelines & Best Practices
+# ChoreStrike – AI Development Guidelines & Best Practices
 
-> This document serves as the single source of truth for AI agents and developers working on ChoreWars.
+> This document serves as the single source of truth for AI agents and developers working on ChoreStrike.
 
 ## 1. Core Principles
 - **Security First:** Data and system security are the absolute highest priority. Always ensure during development and code review that no sensitive data is exposed, no unauthorized access is possible, and all Nextcloud security guidelines are strictly followed.

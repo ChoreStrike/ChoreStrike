@@ -3,7 +3,7 @@
 		<!-- Loading State -->
 		<div v-if="loading" class="loading-state">
 			<div class="loading-spinner" />
-			<p>{{ t('chorewars', 'Loading room details...') }}</p>
+			<p>{{ t('chorestrike', 'Loading room details...') }}</p>
 		</div>
 
 		<!-- Error State -->
@@ -11,10 +11,10 @@
 			<div class="error-icon">
 				⚠️
 			</div>
-			<h3>{{ t('chorewars', 'Failed to load room') }}</h3>
+			<h3>{{ t('chorestrike', 'Failed to load room') }}</h3>
 			<p>{{ error }}</p>
 			<button class="retry-button" @click="loadRoomData">
-				{{ t('chorewars', 'Retry') }}
+				{{ t('chorestrike', 'Retry') }}
 			</button>
 		</div>
 
@@ -24,7 +24,7 @@
 			<div class="room-header">
 				<nav class="breadcrumb">
 					<router-link to="/" class="breadcrumb-link">
-						{{ t('chorewars', 'Dashboard') }}
+						{{ t('chorestrike', 'Dashboard') }}
 					</router-link>
 					<span class="breadcrumb-separator">/</span>
 					<span class="breadcrumb-current">{{ room.name }}</span>
@@ -38,7 +38,7 @@
 					<div class="header-actions">
 						<button class="action-button" @click="showEditModal = true">
 							<span class="icon">✏️</span>
-							{{ t('chorewars', 'Edit') }}
+							{{ t('chorestrike', 'Edit') }}
 						</button>
 					</div>
 				</div>
@@ -47,14 +47,14 @@
 			<!-- Room Status Card -->
 			<div class="status-card" :class="statusClass">
 				<div class="status-header">
-					<h2>{{ t('chorewars', 'Room Status') }}</h2>
+					<h2>{{ t('chorestrike', 'Room Status') }}</h2>
 					<span class="status-badge">{{ statusLabel }}</span>
 				</div>
 
 				<div class="status-grid">
 					<div class="status-item">
 						<div class="status-label">
-							{{ t('chorewars', 'Cleanliness') }}
+							{{ t('chorestrike', 'Cleanliness') }}
 						</div>
 						<div class="cleanliness-bar">
 							<div
@@ -69,17 +69,17 @@
 
 					<div class="status-item">
 						<div class="status-label">
-							{{ t('chorewars', 'Activity Level') }}
+							{{ t('chorestrike', 'Activity Level') }}
 						</div>
 						<div class="monster-indicator">
 							<span v-for="n in room.monsterCount" :key="n" class="monster-icon">👾</span>
-							<span v-if="room.monsterCount === 0" class="no-monsters">{{ t('chorewars', 'Peaceful') }}</span>
+							<span v-if="room.monsterCount === 0" class="no-monsters">{{ t('chorestrike', 'Peaceful') }}</span>
 						</div>
 					</div>
 
 					<div class="status-item">
 						<div class="status-label">
-							{{ t('chorewars', 'Last Cleaned') }}
+							{{ t('chorestrike', 'Last Cleaned') }}
 						</div>
 						<div class="last-cleaned">
 							{{ lastCleanedText }}
@@ -91,10 +91,10 @@
 			<!-- Tasks Section -->
 			<div class="tasks-section">
 				<div class="section-header">
-					<h2>{{ t('chorewars', 'Tasks') }}</h2>
+					<h2>{{ t('chorestrike', 'Tasks') }}</h2>
 					<button class="primary-button" @click="showAddTaskModal = true">
 						<span class="icon">+</span>
-						{{ t('chorewars', 'Add Task') }}
+						{{ t('chorestrike', 'Add Task') }}
 					</button>
 				</div>
 
@@ -105,7 +105,7 @@
 							{{ activeTasksCount }}
 						</div>
 						<div class="stat-label">
-							{{ t('chorewars', 'Active') }}
+							{{ t('chorestrike', 'Active') }}
 						</div>
 					</div>
 					<div class="stat-card overdue">
@@ -113,7 +113,7 @@
 							{{ overdueTasksCount }}
 						</div>
 						<div class="stat-label">
-							{{ t('chorewars', 'Overdue') }}
+							{{ t('chorestrike', 'Overdue') }}
 						</div>
 					</div>
 					<div class="stat-card due-today">
@@ -121,7 +121,7 @@
 							{{ dueTodayTasksCount }}
 						</div>
 						<div class="stat-label">
-							{{ t('chorewars', 'Due Today') }}
+							{{ t('chorestrike', 'Due Today') }}
 						</div>
 					</div>
 				</div>
@@ -139,9 +139,9 @@
 		<!-- Edit Room Modal -->
 		<Modal v-if="showEditModal" @close="showEditModal = false">
 			<div class="modal-content">
-				<h3>{{ t('chorewars', 'Edit Room') }}</h3>
+				<h3>{{ t('chorestrike', 'Edit Room') }}</h3>
 				<div class="form-group">
-					<label for="roomName">{{ t('chorewars', 'Room Name') }}</label>
+					<label for="roomName">{{ t('chorestrike', 'Room Name') }}</label>
 					<input
 						id="roomName"
 						v-model="editRoomName"
@@ -151,10 +151,10 @@
 				</div>
 				<div class="modal-actions">
 					<button class="secondary-button" @click="showEditModal = false">
-						{{ t('chorewars', 'Cancel') }}
+						{{ t('chorestrike', 'Cancel') }}
 					</button>
 					<button class="primary-button" :disabled="!editRoomName.trim()" @click="saveRoomName">
-						{{ t('chorewars', 'Save') }}
+						{{ t('chorestrike', 'Save') }}
 					</button>
 				</div>
 			</div>
@@ -163,11 +163,23 @@
 		<!-- Add Task Modal -->
 		<Modal v-if="showAddTaskModal" @close="showAddTaskModal = false">
 			<div class="modal-content">
-				<h3>{{ t('chorewars', 'Add Task to Room') }}</h3>
+				<h3>{{ t('chorestrike', 'Add Task to Room') }}</h3>
 				<TaskForm
 					:room-id="roomId"
 					@submit="handleTaskSubmit"
 					@cancel="showAddTaskModal = false" />
+			</div>
+		</Modal>
+
+		<!-- Edit Task Modal -->
+		<Modal v-if="showEditTaskModal" @close="closeEditTaskModal">
+			<div class="modal-content">
+				<h3>{{ t('chorestrike', 'Edit Task') }}</h3>
+				<TaskForm
+					:room-id="roomId"
+					:initial-data="editingTask"
+					@submit="handleSaveTaskEdit"
+					@cancel="closeEditTaskModal" />
 			</div>
 		</Modal>
 	</div>
@@ -213,6 +225,8 @@ export default {
 		const error = ref(null)
 		const showEditModal = ref(false)
 		const showAddTaskModal = ref(false)
+		const showEditTaskModal = ref(false)
+		const editingTask = ref(null)
 		const editRoomName = ref('')
 
 		// Computed
@@ -228,7 +242,7 @@ export default {
 		})
 
 		const floorName = computed(() => {
-			return floor.value?.name || t('chorewars', 'Unknown Floor')
+			return floor.value?.name || t('chorestrike', 'Unknown Floor')
 		})
 
 		const statusClass = computed(() => {
@@ -244,11 +258,11 @@ export default {
 		const statusLabel = computed(() => {
 			if (!room.value) return ''
 			const cleanliness = room.value.cleanliness
-			if (cleanliness >= 80) return t('chorewars', 'Excellent')
-			if (cleanliness >= 60) return t('chorewars', 'Good')
-			if (cleanliness >= 40) return t('chorewars', 'Fair')
-			if (cleanliness >= 20) return t('chorewars', 'Poor')
-			return t('chorewars', 'Needs Attention')
+			if (cleanliness >= 80) return t('chorestrike', 'Excellent')
+			if (cleanliness >= 60) return t('chorestrike', 'Good')
+			if (cleanliness >= 40) return t('chorestrike', 'Fair')
+			if (cleanliness >= 20) return t('chorestrike', 'Poor')
+			return t('chorestrike', 'Needs Attention')
 		})
 
 		const cleanlinessClass = computed(() => {
@@ -260,15 +274,15 @@ export default {
 		})
 
 		const lastCleanedText = computed(() => {
-			if (!room.value?.lastCleaned) return t('chorewars', 'Never')
+			if (!room.value?.lastCleaned) return t('chorestrike', 'Never')
 
 			const lastCleaned = new Date(room.value.lastCleaned)
 			const now = new Date()
 			const diffDays = Math.floor((now - lastCleaned) / (1000 * 60 * 60 * 24))
 
-			if (diffDays === 0) return t('chorewars', 'Today')
-			if (diffDays === 1) return t('chorewars', 'Yesterday')
-			return t('chorewars', '{days} days ago', { days: diffDays })
+			if (diffDays === 0) return t('chorestrike', 'Today')
+			if (diffDays === 1) return t('chorestrike', 'Yesterday')
+			return t('chorestrike', '{days} days ago', { days: diffDays })
 		})
 
 		const roomTasksWithDetails = computed(() => {
@@ -326,10 +340,10 @@ export default {
 					roomsStore.setCurrentRoom(roomId.value)
 					editRoomName.value = room.value.name
 				} else {
-					error.value = t('chorewars', 'Room not found')
+					error.value = t('chorestrike', 'Room not found')
 				}
 			} catch (err) {
-				error.value = err.message || t('chorewars', 'Failed to load room')
+				error.value = err.message || t('chorestrike', 'Failed to load room')
 				console.error('Failed to load room:', err)
 			} finally {
 				loading.value = false
@@ -377,7 +391,10 @@ export default {
 		const handleTaskComplete = async (roomTaskId) => {
 			try {
 				const currentUserId = userStore.userId || 'current-user'
-				await roomTasksStore.completeRoomTask(roomTaskId, currentUserId)
+				await roomTasksStore.completeRoomTask({
+					roomTaskId,
+					userId: currentUserId,
+				})
 
 				// Refresh room data to get updated cleanliness
 				await roomsStore.fetchFloorsWithRooms()
@@ -386,12 +403,30 @@ export default {
 			}
 		}
 
-		const handleTaskEdit = () => {
-			// TODO: Implement edit modal
+		const handleTaskEdit = (roomTask) => {
+			editingTask.value = roomTask
+			showEditTaskModal.value = true
+		}
+
+		const closeEditTaskModal = () => {
+			showEditTaskModal.value = false
+			editingTask.value = null
+		}
+
+		const handleSaveTaskEdit = async (updatedData) => {
+			if (!editingTask.value) return
+
+			try {
+				await roomTasksStore.updateRoomTask(editingTask.value.id, updatedData)
+				closeEditTaskModal()
+				await loadTasks()
+			} catch (err) {
+				console.error('Failed to update task:', err)
+			}
 		}
 
 		const handleTaskDelete = async (roomTaskId) => {
-			if (!confirm(t('chorewars', 'Are you sure you want to remove this task?'))) return
+			if (!confirm(t('chorestrike', 'Are you sure you want to remove this task?'))) return
 
 			try {
 				await roomTasksStore.deleteRoomTask(roomTaskId)
@@ -429,12 +464,16 @@ export default {
 			error,
 			showEditModal,
 			showAddTaskModal,
+			showEditTaskModal,
+			editingTask,
 			editRoomName,
 			loadRoomData,
 			saveRoomName,
 			handleTaskSubmit,
 			handleTaskComplete,
 			handleTaskEdit,
+			closeEditTaskModal,
+			handleSaveTaskEdit,
 			handleTaskDelete,
 			t,
 		}

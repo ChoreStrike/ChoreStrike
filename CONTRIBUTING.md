@@ -1,6 +1,6 @@
-# Contributing to ChoreWars
+# Contributing to ChoreStrike
 
-Thank you for your interest in contributing to ChoreWars! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to ChoreStrike! This document provides guidelines and information for contributors.
 
 ## 🌟 How to Contribute
 
@@ -13,7 +13,7 @@ Thank you for your interest in contributing to ChoreWars! This document provides
 ### Suggesting Features
 - Check if the feature has already been suggested
 - Describe the use case and expected behavior
-- Explain how it fits with ChoreWars' philosophy
+- Explain how it fits with ChoreStrike' philosophy
 
 ### Code Contributions
 
@@ -48,7 +48,7 @@ Thank you for your interest in contributing to ChoreWars! This document provides
 
 We welcome translations! To add a new language:
 
-1. Copy `l10n/templates/chorewars.pot` to `l10n/[language_code].po`
+1. Copy `l10n/templates/chorestrike.pot` to `l10n/[language_code].po`
 2. Translate all strings
 3. Test the translation in the app
 4. Submit a pull request
@@ -87,4 +87,4 @@ Be respectful, inclusive, and constructive. We're all here to make household cho
 
 ---
 
-Thank you for contributing to ChoreWars! 🎮✨
+Thank you for contributing to ChoreStrike! 🎮✨

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Controller;
+namespace OCA\ChoreStrike\Controller;
 
-use OCA\ChoreWars\Service\FloorService;
-use OCA\ChoreWars\Service\HouseService;
+use OCA\ChoreStrike\Service\FloorService;
+use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;

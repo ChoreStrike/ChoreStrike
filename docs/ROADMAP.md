@@ -1,4 +1,4 @@
-# ChoreWars Development Roadmap
+# ChoreStrike Development Roadmap
 
 ## Project Phases
 

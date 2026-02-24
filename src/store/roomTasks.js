@@ -1,28 +1,59 @@
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
 
+/**
+ * Store for managing room tasks (task assignments to rooms)
+ */
 export const useRoomTasksStore = defineStore('roomTasks', {
 	state: () => ({
+		/** @type {Array} Room task assignments */
 		roomTasks: [],
+		/** @type {boolean} Loading state */
 		loading: false,
+		/** @type {string|null} Error message */
 		error: null,
 	}),
 
 	getters: {
+		/**
+		 * Get room task by ID
+		 * @param {object} state Store state
+		 * @return {Function} Function that takes roomTaskId and returns room task
+		 */
 		getRoomTaskById: (state) => (roomTaskId) => {
 			return state.roomTasks.find(roomTask => roomTask.id === roomTaskId)
 		},
 
+		/**
+		 * Get active room tasks
+		 * @param {object} state Store state
+		 * @return {Array} Active room tasks
+		 */
 		activeRoomTasks: (state) => state.roomTasks.filter(roomTask => roomTask.isActive),
 
+		/**
+		 * Get inactive room tasks
+		 * @param {object} state Store state
+		 * @return {Array} Inactive room tasks
+		 */
 		inactiveRoomTasks: (state) => state.roomTasks.filter(roomTask => !roomTask.isActive),
 
+		/**
+		 * Get overdue room tasks
+		 * @param {object} state Store state
+		 * @return {Array} Overdue room tasks
+		 */
 		overdueRoomTasks: (state) => {
 			return state.roomTasks.filter(roomTask => {
 				return roomTask.isActive && new Date(roomTask.nextDue) < new Date()
 			})
 		},
 
+		/**
+		 * Get room tasks due today
+		 * @param {object} state Store state
+		 * @return {Array} Room tasks due today
+		 */
 		dueTodayRoomTasks: (state) => {
 			const today = new Date()
 			today.setHours(0, 0, 0, 0)
@@ -36,6 +67,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			})
 		},
 
+		/**
+		 * Get room tasks due soon (next 3 days)
+		 * @param {object} state Store state
+		 * @return {Array} Room tasks due soon
+		 */
 		dueSoonRoomTasks: (state) => {
 			const now = new Date()
 			const future = new Date()
@@ -48,6 +84,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			})
 		},
 
+		/**
+		 * Get room tasks grouped by room
+		 * @param {object} state Store state
+		 * @return {object} Object with roomId as keys and task arrays as values
+		 */
 		roomTasksByRoom: (state) => {
 			const tasksByRoom = {}
 			state.roomTasks.forEach(roomTask => {
@@ -109,15 +150,15 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 	actions: {
 		/**
 		 * Fetch room tasks for a room
-		 * @param roomId
-		 * @param activeOnly
+		 * @param {number} roomId Room identifier to load tasks for.
+		 * @param {boolean} activeOnly Whether to limit results to active tasks.
 		 */
 		async fetchRoomTasks(roomId, activeOnly = true) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks?roomId=${roomId}&activeOnly=${activeOnly}`)
+				const response = await axios.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${roomId}&activeOnly=${activeOnly}`)
 
 				if (response.data.success) {
 					// Update room tasks in state, removing old ones for this room
@@ -137,14 +178,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Get room task with details
-		 * @param roomTaskId
+		 * @param {number} roomTaskId Room task identifier to load.
 		 */
 		async fetchRoomTaskWithDetails(roomTaskId) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}`)
+				const response = await axios.get(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}`)
 
 				if (response.data.success) {
 					return response.data.data
@@ -162,14 +203,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Create a new room task
-		 * @param roomTaskData
+		 * @param {object} roomTaskData Payload used to create the room task.
 		 */
 		async createRoomTask(roomTaskData) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorewars/api/v1/room-tasks', roomTaskData)
+				const response = await axios.post('/apps/chorestrike/api/v1/room-tasks', roomTaskData)
 
 				if (response.data.success) {
 					this.roomTasks.push(response.data.data)
@@ -188,8 +229,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Assign room task to user
-		 * @param roomTaskId
-		 * @param userId
+		 * @param {number} roomTaskId Room task identifier to assign.
+		 * @param {string} userId User identifier receiving the assignment.
 		 */
 		async assignRoomTask(roomTaskId, userId) {
 			if (!userId || userId.trim() === '') {
@@ -200,7 +241,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/assign`, { userId })
+				const response = await axios.post(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/assign`, { userId })
 
 				if (response.data.success) {
 					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
@@ -221,14 +262,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Unassign room task from user
-		 * @param roomTaskId
+		 * @param {number} roomTaskId Room task identifier to unassign.
 		 */
 		async unassignRoomTask(roomTaskId) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.post(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/unassign`)
+				const response = await axios.post(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/unassign`)
 
 				if (response.data.success) {
 					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
@@ -249,14 +290,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Deactivate room task
-		 * @param roomTaskId
+		 * @param {number} roomTaskId Room task identifier to deactivate.
 		 */
 		async deactivateRoomTask(roomTaskId) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.post(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/deactivate`)
+				const response = await axios.post(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/deactivate`)
 
 				if (response.data.success) {
 					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
@@ -277,14 +318,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Reactivate room task
-		 * @param roomTaskId
+		 * @param {number} roomTaskId Room task identifier to reactivate.
 		 */
 		async reactivateRoomTask(roomTaskId) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.post(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/reactivate`)
+				const response = await axios.post(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/reactivate`)
 
 				if (response.data.success) {
 					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
@@ -305,8 +346,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Update room task due date
-		 * @param roomTaskId
-		 * @param nextDue
+		 * @param {number} roomTaskId Room task identifier to update.
+		 * @param {string} nextDue ISO date string for the next due date.
 		 */
 		async updateRoomTaskDueDate(roomTaskId, nextDue) {
 			if (!nextDue) {
@@ -317,7 +358,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/due-date`, { nextDue })
+				const response = await axios.put(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/due-date`, { nextDue })
 
 				if (response.data.success) {
 					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
@@ -338,8 +379,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Complete room task
-		 * @param roomTaskId
-		 * @param userId
+		 * @param {number} roomTaskId Room task identifier to complete.
+		 * @param {string} userId User identifier completing the task.
 		 */
 		async completeRoomTask(roomTaskId, userId) {
 			if (!userId || userId.trim() === '') {
@@ -350,7 +391,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/complete`, { userId })
+				const response = await axios.post(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`, { userId })
 
 				if (response.data.success) {
 					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
@@ -373,14 +414,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Delete room task
-		 * @param roomTaskId
+		 * @param {number} roomTaskId Room task identifier to delete.
 		 */
 		async deleteRoomTask(roomTaskId) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}`)
+				const response = await axios.delete(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}`)
 
 				if (response.data.success) {
 					// Remove room task from state
@@ -399,7 +440,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Get overdue tasks
-		 * @param roomId
+		 * @param {?number} roomId Optional room identifier for filtering.
 		 */
 		async fetchOverdueTasks(roomId = null) {
 			this.loading = true
@@ -407,8 +448,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 			try {
 				const url = roomId
-					? `/apps/chorewars/api/v1/room-tasks/overdue?roomId=${roomId}`
-					: '/apps/chorewars/api/v1/room-tasks/overdue'
+					? `/apps/chorestrike/api/v1/room-tasks/overdue?roomId=${roomId}`
+					: '/apps/chorestrike/api/v1/room-tasks/overdue'
 
 				const response = await axios.get(url)
 
@@ -428,7 +469,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Get tasks due today
-		 * @param roomId
+		 * @param {?number} roomId Optional room identifier for filtering.
 		 */
 		async fetchDueTodayTasks(roomId = null) {
 			this.loading = true
@@ -436,8 +477,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 			try {
 				const url = roomId
-					? `/apps/chorewars/api/v1/room-tasks/due-today?roomId=${roomId}`
-					: '/apps/chorewars/api/v1/room-tasks/due-today'
+					? `/apps/chorestrike/api/v1/room-tasks/due-today?roomId=${roomId}`
+					: '/apps/chorestrike/api/v1/room-tasks/due-today'
 
 				const response = await axios.get(url)
 
@@ -457,8 +498,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Get tasks due within days
-		 * @param days
-		 * @param roomId
+		 * @param {number} days Number of days ahead to query.
+		 * @param {?number} roomId Optional room identifier for filtering.
 		 */
 		async fetchDueWithinDaysTasks(days, roomId = null) {
 			if (days < 1 || days > 365) {
@@ -470,8 +511,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 			try {
 				const url = roomId
-					? `/apps/chorewars/api/v1/room-tasks/due-within-days?days=${days}&roomId=${roomId}`
-					: `/apps/chorewars/api/v1/room-tasks/due-within-days?days=${days}`
+					? `/apps/chorestrike/api/v1/room-tasks/due-within-days?days=${days}&roomId=${roomId}`
+					: `/apps/chorestrike/api/v1/room-tasks/due-within-days?days=${days}`
 
 				const response = await axios.get(url)
 
@@ -491,8 +532,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Get user tasks
-		 * @param userId
-		 * @param activeOnly
+		 * @param {string} userId User identifier to filter by.
+		 * @param {boolean} activeOnly Whether to limit results to active tasks.
 		 */
 		async fetchUserTasks(userId, activeOnly = true) {
 			if (!userId || userId.trim() === '') {
@@ -503,7 +544,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks/user/${userId}?activeOnly=${activeOnly}`)
+				const response = await axios.get(`/apps/chorestrike/api/v1/room-tasks/user/${userId}?activeOnly=${activeOnly}`)
 
 				if (response.data.success) {
 					return response.data.data
@@ -521,14 +562,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Get room task statistics
-		 * @param roomId
+		 * @param {number} roomId Room identifier to load statistics for.
 		 */
 		async fetchRoomTaskStats(roomId) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks/room/${roomId}/stats`)
+				const response = await axios.get(`/apps/chorestrike/api/v1/room-tasks/room/${roomId}/stats`)
 
 				if (response.data.success) {
 					return response.data.data
@@ -546,7 +587,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Get user task statistics
-		 * @param userId
+		 * @param {string} userId User identifier to load statistics for.
 		 */
 		async fetchUserTaskStats(userId) {
 			if (!userId || userId.trim() === '') {
@@ -557,7 +598,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks/user/${userId}/stats`)
+				const response = await axios.get(`/apps/chorestrike/api/v1/room-tasks/user/${userId}/stats`)
 
 				if (response.data.success) {
 					return response.data.data
@@ -575,8 +616,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Bulk assign tasks to user
-		 * @param roomTaskIds
-		 * @param userId
+		 * @param {Array<number>} roomTaskIds Room task identifiers to assign.
+		 * @param {string} userId User identifier receiving assignments.
 		 */
 		async bulkAssignTasks(roomTaskIds, userId) {
 			if (!userId || userId.trim() === '') {

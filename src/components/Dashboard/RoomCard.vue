@@ -1,96 +1,94 @@
 <template>
-  <div 
-    class="room-card"
-    :class="cardClasses"
-    @click="handleCardClick"
-  >
-    <!-- Room Header -->
-    <div class="room-header">
-      <div class="room-info">
-        <h4 class="room-name">{{ room.name }}</h4>
-        <div class="room-status">
-          <span class="status-badge" :class="statusClass">
-            {{ statusText }}
-          </span>
-        </div>
-      </div>
-      <div class="room-actions">
-        <button 
-          @click.stop="toggleMonsters"
-          class="monster-toggle"
-          :class="{ active: showMonsters }"
-          title="Toggle monsters"
-        >
-          <span class="icon">👾</span>
-          <span class="count">{{ room.monsterCount }}</span>
-        </button>
-      </div>
-    </div>
+	<div
+		class="room-card"
+		:class="cardClasses"
+		@click="handleCardClick">
+		<!-- Room Header -->
+		<div class="room-header">
+			<div class="room-info">
+				<h4 class="room-name">
+					{{ room.name }}
+				</h4>
+				<div class="room-status">
+					<span class="status-badge" :class="statusClass">
+						{{ statusText }}
+					</span>
+				</div>
+			</div>
+			<div class="room-actions">
+				<button
+					class="monster-toggle"
+					:class="{ active: showMonsters }"
+					title="Toggle monsters"
+					@click.stop="toggleMonsters">
+					<span class="icon">👾</span>
+					<span class="count">{{ room.monsterCount }}</span>
+				</button>
+			</div>
+		</div>
 
-    <!-- Cleanliness Bar -->
-    <div class="cleanliness-section">
-      <div class="cleanliness-header">
-        <span class="cleanliness-label">Cleanliness</span>
-        <span class="cleanliness-value">{{ room.cleanliness }}%</span>
-      </div>
-      <div class="cleanliness-bar">
-        <div 
-          class="cleanliness-fill"
-          :class="cleanlinessClass"
-          :style="{ width: `${room.cleanliness}%` }"
-        ></div>
-      </div>
-    </div>
+		<!-- Cleanliness Bar -->
+		<div class="cleanliness-section">
+			<div class="cleanliness-header">
+				<span class="cleanliness-label">Cleanliness</span>
+				<span class="cleanliness-value">{{ room.cleanliness }}%</span>
+			</div>
+			<div class="cleanliness-bar">
+				<div
+					class="cleanliness-fill"
+					:class="cleanlinessClass"
+					:style="{ width: `${room.cleanliness}%` }" />
+			</div>
+		</div>
 
-    <!-- Task Summary -->
-    <div class="task-summary">
-      <div class="task-item">
-        <span class="task-icon">📋</span>
-        <span class="task-count">{{ activeTasks }}</span>
-        <span class="task-label">Active</span>
-      </div>
-      <div class="task-item overdue" v-if="overdueTasks > 0">
-        <span class="task-icon">⚠️</span>
-        <span class="task-count">{{ overdueTasks }}</span>
-        <span class="task-label">Overdue</span>
-      </div>
-      <div class="task-item due-today" v-if="dueTodayTasks > 0">
-        <span class="task-icon">📅</span>
-        <span class="task-count">{{ dueTodayTasks }}</span>
-        <span class="task-label">Due Today</span>
-      </div>
-    </div>
+		<!-- Task Summary -->
+		<div class="task-summary">
+			<div class="task-item">
+				<span class="task-icon">📋</span>
+				<span class="task-count">{{ activeTasks }}</span>
+				<span class="task-label">Active</span>
+			</div>
+			<div v-if="overdueTasks > 0" class="task-item overdue">
+				<span class="task-icon">⚠️</span>
+				<span class="task-count">{{ overdueTasks }}</span>
+				<span class="task-label">Overdue</span>
+			</div>
+			<div v-if="dueTodayTasks > 0" class="task-item due-today">
+				<span class="task-icon">📅</span>
+				<span class="task-count">{{ dueTodayTasks }}</span>
+				<span class="task-label">Due Today</span>
+			</div>
+		</div>
 
-    <!-- Monsters Display -->
-    <div v-if="showMonsters && room.monsterCount > 0" class="monsters-display">
-      <div class="monsters-container">
-        <div 
-          v-for="(monster, index) in monsters" 
-          :key="index"
-          class="monster"
-          :class="monster.type"
-          :style="monster.position"
-        >
-          <span class="monster-emoji">{{ getMonsterEmoji(monster.type) }}</span>
-        </div>
-      </div>
-    </div>
+		<!-- Monsters Display -->
+		<div v-if="showMonsters && room.monsterCount > 0" class="monsters-display">
+			<div class="monsters-container">
+				<MonsterSprite
+					v-for="(monster, index) in monsters"
+					:key="index"
+					:monster-type="monster.type"
+					size="small"
+					:position="monster.position || getRandomPosition()"
+					:animated="true"
+					:show-effects="true"
+					:glow-intensity="getGlowIntensity(monster.type)" />
+			</div>
+		</div>
 
-    <!-- Last Updated -->
-    <div class="room-footer">
-      <span class="last-updated">
-        Last cleaned: {{ lastCleanedText }}
-      </span>
-      <button 
-        @click.stop="quickClean"
-        class="quick-clean-button"
-        :disabled="loading || room.cleanliness >= 90"
-        title="Quick clean (+10% cleanliness)"
-      >
-        <span class="icon">✨</span>
-      </button>
-    </div>
-  </div>
+		<!-- Last Updated -->
+		<div class="room-footer">
+			<span class="last-updated">
+				Last cleaned: {{ lastCleanedText }}
+			</span>
+			<button
+				class="quick-clean-button"
+				:disabled="loading || room.cleanliness >= 90"
+				title="Quick clean (+10% cleanliness)"
+				@click.stop="quickClean">
+				<span class="icon">✨</span>
+			</button>
+		</div>
+	</div>
 </template>
 
 <script>
@@ -99,169 +97,178 @@ import { useRouter } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useGameStore } from '../../store/game.js'
+import MonsterSprite from '../Common/MonsterSprite.vue'
 
 export default {
-  name: 'RoomCard',
-  
-  props: {
-    room: {
-      type: Object,
-      required: true
-    },
-    compact: {
-      type: Boolean,
-      default: false
-    }
-  },
+	name: 'RoomCard',
+	components: {
+		MonsterSprite,
+	},
+	props: {
+		room: {
+			type: Object,
+			required: true,
+		},
+		compact: {
+			type: Boolean,
+			default: false,
+		},
+	},
 
-  setup(props) {
-    const router = useRouter()
-    const roomsStore = useRoomsStore()
-    const roomTasksStore = useRoomTasksStore()
-    const gameStore = useGameStore()
-    
-    const showMonsters = ref(false)
-    const loading = ref(false)
+	setup(props) {
+		const router = useRouter()
+		const roomsStore = useRoomsStore()
+		const roomTasksStore = useRoomTasksStore()
+		const gameStore = useGameStore()
 
-    // Computed properties
-    const statusClass = computed(() => {
-      const cleanliness = props.room.cleanliness
-      if (cleanliness >= 80) return 'excellent'
-      if (cleanliness >= 60) return 'good'
-      if (cleanliness >= 40) return 'fair'
-      if (cleanliness >= 20) return 'poor'
-      return 'terrible'
-    })
+		const showMonsters = ref(false)
+		const loading = ref(false)
 
-    const statusText = computed(() => {
-      const cleanliness = props.room.cleanliness
-      if (cleanliness >= 80) return 'Excellent'
-      if (cleanliness >= 60) return 'Good'
-      if (cleanliness >= 40) return 'Fair'
-      if (cleanliness >= 20) return 'Poor'
-      return 'Terrible'
-    })
+		// Computed properties
+		const statusClass = computed(() => {
+			const cleanliness = props.room.cleanliness
+			if (cleanliness >= 80) return 'excellent'
+			if (cleanliness >= 60) return 'good'
+			if (cleanliness >= 40) return 'fair'
+			if (cleanliness >= 20) return 'poor'
+			return 'terrible'
+		})
 
-    const cleanlinessClass = computed(() => {
-      const cleanliness = props.room.cleanliness
-      if (cleanliness >= 80) return 'excellent'
-      if (cleanliness >= 60) return 'good'
-      if (cleanliness >= 40) return 'fair'
-      if (cleanliness >= 20) return 'poor'
-      return 'terrible'
-    })
+		const statusText = computed(() => {
+			const cleanliness = props.room.cleanliness
+			if (cleanliness >= 80) return 'Excellent'
+			if (cleanliness >= 60) return 'Good'
+			if (cleanliness >= 40) return 'Fair'
+			if (cleanliness >= 20) return 'Poor'
+			return 'Terrible'
+		})
 
-    const cardClasses = computed(() => ({
-      'needs-cleaning': props.room.cleanliness < 60,
-      'has-monsters': props.room.monsterCount > 0,
-      'compact': props.compact
-    }))
+		const cleanlinessClass = computed(() => {
+			const cleanliness = props.room.cleanliness
+			if (cleanliness >= 80) return 'excellent'
+			if (cleanliness >= 60) return 'good'
+			if (cleanliness >= 40) return 'fair'
+			if (cleanliness >= 20) return 'poor'
+			return 'terrible'
+		})
 
-    const lastCleanedText = computed(() => {
-      if (!props.room.lastCleaned) return 'Never'
-      
-      const lastCleaned = new Date(props.room.lastCleaned)
-      const now = new Date()
-      const diffMs = now - lastCleaned
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-      
-      if (diffDays === 0) return 'Today'
-      if (diffDays === 1) return 'Yesterday'
-      if (diffDays < 7) return `${diffDays} days ago`
-      if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-      return `${Math.floor(diffDays / 30)} months ago`
-    })
+		const cardClasses = computed(() => ({
+			'needs-cleaning': props.room.cleanliness < 60,
+			'has-monsters': props.room.monsterCount > 0,
+			compact: props.compact,
+		}))
 
-    // Task counts (would be fetched from roomTasks store)
-    const activeTasks = computed(() => {
-      const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
-      return roomTasks.filter(task => task.isActive).length
-    })
+		const lastCleanedText = computed(() => {
+			if (!props.room.lastCleaned) return 'Never'
 
-    const overdueTasks = computed(() => {
-      const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
-      return roomTasks.filter(task => 
-        task.isActive && new Date(task.nextDue) < new Date()
-      ).length
-    })
+			const lastCleaned = new Date(props.room.lastCleaned)
+			const now = new Date()
+			const diffMs = now - lastCleaned
+			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-    const dueTodayTasks = computed(() => {
-      const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      
-      return roomTasks.filter(task => {
-        if (!task.isActive) return false
-        const dueDate = new Date(task.nextDue)
-        return dueDate >= today && dueDate < tomorrow
-      }).length
-    })
+			if (diffDays === 0) return 'Today'
+			if (diffDays === 1) return 'Yesterday'
+			if (diffDays < 7) return `${diffDays} days ago`
+			if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
+			return `${Math.floor(diffDays / 30)} months ago`
+		})
 
-    // Monsters
-    const monsters = computed(() => {
-      return gameStore.currentMonsters(props.room.id) || []
-    })
+		// Task counts (would be fetched from roomTasks store)
+		const activeTasks = computed(() => {
+			const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
+			return roomTasks.filter(task => task.isActive).length
+		})
 
-    // Methods
-    const handleCardClick = () => {
-      router.push(`/rooms/${props.room.id}`)
-    }
+		const overdueTasks = computed(() => {
+			const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
+			return roomTasks.filter(task =>
+				task.isActive && new Date(task.nextDue) < new Date(),
+			).length
+		})
 
-    const toggleMonsters = () => {
-      showMonsters.value = !showMonsters.value
-      
-      // Generate monsters if not already generated
-      if (showMonsters.value && monsters.value.length === 0) {
-        gameStore.updateMonstersForCleanliness(props.room.id, props.room.cleanliness)
-      }
-    }
+		const dueTodayTasks = computed(() => {
+			const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
+			const today = new Date()
+			today.setHours(0, 0, 0, 0)
+			const tomorrow = new Date(today)
+			tomorrow.setDate(tomorrow.getDate() + 1)
 
-    const getMonsterEmoji = (type) => {
-      const emojiMap = {
-        'dust-bunny': '🐰',
-        'slime-blob': '🟢',
-        'pixel-spider': '🕷️',
-        'dust-demon': '👹'
-      }
-      return emojiMap[type] || '👾'
-    }
+			return roomTasks.filter(task => {
+				if (!task.isActive) return false
+				const dueDate = new Date(task.nextDue)
+				return dueDate >= today && dueDate < tomorrow
+			}).length
+		})
 
-    const quickClean = async () => {
-      loading.value = true
-      try {
-        await roomsStore.updateRoomCleanliness(props.room.id, 10)
-        
-        // Update monsters if visible
-        if (showMonsters.value) {
-          gameStore.updateMonstersForCleanliness(props.room.id, Math.min(100, props.room.cleanliness + 10))
-        }
-      } catch (error) {
-        console.error('Failed to quick clean room:', error)
-      } finally {
-        loading.value = false
-      }
-    }
+		// Monsters
+		const monsters = computed(() => {
+			return gameStore.currentMonsters(props.room.id) || []
+		})
 
-    return {
-      showMonsters,
-      loading,
-      statusClass,
-      statusText,
-      cleanlinessClass,
-      cardClasses,
-      lastCleanedText,
-      activeTasks,
-      overdueTasks,
-      dueTodayTasks,
-      monsters,
-      handleCardClick,
-      toggleMonsters,
-      getMonsterEmoji,
-      quickClean
-    }
-  }
+		// Methods
+		const handleCardClick = () => {
+			router.push(`/rooms/${props.room.id}`)
+		}
+
+		const toggleMonsters = () => {
+			showMonsters.value = !showMonsters.value
+
+			// Generate monsters if not already generated
+			if (showMonsters.value && monsters.value.length === 0) {
+				gameStore.updateMonstersForCleanliness(props.room.id, props.room.cleanliness)
+			}
+		}
+
+		const getRandomPosition = () => ({
+			x: Math.random() * 80 + 10,
+			y: Math.random() * 60 + 20,
+		})
+
+		const getGlowIntensity = (type) => {
+			const intensities = {
+				'dust-bunny': 'low',
+				'slime-blob': 'medium',
+				'pixel-spider': 'medium',
+				'dust-demon': 'high',
+			}
+			return intensities[type] || 'medium'
+		}
+
+		const quickClean = async () => {
+			loading.value = true
+			try {
+				await roomsStore.updateRoomCleanliness(props.room.id, 10)
+
+				// Update monsters if visible
+				if (showMonsters.value) {
+					gameStore.updateMonstersForCleanliness(props.room.id, Math.min(100, props.room.cleanliness + 10))
+				}
+			} catch (error) {
+				console.error('Failed to quick clean room:', error)
+			} finally {
+				loading.value = false
+			}
+		}
+
+		return {
+			showMonsters,
+			loading,
+			statusClass,
+			statusText,
+			cleanlinessClass,
+			cardClasses,
+			lastCleanedText,
+			activeTasks,
+			overdueTasks,
+			dueTodayTasks,
+			monsters,
+			handleCardClick,
+			toggleMonsters,
+			getRandomPosition,
+			getGlowIntensity,
+			quickClean,
+		}
+	},
 }
 </script>
 
@@ -579,21 +586,21 @@ export default {
   .room-card {
     padding: 12px;
   }
-  
+
   .room-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
   }
-  
+
   .room-name {
     font-size: 14px;
   }
-  
+
   .task-summary {
     gap: 8px;
   }
-  
+
   .room-footer {
     flex-direction: column;
     align-items: flex-start;

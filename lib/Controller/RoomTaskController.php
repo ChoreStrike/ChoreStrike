@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Controller;
+namespace OCA\ChoreStrike\Controller;
 
-use OCA\ChoreWars\Service\RoomTaskService;
+use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -30,9 +30,21 @@ class RoomTaskController extends OCSController {
 	 * @PublicPage
 	 * @NoAdminRequired
 	 */
-	public function index(int $roomId, bool $activeOnly = true): JSONResponse {
+	public function index(?int $roomId = null, ?int $scopeId = null, bool $activeOnly = true): JSONResponse {
 		try {
-			$roomTasks = $this->roomTaskService->getRoomTasks($roomId, $activeOnly);
+			if ($scopeId !== null) {
+				$roomTasks = $this->roomTaskService->getScopeTasks($scopeId, $activeOnly);
+			} elseif ($roomId !== null) {
+				$roomTasks = $this->roomTaskService->getRoomTasks($roomId, $activeOnly);
+			} else {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => 'roomId or scopeId is required'
+					]
+				], 400);
+			}
 			
 			return new JSONResponse([
 				'success' => true,
@@ -92,6 +104,7 @@ class RoomTaskController extends OCSController {
 		int $roomId,
 		int $taskId,
 		?string $nextDue = null,
+		?int $scopeId = null,
 		?string $assignedToUserId = null
 	): JSONResponse {
 		try {
@@ -104,7 +117,7 @@ class RoomTaskController extends OCSController {
 				}
 			}
 
-			$roomTask = $this->roomTaskService->createRoomTask($roomId, $taskId, $nextDueDate, $assignedToUserId);
+			$roomTask = $this->roomTaskService->createRoomTask($roomId, $taskId, $nextDueDate, $scopeId, $assignedToUserId);
 			
 			return new JSONResponse([
 				'success' => true,

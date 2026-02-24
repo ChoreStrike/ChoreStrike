@@ -1,9 +1,11 @@
-import { useHouseStore } from './house'
-import { useRoomsStore } from './rooms'
-import { useTasksStore } from './tasks'
-import { useRoomTasksStore } from './roomTasks'
-import { useGameStore } from './game'
-import { useUserStore } from './user'
+import { useHouseStore } from './house.js'
+import { useRoomsStore } from './rooms.js'
+import { useTasksStore } from './tasks.js'
+import { useRoomTasksStore } from './roomTasks.js'
+import { useGameStore } from './game.js'
+import { useUserStore } from './user.js'
+import { useSchedulingStore } from './scheduling.js'
+import { perfMonitor } from '../utils/performance.js'
 
 // Export all stores
 export {
@@ -13,30 +15,37 @@ export {
 	useRoomTasksStore,
 	useGameStore,
 	useUserStore,
+	useSchedulingStore,
 }
 
-// Store initialization utilities
+// Store initialization utilities with performance tracking
+
 export const initializeStores = async () => {
+	perfMonitor.start('store-initialization')
 	try {
 		// Initialize user first (needed for authentication)
 		const userStore = useUserStore()
-		await userStore.initializeUsers()
+		await perfMonitor.measureAsync('user-init', () => userStore.initializeCurrentUser())
 
-		// Initialize house data
+		// Initialize house data in parallel with other independent stores
 		const houseStore = useHouseStore()
-		await houseStore.initializeHouse()
+		const housePromise = perfMonitor.measureAsync('house-init', () => houseStore.initializeHouse())
 
-		// Initialize rooms and floors
+		// Wait for house then initialize rooms
+		await housePromise
 		const roomsStore = useRoomsStore()
-		await roomsStore.fetchFloorsWithRooms()
+		await perfMonitor.measureAsync('rooms-init', () => roomsStore.fetchFloorsWithRooms())
 
-		// Initialize tasks
+		// Initialize tasks and game state in parallel
 		const tasksStore = useTasksStore()
-		await tasksStore.initializeTasks()
-
-		// Initialize game state
 		const gameStore = useGameStore()
-		await gameStore.initializeGame()
+
+		const [_tasksResult, _gameResult] = await Promise.all([
+			perfMonitor.measureAsync('tasks-init', () => tasksStore.initializeTasks()),
+			perfMonitor.measureAsync('game-init', () => gameStore.initializeGame()),
+		])
+
+		perfMonitor.end('store-initialization', { success: true })
 
 		return {
 			user: userStore,
@@ -46,6 +55,7 @@ export const initializeStores = async () => {
 			game: gameStore,
 		}
 	} catch (error) {
+		perfMonitor.end('store-initialization', { success: false, error: error.message })
 		console.error('Failed to initialize stores:', error)
 		throw error
 	}
@@ -59,6 +69,7 @@ export const resetAllStores = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const schedulingStore = useSchedulingStore()
 
 	userStore.reset()
 	houseStore.reset()
@@ -66,6 +77,7 @@ export const resetAllStores = () => {
 	tasksStore.reset()
 	roomTasksStore.reset()
 	gameStore.reset()
+	schedulingStore.reset()
 }
 
 // Store error clearing utilities
@@ -76,6 +88,7 @@ export const clearAllStoreErrors = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const schedulingStore = useSchedulingStore()
 
 	userStore.clearError()
 	houseStore.clearError()
@@ -83,6 +96,7 @@ export const clearAllStoreErrors = () => {
 	tasksStore.clearError()
 	roomTasksStore.clearError()
 	gameStore.clearError()
+	schedulingStore.clearError()
 }
 
 // Store loading state utilities
@@ -93,14 +107,16 @@ export const getAnyStoreLoading = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const schedulingStore = useSchedulingStore()
 
 	return (
 		userStore.loading
-    || houseStore.loading
-    || roomsStore.loading
-    || tasksStore.loading
-    || roomTasksStore.loading
-    || gameStore.loading
+		|| houseStore.loading
+		|| roomsStore.loading
+		|| tasksStore.loading
+		|| roomTasksStore.loading
+		|| gameStore.loading
+		|| schedulingStore.loading
 	)
 }
 
@@ -112,14 +128,16 @@ export const getAnyStoreError = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const schedulingStore = useSchedulingStore()
 
 	return (
 		userStore.error
-    || houseStore.error
-    || roomsStore.error
-    || tasksStore.error
-    || roomTasksStore.error
-    || gameStore.error
+		|| houseStore.error
+		|| roomsStore.error
+		|| tasksStore.error
+		|| roomTasksStore.error
+		|| gameStore.error
+		|| schedulingStore.error
 	)
 }
 
@@ -131,6 +149,7 @@ export const getStoreSummary = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const schedulingStore = useSchedulingStore()
 
 	return {
 		user: {
@@ -161,11 +180,16 @@ export const getStoreSummary = () => {
 			medalsCount: gameStore.medals.length,
 			hasCombos: gameStore.hasActiveCombos,
 		},
+		scheduling: {
+			totalWeeklyEnergy: schedulingStore.totalWeeklyEnergy,
+			availableDays: schedulingStore.availableWeekdays.length,
+			averageDailyEnergy: schedulingStore.averageDailyEnergy,
+		},
 	}
 }
 
 // Pinia plugin for store initialization
-export const choreWarsPiniaPlugin = ({ pinia }) => {
+export const choreStrikePiniaPlugin = ({ pinia }) => {
 	// Auto-initialize stores when they are first used
 	pinia.use(({ store }) => {
 		if (store.$id === 'user') {
@@ -184,11 +208,12 @@ export default {
 	useRoomTasksStore,
 	useGameStore,
 	useUserStore,
+	useSchedulingStore,
 	initializeStores,
 	resetAllStores,
 	clearAllStoreErrors,
 	getAnyStoreLoading,
 	getAnyStoreError,
 	getStoreSummary,
-	choreWarsPiniaPlugin,
+	choreStrikePiniaPlugin,
 }

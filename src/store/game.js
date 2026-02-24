@@ -1,36 +1,71 @@
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
 
+/**
+ * Store for managing game state (leaderboard, medals, monsters, combos)
+ */
 export const useGameStore = defineStore('game', {
 	state: () => ({
+		/** @type {object|null} Current game state */
 		gameState: null,
+		/** @type {Array} Leaderboard data */
 		leaderboard: [],
+		/** @type {Array} Medal definitions */
 		medals: [],
+		/** @type {object} Monsters per room */
 		monsters: {},
+		/** @type {Array} Active combos */
 		combos: [],
+		/** @type {boolean} Loading state */
 		loading: false,
+		/** @type {string|null} Error message */
 		error: null,
 	}),
 
 	getters: {
+		/**
+		 * Get monsters for a specific room
+		 * @param {object} state Store state
+		 * @return {Function} Function that takes roomId and returns monsters array
+		 */
 		currentMonsters: (state) => (roomId) => {
 			return state.monsters[roomId] || []
 		},
 
+		/**
+		 * Get total monster count across all rooms
+		 * @param {object} state Store state
+		 * @return {number} Total monsters
+		 */
 		totalMonsters: (state) => {
 			return Object.values(state.monsters).flat().length
 		},
 
+		/**
+		 * Get medals for a specific user
+		 * @param {object} state Store state
+		 * @return {Function} Function that takes userId and returns medals array
+		 */
 		userMedals: (state) => (userId) => {
 			return state.medals.filter(medal => medal.userId === userId)
 		},
 
+		/**
+		 * Get top contributors sorted by score
+		 * @param {object} state Store state
+		 * @return {Array} Top 10 contributors
+		 */
 		topContributors: (state) => {
 			return state.leaderboard
 				.sort((a, b) => b.contributionScore - a.contributionScore)
 				.slice(0, 10)
 		},
 
+		/**
+		 * Check if there are active combos
+		 * @param {object} state Store state
+		 * @return {boolean} True if combos exist
+		 */
 		hasActiveCombos: (state) => state.combos.length > 0,
 	},
 
@@ -43,7 +78,7 @@ export const useGameStore = defineStore('game', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/game/state')
+				const response = await axios.get('/apps/chorestrike/api/v1/game/state')
 
 				if (response.data.success) {
 					this.gameState = response.data.data
@@ -68,7 +103,7 @@ export const useGameStore = defineStore('game', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/game/leaderboard')
+				const response = await axios.get('/apps/chorestrike/api/v1/game/leaderboard')
 
 				if (response.data.success) {
 					this.leaderboard = response.data.data
@@ -92,7 +127,7 @@ export const useGameStore = defineStore('game', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/game/medals')
+				const response = await axios.get('/apps/chorestrike/api/v1/game/medals')
 
 				if (response.data.success) {
 					this.medals = response.data.data
@@ -109,9 +144,35 @@ export const useGameStore = defineStore('game', {
 		},
 
 		/**
+		 * Check and award medals
+		 */
+		async checkMedals() {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.get('/apps/chorestrike/api/v1/game/check-medals')
+
+				if (response.data.success) {
+					// Refresh medals after awarding
+					await this.fetchMedals()
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to check medals')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to check medals:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
 		 * Update monsters for a room
-		 * @param roomId
-		 * @param monsters
+		 * @param {number} roomId The room ID
+		 * @param {Array} monsters Array of monster objects
 		 */
 		updateRoomMonsters(roomId, monsters) {
 			this.monsters[roomId] = monsters
@@ -119,7 +180,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Add combo
-		 * @param combo
+		 * @param {object} combo Combo object with type and multiplier
 		 */
 		addCombo(combo) {
 			this.combos.push({
@@ -131,7 +192,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Remove combo
-		 * @param comboId
+		 * @param {number} comboId The combo ID to remove
 		 */
 		removeCombo(comboId) {
 			this.combos = this.combos.filter(combo => combo.id !== comboId)
@@ -146,8 +207,8 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Calculate contribution score for task completion
-		 * @param task
-		 * @param roomCleanliness
+		 * @param {object} task The task object
+		 * @param {number} roomCleanliness Current room cleanliness value (0-100)
 		 */
 		calculateContributionScore(task, roomCleanliness) {
 			let baseScore = task.energyCost * 10
@@ -168,8 +229,8 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Calculate Team Sparks for task completion
-		 * @param task
-		 * @param isCombo
+		 * @param {object} task The task object
+		 * @param {boolean} isCombo Whether this is part of a combo
 		 */
 		calculateTeamSparks(task, isCombo = false) {
 			let sparks = task.energyCost * 5
@@ -186,9 +247,9 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Check for combo opportunities
-		 * @param userId
-		 * @param completedTask
-		 * @param recentCompletions
+		 * @param {string} userId The user ID
+		 * @param {object} completedTask The completed task object
+		 * @param {Array} recentCompletions Array of recent task completions
 		 */
 		checkForCombo(userId, completedTask, recentCompletions = []) {
 			// Check if user completed multiple tasks in quick succession
@@ -228,9 +289,9 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Award medal to user
-		 * @param userId
-		 * @param medalType
-		 * @param value
+		 * @param {string} userId The user ID
+		 * @param {string} medalType Type of medal to award
+		 * @param {number} value Medal value or count
 		 */
 		awardMedal(userId, medalType, value) {
 			const medal = {
@@ -248,7 +309,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get week start date
-		 * @param date
+		 * @param {Date} date The date to get week start for
 		 */
 		getWeekStart(date = new Date()) {
 			const d = new Date(date)
@@ -259,8 +320,8 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Check medal eligibility
-		 * @param userId
-		 * @param weeklyStats
+		 * @param {string} userId The user ID
+		 * @param {object} weeklyStats Weekly statistics object
 		 */
 		checkMedalEligibility(userId, weeklyStats) {
 			const medals = []
@@ -295,8 +356,8 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Update monster count based on room cleanliness
-		 * @param roomId
-		 * @param cleanliness
+		 * @param {number} roomId The room ID
+		 * @param {number} cleanliness Room cleanliness value (0-100)
 		 */
 		updateMonstersForCleanliness(roomId, cleanliness) {
 			let monsterCount = 0
@@ -328,7 +389,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get monster type based on cleanliness
-		 * @param cleanliness
+		 * @param {number} cleanliness Room cleanliness value (0-100)
 		 */
 		getMonsterType(cleanliness) {
 			if (cleanliness >= 60) return 'dust-bunny'

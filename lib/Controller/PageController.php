@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Controller;
+namespace OCA\ChoreStrike\Controller;
 
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\TemplateResponse;
@@ -22,8 +22,8 @@ class PageController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function index(): TemplateResponse {
-		Util::addScript($this->appName, 'chorewars-main');
-		Util::addStyle($this->appName, 'chorewars-main');
+		Util::addScript($this->appName, 'chorestrike-main');
+		Util::addStyle($this->appName, 'chorestrike-main');
 		
 		return new TemplateResponse($this->appName, 'main');
 	}

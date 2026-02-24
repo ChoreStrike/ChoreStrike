@@ -1,6 +1,6 @@
 # Architecture Decision Records (ADR)
 
-This directory contains Architecture Decision Records for ChoreWars.
+This directory contains Architecture Decision Records for ChoreStrike.
 
 ## What is an ADR?
 
@@ -58,7 +58,10 @@ Example: `ADR-001-use-vue3-for-frontend.md`
 
 ## Current ADRs
 
-- None yet - this is a new project!
+1. [ADR-001: Use Vue 3 Composition API](ADR-001-vue3-composition-api.md) - **Accepted** (2026-02-24)
+2. [ADR-002: Pinia for State Management](ADR-002-pinia-state-management.md) - **Accepted** (2026-02-24)
+3. [ADR-003: Task Scope System (Beyond Rooms)](ADR-003-task-scope-system.md) - **Accepted** (2026-02-24)
+4. [ADR-004: Multi-User Gamification Architecture](ADR-004-multi-user-gamification.md) - **Accepted** (2026-02-24)
 
 ---
 

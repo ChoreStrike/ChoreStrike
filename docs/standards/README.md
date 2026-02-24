@@ -1,10 +1,10 @@
 # Coding Standards & Conventions
 
-This directory contains detailed coding standards and conventions for ChoreWars.
+This directory contains detailed coding standards and conventions for ChoreStrike.
 
 ## Overview
 
-All code in ChoreWars must follow these standards to ensure consistency, maintainability, and quality.
+All code in ChoreStrike must follow these standards to ensure consistency, maintainability, and quality.
 
 ## Core Documents
 
@@ -14,6 +14,23 @@ All code in ChoreWars must follow these standards to ensure consistency, maintai
 - **Testing Standard** - Unit test requirements, naming conventions
 - **Git Commit Standard** - Conventional commits format
 - **Documentation Standard** - PHPDoc, JSDoc requirements
+- **External Asset Licensing Standard** - Third-party icons, fonts, and illustrations
+
+## External Asset Licensing Checklist
+
+Before adding external assets (for example icon packs), verify and document the following:
+
+- License allows commercial use.
+- License allows redistribution in open source repositories.
+- License allows redistribution via Nextcloud app packaging/store delivery.
+- Attribution requirements are explicit and implemented where required.
+- Modification rights are clear (color changes, cropping, composition).
+- No trademarked or protected brand elements are included.
+- Proof of license is stored in project docs.
+
+Use this policy document for the decision log and evidence:
+
+- [EXTERNAL_ASSET_LICENSING.md](./EXTERNAL_ASSET_LICENSING.md)
 
 ## Quick Reference
 

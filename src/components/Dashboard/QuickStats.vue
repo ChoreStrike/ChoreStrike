@@ -1,81 +1,115 @@
 <template>
-  <div class="quick-stats">
-    <div class="stats-grid">
-      <!-- Total Rooms -->
-      <div class="stat-card">
-        <div class="stat-icon">🏠</div>
-        <div class="stat-content">
-          <div class="stat-value">{{ totalRooms }}</div>
-          <div class="stat-label">Total Rooms</div>
-        </div>
-      </div>
+	<div class="quick-stats" data-testid="quick-stats">
+		<div class="stats-grid">
+			<!-- Total Rooms -->
+			<div class="stat-card" data-testid="stat-card">
+				<div class="stat-icon">
+					🏠
+				</div>
+				<div class="stat-content">
+					<div class="stat-value">
+						{{ totalRooms }}
+					</div>
+					<div class="stat-label">
+						Total Rooms
+					</div>
+				</div>
+			</div>
 
-      <!-- Clean Rooms -->
-      <div class="stat-card">
-        <div class="stat-icon">✨</div>
-        <div class="stat-content">
-          <div class="stat-value">{{ cleanRooms }}</div>
-          <div class="stat-label">Clean Rooms</div>
-        </div>
-      </div>
+			<!-- Clean Rooms -->
+			<div class="stat-card">
+				<div class="stat-icon">
+					✨
+				</div>
+				<div class="stat-content">
+					<div class="stat-value">
+						{{ cleanRooms }}
+					</div>
+					<div class="stat-label">
+						Clean Rooms
+					</div>
+				</div>
+			</div>
 
-      <!-- Tasks Due Today -->
-      <div class="stat-card">
-        <div class="stat-icon">📅</div>
-        <div class="stat-content">
-          <div class="stat-value">{{ dueTodayTasks }}</div>
-          <div class="stat-label">Due Today</div>
-        </div>
-      </div>
+			<!-- Tasks Due Today -->
+			<div class="stat-card">
+				<div class="stat-icon">
+					📅
+				</div>
+				<div class="stat-content">
+					<div class="stat-value">
+						{{ dueTodayTasks }}
+					</div>
+					<div class="stat-label">
+						Due Today
+					</div>
+				</div>
+			</div>
 
-      <!-- Overdue Tasks -->
-      <div class="stat-card urgent" v-if="overdueTasks > 0">
-        <div class="stat-icon">⚠️</div>
-        <div class="stat-content">
-          <div class="stat-value">{{ overdueTasks }}</div>
-          <div class="stat-label">Overdue</div>
-        </div>
-      </div>
+			<!-- Overdue Tasks -->
+			<div v-if="overdueTasks > 0" class="stat-card urgent">
+				<div class="stat-icon">
+					⚠️
+				</div>
+				<div class="stat-content">
+					<div class="stat-value">
+						{{ overdueTasks }}
+					</div>
+					<div class="stat-label">
+						Overdue
+					</div>
+				</div>
+			</div>
 
-      <!-- Total Monsters -->
-      <div class="stat-card" v-if="totalMonsters > 0">
-        <div class="stat-icon">👾</div>
-        <div class="stat-content">
-          <div class="stat-value">{{ totalMonsters }}</div>
-          <div class="stat-label">Monsters</div>
-        </div>
-      </div>
+			<!-- Total Monsters -->
+			<div v-if="totalMonsters > 0" class="stat-card">
+				<div class="stat-icon">
+					👾
+				</div>
+				<div class="stat-content">
+					<div class="stat-value">
+						{{ totalMonsters }}
+					</div>
+					<div class="stat-label">
+						Monsters
+					</div>
+				</div>
+			</div>
 
-      <!-- Average Cleanliness -->
-      <div class="stat-card">
-        <div class="stat-icon">📊</div>
-        <div class="stat-content">
-          <div class="stat-value">{{ averageCleanliness }}%</div>
-          <div class="stat-label">Avg. Cleanliness</div>
-        </div>
-      </div>
-    </div>
+			<!-- Average Cleanliness -->
+			<div class="stat-card">
+				<div class="stat-icon">
+					📊
+				</div>
+				<div class="stat-content">
+					<div class="stat-value">
+						{{ averageCleanliness }}%
+					</div>
+					<div class="stat-label">
+						Avg. Cleanliness
+					</div>
+				</div>
+			</div>
+		</div>
 
-    <!-- Action Buttons -->
-    <div class="stats-actions" v-if="showActions">
-      <button 
-        @click="refreshStats"
-        class="action-button"
-        :disabled="loading"
-      >
-        <span class="icon">🔄</span>
-        Refresh
-      </button>
-      
-      <button 
-        @click="viewAllTasks"
-        class="action-button primary"
-      >
-        <span class="icon">📋</span>
-        View All Tasks
-      </button>
-    </div>
-  </div>
+		<!-- Action Buttons -->
+		<div v-if="showActions" class="stats-actions">
+			<button
+				class="action-button"
+				:disabled="loading"
+				@click="refreshStats">
+				<span class="icon">🔄</span>
+				Refresh
+			</button>
+
+			<button
+				class="action-button primary"
+				@click="viewAllTasks">
+				<span class="icon">📋</span>
+				View All Tasks
+			</button>
+		</div>
+	</div>
 </template>
 
 <script>
@@ -85,66 +119,66 @@ import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useRouter } from 'vue-router'
 
 export default {
-  name: 'QuickStats',
-  
-  props: {
-    showActions: {
-      type: Boolean,
-      default: true
-    },
-    compact: {
-      type: Boolean,
-      default: false
-    }
-  },
+	name: 'QuickStats',
 
-  setup(props) {
-    const roomsStore = useRoomsStore()
-    const roomTasksStore = useRoomTasksStore()
-    const router = useRouter()
+	props: {
+		showActions: {
+			type: Boolean,
+			default: true,
+		},
+		compact: {
+			type: Boolean,
+			default: false,
+		},
+	},
 
-    // Computed properties
-    const totalRooms = computed(() => roomsStore.totalRooms)
-    const cleanRooms = computed(() => roomsStore.cleanRooms)
-    const dirtyRooms = computed(() => roomsStore.dirtyRooms)
-    const averageCleanliness = computed(() => roomsStore.averageCleanliness)
-    const totalMonsters = computed(() => roomsStore.totalMonsters)
-    
-    const dueTodayTasks = computed(() => roomTasksStore.totalDueTodayTasks)
-    const overdueTasks = computed(() => roomTasksStore.totalOverdueTasks)
-    
-    const loading = computed(() => roomsStore.loading || roomTasksStore.loading)
+	setup(props) {
+		const roomsStore = useRoomsStore()
+		const roomTasksStore = useRoomTasksStore()
+		const router = useRouter()
 
-    // Methods
-    const refreshStats = async () => {
-      try {
-        await Promise.all([
-          roomsStore.fetchFloorsWithRooms(),
-          roomTasksStore.fetchDueTodayTasks(),
-          roomTasksStore.fetchOverdueTasks()
-        ])
-      } catch (error) {
-        console.error('Failed to refresh stats:', error)
-      }
-    }
+		// Computed properties
+		const totalRooms = computed(() => roomsStore.totalRooms)
+		const cleanRooms = computed(() => roomsStore.cleanRooms)
+		const dirtyRooms = computed(() => roomsStore.dirtyRooms)
+		const averageCleanliness = computed(() => roomsStore.averageCleanliness)
+		const totalMonsters = computed(() => roomsStore.totalMonsters)
 
-    const viewAllTasks = () => {
-      router.push('/tasks')
-    }
+		const dueTodayTasks = computed(() => roomTasksStore.totalDueTodayTasks)
+		const overdueTasks = computed(() => roomTasksStore.totalOverdueTasks)
 
-    return {
-      totalRooms,
-      cleanRooms,
-      dirtyRooms,
-      averageCleanliness,
-      totalMonsters,
-      dueTodayTasks,
-      overdueTasks,
-      loading,
-      refreshStats,
-      viewAllTasks
-    }
-  }
+		const loading = computed(() => roomsStore.loading || roomTasksStore.loading)
+
+		// Methods
+		const refreshStats = async () => {
+			try {
+				await Promise.all([
+					roomsStore.fetchFloorsWithRooms(),
+					roomTasksStore.fetchDueTodayTasks(),
+					roomTasksStore.fetchOverdueTasks(),
+				])
+			} catch (error) {
+				console.error('Failed to refresh stats:', error)
+			}
+		}
+
+		const viewAllTasks = () => {
+			router.push('/tasks')
+		}
+
+		return {
+			totalRooms,
+			cleanRooms,
+			dirtyRooms,
+			averageCleanliness,
+			totalMonsters,
+			dueTodayTasks,
+			overdueTasks,
+			loading,
+			refreshStats,
+			viewAllTasks,
+		}
+	},
 }
 </script>
 
@@ -296,30 +330,30 @@ export default {
   .quick-stats {
     padding: 12px;
   }
-  
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
-  
+
   .stat-card {
     padding: 10px;
     gap: 10px;
   }
-  
+
   .stat-icon {
     font-size: 20px;
     min-width: 28px;
   }
-  
+
   .stat-value {
     font-size: 18px;
   }
-  
+
   .stats-actions {
     flex-direction: column;
   }
-  
+
   .action-button {
     justify-content: center;
   }

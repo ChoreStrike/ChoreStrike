@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Db;
+namespace OCA\ChoreStrike\Db;
 
 use JsonSerializable;
 use OCP\AppFramework\Db\Entity;
@@ -12,6 +12,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setId(int $id)
  * @method int getRoomId()
  * @method void setRoomId(int $roomId)
+ * @method int|null getScopeId()
+ * @method void setScopeId(?int $scopeId)
  * @method int getTaskId()
  * @method void setTaskId(int $taskId)
  * @method \DateTime getNextDue()
@@ -22,6 +24,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setAssignedToUserId(?string $assignedToUserId)
  * @method bool getIsActive()
  * @method void setIsActive(bool $isActive)
+ * @method int|null getNextcloudTaskId()
+ * @method void setNextcloudTaskId(?int $nextcloudTaskId)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
@@ -29,6 +33,9 @@ class RoomTask extends Entity implements JsonSerializable {
 
 	/** @var int */
 	protected $roomId;
+
+	/** @var int|null */
+	protected $scopeId;
 
 	/** @var int */
 	protected $taskId;
@@ -45,17 +52,22 @@ class RoomTask extends Entity implements JsonSerializable {
 	/** @var bool */
 	protected $isActive = true;
 
+	/** @var int|null */
+	protected $nextcloudTaskId;
+
 	/** @var \DateTime */
 	protected $createdAt;
 
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomId', 'integer');
+		$this->addType('scopeId', 'integer');
 		$this->addType('taskId', 'integer');
 		$this->addType('nextDue', 'datetime');
 		$this->addType('lastCompleted', 'datetime');
 		$this->addType('assignedToUserId', 'string');
 		$this->addType('isActive', 'boolean');
+		$this->addType('nextcloudTaskId', 'integer');
 		$this->addType('createdAt', 'datetime');
 	}
 
@@ -66,11 +78,13 @@ class RoomTask extends Entity implements JsonSerializable {
 		return [
 			'id' => $this->id,
 			'roomId' => $this->roomId,
+			'scopeId' => $this->scopeId,
 			'taskId' => $this->taskId,
 			'nextDue' => $this->nextDue?->format('c'),
 			'lastCompleted' => $this->lastCompleted?->format('c'),
 			'assignedToUserId' => $this->assignedToUserId,
 			'isActive' => $this->isActive,
+			'nextcloudTaskId' => $this->nextcloudTaskId,
 			'createdAt' => $this->createdAt?->format('c'),
 		];
 	}
@@ -123,9 +137,23 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * @param \DateTime $completedAt The completion time
 	 * @param string $frequencyType The frequency type
 	 * @param int $frequencyValue The frequency value
+	 * @param string $recurrenceMode The recurrence mode
+	 * @param \DateTime|null $activeUntil Optional task end date
 	 */
-	public function markCompleted(\DateTime $completedAt, string $frequencyType, int $frequencyValue): void {
+	public function markCompleted(
+		\DateTime $completedAt,
+		string $frequencyType,
+		int $frequencyValue,
+		string $recurrenceMode = 'recurring',
+		?\DateTime $activeUntil = null
+	): void {
 		$this->lastCompleted = $completedAt;
+
+		if ($recurrenceMode === 'one_time') {
+			$this->isActive = false;
+			$this->nextDue = $completedAt;
+			return;
+		}
 		
 		// Calculate next due date based on frequency
 		$nextDue = clone $completedAt;
@@ -144,6 +172,12 @@ class RoomTask extends Entity implements JsonSerializable {
 				// For custom, default to 1 week
 				$nextDue->add(new \DateInterval('P1W'));
 				break;
+		}
+
+		if ($activeUntil !== null && $nextDue > $activeUntil) {
+			$this->isActive = false;
+			$this->nextDue = $activeUntil;
+			return;
 		}
 		
 		$this->nextDue = $nextDue;

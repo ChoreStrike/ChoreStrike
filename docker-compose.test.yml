@@ -1,0 +1,23 @@
+services:
+  nextcloud-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    container_name: chorestrike-test
+    volumes:
+      - .:/var/www/html/custom_apps/chorestrike
+    working_dir: /var/www/html/custom_apps/chorestrike
+    environment:
+      - NEXTCLOUD_TEST_ENV=true
+    command:
+      - sh
+      - -c
+      - |
+        composer install --no-interaction &&
+        vendor/bin/phpunit --configuration phpunit.xml.dist
+    networks:
+      - chorestrike-test
+
+networks:
+  chorestrike-test:
+    driver: bridge

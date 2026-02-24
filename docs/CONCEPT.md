@@ -1,10 +1,10 @@
-# ChoreWars Concept Documentation
+# ChoreStrike Concept Documentation
 
 This document is the entry point for product concept documentation.
 
 ## Goal
 
-Define ChoreWars as a cooperative, positive household task app in the Nextcloud ecosystem, with clear rules for planning, gamification, and multilingual support.
+Define ChoreStrike as a cooperative, positive household task app in the Nextcloud ecosystem, with clear rules for planning, gamification, and multilingual support.
 
 ## Concept Document Structure
 

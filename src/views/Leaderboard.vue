@@ -1,13 +1,13 @@
 <template>
 	<div class="leaderboard">
 		<header class="page-header">
-			<h1>{{ t('chorewars', 'Leaderboard') }}</h1>
-			<p>{{ t('chorewars', 'Track team contribution and weekly medals.') }}</p>
+			<h1>{{ t('chorestrike', 'Leaderboard') }}</h1>
+			<p>{{ t('chorestrike', 'Track team contribution and weekly medals.') }}</p>
 		</header>
 
 		<div v-if="loading" class="loading-state">
 			<div class="loading-spinner" />
-			<p>{{ t('chorewars', 'Loading leaderboard...') }}</p>
+			<p>{{ t('chorestrike', 'Loading leaderboard...') }}</p>
 		</div>
 
 		<div v-else>
@@ -16,15 +16,15 @@
 			</p>
 
 			<section class="card">
-				<h2>{{ t('chorewars', 'Top Contributors') }}</h2>
+				<h2>{{ t('chorestrike', 'Top Contributors') }}</h2>
 				<ol v-if="rankedEntries.length" class="ranking-list">
 					<li v-for="entry in rankedEntries" :key="entry.id || entry.nextcloudUserId" class="ranking-item">
 						<div class="rank">
 							#{{ entry.rank }}
 						</div>
 						<div class="person">
-							<strong>{{ entry.displayName || entry.name || t('chorewars', 'Unknown') }}</strong>
-							<span>{{ t('chorewars', 'Streak: {n}', { n: entry.currentStreak || 0 }) }}</span>
+							<strong>{{ entry.displayName || entry.name || t('chorestrike', 'Unknown') }}</strong>
+							<span>{{ t('chorestrike', 'Streak: {n}', { n: entry.currentStreak || 0 }) }}</span>
 						</div>
 						<div class="metrics">
 							<span class="chip contribution">⭐ {{ entry.contributionScore || 0 }}</span>
@@ -33,25 +33,19 @@
 					</li>
 				</ol>
 				<p v-else class="empty-state">
-					{{ t('chorewars', 'No ranking data available yet.') }}
+					{{ t('chorestrike', 'No ranking data available yet.') }}
 				</p>
 			</section>
 
 			<section class="card">
-				<h2>{{ t('chorewars', 'Medals') }}</h2>
-				<div v-if="medalSummary.length" class="medal-grid">
-					<article v-for="item in medalSummary" :key="item.type" class="medal-item">
-						<div class="medal-icon">
-							{{ medalIcon(item.type) }}
-						</div>
-						<div>
-							<strong>{{ medalLabel(item.type) }}</strong>
-							<p>{{ t('chorewars', '{count} awards', { count: item.count }) }}</p>
-						</div>
-					</article>
-				</div>
+				<h2>{{ t('chorestrike', 'Medals') }}</h2>
+				<MedalList
+					v-if="gameStore.medals.length"
+					:medals="gameStore.medals"
+					show-dates
+					:empty-message="t('chorestrike', 'No medals awarded yet.')" />
 				<p v-else class="empty-state">
-					{{ t('chorewars', 'No medals awarded yet.') }}
+					{{ t('chorestrike', 'No medals awarded yet.') }}
 				</p>
 			</section>
 		</div>
@@ -63,9 +57,15 @@ import { computed, onMounted, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useGameStore } from '../store/game.js'
 import { useUserStore } from '../store/user.js'
+import MedalList from '../components/Common/MedalList.vue'
+import MedalBadge from '../components/Common/MedalBadge.vue'
 
 export default {
 	name: 'Leaderboard',
+	components: {
+		MedalList,
+		MedalBadge,
+	},
 	setup() {
 		const gameStore = useGameStore()
 		const userStore = useUserStore()
@@ -79,36 +79,6 @@ export default {
 				.map((entry, index) => ({ ...entry, rank: index + 1 }))
 		})
 
-		const medalSummary = computed(() => {
-			const grouped = gameStore.medals.reduce((acc, medal) => {
-				acc[medal.medalType] = (acc[medal.medalType] || 0) + 1
-				return acc
-			}, {})
-			return Object.entries(grouped).map(([type, count]) => ({ type, count }))
-		})
-
-		const medalLabel = (type) => {
-			const labels = {
-				team_anchor: t('chorewars', 'Team Anchor'),
-				flow_keeper: t('chorewars', 'Flow Keeper'),
-				room_guardian: t('chorewars', 'Room Guardian'),
-				team_player: t('chorewars', 'Team Player'),
-				streak_keeper: t('chorewars', 'Streak Keeper'),
-			}
-			return labels[type] || type
-		}
-
-		const medalIcon = (type) => {
-			const icons = {
-				team_anchor: '🛟',
-				flow_keeper: '🌊',
-				room_guardian: '🛡️',
-				team_player: '🤝',
-				streak_keeper: '🔥',
-			}
-			return icons[type] || '🏅'
-		}
-
 		const loadData = async () => {
 			loading.value = true
 			error.value = ''
@@ -118,7 +88,7 @@ export default {
 					userStore.initializeUsers(),
 				])
 			} catch (loadError) {
-				error.value = t('chorewars', 'Some game data could not be loaded. Showing available data.')
+				error.value = t('chorestrike', 'Some game data could not be loaded. Showing available data.')
 				try {
 					await userStore.initializeUsers()
 				} catch (userError) {
@@ -134,9 +104,6 @@ export default {
 			loading,
 			error,
 			rankedEntries,
-			medalSummary,
-			medalLabel,
-			medalIcon,
 			t,
 		}
 	},

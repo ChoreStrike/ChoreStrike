@@ -1,12 +1,12 @@
 <template>
 	<div class="task-manager">
 		<header class="page-header">
-			<h1>{{ t('chorewars', 'Task Manager') }}</h1>
-			<p>{{ t('chorewars', 'Manage room tasks across your house.') }}</p>
+			<h1>{{ t('chorestrike', 'Task Manager') }}</h1>
+			<p>{{ t('chorestrike', 'Manage room tasks across your house.') }}</p>
 		</header>
 
 		<div class="toolbar">
-			<label for="room-select">{{ t('chorewars', 'Room') }}</label>
+			<label for="room-select">{{ t('chorestrike', 'Room') }}</label>
 			<select id="room-select"
 				v-model.number="selectedRoomId"
 				class="select-input"
@@ -16,7 +16,7 @@
 				</option>
 			</select>
 			<button class="primary-button" :disabled="!selectedRoomId" @click="showAddTaskModal = true">
-				{{ t('chorewars', 'Add Task') }}
+				{{ t('chorestrike', 'Add Task') }}
 			</button>
 		</div>
 
@@ -33,7 +33,7 @@
 
 		<Modal v-if="showAddTaskModal" @close="showAddTaskModal = false">
 			<div class="modal-content">
-				<h3>{{ t('chorewars', 'Add Task to Room') }}</h3>
+				<h3>{{ t('chorestrike', 'Add Task to Room') }}</h3>
 				<TaskForm
 					:room-id="selectedRoomId"
 					@submit="addTask"
@@ -137,7 +137,10 @@ export default {
 		const completeTask = async (roomTaskId) => {
 			error.value = ''
 			try {
-				await roomTasksStore.completeRoomTask(roomTaskId, userStore.userId || 'current-user')
+				await roomTasksStore.completeRoomTask({
+					roomTaskId,
+					userId: userStore.userId || 'current-user',
+				})
 				await roomsStore.fetchFloorsWithRooms()
 				await loadRoomTasks()
 			} catch (completeError) {
@@ -146,7 +149,7 @@ export default {
 		}
 
 		const deleteTask = async (roomTaskId) => {
-			if (!confirm(t('chorewars', 'Remove this task from the room?'))) {
+			if (!confirm(t('chorestrike', 'Remove this task from the room?'))) {
 				return
 			}
 			error.value = ''

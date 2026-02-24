@@ -107,7 +107,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/tasks')
+				const response = await axios.get('/apps/chorestrike/api/v1/tasks')
 
 				if (response.data.success) {
 					this.tasks = response.data.data
@@ -131,7 +131,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/tasks/templates')
+				const response = await axios.get('/apps/chorestrike/api/v1/tasks/templates')
 
 				if (response.data.success) {
 					this.templates = response.data.data
@@ -157,7 +157,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks?roomId=${roomId}&activeOnly=${activeOnly}`)
+				const response = await axios.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${roomId}&activeOnly=${activeOnly}`)
 
 				if (response.data.success) {
 					// Update room tasks in state, removing old ones for this room
@@ -184,7 +184,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorewars/api/v1/tasks', taskData)
+				const response = await axios.post('/apps/chorestrike/api/v1/tasks', taskData)
 
 				if (response.data.success) {
 					this.tasks.push(response.data.data)
@@ -210,7 +210,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/apps/chorewars/api/v1/tasks/create-from-template/${templateId}`)
+				const response = await axios.post(`/apps/chorestrike/api/v1/tasks/create-from-template/${templateId}`)
 
 				if (response.data.success) {
 					this.tasks.push(response.data.data)
@@ -237,7 +237,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorewars/api/v1/tasks/${taskId}`, updates)
+				const response = await axios.put(`/apps/chorestrike/api/v1/tasks/${taskId}`, updates)
 
 				if (response.data.success) {
 					const taskIndex = this.tasks.findIndex(t => t.id === taskId)
@@ -265,7 +265,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/apps/chorewars/api/v1/tasks/${taskId}`)
+				const response = await axios.delete(`/apps/chorestrike/api/v1/tasks/${taskId}`)
 
 				if (response.data.success) {
 					// Remove task from state
@@ -290,7 +290,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorewars/api/v1/tasks/create-default-templates')
+				const response = await axios.post('/apps/chorestrike/api/v1/tasks/create-default-templates')
 
 				if (response.data.success) {
 					// Update templates in state
@@ -326,7 +326,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorewars/api/v1/tasks/search?query=${encodeURIComponent(query)}`)
+				const response = await axios.get(`/apps/chorestrike/api/v1/tasks/search?query=${encodeURIComponent(query)}`)
 
 				if (response.data.success) {
 					return response.data.data
@@ -351,7 +351,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorewars/api/v1/tasks/category/${encodeURIComponent(category)}`)
+				const response = await axios.get(`/apps/chorestrike/api/v1/tasks/category/${encodeURIComponent(category)}`)
 
 				if (response.data.success) {
 					return response.data.data
@@ -375,7 +375,7 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/tasks/categories')
+				const response = await axios.get('/apps/chorestrike/api/v1/tasks/categories')
 
 				if (response.data.success) {
 					return response.data.data

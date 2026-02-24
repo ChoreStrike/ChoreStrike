@@ -1,10 +1,10 @@
-# Agent Guidelines for ChoreWars Development
+# Agent Guidelines for ChoreStrike Development
 
-This document defines how AI agents should operate while building ChoreWars.
+This document defines how AI agents should operate while building ChoreStrike.
 
 ## 🎯 Project Context
 
-**ChoreWars** is an open-source Nextcloud extension for gamified household task management.
+**ChoreStrike** is an open-source Nextcloud extension for gamified household task management.
 
 ### Core Principles
 1. **Open Source First**: Everything is public (MIT license).
@@ -18,7 +18,7 @@ This document defines how AI agents should operate while building ChoreWars.
 ### Public vs. Private Separation
 
 ```
-ChoreWars/
+ChoreStrike/
 ├── public/              # Everything committed to the repository
 │   ├── src/            # Source code
 │   ├── docs/           # Documentation
@@ -68,8 +68,8 @@ public function changeSchema(IOutput $output, Closure $schemaClosure, array $opt
     /** @var ISchemaWrapper $schema */
     $schema = $schemaClosure();
     
-    if (!$schema->hasTable('chorewars_rooms')) {
-        $table = $schema->createTable('chorewars_rooms');
+    if (!$schema->hasTable('chorestrike_rooms')) {
+        $table = $schema->createTable('chorestrike_rooms');
         $table->addColumn('id', Types::BIGINT, [
             'autoincrement' => true,
             'notnull' => true,
@@ -175,8 +175,8 @@ import { translate as t } from '@nextcloud/l10n'
 
 export default {
   setup() {
-    const welcomeText = t('chorewars', 'Welcome to ChoreWars!')
-    const taskCount = (n) => n('chorewars', 
+    const welcomeText = t('chorestrike', 'Welcome to ChoreStrike!')
+    const taskCount = (n) => n('chorestrike', 
       '%n task', 
       '%n tasks', 
       count
@@ -284,7 +284,7 @@ $sql = "SELECT * FROM rooms WHERE name = '" . $name . "'";
 // GOOD - use query builder
 $qb = $this->db->getQueryBuilder();
 $qb->select('*')
-   ->from('chorewars_rooms')
+   ->from('chorestrike_rooms')
    ->where($qb->expr()->eq('name', $qb->createNamedParameter($name)));
 ```
 
@@ -398,7 +398,7 @@ Types:
 ```javascript
 // Development-Mode Logging
 if (process.env.NODE_ENV === 'development') {
-  console.log('[ChoreWars]', debugInfo)
+  console.log('[ChoreStrike]', debugInfo)
 }
 
 // Use Vue DevTools
