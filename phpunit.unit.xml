@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
+         bootstrap="tests/bootstrap-entity.php"
+         cacheResultFile=".phpunit.result.cache"
+         executionOrder="depends,defects"
+         beStrictAboutCoversAnnotation="true"
+         beStrictAboutOutputDuringTests="true"
+         beStrictAboutTodoAnnotatedTests="true"
+         failOnRisky="true"
+         failOnWarning="true"
+         verbose="true">
+    <testsuites>
+        <!-- Entity tests only - no Mapper dependencies -->
+        <testsuite name="Entity">
+            <directory>tests/unit/Db</directory>
+            <exclude>tests/unit/Db/*MapperTest.php</exclude>
+        </testsuite>
+        <!-- Service tests that don't require real database -->
+        <testsuite name="Service">
+            <directory>tests/unit/Service</directory>
+        </testsuite>
+    </testsuites>
+
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">lib</directory>
+        </include>
+    </coverage>
+</phpunit>
