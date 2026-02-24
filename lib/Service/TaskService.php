@@ -102,9 +102,14 @@ class TaskService {
 	public function updateTask(int $taskId, array $updates): Task {
 		$task = $this->taskMapper->find($taskId);
 
+		$dateFields = ['activeFrom', 'activeUntil'];
+
 		foreach ($updates as $field => $value) {
 			$method = 'set' . ucfirst($field);
 			if (method_exists($task, $method)) {
+				if (in_array($field, $dateFields) && is_string($value)) {
+					$value = new \DateTime($value);
+				}
 				$task->$method($value);
 			}
 		}
@@ -259,6 +264,31 @@ class TaskService {
 			}
 		}
 
+		// Scope type validation
+		if (isset($taskData['scopeType'])) {
+			$validScopeTypes = ['room', 'floor', 'house'];
+			if (!in_array($taskData['scopeType'], $validScopeTypes)) {
+				$errors[] = 'Invalid scope type';
+			}
+		}
+
+		// Recurrence mode validation
+		if (isset($taskData['recurrenceMode'])) {
+			$validModes = ['recurring', 'once', 'bounded'];
+			if (!in_array($taskData['recurrenceMode'], $validModes)) {
+				$errors[] = 'Invalid recurrence mode';
+			}
+		}
+
+		// Date range validation
+		if (isset($taskData['activeFrom']) && isset($taskData['activeUntil'])) {
+			$from = new \DateTime($taskData['activeFrom']);
+			$until = new \DateTime($taskData['activeUntil']);
+			if ($until < $from) {
+				$errors[] = 'Active until must be equal or after active from';
+			}
+		}
+
 		return $errors;
 	}
 
@@ -292,6 +322,7 @@ class TaskService {
 			// Maintenance tasks
 			['name' => 'Replace air filter', 'description' => 'Replace HVAC air filter', 'energyCost' => 1, 'priority' => 2, 'frequencyType' => 'monthly', 'frequencyValue' => 3, 'estimatedMinutes' => 10, 'category' => 'maintenance'],
 			['name' => 'Test smoke detectors', 'description' => 'Test and replace batteries in smoke detectors', 'energyCost' => 1, 'priority' => 3, 'frequencyType' => 'monthly', 'frequencyValue' => 1, 'estimatedMinutes' => 15, 'category' => 'maintenance'],
+			['name' => 'Take out trash', 'description' => 'Empty trash bins and take out to collection point', 'energyCost' => 1, 'priority' => 3, 'frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 10, 'category' => 'maintenance'],
 		];
 
 		$createdTemplates = [];
