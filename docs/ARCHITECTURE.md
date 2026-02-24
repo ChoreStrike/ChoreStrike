@@ -203,13 +203,13 @@ Component Update (Reactive)
 4. **API request** → `POST /api/v1/room-tasks/{id}/complete`
 5. **Controller** → `RoomTaskController::complete()`
 6. **Service logic** → `GameLogicService::handleTaskCompletion()`
-   - Calculate points
+   - Calculate contribution score and Team Sparks
    - Check for combos
    - Update room cleanliness
    - Reduce monster count
    - Award medals if applicable
 7. **Database update** → Multiple mappers
-8. **Response** → Updated task, points, game state
+8. **Response** → Updated task, rewards, streak state, and game state
 9. **Store update** → Reactive state changes
 10. **UI updates** → Animation plays, monsters disappear
 
@@ -245,7 +245,7 @@ Component Update (Reactive)
 - `id` (bigint, PK)
 - `name` (string)
 - `description` (text, nullable)
-- `difficulty` (int, 1-5)
+- `energy_cost` (int, 1-5)
 - `priority` (int, 1-3)
 - `frequency_type` (enum: daily, weekly, monthly, custom)
 - `frequency_value` (int) - e.g., every 3 days
@@ -269,7 +269,8 @@ Component Update (Reactive)
 - `house_id` (bigint, FK)
 - `nextcloud_user_id` (string)
 - `display_name` (string)
-- `total_points` (int)
+- `contribution_score` (int)
+- `team_sparks` (int)
 - `current_streak` (int)
 - `last_activity` (datetime)
 - `role` (enum: owner, member, child)
@@ -280,14 +281,14 @@ Component Update (Reactive)
 - `room_task_id` (bigint, FK)
 - `user_id` (bigint, FK)
 - `completed_at` (datetime)
-- `points_earned` (int)
+- `sparks_earned` (int) - Team Sparks reward amount
 - `was_combo` (boolean)
 - `combo_with_user_id` (bigint, FK, nullable)
 
 #### `chorewars_medals`
 - `id` (bigint, PK)
 - `user_id` (bigint, FK)
-- `medal_type` (enum: tank, scout, specialist, teamplayer, streak_keeper)
+- `medal_type` (enum: team_anchor, flow_keeper, room_guardian, team_player, streak_keeper)
 - `week_start` (date)
 - `value` (int) - e.g., number of tasks
 - `awarded_at` (datetime)
@@ -461,7 +462,7 @@ CREATE INDEX idx_house_users_house_id ON chorewars_house_users(house_id);
 
 ### Unit Tests (PHP)
 - Service logic
-- Point calculation
+- Contribution score and Team Sparks calculation
 - Task scheduling
 - Game mechanics
 

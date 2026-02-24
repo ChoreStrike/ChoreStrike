@@ -3,7 +3,10 @@
 > This document serves as the single source of truth for AI agents and developers working on ChoreWars.
 
 ## 1. Core Principles
+- **Security First:** Data and system security are the absolute highest priority. Always ensure during development and code review that no sensitive data is exposed, no unauthorized access is possible, and all Nextcloud security guidelines are strictly followed.
 - **Language:** ALL code, comments, commit messages, and documentation must be in **English only**. Chatting with the user in German is allowed.
+- **Naming & Legal Safety:** Avoid third-party brand names in product copy and concept docs unless explicitly required for technical integration.
+- **Tone:** Prefer family-friendly, non-aggressive terminology for rewards and progression systems.
 - **KISS & DRY:** Keep it simple, stupid. Don't repeat yourself.
 - **No Premature Abstraction:** Apply the Rule of Three before extracting abstractions.
 - **Single Responsibility Principle:** Each class/module has ONE job. 

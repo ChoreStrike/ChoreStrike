@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1
+
+# Use PHP 8.2 with Apache as base
+FROM php:8.2-apache
+
+# Install system dependencies and PHP extensions
+RUN apt-get update && apt-get install -y \
+    git \
+    unzip \
+    curl \
+    libzip-dev \
+    libxml2-dev \
+    libicu-dev \
+    libonig-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libmagickwand-dev \
+    libgmp-dev \
+    libpq-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
+    zip \
+    intl \
+    mbstring \
+    xml \
+    curl \
+    gd \
+    gmp \
+    pdo \
+    pdo_mysql \
+    pdo_pgsql \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Set up PHP configuration for testing
+RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory.ini
+RUN echo "error_reporting=E_ALL" > /usr/local/etc/php/conf.d/error_reporting.ini
+
+# Clone Nextcloud Server for OCP classes
+RUN git clone --depth 1 --branch stable29 https://github.com/nextcloud/server.git /var/www/html
+
+# Set up directory structure
+RUN mkdir -p /var/www/html/custom_apps/chorestrike
+
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/html
+
+# Create a simple autoloader that includes Nextcloud's OCP classes
+RUN echo '<?php\n\
+// ChoreStrike Test Bootstrap for Docker\n\
+require_once "/var/www/html/lib/public/Autoload.php";\n\
+' > /var/www/html/bootstrap.php
+
+WORKDIR /var/www/html
+
+# Default command just keeps container alive for testing
+CMD ["tail", "-f", "/dev/null"]

@@ -53,7 +53,7 @@
   - [ ] Mark tasks complete
 - [ ] Task manager view
   - [ ] All tasks overview
-  - [ ] Filter by status, priority, difficulty
+  - [ ] Filter by status, priority, energy cost
   - [ ] Create custom tasks
 - [ ] Settings view
   - [ ] House configuration
@@ -64,12 +64,16 @@
 - [ ] Organize rooms into floors
 - [ ] Create tasks with:
   - [ ] Name, description
-  - [ ] Difficulty (1-5 stars)
+  - [ ] Energy cost (1-5)
   - [ ] Priority (1-3 levels)
   - [ ] Frequency (daily, weekly, monthly, custom)
   - [ ] Estimated time
+  - [ ] Reminder settings (Nextcloud task sync compatible)
+- [ ] Configure per-member availability (presence days)
+- [ ] Configure per-day energy budgets (for example weekday/weekend)
 - [ ] Assign tasks to rooms
 - [ ] Mark tasks as complete
+- [ ] Sync completion state with Nextcloud task clients
 - [ ] Basic task scheduling (calculate next due date)
 - [ ] Task history
 
@@ -92,8 +96,9 @@
   - [ ] Aggregate cleanliness across all rooms
   - [ ] Health bar visualization
 - [ ] Points system
-  - [ ] Calculate points based on difficulty + priority
-  - [ ] Award points on task completion
+  - [ ] Calculate contribution score based on energy + priority
+  - [ ] Award Team Sparks on task completion
+  - [ ] Keep contribution score and Team Sparks as separate metrics in MVP
 
 #### Visual Design
 - [ ] Monster sprites (pixel art)
@@ -134,7 +139,7 @@
 - [ ] Task assignment
   - [ ] Assign tasks to specific users
   - [ ] Task approval for children
-- [ ] Points tracking per user
+- [ ] Contribution score and Team Sparks tracking per user
 - [ ] Streak tracking
 - [ ] Completed tasks history per user
 
@@ -144,7 +149,7 @@
   - [ ] Manage roles
   - [ ] Remove users
 - [ ] Leaderboard view
-  - [ ] Sort by points
+  - [ ] Sort by Team Sparks or contribution score
   - [ ] Filter by time period (week, month, all-time)
   - [ ] User stats
 - [ ] Task assignment UI
@@ -153,6 +158,7 @@
 #### Features
 - [ ] Invite Nextcloud users to house
 - [ ] Assign tasks to users
+- [ ] Select localized role-title naming pack (2-3 packs per language)
 - [ ] Leaderboard
 - [ ] Individual user stats
 - [ ] Streak tracking
@@ -169,13 +175,17 @@
 #### Features
 - [ ] Combo system
   - [ ] Detect tasks completed within time window
-  - [ ] Award bonus points
+  - [ ] Award Team Sparks bonus
   - [ ] Visual combo notification
+- [ ] Streak milestone rewards
+  - [ ] Absence-aware streak calculation (absence days do not break streak)
+  - [ ] Milestone tool rewards
+  - [ ] Task Pass reassignment mechanic with receiver reward boost
 - [ ] Weekly medals
-  - [ ] The Tank (most difficult tasks)
-  - [ ] The Scout (most small tasks)
-  - [ ] The Specialist (focus on specific rooms)
-  - [ ] The Teamplayer (most combos)
+  - [ ] The Team Anchor (most high-energy tasks)
+  - [ ] The Flow Keeper (most consistent effort)
+  - [ ] The Room Guardian (focus on specific rooms)
+  - [ ] The Team Player (most combos)
   - [ ] The Streak Keeper (longest streak)
 - [ ] Medal display
   - [ ] Medal badges
@@ -214,7 +224,7 @@
 - [ ] Smart task suggestions
   - [ ] Based on available time
   - [ ] Prioritize by urgency
-  - [ ] Balance difficulty
+  - [ ] Balance energy load
 - [ ] Daily task list generation
 - [ ] Task scheduling optimization
 

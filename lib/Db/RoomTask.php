@@ -1,0 +1,174 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OCA\ChoreWars\Db;
+
+use JsonSerializable;
+use OCP\AppFramework\Db\Entity;
+
+/**
+ * @method int getId()
+ * @method void setId(int $id)
+ * @method int getRoomId()
+ * @method void setRoomId(int $roomId)
+ * @method int getTaskId()
+ * @method void setTaskId(int $taskId)
+ * @method \DateTime getNextDue()
+ * @method void setNextDue(\DateTime $nextDue)
+ * @method \DateTime|null getLastCompleted()
+ * @method void setLastCompleted(?\DateTime $lastCompleted)
+ * @method string|null getAssignedToUserId()
+ * @method void setAssignedToUserId(?string $assignedToUserId)
+ * @method bool getIsActive()
+ * @method void setIsActive(bool $isActive)
+ * @method \DateTime getCreatedAt()
+ * @method void setCreatedAt(\DateTime $createdAt)
+ */
+class RoomTask extends Entity implements JsonSerializable {
+
+	/** @var int */
+	protected $roomId;
+
+	/** @var int */
+	protected $taskId;
+
+	/** @var \DateTime */
+	protected $nextDue;
+
+	/** @var \DateTime|null */
+	protected $lastCompleted;
+
+	/** @var string|null */
+	protected $assignedToUserId;
+
+	/** @var bool */
+	protected $isActive = true;
+
+	/** @var \DateTime */
+	protected $createdAt;
+
+	public function __construct() {
+		$this->addType('id', 'integer');
+		$this->addType('roomId', 'integer');
+		$this->addType('taskId', 'integer');
+		$this->addType('nextDue', 'datetime');
+		$this->addType('lastCompleted', 'datetime');
+		$this->addType('assignedToUserId', 'string');
+		$this->addType('isActive', 'boolean');
+		$this->addType('createdAt', 'datetime');
+	}
+
+	/**
+	 * Convert room task to JSON representation
+	 */
+	public function jsonSerialize(): array {
+		return [
+			'id' => $this->id,
+			'roomId' => $this->roomId,
+			'taskId' => $this->taskId,
+			'nextDue' => $this->nextDue?->format('c'),
+			'lastCompleted' => $this->lastCompleted?->format('c'),
+			'assignedToUserId' => $this->assignedToUserId,
+			'isActive' => $this->isActive,
+			'createdAt' => $this->createdAt?->format('c'),
+		];
+	}
+
+	/**
+	 * Check if task is overdue
+	 */
+	public function isOverdue(): bool {
+		return $this->nextDue < new \DateTime() && $this->isActive;
+	}
+
+	/**
+	 * Check if task is due today
+	 */
+	public function isDueToday(): bool {
+		$today = new \DateTime();
+		$today->setTime(0, 0, 0);
+		$due = clone $this->nextDue;
+		$due->setTime(0, 0, 0);
+		
+		return $due->getTimestamp() === $today->getTimestamp() && $this->isActive;
+	}
+
+	/**
+	 * Check if task is due within the next N days
+	 */
+	public function isDueWithinDays(int $days): bool {
+		$future = new \DateTime();
+		$future->add(new \DateInterval("P{$days}D"));
+		
+		return $this->nextDue <= $future && $this->isActive;
+	}
+
+	/**
+	 * Get days until due
+	 */
+	public function getDaysUntilDue(): int {
+		$today = new \DateTime();
+		$today->setTime(0, 0, 0);
+		$due = clone $this->nextDue;
+		$due->setTime(0, 0, 0);
+		
+		$interval = $today->diff($due);
+		return (int)$interval->days;
+	}
+
+	/**
+	 * Mark task as completed and calculate next due date
+	 *
+	 * @param \DateTime $completedAt The completion time
+	 * @param string $frequencyType The frequency type
+	 * @param int $frequencyValue The frequency value
+	 */
+	public function markCompleted(\DateTime $completedAt, string $frequencyType, int $frequencyValue): void {
+		$this->lastCompleted = $completedAt;
+		
+		// Calculate next due date based on frequency
+		$nextDue = clone $completedAt;
+		
+		switch ($frequencyType) {
+			case 'daily':
+				$nextDue->add(new \DateInterval("P{$frequencyValue}D"));
+				break;
+			case 'weekly':
+				$nextDue->add(new \DateInterval("P{$frequencyValue}W"));
+				break;
+			case 'monthly':
+				$nextDue->add(new \DateInterval("P{$frequencyValue}M"));
+				break;
+			case 'custom':
+				// For custom, default to 1 week
+				$nextDue->add(new \DateInterval('P1W'));
+				break;
+		}
+		
+		$this->nextDue = $nextDue;
+	}
+
+	/**
+	 * Get status as string
+	 */
+	public function getStatus(): string {
+		if (!$this->isActive) {
+			return 'inactive';
+		}
+		
+		if ($this->isOverdue()) {
+			return 'overdue';
+		}
+		
+		if ($this->isDueToday()) {
+			return 'due_today';
+		}
+		
+		if ($this->isDueWithinDays(3)) {
+			return 'due_soon';
+		}
+		
+		return 'upcoming';
+	}
+}

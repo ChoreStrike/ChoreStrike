@@ -1,0 +1,627 @@
+import { defineStore } from 'pinia'
+import axios from '@nextcloud/axios'
+
+export const useRoomTasksStore = defineStore('roomTasks', {
+	state: () => ({
+		roomTasks: [],
+		loading: false,
+		error: null,
+	}),
+
+	getters: {
+		getRoomTaskById: (state) => (roomTaskId) => {
+			return state.roomTasks.find(roomTask => roomTask.id === roomTaskId)
+		},
+
+		activeRoomTasks: (state) => state.roomTasks.filter(roomTask => roomTask.isActive),
+
+		inactiveRoomTasks: (state) => state.roomTasks.filter(roomTask => !roomTask.isActive),
+
+		overdueRoomTasks: (state) => {
+			return state.roomTasks.filter(roomTask => {
+				return roomTask.isActive && new Date(roomTask.nextDue) < new Date()
+			})
+		},
+
+		dueTodayRoomTasks: (state) => {
+			const today = new Date()
+			today.setHours(0, 0, 0, 0)
+			const tomorrow = new Date(today)
+			tomorrow.setDate(tomorrow.getDate() + 1)
+
+			return state.roomTasks.filter(roomTask => {
+				if (!roomTask.isActive) return false
+				const dueDate = new Date(roomTask.nextDue)
+				return dueDate >= today && dueDate < tomorrow
+			})
+		},
+
+		dueSoonRoomTasks: (state) => {
+			const now = new Date()
+			const future = new Date()
+			future.setDate(future.getDate() + 3)
+
+			return state.roomTasks.filter(roomTask => {
+				if (!roomTask.isActive) return false
+				const dueDate = new Date(roomTask.nextDue)
+				return dueDate >= now && dueDate <= future
+			})
+		},
+
+		roomTasksByRoom: (state) => {
+			const tasksByRoom = {}
+			state.roomTasks.forEach(roomTask => {
+				if (!tasksByRoom[roomTask.roomId]) {
+					tasksByRoom[roomTask.roomId] = []
+				}
+				tasksByRoom[roomTask.roomId].push(roomTask)
+			})
+			return tasksByRoom
+		},
+
+		roomTasksByUser: (state) => {
+			const tasksByUser = {}
+			state.roomTasks.forEach(roomTask => {
+				const userId = roomTask.assignedToUserId || 'unassigned'
+				if (!tasksByUser[userId]) {
+					tasksByUser[userId] = []
+				}
+				tasksByUser[userId].push(roomTask)
+			})
+			return tasksByUser
+		},
+
+		unassignedRoomTasks: (state) => {
+			return state.roomTasks.filter(roomTask =>
+				roomTask.isActive && !roomTask.assignedToUserId,
+			)
+		},
+
+		assignedRoomTasks: (state) => {
+			return state.roomTasks.filter(roomTask =>
+				roomTask.isActive && roomTask.assignedToUserId,
+			)
+		},
+
+		// Statistics
+		totalActiveTasks: (state) => state.roomTasks.filter(roomTask => roomTask.isActive).length,
+
+		totalOverdueTasks: (state) => {
+			return state.roomTasks.filter(roomTask => {
+				return roomTask.isActive && new Date(roomTask.nextDue) < new Date()
+			}).length
+		},
+
+		totalDueTodayTasks: (state) => {
+			const today = new Date()
+			today.setHours(0, 0, 0, 0)
+			const tomorrow = new Date(today)
+			tomorrow.setDate(tomorrow.getDate() + 1)
+
+			return state.roomTasks.filter(roomTask => {
+				if (!roomTask.isActive) return false
+				const dueDate = new Date(roomTask.nextDue)
+				return dueDate >= today && dueDate < tomorrow
+			}).length
+		},
+	},
+
+	actions: {
+		/**
+		 * Fetch room tasks for a room
+		 * @param roomId
+		 * @param activeOnly
+		 */
+		async fetchRoomTasks(roomId, activeOnly = true) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks?roomId=${roomId}&activeOnly=${activeOnly}`)
+
+				if (response.data.success) {
+					// Update room tasks in state, removing old ones for this room
+					this.roomTasks = this.roomTasks.filter(roomTask => roomTask.roomId !== roomId)
+					this.roomTasks.push(...response.data.data)
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch room tasks')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to fetch room tasks:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Get room task with details
+		 * @param roomTaskId
+		 */
+		async fetchRoomTaskWithDetails(roomTaskId) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}`)
+
+				if (response.data.success) {
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch room task details')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to fetch room task details:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Create a new room task
+		 * @param roomTaskData
+		 */
+		async createRoomTask(roomTaskData) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.post('/apps/chorewars/api/v1/room-tasks', roomTaskData)
+
+				if (response.data.success) {
+					this.roomTasks.push(response.data.data)
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to create room task')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to create room task:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Assign room task to user
+		 * @param roomTaskId
+		 * @param userId
+		 */
+		async assignRoomTask(roomTaskId, userId) {
+			if (!userId || userId.trim() === '') {
+				throw new Error('User ID is required')
+			}
+
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.post(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/assign`, { userId })
+
+				if (response.data.success) {
+					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+					if (roomTaskIndex >= 0) {
+						this.roomTasks[roomTaskIndex] = response.data.data
+					}
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to assign room task')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to assign room task:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Unassign room task from user
+		 * @param roomTaskId
+		 */
+		async unassignRoomTask(roomTaskId) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.post(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/unassign`)
+
+				if (response.data.success) {
+					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+					if (roomTaskIndex >= 0) {
+						this.roomTasks[roomTaskIndex] = response.data.data
+					}
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to unassign room task')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to unassign room task:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Deactivate room task
+		 * @param roomTaskId
+		 */
+		async deactivateRoomTask(roomTaskId) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.post(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/deactivate`)
+
+				if (response.data.success) {
+					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+					if (roomTaskIndex >= 0) {
+						this.roomTasks[roomTaskIndex] = response.data.data
+					}
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to deactivate room task')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to deactivate room task:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Reactivate room task
+		 * @param roomTaskId
+		 */
+		async reactivateRoomTask(roomTaskId) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.post(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/reactivate`)
+
+				if (response.data.success) {
+					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+					if (roomTaskIndex >= 0) {
+						this.roomTasks[roomTaskIndex] = response.data.data
+					}
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to reactivate room task')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to reactivate room task:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Update room task due date
+		 * @param roomTaskId
+		 * @param nextDue
+		 */
+		async updateRoomTaskDueDate(roomTaskId, nextDue) {
+			if (!nextDue) {
+				throw new Error('Next due date is required')
+			}
+
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.put(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/due-date`, { nextDue })
+
+				if (response.data.success) {
+					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+					if (roomTaskIndex >= 0) {
+						this.roomTasks[roomTaskIndex] = response.data.data
+					}
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to update room task due date')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to update room task due date:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Complete room task
+		 * @param roomTaskId
+		 * @param userId
+		 */
+		async completeRoomTask(roomTaskId, userId) {
+			if (!userId || userId.trim() === '') {
+				throw new Error('User ID is required')
+			}
+
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.post(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}/complete`, { userId })
+
+				if (response.data.success) {
+					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+					if (roomTaskIndex >= 0) {
+						this.roomTasks[roomTaskIndex] = response.data.data.roomTask
+					}
+
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to complete room task')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to complete room task:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Delete room task
+		 * @param roomTaskId
+		 */
+		async deleteRoomTask(roomTaskId) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.delete(`/apps/chorewars/api/v1/room-tasks/${roomTaskId}`)
+
+				if (response.data.success) {
+					// Remove room task from state
+					this.roomTasks = this.roomTasks.filter(rt => rt.id !== roomTaskId)
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to delete room task')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to delete room task:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Get overdue tasks
+		 * @param roomId
+		 */
+		async fetchOverdueTasks(roomId = null) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const url = roomId
+					? `/apps/chorewars/api/v1/room-tasks/overdue?roomId=${roomId}`
+					: '/apps/chorewars/api/v1/room-tasks/overdue'
+
+				const response = await axios.get(url)
+
+				if (response.data.success) {
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch overdue tasks')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to fetch overdue tasks:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Get tasks due today
+		 * @param roomId
+		 */
+		async fetchDueTodayTasks(roomId = null) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const url = roomId
+					? `/apps/chorewars/api/v1/room-tasks/due-today?roomId=${roomId}`
+					: '/apps/chorewars/api/v1/room-tasks/due-today'
+
+				const response = await axios.get(url)
+
+				if (response.data.success) {
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch due today tasks')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to fetch due today tasks:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Get tasks due within days
+		 * @param days
+		 * @param roomId
+		 */
+		async fetchDueWithinDaysTasks(days, roomId = null) {
+			if (days < 1 || days > 365) {
+				throw new Error('Days must be between 1 and 365')
+			}
+
+			this.loading = true
+			this.error = null
+
+			try {
+				const url = roomId
+					? `/apps/chorewars/api/v1/room-tasks/due-within-days?days=${days}&roomId=${roomId}`
+					: `/apps/chorewars/api/v1/room-tasks/due-within-days?days=${days}`
+
+				const response = await axios.get(url)
+
+				if (response.data.success) {
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch due within days tasks')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to fetch due within days tasks:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Get user tasks
+		 * @param userId
+		 * @param activeOnly
+		 */
+		async fetchUserTasks(userId, activeOnly = true) {
+			if (!userId || userId.trim() === '') {
+				throw new Error('User ID is required')
+			}
+
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks/user/${userId}?activeOnly=${activeOnly}`)
+
+				if (response.data.success) {
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch user tasks')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to fetch user tasks:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Get room task statistics
+		 * @param roomId
+		 */
+		async fetchRoomTaskStats(roomId) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks/room/${roomId}/stats`)
+
+				if (response.data.success) {
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch room task stats')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to fetch room task stats:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Get user task statistics
+		 * @param userId
+		 */
+		async fetchUserTaskStats(userId) {
+			if (!userId || userId.trim() === '') {
+				throw new Error('User ID is required')
+			}
+
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.get(`/apps/chorewars/api/v1/room-tasks/user/${userId}/stats`)
+
+				if (response.data.success) {
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch user task stats')
+				}
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to fetch user task stats:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Bulk assign tasks to user
+		 * @param roomTaskIds
+		 * @param userId
+		 */
+		async bulkAssignTasks(roomTaskIds, userId) {
+			if (!userId || userId.trim() === '') {
+				throw new Error('User ID is required')
+			}
+
+			this.loading = true
+			this.error = null
+
+			try {
+				// For now, assign tasks one by one (API doesn't have bulk endpoint yet)
+				const results = []
+				for (const roomTaskId of roomTaskIds) {
+					try {
+						await this.assignRoomTask(roomTaskId, userId)
+						results.push({ success: true, roomTaskId })
+					} catch (error) {
+						results.push({ success: false, roomTaskId, error: error.message })
+					}
+				}
+
+				return results
+			} catch (error) {
+				this.error = error.message
+				console.error('Failed to bulk assign tasks:', error)
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Clear error state
+		 */
+		clearError() {
+			this.error = null
+		},
+
+		/**
+		 * Reset store state
+		 */
+		reset() {
+			this.roomTasks = []
+			this.loading = false
+			this.error = null
+		},
+	},
+})
