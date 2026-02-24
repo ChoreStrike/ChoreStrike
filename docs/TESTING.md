@@ -215,20 +215,23 @@ The test environment consists of:
 ## Test Results
 
 Current test status (as of last run):
-- **Total Tests**: 269
-- **Assertions**: 316
-- **Status**: 
-  - Unit tests: Mostly passing (4 failures to fix)
-  - Integration tests: Require mock configuration fixes
 
-### Known Issues
+### Entity Tests (Working ✓)
+```bash
+docker compose -f docker-compose.test.yml run --rm nextcloud-test \
+  vendor/bin/phpunit --configuration phpunit.unit.xml --testsuite Entity
+```
+- **Tests**: 107
+- **Status**: All passing ✓
+- **Coverage**: Room, Task, Floor, House, HouseUser, Medal, RoomTask, TaskScope entities
 
-The following tests need attention:
-1. `RoomTest::testUpdateCleanliness_UpdatesCleanlinessAndLastCleaned` - Logic issue
-2. `GameLogicServiceTest::testCalculateContributionScore_VeryDirtyRoom_ReturnsHigherScore` - Score calculation
-3. `RoomServiceTest::testCompleteRoomTask_ValidTask_ReturnsCompletionData` - Mock expectations
-4. `RoomTaskServiceTest::testGetRoomTaskWithDetails_WithData_ReturnsCompleteDetails` - Status string mismatch
-5. Integration tests - Controller constructor mocks need fixing
+### Service Tests (Requires QBMapper mock)
+- Status: Needs `OCP\AppFramework\Db\QBMapper` mock implementation
+- Affected: All *ServiceTest classes that extend Mapper-dependent services
+
+### Integration Tests
+- Status: Controller constructor mocks need type alignment
+- Affected: All *ControllerIntegrationTest classes
 
 ## Without Docker (Limited)
 
