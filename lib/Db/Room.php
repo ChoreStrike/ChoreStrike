@@ -96,7 +96,7 @@ class Room extends Entity implements JsonSerializable {
 	 * Check if room needs cleaning
 	 */
 	public function needsCleaning(): bool {
-		return $this->cleanliness < 60 || $this->monsterCount > 1;
+		return $this->cleanliness < 60 || $this->monsterCount >= 1;
 	}
 
 	/**

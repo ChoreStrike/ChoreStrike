@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Controller;
+namespace OCA\ChoreWars\Controller;
 
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreWars\Db\HouseUserMapper;
+use OCA\ChoreWars\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -26,7 +26,7 @@ class UserController extends OCSController {
 		HouseService $houseService,
 		IUserManager $userManager
 	) {
-		parent::__construct($request);
+		parent::__construct('chorewars', $request);
 		$this->houseUserMapper = $houseUserMapper;
 		$this->houseService = $houseService;
 		$this->userManager = $userManager;

@@ -22,6 +22,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setAssignedToUserId(?string $assignedToUserId)
  * @method bool getIsActive()
  * @method void setIsActive(bool $isActive)
+ * @method int|null getScopeId()
+ * @method void setScopeId(?int $scopeId)
+ * @method int|null getNextcloudTaskId()
+ * @method void setNextcloudTaskId(?int $nextcloudTaskId)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
@@ -45,6 +49,12 @@ class RoomTask extends Entity implements JsonSerializable {
 	/** @var bool */
 	protected $isActive = true;
 
+	/** @var int|null */
+	protected $scopeId;
+
+	/** @var int|null */
+	protected $nextcloudTaskId;
+
 	/** @var \DateTime */
 	protected $createdAt;
 
@@ -56,6 +66,8 @@ class RoomTask extends Entity implements JsonSerializable {
 		$this->addType('lastCompleted', 'datetime');
 		$this->addType('assignedToUserId', 'string');
 		$this->addType('isActive', 'boolean');
+		$this->addType('scopeId', 'integer');
+		$this->addType('nextcloudTaskId', 'integer');
 		$this->addType('createdAt', 'datetime');
 	}
 
@@ -71,6 +83,8 @@ class RoomTask extends Entity implements JsonSerializable {
 			'lastCompleted' => $this->lastCompleted?->format('c'),
 			'assignedToUserId' => $this->assignedToUserId,
 			'isActive' => $this->isActive,
+			'scopeId' => $this->scopeId,
+			'nextcloudTaskId' => $this->nextcloudTaskId,
 			'createdAt' => $this->createdAt?->format('c'),
 		];
 	}
@@ -105,7 +119,7 @@ class RoomTask extends Entity implements JsonSerializable {
 	}
 
 	/**
-	 * Get days until due
+	 * Get days until due (negative if overdue)
 	 */
 	public function getDaysUntilDue(): int {
 		$today = new \DateTime();
@@ -114,7 +128,7 @@ class RoomTask extends Entity implements JsonSerializable {
 		$due->setTime(0, 0, 0);
 		
 		$interval = $today->diff($due);
-		return (int)$interval->days;
+		return $interval->invert ? -(int)$interval->days : (int)$interval->days;
 	}
 
 	/**

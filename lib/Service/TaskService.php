@@ -49,6 +49,12 @@ class TaskService {
 	 * @param int $frequencyValue The frequency value
 	 * @param int $estimatedMinutes Estimated time in minutes
 	 * @param string $category The task category
+	 * @param string $scopeType The scope type (room, floor, house)
+	 * @param string|null $scopeLabel Optional scope label
+	 * @param string $recurrenceMode Recurrence mode (recurring, once, bounded)
+	 * @param \DateTime|null $activeFrom Optional start date
+	 * @param \DateTime|null $activeUntil Optional end date
+	 * @param bool $isVoluntary Whether task is voluntary
 	 * @param bool $isTemplate Whether this is a template
 	 */
 	public function createTask(
@@ -60,9 +66,15 @@ class TaskService {
 		int $frequencyValue,
 		int $estimatedMinutes,
 		string $category,
+		string $scopeType = 'room',
+		?string $scopeLabel = null,
+		string $recurrenceMode = 'recurring',
+		?\DateTime $activeFrom = null,
+		?\DateTime $activeUntil = null,
+		bool $isVoluntary = false,
 		bool $isTemplate = false
 	): Task {
-		$task = $this->taskMapper->create(
+		return $this->taskMapper->create(
 			$name,
 			$description,
 			$energyCost,
@@ -71,10 +83,14 @@ class TaskService {
 			$frequencyValue,
 			$estimatedMinutes,
 			$category,
+			$scopeType,
+			$scopeLabel,
+			$recurrenceMode,
+			$activeFrom,
+			$activeUntil,
+			$isVoluntary,
 			$isTemplate
 		);
-
-		return $task;
 	}
 
 	/**
@@ -184,6 +200,12 @@ class TaskService {
 			$frequencyValue,
 			$estimatedMinutes,
 			$category,
+			'room',
+			null,
+			'recurring',
+			null,
+			null,
+			false,
 			true // isTemplate = true
 		);
 	}

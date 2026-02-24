@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Tests\Unit\Db;
+namespace OCA\ChoreWars\Tests\Unit\Db;
 
-use OCA\ChoreStrike\Db\Floor;
+use OCA\ChoreWars\Db\Floor;
 use PHPUnit\Framework\TestCase;
 
 /**

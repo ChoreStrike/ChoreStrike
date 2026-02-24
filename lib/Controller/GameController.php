@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Controller;
+namespace OCA\ChoreWars\Controller;
 
-use OCA\ChoreStrike\Service\GameLogicService;
-use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreWars\Service\GameLogicService;
+use OCA\ChoreWars\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -23,7 +23,7 @@ class GameController extends OCSController {
 		GameLogicService $gameLogicService,
 		HouseService $houseService
 	) {
-		parent::__construct($request);
+		parent::__construct('chorewars', $request);
 		$this->gameLogicService = $gameLogicService;
 		$this->houseService = $houseService;
 	}

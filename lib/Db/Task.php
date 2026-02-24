@@ -28,6 +28,22 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCategory(string $category)
  * @method bool getIsTemplate()
  * @method void setIsTemplate(bool $isTemplate)
+ * @method string getScopeType()
+ * @method void setScopeType(string $scopeType)
+ * @method string|null getScopeLabel()
+ * @method void setScopeLabel(?string $scopeLabel)
+ * @method string getRecurrenceMode()
+ * @method void setRecurrenceMode(string $recurrenceMode)
+ * @method \DateTime|null getActiveFrom()
+ * @method void setActiveFrom(?\DateTime $activeFrom)
+ * @method \DateTime|null getActiveUntil()
+ * @method void setActiveUntil(?\DateTime $activeUntil)
+ * @method bool getIsVoluntary()
+ * @method void setIsVoluntary(bool $isVoluntary)
+ * @method string|null getReminderType()
+ * @method void setReminderType(?string $reminderType)
+ * @method int|null getReminderMinutesBefore()
+ * @method void setReminderMinutesBefore(?int $reminderMinutesBefore)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
@@ -60,6 +76,30 @@ class Task extends Entity implements JsonSerializable {
 	/** @var bool */
 	protected $isTemplate = false;
 
+	/** @var string */
+	protected $scopeType = 'room';
+
+	/** @var string|null */
+	protected $scopeLabel;
+
+	/** @var string */
+	protected $recurrenceMode = 'recurring';
+
+	/** @var \DateTime|null */
+	protected $activeFrom;
+
+	/** @var \DateTime|null */
+	protected $activeUntil;
+
+	/** @var bool */
+	protected $isVoluntary = false;
+
+	/** @var string|null */
+	protected $reminderType;
+
+	/** @var int|null */
+	protected $reminderMinutesBefore;
+
 	/** @var \DateTime */
 	protected $createdAt;
 
@@ -74,6 +114,14 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('estimatedMinutes', 'integer');
 		$this->addType('category', 'string');
 		$this->addType('isTemplate', 'boolean');
+		$this->addType('scopeType', 'string');
+		$this->addType('scopeLabel', 'string');
+		$this->addType('recurrenceMode', 'string');
+		$this->addType('activeFrom', 'datetime');
+		$this->addType('activeUntil', 'datetime');
+		$this->addType('isVoluntary', 'boolean');
+		$this->addType('reminderType', 'string');
+		$this->addType('reminderMinutesBefore', 'integer');
 		$this->addType('createdAt', 'datetime');
 	}
 
@@ -92,6 +140,12 @@ class Task extends Entity implements JsonSerializable {
 			'estimatedMinutes' => $this->estimatedMinutes,
 			'category' => $this->category,
 			'isTemplate' => $this->isTemplate,
+			'scopeType' => $this->scopeType,
+			'scopeLabel' => $this->scopeLabel,
+			'recurrenceMode' => $this->recurrenceMode,
+			'activeFrom' => $this->activeFrom?->format('c'),
+			'activeUntil' => $this->activeUntil?->format('c'),
+			'isVoluntary' => $this->isVoluntary,
 			'createdAt' => $this->createdAt?->format('c'),
 		];
 	}

@@ -103,12 +103,14 @@ class RoomTaskService {
 	 * @param int $roomId The room ID
 	 * @param int $taskId The task ID
 	 * @param \DateTime|null $nextDue Optional next due date (defaults to tomorrow)
+	 * @param int|null $scopeId Optional scope ID
 	 * @param string|null $assignedToUserId Optional assigned user ID
 	 */
 	public function createRoomTask(
 		int $roomId,
 		int $taskId,
 		?\DateTime $nextDue = null,
+		?int $scopeId = null,
 		?string $assignedToUserId = null
 	): RoomTask {
 		// Verify room exists
@@ -128,7 +130,18 @@ class RoomTaskService {
 			$nextDue->add(new \DateInterval('P1D'));
 		}
 
-		return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $assignedToUserId);
+		return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $assignedToUserId, $scopeId);
+	}
+
+	/**
+	 * Get room tasks for a scope
+	 *
+	 * @param int $scopeId The scope ID
+	 * @param bool $activeOnly Whether to return only active tasks
+	 * @return RoomTask[]
+	 */
+	public function getScopeTasks(int $scopeId, bool $activeOnly = true): array {
+		return $this->roomTaskMapper->findByScopeId($scopeId, $activeOnly);
 	}
 
 	/**

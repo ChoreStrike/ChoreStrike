@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Service;
+namespace OCA\ChoreWars\Service;
 
-use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreWars\Db\HouseUser;
+use OCA\ChoreWars\Db\HouseUserMapper;
 
 /**
  * Service for managing member scheduling preferences (availability and energy budget)

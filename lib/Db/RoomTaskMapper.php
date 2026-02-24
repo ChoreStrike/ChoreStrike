@@ -162,17 +162,59 @@ class RoomTaskMapper extends QBMapper {
 	 * @param int $taskId The task ID
 	 * @param \DateTime $nextDue The next due date
 	 * @param string|null $assignedToUserId Optional assigned user ID
+	 * @param int|null $scopeId Optional scope ID
 	 */
-	public function create(int $roomId, int $taskId, \DateTime $nextDue, ?string $assignedToUserId = null): RoomTask {
+	public function create(int $roomId, int $taskId, \DateTime $nextDue, ?string $assignedToUserId = null, ?int $scopeId = null): RoomTask {
 		$roomTask = new RoomTask();
 		$roomTask->setRoomId($roomId);
 		$roomTask->setTaskId($taskId);
 		$roomTask->setNextDue($nextDue);
 		$roomTask->setAssignedToUserId($assignedToUserId);
+		$roomTask->setScopeId($scopeId);
 		$roomTask->setIsActive(true);
 		$roomTask->setCreatedAt(new \DateTime());
 
 		return $this->insert($roomTask);
+	}
+
+	/**
+	 * Find room task linked to a Nextcloud task
+	 *
+	 * @param int $nextcloudTaskId The Nextcloud task ID
+	 */
+	public function findByNextcloudTaskId(int $nextcloudTaskId): ?RoomTask {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('nextcloud_task_id', $qb->createNamedParameter($nextcloudTaskId, IQueryBuilder::PARAM_INT)))
+			->setMaxResults(1);
+
+		$entities = $this->findEntities($qb);
+		return $entities[0] ?? null;
+	}
+
+	/**
+	 * Find room tasks by scope ID
+	 *
+	 * @param int $scopeId The scope ID
+	 * @param bool $activeOnly Whether to return only active tasks
+	 * @return RoomTask[]
+	 */
+	public function findByScopeId(int $scopeId, bool $activeOnly = true): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('scope_id', $qb->createNamedParameter($scopeId, IQueryBuilder::PARAM_INT)));
+
+		if ($activeOnly) {
+			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+		}
+
+		$qb->orderBy('next_due', 'ASC');
+
+		return $this->findEntities($qb);
 	}
 
 	/**

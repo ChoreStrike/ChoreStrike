@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Controller;
+namespace OCA\ChoreWars\Controller;
 
-use OCA\ChoreStrike\Service\SchedulingService;
+use OCA\ChoreWars\Service\SchedulingService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -20,7 +20,7 @@ class SchedulingController extends OCSController {
 		IRequest $request,
 		SchedulingService $schedulingService
 	) {
-		parent::__construct($request);
+		parent::__construct('chorewars', $request);
 		$this->schedulingService = $schedulingService;
 	}
 

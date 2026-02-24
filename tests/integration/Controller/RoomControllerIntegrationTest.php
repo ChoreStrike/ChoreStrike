@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Tests\Integration\Controller;
+namespace OCA\ChoreWars\Tests\Integration\Controller;
 
-use OCA\ChoreStrike\Controller\RoomController;
-use OCA\ChoreStrike\Service\RoomService;
+use OCA\ChoreWars\Controller\RoomController;
+use OCA\ChoreWars\Service\RoomService;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 

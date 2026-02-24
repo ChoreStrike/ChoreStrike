@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Tests\Unit\Service;
+namespace OCA\ChoreWars\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Service\TaskService;
+use OCA\ChoreWars\Db\Task;
+use OCA\ChoreWars\Db\TaskMapper;
+use OCA\ChoreWars\Service\TaskService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\TestCase;
 

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Tests\Unit\Db;
+namespace OCA\ChoreWars\Tests\Unit\Db;
 
-use OCA\ChoreStrike\Db\CompletedTask;
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreWars\Db\CompletedTask;
+use OCA\ChoreWars\Db\CompletedTaskMapper;
+use OCA\ChoreWars\Db\HouseUser;
+use OCA\ChoreWars\Db\HouseUserMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\DB\QueryBuilder\IExpressionBuilder;
 use OCP\DB\QueryBuilder\IQueryBuilder;

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Controller;
+namespace OCA\ChoreWars\Controller;
 
-use OCA\ChoreStrike\Service\TaskService;
+use OCA\ChoreWars\Service\TaskService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -20,7 +20,7 @@ class TaskController extends OCSController {
 		IRequest $request,
 		TaskService $taskService
 	) {
-		parent::__construct($request);
+		parent::__construct('chorewars', $request);
 		$this->taskService = $taskService;
 	}
 

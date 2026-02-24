@@ -100,6 +100,12 @@ class TaskMapper extends QBMapper {
 	 * @param int $frequencyValue The frequency value
 	 * @param int $estimatedMinutes Estimated time in minutes
 	 * @param string $category The task category
+	 * @param string $scopeType The scope type (room, floor, house)
+	 * @param string|null $scopeLabel Optional scope label
+	 * @param string $recurrenceMode Recurrence mode (recurring, once, bounded)
+	 * @param \DateTime|null $activeFrom Optional start date
+	 * @param \DateTime|null $activeUntil Optional end date
+	 * @param bool $isVoluntary Whether task is voluntary
 	 * @param bool $isTemplate Whether this is a template
 	 */
 	public function create(
@@ -111,6 +117,12 @@ class TaskMapper extends QBMapper {
 		int $frequencyValue,
 		int $estimatedMinutes,
 		string $category,
+		string $scopeType = 'room',
+		?string $scopeLabel = null,
+		string $recurrenceMode = 'recurring',
+		?\DateTime $activeFrom = null,
+		?\DateTime $activeUntil = null,
+		bool $isVoluntary = false,
 		bool $isTemplate = false
 	): Task {
 		$task = new Task();
@@ -122,6 +134,12 @@ class TaskMapper extends QBMapper {
 		$task->setFrequencyValue($frequencyValue);
 		$task->setEstimatedMinutes($estimatedMinutes);
 		$task->setCategory($category);
+		$task->setScopeType($scopeType);
+		$task->setScopeLabel($scopeLabel);
+		$task->setRecurrenceMode($recurrenceMode);
+		$task->setActiveFrom($activeFrom);
+		$task->setActiveUntil($activeUntil);
+		$task->setIsVoluntary($isVoluntary);
 		$task->setIsTemplate($isTemplate);
 		$task->setCreatedAt(new \DateTime());
 
