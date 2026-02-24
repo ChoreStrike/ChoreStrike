@@ -12,10 +12,45 @@ $isDocker = getenv('NEXTCLOUD_TEST_ENV') === 'true' || file_exists('/.dockerenv'
 
 if ($isDocker) {
     // Docker environment - Nextcloud core is cloned in /var/www/html
-    $nextcloudBase = '/var/www/html';
+    $ocpBase = '/var/www/html/lib/public';
 
-    // Load Nextcloud's public API autoloader
-    // The OCP classes are in /var/www/html/lib/public/
+    // Load all OCP\DB classes first (dependencies for QBMapper)
+    $dbClasses = [
+        'OCP/DB/Exception.php',
+        'OCP/DB/QueryBuilder/IQueryBuilder.php',
+        'OCP/DB/QueryBuilder/IFunctionBuilder.php',
+        'OCP/DB/QueryBuilder/ILiteral.php',
+        'OCP/DB/QueryBuilder/IParameter.php',
+        'OCP/DB/QueryBuilder/IFunction.php',
+        'OCP/IDBConnection.php',
+    ];
+
+    foreach ($dbClasses as $file) {
+        $fullPath = "/var/www/html/lib/public/$file";
+        if (file_exists($fullPath)) {
+            require_once $fullPath;
+        }
+    }
+
+    // Load core AppFramework Db classes
+    $dbCoreClasses = [
+        'AppFramework/Db/Entity.php',
+        'AppFramework/Db/DoesNotExistException.php',
+        'AppFramework/Db/MultipleObjectsReturnedException.php',
+        'AppFramework/Db/QBMapper.php',
+    ];
+
+    foreach ($dbCoreClasses as $file) {
+        $fullPath = "/var/www/html/lib/public/$file";
+        if (file_exists($fullPath)) {
+            require_once $fullPath;
+        }
+    }
+
+    // Register ChoreStrike autoloader
+    require_once __DIR__ . '/../vendor/autoload.php';
+
+    // Register fallback autoloader for remaining OCP classes
     spl_autoload_register(function ($class) {
         if (strpos($class, 'OCP\\') === 0) {
             $file = '/var/www/html/lib/public/' . str_replace('\\', '/', substr($class, 4)) . '.php';
@@ -25,13 +60,9 @@ if ($isDocker) {
             }
         }
         return false;
-    });
-
-    // Register ChoreStrike autoloader
-    require_once __DIR__ . '/../vendor/autoload.php';
+    }, true, true);
 } else {
     // Local environment - only vendor autoloader available
-    // Note: Tests requiring OCP\* classes will fail in this mode
     require_once __DIR__ . '/../vendor/autoload.php';
 }
 
