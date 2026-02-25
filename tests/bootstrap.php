@@ -14,6 +14,9 @@ if ($isDocker) {
     // Docker environment - Nextcloud core is cloned in /var/www/html
     // Manually load required OCP classes in correct order
     
+    // Load Doctrine DBAL mock first (required by IQueryBuilder)
+    require_once __DIR__ . '/__mocks__/Doctrine/DBAL/ParameterType.php';
+    
     $ocpClasses = [
         // DB interfaces first
         'OCP/DB/Exception.php',
@@ -59,6 +62,7 @@ if ($isDocker) {
     }, true, true);
 } else {
     // Local environment - load mocks first
+    require_once __DIR__ . '/__mocks__/Doctrine/DBAL/ParameterType.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/Entity.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/QBMapper.php';
     require_once __DIR__ . '/__mocks__/OCP/IRequest.php';
