@@ -2,7 +2,7 @@
 	<div class="floor-list">
 		<div class="floor-header">
 			<h3 class="floor-title">
-				<span class="icon">🏢</span>
+				<Icon name="Building" :size="20" class="icon" />
 				Floors & Rooms
 			</h3>
 			<div class="floor-actions">
@@ -11,13 +11,13 @@
 					:disabled="loading"
 					title="Refresh floors"
 					@click="refreshFloors">
-					<span class="icon">🔄</span>
+					<Icon name="RefreshCw" :size="16" />
 				</button>
 				<button
 					class="add-button"
 					title="Add new floor"
 					@click="addFloor">
-					<span class="icon">➕</span>
+					<Icon name="Plus" :size="16" />
 				</button>
 			</div>
 		</div>
@@ -31,12 +31,12 @@
 		<!-- Empty State -->
 		<div v-else-if="floors.length === 0" class="empty-state">
 			<div class="empty-icon">
-				🏠
+				<Icon name="Home" :size="48" />
 			</div>
 			<h4>No floors yet</h4>
 			<p>Create your first floor to get started with organizing your home.</p>
 			<button class="primary-button" @click="addFloor">
-				<span class="icon">➕</span>
+				<Icon name="Plus" :size="16" class="icon" />
 				Create First Floor
 			</button>
 		</div>
@@ -65,19 +65,19 @@
 							class="toggle-button"
 							:class="{ expanded: expandedFloors.includes(floor.id) }"
 							@click="toggleFloor(floor.id)">
-							<span class="icon">{{ expandedFloors.includes(floor.id) ? '▼' : '▶' }}</span>
+							<Icon :name="expandedFloors.includes(floor.id) ? 'ChevronDown' : 'ChevronRight'" :size="16" />
 						</button>
 						<button
 							class="edit-button"
 							title="Edit floor"
 							@click="editFloor(floor)">
-							<span class="icon">✏️</span>
+							<Icon name="Edit" :size="16" />
 						</button>
 						<button
 							class="delete-button"
 							title="Delete floor"
 							@click="deleteFloor(floor)">
-							<span class="icon">🗑️</span>
+							<Icon name="Trash" :size="16" />
 						</button>
 					</div>
 				</div>
@@ -96,11 +96,11 @@
 					<div v-else-if="getFloorRooms(floor.id).length === 0" class="empty-floor">
 						<p>No rooms on this floor yet.</p>
 						<button
-							class="add-room-button"
-							@click="addRoom(floor.id)">
-							<span class="icon">➕</span>
-							Add Room
-						</button>
+						class="add-room-button"
+						@click="addRoom(floor.id)">
+						<Icon name="Plus" :size="16" class="icon" />
+						Add Room
+					</button>
 					</div>
 
 					<!-- Rooms Grid -->
@@ -115,9 +115,9 @@
 						<!-- Add Room Button -->
 						<div class="add-room-card" @click="addRoom(floor.id)">
 							<div class="add-room-content">
-								<span class="add-icon">➕</span>
-								<span class="add-text">Add Room</span>
-							</div>
+							<Icon name="Plus" :size="24" class="add-icon" />
+							<span class="add-text">Add Room</span>
+						</div>
 						</div>
 					</div>
 				</div>
@@ -158,6 +158,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRouter } from 'vue-router'
 import RoomCard from './RoomCard.vue'
+import { Icon } from '../Common'
 
 export default {
 	name: 'FloorList',

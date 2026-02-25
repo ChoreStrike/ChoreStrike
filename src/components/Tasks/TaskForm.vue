@@ -33,9 +33,11 @@
 
 		<div class="form-actions">
 			<button type="button" class="secondary-button" @click="$emit('cancel')">
+				<Icon name="X" :size="16" class="icon" />
 				{{ t('chorewars', 'Cancel') }}
 			</button>
 			<button type="submit" class="primary-button" :disabled="!form.taskId || loading">
+				<Icon name="Plus" :size="16" class="icon" />
 				{{ t('chorewars', 'Add Task') }}
 			</button>
 		</div>
@@ -47,6 +49,7 @@ import { computed, onMounted, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useTasksStore } from '../../store/tasks.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { Icon } from '../Common'
 
 export default {
 	name: 'TaskForm',

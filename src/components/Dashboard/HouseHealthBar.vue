@@ -2,7 +2,7 @@
   <div class="house-health-bar">
     <div class="health-header">
       <h3 class="health-title">
-        <span class="icon">🏠</span>
+        <Icon name="Home" :size="20" class="icon" />
         {{ houseName }}
       </h3>
       <div class="health-percentage">
@@ -32,7 +32,7 @@
         :disabled="loading"
         title="Refresh house health"
       >
-        <span class="icon">🔄</span>
+        <Icon name="RefreshCw" :size="16" />
       </button>
     </div>
   </div>
@@ -41,6 +41,7 @@
 <script>
 import { computed } from 'vue'
 import { useHouseStore } from '../../store/house.js'
+import { Icon } from '../Common'
 
 export default {
   name: 'HouseHealthBar',

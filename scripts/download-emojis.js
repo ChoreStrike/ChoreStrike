@@ -62,15 +62,16 @@ const EMOJIS_TO_DOWNLOAD = {
 	// Gamification - Medals
 	medals: [
 		'trophy',             // Trophy
-		'1st_place_medal',    // Gold
-		'2nd_place_medal',    // Silver
-		'3rd_place_medal',    // Bronze
+		'sports_medal',       // Medal (generic)
 		'crown',              // Crown
+		'first_place_medal',  // Gold
+		'second_place_medal', // Silver
+		'third_place_medal',  // Bronze
 	],
 
 	// Monsters
 	monsters: [
-		'alien_monster',      // Classic monster
+		'space_invader',      // Alien/Monster
 		'microbe',            // Bacteria
 		'ghost',              // Ghost
 		'spider_web',         // Spider web
@@ -95,20 +96,20 @@ const EMOJIS_TO_DOWNLOAD = {
 
 	// Status
 	status: [
-		'check_mark_button',  // Done
-		'white_circle',       // Pending
-		'warning',            // Warning
-		'cross_mark',         // Error
-		'information',        // Info
+		'check_box_with_check',     // Done/Check
+		'white_medium_circle',      // Pending
+		'warning',                  // Warning
+		'cross_mark',               // Error
+		'information',              // Info
 	],
 
 	// Time
 	time: [
-		'alarm_clock',        // Clock
-		'sunrise',            // Morning
-		'sun',                // Afternoon
-		'city_sunset',        // Evening
-		'night_with_stars',   // Night
+		'alarm_clock',              // Clock
+		'sunrise',                  // Morning
+		'sun',                      // Afternoon
+		'cityscape_at_dusk',        // Evening
+		'night_with_stars',         // Night
 	],
 }
 
