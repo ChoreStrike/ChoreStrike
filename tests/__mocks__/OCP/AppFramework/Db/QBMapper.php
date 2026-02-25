@@ -26,6 +26,14 @@ abstract class QBMapper {
         return [];
     }
     
+    public function insert($entity) {
+        return $entity;
+    }
+    
+    public function update($entity) {
+        return $entity;
+    }
+    
     public function delete($entity) {
         return $entity;
     }
