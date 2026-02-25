@@ -178,12 +178,14 @@ class GameLogicService {
 
 			$roomMonsters = [];
 			for ($i = 0; $i < $monsterCount; $i++) {
+				// Use deterministic positioning based on room ID and monster index
+				// for stable, testable output
 				$roomMonsters[] = [
 					'id' => $room->getId() . '-' . $i,
 					'type' => $monsterType,
 					'position' => [
-						'x' => rand(0, 100),
-						'y' => rand(0, 100),
+						'x' => (($room->getId() * 37 + $i * 13) % 100),
+						'y' => (($room->getId() * 73 + $i * 17) % 100),
 					],
 				];
 			}

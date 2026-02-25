@@ -151,7 +151,7 @@ class HouseService {
 		foreach ($floors as $floor) {
 			$rooms = $this->roomMapper->findByFloorId($floor->getId());
 			foreach ($rooms as $room) {
-				$room->setCleanliness(50);
+				$room->setCleanliness(100);
 				$room->setMonsterCount(0);
 				$room->setLastCleaned(null);
 				$this->roomMapper->update($room);
