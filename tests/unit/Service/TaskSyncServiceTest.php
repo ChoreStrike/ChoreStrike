@@ -54,11 +54,14 @@ class TaskSyncServiceTest extends TestCase {
 	 */
 	public function testCompleteTask_ValidTask_ReturnsCompletionData(): void {
 		$roomTaskId = 1;
-		$userId = 1;
+		$nextcloudUserId = 'testuser';
+		$houseUserId = 1;
+		$houseId = 1;
 
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
 		$roomTask->setTaskId(1);
+		$roomTask->setRoomId(1);
 		$roomTask->setIsActive(true);
 
 		$task = new Task();
@@ -67,8 +70,14 @@ class TaskSyncServiceTest extends TestCase {
 		$task->setFrequencyType('weekly');
 		$task->setFrequencyValue(1);
 
+		$room = new Room();
+		$room->setId(1);
+		$room->setHouseId($houseId);
+
 		$user = new HouseUser();
-		$user->setId($userId);
+		$user->setId($houseUserId);
+		$user->setHouseId($houseId);
+		$user->setNextcloudUserId($nextcloudUserId);
 
 		$this->roomTaskMapper
 			->expects($this->once())
@@ -82,16 +91,22 @@ class TaskSyncServiceTest extends TestCase {
 			->with(1)
 			->willReturn($task);
 
-		$this->houseUserMapper
+		$this->roomMapper
 			->expects($this->once())
 			->method('find')
-			->with($userId)
+			->with(1)
+			->willReturn($room);
+
+		$this->houseUserMapper
+			->expects($this->once())
+			->method('findByNextcloudUserId')
+			->with($houseId, $nextcloudUserId)
 			->willReturn($user);
 
 		$this->roomTaskMapper->expects($this->exactly(2))->method('update');
 		$this->completedTaskMapper->expects($this->once())->method('insert');
 
-		$result = $this->service->completeTask($roomTaskId, $userId);
+		$result = $this->service->completeTask($roomTaskId, $nextcloudUserId);
 
 		$this->assertEquals($roomTaskId, $result['roomTaskId']);
 		$this->assertEquals('Test Task', $result['taskName']);
