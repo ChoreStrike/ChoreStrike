@@ -165,7 +165,7 @@ class RoomTaskService {
 	 */
 	public function unassignTask(int $roomTaskId): RoomTask {
 		$this->roomTaskMapper->find($roomTaskId);
-		$this->roomTaskMapper->assignToUser($roomTaskId, null);
+		$this->roomTaskMapper->assignToUser($roomTaskId, '');
 		
 		// Return updated room task
 		return $this->roomTaskMapper->find($roomTaskId);
