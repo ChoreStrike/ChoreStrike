@@ -57,11 +57,18 @@ When attribution is required:
 - Purchase/license proof: Check itch.io purchase receipt or asset download page
 
 **Required Actions for volker:**
-1. Review license terms from itch.io download/purchase
-2. Verify redistribution rights for open source and Nextcloud app store
-3. Check attribution requirements
-4. Update this document with findings
-5. If incompatible, select from fallback options below
+1. ✅ Review license terms from itch.io download/purchase
+2. ⏳ Verify redistribution rights for open source and Nextcloud app store
+3. ⏳ Check attribution requirements
+4. ⏳ Update this document with findings (use template below)
+5. ⏳ If incompatible, select from fallback options below
+
+**Instructions:**
+- Locate the license file or terms from your itch.io purchase/download
+- Fill out the "Decision Log" section below with the exact license terms
+- Mark each check in the "Preliminary Decision Matrix" as Yes/No based on license
+- If all checks pass, move status to "✅ APPROVED"
+- If any check fails, move status to "❌ REJECTED" and select a fallback option
 
 ### Preliminary Decision Matrix
 
@@ -76,6 +83,41 @@ When attribution is required:
 1. **Lucide Icons** (https://lucide.dev) - MIT License, SVG, 1000+ icons
 2. **Phosphor Icons** (https://phosphoricons.com) - MIT License, variable weight
 3. **Heroicons** (https://heroicons.com) - MIT License, SVG set by Tailwind Labs
+
+---
+
+### Decision Log: Vector Icon Pack (itch.io) - TO BE COMPLETED BY VOLKER
+
+**Asset Source:** Vector Icon Pack from itch.io  
+**Source URL:** https://rhosgfx.itch.io/vector-icon-pack  
+**License Name:** _[Fill in from itch.io license file]_  
+**Purchase Date:** _[Fill in]_  
+**License File Location:** _[e.g., downloaded zip, email, itch.io library]_
+
+**License Terms Analysis:**
+- **Commercial use allowed:** ⏳ Pending (Yes/No)
+- **Open source redistribution allowed:** ⏳ Pending (Yes/No)
+- **App-store/package redistribution allowed:** ⏳ Pending (Yes/No)
+- **Modification/derivative use allowed:** ⏳ Pending (Yes/No)
+- **Attribution required:** ⏳ Pending (Yes/No)
+- **Required attribution text:** _[Copy exact text if required, or "None"]_
+
+**Exact License Excerpt (Allowed Uses):**
+```
+[Paste relevant section from license file here]
+```
+
+**Exact License Excerpt (Restricted Uses):**
+```
+[Paste relevant section from license file here]
+```
+
+**Reviewer:** volker  
+**Review Date:** _[Fill in when completed]_  
+**Final Decision:** ⏳ Pending (Approved/Rejected)  
+**Notes:** _[Any additional observations or concerns]_
+
+---
 
 ## Fallback Strategy
 
