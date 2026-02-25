@@ -10,6 +10,8 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\TestCase;
@@ -23,16 +25,22 @@ class RoomServiceTest extends TestCase {
 	private RoomMapper $roomMapper;
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
+	private HouseUserMapper $houseUserMapper;
+	private GameLogicService $gameLogicService;
 
 	protected function setUp(): void {
 		$this->roomMapper = $this->createMock(RoomMapper::class);
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
+		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$this->gameLogicService = $this->createMock(GameLogicService::class);
 
 		$this->service = new RoomService(
 			$this->roomMapper,
 			$this->roomTaskMapper,
-			$this->taskMapper
+			$this->taskMapper,
+			$this->houseUserMapper,
+			$this->gameLogicService
 		);
 	}
 
