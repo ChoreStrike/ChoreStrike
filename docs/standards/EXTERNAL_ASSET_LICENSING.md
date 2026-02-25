@@ -164,6 +164,47 @@ copies of the Software...
 
 ---
 
+## ✅ APPROVED: Microsoft Fluent UI Emoji (Graphics / Avatars / Icons)
+
+**Status**: ✅ APPROVED - MIT License compatible with open-source
+
+**Asset Source:** Microsoft Fluent UI Emoji  
+**Source URL:** https://github.com/microsoft/fluentui-emoji  
+**License Name:** MIT License  
+**License URL:** https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE
+
+**License Terms Analysis:**
+- **Commercial use allowed:** ✅ Yes
+- **Open source redistribution allowed:** ✅ Yes
+- **App-store/package redistribution allowed:** ✅ Yes
+- **Modification/derivative use allowed:** ✅ Yes
+- **Attribution required:** ✅ Yes (MIT license file must be included)
+
+**MIT License Summary:**
+```
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software...
+```
+
+**Required Attribution:**
+- Include `LICENSE` file from Fluent UI Emoji repository in `docs/licenses/fluentui-emoji-LICENSE.txt`
+- Add entry to project README or CREDITS file
+
+**Implementation Plan:**
+1. Download required emojis (SVG/PNG) from the GitHub repository (e.g., 3D or Color variants)
+2. Copy MIT LICENSE to `docs/licenses/fluentui-emoji-LICENSE.txt`
+3. Use for rooms, tasks, avatars, monsters, and gamification elements (sparks, energy, medals)
+4. Update README with Fluent UI Emoji attribution
+
+**Reviewer:** AI Agent (volker confirmed)  
+**Review Date:** 2026-02-25  
+**Final Decision:** ✅ APPROVED
+
+---
+
 ## Fallback Strategy (For Future Reference)
 
 If the current pack is incompatible:
