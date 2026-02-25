@@ -61,7 +61,12 @@ class GameLogicService {
 
 		$user->addContributionScore($contributionScore);
 		$user->addTeamSparks($teamSparks);
-		$user->incrementStreak();
+		
+		// Update streak respecting absence days
+		$preferences = $user->getSchedulingPreferences();
+		$weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
+		$user->updateStreakWithAbsence($weekdayAvailability);
+		
 		$user->touch();
 		$this->houseUserMapper->update($user);
 

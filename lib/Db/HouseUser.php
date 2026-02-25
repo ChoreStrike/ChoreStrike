@@ -115,10 +115,63 @@ class HouseUser extends Entity implements JsonSerializable {
 	}
 
 	/**
-	 * Increment streak
+	 * Calculate streak with respect to absence days
+	 *
+	 * @param array $weekdayAvailability Weekday availability from scheduling preferences
+	 * @return int New streak value
 	 */
-	public function incrementStreak(): void {
-		$this->currentStreak++;
+	public function calculateStreakWithAbsence(array $weekdayAvailability): int {
+		$lastActivity = $this->getLastActivity();
+
+		// If no previous activity, start streak at 1
+		if ($lastActivity === null) {
+			return 1;
+		}
+
+		$today = new \DateTime();
+		$today->setTime(0, 0, 0);
+		$lastActivityDate = clone $lastActivity;
+		$lastActivityDate->setTime(0, 0, 0);
+
+		// Check if last activity was today already
+		if ($lastActivityDate->format('Y-m-d') === $today->format('Y-m-d')) {
+			return $this->currentStreak; // Already completed today
+		}
+
+		// Check for missed available days between last activity and today
+		$daysSinceLastActivity = (int)$lastActivityDate->diff($today)->days;
+
+		if ($daysSinceLastActivity === 0) {
+			return $this->currentStreak + 1;
+		}
+
+		// Check each day between last activity and today
+		$checkDate = clone $lastActivityDate;
+		$checkDate->modify('+1 day');
+
+		while ($checkDate <= $today) {
+			$dayName = strtolower($checkDate->format('l'));
+			$isAvailable = $weekdayAvailability[$dayName] ?? true;
+
+			// If user was available but didn't complete a task, reset streak
+			if ($isAvailable && $checkDate->format('Y-m-d') !== $today->format('Y-m-d')) {
+				return 1; // Reset to 1 (today's completion)
+			}
+
+			$checkDate->modify('+1 day');
+		}
+
+		// No missed available days found, increment streak
+		return $this->currentStreak + 1;
+	}
+
+	/**
+	 * Update streak respecting absence days
+	 *
+	 * @param array $weekdayAvailability Weekday availability from scheduling preferences
+	 */
+	public function updateStreakWithAbsence(array $weekdayAvailability): void {
+		$this->currentStreak = $this->calculateStreakWithAbsence($weekdayAvailability);
 	}
 
 	/**
