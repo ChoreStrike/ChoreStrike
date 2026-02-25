@@ -11,16 +11,15 @@
 $isDocker = getenv('NEXTCLOUD_TEST_ENV') === 'true' || file_exists('/.dockerenv');
 
 if ($isDocker) {
-    // Docker environment - Nextcloud core is cloned in /var/www/html
-    // Manually load required OCP classes in correct order
-    
-    // Load Doctrine DBAL mocks first (required by IQueryBuilder)
+    // Docker environment - load mocks FIRST to override Nextcloud classes
     require_once __DIR__ . '/__mocks__/Doctrine/DBAL/ParameterType.php';
     require_once __DIR__ . '/__mocks__/Doctrine/DBAL/ArrayParameterType.php';
     require_once __DIR__ . '/__mocks__/Doctrine/DBAL/Query/Expression/ExpressionBuilder.php';
+    require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/Entity.php';
+    require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/QBMapper.php';
     
+    // Now load remaining OCP classes from Nextcloud
     $ocpClasses = [
-        // DB interfaces first
         'OCP/DB/Exception.php',
         'OCP/DB/QueryBuilder/IQueryBuilder.php',
         'OCP/DB/QueryBuilder/IFunctionBuilder.php',
@@ -28,10 +27,8 @@ if ($isDocker) {
         'OCP/DB/QueryBuilder/IParameter.php',
         'OCP/DB/QueryBuilder/IFunction.php',
         'OCP/IDBConnection.php',
-        // AppFramework Db exceptions (not Entity/QBMapper - we use mocks)
         'OCP/AppFramework/Db/DoesNotExistException.php',
         'OCP/AppFramework/Db/MultipleObjectsReturnedException.php',
-        // Other OCP interfaces
         'OCP/IRequest.php',
         'OCP/IUserSession.php',
         'OCP/IUser.php',
