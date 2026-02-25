@@ -47,14 +47,18 @@ class TaskSyncService {
 	 * Mark a room task as completed and sync to Nextcloud Tasks
 	 *
 	 * @param int $roomTaskId The room task ID
-	 * @param int $userId The house user ID completing the task
+	 * @param string $nextcloudUserId The Nextcloud user ID completing the task
 	 * @param int|null $nextcloudTaskId Optional linked Nextcloud task ID
 	 * @return array Completion result with sync status
 	 */
-	public function completeTask(int $roomTaskId, int $userId, ?int $nextcloudTaskId = null): array {
+	public function completeTask(int $roomTaskId, string $nextcloudUserId, ?int $nextcloudTaskId = null): array {
 		$roomTask = $this->roomTaskMapper->find($roomTaskId);
 		$task = $this->taskMapper->find($roomTask->getTaskId());
-		$user = $this->houseUserMapper->find($userId);
+		$room = $this->roomMapper->find($roomTask->getRoomId());
+		
+		// Get house user ID from Nextcloud user ID
+		$houseUser = $this->houseUserMapper->findByNextcloudUserId($room->getHouseId(), $nextcloudUserId);
+		$houseUserId = $houseUser->getId();
 
 		$completedAt = new \DateTime();
 
@@ -66,7 +70,7 @@ class TaskSyncService {
 		// Create completion record
 		$completedTask = new CompletedTask();
 		$completedTask->setRoomTaskId($roomTaskId);
-		$completedTask->setUserId($userId);
+		$completedTask->setUserId($houseUserId);
 		$completedTask->setCompletedAt($completedAt);
 		$completedTask->setSparksEarned(0);
 		$completedTask->setWasCombo(false);
@@ -83,7 +87,7 @@ class TaskSyncService {
 		$this->roomTaskMapper->update($roomTask);
 
 		// Log event for conflict resolution
-		$this->logSyncEvent($roomTaskId, 'completed', $userId, $nextcloudTaskId);
+		$this->logSyncEvent($roomTaskId, 'completed', $houseUserId, $nextcloudTaskId);
 
 		return [
 			'roomTaskId' => $roomTaskId,
@@ -259,10 +263,10 @@ class TaskSyncService {
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param string $eventType Type of sync event
-	 * @param int|null $userId The user ID
+	 * @param int|null $houseUserId The house user ID
 	 * @param int|null $nextcloudTaskId The Nextcloud task ID
 	 */
-	private function logSyncEvent(int $roomTaskId, string $eventType, ?int $userId = null, ?int $nextcloudTaskId = null): void {
+	private function logSyncEvent(int $roomTaskId, string $eventType, ?int $houseUserId = null, ?int $nextcloudTaskId = null): void {
 		// Event logging would be implemented here
 		// For now, this is a placeholder for future audit logging
 	}
