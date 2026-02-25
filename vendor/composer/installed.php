@@ -3,7 +3,7 @@
         'name' => 'chorestrike/chorestrike',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => '70c180c353c83a9eed4d8899a7f93cd9f1849d62',
+        'reference' => 'e419ee48fbaacf51f070830b488fbd509a209622',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'chorestrike/chorestrike' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '70c180c353c83a9eed4d8899a7f93cd9f1849d62',
+            'reference' => 'e419ee48fbaacf51f070830b488fbd509a209622',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

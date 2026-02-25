@@ -58,6 +58,7 @@ class GameLogicServiceTest extends TestCase {
 		$user->setCurrentStreak(5);
 		$user->setContributionScore(100);
 		$user->setTeamSparks(50);
+		$user->setLastActivity(new \DateTime('yesterday'));
 
 		$recentCompletions = [
 			new CompletedTask(),

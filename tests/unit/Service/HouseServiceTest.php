@@ -276,7 +276,7 @@ class HouseServiceTest extends TestCase {
 			->expects($this->once())
 			->method('update')
 			->with($this->callback(function ($r) {
-				return $r->getCleanliness() === 50 && $r->getMonsterCount() === 0;
+				return $r->getCleanliness() === 100 && $r->getMonsterCount() === 0;
 			}));
 
 		$this->service->resetHouse($houseId);

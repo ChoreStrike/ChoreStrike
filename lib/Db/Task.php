@@ -205,6 +205,23 @@ class Task extends Entity implements JsonSerializable {
 			$errors[] = 'Frequency value must be at least 1';
 		}
 
+		// Validate scopeType
+		if (!in_array($this->scopeType, ['room', 'floor', 'house', 'user'])) {
+			$errors[] = 'Invalid scope type';
+		}
+
+		// Validate recurrenceMode
+		if (!in_array($this->recurrenceMode, ['one_time', 'recurring'])) {
+			$errors[] = 'Invalid recurrence mode';
+		}
+
+		// Validate date range
+		if ($this->activeFrom !== null && $this->activeUntil !== null) {
+			if ($this->activeUntil < $this->activeFrom) {
+				$errors[] = 'Active until must be equal or after active from';
+			}
+		}
+
 		return $errors;
 	}
 }

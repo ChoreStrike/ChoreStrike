@@ -137,13 +137,22 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * @param \DateTime $completedAt The completion time
 	 * @param string $frequencyType The frequency type
 	 * @param int $frequencyValue The frequency value
+	 * @param string $recurrenceMode The recurrence mode ('one_time' or 'recurring')
+	 * @param \DateTime|null $activeUntil The active until date for recurring tasks
 	 */
-	public function markCompleted(\DateTime $completedAt, string $frequencyType, int $frequencyValue): void {
+	public function markCompleted(\DateTime $completedAt, string $frequencyType, int $frequencyValue, string $recurrenceMode = 'recurring', ?\DateTime $activeUntil = null): void {
 		$this->lastCompleted = $completedAt;
-		
+
+		// Handle one-time tasks - deactivate after completion
+		if ($recurrenceMode === 'one_time') {
+			$this->isActive = false;
+			$this->nextDue = $completedAt;
+			return;
+		}
+
 		// Calculate next due date based on frequency
 		$nextDue = clone $completedAt;
-		
+
 		switch ($frequencyType) {
 			case 'daily':
 				$nextDue->add(new \DateInterval("P{$frequencyValue}D"));
@@ -159,8 +168,14 @@ class RoomTask extends Entity implements JsonSerializable {
 				$nextDue->add(new \DateInterval('P1W'));
 				break;
 		}
-		
-		$this->nextDue = $nextDue;
+
+		// Check if next due date exceeds active window
+		if ($activeUntil !== null && $nextDue > $activeUntil) {
+			$this->isActive = false;
+			$this->nextDue = $activeUntil;
+		} else {
+			$this->nextDue = $nextDue;
+		}
 	}
 
 	/**

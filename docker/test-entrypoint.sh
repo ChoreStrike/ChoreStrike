@@ -6,11 +6,25 @@ echo "Setting up test environment..."
 
 # Wait for database to be ready
 echo "Waiting for database..."
-until mysqladmin ping -h"$DB_HOST" --silent; do
+for i in {1..30}; do
+    if nc -z "$DB_HOST" 3306 2>/dev/null; then
+        echo "Database port is open!"
+        break
+    fi
     echo "Database not ready yet... waiting"
     sleep 2
 done
-echo "Database is ready!"
+
+# Verify we can actually connect with credentials
+echo "Verifying database connection..."
+for i in {1..10}; do
+    if mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/dev/null 2>&1; then
+        echo "Database connection verified!"
+        break
+    fi
+    echo "Database authentication pending... waiting"
+    sleep 2
+done
 
 # Install dependencies
 echo "Installing Composer dependencies..."
