@@ -20,7 +20,7 @@ class SchedulingController extends OCSController {
 		IRequest $request,
 		SchedulingService $schedulingService
 	) {
-		parent::__construct('chorewars', $request);
+		parent::__construct('chorestrike', $request);
 		$this->schedulingService = $schedulingService;
 	}
 

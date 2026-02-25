@@ -20,7 +20,7 @@ class RoomTaskController extends OCSController {
 		IRequest $request,
 		RoomTaskService $roomTaskService
 	) {
-		parent::__construct('chorewars', $request);
+		parent::__construct('chorestrike', $request);
 		$this->roomTaskService = $roomTaskService;
 	}
 

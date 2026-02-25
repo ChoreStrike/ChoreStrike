@@ -15,7 +15,7 @@ A clear and concise description of what you want to happen.
 ## Describe alternatives you've considered
 A clear and concise description of any alternative solutions or features you've considered.
 
-## How does this fit with ChoreWars' philosophy?
+## How does this fit with ChoreStrike's philosophy?
 Explain how this feature aligns with the "motivate, don't punish" philosophy and cooperative gameplay.
 
 ## Additional context

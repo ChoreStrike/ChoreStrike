@@ -23,7 +23,7 @@ class GameController extends OCSController {
 		GameLogicService $gameLogicService,
 		HouseService $houseService
 	) {
-		parent::__construct('chorewars', $request);
+		parent::__construct('chorestrike', $request);
 		$this->gameLogicService = $gameLogicService;
 		$this->houseService = $houseService;
 	}

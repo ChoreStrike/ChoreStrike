@@ -20,7 +20,7 @@ class HouseController extends OCSController {
 		IRequest $request,
 		HouseService $houseService
 	) {
-		parent::__construct('chorewars', $request);
+		parent::__construct('chorestrike', $request);
 		$this->houseService = $houseService;
 	}
 

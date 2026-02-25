@@ -24,7 +24,7 @@ If applicable, add screenshots to help explain your problem.
 
 ## Environment
 - **Nextcloud version**: [e.g. 28.0.1]
-- **ChoreWars version**: [e.g. 0.1.0]
+- **ChoreStrike version**: [e.g. 0.1.0]
 - **Browser**: [e.g. Chrome 120, Firefox 121]
 - **OS**: [e.g. Ubuntu 22.04, Windows 11]
 - **PHP version**: [e.g. 8.1.2]

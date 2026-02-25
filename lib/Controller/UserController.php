@@ -26,7 +26,7 @@ class UserController extends OCSController {
 		HouseService $houseService,
 		IUserManager $userManager
 	) {
-		parent::__construct('chorewars', $request);
+		parent::__construct('chorestrike', $request);
 		$this->houseUserMapper = $houseUserMapper;
 		$this->houseService = $houseService;
 		$this->userManager = $userManager;

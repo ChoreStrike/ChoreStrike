@@ -23,7 +23,7 @@ class RoomController extends OCSController {
 		RoomService $roomService,
 		HouseService $houseService
 	) {
-		parent::__construct('chorewars', $request);
+		parent::__construct('chorestrike', $request);
 		$this->roomService = $roomService;
 		$this->houseService = $houseService;
 	}

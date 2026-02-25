@@ -20,7 +20,7 @@ class TaskSyncController extends OCSController {
 		IRequest $request,
 		TaskSyncService $taskSyncService
 	) {
-		parent::__construct('chorewars', $request);
+		parent::__construct('chorestrike', $request);
 		$this->taskSyncService = $taskSyncService;
 	}
 
