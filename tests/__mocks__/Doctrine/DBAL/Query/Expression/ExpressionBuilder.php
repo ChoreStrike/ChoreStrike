@@ -8,6 +8,14 @@ namespace Doctrine\DBAL\Query\Expression;
 
 class ExpressionBuilder {
     
+    // Constants for comparison operators
+    public const EQ = '=';
+    public const NEQ = '<>';
+    public const LT = '<';
+    public const LTE = '<=';
+    public const GT = '>';
+    public const GTE = '>=';
+    
     public function and($x, $y): CompositeExpression {
         return new CompositeExpression(CompositeExpression::TYPE_AND, [$x, $y]);
     }
