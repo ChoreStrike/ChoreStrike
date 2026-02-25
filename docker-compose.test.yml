@@ -1,22 +1,36 @@
 services:
+  db:
+    image: mariadb:10.6
+    container_name: chorestrike-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=nextcloud
+    networks:
+      - chorestrike-test
+
   nextcloud-test:
     build:
       context: .
       dockerfile: docker/Dockerfile.test
     container_name: chorestrike-test
+    depends_on:
+      - db
     volumes:
       - .:/var/www/html/custom_apps/chorestrike
+      - ./docker/test-entrypoint.sh:/test-entrypoint.sh
     working_dir: /var/www/html/custom_apps/chorestrike
     environment:
       - NEXTCLOUD_TEST_ENV=true
-    command:
-      - sh
-      - -c
-      - |
-        composer install --no-interaction &&
-        vendor/bin/phpunit --configuration phpunit.xml.dist
+      - DB_HOST=db
+      - DB_NAME=nextcloud
+      - DB_USER=nextcloud
+      - DB_PASS=nextcloud
+      - DB_PORT=3306
     networks:
       - chorestrike-test
+    command: ["/test-entrypoint.sh"]
 
 networks:
   chorestrike-test:

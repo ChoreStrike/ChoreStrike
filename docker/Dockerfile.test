@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     git \
     unzip \
     curl \
+    default-mysql-client \
     libzip-dev \
     libxml2-dev \
     libicu-dev \
@@ -41,7 +42,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory.ini
 RUN echo "error_reporting=E_ALL" > /usr/local/etc/php/conf.d/error_reporting.ini
 
-# Clone Nextcloud Server for OCP classes
+# Clone Nextcloud Server stable29 branch (compatible with NC 27-30)
 RUN git clone --depth 1 --branch stable29 https://github.com/nextcloud/server.git /var/www/html
 
 # Set up directory structure
@@ -50,13 +51,7 @@ RUN mkdir -p /var/www/html/custom_apps/chorestrike
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html
 
-# Create a simple autoloader that includes Nextcloud's OCP classes
-RUN echo '<?php\n\
-// ChoreStrike Test Bootstrap for Docker\n\
-require_once "/var/www/html/lib/public/Autoload.php";\n\
-' > /var/www/html/bootstrap.php
+WORKDIR /var/www/html/custom_apps/chorestrike
 
-WORKDIR /var/www/html
-
-# Default command just keeps container alive for testing
+# Default command keeps container alive
 CMD ["tail", "-f", "/dev/null"]

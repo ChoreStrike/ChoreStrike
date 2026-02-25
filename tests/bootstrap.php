@@ -13,6 +13,7 @@ $isDocker = getenv('NEXTCLOUD_TEST_ENV') === 'true' || file_exists('/.dockerenv'
 if ($isDocker) {
     // Docker environment - Nextcloud core is cloned in /var/www/html
     $ocpBase = '/var/www/html/lib/public';
+    $privateBase = '/var/www/html/lib/private';
 
     // Load all OCP\DB classes first (dependencies for QBMapper)
     $dbClasses = [
@@ -23,24 +24,16 @@ if ($isDocker) {
         'OCP/DB/QueryBuilder/IParameter.php',
         'OCP/DB/QueryBuilder/IFunction.php',
         'OCP/IDBConnection.php',
+        'OCP/AppFramework/Db/Entity.php',
+        'OCP/AppFramework/Db/DoesNotExistException.php',
+        'OCP/AppFramework/Db/MultipleObjectsReturnedException.php',
+        'OCP/AppFramework/Db/QBMapper.php',
+        'OCP/IRequest.php',
+        'OCP/IUserSession.php',
+        'OCP/IUser.php',
     ];
 
     foreach ($dbClasses as $file) {
-        $fullPath = "/var/www/html/lib/public/$file";
-        if (file_exists($fullPath)) {
-            require_once $fullPath;
-        }
-    }
-
-    // Load core AppFramework Db classes
-    $dbCoreClasses = [
-        'AppFramework/Db/Entity.php',
-        'AppFramework/Db/DoesNotExistException.php',
-        'AppFramework/Db/MultipleObjectsReturnedException.php',
-        'AppFramework/Db/QBMapper.php',
-    ];
-
-    foreach ($dbCoreClasses as $file) {
         $fullPath = "/var/www/html/lib/public/$file";
         if (file_exists($fullPath)) {
             require_once $fullPath;
