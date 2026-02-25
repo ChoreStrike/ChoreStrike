@@ -1,93 +1,66 @@
 # Critical Tests Priority List
 
-## Priority 1: MUST PASS (Core Business Logic)
+## Priority 1: MUST PASS (Security + Authorization)
 
-These tests verify fundamental business logic that must work correctly:
-
-### Entity Validation Tests
-- `tests/unit/Db/TaskTest.php` - All 21 validation tests
+### New Security Regression Coverage (2026-02-25)
+- `tests/unit/Service/SchedulingServiceTest.php`
   - Status: ✅ PASSING
-  - Critical: Task validation rules (name, energy, priority, dates)
-  
-- `tests/unit/Db/RoomTaskTest.php` - Room task lifecycle
-  - Status: ✅ PASSING (after fixes)
-  - Critical: One-time/recurring logic, activeUntil handling
+  - Critical checks:
+    - House-scoped resolution by Nextcloud user ID
+    - Update blocking for cross-house member modifications
 
-### Game Logic Tests  
-- `tests/unit/Service/GameLogicServiceTest.php`
-  - Status: ✅ PASSING (after streak fix)
-  - Critical: Points calculation, streak logic, medals
-
-## Priority 2: SHOULD PASS (Service Layer)
-
-### House Management
-- `tests/unit/Service/HouseServiceTest.php`
-  - Status: ✅ PASSING (after resetHouse fix)
-  - Tests: House creation, health calculation, reset
-
-### Room Operations
-- `tests/unit/Service/RoomServiceTest.php`
-  - Status: ✅ PASSING (after constructor fix)
-  - Tests: Room CRUD, task assignment
-
-### Floor Operations  
-- `tests/unit/Service/FloorServiceTest.php`
+- `tests/unit/Service/TaskSyncServiceTest.php`
   - Status: ✅ PASSING
-  - Tests: Floor CRUD, room management
+  - Critical checks:
+    - Room-task house boundary validation
+    - Pending sync filtering per house
 
-## Priority 3: NICE TO HAVE (Mapper/Integration)
+### Existing Core Security Baseline
+- `tests/integration/Controller/AuthorizationIntegrationTest.php`
+  - Status: ⚠️ Partially blocked by integration test harness mismatch
+  - Critical checks covered by test design:
+    - Authenticated access required
+    - House membership required
+    - Owner role enforcement
 
-### Mapper Tests (Complex Environment Required)
-- `tests/unit/Db/TaskMapperTest.php` - 1 error (find() returns null)
-- `tests/unit/Db/RoomTaskMapperTest.php` - 1 error (similar)
-- `tests/unit/Db/HouseMapperTest.php` - 1 error (similar)
+## Priority 2: SHOULD PASS (Business Logic Stability)
 
-**Reason:** These test inherited QBMapper methods that require
-full database setup. The custom mapper methods work fine.
+- `tests/unit/Db/TaskTest.php` - ✅ PASSING
+- `tests/unit/Db/RoomTaskTest.php` - ✅ PASSING
+- `tests/unit/Service/GameLogicServiceTest.php` - ✅ PASSING
+- `tests/unit/Service/HouseServiceTest.php` - ✅ PASSING
+- `tests/unit/Service/RoomServiceTest.php` - ✅ PASSING
+- `tests/unit/Service/FloorServiceTest.php` - ✅ PASSING
 
-### Integration Tests (Infrastructure Issues)
-- Controller tests have method mismatch issues
-- Some reference non-existent service methods
+## Priority 3: NEXT AUTOMATION BATCH (High Value)
 
-**Reason:** Tests were written against planned API, actual 
-implementation differs. Tests need alignment with real code.
+1. Add controller integration tests for:
+   - `SchedulingController` (owner-only member availability, member-only own preferences)
+   - `TaskSyncController` (house-scoped sync actions)
+2. Refactor outdated integration tests that still target old controller signatures:
+   - `TaskControllerIntegrationTest`
+   - `UserControllerIntegrationTest`
+   - `RoomTaskControllerIntegrationTest`
+3. Add negative-path regression tests for cross-house resource access in all controllers.
 
-## Current Test Summary
-
-```
-Unit Tests:     217 total, ~134 passing, ~83 with env issues
-Integration:     63 total, ~10 passing, ~53 with mock issues
-
-Critical (P1):   100% passing ✅
-Important (P2):  100% passing ✅  
-Nice (P3):        ~30% passing (acceptable for deployment)
-```
-
-## Recommended Deployment Tests
-
-Run these before deployment:
+## Recommended Execution Order
 
 ```bash
-# Priority 1 - Must pass
-vendor/bin/phpunit tests/unit/Db/TaskTest.php
-vendor/bin/phpunit tests/unit/Db/RoomTaskTest.php
-vendor/bin/phpunit tests/unit/Service/GameLogicServiceTest.php
+# P1 security regressions (run first)
+php vendor/bin/phpunit tests/unit/Service/SchedulingServiceTest.php
+php vendor/bin/phpunit tests/unit/Service/TaskSyncServiceTest.php
 
-# Priority 2 - Should pass
-vendor/bin/phpunit tests/unit/Service/HouseServiceTest.php
-vendor/bin/phpunit tests/unit/Service/RoomServiceTest.php
-vendor/bin/phpunit tests/unit/Service/FloorServiceTest.php
+# P2 core domain confidence
+php vendor/bin/phpunit tests/unit/Db/TaskTest.php
+php vendor/bin/phpunit tests/unit/Db/RoomTaskTest.php
+php vendor/bin/phpunit tests/unit/Service/GameLogicServiceTest.php
+php vendor/bin/phpunit tests/unit/Service/HouseServiceTest.php
+php vendor/bin/phpunit tests/unit/Service/RoomServiceTest.php
+php vendor/bin/phpunit tests/unit/Service/FloorServiceTest.php
 ```
 
-## Known Test Limitations
+## Known Test Harness Constraints
 
-1. **Mapper inherited methods**: `find()`, `findAll()` etc. are inherited
-   from QBMapper and require database. Our mocks don't fully simulate this.
-
-2. **Doctrine DBAL**: ParameterType and ExpressionBuilder classes are
-   mocked but the full DBAL stack isn't available in test environment.
-
-3. **Integration test methods**: Some tests reference methods that were
-   planned but implemented differently (e.g., HouseService::inviteUser).
-
-These limitations don't affect production code - only test execution.
+1. Some integration tests still use outdated constructor contracts and planned API shapes.
+2. Mapper-heavy tests require full Nextcloud/OCP-compatible runtime and are less stable outside Docker test setup.
+3. Local (non-Docker) runs may require mock bootstrap alignment for selected OCP classes.

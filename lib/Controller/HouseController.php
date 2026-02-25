@@ -37,6 +37,7 @@ class HouseController extends OCSController {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
 			
 			return new JSONResponse([
 				'success' => true,

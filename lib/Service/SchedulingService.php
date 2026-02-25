@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 
 /**
@@ -38,6 +37,19 @@ class SchedulingService {
 	}
 
 	/**
+	 * Get scheduling preferences for a Nextcloud user within a specific house.
+	 *
+	 * @param int $houseId The house ID
+	 * @param string $nextcloudUserId The Nextcloud user ID
+	 * @return array Scheduling preferences
+	 */
+	public function getUserPreferencesByNextcloudUserId(int $houseId, string $nextcloudUserId): array {
+		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
+
+		return $this->getUserPreferences($user->getId());
+	}
+
+	/**
 	 * Update energy budget for a specific day
 	 *
 	 * @param int $userId The house user ID
@@ -60,6 +72,34 @@ class SchedulingService {
 		$user->setSchedulingPreferences($preferences);
 
 		$this->houseUserMapper->update($user);
+	}
+
+	/**
+	 * Update availability for a Nextcloud user within a specific house.
+	 *
+	 * @param int $houseId The house ID
+	 * @param string $nextcloudUserId The Nextcloud user ID
+	 * @param string $day Weekday name
+	 * @param bool $available Whether user is available
+	 */
+	public function updateAvailabilityByNextcloudUserId(int $houseId, string $nextcloudUserId, string $day, bool $available): void {
+		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
+
+		$this->updateAvailability($user->getId(), $day, $available);
+	}
+
+	/**
+	 * Update energy budget for a Nextcloud user within a specific house.
+	 *
+	 * @param int $houseId The house ID
+	 * @param string $nextcloudUserId The Nextcloud user ID
+	 * @param string $day Weekday name (e.g., 'monday')
+	 * @param int $energy Energy points (1-20)
+	 */
+	public function updateEnergyBudgetByNextcloudUserId(int $houseId, string $nextcloudUserId, string $day, int $energy): void {
+		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
+
+		$this->updateEnergyBudget($user->getId(), $day, $energy);
 	}
 
 	/**
@@ -109,11 +149,16 @@ class SchedulingService {
 	/**
 	 * Update another member's availability (admin only)
 	 *
+	 * @param int $houseId The current house ID
 	 * @param int $targetUserId The user to update
 	 * @param array $updates Availability and energy updates
 	 */
-	public function updateMemberAvailability(int $targetUserId, array $updates): void {
+	public function updateMemberAvailability(int $houseId, int $targetUserId, array $updates): void {
 		$user = $this->houseUserMapper->find($targetUserId);
+		if ($user->getHouseId() !== $houseId) {
+			throw new \InvalidArgumentException('Target user does not belong to this house');
+		}
+
 		$preferences = $user->getSchedulingPreferences();
 
 		if (isset($updates['energyBudget'])) {

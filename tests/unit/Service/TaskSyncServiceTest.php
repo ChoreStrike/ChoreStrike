@@ -132,7 +132,7 @@ class TaskSyncServiceTest extends TestCase {
 		$task->setFrequencyValue(1);
 
 		$this->roomTaskMapper
-			->expects($this->exactly(2))
+			->expects($this->once())
 			->method('find')
 			->with($roomTaskId)
 			->willReturn($roomTask);
@@ -246,6 +246,103 @@ class TaskSyncServiceTest extends TestCase {
 		$result = $this->service->getPendingSyncs($limit);
 
 		$this->assertCount(2, $result);
+	}
+
+	/**
+	 * CompleteTaskForHouse_RoomTaskOutsideHouse_ThrowsInvalidArgumentException
+	 */
+	public function testCompleteTaskForHouse_RoomTaskOutsideHouse_ThrowsInvalidArgumentException(): void {
+		$roomTaskId = 10;
+		$houseId = 1;
+
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setRoomId(101);
+
+		$room = new Room();
+		$room->setId(101);
+		$room->setHouseId(2);
+
+		$this->roomTaskMapper
+			->expects($this->once())
+			->method('find')
+			->with($roomTaskId)
+			->willReturn($roomTask);
+
+		$this->roomMapper
+			->expects($this->once())
+			->method('find')
+			->with(101)
+			->willReturn($room);
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Room task does not belong to this house');
+
+		$this->service->completeTaskForHouse($roomTaskId, 'testuser', $houseId);
+	}
+
+	/**
+	 * GetPendingSyncsForHouse_FiltersPendingResultsByHouseAndLimit
+	 */
+	public function testGetPendingSyncsForHouse_FiltersPendingResultsByHouseAndLimit(): void {
+		$houseId = 1;
+		$limit = 2;
+
+		$completedTaskOne = new CompletedTask();
+		$completedTaskOne->setRoomTaskId(1001);
+
+		$completedTaskTwo = new CompletedTask();
+		$completedTaskTwo->setRoomTaskId(1002);
+
+		$completedTaskThree = new CompletedTask();
+		$completedTaskThree->setRoomTaskId(1003);
+
+		$this->completedTaskMapper
+			->expects($this->once())
+			->method('findPendingSyncs')
+			->with($limit * 5)
+			->willReturn([$completedTaskOne, $completedTaskTwo, $completedTaskThree]);
+
+		$roomTaskOne = new RoomTask();
+		$roomTaskOne->setRoomId(201);
+		$roomTaskTwo = new RoomTask();
+		$roomTaskTwo->setRoomId(202);
+		$roomTaskThree = new RoomTask();
+		$roomTaskThree->setRoomId(203);
+
+		$this->roomTaskMapper
+			->expects($this->exactly(3))
+			->method('find')
+			->willReturnMap([
+				[1001, $roomTaskOne],
+				[1002, $roomTaskTwo],
+				[1003, $roomTaskThree],
+			]);
+
+		$roomOne = new Room();
+		$roomOne->setId(201);
+		$roomOne->setHouseId(1);
+		$roomTwo = new Room();
+		$roomTwo->setId(202);
+		$roomTwo->setHouseId(2);
+		$roomThree = new Room();
+		$roomThree->setId(203);
+		$roomThree->setHouseId(1);
+
+		$this->roomMapper
+			->expects($this->exactly(3))
+			->method('find')
+			->willReturnMap([
+				[201, $roomOne],
+				[202, $roomTwo],
+				[203, $roomThree],
+			]);
+
+		$result = $this->service->getPendingSyncsForHouse($houseId, $limit);
+
+		$this->assertCount(2, $result);
+		$this->assertSame(1001, $result[0]->getRoomTaskId());
+		$this->assertSame(1003, $result[1]->getRoomTaskId());
 	}
 
 	/**

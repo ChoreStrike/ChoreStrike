@@ -591,6 +591,36 @@ There is no ownership check (e.g., "does this user belong to this house?").
 
 ---
 
+### [P1] Follow-up security hardening for Scheduling and Task Sync endpoints
+
+**Status**: Done ✅  
+**Priority**: High (Security)  
+**Completed**: 2026-02-25
+
+#### Description
+Additional review found authorization and identity-mapping gaps in scheduling and task synchronization flows:
+- Scheduling endpoints used Nextcloud string user IDs against service methods expecting house user integer IDs
+- `getMemberAvailability()` allowed member-level access despite owner-only intent
+- Task sync endpoints allowed operations without strict house-scoped resource checks
+
+#### Acceptance Criteria
+- [x] Scheduling controller resolves current Nextcloud user to house-scoped house user before updates
+- [x] Member-availability read/update endpoints require owner role
+- [x] Task sync controller enforces house membership and house-scoped access for complete/sync/link/mark operations
+- [x] Service-layer guards reject cross-house room task access
+- [x] Add regression tests for new house-scoped scheduling and task sync guards
+
+#### Implementation Summary
+- `SchedulingService` now provides house-scoped lookup/update helpers by Nextcloud user ID
+- `SchedulingController` now performs explicit house membership/owner checks and calls the new helpers
+- `TaskSyncService` now provides house-scoped methods (`*ForHouse`) and room-task ownership validation
+- `TaskSyncController` now injects `HouseService` and uses house-scoped task sync service methods for all endpoints
+- Added unit tests:
+  - `tests/unit/Service/SchedulingServiceTest.php`
+  - Extended `tests/unit/Service/TaskSyncServiceTest.php`
+
+---
+
 ### [P1] `TaskService::validateTaskData()` uses `is_numeric()` on already-typed ints
 
 **Status**: Planned  

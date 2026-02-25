@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskSyncService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
@@ -16,15 +17,18 @@ use OCP\IRequest;
 class TaskSyncController extends OCSController {
 
 	private TaskSyncService $taskSyncService;
+	private HouseService $houseService;
 	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
 		TaskSyncService $taskSyncService,
+		HouseService $houseService,
 		AuthorizationService $authService
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->taskSyncService = $taskSyncService;
+		$this->houseService = $houseService;
 		$this->authService = $authService;
 	}
 
@@ -39,7 +43,12 @@ class TaskSyncController extends OCSController {
 			if ($userId === null) {
 				throw new \Exception('Not authenticated');
 			}
-			$result = $this->taskSyncService->completeTask($roomTaskId, $userId, $nextcloudTaskId);
+
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$result = $this->taskSyncService->completeTaskForHouse($roomTaskId, $userId, $house->getId(), $nextcloudTaskId);
 
 			return new JSONResponse([
 				'success' => true,
@@ -63,7 +72,11 @@ class TaskSyncController extends OCSController {
 	 */
 	public function syncFromNextcloud(int $nextcloudTaskId, string $completedAt, ?int $roomTaskId = null): JSONResponse {
 		try {
-			$result = $this->taskSyncService->syncCompletionFromNextcloud($nextcloudTaskId, $completedAt, $roomTaskId);
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$result = $this->taskSyncService->syncCompletionFromNextcloudForHouse($nextcloudTaskId, $completedAt, $house->getId(), $roomTaskId);
 
 			if ($result === null) {
 				return new JSONResponse([
@@ -97,7 +110,11 @@ class TaskSyncController extends OCSController {
 	 */
 	public function getReminders(int $roomTaskId): JSONResponse {
 		try {
-			$roomTask = $this->taskSyncService->getRoomTask($roomTaskId);
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$roomTask = $this->taskSyncService->getRoomTaskForHouse($roomTaskId, $house->getId());
 			$reminders = $this->taskSyncService->mapRemindersToNextcloud($roomTask);
 
 			return new JSONResponse([
@@ -122,7 +139,11 @@ class TaskSyncController extends OCSController {
 	 */
 	public function getPendingSyncs(int $limit = 50): JSONResponse {
 		try {
-			$pending = $this->taskSyncService->getPendingSyncs($limit);
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$pending = $this->taskSyncService->getPendingSyncsForHouse($house->getId(), $limit);
 
 			return new JSONResponse([
 				'success' => true,
@@ -146,7 +167,11 @@ class TaskSyncController extends OCSController {
 	 */
 	public function markAsSynced(int $completedTaskId): JSONResponse {
 		try {
-			$this->taskSyncService->markAsSynced($completedTaskId);
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$this->taskSyncService->markAsSyncedForHouse($completedTaskId, $house->getId());
 
 			return new JSONResponse([
 				'success' => true,
@@ -170,7 +195,11 @@ class TaskSyncController extends OCSController {
 	 */
 	public function linkTask(int $roomTaskId, int $nextcloudTaskId): JSONResponse {
 		try {
-			$this->taskSyncService->linkTask($roomTaskId, $nextcloudTaskId);
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$this->taskSyncService->linkTaskForHouse($roomTaskId, $nextcloudTaskId, $house->getId());
 
 			return new JSONResponse([
 				'success' => true,

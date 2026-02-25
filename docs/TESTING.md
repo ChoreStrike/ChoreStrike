@@ -270,3 +270,66 @@ jobs:
       - name: Run tests
         run: docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
 ```
+
+## Security Regression Test Pack (Recommended)
+
+After security-related backend changes, run these tests first:
+
+```bash
+# House-scoped scheduling authorization checks
+php vendor/bin/phpunit tests/unit/Service/SchedulingServiceTest.php
+
+# House-scoped task sync authorization checks
+php vendor/bin/phpunit tests/unit/Service/TaskSyncServiceTest.php
+```
+
+Then run the core domain confidence suite:
+
+```bash
+php vendor/bin/phpunit tests/unit/Db/TaskTest.php
+php vendor/bin/phpunit tests/unit/Db/RoomTaskTest.php
+php vendor/bin/phpunit tests/unit/Service/GameLogicServiceTest.php
+php vendor/bin/phpunit tests/unit/Service/HouseServiceTest.php
+php vendor/bin/phpunit tests/unit/Service/RoomServiceTest.php
+php vendor/bin/phpunit tests/unit/Service/FloorServiceTest.php
+```
+
+## Docker Cleanup and Manual Validation
+
+Yes, you can test manually in Docker. If old test containers are still running, stop and clean them before a fresh run.
+
+### 1) Check running containers
+
+```bash
+docker ps -a
+```
+
+### 2) Stop stale test containers
+
+```bash
+docker stop <container_id_1> <container_id_2>
+```
+
+### 3) Optional: remove stopped containers
+
+```bash
+docker rm <container_id_1> <container_id_2>
+```
+
+### 4) Optional: remove outdated test image
+
+```bash
+docker images
+docker rmi <image_id>
+```
+
+### 5) Run manual test session in container
+
+```bash
+docker compose -f docker-compose.test.yml run --rm nextcloud-test bash
+
+# inside container
+composer install
+vendor/bin/phpunit tests/unit/Service/SchedulingServiceTest.php
+vendor/bin/phpunit tests/unit/Service/TaskSyncServiceTest.php
+```

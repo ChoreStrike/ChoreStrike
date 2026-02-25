@@ -39,11 +39,15 @@ class SchedulingController extends OCSController {
 	 */
 	public function getPreferences(): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$userId = $this->authService->getCurrentUserId();
 			if ($userId === null) {
 				throw new \Exception('Not authenticated');
 			}
-			$preferences = $this->schedulingService->getUserPreferences($userId);
+
+			$this->authService->requireHouseMember($house->getId());
+			$preferences = $this->schedulingService->getUserPreferencesByNextcloudUserId($house->getId(), $userId);
 
 			return new JSONResponse([
 				'success' => true,
@@ -67,11 +71,15 @@ class SchedulingController extends OCSController {
 	 */
 	public function updateEnergy(string $day, int $energy): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$userId = $this->authService->getCurrentUserId();
 			if ($userId === null) {
 				throw new \Exception('Not authenticated');
 			}
-			$this->schedulingService->updateEnergyBudget($userId, $day, $energy);
+
+			$this->authService->requireHouseMember($house->getId());
+			$this->schedulingService->updateEnergyBudgetByNextcloudUserId($house->getId(), $userId, $day, $energy);
 
 			return new JSONResponse([
 				'success' => true,
@@ -103,16 +111,28 @@ class SchedulingController extends OCSController {
 	 */
 	public function updateAvailability(string $day, bool $available): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$userId = $this->authService->getCurrentUserId();
 			if ($userId === null) {
 				throw new \Exception('Not authenticated');
 			}
-			$this->schedulingService->updateAvailability($userId, $day, $available);
+
+			$this->authService->requireHouseMember($house->getId());
+			$this->schedulingService->updateAvailabilityByNextcloudUserId($house->getId(), $userId, $day, $available);
 
 			return new JSONResponse([
 				'success' => true,
 				'message' => 'Availability updated'
 			]);
+		} catch (\InvalidArgumentException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'VALIDATION_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 400);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
@@ -133,7 +153,7 @@ class SchedulingController extends OCSController {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->requireHouseMember($house->getId());
+			$this->authService->requireHouseOwner($house->getId());
 			
 			$availability = $this->schedulingService->getMemberAvailability($house->getId());
 
@@ -159,7 +179,11 @@ class SchedulingController extends OCSController {
 	 */
 	public function updateMemberAvailability(int $userId, array $updates): JSONResponse {
 		try {
-			$this->schedulingService->updateMemberAvailability($userId, $updates);
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseOwner($house->getId());
+
+			$this->schedulingService->updateMemberAvailability($house->getId(), $userId, $updates);
 
 			return new JSONResponse([
 				'success' => true,
