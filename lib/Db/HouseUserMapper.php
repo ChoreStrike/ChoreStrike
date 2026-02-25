@@ -111,6 +111,22 @@ class HouseUserMapper extends QBMapper {
 	}
 
 	/**
+	 * Find house user by house ID and Nextcloud user ID
+	 * Returns null if not found (does not throw exception)
+	 *
+	 * @param int $houseId The house ID
+	 * @param string $nextcloudUserId The Nextcloud user ID
+	 * @return HouseUser|null
+	 */
+	public function findByHouseAndUser(int $houseId, string $nextcloudUserId): ?HouseUser {
+		try {
+			return $this->findByNextcloudUserId($houseId, $nextcloudUserId);
+		} catch (DoesNotExistException $e) {
+			return null;
+		}
+	}
+
+	/**
 	 * Get active users (with activity in last N days)
 	 *
 	 * @param int $houseId The house ID

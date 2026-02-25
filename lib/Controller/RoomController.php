@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
@@ -17,25 +18,31 @@ class RoomController extends OCSController {
 
 	private RoomService $roomService;
 	private HouseService $houseService;
+	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
 		RoomService $roomService,
-		HouseService $houseService
+		HouseService $houseService,
+		AuthorizationService $authService
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomService = $roomService;
 		$this->houseService = $houseService;
+		$this->authService = $authService;
 	}
 
 	/**
 	 * Get all rooms for a floor
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function index(int $floorId): JSONResponse {
 		try {
+			// Verify house membership via floor
+			$floor = $this->roomService->getFloor($floorId);
+			$this->authService->requireHouseMember($floor->getHouseId());
+			
 			$rooms = $this->roomService->getRooms($floorId);
 			
 			return new JSONResponse([
@@ -56,12 +63,14 @@ class RoomController extends OCSController {
 	/**
 	 * Get room with tasks
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function show(int $id): JSONResponse {
 		try {
+			// Get room and verify house membership
 			$roomWithTasks = $this->roomService->getRoomWithTasks($id);
+			$room = $roomWithTasks['room'];
+			$this->authService->requireHouseMember($room->getHouseId());
 			
 			$tasksData = [];
 			foreach ($roomWithTasks['tasks'] as $taskWithDetails) {
@@ -93,7 +102,6 @@ class RoomController extends OCSController {
 	/**
 	 * Create a new room
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function create(int $floorId, string $name): JSONResponse {
@@ -108,6 +116,10 @@ class RoomController extends OCSController {
 				], 400);
 			}
 
+			// Verify house membership via floor
+			$floor = $this->roomService->getFloor($floorId);
+			$this->authService->requireHouseMember($floor->getHouseId());
+			
 			$room = $this->roomService->createRoom($floorId, $name);
 			
 			return new JSONResponse([
@@ -128,7 +140,6 @@ class RoomController extends OCSController {
 	/**
 	 * Update room name
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function update(int $id, string $name): JSONResponse {
@@ -142,8 +153,10 @@ class RoomController extends OCSController {
 					]
 				], 400);
 			}
-
+			
+			// Get room and verify house membership
 			$room = $this->roomService->updateRoomName($id, $name);
+			$this->authService->requireHouseMember($room->getHouseId());
 			
 			return new JSONResponse([
 				'success' => true,
@@ -163,11 +176,14 @@ class RoomController extends OCSController {
 	/**
 	 * Delete room
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function delete(int $id): JSONResponse {
 		try {
+			// Get room and verify house membership before deleting
+			$room = $this->roomService->getRoom($id);
+			$this->authService->requireHouseMember($room->getHouseId());
+			
 			$this->roomService->deleteRoom($id);
 			
 			return new JSONResponse([
@@ -188,7 +204,6 @@ class RoomController extends OCSController {
 	/**
 	 * Update room cleanliness
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function updateCleanliness(int $id, int $cleanlinessChange): JSONResponse {
@@ -202,6 +217,10 @@ class RoomController extends OCSController {
 					]
 				], 400);
 			}
+			
+			// Get room and verify house membership
+			$room = $this->roomService->getRoom($id);
+			$this->authService->requireHouseMember($room->getHouseId());
 
 			$room = $this->roomService->updateRoomCleanliness($id, $cleanlinessChange);
 			
@@ -223,11 +242,21 @@ class RoomController extends OCSController {
 	/**
 	 * Get rooms that need cleaning
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function needingCleaning(?int $floorId = null): JSONResponse {
 		try {
+			// If floorId provided, verify house membership
+			if ($floorId !== null) {
+				$floor = $this->roomService->getFloor($floorId);
+				$this->authService->requireHouseMember($floor->getHouseId());
+			} else {
+				// Otherwise verify against house
+				$instanceId = $this->houseService->getInstanceId();
+				$house = $this->houseService->getOrCreateHouse($instanceId);
+				$this->authService->requireHouseMember($house->getId());
+			}
+			
 			$rooms = $this->roomService->getRoomsNeedingCleaning($floorId);
 			
 			return new JSONResponse([
@@ -248,11 +277,14 @@ class RoomController extends OCSController {
 	/**
 	 * Add task to room
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function addTask(int $roomId, int $taskId, ?string $nextDue = null, ?string $assignedToUserId = null): JSONResponse {
 		try {
+			// Verify house membership via room
+			$room = $this->roomService->getRoom($roomId);
+			$this->authService->requireHouseMember($room->getHouseId());
+			
 			$nextDueDate = null;
 			if ($nextDue !== null) {
 				$nextDueDate = new \DateTime($nextDue);
@@ -281,11 +313,14 @@ class RoomController extends OCSController {
 	/**
 	 * Remove task from room
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function removeTask(int $roomId, int $taskId): JSONResponse {
 		try {
+			// Verify house membership via room
+			$room = $this->roomService->getRoom($roomId);
+			$this->authService->requireHouseMember($room->getHouseId());
+			
 			$this->roomService->removeTaskFromRoom($roomId, $taskId);
 			
 			return new JSONResponse([
@@ -306,11 +341,15 @@ class RoomController extends OCSController {
 	/**
 	 * Complete room task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function completeTask(int $roomTaskId, string $userId): JSONResponse {
 		try {
+			// Verify house membership - completion uses the current user's house membership
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$result = $this->roomService->completeRoomTask($roomTaskId, $userId);
 			
 			return new JSONResponse([

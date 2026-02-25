@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
@@ -17,27 +18,33 @@ class FloorController extends OCSController {
 
 	private FloorService $floorService;
 	private HouseService $houseService;
+	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
 		FloorService $floorService,
-		HouseService $houseService
+		HouseService $houseService,
+		AuthorizationService $authService
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->floorService = $floorService;
 		$this->houseService = $houseService;
+		$this->authService = $authService;
 	}
 
 	/**
 	 * Get all floors for the current house
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function index(): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			
+			// Require house membership
+			$this->authService->requireHouseMember($house->getId());
+			
 			$floors = $this->floorService->getFloors($house->getId());
 			
 			return new JSONResponse([
@@ -58,12 +65,14 @@ class FloorController extends OCSController {
 	/**
 	 * Get floor with rooms
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function show(int $id): JSONResponse {
 		try {
+			// Get floor and verify house membership
 			$floorWithRooms = $this->floorService->getFloorWithRooms($id);
+			$houseId = $floorWithRooms['floor']->getHouseId();
+			$this->authService->requireHouseMember($houseId);
 			
 			return new JSONResponse([
 				'success' => true,
@@ -87,7 +96,6 @@ class FloorController extends OCSController {
 	/**
 	 * Create a new floor
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function create(string $name, ?int $sortOrder = null): JSONResponse {
@@ -104,6 +112,10 @@ class FloorController extends OCSController {
 
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			
+			// Require house membership for creation
+			$this->authService->requireHouseMember($house->getId());
+			
 			$floor = $this->floorService->createFloor($house->getId(), $name, $sortOrder);
 			
 			return new JSONResponse([
@@ -124,7 +136,6 @@ class FloorController extends OCSController {
 	/**
 	 * Update floor name
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function update(int $id, string $name): JSONResponse {
@@ -138,8 +149,10 @@ class FloorController extends OCSController {
 					]
 				], 400);
 			}
-
+			
+			// Get floor and verify house membership
 			$floor = $this->floorService->updateFloorName($id, $name);
+			$this->authService->requireHouseMember($floor->getHouseId());
 			
 			return new JSONResponse([
 				'success' => true,
@@ -159,7 +172,6 @@ class FloorController extends OCSController {
 	/**
 	 * Reorder floors
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function reorder(array $floorOrder): JSONResponse {
@@ -176,6 +188,10 @@ class FloorController extends OCSController {
 
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			
+			// Require house membership
+			$this->authService->requireHouseMember($house->getId());
+			
 			$updatedFloors = $this->floorService->reorderFloors($house->getId(), $floorOrder);
 			
 			return new JSONResponse([
@@ -196,11 +212,14 @@ class FloorController extends OCSController {
 	/**
 	 * Delete floor
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function delete(int $id): JSONResponse {
 		try {
+			// Verify house membership before deleting
+			$floor = $this->floorService->getFloor($id);
+			$this->authService->requireHouseMember($floor->getHouseId());
+			
 			$this->floorService->deleteFloor($id);
 			
 			return new JSONResponse([
@@ -221,13 +240,16 @@ class FloorController extends OCSController {
 	/**
 	 * Get all floors with their rooms for the current house
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function withRooms(): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			
+			// Require house membership
+			$this->authService->requireHouseMember($house->getId());
+			
 			$floorsWithRooms = $this->floorService->getFloorsWithRooms($house->getId());
 			
 			$result = [];

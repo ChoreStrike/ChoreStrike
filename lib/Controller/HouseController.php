@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
@@ -15,19 +16,21 @@ use OCP\IRequest;
 class HouseController extends OCSController {
 
 	private HouseService $houseService;
+	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
-		HouseService $houseService
+		HouseService $houseService,
+		AuthorizationService $authService
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->houseService = $houseService;
+		$this->authService = $authService;
 	}
 
 	/**
 	 * Get current house
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function get(): JSONResponse {
@@ -53,7 +56,6 @@ class HouseController extends OCSController {
 	/**
 	 * Update house name
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function update(string $name): JSONResponse {
@@ -70,6 +72,10 @@ class HouseController extends OCSController {
 
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			
+			// Require house ownership for update
+			$this->authService->requireHouseOwner($house->getId());
+			
 			$updatedHouse = $this->houseService->updateHouseName($house->getId(), $name);
 			
 			return new JSONResponse([
@@ -90,13 +96,16 @@ class HouseController extends OCSController {
 	/**
 	 * Get house statistics
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function stats(): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			
+			// Require house membership
+			$this->authService->requireHouseMember($house->getId());
+			
 			$stats = $this->houseService->getHouseStats($house->getId());
 			
 			return new JSONResponse([
@@ -120,13 +129,16 @@ class HouseController extends OCSController {
 	/**
 	 * Calculate and update house health
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function health(): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			
+			// Require house membership
+			$this->authService->requireHouseMember($house->getId());
+			
 			$health = $this->houseService->calculateHouseHealth($house->getId());
 			
 			return new JSONResponse([
@@ -149,13 +161,16 @@ class HouseController extends OCSController {
 	/**
 	 * Reset house to initial state
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function reset(): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			
+			// Require house ownership for reset
+			$this->authService->requireHouseOwner($house->getId());
+			
 			$this->houseService->resetHouse($house->getId());
 			
 			// Return updated house
