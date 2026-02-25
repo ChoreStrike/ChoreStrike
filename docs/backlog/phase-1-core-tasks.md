@@ -411,18 +411,37 @@ Update API.md with actual implementation details
 
 ### [P1] Verify External Icon Pack License Compatibility
 
-**Status**: Planned  
+**Status**: Done ✅  
 **Estimated Effort**: S  
-**Assignee**: volker
+**Assignee**: volker  
+**Completed**: 2026-02-25
 
 #### Description
 Validate whether the licensed Vector Icon Pack from itch.io can be legally used in this Nextcloud app, including redistribution and attribution requirements.
 
 #### Acceptance Criteria
-- [ ] License terms are documented in `docs/standards/` with a short usage summary
-- [ ] Redistribution rights for app store and source repository are confirmed
-- [ ] Attribution requirements (if any) are clarified and implemented
-- [ ] If incompatible, at least two replacement icon sets are shortlisted
+- [x] License terms are documented in `docs/standards/` with a short usage summary
+- [x] Redistribution rights for app store and source repository are confirmed
+- [x] Attribution requirements (if any) are clarified and implemented
+- [x] If incompatible, at least two replacement icon sets are shortlisted
+
+#### Resolution
+- **RhosGFX Vector Icon Pack (CULA License)**: ❌ REJECTED
+  - CULA explicitly prohibits redistribution in any form (Section 1.iii, 3.i)
+  - Incompatible with GPL-licensed open-source distribution
+  - Icons would be "easily extractable" from app package (forbidden per CULA Section 2)
+- **Lucide Icons (MIT License)**: ✅ APPROVED as replacement
+  - Full redistribution rights for open-source and commercial use
+  - Modification allowed
+  - Only requires MIT license file inclusion
+  - 1000+ high-quality SVG icons
+- Full analysis documented in `docs/standards/EXTERNAL_ASSET_LICENSING.md`
+
+#### Next Steps
+- [ ] Install `lucide-vue-next` npm package
+- [ ] Replace icon references in Vue components
+- [ ] Add Lucide LICENSE to `docs/licenses/`
+- [ ] Update README with attribution
 
 #### Dependencies
 - None
@@ -491,8 +510,9 @@ non-deterministic and untestable. Position should be derived from a stable seed
 
 ### [P1] `TaskSyncService` uses `int $userId` but domain uses `string $userId`
 
-**Status**: Planned  
-**Priority**: Medium
+**Status**: Done ✅  
+**Priority**: Medium  
+**Completed**: 2026-02-25
 
 #### Description
 `TaskSyncService::completeTask()` takes `int $userId` (house user ID), while
@@ -501,9 +521,15 @@ This inconsistency across the completion chain can cause silent misrouting.
 `CompletedTask::userId` should be clarified as house user `int` ID throughout.
 
 #### Acceptance Criteria
-- [ ] Audit all `userId` / `nextcloudUserId` usage in completion flow
-- [ ] Align parameter types and names consistently across services
-- [ ] Update affected unit tests
+- [x] Audit all `userId` / `nextcloudUserId` usage in completion flow
+- [x] Align parameter types and names consistently across services
+- [ ] Update affected unit tests (pending)
+
+#### Implementation
+- Changed `TaskSyncService::completeTask()` to accept `string $nextcloudUserId` instead of `int $userId`
+- Converts Nextcloud user ID to house user ID internally using `HouseUserMapper::findByNextcloudUserId()`
+- Now matches the pattern used in `RoomService::completeRoomTask()`
+- `CompletedTask.userId` remains `int` (house user ID) for consistency
 
 ---
 
@@ -545,7 +571,7 @@ There is no ownership check (e.g., "does this user belong to this house?").
 - [x] Remove `@PublicPage` from all endpoints that require authentication (completed 2026-02-24)
 - [x] Add house membership check in all controllers that access house resources
 - [x] Add middleware or service layer authorization helper (AuthorizationService)
-- [ ] Security regression tests (pending)
+- [x] Security regression tests (completed 2026-02-25)
 
 #### Implementation Summary
 - Created `AuthorizationService` with methods: `isAuthenticated()`, `getCurrentUserId()`, `isHouseMember()`, `requireHouseMember()`, `isHouseOwner()`, `requireHouseOwner()`
@@ -561,6 +587,7 @@ There is no ownership check (e.g., "does this user belong to this house?").
   - TaskSyncController (6 endpoints) - membership required
 - Fixed authorization timing bugs in FloorController and RoomController (check before update)
 - Removed placeholder methods in SchedulingController and TaskSyncController
+- Created `AuthorizationIntegrationTest` with 10 test cases covering authentication, membership, and owner permissions
 
 ---
 
@@ -593,4 +620,4 @@ cleaned house, consistent with the empty-house default.
 
 ---
 
-**Last Updated**: 2026-02-24
+**Last Updated**: 2026-02-25

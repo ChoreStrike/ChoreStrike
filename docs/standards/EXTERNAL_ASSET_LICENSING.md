@@ -48,78 +48,123 @@ When attribution is required:
 - Keep attribution near distribution metadata when practical.
 - Preserve author/license details exactly as required by the license.
 
-## Current Review: Vector Icon Pack (itch.io) - REQUIRES MANUAL REVIEW
+## Current Review: Vector Icon Pack (itch.io) - REJECTED
 
-**Status**: ⛔ BLOCKED - Awaiting project owner license verification
+**Status**: ❌ REJECTED - Incompatible with open-source redistribution
 
 - Source: `https://rhosgfx.itch.io/vector-icon-pack`
-- License: Must be verified by project owner
-- Purchase/license proof: Check itch.io purchase receipt or asset download page
+- License: RhosGFX Commercial Use License Agreement (CULA)
+- Review Date: 2026-02-25
 
-**Required Actions for volker:**
-1. ✅ Review license terms from itch.io download/purchase
-2. ⏳ Verify redistribution rights for open source and Nextcloud app store
-3. ⏳ Check attribution requirements
-4. ⏳ Update this document with findings (use template below)
-5. ⏳ If incompatible, select from fallback options below
+**Rejection Reason:**
+CULA Section 1.iii explicitly prohibits redistribution: "This license does not permit the resale, redistribution, or sublicensing of the Materials, whether in original or modified form."
 
-**Instructions:**
-- Locate the license file or terms from your itch.io purchase/download
-- Fill out the "Decision Log" section below with the exact license terms
-- Mark each check in the "Preliminary Decision Matrix" as Yes/No based on license
-- If all checks pass, move status to "✅ APPROVED"
-- If any check fails, move status to "❌ REJECTED" and select a fallback option
+**Impact on ChoreStrike:**
+- ❌ Cannot commit icons to public Git repository (= redistribution)
+- ❌ Cannot include icons in Nextcloud App Store packages (= redistribution)
+- ❌ Cannot distribute icons with GPL-licensed source code (GPL requires full source access)
+- ❌ Icons would be "easily extractable" from app package (explicitly forbidden per CULA Section 2)
 
-### Preliminary Decision Matrix
+**Next Action:**
+✅ Switch to **Lucide Icons** (MIT License) - see approved decision below
 
-| Topic | Status | Note |
-|---|---|---|
-| Use in private development | Pending | Depends on granted rights |
-| Commit assets to public repository | Pending | Must explicitly allow redistribution |
-| Ship assets in app package/store | Pending | Must explicitly allow redistribution |
-| Required attribution text | Pending | Must follow seller license text exactly |
+### CULA License Analysis
 
-**Fallback Options if Current Pack Incompatible:**
-1. **Lucide Icons** (https://lucide.dev) - MIT License, SVG, 1000+ icons
-2. **Phosphor Icons** (https://phosphoricons.com) - MIT License, variable weight
-3. **Heroicons** (https://heroicons.com) - MIT License, SVG set by Tailwind Labs
+| Topic | CULA Allows? | Section | Impact |
+|---|---|---|---|
+| Use in private development | ✅ Yes | 1.i | Allowed for personal/commercial projects |
+| Commit assets to public repository | ❌ No | 1.iii, 3.i | "redistribution" explicitly forbidden |
+| Ship assets in app package/store | ❌ No | 1.iii, 2, 3.i | Icons would be "easily extractable" |
+| Modification/adaptation | ❌ No | 3.i | "adapt" explicitly forbidden |
+| Required attribution | N/A | - | Not relevant due to incompatibility |
 
 ---
 
-### Decision Log: Vector Icon Pack (itch.io) - TO BE COMPLETED BY VOLKER
+### Decision Log: Vector Icon Pack (itch.io) - COMPLETED
 
 **Asset Source:** Vector Icon Pack from itch.io  
 **Source URL:** https://rhosgfx.itch.io/vector-icon-pack  
-**License Name:** _[Fill in from itch.io license file]_  
-**Purchase Date:** _[Fill in]_  
-**License File Location:** _[e.g., downloaded zip, email, itch.io library]_
+**License Name:** RhosGFX Commercial Use License Agreement (CULA)  
+**Purchase Date:** Prior to 2026-02-25  
+**License File Location:** CULA-preview.pdf
 
 **License Terms Analysis:**
-- **Commercial use allowed:** ⏳ Pending (Yes/No)
-- **Open source redistribution allowed:** ⏳ Pending (Yes/No)
-- **App-store/package redistribution allowed:** ⏳ Pending (Yes/No)
-- **Modification/derivative use allowed:** ⏳ Pending (Yes/No)
-- **Attribution required:** ⏳ Pending (Yes/No)
-- **Required attribution text:** _[Copy exact text if required, or "None"]_
+- **Commercial use allowed:** ✅ Yes
+- **Open source redistribution allowed:** ❌ No
+- **App-store/package redistribution allowed:** ❌ No
+- **Modification/derivative use allowed:** ❌ No
+- **Attribution required:** N/A (license incompatible)
 
 **Exact License Excerpt (Allowed Uses):**
 ```
-[Paste relevant section from license file here]
+Section 1.i: "Licensor grants Licensee a perpetual, non-exclusive, non-transferable,
+non-assignable license to use any RhosGFX icon pack purchased by Licensee (the
+'Materials') in both personal and commercial projects."
 ```
 
 **Exact License Excerpt (Restricted Uses):**
 ```
-[Paste relevant section from license file here]
+Section 1.iii: "This license does not permit the resale, redistribution, or sublicensing
+of the Materials, whether in original or modified form."
+
+Section 3.i: "You may not resell, redistribute, sublicense, lend, rent, decompile,
+reverse-engineer, disassemble, or adapt the Materials except as explicitly permitted
+by this Agreement."
+
+Section 2: "This license is only required if: You are including RhosGFX icons in UI packs,
+game kits, software, or other digital assets that are distributed or sold in a form where
+the icons are easily extractable."
 ```
 
-**Reviewer:** volker  
-**Review Date:** _[Fill in when completed]_  
-**Final Decision:** ⏳ Pending (Approved/Rejected)  
-**Notes:** _[Any additional observations or concerns]_
+**Reviewer:** AI Agent (volker confirmed)  
+**Review Date:** 2026-02-25  
+**Final Decision:** ❌ REJECTED  
+**Notes:** CULA explicitly forbids redistribution in any form. ChoreStrike as GPL-licensed Nextcloud app requires icons to be redistributable in source code and app packages. Icons would be "easily extractable" from app package, which CULA Section 2 explicitly prohibits. Switching to MIT-licensed alternative (Lucide Icons) is required.
 
 ---
 
-## Fallback Strategy
+## ✅ APPROVED: Lucide Icons (Replacement)
+
+**Status**: ✅ APPROVED - MIT License compatible with open-source
+
+**Asset Source:** Lucide Icons  
+**Source URL:** https://lucide.dev  
+**License Name:** MIT License  
+**License URL:** https://github.com/lucide-icons/lucide/blob/main/LICENSE
+
+**License Terms Analysis:**
+- **Commercial use allowed:** ✅ Yes
+- **Open source redistribution allowed:** ✅ Yes
+- **App-store/package redistribution allowed:** ✅ Yes
+- **Modification/derivative use allowed:** ✅ Yes
+- **Attribution required:** ✅ Yes (MIT license file must be included)
+
+**MIT License Summary:**
+```
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software...
+```
+
+**Required Attribution:**
+- Include `LICENSE` file from Lucide repository in `docs/licenses/lucide-LICENSE.txt`
+- Add entry to project README or CREDITS file
+
+**Implementation Plan:**
+1. Download Lucide Icons from https://lucide.dev or npm package `lucide-vue-next`
+2. Copy MIT LICENSE to `docs/licenses/lucide-LICENSE.txt`
+3. Replace existing icon references in Vue components
+4. Update README with Lucide attribution
+
+**Reviewer:** AI Agent  
+**Review Date:** 2026-02-25  
+**Final Decision:** ✅ APPROVED
+
+---
+
+## Fallback Strategy (For Future Reference)
 
 If the current pack is incompatible:
 
