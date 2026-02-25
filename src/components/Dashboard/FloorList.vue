@@ -96,11 +96,11 @@
 					<div v-else-if="getFloorRooms(floor.id).length === 0" class="empty-floor">
 						<p>No rooms on this floor yet.</p>
 						<button
-						class="add-room-button"
-						@click="addRoom(floor.id)">
-						<Icon name="Plus" :size="16" class="icon" />
-						Add Room
-					</button>
+							class="add-room-button"
+							@click="addRoom(floor.id)">
+							<Icon name="Plus" :size="16" class="icon" />
+							Add Room
+						</button>
 					</div>
 
 					<!-- Rooms Grid -->
@@ -115,9 +115,9 @@
 						<!-- Add Room Button -->
 						<div class="add-room-card" @click="addRoom(floor.id)">
 							<div class="add-room-content">
-							<Icon name="Plus" :size="24" class="add-icon" />
-							<span class="add-text">Add Room</span>
-						</div>
+								<Icon name="Plus" :size="24" class="add-icon" />
+								<span class="add-text">Add Room</span>
+							</div>
 						</div>
 					</div>
 				</div>

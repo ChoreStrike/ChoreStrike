@@ -4,8 +4,7 @@
 		:class="iconClasses"
 		:size="computedSize"
 		:stroke-width="strokeWidth"
-		v-bind="$attrs"
-	/>
+		v-bind="$attrs" />
 </template>
 
 <script>

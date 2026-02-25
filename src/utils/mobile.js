@@ -9,7 +9,8 @@ import { ref, onMounted, onUnmounted } from 'vue'
  * @return {boolean} True if touch device
  */
 export function isTouchDevice() {
-	return 'ontouchstart' in window || navigator.maxTouchPoints > 0
+	// eslint-disable-next-line n/no-unsupported-features/node-builtins
+	return 'ontouchstart' in window || (typeof navigator !== 'undefined' && 'maxTouchPoints' in navigator && navigator.maxTouchPoints > 0)
 }
 
 /**

@@ -62,7 +62,13 @@ if ($isDocker) {
         return false;
     }, true, true);
 } else {
-    // Local environment - only vendor autoloader available
+    // Local environment - load mocks first
+    require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/Entity.php';
+    require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/QBMapper.php';
+    require_once __DIR__ . '/__mocks__/OCP/IRequest.php';
+    require_once __DIR__ . '/__mocks__/OCP/IDBConnection.php';
+    
+    // Load vendor autoloader
     require_once __DIR__ . '/../vendor/autoload.php';
 }
 

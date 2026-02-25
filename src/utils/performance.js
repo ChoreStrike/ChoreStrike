@@ -4,6 +4,7 @@
  */
 
 class PerformanceMonitor {
+
 	constructor() {
 		this.metrics = new Map()
 		this.timers = new Map()
@@ -63,7 +64,7 @@ class PerformanceMonitor {
 	 * Measure async function execution time
 	 * @param {string} name - Metric name
 	 * @param {Function} fn - Async function to measure
-	 * @returns {Promise<any>} - Function result
+	 * @return {Promise<any>} - Function result
 	 */
 	async measureAsync(name, fn) {
 		this.start(name)
@@ -79,7 +80,7 @@ class PerformanceMonitor {
 
 	/**
 	 * Get metrics report
-	 * @returns {object} - Metrics summary
+	 * @return {object} - Metrics summary
 	 */
 	getReport() {
 		const report = {}
@@ -106,6 +107,7 @@ class PerformanceMonitor {
 	log() {
 		if (!this.enabled) return
 		const report = this.getReport()
+		// eslint-disable-next-line no-console
 		console.log('[Performance]', report)
 	}
 
@@ -116,6 +118,7 @@ class PerformanceMonitor {
 		this.metrics.clear()
 		this.timers.clear()
 	}
+
 }
 
 // Singleton instance
@@ -123,7 +126,7 @@ export const perfMonitor = new PerformanceMonitor()
 
 /**
  * Vue composable for performance tracking
- * @returns {object} - Performance methods
+ * @return {object} - Performance methods
  */
 export function usePerformance() {
 	return {
@@ -137,7 +140,7 @@ export function usePerformance() {
  * Debounce function for performance optimization
  * @param {Function} fn - Function to debounce
  * @param {number} delay - Delay in milliseconds
- * @returns {Function} - Debounced function
+ * @return {Function} - Debounced function
  */
 export function debounce(fn, delay = 300) {
 	let timeoutId
@@ -151,7 +154,7 @@ export function debounce(fn, delay = 300) {
  * Throttle function for performance optimization
  * @param {Function} fn - Function to throttle
  * @param {number} limit - Limit in milliseconds
- * @returns {Function} - Throttled function
+ * @return {Function} - Throttled function
  */
 export function throttle(fn, limit = 100) {
 	let inThrottle

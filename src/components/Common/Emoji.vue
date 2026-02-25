@@ -5,8 +5,7 @@
 		:class="emojiClasses"
 		:width="size"
 		:height="size"
-		v-bind="$attrs"
-	/>
+		v-bind="$attrs">
 </template>
 
 <script>
@@ -23,96 +22,96 @@ import { computed } from 'vue'
 const EMOJI_MAP = {
 	// Rooms
 	'living-room': 'couch_and_lamp',
-	'bedroom': 'bed',
-	'bathroom': 'bathtub',
-	'kitchen': 'cooking',
-	'balcony': 'potted_plant',
-	'office': 'laptop',
-	'garage': 'automobile',
-	'storage': 'package',
-	'dining': 'fork_and_knife_with_plate',
+	bedroom: 'bed',
+	bathroom: 'bathtub',
+	kitchen: 'cooking',
+	balcony: 'potted_plant',
+	office: 'laptop',
+	garage: 'automobile',
+	storage: 'package',
+	dining: 'fork_and_knife_with_plate',
 
 	// Tasks & Chores
-	'trash': 'wastebasket',
-	'cleaning': 'broom',
-	'sponge': 'sponge',
-	'bucket': 'bucket',
-	'soap': 'soap',
-	'laundry': 'basket',
-	'shopping': 'shopping_cart',
-	'dishes': 'fork_and_knife_with_plate',
-	'repair': 'hammer_and_wrench',
+	trash: 'wastebasket',
+	cleaning: 'broom',
+	sponge: 'sponge',
+	bucket: 'bucket',
+	soap: 'soap',
+	laundry: 'basket',
+	shopping: 'shopping_cart',
+	dishes: 'fork_and_knife_with_plate',
+	repair: 'hammer_and_wrench',
 
 	// Gamification - Energy
-	'energy': 'high_voltage',
-	'battery': 'battery',
-	'power': 'electric_plug',
+	energy: 'high_voltage',
+	battery: 'battery',
+	power: 'electric_plug',
 
 	// Gamification - Rewards
-	'star': 'star',
-	'sparks': 'sparkles',
-	'coin': 'coin',
-	'points': 'gem_stone',
+	star: 'star',
+	sparks: 'sparkles',
+	coin: 'coin',
+	points: 'gem_stone',
 
 	// Gamification - Streak
-	'fire': 'fire',
-	'streak': 'fire',
+	fire: 'fire',
+	streak: 'fire',
 
 	// Gamification - Medals
-	'trophy': 'trophy',
-	'gold': '1st_place_medal',
-	'silver': '2nd_place_medal',
-	'bronze': '3rd_place_medal',
-	'crown': 'crown',
+	trophy: 'trophy',
+	gold: '1st_place_medal',
+	silver: '2nd_place_medal',
+	bronze: '3rd_place_medal',
+	crown: 'crown',
 
 	// Monsters
-	'monster': 'alien_monster',
-	'bug': 'microbe',
-	'ghost': 'ghost',
-	'spider': 'spider_web',
-	'dust': 'dashing_away',
-	'dirt': 'pile_of_poo',
+	monster: 'alien_monster',
+	bug: 'microbe',
+	ghost: 'ghost',
+	spider: 'spider_web',
+	dust: 'dashing_away',
+	dirt: 'pile_of_poo',
 
 	// Avatars (Animals for kids/family-friendly)
-	'fox': 'fox',
-	'panda': 'panda',
-	'cat': 'cat_face',
-	'frog': 'frog',
-	'dog': 'dog_face',
-	'owl': 'owl',
-	'rabbit': 'rabbit_face',
-	'bear': 'bear',
-	'penguin': 'penguin',
-	'unicorn': 'unicorn',
-	'dragon': 'dragon_face',
-	'robot': 'robot',
+	fox: 'fox',
+	panda: 'panda',
+	cat: 'cat_face',
+	frog: 'frog',
+	dog: 'dog_face',
+	owl: 'owl',
+	rabbit: 'rabbit_face',
+	bear: 'bear',
+	penguin: 'penguin',
+	unicorn: 'unicorn',
+	dragon: 'dragon_face',
+	robot: 'robot',
 
 	// Status
-	'done': 'check_mark_button',
-	'pending': 'white_circle',
-	'warning': 'warning',
-	'error': 'cross_mark',
-	'info': 'information',
+	done: 'check_mark_button',
+	pending: 'white_circle',
+	warning: 'warning',
+	error: 'cross_mark',
+	info: 'information',
 
 	// Time
-	'morning': 'sunrise',
-	'afternoon': 'sun',
-	'evening': 'city_sunset',
-	'night': 'night_with_stars',
-	'clock': 'alarm_clock',
+	morning: 'sunrise',
+	afternoon: 'sun',
+	evening: 'city_sunset',
+	night: 'night_with_stars',
+	clock: 'alarm_clock',
 
 	// Weather (for seasonal tasks)
-	'sunny': 'sun',
-	'rainy': 'cloud_with_rain',
-	'snowy': 'snowflake',
-	'windy': 'leaf_fluttering_in_wind',
+	sunny: 'sun',
+	rainy: 'cloud_with_rain',
+	snowy: 'snowflake',
+	windy: 'leaf_fluttering_in_wind',
 }
 
 /**
  * Get emoji file name from map or return the name directly
  *
  * @param {string} name - The emoji name or key
- * @returns {string} The emoji file name
+ * @return {string} The emoji file name
  */
 function getEmojiFileName(name) {
 	return EMOJI_MAP[name] || name

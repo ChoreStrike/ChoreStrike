@@ -20,7 +20,7 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
-use Test\TestCase;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Integration tests for authorization checks across all controllers

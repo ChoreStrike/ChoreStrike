@@ -140,7 +140,7 @@ export default {
 					}
 				})
 			},
-			{ immediate: true, deep: true }
+			{ immediate: true, deep: true },
 		)
 
 		const startComboTimer = (comboId) => {

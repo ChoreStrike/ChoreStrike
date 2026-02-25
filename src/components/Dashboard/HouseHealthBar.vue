@@ -1,41 +1,39 @@
 <template>
-  <div class="house-health-bar">
-    <div class="health-header">
-      <h3 class="health-title">
-        <Icon name="Home" :size="20" class="icon" />
-        {{ houseName }}
-      </h3>
-      <div class="health-percentage">
-        {{ houseHealth }}%
-      </div>
-    </div>
-    
-    <div class="health-bar-container">
-      <div 
-        class="health-bar-fill"
-        :class="healthClass"
-        :style="{ width: `${houseHealth}%` }"
-      >
-        <div class="health-bar-glow"></div>
-      </div>
-      <div class="health-bar-background"></div>
-    </div>
-    
-    <div class="health-status">
-      <span class="status-text" :class="healthClass">
-        {{ healthStatus }}
-      </span>
-      <button 
-        v-if="showRefreshButton"
-        @click="refreshHealth"
-        class="refresh-button"
-        :disabled="loading"
-        title="Refresh house health"
-      >
-        <Icon name="RefreshCw" :size="16" />
-      </button>
-    </div>
-  </div>
+	<div class="house-health-bar">
+		<div class="health-header">
+			<h3 class="health-title">
+				<Icon name="Home" :size="20" class="icon" />
+				{{ houseName }}
+			</h3>
+			<div class="health-percentage">
+				{{ houseHealth }}%
+			</div>
+		</div>
+
+		<div class="health-bar-container">
+			<div
+				class="health-bar-fill"
+				:class="healthClass"
+				:style="{ width: `${houseHealth}%` }">
+				<div class="health-bar-glow" />
+			</div>
+			<div class="health-bar-background" />
+		</div>
+
+		<div class="health-status">
+			<span class="status-text" :class="healthClass">
+				{{ healthStatus }}
+			</span>
+			<button
+				v-if="showRefreshButton"
+				class="refresh-button"
+				:disabled="loading"
+				title="Refresh house health"
+				@click="refreshHealth">
+				<Icon name="RefreshCw" :size="16" />
+			</button>
+		</div>
+	</div>
 </template>
 
 <script>
@@ -44,63 +42,63 @@ import { useHouseStore } from '../../store/house.js'
 import { Icon } from '../Common'
 
 export default {
-  name: 'HouseHealthBar',
-  
-  props: {
-    showRefreshButton: {
-      type: Boolean,
-      default: true
-    },
-    compact: {
-      type: Boolean,
-      default: false
-    }
-  },
+	name: 'HouseHealthBar',
 
-  setup(props) {
-    const houseStore = useHouseStore()
+	props: {
+		showRefreshButton: {
+			type: Boolean,
+			default: true,
+		},
+		compact: {
+			type: Boolean,
+			default: false,
+		},
+	},
 
-    // Computed properties
-    const houseHealth = computed(() => houseStore.houseHealth)
-    const houseName = computed(() => houseStore.houseName)
-    const loading = computed(() => houseStore.loading)
+	setup(props) {
+		const houseStore = useHouseStore()
 
-    const healthClass = computed(() => {
-      const health = houseHealth.value
-      if (health >= 80) return 'excellent'
-      if (health >= 60) return 'good'
-      if (health >= 40) return 'fair'
-      if (health >= 20) return 'poor'
-      return 'terrible'
-    })
+		// Computed properties
+		const houseHealth = computed(() => houseStore.houseHealth)
+		const houseName = computed(() => houseStore.houseName)
+		const loading = computed(() => houseStore.loading)
 
-    const healthStatus = computed(() => {
-      const health = houseHealth.value
-      if (health >= 80) return 'Excellent! 🌟'
-      if (health >= 60) return 'Good! 👍'
-      if (health >= 40) return 'Fair 📊'
-      if (health >= 20) return 'Needs attention ⚠️'
-      return 'Critical! 🚨'
-    })
+		const healthClass = computed(() => {
+			const health = houseHealth.value
+			if (health >= 80) return 'excellent'
+			if (health >= 60) return 'good'
+			if (health >= 40) return 'fair'
+			if (health >= 20) return 'poor'
+			return 'terrible'
+		})
 
-    // Methods
-    const refreshHealth = async () => {
-      try {
-        await houseStore.calculateHouseHealth()
-      } catch (error) {
-        console.error('Failed to refresh house health:', error)
-      }
-    }
+		const healthStatus = computed(() => {
+			const health = houseHealth.value
+			if (health >= 80) return 'Excellent! 🌟'
+			if (health >= 60) return 'Good! 👍'
+			if (health >= 40) return 'Fair 📊'
+			if (health >= 20) return 'Needs attention ⚠️'
+			return 'Critical! 🚨'
+		})
 
-    return {
-      houseHealth,
-      houseName,
-      loading,
-      healthClass,
-      healthStatus,
-      refreshHealth
-    }
-  }
+		// Methods
+		const refreshHealth = async () => {
+			try {
+				await houseStore.calculateHouseHealth()
+			} catch (error) {
+				console.error('Failed to refresh house health:', error)
+			}
+		}
+
+		return {
+			houseHealth,
+			houseName,
+			loading,
+			healthClass,
+			healthStatus,
+			refreshHealth,
+		}
+	},
 }
 </script>
 
@@ -194,9 +192,9 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(90deg, 
-    rgba(255, 255, 255, 0.3) 0%, 
-    rgba(255, 255, 255, 0.1) 50%, 
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
     rgba(255, 255, 255, 0.3) 100%);
   animation: shimmer 2s infinite;
 }
@@ -293,17 +291,17 @@ export default {
   .house-health-bar {
     padding: 12px;
   }
-  
+
   .health-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
   }
-  
+
   .health-title {
     font-size: 16px;
   }
-  
+
   .health-percentage {
     font-size: 20px;
   }

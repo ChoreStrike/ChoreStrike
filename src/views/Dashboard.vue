@@ -1,8 +1,10 @@
 <template>
 	<div class="dashboard">
 		<h1>{{ t('chorewars', 'ChoreWars Dashboard') }}</h1>
-		<p class="tagline">{{ t('chorewars', 'Defend your Home Base. Together.') }}</p>
-		
+		<p class="tagline">
+			{{ t('chorewars', 'Defend your Home Base. Together.') }}
+		</p>
+
 		<div class="welcome-message">
 			<h2>{{ t('chorewars', 'Welcome to ChoreWars!') }}</h2>
 			<p>{{ t('chorewars', 'This is the beginning of your gamified household management journey.') }}</p>

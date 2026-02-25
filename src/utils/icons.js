@@ -8,7 +8,7 @@ import {
 	Package,
 	Armchair,
 	Trash2,
-	Broom,
+	BrushCleaning,
 	Sparkles,
 	ShoppingCart,
 	Shirt,
@@ -71,8 +71,6 @@ import {
 	Redo,
 	Save,
 	Printer,
-	Mail,
-	Phone,
 	MapPin,
 	Navigation,
 	Locate,
@@ -156,7 +154,7 @@ export const icons = {
 	Package,
 
 	// Tasks & Cleaning
-	Broom,
+	BrushCleaning,
 	Sparkles,
 	ShoppingCart,
 	Shirt,
@@ -225,7 +223,7 @@ export const icons = {
  * Get icon component by name
  *
  * @param {string} name - The icon name
- * @returns {Component|undefined} The icon component or undefined if not found
+ * @return {Component|undefined} The icon component or undefined if not found
  */
 export function getIcon(name) {
 	return icons[name]
@@ -235,7 +233,7 @@ export function getIcon(name) {
  * Check if an icon exists
  *
  * @param {string} name - The icon name
- * @returns {boolean} True if the icon exists
+ * @return {boolean} True if the icon exists
  */
 export function hasIcon(name) {
 	return name in icons
