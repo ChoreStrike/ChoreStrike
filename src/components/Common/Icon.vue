@@ -1,0 +1,101 @@
+<template>
+	<Component
+		:is="iconComponent"
+		:class="iconClasses"
+		:size="computedSize"
+		:stroke-width="strokeWidth"
+		v-bind="$attrs"
+	/>
+</template>
+
+<script>
+import { computed } from 'vue'
+import { getIcon } from '../utils/icons.js'
+
+/**
+ * Icon component for ChoreStrike
+ *
+ * Uses Lucide icons for consistent, MIT-licensed iconography.
+ *
+ * @example
+ * <Icon name="Home" size="24" />
+ * <Icon name="Trash2" class="danger" />
+ * <Icon name="CheckCircle" :size="32" stroke-width="2.5" />
+ */
+export default {
+	name: 'Icon',
+
+	inheritAttrs: false,
+
+	props: {
+		/**
+		 * Icon name from the Lucide icon set
+		 * @see src/utils/icons.js for available icons
+		 */
+		name: {
+			type: String,
+			required: true,
+		},
+
+		/**
+		 * Icon size in pixels
+		 */
+		size: {
+			type: [Number, String],
+			default: 20,
+		},
+
+		/**
+		 * Stroke width for the icon
+		 */
+		strokeWidth: {
+			type: [Number, String],
+			default: 1.5,
+		},
+
+		/**
+		 * Additional CSS class
+		 */
+		className: {
+			type: String,
+			default: '',
+		},
+	},
+
+	setup(props) {
+		const iconComponent = computed(() => {
+			const component = getIcon(props.name)
+			if (!component) {
+				console.warn(`Icon "${props.name}" not found in icon registry`)
+				return null
+			}
+			return component
+		})
+
+		const computedSize = computed(() => {
+			return typeof props.size === 'number' ? props.size : parseInt(props.size, 10)
+		})
+
+		const iconClasses = computed(() => {
+			return ['icon', `icon--${props.name.toLowerCase()}`, props.className]
+				.filter(Boolean)
+				.join(' ')
+		})
+
+		return {
+			iconComponent,
+			computedSize,
+			iconClasses,
+		}
+	},
+}
+</script>
+
+<style scoped>
+.icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+</style>
