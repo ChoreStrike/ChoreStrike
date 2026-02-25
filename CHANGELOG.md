@@ -40,8 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed dashboard room click navigation to open the room detail route correctly
 - Fixed room task completion user ID lookup to use the user store instead of game store
 - Fixed Babel config usage to load Nextcloud shared Babel config correctly
-- **Critical:** Fixed namespace inconsistency - migrated all `OCA\ChoreStrike` references to canonical `OCA\ChoreWars` (55 files)
-- **Critical:** Fixed database table prefix inconsistency - migrated `chorestrike_` to `chorewars_` in migrations 1001-1003 and mappers
+- **Critical:** Fixed namespace inconsistency - migrated all `OCA\ChoreWars` references to canonical `OCA\ChoreStrike` (55 files)
+- **Critical:** Fixed database table prefix inconsistency - migrated `chorewars_` to `chorestrike_` in migrations 1001-1003 and mappers
 - **Critical:** Fixed missing `appName` parameter in `OCSController::__construct()` across all 9 API controllers
 - Added missing scope/lifecycle fields to `Task` entity: `scopeType`, `scopeLabel`, `recurrenceMode`, `activeFrom`, `activeUntil`, `isVoluntary`, `reminderType`, `reminderMinutesBefore`
 - Extended `TaskMapper::create()` and `TaskService::createTask()` signatures to handle new scope/lifecycle parameters

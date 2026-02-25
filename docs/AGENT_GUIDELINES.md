@@ -1,10 +1,10 @@
-# Agent Guidelines für ChoreWars Entwicklung
+# Agent Guidelines für ChoreStrike Entwicklung
 
-Dieses Dokument definiert, wie AI-Agents bei der Entwicklung von ChoreWars agieren sollen.
+Dieses Dokument definiert, wie AI-Agents bei der Entwicklung von ChoreStrike agieren sollen.
 
 ## 🎯 Projekt-Kontext
 
-**ChoreWars** ist eine Open-Source Nextcloud-Erweiterung für gamifiziertes Haushaltsaufgaben-Management.
+**ChoreStrike** ist eine Open-Source Nextcloud-Erweiterung für gamifiziertes Haushaltsaufgaben-Management.
 
 ### Kernprinzipien
 1. **Open Source First**: Alles ist öffentlich (MIT Lizenz)
@@ -18,7 +18,7 @@ Dieses Dokument definiert, wie AI-Agents bei der Entwicklung von ChoreWars agier
 ### Public vs. Private Trennung
 
 ```
-ChoreWars/
+ChoreStrike/
 ├── public/              # Alles was ins Repository kommt
 │   ├── src/            # Quellcode
 │   ├── docs/           # Dokumentation
@@ -68,8 +68,8 @@ public function changeSchema(IOutput $output, Closure $schemaClosure, array $opt
     /** @var ISchemaWrapper $schema */
     $schema = $schemaClosure();
     
-    if (!$schema->hasTable('chorewars_rooms')) {
-        $table = $schema->createTable('chorewars_rooms');
+    if (!$schema->hasTable('ChoreStrike_rooms')) {
+        $table = $schema->createTable('ChoreStrike_rooms');
         $table->addColumn('id', Types::BIGINT, [
             'autoincrement' => true,
             'notnull' => true,
@@ -171,8 +171,8 @@ import { translate as t } from '@nextcloud/l10n'
 
 export default {
   setup() {
-    const welcomeText = t('chorewars', 'Welcome to ChoreWars!')
-    const taskCount = (n) => n('chorewars', 
+    const welcomeText = t('ChoreStrike', 'Welcome to ChoreStrike!')
+    const taskCount = (n) => n('ChoreStrike', 
       '%n task', 
       '%n tasks', 
       count
@@ -280,7 +280,7 @@ $sql = "SELECT * FROM rooms WHERE name = '" . $name . "'";
 // ✅ GOOD - Query Builder verwenden
 $qb = $this->db->getQueryBuilder();
 $qb->select('*')
-   ->from('chorewars_rooms')
+   ->from('ChoreStrike_rooms')
    ->where($qb->expr()->eq('name', $qb->createNamedParameter($name)));
 ```
 
@@ -394,7 +394,7 @@ Types:
 ```javascript
 // Development-Mode Logging
 if (process.env.NODE_ENV === 'development') {
-  console.log('[ChoreWars]', debugInfo)
+  console.log('[ChoreStrike]', debugInfo)
 }
 
 // Vue DevTools nutzen

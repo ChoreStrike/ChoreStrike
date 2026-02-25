@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Tests\Integration\Controller;
+namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
-use OCA\ChoreWars\Controller\GameController;
-use OCA\ChoreWars\Service\GameLogicService;
+use OCA\ChoreStrike\Controller\GameController;
+use OCA\ChoreStrike\Service\GameLogicService;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 

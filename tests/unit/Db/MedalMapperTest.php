@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Tests\Unit\Db;
+namespace OCA\ChoreStrike\Tests\Unit\Db;
 
-use OCA\ChoreWars\Db\Medal;
-use OCA\ChoreWars\Db\MedalMapper;
+use OCA\ChoreStrike\Db\Medal;
+use OCA\ChoreStrike\Db\MedalMapper;
 use OCP\DB\QueryBuilder\IExpressionBuilder;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;

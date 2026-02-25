@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Db;
+namespace OCA\ChoreStrike\Db;
 
 use JsonSerializable;
 use OCP\AppFramework\Db\Entity;

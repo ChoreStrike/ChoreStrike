@@ -42,8 +42,8 @@ chmod +x scripts/run-tests.sh
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/volker-ma/ChoreWars.git
-cd ChoreWars
+git clone https://github.com/volker-ma/ChoreStrike.git
+cd ChoreStrike
 ```
 
 ### 2. Build Test Environment
@@ -105,7 +105,7 @@ vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask
 5. Clone and run tests from WSL:
    ```bash
    wsl
-   cd /mnt/c/path/to/ChoreWars
+   cd /mnt/c/path/to/ChoreStrike
    docker compose -f docker-compose.test.yml up --build
    ```
 

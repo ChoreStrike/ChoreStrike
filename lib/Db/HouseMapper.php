@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Db;
+namespace OCA\ChoreStrike\Db;
 
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\QBMapper;
@@ -15,7 +15,7 @@ use OCP\IDBConnection;
 class HouseMapper extends QBMapper {
 
 	public function __construct(IDBConnection $db) {
-		parent::__construct($db, 'chorewars_houses', House::class);
+		parent::__construct($db, 'chorestrike_houses', House::class);
 	}
 
 	/**

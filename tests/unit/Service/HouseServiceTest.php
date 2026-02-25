@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Tests\Unit\Service;
+namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreWars\Db\Floor;
-use OCA\ChoreWars\Db\FloorMapper;
-use OCA\ChoreWars\Db\House;
-use OCA\ChoreWars\Db\HouseMapper;
-use OCA\ChoreWars\Db\Room;
-use OCA\ChoreWars\Db\RoomMapper;
-use OCA\ChoreWars\Service\HouseService;
+use OCA\ChoreStrike\Db\Floor;
+use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseMapper;
+use OCA\ChoreStrike\Db\Room;
+use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 use PHPUnit\Framework\TestCase;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Migration;
+namespace OCA\ChoreStrike\Migration;
 
 use Closure;
 use OCP\DB\ISchemaWrapper;
@@ -23,8 +23,8 @@ class Version1001Date20260224170000 extends SimpleMigrationStep {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 
-		if (!$schema->hasTable('chorewars_task_scopes')) {
-			$table = $schema->createTable('chorewars_task_scopes');
+		if (!$schema->hasTable('chorestrike_task_scopes')) {
+			$table = $schema->createTable('chorestrike_task_scopes');
 			$table->addColumn('id', 'bigint', ['autoincrement' => true, 'notnull' => true]);
 			$table->addColumn('house_id', 'bigint', ['notnull' => true]);
 			$table->addColumn('type', 'string', ['notnull' => true, 'length' => 20, 'default' => 'room']);
@@ -32,14 +32,14 @@ class Version1001Date20260224170000 extends SimpleMigrationStep {
 			$table->addColumn('name', 'string', ['notnull' => true, 'length' => 255]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
 			$table->setPrimaryKey(['id']);
-			$table->addForeignKeyConstraint('chorewars_houses', ['house_id'], ['id'], ['onDelete' => 'CASCADE']);
-			$table->addForeignKeyConstraint('chorewars_rooms', ['room_id'], ['id'], ['onDelete' => 'CASCADE']);
+			$table->addForeignKeyConstraint('chorestrike_houses', ['house_id'], ['id'], ['onDelete' => 'CASCADE']);
+			$table->addForeignKeyConstraint('chorestrike_rooms', ['room_id'], ['id'], ['onDelete' => 'CASCADE']);
 			$table->addIndex(['house_id', 'type'], 'idx_task_scopes_house_type');
 			$table->addIndex(['room_id'], 'idx_task_scopes_room');
 		}
 
-		if ($schema->hasTable('chorewars_tasks')) {
-			$table = $schema->getTable('chorewars_tasks');
+		if ($schema->hasTable('chorestrike_tasks')) {
+			$table = $schema->getTable('chorestrike_tasks');
 			if (!$table->hasColumn('scope_type')) {
 				$table->addColumn('scope_type', 'string', ['notnull' => true, 'length' => 20, 'default' => 'room']);
 				$table->addIndex(['scope_type'], 'idx_tasks_scope_type');
@@ -64,11 +64,11 @@ class Version1001Date20260224170000 extends SimpleMigrationStep {
 			}
 		}
 
-		if ($schema->hasTable('chorewars_room_tasks')) {
-			$table = $schema->getTable('chorewars_room_tasks');
+		if ($schema->hasTable('chorestrike_room_tasks')) {
+			$table = $schema->getTable('chorestrike_room_tasks');
 			if (!$table->hasColumn('scope_id')) {
 				$table->addColumn('scope_id', 'bigint', ['notnull' => false]);
-				$table->addForeignKeyConstraint('chorewars_task_scopes', ['scope_id'], ['id'], ['onDelete' => 'SET NULL']);
+				$table->addForeignKeyConstraint('chorestrike_task_scopes', ['scope_id'], ['id'], ['onDelete' => 'SET NULL']);
 				$table->addIndex(['scope_id'], 'idx_room_tasks_scope');
 			}
 		}

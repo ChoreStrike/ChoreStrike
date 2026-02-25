@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Tests\Unit\Db;
+namespace OCA\ChoreStrike\Tests\Unit\Db;
 
-use OCA\ChoreWars\Db\CompletedTask;
-use OCA\ChoreWars\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\CompletedTask;
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCP\DB\QueryBuilder\IExpressionBuilder;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;

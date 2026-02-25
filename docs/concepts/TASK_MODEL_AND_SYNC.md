@@ -2,7 +2,7 @@
 
 ## Goal
 
-Define task behavior so users can plan, complete, and track chores consistently across ChoreWars and the Nextcloud task ecosystem.
+Define task behavior so users can plan, complete, and track chores consistently across ChoreStrike and the Nextcloud task ecosystem.
 
 ## Task Definition
 
@@ -31,19 +31,19 @@ Reminder behavior must be configurable per task.
 
 ### Sync rule
 
-Reminder fields in ChoreWars must stay synchronized with Nextcloud Tasks-compatible reminder fields so reminders are visible on mobile task clients.
+Reminder fields in ChoreStrike must stay synchronized with Nextcloud Tasks-compatible reminder fields so reminders are visible on mobile task clients.
 
 ## Completion Rules
 
 A task instance can be completed from:
 
-1. ChoreWars UI (dashboard, room detail, task list)
+1. ChoreStrike UI (dashboard, room detail, task list)
 2. Connected task clients through Nextcloud task completion status
 
 ### Completion synchronization
 
-- Completing in ChoreWars marks the linked task as completed in Nextcloud tasks.
-- Completing in a synced task client marks the task as completed in ChoreWars.
+- Completing in ChoreStrike marks the linked task as completed in Nextcloud tasks.
+- Completing in a synced task client marks the task as completed in ChoreStrike.
 - Completion timestamps should be normalized to server time and stored with timezone-aware values.
 
 ## Conflict Handling
@@ -57,7 +57,7 @@ If two clients update the same task close in time:
 ## Mobile Behavior
 
 - Reminder and completion status must work in standard mobile task workflows.
-- ChoreWars-specific visuals are optional on mobile clients; task state consistency is mandatory.
+- ChoreStrike-specific visuals are optional on mobile clients; task state consistency is mandatory.
 
 ## Open Decisions
 

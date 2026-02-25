@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Migration;
+namespace OCA\ChoreStrike\Migration;
 
 use Closure;
 use OCP\DB\ISchemaWrapper;
@@ -23,8 +23,8 @@ class Version1003Date20260224190000 extends SimpleMigrationStep {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 
-		if ($schema->hasTable('chorewars_house_users')) {
-			$table = $schema->getTable('chorewars_house_users');
+		if ($schema->hasTable('chorestrike_house_users')) {
+			$table = $schema->getTable('chorestrike_house_users');
 			if (!$table->hasColumn('scheduling_preferences')) {
 				$table->addColumn('scheduling_preferences', 'json', ['notnull' => false]);
 			}

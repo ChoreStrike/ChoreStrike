@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Tests\Unit\Service;
+namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreWars\Db\CompletedTask;
-use OCA\ChoreWars\Db\CompletedTaskMapper;
-use OCA\ChoreWars\Db\HouseUser;
-use OCA\ChoreWars\Db\HouseUserMapper;
-use OCA\ChoreWars\Db\Room;
-use OCA\ChoreWars\Db\RoomMapper;
-use OCA\ChoreWars\Db\RoomTask;
-use OCA\ChoreWars\Db\RoomTaskMapper;
-use OCA\ChoreWars\Db\Task;
-use OCA\ChoreWars\Db\TaskMapper;
-use OCA\ChoreWars\Service\TaskSyncService;
+use OCA\ChoreStrike\Db\CompletedTask;
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\Room;
+use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Service\TaskSyncService;
 use OCP\ITimeFactory;
 use PHPUnit\Framework\TestCase;
 

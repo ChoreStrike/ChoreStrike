@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
-    <id>chorewars</id>
-    <name>ChoreWars</name>
+    <id>chorestrike</id>
+    <name>ChoreStrike</name>
     <summary>Gamified household task management - Defend your home base together!</summary>
     <description><![CDATA[
-ChoreWars transforms household chores into a cooperative tower defense game. 
+ChoreStrike transforms household chores into a cooperative tower defense game. 
 
 **Features:**
 - 🏠 Organize tasks by rooms and floors
@@ -22,9 +22,9 @@ Keep your home clean by completing tasks and watch cute pixel monsters disappear
     <version>0.1.0</version>
     <licence>MIT</licence>
     
-    <author>ChoreWars Contributors</author>
+    <author>ChoreStrike Contributors</author>
     
-    <namespace>ChoreWars</namespace>
+    <namespace>ChoreStrike</namespace>
     
     <category>organization</category>
     <category>games</category>
@@ -40,8 +40,8 @@ Keep your home clean by completing tasks and watch cute pixel monsters disappear
     
     <navigations>
         <navigation>
-            <name>ChoreWars</name>
-            <route>chorewars.page.index</route>
+            <name>ChoreStrike</name>
+            <route>chorestrike.page.index</route>
             <icon>app.svg</icon>
         </navigation>
     </navigations>

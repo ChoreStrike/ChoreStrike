@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Service;
+namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreWars\Db\Task;
-use OCA\ChoreWars\Db\TaskMapper;
+use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 /**

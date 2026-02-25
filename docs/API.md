@@ -1,8 +1,8 @@
-# ChoreWars API Documentation
+# ChoreStrike API Documentation
 
 ## Base URL
 
-All API endpoints are prefixed with `/apps/chorewars/api/v1`
+All API endpoints are prefixed with `/apps/ChoreStrike/api/v1`
 
 ## Authentication
 

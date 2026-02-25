@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Tests\Unit\Service;
+namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreWars\Db\CompletedTask;
-use OCA\ChoreWars\Db\CompletedTaskMapper;
-use OCA\ChoreWars\Db\HouseUser;
-use OCA\ChoreWars\Db\HouseUserMapper;
-use OCA\ChoreWars\Db\Medal;
-use OCA\ChoreWars\Db\MedalMapper;
-use OCA\ChoreWars\Db\Room;
-use OCA\ChoreWars\Db\RoomMapper;
-use OCA\ChoreWars\Db\Task;
-use OCA\ChoreWars\Service\GameLogicService;
+use OCA\ChoreStrike\Db\CompletedTask;
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\Medal;
+use OCA\ChoreStrike\Db\MedalMapper;
+use OCA\ChoreStrike\Db\Room;
+use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Service\GameLogicService;
 use PHPUnit\Framework\TestCase;
 
 /**

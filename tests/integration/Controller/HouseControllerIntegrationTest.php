@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Tests\Integration\Controller;
+namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
-use OCA\ChoreWars\Controller\HouseController;
-use OCA\ChoreWars\Service\HouseService;
+use OCA\ChoreStrike\Controller\HouseController;
+use OCA\ChoreStrike\Service\HouseService;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -42,7 +42,7 @@ class HouseControllerIntegrationTest extends TestCase {
 			'nextcloudInstanceId' => $instanceId,
 		];
 
-		$house = $this->createMock(\OCA\ChoreWars\Db\House::class);
+		$house = $this->createMock(\OCA\ChoreStrike\Db\House::class);
 		$house->method('jsonSerialize')->willReturn($houseData);
 
 		$this->houseService->method('getInstanceId')->willReturn($instanceId);
@@ -81,7 +81,7 @@ class HouseControllerIntegrationTest extends TestCase {
 		$instanceId = 'test-instance-123';
 		$houseId = 1;
 
-		$existingHouse = $this->createMock(\OCA\ChoreWars\Db\House::class);
+		$existingHouse = $this->createMock(\OCA\ChoreStrike\Db\House::class);
 		$existingHouse->method('getId')->willReturn($houseId);
 
 		$updatedHouseData = [
@@ -89,7 +89,7 @@ class HouseControllerIntegrationTest extends TestCase {
 			'name' => $newName,
 			'houseHealth' => 85,
 		];
-		$updatedHouse = $this->createMock(\OCA\ChoreWars\Db\House::class);
+		$updatedHouse = $this->createMock(\OCA\ChoreStrike\Db\House::class);
 		$updatedHouse->method('jsonSerialize')->willReturn($updatedHouseData);
 
 		$this->houseService->method('getInstanceId')->willReturn($instanceId);
@@ -145,7 +145,7 @@ class HouseControllerIntegrationTest extends TestCase {
 			'completedTasksThisWeek' => 8,
 		];
 
-		$house = $this->createMock(\OCA\ChoreWars\Db\House::class);
+		$house = $this->createMock(\OCA\ChoreStrike\Db\House::class);
 		$house->method('getId')->willReturn(1);
 
 		$this->houseService->method('getInstanceId')->willReturn($instanceId);
@@ -177,7 +177,7 @@ class HouseControllerIntegrationTest extends TestCase {
 			],
 		];
 
-		$house = $this->createMock(\OCA\ChoreWars\Db\House::class);
+		$house = $this->createMock(\OCA\ChoreStrike\Db\House::class);
 		$house->method('getId')->willReturn(1);
 
 		$this->houseService->method('getInstanceId')->willReturn($instanceId);

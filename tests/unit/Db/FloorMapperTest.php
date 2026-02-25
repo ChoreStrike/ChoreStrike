@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Tests\Unit\Db;
+namespace OCA\ChoreStrike\Tests\Unit\Db;
 
-use OCA\ChoreWars\Db\Floor;
-use OCA\ChoreWars\Db\FloorMapper;
+use OCA\ChoreStrike\Db\Floor;
+use OCA\ChoreStrike\Db\FloorMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\DB\QueryBuilder\IExpressionBuilder;
 use OCP\DB\QueryBuilder\IQueryBuilder;

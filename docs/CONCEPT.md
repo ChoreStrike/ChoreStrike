@@ -1,8 +1,8 @@
-# ChoreWars - Konzept & Design Dokument
+# ChoreStrike - Konzept & Design Dokument
 
 ## 🎯 Vision
 
-ChoreWars verwandelt Haushaltsaufgaben in ein kooperatives Spiel, das motiviert statt bestraft. Durch die Gamifizierung mit Tower Defense-Elementen wird das Putzen zu einem befriedigenden, visuellen Erlebnis.
+ChoreStrike verwandelt Haushaltsaufgaben in ein kooperatives Spiel, das motiviert statt bestraft. Durch die Gamifizierung mit Tower Defense-Elementen wird das Putzen zu einem befriedigenden, visuellen Erlebnis.
 
 ## 📊 Sweepy-Analyse: Was wir übernehmen
 
@@ -37,7 +37,7 @@ Basierend auf der Recherche zu Sweepy übernehmen wir folgende bewährte Konzept
    - Historie erledigter Aufgaben
    - Fortschritts-Tracking
 
-## 🎮 ChoreWars Erweiterungen
+## 🎮 ChoreStrike Erweiterungen
 
 Was wir zusätzlich zu Sweepy bieten:
 

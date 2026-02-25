@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreWars\Migration;
+namespace OCA\ChoreStrike\Migration;
 
 use Closure;
 use OCP\DB\ISchemaWrapper;
@@ -24,8 +24,8 @@ class Version1002Date20260224180000 extends SimpleMigrationStep {
 		$schema = $schemaClosure();
 
 		// Add nextcloud_task_id to room_tasks for linking
-		if ($schema->hasTable('chorewars_room_tasks')) {
-			$table = $schema->getTable('chorewars_room_tasks');
+		if ($schema->hasTable('chorestrike_room_tasks')) {
+			$table = $schema->getTable('chorestrike_room_tasks');
 			if (!$table->hasColumn('nextcloud_task_id')) {
 				$table->addColumn('nextcloud_task_id', 'bigint', ['notnull' => false]);
 				$table->addIndex(['nextcloud_task_id'], 'idx_room_tasks_nextcloud');
@@ -33,8 +33,8 @@ class Version1002Date20260224180000 extends SimpleMigrationStep {
 		}
 
 		// Add sync fields to completed_tasks for tracking
-		if ($schema->hasTable('chorewars_completed_tasks')) {
-			$table = $schema->getTable('chorewars_completed_tasks');
+		if ($schema->hasTable('chorestrike_completed_tasks')) {
+			$table = $schema->getTable('chorestrike_completed_tasks');
 			if (!$table->hasColumn('nextcloud_task_id')) {
 				$table->addColumn('nextcloud_task_id', 'bigint', ['notnull' => false]);
 				$table->addIndex(['nextcloud_task_id'], 'idx_completed_nextcloud');

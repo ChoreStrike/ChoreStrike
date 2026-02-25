@@ -2,7 +2,7 @@
 
 ## Internationalization Scope
 
-ChoreWars is multilingual by default.
+ChoreStrike is multilingual by default.
 
 ### Initial language targets
 

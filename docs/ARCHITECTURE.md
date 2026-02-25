@@ -1,8 +1,8 @@
-# ChoreWars Architecture
+# ChoreStrike Architecture
 
 ## Overview
 
-ChoreWars is built as a Nextcloud app following the standard Nextcloud app architecture with Vue.js 3 frontend and PHP backend.
+ChoreStrike is built as a Nextcloud app following the standard Nextcloud app architecture with Vue.js 3 frontend and PHP backend.
 
 ## Technology Stack
 
@@ -26,7 +26,7 @@ ChoreWars is built as a Nextcloud app following the standard Nextcloud app archi
 ## Directory Structure
 
 ```
-ChoreWars/
+ChoreStrike/
 ├── appinfo/
 │   ├── info.xml              # App metadata
 │   ├── routes.php            # API routes
@@ -126,7 +126,7 @@ ChoreWars/
 │           └── combo.mp3
 ├── l10n/                     # Translations
 │   ├── templates/
-│   │   └── chorewars.pot
+│   │   └── ChoreStrike.pot
 │   ├── de.po
 │   ├── de.json
 │   ├── en.po
@@ -217,7 +217,7 @@ Component Update (Reactive)
 
 ### Core Tables
 
-#### `chorewars_houses`
+#### `ChoreStrike_houses`
 - `id` (bigint, PK)
 - `nextcloud_instance_id` (string) - For multi-instance support
 - `name` (string)
@@ -225,14 +225,14 @@ Component Update (Reactive)
 - `created_at` (datetime)
 - `updated_at` (datetime)
 
-#### `chorewars_floors`
+#### `ChoreStrike_floors`
 - `id` (bigint, PK)
 - `house_id` (bigint, FK)
 - `name` (string)
 - `sort_order` (int)
 - `created_at` (datetime)
 
-#### `chorewars_rooms`
+#### `ChoreStrike_rooms`
 - `id` (bigint, PK)
 - `floor_id` (bigint, FK)
 - `name` (string)
@@ -241,7 +241,7 @@ Component Update (Reactive)
 - `last_cleaned` (datetime, nullable)
 - `created_at` (datetime)
 
-#### `chorewars_tasks`
+#### `ChoreStrike_tasks`
 - `id` (bigint, PK)
 - `name` (string)
 - `description` (text, nullable)
@@ -254,7 +254,7 @@ Component Update (Reactive)
 - `is_template` (boolean)
 - `created_at` (datetime)
 
-#### `chorewars_room_tasks`
+#### `ChoreStrike_room_tasks`
 - `id` (bigint, PK)
 - `room_id` (bigint, FK)
 - `task_id` (bigint, FK)
@@ -264,7 +264,7 @@ Component Update (Reactive)
 - `is_active` (boolean)
 - `created_at` (datetime)
 
-#### `chorewars_house_users`
+#### `ChoreStrike_house_users`
 - `id` (bigint, PK)
 - `house_id` (bigint, FK)
 - `nextcloud_user_id` (string)
@@ -275,7 +275,7 @@ Component Update (Reactive)
 - `role` (enum: owner, member, child)
 - `joined_at` (datetime)
 
-#### `chorewars_completed_tasks`
+#### `ChoreStrike_completed_tasks`
 - `id` (bigint, PK)
 - `room_task_id` (bigint, FK)
 - `user_id` (bigint, FK)
@@ -284,7 +284,7 @@ Component Update (Reactive)
 - `was_combo` (boolean)
 - `combo_with_user_id` (bigint, FK, nullable)
 
-#### `chorewars_medals`
+#### `ChoreStrike_medals`
 - `id` (bigint, PK)
 - `user_id` (bigint, FK)
 - `medal_type` (enum: tank, scout, specialist, teamplayer, streak_keeper)
@@ -296,11 +296,11 @@ Component Update (Reactive)
 
 ```sql
 -- Performance indexes
-CREATE INDEX idx_room_tasks_next_due ON chorewars_room_tasks(next_due);
-CREATE INDEX idx_room_tasks_room_id ON chorewars_room_tasks(room_id);
-CREATE INDEX idx_completed_tasks_user_id ON chorewars_completed_tasks(user_id);
-CREATE INDEX idx_completed_tasks_completed_at ON chorewars_completed_tasks(completed_at);
-CREATE INDEX idx_house_users_house_id ON chorewars_house_users(house_id);
+CREATE INDEX idx_room_tasks_next_due ON ChoreStrike_room_tasks(next_due);
+CREATE INDEX idx_room_tasks_room_id ON ChoreStrike_room_tasks(room_id);
+CREATE INDEX idx_completed_tasks_user_id ON ChoreStrike_completed_tasks(user_id);
+CREATE INDEX idx_completed_tasks_completed_at ON ChoreStrike_completed_tasks(completed_at);
+CREATE INDEX idx_house_users_house_id ON ChoreStrike_house_users(house_id);
 ```
 
 ## API Design
@@ -500,7 +500,7 @@ composer install --no-dev --optimize-autoloader
 ```
 
 ### Nextcloud Installation
-1. Copy app to `apps/chorewars/`
+1. Copy app to `apps/ChoreStrike/`
 2. Enable in Nextcloud admin panel
 3. Database migrations run automatically
 
@@ -518,7 +518,7 @@ $this->logger->info('Task completed', [
 ```javascript
 window.addEventListener('error', (event) => {
     // Log to Nextcloud
-    console.error('[ChoreWars]', event.error)
+    console.error('[ChoreStrike]', event.error)
 })
 ```
 
