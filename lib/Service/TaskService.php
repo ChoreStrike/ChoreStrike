@@ -230,21 +230,21 @@ class TaskService {
 
 		// Energy cost validation
 		if (isset($taskData['energyCost'])) {
-			if (!is_numeric($taskData['energyCost']) || $taskData['energyCost'] < 1 || $taskData['energyCost'] > 5) {
+			if ($taskData['energyCost'] < 1 || $taskData['energyCost'] > 5) {
 				$errors[] = 'Energy cost must be between 1 and 5';
 			}
 		}
 
 		// Priority validation
 		if (isset($taskData['priority'])) {
-			if (!is_numeric($taskData['priority']) || $taskData['priority'] < 1 || $taskData['priority'] > 3) {
+			if ($taskData['priority'] < 1 || $taskData['priority'] > 3) {
 				$errors[] = 'Priority must be between 1 and 3';
 			}
 		}
 
 		// Estimated time validation
 		if (isset($taskData['estimatedMinutes'])) {
-			if (!is_numeric($taskData['estimatedMinutes']) || $taskData['estimatedMinutes'] < 1 || $taskData['estimatedMinutes'] > 480) {
+			if ($taskData['estimatedMinutes'] < 1 || $taskData['estimatedMinutes'] > 480) {
 				$errors[] = 'Estimated time must be between 1 and 480 minutes';
 			}
 		}
@@ -259,7 +259,7 @@ class TaskService {
 
 		// Frequency value validation
 		if (isset($taskData['frequencyValue'])) {
-			if (!is_numeric($taskData['frequencyValue']) || $taskData['frequencyValue'] < 1) {
+			if ($taskData['frequencyValue'] < 1) {
 				$errors[] = 'Frequency value must be at least 1';
 			}
 		}
