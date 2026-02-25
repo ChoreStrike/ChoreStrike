@@ -154,9 +154,11 @@ class RoomController extends OCSController {
 				], 400);
 			}
 			
-			// Get room and verify house membership
-			$room = $this->roomService->updateRoomName($id, $name);
+			// Get room and verify house membership before update
+			$room = $this->roomService->getRoom($id);
 			$this->authService->requireHouseMember($room->getHouseId());
+			
+			$room = $this->roomService->updateRoomName($id, $name);
 			
 			return new JSONResponse([
 				'success' => true,

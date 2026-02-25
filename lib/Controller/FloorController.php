@@ -150,9 +150,11 @@ class FloorController extends OCSController {
 				], 400);
 			}
 			
-			// Get floor and verify house membership
-			$floor = $this->floorService->updateFloorName($id, $name);
+			// Get floor and verify house membership before update
+			$floor = $this->floorService->getFloor($id);
 			$this->authService->requireHouseMember($floor->getHouseId());
+			
+			$floor = $this->floorService->updateFloorName($id, $name);
 			
 			return new JSONResponse([
 				'success' => true,

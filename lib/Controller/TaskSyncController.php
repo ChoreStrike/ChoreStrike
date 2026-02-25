@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\TaskSyncService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
@@ -15,13 +16,16 @@ use OCP\IRequest;
 class TaskSyncController extends OCSController {
 
 	private TaskSyncService $taskSyncService;
+	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
-		TaskSyncService $taskSyncService
+		TaskSyncService $taskSyncService,
+		AuthorizationService $authService
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->taskSyncService = $taskSyncService;
+		$this->authService = $authService;
 	}
 
 	/**
@@ -31,7 +35,10 @@ class TaskSyncController extends OCSController {
 	 */
 	public function complete(int $roomTaskId, ?int $nextcloudTaskId = null): JSONResponse {
 		try {
-			$userId = $this->getUserId();
+			$userId = $this->authService->getCurrentUserId();
+			if ($userId === null) {
+				throw new \Exception('Not authenticated');
+			}
 			$result = $this->taskSyncService->completeTask($roomTaskId, $userId, $nextcloudTaskId);
 
 			return new JSONResponse([
@@ -180,12 +187,4 @@ class TaskSyncController extends OCSController {
 		}
 	}
 
-	/**
-	 * Get current user ID from session
-	 */
-	private function getUserId(): int {
-		// This would be implemented based on Nextcloud's user session
-		// For now, returning a placeholder
-		return 1;
-	}
 }
