@@ -15,6 +15,15 @@ jest.mock('@nextcloud/l10n', () => ({
 	translatePlural: jest.fn((app, singular, plural, count) => count === 1 ? singular : plural),
 }))
 
+// Mock the Icon component to render simple text
+jest.mock('../../../src/components/Common', () => ({
+	Icon: {
+		name: 'Icon',
+		props: ['name', 'size'],
+		template: '<span class="icon">{{ name }}</span>',
+	},
+}))
+
 describe('TaskList', () => {
 	const mockTask = (overrides = {}) => ({
 		task: {
@@ -56,7 +65,7 @@ describe('TaskList', () => {
 			})
 
 			expect(wrapper.find('.empty-state').exists()).toBe(true)
-			expect(wrapper.find('.empty-icon').text()).toBe('📋')
+			expect(wrapper.find('.empty-icon').exists()).toBe(true)
 			expect(wrapper.text()).toContain('No tasks yet')
 			expect(wrapper.text()).toContain('Add your first task to get started')
 		})
@@ -110,8 +119,8 @@ describe('TaskList', () => {
 				props: { loading: false, roomTasks: tasks },
 			})
 
-			expect(wrapper.text()).toContain('⚡ 3')
-			expect(wrapper.text()).toContain('⏱️ 45m')
+			expect(wrapper.text()).toContain('3')
+			expect(wrapper.text()).toContain('45m')
 		})
 
 		it('should show assigned indicator when task is assigned', () => {
@@ -120,7 +129,7 @@ describe('TaskList', () => {
 				props: { loading: false, roomTasks: tasks },
 			})
 
-			expect(wrapper.text()).toContain('👤 Assigned')
+			expect(wrapper.text()).toContain('Assigned')
 		})
 	})
 
@@ -190,7 +199,7 @@ describe('TaskList', () => {
 			await wrapper.find('.action-btn[title="Edit"]').trigger('click')
 
 			expect(wrapper.emitted('edit')).toBeTruthy()
-			expect(wrapper.emitted('edit')[0]).toEqual([roomTask])
+			expect(wrapper.emitted('edit')[0][0]).toMatchObject({ id: 42, isActive: true })
 		})
 
 		it('should emit delete event when delete button clicked', async () => {

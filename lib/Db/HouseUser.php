@@ -102,7 +102,7 @@ class HouseUser extends Entity implements JsonSerializable {
 	 * @param int $points Points to add
 	 */
 	public function addContributionScore(int $points): void {
-		$this->contributionScore += $points;
+		$this->setContributionScore($this->contributionScore + $points);
 	}
 
 	/**
@@ -111,7 +111,7 @@ class HouseUser extends Entity implements JsonSerializable {
 	 * @param int $sparks Sparks to add
 	 */
 	public function addTeamSparks(int $sparks): void {
-		$this->teamSparks += $sparks;
+		$this->setTeamSparks($this->teamSparks + $sparks);
 	}
 
 	/**
@@ -141,20 +141,21 @@ class HouseUser extends Entity implements JsonSerializable {
 		// Check for missed available days between last activity and today
 		$daysSinceLastActivity = (int)$lastActivityDate->diff($today)->days;
 
-		if ($daysSinceLastActivity === 0) {
+		// If last activity was yesterday, increment streak
+		if ($daysSinceLastActivity === 1) {
 			return $this->currentStreak + 1;
 		}
 
-		// Check each day between last activity and today
+		// Check each day between last activity and today (excluding yesterday and today)
 		$checkDate = clone $lastActivityDate;
 		$checkDate->modify('+1 day');
 
-		while ($checkDate <= $today) {
+		while ($checkDate < $today) {
 			$dayName = strtolower($checkDate->format('l'));
 			$isAvailable = $weekdayAvailability[$dayName] ?? true;
 
 			// If user was available but didn't complete a task, reset streak
-			if ($isAvailable && $checkDate->format('Y-m-d') !== $today->format('Y-m-d')) {
+			if ($isAvailable) {
 				return 1; // Reset to 1 (today's completion)
 			}
 
@@ -171,21 +172,21 @@ class HouseUser extends Entity implements JsonSerializable {
 	 * @param array $weekdayAvailability Weekday availability from scheduling preferences
 	 */
 	public function updateStreakWithAbsence(array $weekdayAvailability): void {
-		$this->currentStreak = $this->calculateStreakWithAbsence($weekdayAvailability);
+		$this->setCurrentStreak($this->calculateStreakWithAbsence($weekdayAvailability));
 	}
 
 	/**
 	 * Reset streak
 	 */
 	public function resetStreak(): void {
-		$this->currentStreak = 0;
+		$this->setCurrentStreak(0);
 	}
 
 	/**
 	 * Update last activity timestamp
 	 */
 	public function touch(): void {
-		$this->lastActivity = new \DateTime();
+		$this->setLastActivity(new \DateTime());
 	}
 
 	/**

@@ -152,12 +152,12 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * @param \DateTime|null $activeUntil The active until date for recurring tasks
 	 */
 	public function markCompleted(\DateTime $completedAt, string $frequencyType, int $frequencyValue, string $recurrenceMode = 'recurring', ?\DateTime $activeUntil = null): void {
-		$this->lastCompleted = $completedAt;
+		$this->setLastCompleted($completedAt);
 
 		// Handle one-time tasks - deactivate after completion
 		if ($recurrenceMode === 'one_time') {
-			$this->isActive = false;
-			$this->nextDue = $completedAt;
+			$this->setIsActive(false);
+			$this->setNextDue($completedAt);
 			return;
 		}
 
@@ -182,10 +182,10 @@ class RoomTask extends Entity implements JsonSerializable {
 
 		// Check if next due date exceeds active window
 		if ($activeUntil !== null && $nextDue > $activeUntil) {
-			$this->isActive = false;
-			$this->nextDue = $activeUntil;
+			$this->setIsActive(false);
+			$this->setNextDue($activeUntil);
 		} else {
-			$this->nextDue = $nextDue;
+			$this->setNextDue($nextDue);
 		}
 	}
 
