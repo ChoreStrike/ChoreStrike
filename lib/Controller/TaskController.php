@@ -27,7 +27,6 @@ class TaskController extends OCSController {
 	/**
 	 * Get all tasks
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function index(): JSONResponse {
@@ -52,7 +51,6 @@ class TaskController extends OCSController {
 	/**
 	 * Get task by ID
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function show(int $id): JSONResponse {
@@ -77,7 +75,6 @@ class TaskController extends OCSController {
 	/**
 	 * Create a new task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function create(
@@ -190,7 +187,6 @@ class TaskController extends OCSController {
 	/**
 	 * Update task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function update(int $id, array $updates): JSONResponse {
@@ -228,7 +224,6 @@ class TaskController extends OCSController {
 	/**
 	 * Delete task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function delete(int $id): JSONResponse {
@@ -253,7 +248,6 @@ class TaskController extends OCSController {
 	/**
 	 * Get task templates
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function templates(): JSONResponse {
@@ -278,7 +272,6 @@ class TaskController extends OCSController {
 	/**
 	 * Create task from template
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function createFromTemplate(int $templateId): JSONResponse {
@@ -303,7 +296,6 @@ class TaskController extends OCSController {
 	/**
 	 * Get tasks by category
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function byCategory(string $category): JSONResponse {
@@ -328,7 +320,6 @@ class TaskController extends OCSController {
 	/**
 	 * Search tasks by name
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function search(string $query): JSONResponse {
@@ -363,7 +354,6 @@ class TaskController extends OCSController {
 	/**
 	 * Get task categories
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function categories(): JSONResponse {
@@ -388,7 +378,6 @@ class TaskController extends OCSController {
 	/**
 	 * Create default task templates
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function createDefaultTemplates(): JSONResponse {

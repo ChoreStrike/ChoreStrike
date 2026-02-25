@@ -27,7 +27,6 @@ class SchedulingController extends OCSController {
 	/**
 	 * Get current user's scheduling preferences
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function getPreferences(): JSONResponse {
@@ -53,7 +52,6 @@ class SchedulingController extends OCSController {
 	/**
 	 * Update energy budget for a day
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function updateEnergy(string $day, int $energy): JSONResponse {
@@ -87,7 +85,6 @@ class SchedulingController extends OCSController {
 	/**
 	 * Update availability for a day
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function updateAvailability(string $day, bool $available): JSONResponse {
@@ -113,7 +110,6 @@ class SchedulingController extends OCSController {
 	/**
 	 * Get all member availability (house owner only)
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function getMemberAvailability(): JSONResponse {
@@ -139,7 +135,6 @@ class SchedulingController extends OCSController {
 	/**
 	 * Update member availability (admin only)
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function updateMemberAvailability(int $userId, array $updates): JSONResponse {
@@ -164,7 +159,6 @@ class SchedulingController extends OCSController {
 	/**
 	 * Get scheduling suggestions
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function getSuggestions(array $tasks): JSONResponse {

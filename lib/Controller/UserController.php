@@ -35,7 +35,6 @@ class UserController extends OCSController {
 	/**
 	 * Get all users in the house
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function index(): JSONResponse {
@@ -62,7 +61,6 @@ class UserController extends OCSController {
 	/**
 	 * Invite a user to the house
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function invite(string $nextcloudUserId, string $role = 'member'): JSONResponse {
@@ -126,7 +124,6 @@ class UserController extends OCSController {
 	/**
 	 * Remove a user from the house
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function remove(int $id): JSONResponse {
@@ -163,7 +160,6 @@ class UserController extends OCSController {
 	/**
 	 * Update user role
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function updateRole(int $id, string $role): JSONResponse {
@@ -200,7 +196,6 @@ class UserController extends OCSController {
 	/**
 	 * Get user statistics
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function stats(int $id): JSONResponse {

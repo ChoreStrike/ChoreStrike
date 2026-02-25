@@ -27,7 +27,6 @@ class TaskSyncController extends OCSController {
 	/**
 	 * Complete a task and sync to Nextcloud Tasks
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function complete(int $roomTaskId, ?int $nextcloudTaskId = null): JSONResponse {
@@ -53,7 +52,6 @@ class TaskSyncController extends OCSController {
 	/**
 	 * Sync completion from Nextcloud Task to ChoreStrike
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function syncFromNextcloud(int $nextcloudTaskId, string $completedAt, ?int $roomTaskId = null): JSONResponse {
@@ -88,7 +86,6 @@ class TaskSyncController extends OCSController {
 	/**
 	 * Get reminder mapping for a room task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function getReminders(int $roomTaskId): JSONResponse {
@@ -114,7 +111,6 @@ class TaskSyncController extends OCSController {
 	/**
 	 * Get pending syncs that need to be pushed to Nextcloud
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function getPendingSyncs(int $limit = 50): JSONResponse {
@@ -139,7 +135,6 @@ class TaskSyncController extends OCSController {
 	/**
 	 * Mark completion as synced to Nextcloud
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function markAsSynced(int $completedTaskId): JSONResponse {
@@ -164,7 +159,6 @@ class TaskSyncController extends OCSController {
 	/**
 	 * Link a room task to a Nextcloud task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function linkTask(int $roomTaskId, int $nextcloudTaskId): JSONResponse {

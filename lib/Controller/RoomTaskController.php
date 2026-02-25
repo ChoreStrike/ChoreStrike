@@ -27,7 +27,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Get room tasks for a room
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function index(?int $roomId = null, ?int $scopeId = null, bool $activeOnly = true): JSONResponse {
@@ -64,7 +63,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Get room task by ID
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function show(int $id): JSONResponse {
@@ -97,7 +95,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Create a new room task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function create(
@@ -137,7 +134,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Assign room task to user
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function assign(int $id, string $userId): JSONResponse {
@@ -172,7 +168,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Unassign room task from user
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function unassign(int $id): JSONResponse {
@@ -197,7 +192,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Deactivate room task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function deactivate(int $id): JSONResponse {
@@ -222,7 +216,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Reactivate room task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function reactivate(int $id): JSONResponse {
@@ -247,7 +240,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Update room task due date
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function updateDueDate(int $id, string $nextDue): JSONResponse {
@@ -278,7 +270,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Complete room task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function complete(int $id, string $userId): JSONResponse {
@@ -318,7 +309,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Delete room task
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function delete(int $id): JSONResponse {
@@ -343,7 +333,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Get overdue tasks
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function overdue(?int $roomId = null): JSONResponse {
@@ -368,7 +357,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Get tasks due today
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function dueToday(?int $roomId = null): JSONResponse {
@@ -393,7 +381,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Get tasks due within days
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function dueWithinDays(int $days, ?int $roomId = null): JSONResponse {
@@ -428,7 +415,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Get user tasks
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function userTasks(string $userId, bool $activeOnly = true): JSONResponse {
@@ -463,7 +449,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Get room task statistics
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function roomStats(int $roomId): JSONResponse {
@@ -488,7 +473,6 @@ class RoomTaskController extends OCSController {
 	/**
 	 * Get user task statistics
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function userStats(string $userId): JSONResponse {

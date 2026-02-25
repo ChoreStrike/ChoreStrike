@@ -31,7 +31,6 @@ class GameController extends OCSController {
 	/**
 	 * Get current game state
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function state(): JSONResponse {
@@ -58,7 +57,6 @@ class GameController extends OCSController {
 	/**
 	 * Get leaderboard
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function leaderboard(): JSONResponse {
@@ -85,7 +83,6 @@ class GameController extends OCSController {
 	/**
 	 * Get medals
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function medals(): JSONResponse {
@@ -112,7 +109,6 @@ class GameController extends OCSController {
 	/**
 	 * Check and award weekly medals
 	 *
-	 * @PublicPage
 	 * @NoAdminRequired
 	 */
 	public function checkMedals(): JSONResponse {
