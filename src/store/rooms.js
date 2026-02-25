@@ -58,7 +58,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/floors/with-rooms')
+				const response = await axios.get('/apps/chorewars/api/v1/floors/with-rooms')
 
 				if (response.data.success) {
 					this.floors = []
@@ -88,7 +88,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/floors')
+				const response = await axios.get('/apps/chorewars/api/v1/floors')
 
 				if (response.data.success) {
 					this.floors = response.data.data
@@ -113,7 +113,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/rooms?floorId=${floorId}`)
+				const response = await axios.get(`/apps/chorewars/api/v1/rooms?floorId=${floorId}`)
 
 				if (response.data.success) {
 					// Update rooms in state, removing old ones for this floor
@@ -140,7 +140,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/floors/${floorId}`)
+				const response = await axios.get(`/apps/chorewars/api/v1/floors/${floorId}`)
 
 				if (response.data.success) {
 					const floorData = response.data.data
@@ -184,7 +184,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorestrike/api/v1/floors', { name, sortOrder })
+				const response = await axios.post('/apps/chorewars/api/v1/floors', { name, sortOrder })
 
 				if (response.data.success) {
 					this.floors.push(response.data.data)
@@ -215,7 +215,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorestrike/api/v1/rooms', { floorId, name })
+				const response = await axios.post('/apps/chorewars/api/v1/rooms', { floorId, name })
 
 				if (response.data.success) {
 					this.rooms.push(response.data.data)
@@ -246,7 +246,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorestrike/api/v1/floors/${floorId}`, { name })
+				const response = await axios.put(`/apps/chorewars/api/v1/floors/${floorId}`, { name })
 
 				if (response.data.success) {
 					const floorIndex = this.floors.findIndex(f => f.id === floorId)
@@ -279,7 +279,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorestrike/api/v1/rooms/${roomId}`, { name })
+				const response = await axios.put(`/apps/chorewars/api/v1/rooms/${roomId}`, { name })
 
 				if (response.data.success) {
 					const roomIndex = this.rooms.findIndex(r => r.id === roomId)
@@ -308,7 +308,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorestrike/api/v1/rooms/${roomId}/cleanliness`, { cleanlinessChange })
+				const response = await axios.put(`/apps/chorewars/api/v1/rooms/${roomId}/cleanliness`, { cleanlinessChange })
 
 				if (response.data.success) {
 					const roomIndex = this.rooms.findIndex(r => r.id === roomId)
@@ -336,7 +336,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/apps/chorestrike/api/v1/floors/${floorId}`)
+				const response = await axios.delete(`/apps/chorewars/api/v1/floors/${floorId}`)
 
 				if (response.data.success) {
 					// Remove floor from state
@@ -364,7 +364,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/apps/chorestrike/api/v1/rooms/${roomId}`)
+				const response = await axios.delete(`/apps/chorewars/api/v1/rooms/${roomId}`)
 
 				if (response.data.success) {
 					// Remove room from state
@@ -390,7 +390,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorestrike/api/v1/floors/reorder', { floorOrder })
+				const response = await axios.post('/apps/chorewars/api/v1/floors/reorder', { floorOrder })
 
 				if (response.data.success) {
 					this.floors = response.data.data
@@ -416,8 +416,8 @@ export const useRoomsStore = defineStore('rooms', {
 
 			try {
 				const url = floorId
-					? `/apps/chorestrike/api/v1/rooms/needing-cleaning?floorId=${floorId}`
-					: '/apps/chorestrike/api/v1/rooms/needing-cleaning'
+					? `/apps/chorewars/api/v1/rooms/needing-cleaning?floorId=${floorId}`
+					: '/apps/chorewars/api/v1/rooms/needing-cleaning'
 
 				const response = await axios.get(url)
 

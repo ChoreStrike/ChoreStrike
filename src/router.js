@@ -1,95 +1,40 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { generateUrl } from '@nextcloud/router'
 
-// Lazy load all views for better code splitting
-const Dashboard = () => import(/* webpackChunkName: "dashboard" */ './views/Dashboard.vue')
-const TaskManager = () => import(/* webpackChunkName: "tasks" */ './views/TaskManager.vue')
-const RoomDetail = () => import(/* webpackChunkName: "room" */ './views/RoomDetail.vue')
-const Leaderboard = () => import(/* webpackChunkName: "leaderboard" */ './views/Leaderboard.vue')
-const Settings = () => import(/* webpackChunkName: "settings" */ './views/Settings.vue')
+import Dashboard from './views/Dashboard.vue'
 
 const routes = [
 	{
 		path: '/',
 		name: 'dashboard',
 		component: Dashboard,
-		meta: {
-			keepAlive: true,
-			title: 'Dashboard',
-		},
 	},
 	{
 		path: '/tasks',
 		name: 'tasks',
-		component: TaskManager,
-		meta: {
-			keepAlive: true,
-			title: 'Tasks',
-		},
+		component: () => import('./views/TaskManager.vue'),
 	},
 	{
 		path: '/room/:id',
 		name: 'room',
-		component: RoomDetail,
+		component: () => import('./views/RoomDetail.vue'),
 		props: true,
-		meta: {
-			keepAlive: false,
-			title: 'Room Details',
-		},
 	},
 	{
 		path: '/leaderboard',
 		name: 'leaderboard',
-		component: Leaderboard,
-		meta: {
-			keepAlive: true,
-			title: 'Leaderboard',
-		},
+		component: () => import('./views/Leaderboard.vue'),
 	},
 	{
 		path: '/settings',
 		name: 'settings',
-		component: Settings,
-		meta: {
-			keepAlive: false,
-			title: 'Settings',
-		},
+		component: () => import('./views/Settings.vue'),
 	},
 ]
 
 const router = createRouter({
-	history: createWebHashHistory(generateUrl('/apps/chorestrike')),
+	history: createWebHashHistory(generateUrl('/apps/chorewars')),
 	routes,
-	scrollBehavior(to, from, savedPosition) {
-		if (savedPosition) {
-			return savedPosition
-		}
-		if (to.hash) {
-			return { el: to.hash }
-		}
-		return { top: 0 }
-	},
-})
-
-// Prefetch route components after initial load
-if ('requestIdleCallback' in window) {
-	window.requestIdleCallback(() => {
-		const prefetchRoutes = ['tasks', 'leaderboard', 'settings']
-		prefetchRoutes.forEach(routeName => {
-			const route = router.resolve({ name: routeName })
-			if (route.route.component) {
-				// Trigger component load
-				route.route.component()
-			}
-		})
-	})
-}
-
-// Update document title
-router.afterEach((to) => {
-	if (to.meta?.title) {
-		document.title = `${to.meta.title} - ChoreStrike`
-	}
 })
 
 export default router

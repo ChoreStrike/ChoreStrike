@@ -1,5 +1,5 @@
 <template>
-	<div class="floor-list" data-testid="floor-list">
+	<div class="floor-list">
 		<div class="floor-header">
 			<h3 class="floor-title">
 				<span class="icon">🏢</span>
@@ -150,64 +150,6 @@
 				</form>
 			</div>
 		</div>
-
-		<!-- Edit Floor Modal -->
-		<div v-if="showEditFloorModal" class="modal-overlay" @click="closeEditFloorModal">
-			<div class="modal-content" @click.stop>
-				<h3 class="modal-title">
-					Edit Floor
-				</h3>
-				<form @submit.prevent="handleEditFloor">
-					<div class="form-group">
-						<label for="edit-floor-name">Floor Name</label>
-						<input
-							id="edit-floor-name"
-							v-model="editFloorName"
-							type="text"
-							placeholder="e.g., Ground Floor, First Floor"
-							required
-							class="form-input">
-					</div>
-					<div class="form-actions">
-						<button type="button" class="cancel-button" @click="closeEditFloorModal">
-							Cancel
-						</button>
-						<button type="submit" class="submit-button" :disabled="!editFloorName.trim()">
-							Save Changes
-						</button>
-					</div>
-				</form>
-			</div>
-		</div>
-
-		<!-- Add Room Modal -->
-		<div v-if="showAddRoomModal" class="modal-overlay" @click="closeAddRoomModal">
-			<div class="modal-content" @click.stop>
-				<h3 class="modal-title">
-					Add Room
-				</h3>
-				<form @submit.prevent="handleAddRoom">
-					<div class="form-group">
-						<label for="new-room-name">Room Name</label>
-						<input
-							id="new-room-name"
-							v-model="newRoomName"
-							type="text"
-							placeholder="e.g., Living Room, Kitchen, Bedroom"
-							required
-							class="form-input">
-					</div>
-					<div class="form-actions">
-						<button type="button" class="cancel-button" @click="closeAddRoomModal">
-							Cancel
-						</button>
-						<button type="submit" class="submit-button" :disabled="!newRoomName.trim()">
-							Add Room
-						</button>
-					</div>
-				</form>
-			</div>
-		</div>
 	</div>
 </template>
 
@@ -244,12 +186,6 @@ export default {
 		const loadingRooms = ref({})
 		const showAddFloorModal = ref(false)
 		const newFloorName = ref('')
-		const showEditFloorModal = ref(false)
-		const editingFloor = ref(null)
-		const editFloorName = ref('')
-		const showAddRoomModal = ref(false)
-		const selectedFloorId = ref(null)
-		const newRoomName = ref('')
 
 		// Computed properties
 		const floors = computed(() => roomsStore.floors)
@@ -339,29 +275,8 @@ export default {
 			}
 		}
 
-		const editFloor = (floor) => {
-			editingFloor.value = floor
-			editFloorName.value = floor.name
-			showEditFloorModal.value = true
-		}
-
-		const closeEditFloorModal = () => {
-			showEditFloorModal.value = false
-			editingFloor.value = null
-			editFloorName.value = ''
-		}
-
-		const handleEditFloor = async () => {
-			if (!editFloorName.value.trim() || !editingFloor.value) return
-
-			try {
-				await roomsStore.updateFloor(editingFloor.value.id, {
-					name: editFloorName.value.trim(),
-				})
-				closeEditFloorModal()
-			} catch (error) {
-				console.error('Failed to update floor:', error)
-			}
+		const editFloor = () => {
+			// TODO: Implement edit floor functionality
 		}
 
 		const deleteFloor = async (floor) => {
@@ -382,30 +297,8 @@ export default {
 			}
 		}
 
-		const addRoom = (floorId) => {
-			selectedFloorId.value = floorId
-			newRoomName.value = ''
-			showAddRoomModal.value = true
-		}
-
-		const closeAddRoomModal = () => {
-			showAddRoomModal.value = false
-			selectedFloorId.value = null
-			newRoomName.value = ''
-		}
-
-		const handleAddRoom = async () => {
-			if (!newRoomName.value.trim() || !selectedFloorId.value) return
-
-			try {
-				await roomsStore.createRoom({
-					floorId: selectedFloorId.value,
-					name: newRoomName.value.trim(),
-				})
-				closeAddRoomModal()
-			} catch (error) {
-				console.error('Failed to create room:', error)
-			}
+		const addRoom = () => {
+			// TODO: Implement add room functionality
 		}
 
 		const handleRoomClick = (room) => {
@@ -425,12 +318,6 @@ export default {
 			loadingRooms,
 			showAddFloorModal,
 			newFloorName,
-			showEditFloorModal,
-			editingFloor,
-			editFloorName,
-			showAddRoomModal,
-			selectedFloorId,
-			newRoomName,
 			floors,
 			loading,
 			sortedFloors,
@@ -444,12 +331,8 @@ export default {
 			closeAddFloorModal,
 			handleAddFloor,
 			editFloor,
-			closeEditFloorModal,
-			handleEditFloor,
 			deleteFloor,
 			addRoom,
-			closeAddRoomModal,
-			handleAddRoom,
 			handleRoomClick,
 		}
 	},
