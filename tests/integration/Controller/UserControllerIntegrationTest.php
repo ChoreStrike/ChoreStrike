@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\UserController;
+use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\IRequest;
+use OCP\IUserManager;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -16,17 +19,26 @@ class UserControllerIntegrationTest extends TestCase {
 
 	private UserController $controller;
 	private HouseService $houseService;
+	private HouseUserMapper $houseUserMapper;
+	private IUserManager $userManager;
+	private AuthorizationService $authService;
 	private IRequest $request;
 
 	protected function setUp(): void {
 		parent::setUp();
 
 		$this->request = $this->createMock(IRequest::class);
+		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->houseService = $this->createMock(HouseService::class);
+		$this->userManager = $this->createMock(IUserManager::class);
+		$this->authService = $this->createMock(AuthorizationService::class);
 
 		$this->controller = new UserController(
 			$this->request,
-			$this->houseService
+			$this->houseUserMapper,
+			$this->houseService,
+			$this->userManager,
+			$this->authService
 		);
 	}
 
