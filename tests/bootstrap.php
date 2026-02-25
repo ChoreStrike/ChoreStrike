@@ -28,11 +28,9 @@ if ($isDocker) {
         'OCP/DB/QueryBuilder/IParameter.php',
         'OCP/DB/QueryBuilder/IFunction.php',
         'OCP/IDBConnection.php',
-        // AppFramework Db classes
+        // AppFramework Db exceptions (not Entity/QBMapper - we use mocks)
         'OCP/AppFramework/Db/DoesNotExistException.php',
         'OCP/AppFramework/Db/MultipleObjectsReturnedException.php',
-        'OCP/AppFramework/Db/Entity.php',
-        'OCP/AppFramework/Db/QBMapper.php',
         // Other OCP interfaces
         'OCP/IRequest.php',
         'OCP/IUserSession.php',
