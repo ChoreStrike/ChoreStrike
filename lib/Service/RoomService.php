@@ -10,6 +10,7 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
@@ -20,15 +21,21 @@ class RoomService {
 	private RoomMapper $roomMapper;
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
+	private HouseUserMapper $houseUserMapper;
+	private GameLogicService $gameLogicService;
 
 	public function __construct(
 		RoomMapper $roomMapper,
 		RoomTaskMapper $roomTaskMapper,
-		TaskMapper $taskMapper
+		TaskMapper $taskMapper,
+		HouseUserMapper $houseUserMapper,
+		GameLogicService $gameLogicService
 	) {
 		$this->roomMapper = $roomMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
+		$this->houseUserMapper = $houseUserMapper;
+		$this->gameLogicService = $gameLogicService;
 	}
 
 	/**
@@ -234,7 +241,7 @@ class RoomService {
 	 * Complete room task and update room cleanliness
 	 *
 	 * @param int $roomTaskId The room task ID
-	 * @param string $userId The user who completed the task
+	 * @param string $userId The Nextcloud user ID who completed the task
 	 */
 	public function completeRoomTask(int $roomTaskId, string $userId): array {
 		$roomTaskData = $this->getRoomTask($roomTaskId);
@@ -250,6 +257,18 @@ class RoomService {
 		$cleanlinessChange = $task->getEnergyCost() * 10; // 10% per energy point
 		$updatedRoom = $this->updateRoomCleanliness($room->getId(), $cleanlinessChange);
 
+		// Get house user ID for game logic
+		$houseUser = $this->houseUserMapper->findByNextcloudUserId($room->getHouseId(), $userId);
+		$houseUserId = $houseUser->getId();
+
+		// Trigger game logic for task completion
+		$gameResult = $this->gameLogicService->handleTaskCompletion(
+			$roomTaskId,
+			$houseUserId,
+			$task,
+			$updatedRoom->getCleanliness()
+		);
+
 		return [
 			'roomTask' => $roomTask,
 			'room' => $updatedRoom,
@@ -257,7 +276,11 @@ class RoomService {
 			'rewards' => [
 				'cleanlinessChange' => $cleanlinessChange,
 				'energyCost' => $task->getEnergyCost(),
-				'priority' => $task->getPriority()
+				'priority' => $task->getPriority(),
+				'contributionScore' => $gameResult['contributionScore'],
+				'teamSparks' => $gameResult['teamSparks'],
+				'isCombo' => $gameResult['isCombo'],
+				'currentStreak' => $gameResult['currentStreak'],
 			]
 		];
 	}
