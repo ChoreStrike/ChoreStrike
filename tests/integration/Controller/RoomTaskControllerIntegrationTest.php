@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
+use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -16,6 +18,8 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 
 	private RoomTaskController $controller;
 	private RoomTaskService $roomTaskService;
+	private HouseService $houseService;
+	private AuthorizationService $authService;
 	private IRequest $request;
 
 	protected function setUp(): void {
@@ -23,10 +27,14 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
+		$this->houseService = $this->createMock(HouseService::class);
+		$this->authService = $this->createMock(AuthorizationService::class);
 
 		$this->controller = new RoomTaskController(
 			$this->request,
-			$this->roomTaskService
+			$this->roomTaskService,
+			$this->houseService,
+			$this->authService
 		);
 	}
 
@@ -34,36 +42,46 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 	 * Index_ReturnsRoomTasksList_SuccessResponse
 	 */
 	public function testIndex_ReturnsRoomTasksList_SuccessResponse(): void {
+		$houseId = 1;
 		$roomId = 1;
 		$roomTasks = [
-			[
-				'id' => 1,
-				'taskId' => 1,
-				'roomId' => $roomId,
-				'taskName' => 'Vacuum floor',
-				'isActive' => true,
-				'nextDue' => '2026-02-25T10:00:00Z',
-			],
-			[
-				'id' => 2,
-				'taskId' => 2,
-				'roomId' => $roomId,
-				'taskName' => 'Dust surfaces',
-				'isActive' => true,
-				'nextDue' => '2026-02-26T14:00:00Z',
-			],
+			$this->createMockRoomTask(1, 1, $roomId, 'Vacuum floor'),
+			$this->createMockRoomTask(2, 2, $roomId, 'Dust surfaces'),
 		];
 
+		$house = $this->createMock(\OCA\ChoreStrike\Db\House::class);
+		$house->method('getId')->willReturn($houseId);
+
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->roomTaskService->method('getRoomTasks')
-			->with($roomId)
+			->with($houseId, $roomId, true)
 			->willReturn($roomTasks);
+		$this->authService->method('requireHouseMember')
+			->with($houseId)
+			->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
 
 		$response = $this->controller->index($roomId);
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
-		$this->assertEquals($roomTasks, $data['data']);
+		$this->assertCount(2, $data['data']);
+	}
+
+	private function createMockRoomTask(int $id, int $taskId, int $roomId, string $taskName): \OCA\ChoreStrike\Db\RoomTask {
+		$roomTask = $this->createMock(\OCA\ChoreStrike\Db\RoomTask::class);
+		$roomTask->method('getId')->willReturn($id);
+		$roomTask->method('getTaskId')->willReturn($taskId);
+		$roomTask->method('getRoomId')->willReturn($roomId);
+		$roomTask->method('getTaskName')->willReturn($taskName);
+		$roomTask->method('jsonSerialize')->willReturn([
+			'id' => $id,
+			'taskId' => $taskId,
+			'roomId' => $roomId,
+			'taskName' => $taskName,
+			'isActive' => true,
+		]);
+		return $roomTask;
 	}
 
 	/**

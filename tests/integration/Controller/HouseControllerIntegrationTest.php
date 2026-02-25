@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\HouseController;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -16,6 +17,7 @@ class HouseControllerIntegrationTest extends TestCase {
 
 	private HouseController $controller;
 	private HouseService $houseService;
+	private AuthorizationService $authService;
 	private IRequest $request;
 
 	protected function setUp(): void {
@@ -23,10 +25,12 @@ class HouseControllerIntegrationTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->houseService = $this->createMock(HouseService::class);
+		$this->authService = $this->createMock(AuthorizationService::class);
 
 		$this->controller = new HouseController(
 			$this->request,
-			$this->houseService
+			$this->houseService,
+			$this->authService
 		);
 	}
 
@@ -35,20 +39,26 @@ class HouseControllerIntegrationTest extends TestCase {
 	 */
 	public function testGet_ReturnsHouseData_SuccessResponse(): void {
 		$instanceId = 'test-instance-123';
+		$houseId = 1;
 		$houseData = [
-			'id' => 1,
+			'id' => $houseId,
 			'name' => 'Test House',
 			'houseHealth' => 85,
 			'nextcloudInstanceId' => $instanceId,
 		];
 
 		$house = $this->createMock(\OCA\ChoreStrike\Db\House::class);
+		$house->method('getId')->willReturn($houseId);
 		$house->method('jsonSerialize')->willReturn($houseData);
 
 		$this->houseService->method('getInstanceId')->willReturn($instanceId);
 		$this->houseService->method('getOrCreateHouse')
 			->with($instanceId)
 			->willReturn($house);
+
+		$this->authService->method('requireHouseMember')
+			->with($houseId)
+			->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
 
 		$response = $this->controller->get();
 
@@ -100,6 +110,10 @@ class HouseControllerIntegrationTest extends TestCase {
 			->with($houseId, $newName)
 			->willReturn($updatedHouse);
 
+		$this->authService->method('requireHouseOwner')
+			->with($houseId)
+			->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
+
 		$response = $this->controller->update($newName);
 
 		$this->assertEquals(200, $response->getStatus());
@@ -137,6 +151,7 @@ class HouseControllerIntegrationTest extends TestCase {
 	 */
 	public function testGetStats_ReturnsHouseStats_SuccessResponse(): void {
 		$instanceId = 'test-instance-123';
+		$houseId = 1;
 		$stats = [
 			'totalRooms' => 5,
 			'totalFloors' => 2,
@@ -146,20 +161,25 @@ class HouseControllerIntegrationTest extends TestCase {
 		];
 
 		$house = $this->createMock(\OCA\ChoreStrike\Db\House::class);
-		$house->method('getId')->willReturn(1);
+		$house->method('getId')->willReturn($houseId);
 
 		$this->houseService->method('getInstanceId')->willReturn($instanceId);
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->houseService->method('getHouseStats')
-			->with(1)
-			->willReturn($stats);
+			->with($houseId)
+			->willReturn(['house' => $house, 'stats' => $stats]);
+
+		$this->authService->method('requireHouseMember')
+			->with($houseId)
+			->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
 
 		$response = $this->controller->stats();
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
-		$this->assertEquals($stats, $data['data']);
+		$this->assertEquals($houseId, $data['data']['house']['id']);
+		$this->assertEquals($stats, $data['data']['stats']);
 	}
 
 	/**
@@ -167,6 +187,7 @@ class HouseControllerIntegrationTest extends TestCase {
 	 */
 	public function testGetHealth_ReturnsHouseHealth_SuccessResponse(): void {
 		$instanceId = 'test-instance-123';
+		$houseId = 1;
 		$health = [
 			'health' => 82,
 			'status' => 'good',
@@ -178,13 +199,17 @@ class HouseControllerIntegrationTest extends TestCase {
 		];
 
 		$house = $this->createMock(\OCA\ChoreStrike\Db\House::class);
-		$house->method('getId')->willReturn(1);
+		$house->method('getId')->willReturn($houseId);
 
 		$this->houseService->method('getInstanceId')->willReturn($instanceId);
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->houseService->method('calculateHouseHealth')
-			->with(1)
+			->with($houseId)
 			->willReturn($health);
+
+		$this->authService->method('requireHouseMember')
+			->with($houseId)
+			->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
 
 		$response = $this->controller->health();
 

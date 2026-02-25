@@ -83,6 +83,10 @@ class AuthorizationIntegrationTest extends TestCase {
 	public function test_unauthenticatedUserCannotAccessHouseEndpoints(): void {
 		$this->userSession->method('getUser')->willReturn(null);
 
+		// Configure houseService mock to return test house
+		$this->houseService->method('getOrCreateHouse')
+			->willReturn($this->testHouse);
+
 		$controller = new HouseController(
 			$this->createMock(IRequest::class),
 			$this->houseService,

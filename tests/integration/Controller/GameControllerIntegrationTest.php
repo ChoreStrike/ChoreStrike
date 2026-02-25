@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\GameController;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\GameLogicService;
+use OCA\ChoreStrike\Service\HouseService;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +18,8 @@ class GameControllerIntegrationTest extends TestCase {
 
 	private GameController $controller;
 	private GameLogicService $gameLogicService;
+	private HouseService $houseService;
+	private AuthorizationService $authService;
 	private IRequest $request;
 
 	protected function setUp(): void {
@@ -23,10 +27,14 @@ class GameControllerIntegrationTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->gameLogicService = $this->createMock(GameLogicService::class);
+		$this->houseService = $this->createMock(HouseService::class);
+		$this->authService = $this->createMock(AuthorizationService::class);
 
 		$this->controller = new GameController(
 			$this->request,
-			$this->gameLogicService
+			$this->gameLogicService,
+			$this->houseService,
+			$this->authService
 		);
 	}
 
@@ -34,6 +42,7 @@ class GameControllerIntegrationTest extends TestCase {
 	 * State_ReturnsGameState_SuccessResponse
 	 */
 	public function testState_ReturnsGameState_SuccessResponse(): void {
+		$houseId = 1;
 		$gameState = [
 			'houseHealth' => 82,
 			'totalTeamSparks' => 1250,
@@ -52,14 +61,23 @@ class GameControllerIntegrationTest extends TestCase {
 			],
 		];
 
+		$house = $this->createMock(\OCA\ChoreStrike\Db\House::class);
+		$house->method('getId')->willReturn($houseId);
+
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->gameLogicService->method('getGameState')
+			->with($houseId)
 			->willReturn($gameState);
+		$this->authService->method('requireHouseMember')
+			->with($houseId)
+			->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
 
 		$response = $this->controller->state();
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
+		$this->assertEquals(82, $data['data']['houseHealth']);
 		$this->assertEquals($gameState, $data['data']);
 	}
 
@@ -67,6 +85,7 @@ class GameControllerIntegrationTest extends TestCase {
 	 * Leaderboard_ReturnsRankedUsers_SuccessResponse
 	 */
 	public function testLeaderboard_ReturnsRankedUsers_SuccessResponse(): void {
+		$houseId = 1;
 		$leaderboard = [
 			[
 				'userId' => 'user1',
