@@ -93,6 +93,9 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * Check if task is overdue
 	 */
 	public function isOverdue(): bool {
+		if ($this->nextDue === null) {
+			return false;
+		}
 		return $this->nextDue < new \DateTime() && $this->isActive;
 	}
 
@@ -100,6 +103,10 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * Check if task is due today
 	 */
 	public function isDueToday(): bool {
+		if ($this->nextDue === null) {
+			return false;
+		}
+		
 		$today = new \DateTime();
 		$today->setTime(0, 0, 0);
 		$due = clone $this->nextDue;
@@ -112,6 +119,10 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * Check if task is due within the next N days
 	 */
 	public function isDueWithinDays(int $days): bool {
+		if ($this->nextDue === null) {
+			return false;
+		}
+		
 		$future = new \DateTime();
 		$future->add(new \DateInterval("P{$days}D"));
 		

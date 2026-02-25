@@ -315,7 +315,7 @@ class RoomTaskServiceTest extends TestCase {
 		$this->roomTaskMapper
 			->expects($this->once())
 			->method('assignToUser')
-			->with($roomTaskId, null);
+			->with($roomTaskId, '');
 
 		$result = $this->service->unassignTask($roomTaskId);
 

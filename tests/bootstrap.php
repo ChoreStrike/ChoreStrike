@@ -33,6 +33,7 @@ if ($isDocker) {
         'OCP/IUserSession.php',
         'OCP/IUser.php',
         'OCP/IServerContainer.php',
+        'OCP/ITimeFactory.php',
     ];
     
     foreach ($ocpClasses as $class) {
