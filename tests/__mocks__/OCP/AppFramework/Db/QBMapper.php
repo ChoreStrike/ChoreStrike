@@ -18,7 +18,7 @@ abstract class QBMapper {
         $this->tableName = $tableName;
     }
     
-    public function find(string $id) {
+    public function find(int $id) {
         return null;
     }
     
