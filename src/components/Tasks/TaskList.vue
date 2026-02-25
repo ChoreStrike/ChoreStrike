@@ -7,7 +7,7 @@
 
 		<div v-else-if="roomTasks.length === 0" class="empty-state">
 			<div class="empty-icon">
-				📋
+				<Icon name="List" :size="48" />
 			</div>
 			<p>{{ t('chorewars', 'No tasks yet') }}</p>
 			<p class="empty-hint">
@@ -28,9 +28,11 @@
 							class="complete-button"
 							title="Mark as complete"
 							@click="$emit('complete', item.roomTask.id)">
-							✓
+							<Icon name="Circle" :size="20" />
 						</button>
-						<span v-else class="completed-check">✓</span>
+						<span v-else class="completed-check">
+							<Icon name="CheckCircle" :size="20" />
+						</span>
 					</div>
 
 					<div class="task-content">
@@ -49,16 +51,16 @@
 
 						<div class="task-meta">
 							<span class="meta-item energy">
-								⚡ {{ item.task.energyCost }}
+								<Icon name="Zap" :size="16" /> {{ item.task.energyCost }}
 							</span>
 							<span class="meta-item time">
-								⏱️ {{ item.task.estimatedMinutes }}m
+								<Icon name="Clock" :size="16" /> {{ item.task.estimatedMinutes }}m
 							</span>
 							<span class="meta-item frequency">
-								🔄 {{ frequencyLabel(item.task) }}
+								<Icon name="RotateCcw" :size="16" /> {{ frequencyLabel(item.task) }}
 							</span>
 							<span v-if="item.roomTask.assignedToUserId" class="meta-item assigned">
-								👤 {{ t('chorewars', 'Assigned') }}
+								<Icon name="User" :size="16" /> {{ t('chorewars', 'Assigned') }}
 							</span>
 						</div>
 
@@ -73,13 +75,13 @@
 							class="action-btn"
 							title="Edit"
 							@click="$emit('edit', item.roomTask)">
-							✏️
+							<Icon name="Edit" :size="16" />
 						</button>
 						<button
 							class="action-btn delete"
 							title="Remove"
 							@click="$emit('delete', item.roomTask.id)">
-							🗑️
+							<Icon name="Trash" :size="16" />
 						</button>
 					</div>
 				</div>
@@ -91,6 +93,7 @@
 <script>
 import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { Icon } from '../Common'
 
 export default {
 	name: 'TaskList',

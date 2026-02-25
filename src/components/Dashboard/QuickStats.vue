@@ -3,7 +3,7 @@
     <div class="stats-grid">
       <!-- Total Rooms -->
       <div class="stat-card">
-        <div class="stat-icon">🏠</div>
+        <Icon name="Home" :size="32" class="stat-icon" />
         <div class="stat-content">
           <div class="stat-value">{{ totalRooms }}</div>
           <div class="stat-label">Total Rooms</div>
@@ -12,7 +12,7 @@
 
       <!-- Clean Rooms -->
       <div class="stat-card">
-        <div class="stat-icon">✨</div>
+        <Icon name="Sparkles" :size="32" class="stat-icon" />
         <div class="stat-content">
           <div class="stat-value">{{ cleanRooms }}</div>
           <div class="stat-label">Clean Rooms</div>
@@ -21,7 +21,7 @@
 
       <!-- Tasks Due Today -->
       <div class="stat-card">
-        <div class="stat-icon">📅</div>
+        <Icon name="Calendar" :size="32" class="stat-icon" />
         <div class="stat-content">
           <div class="stat-value">{{ dueTodayTasks }}</div>
           <div class="stat-label">Due Today</div>
@@ -30,7 +30,7 @@
 
       <!-- Overdue Tasks -->
       <div class="stat-card urgent" v-if="overdueTasks > 0">
-        <div class="stat-icon">⚠️</div>
+        <Icon name="AlertCircle" :size="32" class="stat-icon" />
         <div class="stat-content">
           <div class="stat-value">{{ overdueTasks }}</div>
           <div class="stat-label">Overdue</div>
@@ -39,7 +39,7 @@
 
       <!-- Total Monsters -->
       <div class="stat-card" v-if="totalMonsters > 0">
-        <div class="stat-icon">👾</div>
+        <Emoji name="monster" :size="32" class="stat-icon" />
         <div class="stat-content">
           <div class="stat-value">{{ totalMonsters }}</div>
           <div class="stat-label">Monsters</div>
@@ -48,10 +48,10 @@
 
       <!-- Average Cleanliness -->
       <div class="stat-card">
-        <div class="stat-icon">📊</div>
+        <Icon name="BarChart3" :size="32" class="stat-icon" />
         <div class="stat-content">
           <div class="stat-value">{{ averageCleanliness }}%</div>
-          <div class="stat-label">Avg. Cleanliness</div>
+          <div class="stat-label">Avg Cleanliness</div>
         </div>
       </div>
     </div>
@@ -63,7 +63,7 @@
         class="action-button"
         :disabled="loading"
       >
-        <span class="icon">🔄</span>
+        <Icon name="RefreshCw" :size="16" class="icon" />
         Refresh
       </button>
       
@@ -71,7 +71,7 @@
         @click="viewAllTasks"
         class="action-button primary"
       >
-        <span class="icon">📋</span>
+        <Icon name="List" :size="16" class="icon" />
         View All Tasks
       </button>
     </div>
@@ -80,6 +80,8 @@
 
 <script>
 import { computed } from 'vue'
+import { translate as t } from '@nextcloud/l10n'
+import { Icon, Emoji } from '../Common'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useRouter } from 'vue-router'

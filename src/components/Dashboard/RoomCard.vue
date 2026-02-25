@@ -21,7 +21,7 @@
           :class="{ active: showMonsters }"
           title="Toggle monsters"
         >
-          <span class="icon">👾</span>
+          <Emoji name="monster" :size="20" class="icon" />
           <span class="count">{{ room.monsterCount }}</span>
         </button>
       </div>
@@ -45,17 +45,17 @@
     <!-- Task Summary -->
     <div class="task-summary">
       <div class="task-item">
-        <span class="task-icon">📋</span>
+        <Icon name="List" :size="16" class="task-icon" />
         <span class="task-count">{{ activeTasks }}</span>
         <span class="task-label">Active</span>
       </div>
-      <div class="task-item overdue" v-if="overdueTasks > 0">
-        <span class="task-icon">⚠️</span>
+      <div class="task-item" v-if="overdueTasks > 0">
+        <Icon name="Warning" :size="16" class="task-icon" />
         <span class="task-count">{{ overdueTasks }}</span>
         <span class="task-label">Overdue</span>
       </div>
       <div class="task-item due-today" v-if="dueTodayTasks > 0">
-        <span class="task-icon">📅</span>
+        <Icon name="Calendar" :size="16" class="task-icon" />
         <span class="task-count">{{ dueTodayTasks }}</span>
         <span class="task-label">Due Today</span>
       </div>
@@ -71,7 +71,7 @@
           :class="monster.type"
           :style="monster.position"
         >
-          <span class="monster-emoji">{{ getMonsterEmoji(monster.type) }}</span>
+          <Emoji :name="getMonsterEmoji(monster.type)" class="monster-emoji" />
         </div>
       </div>
     </div>
@@ -87,7 +87,7 @@
         :disabled="loading || room.cleanliness >= 90"
         title="Quick clean (+10% cleanliness)"
       >
-        <span class="icon">✨</span>
+        <Icon name="Sparkles" class="icon" />
       </button>
     </div>
   </div>
@@ -99,6 +99,7 @@ import { useRouter } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useGameStore } from '../../store/game.js'
+import { Icon, Emoji } from '../Common'
 
 export default {
   name: 'RoomCard',
