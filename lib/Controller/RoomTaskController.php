@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
@@ -15,13 +17,19 @@ use OCP\IRequest;
 class RoomTaskController extends OCSController {
 
 	private RoomTaskService $roomTaskService;
+	private HouseService $houseService;
+	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
-		RoomTaskService $roomTaskService
+		RoomTaskService $roomTaskService,
+		HouseService $houseService,
+		AuthorizationService $authService
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomTaskService = $roomTaskService;
+		$this->houseService = $houseService;
+		$this->authService = $authService;
 	}
 
 	/**
@@ -31,6 +39,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function index(?int $roomId = null, ?int $scopeId = null, bool $activeOnly = true): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			if ($scopeId !== null) {
 				$roomTasks = $this->roomTaskService->getScopeTasks($scopeId, $activeOnly);
 			} elseif ($roomId !== null) {
@@ -67,6 +79,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function show(int $id): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$roomTaskWithDetails = $this->roomTaskService->getRoomTaskWithDetails($id);
 			
 			return new JSONResponse([
@@ -105,6 +121,10 @@ class RoomTaskController extends OCSController {
 		?string $assignedToUserId = null
 	): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$nextDueDate = null;
 			if ($nextDue !== null) {
 				try {
@@ -138,6 +158,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function assign(int $id, string $userId): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			if (empty(trim($userId))) {
 				return new JSONResponse([
 					'success' => false,
@@ -172,6 +196,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function unassign(int $id): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$roomTask = $this->roomTaskService->unassignTask($id);
 			
 			return new JSONResponse([
@@ -196,6 +224,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function deactivate(int $id): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$roomTask = $this->roomTaskService->deactivateTask($id);
 			
 			return new JSONResponse([
@@ -220,6 +252,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function reactivate(int $id): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$roomTask = $this->roomTaskService->reactivateTask($id);
 			
 			return new JSONResponse([
@@ -244,6 +280,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function updateDueDate(int $id, string $nextDue): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			try {
 				$nextDueDate = new \DateTime($nextDue);
 			} catch (\Exception $e) {
@@ -274,6 +314,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function complete(int $id, string $userId): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			if (empty(trim($userId))) {
 				return new JSONResponse([
 					'success' => false,
@@ -313,6 +357,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function delete(int $id): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$this->roomTaskService->deleteRoomTask($id);
 			
 			return new JSONResponse([
@@ -337,6 +385,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function overdue(?int $roomId = null): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$overdueTasks = $this->roomTaskService->getOverdueTasks($roomId);
 			
 			return new JSONResponse([
@@ -361,6 +413,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function dueToday(?int $roomId = null): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$dueTodayTasks = $this->roomTaskService->getDueTodayTasks($roomId);
 			
 			return new JSONResponse([
@@ -394,6 +450,10 @@ class RoomTaskController extends OCSController {
 					]
 				], 400);
 			}
+			
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
 
 			$dueTasks = $this->roomTaskService->getDueWithinDaysTasks($days, $roomId);
 			
@@ -419,6 +479,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function userTasks(string $userId, bool $activeOnly = true): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			if (empty(trim($userId))) {
 				return new JSONResponse([
 					'success' => false,
@@ -453,6 +517,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function roomStats(int $roomId): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$stats = $this->roomTaskService->getRoomTaskStats($roomId);
 			
 			return new JSONResponse([
@@ -477,6 +545,10 @@ class RoomTaskController extends OCSController {
 	 */
 	public function userStats(string $userId): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			if (empty(trim($userId))) {
 				return new JSONResponse([
 					'success' => false,

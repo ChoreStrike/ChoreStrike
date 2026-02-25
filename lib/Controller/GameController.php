@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
@@ -17,15 +18,18 @@ class GameController extends OCSController {
 
 	private GameLogicService $gameLogicService;
 	private HouseService $houseService;
+	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
 		GameLogicService $gameLogicService,
-		HouseService $houseService
+		HouseService $houseService,
+		AuthorizationService $authService
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->gameLogicService = $gameLogicService;
 		$this->houseService = $houseService;
+		$this->authService = $authService;
 	}
 
 	/**
@@ -37,6 +41,8 @@ class GameController extends OCSController {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$gameState = $this->gameLogicService->getGameState($house->getId());
 
 			return new JSONResponse([
@@ -63,6 +69,8 @@ class GameController extends OCSController {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$leaderboard = $this->gameLogicService->getLeaderboard($house->getId());
 
 			return new JSONResponse([
@@ -89,6 +97,8 @@ class GameController extends OCSController {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$medals = $this->gameLogicService->getMedals($house->getId());
 
 			return new JSONResponse([
@@ -115,6 +125,8 @@ class GameController extends OCSController {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$awardedMedals = $this->gameLogicService->checkAndAwardMedals($house->getId());
 
 			return new JSONResponse([

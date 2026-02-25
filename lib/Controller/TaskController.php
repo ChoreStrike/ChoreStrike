@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
@@ -15,13 +17,19 @@ use OCP\IRequest;
 class TaskController extends OCSController {
 
 	private TaskService $taskService;
+	private HouseService $houseService;
+	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
-		TaskService $taskService
+		TaskService $taskService,
+		HouseService $houseService,
+		AuthorizationService $authService
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->taskService = $taskService;
+		$this->houseService = $houseService;
+		$this->authService = $authService;
 	}
 
 	/**
@@ -31,6 +39,10 @@ class TaskController extends OCSController {
 	 */
 	public function index(): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$tasks = $this->taskService->getAllTasks();
 			
 			return new JSONResponse([
@@ -55,6 +67,10 @@ class TaskController extends OCSController {
 	 */
 	public function show(int $id): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$task = $this->taskService->getTask($id);
 			
 			return new JSONResponse([
@@ -126,6 +142,10 @@ class TaskController extends OCSController {
 				}
 			}
 
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			// Validate input
 			$errors = $this->taskService->validateTaskData([
 				'name' => $name,
@@ -191,6 +211,10 @@ class TaskController extends OCSController {
 	 */
 	public function update(int $id, array $updates): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			// Validate updates
 			$errors = $this->taskService->validateTaskData($updates);
 			if (!empty($errors)) {
@@ -228,6 +252,10 @@ class TaskController extends OCSController {
 	 */
 	public function delete(int $id): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$this->taskService->deleteTask($id);
 			
 			return new JSONResponse([
@@ -252,6 +280,10 @@ class TaskController extends OCSController {
 	 */
 	public function templates(): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$templates = $this->taskService->getTaskTemplates();
 			
 			return new JSONResponse([
@@ -276,6 +308,10 @@ class TaskController extends OCSController {
 	 */
 	public function createFromTemplate(int $templateId): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$task = $this->taskService->createFromTemplate($templateId);
 			
 			return new JSONResponse([
@@ -300,6 +336,10 @@ class TaskController extends OCSController {
 	 */
 	public function byCategory(string $category): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$tasks = $this->taskService->getTasksByCategory($category);
 			
 			return new JSONResponse([
@@ -333,6 +373,10 @@ class TaskController extends OCSController {
 					]
 				], 400);
 			}
+			
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
 
 			$tasks = $this->taskService->searchTasks($query);
 			
@@ -358,6 +402,10 @@ class TaskController extends OCSController {
 	 */
 	public function categories(): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$categories = $this->taskService->getTaskCategories();
 			
 			return new JSONResponse([
@@ -382,6 +430,10 @@ class TaskController extends OCSController {
 	 */
 	public function createDefaultTemplates(): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$templates = $this->taskService->createDefaultTemplates();
 			
 			return new JSONResponse([

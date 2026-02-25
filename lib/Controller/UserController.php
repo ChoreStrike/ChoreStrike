@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
@@ -19,17 +20,20 @@ class UserController extends OCSController {
 	private HouseUserMapper $houseUserMapper;
 	private HouseService $houseService;
 	private IUserManager $userManager;
+	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
 		HouseUserMapper $houseUserMapper,
 		HouseService $houseService,
-		IUserManager $userManager
+		IUserManager $userManager,
+		AuthorizationService $authService
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->houseUserMapper = $houseUserMapper;
 		$this->houseService = $houseService;
 		$this->userManager = $userManager;
+		$this->authService = $authService;
 	}
 
 	/**
@@ -41,6 +45,8 @@ class UserController extends OCSController {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
 			$users = $this->houseUserMapper->findByHouseId($house->getId());
 
 			return new JSONResponse([
@@ -98,6 +104,7 @@ class UserController extends OCSController {
 
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseOwner($house->getId());
 
 			$houseUser = $this->houseUserMapper->createOrGet(
 				$house->getId(),
@@ -129,6 +136,7 @@ class UserController extends OCSController {
 	public function remove(int $id): JSONResponse {
 		try {
 			$houseUser = $this->houseUserMapper->find($id);
+			$this->authService->requireHouseOwner($houseUser->getHouseId());
 
 			if ($houseUser->isOwner()) {
 				return new JSONResponse([
@@ -164,6 +172,9 @@ class UserController extends OCSController {
 	 */
 	public function updateRole(int $id, string $role): JSONResponse {
 		try {
+			$houseUser = $this->houseUserMapper->find($id);
+			$this->authService->requireHouseOwner($houseUser->getHouseId());
+			
 			if (!in_array($role, ['owner', 'member', 'child'], true)) {
 				return new JSONResponse([
 					'success' => false,
@@ -174,7 +185,6 @@ class UserController extends OCSController {
 				], 400);
 			}
 
-			$houseUser = $this->houseUserMapper->find($id);
 			$houseUser->setRole($role);
 			$this->houseUserMapper->update($houseUser);
 
@@ -201,6 +211,7 @@ class UserController extends OCSController {
 	public function stats(int $id): JSONResponse {
 		try {
 			$houseUser = $this->houseUserMapper->find($id);
+			$this->authService->requireHouseMember($houseUser->getHouseId());
 
 			return new JSONResponse([
 				'success' => true,
