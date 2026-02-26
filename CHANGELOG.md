@@ -16,19 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic Vue.js 3 frontend with routing
 - Build configuration (webpack, babel, eslint, stylelint)
 - Placeholder views for Dashboard, Tasks, Rooms, Leaderboard, Settings
-- Reusable modal component for shared dialog UI
-- Reusable room-task form component for adding tasks to rooms
-- Router regression test covering room detail route resolution
 
 ### Changed
-- Implemented full Task Manager view with room-based task operations
-- Implemented full Leaderboard view with ranking and medal summaries
-- Implemented full Settings view for house configuration, including floor and room management
-- Aligned frontend dev-tool dependencies with Nextcloud webpack/eslint peer requirements
-- Added Jest configuration for jsdom and Vue single-file component mocks
-- Applied targeted lint cleanup on newly changed frontend view/component files
-- Applied scoped lint auto-fixes for Pinia store modules (formatting and style consistency)
-- Added JSDoc parameter typing/descriptions for store actions in rooms/tasks/user modules
+- Nothing yet
 
 ### Deprecated
 - Nothing yet
@@ -37,23 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing yet
 
 ### Fixed
-- Fixed dashboard room click navigation to open the room detail route correctly
-- Fixed room task completion user ID lookup to use the user store instead of game store
-- Fixed Babel config usage to load Nextcloud shared Babel config correctly
-- **Critical:** Fixed namespace inconsistency - migrated all `OCA\ChoreWars` references to canonical `OCA\ChoreStrike` (55 files)
-- **Critical:** Fixed database table prefix inconsistency - migrated `chorewars_` to `chorestrike_` in migrations 1001-1003 and mappers
-- **Critical:** Fixed missing `appName` parameter in `OCSController::__construct()` across all 9 API controllers
-- Added missing scope/lifecycle fields to `Task` entity: `scopeType`, `scopeLabel`, `recurrenceMode`, `activeFrom`, `activeUntil`, `isVoluntary`, `reminderType`, `reminderMinutesBefore`
-- Extended `TaskMapper::create()` and `TaskService::createTask()` signatures to handle new scope/lifecycle parameters
-- Added missing `scopeId` and `nextcloudTaskId` fields to `RoomTask` entity
-- Extended `RoomTaskMapper::create()` and `RoomTaskService::createRoomTask()` with `scopeId` parameter
-- Added `RoomTaskMapper::findByNextcloudTaskId()` and `findByScopeId()` methods for task sync support
-- Added `RoomTaskService::getScopeTasks()` for scope-based task filtering
-- Fixed `Room::needsCleaning()` threshold: changed `monsterCount > 1` to `>= 1` (any monster triggers cleaning)
-- Fixed `RoomTask::getDaysUntilDue()` to return negative values when overdue (was always positive)
-- Added scope/lifecycle validation to `TaskService::validateTaskData()` (`scopeType`, `recurrenceMode`, date range)
-- Fixed `TaskService::updateTask()` to properly coerce string dates to `\DateTime` for `activeFrom`/`activeUntil`
-- Fixed `createDefaultTemplates()` count mismatch (14→15 templates) to match unit test expectations
+- Nothing yet
 
 ### Security
 - Nothing yet

@@ -5,7 +5,7 @@ import MonsterCollection from '../../../src/components/Common/MonsterCollection.
 import MonsterSprite from '../../../src/components/Common/MonsterSprite.vue'
 
 // Mock nextcloud l10n
-vi.mock('@nextcloud/l10n', () => ({
+jest.mock('@nextcloud/l10n', () => ({
 	translate: (app, text) => text,
 	translatePlural: (app, text) => text,
 }))

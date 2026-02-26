@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import Icon from '../../../src/components/Common/Icon.vue'
 
 // Mock the icons utility
-vi.mock('../../../src/utils/icons.js', () => ({
+jest.mock('../../../src/utils/icons.js', () => ({
 	getIcon: (name) => {
 		const icons = {
 			Home: { name: 'Home', template: '<svg>Home</svg>' },

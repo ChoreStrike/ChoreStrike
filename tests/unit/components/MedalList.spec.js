@@ -5,7 +5,7 @@ import MedalList from '../../../src/components/Common/MedalList.vue'
 import MedalBadge from '../../../src/components/Common/MedalBadge.vue'
 
 // Mock nextcloud l10n
-vi.mock('@nextcloud/l10n', () => ({
+jest.mock('@nextcloud/l10n', () => ({
 	translate: (app, text) => text,
 	translatePlural: (app, text) => text,
 }))
@@ -33,8 +33,8 @@ describe('MedalList.vue', () => {
 
 	it('renders grouped medals', () => {
 		const medals = [
-			{ id: 1, medalType: 'gold', awardedAt: '2024-01-01' },
-			{ id: 2, medalType: 'silver', awardedAt: '2024-01-02' },
+			{ id: 1, medalType: 'team_anchor', awardedAt: '2024-01-01' },
+			{ id: 2, medalType: 'flow_keeper', awardedAt: '2024-01-02' },
 		]
 
 		const wrapper = mount(MedalList, {
@@ -51,9 +51,9 @@ describe('MedalList.vue', () => {
 
 	it('groups medals by type and counts them', () => {
 		const medals = [
-			{ id: 1, medalType: 'gold', awardedAt: '2024-01-01' },
-			{ id: 2, medalType: 'gold', awardedAt: '2024-01-02' },
-			{ id: 3, medalType: 'silver', awardedAt: '2024-01-03' },
+			{ id: 1, medalType: 'team_anchor', awardedAt: '2024-01-01' },
+			{ id: 2, medalType: 'team_anchor', awardedAt: '2024-01-02' },
+			{ id: 3, medalType: 'flow_keeper', awardedAt: '2024-01-03' },
 		]
 
 		const wrapper = mount(MedalList, {
@@ -71,7 +71,7 @@ describe('MedalList.vue', () => {
 
 	it('renders MedalBadge for each group', () => {
 		const medals = [
-			{ id: 1, medalType: 'team_anchor', awardedAt: '2024-01-01' },
+			{ id: 1, medalType: 'room_guardian', awardedAt: '2024-01-01' },
 		]
 
 		const wrapper = mount(MedalList, {
@@ -87,7 +87,7 @@ describe('MedalList.vue', () => {
 
 	it('applies badgeSize prop to MedalBadge', () => {
 		const medals = [
-			{ id: 1, medalType: 'gold', awardedAt: '2024-01-01' },
+			{ id: 1, medalType: 'team_player', awardedAt: '2024-01-01' },
 		]
 
 		const wrapper = mount(MedalList, {
@@ -104,7 +104,7 @@ describe('MedalList.vue', () => {
 
 	it('shows dates when showDates is true', () => {
 		const medals = [
-			{ id: 1, medalType: 'gold', awardedAt: '2024-01-15T00:00:00Z' },
+			{ id: 1, medalType: 'streak_keeper', awardedAt: '2024-01-15T00:00:00Z' },
 		]
 
 		const wrapper = mount(MedalList, {
@@ -120,7 +120,7 @@ describe('MedalList.vue', () => {
 
 	it('does not show dates when showDates is false', () => {
 		const medals = [
-			{ id: 1, medalType: 'gold', awardedAt: '2024-01-15' },
+			{ id: 1, medalType: 'team_anchor', awardedAt: '2024-01-15' },
 		]
 
 		const wrapper = mount(MedalList, {
@@ -136,7 +136,7 @@ describe('MedalList.vue', () => {
 
 	it('emits select event when medal group clicked', () => {
 		const medals = [
-			{ id: 1, medalType: 'gold', awardedAt: '2024-01-01' },
+			{ id: 1, medalType: 'flow_keeper', awardedAt: '2024-01-01' },
 		]
 
 		const wrapper = mount(MedalList, {
@@ -153,9 +153,9 @@ describe('MedalList.vue', () => {
 
 	it('sorts groups by count descending', () => {
 		const medals = [
-			{ id: 1, medalType: 'silver', awardedAt: '2024-01-01' },
-			{ id: 2, medalType: 'gold', awardedAt: '2024-01-02' },
-			{ id: 3, medalType: 'gold', awardedAt: '2024-01-03' },
+			{ id: 1, medalType: 'flow_keeper', awardedAt: '2024-01-01' },
+			{ id: 2, medalType: 'team_anchor', awardedAt: '2024-01-02' },
+			{ id: 3, medalType: 'team_anchor', awardedAt: '2024-01-03' },
 		]
 
 		const wrapper = mount(MedalList, {
@@ -173,7 +173,7 @@ describe('MedalList.vue', () => {
 
 	it('handles medals with createdAt instead of awardedAt', () => {
 		const medals = [
-			{ id: 1, medalType: 'bronze', createdAt: '2024-01-15T00:00:00Z' },
+			{ id: 1, medalType: 'room_guardian', createdAt: '2024-01-15T00:00:00Z' },
 		]
 
 		const wrapper = mount(MedalList, {
@@ -189,7 +189,7 @@ describe('MedalList.vue', () => {
 
 	it('handles medals without any date', () => {
 		const medals = [
-			{ id: 1, medalType: 'gold' },
+			{ id: 1, medalType: 'team_player' },
 		]
 
 		const wrapper = mount(MedalList, {

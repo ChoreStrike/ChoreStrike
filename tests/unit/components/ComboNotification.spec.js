@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import ComboNotification from '../../../src/components/Common/ComboNotification.vue'
 
 // Mock nextcloud l10n
-vi.mock('@nextcloud/l10n', () => ({
+jest.mock('@nextcloud/l10n', () => ({
 	translate: (app, text) => text,
 	translatePlural: (app, text) => text,
 }))
@@ -15,11 +15,11 @@ describe('ComboNotification.vue', () => {
 	beforeEach(() => {
 		pinia = createPinia()
 		setActivePinia(pinia)
-		vi.useFakeTimers()
+		jest.useFakeTimers()
 	})
 
 	afterEach(() => {
-		vi.useRealTimers()
+		jest.useRealTimers()
 	})
 
 	it('renders combo notifications', () => {

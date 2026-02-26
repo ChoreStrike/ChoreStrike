@@ -5,7 +5,7 @@ import MedalDetails from '../../../src/components/Common/MedalDetails.vue'
 import MedalBadge from '../../../src/components/Common/MedalBadge.vue'
 
 // Mock nextcloud l10n
-vi.mock('@nextcloud/l10n', () => ({
+jest.mock('@nextcloud/l10n', () => ({
 	translate: (app, text, vars) => {
 		if (vars) {
 			return text.replace(/{(\w+)}/g, (match, key) => vars[key] || match)
@@ -46,7 +46,7 @@ describe('MedalDetails.vue', () => {
 	it('renders MedalBadge component', () => {
 		const medal = {
 			id: 1,
-			medalType: 'gold',
+			medalType: 'flow_keeper',
 		}
 
 		const wrapper = mount(MedalDetails, {
@@ -82,7 +82,7 @@ describe('MedalDetails.vue', () => {
 	it('does not display value when medal has no value', () => {
 		const medal = {
 			id: 1,
-			medalType: 'gold',
+			medalType: 'room_guardian',
 		}
 
 		const wrapper = mount(MedalDetails, {
@@ -99,7 +99,7 @@ describe('MedalDetails.vue', () => {
 	it('displays user name when present', () => {
 		const medal = {
 			id: 1,
-			medalType: 'team_anchor',
+			medalType: 'team_player',
 			userName: 'Jane Smith',
 		}
 
@@ -120,7 +120,7 @@ describe('MedalDetails.vue', () => {
 	it('formats awarded date correctly', () => {
 		const medal = {
 			id: 1,
-			medalType: 'flow_keeper',
+			medalType: 'streak_keeper',
 			awardedAt: '2024-01-15T10:30:00Z',
 		}
 
@@ -140,7 +140,7 @@ describe('MedalDetails.vue', () => {
 	it('displays week range when weekStart is present', () => {
 		const medal = {
 			id: 1,
-			medalType: 'streak_keeper',
+			medalType: 'flow_keeper',
 			weekStart: '2024-01-15T00:00:00Z',
 		}
 
@@ -190,19 +190,6 @@ describe('MedalDetails.vue', () => {
 		})
 
 		expect(wrapper.find('.medal-description').exists()).toBe(false)
-	})
-
-	it('handles missing medal gracefully', () => {
-		const wrapper = mount(MedalDetails, {
-			props: { medal: null },
-			global: {
-				plugins: [pinia],
-				components: { MedalBadge },
-			},
-		})
-
-		// Component should render but not show content
-		expect(wrapper.find('.medal-details').exists()).toBe(true)
 	})
 
 	it('displays all medal types with correct descriptions', () => {
