@@ -1,3 +1,8 @@
+<!--
+  @copyright Copyright (c) 2026 ChoreStrike Contributors
+  @license MIT
+-->
+
 <template>
 	<form class="task-form" @submit.prevent="submit">
 		<div class="form-group">

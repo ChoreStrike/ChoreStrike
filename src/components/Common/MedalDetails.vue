@@ -1,3 +1,8 @@
+<!--
+  @copyright Copyright (c) 2026 ChoreStrike Contributors
+  @license MIT
+-->
+
 <template>
 	<div v-if="medal" class="medal-details">
 		<div class="medal-header">

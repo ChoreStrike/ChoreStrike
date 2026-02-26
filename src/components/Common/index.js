@@ -1,4 +1,9 @@
 /**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
+/**
  * Common Components Index
  *
  * This file exports all common/shared components for easy importing.

@@ -1,3 +1,8 @@
+<!--
+  @copyright Copyright (c) 2026 ChoreStrike Contributors
+  @license MIT
+-->
+
 <template>
 	<span class="medal-badge" :class="[`medal-${type}`, size]" :title="label">
 		<span class="medal-icon">{{ icon }}</span>

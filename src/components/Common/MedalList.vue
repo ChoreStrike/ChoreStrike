@@ -1,3 +1,8 @@
+<!--
+  @copyright Copyright (c) 2026 ChoreStrike Contributors
+  @license MIT
+-->
+
 <template>
 	<div class="medal-list">
 		<div v-if="groupedMedals.length === 0" class="empty-state">

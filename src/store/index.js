@@ -1,3 +1,8 @@
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
 import { useHouseStore } from './house.js'
 import { useRoomsStore } from './rooms.js'
 import { useTasksStore } from './tasks.js'

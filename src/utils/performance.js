@@ -1,4 +1,9 @@
 /**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
+/**
  * Performance monitoring utility for ChoreStrike
  * Tracks metrics and helps identify bottlenecks
  */

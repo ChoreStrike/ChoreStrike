@@ -1,4 +1,9 @@
 /**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
+/**
  * Mobile utilities for touch interactions and responsive behavior
  */
 

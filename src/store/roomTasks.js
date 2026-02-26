@@ -1,3 +1,8 @@
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
 

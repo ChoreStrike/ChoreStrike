@@ -1,3 +1,8 @@
+<!--
+  @copyright Copyright (c) 2026 ChoreStrike Contributors
+  @license MIT
+-->
+
 <template>
 	<div class="monster-collection" :class="{ interactive }">
 		<div class="collection-header">

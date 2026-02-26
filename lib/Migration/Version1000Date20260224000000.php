@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
 declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Migration;

@@ -1,10 +1,13 @@
 import { mount } from '@vue/test-utils'
-import { createTestingPinia } from '@pinia/testing'
+import { createPinia, setActivePinia } from 'pinia'
 import { ref } from 'vue'
 import HouseHealthBar from '../../../src/components/Dashboard/HouseHealthBar.vue'
 
 describe('HouseHealthBar', () => {
 	const createWrapper = (props = {}, storeHealth = 75, storeName = 'Test House') => {
+		const pinia = createPinia()
+		setActivePinia(pinia)
+		
 		return mount(HouseHealthBar, {
 			props: {
 				showRefreshButton: true,
@@ -12,15 +15,17 @@ describe('HouseHealthBar', () => {
 				...props,
 			},
 			global: {
-				plugins: [createTestingPinia({
-					initialState: {
+				plugins: [pinia],
+				mocks: {
+					// Mock store values
+					$store: {
 						house: {
 							houseHealth: storeHealth,
 							houseName: storeName,
 							loading: false,
-						},
-					},
-				})],
+						}
+					}
+				},
 			},
 		})
 	}
@@ -88,18 +93,22 @@ describe('HouseHealthBar', () => {
 		})
 
 		it('should be disabled when loading', () => {
+			const pinia = createPinia()
+			setActivePinia(pinia)
+			
 			const wrapper = mount(HouseHealthBar, {
 				props: { showRefreshButton: true },
 				global: {
-					plugins: [createTestingPinia({
-						initialState: {
+					plugins: [pinia],
+					mocks: {
+						$store: {
 							house: {
 								houseHealth: 80,
 								houseName: 'Test',
 								loading: true,
-							},
-						},
-					})],
+							}
+						}
+					},
 				},
 			})
 			expect(wrapper.find('.refresh-button').attributes('disabled')).toBeDefined()

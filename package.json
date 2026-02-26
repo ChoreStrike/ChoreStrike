@@ -4,6 +4,11 @@
   "description": "Gamified household task management for Nextcloud",
   "license": "MIT",
   "author": "ChoreStrike Contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/volker-ma/ChoreStrike.git"
+  },
+  "homepage": "https://github.com/volker-ma/ChoreStrike#readme",
   "scripts": {
     "build": "webpack --mode production",
     "dev": "webpack --mode development",

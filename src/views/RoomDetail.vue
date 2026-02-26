@@ -1,3 +1,8 @@
+<!--
+  @copyright Copyright (c) 2026 ChoreStrike Contributors
+  @license MIT
+-->
+
 <template>
 	<div class="room-detail">
 		<h1>{{ t('chorewars', 'Room Detail') }}</h1>

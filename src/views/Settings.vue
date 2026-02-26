@@ -1,3 +1,8 @@
+<!--
+  @copyright Copyright (c) 2026 ChoreStrike Contributors
+  @license MIT
+-->
+
 <template>
 	<div class="settings">
 		<h1>{{ t('chorewars', 'Settings') }}</h1>
