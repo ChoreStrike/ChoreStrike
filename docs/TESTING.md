@@ -216,6 +216,15 @@ The test environment consists of:
 
 Current test status (as of last run):
 
+### Jest Frontend Tests (Working ✓)
+```bash
+npm test
+```
+- **Test Suites**: 8/8 passing (100%)
+- **Tests**: 112 passing (100%)
+- **Status**: All passing ✓
+- **Coverage**: 7 Vue components tested
+
 ### Entity Tests (Working ✓)
 ```bash
 docker compose -f docker-compose.test.yml run --rm nextcloud-test \
@@ -225,13 +234,18 @@ docker compose -f docker-compose.test.yml run --rm nextcloud-test \
 - **Status**: All passing ✓
 - **Coverage**: Room, Task, Floor, House, HouseUser, Medal, RoomTask, TaskScope entities
 
-### Service Tests (Requires QBMapper mock)
-- Status: Needs `OCP\AppFramework\Db\QBMapper` mock implementation
-- Affected: All *ServiceTest classes that extend Mapper-dependent services
+### Service Tests (Working ✓)
+```bash
+docker compose -f docker-compose.test.yml run --rm nextcloud-test \
+  vendor/bin/phpunit --configuration phpunit.unit.xml --testsuite Service
+```
+- **Tests**: Comprehensive coverage for GameLogicService, HouseService, RoomService, FloorService, TaskService, RoomTaskService
+- **Status**: Core domain logic tested ✓
 
 ### Integration Tests
-- Status: Controller constructor mocks need type alignment
-- Affected: All *ControllerIntegrationTest classes
+- **FamilyIntegrationTest**: 8/8 tests passing ✓
+- **Controller Integration Tests**: Require Nextcloud core environment (run in Docker)
+- **Status**: Family scenarios fully tested
 
 ## Without Docker (Limited)
 
@@ -333,3 +347,68 @@ composer install
 vendor/bin/phpunit tests/unit/Service/SchedulingServiceTest.php
 vendor/bin/phpunit tests/unit/Service/TaskSyncServiceTest.php
 ```
+
+## Missing Test Coverage
+
+The following areas need additional tests (priority order):
+
+### 1. Vue Components (8 missing tests)
+**Location**: `tests/unit/components/`
+**Components without tests**:
+- `ComboNotification.vue` - Gamification notifications
+- `Emoji.vue` - Emoji display component  
+- `Icon.vue` - Icon rendering component
+- `MedalDetails.vue` - Medal detail view
+- `MedalList.vue` - Medal collection list
+- `MonsterCollection.vue` - Monster showcase
+- `MonsterSprite.vue` - Animated monster sprites
+- `FloorList.vue` - Floor management UI
+
+**Components with tests** (7):
+- ✅ MedalBadge.spec.js
+- ✅ Modal.spec.js
+- ✅ QuickStats.spec.js
+- ✅ HouseHealthBar.spec.js
+- ✅ RoomCard.spec.js
+- ✅ TaskForm.spec.js
+- ✅ TaskList.spec.js
+
+### 2. Pinia Stores (7 missing tests)
+**Location**: `tests/unit/store/` (directory does not exist)
+**Stores needing tests**:
+- `game.js` - Game state, medals, monsters
+- `house.js` - House management
+- `index.js` - Root store coordination
+- `roomTasks.js` - Room task assignments
+- `rooms.js` - Room state management
+- `scheduling.js` - Task scheduling
+- `tasks.js` - Task CRUD operations
+- `user.js` - User profiles and stats
+
+### 3. Controller Unit Tests (9 controllers)
+**Location**: `tests/unit/Controller/` (directory does not exist)
+**Controllers needing unit tests**:
+- `FloorController.php`
+- `GameController.php`
+- `HouseController.php`
+- `PageController.php`
+- `RoomController.php`
+- `RoomTaskController.php`
+- `SchedulingController.php`
+- `TaskController.php`
+- `TaskSyncController.php`
+- `UserController.php`
+
+### 4. E2E/Integration Tests
+**Existing**: `tests/integration/Controller/` has 8 integration test files
+**Note**: These require Docker environment with Nextcloud core
+
+### Test Coverage Summary
+| Category | Existing | Missing | Coverage |
+|----------|----------|---------|----------|
+| Entities | 8 files | 0 | 100% |
+| Services | 8 files | 0 | 100% |
+| Vue Components | 7 files | 8 | 47% |
+| Stores | 0 files | 7 | 0% |
+| Controllers (Unit) | 0 files | 9 | 0% |
+| Integration | 8 files | - | Partial |
