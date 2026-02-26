@@ -59,7 +59,7 @@ export const useUserStore = defineStore('user', {
 		async initializeCurrentUser() {
 			try {
 				// Get current user from Nextcloud
-				const response = await axios.get('/apps/chorewars/api/v1/users/current')
+				const response = await axios.get('/apps/chorestrike/api/v1/users/current')
 
 				if (response.data.success) {
 					this.currentUser = response.data.data
@@ -82,7 +82,7 @@ export const useUserStore = defineStore('user', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/users')
+				const response = await axios.get('/apps/chorestrike/api/v1/users')
 
 				if (response.data.success) {
 					this.houseUsers = response.data.data
@@ -116,7 +116,7 @@ export const useUserStore = defineStore('user', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorewars/api/v1/users/invite', { email, role })
+				const response = await axios.post('/apps/chorestrike/api/v1/users/invite', { email, role })
 
 				if (response.data.success) {
 					// Add to house users if already exists
@@ -149,7 +149,7 @@ export const useUserStore = defineStore('user', {
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/apps/chorewars/api/v1/users/${userId}`)
+				const response = await axios.delete(`/apps/chorestrike/api/v1/users/${userId}`)
 
 				if (response.data.success) {
 					// Remove from house users
@@ -184,7 +184,7 @@ export const useUserStore = defineStore('user', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorewars/api/v1/users/${userId}/role`, { role })
+				const response = await axios.put(`/apps/chorestrike/api/v1/users/${userId}/role`, { role })
 
 				if (response.data.success) {
 					// Update user in house users
@@ -223,7 +223,7 @@ export const useUserStore = defineStore('user', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorewars/api/v1/users/${userId}`, profileData)
+				const response = await axios.put(`/apps/chorestrike/api/v1/users/${userId}`, profileData)
 
 				if (response.data.success) {
 					// Update user in house users

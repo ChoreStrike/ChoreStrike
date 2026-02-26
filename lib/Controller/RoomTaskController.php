@@ -321,19 +321,10 @@ class RoomTaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
-			
-			if (empty(trim($userId))) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'VALIDATION_ERROR',
-						'message' => 'User ID is required'
-					]
-				], 400);
-			}
 
-			$result = $this->roomTaskService->completeTask($id, $userId);
-			
+			$currentUserId = $this->authService->requireCurrentUserId();
+			$result = $this->roomTaskService->completeTask($id, $currentUserId);
+
 			return new JSONResponse([
 				'success' => true,
 				'data' => [

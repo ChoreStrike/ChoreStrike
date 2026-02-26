@@ -6,22 +6,22 @@
 <template>
 	<form class="task-form" @submit.prevent="submit">
 		<div class="form-group">
-			<label for="taskId">{{ t('chorewars', 'Task') }}</label>
+			<label for="taskId">{{ t('chorestrike', 'Task') }}</label>
 			<select id="taskId"
 				v-model.number="form.taskId"
 				class="form-input"
 				required>
 				<option :value="null" disabled>
-					{{ t('chorewars', 'Select a task') }}
+					{{ t('chorestrike', 'Select a task') }}
 				</option>
 				<option v-for="task in availableTasks" :key="task.id" :value="task.id">
-					{{ task.name }} ({{ t('chorewars', 'Priority') }} {{ task.priority }})
+					{{ task.name }} ({{ t('chorestrike', 'Priority') }} {{ task.priority }})
 				</option>
 			</select>
 		</div>
 
 		<div class="form-group">
-			<label for="nextDue">{{ t('chorewars', 'Next Due Date') }}</label>
+			<label for="nextDue">{{ t('chorestrike', 'Next Due Date') }}</label>
 			<input id="nextDue"
 				v-model="form.nextDue"
 				type="date"
@@ -29,7 +29,7 @@
 		</div>
 
 		<div class="form-group">
-			<label for="assignedToUserId">{{ t('chorewars', 'Assignee (optional)') }}</label>
+			<label for="assignedToUserId">{{ t('chorestrike', 'Assignee (optional)') }}</label>
 			<input id="assignedToUserId"
 				v-model.trim="form.assignedToUserId"
 				type="text"
@@ -39,11 +39,11 @@
 		<div class="form-actions">
 			<button type="button" class="secondary-button" @click="$emit('cancel')">
 				<Icon name="X" :size="16" class="icon" />
-				{{ t('chorewars', 'Cancel') }}
+				{{ t('chorestrike', 'Cancel') }}
 			</button>
 			<button type="submit" class="primary-button" :disabled="!form.taskId || loading">
 				<Icon name="Plus" :size="16" class="icon" />
-				{{ t('chorewars', 'Add Task') }}
+				{{ t('chorestrike', 'Add Task') }}
 			</button>
 		</div>
 	</form>

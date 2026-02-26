@@ -4,24 +4,24 @@
 -->
 
 <template>
-	<NcContent app-name="chorewars">
+	<NcContent app-name="chorestrike">
 		<NcAppNavigation>
 			<NcAppNavigationItem
 				:to="{ name: 'dashboard' }"
 				icon="icon-home"
-				:name="t('chorewars', 'Dashboard')" />
+				:name="t('chorestrike', 'Dashboard')" />
 			<NcAppNavigationItem
 				:to="{ name: 'tasks' }"
 				icon="icon-checkmark"
-				:name="t('chorewars', 'Tasks')" />
+				:name="t('chorestrike', 'Tasks')" />
 			<NcAppNavigationItem
 				:to="{ name: 'leaderboard' }"
 				icon="icon-star"
-				:name="t('chorewars', 'Leaderboard')" />
+				:name="t('chorestrike', 'Leaderboard')" />
 			<NcAppNavigationItem
 				:to="{ name: 'settings' }"
 				icon="icon-settings"
-				:name="t('chorewars', 'Settings')" />
+				:name="t('chorestrike', 'Settings')" />
 		</NcAppNavigation>
 
 		<NcAppContent>

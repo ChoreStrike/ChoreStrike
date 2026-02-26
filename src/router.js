@@ -38,7 +38,7 @@ const routes = [
 ]
 
 const router = createRouter({
-	history: createWebHashHistory(generateUrl('/apps/chorewars')),
+	history: createWebHashHistory(generateUrl('/apps/chorestrike')),
 	routes,
 })
 

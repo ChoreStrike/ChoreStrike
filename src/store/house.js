@@ -28,7 +28,7 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/house')
+				const response = await axios.get('/apps/chorestrike/api/v1/house')
 
 				if (response.data.success) {
 					this.house = response.data.data
@@ -57,7 +57,7 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const response = await axios.put('/apps/chorewars/api/v1/house', { name })
+				const response = await axios.put('/apps/chorestrike/api/v1/house', { name })
 
 				if (response.data.success) {
 					this.house = response.data.data
@@ -81,7 +81,7 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/house/stats')
+				const response = await axios.get('/apps/chorestrike/api/v1/house/stats')
 
 				if (response.data.success) {
 					return response.data.data
@@ -105,7 +105,7 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/house/health')
+				const response = await axios.get('/apps/chorestrike/api/v1/house/health')
 
 				if (response.data.success) {
 					// Update local house health
@@ -133,7 +133,7 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorewars/api/v1/house/reset')
+				const response = await axios.post('/apps/chorestrike/api/v1/house/reset')
 
 				if (response.data.success) {
 					this.house = response.data.data

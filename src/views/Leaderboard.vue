@@ -5,8 +5,8 @@
 
 <template>
 	<div class="leaderboard">
-		<h1>{{ t('chorewars', 'Leaderboard') }}</h1>
-		<p>{{ t('chorewars', 'Coming soon...') }}</p>
+		<h1>{{ t('chorestrike', 'Leaderboard') }}</h1>
+		<p>{{ t('chorestrike', 'Coming soon...') }}</p>
 	</div>
 </template>
 

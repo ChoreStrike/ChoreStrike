@@ -14,4 +14,4 @@ const app = createApp(App)
 app.use(pinia)
 app.use(router)
 
-app.mount('#app-chorewars-vue')
+app.mount('#app-chorestrike-vue')

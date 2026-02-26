@@ -45,6 +45,20 @@ class AuthorizationService {
 	}
 
 	/**
+	 * Require an authenticated user and return the current user ID.
+	 *
+	 * @throws \OCP\AppFramework\Http\NotFoundException
+	 */
+	public function requireCurrentUserId(): string {
+		$userId = $this->getCurrentUserId();
+		if ($userId === null) {
+			throw new \OCP\AppFramework\Http\NotFoundException('Not authenticated');
+		}
+
+		return $userId;
+	}
+
+	/**
 	 * Check if the current user is a member of the given house.
 	 */
 	public function isHouseMember(int $houseId): bool {

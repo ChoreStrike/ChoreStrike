@@ -5,15 +5,15 @@
 
 <template>
 	<div class="dashboard">
-		<h1>{{ t('chorewars', 'ChoreWars Dashboard') }}</h1>
+		<h1>{{ t('chorestrike', 'ChoreWars Dashboard') }}</h1>
 		<p class="tagline">
-			{{ t('chorewars', 'Defend your Home Base. Together.') }}
+			{{ t('chorestrike', 'Defend your Home Base. Together.') }}
 		</p>
 
 		<div class="welcome-message">
-			<h2>{{ t('chorewars', 'Welcome to ChoreWars!') }}</h2>
-			<p>{{ t('chorewars', 'This is the beginning of your gamified household management journey.') }}</p>
-			<p>{{ t('chorewars', 'Setup is in progress. Stay tuned for more features!') }}</p>
+			<h2>{{ t('chorestrike', 'Welcome to ChoreWars!') }}</h2>
+			<p>{{ t('chorestrike', 'This is the beginning of your gamified household management journey.') }}</p>
+			<p>{{ t('chorestrike', 'Setup is in progress. Stay tuned for more features!') }}</p>
 		</div>
 	</div>
 </template>

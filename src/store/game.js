@@ -48,7 +48,7 @@ export const useGameStore = defineStore('game', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/game/state')
+				const response = await axios.get('/apps/chorestrike/api/v1/game/state')
 
 				if (response.data.success) {
 					this.gameState = response.data.data
@@ -73,7 +73,7 @@ export const useGameStore = defineStore('game', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/game/leaderboard')
+				const response = await axios.get('/apps/chorestrike/api/v1/game/leaderboard')
 
 				if (response.data.success) {
 					this.leaderboard = response.data.data
@@ -97,7 +97,7 @@ export const useGameStore = defineStore('game', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorewars/api/v1/game/medals')
+				const response = await axios.get('/apps/chorestrike/api/v1/game/medals')
 
 				if (response.data.success) {
 					this.medals = response.data.data

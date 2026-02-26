@@ -170,7 +170,7 @@ export const getStoreSummary = () => {
 }
 
 // Pinia plugin for store initialization
-export const choreWarsPiniaPlugin = ({ pinia }) => {
+export const piniaInitializationPlugin = ({ pinia }) => {
 	// Auto-initialize stores when they are first used
 	pinia.use(({ store }) => {
 		if (store.$id === 'user') {
@@ -195,5 +195,5 @@ export default {
 	getAnyStoreLoading,
 	getAnyStoreError,
 	getStoreSummary,
-	choreWarsPiniaPlugin,
+	piniaInitializationPlugin,
 }
