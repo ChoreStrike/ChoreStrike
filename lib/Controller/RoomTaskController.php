@@ -86,6 +86,7 @@ class RoomTaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 			
 			$roomTaskWithDetails = $this->roomTaskService->getRoomTaskWithDetails($id);
 			
@@ -165,6 +166,7 @@ class RoomTaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 			
 			if (empty(trim($userId))) {
 				return new JSONResponse([
@@ -203,6 +205,7 @@ class RoomTaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 			
 			$roomTask = $this->roomTaskService->unassignTask($id);
 			
@@ -231,6 +234,7 @@ class RoomTaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 			
 			$roomTask = $this->roomTaskService->deactivateTask($id);
 			
@@ -259,6 +263,7 @@ class RoomTaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 			
 			$roomTask = $this->roomTaskService->reactivateTask($id);
 			
@@ -287,6 +292,7 @@ class RoomTaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 			
 			try {
 				$nextDueDate = new \DateTime($nextDue);
@@ -321,6 +327,7 @@ class RoomTaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
 			$currentUserId = $this->authService->requireCurrentUserId();
 			$result = $this->roomTaskService->completeTask($id, $currentUserId);
@@ -355,6 +362,7 @@ class RoomTaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 			
 			$this->roomTaskService->deleteRoomTask($id);
 			

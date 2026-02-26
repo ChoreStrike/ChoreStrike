@@ -14,7 +14,9 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Db\FloorMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\AppFramework\Http\NotFoundException;
 
 /**
  * Service for room task-related business logic
@@ -24,18 +26,38 @@ class RoomTaskService {
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
 	private RoomMapper $roomMapper;
+	private FloorMapper $floorMapper;
 	private RoomService $roomService;
 
 	public function __construct(
 		RoomTaskMapper $roomTaskMapper,
 		TaskMapper $taskMapper,
 		RoomMapper $roomMapper,
+		FloorMapper $floorMapper,
 		RoomService $roomService
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
 		$this->roomMapper = $roomMapper;
+		$this->floorMapper = $floorMapper;
 		$this->roomService = $roomService;
+	}
+
+	/**
+	 * Validate that a room task belongs to the specified house
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param int $houseId The house ID to validate against
+	 * @throws NotFoundException if room task doesn't belong to house
+	 */
+	public function validateRoomTaskOwnership(int $roomTaskId, int $houseId): void {
+		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		$room = $this->roomMapper->find($roomTask->getRoomId());
+		$floor = $this->floorMapper->find($room->getFloorId());
+		
+		if ($floor->getHouseId() !== $houseId) {
+			throw new NotFoundException('Room task not found');
+		}
 	}
 
 	/**

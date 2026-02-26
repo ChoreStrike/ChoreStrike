@@ -71,7 +71,11 @@ class RoomController extends OCSController {
 	 */
 	public function show(int $id): JSONResponse {
 		try {
-			// Get room and verify house membership
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			$this->roomService->validateRoomOwnership($id, $house->getId());
+			
 			$roomWithTasks = $this->roomService->getRoomWithTasks($id);
 			$room = $roomWithTasks['room'];
 			$this->authService->requireHouseMember($room->getHouseId());
@@ -148,6 +152,11 @@ class RoomController extends OCSController {
 	 */
 	public function update(int $id, string $name): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			$this->roomService->validateRoomOwnership($id, $house->getId());
+			
 			if (empty(trim($name))) {
 				return new JSONResponse([
 					'success' => false,
@@ -186,7 +195,11 @@ class RoomController extends OCSController {
 	 */
 	public function delete(int $id): JSONResponse {
 		try {
-			// Get room and verify house membership before deleting
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			$this->roomService->validateRoomOwnership($id, $house->getId());
+			
 			$room = $this->roomService->getRoom($id);
 			$this->authService->requireHouseMember($room->getHouseId());
 			
@@ -214,6 +227,11 @@ class RoomController extends OCSController {
 	 */
 	public function updateCleanliness(int $id, int $cleanlinessChange): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			$this->roomService->validateRoomOwnership($id, $house->getId());
+			
 			if ($cleanlinessChange < -100 || $cleanlinessChange > 100) {
 				return new JSONResponse([
 					'success' => false,
