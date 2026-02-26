@@ -1,0 +1,56 @@
+# Nextcloud Sync Exclude List for ChoreStrike
+# Only exclude files that are NOT tracked in Git
+# WARNING: Excluding tracked files will cause Nextcloud to delete them locally!
+
+# Dependencies (generated, not tracked in Git)
+*/node_modules/
+
+# Build outputs (generated, not tracked in Git)
+*/build/
+*/dist/
+*/js/
+
+# Test coverage (generated, not tracked in Git)
+*/coverage/
+
+# Environment files (local only, not tracked in Git)
+.env
+.env.local
+*.local
+
+# Private/local development files (not tracked in Git)
+private/
+
+# IDE files (not tracked in Git)
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files (not tracked in Git)
+.DS_Store
+Thumbs.db
+
+# Log files (generated, not tracked in Git)
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing cache (generated, not tracked in Git)
+.phpunit.result.cache
+
+# Nextcloud metadata (should never be synced)
+.nextcloud/
+.sync-exclude.lst
+
+# Temporary files
+*.tmp
+*.temp
+
+# IMPORTANT: Do NOT exclude the following (they ARE tracked in Git):
+# - vendor/           (PHP dependencies ARE in Git)
+# - composer.phar     (IS in Git)
+# - composer.lock     (IS in Git)
+# - package-lock.json (IS in Git)
