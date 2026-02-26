@@ -4,7 +4,7 @@
 -->
 
 <template>
-	<div class="quick-stats">
+	<div class="quick-stats" :class="{ compact }" data-testid="quick-stats">
 		<div class="stats-grid">
 			<!-- Total Rooms -->
 			<div class="stat-card">
