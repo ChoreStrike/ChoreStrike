@@ -43,6 +43,7 @@ yarn-error.log*
 
 # Git metadata (redundant with remote repository)
 .git/
+.git
 
 # Nextcloud metadata (should never be synced)
 .nextcloud/
