@@ -230,7 +230,7 @@ class HouseUser extends Entity implements JsonSerializable {
 	}
 
 	/**
-	 * Get role label
+	 * Get role label (English only - i18n should be handled in frontend)
 	 */
 	public function getRoleLabel(): string {
 		return match($this->role) {
@@ -242,7 +242,7 @@ class HouseUser extends Entity implements JsonSerializable {
 	}
 
 	/**
-	 * Get rank based on contribution score
+	 * Get rank based on contribution score (English only - i18n should be handled in frontend)
 	 */
 	public function getRank(): string {
 		$score = $this->contributionScore;
@@ -277,9 +277,10 @@ class HouseUser extends Entity implements JsonSerializable {
 	 * Increment streak
 	 */
 	public function incrementStreak(): void {
-		$this->setCurrentStreak($this->currentStreak + 1);
-		if ($this->currentStreak > $this->longestStreak) {
-			$this->setLongestStreak($this->currentStreak);
+		$newStreak = $this->currentStreak + 1;
+		$this->setCurrentStreak($newStreak);
+		if ($newStreak > $this->longestStreak) {
+			$this->setLongestStreak($newStreak);
 		}
 	}
 }

@@ -31,7 +31,7 @@
 						<button
 							v-if="item.roomTask.isActive"
 							class="complete-button"
-							title="Mark as complete"
+							:title="t('chorestrike', 'Mark as complete')"
 							@click="$emit('complete', item.roomTask.id)">
 							<Icon name="Circle" :size="20" />
 						</button>
@@ -78,13 +78,13 @@
 						<button
 							v-if="item.roomTask.isActive"
 							class="action-btn"
-							title="Edit"
+							:title="t('chorestrike', 'Edit')"
 							@click="$emit('edit', item.roomTask)">
 							<Icon name="Edit" :size="16" />
 						</button>
 						<button
 							class="action-btn delete"
-							title="Remove"
+							:title="t('chorestrike', 'Remove')"
 							@click="$emit('delete', item.roomTask.id)">
 							<Icon name="Trash" :size="16" />
 						</button>

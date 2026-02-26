@@ -38,7 +38,7 @@ class Room extends Entity implements JsonSerializable {
 	protected $name;
 
 	/** @var string */
-	protected $description;
+	protected $description = '';
 
 	/** @var int */
 	protected $cleanliness = 50;
@@ -71,7 +71,7 @@ class Room extends Entity implements JsonSerializable {
 			'id' => $this->id,
 			'floorId' => $this->floorId,
 			'name' => $this->name,
-			'description' => $this->description,
+			'description' => $this->description ?? '',
 			'cleanliness' => $this->cleanliness,
 			'monsterCount' => $this->monsterCount,
 			'lastCleaned' => $this->lastCleaned?->format('c'),

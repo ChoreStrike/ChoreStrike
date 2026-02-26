@@ -24,23 +24,24 @@ class FamilyIntegrationTest extends TestCase {
 
     private GameLogicService $gameLogicService;
     private array $testData;
+    private $houseUserMapper;
+    private $completedTaskMapper;
+    private $medalMapper;
+    private $roomMapper;
 
     protected function setUp(): void {
-        // In a real integration test, you would set up actual database connections
-        // For now, we'll use the test data fixtures
         $this->testData = FamilyTestData::getCompleteDataSet();
         
-        // Mock the GameLogicService dependencies for integration testing
-        $houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
-        $completedTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class);
-        $medalMapper = $this->createMock(\OCA\ChoreStrike\Db\MedalMapper::class);
-        $roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
+        $this->houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+        $this->completedTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class);
+        $this->medalMapper = $this->createMock(\OCA\ChoreStrike\Db\MedalMapper::class);
+        $this->roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
 
         $this->gameLogicService = new GameLogicService(
-            $houseUserMapper,
-            $completedTaskMapper,
-            $medalMapper,
-            $roomMapper
+            $this->houseUserMapper,
+            $this->completedTaskMapper,
+            $this->medalMapper,
+            $this->roomMapper
         );
     }
 
@@ -352,22 +353,7 @@ class FamilyIntegrationTest extends TestCase {
     }
 
     private function mockMappersForUser(HouseUser $user): void {
-        // For integration tests, we'll create a simpler mock approach
-        // by creating a new GameLogicService with mocked dependencies
-        
-        $houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
-        $completedTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class);
-        $medalMapper = $this->createMock(\OCA\ChoreStrike\Db\MedalMapper::class);
-        $roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
-        
-        // Mock the user lookup
-        $houseUserMapper->method('find')->willReturn($user);
-        
-        $this->gameLogicService = new GameLogicService(
-            $houseUserMapper,
-            $completedTaskMapper,
-            $medalMapper,
-            $roomMapper
-        );
+        $this->houseUserMapper->method('find')->willReturn($user);
+        $this->houseUserMapper->method('update')->willReturn($user);
     }
 }

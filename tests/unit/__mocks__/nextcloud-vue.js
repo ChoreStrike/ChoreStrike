@@ -1,5 +1,3 @@
-export * from '@nextcloud/vue'
-
 // Mock specific components if needed
 export const NcButton = { name: 'NcButton', template: '<button><slot /></button>' }
 export const NcIcon = { name: 'NcIcon', template: '<span><slot /></span>' }
