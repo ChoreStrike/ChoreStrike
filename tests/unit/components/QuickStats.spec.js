@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { createTestingPinia } from '@pinia/testing'
+import { createPinia, setActivePinia } from 'pinia'
 import QuickStats from '../../../src/components/Dashboard/QuickStats.vue'
 
 // Mock vue-router
@@ -11,6 +11,9 @@ jest.mock('vue-router', () => ({
 
 describe('QuickStats', () => {
 	const createWrapper = (roomsStore = {}, roomTasksStore = {}, props = {}) => {
+		const pinia = createPinia()
+		setActivePinia(pinia)
+		
 		return mount(QuickStats, {
 			props: {
 				showActions: true,
@@ -18,25 +21,7 @@ describe('QuickStats', () => {
 				...props,
 			},
 			global: {
-				plugins: [createTestingPinia({
-					initialState: {
-						rooms: {
-							totalRooms: 5,
-							cleanRooms: 3,
-							dirtyRooms: 2,
-							averageCleanliness: 75,
-							totalMonsters: 2,
-							loading: false,
-							...roomsStore,
-						},
-						roomTasks: {
-							totalDueTodayTasks: 3,
-							totalOverdueTasks: 1,
-							loading: false,
-							...roomTasksStore,
-						},
-					},
-				})],
+				plugins: [pinia],
 			},
 		})
 	}

@@ -1,10 +1,12 @@
-import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { createTestingPinia } from '@pinia/testing'
+import { createPinia, setActivePinia } from 'pinia'
 import Modal from '../../../src/components/Common/Modal.vue'
 
 describe('Modal', () => {
 	const createWrapper = (props = {}, slots = {}) => {
+		const pinia = createPinia()
+		setActivePinia(pinia)
+		
 		return mount(Modal, {
 			props: {
 				show: true,
@@ -16,10 +18,7 @@ describe('Modal', () => {
 				...slots,
 			},
 			global: {
-				plugins: [createTestingPinia()],
-				mocks: {
-					t: (key) => key,
-				},
+				plugins: [pinia],
 			},
 		})
 	}

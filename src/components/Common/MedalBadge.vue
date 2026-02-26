@@ -4,7 +4,7 @@
 -->
 
 <template>
-	<span class="medal-badge" :class="[`medal-${type}`, size]" :title="label">
+	<span class="medal-badge" :class="[`medal-${type}`, `medal-${size}`]" :title="label">
 		<span class="medal-icon">{{ icon }}</span>
 		<span v-if="showLabel" class="medal-label">{{ label }}</span>
 	</span>

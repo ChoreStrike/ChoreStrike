@@ -4,11 +4,12 @@
 -->
 
 <template>
-	<div class="modal-overlay" @click.self="$emit('close')">
-		<div class="modal-card">
+	<div v-if="show" class="modal-overlay" @click.self="$emit('close')">
+		<div class="modal-container" @click.stop>
 			<button class="close-button" aria-label="Close" @click="$emit('close')">
 				×
 			</button>
+			<slot name="header" />
 			<slot />
 		</div>
 	</div>
@@ -17,6 +18,12 @@
 <script>
 export default {
 	name: 'Modal',
+	props: {
+		show: {
+			type: Boolean,
+			default: false,
+		},
+	},
 	emits: ['close'],
 }
 </script>
@@ -33,7 +40,7 @@ export default {
 	z-index: 1000;
 }
 
-.modal-card {
+.modal-container {
 	position: relative;
 	background: var(--color-main-background);
 	border: 1px solid var(--color-border);

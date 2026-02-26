@@ -1,6 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { createTestingPinia } from '@pinia/testing'
+import { createPinia, setActivePinia } from 'pinia'
 import { ref } from 'vue'
 import MedalBadge from '../../../src/components/Common/MedalBadge.vue'
 
@@ -10,16 +9,16 @@ import MedalBadge from '../../../src/components/Common/MedalBadge.vue'
 
 describe('MedalBadge', () => {
 	const createWrapper = (props = {}) => {
+		const pinia = createPinia()
+		setActivePinia(pinia)
+		
 		return mount(MedalBadge, {
 			props: {
 				type: 'team_anchor',
 				...props,
 			},
 			global: {
-				plugins: [createTestingPinia()],
-				mocks: {
-					t: (key) => key,
-				},
+				plugins: [pinia],
 			},
 		})
 	}

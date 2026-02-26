@@ -4,7 +4,7 @@
 -->
 
 <template>
-	<div class="house-health-bar">
+	<div class="house-health-bar" :class="{ compact }" data-testid="house-health">
 		<div class="health-header">
 			<h3 class="health-title">
 				<Icon name="Home" :size="20" class="icon" />
