@@ -89,4 +89,16 @@ class Medal extends Entity implements JsonSerializable {
 			default => 'Special achievement'
 		};
 	}
+
+	/**
+	 * Get rarity based on medal type
+	 */
+	public function getRarity(): string {
+		return match($this->medalType) {
+			'gold' => 'high',
+			'silver' => 'medium',
+			'bronze' => 'low',
+			default => 'unknown'
+		};
+	}
 }

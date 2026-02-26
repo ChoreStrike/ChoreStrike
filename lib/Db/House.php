@@ -53,6 +53,7 @@ class House extends Entity implements JsonSerializable {
 	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,
+			'nextcloudInstanceId' => $this->nextcloudInstanceId,
 			'name' => $this->name,
 			'houseHealth' => $this->houseHealth,
 			'createdAt' => $this->createdAt?->format('c'),
@@ -64,6 +65,6 @@ class House extends Entity implements JsonSerializable {
 	 * Update the updated_at timestamp
 	 */
 	public function touch(): void {
-		$this->updatedAt = new \DateTime();
+		$this->setUpdatedAt(new \DateTime());
 	}
 }

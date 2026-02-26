@@ -20,8 +20,14 @@ use OCP\AppFramework\Db\Entity;
  * @method void setContributionScore(int $contributionScore)
  * @method int getTeamSparks()
  * @method void setTeamSparks(int $teamSparks)
+ * @method int getCurrentSparks()
+ * @method void setCurrentSparks(int $currentSparks)
+ * @method int getTotalSparksEarned()
+ * @method void setTotalSparksEarned(int $totalSparksEarned)
  * @method int getCurrentStreak()
  * @method void setCurrentStreak(int $currentStreak)
+ * @method int getLongestStreak()
+ * @method void setLongestStreak(int $longestStreak)
  * @method \DateTime|null getLastActivity()
  * @method void setLastActivity(?\DateTime $lastActivity)
  * @method string getRole()
@@ -63,6 +69,15 @@ class HouseUser extends Entity implements JsonSerializable {
 	/** @var array */
 	protected $schedulingPreferences = [];
 
+	/** @var int */
+	protected $currentSparks = 0;
+
+	/** @var int */
+	protected $totalSparksEarned = 0;
+
+	/** @var int */
+	protected $longestStreak = 0;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('houseId', 'integer');
@@ -70,7 +85,10 @@ class HouseUser extends Entity implements JsonSerializable {
 		$this->addType('displayName', 'string');
 		$this->addType('contributionScore', 'integer');
 		$this->addType('teamSparks', 'integer');
+		$this->addType('currentSparks', 'integer');
+		$this->addType('totalSparksEarned', 'integer');
 		$this->addType('currentStreak', 'integer');
+		$this->addType('longestStreak', 'integer');
 		$this->addType('lastActivity', 'datetime');
 		$this->addType('role', 'string');
 		$this->addType('joinedAt', 'datetime');
@@ -88,7 +106,10 @@ class HouseUser extends Entity implements JsonSerializable {
 			'displayName' => $this->displayName,
 			'contributionScore' => $this->contributionScore,
 			'teamSparks' => $this->teamSparks,
+			'currentSparks' => $this->currentSparks,
+			'totalSparksEarned' => $this->totalSparksEarned,
 			'currentStreak' => $this->currentStreak,
+			'longestStreak' => $this->longestStreak,
 			'lastActivity' => $this->lastActivity?->format('c'),
 			'role' => $this->role,
 			'joinedAt' => $this->joinedAt?->format('c'),
@@ -213,5 +234,47 @@ class HouseUser extends Entity implements JsonSerializable {
 			'child' => 'Child',
 			default => 'Member'
 		};
+	}
+
+	/**
+	 * Get rank based on contribution score
+	 */
+	public function getRank(): string {
+		$score = $this->contributionScore;
+		
+		return match(true) {
+			$score >= 5000 => 'Legend',
+			$score >= 2500 => 'Champion',
+			$score >= 1000 => 'Guardian',
+			$score >= 500 => 'Keeper',
+			$score >= 200 => 'Helper',
+			$score >= 50 => 'Beginner',
+			default => 'Novice'
+		};
+	}
+
+	/**
+	 * Add sparks to current and total
+	 */
+	public function addSparks(int $sparks): void {
+		$this->setCurrentSparks($this->currentSparks + $sparks);
+		$this->setTotalSparksEarned($this->totalSparksEarned + $sparks);
+	}
+
+	/**
+	 * Spend sparks
+	 */
+	public function spendSparks(int $sparks): void {
+		$this->setCurrentSparks(max(0, $this->currentSparks - $sparks));
+	}
+
+	/**
+	 * Increment streak
+	 */
+	public function incrementStreak(): void {
+		$this->setCurrentStreak($this->currentStreak + 1);
+		if ($this->currentStreak > $this->longestStreak) {
+			$this->setLongestStreak($this->currentStreak);
+		}
 	}
 }

@@ -18,6 +18,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCleanliness(int $cleanliness)
  * @method int getMonsterCount()
  * @method void setMonsterCount(int $monsterCount)
+ * @method string getDescription()
+ * @method void setDescription(string $description)
  * @method \DateTime getLastCleaned()
  * @method void setLastCleaned(\DateTime $lastCleaned)
  * @method \DateTime getCreatedAt()
@@ -30,6 +32,9 @@ class Room extends Entity implements JsonSerializable {
 
 	/** @var string */
 	protected $name;
+
+	/** @var string */
+	protected $description;
 
 	/** @var int */
 	protected $cleanliness = 50;
@@ -47,6 +52,7 @@ class Room extends Entity implements JsonSerializable {
 		$this->addType('id', 'integer');
 		$this->addType('floorId', 'integer');
 		$this->addType('name', 'string');
+		$this->addType('description', 'string');
 		$this->addType('cleanliness', 'integer');
 		$this->addType('monsterCount', 'integer');
 		$this->addType('lastCleaned', 'datetime');
@@ -61,6 +67,7 @@ class Room extends Entity implements JsonSerializable {
 			'id' => $this->id,
 			'floorId' => $this->floorId,
 			'name' => $this->name,
+			'description' => $this->description,
 			'cleanliness' => $this->cleanliness,
 			'monsterCount' => $this->monsterCount,
 			'lastCleaned' => $this->lastCleaned?->format('c'),
@@ -74,22 +81,44 @@ class Room extends Entity implements JsonSerializable {
 	 * @param int $cleanlinessChange The change in cleanliness (-100 to 100)
 	 */
 	public function updateCleanliness(int $cleanlinessChange): void {
-		$this->cleanliness = max(0, min(100, $this->cleanliness + $cleanlinessChange));
-		
-		// Update monster count based on cleanliness
-		if ($this->cleanliness >= 80) {
-			$this->monsterCount = 0;
-		} elseif ($this->cleanliness >= 60) {
-			$this->monsterCount = 1;
-		} elseif ($this->cleanliness >= 40) {
-			$this->monsterCount = 2;
-		} elseif ($this->cleanliness >= 20) {
-			$this->monsterCount = 3;
-		} else {
-			$this->monsterCount = 4;
-		}
+		$this->setCleanliness(max(0, min(100, $this->cleanliness + $cleanlinessChange)));
+		$this->setLastCleaned(new \DateTime());
+	}
 
-		$this->lastCleaned = new \DateTime();
+	/**
+	 * Get cleanliness label
+	 */
+	public function getCleanlinessLabel(): string {
+		if ($this->cleanliness >= 70) {
+			return 'clean';
+		} elseif ($this->cleanliness >= 50) {
+			return 'moderate';
+		} elseif ($this->cleanliness >= 30) {
+			return 'dirty';
+		} else {
+			return 'filthy';
+		}
+	}
+
+	/**
+	 * Check if room has monsters
+	 */
+	public function hasMonsters(): bool {
+		return $this->monsterCount > 0;
+	}
+
+	/**
+	 * Add a monster
+	 */
+	public function addMonster(): void {
+		$this->setMonsterCount($this->monsterCount + 1);
+	}
+
+	/**
+	 * Remove a monster
+	 */
+	public function removeMonster(): void {
+		$this->setMonsterCount(max(0, $this->monsterCount - 1));
 	}
 
 	/**
