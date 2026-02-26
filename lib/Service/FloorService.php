@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\AppFramework\Http\NotFoundException;
 
 /**
  * Service for floor-related business logic
@@ -28,6 +29,21 @@ class FloorService {
 	) {
 		$this->floorMapper = $floorMapper;
 		$this->roomMapper = $roomMapper;
+	}
+
+	/**
+	 * Validate that a floor belongs to the specified house
+	 *
+	 * @param int $floorId The floor ID
+	 * @param int $houseId The house ID to validate against
+	 * @throws NotFoundException if floor doesn't belong to house
+	 */
+	public function validateFloorOwnership(int $floorId, int $houseId): void {
+		$floor = $this->floorMapper->find($floorId);
+		
+		if ($floor->getHouseId() !== $houseId) {
+			throw new NotFoundException('Floor not found');
+		}
 	}
 
 	/**

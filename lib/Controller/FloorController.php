@@ -73,7 +73,11 @@ class FloorController extends OCSController {
 	 */
 	public function show(int $id): JSONResponse {
 		try {
-			// Get floor and verify house membership
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			$this->floorService->validateFloorOwnership($id, $house->getId());
+			
 			$floorWithRooms = $this->floorService->getFloorWithRooms($id);
 			$houseId = $floorWithRooms['floor']->getHouseId();
 			$this->authService->requireHouseMember($houseId);
@@ -144,6 +148,11 @@ class FloorController extends OCSController {
 	 */
 	public function update(int $id, string $name): JSONResponse {
 		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			$this->floorService->validateFloorOwnership($id, $house->getId());
+			
 			if (empty(trim($name))) {
 				return new JSONResponse([
 					'success' => false,
@@ -153,10 +162,6 @@ class FloorController extends OCSController {
 					]
 				], 400);
 			}
-			
-			// Get floor and verify house membership before update
-			$floor = $this->floorService->getFloor($id);
-			$this->authService->requireHouseMember($floor->getHouseId());
 			
 			$floor = $this->floorService->updateFloorName($id, $name);
 			
@@ -222,9 +227,10 @@ class FloorController extends OCSController {
 	 */
 	public function delete(int $id): JSONResponse {
 		try {
-			// Verify house membership before deleting
-			$floor = $this->floorService->getFloor($id);
-			$this->authService->requireHouseMember($floor->getHouseId());
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			$this->floorService->validateFloorOwnership($id, $house->getId());
 			
 			$this->floorService->deleteFloor($id);
 			
