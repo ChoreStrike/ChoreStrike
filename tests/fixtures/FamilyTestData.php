@@ -215,12 +215,12 @@ class FamilyTestData {
             'parent_daily_routine' => [
                 'user' => 'mom',
                 'tasks' => [1, 2, 11], // dishes_today, wipe_counters_today, laundry_weekly
-                'expected_points' => 30, // 3 + 2 + 4 energy costs * 10
+                'expected_points' => 108, // 36 + 24 + 48 with priority multipliers
             ],
             'teen_weekend_tasks' => [
                 'user' => 'teen',
                 'tasks' => [6, 9], // make_bed_teen, clean_sink_today
-                'expected_points' => 30, // 1 + 2 energy costs * 10
+                'expected_points' => 34, // 10 + 24 with priority multipliers
             ],
             'kid_simple_tasks' => [
                 'user' => 'kid',

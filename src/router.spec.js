@@ -7,6 +7,32 @@ jest.mock('@nextcloud/router', () => ({
 	generateUrl: (url) => url,
 }))
 
+jest.mock('vue-router', () => ({
+	createRouter: jest.fn((config) => ({
+		resolve: (path) => {
+			const match = path.match(/\/room\/(\d+)/)
+			if (match) {
+				return {
+					name: 'room',
+					params: { id: match[1] },
+					matched: [{ name: 'room' }],
+				}
+			}
+			// Check for legacy plural path
+			const legacyMatch = path.match(/\/rooms\/(\d+)/)
+			if (legacyMatch) {
+				return {
+					name: undefined,
+					params: {},
+					matched: [],
+				}
+			}
+			return { name: undefined, params: {}, matched: [] }
+		},
+	})),
+	createWebHashHistory: jest.fn(() => ({})),
+}))
+
 jest.mock('./views/Dashboard.vue', () => ({
 	default: {},
 }))
