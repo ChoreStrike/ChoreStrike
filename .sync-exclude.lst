@@ -41,6 +41,9 @@ yarn-error.log*
 # Testing cache (generated, not tracked in Git)
 .phpunit.result.cache
 
+# Git metadata (redundant with remote repository)
+.git/
+
 # Nextcloud metadata (should never be synced)
 .nextcloud/
 .sync-exclude.lst
