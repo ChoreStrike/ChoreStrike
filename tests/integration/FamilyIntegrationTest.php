@@ -281,46 +281,93 @@ class FamilyIntegrationTest extends TestCase {
             "Scenario '{$scenarioName}' should earn {$scenario['expected_points']} points");
     }
 
-    private function findRoomTask(int $id): RoomTask {
+    private function findRoomTask(int|string $id): RoomTask {
+        // If it's a string, try to find by task name
+        if (is_string($id)) {
+            // Handle special mappings
+            $mappings = [
+                'dishes_today' => 'Do the dishes',
+                'make_bed_teen' => 'Make bed',
+                'wipe_counters_today' => 'Wipe kitchen counters',
+                'laundry_weekly' => 'Do laundry',
+            ];
+            
+            $searchName = $mappings[$id] ?? str_replace('_', ' ', $id);
+            
+            foreach ($this->testData['roomTasks'] as $roomTask) {
+                $task = $this->findTaskById($roomTask->getTaskId());
+                if ($task && $task->getName() === $searchName) {
+                    return $roomTask;
+                }
+            }
+        }
+        
+        // If it's an integer, find by ID
         foreach ($this->testData['roomTasks'] as $roomTask) {
-            if ($roomTask->getId() === $id) {
+            if ($roomTask->getId() === (int)$id) {
                 return $roomTask;
             }
         }
+        
         throw new \Exception("Room task '{$id}' not found");
     }
 
-    private function findTask(int $id): Task {
+    private function findTask(int|string $id): Task {
+        if (is_string($id)) {
+            // Handle special mappings
+            $mappings = [
+                'dishes' => 'Do the dishes',
+                'make_bed' => 'Make bed',
+                'wipe_counters' => 'Wipe kitchen counters',
+                'laundry' => 'Do laundry',
+            ];
+            
+            $searchName = $mappings[$id] ?? str_replace('_', ' ', $id);
+            
+            // Find task by name
+            foreach ($this->testData['tasks'] as $task) {
+                if ($task->getName() === $searchName) {
+                    return $task;
+                }
+            }
+        }
+        
+        // Find by ID
+        foreach ($this->testData['tasks'] as $task) {
+            if ($task->getId() === (int)$id) {
+                return $task;
+            }
+        }
+        
+        throw new \Exception("Task '{$id}' not found");
+    }
+
+    private function findTaskById(int $id): ?Task {
         foreach ($this->testData['tasks'] as $task) {
             if ($task->getId() === $id) {
                 return $task;
             }
         }
-        throw new \Exception("Task '{$id}' not found");
+        return null;
     }
 
     private function mockMappersForUser(HouseUser $user): void {
-        // Mock houseUserMapper->find
-        $this->gameLogicService = new class($this->gameLogicService) {
-            private GameLogicService $inner;
-            private HouseUser $user;
-
-            public function __construct(GameLogicService $inner) {
-                $this->inner = $inner;
-            }
-
-            public function handleTaskCompletion(int $roomTaskId, int $userId, Task $task, int $roomCleanliness): array {
-                // Mock the user lookup
-                $this->user = $this->mockUser;
-                return $this->inner->handleTaskCompletion($roomTaskId, $userId, $task, $roomCleanliness);
-            }
-
-            public function setUser(HouseUser $user): void {
-                $this->mockUser = $user;
-            }
-        };
+        // For integration tests, we'll create a simpler mock approach
+        // by creating a new GameLogicService with mocked dependencies
         
-        // This is a simplified mock - in real integration tests you'd use proper mocking
-        $this->gameLogicService->setUser($user);
+        $houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+        $completedTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class);
+        $medalMapper = $this->createMock(\OCA\ChoreStrike\Db\MedalMapper::class);
+        $roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
+        
+        // Mock the user lookup
+        $houseUserMapper->method('find')->willReturn($user);
+        
+        $this->gameLogicService = new GameLogicService(
+            $houseUserMapper,
+            $completedTaskMapper,
+            $medalMapper,
+            $roomMapper
+        );
     }
 }
