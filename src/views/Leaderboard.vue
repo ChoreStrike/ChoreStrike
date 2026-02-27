@@ -4,17 +4,18 @@
 -->
 
 <template>
-	<div class="leaderboard">
+	<div class="leaderboard" data-testid="leaderboard-view">
 		<header class="leaderboard-header">
-			<h1>{{ t('chorestrike', 'Leaderboard') }}</h1>
+			<h1 data-testid="leaderboard-title">{{ t('chorestrike', 'Leaderboard') }}</h1>
 			<p class="subtitle">{{ t('chorestrike', 'Friendly competition for a cleaner home') }}</p>
 		</header>
 
-		<div class="time-filter">
+		<div class="time-filter" data-testid="time-range-filter">
 			<button
 				v-for="period in periods"
 				:key="period.value"
 				class="filter-button"
+				:data-testid="`filter-${period.value}`"
 				:class="{ active: selectedPeriod === period.value }"
 				@click="selectedPeriod = period.value">
 				{{ period.label }}
@@ -23,11 +24,12 @@
 
 		<div class="leaderboard-content">
 			<!-- Podium for top 3 -->
-			<div v-if="leaderboard.length >= 3" class="podium">
+			<div v-if="leaderboard.length >= 3" class="podium" data-testid="podium-section">
 				<div
 					v-for="(user, index) in podiumUsers"
 					:key="user.id"
 					class="podium-item"
+					:data-testid="`podium-rank-${user.rank}`"
 					:class="`rank-${user.rank}`">
 					<div class="podium-avatar">
 						<div class="avatar-placeholder">
@@ -44,11 +46,11 @@
 			</div>
 
 			<!-- Full list -->
-			<div class="leaderboard-list">
+			<div class="leaderboard-list" data-testid="leaderboard-list">
 				<div class="list-header">
 					<span class="rank-col">#</span>
 					<span class="user-col">{{ t('chorestrike', 'Player') }}</span>
-					<span class="score-col">{{ t('chorestrike', 'Score') }}</span>
+					<span class="score-col" data-testid="contribution-score-header">{{ t('chorestrike', 'Score') }}</span>
 					<span class="streak-col">{{ t('chorestrike', 'Streak') }}</span>
 					<span class="tasks-col">{{ t('chorestrike', 'Tasks') }}</span>
 				</div>
@@ -57,11 +59,12 @@
 					v-for="(user, index) in rankedLeaderboard"
 					:key="user.id"
 					class="leaderboard-row"
+					data-testid="leaderboard-entry"
 					:class="{
 						'top-3': user.rank <= 3,
 						'current-user': isCurrentUser(user)
 					}">
-					<span class="rank-col">
+					<span class="rank-col" data-testid="user-rank">
 						<template v-if="user.rank <= 3">
 							<Icon
 								:name="user.rank === 1 ? 'Crown' : 'Medal'"
@@ -79,17 +82,17 @@
 							<span v-if="isCurrentUser(user)" class="you-badge">{{ t('chorestrike', 'You') }}</span>
 						</div>
 					</span>
-					<span class="score-col">{{ formatScore(user.contributionScore) }}</span>
-					<span class="streak-col">
+					<span class="score-col" data-testid="contribution-score">{{ formatScore(user.contributionScore) }}</span>
+					<span class="streak-col" data-testid="user-streak">
 						<span class="streak-badge" :class="{ active: user.currentStreak > 0 }">
 							<Icon name="Zap" :size="14" />
 							{{ user.currentStreak }}
 						</span>
 					</span>
-					<span class="tasks-col">{{ user.totalTasksCompleted || 0 }}</span>
+					<span class="tasks-col" data-testid="tasks-completed-stat">{{ user.totalTasksCompleted || 0 }}</span>
 				</div>
 
-				<div v-if="leaderboard.length === 0" class="empty-state">
+				<div v-if="leaderboard.length === 0" class="empty-state" data-testid="empty-leaderboard">
 					<Icon name="Users" :size="48" />
 					<p>{{ t('chorestrike', 'No players yet') }}</p>
 					<p class="empty-hint">{{ t('chorestrike', 'Invite family members to start competing!') }}</p>
@@ -97,13 +100,15 @@
 			</div>
 
 			<!-- Weekly medals -->
-			<div v-if="medals.length > 0" class="medals-section">
+			<div v-if="medals.length > 0" class="medals-section" data-testid="medal-summary">
 				<h2>{{ t('chorestrike', 'This Week\'s Medals') }}</h2>
 				<div class="medals-grid">
 					<div
 						v-for="medal in medals"
 						:key="medal.type"
-						class="medal-card">
+						class="medal-card"
+						data-testid="medal-badge"
+						:data-medal-type="medal.type">
 						<MedalBadge :type="medal.type" :size="'large'" />
 						<div class="medal-recipient">
 							<span class="medal-label">{{ medal.label }}</span>
