@@ -5,61 +5,118 @@
 
 <template>
 	<div class="dashboard">
-		<h1>{{ t('chorestrike', 'ChoreWars Dashboard') }}</h1>
-		<p class="tagline">
-			{{ t('chorestrike', 'Defend your Home Base. Together.') }}
-		</p>
+		<header class="dashboard-header">
+			<div class="header-content">
+				<h1>{{ houseName }}</h1>
+				<p class="tagline">
+					{{ t('chorestrike', 'Defend your Home Base. Together.') }}
+				</p>
+			</div>
+			<HouseHealthBar
+				:health="houseHealth"
+				:size="'large'" />
+		</header>
 
-		<div class="welcome-message">
-			<h2>{{ t('chorestrike', 'Welcome to ChoreWars!') }}</h2>
-			<p>{{ t('chorestrike', 'This is the beginning of your gamified household management journey.') }}</p>
-			<p>{{ t('chorestrike', 'Setup is in progress. Stay tuned for more features!') }}</p>
-		</div>
+		<main class="dashboard-content">
+			<QuickStats class="quick-stats-section" />
+			<FloorList class="floor-list-section" />
+		</main>
 	</div>
 </template>
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { useHouseStore } from '../store/house.js'
+import { useRoomsStore } from '../store/rooms.js'
+import HouseHealthBar from '../components/Dashboard/HouseHealthBar.vue'
+import QuickStats from '../components/Dashboard/QuickStats.vue'
+import FloorList from '../components/Dashboard/FloorList.vue'
 
 export default {
 	name: 'Dashboard',
 
+	components: {
+		HouseHealthBar,
+		QuickStats,
+		FloorList,
+	},
+
+	setup() {
+		const houseStore = useHouseStore()
+		const roomsStore = useRoomsStore()
+		return { houseStore, roomsStore }
+	},
+
+	computed: {
+		houseName() {
+			return this.houseStore.houseName
+		},
+		houseHealth() {
+			return this.houseStore.houseHealth
+		},
+	},
+
+	async mounted() {
+		await this.initializeDashboard()
+	},
+
 	methods: {
 		t,
+		async initializeDashboard() {
+			try {
+				await this.houseStore.fetchHouse()
+				await this.roomsStore.fetchFloorsWithRooms()
+			} catch (error) {
+				console.error('Failed to initialize dashboard:', error)
+			}
+		},
 	},
 }
 </script>
 
 <style scoped>
 .dashboard {
-	padding: 2rem;
-	max-width: 1200px;
+	padding: 1rem 2rem 2rem;
+	max-width: 1400px;
 	margin: 0 auto;
+}
+
+.dashboard-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	margin-bottom: 2rem;
+	gap: 2rem;
+	flex-wrap: wrap;
+}
+
+.header-content {
+	flex: 1;
 }
 
 h1 {
 	font-size: 2rem;
-	margin-bottom: 0.5rem;
+	font-weight: bold;
+	margin: 0 0 0.5rem 0;
 }
 
 .tagline {
-	font-size: 1.2rem;
+	font-size: 1.1rem;
 	color: var(--color-text-maxcontrast);
-	margin-bottom: 2rem;
+	margin: 0;
 }
 
-.welcome-message {
-	background: var(--color-background-dark);
-	padding: 2rem;
-	border-radius: 8px;
-	margin-top: 2rem;
+.dashboard-content {
+	display: flex;
+	flex-direction: column;
+	gap: 2rem;
 }
 
-.welcome-message h2 {
-	margin-top: 0;
+.quick-stats-section {
+	margin-bottom: 1rem;
 }
 
-.welcome-message p {
-	line-height: 1.6;
+.floor-list-section {
+	flex: 1;
 }
 </style>
