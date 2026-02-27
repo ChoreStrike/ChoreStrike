@@ -4,22 +4,23 @@
 -->
 
 <template>
-	<div class="dashboard">
+	<div class="dashboard" data-testid="dashboard-view">
 		<header class="dashboard-header">
 			<div class="header-content">
-				<h1>{{ houseName }}</h1>
+				<h1 data-testid="house-name">{{ houseName }}</h1>
 				<p class="tagline">
 					{{ t('chorestrike', 'Defend your Home Base. Together.') }}
 				</p>
 			</div>
 			<HouseHealthBar
 				:health="houseHealth"
-				:size="'large'" />
+				:size="'large'"
+				data-testid="house-health" />
 		</header>
 
 		<main class="dashboard-content">
-			<QuickStats class="quick-stats-section" />
-			<FloorList class="floor-list-section" />
+			<QuickStats class="quick-stats-section" data-testid="quick-stats" />
+			<FloorList class="floor-list-section" data-testid="floor-list" />
 		</main>
 	</div>
 </template>

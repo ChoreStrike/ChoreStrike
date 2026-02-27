@@ -4,31 +4,31 @@
 -->
 
 <template>
-	<div class="room-detail">
+	<div class="room-detail" data-testid="room-detail-view">
 		<header class="room-header">
 			<div class="header-content">
-				<router-link to="/" class="back-link">
+				<router-link to="/" class="back-link" data-testid="back-link">
 					<Icon name="ArrowLeft" :size="20" />
 					{{ t('chorestrike', 'Back to Dashboard') }}
 				</router-link>
-				<h1>{{ room?.name || t('chorestrike', 'Room') }}</h1>
+				<h1 data-testid="room-name">{{ room?.name || t('chorestrike', 'Room') }}</h1>
 				<p v-if="floor" class="floor-info">
 					<Icon name="Building" :size="16" class="icon" />
 					{{ floor.name }}
 				</p>
 			</div>
 			<div class="room-stats">
-				<div class="stat-item">
+				<div class="stat-item" data-testid="cleanliness-stat">
 					<span class="stat-label">{{ t('chorestrike', 'Cleanliness') }}</span>
-					<span class="stat-value" :class="cleanlinessClass">
+					<span class="stat-value" :class="cleanlinessClass" data-testid="cleanliness-value">
 						{{ cleanliness }}%
 					</span>
 				</div>
-				<div class="stat-item">
+				<div class="stat-item" data-testid="tasks-count-stat">
 					<span class="stat-label">{{ t('chorestrike', 'Tasks') }}</span>
-					<span class="stat-value">{{ tasks.length }}</span>
+					<span class="stat-value" data-testid="tasks-count">{{ tasks.length }}</span>
 				</div>
-				<div class="stat-item">
+				<div class="stat-item" data-testid="overdue-stat">
 					<span class="stat-label">{{ t('chorestrike', 'Overdue') }}</span>
 					<span class="stat-value" :class="{ warning: overdueCount > 0 }">
 						{{ overdueCount }}
@@ -38,7 +38,7 @@
 		</header>
 
 		<main class="room-content">
-			<div class="room-overview">
+			<div class="room-overview" data-testid="monster-sprite">
 				<MonsterSprite
 					:monster-type="monsterType"
 					:count="monsterCount"
@@ -48,7 +48,7 @@
 			<div class="tasks-section">
 				<div class="section-header">
 					<h2>{{ t('chorestrike', 'Tasks') }}</h2>
-					<button class="primary-button" @click="showAddTaskModal = true">
+					<button class="primary-button" data-testid="add-task-button" @click="showAddTaskModal = true">
 						<Icon name="Plus" :size="16" class="icon" />
 						{{ t('chorestrike', 'Add Task') }}
 					</button>

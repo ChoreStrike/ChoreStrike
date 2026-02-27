@@ -4,9 +4,9 @@
 -->
 
 <template>
-	<div class="settings">
+	<div class="settings" data-testid="settings-view">
 		<header class="settings-header">
-			<h1>{{ t('chorestrike', 'Settings') }}</h1>
+			<h1 data-testid="settings-title">{{ t('chorestrike', 'Settings') }}</h1>
 		</header>
 
 		<div class="settings-content">
@@ -22,9 +22,11 @@
 								v-model="houseName"
 								type="text"
 								class="text-input"
+								data-testid="house-name-input"
 								:placeholder="t('chorestrike', 'Enter house name')" />
 							<button
 								class="save-button"
+								data-testid="save-house-name"
 								:disabled="!canSaveHouseName || houseStore.loading"
 								@click="saveHouseName">
 								<Icon name="Save" :size="16" />
@@ -42,23 +44,24 @@
 					<div class="floors-section">
 						<div class="floors-header">
 							<h3>{{ t('chorestrike', 'Manage Floors') }}</h3>
-							<button class="add-button" @click="showAddFloorModal = true">
+							<button class="add-button" data-testid="add-floor-button" @click="showAddFloorModal = true">
 								<Icon name="Plus" :size="16" />
 								{{ t('chorestrike', 'Add Floor') }}
 							</button>
 						</div>
 
-						<div v-if="roomsStore.floors.length === 0" class="empty-state">
+						<div v-if="roomsStore.floors.length === 0" class="empty-state" data-testid="no-floors-message">
 							<p>{{ t('chorestrike', 'No floors created yet') }}</p>
-							<button class="primary-button" @click="showAddFloorModal = true">
+							<button class="primary-button" data-testid="create-first-floor" @click="showAddFloorModal = true">
 								{{ t('chorestrike', 'Create First Floor') }}
 							</button>
 						</div>
 
-						<div v-else class="floors-list">
+						<div v-else class="floors-list" data-testid="floors-list">
 							<div
 								v-for="floor in roomsStore.floors"
 								:key="floor.id"
+								:data-testid="`floor-${floor.name}`"
 								class="floor-item">
 								<div class="floor-header-row">
 									<div class="floor-info">

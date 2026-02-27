@@ -4,10 +4,10 @@
 -->
 
 <template>
-	<div class="task-manager">
+	<div class="task-manager" data-testid="task-manager-view">
 		<header class="manager-header">
-			<h1>{{ t('chorestrike', 'Task Manager') }}</h1>
-			<button class="primary-button" @click="showAddTaskModal = true">
+			<h1 data-testid="task-manager-title">{{ t('chorestrike', 'Task Manager') }}</h1>
+			<button class="primary-button" data-testid="add-task-button" @click="showAddTaskModal = true">
 				<Icon name="Plus" :size="16" class="icon" />
 				{{ t('chorestrike', 'New Task') }}
 			</button>
@@ -16,7 +16,7 @@
 		<div class="filters-section">
 			<div class="filter-group">
 				<label>{{ t('chorestrike', 'Status') }}</label>
-				<select v-model="filterStatus" class="filter-select">
+				<select v-model="filterStatus" class="filter-select" data-testid="status-filter">
 					<option value="all">{{ t('chorestrike', 'All Tasks') }}</option>
 					<option value="active">{{ t('chorestrike', 'Active') }}</option>
 					<option value="overdue">{{ t('chorestrike', 'Overdue') }}</option>
@@ -27,7 +27,7 @@
 
 			<div class="filter-group">
 				<label>{{ t('chorestrike', 'Priority') }}</label>
-				<select v-model="filterPriority" class="filter-select">
+				<select v-model="filterPriority" class="filter-select" data-testid="priority-filter">
 					<option value="all">{{ t('chorestrike', 'All Priorities') }}</option>
 					<option value="urgent">{{ t('chorestrike', 'Urgent') }}</option>
 					<option value="normal">{{ t('chorestrike', 'Normal') }}</option>
@@ -37,7 +37,7 @@
 
 			<div class="filter-group">
 				<label>{{ t('chorestrike', 'Difficulty') }}</label>
-				<select v-model="filterDifficulty" class="filter-select">
+				<select v-model="filterDifficulty" class="filter-select" data-testid="difficulty-filter">
 					<option value="all">{{ t('chorestrike', 'All Difficulties') }}</option>
 					<option value="1">★ (Quick)</option>
 					<option value="2">★★ (Easy)</option>
@@ -55,22 +55,23 @@
 						v-model="searchQuery"
 						type="text"
 						class="search-input"
+						data-testid="search-input"
 						:placeholder="t('chorestrike', 'Search tasks...')" />
 				</div>
 			</div>
 		</div>
 
 		<div class="stats-bar">
-			<div class="stat">
-				<span class="stat-number">{{ totalTasks }}</span>
+			<div class="stat" data-testid="total-tasks-stat">
+				<span class="stat-number" data-testid="total-tasks-count">{{ totalTasks }}</span>
 				<span class="stat-label">{{ t('chorestrike', 'Total') }}</span>
 			</div>
-			<div class="stat">
-				<span class="stat-number warning">{{ overdueTasks }}</span>
+			<div class="stat" data-testid="overdue-tasks-stat">
+				<span class="stat-number warning" data-testid="overdue-count">{{ overdueTasks }}</span>
 				<span class="stat-label">{{ t('chorestrike', 'Overdue') }}</span>
 			</div>
-			<div class="stat">
-				<span class="stat-number success">{{ dueTodayTasks }}</span>
+			<div class="stat" data-testid="due-today-stat">
+				<span class="stat-number success" data-testid="due-today-count">{{ dueTodayTasks }}</span>
 				<span class="stat-label">{{ t('chorestrike', 'Due Today') }}</span>
 			</div>
 			<div class="stat">

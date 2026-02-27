@@ -9,18 +9,22 @@
 			<NcAppNavigationItem
 				:to="{ name: 'dashboard' }"
 				icon="icon-home"
+				data-testid="nav-dashboard"
 				:name="t('chorestrike', 'Dashboard')" />
 			<NcAppNavigationItem
 				:to="{ name: 'tasks' }"
 				icon="icon-checkmark"
+				data-testid="nav-tasks"
 				:name="t('chorestrike', 'Tasks')" />
 			<NcAppNavigationItem
 				:to="{ name: 'leaderboard' }"
 				icon="icon-star"
+				data-testid="nav-leaderboard"
 				:name="t('chorestrike', 'Leaderboard')" />
 			<NcAppNavigationItem
 				:to="{ name: 'settings' }"
 				icon="icon-settings"
+				data-testid="nav-settings"
 				:name="t('chorestrike', 'Settings')" />
 		</NcAppNavigation>
 
