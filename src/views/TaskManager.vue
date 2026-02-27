@@ -109,6 +109,7 @@ import { useRoomsStore } from '../store/rooms.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
 import TaskForm from '../components/Tasks/TaskForm.vue'
+import { useUserStore } from '../store/user.js'
 import Modal from '../components/Common/Modal.vue'
 
 export default {
@@ -124,7 +125,8 @@ export default {
 	setup() {
 		const roomTasksStore = useRoomTasksStore()
 		const roomsStore = useRoomsStore()
-		return { roomTasksStore, roomsStore }
+		const userStore = useUserStore()
+		return { roomTasksStore, roomsStore, userStore }
 	},
 
 	data() {
@@ -222,7 +224,13 @@ export default {
 		},
 
 		handleCompleteTask(task) {
-			console.log('Complete task:', task)
+			this.roomTasksStore.completeRoomTask(task.id, this.userStore.userId)
+				.then(() => {
+					this.$emit('task-completed', task)
+				})
+				.catch(error => {
+					console.error('Failed to complete task:', error)
+				})
 		},
 
 		handleEditTask(task) {
@@ -231,18 +239,35 @@ export default {
 		},
 
 		handleDeleteTask(task) {
-			console.log('Delete task:', task)
+			if (!confirm(t('chorestrike', 'Are you sure you want to delete this task?'))) {
+				return
+			}
+			this.roomTasksStore.deleteRoomTask(task.id)
+				.catch(error => {
+					console.error('Failed to delete task:', error)
+				})
 		},
 
 		handleAddTask(taskData) {
-			console.log('Add task:', taskData)
-			this.showAddTaskModal = false
+			this.roomTasksStore.createRoomTask(taskData)
+				.then(() => {
+					this.showAddTaskModal = false
+				})
+				.catch(error => {
+					console.error('Failed to create task:', error)
+				})
 		},
 
 		handleUpdateTask(taskData) {
-			console.log('Update task:', taskData)
-			this.showEditTaskModal = false
-			this.editingTask = null
+			if (!this.editingTask) return
+			this.roomTasksStore.updateRoomTaskDueDate(this.editingTask.id, taskData.nextDue)
+				.then(() => {
+					this.showEditTaskModal = false
+					this.editingTask = null
+				})
+				.catch(error => {
+					console.error('Failed to update task:', error)
+				})
 		},
 	},
 }

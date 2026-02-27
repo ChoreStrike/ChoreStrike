@@ -82,6 +82,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
+import { useUserStore } from '../store/user.js'
 import Icon from '../components/Common/Icon.vue'
 import MonsterSprite from '../components/Common/MonsterSprite.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
@@ -109,7 +110,8 @@ export default {
 	setup() {
 		const roomsStore = useRoomsStore()
 		const roomTasksStore = useRoomTasksStore()
-		return { roomsStore, roomTasksStore }
+		const userStore = useUserStore()
+		return { roomsStore, roomTasksStore, userStore }
 	},
 
 	data() {
@@ -188,7 +190,13 @@ export default {
 		},
 
 		handleCompleteTask(task) {
-			console.log('Complete task:', task)
+			this.roomTasksStore.completeRoomTask(task.id, this.userStore.userId)
+				.then(() => {
+					this.$emit('task-completed', task)
+				})
+				.catch(error => {
+					console.error('Failed to complete task:', error)
+				})
 		},
 
 		handleEditTask(task) {
@@ -197,18 +205,39 @@ export default {
 		},
 
 		handleDeleteTask(task) {
-			console.log('Delete task:', task)
+			if (!confirm(t('chorestrike', 'Are you sure you want to delete this task?'))) {
+				return
+			}
+			this.roomTasksStore.deleteRoomTask(task.id)
+				.catch(error => {
+					console.error('Failed to delete task:', error)
+				})
 		},
 
 		handleAddTask(taskData) {
-			console.log('Add task:', taskData)
-			this.showAddTaskModal = false
+			const newTask = {
+				...taskData,
+				roomId: this.roomId,
+			}
+			this.roomTasksStore.createRoomTask(newTask)
+				.then(() => {
+					this.showAddTaskModal = false
+				})
+				.catch(error => {
+					console.error('Failed to create task:', error)
+				})
 		},
 
 		handleUpdateTask(taskData) {
-			console.log('Update task:', taskData)
-			this.showEditTaskModal = false
-			this.editingTask = null
+			if (!this.editingTask) return
+			this.roomTasksStore.updateRoomTaskDueDate(this.editingTask.id, taskData.nextDue)
+				.then(() => {
+					this.showEditTaskModal = false
+					this.editingTask = null
+				})
+				.catch(error => {
+					console.error('Failed to update task:', error)
+				})
 		},
 	},
 }

@@ -1,0 +1,150 @@
+import { describe, it, expect, vi, beforeEach } from '@jest/globals'
+import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import Dashboard from '../../../src/views/Dashboard.vue'
+
+// Mock vue-router
+jest.mock('vue-router', () => ({
+	useRouter: () => ({
+		push: jest.fn(),
+	}),
+}))
+
+// Mock stores
+jest.mock('../../../src/store/house.js', () => ({
+	useHouseStore: () => ({
+		house: { id: 1, name: 'Test House', houseHealth: 85 },
+		houseName: 'Test House',
+		houseHealth: 85,
+		loading: false,
+		fetchHouse: jest.fn(),
+	}),
+}))
+
+jest.mock('../../../src/store/rooms.js', () => ({
+	useRoomsStore: () => ({
+		floors: [{ id: 1, name: 'Ground Floor' }],
+		rooms: [{ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 80 }],
+		loading: false,
+		fetchFloorsWithRooms: jest.fn(),
+	}),
+}))
+
+// Mock child components
+jest.mock('../../../src/components/Dashboard/HouseHealthBar.vue', () => ({
+	name: 'HouseHealthBar',
+	props: ['health', 'size'],
+	template: '<div class="house-health-bar">Health: {{ health }}</div>',
+}))
+
+jest.mock('../../../src/components/Dashboard/QuickStats.vue', () => ({
+	name: 'QuickStats',
+	template: '<div class="quick-stats">Quick Stats</div>',
+}))
+
+jest.mock('../../../src/components/Dashboard/FloorList.vue', () => ({
+	name: 'FloorList',
+	template: '<div class="floor-list">Floor List</div>',
+}))
+
+describe('Dashboard.vue', () => {
+	let pinia
+
+	beforeEach(() => {
+		pinia = createPinia()
+		setActivePinia(pinia)
+	})
+
+	it('renders dashboard component', () => {
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		expect(wrapper.find('.dashboard').exists()).toBe(true)
+	})
+
+	it('displays house name in header', () => {
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		expect(wrapper.find('h1').text()).toBe('Test House')
+	})
+
+	it('displays tagline', () => {
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		expect(wrapper.find('.tagline').exists()).toBe(true)
+	})
+
+	it('renders HouseHealthBar component', () => {
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		expect(wrapper.find('.house-health-bar').exists()).toBe(true)
+	})
+
+	it('renders QuickStats component', () => {
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		expect(wrapper.find('.quick-stats').exists()).toBe(true)
+	})
+
+	it('renders FloorList component', () => {
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		expect(wrapper.find('.floor-list').exists()).toBe(true)
+	})
+
+	it('calls initializeDashboard on mount', async () => {
+		const fetchHouse = jest.fn()
+		const fetchFloorsWithRooms = jest.fn()
+
+		jest.doMock('../../../src/store/house.js', () => ({
+			useHouseStore: () => ({
+				house: { id: 1, name: 'Test House', houseHealth: 85 },
+				houseName: 'Test House',
+				houseHealth: 85,
+				loading: false,
+				fetchHouse,
+			}),
+		}))
+
+		jest.doMock('../../../src/store/rooms.js', () => ({
+			useRoomsStore: () => ({
+				floors: [],
+				rooms: [],
+				loading: false,
+				fetchFloorsWithRooms,
+			}),
+		}))
+
+		mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		// Wait for mounted hook
+		await new Promise(resolve => setTimeout(resolve, 0))
+	})
+})
