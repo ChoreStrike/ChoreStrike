@@ -7,7 +7,7 @@
 	<div class="quick-stats" :class="{ compact }" data-testid="quick-stats">
 		<div class="stats-grid">
 			<!-- Total Rooms -->
-			<div class="stat-card">
+			<div class="stat-card" data-testid="stat-card">
 				<Icon name="Home" :size="32" class="stat-icon" />
 				<div class="stat-content">
 					<div class="stat-value">
@@ -20,7 +20,7 @@
 			</div>
 
 			<!-- Clean Rooms -->
-			<div class="stat-card">
+			<div class="stat-card" data-testid="stat-card">
 				<Icon name="Sparkles" :size="32" class="stat-icon" />
 				<div class="stat-content">
 					<div class="stat-value">
@@ -33,7 +33,7 @@
 			</div>
 
 			<!-- Tasks Due Today -->
-			<div class="stat-card">
+			<div class="stat-card" data-testid="stat-card">
 				<Icon name="Calendar" :size="32" class="stat-icon" />
 				<div class="stat-content">
 					<div class="stat-value">
