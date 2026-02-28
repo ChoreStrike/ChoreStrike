@@ -1,5 +1,6 @@
 # Private/Local Development Files
 /private/
+/docs/private/
 *.local
 .env
 .env.local
