@@ -64,6 +64,12 @@ use OCP\AppFramework\Db\Entity;
  * @method void setEstimatedMinutesMin(?int $estimatedMinutesMin)
  * @method int|null getEstimatedMinutesMax()
  * @method void setEstimatedMinutesMax(?int $estimatedMinutesMax)
+ * @method bool getAllowTeamwork()
+ * @method void setAllowTeamwork(bool $allowTeamwork)
+ * @method int|null getMaxParticipants()
+ * @method void setMaxParticipants(?int $maxParticipants)
+ * @method float getTeamSparkMultiplier()
+ * @method void setTeamSparkMultiplier(float $teamSparkMultiplier)
  */
 class Task extends Entity implements JsonSerializable {
 
@@ -142,6 +148,15 @@ class Task extends Entity implements JsonSerializable {
 	/** @var int|null */
 	protected $estimatedMinutesMax;
 
+	/** @var bool */
+	protected $allowTeamwork = false;
+
+	/** @var int|null */
+	protected $maxParticipants;
+
+	/** @var float */
+	protected $teamSparkMultiplier = 1.0;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('name', 'string');
@@ -169,6 +184,9 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('tips', 'string');
 		$this->addType('estimatedMinutesMin', 'integer');
 		$this->addType('estimatedMinutesMax', 'integer');
+		$this->addType('allowTeamwork', 'boolean');
+		$this->addType('maxParticipants', 'integer');
+		$this->addType('teamSparkMultiplier', 'decimal');
 	}
 
 	/**
@@ -199,6 +217,9 @@ class Task extends Entity implements JsonSerializable {
 			'schedulingMode' => $this->schedulingMode,
 			'fixedScheduleTime' => $this->fixedScheduleTime?->format('H:i:s'),
 			'fixedScheduleDays' => $this->fixedScheduleDays,
+			'allowTeamwork' => $this->allowTeamwork,
+			'maxParticipants' => $this->maxParticipants,
+			'teamSparkMultiplier' => $this->teamSparkMultiplier,
 			'createdAt' => $this->createdAt?->format('c'),
 		];
 	}

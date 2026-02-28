@@ -30,6 +30,12 @@ use OCP\AppFramework\Db\Entity;
  * @method void setNextcloudTaskId(?int $nextcloudTaskId)
  * @method bool getSyncedToNextcloud()
  * @method void setSyncedToNextcloud(bool $syncedToNextcloud)
+ * @method bool getIsTeamCompletion()
+ * @method void setIsTeamCompletion(bool $isTeamCompletion)
+ * @method int getParticipantCount()
+ * @method void setParticipantCount(int $participantCount)
+ * @method int getTeamSparkBonus()
+ * @method void setTeamSparkBonus(int $teamSparkBonus)
  */
 class CompletedTask extends Entity implements JsonSerializable {
 
@@ -57,6 +63,15 @@ class CompletedTask extends Entity implements JsonSerializable {
 	/** @var bool */
 	protected $syncedToNextcloud = false;
 
+	/** @var bool */
+	protected $isTeamCompletion = false;
+
+	/** @var int */
+	protected $participantCount = 1;
+
+	/** @var int */
+	protected $teamSparkBonus = 0;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomTaskId', 'integer');
@@ -67,6 +82,9 @@ class CompletedTask extends Entity implements JsonSerializable {
 		$this->addType('comboWithUserId', 'integer');
 		$this->addType('nextcloudTaskId', 'integer');
 		$this->addType('syncedToNextcloud', 'boolean');
+		$this->addType('isTeamCompletion', 'boolean');
+		$this->addType('participantCount', 'integer');
+		$this->addType('teamSparkBonus', 'integer');
 	}
 
 	/**
@@ -83,6 +101,9 @@ class CompletedTask extends Entity implements JsonSerializable {
 			'comboWithUserId' => $this->comboWithUserId,
 			'nextcloudTaskId' => $this->nextcloudTaskId,
 			'syncedToNextcloud' => $this->syncedToNextcloud,
+			'isTeamCompletion' => $this->isTeamCompletion,
+			'participantCount' => $this->participantCount,
+			'teamSparkBonus' => $this->teamSparkBonus,
 		];
 	}
 
