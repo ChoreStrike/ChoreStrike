@@ -12,9 +12,9 @@
 - [x] Agent guidelines
 - [x] Basic Nextcloud app structure
 - [x] Frontend scaffolding (Vue.js 3)
-- [ ] Database schema design
-- [ ] Initial migrations
-- [ ] Development environment guide
+- [x] Database schema design
+- [x] Initial migrations
+- [x] Development environment guide
 
 **Deliverable**: Project ready for development
 
