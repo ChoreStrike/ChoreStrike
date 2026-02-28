@@ -39,6 +39,14 @@
 **Related Files**: docs/ROADMAP.md, playwright.config.ts, tests/e2e/*.ts, .gitignore
 **Notes**: Marked Phase 0 and Phase 1 as complete. Updated gitignore for test artifacts. Fixed E2E test stability with improved timeouts.
 
+### Cascade - Phase 2.1 Feature Concept Documentation
+**Status**: Done
+**Started**: 2026-02-28 14:19
+**Completed**: 2026-02-28 14:23
+**Branch**: main
+**Related Files**: docs/backlog/phase-2.1-task-enhancements.md
+**Notes**: Created comprehensive concept document for 7 new features: Dynamic/Static Scheduling, Template Database, Sub-Checklists, Enhanced Instructions, Group Assignment, Multi-User Teamwork, and Claiming Overdue Tasks. Includes database schemas, API endpoints, frontend components, and migration plans.
+
 ---
 
 ## Workflow States
