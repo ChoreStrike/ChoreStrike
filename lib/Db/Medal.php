@@ -99,12 +99,17 @@ class Medal extends Entity implements JsonSerializable {
 	 */
 	public function getRarity(): string {
 		return match($this->medalType) {
+			// Gamification medals
 			'team_anchor' => 'high',
 			'flow_keeper' => 'high',
 			'room_guardian' => 'medium',
 			'team_player' => 'medium',
 			'streak_keeper' => 'high',
-			default => 'low'
+			// Standard medals
+			'gold' => 'high',
+			'silver' => 'medium',
+			'bronze' => 'low',
+			default => 'unknown'
 		};
 	}
 }

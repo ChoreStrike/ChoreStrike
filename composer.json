@@ -1,11 +1,11 @@
 {
-    "name": "chorewars/chorewars",
+    "name": "chorestrike/chorestrike",
     "description": "Gamified household task management for Nextcloud",
     "type": "project",
     "license": "MIT",
     "authors": [
         {
-            "name": "ChoreWars Contributors"
+            "name": "ChoreStrike Contributors"
         }
     ],
     "require": {
@@ -17,12 +17,12 @@
     },
     "autoload": {
         "psr-4": {
-            "OCA\\ChoreWars\\": "lib/"
+            "OCA\\ChoreStrike\\": "lib/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "OCA\\ChoreWars\\Tests\\": "tests/"
+            "OCA\\ChoreStrike\\Tests\\": "tests/"
         }
     },
     "scripts": {
