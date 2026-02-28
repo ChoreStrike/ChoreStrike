@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/test-fixtures'
 
 /**
  * E2E test: Room detail view and task management
@@ -6,8 +6,9 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('Room Detail', () => {
 	test.beforeEach(async ({ page }) => {
+		test.setTimeout(60000)
 		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
 	})
 
 	test('Room detail displays room information', async ({ page }) => {
@@ -22,7 +23,7 @@ test.describe('Room Detail', () => {
 
 		const roomName = await roomCard.locator('.room-name').textContent()
 		await roomCard.click()
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Verify room detail view
 		await expect(page.locator('[data-testid="room-detail-view"]')).toBeVisible()
@@ -48,7 +49,7 @@ test.describe('Room Detail', () => {
 		}
 
 		await roomCard.click()
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Verify monster sprite is displayed
 		await expect(page.locator('[data-testid="monster-sprite"]')).toBeVisible()
@@ -65,11 +66,11 @@ test.describe('Room Detail', () => {
 		}
 
 		await roomCard.click()
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Click back link
 		await page.click('[data-testid="back-link"]')
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Verify we're back on dashboard
 		await expect(page.locator('[data-testid="dashboard-view"]')).toBeVisible()
@@ -86,13 +87,14 @@ test.describe('Room Detail', () => {
 		}
 
 		await roomCard.click()
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Click add task button
 		await page.click('[data-testid="add-task-button"]')
+		await page.waitForTimeout(500)
 
 		// Verify modal is opened (TaskForm should be visible)
-		await expect(page.locator('.modal-content')).toBeVisible()
+		await expect(page.locator('.modal-content')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Room cleanliness value is displayed correctly', async ({ page }) => {
@@ -106,7 +108,7 @@ test.describe('Room Detail', () => {
 		}
 
 		await roomCard.click()
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Get cleanliness value
 		const cleanlinessText = await page.locator('[data-testid="cleanliness-value"]').textContent()

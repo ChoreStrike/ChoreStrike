@@ -5,17 +5,23 @@
 
 ## Currently Active
 
-<!-- Format: ### [Agent/Developer Name] - [Task ID] - [Task Title]
-**Status**: In Progress | Blocked | Review Ready
-**Started**: YYYY-MM-DD HH:MM
-**Last Update**: YYYY-MM-DD HH:MM
-**Branch**: branch-name (if applicable)
-**Related Files**: List of main files being modified
-**Blockers**: Any blockers (or "None")
-**Notes**: Brief progress notes
--->
+### Cascade - P2-301 - E2E Test Improvements
+**Status**: In Progress  
+**Started**: 2026-02-28 18:13
+**Last Update**: 2026-02-28 19:47
+**Branch**: main
+**Related Files**: tests/e2e/*.spec.ts, playwright.config.ts, tests/e2e/fixtures/test-fixtures.ts
+**Blockers**: None
+**Notes**: 
+- Fixed import issues in task-checklist-and-features.spec.ts (removed non-existent LoginPage)
+- Improved timeouts in playwright.config.ts (increased to 90s global, 45s navigation)
+- Fixed room-detail.spec.ts timeouts and selectors
+- Created new smoke-tests.spec.ts with basic functionality tests
+- Current status: 30 passed tests, 3 skipped, but many tests still timeout
+- Main issues: Firefox timeouts with waitForLoadState('networkidle')
+- Next: Focus on stabilizing basic test suite before expanding coverage
 
-*No active tasks*
+---
 
 ---
 

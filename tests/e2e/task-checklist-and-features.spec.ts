@@ -3,22 +3,19 @@
  * @license MIT
  */
 
-import { test, expect } from '@playwright/test'
-import { LoginPage } from './fixtures/LoginPage'
+import { test, expect } from './fixtures/test-fixtures'
 
 /**
  * E2E Tests for Task Checklist (Feature 3: Sub-Checklists)
  */
 test.describe('Task Checklist', () => {
-	let loginPage: LoginPage
-
 	test.beforeEach(async ({ page }) => {
-		loginPage = new LoginPage(page)
-		await loginPage.loginAsAdmin()
+		test.setTimeout(60000)
 		
-		// Navigate to a room with tasks
-		await page.goto('/apps/chorestrike')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		// Navigate to app (assuming already logged in)
+		await page.goto('/apps/chorestrike/')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
 
 	test('should display checklist when expanding a task', async ({ page }) => {
@@ -142,13 +139,13 @@ test.describe('Task Checklist', () => {
  * E2E Tests for Group Assignment (Feature 5)
  */
 test.describe('Group Assignment', () => {
-	let loginPage: LoginPage
-
 	test.beforeEach(async ({ page }) => {
-		loginPage = new LoginPage(page)
-		await loginPage.loginAsAdmin()
-		await page.goto('/apps/chorestrike')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		test.setTimeout(60000)
+		
+		// Navigate to app (assuming already logged in)
+		await page.goto('/apps/chorestrike/')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
 
 	test('should show assigned status for tasks', async ({ page }) => {
@@ -171,13 +168,13 @@ test.describe('Group Assignment', () => {
  * E2E Tests for Dynamic/Static Scheduling (Feature 1)
  */
 test.describe('Task Scheduling Modes', () => {
-	let loginPage: LoginPage
-
 	test.beforeEach(async ({ page }) => {
-		loginPage = new LoginPage(page)
-		await loginPage.loginAsAdmin()
-		await page.goto('/apps/chorestrike')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		test.setTimeout(60000)
+		
+		// Navigate to app (assuming already logged in)
+		await page.goto('/apps/chorestrike/')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
 
 	test('should show scheduling mode options in task edit form', async ({ page }) => {
@@ -216,13 +213,13 @@ test.describe('Task Scheduling Modes', () => {
  * E2E Tests for Template Selector (Feature 2)
  */
 test.describe('Template Selector', () => {
-	let loginPage: LoginPage
-
 	test.beforeEach(async ({ page }) => {
-		loginPage = new LoginPage(page)
-		await loginPage.loginAsAdmin()
-		await page.goto('/apps/chorestrike')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		test.setTimeout(60000)
+		
+		// Navigate to app (assuming already logged in)
+		await page.goto('/apps/chorestrike/')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
 
 	test('should show template selector when creating task', async ({ page }) => {

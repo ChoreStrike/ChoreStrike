@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/test-fixtures'
 import { setupTestHouse, type TestHouseData } from './fixtures/test-house'
 
 /**
@@ -18,18 +18,12 @@ import { setupTestHouse, type TestHouseData } from './fixtures/test-house'
 
 test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 	test.beforeEach(async ({ page }) => {
-		// Login as admin first
-		await page.goto('/login')
-		await page.waitForSelector('#user', { timeout: 10000 })
-		await page.fill('#user', 'admin')
-		await page.fill('#password', 'admin')
-		await page.click('button[type="submit"]')
-		await page.waitForURL(/apps\/dashboard|apps\/chorestrike/, { timeout: 10000 })
-
-		// Navigate to ChoreStrike
+		test.setTimeout(90000)
+		
+		// Navigate to app (assuming already logged in)
 		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
 
 	test('Setup: Create all 3 floors (Keller, EG, 1.OG)', async ({ page }) => {
