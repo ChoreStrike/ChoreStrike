@@ -39,5 +39,12 @@ Thumbs.db
 /blob-report/
 /playwright/.cache/
 
+# Playwright test output artifacts (screenshots, videos, traces)
+line/
+test-results/
+*.png
+*.zip
+.trace
+
 # Logs
 *.log

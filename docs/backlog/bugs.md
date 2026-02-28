@@ -133,3 +133,29 @@ Some expected exception types/messages no longer match service behavior.
 
 ### Notes
 - See `tests/integration/Controller/AuthorizationIntegrationTest.php`.
+
+---
+
+## [P2] E2E Tests: Missing data-testid attributes in Vue components
+
+**Status**: Backlog  
+**Assignee**: Unassigned  
+**Estimated Effort**: M  
+**Phase**: 1
+
+### Description
+Many E2E tests fail because Vue components (especially Nextcloud Vue components like `NcAppNavigationItem`) don't pass `data-testid` attributes through to the rendered HTML elements. This forces tests to use less stable text-based selectors.
+
+### Acceptance Criteria
+- [ ] Add `data-testid` attributes to all navigation items in App.vue
+- [ ] Add `data-testid` attributes to Dashboard view components (stat cards, floor list, room cards)
+- [ ] Add `data-testid` attributes to Task Manager components
+- [ ] Add `data-testid` attributes to Leaderboard components
+- [ ] Add `data-testid` attributes to Settings components
+- [ ] Update E2E tests to use stable `data-testid` selectors instead of text-based selectors
+- [ ] Document pattern for adding test IDs to new components
+
+### Notes
+- Nextcloud Vue components (`NcAppNavigationItem`, `NcModal`, etc.) may not pass through custom attributes
+- May need to wrap components or use alternative approaches
+- See `tests/e2e/*.spec.ts` for current text-based workarounds

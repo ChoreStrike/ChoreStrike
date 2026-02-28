@@ -47,6 +47,14 @@
 **Related Files**: docs/backlog/phase-2.1-task-enhancements.md
 **Notes**: Created comprehensive concept document for 7 new features: Dynamic/Static Scheduling, Template Database, Sub-Checklists, Enhanced Instructions, Group Assignment, Multi-User Teamwork, and Claiming Overdue Tasks. Includes database schemas, API endpoints, frontend components, and migration plans.
 
+### Cascade - E2E Testing Improvements
+**Status**: Done
+**Started**: 2026-02-28 14:30
+**Completed**: 2026-02-28 15:25
+**Branch**: main
+**Related Files**: docker-compose.test.yml, docker/seed-test-data.sh, docker/test-entrypoint.sh, tests/e2e/fixtures/test-fixtures.ts, tests/e2e/*.spec.ts, .gitignore
+**Notes**: Added Docker healthcheck and seed script, created Playwright test fixtures for data reset, fixed navigation selectors to use text instead of data-testid (Nextcloud Vue components don't pass data-testid), extended gitignore for test artifacts. 15/52 E2E tests passing (Task Manager, Task Completion, Settings suites fully green).
+
 ---
 
 ## Workflow States
