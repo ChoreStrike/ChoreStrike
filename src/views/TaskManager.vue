@@ -89,13 +89,13 @@
 			@delete="handleDeleteTask" />
 
 		<Modal v-if="showAddTaskModal" @close="showAddTaskModal = false">
-			<TaskForm
+			<TaskEditForm
 				@submit="handleAddTask"
 				@cancel="showAddTaskModal = false" />
 		</Modal>
 
 		<Modal v-if="showEditTaskModal" @close="showEditTaskModal = false">
-			<TaskForm
+			<TaskEditForm
 				:task="editingTask"
 				@submit="handleUpdateTask"
 				@cancel="showEditTaskModal = false" />
@@ -107,9 +107,10 @@
 import { translate as t } from '@nextcloud/l10n'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useRoomsStore } from '../store/rooms.js'
+import { useTasksStore } from '../store/tasks.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
-import TaskForm from '../components/Tasks/TaskForm.vue'
+import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
 import { useUserStore } from '../store/user.js'
 import Modal from '../components/Common/Modal.vue'
 
@@ -119,15 +120,16 @@ export default {
 	components: {
 		Icon,
 		TaskList,
-		TaskForm,
+		TaskEditForm,
 		Modal,
 	},
 
 	setup() {
 		const roomTasksStore = useRoomTasksStore()
 		const roomsStore = useRoomsStore()
+		const tasksStore = useTasksStore()
 		const userStore = useUserStore()
-		return { roomTasksStore, roomsStore, userStore }
+		return { roomTasksStore, roomsStore, tasksStore, userStore }
 	},
 
 	data() {
@@ -250,7 +252,9 @@ export default {
 		},
 
 		handleAddTask(taskData) {
-			this.roomTasksStore.createRoomTask(taskData)
+			// Use the tasks store to create a new task with all scheduling fields
+			const tasksStore = useTasksStore()
+			tasksStore.createTask(taskData)
 				.then(() => {
 					this.showAddTaskModal = false
 				})
@@ -261,7 +265,7 @@ export default {
 
 		handleUpdateTask(taskData) {
 			if (!this.editingTask) return
-			this.roomTasksStore.updateRoomTaskDueDate(this.editingTask.id, taskData.nextDue)
+			this.tasksStore.updateTask(this.editingTask.id, taskData)
 				.then(() => {
 					this.showEditTaskModal = false
 					this.editingTask = null
