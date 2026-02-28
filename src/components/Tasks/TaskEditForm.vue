@@ -5,6 +5,15 @@
 
 <template>
 	<form class="task-edit-form" @submit.prevent="submit">
+		<!-- Template Selection (only when creating) -->
+		<div v-if="!isEditing" class="form-section">
+			<h3>{{ t('chorestrike', 'Start from Template') }}</h3>
+			<TemplateSelector
+				:selected-template="selectedTemplate"
+				@select="applyTemplate"
+				@clear="clearTemplate" />
+		</div>
+
 		<div class="form-section">
 			<h3>{{ t('chorestrike', 'Basic Information') }}</h3>
 			
@@ -181,12 +190,14 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common'
+import TemplateSelector from './TemplateSelector.vue'
 
 export default {
 	name: 'TaskEditForm',
 	
 	components: {
 		Icon,
+		TemplateSelector,
 	},
 
 	props: {
@@ -233,6 +244,8 @@ export default {
 			}
 		}
 
+		const selectedTemplate = ref(null)
+
 		const form = reactive({
 			name: '',
 			description: '',
@@ -248,6 +261,28 @@ export default {
 		})
 
 		const selectedWeekdays = ref([])
+
+		// Apply template data to form
+		const applyTemplate = (template) => {
+			selectedTemplate.value = template
+			form.name = template.name || ''
+			form.description = template.description || ''
+			form.energyCost = template.energyCost || 2
+			form.priority = template.priority || 2
+			form.estimatedMinutes = template.estimatedMinutes || 15
+			form.category = template.category || 'cleaning'
+			form.frequencyType = template.frequencyType || 'weekly'
+			form.frequencyValue = template.frequencyValue || 1
+			form.schedulingMode = template.schedulingMode || 'dynamic'
+			form.fixedScheduleTime = template.fixedScheduleTime || ''
+			if (template.fixedScheduleDays) {
+				selectedWeekdays.value = JSON.parse(template.fixedScheduleDays)
+			}
+		}
+
+		const clearTemplate = () => {
+			selectedTemplate.value = null
+		}
 
 		// Initialize form from task prop when editing
 		watch(() => props.task, (newTask) => {
@@ -296,12 +331,15 @@ export default {
 		return {
 			form,
 			isEditing,
+			selectedTemplate,
 			energyLabels,
 			weekdays,
 			selectedWeekdays,
 			frequencySuffix,
 			isValid,
 			submit,
+			applyTemplate,
+			clearTemplate,
 			t,
 		}
 	},
