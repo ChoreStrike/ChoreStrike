@@ -578,4 +578,348 @@ class RoomTaskController extends OCSController {
 			], 500);
 		}
 	}
+
+	/**
+	 * Assign room task to group
+	 *
+	 * @NoAdminRequired
+	 */
+	public function assignToGroup(int $id, string $groupId): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
+
+			$roomTask = $this->roomTaskService->assignToGroup($id, $groupId);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $roomTask->jsonSerialize()
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'ASSIGN_TO_GROUP_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Claim a group-assigned task for the current user
+	 *
+	 * @NoAdminRequired
+	 */
+	public function claimForUser(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$currentUserId = $this->authService->requireCurrentUserId();
+			$roomTask = $this->roomTaskService->claimForUser($id, $currentUserId);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $roomTask->jsonSerialize()
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'CLAIM_TASK_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Unclaim a group-assigned task
+	 *
+	 * @NoAdminRequired
+	 */
+	public function unclaim(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$roomTask = $this->roomTaskService->unclaim($id);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $roomTask->jsonSerialize()
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'UNCLAIM_TASK_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Get tasks assigned to a group
+	 *
+	 * @NoAdminRequired
+	 */
+	public function groupTasks(string $groupId, bool $activeOnly = true): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$tasks = $this->roomTaskService->getGroupTasks($groupId, $activeOnly);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => array_map(fn($task) => $task->jsonSerialize(), $tasks)
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'GROUP_TASKS_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Get tasks visible to the current user (assigned directly or via group membership)
+	 *
+	 * @NoAdminRequired
+	 */
+	public function visibleToUser(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$currentUserId = $this->authService->requireCurrentUserId();
+			$groupIds = $this->authService->getCurrentUserGroupIds();
+
+			$tasks = $this->roomTaskService->getTasksVisibleToUser($currentUserId, $groupIds);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => array_map(fn($task) => $task->jsonSerialize(), $tasks)
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'VISIBLE_TASKS_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Join a task as a participant (teamwork)
+	 *
+	 * @NoAdminRequired
+	 */
+	public function joinTask(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$currentUserId = $this->authService->requireCurrentUserId();
+			$result = $this->roomTaskService->joinTask($id, $currentUserId);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $result
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'JOIN_TASK_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Leave a task as a participant
+	 *
+	 * @NoAdminRequired
+	 */
+	public function leaveTask(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$currentUserId = $this->authService->requireCurrentUserId();
+			$result = $this->roomTaskService->leaveTask($id, $currentUserId);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $result
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'LEAVE_TASK_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Get participants for a task
+	 *
+	 * @NoAdminRequired
+	 */
+	public function getParticipants(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$participants = $this->roomTaskService->getTaskParticipants($id);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => array_map(fn($p) => $p->jsonSerialize(), $participants)
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'GET_PARTICIPANTS_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Claim an overdue task from another user
+	 *
+	 * @NoAdminRequired
+	 */
+	public function claimOverdue(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$currentUserId = $this->authService->requireCurrentUserId();
+			$result = $this->roomTaskService->claimOverdueTask($id, $currentUserId);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $result
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'CLAIM_OVERDUE_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Get overdue tasks that can be claimed
+	 *
+	 * @NoAdminRequired
+	 */
+	public function overdueClaims(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$tasks = $this->roomTaskService->getClaimableOverdueTasks($house->getId());
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => array_map(fn($task) => $task->jsonSerialize(), $tasks)
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'OVERDUE_CLAIMS_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Get claim history for a task
+	 *
+	 * @NoAdminRequired
+	 */
+	public function claimHistory(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$claims = $this->roomTaskService->getClaimHistory($id);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => array_map(fn($claim) => $claim->jsonSerialize(), $claims)
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'CLAIM_HISTORY_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Get claim statistics for a user
+	 *
+	 * @NoAdminRequired
+	 */
+	public function claimStats(string $userId): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+
+			$stats = $this->roomTaskService->getUserClaimStats($userId);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $stats
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'CLAIM_STATS_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
 }
