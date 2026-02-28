@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/test-fixtures'
 
 /**
  * E2E test: Task creation and completion flow
