@@ -5,25 +5,42 @@ This directory contains the project backlog and task tracking for ChoreStrike.
 ## Purpose
 
 The backlog tracks:
-- Planned features
+- **Active tasks** (currently being worked on) → `ACTIVE_TASKS.md`
+- Planned features (by phase)
 - Known bugs
 - Technical debt
 - Future enhancements
-- Research tasks
 
 ## Structure
-
-Organize backlog items by phase or category:
 
 ```
 backlog/
 ├── README.md (this file)
-├── phase-1-core-tasks.md
-├── phase-2-gamification.md
-├── bugs.md
-├── technical-debt.md
-└── future-ideas.md
+├── ACTIVE_TASKS.md          ← LIVE tracking (update constantly!)
+├── bugs.md                  ← Bug backlog
+├── phase-1-core-tasks.md    ← Phase 1 features
+├── phase-2-gamification.md  ← Phase 2 features
+└── ...                      ← Additional phase files
 ```
+
+## Workflow
+
+### For Coding Agents
+1. **Before starting:** Check `ACTIVE_TASKS.md` for conflicts
+2. **When starting:** Add task to `ACTIVE_TASKS.md` with "In Progress" status
+3. **During work:** Update `ACTIVE_TASKS.md` every 30-60 min
+4. **When complete:** Change status to "Review Ready", list modified files
+5. **Update backlog:** Mark task done in phase/bug file
+
+### For Review Agents
+1. **Check:** `ACTIVE_TASKS.md` for "Review Ready" tasks
+2. **Review:** Follow checklist in `AGENTS.md` section 3.2
+3. **Fix minor issues:** Immediately (< 10 lines)
+4. **Ask user:** For unclear issues
+5. **Move to backlog:** For major refactors
+6. **Complete:** Move to "Recently Completed" in `ACTIVE_TASKS.md`
+
+See `AGENTS.md` for complete workflow details.
 
 ## Backlog Item Format
 

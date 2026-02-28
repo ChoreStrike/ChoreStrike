@@ -1,44 +1,209 @@
-# ChoreWars – AI Development Guidelines & Best Practices
+# ChoreStrike – AI Agent Guidelines
 
-> This document serves as the single source of truth for AI agents and developers working on ChoreWars.
+> **Central command center for AI agents.** Read this FIRST before any work.
 
-## 1. Core Principles
-- **Language:** ALL code, comments, commit messages, and documentation must be in **English only**. Chatting with the user in German is allowed.
-- **KISS & DRY:** Keep it simple, stupid. Don't repeat yourself.
-- **No Premature Abstraction:** Apply the Rule of Three before extracting abstractions.
-- **Single Responsibility Principle:** Each class/module has ONE job. 
-- **Prefer Simple Code:** Readable code is always better than clever code.
-- **Nextcloud Ecosystem:** Follow Nextcloud App API standards. No external services.
+## 🎯 Quick Start
 
-## 2. Architecture & Design
-- **Clean Architecture:** Maintain strict layer separation (Frontend Vue -> API -> Controller -> Service -> Mapper/DB). Dependencies should flow inward toward the domain logic.
-- **Domain Independence:** The core domain/business logic must have ZERO external framework dependencies where possible, or abstract them heavily.
-- **Thin APIs/Controllers:** Never put business logic in the API or routing layer. Controllers only parse input, call services, and return output.
-- **Composition over Inheritance:** Prefer composition (e.g., capability interfaces/traits in PHP, composables in Vue) to share behaviors rather than deep inheritance trees.
+1. **Read this file completely**
+2. **Check** `docs/backlog/ACTIVE_TASKS.md` for ongoing work
+3. **Update** ACTIVE_TASKS.md when starting/completing tasks
+4. **Follow** the Coding→Review workflow below
+5. **Commit** after each logical unit of work
 
-## 3. Code Quality
-- **Documentation:** Add documentation comments (PHPDoc/JSDoc) to EVERY public member (class, interface, method, property, etc.).
-- **File Structure:** Keep files focused. One main concept/type per file.
-- **Size Limits:** Aim for max ~30 lines per method, ~300 lines per file to prevent God-classes.
-- **Error Handling:** Use Result-patterns or explicit return types for expected domain failures rather than throwing raw exceptions where feasible. Throw exceptions only for truly exceptional states.
-- **No Magic Strings:** Use constants or enums (PHP 8.1+ Enums).
-- **Internationalization:** All UI text must be routed through the `t()` function. No hardcoded strings.
+---
 
-## 4. Testing
-- **Unit Tests:** Every new feature needs unit tests (PHPUnit for backend, Jest/Vue Test Utils for frontend).
-- **Regression Tests:** Every bug fix needs a regression test.
-- **Naming:** Use clear test naming conventions (e.g., `MethodName_Scenario_ExpectedResult` or equivalent BDD style).
+## 1. Core Principles (KISS & DRY)
 
-## 5. AI Agent Behaviors
-- **Always Read First:** Read `AGENTS.md` and architecture docs before proposing changes.
-- **Priority Hierarchy:** 1. Technical correctness, 2. KISS/DRY, 3. Performance/Other.
-- **Auto-Fix & Auto-Commit:** Solve clear bugs and simple refactoring automatically. After completing a logical package or bugfix, automatically execute `git add` and `git commit` with a meaningful message. Update docs and backlog accordingly.
-- **Batch Questions:** Do not guess on ambiguities. Collect multiple issues and present them at the end of the session with 2-3 options and a recommendation.
-- **Rule Derivation:** During reviews, if recurring issues are found, proactively suggest adding new rules to `AGENTS.md` or `.windsurfrules`.
-- **When Unsure:** Ask the user rather than guessing. Prefer minimal changes over large refactors unless explicitly requested.
+- **Language:** Code/docs/commits in **English only**. Chat in German allowed.
+- **KISS:** Simple > Clever. Max ~30 lines/method, ~300 lines/file.
+- **DRY:** No duplication. Extract after 3rd occurrence (Rule of Three).
+- **Single Responsibility:** One class = one job.
+- **Clean Architecture:** Frontend → Controller → Service → Mapper/DB. No business logic in controllers.
+- **Nextcloud Ecosystem:** Use Nextcloud APIs only. No external services.
 
-## 6. Project Documentation Structure
-- `AGENTS.md` (Root) - Central AI instructions
-- `docs/adr/` - Architecture Decision Records (why a decision was made)
-- `docs/standards/` - Coding conventions, testing standards, etc.
-- `docs/backlog/` - Central backlog tracking
+**Details:** See `docs/ARCHITECTURE.md`, `docs/standards/`
+
+---
+
+## 2. Code Quality Standards
+
+| Aspect | Rule | Reference |
+|--------|------|-----------|
+| **Documentation** | PHPDoc/JSDoc on EVERY public member | `docs/standards/` |
+| **Testing** | Unit test per feature, regression test per bug | `docs/TESTING.md` |
+| **i18n** | All UI text via `t()` function | `docs/AGENT_GUIDELINES.md` |
+| **Error Handling** | Result patterns > exceptions | `docs/ARCHITECTURE.md` |
+| **Security** | Validate ownership, never trust client input | `docs/standards/SECURITY.md` |
+
+---
+
+## 3. Workflow: Coding → Review
+
+### 3.1 Coding Agent Responsibilities
+
+**Before Starting:**
+1. Read `docs/backlog/ACTIVE_TASKS.md` to avoid conflicts
+2. Add your task to ACTIVE_TASKS.md with status "In Progress"
+3. Check related backlog file (`bugs.md`, `phase-X-*.md`)
+
+**During Work:**
+- Follow KISS/DRY principles
+- Write tests alongside code
+- Update ACTIVE_TASKS.md every 30-60 min
+- Commit frequently: `git add . && git commit -m "type: description"`
+
+**When Complete:**
+1. Run tests: `npm test` (frontend), `composer test` (backend)
+2. Update ACTIVE_TASKS.md status to "Review Ready"
+3. List all modified files in ACTIVE_TASKS.md
+4. Update backlog file (mark task done, move to completed section)
+5. Commit: `git commit -m "feat/fix: [Task ID] - description"`
+
+### 3.2 Review Agent Responsibilities
+
+**Trigger:** Check ACTIVE_TASKS.md for "Review Ready" tasks
+
+**Review Checklist:**
+- [ ] Code follows KISS/DRY principles
+- [ ] All public members documented
+- [ ] Tests exist and pass
+- [ ] No hardcoded strings (i18n compliance)
+- [ ] Security: Authorization checks present
+- [ ] Architecture: Business logic in services, not controllers
+- [ ] No code duplication
+- [ ] File/method size limits respected
+
+**Review Actions:**
+1. **Minor issues (clear fix):** Fix immediately, commit with `refactor:` or `fix:` prefix
+2. **Unclear issues:** Add comment to ACTIVE_TASKS.md, ask user
+3. **Major refactor needed:** Move task to backlog with "Needs Refactor" status, notify user
+
+**After Review:**
+1. Update ACTIVE_TASKS.md: Move to "Recently Completed"
+2. Update backlog: Mark as fully done
+3. Commit: `git commit -m "review: [Task ID] - approved"`
+
+### 3.3 Parallel Work Protocol
+
+- **Multiple coding agents:** Each works on different task IDs, updates ACTIVE_TASKS.md
+- **One review agent:** Processes "Review Ready" queue sequentially
+- **Conflict prevention:** Check ACTIVE_TASKS.md before starting, avoid same files
+
+---
+
+## 4. Task Management
+
+### Central Registry
+- **`docs/backlog/ACTIVE_TASKS.md`** - Live task tracking (update constantly)
+- **`docs/backlog/bugs.md`** - Bug backlog
+- **`docs/backlog/phase-N-*.md`** - Feature backlogs by phase
+- **`docs/ROADMAP.md`** - High-level timeline (update rarely)
+
+### Task Lifecycle
+```
+Planned → In Progress → Review Ready → Done
+            ↓ (if blocked)
+          Blocked → In Progress
+            ↓ (if major issues)
+          Needs Refactor → Backlog
+```
+
+### Agent Updates Required
+- **Start task:** Add to ACTIVE_TASKS.md, update backlog status
+- **Progress:** Update ACTIVE_TASKS.md notes/timestamp
+- **Complete:** Update both ACTIVE_TASKS.md and backlog
+- **Block:** Update ACTIVE_TASKS.md with blocker details
+
+---
+
+## 5. Auto-Commit & Auto-Fix Rules
+
+### Auto-Commit (Always)
+After completing a logical unit:
+```bash
+git add .
+git commit -m "type: description"
+```
+
+**Commit Types:** `feat`, `fix`, `docs`, `refactor`, `test`, `i18n`, `perf`, `chore`
+
+### Auto-Fix (Coding Agent)
+Fix immediately without asking:
+- Obvious bugs (typos, wrong variable names)
+- Missing documentation comments
+- Code style violations (PSR-12, ESLint)
+- Missing i18n wrapping
+- Simple refactoring (extract method, rename)
+
+### Auto-Fix (Review Agent)
+Fix immediately during review:
+- Documentation gaps
+- Code style issues
+- Simple KISS/DRY violations (< 10 lines change)
+- Missing test cases (if straightforward)
+
+### Ask User First
+- Unclear requirements
+- Design decisions (UX, architecture)
+- Breaking changes
+- Security-critical changes
+- Large refactors (> 50 lines)
+
+---
+
+## 6. Priority Hierarchy
+
+When conflicts arise, prioritize in this order:
+1. **Security** (authorization, input validation)
+2. **Technical Correctness** (bugs, logic errors)
+3. **KISS/DRY** (simplicity, no duplication)
+4. **Testing** (coverage, regression tests)
+5. **Performance** (only if measurable impact)
+6. **Other** (style, naming, etc.)
+
+---
+
+## 7. Documentation Structure
+
+```
+ChoreStrike/
+├── AGENTS.md                    ← YOU ARE HERE (central command)
+├── .windsurfrules               ← Quick reference (synced with this)
+├── docs/
+│   ├── ROADMAP.md              ← High-level timeline
+│   ├── ARCHITECTURE.md         ← System design details
+│   ├── AGENT_GUIDELINES.md     ← Detailed examples & patterns
+│   ├── TESTING.md              ← Testing strategies
+│   ├── backlog/
+│   │   ├── ACTIVE_TASKS.md     ← LIVE task tracking (update often!)
+│   │   ├── bugs.md             ← Bug backlog
+│   │   └── phase-*.md          ← Feature backlogs
+│   ├── adr/                    ← Architecture decisions (why?)
+│   └── standards/              ← Coding standards, security, etc.
+```
+
+**Update Frequency:**
+- `ACTIVE_TASKS.md`: Every task start/update/complete
+- Backlog files: On task status change
+- `AGENTS.md`, `.windsurfrules`: Only when adding new rules
+- `ROADMAP.md`: Only on phase completion
+
+---
+
+## 8. Quick Reference
+
+| Situation | Action |
+|-----------|--------|
+| Starting work | Update ACTIVE_TASKS.md, read backlog |
+| Unsure about requirement | Batch questions, ask at end |
+| Found bug during review | Fix if clear, else ask user |
+| Code duplication found | Refactor immediately (DRY) |
+| Missing tests | Add tests before marking done |
+| Security issue | Fix immediately, add regression test |
+| Large refactor needed | Add to backlog, notify user |
+| Recurring issue in reviews | Propose new rule for AGENTS.md |
+
+---
+
+**Last Updated:** 2026-02-28  
+**Version:** 2.0 (Streamlined)
