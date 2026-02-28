@@ -82,6 +82,14 @@ return [
         ['name' => 'scheduling#updateMemberAvailability', 'url' => '/api/v1/scheduling/members/{userId}', 'verb' => 'PUT'],
         ['name' => 'scheduling#getSuggestions', 'url' => '/api/v1/scheduling/suggestions', 'verb' => 'POST'],
 
+        // Smart Scheduler API (Phase 2)
+        ['name' => 'smart_scheduler#getSchedulePreview', 'url' => '/api/v1/smart-schedule/preview', 'verb' => 'GET'],
+        ['name' => 'smart_scheduler#generateSchedule', 'url' => '/api/v1/smart-schedule/generate', 'verb' => 'POST'],
+        ['name' => 'smart_scheduler#getMemberAvailability', 'url' => '/api/v1/smart-schedule/availability', 'verb' => 'GET'],
+        ['name' => 'smart_scheduler#updateMyAvailability', 'url' => '/api/v1/smart-schedule/availability', 'verb' => 'PUT'],
+        ['name' => 'smart_scheduler#updateMyEnergyBudget', 'url' => '/api/v1/smart-schedule/energy-budget', 'verb' => 'PUT'],
+        ['name' => 'smart_scheduler#getSchedulingSuggestions', 'url' => '/api/v1/smart-schedule/suggestions', 'verb' => 'GET'],
+
         // Template API
         ['name' => 'template#index', 'url' => '/api/v1/templates', 'verb' => 'GET'],
         ['name' => 'template#categories', 'url' => '/api/v1/templates/categories', 'verb' => 'GET'],

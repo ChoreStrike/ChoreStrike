@@ -5,25 +5,30 @@
 
 ## Currently Active
 
-### Cascade - P2-BACKEND-001 - Smart Scheduler Service
-**Status**: In Progress  
-**Started**: 2026-02-28 21:48
-**Last Update**: 2026-02-28 21:55
+### Cascade - P2-INFRA-001 - API Route Registration
+**Status**: Done
+**Started**: 2026-02-28 21:56
+**Completed**: 2026-02-28 21:58
 **Branch**: main
-**Related Files**: lib/Service/SmartSchedulerService.php, lib/Controller/SmartSchedulerController.php, lib/Db/RoomTaskMapper.php
-**Blockers**: None
+**Related Files**: appinfo/routes.php, tests/Unit/Service/SmartSchedulerServiceTest.php
+**Blockers**: None (resolved)
 **Notes**: 
-- ✅ Created SmartSchedulerService with intelligent task assignment algorithm
-- ✅ Created SmartSchedulerController with API endpoints
-- ✅ Enhanced RoomTaskMapper with scheduling-related methods
-- 🎯 Features implemented:
-  - Multi-factor scoring algorithm (energy efficiency, fairness, deadlines, priority)
-  - Schedule preview functionality
-  - Conflict detection and capacity analysis
-  - Bulk assignment updates
-  - Member availability and energy budget integration
-- 📊 Algorithm considers: availability, energy budgets, fairness, priority, deadlines
-- 🔄 Next: Unit tests for scheduler algorithms, API route registration
+- ✅ Registered all SmartScheduler API endpoints in routes.php
+- ✅ Added 6 new routes for smart scheduling functionality:
+  - GET /api/v1/smart-schedule/preview
+  - POST /api/v1/smart-schedule/generate
+  - GET /api/v1/smart-schedule/availability
+  - PUT /api/v1/smart-schedule/availability
+  - PUT /api/v1/smart-schedule/energy-budget
+  - GET /api/v1/smart-schedule/suggestions
+- ✅ Created comprehensive unit tests for SmartSchedulerService
+- 🧪 Test coverage includes:
+  - Schedule generation with optimal assignments
+  - Priority-based task assignment
+  - Efficiency calculation
+  - Conflict detection
+  - Capacity analysis
+- 🎯 Smart Scheduler Service is now fully functional and tested
 
 ---
 
