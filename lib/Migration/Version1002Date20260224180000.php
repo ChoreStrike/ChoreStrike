@@ -32,7 +32,7 @@ class Version1002Date20260224180000 extends SimpleMigrationStep {
 			$table = $schema->getTable('chorestrike_room_tasks');
 			if (!$table->hasColumn('nextcloud_task_id')) {
 				$table->addColumn('nextcloud_task_id', 'bigint', ['notnull' => false]);
-				$table->addIndex(['nextcloud_task_id'], 'idx_room_tasks_nextcloud');
+				$table->addIndex(['nextcloud_task_id'], 'idx_rt_nc_task');
 			}
 		}
 
@@ -41,11 +41,11 @@ class Version1002Date20260224180000 extends SimpleMigrationStep {
 			$table = $schema->getTable('chorestrike_completed_tasks');
 			if (!$table->hasColumn('nextcloud_task_id')) {
 				$table->addColumn('nextcloud_task_id', 'bigint', ['notnull' => false]);
-				$table->addIndex(['nextcloud_task_id'], 'idx_completed_nextcloud');
+				$table->addIndex(['nextcloud_task_id'], 'idx_comp_nc_task');
 			}
 			if (!$table->hasColumn('synced_to_nextcloud')) {
-				$table->addColumn('synced_to_nextcloud', 'boolean', ['notnull' => true, 'default' => false]);
-				$table->addIndex(['synced_to_nextcloud'], 'idx_completed_synced');
+				$table->addColumn('synced_to_nextcloud', 'boolean', ['notnull' => false, 'default' => 0]);
+				$table->addIndex(['synced_to_nextcloud'], 'idx_comp_synced');
 			}
 		}
 

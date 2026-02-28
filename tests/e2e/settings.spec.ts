@@ -10,6 +10,8 @@ test.describe('Settings', () => {
 		await page.waitForLoadState('networkidle')
 		await page.click('[data-testid="nav-settings"]')
 		await page.waitForLoadState('networkidle')
+		// Wait for settings data to load
+		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
 	})
 
 	test('Settings page loads correctly', async ({ page }) => {

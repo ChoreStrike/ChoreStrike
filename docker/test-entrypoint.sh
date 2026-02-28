@@ -12,7 +12,7 @@ APACHE_PID=$!
 echo "Waiting for database..."
 DB_REACHABLE=false
 for i in {1..60}; do
-    if mysqladmin ping -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" --silent >/dev/null 2>&1; then
+    if mysqladmin ping -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" --skip-ssl --silent >/dev/null 2>&1; then
         echo "Database is reachable!"
         DB_REACHABLE=true
         break
@@ -30,7 +30,7 @@ fi
 echo "Verifying database connection..."
 DB_AUTH_OK=false
 for i in {1..30}; do
-    if mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/dev/null 2>&1; then
+    if mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" --skip-ssl -e "SELECT 1" >/dev/null 2>&1; then
         echo "Database connection verified!"
         DB_AUTH_OK=true
         break

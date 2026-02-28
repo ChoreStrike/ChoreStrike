@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { setupTestHouse, type TestHouseData } from '../fixtures/test-house'
+import { setupTestHouse, type TestHouseData } from './fixtures/test-house'
 
 /**
  * E2E Test: 3-Floor House Scenario
@@ -18,6 +18,15 @@ import { setupTestHouse, type TestHouseData } from '../fixtures/test-house'
 
 test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 	test.beforeEach(async ({ page }) => {
+		// Login as admin first
+		await page.goto('/login')
+		await page.waitForSelector('#user', { timeout: 10000 })
+		await page.fill('#user', 'admin')
+		await page.fill('#password', 'admin')
+		await page.click('button[type="submit"]')
+		await page.waitForURL(/apps\/dashboard|apps\/chorestrike/, { timeout: 10000 })
+
+		// Navigate to ChoreStrike
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
@@ -26,10 +35,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 	test('Setup: Create all 3 floors (Keller, EG, 1.OG)', async ({ page }) => {
 		const house = await setupTestHouse(page)
 
-		// Verify all floors exist in settings
-		await page.click('[data-testid="nav-settings"]')
-		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
-
+		// We're already on settings view from beforeEach, verify floors exist
 		// Check Keller exists
 		await expect(page.locator('[data-testid="floor-Keller"]')).toBeVisible()
 

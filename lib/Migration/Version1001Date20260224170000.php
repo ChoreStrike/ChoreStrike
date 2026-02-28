@@ -35,11 +35,10 @@ class Version1001Date20260224170000 extends SimpleMigrationStep {
 			$table->addColumn('room_id', 'bigint', ['notnull' => false]);
 			$table->addColumn('name', 'string', ['notnull' => true, 'length' => 255]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
-			$table->setPrimaryKey(['id']);
-			$table->addForeignKeyConstraint('chorestrike_houses', ['house_id'], ['id'], ['onDelete' => 'CASCADE']);
-			$table->addForeignKeyConstraint('chorestrike_rooms', ['room_id'], ['id'], ['onDelete' => 'CASCADE']);
-			$table->addIndex(['house_id', 'type'], 'idx_task_scopes_house_type');
-			$table->addIndex(['room_id'], 'idx_task_scopes_room');
+			$table->setPrimaryKey(['id'], 'pk_task_scopes');
+			// Foreign keys removed for compatibility - see ADR
+			$table->addIndex(['house_id', 'type'], 'idx_ts_house_type');
+			$table->addIndex(['room_id'], 'idx_ts_room');
 		}
 
 		if ($schema->hasTable('chorestrike_tasks')) {
@@ -63,8 +62,8 @@ class Version1001Date20260224170000 extends SimpleMigrationStep {
 				$table->addIndex(['active_until'], 'idx_tasks_active_until');
 			}
 			if (!$table->hasColumn('is_voluntary')) {
-				$table->addColumn('is_voluntary', 'boolean', ['notnull' => true, 'default' => false]);
-				$table->addIndex(['is_voluntary'], 'idx_tasks_is_voluntary');
+				$table->addColumn('is_voluntary', 'boolean', ['notnull' => false, 'default' => 0]);
+				$table->addIndex(['is_voluntary'], 'idx_task_voluntary');
 			}
 		}
 
@@ -72,8 +71,8 @@ class Version1001Date20260224170000 extends SimpleMigrationStep {
 			$table = $schema->getTable('chorestrike_room_tasks');
 			if (!$table->hasColumn('scope_id')) {
 				$table->addColumn('scope_id', 'bigint', ['notnull' => false]);
-				$table->addForeignKeyConstraint('chorestrike_task_scopes', ['scope_id'], ['id'], ['onDelete' => 'SET NULL']);
-				$table->addIndex(['scope_id'], 'idx_room_tasks_scope');
+				// Foreign key removed for compatibility - see ADR
+				$table->addIndex(['scope_id'], 'idx_rt_scope');
 			}
 		}
 

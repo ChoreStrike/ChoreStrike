@@ -8,6 +8,8 @@ test.describe('Dashboard', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle')
+		// Wait for dashboard data to load
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
 	})
 
 	test('Dashboard displays house name and health bar', async ({ page }) => {

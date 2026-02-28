@@ -9,21 +9,30 @@ services:
       - MYSQL_PASSWORD=nextcloud
     networks:
       - chorestrike-test
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
   nextcloud-test:
     build:
       context: .
       dockerfile: docker/Dockerfile.test
     container_name: chorestrike-test
+    ports:
+      - "8080:80"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - .:/var/www/html/custom_apps/chorestrike
       - ./docker/test-entrypoint.sh:/test-entrypoint.sh
     working_dir: /var/www/html/custom_apps/chorestrike
     environment:
       - NEXTCLOUD_TEST_ENV=true
-      - DB_HOST=db
+      - DB_HOST=chorestrike-db
       - DB_NAME=nextcloud
       - DB_USER=nextcloud
       - DB_PASS=nextcloud

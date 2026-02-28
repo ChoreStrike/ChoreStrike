@@ -19,8 +19,8 @@ class ComposerStaticInit502927e8c30b1b59759e678b7fad5bc7
         ),
         'O' =>
         array (
-            'OCA\\ChoreStrike\\Tests\\' => 22,
-            'OCA\\ChoreStrike\\' => 16,
+            'OCA\\ChoreWars\\Tests\\' => 20,
+            'OCA\\ChoreWars\\' => 14,
         ),
         'N' =>
         array (
@@ -42,11 +42,11 @@ class ComposerStaticInit502927e8c30b1b59759e678b7fad5bc7
         array (
             0 => __DIR__ . '/..' . '/kubawerlos/php-cs-fixer-custom-fixers/src',
         ),
-        'OCA\\ChoreStrike\\Tests\\' =>
+        'OCA\\ChoreWars\\Tests\\' =>
         array (
             0 => __DIR__ . '/../..' . '/tests',
         ),
-        'OCA\\ChoreStrike\\' =>
+        'OCA\\ChoreWars\\' =>
         array (
             0 => __DIR__ . '/../..' . '/lib',
         ),

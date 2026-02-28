@@ -8,8 +8,8 @@ $baseDir = dirname($vendorDir);
 return array(
     'PhpParser\\' => array($vendorDir . '/nikic/php-parser/lib/PhpParser'),
     'PhpCsFixerCustomFixers\\' => array($vendorDir . '/kubawerlos/php-cs-fixer-custom-fixers/src'),
-    'OCA\\ChoreStrike\\Tests\\' => array($baseDir . '/tests'),
-    'OCA\\ChoreStrike\\' => array($baseDir . '/lib'),
+    'OCA\\ChoreWars\\Tests\\' => array($baseDir . '/tests'),
+    'OCA\\ChoreWars\\' => array($baseDir . '/lib'),
     'Nextcloud\\CodingStandard\\' => array($vendorDir . '/nextcloud/coding-standard/src'),
     'Doctrine\\Instantiator\\' => array($vendorDir . '/doctrine/instantiator/src/Doctrine/Instantiator'),
     'DeepCopy\\' => array($vendorDir . '/myclabs/deep-copy/src/DeepCopy'),

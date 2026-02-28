@@ -36,8 +36,8 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('house_health', 'integer', ['notnull' => true, 'default' => 100]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
 			$table->addColumn('updated_at', 'datetime', ['notnull' => true]);
-			$table->setPrimaryKey(['id']);
-			$table->addIndex(['nextcloud_instance_id'], 'idx_houses_instance');
+			$table->setPrimaryKey(['id'], 'pk_houses');
+			$table->addIndex(['nextcloud_instance_id'], 'idx_house_inst');
 		}
 
 		if (!$schema->hasTable('chorestrike_floors')) {
@@ -47,10 +47,10 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('name', 'string', ['notnull' => true, 'length' => 255]);
 			$table->addColumn('sort_order', 'integer', ['notnull' => true, 'default' => 0]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
-			$table->setPrimaryKey(['id']);
-			$table->addForeignKeyConstraint('chorestrike_houses', ['house_id'], ['id'], ['onDelete' => 'CASCADE']);
-			$table->addIndex(['house_id'], 'idx_floors_house');
-			$table->addIndex(['house_id', 'sort_order'], 'idx_floors_house_order');
+			$table->setPrimaryKey(['id'], 'pk_floors');
+			// Foreign keys removed for compatibility - see ADR
+			$table->addIndex(['house_id'], 'idx_floor_house');
+			$table->addIndex(['house_id', 'sort_order'], 'idx_floor_house_ord');
 		}
 
 		if (!$schema->hasTable('chorestrike_rooms')) {
@@ -62,9 +62,9 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('monster_count', 'integer', ['notnull' => true, 'default' => 0]);
 			$table->addColumn('last_cleaned', 'datetime', ['notnull' => false]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
-			$table->setPrimaryKey(['id']);
-			$table->addForeignKeyConstraint('chorestrike_floors', ['floor_id'], ['id'], ['onDelete' => 'CASCADE']);
-			$table->addIndex(['floor_id'], 'idx_rooms_floor');
+			$table->setPrimaryKey(['id'], 'pk_rooms');
+			// Foreign keys removed for compatibility - see ADR
+			$table->addIndex(['floor_id'], 'idx_room_floor');
 		}
 
 		if (!$schema->hasTable('chorestrike_tasks')) {
@@ -78,11 +78,11 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('frequency_value', 'integer', ['notnull' => true, 'default' => 1]);
 			$table->addColumn('estimated_minutes', 'integer', ['notnull' => true, 'default' => 15]);
 			$table->addColumn('category', 'string', ['notnull' => true, 'length' => 50, 'default' => 'cleaning']);
-			$table->addColumn('is_template', 'boolean', ['notnull' => true, 'default' => false]);
+			$table->addColumn('is_template', 'boolean', ['notnull' => false, 'default' => 0]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
-			$table->setPrimaryKey(['id']);
-			$table->addIndex(['is_template'], 'idx_tasks_template');
-			$table->addIndex(['category'], 'idx_tasks_category');
+			$table->setPrimaryKey(['id'], 'pk_tasks');
+			$table->addIndex(['is_template'], 'idx_task_tpl');
+			$table->addIndex(['category'], 'idx_task_cat');
 		}
 
 		if (!$schema->hasTable('chorestrike_room_tasks')) {
@@ -93,15 +93,14 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('next_due', 'datetime', ['notnull' => true]);
 			$table->addColumn('last_completed', 'datetime', ['notnull' => false]);
 			$table->addColumn('assigned_to_user_id', 'string', ['notnull' => false, 'length' => 64]);
-			$table->addColumn('is_active', 'boolean', ['notnull' => true, 'default' => true]);
+			$table->addColumn('is_active', 'boolean', ['notnull' => false, 'default' => 1]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
-			$table->setPrimaryKey(['id']);
-			$table->addForeignKeyConstraint('chorestrike_rooms', ['room_id'], ['id'], ['onDelete' => 'CASCADE']);
-			$table->addForeignKeyConstraint('chorestrike_tasks', ['task_id'], ['id'], ['onDelete' => 'CASCADE']);
-			$table->addIndex(['room_id'], 'idx_room_tasks_room');
-			$table->addIndex(['next_due'], 'idx_room_tasks_next_due');
-			$table->addIndex(['is_active'], 'idx_room_tasks_active');
-			$table->addUniqueIndex(['room_id', 'task_id'], 'uniq_room_task');
+			$table->setPrimaryKey(['id'], 'pk_room_tasks');
+			// Foreign keys removed for compatibility - see ADR
+			$table->addIndex(['room_id'], 'idx_rt_room');
+			$table->addIndex(['next_due'], 'idx_rt_due');
+			$table->addIndex(['is_active'], 'idx_rt_active');
+			$table->addUniqueIndex(['room_id', 'task_id'], 'uniq_rt');
 		}
 
 		return $schema;
