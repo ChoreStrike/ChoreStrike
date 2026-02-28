@@ -222,6 +222,121 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Get all room tasks for a group
+	 *
+	 * @param string $groupId The group ID
+	 * @param bool $activeOnly Whether to return only active tasks
+	 * @return RoomTask[]
+	 */
+	public function findByGroupId(string $groupId, bool $activeOnly = true): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('assigned_to_group', $qb->createNamedParameter($groupId)))
+			->andWhere($qb->expr()->eq('assignment_type', $qb->createNamedParameter('group')));
+
+		if ($activeOnly) {
+			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+		}
+
+		$qb->orderBy('next_due', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Find all tasks visible to a user (assigned directly or via group)
+	 *
+	 * @param string $userId The user ID
+	 * @param array $groupIds The group IDs the user belongs to
+	 * @param bool $activeOnly Whether to return only active tasks
+	 * @return RoomTask[]
+	 */
+	public function findVisibleToUser(string $userId, array $groupIds, bool $activeOnly = true): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName());
+
+		// Build OR condition: assigned to user OR assigned to any of user's groups
+		$conditions = [
+			$qb->expr()->eq('assigned_to_user_id', $qb->createNamedParameter($userId))
+		];
+
+		if (!empty($groupIds)) {
+			$groupConditions = [];
+			foreach ($groupIds as $groupId) {
+				$groupConditions[] = $qb->expr()->eq('assigned_to_group', $qb->createNamedParameter($groupId));
+			}
+			$conditions[] = $qb->expr()->andX(
+				$qb->expr()->eq('assignment_type', $qb->createNamedParameter('group')),
+				$qb->expr()->orX(...$groupConditions)
+			);
+		}
+
+		$qb->where($qb->expr()->orX(...$conditions));
+
+		if ($activeOnly) {
+			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+		}
+
+		$qb->orderBy('next_due', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Assign task to group
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param string $groupId The group ID
+	 */
+	public function assignToGroup(int $roomTaskId, string $groupId): void {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->update($this->getTableName())
+			->set('assigned_to_group', $qb->createNamedParameter($groupId))
+			->set('assignment_type', $qb->createNamedParameter('group'))
+			->set('claimed_by_user', $qb->createNamedParameter(null))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+
+		$qb->executeStatement();
+	}
+
+	/**
+	 * Claim a group-assigned task for a user
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param string $userId The claiming user ID
+	 */
+	public function claimForUser(int $roomTaskId, string $userId): void {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->update($this->getTableName())
+			->set('claimed_by_user', $qb->createNamedParameter($userId))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('assignment_type', $qb->createNamedParameter('group')));
+
+		$qb->executeStatement();
+	}
+
+	/**
+	 * Unclaim a group-assigned task
+	 *
+	 * @param int $roomTaskId The room task ID
+	 */
+	public function unclaim(int $roomTaskId): void {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->update($this->getTableName())
+			->set('claimed_by_user', $qb->createNamedParameter(null))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+
+		$qb->executeStatement();
+	}
+
+	/**
 	 * Assign task to user
 	 *
 	 * @param int $roomTaskId The room task ID
@@ -232,6 +347,9 @@ class RoomTaskMapper extends QBMapper {
 
 		$qb->update($this->getTableName())
 			->set('assigned_to_user_id', $qb->createNamedParameter($userId))
+			->set('assignment_type', $qb->createNamedParameter('user'))
+			->set('assigned_to_group', $qb->createNamedParameter(null))
+			->set('claimed_by_user', $qb->createNamedParameter(null))
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
 
 		$qb->executeStatement();
