@@ -82,7 +82,11 @@ class TaskService {
 		bool $isTemplate = false,
 		string $schedulingMode = 'dynamic',
 		?\DateTime $fixedScheduleTime = null,
-		?string $fixedScheduleDays = null
+		?string $fixedScheduleDays = null,
+		?string $instructions = null,
+		?string $tips = null,
+		?int $estimatedMinutesMin = null,
+		?int $estimatedMinutesMax = null
 	): Task {
 		return $this->taskMapper->create(
 			$name,
@@ -102,7 +106,11 @@ class TaskService {
 			$isTemplate,
 			$schedulingMode,
 			$fixedScheduleTime,
-			$fixedScheduleDays
+			$fixedScheduleDays,
+			$instructions,
+			$tips,
+			$estimatedMinutesMin,
+			$estimatedMinutesMax
 		);
 	}
 

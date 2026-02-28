@@ -133,7 +133,11 @@ class TaskMapper extends QBMapper {
 		bool $isTemplate = false,
 		string $schedulingMode = 'dynamic',
 		?\DateTime $fixedScheduleTime = null,
-		?string $fixedScheduleDays = null
+		?string $fixedScheduleDays = null,
+		?string $instructions = null,
+		?string $tips = null,
+		?int $estimatedMinutesMin = null,
+		?int $estimatedMinutesMax = null
 	): Task {
 		$task = new Task();
 		$task->setName($name);
@@ -154,6 +158,10 @@ class TaskMapper extends QBMapper {
 		$task->setSchedulingMode($schedulingMode);
 		$task->setFixedScheduleTime($fixedScheduleTime);
 		$task->setFixedScheduleDays($fixedScheduleDays);
+		$task->setInstructions($instructions);
+		$task->setTips($tips);
+		$task->setEstimatedMinutesMin($estimatedMinutesMin);
+		$task->setEstimatedMinutesMax($estimatedMinutesMax);
 		$task->setCreatedAt(new \DateTime());
 
 		return $this->insert($task);

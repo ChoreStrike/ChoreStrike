@@ -56,6 +56,14 @@ use OCP\AppFramework\Db\Entity;
  * @method void setFixedScheduleTime(?\DateTime $fixedScheduleTime)
  * @method string|null getFixedScheduleDays()
  * @method void setFixedScheduleDays(?string $fixedScheduleDays)
+ * @method string|null getInstructions()
+ * @method void setInstructions(?string $instructions)
+ * @method string|null getTips()
+ * @method void setTips(?string $tips)
+ * @method int|null getEstimatedMinutesMin()
+ * @method void setEstimatedMinutesMin(?int $estimatedMinutesMin)
+ * @method int|null getEstimatedMinutesMax()
+ * @method void setEstimatedMinutesMax(?int $estimatedMinutesMax)
  */
 class Task extends Entity implements JsonSerializable {
 
@@ -122,6 +130,18 @@ class Task extends Entity implements JsonSerializable {
 	/** @var string|null */
 	protected $fixedScheduleDays;
 
+	/** @var string|null */
+	protected $instructions;
+
+	/** @var string|null */
+	protected $tips;
+
+	/** @var int|null */
+	protected $estimatedMinutesMin;
+
+	/** @var int|null */
+	protected $estimatedMinutesMax;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('name', 'string');
@@ -145,6 +165,10 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('schedulingMode', 'string');
 		$this->addType('fixedScheduleTime', 'datetime');
 		$this->addType('fixedScheduleDays', 'string');
+		$this->addType('instructions', 'string');
+		$this->addType('tips', 'string');
+		$this->addType('estimatedMinutesMin', 'integer');
+		$this->addType('estimatedMinutesMax', 'integer');
 	}
 
 	/**
@@ -155,11 +179,15 @@ class Task extends Entity implements JsonSerializable {
 			'id' => $this->id,
 			'name' => $this->name,
 			'description' => $this->description,
+			'instructions' => $this->instructions,
+			'tips' => $this->tips,
 			'energyCost' => $this->energyCost,
 			'priority' => $this->priority,
 			'frequencyType' => $this->frequencyType,
 			'frequencyValue' => $this->frequencyValue,
 			'estimatedMinutes' => $this->estimatedMinutes,
+			'estimatedMinutesMin' => $this->estimatedMinutesMin,
+			'estimatedMinutesMax' => $this->estimatedMinutesMax,
 			'category' => $this->category,
 			'isTemplate' => $this->isTemplate,
 			'scopeType' => $this->scopeType,
@@ -173,6 +201,16 @@ class Task extends Entity implements JsonSerializable {
 			'fixedScheduleDays' => $this->fixedScheduleDays,
 			'createdAt' => $this->createdAt?->format('c'),
 		];
+	}
+
+	/**
+	 * Get estimated time as range string (e.g., "10-15 min" or "15 min")
+	 */
+	public function getEstimatedTimeRange(): string {
+		if ($this->estimatedMinutesMin !== null && $this->estimatedMinutesMax !== null) {
+			return "{$this->estimatedMinutesMin}-{$this->estimatedMinutesMax} min";
+		}
+		return "{$this->estimatedMinutes} min";
 	}
 
 	/**
