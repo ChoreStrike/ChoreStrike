@@ -50,6 +50,12 @@ use OCP\AppFramework\Db\Entity;
  * @method void setReminderMinutesBefore(?int $reminderMinutesBefore)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
+ * @method string getSchedulingMode()
+ * @method void setSchedulingMode(string $schedulingMode)
+ * @method \DateTime|null getFixedScheduleTime()
+ * @method void setFixedScheduleTime(?\DateTime $fixedScheduleTime)
+ * @method string|null getFixedScheduleDays()
+ * @method void setFixedScheduleDays(?string $fixedScheduleDays)
  */
 class Task extends Entity implements JsonSerializable {
 
@@ -107,6 +113,15 @@ class Task extends Entity implements JsonSerializable {
 	/** @var \DateTime */
 	protected $createdAt;
 
+	/** @var string */
+	protected $schedulingMode = 'dynamic';
+
+	/** @var \DateTime|null */
+	protected $fixedScheduleTime;
+
+	/** @var string|null */
+	protected $fixedScheduleDays;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('name', 'string');
@@ -127,6 +142,9 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('reminderType', 'string');
 		$this->addType('reminderMinutesBefore', 'integer');
 		$this->addType('createdAt', 'datetime');
+		$this->addType('schedulingMode', 'string');
+		$this->addType('fixedScheduleTime', 'datetime');
+		$this->addType('fixedScheduleDays', 'string');
 	}
 
 	/**
@@ -150,6 +168,9 @@ class Task extends Entity implements JsonSerializable {
 			'activeFrom' => $this->activeFrom?->format('c'),
 			'activeUntil' => $this->activeUntil?->format('c'),
 			'isVoluntary' => $this->isVoluntary,
+			'schedulingMode' => $this->schedulingMode,
+			'fixedScheduleTime' => $this->fixedScheduleTime?->format('H:i:s'),
+			'fixedScheduleDays' => $this->fixedScheduleDays,
 			'createdAt' => $this->createdAt?->format('c'),
 		];
 	}
@@ -223,6 +244,21 @@ class Task extends Entity implements JsonSerializable {
 		if ($this->activeFrom !== null && $this->activeUntil !== null) {
 			if ($this->activeUntil < $this->activeFrom) {
 				$errors[] = 'Active until must be equal or after active from';
+			}
+		}
+
+		// Validate schedulingMode
+		if (!in_array($this->schedulingMode, ['dynamic', 'static'])) {
+			$errors[] = 'Invalid scheduling mode';
+		}
+
+		// Validate static scheduling requirements
+		if ($this->schedulingMode === 'static') {
+			if ($this->fixedScheduleTime === null) {
+				$errors[] = 'Fixed schedule time is required for static scheduling';
+			}
+			if ($this->frequencyType === 'weekly' && empty($this->fixedScheduleDays)) {
+				$errors[] = 'At least one weekday is required for weekly static scheduling';
 			}
 		}
 

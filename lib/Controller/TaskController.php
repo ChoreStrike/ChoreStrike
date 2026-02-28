@@ -112,7 +112,10 @@ class TaskController extends OCSController {
 		?string $activeFrom = null,
 		?string $activeUntil = null,
 		bool $isVoluntary = false,
-		bool $isTemplate = false
+		bool $isTemplate = false,
+		string $schedulingMode = 'dynamic',
+		?string $fixedScheduleTime = null,
+		?string $fixedScheduleDays = null
 	): JSONResponse {
 		try {
 			$activeFromDate = null;
@@ -141,6 +144,22 @@ class TaskController extends OCSController {
 						'error' => [
 							'code' => 'VALIDATION_ERROR',
 							'message' => 'Invalid active until date'
+						]
+					], 400);
+				}
+			}
+
+			$fixedScheduleTimeDate = null;
+
+			if ($fixedScheduleTime !== null) {
+				try {
+					$fixedScheduleTimeDate = new \DateTime($fixedScheduleTime);
+				} catch (\Exception $exception) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => [
+							'code' => 'VALIDATION_ERROR',
+							'message' => 'Invalid fixed schedule time'
 						]
 					], 400);
 				}
@@ -190,7 +209,10 @@ class TaskController extends OCSController {
 				$activeFromDate,
 				$activeUntilDate,
 				$isVoluntary,
-				$isTemplate
+				$isTemplate,
+				$schedulingMode,
+				$fixedScheduleTimeDate,
+				$fixedScheduleDays
 			);
 			
 			return new JSONResponse([

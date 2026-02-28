@@ -60,6 +60,9 @@ class TaskService {
 	 * @param \DateTime|null $activeUntil Optional end date
 	 * @param bool $isVoluntary Whether task is voluntary
 	 * @param bool $isTemplate Whether this is a template
+	 * @param string $schedulingMode Scheduling mode (dynamic, fixed)
+	 * @param \DateTime|null $fixedScheduleTime Fixed schedule time
+	 * @param string|null $fixedScheduleDays Fixed schedule days
 	 */
 	public function createTask(
 		string $name,
@@ -76,7 +79,10 @@ class TaskService {
 		?\DateTime $activeFrom = null,
 		?\DateTime $activeUntil = null,
 		bool $isVoluntary = false,
-		bool $isTemplate = false
+		bool $isTemplate = false,
+		string $schedulingMode = 'dynamic',
+		?\DateTime $fixedScheduleTime = null,
+		?string $fixedScheduleDays = null
 	): Task {
 		return $this->taskMapper->create(
 			$name,
@@ -93,7 +99,10 @@ class TaskService {
 			$activeFrom,
 			$activeUntil,
 			$isVoluntary,
-			$isTemplate
+			$isTemplate,
+			$schedulingMode,
+			$fixedScheduleTime,
+			$fixedScheduleDays
 		);
 	}
 

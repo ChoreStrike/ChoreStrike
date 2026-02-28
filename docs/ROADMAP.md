@@ -2,8 +2,8 @@
 
 ## Project Phases
 
-### Phase 0: Foundation ✅ (Current)
-**Status**: In Progress  
+### Phase 0: Foundation ✅ (Complete)
+**Status**: Complete  
 **Timeline**: Week 1-2
 
 - [x] Project setup and structure
@@ -20,58 +20,58 @@
 
 ---
 
-### Phase 1: Core Task Management (MVP)
-**Status**: Planned  
+### Phase 1: Core Task Management (MVP) ✅ (Complete)
+**Status**: Complete  
 **Timeline**: Week 3-6
 
 #### Backend
-- [ ] Database migrations for core tables
-  - [ ] Houses
-  - [ ] Floors
-  - [ ] Rooms
-  - [ ] Tasks
-  - [ ] Room-Task assignments
-- [ ] API Controllers
-  - [ ] HouseController
-  - [ ] FloorController
-  - [ ] RoomController
-  - [ ] TaskController
-  - [ ] RoomTaskController
-- [ ] Service layer
-  - [ ] TaskService (CRUD, scheduling)
-  - [ ] RoomService (CRUD, cleanliness calculation)
-- [ ] Task templates (predefined common tasks)
+- [x] Database migrations for core tables
+  - [x] Houses
+  - [x] Floors
+  - [x] Rooms
+  - [x] Tasks
+  - [x] Room-Task assignments
+- [x] API Controllers
+  - [x] HouseController
+  - [x] FloorController
+  - [x] RoomController
+  - [x] TaskController
+  - [x] RoomTaskController
+- [x] Service layer
+  - [x] TaskService (CRUD, scheduling)
+  - [x] RoomService (CRUD, cleanliness calculation)
+- [x] Task templates (predefined common tasks)
 
 #### Frontend
-- [ ] Dashboard view
-  - [ ] House overview
-  - [ ] Floor/Room list
-  - [ ] Quick stats
-- [ ] Room detail view
-  - [ ] Task list for room
-  - [ ] Add/edit/delete tasks
-  - [ ] Mark tasks complete
-- [ ] Task manager view
-  - [ ] All tasks overview
-  - [ ] Filter by status, priority, difficulty
-  - [ ] Create custom tasks
-- [ ] Settings view
-  - [ ] House configuration
-  - [ ] Floor/Room management
+- [x] Dashboard view
+  - [x] House overview
+  - [x] Floor/Room list
+  - [x] Quick stats
+- [x] Room detail view
+  - [x] Task list for room
+  - [x] Add/edit/delete tasks
+  - [x] Mark tasks complete
+- [x] Task manager view
+  - [x] All tasks overview
+  - [x] Filter by status, priority, difficulty
+  - [x] Create custom tasks
+- [x] Settings view
+  - [x] House configuration
+  - [x] Floor/Room management
 
 #### Features
-- [ ] Create/edit/delete rooms
-- [ ] Organize rooms into floors
-- [ ] Create tasks with:
-  - [ ] Name, description
-  - [ ] Difficulty (1-5 stars)
-  - [ ] Priority (1-3 levels)
-  - [ ] Frequency (daily, weekly, monthly, custom)
-  - [ ] Estimated time
-- [ ] Assign tasks to rooms
-- [ ] Mark tasks as complete
-- [ ] Basic task scheduling (calculate next due date)
-- [ ] Task history
+- [x] Create/edit/delete rooms
+- [x] Organize rooms into floors
+- [x] Create tasks with:
+  - [x] Name, description
+  - [x] Difficulty (1-5 stars)
+  - [x] Priority (1-3 levels)
+  - [x] Frequency (daily, weekly, monthly, custom)
+  - [x] Estimated time
+- [x] Assign tasks to rooms
+- [x] Mark tasks as complete
+- [x] Basic task scheduling (calculate next due date)
+- [x] Task history
 
 **Deliverable**: Functional task management system (single user)
 
@@ -384,5 +384,5 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../CONTRIBUTING.m
 
 ---
 
-**Last Updated**: 2026-02-24  
-**Current Phase**: Phase 0 (Foundation)
+**Last Updated**: 2026-02-28  
+**Current Phase**: Phase 2 (Basic Gamification)

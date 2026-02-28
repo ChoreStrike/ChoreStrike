@@ -111,6 +111,9 @@ class TaskMapper extends QBMapper {
 	 * @param \DateTime|null $activeUntil Optional end date
 	 * @param bool $isVoluntary Whether task is voluntary
 	 * @param bool $isTemplate Whether this is a template
+	 * @param string $schedulingMode Scheduling mode (dynamic, fixed)
+	 * @param \DateTime|null $fixedScheduleTime Optional fixed schedule time
+	 * @param string|null $fixedScheduleDays Optional fixed schedule days
 	 */
 	public function create(
 		string $name,
@@ -127,7 +130,10 @@ class TaskMapper extends QBMapper {
 		?\DateTime $activeFrom = null,
 		?\DateTime $activeUntil = null,
 		bool $isVoluntary = false,
-		bool $isTemplate = false
+		bool $isTemplate = false,
+		string $schedulingMode = 'dynamic',
+		?\DateTime $fixedScheduleTime = null,
+		?string $fixedScheduleDays = null
 	): Task {
 		$task = new Task();
 		$task->setName($name);
@@ -145,6 +151,9 @@ class TaskMapper extends QBMapper {
 		$task->setActiveUntil($activeUntil);
 		$task->setIsVoluntary($isVoluntary);
 		$task->setIsTemplate($isTemplate);
+		$task->setSchedulingMode($schedulingMode);
+		$task->setFixedScheduleTime($fixedScheduleTime);
+		$task->setFixedScheduleDays($fixedScheduleDays);
 		$task->setCreatedAt(new \DateTime());
 
 		return $this->insert($task);
@@ -168,7 +177,16 @@ class TaskMapper extends QBMapper {
 			$template->getFrequencyValue(),
 			$template->getEstimatedMinutes(),
 			$template->getCategory(),
-			false // Not a template
+			$template->getScopeType(),
+			$template->getScopeLabel(),
+			$template->getRecurrenceMode(),
+			$template->getActiveFrom(),
+			$template->getActiveUntil(),
+			$template->getIsVoluntary(),
+			false, // Not a template
+			$template->getSchedulingMode(),
+			$template->getFixedScheduleTime(),
+			$template->getFixedScheduleDays()
 		);
 	}
 

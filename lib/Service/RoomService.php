@@ -275,7 +275,16 @@ class RoomService {
 		$room = $roomTaskData['room'];
 
 		// Mark task as completed and calculate next due date
-		$roomTask->markCompleted(new \DateTime(), $task->getFrequencyType(), $task->getFrequencyValue());
+		$roomTask->markCompleted(
+			new \DateTime(),
+			$task->getFrequencyType(),
+			$task->getFrequencyValue(),
+			$task->getRecurrenceMode(),
+			$task->getSchedulingMode(),
+			$task->getActiveUntil(),
+			$task->getFixedScheduleTime(),
+			$task->getFixedScheduleDays()
+		);
 		$this->roomTaskMapper->update($roomTask);
 
 		// Update room cleanliness based on task energy cost

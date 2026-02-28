@@ -1,19 +1,19 @@
 <?php return array(
     'root' => array(
-        'name' => 'chorewars/chorewars',
+        'name' => 'chorestrike/chorestrike',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => '5890ad3aa565f55062056551b258b50a509b8b1c',
+        'reference' => 'f15d60a9bab94c10aa16786484a8e7fb3dd72850',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
-        'chorewars/chorewars' => array(
+        'chorestrike/chorestrike' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '5890ad3aa565f55062056551b258b50a509b8b1c',
+            'reference' => 'f15d60a9bab94c10aa16786484a8e7fb3dd72850',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
