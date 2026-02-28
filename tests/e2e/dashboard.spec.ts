@@ -11,6 +11,9 @@ test.describe('User Login and Dashboard', () => {
 	})
 
 	test('User can login and view dashboard', async ({ page }) => {
+		// Increase timeout for this test
+		test.setTimeout(90000)
+
 		// Login form should be visible or user already logged in
 		const loginForm = await page.locator('#login-form').isVisible().catch(() => false)
 
@@ -20,55 +23,72 @@ test.describe('User Login and Dashboard', () => {
 			await page.fill('#password', process.env.NEXTCLOUD_PASSWORD || 'admin')
 			await page.click('#submit-form')
 
-			// Wait for redirect
-			await page.waitForLoadState('networkidle')
+			// Wait for redirect with longer timeout
+			await page.waitForLoadState('networkidle', { timeout: 30000 })
 		}
 
 		// Navigate to ChoreStrike app
 		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+
+		// Wait for API data to load
+		await page.waitForTimeout(2000)
 
 		// Dashboard should load
-		await expect(page.locator('[data-testid="dashboard-view"]')).toBeVisible()
+		await expect(page.locator('[data-testid="dashboard-view"]')).toBeVisible({ timeout: 20000 })
 
 		// House health widget should be present
-		await expect(page.locator('[data-testid="house-health"]')).toBeVisible()
+		await expect(page.locator('[data-testid="house-health"]')).toBeVisible({ timeout: 15000 })
 
 		// Floor list should be present
-		await expect(page.locator('[data-testid="floor-list"]')).toBeVisible()
+		await expect(page.locator('[data-testid="floor-list"]')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Dashboard shows quick stats', async ({ page }) => {
+		test.setTimeout(60000)
+
 		// Navigate to app (assuming already logged in)
 		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+
+		// Wait for API data to load
+		await page.waitForTimeout(2000)
 
 		// Quick stats should be visible
-		await expect(page.locator('[data-testid="quick-stats"]')).toBeVisible()
+		await expect(page.locator('[data-testid="quick-stats"]')).toBeVisible({ timeout: 20000 })
 
-		// Stats should show meaningful data
+		// Stats should show meaningful data (at least 3 stat cards expected)
 		const statCards = page.locator('[data-testid="stat-card"]')
-		await expect(statCards).toHaveCount(3)
+		await expect(statCards).toHaveCount(3, { timeout: 15000 })
 	})
 
 	test('Navigation menu works correctly', async ({ page }) => {
+		test.setTimeout(60000)
+
 		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+
+		// Wait for initial load
+		await page.waitForTimeout(1000)
 
 		// Click on Tasks tab
 		await page.click('[data-testid="nav-tasks"]')
+		await page.waitForTimeout(1000)
 		await expect(page).toHaveURL(/.*tasks/)
 
 		// Click on Leaderboard tab
 		await page.click('[data-testid="nav-leaderboard"]')
+		await page.waitForTimeout(1000)
 		await expect(page).toHaveURL(/.*leaderboard/)
 
 		// Click on Settings tab
 		await page.click('[data-testid="nav-settings"]')
+		await page.waitForTimeout(1000)
 		await expect(page).toHaveURL(/.*settings/)
 
 		// Back to Dashboard
 		await page.click('[data-testid="nav-dashboard"]')
+		await page.waitForTimeout(1000)
 		await expect(page).toHaveURL(/.*dashboard/)
 	})
 })

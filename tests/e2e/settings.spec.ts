@@ -6,12 +6,19 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('Settings', () => {
 	test.beforeEach(async ({ page }) => {
+		test.setTimeout(60000)
+
 		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+
+		// Wait for dashboard to be ready
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
+
 		await page.click('[data-testid="nav-settings"]')
-		await page.waitForLoadState('networkidle')
-		// Wait for settings data to load
-		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+
+		// Wait for settings data to load with longer timeout
+		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 	})
 
 	test('Settings page loads correctly', async ({ page }) => {

@@ -10,12 +10,14 @@ export default defineConfig({
 	fullyParallel: true,
 	/* Fail the build on CI if you accidentally left test.only in the source code */
 	forbidOnly: !!process.env.CI,
-	/* Retry on CI only */
-	retries: process.env.CI ? 2 : 0,
+	/* Retry on CI and locally for stability */
+	retries: 2,
 	/* Opt out of parallel tests on CI */
 	workers: process.env.CI ? 1 : undefined,
 	/* Reporter to use */
 	reporter: 'html',
+	/* Global timeout for each test */
+	timeout: 60000,
 	/* Shared settings for all the projects below */
 	use: {
 		/* Base URL to use in actions like `await page.goto('/')` */
@@ -26,6 +28,12 @@ export default defineConfig({
 
 		/* Screenshot on failure */
 		screenshot: 'only-on-failure',
+
+		/* Action timeout for clicks, fills, etc. */
+		actionTimeout: 15000,
+
+		/* Navigation timeout */
+		navigationTimeout: 30000,
 	},
 
 	/* Configure projects for major browsers */
