@@ -1,249 +1,243 @@
-# ChoreStrike - Konzept & Design Dokument
+# ChoreStrike - Concept & Design Document
 
 ## 🎯 Vision
 
-ChoreStrike verwandelt Haushaltsaufgaben in ein kooperatives Spiel, das motiviert statt bestraft. Durch die Gamifizierung mit Tower Defense-Elementen wird das Putzen zu einem befriedigenden, visuellen Erlebnis.
+ChoreStrike transforms household chores into a cooperative game that motivates rather than punishes. Through gamification with tower defense elements, cleaning becomes a satisfying, visual experience.
 
-## 📊 Sweepy-Analyse: Was wir übernehmen
+## 🏠 Core Features
 
-Basierend auf der Recherche zu Sweepy übernehmen wir folgende bewährte Konzepte:
+### 1. Room-Based Organization
+- Rooms as central organizational unit
+- Visual cleanliness indicators
+- Overview across all rooms
 
-### ✅ Kernfunktionen von Sweepy
+### 2. Task System
+- Predefined task templates + custom tasks
+- Energy cost scale (1-5 stars)
+- Recurrence patterns (daily, weekly, monthly, custom)
+- Filtering by energy cost and urgency
 
-1. **Raum-basierte Organisation**
-   - Räume als zentrale Organisationseinheit
-   - Visuelle Indikatoren für Sauberkeit
-   - Übersicht über alle Räume
+### 3. Smart Scheduling
+- Automatic daily task list generation
+- Based on available time/effort budget
+- Weekday-specific configuration
 
-2. **Task-System**
-   - Vordefinierte Task-Vorschläge + Custom Tasks
-   - Schwierigkeitsgrade (bei Sweepy 1-3 Punkte, bei uns 1-5 Sterne)
-   - Wiederholungsintervalle
-   - Filterung nach Schwierigkeit und Dringlichkeit
+### 4. Multi-User Support
+- Invite household members
+- Cooperative progress tracking
+- Task approval workflow for children
+- Fair workload distribution
 
-3. **Smart Schedule**
-   - Automatische Generierung von Tageslisten
-   - Basierend auf verfügbarer Zeit/Aufwand
-   - Anpassbar nach Wochentag
+### 5. Streak & History
+- Streak tracking (motivation through continuity)
+- Completed task history
+- Progress visualization
 
-4. **Multi-User Features**
-   - Familienmitglieder/Mitbewohner einladen
-   - Leaderboard/Wettbewerb
-   - Task-Approval-System für Kinder
-   - Gemeinsame Fortschrittsverfolgung
-
-5. **Streak & History**
-   - Cleaning Streak (Motivation durch Kontinuität)
-   - Historie erledigter Aufgaben
-   - Fortschritts-Tracking
-
-## 🎮 ChoreStrike Erweiterungen
-
-Was wir zusätzlich zu Sweepy bieten:
+## 🎮 Gamification Layer
 
 ### 1. Gamification: "Base Defense"
 
-#### Die Invasion
-- **The Dust**: Niedliche Pixel-Monster (inspiriert von Ghibli Rußmännchen)
-- **Spawn-Mechanik**: 
-  - Aufgabe fällig → erste Schatten am Rand
-  - Aufgabe überfällig → Monster spawnen
-  - Je länger überfällig, desto mehr Monster
+#### The Invasion
+- **The Dust**: Cute pixel monsters (inspired by dust sprites)
+- **Spawn Mechanics**: 
+  - Task due → first shadows at edges
+  - Task overdue → monsters spawn
+  - Longer overdue → more monsters
   
-#### Visuelle Zustände
+#### Visual States
 ```
-Sauber (100%) → Hell, leuchtend, friedlich
-Fällig (75%)   → Erste Schatten, leichte Verdunklung
-Überfällig (50%) → Monster in Ecken
-Kritisch (25%) → Monster überall, Raum dunkel
-Chaos (0%)     → Monster verdecken UI-Elemente (Meta-Ebene!)
+Clean (100%)    → Bright, glowing, peaceful
+Due (75%)       → First shadows, slight darkening
+Overdue (50%)   → Monsters in corners
+Critical (25%)  → Monsters everywhere, room dark
+Chaos (0%)      → Monsters cover UI elements (meta-level!)
 ```
 
 #### Combat = Cleaning
-- Task abhaken = Monster besiegen
-- Animations-Feedback:
-  - Lichtblitz beim Erledigen
-  - Besen-Wisch-Sound
-  - Partikel-Effekt (Seifenblasen/Konfetti)
-  - "Plopp" wenn Monster verschwinden
-- Größere Tasks = mehr Monster besiegt
+- Complete task = defeat monsters
+- Animation feedback:
+  - Light flash on completion
+  - Broom-swish sound
+  - Particle effect (soap bubbles/confetti)
+  - "Pop" when monsters disappear
+- Larger tasks = more monsters defeated
 
 ### 2. House Health System
 
-**Gemeinsamer Lebensbalken** (oben im Dashboard)
-- Voll (100%): Haus glänzt, alles perfekt
-- Mittel (50%): Normaler Zustand
-- Niedrig (25%): "Chaos-Modus" - visuell dunkler
-- Leer (0%): Maximales Chaos, aber **kein Game Over**
+**Shared Health Bar** (top of dashboard)
+- Full (100%): House gleaming, everything perfect
+- Medium (50%): Normal state
+- Low (25%): "Chaos Mode" - visually darker
+- Empty (0%): Maximum chaos, but **no game over**
 
-**Philosophie**: Keine Bestrafung, nur verschiedene Zustände
+**Philosophy**: No punishment, only different states
 
-### 3. Kooperative Mechaniken
+### 3. Cooperative Mechanics
 
-#### Team-Bonuses
-- **Combo-Multiplikator**: 2 User innerhalb 10 Min → Punkte x1.5
-- **Synchronized Cleaning**: Gleicher Raum gleichzeitig → Extra-Effekt
-- **Support Actions**: User kann anderen "helfen" (Bonus-Punkte)
+#### Team Bonuses
+- **Combo Multiplier**: 2 users within 10 min → points x1.5
+- **Synchronized Cleaning**: Same room simultaneously → extra effect
+- **Support Actions**: User can "help" others (bonus points)
 
-#### Wöchentliche Medaillen
-- **Der Tank**: Meiste schwere Aufgaben (5-Sterne)
-- **Der Scout**: Viele kleine Aufgaben, präventiv
-- **Der Spezialist**: Fokus auf bestimmte Räume
-- **Der Teamplayer**: Meiste Combo-Bonuses
-- **Der Streak-Keeper**: Längste tägliche Serie
+#### Weekly Medals
+- **The Tank**: Most heavy tasks (5-star)
+- **The Scout**: Many small tasks, preventive
+- **The Specialist**: Focus on specific rooms
+- **The Teamplayer**: Most combo bonuses
+- **The Streak Keeper**: Longest daily streak
 
-### 4. Erweiterte Raum-Organisation
+### 4. Extended Room Organization
 
-#### Stockwerke & Sammlungen
+#### Floors & Collections
 ```
-Haus
-├── Erdgeschoss
-│   ├── Küche
-│   ├── Wohnzimmer
-│   └── Gäste-WC
-├── Obergeschoss
-│   ├── Schlafzimmer
-│   ├── Bad
-│   └── Kinderzimmer
-└── Keller
-    ├── Waschküche
-    └── Hobbyraum
+House
+├── Ground Floor
+│   ├── Kitchen
+│   ├── Living Room
+│   └── Guest WC
+├── Upper Floor
+│   ├── Bedroom
+│   ├── Bathroom
+│   └── Children's Room
+└── Basement
+    ├── Laundry Room
+    └── Hobby Room
 ```
 
-#### Multi-Raum Tasks
-- Task kann mehrere Räume betreffen
-- Beispiele:
-  - "Staubsauger-Roboter" → alle Räume EG
-  - "Fenster putzen" → alle Fenster OG
-  - "Müll rausbringen" → Küche + Bad
+#### Multi-Room Tasks
+- Tasks can affect multiple rooms
+- Examples:
+  - "Robot vacuum" → all ground floor rooms
+  - "Window cleaning" → all upper floor windows
+  - "Take out trash" → Kitchen + Bathroom
 
-### 5. Prioritäten-System (3 Stufen)
+### 5. Priority System (3 Levels)
 
-| Priorität | Symbol | Beispiele | Spawn-Rate |
-|-----------|--------|-----------|------------|
-| **Hoch** | 🔴 | Katzenklo, Müll, Spülmaschine | 2x schneller |
-| **Normal** | 🟡 | Staubsaugen, Wischen | Normal |
-| **Niedrig** | 🟢 | Fenster putzen, Deko abstauben | 0.5x |
+| Priority | Symbol | Examples | Spawn Rate |
+|----------|--------|----------|------------|
+| **High** | 🔴 | Litter box, trash, dishwasher | 2x faster |
+| **Normal** | 🟡 | Vacuuming, mopping | Normal |
+| **Low** | 🟢 | Window cleaning, dusting decor | 0.5x |
 
-### 6. Flexible Planung
+### 6. Flexible Planning
 
-#### Planungs-Modi
-1. **Wochenend-Krieger**: Alles am Samstag/Sonntag
-2. **Daily Cleaner**: Jeden Tag ein bisschen
-3. **Custom**: Eigene Verteilung
-4. **Auto-Balance**: App verteilt optimal
+#### Planning Modes
+1. **Weekend Warrior**: Everything on Saturday/Sunday
+2. **Daily Cleaner**: A little bit every day
+3. **Custom**: Own distribution
+4. **Auto-Balance**: App distributes optimally
 
-#### Verfügbarkeits-System
-- User gibt an: "Montag 30 Min, Samstag 2h"
-- App schlägt passende Tasks vor
-- Berücksichtigt Schwierigkeit + Priorität
+#### Availability System
+- User specifies: "Monday 30 min, Saturday 2h"
+- App suggests matching tasks
+- Considers energy cost + priority
 
 ## 🎨 UI/UX Design
 
-### Design-Prinzipien
-- **Erwachsenentauglich**: Kein Kinderspiel-Look
-- **Modern & Clean**: Flat Design mit Pixel-Art Akzenten
-- **Juicy UI**: Befriedigende Animationen
-- **Performance**: Leichtgewichtig, auch auf Mobile
+### Design Principles
+- **Adult-Appropriate**: No childish game look
+- **Modern & Clean**: Flat design with pixel-art accents
+- **Juicy UI**: Satisfying animations
+- **Performance**: Lightweight, mobile-optimized
 
-### Farbschema
+### Color Scheme
 ```
-Sauber:    #4CAF50 (Grün)
-Fällig:    #FFC107 (Gelb/Orange)
-Überfällig: #FF5722 (Orange/Rot)
-Kritisch:   #F44336 (Rot)
-Chaos:      #9E9E9E (Grau)
+Clean:     #4CAF50 (Green)
+Due:       #FFC107 (Yellow/Orange)
+Overdue:   #FF5722 (Orange/Red)
+Critical:  #F44336 (Red)
+Chaos:     #9E9E9E (Gray)
 ```
 
-### Haupt-Screens
+### Main Screens
 
 #### 1. Dashboard/Map View
 ```
 ┌─────────────────────────────────────┐
 │ House Health: ████████░░ 80%        │
-│ Streak: 🔥 7 Tage                   │
+│ Streak: 🔥 7 Days                   │
 ├─────────────────────────────────────┤
 │                                     │
-│  [Obergeschoss]                     │
-│   🟢 Schlafzimmer  🟡 Bad           │
-│   🔴 Kinderzimmer                   │
+│  [Upper Floor]                      │
+│   🟢 Bedroom  🟡 Bathroom           │
+│   🔴 Children's Room                │
 │                                     │
-│  [Erdgeschoss]                      │
-│   🟢 Küche  🟢 Wohnzimmer          │
-│   🟡 Gäste-WC                       │
+│  [Ground Floor]                     │
+│   🟢 Kitchen  🟢 Living Room        │
+│   🟡 Guest WC                       │
 │                                     │
-│  [Heute fällig: 5 Tasks]            │
-│  [Überfällig: 2 Tasks] ⚠️          │
+│  [Due today: 5 Tasks]               │
+│  [Overdue: 2 Tasks] ⚠️              │
 └─────────────────────────────────────┘
 ```
 
 #### 2. Room Detail View
 ```
 ┌─────────────────────────────────────┐
-│ ← Küche                    🟡 75%   │
+│ ← Kitchen                  🟡 75%   │
 ├─────────────────────────────────────┤
 │                                     │
-│  [Raum-Visualisierung]              │
-│  🦠🦠 (2 Monster in Ecken)          │
+│  [Room Visualization]               │
+│  🦠🦠 (2 monsters in corners)       │
 │                                     │
 ├─────────────────────────────────────┤
-│ Aufgaben:                           │
-│ ☐ Spülmaschine ausräumen ⭐⭐ 🔴    │
-│ ☐ Müll rausbringen ⭐ 🔴            │
-│ ☑ Herd putzen ⭐⭐⭐ 🟡             │
-│ ☐ Boden wischen ⭐⭐⭐⭐ 🟢         │
+│ Tasks:                              │
+│ ☐ Empty dishwasher ⭐⭐ 🔴          │
+│ ☐ Take out trash ⭐ 🔴              │
+│ ☑ Clean stove ⭐⭐⭐ 🟡              │
+│ ☐ Mop floor ⭐⭐⭐⭐ 🟢              │
 └─────────────────────────────────────┘
 ```
 
 #### 3. Task Completion Animation
 ```
-[User klickt Task]
+[User clicks task]
   ↓
-[Lichtblitz-Animation]
+[Light flash animation]
   ↓
-[Monster verschwinden mit "Plopp"]
+[Monsters disappear with "pop"]
   ↓
-[Konfetti/Seifenblasen-Partikel]
+[Confetti/soap bubble particles]
   ↓
-[+15 XP, Raum-Status update]
+[+15 XP, room status update]
   ↓
-[Wenn Combo: "Teamwork! x1.5 Bonus!"]
+[If combo: "Teamwork! x1.5 Bonus!"]
 ```
 
-### Monster-Design
+### Monster Design
 
-#### Typen (nach Aufgaben-Kategorie)
-- **Wollmäuse** (Staub): Kleine, fluffige Kugeln
-- **Schleimblobs** (Küche): Glibberige Tropfen
-- **Pixel-Spinnen** (Bad): 8-Bit Spinnen
-- **Müll-Gremlins** (Müll): Kleine Müllsack-Kreaturen
+#### Types (by task category)
+- **Dust Bunnies** (Dust): Small, fluffy balls
+- **Slime Blobs** (Kitchen): Gooey droplets
+- **Pixel Spiders** (Bathroom): 8-bit spiders
+- **Trash Gremlins** (Trash): Small garbage bag creatures
 
-#### Animationen
-- **Idle**: Leichtes Wippen, Blinzeln
-- **Spawn**: Aus Schatten materialisieren
-- **Defeat**: Auflösen mit Partikel-Effekt
-- **Invasion**: Langsam über Bildschirm krabbeln
+#### Animations
+- **Idle**: Slight bobbing, blinking
+- **Spawn**: Materialize from shadows
+- **Defeat**: Dissolve with particle effect
+- **Invasion**: Slowly crawl across screen
 
-## 🗄️ Datenmodell
+## 🗄️ Data Model
 
-### Hauptentitäten
+### Main Entities
 
 ```sql
--- Häuser/Instanzen
+-- Houses/Instances
 houses
   - id
   - name
   - created_at
   - house_health (0-100)
 
--- Stockwerke/Sammlungen
+-- Floors/Collections
 floors
   - id
   - house_id
   - name
   - sort_order
 
--- Räume
+-- Rooms
 rooms
   - id
   - floor_id
@@ -252,7 +246,7 @@ rooms
   - monster_count
   - last_cleaned
 
--- Aufgaben
+-- Tasks
 tasks
   - id
   - name
@@ -264,7 +258,7 @@ tasks
   - estimated_minutes
   - category (cleaning/organizing/maintenance)
 
--- Raum-Aufgaben-Verknüpfung
+-- Room-Task Assignments
 room_tasks
   - id
   - room_id
@@ -283,7 +277,7 @@ users
   - total_points
   - current_streak
 
--- Erledigte Aufgaben (History)
+-- Completed Tasks (History)
 completed_tasks
   - id
   - room_task_id
@@ -292,7 +286,7 @@ completed_tasks
   - points_earned
   - was_combo
 
--- Medaillen
+-- Medals
 medals
   - id
   - user_id
@@ -301,27 +295,27 @@ medals
   - awarded_at
 ```
 
-## 🌍 Internationalisierung (i18n)
+## 🌍 Internationalization (i18n)
 
-### Sprachen (Initial)
-- Deutsch (de)
+### Languages (Initial)
+- German (de)
 - English (en)
 
-### Übersetzbare Elemente
-- UI-Texte
-- Task-Vorschläge
-- Raum-Vorschläge
-- Medaillen-Namen
-- Benachrichtigungen
+### Translatable Elements
+- UI text
+- Task templates
+- Room suggestions
+- Medal names
+- Notifications
 - Tooltips
 
-### Technische Umsetzung
-- Nextcloud i18n System
-- `.pot` Template-Dateien
-- `.po` Übersetzungsdateien pro Sprache
-- Automatische Fallback zu Englisch
+### Technical Implementation
+- Nextcloud i18n system
+- `.pot` template files
+- `.po` translation files per language
+- Automatic fallback to English
 
-## 🔧 Technische Architektur
+## 🔧 Technical Architecture
 
 ### Frontend (Vue.js 3)
 ```
@@ -409,21 +403,21 @@ lib/
 - [ ] Erweiterte Medaillen
 
 ### Phase 5: Polish
-- [ ] Alle Animationen
-- [ ] Sound-Effekte (optional)
-- [ ] Mobile-Optimierung
-- [ ] Performance-Tuning
-- [ ] Vollständige i18n
+- [ ] All animations
+- [ ] Sound effects (optional)
+- [ ] Mobile optimization
+- [ ] Performance tuning
+- [ ] Complete i18n
 
-## 🚀 Nächste Schritte
+## 🚀 Next Steps
 
-1. Nextcloud App-Struktur aufsetzen
-2. Datenbank-Schema implementieren
-3. Basis-CRUD für Räume & Tasks
-4. Einfaches Frontend (Liste)
-5. Monster-Sprites erstellen
-6. Gamification-Layer hinzufügen
+1. Set up Nextcloud app structure
+2. Implement database schema
+3. Basic CRUD for rooms & tasks
+4. Simple frontend (list view)
+5. Create monster sprites
+6. Add gamification layer
 
 ---
 
-**Philosophie**: Motivieren, nicht bestrafen. Zusammen spielen, zusammen gewinnen. 🎮✨
+**Philosophy**: Motivate, don't punish. Play together, win together. 🎮✨

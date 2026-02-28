@@ -20,6 +20,7 @@
 - **Single Responsibility:** One class = one job.
 - **Clean Architecture:** Frontend → Controller → Service → Mapper/DB. No business logic in controllers.
 - **Nextcloud Ecosystem:** Use Nextcloud APIs only. No external services.
+- **Private Content:** ALL private/business/personal content MUST go in `/private/` folder (gitignored). NEVER commit private data to `docs/` or any public area.
 
 **Details:** See `docs/ARCHITECTURE.md`, `docs/standards/`
 
@@ -169,7 +170,9 @@ When conflicts arise, prioritize in this order:
 ChoreStrike/
 ├── AGENTS.md                    ← YOU ARE HERE (central command)
 ├── .windsurfrules               ← Quick reference (synced with this)
-├── docs/
+├── private/                     ← PRIVATE ONLY (gitignored, never commit!)
+│   └── *.md                    ← Business plans, personal notes, etc.
+├── docs/                        ← PUBLIC documentation only
 │   ├── ROADMAP.md              ← High-level timeline
 │   ├── ARCHITECTURE.md         ← System design details
 │   ├── AGENT_GUIDELINES.md     ← Detailed examples & patterns
@@ -202,6 +205,7 @@ ChoreStrike/
 | Security issue | Fix immediately, add regression test |
 | Large refactor needed | Add to backlog, notify user |
 | Recurring issue in reviews | Propose new rule for AGENTS.md |
+| Private/business content | Move to `/private/` folder immediately |
 
 ---
 

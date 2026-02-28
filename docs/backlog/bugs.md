@@ -8,8 +8,8 @@
 **Phase**: 1
 
 ### Description
-The frontend uses `chorewars` in API paths and router base URLs, while the app metadata and backend controllers use `chorestrike`.
-This causes 404 errors and broken app bootstrap behavior.
+The frontend used inconsistent app ID in API paths and router base URLs, while the app metadata and backend controllers use `chorestrike`.
+This caused 404 errors and broken app bootstrap behavior.
 
 ### Acceptance Criteria
 - [x] All frontend API calls use the same app ID as backend routes.
@@ -18,7 +18,7 @@ This causes 404 errors and broken app bootstrap behavior.
 - [ ] A smoke test verifies dashboard load and one API call succeeds.
 
 ### Notes
-- Fixed in commits: Updated all occurrences of `chorewars` to `chorestrike` in frontend code, templates, and stores.
+- Fixed in commits: Updated all occurrences to `chorestrike` in frontend code, templates, and stores.
 - See `appinfo/info.xml`, `templates/main.php`, `src/main.js`, `src/router.js`, and all stores under `src/store/`.
 
 ---
