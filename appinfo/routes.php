@@ -82,6 +82,17 @@ return [
         ['name' => 'scheduling#updateMemberAvailability', 'url' => '/api/v1/scheduling/members/{userId}', 'verb' => 'PUT'],
         ['name' => 'scheduling#getSuggestions', 'url' => '/api/v1/scheduling/suggestions', 'verb' => 'POST'],
 
+        // Template API
+        ['name' => 'template#index', 'url' => '/api/v1/templates', 'verb' => 'GET'],
+        ['name' => 'template#categories', 'url' => '/api/v1/templates/categories', 'verb' => 'GET'],
+        ['name' => 'template#byCategory', 'url' => '/api/v1/templates/category/{category}', 'verb' => 'GET'],
+        ['name' => 'template#byRoomType', 'url' => '/api/v1/templates/room-type/{roomType}', 'verb' => 'GET'],
+        ['name' => 'template#search', 'url' => '/api/v1/templates/search', 'verb' => 'GET'],
+        ['name' => 'template#suggestions', 'url' => '/api/v1/templates/suggestions/{roomName}', 'verb' => 'GET'],
+        ['name' => 'template#import', 'url' => '/api/v1/templates/import/{templateId}', 'verb' => 'POST'],
+        ['name' => 'template#bulkImport', 'url' => '/api/v1/templates/bulk-import', 'verb' => 'POST'],
+        ['name' => 'template#statistics', 'url' => '/api/v1/templates/statistics', 'verb' => 'GET'],
+
         // Task Sync API
         ['name' => 'task_sync#complete', 'url' => '/api/v1/task-sync/complete', 'verb' => 'POST'],
         ['name' => 'task_sync#syncFromNextcloud', 'url' => '/api/v1/task-sync/sync-from-nextcloud', 'verb' => 'POST'],
