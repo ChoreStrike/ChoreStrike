@@ -15,20 +15,29 @@
 **Notes**: Brief progress notes
 -->
 
-### Cascade - P1-FE-001 - Dashboard View (Vue.js)
-**Status**: Review Ready
-**Started**: 2026-02-28 13:26
-**Last Update**: 2026-02-28 13:27
-**Branch**: main
-**Related Files**: src/views/Dashboard.vue, src/components/Dashboard/, src/store/house.js, src/store/rooms.js
-**Blockers**: None
-**Notes**: Dashboard View ALREADY IMPLEMENTED. Includes: HouseHealthBar, QuickStats, FloorList with rooms. Fetches data from house and rooms stores. E2E tests exist.
+*No active tasks*
 
 ---
 
 ## Recently Completed (Last 7 Days)
 
 <!-- Moved here automatically when task status changes to "Done" or "Review Ready" -->
+
+### Cascade - P1-FE-001 - Dashboard View (Vue.js)
+**Status**: Done
+**Started**: 2026-02-28 13:26
+**Completed**: 2026-02-28 14:02
+**Branch**: main
+**Related Files**: src/views/Dashboard.vue, src/components/Dashboard/, src/store/house.js, src/store/rooms.js, tests/e2e/dashboard.spec.ts, tests/e2e/dashboard-navigation.spec.ts
+**Notes**: Dashboard ALREADY IMPLEMENTED. Enhanced E2E tests with longer timeouts and data-testid attributes. QuickStats, HouseHealthBar, FloorList components verified.
+
+### Cascade - Testing & Roadmap Update
+**Status**: Done
+**Started**: 2026-02-28 13:27
+**Completed**: 2026-02-28 14:02
+**Branch**: main
+**Related Files**: docs/ROADMAP.md, playwright.config.ts, tests/e2e/*.ts, .gitignore
+**Notes**: Marked Phase 0 and Phase 1 as complete. Updated gitignore for test artifacts. Fixed E2E test stability with improved timeouts.
 
 ---
 

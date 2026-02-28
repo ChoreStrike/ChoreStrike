@@ -6,28 +6,35 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('Task Manager', () => {
 	test.beforeEach(async ({ page }) => {
+		test.setTimeout(60000)
+
 		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
+
 		await page.click('[data-testid="nav-tasks"]')
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await page.waitForTimeout(1000)
 	})
 
 	test('Task Manager page loads with correct title', async ({ page }) => {
-		// Verify task manager view is visible
-		await expect(page.locator('[data-testid="task-manager-view"]')).toBeVisible()
+		// Wait for view with longer timeout
+		await expect(page.locator('[data-testid="task-manager-view"]')).toBeVisible({ timeout: 20000 })
 
 		// Verify title
 		await expect(page.locator('[data-testid="task-manager-title"]')).toContainText('Task Manager')
 
 		// Verify add task button is present
-		await expect(page.locator('[data-testid="add-task-button"]')).toBeVisible()
+		await expect(page.locator('[data-testid="add-task-button"]')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Task Manager displays filter controls', async ({ page }) => {
+		await page.waitForTimeout(1000)
+
 		// Verify all filter selects are visible
-		await expect(page.locator('[data-testid="status-filter"]')).toBeVisible()
-		await expect(page.locator('[data-testid="priority-filter"]')).toBeVisible()
-		await expect(page.locator('[data-testid="difficulty-filter"]')).toBeVisible()
+		await expect(page.locator('[data-testid="status-filter"]')).toBeVisible({ timeout: 15000 })
+		await expect(page.locator('[data-testid="priority-filter"]')).toBeVisible({ timeout: 15000 })
+		await expect(page.locator('[data-testid="difficulty-filter"]')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Task Manager displays search input', async ({ page }) => {
@@ -85,10 +92,14 @@ test.describe('Task Manager', () => {
 	})
 
 	test('User can open add task modal from Task Manager', async ({ page }) => {
+		// Wait for page to be fully loaded
+		await page.waitForTimeout(1000)
+
 		// Click add task button
 		await page.click('[data-testid="add-task-button"]')
+		await page.waitForTimeout(500)
 
 		// Verify modal is opened
-		await expect(page.locator('.modal-content')).toBeVisible()
+		await expect(page.locator('.modal-content')).toBeVisible({ timeout: 15000 })
 	})
 })

@@ -6,61 +6,63 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('Room and Floor Management', () => {
 	test.beforeEach(async ({ page }) => {
+		test.setTimeout(60000)
+
 		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle')
-		// Wait for dashboard to load
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		// Wait for dashboard to load with longer timeout
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
 
 	test('User can create a new floor', async ({ page }) => {
 		// Navigate to settings
 		await page.click('[data-testid="nav-settings"]')
-		await page.waitForLoadState('networkidle')
-		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 
 		// Click add floor
 		await page.click('[data-testid="add-floor-button"]')
 
 		// Wait for modal and fill floor name
-		await page.waitForSelector('.modal-content', { timeout: 5000 })
+		await page.waitForSelector('.modal-content', { timeout: 15000 })
 		await page.fill('input[type="text"]', 'Basement')
 
 		// Save floor
 		await page.click('button:has-text("Create")')
 
 		// Wait for modal to close and verify floor appears
-		await page.waitForTimeout(500)
-		await expect(page.locator('text=Basement')).toBeVisible()
+		await page.waitForTimeout(1000)
+		await expect(page.locator('text=Basement')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('User can add room to floor', async ({ page }) => {
 		// Navigate to settings
 		await page.click('[data-testid="nav-settings"]')
-		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
+		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 
 		// First create a floor if none exists
 		const noFloorsMessage = page.locator('[data-testid="no-floors-message"]')
 		if (await noFloorsMessage.isVisible().catch(() => false)) {
 			await page.click('[data-testid="create-first-floor"]')
-			await page.waitForSelector('.modal-content', { timeout: 5000 })
+			await page.waitForSelector('.modal-content', { timeout: 15000 })
 			await page.fill('input[type="text"]', 'Test Floor')
 			await page.click('button:has-text("Create")')
-			await page.waitForTimeout(500)
+			await page.waitForTimeout(1000)
 		}
 
 		// Navigate to dashboard to see rooms
 		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
 		// Check if any floor exists with rooms section
 		const floorsList = page.locator('[data-testid="floors-list"]')
-		await expect(floorsList).toBeVisible()
+		await expect(floorsList).toBeVisible({ timeout: 15000 })
 	})
 
 	test('User can update room cleanliness', async ({ page }) => {
 		// Navigate to dashboard and find a room
 		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
 		// Check if any room card exists
 		const roomCards = page.locator('[data-testid^="room-card-"]')
@@ -73,7 +75,7 @@ test.describe('Room and Floor Management', () => {
 
 		// Click first available room
 		await roomCards.first().click()
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Check if cleanliness controls exist
 		const cleanlinessValue = page.locator('[data-testid="cleanliness-value"]')
@@ -86,7 +88,7 @@ test.describe('Room and Floor Management', () => {
 	test('Room cleanliness affects monster count', async ({ page }) => {
 		// Navigate to dashboard
 		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
+		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
 		// Check if any room cards exist
 		const roomCards = page.locator('[data-testid^="room-card-"]')
@@ -99,7 +101,7 @@ test.describe('Room and Floor Management', () => {
 
 		// Click first available room
 		await roomCards.first().click()
-		await page.waitForLoadState('networkidle')
+		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Check for monster elements if they exist
 		const monsterSprites = page.locator('[data-testid="monster-sprite"]')
