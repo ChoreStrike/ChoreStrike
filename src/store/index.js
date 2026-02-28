@@ -9,6 +9,7 @@ import { useTasksStore } from './tasks.js'
 import { useRoomTasksStore } from './roomTasks.js'
 import { useGameStore } from './game.js'
 import { useUserStore } from './user.js'
+import { useChecklistStore } from './checklist.js'
 
 // Export all stores
 export {
@@ -18,6 +19,7 @@ export {
 	useRoomTasksStore,
 	useGameStore,
 	useUserStore,
+	useChecklistStore,
 }
 
 // Store initialization utilities
