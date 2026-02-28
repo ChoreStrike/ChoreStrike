@@ -83,6 +83,12 @@
 							<Icon name="Edit" :size="16" />
 						</button>
 						<button
+							class="action-btn"
+							:title="t('chorestrike', 'Show details')"
+							@click="toggleExpand(item)">
+							<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
+						</button>
+						<button
 							class="action-btn delete"
 							:title="t('chorestrike', 'Remove')"
 							@click="$emit('delete', item.roomTask.id)">
@@ -90,18 +96,36 @@
 						</button>
 					</div>
 				</div>
+
+				<!-- Expanded Details with Checklist -->
+				<div v-if="isExpanded(item.roomTask.id)" class="task-details">
+					<TaskChecklist
+						:items="getTaskItems(item.task.id)"
+						:progress="getRoomTaskProgress(item.roomTask.id)"
+						:can-edit="false"
+						:readonly="!item.roomTask.isActive"
+						:room-task-id="item.roomTask.id"
+						@toggle="handleToggleChecklistItem" />
+				</div>
 			</div>
 		</div>
 	</div>
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common'
+import TaskChecklist from './TaskChecklist.vue'
+import { useChecklistStore } from '../../store/checklist.js'
 
 export default {
 	name: 'TaskList',
+
+	components: {
+		Icon,
+		TaskChecklist,
+	},
 
 	props: {
 		roomTasks: {
@@ -116,7 +140,10 @@ export default {
 
 	emits: ['complete', 'edit', 'delete'],
 
-	setup(props) {
+	setup(props, { emit }) {
+		const checklistStore = useChecklistStore()
+		const expandedTaskId = ref(null)
+
 		const sortedTasks = computed(() => {
 			const tasks = props.roomTasks || []
 			return [...tasks].sort((a, b) => {
@@ -176,14 +203,47 @@ export default {
 			return t('chorestrike', 'Due in {days} days', { days: diffDays })
 		}
 
+		const toggleExpand = async (item) => {
+			if (expandedTaskId.value === item.roomTask.id) {
+				expandedTaskId.value = null
+			} else {
+				expandedTaskId.value = item.roomTask.id
+				// Load checklist data
+				await checklistStore.fetchTaskItems(item.task.id)
+				await checklistStore.fetchRoomTaskProgress(item.roomTask.id)
+			}
+		}
+
+		const isExpanded = (roomTaskId) => {
+			return expandedTaskId.value === roomTaskId
+		}
+
+		const getTaskItems = (taskId) => {
+			return checklistStore.getTaskItems(taskId)
+		}
+
+		const getRoomTaskProgress = (roomTaskId) => {
+			return checklistStore.getRoomTaskProgress(roomTaskId)
+		}
+
+		const handleToggleChecklistItem = async ({ itemId, roomTaskId }) => {
+			await checklistStore.toggleItem(roomTaskId, itemId)
+		}
+
 		return {
 			sortedTasks,
+			expandedTaskId,
 			isOverdue,
 			priorityClass,
 			priorityLabel,
 			frequencyLabel,
 			dueClass,
 			dueText,
+			toggleExpand,
+			isExpanded,
+			getTaskItems,
+			getRoomTaskProgress,
+			handleToggleChecklistItem,
 			t,
 		}
 	},
@@ -382,6 +442,12 @@ export default {
 	display: flex;
 	gap: 0.25rem;
 	flex-shrink: 0;
+}
+
+.task-details {
+	margin-top: 1rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--color-border);
 }
 
 .action-btn {
