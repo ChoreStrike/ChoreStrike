@@ -93,6 +93,17 @@ return [
         ['name' => 'template#bulkImport', 'url' => '/api/v1/templates/bulk-import', 'verb' => 'POST'],
         ['name' => 'template#statistics', 'url' => '/api/v1/templates/statistics', 'verb' => 'GET'],
 
+        // Checklist API
+        ['name' => 'checklist#getTaskItems', 'url' => '/api/v1/checklists/task/{taskId}', 'verb' => 'GET'],
+        ['name' => 'checklist#addTaskItem', 'url' => '/api/v1/checklists/task/{taskId}', 'verb' => 'POST'],
+        ['name' => 'checklist#updateTaskItem', 'url' => '/api/v1/checklists/item/{itemId}', 'verb' => 'PUT'],
+        ['name' => 'checklist#deleteTaskItem', 'url' => '/api/v1/checklists/item/{itemId}', 'verb' => 'DELETE'],
+        ['name' => 'checklist#reorderTaskItems', 'url' => '/api/v1/checklists/reorder', 'verb' => 'POST'],
+        ['name' => 'checklist#getRoomTaskProgress', 'url' => '/api/v1/checklists/progress/{roomTaskId}', 'verb' => 'GET'],
+        ['name' => 'checklist#toggleItem', 'url' => '/api/v1/checklists/toggle/{roomTaskId}/{itemId}', 'verb' => 'POST'],
+        ['name' => 'checklist#initializeProgress', 'url' => '/api/v1/checklists/initialize/{roomTaskId}', 'verb' => 'POST'],
+        ['name' => 'checklist#getCompleteChecklist', 'url' => '/api/v1/checklists/complete/{roomTaskId}', 'verb' => 'GET'],
+
         // Task Sync API
         ['name' => 'task_sync#complete', 'url' => '/api/v1/task-sync/complete', 'verb' => 'POST'],
         ['name' => 'task_sync#syncFromNextcloud', 'url' => '/api/v1/task-sync/sync-from-nextcloud', 'verb' => 'POST'],
