@@ -40,15 +40,30 @@ export default defineConfig({
 	projects: [
 		{
 			name: 'chromium',
-			use: { ...devices['Desktop Chrome'] },
+			use: { 
+				...devices['Desktop Chrome'],
+				/* Faster timeouts for Chrome (more stable) */
+				actionTimeout: 15000,
+				navigationTimeout: 30000,
+			},
 		},
 		{
 			name: 'firefox',
-			use: { ...devices['Desktop Firefox'] },
+			use: { 
+				...devices['Desktop Firefox'],
+				/* Longer timeouts for Firefox (slower but more stable) */
+				actionTimeout: 25000,
+				navigationTimeout: 60000,
+			},
 		},
 		{
 			name: 'webkit',
-			use: { ...devices['Desktop Safari'] },
+			use: { 
+				...devices['Desktop Safari'],
+				/* Standard timeouts for WebKit */
+				actionTimeout: 20000,
+				navigationTimeout: 45000,
+			},
 		},
 	],
 })
