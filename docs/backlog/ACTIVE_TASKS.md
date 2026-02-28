@@ -15,7 +15,14 @@
 **Notes**: Brief progress notes
 -->
 
-*No active tasks*
+### Cascade - P0-DB-001 - Complete Phase 0: Database schema design
+**Status**: In Progress
+**Started**: 2026-02-28 13:16
+**Last Update**: 2026-02-28 13:16
+**Branch**: main
+**Related Files**: lib/Migration/Version1004Date*.php, docs/ARCHITECTURE.md, lib/Db/HouseUser.php, lib/Db/CompletedTask.php, lib/Db/Medal.php
+**Blockers**: None
+**Notes**: Creating missing migrations for multi-user tables (house_users, completed_tasks, medals) based on entity definitions
 
 ---
 
