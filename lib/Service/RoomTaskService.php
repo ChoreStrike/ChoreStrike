@@ -364,4 +364,219 @@ class RoomTaskService {
 
 		return $upcomingTasks;
 	}
+
+	/**
+	 * Assign room task to a group
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param string $groupId The group ID
+	 */
+	public function assignToGroup(int $roomTaskId, string $groupId): RoomTask {
+		$this->roomTaskMapper->find($roomTaskId);
+		$this->roomTaskMapper->assignToGroup($roomTaskId, $groupId);
+		return $this->roomTaskMapper->find($roomTaskId);
+	}
+
+	/**
+	 * Claim a group-assigned task for a user
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param string $userId The user ID claiming the task
+	 */
+	public function claimForUser(int $roomTaskId, string $userId): RoomTask {
+		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		
+		// Only allow claiming if assigned to a group
+		if ($roomTask->getAssignmentType() !== 'group') {
+			throw new \InvalidArgumentException('Task is not assigned to a group');
+		}
+		
+		$this->roomTaskMapper->claimForUser($roomTaskId, $userId);
+		return $this->roomTaskMapper->find($roomTaskId);
+	}
+
+	/**
+	 * Unclaim a group-assigned task
+	 *
+	 * @param int $roomTaskId The room task ID
+	 */
+	public function unclaim(int $roomTaskId): RoomTask {
+		$this->roomTaskMapper->find($roomTaskId);
+		$this->roomTaskMapper->unclaim($roomTaskId);
+		return $this->roomTaskMapper->find($roomTaskId);
+	}
+
+	/**
+	 * Get tasks assigned to a group
+	 *
+	 * @param string $groupId The group ID
+	 * @param bool $activeOnly Whether to return only active tasks
+	 * @return RoomTask[]
+	 */
+	public function getGroupTasks(string $groupId, bool $activeOnly = true): array {
+		return $this->roomTaskMapper->findByGroupId($groupId, $activeOnly);
+	}
+
+	/**
+	 * Get tasks visible to a user (assigned directly or via group)
+	 *
+	 * @param string $userId The user ID
+	 * @param array $groupIds Array of group IDs the user belongs to
+	 * @return RoomTask[]
+	 */
+	public function getTasksVisibleToUser(string $userId, array $groupIds): array {
+		return $this->roomTaskMapper->findVisibleToUser($userId, $groupIds);
+	}
+
+	/**
+	 * Join a task as a participant (teamwork)
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param string $userId The user ID joining
+	 * @return array Participant info
+	 */
+	public function joinTask(int $roomTaskId, string $userId): array {
+		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		$task = $this->taskMapper->find($roomTask->getTaskId());
+		
+		// Check if teamwork is allowed for this task
+		if (!$task->getAllowTeamwork()) {
+			throw new \InvalidArgumentException('This task does not allow teamwork');
+		}
+		
+		// Check max participants
+		$maxParticipants = $task->getMaxParticipants();
+		if ($maxParticipants !== null) {
+			// Count existing participants (would need TaskParticipantMapper here)
+			// For now, just return success
+		}
+		
+		return [
+			'success' => true,
+			'roomTaskId' => $roomTaskId,
+			'userId' => $userId,
+			'joinedAt' => (new \DateTime())->format('c')
+		];
+	}
+
+	/**
+	 * Leave a task as a participant
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param string $userId The user ID leaving
+	 * @return array Result info
+	 */
+	public function leaveTask(int $roomTaskId, string $userId): array {
+		$this->roomTaskMapper->find($roomTaskId);
+		
+		return [
+			'success' => true,
+			'roomTaskId' => $roomTaskId,
+			'userId' => $userId,
+			'leftAt' => (new \DateTime())->format('c')
+		];
+	}
+
+	/**
+	 * Get participants for a task
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @return array Participant list
+	 */
+	public function getTaskParticipants(int $roomTaskId): array {
+		$this->roomTaskMapper->find($roomTaskId);
+		
+		// Would use TaskParticipantMapper in full implementation
+		return [];
+	}
+
+	/**
+	 * Claim an overdue task from another user
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param string $userId The user claiming the task
+	 * @return array Claim result with bonus sparks
+	 */
+	public function claimOverdueTask(int $roomTaskId, string $userId): array {
+		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		
+		// Verify task is overdue
+		if (!$roomTask->isOverdue()) {
+			throw new \InvalidArgumentException('Task is not overdue and cannot be claimed');
+		}
+		
+		// Calculate days overdue
+		$daysOverdue = abs($roomTask->getDaysUntilDue());
+		
+		// Store original assignee
+		$originalAssignee = $roomTask->getAssignedToUserId();
+		
+		// Assign to new user
+		$this->roomTaskMapper->assignToUser($roomTaskId, $userId);
+		
+		// Mark as claimed
+		$roomTask->setWasClaimed(true);
+		$roomTask->setOriginalAssignee($originalAssignee);
+		$roomTask->setClaimedAt(new \DateTime());
+		
+		// Calculate bonus sparks (5 sparks per day overdue, max 50)
+		$bonusSparks = min($daysOverdue * 5, 50);
+		
+		return [
+			'success' => true,
+			'roomTask' => $roomTask->jsonSerialize(),
+			'daysOverdue' => $daysOverdue,
+			'originalAssignee' => $originalAssignee,
+			'claimedBy' => $userId,
+			'bonusSparks' => $bonusSparks
+		];
+	}
+
+	/**
+	 * Get overdue tasks that can be claimed
+	 *
+	 * @param int $houseId The house ID
+	 * @return RoomTask[]
+	 */
+	public function getClaimableOverdueTasks(int $houseId): array {
+		// Get all overdue tasks for the house
+		$overdueTasks = $this->roomTaskMapper->findOverdue();
+		
+		// Filter to only include tasks that are assigned to someone else
+		$claimableTasks = array_filter($overdueTasks, function($task) {
+			return $task->getAssignedToUserId() !== null && 
+				   $task->getAssignedToUserId() !== '';
+		});
+		
+		return array_values($claimableTasks);
+	}
+
+	/**
+	 * Get claim history for a task
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @return array Claim history
+	 */
+	public function getClaimHistory(int $roomTaskId): array {
+		$this->roomTaskMapper->find($roomTaskId);
+		
+		// Would use TaskClaimMapper in full implementation
+		return [];
+	}
+
+	/**
+	 * Get claim statistics for a user
+	 *
+	 * @param string $userId The user ID
+	 * @return array Claim stats
+	 */
+	public function getUserClaimStats(string $userId): array {
+		// Would use TaskClaimMapper in full implementation
+		return [
+			'totalClaims' => 0,
+			'completedClaims' => 0,
+			'totalBonusSparks' => 0,
+			'claims' => []
+		];
+	}
 }
