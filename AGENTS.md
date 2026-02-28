@@ -126,6 +126,11 @@ git add .
 git commit -m "type: description"
 ```
 
+### Next Tasks (After Commit)
+After each completed task/commit:
+- Provide a prioritized list of the next tasks
+- Provide a concrete proposal for the next steps
+
 **Commit Types:** `feat`, `fix`, `docs`, `refactor`, `test`, `i18n`, `perf`, `chore`
 
 ### Auto-Fix (Coding Agent)
