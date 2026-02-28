@@ -10,6 +10,30 @@
 - **Composer** for PHP dependencies
 - **Git** for version control
 
+### Docker Development Environment
+
+For isolated testing, use the included Docker setup:
+
+1. **Start the test environment**
+   ```bash
+   docker-compose -f docker-compose.test.yml up --build
+   ```
+
+2. **Access the application**
+   - Nextcloud: http://localhost:8080
+   - Admin credentials: `admin` / `admin`
+
+3. **Run tests in Docker**
+   ```bash
+   docker exec chorestrike-test composer test
+   docker exec chorestrike-test npm test
+   ```
+
+4. **Stop the environment**
+   ```bash
+   docker-compose -f docker-compose.test.yml down
+   ```
+
 ### Initial Setup
 
 1. **Clone the repository**
