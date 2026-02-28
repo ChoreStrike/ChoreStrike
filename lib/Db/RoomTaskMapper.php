@@ -23,13 +23,106 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Find room task by ID
+	 * Find tasks by house ID
 	 *
-	 * @param int $id The room task ID
-	 * @throws DoesNotExistException if not found
+	 * @param int $houseId The house ID
+	 * @return RoomTask[] Array of tasks
 	 */
-	public function find(int $id): RoomTask {
-		return parent::find($id);
+	public function findByHouseId(int $houseId): array {
+		$qb = $this->db->getQueryBuilder();
+		
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->orderBy('created_at', 'DESC');
+		
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Find unscheduled tasks for a house
+	 *
+	 * @param int $houseId The house ID
+	 * @return RoomTask[] Array of unscheduled tasks
+	 */
+	public function findUnscheduledByHouseId(int $houseId): array {
+		$qb = $this->db->getQueryBuilder();
+		
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('assigned_to'))
+			->andWhere($qb->expr()->isNull('completed_at'))
+			->orderBy('priority', 'ASC')
+			->addOrderBy('deadline', 'ASC');
+		
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Find tasks assigned to a specific user
+	 *
+	 * @param int $houseId The house ID
+	 * @param int $assignedTo The user ID
+	 * @return RoomTask[] Array of assigned tasks
+	 */
+	public function findByAssignedUser(int $houseId, int $assignedTo): array {
+		$qb = $this->db->getQueryBuilder();
+		
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('assigned_to', $qb->createNamedParameter($assignedTo, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('completed_at'))
+			->orderBy('deadline', 'ASC')
+			->addOrderBy('priority', 'ASC');
+		
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Find tasks with deadlines in a date range
+	 *
+	 * @param int $houseId The house ID
+	 * @param string $startDate Start date (Y-m-d format)
+	 * @param string $endDate End date (Y-m-d format)
+	 * @return RoomTask[] Array of tasks with deadlines
+	 */
+	public function findByDeadlineRange(int $houseId, string $startDate, string $endDate): array {
+		$qb = $this->db->getQueryBuilder();
+		
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNotNull('deadline'))
+			->andWhere($qb->expr()->gte('deadline', $qb->createNamedParameter($startDate)))
+			->andWhere($qb->expr()->lte('deadline', $qb->createNamedParameter($endDate)))
+			->andWhere($qb->expr()->isNull('completed_at'))
+			->orderBy('deadline', 'ASC');
+		
+		return $this->findEntities($qb);
+	}
+
+	
+	/**
+	 * Find tasks scheduled for a specific date
+	 *
+	 * @param int $houseId The house ID
+	 * @param string $date Date (Y-m-d format)
+	 * @return RoomTask[] Array of tasks scheduled for the date
+	 */
+	public function findByScheduledDate(int $houseId, string $date): array {
+		$qb = $this->db->getQueryBuilder();
+		
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('scheduled_for', $qb->createNamedParameter($date)))
+			->andWhere($qb->expr()->isNull('completed_at'))
+			->orderBy('priority', 'ASC')
+			->addOrderBy('deadline', 'ASC');
+		
+		return $this->findEntities($qb);
 	}
 
 	/**
