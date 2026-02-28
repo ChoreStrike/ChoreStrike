@@ -14,7 +14,8 @@ test.describe('Settings', () => {
 		// Wait for dashboard to be ready
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
-		await page.click('[data-testid="nav-settings"]')
+		// Use text selector for navigation (Nextcloud Vue components don't pass data-testid)
+		await page.click('text=Settings')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Wait for settings data to load with longer timeout

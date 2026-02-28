@@ -13,8 +13,8 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('User can create a new task', async ({ page }) => {
-		// Navigate to Tasks view
-		await page.click('[data-testid="nav-tasks"]')
+		// Navigate to Tasks view using text selector
+		await page.click('text=Tasks')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForTimeout(1000)
 
@@ -48,7 +48,7 @@ test.describe('Task Creation and Completion', () => {
 
 	test('User can assign task to a room', async ({ page }) => {
 		// Navigate to room detail
-		await page.click('[data-testid="nav-dashboard"]')
+		await page.click('text=Dashboard')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 		await page.waitForTimeout(1000)
 
@@ -90,7 +90,7 @@ test.describe('Task Creation and Completion', () => {
 
 	test('User can complete a task and earn points', async ({ page }) => {
 		// Navigate to room with tasks
-		await page.click('[data-testid="nav-dashboard"]')
+		await page.click('text=Dashboard')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 		await page.waitForTimeout(1000)
 
@@ -129,7 +129,7 @@ test.describe('Task Creation and Completion', () => {
 
 	test('Completing multiple tasks triggers combo', async ({ page }) => {
 		// Navigate to room
-		await page.click('[data-testid="nav-dashboard"]')
+		await page.click('text=Dashboard')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 		await page.waitForTimeout(1000)
 

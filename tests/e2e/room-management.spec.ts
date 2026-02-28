@@ -15,8 +15,8 @@ test.describe('Room and Floor Management', () => {
 	})
 
 	test('User can create a new floor', async ({ page }) => {
-		// Navigate to settings
-		await page.click('[data-testid="nav-settings"]')
+		// Navigate to settings using text selector
+		await page.click('text=Settings')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 
@@ -51,7 +51,7 @@ test.describe('Room and Floor Management', () => {
 		}
 
 		// Navigate to dashboard to see rooms
-		await page.click('[data-testid="nav-dashboard"]')
+		await page.click('text=Dashboard')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
 		// Check if any floor exists with rooms section
@@ -61,7 +61,7 @@ test.describe('Room and Floor Management', () => {
 
 	test('User can update room cleanliness', async ({ page }) => {
 		// Navigate to dashboard and find a room
-		await page.click('[data-testid="nav-dashboard"]')
+		await page.click('text=Dashboard')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
 		// Check if any room card exists
@@ -86,8 +86,8 @@ test.describe('Room and Floor Management', () => {
 	})
 
 	test('Room cleanliness affects monster count', async ({ page }) => {
-		// Navigate to dashboard
-		await page.click('[data-testid="nav-dashboard"]')
+		// Navigate to dashboard using text selector
+		await page.click('text=Dashboard')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
 		// Check if any room cards exist

@@ -12,7 +12,8 @@ test.describe('Task Manager', () => {
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
-		await page.click('[data-testid="nav-tasks"]')
+		// Use text selector for navigation (Nextcloud Vue components don't pass data-testid)
+		await page.click('text=Tasks')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForTimeout(1000)
 	})

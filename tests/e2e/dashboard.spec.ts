@@ -71,23 +71,23 @@ test.describe('User Login and Dashboard', () => {
 		// Wait for initial load
 		await page.waitForTimeout(1000)
 
-		// Click on Tasks tab
-		await page.click('[data-testid="nav-tasks"]')
+		// Click on Tasks tab using text selector (Nextcloud Vue components don't pass data-testid)
+		await page.click('text=Tasks')
 		await page.waitForTimeout(1000)
 		await expect(page).toHaveURL(/.*tasks/)
 
 		// Click on Leaderboard tab
-		await page.click('[data-testid="nav-leaderboard"]')
+		await page.click('text=Leaderboard')
 		await page.waitForTimeout(1000)
 		await expect(page).toHaveURL(/.*leaderboard/)
 
 		// Click on Settings tab
-		await page.click('[data-testid="nav-settings"]')
+		await page.click('text=Settings')
 		await page.waitForTimeout(1000)
 		await expect(page).toHaveURL(/.*settings/)
 
 		// Back to Dashboard
-		await page.click('[data-testid="nav-dashboard"]')
+		await page.click('text=Dashboard')
 		await page.waitForTimeout(1000)
 		await expect(page).toHaveURL(/.*dashboard/)
 	})

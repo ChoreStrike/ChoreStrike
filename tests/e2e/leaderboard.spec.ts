@@ -15,8 +15,8 @@ test.describe('Leaderboard and Gamification', () => {
 	})
 
 	test('User can view leaderboard with rankings', async ({ page }) => {
-		// Navigate to leaderboard
-		await page.click('[data-testid="nav-leaderboard"]')
+		// Navigate to leaderboard using text selector
+		await page.click('text=Leaderboard')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForTimeout(1000)
 		// Wait for leaderboard to load with longer timeout
