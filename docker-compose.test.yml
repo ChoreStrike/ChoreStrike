@@ -29,6 +29,7 @@ services:
     volumes:
       - .:/var/www/html/custom_apps/chorestrike
       - ./docker/test-entrypoint.sh:/test-entrypoint.sh
+      - ./docker/seed-test-data.sh:/seed-test-data.sh
     working_dir: /var/www/html/custom_apps/chorestrike
     environment:
       - NEXTCLOUD_TEST_ENV=true
@@ -39,6 +40,12 @@ services:
       - DB_PORT=3306
     networks:
       - chorestrike-test
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/status.php"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
     command: ["/test-entrypoint.sh"]
 
 networks:

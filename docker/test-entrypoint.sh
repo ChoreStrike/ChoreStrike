@@ -86,8 +86,27 @@ if ! su -s /bin/bash www-data -c "php occ app:list" | grep -A999 '^Enabled:' | g
     exit 1
 fi
 
+# Wait for Nextcloud to be fully ready via HTTP
+echo "Waiting for Nextcloud HTTP interface..."
+for i in {1..60}; do
+    if curl -s http://localhost:80/status.php | grep -q '"installed":true'; then
+        echo "Nextcloud HTTP interface is ready!"
+        break
+    fi
+    echo "Nextcloud HTTP not ready yet... ($i/60)"
+    sleep 2
+done
+
+# Seed test data for E2E tests
+echo "Seeding test data..."
+if [ -f /seed-test-data.sh ]; then
+    chmod +x /seed-test-data.sh
+    /seed-test-data.sh || echo "Seed script failed, continuing anyway"
+fi
+
 echo "=== Setup Complete ==="
 echo "ChoreStrike is ready at http://localhost:8080"
+echo "Login: admin / admin"
 
 # Keep Apache running
 wait $APACHE_PID
