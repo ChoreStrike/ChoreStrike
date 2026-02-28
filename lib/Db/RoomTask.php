@@ -38,6 +38,12 @@ use OCP\AppFramework\Db\Entity;
  * @method void setAssignmentType(string $assignmentType)
  * @method string|null getClaimedByUser()
  * @method void setClaimedByUser(?string $claimedByUser)
+ * @method bool getWasClaimed()
+ * @method void setWasClaimed(bool $wasClaimed)
+ * @method string|null getOriginalAssignee()
+ * @method void setOriginalAssignee(?string $originalAssignee)
+ * @method \DateTime|null getClaimedAt()
+ * @method void setClaimedAt(?\DateTime $claimedAt)
  */
 class RoomTask extends Entity implements JsonSerializable {
 
@@ -77,6 +83,15 @@ class RoomTask extends Entity implements JsonSerializable {
 	/** @var string|null */
 	protected $claimedByUser;
 
+	/** @var bool */
+	protected $wasClaimed = false;
+
+	/** @var string|null */
+	protected $originalAssignee;
+
+	/** @var \DateTime|null */
+	protected $claimedAt;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomId', 'integer');
@@ -91,6 +106,9 @@ class RoomTask extends Entity implements JsonSerializable {
 		$this->addType('assignedToGroup', 'string');
 		$this->addType('assignmentType', 'string');
 		$this->addType('claimedByUser', 'string');
+		$this->addType('wasClaimed', 'boolean');
+		$this->addType('originalAssignee', 'string');
+		$this->addType('claimedAt', 'datetime');
 	}
 
 	/**
@@ -106,10 +124,13 @@ class RoomTask extends Entity implements JsonSerializable {
 			'assignedToUserId' => $this->assignedToUserId,
 			'assignedToGroup' => $this->assignedToGroup,
 			'assignmentType' => $this->assignmentType,
-			'claimedByUser' => $this->claimedByUser,
 			'isActive' => $this->isActive,
 			'scopeId' => $this->scopeId,
 			'nextcloudTaskId' => $this->nextcloudTaskId,
+			'claimedByUser' => $this->claimedByUser,
+			'wasClaimed' => $this->wasClaimed,
+			'originalAssignee' => $this->originalAssignee,
+			'claimedAt' => $this->claimedAt?->format('c'),
 			'createdAt' => $this->createdAt?->format('c'),
 		];
 	}

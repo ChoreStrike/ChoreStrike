@@ -36,6 +36,12 @@ use OCP\AppFramework\Db\Entity;
  * @method void setParticipantCount(int $participantCount)
  * @method int getTeamSparkBonus()
  * @method void setTeamSparkBonus(int $teamSparkBonus)
+ * @method bool getWasClaimedCompletion()
+ * @method void setWasClaimedCompletion(bool $wasClaimedCompletion)
+ * @method int getClaimBonusSparks()
+ * @method void setClaimBonusSparks(int $claimBonusSparks)
+ * @method int|null getDaysOverdueWhenClaimed()
+ * @method void setDaysOverdueWhenClaimed(?int $daysOverdueWhenClaimed)
  */
 class CompletedTask extends Entity implements JsonSerializable {
 
@@ -72,6 +78,15 @@ class CompletedTask extends Entity implements JsonSerializable {
 	/** @var int */
 	protected $teamSparkBonus = 0;
 
+	/** @var bool */
+	protected $wasClaimedCompletion = false;
+
+	/** @var int */
+	protected $claimBonusSparks = 0;
+
+	/** @var int|null */
+	protected $daysOverdueWhenClaimed;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomTaskId', 'integer');
@@ -85,6 +100,9 @@ class CompletedTask extends Entity implements JsonSerializable {
 		$this->addType('isTeamCompletion', 'boolean');
 		$this->addType('participantCount', 'integer');
 		$this->addType('teamSparkBonus', 'integer');
+		$this->addType('wasClaimedCompletion', 'boolean');
+		$this->addType('claimBonusSparks', 'integer');
+		$this->addType('daysOverdueWhenClaimed', 'integer');
 	}
 
 	/**
@@ -104,6 +122,9 @@ class CompletedTask extends Entity implements JsonSerializable {
 			'isTeamCompletion' => $this->isTeamCompletion,
 			'participantCount' => $this->participantCount,
 			'teamSparkBonus' => $this->teamSparkBonus,
+			'wasClaimedCompletion' => $this->wasClaimedCompletion,
+			'claimBonusSparks' => $this->claimBonusSparks,
+			'daysOverdueWhenClaimed' => $this->daysOverdueWhenClaimed,
 		];
 	}
 
