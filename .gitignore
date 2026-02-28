@@ -31,9 +31,13 @@ Thumbs.db
 /data/
 /config/config.php
 
-# Logs
-*.log
-
 # Testing
 /coverage/
 /.phpunit.result.cache
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Logs
+*.log
