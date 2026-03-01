@@ -212,12 +212,12 @@ const emit = defineEmits<{
 }>()
 
 // Reactive state
-const loading = ref(false)
-const saving = ref(false)
-const members = ref([])
-const showEditModal = ref(false)
-const editingMember = ref(null)
-const editForm = ref({
+const loading = ref<boolean>(false)
+const saving = ref<boolean>(false)
+const members = ref<any[]>([])
+const showEditModal = ref<boolean>(false)
+const editingMember = ref<any>(null)
+const editForm = ref<{ availability: Record<string, boolean>; energyBudget: Record<string, number> }>({
 	availability: {},
 	energyBudget: {},
 })
@@ -256,7 +256,7 @@ const loadMemberAvailability = async () => {
 	}
 }
 
-const editMemberAvailability = (member) => {
+const editMemberAvailability = (member: any) => {
 	editingMember.value = member
 	editForm.value = {
 		availability: { ...member.weekdayAvailability },
@@ -294,7 +294,7 @@ const saveAvailability = async () => {
 	}
 }
 
-const applyTemplate = (templateType) => {
+const applyTemplate = (templateType: string) => {
 	const templates = {
 		'weekend-warrior': {
 			availability: {
@@ -365,17 +365,17 @@ const applyTemplate = (templateType) => {
 	}
 }
 
-const getAvailableDaysCount = (member) => {
+const getAvailableDaysCount = (member: any): number => {
 	return Object.values(member.weekdayAvailability).filter(Boolean).length
 }
 
-const formatDayName = (dayKey) => {
+const formatDayName = (dayKey: string): string => {
 	const day = weekDays.find(d => d.key === dayKey)
 	return day ? day.name : dayKey
 }
 
 // Computed
-const currentUserId = computed(() => {
+const currentUserId = computed<number>(() => {
 	// This would come from user store or authentication context
 	return 1 // Placeholder
 })
