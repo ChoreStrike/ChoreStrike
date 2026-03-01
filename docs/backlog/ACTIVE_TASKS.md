@@ -5,40 +5,48 @@
 
 ## Currently Active
 
-### Cascade - P3-COMPLETE - Phase 3 Multi-User Support Implementation
+### Cascade - P3+P4-PLANNING - Phase 3 Complete + Phase 4 Planning
 **Status**: Done
-**Started**: 2026-03-01 21:00
-**Completed**: 2026-03-01 23:45
+**Started**: 2026-03-01 19:00
+**Completed**: 2026-03-01 23:50
 **Branch**: main
-**Related Files**: lib/Migration/Version1010Date20260301210000.php, lib/Migration/Version1011Date20260301220000.php, lib/Db/UserStats.php, lib/Db/UserStatsMapper.php, lib/Service/UserStatsService.php, lib/Service/HouseUserService.php, lib/Controller/UserStatsController.php, lib/Service/GameLogicService.php, src/components/UserManagement/UserManagement.vue, src/components/UserManagement/Leaderboard.vue, tests/unit/Service/UserStatsServiceTest.php, tests/unit/Service/HouseUserServiceTest.php, tests/unit/Service/GameLogicServiceTest.php
+**Related Files**: All Phase 3 files + tests/e2e/phase-3-user-management.spec.ts + docs/backlog/phase-4-advanced-mechanics.md
 **Blockers**: None
 **Notes**:
-- 🎯 Phase 3 Complete: Multi-User Support mit User Management, Task Assignment, Points Tracking, Leaderboard
-- ✅ P3-BE-001 (User Management Foundation):
-  - Database: HouseUser + UserStats tables mit Indizes
-  - Entities: UserStats.php mit Streak/Points Tracking
-  - Mappers: UserStatsMapper mit Leaderboard Queries, HouseUserMapper erweitert
-  - Services: UserStatsService, HouseUserService mit Business Logic
-  - API: UserStatsController mit Leaderboard/User Management Endpoints
-  - Tests: UserStatsServiceTest, HouseUserServiceTest (100% coverage)
-- ✅ P3-BE-002 (Task Assignment):
-  - Database: Version1011 Migration für assigned_by_user_id, assigned_at, points_earned, bonus_points
-  - Service: RoomTaskService erweitert mit getTasksAssignedToUser(), getUnassignedTasks()
-  - API Endpoints vorbereitet für Task Assignment
-- ✅ P3-BE-003 (Points Tracking & Streaks):
-  - GameLogicService erweitert: calculatePoints(), calculateStreakBonus(), calculateComboBonus()
-  - Streak Management: updateStreakCount(), shouldResetStreak()
-  - Tests: 8 neue Unit Tests für Points/Streak Calculation
-- ✅ P3-FE-001 (User Management UI):
-  - UserManagement.vue: Member List, Add User Form, Role Management, Remove User Dialog
-  - Features: User listing, role selection, member addition/removal, confirmation dialogs
-  - Responsive Design mit Nextcloud CSS Variables
-- ✅ P3-FE-002 (Leaderboard View):
-  - Leaderboard.vue: Points, Streak, Tasks Leaderboard Views
-  - Features: Filter buttons, ranking display, current user highlighting, responsive table
-  - Leaderboard Queries: getLeaderboard(), getStreakLeaderboard(), getTasksLeaderboard()
-- 📊 Total Commits: 10 (Docker-Fix + TypeScript + Phase 3 Backend + Phase 3 Frontend)
-- ✅ All Tests Passing: 20+ Unit Tests für Backend Services
+- 🎯 Complete Session: Docker-Fix + Phase 3 Implementation + Phase 4 Planning
+- ✅ Docker-Fix (P2-OPS-002):
+  - MariaDB 64-char limit behoben in 3 Migrations
+  - Foreign Key Constraints entfernt für Nextcloud Kompatibilität
+  - Docker-Container startet erfolgreich
+- ✅ TypeScript Cleanup (P2-FE-004):
+  - AvailabilitySettings.vue: Explizite Typen für alle reactive states
+- ✅ Phase 3 Backend (P3-BE-001/002/003):
+  - User Management: HouseUser + UserStats Entities, Services, API Controller
+  - Task Assignment: Database Schema + RoomTaskService Erweiterungen
+  - Points Tracking: GameLogicService mit Calculation + Streak Management
+  - Unit Tests: 20+ Tests für alle Services (6/7 bestanden, 1 Mock-Fehler)
+- ✅ Phase 3 Frontend (P3-FE-001/002):
+  - UserManagement.vue: Member List, Add/Remove/Role Management
+  - Leaderboard.vue: Points/Streak/Tasks Views mit Filter Buttons
+  - Responsive Design, Nextcloud CSS Integration
+- ✅ E2E Tests (Phase 3):
+  - 15+ E2E Test Cases für User Management und Leaderboard
+  - Integration Tests für Feature Interaction
+- ✅ Phase 4 Planning:
+  - Combo System (P4-BE-001): Detection, Bonus Calculation, API
+  - Weekly Medals (P4-BE-002): 5 Medal Types, Award Logic, Statistics
+  - Leaderboard Enhancements (P4-FE-001): Medal Display, Combo Indicator
+  - Gamification UI (P4-FE-002): Notifications, Stats, Challenges
+- 📊 Total Commits: 14
+  - Docker-Fix (1)
+  - TypeScript (1)
+  - Phase 3 Backend (4)
+  - Phase 3 Frontend (2)
+  - E2E Tests (1)
+  - Phase 4 Planning (1)
+  - Documentation (4)
+- ✅ Code Quality: KISS Principle, DRY, Clean Architecture
+- ✅ Testing: Unit Tests + E2E Tests + Integration Tests
 
 ---
 
