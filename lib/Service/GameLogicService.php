@@ -284,25 +284,81 @@ class GameLogicService {
 	}
 
 	/**
-	 * Get all medals for a house
+	 * Calculate points for task completion
 	 *
-	 * @param int $houseId The house ID
+	 * @param Task $task The task
+	 * @param int $difficulty Task difficulty (1-5)
+	 * @param int $priority Task priority (1-3)
+	 * @param bool $isBonus Whether this is a bonus completion
 	 */
-	public function getMedals(int $houseId): array {
-		$users = $this->houseUserMapper->findByHouseId($houseId);
-		$allMedals = [];
-
-		foreach ($users as $user) {
-			$medals = $this->medalMapper->findByUserId($user->getId());
-			foreach ($medals as $medal) {
-				$medalData = $medal->jsonSerialize();
-				$medalData['userName'] = $user->getDisplayName();
-				$allMedals[] = $medalData;
-			}
+	public function calculatePoints(Task $task, int $difficulty = 1, int $priority = 1, bool $isBonus = false): int {
+		$basePoints = $difficulty * $priority * 10;
+		
+		if ($isBonus) {
+			$basePoints = (int)($basePoints * 1.5);
 		}
+		
+		return $basePoints;
+	}
 
-		usort($allMedals, fn($a, $b) => strtotime($b['awardedAt']) - strtotime($a['awardedAt']));
+	/**
+	 * Calculate streak bonus points
+	 *
+	 * @param int $currentStreak Current streak count
+	 */
+	public function calculateStreakBonus(int $currentStreak): int {
+		return $currentStreak * 5;
+	}
 
-		return $allMedals;
+	/**
+	 * Calculate combo bonus points
+	 *
+	 * @param int $comboCount Number of tasks completed in combo
+	 */
+	public function calculateComboBonus(int $comboCount): int {
+		return $comboCount * 10;
+	}
+
+	/**
+	 * Update user streak after task completion
+	 *
+	 * @param int $currentStreak Current streak
+	 * @param bool $completedToday Whether user completed task today
+	 */
+	public function updateStreakCount(int $currentStreak, bool $completedToday = true): int {
+		if (!$completedToday) {
+			return 1;
+		}
+		
+		return $currentStreak + 1;
+	}
+
+	/**
+	 * Check if streak should be reset
+	 *
+	 * @param \DateTime $lastCompletionDate Last completion date
+	 * @param array $weekdayAvailability Weekday availability
+	 */
+	public function shouldResetStreak(\DateTime $lastCompletionDate, array $weekdayAvailability): bool {
+		$today = new \DateTime();
+		$today->setTime(0, 0, 0);
+		$lastDate = clone $lastCompletionDate;
+		$lastDate->setTime(0, 0, 0);
+		
+		$daysSinceCompletion = (int)$lastDate->diff($today)->days;
+		
+		// If completed today, don't reset
+		if ($daysSinceCompletion === 0) {
+			return false;
+		}
+		
+		// If completed yesterday, check if available today
+		if ($daysSinceCompletion === 1) {
+			$todayName = strtolower($today->format('l'));
+			return $weekdayAvailability[$todayName] ?? true;
+		}
+		
+		// If more than 1 day, reset
+		return true;
 	}
 }
