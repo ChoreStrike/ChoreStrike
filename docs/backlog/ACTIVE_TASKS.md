@@ -5,48 +5,54 @@
 
 ## Currently Active
 
-### Cascade - P3+P4-PLANNING - Phase 3 Complete + Phase 4 Planning
-**Status**: Done
+### Cascade - P3+P4-IMPLEMENTATION - Phase 3 Complete + Phase 4 Backend Implementation
+**Status**: In Progress
 **Started**: 2026-03-01 19:00
-**Completed**: 2026-03-01 23:50
+**Current**: 2026-03-02 00:15
 **Branch**: main
-**Related Files**: All Phase 3 files + tests/e2e/phase-3-user-management.spec.ts + docs/backlog/phase-4-advanced-mechanics.md
+**Related Files**: All Phase 3 files + Phase 4 files (Combo, Medal) + tests/e2e/phase-3-user-management.spec.ts + docs/backlog/phase-4-advanced-mechanics.md
 **Blockers**: None
 **Notes**:
-- 🎯 Complete Session: Docker-Fix + Phase 3 Implementation + Phase 4 Planning
+- 🎯 Extended Session: Docker-Fix + Phase 3 Complete + Phase 4 Backend Started
 - ✅ Docker-Fix (P2-OPS-002):
   - MariaDB 64-char limit behoben in 3 Migrations
   - Foreign Key Constraints entfernt für Nextcloud Kompatibilität
   - Docker-Container startet erfolgreich
 - ✅ TypeScript Cleanup (P2-FE-004):
   - AvailabilitySettings.vue: Explizite Typen für alle reactive states
-- ✅ Phase 3 Backend (P3-BE-001/002/003):
+- ✅ Phase 3 Complete (P3-BE-001/002/003 + P3-FE-001/002):
   - User Management: HouseUser + UserStats Entities, Services, API Controller
   - Task Assignment: Database Schema + RoomTaskService Erweiterungen
   - Points Tracking: GameLogicService mit Calculation + Streak Management
-  - Unit Tests: 20+ Tests für alle Services (6/7 bestanden, 1 Mock-Fehler)
-- ✅ Phase 3 Frontend (P3-FE-001/002):
   - UserManagement.vue: Member List, Add/Remove/Role Management
   - Leaderboard.vue: Points/Streak/Tasks Views mit Filter Buttons
-  - Responsive Design, Nextcloud CSS Integration
-- ✅ E2E Tests (Phase 3):
-  - 15+ E2E Test Cases für User Management und Leaderboard
-  - Integration Tests für Feature Interaction
-- ✅ Phase 4 Planning:
-  - Combo System (P4-BE-001): Detection, Bonus Calculation, API
-  - Weekly Medals (P4-BE-002): 5 Medal Types, Award Logic, Statistics
-  - Leaderboard Enhancements (P4-FE-001): Medal Display, Combo Indicator
-  - Gamification UI (P4-FE-002): Notifications, Stats, Challenges
-- 📊 Total Commits: 14
+  - 20+ Unit Tests, 15+ E2E Tests
+- ✅ Phase 4 Backend Started (P4-BE-001/002):
+  - P4-BE-001 Combo System:
+    - Combo Entity mit Task Count, Bonus Points, Timeout Logic
+    - ComboMapper mit Active Combo Queries, Statistics
+    - ComboService mit Combo Detection, Bonus Calculation
+    - Migration Version1012 für Combo Table
+    - 10 Unit Tests für ComboService
+  - P4-BE-002 Weekly Medals:
+    - MedalService mit 5 Medal Types (Team Anchor, Streak Keeper, Combo Master, Perfect Week, Legendary Helper)
+    - Award Logic basierend auf Bedingungen
+    - Medal Checking für alle Users
+    - Rarity System (common, rare, epic, legendary)
+- 📊 Total Commits: 19
   - Docker-Fix (1)
   - TypeScript (1)
   - Phase 3 Backend (4)
   - Phase 3 Frontend (2)
   - E2E Tests (1)
   - Phase 4 Planning (1)
-  - Documentation (4)
+  - ROADMAP Update (1)
+  - Phase 4 Combo System (2)
+  - Phase 4 Medal Service (1)
+  - Documentation (5)
 - ✅ Code Quality: KISS Principle, DRY, Clean Architecture
 - ✅ Testing: Unit Tests + E2E Tests + Integration Tests
+- 🔁 Nächste: P4-FE-001 (Leaderboard Enhancements) + P4-FE-002 (Gamification UI)
 
 ---
 
