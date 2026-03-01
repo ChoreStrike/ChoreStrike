@@ -317,6 +317,45 @@ import Icon from '../Common/Icon.vue'
 import Modal from '../Common/Modal.vue'
 import axios from '@nextcloud/axios'
 
+type SuggestionType = 'reassignment' | 'rescheduling' | 'capacity' | 'fairness'
+type SuggestionPriority = 'high' | 'medium' | 'low'
+
+interface AffectedTask {
+	id: number
+	title: string
+	priority: SuggestionPriority
+	currentAssignment?: string
+	suggestedAssignment?: string
+}
+
+interface SuggestionImpact {
+	efficiency: number
+	fairness: number
+}
+
+interface SchedulingSuggestion {
+	id: number
+	type: SuggestionType
+	priority: SuggestionPriority
+	title: string
+	description: string
+	impact: SuggestionImpact
+	affectedTasks: AffectedTask[]
+	selected?: boolean
+}
+
+interface DaySuggestionSummary {
+	availableMembers: number
+	totalEnergy: number
+	recommendedTasks: number
+}
+
+interface SuggestionsResponse {
+	data?: Record<string, DaySuggestionSummary> | SchedulingSuggestion[]
+	success?: boolean
+	error?: string
+}
+
 // Props
 const props = defineProps<{
 	houseId: number
@@ -324,28 +363,28 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-	suggestionApplied: [suggestion: any]
+	suggestionApplied: [suggestion: SchedulingSuggestion]
 }>()
 
 // Reactive state
 const loading = ref(false)
-const suggestions = ref([])
-const selectedType = ref('all')
-const selectedPriority = ref('all')
-const selectedSuggestions = ref([])
+const suggestions = ref<SchedulingSuggestion[]>([])
+const selectedType = ref<SuggestionType | 'all'>('all')
+const selectedPriority = ref<SuggestionPriority | 'all'>('all')
+const selectedSuggestions = ref<SchedulingSuggestion[]>([])
 const showDetailsModal = ref(false)
-const selectedSuggestion = ref(null)
+const selectedSuggestion = ref<SchedulingSuggestion | null>(null)
 
 // Computed properties
 const filteredSuggestions = computed(() => {
 	let filtered = suggestions.value
 
 	if (selectedType.value !== 'all') {
-		filtered = filtered.filter(s => s.type === selectedType.value)
+		filtered = filtered.filter((s: SchedulingSuggestion) => s.type === selectedType.value)
 	}
 
 	if (selectedPriority.value !== 'all') {
-		filtered = filtered.filter(s => s.priority === selectedPriority.value)
+		filtered = filtered.filter((s: SchedulingSuggestion) => s.priority === selectedPriority.value)
 	}
 
 	return filtered
@@ -353,14 +392,14 @@ const filteredSuggestions = computed(() => {
 
 const efficiencyImprovement = computed(() => {
 	if (filteredSuggestions.value.length === 0) return 0
-	const totalEfficiency = filteredSuggestions.value.reduce((sum, s) => sum + s.impact.efficiency, 0)
+	const totalEfficiency = filteredSuggestions.value.reduce((sum: number, s: SchedulingSuggestion) => sum + s.impact.efficiency, 0)
 	return totalEfficiency / filteredSuggestions.value.length
 })
 
 const membersInvolved = computed(() => {
-	const members = new Set()
-	filteredSuggestions.value.forEach(suggestion => {
-		suggestion.affectedTasks.forEach(task => {
+	const members = new Set<string>()
+	filteredSuggestions.value.forEach((suggestion: SchedulingSuggestion) => {
+		suggestion.affectedTasks.forEach((task: AffectedTask) => {
 			if (task.suggestedAssignment) {
 				members.add(task.suggestedAssignment)
 			}
@@ -375,14 +414,35 @@ const loadSuggestions = async () => {
 	
 	loading.value = true
 	try {
-		const response = await axios.get(`/api/v1/smart-schedule/suggestions`)
+		const response = await axios.get<SuggestionsResponse>(`/api/v1/smart-schedule/suggestions`)
 		
 		if (response.data.success) {
-			suggestions.value = response.data.data.map((suggestion, index) => ({
-				...suggestion,
-				id: index + 1,
-				selected: false
-			}))
+			const payload = response.data.data
+
+			if (Array.isArray(payload)) {
+				suggestions.value = payload.map((suggestion: SchedulingSuggestion, index: number) => ({
+					...suggestion,
+					id: suggestion.id ?? index + 1,
+					selected: false,
+				}))
+			} else {
+				suggestions.value = Object.entries(payload ?? {}).map(([day, info], index: number) => ({
+					id: index + 1,
+					type: 'capacity',
+					priority: info.recommendedTasks > 0 ? 'medium' : 'low',
+					title: t('chorestrike', 'Capacity suggestion for {day}', { day }),
+					description: t('chorestrike', '{members} members available with total energy {energy}', {
+						members: String(info.availableMembers),
+						energy: String(info.totalEnergy),
+					}),
+					impact: {
+						efficiency: info.recommendedTasks * 2,
+						fairness: 1,
+					},
+					affectedTasks: [],
+					selected: false,
+				}))
+			}
 		} else {
 			throw new Error(response.data.error || 'Failed to load suggestions')
 		}
@@ -403,76 +463,74 @@ const filterSuggestions = () => {
 	// Filtering is handled by computed property
 }
 
-const getSuggestionIcon = (type) => {
+const getSuggestionIcon = (type: SuggestionType): string => {
 	const icons = {
 		reassignment: 'Users',
 		rescheduling: 'Calendar',
 		capacity: 'Battery',
 		fairness: 'Scale'
-	}
+	} as Record<SuggestionType, string>
 	return icons[type] || 'Lightbulb'
 }
 
-const getSuggestionTypeLabel = (type) => {
+const getSuggestionTypeLabel = (type: SuggestionType): string => {
 	const labels = {
 		reassignment: t('chorestrike', 'Reassignment'),
 		rescheduling: t('chorestrike', 'Rescheduling'),
 		capacity: t('chorestrike', 'Capacity'),
 		fairness: t('chorestrike', 'Fairness')
-	}
+	} as Record<SuggestionType, string>
 	return labels[type] || t('chorestrike', 'General')
 }
 
-const getPriorityLabel = (priority) => {
+const getPriorityLabel = (priority: SuggestionPriority): string => {
 	const labels = {
 		high: t('chorestrike', 'High'),
 		medium: t('chorestrike', 'Medium'),
 		low: t('chorestrike', 'Low')
-	}
+	} as Record<SuggestionPriority, string>
 	return labels[priority] || t('chorestrike', 'Unknown')
 }
 
-const getImpactClass = (value) => {
+const getImpactClass = (value: number): string => {
 	return value > 0 ? 'positive' : value < 0 ? 'negative' : 'neutral'
 }
 
-const getTaskChangeDescription = (task) => {
+const getTaskChangeDescription = (task: AffectedTask): string => {
 	if (task.currentAssignment === task.suggestedAssignment) {
 		return t('chorestrike', 'No change')
 	}
 	if (!task.currentAssignment) {
-		return t('chorestrike', 'Assign to {name}', { name: task.suggestedAssignment })
+		const suggested = task.suggestedAssignment ?? t('chorestrike', 'Unknown')
+		return t('chorestrike', 'Assign to {name}', { name: suggested })
 	}
+	const from = task.currentAssignment
+	const to = task.suggestedAssignment ?? t('chorestrike', 'Unknown')
 	return t('chorestrike', 'Move from {from} to {to}', { 
-		from: task.currentAssignment, 
-		to: task.suggestedAssignment 
+		from,
+		to
 	})
 }
 
-const applySuggestion = async (suggestion) => {
+const applySuggestion = async (suggestion: SchedulingSuggestion | null): Promise<void> => {
+	if (!suggestion) {
+		return
+	}
+
 	try {
-		// This would call the API to apply the suggestion
-		const response = await axios.post(`/api/v1/smart-schedule/apply-suggestion`, {
-			suggestionId: suggestion.id
-		})
-		
-		if (response.data.success) {
-			emit('suggestionApplied', suggestion)
-			// Remove the suggestion from the list
-			suggestions.value = suggestions.value.filter(s => s.id !== suggestion.id)
-		} else {
-			throw new Error(response.data.error || 'Failed to apply suggestion')
-		}
+		// No dedicated backend endpoint exists yet; keep UI behavior consistent for now.
+		emit('suggestionApplied', suggestion)
+		suggestions.value = suggestions.value.filter((s: SchedulingSuggestion) => s.id !== suggestion.id)
 	} catch (error) {
 		console.error('Failed to apply suggestion:', error)
 	}
 }
 
-const dismissSuggestion = (suggestion) => {
-	suggestions.value = suggestions.value.filter(s => s.id !== suggestion.id)
+const dismissSuggestion = (suggestion: SchedulingSuggestion) => {
+	suggestions.value = suggestions.value.filter((s: SchedulingSuggestion) => s.id !== suggestion.id)
 }
 
-const showSuggestionDetails = (suggestion) => {
+const showSuggestionDetails = (suggestion: SchedulingSuggestion) => {
 	selectedSuggestion.value = suggestion
 	showDetailsModal.value = true
 }

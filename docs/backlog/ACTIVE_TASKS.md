@@ -29,7 +29,20 @@
   - AI suggestions with impact analysis
   - Responsive design for all screen sizes
   - Full API integration with SmartScheduler endpoints
-- 📱 TypeScript errors noted but functional - will address in next iteration
+- ✅ Review + hotfix pass completed (2026-03-01 08:30)
+- ✅ Fixed critical TypeScript typing issues in:
+  - src/components/Scheduling/EnergyBudgetSettings.vue
+  - src/components/Scheduling/ScheduleCalendar.vue
+  - src/components/Scheduling/SchedulingSuggestions.vue
+  - src/views/SchedulingView.vue
+- ✅ Fixed invalid calendar member select option markup
+- ✅ Removed frontend call to non-existing suggestions apply endpoint (temporary UI-local apply)
+- ⚠️ Lint run currently blocked by missing local dependency: eslint-plugin-import
+- 🔁 Reprioritized next tasks:
+  1. **P2-BE-004 (High)** - Implement persisted "apply suggestion" backend endpoint + route + tests
+  2. **P2-BE-005 (High)** - Replace SmartSchedulerController::getCurrentHouseId placeholder with real house resolution
+  3. **P2-FE-002 (Medium)** - Add regression/component tests for scheduling widgets and suggestion mapping
+  4. **P2-OPS-001 (Low)** - Fix lint toolchain dependency (eslint-plugin-import) in dev setup
 - 🎯 Phase 2 Frontend Foundation is complete and production-ready
 
 ---

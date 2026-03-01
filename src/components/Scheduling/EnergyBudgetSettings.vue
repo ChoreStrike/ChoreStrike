@@ -42,7 +42,7 @@
 								:id="`energy-${day.key}`"
 								v-model.number="currentUserBudget[day.key]"
 								type="range"
-								min="0"
+								min="1"
 								max="20"
 								class="energy-slider"
 								:data-testid="`energy-slider-${day.key}`"
@@ -56,7 +56,7 @@
 								:id="`energy-input-${day.key}`"
 								v-model.number="currentUserBudget[day.key]"
 								type="number"
-								min="0"
+								min="1"
 								max="20"
 								class="energy-number-input"
 								:data-testid="`energy-input-${day.key}`" />
@@ -171,6 +171,46 @@ import { translate as t } from '@nextcloud/l10n'
 import Icon from '../Common/Icon.vue'
 import axios from '@nextcloud/axios'
 
+type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
+type EnergyBudget = Record<Weekday, number>
+
+interface MemberAvailability {
+	userId: number
+	userName: string
+	energyBudget: EnergyBudget
+	weekdayAvailability: Record<Weekday, boolean>
+}
+
+interface EnergyTemplate {
+	id: string
+	name: string
+	description: string
+	icon: string
+	budget: EnergyBudget
+}
+
+interface NotificationState {
+	show: boolean
+	type: 'success' | 'error'
+	message: string
+}
+
+interface WeekDayLabel {
+	key: Weekday
+	name: string
+	short: string
+}
+
+const defaultBudget = (): EnergyBudget => ({
+	monday: 10,
+	tuesday: 10,
+	wednesday: 10,
+	thursday: 10,
+	friday: 10,
+	saturday: 15,
+	sunday: 15,
+})
+
 // Props
 const props = defineProps<{
 	houseId: number
@@ -178,23 +218,23 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-	budgetUpdated: [budget: any]
+	budgetUpdated: [budget: EnergyBudget]
 }>()
 
 // Reactive state
 const loading = ref(false)
 const saving = ref(false)
-const currentUser = ref(null)
-const currentUserBudget = ref({})
-const originalBudget = ref({})
-const notification = ref({
+const currentUser = ref<MemberAvailability | null>(null)
+const currentUserBudget = ref<EnergyBudget>(defaultBudget())
+const originalBudget = ref<EnergyBudget>(defaultBudget())
+const notification = ref<NotificationState>({
 	show: false,
 	type: 'success',
 	message: ''
 })
 
 // Constants
-const weekDays = [
+const weekDays: WeekDayLabel[] = [
 	{ key: 'monday', name: t('chorestrike', 'Monday'), short: t('chorestrike', 'Mon') },
 	{ key: 'tuesday', name: t('chorestrike', 'Tuesday'), short: t('chorestrike', 'Tue') },
 	{ key: 'wednesday', name: t('chorestrike', 'Wednesday'), short: t('chorestrike', 'Wed') },
@@ -204,7 +244,7 @@ const weekDays = [
 	{ key: 'sunday', name: t('chorestrike', 'Sunday'), short: t('chorestrike', 'Sun') },
 ]
 
-const energyTemplates = [
+const energyTemplates: EnergyTemplate[] = [
 	{
 		id: 'light',
 		name: t('chorestrike', 'Light Schedule'),
@@ -237,8 +277,7 @@ const energyTemplates = [
 
 // Computed properties
 const totalWeeklyEnergy = computed(() => {
-	if (!currentUserBudget.value) return 0
-	return Object.values(currentUserBudget.value).reduce((sum, energy) => sum + energy, 0)
+	return Object.values(currentUserBudget.value).reduce((sum: number, energy: number) => sum + energy, 0)
 })
 
 const averageDailyEnergy = computed(() => {
@@ -247,14 +286,14 @@ const averageDailyEnergy = computed(() => {
 })
 
 const peakDay = computed(() => {
-	if (!currentUserBudget.value) return t('chorestrike', 'None')
+	if (!currentUser.value) return t('chorestrike', 'None')
 	let maxEnergy = 0
-	let peakDayKey = 'monday'
+	let peakDayKey: Weekday = 'monday'
 	
 	Object.entries(currentUserBudget.value).forEach(([day, energy]) => {
 		if (energy > maxEnergy) {
 			maxEnergy = energy
-			peakDayKey = day
+			peakDayKey = day as Weekday
 		}
 	})
 	
@@ -263,8 +302,8 @@ const peakDay = computed(() => {
 })
 
 const lowEnergyDays = computed(() => {
-	if (!currentUserBudget.value) return 0
-	return Object.values(currentUserBudget.value).filter(energy => energy <= 5).length
+	if (!currentUser.value) return 0
+	return Object.values(currentUserBudget.value).filter((energy: number) => energy <= 5).length
 })
 
 const hasChanges = computed(() => {
@@ -280,14 +319,16 @@ const loadCurrentUserBudget = async () => {
 		const response = await axios.get(`/api/v1/smart-schedule/availability`)
 		
 		if (response.data.success) {
-			const members = response.data.data
-			const currentUserId = 1 // This would come from user store
+			const members = response.data.data as MemberAvailability[]
+			const currentUserId = null
 			
-			const user = members.find(member => member.userId === currentUserId)
+			const user = (currentUserId === null)
+				? members[0]
+				: members.find((member: MemberAvailability) => member.userId === currentUserId)
 			if (user) {
 				currentUser.value = user
-				currentUserBudget.value = { ...user.energyBudget }
-				originalBudget.value = { ...user.energyBudget }
+				currentUserBudget.value = { ...defaultBudget(), ...user.energyBudget }
+				originalBudget.value = { ...defaultBudget(), ...user.energyBudget }
 			}
 		} else {
 			throw new Error(response.data.error || 'Failed to load energy budget')
@@ -300,15 +341,15 @@ const loadCurrentUserBudget = async () => {
 	}
 }
 
-const applyEnergyTemplate = (template) => {
+const applyEnergyTemplate = (template: EnergyTemplate) => {
 	currentUserBudget.value = { ...template.budget }
 	showNotification('success', t('chorestrike', 'Template "{name}" applied', { name: template.name }))
 }
 
-const updateEnergyPreview = (day) => {
+const updateEnergyPreview = (day: Weekday) => {
 	// This could trigger real-time preview updates
 	const energy = currentUserBudget.value[day]
-	if (energy < 0) currentUserBudget.value[day] = 0
+	if (energy < 1) currentUserBudget.value[day] = 1
 	if (energy > 20) currentUserBudget.value[day] = 20
 }
 
@@ -330,7 +371,7 @@ const saveEnergyBudget = async () => {
 	}
 }
 
-const showNotification = (type, message) => {
+const showNotification = (type: 'success' | 'error', message: string) => {
 	notification.value = {
 		show: true,
 		type,

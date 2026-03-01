@@ -79,20 +79,21 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useHouseStore } from '../store/house'
-import { useUserStore } from '../store/user'
 import SchedulePreview from '../components/Scheduling/SchedulePreview.vue'
 import AvailabilitySettings from '../components/Scheduling/AvailabilitySettings.vue'
 import EnergyBudgetSettings from '../components/Scheduling/EnergyBudgetSettings.vue'
 import ScheduleCalendar from '../components/Scheduling/ScheduleCalendar.vue'
 import SchedulingSuggestions from '../components/Scheduling/SchedulingSuggestions.vue'
 import Modal from '../components/Common/Modal.vue'
-import Icon from '../components/Common/Icon.vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
 
+interface ConflictItem {
+	message: string
+}
+
 // Stores
 const houseStore = useHouseStore()
-const userStore = useUserStore()
 
 // Reactive state
 const currentSchedule = ref(null)
@@ -102,34 +103,34 @@ const successMessage = ref('')
 const errorMessage = ref('')
 
 // Computed properties
-const currentHouseId = computed(() => houseStore.currentHouse?.id)
+const currentHouseId = computed<number>(() => houseStore.currentHouse?.id ?? 0)
 
 // Event handlers
-const handleScheduleGenerated = (schedule) => {
+const handleScheduleGenerated = (schedule: unknown) => {
 	currentSchedule.value = schedule
 	showSuccess(t('chorestrike', 'Schedule generated successfully!'))
 }
 
-const handleConflictDetected = (conflicts) => {
+const handleConflictDetected = (conflicts: ConflictItem[]) => {
 	if (conflicts.length > 0) {
-		const conflictMessages = conflicts.map(c => c.message).join('. ')
+		const conflictMessages = conflicts.map((conflict: ConflictItem) => conflict.message).join('. ')
 		showError(t('chorestrike', 'Scheduling conflicts detected: {conflicts}', { conflicts: conflictMessages }))
 	}
 }
 
-const handleAvailabilityUpdated = (availability) => {
+const handleAvailabilityUpdated = (_availability: unknown) => {
 	showSuccess(t('chorestrike', 'Availability updated successfully!'))
 }
 
-const handleBudgetUpdated = (budget) => {
+const handleBudgetUpdated = (_budget: unknown) => {
 	showSuccess(t('chorestrike', 'Energy budget updated successfully!'))
 }
 
-const handleTaskMoved = (taskUpdate) => {
+const handleTaskMoved = (_taskUpdate: unknown) => {
 	showSuccess(t('chorestrike', 'Task schedule updated!'))
 }
 
-const handleSuggestionApplied = (suggestion) => {
+const handleSuggestionApplied = (_suggestion: unknown) => {
 	showSuccess(t('chorestrike', 'Scheduling suggestion applied!'))
 }
 

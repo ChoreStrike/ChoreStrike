@@ -95,8 +95,8 @@
 								v-if="hasTaskAtTime(day.date, hour)"
 								class="task-item"
 								@click.stop="taskClicked(getTaskAtTime(day.date, hour))">
-								<div class="task-title">{{ getTaskAtTime(day.date, hour).title }}</div>
-								<div class="task-assignee">{{ getTaskAtTime(day.date, hour).assignee }}</div>
+								<div class="task-title">{{ getTaskAtTime(day.date, hour)?.title }}</div>
+								<div class="task-assignee">{{ getTaskAtTime(day.date, hour)?.assignee }}</div>
 							</div>
 						</div>
 					</div>
@@ -268,7 +268,7 @@
 						v-model="newTask.memberId"
 						class="form-select"
 						data-testid="task-member-select">
-						option value="">Select member</option>
+						<option value="">{{ t('chorestrike', 'Select member') }}</option>
 						<option
 							v-for="member in availableMembers"
 							:key="member.userId"
@@ -304,32 +304,110 @@ import Icon from '../Common/Icon.vue'
 import Modal from '../Common/Modal.vue'
 import axios from '@nextcloud/axios'
 
+type ViewMode = 'week' | 'day'
+
+interface CalendarDay {
+	date: string
+	name: string
+	dayNumber: number
+	fullDate: string
+	capacity: number
+}
+
+interface MemberInfo {
+	userId: number
+	userName: string
+}
+
+interface RawAssignment {
+	taskId?: number
+	taskTitle?: string
+	assignedTo?: number
+	date?: string
+	energyCost?: number
+	priority?: number
+	scheduledFor?: string
+	startTime?: string
+	endTime?: string
+	title?: string
+	assignee?: string
+}
+
+interface CalendarTask {
+	id: number
+	title: string
+	assignee: string
+	priority: number
+	energyCost: number
+	scheduledFor: string
+	startTime: string
+	endTime: string
+}
+
+interface SchedulePayload {
+	assignments?: RawAssignment[]
+}
+
+interface SlotSelection {
+	date: string | null
+	hour: number | null
+}
+
+interface NewTaskForm {
+	time: number | null
+	duration: number
+	memberId: string
+}
+
 // Props
 const props = defineProps<{
 	houseId: number
-	schedule: any
+	schedule: SchedulePayload | null
 }>()
 
 // Emits
 const emit = defineEmits<{
-	taskMoved: [taskUpdate: any]
+	taskMoved: [taskUpdate: { date: string | null; startTime: string; endTime: string; memberId: string }]
 }>()
 
 // Reactive state
 const loading = ref(false)
-const viewMode = ref('week')
+const viewMode = ref<ViewMode>('week')
 const currentWeekStart = ref(new Date())
-const weekDays = ref([])
+const weekDays = ref<CalendarDay[]>([])
 const timeSlots = ref(Array.from({ length: 12 }, (_, i) => i + 8)) // 8 AM to 8 PM
 const showTaskModal = ref(false)
 const showAddTaskModal = ref(false)
-const selectedTask = ref(null)
-const selectedSlot = ref({ date: null, hour: null })
-const availableMembers = ref([])
-const newTask = ref({
+const selectedTask = ref<CalendarTask | null>(null)
+const selectedSlot = ref<SlotSelection>({ date: null, hour: null })
+const availableMembers = ref<MemberInfo[]>([])
+const newTask = ref<NewTaskForm>({
 	time: null,
 	duration: 1,
 	memberId: ''
+})
+
+const normalizedAssignments = computed<CalendarTask[]>(() => {
+	const assignments = props.schedule?.assignments ?? []
+
+	return assignments.map((task: RawAssignment, index: number) => {
+		const startHour = task.startTime ? parseInt(task.startTime, 10) : 9
+		const safeStartHour = Number.isNaN(startHour) ? 9 : startHour
+		const safeEndHour = task.endTime
+			? parseInt(task.endTime, 10)
+			: safeStartHour + 1
+
+		return {
+			id: task.taskId ?? index + 1,
+			title: task.taskTitle ?? task.title ?? t('chorestrike', 'Task'),
+			assignee: task.assignee ?? (task.assignedTo ? `User #${task.assignedTo}` : t('chorestrike', 'Unassigned')),
+			priority: task.priority ?? 3,
+			energyCost: task.energyCost ?? 5,
+			scheduledFor: task.date ?? task.scheduledFor ?? new Date().toISOString().split('T')[0],
+			startTime: `${safeStartHour}:00`,
+			endTime: `${safeEndHour}:00`,
+		}
+	})
 })
 
 // Computed properties
@@ -342,22 +420,23 @@ const weekRange = computed(() => {
 })
 
 const currentDay = computed(() => {
-	return weekDays.value.find(day => day.date === new Date().toISOString().split('T')[0]) || weekDays.value[0]
+	const today = new Date().toISOString().split('T')[0]
+	return weekDays.value.find((day: CalendarDay) => day.date === today) ?? weekDays.value[0] ?? null
 })
 
 const currentDayTasks = computed(() => {
-	if (!currentDay.value || !props.schedule?.assignments) return []
-	return props.schedule.assignments.filter(task => 
+	if (!currentDay.value) return []
+	return normalizedAssignments.value.filter((task: CalendarTask) => 
 		task.scheduledFor === currentDay.value.date
 	)
 })
 
 const currentDayUsedEnergy = computed(() => {
-	return currentDayTasks.value.reduce((total, task) => total + (task.energyCost || 0), 0)
+	return currentDayTasks.value.reduce((total: number, task: CalendarTask) => total + (task.energyCost || 0), 0)
 })
 
 const canAddTask = computed(() => {
-	return newTask.value.time && newTask.value.duration && newTask.value.memberId
+	return newTask.value.time !== null && newTask.value.duration > 0 && newTask.value.memberId !== ''
 })
 
 // Methods
@@ -372,7 +451,7 @@ const loadCalendarData = async () => {
 		// Load available members
 		const response = await axios.get(`/api/v1/smart-schedule/availability`)
 		if (response.data.success) {
-			availableMembers.value = response.data.data
+			availableMembers.value = response.data.data as MemberInfo[]
 		}
 	} catch (error) {
 		console.error('Failed to load calendar data:', error)
@@ -404,51 +483,47 @@ const generateWeekDays = () => {
 	weekDays.value = days
 }
 
-const getDayCapacity = (date) => {
+const getDayCapacity = (_date: string): number => {
 	// This would come from the schedule data or member availability
 	// For now, return a default value
 	return 15
 }
 
-const isToday = (date) => {
+const isToday = (date: string): boolean => {
 	return date === new Date().toISOString().split('T')[0]
 }
 
-const isWeekend = (date) => {
+const isWeekend = (date: string): boolean => {
 	const day = new Date(date).getDay()
 	return day === 0 || day === 6
 }
 
-const hasTaskAtTime = (date, hour) => {
+const hasTaskAtTime = (date: string, hour: number): boolean => {
 	return getTaskAtTime(date, hour) !== null
 }
 
-const getTaskAtTime = (date, hour) => {
-	if (!props.schedule?.assignments) return null
-	
-	return props.schedule.assignments.find(task => 
+const getTaskAtTime = (date: string, hour: number): CalendarTask | null => {
+	return normalizedAssignments.value.find((task: CalendarTask) => 
 		task.scheduledFor === date && 
 		task.startTime === `${hour}:00`
 	) || null
 }
 
-const getTasksAtHour = (date, hour) => {
-	if (!props.schedule?.assignments) return []
-	
-	return props.schedule.assignments.filter(task => 
+const getTasksAtHour = (date: string, hour: number): CalendarTask[] => {
+	return normalizedAssignments.value.filter((task: CalendarTask) => 
 		task.scheduledFor === date && 
 		parseInt(task.startTime) === hour
 	)
 }
 
-const getPriorityLabel = (priority) => {
+const getPriorityLabel = (priority: number): string => {
 	const labels = {
 		1: t('chorestrike', 'Critical'),
 		2: t('chorestrike', 'High'),
 		3: t('chorestrike', 'Medium'),
 		4: t('chorestrike', 'Low'),
 		5: t('chorestrike', 'Very Low')
-	}
+	} as Record<number, string>
 	return labels[priority] || t('chorestrike', 'Unknown')
 }
 
@@ -475,17 +550,20 @@ const goToToday = () => {
 	generateWeekDays()
 }
 
-const setViewMode = (mode) => {
+const setViewMode = (mode: ViewMode): void => {
 	viewMode.value = mode
 }
 
-const slotClicked = (date, hour) => {
+const slotClicked = (date: string, hour: number): void => {
 	selectedSlot.value = { date, hour }
 	showAddTaskModal.value = true
 	newTask.value.time = hour
 }
 
-const taskClicked = (task) => {
+const taskClicked = (task: CalendarTask | null): void => {
+	if (!task) {
+		return
+	}
 	selectedTask.value = task
 	showTaskModal.value = true
 }
@@ -505,10 +583,15 @@ const addTaskToSchedule = async () => {
 	if (!canAddTask.value) return
 	
 	try {
+		const taskTime = newTask.value.time
+		if (taskTime === null) {
+			return
+		}
+
 		const taskData = {
 			date: selectedSlot.value.date,
-			startTime: `${newTask.value.time}:00`,
-			endTime: `${newTask.value.time + newTask.value.duration}:00`,
+			startTime: `${taskTime}:00`,
+			endTime: `${taskTime + newTask.value.duration}:00`,
 			memberId: newTask.value.memberId
 		}
 		
@@ -544,7 +627,7 @@ onMounted(() => {
 })
 
 watch(() => props.schedule, () => {
-	// Refresh calendar when schedule changes
+	generateWeekDays()
 }, { deep: true })
 </script>
 
