@@ -26,6 +26,7 @@
     "@nextcloud/vue": "^8.19.0",
     "@playwright/test": "^1.58.2",
     "ajv": "^8.18.0",
+    "lucide-vue-next": "^0.474.0",
     "node-polyfill-webpack-plugin": "^4.1.0",
     "pinia": "^2.2.6",
     "vue": "^3.5.13",

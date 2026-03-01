@@ -6,7 +6,9 @@
 <template>
 	<div class="settings" data-testid="settings-view">
 		<header class="settings-header">
-			<h1 data-testid="settings-title">{{ t('chorestrike', 'Settings') }}</h1>
+			<h1 data-testid="settings-title">
+				{{ t('chorestrike', 'Settings') }}
+			</h1>
 		</header>
 
 		<div class="settings-content">
@@ -23,7 +25,7 @@
 								type="text"
 								class="text-input"
 								data-testid="house-name-input"
-								:placeholder="t('chorestrike', 'Enter house name')" />
+								:placeholder="t('chorestrike', 'Enter house name')">
 							<button
 								class="save-button"
 								data-testid="save-house-name"
@@ -124,7 +126,7 @@
 						type="text"
 						class="text-input"
 						:placeholder="t('chorestrike', 'e.g., Ground Floor')"
-						@keyup.enter="createFloor" />
+						@keyup.enter="createFloor">
 				</div>
 				<div class="modal-actions">
 					<button class="secondary-button" @click="showAddFloorModal = false">
@@ -151,7 +153,7 @@
 						v-model="editingFloorName"
 						type="text"
 						class="text-input"
-						@keyup.enter="updateFloor" />
+						@keyup.enter="updateFloor">
 				</div>
 				<div class="modal-actions">
 					<button class="secondary-button" @click="showEditFloorModal = false">
@@ -181,7 +183,7 @@
 						v-model="resetConfirmation"
 						type="text"
 						class="text-input"
-						placeholder="RESET" />
+						placeholder="RESET">
 				</div>
 				<div class="modal-actions">
 					<button class="secondary-button" @click="showResetModal = false">

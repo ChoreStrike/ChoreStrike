@@ -12,7 +12,7 @@
 
 		<!-- Loading State -->
 		<div v-if="loading" class="loading-state">
-			<div class="loading-spinner"></div>
+			<div class="loading-spinner" />
 			<p>{{ t('chorestrike', 'Loading member availability...') }}</p>
 		</div>
 
@@ -33,21 +33,23 @@
 						<button
 							v-if="member.isCurrentUser"
 							class="edit-button"
-							@click="editMemberAvailability(member)"
-							data-testid="edit-availability-button">
+							data-testid="edit-availability-button"
+							@click="editMemberAvailability(member)">
 							<Icon name="Edit" :size="16" />
 							{{ t('chorestrike', 'Edit') }}
 						</button>
 					</div>
 				</div>
-				
+
 				<!-- Availability Grid -->
 				<div class="availability-grid">
 					<div
 						v-for="(available, day) in member.weekdayAvailability"
 						:key="day"
 						:class="['day-item', { available: available, unavailable: !available }]">
-						<div class="day-name">{{ formatDayName(day) }}</div>
+						<div class="day-name">
+							{{ formatDayName(day) }}
+						</div>
 						<div class="day-status">
 							<Icon :name="available ? 'Check' : 'Close'" :size="16" />
 							<span>{{ available ? t('chorestrike', 'Available') : t('chorestrike', 'Unavailable') }}</span>
@@ -84,8 +86,8 @@
 		<Modal
 			v-if="showEditModal"
 			:title="t('chorestrike', 'Edit Availability for {userName}', { userName: editingMember?.userName })"
-			@close="closeEditModal"
-			data-testid="edit-availability-modal">
+			data-testid="edit-availability-modal"
+			@close="closeEditModal">
 			<div class="edit-form">
 				<!-- Availability Settings -->
 				<div class="form-section">
@@ -97,11 +99,11 @@
 							class="toggle-item">
 							<label class="toggle-label">
 								<input
-									type="checkbox"
 									v-model="editForm.availability[day.key]"
+									type="checkbox"
 									class="toggle-input"
-									:data-testid="`availability-${day.key}`" />
-								<span class="toggle-slider"></span>
+									:data-testid="`availability-${day.key}`">
+								<span class="toggle-slider" />
 								<span class="toggle-text">{{ day.name }}</span>
 							</label>
 						</div>
@@ -111,7 +113,9 @@
 				<!-- Energy Budget Settings -->
 				<div class="form-section">
 					<h4>{{ t('chorestrike', 'Daily Energy Budget') }}</h4>
-					<p class="section-description">{{ t('chorestrike', 'Set how much energy you have for tasks each day (1-20)') }}</p>
+					<p class="section-description">
+						{{ t('chorestrike', 'Set how much energy you have for tasks each day (1-20)') }}
+					</p>
 					<div class="energy-budget-grid">
 						<div
 							v-for="day in weekDays"
@@ -126,7 +130,7 @@
 									min="1"
 									max="20"
 									class="number-input"
-									:data-testid="`budget-${day.key}-input`" />
+									:data-testid="`budget-${day.key}-input`">
 								<span class="input-suffix">{{ t('chorestrike', 'energy') }}</span>
 							</div>
 						</div>
@@ -140,24 +144,24 @@
 						<button
 							type="button"
 							class="template-button"
-							@click="applyTemplate('weekend-warrior')"
-							data-testid="template-weekend-warrior">
+							data-testid="template-weekend-warrior"
+							@click="applyTemplate('weekend-warrior')">
 							{{ t('chorestrike', 'Weekend Warrior') }}
 							<span class="template-desc">{{ t('chorestrike', 'High energy on weekends') }}</span>
 						</button>
 						<button
 							type="button"
 							class="template-button"
-							@click="applyTemplate('balanced')"
-							data-testid="template-balanced">
+							data-testid="template-balanced"
+							@click="applyTemplate('balanced')">
 							{{ t('chorestrike', 'Balanced') }}
 							<span class="template-desc">{{ t('chorestrike', 'Even distribution') }}</span>
 						</button>
 						<button
 							type="button"
 							class="template-button"
-							@click="applyTemplate('minimal')"
-							data-testid="template-minimal">
+							data-testid="template-minimal"
+							@click="applyTemplate('minimal')">
 							{{ t('chorestrike', 'Minimal') }}
 							<span class="template-desc">{{ t('chorestrike', 'Low energy schedule') }}</span>
 						</button>
@@ -169,16 +173,19 @@
 				<div class="modal-footer">
 					<button
 						class="secondary-button"
-						@click="closeEditModal"
-						data-testid="cancel-edit-button">
+						data-testid="cancel-edit-button"
+						@click="closeEditModal">
 						{{ t('chorestrike', 'Cancel') }}
 					</button>
 					<button
 						class="primary-button"
-						@click="saveAvailability"
 						:disabled="saving"
-						data-testid="save-availability-button">
-						<Icon v-if="saving" name="Loading" :size="16" class="spinning" />
+						data-testid="save-availability-button"
+						@click="saveAvailability">
+						<Icon v-if="saving"
+							name="Loading"
+							:size="16"
+							class="spinning" />
 						{{ saving ? t('chorestrike', 'Saving...') : t('chorestrike', 'Save Changes') }}
 					</button>
 				</div>
@@ -201,7 +208,7 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-	availabilityUpdated: [availability: any]
+	'availability-updated': [availability: any]
 }>()
 
 // Reactive state
@@ -212,7 +219,7 @@ const showEditModal = ref(false)
 const editingMember = ref(null)
 const editForm = ref({
 	availability: {},
-	energyBudget: {}
+	energyBudget: {},
 })
 
 // Constants
@@ -229,15 +236,15 @@ const weekDays = [
 // Methods
 const loadMemberAvailability = async () => {
 	if (!props.houseId) return
-	
+
 	loading.value = true
 	try {
-		const response = await axios.get(`/api/v1/smart-schedule/availability`)
-		
+		const response = await axios.get('/api/v1/smart-schedule/availability')
+
 		if (response.data.success) {
 			members.value = response.data.data.map(member => ({
 				...member,
-				isCurrentUser: member.userId === currentUserId.value
+				isCurrentUser: member.userId === currentUserId.value,
 			}))
 		} else {
 			throw new Error(response.data.error || 'Failed to load availability')
@@ -253,7 +260,7 @@ const editMemberAvailability = (member) => {
 	editingMember.value = member
 	editForm.value = {
 		availability: { ...member.weekdayAvailability },
-		energyBudget: { ...member.energyBudget }
+		energyBudget: { ...member.energyBudget },
 	}
 	showEditModal.value = true
 }
@@ -266,19 +273,19 @@ const closeEditModal = () => {
 
 const saveAvailability = async () => {
 	if (!editingMember.value) return
-	
+
 	saving.value = true
 	try {
 		// Update availability
-		await axios.put(`/api/v1/smart-schedule/availability`, editForm.value.availability)
-		
+		await axios.put('/api/v1/smart-schedule/availability', editForm.value.availability)
+
 		// Update energy budget
-		await axios.put(`/api/v1/smart-schedule/energy-budget`, editForm.value.energyBudget)
-		
+		await axios.put('/api/v1/smart-schedule/energy-budget', editForm.value.energyBudget)
+
 		// Refresh member list
 		await loadMemberAvailability()
-		
-		emit('availabilityUpdated', editForm.value)
+
+		emit('availability-updated', editForm.value)
 		closeEditModal()
 	} catch (error) {
 		console.error('Failed to save availability:', error)
@@ -291,36 +298,66 @@ const applyTemplate = (templateType) => {
 	const templates = {
 		'weekend-warrior': {
 			availability: {
-				monday: false, tuesday: false, wednesday: false, thursday: false, friday: false,
-				saturday: true, sunday: true
+				monday: false,
+				tuesday: false,
+				wednesday: false,
+				thursday: false,
+				friday: false,
+				saturday: true,
+				sunday: true,
 			},
 			energyBudget: {
-				monday: 3, tuesday: 3, wednesday: 3, thursday: 3, friday: 3,
-				saturday: 20, sunday: 20
-			}
+				monday: 3,
+				tuesday: 3,
+				wednesday: 3,
+				thursday: 3,
+				friday: 3,
+				saturday: 20,
+				sunday: 20,
+			},
 		},
-		'balanced': {
+		balanced: {
 			availability: {
-				monday: true, tuesday: true, wednesday: true, thursday: true, friday: true,
-				saturday: true, sunday: true
+				monday: true,
+				tuesday: true,
+				wednesday: true,
+				thursday: true,
+				friday: true,
+				saturday: true,
+				sunday: true,
 			},
 			energyBudget: {
-				monday: 10, tuesday: 10, wednesday: 10, thursday: 10, friday: 10,
-				saturday: 15, sunday: 15
-			}
+				monday: 10,
+				tuesday: 10,
+				wednesday: 10,
+				thursday: 10,
+				friday: 10,
+				saturday: 15,
+				sunday: 15,
+			},
 		},
-		'minimal': {
+		minimal: {
 			availability: {
-				monday: true, tuesday: true, wednesday: true, thursday: true, friday: true,
-				saturday: false, sunday: false
+				monday: true,
+				tuesday: true,
+				wednesday: true,
+				thursday: true,
+				friday: true,
+				saturday: false,
+				sunday: false,
 			},
 			energyBudget: {
-				monday: 5, tuesday: 5, wednesday: 5, thursday: 5, friday: 5,
-				saturday: 0, sunday: 0
-			}
-		}
+				monday: 5,
+				tuesday: 5,
+				wednesday: 5,
+				thursday: 5,
+				friday: 5,
+				saturday: 0,
+				sunday: 0,
+			},
+		},
 	}
-	
+
 	const template = templates[templateType]
 	if (template) {
 		editForm.value.availability = { ...template.availability }
@@ -730,19 +767,19 @@ onMounted(() => {
 	.availability-grid {
 		grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
 	}
-	
+
 	.budget-grid {
 		grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
 	}
-	
+
 	.availability-toggle-grid {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.energy-budget-grid {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.template-button {
 		flex-direction: column;
 		align-items: flex-start;

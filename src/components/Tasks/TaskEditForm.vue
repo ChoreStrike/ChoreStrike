@@ -16,7 +16,7 @@
 
 		<div class="form-section">
 			<h3>{{ t('chorestrike', 'Basic Information') }}</h3>
-			
+
 			<div class="form-group">
 				<label for="name">{{ t('chorestrike', 'Task Name') }} *</label>
 				<input id="name"
@@ -25,7 +25,7 @@
 					class="form-input"
 					required
 					:placeholder="t('chorestrike', 'e.g., Vacuum living room')">
-				</div>
+			</div>
 
 			<div class="form-group">
 				<label for="description">{{ t('chorestrike', 'Description') }}</label>
@@ -33,14 +33,13 @@
 					v-model.trim="form.description"
 					class="form-input"
 					rows="2"
-					:placeholder="t('chorestrike', 'Optional description...')">
-				</textarea>
+					:placeholder="t('chorestrike', 'Optional description...')" />
 			</div>
 		</div>
 
 		<div class="form-section">
 			<h3>{{ t('chorestrike', 'Task Properties') }}</h3>
-			
+
 			<div class="form-row">
 				<div class="form-group half">
 					<label for="energyCost">{{ t('chorestrike', 'Energy Cost') }}</label>
@@ -54,9 +53,15 @@
 				<div class="form-group half">
 					<label for="priority">{{ t('chorestrike', 'Priority') }}</label>
 					<select id="priority" v-model.number="form.priority" class="form-input">
-						<option :value="3">🔴 {{ t('chorestrike', 'High') }}</option>
-						<option :value="2">🟡 {{ t('chorestrike', 'Normal') }}</option>
-						<option :value="1">🟢 {{ t('chorestrike', 'Low') }}</option>
+						<option :value="3">
+							🔴 {{ t('chorestrike', 'High') }}
+						</option>
+						<option :value="2">
+							🟡 {{ t('chorestrike', 'Normal') }}
+						</option>
+						<option :value="1">
+							🟢 {{ t('chorestrike', 'Low') }}
+						</option>
 					</select>
 				</div>
 			</div>
@@ -75,12 +80,24 @@
 				<div class="form-group half">
 					<label for="category">{{ t('chorestrike', 'Category') }}</label>
 					<select id="category" v-model="form.category" class="form-input">
-						<option value="cleaning">{{ t('chorestrike', 'Cleaning') }}</option>
-						<option value="kitchen">{{ t('chorestrike', 'Kitchen') }}</option>
-						<option value="bathroom">{{ t('chorestrike', 'Bathroom') }}</option>
-						<option value="organizing">{{ t('chorestrike', 'Organizing') }}</option>
-						<option value="maintenance">{{ t('chorestrike', 'Maintenance') }}</option>
-						<option value="other">{{ t('chorestrike', 'Other') }}</option>
+						<option value="cleaning">
+							{{ t('chorestrike', 'Cleaning') }}
+						</option>
+						<option value="kitchen">
+							{{ t('chorestrike', 'Kitchen') }}
+						</option>
+						<option value="bathroom">
+							{{ t('chorestrike', 'Bathroom') }}
+						</option>
+						<option value="organizing">
+							{{ t('chorestrike', 'Organizing') }}
+						</option>
+						<option value="maintenance">
+							{{ t('chorestrike', 'Maintenance') }}
+						</option>
+						<option value="other">
+							{{ t('chorestrike', 'Other') }}
+						</option>
 					</select>
 				</div>
 			</div>
@@ -88,14 +105,20 @@
 
 		<div class="form-section">
 			<h3>{{ t('chorestrike', 'Schedule & Recurrence') }}</h3>
-			
+
 			<div class="form-row">
 				<div class="form-group half">
 					<label for="frequencyType">{{ t('chorestrike', 'Frequency') }}</label>
 					<select id="frequencyType" v-model="form.frequencyType" class="form-input">
-						<option value="daily">{{ t('chorestrike', 'Daily') }}</option>
-						<option value="weekly">{{ t('chorestrike', 'Weekly') }}</option>
-						<option value="monthly">{{ t('chorestrike', 'Monthly') }}</option>
+						<option value="daily">
+							{{ t('chorestrike', 'Daily') }}
+						</option>
+						<option value="weekly">
+							{{ t('chorestrike', 'Weekly') }}
+						</option>
+						<option value="monthly">
+							{{ t('chorestrike', 'Monthly') }}
+						</option>
 					</select>
 				</div>
 
@@ -118,14 +141,14 @@
 				<label>{{ t('chorestrike', 'Scheduling Mode') }}</label>
 				<div class="radio-group">
 					<label class="radio-label">
-						<input type="radio" v-model="form.schedulingMode" value="dynamic">
+						<input v-model="form.schedulingMode" type="radio" value="dynamic">
 						<span class="radio-text">
 							<strong>{{ t('chorestrike', 'Dynamic') }}</strong>
 							<small>{{ t('chorestrike', 'Next due shifts based on when you complete the task') }}</small>
 						</span>
 					</label>
 					<label class="radio-label">
-						<input type="radio" v-model="form.schedulingMode" value="static">
+						<input v-model="form.schedulingMode" type="radio" value="static">
 						<span class="radio-text">
 							<strong>{{ t('chorestrike', 'Static') }}</strong>
 							<small>{{ t('chorestrike', 'Fixed schedule (e.g., every Monday 18:00)') }}</small>
@@ -149,7 +172,7 @@
 					<label>{{ t('chorestrike', 'Days of Week') }}</label>
 					<div class="weekday-selector">
 						<label v-for="day in weekdays" :key="day.value" class="weekday-chip">
-							<input type="checkbox" :value="day.value" v-model="selectedWeekdays">
+							<input v-model="selectedWeekdays" type="checkbox" :value="day.value">
 							<span>{{ day.label }}</span>
 						</label>
 					</div>
@@ -162,13 +185,19 @@
 
 		<div class="form-section">
 			<h3>{{ t('chorestrike', 'Scope & Assignment') }}</h3>
-			
+
 			<div class="form-group">
 				<label for="scopeType">{{ t('chorestrike', 'Scope') }}</label>
 				<select id="scopeType" v-model="form.scopeType" class="form-input">
-					<option value="room">{{ t('chorestrike', 'Single Room') }}</option>
-					<option value="floor">{{ t('chorestrike', 'Whole Floor') }}</option>
-					<option value="house">{{ t('chorestrike', 'Entire House') }}</option>
+					<option value="room">
+						{{ t('chorestrike', 'Single Room') }}
+					</option>
+					<option value="floor">
+						{{ t('chorestrike', 'Whole Floor') }}
+					</option>
+					<option value="house">
+						{{ t('chorestrike', 'Entire House') }}
+					</option>
 				</select>
 			</div>
 		</div>
@@ -189,12 +218,12 @@
 <script>
 import { computed, reactive, ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { Icon } from '../Common'
+import { Icon } from '../Common/index.js'
 import TemplateSelector from './TemplateSelector.vue'
 
 export default {
 	name: 'TaskEditForm',
-	
+
 	components: {
 		Icon,
 		TemplateSelector,

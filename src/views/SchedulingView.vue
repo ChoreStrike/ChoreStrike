@@ -7,13 +7,15 @@
 	<div class="scheduling-view" data-testid="scheduling-view">
 		<header class="scheduling-header">
 			<h1>{{ t('chorestrike', 'Smart Scheduling') }}</h1>
-			<p class="subtitle">{{ t('chorestrike', 'Intelligent task distribution based on member availability and preferences') }}</p>
+			<p class="subtitle">
+				{{ t('chorestrike', 'Intelligent task distribution based on member availability and preferences') }}
+			</p>
 		</header>
 
 		<div class="scheduling-content">
 			<!-- Schedule Preview Section -->
 			<section class="scheduling-section">
-				<SchedulePreview 
+				<SchedulePreview
 					:house-id="currentHouseId"
 					@schedule-generated="handleScheduleGenerated"
 					@conflict-detected="handleConflictDetected" />
@@ -21,21 +23,21 @@
 
 			<!-- Member Availability Settings -->
 			<section class="scheduling-section">
-				<AvailabilitySettings 
+				<AvailabilitySettings
 					:house-id="currentHouseId"
 					@availability-updated="handleAvailabilityUpdated" />
 			</section>
 
 			<!-- Energy Budget Settings -->
 			<section class="scheduling-section">
-				<EnergyBudgetSettings 
+				<EnergyBudgetSettings
 					:house-id="currentHouseId"
 					@budget-updated="handleBudgetUpdated" />
 			</section>
 
 			<!-- Schedule Calendar View -->
 			<section class="scheduling-section">
-				<ScheduleCalendar 
+				<ScheduleCalendar
 					:house-id="currentHouseId"
 					:schedule="currentSchedule"
 					@task-moved="handleTaskMoved" />
@@ -43,7 +45,7 @@
 
 			<!-- Scheduling Suggestions -->
 			<section class="scheduling-section">
-				<SchedulingSuggestions 
+				<SchedulingSuggestions
 					:house-id="currentHouseId"
 					@suggestion-applied="handleSuggestionApplied" />
 			</section>
@@ -78,7 +80,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useHouseStore } from '../store/house'
+import { useHouseStore } from '../store/house.js'
 import SchedulePreview from '../components/Scheduling/SchedulePreview.vue'
 import AvailabilitySettings from '../components/Scheduling/AvailabilitySettings.vue'
 import EnergyBudgetSettings from '../components/Scheduling/EnergyBudgetSettings.vue'
@@ -210,11 +212,11 @@ onMounted(async () => {
 	.scheduling-view {
 		padding: 1rem;
 	}
-	
+
 	.scheduling-header h1 {
 		font-size: 2rem;
 	}
-	
+
 	.scheduling-section {
 		padding: 1rem;
 	}

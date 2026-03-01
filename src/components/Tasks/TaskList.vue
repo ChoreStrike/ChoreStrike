@@ -115,7 +115,7 @@
 <script>
 import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { Icon } from '../Common'
+import { Icon } from '../Common/index.js'
 import TaskChecklist from './TaskChecklist.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 

@@ -6,7 +6,9 @@
 <template>
 	<div class="task-manager" data-testid="task-manager-view">
 		<header class="manager-header">
-			<h1 data-testid="task-manager-title">{{ t('chorestrike', 'Task Manager') }}</h1>
+			<h1 data-testid="task-manager-title">
+				{{ t('chorestrike', 'Task Manager') }}
+			</h1>
 			<button class="primary-button" data-testid="add-task-button" @click="showAddTaskModal = true">
 				<Icon name="Plus" :size="16" class="icon" />
 				{{ t('chorestrike', 'New Task') }}
@@ -17,33 +19,63 @@
 			<div class="filter-group">
 				<label>{{ t('chorestrike', 'Status') }}</label>
 				<select v-model="filterStatus" class="filter-select" data-testid="status-filter">
-					<option value="all">{{ t('chorestrike', 'All Tasks') }}</option>
-					<option value="active">{{ t('chorestrike', 'Active') }}</option>
-					<option value="overdue">{{ t('chorestrike', 'Overdue') }}</option>
-					<option value="due-today">{{ t('chorestrike', 'Due Today') }}</option>
-					<option value="completed">{{ t('chorestrike', 'Completed') }}</option>
+					<option value="all">
+						{{ t('chorestrike', 'All Tasks') }}
+					</option>
+					<option value="active">
+						{{ t('chorestrike', 'Active') }}
+					</option>
+					<option value="overdue">
+						{{ t('chorestrike', 'Overdue') }}
+					</option>
+					<option value="due-today">
+						{{ t('chorestrike', 'Due Today') }}
+					</option>
+					<option value="completed">
+						{{ t('chorestrike', 'Completed') }}
+					</option>
 				</select>
 			</div>
 
 			<div class="filter-group">
 				<label>{{ t('chorestrike', 'Priority') }}</label>
 				<select v-model="filterPriority" class="filter-select" data-testid="priority-filter">
-					<option value="all">{{ t('chorestrike', 'All Priorities') }}</option>
-					<option value="urgent">{{ t('chorestrike', 'Urgent') }}</option>
-					<option value="normal">{{ t('chorestrike', 'Normal') }}</option>
-					<option value="low">{{ t('chorestrike', 'Can Wait') }}</option>
+					<option value="all">
+						{{ t('chorestrike', 'All Priorities') }}
+					</option>
+					<option value="urgent">
+						{{ t('chorestrike', 'Urgent') }}
+					</option>
+					<option value="normal">
+						{{ t('chorestrike', 'Normal') }}
+					</option>
+					<option value="low">
+						{{ t('chorestrike', 'Can Wait') }}
+					</option>
 				</select>
 			</div>
 
 			<div class="filter-group">
 				<label>{{ t('chorestrike', 'Difficulty') }}</label>
 				<select v-model="filterDifficulty" class="filter-select" data-testid="difficulty-filter">
-					<option value="all">{{ t('chorestrike', 'All Difficulties') }}</option>
-					<option value="1">★ (Quick)</option>
-					<option value="2">★★ (Easy)</option>
-					<option value="3">★★★ (Medium)</option>
-					<option value="4">★★★★ (Hard)</option>
-					<option value="5">★★★★★ (Major)</option>
+					<option value="all">
+						{{ t('chorestrike', 'All Difficulties') }}
+					</option>
+					<option value="1">
+						★ (Quick)
+					</option>
+					<option value="2">
+						★★ (Easy)
+					</option>
+					<option value="3">
+						★★★ (Medium)
+					</option>
+					<option value="4">
+						★★★★ (Hard)
+					</option>
+					<option value="5">
+						★★★★★ (Major)
+					</option>
 				</select>
 			</div>
 
@@ -56,7 +88,7 @@
 						type="text"
 						class="search-input"
 						data-testid="search-input"
-						:placeholder="t('chorestrike', 'Search tasks...')" />
+						:placeholder="t('chorestrike', 'Search tasks...')">
 				</div>
 			</div>
 		</div>

@@ -14,7 +14,7 @@
 
 <script>
 import { computed } from 'vue'
-import { getIcon } from '../utils/icons.js'
+import { getIcon } from '../../utils/icons.js'
 
 /**
  * Icon component for ChoreStrike

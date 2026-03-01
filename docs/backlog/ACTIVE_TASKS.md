@@ -66,7 +66,26 @@
   - Error-Toast bei Fehler (Validation, Server, Network)
   - Filterung der angewendeten Suggestion aus der Liste
 
-### Cascade - P2-FRONTEND-001 - Scheduling UI Components
+### Cascade - P2-FE-003 - Lint Fixes
+**Status**: Done
+**Started**: 2026-03-01 13:55
+**Completed**: 2026-03-01 14:05
+**Branch**: main
+**Related Files**: .eslintrc.js, babel.config.js, package.json, src/components/Scheduling/*.vue, src/utils/icons.js, docs/backlog/ACTIVE_TASKS.md
+**Blockers**: None
+**Notes**:
+- 🎯 ESLint-Fehler bereinigen und Lint-Toolchain stabilisieren
+- ✅ Ergebnis:
+  - Von 457 Problemen (46 Errors) auf 49 Warnings (0 Errors) reduziert
+  - Babel-Konfiguration inline gesetzt (babel.config.js)
+  - ESLint TypeScript-Support für Vue-Dateien konfiguriert
+  - lucide-vue-next Dependency hinzugefügt
+  - Fehlende TemplateSelector.vue erstellt
+  - Alle Import-Extensions korrigiert (.js)
+  - Vue Event-Names zu kebab-case geändert
+  - Reserved 'style' prop zu 'emojiStyle' umbenannt
+  - Unused imports entfernt
+- 🎯 Verbleibende Warnings sind JSDoc-Dokumentation (non-critical)
 **Status**: Done
 **Started**: 2026-02-28 21:59
 **Completed**: 2026-03-01 08:05

@@ -54,7 +54,6 @@ import { computed, onMounted, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useTasksStore } from '../../store/tasks.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
-import { Icon } from '../Common'
 
 export default {
 	name: 'TaskForm',

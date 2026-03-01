@@ -107,8 +107,6 @@
 
 <script>
 import { computed } from 'vue'
-import { translate as t } from '@nextcloud/l10n'
-import { Icon, Emoji } from '../Common'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useRouter } from 'vue-router'

@@ -13,7 +13,7 @@ import {
 	Package,
 	Armchair,
 	Trash2,
-	BrushCleaning,
+	Eraser,
 	Sparkles,
 	ShoppingCart,
 	Shirt,
@@ -159,7 +159,7 @@ export const icons = {
 	Package,
 
 	// Tasks & Cleaning
-	BrushCleaning,
+	Eraser,
 	Sparkles,
 	ShoppingCart,
 	Shirt,

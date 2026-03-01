@@ -11,8 +11,8 @@
 				<div class="date-navigation">
 					<button
 						class="nav-button"
-						@click="previousWeek"
-						data-testid="previous-week-button">
+						data-testid="previous-week-button"
+						@click="previousWeek">
 						<Icon name="ChevronLeft" :size="16" />
 					</button>
 					<div class="current-week">
@@ -20,29 +20,29 @@
 					</div>
 					<button
 						class="nav-button"
-						@click="nextWeek"
-						data-testid="next-week-button">
+						data-testid="next-week-button"
+						@click="nextWeek">
 						<Icon name="ChevronRight" :size="16" />
 					</button>
 				</div>
 				<div class="view-controls">
 					<button
 						class="today-button"
-						@click="goToToday"
-						data-testid="today-button">
+						data-testid="today-button"
+						@click="goToToday">
 						{{ t('chorestrike', 'Today') }}
 					</button>
 					<div class="view-toggle">
 						<button
 							:class="['view-button', { active: viewMode === 'week' }]"
-							@click="setViewMode('week')"
-							data-testid="week-view-button">
+							data-testid="week-view-button"
+							@click="setViewMode('week')">
 							{{ t('chorestrike', 'Week') }}
 						</button>
 						<button
 							:class="['view-button', { active: viewMode === 'day' }]"
-							@click="setViewMode('day')"
-							data-testid="day-view-button">
+							data-testid="day-view-button"
+							@click="setViewMode('day')">
 							{{ t('chorestrike', 'Day') }}
 						</button>
 					</div>
@@ -52,7 +52,7 @@
 
 		<!-- Loading State -->
 		<div v-if="loading" class="loading-state">
-			<div class="loading-spinner"></div>
+			<div class="loading-spinner" />
 			<p>{{ t('chorestrike', 'Loading schedule calendar...') }}</p>
 		</div>
 
@@ -61,7 +61,7 @@
 			<!-- Week View -->
 			<div v-if="viewMode === 'week'" class="week-view">
 				<div class="week-header">
-					<div class="time-column"></div>
+					<div class="time-column" />
 					<div
 						v-for="day in weekDays"
 						:key="day.date"
@@ -89,14 +89,18 @@
 							v-for="day in weekDays"
 							:key="`${day.date}-${hour}`"
 							:class="['time-slot', { 'has-task': hasTaskAtTime(day.date, hour) }]"
-							@click="slotClicked(day.date, hour)"
-							:data-testid="`slot-${day.date}-${hour}`">
+							:data-testid="`slot-${day.date}-${hour}`"
+							@click="slotClicked(day.date, hour)">
 							<div
 								v-if="hasTaskAtTime(day.date, hour)"
 								class="task-item"
 								@click.stop="taskClicked(getTaskAtTime(day.date, hour))">
-								<div class="task-title">{{ getTaskAtTime(day.date, hour)?.title }}</div>
-								<div class="task-assignee">{{ getTaskAtTime(day.date, hour)?.assignee }}</div>
+								<div class="task-title">
+									{{ getTaskAtTime(day.date, hour)?.title }}
+								</div>
+								<div class="task-assignee">
+									{{ getTaskAtTime(day.date, hour)?.assignee }}
+								</div>
 							</div>
 						</div>
 					</div>
@@ -136,8 +140,8 @@
 						</div>
 						<div
 							class="hour-content"
-							@click="slotClicked(currentDay.date, hour)"
-							:data-testid="`day-slot-${hour}`">
+							:data-testid="`day-slot-${hour}`"
+							@click="slotClicked(currentDay.date, hour)">
 							<div
 								v-for="task in getTasksAtHour(currentDay.date, hour)"
 								:key="task.id"
@@ -149,7 +153,9 @@
 										{{ getPriorityLabel(task.priority) }}
 									</span>
 								</div>
-								<div class="task-title">{{ task.title }}</div>
+								<div class="task-title">
+									{{ task.title }}
+								</div>
 								<div class="task-details">
 									<span class="task-assignee">{{ task.assignee }}</span>
 									<span class="task-energy">{{ task.energyCost }} {{ t('chorestrike', 'energy') }}</span>
@@ -165,8 +171,8 @@
 		<Modal
 			v-if="showTaskModal"
 			:title="t('chorestrike', 'Task Details')"
-			@close="closeTaskModal"
-			data-testid="task-details-modal">
+			data-testid="task-details-modal"
+			@close="closeTaskModal">
 			<div v-if="selectedTask" class="task-details">
 				<div class="task-info">
 					<h3>{{ selectedTask.title }}</h3>
@@ -195,22 +201,22 @@
 				<div class="task-actions">
 					<button
 						class="action-button reschedule"
-						@click="rescheduleTask"
-						data-testid="reschedule-task-button">
+						data-testid="reschedule-task-button"
+						@click="rescheduleTask">
 						<Icon name="Calendar" :size="16" />
 						{{ t('chorestrike', 'Reschedule') }}
 					</button>
 					<button
 						class="action-button reassign"
-						@click="reassignTask"
-						data-testid="reassign-task-button">
+						data-testid="reassign-task-button"
+						@click="reassignTask">
 						<Icon name="Users" :size="16" />
 						{{ t('chorestrike', 'Reassign') }}
 					</button>
 					<button
 						class="action-button delete"
-						@click="unassignTask"
-						data-testid="unassign-task-button">
+						data-testid="unassign-task-button"
+						@click="unassignTask">
 						<Icon name="Trash" :size="16" />
 						{{ t('chorestrike', 'Unassign') }}
 					</button>
@@ -230,8 +236,8 @@
 		<Modal
 			v-if="showAddTaskModal"
 			:title="t('chorestrike', 'Add Task to Schedule')"
-			@close="closeAddTaskModal"
-			data-testid="add-task-modal">
+			data-testid="add-task-modal"
+			@close="closeAddTaskModal">
 			<div class="add-task-form">
 				<div class="form-group">
 					<label for="task-time">{{ t('chorestrike', 'Time') }}:</label>
@@ -258,7 +264,7 @@
 						min="1"
 						max="8"
 						class="form-input"
-						data-testid="task-duration-input" />
+						data-testid="task-duration-input">
 				</div>
 
 				<div class="form-group">
@@ -268,7 +274,9 @@
 						v-model="newTask.memberId"
 						class="form-select"
 						data-testid="task-member-select">
-						<option value="">{{ t('chorestrike', 'Select member') }}</option>
+						<option value="">
+							{{ t('chorestrike', 'Select member') }}
+						</option>
 						<option
 							v-for="member in availableMembers"
 							:key="member.userId"
@@ -286,9 +294,9 @@
 					</button>
 					<button
 						class="primary-button"
-						@click="addTaskToSchedule"
 						:disabled="!canAddTask"
-						data-testid="add-task-button">
+						data-testid="add-task-button"
+						@click="addTaskToSchedule">
 						{{ t('chorestrike', 'Add Task') }}
 					</button>
 				</div>
@@ -367,7 +375,7 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-	taskMoved: [taskUpdate: { date: string | null; startTime: string; endTime: string; memberId: string }]
+	'task-moved': [taskUpdate: { date: string | null; startTime: string; endTime: string; memberId: string }]
 }>()
 
 // Reactive state
@@ -384,7 +392,7 @@ const availableMembers = ref<MemberInfo[]>([])
 const newTask = ref<NewTaskForm>({
 	time: null,
 	duration: 1,
-	memberId: ''
+	memberId: '',
 })
 
 const normalizedAssignments = computed<CalendarTask[]>(() => {
@@ -415,7 +423,7 @@ const weekRange = computed(() => {
 	const start = new Date(currentWeekStart.value)
 	const end = new Date(start)
 	end.setDate(start.getDate() + 6)
-	
+
 	return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`
 })
 
@@ -426,8 +434,8 @@ const currentDay = computed(() => {
 
 const currentDayTasks = computed(() => {
 	if (!currentDay.value) return []
-	return normalizedAssignments.value.filter((task: CalendarTask) => 
-		task.scheduledFor === currentDay.value.date
+	return normalizedAssignments.value.filter((task: CalendarTask) =>
+		task.scheduledFor === currentDay.value.date,
 	)
 })
 
@@ -442,14 +450,14 @@ const canAddTask = computed(() => {
 // Methods
 const loadCalendarData = async () => {
 	if (!props.houseId) return
-	
+
 	loading.value = true
 	try {
 		// Load week days with capacity info
 		await generateWeekDays()
-		
+
 		// Load available members
-		const response = await axios.get(`/api/v1/smart-schedule/availability`)
+		const response = await axios.get('/api/v1/smart-schedule/availability')
 		if (response.data.success) {
 			availableMembers.value = response.data.data as MemberInfo[]
 		}
@@ -463,23 +471,23 @@ const loadCalendarData = async () => {
 const generateWeekDays = () => {
 	const start = new Date(currentWeekStart.value)
 	const days = []
-	
+
 	for (let i = 0; i < 7; i++) {
 		const date = new Date(start)
 		date.setDate(start.getDate() + i)
-		
+
 		const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 		const dayName = t('chorestrike', dayNames[date.getDay()])
-		
+
 		days.push({
 			date: date.toISOString().split('T')[0],
 			name: dayName,
 			dayNumber: date.getDate(),
 			fullDate: date.toLocaleDateString(),
-			capacity: getDayCapacity(date.toISOString().split('T')[0])
+			capacity: getDayCapacity(date.toISOString().split('T')[0]),
 		})
 	}
-	
+
 	weekDays.value = days
 }
 
@@ -503,16 +511,16 @@ const hasTaskAtTime = (date: string, hour: number): boolean => {
 }
 
 const getTaskAtTime = (date: string, hour: number): CalendarTask | null => {
-	return normalizedAssignments.value.find((task: CalendarTask) => 
-		task.scheduledFor === date && 
-		task.startTime === `${hour}:00`
+	return normalizedAssignments.value.find((task: CalendarTask) =>
+		task.scheduledFor === date
+		&& task.startTime === `${hour}:00`,
 	) || null
 }
 
 const getTasksAtHour = (date: string, hour: number): CalendarTask[] => {
-	return normalizedAssignments.value.filter((task: CalendarTask) => 
-		task.scheduledFor === date && 
-		parseInt(task.startTime) === hour
+	return normalizedAssignments.value.filter((task: CalendarTask) =>
+		task.scheduledFor === date
+		&& parseInt(task.startTime) === hour,
 	)
 }
 
@@ -522,7 +530,7 @@ const getPriorityLabel = (priority: number): string => {
 		2: t('chorestrike', 'High'),
 		3: t('chorestrike', 'Medium'),
 		4: t('chorestrike', 'Low'),
-		5: t('chorestrike', 'Very Low')
+		5: t('chorestrike', 'Very Low'),
 	} as Record<number, string>
 	return labels[priority] || t('chorestrike', 'Unknown')
 }
@@ -581,7 +589,7 @@ const closeAddTaskModal = () => {
 
 const addTaskToSchedule = async () => {
 	if (!canAddTask.value) return
-	
+
 	try {
 		const taskTime = newTask.value.time
 		if (taskTime === null) {
@@ -592,12 +600,12 @@ const addTaskToSchedule = async () => {
 			date: selectedSlot.value.date,
 			startTime: `${taskTime}:00`,
 			endTime: `${taskTime + newTask.value.duration}:00`,
-			memberId: newTask.value.memberId
+			memberId: newTask.value.memberId,
 		}
-		
+
 		// This would call the API to add the task
-		emit('taskMoved', taskData)
-		
+		emit('task-moved', taskData)
+
 		closeAddTaskModal()
 	} catch (error) {
 		console.error('Failed to add task:', error)
@@ -1135,40 +1143,40 @@ watch(() => props.schedule, () => {
 		flex-direction: column;
 		align-items: flex-start;
 	}
-	
+
 	.calendar-controls {
 		width: 100%;
 		justify-content: space-between;
 	}
-	
+
 	.week-header {
 		grid-template-columns: 60px repeat(7, 1fr);
 	}
-	
+
 	.hour-row {
 		grid-template-columns: 60px repeat(7, 1fr);
 	}
-	
+
 	.time-label {
 		width: 60px;
 		font-size: 0.8rem;
 	}
-	
+
 	.day-header-single {
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 1rem;
 	}
-	
+
 	.day-summary {
 		width: 100%;
 		justify-content: space-around;
 	}
-	
+
 	.timeline-hour {
 		flex-direction: column;
 	}
-	
+
 	.hour-time {
 		width: 100%;
 		text-align: left;

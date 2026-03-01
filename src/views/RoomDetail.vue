@@ -11,7 +11,9 @@
 					<Icon name="ArrowLeft" :size="20" />
 					{{ t('chorestrike', 'Back to Dashboard') }}
 				</router-link>
-				<h1 data-testid="room-name">{{ room?.name || t('chorestrike', 'Room') }}</h1>
+				<h1 data-testid="room-name">
+					{{ room?.name || t('chorestrike', 'Room') }}
+				</h1>
 				<p v-if="floor" class="floor-info">
 					<Icon name="Building" :size="16" class="icon" />
 					{{ floor.name }}

@@ -12,7 +12,7 @@
 
 		<!-- Loading State -->
 		<div v-if="loading" class="loading-state">
-			<div class="loading-spinner"></div>
+			<div class="loading-spinner" />
 			<p>{{ t('chorestrike', 'Loading energy budget settings...') }}</p>
 		</div>
 
@@ -46,9 +46,9 @@
 								max="20"
 								class="energy-slider"
 								:data-testid="`energy-slider-${day.key}`"
-								@input="updateEnergyPreview(day.key)" />
+								@input="updateEnergyPreview(day.key)">
 							<div class="slider-marks">
-								<span class="mark" v-for="mark in [0, 5, 10, 15, 20]" :key="mark">{{ mark }}</span>
+								<span v-for="mark in [0, 5, 10, 15, 20]" :key="mark" class="mark">{{ mark }}</span>
 							</div>
 						</div>
 						<div class="energy-value-display">
@@ -59,15 +59,14 @@
 								min="1"
 								max="20"
 								class="energy-number-input"
-								:data-testid="`energy-input-${day.key}`" />
+								:data-testid="`energy-input-${day.key}`">
 							<span class="energy-unit">{{ t('chorestrike', 'energy') }}</span>
 						</div>
 					</div>
 					<div class="energy-indicator">
 						<div
 							class="energy-bar"
-							:style="{ width: `${(currentUserBudget[day.key] / 20) * 100}%` }">
-						</div>
+							:style="{ width: `${(currentUserBudget[day.key] / 20) * 100}%` }" />
 					</div>
 				</div>
 			</div>
@@ -80,8 +79,8 @@
 						v-for="template in energyTemplates"
 						:key="template.id"
 						class="template-button"
-						@click="applyEnergyTemplate(template)"
-						:data-testid="`template-${template.id}`">
+						:data-testid="`template-${template.id}`"
+						@click="applyEnergyTemplate(template)">
 						<div class="template-icon">
 							<Icon :name="template.icon" :size="20" />
 						</div>
@@ -131,10 +130,13 @@
 			<div class="save-section">
 				<button
 					class="save-button"
-					@click="saveEnergyBudget"
 					:disabled="saving || !hasChanges"
-					data-testid="save-energy-budget-button">
-					<Icon v-if="saving" name="Loading" :size="16" class="spinning" />
+					data-testid="save-energy-budget-button"
+					@click="saveEnergyBudget">
+					<Icon v-if="saving"
+						name="Loading"
+						:size="16"
+						class="spinning" />
 					<Icon v-else name="Save" :size="16" />
 					{{ saving ? t('chorestrike', 'Saving...') : t('chorestrike', 'Save Energy Budget') }}
 				</button>
@@ -218,7 +220,7 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-	budgetUpdated: [budget: EnergyBudget]
+	'budget-updated': [budget: EnergyBudget]
 }>()
 
 // Reactive state
@@ -230,7 +232,7 @@ const originalBudget = ref<EnergyBudget>(defaultBudget())
 const notification = ref<NotificationState>({
 	show: false,
 	type: 'success',
-	message: ''
+	message: '',
 })
 
 // Constants
@@ -250,29 +252,29 @@ const energyTemplates: EnergyTemplate[] = [
 		name: t('chorestrike', 'Light Schedule'),
 		description: t('chorestrike', '5-8 energy per day'),
 		icon: 'Battery',
-		budget: { monday: 6, tuesday: 6, wednesday: 6, thursday: 6, friday: 6, saturday: 8, sunday: 8 }
+		budget: { monday: 6, tuesday: 6, wednesday: 6, thursday: 6, friday: 6, saturday: 8, sunday: 8 },
 	},
 	{
 		id: 'moderate',
 		name: t('chorestrike', 'Moderate Schedule'),
 		description: t('chorestrike', '8-12 energy per day'),
 		icon: 'BatteryHalf',
-		budget: { monday: 10, tuesday: 10, wednesday: 10, thursday: 10, friday: 10, saturday: 12, sunday: 12 }
+		budget: { monday: 10, tuesday: 10, wednesday: 10, thursday: 10, friday: 10, saturday: 12, sunday: 12 },
 	},
 	{
 		id: 'heavy',
 		name: t('chorestrike', 'Heavy Schedule'),
 		description: t('chorestrike', '15-20 energy per day'),
 		icon: 'BatteryFull',
-		budget: { monday: 15, tuesday: 15, wednesday: 15, thursday: 15, friday: 15, saturday: 20, sunday: 20 }
+		budget: { monday: 15, tuesday: 15, wednesday: 15, thursday: 15, friday: 15, saturday: 20, sunday: 20 },
 	},
 	{
 		id: 'weekend-focused',
 		name: t('chorestrike', 'Weekend Warrior'),
 		description: t('chorestrike', 'Low weekdays, high weekends'),
 		icon: 'Calendar',
-		budget: { monday: 3, tuesday: 3, wednesday: 3, thursday: 3, friday: 3, saturday: 20, sunday: 20 }
-	}
+		budget: { monday: 3, tuesday: 3, wednesday: 3, thursday: 3, friday: 3, saturday: 20, sunday: 20 },
+	},
 ]
 
 // Computed properties
@@ -289,14 +291,14 @@ const peakDay = computed(() => {
 	if (!currentUser.value) return t('chorestrike', 'None')
 	let maxEnergy = 0
 	let peakDayKey: Weekday = 'monday'
-	
+
 	Object.entries(currentUserBudget.value).forEach(([day, energy]) => {
 		if (energy > maxEnergy) {
 			maxEnergy = energy
 			peakDayKey = day as Weekday
 		}
 	})
-	
+
 	const day = weekDays.find(d => d.key === peakDayKey)
 	return day ? day.short : t('chorestrike', 'None')
 })
@@ -313,15 +315,15 @@ const hasChanges = computed(() => {
 // Methods
 const loadCurrentUserBudget = async () => {
 	if (!props.houseId) return
-	
+
 	loading.value = true
 	try {
-		const response = await axios.get(`/api/v1/smart-schedule/availability`)
-		
+		const response = await axios.get('/api/v1/smart-schedule/availability')
+
 		if (response.data.success) {
 			const members = response.data.data as MemberAvailability[]
 			const currentUserId = null
-			
+
 			const user = (currentUserId === null)
 				? members[0]
 				: members.find((member: MemberAvailability) => member.userId === currentUserId)
@@ -355,13 +357,13 @@ const updateEnergyPreview = (day: Weekday) => {
 
 const saveEnergyBudget = async () => {
 	if (!currentUser.value) return
-	
+
 	saving.value = true
 	try {
-		await axios.put(`/api/v1/smart-schedule/energy-budget`, currentUserBudget.value)
-		
+		await axios.put('/api/v1/smart-schedule/energy-budget', currentUserBudget.value)
+
 		originalBudget.value = { ...currentUserBudget.value }
-		emit('budgetUpdated', currentUserBudget.value)
+		emit('budget-updated', currentUserBudget.value)
 		showNotification('success', t('chorestrike', 'Energy budget saved successfully!'))
 	} catch (error) {
 		console.error('Failed to save energy budget:', error)
@@ -375,9 +377,9 @@ const showNotification = (type: 'success' | 'error', message: string) => {
 	notification.value = {
 		show: true,
 		type,
-		message
+		message,
 	}
-	
+
 	setTimeout(() => {
 		hideNotification()
 	}, 5000)
@@ -820,25 +822,25 @@ watch(() => props.houseId, (newHouseId) => {
 		align-items: flex-start;
 		gap: 0.5rem;
 	}
-	
+
 	.budget-input-group {
 		flex-direction: column;
 		gap: 0.75rem;
 	}
-	
+
 	.energy-value-display {
 		width: 100%;
 		justify-content: space-between;
 	}
-	
+
 	.template-grid {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.analysis-cards {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.notification {
 		right: 10px;
 		left: 10px;

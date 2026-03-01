@@ -35,7 +35,6 @@
 				:disabled="loading"
 				title="Refresh house health"
 				@click="refreshHealth">
-				<Icon name="RefreshCw" :size="16" />
 			</button>
 		</div>
 	</div>
@@ -44,7 +43,6 @@
 <script>
 import { computed } from 'vue'
 import { useHouseStore } from '../../store/house.js'
-import { Icon } from '../Common'
 
 export default {
 	name: 'HouseHealthBar',

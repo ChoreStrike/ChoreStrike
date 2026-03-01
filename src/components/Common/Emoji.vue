@@ -159,7 +159,7 @@ export default {
 		 * Emoji style variant
 		 * Options: '3d' (default), 'color', 'flat', 'high-contrast'
 		 */
-		style: {
+		emojiStyle: {
 			type: String,
 			default: '3d',
 			validator: (value) => ['3d', 'color', 'flat', 'high-contrast'].includes(value),
@@ -201,7 +201,7 @@ export default {
 			// Use GitHub CDN (for development/quick setup)
 			// Note: In production, download and use local assets
 			const baseUrl = 'https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets'
-			return `${baseUrl}/${emojiFileName.value}/${props.style}/${emojiFileName.value}_${props.style}.png`
+			return `${baseUrl}/${emojiFileName.value}/${props.emojiStyle}/${emojiFileName.value}_${props.emojiStyle}.png`
 		})
 
 		const computedSize = computed(() => {
@@ -209,7 +209,7 @@ export default {
 		})
 
 		const emojiClasses = computed(() => {
-			return ['emoji', `emoji--${props.name}`, `emoji--${props.style}`, props.className]
+			return ['emoji', `emoji--${props.name}`, `emoji--${props.emojiStyle}`, props.className]
 				.filter(Boolean)
 				.join(' ')
 		})

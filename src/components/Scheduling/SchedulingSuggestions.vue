@@ -12,7 +12,7 @@
 
 		<!-- Loading State -->
 		<div v-if="loading" class="loading-state">
-			<div class="loading-spinner"></div>
+			<div class="loading-spinner" />
 			<p>{{ t('chorestrike', 'Analyzing tasks and generating suggestions...') }}</p>
 		</div>
 
@@ -56,13 +56,23 @@
 					<select
 						id="suggestion-type"
 						v-model="selectedType"
-						@change="filterSuggestions"
-						data-testid="suggestion-type-filter">
-						<option value="all">{{ t('chorestrike', 'All Types') }}</option>
-						<option value="reassignment">{{ t('chorestrike', 'Reassignment') }}</option>
-						<option value="rescheduling">{{ t('chorestrike', 'Rescheduling') }}</option>
-						<option value="capacity">{{ t('chorestrike', 'Capacity') }}</option>
-						<option value="fairness">{{ t('chorestrike', 'Fairness') }}</option>
+						data-testid="suggestion-type-filter"
+						@change="filterSuggestions">
+						<option value="all">
+							{{ t('chorestrike', 'All Types') }}
+						</option>
+						<option value="reassignment">
+							{{ t('chorestrike', 'Reassignment') }}
+						</option>
+						<option value="rescheduling">
+							{{ t('chorestrike', 'Rescheduling') }}
+						</option>
+						<option value="capacity">
+							{{ t('chorestrike', 'Capacity') }}
+						</option>
+						<option value="fairness">
+							{{ t('chorestrike', 'Fairness') }}
+						</option>
 					</select>
 				</div>
 				<div class="filter-group">
@@ -70,19 +80,27 @@
 					<select
 						id="suggestion-priority"
 						v-model="selectedPriority"
-						@change="filterSuggestions"
-						data-testid="suggestion-priority-filter">
-						<option value="all">{{ t('chorestrike', 'All Priorities') }}</option>
-						<option value="high">{{ t('chorestrike', 'High') }}</option>
-						<option value="medium">{{ t('chorestrike', 'Medium') }}</option>
-						<option value="low">{{ t('chorestrike', 'Low') }}</option>
+						data-testid="suggestion-priority-filter"
+						@change="filterSuggestions">
+						<option value="all">
+							{{ t('chorestrike', 'All Priorities') }}
+						</option>
+						<option value="high">
+							{{ t('chorestrike', 'High') }}
+						</option>
+						<option value="medium">
+							{{ t('chorestrike', 'Medium') }}
+						</option>
+						<option value="low">
+							{{ t('chorestrike', 'Low') }}
+						</option>
 					</select>
 				</div>
 				<button
 					class="refresh-button"
-					@click="refreshSuggestions"
 					:disabled="loading"
-					data-testid="refresh-suggestions-button">
+					data-testid="refresh-suggestions-button"
+					@click="refreshSuggestions">
 					<Icon name="Refresh" :size="16" />
 					{{ t('chorestrike', 'Refresh') }}
 				</button>
@@ -110,8 +128,10 @@
 					</div>
 
 					<div class="suggestion-content">
-						<p class="suggestion-description">{{ suggestion.description }}</p>
-						
+						<p class="suggestion-description">
+							{{ suggestion.description }}
+						</p>
+
 						<!-- Impact Analysis -->
 						<div class="impact-analysis">
 							<h4>{{ t('chorestrike', 'Expected Impact') }}</h4>
@@ -158,22 +178,22 @@
 					<div class="suggestion-actions">
 						<button
 							class="action-button apply"
-							@click="applySuggestion(suggestion)"
-							:data-testid="`apply-suggestion-${suggestion.id}`">
+							:data-testid="`apply-suggestion-${suggestion.id}`"
+							@click="applySuggestion(suggestion)">
 							<Icon name="Check" :size="16" />
 							{{ t('chorestrike', 'Apply') }}
 						</button>
 						<button
 							class="action-button details"
-							@click="showSuggestionDetails(suggestion)"
-							:data-testid="`details-suggestion-${suggestion.id}`">
+							:data-testid="`details-suggestion-${suggestion.id}`"
+							@click="showSuggestionDetails(suggestion)">
 							<Icon name="Info" :size="16" />
 							{{ t('chorestrike', 'Details') }}
 						</button>
 						<button
 							class="action-button dismiss"
-							@click="dismissSuggestion(suggestion)"
-							:data-testid="`dismiss-suggestion-${suggestion.id}`">
+							:data-testid="`dismiss-suggestion-${suggestion.id}`"
+							@click="dismissSuggestion(suggestion)">
 							<Icon name="Close" :size="16" />
 							{{ t('chorestrike', 'Dismiss') }}
 						</button>
@@ -189,16 +209,16 @@
 				<div class="batch-buttons">
 					<button
 						class="batch-button apply-all"
-						@click="applySelectedSuggestions"
 						:disabled="selectedSuggestions.length === 0"
-						data-testid="apply-selected-button">
+						data-testid="apply-selected-button"
+						@click="applySelectedSuggestions">
 						<Icon name="Check" :size="16" />
 						{{ t('chorestrike', 'Apply Selected') }}
 					</button>
 					<button
 						class="batch-button dismiss-all"
-						@click="dismissAllSuggestions"
-						data-testid="dismiss-all-button">
+						data-testid="dismiss-all-button"
+						@click="dismissAllSuggestions">
 						<Icon name="Close" :size="16" />
 						{{ t('chorestrike', 'Dismiss All') }}
 					</button>
@@ -223,8 +243,8 @@
 		<Modal
 			v-if="showDetailsModal"
 			:title="t('chorestrike', 'Suggestion Details')"
-			@close="closeDetailsModal"
-			data-testid="suggestion-details-modal">
+			data-testid="suggestion-details-modal"
+			@close="closeDetailsModal">
 			<div v-if="selectedSuggestion" class="suggestion-details">
 				<div class="detail-header">
 					<div class="detail-icon">
@@ -248,8 +268,7 @@
 							<div class="chart-bar">
 								<div
 									class="chart-fill positive"
-									:style="{ width: `${Math.abs(selectedSuggestion.impact.efficiency) * 5}%` }">
-								</div>
+									:style="{ width: `${Math.abs(selectedSuggestion.impact.efficiency) * 5}%` }" />
 								<span class="chart-value">+{{ selectedSuggestion.impact.efficiency }}%</span>
 							</div>
 						</div>
@@ -259,8 +278,7 @@
 								<div
 									class="chart-fill"
 									:class="selectedSuggestion.impact.fairness > 0 ? 'positive' : 'negative'"
-									:style="{ width: `${Math.abs(selectedSuggestion.impact.fairness) * 10}%` }">
-								</div>
+									:style="{ width: `${Math.abs(selectedSuggestion.impact.fairness) * 10}%` }" />
 								<span class="chart-value">{{ selectedSuggestion.impact.fairness > 0 ? '+' : '' }}{{ selectedSuggestion.impact.fairness }}</span>
 							</div>
 						</div>
@@ -364,7 +382,7 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-	suggestionApplied: [suggestion: SchedulingSuggestion]
+	'suggestion-applied': [suggestion: SchedulingSuggestion]
 }>()
 
 // Reactive state
@@ -412,11 +430,11 @@ const membersInvolved = computed(() => {
 // Methods
 const loadSuggestions = async () => {
 	if (!props.houseId) return
-	
+
 	loading.value = true
 	try {
-		const response = await axios.get<SuggestionsResponse>(`/api/v1/smart-schedule/suggestions`)
-		
+		const response = await axios.get<SuggestionsResponse>('/api/v1/smart-schedule/suggestions')
+
 		if (response.data.success) {
 			const payload = response.data.data
 
@@ -469,7 +487,7 @@ const getSuggestionIcon = (type: SuggestionType): string => {
 		reassignment: 'Users',
 		rescheduling: 'Calendar',
 		capacity: 'Battery',
-		fairness: 'Scale'
+		fairness: 'Scale',
 	} as Record<SuggestionType, string>
 	return icons[type] || 'Lightbulb'
 }
@@ -479,7 +497,7 @@ const getSuggestionTypeLabel = (type: SuggestionType): string => {
 		reassignment: t('chorestrike', 'Reassignment'),
 		rescheduling: t('chorestrike', 'Rescheduling'),
 		capacity: t('chorestrike', 'Capacity'),
-		fairness: t('chorestrike', 'Fairness')
+		fairness: t('chorestrike', 'Fairness'),
 	} as Record<SuggestionType, string>
 	return labels[type] || t('chorestrike', 'General')
 }
@@ -488,7 +506,7 @@ const getPriorityLabel = (priority: SuggestionPriority): string => {
 	const labels = {
 		high: t('chorestrike', 'High'),
 		medium: t('chorestrike', 'Medium'),
-		low: t('chorestrike', 'Low')
+		low: t('chorestrike', 'Low'),
 	} as Record<SuggestionPriority, string>
 	return labels[priority] || t('chorestrike', 'Unknown')
 }
@@ -507,9 +525,9 @@ const getTaskChangeDescription = (task: AffectedTask): string => {
 	}
 	const from = task.currentAssignment
 	const to = task.suggestedAssignment ?? t('chorestrike', 'Unknown')
-	return t('chorestrike', 'Move from {from} to {to}', { 
+	return t('chorestrike', 'Move from {from} to {to}', {
 		from,
-		to
+		to,
 	})
 }
 
@@ -534,7 +552,7 @@ const applySuggestion = async (suggestion: SchedulingSuggestion | null): Promise
 
 		if (response.data.success) {
 			showSuccess(t('chorestrike', 'Suggestion applied successfully'))
-			emit('suggestionApplied', suggestion)
+			emit('suggestion-applied', suggestion)
 			suggestions.value = suggestions.value.filter((s: SchedulingSuggestion) => s.id !== suggestion.id)
 		} else {
 			showError(response.data.error || t('chorestrike', 'Failed to apply suggestion'))
@@ -1230,36 +1248,36 @@ onMounted(() => {
 	.summary-cards {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.filter-controls {
 		flex-direction: column;
 		align-items: flex-start;
 	}
-	
+
 	.suggestions-grid {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.suggestion-header {
 		flex-direction: column;
 		gap: 1rem;
 	}
-	
+
 	.suggestion-title {
 		margin: 0;
 	}
-	
+
 	.batch-actions {
 		flex-direction: column;
 		gap: 1rem;
 		align-items: flex-start;
 	}
-	
+
 	.batch-buttons {
 		width: 100%;
 		justify-content: space-between;
 	}
-	
+
 	.task-changes {
 		flex-direction: column;
 		gap: 0.5rem;

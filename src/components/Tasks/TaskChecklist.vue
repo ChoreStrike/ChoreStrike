@@ -14,7 +14,7 @@
 
 		<!-- Progress Bar -->
 		<div class="progress-bar-container">
-			<div class="progress-bar" :style="{ width: progressPercent + '%' }" :class="progressClass"></div>
+			<div class="progress-bar" :style="{ width: progressPercent + '%' }" :class="progressClass" />
 		</div>
 
 		<!-- Checklist Items -->
@@ -28,15 +28,14 @@
 				@dragstart="dragStart($event, item)"
 				@dragover.prevent
 				@drop="drop($event, item)">
-				
 				<!-- Checkbox -->
 				<label class="item-checkbox" :class="{ 'is-completed': isCompleted(item.id) }">
 					<input
 						type="checkbox"
 						:checked="isCompleted(item.id)"
-						@change="toggleItem(item.id)"
-						:disabled="readonly">
-					<span class="checkmark"></span>
+						:disabled="readonly"
+						@change="toggleItem(item.id)">
+					<span class="checkmark" />
 				</label>
 
 				<!-- Item Content -->
@@ -77,7 +76,7 @@
 				<Icon name="Plus" :size="16" />
 				<span>{{ t('chorestrike', 'Add sub-task') }}</span>
 			</div>
-			
+
 			<div v-else class="add-item-inputs">
 				<input
 					ref="newItemInput"
@@ -91,8 +90,7 @@
 					v-model="newItem.description"
 					class="form-input"
 					rows="2"
-					:placeholder="t('chorestrike', 'Description (optional)...')">
-				</textarea>
+					:placeholder="t('chorestrike', 'Description (optional)...')" />
 				<div class="form-actions">
 					<button class="btn-secondary" @click="cancelAdd">
 						{{ t('chorestrike', 'Cancel') }}
@@ -117,8 +115,7 @@
 					v-model="editingItem.description"
 					class="form-input"
 					rows="3"
-					:placeholder="t('chorestrike', 'Description')">
-				</textarea>
+					:placeholder="t('chorestrike', 'Description')" />
 				<div class="form-actions">
 					<button class="btn-secondary" @click="cancelEdit">
 						{{ t('chorestrike', 'Cancel') }}
@@ -232,13 +229,13 @@ export default {
 
 		const saveNewItem = () => {
 			if (!newItem.value.title.trim()) return
-			
+
 			emit('add', {
 				title: newItem.value.title.trim(),
 				description: newItem.value.description.trim(),
 				roomTaskId: props.roomTaskId,
 			})
-			
+
 			cancelAdd()
 		}
 
@@ -252,13 +249,13 @@ export default {
 
 		const saveEdit = () => {
 			if (!editingItem.value?.title.trim()) return
-			
+
 			emit('update', {
 				id: editingItem.value.id,
 				title: editingItem.value.title.trim(),
 				description: editingItem.value.description.trim(),
 			})
-			
+
 			cancelEdit()
 		}
 
@@ -276,16 +273,16 @@ export default {
 
 		const drop = (event, targetItem) => {
 			event.preventDefault()
-			
+
 			if (!draggedItem.value || draggedItem.value.id === targetItem.id) return
-			
+
 			const reordered = sortedItems.value.map(item => item.id)
 			const fromIndex = reordered.indexOf(draggedItem.value.id)
 			const toIndex = reordered.indexOf(targetItem.id)
-			
+
 			reordered.splice(fromIndex, 1)
 			reordered.splice(toIndex, 0, draggedItem.value.id)
-			
+
 			emit('reorder', { itemIds: reordered, roomTaskId: props.roomTaskId })
 			draggedItem.value = null
 		}

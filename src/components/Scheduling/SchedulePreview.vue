@@ -13,19 +13,27 @@
 					<select
 						id="preview-days"
 						v-model="previewDays"
-						@change="loadPreview"
-						data-testid="preview-days-select">
-						<option value="3">3 {{ t('chorestrike', 'days') }}</option>
-						<option value="7">7 {{ t('chorestrike', 'days') }}</option>
-						<option value="14">14 {{ t('chorestrike', 'days') }}</option>
-						<option value="30">30 {{ t('chorestrike', 'days') }}</option>
+						data-testid="preview-days-select"
+						@change="loadPreview">
+						<option value="3">
+							3 {{ t('chorestrike', 'days') }}
+						</option>
+						<option value="7">
+							7 {{ t('chorestrike', 'days') }}
+						</option>
+						<option value="14">
+							14 {{ t('chorestrike', 'days') }}
+						</option>
+						<option value="30">
+							30 {{ t('chorestrike', 'days') }}
+						</option>
 					</select>
 				</div>
 				<button
 					class="generate-button"
-					@click="generateSchedule"
 					:disabled="loading || !canGenerate"
-					data-testid="generate-schedule-button">
+					data-testid="generate-schedule-button"
+					@click="generateSchedule">
 					<Icon name="Calendar" :size="16" />
 					{{ t('chorestrike', 'Generate Schedule') }}
 				</button>
@@ -34,7 +42,7 @@
 
 		<!-- Loading State -->
 		<div v-if="loading" class="loading-state">
-			<div class="loading-spinner"></div>
+			<div class="loading-spinner" />
 			<p>{{ t('chorestrike', 'Analyzing tasks and generating optimal schedule...') }}</p>
 		</div>
 
@@ -79,12 +87,13 @@
 						v-for="(capacity, date) in preview.dailyCapacity"
 						:key="date"
 						class="capacity-bar">
-						<div class="date-label">{{ formatDate(date) }}</div>
+						<div class="date-label">
+							{{ formatDate(date) }}
+						</div>
 						<div class="capacity-bar-container">
 							<div
 								class="capacity-fill"
-								:style="{ width: `${Math.min((capacity / maxCapacity) * 100, 100)}%` }">
-							</div>
+								:style="{ width: `${Math.min((capacity / maxCapacity) * 100, 100)}%` }" />
 							<span class="capacity-value">{{ capacity }}</span>
 						</div>
 					</div>
@@ -156,8 +165,8 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-	scheduleGenerated: [schedule: any]
-	conflictDetected: [conflicts: any[]]
+	'schedule-generated': [schedule: any]
+	'conflict-detected': [conflicts: any[]]
 }>()
 
 // Reactive state
@@ -185,20 +194,20 @@ const canGenerate = computed(() => {
 // Methods
 const loadPreview = async () => {
 	if (!props.houseId) return
-	
+
 	loading.value = true
 	try {
-		const response = await axios.get(`/api/v1/smart-schedule/preview`, {
-			params: { days: previewDays.value }
+		const response = await axios.get('/api/v1/smart-schedule/preview', {
+			params: { days: previewDays.value },
 		})
-		
+
 		if (response.data.success) {
 			preview.value = response.data.data
 			generatedSchedule.value = null // Clear previous schedule
-			
+
 			// Emit conflicts if any
 			if (preview.value.potentialConflicts.length > 0) {
-				emit('conflictDetected', preview.value.potentialConflicts)
+				emit('conflict-detected', preview.value.potentialConflicts)
 			}
 		} else {
 			throw new Error(response.data.error || 'Failed to load preview')
@@ -213,20 +222,20 @@ const loadPreview = async () => {
 
 const generateSchedule = async () => {
 	if (!props.houseId || !preview.value) return
-	
+
 	loading.value = true
 	try {
 		const startDate = new Date().toISOString().split('T')[0]
 		const endDate = new Date(Date.now() + previewDays.value * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-		
-		const response = await axios.post(`/api/v1/smart-schedule/generate`, {
+
+		const response = await axios.post('/api/v1/smart-schedule/generate', {
 			startDate,
-			endDate
+			endDate,
 		})
-		
+
 		if (response.data.success) {
 			generatedSchedule.value = response.data.data
-			emit('scheduleGenerated', generatedSchedule.value)
+			emit('schedule-generated', generatedSchedule.value)
 		} else {
 			throw new Error(response.data.error || 'Failed to generate schedule')
 		}
@@ -565,22 +574,22 @@ watch(() => props.houseId, (newHouseId) => {
 		flex-direction: column;
 		align-items: flex-start;
 	}
-	
+
 	.preview-controls {
 		width: 100%;
 		justify-content: space-between;
 	}
-	
+
 	.summary-cards {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.capacity-bar {
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 0.5rem;
 	}
-	
+
 	.capacity-bar-container {
 		width: 100%;
 	}

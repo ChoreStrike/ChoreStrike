@@ -7,7 +7,9 @@
 	<div class="dashboard" data-testid="dashboard-view">
 		<header class="dashboard-header">
 			<div class="header-content">
-				<h1 data-testid="house-name">{{ houseName }}</h1>
+				<h1 data-testid="house-name">
+					{{ houseName }}
+				</h1>
 				<p class="tagline">
 					{{ t('chorestrike', 'Defend your Home Base. Together.') }}
 				</p>

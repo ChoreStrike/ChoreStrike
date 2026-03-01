@@ -205,14 +205,14 @@ export const useChecklistStore = defineStore('checklist', {
 					if (!this.progress[roomTaskId]) {
 						this.progress[roomTaskId] = []
 					}
-					
+
 					const existingIndex = this.progress[roomTaskId].findIndex(p => p.itemId === itemId)
 					if (existingIndex >= 0) {
 						this.progress[roomTaskId][existingIndex] = response.data.data
 					} else {
 						this.progress[roomTaskId].push(response.data.data)
 					}
-					
+
 					return response.data.data
 				} else {
 					throw new Error(response.data.error?.message || 'Failed to toggle checklist item')
@@ -229,7 +229,7 @@ export const useChecklistStore = defineStore('checklist', {
 		/**
 		 * Reorder checklist items
 		 * @param {number} taskId The task ID
-		 * @param {array} itemIds Ordered array of item IDs
+		 * @param {Array} itemIds Ordered array of item IDs
 		 */
 		async reorderItems(taskId, itemIds) {
 			this.loading = true

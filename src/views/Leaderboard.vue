@@ -6,8 +6,12 @@
 <template>
 	<div class="leaderboard" data-testid="leaderboard-view">
 		<header class="leaderboard-header">
-			<h1 data-testid="leaderboard-title">{{ t('chorestrike', 'Leaderboard') }}</h1>
-			<p class="subtitle">{{ t('chorestrike', 'Friendly competition for a cleaner home') }}</p>
+			<h1 data-testid="leaderboard-title">
+				{{ t('chorestrike', 'Leaderboard') }}
+			</h1>
+			<p class="subtitle">
+				{{ t('chorestrike', 'Friendly competition for a cleaner home') }}
+			</p>
 		</header>
 
 		<div class="time-filter" data-testid="time-range-filter">
@@ -26,7 +30,7 @@
 			<!-- Podium for top 3 -->
 			<div v-if="leaderboard.length >= 3" class="podium" data-testid="podium-section">
 				<div
-					v-for="(user, index) in podiumUsers"
+					v-for="user in podiumUsers"
 					:key="user.id"
 					class="podium-item"
 					:data-testid="`podium-rank-${user.rank}`"
@@ -35,11 +39,15 @@
 						<div class="avatar-placeholder">
 							{{ getInitials(user.displayName) }}
 						</div>
-						<div class="rank-badge">{{ user.rank }}</div>
+						<div class="rank-badge">
+							{{ user.rank }}
+						</div>
 					</div>
 					<div class="podium-info">
 						<h3>{{ user.displayName }}</h3>
-						<p class="podium-score">{{ formatScore(user.contributionScore) }} pts</p>
+						<p class="podium-score">
+							{{ formatScore(user.contributionScore) }} pts
+						</p>
 					</div>
 					<div class="podium-bar" :style="{ height: `${getPodiumHeight(user.rank)}px` }" />
 				</div>
@@ -56,7 +64,7 @@
 				</div>
 
 				<div
-					v-for="(user, index) in rankedLeaderboard"
+					v-for="user in rankedLeaderboard"
 					:key="user.id"
 					class="leaderboard-row"
 					data-testid="leaderboard-entry"
@@ -95,7 +103,9 @@
 				<div v-if="leaderboard.length === 0" class="empty-state" data-testid="empty-leaderboard">
 					<Icon name="Users" :size="48" />
 					<p>{{ t('chorestrike', 'No players yet') }}</p>
-					<p class="empty-hint">{{ t('chorestrike', 'Invite family members to start competing!') }}</p>
+					<p class="empty-hint">
+						{{ t('chorestrike', 'Invite family members to start competing!') }}
+					</p>
 				</div>
 			</div>
 

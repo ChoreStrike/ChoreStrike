@@ -159,11 +159,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRouter } from 'vue-router'
 import RoomCard from './RoomCard.vue'
-import { Icon } from '../Common'
 
 export default {
 	name: 'FloorList',

@@ -101,7 +101,6 @@ import { useRouter } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useGameStore } from '../../store/game.js'
-import { Icon, Emoji } from '../Common'
 
 export default {
 	name: 'RoomCard',
