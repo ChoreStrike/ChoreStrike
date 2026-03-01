@@ -88,6 +88,13 @@ export default {
 	setup(props, { emit }) {
 		const comboTimers = ref(new Map())
 
+		const getComboStyle = (index) => {
+			const baseDelay = index * 100
+			return {
+				animationDelay: `${baseDelay}ms`,
+			}
+		}
+
 		const activeCombos = computed(() => {
 			return props.combos.map((combo, index) => {
 				const timer = comboTimers.value.get(combo.id)
@@ -126,28 +133,6 @@ export default {
 			return titles[type] || titles.mystery
 		}
 
-		const getComboStyle = (index) => {
-			const baseDelay = index * 100
-			return {
-				animationDelay: `${baseDelay}ms`,
-			}
-		}
-
-		// Watch for new combos and start timers
-		watch(
-			() => props.combos,
-			(newCombos, oldCombos) => {
-				const oldIds = new Set(oldCombos?.map(c => c.id) || [])
-
-				newCombos.forEach((combo) => {
-					if (!oldIds.has(combo.id) && !comboTimers.value.has(combo.id)) {
-						startComboTimer(combo.id)
-					}
-				})
-			},
-			{ immediate: true, deep: true },
-		)
-
 		const startComboTimer = (comboId) => {
 			const startTime = Date.now()
 
@@ -170,6 +155,21 @@ export default {
 
 			comboTimers.value.set(comboId, timer)
 		}
+
+		// Watch for new combos and start timers
+		watch(
+			() => props.combos,
+			(newCombos, oldCombos) => {
+				const oldIds = new Set(oldCombos?.map(c => c.id) || [])
+
+				newCombos.forEach((combo) => {
+					if (!oldIds.has(combo.id) && !comboTimers.value.has(combo.id)) {
+						startComboTimer(combo.id)
+					}
+				})
+			},
+			{ immediate: true, deep: true },
+		)
 
 		return {
 			activeCombos,

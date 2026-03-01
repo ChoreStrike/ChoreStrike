@@ -117,6 +117,7 @@ describe('ComboNotification.vue', () => {
 	})
 
 	it('emits combo-expired event after duration', () => {
+		jest.useFakeTimers()
 		const combos = [
 			{ id: 1, type: 'speed', description: 'Fast!', multiplier: 2 },
 		]
@@ -127,10 +128,12 @@ describe('ComboNotification.vue', () => {
 		})
 
 		// Fast-forward past duration
-		vi.advanceTimersByTime(5100)
+		jest.advanceTimersByTime(5100)
 
 		expect(wrapper.emitted('combo-expired')).toBeTruthy()
 		expect(wrapper.emitted('combo-expired')[0]).toEqual([1])
+		
+		jest.useRealTimers()
 	})
 
 	it('displays progress bar', () => {

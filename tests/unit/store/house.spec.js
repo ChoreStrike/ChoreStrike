@@ -111,7 +111,7 @@ describe('House Store', () => {
 				await store.updateHouseName('New Name')
 
 				expect(store.house).toEqual(updatedHouse)
-				expect(axios.put).toHaveBeenCalledWith('/apps/chorewars/api/v1/house', { name: 'New Name' })
+				expect(axios.put).toHaveBeenCalledWith('/apps/chorestrike/api/v1/house', { name: 'New Name' })
 			})
 
 			it('throws error for empty name', async () => {
@@ -122,14 +122,14 @@ describe('House Store', () => {
 
 		describe('fetchHouseStats', () => {
 			it('fetches stats successfully', async () => {
-				const mockStats = { totalRooms: 5, cleanliness: 80 }
+				const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 				axios.get.mockResolvedValue({
-					data: { success: true, data: mockStats }
+					data: { success: true, data: { totalRooms: 5, cleanliness: 80 } }
 				})
 
 				const result = await store.fetchHouseStats()
 
-				expect(result).toEqual(mockStats)
+				expect(result).toEqual({ totalRooms: 5, cleanliness: 80 })
 			})
 
 			it('handles error', async () => {

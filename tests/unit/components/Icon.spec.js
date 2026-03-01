@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from '@jest/globals'
+import { describe, it, expect, jest } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import Icon from '../../../src/components/Common/Icon.vue'
@@ -71,7 +71,7 @@ describe('Icon.vue', () => {
 	})
 
 	it('warns when icon not found', () => {
-		const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+		const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 
 		mount(Icon, {
 			props: { name: 'NonExistentIcon' },

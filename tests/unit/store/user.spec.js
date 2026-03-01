@@ -181,7 +181,7 @@ describe('User Store', () => {
 
 				await store.inviteUser('test@test.com', 'member')
 
-				expect(axios.post).toHaveBeenCalledWith('/apps/chorewars/api/v1/users/invite', { email: 'test@test.com', role: 'member' })
+				expect(axios.post).toHaveBeenCalledWith('/apps/chorestrike/api/v1/users/invite', { email: 'test@test.com', role: 'member' })
 			})
 
 			it('throws error for invalid role', async () => {
