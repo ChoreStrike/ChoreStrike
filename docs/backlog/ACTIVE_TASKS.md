@@ -12,22 +12,23 @@
 **Related Files**: docs/backlog/phase-5-smart-scheduling.md, lib/Db/AvailabilitySettings.php, lib/Db/AvailabilitySettingsMapper.php, lib/Migration/Version1013Date20260301210000.php, lib/Service/TaskSchedulerService.php, tests/unit/Service/TaskSchedulerServiceTest.php, src/components/Scheduling/DailyTaskList.vue  
 **Blockers**: None  
 **Notes**:
-- 🎯 Phase 5 Smart Scheduling Implementation Started
-- ✅ P5-PLANNING: Phase 5 Planning Document mit Architektur und Algorithmen
-- ✅ P5-BE-001: AvailabilitySettings Entity, Mapper, Migration (Version1013)
-- ✅ P5-BE-002: TaskScheduler Service mit intelligentem Scheduling-Algorithmus
-  - Priority Score Calculation (Task Priority, Days Until Due, Overdue Days, Energy Cost)
-  - Task Distribution mit Workload Balancing
-  - 4 Planning Modes: Weekend Warrior, Daily Cleaner, Custom, Auto Balance
-  - Energy Budget und Max Tasks Per Day Respektierung
-  - 13 Unit Tests für TaskSchedulerService
-- ✅ P5-FE-002: DailyTaskList.vue Component
-  - Drag-and-Drop Reordering
-  - Progress Summary
-  - Complete/Skip/Reschedule Actions
-  - Responsive Design
-- 📊 Phase 5 Progress: 80% (Backend 100%, Frontend 60%)
-- 🔁 Nächste: P5-BE-003 API Endpoints, P5-FE-001 Availability Settings UI
+- Started Phase 5 implementation and added initial backend + frontend scaffolding.
+- Completed
+  - P5-PLANNING: Smart scheduling implementation plan
+  - P5-BE-001: AvailabilitySettings entity + mapper + migration (Version1013Date20260301210000)
+  - P5-BE-002: Initial TaskSchedulerService algorithm
+  - P5-FE-002: DailyTaskList.vue first implementation
+- Review fixes completed
+  - Fixed root-cause scheduler bug: replaced invalid room lookup by house with house -> floors -> rooms traversal
+  - Updated and validated TaskSchedulerService unit tests (11 passing, 51 assertions)
+- Open issues moved to backlog (see phase-5-smart-scheduling.md)
+  - Missing scheduling API endpoints used by DailyTaskList.vue
+  - Existing AvailabilitySettings.vue should be integrated/refined instead of being re-created
+  - TaskSchedulerService exceeds file-size guideline and still contains TODO methods
+- Tomorrow priorities
+  1. P5-BE-003: Implement scheduling and availability API endpoints used by frontend
+  2. P5-FE-001: Integrate and polish existing AvailabilitySettings.vue against backend schema
+  3. P5-TEST-001: Add integration + E2E tests for daily tasks and availability save/load flow
 
 ---
 
@@ -280,4 +281,4 @@
 
 ---
 
-**Last Updated**: 2026-03-01 20:35
+**Last Updated**: 2026-03-01 21:59

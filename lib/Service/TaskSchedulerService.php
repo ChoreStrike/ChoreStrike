@@ -11,11 +11,10 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\AvailabilitySettings;
 use OCA\ChoreStrike\Db\AvailabilitySettingsMapper;
+use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\UserStats;
 use OCA\ChoreStrike\Db\UserStatsMapper;
-use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 
@@ -26,6 +25,7 @@ class TaskSchedulerService {
 
 	public function __construct(
 		private AvailabilitySettingsMapper $availabilityMapper,
+		private FloorMapper $floorMapper,
 		private RoomTaskMapper $roomTaskMapper,
 		private UserStatsMapper $userStatsMapper,
 		private TaskMapper $taskMapper,
@@ -40,7 +40,6 @@ class TaskSchedulerService {
 		// Collect data
 		$roomTasks = $this->getActiveRoomTasks($houseId);
 		$userSettings = $this->availabilityMapper->findByHouse($houseId);
-		$userStats = $this->getUserStatsMap($houseId);
 		
 		// Calculate priority scores
 		$scoredTasks = $this->calculatePriorityScores($roomTasks);
@@ -49,7 +48,7 @@ class TaskSchedulerService {
 		usort($scoredTasks, fn($a, $b) => $b['priority_score'] <=> $a['priority_score']);
 		
 		// Generate schedule
-		$schedule = $this->distributeTasks($scoredTasks, $userSettings, $userStats, $weekStart);
+		$schedule = $this->distributeTasks($scoredTasks, $userSettings, $weekStart);
 		
 		return [
 			'week_start' => $weekStart->format('Y-m-d'),
@@ -65,16 +64,17 @@ class TaskSchedulerService {
 	 * @return RoomTask[]
 	 */
 	private function getActiveRoomTasks(int $houseId): array {
-		// Get all rooms in house
-		$rooms = $this->roomMapper->findByHouseId($houseId);
+		$floors = $this->floorMapper->findByHouseId($houseId);
 		$allTasks = [];
 		
-		foreach ($rooms as $room) {
-			$tasks = $this->roomTaskMapper->findByRoomId($room->getId(), true);
-			foreach ($tasks as $task) {
-				// Check if task is overdue or due soon
-				if ($this->shouldScheduleTask($task)) {
-					$allTasks[] = $task;
+		foreach ($floors as $floor) {
+			$rooms = $this->roomMapper->findByFloorId($floor->getId());
+			foreach ($rooms as $room) {
+				$tasks = $this->roomTaskMapper->findByRoomId($room->getId(), true);
+				foreach ($tasks as $task) {
+					if ($this->shouldScheduleTask($task)) {
+						$allTasks[] = $task;
+					}
 				}
 			}
 		}
@@ -161,7 +161,7 @@ class TaskSchedulerService {
 	/**
 	 * Distribute tasks across week
 	 */
-	private function distributeTasks(array $scoredTasks, array $userSettings, array $userStats, \DateTime $weekStart): array {
+	private function distributeTasks(array $scoredTasks, array $userSettings, \DateTime $weekStart): array {
 		$schedule = [];
 		$dailyWorkload = []; // Track tasks per day per user
 		$weekDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -194,8 +194,7 @@ class TaskSchedulerService {
 				$scoredTask,
 				$userSettings,
 				$userDistributions,
-				$dailyWorkload,
-				$weekStart
+				$dailyWorkload
 			);
 			
 			if ($bestAssignment) {
@@ -230,11 +229,8 @@ class TaskSchedulerService {
 	/**
 	 * Find best day and user for a task
 	 */
-	private function findBestAssignment(array $scoredTask, array $userSettings, array $userDistributions, array $dailyWorkload, \DateTime $weekStart): ?array {
-		$task = $scoredTask['task'];
+	private function findBestAssignment(array $scoredTask, array $userSettings, array $userDistributions, array $dailyWorkload): ?array {
 		$energyCost = $scoredTask['energy_cost'];
-		$isOverdue = $scoredTask['is_overdue'];
-		$daysUntilDue = $scoredTask['days_until_due'];
 		
 		$bestScore = -1;
 		$bestAssignment = null;
@@ -269,8 +265,7 @@ class TaskSchedulerService {
 					$dayName,
 					$userId,
 					$distribution,
-					$dailyWorkload,
-					$weekStart
+					$dailyWorkload
 				);
 				
 				if ($score > $bestScore) {
@@ -290,11 +285,10 @@ class TaskSchedulerService {
 	/**
 	 * Calculate score for task assignment
 	 */
-	private function calculateAssignmentScore(array $scoredTask, string $dayName, string $userId, array $distribution, array $dailyWorkload, \DateTime $weekStart): float {
+	private function calculateAssignmentScore(array $scoredTask, string $dayName, string $userId, array $distribution, array $dailyWorkload): float {
 		$score = 0.0;
 		$isOverdue = $scoredTask['is_overdue'];
 		$daysUntilDue = $scoredTask['days_until_due'];
-		$energyCost = $scoredTask['energy_cost'];
 		
 		// Base score from task priority
 		$score += $scoredTask['priority_score'];

@@ -238,37 +238,37 @@
 ---
 
 ### Phase 5: Smart Scheduling
-**Status**: Planned  
+**Status**: In Progress  
 **Timeline**: Week 19-22
 
 #### Features
-- [ ] User availability settings
-  - [ ] Set available time per day
-  - [ ] Different schedules per weekday
-- [ ] Planning modes
-  - [ ] Weekend Warrior
-  - [ ] Daily Cleaner
+- [x] User availability settings (backend data model)
+  - [x] Set available time per day (storage)
+  - [x] Different schedules per weekday (storage)
+- [x] Planning modes (backend distribution support)
+  - [x] Weekend Warrior
+  - [x] Daily Cleaner
   - [ ] Custom distribution
-  - [ ] Auto-balance
+  - [x] Auto-balance
 - [ ] Smart task suggestions
   - [ ] Based on available time
   - [ ] Prioritize by urgency
   - [ ] Balance difficulty
-- [ ] Daily task list generation
+- [x] Daily task list generation (initial frontend component)
 - [ ] Task scheduling optimization
 
 #### Backend
-- [ ] TaskScheduler service
-  - [ ] Calculate optimal task distribution
-  - [ ] Consider user availability
-  - [ ] Balance workload
-- [ ] Availability settings storage
-- [ ] Scheduling algorithms
+- [x] TaskScheduler service (initial)
+  - [x] Calculate optimal task distribution
+  - [x] Consider user availability
+  - [x] Balance workload
+- [x] Availability settings storage
+- [x] Scheduling algorithms (initial version)
 
 #### Frontend
 - [ ] Availability settings UI
 - [ ] Planning mode selector
-- [ ] Daily task list view
+- [x] Daily task list view (initial)
 - [ ] Schedule preview
 
 **Deliverable**: Intelligent task scheduling
@@ -423,5 +423,5 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../CONTRIBUTING.m
 
 ---
 
-**Last Updated**: 2026-03-02  
-**Current Phase**: Phase 4 (Advanced Game Mechanics) ✅ Complete
+**Last Updated**: 2026-03-01  
+**Current Phase**: Phase 5 (Smart Scheduling) 🔄 In Progress

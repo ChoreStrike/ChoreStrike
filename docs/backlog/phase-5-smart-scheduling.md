@@ -4,6 +4,40 @@
 **Timeline**: Week 19-22  
 **Goal**: Implement intelligent task scheduling based on user availability and preferences
 
+## Current Implementation Status (Review Update)
+
+### Completed in this session
+- [x] P5-PLANNING: Phase plan created and aligned with roadmap
+- [x] P5-BE-001: AvailabilitySettings data model
+  - [x] `AvailabilitySettings` entity
+  - [x] `AvailabilitySettingsMapper`
+  - [x] Migration `Version1013Date20260301210000`
+- [x] P5-BE-002: Initial `TaskSchedulerService`
+  - [x] Priority scoring
+  - [x] Availability-aware distribution
+  - [x] Energy-budget/day-limit checks
+  - [x] Root-cause fix: house -> floors -> rooms traversal
+- [x] P5-TEST-UNIT: `TaskSchedulerServiceTest`
+  - [x] 11 tests passing, 51 assertions
+- [x] P5-FE-002: `DailyTaskList.vue` first implementation
+
+### Open issues moved to backlog
+- [ ] P5-BE-003: Missing API endpoints used by `DailyTaskList.vue`
+  - [ ] `GET /api/v1/tasks/daily`
+  - [ ] `PUT /api/v1/tasks/{id}/complete`
+  - [ ] `PUT /api/v1/tasks/{id}/uncomplete`
+  - [ ] `PUT /api/v1/tasks/{id}/skip`
+  - [ ] `PUT /api/v1/tasks/{id}/reschedule`
+- [ ] P5-FE-001: Integrate existing `AvailabilitySettings.vue` with backend schema/endpoints
+- [ ] P5-TEST-002: Add integration + E2E coverage for scheduling API and UI flow
+- [ ] Refactor follow-up: split `TaskSchedulerService.php` into smaller collaborators (file-size guideline)
+
+### Prioritized tasks for tomorrow
+1. **P5-BE-003 (High)**: Implement scheduling/availability API endpoints and controller coverage
+2. **P5-FE-001 (High)**: Wire `AvailabilitySettings.vue` to real API contract and validate save/load
+3. **P5-TEST-002 (High)**: Add regression integration tests for daily tasks and availability
+4. **P5-REF-001 (Medium)**: Extract scoring/distribution helpers from `TaskSchedulerService`
+
 ---
 
 ## Overview
