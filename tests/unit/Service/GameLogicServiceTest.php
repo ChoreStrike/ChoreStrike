@@ -460,4 +460,112 @@ class GameLogicServiceTest extends TestCase {
 		$this->assertEquals('team_anchor', $result[0]['medalType']);
 		$this->assertEquals('Test User', $result[0]['userName']);
 	}
+
+	/**
+	 * CalculatePoints_WithDifficultyAndPriority_ReturnsCorrectPoints
+	 */
+	public function testCalculatePoints_WithDifficultyAndPriority_ReturnsCorrectPoints(): void {
+		$task = $this->createMock(Task::class);
+		
+		$points = $this->service->calculatePoints($task, 2, 3, false);
+		
+		$this->assertEquals(60, $points); // 2 * 3 * 10
+	}
+
+	/**
+	 * CalculatePoints_WithBonus_ReturnsIncreasedPoints
+	 */
+	public function testCalculatePoints_WithBonus_ReturnsIncreasedPoints(): void {
+		$task = $this->createMock(Task::class);
+		
+		$points = $this->service->calculatePoints($task, 2, 3, true);
+		
+		$this->assertEquals(90, $points); // (2 * 3 * 10) * 1.5
+	}
+
+	/**
+	 * CalculateStreakBonus_ReturnsCorrectBonus
+	 */
+	public function testCalculateStreakBonus_ReturnsCorrectBonus(): void {
+		$bonus = $this->service->calculateStreakBonus(5);
+		
+		$this->assertEquals(25, $bonus); // 5 * 5
+	}
+
+	/**
+	 * CalculateComboBonus_ReturnsCorrectBonus
+	 */
+	public function testCalculateComboBonus_ReturnsCorrectBonus(): void {
+		$bonus = $this->service->calculateComboBonus(3);
+		
+		$this->assertEquals(30, $bonus); // 3 * 10
+	}
+
+	/**
+	 * UpdateStreakCount_WithCompletionToday_IncrementsStreak
+	 */
+	public function testUpdateStreakCount_WithCompletionToday_IncrementsStreak(): void {
+		$newStreak = $this->service->updateStreakCount(5, true);
+		
+		$this->assertEquals(6, $newStreak);
+	}
+
+	/**
+	 * UpdateStreakCount_WithoutCompletionToday_ResetsStreak
+	 */
+	public function testUpdateStreakCount_WithoutCompletionToday_ResetsStreak(): void {
+		$newStreak = $this->service->updateStreakCount(5, false);
+		
+		$this->assertEquals(1, $newStreak);
+	}
+
+	/**
+	 * ShouldResetStreak_CompletedToday_ReturnsFalse
+	 */
+	public function testShouldResetStreak_CompletedToday_ReturnsFalse(): void {
+		$today = new \DateTime();
+		$availability = ['monday' => true, 'tuesday' => true];
+		
+		$shouldReset = $this->service->shouldResetStreak($today, $availability);
+		
+		$this->assertFalse($shouldReset);
+	}
+
+	/**
+	 * ShouldResetStreak_CompletedYesterdayAvailableToday_ReturnsFalse
+	 */
+	public function testShouldResetStreak_CompletedYesterdayAvailableToday_ReturnsFalse(): void {
+		$yesterday = new \DateTime('-1 day');
+		$todayName = strtolower((new \DateTime())->format('l'));
+		$availability = [$todayName => true];
+		
+		$shouldReset = $this->service->shouldResetStreak($yesterday, $availability);
+		
+		$this->assertFalse($shouldReset);
+	}
+
+	/**
+	 * ShouldResetStreak_CompletedYesterdayNotAvailableToday_ReturnsTrue
+	 */
+	public function testShouldResetStreak_CompletedYesterdayNotAvailableToday_ReturnsTrue(): void {
+		$yesterday = new \DateTime('-1 day');
+		$todayName = strtolower((new \DateTime())->format('l'));
+		$availability = [$todayName => false];
+		
+		$shouldReset = $this->service->shouldResetStreak($yesterday, $availability);
+		
+		$this->assertTrue($shouldReset);
+	}
+
+	/**
+	 * ShouldResetStreak_CompletedTwoDaysAgo_ReturnsTrue
+	 */
+	public function testShouldResetStreak_CompletedTwoDaysAgo_ReturnsTrue(): void {
+		$twoDaysAgo = new \DateTime('-2 days');
+		$availability = [];
+		
+		$shouldReset = $this->service->shouldResetStreak($twoDaysAgo, $availability);
+		
+		$this->assertTrue($shouldReset);
+	}
 }
