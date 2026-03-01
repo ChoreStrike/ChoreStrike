@@ -5,7 +5,26 @@
 
 ## Currently Active
 
-_No tasks currently in progress._
+### Cascade - P2-OPS-002 + P2-FE-004 + P3-PLANNING - Docker Fix + TypeScript Cleanup + Phase 3 Planning
+**Status**: In Progress
+**Started**: 2026-03-01 20:35
+**Branch**: main
+**Related Files**: lib/Migration/Version1005Date20260228160000.php, lib/Migration/Version1008Date20260228190000.php, lib/Migration/Version1009Date20260228200000.php, src/components/Scheduling/AvailabilitySettings.vue
+**Blockers**: None
+**Notes**:
+- 🎯 Docker-Fix (High Priority) + E2E Validation + TypeScript Cleanup + Phase 3 Planning
+- ✅ Docker-Fix:
+  - MariaDB 64-char index/table name limits behoben
+  - Tabellennamen gekürzt: chorestrike_checklist_items, chorestrike_chk_progress, chorestrike_task_parts, chorestrike_claims
+  - Foreign Key Constraints entfernt (Kompatibilität mit Nextcloud/Doctrine)
+  - Docker-Container startet erfolgreich, Migrationen laufen durch
+- ✅ E2E Validation: npm run dev erfolgreich
+- ✅ TypeScript Cleanup:
+  - AvailabilitySettings.vue: Explizite Typen für reactive state hinzugefügt
+  - Function parameter types: member: any, templateType: string
+  - Return types: getAvailableDaysCount(): number, formatDayName(): string
+  - Computed types: currentUserId: computed<number>()
+- 🔁 Phase 3 Planning: Nächste Features identifizieren und priorisieren
 
 ---
 
