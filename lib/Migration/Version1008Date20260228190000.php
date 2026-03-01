@@ -82,7 +82,7 @@ class Version1008Date20260228190000 extends SimpleMigrationStep {
 			// Whether this was a team completion
 			if (!$table->hasColumn('is_team_completion')) {
 				$table->addColumn('is_team_completion', 'boolean', [
-					'notnull' => true,
+					'notnull' => false,
 					'default' => false,
 					'comment' => 'Whether multiple users participated',
 				]);
@@ -119,7 +119,7 @@ class Version1008Date20260228190000 extends SimpleMigrationStep {
 			// Whether this task allows multiple participants
 			if (!$table->hasColumn('allow_teamwork')) {
 				$table->addColumn('allow_teamwork', 'boolean', [
-					'notnull' => true,
+					'notnull' => false,
 					'default' => false,
 					'comment' => 'Whether multiple users can participate',
 				]);

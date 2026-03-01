@@ -1,5 +1,35 @@
 # Bug Backlog
 
+## [P1] Docker Test Container: Migration-Fehler bei Boolean-Spalten und zu langen Namen
+
+**Status**: Partially Fixed  
+**Assignee**: AI Agent  
+**Estimated Effort**: M  
+**Phase**: 2
+
+### Description
+Der Docker Test Container stürzt beim Start ab aufgrund von Nextcloud/MariaDB/Doctrine Inkompatibilitäten:
+1. Boolean-Spalten mit `notnull=true` und `default=false` werden von Doctrine als ungültig erkannt
+2. Tabellen- und Index-Namen überschreiten MariaDB 64-Zeichen-Limit
+3. Nextcloud-Installation schlägt fehl bei bereits existierenden Installationen
+
+### Acceptance Criteria
+- [x] Boolean-Spalten auf `notnull=false` geändert (3 Migrationen: Version1005, 1008, 1009)
+- [x] Tabellennamen gekürzt: `chorestrike_task_checklist_items` → `chorestrike_checklist_items`
+- [x] Index-/FK-Namen gekürzt für MariaDB-Kompatibilität
+- [x] Mapper aktualisiert (TaskChecklistItemMapper)
+- [x] Docker Entrypoint: Bessere Erkennung bestehender Installationen
+- [ ] Docker Container startet vollständig und Nextcloud-App wird aktiviert
+- [ ] Backend Unit Tests können in Docker ausgeführt werden
+
+### Notes
+- Teilweise gefixt in Commits vom 2026-03-01 (Migration-Fixes)
+- Container stürzt weiterhin ab - weitere unbekannte Migration-Issues möglich
+- Betrifft: `lib/Migration/Version1005Date20260228160000.php`, `Version1008Date20260228190000.php`, `Version1009Date20260228200000.php`
+- Siehe Docker-Logs für weitere Details
+
+---
+
 ## [P0] Frontend/Backend app ID mismatch breaks API and asset loading
 
 **Status**: ✅ FIXED  

@@ -52,9 +52,15 @@ composer install --no-interaction --prefer-dist
 echo "Preparing Nextcloud installation..."
 cd /var/www/html
 
-if ! su -s /bin/bash www-data -c "php occ status" 2>/dev/null | grep -q "installed: true"; then
+# Check if Nextcloud is already installed
+if su -s /bin/bash www-data -c "php occ status" 2>/dev/null | grep -q "installed: true"; then
+    echo "Nextcloud is already installed, skipping installation..."
+elif [ -f /var/www/html/config/config.php ] && grep -q "'installed' => true" /var/www/html/config/config.php 2>/dev/null; then
+    echo "Nextcloud config indicates installed, skipping installation..."
+else
     echo "Running initial Nextcloud installation..."
-    su -s /bin/bash www-data -c "php occ maintenance:install \
+    # Try installation with error handling
+    if ! su -s /bin/bash www-data -c "php occ maintenance:install \
         --database='mysql' \
         --database-host='${DB_HOST}' \
         --database-port='${DB_PORT}' \
@@ -62,7 +68,13 @@ if ! su -s /bin/bash www-data -c "php occ status" 2>/dev/null | grep -q "install
         --database-user='${DB_USER}' \
         --database-pass='${DB_PASS}' \
         --admin-user='admin' \
-        --admin-pass='admin'"
+        --admin-pass='admin'" 2>&1; then
+        echo "Installation command failed, checking if already installed..."
+        if ! su -s /bin/bash www-data -c "php occ status" 2>/dev/null | grep -q "installed: true"; then
+            echo "Nextcloud installation failed and not already installed"
+            exit 1
+        fi
+    fi
 fi
 
 if ! su -s /bin/bash www-data -c "php occ status" 2>/dev/null | grep -q "installed: true"; then

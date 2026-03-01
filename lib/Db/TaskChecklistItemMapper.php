@@ -20,7 +20,7 @@ use OCP\IDBConnection;
 class TaskChecklistItemMapper extends QBMapper {
 
 	public function __construct(IDBConnection $db) {
-		parent::__construct($db, 'chorestrike_task_checklist_items', TaskChecklistItem::class);
+		parent::__construct($db, 'chorestrike_checklist_items', TaskChecklistItem::class);
 	}
 
 	/**

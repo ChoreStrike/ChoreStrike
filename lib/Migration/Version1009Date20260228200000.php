@@ -29,7 +29,7 @@ class Version1009Date20260228200000 extends SimpleMigrationStep {
 			// Whether this task was claimed from someone else
 			if (!$table->hasColumn('was_claimed')) {
 				$table->addColumn('was_claimed', 'boolean', [
-					'notnull' => true,
+					'notnull' => false,
 					'default' => false,
 					'comment' => 'Whether this task was claimed from another user',
 				]);
@@ -67,7 +67,7 @@ class Version1009Date20260228200000 extends SimpleMigrationStep {
 			// Whether this completion was a claimed task
 			if (!$table->hasColumn('was_claimed_completion')) {
 				$table->addColumn('was_claimed_completion', 'boolean', [
-					'notnull' => true,
+					'notnull' => false,
 					'default' => false,
 					'comment' => 'Whether this was a claimed overdue task',
 				]);
@@ -141,7 +141,7 @@ class Version1009Date20260228200000 extends SimpleMigrationStep {
 
 			// Whether the claim resulted in completion
 			$table->addColumn('was_completed', 'boolean', [
-				'notnull' => true,
+				'notnull' => false,
 				'default' => false,
 				'comment' => 'Whether the task was completed after claiming',
 			]);

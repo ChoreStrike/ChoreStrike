@@ -29,8 +29,8 @@ class Version1005Date20260228160000 extends SimpleMigrationStep {
 		$schema = $schemaClosure();
 
 		// Create checklist items table
-		if (!$schema->hasTable('chorestrike_task_checklist_items')) {
-			$table = $schema->createTable('chorestrike_task_checklist_items');
+		if (!$schema->hasTable('chorestrike_checklist_items')) {
+			$table = $schema->createTable('chorestrike_checklist_items');
 			
 			$table->addColumn('id', 'bigint', [
 				'autoincrement' => true,
@@ -63,14 +63,14 @@ class Version1005Date20260228160000 extends SimpleMigrationStep {
 				['task_id'],
 				['id'],
 				['onDelete' => 'CASCADE'],
-				'task_checklist_fk'
+				'chk_items_task_fk'
 			);
-			$table->addIndex(['task_id'], 'checklist_items_task_idx');
+			$table->addIndex(['task_id'], 'chk_items_task_idx');
 		}
 
 		// Create checklist progress table for room tasks
-		if (!$schema->hasTable('chorestrike_room_task_checklist_progress')) {
-			$table = $schema->createTable('chorestrike_room_task_checklist_progress');
+		if (!$schema->hasTable('chorestrike_checklist_progress')) {
+			$table = $schema->createTable('chorestrike_checklist_progress');
 			
 			$table->addColumn('id', 'bigint', [
 				'autoincrement' => true,
@@ -89,7 +89,7 @@ class Version1005Date20260228160000 extends SimpleMigrationStep {
 			]);
 			
 			$table->addColumn('is_checked', 'boolean', [
-				'notnull' => true,
+				'notnull' => false,
 				'default' => false,
 			]);
 			
@@ -107,23 +107,23 @@ class Version1005Date20260228160000 extends SimpleMigrationStep {
 			$table->setPrimaryKey(['id']);
 			$table->addUniqueIndex(
 				['room_task_id', 'checklist_item_id'],
-				'unique_progress_per_item'
+				'uniq_prog_item'
 			);
 			$table->addForeignKeyConstraint(
 				'chorestrike_room_tasks',
 				['room_task_id'],
 				['id'],
 				['onDelete' => 'CASCADE'],
-				'progress_room_task_fk'
+				'prog_task_fk'
 			);
 			$table->addForeignKeyConstraint(
-				'chorestrike_task_checklist_items',
+				'chorestrike_checklist_items',
 				['checklist_item_id'],
 				['id'],
 				['onDelete' => 'CASCADE'],
-				'progress_item_fk'
+				'prog_item_fk'
 			);
-			$table->addIndex(['room_task_id'], 'checklist_progress_room_task_idx');
+			$table->addIndex(['room_task_id'], 'chk_prog_task_idx');
 		}
 
 		return $schema;

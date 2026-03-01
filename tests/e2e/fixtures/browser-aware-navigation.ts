@@ -13,11 +13,15 @@ export class BrowserAwareNavigation {
 		
 		// Use different wait strategies based on browser
 		if (browserName === 'firefox') {
-			// Firefox is slower with networkidle, use domcontentloaded + timeout
-			await page.waitForLoadState('domcontentloaded', { timeout: 45000 })
-			await page.waitForTimeout(3000) // Extra wait for Firefox
+			// Firefox is significantly slower, needs longer timeouts
+			await page.waitForLoadState('domcontentloaded', { timeout: 60000 })
+			await page.waitForTimeout(5000) // Extra wait for Firefox rendering
+		} else if (browserName === 'webkit') {
+			// WebKit also needs more time
+			await page.waitForLoadState('networkidle', { timeout: 45000 })
+			await page.waitForTimeout(3000)
 		} else {
-			// Chrome and WebKit work better with networkidle
+			// Chrome works better with networkidle
 			await page.waitForLoadState('networkidle', { timeout: 30000 })
 			await page.waitForTimeout(2000)
 		}
