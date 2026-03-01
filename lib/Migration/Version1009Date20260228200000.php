@@ -55,8 +55,8 @@ class Version1009Date20260228200000 extends SimpleMigrationStep {
 			}
 
 			// Index for claimed tasks
-			if (!$table->hasIndex('idx_room_tasks_claimed')) {
-				$table->addIndex(['was_claimed'], 'idx_room_tasks_claimed');
+			if (!$table->hasIndex('idx_tasks_claimed')) {
+				$table->addIndex(['was_claimed'], 'idx_tasks_claimed');
 			}
 		}
 
@@ -92,14 +92,14 @@ class Version1009Date20260228200000 extends SimpleMigrationStep {
 			}
 
 			// Index for claimed completions
-			if (!$table->hasIndex('idx_completed_claimed')) {
-				$table->addIndex(['was_claimed_completion'], 'idx_completed_claimed');
+			if (!$table->hasIndex('idx_claimed_complete')) {
+				$table->addIndex(['was_claimed_completion'], 'idx_claimed_complete');
 			}
 		}
 
 		// Create table for tracking claim history (audit log)
-		if (!$schema->hasTable('chorestrike_task_claims')) {
-			$table = $schema->createTable('chorestrike_task_claims');
+		if (!$schema->hasTable('chorestrike_claims')) {
+			$table = $schema->createTable('chorestrike_claims');
 
 			// Primary key
 			$table->addColumn('id', 'integer', [
@@ -159,12 +159,12 @@ class Version1009Date20260228200000 extends SimpleMigrationStep {
 			]);
 
 			// Primary key
-			$table->setPrimaryKey(['id']);
+			$table->setPrimaryKey(['id'], 'pk_claims');
 
 			// Indexes
-			$table->addIndex(['room_task_id'], 'idx_task_claims_room_task');
-			$table->addIndex(['claimed_by_user'], 'idx_task_claims_claimer');
-			$table->addIndex(['claimed_at'], 'idx_task_claims_date');
+			$table->addIndex(['room_task_id'], 'idx_claims_room_task');
+			$table->addIndex(['claimed_by_user'], 'idx_claims_claimer');
+			$table->addIndex(['claimed_at'], 'idx_claims_date');
 		}
 
 		return $schema;

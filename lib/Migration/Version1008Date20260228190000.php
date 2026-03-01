@@ -24,8 +24,8 @@ class Version1008Date20260228190000 extends SimpleMigrationStep {
 		$schema = $schemaClosure();
 
 		// Create table for tracking task participants (multi-user teamwork)
-		if (!$schema->hasTable('chorestrike_task_participants')) {
-			$table = $schema->createTable('chorestrike_task_participants');
+		if (!$schema->hasTable('chorestrike_task_parts')) {
+			$table = $schema->createTable('chorestrike_task_parts');
 
 			// Primary key
 			$table->addColumn('id', 'integer', [
@@ -67,12 +67,12 @@ class Version1008Date20260228190000 extends SimpleMigrationStep {
 			]);
 
 			// Primary key
-			$table->setPrimaryKey(['id']);
+			$table->setPrimaryKey(['id'], 'pk_task_parts');
 
 			// Indexes
-			$table->addIndex(['completed_task_id'], 'idx_task_participants_completed');
-			$table->addIndex(['user_id'], 'idx_task_participants_user');
-			$table->addUniqueIndex(['completed_task_id', 'user_id'], 'uniq_task_participant');
+			$table->addIndex(['completed_task_id'], 'idx_parts_completed');
+			$table->addIndex(['user_id'], 'idx_parts_user');
+			$table->addUniqueIndex(['completed_task_id', 'user_id'], 'uniq_parts');
 		}
 
 		// Add team-related fields to chorestrike_completed_tasks
@@ -107,8 +107,8 @@ class Version1008Date20260228190000 extends SimpleMigrationStep {
 			}
 
 			// Index for team completions
-			if (!$table->hasIndex('idx_completed_team')) {
-				$table->addIndex(['is_team_completion'], 'idx_completed_team');
+			if (!$table->hasIndex('idx_team_complete')) {
+				$table->addIndex(['is_team_completion'], 'idx_team_complete');
 			}
 		}
 
