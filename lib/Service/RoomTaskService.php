@@ -579,4 +579,25 @@ class RoomTaskService {
 			'claims' => []
 		];
 	}
+
+	/**
+	 * Get tasks assigned to user
+	 *
+	 * @param int $houseId The house ID
+	 * @param string $userId The user ID
+	 * @return RoomTask[]
+	 */
+	public function getTasksAssignedToUser(int $houseId, string $userId): array {
+		return $this->roomTaskMapper->findByHouseAndAssignedUser($houseId, $userId);
+	}
+
+	/**
+	 * Get all unassigned tasks in house
+	 *
+	 * @param int $houseId The house ID
+	 * @return RoomTask[]
+	 */
+	public function getUnassignedTasks(int $houseId): array {
+		return $this->roomTaskMapper->findUnassignedByHouse($houseId);
+	}
 }
