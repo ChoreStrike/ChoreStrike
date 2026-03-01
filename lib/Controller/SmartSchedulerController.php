@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Service\SmartSchedulerService;
 use OCA\ChoreStrike\Service\SchedulingService;
+use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
@@ -23,17 +24,20 @@ class SmartSchedulerController extends Controller {
 
 	private SmartSchedulerService $smartSchedulerService;
 	private SchedulingService $schedulingService;
+	private HouseService $houseService;
 	private IUserSession $userSession;
 
 	public function __construct(
 		IRequest $request,
 		SmartSchedulerService $smartSchedulerService,
 		SchedulingService $schedulingService,
+		HouseService $houseService,
 		IUserSession $userSession
 	) {
 		parent::__construct($request);
 		$this->smartSchedulerService = $smartSchedulerService;
 		$this->schedulingService = $schedulingService;
+		$this->houseService = $houseService;
 		$this->userSession = $userSession;
 	}
 
@@ -273,11 +277,14 @@ class SmartSchedulerController extends Controller {
 
 	/**
 	 * Get current user's house ID
+	 *
+	 * @throws \Exception if house could not be resolved
 	 */
 	private function getCurrentHouseId(): ?int {
-		// TODO: Implement logic to get current user's house ID
-		// This might come from user session, URL parameter, or other context
-		return 1; // Placeholder
+		$instanceId = $this->houseService->getInstanceId();
+		$house = $this->houseService->getOrCreateHouse($instanceId);
+
+		return $house->getId();
 	}
 
 	/**

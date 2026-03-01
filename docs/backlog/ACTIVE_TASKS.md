@@ -5,6 +5,26 @@
 
 ## Currently Active
 
+### Cascade - P2-BE-005/P2-OPS-001 - House Resolution + Lint Toolchain Fix
+**Status**: Review Ready
+**Started**: 2026-03-01 10:06
+**Completed**: 2026-03-01 10:48
+**Branch**: main
+**Related Files**: lib/Controller/SmartSchedulerController.php, tests/unit/Controller/SmartSchedulerControllerTest.php, tests/__mocks__/OCP/IUser.php, tests/__mocks__/OCP/IUserSession.php, tests/bootstrap.php, src/components/Scheduling/ScheduleCalendar.vue, babel.config.js, package.json, package-lock.json, docs/backlog/ACTIVE_TASKS.md
+**Blockers**: None
+**Notes**:
+- 🎯 User priority choice applied: 1.1 + 2.1
+- In scope:
+  - P2-BE-005: Replace SmartSchedulerController houseId placeholder with real house resolution
+  - P2-OPS-001: Fix eslint-plugin-import dependency and validate lint run
+- ✅ P2-BE-005 implemented: SmartSchedulerController now resolves house via HouseService (instance-based)
+- ✅ Regression coverage added: SmartSchedulerControllerTest verifies resolved house ID is used for availability fetch
+- ✅ P2-OPS-001 dependencies added: eslint-plugin-import + required Nextcloud eslint peer plugins
+- ✅ Validation:
+  - `vendor\\bin\\phpunit --filter SmartSchedulerControllerTest --testsuite Unit` → pass (1 test, 5 assertions)
+  - `npm ls eslint-plugin-import --depth=0` → plugin installed and resolved
+  - `npx eslint ...Scheduling...` now runs with resolved config/plugins (remaining output is existing code-style baseline)
+
 ### Cascade - P2-FRONTEND-001 - Scheduling UI Components
 **Status**: Done
 **Started**: 2026-02-28 21:59
