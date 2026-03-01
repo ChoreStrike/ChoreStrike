@@ -78,7 +78,7 @@ describe('Emoji.vue', () => {
 
 	it('applies style variant classes', () => {
 		const wrapper = mount(Emoji, {
-			props: { name: 'trophy', style: 'flat' },
+			props: { name: 'trophy', emojiStyle: 'flat' },
 			global: { plugins: [pinia] },
 		})
 
@@ -108,7 +108,7 @@ describe('Emoji.vue', () => {
 
 	it('uses CDN URL by default', () => {
 		const wrapper = mount(Emoji, {
-			props: { name: 'fox', style: '3d' },
+			props: { name: 'fox', emojiStyle: '3d' },
 			global: { plugins: [pinia] },
 		})
 

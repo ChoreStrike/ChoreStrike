@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from '@jest/globals'
+import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { flushPromises } from '@vue/test-utils'
 import Settings from '../../../src/views/Settings.vue'
 
 // Mock vue-router
@@ -99,12 +100,15 @@ describe('Settings.vue', () => {
 		expect(wrapper.find('#house-name').exists()).toBe(true)
 	})
 
-	it('displays current house name in input', () => {
+	it('displays current house name in input', async () => {
 		const wrapper = mount(Settings, {
 			global: {
 				plugins: [pinia],
 			},
 		})
+
+		// Wait for mounted() to complete and set houseName
+		await flushPromises()
 
 		const input = wrapper.find('#house-name')
 		expect(input.element.value).toBe('Test House')

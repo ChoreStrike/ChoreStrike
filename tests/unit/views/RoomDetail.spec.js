@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from '@jest/globals'
+import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import RoomDetail from '../../../src/views/RoomDetail.vue'
@@ -15,8 +15,8 @@ jest.mock('../../../src/store/rooms.js', () => ({
 	useRoomsStore: () => ({
 		floors: [{ id: 1, name: 'Ground Floor' }],
 		rooms: [{ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 70, monsterCount: 2 }],
-		getRoomById: vi.fn((id) => ({ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 70, monsterCount: 2 })),
-		getFloorById: vi.fn((id) => ({ id: 1, name: 'Ground Floor' })),
+		getRoomById: jest.fn((id) => ({ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 70, monsterCount: 2 })),
+		getFloorById: jest.fn((id) => ({ id: 1, name: 'Ground Floor' })),
 		fetchFloorsWithRooms: jest.fn(),
 	}),
 }))

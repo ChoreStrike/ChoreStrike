@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import TaskList from '../../../src/components/Tasks/TaskList.vue'
 
 // Mock Nextcloud l10n
@@ -24,6 +25,17 @@ jest.mock('../../../src/components/Common', () => ({
 	},
 }))
 
+// Mock the checklist store
+jest.mock('../../../src/store/checklist.js', () => ({
+	useChecklistStore: jest.fn(() => ({
+		fetchTaskItems: jest.fn(),
+		fetchRoomTaskProgress: jest.fn(),
+		toggleItem: jest.fn(),
+		getTaskItems: jest.fn(() => []),
+		getRoomTaskProgress: jest.fn(() => ({})),
+	})),
+}))
+
 describe('TaskList', () => {
 	const mockTask = (overrides = {}) => ({
 		task: {
@@ -46,6 +58,12 @@ describe('TaskList', () => {
 			assignedToUserId: null,
 			...overrides.roomTask,
 		},
+	})
+
+	beforeEach(() => {
+		// Create and set active Pinia instance for each test
+		const pinia = createPinia()
+		setActivePinia(pinia)
 	})
 
 	describe('rendering states', () => {
