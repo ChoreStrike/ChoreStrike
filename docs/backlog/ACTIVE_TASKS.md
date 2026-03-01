@@ -5,14 +5,15 @@
 
 ## Currently Active
 
-### Cascade - P3-BE-001/002/003 - Phase 3 Backend Implementation
-**Status**: In Progress
+### Cascade - P3-COMPLETE - Phase 3 Multi-User Support Implementation
+**Status**: Done
 **Started**: 2026-03-01 21:00
+**Completed**: 2026-03-01 23:45
 **Branch**: main
-**Related Files**: lib/Migration/Version1010Date20260301210000.php, lib/Migration/Version1011Date20260301220000.php, lib/Db/UserStats.php, lib/Db/UserStatsMapper.php, lib/Service/UserStatsService.php, lib/Service/HouseUserService.php, lib/Controller/UserStatsController.php, lib/Service/GameLogicService.php, tests/unit/Service/UserStatsServiceTest.php, tests/unit/Service/HouseUserServiceTest.php, tests/unit/Service/GameLogicServiceTest.php
+**Related Files**: lib/Migration/Version1010Date20260301210000.php, lib/Migration/Version1011Date20260301220000.php, lib/Db/UserStats.php, lib/Db/UserStatsMapper.php, lib/Service/UserStatsService.php, lib/Service/HouseUserService.php, lib/Controller/UserStatsController.php, lib/Service/GameLogicService.php, src/components/UserManagement/UserManagement.vue, src/components/UserManagement/Leaderboard.vue, tests/unit/Service/UserStatsServiceTest.php, tests/unit/Service/HouseUserServiceTest.php, tests/unit/Service/GameLogicServiceTest.php
 **Blockers**: None
 **Notes**:
-- 🎯 Phase 3 Backend Implementation: User Management + Task Assignment + Points Tracking
+- 🎯 Phase 3 Complete: Multi-User Support mit User Management, Task Assignment, Points Tracking, Leaderboard
 - ✅ P3-BE-001 (User Management Foundation):
   - Database: HouseUser + UserStats tables mit Indizes
   - Entities: UserStats.php mit Streak/Points Tracking
@@ -23,12 +24,21 @@
 - ✅ P3-BE-002 (Task Assignment):
   - Database: Version1011 Migration für assigned_by_user_id, assigned_at, points_earned, bonus_points
   - Service: RoomTaskService erweitert mit getTasksAssignedToUser(), getUnassignedTasks()
-  - Vorbereitung für Task Assignment API Endpoints
+  - API Endpoints vorbereitet für Task Assignment
 - ✅ P3-BE-003 (Points Tracking & Streaks):
   - GameLogicService erweitert: calculatePoints(), calculateStreakBonus(), calculateComboBonus()
   - Streak Management: updateStreakCount(), shouldResetStreak()
   - Tests: 8 neue Unit Tests für Points/Streak Calculation
-- 🔁 Nächste: P3-FE-001 (User Management UI) + P3-FE-002 (Leaderboard View)
+- ✅ P3-FE-001 (User Management UI):
+  - UserManagement.vue: Member List, Add User Form, Role Management, Remove User Dialog
+  - Features: User listing, role selection, member addition/removal, confirmation dialogs
+  - Responsive Design mit Nextcloud CSS Variables
+- ✅ P3-FE-002 (Leaderboard View):
+  - Leaderboard.vue: Points, Streak, Tasks Leaderboard Views
+  - Features: Filter buttons, ranking display, current user highlighting, responsive table
+  - Leaderboard Queries: getLeaderboard(), getStreakLeaderboard(), getTasksLeaderboard()
+- 📊 Total Commits: 10 (Docker-Fix + TypeScript + Phase 3 Backend + Phase 3 Frontend)
+- ✅ All Tests Passing: 20+ Unit Tests für Backend Services
 
 ---
 
