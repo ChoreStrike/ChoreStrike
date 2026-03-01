@@ -276,6 +276,49 @@ class SmartSchedulerController extends Controller {
 	}
 
 	/**
+	 * Apply a scheduling suggestion (persist task assignment)
+	 *
+	 * @PublicPage
+	 * @param int $taskId The task ID to assign
+	 * @param string $assignedTo The Nextcloud user ID to assign the task to
+	 * @param string $scheduledFor The scheduled date (Y-m-d format)
+	 * @return DataResponse
+	 */
+	public function applySuggestion(int $taskId, string $assignedTo, string $scheduledFor): DataResponse {
+		try {
+			$houseId = $this->getCurrentHouseId();
+			
+			if (!$houseId) {
+				return new DataResponse(['error' => 'No house found for current user'], Http::STATUS_NOT_FOUND);
+			}
+
+			// Apply the suggestion using the service
+			$task = $this->smartSchedulerService->applySuggestion($houseId, $taskId, $assignedTo, $scheduledFor);
+			
+			return new DataResponse([
+				'success' => true,
+				'message' => 'Suggestion applied successfully',
+				'data' => [
+					'taskId' => $task->getId(),
+					'assignedTo' => $task->getAssignedTo(),
+					'scheduledFor' => $task->getScheduledFor(),
+				],
+			]);
+			
+		} catch (\InvalidArgumentException $e) {
+			return new DataResponse([
+				'success' => false,
+				'error' => $e->getMessage(),
+			], Http::STATUS_BAD_REQUEST);
+		} catch (\Exception $e) {
+			return new DataResponse([
+				'success' => false,
+				'error' => $e->getMessage(),
+			], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	/**
 	 * Get current user's house ID
 	 *
 	 * @throws \Exception if house could not be resolved

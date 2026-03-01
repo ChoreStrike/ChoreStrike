@@ -25,6 +25,27 @@
   - `npm ls eslint-plugin-import --depth=0` → plugin installed and resolved
   - `npx eslint ...Scheduling...` now runs with resolved config/plugins (remaining output is existing code-style baseline)
 
+### Cascade - P2-BE-004 - Apply Suggestion Endpoint
+**Status**: Review Ready
+**Started**: 2026-03-01 13:35
+**Completed**: 2026-03-01 13:55
+**Branch**: main
+**Related Files**: lib/Controller/SmartSchedulerController.php, lib/Service/SmartSchedulerService.php, appinfo/routes.php, tests/unit/Controller/SmartSchedulerControllerTest.php, docs/backlog/ACTIVE_TASKS.md
+**Blockers**: None
+**Notes**:
+- 🎯 Implement persisted "apply suggestion" backend endpoint
+- In scope:
+  - Controller endpoint with validation
+  - Service method to persist task assignment
+  - API route registration
+  - Unit tests with regression coverage
+- ✅ Implemented:
+  - SmartSchedulerService::applySuggestion() mit Validierung (Assignee, Date-Format, Member-Verfügbarkeit)
+  - SmartSchedulerController::applySuggestion() mit Error-Handling (400/500 Status)
+  - Route POST /api/v1/smart-schedule/apply in routes.php
+  - 3 Unit-Tests: Success, Validation Error (400), Server Error (500)
+- ✅ All tests pass (3 tests, 20 assertions)
+
 ### Cascade - P2-FRONTEND-001 - Scheduling UI Components
 **Status**: Done
 **Started**: 2026-02-28 21:59

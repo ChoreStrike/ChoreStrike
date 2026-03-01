@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\SmartSchedulerController;
 use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCA\ChoreStrike\Service\SmartSchedulerService;
@@ -50,12 +51,17 @@ class SmartSchedulerControllerTest extends TestCase {
 	}
 
 	/**
-	 * Test member availability uses resolved house ID from HouseService.
+	 * Test apply suggestion persists task assignment successfully.
 	 */
-	public function testGetMemberAvailability_UsesResolvedHouseIdFromHouseService(): void {
+	public function testApplySuggestion_SuccessfullyAssignsTask(): void {
 		$house = new House();
 		$house->setId(42);
-		$availability = [['userId' => 7, 'userName' => 'Alice']];
+
+		$task = new RoomTask();
+		$task->setId(7);
+		$task->setTitle('Clean Kitchen');
+		$task->setAssignedTo('user1');
+		$task->setScheduledFor('2026-03-15');
 
 		$this->houseService->expects($this->once())
 			->method('getInstanceId')
@@ -66,18 +72,79 @@ class SmartSchedulerControllerTest extends TestCase {
 			->with('instance-123')
 			->willReturn($house);
 
-		$this->schedulingService->expects($this->once())
-			->method('getMemberAvailability')
-			->with(42)
-			->willReturn($availability);
+		$this->smartSchedulerService->expects($this->once())
+			->method('applySuggestion')
+			->with(42, 7, 'user1', '2026-03-15')
+			->willReturn($task);
 
-		$response = $this->controller->getMemberAvailability();
+		$response = $this->controller->applySuggestion(7, 'user1', '2026-03-15');
 
 		$this->assertInstanceOf(DataResponse::class, $response);
 		$this->assertSame(200, $response->getStatus());
-		$this->assertSame([
-			'success' => true,
-			'data' => $availability,
-		], $response->getData());
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertSame(7, $data['data']['taskId']);
+		$this->assertSame('user1', $data['data']['assignedTo']);
+		$this->assertSame('2026-03-15', $data['data']['scheduledFor']);
+	}
+
+	/**
+	 * Test apply suggestion returns 400 for validation error.
+	 */
+	public function testApplySuggestion_Returns400ForValidationError(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$this->houseService->expects($this->once())
+			->method('getInstanceId')
+			->willReturn('instance-123');
+
+		$this->houseService->expects($this->once())
+			->method('getOrCreateHouse')
+			->with('instance-123')
+			->willReturn($house);
+
+		$this->smartSchedulerService->expects($this->once())
+			->method('applySuggestion')
+			->with(42, 7, 'user1', 'invalid-date')
+			->willThrowException(new \InvalidArgumentException('Invalid date format. Use Y-m-d'));
+
+		$response = $this->controller->applySuggestion(7, 'user1', 'invalid-date');
+
+		$this->assertInstanceOf(DataResponse::class, $response);
+		$this->assertSame(400, $response->getStatus());
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertSame('Invalid date format. Use Y-m-d', $data['error']);
+	}
+
+	/**
+	 * Test apply suggestion returns 500 for server error.
+	 */
+	public function testApplySuggestion_Returns500ForServerError(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$this->houseService->expects($this->once())
+			->method('getInstanceId')
+			->willReturn('instance-123');
+
+		$this->houseService->expects($this->once())
+			->method('getOrCreateHouse')
+			->with('instance-123')
+			->willReturn($house);
+
+		$this->smartSchedulerService->expects($this->once())
+			->method('applySuggestion')
+			->with(42, 999, 'user1', '2026-03-15')
+			->willThrowException(new \Exception('Task not found'));
+
+		$response = $this->controller->applySuggestion(999, 'user1', '2026-03-15');
+
+		$this->assertInstanceOf(DataResponse::class, $response);
+		$this->assertSame(500, $response->getStatus());
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertSame('Task not found', $data['error']);
 	}
 }

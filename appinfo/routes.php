@@ -89,6 +89,7 @@ return [
         ['name' => 'smart_scheduler#updateMyAvailability', 'url' => '/api/v1/smart-schedule/availability', 'verb' => 'PUT'],
         ['name' => 'smart_scheduler#updateMyEnergyBudget', 'url' => '/api/v1/smart-schedule/energy-budget', 'verb' => 'PUT'],
         ['name' => 'smart_scheduler#getSchedulingSuggestions', 'url' => '/api/v1/smart-schedule/suggestions', 'verb' => 'GET'],
+        ['name' => 'smart_scheduler#applySuggestion', 'url' => '/api/v1/smart-schedule/apply', 'verb' => 'POST'],
 
         // Template API
         ['name' => 'template#index', 'url' => '/api/v1/templates', 'verb' => 'GET'],
