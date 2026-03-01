@@ -313,6 +313,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { showSuccess, showError } from '@nextcloud/dialogs'
 import Icon from '../Common/Icon.vue'
 import Modal from '../Common/Modal.vue'
 import axios from '@nextcloud/axios'
@@ -513,16 +514,35 @@ const getTaskChangeDescription = (task: AffectedTask): string => {
 }
 
 const applySuggestion = async (suggestion: SchedulingSuggestion | null): Promise<void> => {
-	if (!suggestion) {
+	if (!suggestion || suggestion.affectedTasks.length === 0) {
+		return
+	}
+
+	const task = suggestion.affectedTasks[0]
+	if (!task.suggestedAssignment) {
+		showError(t('chorestrike', 'No suggested assignment found'))
 		return
 	}
 
 	try {
-		// No dedicated backend endpoint exists yet; keep UI behavior consistent for now.
-		emit('suggestionApplied', suggestion)
-		suggestions.value = suggestions.value.filter((s: SchedulingSuggestion) => s.id !== suggestion.id)
-	} catch (error) {
+		// Call the backend API to apply the suggestion
+		const response = await axios.post('/api/v1/smart-schedule/apply', {
+			taskId: task.id,
+			assignedTo: task.suggestedAssignment,
+			scheduledFor: new Date().toISOString().split('T')[0], // Today's date as default
+		})
+
+		if (response.data.success) {
+			showSuccess(t('chorestrike', 'Suggestion applied successfully'))
+			emit('suggestionApplied', suggestion)
+			suggestions.value = suggestions.value.filter((s: SchedulingSuggestion) => s.id !== suggestion.id)
+		} else {
+			showError(response.data.error || t('chorestrike', 'Failed to apply suggestion'))
+		}
+	} catch (error: unknown) {
 		console.error('Failed to apply suggestion:', error)
+		const errorMessage = error instanceof Error ? error.message : t('chorestrike', 'Failed to apply suggestion')
+		showError(errorMessage)
 	}
 }
 

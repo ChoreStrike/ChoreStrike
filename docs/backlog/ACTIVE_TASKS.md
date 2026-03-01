@@ -46,6 +46,26 @@
   - 3 Unit-Tests: Success, Validation Error (400), Server Error (500)
 - ✅ All tests pass (3 tests, 20 assertions)
 
+### Cascade - P2-FE-002 - Frontend Apply Suggestion Integration
+**Status**: Review Ready
+**Started**: 2026-03-01 13:43
+**Completed**: 2026-03-01 13:50
+**Branch**: main
+**Related Files**: src/components/Scheduling/SchedulingSuggestions.vue, docs/backlog/ACTIVE_TASKS.md
+**Blockers**: None
+**Notes**:
+- 🎯 Frontend-Integration des neuen Apply-Suggestion-Backend-Endpoints
+- In scope:
+  - API-Call zu POST /api/v1/smart-schedule/apply implementieren
+  - Erfolgs- und Error-Handling mit User-Feedback
+  - Entfernen der lokalen UI-only Logik
+- ✅ Implemented:
+  - Import showSuccess/showError from @nextcloud/dialogs
+  - API-Call POST /api/v1/smart-schedule/apply mit Task-ID, Assignee und Datum
+  - Success-Toast bei erfolgreicher Anwendung
+  - Error-Toast bei Fehler (Validation, Server, Network)
+  - Filterung der angewendeten Suggestion aus der Liste
+
 ### Cascade - P2-FRONTEND-001 - Scheduling UI Components
 **Status**: Done
 **Started**: 2026-02-28 21:59
