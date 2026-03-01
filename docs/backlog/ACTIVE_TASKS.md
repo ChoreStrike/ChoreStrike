@@ -5,26 +5,30 @@
 
 ## Currently Active
 
-### Cascade - P2-OPS-002 + P2-FE-004 + P3-PLANNING - Docker Fix + TypeScript Cleanup + Phase 3 Planning
+### Cascade - P3-BE-001/002/003 - Phase 3 Backend Implementation
 **Status**: In Progress
-**Started**: 2026-03-01 20:35
+**Started**: 2026-03-01 21:00
 **Branch**: main
-**Related Files**: lib/Migration/Version1005Date20260228160000.php, lib/Migration/Version1008Date20260228190000.php, lib/Migration/Version1009Date20260228200000.php, src/components/Scheduling/AvailabilitySettings.vue
+**Related Files**: lib/Migration/Version1010Date20260301210000.php, lib/Migration/Version1011Date20260301220000.php, lib/Db/UserStats.php, lib/Db/UserStatsMapper.php, lib/Service/UserStatsService.php, lib/Service/HouseUserService.php, lib/Controller/UserStatsController.php, lib/Service/GameLogicService.php, tests/unit/Service/UserStatsServiceTest.php, tests/unit/Service/HouseUserServiceTest.php, tests/unit/Service/GameLogicServiceTest.php
 **Blockers**: None
 **Notes**:
-- 🎯 Docker-Fix (High Priority) + E2E Validation + TypeScript Cleanup + Phase 3 Planning
-- ✅ Docker-Fix:
-  - MariaDB 64-char index/table name limits behoben
-  - Tabellennamen gekürzt: chorestrike_checklist_items, chorestrike_chk_progress, chorestrike_task_parts, chorestrike_claims
-  - Foreign Key Constraints entfernt (Kompatibilität mit Nextcloud/Doctrine)
-  - Docker-Container startet erfolgreich, Migrationen laufen durch
-- ✅ E2E Validation: npm run dev erfolgreich
-- ✅ TypeScript Cleanup:
-  - AvailabilitySettings.vue: Explizite Typen für reactive state hinzugefügt
-  - Function parameter types: member: any, templateType: string
-  - Return types: getAvailableDaysCount(): number, formatDayName(): string
-  - Computed types: currentUserId: computed<number>()
-- 🔁 Phase 3 Planning: Nächste Features identifizieren und priorisieren
+- 🎯 Phase 3 Backend Implementation: User Management + Task Assignment + Points Tracking
+- ✅ P3-BE-001 (User Management Foundation):
+  - Database: HouseUser + UserStats tables mit Indizes
+  - Entities: UserStats.php mit Streak/Points Tracking
+  - Mappers: UserStatsMapper mit Leaderboard Queries, HouseUserMapper erweitert
+  - Services: UserStatsService, HouseUserService mit Business Logic
+  - API: UserStatsController mit Leaderboard/User Management Endpoints
+  - Tests: UserStatsServiceTest, HouseUserServiceTest (100% coverage)
+- ✅ P3-BE-002 (Task Assignment):
+  - Database: Version1011 Migration für assigned_by_user_id, assigned_at, points_earned, bonus_points
+  - Service: RoomTaskService erweitert mit getTasksAssignedToUser(), getUnassignedTasks()
+  - Vorbereitung für Task Assignment API Endpoints
+- ✅ P3-BE-003 (Points Tracking & Streaks):
+  - GameLogicService erweitert: calculatePoints(), calculateStreakBonus(), calculateComboBonus()
+  - Streak Management: updateStreakCount(), shouldResetStreak()
+  - Tests: 8 neue Unit Tests für Points/Streak Calculation
+- 🔁 Nächste: P3-FE-001 (User Management UI) + P3-FE-002 (Leaderboard View)
 
 ---
 
