@@ -9,8 +9,8 @@
 **Status**: Review Ready  
 **Started**: 2026-03-01 21:42  
 **Branch**: main  
-**Related Files**: docs/backlog/phase-5-smart-scheduling.md, docs/backlog/ACTIVE_TASKS.md, lib/Controller/TaskController.php, lib/Service/SchedulingService.php, lib/Db/AvailabilitySettings.php, lib/Db/AvailabilitySettingsMapper.php, lib/Migration/Version1013Date20260301210000.php, lib/Service/TaskSchedulerService.php, tests/unit/Controller/TaskControllerDailyTest.php, tests/unit/Service/TaskSchedulerServiceTest.php, tests/unit/Service/SchedulingServiceTest.php, src/components/Scheduling/DailyTaskList.vue, src/components/Scheduling/AvailabilitySettings.vue  
-**Blockers**: Unit test bootstrap mismatch in local CLI environment (missing OCS/OCP framework classes outside Docker test harness)  
+**Related Files**: docs/backlog/phase-5-smart-scheduling.md, docs/backlog/ACTIVE_TASKS.md, lib/Controller/TaskController.php, lib/Controller/SmartSchedulerController.php, lib/Service/SchedulingService.php, lib/Service/SmartSchedulerService.php, lib/Service/TaskSchedulerService.php, tests/bootstrap.php, tests/__mocks__/OCP/ILogger.php, tests/unit/Controller/TaskControllerDailyTest.php, tests/unit/Controller/SmartSchedulerControllerTest.php, tests/unit/Service/TaskSchedulerServiceTest.php, tests/unit/Service/SchedulingServiceTest.php, tests/unit/Service/SmartSchedulerServiceTest.php, src/components/Scheduling/DailyTaskList.vue, src/components/Scheduling/AvailabilitySettings.vue  
+**Blockers**: None  
 **Notes**:
 - Started Phase 5 implementation and added initial backend + frontend scaffolding.
 - Completed
@@ -34,6 +34,22 @@
   - Added regression tests for above fixes in `TaskControllerDailyTest` and `SchedulingServiceTest`
   - Synchronized `TaskSchedulerServiceTest` constructor setup with extracted collaborators from P5 refactor
   - Remaining major review findings documented in phase-5 backlog file (runtime risk in legacy `SmartSchedulerService`, partial test infrastructure mismatch)
+- P5-DEPRECATION follow-up (2026-03-02, started)
+  - User decision: Option 3 (deprecate legacy `SmartSchedulerService` behavior and route smart-schedule flow through P5 `TaskSchedulerService` compatibility layer)
+  - In progress: replace invalid legacy RoomTask API usage and keep `/api/v1/smart-schedule/*` endpoints backward-compatible for frontend
+- P5-DEPRECATION follow-up (2026-03-02, completed)
+  - Replaced legacy `SmartSchedulerService` algorithm with compatibility facade over `TaskSchedulerService` + `RoomTaskService`
+  - Removed runtime usage of non-existent `RoomTask` methods (`getAssignedTo`, `getTitle`, `getPriority`, `getDeadline`, `setAssignedTo`, `setScheduledFor`)
+  - Kept `/api/v1/smart-schedule/*` payload compatibility for preview/generate/apply flows
+  - Fixed `SmartSchedulerController::applySuggestion()` response mapping to `assignedToUserId` + `nextDue`
+  - Added/updated regression tests: `SmartSchedulerServiceTest`, `SmartSchedulerControllerTest`
+  - Extended local unit-test bootstrap with `ILogger` mock for deterministic CLI execution
+  - Validation run:
+    - `TaskControllerDailyTest` (7 tests, 45 assertions)
+    - `SmartSchedulerControllerTest` (3 tests, 20 assertions)
+    - `TaskSchedulerServiceTest` (11 tests, 51 assertions)
+    - `SchedulingServiceTest` (5 tests, 14 assertions)
+    - `SmartSchedulerServiceTest` (5 tests, 20 assertions)
 - Phase 5 Smart Scheduling is now **COMPLETE**! 🎉
 - Next priorities
   1. P5-REVIEW: Final review and documentation of Phase 5 implementation

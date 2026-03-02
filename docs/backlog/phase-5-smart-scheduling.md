@@ -17,14 +17,13 @@
 - [x] `TaskSchedulerServiceTest` constructor setup synchronized with extracted scheduling collaborators
 
 #### Open findings (prioritized)
-1. **High**: Legacy `SmartSchedulerService` still calls non-existent `RoomTask` methods (`getAssignedTo`, `getTitle`, `getPriority`, `getDeadline`, `setAssignedTo`, `setScheduledFor`), causing runtime failures on `/api/v1/smart-schedule/generate` and related flows.
-2. **Medium**: Test infrastructure mismatch remains in local CLI environment (missing OCP/OCS classes outside Docker), limiting reliable local controller/service test execution.
-3. **Medium**: `TaskController::daily()` currently maps each task with per-task detail lookup; optimize to avoid potential N+1 query overhead when task volume grows.
+1. **Resolved (High)**: Deprecated legacy `SmartSchedulerService` internals and replaced them with a compatibility facade over `TaskSchedulerService` + `RoomTaskService`, removing invalid `RoomTask` method usage and restoring `/api/v1/smart-schedule/*` runtime stability.
+2. **Resolved (Medium)**: Local unit-test bootstrap now includes missing mocks (`OCSController`, `JSONResponse`, `ILogger`), enabling deterministic controller/service test execution outside Docker.
+3. **Open (Medium)**: `TaskController::daily()` currently maps each task with per-task detail lookup; optimize to avoid potential N+1 query overhead when task volume grows.
 
 #### Open questions
-1. Should `SmartSchedulerService` be fully migrated to the P5 `TaskSchedulerService` pipeline, or kept as a compatibility layer for Phase 2 UI endpoints?
-2. For failed ownership checks on task mutations, should API return `404` (resource hidden) or `403` (explicit forbidden) as product standard?
-3. Do we keep `houseUserId` in public availability payload long-term, or deprecate once all consumers are fully Nextcloud-ID based?
+1. For failed ownership checks on task mutations, should API return `404` (resource hidden) or `403` (explicit forbidden) as product standard?
+2. Do we keep `houseUserId` in public availability payload long-term, or deprecate once all consumers are fully Nextcloud-ID based?
 
 ### Completed in this session
 - [x] P5-PLANNING: Phase plan created and aligned with roadmap

@@ -300,8 +300,8 @@ class SmartSchedulerController extends Controller {
 				'message' => 'Suggestion applied successfully',
 				'data' => [
 					'taskId' => $task->getId(),
-					'assignedTo' => $task->getAssignedTo(),
-					'scheduledFor' => $task->getScheduledFor(),
+					'assignedTo' => $task->getAssignedToUserId(),
+					'scheduledFor' => $task->getNextDue()?->format('Y-m-d'),
 				],
 			]);
 			

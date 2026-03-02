@@ -59,9 +59,8 @@ class SmartSchedulerControllerTest extends TestCase {
 
 		$task = new RoomTask();
 		$task->setId(7);
-		$task->setTitle('Clean Kitchen');
-		$task->setAssignedTo('user1');
-		$task->setScheduledFor('2026-03-15');
+		$task->setAssignedToUserId('user1');
+		$task->setNextDue(new \DateTime('2026-03-15'));
 
 		$this->houseService->expects($this->once())
 			->method('getInstanceId')

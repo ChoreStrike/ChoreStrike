@@ -8,355 +8,218 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Service\SmartSchedulerService;
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\SchedulingService;
+use OCA\ChoreStrike\Service\SmartSchedulerService;
+use OCA\ChoreStrike\Service\TaskSchedulerService;
 use OCP\ILogger;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 class SmartSchedulerServiceTest extends TestCase {
 
 	private SmartSchedulerService $service;
-	private HouseUserMapper $houseUserMapper;
-	private RoomTaskMapper $roomTaskMapper;
-	private SchedulingService $schedulingService;
-	private ILogger $logger;
+	private TaskSchedulerService|MockObject $taskSchedulerService;
+	private SchedulingService|MockObject $schedulingService;
+	private RoomTaskService|MockObject $roomTaskService;
+	private ILogger|MockObject $logger;
 
 	protected function setUp(): void {
-		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
+		$this->taskSchedulerService = $this->createMock(TaskSchedulerService::class);
 		$this->schedulingService = $this->createMock(SchedulingService::class);
+		$this->roomTaskService = $this->createMock(RoomTaskService::class);
 		$this->logger = $this->createMock(ILogger::class);
 
 		$this->service = new SmartSchedulerService(
-			$this->houseUserMapper,
-			$this->roomTaskMapper,
+			$this->taskSchedulerService,
 			$this->schedulingService,
+			$this->roomTaskService,
 			$this->logger
 		);
 	}
 
-	public function testGenerateScheduleCreatesOptimalAssignments(): void {
-		$houseId = 1;
-		$startDate = new \DateTime('2026-03-01');
-		$endDate = new \DateTime('2026-03-07');
+	/**
+	 * GenerateSchedule_MapsWeeklyAssignmentsToCompatibilityPayload
+	 */
+	public function testGenerateSchedule_MapsWeeklyAssignmentsToCompatibilityPayload(): void {
+		$this->taskSchedulerService
+			->expects($this->exactly(3))
+			->method('generateWeeklySchedule')
+			->willReturnOnConsecutiveCalls(
+				[
+					'tasks' => [
+						[
+							'room_task_id' => 11,
+							'task_name' => 'Clean Kitchen',
+							'scheduled_date' => '2026-03-03',
+							'assigned_to' => 'alice',
+							'energy_cost' => 4,
+							'priority_score' => 80,
+						],
+						[
+							'room_task_id' => 12,
+							'task_name' => 'Out of Range',
+							'scheduled_date' => '2026-03-20',
+							'assigned_to' => 'bob',
+							'energy_cost' => 2,
+							'priority_score' => 30,
+						],
+					],
+				],
+				[
+					'tasks' => [
+						[
+							'room_task_id' => 13,
+							'task_name' => 'Bathroom',
+							'scheduled_date' => '2026-03-09',
+							'assigned_to' => 'carol',
+							'energy_cost' => 3,
+							'priority_score' => 55,
+						],
+					],
+				],
+				[
+					'tasks' => [],
+				]
+			);
 
-		// Mock tasks with different priorities and deadlines
-		$tasks = [
-			$this->createMockTask(1, 'High Priority Task', 1, '2026-03-02', 8),
-			$this->createMockTask(2, 'Medium Priority Task', 3, '2026-03-05', 5),
-			$this->createMockTask(3, 'Low Priority Task', 5, null, 3),
+		$result = $this->service->generateSchedule(1, new \DateTime('2026-03-01'), new \DateTime('2026-03-10'));
+
+		$this->assertCount(2, $result['assignments']);
+		$this->assertSame(2, $result['totalTasks']);
+		$this->assertSame('Clean Kitchen', $result['assignments'][0]['taskTitle']);
+		$this->assertArrayHasKey('2026-03-03', $result['schedule']);
+	}
+
+	/**
+	 * GetSchedulePreview_DetectsInsufficientCapacityConflicts
+	 */
+	public function testGetSchedulePreview_DetectsInsufficientCapacityConflicts(): void {
+		$today = new \DateTime('today');
+		$todayDate = $today->format('Y-m-d');
+		$todayDay = strtolower($today->format('l'));
+
+		$this->taskSchedulerService
+			->expects($this->atLeastOnce())
+			->method('generateWeeklySchedule')
+			->willReturn([
+				'tasks' => [
+					[
+						'room_task_id' => 21,
+						'task_name' => 'Heavy Task',
+						'scheduled_date' => $todayDate,
+						'assigned_to' => 'member-a',
+						'energy_cost' => 10,
+						'priority_score' => 70,
+					],
+				],
+			]);
+
+		$weekdayAvailability = [
+			'monday' => true,
+			'tuesday' => true,
+			'wednesday' => true,
+			'thursday' => true,
+			'friday' => true,
+			'saturday' => true,
+			'sunday' => true,
+			$todayDay => false,
 		];
-
-		// Mock member availability
-		$members = [
-			[
-				'userId' => 1,
-				'userName' => 'Alice',
-				'energyBudget' => [
-					'monday' => 10, 'tuesday' => 10, 'wednesday' => 10,
-					'thursday' => 10, 'friday' => 10, 'saturday' => 15, 'sunday' => 15,
-				],
-				'weekdayAvailability' => [
-					'monday' => true, 'tuesday' => true, 'wednesday' => true,
-					'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true,
-				],
-			],
-			[
-				'userId' => 2,
-				'userName' => 'Bob',
-				'energyBudget' => [
-					'monday' => 8, 'tuesday' => 8, 'wednesday' => 8,
-					'thursday' => 8, 'friday' => 8, 'saturday' => 12, 'sunday' => 12,
-				],
-				'weekdayAvailability' => [
-					'monday' => true, 'tuesday' => false, 'wednesday' => true,
-					'thursday' => true, 'friday' => true, 'saturday' => false, 'sunday' => true,
-				],
-			],
-		];
-
-		// Set up mocks
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn($tasks);
 
 		$this->schedulingService
 			->expects($this->once())
 			->method('getMemberAvailability')
-			->with($houseId)
-			->willReturn($members);
+			->willReturn([
+				[
+					'userId' => 'member-a',
+					'userName' => 'Member A',
+					'energyBudget' => [
+						'monday' => 10,
+						'tuesday' => 10,
+						'wednesday' => 10,
+						'thursday' => 10,
+						'friday' => 10,
+						'saturday' => 10,
+						'sunday' => 10,
+					],
+					'weekdayAvailability' => $weekdayAvailability,
+				],
+			]);
 
-		// Generate schedule
-		$result = $this->service->generateSchedule($houseId, $startDate, $endDate);
+		$preview = $this->service->getSchedulePreview(1, 1);
 
-		// Assertions
-		$this->assertIsArray($result);
-		$this->assertArrayHasKey('schedule', $result);
-		$this->assertArrayHasKey('assignments', $result);
-		$this->assertArrayHasKey('unassignedTasks', $result);
-		$this->assertArrayHasKey('totalTasks', $result);
-		$this->assertArrayHasKey('assignedTasks', $result);
-		$this->assertArrayHasKey('efficiency', $result);
-
-		$this->assertEquals(3, $result['totalTasks']);
-		$this->assertGreaterThan(0, $result['assignedTasks']);
-		$this->assertGreaterThanOrEqual(0, $result['efficiency']);
-		$this->assertLessThanOrEqual(1, $result['efficiency']);
-
-		// Check that high priority tasks are assigned first
-		$assignments = $result['assignments'];
-		$highPriorityTask = array_filter($assignments, fn($a) => $a['taskId'] === 1);
-		$this->assertNotEmpty($highPriorityTask, 'High priority task should be assigned');
+		$this->assertSame(1, $preview['taskCount']);
+		$this->assertNotEmpty($preview['potentialConflicts']);
+		$this->assertSame('insufficient_capacity', $preview['potentialConflicts'][0]['type']);
 	}
 
-	public function testGetSchedulePreviewReturnsCapacityAnalysis(): void {
-		$houseId = 1;
-		$days = 7;
-
-		// Mock tasks
-		$tasks = [
-			$this->createMockTask(1, 'Task 1', 3, '2026-03-05', 5),
-			$this->createMockTask(2, 'Task 2', 2, '2026-03-08', 8),
-		];
-
-		// Mock members
-		$members = [
-			[
-				'userId' => 1,
-				'userName' => 'Alice',
-				'energyBudget' => [
-					'monday' => 10, 'tuesday' => 10, 'wednesday' => 10,
-					'thursday' => 10, 'friday' => 10, 'saturday' => 15, 'sunday' => 15,
-				],
-				'weekdayAvailability' => [
-					'monday' => true, 'tuesday' => true, 'wednesday' => true,
-					'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true,
-				],
-			],
-		];
-
-		// Set up mocks
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn($tasks);
-
+	/**
+	 * ApplySuggestion_AssignsAndReschedulesTaskWhenInputIsValid
+	 */
+	public function testApplySuggestion_AssignsAndReschedulesTaskWhenInputIsValid(): void {
 		$this->schedulingService
 			->expects($this->once())
-			->method('getMemberAvailability')
-			->with($houseId)
-			->willReturn($members);
+			->method('getUserPreferencesByNextcloudUserId')
+			->with(42, 'user1')
+			->willReturn([
+				'weekdayAvailability' => ['monday' => true],
+			]);
 
-		// Get preview
-		$preview = $this->service->getSchedulePreview($houseId, $days);
+		$this->roomTaskService
+			->expects($this->once())
+			->method('validateRoomTaskOwnership')
+			->with(7, 42);
 
-		// Assertions
-		$this->assertIsArray($preview);
-		$this->assertArrayHasKey('dateRange', $preview);
-		$this->assertArrayHasKey('taskCount', $preview);
-		$this->assertArrayHasKey('memberCount', $preview);
-		$this->assertArrayHasKey('dailyCapacity', $preview);
-		$this->assertArrayHasKey('potentialConflicts', $preview);
+		$this->roomTaskService
+			->expects($this->once())
+			->method('assignTask')
+			->with(7, 'user1');
 
-		$this->assertEquals(2, $preview['taskCount']);
-		$this->assertEquals(1, $preview['memberCount']);
-		$this->assertCount(7, $preview['dailyCapacity']);
+		$updatedTask = new RoomTask();
+		$updatedTask->setId(7);
+		$updatedTask->setAssignedToUserId('user1');
+		$updatedTask->setNextDue(new \DateTime('2026-03-16'));
 
-		// Check daily capacity calculation
-		$dailyCapacity = $preview['dailyCapacity'];
-		foreach ($dailyCapacity as $date => $capacity) {
-			$this->assertIsInt($capacity);
-			$this->assertGreaterThan(0, $capacity);
-		}
+		$this->roomTaskService
+			->expects($this->once())
+			->method('rescheduleTask')
+			->with(7, $this->isInstanceOf(\DateTime::class))
+			->willReturn($updatedTask);
+
+		$result = $this->service->applySuggestion(42, 7, 'user1', '2026-03-16');
+
+		$this->assertSame(7, $result->getId());
+		$this->assertSame('user1', $result->getAssignedToUserId());
 	}
 
-	public function testAssignmentScoreCalculation(): void {
-		$houseId = 1;
-		$startDate = new \DateTime('2026-03-01');
-		$endDate = new \DateTime('2026-03-07');
+	/**
+	 * ApplySuggestion_InvalidDate_ThrowsInvalidArgumentException
+	 */
+	public function testApplySuggestion_InvalidDate_ThrowsInvalidArgumentException(): void {
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Invalid date format. Use Y-m-d');
 
-		// Create a task with deadline
-		$task = $this->createMockTask(1, 'Urgent Task', 1, '2026-03-02', 8);
+		$this->service->applySuggestion(42, 7, 'user1', '16-03-2026');
+	}
 
-		// Create member with availability
-		$members = [
-			[
-				'userId' => 1,
-				'userName' => 'Alice',
-				'energyBudget' => [
-					'monday' => 10, 'tuesday' => 10, 'wednesday' => 10,
-					'thursday' => 10, 'friday' => 10, 'saturday' => 15, 'sunday' => 15,
-				],
-				'weekdayAvailability' => [
-					'monday' => true, 'tuesday' => true, 'wednesday' => true,
-					'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true,
-				],
-			],
-		];
-
-		// Set up mocks
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn([$task]);
-
+	/**
+	 * ApplySuggestion_UnavailableMember_ThrowsInvalidArgumentException
+	 */
+	public function testApplySuggestion_UnavailableMember_ThrowsInvalidArgumentException(): void {
 		$this->schedulingService
 			->expects($this->once())
-			->method('getMemberAvailability')
-			->with($houseId)
-			->willReturn($members);
+			->method('getUserPreferencesByNextcloudUserId')
+			->with(42, 'user1')
+			->willReturn([
+				'weekdayAvailability' => ['monday' => false],
+			]);
 
-		// Generate schedule
-		$result = $this->service->generateSchedule($houseId, $startDate, $endDate);
+		$this->roomTaskService->expects($this->never())->method('assignTask');
 
-		// Check that urgent task gets high score and is assigned
-		$assignments = $result['assignments'];
-		$this->assertNotEmpty($assignments);
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Member is not available on monday');
 
-		$urgentTaskAssignment = array_filter($assignments, fn($a) => $a['taskId'] === 1);
-		$this->assertNotEmpty($urgentTaskAssignment);
-
-		$assignment = array_values($urgentTaskAssignment)[0];
-		$this->assertArrayHasKey('score', $assignment);
-		$this->assertGreaterThan(0, $assignment['score']);
-	}
-
-	public function testEfficiencyCalculation(): void {
-		$houseId = 1;
-		$startDate = new \DateTime('2026-03-01');
-		$endDate = new \DateTime('2026-03-07');
-
-		// Create multiple tasks
-		$tasks = [
-			$this->createMockTask(1, 'Task 1', 3, '2026-03-05', 5),
-			$this->createMockTask(2, 'Task 2', 3, '2026-03-06', 5),
-			$this->createMockTask(3, 'Task 3', 3, '2026-03-07', 5),
-		];
-
-		// Create multiple members for better distribution
-		$members = [
-			[
-				'userId' => 1,
-				'userName' => 'Alice',
-				'energyBudget' => [
-					'monday' => 10, 'tuesday' => 10, 'wednesday' => 10,
-					'thursday' => 10, 'friday' => 10, 'saturday' => 15, 'sunday' => 15,
-				],
-				'weekdayAvailability' => [
-					'monday' => true, 'tuesday' => true, 'wednesday' => true,
-					'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true,
-				],
-			],
-			[
-				'userId' => 2,
-				'userName' => 'Bob',
-				'energyBudget' => [
-					'monday' => 10, 'tuesday' => 10, 'wednesday' => 10,
-					'thursday' => 10, 'friday' => 10, 'saturday' => 15, 'sunday' => 15,
-				],
-				'weekdayAvailability' => [
-					'monday' => true, 'tuesday' => true, 'wednesday' => true,
-					'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true,
-				],
-			],
-		];
-
-		// Set up mocks
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn($tasks);
-
-		$this->schedulingService
-			->expects($this->once())
-			->method('getMemberAvailability')
-			->with($houseId)
-			->willReturn($members);
-
-		// Generate schedule
-		$result = $this->service->generateSchedule($houseId, $startDate, $endDate);
-
-		// Check efficiency calculation
-		$this->assertArrayHasKey('efficiency', $result);
-		$efficiency = $result['efficiency'];
-		$this->assertGreaterThanOrEqual(0, $efficiency);
-		$this->assertLessThanOrEqual(1, $efficiency);
-
-		// With multiple members and tasks, efficiency should be reasonable
-		$this->assertGreaterThan(0.5, $efficiency, 'Efficiency should be reasonable with multiple members');
-	}
-
-	public function testConflictDetection(): void {
-		$houseId = 1;
-		$days = 3;
-
-		// Create tasks with high energy requirements
-		$tasks = [
-			$this->createMockTask(1, 'High Energy Task 1', 1, '2026-03-02', 50),
-			$this->createMockTask(2, 'High Energy Task 2', 1, '2026-03-03', 50),
-		];
-
-		// Create member with limited energy budget
-		$members = [
-			[
-				'userId' => 1,
-				'userName' => 'Alice',
-				'energyBudget' => [
-					'monday' => 5, 'tuesday' => 5, 'wednesday' => 5,
-					'thursday' => 5, 'friday' => 5, 'saturday' => 8, 'sunday' => 8,
-				],
-				'weekdayAvailability' => [
-					'monday' => true, 'tuesday' => true, 'wednesday' => true,
-					'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true,
-				],
-			],
-		];
-
-		// Set up mocks
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn($tasks);
-
-		$this->schedulingService
-			->expects($this->once())
-			->method('getMemberAvailability')
-			->with($houseId)
-			->willReturn($members);
-
-		// Get preview
-		$preview = $this->service->getSchedulePreview($houseId, $days);
-
-		// Check for conflicts
-		$this->assertArrayHasKey('potentialConflicts', $preview);
-		$conflicts = $preview['potentialConflicts'];
-		$this->assertIsArray($conflicts);
-
-		// Should detect insufficient capacity conflict
-		$capacityConflicts = array_filter($conflicts, fn($c) => $c['type'] === 'insufficient_capacity');
-		$this->assertNotEmpty($capacityConflicts, 'Should detect insufficient capacity conflict');
-	}
-
-	private function createMockTask(int $id, string $title, int $priority, ?string $deadline, int $energyCost): RoomTask {
-		$task = $this->createMock(RoomTask::class);
-		
-		$task->method('getId')->willReturn($id);
-		$task->method('getTitle')->willReturn($title);
-		$task->method('getPriority')->willReturn($priority);
-		$task->method('getDeadline')->willReturn($deadline);
-		$task->method('getEnergyCost')->willReturn($energyCost);
-		$task->method('getAssignedTo')->willReturn(null);
-		$task->method('getCompletedAt')->willReturn(null);
-
-		return $task;
+		$this->service->applySuggestion(42, 7, 'user1', '2026-03-16');
 	}
 }
