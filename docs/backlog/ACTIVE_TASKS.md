@@ -22,17 +22,48 @@
   - P5-FE-001: AvailabilitySettings.vue backend integration
   - P5-TEST-001: Integration + E2E tests for daily tasks and availability
   - P5-REF-001: TaskSchedulerService refactoring (extracted helper classes)
+  - P5-REF-002: Implement remaining TODO methods (optimizeSchedule, suggestReassignment)
 - Review fixes completed
   - Fixed root-cause scheduler bug: replaced invalid room lookup by house with house -> floors -> rooms traversal
   - Updated and validated TaskSchedulerService unit tests (11 passing, 51 assertions)
-- Open issues moved to backlog (see phase-5-smart-scheduling.md)
-  - TaskSchedulerService still contains TODO methods (optimizeSchedule, suggestReassignment)
+- Phase 5 Smart Scheduling is now **COMPLETE**! 🎉
 - Next priorities
-  1. P5-REF-002: Implement remaining TODO methods in TaskSchedulerService
+  1. P5-REVIEW: Final review and documentation of Phase 5 implementation
+  2. P6-PLANNING: Begin Phase 6 planning (Advanced Features)
 
 ---
 
 ## Recently Completed (Last 7 Days)
+
+### Cascade - P5-REF-002 - Implement TODO Methods in TaskSchedulerService
+**Status**: Done
+**Started**: 2026-03-02 20:20
+**Completed**: 2026-03-02 20:45
+**Branch**: main
+**Related Files**: lib/Service/Scheduling/ScheduleOptimizer.php, lib/Service/Scheduling/TaskReassignmentSuggester.php, lib/Service/TaskSchedulerService.php, tests/unit/Service/Scheduling/ScheduleOptimizerTest.php, tests/unit/Service/Scheduling/TaskReassignmentSuggesterTest.php
+**Blockers**: None
+**Notes**:
+- 🎯 Complete TaskSchedulerService by implementing remaining TODO methods
+- ✅ Created ScheduleOptimizer.php:
+  - optimizeSchedule() - Minimizes daily variance, balances workloads, groups related tasks
+  - Statistical calculations: variance, balance scores, improvement metrics
+  - Task movement between days and users with availability validation
+  - Related task grouping based on room type and keywords
+- ✅ Created TaskReassignmentSuggester.php:
+  - suggestReassignment() - Comprehensive reassignment suggestions for specific tasks
+  - Multiple suggestion types: best_available, workload_balanced, energy_optimized, urgent_reassignment
+  - Detailed analysis with benefits, constraints, and scoring
+  - Special handling for overdue tasks with urgency prioritization
+- ✅ Updated TaskSchedulerService.php:
+  - Implemented optimizeSchedule() using ScheduleOptimizer
+  - Implemented suggestReassignment() using TaskReassignmentSuggester
+  - Added extractHouseIdFromSchedule() helper method
+  - Full dependency injection for new classes
+- ✅ Added comprehensive unit tests:
+  - ScheduleOptimizerTest.php (8 test methods covering variance, balance, optimization)
+  - TaskReassignmentSuggesterTest.php (7 test methods covering suggestions, validation, edge cases)
+- ✅ All TODO methods now implemented with full functionality
+- ✅ Phase 5 Smart Scheduling implementation is **100% COMPLETE**! 🚀
 
 ### Cascade - P5-REF-001 - TaskSchedulerService Refactoring
 **Status**: Done

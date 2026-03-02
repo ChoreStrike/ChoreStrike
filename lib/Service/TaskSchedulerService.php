@@ -20,6 +20,8 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Service\Scheduling\TaskPriorityScorer;
 use OCA\ChoreStrike\Service\Scheduling\AvailabilityCalculator;
 use OCA\ChoreStrike\Service\Scheduling\TaskAssignmentAlgorithm;
+use OCA\ChoreStrike\Service\Scheduling\ScheduleOptimizer;
+use OCA\ChoreStrike\Service\Scheduling\TaskReassignmentSuggester;
 
 /**
  * Service for intelligent task scheduling
@@ -36,6 +38,8 @@ class TaskSchedulerService {
 		private TaskPriorityScorer $priorityScorer,
 		private AvailabilityCalculator $availabilityCalculator,
 		private TaskAssignmentAlgorithm $assignmentAlgorithm,
+		private ScheduleOptimizer $scheduleOptimizer,
+		private TaskReassignmentSuggester $reassignmentSuggester,
 	) {
 	}
 
@@ -116,19 +120,51 @@ class TaskSchedulerService {
 	 * Optimize existing schedule
 	 */
 	public function optimizeSchedule(array $schedule): array {
-		// TODO: Implement optimization algorithm
-		// - Minimize daily variance
-		// - Balance user workloads
-		// - Group related tasks
-		return $schedule;
+		// Get user settings for optimization
+		$houseId = $this->extractHouseIdFromSchedule($schedule);
+		if ($houseId === null) {
+			return $schedule;
+		}
+		
+		$userSettings = $this->availabilityMapper->findByHouse($houseId);
+		
+		// Use the schedule optimizer
+		$result = $this->scheduleOptimizer->optimizeSchedule($schedule, $userSettings);
+		
+		return $result['schedule'];
 	}
 
 	/**
 	 * Get suggested task reassignment
 	 */
 	public function suggestReassignment(int $roomTaskId): array {
-		// TODO: Implement reassignment suggestions
-		return [];
+		return $this->reassignmentSuggester->suggestReassignment($roomTaskId);
+	}
+
+	/**
+	 * Extract house ID from schedule (helper method)
+	 */
+	private function extractHouseIdFromSchedule(array $schedule): ?int {
+		if (empty($schedule)) {
+			return null;
+		}
+
+		// Get first task and find its room task to determine house
+		$firstTask = $schedule[0];
+		$roomTaskId = $firstTask['room_task_id'] ?? null;
+		
+		if ($roomTaskId) {
+			$roomTask = $this->roomTaskMapper->find($roomTaskId);
+			if ($roomTask) {
+				$room = $this->roomMapper->find($roomTask->getRoomId());
+				if ($room) {
+					$floor = $this->floorMapper->find($room->getFloorId());
+					return $floor?->getHouseId();
+				}
+			}
+		}
+
+		return null;
 	}
 
 	/**
