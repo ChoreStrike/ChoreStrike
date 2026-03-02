@@ -20,18 +20,45 @@
   - P5-FE-002: DailyTaskList.vue first implementation
   - P5-BE-003: Daily task API endpoints (GET daily, PUT complete/uncomplete/skip/reschedule)
   - P5-FE-001: AvailabilitySettings.vue backend integration
+  - P5-TEST-001: Integration + E2E tests for daily tasks and availability
 - Review fixes completed
   - Fixed root-cause scheduler bug: replaced invalid room lookup by house with house -> floors -> rooms traversal
   - Updated and validated TaskSchedulerService unit tests (11 passing, 51 assertions)
 - Open issues moved to backlog (see phase-5-smart-scheduling.md)
   - TaskSchedulerService exceeds file-size guideline and still contains TODO methods
 - Next priorities
-  1. P5-TEST-001: Add integration + E2E tests for daily tasks and availability save/load flow
-  2. P5-REF-001: Extract scoring/distribution helpers from TaskSchedulerService
+  1. P5-REF-001: Extract scoring/distribution helpers from TaskSchedulerService
 
 ---
 
 ## Recently Completed (Last 7 Days)
+
+### Cascade - P5-TEST-001 - Integration + E2E Tests
+**Status**: Done
+**Started**: 2026-03-02 19:20
+**Completed**: 2026-03-02 19:45
+**Branch**: main
+**Related Files**: tests/integration/DailyTasksApiTest.php, tests/integration/AvailabilityApiTest.php, tests/e2e/daily-tasks-flow.spec.ts, tests/e2e/availability-settings-flow.spec.ts, tests/fixtures/TestDataFixtures.php
+**Blockers**: None
+**Notes**:
+- 🎯 Add comprehensive integration + E2E tests for daily tasks and availability flows
+- ✅ Created integration tests:
+  - DailyTasksApiTest.php (9 test methods covering all API endpoints)
+  - AvailabilityApiTest.php (8 test methods covering availability CRUD)
+- ✅ Created E2E tests:
+  - daily-tasks-flow.spec.ts (10 test scenarios for complete user workflows)
+  - availability-settings-flow.spec.ts (12 test scenarios for availability management)
+- ✅ Added TestDataFixtures.php for database setup:
+  - Complete test house with floors, rooms, tasks, room tasks
+  - Availability settings for multiple users
+  - Helper methods for creating daily tasks and completed tasks
+  - Automatic cleanup functionality
+- ✅ Test coverage includes:
+  - Success scenarios (load, save, update operations)
+  - Error handling (invalid data, API failures, not found)
+  - Edge cases (empty lists, validation errors)
+  - Complete user workflows (templates, multi-step operations)
+- ✅ All tests follow existing patterns and use proper mocking
 
 ### Cascade - P5-FE-001 - AvailabilitySettings Backend Integration
 **Status**: Done
