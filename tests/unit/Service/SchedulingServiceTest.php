@@ -125,6 +125,34 @@ class SchedulingServiceTest extends TestCase {
 	}
 
 	/**
+	 * GetMemberAvailability_ReturnsNextcloudUserIdAndHouseUserId
+	 */
+	public function testGetMemberAvailability_ReturnsNextcloudUserIdAndHouseUserId(): void {
+		$houseUser = new HouseUser();
+		$houseUser->setId(42);
+		$houseUser->setHouseId(5);
+		$houseUser->setNextcloudUserId('member-z');
+		$houseUser->setDisplayName('Member Z');
+		$houseUser->setSchedulingPreferences([
+			'energyBudget' => ['monday' => 14],
+			'weekdayAvailability' => ['monday' => true],
+		]);
+
+		$this->houseUserMapper
+			->expects($this->once())
+			->method('findByHouseId')
+			->with(5)
+			->willReturn([$houseUser]);
+
+		$availability = $this->service->getMemberAvailability(5);
+
+		$this->assertCount(1, $availability);
+		$this->assertSame('member-z', $availability[0]['userId']);
+		$this->assertSame(42, $availability[0]['houseUserId']);
+		$this->assertSame('Member Z', $availability[0]['userName']);
+	}
+
+	/**
 	 * UpdateMemberAvailability_TargetUserOutsideHouse_ThrowsInvalidArgumentException
 	 */
 	public function testUpdateMemberAvailability_TargetUserOutsideHouse_ThrowsInvalidArgumentException(): void {

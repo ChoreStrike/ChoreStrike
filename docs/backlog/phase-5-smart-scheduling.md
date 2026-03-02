@@ -6,6 +6,26 @@
 
 ## Current Implementation Status (Review Update)
 
+### Intensive review (2026-03-02)
+
+#### Fixed in this review pass
+- [x] Daily tasks API payload now matches frontend contract (`name`, `roomName`, `energyCost`, `priority`, `completed`, `isOverdue`, `allowTeamwork`, `order`)
+- [x] Ownership validation enforced for daily task mutations (`complete`, `uncomplete`, `skip`, `reschedule`)
+- [x] Invalid reschedule date now returns `400 VALIDATION_ERROR` instead of generic `500`
+- [x] Smart-schedule member availability payload identity mismatch fixed (`userId` now Nextcloud user ID, additional `houseUserId` for internal references)
+- [x] Regression tests updated for task mutation validation and daily payload mapping
+- [x] `TaskSchedulerServiceTest` constructor setup synchronized with extracted scheduling collaborators
+
+#### Open findings (prioritized)
+1. **High**: Legacy `SmartSchedulerService` still calls non-existent `RoomTask` methods (`getAssignedTo`, `getTitle`, `getPriority`, `getDeadline`, `setAssignedTo`, `setScheduledFor`), causing runtime failures on `/api/v1/smart-schedule/generate` and related flows.
+2. **Medium**: Test infrastructure mismatch remains in local CLI environment (missing OCP/OCS classes outside Docker), limiting reliable local controller/service test execution.
+3. **Medium**: `TaskController::daily()` currently maps each task with per-task detail lookup; optimize to avoid potential N+1 query overhead when task volume grows.
+
+#### Open questions
+1. Should `SmartSchedulerService` be fully migrated to the P5 `TaskSchedulerService` pipeline, or kept as a compatibility layer for Phase 2 UI endpoints?
+2. For failed ownership checks on task mutations, should API return `404` (resource hidden) or `403` (explicit forbidden) as product standard?
+3. Do we keep `houseUserId` in public availability payload long-term, or deprecate once all consumers are fully Nextcloud-ID based?
+
 ### Completed in this session
 - [x] P5-PLANNING: Phase plan created and aligned with roadmap
 - [x] P5-BE-001: AvailabilitySettings data model

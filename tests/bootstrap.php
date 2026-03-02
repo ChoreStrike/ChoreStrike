@@ -16,7 +16,9 @@ if ($isDocker) {
     require_once __DIR__ . '/__mocks__/Doctrine/DBAL/ArrayParameterType.php';
     require_once __DIR__ . '/__mocks__/Doctrine/DBAL/Query/Expression/ExpressionBuilder.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Controller.php';
+    require_once __DIR__ . '/__mocks__/OCP/AppFramework/OCSController.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http.php';
+    require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http/JSONResponse.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http/DataResponse.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/Entity.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/QBMapper.php';
@@ -66,7 +68,9 @@ if ($isDocker) {
     require_once __DIR__ . '/__mocks__/Doctrine/DBAL/ArrayParameterType.php';
     require_once __DIR__ . '/__mocks__/Doctrine/DBAL/Query/Expression/ExpressionBuilder.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Controller.php';
+    require_once __DIR__ . '/__mocks__/OCP/AppFramework/OCSController.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http.php';
+    require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http/JSONResponse.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Http/DataResponse.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/Entity.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/QBMapper.php';

@@ -140,7 +140,8 @@ class SchedulingService {
 		foreach ($users as $user) {
 			$preferences = $user->getSchedulingPreferences();
 			$availability[] = [
-				'userId' => $user->getId(),
+				'userId' => $user->getNextcloudUserId(),
+				'houseUserId' => $user->getId(),
 				'userName' => $user->getDisplayName(),
 				'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
 				'weekdayAvailability' => $preferences['weekdayAvailability'] ?? $this->getDefaultAvailability(),

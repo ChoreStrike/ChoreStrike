@@ -13,6 +13,8 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskService;
+use OCA\ChoreStrike\Db\Room;
+use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -52,13 +54,41 @@ class TaskControllerDailyTest extends TestCase {
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->expects($this->once())->method('requireHouseMember')->with(1);
 
-		$roomTask = $this->createMock(RoomTask::class);
-		$roomTask->method('jsonSerialize')->willReturn(['id' => 1, 'name' => 'Test Task']);
+		$today = new \DateTime();
+
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setTaskId(5);
+		$roomTask->setRoomId(2);
+		$roomTask->setIsActive(true);
+		$roomTask->setLastCompleted(clone $today);
+		$roomTask->setNextDue(new \DateTime('2026-03-03'));
+		$roomTask->setAssignedToUserId('user-1');
+
+		$task = new Task();
+		$task->setId(5);
+		$task->setName('Test Task');
+		$task->setPriority(3);
+		$task->setEnergyCost(4);
+		$task->setAllowTeamwork(true);
+
+		$room = new Room();
+		$room->setId(2);
+		$room->setName('Kitchen');
 
 		$this->roomTaskService->expects($this->once())
 			->method('getDailyTasks')
 			->with(1, $this->isInstanceOf(\DateTime::class))
 			->willReturn([$roomTask]);
+
+		$this->roomTaskService->expects($this->once())
+			->method('getRoomTaskWithDetails')
+			->with(1)
+			->willReturn([
+				'roomTask' => $roomTask,
+				'task' => $task,
+				'room' => $room,
+			]);
 
 		$response = $this->controller->daily();
 
@@ -66,7 +96,13 @@ class TaskControllerDailyTest extends TestCase {
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
 		$this->assertCount(1, $data['data']);
-		$this->assertEquals(['id' => 1, 'name' => 'Test Task'], $data['data'][0]);
+		$this->assertEquals(1, $data['data'][0]['id']);
+		$this->assertEquals('Test Task', $data['data'][0]['name']);
+		$this->assertEquals('Kitchen', $data['data'][0]['roomName']);
+		$this->assertEquals(4, $data['data'][0]['energyCost']);
+		$this->assertEquals(3, $data['data'][0]['priority']);
+		$this->assertTrue($data['data'][0]['completed']);
+		$this->assertTrue($data['data'][0]['allowTeamwork']);
 	}
 
 	public function testDailyHandlesException(): void {
@@ -98,6 +134,7 @@ class TaskControllerDailyTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+		$this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
 		$roomTask = $this->createMock(RoomTask::class);
 		$roomTask->method('jsonSerialize')->willReturn(['id' => 1, 'completed' => true]);
@@ -122,6 +159,7 @@ class TaskControllerDailyTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+		$this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
 		$roomTask = $this->createMock(RoomTask::class);
 		$roomTask->method('jsonSerialize')->willReturn(['id' => 1, 'completed' => false]);
@@ -146,6 +184,7 @@ class TaskControllerDailyTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+		$this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
 		$roomTask = $this->createMock(RoomTask::class);
 		$roomTask->method('jsonSerialize')->willReturn(['id' => 1, 'skipped' => true]);
@@ -170,6 +209,7 @@ class TaskControllerDailyTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+		$this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
 		$roomTask = $this->createMock(RoomTask::class);
 		$roomTask->method('jsonSerialize')->willReturn(['id' => 1, 'new_date' => '2026-03-03']);
@@ -194,15 +234,16 @@ class TaskControllerDailyTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+		$this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
 		$this->roomTaskService->expects($this->never())->method('rescheduleTask');
 
 		$response = $this->controller->reschedule(1, 'invalid-date');
 
 		$this->assertInstanceOf(JSONResponse::class, $response);
-		$this->assertEquals(500, $response->getStatus());
+		$this->assertEquals(400, $response->getStatus());
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
-		$this->assertEquals('RESCHEDULE_TASK_ERROR', $data['error']['code']);
+		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
 	}
 }

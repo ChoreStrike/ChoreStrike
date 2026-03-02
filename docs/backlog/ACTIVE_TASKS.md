@@ -6,11 +6,11 @@
 ## Currently Active
 
 ### Cascade - P5-IMPLEMENTATION - Phase 5 Smart Scheduling
-**Status**: In Progress  
+**Status**: Review Ready  
 **Started**: 2026-03-01 21:42  
 **Branch**: main  
-**Related Files**: docs/backlog/phase-5-smart-scheduling.md, lib/Db/AvailabilitySettings.php, lib/Db/AvailabilitySettingsMapper.php, lib/Migration/Version1013Date20260301210000.php, lib/Service/TaskSchedulerService.php, tests/unit/Service/TaskSchedulerServiceTest.php, src/components/Scheduling/DailyTaskList.vue, src/components/Scheduling/AvailabilitySettings.vue  
-**Blockers**: None  
+**Related Files**: docs/backlog/phase-5-smart-scheduling.md, docs/backlog/ACTIVE_TASKS.md, lib/Controller/TaskController.php, lib/Service/SchedulingService.php, lib/Db/AvailabilitySettings.php, lib/Db/AvailabilitySettingsMapper.php, lib/Migration/Version1013Date20260301210000.php, lib/Service/TaskSchedulerService.php, tests/unit/Controller/TaskControllerDailyTest.php, tests/unit/Service/TaskSchedulerServiceTest.php, tests/unit/Service/SchedulingServiceTest.php, src/components/Scheduling/DailyTaskList.vue, src/components/Scheduling/AvailabilitySettings.vue  
+**Blockers**: Unit test bootstrap mismatch in local CLI environment (missing OCS/OCP framework classes outside Docker test harness)  
 **Notes**:
 - Started Phase 5 implementation and added initial backend + frontend scaffolding.
 - Completed
@@ -26,6 +26,14 @@
 - Review fixes completed
   - Fixed root-cause scheduler bug: replaced invalid room lookup by house with house -> floors -> rooms traversal
   - Updated and validated TaskSchedulerService unit tests (11 passing, 51 assertions)
+- P5-REVIEW intensive pass (2026-03-02)
+  - Fixed API contract mismatch for daily task payload consumed by `DailyTaskList.vue` (`name`, `roomName`, `energyCost`, `priority`, `completed`, `isOverdue`, `allowTeamwork`, `order`)
+  - Added ownership validation for task mutation endpoints (`complete`, `uncomplete`, `skip`, `reschedule`)
+  - Added validation response (`400 VALIDATION_ERROR`) for invalid reschedule date input
+  - Fixed smart-schedule availability payload identity mismatch (`userId` now Nextcloud user ID, plus `houseUserId` for internal references)
+  - Added regression tests for above fixes in `TaskControllerDailyTest` and `SchedulingServiceTest`
+  - Synchronized `TaskSchedulerServiceTest` constructor setup with extracted collaborators from P5 refactor
+  - Remaining major review findings documented in phase-5 backlog file (runtime risk in legacy `SmartSchedulerService`, partial test infrastructure mismatch)
 - Phase 5 Smart Scheduling is now **COMPLETE**! 🎉
 - Next priorities
   1. P5-REVIEW: Final review and documentation of Phase 5 implementation

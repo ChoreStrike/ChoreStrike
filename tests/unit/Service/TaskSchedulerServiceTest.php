@@ -20,6 +20,11 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Service\Scheduling\AvailabilityCalculator;
+use OCA\ChoreStrike\Service\Scheduling\ScheduleOptimizer;
+use OCA\ChoreStrike\Service\Scheduling\TaskAssignmentAlgorithm;
+use OCA\ChoreStrike\Service\Scheduling\TaskPriorityScorer;
+use OCA\ChoreStrike\Service\Scheduling\TaskReassignmentSuggester;
 use OCA\ChoreStrike\Service\TaskSchedulerService;
 use PHPUnit\Framework\TestCase;
 
@@ -40,6 +45,17 @@ class TaskSchedulerServiceTest extends TestCase {
 		$this->userStatsMapper = $this->createMock(UserStatsMapper::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->roomMapper = $this->createMock(RoomMapper::class);
+		$priorityScorer = new TaskPriorityScorer($this->taskMapper);
+		$availabilityCalculator = new AvailabilityCalculator();
+		$assignmentAlgorithm = new TaskAssignmentAlgorithm();
+		$scheduleOptimizer = new ScheduleOptimizer();
+		$reassignmentSuggester = new TaskReassignmentSuggester(
+			$this->taskMapper,
+			$this->roomTaskMapper,
+			$this->availabilityMapper,
+			$this->roomMapper,
+			$this->floorMapper
+		);
 
 		$this->service = new TaskSchedulerService(
 			$this->availabilityMapper,
@@ -47,7 +63,12 @@ class TaskSchedulerServiceTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->userStatsMapper,
 			$this->taskMapper,
-			$this->roomMapper
+			$this->roomMapper,
+			$priorityScorer,
+			$availabilityCalculator,
+			$assignmentAlgorithm,
+			$scheduleOptimizer,
+			$reassignmentSuggester
 		);
 	}
 

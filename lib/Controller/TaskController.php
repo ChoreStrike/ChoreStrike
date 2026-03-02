@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskService;
@@ -495,10 +496,15 @@ class TaskController extends OCSController {
 			
 			$today = new \DateTime();
 			$dailyTasks = $this->roomTaskService->getDailyTasks($house->getId(), $today);
+			$taskPayload = [];
+
+			foreach ($dailyTasks as $index => $dailyTask) {
+				$taskPayload[] = $this->mapDailyTaskForApi($dailyTask, $today, $index);
+			}
 			
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(fn($task) => $task->jsonSerialize(), $dailyTasks)
+				'data' => $taskPayload
 			]);
 		} catch (\Exception $e) {
 			return new JSONResponse([
@@ -521,6 +527,7 @@ class TaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 			
 			$task = $this->roomTaskService->completeTaskSimple($id);
 			
@@ -549,6 +556,7 @@ class TaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 			
 			$task = $this->roomTaskService->uncompleteTask($id);
 			
@@ -577,6 +585,7 @@ class TaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 			
 			$task = $this->roomTaskService->skipTask($id);
 			
@@ -605,8 +614,20 @@ class TaskController extends OCSController {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->requireHouseMember($house->getId());
-			
-			$newDateTime = new \DateTime($newDate);
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
+
+			try {
+				$newDateTime = new \DateTime($newDate);
+			} catch (\Exception $exception) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => 'Invalid reschedule date'
+					]
+				], 400);
+			}
+
 			$task = $this->roomTaskService->rescheduleTask($id, $newDateTime);
 			
 			return new JSONResponse([
@@ -622,5 +643,31 @@ class TaskController extends OCSController {
 				]
 			], 500);
 		}
+	}
+
+	/**
+	 * Map a daily room task to frontend API payload.
+	 */
+	private function mapDailyTaskForApi(RoomTask $roomTask, \DateTime $today, int $order): array {
+		$details = $this->roomTaskService->getRoomTaskWithDetails($roomTask->getId());
+		$task = $details['task'];
+		$room = $details['room'];
+
+		$lastCompleted = $roomTask->getLastCompleted();
+		$isCompletedToday = $lastCompleted !== null && $lastCompleted->format('Y-m-d') === $today->format('Y-m-d');
+
+		return [
+			'id' => $roomTask->getId(),
+			'name' => $task->getName(),
+			'roomName' => $room->getName(),
+			'energyCost' => $task->getEnergyCost(),
+			'priority' => $task->getPriority(),
+			'completed' => $isCompletedToday,
+			'isOverdue' => $roomTask->isOverdue(),
+			'allowTeamwork' => $task->getAllowTeamwork(),
+			'order' => $order,
+			'nextDue' => $roomTask->getNextDue()?->format('Y-m-d'),
+			'assignedToUserId' => $roomTask->getAssignedToUserId(),
+		];
 	}
 }
