@@ -9,10 +9,14 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\Room;
+use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCP\AppFramework\Http\ForbiddenException;
+use OCP\AppFramework\Http\NotFoundException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -86,6 +90,22 @@ class TaskController extends OCSController {
 				'success' => true,
 				'data' => $task->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => $e->getMessage()
+				]
+			], 404);
+		} catch (ForbiddenException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'FORBIDDEN',
+					'message' => $e->getMessage()
+				]
+			], 403);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
@@ -224,6 +244,22 @@ class TaskController extends OCSController {
 				'success' => true,
 				'data' => $task->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => $e->getMessage()
+				]
+			], 404);
+		} catch (ForbiddenException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'FORBIDDEN',
+					'message' => $e->getMessage()
+				]
+			], 403);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
@@ -265,6 +301,22 @@ class TaskController extends OCSController {
 				'success' => true,
 				'data' => $task->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => $e->getMessage()
+				]
+			], 404);
+		} catch (ForbiddenException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'FORBIDDEN',
+					'message' => $e->getMessage()
+				]
+			], 403);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
@@ -349,6 +401,22 @@ class TaskController extends OCSController {
 				'success' => true,
 				'data' => $task->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => $e->getMessage()
+				]
+			], 404);
+		} catch (ForbiddenException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'FORBIDDEN',
+					'message' => $e->getMessage()
+				]
+			], 403);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
@@ -495,11 +563,17 @@ class TaskController extends OCSController {
 			$this->authService->requireHouseMember($house->getId());
 			
 			$today = new \DateTime();
-			$dailyTasks = $this->roomTaskService->getDailyTasks($house->getId(), $today);
+			$dailyTasks = $this->roomTaskService->getDailyTasksWithDetails($house->getId(), $today);
 			$taskPayload = [];
 
 			foreach ($dailyTasks as $index => $dailyTask) {
-				$taskPayload[] = $this->mapDailyTaskForApi($dailyTask, $today, $index);
+				$taskPayload[] = $this->mapDailyTaskForApi(
+					$dailyTask['roomTask'],
+					$dailyTask['task'],
+					$dailyTask['room'],
+					$today,
+					$index
+				);
 			}
 			
 			return new JSONResponse([
@@ -535,6 +609,22 @@ class TaskController extends OCSController {
 				'success' => true,
 				'data' => $task->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => $e->getMessage()
+				]
+			], 404);
+		} catch (ForbiddenException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'FORBIDDEN',
+					'message' => $e->getMessage()
+				]
+			], 403);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
@@ -564,6 +654,22 @@ class TaskController extends OCSController {
 				'success' => true,
 				'data' => $task->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => $e->getMessage()
+				]
+			], 404);
+		} catch (ForbiddenException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'FORBIDDEN',
+					'message' => $e->getMessage()
+				]
+			], 403);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
@@ -593,6 +699,22 @@ class TaskController extends OCSController {
 				'success' => true,
 				'data' => $task->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => $e->getMessage()
+				]
+			], 404);
+		} catch (ForbiddenException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'FORBIDDEN',
+					'message' => $e->getMessage()
+				]
+			], 403);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
@@ -634,6 +756,22 @@ class TaskController extends OCSController {
 				'success' => true,
 				'data' => $task->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => $e->getMessage()
+				]
+			], 404);
+		} catch (ForbiddenException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'FORBIDDEN',
+					'message' => $e->getMessage()
+				]
+			], 403);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
@@ -648,11 +786,7 @@ class TaskController extends OCSController {
 	/**
 	 * Map a daily room task to frontend API payload.
 	 */
-	private function mapDailyTaskForApi(RoomTask $roomTask, \DateTime $today, int $order): array {
-		$details = $this->roomTaskService->getRoomTaskWithDetails($roomTask->getId());
-		$task = $details['task'];
-		$room = $details['room'];
-
+	private function mapDailyTaskForApi(RoomTask $roomTask, Task $task, Room $room, \DateTime $today, int $order): array {
 		$lastCompleted = $roomTask->getLastCompleted();
 		$isCompletedToday = $lastCompleted !== null && $lastCompleted->format('Y-m-d') === $today->format('Y-m-d');
 

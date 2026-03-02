@@ -613,6 +613,43 @@ class RoomTaskService {
 	}
 
 	/**
+	 * Get today's tasks for a house including task and room details.
+	 *
+	 * Uses per-request caching for task and room entities to avoid repeated
+	 * lookups when multiple daily room tasks reference the same task or room.
+	 *
+	 * @param int $houseId The house ID
+	 * @param \DateTime $date The date to get tasks for
+	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
+	 */
+	public function getDailyTasksWithDetails(int $houseId, \DateTime $date): array {
+		$dailyTasks = $this->getDailyTasks($houseId, $date);
+		$taskCache = [];
+		$roomCache = [];
+		$details = [];
+
+		foreach ($dailyTasks as $roomTask) {
+			$taskId = $roomTask->getTaskId();
+			if (!isset($taskCache[$taskId])) {
+				$taskCache[$taskId] = $this->taskMapper->find($taskId);
+			}
+
+			$roomId = $roomTask->getRoomId();
+			if (!isset($roomCache[$roomId])) {
+				$roomCache[$roomId] = $this->roomMapper->find($roomId);
+			}
+
+			$details[] = [
+				'roomTask' => $roomTask,
+				'task' => $taskCache[$taskId],
+				'room' => $roomCache[$roomId],
+			];
+		}
+
+		return $details;
+	}
+
+	/**
 	 * Complete a room task (simple version)
 	 *
 	 * @param int $roomTaskId The room task ID

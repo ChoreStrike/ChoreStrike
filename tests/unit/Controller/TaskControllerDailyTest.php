@@ -77,17 +77,14 @@ class TaskControllerDailyTest extends TestCase {
 		$room->setName('Kitchen');
 
 		$this->roomTaskService->expects($this->once())
-			->method('getDailyTasks')
+			->method('getDailyTasksWithDetails')
 			->with(1, $this->isInstanceOf(\DateTime::class))
-			->willReturn([$roomTask]);
-
-		$this->roomTaskService->expects($this->once())
-			->method('getRoomTaskWithDetails')
-			->with(1)
 			->willReturn([
-				'roomTask' => $roomTask,
-				'task' => $task,
-				'room' => $room,
+				[
+					'roomTask' => $roomTask,
+					'task' => $task,
+					'room' => $room,
+				],
 			]);
 
 		$response = $this->controller->daily();
@@ -114,7 +111,7 @@ class TaskControllerDailyTest extends TestCase {
 		$this->authService->expects($this->once())->method('requireHouseMember')->with(1);
 
 		$this->roomTaskService->expects($this->once())
-			->method('getDailyTasks')
+			->method('getDailyTasksWithDetails')
 			->willThrowException(new \Exception('Database error'));
 
 		$response = $this->controller->daily();
@@ -245,5 +242,44 @@ class TaskControllerDailyTest extends TestCase {
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
 		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+	}
+
+	public function testCompleteReturns404WhenRoomTaskIsHidden(): void {
+		$house = $this->createMock(\OCA\ChoreStrike\Db\House::class);
+		$house->method('getId')->willReturn(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('test-instance');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+		$this->roomTaskService->expects($this->once())
+			->method('validateRoomTaskOwnership')
+			->with(1, 1)
+			->willThrowException(new \OCP\AppFramework\Http\NotFoundException('Room task not found'));
+
+		$response = $this->controller->complete(1);
+
+		$this->assertEquals(404, $response->getStatus());
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('RESOURCE_NOT_FOUND', $data['error']['code']);
+	}
+
+	public function testCompleteReturns403ForForbiddenAction(): void {
+		$house = $this->createMock(\OCA\ChoreStrike\Db\House::class);
+		$house->method('getId')->willReturn(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('test-instance');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->expects($this->once())
+			->method('requireHouseMember')
+			->with(1)
+			->willThrowException(new \OCP\AppFramework\Http\ForbiddenException('Owner role required'));
+
+		$response = $this->controller->complete(1);
+
+		$this->assertEquals(403, $response->getStatus());
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('FORBIDDEN', $data['error']['code']);
 	}
 }

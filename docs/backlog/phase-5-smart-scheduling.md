@@ -19,11 +19,11 @@
 #### Open findings (prioritized)
 1. **Resolved (High)**: Deprecated legacy `SmartSchedulerService` internals and replaced them with a compatibility facade over `TaskSchedulerService` + `RoomTaskService`, removing invalid `RoomTask` method usage and restoring `/api/v1/smart-schedule/*` runtime stability.
 2. **Resolved (Medium)**: Local unit-test bootstrap now includes missing mocks (`OCSController`, `JSONResponse`, `ILogger`), enabling deterministic controller/service test execution outside Docker.
-3. **Open (Medium)**: `TaskController::daily()` currently maps each task with per-task detail lookup; optimize to avoid potential N+1 query overhead when task volume grows.
+3. **Resolved (Medium)**: `TaskController::daily()` now uses `RoomTaskService::getDailyTasksWithDetails()` with per-request task/room caching, removing per-task detail lookups in controller flow.
+4. **Resolved (Medium)**: Option-3 API semantics implemented for task mutation flows (`404 RESOURCE_NOT_FOUND` for hidden/foreign resources, `403 FORBIDDEN` for explicit forbidden actions).
 
 #### Open questions
-1. For failed ownership checks on task mutations, should API return `404` (resource hidden) or `403` (explicit forbidden) as product standard?
-2. Do we keep `houseUserId` in public availability payload long-term, or deprecate once all consumers are fully Nextcloud-ID based?
+1. Do we keep `houseUserId` in public availability payload long-term, or deprecate once all consumers are fully Nextcloud-ID based?
 
 ### Completed in this session
 - [x] P5-PLANNING: Phase plan created and aligned with roadmap

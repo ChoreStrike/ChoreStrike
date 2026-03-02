@@ -9,7 +9,7 @@
 **Status**: Review Ready  
 **Started**: 2026-03-01 21:42  
 **Branch**: main  
-**Related Files**: docs/backlog/phase-5-smart-scheduling.md, docs/backlog/ACTIVE_TASKS.md, lib/Controller/TaskController.php, lib/Controller/SmartSchedulerController.php, lib/Service/SchedulingService.php, lib/Service/SmartSchedulerService.php, lib/Service/TaskSchedulerService.php, tests/bootstrap.php, tests/__mocks__/OCP/ILogger.php, tests/unit/Controller/TaskControllerDailyTest.php, tests/unit/Controller/SmartSchedulerControllerTest.php, tests/unit/Service/TaskSchedulerServiceTest.php, tests/unit/Service/SchedulingServiceTest.php, tests/unit/Service/SmartSchedulerServiceTest.php, src/components/Scheduling/DailyTaskList.vue, src/components/Scheduling/AvailabilitySettings.vue  
+**Related Files**: docs/backlog/phase-5-smart-scheduling.md, docs/backlog/ACTIVE_TASKS.md, lib/Controller/TaskController.php, lib/Controller/SmartSchedulerController.php, lib/Service/RoomTaskService.php, lib/Service/SchedulingService.php, lib/Service/SmartSchedulerService.php, lib/Service/TaskSchedulerService.php, tests/bootstrap.php, tests/__mocks__/OCP/ILogger.php, tests/__mocks__/OCP/AppFramework/Http/NotFoundException.php, tests/__mocks__/OCP/AppFramework/Http/ForbiddenException.php, tests/__mocks__/OCP/AppFramework/Db/DoesNotExistException.php, tests/unit/Controller/TaskControllerDailyTest.php, tests/unit/Controller/SmartSchedulerControllerTest.php, tests/unit/Service/RoomTaskServiceDailyTest.php, tests/unit/Service/TaskSchedulerServiceTest.php, tests/unit/Service/SchedulingServiceTest.php, tests/unit/Service/SmartSchedulerServiceTest.php, src/components/Scheduling/DailyTaskList.vue, src/components/Scheduling/AvailabilitySettings.vue  
 **Blockers**: None  
 **Notes**:
 - Started Phase 5 implementation and added initial backend + frontend scaffolding.
@@ -50,6 +50,24 @@
     - `TaskSchedulerServiceTest` (11 tests, 51 assertions)
     - `SchedulingServiceTest` (5 tests, 14 assertions)
     - `SmartSchedulerServiceTest` (5 tests, 20 assertions)
+- P5-API-HARDENING follow-up (2026-03-02, completed)
+  - Implemented option-3 API semantics for task-related authorization outcomes
+    - hidden/foreign resource => `404 RESOURCE_NOT_FOUND`
+    - explicit forbidden action => `403 FORBIDDEN`
+  - Optimized daily task payload mapping to avoid N+1-style per-task detail lookups
+    - Added `RoomTaskService::getDailyTasksWithDetails()` with task/room caching
+    - Updated `TaskController::daily()` to use bulk detailed payload assembly
+  - Added regression tests:
+    - `TaskControllerDailyTest`: daily detail aggregation + 404/403 behavior
+    - `RoomTaskServiceDailyTest`: cached detail lookup behavior
+  - Extended local test bootstrap mocks for deterministic exception handling in unit tests
+  - Validation run:
+    - `TaskControllerDailyTest` (9 tests, 54 assertions)
+    - `RoomTaskServiceDailyTest` (10 tests, 31 assertions)
+    - `SmartSchedulerControllerTest` (3 tests, 20 assertions)
+    - `SmartSchedulerServiceTest` (5 tests, 20 assertions)
+    - `SchedulingServiceTest` (5 tests, 14 assertions)
+    - `TaskSchedulerServiceTest` (11 tests, 51 assertions)
 - Phase 5 Smart Scheduling is now **COMPLETE**! 🎉
 - Next priorities
   1. P5-REVIEW: Final review and documentation of Phase 5 implementation
