@@ -68,6 +68,16 @@
     - `SmartSchedulerServiceTest` (5 tests, 20 assertions)
     - `SchedulingServiceTest` (5 tests, 14 assertions)
     - `TaskSchedulerServiceTest` (11 tests, 51 assertions)
+- P5-API-HARDENING regression follow-up (2026-03-02, completed)
+  - Aligned `TaskController::delete()` with option-3 semantics
+    - `NotFoundException` => `404 RESOURCE_NOT_FOUND`
+    - `ForbiddenException` => `403 FORBIDDEN`
+  - Modernized `TaskControllerTest` to current `TaskController` constructor and `TaskService` usage
+  - Added delete endpoint regression tests for 404 and 403 branches
+  - Validation run:
+    - `TaskControllerTest` (7 tests, 50 assertions)
+    - `TaskControllerDailyTest` (9 tests, 54 assertions)
+    - `RoomTaskServiceDailyTest` (10 tests, 31 assertions)
 - Phase 5 Smart Scheduling is now **COMPLETE**! 🎉
 - Next priorities
   1. P5-REVIEW: Final review and documentation of Phase 5 implementation

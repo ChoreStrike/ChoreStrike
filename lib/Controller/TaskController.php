@@ -345,6 +345,22 @@ class TaskController extends OCSController {
 				'success' => true,
 				'message' => 'Task deleted successfully'
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => $e->getMessage()
+				]
+			], 404);
+		} catch (ForbiddenException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'FORBIDDEN',
+					'message' => $e->getMessage()
+				]
+			], 403);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
