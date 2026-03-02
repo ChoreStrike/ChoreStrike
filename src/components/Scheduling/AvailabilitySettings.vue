@@ -197,6 +197,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { showSuccess, showError } from '@nextcloud/dialogs'
 import Icon from '../Common/Icon.vue'
 import Modal from '../Common/Modal.vue'
 import axios from '@nextcloud/axios'
@@ -217,6 +218,7 @@ const saving = ref<boolean>(false)
 const members = ref<any[]>([])
 const showEditModal = ref<boolean>(false)
 const editingMember = ref<any>(null)
+const currentUser = ref<any>(null)
 const editForm = ref<{ availability: Record<string, boolean>; energyBudget: Record<string, number> }>({
 	availability: {},
 	energyBudget: {},
@@ -242,15 +244,25 @@ const loadMemberAvailability = async () => {
 		const response = await axios.get('/api/v1/smart-schedule/availability')
 
 		if (response.data.success) {
-			members.value = response.data.data.map(member => ({
-				...member,
-				isCurrentUser: member.userId === currentUserId.value,
+			// Transform backend data to match frontend expectations
+			const transformedMembers = response.data.data.map(member => ({
+				userId: member.userId,
+				userName: member.userName || member.userId,
+				weekdayAvailability: member.weekdayAvailability || {},
+				energyBudget: member.energyBudget || {},
+				planningMode: member.planningMode || 'auto_balance',
+				maxTasksPerDay: member.maxTasksPerDay || 5,
+				timeRanges: member.timeRanges || { start: '09:00', end: '18:00' },
+				isCurrentUser: member.userId === currentUser.value?.userId,
 			}))
+			
+			members.value = transformedMembers
 		} else {
 			throw new Error(response.data.error || 'Failed to load availability')
 		}
 	} catch (error) {
 		console.error('Failed to load member availability:', error)
+		showError(t('chorestrike', 'Failed to load availability settings'))
 	} finally {
 		loading.value = false
 	}
@@ -276,11 +288,32 @@ const saveAvailability = async () => {
 
 	saving.value = true
 	try {
+		// Validate form data
+		const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+		
+		// Validate availability
+		for (const day of validDays) {
+			if (typeof editForm.value.availability[day] !== 'boolean') {
+				throw new Error(`Invalid availability value for ${day}`)
+			}
+		}
+		
+		// Validate energy budget
+		for (const day of validDays) {
+			const energy = editForm.value.energyBudget[day]
+			if (!Number.isInteger(energy) || energy < 1 || energy > 20) {
+				throw new Error(`Energy budget must be between 1 and 20 for ${day}`)
+			}
+		}
+
 		// Update availability
 		await axios.put('/api/v1/smart-schedule/availability', editForm.value.availability)
 
 		// Update energy budget
 		await axios.put('/api/v1/smart-schedule/energy-budget', editForm.value.energyBudget)
+
+		// Show success message
+		showSuccess(t('chorestrike', 'Availability settings saved successfully'))
 
 		// Refresh member list
 		await loadMemberAvailability()
@@ -289,6 +322,7 @@ const saveAvailability = async () => {
 		closeEditModal()
 	} catch (error) {
 		console.error('Failed to save availability:', error)
+		showError(t('chorestrike', 'Failed to save availability settings: {error}', { error: error.message }))
 	} finally {
 		saving.value = false
 	}
@@ -375,15 +409,41 @@ const formatDayName = (dayKey: string): string => {
 }
 
 // Computed
-const currentUserId = computed<number>(() => {
-	// This would come from user store or authentication context
-	return 1 // Placeholder
+const currentUserId = computed<string>(() => {
+	// Get current user from Nextcloud
+	if (currentUser.value) {
+		return currentUser.value.userId
+	}
+	
+	// Fallback: try to get from global Nextcloud context
+	// @ts-ignore - Nextcloud global
+	if (typeof OC !== 'undefined' && OC.currentUser) {
+		return OC.currentUser
+	}
+	
+	// Another fallback
+	// @ts-ignore - Nextcloud global
+	if (typeof window !== 'undefined' && (window as any).currentUser) {
+		return (window as any).currentUser
+	}
+	
+	return 'unknown'
 })
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
 	if (props.houseId) {
-		loadMemberAvailability()
+		// Try to get current user info first
+		try {
+			// @ts-ignore - Nextcloud global
+			if (typeof OC !== 'undefined' && OC.getCurrentUser) {
+				currentUser.value = OC.getCurrentUser()
+			}
+		} catch (error) {
+			console.warn('Could not get current user:', error)
+		}
+		
+		await loadMemberAvailability()
 	}
 })
 </script>

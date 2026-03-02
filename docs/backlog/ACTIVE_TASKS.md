@@ -9,7 +9,7 @@
 **Status**: In Progress  
 **Started**: 2026-03-01 21:42  
 **Branch**: main  
-**Related Files**: docs/backlog/phase-5-smart-scheduling.md, lib/Db/AvailabilitySettings.php, lib/Db/AvailabilitySettingsMapper.php, lib/Migration/Version1013Date20260301210000.php, lib/Service/TaskSchedulerService.php, tests/unit/Service/TaskSchedulerServiceTest.php, src/components/Scheduling/DailyTaskList.vue  
+**Related Files**: docs/backlog/phase-5-smart-scheduling.md, lib/Db/AvailabilitySettings.php, lib/Db/AvailabilitySettingsMapper.php, lib/Migration/Version1013Date20260301210000.php, lib/Service/TaskSchedulerService.php, tests/unit/Service/TaskSchedulerServiceTest.php, src/components/Scheduling/DailyTaskList.vue, src/components/Scheduling/AvailabilitySettings.vue  
 **Blockers**: None  
 **Notes**:
 - Started Phase 5 implementation and added initial backend + frontend scaffolding.
@@ -19,20 +19,41 @@
   - P5-BE-002: Initial TaskSchedulerService algorithm
   - P5-FE-002: DailyTaskList.vue first implementation
   - P5-BE-003: Daily task API endpoints (GET daily, PUT complete/uncomplete/skip/reschedule)
+  - P5-FE-001: AvailabilitySettings.vue backend integration
 - Review fixes completed
   - Fixed root-cause scheduler bug: replaced invalid room lookup by house with house -> floors -> rooms traversal
   - Updated and validated TaskSchedulerService unit tests (11 passing, 51 assertions)
 - Open issues moved to backlog (see phase-5-smart-scheduling.md)
-  - P5-FE-001: Existing AvailabilitySettings.vue should be integrated/refined instead of being re-created
   - TaskSchedulerService exceeds file-size guideline and still contains TODO methods
 - Next priorities
-  1. P5-FE-001: Integrate and polish existing AvailabilitySettings.vue against backend schema
-  2. P5-TEST-001: Add integration + E2E tests for daily tasks and availability save/load flow
-  3. P5-REF-001: Extract scoring/distribution helpers from TaskSchedulerService
+  1. P5-TEST-001: Add integration + E2E tests for daily tasks and availability save/load flow
+  2. P5-REF-001: Extract scoring/distribution helpers from TaskSchedulerService
 
 ---
 
 ## Recently Completed (Last 7 Days)
+
+### Cascade - P5-FE-001 - AvailabilitySettings Backend Integration
+**Status**: Done
+**Started**: 2026-03-02 18:50
+**Completed**: 2026-03-02 19:15
+**Branch**: main
+**Related Files**: src/components/Scheduling/AvailabilitySettings.vue, tests/unit/components/AvailabilitySettings.spec.js
+**Blockers**: None
+**Notes**:
+- 🎯 Integrate existing AvailabilitySettings.vue with real backend API endpoints
+- ✅ Updated component to use real SmartScheduler API endpoints:
+  - GET /api/v1/smart-schedule/availability (load member data)
+  - PUT /api/v1/smart-schedule/availability (save availability)
+  - PUT /api/v1/smart-schedule/energy-budget (save energy budget)
+- ✅ Added data transformation layer to match backend AvailabilitySettings schema
+- ✅ Enhanced error handling with Nextcloud dialog notifications (showSuccess/showError)
+- ✅ Added comprehensive client-side validation:
+  - Availability values must be boolean
+  - Energy budget must be integer 1-20 per day
+- ✅ Improved current user detection with Nextcloud OC global fallbacks
+- ✅ Added unit tests for all major user interactions
+- ✅ Component now fully functional with real backend integration
 
 ### Cascade - P5-BE-003 - Daily Task API Endpoints
 **Status**: Done
