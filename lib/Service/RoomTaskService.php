@@ -600,4 +600,67 @@ class RoomTaskService {
 	public function getUnassignedTasks(int $houseId): array {
 		return $this->roomTaskMapper->findUnassignedByHouse($houseId);
 	}
+
+	/**
+	 * Get today's tasks for a house
+	 *
+	 * @param int $houseId The house ID
+	 * @param DateTime $date The date to get tasks for
+	 * @return RoomTask[]
+	 */
+	public function getDailyTasks(int $houseId, \DateTime $date): array {
+		return $this->roomTaskMapper->findDailyTasks($houseId, $date);
+	}
+
+	/**
+	 * Complete a room task (simple version)
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @return RoomTask The updated room task
+	 */
+	public function completeTaskSimple(int $roomTaskId): RoomTask {
+		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		$roomTask->setLastCompleted(new \DateTime());
+		return $this->roomTaskMapper->update($roomTask);
+	}
+
+	/**
+	 * Uncomplete a room task
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @return RoomTask The updated room task
+	 */
+	public function uncompleteTask(int $roomTaskId): RoomTask {
+		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		$roomTask->setLastCompleted(null);
+		return $this->roomTaskMapper->update($roomTask);
+	}
+
+	/**
+	 * Skip a room task
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @return RoomTask The updated room task
+	 */
+	public function skipTask(int $roomTaskId): RoomTask {
+		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		// Skip by moving due date forward by 1 day
+		$nextDue = $roomTask->getNextDue();
+		$nextDue->modify('+1 day');
+		$roomTask->setNextDue($nextDue);
+		return $this->roomTaskMapper->update($roomTask);
+	}
+
+	/**
+	 * Reschedule a room task
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param DateTime $newDate The new due date
+	 * @return RoomTask The updated room task
+	 */
+	public function rescheduleTask(int $roomTaskId, \DateTime $newDate): RoomTask {
+		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		$roomTask->setNextDue($newDate);
+		return $this->roomTaskMapper->update($roomTask);
+	}
 }

@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskService;
+use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -21,17 +22,20 @@ use OCP\IRequest;
 class TaskController extends OCSController {
 
 	private TaskService $taskService;
+	private RoomTaskService $roomTaskService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
 		TaskService $taskService,
+		RoomTaskService $roomTaskService,
 		HouseService $houseService,
 		AuthorizationService $authService
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->taskService = $taskService;
+		$this->roomTaskService = $roomTaskService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 	}
@@ -472,6 +476,148 @@ class TaskController extends OCSController {
 				'success' => false,
 				'error' => [
 					'code' => 'CREATE_DEFAULT_TEMPLATES_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Get today's scheduled tasks
+	 *
+	 * @NoAdminRequired
+	 */
+	public function daily(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
+			$today = new \DateTime();
+			$dailyTasks = $this->roomTaskService->getDailyTasks($house->getId(), $today);
+			
+			return new JSONResponse([
+				'success' => true,
+				'data' => array_map(fn($task) => $task->jsonSerialize(), $dailyTasks)
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'DAILY_TASKS_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Complete a task
+	 *
+	 * @NoAdminRequired
+	 */
+	public function complete(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
+			$task = $this->roomTaskService->completeTaskSimple($id);
+			
+			return new JSONResponse([
+				'success' => true,
+				'data' => $task->jsonSerialize()
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'COMPLETE_TASK_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Uncomplete a task
+	 *
+	 * @NoAdminRequired
+	 */
+	public function uncomplete(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
+			$task = $this->roomTaskService->uncompleteTask($id);
+			
+			return new JSONResponse([
+				'success' => true,
+				'data' => $task->jsonSerialize()
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'UNCOMPLETE_TASK_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Skip a task
+	 *
+	 * @NoAdminRequired
+	 */
+	public function skip(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
+			$task = $this->roomTaskService->skipTask($id);
+			
+			return new JSONResponse([
+				'success' => true,
+				'data' => $task->jsonSerialize()
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'SKIP_TASK_ERROR',
+					'message' => $e->getMessage()
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Reschedule a task
+	 *
+	 * @NoAdminRequired
+	 */
+	public function reschedule(int $id, string $newDate): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->requireHouseMember($house->getId());
+			
+			$newDateTime = new \DateTime($newDate);
+			$task = $this->roomTaskService->rescheduleTask($id, $newDateTime);
+			
+			return new JSONResponse([
+				'success' => true,
+				'data' => $task->jsonSerialize()
+			]);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESCHEDULE_TASK_ERROR',
 					'message' => $e->getMessage()
 				]
 			], 500);

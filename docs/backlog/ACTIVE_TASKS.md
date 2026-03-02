@@ -5,7 +5,7 @@
 
 ## Currently Active
 
-### Cascade - P5-IMPLEMENTATION - Phase 5 Smart Scheduling Started
+### Cascade - P5-IMPLEMENTATION - Phase 5 Smart Scheduling
 **Status**: In Progress  
 **Started**: 2026-03-01 21:42  
 **Branch**: main  
@@ -18,21 +18,50 @@
   - P5-BE-001: AvailabilitySettings entity + mapper + migration (Version1013Date20260301210000)
   - P5-BE-002: Initial TaskSchedulerService algorithm
   - P5-FE-002: DailyTaskList.vue first implementation
+  - P5-BE-003: Daily task API endpoints (GET daily, PUT complete/uncomplete/skip/reschedule)
 - Review fixes completed
   - Fixed root-cause scheduler bug: replaced invalid room lookup by house with house -> floors -> rooms traversal
   - Updated and validated TaskSchedulerService unit tests (11 passing, 51 assertions)
 - Open issues moved to backlog (see phase-5-smart-scheduling.md)
-  - Missing scheduling API endpoints used by DailyTaskList.vue
-  - Existing AvailabilitySettings.vue should be integrated/refined instead of being re-created
+  - P5-FE-001: Existing AvailabilitySettings.vue should be integrated/refined instead of being re-created
   - TaskSchedulerService exceeds file-size guideline and still contains TODO methods
-- Tomorrow priorities
-  1. P5-BE-003: Implement scheduling and availability API endpoints used by frontend
-  2. P5-FE-001: Integrate and polish existing AvailabilitySettings.vue against backend schema
-  3. P5-TEST-001: Add integration + E2E tests for daily tasks and availability save/load flow
+- Next priorities
+  1. P5-FE-001: Integrate and polish existing AvailabilitySettings.vue against backend schema
+  2. P5-TEST-001: Add integration + E2E tests for daily tasks and availability save/load flow
+  3. P5-REF-001: Extract scoring/distribution helpers from TaskSchedulerService
 
 ---
 
 ## Recently Completed (Last 7 Days)
+
+### Cascade - P5-BE-003 - Daily Task API Endpoints
+**Status**: Done
+**Started**: 2026-03-02 18:20
+**Completed**: 2026-03-02 18:45
+**Branch**: main
+**Related Files**: lib/Controller/TaskController.php, lib/Service/RoomTaskService.php, lib/Db/RoomTaskMapper.php, appinfo/routes.php, tests/unit/Controller/TaskControllerDailyTest.php, tests/unit/Service/RoomTaskServiceDailyTest.php
+**Blockers**: None
+**Notes**:
+- 🎯 Implement API endpoints for DailyTaskList.vue frontend component
+- ✅ Implemented 5 new endpoints:
+  - `GET /api/v1/tasks/daily` - Get today's scheduled tasks
+  - `PUT /api/v1/tasks/{id}/complete` - Complete a task
+  - `PUT /api/v1/tasks/{id}/uncomplete` - Uncomplete a task  
+  - `PUT /api/v1/tasks/{id}/skip` - Skip a task
+  - `PUT /api/v1/tasks/{id}/reschedule` - Reschedule a task
+- ✅ Added service methods to RoomTaskService:
+  - `getDailyTasks()` - Query tasks by house and date
+  - `completeTaskSimple()` - Set last completed timestamp
+  - `uncompleteTask()` - Remove completion timestamp
+  - `skipTask()` - Move due date forward by 1 day
+  - `rescheduleTask()` - Update due date to new date
+- ✅ Added RoomTaskMapper::findDailyTasks() with house->floor->room joins
+- ✅ Registered all new routes in appinfo/routes.php
+- ✅ Added comprehensive unit tests:
+  - TaskControllerDailyTest.php (8 test methods, success + error cases)
+  - RoomTaskServiceDailyTest.php (10 test methods, success + error cases)
+- ✅ Fixed method name conflict: renamed to `completeTaskSimple()` to avoid collision with existing `completeTask()`
+- ✅ All endpoints follow existing patterns: authorization, error handling, JSON responses
 
 ### Cascade - P2-E2E-001 + P2-MIGRATION-001 - E2E Stabilization + Migration Fixes
 **Status**: Done

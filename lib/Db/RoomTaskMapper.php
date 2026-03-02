@@ -512,4 +512,27 @@ class RoomTaskMapper extends QBMapper {
 		$result = $qb->executeQuery();
 		return $result->fetchOne() !== false;
 	}
+
+	/**
+	 * Find daily tasks for a house
+	 *
+	 * @param int $houseId The house ID
+	 * @param DateTime $date The date to find tasks for
+	 * @return RoomTask[]
+	 */
+	public function findDailyTasks(int $houseId, \DateTime $date): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('rt.*')
+			->from($this->getTableName(), 'rt')
+			->innerJoin('rt', 'chorestrike_rooms', 'r', $qb->expr()->eq('rt.room_id', 'r.id'))
+			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('DATE(rt.next_due)', $qb->createNamedParameter($date->format('Y-m-d'), IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+			->orderBy('rt.next_due', 'ASC')
+			->addOrderBy('rt.created_at', 'ASC');
+
+		return $this->findEntities($qb);
+	}
 }

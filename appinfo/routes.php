@@ -41,6 +41,11 @@ return [
         ['name' => 'task#byCategory', 'url' => '/api/v1/tasks/category/{category}', 'verb' => 'GET'],
         ['name' => 'task#search', 'url' => '/api/v1/tasks/search', 'verb' => 'GET'],
         ['name' => 'task#categories', 'url' => '/api/v1/tasks/categories', 'verb' => 'GET'],
+        ['name' => 'task#daily', 'url' => '/api/v1/tasks/daily', 'verb' => 'GET'],
+        ['name' => 'task#complete', 'url' => '/api/v1/tasks/{id}/complete', 'verb' => 'PUT'],
+        ['name' => 'task#uncomplete', 'url' => '/api/v1/tasks/{id}/uncomplete', 'verb' => 'PUT'],
+        ['name' => 'task#skip', 'url' => '/api/v1/tasks/{id}/skip', 'verb' => 'PUT'],
+        ['name' => 'task#reschedule', 'url' => '/api/v1/tasks/{id}/reschedule', 'verb' => 'PUT'],
         
         // Room Task API
         ['name' => 'room_task#index', 'url' => '/api/v1/room-tasks', 'verb' => 'GET'],

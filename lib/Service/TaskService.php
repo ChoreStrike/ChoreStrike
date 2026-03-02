@@ -362,4 +362,67 @@ class TaskService {
 
 		return $createdTemplates;
 	}
+
+	/**
+	 * Get today's scheduled tasks for a house
+	 *
+	 * @param int $houseId The house ID
+	 * @param DateTime $date The date to get tasks for
+	 * @return Task[]
+	 */
+	public function getDailyTasks(int $houseId, \DateTime $date): array {
+		return $this->taskMapper->findDailyTasks($houseId, $date);
+	}
+
+	/**
+	 * Complete a task
+	 *
+	 * @param int $taskId The task ID
+	 * @return Task The updated task
+	 */
+	public function completeTask(int $taskId): Task {
+		$task = $this->taskMapper->find($taskId);
+		$task->setStatus('completed');
+		$task->setCompletedAt(new \DateTime());
+		return $this->taskMapper->update($task);
+	}
+
+	/**
+	 * Uncomplete a task
+	 *
+	 * @param int $taskId The task ID
+	 * @return Task The updated task
+	 */
+	public function uncompleteTask(int $taskId): Task {
+		$task = $this->taskMapper->find($taskId);
+		$task->setStatus('pending');
+		$task->setCompletedAt(null);
+		return $this->taskMapper->update($task);
+	}
+
+	/**
+	 * Skip a task
+	 *
+	 * @param int $taskId The task ID
+	 * @return Task The updated task
+	 */
+	public function skipTask(int $taskId): Task {
+		$task = $this->taskMapper->find($taskId);
+		$task->setStatus('skipped');
+		return $this->taskMapper->update($task);
+	}
+
+	/**
+	 * Reschedule a task
+	 *
+	 * @param int $taskId The task ID
+	 * @param DateTime $newDate The new scheduled date
+	 * @return Task The updated task
+	 */
+	public function rescheduleTask(int $taskId, \DateTime $newDate): Task {
+		$task = $this->taskMapper->find($taskId);
+		$task->setScheduledDate($newDate);
+		$task->setStatus('pending');
+		return $this->taskMapper->update($task);
+	}
 }
