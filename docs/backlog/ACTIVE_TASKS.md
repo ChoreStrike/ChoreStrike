@@ -21,17 +21,51 @@
   - P5-BE-003: Daily task API endpoints (GET daily, PUT complete/uncomplete/skip/reschedule)
   - P5-FE-001: AvailabilitySettings.vue backend integration
   - P5-TEST-001: Integration + E2E tests for daily tasks and availability
+  - P5-REF-001: TaskSchedulerService refactoring (extracted helper classes)
 - Review fixes completed
   - Fixed root-cause scheduler bug: replaced invalid room lookup by house with house -> floors -> rooms traversal
   - Updated and validated TaskSchedulerService unit tests (11 passing, 51 assertions)
 - Open issues moved to backlog (see phase-5-smart-scheduling.md)
-  - TaskSchedulerService exceeds file-size guideline and still contains TODO methods
+  - TaskSchedulerService still contains TODO methods (optimizeSchedule, suggestReassignment)
 - Next priorities
-  1. P5-REF-001: Extract scoring/distribution helpers from TaskSchedulerService
+  1. P5-REF-002: Implement remaining TODO methods in TaskSchedulerService
 
 ---
 
 ## Recently Completed (Last 7 Days)
+
+### Cascade - P5-REF-001 - TaskSchedulerService Refactoring
+**Status**: Done
+**Started**: 2026-03-02 19:50
+**Completed**: 2026-03-02 20:15
+**Branch**: main
+**Related Files**: lib/Service/Scheduling/TaskPriorityScorer.php, lib/Service/Scheduling/AvailabilityCalculator.php, lib/Service/Scheduling/TaskAssignmentAlgorithm.php, lib/Service/TaskSchedulerService.php, tests/unit/Service/Scheduling/TaskPriorityScorerTest.php, tests/unit/Service/Scheduling/AvailabilityCalculatorTest.php, tests/unit/Service/Scheduling/TaskAssignmentAlgorithmTest.php
+**Blockers**: None
+**Notes**:
+- 🎯 Extract helper classes from TaskSchedulerService to reduce file size and improve maintainability
+- ✅ Created TaskPriorityScorer.php:
+  - calculateScores() - Priority scoring for tasks
+  - sortByPriority() - Sort tasks by priority
+  - getOverdueTasks(), getTasksDueSoon(), getHighPriorityTasks() - Filter methods
+- ✅ Created AvailabilityCalculator.php:
+  - isUserAvailable(), hasEnergyBudget(), hasReachedTaskLimit() - Constraint checks
+  - filterAvailableUsers(), filterUsersByEnergy(), filterUsersByTaskLimit() - User filtering
+  - calculateDailyCapacity(), calculateAvailabilityScore() - Capacity calculations
+- ✅ Created TaskAssignmentAlgorithm.php:
+  - findBestAssignment() - Core assignment logic with validation
+  - distributeTasks() - Complete task distribution across week
+  - getAssignmentStats() - Assignment statistics and reporting
+- ✅ Refactored TaskSchedulerService.php:
+  - Reduced from 372 lines to ~130 lines (65% reduction)
+  - Uses extracted helper classes via dependency injection
+  - Added new helper methods: getOverdueTasks(), getTasksDueSoon(), getHighPriorityTasks()
+  - Maintained all existing public API compatibility
+- ✅ Added comprehensive unit tests for all extracted classes:
+  - TaskPriorityScorerTest.php (7 test methods)
+  - AvailabilityCalculatorTest.php (9 test methods)
+  - TaskAssignmentAlgorithmTest.php (7 test methods)
+- ✅ All tests follow BDD naming and existing patterns
+- ✅ Improved code organization following Single Responsibility Principle
 
 ### Cascade - P5-TEST-001 - Integration + E2E Tests
 **Status**: Done
