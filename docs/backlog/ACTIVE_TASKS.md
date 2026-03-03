@@ -5,7 +5,20 @@
 
 ## Currently Active
 
-_No tasks currently in progress._
+### Cascade - P7-PERF - Phase 7 Polish & Optimization
+**Status**: In Progress  
+**Started**: 2026-03-04 10:50  
+**Branch**: master  
+**Related Files**: docs/backlog/phase-7-polish-optimization.md, webpack.config.js, src/router.js  
+**Blockers**: None  
+**Notes**:
+- Phase 7 plan created in `docs/backlog/phase-7-polish-optimization.md`
+- **P7-FE-001 completed**: Code splitting implemented
+  - Webpack 5 + axios compatibility fixes
+  - Vendor/vue/nextcloud chunk separation
+  - Bundle size reduced: 727 KiB → 630 KiB (-13%)
+- **P7-FE-002 completed**: All routes now lazy-loaded with named chunks
+- **P7-BE-001 in progress**: Query optimization & database indexes
 
 ---
 
