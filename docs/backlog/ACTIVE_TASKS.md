@@ -15,6 +15,8 @@
 - Option A selected by user: start Phase 6 planning immediately.
 - Creating a concrete P6 execution plan with backend/frontend/testing/documentation tasks.
 - Defining bootstrap sequence for translation extraction workflow and string audit.
+- Completed first string inventory + prioritized i18n gap report in `docs/backlog/phase-6-internationalization.md`.
+- High-priority gaps identified in dashboard components (`FloorList.vue`, `RoomCard.vue`, `HouseHealthBar.vue`) and medium-priority gaps in views/stores/controllers.
 
 ---
 
@@ -498,4 +500,4 @@
 
 ---
 
-**Last Updated**: 2026-03-03 18:10
+**Last Updated**: 2026-03-03 18:20

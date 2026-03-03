@@ -34,9 +34,54 @@
 - Gap report for hardcoded strings and missing `t()` usage.
 
 ### Acceptance Criteria
-- [ ] String inventory committed and linked from this plan.
-- [ ] Top-priority missing translations identified with file references.
+- [x] String inventory committed and linked from this plan.
+- [x] Top-priority missing translations identified with file references.
 - [ ] Migration strategy defined for legacy hardcoded strings.
+
+### Initial String Inventory and Gap Report (2026-03-03)
+
+#### High Priority (user-facing hardcoded UI text in active dashboard flows)
+1. `src/components/Dashboard/FloorList.vue`
+   - Hardcoded title/labels/tooltips/empty-state/modal strings in template.
+   - Examples: `Floors & Rooms`, `Loading floors...`, `No floors yet`, `Create First Floor`, modal labels.
+   - References: @src/components/Dashboard/FloorList.vue#11-12, @src/components/Dashboard/FloorList.vue#33-46, @src/components/Dashboard/FloorList.vue#135-153
+2. `src/components/Dashboard/FloorList.vue`
+   - Hardcoded destructive confirmation string.
+   - Reference: @src/components/Dashboard/FloorList.vue#287-289
+3. `src/components/Dashboard/RoomCard.vue`
+   - Hardcoded status labels, cleanliness labels, relative-time phrases, tooltips.
+   - References: @src/components/Dashboard/RoomCard.vue#27-27, @src/components/Dashboard/RoomCard.vue#38-65, @src/components/Dashboard/RoomCard.vue#85-90, @src/components/Dashboard/RoomCard.vue#138-174
+4. `src/components/Dashboard/HouseHealthBar.vue`
+   - Hardcoded tooltip and health status strings.
+   - References: @src/components/Dashboard/HouseHealthBar.vue#36-36, @src/components/Dashboard/HouseHealthBar.vue#78-85
+
+#### Medium Priority (partially localized screens with remaining literals)
+1. `src/views/Settings.vue`
+   - Hardcoded button `title` attributes and reset placeholder.
+   - References: @src/views/Settings.vue#79-86, @src/views/Settings.vue#186-186
+2. `src/views/TaskManager.vue`
+   - Difficulty option labels are hardcoded literals (`★ (Quick)` etc.).
+   - References: @src/views/TaskManager.vue#64-78
+
+#### Medium Priority (stores exposing hardcoded fallback/error text)
+1. `src/store/user.js`
+   - Hardcoded fallback and validation/error strings.
+   - References: @src/store/user.js#20-20, @src/store/user.js#68-68, @src/store/user.js#108-113, @src/store/user.js#145-146, @src/store/user.js#176-181
+2. `src/store/tasks.js`
+   - Hardcoded fallback error text in async actions.
+   - References: @src/store/tasks.js#120-121, @src/store/tasks.js#144-145, @src/store/tasks.js#172-173, @src/store/tasks.js#198-199, @src/store/tasks.js#224-225, @src/store/tasks.js#253-254, @src/store/tasks.js#279-279
+
+#### Medium Priority (API response message localization strategy needed)
+1. `lib/Controller/SmartSchedulerController.php`
+   - User-facing response/error message strings are hardcoded English.
+   - References: @lib/Controller/SmartSchedulerController.php#56-57, @lib/Controller/SmartSchedulerController.php#95-102, @lib/Controller/SmartSchedulerController.php#161-172, @lib/Controller/SmartSchedulerController.php#191-192, @lib/Controller/SmartSchedulerController.php#236-237, @lib/Controller/SmartSchedulerController.php#302-303
+2. `lib/Controller/UserController.php`
+   - Validation and success messages hardcoded.
+   - References: @lib/Controller/UserController.php#83-84, @lib/Controller/UserController.php#93-94, @lib/Controller/UserController.php#104-105, @lib/Controller/UserController.php#150-151, @lib/Controller/UserController.php#159-160, @lib/Controller/UserController.php#187-188
+
+#### Notes
+- Many other views/components already use `t('chorestrike', ...)` correctly.
+- Backend localization should preserve stable error codes while localizing human-readable message fields.
 
 ---
 
