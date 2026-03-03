@@ -32,12 +32,13 @@ class TaskPriorityScorerTest extends TestCase {
 
 		$task1 = $this->createMockTask(1, 5, 8);
 		$task2 = $this->createMockTask(2, 3, 5);
+		$task3 = $this->createMockTask(3, 1, 3); // For roomTask3 without due date
 
+		$taskMap = [1 => $task1, 2 => $task2, 3 => $task3];
 		$this->taskMapper->method('find')
-			->willReturnMap([
-				[1, $task1],
-				[2, $task2],
-			]);
+			->willReturnCallback(function (int $id) use ($taskMap) {
+				return $taskMap[$id] ?? throw new \Exception('Task not found');
+			});
 
 		$roomTasks = [$roomTask1, $roomTask2, $roomTask3];
 		$result = $this->scorer->calculateScores($roomTasks);
