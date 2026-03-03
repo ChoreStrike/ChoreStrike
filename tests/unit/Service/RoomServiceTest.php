@@ -517,7 +517,12 @@ class RoomServiceTest extends TestCase {
 		$this->gameLogicService
 			->expects($this->once())
 			->method('handleTaskCompletion')
-			->willReturn(['contributionScore' => 10]);
+			->willReturn([
+				'contributionScore' => 10,
+				'teamSparks' => 50,
+				'isCombo' => false,
+				'currentStreak' => 1
+			]);
 
 		$result = $this->service->completeRoomTask($roomTaskId, $userId);
 
