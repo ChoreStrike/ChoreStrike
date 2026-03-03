@@ -49,6 +49,23 @@ class RoomMapper extends QBMapper {
 	}
 
 	/**
+	 * Get all rooms for a house via floor relation
+	 *
+	 * @param int $houseId The house ID
+	 * @return Room[]
+	 */
+	public function findByHouseId(int $houseId): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('r.*')
+			->from($this->getTableName(), 'r')
+			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * Get all rooms that need cleaning
 	 *
 	 * @param int|null $floorId Optional floor ID to filter by
