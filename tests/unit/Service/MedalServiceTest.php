@@ -220,8 +220,8 @@ class MedalServiceTest extends TestCase {
 			->method('getUserStats')
 			->willReturn(['taskCount' => 5]);
 
-		$stats = $this->createMock(\OCA\ChoreStrike\Db\UserStats::class);
-		$stats->method('getTasksCompleted')->willReturn(150);
+		$stats = new UserStats();
+		$stats->setTasksCompleted(150);
 
 		$this->userStatsService->expects($this->once())
 			->method('getOrCreateStats')
@@ -264,9 +264,9 @@ class MedalServiceTest extends TestCase {
 			->method('getUserStats')
 			->willReturn(['taskCount' => 5]);
 
-		$stats = $this->createMock(\OCA\ChoreStrike\Db\UserStats::class);
-		$stats->method('getTasksCompleted')->willReturn(50);
-		$stats->method('getCurrentStreak')->willReturn(3);
+		$stats = new UserStats();
+		$stats->setTasksCompleted(50);
+		$stats->setCurrentStreak(3);
 
 		$this->userStatsService->expects($this->once())
 			->method('getOrCreateStats')
