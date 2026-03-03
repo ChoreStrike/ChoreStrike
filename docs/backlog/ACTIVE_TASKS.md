@@ -5,7 +5,16 @@
 
 ## Currently Active
 
-*No active tasks - Phase 5 complete*
+### Cascade - P6-PLANNING - Phase 6 Internationalization Scope & Task Breakdown
+**Status**: In Progress  
+**Started**: 2026-03-03 18:10  
+**Branch**: master  
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-6-internationalization.md, docs/ROADMAP.md, l10n/templates/chorestrike.pot, l10n/de.json, l10n/en.json  
+**Blockers**: None  
+**Notes**:
+- Option A selected by user: start Phase 6 planning immediately.
+- Creating a concrete P6 execution plan with backend/frontend/testing/documentation tasks.
+- Defining bootstrap sequence for translation extraction workflow and string audit.
 
 ---
 
@@ -489,4 +498,4 @@
 
 ---
 
-**Last Updated**: 2026-03-03 18:05
+**Last Updated**: 2026-03-03 18:10
