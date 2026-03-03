@@ -5,9 +5,16 @@
 
 ## Currently Active
 
+*No active tasks - Phase 5 complete*
+
+---
+
+## Recently Completed (Last 7 Days)
+
 ### Cascade - P5-IMPLEMENTATION - Phase 5 Smart Scheduling
-**Status**: Review Ready  
+**Status**: Done  
 **Started**: 2026-03-01 21:42  
+**Completed**: 2026-03-03 17:45  
 **Branch**: main  
 **Related Files**: docs/backlog/phase-5-smart-scheduling.md, docs/backlog/ACTIVE_TASKS.md, lib/Controller/TaskController.php, lib/Controller/SmartSchedulerController.php, lib/Service/RoomTaskService.php, lib/Service/SchedulingService.php, lib/Service/SmartSchedulerService.php, lib/Service/TaskSchedulerService.php, tests/bootstrap.php, tests/__mocks__/OCP/ILogger.php, tests/__mocks__/OCP/AppFramework/Http/NotFoundException.php, tests/__mocks__/OCP/AppFramework/Http/ForbiddenException.php, tests/__mocks__/OCP/AppFramework/Db/DoesNotExistException.php, tests/unit/Controller/TaskControllerDailyTest.php, tests/unit/Controller/SmartSchedulerControllerTest.php, tests/unit/Service/RoomTaskServiceDailyTest.php, tests/unit/Service/TaskSchedulerServiceTest.php, tests/unit/Service/SchedulingServiceTest.php, tests/unit/Service/SmartSchedulerServiceTest.php, src/components/Scheduling/DailyTaskList.vue, src/components/Scheduling/AvailabilitySettings.vue  
 **Blockers**: None  
@@ -78,10 +85,17 @@
     - `TaskControllerTest` (7 tests, 50 assertions)
     - `TaskControllerDailyTest` (9 tests, 54 assertions)
     - `RoomTaskServiceDailyTest` (10 tests, 31 assertions)
+- P5-REVIEW closeout (2026-03-03, completed)
+  - Fixed `SmartSchedulerController::getSchedulingSuggestions()` root cause: removed empty placeholder tasks and now derives suggestions from generated smart-schedule assignments
+  - Added regression coverage in `SmartSchedulerControllerTest::testGetSchedulingSuggestions_UsesGeneratedAssignments`
+  - Synced Phase 5 API/backlog docs with final endpoint behavior (`preview`, `suggestions`, `apply`)
+  - Validation run:
+    - `SmartSchedulerControllerTest` (4 tests, 27 assertions)
 - Phase 5 Smart Scheduling is now **COMPLETE**! 🎉
 - Next priorities
-  1. P5-REVIEW: Final review and documentation of Phase 5 implementation
-  2. P6-PLANNING: Begin Phase 6 planning (Advanced Features)
+  1. P6-PLANNING (High): Define and approve implementation scope for Phase 6 (i18n)
+  2. P6-BE-FE-BOOTSTRAP (High): Establish translation extraction/update workflow and frontend string audit
+  3. P5-DOC-CLOSEOUT (Medium): Keep API + ADR docs aligned with final implementation while Phase 6 starts
 
 ---
 
@@ -475,4 +489,4 @@
 
 ---
 
-**Last Updated**: 2026-03-01 21:59
+**Last Updated**: 2026-03-03 18:05

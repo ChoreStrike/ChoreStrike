@@ -51,6 +51,60 @@ class SmartSchedulerControllerTest extends TestCase {
 	}
 
 	/**
+	 * Test scheduling suggestions use generated assignments as input.
+	 */
+	public function testGetSchedulingSuggestions_UsesGeneratedAssignments(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$generatedAssignments = [
+			[
+				'taskId' => 11,
+				'taskTitle' => 'Kitchen wipe',
+				'assignedTo' => 'alice',
+			],
+			[
+				'taskId' => 12,
+				'taskTitle' => 'Bathroom clean',
+				'assignedTo' => 'bob',
+			],
+		];
+
+		$this->houseService->expects($this->once())
+			->method('getInstanceId')
+			->willReturn('instance-123');
+
+		$this->houseService->expects($this->once())
+			->method('getOrCreateHouse')
+			->with('instance-123')
+			->willReturn($house);
+
+		$this->smartSchedulerService->expects($this->once())
+			->method('generateSchedule')
+			->with(
+				42,
+				$this->isInstanceOf(\DateTime::class),
+				$this->isInstanceOf(\DateTime::class)
+			)
+			->willReturn([
+				'assignments' => $generatedAssignments,
+			]);
+
+		$this->schedulingService->expects($this->once())
+			->method('getSchedulingSuggestions')
+			->with($generatedAssignments, 42)
+			->willReturn(['monday' => ['recommendedTasks' => 2]]);
+
+		$response = $this->controller->getSchedulingSuggestions();
+
+		$this->assertInstanceOf(DataResponse::class, $response);
+		$this->assertSame(200, $response->getStatus());
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertSame(2, $data['data']['monday']['recommendedTasks']);
+	}
+
+	/**
 	 * Test apply suggestion persists task assignment successfully.
 	 */
 	public function testApplySuggestion_SuccessfullyAssignsTask(): void {

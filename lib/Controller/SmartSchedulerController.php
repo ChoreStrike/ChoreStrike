@@ -258,8 +258,10 @@ class SmartSchedulerController extends Controller {
 				return new DataResponse(['error' => 'No house found for current user'], Http::STATUS_NOT_FOUND);
 			}
 
-			// Get unscheduled tasks (this would need to be implemented)
-			$tasks = []; // TODO: Get actual unscheduled tasks
+			$startDate = new \DateTime('today');
+			$endDate = (clone $startDate)->modify('+6 days');
+			$schedule = $this->smartSchedulerService->generateSchedule($houseId, $startDate, $endDate);
+			$tasks = $schedule['assignments'] ?? [];
 			$suggestions = $this->schedulingService->getSchedulingSuggestions($tasks, $houseId);
 			
 			return new DataResponse([

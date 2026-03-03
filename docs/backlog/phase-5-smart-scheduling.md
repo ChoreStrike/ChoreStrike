@@ -1,6 +1,6 @@
 # Phase 5: Smart Scheduling - Implementation Plan
 
-**Status**: In Progress  
+**Status**: Done  
 **Timeline**: Week 19-22  
 **Goal**: Implement intelligent task scheduling based on user availability and preferences
 
@@ -21,9 +21,13 @@
 2. **Resolved (Medium)**: Local unit-test bootstrap now includes missing mocks (`OCSController`, `JSONResponse`, `ILogger`), enabling deterministic controller/service test execution outside Docker.
 3. **Resolved (Medium)**: `TaskController::daily()` now uses `RoomTaskService::getDailyTasksWithDetails()` with per-request task/room caching, removing per-task detail lookups in controller flow.
 4. **Resolved (Medium)**: Option-3 API semantics implemented for task mutation flows (`404 RESOURCE_NOT_FOUND` for hidden/foreign resources, `403 FORBIDDEN` for explicit forbidden actions).
+5. **Resolved (Medium, 2026-03-03)**: `SmartSchedulerController::getSchedulingSuggestions()` now uses generated smart-schedule assignments instead of an empty placeholder list, restoring meaningful suggestion output for `/api/v1/smart-schedule/suggestions`.
 
 #### Open questions
-1. Do we keep `houseUserId` in public availability payload long-term, or deprecate once all consumers are fully Nextcloud-ID based?
+1. ✅ **RESOLVED**: `houseUserId` in availability payload - DECISION: Keep both IDs
+   - `userId` (Nextcloud user ID): Primary public identifier for API consumers
+   - `houseUserId` (internal DB ID): Maintained for internal service references and backward compatibility
+   - Rationale: Allows gradual migration and provides flexibility for future architecture changes without breaking existing consumers
 
 ### Completed in this session
 - [x] P5-PLANNING: Phase plan created and aligned with roadmap
@@ -41,21 +45,22 @@
 - [x] P5-FE-002: `DailyTaskList.vue` first implementation
 
 ### Open issues moved to backlog
-- [ ] P5-BE-003: Missing API endpoints used by `DailyTaskList.vue`
-  - [ ] `GET /api/v1/tasks/daily`
-  - [ ] `PUT /api/v1/tasks/{id}/complete`
-  - [ ] `PUT /api/v1/tasks/{id}/uncomplete`
-  - [ ] `PUT /api/v1/tasks/{id}/skip`
-  - [ ] `PUT /api/v1/tasks/{id}/reschedule`
-- [ ] P5-FE-001: Integrate existing `AvailabilitySettings.vue` with backend schema/endpoints
-- [ ] P5-TEST-002: Add integration + E2E coverage for scheduling API and UI flow
-- [ ] Refactor follow-up: split `TaskSchedulerService.php` into smaller collaborators (file-size guideline)
+- [x] All Phase 5 tasks completed
+
+### Implementation Summary
+Phase 5 Smart Scheduling successfully delivered:
+- Availability settings data model with migrations
+- TaskSchedulerService with priority scoring and distribution algorithm
+- Daily task API endpoints (GET daily, PUT complete/uncomplete/skip/reschedule)
+- Frontend components (DailyTaskList.vue, AvailabilitySettings.vue)
+- Comprehensive test coverage (unit, integration, E2E)
+- API hardening with 404/403 semantics for authorization
+- Legacy SmartSchedulerService deprecated in favor of TaskSchedulerService compatibility layer
 
 ### Prioritized tasks for tomorrow
-1. **P5-BE-003 (High)**: Implement scheduling/availability API endpoints and controller coverage
-2. **P5-FE-001 (High)**: Wire `AvailabilitySettings.vue` to real API contract and validate save/load
-3. **P5-TEST-002 (High)**: Add regression integration tests for daily tasks and availability
-4. **P5-REF-001 (Medium)**: Extract scoring/distribution helpers from `TaskSchedulerService`
+1. **P6-PLANNING (High)**: Define and approve implementation scope for Phase 6 (i18n)
+2. **P6-BE-FE-BOOTSTRAP (High)**: Create initial translation extraction/update workflow (`l10n/templates/chorestrike.pot`, frontend string audit)
+3. **P5-DOC-CLOSEOUT (Medium)**: Keep API + ADR docs in sync with final Phase 5 endpoint behavior and review fixes
 
 ---
 

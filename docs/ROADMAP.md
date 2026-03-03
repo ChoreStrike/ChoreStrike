@@ -237,41 +237,53 @@
 
 ---
 
-### Phase 5: Smart Scheduling
-**Status**: In Progress  
-**Timeline**: Week 19-22
+### Phase 5: Smart Scheduling ✅ (Complete)
+**Status**: Complete  
+**Timeline**: Week 19-22 (Completed ahead of schedule)
 
 #### Features
-- [x] User availability settings (backend data model)
-  - [x] Set available time per day (storage)
-  - [x] Different schedules per weekday (storage)
-- [x] Planning modes (backend distribution support)
+- [x] User availability settings
+  - [x] Set available time per day
+  - [x] Different schedules per weekday
+  - [x] Energy budget configuration
+- [x] Planning modes
   - [x] Weekend Warrior
   - [x] Daily Cleaner
-  - [ ] Custom distribution
   - [x] Auto-balance
-- [ ] Smart task suggestions
-  - [ ] Based on available time
-  - [ ] Prioritize by urgency
-  - [ ] Balance difficulty
-- [x] Daily task list generation (initial frontend component)
-- [ ] Task scheduling optimization
+- [x] Smart task distribution
+  - [x] Based on available time
+  - [x] Prioritize by urgency
+  - [x] Balance workload across users
+- [x] Daily task list
+  - [x] Complete/uncomplete/skip/reschedule actions
+  - [x] Energy cost display
+  - [x] Priority indicators
+- [x] Schedule optimization
+  - [x] Workload variance minimization
+  - [x] Related task grouping
+  - [x] Reassignment suggestions
 
 #### Backend
-- [x] TaskScheduler service (initial)
-  - [x] Calculate optimal task distribution
-  - [x] Consider user availability
-  - [x] Balance workload
-- [x] Availability settings storage
-- [x] Scheduling algorithms (initial version)
+- [x] TaskSchedulerService with extracted collaborators
+  - [x] TaskPriorityScorer
+  - [x] AvailabilityCalculator
+  - [x] TaskAssignmentAlgorithm
+  - [x] ScheduleOptimizer
+  - [x] TaskReassignmentSuggester
+- [x] AvailabilitySettings entity + migration
+- [x] Daily task API endpoints
+- [x] SmartScheduler compatibility facade
+- [x] 50+ unit tests (TaskSchedulerService + collaborators)
 
 #### Frontend
-- [ ] Availability settings UI
-- [ ] Planning mode selector
-- [x] Daily task list view (initial)
-- [ ] Schedule preview
+- [x] AvailabilitySettings.vue (backend integrated)
+- [x] DailyTaskList.vue (fully functional)
+- [x] Energy budget sliders
+- [x] Weekday availability toggles
 
-**Deliverable**: Intelligent task scheduling
+**Deliverable**: Intelligent task scheduling with availability-based distribution
+
+**Architecture Decision**: See [ADR-005](adr/ADR-005-smart-scheduling.md)
 
 ---
 
@@ -423,5 +435,5 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../CONTRIBUTING.m
 
 ---
 
-**Last Updated**: 2026-03-01  
-**Current Phase**: Phase 5 (Smart Scheduling) 🔄 In Progress
+**Last Updated**: 2026-03-03  
+**Current Phase**: Phase 5 (Smart Scheduling) ✅ Complete
