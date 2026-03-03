@@ -133,8 +133,7 @@ class TaskAssignmentAlgorithmTest extends TestCase {
 			],
 		];
 
-		$user1Settings = $userSettings[0]; // user1
-		$user1Settings->method('getMaxTasksPerDay')->willReturn(3);
+		$user1Settings = $userSettings[0]; // user1 with maxTasksPerDay=3
 
 		$result = $this->algorithm->findBestAssignment($scoredTask, [$user1Settings], [], $dailyWorkload);
 
@@ -156,8 +155,7 @@ class TaskAssignmentAlgorithmTest extends TestCase {
 			],
 		];
 
-		$user1Settings = $userSettings[0]; // user1
-		$user1Settings->method('getEnergyForDay')->willReturn(10);
+		$user1Settings = $userSettings[0]; // user1 with energyBudget=10
 
 		$result = $this->algorithm->findBestAssignment($scoredTask, [$user1Settings], [], $dailyWorkload);
 
