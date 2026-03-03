@@ -45,9 +45,16 @@ class TaskReassignmentSuggester {
 	 * @return array Suggested reassignments with scores and reasons
 	 */
 	public function suggestReassignment(int $roomTaskId): array {
-		// Get the room task
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		if (!$roomTask) {
+		try {
+			// Get the room task
+			$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
+			return [
+				'success' => false,
+				'error' => 'Room task not found',
+				'suggestions' => [],
+			];
+		} catch (\Exception $e) {
 			return [
 				'success' => false,
 				'error' => 'Room task not found',
@@ -56,8 +63,15 @@ class TaskReassignmentSuggester {
 		}
 
 		// Get task details
-		$task = $this->taskMapper->find($roomTask->getTaskId());
-		if (!$task) {
+		try {
+			$task = $this->taskMapper->find($roomTask->getTaskId());
+		} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
+			return [
+				'success' => false,
+				'error' => 'Task not found',
+				'suggestions' => [],
+			];
+		} catch (\Exception $e) {
 			return [
 				'success' => false,
 				'error' => 'Task not found',
