@@ -160,8 +160,15 @@ class AvailabilityCalculatorTest extends TestCase {
 		$user1->setEnergyBudget(['monday' => 10] + $this->getDefaultEnergy());
 		$user2->setEnergyBudget(['monday' => 5] + $this->getDefaultEnergy());
 
-		$result = $this->calculator->filterUsersByEnergy([$user1, $user2], 'monday', 6);
+		$currentEnergyUsage = [
+			'user1' => ['monday' => 3],
+			'user2' => ['monday' => 4],
+		];
 
+		$result = $this->calculator->filterUsersByEnergy([$user1, $user2], 'monday', 5, $currentEnergyUsage);
+
+		// User1: 3 + 5 = 8 <= 10 (available)
+		// User2: 4 + 5 = 9 > 5 (not available)
 		$this->assertCount(1, $result);
 		$this->assertEquals('user1', $result[0]->getUserId());
 	}
@@ -173,8 +180,15 @@ class AvailabilityCalculatorTest extends TestCase {
 		$user1->setMaxTasksPerDay(3);
 		$user2->setMaxTasksPerDay(2);
 
-		$result = $this->calculator->filterUsersByTaskLimit([$user1, $user2], 2);
+		$currentTaskCounts = [
+			'user1' => ['monday' => 2],
+			'user2' => ['monday' => 2],
+		];
 
+		$result = $this->calculator->filterUsersByTaskLimit([$user1, $user2], 'monday', $currentTaskCounts);
+
+		// User1: 2 < 3 (available)
+		// User2: 2 >= 2 (not available)
 		$this->assertCount(1, $result);
 		$this->assertEquals('user1', $result[0]->getUserId());
 	}
