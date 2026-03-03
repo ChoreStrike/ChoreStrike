@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\UserStats;
 use OCA\ChoreStrike\Service\MedalService;
 use OCA\ChoreStrike\Service\UserStatsService;
 use OCA\ChoreStrike\Service\ComboService;
