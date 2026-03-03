@@ -227,6 +227,7 @@ class TaskReassignmentSuggesterTest extends TestCase {
 		$roomTask->setId($id);
 		$roomTask->setRoomId($roomId);
 		$roomTask->setTaskId($id);
+		$roomTask->setNextDue(new \DateTime('+1 day')); // Set due date so scorer includes it
 		return $roomTask;
 	}
 
