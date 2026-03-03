@@ -426,7 +426,7 @@ tail -f /path/to/nextcloud/data/nextcloud.log
    ```javascript
    import { translate as t } from '@nextcloud/l10n'
    
-   const message = t('ChoreStrike', 'Hello World')
+   const message = t('chorestrike', 'Hello World')
    ```
 
 2. **Mark strings in PHP:**
@@ -434,16 +434,14 @@ tail -f /path/to/nextcloud/data/nextcloud.log
    $message = $this->l->t('Hello World');
    ```
 
-3. **Extract strings:**
-   ```bash
-   # This generates/updates l10n/templates/ChoreStrike.pot
-   npm run l10n:extract
-   ```
+3. **Follow the project workflow:**
+   - Use `docs/I18N_WORKFLOW.md` for the full POT + JSON process.
+   - Update `l10n/templates/chorestrike.pot`, `l10n/de.json`, and `l10n/en.json` in the same change set.
 
-4. **Translate:**
-   - Copy `.pot` to `de.po`, `en.po`, etc.
-   - Translate strings
-   - Compile to `.json`
+4. **Run key sync validation:**
+   ```bash
+   npm run l10n:check-keys
+   ```
 
 ## Performance Tips
 

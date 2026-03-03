@@ -88,9 +88,17 @@
 ## Priority 2: Translation Infrastructure Bootstrap (P6-BE-FE-BOOTSTRAP)
 
 ### Backend / Tooling Tasks
-- [ ] Define repeatable extraction command workflow for `l10n/templates/chorestrike.pot`.
-- [ ] Document update sequence for `l10n/de.json` and `l10n/en.json`.
-- [ ] Add validation checklist for key consistency and placeholder compatibility.
+- [x] Define repeatable extraction command workflow for `l10n/templates/chorestrike.pot`.
+- [x] Document update sequence for `l10n/de.json` and `l10n/en.json`.
+- [x] Add validation checklist for key consistency and placeholder compatibility.
+
+#### Bootstrap Artifacts (2026-03-03)
+- Added canonical workflow document: `docs/I18N_WORKFLOW.md`.
+- Updated contributor guidance in `docs/DEVELOPMENT.md` to use the Phase 6 workflow.
+- Added deterministic key-sync validator script: `scripts/check-l10n-keys.js`.
+- Added npm command: `npm run l10n:check-keys`.
+- Validation run passed:
+  - `npm run l10n:check-keys`
 
 ### Frontend Tasks
 - [ ] Replace hardcoded UI text in Vue components/stores with `t('chorestrike', ...)`.
@@ -98,9 +106,9 @@
 - [ ] Verify all user-visible notifications/dialogs are localized.
 
 ### Acceptance Criteria
-- [ ] POT generation instructions are deterministic and documented.
+- [x] POT generation instructions are deterministic and documented.
 - [ ] No high-traffic screen contains new hardcoded user-facing strings.
-- [ ] `de.json` and `en.json` stay key-synchronized for touched features.
+- [x] `de.json` and `en.json` stay key-synchronized for touched features.
 
 ---
 

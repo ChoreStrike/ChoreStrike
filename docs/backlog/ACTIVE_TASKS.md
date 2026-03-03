@@ -23,6 +23,8 @@
 - Implemented Option A medium-priority view i18n pass in `Settings.vue` and `TaskManager.vue`.
 - Added/updated regression tests for view-level i18n coverage (`tests/unit/views/Settings.spec.js`, `tests/unit/views/TaskManager.spec.js`).
 - Validation run passed: `npm test -- --runInBand tests/unit/views/Settings.spec.js tests/unit/views/TaskManager.spec.js`.
+- Implemented Option B bootstrap workflow artifacts: `docs/I18N_WORKFLOW.md`, updated `docs/DEVELOPMENT.md`, added `scripts/check-l10n-keys.js` and npm script.
+- Validation run passed: `npm run l10n:check-keys`.
 
 ---
 
@@ -506,4 +508,4 @@
 
 ---
 
-**Last Updated**: 2026-03-03 19:40
+**Last Updated**: 2026-03-03 19:55

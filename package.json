@@ -13,7 +13,8 @@
     "stylelint": "stylelint src/**/*.vue src/**/*.scss src/**/*.css",
     "stylelint:fix": "stylelint src/**/*.vue src/**/*.scss src/**/*.css --fix",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "l10n:check-keys": "node scripts/check-l10n-keys.js"
   },
   "dependencies": {
     "@nextcloud/auth": "^2.4.0",
