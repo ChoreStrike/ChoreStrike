@@ -412,6 +412,11 @@ class GameLogicServiceTest extends TestCase {
 			->method('getUserStats')
 			->willReturn(['taskCount' => 5, 'totalSparks' => 50]);
 
+		$medal = new Medal();
+		$medal->setId(1);
+		$medal->setUserId(1);
+		$medal->setMedalType('streak_keeper');
+
 		$this->medalMapper
 			->expects($this->exactly(2))
 			->method('findByUserTypeAndWeek')
@@ -419,7 +424,8 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->medalMapper
 			->expects($this->exactly(2))
-			->method('insert');
+			->method('insert')
+			->willReturn($medal);
 
 		$result = $this->service->checkAndAwardMedals($houseId);
 
