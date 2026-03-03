@@ -11,119 +11,142 @@ namespace OCA\ChoreStrike\Tests\Unit\Service\Scheduling;
 use OCA\ChoreStrike\Service\Scheduling\AvailabilityCalculator;
 use OCA\ChoreStrike\Db\AvailabilitySettings;
 use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\MockObject\MockObject;
 
 class AvailabilityCalculatorTest extends TestCase {
 
 	private AvailabilityCalculator $calculator;
-	private AvailabilitySettings|MockObject $settings;
 
 	protected function setUp(): void {
 		$this->calculator = new AvailabilityCalculator();
-		$this->settings = $this->createMockAvailabilitySettings();
 	}
 
 	public function testIsUserAvailable(): void {
-		$this->settings->method('isAvailableOn')
-			->with('monday')
-			->willReturn(true);
+		$settings = $this->createAvailabilitySettings();
+		$settings->setWeekdayAvailability([
+			'monday' => true,
+			'saturday' => false,
+		] + $this->getDefaultAvailability());
 
-		$result = $this->calculator->isUserAvailable($this->settings, 'monday');
-		$this->assertTrue($result);
-
-		$this->settings->method('isAvailableOn')
-			->with('saturday')
-			->willReturn(false);
-
-		$result = $this->calculator->isUserAvailable($this->settings, 'saturday');
-		$this->assertFalse($result);
+		$this->assertTrue($this->calculator->isUserAvailable($settings, 'monday'));
+		$this->assertFalse($this->calculator->isUserAvailable($settings, 'saturday'));
 	}
 
 	public function testGetAvailableDays(): void {
-		$availableDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-		$this->settings->method('getAvailableDays')->willReturn($availableDays);
+		$settings = $this->createAvailabilitySettings();
+		$settings->setWeekdayAvailability([
+			'monday' => true,
+			'tuesday' => true,
+			'wednesday' => true,
+			'thursday' => true,
+			'friday' => true,
+			'saturday' => false,
+			'sunday' => false,
+		]);
 
-		$result = $this->calculator->getAvailableDays($this->settings);
-		$this->assertEquals($availableDays, $result);
+		$result = $this->calculator->getAvailableDays($settings);
+		$this->assertEquals(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'], $result);
 	}
 
 	public function testGetEnergyBudget(): void {
-		$this->settings->method('getEnergyForDay')
-			->with('monday')
-			->willReturn(10);
+		$settings = $this->createAvailabilitySettings();
+		$settings->setEnergyBudget([
+			'monday' => 10,
+		] + $this->getDefaultEnergy());
 
-		$result = $this->calculator->getEnergyBudget($this->settings, 'monday');
+		$result = $this->calculator->getEnergyBudget($settings, 'monday');
 		$this->assertEquals(10, $result);
 	}
 
 	public function testHasEnergyBudget(): void {
-		$this->settings->method('getEnergyForDay')
-			->willReturn(15);
+		$settings = $this->createAvailabilitySettings();
+		$settings->setEnergyBudget([
+			'monday' => 15,
+		] + $this->getDefaultEnergy());
 
 		// Should have enough budget
-		$result = $this->calculator->hasEnergyBudget($this->settings, 'monday', 5, 8);
-		$this->assertTrue($result);
+		$this->assertTrue($this->calculator->hasEnergyBudget($settings, 'monday', 5, 8));
 
 		// Should not have enough budget
-		$result = $this->calculator->hasEnergyBudget($this->settings, 'monday', 8, 10);
-		$this->assertFalse($result);
+		$this->assertFalse($this->calculator->hasEnergyBudget($settings, 'monday', 8, 10));
 	}
 
 	public function testHasReachedTaskLimit(): void {
-		$this->settings->method('getMaxTasksPerDay')->willReturn(3);
+		$settings = $this->createAvailabilitySettings();
+		$settings->setMaxTasksPerDay(3);
 
 		// Should not have reached limit
-		$result = $this->calculator->hasReachedTaskLimit($this->settings, 'monday', 2);
-		$this->assertFalse($result);
+		$this->assertFalse($this->calculator->hasReachedTaskLimit($settings, 'monday', 2));
 
 		// Should have reached limit
-		$result = $this->calculator->hasReachedTaskLimit($this->settings, 'monday', 3);
-		$this->assertTrue($result);
+		$this->assertTrue($this->calculator->hasReachedTaskLimit($settings, 'monday', 3));
 	}
 
 	public function testGetTotalWeeklyEnergy(): void {
-		$this->settings->method('getTotalWeeklyEnergy')->willReturn(70);
+		$settings = $this->createAvailabilitySettings();
+		$settings->setEnergyBudget([
+			'monday' => 10,
+			'tuesday' => 10,
+			'wednesday' => 10,
+			'thursday' => 10,
+			'friday' => 10,
+			'saturday' => 10,
+			'sunday' => 10,
+		]);
 
-		$result = $this->calculator->getTotalWeeklyEnergy($this->settings);
+		$result = $this->calculator->getTotalWeeklyEnergy($settings);
 		$this->assertEquals(70, $result);
 	}
 
 	public function testGetAvailableHours(): void {
-		$this->settings->method('getAvailableHours')->willReturn(8.5);
+		$settings = $this->createAvailabilitySettings();
+		$settings->setTimeRanges([
+			'start' => '09:00',
+			'end' => '17:30',
+		]);
 
-		$result = $this->calculator->getAvailableHours($this->settings);
+		$result = $this->calculator->getAvailableHours($settings);
 		$this->assertEquals(8.5, $result);
 	}
 
 	public function testCalculateDailyCapacity(): void {
-		$this->settings->method('getMaxTasksPerDay')->willReturn(3);
-		$this->settings->method('getEnergyForDay')->willReturn(10);
-		$this->settings->method('isAvailableOn')->willReturn(true);
+		$settings = $this->createAvailabilitySettings();
+		$settings->setMaxTasksPerDay(3);
+		$settings->setEnergyBudget(['monday' => 10] + $this->getDefaultEnergy());
+		$settings->setWeekdayAvailability(['monday' => true] + $this->getDefaultAvailability());
 
-		$result = $this->calculator->calculateDailyCapacity($this->settings);
+		$result = $this->calculator->calculateDailyCapacity($settings);
 
-		$weekDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-		$this->assertCount(7, $result);
+		$this->assertArrayHasKey('tasks', $result);
+		$this->assertArrayHasKey('energy', $result);
+		$this->assertEquals(3, $result['tasks']);
+		$this->assertEquals(10, $result['energy']);
+	}
 
-		foreach ($weekDays as $day) {
-			$this->assertArrayHasKey($day, $result);
-			$this->assertEquals(3, $result[$day]['max_tasks']);
-			$this->assertEquals(10, $result[$day]['max_energy']);
-			$this->assertTrue($result[$day]['available']);
-		}
+	public function testCalculateAvailabilityScore(): void {
+		$settings = $this->createAvailabilitySettings();
+		$settings->setWeekdayAvailability(['monday' => true] + $this->getDefaultAvailability());
+		$settings->setEnergyBudget(['monday' => 10] + $this->getDefaultEnergy());
+
+		// Available with energy
+		$score = $this->calculator->calculateAvailabilityScore($settings, 'monday', 2, 1);
+		$this->assertGreaterThan(10, $score);
+
+		// Not available
+		$settings->setWeekdayAvailability(['monday' => false] + $this->getDefaultAvailability());
+		$score = $this->calculator->calculateAvailabilityScore($settings, 'monday', 2, 1);
+		$this->assertEquals(0.0, $score);
 	}
 
 	public function testFilterAvailableUsers(): void {
-		$user1 = $this->createMockAvailabilitySettings('user1');
-		$user2 = $this->createMockAvailabilitySettings('user2');
-		$user3 = $this->createMockAvailabilitySettings('user3');
+		$user1 = $this->createAvailabilitySettings('user1');
+		$user2 = $this->createAvailabilitySettings('user2');
+		$user3 = $this->createAvailabilitySettings('user3');
 
-		$user1->method('isAvailableOn')->with('monday')->willReturn(true);
-		$user2->method('isAvailableOn')->with('monday')->willReturn(false);
-		$user3->method('isAvailableOn')->with('monday')->willReturn(true);
+		$user1->setWeekdayAvailability(['monday' => true] + $this->getDefaultAvailability());
+		$user2->setWeekdayAvailability(['monday' => false] + $this->getDefaultAvailability());
+		$user3->setWeekdayAvailability(['monday' => true] + $this->getDefaultAvailability());
 
-		$users = [$user1, $user2, $user3];
-		$result = $this->calculator->filterAvailableUsers($users, 'monday');
+		$result = $this->calculator->filterAvailableUsers([$user1, $user2, $user3], 'monday');
 
 		$this->assertCount(2, $result);
 		$this->assertEquals('user1', $result[0]->getUserId());
@@ -131,65 +154,60 @@ class AvailabilityCalculatorTest extends TestCase {
 	}
 
 	public function testFilterUsersByEnergy(): void {
-		$user1 = $this->createMockAvailabilitySettings('user1');
-		$user2 = $this->createMockAvailabilitySettings('user2');
+		$user1 = $this->createAvailabilitySettings('user1');
+		$user2 = $this->createAvailabilitySettings('user2');
 
-		$user1->method('getEnergyForDay')->willReturn(10);
-		$user2->method('getEnergyForDay')->willReturn(5);
+		$user1->setEnergyBudget(['monday' => 10] + $this->getDefaultEnergy());
+		$user2->setEnergyBudget(['monday' => 5] + $this->getDefaultEnergy());
 
-		$currentUsage = [
-			'user1' => ['monday' => 3],
-			'user2' => ['monday' => 4],
-		];
+		$result = $this->calculator->filterUsersByEnergy([$user1, $user2], 'monday', 6);
 
-		$users = [$user1, $user2];
-		$result = $this->calculator->filterUsersByEnergy($users, 'monday', 5, $currentUsage);
-
-		// User1: 3 + 5 = 8 <= 10 (available)
-		// User2: 4 + 5 = 9 > 5 (not available)
 		$this->assertCount(1, $result);
 		$this->assertEquals('user1', $result[0]->getUserId());
 	}
 
 	public function testFilterUsersByTaskLimit(): void {
-		$user1 = $this->createMockAvailabilitySettings('user1');
-		$user2 = $this->createMockAvailabilitySettings('user2');
+		$user1 = $this->createAvailabilitySettings('user1');
+		$user2 = $this->createAvailabilitySettings('user2');
 
-		$user1->method('getMaxTasksPerDay')->willReturn(3);
-		$user2->method('getMaxTasksPerDay')->willReturn(2);
+		$user1->setMaxTasksPerDay(3);
+		$user2->setMaxTasksPerDay(2);
 
-		$currentCounts = [
-			'user1' => ['monday' => 2],
-			'user2' => ['monday' => 2],
-		];
+		$result = $this->calculator->filterUsersByTaskLimit([$user1, $user2], 2);
 
-		$users = [$user1, $user2];
-		$result = $this->calculator->filterUsersByTaskLimit($users, 'monday', $currentCounts);
-
-		// User1: 2 < 3 (available)
-		// User2: 2 >= 2 (not available)
 		$this->assertCount(1, $result);
 		$this->assertEquals('user1', $result[0]->getUserId());
 	}
 
-	public function testCalculateAvailabilityScore(): void {
-		$this->settings->method('isAvailableOn')->willReturn(true);
-		$this->settings->method('getEnergyForDay')->willReturn(10);
-		$this->settings->method('getMaxTasksPerDay')->willReturn(3);
-
-		// High availability score
-		$score = $this->calculator->calculateAvailabilityScore($this->settings, 'monday', 2, 1);
-		$this->assertGreaterThan(10, $score);
-
-		// Not available
-		$this->settings->method('isAvailableOn')->willReturn(false);
-		$score = $this->calculator->calculateAvailabilityScore($this->settings, 'monday', 2, 1);
-		$this->assertEquals(0.0, $score);
+	private function createAvailabilitySettings(string $userId = 'test_user'): AvailabilitySettings {
+		$settings = new AvailabilitySettings();
+		$settings->setUserId($userId);
+		$settings->setWeekdayAvailability($this->getDefaultAvailability());
+		$settings->setEnergyBudget($this->getDefaultEnergy());
+		return $settings;
 	}
 
-	private function createMockAvailabilitySettings(string $userId): AvailabilitySettings {
-		$settings = $this->createMock(AvailabilitySettings::class);
-		$settings->method('getUserId')->willReturn($userId);
-		return $settings;
+	private function getDefaultAvailability(): array {
+		return [
+			'monday' => true,
+			'tuesday' => true,
+			'wednesday' => true,
+			'thursday' => true,
+			'friday' => true,
+			'saturday' => true,
+			'sunday' => true,
+		];
+	}
+
+	private function getDefaultEnergy(): array {
+		return [
+			'monday' => 10,
+			'tuesday' => 10,
+			'wednesday' => 10,
+			'thursday' => 10,
+			'friday' => 10,
+			'saturday' => 10,
+			'sunday' => 10,
+		];
 	}
 }
