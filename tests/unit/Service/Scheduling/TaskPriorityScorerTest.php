@@ -134,18 +134,18 @@ class TaskPriorityScorerTest extends TestCase {
 	}
 
 	private function createMockRoomTask(int $id, ?\DateTime $nextDue = null): RoomTask {
-		$roomTask = $this->createMock(RoomTask::class);
-		$roomTask->method('getId')->willReturn($id);
-		$roomTask->method('getTaskId')->willReturn($id);
-		$roomTask->method('getNextDue')->willReturn($nextDue);
+		$roomTask = new RoomTask();
+		$roomTask->setId($id);
+		$roomTask->setTaskId($id);
+		$roomTask->setNextDue($nextDue);
 		return $roomTask;
 	}
 
 	private function createMockTask(int $id, int $priority, int $energyCost): Task {
-		$task = $this->createMock(Task::class);
-		$task->method('getId')->willReturn($id);
-		$task->method('getPriority')->willReturn($priority);
-		$task->method('getEnergyCost')->willReturn($energyCost);
+		$task = new Task();
+		$task->setId($id);
+		$task->setPriority($priority);
+		$task->setEnergyCost($energyCost);
 		return $task;
 	}
 }
