@@ -100,7 +100,12 @@ class Combo extends Entity implements JsonSerializable {
 		$now = new \DateTime();
 		$diff = $now->diff($this->lastTaskAt);
 		
-		return $diff->days >= 1 || ($diff->days === 0 && $diff->h >= 24);
+		// If lastTaskAt is in the future or very recent, not timed out
+		if ($diff->invert === 0 || $diff->days < 1) {
+			return false;
+		}
+		
+		return true;
 	}
 
 	/**
