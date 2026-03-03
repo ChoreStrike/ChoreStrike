@@ -76,13 +76,13 @@
 									<div class="floor-actions">
 										<button
 											class="icon-button"
-											title="Edit floor"
+											:title="t('chorestrike', 'Edit floor')"
 											@click="editFloor(floor)">
 											<Icon name="Edit" :size="16" />
 										</button>
 										<button
 											class="icon-button danger"
-											title="Delete floor"
+											:title="t('chorestrike', 'Delete floor')"
 											@click="deleteFloor(floor)">
 											<Icon name="Trash" :size="16" />
 										</button>
@@ -183,7 +183,7 @@
 						v-model="resetConfirmation"
 						type="text"
 						class="text-input"
-						placeholder="RESET">
+						:placeholder="t('chorestrike', 'RESET')">
 				</div>
 				<div class="modal-actions">
 					<button class="secondary-button" @click="showResetModal = false">

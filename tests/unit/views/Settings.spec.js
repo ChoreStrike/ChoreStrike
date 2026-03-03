@@ -2,7 +2,12 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises } from '@vue/test-utils'
+import { translate } from '@nextcloud/l10n'
 import Settings from '../../../src/views/Settings.vue'
+
+jest.mock('@nextcloud/l10n', () => ({
+	translate: jest.fn((app, text) => text),
+}))
 
 // Mock vue-router
 jest.mock('vue-router', () => ({
@@ -68,6 +73,7 @@ describe('Settings.vue', () => {
 	beforeEach(() => {
 		pinia = createPinia()
 		setActivePinia(pinia)
+		translate.mockClear()
 	})
 
 	it('renders settings component', () => {
@@ -239,5 +245,19 @@ describe('Settings.vue', () => {
 
 		const dangerButtons = wrapper.findAll('.icon-button.danger')
 		expect(dangerButtons.length).toBe(2)
+	})
+
+	it('uses localized title and placeholder bindings for remaining ui literals', async () => {
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		expect(translate).toHaveBeenCalledWith('chorestrike', 'Edit floor')
+		expect(translate).toHaveBeenCalledWith('chorestrike', 'Delete floor')
+
+		await wrapper.find('.danger-button').trigger('click')
+		expect(translate).toHaveBeenCalledWith('chorestrike', 'RESET')
 	})
 })

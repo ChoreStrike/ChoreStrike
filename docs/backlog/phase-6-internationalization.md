@@ -116,10 +116,17 @@
   - `src/components/Dashboard/FloorList.vue`
   - `src/components/Dashboard/RoomCard.vue`
   - `src/components/Dashboard/HouseHealthBar.vue`
+- Localized medium-priority view leftovers:
+  - `src/views/Settings.vue` (floor action titles, reset placeholder)
+  - `src/views/TaskManager.vue` (difficulty option labels)
 - Added regression coverage for critical dashboard i18n paths in:
   - `tests/unit/components/FloorList.spec.js`
+- Added/updated regression coverage for medium-priority view i18n paths in:
+  - `tests/unit/views/Settings.spec.js`
+  - `tests/unit/views/TaskManager.spec.js`
 - Validation run:
   - `npm test -- --runInBand tests/unit/components/FloorList.spec.js tests/unit/components/RoomCard.spec.js tests/unit/components/HouseHealthBar.spec.js`
+  - `npm test -- --runInBand tests/unit/views/Settings.spec.js tests/unit/views/TaskManager.spec.js`
 
 ### P6-BE-001: Backend/API Message Localization Compliance
 - [ ] Audit controller/service response messages for translatability strategy.

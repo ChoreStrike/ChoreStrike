@@ -62,19 +62,19 @@
 						{{ t('chorestrike', 'All Difficulties') }}
 					</option>
 					<option value="1">
-						★ (Quick)
+						{{ t('chorestrike', 'Level 1 (Quick)') }}
 					</option>
 					<option value="2">
-						★★ (Easy)
+						{{ t('chorestrike', 'Level 2 (Easy)') }}
 					</option>
 					<option value="3">
-						★★★ (Medium)
+						{{ t('chorestrike', 'Level 3 (Medium)') }}
 					</option>
 					<option value="4">
-						★★★★ (Hard)
+						{{ t('chorestrike', 'Level 4 (Hard)') }}
 					</option>
 					<option value="5">
-						★★★★★ (Major)
+						{{ t('chorestrike', 'Level 5 (Major)') }}
 					</option>
 				</select>
 			</div>

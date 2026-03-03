@@ -20,6 +20,9 @@
 - Implemented Option A high-priority dashboard i18n pass in `FloorList.vue`, `RoomCard.vue`, and `HouseHealthBar.vue`.
 - Added regression test coverage for critical dashboard translations (`tests/unit/components/FloorList.spec.js`).
 - Validation run passed: `npm test -- --runInBand tests/unit/components/FloorList.spec.js tests/unit/components/RoomCard.spec.js tests/unit/components/HouseHealthBar.spec.js`.
+- Implemented Option A medium-priority view i18n pass in `Settings.vue` and `TaskManager.vue`.
+- Added/updated regression tests for view-level i18n coverage (`tests/unit/views/Settings.spec.js`, `tests/unit/views/TaskManager.spec.js`).
+- Validation run passed: `npm test -- --runInBand tests/unit/views/Settings.spec.js tests/unit/views/TaskManager.spec.js`.
 
 ---
 
@@ -503,4 +506,4 @@
 
 ---
 
-**Last Updated**: 2026-03-03 18:35
+**Last Updated**: 2026-03-03 19:40

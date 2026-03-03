@@ -217,4 +217,16 @@ describe('TaskManager.vue', () => {
 		await statusSelect.setValue('active')
 		expect(wrapper.vm.filterStatus).toBe('active')
 	})
+
+	it('renders localized difficulty labels', () => {
+		const wrapper = mount(TaskManager, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		const options = wrapper.find('[data-testid="difficulty-filter"]').findAll('option')
+		expect(options.at(1).text()).toContain('Level 1 (Quick)')
+		expect(options.at(5).text()).toContain('Level 5 (Major)')
+	})
 })
