@@ -132,9 +132,21 @@
 - Added/updated regression coverage for medium-priority view i18n paths in:
   - `tests/unit/views/Settings.spec.js`
   - `tests/unit/views/TaskManager.spec.js`
+- Localized medium-priority store fallback/error paths:
+  - `src/store/user.js`
+  - `src/store/tasks.js`
+- Added regression coverage for store fallback localization in:
+  - `tests/unit/store/user.spec.js`
+  - `tests/unit/store/tasks.spec.js`
+- Added translation keys for store fallbacks in:
+  - `l10n/templates/chorestrike.pot`
+  - `l10n/de.json`
+  - `l10n/en.json`
 - Validation run:
   - `npm test -- --runInBand tests/unit/components/FloorList.spec.js tests/unit/components/RoomCard.spec.js tests/unit/components/HouseHealthBar.spec.js`
   - `npm test -- --runInBand tests/unit/views/Settings.spec.js tests/unit/views/TaskManager.spec.js`
+  - `npm test -- --runInBand tests/unit/store/user.spec.js tests/unit/store/tasks.spec.js`
+  - `npm run l10n:check-keys`
 
 ### P6-BE-001: Backend/API Message Localization Compliance
 - [ ] Audit controller/service response messages for translatability strategy.

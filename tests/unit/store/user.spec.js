@@ -17,7 +17,12 @@ jest.mock('@nextcloud/axios', () => ({
 	},
 }))
 
+jest.mock('@nextcloud/l10n', () => ({
+	translate: jest.fn((app, message) => message),
+}))
+
 import axios from '@nextcloud/axios'
+import { translate as t } from '@nextcloud/l10n'
 
 describe('User Store', () => {
 	let store
@@ -54,6 +59,7 @@ describe('User Store', () => {
 
 		it('userDisplayName returns Unknown User when no current user', () => {
 			expect(store.userDisplayName).toBe('Unknown User')
+			expect(t).toHaveBeenCalledWith('chorestrike', 'Unknown User')
 		})
 
 		it('isHouseOwner returns true for owner role', () => {
@@ -157,6 +163,15 @@ describe('User Store', () => {
 				expect(result).toEqual(mockUser)
 				expect(store.currentUser).toEqual(mockUser)
 			})
+
+			it('uses localized fallback for initializeCurrentUser error', async () => {
+				axios.get.mockResolvedValue({
+					data: { success: false, error: {} }
+				})
+
+				await expect(store.initializeCurrentUser()).rejects.toThrow('Failed to initialize current user')
+				expect(t).toHaveBeenCalledWith('chorestrike', 'Failed to initialize current user')
+			})
 		})
 
 		describe('fetchHouseUsers', () => {
@@ -186,6 +201,7 @@ describe('User Store', () => {
 
 			it('throws error for invalid role', async () => {
 				await expect(store.inviteUser('test@test.com', 'invalid')).rejects.toThrow('Invalid role')
+				expect(t).toHaveBeenCalledWith('chorestrike', 'Invalid role')
 			})
 		})
 

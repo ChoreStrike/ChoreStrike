@@ -25,6 +25,12 @@
 - Validation run passed: `npm test -- --runInBand tests/unit/views/Settings.spec.js tests/unit/views/TaskManager.spec.js`.
 - Implemented Option B bootstrap workflow artifacts: `docs/I18N_WORKFLOW.md`, updated `docs/DEVELOPMENT.md`, added `scripts/check-l10n-keys.js` and npm script.
 - Validation run passed: `npm run l10n:check-keys`.
+- Implemented store i18n fallback localization in `src/store/user.js` and `src/store/tasks.js`.
+- Added translation keys for new store messages in `l10n/templates/chorestrike.pot`, `l10n/de.json`, and `l10n/en.json`.
+- Added regression tests for localized store fallback paths (`tests/unit/store/user.spec.js`, `tests/unit/store/tasks.spec.js`).
+- Validation runs passed:
+  - `npm test -- --runInBand tests/unit/store/user.spec.js tests/unit/store/tasks.spec.js`
+  - `npm run l10n:check-keys`
 
 ---
 
@@ -508,4 +514,4 @@
 
 ---
 
-**Last Updated**: 2026-03-03 19:55
+**Last Updated**: 2026-03-03 21:50

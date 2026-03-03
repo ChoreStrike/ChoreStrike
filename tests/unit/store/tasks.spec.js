@@ -10,7 +10,12 @@ jest.mock('@nextcloud/axios', () => ({
 	delete: jest.fn(),
 }))
 
+jest.mock('@nextcloud/l10n', () => ({
+	translate: jest.fn((app, message) => message),
+}))
+
 import axios from '@nextcloud/axios'
+import { translate as t } from '@nextcloud/l10n'
 
 describe('Tasks Store', () => {
 	let store
@@ -135,6 +140,15 @@ describe('Tasks Store', () => {
 				await store.fetchTasks()
 
 				expect(store.tasks).toEqual(mockTasks)
+			})
+
+			it('uses localized fallback when fetchTasks fails without backend message', async () => {
+				axios.get.mockResolvedValue({
+					data: { success: false, error: {} }
+				})
+
+				await expect(store.fetchTasks()).rejects.toThrow('Failed to fetch tasks')
+				expect(t).toHaveBeenCalledWith('chorestrike', 'Failed to fetch tasks')
 			})
 		})
 

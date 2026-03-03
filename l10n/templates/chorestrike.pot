@@ -374,3 +374,66 @@ msgstr ""
 
 msgid "Please try again later"
 msgstr ""
+
+msgid "Unknown User"
+msgstr ""
+
+msgid "Failed to initialize current user"
+msgstr ""
+
+msgid "Failed to fetch house users"
+msgstr ""
+
+msgid "Email is required"
+msgstr ""
+
+msgid "Invalid role"
+msgstr ""
+
+msgid "Failed to invite user"
+msgstr ""
+
+msgid "User ID is required"
+msgstr ""
+
+msgid "Failed to remove user"
+msgstr ""
+
+msgid "Failed to update user role"
+msgstr ""
+
+msgid "Failed to update user profile"
+msgstr ""
+
+msgid "Failed to fetch tasks"
+msgstr ""
+
+msgid "Failed to fetch task templates"
+msgstr ""
+
+msgid "Failed to fetch room tasks"
+msgstr ""
+
+msgid "Failed to create task"
+msgstr ""
+
+msgid "Failed to create task from template"
+msgstr ""
+
+msgid "Failed to update task"
+msgstr ""
+
+msgid "Failed to delete task"
+msgstr ""
+
+msgid "Failed to create default templates"
+msgstr ""
+
+msgid "Failed to search tasks"
+msgstr ""
+
+msgid "Failed to fetch tasks by category"
+msgstr ""
+
+msgid "Failed to fetch task categories"
+msgstr ""

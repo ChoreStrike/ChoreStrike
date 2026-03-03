@@ -5,6 +5,9 @@
 
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
+import { translate as t } from '@nextcloud/l10n'
+
+const tr = (message) => t('chorestrike', message)
 
 export const useUserStore = defineStore('user', {
 	state: () => ({
@@ -17,7 +20,7 @@ export const useUserStore = defineStore('user', {
 	getters: {
 		userId: (state) => state.currentUser?.id || null,
 
-		userDisplayName: (state) => state.currentUser?.displayName || 'Unknown User',
+		userDisplayName: (state) => state.currentUser?.displayName || tr('Unknown User'),
 
 		isHouseOwner: (state) => state.currentUser?.role === 'owner',
 
@@ -65,7 +68,7 @@ export const useUserStore = defineStore('user', {
 					this.currentUser = response.data.data
 					return this.currentUser
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to initialize current user')
+					throw new Error(response.data.error?.message || tr('Failed to initialize current user'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -87,7 +90,7 @@ export const useUserStore = defineStore('user', {
 				if (response.data.success) {
 					this.houseUsers = response.data.data
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch house users')
+					throw new Error(response.data.error?.message || tr('Failed to fetch house users'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -105,11 +108,11 @@ export const useUserStore = defineStore('user', {
 		 */
 		async inviteUser(email, role = 'member') {
 			if (!email || email.trim() === '') {
-				throw new Error('Email is required')
+				throw new Error(tr('Email is required'))
 			}
 
 			if (!['owner', 'member', 'child'].includes(role)) {
-				throw new Error('Invalid role')
+				throw new Error(tr('Invalid role'))
 			}
 
 			this.loading = true
@@ -125,7 +128,7 @@ export const useUserStore = defineStore('user', {
 					}
 					return response.data.data
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to invite user')
+					throw new Error(response.data.error?.message || tr('Failed to invite user'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -142,7 +145,7 @@ export const useUserStore = defineStore('user', {
 		 */
 		async removeUser(userId) {
 			if (!userId) {
-				throw new Error('User ID is required')
+				throw new Error(tr('User ID is required'))
 			}
 
 			this.loading = true
@@ -155,7 +158,7 @@ export const useUserStore = defineStore('user', {
 					// Remove from house users
 					this.houseUsers = this.houseUsers.filter(user => user.id !== userId)
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to remove user')
+					throw new Error(response.data.error?.message || tr('Failed to remove user'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -173,11 +176,11 @@ export const useUserStore = defineStore('user', {
 		 */
 		async updateUserRole(userId, role) {
 			if (!userId) {
-				throw new Error('User ID is required')
+				throw new Error(tr('User ID is required'))
 			}
 
 			if (!['owner', 'member', 'child'].includes(role)) {
-				throw new Error('Invalid role')
+				throw new Error(tr('Invalid role'))
 			}
 
 			this.loading = true
@@ -198,7 +201,7 @@ export const useUserStore = defineStore('user', {
 						this.currentUser = response.data.data
 					}
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to update user role')
+					throw new Error(response.data.error?.message || tr('Failed to update user role'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -216,7 +219,7 @@ export const useUserStore = defineStore('user', {
 		 */
 		async updateUserProfile(userId, profileData) {
 			if (!userId) {
-				throw new Error('User ID is required')
+				throw new Error(tr('User ID is required'))
 			}
 
 			this.loading = true
@@ -237,7 +240,7 @@ export const useUserStore = defineStore('user', {
 						this.currentUser = response.data.data
 					}
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to update user profile')
+					throw new Error(response.data.error?.message || tr('Failed to update user profile'))
 				}
 			} catch (error) {
 				this.error = error.message

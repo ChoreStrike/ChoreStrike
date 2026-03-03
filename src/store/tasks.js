@@ -5,6 +5,9 @@
 
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
+import { translate as t } from '@nextcloud/l10n'
+
+const tr = (message) => t('chorestrike', message)
 
 export const useTasksStore = defineStore('tasks', {
 	state: () => ({
@@ -117,7 +120,7 @@ export const useTasksStore = defineStore('tasks', {
 				if (response.data.success) {
 					this.tasks = response.data.data
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch tasks')
+					throw new Error(response.data.error?.message || tr('Failed to fetch tasks'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -141,7 +144,7 @@ export const useTasksStore = defineStore('tasks', {
 				if (response.data.success) {
 					this.templates = response.data.data
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch task templates')
+					throw new Error(response.data.error?.message || tr('Failed to fetch task templates'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -169,7 +172,7 @@ export const useTasksStore = defineStore('tasks', {
 					this.roomTasks = this.roomTasks.filter(roomTask => roomTask.roomId !== roomId)
 					this.roomTasks.push(...response.data.data)
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch room tasks')
+					throw new Error(response.data.error?.message || tr('Failed to fetch room tasks'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -195,7 +198,7 @@ export const useTasksStore = defineStore('tasks', {
 					this.tasks.push(response.data.data)
 					return response.data.data
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to create task')
+					throw new Error(response.data.error?.message || tr('Failed to create task'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -221,7 +224,7 @@ export const useTasksStore = defineStore('tasks', {
 					this.tasks.push(response.data.data)
 					return response.data.data
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to create task from template')
+					throw new Error(response.data.error?.message || tr('Failed to create task from template'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -250,7 +253,7 @@ export const useTasksStore = defineStore('tasks', {
 						this.tasks[taskIndex] = response.data.data
 					}
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to update task')
+					throw new Error(response.data.error?.message || tr('Failed to update task'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -276,7 +279,7 @@ export const useTasksStore = defineStore('tasks', {
 					// Remove task from state
 					this.tasks = this.tasks.filter(t => t.id !== taskId)
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to delete task')
+					throw new Error(response.data.error?.message || tr('Failed to delete task'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -307,7 +310,7 @@ export const useTasksStore = defineStore('tasks', {
 						}
 					})
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to create default templates')
+					throw new Error(response.data.error?.message || tr('Failed to create default templates'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -336,7 +339,7 @@ export const useTasksStore = defineStore('tasks', {
 				if (response.data.success) {
 					return response.data.data
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to search tasks')
+					throw new Error(response.data.error?.message || tr('Failed to search tasks'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -361,7 +364,7 @@ export const useTasksStore = defineStore('tasks', {
 				if (response.data.success) {
 					return response.data.data
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch tasks by category')
+					throw new Error(response.data.error?.message || tr('Failed to fetch tasks by category'))
 				}
 			} catch (error) {
 				this.error = error.message
@@ -385,7 +388,7 @@ export const useTasksStore = defineStore('tasks', {
 				if (response.data.success) {
 					return response.data.data
 				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch task categories')
+					throw new Error(response.data.error?.message || tr('Failed to fetch task categories'))
 				}
 			} catch (error) {
 				this.error = error.message
