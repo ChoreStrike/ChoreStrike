@@ -6,34 +6,33 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { generateUrl } from '@nextcloud/router'
 
-import Dashboard from './views/Dashboard.vue'
-
+// Lazy-loaded routes with named chunks for better caching
 const routes = [
 	{
 		path: '/',
 		name: 'dashboard',
-		component: Dashboard,
+		component: () => import(/* webpackChunkName: "dashboard" */ './views/Dashboard.vue'),
 	},
 	{
 		path: '/tasks',
 		name: 'tasks',
-		component: () => import('./views/TaskManager.vue'),
+		component: () => import(/* webpackChunkName: "tasks" */ './views/TaskManager.vue'),
 	},
 	{
 		path: '/room/:id',
 		name: 'room',
-		component: () => import('./views/RoomDetail.vue'),
+		component: () => import(/* webpackChunkName: "room" */ './views/RoomDetail.vue'),
 		props: true,
 	},
 	{
 		path: '/leaderboard',
 		name: 'leaderboard',
-		component: () => import('./views/Leaderboard.vue'),
+		component: () => import(/* webpackChunkName: "leaderboard" */ './views/Leaderboard.vue'),
 	},
 	{
 		path: '/settings',
 		name: 'settings',
-		component: () => import('./views/Settings.vue'),
+		component: () => import(/* webpackChunkName: "settings" */ './views/Settings.vue'),
 	},
 ]
 
