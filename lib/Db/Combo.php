@@ -84,9 +84,9 @@ class Combo extends Entity implements JsonSerializable {
 	 * Add task to combo
 	 */
 	public function addTask(int $points = 10): void {
-		$this->taskCount++;
-		$this->comboBonusPoints += $points;
-		$this->lastTaskAt = new \DateTime();
+		$this->setTaskCount($this->taskCount + 1);
+		$this->setComboBonusPoints($this->comboBonusPoints + $points);
+		$this->setLastTaskAt(new \DateTime());
 	}
 
 	/**
@@ -112,7 +112,7 @@ class Combo extends Entity implements JsonSerializable {
 	 * End combo
 	 */
 	public function end(): void {
-		$this->isActive = false;
+		$this->setIsActive(false);
 	}
 
 	/**
