@@ -182,10 +182,24 @@ class MedalServiceTest extends TestCase {
 			->with(1)
 			->willReturn([$user]);
 
+		// Mock UserStats with streak
+		$stats = new UserStats();
+		$stats->setCurrentStreak(10);
+		$this->userStatsService->expects($this->once())
+			->method('getOrCreateStats')
+			->with(1, 'user1')
+			->willReturn($stats);
+
 		// Less than 10 tasks -> no Team Anchor
 		$this->completedTaskMapper->expects($this->once())
 			->method('getUserStats')
 			->willReturn(['taskCount' => 5]);
+
+		// No combo stats
+		$this->comboService->expects($this->once())
+			->method('getComboStats')
+			->with(1)
+			->willReturn([]);
 
 		// 7+ day streak -> Streak Keeper
 		$this->medalMapper->expects($this->any())
@@ -309,10 +323,24 @@ class MedalServiceTest extends TestCase {
 			->with(1)
 			->willReturn([$user]);
 
+		// Mock UserStats with streak
+		$stats = new UserStats();
+		$stats->setCurrentStreak(10);
+		$this->userStatsService->expects($this->once())
+			->method('getOrCreateStats')
+			->with(1, 'user1')
+			->willReturn($stats);
+
 		// 10+ tasks -> Team Anchor
 		$this->completedTaskMapper->expects($this->once())
 			->method('getUserStats')
 			->willReturn(['taskCount' => 15]);
+
+		// No combo stats
+		$this->comboService->expects($this->once())
+			->method('getComboStats')
+			->with(1)
+			->willReturn([]);
 
 		// 10 day streak -> Streak Keeper
 		$this->medalMapper->expects($this->any())
