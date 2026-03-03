@@ -18,11 +18,23 @@ abstract class QBMapper {
         $this->tableName = $tableName;
     }
     
+    public function getTableName(): string {
+        return $this->tableName;
+    }
+    
     public function find(int $id) {
         return null;
     }
     
     public function findAll() {
+        return [];
+    }
+    
+    public function findEntity($query) {
+        return null;
+    }
+    
+    public function findEntities($query) {
         return [];
     }
     
