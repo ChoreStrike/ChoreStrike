@@ -84,7 +84,7 @@ class TaskReassignmentSuggesterTest extends TestCase {
 	public function testSuggestReassignmentWithInvalidTaskId(): void {
 		$roomTaskId = 999;
 
-		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn(null);
+		$this->roomTaskMapper->method('find')->with($roomTaskId)->willThrowException(new \Exception('Room task not found'));
 
 		$result = $this->suggester->suggestReassignment($roomTaskId);
 
