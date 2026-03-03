@@ -187,11 +187,11 @@ class TaskAssignmentAlgorithmTest extends TestCase {
 	}
 
 	private function createScoredTask(int $priorityScore, int $energyCost, bool $isOverdue): array {
-		$roomTask = $this->createMock(RoomTask::class);
-		$roomTask->method('getId')->willReturn(1);
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
 		
-		$task = $this->createMock(Task::class);
-		$task->method('getName')->willReturn('Test Task');
+		$task = new Task();
+		$task->setName('Test Task');
 
 		return [
 			'room_task' => $roomTask,
@@ -204,19 +204,29 @@ class TaskAssignmentAlgorithmTest extends TestCase {
 	}
 
 	private function createUserSettings(bool $available = true): array {
-		$user1 = $this->createMock(AvailabilitySettings::class);
-		$user1->method('getUserId')->willReturn('user1');
-		$user1->method('isAvailableOn')->willReturn($available);
-		$user1->method('getMaxTasksPerDay')->willReturn(3);
-		$user1->method('getEnergyForDay')->willReturn(10);
-		$user1->method('getDefaultDistribution')->willReturn(['monday' => 0.5, 'tuesday' => 0.3, 'wednesday' => 0.2]);
+		$user1 = new AvailabilitySettings();
+		$user1->setUserId('user1');
+		$user1->setWeekdayAvailability([
+			'monday' => $available, 'tuesday' => $available, 'wednesday' => $available,
+			'thursday' => $available, 'friday' => $available, 'saturday' => $available, 'sunday' => $available
+		]);
+		$user1->setMaxTasksPerDay(3);
+		$user1->setEnergyBudget([
+			'monday' => 10, 'tuesday' => 10, 'wednesday' => 10,
+			'thursday' => 10, 'friday' => 10, 'saturday' => 10, 'sunday' => 10
+		]);
 
-		$user2 = $this->createMock(AvailabilitySettings::class);
-		$user2->method('getUserId')->willReturn('user2');
-		$user2->method('isAvailableOn')->willReturn($available);
-		$user2->method('getMaxTasksPerDay')->willReturn(2);
-		$user2->method('getEnergyForDay')->willReturn(8);
-		$user2->method('getDefaultDistribution')->willReturn(['monday' => 0.3, 'tuesday' => 0.4, 'wednesday' => 0.3]);
+		$user2 = new AvailabilitySettings();
+		$user2->setUserId('user2');
+		$user2->setWeekdayAvailability([
+			'monday' => $available, 'tuesday' => $available, 'wednesday' => $available,
+			'thursday' => $available, 'friday' => $available, 'saturday' => $available, 'sunday' => $available
+		]);
+		$user2->setMaxTasksPerDay(2);
+		$user2->setEnergyBudget([
+			'monday' => 8, 'tuesday' => 8, 'wednesday' => 8,
+			'thursday' => 8, 'friday' => 8, 'saturday' => 8, 'sunday' => 8
+		]);
 
 		return [$user1, $user2];
 	}
