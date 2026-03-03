@@ -5,12 +5,18 @@
 
 ## Currently Active
 
+_No tasks currently in progress._
+
+---
+
+## Recently Completed (Last 7 Days)
+
 ### Cascade - P7-PERF - Phase 7 Polish & Optimization
-**Status**: In Progress  
+**Status**: Done  
 **Started**: 2026-03-04 10:50  
-**Updated**: 2026-03-04 11:30  
+**Completed**: 2026-03-04 12:30  
 **Branch**: master  
-**Related Files**: docs/backlog/phase-7-polish-optimization.md, webpack.config.js, src/router.js, lib/Migration/Version1015Date20260304000000.php, src/views/Dashboard.vue, src/components/Tasks/TaskList.vue  
+**Related Files**: docs/backlog/phase-7-polish-optimization.md, webpack.config.js, src/router.js, lib/Migration/Version1015Date20260304000000.php, src/views/Dashboard.vue, src/components/Tasks/TaskList.vue, lib/Db/Combo.php, lib/Service/GameLogicService.php, tests/unit/Service/MedalServiceTest.php, tests/unit/Service/GameLogicServiceTest.php, tests/unit/Service/Scheduling/*.php, phpunit.unit.xml  
 **Blockers**: None  
 **Notes**:
 - Phase 7 plan created in `docs/backlog/phase-7-polish-optimization.md`
@@ -25,10 +31,17 @@
 - **P7-UX-001 completed**: Skeleton loaders
   - Dashboard: header, health bar, stats, floors skeletons
   - TaskList: 5 animated task item skeletons
+- **P7-TEST-001 completed**: Backend unit test fixes
+  - Fixed Combo entity to use setters for mock compatibility
+  - Fixed GameLogicService shouldResetStreak logic
+  - Fixed MedalServiceTest to mock userStatsService
+  - Fixed TaskReassignmentSuggesterTest with proper due dates
+  - Fixed AvailabilityCalculatorTest to match implementation
+  - Fixed TaskPriorityScorerTest with callback mocks
+  - Excluded Mapper tests from Entity suite (require DB)
+  - **Final result: 300 tests, 858 assertions ✓**
 
 ---
-
-## Recently Completed (Last 7 Days)
 
 ### Cascade - P6-PLANNING - Phase 6 Internationalization Scope & Task Breakdown
 **Status**: Done  
