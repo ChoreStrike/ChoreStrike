@@ -8,9 +8,9 @@
 ### Cascade - P7-PERF - Phase 7 Polish & Optimization
 **Status**: In Progress  
 **Started**: 2026-03-04 10:50  
-**Updated**: 2026-03-04 11:15  
+**Updated**: 2026-03-04 11:30  
 **Branch**: master  
-**Related Files**: docs/backlog/phase-7-polish-optimization.md, webpack.config.js, src/router.js, lib/Migration/Version1015Date20260304000000.php  
+**Related Files**: docs/backlog/phase-7-polish-optimization.md, webpack.config.js, src/router.js, lib/Migration/Version1015Date20260304000000.php, src/views/Dashboard.vue, src/components/Tasks/TaskList.vue  
 **Blockers**: None  
 **Notes**:
 - Phase 7 plan created in `docs/backlog/phase-7-polish-optimization.md`
@@ -22,6 +22,9 @@
 - **P7-BE-001 completed**: Database indexes added
   - Migration Version1015Date20260304000000
   - Indexes for house_users, room_tasks, completed_tasks, user_stats, availability, task_scopes, task_claims, task_participants
+- **P7-UX-001 completed**: Skeleton loaders
+  - Dashboard: header, health bar, stats, floors skeletons
+  - TaskList: 5 animated task item skeletons
 
 ---
 
