@@ -232,4 +232,109 @@ class SmartSchedulerControllerTest extends TestCase {
 		$this->assertFalse($data['success']);
 		$this->assertSame('Task not found', $data['error']);
 	}
+
+	/**
+	 * Test placeholder interpolation for invalid day validation message.
+	 * Verifies that {day} placeholder is correctly replaced with the actual day value.
+	 */
+	public function testUpdateMyAvailability_InterpolatesDayPlaceholderForInvalidDay(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$this->houseService->expects($this->once())
+			->method('getInstanceId')
+			->willReturn('instance-123');
+
+		$this->houseService->expects($this->once())
+			->method('getOrCreateHouse')
+			->with('instance-123')
+			->willReturn($house);
+
+		$user = $this->createMock(\OCP\IUser::class);
+		$user->expects($this->once())
+			->method('getUID')
+			->willReturn('user1');
+		$this->userSession->expects($this->once())
+			->method('getUser')
+			->willReturn($user);
+
+		// Call with invalid day name
+		$response = $this->controller->updateMyAvailability(['invalidday' => true]);
+
+		$this->assertInstanceOf(DataResponse::class, $response);
+		$this->assertSame(400, $response->getStatus());
+		$data = $response->getData();
+		// Verify placeholder {day} was replaced with 'invalidday'
+		$this->assertSame('Invalid day: invalidday', $data['error']);
+	}
+
+	/**
+	 * Test placeholder interpolation for non-boolean availability validation message.
+	 * Verifies that {day} placeholder is correctly replaced with the actual day value.
+	 */
+	public function testUpdateMyAvailability_InterpolatesDayPlaceholderForNonBooleanValue(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$this->houseService->expects($this->once())
+			->method('getInstanceId')
+			->willReturn('instance-123');
+
+		$this->houseService->expects($this->once())
+			->method('getOrCreateHouse')
+			->with('instance-123')
+			->willReturn($house);
+
+		$user = $this->createMock(\OCP\IUser::class);
+		$user->expects($this->once())
+			->method('getUID')
+			->willReturn('user1');
+		$this->userSession->expects($this->once())
+			->method('getUser')
+			->willReturn($user);
+
+		// Call with non-boolean value for a valid day
+		$response = $this->controller->updateMyAvailability(['monday' => 'not-a-bool']);
+
+		$this->assertInstanceOf(DataResponse::class, $response);
+		$this->assertSame(400, $response->getStatus());
+		$data = $response->getData();
+		// Verify placeholder {day} was replaced with 'monday'
+		$this->assertSame('Availability must be boolean for monday', $data['error']);
+	}
+
+	/**
+	 * Test placeholder interpolation for energy budget validation message.
+	 * Verifies that {day} placeholder is correctly replaced with the actual day value.
+	 */
+	public function testUpdateMyEnergyBudget_InterpolatesDayPlaceholderForInvalidEnergy(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$this->houseService->expects($this->once())
+			->method('getInstanceId')
+			->willReturn('instance-123');
+
+		$this->houseService->expects($this->once())
+			->method('getOrCreateHouse')
+			->with('instance-123')
+			->willReturn($house);
+
+		$user = $this->createMock(\OCP\IUser::class);
+		$user->expects($this->once())
+			->method('getUID')
+			->willReturn('user1');
+		$this->userSession->expects($this->once())
+			->method('getUser')
+			->willReturn($user);
+
+		// Call with invalid energy value for a valid day
+		$response = $this->controller->updateMyEnergyBudget(['tuesday' => 25]);
+
+		$this->assertInstanceOf(DataResponse::class, $response);
+		$this->assertSame(400, $response->getStatus());
+		$data = $response->getData();
+		// Verify placeholder {day} was replaced with 'tuesday'
+		$this->assertSame('Energy must be between 1 and 20 for tuesday', $data['error']);
+	}
 }

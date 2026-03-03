@@ -115,9 +115,26 @@
 ## Priority 3: Phase 6 Implementation Workstreams
 
 ### P6-FE-001: Frontend Localization Completion
-- [~] Dashboard + navigation localization parity.
-- [ ] Scheduling and daily task UX text parity.
-- [ ] Gamification labels/messages parity.
+- [x] Dashboard + navigation localization parity.
+- [x] Scheduling and daily task UX text parity.
+- [x] Gamification labels/messages parity.
+
+#### Progress Update (2026-03-04) - P6-FE Rest-Audit Complete
+- Audited less frequent UI components - **all already fully localized**:
+  - `src/components/Gamification/GameStats.vue` ✓
+  - `src/components/Gamification/WeeklyChallenge.vue` ✓
+  - `src/components/Gamification/MedalDisplay.vue` ✓
+  - `src/components/Gamification/ComboIndicator.vue` ✓
+  - `src/components/Gamification/AchievementNotification.vue` ✓
+  - `src/components/Scheduling/DailyTaskList.vue` ✓
+  - `src/components/Scheduling/ScheduleCalendar.vue` ✓
+  - `src/components/Scheduling/SchedulingSuggestions.vue` ✓
+  - `src/components/Scheduling/AvailabilitySettings.vue` ✓
+  - `src/components/Scheduling/EnergyBudgetSettings.vue` ✓
+  - `src/components/UserManagement/UserManagement.vue` ✓
+  - `src/components/Tasks/TaskChecklist.vue` ✓
+  - `src/components/Tasks/TaskEditForm.vue` ✓
+- **Result**: No remaining hardcoded UI strings in less frequent components.
 
 #### Progress Update (2026-03-03)
 - Localized high-priority dashboard components:
@@ -149,9 +166,9 @@
   - `npm run l10n:check-keys`
 
 ### P6-BE-001: Backend/API Message Localization Compliance
-- [ ] Audit controller/service response messages for translatability strategy.
-- [ ] Ensure public API docs clearly distinguish stable error codes vs localized text.
-- [ ] Keep error code contracts unchanged while improving user-facing localization.
+- [x] Audit controller/service response messages for translatability strategy.
+- [x] Ensure public API docs clearly distinguish stable error codes vs localized text.
+- [x] Keep error code contracts unchanged while improving user-facing localization.
 
 #### Progress Update (2026-03-03)
 - Localized user-facing message fields in:
@@ -183,9 +200,18 @@
 ## Priority 4: Testing & Quality Gates (P6-TEST)
 
 ### Unit / Integration
-- [ ] Add regression tests for previously hardcoded critical UI strings.
-- [ ] Add tests for placeholder interpolation stability.
-- [ ] Add checks for API behavior where localization and error-code semantics intersect.
+- [x] Add regression tests for previously hardcoded critical UI strings.
+- [x] Add tests for placeholder interpolation stability.
+- [x] Add checks for API behavior where localization and error-code semantics intersect.
+
+#### Progress Update (2026-03-04)
+- Added placeholder interpolation regression tests in:
+  - `tests/unit/Controller/SmartSchedulerControllerTest.php` (3 new tests for {day} placeholder)
+- Created comprehensive l10n consistency test suite:
+  - `tests/unit/l10n/l10n-consistency.spec.js` (5 tests for key sync, placeholder consistency, coverage)
+- All tests pass:
+  - `vendor\bin\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerTest.php`
+  - `npm test -- --runInBand tests/unit/l10n/l10n-consistency.spec.js`
 
 ### E2E / Manual
 - [ ] Verify DE and EN rendering for core user flows.
@@ -193,9 +219,9 @@
 - [ ] Verify no broken keys/placeholders in notifications and modals.
 
 ### Definition of Done for P6
-- [ ] DE/EN translation coverage complete for all user-facing strings in active features.
-- [ ] Extraction/update workflow documented and reproducible.
-- [ ] Regression tests added for critical i18n paths.
+- [x] DE/EN translation coverage complete for all user-facing strings in active features.
+- [x] Extraction/update workflow documented and reproducible.
+- [x] Regression tests added for critical i18n paths.
 - [ ] Backlog and roadmap updated to reflect completion.
 
 ---

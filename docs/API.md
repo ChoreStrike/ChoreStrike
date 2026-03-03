@@ -29,6 +29,32 @@ All requests require Nextcloud session authentication. CSRF tokens are validated
 }
 ```
 
+**Important:** API error handling distinguishes between:
+- **`code`**: Stable, machine-readable error identifier (e.g., `VALIDATION_ERROR`, `USER_NOT_FOUND`). This code is **contract-stable** and will not change between versions. Clients should use this for programmatic error handling.
+- **`message`**: Localized, human-readable description. This text is translated based on the user's Nextcloud language setting and may change between versions. **Do not parse or rely on message text for logic.**
+
+Example localized error (German locale):
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "E-Mail ist erforderlich"
+  }
+}
+```
+
+Same error (English locale):
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Email is required"
+  }
+}
+```
+
 ## Endpoints
 
 ### House
@@ -382,11 +408,35 @@ Remove user from house (owner only).
 
 ## Error Codes
 
-- `VALIDATION_ERROR`: Invalid input data
-- `NOT_FOUND`: Resource not found
-- `FORBIDDEN`: Insufficient permissions
-- `CONFLICT`: Resource conflict (e.g., duplicate)
-- `INTERNAL_ERROR`: Server error
+The following stable error codes are returned by the API. **Note:** The `message` field is localized and may vary; always use `code` for programmatic handling.
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `VALIDATION_ERROR` | 400 | Invalid input data (e.g., missing required field, invalid format) |
+| `RESOURCE_NOT_FOUND` | 404 | Requested resource does not exist or user lacks visibility |
+| `USER_NOT_FOUND` | 404 | Specified Nextcloud user does not exist |
+| `FORBIDDEN` | 403 | User lacks permission for this action |
+| `CONFLICT` | 409 | Resource conflict (e.g., duplicate entry) |
+| `USERS_ERROR` | 500 | Internal error during users operation |
+| `INTERNAL_ERROR` | 500 | Generic server error |
+
+### Smart Scheduling Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `NO_HOUSE_FOUND` | 404 | Current user has no associated house |
+
+### Placeholder Interpolation
+
+Some validation messages include dynamic values using `{placeholder}` syntax. The localized `message` field will have placeholders replaced with actual values:
+
+**Example:**
+- Error code: `VALIDATION_ERROR`
+- Message template: `"Invalid day: {day}"`
+- Localized result (EN): `"Invalid day: monday"`
+- Localized result (DE): `"Ungültiger Tag: monday"`
+
+Clients should **not** parse these messages; they are for display purposes only.
 
 ## Rate Limiting
 

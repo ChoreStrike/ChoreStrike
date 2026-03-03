@@ -6,10 +6,11 @@
 ## Currently Active
 
 ### Cascade - P6-PLANNING - Phase 6 Internationalization Scope & Task Breakdown
-**Status**: In Progress  
+**Status**: Review Ready  
 **Started**: 2026-03-03 18:10  
+**Updated**: 2026-03-04 10:30  
 **Branch**: master  
-**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-6-internationalization.md, docs/ROADMAP.md, l10n/templates/chorestrike.pot, l10n/de.json, l10n/en.json  
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-6-internationalization.md, docs/API.md, docs/ROADMAP.md, l10n/templates/chorestrike.pot, l10n/de.json, l10n/en.json, tests/unit/l10n/l10n-consistency.spec.js, tests/unit/Controller/SmartSchedulerControllerTest.php  
 **Blockers**: None  
 **Notes**:
 - Option A selected by user: start Phase 6 planning immediately.
@@ -42,6 +43,17 @@
   - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerTest.php`
   - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/UserControllerTest.php`
   - `npm run l10n:check-keys`
+- **P6-TEST completed** (2026-03-04):
+  - Added placeholder interpolation regression tests for `{day}` placeholder in `SmartSchedulerControllerTest.php` (3 new tests).
+  - Created comprehensive l10n consistency test suite `tests/unit/l10n/l10n-consistency.spec.js` (5 tests for key sync, placeholder consistency, coverage).
+  - All tests pass.
+- **P6-BE-001 completed** (2026-03-04):
+  - Updated `docs/API.md` with clear distinction between stable error codes and localized messages.
+  - Added error code table with HTTP status codes and descriptions.
+  - Added placeholder interpolation documentation.
+- **P6-FE completed** (2026-03-04):
+  - Audited all less frequent UI components (Gamification, Scheduling, UserManagement, Tasks).
+  - **Result**: All components already fully localized - no hardcoded strings found.
 
 ---
 
