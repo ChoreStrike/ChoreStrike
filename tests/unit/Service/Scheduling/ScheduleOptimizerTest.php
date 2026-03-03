@@ -46,10 +46,10 @@ class ScheduleOptimizerTest extends TestCase {
 	public function testOptimizeScheduleImprovesDailyVariance(): void {
 		// Create unbalanced schedule (all tasks on Monday)
 		$schedule = [
-			['scheduled_day' => 'monday', 'assigned_to' => 'user1', 'energy_cost' => 5],
-			['scheduled_day' => 'monday', 'assigned_to' => 'user2', 'energy_cost' => 3],
-			['scheduled_day' => 'monday', 'assigned_to' => 'user1', 'energy_cost' => 4],
-			['scheduled_day' => 'monday', 'assigned_to' => 'user2', 'energy_cost' => 6],
+			['task_name' => 'Task 1', 'scheduled_day' => 'monday', 'assigned_to' => 'user1', 'energy_cost' => 5],
+			['task_name' => 'Task 2', 'scheduled_day' => 'monday', 'assigned_to' => 'user2', 'energy_cost' => 3],
+			['task_name' => 'Task 3', 'scheduled_day' => 'monday', 'assigned_to' => 'user1', 'energy_cost' => 4],
+			['task_name' => 'Task 4', 'scheduled_day' => 'monday', 'assigned_to' => 'user2', 'energy_cost' => 6],
 		];
 		$userSettings = $this->createUserSettings();
 
@@ -65,10 +65,10 @@ class ScheduleOptimizerTest extends TestCase {
 	public function testOptimizeScheduleBalancesUserWorkloads(): void {
 		// Create schedule with unbalanced user workloads
 		$schedule = [
-			['scheduled_day' => 'monday', 'assigned_to' => 'user1', 'energy_cost' => 5],
-			['scheduled_day' => 'tuesday', 'assigned_to' => 'user1', 'energy_cost' => 4],
-			['scheduled_day' => 'wednesday', 'assigned_to' => 'user1', 'energy_cost' => 3],
-			['scheduled_day' => 'thursday', 'assigned_to' => 'user2', 'energy_cost' => 2],
+			['task_name' => 'Task 1', 'scheduled_day' => 'monday', 'assigned_to' => 'user1', 'energy_cost' => 5],
+			['task_name' => 'Task 2', 'scheduled_day' => 'tuesday', 'assigned_to' => 'user1', 'energy_cost' => 4],
+			['task_name' => 'Task 3', 'scheduled_day' => 'wednesday', 'assigned_to' => 'user1', 'energy_cost' => 3],
+			['task_name' => 'Task 4', 'scheduled_day' => 'thursday', 'assigned_to' => 'user2', 'energy_cost' => 2],
 		];
 		$userSettings = $this->createUserSettings();
 
@@ -81,9 +81,9 @@ class ScheduleOptimizerTest extends TestCase {
 
 	public function testCalculateScheduleMetrics(): void {
 		$schedule = [
-			['scheduled_day' => 'monday', 'assigned_to' => 'user1', 'energy_cost' => 5],
-			['scheduled_day' => 'tuesday', 'assigned_to' => 'user2', 'energy_cost' => 3],
-			['scheduled_day' => 'wednesday', 'assigned_to' => 'user1', 'energy_cost' => 4],
+			['task_name' => 'Task 1', 'scheduled_day' => 'monday', 'assigned_to' => 'user1', 'energy_cost' => 5],
+			['task_name' => 'Task 2', 'scheduled_day' => 'tuesday', 'assigned_to' => 'user2', 'energy_cost' => 3],
+			['task_name' => 'Task 3', 'scheduled_day' => 'wednesday', 'assigned_to' => 'user1', 'energy_cost' => 4],
 		];
 
 		// Use reflection to access private method for testing
