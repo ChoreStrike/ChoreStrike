@@ -320,6 +320,34 @@ class GameLogicService {
 	}
 
 	/**
+	 * Get all medals for a house with user names
+	 *
+	 * @param int $houseId The house ID
+	 * @return array Array of medals with user names
+	 */
+	public function getMedals(int $houseId): array {
+		$users = $this->houseUserMapper->findByHouseId($houseId);
+		$medals = [];
+
+		foreach ($users as $user) {
+			$userMedals = $this->medalMapper->findByUserId($user->getId());
+			foreach ($userMedals as $medal) {
+				$medals[] = [
+					'id' => $medal->getId(),
+					'userId' => $medal->getUserId(),
+					'userName' => $user->getDisplayName(),
+					'medalType' => $medal->getMedalType(),
+					'value' => $medal->getValue(),
+					'weekStart' => $medal->getWeekStart(),
+					'awardedAt' => $medal->getAwardedAt()?->format('c'),
+				];
+			}
+		}
+
+		return $medals;
+	}
+
+	/**
 	 * Update user streak after task completion
 	 *
 	 * @param int $currentStreak Current streak
