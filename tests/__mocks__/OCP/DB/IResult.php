@@ -26,6 +26,11 @@ interface IResult {
 	public function fetchColumn($columnIndex = 0);
 
 	/**
+	 * @return mixed
+	 */
+	public function fetchOne($columnIndex = 0);
+
+	/**
 	 * @return int
 	 */
 	public function rowCount();

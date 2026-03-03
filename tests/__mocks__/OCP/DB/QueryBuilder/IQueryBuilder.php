@@ -27,6 +27,11 @@ interface IQueryBuilder {
 	/**
 	 * @return $this
 	 */
+	public function addSelect(...$columns);
+
+	/**
+	 * @return $this
+	 */
 	public function selectDistinct(...$columns);
 
 	/**
