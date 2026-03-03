@@ -8,19 +8,19 @@
 		<div class="floor-header">
 			<h3 class="floor-title">
 				<Icon name="Building" :size="20" class="icon" />
-				Floors & Rooms
+				{{ t('chorestrike', 'Floors & Rooms') }}
 			</h3>
 			<div class="floor-actions">
 				<button
 					class="refresh-button"
 					:disabled="loading"
-					title="Refresh floors"
+					:title="t('chorestrike', 'Refresh floors')"
 					@click="refreshFloors">
 					<Icon name="RefreshCw" :size="16" />
 				</button>
 				<button
 					class="add-button"
-					title="Add new floor"
+					:title="t('chorestrike', 'Add new floor')"
 					@click="addFloor">
 					<Icon name="Plus" :size="16" />
 				</button>
@@ -30,7 +30,7 @@
 		<!-- Loading State -->
 		<div v-if="loading && floors.length === 0" class="loading-state">
 			<div class="loading-spinner" />
-			<p>Loading floors...</p>
+			<p>{{ t('chorestrike', 'Loading floors...') }}</p>
 		</div>
 
 		<!-- Empty State -->
@@ -38,11 +38,11 @@
 			<div class="empty-icon">
 				<Icon name="Home" :size="48" />
 			</div>
-			<h4>No floors yet</h4>
-			<p>Create your first floor to get started with organizing your home.</p>
+			<h4>{{ t('chorestrike', 'No floors yet') }}</h4>
+			<p>{{ t('chorestrike', 'Create your first floor to get started with organizing your home.') }}</p>
 			<button class="primary-button" @click="addFloor">
 				<Icon name="Plus" :size="16" class="icon" />
-				Create First Floor
+				{{ t('chorestrike', 'Create First Floor') }}
 			</button>
 		</div>
 
@@ -59,9 +59,9 @@
 							{{ floor.name }}
 						</h4>
 						<div class="floor-stats">
-							<span class="room-count">{{ getRoomCount(floor.id) }} rooms</span>
+							<span class="room-count">{{ t('chorestrike', '{count} rooms', { count: getRoomCount(floor.id) }) }}</span>
 							<span class="cleanliness-badge" :class="getFloorCleanlinessClass(floor.id)">
-								{{ getFloorCleanliness(floor.id) }}% clean
+								{{ t('chorestrike', '{percent}% clean', { percent: getFloorCleanliness(floor.id) }) }}
 							</span>
 						</div>
 					</div>
@@ -74,13 +74,13 @@
 						</button>
 						<button
 							class="edit-button"
-							title="Edit floor"
+							:title="t('chorestrike', 'Edit floor')"
 							@click="editFloor(floor)">
 							<Icon name="Edit" :size="16" />
 						</button>
 						<button
 							class="delete-button"
-							title="Delete floor"
+							:title="t('chorestrike', 'Delete floor')"
 							@click="deleteFloor(floor)">
 							<Icon name="Trash" :size="16" />
 						</button>
@@ -94,17 +94,17 @@
 					<!-- Loading Rooms -->
 					<div v-if="loadingRooms[floor.id]" class="loading-rooms">
 						<div class="loading-spinner small" />
-						<span>Loading rooms...</span>
+						<span>{{ t('chorestrike', 'Loading rooms...') }}</span>
 					</div>
 
 					<!-- Empty Floor -->
 					<div v-else-if="getFloorRooms(floor.id).length === 0" class="empty-floor">
-						<p>No rooms on this floor yet.</p>
+						<p>{{ t('chorestrike', 'No rooms on this floor yet.') }}</p>
 						<button
 							class="add-room-button"
 							@click="addRoom(floor.id)">
 							<Icon name="Plus" :size="16" class="icon" />
-							Add Room
+							{{ t('chorestrike', 'Add Room') }}
 						</button>
 					</div>
 
@@ -121,7 +121,7 @@
 						<div class="add-room-card" @click="addRoom(floor.id)">
 							<div class="add-room-content">
 								<Icon name="Plus" :size="24" class="add-icon" />
-								<span class="add-text">Add Room</span>
+								<span class="add-text">{{ t('chorestrike', 'Add Room') }}</span>
 							</div>
 						</div>
 					</div>
@@ -132,24 +132,24 @@
 		<!-- Add Floor Modal -->
 		<div v-if="showAddFloorModal" class="modal-overlay" @click="closeAddFloorModal">
 			<div class="modal-content" @click.stop>
-				<h3>Add New Floor</h3>
+				<h3>{{ t('chorestrike', 'Add New Floor') }}</h3>
 				<form @submit.prevent="handleAddFloor">
 					<div class="form-group">
-						<label for="floor-name">Floor Name</label>
+						<label for="floor-name">{{ t('chorestrike', 'Floor Name') }}</label>
 						<input
 							id="floor-name"
 							v-model="newFloorName"
 							type="text"
-							placeholder="e.g., Ground Floor, Second Floor"
+							:placeholder="t('chorestrike', 'e.g., Ground Floor, Second Floor')"
 							required
 							class="form-input">
 					</div>
 					<div class="form-actions">
 						<button type="button" class="cancel-button" @click="closeAddFloorModal">
-							Cancel
+							{{ t('chorestrike', 'Cancel') }}
 						</button>
 						<button type="submit" class="submit-button" :disabled="!newFloorName.trim()">
-							Create Floor
+							{{ t('chorestrike', 'Create Floor') }}
 						</button>
 					</div>
 				</form>
@@ -160,6 +160,7 @@
 
 <script>
 import { computed, ref, onMounted } from 'vue'
+import { translate as t } from '@nextcloud/l10n'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRouter } from 'vue-router'
 import RoomCard from './RoomCard.vue'
@@ -285,7 +286,11 @@ export default {
 		}
 
 		const deleteFloor = async (floor) => {
-			if (!confirm(`Are you sure you want to delete "${floor.name}" and all its rooms?`)) {
+			const message = t('chorestrike', 'Are you sure you want to delete "{name}" and all its rooms?', {
+				name: floor.name,
+			})
+
+			if (!confirm(message)) {
 				return
 			}
 
@@ -319,6 +324,7 @@ export default {
 		})
 
 		return {
+			t,
 			expandedFloors,
 			loadingRooms,
 			showAddFloorModal,

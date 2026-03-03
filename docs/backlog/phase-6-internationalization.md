@@ -107,9 +107,19 @@
 ## Priority 3: Phase 6 Implementation Workstreams
 
 ### P6-FE-001: Frontend Localization Completion
-- [ ] Dashboard + navigation localization parity.
+- [~] Dashboard + navigation localization parity.
 - [ ] Scheduling and daily task UX text parity.
 - [ ] Gamification labels/messages parity.
+
+#### Progress Update (2026-03-03)
+- Localized high-priority dashboard components:
+  - `src/components/Dashboard/FloorList.vue`
+  - `src/components/Dashboard/RoomCard.vue`
+  - `src/components/Dashboard/HouseHealthBar.vue`
+- Added regression coverage for critical dashboard i18n paths in:
+  - `tests/unit/components/FloorList.spec.js`
+- Validation run:
+  - `npm test -- --runInBand tests/unit/components/FloorList.spec.js tests/unit/components/RoomCard.spec.js tests/unit/components/HouseHealthBar.spec.js`
 
 ### P6-BE-001: Backend/API Message Localization Compliance
 - [ ] Audit controller/service response messages for translatability strategy.

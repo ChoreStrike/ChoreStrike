@@ -24,7 +24,7 @@
 				<button
 					class="monster-toggle"
 					:class="{ active: showMonsters }"
-					title="Toggle monsters"
+					:title="t('chorestrike', 'Toggle monsters')"
 					@click.stop="toggleMonsters">
 					<Emoji name="monster" :size="20" class="icon" />
 					<span class="count">{{ room.monsterCount }}</span>
@@ -35,7 +35,7 @@
 		<!-- Cleanliness Bar -->
 		<div class="cleanliness-section">
 			<div class="cleanliness-header">
-				<span class="cleanliness-label">Cleanliness</span>
+				<span class="cleanliness-label">{{ t('chorestrike', 'Cleanliness') }}</span>
 				<span class="cleanliness-value">{{ room.cleanliness }}%</span>
 			</div>
 			<div class="cleanliness-bar">
@@ -51,17 +51,17 @@
 			<div class="task-item">
 				<Icon name="List" :size="16" class="task-icon" />
 				<span class="task-count">{{ activeTasks }}</span>
-				<span class="task-label">Active</span>
+				<span class="task-label">{{ t('chorestrike', 'Active') }}</span>
 			</div>
 			<div v-if="overdueTasks > 0" class="task-item">
 				<Icon name="Warning" :size="16" class="task-icon" />
 				<span class="task-count">{{ overdueTasks }}</span>
-				<span class="task-label">Overdue</span>
+				<span class="task-label">{{ t('chorestrike', 'Overdue') }}</span>
 			</div>
 			<div v-if="dueTodayTasks > 0" class="task-item due-today">
 				<Icon name="Calendar" :size="16" class="task-icon" />
 				<span class="task-count">{{ dueTodayTasks }}</span>
-				<span class="task-label">Due Today</span>
+				<span class="task-label">{{ t('chorestrike', 'Due Today') }}</span>
 			</div>
 		</div>
 
@@ -82,12 +82,12 @@
 		<!-- Last Updated -->
 		<div class="room-footer">
 			<span class="last-updated">
-				Last cleaned: {{ lastCleanedText }}
+				{{ t('chorestrike', 'Last cleaned: {time}', { time: lastCleanedText }) }}
 			</span>
 			<button
 				class="quick-clean-button"
 				:disabled="loading || room.cleanliness >= 90"
-				title="Quick clean (+10% cleanliness)"
+				:title="t('chorestrike', 'Quick clean (+10% cleanliness)')"
 				@click.stop="quickClean">
 				<Icon name="Sparkles" class="icon" />
 			</button>
@@ -97,6 +97,7 @@
 
 <script>
 import { computed, ref } from 'vue'
+import { translate as t } from '@nextcloud/l10n'
 import { useRouter } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
@@ -137,11 +138,11 @@ export default {
 
 		const statusText = computed(() => {
 			const cleanliness = props.room.cleanliness
-			if (cleanliness >= 80) return 'Excellent'
-			if (cleanliness >= 60) return 'Good'
-			if (cleanliness >= 40) return 'Fair'
-			if (cleanliness >= 20) return 'Poor'
-			return 'Terrible'
+			if (cleanliness >= 80) return t('chorestrike', 'Excellent')
+			if (cleanliness >= 60) return t('chorestrike', 'Good')
+			if (cleanliness >= 40) return t('chorestrike', 'Fair')
+			if (cleanliness >= 20) return t('chorestrike', 'Poor')
+			return t('chorestrike', 'Terrible')
 		})
 
 		const cleanlinessClass = computed(() => {
@@ -160,18 +161,21 @@ export default {
 		}))
 
 		const lastCleanedText = computed(() => {
-			if (!props.room.lastCleaned) return 'Never'
+			if (!props.room.lastCleaned) return t('chorestrike', 'Never')
 
 			const lastCleaned = new Date(props.room.lastCleaned)
 			const now = new Date()
 			const diffMs = now - lastCleaned
 			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-			if (diffDays === 0) return 'Today'
-			if (diffDays === 1) return 'Yesterday'
-			if (diffDays < 7) return `${diffDays} days ago`
-			if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-			return `${Math.floor(diffDays / 30)} months ago`
+			if (diffDays === 0) return t('chorestrike', 'Today')
+			if (diffDays === 1) return t('chorestrike', 'Yesterday')
+			if (diffDays < 7) return t('chorestrike', '{count} days ago', { count: diffDays })
+			if (diffDays < 30) {
+				return t('chorestrike', '{count} weeks ago', { count: Math.floor(diffDays / 7) })
+			}
+
+			return t('chorestrike', '{count} months ago', { count: Math.floor(diffDays / 30) })
 		})
 
 		// Task counts (would be fetched from roomTasks store)
@@ -247,6 +251,7 @@ export default {
 		}
 
 		return {
+			t,
 			showMonsters,
 			loading,
 			statusClass,

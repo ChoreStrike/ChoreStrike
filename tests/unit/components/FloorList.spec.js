@@ -1,8 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { translate } from '@nextcloud/l10n'
 import FloorList from '../../../src/components/Dashboard/FloorList.vue'
 import RoomCard from '../../../src/components/Dashboard/RoomCard.vue'
+
+jest.mock('@nextcloud/l10n', () => ({
+	translate: jest.fn((app, text) => text),
+}))
+
+global.confirm = jest.fn(() => true)
 
 // Mock vue-router
 jest.mock('vue-router', () => ({
@@ -31,6 +38,8 @@ describe('FloorList.vue', () => {
 	beforeEach(() => {
 		pinia = createPinia()
 		setActivePinia(pinia)
+		translate.mockClear()
+		global.confirm.mockClear()
 	})
 
 	it('renders component', () => {
@@ -153,5 +162,31 @@ describe('FloorList.vue', () => {
 		})
 
 		expect(wrapper.props('compact')).toBe(true)
+	})
+
+	it('translates critical dashboard strings via Nextcloud l10n', () => {
+		mount(FloorList, {
+			global: {
+				plugins: [pinia],
+				components: { RoomCard },
+			},
+		})
+
+		expect(translate).toHaveBeenCalledWith('chorestrike', 'Floors & Rooms')
+		expect(translate).toHaveBeenCalledWith('chorestrike', 'No floors yet')
+	})
+
+	it('uses localized floor deletion confirmation message', async () => {
+		const wrapper = mount(FloorList, {
+			global: {
+				plugins: [pinia],
+				components: { RoomCard },
+			},
+		})
+
+		await wrapper.vm.deleteFloor({ id: 1, name: 'Ground Floor' })
+
+		expect(global.confirm).toHaveBeenCalledTimes(1)
+		expect(global.confirm.mock.calls[0][0]).toContain('Are you sure you want to delete')
 	})
 })

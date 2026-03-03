@@ -33,7 +33,7 @@
 				v-if="showRefreshButton"
 				class="refresh-button"
 				:disabled="loading"
-				title="Refresh house health"
+				:title="t('chorestrike', 'Refresh house health')"
 				@click="refreshHealth">
 			</button>
 		</div>
@@ -42,6 +42,7 @@
 
 <script>
 import { computed } from 'vue'
+import { translate as t } from '@nextcloud/l10n'
 import { useHouseStore } from '../../store/house.js'
 
 export default {
@@ -77,11 +78,11 @@ export default {
 
 		const healthStatus = computed(() => {
 			const health = houseHealth.value
-			if (health >= 80) return 'Excellent! 🌟'
-			if (health >= 60) return 'Good! 👍'
-			if (health >= 40) return 'Fair 📊'
-			if (health >= 20) return 'Needs attention ⚠️'
-			return 'Critical! 🚨'
+			if (health >= 80) return t('chorestrike', 'Excellent! 🌟')
+			if (health >= 60) return t('chorestrike', 'Good! 👍')
+			if (health >= 40) return t('chorestrike', 'Fair 📊')
+			if (health >= 20) return t('chorestrike', 'Needs attention ⚠️')
+			return t('chorestrike', 'Critical! 🚨')
 		})
 
 		// Methods
@@ -94,6 +95,7 @@ export default {
 		}
 
 		return {
+			t,
 			houseHealth,
 			houseName,
 			loading,

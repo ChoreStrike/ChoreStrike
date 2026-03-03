@@ -17,6 +17,9 @@
 - Defining bootstrap sequence for translation extraction workflow and string audit.
 - Completed first string inventory + prioritized i18n gap report in `docs/backlog/phase-6-internationalization.md`.
 - High-priority gaps identified in dashboard components (`FloorList.vue`, `RoomCard.vue`, `HouseHealthBar.vue`) and medium-priority gaps in views/stores/controllers.
+- Implemented Option A high-priority dashboard i18n pass in `FloorList.vue`, `RoomCard.vue`, and `HouseHealthBar.vue`.
+- Added regression test coverage for critical dashboard translations (`tests/unit/components/FloorList.spec.js`).
+- Validation run passed: `npm test -- --runInBand tests/unit/components/FloorList.spec.js tests/unit/components/RoomCard.spec.js tests/unit/components/HouseHealthBar.spec.js`.
 
 ---
 
@@ -500,4 +503,4 @@
 
 ---
 
-**Last Updated**: 2026-03-03 18:20
+**Last Updated**: 2026-03-03 18:35
