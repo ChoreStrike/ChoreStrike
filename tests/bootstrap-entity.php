@@ -13,6 +13,7 @@ require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/Entity.php';
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/QBMapper.php';
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/DoesNotExistException.php';
 require_once __DIR__ . '/__mocks__/OCP/IDBConnection.php';
+require_once __DIR__ . '/__mocks__/OCP/DB/IResult.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IQueryBuilder.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpression.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpressionBuilder.php';
