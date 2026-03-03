@@ -17,6 +17,7 @@ require_once __DIR__ . '/__mocks__/OCP/DB/IResult.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IQueryBuilder.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpression.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpressionBuilder.php';
+require_once __DIR__ . '/__mocks__/OCP/IConfig.php';
 require_once __DIR__ . '/__mocks__/OCP/ILogger.php';
 require_once __DIR__ . '/__mocks__/OCP/IL10N.php';
 require_once __DIR__ . '/__mocks__/OCP/IUserManager.php';
