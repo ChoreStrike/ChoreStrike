@@ -221,34 +221,34 @@ class TaskReassignmentSuggesterTest extends TestCase {
 	}
 
 	private function createMockRoomTask(int $id, int $roomId): RoomTask {
-		$roomTask = $this->createMock(RoomTask::class);
-		$roomTask->method('getId')->willReturn($id);
-		$roomTask->method('getRoomId')->willReturn($roomId);
-		$roomTask->method('getTaskId')->willReturn($id);
+		$roomTask = new RoomTask();
+		$roomTask->setId($id);
+		$roomTask->setRoomId($roomId);
+		$roomTask->setTaskId($id);
 		return $roomTask;
 	}
 
 	private function createMockTask(int $id, string $name, int $priority, int $energyCost, bool $overdue = false): Task {
-		$task = $this->createMock(Task::class);
-		$task->method('getId')->willReturn($id);
-		$task->method('getName')->willReturn($name);
-		$task->method('getPriority')->willReturn($priority);
-		$task->method('getEnergyCost')->willReturn($energyCost);
+		$task = new Task();
+		$task->setId($id);
+		$task->setName($name);
+		$task->setPriority($priority);
+		$task->setEnergyCost($energyCost);
 		return $task;
 	}
 
 	private function createMockRoom(int $id, string $name): Room {
-		$room = $this->createMock(Room::class);
-		$room->method('getId')->willReturn($id);
-		$room->method('getName')->willReturn($name);
-		$room->method('getFloorId')->willReturn($id);
+		$room = new Room();
+		$room->setId($id);
+		$room->setName($name);
+		$room->setFloorId($id);
 		return $room;
 	}
 
 	private function createMockFloor(int $id, int $houseId): Floor {
-		$floor = $this->createMock(Floor::class);
-		$floor->method('getId')->willReturn($id);
-		$floor->method('getHouseId')->willReturn($houseId);
+		$floor = new Floor();
+		$floor->setId($id);
+		$floor->setHouseId($houseId);
 		return $floor;
 	}
 
@@ -256,12 +256,17 @@ class TaskReassignmentSuggesterTest extends TestCase {
 		$users = [];
 		
 		for ($i = 1; $i <= 3; $i++) {
-			$user = $this->createMock(AvailabilitySettings::class);
-			$user->method('getUserId')->willReturn("user{$i}");
-			$user->method('isAvailableOn')->willReturn(true);
-			$user->method('getMaxTasksPerDay')->willReturn(3);
-			$user->method('getEnergyForDay')->willReturn(10);
-			$user->method('getAvailableDays')->willReturn(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
+			$user = new AvailabilitySettings();
+			$user->setUserId("user{$i}");
+			$user->setWeekdayAvailability([
+				'monday' => true, 'tuesday' => true, 'wednesday' => true,
+				'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true
+			]);
+			$user->setMaxTasksPerDay(3);
+			$user->setEnergyBudget([
+				'monday' => 10, 'tuesday' => 10, 'wednesday' => 10,
+				'thursday' => 10, 'friday' => 10, 'saturday' => 10, 'sunday' => 10
+			]);
 			$users[] = $user;
 		}
 		
