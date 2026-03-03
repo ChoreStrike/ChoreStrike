@@ -34,11 +34,10 @@ class TaskPriorityScorerTest extends TestCase {
 		$task2 = $this->createMockTask(2, 3, 5);
 
 		$this->taskMapper->method('find')
-			->with(1)
-			->willReturn($task1);
-		$this->taskMapper->method('find')
-			->with(2)
-			->willReturn($task2);
+			->willReturnMap([
+				[1, $task1],
+				[2, $task2],
+			]);
 
 		$roomTasks = [$roomTask1, $roomTask2, $roomTask3];
 		$result = $this->scorer->calculateScores($roomTasks);
