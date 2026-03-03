@@ -47,7 +47,7 @@ class MedalServiceTest extends TestCase {
 	public function testAwardMedalCreatesNewMedal(): void {
 		$newMedal = new Medal();
 		$newMedal->setId(1);
-		$newMedal->setUserId('user1');
+		$newMedal->setUserId(1); // house user ID is int
 		$newMedal->setMedalType('team_anchor');
 		$newMedal->setValue(50);
 
@@ -59,7 +59,8 @@ class MedalServiceTest extends TestCase {
 			->method('insert')
 			->willReturn($newMedal);
 
-		$result = $this->service->awardMedal(1, 'user1', 'team_anchor');
+		// awardMedal expects houseUserId as int, not Nextcloud string userId
+		$result = $this->service->awardMedal(1, '1', 'team_anchor');
 
 		$this->assertNotNull($result);
 		$this->assertEquals('team_anchor', $result->getMedalType());
@@ -74,7 +75,7 @@ class MedalServiceTest extends TestCase {
 			->method('findByUserTypeAndWeek')
 			->willReturn($existingMedal);
 
-		$result = $this->service->awardMedal(1, 'user1', 'team_anchor');
+		$result = $this->service->awardMedal(1, '1', 'team_anchor');
 
 		$this->assertNull($result);
 	}

@@ -142,7 +142,8 @@ class MedalService {
 	 */
 	public function hasMedalThisWeek(int $houseId, string $userId, string $medalType): bool {
 		try {
-			$this->medalMapper->findByUserTypeAndWeek($userId, $medalType, $this->getWeekStart());
+			// userId in Medal entity is int (house_user.id), convert from Nextcloud string userId
+			$this->medalMapper->findByUserTypeAndWeek((int)$userId, $medalType, $this->getWeekStart());
 			return true;
 		} catch (\Exception $e) {
 			return false;
@@ -180,7 +181,8 @@ class MedalService {
 		$weekEnd = new \DateTime($this->getWeekStart());
 		$weekEnd->modify('+7 days');
 
-		$stats = $this->completedTaskMapper->getUserStats($userId, $weekStart, $weekEnd);
+		// userId in CompletedTask is int (house_user.id), convert from Nextcloud string userId
+		$stats = $this->completedTaskMapper->getUserStats((int)$userId, $weekStart, $weekEnd);
 		return $stats['taskCount'] ?? 0;
 	}
 
