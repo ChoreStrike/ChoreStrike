@@ -383,7 +383,9 @@ class GameLogicService {
 		// If completed yesterday, check if available today
 		if ($daysSinceCompletion === 1) {
 			$todayName = strtolower($today->format('l'));
-			return $weekdayAvailability[$todayName] ?? true;
+			$isAvailableToday = $weekdayAvailability[$todayName] ?? true;
+			// Reset streak if NOT available today
+			return !$isAvailableToday;
 		}
 		
 		// If more than 1 day, reset
