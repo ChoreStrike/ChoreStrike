@@ -190,28 +190,40 @@ class ScheduleOptimizerTest extends TestCase {
 
 	private function createBalancedSchedule(): array {
 		return [
-			['scheduled_day' => 'monday', 'assigned_to' => 'user1', 'energy_cost' => 5],
-			['scheduled_day' => 'tuesday', 'assigned_to' => 'user2', 'energy_cost' => 3],
-			['scheduled_day' => 'wednesday', 'assigned_to' => 'user1', 'energy_cost' => 4],
-			['scheduled_day' => 'thursday', 'assigned_to' => 'user2', 'energy_cost' => 6],
-			['scheduled_day' => 'friday', 'assigned_to' => 'user1', 'energy_cost' => 2],
-			['scheduled_day' => 'saturday', 'assigned_to' => 'user2', 'energy_cost' => 4],
-			['scheduled_day' => 'sunday', 'assigned_to' => 'user1', 'energy_cost' => 3],
+			['task_name' => 'Task 1', 'scheduled_day' => 'monday', 'assigned_to' => 'user1', 'energy_cost' => 5],
+			['task_name' => 'Task 2', 'scheduled_day' => 'tuesday', 'assigned_to' => 'user2', 'energy_cost' => 3],
+			['task_name' => 'Task 3', 'scheduled_day' => 'wednesday', 'assigned_to' => 'user1', 'energy_cost' => 4],
+			['task_name' => 'Task 4', 'scheduled_day' => 'thursday', 'assigned_to' => 'user2', 'energy_cost' => 6],
+			['task_name' => 'Task 5', 'scheduled_day' => 'friday', 'assigned_to' => 'user1', 'energy_cost' => 2],
+			['task_name' => 'Task 6', 'scheduled_day' => 'saturday', 'assigned_to' => 'user2', 'energy_cost' => 4],
+			['task_name' => 'Task 7', 'scheduled_day' => 'sunday', 'assigned_to' => 'user1', 'energy_cost' => 3],
 		];
 	}
 
 	private function createUserSettings(): array {
-		$user1 = $this->createMock(AvailabilitySettings::class);
-		$user1->method('getUserId')->willReturn('user1');
-		$user1->method('isAvailableOn')->willReturn(true);
-		$user1->method('getMaxTasksPerDay')->willReturn(3);
-		$user1->method('getEnergyForDay')->willReturn(10);
+		$user1 = new AvailabilitySettings();
+		$user1->setUserId('user1');
+		$user1->setWeekdayAvailability([
+			'monday' => true, 'tuesday' => true, 'wednesday' => true,
+			'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true
+		]);
+		$user1->setMaxTasksPerDay(3);
+		$user1->setEnergyBudget([
+			'monday' => 10, 'tuesday' => 10, 'wednesday' => 10,
+			'thursday' => 10, 'friday' => 10, 'saturday' => 10, 'sunday' => 10
+		]);
 
-		$user2 = $this->createMock(AvailabilitySettings::class);
-		$user2->method('getUserId')->willReturn('user2');
-		$user2->method('isAvailableOn')->willReturn(true);
-		$user2->method('getMaxTasksPerDay')->willReturn(3);
-		$user2->method('getEnergyForDay')->willReturn(8);
+		$user2 = new AvailabilitySettings();
+		$user2->setUserId('user2');
+		$user2->setWeekdayAvailability([
+			'monday' => true, 'tuesday' => true, 'wednesday' => true,
+			'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true
+		]);
+		$user2->setMaxTasksPerDay(3);
+		$user2->setEnergyBudget([
+			'monday' => 8, 'tuesday' => 8, 'wednesday' => 8,
+			'thursday' => 8, 'friday' => 8, 'saturday' => 8, 'sunday' => 8
+		]);
 
 		return [$user1, $user2];
 	}
