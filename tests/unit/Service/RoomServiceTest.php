@@ -11,7 +11,9 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -452,6 +454,7 @@ class RoomServiceTest extends TestCase {
 
 		$room = new Room();
 		$room->setId(1);
+		$room->setFloorId(1);
 		$room->setCleanliness(50);
 
 		$roomTask = new RoomTask();
@@ -459,6 +462,13 @@ class RoomServiceTest extends TestCase {
 		$roomTask->setTaskId(1);
 		$roomTask->setRoomId(1);
 		$roomTask->setIsActive(true);
+
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+
+		$houseUser = new HouseUser();
+		$houseUser->setId(1);
 
 		$updatedRoom = new Room();
 		$updatedRoom->setId(1);
@@ -482,6 +492,18 @@ class RoomServiceTest extends TestCase {
 			->with(1)
 			->willReturn($room);
 
+		$this->floorMapper
+			->expects($this->once())
+			->method('find')
+			->with(1)
+			->willReturn($floor);
+
+		$this->houseUserMapper
+			->expects($this->once())
+			->method('findByNextcloudUserId')
+			->with(1, $userId)
+			->willReturn($houseUser);
+
 		$this->roomTaskMapper
 			->expects($this->once())
 			->method('update')
@@ -491,6 +513,11 @@ class RoomServiceTest extends TestCase {
 			->expects($this->once())
 			->method('update')
 			->willReturn($updatedRoom);
+
+		$this->gameLogicService
+			->expects($this->once())
+			->method('handleTaskCompletion')
+			->willReturn(['contributionScore' => 10]);
 
 		$result = $this->service->completeRoomTask($roomTaskId, $userId);
 
