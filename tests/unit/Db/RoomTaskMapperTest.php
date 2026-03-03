@@ -215,7 +215,7 @@ class RoomTaskMapperTest extends TestCase {
 
 		$completedAt = new \DateTime('2026-02-24 15:00:00');
 		$activeUntil = new \DateTime('2026-02-25 00:00:00');
-		$roomTask->markCompleted($completedAt, 'weekly', 1, 'recurring', $activeUntil);
+		$roomTask->markCompleted($completedAt, 'weekly', 1, 'recurring', 'dynamic', $activeUntil);
 
 		$this->assertFalse($roomTask->getIsActive());
 		$this->assertSame($activeUntil->format('c'), $roomTask->getNextDue()->format('c'));
