@@ -14,6 +14,8 @@ require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/QBMapper.php';
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/DoesNotExistException.php';
 require_once __DIR__ . '/__mocks__/OCP/IDBConnection.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IQueryBuilder.php';
+require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpression.php';
+require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpressionBuilder.php';
 require_once __DIR__ . '/__mocks__/OCP/ILogger.php';
 require_once __DIR__ . '/__mocks__/OCP/IL10N.php';
 require_once __DIR__ . '/__mocks__/OCP/IUserManager.php';
