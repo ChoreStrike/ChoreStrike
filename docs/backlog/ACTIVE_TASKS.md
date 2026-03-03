@@ -5,10 +5,16 @@
 
 ## Currently Active
 
+_No tasks currently in progress._
+
+---
+
+## Recently Completed (Last 7 Days)
+
 ### Cascade - P6-PLANNING - Phase 6 Internationalization Scope & Task Breakdown
-**Status**: Review Ready  
+**Status**: Done  
 **Started**: 2026-03-03 18:10  
-**Updated**: 2026-03-04 10:30  
+**Completed**: 2026-03-04 10:45  
 **Branch**: master  
 **Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-6-internationalization.md, docs/API.md, docs/ROADMAP.md, l10n/templates/chorestrike.pot, l10n/de.json, l10n/en.json, tests/unit/l10n/l10n-consistency.spec.js, tests/unit/Controller/SmartSchedulerControllerTest.php  
 **Blockers**: None  
@@ -54,10 +60,6 @@
 - **P6-FE completed** (2026-03-04):
   - Audited all less frequent UI components (Gamification, Scheduling, UserManagement, Tasks).
   - **Result**: All components already fully localized - no hardcoded strings found.
-
----
-
-## Recently Completed (Last 7 Days)
 
 ### Cascade - P5-IMPLEMENTATION - Phase 5 Smart Scheduling
 **Status**: Done  

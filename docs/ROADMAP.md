@@ -287,28 +287,35 @@
 
 ---
 
-### Phase 6: Internationalization (i18n)
-**Status**: In Progress (Planning)  
-**Timeline**: Week 23-24
+### Phase 6: Internationalization (i18n) ✅ (Complete)
+**Status**: Complete  
+**Timeline**: Week 23-24 (Completed on schedule)
 
 #### Features
-- [ ] Complete German translation
-- [ ] Complete English translation
-- [ ] Translation infrastructure
-- [ ] Language switcher
-- [ ] Locale-aware date/time formatting
-- [ ] Translatable task templates
-- [ ] Translatable room names (suggestions)
+- [x] Complete German translation
+- [x] Complete English translation
+- [x] Translation infrastructure
+- [x] Locale-aware date/time formatting
+- [x] Translatable task templates
+- [x] Stable error codes vs localized messages
 
 #### Tasks
-- [ ] Extract all translatable strings
-- [ ] Create .pot template
-- [ ] Translate to German
-- [ ] Translate to English
-- [ ] Test both languages
-- [ ] Documentation for translators
+- [x] Extract all translatable strings
+- [x] Create .pot template
+- [x] Translate to German
+- [x] Translate to English
+- [x] Test both languages
+- [x] Documentation for translators
 
-**Deliverable**: Fully multilingual app (DE, EN)
+#### Implementation
+- [x] P6-PLANNING: String inventory + gap report
+- [x] P6-BE-FE-BOOTSTRAP: Translation workflow + key-sync validator
+- [x] P6-FE-001: Dashboard, views, stores, scheduling, gamification localization
+- [x] P6-BE-001: Backend API message localization with stable error codes
+- [x] P6-TEST: Placeholder interpolation regression tests + l10n consistency suite
+- [x] P6-FE Rest-Audit: All less frequent components verified localized
+
+**Deliverable**: Fully multilingual app (DE, EN) with regression protection
 
 ---
 
@@ -435,5 +442,5 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../CONTRIBUTING.m
 
 ---
 
-**Last Updated**: 2026-03-03  
-**Current Phase**: Phase 6 (Internationalization) 🔄 Planning
+**Last Updated**: 2026-03-04  
+**Current Phase**: Phase 7 (Polish & Optimization) � Planned
