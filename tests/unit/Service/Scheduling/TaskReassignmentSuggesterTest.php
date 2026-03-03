@@ -98,7 +98,7 @@ class TaskReassignmentSuggesterTest extends TestCase {
 		$roomTask = $this->createMockRoomTask($roomTaskId, 1);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
-		$this->taskMapper->method('find')->with(1)->willReturn(null);
+		$this->taskMapper->method('find')->with(1)->willThrowException(new \Exception('Task not found'));
 
 		$result = $this->suggester->suggestReassignment($roomTaskId);
 
@@ -200,10 +200,12 @@ class TaskReassignmentSuggesterTest extends TestCase {
 		// Create user settings with no availability
 		$userSettings = [];
 		for ($i = 1; $i <= 3; $i++) {
-			$user = $this->createMock(AvailabilitySettings::class);
-			$user->method('getUserId')->willReturn("user{$i}");
-			$user->method('isAvailableOn')->willReturn(false); // Never available
-			$user->method('getAvailableDays')->willReturn([]);
+			$user = new AvailabilitySettings();
+			$user->setUserId("user{$i}");
+			$user->setWeekdayAvailability([
+				'monday' => false, 'tuesday' => false, 'wednesday' => false,
+				'thursday' => false, 'friday' => false, 'saturday' => false, 'sunday' => false
+			]);
 			$userSettings[] = $user;
 		}
 
