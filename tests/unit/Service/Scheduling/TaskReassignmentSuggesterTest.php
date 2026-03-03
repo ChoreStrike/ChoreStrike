@@ -110,6 +110,7 @@ class TaskReassignmentSuggesterTest extends TestCase {
 	public function testSuggestReassignmentWithOverdueTask(): void {
 		$roomTaskId = 1;
 		$roomTask = $this->createMockRoomTask($roomTaskId, 1);
+		$roomTask->setNextDue(new \DateTime('-2 days')); // Overdue
 		$task = $this->createMockTask(1, 'Clean Kitchen', 5, 8, true); // Overdue
 		$room = $this->createMockRoom(1, 'Kitchen');
 		$floor = $this->createMockFloor(1, 123);
