@@ -84,6 +84,8 @@ class TaskPriorityScorerTest extends TestCase {
 
 		$result = $this->scorer->getOverdueTasks($scoredTasks);
 
+		// array_filter preserves keys, so reindex
+		$result = array_values($result);
 		$this->assertCount(2, $result);
 		$this->assertEquals(2, $result[0]['room_task']->getId());
 		$this->assertEquals(4, $result[1]['room_task']->getId());
@@ -99,6 +101,8 @@ class TaskPriorityScorerTest extends TestCase {
 
 		$result = $this->scorer->getTasksDueSoon($scoredTasks);
 
+		// array_filter preserves keys, so reindex
+		$result = array_values($result);
 		$this->assertCount(2, $result);
 		$this->assertEquals(2, $result[0]['room_task']->getId());
 		$this->assertEquals(3, $result[1]['room_task']->getId());
@@ -114,6 +118,8 @@ class TaskPriorityScorerTest extends TestCase {
 
 		$result = $this->scorer->getHighPriorityTasks($scoredTasks, 50);
 
+		// array_filter preserves keys, so reindex
+		$result = array_values($result);
 		$this->assertCount(2, $result);
 		$this->assertEquals(2, $result[0]['room_task']->getId());
 		$this->assertEquals(4, $result[1]['room_task']->getId());
@@ -128,6 +134,8 @@ class TaskPriorityScorerTest extends TestCase {
 
 		$result = $this->scorer->getHighPriorityTasks($scoredTasks, 40);
 
+		// array_filter preserves keys, so reindex
+		$result = array_values($result);
 		$this->assertCount(2, $result);
 		$this->assertEquals(2, $result[0]['room_task']->getId());
 		$this->assertEquals(3, $result[1]['room_task']->getId());
