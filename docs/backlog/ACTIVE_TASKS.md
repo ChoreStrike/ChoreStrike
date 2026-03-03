@@ -8,16 +8,22 @@
 ### Cascade - P8-RELEASE - Phase 8 Release Preparation
 **Status**: In Progress  
 **Started**: 2026-03-04 12:30  
-**Updated**: 2026-03-04 12:45  
+**Updated**: 2026-03-04 12:55  
 **Branch**: master  
-**Related Files**: docs/backlog/phase-8-release-preparation.md, docs/ROADMAP.md, tests/e2e/availability-settings-flow.spec.ts, tests/e2e/daily-tasks-flow.spec.ts  
+**Related Files**: docs/backlog/phase-8-release-preparation.md, docs/ROADMAP.md, tests/e2e/*.spec.ts  
 **Blockers**: Docker not running (required for integration tests)  
 **Notes**:
 - **P8-DOC-001 completed**: ROADMAP.md updated with Phase 7 completion, Phase 8 planned
 - **P8-E2E-001 completed**: Converted Cypress tests to Playwright syntax
-  - availability-settings-flow.spec.ts: 4 tests
-  - daily-tasks-flow.spec.ts: 5 tests
+- **P8-INTERNAL-TEST planned**: Internal testing phase with beta deployment
+- **P8-SECURITY-001 planned**: Nextcloud isolation verification added
 - **P8-INTEGRATION-001 pending**: Requires Docker with Nextcloud environment
+
+### Next Session Tasks (Prioritized)
+1. **P6-P7-CODE-REVIEW** (High) - Review Phase 6 & 7 code changes first
+2. **P8-SECURITY-001** (High) - Security audit with Nextcloud isolation focus
+3. **P8-INTERNAL-TEST** (High) - Internal testing phase
+4. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
 
 ---
 

@@ -349,18 +349,25 @@
 
 ### Phase 8: Release Preparation
 **Status**: Planned  
-**Timeline**: Week 29-30
+**Timeline**: Week 29-32
 
 #### Tasks
+- [ ] Code Review (Day 1)
+  - [ ] P6 & P7 code review
+  - [ ] PSR-12 compliance check
+  - [ ] ESLint compliance check
+  - [ ] Dead code removal
 - [ ] Security audit
   - [ ] Input validation review
   - [ ] SQL injection prevention check
   - [ ] XSS prevention check
   - [ ] CSRF token verification
-- [ ] Code review
-  - [ ] PSR-12 compliance check
-  - [ ] ESLint compliance check
-  - [ ] Dead code removal
+  - [ ] **Nextcloud isolation verification** (app cannot crash server)
+- [ ] Internal Testing Phase
+  - [ ] Test DB exploration (manual testing)
+  - [ ] Beta deployment on personal Nextcloud server
+  - [ ] Backup strategy verification
+  - [ ] Friends/family beta testers (optional)
 - [ ] Final testing
   - [ ] Integration tests with Docker
   - [ ] E2E test stabilization

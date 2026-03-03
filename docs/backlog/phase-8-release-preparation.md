@@ -1,18 +1,35 @@
 # Phase 8: Release Preparation
 
 > **Status**: Planned  
-> **Timeline**: Week 29-30  
+> **Timeline**: Week 29-32  
 > **Depends on**: Phase 7 (Complete)
 
 ---
 
 ## Overview
 
-Final preparation for v1.0.0 release including security audit, code review, testing, documentation, and app store submission.
+Final preparation for v1.0.0 release including code review, security audit, internal testing phase, and app store submission.
 
 ---
 
 ## Tasks
+
+### P6-P7-CODE-REVIEW: Code Review (Day 1 - First Priority!)
+**Priority**: High  
+**Status**: Pending
+
+- [ ] Review all Phase 6 (i18n) code changes
+- [ ] Review all Phase 7 (Performance) code changes
+- [ ] PSR-12 compliance check
+  - [ ] Run php-cs-fixer on all PHP files
+  - [ ] Fix any violations
+- [ ] ESLint compliance check
+  - [ ] Run eslint on all JS/Vue files
+  - [ ] Fix remaining warnings
+- [ ] Dead code removal
+  - [ ] Identify unused imports
+  - [ ] Remove commented-out code
+  - [ ] Remove unused functions/methods
 
 ### P8-SECURITY-001: Security Audit
 **Priority**: High  
@@ -30,24 +47,36 @@ Final preparation for v1.0.0 release including security audit, code review, test
 - [ ] Authorization review
   - [ ] Verify ownership checks on all resource mutations
   - [ ] Check house membership validation
+- [ ] **Nextcloud Isolation Verification** (CRITICAL)
+  - [ ] App exceptions cannot crash Nextcloud server
+  - [ ] Database errors are caught and handled gracefully
+  - [ ] App uses own database tables (no shared schema pollution)
+  - [ ] App respects Nextcloud's app isolation boundaries
 
-### P8-CODE-001: Code Review
+### P8-INTERNAL-TEST: Internal Testing Phase
 **Priority**: High  
 **Status**: Pending
 
-- [ ] PSR-12 compliance check
-  - [ ] Run php-cs-fixer on all PHP files
-  - [ ] Fix any violations
-- [ ] ESLint compliance check
-  - [ ] Run eslint on all JS/Vue files
-  - [ ] Fix remaining warnings
-- [ ] Dead code removal
-  - [ ] Identify unused imports
-  - [ ] Remove commented-out code
-  - [ ] Remove unused functions/methods
+- [ ] Test DB Exploration
+  - [ ] Set up local test database
+  - [ ] Manual testing of all features
+  - [ ] Edge case exploration
+  - [ ] Stress testing (many tasks, users)
+- [ ] Beta Deployment Preparation
+  - [ ] Create deployment checklist
+  - [ ] Verify backup strategy for Nextcloud
+  - [ ] Document rollback procedure
+- [ ] Beta Deployment on Personal Server
+  - [ ] Deploy to personal Nextcloud instance
+  - [ ] Verify no impact on other Nextcloud apps
+  - [ ] Real-world usage testing
+- [ ] Beta Testers (Optional)
+  - [ ] Invite friends/family
+  - [ ] Collect feedback
+  - [ ] Document issues found
 
 ### P8-TEST-001: Integration Tests
-**Priority**: High  
+**Priority**: Medium  
 **Status**: Pending
 
 - [ ] Run integration tests with Docker test environment
@@ -88,6 +117,25 @@ Final preparation for v1.0.0 release including security audit, code review, test
 
 ---
 
+## Security Architecture Notes
+
+### Nextcloud App Isolation (Built-in Protections)
+
+Nextcloud apps are **isolated by design**:
+- **Own database tables**: Each app uses prefixed tables (`oc_chorestrike_*`)
+- **Exception handling**: Uncaught app exceptions don't crash Nextcloud
+- **Route isolation**: App routes are namespaced (`/apps/chorestrike/`)
+- **No direct filesystem access**: Apps use Nextcloud's filesystem abstraction
+
+### What We Ensure
+1. **All database operations use prepared statements** (via Doctrine QB)
+2. **All user input is validated** before processing
+3. **All mutations check ownership** (house membership)
+4. **Exceptions are caught** and return proper error responses
+5. **No hardcoded paths** or external dependencies
+
+---
+
 ## Dependencies
 
 - Docker test environment must be functional for integration tests
@@ -101,6 +149,8 @@ Final preparation for v1.0.0 release including security audit, code review, test
 - [ ] Code passes linting standards
 - [ ] Integration tests pass
 - [ ] E2E tests stable
+- [ ] Internal testing completed without data loss
+- [ ] Beta deployment successful
 - [ ] Documentation complete
 - [ ] App submitted to Nextcloud App Store
 
