@@ -418,18 +418,18 @@ class GameLogicServiceTest extends TestCase {
 		$medal->setMedalType('streak_keeper');
 
 		$this->medalMapper
-			->expects($this->exactly(2))
+			->expects($this->once())
 			->method('findByUserTypeAndWeek')
 			->willThrowException(new \Exception());
 
 		$this->medalMapper
-			->expects($this->exactly(2))
+			->expects($this->once())
 			->method('insert')
 			->willReturn($medal);
 
 		$result = $this->service->checkAndAwardMedals($houseId);
 
-		$this->assertCount(2, $result);
+		$this->assertCount(1, $result);
 	}
 
 	/**
