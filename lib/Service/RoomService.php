@@ -291,8 +291,9 @@ class RoomService {
 		$cleanlinessChange = $task->getEnergyCost() * 10; // 10% per energy point
 		$updatedRoom = $this->updateRoomCleanliness($room->getId(), $cleanlinessChange);
 
-		// Get house user ID for game logic
-		$houseUser = $this->houseUserMapper->findByNextcloudUserId($room->getHouseId(), $userId);
+		// Get house user ID for game logic (houseId is on Floor, not Room)
+		$floor = $this->floorMapper->find($room->getFloorId());
+		$houseUser = $this->houseUserMapper->findByNextcloudUserId($floor->getHouseId(), $userId);
 		$houseUserId = $houseUser->getId();
 
 		// Trigger game logic for task completion
