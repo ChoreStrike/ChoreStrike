@@ -170,7 +170,8 @@ class MedalService {
 	 * @return Medal[]
 	 */
 	public function getUserMedals(string $userId): array {
-		return $this->medalMapper->findByUserId($userId);
+		// userId in Medal entity is int (house_user.id), convert from Nextcloud string userId
+		return $this->medalMapper->findByUserId((int)$userId);
 	}
 
 	/**
