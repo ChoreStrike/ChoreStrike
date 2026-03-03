@@ -34,4 +34,9 @@ interface IResult {
 	 * @return int
 	 */
 	public function rowCount();
+
+	/**
+	 * @return void
+	 */
+	public function closeCursor();
 }
