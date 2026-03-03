@@ -116,10 +116,11 @@ class AvailabilityCalculatorTest extends TestCase {
 
 		$result = $this->calculator->calculateDailyCapacity($settings);
 
-		$this->assertArrayHasKey('tasks', $result);
-		$this->assertArrayHasKey('energy', $result);
-		$this->assertEquals(3, $result['tasks']);
-		$this->assertEquals(10, $result['energy']);
+		// Returns per-day structure with 'max_tasks', 'max_energy', 'available'
+		$this->assertArrayHasKey('monday', $result);
+		$this->assertEquals(3, $result['monday']['max_tasks']);
+		$this->assertEquals(10, $result['monday']['max_energy']);
+		$this->assertTrue($result['monday']['available']);
 	}
 
 	public function testCalculateAvailabilityScore(): void {
