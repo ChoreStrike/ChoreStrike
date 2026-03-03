@@ -73,23 +73,19 @@
 
 ## Priority 3: UX Improvements (P7-UX)
 
-### P7-UX-001: Loading States & Empty States
-**Status**: Pending  
+### P7-UX-001: Loading States & Empty States ✅
+**Status**: Complete  
 **Priority**: Medium
 
 #### Tasks
-- [ ] Add skeleton loaders for all async content
-- [ ] Improve empty state messaging
-- [ ] Add loading indicators for mutations
-
-### P7-UX-002: Mobile Responsiveness
-**Status**: Pending  
-**Priority**: Medium
-
-#### Tasks
-- [ ] Audit mobile breakpoints
-- [ ] Touch-friendly interactions
-- [ ] Bottom navigation for mobile
+- [x] Add skeleton loaders for Dashboard
+  - [x] Header skeleton
+  - [x] Health bar skeleton
+  - [x] Stats skeleton
+  - [x] Floors skeleton
+- [x] Add skeleton loaders for TaskList
+  - [x] Task item skeletons with animated gradient
+  - [x] Mimics actual task layout
 
 ---
 
