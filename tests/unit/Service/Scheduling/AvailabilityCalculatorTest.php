@@ -148,6 +148,8 @@ class AvailabilityCalculatorTest extends TestCase {
 
 		$result = $this->calculator->filterAvailableUsers([$user1, $user2, $user3], 'monday');
 
+		// array_filter preserves keys, so reindex with array_values
+		$result = array_values($result);
 		$this->assertCount(2, $result);
 		$this->assertEquals('user1', $result[0]->getUserId());
 		$this->assertEquals('user3', $result[1]->getUserId());
