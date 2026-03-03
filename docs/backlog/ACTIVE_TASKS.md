@@ -31,6 +31,17 @@
 - Validation runs passed:
   - `npm test -- --runInBand tests/unit/store/user.spec.js tests/unit/store/tasks.spec.js`
   - `npm run l10n:check-keys`
+- Implemented backend/API message localization in `lib/Controller/SmartSchedulerController.php` and `lib/Controller/UserController.php` (error codes unchanged).
+- Added backend regression coverage and test-mock support updates:
+  - `tests/unit/Controller/SmartSchedulerControllerTest.php`
+  - `tests/unit/Controller/UserControllerTest.php`
+  - `tests/bootstrap.php`
+  - `tests/__mocks__/OCP/IL10N.php`
+  - `tests/__mocks__/OCP/IUserManager.php`
+- Validation runs passed:
+  - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerTest.php`
+  - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/UserControllerTest.php`
+  - `npm run l10n:check-keys`
 
 ---
 
@@ -514,4 +525,4 @@
 
 ---
 
-**Last Updated**: 2026-03-03 21:50
+**Last Updated**: 2026-03-03 22:05

@@ -437,3 +437,57 @@ msgstr ""
 
 msgid "Failed to fetch task categories"
 msgstr ""
+
+msgid "Failed to retrieve users"
+msgstr ""
+
+msgid "Invalid role. Must be owner, member, or child"
+msgstr ""
+
+msgid "Nextcloud user not found"
+msgstr ""
+
+msgid "User invited to house"
+msgstr ""
+
+msgid "Cannot remove house owner"
+msgstr ""
+
+msgid "User removed from house"
+msgstr ""
+
+msgid "Failed to retrieve user stats"
+msgstr ""
+
+msgid "No house found for current user"
+msgstr ""
+
+msgid "Start date must be before end date"
+msgstr ""
+
+msgid "Schedule range cannot exceed 30 days"
+msgstr ""
+
+msgid "User or house not found"
+msgstr ""
+
+msgid "Invalid day: {day}"
+msgstr ""
+
+msgid "Availability must be boolean for {day}"
+msgstr ""
+
+msgid "At least one day must be available"
+msgstr ""
+
+msgid "Availability updated successfully"
+msgstr ""
+
+msgid "Energy must be between 1 and 20 for {day}"
+msgstr ""
+
+msgid "Energy budget updated successfully"
+msgstr ""
+
+msgid "Suggestion applied successfully"
+msgstr ""

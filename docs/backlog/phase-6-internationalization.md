@@ -153,6 +153,27 @@
 - [ ] Ensure public API docs clearly distinguish stable error codes vs localized text.
 - [ ] Keep error code contracts unchanged while improving user-facing localization.
 
+#### Progress Update (2026-03-03)
+- Localized user-facing message fields in:
+  - `lib/Controller/SmartSchedulerController.php`
+  - `lib/Controller/UserController.php`
+- Preserved API error code contracts (`VALIDATION_ERROR`, `USER_NOT_FOUND`, `USERS_ERROR`, etc.) while localizing message text.
+- Added/updated backend regression tests:
+  - `tests/unit/Controller/SmartSchedulerControllerTest.php`
+  - `tests/unit/Controller/UserControllerTest.php`
+- Added missing OCP interface test mocks for local bootstrap execution:
+  - `tests/__mocks__/OCP/IL10N.php`
+  - `tests/__mocks__/OCP/IUserManager.php`
+  - `tests/bootstrap.php` updated to load both mocks.
+- Added translation keys for backend controller messages in:
+  - `l10n/templates/chorestrike.pot`
+  - `l10n/de.json`
+  - `l10n/en.json`
+- Validation run:
+  - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerTest.php`
+  - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/UserControllerTest.php`
+  - `npm run l10n:check-keys`
+
 ### P6-DATA-001: Template & Seed Data Translation Readiness
 - [ ] Audit task template naming/description translation approach.
 - [ ] Define fallback behavior for missing localized template text.

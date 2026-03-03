@@ -13,9 +13,10 @@ use OCA\ChoreStrike\Controller\UserController;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Entity\HouseUser;
-use OCA\ChoreStrike\Entity\House;
+use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Db\House;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUserManager;
 use OCP\IUser;
@@ -32,6 +33,7 @@ class UserControllerTest extends TestCase {
 	private $userManager;
 	private $authService;
 	private $request;
+	private IL10N $l10n;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -41,13 +43,17 @@ class UserControllerTest extends TestCase {
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->userManager = $this->createMock(IUserManager::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		$this->l10n = $this->createMock(IL10N::class);
+		$this->l10n->method('t')
+			->willReturnCallback(static fn(string $text): string => $text);
 
 		$this->controller = new UserController(
 			$this->request,
 			$this->houseUserMapper,
 			$this->houseService,
 			$this->userManager,
-			$this->authService
+			$this->authService,
+			$this->l10n
 		);
 	}
 
@@ -124,6 +130,7 @@ class UserControllerTest extends TestCase {
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
 		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+		$this->assertEquals('User ID is required', $data['error']['message']);
 	}
 
 	/**

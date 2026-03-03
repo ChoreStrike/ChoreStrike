@@ -29,3 +29,4 @@ interface IUser {
 	public function getUID();
 	public function getDisplayName();
 }
+

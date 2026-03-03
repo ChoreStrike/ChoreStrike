@@ -26,6 +26,8 @@ if ($isDocker) {
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/Entity.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/QBMapper.php';
     require_once __DIR__ . '/__mocks__/OCP/ILogger.php';
+    require_once __DIR__ . '/__mocks__/OCP/IL10N.php';
+    require_once __DIR__ . '/__mocks__/OCP/IUserManager.php';
     
     // Now load remaining OCP classes from Nextcloud
     $ocpClasses = [
@@ -82,6 +84,8 @@ if ($isDocker) {
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/Entity.php';
     require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/QBMapper.php';
     require_once __DIR__ . '/__mocks__/OCP/ILogger.php';
+    require_once __DIR__ . '/__mocks__/OCP/IL10N.php';
+    require_once __DIR__ . '/__mocks__/OCP/IUserManager.php';
     require_once __DIR__ . '/__mocks__/OCP/IRequest.php';
     require_once __DIR__ . '/__mocks__/OCP/IUser.php';
     require_once __DIR__ . '/__mocks__/OCP/IUserSession.php';

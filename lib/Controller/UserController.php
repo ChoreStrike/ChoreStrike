@@ -15,6 +15,7 @@ use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
 use OCP\IUserManager;
+use OCP\IL10N;
 
 /**
  * API controller for user management
@@ -25,19 +26,22 @@ class UserController extends OCSController {
 	private HouseService $houseService;
 	private IUserManager $userManager;
 	private AuthorizationService $authService;
+	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
 		HouseUserMapper $houseUserMapper,
 		HouseService $houseService,
 		IUserManager $userManager,
-		AuthorizationService $authService
+		AuthorizationService $authService,
+		IL10N $l
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->houseUserMapper = $houseUserMapper;
 		$this->houseService = $houseService;
 		$this->userManager = $userManager;
 		$this->authService = $authService;
+		$this->l = $l;
 	}
 
 	/**
@@ -62,7 +66,7 @@ class UserController extends OCSController {
 				'success' => false,
 				'error' => [
 					'code' => 'USERS_ERROR',
-					'message' => $e->getMessage()
+					'message' => $this->l->t('Failed to retrieve users')
 				]
 			], 500);
 		}
@@ -80,7 +84,7 @@ class UserController extends OCSController {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'User ID is required'
+						'message' => $this->l->t('User ID is required')
 					]
 				], 400);
 			}
@@ -90,7 +94,7 @@ class UserController extends OCSController {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Invalid role. Must be owner, member, or child'
+						'message' => $this->l->t('Invalid role. Must be owner, member, or child')
 					]
 				], 400);
 			}
@@ -101,7 +105,7 @@ class UserController extends OCSController {
 					'success' => false,
 					'error' => [
 						'code' => 'USER_NOT_FOUND',
-						'message' => 'Nextcloud user not found'
+						'message' => $this->l->t('Nextcloud user not found')
 					]
 				], 404);
 			}
@@ -119,14 +123,15 @@ class UserController extends OCSController {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $houseUser->jsonSerialize()
+				'data' => $houseUser->jsonSerialize(),
+				'message' => $this->l->t('User invited to house')
 			]);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
 					'code' => 'INVITE_ERROR',
-					'message' => $e->getMessage()
+					'message' => $this->l->t('Failed to invite user')
 				]
 			], 500);
 		}
@@ -147,7 +152,7 @@ class UserController extends OCSController {
 					'success' => false,
 					'error' => [
 						'code' => 'CANNOT_REMOVE_OWNER',
-						'message' => 'Cannot remove house owner'
+						'message' => $this->l->t('Cannot remove house owner')
 					]
 				], 403);
 			}
@@ -156,14 +161,14 @@ class UserController extends OCSController {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'User removed from house'
+				'message' => $this->l->t('User removed from house')
 			]);
 		} catch (\Exception $e) {
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
 					'code' => 'REMOVE_ERROR',
-					'message' => $e->getMessage()
+					'message' => $this->l->t('Failed to remove user')
 				]
 			], 500);
 		}
@@ -184,7 +189,7 @@ class UserController extends OCSController {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Invalid role. Must be owner, member, or child'
+						'message' => $this->l->t('Invalid role. Must be owner, member, or child')
 					]
 				], 400);
 			}
@@ -201,7 +206,7 @@ class UserController extends OCSController {
 				'success' => false,
 				'error' => [
 					'code' => 'UPDATE_ROLE_ERROR',
-					'message' => $e->getMessage()
+					'message' => $this->l->t('Failed to update user role')
 				]
 			], 500);
 		}
@@ -234,7 +239,7 @@ class UserController extends OCSController {
 				'success' => false,
 				'error' => [
 					'code' => 'STATS_ERROR',
-					'message' => $e->getMessage()
+					'message' => $this->l->t('Failed to retrieve user stats')
 				]
 			], 500);
 		}

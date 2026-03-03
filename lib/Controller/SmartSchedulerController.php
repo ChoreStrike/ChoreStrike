@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUserSession;
 
@@ -26,19 +27,22 @@ class SmartSchedulerController extends Controller {
 	private SchedulingService $schedulingService;
 	private HouseService $houseService;
 	private IUserSession $userSession;
+	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
 		SmartSchedulerService $smartSchedulerService,
 		SchedulingService $schedulingService,
 		HouseService $houseService,
-		IUserSession $userSession
+		IUserSession $userSession,
+		IL10N $l
 	) {
 		parent::__construct($request);
 		$this->smartSchedulerService = $smartSchedulerService;
 		$this->schedulingService = $schedulingService;
 		$this->houseService = $houseService;
 		$this->userSession = $userSession;
+		$this->l = $l;
 	}
 
 	/**
@@ -53,7 +57,7 @@ class SmartSchedulerController extends Controller {
 			$houseId = $this->getCurrentHouseId();
 			
 			if (!$houseId) {
-				return new DataResponse(['error' => 'No house found for current user'], Http::STATUS_NOT_FOUND);
+				return new DataResponse(['error' => $this->l->t('No house found for current user')], Http::STATUS_NOT_FOUND);
 			}
 
 			$preview = $this->smartSchedulerService->getSchedulePreview($houseId, $days);
@@ -84,7 +88,7 @@ class SmartSchedulerController extends Controller {
 			$houseId = $this->getCurrentHouseId();
 			
 			if (!$houseId) {
-				return new DataResponse(['error' => 'No house found for current user'], Http::STATUS_NOT_FOUND);
+				return new DataResponse(['error' => $this->l->t('No house found for current user')], Http::STATUS_NOT_FOUND);
 			}
 
 			$start = new \DateTime($startDate);
@@ -92,13 +96,13 @@ class SmartSchedulerController extends Controller {
 			
 			// Validate date range
 			if ($start >= $end) {
-				return new DataResponse(['error' => 'Start date must be before end date'], Http::STATUS_BAD_REQUEST);
+				return new DataResponse(['error' => $this->l->t('Start date must be before end date')], Http::STATUS_BAD_REQUEST);
 			}
 			
 			// Limit to reasonable range (max 30 days)
 			$daysDiff = $end->diff($start)->days;
 			if ($daysDiff > 30) {
-				return new DataResponse(['error' => 'Schedule range cannot exceed 30 days'], Http::STATUS_BAD_REQUEST);
+				return new DataResponse(['error' => $this->l->t('Schedule range cannot exceed 30 days')], Http::STATUS_BAD_REQUEST);
 			}
 
 			$schedule = $this->smartSchedulerService->generateSchedule($houseId, $start, $end);
@@ -127,7 +131,7 @@ class SmartSchedulerController extends Controller {
 			$houseId = $this->getCurrentHouseId();
 			
 			if (!$houseId) {
-				return new DataResponse(['error' => 'No house found for current user'], Http::STATUS_NOT_FOUND);
+				return new DataResponse(['error' => $this->l->t('No house found for current user')], Http::STATUS_NOT_FOUND);
 			}
 
 			$availability = $this->schedulingService->getMemberAvailability($houseId);
@@ -158,17 +162,21 @@ class SmartSchedulerController extends Controller {
 			$userId = $this->getCurrentUserId();
 			
 			if (!$houseId || !$userId) {
-				return new DataResponse(['error' => 'User or house not found'], Http::STATUS_NOT_FOUND);
+				return new DataResponse(['error' => $this->l->t('User or house not found')], Http::STATUS_NOT_FOUND);
 			}
 
 			// Validate availability format
 			$validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 			foreach ($availability as $day => $available) {
 				if (!in_array($day, $validDays)) {
-					return new DataResponse(['error' => "Invalid day: {$day}"], Http::STATUS_BAD_REQUEST);
+					return new DataResponse([
+						'error' => $this->l->t('Invalid day: {day}', ['day' => $day]),
+					], Http::STATUS_BAD_REQUEST);
 				}
 				if (!is_bool($available)) {
-					return new DataResponse(['error' => "Availability must be boolean for {$day}"], Http::STATUS_BAD_REQUEST);
+					return new DataResponse([
+						'error' => $this->l->t('Availability must be boolean for {day}', ['day' => $day]),
+					], Http::STATUS_BAD_REQUEST);
 				}
 			}
 
@@ -178,7 +186,7 @@ class SmartSchedulerController extends Controller {
 			});
 			
 			if (empty($hasAvailableDay)) {
-				return new DataResponse(['error' => 'At least one day must be available'], Http::STATUS_BAD_REQUEST);
+				return new DataResponse(['error' => $this->l->t('At least one day must be available')], Http::STATUS_BAD_REQUEST);
 			}
 
 			// Update availability for each day
@@ -188,7 +196,7 @@ class SmartSchedulerController extends Controller {
 			
 			return new DataResponse([
 				'success' => true,
-				'message' => 'Availability updated successfully',
+				'message' => $this->l->t('Availability updated successfully'),
 			]);
 			
 		} catch (\Exception $e) {
@@ -212,17 +220,21 @@ class SmartSchedulerController extends Controller {
 			$userId = $this->getCurrentUserId();
 			
 			if (!$houseId || !$userId) {
-				return new DataResponse(['error' => 'User or house not found'], Http::STATUS_NOT_FOUND);
+				return new DataResponse(['error' => $this->l->t('User or house not found')], Http::STATUS_NOT_FOUND);
 			}
 
 			// Validate energy budget format
 			$validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 			foreach ($energyBudget as $day => $energy) {
 				if (!in_array($day, $validDays)) {
-					return new DataResponse(['error' => "Invalid day: {$day}"], Http::STATUS_BAD_REQUEST);
+					return new DataResponse([
+						'error' => $this->l->t('Invalid day: {day}', ['day' => $day]),
+					], Http::STATUS_BAD_REQUEST);
 				}
 				if (!is_int($energy) || $energy < 1 || $energy > 20) {
-					return new DataResponse(['error' => "Energy must be between 1 and 20 for {$day}"], Http::STATUS_BAD_REQUEST);
+					return new DataResponse([
+						'error' => $this->l->t('Energy must be between 1 and 20 for {day}', ['day' => $day]),
+					], Http::STATUS_BAD_REQUEST);
 				}
 			}
 
@@ -233,7 +245,7 @@ class SmartSchedulerController extends Controller {
 			
 			return new DataResponse([
 				'success' => true,
-				'message' => 'Energy budget updated successfully',
+				'message' => $this->l->t('Energy budget updated successfully'),
 			]);
 			
 		} catch (\Exception $e) {
@@ -255,7 +267,7 @@ class SmartSchedulerController extends Controller {
 			$houseId = $this->getCurrentHouseId();
 			
 			if (!$houseId) {
-				return new DataResponse(['error' => 'No house found for current user'], Http::STATUS_NOT_FOUND);
+				return new DataResponse(['error' => $this->l->t('No house found for current user')], Http::STATUS_NOT_FOUND);
 			}
 
 			$startDate = new \DateTime('today');
@@ -291,7 +303,7 @@ class SmartSchedulerController extends Controller {
 			$houseId = $this->getCurrentHouseId();
 			
 			if (!$houseId) {
-				return new DataResponse(['error' => 'No house found for current user'], Http::STATUS_NOT_FOUND);
+				return new DataResponse(['error' => $this->l->t('No house found for current user')], Http::STATUS_NOT_FOUND);
 			}
 
 			// Apply the suggestion using the service
@@ -299,7 +311,7 @@ class SmartSchedulerController extends Controller {
 			
 			return new DataResponse([
 				'success' => true,
-				'message' => 'Suggestion applied successfully',
+				'message' => $this->l->t('Suggestion applied successfully'),
 				'data' => [
 					'taskId' => $task->getId(),
 					'assignedTo' => $task->getAssignedToUserId(),

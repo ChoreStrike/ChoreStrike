@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCA\ChoreStrike\Service\SmartSchedulerService;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
@@ -31,6 +32,7 @@ class SmartSchedulerControllerTest extends TestCase {
 	private HouseService $houseService;
 	private IUserSession $userSession;
 	private IRequest $request;
+	private IL10N $l10n;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -40,14 +42,44 @@ class SmartSchedulerControllerTest extends TestCase {
 		$this->schedulingService = $this->createMock(SchedulingService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->userSession = $this->createMock(IUserSession::class);
+		$this->l10n = $this->createMock(IL10N::class);
+		$this->l10n->method('t')
+			->willReturnCallback(static fn(string $text, array $parameters = []): string => strtr($text, array_combine(
+				array_map(static fn(string $key): string => '{' . $key . '}', array_keys($parameters)),
+				array_values($parameters)
+			) ?: []));
 
 		$this->controller = new SmartSchedulerController(
 			$this->request,
 			$this->smartSchedulerService,
 			$this->schedulingService,
 			$this->houseService,
-			$this->userSession
+			$this->userSession,
+			$this->l10n
 		);
+	}
+
+	/**
+	 * Test generate schedule returns localized validation message for invalid date range.
+	 */
+	public function testGenerateSchedule_ReturnsLocalizedValidationMessageForInvalidDateRange(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$this->houseService->expects($this->once())
+			->method('getInstanceId')
+			->willReturn('instance-123');
+
+		$this->houseService->expects($this->once())
+			->method('getOrCreateHouse')
+			->with('instance-123')
+			->willReturn($house);
+
+		$response = $this->controller->generateSchedule('2026-03-20', '2026-03-19');
+
+		$this->assertSame(400, $response->getStatus());
+		$data = $response->getData();
+		$this->assertSame('Start date must be before end date', $data['error']);
 	}
 
 	/**
