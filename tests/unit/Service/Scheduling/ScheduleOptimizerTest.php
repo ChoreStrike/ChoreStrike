@@ -27,9 +27,8 @@ class ScheduleOptimizerTest extends TestCase {
 
 		$result = $this->optimizer->optimizeSchedule($schedule, $userSettings);
 
-		$this->assertEquals($schedule, $result['schedule']);
-		$this->assertEquals(0, $result['changes_made']);
-		$this->assertEquals(0, $result['metrics']['improvement_score']);
+		// Empty schedule returns empty array directly
+		$this->assertEquals([], $result);
 	}
 
 	public function testOptimizeScheduleReturnsOriginalWhenNoImprovement(): void {
