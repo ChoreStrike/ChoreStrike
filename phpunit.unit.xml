@@ -13,8 +13,18 @@
     <testsuites>
         <!-- Entity tests only - no Mapper dependencies -->
         <testsuite name="Entity">
-            <directory>tests/unit/Db</directory>
-            <exclude>tests/unit/Db/*MapperTest.php</exclude>
+            <directory suffix="Test.php">tests/unit/Db</directory>
+            <exclude>tests/unit/Db/HouseMapperTest.php</exclude>
+            <exclude>tests/unit/Db/TaskMapperTest.php</exclude>
+            <exclude>tests/unit/Db/TaskScopeMapperTest.php</exclude>
+            <exclude>tests/unit/Db/FloorMapperTest.php</exclude>
+            <exclude>tests/unit/Db/CompletedTaskMapperTest.php</exclude>
+            <exclude>tests/unit/Db/HouseUserMapperTest.php</exclude>
+            <exclude>tests/unit/Db/RoomMapperTest.php</exclude>
+            <exclude>tests/unit/Db/RoomTaskMapperTest.php</exclude>
+            <exclude>tests/unit/Db/AvailabilitySettingsMapperTest.php</exclude>
+            <exclude>tests/unit/Db/MedalMapperTest.php</exclude>
+            <exclude>tests/unit/Db/ComboMapperTest.php</exclude>
         </testsuite>
         <!-- Service tests that don't require real database -->
         <testsuite name="Service">
