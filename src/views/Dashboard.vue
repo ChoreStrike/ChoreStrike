@@ -5,25 +5,36 @@
 
 <template>
 	<div class="dashboard" data-testid="dashboard-view">
-		<header class="dashboard-header">
-			<div class="header-content">
-				<h1 data-testid="house-name">
-					{{ houseName }}
-				</h1>
-				<p class="tagline">
-					{{ t('chorestrike', 'Defend your Home Base. Together.') }}
-				</p>
-			</div>
-			<HouseHealthBar
-				:health="houseHealth"
-				:size="'large'"
-				data-testid="house-health" />
-		</header>
+		<!-- Loading State -->
+		<div v-if="isLoading" class="dashboard-loading">
+			<div class="skeleton skeleton-header"></div>
+			<div class="skeleton skeleton-health"></div>
+			<div class="skeleton skeleton-stats"></div>
+			<div class="skeleton skeleton-floors"></div>
+		</div>
 
-		<main class="dashboard-content">
-			<QuickStats class="quick-stats-section" data-testid="quick-stats" />
-			<FloorList class="floor-list-section" data-testid="floor-list" />
-		</main>
+		<!-- Loaded Content -->
+		<template v-else>
+			<header class="dashboard-header">
+				<div class="header-content">
+					<h1 data-testid="house-name">
+						{{ houseName }}
+					</h1>
+					<p class="tagline">
+						{{ t('chorestrike', 'Defend your Home Base. Together.') }}
+					</p>
+				</div>
+				<HouseHealthBar
+					:health="houseHealth"
+					:size="'large'"
+					data-testid="house-health" />
+			</header>
+
+			<main class="dashboard-content">
+				<QuickStats class="quick-stats-section" data-testid="quick-stats" />
+				<FloorList class="floor-list-section" data-testid="floor-list" />
+			</main>
+		</template>
 	</div>
 </template>
 
@@ -56,6 +67,9 @@ export default {
 		},
 		houseHealth() {
 			return this.houseStore.houseHealth
+		},
+		isLoading() {
+			return this.houseStore.loading || this.roomsStore.loading
 		},
 	},
 
@@ -121,5 +135,49 @@ h1 {
 
 .floor-list-section {
 	flex: 1;
+}
+
+/* Skeleton Loading States */
+.dashboard-loading {
+	padding: 1rem 0;
+}
+
+.skeleton {
+	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-background) 50%, var(--color-background-dark) 75%);
+	background-size: 200% 100%;
+	animation: skeleton-loading 1.5s infinite;
+	border-radius: var(--border-radius-large);
+}
+
+.skeleton-header {
+	width: 200px;
+	height: 2rem;
+	margin-bottom: 0.5rem;
+}
+
+.skeleton-health {
+	width: 300px;
+	height: 24px;
+	margin-bottom: 2rem;
+}
+
+.skeleton-stats {
+	width: 100%;
+	height: 100px;
+	margin-bottom: 2rem;
+}
+
+.skeleton-floors {
+	width: 100%;
+	height: 300px;
+}
+
+@keyframes skeleton-loading {
+	0% {
+		background-position: 200% 0;
+	}
+	100% {
+		background-position: -200% 0;
+	}
 }
 </style>

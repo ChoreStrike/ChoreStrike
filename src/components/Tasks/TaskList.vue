@@ -5,9 +5,22 @@
 
 <template>
 	<div class="task-list">
-		<div v-if="loading" class="loading-state">
-			<div class="loading-spinner" />
-			<p>{{ t('chorestrike', 'Loading tasks...') }}</p>
+		<!-- Skeleton Loading State -->
+		<div v-if="loading" class="skeleton-loading">
+			<div v-for="i in 5" :key="i" class="skeleton-task-item">
+				<div class="skeleton-task-status"></div>
+				<div class="skeleton-task-content">
+					<div class="skeleton-task-header">
+						<div class="skeleton-task-name"></div>
+						<div class="skeleton-priority"></div>
+					</div>
+					<div class="skeleton-task-meta">
+						<div class="skeleton-meta-item"></div>
+						<div class="skeleton-meta-item"></div>
+						<div class="skeleton-meta-item"></div>
+					</div>
+				</div>
+			</div>
 		</div>
 
 		<div v-else-if="!roomTasks || roomTasks.length === 0" class="empty-state">
@@ -471,6 +484,82 @@ export default {
 	.task-actions {
 		width: 100%;
 		justify-content: flex-end;
+	}
+}
+
+/* Skeleton Loading Styles */
+.skeleton-loading {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.skeleton-task-item {
+	display: flex;
+	gap: 1rem;
+	padding: 1rem;
+	background: var(--color-background);
+	border-radius: var(--border-radius-large);
+}
+
+.skeleton-task-status {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-background) 50%, var(--color-background-dark) 75%);
+	background-size: 200% 100%;
+	animation: skeleton-loading 1.5s infinite;
+}
+
+.skeleton-task-content {
+	flex: 1;
+}
+
+.skeleton-task-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 0.5rem;
+}
+
+.skeleton-task-name {
+	width: 150px;
+	height: 16px;
+	border-radius: var(--border-radius);
+	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-background) 50%, var(--color-background-dark) 75%);
+	background-size: 200% 100%;
+	animation: skeleton-loading 1.5s infinite;
+}
+
+.skeleton-priority {
+	width: 60px;
+	height: 20px;
+	border-radius: var(--border-radius-pill);
+	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-background) 50%, var(--color-background-dark) 75%);
+	background-size: 200% 100%;
+	animation: skeleton-loading 1.5s infinite;
+}
+
+.skeleton-task-meta {
+	display: flex;
+	gap: 0.75rem;
+}
+
+.skeleton-meta-item {
+	width: 50px;
+	height: 12px;
+	border-radius: var(--border-radius);
+	background: linear-gradient(90deg, var(--color-background-dark) 25%, var(--color-background) 50%, var(--color-background-dark) 75%);
+	background-size: 200% 100%;
+	animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+	0% {
+		background-position: 200% 0;
+	}
+	100% {
+		background-position: -200% 0;
 	}
 }
 </style>
