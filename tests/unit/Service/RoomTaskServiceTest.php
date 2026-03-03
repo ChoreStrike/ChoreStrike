@@ -10,6 +10,7 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -24,18 +25,21 @@ class RoomTaskServiceTest extends TestCase {
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
 	private RoomMapper $roomMapper;
+	private FloorMapper $floorMapper;
 	private RoomService $roomService;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->roomMapper = $this->createMock(RoomMapper::class);
+		$this->floorMapper = $this->createMock(FloorMapper::class);
 		$this->roomService = $this->createMock(RoomService::class);
 
 		$this->service = new RoomTaskService(
 			$this->roomTaskMapper,
 			$this->taskMapper,
 			$this->roomMapper,
+			$this->floorMapper,
 			$this->roomService
 		);
 	}
