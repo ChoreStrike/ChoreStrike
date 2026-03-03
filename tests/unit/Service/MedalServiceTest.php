@@ -128,7 +128,7 @@ class MedalServiceTest extends TestCase {
 
 		$this->medalMapper->expects($this->once())
 			->method('findByUserId')
-			->with('user1')
+			->with(0) // 'user1' is cast to int 0 in service
 			->willReturn([$medal1, $medal2]);
 
 		$result = $this->service->getUserMedals('user1');
