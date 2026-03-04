@@ -44,6 +44,9 @@
     "@nextcloud/eslint-plugin": "^2.0.0",
     "@nextcloud/stylelint-config": "^2.4.0",
     "@nextcloud/webpack-vue-config": "^6.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "@typescript-eslint/typescript-estree": "^8.56.1",
     "@vue/eslint-config-typescript": "^13.0.0",
     "@vue/test-utils": "^2.4.3",
     "@vue/vue3-jest": "^29.2.6",
@@ -69,6 +72,13 @@
     "vue-loader": "^17.4.2",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"
+  },
+  "overrides": {
+    "@vue/eslint-config-typescript": {
+      "@typescript-eslint/eslint-plugin": "^8.56.1",
+      "@typescript-eslint/parser": "^8.56.1",
+      "@typescript-eslint/typescript-estree": "^8.56.1"
+    }
   },
   "browserslist": [
     "extends @nextcloud/browserslist-config"

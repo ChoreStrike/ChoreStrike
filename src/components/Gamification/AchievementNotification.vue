@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import Icon from '../Common/Icon.vue'
 

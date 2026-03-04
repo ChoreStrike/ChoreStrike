@@ -195,7 +195,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { showSuccess, showError } from '@nextcloud/dialogs'
 import Icon from '../Common/Icon.vue'
@@ -255,7 +255,7 @@ const loadMemberAvailability = async () => {
 				timeRanges: member.timeRanges || { start: '09:00', end: '18:00' },
 				isCurrentUser: member.userId === currentUser.value?.userId,
 			}))
-			
+
 			members.value = transformedMembers
 		} else {
 			throw new Error(response.data.error || 'Failed to load availability')
@@ -290,14 +290,14 @@ const saveAvailability = async () => {
 	try {
 		// Validate form data
 		const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-		
+
 		// Validate availability
 		for (const day of validDays) {
 			if (typeof editForm.value.availability[day] !== 'boolean') {
 				throw new Error(`Invalid availability value for ${day}`)
 			}
 		}
-		
+
 		// Validate energy budget
 		for (const day of validDays) {
 			const energy = editForm.value.energyBudget[day]
@@ -408,28 +408,6 @@ const formatDayName = (dayKey: string): string => {
 	return day ? day.name : dayKey
 }
 
-// Computed
-const currentUserId = computed<string>(() => {
-	// Get current user from Nextcloud
-	if (currentUser.value) {
-		return currentUser.value.userId
-	}
-	
-	// Fallback: try to get from global Nextcloud context
-	// @ts-ignore - Nextcloud global
-	if (typeof OC !== 'undefined' && OC.currentUser) {
-		return OC.currentUser
-	}
-	
-	// Another fallback
-	// @ts-ignore - Nextcloud global
-	if (typeof window !== 'undefined' && (window as any).currentUser) {
-		return (window as any).currentUser
-	}
-	
-	return 'unknown'
-})
-
 // Lifecycle
 onMounted(async () => {
 	if (props.houseId) {
@@ -442,7 +420,7 @@ onMounted(async () => {
 		} catch (error) {
 			console.warn('Could not get current user:', error)
 		}
-		
+
 		await loadMemberAvailability()
 	}
 })

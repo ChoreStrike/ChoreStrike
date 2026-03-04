@@ -23,9 +23,9 @@ Final preparation for v1.0.0 release including code review, security audit, inte
 - [ ] PSR-12 compliance check
   - [ ] Run php-cs-fixer on all PHP files
   - [ ] Fix any violations
-- [ ] ESLint compliance check
-  - [ ] Run eslint on all JS/Vue files
-  - [ ] Fix remaining warnings
+- [x] ESLint compliance check
+  - [x] Run eslint on all JS/Vue files
+  - [x] Fix remaining warnings
 - [ ] Dead code removal
   - [ ] Identify unused imports
   - [ ] Remove commented-out code
@@ -44,6 +44,14 @@ Final preparation for v1.0.0 release including code review, security audit, inte
   - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerAnnotationsTest.php tests/unit/Migration/Version1015Date20260304000000Test.php`
   - `npm test -- --runInBand tests/unit/components/RoomCard.spec.js tests/unit/views/TaskManager.spec.js`
   - `npm run l10n:check-keys`
+- Follow-up updates:
+  - Stabilized TypeScript-ESLint toolchain for TypeScript `5.9.x` by pinning `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`, and `@typescript-eslint/typescript-estree` to `8.56.1`.
+  - Added npm `overrides` to enforce the same TypeScript-ESLint version inside `@vue/eslint-config-typescript` dependency tree.
+  - Validated clean frontend lint run with:
+    - `npx eslint --ext .js,.vue src --quiet`
+  - Hardened smart scheduling suggestion assignment flow:
+    - `SmartSchedulerService::applySuggestion()` now maps missing house-member assignees to `InvalidArgumentException('Assignee must be a house member')`.
+    - Added regression test `testApplySuggestion_NonHouseMember_ThrowsInvalidArgumentException` in `tests/unit/Service/SmartSchedulerServiceTest.php`.
 
 ### P8-SECURITY-001: Security Audit
 **Priority**: High  

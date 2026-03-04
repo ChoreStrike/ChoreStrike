@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import axios from '@nextcloud/axios'
 
@@ -73,7 +73,6 @@ const comboProgress = ref<ComboProgress>({
 	timedOut: false,
 })
 
-const loading = ref<boolean>(false)
 let refreshInterval: ReturnType<typeof setInterval> | null = null
 
 const loadComboProgress = async (): Promise<void> => {

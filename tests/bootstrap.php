@@ -31,7 +31,7 @@ if ($isDocker) {
     require_once __DIR__ . '/__mocks__/OCP/DB/ISchemaWrapper.php';
     require_once __DIR__ . '/__mocks__/OCP/Migration/IOutput.php';
     require_once __DIR__ . '/__mocks__/OCP/Migration/SimpleMigrationStep.php';
-    
+
     // Now load remaining OCP classes from Nextcloud
     $ocpClasses = [
         'OCP/DB/Exception.php',
@@ -49,17 +49,17 @@ if ($isDocker) {
         'OCP/IServerContainer.php',
         'OCP/ITimeFactory.php',
     ];
-    
+
     foreach ($ocpClasses as $class) {
         $file = "/var/www/html/lib/public/$class";
         if (file_exists($file)) {
             require_once $file;
         }
     }
-    
+
     // Register ChoreStrike autoloader
     require_once __DIR__ . '/../vendor/autoload.php';
-    
+
     // Register fallback autoloader for remaining OCP classes
     spl_autoload_register(function ($class) {
         if (strpos($class, 'OCP\\') === 0) {
@@ -97,7 +97,7 @@ if ($isDocker) {
     require_once __DIR__ . '/__mocks__/OCP/IUserSession.php';
     require_once __DIR__ . '/__mocks__/OCP/IDBConnection.php';
     require_once __DIR__ . '/__mocks__/OCP/ITimeFactory.php';
-    
+
     // Load vendor autoloader
     require_once __DIR__ . '/../vendor/autoload.php';
 }

@@ -7,5 +7,6 @@ namespace OCP\Migration;
 /**
  * Mock Nextcloud SimpleMigrationStep class for unit tests.
  */
-class SimpleMigrationStep {
+class SimpleMigrationStep
+{
 }

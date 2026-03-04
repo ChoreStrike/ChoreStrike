@@ -8,9 +8,9 @@
 ### Cascade - P8-RELEASE - Phase 8 Release Preparation
 **Status**: In Progress  
 **Started**: 2026-03-04 12:30  
-**Updated**: 2026-03-04 13:35  
+**Updated**: 2026-03-04 20:58  
 **Branch**: master  
-**Related Files**: docs/backlog/phase-8-release-preparation.md, docs/ROADMAP.md, tests/e2e/*.spec.ts  
+**Related Files**: docs/backlog/phase-8-release-preparation.md, docs/ROADMAP.md, package.json, package-lock.json, lib/Service/SmartSchedulerService.php, tests/unit/Service/SmartSchedulerServiceTest.php, tests/e2e/*.spec.ts  
 **Blockers**: Docker not running (required for integration tests)  
 **Notes**:
 - **P8-DOC-001 completed**: ROADMAP.md updated with Phase 7 completion, Phase 8 planned
@@ -27,6 +27,14 @@
   - Validation passed:
     - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerTest.php`
     - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerAnnotationsTest.php tests/unit/Migration/Version1015Date20260304000000Test.php`
+    - `npm test -- --runInBand tests/unit/components/RoomCard.spec.js tests/unit/views/TaskManager.spec.js`
+- **P6-P7-CODE-REVIEW follow-up (lint/security hardening)**:
+  - Resolved TypeScript-ESLint compatibility warning for TypeScript `5.9.x` by pinning `@typescript-eslint/*` `8.56.1` and adding npm `overrides` for `@vue/eslint-config-typescript` dependency tree.
+  - Added assignee membership validation hardening in `SmartSchedulerService::applySuggestion()` by mapping `DoesNotExistException` to a controlled `InvalidArgumentException` (`Assignee must be a house member`).
+  - Added regression test `testApplySuggestion_NonHouseMember_ThrowsInvalidArgumentException`.
+  - Validation passed:
+    - `npx eslint --ext .js,.vue src --quiet`
+    - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Service/SmartSchedulerServiceTest.php tests/unit/Controller/SmartSchedulerControllerAnnotationsTest.php tests/unit/Migration/Version1015Date20260304000000Test.php`
     - `npm test -- --runInBand tests/unit/components/RoomCard.spec.js tests/unit/views/TaskManager.spec.js`
 
 ### Next Session Tasks (Prioritized)

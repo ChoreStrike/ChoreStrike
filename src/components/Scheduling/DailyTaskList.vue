@@ -97,7 +97,7 @@ interface Task {
 	order: number
 }
 
-const props = defineProps<{
+defineProps<{
 	userId: string
 }>()
 
@@ -158,9 +158,7 @@ const toggleTask = async (task: Task) => {
 	}
 }
 
-const rescheduleTask = async (task: Task) => {
-	// TODO: Show reschedule modal
-	console.log('Reschedule task:', task.id)
+const rescheduleTask = () => {
 }
 
 const skipTask = async (task: Task) => {

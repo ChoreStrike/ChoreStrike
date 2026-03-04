@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import axios from '@nextcloud/axios'
 
@@ -105,7 +105,7 @@ const loadLeaderboard = async (): Promise<void> => {
 	loading.value = true
 	try {
 		let endpoint = '/api/v1/user-stats/leaderboard'
-		
+
 		if (activeFilter.value === 'streak') {
 			endpoint = '/api/v1/user-stats/streak-leaderboard'
 		} else if (activeFilter.value === 'tasks') {

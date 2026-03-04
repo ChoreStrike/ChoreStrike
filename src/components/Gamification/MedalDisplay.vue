@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import axios from '@nextcloud/axios'
 
