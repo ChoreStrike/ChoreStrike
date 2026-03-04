@@ -8,26 +8,24 @@
 ### Cascade - P8-RELEASE - Phase 8 Release Preparation
 **Status**: In Progress  
 **Started**: 2026-03-04 12:30  
-**Updated**: 2026-03-05 10:45  
+**Updated**: 2026-03-05 11:00  
 **Branch**: master  
-**Related Files**: docs/backlog/phase-8-release-preparation.md, docs/ROADMAP.md, docs/standards/SECURITY.md, tests/**/*.php  
-**Blockers**: Docker not running (required for integration tests)  
+**Related Files**: docs/backlog/phase-8-release-preparation.md, docs/ROADMAP.md, docs/standards/SECURITY.md, docs/DEPLOYMENT_CHECKLIST.md, docs/MANUAL_TEST_CHECKLIST.md  
+**Blockers**: Docker not running (required for integration tests), Need Nextcloud instance for beta testing  
 **Notes**:
 - **P8-DOC-001 completed**: ROADMAP.md updated with Phase 7 completion, Phase 8 planned
 - **P8-E2E-001 completed**: Converted Cypress tests to Playwright syntax
 - **P8-SECURITY-001 completed**: Security audit passed, SECURITY.md created
-  - All endpoints use `@NoAdminRequired` (no `@PublicPage`)
-  - All controllers check house membership/ownership
-  - All database queries use prepared statements
-  - No `v-html` directives in Vue components
-  - All controller methods have exception handling
 - **P6-P7-CODE-REVIEW completed**: All lint/dead-code checks done
 - **Unit-Test-Infra Gap closed**: 274 tests passing
-- **P8-INTERNAL-TEST planned**: Internal testing phase with beta deployment
+- **P8-INTERNAL-TEST preparation completed**:
+  - Created DEPLOYMENT_CHECKLIST.md with backup/deploy/rollback procedures
+  - Created MANUAL_TEST_CHECKLIST.md with comprehensive testing scenarios
 - **P8-INTEGRATION-001 pending**: Requires Docker with Nextcloud environment
+- **Beta Deployment pending**: Requires personal Nextcloud instance
 
 ### Next Session Tasks (Prioritized)
-1. **P8-INTERNAL-TEST** (High) - Internal testing phase
+1. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
 2. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
 3. **Controller Test Rewrite** (Low) - Rewrite excluded controller tests for new service architecture
 4. **P8-DOC-001 completion** (Medium) - User guide and API documentation
