@@ -8,5 +8,6 @@ declare(strict_types=1);
 
 namespace OCP\AppFramework\Http;
 
-class NotFoundException extends \Exception {
+class NotFoundException extends \Exception
+{
 }

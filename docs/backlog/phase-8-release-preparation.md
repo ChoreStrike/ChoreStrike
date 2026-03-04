@@ -20,9 +20,9 @@ Final preparation for v1.0.0 release including code review, security audit, inte
 
 - [x] Review all Phase 6 (i18n) code changes
 - [x] Review all Phase 7 (Performance) code changes
-- [ ] PSR-12 compliance check
-  - [ ] Run php-cs-fixer on all PHP files
-  - [ ] Fix any violations
+- [x] PSR-12 compliance check
+  - [x] Run php-cs-fixer on all PHP files
+  - [x] Fix any violations
 - [x] ESLint compliance check
   - [x] Run eslint on all JS/Vue files
   - [x] Fix remaining warnings
@@ -52,6 +52,16 @@ Final preparation for v1.0.0 release including code review, security audit, inte
   - Hardened smart scheduling suggestion assignment flow:
     - `SmartSchedulerService::applySuggestion()` now maps missing house-member assignees to `InvalidArgumentException('Assignee must be a house member')`.
     - Added regression test `testApplySuggestion_NonHouseMember_ThrowsInvalidArgumentException` in `tests/unit/Service/SmartSchedulerServiceTest.php`.
+  - Completed full PSR-12 formatter pass over backend and test code:
+    - `vendor\\bin\\php-cs-fixer fix --using-cache=no --rules=@PSR12 lib`
+    - `vendor\\bin\\php-cs-fixer fix --using-cache=no --rules=@PSR12 tests`
+    - Verification:
+      - `vendor\\bin\\php-cs-fixer fix --dry-run --using-cache=no --rules=@PSR12 lib`
+      - `vendor\\bin\\php-cs-fixer fix --dry-run --using-cache=no --rules=@PSR12 tests`
+  - Validation after PSR-12 formatting:
+    - `npx eslint --ext .js,.vue src --quiet` ✅
+    - `npm test -- --runInBand tests/unit/components/RoomCard.spec.js tests/unit/views/TaskManager.spec.js` ✅
+    - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit` ⚠️ fails in existing broad-suite mocks (`OCP\\DB\\QueryBuilder\\IQueryBuilder`, `OCP\\IConfig`) and is tracked as pre-existing test environment gap
 
 ### P8-SECURITY-001: Security Audit
 **Priority**: High  

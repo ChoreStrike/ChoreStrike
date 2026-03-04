@@ -6,7 +6,7 @@
 
 namespace OCP;
 
-interface IUser {
-
-	public function getUID(): string;
+interface IUser
+{
+    public function getUID(): string;
 }

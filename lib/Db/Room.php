@@ -29,123 +29,132 @@ use OCP\AppFramework\Db\Entity;
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
-class Room extends Entity implements JsonSerializable {
+class Room extends Entity implements JsonSerializable
+{
+    /** @var int */
+    protected $floorId;
 
-	/** @var int */
-	protected $floorId;
+    /** @var string */
+    protected $name;
 
-	/** @var string */
-	protected $name;
+    /** @var string */
+    protected $description = '';
 
-	/** @var string */
-	protected $description = '';
+    /** @var int */
+    protected $cleanliness = 50;
 
-	/** @var int */
-	protected $cleanliness = 50;
+    /** @var int */
+    protected $monsterCount = 0;
 
-	/** @var int */
-	protected $monsterCount = 0;
+    /** @var \DateTime|null */
+    protected $lastCleaned;
 
-	/** @var \DateTime|null */
-	protected $lastCleaned;
+    /** @var \DateTime */
+    protected $createdAt;
 
-	/** @var \DateTime */
-	protected $createdAt;
+    public function __construct()
+    {
+        $this->addType('id', 'integer');
+        $this->addType('floorId', 'integer');
+        $this->addType('name', 'string');
+        $this->addType('description', 'string');
+        $this->addType('cleanliness', 'integer');
+        $this->addType('monsterCount', 'integer');
+        $this->addType('lastCleaned', 'datetime');
+        $this->addType('createdAt', 'datetime');
+    }
 
-	public function __construct() {
-		$this->addType('id', 'integer');
-		$this->addType('floorId', 'integer');
-		$this->addType('name', 'string');
-		$this->addType('description', 'string');
-		$this->addType('cleanliness', 'integer');
-		$this->addType('monsterCount', 'integer');
-		$this->addType('lastCleaned', 'datetime');
-		$this->addType('createdAt', 'datetime');
-	}
+    /**
+     * Convert room to JSON representation
+     */
+    public function jsonSerialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'floorId' => $this->floorId,
+            'name' => $this->name,
+            'description' => $this->description ?? '',
+            'cleanliness' => $this->cleanliness,
+            'monsterCount' => $this->monsterCount,
+            'lastCleaned' => $this->lastCleaned?->format('c'),
+            'createdAt' => $this->createdAt?->format('c'),
+        ];
+    }
 
-	/**
-	 * Convert room to JSON representation
-	 */
-	public function jsonSerialize(): array {
-		return [
-			'id' => $this->id,
-			'floorId' => $this->floorId,
-			'name' => $this->name,
-			'description' => $this->description ?? '',
-			'cleanliness' => $this->cleanliness,
-			'monsterCount' => $this->monsterCount,
-			'lastCleaned' => $this->lastCleaned?->format('c'),
-			'createdAt' => $this->createdAt?->format('c'),
-		];
-	}
+    /**
+     * Update cleanliness and monster count based on task completion
+     *
+     * @param int $cleanlinessChange The change in cleanliness (-100 to 100)
+     */
+    public function updateCleanliness(int $cleanlinessChange): void
+    {
+        $this->setCleanliness(max(0, min(100, $this->cleanliness + $cleanlinessChange)));
+        $this->setLastCleaned(new \DateTime());
+    }
 
-	/**
-	 * Update cleanliness and monster count based on task completion
-	 *
-	 * @param int $cleanlinessChange The change in cleanliness (-100 to 100)
-	 */
-	public function updateCleanliness(int $cleanlinessChange): void {
-		$this->setCleanliness(max(0, min(100, $this->cleanliness + $cleanlinessChange)));
-		$this->setLastCleaned(new \DateTime());
-	}
+    /**
+     * Get cleanliness label
+     */
+    public function getCleanlinessLabel(): string
+    {
+        if ($this->cleanliness >= 70) {
+            return 'clean';
+        } elseif ($this->cleanliness >= 50) {
+            return 'moderate';
+        } elseif ($this->cleanliness >= 30) {
+            return 'dirty';
+        } else {
+            return 'filthy';
+        }
+    }
 
-	/**
-	 * Get cleanliness label
-	 */
-	public function getCleanlinessLabel(): string {
-		if ($this->cleanliness >= 70) {
-			return 'clean';
-		} elseif ($this->cleanliness >= 50) {
-			return 'moderate';
-		} elseif ($this->cleanliness >= 30) {
-			return 'dirty';
-		} else {
-			return 'filthy';
-		}
-	}
+    /**
+     * Check if room has monsters
+     */
+    public function hasMonsters(): bool
+    {
+        return $this->monsterCount > 0;
+    }
 
-	/**
-	 * Check if room has monsters
-	 */
-	public function hasMonsters(): bool {
-		return $this->monsterCount > 0;
-	}
+    /**
+     * Add a monster
+     */
+    public function addMonster(): void
+    {
+        $this->setMonsterCount($this->monsterCount + 1);
+    }
 
-	/**
-	 * Add a monster
-	 */
-	public function addMonster(): void {
-		$this->setMonsterCount($this->monsterCount + 1);
-	}
+    /**
+     * Remove a monster
+     */
+    public function removeMonster(): void
+    {
+        $this->setMonsterCount(max(0, $this->monsterCount - 1));
+    }
 
-	/**
-	 * Remove a monster
-	 */
-	public function removeMonster(): void {
-		$this->setMonsterCount(max(0, $this->monsterCount - 1));
-	}
+    /**
+     * Check if room needs cleaning
+     */
+    public function needsCleaning(): bool
+    {
+        return $this->cleanliness < 60 || $this->monsterCount >= 1;
+    }
 
-	/**
-	 * Check if room needs cleaning
-	 */
-	public function needsCleaning(): bool {
-		return $this->cleanliness < 60 || $this->monsterCount >= 1;
-	}
-
-	/**
-	 * Get room status as string
-	 */
-	public function getStatus(): string {
-		if ($this->cleanliness >= 80) {
-			return 'excellent';
-		} elseif ($this->cleanliness >= 60) {
-			return 'good';
-		} elseif ($this->cleanliness >= 40) {
-			return 'fair';
-		} elseif ($this->cleanliness >= 20) {
-			return 'poor';
-		} else {
-			return 'terrible';
-		}
-	}
+    /**
+     * Get room status as string
+     */
+    public function getStatus(): string
+    {
+        if ($this->cleanliness >= 80) {
+            return 'excellent';
+        } elseif ($this->cleanliness >= 60) {
+            return 'good';
+        } elseif ($this->cleanliness >= 40) {
+            return 'fair';
+        } elseif ($this->cleanliness >= 20) {
+            return 'poor';
+        } else {
+            return 'terrible';
+        }
+    }
 }

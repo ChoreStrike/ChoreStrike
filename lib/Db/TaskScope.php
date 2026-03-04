@@ -25,43 +25,45 @@ use OCP\AppFramework\Db\Entity;
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
-class TaskScope extends Entity implements JsonSerializable {
+class TaskScope extends Entity implements JsonSerializable
+{
+    /** @var int */
+    protected $houseId;
 
-	/** @var int */
-	protected $houseId;
+    /** @var string */
+    protected $type = 'room';
 
-	/** @var string */
-	protected $type = 'room';
+    /** @var int|null */
+    protected $roomId;
 
-	/** @var int|null */
-	protected $roomId;
+    /** @var string */
+    protected $name;
 
-	/** @var string */
-	protected $name;
+    /** @var \DateTime */
+    protected $createdAt;
 
-	/** @var \DateTime */
-	protected $createdAt;
+    public function __construct()
+    {
+        $this->addType('id', 'integer');
+        $this->addType('houseId', 'integer');
+        $this->addType('type', 'string');
+        $this->addType('roomId', 'integer');
+        $this->addType('name', 'string');
+        $this->addType('createdAt', 'datetime');
+    }
 
-	public function __construct() {
-		$this->addType('id', 'integer');
-		$this->addType('houseId', 'integer');
-		$this->addType('type', 'string');
-		$this->addType('roomId', 'integer');
-		$this->addType('name', 'string');
-		$this->addType('createdAt', 'datetime');
-	}
-
-	/**
-	 * Convert scope to JSON representation.
-	 */
-	public function jsonSerialize(): array {
-		return [
-			'id' => $this->id,
-			'houseId' => $this->houseId,
-			'type' => $this->type,
-			'roomId' => $this->roomId,
-			'name' => $this->name,
-			'createdAt' => $this->createdAt?->format('c'),
-		];
-	}
+    /**
+     * Convert scope to JSON representation.
+     */
+    public function jsonSerialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'houseId' => $this->houseId,
+            'type' => $this->type,
+            'roomId' => $this->roomId,
+            'name' => $this->name,
+            'createdAt' => $this->createdAt?->format('c'),
+        ];
+    }
 }

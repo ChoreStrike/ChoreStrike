@@ -30,95 +30,101 @@ use OCP\AppFramework\Db\Entity;
  * @method bool getIsActive()
  * @method void setIsActive(bool $active)
  */
-class Combo extends Entity implements JsonSerializable {
+class Combo extends Entity implements JsonSerializable
+{
+    /** @var int */
+    protected $houseId;
 
-	/** @var int */
-	protected $houseId;
+    /** @var string */
+    protected $userId;
 
-	/** @var string */
-	protected $userId;
+    /** @var int */
+    protected $taskCount = 0;
 
-	/** @var int */
-	protected $taskCount = 0;
+    /** @var \DateTime */
+    protected $startedAt;
 
-	/** @var \DateTime */
-	protected $startedAt;
+    /** @var \DateTime */
+    protected $lastTaskAt;
 
-	/** @var \DateTime */
-	protected $lastTaskAt;
+    /** @var int */
+    protected $comboBonusPoints = 0;
 
-	/** @var int */
-	protected $comboBonusPoints = 0;
+    /** @var bool */
+    protected $isActive = true;
 
-	/** @var bool */
-	protected $isActive = true;
+    public function __construct()
+    {
+        $this->addType('id', 'integer');
+        $this->addType('houseId', 'integer');
+        $this->addType('userId', 'string');
+        $this->addType('taskCount', 'integer');
+        $this->addType('startedAt', 'datetime');
+        $this->addType('lastTaskAt', 'datetime');
+        $this->addType('comboBonusPoints', 'integer');
+        $this->addType('isActive', 'boolean');
+    }
 
-	public function __construct() {
-		$this->addType('id', 'integer');
-		$this->addType('houseId', 'integer');
-		$this->addType('userId', 'string');
-		$this->addType('taskCount', 'integer');
-		$this->addType('startedAt', 'datetime');
-		$this->addType('lastTaskAt', 'datetime');
-		$this->addType('comboBonusPoints', 'integer');
-		$this->addType('isActive', 'boolean');
-	}
+    /**
+     * Convert combo to JSON representation
+     */
+    public function jsonSerialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'houseId' => $this->houseId,
+            'userId' => $this->userId,
+            'taskCount' => $this->taskCount,
+            'startedAt' => $this->startedAt?->format('c'),
+            'lastTaskAt' => $this->lastTaskAt?->format('c'),
+            'comboBonusPoints' => $this->comboBonusPoints,
+            'isActive' => $this->isActive,
+        ];
+    }
 
-	/**
-	 * Convert combo to JSON representation
-	 */
-	public function jsonSerialize(): array {
-		return [
-			'id' => $this->id,
-			'houseId' => $this->houseId,
-			'userId' => $this->userId,
-			'taskCount' => $this->taskCount,
-			'startedAt' => $this->startedAt?->format('c'),
-			'lastTaskAt' => $this->lastTaskAt?->format('c'),
-			'comboBonusPoints' => $this->comboBonusPoints,
-			'isActive' => $this->isActive,
-		];
-	}
+    /**
+     * Add task to combo
+     */
+    public function addTask(int $points = 10): void
+    {
+        $this->setTaskCount($this->taskCount + 1);
+        $this->setComboBonusPoints($this->comboBonusPoints + $points);
+        $this->setLastTaskAt(new \DateTime());
+    }
 
-	/**
-	 * Add task to combo
-	 */
-	public function addTask(int $points = 10): void {
-		$this->setTaskCount($this->taskCount + 1);
-		$this->setComboBonusPoints($this->comboBonusPoints + $points);
-		$this->setLastTaskAt(new \DateTime());
-	}
+    /**
+     * Check if combo has timed out (24 hours)
+     */
+    public function hasTimedOut(): bool
+    {
+        if (!$this->lastTaskAt) {
+            return false;
+        }
 
-	/**
-	 * Check if combo has timed out (24 hours)
-	 */
-	public function hasTimedOut(): bool {
-		if (!$this->lastTaskAt) {
-			return false;
-		}
+        $now = new \DateTime();
+        $diff = $now->diff($this->lastTaskAt);
 
-		$now = new \DateTime();
-		$diff = $now->diff($this->lastTaskAt);
-		
-		// If lastTaskAt is in the future or very recent, not timed out
-		if ($diff->invert === 0 || $diff->days < 1) {
-			return false;
-		}
-		
-		return true;
-	}
+        // If lastTaskAt is in the future or very recent, not timed out
+        if ($diff->invert === 0 || $diff->days < 1) {
+            return false;
+        }
 
-	/**
-	 * End combo
-	 */
-	public function end(): void {
-		$this->setIsActive(false);
-	}
+        return true;
+    }
 
-	/**
-	 * Get combo multiplier based on task count
-	 */
-	public function getMultiplier(): float {
-		return 1 + ($this->taskCount * 0.1);
-	}
+    /**
+     * End combo
+     */
+    public function end(): void
+    {
+        $this->setIsActive(false);
+    }
+
+    /**
+     * Get combo multiplier based on task count
+     */
+    public function getMultiplier(): float
+    {
+        return 1 + ($this->taskCount * 0.1);
+    }
 }

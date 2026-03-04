@@ -19,56 +19,59 @@ use PHPUnit\Framework\TestCase;
 /**
  * Unit tests for PageController
  */
-class PageControllerTest extends TestCase {
+class PageControllerTest extends TestCase
+{
+    private PageController $controller;
+    private $houseService;
+    private $request;
 
-	private PageController $controller;
-	private $houseService;
-	private $request;
+    protected function setUp(): void
+    {
+        parent::setUp();
 
-	protected function setUp(): void {
-		parent::setUp();
+        $this->request = $this->createMock(IRequest::class);
+        $this->houseService = $this->createMock(HouseService::class);
 
-		$this->request = $this->createMock(IRequest::class);
-		$this->houseService = $this->createMock(HouseService::class);
+        $this->controller = new PageController(
+            $this->request,
+            $this->houseService
+        );
+    }
 
-		$this->controller = new PageController(
-			$this->request,
-			$this->houseService
-		);
-	}
+    /**
+     * Test index returns template response
+     */
+    public function testIndex_ReturnsTemplateResponse(): void
+    {
+        $house = new House();
+        $house->setId(1);
+        $house->setName('Test House');
 
-	/**
-	 * Test index returns template response
-	 */
-	public function testIndex_ReturnsTemplateResponse(): void {
-		$house = new House();
-		$house->setId(1);
-		$house->setName('Test House');
+        $this->houseService->expects($this->once())
+            ->method('getInstanceId')
+            ->willReturn('instance-123');
 
-		$this->houseService->expects($this->once())
-			->method('getInstanceId')
-			->willReturn('instance-123');
+        $this->houseService->expects($this->once())
+            ->method('getOrCreateHouse')
+            ->with('instance-123')
+            ->willReturn($house);
 
-		$this->houseService->expects($this->once())
-			->method('getOrCreateHouse')
-			->with('instance-123')
-			->willReturn($house);
+        $response = $this->controller->index();
 
-		$response = $this->controller->index();
+        $this->assertInstanceOf(TemplateResponse::class, $response);
+    }
 
-		$this->assertInstanceOf(TemplateResponse::class, $response);
-	}
+    /**
+     * Test index handles exception gracefully
+     */
+    public function testIndex_HandlesException(): void
+    {
+        $this->houseService->expects($this->once())
+            ->method('getInstanceId')
+            ->willThrowException(new \Exception('Database error'));
 
-	/**
-	 * Test index handles exception gracefully
-	 */
-	public function testIndex_HandlesException(): void {
-		$this->houseService->expects($this->once())
-			->method('getInstanceId')
-			->willThrowException(new \Exception('Database error'));
+        $response = $this->controller->index();
 
-		$response = $this->controller->index();
-
-		$this->assertInstanceOf(TemplateResponse::class, $response);
-	}
+        $this->assertInstanceOf(TemplateResponse::class, $response);
+    }
 }

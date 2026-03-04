@@ -6,7 +6,8 @@
 
 namespace Doctrine\DBAL;
 
-class ArrayParameterType {
+class ArrayParameterType
+{
     public const STRING = 100;
     public const INTEGER = 101;
     public const ASCII = 102;

@@ -20,240 +20,251 @@ use OCA\ChoreStrike\Service\RoomService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
-class RoomTaskServiceDailyTest extends TestCase {
+class RoomTaskServiceDailyTest extends TestCase
+{
+    private RoomTaskService $service;
+    private RoomTaskMapper|MockObject $roomTaskMapper;
+    private TaskMapper|MockObject $taskMapper;
+    private RoomMapper|MockObject $roomMapper;
+    private FloorMapper|MockObject $floorMapper;
+    private RoomService|MockObject $roomService;
 
-	private RoomTaskService $service;
-	private RoomTaskMapper|MockObject $roomTaskMapper;
-	private TaskMapper|MockObject $taskMapper;
-	private RoomMapper|MockObject $roomMapper;
-	private FloorMapper|MockObject $floorMapper;
-	private RoomService|MockObject $roomService;
+    protected function setUp(): void
+    {
+        $this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
+        $this->taskMapper = $this->createMock(TaskMapper::class);
+        $this->roomMapper = $this->createMock(RoomMapper::class);
+        $this->floorMapper = $this->createMock(FloorMapper::class);
+        $this->roomService = $this->createMock(RoomService::class);
 
-	protected function setUp(): void {
-		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
-		$this->taskMapper = $this->createMock(TaskMapper::class);
-		$this->roomMapper = $this->createMock(RoomMapper::class);
-		$this->floorMapper = $this->createMock(FloorMapper::class);
-		$this->roomService = $this->createMock(RoomService::class);
+        $this->service = new RoomTaskService(
+            $this->roomTaskMapper,
+            $this->taskMapper,
+            $this->roomMapper,
+            $this->floorMapper,
+            $this->roomService
+        );
+    }
 
-		$this->service = new RoomTaskService(
-			$this->roomTaskMapper,
-			$this->taskMapper,
-			$this->roomMapper,
-			$this->floorMapper,
-			$this->roomService
-		);
-	}
+    public function testGetDailyTasksReturnsTasks(): void
+    {
+        $houseId = 1;
+        $date = new \DateTime('2026-03-02');
 
-	public function testGetDailyTasksReturnsTasks(): void {
-		$houseId = 1;
-		$date = new \DateTime('2026-03-02');
+        $roomTask = $this->createMock(RoomTask::class);
+        $roomTask->method('getId')->willReturn(1);
 
-		$roomTask = $this->createMock(RoomTask::class);
-		$roomTask->method('getId')->willReturn(1);
+        $this->roomTaskMapper->expects($this->once())
+            ->method('findDailyTasks')
+            ->with($houseId, $date)
+            ->willReturn([$roomTask]);
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('findDailyTasks')
-			->with($houseId, $date)
-			->willReturn([$roomTask]);
+        $result = $this->service->getDailyTasks($houseId, $date);
 
-		$result = $this->service->getDailyTasks($houseId, $date);
+        $this->assertCount(1, $result);
+        $this->assertSame($roomTask, $result[0]);
+    }
 
-		$this->assertCount(1, $result);
-		$this->assertSame($roomTask, $result[0]);
-	}
+    public function testGetDailyTasksWithDetailsCachesTaskAndRoomLookups(): void
+    {
+        $houseId = 1;
+        $date = new \DateTime('2026-03-02');
 
-	public function testGetDailyTasksWithDetailsCachesTaskAndRoomLookups(): void {
-		$houseId = 1;
-		$date = new \DateTime('2026-03-02');
+        $firstRoomTask = new RoomTask();
+        $firstRoomTask->setId(1);
+        $firstRoomTask->setTaskId(5);
+        $firstRoomTask->setRoomId(2);
 
-		$firstRoomTask = new RoomTask();
-		$firstRoomTask->setId(1);
-		$firstRoomTask->setTaskId(5);
-		$firstRoomTask->setRoomId(2);
+        $secondRoomTask = new RoomTask();
+        $secondRoomTask->setId(2);
+        $secondRoomTask->setTaskId(5);
+        $secondRoomTask->setRoomId(2);
 
-		$secondRoomTask = new RoomTask();
-		$secondRoomTask->setId(2);
-		$secondRoomTask->setTaskId(5);
-		$secondRoomTask->setRoomId(2);
+        $task = new Task();
+        $task->setId(5);
+        $task->setName('Shared Task');
 
-		$task = new Task();
-		$task->setId(5);
-		$task->setName('Shared Task');
+        $room = new Room();
+        $room->setId(2);
+        $room->setName('Kitchen');
 
-		$room = new Room();
-		$room->setId(2);
-		$room->setName('Kitchen');
+        $this->roomTaskMapper->expects($this->once())
+            ->method('findDailyTasks')
+            ->with($houseId, $date)
+            ->willReturn([$firstRoomTask, $secondRoomTask]);
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('findDailyTasks')
-			->with($houseId, $date)
-			->willReturn([$firstRoomTask, $secondRoomTask]);
+        $this->taskMapper->expects($this->once())
+            ->method('find')
+            ->with(5)
+            ->willReturn($task);
 
-		$this->taskMapper->expects($this->once())
-			->method('find')
-			->with(5)
-			->willReturn($task);
+        $this->roomMapper->expects($this->once())
+            ->method('find')
+            ->with(2)
+            ->willReturn($room);
 
-		$this->roomMapper->expects($this->once())
-			->method('find')
-			->with(2)
-			->willReturn($room);
+        $result = $this->service->getDailyTasksWithDetails($houseId, $date);
 
-		$result = $this->service->getDailyTasksWithDetails($houseId, $date);
+        $this->assertCount(2, $result);
+        $this->assertSame($task, $result[0]['task']);
+        $this->assertSame($task, $result[1]['task']);
+        $this->assertSame($room, $result[0]['room']);
+        $this->assertSame($room, $result[1]['room']);
+    }
 
-		$this->assertCount(2, $result);
-		$this->assertSame($task, $result[0]['task']);
-		$this->assertSame($task, $result[1]['task']);
-		$this->assertSame($room, $result[0]['room']);
-		$this->assertSame($room, $result[1]['room']);
-	}
+    public function testCompleteTaskSimpleUpdatesTask(): void
+    {
+        $roomTaskId = 1;
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
 
-	public function testCompleteTaskSimpleUpdatesTask(): void {
-		$roomTaskId = 1;
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
+        $this->roomTaskMapper->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willReturn($roomTask);
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
+        $this->roomTaskMapper->expects($this->once())
+            ->method('update')
+            ->with($this->callback(function (RoomTask $updatedTask): bool {
+                return $updatedTask->getLastCompleted() !== null;
+            }))
+            ->willReturn($roomTask);
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('update')
-			->with($this->callback(function (RoomTask $updatedTask): bool {
-				return $updatedTask->getLastCompleted() !== null;
-			}))
-			->willReturn($roomTask);
+        $result = $this->service->completeTaskSimple($roomTaskId);
 
-		$result = $this->service->completeTaskSimple($roomTaskId);
+        $this->assertSame($roomTask, $result);
+        $this->assertNotNull($result->getLastCompleted());
+    }
 
-		$this->assertSame($roomTask, $result);
-		$this->assertNotNull($result->getLastCompleted());
-	}
+    public function testUncompleteTaskRemovesCompletion(): void
+    {
+        $roomTaskId = 1;
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setLastCompleted(new \DateTime('2026-03-01'));
 
-	public function testUncompleteTaskRemovesCompletion(): void {
-		$roomTaskId = 1;
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setLastCompleted(new \DateTime('2026-03-01'));
+        $this->roomTaskMapper->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willReturn($roomTask);
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
+        $this->roomTaskMapper->expects($this->once())
+            ->method('update')
+            ->with($this->callback(function (RoomTask $updatedTask): bool {
+                return $updatedTask->getLastCompleted() === null;
+            }))
+            ->willReturn($roomTask);
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('update')
-			->with($this->callback(function (RoomTask $updatedTask): bool {
-				return $updatedTask->getLastCompleted() === null;
-			}))
-			->willReturn($roomTask);
+        $result = $this->service->uncompleteTask($roomTaskId);
 
-		$result = $this->service->uncompleteTask($roomTaskId);
+        $this->assertSame($roomTask, $result);
+        $this->assertNull($result->getLastCompleted());
+    }
 
-		$this->assertSame($roomTask, $result);
-		$this->assertNull($result->getLastCompleted());
-	}
+    public function testSkipTaskMovesDueDateForward(): void
+    {
+        $roomTaskId = 1;
+        $originalDue = new \DateTime('2026-03-02');
 
-	public function testSkipTaskMovesDueDateForward(): void {
-		$roomTaskId = 1;
-		$originalDue = new \DateTime('2026-03-02');
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setNextDue(clone $originalDue);
 
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setNextDue(clone $originalDue);
+        $this->roomTaskMapper->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willReturn($roomTask);
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
+        $this->roomTaskMapper->expects($this->once())
+            ->method('update')
+            ->with($this->callback(function (RoomTask $updatedTask): bool {
+                return $updatedTask->getNextDue()->format('Y-m-d') === '2026-03-03';
+            }))
+            ->willReturn($roomTask);
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('update')
-			->with($this->callback(function (RoomTask $updatedTask): bool {
-				return $updatedTask->getNextDue()->format('Y-m-d') === '2026-03-03';
-			}))
-			->willReturn($roomTask);
+        $result = $this->service->skipTask($roomTaskId);
 
-		$result = $this->service->skipTask($roomTaskId);
+        $this->assertSame($roomTask, $result);
+        $this->assertSame('2026-03-03', $result->getNextDue()->format('Y-m-d'));
+    }
 
-		$this->assertSame($roomTask, $result);
-		$this->assertSame('2026-03-03', $result->getNextDue()->format('Y-m-d'));
-	}
+    public function testRescheduleTaskUpdatesDueDate(): void
+    {
+        $roomTaskId = 1;
+        $newDate = new \DateTime('2026-03-05');
 
-	public function testRescheduleTaskUpdatesDueDate(): void {
-		$roomTaskId = 1;
-		$newDate = new \DateTime('2026-03-05');
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setNextDue(new \DateTime('2026-03-02'));
 
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setNextDue(new \DateTime('2026-03-02'));
+        $this->roomTaskMapper->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willReturn($roomTask);
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
+        $this->roomTaskMapper->expects($this->once())
+            ->method('update')
+            ->with($this->callback(function (RoomTask $updatedTask): bool {
+                return $updatedTask->getNextDue()->format('Y-m-d') === '2026-03-05';
+            }))
+            ->willReturn($roomTask);
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('update')
-			->with($this->callback(function (RoomTask $updatedTask): bool {
-				return $updatedTask->getNextDue()->format('Y-m-d') === '2026-03-05';
-			}))
-			->willReturn($roomTask);
+        $result = $this->service->rescheduleTask($roomTaskId, $newDate);
 
-		$result = $this->service->rescheduleTask($roomTaskId, $newDate);
+        $this->assertSame($roomTask, $result);
+        $this->assertSame('2026-03-05', $result->getNextDue()->format('Y-m-d'));
+    }
 
-		$this->assertSame($roomTask, $result);
-		$this->assertSame('2026-03-05', $result->getNextDue()->format('Y-m-d'));
-	}
+    public function testCompleteTaskSimpleThrowsExceptionWhenTaskNotFound(): void
+    {
+        $roomTaskId = 999;
 
-	public function testCompleteTaskSimpleThrowsExceptionWhenTaskNotFound(): void {
-		$roomTaskId = 999;
+        $this->roomTaskMapper->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
+        $this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
+        $this->service->completeTaskSimple($roomTaskId);
+    }
 
-		$this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
-		$this->service->completeTaskSimple($roomTaskId);
-	}
+    public function testUncompleteTaskThrowsExceptionWhenTaskNotFound(): void
+    {
+        $roomTaskId = 999;
 
-	public function testUncompleteTaskThrowsExceptionWhenTaskNotFound(): void {
-		$roomTaskId = 999;
+        $this->roomTaskMapper->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
+        $this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
+        $this->service->uncompleteTask($roomTaskId);
+    }
 
-		$this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
-		$this->service->uncompleteTask($roomTaskId);
-	}
+    public function testSkipTaskThrowsExceptionWhenTaskNotFound(): void
+    {
+        $roomTaskId = 999;
 
-	public function testSkipTaskThrowsExceptionWhenTaskNotFound(): void {
-		$roomTaskId = 999;
+        $this->roomTaskMapper->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
+        $this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
+        $this->service->skipTask($roomTaskId);
+    }
 
-		$this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
-		$this->service->skipTask($roomTaskId);
-	}
+    public function testRescheduleTaskThrowsExceptionWhenTaskNotFound(): void
+    {
+        $roomTaskId = 999;
+        $newDate = new \DateTime('2026-03-05');
 
-	public function testRescheduleTaskThrowsExceptionWhenTaskNotFound(): void {
-		$roomTaskId = 999;
-		$newDate = new \DateTime('2026-03-05');
+        $this->roomTaskMapper->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
 
-		$this->roomTaskMapper->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
-
-		$this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
-		$this->service->rescheduleTask($roomTaskId, $newDate);
-	}
+        $this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
+        $this->service->rescheduleTask($roomTaskId, $newDate);
+    }
 }

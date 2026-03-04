@@ -8,28 +8,32 @@ declare(strict_types=1);
 
 namespace OCP\AppFramework\Http;
 
-class JSONResponse {
-	/** @var mixed */
-	private $data;
+class JSONResponse
+{
+    /** @var mixed */
+    private $data;
 
-	private int $status;
+    private int $status;
 
-	/**
-	 * @param mixed $data
-	 */
-	public function __construct($data = [], int $status = 200) {
-		$this->data = $data;
-		$this->status = $status;
-	}
+    /**
+     * @param mixed $data
+     */
+    public function __construct($data = [], int $status = 200)
+    {
+        $this->data = $data;
+        $this->status = $status;
+    }
 
-	public function getStatus(): int {
-		return $this->status;
-	}
+    public function getStatus(): int
+    {
+        return $this->status;
+    }
 
-	/**
-	 * @return mixed
-	 */
-	public function getData() {
-		return $this->data;
-	}
+    /**
+     * @return mixed
+     */
+    public function getData()
+    {
+        return $this->data;
+    }
 }

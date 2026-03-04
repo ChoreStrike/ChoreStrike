@@ -27,57 +27,61 @@ use OCP\AppFramework\Db\Entity;
  * @method \DateTime getJoinedAt()
  * @method void setJoinedAt(\DateTime $joinedAt)
  */
-class TaskParticipant extends Entity implements JsonSerializable {
+class TaskParticipant extends Entity implements JsonSerializable
+{
+    /** @var int */
+    protected $completedTaskId;
 
-	/** @var int */
-	protected $completedTaskId;
+    /** @var string */
+    protected $userId;
 
-	/** @var string */
-	protected $userId;
+    /** @var int */
+    protected $sparksEarned = 0;
 
-	/** @var int */
-	protected $sparksEarned = 0;
+    /** @var string */
+    protected $participationType = 'helper';
 
-	/** @var string */
-	protected $participationType = 'helper';
+    /** @var \DateTime */
+    protected $joinedAt;
 
-	/** @var \DateTime */
-	protected $joinedAt;
+    public function __construct()
+    {
+        $this->addType('id', 'integer');
+        $this->addType('completedTaskId', 'integer');
+        $this->addType('userId', 'string');
+        $this->addType('sparksEarned', 'integer');
+        $this->addType('participationType', 'string');
+        $this->addType('joinedAt', 'datetime');
+    }
 
-	public function __construct() {
-		$this->addType('id', 'integer');
-		$this->addType('completedTaskId', 'integer');
-		$this->addType('userId', 'string');
-		$this->addType('sparksEarned', 'integer');
-		$this->addType('participationType', 'string');
-		$this->addType('joinedAt', 'datetime');
-	}
+    /**
+     * Convert participant to JSON representation
+     */
+    public function jsonSerialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'completedTaskId' => $this->completedTaskId,
+            'userId' => $this->userId,
+            'sparksEarned' => $this->sparksEarned,
+            'participationType' => $this->participationType,
+            'joinedAt' => $this->joinedAt?->format('c'),
+        ];
+    }
 
-	/**
-	 * Convert participant to JSON representation
-	 */
-	public function jsonSerialize(): array {
-		return [
-			'id' => $this->id,
-			'completedTaskId' => $this->completedTaskId,
-			'userId' => $this->userId,
-			'sparksEarned' => $this->sparksEarned,
-			'participationType' => $this->participationType,
-			'joinedAt' => $this->joinedAt?->format('c'),
-		];
-	}
+    /**
+     * Check if this participant is the primary (claimer)
+     */
+    public function isPrimary(): bool
+    {
+        return $this->participationType === 'primary';
+    }
 
-	/**
-	 * Check if this participant is the primary (claimer)
-	 */
-	public function isPrimary(): bool {
-		return $this->participationType === 'primary';
-	}
-
-	/**
-	 * Check if this participant is a helper
-	 */
-	public function isHelper(): bool {
-		return $this->participationType === 'helper';
-	}
+    /**
+     * Check if this participant is a helper
+     */
+    public function isHelper(): bool
+    {
+        return $this->participationType === 'helper';
+    }
 }

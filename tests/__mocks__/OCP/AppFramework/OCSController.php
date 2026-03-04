@@ -10,11 +10,13 @@ namespace OCP\AppFramework;
 
 use OCP\IRequest;
 
-class OCSController extends Controller {
-	protected string $appName;
+class OCSController extends Controller
+{
+    protected string $appName;
 
-	public function __construct(string $appName, IRequest $request) {
-		parent::__construct($request);
-		$this->appName = $appName;
-	}
+    public function __construct(string $appName, IRequest $request)
+    {
+        parent::__construct($request);
+        $this->appName = $appName;
+    }
 }

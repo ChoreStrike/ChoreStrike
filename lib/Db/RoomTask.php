@@ -45,342 +45,351 @@ use OCP\AppFramework\Db\Entity;
  * @method \DateTime|null getClaimedAt()
  * @method void setClaimedAt(?\DateTime $claimedAt)
  */
-class RoomTask extends Entity implements JsonSerializable {
+class RoomTask extends Entity implements JsonSerializable
+{
+    /** @var int */
+    protected $roomId;
 
-	/** @var int */
-	protected $roomId;
+    /** @var int */
+    protected $taskId;
 
-	/** @var int */
-	protected $taskId;
+    /** @var \DateTime */
+    protected $nextDue;
 
-	/** @var \DateTime */
-	protected $nextDue;
+    /** @var \DateTime|null */
+    protected $lastCompleted;
 
-	/** @var \DateTime|null */
-	protected $lastCompleted;
+    /** @var string|null */
+    protected $assignedToUserId;
 
-	/** @var string|null */
-	protected $assignedToUserId;
+    /** @var bool */
+    protected $isActive = true;
 
-	/** @var bool */
-	protected $isActive = true;
+    /** @var int|null */
+    protected $scopeId;
 
-	/** @var int|null */
-	protected $scopeId;
+    /** @var int|null */
+    protected $nextcloudTaskId;
 
-	/** @var int|null */
-	protected $nextcloudTaskId;
+    /** @var \DateTime */
+    protected $createdAt;
 
-	/** @var \DateTime */
-	protected $createdAt;
+    /** @var string|null */
+    protected $assignedToGroup;
 
-	/** @var string|null */
-	protected $assignedToGroup;
+    /** @var string */
+    protected $assignmentType = 'user';
 
-	/** @var string */
-	protected $assignmentType = 'user';
+    /** @var string|null */
+    protected $claimedByUser;
 
-	/** @var string|null */
-	protected $claimedByUser;
+    /** @var bool */
+    protected $wasClaimed = false;
 
-	/** @var bool */
-	protected $wasClaimed = false;
+    /** @var string|null */
+    protected $originalAssignee;
 
-	/** @var string|null */
-	protected $originalAssignee;
+    /** @var \DateTime|null */
+    protected $claimedAt;
 
-	/** @var \DateTime|null */
-	protected $claimedAt;
+    public function __construct()
+    {
+        $this->addType('id', 'integer');
+        $this->addType('roomId', 'integer');
+        $this->addType('taskId', 'integer');
+        $this->addType('nextDue', 'datetime');
+        $this->addType('lastCompleted', 'datetime');
+        $this->addType('assignedToUserId', 'string');
+        $this->addType('isActive', 'boolean');
+        $this->addType('scopeId', 'integer');
+        $this->addType('nextcloudTaskId', 'integer');
+        $this->addType('createdAt', 'datetime');
+        $this->addType('assignedToGroup', 'string');
+        $this->addType('assignmentType', 'string');
+        $this->addType('claimedByUser', 'string');
+        $this->addType('wasClaimed', 'boolean');
+        $this->addType('originalAssignee', 'string');
+        $this->addType('claimedAt', 'datetime');
+    }
 
-	public function __construct() {
-		$this->addType('id', 'integer');
-		$this->addType('roomId', 'integer');
-		$this->addType('taskId', 'integer');
-		$this->addType('nextDue', 'datetime');
-		$this->addType('lastCompleted', 'datetime');
-		$this->addType('assignedToUserId', 'string');
-		$this->addType('isActive', 'boolean');
-		$this->addType('scopeId', 'integer');
-		$this->addType('nextcloudTaskId', 'integer');
-		$this->addType('createdAt', 'datetime');
-		$this->addType('assignedToGroup', 'string');
-		$this->addType('assignmentType', 'string');
-		$this->addType('claimedByUser', 'string');
-		$this->addType('wasClaimed', 'boolean');
-		$this->addType('originalAssignee', 'string');
-		$this->addType('claimedAt', 'datetime');
-	}
+    /**
+     * Convert room task to JSON representation
+     */
+    public function jsonSerialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'roomId' => $this->roomId,
+            'taskId' => $this->taskId,
+            'nextDue' => $this->nextDue?->format('c'),
+            'lastCompleted' => $this->lastCompleted?->format('c'),
+            'assignedToUserId' => $this->assignedToUserId,
+            'assignedToGroup' => $this->assignedToGroup,
+            'assignmentType' => $this->assignmentType,
+            'isActive' => $this->isActive,
+            'scopeId' => $this->scopeId,
+            'nextcloudTaskId' => $this->nextcloudTaskId,
+            'claimedByUser' => $this->claimedByUser,
+            'wasClaimed' => $this->wasClaimed,
+            'originalAssignee' => $this->originalAssignee,
+            'claimedAt' => $this->claimedAt?->format('c'),
+            'createdAt' => $this->createdAt?->format('c'),
+        ];
+    }
 
-	/**
-	 * Convert room task to JSON representation
-	 */
-	public function jsonSerialize(): array {
-		return [
-			'id' => $this->id,
-			'roomId' => $this->roomId,
-			'taskId' => $this->taskId,
-			'nextDue' => $this->nextDue?->format('c'),
-			'lastCompleted' => $this->lastCompleted?->format('c'),
-			'assignedToUserId' => $this->assignedToUserId,
-			'assignedToGroup' => $this->assignedToGroup,
-			'assignmentType' => $this->assignmentType,
-			'isActive' => $this->isActive,
-			'scopeId' => $this->scopeId,
-			'nextcloudTaskId' => $this->nextcloudTaskId,
-			'claimedByUser' => $this->claimedByUser,
-			'wasClaimed' => $this->wasClaimed,
-			'originalAssignee' => $this->originalAssignee,
-			'claimedAt' => $this->claimedAt?->format('c'),
-			'createdAt' => $this->createdAt?->format('c'),
-		];
-	}
+    /**
+     * Check if task is overdue
+     */
+    public function isOverdue(): bool
+    {
+        if ($this->nextDue === null) {
+            return false;
+        }
+        return $this->nextDue < new \DateTime() && $this->isActive;
+    }
 
-	/**
-	 * Check if task is overdue
-	 */
-	public function isOverdue(): bool {
-		if ($this->nextDue === null) {
-			return false;
-		}
-		return $this->nextDue < new \DateTime() && $this->isActive;
-	}
+    /**
+     * Check if task is due today
+     */
+    public function isDueToday(): bool
+    {
+        if ($this->nextDue === null) {
+            return false;
+        }
 
-	/**
-	 * Check if task is due today
-	 */
-	public function isDueToday(): bool {
-		if ($this->nextDue === null) {
-			return false;
-		}
-		
-		$today = new \DateTime();
-		$today->setTime(0, 0, 0);
-		$due = clone $this->nextDue;
-		$due->setTime(0, 0, 0);
-		
-		return $due->getTimestamp() === $today->getTimestamp() && $this->isActive;
-	}
+        $today = new \DateTime();
+        $today->setTime(0, 0, 0);
+        $due = clone $this->nextDue;
+        $due->setTime(0, 0, 0);
 
-	/**
-	 * Check if task is due within the next N days
-	 */
-	public function isDueWithinDays(int $days): bool {
-		if ($this->nextDue === null) {
-			return false;
-		}
-		
-		$future = new \DateTime();
-		$future->add(new \DateInterval("P{$days}D"));
-		
-		return $this->nextDue <= $future && $this->isActive;
-	}
+        return $due->getTimestamp() === $today->getTimestamp() && $this->isActive;
+    }
 
-	/**
-	 * Get days until due (negative if overdue)
-	 */
-	public function getDaysUntilDue(): int {
-		$today = new \DateTime();
-		$today->setTime(0, 0, 0);
-		$due = clone $this->nextDue;
-		$due->setTime(0, 0, 0);
-		
-		$interval = $today->diff($due);
-		return $interval->invert ? -(int)$interval->days : (int)$interval->days;
-	}
+    /**
+     * Check if task is due within the next N days
+     */
+    public function isDueWithinDays(int $days): bool
+    {
+        if ($this->nextDue === null) {
+            return false;
+        }
 
-	/**
-	 * Mark task as completed and calculate next due date
-	 *
-	 * @param \DateTime $completedAt The completion time
-	 * @param string $frequencyType The frequency type
-	 * @param int $frequencyValue The frequency value
-	 * @param string $recurrenceMode The recurrence mode ('one_time' or 'recurring')
-	 * @param string $schedulingMode The scheduling mode ('dynamic' or 'static')
-	 * @param \DateTime|null $activeUntil The active until date for recurring tasks
-	 * @param \DateTime|null $fixedScheduleTime The fixed schedule time (for static mode)
-	 * @param string|null $fixedScheduleDays JSON array of weekdays (for static+weekly mode)
-	 */
-	public function markCompleted(
-		\DateTime $completedAt,
-		string $frequencyType,
-		int $frequencyValue,
-		string $recurrenceMode = 'recurring',
-		string $schedulingMode = 'dynamic',
-		?\DateTime $activeUntil = null,
-		?\DateTime $fixedScheduleTime = null,
-		?string $fixedScheduleDays = null
-	): void {
-		$this->setLastCompleted($completedAt);
+        $future = new \DateTime();
+        $future->add(new \DateInterval("P{$days}D"));
 
-		// Handle one-time tasks - deactivate after completion
-		if ($recurrenceMode === 'one_time') {
-			$this->setIsActive(false);
-			$this->setNextDue($completedAt);
-			return;
-		}
+        return $this->nextDue <= $future && $this->isActive;
+    }
 
-		// Calculate next due date based on scheduling mode
-		if ($schedulingMode === 'static') {
-			$nextDue = $this->calculateNextStaticDue(
-				$completedAt,
-				$frequencyType,
-				$frequencyValue,
-				$fixedScheduleTime,
-				$fixedScheduleDays
-			);
-		} else {
-			// Dynamic scheduling - shift from completion time
-			$nextDue = $this->calculateNextDynamicDue($completedAt, $frequencyType, $frequencyValue);
-		}
+    /**
+     * Get days until due (negative if overdue)
+     */
+    public function getDaysUntilDue(): int
+    {
+        $today = new \DateTime();
+        $today->setTime(0, 0, 0);
+        $due = clone $this->nextDue;
+        $due->setTime(0, 0, 0);
 
-		// Check if next due date exceeds active window
-		if ($activeUntil !== null && $nextDue > $activeUntil) {
-			$this->setIsActive(false);
-			$this->setNextDue($activeUntil);
-		} else {
-			$this->setNextDue($nextDue);
-		}
-	}
+        $interval = $today->diff($due);
+        return $interval->invert ? -(int)$interval->days : (int)$interval->days;
+    }
 
-	/**
-	 * Calculate next due date for dynamic scheduling (shifts with completion)
-	 */
-	private function calculateNextDynamicDue(\DateTime $completedAt, string $frequencyType, int $frequencyValue): \DateTime {
-		$nextDue = clone $completedAt;
+    /**
+     * Mark task as completed and calculate next due date
+     *
+     * @param \DateTime $completedAt The completion time
+     * @param string $frequencyType The frequency type
+     * @param int $frequencyValue The frequency value
+     * @param string $recurrenceMode The recurrence mode ('one_time' or 'recurring')
+     * @param string $schedulingMode The scheduling mode ('dynamic' or 'static')
+     * @param \DateTime|null $activeUntil The active until date for recurring tasks
+     * @param \DateTime|null $fixedScheduleTime The fixed schedule time (for static mode)
+     * @param string|null $fixedScheduleDays JSON array of weekdays (for static+weekly mode)
+     */
+    public function markCompleted(
+        \DateTime $completedAt,
+        string $frequencyType,
+        int $frequencyValue,
+        string $recurrenceMode = 'recurring',
+        string $schedulingMode = 'dynamic',
+        ?\DateTime $activeUntil = null,
+        ?\DateTime $fixedScheduleTime = null,
+        ?string $fixedScheduleDays = null
+    ): void {
+        $this->setLastCompleted($completedAt);
 
-		switch ($frequencyType) {
-			case 'daily':
-				$nextDue->add(new \DateInterval("P{$frequencyValue}D"));
-				break;
-			case 'weekly':
-				$nextDue->add(new \DateInterval("P{$frequencyValue}W"));
-				break;
-			case 'monthly':
-				$nextDue->add(new \DateInterval("P{$frequencyValue}M"));
-				break;
-			case 'custom':
-				// For custom, default to 1 week
-				$nextDue->add(new \DateInterval('P1W'));
-				break;
-		}
+        // Handle one-time tasks - deactivate after completion
+        if ($recurrenceMode === 'one_time') {
+            $this->setIsActive(false);
+            $this->setNextDue($completedAt);
+            return;
+        }
 
-		return $nextDue;
-	}
+        // Calculate next due date based on scheduling mode
+        if ($schedulingMode === 'static') {
+            $nextDue = $this->calculateNextStaticDue(
+                $completedAt,
+                $frequencyType,
+                $frequencyValue,
+                $fixedScheduleTime,
+                $fixedScheduleDays
+            );
+        } else {
+            // Dynamic scheduling - shift from completion time
+            $nextDue = $this->calculateNextDynamicDue($completedAt, $frequencyType, $frequencyValue);
+        }
 
-	/**
-	 * Calculate next due date for static scheduling (fixed time slots)
-	 */
-	private function calculateNextStaticDue(
-		\DateTime $completedAt,
-		string $frequencyType,
-		int $frequencyValue,
-		?\DateTime $fixedScheduleTime,
-		?string $fixedScheduleDays
-	): \DateTime {
-		$nextDue = clone $completedAt;
+        // Check if next due date exceeds active window
+        if ($activeUntil !== null && $nextDue > $activeUntil) {
+            $this->setIsActive(false);
+            $this->setNextDue($activeUntil);
+        } else {
+            $this->setNextDue($nextDue);
+        }
+    }
 
-		// Set time to fixed schedule time
-		if ($fixedScheduleTime !== null) {
-			$nextDue->setTime(
-				(int)$fixedScheduleTime->format('H'),
-				(int)$fixedScheduleTime->format('i'),
-				0
-			);
-		}
+    /**
+     * Calculate next due date for dynamic scheduling (shifts with completion)
+     */
+    private function calculateNextDynamicDue(\DateTime $completedAt, string $frequencyType, int $frequencyValue): \DateTime
+    {
+        $nextDue = clone $completedAt;
 
-		// For daily tasks, just add the days
-		if ($frequencyType === 'daily') {
-			$nextDue->add(new \DateInterval("P{$frequencyValue}D"));
-			return $nextDue;
-		}
+        switch ($frequencyType) {
+            case 'daily':
+                $nextDue->add(new \DateInterval("P{$frequencyValue}D"));
+                break;
+            case 'weekly':
+                $nextDue->add(new \DateInterval("P{$frequencyValue}W"));
+                break;
+            case 'monthly':
+                $nextDue->add(new \DateInterval("P{$frequencyValue}M"));
+                break;
+            case 'custom':
+                // For custom, default to 1 week
+                $nextDue->add(new \DateInterval('P1W'));
+                break;
+        }
 
-		// For weekly tasks, find the next occurrence of specified weekdays
-		if ($frequencyType === 'weekly' && $fixedScheduleDays) {
-			$days = json_decode($fixedScheduleDays, true) ?: [];
-			if (!empty($days)) {
-				// Move to next occurrence after completedAt
-				$nextDue->add(new \DateInterval('P1D'));
-				return $this->findNextWeekday($nextDue, $days, $frequencyValue);
-			}
-		}
+        return $nextDue;
+    }
 
-		// For monthly tasks, add months
-		if ($frequencyType === 'monthly') {
-			$nextDue->add(new \DateInterval("P{$frequencyValue}M"));
-			return $nextDue;
-		}
+    /**
+     * Calculate next due date for static scheduling (fixed time slots)
+     */
+    private function calculateNextStaticDue(
+        \DateTime $completedAt,
+        string $frequencyType,
+        int $frequencyValue,
+        ?\DateTime $fixedScheduleTime,
+        ?string $fixedScheduleDays
+    ): \DateTime {
+        $nextDue = clone $completedAt;
 
-		// Fallback: add 1 week
-		$nextDue->add(new \DateInterval('P1W'));
-		return $nextDue;
-	}
+        // Set time to fixed schedule time
+        if ($fixedScheduleTime !== null) {
+            $nextDue->setTime(
+                (int)$fixedScheduleTime->format('H'),
+                (int)$fixedScheduleTime->format('i'),
+                0
+            );
+        }
 
-	/**
-	 * Find the next occurrence of specified weekdays
-	 */
-	private function findNextWeekday(\DateTime $from, array $weekdays, int $weeksInterval = 1): \DateTime {
-		$dayMap = [
-			'monday' => 1, 'tuesday' => 2, 'wednesday' => 3,
-			'thursday' => 4, 'friday' => 5, 'saturday' => 6, 'sunday' => 7
-		];
+        // For daily tasks, just add the days
+        if ($frequencyType === 'daily') {
+            $nextDue->add(new \DateInterval("P{$frequencyValue}D"));
+            return $nextDue;
+        }
 
-		// Normalize weekday names
-		$targetDays = array_map(fn($day) => strtolower(trim($day)), $weekdays);
-		$targetDays = array_filter($targetDays, fn($day) => isset($dayMap[$day]));
+        // For weekly tasks, find the next occurrence of specified weekdays
+        if ($frequencyType === 'weekly' && $fixedScheduleDays) {
+            $days = json_decode($fixedScheduleDays, true) ?: [];
+            if (!empty($days)) {
+                // Move to next occurrence after completedAt
+                $nextDue->add(new \DateInterval('P1D'));
+                return $this->findNextWeekday($nextDue, $days, $frequencyValue);
+            }
+        }
 
-		if (empty($targetDays)) {
-			return $from;
-		}
+        // For monthly tasks, add months
+        if ($frequencyType === 'monthly') {
+            $nextDue->add(new \DateInterval("P{$frequencyValue}M"));
+            return $nextDue;
+        }
 
-		$current = clone $from;
-		$currentDayNum = (int)$current->format('N');
+        // Fallback: add 1 week
+        $nextDue->add(new \DateInterval('P1W'));
+        return $nextDue;
+    }
 
-		// Find the next matching day within the same week
-		$daysToCheck = [];
-		foreach ($targetDays as $targetDay) {
-			$targetDayNum = $dayMap[$targetDay];
-			if ($targetDayNum > $currentDayNum) {
-				$daysToCheck[] = $targetDayNum - $currentDayNum;
-			}
-		}
+    /**
+     * Find the next occurrence of specified weekdays
+     */
+    private function findNextWeekday(\DateTime $from, array $weekdays, int $weeksInterval = 1): \DateTime
+    {
+        $dayMap = [
+            'monday' => 1, 'tuesday' => 2, 'wednesday' => 3,
+            'thursday' => 4, 'friday' => 5, 'saturday' => 6, 'sunday' => 7
+        ];
 
-		if (!empty($daysToCheck)) {
-			// Found a day later this week
-			$daysToAdd = min($daysToCheck);
-			$current->add(new \DateInterval("P{$daysToAdd}D"));
-		} else {
-			// Need to go to next week
-			$firstTargetDay = min(array_map(fn($day) => $dayMap[$day], $targetDays));
-			$daysToNextWeek = 7 - $currentDayNum + $firstTargetDay;
-			if ($weeksInterval > 1) {
-				$daysToNextWeek += ($weeksInterval - 1) * 7;
-			}
-			$current->add(new \DateInterval("P{$daysToNextWeek}D"));
-		}
+        // Normalize weekday names
+        $targetDays = array_map(fn ($day) => strtolower(trim($day)), $weekdays);
+        $targetDays = array_filter($targetDays, fn ($day) => isset($dayMap[$day]));
 
-		return $current;
-	}
+        if (empty($targetDays)) {
+            return $from;
+        }
 
-	/**
-	 * Get status as string
-	 */
-	public function getStatus(): string {
-		if (!$this->isActive) {
-			return 'inactive';
-		}
-		
-		if ($this->isOverdue()) {
-			return 'overdue';
-		}
-		
-		if ($this->isDueToday()) {
-			return 'due_today';
-		}
-		
-		if ($this->isDueWithinDays(3)) {
-			return 'due_soon';
-		}
-		
-		return 'upcoming';
-	}
+        $current = clone $from;
+        $currentDayNum = (int)$current->format('N');
+
+        // Find the next matching day within the same week
+        $daysToCheck = [];
+        foreach ($targetDays as $targetDay) {
+            $targetDayNum = $dayMap[$targetDay];
+            if ($targetDayNum > $currentDayNum) {
+                $daysToCheck[] = $targetDayNum - $currentDayNum;
+            }
+        }
+
+        if (!empty($daysToCheck)) {
+            // Found a day later this week
+            $daysToAdd = min($daysToCheck);
+            $current->add(new \DateInterval("P{$daysToAdd}D"));
+        } else {
+            // Need to go to next week
+            $firstTargetDay = min(array_map(fn ($day) => $dayMap[$day], $targetDays));
+            $daysToNextWeek = 7 - $currentDayNum + $firstTargetDay;
+            if ($weeksInterval > 1) {
+                $daysToNextWeek += ($weeksInterval - 1) * 7;
+            }
+            $current->add(new \DateInterval("P{$daysToNextWeek}D"));
+        }
+
+        return $current;
+    }
+
+    /**
+     * Get status as string
+     */
+    public function getStatus(): string
+    {
+        if (!$this->isActive) {
+            return 'inactive';
+        }
+
+        if ($this->isOverdue()) {
+            return 'overdue';
+        }
+
+        if ($this->isDueToday()) {
+            return 'due_today';
+        }
+
+        if ($this->isDueWithinDays(3)) {
+            return 'due_soon';
+        }
+
+        return 'upcoming';
+    }
 }

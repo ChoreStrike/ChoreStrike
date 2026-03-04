@@ -8,5 +8,6 @@ declare(strict_types=1);
 
 namespace OCP\AppFramework\Http;
 
-class ForbiddenException extends \Exception {
+class ForbiddenException extends \Exception
+{
 }

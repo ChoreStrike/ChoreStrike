@@ -9,34 +9,35 @@ namespace OCP\DB;
 /**
  * Mock IResult for unit tests
  */
-interface IResult {
-	/**
-	 * @return array|false
-	 */
-	public function fetch();
+interface IResult
+{
+    /**
+     * @return array|false
+     */
+    public function fetch();
 
-	/**
-	 * @return array
-	 */
-	public function fetchAll();
+    /**
+     * @return array
+     */
+    public function fetchAll();
 
-	/**
-	 * @return mixed
-	 */
-	public function fetchColumn($columnIndex = 0);
+    /**
+     * @return mixed
+     */
+    public function fetchColumn($columnIndex = 0);
 
-	/**
-	 * @return mixed
-	 */
-	public function fetchOne($columnIndex = 0);
+    /**
+     * @return mixed
+     */
+    public function fetchOne($columnIndex = 0);
 
-	/**
-	 * @return int
-	 */
-	public function rowCount();
+    /**
+     * @return int
+     */
+    public function rowCount();
 
-	/**
-	 * @return void
-	 */
-	public function closeCursor();
+    /**
+     * @return void
+     */
+    public function closeCursor();
 }

@@ -8,11 +8,12 @@ namespace OCP\AppFramework;
 
 use OCP\IRequest;
 
-class Controller {
+class Controller
+{
+    protected IRequest $request;
 
-	protected IRequest $request;
-
-	public function __construct(IRequest $request) {
-		$this->request = $request;
-	}
+    public function __construct(IRequest $request)
+    {
+        $this->request = $request;
+    }
 }

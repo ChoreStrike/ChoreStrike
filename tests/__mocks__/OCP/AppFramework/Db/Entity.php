@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Mock for OCP\AppFramework\Db\Entity for Unit Testing
  * This allows entity tests to run without full Nextcloud infrastructure
@@ -7,53 +8,63 @@
 namespace OCP\AppFramework\Db;
 
 if (!class_exists('OCP\AppFramework\Db\Entity')) {
-    class Entity {
+    class Entity
+    {
         protected $id;
         protected $_fieldTypes = [];
         protected $_data = [];
 
-        public function __construct() {
+        public function __construct()
+        {
             // Initialize with empty field types
         }
 
-        protected function addType(string $fieldName, string $type): void {
+        protected function addType(string $fieldName, string $type): void
+        {
             $this->_fieldTypes[$fieldName] = $type;
         }
 
-        public function getId(): ?int {
+        public function getId(): ?int
+        {
             return $this->id;
         }
 
-        public function setId(int $id): void {
+        public function setId(int $id): void
+        {
             $this->id = $id;
         }
 
-        public function resetUpdatedFields(): void {
+        public function resetUpdatedFields(): void
+        {
             // Mock implementation
         }
 
-        public function getUpdatedFields(): array {
+        public function getUpdatedFields(): array
+        {
             return [];
         }
 
         /**
          * Magic setter - also updates _data array for getter consistency
          */
-        public function __set(string $name, $value): void {
+        public function __set(string $name, $value): void
+        {
             $this->_data[$name] = $value;
         }
 
         /**
          * Magic getter - reads from _data array
          */
-        public function __get(string $name) {
+        public function __get(string $name)
+        {
             return $this->_data[$name] ?? null;
         }
 
         /**
          * Magic method to handle dynamic getters and setters
          */
-        public function __call(string $methodName, array $args) {
+        public function __call(string $methodName, array $args)
+        {
             // Handle setters: setName($value) -> _data['name'] = $value AND property = $value
             if (strpos($methodName, 'set') === 0) {
                 $property = lcfirst(substr($methodName, 3));

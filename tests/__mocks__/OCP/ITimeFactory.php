@@ -6,14 +6,14 @@
 
 namespace OCP;
 
-interface ITimeFactory {
-    
+interface ITimeFactory
+{
     /**
      * Get current time
      * @return int
      */
     public function getTime(): int;
-    
+
     /**
      * Get DateTime object
      * @return \DateTime

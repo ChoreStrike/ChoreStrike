@@ -32,102 +32,109 @@ use OCP\AppFramework\Db\Entity;
  * @method \DateTime getUpdatedAt()
  * @method void setUpdatedAt(\DateTime $date)
  */
-class UserStats extends Entity implements JsonSerializable {
+class UserStats extends Entity implements JsonSerializable
+{
+    /** @var int */
+    protected $houseId;
 
-	/** @var int */
-	protected $houseId;
+    /** @var string */
+    protected $userId;
 
-	/** @var string */
-	protected $userId;
+    /** @var int */
+    protected $totalPoints = 0;
 
-	/** @var int */
-	protected $totalPoints = 0;
+    /** @var int */
+    protected $currentStreak = 0;
 
-	/** @var int */
-	protected $currentStreak = 0;
+    /** @var int */
+    protected $longestStreak = 0;
 
-	/** @var int */
-	protected $longestStreak = 0;
+    /** @var int */
+    protected $tasksCompleted = 0;
 
-	/** @var int */
-	protected $tasksCompleted = 0;
+    /** @var \DateTime|null */
+    protected $lastCompletionDate;
 
-	/** @var \DateTime|null */
-	protected $lastCompletionDate;
+    /** @var \DateTime */
+    protected $updatedAt;
 
-	/** @var \DateTime */
-	protected $updatedAt;
+    public function __construct()
+    {
+        $this->addType('id', 'integer');
+        $this->addType('houseId', 'integer');
+        $this->addType('userId', 'string');
+        $this->addType('totalPoints', 'integer');
+        $this->addType('currentStreak', 'integer');
+        $this->addType('longestStreak', 'integer');
+        $this->addType('tasksCompleted', 'integer');
+        $this->addType('lastCompletionDate', 'datetime');
+        $this->addType('updatedAt', 'datetime');
+    }
 
-	public function __construct() {
-		$this->addType('id', 'integer');
-		$this->addType('houseId', 'integer');
-		$this->addType('userId', 'string');
-		$this->addType('totalPoints', 'integer');
-		$this->addType('currentStreak', 'integer');
-		$this->addType('longestStreak', 'integer');
-		$this->addType('tasksCompleted', 'integer');
-		$this->addType('lastCompletionDate', 'datetime');
-		$this->addType('updatedAt', 'datetime');
-	}
+    /**
+     * Convert user stats to JSON representation
+     */
+    public function jsonSerialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'houseId' => $this->houseId,
+            'userId' => $this->userId,
+            'totalPoints' => $this->totalPoints,
+            'currentStreak' => $this->currentStreak,
+            'longestStreak' => $this->longestStreak,
+            'tasksCompleted' => $this->tasksCompleted,
+            'lastCompletionDate' => $this->lastCompletionDate?->format('c'),
+            'updatedAt' => $this->updatedAt?->format('c'),
+        ];
+    }
 
-	/**
-	 * Convert user stats to JSON representation
-	 */
-	public function jsonSerialize(): array {
-		return [
-			'id' => $this->id,
-			'houseId' => $this->houseId,
-			'userId' => $this->userId,
-			'totalPoints' => $this->totalPoints,
-			'currentStreak' => $this->currentStreak,
-			'longestStreak' => $this->longestStreak,
-			'tasksCompleted' => $this->tasksCompleted,
-			'lastCompletionDate' => $this->lastCompletionDate?->format('c'),
-			'updatedAt' => $this->updatedAt?->format('c'),
-		];
-	}
+    /**
+     * Add points to total
+     */
+    public function addPoints(int $points): void
+    {
+        $this->setTotalPoints($this->totalPoints + $points);
+        $this->setUpdatedAt(new \DateTime());
+    }
 
-	/**
-	 * Add points to total
-	 */
-	public function addPoints(int $points): void {
-		$this->setTotalPoints($this->totalPoints + $points);
-		$this->setUpdatedAt(new \DateTime());
-	}
+    /**
+     * Increment tasks completed
+     */
+    public function incrementTasksCompleted(): void
+    {
+        $this->setTasksCompleted($this->tasksCompleted + 1);
+        $this->setLastCompletionDate(new \DateTime());
+        $this->setUpdatedAt(new \DateTime());
+    }
 
-	/**
-	 * Increment tasks completed
-	 */
-	public function incrementTasksCompleted(): void {
-		$this->setTasksCompleted($this->tasksCompleted + 1);
-		$this->setLastCompletionDate(new \DateTime());
-		$this->setUpdatedAt(new \DateTime());
-	}
+    /**
+     * Update streak
+     */
+    public function updateStreak(int $newStreak): void
+    {
+        $this->setCurrentStreak($newStreak);
+        if ($newStreak > $this->longestStreak) {
+            $this->setLongestStreak($newStreak);
+        }
+        $this->setUpdatedAt(new \DateTime());
+    }
 
-	/**
-	 * Update streak
-	 */
-	public function updateStreak(int $newStreak): void {
-		$this->setCurrentStreak($newStreak);
-		if ($newStreak > $this->longestStreak) {
-			$this->setLongestStreak($newStreak);
-		}
-		$this->setUpdatedAt(new \DateTime());
-	}
+    /**
+     * Reset current streak
+     */
+    public function resetStreak(): void
+    {
+        $this->setCurrentStreak(0);
+        $this->setUpdatedAt(new \DateTime());
+    }
 
-	/**
-	 * Reset current streak
-	 */
-	public function resetStreak(): void {
-		$this->setCurrentStreak(0);
-		$this->setUpdatedAt(new \DateTime());
-	}
-
-	/**
-	 * Increment current streak
-	 */
-	public function incrementStreak(): void {
-		$newStreak = $this->currentStreak + 1;
-		$this->updateStreak($newStreak);
-	}
+    /**
+     * Increment current streak
+     */
+    public function incrementStreak(): void
+    {
+        $newStreak = $this->currentStreak + 1;
+        $this->updateStreak($newStreak);
+    }
 }

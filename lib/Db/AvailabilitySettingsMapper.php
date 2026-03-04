@@ -16,108 +16,115 @@ use OCP\IDBConnection;
 /**
  * Mapper for AvailabilitySettings entity
  */
-class AvailabilitySettingsMapper extends QBMapper {
+class AvailabilitySettingsMapper extends QBMapper
+{
+    public function __construct(IDBConnection $db)
+    {
+        parent::__construct($db, 'chorestrike_availability', AvailabilitySettings::class);
+    }
 
-	public function __construct(IDBConnection $db) {
-		parent::__construct($db, 'chorestrike_availability', AvailabilitySettings::class);
-	}
+    /**
+     * Find settings by house and user
+     */
+    public function findByHouseAndUser(int $houseId, string $userId): ?AvailabilitySettings
+    {
+        $qb = $this->db->getQueryBuilder();
 
-	/**
-	 * Find settings by house and user
-	 */
-	public function findByHouseAndUser(int $houseId, string $userId): ?AvailabilitySettings {
-		$qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)));
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)));
+        try {
+            return $this->findEntity($qb);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
 
-		try {
-			return $this->findEntity($qb);
-		} catch (\Exception $e) {
-			return null;
-		}
-	}
+    /**
+     * Get or create settings for user
+     */
+    public function getOrCreate(int $houseId, string $userId): AvailabilitySettings
+    {
+        $settings = $this->findByHouseAndUser($houseId, $userId);
 
-	/**
-	 * Get or create settings for user
-	 */
-	public function getOrCreate(int $houseId, string $userId): AvailabilitySettings {
-		$settings = $this->findByHouseAndUser($houseId, $userId);
-		
-		if ($settings === null) {
-			$settings = new AvailabilitySettings();
-			$settings->setHouseId($houseId);
-			$settings->setUserId($userId);
-			$settings->setUpdatedAt(new \DateTime());
-			return $this->insert($settings);
-		}
-		
-		return $settings;
-	}
+        if ($settings === null) {
+            $settings = new AvailabilitySettings();
+            $settings->setHouseId($houseId);
+            $settings->setUserId($userId);
+            $settings->setUpdatedAt(new \DateTime());
+            return $this->insert($settings);
+        }
 
-	/**
-	 * Find all settings for a house
-	 *
-	 * @return AvailabilitySettings[]
-	 */
-	public function findByHouse(int $houseId): array {
-		$qb = $this->db->getQueryBuilder();
+        return $settings;
+    }
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+    /**
+     * Find all settings for a house
+     *
+     * @return AvailabilitySettings[]
+     */
+    public function findByHouse(int $houseId): array
+    {
+        $qb = $this->db->getQueryBuilder();
 
-		return $this->findEntities($qb);
-	}
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
 
-	/**
-	 * Find users with specific planning mode
-	 *
-	 * @return AvailabilitySettings[]
-	 */
-	public function findByPlanningMode(int $houseId, string $mode): array {
-		$qb = $this->db->getQueryBuilder();
+        return $this->findEntities($qb);
+    }
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('planning_mode', $qb->createNamedParameter($mode, IQueryBuilder::PARAM_STR)));
+    /**
+     * Find users with specific planning mode
+     *
+     * @return AvailabilitySettings[]
+     */
+    public function findByPlanningMode(int $houseId, string $mode): array
+    {
+        $qb = $this->db->getQueryBuilder();
 
-		return $this->findEntities($qb);
-	}
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('planning_mode', $qb->createNamedParameter($mode, IQueryBuilder::PARAM_STR)));
 
-	/**
-	 * Get total available energy for house
-	 */
-	public function getTotalHouseEnergy(int $houseId): int {
-		$qb = $this->db->getQueryBuilder();
+        return $this->findEntities($qb);
+    }
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+    /**
+     * Get total available energy for house
+     */
+    public function getTotalHouseEnergy(int $houseId): int
+    {
+        $qb = $this->db->getQueryBuilder();
 
-		$settings = $this->findEntities($qb);
-		$total = 0;
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
 
-		foreach ($settings as $setting) {
-			$total += $setting->getTotalWeeklyEnergy();
-		}
+        $settings = $this->findEntities($qb);
+        $total = 0;
 
-		return $total;
-	}
+        foreach ($settings as $setting) {
+            $total += $setting->getTotalWeeklyEnergy();
+        }
 
-	/**
-	 * Delete settings for user
-	 */
-	public function deleteForUser(int $houseId, string $userId): void {
-		$qb = $this->db->getQueryBuilder();
+        return $total;
+    }
 
-		$qb->delete($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)));
+    /**
+     * Delete settings for user
+     */
+    public function deleteForUser(int $houseId, string $userId): void
+    {
+        $qb = $this->db->getQueryBuilder();
 
-		$qb->executeStatement();
-	}
+        $qb->delete($this->getTableName())
+            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)));
+
+        $qb->executeStatement();
+    }
 }

@@ -16,168 +16,177 @@ use OCP\IDBConnection;
 /**
  * Mapper for CompletedTask entity
  */
-class CompletedTaskMapper extends QBMapper {
+class CompletedTaskMapper extends QBMapper
+{
+    public function __construct(IDBConnection $db)
+    {
+        parent::__construct($db, 'chorestrike_completed_tasks', CompletedTask::class);
+    }
 
-	public function __construct(IDBConnection $db) {
-		parent::__construct($db, 'chorestrike_completed_tasks', CompletedTask::class);
-	}
+    /**
+     * Find completed task by ID
+     *
+     * @param int $id The completed task ID
+     * @throws DoesNotExistException
+     */
+    public function find(int $id): CompletedTask
+    {
+        $qb = $this->db->getQueryBuilder();
 
-	/**
-	 * Find completed task by ID
-	 *
-	 * @param int $id The completed task ID
-	 * @throws DoesNotExistException
-	 */
-	public function find(int $id): CompletedTask {
-		$qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+        return $this->findEntity($qb);
+    }
 
-		return $this->findEntity($qb);
-	}
+    /**
+     * Find all completed tasks for a user
+     *
+     * @param int $userId The house user ID
+     * @return CompletedTask[]
+     */
+    public function findByUserId(int $userId): array
+    {
+        $qb = $this->db->getQueryBuilder();
 
-	/**
-	 * Find all completed tasks for a user
-	 *
-	 * @param int $userId The house user ID
-	 * @return CompletedTask[]
-	 */
-	public function findByUserId(int $userId): array {
-		$qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
+            ->orderBy('completed_at', 'DESC');
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
-			->orderBy('completed_at', 'DESC');
+        return $this->findEntities($qb);
+    }
 
-		return $this->findEntities($qb);
-	}
+    /**
+     * Find recent completions (within last N minutes)
+     *
+     * @param int $userId The house user ID
+     * @param int $minutes Number of minutes to look back
+     * @return CompletedTask[]
+     */
+    public function findRecentByUserId(int $userId, int $minutes = 5): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $cutoffDate = new \DateTime("-{$minutes} minutes");
 
-	/**
-	 * Find recent completions (within last N minutes)
-	 *
-	 * @param int $userId The house user ID
-	 * @param int $minutes Number of minutes to look back
-	 * @return CompletedTask[]
-	 */
-	public function findRecentByUserId(int $userId, int $minutes = 5): array {
-		$qb = $this->db->getQueryBuilder();
-		$cutoffDate = new \DateTime("-{$minutes} minutes");
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($cutoffDate, IQueryBuilder::PARAM_DATE)))
+            ->orderBy('completed_at', 'DESC');
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($cutoffDate, IQueryBuilder::PARAM_DATE)))
-			->orderBy('completed_at', 'DESC');
+        return $this->findEntities($qb);
+    }
 
-		return $this->findEntities($qb);
-	}
+    /**
+     * Find completions for a specific room task
+     *
+     * @param int $roomTaskId The room task ID
+     * @return CompletedTask[]
+     */
+    public function findByRoomTaskId(int $roomTaskId): array
+    {
+        $qb = $this->db->getQueryBuilder();
 
-	/**
-	 * Find completions for a specific room task
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @return CompletedTask[]
-	 */
-	public function findByRoomTaskId(int $roomTaskId): array {
-		$qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+            ->orderBy('completed_at', 'DESC');
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
-			->orderBy('completed_at', 'DESC');
+        return $this->findEntities($qb);
+    }
 
-		return $this->findEntities($qb);
-	}
+    /**
+     * Get user statistics for a date range
+     *
+     * @param int $userId The house user ID
+     * @param \DateTime $startDate Start date
+     * @param \DateTime $endDate End date
+     */
+    public function getUserStats(int $userId, \DateTime $startDate, \DateTime $endDate): array
+    {
+        $qb = $this->db->getQueryBuilder();
 
-	/**
-	 * Get user statistics for a date range
-	 *
-	 * @param int $userId The house user ID
-	 * @param \DateTime $startDate Start date
-	 * @param \DateTime $endDate End date
-	 */
-	public function getUserStats(int $userId, \DateTime $startDate, \DateTime $endDate): array {
-		$qb = $this->db->getQueryBuilder();
+        $qb->select('COUNT(*) as task_count')
+            ->addSelect('SUM(sparks_earned) as total_sparks')
+            ->addSelect('SUM(CASE WHEN was_combo = 1 THEN 1 ELSE 0 END) as combo_count')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($startDate, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lte('completed_at', $qb->createNamedParameter($endDate, IQueryBuilder::PARAM_DATE)));
 
-		$qb->select('COUNT(*) as task_count')
-			->addSelect('SUM(sparks_earned) as total_sparks')
-			->addSelect('SUM(CASE WHEN was_combo = 1 THEN 1 ELSE 0 END) as combo_count')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($startDate, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lte('completed_at', $qb->createNamedParameter($endDate, IQueryBuilder::PARAM_DATE)));
+        $result = $qb->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
 
-		$result = $qb->executeQuery();
-		$row = $result->fetch();
-		$result->closeCursor();
+        return [
+            'taskCount' => (int)($row['task_count'] ?? 0),
+            'totalSparks' => (int)($row['total_sparks'] ?? 0),
+            'comboCount' => (int)($row['combo_count'] ?? 0),
+        ];
+    }
 
-		return [
-			'taskCount' => (int)($row['task_count'] ?? 0),
-			'totalSparks' => (int)($row['total_sparks'] ?? 0),
-			'comboCount' => (int)($row['combo_count'] ?? 0),
-		];
-	}
+    /**
+     * Get all completions in a date range for combo detection
+     *
+     * @param \DateTime $startDate Start date
+     * @param \DateTime $endDate End date
+     * @return CompletedTask[]
+     */
+    public function findInDateRange(\DateTime $startDate, \DateTime $endDate): array
+    {
+        $qb = $this->db->getQueryBuilder();
 
-	/**
-	 * Get all completions in a date range for combo detection
-	 *
-	 * @param \DateTime $startDate Start date
-	 * @param \DateTime $endDate End date
-	 * @return CompletedTask[]
-	 */
-	public function findInDateRange(\DateTime $startDate, \DateTime $endDate): array {
-		$qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->gte('completed_at', $qb->createNamedParameter($startDate, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lte('completed_at', $qb->createNamedParameter($endDate, IQueryBuilder::PARAM_DATE)))
+            ->orderBy('completed_at', 'DESC');
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->gte('completed_at', $qb->createNamedParameter($startDate, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lte('completed_at', $qb->createNamedParameter($endDate, IQueryBuilder::PARAM_DATE)))
-			->orderBy('completed_at', 'DESC');
+        return $this->findEntities($qb);
+    }
 
-		return $this->findEntities($qb);
-	}
+    /**
+     * Find latest completion for a room task
+     *
+     * @param int $roomTaskId The room task ID
+     * @return CompletedTask|null The latest completion or null
+     */
+    public function findLatestByRoomTask(int $roomTaskId): ?CompletedTask
+    {
+        $qb = $this->db->getQueryBuilder();
 
-	/**
-	 * Find latest completion for a room task
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @return CompletedTask|null The latest completion or null
-	 */
-	public function findLatestByRoomTask(int $roomTaskId): ?CompletedTask {
-		$qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+            ->orderBy('completed_at', 'DESC')
+            ->setMaxResults(1);
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
-			->orderBy('completed_at', 'DESC')
-			->setMaxResults(1);
+        try {
+            return $this->findEntity($qb);
+        } catch (DoesNotExistException $e) {
+            return null;
+        }
+    }
 
-		try {
-			return $this->findEntity($qb);
-		} catch (DoesNotExistException $e) {
-			return null;
-		}
-	}
+    /**
+     * Find completions pending sync to Nextcloud
+     *
+     * @param int $limit Maximum number of records
+     * @return CompletedTask[] Pending completions
+     */
+    public function findPendingSyncs(int $limit = 50): array
+    {
+        $qb = $this->db->getQueryBuilder();
 
-	/**
-	 * Find completions pending sync to Nextcloud
-	 *
-	 * @param int $limit Maximum number of records
-	 * @return CompletedTask[] Pending completions
-	 */
-	public function findPendingSyncs(int $limit = 50): array {
-		$qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('synced_to_nextcloud', $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL)))
+            ->andWhere($qb->expr()->isNotNull('nextcloud_task_id'))
+            ->orderBy('completed_at', 'ASC')
+            ->setMaxResults($limit);
 
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('synced_to_nextcloud', $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL)))
-			->andWhere($qb->expr()->isNotNull('nextcloud_task_id'))
-			->orderBy('completed_at', 'ASC')
-			->setMaxResults($limit);
-
-		return $this->findEntities($qb);
-	}
+        return $this->findEntities($qb);
+    }
 }
