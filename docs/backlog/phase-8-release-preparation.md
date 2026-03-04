@@ -88,17 +88,19 @@ Final preparation for v1.0.0 release including code review, security audit, inte
 
 ### P8-INTERNAL-TEST: Internal Testing Phase
 **Priority**: High  
-**Status**: Pending
+**Status**: In Progress
 
 - [ ] Test DB Exploration
   - [ ] Set up local test database
   - [ ] Manual testing of all features
   - [ ] Edge case exploration
   - [ ] Stress testing (many tasks, users)
-- [ ] Beta Deployment Preparation
-  - [ ] Create deployment checklist
-  - [ ] Verify backup strategy for Nextcloud
-  - [ ] Document rollback procedure
+- [x] Beta Deployment Preparation
+  - [x] Create deployment checklist (docs/DEPLOYMENT_CHECKLIST.md)
+  - [x] Verify backup strategy for Nextcloud (documented in checklist)
+  - [x] Document rollback procedure (documented in checklist)
+- [x] Manual Testing Checklist
+  - [x] Create comprehensive test checklist (docs/MANUAL_TEST_CHECKLIST.md)
 - [ ] Beta Deployment on Personal Server
   - [ ] Deploy to personal Nextcloud instance
   - [ ] Verify no impact on other Nextcloud apps
