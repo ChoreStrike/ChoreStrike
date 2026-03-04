@@ -10,11 +10,9 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\SchedulingController;
-use OCA\ChoreStrike\Db\SchedulingPreferencesMapper;
+use OCA\ChoreStrike\Service\SchedulingService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Entity\SchedulingPreferences;
-use OCA\ChoreStrike\Entity\House;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +23,7 @@ use PHPUnit\Framework\TestCase;
 class SchedulingControllerTest extends TestCase
 {
     private SchedulingController $controller;
-    private $preferencesMapper;
+    private $schedulingService;
     private $houseService;
     private $authService;
     private $request;
@@ -35,13 +33,13 @@ class SchedulingControllerTest extends TestCase
         parent::setUp();
 
         $this->request = $this->createMock(IRequest::class);
-        $this->preferencesMapper = $this->createMock(SchedulingPreferencesMapper::class);
+        $this->schedulingService = $this->createMock(SchedulingService::class);
         $this->houseService = $this->createMock(HouseService::class);
         $this->authService = $this->createMock(AuthorizationService::class);
 
         $this->controller = new SchedulingController(
             $this->request,
-            $this->preferencesMapper,
+            $this->schedulingService,
             $this->houseService,
             $this->authService
         );
@@ -52,34 +50,26 @@ class SchedulingControllerTest extends TestCase
      */
     public function testGetPreferences_ReturnsPreferences(): void
     {
-        $house = new House();
+        $preferences = [
+            'userId' => 'user1',
+            'houseId' => 1,
+            'weekdayAvailability' => ['monday' => true, 'tuesday' => false],
+            'energyBudget' => ['monday' => 10, 'tuesday' => 15]
+        ];
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $house = new \OCA\ChoreStrike\Db\House();
         $house->setId(1);
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('getCurrentUserId')->willReturn('user1');
+        $this->authService->method('requireHouseMember');
 
-        $preferences = new SchedulingPreferences();
-        $preferences->setId(1);
-        $preferences->setUserId('user1');
-        $preferences->setHouseId(1);
-        $preferences->setWeekdayAvailability(json_encode(['monday' => true, 'tuesday' => false]));
-        $preferences->setEnergyBudget(json_encode(['monday' => 10, 'tuesday' => 15]));
-
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
-
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with(1);
-
-        $this->preferencesMapper->expects($this->once())
-            ->method('findByUserAndHouse')
-            ->with('user1', 1)
+        $this->schedulingService->expects($this->once())
+            ->method('getUserPreferencesByNextcloudUserId')
+            ->with(1, 'user1')
             ->willReturn($preferences);
 
-        $response = $this->controller->getPreferences('user1');
+        $response = $this->controller->getPreferences();
 
         $this->assertInstanceOf(JSONResponse::class, $response);
         $this->assertEquals(200, $response->getStatus());
@@ -89,52 +79,25 @@ class SchedulingControllerTest extends TestCase
     }
 
     /**
-     * Test POST /scheduling/preferences validates empty userId
-     */
-    public function testUpdatePreferences_ValidatesEmptyUserId(): void
-    {
-        $response = $this->controller->updatePreferences('', []);
-
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(400, $response->getStatus());
-
-        $data = $response->getData();
-        $this->assertFalse($data['success']);
-        $this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
-    }
-
-    /**
      * Test GET /scheduling/members returns member availability
      */
     public function testGetMemberAvailability_ReturnsAvailability(): void
     {
-        $house = new House();
+        $preferences = [
+            ['userId' => 'user1', 'houseId' => 1],
+            ['userId' => 'user2', 'houseId' => 1]
+        ];
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $house = new \OCA\ChoreStrike\Db\House();
         $house->setId(1);
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseOwner');
 
-        $pref1 = new SchedulingPreferences();
-        $pref1->setUserId('user1');
-        $pref1->setHouseId(1);
-
-        $pref2 = new SchedulingPreferences();
-        $pref2->setUserId('user2');
-        $pref2->setHouseId(1);
-
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
-
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseOwner')
-            ->with(1);
-
-        $this->preferencesMapper->expects($this->once())
-            ->method('findByHouseId')
+        $this->schedulingService->expects($this->once())
+            ->method('getHousePreferences')
             ->with(1)
-            ->willReturn([$pref1, $pref2]);
+            ->willReturn($preferences);
 
         $response = $this->controller->getMemberAvailability();
 

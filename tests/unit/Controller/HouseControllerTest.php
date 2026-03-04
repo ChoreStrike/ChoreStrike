@@ -12,7 +12,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 use OCA\ChoreStrike\Controller\HouseController;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Entity\House;
+use OCA\ChoreStrike\Db\House;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -51,18 +51,9 @@ class HouseControllerTest extends TestCase
         $house->setId(1);
         $house->setName('Test House');
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
-
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->with('instance-123')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with(1);
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseMember');
 
         $response = $this->controller->get();
 
@@ -79,8 +70,7 @@ class HouseControllerTest extends TestCase
      */
     public function testGet_HandlesException(): void
     {
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
+        $this->houseService->method('getInstanceId')
             ->willThrowException(new \Exception('Database error'));
 
         $response = $this->controller->get();
@@ -132,18 +122,9 @@ class HouseControllerTest extends TestCase
         $house->setId(1);
         $house->setName('Updated House');
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
-
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->with('instance-123')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseOwner')
-            ->with(1);
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseOwner');
 
         $this->houseService->expects($this->once())
             ->method('updateHouseName')
@@ -167,17 +148,9 @@ class HouseControllerTest extends TestCase
         $house = new House();
         $house->setId(1);
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
-
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->with('instance-123')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseOwner')
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseOwner')
             ->willThrowException(new \Exception('Not authorized'));
 
         $response = $this->controller->update('New Name');

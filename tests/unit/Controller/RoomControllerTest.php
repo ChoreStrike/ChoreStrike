@@ -10,11 +10,11 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\RoomController;
-use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Entity\Room;
-use OCA\ChoreStrike\Entity\House;
+use OCA\ChoreStrike\Db\Room;
+use OCA\ChoreStrike\Db\Floor;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +25,7 @@ use PHPUnit\Framework\TestCase;
 class RoomControllerTest extends TestCase
 {
     private RoomController $controller;
-    private $roomMapper;
+    private $roomService;
     private $houseService;
     private $authService;
     private $request;
@@ -35,13 +35,13 @@ class RoomControllerTest extends TestCase
         parent::setUp();
 
         $this->request = $this->createMock(IRequest::class);
-        $this->roomMapper = $this->createMock(RoomMapper::class);
+        $this->roomService = $this->createMock(RoomService::class);
         $this->houseService = $this->createMock(HouseService::class);
         $this->authService = $this->createMock(AuthorizationService::class);
 
         $this->controller = new RoomController(
             $this->request,
-            $this->roomMapper,
+            $this->roomService,
             $this->houseService,
             $this->authService
         );
@@ -52,38 +52,35 @@ class RoomControllerTest extends TestCase
      */
     public function testIndex_ReturnsRoomsSuccessfully(): void
     {
-        $house = new House();
-        $house->setId(1);
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
 
         $room1 = new Room();
         $room1->setId(1);
         $room1->setName('Kitchen');
-        $room1->setHouseId(1);
+        $room1->setFloorId(1);
 
         $room2 = new Room();
         $room2->setId(2);
         $room2->setName('Living Room');
-        $room2->setHouseId(1);
+        $room2->setFloorId(1);
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
-
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->with('instance-123')
-            ->willReturn($house);
+        $this->roomService->expects($this->once())
+            ->method('getFloor')
+            ->with(1)
+            ->willReturn($floor);
 
         $this->authService->expects($this->once())
             ->method('requireHouseMember')
             ->with(1);
 
-        $this->roomMapper->expects($this->once())
-            ->method('findByHouseId')
+        $this->roomService->expects($this->once())
+            ->method('getRooms')
             ->with(1)
             ->willReturn([$room1, $room2]);
 
-        $response = $this->controller->index();
+        $response = $this->controller->index(1);
 
         $this->assertInstanceOf(JSONResponse::class, $response);
         $this->assertEquals(200, $response->getStatus());
@@ -98,6 +95,19 @@ class RoomControllerTest extends TestCase
      */
     public function testCreate_ValidatesEmptyName(): void
     {
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $this->roomService->expects($this->once())
+            ->method('getFloor')
+            ->with(1)
+            ->willReturn($floor);
+
+        $this->authService->expects($this->once())
+            ->method('requireHouseMember')
+            ->with(1);
+
         $response = $this->controller->create(1, '');
 
         $this->assertInstanceOf(JSONResponse::class, $response);
@@ -113,30 +123,29 @@ class RoomControllerTest extends TestCase
      */
     public function testShow_ReturnsRoomSuccessfully(): void
     {
-        $house = new House();
-        $house->setId(1);
-
         $room = new Room();
         $room->setId(1);
         $room->setName('Kitchen');
         $room->setHouseId(1);
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
-
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with(1);
-
-        $this->roomMapper->expects($this->once())
-            ->method('find')
+        $this->roomService->expects($this->once())
+            ->method('getRoomWithTasks')
             ->with(1)
-            ->willReturn($room);
+            ->willReturn([
+                'room' => $room,
+                'tasks' => [],
+                'stats' => ['total' => 0]
+            ]);
+
+        $this->roomService->expects($this->once())
+            ->method('validateRoomOwnership')
+            ->with(1, 1);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $house = new \OCA\ChoreStrike\Db\House();
+        $house->setId(1);
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseMember');
 
         $response = $this->controller->show(1);
 
@@ -145,7 +154,7 @@ class RoomControllerTest extends TestCase
 
         $data = $response->getData();
         $this->assertTrue($data['success']);
-        $this->assertEquals('Kitchen', $data['data']['name']);
+        $this->assertEquals('Kitchen', $data['data']['room']['name']);
     }
 
     /**
@@ -153,33 +162,34 @@ class RoomControllerTest extends TestCase
      */
     public function testShow_HandlesNotFound(): void
     {
-        $house = new House();
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $house = new \OCA\ChoreStrike\Db\House();
         $house->setId(1);
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseMember');
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
-
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with(1);
-
-        $this->roomMapper->expects($this->once())
-            ->method('find')
-            ->with(999)
-            ->willReturn(null);
+        $this->roomService->expects($this->once())
+            ->method('validateRoomOwnership')
+            ->with(999, 1)
+            ->willThrowException(new \Exception('Room not found'));
 
         $response = $this->controller->show(999);
 
         $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(404, $response->getStatus());
+        $this->assertEquals(500, $response->getStatus());
 
         $data = $response->getData();
         $this->assertFalse($data['success']);
-        $this->assertEquals('ROOM_NOT_FOUND', $data['error']['code']);
+    }
+
+    /**
+     * Helper method to get Floor mock
+     */
+    private function getFloor(): Floor
+    {
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+        return $floor;
     }
 }

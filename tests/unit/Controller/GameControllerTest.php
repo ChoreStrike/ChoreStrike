@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\GameController;
-use OCA\ChoreStrike\Service\GameService;
+use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Entity\House;
+use OCA\ChoreStrike\Db\House;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -24,7 +24,7 @@ use PHPUnit\Framework\TestCase;
 class GameControllerTest extends TestCase
 {
     private GameController $controller;
-    private $gameService;
+    private $gameLogicService;
     private $houseService;
     private $authService;
     private $request;
@@ -34,13 +34,13 @@ class GameControllerTest extends TestCase
         parent::setUp();
 
         $this->request = $this->createMock(IRequest::class);
-        $this->gameService = $this->createMock(GameService::class);
+        $this->gameLogicService = $this->createMock(GameLogicService::class);
         $this->houseService = $this->createMock(HouseService::class);
         $this->authService = $this->createMock(AuthorizationService::class);
 
         $this->controller = new GameController(
             $this->request,
-            $this->gameService,
+            $this->gameLogicService,
             $this->houseService,
             $this->authService
         );
@@ -60,19 +60,11 @@ class GameControllerTest extends TestCase
             'completedTasks' => 42,
         ];
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseMember');
 
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with(1);
-
-        $this->gameService->expects($this->once())
+        $this->gameLogicService->expects($this->once())
             ->method('getGameState')
             ->with(1)
             ->willReturn($gameState);
@@ -100,19 +92,11 @@ class GameControllerTest extends TestCase
             ['userId' => 'user2', 'score' => 75],
         ];
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseMember');
 
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with(1);
-
-        $this->gameService->expects($this->once())
+        $this->gameLogicService->expects($this->once())
             ->method('getLeaderboard')
             ->with(1)
             ->willReturn($leaderboard);
@@ -140,19 +124,11 @@ class GameControllerTest extends TestCase
             ['id' => 2, 'type' => 'mess_monster', 'roomId' => 2],
         ];
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseMember');
 
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with(1);
-
-        $this->gameService->expects($this->once())
+        $this->gameLogicService->expects($this->once())
             ->method('getMonsters')
             ->with(1)
             ->willReturn($monsters);

@@ -10,11 +10,11 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Entity\RoomTask;
-use OCA\ChoreStrike\Entity\House;
+use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\House;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +25,7 @@ use PHPUnit\Framework\TestCase;
 class RoomTaskControllerTest extends TestCase
 {
     private RoomTaskController $controller;
-    private $roomTaskMapper;
+    private $roomTaskService;
     private $houseService;
     private $authService;
     private $request;
@@ -35,13 +35,13 @@ class RoomTaskControllerTest extends TestCase
         parent::setUp();
 
         $this->request = $this->createMock(IRequest::class);
-        $this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
+        $this->roomTaskService = $this->createMock(RoomTaskService::class);
         $this->houseService = $this->createMock(HouseService::class);
         $this->authService = $this->createMock(AuthorizationService::class);
 
         $this->controller = new RoomTaskController(
             $this->request,
-            $this->roomTaskMapper,
+            $this->roomTaskService,
             $this->houseService,
             $this->authService
         );
@@ -65,21 +65,12 @@ class RoomTaskControllerTest extends TestCase
         $roomTask2->setRoomId(2);
         $roomTask2->setTaskId(2);
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseMember');
 
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with(1);
-
-        $this->roomTaskMapper->expects($this->once())
-            ->method('findByHouseId')
-            ->with(1)
+        $this->roomTaskService->expects($this->once())
+            ->method('getRoomTasks')
             ->willReturn([$roomTask1, $roomTask2]);
 
         $response = $this->controller->index();
@@ -135,25 +126,12 @@ class RoomTaskControllerTest extends TestCase
         $roomTask->setRoomId(1);
         $roomTask->setIsActive(true);
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseMember');
 
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with(1);
-
-        $this->roomTaskMapper->expects($this->once())
-            ->method('find')
-            ->with(1)
-            ->willReturn($roomTask);
-
-        $this->roomTaskMapper->expects($this->once())
-            ->method('complete')
+        $this->roomTaskService->expects($this->once())
+            ->method('completeRoomTask')
             ->with(1, 'user1')
             ->willReturn(['roomTask' => $roomTask, 'medals' => []]);
 

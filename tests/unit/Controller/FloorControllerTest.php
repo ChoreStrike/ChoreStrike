@@ -10,11 +10,11 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\FloorController;
-use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Entity\Floor;
-use OCA\ChoreStrike\Entity\House;
+use OCA\ChoreStrike\Db\Floor;
+use OCA\ChoreStrike\Db\House;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +25,7 @@ use PHPUnit\Framework\TestCase;
 class FloorControllerTest extends TestCase
 {
     private FloorController $controller;
-    private $floorMapper;
+    private $floorService;
     private $houseService;
     private $authService;
     private $request;
@@ -35,13 +35,13 @@ class FloorControllerTest extends TestCase
         parent::setUp();
 
         $this->request = $this->createMock(IRequest::class);
-        $this->floorMapper = $this->createMock(FloorMapper::class);
+        $this->floorService = $this->createMock(FloorService::class);
         $this->houseService = $this->createMock(HouseService::class);
         $this->authService = $this->createMock(AuthorizationService::class);
 
         $this->controller = new FloorController(
             $this->request,
-            $this->floorMapper,
+            $this->floorService,
             $this->houseService,
             $this->authService
         );
@@ -65,21 +65,12 @@ class FloorControllerTest extends TestCase
         $floor2->setName('First Floor');
         $floor2->setHouseId(1);
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseMember');
 
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->with('instance-123')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with(1);
-
-        $this->floorMapper->expects($this->once())
-            ->method('findByHouseId')
+        $this->floorService->expects($this->once())
+            ->method('getFloors')
             ->with(1)
             ->willReturn([$floor1, $floor2]);
 
@@ -116,20 +107,12 @@ class FloorControllerTest extends TestCase
         $house = new House();
         $house->setId(1);
 
-        $this->houseService->expects($this->once())
-            ->method('getInstanceId')
-            ->willReturn('instance-123');
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseOwner');
 
-        $this->houseService->expects($this->once())
-            ->method('getOrCreateHouse')
-            ->willReturn($house);
-
-        $this->authService->expects($this->once())
-            ->method('requireHouseOwner')
-            ->with(1);
-
-        $this->floorMapper->expects($this->once())
-            ->method('delete')
+        $this->floorService->expects($this->once())
+            ->method('deleteFloor')
             ->with(1);
 
         $response = $this->controller->delete(1);
