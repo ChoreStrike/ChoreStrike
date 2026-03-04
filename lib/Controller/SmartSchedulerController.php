@@ -48,7 +48,7 @@ class SmartSchedulerController extends Controller {
 	/**
 	 * Get schedule preview for the next N days
 	 *
-	 * @PublicPage
+	 * @NoAdminRequired
 	 * @param int $days Number of days to preview (default: 7)
 	 * @return DataResponse
 	 */
@@ -78,7 +78,7 @@ class SmartSchedulerController extends Controller {
 	/**
 	 * Generate complete schedule for a date range
 	 *
-	 * @PublicPage
+	 * @NoAdminRequired
 	 * @param string $startDate Start date (Y-m-d format)
 	 * @param string $endDate End date (Y-m-d format)
 	 * @return DataResponse
@@ -123,7 +123,7 @@ class SmartSchedulerController extends Controller {
 	/**
 	 * Get member availability for the current house
 	 *
-	 * @PublicPage
+	 * @NoAdminRequired
 	 * @return DataResponse
 	 */
 	public function getMemberAvailability(): DataResponse {
@@ -152,7 +152,7 @@ class SmartSchedulerController extends Controller {
 	/**
 	 * Update current user's availability
 	 *
-	 * @PublicPage
+	 * @NoAdminRequired
 	 * @param array $availability Availability data per weekday
 	 * @return DataResponse
 	 */
@@ -210,7 +210,7 @@ class SmartSchedulerController extends Controller {
 	/**
 	 * Update current user's energy budget
 	 *
-	 * @PublicPage
+	 * @NoAdminRequired
 	 * @param array $energyBudget Energy budget per weekday
 	 * @return DataResponse
 	 */
@@ -259,7 +259,7 @@ class SmartSchedulerController extends Controller {
 	/**
 	 * Get scheduling suggestions for tasks
 	 *
-	 * @PublicPage
+	 * @NoAdminRequired
 	 * @return DataResponse
 	 */
 	public function getSchedulingSuggestions(): DataResponse {
@@ -292,7 +292,7 @@ class SmartSchedulerController extends Controller {
 	/**
 	 * Apply a scheduling suggestion (persist task assignment)
 	 *
-	 * @PublicPage
+	 * @NoAdminRequired
 	 * @param int $taskId The task ID to assign
 	 * @param string $assignedTo The Nextcloud user ID to assign the task to
 	 * @param string $scheduledFor The scheduled date (Y-m-d format)

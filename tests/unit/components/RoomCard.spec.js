@@ -2,6 +2,8 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import RoomCard from '../../../src/components/Dashboard/RoomCard.vue'
 
+const mockPush = jest.fn()
+
 // Mock Nextcloud l10n
 global.OC = {
 	translate: jest.fn((app, text) => text),
@@ -10,7 +12,7 @@ global.OC = {
 // Mock Vue Router
 jest.mock('vue-router', () => ({
 	useRouter: jest.fn(() => ({
-		push: jest.fn(),
+		push: mockPush,
 	})),
 }))
 
@@ -46,6 +48,7 @@ describe('RoomCard', () => {
 
 	beforeEach(() => {
 		setActivePinia(createPinia())
+		mockPush.mockClear()
 		wrapper = mount(RoomCard, {
 			props: {
 				room: mockRoom,
@@ -168,18 +171,15 @@ describe('RoomCard', () => {
 
 	describe('Navigation', () => {
 		it('Navigates to room detail on card click', async () => {
-			const router = wrapper.vm.$router
 			await wrapper.find('.room-card').trigger('click')
-			// Router push would be called
+			expect(mockPush).toHaveBeenCalledWith('/room/1')
 		})
 
 		it('Does not navigate when clicking monster toggle', async () => {
-			const card = wrapper.find('.room-card')
 			const toggle = wrapper.find('.monster-toggle')
 
-			// Click should be stopped on toggle
 			await toggle.trigger('click')
-			// Card click handler should not fire for toggle
+			expect(mockPush).not.toHaveBeenCalled()
 		})
 	})
 

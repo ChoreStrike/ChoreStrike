@@ -37,6 +37,9 @@ class Version1015Date20260304000000 extends SimpleMigrationStep {
 	 * @return ISchemaWrapper
 	 */
 	public function changeSchema(IOutput $output, Closure $closure, array $openedSchema): ISchemaWrapper {
+		/** @var ISchemaWrapper $schema */
+		$schema = $closure();
+
 		// chorestrike_house_users indexes
 		if ($schema->hasTable('chorestrike_house_users')) {
 			$table = $schema->getTable('chorestrike_house_users');

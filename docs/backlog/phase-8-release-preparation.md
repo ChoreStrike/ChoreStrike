@@ -16,10 +16,10 @@ Final preparation for v1.0.0 release including code review, security audit, inte
 
 ### P6-P7-CODE-REVIEW: Code Review (Day 1 - First Priority!)
 **Priority**: High  
-**Status**: Pending
+**Status**: In Progress
 
-- [ ] Review all Phase 6 (i18n) code changes
-- [ ] Review all Phase 7 (Performance) code changes
+- [x] Review all Phase 6 (i18n) code changes
+- [x] Review all Phase 7 (Performance) code changes
 - [ ] PSR-12 compliance check
   - [ ] Run php-cs-fixer on all PHP files
   - [ ] Fix any violations
@@ -30,6 +30,20 @@ Final preparation for v1.0.0 release including code review, security audit, inte
   - [ ] Identify unused imports
   - [ ] Remove commented-out code
   - [ ] Remove unused functions/methods
+
+#### Progress Update (2026-03-04)
+- Hardened `SmartSchedulerController` endpoints from `@PublicPage` to `@NoAdminRequired`.
+- Fixed migration runtime issue in `Version1015Date20260304000000` by initializing schema from closure.
+- Added regression tests:
+  - `tests/unit/Controller/SmartSchedulerControllerAnnotationsTest.php`
+  - `tests/unit/Migration/Version1015Date20260304000000Test.php`
+- Added missing migration mocks and bootstrap loading for local PHPUnit execution.
+- Fixed dashboard navigation regression: `RoomCard.vue` now routes to `/room/:id` and has explicit navigation assertions.
+- Validation runs:
+  - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerTest.php`
+  - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerAnnotationsTest.php tests/unit/Migration/Version1015Date20260304000000Test.php`
+  - `npm test -- --runInBand tests/unit/components/RoomCard.spec.js tests/unit/views/TaskManager.spec.js`
+  - `npm run l10n:check-keys`
 
 ### P8-SECURITY-001: Security Audit
 **Priority**: High  

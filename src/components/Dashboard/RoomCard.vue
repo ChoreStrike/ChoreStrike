@@ -212,7 +212,7 @@ export default {
 
 		// Methods
 		const handleCardClick = () => {
-			router.push(`/rooms/${props.room.id}`)
+			router.push(`/room/${props.room.id}`)
 		}
 
 		const toggleMonsters = () => {

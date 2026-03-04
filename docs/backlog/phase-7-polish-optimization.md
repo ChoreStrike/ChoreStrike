@@ -100,6 +100,18 @@
 - [ ] Frontend: 80%+ coverage for stores
 - [ ] Component tests for critical paths
 
+#### Phase 8 Review Follow-up (2026-03-04)
+- Fixed migration execution safety in `Version1015Date20260304000000` by using the schema returned from migration closure.
+- Added migration regression test:
+  - `tests/unit/Migration/Version1015Date20260304000000Test.php`
+- Added missing migration OCP mocks and bootstrap loading to support local PHPUnit execution without full Nextcloud core classes.
+- Fixed dashboard room navigation route mismatch in `RoomCard.vue` (`/rooms/:id` -> `/room/:id`).
+- Strengthened component regression assertions for room detail navigation in:
+  - `tests/unit/components/RoomCard.spec.js`
+- Validation run:
+  - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Migration/Version1015Date20260304000000Test.php`
+  - `npm test -- --runInBand tests/unit/components/RoomCard.spec.js tests/unit/views/TaskManager.spec.js`
+
 ### P7-TEST-002: E2E Test Coverage
 **Status**: Pending  
 **Priority**: Medium

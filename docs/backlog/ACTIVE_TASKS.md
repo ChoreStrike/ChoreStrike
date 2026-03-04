@@ -8,7 +8,7 @@
 ### Cascade - P8-RELEASE - Phase 8 Release Preparation
 **Status**: In Progress  
 **Started**: 2026-03-04 12:30  
-**Updated**: 2026-03-04 12:55  
+**Updated**: 2026-03-04 13:35  
 **Branch**: master  
 **Related Files**: docs/backlog/phase-8-release-preparation.md, docs/ROADMAP.md, tests/e2e/*.spec.ts  
 **Blockers**: Docker not running (required for integration tests)  
@@ -18,9 +18,19 @@
 - **P8-INTERNAL-TEST planned**: Internal testing phase with beta deployment
 - **P8-SECURITY-001 planned**: Nextcloud isolation verification added
 - **P8-INTEGRATION-001 pending**: Requires Docker with Nextcloud environment
+- **P6-P7-CODE-REVIEW in progress**:
+  - Hardened SmartScheduler endpoints from `@PublicPage` to `@NoAdminRequired`
+  - Fixed migration runtime bug in `Version1015Date20260304000000` (schema now initialized via closure)
+  - Added migration and security annotation regression tests
+  - Added missing migration-related OCP mocks and bootstrap loading
+  - Fixed RoomCard route path mismatch (`/rooms/:id` -> `/room/:id`) and added navigation regression assertions
+  - Validation passed:
+    - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerTest.php`
+    - `vendor\\bin\\phpunit --configuration phpunit.xml tests/unit/Controller/SmartSchedulerControllerAnnotationsTest.php tests/unit/Migration/Version1015Date20260304000000Test.php`
+    - `npm test -- --runInBand tests/unit/components/RoomCard.spec.js tests/unit/views/TaskManager.spec.js`
 
 ### Next Session Tasks (Prioritized)
-1. **P6-P7-CODE-REVIEW** (High) - Review Phase 6 & 7 code changes first
+1. **P6-P7-CODE-REVIEW** (High) - Complete lint/dead-code checklist and mark fully done in Phase 8 backlog
 2. **P8-SECURITY-001** (High) - Security audit with Nextcloud isolation focus
 3. **P8-INTERNAL-TEST** (High) - Internal testing phase
 4. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
