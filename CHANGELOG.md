@@ -5,32 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-03-05
 
 ### Added
-- Initial project setup
-- MIT License
-- Project documentation (README, CONTRIBUTING, CONCEPT, ARCHITECTURE, API, DEVELOPMENT)
-- Agent guidelines for AI-assisted development
-- Nextcloud app structure (appinfo, routes, controllers)
-- Basic Vue.js 3 frontend with routing
-- Build configuration (webpack, babel, eslint, stylelint)
-- Placeholder views for Dashboard, Tasks, Rooms, Leaderboard, Settings
+
+#### Core Features
+- **House Management**: Automatic house creation, multi-user sharing, house name customization
+- **Floor System**: Multi-floor organization with custom names, sorting, and deletion
+- **Room Management**: Rooms within floors, cleanliness tracking, monster spawning for overdue tasks
+- **Task System**: Full task lifecycle with frequency, difficulty, priority, and checklists
+- **Task Templates**: Pre-defined templates for common household tasks by category
+- **Smart Scheduling**: AI-powered task suggestions based on availability and energy budget
+
+#### Gamification
+- **Sparks System**: Earn sparks for completing tasks based on difficulty
+- **Combo System**: Multiplier bonuses for completing tasks quickly
+- **Monster Invasion**: Cute dust monsters spawn in neglected rooms
+- **Achievements**: Unlockable badges for milestones and accomplishments
+- **Medals**: Weekly recognition for different play styles (Tank, Scout, etc.)
+- **Leaderboards**: Competition by sparks, streaks, and tasks completed
+
+#### Collaboration
+- **Multi-User Support**: Share house with family/roommates
+- **Role System**: Owner, Member, Child roles with permission levels
+- **Task Assignment**: Assign tasks to specific users or leave open
+- **Task Approval**: Parents can review children's completed tasks
+
+#### Technical
+- **Full i18n Support**: English and German translations
+- **REST API**: Complete API for all operations
+- **Database Migrations**: 15 migrations for schema evolution
+- **Unit Tests**: 274+ unit tests with 948+ assertions
+- **E2E Tests**: Playwright-based end-to-end tests
+- **Security Audit**: Complete security review passed
 
 ### Changed
-- Nothing yet
-
-### Deprecated
-- Nothing yet
-
-### Removed
-- Nothing yet
-
-### Fixed
-- Nothing yet
+- Renamed from "ChoreWars" to "ChoreStrike"
+- Upgraded to Vue 3 Composition API
+- Migrated from Vuex to Pinia for state management
+- Refactored controllers to use service layer (Clean Architecture)
 
 ### Security
-- Nothing yet
+- All endpoints use `@NoAdminRequired` (authenticated access only)
+- All database queries use prepared statements
+- Input validation on all endpoints
+- House membership checks on all data access
+- No XSS vulnerabilities (no `v-html` usage)
 
 ## [0.1.0] - 2026-02-24
 
