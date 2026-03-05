@@ -49,13 +49,13 @@ class AuthorizationService
     /**
      * Require an authenticated user and return the current user ID.
      *
-     * @throws \OCP\AppFramework\Http\NotFoundException
+     * @throws \RuntimeException
      */
     public function requireCurrentUserId(): string
     {
         $userId = $this->getCurrentUserId();
         if ($userId === null) {
-            throw new \OCP\AppFramework\Http\NotFoundException('Not authenticated');
+            throw new \RuntimeException('Not authenticated');
         }
 
         return $userId;
@@ -82,21 +82,26 @@ class AuthorizationService
     /**
      * Require the current user to be a house member.
      *
-     * @throws \OCP\AppFramework\Http\NotFoundException
+     * @throws \RuntimeException
      */
     public function requireHouseMember(int $houseId): HouseUser
     {
-        $userId = $this->getCurrentUserId();
+        $user = $this->userSession->getUser();
+        $userId = $user?->getUID();
         if ($userId === null) {
-            throw new \OCP\AppFramework\Http\NotFoundException('Not authenticated');
+            throw new \RuntimeException('Not authenticated');
         }
 
         $houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
-        if ($houseUser === null) {
-            throw new \OCP\AppFramework\Http\NotFoundException('Not a house member');
+        if ($houseUser !== null) {
+            return $houseUser;
         }
 
-        return $houseUser;
+        $existingUsers = $this->houseUserMapper->findByHouseId($houseId);
+        $role = count($existingUsers) === 0 ? 'owner' : 'member';
+        $displayName = $user->getDisplayName() ?: $userId;
+
+        return $this->houseUserMapper->createOrGet($houseId, $userId, $displayName, $role);
     }
 
     /**
@@ -115,15 +120,14 @@ class AuthorizationService
     /**
      * Require the current user to be a house owner.
      *
-     * @throws \OCP\AppFramework\Http\NotFoundException
-     * @throws \OCP\AppFramework\Http\ForbiddenException
+     * @throws \RuntimeException
      */
     public function requireHouseOwner(int $houseId): HouseUser
     {
         $houseUser = $this->requireHouseMember($houseId);
 
         if (!$houseUser->isOwner()) {
-            throw new \OCP\AppFramework\Http\ForbiddenException('Owner role required');
+            throw new \RuntimeException('Owner role required');
         }
 
         return $houseUser;

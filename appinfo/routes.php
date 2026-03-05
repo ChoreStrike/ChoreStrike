@@ -14,11 +14,11 @@ return [
         // Floor API
         ['name' => 'floor#index', 'url' => '/api/v1/floors', 'verb' => 'GET'],
         ['name' => 'floor#create', 'url' => '/api/v1/floors', 'verb' => 'POST'],
+        ['name' => 'floor#withRooms', 'url' => '/api/v1/floors/with-rooms', 'verb' => 'GET'],
+        ['name' => 'floor#reorder', 'url' => '/api/v1/floors/reorder', 'verb' => 'POST'],
         ['name' => 'floor#update', 'url' => '/api/v1/floors/{id}', 'verb' => 'PUT'],
         ['name' => 'floor#delete', 'url' => '/api/v1/floors/{id}', 'verb' => 'DELETE'],
         ['name' => 'floor#show', 'url' => '/api/v1/floors/{id}', 'verb' => 'GET'],
-        ['name' => 'floor#reorder', 'url' => '/api/v1/floors/reorder', 'verb' => 'POST'],
-        ['name' => 'floor#withRooms', 'url' => '/api/v1/floors/with-rooms', 'verb' => 'GET'],
         
         // Room API
         ['name' => 'room#index', 'url' => '/api/v1/rooms', 'verb' => 'GET'],

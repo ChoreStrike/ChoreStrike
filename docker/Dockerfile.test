@@ -42,8 +42,8 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory.ini
 RUN echo "error_reporting=E_ALL" > /usr/local/etc/php/conf.d/error_reporting.ini
 
-# Clone Nextcloud Server stable29 branch (compatible with NC 27-30)
-RUN git clone --depth 1 --branch stable29 https://github.com/nextcloud/server.git /var/www/html
+# Clone Nextcloud Server stable31 branch (compatible with NC 31+ / Vue 3 stack)
+RUN git clone --depth 1 --branch stable31 https://github.com/nextcloud/server.git /var/www/html
 
 # Initialize required Nextcloud submodules (notably 3rdparty)
 RUN git config --global --add safe.directory /var/www/html \

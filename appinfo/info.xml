@@ -34,7 +34,7 @@ Keep your home clean by completing tasks and watch cute pixel monsters disappear
     <repository type="git">https://github.com/ChoreStrike/ChoreStrike.git</repository>
     
     <dependencies>
-        <nextcloud min-version="27" max-version="30"/>
+        <nextcloud min-version="27" max-version="31"/>
         <php min-version="8.0" max-version="8.3"/>
     </dependencies>
     
