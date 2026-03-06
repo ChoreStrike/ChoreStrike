@@ -273,21 +273,33 @@ npx playwright test tests/e2e/ --project=chromium --headed
 
 | Test File | Coverage |
 |-----------|----------|
-| `3-floor-house.spec.ts` | Full workflow: floors, rooms, tasks, leaderboard |
-| `dashboard-navigation.spec.ts` | Dashboard view and navigation |
-| `room-management.spec.ts` | Room CRUD operations |
-| `settings.spec.ts` | Settings page functionality |
-| `leaderboard.spec.ts` | Leaderboard view |
+| `minimal-smoke-tests.spec.ts`, `fast-core-tests.spec.ts`, `smoke-tests.spec.ts` | Fast smoke coverage for boot, routing, and key pages |
+| `dashboard.spec.ts`, `dashboard-navigation.spec.ts`, `core-functionality.spec.ts` | Dashboard and cross-view navigation coverage |
+| `room-management.spec.ts`, `room-detail.spec.ts` | Room CRUD and room-detail flows |
+| `task-manager.spec.ts`, `task-completion.spec.ts` | Task management, task creation, assignment, and completion flows |
+| `settings.spec.ts`, `3-floor-house.spec.ts`, `gui-scratch-flow.spec.ts` | Full-house creation and realistic GUI-first flows |
+| `daily-tasks-flow.spec.ts`, `availability-settings-flow.spec.ts`, `scheduling.spec.ts` | Scheduling and daily-task flows |
+| `leaderboard.spec.ts`, `phase-4-advanced-mechanics.spec.ts`, `task-checklist-and-features.spec.ts` | Gamification, leaderboard, and advanced task features |
+| `phase-3-user-management.spec.ts` | Legacy coverage that requires rework before it should be treated as a release gate |
 
 ### Test Architecture
 
-The E2E tests use a **JavaScript stub** (`js/chorestrike-main.js`) that simulates the Vue frontend:
-- Renders expected DOM elements with `data-testid` attributes
-- Implements state management for floors, rooms, tasks
-- Handles navigation between Dashboard, Settings, Tasks, Leaderboard views
-- Supports modal dialogs (Add Floor, Add Room, Add Task)
+The Playwright suite runs against the real Vue frontend inside the Docker-based Nextcloud test environment.
 
-This approach allows testing without building the full frontend assets.
+Important implications:
+
+- **Selectors must match the current Vue components** (`src/views/*`, `src/components/*`).
+- **Form flows matter**. For example, current task creation uses `TaskEditForm.vue`, while room assignment uses `TaskForm.vue`.
+- **Release confidence comes from wired views**, not from orphaned or legacy-only components.
+
+When changing task or room flows, update these layers together:
+
+- `src/views/TaskManager.vue`
+- `src/views/RoomDetail.vue`
+- `src/components/Tasks/TaskList.vue`
+- `src/components/Tasks/TaskForm.vue`
+- `src/components/Tasks/TaskEditForm.vue`
+- the affected Playwright specs
 
 ### Troubleshooting E2E Tests
 
@@ -318,49 +330,54 @@ docker compose -f docker-compose.test.yml down -v
 
 ## Test Results
 
-Current test status (as of last run):
+Do not treat hardcoded suite counts in this document as authoritative. The repository evolves quickly. Use the commands below as the source of truth and update this document whenever the release-gate interpretation changes.
 
-### E2E/Playwright Tests (Working ✓)
+### Current Automated Test Inventory
+
+### Playwright E2E
 
 ```bash
-# Run E2E tests (requires Docker environment running)
+# Run all E2E tests (requires Docker environment running)
 npx playwright test tests/e2e/ --project=chromium
 ```
-- **Test Suites**: 5 files, 10 tests passing (100%)
-- **Tests**: 10/10 passing (100%)
-- **Status**: All passing ✓
-- **Coverage**: Dashboard, Settings, Tasks, Leaderboard, Room Management, 3-Floor House Workflow
 
-### Jest Frontend Tests (Working ✓)
+Repository status:
+
+- **20 Playwright spec files** currently exist under `tests/e2e/`.
+- Not every spec has the same maturity level.
+- The most relevant release-oriented UI coverage currently lives in the dashboard, room, task, settings, daily-task, scheduling, and GUI-scratch-flow suites.
+- `phase-3-user-management.spec.ts` should be considered **legacy** until it is rewritten against currently wired views and routes.
+
+### Jest Frontend Tests
+
 ```bash
 npm test
 ```
-- **Test Suites**: 8/8 passing (100%)
-- **Tests**: 112 passing (100%)
-- **Status**: All passing ✓
-- **Coverage**: 7 Vue components tested
 
-### Entity Tests (Working ✓)
+Repository status:
+
+- **29 Jest spec files** currently exist under `tests/unit/`.
+- Coverage includes:
+  - Vue components
+  - Pinia stores
+  - routed views
+  - localization consistency checks
+
+### PHPUnit Unit and Integration Tests
+
 ```bash
 docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.unit.xml --testsuite Entity
-```
-- **Tests**: 107
-- **Status**: All passing ✓
-- **Coverage**: Room, Task, Floor, House, HouseUser, Medal, RoomTask, TaskScope entities
+  vendor/bin/phpunit --configuration phpunit.unit.xml
 
-### Service Tests (Working ✓)
-```bash
 docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.unit.xml --testsuite Service
+  vendor/bin/phpunit --configuration phpunit.xml tests/integration/
 ```
-- **Tests**: Comprehensive coverage for GameLogicService, HouseService, RoomService, FloorService, TaskService, RoomTaskService
-- **Status**: Core domain logic tested ✓
 
-### Integration Tests
-- **FamilyIntegrationTest**: 8/8 tests passing ✓
-- **Controller Integration Tests**: Require Nextcloud core environment (run in Docker)
-- **Status**: Family scenarios fully tested
+Repository status:
+
+- **12 integration test files** currently exist under `tests/integration/`.
+- Coverage includes controller, API, family, and extended room-task service scenarios.
+- Controller integration tests require the Docker/Nextcloud environment.
 
 ## Without Docker (Limited)
 
@@ -463,67 +480,46 @@ vendor/bin/phpunit tests/unit/Service/SchedulingServiceTest.php
 vendor/bin/phpunit tests/unit/Service/TaskSyncServiceTest.php
 ```
 
-## Missing Test Coverage
+## Remaining Coverage Gaps
 
-The following areas need additional tests (priority order):
+The biggest remaining gaps are no longer basic component or store tests. Those areas now have meaningful automated coverage. The highest-value remaining work is here:
 
-### 1. Vue Components (8 missing tests)
-**Location**: `tests/unit/components/`
-**Components without tests**:
-- `ComboNotification.vue` - Gamification notifications
-- `Emoji.vue` - Emoji display component  
-- `Icon.vue` - Icon rendering component
-- `MedalDetails.vue` - Medal detail view
-- `MedalList.vue` - Medal collection list
-- `MonsterCollection.vue` - Monster showcase
-- `MonsterSprite.vue` - Animated monster sprites
-- `FloorList.vue` - Floor management UI
+### 1. Real Multi-User GUI Coverage
 
-**Components with tests** (7):
-- ✅ MedalBadge.spec.js
-- ✅ Modal.spec.js
-- ✅ QuickStats.spec.js
-- ✅ HouseHealthBar.spec.js
-- ✅ RoomCard.spec.js
-- ✅ TaskForm.spec.js
-- ✅ TaskList.spec.js
+- The current realistic shared-state smoke coverage is centered on `tests/e2e/gui-scratch-flow.spec.ts`.
+- There is still no broad release-gate Playwright pack for:
+  - two-user task claiming
+  - teamwork participation joins/leaves
+  - reassignment or overdue-claim flows across separate sessions
 
-### 2. Pinia Stores (7 missing tests)
-**Location**: `tests/unit/store/` (directory does not exist)
-**Stores needing tests**:
-- `game.js` - Game state, medals, monsters
-- `house.js` - House management
-- `index.js` - Root store coordination
-- `roomTasks.js` - Room task assignments
-- `rooms.js` - Room state management
-- `scheduling.js` - Task scheduling
-- `tasks.js` - Task CRUD operations
-- `user.js` - User profiles and stats
+### 2. Legacy E2E Drift
 
-### 3. Controller Unit Tests (9 controllers)
-**Location**: `tests/unit/Controller/` (directory does not exist)
-**Controllers needing unit tests**:
-- `FloorController.php`
-- `GameController.php`
-- `HouseController.php`
-- `PageController.php`
-- `RoomController.php`
-- `RoomTaskController.php`
-- `SchedulingController.php`
-- `TaskController.php`
-- `TaskSyncController.php`
-- `UserController.php`
+- Some older Playwright specs still drift when selectors or form flows change.
+- `phase-3-user-management.spec.ts` is the clearest example and should be rewritten or excluded from release-gate expectations until it targets currently wired screens.
 
-### 4. E2E/Integration Tests
-**Existing**: `tests/integration/Controller/` has 8 integration test files
-**Note**: These require Docker environment with Nextcloud core
+### 3. Cross-Layer Contract Changes
 
-### Test Coverage Summary
-| Category | Existing | Missing | Coverage |
-|----------|----------|---------|----------|
-| Entities | 8 files | 0 | 100% |
-| Services | 8 files | 0 | 100% |
-| Vue Components | 7 files | 8 | 47% |
-| Stores | 0 files | 7 | 0% |
-| Controllers (Unit) | 0 files | 9 | 0% |
-| Integration | 8 files | - | Partial |
+- Task and room flows are sensitive to payload-shape drift between:
+  - backend room-task payloads
+  - Pinia stores
+  - `TaskList.vue`
+  - `RoomDetail.vue`
+  - `TaskManager.vue`
+  - Playwright selectors
+- Whenever these contracts change, add or refresh both unit regressions and E2E smoke coverage in the same change.
+
+### 4. Release Validation Order
+
+Before manual server testing or production rollout, prefer this order:
+
+```bash
+# 1. Frontend unit coverage
+npm test
+
+# 2. Backend unit and integration coverage in Docker
+docker compose -f docker-compose.test.yml run --rm nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
+docker compose -f docker-compose.test.yml run --rm nextcloud-test vendor/bin/phpunit --configuration phpunit.xml tests/integration/
+
+# 3. Targeted release-gate GUI smoke coverage
+npx playwright test tests/e2e/task-manager.spec.ts tests/e2e/room-detail.spec.ts tests/e2e/task-completion.spec.ts tests/e2e/gui-scratch-flow.spec.ts --project=chromium
+```

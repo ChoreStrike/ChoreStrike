@@ -72,9 +72,9 @@ describe('TaskList', () => {
 				props: { loading: true, roomTasks: [] },
 			})
 
-			expect(wrapper.find('.loading-state').exists()).toBe(true)
-			expect(wrapper.find('.loading-spinner').exists()).toBe(true)
-			expect(wrapper.text()).toContain('Loading tasks...')
+			expect(wrapper.find('.skeleton-loading').exists()).toBe(true)
+			expect(wrapper.findAll('.skeleton-task-item')).toHaveLength(5)
+			expect(wrapper.find('.empty-state').exists()).toBe(false)
 		})
 
 		it('should show empty state when no tasks and not loading', () => {

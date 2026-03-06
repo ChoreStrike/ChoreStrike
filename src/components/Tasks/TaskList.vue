@@ -4,7 +4,7 @@
 -->
 
 <template>
-	<div class="task-list">
+	<div class="task-list" data-testid="room-task-list">
 		<!-- Skeleton Loading State -->
 		<div v-if="loading" class="skeleton-loading">
 			<div v-for="i in 5" :key="i" class="skeleton-task-item">
@@ -44,6 +44,7 @@
 						<button
 							v-if="item.roomTask.isActive"
 							class="complete-button"
+							data-testid="complete-task-button"
 							:title="t('chorestrike', 'Mark as complete')"
 							@click="$emit('complete', item.roomTask.id)">
 							<Icon name="Circle" :size="20" />

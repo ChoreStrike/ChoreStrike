@@ -113,7 +113,7 @@
 		</div>
 
 		<TaskList
-			:tasks="filteredTasks"
+			:room-tasks="filteredTasks"
 			:loading="loading"
 			:show-room="true"
 			@complete="handleCompleteTask"
@@ -179,7 +179,19 @@ export default {
 
 	computed: {
 		allTasks() {
-			return this.roomTasksStore.roomTasks
+			return this.roomTasksStore.roomTasks.map(roomTask => ({
+				roomTask,
+				task: this.tasksStore.getTaskById(roomTask.taskId) || {
+					id: roomTask.taskId,
+					name: this.t('chorestrike', 'Unknown Task'),
+					description: '',
+					energyCost: 0,
+					estimatedMinutes: 0,
+					priority: 2,
+					frequencyType: 'weekly',
+					frequencyValue: 1,
+				},
+			}))
 		},
 
 		filteredTasks() {
@@ -187,11 +199,11 @@ export default {
 
 			// Status filter
 			if (this.filterStatus === 'active') {
-				tasks = tasks.filter(t => t.isActive)
+				tasks = tasks.filter(t => t.roomTask.isActive)
 			} else if (this.filterStatus === 'overdue') {
 				tasks = tasks.filter(t => {
-					if (!t.isActive || !t.nextDue) return false
-					return new Date(t.nextDue) < new Date()
+					if (!t.roomTask.isActive || !t.roomTask.nextDue) return false
+					return new Date(t.roomTask.nextDue) < new Date()
 				})
 			} else if (this.filterStatus === 'due-today') {
 				const today = new Date()
@@ -199,28 +211,29 @@ export default {
 				const tomorrow = new Date(today)
 				tomorrow.setDate(tomorrow.getDate() + 1)
 				tasks = tasks.filter(t => {
-					if (!t.isActive || !t.nextDue) return false
-					const dueDate = new Date(t.nextDue)
+					if (!t.roomTask.isActive || !t.roomTask.nextDue) return false
+					const dueDate = new Date(t.roomTask.nextDue)
 					return dueDate >= today && dueDate < tomorrow
 				})
 			} else if (this.filterStatus === 'completed') {
-				tasks = tasks.filter(t => !t.isActive)
+				tasks = tasks.filter(t => !t.roomTask.isActive)
 			}
 
 			// Priority filter
 			if (this.filterPriority !== 'all') {
-				tasks = tasks.filter(t => t.priority === this.filterPriority)
+				const priorityMap = { urgent: 3, normal: 2, low: 1 }
+				tasks = tasks.filter(t => t.task.priority === priorityMap[this.filterPriority])
 			}
 
 			// Difficulty filter
 			if (this.filterDifficulty !== 'all') {
-				tasks = tasks.filter(t => t.difficulty === parseInt(this.filterDifficulty, 10))
+				tasks = tasks.filter(t => t.task.energyCost === parseInt(this.filterDifficulty, 10))
 			}
 
 			// Search filter
 			if (this.searchQuery.trim()) {
 				const query = this.searchQuery.toLowerCase()
-				tasks = tasks.filter(t => t.name?.toLowerCase().includes(query))
+				tasks = tasks.filter(t => t.task.name?.toLowerCase().includes(query))
 			}
 
 			return tasks
@@ -249,8 +262,9 @@ export default {
 		async initializeTasks() {
 			this.loading = true
 			try {
-				await this.roomTasksStore.fetchRoomTasks()
 				await this.roomsStore.fetchFloorsWithRooms()
+				await this.tasksStore.fetchTasks()
+				await Promise.all(this.roomsStore.rooms.map(room => this.roomTasksStore.fetchRoomTasks(room.id)))
 			} catch (error) {
 				console.error('Failed to initialize tasks:', error)
 			} finally {
@@ -258,26 +272,26 @@ export default {
 			}
 		},
 
-		handleCompleteTask(task) {
-			this.roomTasksStore.completeRoomTask(task.id, this.userStore.userId)
+		handleCompleteTask(roomTaskId) {
+			this.roomTasksStore.completeRoomTask(roomTaskId, this.userStore.userId)
 				.then(() => {
-					this.$emit('task-completed', task)
+					this.$emit('task-completed', roomTaskId)
 				})
 				.catch(error => {
 					console.error('Failed to complete task:', error)
 				})
 		},
 
-		handleEditTask(task) {
-			this.editingTask = task
+		handleEditTask(roomTask) {
+			this.editingTask = this.tasksStore.getTaskById(roomTask.taskId) || null
 			this.showEditTaskModal = true
 		},
 
-		handleDeleteTask(task) {
+		handleDeleteTask(roomTaskId) {
 			if (!confirm(t('chorestrike', 'Are you sure you want to delete this task?'))) {
 				return
 			}
-			this.roomTasksStore.deleteRoomTask(task.id)
+			this.roomTasksStore.deleteRoomTask(roomTaskId)
 				.catch(error => {
 					console.error('Failed to delete task:', error)
 				})

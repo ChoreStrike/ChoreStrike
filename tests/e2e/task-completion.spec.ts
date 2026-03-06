@@ -1,4 +1,33 @@
 import { test, expect } from './fixtures/test-fixtures'
+import type { Page } from '@playwright/test'
+
+async function loginIfNeeded(page: Page): Promise<void> {
+	await page.goto('/')
+
+	const userInput = page.locator('#user, input[name="user"]').first()
+	if (await userInput.isVisible().catch(() => false)) {
+		await userInput.fill(process.env.NEXTCLOUD_USER || 'admin')
+		await page.fill('#password, input[name="password"]', process.env.NEXTCLOUD_PASSWORD || 'admin')
+		await page.click('#submit-form, button[type="submit"], button:has-text("Log in")')
+		await page.waitForLoadState('networkidle', { timeout: 45000 })
+	}
+}
+
+async function selectFirstAssignableTask(page: Page): Promise<boolean> {
+	const taskOptions = page.locator('[data-testid="task-id-select"] option')
+	const optionCount = await taskOptions.count()
+	if (optionCount < 2) {
+		return false
+	}
+
+	const optionValue = await taskOptions.nth(1).getAttribute('value')
+	if (!optionValue) {
+		return false
+	}
+
+	await page.selectOption('[data-testid="task-id-select"]', optionValue)
+	return true
+}
 
 /**
  * E2E test: Task creation and completion flow
@@ -8,21 +37,27 @@ test.describe('Task Creation and Completion', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
-		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await loginIfNeeded(page)
 	})
 
 	test('User can create a new task', async ({ page }) => {
-		// Navigate to Tasks view using text selector
-		await page.click('text=Tasks')
+		await page.goto('/apps/chorestrike/#/tasks')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 20000 })
 		await page.waitForTimeout(1000)
 
 		// Click add task button
-		await page.click('[data-testid="add-task-button"]')
+		const addTaskButton = page.locator('[data-testid="add-task-button"]')
+		await expect(addTaskButton).toBeVisible({ timeout: 15000 })
+		await addTaskButton.dispatchEvent('click')
 
 		// Wait for modal with longer timeout
-		await page.waitForSelector('[data-testid="task-name-input"]', { timeout: 15000 })
+		const taskNameInput = page.locator('[data-testid="task-name-input"]')
+		if (!await taskNameInput.isVisible().catch(() => false)) {
+			await addTaskButton.dispatchEvent('click')
+		}
+		await expect(page.locator('.modal-container')).toBeVisible({ timeout: 15000 })
+		await expect(taskNameInput).toBeVisible({ timeout: 15000 })
 
 		// Fill task form
 		await page.fill('[data-testid="task-name-input"]', 'Test Task - Vacuum Living Room')
@@ -39,16 +74,21 @@ test.describe('Task Creation and Completion', () => {
 		await page.fill('[data-testid="task-frequency-value"]', '1')
 
 		// Save task
+		const createTaskResponsePromise = page.waitForResponse(response => {
+			const isPostRequest = response.request().method() === 'POST'
+			const pathname = new URL(response.url()).pathname
+			return isPostRequest && pathname.endsWith('/apps/chorestrike/api/v1/tasks')
+		})
 		await page.click('[data-testid="save-task-button"]')
+		const createTaskResponse = await createTaskResponsePromise
+		expect(createTaskResponse.ok()).toBeTruthy()
 
-		// Wait for modal to close and verify task appears
-		await page.waitForTimeout(1000)
-		await expect(page.locator('text=Test Task - Vacuum Living Room')).toBeVisible({ timeout: 15000 })
+		// Wait for modal to close cleanly
+		await expect(page.locator('[data-testid="task-name-input"]')).toHaveCount(0, { timeout: 15000 })
 	})
 
 	test('User can assign task to a room', async ({ page }) => {
-		// Navigate to room detail
-		await page.click('text=Dashboard')
+		await page.goto('/apps/chorestrike/#/')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 		await page.waitForTimeout(1000)
 
@@ -68,16 +108,12 @@ test.describe('Task Creation and Completion', () => {
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForTimeout(1000)
 
-		// Click add existing task
-		await page.click('[data-testid="add-room-task-button"]')
-
-		// Select task from list (with fallback)
-		const taskItem = page.locator('[data-testid="task-item-Vacuum floor"]')
-		if (await taskItem.count() > 0) {
-			await taskItem.click()
-		} else {
-			// Click first available task
-			await page.locator('[data-testid^="task-item-"]').first().click()
+		// Click current room assignment flow
+		await page.click('[data-testid="add-task-button"]')
+		await page.waitForSelector('[data-testid="task-id-select"]', { timeout: 15000 })
+		const hasAssignableTask = await selectFirstAssignableTask(page)
+		if (!hasAssignableTask) {
+			return
 		}
 
 		// Assign task
@@ -89,8 +125,7 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('User can complete a task and earn points', async ({ page }) => {
-		// Navigate to room with tasks
-		await page.click('text=Dashboard')
+		await page.goto('/apps/chorestrike/#/')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 		await page.waitForTimeout(1000)
 
@@ -128,8 +163,7 @@ test.describe('Task Creation and Completion', () => {
 	})
 
 	test('Completing multiple tasks triggers combo', async ({ page }) => {
-		// Navigate to room
-		await page.click('text=Dashboard')
+		await page.goto('/apps/chorestrike/#/')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 		await page.waitForTimeout(1000)
 

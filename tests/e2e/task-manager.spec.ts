@@ -1,4 +1,17 @@
 import { test, expect } from './fixtures/test-fixtures'
+import type { Page } from '@playwright/test'
+
+async function loginIfNeeded(page: Page): Promise<void> {
+	await page.goto('/')
+
+	const userInput = page.locator('#user, input[name="user"]').first()
+	if (await userInput.isVisible().catch(() => false)) {
+		await userInput.fill(process.env.NEXTCLOUD_USER || 'admin')
+		await page.fill('#password, input[name="password"]', process.env.NEXTCLOUD_PASSWORD || 'admin')
+		await page.click('#submit-form, button[type="submit"], button:has-text("Log in")')
+		await page.waitForLoadState('networkidle', { timeout: 45000 })
+	}
+}
 
 /**
  * E2E test: Task Manager filters and display
@@ -8,13 +21,10 @@ test.describe('Task Manager', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
-		await page.goto('/apps/chorestrike/')
+		await loginIfNeeded(page)
+		await page.goto('/apps/chorestrike/#/tasks')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
-
-		// Use text selector for navigation (Nextcloud Vue components don't pass data-testid)
-		await page.click('text=Tasks')
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 20000 })
 		await page.waitForTimeout(1000)
 	})
 
@@ -101,6 +111,7 @@ test.describe('Task Manager', () => {
 		await page.waitForTimeout(500)
 
 		// Verify modal is opened
-		await expect(page.locator('.modal-content')).toBeVisible({ timeout: 15000 })
+		await expect(page.locator('.modal-container')).toBeVisible({ timeout: 15000 })
+		await expect(page.locator('[data-testid="task-name-input"]')).toBeVisible({ timeout: 15000 })
 	})
 })

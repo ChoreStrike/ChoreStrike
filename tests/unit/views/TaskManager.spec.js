@@ -18,20 +18,37 @@ jest.mock('vue-router', () => ({
 jest.mock('../../../src/store/roomTasks.js', () => ({
 	useRoomTasksStore: () => ({
 		roomTasks: [
-			{ id: 1, name: 'Clean Kitchen', isActive: true, priority: 'urgent', difficulty: 3, nextDue: new Date().toISOString() },
-			{ id: 2, name: 'Vacuum', isActive: true, priority: 'normal', difficulty: 2, nextDue: new Date(Date.now() + 86400000).toISOString() },
+			{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: new Date().toISOString() },
+			{ id: 2, roomId: 2, taskId: 20, isActive: true, nextDue: new Date(Date.now() + 86400000).toISOString() },
 		],
 		totalOverdueTasks: 0,
 		totalDueTodayTasks: 1,
 		fetchRoomTasks: jest.fn(),
+		completeRoomTask: jest.fn(),
+		deleteRoomTask: jest.fn(),
 	}),
 }))
 
 jest.mock('../../../src/store/rooms.js', () => ({
 	useRoomsStore: () => ({
 		floors: [],
-		rooms: [],
+		rooms: [{ id: 1 }, { id: 2 }],
 		fetchFloorsWithRooms: jest.fn(),
+	}),
+}))
+
+jest.mock('../../../src/store/tasks.js', () => ({
+	useTasksStore: () => ({
+		fetchTasks: jest.fn(),
+		createTask: jest.fn(),
+		updateTask: jest.fn(),
+		getTaskById: jest.fn((id) => {
+			const tasks = {
+				10: { id: 10, name: 'Clean Kitchen', energyCost: 3, priority: 3, frequencyType: 'weekly', frequencyValue: 1 },
+				20: { id: 20, name: 'Vacuum', energyCost: 2, priority: 2, frequencyType: 'weekly', frequencyValue: 1 },
+			}
+			return tasks[id] || null
+		}),
 	}),
 }))
 
@@ -44,13 +61,13 @@ jest.mock('../../../src/components/Common/Icon.vue', () => ({
 
 jest.mock('../../../src/components/Tasks/TaskList.vue', () => ({
 	name: 'TaskList',
-	props: ['tasks', 'loading', 'showRoom'],
+	props: ['roomTasks', 'loading', 'showRoom'],
 	emits: ['complete', 'edit', 'delete'],
-	template: '<div class="task-list">Tasks: {{ tasks.length }}</div>',
+	template: '<div class="task-list">Tasks: {{ roomTasks.length }}</div>',
 }))
 
-jest.mock('../../../src/components/Tasks/TaskForm.vue', () => ({
-	name: 'TaskForm',
+jest.mock('../../../src/components/Tasks/TaskEditForm.vue', () => ({
+	name: 'TaskEditForm',
 	props: ['task'],
 	emits: ['submit', 'cancel'],
 	template: '<div class="task-form">Task Form</div>',

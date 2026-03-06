@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\UserController;
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCP\IL10N;
 use OCP\IRequest;
+use OCP\IUser;
 use OCP\IUserManager;
 use PHPUnit\Framework\TestCase;
 
@@ -23,6 +27,7 @@ class UserControllerIntegrationTest extends TestCase
     private IUserManager $userManager;
     private AuthorizationService $authService;
     private IRequest $request;
+    private IL10N $l10n;
 
     protected function setUp(): void
     {
@@ -33,46 +38,44 @@ class UserControllerIntegrationTest extends TestCase
         $this->houseService = $this->createMock(HouseService::class);
         $this->userManager = $this->createMock(IUserManager::class);
         $this->authService = $this->createMock(AuthorizationService::class);
+        $this->l10n = $this->createMock(IL10N::class);
+        $this->l10n->method('t')
+            ->willReturnCallback(static fn (string $text): string => $text);
 
         $this->controller = new UserController(
             $this->request,
             $this->houseUserMapper,
             $this->houseService,
             $this->userManager,
-            $this->authService
+            $this->authService,
+            $this->l10n
         );
     }
 
     /**
-     * Index_ReturnsHouseUsers_SuccessResponse
+     * Index_ReturnsSerializedHouseUsers_SuccessResponse
      */
-    public function testIndex_ReturnsHouseUsers_SuccessResponse(): void
+    public function testIndex_ReturnsSerializedHouseUsers_SuccessResponse(): void
     {
+        $house = $this->createHouse();
         $users = [
-            [
-                'userId' => 'user1',
-                'displayName' => 'Alice',
-                'role' => 'owner',
-                'joinedAt' => '2026-01-15T10:00:00Z',
-                'lastActive' => '2026-02-24T08:30:00Z',
-            ],
-            [
-                'userId' => 'user2',
-                'displayName' => 'Bob',
-                'role' => 'member',
-                'joinedAt' => '2026-01-20T14:00:00Z',
-                'lastActive' => '2026-02-24T16:45:00Z',
-            ],
-            [
-                'userId' => 'user3',
-                'displayName' => 'Carol',
-                'role' => 'child',
-                'joinedAt' => '2026-02-01T09:00:00Z',
-                'lastActive' => '2026-02-23T19:20:00Z',
-            ],
+            $this->createHouseUser(1, $house->getId(), 'user1', 'Alice', 'owner'),
+            $this->createHouseUser(2, $house->getId(), 'user2', 'Bob', 'member'),
         ];
 
-        $this->houseService->method('getHouseUsers')
+        $this->houseService->expects($this->once())
+            ->method('getInstanceId')
+            ->willReturn('instance-123');
+        $this->houseService->expects($this->once())
+            ->method('getOrCreateHouse')
+            ->with('instance-123')
+            ->willReturn($house);
+        $this->authService->expects($this->once())
+            ->method('requireHouseMember')
+            ->with($house->getId());
+        $this->houseUserMapper->expects($this->once())
+            ->method('findByHouseId')
+            ->with($house->getId())
             ->willReturn($users);
 
         $response = $this->controller->index();
@@ -80,52 +83,174 @@ class UserControllerIntegrationTest extends TestCase
         $this->assertEquals(200, $response->getStatus());
         $data = $response->getData();
         $this->assertTrue($data['success']);
-        $this->assertCount(3, $data['data']);
+        $this->assertCount(2, $data['data']);
         $this->assertEquals('Alice', $data['data'][0]['displayName']);
+        $this->assertEquals('user1', $data['data'][0]['nextcloudUserId']);
     }
 
     /**
-     * Invite_ValidEmail_ReturnsInvitedUser
+     * Invite_ValidNextcloudUser_ReturnsInvitedUser
      */
-    public function testInvite_ValidEmail_ReturnsInvitedUser(): void
+    public function testInvite_ValidNextcloudUser_ReturnsInvitedUser(): void
     {
-        $email = 'newuser@example.com';
+        $house = $this->createHouse();
+        $nextcloudUser = new class implements IUser {
+            public function getUID(): string
+            {
+                return 'newuser';
+            }
+
+            public function getDisplayName(): string
+            {
+                return 'New User';
+            }
+        };
         $role = 'member';
-        $invitedUser = [
-            'userId' => 'user4',
-            'displayName' => 'newuser@example.com',
-            'email' => $email,
-            'role' => $role,
-            'inviteStatus' => 'pending',
-            'invitedAt' => '2026-02-24T18:00:00Z',
-        ];
+        $houseUser = $this->createHouseUser(3, $house->getId(), 'newuser', 'New User', $role);
 
-        $this->houseService->method('inviteUser')
-            ->with($email, $role)
-            ->willReturn($invitedUser);
+        $this->userManager->expects($this->once())
+            ->method('get')
+            ->with('newuser')
+            ->willReturn($nextcloudUser);
+        $this->houseService->expects($this->once())
+            ->method('getInstanceId')
+            ->willReturn('instance-123');
+        $this->houseService->expects($this->once())
+            ->method('getOrCreateHouse')
+            ->with('instance-123')
+            ->willReturn($house);
+        $this->authService->expects($this->once())
+            ->method('requireHouseOwner')
+            ->with($house->getId());
+        $this->houseUserMapper->expects($this->once())
+            ->method('createOrGet')
+            ->with($house->getId(), 'newuser', 'New User', $role)
+            ->willReturn($houseUser);
 
-        $response = $this->controller->invite($email, $role);
+        $response = $this->controller->invite('newuser', $role);
 
-        $this->assertEquals(201, $response->getStatus());
+        $this->assertEquals(200, $response->getStatus());
         $data = $response->getData();
         $this->assertTrue($data['success']);
-        $this->assertEquals($email, $data['data']['email']);
-        $this->assertEquals('pending', $data['data']['inviteStatus']);
+        $this->assertEquals('newuser', $data['data']['nextcloudUserId']);
+        $this->assertEquals('New User', $data['data']['displayName']);
+        $this->assertEquals('User invited to house', $data['message']);
     }
 
     /**
-     * Invite_InvalidEmail_ReturnsValidationError
+     * Invite_NonExistingNextcloudUser_ReturnsNotFound
      */
-    public function testInvite_InvalidEmail_ReturnsValidationError(): void
+    public function testInvite_NonExistingNextcloudUser_ReturnsNotFound(): void
     {
-        $invalidEmail = 'not-an-email';
-        $role = 'member';
+        $this->userManager->expects($this->once())
+            ->method('get')
+            ->with('missing-user')
+            ->willReturn(null);
 
-        $this->houseService->method('inviteUser')
-            ->with($invalidEmail, $role)
-            ->willThrowException(new \InvalidArgumentException('Invalid email address'));
+        $response = $this->controller->invite('missing-user', 'member');
 
-        $response = $this->controller->invite($invalidEmail, $role);
+        $this->assertEquals(404, $response->getStatus());
+        $data = $response->getData();
+        $this->assertFalse($data['success']);
+        $this->assertEquals('USER_NOT_FOUND', $data['error']['code']);
+    }
+
+    /**
+     * Remove_ExistingMember_ReturnsSuccess
+     */
+    public function testRemove_ExistingMember_ReturnsSuccess(): void
+    {
+        $houseUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'member');
+
+        $this->houseUserMapper->expects($this->once())
+            ->method('find')
+            ->with(2)
+            ->willReturn($houseUser);
+        $this->authService->expects($this->once())
+            ->method('requireHouseOwner')
+            ->with($houseUser->getHouseId());
+        $this->houseUserMapper->expects($this->once())
+            ->method('delete')
+            ->with($houseUser);
+
+        $response = $this->controller->remove(2);
+
+        $this->assertEquals(200, $response->getStatus());
+        $data = $response->getData();
+        $this->assertTrue($data['success']);
+        $this->assertEquals('User removed from house', $data['message']);
+    }
+
+    /**
+     * Remove_Owner_ReturnsForbidden
+     */
+    public function testRemove_Owner_ReturnsForbidden(): void
+    {
+        $owner = $this->createHouseUser(1, 1, 'owner', 'Alice', 'owner');
+
+        $this->houseUserMapper->expects($this->once())
+            ->method('find')
+            ->with(1)
+            ->willReturn($owner);
+        $this->authService->expects($this->once())
+            ->method('requireHouseOwner')
+            ->with($owner->getHouseId());
+
+        $response = $this->controller->remove(1);
+
+        $this->assertEquals(403, $response->getStatus());
+        $data = $response->getData();
+        $this->assertFalse($data['success']);
+        $this->assertEquals('CANNOT_REMOVE_OWNER', $data['error']['code']);
+    }
+
+    /**
+     * UpdateRole_ValidRole_ReturnsUpdatedUser
+     */
+    public function testUpdateRole_ValidRole_ReturnsUpdatedUser(): void
+    {
+        $houseUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'member');
+
+        $this->houseUserMapper->expects($this->once())
+            ->method('find')
+            ->with(2)
+            ->willReturn($houseUser);
+        $this->authService->expects($this->once())
+            ->method('requireHouseOwner')
+            ->with($houseUser->getHouseId());
+        $this->houseUserMapper->expects($this->once())
+            ->method('update')
+            ->with($this->callback(static function (HouseUser $updatedUser): bool {
+                return $updatedUser->getRole() === 'child';
+            }))
+            ->willReturnCallback(static fn (HouseUser $updatedUser): HouseUser => $updatedUser);
+
+        $response = $this->controller->updateRole(2, 'child');
+
+        $this->assertEquals(200, $response->getStatus());
+        $data = $response->getData();
+        $this->assertTrue($data['success']);
+        $this->assertEquals('child', $data['data']['role']);
+    }
+
+    /**
+     * UpdateRole_InvalidRole_ReturnsValidationError
+     */
+    public function testUpdateRole_InvalidRole_ReturnsValidationError(): void
+    {
+        $houseUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'member');
+
+        $this->houseUserMapper->expects($this->once())
+            ->method('find')
+            ->with(2)
+            ->willReturn($houseUser);
+        $this->authService->expects($this->once())
+            ->method('requireHouseOwner')
+            ->with($houseUser->getHouseId());
+        $this->houseUserMapper->expects($this->never())
+            ->method('update');
+
+        $response = $this->controller->updateRole(2, 'superadmin');
 
         $this->assertEquals(400, $response->getStatus());
         $data = $response->getData();
@@ -134,114 +259,55 @@ class UserControllerIntegrationTest extends TestCase
     }
 
     /**
-     * Remove_ExistingMember_ReturnsSuccess
-     */
-    public function testRemove_ExistingMember_ReturnsSuccess(): void
-    {
-        $userId = 'user2';
-
-        $this->houseService->method('removeUser')
-            ->with($userId)
-            ->willReturn(true);
-
-        $response = $this->controller->remove($userId);
-
-        $this->assertEquals(200, $response->getStatus());
-        $data = $response->getData();
-        $this->assertTrue($data['success']);
-        $this->assertEquals('User removed successfully', $data['data']['message']);
-    }
-
-    /**
-     * Remove_Owner_ReturnsForbidden
-     */
-    public function testRemove_Owner_ReturnsForbidden(): void
-    {
-        $ownerId = 'user1';
-
-        $this->houseService->method('removeUser')
-            ->with($ownerId)
-            ->willThrowException(new \Exception('Cannot remove house owner'));
-
-        $response = $this->controller->remove($ownerId);
-
-        $this->assertEquals(403, $response->getStatus());
-        $data = $response->getData();
-        $this->assertFalse($data['success']);
-    }
-
-    /**
-     * UpdateRole_ValidRole_ReturnsUpdatedUser
-     */
-    public function testUpdateRole_ValidRole_ReturnsUpdatedUser(): void
-    {
-        $userId = 'user2';
-        $newRole = 'admin';
-        $updatedUser = [
-            'userId' => $userId,
-            'displayName' => 'Bob',
-            'role' => $newRole,
-            'updatedAt' => '2026-02-24T18:00:00Z',
-        ];
-
-        $this->houseService->method('updateUserRole')
-            ->with($userId, $newRole)
-            ->willReturn($updatedUser);
-
-        $response = $this->controller->updateRole($userId, $newRole);
-
-        $this->assertEquals(200, $response->getStatus());
-        $data = $response->getData();
-        $this->assertTrue($data['success']);
-        $this->assertEquals($newRole, $data['data']['role']);
-    }
-
-    /**
-     * UpdateRole_InvalidRole_ReturnsValidationError
-     */
-    public function testUpdateRole_InvalidRole_ReturnsValidationError(): void
-    {
-        $userId = 'user2';
-        $invalidRole = 'superadmin';
-
-        $this->houseService->method('updateUserRole')
-            ->with($userId, $invalidRole)
-            ->willThrowException(new \InvalidArgumentException('Invalid role'));
-
-        $response = $this->controller->updateRole($userId, $invalidRole);
-
-        $this->assertEquals(400, $response->getStatus());
-        $data = $response->getData();
-        $this->assertFalse($data['success']);
-    }
-
-    /**
      * Stats_ReturnsUserStatistics_SuccessResponse
      */
     public function testStats_ReturnsUserStatistics_SuccessResponse(): void
     {
-        $userId = 'user1';
-        $stats = [
-            'userId' => $userId,
-            'displayName' => 'Alice',
-            'totalTasksCompleted' => 45,
-            'tasksThisWeek' => 8,
-            'contributionScore' => 1250,
-            'teamSparks' => 620,
-            'averageTasksPerWeek' => 7.5,
-            'favoriteRoom' => 'Kitchen',
-            'joinedAt' => '2026-01-15T10:00:00Z',
-        ];
+        $houseUser = $this->createHouseUser(1, 1, 'user1', 'Alice', 'owner');
+        $houseUser->setContributionScore(1250);
+        $houseUser->setTeamSparks(620);
+        $houseUser->setCurrentStreak(8);
+        $houseUser->setLastActivity(new \DateTime('2026-02-24T18:00:00Z'));
 
-        $this->houseService->method('getUserStats')
-            ->with($userId)
-            ->willReturn($stats);
+        $this->houseUserMapper->expects($this->once())
+            ->method('find')
+            ->with(1)
+            ->willReturn($houseUser);
+        $this->authService->expects($this->once())
+            ->method('requireHouseMember')
+            ->with($houseUser->getHouseId());
 
-        $response = $this->controller->stats($userId);
+        $response = $this->controller->stats(1);
 
         $this->assertEquals(200, $response->getStatus());
         $data = $response->getData();
         $this->assertTrue($data['success']);
-        $this->assertEquals($stats, $data['data']);
+        $this->assertEquals('user1', $data['data']['user']['nextcloudUserId']);
+        $this->assertEquals(1250, $data['data']['stats']['contributionScore']);
+        $this->assertEquals(620, $data['data']['stats']['teamSparks']);
+        $this->assertEquals(8, $data['data']['stats']['currentStreak']);
+    }
+
+    private function createHouse(int $id = 1): House
+    {
+        $house = new House();
+        $house->setId($id);
+        $house->setNextcloudInstanceId('instance-123');
+        $house->setName('Test House');
+
+        return $house;
+    }
+
+    private function createHouseUser(int $id, int $houseId, string $nextcloudUserId, string $displayName, string $role): HouseUser
+    {
+        $houseUser = new HouseUser();
+        $houseUser->setId($id);
+        $houseUser->setHouseId($houseId);
+        $houseUser->setNextcloudUserId($nextcloudUserId);
+        $houseUser->setDisplayName($displayName);
+        $houseUser->setRole($role);
+        $houseUser->setJoinedAt(new \DateTime('2026-01-15T10:00:00Z'));
+
+        return $houseUser;
     }
 }

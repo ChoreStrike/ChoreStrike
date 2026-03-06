@@ -57,7 +57,7 @@
 				</div>
 
 				<TaskList
-					:tasks="tasks"
+					:room-tasks="tasks"
 					:loading="loading"
 					@complete="handleCompleteTask"
 					@edit="handleEditTask"
@@ -67,12 +67,14 @@
 
 		<Modal v-if="showAddTaskModal" @close="showAddTaskModal = false">
 			<TaskForm
+				:room-id="roomId"
 				@submit="handleAddTask"
 				@cancel="showAddTaskModal = false" />
 		</Modal>
 
 		<Modal v-if="showEditTaskModal" @close="showEditTaskModal = false">
 			<TaskForm
+				:room-id="roomId"
 				:task="editingTask"
 				@submit="handleUpdateTask"
 				@cancel="showEditTaskModal = false" />
@@ -84,6 +86,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
+import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import Icon from '../components/Common/Icon.vue'
 import MonsterSprite from '../components/Common/MonsterSprite.vue'
@@ -112,8 +115,9 @@ export default {
 	setup() {
 		const roomsStore = useRoomsStore()
 		const roomTasksStore = useRoomTasksStore()
+		const tasksStore = useTasksStore()
 		const userStore = useUserStore()
-		return { roomsStore, roomTasksStore, userStore }
+		return { roomsStore, roomTasksStore, tasksStore, userStore }
 	},
 
 	data() {
@@ -162,13 +166,26 @@ export default {
 		},
 
 		tasks() {
-			return this.roomTasksStore.roomTasksByRoom[this.roomId] || []
+			const roomTasks = this.roomTasksStore.roomTasksByRoom[this.roomId] || []
+			return roomTasks.map(roomTask => ({
+				roomTask,
+				task: this.tasksStore.getTaskById(roomTask.taskId) || {
+					id: roomTask.taskId,
+					name: this.t('chorestrike', 'Unknown Task'),
+					description: '',
+					energyCost: 0,
+					estimatedMinutes: 0,
+					priority: 2,
+					frequencyType: 'weekly',
+					frequencyValue: 1,
+				},
+			}))
 		},
 
 		overdueCount() {
-			return this.tasks.filter(task => {
-				if (!task.isActive || !task.nextDue) return false
-				return new Date(task.nextDue) < new Date()
+			return this.tasks.filter(item => {
+				if (!item.roomTask.isActive || !item.roomTask.nextDue) return false
+				return new Date(item.roomTask.nextDue) < new Date()
 			}).length
 		},
 	},
@@ -183,7 +200,8 @@ export default {
 			this.loading = true
 			try {
 				await this.roomsStore.fetchFloorsWithRooms()
-				await this.roomTasksStore.fetchRoomTasks()
+				await this.tasksStore.fetchTasks()
+				await this.roomTasksStore.fetchRoomTasks(this.roomId)
 			} catch (error) {
 				console.error('Failed to initialize room:', error)
 			} finally {
@@ -191,26 +209,26 @@ export default {
 			}
 		},
 
-		handleCompleteTask(task) {
-			this.roomTasksStore.completeRoomTask(task.id, this.userStore.userId)
+		handleCompleteTask(roomTaskId) {
+			this.roomTasksStore.completeRoomTask(roomTaskId, this.userStore.userId)
 				.then(() => {
-					this.$emit('task-completed', task)
+					this.$emit('task-completed', roomTaskId)
 				})
 				.catch(error => {
 					console.error('Failed to complete task:', error)
 				})
 		},
 
-		handleEditTask(task) {
-			this.editingTask = task
+		handleEditTask(roomTask) {
+			this.editingTask = roomTask
 			this.showEditTaskModal = true
 		},
 
-		handleDeleteTask(task) {
+		handleDeleteTask(roomTaskId) {
 			if (!confirm(t('chorestrike', 'Are you sure you want to delete this task?'))) {
 				return
 			}
-			this.roomTasksStore.deleteRoomTask(task.id)
+			this.roomTasksStore.deleteRoomTask(roomTaskId)
 				.catch(error => {
 					console.error('Failed to delete task:', error)
 				})

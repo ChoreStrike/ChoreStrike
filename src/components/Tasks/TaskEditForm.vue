@@ -23,6 +23,7 @@
 					v-model.trim="form.name"
 					type="text"
 					class="form-input"
+					data-testid="task-name-input"
 					required
 					:placeholder="t('chorestrike', 'e.g., Vacuum living room')">
 			</div>
@@ -32,6 +33,7 @@
 				<textarea id="description"
 					v-model.trim="form.description"
 					class="form-input"
+					data-testid="task-description-input"
 					rows="2"
 					:placeholder="t('chorestrike', 'Optional description...')" />
 			</div>
@@ -43,7 +45,7 @@
 			<div class="form-row">
 				<div class="form-group half">
 					<label for="energyCost">{{ t('chorestrike', 'Energy Cost') }}</label>
-					<select id="energyCost" v-model.number="form.energyCost" class="form-input">
+					<select id="energyCost" v-model.number="form.energyCost" class="form-input" data-testid="task-energy-select">
 						<option v-for="n in 5" :key="n" :value="n">
 							{{ '★'.repeat(n) }} ({{ t('chorestrike', energyLabels[n]) }})
 						</option>
@@ -52,7 +54,7 @@
 
 				<div class="form-group half">
 					<label for="priority">{{ t('chorestrike', 'Priority') }}</label>
-					<select id="priority" v-model.number="form.priority" class="form-input">
+					<select id="priority" v-model.number="form.priority" class="form-input" data-testid="task-priority-select">
 						<option :value="3">
 							🔴 {{ t('chorestrike', 'High') }}
 						</option>
@@ -109,7 +111,7 @@
 			<div class="form-row">
 				<div class="form-group half">
 					<label for="frequencyType">{{ t('chorestrike', 'Frequency') }}</label>
-					<select id="frequencyType" v-model="form.frequencyType" class="form-input">
+					<select id="frequencyType" v-model="form.frequencyType" class="form-input" data-testid="task-frequency-type">
 						<option value="daily">
 							{{ t('chorestrike', 'Daily') }}
 						</option>
@@ -129,6 +131,7 @@
 							v-model.number="form.frequencyValue"
 							type="number"
 							class="form-input"
+							data-testid="task-frequency-value"
 							min="1"
 							max="52">
 						<span class="suffix">{{ frequencySuffix }}</span>
@@ -207,7 +210,7 @@
 				<Icon name="X" :size="16" class="icon" />
 				{{ t('chorestrike', 'Cancel') }}
 			</button>
-			<button type="submit" class="primary-button" :disabled="!isValid || loading">
+			<button type="submit" class="primary-button" data-testid="save-task-button" :disabled="!isValid || loading">
 				<Icon name="Save" :size="16" class="icon" />
 				{{ isEditing ? t('chorestrike', 'Update Task') : t('chorestrike', 'Create Task') }}
 			</button>

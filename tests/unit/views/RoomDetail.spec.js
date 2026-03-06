@@ -23,9 +23,28 @@ jest.mock('../../../src/store/rooms.js', () => ({
 
 jest.mock('../../../src/store/roomTasks.js', () => ({
 	useRoomTasksStore: () => ({
-		roomTasks: [{ id: 1, roomId: 1, name: 'Clean counters', isActive: true, nextDue: new Date().toISOString() }],
-		roomTasksByRoom: { 1: [{ id: 1, roomId: 1, name: 'Clean counters', isActive: true, nextDue: new Date().toISOString() }] },
+		roomTasks: [{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: new Date().toISOString() }],
+		roomTasksByRoom: { 1: [{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: new Date().toISOString() }] },
 		fetchRoomTasks: jest.fn(),
+		createRoomTask: jest.fn(),
+		updateRoomTaskDueDate: jest.fn(),
+		completeRoomTask: jest.fn(),
+		deleteRoomTask: jest.fn(),
+	}),
+}))
+
+jest.mock('../../../src/store/tasks.js', () => ({
+	useTasksStore: () => ({
+		fetchTasks: jest.fn(),
+		getTaskById: jest.fn(() => ({
+			id: 10,
+			name: 'Clean counters',
+			energyCost: 2,
+			estimatedMinutes: 10,
+			priority: 2,
+			frequencyType: 'weekly',
+			frequencyValue: 1,
+		})),
 	}),
 }))
 
@@ -44,13 +63,13 @@ jest.mock('../../../src/components/Common/MonsterSprite.vue', () => ({
 
 jest.mock('../../../src/components/Tasks/TaskList.vue', () => ({
 	name: 'TaskList',
-	props: ['tasks', 'loading', 'showRoom'],
-	template: '<div class="task-list">Task List ({{ tasks.length }} tasks)</div>',
+	props: ['roomTasks', 'loading', 'showRoom'],
+	template: '<div class="task-list">Task List ({{ roomTasks.length }} tasks)</div>',
 }))
 
 jest.mock('../../../src/components/Tasks/TaskForm.vue', () => ({
 	name: 'TaskForm',
-	props: ['task'],
+	props: ['task', 'roomId'],
 	template: '<div class="task-form">Task Form</div>',
 }))
 
@@ -72,6 +91,11 @@ describe('RoomDetail.vue', () => {
 			props: { id: '1' },
 			global: {
 				plugins: [pinia],
+				stubs: {
+					RouterLink: {
+						template: '<a class="router-link-stub"><slot /></a>',
+					},
+				},
 			},
 		})
 
@@ -83,6 +107,11 @@ describe('RoomDetail.vue', () => {
 			props: { id: '1' },
 			global: {
 				plugins: [pinia],
+				stubs: {
+					RouterLink: {
+						template: '<a class="router-link-stub"><slot /></a>',
+					},
+				},
 			},
 		})
 
@@ -94,6 +123,11 @@ describe('RoomDetail.vue', () => {
 			props: { id: '1' },
 			global: {
 				plugins: [pinia],
+				stubs: {
+					RouterLink: {
+						template: '<a class="router-link-stub"><slot /></a>',
+					},
+				},
 			},
 		})
 
@@ -105,6 +139,11 @@ describe('RoomDetail.vue', () => {
 			props: { id: '1' },
 			global: {
 				plugins: [pinia],
+				stubs: {
+					RouterLink: {
+						template: '<a class="router-link-stub"><slot /></a>',
+					},
+				},
 			},
 		})
 
@@ -117,6 +156,11 @@ describe('RoomDetail.vue', () => {
 			props: { id: '1' },
 			global: {
 				plugins: [pinia],
+				stubs: {
+					RouterLink: {
+						template: '<a class="router-link-stub"><slot /></a>',
+					},
+				},
 			},
 		})
 
@@ -128,6 +172,11 @@ describe('RoomDetail.vue', () => {
 			props: { id: '1' },
 			global: {
 				plugins: [pinia],
+				stubs: {
+					RouterLink: {
+						template: '<a class="router-link-stub"><slot /></a>',
+					},
+				},
 			},
 		})
 
@@ -139,6 +188,11 @@ describe('RoomDetail.vue', () => {
 			props: { id: '1' },
 			global: {
 				plugins: [pinia],
+				stubs: {
+					RouterLink: {
+						template: '<a class="router-link-stub"><slot /></a>',
+					},
+				},
 			},
 		})
 
@@ -150,6 +204,11 @@ describe('RoomDetail.vue', () => {
 			props: { id: '1' },
 			global: {
 				plugins: [pinia],
+				stubs: {
+					RouterLink: {
+						template: '<a class="router-link-stub"><slot /></a>',
+					},
+				},
 			},
 		})
 
@@ -162,6 +221,11 @@ describe('RoomDetail.vue', () => {
 			props: { id: '1' },
 			global: {
 				plugins: [pinia],
+				stubs: {
+					RouterLink: {
+						template: '<a class="router-link-stub"><slot /></a>',
+					},
+				},
 			},
 		})
 

@@ -5,6 +5,23 @@
 
 ## Currently Active
 
+### Cascade - UX-E2E-REALISM-001 - GUI-first flow, icon clarity, local-only assets
+**Status**: In Progress  
+**Started**: 2026-03-05 22:10  
+**Updated**: 2026-03-05 22:55  
+**Branch**: master  
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, src/components/Dashboard/FloorList.vue, src/components/Dashboard/HouseHealthBar.vue, src/components/Dashboard/QuickStats.vue, src/components/Common/Emoji.vue, src/utils/icons.js, docker/test-entrypoint.sh, tests/e2e/fixtures/test-fixtures.ts, tests/e2e/gui-scratch-flow.spec.ts  
+**Blockers**: None  
+**Notes**:
+- Implement full GUI creation flow from scratch (floor -> room -> task assignment) with deterministic E2E coverage.
+- Add realistic multi-user test setup (separate Nextcloud credentials).
+- Improve command button visibility and icon-first affordance for kids.
+- Remove runtime dependency on remote emoji/icon assets and enforce local fallback.
+- Implemented room creation modal in dashboard floor list and added test selectors (`add-room-button-*`, `room-name-input`, `create-room-button`).
+- Improved command button affordance with visible icon+label controls in dashboard cards and health widget.
+- Added local-only Emoji component behavior with unicode fallback (no runtime CDN dependency).
+- Added realistic GUI E2E scenario draft (`tests/e2e/gui-scratch-flow.spec.ts`) and wired deterministic secondary test users in test entrypoint.
+
 ### Cascade - P8-RELEASE - Phase 8 Release Preparation
 **Status**: In Progress  
 **Started**: 2026-03-04 12:30  
@@ -22,11 +39,32 @@
 - **P8-INTEGRATION-001 pending**: Requires Docker with Nextcloud environment
 - **Beta Deployment pending**: Requires personal Nextcloud instance
 
+### Cascade - P8-REVIEW-TEST-AUDIT-001 - Code, documentation, and automated coverage review
+**Status**: In Progress  
+**Started**: 2026-03-06 17:12  
+**Updated**: 2026-03-06 20:35  
+**Branch**: master  
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-8-release-preparation.md, docs/TESTING.md, src/components/Common/Modal.vue, tests/integration/Controller/UserControllerIntegrationTest.php, src/components/Tasks/TaskEditForm.vue, src/components/Tasks/TaskForm.vue, src/components/Tasks/TaskList.vue, src/views/RoomDetail.vue, src/views/TaskManager.vue, tests/unit/views/RoomDetail.spec.js, tests/unit/views/TaskManager.spec.js, tests/unit/components/Modal.spec.js, tests/e2e/task-manager.spec.ts, tests/e2e/task-completion.spec.ts, tests/e2e/gui-scratch-flow.spec.ts  
+**Blockers**: `tests/e2e/gui-scratch-flow.spec.ts` still fails in the floor-to-room handoff on dashboards with pre-existing default floors; current failure is isolated to locating a usable add-room trigger after floor creation.  
+**Notes**:
+- Review current code, documentation, and automated test coverage before manual server testing.
+- Audit GUI and multi-user interaction coverage, then add missing automated tests where the gaps are clear and feasible.
+- Update outdated testing documentation to match the current repository state and remaining gaps.
+- Rewrote outdated `UserControllerIntegrationTest.php` to match the current constructor and mapper-based controller behavior.
+- Added stable GUI selectors to the current task creation and room-assignment forms instead of relying on obsolete E2E-only DOM assumptions.
+- Fixed the current `TaskList` consumer contract in `RoomDetail.vue` and `TaskManager.vue` so room-task views use normalized `{ roomTask, task }` items.
+- Updating current Playwright flows to use the actual room-assignment dialog (`TaskForm.vue`) and current task creation flow (`TaskEditForm.vue`).
+- Rebuilt frontend assets after updating source components; this closed the stale-bundle issue that kept Playwright on outdated task-manager behavior.
+- Validation snapshot:
+  - `npm test -- --runInBand tests/unit/components/Modal.spec.js tests/unit/views/TaskManager.spec.js tests/unit/views/RoomDetail.spec.js` ✓
+  - `npx playwright test tests/e2e/task-completion.spec.ts --grep "create a new task" --project=chromium` ✓
+  - `npx playwright test tests/e2e/task-manager.spec.ts tests/e2e/task-completion.spec.ts tests/e2e/gui-scratch-flow.spec.ts --project=chromium` → 13/14 passing, only GUI scratch flow still red
+
 ### Next Session Tasks (Prioritized)
-1. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
-2. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
-3. **P8-RELEASE-001** (High) - App store submission preparation
-4. **Controller Test Rewrite** (Low) - Rewrite excluded controller tests for new service architecture
+1. **GUI scratch flow stabilization** (High) - Make floor creation and room creation deterministic on dashboards with existing default floors
+2. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance after the last GUI scratch blocker is closed
+3. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
+4. **P8-RELEASE-001** (High) - App store submission preparation
 
 ---
 

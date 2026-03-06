@@ -10,6 +10,7 @@
 			<select id="taskId"
 				v-model.number="form.taskId"
 				class="form-input"
+				data-testid="task-id-select"
 				required>
 				<option :value="null" disabled>
 					{{ t('chorestrike', 'Select a task') }}
@@ -25,7 +26,8 @@
 			<input id="nextDue"
 				v-model="form.nextDue"
 				type="date"
-				class="form-input">
+				class="form-input"
+				data-testid="next-due-input">
 		</div>
 
 		<div class="form-group">
@@ -33,7 +35,8 @@
 			<input id="assignedToUserId"
 				v-model.trim="form.assignedToUserId"
 				type="text"
-				class="form-input">
+				class="form-input"
+				data-testid="assigned-user-input">
 		</div>
 
 		<div class="form-actions">
@@ -41,7 +44,7 @@
 				<Icon name="X" :size="16" class="icon" />
 				{{ t('chorestrike', 'Cancel') }}
 			</button>
-			<button type="submit" class="primary-button" :disabled="!form.taskId || loading">
+			<button type="submit" class="primary-button" data-testid="assign-task-button" :disabled="!form.taskId || loading">
 				<Icon name="Plus" :size="16" class="icon" />
 				{{ t('chorestrike', 'Add Task') }}
 			</button>
@@ -62,6 +65,10 @@ export default {
 			type: Number,
 			required: true,
 		},
+		task: {
+			type: Object,
+			default: null,
+		},
 	},
 	emits: ['submit', 'cancel'],
 	setup(props, { emit }) {
@@ -69,9 +76,9 @@ export default {
 		const roomTasksStore = useRoomTasksStore()
 		const loading = ref(false)
 		const form = ref({
-			taskId: null,
-			nextDue: '',
-			assignedToUserId: '',
+			taskId: props.task?.taskId ?? null,
+			nextDue: props.task?.nextDue ? props.task.nextDue.slice(0, 10) : '',
+			assignedToUserId: props.task?.assignedToUserId || '',
 		})
 
 		const existingTaskIds = computed(() => {
@@ -81,7 +88,7 @@ export default {
 		})
 
 		const availableTasks = computed(() => {
-			return tasksStore.tasks.filter(task => !existingTaskIds.value.includes(task.id))
+			return tasksStore.tasks.filter(task => task.id === props.task?.taskId || !existingTaskIds.value.includes(task.id))
 		})
 
 		const loadTasks = async () => {
