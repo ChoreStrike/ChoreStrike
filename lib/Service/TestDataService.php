@@ -24,6 +24,7 @@ use OCA\ChoreStrike\Db\AvailabilitySettings;
 use OCA\ChoreStrike\Db\AvailabilitySettingsMapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\IConfig;
 
 /**
  * Service for managing test data profiles
@@ -36,6 +37,7 @@ use OCP\IDBConnection;
 class TestDataService
 {
 	private IDBConnection $db;
+	private IConfig $config;
 	private HouseMapper $houseMapper;
 	private HouseUserMapper $houseUserMapper;
 	private FloorMapper $floorMapper;
@@ -46,6 +48,7 @@ class TestDataService
 
 	public function __construct(
 		IDBConnection $db,
+		IConfig $config,
 		HouseMapper $houseMapper,
 		HouseUserMapper $houseUserMapper,
 		FloorMapper $floorMapper,
@@ -55,6 +58,7 @@ class TestDataService
 		AvailabilitySettingsMapper $availabilityMapper
 	) {
 		$this->db = $db;
+		$this->config = $config;
 		$this->houseMapper = $houseMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->floorMapper = $floorMapper;
@@ -62,6 +66,14 @@ class TestDataService
 		$this->taskMapper = $taskMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->availabilityMapper = $availabilityMapper;
+	}
+
+	/**
+	 * Get the current Nextcloud instance ID
+	 */
+	private function getInstanceId(): string
+	{
+		return $this->config->getSystemValue('instanceid', 'default');
 	}
 
 	/**
@@ -121,9 +133,10 @@ class TestDataService
 	{
 		$this->reset();
 
-		// Create house
+		// Create house with real instance ID
+		$instanceId = $this->getInstanceId();
 		$house = new House();
-		$house->setNextcloudInstanceId('test-minimal');
+		$house->setNextcloudInstanceId($instanceId);
 		$house->setName('Test House');
 		$house->setHouseHealth(100);
 		$house->setCreatedAt(new \DateTime());
@@ -181,9 +194,10 @@ class TestDataService
 	{
 		$this->reset();
 
-		// Create house
+		// Create house with real instance ID
+		$instanceId = $this->getInstanceId();
 		$house = new House();
-		$house->setNextcloudInstanceId('test-family');
+		$house->setNextcloudInstanceId($instanceId);
 		$house->setName('Test Family Home');
 		$house->setHouseHealth(100);
 		$house->setCreatedAt(new \DateTime());

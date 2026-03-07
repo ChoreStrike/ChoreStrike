@@ -23,6 +23,7 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\AvailabilitySettingsMapper;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\IDBConnection;
+use OCP\IConfig;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -32,6 +33,7 @@ use PHPUnit\Framework\TestCase;
 class TestDataServiceTest extends TestCase
 {
 	private IDBConnection&MockObject $db;
+	private IConfig&MockObject $config;
 	private HouseMapper&MockObject $houseMapper;
 	private HouseUserMapper&MockObject $houseUserMapper;
 	private FloorMapper&MockObject $floorMapper;
@@ -46,6 +48,7 @@ class TestDataServiceTest extends TestCase
 		parent::setUp();
 
 		$this->db = $this->createMock(IDBConnection::class);
+		$this->config = $this->createMock(IConfig::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->floorMapper = $this->createMock(FloorMapper::class);
@@ -54,8 +57,12 @@ class TestDataServiceTest extends TestCase
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->availabilityMapper = $this->createMock(AvailabilitySettingsMapper::class);
 
+		// Default config mock returns test instance id
+		$this->config->method('getSystemValue')->willReturn('test-instance');
+
 		$this->service = new TestDataService(
 			$this->db,
+			$this->config,
 			$this->houseMapper,
 			$this->houseUserMapper,
 			$this->floorMapper,

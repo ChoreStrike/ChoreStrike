@@ -130,21 +130,26 @@ test.describe('Multi-User Family Interactions', () => {
 		// Navigate to ChoreStrike
 		await page.goto('/apps/chorestrike/')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+		await page.waitForSelector('.floor-section', { timeout: 10000 })
 
 		// Expand all floors
 		const floorSections = page.locator('.floor-section')
 		const floorCount = await floorSections.count()
 		for (let i = 0; i < floorCount; i++) {
-			const toggleButton = floorSections.nth(i).locator('.toggle-button')
-			const isExpanded = await floorSections.nth(i).locator('.floor-content').isVisible().catch(() => false)
+			const floorSection = floorSections.nth(i)
+			const toggleButton = floorSection.locator('.toggle-button')
+			const floorContent = floorSection.locator('.floor-content')
+			const isExpanded = await floorContent.isVisible().catch(() => false)
 			if (!isExpanded) {
 				await toggleButton.click()
-				await page.waitForTimeout(200)
+				await page.waitForTimeout(500)
+				await floorContent.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
 			}
 		}
 
 		// Kid should see rooms with their tasks
 		const roomCards = page.locator('[data-testid^="room-card-"]')
+		await roomCards.first().waitFor({ state: 'visible', timeout: 10000 })
 		const count = await roomCards.count()
 		expect(count).toBeGreaterThanOrEqual(1)
 	})
@@ -157,21 +162,26 @@ test.describe('Multi-User Family Interactions', () => {
 		// Navigate to ChoreStrike
 		await page.goto('/apps/chorestrike/')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+		await page.waitForSelector('.floor-section', { timeout: 10000 })
 
 		// Expand all floors
 		const floorSections = page.locator('.floor-section')
 		const floorCount = await floorSections.count()
 		for (let i = 0; i < floorCount; i++) {
-			const toggleButton = floorSections.nth(i).locator('.toggle-button')
-			const isExpanded = await floorSections.nth(i).locator('.floor-content').isVisible().catch(() => false)
+			const floorSection = floorSections.nth(i)
+			const toggleButton = floorSection.locator('.toggle-button')
+			const floorContent = floorSection.locator('.floor-content')
+			const isExpanded = await floorContent.isVisible().catch(() => false)
 			if (!isExpanded) {
 				await toggleButton.click()
-				await page.waitForTimeout(200)
+				await page.waitForTimeout(500)
+				await floorContent.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
 			}
 		}
 
 		// Grandma should see rooms
 		const roomCards = page.locator('[data-testid^="room-card-"]')
+		await roomCards.first().waitFor({ state: 'visible', timeout: 10000 })
 		const count = await roomCards.count()
 		expect(count).toBeGreaterThanOrEqual(1)
 	})
