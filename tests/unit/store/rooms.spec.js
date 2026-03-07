@@ -174,17 +174,22 @@ describe('Rooms Store', () => {
 
 		describe('createRoom', () => {
 			it('creates room successfully', async () => {
-				const newRoom = { id: 4, name: 'Bathroom', floorId: 1 }
+				const newRoom = { id: 4, name: 'Bathroom', floorId: 1, icon: 'Bath' }
 				axios.post.mockResolvedValue({
 					data: { success: true, data: newRoom }
 				})
 
 				store.rooms = []
 
-				const result = await store.createRoom(1, 'Bathroom')
+				const result = await store.createRoom(1, 'Bathroom', 'Bath')
 
 				expect(result).toEqual(newRoom)
 				expect(store.rooms).toHaveLength(1)
+				expect(axios.post).toHaveBeenCalledWith('/index.php/apps/chorestrike/api/v1/rooms', {
+					floorId: 1,
+					name: 'Bathroom',
+					icon: 'Bath',
+				})
 			})
 		})
 

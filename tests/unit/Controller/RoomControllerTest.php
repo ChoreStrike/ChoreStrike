@@ -119,6 +119,45 @@ class RoomControllerTest extends TestCase
     }
 
     /**
+     * Test POST /rooms passes icon to room creation
+     */
+    public function testCreate_PassesOptionalRoomIcon(): void
+    {
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $room = new Room();
+        $room->setId(5);
+        $room->setFloorId(1);
+        $room->setName('Bathroom');
+        $room->setIcon('Bath');
+
+        $this->roomService->expects($this->once())
+            ->method('getFloor')
+            ->with(1)
+            ->willReturn($floor);
+
+        $this->authService->expects($this->once())
+            ->method('requireHouseMember')
+            ->with(1);
+
+        $this->roomService->expects($this->once())
+            ->method('createRoom')
+            ->with(1, 'Bathroom', 'Bath')
+            ->willReturn($room);
+
+        $response = $this->controller->create(1, 'Bathroom', 'Bath');
+
+        $this->assertInstanceOf(JSONResponse::class, $response);
+        $this->assertEquals(200, $response->getStatus());
+
+        $data = $response->getData();
+        $this->assertTrue($data['success']);
+        $this->assertEquals('Bath', $data['data']['icon']);
+    }
+
+    /**
      * Test GET /rooms/{id} returns room successfully
      */
     public function testShow_ReturnsRoomSuccessfully(): void

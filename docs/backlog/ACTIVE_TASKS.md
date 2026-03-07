@@ -163,10 +163,11 @@
   - Battle UI/UX flow
 
 ### Cascade - MS-ICONS-MIGRATION-001 - Microsoft Fluent UI Icons Integration
-**Status**: Planned
+**Status**: Review Ready
 **Started**: 2026-03-07 22:25
+**Updated**: 2026-03-08 00:20
 **Branch**: master
-**Related Files**: src/utils/icons.js, src/components/Common/Icon.vue, src/components/Common/Emoji.vue, img/emojis/
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, src/views/Dashboard.vue, src/components/Dashboard/QuickStats.vue, src/components/Dashboard/FloorList.vue, src/components/Dashboard/RoomCard.vue, src/store/rooms.js, src/utils/icons.js, src/utils/roomIcons.js, lib/Db/Room.php, lib/Db/RoomMapper.php, lib/Service/RoomService.php, lib/Controller/RoomController.php, lib/Migration/Version1015Date20260304000000.php, tests/unit/components/FloorList.spec.js, tests/unit/components/RoomCard.spec.js, tests/unit/store/rooms.spec.js, tests/unit/Service/RoomServiceTest.php, tests/unit/Controller/RoomControllerTest.php
 **Blockers**: None
 **Notes**:
 - **USER REQUIREMENT**: Replace all icons with Microsoft Fluent UI Icons (MIT licensed)
@@ -181,7 +182,19 @@
   - Remove dependency on Lucide icons
   - Update all icon references across components
   - Ensure local-only asset usage (no remote CDN)
-- **Priority**: High - User explicitly requested this change
+- **Current Session Scope**:
+  - Add richer colorful icon treatment to dashboard header, quick stats, floors, and action buttons.
+  - Make floor action icons clearly visible and consistent in size tiers (small/medium/large).
+  - Introduce configurable room icons from a predefined local icon list with sensible defaults by room type/name.
+  - Keep icons compact and child-friendly without oversized controls.
+- **Current Session Progress**:
+  - Added configurable room icon defaults and selection wiring in the dashboard flow.
+  - Completed the full room icon data path from Pinia create action through PHP controller/service/mapper/entity and migration.
+  - Added regression coverage for room icon rendering, store payload propagation, and backend create flow handling.
+  - Repaired icon registry/test drift uncovered during validation (`src/utils/icons.js`, `FloorList.spec.js`, `RoomCard.spec.js`).
+- **Validation**:
+  - `npm test -- --runInBand tests/unit/store/rooms.spec.js tests/unit/components/RoomCard.spec.js tests/unit/components/FloorList.spec.js` ✅
+  - `vendor\\bin\\phpunit tests/unit/Service/RoomServiceTest.php tests/unit/Controller/RoomControllerTest.php` ✅
 
 ### Cascade - TEAM-SPARKS-UI-001 - Team Sparks Integration in User Interface
 **Status**: Planned

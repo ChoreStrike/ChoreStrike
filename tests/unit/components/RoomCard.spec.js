@@ -41,6 +41,7 @@ describe('RoomCard', () => {
 	const mockRoom = {
 		id: 1,
 		name: 'Kitchen',
+		icon: 'Utensils',
 		cleanliness: 75,
 		monsterCount: 1,
 		lastCleaned: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
@@ -60,6 +61,12 @@ describe('RoomCard', () => {
 	describe('Rendering', () => {
 		it('Renders room name', () => {
 			expect(wrapper.find('.room-name').text()).toBe('Kitchen')
+		})
+
+		it('Resolves and renders configured room icon', () => {
+			const icon = wrapper.find('.room-icon-shell .icon')
+			expect(icon.exists()).toBe(true)
+			expect(wrapper.vm.roomIconName).toBe('Utensils')
 		})
 
 		it('Renders cleanliness percentage', () => {

@@ -17,9 +17,14 @@
 		<template v-else>
 			<header class="dashboard-header">
 				<div class="header-content">
-					<h1 data-testid="house-name">
-						{{ houseName }}
-					</h1>
+					<div class="house-title-row">
+						<div class="house-icon-shell" aria-hidden="true">
+							<Icon name="House" :size="30" class="house-title-icon" />
+						</div>
+						<h1 data-testid="house-name">
+							{{ houseName }}
+						</h1>
+					</div>
 					<p class="tagline">
 						{{ t('chorestrike', 'Defend your Home Base. Together.') }}
 					</p>
@@ -43,6 +48,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { logger } from '../utils/logger.js'
+import Icon from '../components/Common/Icon.vue'
 import HouseHealthBar from '../components/Dashboard/HouseHealthBar.vue'
 import QuickStats from '../components/Dashboard/QuickStats.vue'
 import FloorList from '../components/Dashboard/FloorList.vue'
@@ -51,6 +57,7 @@ export default {
 	name: 'Dashboard',
 
 	components: {
+		Icon,
 		HouseHealthBar,
 		QuickStats,
 		FloorList,
@@ -112,6 +119,29 @@ export default {
 	flex: 1;
 }
 
+.house-title-row {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	margin-bottom: 0.5rem;
+}
+
+.house-icon-shell {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 3.25rem;
+	height: 3.25rem;
+	border-radius: 1rem;
+	background: linear-gradient(135deg, rgba(87, 181, 255, 0.18), rgba(136, 84, 255, 0.26));
+	border: 1px solid rgba(87, 181, 255, 0.28);
+	box-shadow: 0 10px 24px rgba(87, 181, 255, 0.12);
+}
+
+.house-title-icon {
+	color: #6ec8ff;
+}
+
 h1 {
 	font-size: 2rem;
 	font-weight: bold;
@@ -136,6 +166,18 @@ h1 {
 
 .floor-list-section {
 	flex: 1;
+}
+
+@media (max-width: 768px) {
+	.house-title-row {
+		gap: 0.75rem;
+	}
+
+	.house-icon-shell {
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: 0.85rem;
+	}
 }
 
 /* Skeleton Loading States */

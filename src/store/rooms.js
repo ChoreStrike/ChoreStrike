@@ -226,8 +226,9 @@ export const useRoomsStore = defineStore('rooms', {
 		 * Create a new room
 		 * @param {number} floorId Floor identifier that owns the room.
 		 * @param {string} name Display name of the new room.
+		 * @param {?string} icon Icon registry key for the room.
 		 */
-		async createRoom(floorId, name) {
+		async createRoom(floorId, name, icon = null) {
 			if (!name || name.trim() === '') {
 				throw new Error('Room name is required')
 			}
@@ -236,7 +237,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/index.php/apps/chorestrike/api/v1/rooms', { floorId, name })
+				const response = await axios.post('/index.php/apps/chorestrike/api/v1/rooms', { floorId, name, icon })
 
 				if (response.data.success) {
 					this.rooms = [...this.rooms, response.data.data]

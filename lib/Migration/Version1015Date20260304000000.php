@@ -93,6 +93,18 @@ class Version1015Date20260304000000 extends SimpleMigrationStep
             }
         }
 
+        if ($schema->hasTable('chorestrike_rooms')) {
+            $table = $schema->getTable('chorestrike_rooms');
+
+            if (!$table->hasColumn('icon')) {
+                $table->addColumn('icon', 'string', [
+                    'notnull' => true,
+                    'default' => 'Home',
+                    'length' => 64,
+                ]);
+            }
+        }
+
         // chorestrike_completed_tasks indexes
         if ($schema->hasTable('chorestrike_completed_tasks')) {
             $table = $schema->getTable('chorestrike_completed_tasks');

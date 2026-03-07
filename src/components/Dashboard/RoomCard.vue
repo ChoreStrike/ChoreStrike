@@ -12,9 +12,14 @@
 		<!-- Room Header -->
 		<div class="room-header">
 			<div class="room-info">
-				<h4 class="room-name">
-					{{ room.name }}
-				</h4>
+				<div class="room-title-row">
+					<div class="room-icon-shell" :class="statusClass">
+						<Icon :name="roomIconName" :size="18" class="room-type-icon" />
+					</div>
+					<h4 class="room-name">
+						{{ room.name }}
+					</h4>
+				</div>
 				<div class="room-status">
 					<span class="status-badge" :class="statusClass">
 						{{ statusText }}
@@ -106,6 +111,7 @@ import { useGameStore } from '../../store/game.js'
 import { logger } from '../../utils/logger.js'
 import Icon from '../Common/Icon.vue'
 import Emoji from '../Common/Emoji.vue'
+import { resolveRoomIcon } from '../../utils/roomIcons.js'
 
 export default {
 	name: 'RoomCard',
@@ -167,6 +173,8 @@ export default {
 			'has-monsters': props.room.monsterCount > 0,
 			compact: props.compact,
 		}))
+
+		const roomIconName = computed(() => resolveRoomIcon(props.room.icon, props.room.name))
 
 		const lastCleanedText = computed(() => {
 			if (!props.room.lastCleaned) return t('chorestrike', 'Never')
@@ -266,6 +274,7 @@ export default {
 			statusText,
 			cleanlinessClass,
 			cardClasses,
+			roomIconName,
 			lastCleanedText,
 			activeTasks,
 			overdueTasks,
@@ -321,6 +330,46 @@ export default {
 
 .room-info {
   flex: 1;
+}
+
+.room-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.room-icon-shell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.room-icon-shell.excellent {
+  color: #6bf2a4;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.room-icon-shell.good {
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.14);
+}
+
+.room-icon-shell.fair {
+  color: #fdba74;
+  background: rgba(249, 115, 22, 0.14);
+}
+
+.room-icon-shell.poor,
+.room-icon-shell.terrible {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.14);
 }
 
 .room-name {

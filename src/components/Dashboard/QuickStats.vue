@@ -7,8 +7,10 @@
 	<div class="quick-stats" :class="{ compact }" data-testid="quick-stats">
 		<div class="stats-grid">
 			<!-- Total Rooms -->
-			<div class="stat-card" data-testid="stat-card">
-				<Icon name="Home" :size="32" class="stat-icon" />
+			<div class="stat-card total-rooms" data-testid="stat-card">
+				<div class="stat-icon-shell total-rooms-icon">
+					<Icon name="Home" :size="24" class="stat-icon" />
+				</div>
 				<div class="stat-content">
 					<div class="stat-value">
 						{{ totalRooms }}
@@ -20,8 +22,10 @@
 			</div>
 
 			<!-- Clean Rooms -->
-			<div class="stat-card" data-testid="stat-card">
-				<Icon name="Sparkles" :size="32" class="stat-icon" />
+			<div class="stat-card clean-rooms" data-testid="stat-card">
+				<div class="stat-icon-shell clean-rooms-icon">
+					<Icon name="Sparkles" :size="24" class="stat-icon" />
+				</div>
 				<div class="stat-content">
 					<div class="stat-value">
 						{{ cleanRooms }}
@@ -33,8 +37,10 @@
 			</div>
 
 			<!-- Tasks Due Today -->
-			<div class="stat-card" data-testid="stat-card">
-				<Icon name="Calendar" :size="32" class="stat-icon" />
+			<div class="stat-card due-today" data-testid="stat-card">
+				<div class="stat-icon-shell due-today-icon">
+					<Icon name="Calendar" :size="24" class="stat-icon" />
+				</div>
 				<div class="stat-content">
 					<div class="stat-value">
 						{{ dueTodayTasks }}
@@ -47,7 +53,9 @@
 
 			<!-- Overdue Tasks -->
 			<div v-if="overdueTasks > 0" class="stat-card urgent">
-				<Icon name="AlertCircle" :size="32" class="stat-icon" />
+				<div class="stat-icon-shell urgent-icon">
+					<Icon name="AlertCircle" :size="24" class="stat-icon" />
+				</div>
 				<div class="stat-content">
 					<div class="stat-value">
 						{{ overdueTasks }}
@@ -59,8 +67,10 @@
 			</div>
 
 			<!-- Total Monsters -->
-			<div v-if="totalMonsters > 0" class="stat-card">
-				<Emoji name="monster" :size="32" class="stat-icon" />
+			<div v-if="totalMonsters > 0" class="stat-card monsters">
+				<div class="stat-icon-shell monsters-icon">
+					<Emoji name="monster" :size="24" class="stat-icon" />
+				</div>
 				<div class="stat-content">
 					<div class="stat-value">
 						{{ totalMonsters }}
@@ -72,8 +82,10 @@
 			</div>
 
 			<!-- Average Cleanliness -->
-			<div class="stat-card">
-				<Icon name="BarChart3" :size="32" class="stat-icon" />
+			<div class="stat-card average-cleanliness">
+				<div class="stat-icon-shell average-cleanliness-icon">
+					<Icon name="BarChart3" :size="24" class="stat-icon" />
+				</div>
 				<div class="stat-content">
 					<div class="stat-value">
 						{{ averageCleanliness }}%
@@ -88,7 +100,7 @@
 		<!-- Action Buttons -->
 		<div v-if="showActions" class="stats-actions">
 			<button
-				class="action-button"
+				class="action-button refresh-action"
 				data-testid="refresh-dashboard-stats-button"
 				:disabled="loading"
 				@click="refreshStats">
@@ -97,7 +109,7 @@
 			</button>
 
 			<button
-				class="action-button primary"
+				class="action-button primary tasks-action"
 				data-testid="view-all-tasks-button"
 				@click="viewAllTasks">
 				<Icon name="List" :size="18" class="icon" />
@@ -214,28 +226,57 @@ export default {
   transition: all 0.2s ease;
 }
 
+.stat-icon-shell {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: 0.9rem;
+	flex-shrink: 0;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .stat-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.stat-card.urgent {
-  border-color: #F44336;
-  background: rgba(244, 67, 54, 0.1);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
-}
-
 .stat-icon {
-  font-size: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
+  color: currentColor;
+}
+
+.total-rooms-icon {
+	background: linear-gradient(135deg, rgba(99, 181, 255, 0.18), rgba(59, 130, 246, 0.28));
+	color: #7fd0ff;
+}
+
+.clean-rooms-icon {
+	background: linear-gradient(135deg, rgba(72, 224, 153, 0.18), rgba(16, 185, 129, 0.28));
+	color: #69f0bb;
+}
+
+.due-today-icon {
+	background: linear-gradient(135deg, rgba(255, 196, 87, 0.18), rgba(249, 115, 22, 0.26));
+	color: #ffc96c;
+}
+
+.urgent-icon {
+	background: linear-gradient(135deg, rgba(255, 120, 120, 0.18), rgba(239, 68, 68, 0.28));
+	color: #ff8b8b;
+}
+
+.monsters-icon {
+	background: linear-gradient(135deg, rgba(192, 132, 252, 0.18), rgba(168, 85, 247, 0.28));
+	color: #d6a2ff;
+}
+
+.average-cleanliness-icon {
+	background: linear-gradient(135deg, rgba(96, 165, 250, 0.18), rgba(56, 189, 248, 0.26));
+	color: #93d9ff;
 }
 
 .stat-content {
@@ -275,6 +316,7 @@ export default {
   font-size: 14px;
   font-weight: 600;
   transition: all 0.2s ease;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 }
 
 .action-button:hover:not(:disabled) {
@@ -291,6 +333,14 @@ export default {
 .action-button.primary:hover:not(:disabled) {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
+}
+
+.refresh-action {
+	background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(14, 165, 233, 0.16));
+}
+
+.tasks-action {
+	box-shadow: 0 10px 24px rgba(59, 130, 246, 0.22);
 }
 
 .action-button:disabled {

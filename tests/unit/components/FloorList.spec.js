@@ -36,10 +36,27 @@ describe('FloorList.vue', () => {
 			rooms: [],
 			loading: false,
 			roomsByFloor: {},
+			expandedFloors: [],
 			fetchFloorsWithRooms: jest.fn(),
 			fetchRooms: jest.fn(),
 			createFloor: jest.fn(),
+			createRoom: jest.fn(),
 			deleteFloor: jest.fn(),
+			toggleFloorExpanded: jest.fn((floorId) => {
+				if (mockRoomsStore.expandedFloors.includes(floorId)) {
+					mockRoomsStore.expandedFloors = mockRoomsStore.expandedFloors.filter(id => id !== floorId)
+				} else {
+					mockRoomsStore.expandedFloors = [...mockRoomsStore.expandedFloors, floorId]
+				}
+			}),
+			setFloorExpanded: jest.fn((floorId) => {
+				if (!mockRoomsStore.expandedFloors.includes(floorId)) {
+					mockRoomsStore.expandedFloors = [...mockRoomsStore.expandedFloors, floorId]
+				}
+			}),
+			setFloorCollapsed: jest.fn((floorId) => {
+				mockRoomsStore.expandedFloors = mockRoomsStore.expandedFloors.filter(id => id !== floorId)
+			}),
 			getFloorById: jest.fn((floorId) => mockRoomsStore.floors.find(floor => floor.id === floorId)),
 		}
 		translate.mockClear()
@@ -197,7 +214,7 @@ describe('FloorList.vue', () => {
 	it('shows add room action when expanding an empty floor', async () => {
 		mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor', sortOrder: 0 }]
 		mockRoomsStore.roomsByFloor = { 1: [] }
-		mockRoomsStore.expandedFloors = []
+		mockRoomsStore.expandedFloors = [1]
 
 		const wrapper = mount(FloorList, {
 			global: {
@@ -205,8 +222,6 @@ describe('FloorList.vue', () => {
 				components: { RoomCard },
 			},
 		})
-
-		await wrapper.find('.toggle-button').trigger('click')
 
 		expect(wrapper.find('[data-testid="add-room-button-1"]').exists()).toBe(true)
 		expect(mockRoomsStore.fetchRooms).not.toHaveBeenCalled()

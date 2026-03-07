@@ -148,9 +148,9 @@ class RoomController extends OCSController
      *
      * @NoAdminRequired
      */
-    public function create(?int $floorId = null, ?string $name = null): JSONResponse
+    public function create(?int $floorId = null, ?string $name = null, ?string $icon = null): JSONResponse
     {
-        return $this->createRoomResponse($floorId, $name);
+        return $this->createRoomResponse($floorId, $name, $icon);
     }
 
     /**
@@ -158,9 +158,9 @@ class RoomController extends OCSController
      *
      * @NoAdminRequired
      */
-    public function createExplicit(?int $floorId = null, ?string $name = null): JSONResponse
+    public function createExplicit(?int $floorId = null, ?string $name = null, ?string $icon = null): JSONResponse
     {
-        return $this->createRoomResponse($floorId, $name);
+        return $this->createRoomResponse($floorId, $name, $icon);
     }
 
     /**
@@ -168,19 +168,20 @@ class RoomController extends OCSController
      *
      * @NoAdminRequired
      */
-    public function createAlias(?int $floorId = null, ?string $name = null): JSONResponse
+    public function createAlias(?int $floorId = null, ?string $name = null, ?string $icon = null): JSONResponse
     {
-        return $this->createRoomResponse($floorId, $name);
+        return $this->createRoomResponse($floorId, $name, $icon);
     }
 
     /**
      * Build a room create response from explicit arguments or request params.
      */
-    private function createRoomResponse(?int $floorId = null, ?string $name = null): JSONResponse
+    private function createRoomResponse(?int $floorId = null, ?string $name = null, ?string $icon = null): JSONResponse
     {
         try {
             $resolvedFloorId = $floorId ?? $this->resolveNullableInt('floorId');
             $resolvedName = $name ?? $this->resolveNullableString('name');
+            $resolvedIcon = $icon ?? $this->resolveNullableString('icon');
 
             if ($resolvedFloorId === null) {
                 return new JSONResponse([
@@ -206,7 +207,7 @@ class RoomController extends OCSController
             $floor = $this->roomService->getFloor($resolvedFloorId);
             $this->authService->requireHouseMember($floor->getHouseId());
 
-            $room = $this->roomService->createRoom($resolvedFloorId, $resolvedName);
+            $room = $this->roomService->createRoom($resolvedFloorId, $resolvedName, $resolvedIcon);
 
             return new JSONResponse([
                 'success' => true,

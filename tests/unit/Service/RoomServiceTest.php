@@ -107,20 +107,23 @@ class RoomServiceTest extends TestCase
     {
         $floorId = 1;
         $name = 'New Room';
+        $icon = 'Bath';
 
         $room = new Room();
         $room->setId(1);
         $room->setName($name);
+        $room->setIcon($icon);
 
         $this->roomMapper
             ->expects($this->once())
             ->method('create')
-            ->with($floorId, $name)
+            ->with($floorId, $name, $icon)
             ->willReturn($room);
 
-        $result = $this->service->createRoom($floorId, $name);
+        $result = $this->service->createRoom($floorId, $name, $icon);
 
         $this->assertSame($room, $result);
+        $this->assertSame($icon, $result->getIcon());
     }
 
     /**
