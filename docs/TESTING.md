@@ -480,6 +480,107 @@ vendor/bin/phpunit tests/unit/Service/SchedulingServiceTest.php
 vendor/bin/phpunit tests/unit/Service/TaskSyncServiceTest.php
 ```
 
+## Test Database Profiles
+
+ChoreStrike supports three test database profiles for different testing scenarios:
+
+### Available Profiles
+
+| Profile | Users | Floors | Rooms | Tasks | Use Case |
+|---------|-------|--------|-------|-------|----------|
+| `empty` | 0 | 0 | 0 | 0 | Clean slate, scratch flows |
+| `minimal` | 2 (adult, kid) | 1 | 1 | 0 | Basic smoke tests |
+| `family` | 6 (mom, dad, teen, kid, grandma, friend) | 3 | 6 | 12 | Multi-user interactions |
+
+### Using Profiles
+
+#### Docker Compose
+
+```bash
+# Run with minimal profile (default)
+docker compose -f docker-compose.test.yml up
+
+# Run with family profile
+TEST_DB_PROFILE=family docker compose -f docker-compose.test.yml up
+
+# Run with empty profile
+TEST_DB_PROFILE=empty docker compose -f docker-compose.test.yml up
+```
+
+#### OCC Command
+
+```bash
+# Seed database with specific profile
+docker exec chorestrike-test php occ chorestrike:test-data:seed --profile=family
+
+# Reset database
+docker exec chorestrike-test php occ chorestrike:test-data:seed --reset
+```
+
+#### API Endpoint
+
+```bash
+# Seed via HTTP (only available in test mode)
+curl -X POST "http://localhost:8080/apps/chorestrike/api/v1/test/seed?profile=family"
+
+# Reset database
+curl -X POST "http://localhost:8080/apps/chorestrike/api/v1/test/reset"
+
+# Get available profiles
+curl "http://localhost:8080/apps/chorestrike/api/v1/test/profiles"
+```
+
+### Playwright Integration
+
+Use the `database-fixtures.ts` in your E2E tests:
+
+```typescript
+import { test, expect, loginAsUser, getUserCredentials } from './fixtures/database-fixtures'
+
+// Use family profile for this test file
+test.use({ databaseProfile: 'family' })
+
+test('mom can see assigned tasks', async ({ page, seededData }) => {
+  const creds = getUserCredentials('family', 'mom')
+  await loginAsUser(page, creds.userId, creds.password)
+  // ... test code
+})
+```
+
+### Family Profile Details
+
+The `family` profile creates a realistic family scenario:
+
+**Users:**
+- `mom` (owner) - Full availability, kitchen/laundry preferences
+- `dad` (owner) - Full availability, garage/yard preferences
+- `teen` (child) - Weekend only, bedroom/bathroom preferences
+- `kid` (child) - Weekend only, toys/pets preferences, max 2 daily tasks
+- `grandma` (member) - Limited availability, kitchen/living room
+- `friend` (member) - Saturday only, max 1 daily task
+
+**Rooms:**
+- Ground Floor: Kitchen (75% clean), Living Room (60%), Master Bathroom (70%)
+- First Floor: Master Bedroom (80%), Kids Bedroom (40%), Kids Bathroom (50%)
+- Second Floor: (empty, for expansion)
+
+**Tasks (12 total):**
+- Daily: Dishes, counters, trash, toys, beds
+- Weekly: Vacuum, dust, laundry, toilets, sinks
+
+### CI/CD Integration
+
+The Forgejo/Codeberg workflow runs tests with all profiles:
+
+```yaml
+strategy:
+  matrix:
+    profile: [empty, minimal, family]
+    browser: [chromium, firefox]
+```
+
+---
+
 ## Remaining Coverage Gaps
 
 The biggest remaining gaps are no longer basic component or store tests. Those areas now have meaningful automated coverage. The highest-value remaining work is here:

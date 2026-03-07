@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test data seeder for ChoreStrike E2E tests
-# Creates initial house, floor, and room for testing
+# Uses OCC command to seed data based on TEST_DB_PROFILE
 
 set -e
 
@@ -19,18 +19,18 @@ done
 
 cd /var/www/html
 
-# Create test house if none exists
-echo "Creating test house..."
-su -s /bin/bash www-data -c "php occ chorestrike:seed-test-data" 2>/dev/null || echo "Seed command not available, using API fallback"
+# Get profile from environment or default to minimal
+PROFILE="${TEST_DB_PROFILE:-minimal}"
+echo "Seeding test data with profile: $PROFILE"
 
-# Check if house exists via API
-if ! curl -s -u admin:admin http://localhost:80/apps/chorestrike/api/house | grep -q '"id"'; then
-    echo "No house found. Creating via OCC..."
-    # Create house using database directly or API
-    mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
-        INSERT IGNORE INTO oc_chorestrike_houses (name, created_by, created_at) 
-        VALUES ('Test House', 'admin', NOW());
-    " 2>/dev/null || echo "Could not seed house directly"
-fi
+# Seed using OCC command
+su -s /bin/bash www-data -c "php occ chorestrike:test-data:seed --profile=$PROFILE" || {
+    echo "OCC seed command failed, trying API fallback..."
+    
+    # Fallback: seed via API
+    if ! curl -s -u admin:admin -X POST "http://localhost:80/apps/chorestrike/api/v1/test/seed?profile=$PROFILE" | grep -q '"success":true'; then
+        echo "API seed also failed, continuing with empty database"
+    fi
+}
 
 echo "=== Test data seeding complete ==="

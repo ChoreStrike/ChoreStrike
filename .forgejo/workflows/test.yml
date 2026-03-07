@@ -1,0 +1,176 @@
+# ChoreStrike CI Workflow for Codeberg/Forgejo
+# Runs tests with different database profiles and browsers
+
+name: Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # Backend PHP Unit Tests
+  phpunit:
+    name: PHPUnit (PHP ${{ matrix.php }})
+    runs-on: docker
+    container:
+      image: php:${{ matrix.php }}-cli
+    strategy:
+      matrix:
+        php: ['8.1', '8.2', '8.3']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update && apt-get install -y libzip-dev unzip
+          docker-php-ext-install zip pdo pdo_mysql mysqli
+          php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+          php composer-setup.php --quiet
+          php -r "unlink('composer-setup.php');"
+          php composer.phar install --no-interaction --prefer-dist
+
+      - name: Run PHPUnit
+        run: |
+          ./vendor/bin/phpunit --configuration phpunit.unit.xml
+        env:
+          NEXTCLOUD_TEST_MODE: true
+
+  # E2E Tests with Matrix Strategy
+  e2e:
+    name: E2E (${{ matrix.profile }} / ${{ matrix.browser }})
+    runs-on: docker
+    needs: phpunit
+    container:
+      image: node:20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [empty, minimal, family]
+        browser: [chromium, firefox]
+        exclude:
+          # Skip firefox for empty profile to save CI time
+          - profile: empty
+            browser: firefox
+    services:
+      db:
+        image: mariadb:10.6
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: nextcloud
+          MYSQL_USER: nextcloud
+          MYSQL_PASSWORD: nextcloud
+        ports:
+          - "3306:3306"
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -u root -proot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      nextcloud:
+        image: nextcloud:latest
+        env:
+          MYSQL_HOST: db
+          MYSQL_DATABASE: nextcloud
+          MYSQL_USER: nextcloud
+          MYSQL_PASSWORD: nextcloud
+          NEXTCLOUD_TEST_MODE: true
+          TEST_DB_PROFILE: ${{ matrix.profile }}
+        ports:
+          - "8080:80"
+        options: >-
+          --health-cmd "curl -f http://localhost/status.php"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+          --health-start-period 120s
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Wait for Nextcloud
+        run: |
+          for i in {1..60}; do
+            if curl -s http://nextcloud:80/status.php | grep -q '"installed":true'; then
+              echo "Nextcloud is ready!"
+              break
+            fi
+            echo "Waiting for Nextcloud... ($i/60)"
+            sleep 5
+          done
+
+      - name: Enable ChoreStrike app
+        run: |
+          # Copy app to Nextcloud container (simulated via API)
+          curl -s -X POST http://nextcloud:80/index.php/apps/chorestrike/api/v1/test/seed?profile=${{ matrix.profile }}
+        continue-on-error: true
+
+      - name: Run Playwright tests
+        run: npx playwright test --project=${{ matrix.browser }} --reporter=list
+        env:
+          NEXTCLOUD_URL: http://nextcloud:80
+          TEST_DB_PROFILE: ${{ matrix.profile }}
+          NEXTCLOUD_TEST_MODE: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-results-${{ matrix.profile }}-${{ matrix.browser }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+  # Docker Build Test
+  docker:
+    name: Docker Build
+    runs-on: docker
+    needs: phpunit
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build test image
+        run: |
+          docker build -f docker/Dockerfile.test -t chorestrike-test:ci .
+
+      - name: Build production image
+        run: |
+          docker build -f docker/Dockerfile -t chorestrike:ci .
+
+  # Summary job
+  test-summary:
+    name: Test Summary
+    runs-on: docker
+    needs: [phpunit, e2e]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "## Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| PHPUnit | ${{ needs.phpunit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E | ${{ needs.e2e.result }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if any job failed
+        if: contains(needs.*.result, 'failure')
+        run: exit 1

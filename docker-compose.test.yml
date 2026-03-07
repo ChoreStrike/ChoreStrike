@@ -33,6 +33,8 @@ services:
     working_dir: /var/www/html/custom_apps/chorestrike
     environment:
       - NEXTCLOUD_TEST_ENV=true
+      - NEXTCLOUD_TEST_MODE=true
+      - TEST_DB_PROFILE=${TEST_DB_PROFILE:-minimal}
       - DB_HOST=chorestrike-db
       - DB_NAME=nextcloud
       - DB_USER=nextcloud

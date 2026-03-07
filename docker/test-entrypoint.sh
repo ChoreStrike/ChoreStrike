@@ -98,7 +98,9 @@ if ! su -s /bin/bash www-data -c "php occ app:list" | grep -A999 '^Enabled:' | g
     exit 1
 fi
 
-echo "Ensuring realistic GUI test users..."
+echo "Ensuring test users based on profile..."
+PROFILE="${TEST_DB_PROFILE:-minimal}"
+
 ensure_user() {
     local user_id="$1"
     local user_pass="$2"
@@ -113,8 +115,31 @@ ensure_user() {
     echo "Created user '${user_id}' (${display_name})."
 }
 
-ensure_user "adult" "Adult123!" "Adult User"
-ensure_user "kid" "Kid123!" "Kid User"
+# Create users based on profile
+case "$PROFILE" in
+    family)
+        echo "Creating family users (6 users)..."
+        ensure_user "mom" "Mom123!" "Mom"
+        ensure_user "dad" "Dad123!" "Dad"
+        ensure_user "teen" "Teen123!" "Teen"
+        ensure_user "kid" "Kid123!" "Kid"
+        ensure_user "grandma" "Grandma123!" "Grandma"
+        ensure_user "friend" "Friend123!" "Friend"
+        ;;
+    minimal)
+        echo "Creating minimal users (2 users)..."
+        ensure_user "adult" "Adult123!" "Adult User"
+        ensure_user "kid" "Kid123!" "Kid User"
+        ;;
+    empty)
+        echo "No users created for empty profile."
+        ;;
+    *)
+        echo "Unknown profile: $PROFILE, creating minimal users..."
+        ensure_user "adult" "Adult123!" "Adult User"
+        ensure_user "kid" "Kid123!" "Kid User"
+        ;;
+esac
 
 # Wait for Nextcloud to be fully ready via HTTP
 echo "Waiting for Nextcloud HTTP interface..."
