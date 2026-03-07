@@ -197,6 +197,7 @@ describe('FloorList.vue', () => {
 	it('shows add room action when expanding an empty floor', async () => {
 		mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor', sortOrder: 0 }]
 		mockRoomsStore.roomsByFloor = { 1: [] }
+		mockRoomsStore.expandedFloors = []
 
 		const wrapper = mount(FloorList, {
 			global: {

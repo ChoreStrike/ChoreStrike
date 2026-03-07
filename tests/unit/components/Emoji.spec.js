@@ -19,8 +19,7 @@ describe('Emoji.vue', () => {
 
 		const img = wrapper.find('img')
 		expect(img.exists()).toBe(true)
-		expect(img.classes()).toContain('emoji')
-		expect(img.classes()).toContain('emoji--living-room')
+		expect(img.classes()).toContain('emoji-image')
 	})
 
 	it('applies correct size', () => {
@@ -83,7 +82,8 @@ describe('Emoji.vue', () => {
 		})
 
 		const img = wrapper.find('img')
-		expect(img.classes()).toContain('emoji--flat')
+		const src = img.attributes('src')
+		expect(src).toContain('flat')
 	})
 
 	it('applies default 3d style', () => {
@@ -93,7 +93,8 @@ describe('Emoji.vue', () => {
 		})
 
 		const img = wrapper.find('img')
-		expect(img.classes()).toContain('emoji--3d')
+		const src = img.attributes('src')
+		expect(src).toContain('3d')
 	})
 
 	it('applies custom className', () => {
@@ -102,11 +103,11 @@ describe('Emoji.vue', () => {
 			global: { plugins: [pinia] },
 		})
 
-		const img = wrapper.find('img')
-		expect(img.classes()).toContain('reward-emoji')
+		const span = wrapper.find('span')
+		expect(span.classes()).toContain('reward-emoji')
 	})
 
-	it('uses CDN URL by default', () => {
+	it('uses local URL by default', () => {
 		const wrapper = mount(Emoji, {
 			props: { name: 'fox', emojiStyle: '3d' },
 			global: { plugins: [pinia] },
@@ -114,20 +115,20 @@ describe('Emoji.vue', () => {
 
 		const img = wrapper.find('img')
 		const src = img.attributes('src')
-		expect(src).toContain('githubusercontent.com')
+		expect(src).toContain('/apps/chorestrike/img/emojis/')
 		expect(src).toContain('fox')
 		expect(src).toContain('3d')
 	})
 
-	it('uses local URL when local prop is true', () => {
+	it('always uses local URL (local prop is deprecated)', () => {
 		const wrapper = mount(Emoji, {
-			props: { name: 'fox', local: true },
+			props: { name: 'fox', local: false },
 			global: { plugins: [pinia] },
 		})
 
 		const img = wrapper.find('img')
 		const src = img.attributes('src')
-		expect(src).toContain('./img/emojis/')
+		expect(src).toContain('/apps/chorestrike/img/emojis/')
 		expect(src).toContain('fox')
 	})
 
