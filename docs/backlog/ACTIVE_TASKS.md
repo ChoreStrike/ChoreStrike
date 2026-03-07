@@ -5,6 +5,18 @@
 
 ## Currently Active
 
+### Cascade - P8-RELEASE-STRATEGY-001 - Staged Alpha, Beta, Stable Release Plan
+**Status**: In Progress  
+**Started**: 2026-03-07 19:51  
+**Updated**: 2026-03-07 19:55  
+**Branch**: master  
+**Related Files**: docs/RELEASE_STRATEGY.md, docs/ROADMAP.md, docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-8-release-preparation.md  
+**Blockers**: None  
+**Notes**:
+- User selected the full documentation sequence in this order: A) release strategy, B) issue/release workflow, C) milestone exit criteria.
+- Agreed release path is `v0.8.x` alpha for personal testing, `v0.9.x` beta for invited testers, and `v1.0.0` stable as a manual-install release.
+- Nextcloud App Store submission is intentionally deferred until after stable release quality is proven.
+
 ### Cascade - UX-E2E-REALISM-001 - GUI-first flow, icon clarity, local-only assets
 **Status**: In Progress  
 **Started**: 2026-03-05 22:10  

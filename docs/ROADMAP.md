@@ -351,6 +351,12 @@
 **Status**: Planned  
 **Timeline**: Week 29-32
 
+**Release Direction**:
+- `v0.8.x` is the internal alpha phase for personal real-world testing.
+- `v0.9.x` is the private beta phase for invited testers and structured feedback.
+- `v1.0.0` is the first stable manual-install release.
+- Nextcloud App Store submission is intentionally deferred until after stable release quality is proven.
+
 #### Tasks
 - [ ] Code Review (Day 1)
   - [ ] P6 & P7 code review
@@ -380,10 +386,11 @@
 - [ ] Release preparation
   - [ ] Create release notes
   - [ ] Prepare screenshots for app store
-  - [ ] Submit to Nextcloud App Store
+  - [ ] Evaluate App Store readiness after `v1.0.0`
+  - [ ] Submit to Nextcloud App Store in a later post-`v1.0.0` release if readiness criteria are met
   - [ ] Create GitHub release
 
-**Deliverable**: v1.0.0 Release
+**Deliverable**: `v0.8.x` alpha -> `v0.9.x` beta -> `v1.0.0` stable manual-install release
 
 ---
 
@@ -442,5 +449,5 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../CONTRIBUTING.m
 
 ---
 
-**Last Updated**: 2026-03-04  
+**Last Updated**: 2026-03-07  
 **Current Phase**: Phase 8 (Release Preparation) - Planned

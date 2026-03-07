@@ -8,7 +8,16 @@
 
 ## Overview
 
-Final preparation for v1.0.0 release including code review, security audit, internal testing phase, and app store submission.
+Final preparation for the staged rollout path: `v0.8.x` alpha, `v0.9.x` private beta, and `v1.0.0` stable manual-install release. App Store submission is explicitly deferred until after stable quality is proven.
+
+## Agreed Rollout Order
+
+1. **A - Release Strategy**
+   - Define the staged rollout plan before public distribution.
+2. **B - Issue and Release Workflow**
+   - Define how bugs, feedback, validation, and releases move through the project.
+3. **C - Exit Criteria**
+   - Define release gates for `v0.8 Alpha`, `v0.9 Beta`, and `v1.0 Stable`.
 
 ---
 
@@ -104,10 +113,10 @@ Final preparation for v1.0.0 release including code review, security audit, inte
 - [ ] Beta Deployment on Personal Server
   - [ ] Deploy to personal Nextcloud instance
   - [ ] Verify no impact on other Nextcloud apps
-  - [ ] Real-world usage testing
+  - [ ] Real-world usage testing for `v0.8.x` alpha
 - [ ] Beta Testers (Optional)
-  - [ ] Invite friends/family
-  - [ ] Collect feedback
+  - [ ] Invite private testers for `v0.9.x` beta
+  - [ ] Collect structured feedback
   - [ ] Document issues found
 
 ### P8-TEST-001: Integration Tests
@@ -149,7 +158,9 @@ Final preparation for v1.0.0 release including code review, security audit, inte
 
 - [ ] Create release notes
 - [ ] Prepare screenshots for app store
-- [ ] Submit to Nextcloud App Store
+- [ ] Create `v1.0.0` stable manual-install release
+- [ ] Evaluate App Store readiness after stable release validation
+- [ ] Submit to Nextcloud App Store in a later release only if readiness criteria are met
 - [ ] Create GitHub release
 
 ---
@@ -189,8 +200,9 @@ Nextcloud apps are **isolated by design**:
 - [ ] Internal testing completed without data loss
 - [ ] Beta deployment successful
 - [ ] Documentation complete
-- [ ] App submitted to Nextcloud App Store
+- [ ] `v1.0.0` stable manual-install release completed
+- [ ] App Store submission decision documented
 
 ---
 
-**Last Updated**: 2026-03-04
+**Last Updated**: 2026-03-07
