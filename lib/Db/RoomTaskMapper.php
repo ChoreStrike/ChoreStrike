@@ -24,6 +24,22 @@ class RoomTaskMapper extends QBMapper
     }
 
     /**
+     * Find room task by ID
+     *
+     * @param int $id The room task ID
+     * @throws DoesNotExistException if not found
+     */
+    public function find(int $id): RoomTask
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+
+        return $this->findEntity($qb);
+    }
+
+    /**
      * Find tasks by house ID
      *
      * @param int $houseId The house ID

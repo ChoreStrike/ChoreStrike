@@ -91,12 +91,12 @@ Die `family`-Datenbank enthält:
 
 | User | Rolle | Passwort | Besonderheit |
 |------|-------|----------|--------------|
-| mom | owner | mom123 | Volle Verfügbarkeit |
-| dad | owner | dad123 | Volle Verfügbarkeit |
-| teen | child | teen123 | Nur Wochenende |
-| kid | child | kid123 | Max 2 tägl. Tasks |
-| grandma | member | grandma123 | Eingeschränkt |
-| friend | member | friend123 | Nur Samstag |
+| mom | owner | Mom123! | Volle Verfügbarkeit |
+| dad | owner | Dad123! | Volle Verfügbarkeit |
+| teen | child | Teen123! | Nur Wochenende |
+| kid | child | Kid123! | Max 2 tägl. Tasks |
+| grandma | member | Grandma123! | Eingeschränkt |
+| friend | member | Friend123! | Nur Samstag |
 
 **Floors/Rooms:**
 - Ground Floor: Kitchen, Living Room, Master Bathroom

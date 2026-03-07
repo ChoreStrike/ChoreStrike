@@ -47,11 +47,11 @@ class FloorController extends OCSController
         // Check for create payload in JSON body, $_POST, or query params
         $rawBody = file_get_contents('php://input');
         $jsonPayload = is_string($rawBody) && trim($rawBody) !== '' ? json_decode($rawBody, true) : null;
-        
+
         // Try JSON body first, then form-urlencoded, then query params
         $name = null;
         $sortOrder = null;
-        
+
         if (is_array($jsonPayload) && isset($jsonPayload['name'])) {
             $name = $jsonPayload['name'];
             $sortOrder = $jsonPayload['sortOrder'] ?? null;
@@ -62,7 +62,7 @@ class FloorController extends OCSController
             $name = trim($_GET['name']);
             $sortOrder = isset($_GET['sortOrder']) && $_GET['sortOrder'] !== '' ? (int)$_GET['sortOrder'] : null;
         }
-        
+
         if ($name !== null) {
             return $this->create($name, $sortOrder);
         }

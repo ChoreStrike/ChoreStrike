@@ -35,7 +35,7 @@ class RoomMapper extends QBMapper
         $qb->select('*')
             ->from($this->getTableName())
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
-        
+
         return $this->findEntity($qb);
     }
 

@@ -274,7 +274,7 @@ export default {
 		},
 
 		handleCompleteTask(roomTaskId) {
-			this.roomTasksStore.completeRoomTask(roomTaskId, this.userStore.userId)
+			this.roomTasksStore.completeRoomTask(roomTaskId)
 				.then(() => {
 					this.$emit('task-completed', roomTaskId)
 				})

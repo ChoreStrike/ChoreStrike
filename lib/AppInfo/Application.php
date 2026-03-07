@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\AppInfo;
 
-use OCA\ChoreStrike\Command\TestDataSeed;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
@@ -19,27 +18,27 @@ use OCP\AppFramework\Bootstrap\IRegistrationContext;
  */
 class Application extends App implements IBootstrap
 {
-	public const APP_ID = 'chorestrike';
+    public const APP_ID = 'chorestrike';
 
-	public function __construct()
-	{
-		parent::__construct(self::APP_ID);
-	}
+    public function __construct()
+    {
+        parent::__construct(self::APP_ID);
+    }
 
-	/**
-	 * Register services and commands
-	 */
-	public function register(IRegistrationContext $context): void
-	{
-		// Register OCC commands
-		$context->registerCommand(TestDataSeed::class);
-	}
+    /**
+     * Register services and commands
+     */
+    public function register(IRegistrationContext $context): void
+    {
+        // Commands are registered via appinfo/info.xml in Nextcloud 31+
+        // No programmatic registration needed
+    }
 
-	/**
-	 * Boot the application
-	 */
-	public function boot(IBootContext $context): void
-	{
-		// Boot logic if needed
-	}
+    /**
+     * Boot the application
+     */
+    public function boot(IBootContext $context): void
+    {
+        // Boot logic if needed
+    }
 }

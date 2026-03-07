@@ -329,7 +329,7 @@ class RoomTaskController extends OCSController
      *
      * @NoAdminRequired
      */
-    public function complete(int $id, string $userId): JSONResponse
+    public function complete(int $id): JSONResponse
     {
         try {
             $instanceId = $this->houseService->getInstanceId();

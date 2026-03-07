@@ -345,18 +345,13 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		/**
 		 * Complete room task
 		 * @param {number} roomTaskId Room task identifier to complete.
-		 * @param {string} userId User identifier completing the task.
 		 */
-		async completeRoomTask(roomTaskId, userId) {
-			if (!userId || userId.trim() === '') {
-				throw new Error('User ID is required')
-			}
-
+		async completeRoomTask(roomTaskId) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`, { userId })
+				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`)
 
 				if (response.data.success) {
 					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)

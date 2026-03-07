@@ -47,11 +47,11 @@ class RoomController extends OCSController
         // Check for create payload in JSON body, $_POST, or query params
         $rawBody = file_get_contents('php://input');
         $jsonPayload = is_string($rawBody) && trim($rawBody) !== '' ? json_decode($rawBody, true) : null;
-        
+
         // Try JSON body first, then form-urlencoded, then query params
         $resolvedName = null;
         $resolvedFloorId = null;
-        
+
         if (is_array($jsonPayload) && isset($jsonPayload['name'])) {
             $resolvedName = $jsonPayload['name'];
             $resolvedFloorId = $jsonPayload['floorId'] ?? null;
@@ -62,7 +62,7 @@ class RoomController extends OCSController
             $resolvedName = trim($_GET['name']);
             $resolvedFloorId = isset($_GET['floorId']) && $_GET['floorId'] !== '' ? (int)$_GET['floorId'] : null;
         }
-        
+
         if ($resolvedName !== null) {
             return $this->create($resolvedFloorId, $resolvedName);
         }
