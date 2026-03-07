@@ -229,6 +229,34 @@ Nextcloud apps are **isolated by design**:
 - [ ] `v1.0.0` stable manual-install release completed
 - [ ] App Store submission decision documented
 
+## Milestone Exit Criteria
+
+### `v0.8.x` Alpha Exit Criteria
+- [ ] Manual install works on the personal Nextcloud instance
+- [ ] Core flows work in real usage (floors, rooms, tasks, completion, scheduling screens)
+- [ ] No known data-loss issue remains open
+- [ ] No unresolved P0 issue exists
+- [ ] Alpha findings are documented in backlog or issue tracking
+- [ ] Alpha validation note exists before tagging
+
+### `v0.9.x` Beta Exit Criteria
+- [ ] Private tester onboarding is possible
+- [ ] Core flows are reproducible across more than one setup
+- [ ] Install, update, and rollback steps are documented for testers
+- [ ] Known issues are documented before beta release
+- [ ] Feedback intake and prioritization are operational
+- [ ] No unresolved P0 issue exists
+- [ ] No unresolved P1 issue remains in supported beta workflows unless documented and accepted
+
+### `v1.0.0` Stable Exit Criteria
+- [ ] Supported workflows are documented
+- [ ] Release notes, known issues, install guide, and upgrade guide are ready
+- [ ] No unresolved P0 issue exists
+- [ ] No unresolved P1 regression remains in core supported workflows
+- [ ] Linting is clean for supported code paths
+- [ ] Targeted automated tests and manual validation are completed for supported workflows
+- [ ] Stable release decision is documented independently from App Store submission
+
 ---
 
 **Last Updated**: 2026-03-07

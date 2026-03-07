@@ -177,26 +177,46 @@ Before App Store submission, ChoreStrike should have:
 
 ## Exit Criteria Overview
 
-Detailed checklists should be refined after the workflow is agreed, but the guiding milestone gates are:
+The following milestone gates define the minimum quality bar before a release can be promoted.
 
 ### v0.8 Alpha Gate
-- Core flows work on a personal Nextcloud instance.
-- No known data-loss issue.
-- No critical blocker in daily use.
-- Bugs found in alpha are documented in backlog or issue tracking.
+- Manual install succeeds on the personal Nextcloud instance.
+- Core flows work in real usage: floor creation, room creation, task creation, task completion, and core scheduling screens.
+- No known data-loss issue is open.
+- No unresolved P0 issue exists.
+- Any open P1 issue is explicitly accepted for alpha and documented.
+- Bugs found during alpha are recorded in backlog or issue tracking.
+- A short alpha validation note exists before tagging the release.
 
 ### v0.9 Beta Gate
-- Private tester onboarding is possible.
-- Core flows are reproducible across more than one setup.
-- Known issues and installation steps are documented.
-- Feedback intake and prioritization are operational.
+- Private tester onboarding is possible without direct developer intervention for every step.
+- Core flows are reproducible across more than one setup or tester environment.
+- Install, update, and rollback steps are documented well enough for private testers.
+- Known issues are documented before the beta tag is published.
+- Feedback intake is operational with clear bug, regression, improvement, and feature categories.
+- No unresolved P0 issue exists.
+- No unresolved P1 issue remains in the supported beta workflows unless explicitly documented and accepted.
+- Critical fixes from earlier alpha usage have been revalidated.
 
 ### v1.0 Stable Gate
-- Stable supported workflow is clearly documented.
-- No open P0 issues.
-- No unresolved critical regression in core flows.
-- Release notes, known issues, and install guidance are ready.
-- App Store submission is evaluated separately, not assumed.
+- Supported workflows are clearly documented.
+- Release notes, known issues, installation guidance, and upgrade guidance are ready.
+- No open P0 issue exists.
+- No unresolved P1 regression remains in core supported workflows.
+- Linting is clean for the supported code paths.
+- Targeted automated tests and manual validation for supported workflows have been completed.
+- The stable release is judged fit for manual-install users even without App Store distribution.
+- App Store submission is evaluated separately and documented as a distinct go/no-go decision.
+
+## Exit Criteria Checklist Format
+
+For each release candidate, ChoreStrike should capture:
+
+- **Build/Version**: candidate tag or version number
+- **Validated Workflows**: the specific user flows checked before release
+- **Open Risks**: accepted non-blocking issues
+- **Blocked By**: unresolved release-stopping issues, if any
+- **Decision**: promote, hold, or defer
 
 ---
 
