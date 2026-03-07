@@ -38,6 +38,21 @@ interface IQueryBuilder
     /**
      * @return $this
      */
+    public function delete($table, $alias = null);
+
+    /**
+     * @return $this
+     */
+    public function update($table, $alias = null);
+
+    /**
+     * @return $this
+     */
+    public function insert($table);
+
+    /**
+     * @return $this
+     */
     public function from($table, $alias = null);
 
     /**

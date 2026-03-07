@@ -24,12 +24,18 @@ PROFILE="${TEST_DB_PROFILE:-minimal}"
 echo "Seeding test data with profile: $PROFILE"
 
 # Seed using OCC command
-su -s /bin/bash www-data -c "php occ chorestrike:test-data:seed --profile=$PROFILE" || {
-    echo "OCC seed command failed, trying API fallback..."
+su -s /bin/bash www-data -c "cd /var/www/html && php occ chorestrike:test-data:seed --profile=$PROFILE" || {
+    echo "OCC seed command not available, trying API..."
     
-    # Fallback: seed via API
-    if ! curl -s -u admin:admin -X POST "http://localhost:80/apps/chorestrike/api/v1/test/seed?profile=$PROFILE" | grep -q '"success":true'; then
-        echo "API seed also failed, continuing with empty database"
+    # Fallback: seed via API with JSON body
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:80/apps/chorestrike/api/v1/test/seed" \
+        -H "Content-Type: application/json" \
+        -d "{\"profile\":\"$PROFILE\"}")
+    
+    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+        echo "API seed successful (HTTP $HTTP_CODE)"
+    else
+        echo "API seed returned HTTP $HTTP_CODE, continuing with existing data"
     fi
 }
 

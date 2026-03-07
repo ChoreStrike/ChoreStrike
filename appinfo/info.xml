@@ -26,6 +26,10 @@ Keep your home clean by completing tasks and watch cute pixel monsters disappear
     
     <namespace>ChoreStrike</namespace>
     
+    <types>
+        <logging/>
+    </types>
+    
     <category>organization</category>
     <category>games</category>
     
