@@ -19,6 +19,32 @@ Final preparation for the staged rollout path: `v0.8.x` alpha, `v0.9.x` private 
 3. **C - Exit Criteria**
    - Define release gates for `v0.8 Alpha`, `v0.9 Beta`, and `v1.0 Stable`.
 
+## Minimal Issue And Release Workflow
+
+### Shared Workflow
+
+1. **Capture**
+   - Record issues and feedback in the backlog or issue tracker.
+2. **Confirm**
+   - Reproduce, classify, and prioritize the issue.
+3. **Plan**
+   - Decide whether to fix now or defer to a later milestone.
+4. **Implement**
+   - Fix the issue and add regression coverage where practical.
+5. **Validate**
+   - Re-run targeted tests and manual verification.
+6. **Release Decision**
+   - Only promote a new release tag when blocking issues are resolved or consciously deferred.
+
+### Alpha Rule
+- Keep issue intake lightweight and optimized for fast iteration on a personal instance.
+
+### Beta Rule
+- Require structured tester feedback and explicit tracking of setup, upgrade, and usability issues.
+
+### Stable Rule
+- Require documented known issues, validation notes, and a release decision separate from App Store submission.
+
 ---
 
 ## Tasks

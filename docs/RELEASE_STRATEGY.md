@@ -126,6 +126,53 @@ Before App Store submission, ChoreStrike should have:
   - `v0.9.0-beta.1`
   - `v1.0.0`
 
+### Operational Workflow
+
+1. **Capture**
+   - Record every bug, regression, improvement, or feature request in the backlog or issue tracker.
+   - For alpha, this can stay lightweight and backlog-driven.
+   - For beta, every external report should be logged in a reproducible form.
+
+2. **Confirm**
+   - Reproduce the issue when possible.
+   - Assign type and priority.
+   - Mark invalid or non-reproducible reports clearly instead of leaving them ambiguous.
+
+3. **Plan**
+   - Decide whether the issue belongs in the current milestone or should be deferred.
+   - P0 and P1 issues block release candidates.
+   - P2 and P3 issues may be deferred if documented and accepted.
+
+4. **Implement**
+   - Fix the root cause where feasible.
+   - Add regression coverage for confirmed bugs when practical.
+   - Update relevant docs or known-issues notes when behavior changes.
+
+5. **Validate**
+   - Re-run targeted tests, lint checks, and manual verification for the affected workflow.
+   - For beta and stable candidates, validate installation or upgrade impact if relevant.
+
+6. **Release Decision**
+   - Promote the next alpha, beta, or stable tag only after open blocking issues are resolved or explicitly deferred.
+   - Record the release decision, known issues, and validation summary in release notes or backlog documentation.
+
+### Phase-Specific Workflow Rules
+
+#### v0.8 Alpha
+- Keep issue handling lightweight and fast.
+- Focus on finding blockers in personal real-world usage.
+- Create a new alpha tag when a meaningful bundle of fixes is ready.
+
+#### v0.9 Beta
+- Require reproducible tester feedback where possible.
+- Track onboarding problems, upgrade issues, and environment-specific bugs explicitly.
+- Publish new beta tags only after reviewing private tester feedback and validating critical fixes.
+
+#### v1.0 Stable
+- Treat release candidates as documentation-backed builds.
+- Require clear known issues, stable install guidance, and no open blocking regressions.
+- Evaluate App Store readiness as a separate go/no-go decision after stable validation.
+
 ---
 
 ## Exit Criteria Overview
