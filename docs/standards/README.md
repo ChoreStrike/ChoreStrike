@@ -14,6 +14,7 @@ All code in ChoreStrike must follow these standards to ensure consistency, maint
 - **Testing Standard** - Unit test requirements, naming conventions
 - **Git Commit Standard** - Conventional commits format
 - **Documentation Standard** - PHPDoc, JSDoc requirements
+- **Logging Standard** - Structured backend/frontend logging, privacy guardrails, Nextcloud log levels
 - **External Asset Licensing Standard** - Third-party icons, fonts, and illustrations
 
 ## External Asset Licensing Checklist

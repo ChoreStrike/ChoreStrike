@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
+import { logger } from '../utils/logger.js'
 
 export const useRoomsStore = defineStore('rooms', {
 	state: () => ({
@@ -93,7 +94,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch floors with rooms:', error)
+				logger.error('Failed to fetch floors with rooms', error, { store: 'rooms', action: 'fetchFloorsWithRooms' })
 				throw error
 			} finally {
 				this.loading = false
@@ -117,7 +118,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch floors:', error)
+				logger.error('Failed to fetch floors', error, { store: 'rooms', action: 'fetchFloors' })
 				throw error
 			} finally {
 				this.loading = false
@@ -144,7 +145,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch rooms:', error)
+				logger.error('Failed to fetch rooms', error, { store: 'rooms', action: 'fetchRooms', floorId })
 				throw error
 			} finally {
 				this.loading = false
@@ -183,7 +184,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch floor with rooms:', error)
+				logger.error('Failed to fetch floor with rooms', error, { store: 'rooms', action: 'fetchFloorWithRooms', floorId })
 				throw error
 			} finally {
 				this.loading = false
@@ -204,7 +205,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/floors`, { name, sortOrder })
+				const response = await axios.post('/index.php/apps/chorestrike/api/v1/floors', { name, sortOrder })
 
 				if (response.data.success) {
 					this.floors = [...this.floors, response.data.data]
@@ -214,7 +215,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to create floor:', error)
+				logger.error('Failed to create floor', error, { store: 'rooms', action: 'createFloor' })
 				throw error
 			} finally {
 				this.loading = false
@@ -235,7 +236,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/rooms`, { floorId, name })
+				const response = await axios.post('/index.php/apps/chorestrike/api/v1/rooms', { floorId, name })
 
 				if (response.data.success) {
 					this.rooms = [...this.rooms, response.data.data]
@@ -245,7 +246,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to create room:', error)
+				logger.error('Failed to create room', error, { store: 'rooms', action: 'createRoom', floorId })
 				throw error
 			} finally {
 				this.loading = false
@@ -278,7 +279,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update floor:', error)
+				logger.error('Failed to update floor', error, { store: 'rooms', action: 'updateFloorName', floorId })
 				throw error
 			} finally {
 				this.loading = false
@@ -311,7 +312,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update room:', error)
+				logger.error('Failed to update room', error, { store: 'rooms', action: 'updateRoomName', roomId })
 				throw error
 			} finally {
 				this.loading = false
@@ -340,7 +341,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update room cleanliness:', error)
+				logger.error('Failed to update room cleanliness', error, { store: 'rooms', action: 'updateRoomCleanliness', roomId })
 				throw error
 			} finally {
 				this.loading = false
@@ -368,7 +369,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to delete floor:', error)
+				logger.error('Failed to delete floor', error, { store: 'rooms', action: 'deleteFloor', floorId })
 				throw error
 			} finally {
 				this.loading = false
@@ -394,7 +395,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to delete room:', error)
+				logger.error('Failed to delete room', error, { store: 'rooms', action: 'deleteRoom', roomId })
 				throw error
 			} finally {
 				this.loading = false
@@ -419,7 +420,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to reorder floors:', error)
+				logger.error('Failed to reorder floors', error, { store: 'rooms', action: 'reorderFloors' })
 				throw error
 			} finally {
 				this.loading = false
@@ -437,7 +438,7 @@ export const useRoomsStore = defineStore('rooms', {
 			try {
 				const url = floorId
 					? `/index.php/apps/chorestrike/api/v1/rooms/needing-cleaning?floorId=${floorId}`
-					: `/index.php/apps/chorestrike/api/v1/rooms/needing-cleaning`
+					: '/index.php/apps/chorestrike/api/v1/rooms/needing-cleaning'
 
 				const response = await axios.get(url)
 
@@ -448,7 +449,7 @@ export const useRoomsStore = defineStore('rooms', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch rooms needing cleaning:', error)
+				logger.error('Failed to fetch rooms needing cleaning', error, { store: 'rooms', action: 'fetchRoomsNeedingCleaning', floorId })
 				throw error
 			} finally {
 				this.loading = false

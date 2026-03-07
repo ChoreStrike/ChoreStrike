@@ -81,9 +81,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import axios from '@nextcloud/axios'
+import { logger } from '../../utils/logger.js'
 
 interface Task {
 	id: number
@@ -139,7 +140,7 @@ const loadTasks = async () => {
 			tasks.value = response.data.data
 		}
 	} catch (error) {
-		console.error('Failed to load tasks:', error)
+		logger.error('Failed to load tasks', error, { component: 'DailyTaskList', action: 'loadTasks' })
 	} finally {
 		loading.value = false
 	}
@@ -154,7 +155,7 @@ const toggleTask = async (task: Task) => {
 		}
 		task.completed = !task.completed
 	} catch (error) {
-		console.error('Failed to toggle task:', error)
+		logger.error('Failed to toggle task', error, { component: 'DailyTaskList', action: 'toggleTask', taskId: task.id })
 	}
 }
 
@@ -167,7 +168,7 @@ const skipTask = async (task: Task) => {
 		// Remove from list
 		tasks.value = tasks.value.filter(t => t.id !== task.id)
 	} catch (error) {
-		console.error('Failed to skip task:', error)
+		logger.error('Failed to skip task', error, { component: 'DailyTaskList', action: 'skipTask', taskId: task.id })
 	}
 }
 

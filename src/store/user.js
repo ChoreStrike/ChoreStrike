@@ -6,6 +6,7 @@
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
 import { translate as t } from '@nextcloud/l10n'
+import { logger } from '../utils/logger.js'
 
 const tr = (message) => t('chorestrike', message)
 
@@ -72,7 +73,7 @@ export const useUserStore = defineStore('user', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to initialize current user:', error)
+				logger.error('Failed to initialize current user', error, { store: 'user', action: 'initializeCurrentUser' })
 				throw error
 			}
 		},
@@ -94,7 +95,7 @@ export const useUserStore = defineStore('user', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch house users:', error)
+				logger.error('Failed to fetch house users', error, { store: 'user', action: 'fetchHouseUsers' })
 				throw error
 			} finally {
 				this.loading = false
@@ -132,7 +133,7 @@ export const useUserStore = defineStore('user', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to invite user:', error)
+				logger.error('Failed to invite user', error, { store: 'user', action: 'inviteUser', role })
 				throw error
 			} finally {
 				this.loading = false
@@ -162,7 +163,7 @@ export const useUserStore = defineStore('user', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to remove user:', error)
+				logger.error('Failed to remove user', error, { store: 'user', action: 'removeUser', userId })
 				throw error
 			} finally {
 				this.loading = false
@@ -205,7 +206,7 @@ export const useUserStore = defineStore('user', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update user role:', error)
+				logger.error('Failed to update user role', error, { store: 'user', action: 'updateUserRole', userId, role })
 				throw error
 			} finally {
 				this.loading = false
@@ -244,7 +245,7 @@ export const useUserStore = defineStore('user', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update user profile:', error)
+				logger.error('Failed to update user profile', error, { store: 'user', action: 'updateUserProfile', userId })
 				throw error
 			} finally {
 				this.loading = false

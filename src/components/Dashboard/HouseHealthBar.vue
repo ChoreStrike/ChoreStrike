@@ -47,6 +47,7 @@
 import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useHouseStore } from '../../store/house.js'
+import { logger } from '../../utils/logger.js'
 
 export default {
 	name: 'HouseHealthBar',
@@ -93,7 +94,7 @@ export default {
 			try {
 				await houseStore.calculateHouseHealth()
 			} catch (error) {
-				console.error('Failed to refresh house health:', error)
+				logger.error('Failed to refresh house health', error, { component: 'HouseHealthBar', action: 'refreshHealth' })
 			}
 		}
 

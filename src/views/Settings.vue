@@ -205,6 +205,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
+import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
 
@@ -254,7 +255,7 @@ export default {
 				await this.roomsStore.fetchFloorsWithRooms()
 				this.houseName = this.houseStore.houseName
 			} catch (error) {
-				console.error('Failed to initialize settings:', error)
+				logger.error('Failed to initialize settings', error, { view: 'Settings', action: 'initializeSettings' })
 			}
 		},
 
@@ -267,7 +268,7 @@ export default {
 			try {
 				await this.houseStore.updateHouseName(this.houseName.trim())
 			} catch (error) {
-				console.error('Failed to save house name:', error)
+				logger.error('Failed to save house name', error, { view: 'Settings', action: 'saveHouseName' })
 			}
 		},
 
@@ -278,7 +279,7 @@ export default {
 				this.newFloorName = ''
 				this.showAddFloorModal = false
 			} catch (error) {
-				console.error('Failed to create floor:', error)
+				logger.error('Failed to create floor', error, { view: 'Settings', action: 'createFloor' })
 			}
 		},
 
@@ -296,7 +297,7 @@ export default {
 				this.editingFloorName = ''
 				this.showEditFloorModal = false
 			} catch (error) {
-				console.error('Failed to update floor:', error)
+				logger.error('Failed to update floor', error, { view: 'Settings', action: 'updateFloor', floorId: this.editingFloor?.id })
 			}
 		},
 
@@ -311,7 +312,7 @@ export default {
 			try {
 				await this.roomsStore.deleteFloor(floor.id)
 			} catch (error) {
-				console.error('Failed to delete floor:', error)
+				logger.error('Failed to delete floor', error, { view: 'Settings', action: 'deleteFloor', floorId: floor.id })
 			}
 		},
 
@@ -328,7 +329,7 @@ export default {
 				this.showResetModal = false
 				await this.initializeSettings()
 			} catch (error) {
-				console.error('Failed to reset house:', error)
+				logger.error('Failed to reset house', error, { view: 'Settings', action: 'resetHouse' })
 			}
 		},
 	},

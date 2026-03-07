@@ -52,6 +52,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import axios from '@nextcloud/axios'
+import { logger } from '../../utils/logger.js'
 
 interface ComboProgress {
 	hasCombo: boolean
@@ -82,7 +83,7 @@ const loadComboProgress = async (): Promise<void> => {
 			comboProgress.value = response.data.data
 		}
 	} catch (error) {
-		console.error('Failed to load combo progress:', error)
+		logger.error('Failed to load combo progress', error, { component: 'ComboIndicator', action: 'loadComboProgress', userId: props.userId })
 	}
 }
 

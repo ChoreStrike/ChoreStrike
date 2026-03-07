@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
+import { logger } from '../utils/logger.js'
 
 /**
  * Store for managing task checklists (sub-tasks)
@@ -61,7 +62,7 @@ export const useChecklistStore = defineStore('checklist', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch checklist items:', error)
+				logger.error('Failed to fetch checklist items', error, { store: 'checklist', action: 'fetchTaskItems', taskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -87,7 +88,7 @@ export const useChecklistStore = defineStore('checklist', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch checklist progress:', error)
+				logger.error('Failed to fetch checklist progress', error, { store: 'checklist', action: 'fetchRoomTaskProgress', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -118,7 +119,7 @@ export const useChecklistStore = defineStore('checklist', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to add checklist item:', error)
+				logger.error('Failed to add checklist item', error, { store: 'checklist', action: 'addItem', taskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -152,7 +153,7 @@ export const useChecklistStore = defineStore('checklist', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update checklist item:', error)
+				logger.error('Failed to update checklist item', error, { store: 'checklist', action: 'updateItem', itemId })
 				throw error
 			} finally {
 				this.loading = false
@@ -181,7 +182,7 @@ export const useChecklistStore = defineStore('checklist', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to delete checklist item:', error)
+				logger.error('Failed to delete checklist item', error, { store: 'checklist', action: 'deleteItem', itemId, taskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -219,7 +220,7 @@ export const useChecklistStore = defineStore('checklist', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to toggle checklist item:', error)
+				logger.error('Failed to toggle checklist item', error, { store: 'checklist', action: 'toggleItem', roomTaskId, itemId })
 				throw error
 			} finally {
 				this.loading = false
@@ -256,7 +257,7 @@ export const useChecklistStore = defineStore('checklist', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to reorder checklist items:', error)
+				logger.error('Failed to reorder checklist items', error, { store: 'checklist', action: 'reorderItems', taskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -282,7 +283,7 @@ export const useChecklistStore = defineStore('checklist', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to initialize checklist progress:', error)
+				logger.error('Failed to initialize checklist progress', error, { store: 'checklist', action: 'initializeProgress', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false

@@ -140,6 +140,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useTasksStore } from '../store/tasks.js'
+import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
 import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
@@ -266,7 +267,7 @@ export default {
 				await this.tasksStore.fetchTasks()
 				await Promise.all(this.roomsStore.rooms.map(room => this.roomTasksStore.fetchRoomTasks(room.id)))
 			} catch (error) {
-				console.error('Failed to initialize tasks:', error)
+				logger.error('Failed to initialize tasks', error, { view: 'TaskManager', action: 'initializeTasks' })
 			} finally {
 				this.loading = false
 			}
@@ -278,7 +279,7 @@ export default {
 					this.$emit('task-completed', roomTaskId)
 				})
 				.catch(error => {
-					console.error('Failed to complete task:', error)
+					logger.error('Failed to complete task', error, { view: 'TaskManager', action: 'handleCompleteTask', roomTaskId })
 				})
 		},
 
@@ -293,7 +294,7 @@ export default {
 			}
 			this.roomTasksStore.deleteRoomTask(roomTaskId)
 				.catch(error => {
-					console.error('Failed to delete task:', error)
+					logger.error('Failed to delete task', error, { view: 'TaskManager', action: 'handleDeleteTask', roomTaskId })
 				})
 		},
 
@@ -305,7 +306,7 @@ export default {
 					this.showAddTaskModal = false
 				})
 				.catch(error => {
-					console.error('Failed to create task:', error)
+					logger.error('Failed to create task', error, { view: 'TaskManager', action: 'handleAddTask' })
 				})
 		},
 
@@ -317,7 +318,7 @@ export default {
 					this.editingTask = null
 				})
 				.catch(error => {
-					console.error('Failed to update task:', error)
+					logger.error('Failed to update task', error, { view: 'TaskManager', action: 'handleUpdateTask', taskId: this.editingTask?.id })
 				})
 		},
 	},

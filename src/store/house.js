@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
+import { logger } from '../utils/logger.js'
 
 export const useHouseStore = defineStore('house', {
 	state: () => ({
@@ -37,7 +38,7 @@ export const useHouseStore = defineStore('house', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch house:', error)
+				logger.error('Failed to fetch house', error, { store: 'house', action: 'fetchHouse' })
 				throw error
 			} finally {
 				this.loading = false
@@ -66,7 +67,7 @@ export const useHouseStore = defineStore('house', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update house:', error)
+				logger.error('Failed to update house', error, { store: 'house', action: 'updateHouseName' })
 				throw error
 			} finally {
 				this.loading = false
@@ -90,7 +91,7 @@ export const useHouseStore = defineStore('house', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch house stats:', error)
+				logger.error('Failed to fetch house stats', error, { store: 'house', action: 'fetchHouseStats' })
 				throw error
 			} finally {
 				this.loading = false
@@ -118,7 +119,7 @@ export const useHouseStore = defineStore('house', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to calculate house health:', error)
+				logger.error('Failed to calculate house health', error, { store: 'house', action: 'calculateHouseHealth' })
 				throw error
 			} finally {
 				this.loading = false
@@ -142,7 +143,7 @@ export const useHouseStore = defineStore('house', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to reset house:', error)
+				logger.error('Failed to reset house', error, { store: 'house', action: 'resetHouse' })
 				throw error
 			} finally {
 				this.loading = false

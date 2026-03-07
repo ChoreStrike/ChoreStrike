@@ -201,6 +201,7 @@ import { showSuccess, showError } from '@nextcloud/dialogs'
 import Icon from '../Common/Icon.vue'
 import Modal from '../Common/Modal.vue'
 import axios from '@nextcloud/axios'
+import { logger } from '../../utils/logger.js'
 
 // Props
 const props = defineProps<{
@@ -261,7 +262,7 @@ const loadMemberAvailability = async () => {
 			throw new Error(response.data.error || 'Failed to load availability')
 		}
 	} catch (error) {
-		console.error('Failed to load member availability:', error)
+		logger.error('Failed to load member availability', error, { component: 'AvailabilitySettings', action: 'loadMemberAvailability', houseId: props.houseId })
 		showError(t('chorestrike', 'Failed to load availability settings'))
 	} finally {
 		loading.value = false
@@ -321,7 +322,7 @@ const saveAvailability = async () => {
 		emit('availability-updated', editForm.value)
 		closeEditModal()
 	} catch (error) {
-		console.error('Failed to save availability:', error)
+		logger.error('Failed to save availability', error, { component: 'AvailabilitySettings', action: 'saveAvailability', houseId: props.houseId })
 		showError(t('chorestrike', 'Failed to save availability settings: {error}', { error: error.message }))
 	} finally {
 		saving.value = false
@@ -418,7 +419,7 @@ onMounted(async () => {
 				currentUser.value = OC.getCurrentUser()
 			}
 		} catch (error) {
-			console.warn('Could not get current user:', error)
+			logger.warn('Could not get current user', { component: 'AvailabilitySettings', action: 'onMountedCurrentUserLookup', error })
 		}
 
 		await loadMemberAvailability()

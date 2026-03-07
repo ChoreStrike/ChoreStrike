@@ -157,6 +157,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import Icon from '../Common/Icon.vue'
 import axios from '@nextcloud/axios'
+import { logger } from '../../utils/logger.js'
 
 // Props
 const props = defineProps<{
@@ -213,7 +214,7 @@ const loadPreview = async () => {
 			throw new Error(response.data.error || 'Failed to load preview')
 		}
 	} catch (error) {
-		console.error('Failed to load schedule preview:', error)
+		logger.error('Failed to load schedule preview', error, { component: 'SchedulePreview', action: 'loadPreview', houseId: props.houseId })
 		// Handle error (could show toast notification)
 	} finally {
 		loading.value = false
@@ -240,7 +241,7 @@ const generateSchedule = async () => {
 			throw new Error(response.data.error || 'Failed to generate schedule')
 		}
 	} catch (error) {
-		console.error('Failed to generate schedule:', error)
+		logger.error('Failed to generate schedule', error, { component: 'SchedulePreview', action: 'generateSchedule', houseId: props.houseId })
 		// Handle error
 	} finally {
 		loading.value = false

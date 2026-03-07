@@ -10,7 +10,6 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\RoomTask;
 use OCP\AppFramework\Db\DoesNotExistException;
-use OCP\ILogger;
 
 /**
  * Smart scheduling compatibility facade.
@@ -23,7 +22,7 @@ class SmartSchedulerService
         private TaskSchedulerService $taskSchedulerService,
         private SchedulingService $schedulingService,
         private RoomTaskService $roomTaskService,
-        private ILogger $logger
+        private ?AppLogger $appLogger = null
     ) {
     }
 
@@ -37,8 +36,11 @@ class SmartSchedulerService
      */
     public function generateSchedule(int $houseId, \DateTime $startDate, \DateTime $endDate): array
     {
-        $this->logger->info('Generating compatibility schedule through TaskSchedulerService for house {houseId}', [
+        $this->appLogger?->info('Generating compatibility schedule', [
+            'service' => 'SmartSchedulerService',
             'houseId' => $houseId,
+            'startDate' => $startDate->format('Y-m-d'),
+            'endDate' => $endDate->format('Y-m-d'),
         ]);
 
         $assignments = $this->buildAssignmentsForRange($houseId, $startDate, $endDate);
@@ -65,6 +67,11 @@ class SmartSchedulerService
     {
         $startDate = new \DateTime('today');
         $endDate = (new \DateTime())->modify("+{$days} days");
+        $this->appLogger?->debug('Building smart schedule preview', [
+            'service' => 'SmartSchedulerService',
+            'houseId' => $houseId,
+            'days' => $days,
+        ]);
 
         $assignments = $this->buildAssignmentsForRange($houseId, $startDate, $endDate);
         $members = $this->schedulingService->getMemberAvailability($houseId);
@@ -108,10 +115,23 @@ class SmartSchedulerService
         try {
             $preferences = $this->schedulingService->getUserPreferencesByNextcloudUserId($houseId, $assignedTo);
         } catch (DoesNotExistException $e) {
+            $this->appLogger?->warning('Scheduling suggestion rejected for non-member assignee', [
+                'service' => 'SmartSchedulerService',
+                'houseId' => $houseId,
+                'taskId' => $taskId,
+                'assignedTo' => $assignedTo,
+            ]);
             throw new \InvalidArgumentException('Assignee must be a house member', 0, $e);
         }
         $dayOfWeek = strtolower($scheduledDate->format('l'));
         if (!(bool)($preferences['weekdayAvailability'][$dayOfWeek] ?? true)) {
+            $this->appLogger?->warning('Scheduling suggestion rejected due to member availability', [
+                'service' => 'SmartSchedulerService',
+                'houseId' => $houseId,
+                'taskId' => $taskId,
+                'assignedTo' => $assignedTo,
+                'day' => $dayOfWeek,
+            ]);
             throw new \InvalidArgumentException('Member is not available on ' . $dayOfWeek);
         }
 
@@ -119,10 +139,13 @@ class SmartSchedulerService
         $this->roomTaskService->assignTask($taskId, $assignedTo);
         $task = $this->roomTaskService->rescheduleTask($taskId, $scheduledDate);
 
-        $this->logger->info(
-            'Compatibility suggestion applied: task {taskId} assigned to {user} on {date}',
-            ['taskId' => $taskId, 'user' => $assignedTo, 'date' => $scheduledFor]
-        );
+        $this->appLogger?->info('Compatibility suggestion applied', [
+            'service' => 'SmartSchedulerService',
+            'houseId' => $houseId,
+            'taskId' => $taskId,
+            'assignedTo' => $assignedTo,
+            'scheduledFor' => $scheduledFor,
+        ]);
 
         return $task;
     }

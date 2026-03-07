@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskService;
@@ -26,6 +27,8 @@ use OCP\IRequest;
  */
 class TaskController extends OCSController
 {
+    use ControllerLoggingTrait;
+
     private TaskService $taskService;
     private RoomTaskService $roomTaskService;
     private HouseService $houseService;
@@ -36,13 +39,17 @@ class TaskController extends OCSController
         TaskService $taskService,
         RoomTaskService $roomTaskService,
         HouseService $houseService,
-        AuthorizationService $authService
+        AuthorizationService $authService,
+        ?AppLogger $appLogger = null
     ) {
         parent::__construct('chorestrike', $request);
         $this->taskService = $taskService;
         $this->roomTaskService = $roomTaskService;
         $this->houseService = $houseService;
         $this->authService = $authService;
+        if ($appLogger !== null) {
+            $this->initializeControllerLogger($appLogger);
+        }
     }
 
     /**
@@ -64,6 +71,7 @@ class TaskController extends OCSController
                 'data' => array_map(fn ($task) => $task->jsonSerialize(), $tasks)
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('index', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -109,6 +117,7 @@ class TaskController extends OCSController
                 ]
             ], 403);
         } catch (\Exception $e) {
+            $this->logControllerException('show', $e, ['taskId' => $id]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -263,6 +272,7 @@ class TaskController extends OCSController
                 ]
             ], 403);
         } catch (\Exception $e) {
+            $this->logControllerException('create', $e, ['taskName' => $name]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -321,6 +331,7 @@ class TaskController extends OCSController
                 ]
             ], 403);
         } catch (\Exception $e) {
+            $this->logControllerException('update', $e, ['taskId' => $id]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -366,6 +377,7 @@ class TaskController extends OCSController
                 ]
             ], 403);
         } catch (\Exception $e) {
+            $this->logControllerException('delete', $e, ['taskId' => $id]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -395,6 +407,7 @@ class TaskController extends OCSController
                 'data' => array_map(fn ($template) => $template->jsonSerialize(), $templates)
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('templates', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -440,6 +453,7 @@ class TaskController extends OCSController
                 ]
             ], 403);
         } catch (\Exception $e) {
+            $this->logControllerException('createFromTemplate', $e, ['templateId' => $templateId]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -469,6 +483,7 @@ class TaskController extends OCSController
                 'data' => array_map(fn ($task) => $task->jsonSerialize(), $tasks)
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('byCategory', $e, ['category' => $category]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -508,6 +523,7 @@ class TaskController extends OCSController
                 'data' => array_map(fn ($task) => $task->jsonSerialize(), $tasks)
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('search', $e, ['query' => $query]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -537,6 +553,7 @@ class TaskController extends OCSController
                 'data' => $categories
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('categories', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -567,6 +584,7 @@ class TaskController extends OCSController
                 'message' => 'Default task templates created successfully'
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('createDefaultTemplates', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -608,6 +626,7 @@ class TaskController extends OCSController
                 'data' => $taskPayload
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('daily', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -654,6 +673,7 @@ class TaskController extends OCSController
                 ]
             ], 403);
         } catch (\Exception $e) {
+            $this->logControllerException('complete', $e, ['roomTaskId' => $id]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -700,6 +720,7 @@ class TaskController extends OCSController
                 ]
             ], 403);
         } catch (\Exception $e) {
+            $this->logControllerException('uncomplete', $e, ['roomTaskId' => $id]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -746,6 +767,7 @@ class TaskController extends OCSController
                 ]
             ], 403);
         } catch (\Exception $e) {
+            $this->logControllerException('skip', $e, ['roomTaskId' => $id]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -804,6 +826,7 @@ class TaskController extends OCSController
                 ]
             ], 403);
         } catch (\Exception $e) {
+            $this->logControllerException('reschedule', $e, ['roomTaskId' => $id]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [

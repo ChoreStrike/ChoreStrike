@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
@@ -19,17 +20,23 @@ use OCP\IRequest;
  */
 class HouseController extends OCSController
 {
+    use ControllerLoggingTrait;
+
     private HouseService $houseService;
     private AuthorizationService $authService;
 
     public function __construct(
         IRequest $request,
         HouseService $houseService,
-        AuthorizationService $authService
+        AuthorizationService $authService,
+        ?AppLogger $appLogger = null
     ) {
         parent::__construct('chorestrike', $request);
         $this->houseService = $houseService;
         $this->authService = $authService;
+        if ($appLogger !== null) {
+            $this->initializeControllerLogger($appLogger);
+        }
     }
 
     /**
@@ -49,6 +56,7 @@ class HouseController extends OCSController
                 'data' => $house->jsonSerialize()
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('get', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -90,6 +98,7 @@ class HouseController extends OCSController
                 'data' => $updatedHouse->jsonSerialize()
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('update', $e, ['houseName' => $name]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -124,6 +133,7 @@ class HouseController extends OCSController
                 ]
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('stats', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -157,6 +167,7 @@ class HouseController extends OCSController
                 ]
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('health', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -192,6 +203,7 @@ class HouseController extends OCSController
                 'message' => 'House has been reset to initial state'
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('reset', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [

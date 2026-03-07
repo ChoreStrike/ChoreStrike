@@ -69,7 +69,7 @@
   - Test framework mismatch - removed Cypress test from Jest suite
   - Emoji.spec.js expectations updated for local-only implementation
   - FloorList.spec.js expandedFloors initialization
-- **Test Results**: 400/400 frontend tests passing ✅
+- **Test Results**: 400/400 frontend tests passing 
 - **Code Quality**: 8/10 - Good architecture, comprehensive tests, proper documentation
 - **Issues Identified**:
   - HIGH: Missing authorization check in ChecklistController.php:282
@@ -81,12 +81,36 @@
 - **Created**: Detailed review document and Phase 9 backlog for identified issues
 - **Recommendation**: APPROVE WITH MINOR FIXES (address high-priority items before deployment)
 
+### Cascade - P9-REFACTOR-001 - Project-Wide Logging Strategy And Rollout
+**Status**: Review Ready  
+**Started**: 2026-03-07 16:34  
+**Updated**: 2026-03-07 21:05  
+**Branch**: master  
+**Related Files**: AGENTS.md, docs/AGENT_GUIDELINES.md, docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-9-code-quality.md, docs/standards/LOGGING.md, docs/standards/README.md, lib/Controller/*.php, lib/Service/*.php, src/components/Common/Icon.vue, src/components/Dashboard/*.vue, src/components/Gamification/*.vue, src/components/Scheduling/*.vue, src/store/*.js, src/utils/logger.js, src/views/*.vue, src/main.js, tests/bootstrap-entity.php, tests/unit/Controller/*.php, tests/unit/Service/*.php, tests/unit/utils/logger.spec.js  
+**Blockers**: None  
+**Notes**:
+- Define a Nextcloud-native logging concept with log levels, context rules, and privacy guardrails.
+- Introduce reusable backend logging infrastructure for controllers and services.
+- Roll out structured error, warning, and audit logging across API controllers and critical services.
+- Add regression coverage for logged failure paths and keep Phase 9 backlog/guidelines aligned.
+- Backend rollout completed with `AppLogger` and `ControllerLoggingTrait`, including controller/service integration and logging-focused regression tests.
+- Frontend rollout completed across active stores, production views, scheduling/gamification/dashboard components, `Icon.vue`, and `main.js` using shared `src/utils/logger.js`.
+- Remaining raw console usage is intentionally limited to `src/utils/logger.js`, `src/utils/performance.js`, and unwired legacy `src/components/UserManagement/*` components.
+- Validation completed:
+  - `npx eslint --quiet ...` across touched frontend logging files -> 0 errors
+  - `npx jest --runInBand tests/unit/utils/logger.spec.js` -> pass
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\AppLoggerTest.php` -> pass
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\HouseServiceLoggingTest.php` -> pass
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\RoomTaskServiceLoggingTest.php` -> pass
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Controller\\TaskControllerLoggingTest.php` -> pass
+- `tests/bootstrap-entity.php` was widened to load AppFramework controller/HTTP mocks required by the new unit logging tests.
+
 ### Next Session Tasks (Prioritized)
 1. **P9-SECURITY-002** (High) - Add authorization check in ChecklistController
-2. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
-3. **P9-REFACTOR-001** (Medium) - Production logging strategy
-4. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
-5. **P8-RELEASE-001** (High) - App store submission preparation
+2. **P9-DEPRECATION-001** (Medium) - Replace deprecated `OC.getCurrentUser()` in `AvailabilitySettings.vue`
+3. **P9-LINT-001** (Medium) - Reduce remaining warning baseline (mainly JSDoc and formatting)
+4. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
+5. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
 
 ---
 

@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
+import { logger } from '../utils/logger.js'
 
 export const useRoomTasksStore = defineStore('roomTasks', {
 	state: () => ({
@@ -133,7 +134,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch room tasks:', error)
+				logger.error('Failed to fetch room tasks', error, { store: 'roomTasks', action: 'fetchRoomTasks', roomId })
 				throw error
 			} finally {
 				this.loading = false
@@ -158,7 +159,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch room task details:', error)
+				logger.error('Failed to fetch room task details', error, { store: 'roomTasks', action: 'fetchRoomTaskWithDetails', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -184,7 +185,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to create room task:', error)
+				logger.error('Failed to create room task', error, { store: 'roomTasks', action: 'createRoomTask' })
 				throw error
 			} finally {
 				this.loading = false
@@ -217,7 +218,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to assign room task:', error)
+				logger.error('Failed to assign room task', error, { store: 'roomTasks', action: 'assignRoomTask', roomTaskId, userId })
 				throw error
 			} finally {
 				this.loading = false
@@ -245,7 +246,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to unassign room task:', error)
+				logger.error('Failed to unassign room task', error, { store: 'roomTasks', action: 'unassignRoomTask', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -273,7 +274,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to deactivate room task:', error)
+				logger.error('Failed to deactivate room task', error, { store: 'roomTasks', action: 'deactivateRoomTask', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -301,7 +302,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to reactivate room task:', error)
+				logger.error('Failed to reactivate room task', error, { store: 'roomTasks', action: 'reactivateRoomTask', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -334,7 +335,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update room task due date:', error)
+				logger.error('Failed to update room task due date', error, { store: 'roomTasks', action: 'updateRoomTaskDueDate', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -369,7 +370,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to complete room task:', error)
+				logger.error('Failed to complete room task', error, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId, userId })
 				throw error
 			} finally {
 				this.loading = false
@@ -395,7 +396,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to delete room task:', error)
+				logger.error('Failed to delete room task', error, { store: 'roomTasks', action: 'deleteRoomTask', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -413,7 +414,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			try {
 				const url = roomId
 					? `/index.php/apps/chorestrike/api/v1/room-tasks/overdue?roomId=${roomId}`
-					: `/index.php/apps/chorestrike/api/v1/room-tasks/overdue`
+					: '/index.php/apps/chorestrike/api/v1/room-tasks/overdue'
 
 				const response = await axios.get(url)
 
@@ -424,7 +425,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch overdue tasks:', error)
+				logger.error('Failed to fetch overdue tasks', error, { store: 'roomTasks', action: 'fetchOverdueTasks', roomId })
 				throw error
 			} finally {
 				this.loading = false
@@ -442,7 +443,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			try {
 				const url = roomId
 					? `/index.php/apps/chorestrike/api/v1/room-tasks/due-today?roomId=${roomId}`
-					: `/index.php/apps/chorestrike/api/v1/room-tasks/due-today`
+					: '/index.php/apps/chorestrike/api/v1/room-tasks/due-today'
 
 				const response = await axios.get(url)
 
@@ -453,7 +454,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch due today tasks:', error)
+				logger.error('Failed to fetch due today tasks', error, { store: 'roomTasks', action: 'fetchDueTodayTasks', roomId })
 				throw error
 			} finally {
 				this.loading = false
@@ -487,7 +488,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch due within days tasks:', error)
+				logger.error('Failed to fetch due within days tasks', error, { store: 'roomTasks', action: 'fetchDueWithinDaysTasks', days, roomId })
 				throw error
 			} finally {
 				this.loading = false
@@ -517,7 +518,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch user tasks:', error)
+				logger.error('Failed to fetch user tasks', error, { store: 'roomTasks', action: 'fetchUserTasks', userId })
 				throw error
 			} finally {
 				this.loading = false
@@ -542,7 +543,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch room task stats:', error)
+				logger.error('Failed to fetch room task stats', error, { store: 'roomTasks', action: 'fetchRoomTaskStats', roomId })
 				throw error
 			} finally {
 				this.loading = false
@@ -571,7 +572,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch user task stats:', error)
+				logger.error('Failed to fetch user task stats', error, { store: 'roomTasks', action: 'fetchUserTaskStats', userId })
 				throw error
 			} finally {
 				this.loading = false
@@ -606,7 +607,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				return results
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to bulk assign tasks:', error)
+				logger.error('Failed to bulk assign tasks', error, { store: 'roomTasks', action: 'bulkAssignTasks', userId })
 				throw error
 			} finally {
 				this.loading = false

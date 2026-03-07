@@ -335,6 +335,7 @@ import { showSuccess, showError } from '@nextcloud/dialogs'
 import Icon from '../Common/Icon.vue'
 import Modal from '../Common/Modal.vue'
 import axios from '@nextcloud/axios'
+import { logger } from '../../utils/logger.js'
 
 type SuggestionType = 'reassignment' | 'rescheduling' | 'capacity' | 'fairness'
 type SuggestionPriority = 'high' | 'medium' | 'low'
@@ -466,7 +467,7 @@ const loadSuggestions = async () => {
 			throw new Error(response.data.error || 'Failed to load suggestions')
 		}
 	} catch (error) {
-		console.error('Failed to load suggestions:', error)
+		logger.error('Failed to load suggestions', error, { component: 'SchedulingSuggestions', action: 'loadSuggestions', houseId: props.houseId })
 		// Show empty state on error
 		suggestions.value = []
 	} finally {
@@ -558,7 +559,7 @@ const applySuggestion = async (suggestion: SchedulingSuggestion | null): Promise
 			showError(response.data.error || t('chorestrike', 'Failed to apply suggestion'))
 		}
 	} catch (error: unknown) {
-		console.error('Failed to apply suggestion:', error)
+		logger.error('Failed to apply suggestion', error, { component: 'SchedulingSuggestions', action: 'applySuggestion', suggestionId: suggestion.id })
 		const errorMessage = error instanceof Error ? error.message : t('chorestrike', 'Failed to apply suggestion')
 		showError(errorMessage)
 	}

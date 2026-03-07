@@ -15,6 +15,7 @@
 <script>
 import { computed } from 'vue'
 import { getIcon } from '../../utils/icons.js'
+import { logger } from '../../utils/logger.js'
 
 /**
  * Icon component for ChoreStrike
@@ -70,7 +71,7 @@ export default {
 		const iconComponent = computed(() => {
 			const component = getIcon(props.name)
 			if (!component) {
-				console.warn(`Icon "${props.name}" not found in icon registry`)
+				logger.warn(`Icon "${props.name}" not found in icon registry`, { component: 'Icon', iconName: props.name })
 				return null
 			}
 			return component

@@ -24,6 +24,7 @@
 import { ref, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import axios from '@nextcloud/axios'
+import { logger } from '../../utils/logger.js'
 
 interface Medal {
 	id: number
@@ -93,7 +94,7 @@ const loadMedals = async (): Promise<void> => {
 			}))
 		}
 	} catch (error) {
-		console.error('Failed to load medals:', error)
+		logger.error('Failed to load medals', error, { component: 'MedalDisplay', action: 'loadMedals', userId: props.userId })
 	} finally {
 		loading.value = false
 	}

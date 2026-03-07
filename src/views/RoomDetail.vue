@@ -88,6 +88,7 @@ import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
+import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import MonsterSprite from '../components/Common/MonsterSprite.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
@@ -203,7 +204,7 @@ export default {
 				await this.tasksStore.fetchTasks()
 				await this.roomTasksStore.fetchRoomTasks(this.roomId)
 			} catch (error) {
-				console.error('Failed to initialize room:', error)
+				logger.error('Failed to initialize room', error, { view: 'RoomDetail', action: 'initializeRoom', roomId: this.roomId })
 			} finally {
 				this.loading = false
 			}
@@ -215,7 +216,7 @@ export default {
 					this.$emit('task-completed', roomTaskId)
 				})
 				.catch(error => {
-					console.error('Failed to complete task:', error)
+					logger.error('Failed to complete task', error, { view: 'RoomDetail', action: 'handleCompleteTask', roomTaskId })
 				})
 		},
 
@@ -230,7 +231,7 @@ export default {
 			}
 			this.roomTasksStore.deleteRoomTask(roomTaskId)
 				.catch(error => {
-					console.error('Failed to delete task:', error)
+					logger.error('Failed to delete task', error, { view: 'RoomDetail', action: 'handleDeleteTask', roomTaskId })
 				})
 		},
 
@@ -244,7 +245,7 @@ export default {
 					this.showAddTaskModal = false
 				})
 				.catch(error => {
-					console.error('Failed to create task:', error)
+					logger.error('Failed to create task', error, { view: 'RoomDetail', action: 'handleAddTask', roomId: this.roomId })
 				})
 		},
 
@@ -256,7 +257,7 @@ export default {
 					this.editingTask = null
 				})
 				.catch(error => {
-					console.error('Failed to update task:', error)
+					logger.error('Failed to update task', error, { view: 'RoomDetail', action: 'handleUpdateTask', roomTaskId: this.editingTask?.id })
 				})
 		},
 	},

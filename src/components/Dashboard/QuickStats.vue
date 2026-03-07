@@ -113,9 +113,17 @@ import { translate as t } from '@nextcloud/l10n'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useRouter } from 'vue-router'
+import { logger } from '../../utils/logger.js'
+import Icon from '../Common/Icon.vue'
+import Emoji from '../Common/Emoji.vue'
 
 export default {
 	name: 'QuickStats',
+
+	components: {
+		Icon,
+		Emoji,
+	},
 
 	props: {
 		showActions: {
@@ -154,7 +162,7 @@ export default {
 					roomTasksStore.fetchOverdueTasks(),
 				])
 			} catch (error) {
-				console.error('Failed to refresh stats:', error)
+				logger.error('Failed to refresh stats', error, { component: 'QuickStats', action: 'refreshStats' })
 			}
 		}
 

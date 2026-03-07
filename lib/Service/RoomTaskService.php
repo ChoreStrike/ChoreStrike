@@ -28,19 +28,22 @@ class RoomTaskService
     private RoomMapper $roomMapper;
     private FloorMapper $floorMapper;
     private RoomService $roomService;
+    private ?AppLogger $appLogger;
 
     public function __construct(
         RoomTaskMapper $roomTaskMapper,
         TaskMapper $taskMapper,
         RoomMapper $roomMapper,
         FloorMapper $floorMapper,
-        RoomService $roomService
+        RoomService $roomService,
+        ?AppLogger $appLogger = null
     ) {
         $this->roomTaskMapper = $roomTaskMapper;
         $this->taskMapper = $taskMapper;
         $this->roomMapper = $roomMapper;
         $this->floorMapper = $floorMapper;
         $this->roomService = $roomService;
+        $this->appLogger = $appLogger;
     }
 
     /**
@@ -57,6 +60,12 @@ class RoomTaskService
         $floor = $this->floorMapper->find($room->getFloorId());
 
         if ($floor->getHouseId() !== $houseId) {
+            $this->appLogger?->securityWarning('Room task ownership validation failed', [
+                'service' => 'RoomTaskService',
+                'roomTaskId' => $roomTaskId,
+                'houseId' => $houseId,
+                'actualHouseId' => $floor->getHouseId(),
+            ]);
             throw new NotFoundException('Room task not found');
         }
     }
@@ -352,8 +361,12 @@ class RoomTaskService
             try {
                 $assignedTasks[] = $this->assignTask($roomTaskId, $userId);
             } catch (\Exception $e) {
-                // Log error but continue with other tasks
-                // In a real implementation, you'd want proper logging
+                $this->appLogger?->warning('Bulk room task assignment skipped failed item', [
+                    'service' => 'RoomTaskService',
+                    'roomTaskId' => $roomTaskId,
+                    'userId' => $userId,
+                    'exception' => get_class($e),
+                ]);
                 continue;
             }
         }

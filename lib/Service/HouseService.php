@@ -26,17 +26,20 @@ class HouseService
     private FloorMapper $floorMapper;
     private RoomMapper $roomMapper;
     private IConfig $config;
+    private ?AppLogger $appLogger;
 
     public function __construct(
         HouseMapper $houseMapper,
         FloorMapper $floorMapper,
         RoomMapper $roomMapper,
-        IConfig $config
+        IConfig $config,
+        ?AppLogger $appLogger = null
     ) {
         $this->houseMapper = $houseMapper;
         $this->floorMapper = $floorMapper;
         $this->roomMapper = $roomMapper;
         $this->config = $config;
+        $this->appLogger = $appLogger;
     }
 
     /**
@@ -50,6 +53,11 @@ class HouseService
         try {
             return $this->houseMapper->findByInstanceId($instanceId);
         } catch (DoesNotExistException $e) {
+            $this->appLogger?->info('Creating house for instance', [
+                'service' => 'HouseService',
+                'instanceId' => $instanceId,
+                'houseName' => $houseName,
+            ]);
             return $this->houseMapper->createForInstance($instanceId, $houseName);
         }
     }
@@ -150,6 +158,10 @@ class HouseService
      */
     public function resetHouse(int $houseId): void
     {
+        $this->appLogger?->warning('Resetting house to initial state', [
+            'service' => 'HouseService',
+            'houseId' => $houseId,
+        ]);
         $house = $this->houseMapper->find($houseId);
         $house->setHouseHealth(100);
         $house->touch();

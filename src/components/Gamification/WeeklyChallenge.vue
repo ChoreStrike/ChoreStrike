@@ -58,6 +58,7 @@ import { ref, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import Icon from '../Common/Icon.vue'
 import axios from '@nextcloud/axios'
+import { logger } from '../../utils/logger.js'
 
 interface Challenge {
 	id: string
@@ -100,7 +101,7 @@ const loadChallenge = async () => {
 			challenge.value = response.data.data
 		}
 	} catch (error) {
-		console.error('Failed to load challenge:', error)
+		logger.error('Failed to load challenge', error, { component: 'WeeklyChallenge', action: 'loadChallenge', userId: props.userId })
 	} finally {
 		loading.value = false
 	}
@@ -114,7 +115,7 @@ const claimReward = async () => {
 			challenge.value.claimed = true
 		}
 	} catch (error) {
-		console.error('Failed to claim reward:', error)
+		logger.error('Failed to claim reward', error, { component: 'WeeklyChallenge', action: 'claimReward', challengeId: challenge.value.id, userId: props.userId })
 	} finally {
 		claiming.value = false
 	}

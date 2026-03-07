@@ -185,7 +185,11 @@
 						<button type="button" class="cancel-button" @click="closeAddRoomModal">
 							{{ t('chorestrike', 'Cancel') }}
 						</button>
-						<button type="submit" class="submit-button" data-testid="create-room-button" :disabled="!newRoomName.trim() || loading">
+						<button
+							type="submit"
+							class="submit-button"
+							data-testid="create-room-button"
+							:disabled="!newRoomName.trim() || loading">
 							{{ t('chorestrike', 'Create Room') }}
 						</button>
 					</div>
@@ -200,6 +204,7 @@ import { computed, ref, onMounted, nextTick } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRouter } from 'vue-router'
+import { logger } from '../../utils/logger.js'
 import RoomCard from './RoomCard.vue'
 
 export default {
@@ -288,7 +293,7 @@ export default {
 			try {
 				await roomsStore.fetchFloorsWithRooms()
 			} catch (error) {
-				console.error('Failed to refresh floors:', error)
+				logger.error('Failed to refresh floors', error, { component: 'FloorList', action: 'refreshFloors' })
 			}
 		}
 
@@ -308,17 +313,17 @@ export default {
 			try {
 				const newFloor = await roomsStore.createFloor(newFloorName.value.trim())
 				closeAddFloorModal()
-				
+
 				// Expand the new floor BEFORE refresh so it stays expanded after re-render
 				if (newFloor) {
 					roomsStore.setFloorExpanded(newFloor.id)
 					await nextTick() // Ensure Vue processes the expanded state
 				}
-				
+
 				// Force refresh to ensure UI updates in Nextcloud environment
 				await roomsStore.fetchFloorsWithRooms()
 			} catch (error) {
-				console.error('Failed to create floor:', error)
+				logger.error('Failed to create floor', error, { component: 'FloorList', action: 'handleAddFloor' })
 			}
 		}
 
@@ -341,7 +346,7 @@ export default {
 				// Remove from expanded floors
 				roomsStore.setFloorCollapsed(floor.id)
 			} catch (error) {
-				console.error('Failed to delete floor:', error)
+				logger.error('Failed to delete floor', error, { component: 'FloorList', action: 'deleteFloor', floorId: floor.id })
 			}
 		}
 
@@ -372,11 +377,11 @@ export default {
 			try {
 				await roomsStore.createRoom(floorId, roomNameValue)
 				closeAddRoomModal()
-				
+
 				// Force refresh to ensure UI updates in Nextcloud environment
 				await roomsStore.fetchFloorsWithRooms()
 			} catch (error) {
-				console.error('Failed to create room:', error)
+				logger.error('Failed to create room', error, { component: 'FloorList', action: 'handleAddRoom', floorId })
 			}
 		}
 

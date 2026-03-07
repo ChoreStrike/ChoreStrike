@@ -168,10 +168,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import Icon from '../Common/Icon.vue'
 import axios from '@nextcloud/axios'
+import { logger } from '../../utils/logger.js'
 
 type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'
 type EnergyBudget = Record<Weekday, number>
@@ -336,7 +336,7 @@ const loadCurrentUserBudget = async () => {
 			throw new Error(response.data.error || 'Failed to load energy budget')
 		}
 	} catch (error) {
-		console.error('Failed to load energy budget:', error)
+		logger.error('Failed to load energy budget', error, { component: 'EnergyBudgetSettings', action: 'loadCurrentUserBudget', houseId: props.houseId })
 		showNotification('error', t('chorestrike', 'Failed to load energy budget settings'))
 	} finally {
 		loading.value = false
@@ -366,7 +366,7 @@ const saveEnergyBudget = async () => {
 		emit('budget-updated', currentUserBudget.value)
 		showNotification('success', t('chorestrike', 'Energy budget saved successfully!'))
 	} catch (error) {
-		console.error('Failed to save energy budget:', error)
+		logger.error('Failed to save energy budget', error, { component: 'EnergyBudgetSettings', action: 'saveEnergyBudget', houseId: props.houseId })
 		showNotification('error', t('chorestrike', 'Failed to save energy budget'))
 	} finally {
 		saving.value = false

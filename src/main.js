@@ -5,28 +5,31 @@
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import axios from 'axios'
+import axios from '@nextcloud/axios'
 import App from './App.vue'
 import router from './router.js'
+import { logger } from './utils/logger.js'
 
 // Configure axios for Nextcloud CSRF protection
-axios.defaults.headers.common['requesttoken'] = window.OC?.requestToken || ''
+axios.defaults.headers.common.requesttoken = window.OC?.requestToken || ''
 axios.defaults.withCredentials = true
 
 try {
-    const pinia = createPinia()
-    const app = createApp(App)
+	const pinia = createPinia()
+	const app = createApp(App)
 
-    app.use(pinia)
-    app.use(router)
+	app.use(pinia)
+	app.use(router)
 
-    app.mount('#app-chorestrike-vue')
+	app.mount('#app-chorestrike-vue')
 
-    // Register for debugging
-    window.chorestrike = { app, pinia, router }
-    console.log('ChoreStrike app mounted successfully')
+	// Register for debugging
+	window.chorestrike = { app, pinia, router }
+	logger.info('ChoreStrike app mounted successfully', { module: 'main' })
 } catch (error) {
-    console.error('ChoreStrike app failed to start:', error)
-    document.getElementById('app-chorestrike-vue').innerHTML = 
-        '<div style="padding: 20px; color: red;">App failed to load. Check console.</div>'
+	logger.error('ChoreStrike app failed to start', error, { module: 'main' })
+	const appRoot = document.getElementById('app-chorestrike-vue')
+	if (appRoot) {
+		appRoot.innerHTML = '<div style="padding: 20px; color: red;">App failed to load. Check logs.</div>'
+	}
 }

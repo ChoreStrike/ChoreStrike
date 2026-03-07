@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
+import { logger } from '../utils/logger.js'
 
 /**
  * Store for managing member availability and scheduling preferences
@@ -170,7 +171,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch scheduling preferences:', error)
+				logger.error('Failed to fetch scheduling preferences', error, { store: 'scheduling', action: 'fetchUserPreferences' })
 				// Use defaults on error
 			} finally {
 				this.loading = false
@@ -204,7 +205,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update energy budget:', error)
+				logger.error('Failed to update energy budget', error, { store: 'scheduling', action: 'updateEnergyBudget', day: dayKey })
 				throw error
 			} finally {
 				this.loading = false
@@ -235,7 +236,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update availability:', error)
+				logger.error('Failed to update availability', error, { store: 'scheduling', action: 'updateAvailability', day: dayKey })
 				throw error
 			} finally {
 				this.loading = false
@@ -259,7 +260,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch member availability:', error)
+				logger.error('Failed to fetch member availability', error, { store: 'scheduling', action: 'fetchMemberAvailability' })
 				throw error
 			} finally {
 				this.loading = false
@@ -292,7 +293,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update member availability:', error)
+				logger.error('Failed to update member availability', error, { store: 'scheduling', action: 'updateMemberAvailability', userId })
 				throw error
 			} finally {
 				this.loading = false
@@ -319,7 +320,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to get scheduling suggestions:', error)
+				logger.error('Failed to get scheduling suggestions', error, { store: 'scheduling', action: 'getSchedulingSuggestions' })
 				throw error
 			} finally {
 				this.loading = false

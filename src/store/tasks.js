@@ -6,6 +6,7 @@
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
 import { translate as t } from '@nextcloud/l10n'
+import { logger } from '../utils/logger.js'
 
 const tr = (message) => t('chorestrike', message)
 
@@ -124,7 +125,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch tasks:', error)
+				logger.error('Failed to fetch tasks', error, { store: 'tasks', action: 'fetchTasks' })
 				throw error
 			} finally {
 				this.loading = false
@@ -148,7 +149,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch task templates:', error)
+				logger.error('Failed to fetch task templates', error, { store: 'tasks', action: 'fetchTaskTemplates' })
 				throw error
 			} finally {
 				this.loading = false
@@ -176,7 +177,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch room tasks:', error)
+				logger.error('Failed to fetch room tasks', error, { store: 'tasks', action: 'fetchRoomTasks', roomId })
 				throw error
 			} finally {
 				this.loading = false
@@ -202,7 +203,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to create task:', error)
+				logger.error('Failed to create task', error, { store: 'tasks', action: 'createTask' })
 				throw error
 			} finally {
 				this.loading = false
@@ -228,7 +229,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to create task from template:', error)
+				logger.error('Failed to create task from template', error, { store: 'tasks', action: 'createTaskFromTemplate', templateId })
 				throw error
 			} finally {
 				this.loading = false
@@ -257,7 +258,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to update task:', error)
+				logger.error('Failed to update task', error, { store: 'tasks', action: 'updateTask', taskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -283,7 +284,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to delete task:', error)
+				logger.error('Failed to delete task', error, { store: 'tasks', action: 'deleteTask', taskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -301,9 +302,7 @@ export const useTasksStore = defineStore('tasks', {
 				const response = await axios.post('/index.php/apps/chorestrike/api/v1/tasks/create-default-templates')
 
 				if (response.data.success) {
-					// Update templates in state
 					this.templates = response.data.data
-					// Also add to tasks if they're not already there
 					response.data.data.forEach(template => {
 						if (!this.tasks.find(t => t.id === template.id)) {
 							this.tasks.push(template)
@@ -314,7 +313,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to create default templates:', error)
+				logger.error('Failed to create default templates', error, { store: 'tasks', action: 'createDefaultTemplates' })
 				throw error
 			} finally {
 				this.loading = false
@@ -343,7 +342,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to search tasks:', error)
+				logger.error('Failed to search tasks', error, { store: 'tasks', action: 'searchTasks', query })
 				throw error
 			} finally {
 				this.loading = false
@@ -368,7 +367,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch tasks by category:', error)
+				logger.error('Failed to fetch tasks by category', error, { store: 'tasks', action: 'fetchTasksByCategory', category })
 				throw error
 			} finally {
 				this.loading = false
@@ -392,7 +391,7 @@ export const useTasksStore = defineStore('tasks', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch task categories:', error)
+				logger.error('Failed to fetch task categories', error, { store: 'tasks', action: 'fetchTaskCategories' })
 				throw error
 			} finally {
 				this.loading = false

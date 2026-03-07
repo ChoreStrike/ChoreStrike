@@ -9,12 +9,12 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCA\ChoreStrike\Service\SmartSchedulerService;
 use OCA\ChoreStrike\Service\TaskSchedulerService;
 use OCP\AppFramework\Db\DoesNotExistException;
-use OCP\ILogger;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -24,20 +24,20 @@ class SmartSchedulerServiceTest extends TestCase
     private TaskSchedulerService|MockObject $taskSchedulerService;
     private SchedulingService|MockObject $schedulingService;
     private RoomTaskService|MockObject $roomTaskService;
-    private ILogger|MockObject $logger;
+    private AppLogger|MockObject $appLogger;
 
     protected function setUp(): void
     {
         $this->taskSchedulerService = $this->createMock(TaskSchedulerService::class);
         $this->schedulingService = $this->createMock(SchedulingService::class);
         $this->roomTaskService = $this->createMock(RoomTaskService::class);
-        $this->logger = $this->createMock(ILogger::class);
+        $this->appLogger = $this->createMock(AppLogger::class);
 
         $this->service = new SmartSchedulerService(
             $this->taskSchedulerService,
             $this->schedulingService,
             $this->roomTaskService,
-            $this->logger
+            $this->appLogger
         );
     }
 

@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\SmartSchedulerService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -23,6 +24,8 @@ use OCP\IUserSession;
  */
 class SmartSchedulerController extends Controller
 {
+    use ControllerLoggingTrait;
+
     private SmartSchedulerService $smartSchedulerService;
     private SchedulingService $schedulingService;
     private HouseService $houseService;
@@ -35,7 +38,8 @@ class SmartSchedulerController extends Controller
         SchedulingService $schedulingService,
         HouseService $houseService,
         IUserSession $userSession,
-        IL10N $l
+        IL10N $l,
+        ?AppLogger $appLogger = null
     ) {
         parent::__construct($request);
         $this->smartSchedulerService = $smartSchedulerService;
@@ -43,6 +47,9 @@ class SmartSchedulerController extends Controller
         $this->houseService = $houseService;
         $this->userSession = $userSession;
         $this->l = $l;
+        if ($appLogger !== null) {
+            $this->initializeControllerLogger($appLogger);
+        }
     }
 
     /**
@@ -69,6 +76,7 @@ class SmartSchedulerController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            $this->logControllerException('getSchedulePreview', $e, ['days' => $days]);
             return new DataResponse([
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -115,6 +123,7 @@ class SmartSchedulerController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            $this->logControllerException('generateSchedule', $e, ['startDate' => $startDate, 'endDate' => $endDate]);
             return new DataResponse([
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -145,6 +154,7 @@ class SmartSchedulerController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            $this->logControllerException('getMemberAvailability', $e);
             return new DataResponse([
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -204,6 +214,7 @@ class SmartSchedulerController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            $this->logControllerException('updateMyAvailability', $e, ['availabilityDays' => array_keys($availability)]);
             return new DataResponse([
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -254,6 +265,7 @@ class SmartSchedulerController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            $this->logControllerException('updateMyEnergyBudget', $e, ['energyBudgetDays' => array_keys($energyBudget)]);
             return new DataResponse([
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -288,6 +300,7 @@ class SmartSchedulerController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            $this->logControllerException('getSchedulingSuggestions', $e);
             return new DataResponse([
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -327,11 +340,17 @@ class SmartSchedulerController extends Controller
             ]);
 
         } catch (\InvalidArgumentException $e) {
+            $this->logControllerWarning('Smart scheduling suggestion validation failed', [
+                'action' => 'applySuggestion',
+                'taskId' => $taskId,
+                'assignedTo' => $assignedTo,
+            ]);
             return new DataResponse([
                 'success' => false,
                 'error' => $e->getMessage(),
             ], Http::STATUS_BAD_REQUEST);
         } catch (\Exception $e) {
+            $this->logControllerException('applySuggestion', $e, ['taskId' => $taskId, 'assignedTo' => $assignedTo]);
             return new DataResponse([
                 'success' => false,
                 'error' => $e->getMessage(),

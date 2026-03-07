@@ -42,6 +42,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
+import { logger } from '../utils/logger.js'
 import HouseHealthBar from '../components/Dashboard/HouseHealthBar.vue'
 import QuickStats from '../components/Dashboard/QuickStats.vue'
 import FloorList from '../components/Dashboard/FloorList.vue'
@@ -84,7 +85,7 @@ export default {
 				await this.houseStore.fetchHouse()
 				await this.roomsStore.fetchFloorsWithRooms()
 			} catch (error) {
-				console.error('Failed to initialize dashboard:', error)
+				logger.error('Failed to initialize dashboard', error, { view: 'Dashboard', action: 'initializeDashboard' })
 			}
 		},
 	},

@@ -134,6 +134,7 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import { useUserStore } from '../store/user.js'
+import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import MedalBadge from '../components/Common/MedalBadge.vue'
 
@@ -197,7 +198,7 @@ export default {
 				await this.userStore.initializeCurrentUser()
 				await this.userStore.fetchHouseUsers()
 			} catch (error) {
-				console.error('Failed to initialize leaderboard:', error)
+				logger.error('Failed to initialize leaderboard', error, { view: 'Leaderboard', action: 'initializeLeaderboard' })
 			} finally {
 				this.loading = false
 			}

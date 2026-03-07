@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
+import { logger } from '../utils/logger.js'
 
 export const useGameStore = defineStore('game', {
 	state: () => ({
@@ -58,7 +59,7 @@ export const useGameStore = defineStore('game', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch game state:', error)
+				logger.error('Failed to fetch game state', error, { store: 'game', action: 'fetchGameState' })
 				throw error
 			} finally {
 				this.loading = false
@@ -82,7 +83,7 @@ export const useGameStore = defineStore('game', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch leaderboard:', error)
+				logger.error('Failed to fetch leaderboard', error, { store: 'game', action: 'fetchLeaderboard' })
 				throw error
 			} finally {
 				this.loading = false
@@ -106,7 +107,7 @@ export const useGameStore = defineStore('game', {
 				}
 			} catch (error) {
 				this.error = error.message
-				console.error('Failed to fetch medals:', error)
+				logger.error('Failed to fetch medals', error, { store: 'game', action: 'fetchMedals' })
 				throw error
 			} finally {
 				this.loading = false

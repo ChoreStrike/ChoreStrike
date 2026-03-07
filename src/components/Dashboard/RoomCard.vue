@@ -103,9 +103,16 @@ import { useRouter } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useGameStore } from '../../store/game.js'
+import { logger } from '../../utils/logger.js'
+import Icon from '../Common/Icon.vue'
+import Emoji from '../Common/Emoji.vue'
 
 export default {
 	name: 'RoomCard',
+	components: {
+		Icon,
+		Emoji,
+	},
 
 	props: {
 		room: {
@@ -245,7 +252,7 @@ export default {
 					gameStore.updateMonstersForCleanliness(props.room.id, Math.min(100, props.room.cleanliness + 10))
 				}
 			} catch (error) {
-				console.error('Failed to quick clean room:', error)
+				logger.error('Failed to quick clean room', error, { component: 'RoomCard', action: 'quickClean', roomId: props.room.id })
 			} finally {
 				loading.value = false
 			}

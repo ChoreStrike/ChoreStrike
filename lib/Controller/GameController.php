@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
@@ -20,6 +21,8 @@ use OCP\IRequest;
  */
 class GameController extends OCSController
 {
+    use ControllerLoggingTrait;
+
     private GameLogicService $gameLogicService;
     private HouseService $houseService;
     private AuthorizationService $authService;
@@ -28,12 +31,16 @@ class GameController extends OCSController
         IRequest $request,
         GameLogicService $gameLogicService,
         HouseService $houseService,
-        AuthorizationService $authService
+        AuthorizationService $authService,
+        ?AppLogger $appLogger = null
     ) {
         parent::__construct('chorestrike', $request);
         $this->gameLogicService = $gameLogicService;
         $this->houseService = $houseService;
         $this->authService = $authService;
+        if ($appLogger !== null) {
+            $this->initializeControllerLogger($appLogger);
+        }
     }
 
     /**
@@ -55,6 +62,7 @@ class GameController extends OCSController
                 'data' => $gameState
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('state', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -84,6 +92,7 @@ class GameController extends OCSController
                 'data' => $leaderboard
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('leaderboard', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -113,6 +122,7 @@ class GameController extends OCSController
                 'data' => $medals
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('medals', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -145,6 +155,7 @@ class GameController extends OCSController
                 ]
             ]);
         } catch (\Exception $e) {
+            $this->logControllerException('checkMedals', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [

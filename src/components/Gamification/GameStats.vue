@@ -88,6 +88,7 @@
 import { ref, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import axios from '@nextcloud/axios'
+import { logger } from '../../utils/logger.js'
 
 interface GameStats {
 	totalPoints: number
@@ -141,7 +142,7 @@ const loadStats = async () => {
 			weeklyStats.value = response.data.data.weekly
 		}
 	} catch (error) {
-		console.error('Failed to load game stats:', error)
+		logger.error('Failed to load game stats', error, { component: 'GameStats', action: 'loadStats', userId: props.userId })
 	} finally {
 		loading.value = false
 	}

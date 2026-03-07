@@ -311,6 +311,7 @@ import { translate as t } from '@nextcloud/l10n'
 import Icon from '../Common/Icon.vue'
 import Modal from '../Common/Modal.vue'
 import axios from '@nextcloud/axios'
+import { logger } from '../../utils/logger.js'
 
 type ViewMode = 'week' | 'day'
 
@@ -462,7 +463,7 @@ const loadCalendarData = async () => {
 			availableMembers.value = response.data.data as MemberInfo[]
 		}
 	} catch (error) {
-		console.error('Failed to load calendar data:', error)
+		logger.error('Failed to load calendar data', error, { component: 'ScheduleCalendar', action: 'loadCalendarData', houseId: props.houseId })
 	} finally {
 		loading.value = false
 	}
@@ -608,7 +609,7 @@ const addTaskToSchedule = async () => {
 
 		closeAddTaskModal()
 	} catch (error) {
-		console.error('Failed to add task:', error)
+		logger.error('Failed to add task', error, { component: 'ScheduleCalendar', action: 'addTaskToSchedule', houseId: props.houseId })
 	}
 }
 

@@ -81,6 +81,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useHouseStore } from '../store/house.js'
+import { logger } from '../utils/logger.js'
 import SchedulePreview from '../components/Scheduling/SchedulePreview.vue'
 import AvailabilitySettings from '../components/Scheduling/AvailabilitySettings.vue'
 import EnergyBudgetSettings from '../components/Scheduling/EnergyBudgetSettings.vue'
@@ -141,7 +142,7 @@ onMounted(async () => {
 	try {
 		await houseStore.loadCurrentHouse()
 	} catch (error) {
-		console.error('Failed to load house:', error)
+		logger.error('Failed to load house', error, { view: 'SchedulingView', action: 'loadCurrentHouse' })
 		showError(t('chorestrike', 'Failed to load house data'))
 	}
 })

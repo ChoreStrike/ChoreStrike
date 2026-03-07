@@ -19,13 +19,16 @@ class AuthorizationService
 {
     private HouseUserMapper $houseUserMapper;
     private IUserSession $userSession;
+    private ?AppLogger $appLogger;
 
     public function __construct(
         HouseUserMapper $houseUserMapper,
-        IUserSession $userSession
+        IUserSession $userSession,
+        ?AppLogger $appLogger = null
     ) {
         $this->houseUserMapper = $houseUserMapper;
         $this->userSession = $userSession;
+        $this->appLogger = $appLogger;
     }
 
     /**
@@ -55,6 +58,10 @@ class AuthorizationService
     {
         $userId = $this->getCurrentUserId();
         if ($userId === null) {
+            $this->appLogger?->warning('Authorization check failed', [
+                'service' => 'AuthorizationService',
+                'action' => 'requireCurrentUserId',
+            ]);
             throw new \RuntimeException('Not authenticated');
         }
 
@@ -75,6 +82,13 @@ class AuthorizationService
             $houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
             return $houseUser !== null;
         } catch (\Exception $e) {
+            $this->appLogger?->warning('House membership lookup failed', [
+                'service' => 'AuthorizationService',
+                'action' => 'isHouseMember',
+                'houseId' => $houseId,
+                'userId' => $userId,
+                'exception' => get_class($e),
+            ]);
             return false;
         }
     }
@@ -89,6 +103,11 @@ class AuthorizationService
         $user = $this->userSession->getUser();
         $userId = $user?->getUID();
         if ($userId === null) {
+            $this->appLogger?->warning('House membership required for anonymous access', [
+                'service' => 'AuthorizationService',
+                'action' => 'requireHouseMember',
+                'houseId' => $houseId,
+            ]);
             throw new \RuntimeException('Not authenticated');
         }
 
@@ -100,6 +119,13 @@ class AuthorizationService
         $existingUsers = $this->houseUserMapper->findByHouseId($houseId);
         $role = count($existingUsers) === 0 ? 'owner' : 'member';
         $displayName = $user->getDisplayName() ?: $userId;
+        $this->appLogger?->info('House membership auto-created for current user', [
+            'service' => 'AuthorizationService',
+            'action' => 'requireHouseMember',
+            'houseId' => $houseId,
+            'userId' => $userId,
+            'role' => $role,
+        ]);
 
         return $this->houseUserMapper->createOrGet($houseId, $userId, $displayName, $role);
     }
@@ -127,6 +153,12 @@ class AuthorizationService
         $houseUser = $this->requireHouseMember($houseId);
 
         if (!$houseUser->isOwner()) {
+            $this->appLogger?->warning('Owner role required', [
+                'service' => 'AuthorizationService',
+                'action' => 'requireHouseOwner',
+                'houseId' => $houseId,
+                'userId' => $houseUser->getNextcloudUserId(),
+            ]);
             throw new \RuntimeException('Owner role required');
         }
 

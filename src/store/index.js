@@ -10,6 +10,7 @@ import { useRoomTasksStore } from './roomTasks.js'
 import { useGameStore } from './game.js'
 import { useUserStore } from './user.js'
 import { useChecklistStore } from './checklist.js'
+import { logger } from '../utils/logger.js'
 
 // Export all stores
 export {
@@ -53,7 +54,7 @@ export const initializeStores = async () => {
 			game: gameStore,
 		}
 	} catch (error) {
-		console.error('Failed to initialize stores:', error)
+		logger.error('Failed to initialize stores', error, { module: 'store/index', action: 'initializeStores' })
 		throw error
 	}
 }
@@ -178,7 +179,9 @@ export const piniaInitializationPlugin = ({ pinia }) => {
 		if (store.$id === 'user') {
 			// Auto-initialize user store
 			if (!store.currentUser) {
-				store.initializeCurrentUser().catch(console.error)
+				store.initializeCurrentUser().catch(error => {
+					logger.error('Failed to auto-initialize user store', error, { module: 'store/index', action: 'piniaInitializationPlugin', storeId: store.$id })
+				})
 			}
 		}
 	})

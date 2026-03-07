@@ -45,6 +45,7 @@ ChoreStrike/
 - i18n-Strings für alle UI-Texte verwenden
 - Accessibility (a11y) beachten
 - Performance optimieren (lazy loading, etc.)
+- Use structured logging with shared backend/frontend helpers
 
 #### DON'T ❌
 - Keine hardcodierten Strings in UI-Komponenten
@@ -52,6 +53,33 @@ ChoreStrike/
 - Keine Inline-Styles (CSS-Klassen verwenden)
 - Keine console.log() in Production-Code
 - Keine sensiblen Daten in Code committen
+- Do not log tokens, secrets, cookies, or full request payloads
+
+### Backend
+```php
+// Shared application logging
+$this->appLogger->debug('Task creation flow started', [
+    'service' => 'TaskService',
+    'taskId' => $task->getId(),
+]);
+
+$this->appLogger->logException('Task controller action failed', $e, [
+    'controller' => 'TaskController',
+    'action' => 'create',
+    'taskId' => $task->getId(),
+], $this->request);
+
+// Adjust Nextcloud log level in config/config.php when needed
+```
+
+### Logging Rules
+
+- Backend must use `AppLogger` for structured Nextcloud logging
+- Frontend must use `src/utils/logger.js` instead of raw `console.*`
+- Log unexpected request-boundary exceptions once with stable context keys
+- Log authorization failures as warning-level security events
+- Keep messages short, stable, and in English
+- Follow `docs/standards/LOGGING.md` for level selection and redaction rules
 
 ### 2. Datenbankdesign
 

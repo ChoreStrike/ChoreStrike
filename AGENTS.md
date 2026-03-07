@@ -20,6 +20,7 @@
 - **Single Responsibility:** One class = one job.
 - **Clean Architecture:** Frontend → Controller → Service → Mapper/DB. No business logic in controllers.
 - **Nextcloud Ecosystem:** Use Nextcloud APIs only. No external services.
+- **Logging:** Use structured, privacy-safe logging. Backend must use Nextcloud logging via shared helpers, frontend must use shared logger utilities instead of raw `console.*`.
 - **Private Content:** ALL private/business/personal content MUST go in `/private/` folder (gitignored). NEVER commit private data to `docs/` or any public area.
 
 **Details:** See `docs/ARCHITECTURE.md`, `docs/standards/`
@@ -34,6 +35,7 @@
 | **Testing** | Unit test per feature, regression test per bug | `docs/TESTING.md` |
 | **i18n** | All UI text via `t()` function | `docs/AGENT_GUIDELINES.md` |
 | **Error Handling** | Result patterns > exceptions | `docs/ARCHITECTURE.md` |
+| **Logging** | Structured logs, no sensitive payloads, no raw production `console.*` | `docs/standards/LOGGING.md` |
 | **Security** | Validate ownership, never trust client input | `docs/standards/SECURITY.md` |
 
 ---
