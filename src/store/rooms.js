@@ -32,7 +32,7 @@ export const useRoomsStore = defineStore('rooms', {
 				if (!roomsByFloor[room.floorId].includes(room)) {
 					roomsByFloor[room.floorId].push(room)
 				}
-			})
+			})1111
 			return roomsByFloor
 		},
 

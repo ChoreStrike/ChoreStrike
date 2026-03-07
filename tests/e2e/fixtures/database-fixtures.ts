@@ -155,20 +155,39 @@ export const test = baseTest.extend<DatabaseFixtures>({
 export async function loginAsUser(page: Page, userId: string, password: string): Promise<void> {
 	await page.goto('/')
 	
-	// Check if already logged in
-	const logoutButton = page.locator('#logout')
-	if (await logoutButton.isVisible()) {
-		await logoutButton.click()
-		await page.waitForURL('**/login**')
+	// Check if already logged in as this user
+	const userMenu = page.locator('#user-menu, .user-menu, [data-testid="user-menu"]')
+	const isLoggedIn = await userMenu.isVisible().catch(() => false)
+	
+	if (isLoggedIn) {
+		// Check if we need to switch user
+		const currentUser = await page.locator('#user-menu .user-name, .user-menu .user-name').textContent().catch(() => '')
+		if (currentUser?.toLowerCase().includes(userId.toLowerCase())) {
+			// Already logged in as correct user
+			return
+		}
+		// Need to logout first
+		await page.goto('/logout')
+		await page.waitForURL('**/login**', { timeout: 10000 }).catch(() => {})
+	}
+	
+	// Check if login form is visible
+	const loginForm = page.locator('#user, input[name="user"]').first()
+	const isLoginFormVisible = await loginForm.isVisible().catch(() => false)
+	
+	if (!isLoginFormVisible) {
+		// Navigate to login page
+		await page.goto('/login')
+		await page.waitForLoadState('networkidle')
 	}
 	
 	// Login
-	await page.fill('#user', userId)
-	await page.fill('#password', password)
-	await page.click('input[type="submit"]')
+	await page.fill('#user, input[name="user"]', userId)
+	await page.fill('#password, input[name="password"]', password)
+	await page.click('input[type="submit"], button[type="submit"], #submit-form')
 	
 	// Wait for redirect after login
-	await page.waitForURL('**/apps/**')
+	await page.waitForURL('**/apps/**', { timeout: 30000 })
 }
 
 // Helper to get user credentials for a profile
