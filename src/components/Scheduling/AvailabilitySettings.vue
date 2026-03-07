@@ -201,6 +201,7 @@ import { showSuccess, showError } from '@nextcloud/dialogs'
 import Icon from '../Common/Icon.vue'
 import Modal from '../Common/Modal.vue'
 import axios from '@nextcloud/axios'
+import { resolveCurrentUser } from '../../utils/currentUser.js'
 import { logger } from '../../utils/logger.js'
 
 // Props
@@ -414,10 +415,7 @@ onMounted(async () => {
 	if (props.houseId) {
 		// Try to get current user info first
 		try {
-			// @ts-ignore - Nextcloud global
-			if (typeof OC !== 'undefined' && OC.getCurrentUser) {
-				currentUser.value = OC.getCurrentUser()
-			}
+			currentUser.value = resolveCurrentUser()
 		} catch (error) {
 			logger.warn('Could not get current user', { component: 'AvailabilitySettings', action: 'onMountedCurrentUserLookup', error })
 		}

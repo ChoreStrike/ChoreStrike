@@ -124,12 +124,30 @@
   - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Controller\\TaskControllerDailyTest.php` -> pass
   - `php -l lib\\Controller\\ChecklistController.php` -> pass
 
+### Cascade - P9-DEPRECATION-001 - Availability Settings Current User API
+**Status**: Review Ready  
+**Started**: 2026-03-07 19:26  
+**Updated**: 2026-03-07 19:38  
+**Branch**: master  
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-9-code-quality.md, src/components/Scheduling/AvailabilitySettings.vue, src/utils/currentUser.js, tests/unit/components/AvailabilitySettings.spec.js, tests/unit/__mocks__/nextcloud-auth.js  
+**Blockers**: None  
+**Notes**:
+- Replace deprecated `OC.getCurrentUser()` usage in the scheduling availability settings flow.
+- Align current-user lookup with the supported Nextcloud frontend API and add regression coverage for the resolved member selection path.
+- Switched `AvailabilitySettings.vue` from the deprecated global `OC.getCurrentUser()` access to `@nextcloud/auth` via shared `resolveCurrentUser()`.
+- Normalized the resolved user shape to include `userId`, keeping the existing member matching logic stable while using the supported `uid` source.
+- Extended the Jest auth mock to support both named and default imports.
+- Validation completed:
+  - `npx jest --runInBand tests/unit/components/AvailabilitySettings.spec.js` -> pass
+  - `npx jest --runInBand tests/unit/components/AvailabilitySettings.spec.js tests/unit/utils/logger.spec.js` -> pass
+  - `npx eslint --quiet src/components/Scheduling/AvailabilitySettings.vue src/utils/currentUser.js tests/unit/components/AvailabilitySettings.spec.js tests/unit/__mocks__/nextcloud-auth.js` -> pass
+
 ### Next Session Tasks (Prioritized)
-1. **P9-DEPRECATION-001** (Medium) - Replace deprecated `OC.getCurrentUser()` in `AvailabilitySettings.vue`
-2. **P9-LINT-001** (Medium) - Reduce remaining warning baseline (mainly JSDoc and formatting)
-3. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
-4. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
-5. **P8-RELEASE-001** (High) - App store submission preparation
+1. **P9-LINT-001** (Medium) - Reduce remaining warning baseline (mainly JSDoc and formatting)
+2. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
+3. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
+4. **P8-RELEASE-001** (High) - App store submission preparation
+5. **P9-FEATURE-001** (Medium) - Complete energy budget calculation
 
 ---
 

@@ -1,7 +1,13 @@
+export const getCurrentUser = jest.fn(() => ({ uid: 'test-user', displayName: 'Test User' }))
+export const getRequestHeader = jest.fn(() => ({}))
+export const isLoggedIn = jest.fn(() => true)
+export const login = jest.fn(() => Promise.resolve())
+export const logout = jest.fn(() => Promise.resolve())
+
 export default {
-  getCurrentUser: jest.fn(() => ({ uid: 'test-user', displayName: 'Test User' })),
-  getRequestHeader: jest.fn(() => ({})),
-  isLoggedIn: jest.fn(() => true),
-  login: jest.fn(() => Promise.resolve()),
-  logout: jest.fn(() => Promise.resolve()),
+	getCurrentUser,
+	getRequestHeader,
+	isLoggedIn,
+	login,
+	logout,
 }

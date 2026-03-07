@@ -103,7 +103,7 @@ $progress = $this->progressMapper->toggle($roomTaskId, $itemId, $currentUserId);
 ### P9-DEPRECATION-001 - Replace Deprecated OC.getCurrentUser()
 **Priority**: MEDIUM  
 **Effort**: 30 minutes  
-**Status**: Planned
+**Status**: Done
 
 **Description**: `AvailabilitySettings.vue` uses deprecated `OC.getCurrentUser()` (deprecated in Nextcloud 19.0.0).
 
@@ -118,6 +118,18 @@ import { getCurrentUser } from '@nextcloud/auth'
 const currentUser = getCurrentUser()
 const currentUserId = currentUser?.uid
 ```
+
+**Completed**:
+- Replaced deprecated `OC.getCurrentUser()` usage in `AvailabilitySettings.vue` with a supported `@nextcloud/auth` lookup.
+- Added shared `src/utils/currentUser.js` to normalize the Nextcloud user object to the member shape already used in the scheduling UI.
+- Kept the existing `member.userId === currentUser.userId` matching behavior stable by deriving `userId` from the Nextcloud `uid`.
+- Updated the Jest auth mock to support the named import used by the new helper.
+- Added regression coverage for current-user normalization in `tests/unit/components/AvailabilitySettings.spec.js`.
+
+**Validation**:
+- `npx jest --runInBand tests/unit/components/AvailabilitySettings.spec.js` -> pass
+- `npx jest --runInBand tests/unit/components/AvailabilitySettings.spec.js tests/unit/utils/logger.spec.js` -> pass
+- `npx eslint --quiet src/components/Scheduling/AvailabilitySettings.vue src/utils/currentUser.js tests/unit/components/AvailabilitySettings.spec.js tests/unit/__mocks__/nextcloud-auth.js` -> pass
 
 **Code Locations**:
 - `src/components/Scheduling/AvailabilitySettings.vue:417-418`
