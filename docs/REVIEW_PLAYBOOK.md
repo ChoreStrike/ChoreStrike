@@ -495,6 +495,378 @@ Every review package should leave behind the following artifacts.
 
 ---
 
+## Review Session Execution Template
+
+Use this section as the operational script for a real review session.
+
+### Step 1: Start Block
+
+Capture these fields before reading deeply:
+
+```markdown
+# Review Session Start
+
+- Review mode: [Rapid Delta Review | Standard Batch Review | Deep Slice Review]
+- Review date: YYYY-MM-DD
+- Reviewer: [name or agent]
+- Scope: [task, module, release sweep, or commit range]
+- Base commit: [sha or N/A]
+- Expected duration: [30m | 60m | 90m]
+- Primary modules:
+  - [module]
+  - [module]
+- Primary documents:
+  - [document]
+  - [document]
+- Initial risk hypotheses:
+  - [risk]
+  - [risk]
+```
+
+### Step 2: Package Execution Sheet
+
+Run each package with a short output block.
+
+```markdown
+## Package [0-5]: [name]
+
+- Goal:
+- Inputs reviewed:
+  - [file, command, or search]
+  - [file, command, or search]
+- Automated checks used:
+  - [check]
+  - [check]
+- Findings:
+  - [finding id] [severity] [summary]
+  - [finding id] [severity] [summary]
+- Immediate fixes made:
+  - [file] [short fix]
+- Tests rerun:
+  - [test command/result]
+- Deferred items:
+  - [backlog item or reason]
+- Questions added to batch:
+  - [question id]
+```
+
+### Step 3: End Block
+
+```markdown
+## Review Session End
+
+- Status: [Done | Review Ready | Blocked]
+- Clear fixes completed:
+  - [fix]
+  - [fix]
+- Deferred findings:
+  - [finding id]
+  - [finding id]
+- Docs updated:
+  - [doc]
+  - [doc]
+- Backlog updated:
+  - [file/task]
+- Commit:
+  - [sha] [message]
+- Next recommended package:
+  - [package or task]
+```
+
+---
+
+## Findings Format
+
+Use a consistent finding shape to keep reviews comparable.
+
+### Finding Template
+
+```markdown
+### [Finding ID] [Title]
+
+- Severity: [Critical | High | Medium | Low]
+- Category: [Functionality | Style | Orphaned | Architecture | Security | Inter-Module | Tests | Documentation | Release]
+- Confidence: [High | Medium | Low]
+- Scope: [file, module, or flow]
+- Evidence:
+  - [file:line or observed mismatch]
+  - [test or doc contradiction]
+- Impact:
+  - [user impact or technical risk]
+- Recommended action:
+  - [fix now | backlog | clarify]
+- Status: [Fixed | Deferred | Needs Decision]
+- Regression coverage:
+  - [added | existing | missing | not applicable]
+```
+
+### Severity Rules
+
+- `Critical`
+  - security vulnerability with active exposure
+  - broken migration or data-loss risk
+  - app-breaking syntax or boot failure
+- `High`
+  - missing authorization on active mutation path
+  - broken primary user flow
+  - contract mismatch likely to ship regressions
+- `Medium`
+  - incomplete active feature
+  - outdated docs causing wrong review or dev decisions
+  - dead button or drift in realistic coverage
+- `Low`
+  - style cleanup
+  - legacy cleanup with no active impact
+  - minor wording or formatting drift
+
+---
+
+## Fix-Now Versus Backlog Decision Table
+
+| Situation | Action |
+|-----------|--------|
+| Root cause clear, local fix, easy validation | Fix now |
+| Security issue with known project pattern | Fix now |
+| Obvious doc contradiction with current implementation | Fix now |
+| Legacy/unwired item with unclear product intent | Backlog or question batch |
+| UX behavior ambiguous | Batch question |
+| Fix would trigger broad refactor | Backlog |
+| Test is stale but active behavior unclear | Batch question first |
+
+### Backlog Trigger Rules
+
+Move to backlog when:
+- the fix exceeds the current review package
+- architecture or UX intent needs approval
+- multiple modules would need coordinated changes
+- there is no safe regression test you can add immediately
+
+When moving something to backlog, always record:
+- the root problem
+- why it was not fixed now
+- the suggested next owner or next package
+
+---
+
+## Standard Review Output Structure
+
+Use this structure for the final review response or report.
+
+```markdown
+## Executive Summary
+
+- Scope:
+- Outcome:
+- Recommendation:
+
+## Clear Fixes Completed
+
+- [fix]
+- [fix]
+
+## Findings By Severity
+
+### High
+- [finding]
+
+### Medium
+- [finding]
+
+### Low
+- [finding]
+
+## Tests and Validation
+
+- [command] -> [result]
+- [command] -> [result]
+
+## Documentation and Backlog Updates
+
+- [update]
+- [update]
+
+## Batched Questions
+
+1. [question]
+   - Option A: ...
+   - Option B: ...
+   - Option C: ...
+
+## Next Recommended Actions
+
+1. [action]
+2. [action]
+3. [action]
+```
+
+---
+
+## Copyable Review Report Template
+
+Copy this into `docs/backlog/CODE_REVIEW_YYYY-MM-DD.md` and fill it out.
+
+```markdown
+# Code Review: [Scope]
+
+**Review Date**: YYYY-MM-DD  
+**Reviewer**: [Name or Agent]  
+**Mode**: [Rapid Delta Review | Standard Batch Review | Deep Slice Review]  
+**Scope**: [Task, module, release sweep, or commit range]  
+**Base Commit**: [sha or N/A]  
+**Duration Target**: [30m | 60m | 90m]
+
+---
+
+## Executive Summary
+
+### Outcome
+- [Approved | Approve with minor fixes | Needs follow-up | Blocked]
+
+### What Was Reviewed
+- [module or area]
+- [module or area]
+
+### What Was Fixed Immediately
+1. [fix]
+2. [fix]
+
+### Main Risks Remaining
+1. [risk]
+2. [risk]
+
+---
+
+## Scope and Risk Framing
+
+### Modules
+- [module]
+- [module]
+
+### Documents
+- [document]
+- [document]
+
+### Initial Risk Hypotheses
+- [risk]
+- [risk]
+
+---
+
+## Package Results
+
+### Package 0: Scope and Diff Mapping
+- Inputs reviewed:
+- Findings:
+- Outcome:
+
+### Package 1: Automated Static Quality Sweep
+- Checks run:
+- Findings:
+- Immediate fixes:
+
+### Package 2: Wiring, Contracts, and Orphan Scan
+- Inputs reviewed:
+- Findings:
+- Immediate fixes:
+
+### Package 3: Focused Test Validation
+- Tests run:
+- Results:
+- Gaps:
+
+### Package 4: Documentation and Backlog Sync
+- Docs updated:
+- Backlog updates:
+
+### Package 5: Final Triage and Handoff
+- Final recommendation:
+- Deferred items:
+- Questions batched:
+
+---
+
+## Findings By Category
+
+### Functionality
+- [finding]
+
+### Style and UX
+- [finding]
+
+### Orphaned or Unwired Items
+- [finding]
+
+### Architecture
+- [finding]
+
+### Security
+- [finding]
+
+### Inter-Module Collaboration
+- [finding]
+
+### Tests and Coverage Realism
+- [finding]
+
+### Documentation Sync
+- [finding]
+
+### Release Readiness
+- [finding]
+
+---
+
+## Findings By Severity
+
+### High
+- [finding]
+
+### Medium
+- [finding]
+
+### Low
+- [finding]
+
+---
+
+## Tests and Validation
+
+- [command] -> [result]
+- [command] -> [result]
+
+---
+
+## Documentation and Backlog Changes
+
+- `docs/backlog/ACTIVE_TASKS.md` updated: [yes/no]
+- Related backlog updated: [file or N/A]
+- Review document updated: [yes/no]
+- Additional standards/docs updated: [list]
+
+---
+
+## Batched Questions
+
+1. [question]
+   - Option A: [option]
+   - Option B: [option]
+   - Option C: [option]
+
+---
+
+## Recommendation
+
+- Final status: [Approved | Approve with minor fixes | Needs follow-up | Blocked]
+- Next recommended package:
+- Suggested owner:
+
+---
+
+**Review Completed**: YYYY-MM-DD  
+**Next Review**: [trigger or date]
+
+---
+
 ## Reusable Review Checklist
 
 Copy this section into a review document when needed.
