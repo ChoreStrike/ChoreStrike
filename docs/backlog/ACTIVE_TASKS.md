@@ -165,9 +165,9 @@
 ### Cascade - MS-ICONS-MIGRATION-001 - Microsoft Fluent UI Icons Integration
 **Status**: Review Ready
 **Started**: 2026-03-07 22:25
-**Updated**: 2026-03-08 00:20
+**Updated**: 2026-03-08 00:35
 **Branch**: master
-**Related Files**: docs/backlog/ACTIVE_TASKS.md, src/views/Dashboard.vue, src/components/Dashboard/QuickStats.vue, src/components/Dashboard/FloorList.vue, src/components/Dashboard/RoomCard.vue, src/store/rooms.js, src/utils/icons.js, src/utils/roomIcons.js, lib/Db/Room.php, lib/Db/RoomMapper.php, lib/Service/RoomService.php, lib/Controller/RoomController.php, lib/Migration/Version1015Date20260304000000.php, tests/unit/components/FloorList.spec.js, tests/unit/components/RoomCard.spec.js, tests/unit/store/rooms.spec.js, tests/unit/Service/RoomServiceTest.php, tests/unit/Controller/RoomControllerTest.php
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, src/views/Dashboard.vue, src/components/Common/Icon.vue, src/components/Common/SvgIcon.vue, src/components/Dashboard/QuickStats.vue, src/components/Dashboard/FloorList.vue, src/components/Dashboard/RoomCard.vue, src/store/rooms.js, src/utils/icons.js, src/utils/roomIcons.js, lib/Db/Room.php, lib/Db/RoomMapper.php, lib/Service/RoomService.php, lib/Controller/RoomController.php, lib/Migration/Version1015Date20260304000000.php, tests/unit/components/Icon.spec.js, tests/unit/components/FloorList.spec.js, tests/unit/components/RoomCard.spec.js, tests/unit/store/rooms.spec.js, tests/unit/Service/RoomServiceTest.php, tests/unit/Controller/RoomControllerTest.php
 **Blockers**: None
 **Notes**:
 - **USER REQUIREMENT**: Replace all icons with Microsoft Fluent UI Icons (MIT licensed)
@@ -192,9 +192,13 @@
   - Completed the full room icon data path from Pinia create action through PHP controller/service/mapper/entity and migration.
   - Added regression coverage for room icon rendering, store payload propagation, and backend create flow handling.
   - Repaired icon registry/test drift uncovered during validation (`src/utils/icons.js`, `FloorList.spec.js`, `RoomCard.spec.js`).
+  - Evaluated the available Fluent Vue package and rejected it because it depends on Fabric/CDN-style initialization instead of local system icon components.
+  - Replaced the shared icon runtime with a local-only Fluent-inspired SVG registry behind the existing `Icon` abstraction.
+  - Added `SvgIcon.vue` as the shared local renderer and kept existing icon names compatible through registry mapping.
 - **Validation**:
   - `npm test -- --runInBand tests/unit/store/rooms.spec.js tests/unit/components/RoomCard.spec.js tests/unit/components/FloorList.spec.js` ✅
   - `vendor\\bin\\phpunit tests/unit/Service/RoomServiceTest.php tests/unit/Controller/RoomControllerTest.php` ✅
+  - `npm test -- --runInBand tests/unit/components/Icon.spec.js tests/unit/components/FloorList.spec.js tests/unit/components/RoomCard.spec.js` ✅
 
 ### Cascade - TEAM-SPARKS-UI-001 - Team Sparks Integration in User Interface
 **Status**: Planned
