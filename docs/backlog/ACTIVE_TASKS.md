@@ -121,6 +121,19 @@
 
 ## Recently Completed (Last 7 Days)
 
+### Cascade - P8-ALPHA-REVIEW-PLAN-001 - Pre-Alpha Complete Review Preparation
+**Status**: Done  
+**Started**: 2026-03-07 20:19  
+**Completed**: 2026-03-07 20:28  
+**Branch**: master  
+**Related Files**: docs/PRE_ALPHA_REVIEW_PLAN.md, docs/REVIEW_PLAYBOOK.md, docs/backlog/phase-8-release-preparation.md, docs/backlog/ACTIVE_TASKS.md  
+**Blockers**: None  
+**Notes**:
+- Created a concrete pre-alpha complete review plan tailored to the `v0.8.x` alpha gate.
+- Structured the review into split sessions for static and orphan scans, security and architecture review, and final validation plus release decision.
+- Defined alpha-critical flows, blocker rules, automation recommendations, and the required output artifacts for the final promote or hold decision.
+- Linked the new pre-alpha review plan from the Phase 8 release preparation backlog and added it to the alpha exit criteria.
+
 ### Cascade - P9-REVIEW-PLAYBOOK-002 - Review Execution Template And Report Format
 **Status**: Done  
 **Started**: 2026-03-07 20:16  

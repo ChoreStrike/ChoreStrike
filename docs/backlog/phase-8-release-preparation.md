@@ -125,6 +125,10 @@ Final preparation for the staged rollout path: `v0.8.x` alpha, `v0.9.x` private 
 **Priority**: High  
 **Status**: In Progress
 
+Review preparation documents:
+- `docs/PRE_ALPHA_REVIEW_PLAN.md` - concrete pre-alpha complete review sequence
+- `docs/REVIEW_PLAYBOOK.md` - reusable review packages and execution templates
+
 - [ ] Test DB Exploration
   - [ ] Set up local test database
   - [ ] Manual testing of all features
@@ -213,7 +217,7 @@ Nextcloud apps are **isolated by design**:
 ## Dependencies
 
 - Docker test environment must be functional for integration tests
-- All unit tests must pass (✓ 300 tests passing)
+- All unit tests must pass ( 300 tests passing)
 
 ---
 
@@ -234,6 +238,7 @@ Nextcloud apps are **isolated by design**:
 ### `v0.8.x` Alpha Exit Criteria
 - [ ] Manual install works on the personal Nextcloud instance
 - [ ] Core flows work in real usage (floors, rooms, tasks, completion, scheduling screens)
+- [ ] Pre-alpha complete review executed using `docs/PRE_ALPHA_REVIEW_PLAN.md`
 - [ ] No known data-loss issue remains open
 - [ ] No unresolved P0 issue exists
 - [ ] Alpha findings are documented in backlog or issue tracking
