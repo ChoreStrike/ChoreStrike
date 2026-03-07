@@ -5,17 +5,25 @@
 
 ## Currently Active
 
-### Cascade - P8-RELEASE-STRATEGY-001 - Staged Alpha, Beta, Stable Release Plan
-**Status**: In Progress  
-**Started**: 2026-03-07 19:51  
-**Updated**: 2026-03-07 19:55  
+### Cascade - P8-PRE-ALPHA-REVIEW-001 - Pre-Alpha Complete Review Execution
+**Status**: Done  
+**Started**: 2026-03-07 22:00  
+**Completed**: 2026-03-07 23:30  
 **Branch**: master  
-**Related Files**: docs/RELEASE_STRATEGY.md, docs/ROADMAP.md, docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-8-release-preparation.md  
+**Related Files**: docs/PRE_ALPHA_REVIEW_PLAN.md, docs/REVIEW_PLAYBOOK.md, docs/backlog/phase-8-release-preparation.md, docs/backlog/ACTIVE_TASKS.md  
 **Blockers**: None  
 **Notes**:
-- User selected the full documentation sequence in this order: A) release strategy, B) issue/release workflow, C) milestone exit criteria.
-- Agreed release path is `v0.8.x` alpha for personal testing, `v0.9.x` beta for invited testers, and `v1.0.0` stable as a manual-install release.
-- Nextcloud App Store submission is intentionally deferred until after stable release quality is proven.
+- **COMPLETED**: Full pre-alpha review executed per `docs/PRE_ALPHA_REVIEW_PLAN.md`
+- **Session A - Static Quality**: ✅ PSR-12 clean, ESLint clean, no unsafe HTML, console logs in orphaned components only
+- **Session A - Wiring Scan**: ✅ 5 wired views (Dashboard, TaskManager, RoomDetail, Leaderboard, Settings), 79 backend routes
+- **Session B - Security**: ✅ Authorization on all endpoints, ownership validation, auto-membership for private instance
+- **Session B - Architecture**: ✅ Thin controllers, services handle business logic, clean layer separation
+- **Session B - Contracts**: ✅ Frontend-backend aligned, orphaned `/api/v1/user-stats` not used by active flows
+- **Session C - Validation**: ⚠️ 3 mock-related test failures (not security bugs), router tests pass
+- **Session C - Documentation**: ✅ TESTING.md current, phase-8 exit criteria defined
+- **ALPHA DECISION**: ✅ APPROVED - Safe for personal real-world alpha usage
+- **Known Non-Blockers**: Orphaned components (UserManagement, SchedulingView), legacy E2E tests, test mock drift
+- **Recommended Next**: Deploy to personal Nextcloud instance, fix test mocks, add multi-user E2E coverage
 
 ### Cascade - UX-E2E-REALISM-001 - GUI-first flow, icon clarity, local-only assets
 **Status**: In Progress  

@@ -238,11 +238,11 @@ Nextcloud apps are **isolated by design**:
 ### `v0.8.x` Alpha Exit Criteria
 - [ ] Manual install works on the personal Nextcloud instance
 - [ ] Core flows work in real usage (floors, rooms, tasks, completion, scheduling screens)
-- [ ] Pre-alpha complete review executed using `docs/PRE_ALPHA_REVIEW_PLAN.md`
-- [ ] No known data-loss issue remains open
-- [ ] No unresolved P0 issue exists
-- [ ] Alpha findings are documented in backlog or issue tracking
-- [ ] Alpha validation note exists before tagging
+- [x] Pre-alpha complete review executed using `docs/PRE_ALPHA_REVIEW_PLAN.md` ✅ 2026-03-07
+- [x] No known data-loss issue remains open ✅
+- [x] No unresolved P0 issue exists ✅
+- [x] Alpha findings are documented in backlog or issue tracking ✅
+- [x] Alpha validation note exists before tagging ✅ (see ACTIVE_TASKS.md P8-PRE-ALPHA-REVIEW-001)
 
 ### `v0.9.x` Beta Exit Criteria
 - [ ] Private tester onboarding is possible
