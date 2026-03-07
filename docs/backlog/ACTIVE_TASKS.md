@@ -118,12 +118,135 @@
   - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml` -> pass (314 tests, 895 assertions)
 - All Phase 9 high-priority tasks completed successfully.
 
-### Next Session Tasks (Prioritized)
-1. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
-2. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
-3. **P8-RELEASE-001** (High) - App store submission preparation
-4. **P9-FEATURE-001** (Medium) - Complete energy budget calculation
-5. **P9-UX-001** (Medium) - Implement edit floor functionality
+#### Cascade - GAMIFICATION-CONCEPTS-001 - Gamification Concepts Implementation Gap Analysis
+**Status**: Planned
+**Started**: 2026-03-07 22:25
+**Branch**: master
+**Related Files**: docs/concepts/GAMIFICATION_AND_REWARDS.md, src/store/game.js, src/views/Leaderboard.vue, src/components/Gamification/*.vue
+**Blockers**: None
+**Notes**:
+- **ANALYSIS COMPLETE**: Identified major gaps between concept and implementation
+- **Missing Core Features**:
+  - Team Sparks not displayed in UI (only generic "points")
+  - Cooperative Features (Shared Progress, Team Streaks, Weekly Goals)
+  - Role Title Systems (3 planned packs completely missing)
+  - Task Pass Mechanic
+  - Weekly cooperative goals
+- **Partially Implemented**:
+  - Contribution Score ✅ (calculated but not prominently displayed)
+  - Medal System ✅ (basic implementation exists)
+  - Combo System ✅ (logic exists, UI integration needed)
+  - Monster System ✅ (visual only, no battle mechanics)
+  - Streak System ✅ (basic streak keeper medal)
+- **Next Actions**: Create detailed implementation plan for missing features
+
+### Cascade - MONSTER-BATTLE-001 - Full Monster Battle System Implementation
+**Status**: Planned
+**Started**: 2026-03-07 22:25
+**Branch**: master
+**Related Files**: src/store/game.js, src/components/Common/MonsterSprite.vue, src/components/Gamification/*.vue
+**Blockers**: None
+**Notes**:
+- **USER DECISION**: Option B selected - Full Battle System
+- **Current State**: Monsters are visual indicators only
+- **Required Implementation**:
+  - Energy Resource System (collect from task completion)
+  - Battle Modal with Attack/Defend actions
+  - Monster HP and Damage calculations
+  - Battle animations and effects
+  - Battle rewards (extra Team Sparks)
+  - Energy-to-Attack conversion system
+- **Design Decisions Needed**:
+  - Battle cost formula (energy → damage)
+  - Monster HP scaling by type
+  - Victory conditions and rewards
+  - Battle UI/UX flow
+
+### Cascade - MS-ICONS-MIGRATION-001 - Microsoft Fluent UI Icons Integration
+**Status**: Planned
+**Started**: 2026-03-07 22:25
+**Branch**: master
+**Related Files**: src/utils/icons.js, src/components/Common/Icon.vue, src/components/Common/Emoji.vue, img/emojis/
+**Blockers**: None
+**Notes**:
+- **USER REQUIREMENT**: Replace all icons with Microsoft Fluent UI Icons (MIT licensed)
+- **Current State**:
+  - Lucide icons in use (105+ icons registered)
+  - Microsoft Fluent UI Emoji component exists but img/emojis/ folder is EMPTY
+  - Unicode fallbacks being used instead of Fluent UI assets
+- **Migration Required**:
+  - Download Microsoft Fluent UI Emoji assets (MIT license)
+  - Replace Lucide imports with Fluent UI equivalents
+  - Update Icon.vue component to support Fluent UI
+  - Remove dependency on Lucide icons
+  - Update all icon references across components
+  - Ensure local-only asset usage (no remote CDN)
+- **Priority**: High - User explicitly requested this change
+
+### Cascade - TEAM-SPARKS-UI-001 - Team Sparks Integration in User Interface
+**Status**: Planned
+**Started**: 2026-03-07 22:25
+**Branch**: master
+**Related Files**: src/store/game.js, src/views/Leaderboard.vue, src/components/Gamification/*.vue, l10n/templates/chorestrike.pot
+**Blockers**: None
+**Notes**:
+- **Concept vs Implementation Gap**: "Team Sparks" concept not reflected in UI
+- **Current State**: Generic "points" display instead of branded "Team Sparks"
+- **Required Changes**:
+  - Replace all "points" references with "Team Sparks" in UI
+  - Update Leaderboard to show Team Sparks prominently
+  - Add Team Sparks animations/rewards
+  - Update localization files (de.json, en.json)
+  - Add Team Sparks visual effects and celebrations
+  - Integrate with existing calculateTeamSparks() logic
+
+### Cascade - COOPERATIVE-FEATURES-001 - Cooperative Gamification Elements
+**Status**: Planned
+**Started**: 2026-03-07 22:25
+**Branch**: master
+**Related Files**: docs/concepts/GAMIFICATION_AND_REWARDS.md, src/store/game.js, src/components/Gamification/*.vue
+**Blockers**: None
+**Notes**:
+- **Missing Cooperative Features from Concept**:
+  - Household shared progress bar
+  - Team streaks (individual streaks exist, but not team)
+  - Weekly cooperative goals
+  - Positive celebration events on completion
+- **Implementation Plan**:
+  - Add household progress tracking to game store
+  - Implement team streak calculations
+  - Create weekly goal system
+  - Design celebration animations/events
+  - Add cooperative progress UI components
+
+### Cascade - ROLE-TITLE-SYSTEM-001 - Role Title Implementation
+**Status**: Planned
+**Started**: 2026-03-07 22:25
+**Branch**: master
+**Related Files**: docs/concepts/GAMIFICATION_AND_REWARDS.md, src/store/game.js, src/components/Gamification/*.vue, l10n/templates/chorestrike.pot
+**Blockers**: None
+**Notes**:
+- **Complete Gap**: 3 planned title packs not implemented
+- **Planned Title Packs**:
+  - Pack A: Home Helpers (Helper → Organizer → Care Captain)
+  - Pack B: Team Energy (Spark Starter → Flow Keeper → Team Anchor)
+  - Pack C: Cozy Home (Cozy Buddy → Room Ranger → Home Guardian)
+- **Implementation Required**:
+  - Title pack selection system
+  - Progress-based title unlocking
+  - Title display in profiles/leaderboard
+  - Localization for all titles (DE/EN)
+  - Title transition animations
+
+## Next Session Tasks (Prioritized)
+1. **MS-ICONS-MIGRATION-001** (High) - Microsoft Fluent UI Icons integration
+2. **MONSTER-BATTLE-001** (High) - Full Monster Battle System design & implementation
+3. **TEAM-SPARKS-UI-001** (Medium) - Team Sparks UI integration
+4. **COOPERATIVE-FEATURES-001** (Medium) - Cooperative gamification elements
+5. **ROLE-TITLE-SYSTEM-001** (Medium) - Role title system implementation
+6. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
+7. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
+8. **P8-RELEASE-001** (High) - App store submission preparation
 
 ---
 
