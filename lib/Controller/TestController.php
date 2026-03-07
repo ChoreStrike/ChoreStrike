@@ -39,6 +39,13 @@ class TestController extends OCSController
 	 */
 	public function seed(string $profile = 'minimal'): JSONResponse
 	{
+		// Workaround for Apache/Nextcloud POST-to-GET rewrite issue:
+		// Extract profile from query params if the route parameter is empty or default
+		$queryProfile = $this->request->getParam('profile');
+		if ($queryProfile !== null && $queryProfile !== '') {
+			$profile = $queryProfile;
+		}
+
 		// Safety check: only allow in test mode
 		if (!$this->testDataService->isTestMode()) {
 			return new JSONResponse([

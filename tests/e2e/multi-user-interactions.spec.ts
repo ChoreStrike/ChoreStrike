@@ -12,7 +12,7 @@ import { test, expect, loginAsUser, getUserCredentials, PROFILE_USERS, DatabaseP
 
 // Use family profile for all tests in this file
 test.describe('Multi-User Family Interactions', () => {
-	test.describe.configure({ mode: 'parallel' })
+	test.describe.configure({ mode: 'serial' })
 
 	// Use family profile
 	test.use({ databaseProfile: 'family' as DatabaseProfile })

@@ -70,13 +70,13 @@ class TestDataService
 	public function reset(): void
 	{
 		$tables = [
-			'chorestrike_availability_settings',
-			'chorestrike_room_task_checklist_progress',
-			'chorestrike_task_participants',
-			'chorestrike_task_claims',
+			'chorestrike_availability',
+			'chorestrike_chk_progress',
+			'chorestrike_task_parts',
+			'chorestrike_claims',
 			'chorestrike_completed_tasks',
 			'chorestrike_room_tasks',
-			'chorestrike_task_checklist_items',
+			'chorestrike_chk_items',
 			'chorestrike_tasks',
 			'chorestrike_rooms',
 			'chorestrike_floors',
@@ -85,6 +85,7 @@ class TestDataService
 			'chorestrike_task_scopes',
 			'chorestrike_medals',
 			'chorestrike_combos',
+			'chorestrike_user_stats',
 		];
 
 		foreach ($tables as $table) {
@@ -159,7 +160,7 @@ class TestDataService
 				'house' => $house->jsonSerialize(),
 				'floors' => [$floor->jsonSerialize()],
 				'rooms' => [$room->jsonSerialize()],
-				'users' => array_map(fn ($u) => $u->jsonSerialize(), $users),
+				'users' => array_values(array_map(fn ($u) => $u->jsonSerialize(), $users)),
 			],
 		];
 	}
@@ -332,11 +333,11 @@ class TestDataService
 			'profile' => 'family',
 			'data' => [
 				'house' => $house->jsonSerialize(),
-				'floors' => array_map(fn ($f) => $f->jsonSerialize(), $floors),
-				'rooms' => array_map(fn ($r) => $r->jsonSerialize(), $rooms),
-				'users' => array_map(fn ($u) => $u->jsonSerialize(), $users),
-				'tasks' => array_map(fn ($t) => $t->jsonSerialize(), $tasks),
-				'roomTasks' => array_map(fn ($rt) => $rt->jsonSerialize(), $roomTasks),
+				'floors' => array_values(array_map(fn ($f) => $f->jsonSerialize(), $floors)),
+				'rooms' => array_values(array_map(fn ($r) => $r->jsonSerialize(), $rooms)),
+				'users' => array_values(array_map(fn ($u) => $u->jsonSerialize(), $users)),
+				'tasks' => array_values(array_map(fn ($t) => $t->jsonSerialize(), $tasks)),
+				'roomTasks' => array_values(array_map(fn ($rt) => $rt->jsonSerialize(), $roomTasks)),
 			],
 		];
 	}

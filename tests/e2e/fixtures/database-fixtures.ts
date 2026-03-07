@@ -66,11 +66,8 @@ class DatabaseManager {
 	 * Seed database with a specific profile
 	 */
 	async seed(profile: DatabaseProfile): Promise<SeededData> {
-		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/seed?profile=${profile}`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
+		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/seed/${profile}`, {
+			method: 'GET',
 		})
 
 		if (!response.ok) {
@@ -91,10 +88,7 @@ class DatabaseManager {
 	 */
 	async reset(): Promise<void> {
 		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/reset`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
+			method: 'GET',
 		})
 
 		if (!response.ok) {

@@ -151,7 +151,7 @@ return [
 
         // Test Data API (only available in test mode)
         ['name' => 'test#profiles', 'url' => '/api/v1/test/profiles', 'verb' => 'GET'],
-        ['name' => 'test#seed', 'url' => '/api/v1/test/seed', 'verb' => 'POST'],
-        ['name' => 'test#reset', 'url' => '/api/v1/test/reset', 'verb' => 'POST'],
+        ['name' => 'test#seed', 'url' => '/api/v1/test/seed/{profile}', 'verb' => 'GET'],
+        ['name' => 'test#reset', 'url' => '/api/v1/test/reset', 'verb' => 'GET'],
     ]
 ];

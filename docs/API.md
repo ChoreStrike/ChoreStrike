@@ -481,7 +481,7 @@ Get available test data profiles.
 }
 ```
 
-### POST /test/seed
+### GET /test/seed
 
 Seed database with a specific profile.
 
@@ -508,7 +508,7 @@ Seed database with a specific profile.
 }
 ```
 
-### POST /test/reset
+### GET /test/reset
 
 Reset database (equivalent to seeding with `empty` profile).
 
