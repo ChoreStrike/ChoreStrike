@@ -34,11 +34,11 @@ export interface SeededData {
 	profile: DatabaseProfile
 	data: {
 		house?: { id: number; name: string }
-		floors?: Array<{ id: number; name: string }>
-		rooms?: Array<{ id: number; name: string; cleanliness: number }>
-		users?: Array<{ id: number; nextcloudUserId: string; displayName: string; role: string }>
-		tasks?: Array<{ id: number; name: string; category: string }>
-		roomTasks?: Array<{ id: number; roomId: number; taskId: number; assignedToUserId?: string }>
+		floors?: Array<{ id: number; name: string; sortOrder?: number }>
+		rooms?: Array<{ id: number; name: string; cleanliness: number; floorId?: number }>
+		users?: Array<{ id: number; nextcloudUserId: string; displayName: string; role: string; maxDailyTasks?: number }>
+		tasks?: Array<{ id: number; name: string; category: string; energyCost?: number }>
+		roomTasks?: Array<{ id: number; roomId: number; taskId: number; assignedToUserId?: string; assignedTo?: string }>
 	}
 }
 
