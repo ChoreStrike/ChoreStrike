@@ -93,66 +93,22 @@
 - **Created**: Detailed review document and Phase 9 backlog for identified issues
 - **Recommendation**: APPROVE WITH MINOR FIXES (address high-priority items before deployment)
 
-### Cascade - P9-REFACTOR-001 - Project-Wide Logging Strategy And Rollout
-**Status**: Review Ready  
-**Started**: 2026-03-07 16:34  
-**Updated**: 2026-03-07 21:05  
+### Cascade - P9-REVIEW-001 - Review And Finalize Phase 9 Code Quality Tasks
+**Status**: Done  
+**Started**: 2026-03-07 21:00  
+**Completed**: 2026-03-07 21:35  
 **Branch**: master  
-**Related Files**: AGENTS.md, docs/AGENT_GUIDELINES.md, docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-9-code-quality.md, docs/standards/LOGGING.md, docs/standards/README.md, lib/Controller/*.php, lib/Service/*.php, src/components/Common/Icon.vue, src/components/Dashboard/*.vue, src/components/Gamification/*.vue, src/components/Scheduling/*.vue, src/store/*.js, src/utils/logger.js, src/views/*.vue, src/main.js, tests/bootstrap-entity.php, tests/unit/Controller/*.php, tests/unit/Service/*.php, tests/unit/utils/logger.spec.js  
+**Related Files**: tests/unit/components/Icon.spec.js, docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-9-code-quality.md  
 **Blockers**: None  
 **Notes**:
-- Define a Nextcloud-native logging concept with log levels, context rules, and privacy guardrails.
-- Introduce reusable backend logging infrastructure for controllers and services.
-- Roll out structured error, warning, and audit logging across API controllers and critical services.
-- Add regression coverage for logged failure paths and keep Phase 9 backlog/guidelines aligned.
-- Backend rollout completed with `AppLogger` and `ControllerLoggingTrait`, including controller/service integration and logging-focused regression tests.
-- Frontend rollout completed across active stores, production views, scheduling/gamification/dashboard components, `Icon.vue`, and `main.js` using shared `src/utils/logger.js`.
-- Remaining raw console usage is intentionally limited to `src/utils/logger.js`, `src/utils/performance.js`, and unwired legacy `src/components/UserManagement/*` components.
-- Validation completed:
-  - `npx eslint --quiet ...` across touched frontend logging files -> 0 errors
-  - `npx jest --runInBand tests/unit/utils/logger.spec.js` -> pass
-  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\AppLoggerTest.php` -> pass
-  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\HouseServiceLoggingTest.php` -> pass
-  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\RoomTaskServiceLoggingTest.php` -> pass
-  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Controller\\TaskControllerLoggingTest.php` -> pass
-- `tests/bootstrap-entity.php` was widened to load AppFramework controller/HTTP mocks required by the new unit logging tests.
-
-### Cascade - P9-SECURITY-002 - ChecklistController Authorization Guard
-**Status**: Review Ready  
-**Started**: 2026-03-07 21:15  
-**Updated**: 2026-03-07 21:30  
-**Branch**: master  
-**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-9-code-quality.md, lib/Controller/ChecklistController.php, lib/Service/RoomTaskService.php, tests/unit/Controller/ChecklistControllerTest.php  
-**Blockers**: None  
-**Notes**:
-- Add the missing authorization guard for checklist progress endpoints that accept `roomTaskId`.
-- Align room-task access behavior with existing controller patterns and add regression coverage for foreign-resource access.
-- Extended the guard to all checklist endpoints bound to `roomTaskId` (`getRoomTaskProgress`, `toggleItem`, `initializeProgress`, `getCompleteChecklist`).
-- `toggleItem()` now writes checklist progress with the internal `HouseUser` ID instead of a Nextcloud UID string, matching the mapper contract.
-- `initializeProgress()` and `getCompleteChecklist()` now derive `taskId` from the trusted server-side `RoomTask` instead of client input.
-- Validation completed:
-  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Controller\\ChecklistControllerTest.php` -> pass
-  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\RoomTaskServiceLoggingTest.php` -> pass
-  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Controller\\TaskControllerDailyTest.php` -> pass
-  - `php -l lib\\Controller\\ChecklistController.php` -> pass
-
-### Cascade - P9-DEPRECATION-001 - Availability Settings Current User API
-**Status**: Review Ready  
-**Started**: 2026-03-07 19:26  
-**Updated**: 2026-03-07 19:38  
-**Branch**: master  
-**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-9-code-quality.md, src/components/Scheduling/AvailabilitySettings.vue, src/utils/currentUser.js, tests/unit/components/AvailabilitySettings.spec.js, tests/unit/__mocks__/nextcloud-auth.js  
-**Blockers**: None  
-**Notes**:
-- Replace deprecated `OC.getCurrentUser()` usage in the scheduling availability settings flow.
-- Align current-user lookup with the supported Nextcloud frontend API and add regression coverage for the resolved member selection path.
-- Switched `AvailabilitySettings.vue` from the deprecated global `OC.getCurrentUser()` access to `@nextcloud/auth` via shared `resolveCurrentUser()`.
-- Normalized the resolved user shape to include `userId`, keeping the existing member matching logic stable while using the supported `uid` source.
-- Extended the Jest auth mock to support both named and default imports.
-- Validation completed:
-  - `npx jest --runInBand tests/unit/components/AvailabilitySettings.spec.js` -> pass
-  - `npx jest --runInBand tests/unit/components/AvailabilitySettings.spec.js tests/unit/utils/logger.spec.js` -> pass
-  - `npx eslint --quiet src/components/Scheduling/AvailabilitySettings.vue src/utils/currentUser.js tests/unit/components/AvailabilitySettings.spec.js tests/unit/__mocks__/nextcloud-auth.js` -> pass
+- Reviewed all changes since commit b796066e993c802fbfee400d8ef3f62e57a08006 (71 files changed, 2405 insertions, 334 deletions).
+- Fixed test regression in `Icon.spec.js` caused by structured logger format change.
+- Validated all three Phase 9 tasks (P9-REFACTOR-001, P9-SECURITY-002, P9-DEPRECATION-001) are complete and tested.
+- Updated documentation timestamps in phase-9-code-quality.md.
+- Final validation:
+  - `npx jest --runInBand tests/unit/components/Icon.spec.js` -> pass (7 tests)
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml` -> pass (314 tests, 895 assertions)
+- All Phase 9 high-priority tasks completed successfully.
 
 ### Next Session Tasks (Prioritized)
 1. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
@@ -164,6 +120,51 @@
 ---
 
 ## Recently Completed (Last 7 Days)
+
+### Cascade - P9-REFACTOR-001 - Project-Wide Logging Strategy And Rollout
+**Status**: Done  
+**Started**: 2026-03-07 16:34  
+**Completed**: 2026-03-07 21:35  
+**Branch**: master  
+**Related Files**: AGENTS.md, docs/AGENT_GUIDELINES.md, docs/backlog/phase-9-code-quality.md, docs/standards/LOGGING.md, docs/standards/README.md, lib/Controller/*.php, lib/Service/*.php, src/components/Common/Icon.vue, src/components/Dashboard/*.vue, src/components/Gamification/*.vue, src/components/Scheduling/*.vue, src/store/*.js, src/utils/logger.js, src/views/*.vue, src/main.js, tests/bootstrap-entity.php, tests/unit/Controller/*.php, tests/unit/Service/*.php, tests/unit/utils/logger.spec.js, tests/unit/components/Icon.spec.js  
+**Blockers**: None  
+**Notes**:
+- Defined Nextcloud-native logging concept with log levels, context rules, and privacy guardrails in `docs/standards/LOGGING.md`.
+- Implemented backend logging infrastructure with `AppLogger` and `ControllerLoggingTrait`.
+- Rolled out structured logging across critical backend controllers/services with regression tests.
+- Implemented shared frontend logger in `src/utils/logger.js` and replaced raw console usage across active stores, production views, and components.
+- Fixed `Icon.spec.js` test to match new structured logger format.
+- Final validation: 314 backend tests passing, 404 frontend tests passing.
+
+### Cascade - P9-SECURITY-002 - ChecklistController Authorization Guard
+**Status**: Done  
+**Started**: 2026-03-07 21:15  
+**Completed**: 2026-03-07 21:35  
+**Branch**: master  
+**Related Files**: docs/backlog/phase-9-code-quality.md, lib/Controller/ChecklistController.php, lib/Service/RoomTaskService.php, tests/unit/Controller/ChecklistControllerTest.php  
+**Blockers**: None  
+**Notes**:
+- Added missing authorization guard for all checklist endpoints accepting `roomTaskId`.
+- Fixed `toggleItem()` to use internal `HouseUser` ID instead of Nextcloud UID.
+- Fixed `initializeProgress()` and `getCompleteChecklist()` to derive `taskId` from server-side `RoomTask`.
+- Added comprehensive regression tests in `ChecklistControllerTest.php`.
+
+### Cascade - P9-DEPRECATION-001 - Availability Settings Current User API
+**Status**: Done  
+**Started**: 2026-03-07 19:26  
+**Completed**: 2026-03-07 21:35  
+**Branch**: master  
+**Related Files**: docs/backlog/phase-9-code-quality.md, src/components/Scheduling/AvailabilitySettings.vue, src/utils/currentUser.js, tests/unit/components/AvailabilitySettings.spec.js, tests/unit/__mocks__/nextcloud-auth.js  
+**Blockers**: None  
+**Notes**:
+- Replaced deprecated `OC.getCurrentUser()` with `@nextcloud/auth` via shared `resolveCurrentUser()`.
+- Normalized user shape to include `userId` field for backward compatibility.
+- Extended Jest auth mock to support both named and default imports.
+- Added regression coverage in `AvailabilitySettings.spec.js`.
+
+---
+
+## Previously Completed
 
 ### Cascade - P7-PERF - Phase 7 Polish & Optimization
 **Status**: Done  

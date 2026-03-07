@@ -78,7 +78,10 @@ describe('Icon.vue', () => {
 			global: { plugins: [pinia] },
 		})
 
-		expect(consoleSpy).toHaveBeenCalledWith('Icon "NonExistentIcon" not found in icon registry')
+		expect(consoleSpy).toHaveBeenCalledWith(
+			'[ChoreStrike] [warn] Icon "NonExistentIcon" not found in icon registry',
+			{ component: 'Icon', iconName: 'NonExistentIcon' },
+		)
 		consoleSpy.mockRestore()
 	})
 
