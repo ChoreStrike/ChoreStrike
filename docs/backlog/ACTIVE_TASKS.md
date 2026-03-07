@@ -105,12 +105,31 @@
   - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Controller\\TaskControllerLoggingTest.php` -> pass
 - `tests/bootstrap-entity.php` was widened to load AppFramework controller/HTTP mocks required by the new unit logging tests.
 
+### Cascade - P9-SECURITY-002 - ChecklistController Authorization Guard
+**Status**: Review Ready  
+**Started**: 2026-03-07 21:15  
+**Updated**: 2026-03-07 21:30  
+**Branch**: master  
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-9-code-quality.md, lib/Controller/ChecklistController.php, lib/Service/RoomTaskService.php, tests/unit/Controller/ChecklistControllerTest.php  
+**Blockers**: None  
+**Notes**:
+- Add the missing authorization guard for checklist progress endpoints that accept `roomTaskId`.
+- Align room-task access behavior with existing controller patterns and add regression coverage for foreign-resource access.
+- Extended the guard to all checklist endpoints bound to `roomTaskId` (`getRoomTaskProgress`, `toggleItem`, `initializeProgress`, `getCompleteChecklist`).
+- `toggleItem()` now writes checklist progress with the internal `HouseUser` ID instead of a Nextcloud UID string, matching the mapper contract.
+- `initializeProgress()` and `getCompleteChecklist()` now derive `taskId` from the trusted server-side `RoomTask` instead of client input.
+- Validation completed:
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Controller\\ChecklistControllerTest.php` -> pass
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\RoomTaskServiceLoggingTest.php` -> pass
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Controller\\TaskControllerDailyTest.php` -> pass
+  - `php -l lib\\Controller\\ChecklistController.php` -> pass
+
 ### Next Session Tasks (Prioritized)
-1. **P9-SECURITY-002** (High) - Add authorization check in ChecklistController
-2. **P9-DEPRECATION-001** (Medium) - Replace deprecated `OC.getCurrentUser()` in `AvailabilitySettings.vue`
-3. **P9-LINT-001** (Medium) - Reduce remaining warning baseline (mainly JSDoc and formatting)
-4. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
-5. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
+1. **P9-DEPRECATION-001** (Medium) - Replace deprecated `OC.getCurrentUser()` in `AvailabilitySettings.vue`
+2. **P9-LINT-001** (Medium) - Reduce remaining warning baseline (mainly JSDoc and formatting)
+3. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
+4. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
+5. **P8-RELEASE-001** (High) - App store submission preparation
 
 ---
 

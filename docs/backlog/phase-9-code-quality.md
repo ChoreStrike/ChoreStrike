@@ -18,7 +18,7 @@ Address technical debt and code quality issues identified in comprehensive code 
 ### P9-SECURITY-002 - Add Authorization Check in ChecklistController
 **Priority**: HIGH  
 **Effort**: 1 hour  
-**Status**: Planned
+**Status**: Done
 
 **Description**: Missing authorization check in `ChecklistController.php:282` allows potential unauthorized access to checklist progress toggle.
 
@@ -36,6 +36,20 @@ $progress = $this->progressMapper->toggle($roomTaskId, $itemId, $currentUserId);
 **Tests**:
 - Add regression test for unauthorized access attempt (403)
 - Add regression test for authorized access (200)
+
+**Completed**:
+- Replaced direct `RoomTaskMapper` access in `ChecklistController` with `RoomTaskService` ownership validation.
+- Applied the room-task authorization guard to all checklist endpoints that accept `roomTaskId`.
+- Normalized missing or foreign `roomTask` access to protected-resource `404` responses in line with the existing controller semantics.
+- Stopped trusting client-provided `taskId` for checklist initialization/loading and now derive it from the validated `RoomTask`.
+- Fixed checklist toggle writes to use the internal `HouseUser` ID required by `RoomTaskChecklistProgressMapper::toggle()`.
+- Added `ChecklistControllerTest.php` with success, hidden-resource, and server-side-task-resolution regression coverage.
+
+**Validation**:
+- `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Controller\\ChecklistControllerTest.php` -> pass
+- `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\RoomTaskServiceLoggingTest.php` -> pass
+- `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Controller\\TaskControllerDailyTest.php` -> pass
+- `php -l lib\\Controller\\ChecklistController.php` -> pass
 
 ---
 

@@ -55,9 +55,13 @@ class RoomTaskService
      */
     public function validateRoomTaskOwnership(int $roomTaskId, int $houseId): void
     {
-        $roomTask = $this->roomTaskMapper->find($roomTaskId);
-        $room = $this->roomMapper->find($roomTask->getRoomId());
-        $floor = $this->floorMapper->find($room->getFloorId());
+        try {
+            $roomTask = $this->roomTaskMapper->find($roomTaskId);
+            $room = $this->roomMapper->find($roomTask->getRoomId());
+            $floor = $this->floorMapper->find($room->getFloorId());
+        } catch (DoesNotExistException $e) {
+            throw new NotFoundException('Room task not found');
+        }
 
         if ($floor->getHouseId() !== $houseId) {
             $this->appLogger?->securityWarning('Room task ownership validation failed', [

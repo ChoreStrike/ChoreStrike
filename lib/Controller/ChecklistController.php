@@ -10,10 +10,12 @@ namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\RoomTaskService;
+use OCP\AppFramework\Http\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\AppFramework\Http\NotFoundException;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
 
@@ -24,7 +26,7 @@ class ChecklistController extends OCSController
 {
     private TaskChecklistItemMapper $checklistItemMapper;
     private RoomTaskChecklistProgressMapper $progressMapper;
-    private RoomTaskMapper $roomTaskMapper;
+    private RoomTaskService $roomTaskService;
     private HouseService $houseService;
     private AuthorizationService $authService;
 
@@ -32,14 +34,14 @@ class ChecklistController extends OCSController
         IRequest $request,
         TaskChecklistItemMapper $checklistItemMapper,
         RoomTaskChecklistProgressMapper $progressMapper,
-        RoomTaskMapper $roomTaskMapper,
+        RoomTaskService $roomTaskService,
         HouseService $houseService,
         AuthorizationService $authService
     ) {
         parent::__construct('chorestrike', $request);
         $this->checklistItemMapper = $checklistItemMapper;
         $this->progressMapper = $progressMapper;
-        $this->roomTaskMapper = $roomTaskMapper;
+        $this->roomTaskService = $roomTaskService;
         $this->houseService = $houseService;
         $this->authService = $authService;
     }
@@ -241,6 +243,7 @@ class ChecklistController extends OCSController
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
             $this->authService->requireHouseMember($house->getId());
+            $this->roomTaskService->validateRoomTaskOwnership($roomTaskId, $house->getId());
 
             $progress = $this->progressMapper->findByRoomTaskId($roomTaskId);
             $stats = $this->progressMapper->getProgressStats($roomTaskId);
@@ -252,6 +255,22 @@ class ChecklistController extends OCSController
                     'stats' => $stats
                 ]
             ]);
+        } catch (NotFoundException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'RESOURCE_NOT_FOUND',
+                    'message' => $e->getMessage()
+                ]
+            ], 404);
+        } catch (ForbiddenException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'FORBIDDEN',
+                    'message' => $e->getMessage()
+                ]
+            ], 403);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -273,15 +292,10 @@ class ChecklistController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->requireHouseMember($house->getId());
+            $this->roomTaskService->validateRoomTaskOwnership($roomTaskId, $house->getId());
 
-            $currentUserId = $this->authService->requireCurrentUserId();
-            $roomTask = $this->roomTaskMapper->find($roomTaskId);
-
-            // Verify user can access this room task
-            // TODO: Add proper authorization check
-
-            $progress = $this->progressMapper->toggle($roomTaskId, $itemId, $currentUserId);
+            $progress = $this->progressMapper->toggle($roomTaskId, $itemId, $houseUser->getId());
             $stats = $this->progressMapper->getProgressStats($roomTaskId);
 
             return new JSONResponse([
@@ -291,6 +305,22 @@ class ChecklistController extends OCSController
                     'stats' => $stats
                 ]
             ]);
+        } catch (NotFoundException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'RESOURCE_NOT_FOUND',
+                    'message' => $e->getMessage()
+                ]
+            ], 404);
+        } catch (ForbiddenException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'FORBIDDEN',
+                    'message' => $e->getMessage()
+                ]
+            ], 403);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -313,9 +343,11 @@ class ChecklistController extends OCSController
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
             $this->authService->requireHouseMember($house->getId());
+            $this->roomTaskService->validateRoomTaskOwnership($roomTaskId, $house->getId());
+            $roomTask = $this->roomTaskService->getRoomTask($roomTaskId);
 
             // Get all checklist items for this task
-            $items = $this->checklistItemMapper->findByTaskId($taskId);
+            $items = $this->checklistItemMapper->findByTaskId($roomTask->getTaskId());
             $itemIds = array_map(fn ($item) => $item->getId(), $items);
 
             // Initialize progress entries
@@ -325,6 +357,22 @@ class ChecklistController extends OCSController
                 'success' => true,
                 'message' => 'Progress initialized'
             ]);
+        } catch (NotFoundException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'RESOURCE_NOT_FOUND',
+                    'message' => $e->getMessage()
+                ]
+            ], 404);
+        } catch (ForbiddenException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'FORBIDDEN',
+                    'message' => $e->getMessage()
+                ]
+            ], 403);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -347,9 +395,11 @@ class ChecklistController extends OCSController
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
             $this->authService->requireHouseMember($house->getId());
+            $this->roomTaskService->validateRoomTaskOwnership($roomTaskId, $house->getId());
+            $roomTask = $this->roomTaskService->getRoomTask($roomTaskId);
 
             // Get checklist items
-            $items = $this->checklistItemMapper->findByTaskId($taskId);
+            $items = $this->checklistItemMapper->findByTaskId($roomTask->getTaskId());
 
             // Get progress
             $progress = $this->progressMapper->findByRoomTaskId($roomTaskId);
@@ -378,6 +428,22 @@ class ChecklistController extends OCSController
                     'stats' => $stats
                 ]
             ]);
+        } catch (NotFoundException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'RESOURCE_NOT_FOUND',
+                    'message' => $e->getMessage()
+                ]
+            ], 404);
+        } catch (ForbiddenException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'FORBIDDEN',
+                    'message' => $e->getMessage()
+                ]
+            ], 403);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
