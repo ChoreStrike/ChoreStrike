@@ -17,6 +17,7 @@
     "l10n:check-keys": "node scripts/check-l10n-keys.js"
   },
   "dependencies": {
+    "@fluentui/svg-icons": "^1.1.320",
     "@nextcloud/auth": "^2.4.0",
     "@nextcloud/axios": "^2.5.0",
     "@nextcloud/dialogs": "^7.3.0",
@@ -30,6 +31,7 @@
     "lucide-vue-next": "^0.474.0",
     "node-polyfill-webpack-plugin": "^4.1.0",
     "pinia": "^2.2.6",
+    "svg-inline-loader": "^0.8.2",
     "vue": "^3.5.13",
     "vue-router": "^4.4.5"
   },

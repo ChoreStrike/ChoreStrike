@@ -5,6 +5,29 @@
 
 import { h } from 'vue'
 import SvgIcon from '../components/Common/SvgIcon.vue'
+import add20Regular from '@fluentui/svg-icons/icons/add_20_regular.svg'
+import arrowLeft20Regular from '@fluentui/svg-icons/icons/arrow_left_20_regular.svg'
+import bed20Regular from '@fluentui/svg-icons/icons/bed_20_regular.svg'
+import building20Regular from '@fluentui/svg-icons/icons/building_20_regular.svg'
+import calendar20Regular from '@fluentui/svg-icons/icons/calendar_20_regular.svg'
+import checkmark20Regular from '@fluentui/svg-icons/icons/checkmark_20_regular.svg'
+import checkmarkCircle20Regular from '@fluentui/svg-icons/icons/checkmark_circle_20_regular.svg'
+import chevronDown20Regular from '@fluentui/svg-icons/icons/chevron_down_20_regular.svg'
+import chevronLeft20Regular from '@fluentui/svg-icons/icons/chevron_left_20_regular.svg'
+import chevronRight20Regular from '@fluentui/svg-icons/icons/chevron_right_20_regular.svg'
+import chevronUp20Regular from '@fluentui/svg-icons/icons/chevron_up_20_regular.svg'
+import clock20Regular from '@fluentui/svg-icons/icons/clock_20_regular.svg'
+import delete20Regular from '@fluentui/svg-icons/icons/delete_20_regular.svg'
+import dismiss20Regular from '@fluentui/svg-icons/icons/dismiss_20_regular.svg'
+import edit20Regular from '@fluentui/svg-icons/icons/edit_20_regular.svg'
+import grid20Regular from '@fluentui/svg-icons/icons/grid_20_regular.svg'
+import home20Regular from '@fluentui/svg-icons/icons/home_20_regular.svg'
+import list20Regular from '@fluentui/svg-icons/icons/list_20_regular.svg'
+import people20Regular from '@fluentui/svg-icons/icons/people_20_regular.svg'
+import person20Regular from '@fluentui/svg-icons/icons/person_20_regular.svg'
+import search20Regular from '@fluentui/svg-icons/icons/search_20_regular.svg'
+import star20Regular from '@fluentui/svg-icons/icons/star_20_regular.svg'
+import trophy20Regular from '@fluentui/svg-icons/icons/trophy_20_regular.svg'
 
 /**
  * Local Fluent-inspired SVG icon registry for ChoreStrike.
@@ -12,6 +35,31 @@ import SvgIcon from '../components/Common/SvgIcon.vue'
  * The registry keeps the historic icon names stable while rendering local-only
  * SVG shapes through a shared component.
  */
+const createFluentSvgComponent = (name, svgMarkup) => ({
+	name: `${name}FluentSvgIcon`,
+	inheritAttrs: false,
+	props: {
+		size: {
+			type: [Number, String],
+			default: 20,
+		},
+		strokeWidth: {
+			type: [Number, String],
+			default: 1.75,
+		},
+	},
+	computed: {
+		computedSize() {
+			return typeof this.size === 'number' ? this.size : parseInt(this.size, 10)
+		},
+		styledMarkup() {
+			return String(svgMarkup)
+				.replace('<svg', `<svg width="${this.computedSize}" height="${this.computedSize}" class="icon-svg-content"`)
+		},
+	},
+	template: '<span class="icon-svg" v-html="styledMarkup" v-bind="$attrs"></span>',
+})
+
 const createIconComponent = (name, shapes, viewBox = '0 0 24 24') => ({
 	name: `${name}Icon`,
 	props: {
@@ -35,6 +83,36 @@ const createIconComponent = (name, shapes, viewBox = '0 0 24 24') => ({
 		})
 	},
 })
+
+const fluentSvgIcons = {
+	Home: createFluentSvgComponent('Home', home20Regular),
+	House: createFluentSvgComponent('House', home20Regular),
+	Building: createFluentSvgComponent('Building', building20Regular),
+	Plus: createFluentSvgComponent('Plus', add20Regular),
+	Search: createFluentSvgComponent('Search', search20Regular),
+	X: createFluentSvgComponent('X', dismiss20Regular),
+	Close: createFluentSvgComponent('Close', dismiss20Regular),
+	Check: createFluentSvgComponent('Check', checkmark20Regular),
+	CheckCircle: createFluentSvgComponent('CheckCircle', checkmarkCircle20Regular),
+	ArrowLeft: createFluentSvgComponent('ArrowLeft', arrowLeft20Regular),
+	ChevronDown: createFluentSvgComponent('ChevronDown', chevronDown20Regular),
+	ChevronUp: createFluentSvgComponent('ChevronUp', chevronUp20Regular),
+	ChevronLeft: createFluentSvgComponent('ChevronLeft', chevronLeft20Regular),
+	ChevronRight: createFluentSvgComponent('ChevronRight', chevronRight20Regular),
+	User: createFluentSvgComponent('User', person20Regular),
+	Users: createFluentSvgComponent('Users', people20Regular),
+	Calendar: createFluentSvgComponent('Calendar', calendar20Regular),
+	Clock: createFluentSvgComponent('Clock', clock20Regular),
+	Trash: createFluentSvgComponent('Trash', delete20Regular),
+	Trash2: createFluentSvgComponent('Trash2', delete20Regular),
+	Edit: createFluentSvgComponent('Edit', edit20Regular),
+	Edit2: createFluentSvgComponent('Edit2', edit20Regular),
+	Grid: createFluentSvgComponent('Grid', grid20Regular),
+	List: createFluentSvgComponent('List', list20Regular),
+	Bed: createFluentSvgComponent('Bed', bed20Regular),
+	Star: createFluentSvgComponent('Star', star20Regular),
+	Trophy: createFluentSvgComponent('Trophy', trophy20Regular),
+}
 
 const SHARED_SHAPES = {
 	home: [
@@ -427,6 +505,8 @@ const iconDefinitions = {
 export const icons = Object.fromEntries(
 	Object.entries(iconDefinitions).map(([name, shapes]) => [name, createIconComponent(name, shapes)])
 )
+
+Object.assign(icons, fluentSvgIcons)
 
 /**
  * Get icon component by name

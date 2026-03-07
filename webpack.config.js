@@ -2,6 +2,11 @@ const path = require('path')
 const webpackConfig = require('@nextcloud/webpack-vue-config')
 const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
 
+const svgRule = webpackConfig.module?.rules?.find(rule => String(rule.test) === String(/\.svg$/))
+if (svgRule) {
+	svgRule.exclude = [path.resolve(__dirname, 'node_modules', '@fluentui', 'svg-icons')]
+}
+
 // Force cache bust
 const buildTime = Date.now()
 
@@ -34,6 +39,17 @@ webpackConfig.module = webpackConfig.module || { rules: [] }
 webpackConfig.module.rules.push({
 	test: /\.m?js$/,
 	resolve: { fullySpecified: false },
+})
+
+webpackConfig.module.rules.push({
+	test: /\.svg$/,
+	include: [path.resolve(__dirname, 'node_modules', '@fluentui', 'svg-icons')],
+	use: [{
+		loader: 'svg-inline-loader',
+		options: {
+			removeSVGTagAttrs: false,
+		},
+	}],
 })
 
 module.exports = webpackConfig

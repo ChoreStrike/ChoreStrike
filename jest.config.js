@@ -4,6 +4,7 @@ module.exports = {
 	moduleNameMapper: {
 		'^@/(.*)$': '<rootDir>/src/$1',
 		'^@nextcloud/(.*)$': '<rootDir>/tests/unit/__mocks__/nextcloud-$1.js',
+		'\\.svg$': '<rootDir>/tests/unit/__mocks__/svg.js',
 		'../utils/icons.js': '<rootDir>/tests/unit/__mocks__/icons.js',
 		'../../utils/icons.js': '<rootDir>/tests/unit/__mocks__/icons.js',
 	},
