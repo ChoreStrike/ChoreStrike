@@ -121,6 +121,20 @@
 
 ## Recently Completed (Last 7 Days)
 
+### Cascade - P9-REVIEW-PLAYBOOK-001 - Reusable Project Review Playbook
+**Status**: Done  
+**Started**: 2026-03-07 20:09  
+**Completed**: 2026-03-07 20:20  
+**Branch**: master  
+**Related Files**: AGENTS.md, docs/REVIEW_PLAYBOOK.md, docs/standards/README.md, docs/backlog/ACTIVE_TASKS.md  
+**Blockers**: None  
+**Notes**:
+- Created a reusable review playbook with time-boxed review modes, package sequencing, automation guidance, and a reusable checklist.
+- Structured the workflow around ChoreStrike-specific review hotspots including security, orphaned items, documentation drift, inter-module contracts, logging, i18n, and release readiness.
+- Added guidance for splitting work across fast search-oriented review, deep reasoning, coding, and final review roles.
+- Documented an immediate-fix policy for clear issues and a question-batching policy for ambiguous findings.
+- Linked the new playbook from `docs/standards/README.md` for discoverability.
+
 ### Cascade - P9-REFACTOR-001 - Project-Wide Logging Strategy And Rollout
 **Status**: Done  
 **Started**: 2026-03-07 16:34  

@@ -16,6 +16,7 @@ All code in ChoreStrike must follow these standards to ensure consistency, maint
 - **Documentation Standard** - PHPDoc, JSDoc requirements
 - **Logging Standard** - Structured backend/frontend logging, privacy guardrails, Nextcloud log levels
 - **External Asset Licensing Standard** - Third-party icons, fonts, and illustrations
+- **Review Playbook** - Reusable review packages, automation strategy, and handoff workflow
 
 ## External Asset Licensing Checklist
 
@@ -75,6 +76,7 @@ Types: `feat`, `fix`, `docs`, `refactor`, `test`, `i18n`, `perf`, `chore`
 - [AGENTS.md](../../AGENTS.md) - AI development guidelines
 - [DEVELOPMENT.md](../DEVELOPMENT.md) - Development workflow
 - [ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture
+- [REVIEW_PLAYBOOK.md](../REVIEW_PLAYBOOK.md) - Reusable review workflow and checklist
 
 ---
 
