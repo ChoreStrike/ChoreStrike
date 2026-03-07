@@ -13,16 +13,20 @@
 			<div class="floor-actions">
 				<button
 					class="refresh-button"
+					data-testid="refresh-floors-button"
 					:disabled="loading"
 					:title="t('chorestrike', 'Refresh floors')"
 					@click="refreshFloors">
-					<Icon name="RefreshCw" :size="16" />
+					<Icon name="RefreshCw" :size="16" class="button-icon" />
+					<span class="button-label">{{ t('chorestrike', 'Refresh') }}</span>
 				</button>
 				<button
 					class="add-button"
+					data-testid="add-floor-button"
 					:title="t('chorestrike', 'Add new floor')"
 					@click="addFloor">
-					<Icon name="Plus" :size="16" />
+					<Icon name="Plus" :size="16" class="button-icon" />
+					<span class="button-label">{{ t('chorestrike', 'Add Floor') }}</span>
 				</button>
 			</div>
 		</div>
@@ -51,6 +55,7 @@
 			<div
 				v-for="floor in sortedFloors"
 				:key="floor.id"
+				:data-testid="`floor-${floor.name}`"
 				class="floor-section">
 				<!-- Floor Header -->
 				<div class="floor-section-header">
@@ -68,9 +73,9 @@
 					<div class="floor-section-actions">
 						<button
 							class="toggle-button"
-							:class="{ expanded: expandedFloors.includes(floor.id) }"
+							:class="{ expanded: isFloorExpanded(floor.id) }"
 							@click="toggleFloor(floor.id)">
-							<Icon :name="expandedFloors.includes(floor.id) ? 'ChevronDown' : 'ChevronRight'" :size="16" />
+							<Icon :name="isFloorExpanded(floor.id) ? 'ChevronDown' : 'ChevronRight'" :size="16" />
 						</button>
 						<button
 							class="edit-button"
@@ -89,7 +94,7 @@
 
 				<!-- Floor Content (Rooms) -->
 				<div
-					v-if="expandedFloors.includes(floor.id)"
+					v-if="isFloorExpanded(floor.id)"
 					class="floor-content">
 					<!-- Loading Rooms -->
 					<div v-if="loadingRooms[floor.id]" class="loading-rooms">
@@ -102,6 +107,7 @@
 						<p>{{ t('chorestrike', 'No rooms on this floor yet.') }}</p>
 						<button
 							class="add-room-button"
+							:data-testid="`add-room-button-${floor.id}`"
 							@click="addRoom(floor.id)">
 							<Icon name="Plus" :size="16" class="icon" />
 							{{ t('chorestrike', 'Add Room') }}
@@ -118,7 +124,7 @@
 							@room-click="handleRoomClick" />
 
 						<!-- Add Room Button -->
-						<div class="add-room-card" @click="addRoom(floor.id)">
+						<div class="add-room-card" :data-testid="`add-room-card-${floor.id}`" @click="addRoom(floor.id)">
 							<div class="add-room-content">
 								<Icon name="Plus" :size="24" class="add-icon" />
 								<span class="add-text">{{ t('chorestrike', 'Add Room') }}</span>
@@ -155,11 +161,42 @@
 				</form>
 			</div>
 		</div>
+
+		<!-- Add Room Modal -->
+		<div v-if="showAddRoomModal" class="modal-overlay" @click="closeAddRoomModal">
+			<div class="modal-content" @click.stop>
+				<h3>{{ t('chorestrike', 'Add Room') }}</h3>
+				<p class="modal-subtitle">
+					{{ t('chorestrike', 'Floor: {name}', { name: selectedFloorName }) }}
+				</p>
+				<form @submit.prevent="handleAddRoom">
+					<div class="form-group">
+						<label for="room-name">{{ t('chorestrike', 'Room Name') }}</label>
+						<input
+							id="room-name"
+							v-model="newRoomName"
+							type="text"
+							data-testid="room-name-input"
+							:placeholder="t('chorestrike', 'e.g., Kitchen, Bathroom')"
+							required
+							class="form-input">
+					</div>
+					<div class="form-actions">
+						<button type="button" class="cancel-button" @click="closeAddRoomModal">
+							{{ t('chorestrike', 'Cancel') }}
+						</button>
+						<button type="submit" class="submit-button" data-testid="create-room-button" :disabled="!newRoomName.trim() || loading">
+							{{ t('chorestrike', 'Create Room') }}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
 	</div>
 </template>
 
 <script>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, nextTick } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRouter } from 'vue-router'
@@ -188,10 +225,12 @@ export default {
 		const roomsStore = useRoomsStore()
 
 		// Reactive state
-		const expandedFloors = ref([])
 		const loadingRooms = ref({})
 		const showAddFloorModal = ref(false)
 		const newFloorName = ref('')
+		const showAddRoomModal = ref(false)
+		const selectedFloorId = ref(null)
+		const newRoomName = ref('')
 
 		// Computed properties
 		const floors = computed(() => roomsStore.floors)
@@ -199,6 +238,15 @@ export default {
 
 		const sortedFloors = computed(() => {
 			return [...floors.value].sort((a, b) => a.sortOrder - b.sortOrder)
+		})
+
+		const selectedFloorName = computed(() => {
+			if (selectedFloorId.value === null) {
+				return t('chorestrike', 'Unknown')
+			}
+
+			const floor = roomsStore.getFloorById(selectedFloorId.value)
+			return floor?.name || t('chorestrike', 'Unknown')
 		})
 
 		// Methods
@@ -227,26 +275,13 @@ export default {
 			return 'terrible'
 		}
 
+		const isFloorExpanded = (floorId) => {
+			// Access state directly for better compatibility
+			return roomsStore.expandedFloors.some(id => String(id) === String(floorId))
+		}
+
 		const toggleFloor = async (floorId) => {
-			const index = expandedFloors.value.indexOf(floorId)
-
-			if (index > -1) {
-				expandedFloors.value.splice(index, 1)
-			} else {
-				expandedFloors.value.push(floorId)
-
-				// Load rooms if not already loaded
-				if (getFloorRooms(floorId).length === 0) {
-					loadingRooms.value[floorId] = true
-					try {
-						await roomsStore.fetchRooms(floorId)
-					} catch (error) {
-						console.error('Failed to load rooms:', error)
-					} finally {
-						loadingRooms.value[floorId] = false
-					}
-				}
-			}
+			roomsStore.toggleFloorExpanded(floorId)
 		}
 
 		const refreshFloors = async () => {
@@ -271,11 +306,17 @@ export default {
 			if (!newFloorName.value.trim()) return
 
 			try {
-				const floor = await roomsStore.createFloor(newFloorName.value.trim())
+				const newFloor = await roomsStore.createFloor(newFloorName.value.trim())
 				closeAddFloorModal()
-
-				// Auto-expand the new floor
-				expandedFloors.value.push(floor.id)
+				
+				// Expand the new floor BEFORE refresh so it stays expanded after re-render
+				if (newFloor) {
+					roomsStore.setFloorExpanded(newFloor.id)
+					await nextTick() // Ensure Vue processes the expanded state
+				}
+				
+				// Force refresh to ensure UI updates in Nextcloud environment
+				await roomsStore.fetchFloorsWithRooms()
 			} catch (error) {
 				console.error('Failed to create floor:', error)
 			}
@@ -298,17 +339,45 @@ export default {
 				await roomsStore.deleteFloor(floor.id)
 
 				// Remove from expanded floors
-				const index = expandedFloors.value.indexOf(floor.id)
-				if (index > -1) {
-					expandedFloors.value.splice(index, 1)
-				}
+				roomsStore.setFloorCollapsed(floor.id)
 			} catch (error) {
 				console.error('Failed to delete floor:', error)
 			}
 		}
 
-		const addRoom = () => {
-			// TODO: Implement add room functionality
+		const addRoom = (floorId) => {
+			selectedFloorId.value = floorId
+			newRoomName.value = ''
+			showAddRoomModal.value = true
+		}
+
+		const closeAddRoomModal = () => {
+			showAddRoomModal.value = false
+			selectedFloorId.value = null
+			newRoomName.value = ''
+		}
+
+		const handleAddRoom = async () => {
+			if (selectedFloorId.value === null || !newRoomName.value.trim()) {
+				return
+			}
+
+			const floorId = selectedFloorId.value
+			const roomNameValue = newRoomName.value.trim()
+
+			// Ensure floor is expanded BEFORE refresh
+			roomsStore.setFloorExpanded(floorId)
+			await nextTick() // Ensure Vue processes the expanded state
+
+			try {
+				await roomsStore.createRoom(floorId, roomNameValue)
+				closeAddRoomModal()
+				
+				// Force refresh to ensure UI updates in Nextcloud environment
+				await roomsStore.fetchFloorsWithRooms()
+			} catch (error) {
+				console.error('Failed to create room:', error)
+			}
 		}
 
 		const handleRoomClick = (room) => {
@@ -319,16 +388,18 @@ export default {
 		onMounted(() => {
 			// Auto-expand first floor if enabled
 			if (props.autoExpand && sortedFloors.value.length > 0) {
-				expandedFloors.value.push(sortedFloors.value[0].id)
+				roomsStore.setFloorExpanded(sortedFloors.value[0].id)
 			}
 		})
 
 		return {
 			t,
-			expandedFloors,
 			loadingRooms,
 			showAddFloorModal,
 			newFloorName,
+			showAddRoomModal,
+			selectedFloorName,
+			newRoomName,
 			floors,
 			loading,
 			sortedFloors,
@@ -336,6 +407,7 @@ export default {
 			getRoomCount,
 			getFloorCleanliness,
 			getFloorCleanlinessClass,
+			isFloorExpanded,
 			toggleFloor,
 			refreshFloors,
 			addFloor,
@@ -344,6 +416,8 @@ export default {
 			editFloor,
 			deleteFloor,
 			addRoom,
+			closeAddRoomModal,
+			handleAddRoom,
 			handleRoomClick,
 		}
 	},
@@ -389,13 +463,24 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  min-height: 34px;
+  padding: 0 12px;
   border: 1px solid var(--color-border);
   border-radius: 6px;
   background: var(--color-main-background);
   cursor: pointer;
   transition: all 0.2s ease;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.button-icon {
+  flex-shrink: 0;
+}
+
+.button-label {
+  line-height: 1;
 }
 
 .refresh-button:hover:not(:disabled),
@@ -736,6 +821,12 @@ export default {
   justify-content: flex-end;
 }
 
+.modal-subtitle {
+  margin: -10px 0 14px;
+  color: var(--color-text-maxcontrast);
+  font-size: 13px;
+}
+
 .cancel-button,
 .submit-button {
   padding: 8px 16px;
@@ -780,6 +871,15 @@ export default {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .button-label {
+    display: none;
+  }
+
+  .refresh-button,
+  .add-button {
+    padding: 0 10px;
   }
 
   .rooms-grid {

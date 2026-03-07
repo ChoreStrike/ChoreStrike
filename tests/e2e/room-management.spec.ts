@@ -8,6 +8,15 @@ test.describe('Room and Floor Management', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
+		await page.goto('/')
+		const loginFormVisible = await page.locator('#user, input[name="user"]').first().isVisible().catch(() => false)
+		if (loginFormVisible) {
+			await page.fill('#user, input[name="user"]', process.env.NEXTCLOUD_USER || 'admin')
+			await page.fill('#password, input[name="password"]', process.env.NEXTCLOUD_PASSWORD || 'admin')
+			await page.click('#submit-form, button[type="submit"], button:has-text("Log in")')
+			await page.waitForLoadState('networkidle', { timeout: 30000 })
+		}
+
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		// Wait for dashboard to load with longer timeout
@@ -37,7 +46,7 @@ test.describe('Room and Floor Management', () => {
 
 	test('User can add room to floor', async ({ page }) => {
 		// Navigate to settings
-		await page.click('[data-testid="nav-settings"]')
+		await page.click('text=Settings')
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 
 		// First create a floor if none exists
@@ -54,9 +63,24 @@ test.describe('Room and Floor Management', () => {
 		await page.click('text=Dashboard')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
-		// Check if any floor exists with rooms section
-		const floorsList = page.locator('[data-testid="floors-list"]')
-		await expect(floorsList).toBeVisible({ timeout: 15000 })
+		// Expand first floor and add room through GUI modal
+		const floorToggle = page.locator('.floor-section .toggle-button').first()
+		if (await floorToggle.count() > 0) {
+			await floorToggle.click()
+		}
+
+		const addRoomButton = page.locator('[data-testid^="add-room-button-"]').first()
+		if (await addRoomButton.count() > 0) {
+			await addRoomButton.click()
+		} else {
+			await page.locator('[data-testid^="add-room-card-"]').first().click()
+		}
+
+		await page.waitForSelector('[data-testid="room-name-input"]', { timeout: 15000 })
+		await page.fill('[data-testid="room-name-input"]', 'Test Room')
+		await page.click('[data-testid="create-room-button"]')
+
+		await expect(page.locator('text=Test Room')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('User can update room cleanliness', async ({ page }) => {

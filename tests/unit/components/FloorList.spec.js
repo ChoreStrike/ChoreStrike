@@ -5,6 +5,8 @@ import { translate } from '@nextcloud/l10n'
 import FloorList from '../../../src/components/Dashboard/FloorList.vue'
 import RoomCard from '../../../src/components/Dashboard/RoomCard.vue'
 
+let mockRoomsStore
+
 jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, text) => text),
 }))
@@ -20,16 +22,7 @@ jest.mock('vue-router', () => ({
 
 // Mock stores module
 jest.mock('../../../src/store/rooms.js', () => ({
-	useRoomsStore: () => ({
-		floors: [],
-		rooms: [],
-		loading: false,
-		roomsByFloor: {},
-		fetchFloorsWithRooms: jest.fn(),
-		fetchRooms: jest.fn(),
-		createFloor: jest.fn(),
-		deleteFloor: jest.fn(),
-	}),
+	useRoomsStore: () => mockRoomsStore,
 }))
 
 describe('FloorList.vue', () => {
@@ -38,6 +31,17 @@ describe('FloorList.vue', () => {
 	beforeEach(() => {
 		pinia = createPinia()
 		setActivePinia(pinia)
+		mockRoomsStore = {
+			floors: [],
+			rooms: [],
+			loading: false,
+			roomsByFloor: {},
+			fetchFloorsWithRooms: jest.fn(),
+			fetchRooms: jest.fn(),
+			createFloor: jest.fn(),
+			deleteFloor: jest.fn(),
+			getFloorById: jest.fn((floorId) => mockRoomsStore.floors.find(floor => floor.id === floorId)),
+		}
 		translate.mockClear()
 		global.confirm.mockClear()
 	})
@@ -188,5 +192,22 @@ describe('FloorList.vue', () => {
 
 		expect(global.confirm).toHaveBeenCalledTimes(1)
 		expect(global.confirm.mock.calls[0][0]).toContain('Are you sure you want to delete')
+	})
+
+	it('shows add room action when expanding an empty floor', async () => {
+		mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor', sortOrder: 0 }]
+		mockRoomsStore.roomsByFloor = { 1: [] }
+
+		const wrapper = mount(FloorList, {
+			global: {
+				plugins: [pinia],
+				components: { RoomCard },
+			},
+		})
+
+		await wrapper.find('.toggle-button').trigger('click')
+
+		expect(wrapper.find('[data-testid="add-room-button-1"]').exists()).toBe(true)
+		expect(mockRoomsStore.fetchRooms).not.toHaveBeenCalled()
 	})
 })

@@ -32,9 +32,12 @@
 			<button
 				v-if="showRefreshButton"
 				class="refresh-button"
+				data-testid="refresh-house-health-button"
 				:disabled="loading"
 				:title="t('chorestrike', 'Refresh house health')"
 				@click="refreshHealth">
+				<Icon name="RefreshCw" :size="16" class="icon" />
+				<span class="button-text">{{ t('chorestrike', 'Reload') }}</span>
 			</button>
 		</div>
 	</div>
@@ -242,15 +245,18 @@ export default {
 }
 
 .refresh-button {
-  background: none;
+  background: var(--color-main-background);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 7px 10px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .refresh-button:hover:not(:disabled) {
@@ -264,8 +270,12 @@ export default {
 }
 
 .refresh-button .icon {
-  font-size: 14px;
+  font-size: 15px;
   transition: transform 0.3s ease;
+}
+
+.button-text {
+  line-height: 1;
 }
 
 .refresh-button:hover:not(:disabled) .icon {
@@ -309,6 +319,10 @@ export default {
 
   .health-percentage {
     font-size: 20px;
+  }
+
+  .button-text {
+    display: none;
   }
 }
 </style>

@@ -14,7 +14,7 @@
 						{{ totalRooms }}
 					</div>
 					<div class="stat-label">
-						Total Rooms
+						{{ t('chorestrike', 'Total Rooms') }}
 					</div>
 				</div>
 			</div>
@@ -27,7 +27,7 @@
 						{{ cleanRooms }}
 					</div>
 					<div class="stat-label">
-						Clean Rooms
+						{{ t('chorestrike', 'Clean Rooms') }}
 					</div>
 				</div>
 			</div>
@@ -40,7 +40,7 @@
 						{{ dueTodayTasks }}
 					</div>
 					<div class="stat-label">
-						Due Today
+						{{ t('chorestrike', 'Due Today') }}
 					</div>
 				</div>
 			</div>
@@ -53,7 +53,7 @@
 						{{ overdueTasks }}
 					</div>
 					<div class="stat-label">
-						Overdue
+						{{ t('chorestrike', 'Overdue') }}
 					</div>
 				</div>
 			</div>
@@ -66,7 +66,7 @@
 						{{ totalMonsters }}
 					</div>
 					<div class="stat-label">
-						Monsters
+						{{ t('chorestrike', 'Monsters') }}
 					</div>
 				</div>
 			</div>
@@ -79,7 +79,7 @@
 						{{ averageCleanliness }}%
 					</div>
 					<div class="stat-label">
-						Avg Cleanliness
+						{{ t('chorestrike', 'Avg Cleanliness') }}
 					</div>
 				</div>
 			</div>
@@ -89,17 +89,19 @@
 		<div v-if="showActions" class="stats-actions">
 			<button
 				class="action-button"
+				data-testid="refresh-dashboard-stats-button"
 				:disabled="loading"
 				@click="refreshStats">
-				<Icon name="RefreshCw" :size="16" class="icon" />
-				Refresh
+				<Icon name="RefreshCw" :size="18" class="icon" />
+				{{ t('chorestrike', 'Refresh') }}
 			</button>
 
 			<button
 				class="action-button primary"
+				data-testid="view-all-tasks-button"
 				@click="viewAllTasks">
-				<Icon name="List" :size="16" class="icon" />
-				View All Tasks
+				<Icon name="List" :size="18" class="icon" />
+				{{ t('chorestrike', 'View All Tasks') }}
 			</button>
 		</div>
 	</div>
@@ -107,6 +109,7 @@
 
 <script>
 import { computed } from 'vue'
+import { translate as t } from '@nextcloud/l10n'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useRouter } from 'vue-router'
@@ -160,6 +163,7 @@ export default {
 		}
 
 		return {
+			t,
 			totalRooms,
 			cleanRooms,
 			dirtyRooms,
@@ -254,13 +258,14 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 10px 18px;
   border: 1px solid var(--color-border);
   border-radius: 6px;
   background: var(--color-main-background);
   color: var(--color-main-text);
   cursor: pointer;
   font-size: 14px;
+  font-weight: 600;
   transition: all 0.2s ease;
 }
 
@@ -286,7 +291,7 @@ export default {
 }
 
 .action-button .icon {
-  font-size: 14px;
+  font-size: 16px;
 }
 
 /* Compact mode */

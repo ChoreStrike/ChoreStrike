@@ -19,6 +19,7 @@ import {
 	Shirt,
 	Wrench,
 	CheckCircle,
+	Check,
 	Circle,
 	Plus,
 	Minus,
@@ -51,7 +52,9 @@ import {
 	Clock,
 	Bell,
 	AlertCircle,
+	AlertTriangle,
 	Info,
+	Lightbulb,
 	HelpCircle,
 	MoreHorizontal,
 	MoreVertical,
@@ -76,6 +79,7 @@ import {
 	Redo,
 	Save,
 	Printer,
+	Battery,
 	MapPin,
 	Navigation,
 	Locate,
@@ -97,6 +101,7 @@ import {
 	Maximize2,
 	Minimize2,
 	Fullscreen,
+	Task,
 } from 'lucide-vue-next'
 
 /**
@@ -136,10 +141,13 @@ export const icons = {
 	Trash,
 	Trash2,
 	CheckCircle,
+	Check,
 	Circle,
 	Save,
 	Copy,
 	RefreshCw,
+	Refresh: RefreshCw,
+	Close: X,
 	RotateCcw,
 	Undo,
 	Redo,
@@ -188,6 +196,9 @@ export const icons = {
 
 	// Info & Feedback
 	AlertCircle,
+	AlertTriangle,
+	Warning: AlertTriangle,
+	Lightbulb,
 	Info,
 	HelpCircle,
 	Heart,
@@ -222,6 +233,8 @@ export const icons = {
 	Navigation,
 	Locate,
 	Globe,
+	Battery,
+	Task,
 }
 
 /**

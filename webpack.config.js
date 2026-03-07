@@ -2,11 +2,16 @@ const path = require('path')
 const webpackConfig = require('@nextcloud/webpack-vue-config')
 const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
 
+// Force cache bust
+const buildTime = Date.now()
+
 webpackConfig.entry = {
 	main: path.join(__dirname, 'src', 'main.js'),
 }
 
 webpackConfig.output.path = path.resolve(__dirname, 'js')
+webpackConfig.output.filename = `chorestrike-[name].js?v=${buildTime}`
+webpackConfig.output.chunkFilename = `chorestrike-[name].js?v=${buildTime}`
 
 // Add CSS extraction
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')

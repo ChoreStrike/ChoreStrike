@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -84,6 +85,17 @@ class RoomService
     public function getRoom(int $roomId): Room
     {
         return $this->roomMapper->find($roomId);
+    }
+
+    /**
+     * Get floor by ID.
+     *
+     * @param int $floorId The floor ID
+     * @throws DoesNotExistException if not found
+     */
+    public function getFloor(int $floorId): Floor
+    {
+        return $this->floorMapper->find($floorId);
     }
 
     /**

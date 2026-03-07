@@ -10,10 +10,13 @@ return [
         ['name' => 'house#stats', 'url' => '/api/v1/house/stats', 'verb' => 'GET'],
         ['name' => 'house#health', 'url' => '/api/v1/house/health', 'verb' => 'GET'],
         ['name' => 'house#reset', 'url' => '/api/v1/house/reset', 'verb' => 'POST'],
+        ['name' => 'floor#createAlias', 'url' => '/api/v1/floor-create', 'verb' => 'POST'],
+        ['name' => 'room#createAlias', 'url' => '/api/v1/room-create', 'verb' => 'POST'],
         
         // Floor API
-        ['name' => 'floor#index', 'url' => '/api/v1/floors', 'verb' => 'GET'],
         ['name' => 'floor#create', 'url' => '/api/v1/floors', 'verb' => 'POST'],
+        ['name' => 'floor#index', 'url' => '/api/v1/floors', 'verb' => 'GET'],
+        ['name' => 'floor#createExplicit', 'url' => '/api/v1/floors/create', 'verb' => 'POST'],
         ['name' => 'floor#withRooms', 'url' => '/api/v1/floors/with-rooms', 'verb' => 'GET'],
         ['name' => 'floor#reorder', 'url' => '/api/v1/floors/reorder', 'verb' => 'POST'],
         ['name' => 'floor#update', 'url' => '/api/v1/floors/{id}', 'verb' => 'PUT'],
@@ -21,9 +24,10 @@ return [
         ['name' => 'floor#show', 'url' => '/api/v1/floors/{id}', 'verb' => 'GET'],
         
         // Room API
+        ['name' => 'room#create', 'url' => '/api/v1/rooms', 'verb' => 'POST'],
         ['name' => 'room#index', 'url' => '/api/v1/rooms', 'verb' => 'GET'],
         ['name' => 'room#show', 'url' => '/api/v1/rooms/{id}', 'verb' => 'GET'],
-        ['name' => 'room#create', 'url' => '/api/v1/rooms', 'verb' => 'POST'],
+        ['name' => 'room#createExplicit', 'url' => '/api/v1/rooms/create', 'verb' => 'POST'],
         ['name' => 'room#update', 'url' => '/api/v1/rooms/{id}', 'verb' => 'PUT'],
         ['name' => 'room#delete', 'url' => '/api/v1/rooms/{id}', 'verb' => 'DELETE'],
         ['name' => 'room#updateCleanliness', 'url' => '/api/v1/rooms/{id}/cleanliness', 'verb' => 'PUT'],

@@ -31,7 +31,12 @@ class TaskMapper extends QBMapper
      */
     public function find(int $id): Task
     {
-        return parent::find($id);
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+        
+        return $this->findEntity($qb);
     }
 
     /**
@@ -41,7 +46,14 @@ class TaskMapper extends QBMapper
      */
     public function findAll(): array
     {
-        return parent::findAll();
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->orderBy('priority', 'DESC')
+            ->addOrderBy('name', 'ASC');
+
+        return $this->findEntities($qb);
     }
 
     /**

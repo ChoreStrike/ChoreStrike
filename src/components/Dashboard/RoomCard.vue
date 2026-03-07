@@ -7,6 +7,7 @@
 	<div
 		class="room-card"
 		:class="cardClasses"
+		:data-testid="`room-card-${room.name}`"
 		@click="handleCardClick">
 		<!-- Room Header -->
 		<div class="room-header">
@@ -36,7 +37,7 @@
 		<div class="cleanliness-section">
 			<div class="cleanliness-header">
 				<span class="cleanliness-label">{{ t('chorestrike', 'Cleanliness') }}</span>
-				<span class="cleanliness-value">{{ room.cleanliness }}%</span>
+				<span class="cleanliness-value" data-testid="cleanliness-value">{{ room.cleanliness }}%</span>
 			</div>
 			<div class="cleanliness-bar">
 				<div

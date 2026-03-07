@@ -21,6 +21,8 @@ interface IUserManager
  */
 interface IRequest
 {
+    public function getParams();
+
     public function getParam($key, $default = null);
     public function getMethod();
 }

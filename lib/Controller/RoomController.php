@@ -41,14 +41,50 @@ class RoomController extends OCSController
      *
      * @NoAdminRequired
      */
-    public function index(int $floorId): JSONResponse
+    public function index(?int $floorId = null, ?string $name = null): JSONResponse
     {
+        // Workaround for Apache/Nextcloud POST-to-GET rewrite issue:
+        // Check for create payload in JSON body, $_POST, or query params
+        $rawBody = file_get_contents('php://input');
+        $jsonPayload = is_string($rawBody) && trim($rawBody) !== '' ? json_decode($rawBody, true) : null;
+        
+        // Try JSON body first, then form-urlencoded, then query params
+        $resolvedName = null;
+        $resolvedFloorId = null;
+        
+        if (is_array($jsonPayload) && isset($jsonPayload['name'])) {
+            $resolvedName = $jsonPayload['name'];
+            $resolvedFloorId = $jsonPayload['floorId'] ?? null;
+        } elseif (isset($_POST['name']) && is_string($_POST['name']) && trim($_POST['name']) !== '') {
+            $resolvedName = trim($_POST['name']);
+            $resolvedFloorId = isset($_POST['floorId']) && $_POST['floorId'] !== '' ? (int)$_POST['floorId'] : null;
+        } elseif (isset($_GET['name']) && is_string($_GET['name']) && trim($_GET['name']) !== '') {
+            $resolvedName = trim($_GET['name']);
+            $resolvedFloorId = isset($_GET['floorId']) && $_GET['floorId'] !== '' ? (int)$_GET['floorId'] : null;
+        }
+        
+        if ($resolvedName !== null) {
+            return $this->create($resolvedFloorId, $resolvedName);
+        }
+
+        $resolvedFloorId = $floorId ?? $resolvedFloorId ?? $this->resolveNullableInt('floorId');
+
+        if ($resolvedFloorId === null) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => 'Floor ID is required'
+                ]
+            ], 400);
+        }
+
         try {
             // Verify house membership via floor
-            $floor = $this->roomService->getFloor($floorId);
+            $floor = $this->roomService->getFloor($resolvedFloorId);
             $this->authService->requireHouseMember($floor->getHouseId());
 
-            $rooms = $this->roomService->getRooms($floorId);
+            $rooms = $this->roomService->getRooms($resolvedFloorId);
 
             return new JSONResponse([
                 'success' => true,
@@ -79,8 +115,6 @@ class RoomController extends OCSController
             $this->roomService->validateRoomOwnership($id, $house->getId());
 
             $roomWithTasks = $this->roomService->getRoomWithTasks($id);
-            $room = $roomWithTasks['room'];
-            $this->authService->requireHouseMember($room->getHouseId());
 
             $tasksData = [];
             foreach ($roomWithTasks['tasks'] as $taskWithDetails) {
@@ -114,10 +148,51 @@ class RoomController extends OCSController
      *
      * @NoAdminRequired
      */
-    public function create(int $floorId, string $name): JSONResponse
+    public function create(?int $floorId = null, ?string $name = null): JSONResponse
+    {
+        return $this->createRoomResponse($floorId, $name);
+    }
+
+    /**
+     * Create a new room via a dedicated create route.
+     *
+     * @NoAdminRequired
+     */
+    public function createExplicit(?int $floorId = null, ?string $name = null): JSONResponse
+    {
+        return $this->createRoomResponse($floorId, $name);
+    }
+
+    /**
+     * Create a new room via a collision-free alias route.
+     *
+     * @NoAdminRequired
+     */
+    public function createAlias(?int $floorId = null, ?string $name = null): JSONResponse
+    {
+        return $this->createRoomResponse($floorId, $name);
+    }
+
+    /**
+     * Build a room create response from explicit arguments or request params.
+     */
+    private function createRoomResponse(?int $floorId = null, ?string $name = null): JSONResponse
     {
         try {
-            if (empty(trim($name))) {
+            $resolvedFloorId = $floorId ?? $this->resolveNullableInt('floorId');
+            $resolvedName = $name ?? $this->resolveNullableString('name');
+
+            if ($resolvedFloorId === null) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => 'Floor ID is required'
+                    ]
+                ], 400);
+            }
+
+            if ($resolvedName === null || empty(trim($resolvedName))) {
                 return new JSONResponse([
                     'success' => false,
                     'error' => [
@@ -128,10 +203,10 @@ class RoomController extends OCSController
             }
 
             // Verify house membership via floor
-            $floor = $this->roomService->getFloor($floorId);
+            $floor = $this->roomService->getFloor($resolvedFloorId);
             $this->authService->requireHouseMember($floor->getHouseId());
 
-            $room = $this->roomService->createRoom($floorId, $name);
+            $room = $this->roomService->createRoom($resolvedFloorId, $resolvedName);
 
             return new JSONResponse([
                 'success' => true,
@@ -146,6 +221,82 @@ class RoomController extends OCSController
                 ]
             ], 500);
         }
+    }
+
+    private function getRequestMethod(): string
+    {
+        try {
+            return strtoupper($this->request->getMethod());
+        } catch (\Throwable $exception) {
+            return strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        }
+    }
+
+    private function resolveNullableString(string $key): ?string
+    {
+        $value = $this->resolveRequestValue($key);
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $trimmedValue = trim($value);
+        return $trimmedValue === '' ? null : $trimmedValue;
+    }
+
+    private function resolveNullableInt(string $key): ?int
+    {
+        $value = $this->resolveRequestValue($key);
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (int)$value;
+    }
+
+    private function resolveRequestValue(string $key)
+    {
+        $requestValue = $this->request->getParam($key);
+        if ($requestValue !== null && $requestValue !== '') {
+            return $requestValue;
+        }
+
+        $requestParams = $this->getRequestParams();
+        if (array_key_exists($key, $requestParams) && $requestParams[$key] !== null && $requestParams[$key] !== '') {
+            return $requestParams[$key];
+        }
+
+        if (array_key_exists($key, $_POST) && $_POST[$key] !== null && $_POST[$key] !== '') {
+            return $_POST[$key];
+        }
+
+        if (array_key_exists($key, $_GET) && $_GET[$key] !== null && $_GET[$key] !== '') {
+            return $_GET[$key];
+        }
+
+        return null;
+    }
+
+    private function getRequestParams(): array
+    {
+        $requestParams = [];
+
+        try {
+            $requestParams = $this->request->getParams();
+        } catch (\Throwable $exception) {
+            $requestParams = [];
+        }
+
+        if (is_array($requestParams) && $requestParams !== []) {
+            return $requestParams;
+        }
+
+        $rawBody = file_get_contents('php://input');
+        if (!is_string($rawBody) || trim($rawBody) === '') {
+            return [];
+        }
+
+        $decodedBody = json_decode($rawBody, true);
+        return is_array($decodedBody) ? $decodedBody : [];
     }
 
     /**
@@ -170,10 +321,6 @@ class RoomController extends OCSController
                     ]
                 ], 400);
             }
-
-            // Get room and verify house membership before update
-            $room = $this->roomService->getRoom($id);
-            $this->authService->requireHouseMember($room->getHouseId());
 
             $room = $this->roomService->updateRoomName($id, $name);
 
@@ -204,9 +351,6 @@ class RoomController extends OCSController
             $house = $this->houseService->getOrCreateHouse($instanceId);
             $this->authService->requireHouseMember($house->getId());
             $this->roomService->validateRoomOwnership($id, $house->getId());
-
-            $room = $this->roomService->getRoom($id);
-            $this->authService->requireHouseMember($room->getHouseId());
 
             $this->roomService->deleteRoom($id);
 
@@ -247,10 +391,6 @@ class RoomController extends OCSController
                     ]
                 ], 400);
             }
-
-            // Get room and verify house membership
-            $room = $this->roomService->getRoom($id);
-            $this->authService->requireHouseMember($room->getHouseId());
 
             $room = $this->roomService->updateRoomCleanliness($id, $cleanlinessChange);
 
@@ -315,7 +455,8 @@ class RoomController extends OCSController
         try {
             // Verify house membership via room
             $room = $this->roomService->getRoom($roomId);
-            $this->authService->requireHouseMember($room->getHouseId());
+            $floor = $this->roomService->getFloor($room->getFloorId());
+            $this->authService->requireHouseMember($floor->getHouseId());
 
             $nextDueDate = null;
             if ($nextDue !== null) {
@@ -352,7 +493,8 @@ class RoomController extends OCSController
         try {
             // Verify house membership via room
             $room = $this->roomService->getRoom($roomId);
-            $this->authService->requireHouseMember($room->getHouseId());
+            $floor = $this->roomService->getFloor($room->getFloorId());
+            $this->authService->requireHouseMember($floor->getHouseId());
 
             $this->roomService->removeTaskFromRoom($roomId, $taskId);
 

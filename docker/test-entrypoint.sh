@@ -98,6 +98,24 @@ if ! su -s /bin/bash www-data -c "php occ app:list" | grep -A999 '^Enabled:' | g
     exit 1
 fi
 
+echo "Ensuring realistic GUI test users..."
+ensure_user() {
+    local user_id="$1"
+    local user_pass="$2"
+    local display_name="$3"
+
+    if su -s /bin/bash www-data -c "php occ user:info '${user_id}'" >/dev/null 2>&1; then
+        echo "User '${user_id}' already exists."
+        return 0
+    fi
+
+    su -s /bin/bash www-data -c "OC_PASS='${user_pass}' php occ user:add --password-from-env --display-name='${display_name}' '${user_id}'"
+    echo "Created user '${user_id}' (${display_name})."
+}
+
+ensure_user "adult" "Adult123!" "Adult User"
+ensure_user "kid" "Kid123!" "Kid User"
+
 # Wait for Nextcloud to be fully ready via HTTP
 echo "Waiting for Nextcloud HTTP interface..."
 for i in {1..60}; do
@@ -119,6 +137,7 @@ fi
 echo "=== Setup Complete ==="
 echo "ChoreStrike is ready at http://localhost:8080"
 echo "Login: admin / admin"
+echo "Additional realistic GUI users: adult / Adult123!, kid / Kid123!"
 
 # Keep Apache running
 wait $APACHE_PID

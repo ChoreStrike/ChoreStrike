@@ -4,23 +4,37 @@
 -->
 
 <template>
-	<img
-		:src="emojiUrl"
-		:alt="alt || name"
+	<span
 		:class="emojiClasses"
-		:width="size"
-		:height="size"
+		:title="alt || name"
+		role="img"
+		:aria-label="alt || name"
 		v-bind="$attrs">
+		<img
+			v-if="showImage"
+			:src="emojiUrl"
+			:alt="alt || name"
+			class="emoji-image"
+			:width="computedSize"
+			:height="computedSize"
+			@error="handleImageError">
+		<span
+			v-else
+			class="emoji-fallback"
+			:style="{ fontSize: `${computedSize}px` }">
+			{{ emojiCharacter }}
+		</span>
+	</span>
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 /**
  * Emoji mapping for Microsoft Fluent UI Emoji
  *
  * These are the recommended emojis for ChoreStrike categories.
- * Emojis are loaded from the Fluent UI Emoji GitHub repository.
+ * Emoji assets are resolved from local app files with unicode fallback.
  *
  * @see https://github.com/microsoft/fluentui-emoji
  */
@@ -123,6 +137,48 @@ function getEmojiFileName(name) {
 }
 
 /**
+ * Unicode fallback map when no local image exists.
+ */
+const EMOJI_UNICODE_MAP = {
+	monster: '👾',
+	bug: '🦠',
+	ghost: '👻',
+	spider: '🕸️',
+	dust: '💨',
+	dirt: '💩',
+	star: '⭐',
+	sparks: '✨',
+	energy: '⚡',
+	battery: '🔋',
+	trophy: '🏆',
+	warning: '⚠️',
+	error: '❌',
+	info: 'ℹ️',
+	done: '✅',
+	pending: '⚪',
+	fox: '🦊',
+	panda: '🐼',
+	cat: '🐱',
+	dog: '🐶',
+	rabbit: '🐰',
+	bear: '🐻',
+	robot: '🤖',
+}
+
+function getUnicodeFallback(name) {
+	if (EMOJI_UNICODE_MAP[name]) {
+		return EMOJI_UNICODE_MAP[name]
+	}
+
+	const mappedName = getEmojiFileName(name)
+	if (EMOJI_UNICODE_MAP[mappedName]) {
+		return EMOJI_UNICODE_MAP[mappedName]
+	}
+
+	return '✨'
+}
+
+/**
  * Emoji component for ChoreStrike
  *
  * Uses Microsoft Fluent UI Emojis (MIT licensed) for graphics.
@@ -182,31 +238,35 @@ export default {
 		},
 
 		/**
-		 * Use local assets instead of CDN
+		 * Kept for backward compatibility. Emojis are always local-only.
 		 */
 		local: {
 			type: Boolean,
-			default: false,
+			default: true,
 		},
 	},
 
 	setup(props) {
 		const emojiFileName = computed(() => getEmojiFileName(props.name))
+		const showImage = ref(true)
 
 		const emojiUrl = computed(() => {
-			if (props.local) {
-				// Use local assets from img/emojis/
-				return `./img/emojis/${emojiFileName.value}.png`
-			}
-			// Use GitHub CDN (for development/quick setup)
-			// Note: In production, download and use local assets
-			const baseUrl = 'https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets'
-			return `${baseUrl}/${emojiFileName.value}/${props.emojiStyle}/${emojiFileName.value}_${props.emojiStyle}.png`
+			return `/apps/chorestrike/img/emojis/${emojiFileName.value}_${props.emojiStyle}.png`
 		})
 
 		const computedSize = computed(() => {
 			return typeof props.size === 'number' ? props.size : parseInt(props.size, 10)
 		})
+
+		const emojiCharacter = computed(() => getUnicodeFallback(props.name))
+
+		watch(() => [props.name, props.emojiStyle], () => {
+			showImage.value = true
+		})
+
+		const handleImageError = () => {
+			showImage.value = false
+		}
 
 		const emojiClasses = computed(() => {
 			return ['emoji', `emoji--${props.name}`, `emoji--${props.emojiStyle}`, props.className]
@@ -217,7 +277,10 @@ export default {
 		return {
 			emojiUrl,
 			computedSize,
+			emojiCharacter,
 			emojiClasses,
+			showImage,
+			handleImageError,
 		}
 	},
 }
@@ -225,9 +288,21 @@ export default {
 
 <style scoped>
 .emoji {
-	display: inline-block;
-	object-fit: contain;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	vertical-align: middle;
+}
+
+.emoji-image {
+	object-fit: contain;
+}
+
+.emoji-fallback {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	line-height: 1;
 }
 
 .emoji--3d {

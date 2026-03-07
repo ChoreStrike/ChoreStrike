@@ -14,13 +14,24 @@ export const useRoomsStore = defineStore('rooms', {
 		currentRoom: null,
 		loading: false,
 		error: null,
+		expandedFloors: [],
 	}),
 
 	getters: {
 		roomsByFloor: (state) => {
 			const roomsByFloor = {}
+			// First add all known floors
 			state.floors.forEach(floor => {
 				roomsByFloor[floor.id] = state.rooms.filter(room => room.floorId === floor.id)
+			})
+			// Then add rooms for floors not yet in state.floors
+			state.rooms.forEach(room => {
+				if (!roomsByFloor[room.floorId]) {
+					roomsByFloor[room.floorId] = []
+				}
+				if (!roomsByFloor[room.floorId].includes(room)) {
+					roomsByFloor[room.floorId].push(room)
+				}
 			})
 			return roomsByFloor
 		},
@@ -31,6 +42,10 @@ export const useRoomsStore = defineStore('rooms', {
 
 		getFloorById: (state) => (floorId) => {
 			return state.floors.find(floor => floor.id === floorId)
+		},
+
+		isFloorExpanded: (state) => (floorId) => {
+			return state.expandedFloors.some(id => String(id) === String(floorId))
 		},
 
 		roomsNeedingCleaning: (state) => {
@@ -63,7 +78,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/floors/with-rooms')
+				const response = await axios.get('/index.php/apps/chorestrike/api/v1/floors/with-rooms')
 
 				if (response.data.success) {
 					this.floors = []
@@ -93,7 +108,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/floors')
+				const response = await axios.get('/index.php/apps/chorestrike/api/v1/floors')
 
 				if (response.data.success) {
 					this.floors = response.data.data
@@ -118,7 +133,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/rooms?floorId=${floorId}`)
+				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/rooms?floorId=${floorId}`)
 
 				if (response.data.success) {
 					// Update rooms in state, removing old ones for this floor
@@ -145,7 +160,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/floors/${floorId}`)
+				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/floors/${floorId}`)
 
 				if (response.data.success) {
 					const floorData = response.data.data
@@ -189,10 +204,10 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorestrike/api/v1/floors', { name, sortOrder })
+				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/floors`, { name, sortOrder })
 
 				if (response.data.success) {
-					this.floors.push(response.data.data)
+					this.floors = [...this.floors, response.data.data]
 					return response.data.data
 				} else {
 					throw new Error(response.data.error?.message || 'Failed to create floor')
@@ -220,10 +235,10 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorestrike/api/v1/rooms', { floorId, name })
+				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/rooms`, { floorId, name })
 
 				if (response.data.success) {
-					this.rooms.push(response.data.data)
+					this.rooms = [...this.rooms, response.data.data]
 					return response.data.data
 				} else {
 					throw new Error(response.data.error?.message || 'Failed to create room')
@@ -251,7 +266,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorestrike/api/v1/floors/${floorId}`, { name })
+				const response = await axios.put(`/index.php/apps/chorestrike/api/v1/floors/${floorId}`, { name })
 
 				if (response.data.success) {
 					const floorIndex = this.floors.findIndex(f => f.id === floorId)
@@ -284,7 +299,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorestrike/api/v1/rooms/${roomId}`, { name })
+				const response = await axios.put(`/index.php/apps/chorestrike/api/v1/rooms/${roomId}`, { name })
 
 				if (response.data.success) {
 					const roomIndex = this.rooms.findIndex(r => r.id === roomId)
@@ -313,7 +328,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorestrike/api/v1/rooms/${roomId}/cleanliness`, { cleanlinessChange })
+				const response = await axios.put(`/index.php/apps/chorestrike/api/v1/rooms/${roomId}/cleanliness`, { cleanlinessChange })
 
 				if (response.data.success) {
 					const roomIndex = this.rooms.findIndex(r => r.id === roomId)
@@ -341,7 +356,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/apps/chorestrike/api/v1/floors/${floorId}`)
+				const response = await axios.delete(`/index.php/apps/chorestrike/api/v1/floors/${floorId}`)
 
 				if (response.data.success) {
 					// Remove floor from state
@@ -369,7 +384,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/apps/chorestrike/api/v1/rooms/${roomId}`)
+				const response = await axios.delete(`/index.php/apps/chorestrike/api/v1/rooms/${roomId}`)
 
 				if (response.data.success) {
 					// Remove room from state
@@ -395,7 +410,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorestrike/api/v1/floors/reorder', { floorOrder })
+				const response = await axios.post('/index.php/apps/chorestrike/api/v1/floors/reorder', { floorOrder })
 
 				if (response.data.success) {
 					this.floors = response.data.data
@@ -421,8 +436,8 @@ export const useRoomsStore = defineStore('rooms', {
 
 			try {
 				const url = floorId
-					? `/apps/chorestrike/api/v1/rooms/needing-cleaning?floorId=${floorId}`
-					: '/apps/chorestrike/api/v1/rooms/needing-cleaning'
+					? `/index.php/apps/chorestrike/api/v1/rooms/needing-cleaning?floorId=${floorId}`
+					: `/index.php/apps/chorestrike/api/v1/rooms/needing-cleaning`
 
 				const response = await axios.get(url)
 
@@ -473,6 +488,43 @@ export const useRoomsStore = defineStore('rooms', {
 			this.currentRoom = null
 			this.loading = false
 			this.error = null
+		},
+
+		/**
+		 * Toggle floor expansion state
+		 * @param {number} floorId Floor identifier to toggle.
+		 */
+		toggleFloorExpanded(floorId) {
+			const key = String(floorId)
+			const index = this.expandedFloors.findIndex(id => String(id) === key)
+			if (index > -1) {
+				this.expandedFloors.splice(index, 1)
+			} else {
+				this.expandedFloors.push(key)
+			}
+		},
+
+		/**
+		 * Set floor as expanded
+		 * @param {number} floorId Floor identifier to expand.
+		 */
+		setFloorExpanded(floorId) {
+			const key = String(floorId)
+			if (!this.expandedFloors.includes(key)) {
+				this.expandedFloors.push(key)
+			}
+		},
+
+		/**
+		 * Set floor as collapsed
+		 * @param {number} floorId Floor identifier to collapse.
+		 */
+		setFloorCollapsed(floorId) {
+			const key = String(floorId)
+			const index = this.expandedFloors.findIndex(id => String(id) === key)
+			if (index > -1) {
+				this.expandedFloors.splice(index, 1)
+			}
 		},
 	},
 })

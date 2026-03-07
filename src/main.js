@@ -5,8 +5,13 @@
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import axios from 'axios'
 import App from './App.vue'
 import router from './router.js'
+
+// Configure axios for Nextcloud CSRF protection
+axios.defaults.headers.common['requesttoken'] = window.OC?.requestToken || ''
+axios.defaults.withCredentials = true
 
 try {
     const pinia = createPinia()

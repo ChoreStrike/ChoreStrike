@@ -43,6 +43,30 @@ class FloorController extends OCSController
      */
     public function index(): JSONResponse
     {
+        // Workaround for Apache/Nextcloud POST-to-GET rewrite issue:
+        // Check for create payload in JSON body, $_POST, or query params
+        $rawBody = file_get_contents('php://input');
+        $jsonPayload = is_string($rawBody) && trim($rawBody) !== '' ? json_decode($rawBody, true) : null;
+        
+        // Try JSON body first, then form-urlencoded, then query params
+        $name = null;
+        $sortOrder = null;
+        
+        if (is_array($jsonPayload) && isset($jsonPayload['name'])) {
+            $name = $jsonPayload['name'];
+            $sortOrder = $jsonPayload['sortOrder'] ?? null;
+        } elseif (isset($_POST['name']) && is_string($_POST['name']) && trim($_POST['name']) !== '') {
+            $name = trim($_POST['name']);
+            $sortOrder = isset($_POST['sortOrder']) && $_POST['sortOrder'] !== '' ? (int)$_POST['sortOrder'] : null;
+        } elseif (isset($_GET['name']) && is_string($_GET['name']) && trim($_GET['name']) !== '') {
+            $name = trim($_GET['name']);
+            $sortOrder = isset($_GET['sortOrder']) && $_GET['sortOrder'] !== '' ? (int)$_GET['sortOrder'] : null;
+        }
+        
+        if ($name !== null) {
+            return $this->create($name, $sortOrder);
+        }
+
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
@@ -108,10 +132,41 @@ class FloorController extends OCSController
      *
      * @NoAdminRequired
      */
-    public function create(string $name, ?int $sortOrder = null): JSONResponse
+    public function create(?string $name = null, ?int $sortOrder = null): JSONResponse
+    {
+        return $this->createFloorResponse($name, $sortOrder);
+    }
+
+    /**
+     * Create a new floor via a dedicated create route.
+     *
+     * @NoAdminRequired
+     */
+    public function createExplicit(?string $name = null, ?int $sortOrder = null): JSONResponse
+    {
+        return $this->createFloorResponse($name, $sortOrder);
+    }
+
+    /**
+     * Create a new floor via a collision-free alias route.
+     *
+     * @NoAdminRequired
+     */
+    public function createAlias(?string $name = null, ?int $sortOrder = null): JSONResponse
+    {
+        return $this->createFloorResponse($name, $sortOrder);
+    }
+
+    /**
+     * Build a floor create response from explicit arguments or request params.
+     */
+    private function createFloorResponse(?string $name = null, ?int $sortOrder = null): JSONResponse
     {
         try {
-            if (empty(trim($name))) {
+            $resolvedName = $name ?? $this->resolveNullableString('name');
+            $resolvedSortOrder = $sortOrder ?? $this->resolveNullableInt('sortOrder');
+
+            if ($resolvedName === null || empty(trim($resolvedName))) {
                 return new JSONResponse([
                     'success' => false,
                     'error' => [
@@ -127,7 +182,7 @@ class FloorController extends OCSController
             // Require house membership for creation
             $this->authService->requireHouseMember($house->getId());
 
-            $floor = $this->floorService->createFloor($house->getId(), $name, $sortOrder);
+            $floor = $this->floorService->createFloor($house->getId(), $resolvedName, $resolvedSortOrder);
 
             return new JSONResponse([
                 'success' => true,
@@ -142,6 +197,82 @@ class FloorController extends OCSController
                 ]
             ], 500);
         }
+    }
+
+    private function getRequestMethod(): string
+    {
+        try {
+            return strtoupper($this->request->getMethod());
+        } catch (\Throwable $exception) {
+            return strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        }
+    }
+
+    private function resolveNullableString(string $key): ?string
+    {
+        $value = $this->resolveRequestValue($key);
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $trimmedValue = trim($value);
+        return $trimmedValue === '' ? null : $trimmedValue;
+    }
+
+    private function resolveNullableInt(string $key): ?int
+    {
+        $value = $this->resolveRequestValue($key);
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (int)$value;
+    }
+
+    private function resolveRequestValue(string $key)
+    {
+        $requestValue = $this->request->getParam($key);
+        if ($requestValue !== null && $requestValue !== '') {
+            return $requestValue;
+        }
+
+        $requestParams = $this->getRequestParams();
+        if (array_key_exists($key, $requestParams) && $requestParams[$key] !== null && $requestParams[$key] !== '') {
+            return $requestParams[$key];
+        }
+
+        if (array_key_exists($key, $_POST) && $_POST[$key] !== null && $_POST[$key] !== '') {
+            return $_POST[$key];
+        }
+
+        if (array_key_exists($key, $_GET) && $_GET[$key] !== null && $_GET[$key] !== '') {
+            return $_GET[$key];
+        }
+
+        return null;
+    }
+
+    private function getRequestParams(): array
+    {
+        $requestParams = [];
+
+        try {
+            $requestParams = $this->request->getParams();
+        } catch (\Throwable $exception) {
+            $requestParams = [];
+        }
+
+        if (is_array($requestParams) && $requestParams !== []) {
+            return $requestParams;
+        }
+
+        $rawBody = file_get_contents('php://input');
+        if (!is_string($rawBody) || trim($rawBody) === '') {
+            return [];
+        }
+
+        $decodedBody = json_decode($rawBody, true);
+        return is_array($decodedBody) ? $decodedBody : [];
     }
 
     /**

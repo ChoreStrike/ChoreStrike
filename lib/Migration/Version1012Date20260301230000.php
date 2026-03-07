@@ -7,9 +7,9 @@ namespace OCA\ChoreStrike\Migration;
 use Closure;
 use OCP\DB\ISchemaTools;
 use OCP\Migration\IOutput;
-use OCP\Migration\SimpleMigration;
+use OCP\Migration\SimpleMigrationStep;
 
-class Version1012Date20260301230000 extends SimpleMigration
+class Version1012Date20260301230000 extends SimpleMigrationStep
 {
     public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?string
     {

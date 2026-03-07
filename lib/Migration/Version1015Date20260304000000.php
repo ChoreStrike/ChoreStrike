@@ -82,10 +82,10 @@ class Version1015Date20260304000000 extends SimpleMigrationStep
                 $table->addIndex(['next_due', 'is_active'], 'rt_next_due_idx');
             }
 
-            // Index for scheduled date queries
-            if (!$table->hasIndex('rt_scheduled_idx')) {
-                $table->addIndex(['scheduled_for', 'is_active'], 'rt_scheduled_idx');
-            }
+            // Index for scheduled date queries - commented out until column is added
+            // if (!$table->hasIndex('rt_scheduled_idx')) {
+            //     $table->addIndex(['scheduled_for', 'is_active'], 'rt_scheduled_idx');
+            // }
 
             // Index for scope queries
             if (!$table->hasIndex('rt_scope_idx')) {

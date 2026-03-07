@@ -42,10 +42,10 @@
 ### Cascade - P8-REVIEW-TEST-AUDIT-001 - Code, documentation, and automated coverage review
 **Status**: In Progress  
 **Started**: 2026-03-06 17:12  
-**Updated**: 2026-03-06 20:35  
+**Updated**: 2026-03-06 22:28  
 **Branch**: master  
-**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-8-release-preparation.md, docs/TESTING.md, src/components/Common/Modal.vue, tests/integration/Controller/UserControllerIntegrationTest.php, src/components/Tasks/TaskEditForm.vue, src/components/Tasks/TaskForm.vue, src/components/Tasks/TaskList.vue, src/views/RoomDetail.vue, src/views/TaskManager.vue, tests/unit/views/RoomDetail.spec.js, tests/unit/views/TaskManager.spec.js, tests/unit/components/Modal.spec.js, tests/e2e/task-manager.spec.ts, tests/e2e/task-completion.spec.ts, tests/e2e/gui-scratch-flow.spec.ts  
-**Blockers**: `tests/e2e/gui-scratch-flow.spec.ts` still fails in the floor-to-room handoff on dashboards with pre-existing default floors; current failure is isolated to locating a usable add-room trigger after floor creation.  
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-8-release-preparation.md, docs/TESTING.md, src/components/Common/Modal.vue, src/components/Dashboard/FloorList.vue, src/components/Tasks/TaskEditForm.vue, src/components/Tasks/TaskForm.vue, src/components/Tasks/TaskList.vue, src/views/RoomDetail.vue, src/views/TaskManager.vue, lib/Controller/FloorController.php, lib/Controller/RoomController.php, tests/__mocks__/OCP/IRequest.php, tests/__mocks__/OCPInterfaces.php, tests/integration/Controller/UserControllerIntegrationTest.php, tests/unit/components/FloorList.spec.js, tests/unit/views/RoomDetail.spec.js, tests/unit/views/TaskManager.spec.js, tests/unit/components/Modal.spec.js, tests/unit/Controller/FloorControllerTest.php, tests/e2e/task-manager.spec.ts, tests/e2e/task-completion.spec.ts, tests/e2e/gui-scratch-flow.spec.ts  
+**Blockers**: `tests/e2e/gui-scratch-flow.spec.ts` is narrowed down to a live-runtime mismatch in the Docker Nextcloud app: `POST /api/v1/floors` still returns the existing floor list and `POST /api/v1/rooms` still rejects `floorId`, even though the workspace code, mounted container files, unit tests, rebuild, container restart, OPcache reset, and `occ app:disable/app:enable chorestrike` all reflect the updated sources.  
 **Notes**:
 - Review current code, documentation, and automated test coverage before manual server testing.
 - Audit GUI and multi-user interaction coverage, then add missing automated tests where the gaps are clear and feasible.
@@ -55,10 +55,16 @@
 - Fixed the current `TaskList` consumer contract in `RoomDetail.vue` and `TaskManager.vue` so room-task views use normalized `{ roomTask, task }` items.
 - Updating current Playwright flows to use the actual room-assignment dialog (`TaskForm.vue`) and current task creation flow (`TaskEditForm.vue`).
 - Rebuilt frontend assets after updating source components; this closed the stale-bundle issue that kept Playwright on outdated task-manager behavior.
+- Made the dashboard `FloorList` expand empty floors from already loaded `with-rooms` state without forcing a failing extra `/api/v1/rooms?floorId=` fetch; added a regression test for the empty-floor add-room action.
+- Hardened `FloorController.php` and `RoomController.php` request resolution plus controller tests for request-param fallback paths.
+- Verified that the running `chorestrike-test` container sees the updated controller files and that Nextcloud resolves the enabled app path to `/var/www/html/apps/chorestrike`, but the live HTTP endpoints still behave like the older runtime implementation.
 - Validation snapshot:
   - `npm test -- --runInBand tests/unit/components/Modal.spec.js tests/unit/views/TaskManager.spec.js tests/unit/views/RoomDetail.spec.js` ✓
+  - `npm test -- --runInBand tests/unit/components/FloorList.spec.js` ✓
+  - `vendor/bin/phpunit --configuration phpunit.xml tests/unit/Controller/FloorControllerTest.php` ✓
   - `npx playwright test tests/e2e/task-completion.spec.ts --grep "create a new task" --project=chromium` ✓
   - `npx playwright test tests/e2e/task-manager.spec.ts tests/e2e/task-completion.spec.ts tests/e2e/gui-scratch-flow.spec.ts --project=chromium` → 13/14 passing, only GUI scratch flow still red
+  - Live runtime probe after rebuild/restart/OPcache reset/app re-enable: `POST /api/v1/floors` still returns `[{"name":"Manual Floor"}]` and does not create the requested floor; `POST /api/v1/rooms` still returns `{"message":"Floor ID is required"}`
 
 ### Next Session Tasks (Prioritized)
 1. **GUI scratch flow stabilization** (High) - Make floor creation and room creation deterministic on dashboards with existing default floors

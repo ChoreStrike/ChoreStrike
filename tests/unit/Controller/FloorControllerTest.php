@@ -100,6 +100,46 @@ class FloorControllerTest extends TestCase
     }
 
     /**
+     * Test POST /floors resolves request params when no explicit arguments are passed
+     */
+    public function testCreate_UsesRequestParamsWhenArgumentsAreMissing(): void
+    {
+        $house = new House();
+        $house->setId(1);
+
+        $floor = new Floor();
+        $floor->setId(2);
+        $floor->setName('Basement');
+        $floor->setHouseId(1);
+
+        $this->request->method('getParams')->willReturn([
+            'name' => 'Basement',
+            'sortOrder' => null,
+        ]);
+        $this->request->method('getParam')->willReturnMap([
+            ['name', 'Basement'],
+            ['sortOrder', null],
+        ]);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('requireHouseMember');
+        $this->floorService->expects($this->once())
+            ->method('createFloor')
+            ->with(1, 'Basement', null)
+            ->willReturn($floor);
+
+        $response = $this->controller->create();
+
+        $this->assertInstanceOf(JSONResponse::class, $response);
+        $this->assertEquals(200, $response->getStatus());
+
+        $data = $response->getData();
+        $this->assertTrue($data['success']);
+        $this->assertEquals('Basement', $data['data']['name']);
+    }
+
+    /**
      * Test DELETE /floors/{id} deletes successfully
      */
     public function testDelete_DeletesSuccessfully(): void

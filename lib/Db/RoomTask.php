@@ -44,6 +44,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setOriginalAssignee(?string $originalAssignee)
  * @method \DateTime|null getClaimedAt()
  * @method void setClaimedAt(?\DateTime $claimedAt)
+ * @method string|null getAssignedByUserId()
+ * @method void setAssignedByUserId(?string $assignedByUserId)
+ * @method \DateTime|null getAssignedAt()
+ * @method void setAssignedAt(?\DateTime $assignedAt)
  */
 class RoomTask extends Entity implements JsonSerializable
 {
@@ -92,6 +96,12 @@ class RoomTask extends Entity implements JsonSerializable
     /** @var \DateTime|null */
     protected $claimedAt;
 
+    /** @var string|null */
+    protected $assignedByUserId;
+
+    /** @var \DateTime|null */
+    protected $assignedAt;
+
     public function __construct()
     {
         $this->addType('id', 'integer');
@@ -110,6 +120,8 @@ class RoomTask extends Entity implements JsonSerializable
         $this->addType('wasClaimed', 'boolean');
         $this->addType('originalAssignee', 'string');
         $this->addType('claimedAt', 'datetime');
+        $this->addType('assignedByUserId', 'string');
+        $this->addType('assignedAt', 'datetime');
     }
 
     /**
@@ -133,6 +145,8 @@ class RoomTask extends Entity implements JsonSerializable
             'wasClaimed' => $this->wasClaimed,
             'originalAssignee' => $this->originalAssignee,
             'claimedAt' => $this->claimedAt?->format('c'),
+            'assignedByUserId' => $this->assignedByUserId,
+            'assignedAt' => $this->assignedAt?->format('c'),
             'createdAt' => $this->createdAt?->format('c'),
         ];
     }
