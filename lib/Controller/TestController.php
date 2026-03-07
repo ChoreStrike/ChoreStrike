@@ -35,6 +35,7 @@ class TestController extends OCSController
 	 *
 	 * @NoAdminRequired
 	 * @PublicPage
+	 * @NoCSRFRequired
 	 */
 	public function seed(string $profile = 'minimal'): JSONResponse
 	{
@@ -83,6 +84,7 @@ class TestController extends OCSController
 	 *
 	 * @NoAdminRequired
 	 * @PublicPage
+	 * @NoCSRFRequired
 	 */
 	public function reset(): JSONResponse
 	{
@@ -121,6 +123,7 @@ class TestController extends OCSController
 	 *
 	 * @NoAdminRequired
 	 * @PublicPage
+	 * @NoCSRFRequired
 	 */
 	public function profiles(): JSONResponse
 	{

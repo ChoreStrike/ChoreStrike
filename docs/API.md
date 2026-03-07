@@ -2,11 +2,13 @@
 
 ## Base URL
 
-All API endpoints are prefixed with `/apps/ChoreStrike/api/v1`
+All API endpoints are prefixed with `/apps/chorestrike/api/v1`
 
 ## Authentication
 
 All requests require Nextcloud session authentication. CSRF tokens are validated automatically.
+
+**Note:** Test Data API endpoints are exempt from CSRF checks and available only in test mode.
 
 ## Response Format
 
@@ -437,6 +439,99 @@ Some validation messages include dynamic values using `{placeholder}` syntax. Th
 - Localized result (DE): `"Ungültiger Tag: monday"`
 
 Clients should **not** parse these messages; they are for display purposes only.
+
+## Test Data API
+
+**Only available in test mode** (CI environment or `NEXTCLOUD_TEST_MODE=true`). These endpoints are used for E2E testing and database seeding.
+
+### GET /test/profiles
+
+Get available test data profiles.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "profiles": [
+      {
+        "name": "empty",
+        "description": "Clean database (no data)",
+        "users": 0,
+        "rooms": 0,
+        "tasks": 0
+      },
+      {
+        "name": "minimal",
+        "description": "1 House, 1 Floor, 1 Room, 2 Users",
+        "users": 2,
+        "rooms": 1,
+        "tasks": 0
+      },
+      {
+        "name": "family",
+        "description": "Complete family: 6 Users, 3 Floors, 6 Rooms, 12 Tasks",
+        "users": 6,
+        "rooms": 6,
+        "tasks": 12
+      }
+    ],
+    "testMode": true
+  }
+}
+```
+
+### POST /test/seed
+
+Seed database with a specific profile.
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `profile` | string | No | Profile name (default: `minimal`) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "profile": "family",
+    "data": {
+      "house": { "id": 1, "name": "Family Home" },
+      "floors": [...],
+      "rooms": [...],
+      "users": [...],
+      "tasks": [...],
+      "roomTasks": [...]
+    }
+  }
+}
+```
+
+### POST /test/reset
+
+Reset database (equivalent to seeding with `empty` profile).
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Database reset complete",
+  "data": {
+    "profile": "empty",
+    "data": []
+  }
+}
+```
+
+### Test Data Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `NOT_TEST_MODE` | 403 | Test data API only available in test mode |
+| `INVALID_PROFILE` | 400 | Invalid profile name provided |
+| `SEED_ERROR` | 500 | Error during database seeding |
+| `RESET_ERROR` | 500 | Error during database reset |
 
 ## Rate Limiting
 
