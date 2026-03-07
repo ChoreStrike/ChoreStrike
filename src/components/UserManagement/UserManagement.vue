@@ -19,9 +19,15 @@
 					:key="user.id"
 					class="member-item">
 					<div class="member-info">
-						<div class="member-name">{{ user.displayName }}</div>
-						<div class="member-role">{{ getRoleLabel(user.role) }}</div>
-						<div class="member-joined">{{ t('chorestrike', 'Joined') }}: {{ formatDate(user.joinedAt) }}</div>
+						<div class="member-name">
+							{{ user.displayName }}
+						</div>
+						<div class="member-role">
+							{{ getRoleLabel(user.role) }}
+						</div>
+						<div class="member-joined">
+							{{ t('chorestrike', 'Joined') }}: {{ formatDate(user.joinedAt) }}
+						</div>
 					</div>
 					<div class="member-actions">
 						<select
@@ -29,9 +35,15 @@
 							:value="user.role"
 							class="role-select"
 							@change="updateUserRole(user, $event)">
-							<option value="owner">{{ t('chorestrike', 'Owner') }}</option>
-							<option value="member">{{ t('chorestrike', 'Member') }}</option>
-							<option value="child">{{ t('chorestrike', 'Child') }}</option>
+							<option value="owner">
+								{{ t('chorestrike', 'Owner') }}
+							</option>
+							<option value="member">
+								{{ t('chorestrike', 'Member') }}
+							</option>
+							<option value="child">
+								{{ t('chorestrike', 'Child') }}
+							</option>
 						</select>
 						<span v-else class="role-badge">{{ getRoleLabel(user.role) }}</span>
 						<button
@@ -57,7 +69,7 @@
 							class="form-input"
 							:placeholder="t('chorestrike', 'Enter username')"
 							data-testid="user-id-input"
-							required />
+							required>
 					</div>
 					<div class="form-group">
 						<label>{{ t('chorestrike', 'Display Name') }}</label>
@@ -67,13 +79,17 @@
 							class="form-input"
 							:placeholder="t('chorestrike', 'Enter display name')"
 							data-testid="display-name-input"
-							required />
+							required>
 					</div>
 					<div class="form-group">
 						<label>{{ t('chorestrike', 'Role') }}</label>
 						<select v-model="newUser.role" class="form-input" data-testid="role-select">
-							<option value="member">{{ t('chorestrike', 'Member') }}</option>
-							<option value="child">{{ t('chorestrike', 'Child') }}</option>
+							<option value="member">
+								{{ t('chorestrike', 'Member') }}
+							</option>
+							<option value="child">
+								{{ t('chorestrike', 'Child') }}
+							</option>
 						</select>
 					</div>
 					<button
@@ -89,7 +105,9 @@
 
 		<!-- Empty State -->
 		<div v-else class="empty-state">
-			<div class="empty-icon">🏠</div>
+			<div class="empty-icon">
+				🏠
+			</div>
 			<h3>{{ t('chorestrike', 'No Members Yet') }}</h3>
 			<p>{{ t('chorestrike', 'You are the only member of this house') }}</p>
 		</div>
@@ -144,7 +162,7 @@ const currentUserId = ref<number>(0)
 const newUser = ref<NewUser>({
 	userId: '',
 	displayName: '',
-	role: 'member'
+	role: 'member',
 })
 
 const loadUsers = async (): Promise<void> => {
@@ -174,7 +192,7 @@ const addUser = async (): Promise<void> => {
 		const response = await axios.post('/api/v1/user-stats/add-user', {
 			userId: newUser.value.userId,
 			displayName: newUser.value.displayName,
-			role: newUser.value.role
+			role: newUser.value.role,
 		})
 
 		if (response.data.success) {
@@ -194,7 +212,7 @@ const updateUserRole = async (user: User, event: Event): Promise<void> => {
 
 	try {
 		const response = await axios.put(`/api/v1/user-stats/update-role/${user.nextcloudUserId}`, {
-			role: newRole
+			role: newRole,
 		})
 
 		if (response.data.success) {
@@ -230,7 +248,7 @@ const getRoleLabel = (role: string): string => {
 	const labels: Record<string, string> = {
 		owner: t('chorestrike', 'Owner'),
 		member: t('chorestrike', 'Member'),
-		child: t('chorestrike', 'Child')
+		child: t('chorestrike', 'Child'),
 	}
 	return labels[role] || role
 }

@@ -7,10 +7,10 @@
 	<div class="dashboard" data-testid="dashboard-view">
 		<!-- Loading State -->
 		<div v-if="isLoading" class="dashboard-loading">
-			<div class="skeleton skeleton-header"></div>
-			<div class="skeleton skeleton-health"></div>
-			<div class="skeleton skeleton-stats"></div>
-			<div class="skeleton skeleton-floors"></div>
+			<div class="skeleton skeleton-header" />
+			<div class="skeleton skeleton-health" />
+			<div class="skeleton skeleton-stats" />
+			<div class="skeleton skeleton-floors" />
 		</div>
 
 		<!-- Loaded Content -->

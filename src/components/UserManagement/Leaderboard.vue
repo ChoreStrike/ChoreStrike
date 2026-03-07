@@ -24,11 +24,21 @@
 			<table class="leaderboard-table">
 				<thead>
 					<tr>
-						<th class="rank-column">{{ t('chorestrike', 'Rank') }}</th>
-						<th class="name-column">{{ t('chorestrike', 'Member') }}</th>
-						<th v-if="activeFilter === 'points'" class="score-column">{{ t('chorestrike', 'Points') }}</th>
-						<th v-if="activeFilter === 'streak'" class="score-column">{{ t('chorestrike', 'Current Streak') }}</th>
-						<th v-if="activeFilter === 'tasks'" class="score-column">{{ t('chorestrike', 'Tasks Completed') }}</th>
+						<th class="rank-column">
+							{{ t('chorestrike', 'Rank') }}
+						</th>
+						<th class="name-column">
+							{{ t('chorestrike', 'Member') }}
+						</th>
+						<th v-if="activeFilter === 'points'" class="score-column">
+							{{ t('chorestrike', 'Points') }}
+						</th>
+						<th v-if="activeFilter === 'streak'" class="score-column">
+							{{ t('chorestrike', 'Current Streak') }}
+						</th>
+						<th v-if="activeFilter === 'tasks'" class="score-column">
+							{{ t('chorestrike', 'Tasks Completed') }}
+						</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -37,23 +47,37 @@
 						:key="user.id"
 						:class="['leaderboard-row', { 'current-user': user.userId === currentUserId }]">
 						<td class="rank-column">
-							<div class="rank-badge">{{ index + 1 }}</div>
+							<div class="rank-badge">
+								{{ index + 1 }}
+							</div>
 						</td>
 						<td class="name-column">
 							<div class="user-info">
-								<div class="user-name">{{ user.displayName }}</div>
-								<div class="user-role">{{ getRoleLabel(user.role) }}</div>
+								<div class="user-name">
+									{{ user.displayName }}
+								</div>
+								<div class="user-role">
+									{{ getRoleLabel(user.role) }}
+								</div>
 							</div>
 						</td>
 						<td v-if="activeFilter === 'points'" class="score-column">
-							<div class="score-value">{{ user.totalPoints }}</div>
+							<div class="score-value">
+								{{ user.totalPoints }}
+							</div>
 						</td>
 						<td v-if="activeFilter === 'streak'" class="score-column">
-							<div class="score-value">{{ user.currentStreak }}</div>
-							<div class="longest-streak">{{ t('chorestrike', 'Best: {count}', { count: user.longestStreak }) }}</div>
+							<div class="score-value">
+								{{ user.currentStreak }}
+							</div>
+							<div class="longest-streak">
+								{{ t('chorestrike', 'Best: {count}', { count: user.longestStreak }) }}
+							</div>
 						</td>
 						<td v-if="activeFilter === 'tasks'" class="score-column">
-							<div class="score-value">{{ user.tasksCompleted }}</div>
+							<div class="score-value">
+								{{ user.tasksCompleted }}
+							</div>
 						</td>
 					</tr>
 				</tbody>
@@ -62,7 +86,9 @@
 
 		<!-- Empty State -->
 		<div v-else class="empty-state">
-			<div class="empty-icon">📊</div>
+			<div class="empty-icon">
+				📊
+			</div>
 			<h3>{{ t('chorestrike', 'No Data Yet') }}</h3>
 			<p>{{ t('chorestrike', 'Complete tasks to appear on the leaderboard') }}</p>
 		</div>
@@ -98,7 +124,7 @@ const currentUserId = ref<string>('current-user')
 const filters: Filter[] = [
 	{ label: t('chorestrike', 'Points'), value: 'points' },
 	{ label: t('chorestrike', 'Streaks'), value: 'streak' },
-	{ label: t('chorestrike', 'Tasks'), value: 'tasks' }
+	{ label: t('chorestrike', 'Tasks'), value: 'tasks' },
 ]
 
 const loadLeaderboard = async (): Promise<void> => {
@@ -127,7 +153,7 @@ const getRoleLabel = (role: string): string => {
 	const labels: Record<string, string> = {
 		owner: t('chorestrike', 'Owner'),
 		member: t('chorestrike', 'Member'),
-		child: t('chorestrike', 'Child')
+		child: t('chorestrike', 'Child'),
 	}
 	return labels[role] || role
 }

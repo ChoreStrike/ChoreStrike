@@ -2,7 +2,9 @@
 	<div class="daily-task-list" data-testid="daily-task-list">
 		<div class="list-header">
 			<h2>{{ t('chorestrike', 'Today\'s Tasks') }}</h2>
-			<div class="date-display">{{ formatDate(new Date()) }}</div>
+			<div class="date-display">
+				{{ formatDate(new Date()) }}
+			</div>
 		</div>
 
 		<!-- Loading State -->
@@ -13,7 +15,9 @@
 
 		<!-- Empty State -->
 		<div v-else-if="tasks.length === 0" class="empty-state">
-			<div class="empty-icon">🎉</div>
+			<div class="empty-icon">
+				🎉
+			</div>
 			<h3>{{ t('chorestrike', 'No Tasks Today') }}</h3>
 			<p>{{ t('chorestrike', 'You\'re all caught up! Enjoy your free time.') }}</p>
 		</div>
@@ -31,7 +35,7 @@
 				</div>
 			</div>
 
-			<div class="tasks-list" ref="tasksListRef">
+			<div ref="tasksListRef" class="tasks-list">
 				<div
 					v-for="task in sortedTasks"
 					:key="task.id"
@@ -41,18 +45,21 @@
 					@dragend="handleDragEnd"
 					@dragover.prevent
 					@drop="handleDrop($event, task)">
-
-					<div class="task-drag-handle">⋮⋮</div>
+					<div class="task-drag-handle">
+						⋮⋮
+					</div>
 
 					<div class="task-checkbox">
 						<input
 							:type="task.allowTeamwork ? 'checkbox' : 'checkbox'"
 							:checked="task.completed"
-							@change="toggleTask(task)" />
+							@change="toggleTask(task)">
 					</div>
 
 					<div class="task-content">
-						<div class="task-name">{{ task.name }}</div>
+						<div class="task-name">
+							{{ task.name }}
+						</div>
 						<div class="task-meta">
 							<span class="room-name">{{ task.roomName }}</span>
 							<span class="energy-cost">⚡ {{ task.energyCost }}</span>

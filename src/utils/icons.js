@@ -101,7 +101,7 @@ import {
 	Maximize2,
 	Minimize2,
 	Fullscreen,
-	Task,
+	ClipboardList,
 } from 'lucide-vue-next'
 
 /**
@@ -234,14 +234,14 @@ export const icons = {
 	Locate,
 	Globe,
 	Battery,
-	Task,
+	Task: ClipboardList,
 }
 
 /**
  * Get icon component by name
  *
  * @param {string} name - The icon name
- * @return {Component|undefined} The icon component or undefined if not found
+ * @return {object|undefined} The icon component or undefined if not found
  */
 export function getIcon(name) {
 	return icons[name]

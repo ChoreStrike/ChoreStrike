@@ -42,7 +42,9 @@
 			<div class="combo-empty">
 				<span class="empty-icon">⚡</span>
 				<p>{{ t('chorestrike', 'No active combo') }}</p>
-				<p class="hint">{{ t('chorestrike', 'Complete tasks to start a combo') }}</p>
+				<p class="hint">
+					{{ t('chorestrike', 'Complete tasks to start a combo') }}
+				</p>
 			</div>
 		</div>
 	</div>

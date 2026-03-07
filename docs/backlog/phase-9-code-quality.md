@@ -202,7 +202,7 @@ export const logger = {
 ### P9-LINT-001 - ESLint Cleanup Pass
 **Priority**: LOW  
 **Effort**: 2 hours  
-**Status**: Planned
+**Status**: Done
 
 **Description**: 49 ESLint warnings remaining (down from 457). Mostly JSDoc and formatting issues.
 
@@ -216,6 +216,17 @@ export const logger = {
 
 **Goal**: 0 warnings, 0 errors
 
+**Completed**:
+- Ran `npx eslint --fix` to auto-fix Vue template formatting issues.
+- Fixed import error: replaced non-existent `Task` icon with `ClipboardList` from lucide-vue-next.
+- Added missing JSDoc type and description annotations in `game.js` and `performance.js`.
+- Removed default value annotations from JSDoc where not permitted.
+- Fixed `vue/no-template-shadow` warning in `TaskForm.vue` by renaming v-for variable.
+- Replaced undefined TypeScript types (`Component`, `IdleRequestCallback`) with specific callable signatures.
+
+**Validation**:
+- `npx eslint --ext .js,.vue src/ --format compact` -> 0 problems
+
 **Tests**:
 - Verify `npm run lint` passes with 0 warnings
 
@@ -223,10 +234,10 @@ export const logger = {
 
 ## Success Criteria
 
-- [ ] All high-priority security issues resolved
-- [ ] No deprecated API usage
+- [x] All high-priority security issues resolved
+- [x] No deprecated API usage
 - [x] Production logging strategy implemented
-- [ ] ESLint passes with 0 warnings
+- [x] ESLint passes with 0 warnings
 - [x] All tests passing (frontend + backend)
 - [ ] Code review document updated
 

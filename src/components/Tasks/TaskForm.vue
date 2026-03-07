@@ -15,8 +15,8 @@
 				<option :value="null" disabled>
 					{{ t('chorestrike', 'Select a task') }}
 				</option>
-				<option v-for="task in availableTasks" :key="task.id" :value="task.id">
-					{{ task.name }} ({{ t('chorestrike', 'Priority') }} {{ task.priority }})
+				<option v-for="templateTask in availableTasks" :key="templateTask.id" :value="templateTask.id">
+					{{ templateTask.name }} ({{ t('chorestrike', 'Priority') }} {{ templateTask.priority }})
 				</option>
 			</select>
 		</div>
@@ -44,7 +44,10 @@
 				<Icon name="X" :size="16" class="icon" />
 				{{ t('chorestrike', 'Cancel') }}
 			</button>
-			<button type="submit" class="primary-button" data-testid="assign-task-button" :disabled="!form.taskId || loading">
+			<button type="submit"
+				class="primary-button"
+				data-testid="assign-task-button"
+				:disabled="!form.taskId || loading">
 				<Icon name="Plus" :size="16" class="icon" />
 				{{ t('chorestrike', 'Add Task') }}
 			</button>

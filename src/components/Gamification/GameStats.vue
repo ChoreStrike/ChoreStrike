@@ -6,48 +6,84 @@
 
 		<div class="stats-grid">
 			<div class="stat-card total-points">
-				<div class="stat-icon">⭐</div>
-				<div class="stat-value">{{ stats.totalPoints }}</div>
-				<div class="stat-label">{{ t('chorestrike', 'Total Points') }}</div>
+				<div class="stat-icon">
+					⭐
+				</div>
+				<div class="stat-value">
+					{{ stats.totalPoints }}
+				</div>
+				<div class="stat-label">
+					{{ t('chorestrike', 'Total Points') }}
+				</div>
 			</div>
 
 			<div class="stat-card tasks-completed">
-				<div class="stat-icon">✅</div>
-				<div class="stat-value">{{ stats.tasksCompleted }}</div>
-				<div class="stat-label">{{ t('chorestrike', 'Tasks Completed') }}</div>
+				<div class="stat-icon">
+					✅
+				</div>
+				<div class="stat-value">
+					{{ stats.tasksCompleted }}
+				</div>
+				<div class="stat-label">
+					{{ t('chorestrike', 'Tasks Completed') }}
+				</div>
 			</div>
 
 			<div class="stat-card current-streak">
-				<div class="stat-icon">🔥</div>
-				<div class="stat-value">{{ stats.currentStreak }}</div>
-				<div class="stat-label">{{ t('chorestrike', 'Current Streak') }}</div>
+				<div class="stat-icon">
+					🔥
+				</div>
+				<div class="stat-value">
+					{{ stats.currentStreak }}
+				</div>
+				<div class="stat-label">
+					{{ t('chorestrike', 'Current Streak') }}
+				</div>
 				<div v-if="stats.longestStreak > 0" class="stat-sublabel">
 					{{ t('chorestrike', 'Best: {count}', { count: stats.longestStreak }) }}
 				</div>
 			</div>
 
 			<div class="stat-card combos">
-				<div class="stat-icon">⚡</div>
-				<div class="stat-value">{{ stats.totalCombos }}</div>
-				<div class="stat-label">{{ t('chorestrike', 'Combos') }}</div>
+				<div class="stat-icon">
+					⚡
+				</div>
+				<div class="stat-value">
+					{{ stats.totalCombos }}
+				</div>
+				<div class="stat-label">
+					{{ t('chorestrike', 'Combos') }}
+				</div>
 				<div v-if="stats.comboBonusPoints > 0" class="stat-sublabel">
 					+{{ stats.comboBonusPoints }} {{ t('chorestrike', 'bonus points') }}
 				</div>
 			</div>
 
 			<div class="stat-card medals">
-				<div class="stat-icon">🏅</div>
-				<div class="stat-value">{{ stats.totalMedals }}</div>
-				<div class="stat-label">{{ t('chorestrike', 'Medals Earned') }}</div>
+				<div class="stat-icon">
+					🏅
+				</div>
+				<div class="stat-value">
+					{{ stats.totalMedals }}
+				</div>
+				<div class="stat-label">
+					{{ t('chorestrike', 'Medals Earned') }}
+				</div>
 				<div v-if="stats.medalPoints > 0" class="stat-sublabel">
 					+{{ stats.medalPoints }} {{ t('chorestrike', 'points') }}
 				</div>
 			</div>
 
 			<div class="stat-card rank">
-				<div class="stat-icon">🎯</div>
-				<div class="stat-value">{{ stats.rank }}</div>
-				<div class="stat-label">{{ t('chorestrike', 'Rank') }}</div>
+				<div class="stat-icon">
+					🎯
+				</div>
+				<div class="stat-value">
+					{{ stats.rank }}
+				</div>
+				<div class="stat-label">
+					{{ t('chorestrike', 'Rank') }}
+				</div>
 				<div v-if="stats.nextRankPoints > 0" class="stat-sublabel">
 					{{ t('chorestrike', '{points} to next', { points: stats.nextRankPoints }) }}
 				</div>

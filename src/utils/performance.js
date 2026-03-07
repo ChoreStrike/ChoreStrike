@@ -68,8 +68,8 @@ class PerformanceMonitor {
 	/**
 	 * Measure async function execution time
 	 * @param {string} name - Metric name
-	 * @param {Function} fn - Async function to measure
-	 * @return {Promise<any>} - Function result
+	 * @param {() => Promise<unknown>} fn - Async function to measure
+	 * @return {Promise<unknown>} - Function result
 	 */
 	async measureAsync(name, fn) {
 		this.start(name)
@@ -143,9 +143,9 @@ export function usePerformance() {
 
 /**
  * Debounce function for performance optimization
- * @param {Function} fn - Function to debounce
+ * @param {(...args: unknown[]) => void} fn - Function to debounce
  * @param {number} delay - Delay in milliseconds
- * @return {Function} - Debounced function
+ * @return {(...args: unknown[]) => void} - Debounced function
  */
 export function debounce(fn, delay = 300) {
 	let timeoutId
@@ -157,9 +157,9 @@ export function debounce(fn, delay = 300) {
 
 /**
  * Throttle function for performance optimization
- * @param {Function} fn - Function to throttle
+ * @param {(...args: unknown[]) => void} fn - Function to throttle
  * @param {number} limit - Limit in milliseconds
- * @return {Function} - Throttled function
+ * @return {(...args: unknown[]) => void} - Throttled function
  */
 export function throttle(fn, limit = 100) {
 	let inThrottle
@@ -174,7 +174,7 @@ export function throttle(fn, limit = 100) {
 
 /**
  * Request idle callback wrapper with fallback
- * @param {Function} callback - Function to execute
+ * @param {(deadline: { didTimeout: boolean, timeRemaining: () => number }) => void} callback - Function to execute
  * @param {object} options - Options
  */
 export function requestIdle(callback, options = {}) {

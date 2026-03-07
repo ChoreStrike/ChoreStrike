@@ -8,10 +8,16 @@
 		</div>
 
 		<div class="challenge-content">
-			<div class="challenge-icon">{{ challenge.icon }}</div>
+			<div class="challenge-icon">
+				{{ challenge.icon }}
+			</div>
 			<div class="challenge-info">
-				<div class="challenge-title">{{ challenge.title }}</div>
-				<div class="challenge-description">{{ challenge.description }}</div>
+				<div class="challenge-title">
+					{{ challenge.title }}
+				</div>
+				<div class="challenge-description">
+					{{ challenge.description }}
+				</div>
 				<div class="challenge-reward">
 					<span class="reward-label">{{ t('chorestrike', 'Reward:') }}</span>
 					<span class="reward-value">+{{ challenge.reward }} {{ t('chorestrike', 'points') }}</span>
@@ -38,8 +44,8 @@
 			<button
 				v-if="challenge.progress >= challenge.target && !challenge.claimed"
 				class="claim-button"
-				@click="claimReward"
-				:disabled="claiming">
+				:disabled="claiming"
+				@click="claimReward">
 				{{ claiming ? t('chorestrike', 'Claiming...') : t('chorestrike', 'Claim Reward') }}
 			</button>
 			<div v-else-if="challenge.claimed" class="completed-badge">

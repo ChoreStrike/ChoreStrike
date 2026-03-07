@@ -3,7 +3,7 @@ import { getCurrentUser } from '@nextcloud/auth'
 /**
  * Resolve the current Nextcloud user into the member shape used by the frontend.
  *
- * @returns {{uid: string, userId: string} | null}
+ * @return {{uid: string, userId: string} | null}
  */
 export function resolveCurrentUser() {
 	const nextcloudUser = getCurrentUser()

@@ -116,8 +116,8 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Update monsters for a room
-		 * @param roomId
-		 * @param monsters
+		 * @param {number} roomId - The ID of the room
+		 * @param {Array} monsters - The monsters data for the room
 		 */
 		updateRoomMonsters(roomId, monsters) {
 			this.monsters[roomId] = monsters
@@ -125,7 +125,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Add combo
-		 * @param combo
+		 * @param {object} combo - The combo data to add
 		 */
 		addCombo(combo) {
 			this.combos.push({
@@ -137,7 +137,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Remove combo
-		 * @param comboId
+		 * @param {number} comboId - The ID of the combo to remove
 		 */
 		removeCombo(comboId) {
 			this.combos = this.combos.filter(combo => combo.id !== comboId)
@@ -152,8 +152,8 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Calculate contribution score for task completion
-		 * @param task
-		 * @param roomCleanliness
+		 * @param {object} task - The task object with energyCost and priority
+		 * @param {number} roomCleanliness - The current cleanliness percentage of the room
 		 */
 		calculateContributionScore(task, roomCleanliness) {
 			let baseScore = task.energyCost * 10
@@ -174,8 +174,8 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Calculate Team Sparks for task completion
-		 * @param task
-		 * @param isCombo
+		 * @param {object} task - The task object with energyCost and priority
+		 * @param {boolean} isCombo - Whether this is part of a combo
 		 */
 		calculateTeamSparks(task, isCombo = false) {
 			let sparks = task.energyCost * 5
@@ -192,9 +192,9 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Check for combo opportunities
-		 * @param userId
-		 * @param completedTask
-		 * @param recentCompletions
+		 * @param {string} userId - The ID of the user completing the task
+		 * @param {object} completedTask - The task that was just completed
+		 * @param {Array} recentCompletions - Recent task completions to check for combos
 		 */
 		checkForCombo(userId, completedTask, recentCompletions = []) {
 			// Check if user completed multiple tasks in quick succession
@@ -234,9 +234,9 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Award medal to user
-		 * @param userId
-		 * @param medalType
-		 * @param value
+		 * @param {string} userId - The ID of the user to award the medal to
+		 * @param {string} medalType - The type of medal to award
+		 * @param {number} value - The value associated with the medal
 		 */
 		awardMedal(userId, medalType, value) {
 			const medal = {
@@ -254,7 +254,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get week start date
-		 * @param date
+		 * @param {Date|string} date - The date to calculate week start from
 		 */
 		getWeekStart(date = new Date()) {
 			const d = new Date(date)
@@ -265,8 +265,8 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Check medal eligibility
-		 * @param userId
-		 * @param weeklyStats
+		 * @param {string} userId - The ID of the user to check
+		 * @param {object} weeklyStats - Weekly statistics for the user
 		 */
 		checkMedalEligibility(userId, weeklyStats) {
 			const medals = []
@@ -301,8 +301,8 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Update monster count based on room cleanliness
-		 * @param roomId
-		 * @param cleanliness
+		 * @param {number} roomId - The ID of the room
+		 * @param {number} cleanliness - The cleanliness percentage of the room
 		 */
 		updateMonstersForCleanliness(roomId, cleanliness) {
 			let monsterCount = 0
@@ -334,7 +334,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get monster type based on cleanliness
-		 * @param cleanliness
+		 * @param {number} cleanliness - The cleanliness percentage of the room
 		 */
 		getMonsterType(cleanliness) {
 			if (cleanliness >= 60) return 'dust-bunny'

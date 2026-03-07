@@ -8,16 +8,16 @@
 		<!-- Skeleton Loading State -->
 		<div v-if="loading" class="skeleton-loading">
 			<div v-for="i in 5" :key="i" class="skeleton-task-item">
-				<div class="skeleton-task-status"></div>
+				<div class="skeleton-task-status" />
 				<div class="skeleton-task-content">
 					<div class="skeleton-task-header">
-						<div class="skeleton-task-name"></div>
-						<div class="skeleton-priority"></div>
+						<div class="skeleton-task-name" />
+						<div class="skeleton-priority" />
 					</div>
 					<div class="skeleton-task-meta">
-						<div class="skeleton-meta-item"></div>
-						<div class="skeleton-meta-item"></div>
-						<div class="skeleton-meta-item"></div>
+						<div class="skeleton-meta-item" />
+						<div class="skeleton-meta-item" />
+						<div class="skeleton-meta-item" />
 					</div>
 				</div>
 			</div>

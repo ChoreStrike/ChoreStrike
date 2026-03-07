@@ -143,11 +143,11 @@
   - `npx eslint --quiet src/components/Scheduling/AvailabilitySettings.vue src/utils/currentUser.js tests/unit/components/AvailabilitySettings.spec.js tests/unit/__mocks__/nextcloud-auth.js` -> pass
 
 ### Next Session Tasks (Prioritized)
-1. **P9-LINT-001** (Medium) - Reduce remaining warning baseline (mainly JSDoc and formatting)
-2. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
-3. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
-4. **P8-RELEASE-001** (High) - App store submission preparation
-5. **P9-FEATURE-001** (Medium) - Complete energy budget calculation
+1. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
+2. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
+3. **P8-RELEASE-001** (High) - App store submission preparation
+4. **P9-FEATURE-001** (Medium) - Complete energy budget calculation
+5. **P9-UX-001** (Medium) - Implement edit floor functionality
 
 ---
 

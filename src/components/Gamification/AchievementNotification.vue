@@ -6,11 +6,19 @@
 				:key="notification.id"
 				:class="['notification-item', `type-${notification.type}`]"
 				@animationend="removeNotification(notification.id)">
-				<div class="notification-icon">{{ notification.icon }}</div>
+				<div class="notification-icon">
+					{{ notification.icon }}
+				</div>
 				<div class="notification-content">
-					<div class="notification-title">{{ notification.title }}</div>
-					<div class="notification-message">{{ notification.message }}</div>
-					<div v-if="notification.points" class="notification-points">+{{ notification.points }} {{ t('chorestrike', 'points') }}</div>
+					<div class="notification-title">
+						{{ notification.title }}
+					</div>
+					<div class="notification-message">
+						{{ notification.message }}
+					</div>
+					<div v-if="notification.points" class="notification-points">
+						+{{ notification.points }} {{ t('chorestrike', 'points') }}
+					</div>
 				</div>
 				<button class="notification-close" @click="removeNotification(notification.id)">
 					<Icon name="Close" :size="16" />

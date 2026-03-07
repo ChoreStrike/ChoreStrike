@@ -7,10 +7,16 @@
 				:class="['medal-badge', `rarity-${medal.rarity}`]"
 				:title="medal.description"
 				data-testid="medal-badge">
-				<div class="medal-icon">{{ medal.icon }}</div>
+				<div class="medal-icon">
+					{{ medal.icon }}
+				</div>
 				<div class="medal-info">
-					<div class="medal-name">{{ medal.name }}</div>
-					<div class="medal-points">+{{ medal.points }}</div>
+					<div class="medal-name">
+						{{ medal.name }}
+					</div>
+					<div class="medal-points">
+						+{{ medal.points }}
+					</div>
 				</div>
 			</div>
 		</div>
