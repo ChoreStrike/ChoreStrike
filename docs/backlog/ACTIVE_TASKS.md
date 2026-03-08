@@ -165,9 +165,9 @@
 ### Cascade - MS-ICONS-MIGRATION-001 - Microsoft Fluent UI Icons Integration
 **Status**: Review Ready
 **Started**: 2026-03-07 22:25
-**Updated**: 2026-03-08 08:20
+**Updated**: 2026-03-08 21:05
 **Branch**: master
-**Related Files**: docs/backlog/ACTIVE_TASKS.md, jest.config.js, package.json, package-lock.json, webpack.config.js, src/views/Dashboard.vue, src/views/Leaderboard.vue, src/views/Settings.vue, src/components/Common/Icon.vue, src/components/Common/SvgIcon.vue, src/components/Dashboard/QuickStats.vue, src/components/Dashboard/FloorList.vue, src/components/Dashboard/RoomCard.vue, src/components/Tasks/TaskChecklist.vue, src/components/Tasks/TaskList.vue, src/store/rooms.js, src/utils/icons.js, src/utils/roomIcons.js, lib/Db/Room.php, lib/Db/RoomMapper.php, lib/Service/RoomService.php, lib/Controller/RoomController.php, lib/Migration/Version1015Date20260304000000.php, tests/unit/__mocks__/svg.js, tests/unit/components/Icon.spec.js, tests/unit/components/FloorList.spec.js, tests/unit/components/RoomCard.spec.js, tests/unit/components/TaskList.spec.js, tests/unit/views/Leaderboard.spec.js, tests/unit/views/Settings.spec.js, tests/unit/store/rooms.spec.js, tests/unit/Service/RoomServiceTest.php, tests/unit/Controller/RoomControllerTest.php
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, jest.config.js, package.json, package-lock.json, webpack.config.js, src/views/Dashboard.vue, src/views/Leaderboard.vue, src/views/Settings.vue, src/components/Common/Icon.vue, src/components/Common/SvgIcon.vue, src/components/Dashboard/QuickStats.vue, src/components/Dashboard/FloorList.vue, src/components/Dashboard/RoomCard.vue, src/components/Tasks/TaskChecklist.vue, src/components/Tasks/TaskList.vue, src/store/rooms.js, src/utils/icons.js, src/utils/roomIcons.js, lib/Db/Room.php, lib/Db/RoomMapper.php, lib/Service/RoomService.php, lib/Controller/RoomController.php, lib/Migration/Version1015Date20260304000000.php, tests/unit/__mocks__/svg.js, tests/unit/components/Icon.spec.js, tests/unit/components/FloorList.spec.js, tests/unit/components/RoomCard.spec.js, tests/unit/components/TaskChecklist.spec.js, tests/unit/components/TaskList.spec.js, tests/unit/views/Leaderboard.spec.js, tests/unit/views/Settings.spec.js, tests/unit/store/rooms.spec.js, tests/unit/Service/RoomServiceTest.php, tests/unit/Controller/RoomControllerTest.php
 **Blockers**: None
 **Notes**:
 - **USER REQUIREMENT**: Replace all icons with Microsoft Fluent UI Icons (MIT licensed)
@@ -200,6 +200,8 @@
   - Migrated the active core icon registry entries to real Microsoft Fluent SVG assets while keeping local fallback mappings for the remaining icon names.
   - Extended the official Fluent SVG coverage for the next active consumers in task, leaderboard, and settings flows.
   - Migrated active names including `RotateCcw`, `Zap`, `AlertTriangle`, `Medal`, `Crown`, `UserPlus`, and `UserMinus` to official local Microsoft Fluent SVG assets.
+  - Added official Fluent SVG mappings for `Circle`, `GripVertical`, `Save`, and `LayoutGrid` to cover TaskChecklist, TaskList, and task forms.
+  - Introduced a minimal `TaskChecklist.spec.js` regression to secure the active checklist icon rendering path.
 - **Validation**:
   - `npm test -- --runInBand tests/unit/store/rooms.spec.js tests/unit/components/RoomCard.spec.js tests/unit/components/FloorList.spec.js` ✅
   - `vendor\\bin\\phpunit tests/unit/Service/RoomServiceTest.php tests/unit/Controller/RoomControllerTest.php` ✅

@@ -17,20 +17,24 @@ import chevronDown20Regular from '@fluentui/svg-icons/icons/chevron_down_20_regu
 import chevronLeft20Regular from '@fluentui/svg-icons/icons/chevron_left_20_regular.svg'
 import chevronRight20Regular from '@fluentui/svg-icons/icons/chevron_right_20_regular.svg'
 import chevronUp20Regular from '@fluentui/svg-icons/icons/chevron_up_20_regular.svg'
+import circle20Regular from '@fluentui/svg-icons/icons/circle_20_regular.svg'
 import clock20Regular from '@fluentui/svg-icons/icons/clock_20_regular.svg'
 import crown20Regular from '@fluentui/svg-icons/icons/crown_20_regular.svg'
 import delete20Regular from '@fluentui/svg-icons/icons/delete_20_regular.svg'
 import dismiss20Regular from '@fluentui/svg-icons/icons/dismiss_20_regular.svg'
 import edit20Regular from '@fluentui/svg-icons/icons/edit_20_regular.svg'
 import flash20Regular from '@fluentui/svg-icons/icons/flash_20_regular.svg'
+import gridDots20Regular from '@fluentui/svg-icons/icons/grid_dots_20_regular.svg'
 import grid20Regular from '@fluentui/svg-icons/icons/grid_20_regular.svg'
 import home20Regular from '@fluentui/svg-icons/icons/home_20_regular.svg'
 import list20Regular from '@fluentui/svg-icons/icons/list_20_regular.svg'
 import medal20Regular from '@fluentui/svg-icons/icons/medal_20_regular.svg'
+import reOrderDotsVertical20Regular from '@fluentui/svg-icons/icons/re_order_dots_vertical_20_regular.svg'
 import people20Regular from '@fluentui/svg-icons/icons/people_20_regular.svg'
 import person20Regular from '@fluentui/svg-icons/icons/person_20_regular.svg'
 import personAdd20Regular from '@fluentui/svg-icons/icons/person_add_20_regular.svg'
 import personSubtract20Regular from '@fluentui/svg-icons/icons/person_subtract_20_regular.svg'
+import save20Regular from '@fluentui/svg-icons/icons/save_20_regular.svg'
 import search20Regular from '@fluentui/svg-icons/icons/search_20_regular.svg'
 import star20Regular from '@fluentui/svg-icons/icons/star_20_regular.svg'
 import trophy20Regular from '@fluentui/svg-icons/icons/trophy_20_regular.svg'
@@ -101,6 +105,7 @@ const fluentSvgIcons = {
 	Close: createFluentSvgComponent('Close', dismiss20Regular),
 	Check: createFluentSvgComponent('Check', checkmark20Regular),
 	CheckCircle: createFluentSvgComponent('CheckCircle', checkmarkCircle20Regular),
+	Circle: createFluentSvgComponent('Circle', circle20Regular),
 	ArrowLeft: createFluentSvgComponent('ArrowLeft', arrowLeft20Regular),
 	ChevronDown: createFluentSvgComponent('ChevronDown', chevronDown20Regular),
 	ChevronUp: createFluentSvgComponent('ChevronUp', chevronUp20Regular),
@@ -115,10 +120,13 @@ const fluentSvgIcons = {
 	Edit: createFluentSvgComponent('Edit', edit20Regular),
 	Edit2: createFluentSvgComponent('Edit2', edit20Regular),
 	Grid: createFluentSvgComponent('Grid', grid20Regular),
+	GripVertical: createFluentSvgComponent('GripVertical', reOrderDotsVertical20Regular),
 	List: createFluentSvgComponent('List', list20Regular),
 	Bed: createFluentSvgComponent('Bed', bed20Regular),
 	Star: createFluentSvgComponent('Star', star20Regular),
 	Trophy: createFluentSvgComponent('Trophy', trophy20Regular),
+	Save: createFluentSvgComponent('Save', save20Regular),
+	LayoutGrid: createFluentSvgComponent('LayoutGrid', gridDots20Regular),
 	RotateCcw: createFluentSvgComponent('RotateCcw', arrowClockwise20Regular),
 	Zap: createFluentSvgComponent('Zap', flash20Regular),
 	AlertTriangle: createFluentSvgComponent('AlertTriangle', warning20Regular),
