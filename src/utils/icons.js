@@ -7,6 +7,7 @@ import { h } from 'vue'
 import SvgIcon from '../components/Common/SvgIcon.vue'
 import add20Regular from '@fluentui/svg-icons/icons/add_20_regular.svg'
 import arrowClockwise20Regular from '@fluentui/svg-icons/icons/arrow_clockwise_20_regular.svg'
+import arrowSync20Regular from '@fluentui/svg-icons/icons/arrow_sync_20_regular.svg'
 import arrowLeft20Regular from '@fluentui/svg-icons/icons/arrow_left_20_regular.svg'
 import bed20Regular from '@fluentui/svg-icons/icons/bed_20_regular.svg'
 import building20Regular from '@fluentui/svg-icons/icons/building_20_regular.svg'
@@ -128,6 +129,8 @@ const fluentSvgIcons = {
 	Save: createFluentSvgComponent('Save', save20Regular),
 	LayoutGrid: createFluentSvgComponent('LayoutGrid', gridDots20Regular),
 	RotateCcw: createFluentSvgComponent('RotateCcw', arrowClockwise20Regular),
+	RefreshCw: createFluentSvgComponent('RefreshCw', arrowSync20Regular),
+	Refresh: createFluentSvgComponent('Refresh', arrowSync20Regular),
 	Zap: createFluentSvgComponent('Zap', flash20Regular),
 	AlertTriangle: createFluentSvgComponent('AlertTriangle', warning20Regular),
 	Warning: createFluentSvgComponent('Warning', warning20Regular),
