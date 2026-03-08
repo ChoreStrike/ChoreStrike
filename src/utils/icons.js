@@ -6,6 +6,7 @@
 import { h } from 'vue'
 import SvgIcon from '../components/Common/SvgIcon.vue'
 import add20Regular from '@fluentui/svg-icons/icons/add_20_regular.svg'
+import arrowClockwise20Regular from '@fluentui/svg-icons/icons/arrow_clockwise_20_regular.svg'
 import arrowLeft20Regular from '@fluentui/svg-icons/icons/arrow_left_20_regular.svg'
 import bed20Regular from '@fluentui/svg-icons/icons/bed_20_regular.svg'
 import building20Regular from '@fluentui/svg-icons/icons/building_20_regular.svg'
@@ -17,17 +18,23 @@ import chevronLeft20Regular from '@fluentui/svg-icons/icons/chevron_left_20_regu
 import chevronRight20Regular from '@fluentui/svg-icons/icons/chevron_right_20_regular.svg'
 import chevronUp20Regular from '@fluentui/svg-icons/icons/chevron_up_20_regular.svg'
 import clock20Regular from '@fluentui/svg-icons/icons/clock_20_regular.svg'
+import crown20Regular from '@fluentui/svg-icons/icons/crown_20_regular.svg'
 import delete20Regular from '@fluentui/svg-icons/icons/delete_20_regular.svg'
 import dismiss20Regular from '@fluentui/svg-icons/icons/dismiss_20_regular.svg'
 import edit20Regular from '@fluentui/svg-icons/icons/edit_20_regular.svg'
+import flash20Regular from '@fluentui/svg-icons/icons/flash_20_regular.svg'
 import grid20Regular from '@fluentui/svg-icons/icons/grid_20_regular.svg'
 import home20Regular from '@fluentui/svg-icons/icons/home_20_regular.svg'
 import list20Regular from '@fluentui/svg-icons/icons/list_20_regular.svg'
+import medal20Regular from '@fluentui/svg-icons/icons/medal_20_regular.svg'
 import people20Regular from '@fluentui/svg-icons/icons/people_20_regular.svg'
 import person20Regular from '@fluentui/svg-icons/icons/person_20_regular.svg'
+import personAdd20Regular from '@fluentui/svg-icons/icons/person_add_20_regular.svg'
+import personSubtract20Regular from '@fluentui/svg-icons/icons/person_subtract_20_regular.svg'
 import search20Regular from '@fluentui/svg-icons/icons/search_20_regular.svg'
 import star20Regular from '@fluentui/svg-icons/icons/star_20_regular.svg'
 import trophy20Regular from '@fluentui/svg-icons/icons/trophy_20_regular.svg'
+import warning20Regular from '@fluentui/svg-icons/icons/warning_20_regular.svg'
 
 /**
  * Local Fluent-inspired SVG icon registry for ChoreStrike.
@@ -112,6 +119,15 @@ const fluentSvgIcons = {
 	Bed: createFluentSvgComponent('Bed', bed20Regular),
 	Star: createFluentSvgComponent('Star', star20Regular),
 	Trophy: createFluentSvgComponent('Trophy', trophy20Regular),
+	RotateCcw: createFluentSvgComponent('RotateCcw', arrowClockwise20Regular),
+	Zap: createFluentSvgComponent('Zap', flash20Regular),
+	AlertTriangle: createFluentSvgComponent('AlertTriangle', warning20Regular),
+	Warning: createFluentSvgComponent('Warning', warning20Regular),
+	Medal: createFluentSvgComponent('Medal', medal20Regular),
+	Award: createFluentSvgComponent('Award', medal20Regular),
+	Crown: createFluentSvgComponent('Crown', crown20Regular),
+	UserPlus: createFluentSvgComponent('UserPlus', personAdd20Regular),
+	UserMinus: createFluentSvgComponent('UserMinus', personSubtract20Regular),
 }
 
 const SHARED_SHAPES = {
