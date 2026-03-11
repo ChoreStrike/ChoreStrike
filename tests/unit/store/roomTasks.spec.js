@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
+import { useSchedulingStore } from '../../../src/store/scheduling.js'
 
 jest.mock('@nextcloud/axios', () => ({
 	__esModule: true,
@@ -207,6 +208,25 @@ describe('RoomTasks Store', () => {
 				const result = await store.completeRoomTask(1, 'user1')
 
 				expect(result.roomTask.isActive).toBe(false)
+			})
+
+			it('registers consumed energy in scheduling store when rewards include energyCost', async () => {
+				const schedulingStore = useSchedulingStore()
+				schedulingStore.todayConsumedEnergy = 2
+				store.roomTasks = [{ id: 1, isActive: true }]
+				axios.post.mockResolvedValue({
+					data: {
+						success: true,
+						data: {
+							roomTask: { id: 1, isActive: false },
+							rewards: { energyCost: 3 },
+						},
+					},
+				})
+
+				await store.completeRoomTask(1)
+
+				expect(schedulingStore.todayConsumedEnergy).toBe(5)
 			})
 		})
 

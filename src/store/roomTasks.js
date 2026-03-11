@@ -6,6 +6,7 @@
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
 import { logger } from '../utils/logger.js'
+import { useSchedulingStore } from './scheduling.js'
 
 export const useRoomTasksStore = defineStore('roomTasks', {
 	state: () => ({
@@ -359,13 +360,19 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 						this.roomTasks[roomTaskIndex] = response.data.data.roomTask
 					}
 
+					const energyCost = response.data.data.rewards?.energyCost
+					if (Number.isFinite(energyCost) && energyCost > 0) {
+						const schedulingStore = useSchedulingStore()
+						schedulingStore.registerTodayEnergyConsumption(energyCost)
+					}
+
 					return response.data.data
 				} else {
 					throw new Error(response.data.error?.message || 'Failed to complete room task')
 				}
 			} catch (error) {
 				this.error = error.message
-				logger.error('Failed to complete room task', error, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId, userId })
+				logger.error('Failed to complete room task', error, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false

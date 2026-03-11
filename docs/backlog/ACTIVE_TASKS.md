@@ -225,6 +225,27 @@
 - Validation:
   - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\TestDataServiceTest.php tests\\unit\\Controller\\RoomControllerTest.php` ✅
 
+### Cascade - P9-FEATURE-001 - Complete Energy Budget Calculation (`todayRemainingEnergy`)
+**Status**: Review Ready
+**Started**: 2026-03-11 22:30
+**Updated**: 2026-03-11 23:05
+**Branch**: master
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-9-code-quality.md, src/store/scheduling.js, src/store/roomTasks.js, tests/unit/store/scheduling.spec.js, tests/unit/store/roomTasks.spec.js, lib/Service/SchedulingService.php, lib/Db/CompletedTaskMapper.php, tests/unit/Service/SchedulingServiceTest.php
+**Blockers**: None
+**Notes**:
+- Implement backend-backed consumed-energy calculation for the current user and include it in scheduling preferences.
+- Replace placeholder `todayRemainingEnergy` logic with `budget - consumed` and clamp at zero.
+- Add regression tests for no-completion, with-completion, and over-budget scenarios.
+- Keep existing icon-related working tree changes (`scripts/download-emojis.js`, `src/utils/icons.js`) untouched for later.
+- Added `CompletedTaskMapper::getConsumedEnergyForUserOnDate()` with room-task/task joins to sum daily consumed energy by `house_user.id`.
+- Updated `SchedulingService` to include `todayConsumedEnergy` in preferences returned to frontend.
+- Updated scheduling store state/getter/actions for consumed energy hydration and runtime task-completion updates.
+- Updated room-tasks completion flow to forward reward `energyCost` into scheduling consumed energy state.
+- Added regression tests in `tests/unit/store/scheduling.spec.js`, `tests/unit/store/roomTasks.spec.js`, and `tests/unit/Service/SchedulingServiceTest.php`.
+- Validation:
+  - `npm test -- --runInBand tests/unit/store/scheduling.spec.js tests/unit/store/roomTasks.spec.js` ✅
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\SchedulingServiceTest.php` ✅
+
 ### Cascade - TEAM-SPARKS-UI-001 - Team Sparks Integration in User Interface
 **Status**: Planned
 **Started**: 2026-03-07 22:25

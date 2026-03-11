@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\SchedulingService;
@@ -16,13 +17,15 @@ class SchedulingServiceTest extends TestCase
 {
     private SchedulingService $service;
     private HouseUserMapper $houseUserMapper;
+    private CompletedTaskMapper $completedTaskMapper;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-        $this->service = new SchedulingService($this->houseUserMapper);
+        $this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+        $this->service = new SchedulingService($this->houseUserMapper, $this->completedTaskMapper);
     }
 
     /**
@@ -51,11 +54,18 @@ class SchedulingServiceTest extends TestCase
             ->with(7)
             ->willReturn($houseUser);
 
+        $this->completedTaskMapper
+            ->expects($this->once())
+            ->method('getConsumedEnergyForUserOnDate')
+            ->with($this->equalTo(7), $this->isInstanceOf(\DateTimeInterface::class))
+            ->willReturn(6);
+
         $preferences = $this->service->getUserPreferencesByNextcloudUserId(2, 'member-a');
 
         $this->assertSame(7, $preferences['userId']);
         $this->assertSame(12, $preferences['energyBudget']['monday']);
         $this->assertFalse($preferences['weekdayAvailability']['monday']);
+        $this->assertSame(6, $preferences['todayConsumedEnergy']);
     }
 
     /**

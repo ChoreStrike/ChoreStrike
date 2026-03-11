@@ -14,6 +14,8 @@ export const useSchedulingStore = defineStore('scheduling', {
 	state: () => ({
 		/** @type {Array} Member availability settings per weekday */
 		memberAvailability: [],
+		/** @type {number} Energy consumed by current user today */
+		todayConsumedEnergy: 0,
 		/** @type {object} Current user's energy budget per weekday */
 		energyBudget: {
 			monday: 10,
@@ -111,8 +113,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		todayRemainingEnergy: (state, getters) => {
 			const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
 			const total = state.energyBudget[today] ?? 10
-			// TODO: Subtract consumed energy from completed tasks
-			return total
+			return Math.max(0, total - state.todayConsumedEnergy)
 		},
 
 		/**
@@ -166,6 +167,9 @@ export const useSchedulingStore = defineStore('scheduling', {
 				if (response.data.success) {
 					this.energyBudget = response.data.data.energyBudget || this.energyBudget
 					this.weekdayAvailability = response.data.data.weekdayAvailability || this.weekdayAvailability
+					this.todayConsumedEnergy = Number.isFinite(response.data.data.todayConsumedEnergy)
+						? response.data.data.todayConsumedEnergy
+						: 0
 				} else {
 					throw new Error(response.data.error?.message || 'Failed to fetch preferences')
 				}
@@ -176,6 +180,18 @@ export const useSchedulingStore = defineStore('scheduling', {
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * Register consumed energy for today after a completed task.
+		 * @param {number} energyCost Energy points consumed by the completed task.
+		 */
+		registerTodayEnergyConsumption(energyCost) {
+			if (!Number.isFinite(energyCost) || energyCost <= 0) {
+				return
+			}
+
+			this.todayConsumedEnergy += energyCost
 		},
 
 		/**
@@ -349,6 +365,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 */
 		reset() {
 			this.memberAvailability = []
+			this.todayConsumedEnergy = 0
 			this.energyBudget = {
 				monday: 10,
 				tuesday: 10,

@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 
 /**
@@ -16,10 +17,12 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 class SchedulingService
 {
     private HouseUserMapper $houseUserMapper;
+    private CompletedTaskMapper $completedTaskMapper;
 
-    public function __construct(HouseUserMapper $houseUserMapper)
+    public function __construct(HouseUserMapper $houseUserMapper, CompletedTaskMapper $completedTaskMapper)
     {
         $this->houseUserMapper = $houseUserMapper;
+        $this->completedTaskMapper = $completedTaskMapper;
     }
 
     /**
@@ -39,6 +42,7 @@ class SchedulingService
             'userId' => $userId,
             'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
             'weekdayAvailability' => $preferences['weekdayAvailability'] ?? $this->getDefaultAvailability(),
+            'todayConsumedEnergy' => 0,
         ];
     }
 
@@ -53,7 +57,13 @@ class SchedulingService
     {
         $user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
 
-        return $this->getUserPreferences($user->getId());
+        $preferences = $this->getUserPreferences($user->getId());
+        $preferences['todayConsumedEnergy'] = $this->completedTaskMapper->getConsumedEnergyForUserOnDate(
+            $user->getId(),
+            new \DateTimeImmutable()
+        );
+
+        return $preferences;
     }
 
     /**

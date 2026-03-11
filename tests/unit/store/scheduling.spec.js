@@ -30,6 +30,7 @@ describe('Scheduling Store', () => {
 	describe('Initial State', () => {
 		it('has correct initial state', () => {
 			expect(store.memberAvailability).toEqual([])
+			expect(store.todayConsumedEnergy).toBe(0)
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
 			expect(store.energyBudget.monday).toBe(10)
@@ -92,12 +93,61 @@ describe('Scheduling Store', () => {
 			expect(available).toHaveLength(1)
 			expect(available[0].userId).toBe('user1')
 		})
+
+		it('todayRemainingEnergy should return full budget when no energy was consumed', () => {
+			store.energyBudget = {
+				monday: 10,
+				tuesday: 10,
+				wednesday: 10,
+				thursday: 10,
+				friday: 10,
+				saturday: 10,
+				sunday: 10,
+			}
+			store.todayConsumedEnergy = 0
+
+			expect(store.todayRemainingEnergy).toBe(10)
+		})
+
+		it('todayRemainingEnergy should subtract consumed energy from budget', () => {
+			store.energyBudget = {
+				monday: 10,
+				tuesday: 10,
+				wednesday: 10,
+				thursday: 10,
+				friday: 10,
+				saturday: 10,
+				sunday: 10,
+			}
+			store.todayConsumedEnergy = 4
+
+			expect(store.todayRemainingEnergy).toBe(6)
+		})
+
+		it('todayRemainingEnergy should clamp at zero when consumed energy exceeds budget', () => {
+			store.energyBudget = {
+				monday: 10,
+				tuesday: 10,
+				wednesday: 10,
+				thursday: 10,
+				friday: 10,
+				saturday: 10,
+				sunday: 10,
+			}
+			store.todayConsumedEnergy = 14
+
+			expect(store.todayRemainingEnergy).toBe(0)
+		})
 	})
 
 	describe('Actions', () => {
 		describe('fetchUserPreferences', () => {
 			it('fetches preferences successfully', async () => {
-				const prefs = { energyBudget: { monday: 20 }, weekdayAvailability: { monday: false } }
+				const prefs = {
+					energyBudget: { monday: 20 },
+					weekdayAvailability: { monday: false },
+					todayConsumedEnergy: 3,
+				}
 				axios.get.mockResolvedValue({
 					data: { success: true, data: prefs }
 				})
@@ -106,6 +156,27 @@ describe('Scheduling Store', () => {
 
 				expect(store.energyBudget.monday).toBe(20)
 				expect(store.weekdayAvailability.monday).toBe(false)
+				expect(store.todayConsumedEnergy).toBe(3)
+			})
+		})
+
+		describe('registerTodayEnergyConsumption', () => {
+			it('should increase todayConsumedEnergy for valid positive costs', () => {
+				store.todayConsumedEnergy = 2
+
+				store.registerTodayEnergyConsumption(3)
+
+				expect(store.todayConsumedEnergy).toBe(5)
+			})
+
+			it('should ignore invalid or non-positive costs', () => {
+				store.todayConsumedEnergy = 2
+
+				store.registerTodayEnergyConsumption(0)
+				store.registerTodayEnergyConsumption(-1)
+				store.registerTodayEnergyConsumption('3')
+
+				expect(store.todayConsumedEnergy).toBe(2)
 			})
 		})
 
@@ -187,6 +258,7 @@ describe('Scheduling Store', () => {
 		describe('reset', () => {
 			it('resets state to defaults', () => {
 				store.memberAvailability = [{ userId: 'user1' }]
+				store.todayConsumedEnergy = 9
 				store.energyBudget.monday = 20
 				store.weekdayAvailability.monday = false
 				store.loading = true
@@ -195,6 +267,7 @@ describe('Scheduling Store', () => {
 				store.reset()
 
 				expect(store.memberAvailability).toEqual([])
+				expect(store.todayConsumedEnergy).toBe(0)
 				expect(store.energyBudget.monday).toBe(10)
 				expect(store.weekdayAvailability.monday).toBe(true)
 				expect(store.loading).toBe(false)

@@ -128,6 +128,34 @@ class CompletedTaskMapper extends QBMapper
     }
 
     /**
+     * Get total consumed energy for a user on a specific date.
+     *
+     * @param int $userId The house user ID
+     * @param \DateTimeInterface $date Date used to determine day boundaries
+     * @return int Total consumed energy points
+     */
+    public function getConsumedEnergyForUserOnDate(int $userId, \DateTimeInterface $date): int
+    {
+        $startOfDay = new \DateTimeImmutable($date->format('Y-m-d') . ' 00:00:00');
+        $endOfDay = $startOfDay->modify('+1 day');
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('COALESCE(SUM(t.energy_cost), 0) AS consumed_energy')
+            ->from($this->getTableName(), 'ct')
+            ->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
+            ->innerJoin('rt', 'chorestrike_tasks', 't', $qb->expr()->eq('rt.task_id', 't.id'))
+            ->where($qb->expr()->eq('ct.user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)));
+
+        $result = $qb->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        return (int)($row['consumed_energy'] ?? 0);
+    }
+
+    /**
      * Get all completions in a date range for combo detection
      *
      * @param \DateTime $startDate Start date

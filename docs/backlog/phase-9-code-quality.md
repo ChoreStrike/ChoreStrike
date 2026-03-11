@@ -56,7 +56,7 @@ $progress = $this->progressMapper->toggle($roomTaskId, $itemId, $currentUserId);
 ### P9-FEATURE-001 - Complete Energy Budget Calculation
 **Priority**: MEDIUM  
 **Effort**: 2 hours  
-**Status**: Planned
+**Status**: Done
 
 **Description**: `scheduling.js:113` shows total energy budget but doesn't subtract consumed energy from completed tasks.
 
@@ -66,6 +66,17 @@ $progress = $this->progressMapper->toggle($roomTaskId, $itemId, $currentUserId);
 3. Return `total - consumed`
 
 **Code Location**: `src/store/scheduling.js:113`
+
+**Completed**:
+- Added backend aggregation in `CompletedTaskMapper::getConsumedEnergyForUserOnDate()` to sum daily consumed `energy_cost` for the current `house_user.id`.
+- Updated `SchedulingService` to return `todayConsumedEnergy` in user preferences payload.
+- Implemented `todayConsumedEnergy` state hydration and `todayRemainingEnergy = Math.max(0, budget - consumed)` in `src/store/scheduling.js`.
+- Added `registerTodayEnergyConsumption(energyCost)` in scheduling store and wired it from `roomTasks.completeRoomTask()` using API reward payload.
+- Added regression coverage for all required scenarios (no completions, with completions, over-budget clamping).
+
+**Validation**:
+- `npm test -- --runInBand tests/unit/store/scheduling.spec.js tests/unit/store/roomTasks.spec.js` -> pass
+- `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\SchedulingServiceTest.php` -> pass
 
 **Tests**:
 - Unit test for energy calculation with completed tasks
