@@ -95,9 +95,34 @@ class RoomControllerTest extends TestCase
      */
     public function testCreate_ValidatesEmptyName(): void
     {
+        $response = $this->controller->create(1, '');
+
+        $this->assertInstanceOf(JSONResponse::class, $response);
+        $this->assertEquals(400, $response->getStatus());
+
+        $data = $response->getData();
+        $this->assertFalse($data['success']);
+        $this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+    }
+
+    /**
+     * Test GET /rooms POST-to-GET fallback forwards icon parameter
+     */
+    public function testIndex_PostToGetFallback_ForwardsRoomIcon(): void
+    {
+        $_GET['name'] = 'Bathroom';
+        $_GET['floorId'] = '1';
+        $_GET['icon'] = 'Bath';
+
         $floor = new Floor();
         $floor->setId(1);
         $floor->setHouseId(1);
+
+        $room = new Room();
+        $room->setId(11);
+        $room->setFloorId(1);
+        $room->setName('Bathroom');
+        $room->setIcon('Bath');
 
         $this->roomService->expects($this->once())
             ->method('getFloor')
@@ -108,14 +133,21 @@ class RoomControllerTest extends TestCase
             ->method('requireHouseMember')
             ->with(1);
 
-        $response = $this->controller->create(1, '');
+        $this->roomService->expects($this->once())
+            ->method('createRoom')
+            ->with(1, 'Bathroom', 'Bath')
+            ->willReturn($room);
+
+        $response = $this->controller->index();
 
         $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(400, $response->getStatus());
+        $this->assertEquals(200, $response->getStatus());
 
         $data = $response->getData();
-        $this->assertFalse($data['success']);
-        $this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+        $this->assertTrue($data['success']);
+        $this->assertEquals('Bath', $data['data']['icon']);
+
+        $_GET = [];
     }
 
     /**

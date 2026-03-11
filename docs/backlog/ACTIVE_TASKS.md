@@ -209,6 +209,22 @@
   - `npm test -- --runInBand tests/unit/components/Icon.spec.js tests/unit/components/FloorList.spec.js tests/unit/components/RoomCard.spec.js` ✅
   - `npm test -- --runInBand tests/unit/components/Icon.spec.js tests/unit/components/TaskList.spec.js tests/unit/views/Leaderboard.spec.js tests/unit/views/Settings.spec.js` ✅
 
+### Cascade - P9-REVIEW-DELTA-003 - Commit-Range Review Slice and TestData Reset Compatibility
+**Status**: Done
+**Started**: 2026-03-11 09:40
+**Completed**: 2026-03-11 10:25
+**Branch**: master
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-9-code-quality.md, docs/backlog/CODE_REVIEW_2026-03-11.md, lib/Service/TestDataService.php, tests/unit/Service/TestDataServiceTest.php, tests/unit/Controller/RoomControllerTest.php
+**Blockers**: None
+**Notes**:
+- Reviewed delta starting from `2f4652b3653a3678ed4f795c1a8e8a898b99b18f` with focus on backend contract safety and migration/table compatibility risks.
+- Verified and retained the `RoomController::index()` POST-to-GET fallback regression path for room icon forwarding.
+- Fixed `TestDataService::reset()` to clear both legacy and canonical table variants used by current migrations/mappers.
+- Hardened reset for mixed schema states by ignoring only missing-table errors while rethrowing unrelated query failures.
+- Added regression coverage for canonical+legacy deletion set, missing-table tolerance, and unexpected-error propagation.
+- Validation:
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\TestDataServiceTest.php tests\\unit\\Controller\\RoomControllerTest.php` ✅
+
 ### Cascade - TEAM-SPARKS-UI-001 - Team Sparks Integration in User Interface
 **Status**: Planned
 **Started**: 2026-03-07 22:25
@@ -265,14 +281,14 @@
   - Title transition animations
 
 ## Next Session Tasks (Prioritized)
-1. **MS-ICONS-MIGRATION-001** (High) - Microsoft Fluent UI Icons integration
-2. **MONSTER-BATTLE-001** (High) - Full Monster Battle System design & implementation
-3. **TEAM-SPARKS-UI-001** (Medium) - Team Sparks UI integration
-4. **COOPERATIVE-FEATURES-001** (Medium) - Cooperative gamification elements
-5. **ROLE-TITLE-SYSTEM-001** (Medium) - Role title system implementation
-6. **P8-INTERNAL-TEST execution** (High) - Manual testing on Nextcloud instance
-7. **P8-INTEGRATION-001** (Medium) - Integration tests with Docker
-8. **P8-RELEASE-001** (High) - App store submission preparation
+1. **MS-ICONS-MIGRATION-001** (High) - Finalize and merge review-ready Microsoft Fluent UI icon migration package
+2. **P9-FEATURE-001** (High) - Complete energy budget calculation (`todayRemainingEnergy`) with regression tests
+3. **P9-UX-001** (High) - Implement or remove dead floor edit action in Dashboard floor list
+4. **P8-INTERNAL-TEST execution** (High) - Manual alpha flow validation on real Nextcloud instance
+5. **P8-INTEGRATION-001** (Medium) - Docker integration test execution and stabilization
+6. **MONSTER-BATTLE-001** (Medium) - Full Monster Battle System design & implementation
+7. **TEAM-SPARKS-UI-001** (Medium) - Team Sparks UI integration
+8. **P8-RELEASE-001** (High) - App store submission preparation after quality gates
 
 ---
 

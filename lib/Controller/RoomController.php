@@ -51,20 +51,30 @@ class RoomController extends OCSController
         // Try JSON body first, then form-urlencoded, then query params
         $resolvedName = null;
         $resolvedFloorId = null;
+        $resolvedIcon = null;
 
         if (is_array($jsonPayload) && isset($jsonPayload['name'])) {
             $resolvedName = $jsonPayload['name'];
             $resolvedFloorId = $jsonPayload['floorId'] ?? null;
+            $resolvedIcon = isset($jsonPayload['icon']) && is_string($jsonPayload['icon']) && trim($jsonPayload['icon']) !== ''
+                ? trim($jsonPayload['icon'])
+                : null;
         } elseif (isset($_POST['name']) && is_string($_POST['name']) && trim($_POST['name']) !== '') {
             $resolvedName = trim($_POST['name']);
             $resolvedFloorId = isset($_POST['floorId']) && $_POST['floorId'] !== '' ? (int)$_POST['floorId'] : null;
+            $resolvedIcon = isset($_POST['icon']) && is_string($_POST['icon']) && trim($_POST['icon']) !== ''
+                ? trim($_POST['icon'])
+                : null;
         } elseif (isset($_GET['name']) && is_string($_GET['name']) && trim($_GET['name']) !== '') {
             $resolvedName = trim($_GET['name']);
             $resolvedFloorId = isset($_GET['floorId']) && $_GET['floorId'] !== '' ? (int)$_GET['floorId'] : null;
+            $resolvedIcon = isset($_GET['icon']) && is_string($_GET['icon']) && trim($_GET['icon']) !== ''
+                ? trim($_GET['icon'])
+                : null;
         }
 
         if ($resolvedName !== null) {
-            return $this->create($resolvedFloorId, $resolvedName);
+            return $this->create($resolvedFloorId, $resolvedName, $resolvedIcon);
         }
 
         $resolvedFloorId = $floorId ?? $resolvedFloorId ?? $this->resolveNullableInt('floorId');

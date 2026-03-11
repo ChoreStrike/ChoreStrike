@@ -20,7 +20,7 @@ import { logger } from '../../utils/logger.js'
 /**
  * Icon component for ChoreStrike
  *
- * Uses Lucide icons for consistent, MIT-licensed iconography.
+ * Uses the local ChoreStrike icon registry with Microsoft Fluent SVG assets.
  *
  * @example
  * <Icon name="Home" size="24" />
@@ -34,7 +34,7 @@ export default {
 
 	props: {
 		/**
-		 * Icon name from the Lucide icon set
+		 * Icon name from the local icon registry
 		 * @see src/utils/icons.js for available icons
 		 */
 		name: {

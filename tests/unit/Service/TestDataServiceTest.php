@@ -269,20 +269,80 @@ class TestDataServiceTest extends TestCase
 	}
 
 	/**
-	 * Test reset clears all tables
+	 * Test reset clears canonical and legacy table variants
 	 */
-	public function testResetClearsAllTables(): void
+	public function testResetShouldClearCanonicalAndLegacyTables(): void
 	{
-		$qb = $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
-			'delete' => $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
-				'executeStatement' => 0
-			])
-		]);
-		$this->db->method('getQueryBuilder')->willReturn($qb);
+		$resetTables = (new \ReflectionClass(TestDataService::class))->getConstant('RESET_TABLES');
+		$this->assertIsArray($resetTables);
+
+		$deletedTables = [];
+		$qb = $this->createMock(\OCP\DB\QueryBuilder\IQueryBuilder::class);
+		$qb->expects($this->exactly(count($resetTables)))
+			->method('delete')
+			->willReturnCallback(function (string $table) use (&$deletedTables, &$qb) {
+				$deletedTables[] = $table;
+				return $qb;
+			});
+
+		$qb->expects($this->exactly(count($resetTables)))
+			->method('executeStatement')
+			->willReturn(0);
+
+		$this->db->expects($this->exactly(count($resetTables)))
+			->method('getQueryBuilder')
+			->willReturn($qb);
 
 		$this->service->reset();
 
-		// If no exception thrown, test passes
+		$this->assertContains('chorestrike_chk_progress', $deletedTables);
+		$this->assertContains('chorestrike_room_task_checklist_progress', $deletedTables);
+		$this->assertContains('chorestrike_task_parts', $deletedTables);
+		$this->assertContains('chorestrike_task_participants', $deletedTables);
+		$this->assertContains('chorestrike_claims', $deletedTables);
+		$this->assertContains('chorestrike_task_claims', $deletedTables);
+		$this->assertContains('chorestrike_chk_items', $deletedTables);
+		$this->assertContains('chorestrike_checklist_items', $deletedTables);
+	}
+
+	/**
+	 * Test reset ignores missing table errors from mixed migration states
+	 */
+	public function testResetShouldIgnoreMissingTableErrors(): void
+	{
+		$resetTables = (new \ReflectionClass(TestDataService::class))->getConstant('RESET_TABLES');
+		$this->assertIsArray($resetTables);
+
+		$qb = $this->createMock(\OCP\DB\QueryBuilder\IQueryBuilder::class);
+		$qb->expects($this->exactly(count($resetTables)))
+			->method('delete')
+			->willReturnSelf();
+
+		$qb->expects($this->exactly(count($resetTables)))
+			->method('executeStatement')
+			->willThrowException(new \RuntimeException('no such table: chorestrike_task_claims'));
+
+		$this->db->expects($this->exactly(count($resetTables)))
+			->method('getQueryBuilder')
+			->willReturn($qb);
+
+		$this->service->reset();
 		$this->assertTrue(true);
+	}
+
+	/**
+	 * Test reset rethrows non-missing-table errors
+	 */
+	public function testResetShouldRethrowUnexpectedErrors(): void
+	{
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('syntax error');
+
+		$qb = $this->createMock(\OCP\DB\QueryBuilder\IQueryBuilder::class);
+		$qb->method('delete')->willReturnSelf();
+		$qb->method('executeStatement')->willThrowException(new \RuntimeException('syntax error'));
+		$this->db->method('getQueryBuilder')->willReturn($qb);
+
+		$this->service->reset();
 	}
 }

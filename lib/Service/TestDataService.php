@@ -36,6 +36,37 @@ use OCP\IConfig;
  */
 class TestDataService
 {
+    /**
+     * Tables to clear during test-data reset.
+     *
+     * Includes both canonical and legacy names to keep reset compatible across
+     * migration states used in local/dev/CI environments.
+     *
+     * @var list<string>
+     */
+    private const RESET_TABLES = [
+        'chorestrike_availability',
+        'chorestrike_room_task_checklist_progress',
+        'chorestrike_chk_progress',
+        'chorestrike_task_participants',
+        'chorestrike_task_parts',
+        'chorestrike_task_claims',
+        'chorestrike_claims',
+        'chorestrike_completed_tasks',
+        'chorestrike_room_tasks',
+        'chorestrike_checklist_items',
+        'chorestrike_chk_items',
+        'chorestrike_tasks',
+        'chorestrike_rooms',
+        'chorestrike_floors',
+        'chorestrike_house_users',
+        'chorestrike_houses',
+        'chorestrike_task_scopes',
+        'chorestrike_medals',
+        'chorestrike_combos',
+        'chorestrike_user_stats',
+    ];
+
     private IDBConnection $db;
     private IConfig $config;
     private HouseMapper $houseMapper;
@@ -81,30 +112,32 @@ class TestDataService
      */
     public function reset(): void
     {
-        $tables = [
-            'chorestrike_availability',
-            'chorestrike_chk_progress',
-            'chorestrike_task_parts',
-            'chorestrike_claims',
-            'chorestrike_completed_tasks',
-            'chorestrike_room_tasks',
-            'chorestrike_chk_items',
-            'chorestrike_tasks',
-            'chorestrike_rooms',
-            'chorestrike_floors',
-            'chorestrike_house_users',
-            'chorestrike_houses',
-            'chorestrike_task_scopes',
-            'chorestrike_medals',
-            'chorestrike_combos',
-            'chorestrike_user_stats',
-        ];
-
-        foreach ($tables as $table) {
+        foreach (self::RESET_TABLES as $table) {
             $qb = $this->db->getQueryBuilder();
-            $qb->delete($table);
-            $qb->executeStatement();
+            try {
+                $qb->delete($table);
+                $qb->executeStatement();
+            } catch (\Throwable $exception) {
+                if (!$this->isMissingTableException($exception)) {
+                    throw $exception;
+                }
+            }
         }
+    }
+
+    /**
+     * Determine whether an exception was caused by a missing table.
+     */
+    private function isMissingTableException(\Throwable $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'no such table')
+            || str_contains($message, 'does not exist')
+            || str_contains($message, "doesn't exist")
+            || str_contains($message, 'unknown table')
+            || str_contains($message, 'undefined table')
+            || str_contains($message, 'table or view not found');
     }
 
     /**
