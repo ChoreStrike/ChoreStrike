@@ -255,21 +255,19 @@
   - `npm test -- --runInBand tests/unit/components/FloorList.spec.js` ✅ (19 tests passed)
 
 ### Cascade - TEAM-SPARKS-UI-001 - Team Sparks Integration in User Interface
-**Status**: Planned
+**Status**: Review Ready
 **Started**: 2026-03-07 22:25
+**Updated**: 2026-03-13 19:00
 **Branch**: master
-**Related Files**: src/store/game.js, src/views/Leaderboard.vue, src/components/Gamification/*.vue, l10n/templates/chorestrike.pot
+**Related Files**: src/components/Gamification/*.vue, l10n/en.json, l10n/de.json
 **Blockers**: None
 **Notes**:
-- **Concept vs Implementation Gap**: "Team Sparks" concept not reflected in UI
-- **Current State**: Generic "points" display instead of branded "Team Sparks"
-- **Required Changes**:
-  - Replace all "points" references with "Team Sparks" in UI
-  - Update Leaderboard to show Team Sparks prominently
-  - Add Team Sparks animations/rewards
-  - Update localization files (de.json, en.json)
-  - Add Team Sparks visual effects and celebrations
-  - Integrate with existing calculateTeamSparks() logic
+- Replaced all "points" references with branded "Team Sparks" in UI components.
+- Updated AchievementNotification, GameStats, MedalDisplay, WeeklyChallenge, ComboIndicator.
+- Added localization keys for "bonus Team Sparks" and "Bonus Team Sparks" in en.json and de.json.
+- German translation: "Team-Funken" and "Bonus-Team-Funken".
+- Validation:
+  - `npm test -- --runInBand` ✅ (432 tests passed)
 
 ### Cascade - COOPERATIVE-FEATURES-001 - Cooperative Gamification Elements
 **Status**: Planned
