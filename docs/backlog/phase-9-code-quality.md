@@ -88,26 +88,37 @@ $progress = $this->progressMapper->toggle($roomTaskId, $itemId, $currentUserId);
 ### P9-UX-001 - Implement Edit Floor Functionality
 **Priority**: MEDIUM  
 **Effort**: 1 hour  
-**Status**: Planned
+**Status**: Done
 
 **Description**: Edit floor button exists but functionality is stubbed out (`FloorList.vue:326`).
 
-**Implementation Options**:
-1. **Option A**: Implement inline edit (recommended)
-   - Click floor name to edit
-   - Save on Enter, cancel on Escape
-   - Similar to room name editing
-2. **Option B**: Modal dialog
-   - Reuse existing modal component
-   - Form with name input
-3. **Option C**: Remove edit button
-   - If feature not needed
+**Implementation**:
+- **Option A**: Implement inline edit (recommended) ✅
+  - Click floor name to edit
+  - Save on Enter, cancel on Escape
+  - Similar to room name editing
 
-**Code Location**: `src/components/Dashboard/FloorList.vue:326`
+**Code Location**: `src/components/Dashboard/FloorList.vue:67-84`
+
+**Completed**:
+- Implemented inline floor name editing with click-to-edit pattern.
+- Click floor name or edit button triggers editing mode with input field.
+- Enter saves changes via `roomsStore.updateFloorName()`.
+- Escape cancels editing without saving.
+- Blur on input also saves changes.
+- Empty or unchanged names cancel the edit automatically.
+- Added hover styling on floor name to indicate clickability.
+- Added 6 unit tests covering all editing scenarios.
+
+**Validation**:
+- `npm test -- --runInBand tests/unit/components/FloorList.spec.js` -> pass (19 tests)
 
 **Tests**:
-- E2E test for floor name editing
-- Unit test for validation (empty name)
+- Unit test for floor name editing with valid name ✅
+- Unit test for canceling with Escape ✅
+- Unit test for empty name rejection ✅
+- Unit test for unchanged name cancellation ✅
+- Unit test for edit button trigger ✅
 
 ---
 

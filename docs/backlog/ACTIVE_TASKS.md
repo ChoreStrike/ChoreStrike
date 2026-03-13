@@ -226,25 +226,33 @@
   - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\TestDataServiceTest.php tests\\unit\\Controller\\RoomControllerTest.php` ✅
 
 ### Cascade - P9-FEATURE-001 - Complete Energy Budget Calculation (`todayRemainingEnergy`)
-**Status**: Review Ready
+**Status**: Done
 **Started**: 2026-03-11 22:30
-**Updated**: 2026-03-11 23:05
+**Completed**: 2026-03-13 18:30
 **Branch**: master
 **Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/phase-9-code-quality.md, src/store/scheduling.js, src/store/roomTasks.js, tests/unit/store/scheduling.spec.js, tests/unit/store/roomTasks.spec.js, lib/Service/SchedulingService.php, lib/Db/CompletedTaskMapper.php, tests/unit/Service/SchedulingServiceTest.php
 **Blockers**: None
 **Notes**:
-- Implement backend-backed consumed-energy calculation for the current user and include it in scheduling preferences.
-- Replace placeholder `todayRemainingEnergy` logic with `budget - consumed` and clamp at zero.
-- Add regression tests for no-completion, with-completion, and over-budget scenarios.
-- Keep existing icon-related working tree changes (`scripts/download-emojis.js`, `src/utils/icons.js`) untouched for later.
-- Added `CompletedTaskMapper::getConsumedEnergyForUserOnDate()` with room-task/task joins to sum daily consumed energy by `house_user.id`.
-- Updated `SchedulingService` to include `todayConsumedEnergy` in preferences returned to frontend.
-- Updated scheduling store state/getter/actions for consumed energy hydration and runtime task-completion updates.
-- Updated room-tasks completion flow to forward reward `energyCost` into scheduling consumed energy state.
-- Added regression tests in `tests/unit/store/scheduling.spec.js`, `tests/unit/store/roomTasks.spec.js`, and `tests/unit/Service/SchedulingServiceTest.php`.
+- Implemented backend-backed consumed-energy calculation for the current user and included it in scheduling preferences.
+- Replaced placeholder `todayRemainingEnergy` logic with `budget - consumed` and clamp at zero.
+- Added regression tests for no-completion, with-completion, and over-budget scenarios.
+- Commit: `f78d163`
+
+### Cascade - P9-UX-001 - Implement Edit Floor Functionality
+**Status**: Review Ready
+**Started**: 2026-03-13 18:30
+**Updated**: 2026-03-13 18:45
+**Branch**: master
+**Related Files**: src/components/Dashboard/FloorList.vue, tests/unit/components/FloorList.spec.js, docs/backlog/phase-9-code-quality.md
+**Blockers**: None
+**Notes**:
+- Implemented inline floor name editing with click-to-edit pattern.
+- Click floor name or edit button to start editing.
+- Enter to save, Escape to cancel, blur also saves.
+- Empty or unchanged names cancel the edit.
+- Added unit tests for all editing scenarios.
 - Validation:
-  - `npm test -- --runInBand tests/unit/store/scheduling.spec.js tests/unit/store/roomTasks.spec.js` ✅
-  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\SchedulingServiceTest.php` ✅
+  - `npm test -- --runInBand tests/unit/components/FloorList.spec.js` ✅ (19 tests passed)
 
 ### Cascade - TEAM-SPARKS-UI-001 - Team Sparks Integration in User Interface
 **Status**: Planned

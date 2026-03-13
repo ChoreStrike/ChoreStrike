@@ -58,6 +58,7 @@ describe('FloorList.vue', () => {
 				mockRoomsStore.expandedFloors = mockRoomsStore.expandedFloors.filter(id => id !== floorId)
 			}),
 			getFloorById: jest.fn((floorId) => mockRoomsStore.floors.find(floor => floor.id === floorId)),
+			updateFloorName: jest.fn(),
 		}
 		translate.mockClear()
 		global.confirm.mockClear()
@@ -225,5 +226,117 @@ describe('FloorList.vue', () => {
 
 		expect(wrapper.find('[data-testid="add-room-button-1"]').exists()).toBe(true)
 		expect(mockRoomsStore.fetchRooms).not.toHaveBeenCalled()
+	})
+
+	describe('floor name editing', () => {
+		it('shows input when floor name is clicked', async () => {
+			mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor', sortOrder: 0 }]
+			mockRoomsStore.roomsByFloor = { 1: [] }
+
+			const wrapper = mount(FloorList, {
+				global: {
+					plugins: [pinia],
+					components: { RoomCard },
+				},
+			})
+
+			await wrapper.find('.floor-name').trigger('click')
+			expect(wrapper.find('[data-testid="floor-name-edit-input"]').exists()).toBe(true)
+		})
+
+		it('saves floor name on Enter key', async () => {
+			mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor', sortOrder: 0 }]
+			mockRoomsStore.roomsByFloor = { 1: [] }
+
+			const wrapper = mount(FloorList, {
+				global: {
+					plugins: [pinia],
+					components: { RoomCard },
+				},
+			})
+
+			await wrapper.find('.floor-name').trigger('click')
+			const input = wrapper.find('[data-testid="floor-name-edit-input"]')
+			await input.setValue('Basement')
+			await input.trigger('keydown.enter')
+
+			expect(mockRoomsStore.updateFloorName).toHaveBeenCalledWith(1, 'Basement')
+			expect(wrapper.find('[data-testid="floor-name-edit-input"]').exists()).toBe(false)
+		})
+
+		it('cancels editing on Escape key', async () => {
+			mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor', sortOrder: 0 }]
+			mockRoomsStore.roomsByFloor = { 1: [] }
+
+			const wrapper = mount(FloorList, {
+				global: {
+					plugins: [pinia],
+					components: { RoomCard },
+				},
+			})
+
+			await wrapper.find('.floor-name').trigger('click')
+			const input = wrapper.find('[data-testid="floor-name-edit-input"]')
+			await input.setValue('Basement')
+			await input.trigger('keydown.escape')
+
+			expect(mockRoomsStore.updateFloorName).not.toHaveBeenCalled()
+			expect(wrapper.find('[data-testid="floor-name-edit-input"]').exists()).toBe(false)
+		})
+
+		it('cancels editing when name is empty', async () => {
+			mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor', sortOrder: 0 }]
+			mockRoomsStore.roomsByFloor = { 1: [] }
+
+			const wrapper = mount(FloorList, {
+				global: {
+					plugins: [pinia],
+					components: { RoomCard },
+				},
+			})
+
+			await wrapper.find('.floor-name').trigger('click')
+			const input = wrapper.find('[data-testid="floor-name-edit-input"]')
+			await input.setValue('   ')
+			await input.trigger('keydown.enter')
+
+			expect(mockRoomsStore.updateFloorName).not.toHaveBeenCalled()
+			expect(wrapper.find('[data-testid="floor-name-edit-input"]').exists()).toBe(false)
+		})
+
+		it('cancels editing when name is unchanged', async () => {
+			mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor', sortOrder: 0 }]
+			mockRoomsStore.roomsByFloor = { 1: [] }
+
+			const wrapper = mount(FloorList, {
+				global: {
+					plugins: [pinia],
+					components: { RoomCard },
+				},
+			})
+
+			await wrapper.find('.floor-name').trigger('click')
+			const input = wrapper.find('[data-testid="floor-name-edit-input"]')
+			await input.setValue('Ground Floor')
+			await input.trigger('keydown.enter')
+
+			expect(mockRoomsStore.updateFloorName).not.toHaveBeenCalled()
+			expect(wrapper.find('[data-testid="floor-name-edit-input"]').exists()).toBe(false)
+		})
+
+		it('starts editing when edit button is clicked', async () => {
+			mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor', sortOrder: 0 }]
+			mockRoomsStore.roomsByFloor = { 1: [] }
+
+			const wrapper = mount(FloorList, {
+				global: {
+					plugins: [pinia],
+					components: { RoomCard },
+				},
+			})
+
+			await wrapper.find('.edit-button').trigger('click')
+			expect(wrapper.find('[data-testid="floor-name-edit-input"]').exists()).toBe(true)
+		})
 	})
 })

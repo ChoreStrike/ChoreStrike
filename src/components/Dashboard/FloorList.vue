@@ -64,7 +64,22 @@
 							<div class="floor-icon-shell" :class="getFloorIconClass(floor)">
 								<Icon :name="getFloorIconName(floor)" :size="18" class="floor-icon" />
 							</div>
-							<h4 class="floor-name">
+							<template v-if="editingFloorId === floor.id">
+								<input
+									ref="editFloorInput"
+									v-model="editingFloorName"
+									type="text"
+									class="floor-name-input"
+									data-testid="floor-name-edit-input"
+									@keydown.enter="saveFloorName(floor)"
+									@keydown.escape="cancelFloorEdit"
+									@blur="saveFloorName(floor)"
+									@click.stop>
+							</template>
+							<h4
+								v-else
+								class="floor-name"
+								@click="editFloor(floor)">
 								{{ floor.name }}
 							</h4>
 						</div>
@@ -267,6 +282,9 @@ export default {
 		const selectedFloorId = ref(null)
 		const newRoomName = ref('')
 		const newRoomIcon = ref('Home')
+		const editingFloorId = ref(null)
+		const editingFloorName = ref('')
+		const editFloorInput = ref(null)
 
 		// Computed properties
 		const floors = computed(() => roomsStore.floors)
@@ -374,8 +392,54 @@ export default {
 			}
 		}
 
-		const editFloor = () => {
-			// TODO: Implement edit floor functionality
+		/**
+		 * Start inline editing of a floor name.
+		 * @param {object} floor Floor object to edit.
+		 */
+		const editFloor = (floor) => {
+			editingFloorId.value = floor.id
+			editingFloorName.value = floor.name
+			nextTick(() => {
+				const input = editFloorInput.value
+				if (input && typeof input.focus === 'function') {
+					input.focus()
+					if (typeof input.select === 'function') {
+						input.select()
+					}
+				}
+			})
+		}
+
+		/**
+		 * Save the edited floor name.
+		 * @param {object} floor Floor object being edited.
+		 */
+		const saveFloorName = async (floor) => {
+			if (editingFloorId.value !== floor.id) return
+
+			const trimmedName = editingFloorName.value.trim()
+
+			// Cancel if name is empty or unchanged
+			if (!trimmedName || trimmedName === floor.name) {
+				cancelFloorEdit()
+				return
+			}
+
+			try {
+				await roomsStore.updateFloorName(floor.id, trimmedName)
+			} catch (error) {
+				logger.error('Failed to update floor name', error, { component: 'FloorList', action: 'saveFloorName', floorId: floor.id })
+			} finally {
+				cancelFloorEdit()
+			}
+		}
+
+		/**
+		 * Cancel floor name editing.
+		 */
+		const cancelFloorEdit = () => {
+			editingFloorId.value = null
+			editingFloorName.value = ''
 		}
 
 		const deleteFloor = async (floor) => {
@@ -473,6 +537,11 @@ export default {
 			closeAddFloorModal,
 			handleAddFloor,
 			editFloor,
+			saveFloorName,
+			cancelFloorEdit,
+			editingFloorId,
+			editingFloorName,
+			editFloorInput,
 			deleteFloor,
 			addRoom,
 			closeAddRoomModal,
@@ -691,6 +760,27 @@ export default {
   font-weight: 600;
   margin: 0 0 4px 0;
   color: var(--color-main-text);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.floor-name:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.floor-name-input {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-main-text);
+  background: var(--color-main-background);
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  padding: 2px 6px;
+  min-width: 120px;
+  max-width: 200px;
+  outline: none;
 }
 
 .floor-stats {
