@@ -16,6 +16,18 @@ export const useGameStore = defineStore('game', {
 		combos: [],
 		loading: false,
 		error: null,
+		// Cooperative features state
+		householdProgress: {
+			totalTeamSparks: 0,
+			totalContributionScore: 0,
+			teamStreak: 0,
+			weeklyGoal: {
+				target: 20, // Configurable weekly task goal
+				completed: 0,
+				startDate: null,
+			},
+		},
+		celebrations: [],
 	}),
 
 	getters: {
@@ -38,6 +50,50 @@ export const useGameStore = defineStore('game', {
 		},
 
 		hasActiveCombos: (state) => state.combos.length > 0,
+
+		/**
+		 * Get household total Team Sparks (aggregated from all members)
+		 * @param {object} userStore - The user store instance to aggregate from
+		 */
+		householdTotalTeamSparks: (state) => {
+			return state.householdProgress.totalTeamSparks
+		},
+
+		/**
+		 * Get household total contribution score
+		 */
+		householdTotalContribution: (state) => {
+			return state.householdProgress.totalContributionScore
+		},
+
+		/**
+		 * Get team streak (household-level streak)
+		 */
+		teamStreak: (state) => {
+			return state.householdProgress.teamStreak
+		},
+
+		/**
+		 * Get weekly goal progress percentage
+		 */
+		weeklyGoalProgress: (state) => {
+			const { target, completed } = state.householdProgress.weeklyGoal
+			return Math.min(Math.round((completed / target) * 100), 100)
+		},
+
+		/**
+		 * Check if weekly goal is achieved
+		 */
+		isWeeklyGoalAchieved: (state) => {
+			return state.householdProgress.weeklyGoal.completed >= state.householdProgress.weeklyGoal.target
+		},
+
+		/**
+		 * Get pending celebrations
+		 */
+		pendingCelebrations: (state) => {
+			return state.celebrations.filter(c => !c.dismissed)
+		},
 	},
 
 	actions: {
@@ -170,6 +226,94 @@ export const useGameStore = defineStore('game', {
 			// This would be calculated based on room task due date
 
 			return Math.round(baseScore)
+		},
+
+		/**
+		 * Update household progress from house users data
+		 * @param {Array} houseUsers - Array of house user objects with contributionScore and teamSparks
+		 */
+		updateHouseholdProgress(houseUsers) {
+			const totalTeamSparks = houseUsers.reduce((sum, user) => sum + (user.teamSparks || 0), 0)
+			const totalContributionScore = houseUsers.reduce((sum, user) => sum + (user.contributionScore || 0), 0)
+
+			this.householdProgress.totalTeamSparks = totalTeamSparks
+			this.householdProgress.totalContributionScore = totalContributionScore
+		},
+
+		/**
+		 * Update team streak
+		 * @param {number} streak - The household streak count
+		 */
+		updateTeamStreak(streak) {
+			this.householdProgress.teamStreak = streak
+		},
+
+		/**
+		 * Increment weekly goal progress
+		 * @param {number} increment - Number of tasks to add (default 1)
+		 */
+		incrementWeeklyGoal(increment = 1) {
+			this.householdProgress.weeklyGoal.completed += increment
+
+			// Check if goal was just achieved
+			if (this.householdProgress.weeklyGoal.completed >= this.householdProgress.weeklyGoal.target
+				&& this.householdProgress.weeklyGoal.completed - increment < this.householdProgress.weeklyGoal.target) {
+				this.triggerCelebration('weekly_goal_achieved')
+			}
+		},
+
+		/**
+		 * Set weekly goal target
+		 * @param {number} target - The new weekly goal target
+		 */
+		setWeeklyGoalTarget(target) {
+			this.householdProgress.weeklyGoal.target = target
+		},
+
+		/**
+		 * Reset weekly goal for new week
+		 */
+		resetWeeklyGoal() {
+			const now = new Date()
+			const weekStart = this.getWeekStart(now)
+			this.householdProgress.weeklyGoal.completed = 0
+			this.householdProgress.weeklyGoal.startDate = weekStart
+		},
+
+		/**
+		 * Trigger a celebration event
+		 * @param {string} type - The type of celebration
+		 * @param {object} data - Additional data for the celebration
+		 */
+		triggerCelebration(type, data = {}) {
+			const celebration = {
+				id: Date.now(),
+				type,
+				data,
+				timestamp: new Date().toISOString(),
+				dismissed: false,
+			}
+
+			this.celebrations.push(celebration)
+			return celebration
+		},
+
+		/**
+		 * Dismiss a celebration
+		 * @param {number} celebrationId - The ID of the celebration to dismiss
+		 */
+		dismissCelebration(celebrationId) {
+			const celebration = this.celebrations.find(c => c.id === celebrationId)
+			if (celebration) {
+				celebration.dismissed = true
+			}
+		},
+
+		/**
+		 * Clear dismissed celebrations
+		 */
+		clearDismissedCelebrations() {
+			this.celebrations = this.celebrations.filter(c => !c.dismissed)
 		},
 
 		/**
@@ -382,6 +526,17 @@ export const useGameStore = defineStore('game', {
 			this.combos = []
 			this.loading = false
 			this.error = null
+			this.householdProgress = {
+				totalTeamSparks: 0,
+				totalContributionScore: 0,
+				teamStreak: 0,
+				weeklyGoal: {
+					target: 20,
+					completed: 0,
+					startDate: null,
+				},
+			}
+			this.celebrations = []
 		},
 	},
 })

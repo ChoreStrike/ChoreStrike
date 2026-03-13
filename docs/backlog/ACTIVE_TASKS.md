@@ -270,23 +270,26 @@
   - `npm test -- --runInBand` ✅ (432 tests passed)
 
 ### Cascade - COOPERATIVE-FEATURES-001 - Cooperative Gamification Elements
-**Status**: Planned
+**Status**: Review Ready
 **Started**: 2026-03-07 22:25
+**Updated**: 2026-03-13 22:30
 **Branch**: master
-**Related Files**: docs/concepts/GAMIFICATION_AND_REWARDS.md, src/store/game.js, src/components/Gamification/*.vue
+**Related Files**: src/store/game.js, src/store/roomTasks.js, src/components/Gamification/HouseholdProgress.vue, l10n/en.json, l10n/de.json
 **Blockers**: None
 **Notes**:
-- **Missing Cooperative Features from Concept**:
-  - Household shared progress bar
-  - Team streaks (individual streaks exist, but not team)
-  - Weekly cooperative goals
-  - Positive celebration events on completion
-- **Implementation Plan**:
-  - Add household progress tracking to game store
-  - Implement team streak calculations
-  - Create weekly goal system
-  - Design celebration animations/events
-  - Add cooperative progress UI components
+- **Implemented Cooperative Features**:
+  - Household shared progress bar (total Team Sparks aggregation)
+  - Team streaks (household-level streak tracking)
+  - Weekly cooperative goals (configurable target with progress tracking)
+  - Positive celebration events on goal completion
+- **Implementation Details**:
+  - Added `householdProgress` state to game store with totalTeamSparks, teamStreak, weeklyGoal
+  - Added `celebrations` state and trigger/dismiss actions
+  - Created `HouseholdProgress.vue` component with progress cards and celebration banner
+  - Wired `incrementWeeklyGoal()` call on task completion in roomTasks store
+  - Added localization keys for all new UI strings (EN/DE)
+- **Validation**:
+  - `npm test -- --runInBand tests/unit/store/game.spec.js` ✅ (34 tests passed)
 
 ### Cascade - ROLE-TITLE-SYSTEM-001 - Role Title Implementation
 **Status**: Planned

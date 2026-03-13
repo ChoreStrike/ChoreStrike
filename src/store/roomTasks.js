@@ -7,6 +7,7 @@ import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
 import { logger } from '../utils/logger.js'
 import { useSchedulingStore } from './scheduling.js'
+import { useGameStore } from './game.js'
 
 export const useRoomTasksStore = defineStore('roomTasks', {
 	state: () => ({
@@ -365,6 +366,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 						const schedulingStore = useSchedulingStore()
 						schedulingStore.registerTodayEnergyConsumption(energyCost)
 					}
+
+					// Update household cooperative progress
+					const gameStore = useGameStore()
+					gameStore.incrementWeeklyGoal()
 
 					return response.data.data
 				} else {

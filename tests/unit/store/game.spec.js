@@ -28,6 +28,13 @@ describe('Game Store', () => {
 			expect(store.combos).toEqual([])
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
+			// Cooperative features state
+			expect(store.householdProgress.totalTeamSparks).toBe(0)
+			expect(store.householdProgress.totalContributionScore).toBe(0)
+			expect(store.householdProgress.teamStreak).toBe(0)
+			expect(store.householdProgress.weeklyGoal.target).toBe(20)
+			expect(store.householdProgress.weeklyGoal.completed).toBe(0)
+			expect(store.celebrations).toEqual([])
 		})
 	})
 
@@ -83,6 +90,50 @@ describe('Game Store', () => {
 		it('hasActiveCombos returns false when no combos', () => {
 			store.combos = []
 			expect(store.hasActiveCombos).toBe(false)
+		})
+
+		// Cooperative features getters
+		it('householdTotalTeamSparks returns total', () => {
+			store.householdProgress.totalTeamSparks = 500
+			expect(store.householdTotalTeamSparks).toBe(500)
+		})
+
+		it('teamStreak returns streak count', () => {
+			store.householdProgress.teamStreak = 7
+			expect(store.teamStreak).toBe(7)
+		})
+
+		it('weeklyGoalProgress calculates percentage', () => {
+			store.householdProgress.weeklyGoal.target = 20
+			store.householdProgress.weeklyGoal.completed = 10
+			expect(store.weeklyGoalProgress).toBe(50)
+		})
+
+		it('weeklyGoalProgress caps at 100', () => {
+			store.householdProgress.weeklyGoal.target = 20
+			store.householdProgress.weeklyGoal.completed = 25
+			expect(store.weeklyGoalProgress).toBe(100)
+		})
+
+		it('isWeeklyGoalAchieved returns true when goal met', () => {
+			store.householdProgress.weeklyGoal.target = 20
+			store.householdProgress.weeklyGoal.completed = 20
+			expect(store.isWeeklyGoalAchieved).toBe(true)
+		})
+
+		it('isWeeklyGoalAchieved returns false when goal not met', () => {
+			store.householdProgress.weeklyGoal.target = 20
+			store.householdProgress.weeklyGoal.completed = 15
+			expect(store.isWeeklyGoalAchieved).toBe(false)
+		})
+
+		it('pendingCelebrations returns undismissed celebrations', () => {
+			store.celebrations = [
+				{ id: 1, type: 'weekly_goal_achieved', dismissed: false },
+				{ id: 2, type: 'team_streak_milestone', dismissed: true },
+			]
+			expect(store.pendingCelebrations).toHaveLength(1)
+			expect(store.pendingCelebrations[0].id).toBe(1)
 		})
 	})
 
@@ -169,6 +220,9 @@ describe('Game Store', () => {
 				store.combos = [{ id: 1 }]
 				store.loading = true
 				store.error = 'Error'
+				store.householdProgress.totalTeamSparks = 500
+				store.householdProgress.teamStreak = 5
+				store.celebrations = [{ id: 1 }]
 
 				store.reset()
 
@@ -179,6 +233,110 @@ describe('Game Store', () => {
 				expect(store.combos).toEqual([])
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
+				expect(store.householdProgress.totalTeamSparks).toBe(0)
+				expect(store.householdProgress.teamStreak).toBe(0)
+				expect(store.celebrations).toEqual([])
+			})
+		})
+
+		// Cooperative features actions
+		describe('updateHouseholdProgress', () => {
+			it('aggregates team sparks and contribution from users', () => {
+				const houseUsers = [
+					{ teamSparks: 100, contributionScore: 200 },
+					{ teamSparks: 150, contributionScore: 300 },
+					{ teamSparks: 50, contributionScore: 100 },
+				]
+				store.updateHouseholdProgress(houseUsers)
+				expect(store.householdProgress.totalTeamSparks).toBe(300)
+				expect(store.householdProgress.totalContributionScore).toBe(600)
+			})
+
+			it('handles users with missing values', () => {
+				const houseUsers = [
+					{ teamSparks: 100 },
+					{ contributionScore: 200 },
+					{},
+				]
+				store.updateHouseholdProgress(houseUsers)
+				expect(store.householdProgress.totalTeamSparks).toBe(100)
+				expect(store.householdProgress.totalContributionScore).toBe(200)
+			})
+		})
+
+		describe('updateTeamStreak', () => {
+			it('updates team streak value', () => {
+				store.updateTeamStreak(7)
+				expect(store.householdProgress.teamStreak).toBe(7)
+			})
+		})
+
+		describe('incrementWeeklyGoal', () => {
+			it('increments completed count', () => {
+				store.householdProgress.weeklyGoal.completed = 5
+				store.incrementWeeklyGoal()
+				expect(store.householdProgress.weeklyGoal.completed).toBe(6)
+			})
+
+			it('triggers celebration when goal achieved', () => {
+				store.householdProgress.weeklyGoal.target = 3
+				store.householdProgress.weeklyGoal.completed = 2
+				store.incrementWeeklyGoal()
+				expect(store.celebrations).toHaveLength(1)
+				expect(store.celebrations[0].type).toBe('weekly_goal_achieved')
+			})
+
+			it('does not trigger celebration if already achieved', () => {
+				store.householdProgress.weeklyGoal.target = 3
+				store.householdProgress.weeklyGoal.completed = 5
+				store.incrementWeeklyGoal()
+				expect(store.celebrations).toHaveLength(0)
+			})
+		})
+
+		describe('setWeeklyGoalTarget', () => {
+			it('sets new goal target', () => {
+				store.setWeeklyGoalTarget(30)
+				expect(store.householdProgress.weeklyGoal.target).toBe(30)
+			})
+		})
+
+		describe('resetWeeklyGoal', () => {
+			it('resets completed count and sets start date', () => {
+				store.householdProgress.weeklyGoal.completed = 15
+				store.resetWeeklyGoal()
+				expect(store.householdProgress.weeklyGoal.completed).toBe(0)
+				expect(store.householdProgress.weeklyGoal.startDate).not.toBeNull()
+			})
+		})
+
+		describe('triggerCelebration', () => {
+			it('creates a celebration event', () => {
+				const celebration = store.triggerCelebration('team_streak_milestone', { streak: 7 })
+				expect(store.celebrations).toHaveLength(1)
+				expect(celebration.type).toBe('team_streak_milestone')
+				expect(celebration.data.streak).toBe(7)
+				expect(celebration.dismissed).toBe(false)
+			})
+		})
+
+		describe('dismissCelebration', () => {
+			it('marks celebration as dismissed', () => {
+				store.celebrations = [{ id: 1, dismissed: false }]
+				store.dismissCelebration(1)
+				expect(store.celebrations[0].dismissed).toBe(true)
+			})
+		})
+
+		describe('clearDismissedCelebrations', () => {
+			it('removes dismissed celebrations', () => {
+				store.celebrations = [
+					{ id: 1, dismissed: true },
+					{ id: 2, dismissed: false },
+				]
+				store.clearDismissedCelebrations()
+				expect(store.celebrations).toHaveLength(1)
+				expect(store.celebrations[0].id).toBe(2)
 			})
 		})
 	})
