@@ -116,9 +116,19 @@ class MinigameController extends OCSController
                 $boostsUsed
             );
 
+            // Calculate sparks earned (1 Spark per 10 points)
+            $sparksEarned = (int) floor($score / 10);
+
             return new JSONResponse([
                 'success' => true,
-                'data' => $savedScore->jsonSerialize()
+                'data' => [
+                    'id' => $savedScore->getId(),
+                    'score' => $savedScore->getScore(),
+                    'gameId' => $savedScore->getGameId(),
+                    'boostsUsed' => $savedScore->getBoostsUsed(),
+                    'createdAt' => $savedScore->getCreatedAt()?->format('c'),
+                    'sparksEarned' => $sparksEarned,
+                ]
             ]);
         } catch (\Exception $e) {
             return new JSONResponse([

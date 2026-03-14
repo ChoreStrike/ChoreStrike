@@ -37,6 +37,7 @@
 
 			<main class="dashboard-content">
 				<QuickStats class="quick-stats-section" data-testid="quick-stats" />
+				<ArcadeSection class="arcade-section" data-testid="arcade-section" />
 				<FloorList class="floor-list-section" data-testid="floor-list" />
 			</main>
 		</template>
@@ -52,6 +53,7 @@ import Icon from '../components/Common/Icon.vue'
 import HouseHealthBar from '../components/Dashboard/HouseHealthBar.vue'
 import QuickStats from '../components/Dashboard/QuickStats.vue'
 import FloorList from '../components/Dashboard/FloorList.vue'
+import ArcadeSection from '../components/Dashboard/ArcadeSection.vue'
 
 export default {
 	name: 'Dashboard',
@@ -61,6 +63,7 @@ export default {
 		HouseHealthBar,
 		QuickStats,
 		FloorList,
+		ArcadeSection,
 	},
 
 	setup() {

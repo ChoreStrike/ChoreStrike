@@ -59,7 +59,19 @@ class MinigameService
         $scoreEntity->setBoostsUsed(!empty($boostsUsed) ? $boostsUsed : null);
         $scoreEntity->setCreatedAt(new \DateTime());
 
-        return $this->scoreMapper->insert($scoreEntity);
+        $savedScore = $this->scoreMapper->insert($scoreEntity);
+
+        // Award Sparks for playing (1 Spark per 10 points)
+        $sparksEarned = (int) floor($score / 10);
+        if ($sparksEarned > 0) {
+            $user = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId);
+            if ($user) {
+                $user->addSparks($sparksEarned);
+                $this->houseUserMapper->update($user);
+            }
+        }
+
+        return $savedScore;
     }
 
     /**

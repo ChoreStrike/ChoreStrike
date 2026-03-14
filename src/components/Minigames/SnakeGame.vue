@@ -48,6 +48,9 @@
 				<div class="game-over-content">
 					<h2>{{ t('chorestrike', 'Game Over!') }}</h2>
 					<p class="final-score">{{ t('chorestrike', 'Score: {score}', { score }) }}</p>
+					<p v-if="sparksEarned > 0" class="sparks-earned">
+						⚡ +{{ sparksEarned }} {{ t('chorestrike', 'Sparks earned!') }}
+					</p>
 					<p v-if="isNewPersonalBest" class="new-best">
 						🎉 {{ t('chorestrike', 'New Personal Best!') }} 🎉
 					</p>
@@ -155,6 +158,7 @@ const nextDirection = ref('right')
 const gameSpeed = ref(INITIAL_SPEED)
 const gameLoop = ref(null)
 const lives = ref(1)
+const sparksEarned = ref(0)
 
 // Computed
 const boardStyle = computed(() => ({
@@ -387,6 +391,7 @@ const startNewGame = () => {
 	gameSpeed.value = INITIAL_SPEED
 	obstacles.value = []
 	lives.value = activeBoosts.value.includes('ghost_mode') ? 2 : 1
+	sparksEarned.value = 0
 
 	// Generate initial food and obstacles
 	generateFood()
@@ -412,7 +417,10 @@ const resumeGame = () => {
 
 const endGame = async () => {
 	clearInterval(gameLoop.value)
-	await minigameStore.endGame()
+	const result = await minigameStore.endGame()
+	if (result?.sparksEarned) {
+		sparksEarned.value = result.sparksEarned
+	}
 }
 
 const openBoostShop = () => {
@@ -586,6 +594,12 @@ onUnmounted(() => {
 
 .final-score {
 	font-size: 1.5rem;
+	margin-bottom: 0.5rem;
+}
+
+.sparks-earned {
+	font-size: 1.1rem;
+	color: #ffd700;
 	margin-bottom: 0.5rem;
 }
 

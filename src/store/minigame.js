@@ -244,6 +244,11 @@ export const useMinigameStore = defineStore('minigame', {
 				})
 
 				if (response.data.success) {
+					// Update sparks if earned
+					if (response.data.data.sparksEarned > 0) {
+						this.currentSparks += response.data.data.sparksEarned
+					}
+
 					// Refresh leaderboard and personal best
 					await Promise.all([
 						this.fetchPersonalBest(gameId),
