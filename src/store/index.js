@@ -10,6 +10,7 @@ import { useRoomTasksStore } from './roomTasks.js'
 import { useGameStore } from './game.js'
 import { useUserStore } from './user.js'
 import { useChecklistStore } from './checklist.js'
+import { useMinigameStore } from './minigame.js'
 import { logger } from '../utils/logger.js'
 
 // Export all stores
@@ -21,6 +22,7 @@ export {
 	useGameStore,
 	useUserStore,
 	useChecklistStore,
+	useMinigameStore,
 }
 
 // Store initialization utilities
@@ -67,6 +69,7 @@ export const resetAllStores = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const minigameStore = useMinigameStore()
 
 	userStore.reset()
 	houseStore.reset()
@@ -74,6 +77,7 @@ export const resetAllStores = () => {
 	tasksStore.reset()
 	roomTasksStore.reset()
 	gameStore.reset()
+	minigameStore.reset()
 }
 
 // Store error clearing utilities
@@ -84,6 +88,7 @@ export const clearAllStoreErrors = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const minigameStore = useMinigameStore()
 
 	userStore.clearError()
 	houseStore.clearError()
@@ -91,6 +96,7 @@ export const clearAllStoreErrors = () => {
 	tasksStore.clearError()
 	roomTasksStore.clearError()
 	gameStore.clearError()
+	minigameStore.error = null
 }
 
 // Store loading state utilities
@@ -101,6 +107,7 @@ export const getAnyStoreLoading = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const minigameStore = useMinigameStore()
 
 	return (
 		userStore.loading
@@ -109,6 +116,7 @@ export const getAnyStoreLoading = () => {
     || tasksStore.loading
     || roomTasksStore.loading
     || gameStore.loading
+    || minigameStore.loading
 	)
 }
 
@@ -120,6 +128,7 @@ export const getAnyStoreError = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const minigameStore = useMinigameStore()
 
 	return (
 		userStore.error
@@ -128,6 +137,7 @@ export const getAnyStoreError = () => {
     || tasksStore.error
     || roomTasksStore.error
     || gameStore.error
+    || minigameStore.error
 	)
 }
 
@@ -194,6 +204,7 @@ export default {
 	useRoomTasksStore,
 	useGameStore,
 	useUserStore,
+	useMinigameStore,
 	initializeStores,
 	resetAllStores,
 	clearAllStoreErrors,

@@ -1,0 +1,392 @@
+import { describe, it, expect, jest, beforeEach } from '@jest/globals'
+import { setActivePinia, createPinia } from 'pinia'
+import { useMinigameStore, BOOST_COSTS } from '../../../src/store/minigame.js'
+
+// Mock axios
+jest.mock('@nextcloud/axios', () => ({
+	get: jest.fn(),
+	post: jest.fn(),
+}))
+
+import axios from '@nextcloud/axios'
+
+describe('Minigame Store', () => {
+	let store
+
+	beforeEach(() => {
+		setActivePinia(createPinia())
+		store = useMinigameStore()
+		jest.clearAllMocks()
+	})
+
+	describe('State', () => {
+		it('has correct initial state', () => {
+			expect(store.currentGame).toBeNull()
+			expect(store.score).toBe(0)
+			expect(store.isPlaying).toBe(false)
+			expect(store.isPaused).toBe(false)
+			expect(store.gameOver).toBe(false)
+			expect(store.activeBoosts).toEqual([])
+			expect(store.purchasedBoosts).toEqual([])
+			expect(store.currentSparks).toBe(0)
+			expect(store.leaderboard).toEqual([])
+			expect(store.weeklyLeaderboard).toEqual([])
+			expect(store.personalBest).toBeNull()
+			expect(store.userRank).toBe(0)
+			expect(store.recentScores).toEqual([])
+			expect(store.loading).toBe(false)
+			expect(store.error).toBeNull()
+			expect(store.showBoostShop).toBe(false)
+			expect(store.showLeaderboard).toBe(false)
+		})
+	})
+
+	describe('Getters', () => {
+		beforeEach(() => {
+			store.currentSparks = 50
+			store.purchasedBoosts = ['slow_motion']
+			store.activeBoosts = ['slow_motion', 'ghost_mode']
+			store.personalBest = { score: 100 }
+		})
+
+		it('canAffordBoost returns true when sparks sufficient', () => {
+			expect(store.canAffordBoost('slow_motion')).toBe(true) // costs 10
+		})
+
+		it('canAffordBoost returns false when sparks insufficient', () => {
+			store.currentSparks = 5
+			expect(store.canAffordBoost('ghost_mode')).toBe(false) // costs 20
+		})
+
+		it('selectedBoostsCost calculates total cost', () => {
+			store.purchasedBoosts = ['slow_motion', 'ghost_mode']
+			expect(store.selectedBoostsCost).toBe(30) // 10 + 20
+		})
+
+		it('isBoostActive returns true for active boost', () => {
+			expect(store.isBoostActive('slow_motion')).toBe(true)
+		})
+
+		it('isBoostActive returns false for inactive boost', () => {
+			expect(store.isBoostActive('magnet')).toBe(false)
+		})
+
+		it('affordableBoosts returns boosts within budget', () => {
+			store.currentSparks = 25
+			const affordable = store.affordableBoosts
+			expect(affordable.some(b => b.id === 'slow_motion')).toBe(true) // 10
+			expect(affordable.some(b => b.id === 'shrink')).toBe(true) // 15
+			expect(affordable.some(b => b.id === 'ghost_mode')).toBe(true) // 20
+			expect(affordable.some(b => b.id === 'no_obstacles')).toBe(true) // 25
+			expect(affordable.some(b => b.id === 'magnet')).toBe(false) // 30
+		})
+
+		it('isNewPersonalBest returns true when score exceeds best', () => {
+			store.score = 150
+			expect(store.isNewPersonalBest).toBe(true)
+		})
+
+		it('isNewPersonalBest returns false when score below best', () => {
+			store.score = 50
+			expect(store.isNewPersonalBest).toBe(false)
+		})
+
+		it('isNewPersonalBest returns true when no previous best', () => {
+			store.personalBest = null
+			store.score = 10
+			expect(store.isNewPersonalBest).toBe(true)
+		})
+	})
+
+	describe('Actions', () => {
+		describe('fetchSparks', () => {
+			it('fetches sparks successfully', async () => {
+				axios.get.mockResolvedValue({
+					data: { success: true, data: { currentSparks: 75 } }
+				})
+
+				await store.fetchSparks()
+
+				expect(store.currentSparks).toBe(75)
+			})
+
+			it('handles error gracefully', async () => {
+				axios.get.mockRejectedValue(new Error('Network error'))
+
+				await store.fetchSparks()
+
+				expect(store.currentSparks).toBe(0)
+			})
+		})
+
+		describe('fetchLeaderboard', () => {
+			it('fetches leaderboard successfully', async () => {
+				const mockLeaderboard = [
+					{ id: 1, userId: 'user1', displayName: 'Alice', score: 500 },
+					{ id: 2, userId: 'user2', displayName: 'Bob', score: 300 },
+				]
+				axios.get.mockResolvedValue({
+					data: { success: true, data: mockLeaderboard }
+				})
+
+				await store.fetchLeaderboard('snake', 10)
+
+				expect(store.leaderboard).toEqual(mockLeaderboard)
+				expect(store.loading).toBe(false)
+			})
+
+			it('handles error', async () => {
+				axios.get.mockRejectedValue(new Error('Failed'))
+
+				await store.fetchLeaderboard('snake')
+
+				expect(store.error).toBe('Failed')
+				expect(store.loading).toBe(false)
+			})
+		})
+
+		describe('fetchPersonalBest', () => {
+			it('fetches personal best successfully', async () => {
+				axios.get.mockResolvedValue({
+					data: { success: true, data: { score: 250, id: 1 } }
+				})
+
+				await store.fetchPersonalBest('snake')
+
+				expect(store.personalBest).toEqual({ score: 250, id: 1 })
+			})
+		})
+
+		describe('fetchUserRank', () => {
+			it('fetches user rank successfully', async () => {
+				axios.get.mockResolvedValue({
+					data: { success: true, data: { rank: 5 } }
+				})
+
+				await store.fetchUserRank('snake')
+
+				expect(store.userRank).toBe(5)
+			})
+		})
+
+		describe('purchaseBoost', () => {
+			it('purchases boost successfully', async () => {
+				store.currentSparks = 50
+				axios.post.mockResolvedValue({
+					data: { success: true, data: { remainingSparks: 40 } }
+				})
+
+				const result = await store.purchaseBoost('slow_motion')
+
+				expect(result).toBe(true)
+				expect(store.currentSparks).toBe(40)
+				expect(store.purchasedBoosts).toContain('slow_motion')
+			})
+
+			it('handles insufficient sparks error', async () => {
+				store.currentSparks = 5
+				axios.post.mockRejectedValue({
+					response: { data: { error: { message: 'Insufficient sparks' } } }
+				})
+
+				const result = await store.purchaseBoost('slow_motion')
+
+				expect(result).toBe(false)
+				expect(store.error).toBeTruthy()
+			})
+		})
+
+		describe('saveScore', () => {
+			it('saves score and refreshes data', async () => {
+				store.score = 150
+				store.purchasedBoosts = ['slow_motion']
+
+				axios.post.mockResolvedValue({
+					data: { success: true, data: { id: 1, score: 150 } }
+				})
+				axios.get.mockResolvedValue({
+					data: { success: true, data: [] }
+				})
+
+				const result = await store.saveScore('snake')
+
+				expect(result).toEqual({ id: 1, score: 150 })
+			})
+		})
+
+		describe('startGame', () => {
+			it('initializes game state', () => {
+				store.purchasedBoosts = ['slow_motion', 'ghost_mode']
+
+				store.startGame('snake')
+
+				expect(store.currentGame).toBe('snake')
+				expect(store.score).toBe(0)
+				expect(store.isPlaying).toBe(true)
+				expect(store.isPaused).toBe(false)
+				expect(store.gameOver).toBe(false)
+				expect(store.activeBoosts).toEqual(['slow_motion', 'ghost_mode'])
+			})
+		})
+
+		describe('pauseGame', () => {
+			it('sets isPaused to true', () => {
+				store.isPlaying = true
+				store.pauseGame()
+				expect(store.isPaused).toBe(true)
+			})
+		})
+
+		describe('resumeGame', () => {
+			it('sets isPaused to false', () => {
+				store.isPaused = true
+				store.resumeGame()
+				expect(store.isPaused).toBe(false)
+			})
+		})
+
+		describe('endGame', () => {
+			it('ends game and saves score', async () => {
+				store.score = 100
+				store.isPlaying = true
+				store.activeBoosts = ['slow_motion']
+
+				axios.post.mockResolvedValue({
+					data: { success: true, data: { id: 1 } }
+				})
+				axios.get.mockResolvedValue({
+					data: { success: true, data: null }
+				})
+
+				await store.endGame()
+
+				expect(store.isPlaying).toBe(false)
+				expect(store.gameOver).toBe(true)
+				expect(store.activeBoosts).toEqual([])
+				expect(store.purchasedBoosts).toEqual([])
+			})
+
+			it('does not save zero score', async () => {
+				store.score = 0
+				store.isPlaying = true
+
+				await store.endGame()
+
+				expect(axios.post).not.toHaveBeenCalled()
+			})
+		})
+
+		describe('updateScore', () => {
+			it('adds points to score', () => {
+				store.score = 50
+				store.updateScore(10)
+				expect(store.score).toBe(60)
+			})
+		})
+
+		describe('toggleBoostShop', () => {
+			it('toggles boost shop visibility', () => {
+				store.showBoostShop = false
+				store.toggleBoostShop()
+				expect(store.showBoostShop).toBe(true)
+				store.toggleBoostShop()
+				expect(store.showBoostShop).toBe(false)
+			})
+		})
+
+		describe('toggleLeaderboard', () => {
+			it('toggles leaderboard visibility', () => {
+				store.showLeaderboard = false
+				store.toggleLeaderboard()
+				expect(store.showLeaderboard).toBe(true)
+			})
+		})
+
+		describe('clearPurchasedBoosts', () => {
+			it('clears purchased boosts', () => {
+				store.purchasedBoosts = ['slow_motion', 'ghost_mode']
+				store.clearPurchasedBoosts()
+				expect(store.purchasedBoosts).toEqual([])
+			})
+		})
+
+		describe('removePurchasedBoost', () => {
+			it('removes specific boost', () => {
+				store.purchasedBoosts = ['slow_motion', 'ghost_mode', 'magnet']
+				store.removePurchasedBoost('ghost_mode')
+				expect(store.purchasedBoosts).toEqual(['slow_motion', 'magnet'])
+			})
+
+			it('does nothing if boost not in list', () => {
+				store.purchasedBoosts = ['slow_motion']
+				store.removePurchasedBoost('magnet')
+				expect(store.purchasedBoosts).toEqual(['slow_motion'])
+			})
+		})
+
+		describe('initialize', () => {
+			it('fetches all initial data', async () => {
+				axios.get.mockResolvedValue({
+					data: { success: true, data: { currentSparks: 100 } }
+				})
+
+				await store.initialize('snake')
+
+				expect(axios.get).toHaveBeenCalledTimes(4)
+				expect(store.loading).toBe(false)
+			})
+		})
+
+		describe('reset', () => {
+			it('resets all state to initial values', () => {
+				store.currentGame = 'snake'
+				store.score = 500
+				store.isPlaying = true
+				store.isPaused = true
+				store.gameOver = false
+				store.activeBoosts = ['slow_motion']
+				store.purchasedBoosts = ['ghost_mode']
+				store.currentSparks = 100
+				store.leaderboard = [{ id: 1 }]
+				store.weeklyLeaderboard = [{ id: 2 }]
+				store.personalBest = { score: 300 }
+				store.userRank = 5
+				store.recentScores = [{ id: 3 }]
+				store.loading = true
+				store.error = 'Error'
+				store.showBoostShop = true
+				store.showLeaderboard = true
+
+				store.reset()
+
+				expect(store.currentGame).toBeNull()
+				expect(store.score).toBe(0)
+				expect(store.isPlaying).toBe(false)
+				expect(store.isPaused).toBe(false)
+				expect(store.gameOver).toBe(false)
+				expect(store.activeBoosts).toEqual([])
+				expect(store.purchasedBoosts).toEqual([])
+				expect(store.currentSparks).toBe(0)
+				expect(store.leaderboard).toEqual([])
+				expect(store.weeklyLeaderboard).toEqual([])
+				expect(store.personalBest).toBeNull()
+				expect(store.userRank).toBe(0)
+				expect(store.recentScores).toEqual([])
+				expect(store.loading).toBe(false)
+				expect(store.error).toBeNull()
+				expect(store.showBoostShop).toBe(false)
+				expect(store.showLeaderboard).toBe(false)
+			})
+		})
+	})
+
+	describe('BOOST_COSTS', () => {
+		it('has correct boost costs', () => {
+			expect(BOOST_COSTS.slow_motion).toBe(10)
+			expect(BOOST_COSTS.ghost_mode).toBe(20)
+			expect(BOOST_COSTS.magnet).toBe(30)
+			expect(BOOST_COSTS.shrink).toBe(15)
+			expect(BOOST_COSTS.no_obstacles).toBe(25)
+		})
+	})
+})
