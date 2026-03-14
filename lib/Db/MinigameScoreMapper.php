@@ -87,13 +87,14 @@ class MinigameScoreMapper extends QBMapper
      *
      * @return MinigameScore[]
      */
-    public function findByUserAndGame(string $userId, string $gameId, int $limit = 10): array
+    public function findByUserAndGame(int $houseId, string $userId, string $gameId, int $limit = 10): array
     {
         $qb = $this->db->getQueryBuilder();
 
         $qb->select('*')
             ->from($this->getTableName())
-            ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)))
+            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)))
             ->andWhere($qb->expr()->eq('game_id', $qb->createNamedParameter($gameId, IQueryBuilder::PARAM_STR)))
             ->orderBy('score', 'DESC')
             ->setMaxResults($limit);

@@ -271,8 +271,9 @@ export const logger = {
 - Some tasks (P9-FEATURE-001, P9-UX-001) can be deferred to Phase 10 if time-constrained
 - Security task (P9-SECURITY-002) is **mandatory** before production
 - Follow-up review artifact: `docs/backlog/CODE_REVIEW_2026-03-11.md` (delta review since `2f4652b3653a3678ed4f795c1a8e8a898b99b18f`)
+- Follow-up review artifact: `docs/backlog/CODE_REVIEW_2026-03-14.md` (latest delta review including minigame score house-scoping fix)
 
 ---
 
 **Created**: 2026-03-07  
-**Last Updated**: 2026-03-11 10:25
+**Last Updated**: 2026-03-14 23:42

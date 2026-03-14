@@ -241,14 +241,15 @@ class MinigameService
     /**
      * Get recent scores for a user
      *
+     * @param int $houseId The house ID
      * @param string $userId The Nextcloud user ID
      * @param string $gameId The game ID
      * @param int $limit Maximum number of scores
      * @return array Array of recent scores
      */
-    public function getRecentScores(string $userId, string $gameId, int $limit = 5): array
+    public function getRecentScores(int $houseId, string $userId, string $gameId, int $limit = 5): array
     {
-        $scores = $this->scoreMapper->findByUserAndGame($userId, $gameId, $limit);
+        $scores = $this->scoreMapper->findByUserAndGame($houseId, $userId, $gameId, $limit);
         
         return array_map(fn ($score) => [
             'id' => $score->getId(),

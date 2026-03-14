@@ -40,6 +40,20 @@ import search20Regular from '@fluentui/svg-icons/icons/search_20_regular.svg'
 import star20Regular from '@fluentui/svg-icons/icons/star_20_regular.svg'
 import trophy20Regular from '@fluentui/svg-icons/icons/trophy_20_regular.svg'
 import warning20Regular from '@fluentui/svg-icons/icons/warning_20_regular.svg'
+import bookOpen20Regular from '@fluentui/svg-icons/icons/book_open_20_regular.svg'
+import briefcase20Regular from '@fluentui/svg-icons/icons/briefcase_20_regular.svg'
+import couch20Regular from '@fluentui/svg-icons/icons/couch_20_regular.svg'
+import door20Regular from '@fluentui/svg-icons/icons/door_20_regular.svg'
+import dumbbell20Regular from '@fluentui/svg-icons/icons/dumbbell_20_regular.svg'
+import food20Regular from '@fluentui/svg-icons/icons/food_20_regular.svg'
+import games20Regular from '@fluentui/svg-icons/icons/games_20_regular.svg'
+import showerhead20Regular from '@fluentui/svg-icons/icons/showerhead_20_regular.svg'
+import storage20Regular from '@fluentui/svg-icons/icons/storage_20_regular.svg'
+import treeDeciduous20Regular from '@fluentui/svg-icons/icons/tree_deciduous_20_regular.svg'
+import tv20Regular from '@fluentui/svg-icons/icons/tv_20_regular.svg'
+import vehicleCar20Regular from '@fluentui/svg-icons/icons/vehicle_car_20_regular.svg'
+import washer20Regular from '@fluentui/svg-icons/icons/washer_20_regular.svg'
+import clothesHanger20Regular from '@fluentui/svg-icons/icons/clothes_hanger_20_regular.svg'
 
 /**
  * Local Fluent-inspired SVG icon registry for ChoreStrike.
@@ -124,6 +138,21 @@ const fluentSvgIcons = {
 	GripVertical: createFluentSvgComponent('GripVertical', reOrderDotsVertical20Regular),
 	List: createFluentSvgComponent('List', list20Regular),
 	Bed: createFluentSvgComponent('Bed', bed20Regular),
+	Bath: createFluentSvgComponent('Bath', showerhead20Regular),
+	Utensils: createFluentSvgComponent('Utensils', food20Regular),
+	Sofa: createFluentSvgComponent('Sofa', couch20Regular),
+	Armchair: createFluentSvgComponent('Armchair', couch20Regular),
+	Briefcase: createFluentSvgComponent('Briefcase', briefcase20Regular),
+	BookOpen: createFluentSvgComponent('BookOpen', bookOpen20Regular),
+	Gamepad2: createFluentSvgComponent('Gamepad2', games20Regular),
+	Dumbbell: createFluentSvgComponent('Dumbbell', dumbbell20Regular),
+	Tv: createFluentSvgComponent('Tv', tv20Regular),
+	Package: createFluentSvgComponent('Package', storage20Regular),
+	Car: createFluentSvgComponent('Car', vehicleCar20Regular),
+	Trees: createFluentSvgComponent('Trees', treeDeciduous20Regular),
+	WashingMachine: createFluentSvgComponent('WashingMachine', washer20Regular),
+	DoorOpen: createFluentSvgComponent('DoorOpen', door20Regular),
+	Shirt: createFluentSvgComponent('Shirt', clothesHanger20Regular),
 	Star: createFluentSvgComponent('Star', star20Regular),
 	Trophy: createFluentSvgComponent('Trophy', trophy20Regular),
 	Save: createFluentSvgComponent('Save', save20Regular),
@@ -456,26 +485,10 @@ const iconDefinitions = {
 	Link: SHARED_SHAPES.link,
 	Share2: SHARED_SHAPES.link,
 	Printer: SHARED_SHAPES.building,
-	Bed: SHARED_SHAPES.bed,
-	Bath: SHARED_SHAPES.bath,
-	Utensils: SHARED_SHAPES.utensils,
-	Sofa: SHARED_SHAPES.sofa,
-	DoorOpen: SHARED_SHAPES.arrowRight,
-	WashingMachine: SHARED_SHAPES.rectangle,
-	Briefcase: SHARED_SHAPES.briefcase,
-	BookOpen: SHARED_SHAPES.bookOpen,
-	Gamepad2: SHARED_SHAPES.gamepad,
-	Dumbbell: SHARED_SHAPES.dumbbell,
-	Tv: SHARED_SHAPES.tv,
-	Trees: SHARED_SHAPES.tree,
 	Baby: SHARED_SHAPES.user,
-	Armchair: SHARED_SHAPES.sofa,
-	Car: SHARED_SHAPES.arrowRight,
-	Package: SHARED_SHAPES.package,
 	Eraser: SHARED_SHAPES.edit,
 	Sparkles: SHARED_SHAPES.star,
 	ShoppingCart: SHARED_SHAPES.package,
-	Shirt: SHARED_SHAPES.shirt,
 	Wrench: SHARED_SHAPES.settings,
 	Star: SHARED_SHAPES.star,
 	Zap: SHARED_SHAPES.zap,

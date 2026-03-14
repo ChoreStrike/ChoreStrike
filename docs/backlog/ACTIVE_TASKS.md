@@ -311,18 +311,33 @@
   - Title transition animations
 
 ## Next Session Tasks (Prioritized)
-1. **MS-ICONS-MIGRATION-001** (High) - Finalize and merge review-ready Microsoft Fluent UI icon migration package
-2. **P9-FEATURE-001** (High) - Complete energy budget calculation (`todayRemainingEnergy`) with regression tests
-3. **P9-UX-001** (High) - Implement or remove dead floor edit action in Dashboard floor list
-4. **P8-INTERNAL-TEST execution** (High) - Manual alpha flow validation on real Nextcloud instance
-5. **P8-INTEGRATION-001** (Medium) - Docker integration test execution and stabilization
-6. **MONSTER-BATTLE-001** (Medium) - Full Monster Battle System design & implementation
-7. **TEAM-SPARKS-UI-001** (Medium) - Team Sparks UI integration
-8. **P8-RELEASE-001** (High) - App store submission preparation after quality gates
+1. **MS-ICONS-MIGRATION-001** (High) - Finalize and merge the review-ready Microsoft Fluent UI icon migration package
+2. **P8-INTERNAL-TEST execution** (High) - Execute full manual alpha flow validation on a real Nextcloud instance
+3. **P8-INTEGRATION-001** (High) - Run and stabilize Docker integration suite as release gate
+4. **COOPERATIVE-FEATURES-001** (Medium) - Review and merge cooperative gamification package
+5. **TEAM-SPARKS-UI-001** (Medium) - Review and merge Team Sparks UI wording package
+6. **MONSTER-BATTLE-001** (Medium) - Prepare implementation design decisions and execution plan
+7. **ROLE-TITLE-SYSTEM-001** (Medium) - Start title system implementation planning and scope split
+8. **P8-RELEASE-001** (High) - Prepare app store submission after quality gates pass
 
 ---
 
 ## Recently Completed (Last 7 Days)
+
+### Cascade - P9-REVIEW-DELTA-004 - Review/Fix/Docs since 2f4652b and commit all pending changes
+**Status**: Done  
+**Started**: 2026-03-14 22:35  
+**Completed**: 2026-03-14 23:42  
+**Branch**: master  
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/CODE_REVIEW_2026-03-14.md, lib/Controller/MinigameController.php, lib/Db/MinigameScoreMapper.php, lib/Service/MinigameService.php, tests/unit/Service/MinigameServiceTest.php, scripts/download-emojis.js, src/utils/icons.js, vendor/composer/installed.php  
+**Blockers**: None  
+**Notes**:
+- Reviewed all changes since `2f4652b3653a3678ed4f795c1a8e8a898b99b18f` with focus on backend contract safety and compatibility.
+- Fixed minigame recent-score query scope by wiring `houseId` through controller -> service -> mapper and added regression coverage in `MinigameServiceTest`.
+- Validated icon and emoji tooling changes and retained local runtime icon strategy.
+- Validation:
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml` -> pass (329 tests, 958 assertions)
+  - `npm test -- --runInBand` -> pass (33 suites, 483 tests)
 
 ### Cascade - P8-ALPHA-REVIEW-PLAN-001 - Pre-Alpha Complete Review Preparation
 **Status**: Done  

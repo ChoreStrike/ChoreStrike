@@ -317,7 +317,7 @@ class MinigameController extends OCSController
             $this->authService->requireHouseMember($house->getId());
 
             $userId = $this->authService->getCurrentUserId();
-            $scores = $this->minigameService->getRecentScores($userId, $gameId, $limit);
+            $scores = $this->minigameService->getRecentScores($house->getId(), $userId, $gameId, $limit);
 
             return new JSONResponse([
                 'success' => true,

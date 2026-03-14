@@ -16,104 +16,105 @@ const path = require('path')
 const EMOJIS_TO_DOWNLOAD = {
 	// Rooms
 	rooms: [
-		'couch_and_lamp',     // Living room
-		'bed',                // Bedroom
-		'bathtub',            // Bathroom
-		'cooking',            // Kitchen
-		'potted_plant',       // Balcony/Garden
-		'laptop',             // Office
-		'automobile',         // Garage
-		'package',            // Storage
-		'fork_and_knife_with_plate', // Dining
+		'Couch and lamp',     // Living room
+		'Bed',                // Bedroom
+		'Bathtub',            // Bathroom
+		'Cooking',            // Kitchen
+		'Potted plant',       // Balcony/Garden
+		'Laptop',             // Office
+		'Automobile',         // Garage
+		'Package',            // Storage
+		'Fork and knife with plate', // Dining
 	],
 
 	// Tasks & Chores
 	tasks: [
-		'wastebasket',        // Trash
-		'broom',              // Cleaning
-		'sponge',             // Sponge
-		'bucket',             // Bucket
-		'soap',               // Soap
-		'basket',             // Laundry
-		'shopping_cart',      // Shopping
-		'hammer_and_wrench',  // Repair
+		'Wastebasket',        // Trash
+		'Broom',              // Cleaning
+		'Sponge',             // Sponge
+		'Bucket',             // Bucket
+		'Soap',               // Soap
+		'Basket',             // Laundry
+		'Shopping cart',      // Shopping
+		'Hammer and wrench',  // Repair
 	],
 
 	// Gamification - Energy
 	energy: [
-		'high_voltage',       // Energy
-		'battery',            // Battery
-		'electric_plug',      // Power
+		'High voltage',       // Energy
+		'Battery',            // Battery
+		'Electric plug',      // Power
 	],
 
 	// Gamification - Rewards
 	rewards: [
-		'star',               // Star
-		'sparkles',           // Sparks
-		'coin',               // Coin
-		'gem_stone',          // Points
+		'Star',               // Star
+		'Sparkles',           // Sparks
+		'Coin',               // Coin
+		'Gem stone',          // Points
 	],
 
 	// Gamification - Streak
 	streak: [
-		'fire',               // Fire/Streak
+		'Fire',               // Fire/Streak
 	],
 
 	// Gamification - Medals
 	medals: [
-		'trophy',             // Trophy
-		'sports_medal',       // Medal (generic)
-		'crown',              // Crown
-		'first_place_medal',  // Gold
-		'second_place_medal', // Silver
-		'third_place_medal',  // Bronze
+		'Trophy',             // Trophy
+		'Sports medal',       // Medal (generic)
+		'Crown',              // Crown
+		'1st place medal',    // Gold
+		'2nd place medal',    // Silver
+		'3rd place medal',    // Bronze
 	],
 
 	// Monsters
 	monsters: [
-		'space_invader',      // Alien/Monster
-		'microbe',            // Bacteria
-		'ghost',              // Ghost
-		'spider_web',         // Spider web
-		'dashing_away',       // Dust
+		'Alien monster',      // Alien/Monster
+		'Microbe',            // Bacteria
+		'Ghost',              // Ghost
+		'Spider',             // Spider
+		'Spider web',         // Spider web
+		'Dashing',            // Dust (Dashing away)
 	],
 
 	// Avatars (Animals)
 	avatars: [
-		'fox',                // Fox
-		'panda',              // Panda
-		'cat_face',           // Cat
-		'frog',               // Frog
-		'dog_face',           // Dog
-		'owl',                // Owl
-		'rabbit_face',        // Rabbit
-		'bear',               // Bear
-		'penguin',            // Penguin
-		'unicorn',            // Unicorn
-		'dragon_face',        // Dragon
-		'robot',              // Robot
+		'Fox',                // Fox
+		'Panda',              // Panda
+		'Cat',                // Cat
+		'Frog',               // Frog
+		'Dog',                // Dog
+		'Owl',                // Owl
+		'Rabbit',             // Rabbit
+		'Bear',               // Bear
+		'Penguin',            // Penguin
+		'Unicorn',            // Unicorn
+		'Dragon',             // Dragon
+		'Robot',              // Robot
 	],
 
 	// Status
 	status: [
-		'check_box_with_check',     // Done/Check
-		'white_medium_circle',      // Pending
-		'warning',                  // Warning
-		'cross_mark',               // Error
-		'information',              // Info
+		'Check mark button',     // Done/Check
+		'White circle',      // Pending
+		'Warning',           // Warning
+		'Cross mark',        // Error
+		'Information',       // Info
 	],
 
 	// Time
 	time: [
-		'alarm_clock',              // Clock
-		'sunrise',                  // Morning
-		'sun',                      // Afternoon
-		'cityscape_at_dusk',        // Evening
-		'night_with_stars',         // Night
+		'Alarm clock',              // Clock
+		'Sunrise',                  // Morning
+		'Sun',                      // Afternoon
+		'Cityscape',                // Evening
+		'Night with stars',         // Night
 	],
 }
 
-const STYLE = '3d' // Options: '3d', 'color', 'flat', 'high-contrast'
+const STYLE = '3D' // Options: '3D', 'Color', 'Flat', 'High Contrast'
 const BASE_URL = 'https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets'
 const OUTPUT_DIR = path.join(__dirname, '..', 'img', 'emojis')
 
@@ -124,8 +125,12 @@ const OUTPUT_DIR = path.join(__dirname, '..', 'img', 'emojis')
  * @returns {Promise<void>}
  */
 function downloadEmoji(emojiName) {
-	const url = `${BASE_URL}/${emojiName}/${STYLE}/${emojiName}_${STYLE}.png`
-	const outputPath = path.join(OUTPUT_DIR, `${emojiName}.png`)
+	// Convert emoji name to URL-safe format (spaces become %20)
+	const urlSafeName = encodeURIComponent(emojiName)
+	const url = `${BASE_URL}/${urlSafeName}/${STYLE}/${urlSafeName}_${STYLE}.png`
+	// Convert emoji name to file-safe format (spaces become underscores)
+	const fileSafeName = emojiName.toLowerCase().replace(/ /g, '_')
+	const outputPath = path.join(OUTPUT_DIR, `${fileSafeName}.png`)
 
 	return new Promise((resolve, reject) => {
 		// Check if already exists

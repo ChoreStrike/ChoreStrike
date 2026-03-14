@@ -252,10 +252,10 @@ class MinigameServiceTest extends TestCase
 
         $this->scoreMapper->expects($this->once())
             ->method('findByUserAndGame')
-            ->with('user1', 'snake', 5)
+            ->with(1, 'user1', 'snake', 5)
             ->willReturn([$score1, $score2]);
 
-        $result = $this->service->getRecentScores('user1', 'snake', 5);
+        $result = $this->service->getRecentScores(1, 'user1', 'snake', 5);
 
         $this->assertCount(2, $result);
         $this->assertEquals(100, $result[0]['score']);
