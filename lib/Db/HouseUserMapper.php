@@ -207,4 +207,17 @@ class HouseUserMapper extends QBMapper
 
         return $this->findEntities($qb);
     }
+
+    /**
+     * Find house user by house ID and Nextcloud user ID (alias for findByHouseAndUser)
+     * Returns null if not found
+     *
+     * @param int $houseId The house ID
+     * @param string $nextcloudUserId The Nextcloud user ID
+     * @return HouseUser|null
+     */
+    public function findByHouseIdAndNextcloudUserId(int $houseId, string $nextcloudUserId): ?HouseUser
+    {
+        return $this->findByHouseAndUser($houseId, $nextcloudUserId);
+    }
 }

@@ -65,6 +65,7 @@ class TestDataService
         'chorestrike_medals',
         'chorestrike_combos',
         'chorestrike_user_stats',
+        'chorestrike_minigame_scores',
     ];
 
     private IDBConnection $db;

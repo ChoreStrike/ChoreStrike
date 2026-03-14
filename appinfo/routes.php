@@ -153,5 +153,16 @@ return [
         ['name' => 'test#profiles', 'url' => '/api/v1/test/profiles', 'verb' => 'GET'],
         ['name' => 'test#seed', 'url' => '/api/v1/test/seed/{profile}', 'verb' => 'GET'],
         ['name' => 'test#reset', 'url' => '/api/v1/test/reset', 'verb' => 'GET'],
+
+        // Minigame API
+        ['name' => 'minigame#leaderboard', 'url' => '/api/v1/minigames/{gameId}/leaderboard', 'verb' => 'GET'],
+        ['name' => 'minigame#weeklyLeaderboard', 'url' => '/api/v1/minigames/{gameId}/leaderboard/weekly', 'verb' => 'GET'],
+        ['name' => 'minigame#saveScore', 'url' => '/api/v1/minigames/{gameId}/scores', 'verb' => 'POST'],
+        ['name' => 'minigame#personalBest', 'url' => '/api/v1/minigames/{gameId}/personal-best', 'verb' => 'GET'],
+        ['name' => 'minigame#userRank', 'url' => '/api/v1/minigames/{gameId}/rank', 'verb' => 'GET'],
+        ['name' => 'minigame#recentScores', 'url' => '/api/v1/minigames/{gameId}/recent', 'verb' => 'GET'],
+        ['name' => 'minigame#boosts', 'url' => '/api/v1/minigames/boosts', 'verb' => 'GET'],
+        ['name' => 'minigame#purchaseBoost', 'url' => '/api/v1/minigames/boosts/{boostId}/purchase', 'verb' => 'POST'],
+        ['name' => 'minigame#sparks', 'url' => '/api/v1/minigames/sparks', 'verb' => 'GET'],
     ]
 ];
