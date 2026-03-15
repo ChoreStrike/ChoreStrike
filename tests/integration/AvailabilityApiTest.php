@@ -26,8 +26,9 @@ class AvailabilityApiTest extends TestCase
 
         // Create test house
         $this->house = new House();
-        $this->house->setInstanceId('test-instance');
+        $this->house->setNextcloudInstanceId('test-instance');
         $this->house->setName('Test House');
+        $this->house->setHouseHealth(100);
 
         // Create test availability settings
         $this->availabilitySettings = new AvailabilitySettings();
