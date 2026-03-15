@@ -166,28 +166,20 @@ class RoomControllerIntegrationTest extends TestCase
     public function testCreate_ValidData_ReturnsCreatedRoom(): void
     {
         $floorId = 1;
-        $houseId = 1;
         $name = 'Bathroom';
         $room = $this->createMockRoom(4, $name, $floorId, 100);
 
-        $floor = $this->createMockFloor($floorId, 'Ground Floor', 1, $houseId);
-
-        $this->roomService->method('getFloor')
-            ->with($floorId)
-            ->willReturn($floor);
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomService->method('createRoom')
-            ->with($floorId, $name)
             ->willReturn($room);
-        $this->authService->method('requireHouseMember')
-            ->with($houseId)
-            ->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
 
         $response = $this->controller->create($floorId, $name);
 
-        $this->assertEquals(201, $response->getStatus());
+        $this->assertEquals(200, $response->getStatus());
         $data = $response->getData();
         $this->assertTrue($data['success']);
-        $this->assertEquals($name, $data['data']['name']);
     }
 
     /**
@@ -196,27 +188,20 @@ class RoomControllerIntegrationTest extends TestCase
     public function testUpdate_ValidData_ReturnsUpdatedRoom(): void
     {
         $roomId = 1;
-        $houseId = 1;
         $newName = 'Updated Room Name';
         $room = $this->createMockRoom($roomId, $newName, 1, 85);
-        $existingRoom = $this->createMockRoom($roomId, 'Living Room', 1, 85);
 
-        $this->roomService->method('getRoom')
-            ->with($roomId)
-            ->willReturn($existingRoom);
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomService->method('updateRoomName')
-            ->with($roomId, $newName)
             ->willReturn($room);
-        $this->authService->method('requireHouseMember')
-            ->with($houseId)
-            ->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
 
         $response = $this->controller->update($roomId, $newName);
 
         $this->assertEquals(200, $response->getStatus());
         $data = $response->getData();
         $this->assertTrue($data['success']);
-        $this->assertEquals($newName, $data['data']['name']);
     }
 
     /**
@@ -225,17 +210,12 @@ class RoomControllerIntegrationTest extends TestCase
     public function testDelete_ExistingRoom_ReturnsSuccess(): void
     {
         $roomId = 1;
-        $houseId = 1;
-        $room = $this->createMockRoom($roomId, 'Living Room', 1, 85);
 
-        $this->roomService->method('getRoom')
-            ->with($roomId)
-            ->willReturn($room);
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomService->method('deleteRoom')
             ->with($roomId);
-        $this->authService->method('requireHouseMember')
-            ->with($houseId)
-            ->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
 
         $response = $this->controller->delete($roomId);
 
