@@ -60,8 +60,9 @@ class AuthorizationIntegrationTest extends TestCase
         // Create test house
         $this->testHouse = new House();
         $this->testHouse->setId(1);
-        $this->testHouse->setInstanceId('test-instance');
+        $this->testHouse->setNextcloudInstanceId('test-instance');
         $this->testHouse->setName('Test House');
+        $this->testHouse->setHouseHealth(100);
 
         // Create owner user
         $this->ownerUser = new HouseUser();
