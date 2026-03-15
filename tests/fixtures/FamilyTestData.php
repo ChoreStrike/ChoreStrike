@@ -37,69 +37,72 @@ class FamilyTestData
     public static function createFamilyMembers(): array
     {
         return [
-            // Parents (Owners)
+            // Parents (Owners) - realistic scores and streaks from ongoing household
             'mom' => self::createHouseUser(1, 'mom', 'Mom', 'owner', 35, [
                 'weekdayAvailability' => ['monday' => true, 'tuesday' => true, 'wednesday' => true, 'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true],
                 'preferredTasks' => ['kitchen', 'laundry'],
                 'maxDailyTasks' => 5
-            ]),
+            ], 1250, 7, 14, 85),
             'dad' => self::createHouseUser(2, 'dad', 'Dad', 'owner', 37, [
                 'weekdayAvailability' => ['monday' => true, 'tuesday' => true, 'wednesday' => true, 'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true],
                 'preferredTasks' => ['garage', 'yard'],
                 'maxDailyTasks' => 4
-            ]),
+            ], 980, 4, 12, 60),
 
-            // Children
+            // Children - age-appropriate scores
             'teen' => self::createHouseUser(3, 'teen', 'Teen', 'child', 15, [
                 'weekdayAvailability' => ['monday' => false, 'tuesday' => false, 'wednesday' => false, 'thursday' => false, 'friday' => false, 'saturday' => true, 'sunday' => true],
                 'preferredTasks' => ['bedroom', 'bathroom'],
                 'maxDailyTasks' => 3
-            ]),
+            ], 450, 0, 5, 25),
             'kid' => self::createHouseUser(4, 'kid', 'Kid', 'child', 8, [
                 'weekdayAvailability' => ['monday' => false, 'tuesday' => false, 'wednesday' => false, 'thursday' => false, 'friday' => false, 'saturday' => true, 'sunday' => true],
                 'preferredTasks' => ['toys', 'pets'],
                 'maxDailyTasks' => 2
-            ]),
+            ], 230, 2, 3, 15),
 
-            // Extended Family/Friends (Guests)
+            // Extended Family/Friends (Guests) - occasional helpers
             'grandma' => self::createHouseUser(5, 'grandma', 'Grandma', 'guest', 65, [
                 'weekdayAvailability' => ['monday' => true, 'tuesday' => true, 'wednesday' => true, 'thursday' => true, 'friday' => false, 'saturday' => true, 'sunday' => true],
                 'preferredTasks' => ['kitchen', 'living_room'],
                 'maxDailyTasks' => 2
-            ]),
+            ], 180, 3, 6, 12),
             'friend' => self::createHouseUser(6, 'friend', 'Friend', 'guest', 30, [
                 'weekdayAvailability' => ['monday' => false, 'tuesday' => false, 'wednesday' => false, 'thursday' => false, 'friday' => false, 'saturday' => true, 'sunday' => false],
                 'preferredTasks' => ['living_room'],
                 'maxDailyTasks' => 1
-            ]),
+            ], 50, 0, 2, 5),
         ];
     }
 
-    private static function createHouseUser(int $id, string $nextcloudUserId, string $displayName, string $role, int $age, array $preferences): HouseUser
+    private static function createHouseUser(int $id, string $nextcloudUserId, string $displayName, string $role, int $age, array $preferences, int $score = 0, int $currentStreak = 0, int $longestStreak = 0, int $teamSparks = 0): HouseUser
     {
         $user = new HouseUser();
         $user->setId($id);
         $user->setNextcloudUserId($nextcloudUserId);
         $user->setDisplayName($displayName);
         $user->setRole($role);
-        $user->setContributionScore(0);
-        $user->setTeamSparks(0);
-        $user->setCurrentStreak(0);
-        $user->setLongestStreak(0);
+        $user->setContributionScore($score);
+        $user->setTeamSparks($teamSparks);
+        $user->setCurrentStreak($currentStreak);
+        $user->setLongestStreak($longestStreak);
         $user->setSchedulingPreferences($preferences);
         $user->setJoinedAt(new \DateTime('2024-01-01'));
-        $user->setLastActivity(new \DateTime('2024-01-01'));
+        $user->setLastActivity(new \DateTime());
         return $user;
     }
 
     public static function createRooms(): array
     {
         return [
-            'kitchen' => self::createRoom(1, 'kitchen', 'Kitchen', 1, 75),
+            // Ground floor - cleanliness reflects overdue tasks
+            'kitchen' => self::createRoom(1, 'kitchen', 'Kitchen', 1, 65), // Lower due to overdue dishes
             'living_room' => self::createRoom(2, 'living_room', 'Living Room', 1, 60),
-            'master_bedroom' => self::createRoom(3, 'master_bedroom', 'Master Bedroom', 2, 80),
-            'kids_bedroom' => self::createRoom(4, 'kids_bedroom', 'Kids Bedroom', 2, 40),
             'master_bathroom' => self::createRoom(5, 'master_bathroom', 'Master Bathroom', 1, 70),
+            
+            // First floor - realistic family usage
+            'master_bedroom' => self::createRoom(3, 'master_bedroom', 'Master Bedroom', 2, 85), // Recently cleaned
+            'kids_bedroom' => self::createRoom(4, 'kids_bedroom', 'Kids Bedroom', 2, 30), // Very low - 2 days overdue cleaning
             'kids_bathroom' => self::createRoom(6, 'kids_bathroom', 'Kids Bathroom', 1, 50),
         ];
     }
@@ -111,7 +114,10 @@ class FamilyTestData
         $room->setName($name);
         $room->setFloorId($floorId);
         $room->setCleanliness($cleanliness);
-        $room->setLastCleaned(new \DateTime('2024-01-01'));
+        // Realistic last cleaned dates based on cleanliness
+        $lastCleanedDays = (int) ((100 - $cleanliness) / 10);
+        $lastCleaned = (new \DateTime())->modify("-{$lastCleanedDays} days");
+        $room->setLastCleaned($lastCleaned);
         $room->setCreatedAt(new \DateTime('2024-01-01'));
         return $room;
     }
@@ -168,29 +174,56 @@ class FamilyTestData
     {
         $roomTasks = [];
         $today = new \DateTime();
+        $yesterday = (clone $today)->modify('-1 day');
+        $twoDaysAgo = (clone $today)->modify('-2 days');
         $tomorrow = (clone $today)->modify('+1 day');
 
-        // Kitchen tasks for today
-        $roomTasks[] = self::createRoomTask(1, 1, 1, $today, true, 'mom');
-        $roomTasks[] = self::createRoomTask(2, 2, 1, $today, true, 'teen');
-        $roomTasks[] = self::createRoomTask(3, 3, 1, $today, true, 'dad');
+        // === Completed Tasks (History) - realistic household snapshot ===
+        // Mom completed dishes yesterday
+        $roomTasks[] = self::createRoomTask(1, 1, 1, $yesterday, false, 'mom');
+        
+        // Teen completed make bed this morning (same day but completed)
+        $roomTasks[] = self::createRoomTask(2, 7, 4, $today, false, 'teen');
+        
+        // Dad completed trash 2 days ago
+        $roomTasks[] = self::createRoomTask(3, 3, 1, $twoDaysAgo, false, 'dad');
 
-        // Living room tasks for today
-        $roomTasks[] = self::createRoomTask(4, 6, 2, $today, true, 'kid');
-        $roomTasks[] = self::createRoomTask(5, 4, 2, $tomorrow, true, null);
+        // === Overdue Tasks (Critical - claimable by others) ===
+        // Dishes overdue (assigned to mom but not done today) - dad could claim this
+        $roomTasks[] = self::createRoomTask(4, 1, 1, $yesterday, true, 'mom');
+        
+        // Kids bedroom cleaning overdue (assigned to kid, 2 days overdue)
+        $roomTasks[] = self::createRoomTask(5, 8, 4, $twoDaysAgo, true, 'kid');
 
-        // Bedroom tasks for today
-        $roomTasks[] = self::createRoomTask(6, 7, 4, $today, true, 'teen');
-        $roomTasks[] = self::createRoomTask(7, 7, 3, $today, true, 'kid');
-        $roomTasks[] = self::createRoomTask(8, 8, 3, $tomorrow, true, null);
+        // === Active Today (Assigned) ===
+        // Wipe counters assigned to teen (due today)
+        $roomTasks[] = self::createRoomTask(6, 2, 1, $today, true, 'teen');
+        
+        // Tidy toys assigned to kid (due today)
+        $roomTasks[] = self::createRoomTask(7, 6, 2, $today, true, 'kid');
+        
+        // Clean sink assigned to grandma (due today)
+        $roomTasks[] = self::createRoomTask(8, 11, 6, $today, true, 'grandma');
+        
+        // Make bed assigned to kid (due today)
+        $roomTasks[] = self::createRoomTask(9, 7, 3, $today, true, 'kid');
 
-        // Bathroom tasks for today
-        $roomTasks[] = self::createRoomTask(9, 11, 6, $today, true, 'teen');
-        $roomTasks[] = self::createRoomTask(10, 10, 6, $tomorrow, true, null);
+        // === Active Today (Unassigned - available to claim) ===
+        // Vacuum living room (no one assigned yet, anyone can claim)
+        $roomTasks[] = self::createRoomTask(10, 4, 2, $today, true, null);
+        
+        // Dust furniture (unassigned, claimable)
+        $roomTasks[] = self::createRoomTask(11, 5, 2, $today, true, null);
 
-        // Weekly tasks
-        $roomTasks[] = self::createRoomTask(11, 9, 3, $tomorrow, true, 'mom');
-        $roomTasks[] = self::createRoomTask(12, 5, 2, $tomorrow, true, 'grandma');
+        // === Future Tasks ===
+        // Laundry scheduled for tomorrow (assigned to mom)
+        $roomTasks[] = self::createRoomTask(12, 9, 3, $tomorrow, true, 'mom');
+        
+        // Clean toilet scheduled for tomorrow (unassigned)
+        $roomTasks[] = self::createRoomTask(13, 10, 6, $tomorrow, true, null);
+
+        // Restock supplies (future, assigned to dad)
+        $roomTasks[] = self::createRoomTask(14, 12, 6, $tomorrow, true, 'dad');
 
         return $roomTasks;
     }
