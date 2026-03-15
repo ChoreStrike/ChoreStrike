@@ -84,16 +84,16 @@ class Version1016Date20260314000000 extends SimpleMigrationStep
 				'default' => 'CURRENT_TIMESTAMP',
 			]);
 			
-			$table->setPrimaryKey(['id']);
+			$table->setPrimaryKey(['id'], 'mgs_pk');
 			
 			// Index for leaderboard queries by house and game
-			$table->addIndex(['house_id', 'game_id', 'score'], 'mgs_house_game_score_idx');
+			$table->addIndex(['house_id', 'game_id', 'score'], 'mgs_hgs');
 			
 			// Index for user's own scores
-			$table->addIndex(['user_id', 'game_id'], 'mgs_user_game_idx');
+			$table->addIndex(['user_id', 'game_id'], 'mgs_ug');
 			
 			// Index for house + user lookup
-			$table->addIndex(['house_id', 'user_id'], 'mgs_house_user_idx');
+			$table->addIndex(['house_id', 'user_id'], 'mgs_hu');
 		}
 
 		return $schema;

@@ -94,17 +94,9 @@ class UserControllerIntegrationTest extends TestCase
     public function testInvite_ValidNextcloudUser_ReturnsInvitedUser(): void
     {
         $house = $this->createHouse();
-        $nextcloudUser = new class implements IUser {
-            public function getUID(): string
-            {
-                return 'newuser';
-            }
-
-            public function getDisplayName(): string
-            {
-                return 'New User';
-            }
-        };
+        $nextcloudUser = $this->createMock(IUser::class);
+        $nextcloudUser->method('getUID')->willReturn('newuser');
+        $nextcloudUser->method('getDisplayName')->willReturn('New User');
         $role = 'member';
         $houseUser = $this->createHouseUser(3, $house->getId(), 'newuser', 'New User', $role);
 

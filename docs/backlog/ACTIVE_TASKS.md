@@ -17,13 +17,21 @@
 - **Session A - Static Quality**: ✅ PSR-12 clean, ESLint clean, no unsafe HTML, console logs in orphaned components only
 - **Session A - Wiring Scan**: ✅ 5 wired views (Dashboard, TaskManager, RoomDetail, Leaderboard, Settings), 79 backend routes
 - **Session B - Security**: ✅ Authorization on all endpoints, ownership validation, auto-membership for private instance
-- **Session B - Architecture**: ✅ Thin controllers, services handle business logic, clean layer separation
-- **Session B - Contracts**: ✅ Frontend-backend aligned, orphaned `/api/v1/user-stats` not used by active flows
-- **Session C - Validation**: ⚠️ 3 mock-related test failures (not security bugs), router tests pass
-- **Session C - Documentation**: ✅ TESTING.md current, phase-8 exit criteria defined
-- **ALPHA DECISION**: ✅ APPROVED - Safe for personal real-world alpha usage
 - **Known Non-Blockers**: Orphaned components (UserManagement, SchedulingView), legacy E2E tests, test mock drift
-- **Recommended Next**: Deploy to personal Nextcloud instance, fix test mocks, add multi-user E2E coverage
+- [x] Docker Test Environment
+  - [x] Fixed migration index name length issue (Version1016Date20260314000000)
+  - [x] Docker containers running successfully
+  - [x] ChoreStrike accessible at http://localhost:8080
+  - [x] Unit tests pass (329 tests, 958 assertions)
+- [ ] Integration Tests (blocked - need full Nextcloud bootstrap)
+  - Integration tests require full OC class loading
+  - 53 errors due to missing OC/DBAL classes in test bootstrap
+- [ ] Manual Testing
+  - [ ] Execute MANUAL_TEST_CHECKLIST.md scenarios
+- [ ] Beta Deployment on Personal Server
+  - [ ] Deploy to personal Nextcloud instance
+  - [ ] Verify no impact on other Nextcloud apps
+  - [ ] Real-world usage testing for `v0.8.x` alpha
 
 ### Cascade - UX-E2E-REALISM-001 - GUI-first flow, icon clarity, local-only assets
 **Status**: In Progress  
@@ -163,9 +171,9 @@
   - Battle UI/UX flow
 
 ### Cascade - MS-ICONS-MIGRATION-001 - Microsoft Fluent UI Icons Integration
-**Status**: Review Ready
+**Status**: Done
 **Started**: 2026-03-07 22:25
-**Updated**: 2026-03-08 21:40
+**Completed**: 2026-03-15 15:35
 **Branch**: master
 **Related Files**: docs/backlog/ACTIVE_TASKS.md, jest.config.js, package.json, package-lock.json, webpack.config.js, src/views/Dashboard.vue, src/views/Leaderboard.vue, src/views/Settings.vue, src/components/Common/Icon.vue, src/components/Common/SvgIcon.vue, src/components/Dashboard/QuickStats.vue, src/components/Dashboard/FloorList.vue, src/components/Dashboard/RoomCard.vue, src/components/Tasks/TaskChecklist.vue, src/components/Tasks/TaskList.vue, src/store/rooms.js, src/utils/icons.js, src/utils/roomIcons.js, lib/Db/Room.php, lib/Db/RoomMapper.php, lib/Service/RoomService.php, lib/Controller/RoomController.php, lib/Migration/Version1015Date20260304000000.php, tests/unit/__mocks__/svg.js, tests/unit/components/Icon.spec.js, tests/unit/components/FloorList.spec.js, tests/unit/components/RoomCard.spec.js, tests/unit/components/TaskChecklist.spec.js, tests/unit/components/TaskList.spec.js, tests/unit/views/Leaderboard.spec.js, tests/unit/views/Settings.spec.js, tests/unit/store/rooms.spec.js, tests/unit/Service/RoomServiceTest.php, tests/unit/Controller/RoomControllerTest.php
 **Blockers**: None
@@ -255,9 +263,9 @@
   - `npm test -- --runInBand tests/unit/components/FloorList.spec.js` ✅ (19 tests passed)
 
 ### Cascade - TEAM-SPARKS-UI-001 - Team Sparks Integration in User Interface
-**Status**: Review Ready
+**Status**: Done
 **Started**: 2026-03-07 22:25
-**Updated**: 2026-03-13 19:00
+**Completed**: 2026-03-15 16:00
 **Branch**: master
 **Related Files**: src/components/Gamification/*.vue, l10n/en.json, l10n/de.json
 **Blockers**: None
@@ -270,9 +278,9 @@
   - `npm test -- --runInBand` ✅ (432 tests passed)
 
 ### Cascade - COOPERATIVE-FEATURES-001 - Cooperative Gamification Elements
-**Status**: Review Ready
+**Status**: Done
 **Started**: 2026-03-07 22:25
-**Updated**: 2026-03-13 22:30
+**Completed**: 2026-03-15 16:00
 **Branch**: master
 **Related Files**: src/store/game.js, src/store/roomTasks.js, src/components/Gamification/HouseholdProgress.vue, l10n/en.json, l10n/de.json
 **Blockers**: None
