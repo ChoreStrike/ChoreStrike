@@ -167,12 +167,10 @@ class HouseControllerIntegrationTest extends TestCase
      */
     public function testGetHealth_ReturnsHouseHealth_SuccessResponse(): void
     {
-        $health = ['health' => 82, 'status' => 'good'];
-
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->houseService->method('calculateHouseHealth')
-            ->willReturn($health);
+            ->willReturn(82);
         $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
 
         $response = $this->controller->health();
