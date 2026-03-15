@@ -124,14 +124,14 @@ class RoomTaskControllerIntegrationTest extends TestCase
     public function testComplete_ExistingRoomTask_ReturnsSuccessWithCompletion(): void
     {
         $roomTaskId = 1;
-        $completedRoomTask = $this->createMockRoomTask($roomTaskId, 1, 1);
-        $completedRoomTask->setLastCompleted(new \DateTime());
+        // completeTask returns array, not RoomTask entity
+        $completedData = ['id' => $roomTaskId, 'completed' => true, 'lastCompleted' => date('c')];
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomTaskService->method('completeTask')
-            ->willReturn($completedRoomTask);
+            ->willReturn($completedData);
 
         $response = $this->controller->complete($roomTaskId);
 
