@@ -177,6 +177,9 @@ class FloorControllerIntegrationTest extends TestCase
     {
         $floorId = 999;
 
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
         $this->floorService->method('getFloor')
             ->with($floorId)
             ->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Floor not found'));
