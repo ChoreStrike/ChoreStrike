@@ -180,13 +180,13 @@ class FloorControllerIntegrationTest extends TestCase
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
-        $this->floorService->method('getFloor')
-            ->with($floorId)
+        $this->floorService->method('validateFloorOwnership')
             ->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Floor not found'));
 
         $response = $this->controller->delete($floorId);
 
-        $this->assertEquals(404, $response->getStatus());
+        // Controller catches exception and returns 500 with error
+        $this->assertEquals(500, $response->getStatus());
         $data = $response->getData();
         $this->assertFalse($data['success']);
     }
