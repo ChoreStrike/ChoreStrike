@@ -27,10 +27,9 @@ class FamilyTestData
     public static function createHouse(): House
     {
         $house = new House();
+        $house->setNextcloudInstanceId('test-instance');
         $house->setName('Test Family Home');
-        $house->setAddress('123 Test Street');
-        $house->setCity('Test City');
-        $house->setActive(true);
+        $house->setHouseHealth(100);
         $house->setCreatedAt(new \DateTime('2024-01-01'));
         return $house;
     }
@@ -76,19 +75,18 @@ class FamilyTestData
         ];
     }
 
-    private static function createHouseUser(int $id, string $userId, string $displayName, string $role, int $age, array $preferences): HouseUser
+    private static function createHouseUser(int $id, string $nextcloudUserId, string $displayName, string $role, int $age, array $preferences): HouseUser
     {
         $user = new HouseUser();
         $user->setId($id);
-        $user->setUserId($userId);
+        $user->setNextcloudUserId($nextcloudUserId);
         $user->setDisplayName($displayName);
         $user->setRole($role);
-        $user->setAge($age);
         $user->setContributionScore(0);
         $user->setTeamSparks(0);
         $user->setCurrentStreak(0);
         $user->setLongestStreak(0);
-        $user->setSchedulingPreferences(json_encode($preferences));
+        $user->setSchedulingPreferences($preferences);
         $user->setJoinedAt(new \DateTime('2024-01-01'));
         $user->setLastActivity(new \DateTime('2024-01-01'));
         return $user;
@@ -154,7 +152,14 @@ class FamilyTestData
         $task->setPriority($priority);
         $task->setFrequencyType($frequencyType);
         $task->setFrequencyValue($frequencyValue);
-        $task->setScopeId(1); // Default scope
+        $task->setScopeType('house'); // Default scope type
+        $task->setCategory('general');
+        $task->setIsTemplate(false);
+        $task->setRecurrenceMode('standard');
+        $task->setIsVoluntary(false);
+        $task->setSchedulingMode('flexible');
+        $task->setAllowTeamwork(false);
+        $task->setTeamSparkMultiplier(1.0);
         $task->setCreatedAt(new \DateTime('2024-01-01'));
         return $task;
     }

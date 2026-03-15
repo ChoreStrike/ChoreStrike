@@ -8,6 +8,7 @@ use OCA\ChoreStrike\Controller\TaskController;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskService;
+use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -18,6 +19,7 @@ class TaskControllerIntegrationTest extends TestCase
 {
     private TaskController $controller;
     private TaskService $taskService;
+    private RoomTaskService $roomTaskService;
     private HouseService $houseService;
     private AuthorizationService $authService;
     private IRequest $request;
@@ -28,12 +30,14 @@ class TaskControllerIntegrationTest extends TestCase
 
         $this->request = $this->createMock(IRequest::class);
         $this->taskService = $this->createMock(TaskService::class);
+        $this->roomTaskService = $this->createMock(RoomTaskService::class);
         $this->houseService = $this->createMock(HouseService::class);
         $this->authService = $this->createMock(AuthorizationService::class);
 
         $this->controller = new TaskController(
             $this->request,
             $this->taskService,
+            $this->roomTaskService,
             $this->houseService,
             $this->authService
         );

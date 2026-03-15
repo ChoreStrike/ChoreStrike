@@ -34,27 +34,29 @@ class DailyTasksApiTest extends TestCase
 
         // Create test house
         $this->house = new House();
-        $this->house->setInstanceId('test-instance');
+        $this->house->setNextcloudInstanceId('test-instance');
         $this->house->setName('Test House');
+        $this->house->setHouseHealth(100);
 
         // Create test floor
         $this->floor = new Floor();
         $this->floor->setHouseId($this->house->getId());
         $this->floor->setName('Test Floor');
-        $this->floor->setLevel(1);
+        $this->floor->setSortOrder(1);
 
         // Create test room
         $this->room = new Room();
         $this->room->setFloorId($this->floor->getId());
         $this->room->setName('Test Room');
-        $this->room->setType('bedroom');
+        $this->room->setIcon('Bed');
 
         // Create test task
         $this->task = new Task();
         $this->task->setName('Test Task');
-        $this->task->setCategoryId(1);
-        $this->task->setSchedulingMode('weekly');
-        $this->task->setFrequency(1);
+        $this->task->setCategory('general');
+        $this->task->setSchedulingMode('flexible');
+        $this->task->setFrequencyType('weekly');
+        $this->task->setFrequencyValue(1);
 
         // Create test room task
         $this->roomTask = new RoomTask();
