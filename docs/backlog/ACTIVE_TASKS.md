@@ -23,9 +23,10 @@
   - [x] Docker containers running successfully
   - [x] ChoreStrike accessible at http://localhost:8080
   - [x] Unit tests pass (329 tests, 958 assertions)
-- [ ] Integration Tests (blocked - need full Nextcloud bootstrap)
-  - Integration tests require full OC class loading
-  - 53 errors due to missing OC/DBAL classes in test bootstrap
+- [x] Integration Tests Bootstrap
+  - [x] Created bootstrap-integration.php for full Nextcloud environment
+  - [x] Fixed entity attribute drift in fixtures
+  - [ ] Full mock rework needed (58 errors remaining)
 - [ ] Manual Testing
   - [ ] Execute MANUAL_TEST_CHECKLIST.md scenarios
 - [ ] Beta Deployment on Personal Server
