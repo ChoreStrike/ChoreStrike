@@ -124,12 +124,19 @@ class RoomTaskControllerIntegrationTest extends TestCase
     public function testComplete_ExistingRoomTask_ReturnsSuccessWithCompletion(): void
     {
         $roomTaskId = 1;
-        // completeTask returns array, not RoomTask entity
-        $completedData = ['id' => $roomTaskId, 'completed' => true, 'lastCompleted' => date('c')];
+        // completeTask returns array with roomTask, room, task, rewards
+        $completedData = [
+            'roomTask' => $this->createMockRoomTask($roomTaskId, 1, 1),
+            'room' => $this->createMockRoom(1, 'Living Room', 1, 85),
+            'task' => $this->createMockTask(1, 'Test Task'),
+            'rewards' => ['score' => 10, 'sparks' => 5]
+        ];
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('requireCurrentUserId')->willReturn('test-user');
+        $this->roomTaskService->method('validateRoomTaskOwnership');
         $this->roomTaskService->method('completeTask')
             ->willReturn($completedData);
 
@@ -214,5 +221,38 @@ class RoomTaskControllerIntegrationTest extends TestCase
         $this->assertEquals(200, $response->getStatus());
         $data = $response->getData();
         $this->assertTrue($data['success']);
+    }
+
+    private function createMockRoom(int $id, string $name, int $floorId, int $cleanliness): \OCA\ChoreStrike\Db\Room
+    {
+        $room = new \OCA\ChoreStrike\Db\Room();
+        $room->setId($id);
+        $room->setName($name);
+        $room->setFloorId($floorId);
+        $room->setCleanliness($cleanliness);
+        $room->setIcon('Home');
+        $room->setCreatedAt(new \DateTime());
+        return $room;
+    }
+
+    private function createMockTask(int $id, string $name): \OCA\ChoreStrike\Db\Task
+    {
+        $task = new \OCA\ChoreStrike\Db\Task();
+        $task->setId($id);
+        $task->setName($name);
+        $task->setDescription('Test task description');
+        $task->setEnergyCost(10);
+        $task->setPriority(1);
+        $task->setFrequencyType('daily');
+        $task->setFrequencyValue(1);
+        $task->setEstimatedMinutes(15);
+        $task->setCategory('cleaning');
+        $task->setIsTemplate(false);
+        $task->setScopeType('room');
+        $task->setRecurrenceMode('repeat');
+        $task->setIsVoluntary(false);
+        $task->setSchedulingMode('flexible');
+        $task->setCreatedAt(new \DateTime());
+        return $task;
     }
 }
