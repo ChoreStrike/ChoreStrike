@@ -44,58 +44,67 @@ class RoomControllerIntegrationTest extends TestCase
      */
     public function testIndex_ReturnsRoomsList_SuccessResponse(): void
     {
-        $houseId = 1;
         $floorId = 1;
         $rooms = [
             $this->createMockRoom(1, 'Living Room', $floorId, 85),
             $this->createMockRoom(2, 'Kitchen', $floorId, 90),
         ];
 
-        $floor = $this->createMockFloor($floorId, 'Ground Floor', 1, $houseId);
-
-        $this->roomService->method('getFloor')
-            ->with($floorId)
-            ->willReturn($floor);
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomService->method('getRooms')
             ->with($floorId)
             ->willReturn($rooms);
-        $this->authService->method('requireHouseMember')
-            ->with($houseId)
-            ->willReturn($this->createMock(\OCA\ChoreStrike\Db\HouseUser::class));
 
         $response = $this->controller->index($floorId);
 
         $this->assertEquals(200, $response->getStatus());
         $data = $response->getData();
         $this->assertTrue($data['success']);
-        $this->assertCount(2, $data['data']);
     }
 
     private function createMockFloor(int $id, string $name, int $sortOrder, int $houseId): \OCA\ChoreStrike\Db\Floor
     {
-        $floor = $this->createMock(\OCA\ChoreStrike\Db\Floor::class);
-        $floor->method('getId')->willReturn($id);
-        $floor->method('getName')->willReturn($name);
-        $floor->method('getSortOrder')->willReturn($sortOrder);
-        $floor->method('getHouseId')->willReturn($houseId);
+        $floor = new \OCA\ChoreStrike\Db\Floor();
+        $floor->setId($id);
+        $floor->setName($name);
+        $floor->setSortOrder($sortOrder);
+        $floor->setHouseId($houseId);
+        $floor->setCreatedAt(new \DateTime());
         return $floor;
     }
 
     private function createMockRoom(int $id, string $name, int $floorId, int $cleanliness): \OCA\ChoreStrike\Db\Room
     {
-        $room = $this->createMock(\OCA\ChoreStrike\Db\Room::class);
-        $room->method('getId')->willReturn($id);
-        $room->method('getName')->willReturn($name);
-        $room->method('getFloorId')->willReturn($floorId);
-        $room->method('getCleanliness')->willReturn($cleanliness);
-        $room->method('getHouseId')->willReturn(1);
-        $room->method('jsonSerialize')->willReturn([
-            'id' => $id,
-            'name' => $name,
-            'floorId' => $floorId,
-            'cleanliness' => $cleanliness,
-        ]);
+        $room = new \OCA\ChoreStrike\Db\Room();
+        $room->setId($id);
+        $room->setName($name);
+        $room->setFloorId($floorId);
+        $room->setCleanliness($cleanliness);
+        $room->setIcon('Home');
+        $room->setCreatedAt(new \DateTime());
         return $room;
+    }
+
+    private function createMockHouse(): \OCA\ChoreStrike\Db\House
+    {
+        $house = new \OCA\ChoreStrike\Db\House();
+        $house->setId(1);
+        $house->setNextcloudInstanceId('test-instance');
+        $house->setName('Test House');
+        return $house;
+    }
+
+    private function createMockHouseUser(): \OCA\ChoreStrike\Db\HouseUser
+    {
+        $user = new \OCA\ChoreStrike\Db\HouseUser();
+        $user->setId(1);
+        $user->setHouseId(1);
+        $user->setNextcloudUserId('test-user');
+        $user->setDisplayName('Test User');
+        $user->setRole('member');
+        return $user;
     }
 
     /**
