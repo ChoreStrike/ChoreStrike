@@ -133,8 +133,8 @@ class AuthorizationIntegrationTest extends TestCase
             ->with(1, 'member')
             ->willReturn($this->memberUser);
 
-        $this->expectException(\OCP\AppFramework\Http\ForbiddenException::class);
-        $this->expectExceptionMessage('Only house owner can perform this action');
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Owner role required');
 
         $this->authService->requireHouseOwner(1);
     }
