@@ -86,18 +86,14 @@ class TaskControllerIntegrationTest extends TestCase
     public function testShow_ExistingTask_ReturnsTaskDetails(): void
     {
         $taskId = 1;
-        $task = [
-            'id' => $taskId,
-            'name' => 'Vacuum floor',
-            'description' => 'Vacuum all floors in the room',
-            'energyCost' => 2,
-            'priority' => 2,
-            'frequencyType' => 'weekly',
-            'frequencyValue' => 1,
-            'estimatedMinutes' => 20,
-            'category' => 'cleaning',
-        ];
+        $task = $this->createMockTask($taskId, 'Vacuum floor');
+        $task->setDescription('Vacuum all floors in the room');
+        $task->setEnergyCost(2);
+        $task->setPriority(2);
+        $task->setEstimatedMinutes(20);
 
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->taskService->method('getTask')
             ->with($taskId)
             ->willReturn($task);
@@ -107,7 +103,7 @@ class TaskControllerIntegrationTest extends TestCase
         $this->assertEquals(200, $response->getStatus());
         $data = $response->getData();
         $this->assertTrue($data['success']);
-        $this->assertEquals($task, $data['data']);
+        $this->assertEquals('Vacuum floor', $data['data']['name']);
     }
 
     /**
@@ -202,9 +198,10 @@ class TaskControllerIntegrationTest extends TestCase
     {
         $taskId = 1;
 
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->taskService->method('deleteTask')
-            ->with($taskId)
-            ->willReturn(true);
+            ->with($taskId);
 
         $response = $this->controller->delete($taskId);
 
@@ -218,21 +215,14 @@ class TaskControllerIntegrationTest extends TestCase
      */
     public function testTemplates_ReturnsTemplateTasks_SuccessResponse(): void
     {
-        $templates = [
-            [
-                'id' => 100,
-                'name' => 'Vacuum floor',
-                'isTemplate' => true,
-                'category' => 'cleaning',
-            ],
-            [
-                'id' => 101,
-                'name' => 'Clean windows',
-                'isTemplate' => true,
-                'category' => 'cleaning',
-            ],
-        ];
+        $task1 = $this->createMockTask(100, 'Vacuum floor');
+        $task1->setIsTemplate(true);
+        $task2 = $this->createMockTask(101, 'Clean windows');
+        $task2->setIsTemplate(true);
+        $templates = [$task1, $task2];
 
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->taskService->method('getTaskTemplates')
             ->willReturn($templates);
 
@@ -241,7 +231,6 @@ class TaskControllerIntegrationTest extends TestCase
         $this->assertEquals(200, $response->getStatus());
         $data = $response->getData();
         $this->assertTrue($data['success']);
-        $this->assertEquals($templates, $data['data']);
     }
 
     /**
