@@ -67,6 +67,8 @@ class TaskControllerIntegrationTest extends TestCase
             ],
         ];
 
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->taskService->method('getAllTasks')
             ->willReturn($tasks);
 
@@ -253,6 +255,8 @@ class TaskControllerIntegrationTest extends TestCase
             ['name' => 'bathroom', 'count' => 4],
         ];
 
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->taskService->method('getTaskCategories')
             ->willReturn($categories);
 
@@ -262,5 +266,32 @@ class TaskControllerIntegrationTest extends TestCase
         $data = $response->getData();
         $this->assertTrue($data['success']);
         $this->assertEquals($categories, $data['data']);
+    }
+
+    private function createMockHouse(): \OCA\ChoreStrike\Db\House
+    {
+        $house = new \OCA\ChoreStrike\Db\House();
+        $house->setId(1);
+        $house->setNextcloudInstanceId('test-instance');
+        $house->setName('Test House');
+        return $house;
+    }
+
+    private function createMockTask(int $id, string $name): \OCA\ChoreStrike\Db\Task
+    {
+        $task = new \OCA\ChoreStrike\Db\Task();
+        $task->setId($id);
+        $task->setName($name);
+        $task->setCategory('general');
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setSchedulingMode('flexible');
+        $task->setScopeType('house');
+        $task->setIsTemplate(false);
+        $task->setIsVoluntary(false);
+        $task->setAllowTeamwork(false);
+        $task->setTeamSparkMultiplier(1.0);
+        $task->setCreatedAt(new \DateTime());
+        return $task;
     }
 }
