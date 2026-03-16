@@ -49,4 +49,8 @@ Keep your home clean by completing tasks and watch cute pixel monsters disappear
             <icon>app.svg</icon>
         </navigation>
     </navigations>
+    
+    <commands>
+        <command>OCA\ChoreStrike\Command\TestDataSeed</command>
+    </commands>
 </info>
