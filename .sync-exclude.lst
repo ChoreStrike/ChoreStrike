@@ -12,6 +12,7 @@
 
 # Test coverage (generated, not tracked in Git)
 */coverage/
+*/.nyc_output/
 
 # Environment files (local only, not tracked in Git)
 .env
@@ -20,6 +21,7 @@
 
 # Private/local development files (not tracked in Git)
 private/
+archive/
 
 # IDE files (not tracked in Git)
 .vscode/
@@ -40,6 +42,14 @@ yarn-error.log*
 
 # Testing cache (generated, not tracked in Git)
 .phpunit.result.cache
+junit.xml
+test-results.json
+test-results-summary.json
+*/test-results/
+*/test-results-*/
+*/playwright-report/
+*/blob-report/
+*/playwright/.cache/
 
 # Git metadata (redundant with remote repository)
 .git/

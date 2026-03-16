@@ -5,6 +5,19 @@
 
 ## Currently Active
 
+### Cascade - P9-MAINT-IGNORE-001 - Ignore local test artifacts for Git and Nextcloud sync
+**Status**: Done
+**Started**: 2026-03-16 22:37
+**Completed**: 2026-03-16 22:52
+**Branch**: master
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, .gitignore, .sync-exclude.lst
+**Blockers**: None
+**Notes**:
+- Replaced the overly broad global PNG ignore with targeted generated-artifact rules only.
+- Added local `archive/` storage for old non-source files using `yyyy-mm` subfolders and moved old root screenshots into `archive/2026-03/`.
+- Removed `test-results.json` and `test-results-summary.json` from Git tracking and kept them as local-only ignored files.
+- Left potentially environment-relevant generated folders such as `js/` untouched to avoid breaking a local app instance.
+
 ### Cascade - P8-INTEGRATION-001 - Integration Tests Repair
 **Status**: Done
 **Started**: 2026-03-15 20:00
@@ -24,8 +37,8 @@
   - Added missing service mocks (`validateFloorOwnership`, `validateRoomTaskOwnership`)
 - **Commits** (10 total): 0443ea1, e41bbd1, 1b637a4, 1d72a1d, 2c1208c, 1b0ae0c, 9948ba0, c077e2b, b821bf4, b22b97b
 - **Validation**:
-  - Unit Tests: ✅ 329 tests, 958 assertions
-  - E2E Tests: ✅ 124 passed (16 flaky Firefox, 3 skipped, 42 webkit-docker)
+  - Unit Tests: 329 tests, 958 assertions
+  - E2E Tests: 124 passed (16 flaky Firefox, 3 skipped, 42 webkit-docker)
 
 ### Cascade - P8-PRE-ALPHA-REVIEW-001 - Pre-Alpha Complete Review Execution
 **Status**: Done
@@ -36,9 +49,9 @@
 **Blockers**: None
 **Notes**:
 - **COMPLETED**: Full pre-alpha review executed per `docs/PRE_ALPHA_REVIEW_PLAN.md`
-- **Session A - Static Quality**: ✅ PSR-12 clean, ESLint clean, no unsafe HTML, console logs in orphaned components only
-- **Session A - Wiring Scan**: ✅ 5 wired views (Dashboard, TaskManager, RoomDetail, Leaderboard, Settings), 79 backend routes
-- **Session B - Security**: ✅ Authorization on all endpoints, ownership validation, auto-membership for private instance
+- **Session A - Static Quality**: PSR-12 clean, ESLint clean, no unsafe HTML, console logs in orphaned components only
+- **Session A - Wiring Scan**: 5 wired views (Dashboard, TaskManager, RoomDetail, Leaderboard, Settings), 79 backend routes
+- **Session B - Security**: Authorization on all endpoints, ownership validation, auto-membership for private instance
 - **Known Non-Blockers**: Orphaned components (UserManagement, SchedulingView), legacy E2E tests, test mock drift
 - [x] Docker Test Environment
   - [x] Fixed migration index name length issue (Version1016Date20260314000000)
@@ -164,11 +177,11 @@
   - Task Pass Mechanic
   - Weekly cooperative goals
 - **Partially Implemented**:
-  - Contribution Score ✅ (calculated but not prominently displayed)
-  - Medal System ✅ (basic implementation exists)
-  - Combo System ✅ (logic exists, UI integration needed)
-  - Monster System ✅ (visual only, no battle mechanics)
-  - Streak System ✅ (basic streak keeper medal)
+  - Contribution Score (calculated but not prominently displayed)
+  - Medal System (basic implementation exists)
+  - Combo System (logic exists, UI integration needed)
+  - Monster System (visual only, no battle mechanics)
+  - Streak System (basic streak keeper medal)
 - **Next Actions**: Create detailed implementation plan for missing features
 
 ### Cascade - MONSTER-BATTLE-001 - Full Monster Battle System Implementation
@@ -235,10 +248,10 @@
   - Introduced a minimal `TaskChecklist.spec.js` regression to secure the active checklist icon rendering path.
   - Added official Fluent SVG mapping for `RefreshCw` and `Refresh` to cover FloorList and HouseHealthBar refresh buttons.
 - **Validation**:
-  - `npm test -- --runInBand tests/unit/store/rooms.spec.js tests/unit/components/RoomCard.spec.js tests/unit/components/FloorList.spec.js` ✅
-  - `vendor\\bin\\phpunit tests/unit/Service/RoomServiceTest.php tests/unit/Controller/RoomControllerTest.php` ✅
-  - `npm test -- --runInBand tests/unit/components/Icon.spec.js tests/unit/components/FloorList.spec.js tests/unit/components/RoomCard.spec.js` ✅
-  - `npm test -- --runInBand tests/unit/components/Icon.spec.js tests/unit/components/TaskList.spec.js tests/unit/views/Leaderboard.spec.js tests/unit/views/Settings.spec.js` ✅
+  - `npm test -- --runInBand tests/unit/store/rooms.spec.js tests/unit/components/RoomCard.spec.js tests/unit/components/FloorList.spec.js` 
+  - `vendor\\bin\\phpunit tests/unit/Service/RoomServiceTest.php tests/unit/Controller/RoomControllerTest.php` 
+  - `npm test -- --runInBand tests/unit/components/Icon.spec.js tests/unit/components/FloorList.spec.js tests/unit/components/RoomCard.spec.js` 
+  - `npm test -- --runInBand tests/unit/components/Icon.spec.js tests/unit/components/TaskList.spec.js tests/unit/views/Leaderboard.spec.js tests/unit/views/Settings.spec.js` 
 
 ### Cascade - P9-REVIEW-DELTA-003 - Commit-Range Review Slice and TestData Reset Compatibility
 **Status**: Done
@@ -254,7 +267,7 @@
 - Hardened reset for mixed schema states by ignoring only missing-table errors while rethrowing unrelated query failures.
 - Added regression coverage for canonical+legacy deletion set, missing-table tolerance, and unexpected-error propagation.
 - Validation:
-  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\TestDataServiceTest.php tests\\unit\\Controller\\RoomControllerTest.php` ✅
+  - `vendor\\bin\\phpunit.bat --configuration phpunit.unit.xml tests\\unit\\Service\\TestDataServiceTest.php tests\\unit\\Controller\\RoomControllerTest.php` 
 
 ### Cascade - P9-FEATURE-001 - Complete Energy Budget Calculation (`todayRemainingEnergy`)
 **Status**: Done
@@ -283,7 +296,7 @@
 - Empty or unchanged names cancel the edit.
 - Added unit tests for all editing scenarios.
 - Validation:
-  - `npm test -- --runInBand tests/unit/components/FloorList.spec.js` ✅ (19 tests passed)
+  - `npm test -- --runInBand tests/unit/components/FloorList.spec.js` (19 tests passed)
 
 ### Cascade - TEAM-SPARKS-UI-001 - Team Sparks Integration in User Interface
 **Status**: Done
@@ -298,7 +311,7 @@
 - Added localization keys for "bonus Team Sparks" and "Bonus Team Sparks" in en.json and de.json.
 - German translation: "Team-Funken" and "Bonus-Team-Funken".
 - Validation:
-  - `npm test -- --runInBand` ✅ (432 tests passed)
+  - `npm test -- --runInBand` (432 tests passed)
 
 ### Cascade - COOPERATIVE-FEATURES-001 - Cooperative Gamification Elements
 **Status**: Done
@@ -320,7 +333,7 @@
   - Wired `incrementWeeklyGoal()` call on task completion in roomTasks store
   - Added localization keys for all new UI strings (EN/DE)
 - **Validation**:
-  - `npm test -- --runInBand tests/unit/store/game.spec.js` ✅ (34 tests passed)
+  - `npm test -- --runInBand tests/unit/store/game.spec.js` (34 tests passed)
 
 ### Cascade - ROLE-TITLE-SYSTEM-001 - Role Title Implementation
 **Status**: Planned

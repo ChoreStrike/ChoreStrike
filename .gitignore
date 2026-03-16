@@ -1,5 +1,6 @@
 # Private/Local Development Files
 /private/
+/archive/
 /docs/private/
 *.local
 .env
@@ -38,13 +39,13 @@ Thumbs.db
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/.nyc_output/
+/junit.xml
 
 # Playwright test output artifacts (screenshots, videos, traces)
 line/
-test-results/
-*.png
-*.zip
-.trace
+/test-results.json
+/test-results-summary.json
 
 # Logs
 *.log
