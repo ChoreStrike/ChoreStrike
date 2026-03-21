@@ -5,6 +5,26 @@
 
 ## Currently Active
 
+### Cascade - SCHEDULING-002 - Flex-Window Scheduler Implementation
+**Status**: Done
+**Started**: 2026-03-21 19:00
+**Completed**: 2026-03-21 19:30
+**Branch**: master
+**Related Files**: lib/Db/RoomTask.php, lib/Db/RoomTaskMapper.php, lib/Service/RoomTaskService.php, lib/Service/RoomService.php, tests/unit/Db/RoomTaskTest.php
+**Blockers**: None
+**Notes**:
+- Phase 2.3 of Reward System Redesign COMPLETED
+- Added calculateIdealDueDate() method to RoomTask entity
+- Added findAvailableDaysInWindow() and pickBestDayInWindow() helper methods
+- Added getFlexWindowBounds() for UI display purposes
+- Updated markCompleted() to accept flexDays and scheduling preferences
+- Updated RoomTaskMapper::create() to accept idealDueDate parameter
+- Updated RoomTaskService::createRoomTask() to calculate idealDueDate
+- Updated RoomService::completeRoomTask() to pass flex parameters
+- Scheduler picks ideal date based on: weekday availability, energy budget, proximity to base date
+- Validation: 354 PHPUnit tests pass (12 new flex-window tests)
+- Commit: pending
+
 ### Cascade - SCHEDULING-001 - Flex-Window and Early Completion Bonus
 **Status**: Done
 **Started**: 2026-03-21 17:45

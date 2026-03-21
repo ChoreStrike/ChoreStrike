@@ -287,8 +287,9 @@ class RoomTaskMapper extends QBMapper
      * @param \DateTime $nextDue The next due date
      * @param string|null $assignedToUserId Optional assigned user ID
      * @param int|null $scopeId Optional scope ID
+     * @param \DateTime|null $idealDueDate Optional ideal due date for flex scheduling
      */
-    public function create(int $roomId, int $taskId, \DateTime $nextDue, ?string $assignedToUserId = null, ?int $scopeId = null): RoomTask
+    public function create(int $roomId, int $taskId, \DateTime $nextDue, ?string $assignedToUserId = null, ?int $scopeId = null, ?\DateTime $idealDueDate = null): RoomTask
     {
         $roomTask = new RoomTask();
         $roomTask->setRoomId($roomId);
@@ -296,6 +297,7 @@ class RoomTaskMapper extends QBMapper
         $roomTask->setNextDue($nextDue);
         $roomTask->setAssignedToUserId($assignedToUserId);
         $roomTask->setScopeId($scopeId);
+        $roomTask->setIdealDueDate($idealDueDate);
         $roomTask->setIsActive(true);
         $roomTask->setCreatedAt(new \DateTime());
 

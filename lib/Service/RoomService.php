@@ -300,7 +300,16 @@ class RoomService
         $task = $roomTaskData['task'];
         $room = $roomTaskData['room'];
 
-        // Mark task as completed and calculate next due date
+        // Get house user for scheduling preferences
+        $floor = $this->floorMapper->find($room->getFloorId());
+        $houseUser = $this->houseUserMapper->findByNextcloudUserId($floor->getHouseId(), $userId);
+
+        // Get user's scheduling preferences for flex scheduling
+        $preferences = $houseUser->getSchedulingPreferences();
+        $weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
+        $energyBudget = $preferences['energyBudget'] ?? [];
+
+        // Mark task as completed and calculate next due date with flex scheduling
         $roomTask->markCompleted(
             new \DateTime(),
             $task->getFrequencyType(),
@@ -309,7 +318,10 @@ class RoomService
             $task->getSchedulingMode(),
             $task->getActiveUntil(),
             $task->getFixedScheduleTime(),
-            $task->getFixedScheduleDays()
+            $task->getFixedScheduleDays(),
+            $task->getFlexDays(),
+            $weekdayAvailability,
+            $energyBudget
         );
         $this->roomTaskMapper->update($roomTask);
 
@@ -317,15 +329,10 @@ class RoomService
         $cleanlinessChange = $task->getEnergyCost() * 10; // 10% per energy point
         $updatedRoom = $this->updateRoomCleanliness($room->getId(), $cleanlinessChange);
 
-        // Get house user ID for game logic (houseId is on Floor, not Room)
-        $floor = $this->floorMapper->find($room->getFloorId());
-        $houseUser = $this->houseUserMapper->findByNextcloudUserId($floor->getHouseId(), $userId);
-        $houseUserId = $houseUser->getId();
-
         // Trigger game logic for task completion
         $gameResult = $this->gameLogicService->handleTaskCompletion(
             $roomTaskId,
-            $houseUserId,
+            $houseUser->getId(),
             $task,
             $updatedRoom->getCleanliness()
         );

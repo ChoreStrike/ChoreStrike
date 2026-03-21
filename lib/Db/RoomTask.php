@@ -226,6 +226,9 @@ class RoomTask extends Entity implements JsonSerializable
      * @param \DateTime|null $activeUntil The active until date for recurring tasks
      * @param \DateTime|null $fixedScheduleTime The fixed schedule time (for static mode)
      * @param string|null $fixedScheduleDays JSON array of weekdays (for static+weekly mode)
+     * @param int $flexDays Number of flex days for flexible scheduling (0 = no flex)
+     * @param array $weekdayAvailability User's weekday availability for flex scheduling
+     * @param array $energyBudget User's daily energy budget for flex scheduling
      */
     public function markCompleted(
         \DateTime $completedAt,
@@ -235,7 +238,10 @@ class RoomTask extends Entity implements JsonSerializable
         string $schedulingMode = 'dynamic',
         ?\DateTime $activeUntil = null,
         ?\DateTime $fixedScheduleTime = null,
-        ?string $fixedScheduleDays = null
+        ?string $fixedScheduleDays = null,
+        int $flexDays = 0,
+        array $weekdayAvailability = [],
+        array $energyBudget = []
     ): void {
         $this->setLastCompleted($completedAt);
 
@@ -243,12 +249,13 @@ class RoomTask extends Entity implements JsonSerializable
         if ($recurrenceMode === 'one_time') {
             $this->setIsActive(false);
             $this->setNextDue($completedAt);
+            $this->setIdealDueDate(null);
             return;
         }
 
-        // Calculate next due date based on scheduling mode
+        // Calculate base next due date based on scheduling mode
         if ($schedulingMode === 'static') {
-            $nextDue = $this->calculateNextStaticDue(
+            $baseDue = $this->calculateNextStaticDue(
                 $completedAt,
                 $frequencyType,
                 $frequencyValue,
@@ -257,15 +264,20 @@ class RoomTask extends Entity implements JsonSerializable
             );
         } else {
             // Dynamic scheduling - shift from completion time
-            $nextDue = $this->calculateNextDynamicDue($completedAt, $frequencyType, $frequencyValue);
+            $baseDue = $this->calculateNextDynamicDue($completedAt, $frequencyType, $frequencyValue);
         }
 
+        // Calculate ideal due date within flex window
+        $idealDue = $this->calculateIdealDueDate($baseDue, $flexDays, $weekdayAvailability, $energyBudget);
+
         // Check if next due date exceeds active window
-        if ($activeUntil !== null && $nextDue > $activeUntil) {
+        if ($activeUntil !== null && $idealDue > $activeUntil) {
             $this->setIsActive(false);
             $this->setNextDue($activeUntil);
+            $this->setIdealDueDate(null);
         } else {
-            $this->setNextDue($nextDue);
+            $this->setNextDue($idealDue);
+            $this->setIdealDueDate($idealDue);
         }
     }
 
@@ -412,5 +424,159 @@ class RoomTask extends Entity implements JsonSerializable
         }
 
         return 'upcoming';
+    }
+
+    /**
+     * Calculate the ideal due date within a flex window
+     *
+     * The flex window is: [baseDate - flexDays, baseDate + flexDays]
+     * This method picks the ideal due date based on scheduling preferences.
+     *
+     * @param \DateTime $baseDate The base due date (e.g., last completed + interval)
+     * @param int $flexDays Number of flex days (0 = no flex, just use base date)
+     * @param array $weekdayAvailability User's weekday availability (e.g., ['monday' => true, ...])
+     * @param array $energyBudget User's daily energy budget (e.g., ['monday' => 10, ...])
+     * @return \DateTime The ideal due date
+     */
+    public function calculateIdealDueDate(
+        \DateTime $baseDate,
+        int $flexDays,
+        array $weekdayAvailability = [],
+        array $energyBudget = []
+    ): \DateTime {
+        // No flex window - just use base date
+        if ($flexDays <= 0) {
+            return clone $baseDate;
+        }
+
+        // Calculate flex window bounds
+        $windowStart = clone $baseDate;
+        $windowStart->sub(new \DateInterval("P{$flexDays}D"));
+        $windowStart->setTime(0, 0, 0);
+
+        $windowEnd = clone $baseDate;
+        $windowEnd->add(new \DateInterval("P{$flexDays}D"));
+        $windowEnd->setTime(23, 59, 59);
+
+        // Find all available days within the window
+        $availableDays = $this->findAvailableDaysInWindow($windowStart, $windowEnd, $weekdayAvailability);
+
+        // If no available days, fall back to base date
+        if (empty($availableDays)) {
+            return clone $baseDate;
+        }
+
+        // Score each available day based on energy budget and pick the best
+        $bestDay = $this->pickBestDayInWindow($availableDays, $energyBudget, $baseDate);
+
+        return $bestDay;
+    }
+
+    /**
+     * Find all available days within a date window
+     *
+     * @param \DateTime $windowStart Start of window
+     * @param \DateTime $windowEnd End of window
+     * @param array $weekdayAvailability User's weekday availability
+     * @return array Array of \DateTime objects for available days
+     */
+    private function findAvailableDaysInWindow(
+        \DateTime $windowStart,
+        \DateTime $windowEnd,
+        array $weekdayAvailability
+    ): array {
+        $availableDays = [];
+        $current = clone $windowStart;
+
+        // If no availability set, assume all days are available
+        $hasAvailability = !empty($weekdayAvailability);
+
+        while ($current <= $windowEnd) {
+            $dayName = strtolower($current->format('l'));
+            $isAvailable = $hasAvailability ? ($weekdayAvailability[$dayName] ?? true) : true;
+
+            if ($isAvailable) {
+                $availableDays[] = clone $current;
+            }
+
+            $current->add(new \DateInterval('P1D'));
+        }
+
+        return $availableDays;
+    }
+
+    /**
+     * Pick the best day from available days within flex window
+     *
+     * Prioritizes:
+     * 1. Days with higher energy budget (more capacity)
+     * 2. Days closer to the base date (less deviation)
+     *
+     * @param array $availableDays Array of \DateTime objects
+     * @param array $energyBudget User's daily energy budget
+     * @param \DateTime $baseDate The base due date for proximity scoring
+     * @return \DateTime The best day
+     */
+    private function pickBestDayInWindow(array $availableDays, array $energyBudget, \DateTime $baseDate): \DateTime
+    {
+        $hasEnergyBudget = !empty($energyBudget);
+        $bestDay = $availableDays[0];
+        $bestScore = -1;
+
+        foreach ($availableDays as $day) {
+            $score = 0;
+
+            // Energy budget score (0-10 points)
+            if ($hasEnergyBudget) {
+                $dayName = strtolower($day->format('l'));
+                $energy = $energyBudget[$dayName] ?? 10;
+                $score += min($energy, 10); // Cap at 10 for scoring
+            } else {
+                $score += 5; // Default score if no budget set
+            }
+
+            // Proximity score (0-5 points, closer to base = higher)
+            $daysDiff = abs($day->diff($baseDate)->days);
+            $proximityScore = max(0, 5 - $daysDiff);
+            $score += $proximityScore;
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestDay = $day;
+            }
+        }
+
+        return $bestDay;
+    }
+
+    /**
+     * Get flex window bounds for display purposes
+     *
+     * @param int $flexDays Number of flex days
+     * @return array{earliest: \DateTime|null, ideal: \DateTime|null, latest: \DateTime|null}
+     */
+    public function getFlexWindowBounds(int $flexDays): array
+    {
+        $ideal = $this->idealDueDate ?? $this->nextDue;
+
+        if ($flexDays <= 0 || $ideal === null) {
+            return [
+                'earliest' => null,
+                'ideal' => $ideal,
+                'latest' => null,
+            ];
+        }
+
+        $earliest = clone $ideal;
+        $earliest->sub(new \DateInterval("P{$flexDays}D"));
+
+        $latest = clone $ideal;
+        $latest->add(new \DateInterval("P{$flexDays}D"));
+
+        return [
+            'earliest' => $earliest,
+            'ideal' => $ideal,
+            'latest' => $latest,
+        ];
     }
 }

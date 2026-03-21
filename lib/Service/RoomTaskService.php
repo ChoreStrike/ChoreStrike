@@ -151,19 +151,24 @@ class RoomTaskService
      * @param \DateTime|null $nextDue Optional next due date (defaults to tomorrow)
      * @param int|null $scopeId Optional scope ID
      * @param string|null $assignedToUserId Optional assigned user ID
+     * @param array $weekdayAvailability Optional weekday availability for flex scheduling
+     * @param array $energyBudget Optional energy budget for flex scheduling
      */
     public function createRoomTask(
         int $roomId,
         int $taskId,
         ?\DateTime $nextDue = null,
         ?int $scopeId = null,
-        ?string $assignedToUserId = null
+        ?string $assignedToUserId = null,
+        array $weekdayAvailability = [],
+        array $energyBudget = []
     ): RoomTask {
         // Verify room exists
         $this->roomMapper->find($roomId);
 
-        // Verify task exists
-        $this->taskMapper->find($taskId);
+        // Verify task exists and get flexDays
+        $task = $this->taskMapper->find($taskId);
+        $flexDays = $task->getFlexDays();
 
         // Check if room task already exists
         if ($this->roomTaskMapper->exists($roomId, $taskId)) {
@@ -176,7 +181,14 @@ class RoomTaskService
             $nextDue->add(new \DateInterval('P1D'));
         }
 
-        return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $assignedToUserId, $scopeId);
+        // Calculate ideal due date within flex window
+        $idealDueDate = null;
+        if ($flexDays > 0) {
+            $roomTask = new RoomTask(); // Temporary instance for calculation
+            $idealDueDate = $roomTask->calculateIdealDueDate($nextDue, $flexDays, $weekdayAvailability, $energyBudget);
+        }
+
+        return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $assignedToUserId, $scopeId, $idealDueDate);
     }
 
     /**
