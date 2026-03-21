@@ -193,6 +193,27 @@
 					</p>
 				</div>
 			</div>
+
+			<!-- Flex Window Options -->
+			<div class="form-group">
+				<label for="flexDays">{{ t('chorestrike', 'Flex Days') }}</label>
+				<div class="flex-days-input">
+					<input id="flexDays"
+						v-model.number="form.flexDays"
+						type="number"
+						class="form-input"
+						min="0"
+						max="14"
+						data-testid="task-flex-days-input">
+					<span class="flex-days-hint">
+						{{ t('chorestrike', 'Flexible scheduling window in days') }}
+					</span>
+				</div>
+				<p v-if="form.flexDays > 0" class="flex-days-info">
+					<Icon name="Info" :size="14" />
+					{{ t('chorestrike', 'Task can be completed {days} days before or after ideal date', { days: form.flexDays }) }}
+				</p>
+			</div>
 		</div>
 
 		<div class="form-section">
@@ -302,6 +323,7 @@ export default {
 			schedulingMode: 'dynamic',
 			fixedScheduleTime: '',
 			scopeType: 'room',
+			flexDays: 0,
 		})
 
 		const selectedWeekdays = ref([])
@@ -319,6 +341,7 @@ export default {
 			form.frequencyValue = template.frequencyValue || 1
 			form.schedulingMode = template.schedulingMode || 'dynamic'
 			form.fixedScheduleTime = template.fixedScheduleTime || ''
+			form.flexDays = template.flexDays || 0
 			if (template.fixedScheduleDays) {
 				selectedWeekdays.value = JSON.parse(template.fixedScheduleDays)
 			}
@@ -342,6 +365,7 @@ export default {
 				form.schedulingMode = newTask.schedulingMode || 'dynamic'
 				form.fixedScheduleTime = newTask.fixedScheduleTime || ''
 				form.scopeType = newTask.scopeType || 'room'
+				form.flexDays = newTask.flexDays || 0
 				selectedWeekdays.value = parseWeekdays(newTask.fixedScheduleDays)
 			}
 		}, { immediate: true })
@@ -553,6 +577,31 @@ export default {
 	color: var(--color-error);
 	font-size: 0.85rem;
 	margin-top: 0.5rem;
+}
+
+/* Flex Days Input */
+.flex-days-input {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.flex-days-input .form-input {
+	width: 80px;
+}
+
+.flex-days-hint {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85rem;
+}
+
+.flex-days-info {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	margin-top: 0.5rem;
+	color: var(--color-primary);
+	font-size: 0.85rem;
 }
 
 /* Form Actions */

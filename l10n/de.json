@@ -254,6 +254,15 @@
         "Speed Combo!": "Tempo-Kombo!",
         "Room Combo!": "Raum-Kombo!",
         "Streak Combo!": "Serien-Kombo!",
-        "Team Combo!": "Team-Kombo!"
+        "Team Combo!": "Team-Kombo!",
+
+        "Flex Window": "Flex-Fenster",
+        "Earliest": "Frühestens",
+        "Ideal": "Ideal",
+        "Latest": "Spätestens",
+        "Within optimal window": "Im optimalen Zeitfenster",
+        "Early completion bonus available!": "Frühzeitiger Abschluss-Bonus verfügbar!",
+        "Past latest date": "Nach spätestem Datum",
+        "Task can be completed {days} days before or after ideal date": "Aufgabe kann {days} Tage vor oder nach dem idealen Datum erledigt werden"
     }
 }

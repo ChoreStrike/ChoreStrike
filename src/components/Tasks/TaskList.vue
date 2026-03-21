@@ -86,6 +86,16 @@
 						<div class="task-due" :class="dueClass(item.roomTask)">
 							{{ dueText(item.roomTask) }}
 						</div>
+
+						<!-- Flex Window Display -->
+						<FlexWindowDisplay
+							v-if="item.task.flexDays > 0"
+							:earliest="getEarliestDate(item)"
+							:ideal="getIdealDate(item)"
+							:latest="getLatestDate(item)"
+							:flex-days="item.task.flexDays"
+							:compact="true"
+							:show-status="true" />
 					</div>
 
 					<div class="task-actions">
@@ -131,6 +141,7 @@ import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common/index.js'
 import TaskChecklist from './TaskChecklist.vue'
+import FlexWindowDisplay from './FlexWindowDisplay.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 
 export default {
@@ -139,6 +150,7 @@ export default {
 	components: {
 		Icon,
 		TaskChecklist,
+		FlexWindowDisplay,
 	},
 
 	props: {
@@ -244,6 +256,41 @@ export default {
 			await checklistStore.toggleItem(roomTaskId, itemId)
 		}
 
+		/**
+		 * Calculate earliest date for flex window
+		 * @param {object} item - Task item with roomTask and task
+		 * @returns {string|null} ISO date string or null
+		 */
+		const getEarliestDate = (item) => {
+			const ideal = item.roomTask.idealDueDate || item.roomTask.nextDue
+			if (!ideal || item.task.flexDays <= 0) return null
+			const date = new Date(ideal)
+			date.setDate(date.getDate() - item.task.flexDays)
+			return date.toISOString()
+		}
+
+		/**
+		 * Get ideal due date for flex window
+		 * @param {object} item - Task item with roomTask and task
+		 * @returns {string|null} ISO date string or null
+		 */
+		const getIdealDate = (item) => {
+			return item.roomTask.idealDueDate || item.roomTask.nextDue
+		}
+
+		/**
+		 * Calculate latest date for flex window
+		 * @param {object} item - Task item with roomTask and task
+		 * @returns {string|null} ISO date string or null
+		 */
+		const getLatestDate = (item) => {
+			const ideal = item.roomTask.idealDueDate || item.roomTask.nextDue
+			if (!ideal || item.task.flexDays <= 0) return null
+			const date = new Date(ideal)
+			date.setDate(date.getDate() + item.task.flexDays)
+			return date.toISOString()
+		}
+
 		return {
 			sortedTasks,
 			expandedTaskId,
@@ -258,6 +305,9 @@ export default {
 			getTaskItems,
 			getRoomTaskProgress,
 			handleToggleChecklistItem,
+			getEarliestDate,
+			getIdealDate,
+			getLatestDate,
 			t,
 		}
 	},

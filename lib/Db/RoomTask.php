@@ -155,6 +155,8 @@ class RoomTask extends Entity implements JsonSerializable
             'assignedAt' => $this->assignedAt?->format('c'),
             'idealDueDate' => $this->idealDueDate?->format('c'),
             'createdAt' => $this->createdAt?->format('c'),
+            'status' => $this->getStatus(),
+            'daysUntilDue' => $this->getDaysUntilDue(),
         ];
     }
 

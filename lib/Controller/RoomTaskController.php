@@ -91,17 +91,29 @@ class RoomTaskController extends OCSController
             $this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
             $roomTaskWithDetails = $this->roomTaskService->getRoomTaskWithDetails($id);
+            $roomTask = $roomTaskWithDetails['roomTask'];
+            $task = $roomTaskWithDetails['task'];
+
+            // Calculate flex window bounds
+            $flexDays = $task->getFlexDays();
+            $flexWindow = $roomTask->getFlexWindowBounds($flexDays);
 
             return new JSONResponse([
                 'success' => true,
                 'data' => [
-                    'roomTask' => $roomTaskWithDetails['roomTask']->jsonSerialize(),
-                    'task' => $roomTaskWithDetails['task']->jsonSerialize(),
+                    'roomTask' => $roomTask->jsonSerialize(),
+                    'task' => $task->jsonSerialize(),
                     'room' => $roomTaskWithDetails['room']->jsonSerialize(),
                     'status' => $roomTaskWithDetails['status'],
                     'isOverdue' => $roomTaskWithDetails['isOverdue'],
                     'isDueToday' => $roomTaskWithDetails['isDueToday'],
-                    'daysUntilDue' => $roomTaskWithDetails['daysUntilDue']
+                    'daysUntilDue' => $roomTaskWithDetails['daysUntilDue'],
+                    'flexWindow' => [
+                        'earliest' => $flexWindow['earliest']?->format('c'),
+                        'ideal' => $flexWindow['ideal']?->format('c'),
+                        'latest' => $flexWindow['latest']?->format('c'),
+                        'flexDays' => $flexDays,
+                    ]
                 ]
             ]);
         } catch (\Exception $e) {

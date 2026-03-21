@@ -5,6 +5,25 @@
 
 ## Currently Active
 
+### Cascade - SCHEDULING-003 - Flex Window UI Implementation
+**Status**: Done
+**Started**: 2026-03-21 20:00
+**Completed**: 2026-03-21 20:30
+**Branch**: master
+**Related Files**: src/components/Tasks/FlexWindowDisplay.vue, src/components/Tasks/TaskList.vue, src/components/Tasks/TaskEditForm.vue, lib/Controller/RoomTaskController.php, lib/Db/RoomTask.php, tests/e2e/flex-window-scheduling.spec.ts, l10n/en.json, l10n/de.json
+**Blockers**: None
+**Notes**:
+- Phase 2.4 of Reward System Redesign COMPLETED
+- Created FlexWindowDisplay.vue component with visual timeline
+- Shows earliest/ideal/latest dates with status indicators
+- Added flexDays input field to TaskEditForm.vue
+- Updated TaskList.vue to display flex window for tasks with flexDays > 0
+- Updated RoomTaskController::show() to return flexWindow bounds in API response
+- Added getFlexWindowBounds() helper methods in TaskList.vue
+- Added E2E tests for flex-window scheduling flow
+- Validation: UI components render correctly
+- Commit: pending
+
 ### Cascade - SCHEDULING-002 - Flex-Window Scheduler Implementation
 **Status**: Done
 **Started**: 2026-03-21 19:00

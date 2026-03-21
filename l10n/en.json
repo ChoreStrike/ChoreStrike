@@ -253,6 +253,15 @@
         "Room Combo!": "Room Combo!",
         "Streak Combo!": "Streak Combo!",
         "Team Combo!": "Team Combo!",
-        "Mystery Combo!": "Mystery Combo!"
+        "Mystery Combo!": "Mystery Combo!",
+
+        "Flex Window": "Flex Window",
+        "Earliest": "Earliest",
+        "Ideal": "Ideal",
+        "Latest": "Latest",
+        "Within optimal window": "Within optimal window",
+        "Early completion bonus available!": "Early completion bonus available!",
+        "Past latest date": "Past latest date",
+        "Task can be completed {days} days before or after ideal date": "Task can be completed {days} days before or after ideal date"
     }
 }
