@@ -53,7 +53,7 @@ class GameLogicServiceTest extends TestCase
         $task = new Task();
         $task->setId(1);
         $task->setEnergyCost(3);
-        $task->setPriority(2);
+        $task->setTaskTier('silver');
 
         $user = new HouseUser();
         $user->setId($userId);
@@ -96,78 +96,63 @@ class GameLogicServiceTest extends TestCase
     }
 
     /**
-     * CalculateContributionScore_HighPriority_ReturnsIncreasedScore
+     * CalculateContributionScore_ReturnsEnergyCost
      */
-    public function testCalculateContributionScore_HighPriority_ReturnsIncreasedScore(): void
+    public function testCalculateContributionScore_ReturnsEnergyCost(): void
     {
         $task = new Task();
         $task->setEnergyCost(2);
-        $task->setPriority(3);
+        $task->setTaskTier('silver');
 
         $result = $this->service->calculateContributionScore($task, 70);
 
-        // Base: 2 * 10 = 20, High priority: 20 * 1.5 = 30
-        $this->assertEquals(30, $result);
+        // Simplified: contribution = energy cost
+        $this->assertEquals(2, $result);
     }
 
     /**
-     * CalculateContributionScore_MediumPriority_ReturnsModerateScore
+     * CalculateCoins_BronzeTier_ReturnsBaseCoins
      */
-    public function testCalculateContributionScore_MediumPriority_ReturnsModerateScore(): void
-    {
-        $task = new Task();
-        $task->setEnergyCost(2);
-        $task->setPriority(2);
-
-        $result = $this->service->calculateContributionScore($task, 70);
-
-        // Base: 2 * 10 = 20, Medium priority: 20 * 1.2 = 24
-        $this->assertEquals(24, $result);
-    }
-
-    /**
-     * CalculateContributionScore_DirtyRoom_ReturnsIncreasedScore
-     */
-    public function testCalculateContributionScore_DirtyRoom_ReturnsIncreasedScore(): void
-    {
-        $task = new Task();
-        $task->setEnergyCost(2);
-        $task->setPriority(1);
-
-        $result = $this->service->calculateContributionScore($task, 30);
-
-        // Base: 2 * 10 = 20, Dirty room (<40): 20 * 1.3 = 26
-        $this->assertEquals(26, $result);
-    }
-
-    /**
-     * CalculateContributionScore_VeryDirtyRoom_ReturnsHigherScore
-     */
-    public function testCalculateContributionScore_VeryDirtyRoom_ReturnsHigherScore(): void
-    {
-        $task = new Task();
-        $task->setEnergyCost(2);
-        $task->setPriority(1);
-
-        $result = $this->service->calculateContributionScore($task, 10);
-
-        // Base: 2 * 10 = 20, Very dirty room (<20): 20 * 1.5 = 30
-        $this->assertEquals(30, $result);
-    }
-
-    /**
-     * CalculateCoins_BaseCalculation_ReturnsCoins
-     */
-    public function testCalculateCoins_BaseCalculation_ReturnsCoins(): void
+    public function testCalculateCoins_BronzeTier_ReturnsBaseCoins(): void
     {
         $task = new Task();
         $task->setEnergyCost(3);
-        $task->setPriority(1);
+        $task->setTaskTier('bronze');
 
         $result = $this->service->calculateCoins($task, false);
 
-        // 3 * 5 = 15
-        $this->assertEquals(15, $result);
+        // 3 * 10 * 1.0 = 30
+        $this->assertEquals(30, $result);
+    }
+
+    /**
+     * CalculateCoins_SilverTier_ReturnsModerateCoins
+     */
+    public function testCalculateCoins_SilverTier_ReturnsModerateCoins(): void
+    {
+        $task = new Task();
+        $task->setEnergyCost(3);
+        $task->setTaskTier('silver');
+
+        $result = $this->service->calculateCoins($task, false);
+
+        // 3 * 10 * 1.5 = 45
+        $this->assertEquals(45, $result);
+    }
+
+    /**
+     * CalculateCoins_GoldTier_ReturnsHighCoins
+     */
+    public function testCalculateCoins_GoldTier_ReturnsHighCoins(): void
+    {
+        $task = new Task();
+        $task->setEnergyCost(2);
+        $task->setTaskTier('gold');
+
+        $result = $this->service->calculateCoins($task, false);
+
+        // 2 * 10 * 2.0 = 40
+        $this->assertEquals(40, $result);
     }
 
     /**
@@ -177,27 +162,12 @@ class GameLogicServiceTest extends TestCase
     {
         $task = new Task();
         $task->setEnergyCost(3);
-        $task->setPriority(1);
+        $task->setTaskTier('silver');
 
         $result = $this->service->calculateCoins($task, true);
 
-        // 3 * 5 * 2 = 30
-        $this->assertEquals(30, $result);
-    }
-
-    /**
-     * CalculateCoins_HighPriority_ReturnsBonus
-     */
-    public function testCalculateCoins_HighPriority_ReturnsBonus(): void
-    {
-        $task = new Task();
-        $task->setEnergyCost(2);
-        $task->setPriority(3);
-
-        $result = $this->service->calculateCoins($task, false);
-
-        // 2 * 5 = 10 + 10 bonus = 20
-        $this->assertEquals(20, $result);
+        // 3 * 10 * 1.5 * 2 = 90
+        $this->assertEquals(90, $result);
     }
 
     /**

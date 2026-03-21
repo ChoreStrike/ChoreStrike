@@ -93,21 +93,8 @@ class GameLogicService
      */
     public function calculateContributionScore(Task $task, int $roomCleanliness): int
     {
-        $baseScore = $task->getEnergyCost() * 10;
-
-        if ($task->getPriority() === 3) {
-            $baseScore = (int)($baseScore * 1.5);
-        } elseif ($task->getPriority() === 2) {
-            $baseScore = (int)($baseScore * 1.2);
-        }
-
-        if ($roomCleanliness < 20) {
-            $baseScore = (int)($baseScore * 1.5);
-        } elseif ($roomCleanliness < 40) {
-            $baseScore = (int)($baseScore * 1.3);
-        }
-
-        return $baseScore;
+        // Simplified: contribution = energy cost (no multipliers)
+        return $task->getEnergyCost();
     }
 
     /**
@@ -118,19 +105,15 @@ class GameLogicService
      */
     public function calculateCoins(Task $task, bool $isCombo = false): int
     {
-        $coins = $task->getEnergyCost() * 5;
+        // Formula: Energy × 10 × tierMultiplier × comboMultiplier
+        $baseRate = 10;
+        $coins = $task->getEnergyCost() * $baseRate * $task->getTaskTierMultiplier();
 
         if ($isCombo) {
             $coins *= 2;
         }
 
-        if ($task->getPriority() === 3) {
-            $coins += 10;
-        } elseif ($task->getPriority() === 2) {
-            $coins += 5;
-        }
-
-        return $coins;
+        return (int) $coins;
     }
 
     /**

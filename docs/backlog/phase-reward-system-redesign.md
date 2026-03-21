@@ -60,17 +60,20 @@ All multipliers and limits must be configurable by admin:
 ---
 
 ### 1.2 Add TaskTier Field
-**Status:** Pending
+**Status:** Done
 **Gap IDs:** T-1, T-2, T-3
 **Effort:** Medium
 **Dependencies:** None
 
 **Tasks:**
-- [ ] Add `taskTier` field to Task entity (bronze/silver/gold)
-- [ ] Create migration: map `priority` → `taskTier` (1→bronze, 2→silver, 3→gold)
-- [ ] Remove `priority` field after migration
-- [ ] Update TaskForm UI to show tier selector with badges
-- [ ] Update task display components to show tier badge
+- [x] Add `taskTier` field to Task entity (bronze/silver/gold)
+- [x] Create migration: map `priority` → `taskTier` (1→bronze, 2→silver, 3→gold)
+- [x] Keep `priority` field for backward compatibility
+- [x] Update TaskForm UI to show tier badge
+- [x] Update GameLogicService to use tier multiplier for coin calculation
+- [x] Update TaskMapper queries to order by task_tier
+- [x] Update i18n for tier labels (Bronze/Silver/Gold)
+- [x] Update unit tests for new coin calculation formula
 
 **Files:**
 - `lib/Db/Task.php`
@@ -127,15 +130,15 @@ Coins = Energy × baseRate × tierMultiplier × personalMultiplier
 ---
 
 ### 1.5 Simplify Contribution
-**Status:** Pending
+**Status:** Done
 **Gap IDs:** CO-1, CO-2
 **Effort:** Low
 **Dependencies:** None
 
 **Tasks:**
-- [ ] Simplify `calculateContributionScore()` to return `task.getEnergyCost()`
-- [ ] Remove priority and cleanliness multipliers
-- [ ] Update unit tests
+- [x] Simplify `calculateContributionScore()` to return `task.getEnergyCost()`
+- [x] Remove priority and cleanliness multipliers
+- [x] Update unit tests
 
 **Files:**
 - `lib/Service/GameLogicService.php`

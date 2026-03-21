@@ -16,7 +16,7 @@
 					{{ t('chorestrike', 'Select a task') }}
 				</option>
 				<option v-for="templateTask in availableTasks" :key="templateTask.id" :value="templateTask.id">
-					{{ templateTask.name }} ({{ t('chorestrike', 'Priority') }} {{ templateTask.priority }})
+					{{ templateTask.name }} <span :class="['tier-badge', templateTask.taskTier]">{{ templateTask.taskTier }}</span>
 				</option>
 			</select>
 		</div>

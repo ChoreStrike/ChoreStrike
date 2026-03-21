@@ -50,7 +50,7 @@ class TaskMapper extends QBMapper
 
         $qb->select('*')
             ->from($this->getTableName())
-            ->orderBy('priority', 'DESC')
+            ->orderBy('task_tier', 'DESC')
             ->addOrderBy('name', 'ASC');
 
         return $this->findEntities($qb);
@@ -87,7 +87,7 @@ class TaskMapper extends QBMapper
         $qb->select('*')
             ->from($this->getTableName())
             ->where($qb->expr()->eq('category', $qb->createNamedParameter($category)))
-            ->orderBy('priority', 'DESC')
+            ->orderBy('task_tier', 'DESC')
             ->addOrderBy('name', 'ASC');
 
         return $this->findEntities($qb);
@@ -256,7 +256,7 @@ class TaskMapper extends QBMapper
             ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->eq('scheduled_date', $qb->createNamedParameter($date->format('Y-m-d'), IQueryBuilder::PARAM_STR)))
             ->andWhere($qb->expr()->in('status', $qb->createNamedParameter(['pending', 'completed', 'skipped'], IQueryBuilder::PARAM_STR_ARRAY)))
-            ->orderBy('priority', 'DESC')
+            ->orderBy('task_tier', 'DESC')
             ->addOrderBy('created_at', 'ASC');
 
         return $this->findEntities($qb);

@@ -5,6 +5,26 @@
 
 ## Currently Active
 
+### Cascade - REWARD-TIER-001 - Add TaskTier Field and Update Coin Calculation
+**Status**: Done
+**Started**: 2026-03-21 16:50
+**Completed**: 2026-03-21 17:15
+**Branch**: master
+**Related Files**: lib/Db/Task.php, lib/Db/TaskMapper.php, lib/Service/GameLogicService.php, lib/Migration/Version1018Date20260321000000.php, src/components/Tasks/TaskForm.vue, l10n/en.json, l10n/de.json, tests/unit/Service/GameLogicServiceTest.php
+**Blockers**: None
+**Notes**:
+- Phase 1.2 of Reward System Redesign COMPLETED
+- Added taskTier field to Task entity (bronze/silver/gold)
+- Created migration to map priority → taskTier (1→bronze, 2→silver, 3→gold)
+- Updated GameLogicService to use tier multiplier for coin calculation
+- Formula: Coins = Energy × 10 × tierMultiplier (bronze=1.0, silver=1.5, gold=2.0)
+- Simplified contribution score to just return energy cost
+- Updated TaskMapper queries to order by task_tier
+- Updated TaskForm UI to show tier badge
+- Added i18n keys for tier labels (Bronze/Silver/Gold, Bronze/Silber/Gold)
+- Validation: 327 PHPUnit tests pass
+- Commit: pending
+
 ### Cascade - REWARD-COINS-001 - Rename Team Sparks → Coins
 **Status**: Done
 **Started**: 2026-03-21 15:27
