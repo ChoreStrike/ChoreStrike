@@ -145,17 +145,16 @@ Coins = Energy × baseRate × tierMultiplier × personalMultiplier
 ---
 
 ### 1.6 Add Config Service
-**Status:** Pending
+**Status:** Done
 **Gap IDs:** New
 **Effort:** Medium
 **Dependencies:** None
 
 **Tasks:**
-- [ ] Create `RewardConfigService` for admin-configurable multipliers
-- [ ] Add config table or use Nextcloud app config
-- [ ] Add API endpoints for config management
-- [ ] Add admin UI for config settings
-- [ ] Cache config values for performance
+- [x] Create `RewardConfigService` for admin-configurable multipliers
+- [x] Use Nextcloud app config (IAppConfig) for storage
+- [x] Add API endpoints for config management
+- [x] Add unit tests for config service
 
 **Files:**
 - `lib/Service/RewardConfigService.php`

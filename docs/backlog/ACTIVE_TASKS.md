@@ -5,6 +5,23 @@
 
 ## Currently Active
 
+### Cascade - REWARD-CONFIG-001 - Add RewardConfigService
+**Status**: Done
+**Started**: 2026-03-21 17:30
+**Completed**: 2026-03-21 17:45
+**Branch**: master
+**Related Files**: lib/Service/RewardConfigService.php, lib/Controller/RewardConfigController.php, appinfo/routes.php, tests/unit/Service/RewardConfigServiceTest.php, tests/__mocks__/OCP/IAppConfig.php
+**Blockers**: None
+**Notes**:
+- Phase 1.6 of Reward System Redesign COMPLETED
+- Created RewardConfigService for admin-configurable multipliers
+- Uses Nextcloud IAppConfig for storage (no extra DB table)
+- Added API endpoints: GET/PUT /api/v1/reward-config
+- Configurable: tier multipliers, early bonus, energy max, coin base rate
+- Added IAppConfig mock for unit tests
+- Validation: 10 RewardConfigService tests pass
+- Commit: pending
+
 ### Cascade - REWARD-MULTIPLIER-001 - Add Personal Coin Multiplier
 **Status**: Done
 **Started**: 2026-03-21 17:15

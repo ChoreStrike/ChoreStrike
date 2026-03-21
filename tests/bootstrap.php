@@ -98,6 +98,7 @@ if ($isDocker) {
     require_once __DIR__ . '/__mocks__/OCP/IDBConnection.php';
     require_once __DIR__ . '/__mocks__/OCP/ITimeFactory.php';
     require_once __DIR__ . '/__mocks__/OCP/IConfig.php';
+    require_once __DIR__ . '/__mocks__/OCP/IAppConfig.php';
     require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IQueryBuilder.php';
     require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpression.php';
     require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpressionBuilder.php';
