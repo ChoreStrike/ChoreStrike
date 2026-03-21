@@ -53,14 +53,14 @@
 - Follow KISS/DRY principles
 - Write tests alongside code
 - Update ACTIVE_TASKS.md every 30-60 min
-- Commit frequently: `git add . && git commit -m "type: description"`
+- Commit frequently using git MCP tools (see Section 5)
 
 **When Complete:**
 1. Run tests: `npm test` (frontend), `composer test` (backend)
 2. Update ACTIVE_TASKS.md status to "Review Ready"
 3. List all modified files in ACTIVE_TASKS.md
 4. Update backlog file (mark task done, move to completed section)
-5. Commit: `git commit -m "feat/fix: [Task ID] - description"`
+5. Commit using git MCP tools (see Section 5)
 
 ### 3.2 Review Agent Responsibilities
 
@@ -84,7 +84,7 @@
 **After Review:**
 1. Update ACTIVE_TASKS.md: Move to "Recently Completed"
 2. Update backlog: Mark as fully done
-3. Commit: `git commit -m "review: [Task ID] - approved"`
+3. Commit using git MCP tools (see Section 5)
 
 ### 3.3 Parallel Work Protocol
 
@@ -122,10 +122,43 @@ Planned → In Progress → Review Ready → Done
 ## 5. Auto-Commit & Auto-Fix Rules
 
 ### Auto-Commit (Always)
-After completing a logical unit:
-```bash
-git add .
-git commit -m "type: description"
+After completing a logical unit, use git MCP tools:
+
+**Preferred Method (git MCP):**
+1. `git_add` - Stage files: `mcp4_git_add(repo_path, files)`
+2. `git_commit` - Commit: `mcp4_git_commit(repo_path, message)`
+
+**Example:**
+```
+mcp4_git_add(repo_path: "/path/to/repo", files: ["src/file.vue", "lib/Service.php"])
+mcp4_git_commit(repo_path: "/path/to/repo", message: "feat: add new feature")
+```
+
+**Available git MCP Tools:**
+- `git_add` - Stage files
+- `git_commit` - Create commit
+- `git_status` - Check working tree status
+- `git_log` - View commit history
+- `git_diff` - Show differences
+- `git_branch` - List/create branches
+- `git_checkout` - Switch branches
+- `git_show` - Show commit contents
+
+**Why git MCP over shell:**
+- Structured output (no parsing needed)
+- Better error handling
+- Consistent cross-platform behavior
+- Safer operations with validation
+
+### Running Tests
+Use shell commands via `run_command` tool for tests:
+
+**Frontend:** `npm test` or `npx playwright test`
+**Backend:** `composer test` or `php vendor/bin/phpunit`
+
+**Example:**
+```
+run_command(CommandLine: "npm test", Cwd: "/path/to/repo")
 ```
 
 ### Next Tasks (After Commit)
