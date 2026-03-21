@@ -8,16 +8,16 @@
 ### Cascade - REWARD-GAP-ANALYSIS-001 - Reward System Technical Gap Analysis
 **Status**: Done
 **Started**: 2026-03-06 10:00
-**Completed**: 2026-03-06 11:30
+**Completed**: 2026-03-21 15:15
 **Branch**: master
-**Related Files**: docs/backlog/GAP_ANALYSIS_REWARD_SYSTEM.md, lib/Service/GameLogicService.php, lib/Db/Task.php, lib/Db/HouseUser.php, src/store/game.js, src/store/scheduling.js
+**Related Files**: docs/backlog/GAP_ANALYSIS_REWARD_SYSTEM.md, docs/backlog/phase-reward-system-redesign.md
 **Blockers**: None
 **Notes**:
 - Created comprehensive gap analysis comparing current implementation with new "Fachliches Regelwerk V1"
 - Identified 25 gaps across 7 areas: Energy, Coins, Contribution, TaskTier, PersonalMultiplier, Flex-Window, TeamTasks
-- Proposed 4-phase implementation plan with prioritized tasks
-- Documented required DB migrations, code changes, and UI updates
-- Key changes: Team Sparks → Coins, priority → taskTier, new coinMultiplier field, flex-window scheduling
+- Resolved all open questions (no parallel systems, full migration, configurable multipliers, simple team confirmation)
+- Created implementation backlog `phase-reward-system-redesign.md` with 4 phases, 11 tasks
+- Key changes: Team Sparks → Coins, priority → taskTier, coinMultiplier field, flex-window scheduling
 
 ### Cascade - P9-MAINT-IGNORE-001 - Ignore local test artifacts for Git and Nextcloud sync
 **Status**: Done

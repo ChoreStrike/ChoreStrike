@@ -428,13 +428,28 @@ $coins = $this->calculateCoins($task, $user->getCoinMultiplier(), $earlyBonus);
 
 ---
 
-## 12. Open Questions
+## 12. Open Questions - RESOLVED
 
-1. **Migration Strategy:** Should we run both systems in parallel during transition?
-2. **Legacy Data:** How to handle existing `teamSparks` data? Convert to Coins 1:1 or recalculate?
-3. **Priority Field:** Keep `priority` for backward compatibility or full migration to `taskTier`?
-4. **Early Bonus Formula:** Exact multiplier values (1.5x at 3 weeks early is example - confirm?)
-5. **Team Confirmation:** Timeout if not all participants confirm? Auto-complete?
+| Question | Decision |
+|----------|----------|
+| **Migration Strategy** | No parallel systems needed. Acceptable if system is non-functional during transition. |
+| **Legacy Data** | Test databases only - can be regenerated. No production data to migrate. |
+| **Priority Field** | Full migration to `taskTier`. Remove `priority` field completely. |
+| **Early Bonus Formula** | **Configurable by admin**. Same as TaskTier multipliers (bronze/silver/gold). |
+| **Team Confirmation** | Simple approach: First team member sets task, others can modify if needed. No timeout/auto-complete. |
+
+### Configuration Requirements
+
+Based on decisions, the following must be configurable by admin:
+
+| Config Key | Description | Default |
+|------------|-------------|---------|
+| `tier_bronze_multiplier` | Coin multiplier for Bronze tasks | 1.0 |
+| `tier_silver_multiplier` | Coin multiplier for Silver tasks | 1.5 |
+| `tier_gold_multiplier` | Coin multiplier for Gold tasks | 2.0 |
+| `early_bonus_threshold_days` | Days before ideal due for bonus | 21 |
+| `early_bonus_multiplier` | Coin multiplier for early completion | 1.5 |
+| `energy_max_per_task` | Maximum energy per task | 9 |
 
 ---
 
