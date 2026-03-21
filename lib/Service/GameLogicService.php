@@ -16,6 +16,8 @@ use OCA\ChoreStrike\Db\Medal;
 use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\RoomTaskMapper;
 
 /**
  * Service for game logic and mechanics
@@ -26,17 +28,23 @@ class GameLogicService
     private CompletedTaskMapper $completedTaskMapper;
     private MedalMapper $medalMapper;
     private RoomMapper $roomMapper;
+    private RoomTaskMapper $roomTaskMapper;
+    private RewardConfigService $configService;
 
     public function __construct(
         HouseUserMapper $houseUserMapper,
         CompletedTaskMapper $completedTaskMapper,
         MedalMapper $medalMapper,
-        RoomMapper $roomMapper
+        RoomMapper $roomMapper,
+        RoomTaskMapper $roomTaskMapper,
+        RewardConfigService $configService
     ) {
         $this->houseUserMapper = $houseUserMapper;
         $this->completedTaskMapper = $completedTaskMapper;
         $this->medalMapper = $medalMapper;
         $this->roomMapper = $roomMapper;
+        $this->roomTaskMapper = $roomTaskMapper;
+        $this->configService = $configService;
     }
 
     /**
@@ -50,11 +58,14 @@ class GameLogicService
     public function handleTaskCompletion(int $roomTaskId, int $userId, Task $task, int $roomCleanliness): array
     {
         $user = $this->houseUserMapper->find($userId);
+        $roomTask = $this->roomTaskMapper->find($roomTaskId);
 
         $contributionScore = $this->calculateContributionScore($task, $roomCleanliness);
         $recentCompletions = $this->completedTaskMapper->findRecentByUserId($userId, 5);
         $isCombo = count($recentCompletions) >= 2;
-        $coins = $this->calculateCoins($task, $user->getCoinMultiplier(), $isCombo);
+        $daysEarly = $this->calculateDaysEarly($roomTask);
+        $earlyMultiplier = $this->calculateEarlyBonus($daysEarly);
+        $coins = $this->calculateCoins($task, $user->getCoinMultiplier(), $isCombo, $earlyMultiplier);
 
         $completedTask = new CompletedTask();
         $completedTask->setRoomTaskId($roomTaskId);
@@ -79,6 +90,8 @@ class GameLogicService
             'contributionScore' => $contributionScore,
             'coins' => $coins,
             'isCombo' => $isCombo,
+            'daysEarly' => $daysEarly,
+            'earlyMultiplier' => $earlyMultiplier,
             'currentStreak' => $user->getCurrentStreak(),
             'totalContribution' => $user->getContributionScore(),
             'totalCoins' => $user->getCoins(),
@@ -103,18 +116,57 @@ class GameLogicService
      * @param Task $task The task
      * @param float $personalMultiplier The user's personal coin multiplier
      * @param bool $isCombo Whether this is part of a combo
+     * @param float $earlyMultiplier Early completion bonus multiplier
      */
-    public function calculateCoins(Task $task, float $personalMultiplier = 1.0, bool $isCombo = false): int
+    public function calculateCoins(Task $task, float $personalMultiplier = 1.0, bool $isCombo = false, float $earlyMultiplier = 1.0): int
     {
-        // Formula: Energy × 10 × tierMultiplier × personalMultiplier × comboMultiplier
-        $baseRate = 10;
-        $coins = $task->getEnergyCost() * $baseRate * $task->getTaskTierMultiplier() * $personalMultiplier;
+        // Formula: Energy × baseRate × tierMultiplier × personalMultiplier × earlyMultiplier × comboMultiplier
+        $baseRate = $this->configService->getCoinBasePerEnergy();
+        $coins = $task->getEnergyCost() * $baseRate * $task->getTaskTierMultiplier() * $personalMultiplier * $earlyMultiplier;
 
         if ($isCombo) {
             $coins *= 2;
         }
 
         return (int) round($coins);
+    }
+
+    /**
+     * Calculate days early for task completion
+     *
+     * @param RoomTask $roomTask The room task
+     * @return int Days early (negative if late, 0 if no ideal due date)
+     */
+    public function calculateDaysEarly(RoomTask $roomTask): int
+    {
+        $idealDueDate = $roomTask->getIdealDueDate();
+        if ($idealDueDate === null) {
+            return 0;
+        }
+
+        $now = new \DateTime();
+        $diff = $idealDueDate->getTimestamp() - $now->getTimestamp();
+        return (int) round($diff / 86400); // Convert seconds to days
+    }
+
+    /**
+     * Calculate early completion bonus multiplier
+     *
+     * @param int $daysEarly Days before ideal due date (negative if late)
+     * @return float Multiplier (1.0 if no bonus, >1.0 if early bonus applies)
+     */
+    public function calculateEarlyBonus(int $daysEarly): float
+    {
+        if ($daysEarly <= 0) {
+            return 1.0;
+        }
+
+        $threshold = $this->configService->getEarlyBonusThresholdDays();
+        if ($daysEarly >= $threshold) {
+            return $this->configService->getEarlyBonusMultiplier();
+        }
+
+        return 1.0;
     }
 
     /**

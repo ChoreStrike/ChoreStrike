@@ -72,6 +72,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setMaxParticipants(?int $maxParticipants)
  * @method float getTeamSparkMultiplier()
  * @method void setTeamSparkMultiplier(float $teamSparkMultiplier)
+ * @method int getFlexDays()
+ * @method void setFlexDays(int $flexDays)
  */
 class Task extends Entity implements JsonSerializable
 {
@@ -162,6 +164,9 @@ class Task extends Entity implements JsonSerializable
     /** @var float */
     protected $teamSparkMultiplier = 1.0;
 
+    /** @var int */
+    protected $flexDays = 0;
+
     public function __construct()
     {
         $this->addType('id', 'integer');
@@ -194,6 +199,7 @@ class Task extends Entity implements JsonSerializable
         $this->addType('allowTeamwork', 'boolean');
         $this->addType('maxParticipants', 'integer');
         $this->addType('teamSparkMultiplier', 'decimal');
+        $this->addType('flexDays', 'integer');
     }
 
     /**
@@ -229,6 +235,7 @@ class Task extends Entity implements JsonSerializable
             'allowTeamwork' => $this->allowTeamwork,
             'maxParticipants' => $this->maxParticipants,
             'teamSparkMultiplier' => $this->teamSparkMultiplier,
+            'flexDays' => $this->flexDays,
             'createdAt' => $this->createdAt?->format('c'),
         ];
     }

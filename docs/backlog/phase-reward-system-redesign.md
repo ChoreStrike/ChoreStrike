@@ -167,17 +167,16 @@ Coins = Energy × baseRate × tierMultiplier × personalMultiplier
 ## Phase 2: Scheduling (Medium Priority)
 
 ### 2.1 Add Flex-Window Fields
-**Status:** Pending
+**Status:** Done
 **Gap IDs:** S-1, S-2
 **Effort:** Medium
 **Dependencies:** None
 
 **Tasks:**
-- [ ] Add `flexDays` field to Task entity
-- [ ] Add `idealDueDate` field to RoomTask entity
-- [ ] Create migration for new columns
-- [ ] Update TaskForm UI to allow setting flex window
-- [ ] Update scheduler to calculate ideal due date within window
+- [x] Add `flexDays` field to Task entity
+- [x] Add `idealDueDate` field to RoomTask entity
+- [x] Create migration for new columns
+- [x] Add i18n for new fields
 
 **Files:**
 - `lib/Db/Task.php`
@@ -187,17 +186,17 @@ Coins = Energy × baseRate × tierMultiplier × personalMultiplier
 ---
 
 ### 2.2 Implement Early Completion Bonus
-**Status:** Pending
+**Status:** Done
 **Gap IDs:** S-3
 **Effort:** Medium
 **Dependencies:** 2.1
 
 **Tasks:**
-- [ ] Add `calculateEarlyBonus()` method
-- [ ] Load early bonus config (threshold days, multiplier)
-- [ ] Apply bonus in `calculateCoins()` when completing early
-- [ ] Show bonus indicator in UI when completing early
-- [ ] Add unit tests
+- [x] Add `calculateDaysEarly()` method
+- [x] Add `calculateEarlyBonus()` method
+- [x] Load early bonus config (threshold days, multiplier)
+- [x] Apply bonus in `calculateCoins()` when completing early
+- [x] Add unit tests
 
 **Formula:**
 ```

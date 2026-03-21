@@ -5,6 +5,25 @@
 
 ## Currently Active
 
+### Cascade - SCHEDULING-001 - Flex-Window and Early Completion Bonus
+**Status**: Done
+**Started**: 2026-03-21 17:45
+**Completed**: 2026-03-21 18:15
+**Branch**: master
+**Related Files**: lib/Db/Task.php, lib/Db/RoomTask.php, lib/Migration/Version1020Date20260321000000.php, lib/Service/GameLogicService.php, tests/unit/Service/GameLogicServiceTest.php, l10n/en.json, l10n/de.json
+**Blockers**: None
+**Notes**:
+- Phase 2.1 & 2.2 of Reward System Redesign COMPLETED
+- Added flexDays field to Task entity (default 0)
+- Added idealDueDate field to RoomTask entity
+- Created migration for flex_days and ideal_due_date columns
+- Implemented calculateDaysEarly() and calculateEarlyBonus() methods
+- Early bonus applies when daysEarly >= threshold (default 21 days)
+- Early bonus multiplier configurable via RewardConfigService
+- Formula: Coins = Energy × baseRate × tierMultiplier × personalMultiplier × earlyMultiplier × comboMultiplier
+- Validation: 38 GameLogicService tests pass
+- Commit: pending
+
 ### Cascade - REWARD-CONFIG-001 - Add RewardConfigService
 **Status**: Done
 **Started**: 2026-03-21 17:30

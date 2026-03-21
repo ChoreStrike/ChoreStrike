@@ -12,8 +12,11 @@ use OCA\ChoreStrike\Db\Medal;
 use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\GameLogicService;
+use OCA\ChoreStrike\Service\RewardConfigService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -26,6 +29,8 @@ class GameLogicServiceTest extends TestCase
     private CompletedTaskMapper $completedTaskMapper;
     private MedalMapper $medalMapper;
     private RoomMapper $roomMapper;
+    private RoomTaskMapper $roomTaskMapper;
+    private RewardConfigService $configService;
 
     protected function setUp(): void
     {
@@ -33,12 +38,20 @@ class GameLogicServiceTest extends TestCase
         $this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
         $this->medalMapper = $this->createMock(MedalMapper::class);
         $this->roomMapper = $this->createMock(RoomMapper::class);
+        $this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
+        $this->configService = $this->createMock(RewardConfigService::class);
+
+        $this->configService->method('getCoinBasePerEnergy')->willReturn(10);
+        $this->configService->method('getEarlyBonusThresholdDays')->willReturn(21);
+        $this->configService->method('getEarlyBonusMultiplier')->willReturn(1.5);
 
         $this->service = new GameLogicService(
             $this->houseUserMapper,
             $this->completedTaskMapper,
             $this->medalMapper,
-            $this->roomMapper
+            $this->roomMapper,
+            $this->roomTaskMapper,
+            $this->configService
         );
     }
 
@@ -72,6 +85,16 @@ class GameLogicServiceTest extends TestCase
             ->method('find')
             ->with($userId)
             ->willReturn($user);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setIdealDueDate(null);
+
+        $this->roomTaskMapper
+            ->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willReturn($roomTask);
 
         $this->completedTaskMapper
             ->expects($this->once())
@@ -119,9 +142,9 @@ class GameLogicServiceTest extends TestCase
         $task->setEnergyCost(3);
         $task->setTaskTier('bronze');
 
-        $result = $this->service->calculateCoins($task, 1.0, false);
+        $result = $this->service->calculateCoins($task, 1.0, false, 1.0);
 
-        // 3 * 10 * 1.0 * 1.0 = 30
+        // 3 * 10 * 1.0 * 1.0 * 1.0 = 30
         $this->assertEquals(30, $result);
     }
 
@@ -134,9 +157,9 @@ class GameLogicServiceTest extends TestCase
         $task->setEnergyCost(3);
         $task->setTaskTier('silver');
 
-        $result = $this->service->calculateCoins($task, 1.0, false);
+        $result = $this->service->calculateCoins($task, 1.0, false, 1.0);
 
-        // 3 * 10 * 1.5 * 1.0 = 45
+        // 3 * 10 * 1.5 * 1.0 * 1.0 = 45
         $this->assertEquals(45, $result);
     }
 
@@ -149,9 +172,9 @@ class GameLogicServiceTest extends TestCase
         $task->setEnergyCost(2);
         $task->setTaskTier('gold');
 
-        $result = $this->service->calculateCoins($task, 1.0, false);
+        $result = $this->service->calculateCoins($task, 1.0, false, 1.0);
 
-        // 2 * 10 * 2.0 * 1.0 = 40
+        // 2 * 10 * 2.0 * 1.0 * 1.0 = 40
         $this->assertEquals(40, $result);
     }
 
@@ -164,9 +187,9 @@ class GameLogicServiceTest extends TestCase
         $task->setEnergyCost(2);
         $task->setTaskTier('silver');
 
-        $result = $this->service->calculateCoins($task, 1.5, false);
+        $result = $this->service->calculateCoins($task, 1.5, false, 1.0);
 
-        // 2 * 10 * 1.5 * 1.5 = 45
+        // 2 * 10 * 1.5 * 1.5 * 1.0 = 45
         $this->assertEquals(45, $result);
     }
 
@@ -179,10 +202,87 @@ class GameLogicServiceTest extends TestCase
         $task->setEnergyCost(3);
         $task->setTaskTier('silver');
 
-        $result = $this->service->calculateCoins($task, 1.0, true);
+        $result = $this->service->calculateCoins($task, 1.0, true, 1.0);
 
-        // 3 * 10 * 1.5 * 1.0 * 2 = 90
+        // 3 * 10 * 1.5 * 1.0 * 1.0 * 2 = 90
         $this->assertEquals(90, $result);
+    }
+
+    /**
+     * CalculateCoins_EarlyBonus_ReturnsBonusCoins
+     */
+    public function testCalculateCoins_EarlyBonus_ReturnsBonusCoins(): void
+    {
+        $task = new Task();
+        $task->setEnergyCost(2);
+        $task->setTaskTier('silver');
+
+        $result = $this->service->calculateCoins($task, 1.0, false, 1.5);
+
+        // 2 * 10 * 1.5 * 1.0 * 1.5 = 45
+        $this->assertEquals(45, $result);
+    }
+
+    /**
+     * CalculateDaysEarly_NoIdealDueDate_ReturnsZero
+     */
+    public function testCalculateDaysEarly_NoIdealDueDate_ReturnsZero(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setIdealDueDate(null);
+
+        $result = $this->service->calculateDaysEarly($roomTask);
+
+        $this->assertEquals(0, $result);
+    }
+
+    /**
+     * CalculateDaysEarly_FutureDueDate_ReturnsPositiveDays
+     */
+    public function testCalculateDaysEarly_FutureDueDate_ReturnsPositiveDays(): void
+    {
+        $roomTask = new RoomTask();
+        $futureDate = new \DateTime();
+        $futureDate->add(new \DateInterval('P30D'));
+        $roomTask->setIdealDueDate($futureDate);
+
+        $result = $this->service->calculateDaysEarly($roomTask);
+
+        // Should be approximately 30 days
+        $this->assertGreaterThan(25, $result);
+        $this->assertLessThan(35, $result);
+    }
+
+    /**
+     * CalculateEarlyBonus_NoDaysEarly_ReturnsOne
+     */
+    public function testCalculateEarlyBonus_NoDaysEarly_ReturnsOne(): void
+    {
+        $result = $this->service->calculateEarlyBonus(0);
+
+        $this->assertEquals(1.0, $result);
+    }
+
+    /**
+     * CalculateEarlyBonus_BelowThreshold_ReturnsOne
+     */
+    public function testCalculateEarlyBonus_BelowThreshold_ReturnsOne(): void
+    {
+        $result = $this->service->calculateEarlyBonus(10);
+
+        // 10 days < 21 threshold
+        $this->assertEquals(1.0, $result);
+    }
+
+    /**
+     * CalculateEarlyBonus_AboveThreshold_ReturnsMultiplier
+     */
+    public function testCalculateEarlyBonus_AboveThreshold_ReturnsMultiplier(): void
+    {
+        $result = $this->service->calculateEarlyBonus(25);
+
+        // 25 days >= 21 threshold
+        $this->assertEquals(1.5, $result);
     }
 
     /**

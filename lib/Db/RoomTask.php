@@ -48,6 +48,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setAssignedByUserId(?string $assignedByUserId)
  * @method \DateTime|null getAssignedAt()
  * @method void setAssignedAt(?\DateTime $assignedAt)
+ * @method \DateTime|null getIdealDueDate()
+ * @method void setIdealDueDate(?\DateTime $idealDueDate)
  */
 class RoomTask extends Entity implements JsonSerializable
 {
@@ -102,6 +104,9 @@ class RoomTask extends Entity implements JsonSerializable
     /** @var \DateTime|null */
     protected $assignedAt;
 
+    /** @var \DateTime|null */
+    protected $idealDueDate;
+
     public function __construct()
     {
         $this->addType('id', 'integer');
@@ -122,6 +127,7 @@ class RoomTask extends Entity implements JsonSerializable
         $this->addType('claimedAt', 'datetime');
         $this->addType('assignedByUserId', 'string');
         $this->addType('assignedAt', 'datetime');
+        $this->addType('idealDueDate', 'datetime');
     }
 
     /**
@@ -147,6 +153,7 @@ class RoomTask extends Entity implements JsonSerializable
             'claimedAt' => $this->claimedAt?->format('c'),
             'assignedByUserId' => $this->assignedByUserId,
             'assignedAt' => $this->assignedAt?->format('c'),
+            'idealDueDate' => $this->idealDueDate?->format('c'),
             'createdAt' => $this->createdAt?->format('c'),
         ];
     }
