@@ -46,7 +46,7 @@ class GameControllerIntegrationTest extends TestCase
     {
         $gameState = [
             'houseHealth' => 82,
-            'totalTeamSparks' => 1250,
+            'totalCoins' => 1250,
             'activeCombos' => [],
             'monsters' => [],
             'currentWeek' => ['start' => '2026-02-23', 'end' => '2026-03-01'],

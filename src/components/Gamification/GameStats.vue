@@ -13,7 +13,7 @@
 					{{ stats.totalPoints }}
 				</div>
 				<div class="stat-label">
-					{{ t('chorestrike', 'Team Sparks') }}
+					{{ t('chorestrike', 'Coins') }}
 				</div>
 			</div>
 
@@ -55,7 +55,7 @@
 					{{ t('chorestrike', 'Combos') }}
 				</div>
 				<div v-if="stats.comboBonusPoints > 0" class="stat-sublabel">
-					+{{ stats.comboBonusPoints }} {{ t('chorestrike', 'bonus Team Sparks') }}
+					+{{ stats.comboBonusPoints }} {{ t('chorestrike', 'bonus Coins') }}
 				</div>
 			</div>
 
@@ -70,7 +70,7 @@
 					{{ t('chorestrike', 'Medals Earned') }}
 				</div>
 				<div v-if="stats.medalPoints > 0" class="stat-sublabel">
-					+{{ stats.medalPoints }} {{ t('chorestrike', 'Team Sparks') }}
+					+{{ stats.medalPoints }} {{ t('chorestrike', 'Coins') }}
 				</div>
 			</div>
 
@@ -98,7 +98,7 @@
 					<span class="weekly-value">{{ weeklyStats.tasksThisWeek }}</span>
 				</div>
 				<div class="weekly-stat">
-					<span class="weekly-label">{{ t('chorestrike', 'Team Sparks') }}</span>
+					<span class="weekly-label">{{ t('chorestrike', 'Coins') }}</span>
 					<span class="weekly-value">{{ weeklyStats.pointsThisWeek }}</span>
 				</div>
 				<div class="weekly-stat">

@@ -43,8 +43,8 @@ export const useMinigameStore = defineStore('minigame', {
 		purchasedBoosts: [],
 		boostsLoading: false,
 
-		// Sparks
-		currentSparks: 0,
+		// Coins
+		currentCoins: 0,
 
 		// Leaderboard
 		leaderboard: [],
@@ -66,7 +66,7 @@ export const useMinigameStore = defineStore('minigame', {
 		 */
 		canAffordBoost: (state) => (boostId) => {
 			const cost = BOOST_COSTS[boostId]
-			return state.currentSparks >= cost
+			return state.currentCoins >= cost
 		},
 
 		/**
@@ -90,7 +90,7 @@ export const useMinigameStore = defineStore('minigame', {
 		 */
 		affordableBoosts: (state) => {
 			return Object.entries(BOOST_COSTS)
-				.filter(([id, cost]) => state.currentSparks >= cost)
+				.filter(([id, cost]) => state.currentCoins >= cost)
 				.map(([id, cost]) => ({
 					id,
 					cost,
@@ -109,16 +109,16 @@ export const useMinigameStore = defineStore('minigame', {
 
 	actions: {
 		/**
-		 * Fetch current sparks balance
+		 * Fetch current coins balance
 		 */
-		async fetchSparks() {
+		async fetchCoins() {
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/minigames/sparks')
+				const response = await axios.get('/apps/chorestrike/api/v1/minigames/coins')
 				if (response.data.success) {
-					this.currentSparks = response.data.data.currentSparks
+					this.currentCoins = response.data.data.currentCoins
 				}
 			} catch (error) {
-				logger.error('Failed to fetch sparks', error, { store: 'minigame', action: 'fetchSparks' })
+				logger.error('Failed to fetch coins', error, { store: 'minigame', action: 'fetchCoins' })
 			}
 		},
 
@@ -219,7 +219,7 @@ export const useMinigameStore = defineStore('minigame', {
 				const response = await axios.post(`/apps/chorestrike/api/v1/minigames/boosts/${boostId}/purchase`)
 
 				if (response.data.success) {
-					this.currentSparks = response.data.data.remainingSparks
+					this.currentCoins = response.data.data.remainingCoins
 					this.purchasedBoosts.push(boostId)
 					return true
 				}
@@ -244,9 +244,9 @@ export const useMinigameStore = defineStore('minigame', {
 				})
 
 				if (response.data.success) {
-					// Update sparks if earned
-					if (response.data.data.sparksEarned > 0) {
-						this.currentSparks += response.data.data.sparksEarned
+					// Update coins if earned
+					if (response.data.data.coinsEarned > 0) {
+						this.currentCoins += response.data.data.coinsEarned
 					}
 
 					// Refresh leaderboard and personal best
@@ -352,7 +352,7 @@ export const useMinigameStore = defineStore('minigame', {
 			this.loading = true
 
 			await Promise.all([
-				this.fetchSparks(),
+				this.fetchCoins(),
 				this.fetchLeaderboard(gameId),
 				this.fetchPersonalBest(gameId),
 				this.fetchUserRank(gameId),
@@ -372,7 +372,7 @@ export const useMinigameStore = defineStore('minigame', {
 			this.gameOver = false
 			this.activeBoosts = []
 			this.purchasedBoosts = []
-			this.currentSparks = 0
+			this.currentCoins = 0
 			this.leaderboard = []
 			this.weeklyLeaderboard = []
 			this.personalBest = null

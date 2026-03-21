@@ -54,18 +54,18 @@ class GameLogicService
         $contributionScore = $this->calculateContributionScore($task, $roomCleanliness);
         $recentCompletions = $this->completedTaskMapper->findRecentByUserId($userId, 5);
         $isCombo = count($recentCompletions) >= 2;
-        $teamSparks = $this->calculateTeamSparks($task, $isCombo);
+        $coins = $this->calculateCoins($task, $isCombo);
 
         $completedTask = new CompletedTask();
         $completedTask->setRoomTaskId($roomTaskId);
         $completedTask->setUserId($userId);
         $completedTask->setCompletedAt(new \DateTime());
-        $completedTask->setSparksEarned($teamSparks);
+        $completedTask->setCoinsEarned($coins);
         $completedTask->setWasCombo($isCombo);
         $this->completedTaskMapper->insert($completedTask);
 
         $user->addContributionScore($contributionScore);
-        $user->addTeamSparks($teamSparks);
+        $user->addCoins($coins);
 
         // Update streak respecting absence days
         $preferences = $user->getSchedulingPreferences();
@@ -77,11 +77,11 @@ class GameLogicService
 
         return [
             'contributionScore' => $contributionScore,
-            'teamSparks' => $teamSparks,
+            'coins' => $coins,
             'isCombo' => $isCombo,
             'currentStreak' => $user->getCurrentStreak(),
             'totalContribution' => $user->getContributionScore(),
-            'totalSparks' => $user->getTeamSparks(),
+            'totalCoins' => $user->getCoins(),
         ];
     }
 
@@ -111,26 +111,26 @@ class GameLogicService
     }
 
     /**
-     * Calculate Team Sparks for task completion
+     * Calculate Coins for task completion
      *
      * @param Task $task The task
      * @param bool $isCombo Whether this is part of a combo
      */
-    public function calculateTeamSparks(Task $task, bool $isCombo = false): int
+    public function calculateCoins(Task $task, bool $isCombo = false): int
     {
-        $sparks = $task->getEnergyCost() * 5;
+        $coins = $task->getEnergyCost() * 5;
 
         if ($isCombo) {
-            $sparks *= 2;
+            $coins *= 2;
         }
 
         if ($task->getPriority() === 3) {
-            $sparks += 10;
+            $coins += 10;
         } elseif ($task->getPriority() === 2) {
-            $sparks += 5;
+            $coins += 5;
         }
 
-        return $sparks;
+        return $coins;
     }
 
     /**

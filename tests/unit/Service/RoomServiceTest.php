@@ -537,7 +537,7 @@ class RoomServiceTest extends TestCase
             ->method('handleTaskCompletion')
             ->willReturn([
                 'contributionScore' => 10,
-                'teamSparks' => 50,
+                'coins' => 50,
                 'isCombo' => false,
                 'currentStreak' => 1
             ]);

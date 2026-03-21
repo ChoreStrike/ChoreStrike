@@ -5,10 +5,10 @@
 				<span class="arcade-icon">🎮</span>
 				<h2>{{ t('chorestrike', 'Arcade') }}</h2>
 			</div>
-			<div class="sparks-display">
-				<span class="sparks-icon">⚡</span>
-				<span class="sparks-value">{{ currentSparks }}</span>
-				<span class="sparks-label">{{ t('chorestrike', 'Sparks') }}</span>
+			<div class="coins-display">
+				<span class="coins-icon">⚡</span>
+				<span class="coins-value">{{ currentCoins }}</span>
+				<span class="coins-label">{{ t('chorestrike', 'Coins') }}</span>
 			</div>
 		</div>
 
@@ -92,7 +92,7 @@ import SnakeGame from '../Minigames/SnakeGame.vue'
 import SnakeLeaderboard from '../Minigames/SnakeLeaderboard.vue'
 
 const minigameStore = useMinigameStore()
-const { currentSparks, personalBest, userRank } = storeToRefs(minigameStore)
+const { currentCoins, personalBest, userRank } = storeToRefs(minigameStore)
 
 const showGameModal = ref(false)
 const showLeaderboardModal = ref(false)
@@ -126,7 +126,7 @@ const closeLeaderboardModal = () => {
 }
 
 onMounted(async () => {
-	await minigameStore.fetchSparks()
+	await minigameStore.fetchCoins()
 	await minigameStore.fetchPersonalBest('snake')
 	await minigameStore.fetchUserRank('snake')
 })
@@ -166,7 +166,7 @@ onMounted(async () => {
 	color: var(--color-main-text);
 }
 
-.sparks-display {
+.coins-display {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
@@ -176,17 +176,17 @@ onMounted(async () => {
 	border: 1px solid rgba(255, 193, 7, 0.3);
 }
 
-.sparks-icon {
+.coins-icon {
 	font-size: 1.25rem;
 }
 
-.sparks-value {
+.coins-value {
 	font-size: 1.25rem;
 	font-weight: bold;
 	color: var(--color-warning, #ff9800);
 }
 
-.sparks-label {
+.coins-label {
 	font-size: 0.85rem;
 	color: var(--color-text-maxcontrast);
 }

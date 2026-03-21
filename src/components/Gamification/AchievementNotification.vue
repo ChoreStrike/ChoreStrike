@@ -17,7 +17,7 @@
 						{{ notification.message }}
 					</div>
 					<div v-if="notification.points" class="notification-points">
-						+{{ notification.points }} {{ t('chorestrike', 'Team Sparks') }}
+						+{{ notification.points }} {{ t('chorestrike', 'Coins') }}
 					</div>
 				</div>
 				<button class="notification-close" @click="removeNotification(notification.id)">

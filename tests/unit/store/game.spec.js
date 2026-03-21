@@ -29,7 +29,7 @@ describe('Game Store', () => {
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
 			// Cooperative features state
-			expect(store.householdProgress.totalTeamSparks).toBe(0)
+			expect(store.householdProgress.totalCoins).toBe(0)
 			expect(store.householdProgress.totalContributionScore).toBe(0)
 			expect(store.householdProgress.teamStreak).toBe(0)
 			expect(store.householdProgress.weeklyGoal.target).toBe(20)
@@ -93,9 +93,9 @@ describe('Game Store', () => {
 		})
 
 		// Cooperative features getters
-		it('householdTotalTeamSparks returns total', () => {
-			store.householdProgress.totalTeamSparks = 500
-			expect(store.householdTotalTeamSparks).toBe(500)
+		it('householdTotalCoins returns total', () => {
+			store.householdProgress.totalCoins = 500
+			expect(store.householdTotalCoins).toBe(500)
 		})
 
 		it('teamStreak returns streak count', () => {
@@ -233,7 +233,7 @@ describe('Game Store', () => {
 				expect(store.combos).toEqual([])
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
-				expect(store.householdProgress.totalTeamSparks).toBe(0)
+				expect(store.householdProgress.totalCoins).toBe(0)
 				expect(store.householdProgress.teamStreak).toBe(0)
 				expect(store.celebrations).toEqual([])
 			})
@@ -241,25 +241,25 @@ describe('Game Store', () => {
 
 		// Cooperative features actions
 		describe('updateHouseholdProgress', () => {
-			it('aggregates team sparks and contribution from users', () => {
+			it('aggregates coins and contribution from users', () => {
 				const houseUsers = [
-					{ teamSparks: 100, contributionScore: 200 },
-					{ teamSparks: 150, contributionScore: 300 },
-					{ teamSparks: 50, contributionScore: 100 },
+					{ coins: 100, contributionScore: 200 },
+					{ coins: 150, contributionScore: 300 },
+					{ coins: 50, contributionScore: 100 },
 				]
 				store.updateHouseholdProgress(houseUsers)
-				expect(store.householdProgress.totalTeamSparks).toBe(300)
+				expect(store.householdProgress.totalCoins).toBe(300)
 				expect(store.householdProgress.totalContributionScore).toBe(600)
 			})
 
 			it('handles users with missing values', () => {
 				const houseUsers = [
-					{ teamSparks: 100 },
+					{ coins: 100 },
 					{ contributionScore: 200 },
 					{},
 				]
 				store.updateHouseholdProgress(houseUsers)
-				expect(store.householdProgress.totalTeamSparks).toBe(100)
+				expect(store.householdProgress.totalCoins).toBe(100)
 				expect(store.householdProgress.totalContributionScore).toBe(200)
 			})
 		})

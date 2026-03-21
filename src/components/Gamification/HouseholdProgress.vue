@@ -13,16 +13,16 @@
 		</div>
 
 		<div class="progress-grid">
-			<!-- Total Team Sparks -->
-			<div class="progress-card team-sparks">
+			<!-- Total Coins -->
+			<div class="progress-card team-coins">
 				<div class="card-icon">
 					⭐
 				</div>
 				<div class="card-value">
-					{{ formatNumber(householdTotalTeamSparks) }}
+					{{ formatNumber(householdTotalCoins) }}
 				</div>
 				<div class="card-label">
-					{{ t('chorestrike', 'Team Sparks') }}
+					{{ t('chorestrike', 'Coins') }}
 				</div>
 			</div>
 
@@ -96,7 +96,7 @@ export default {
 	setup() {
 		const gameStore = useGameStore()
 
-		const householdTotalTeamSparks = computed(() => gameStore.householdTotalTeamSparks)
+		const householdTotalCoins = computed(() => gameStore.householdTotalCoins)
 		const teamStreak = computed(() => gameStore.teamStreak)
 		const weeklyGoalProgress = computed(() => gameStore.weeklyGoalProgress)
 		const weeklyGoalCompleted = computed(() => gameStore.householdProgress.weeklyGoal.completed)
@@ -132,7 +132,7 @@ export default {
 
 		return {
 			t,
-			householdTotalTeamSparks,
+			householdTotalCoins,
 			teamStreak,
 			weeklyGoalProgress,
 			weeklyGoalCompleted,

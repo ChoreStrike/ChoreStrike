@@ -15,7 +15,7 @@
 						{{ medal.name }}
 					</div>
 					<div class="medal-points">
-						+{{ medal.points }} {{ t('chorestrike', 'Team Sparks') }}
+						+{{ medal.points }} {{ t('chorestrike', 'Coins') }}
 					</div>
 				</div>
 			</div>

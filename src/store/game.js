@@ -18,7 +18,7 @@ export const useGameStore = defineStore('game', {
 		error: null,
 		// Cooperative features state
 		householdProgress: {
-			totalTeamSparks: 0,
+			totalCoins: 0,
 			totalContributionScore: 0,
 			teamStreak: 0,
 			weeklyGoal: {
@@ -52,11 +52,11 @@ export const useGameStore = defineStore('game', {
 		hasActiveCombos: (state) => state.combos.length > 0,
 
 		/**
-		 * Get household total Team Sparks (aggregated from all members)
+		 * Get household total Coins (aggregated from all members)
 		 * @param {object} userStore - The user store instance to aggregate from
 		 */
-		householdTotalTeamSparks: (state) => {
-			return state.householdProgress.totalTeamSparks
+		householdTotalCoins: (state) => {
+			return state.householdProgress.totalCoins
 		},
 
 		/**
@@ -230,13 +230,13 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Update household progress from house users data
-		 * @param {Array} houseUsers - Array of house user objects with contributionScore and teamSparks
+		 * @param {Array} houseUsers - Array of house user objects with contributionScore and coins
 		 */
 		updateHouseholdProgress(houseUsers) {
-			const totalTeamSparks = houseUsers.reduce((sum, user) => sum + (user.teamSparks || 0), 0)
+			const totalCoins = houseUsers.reduce((sum, user) => sum + (user.coins || 0), 0)
 			const totalContributionScore = houseUsers.reduce((sum, user) => sum + (user.contributionScore || 0), 0)
 
-			this.householdProgress.totalTeamSparks = totalTeamSparks
+			this.householdProgress.totalCoins = totalCoins
 			this.householdProgress.totalContributionScore = totalContributionScore
 		},
 
@@ -317,21 +317,21 @@ export const useGameStore = defineStore('game', {
 		},
 
 		/**
-		 * Calculate Team Sparks for task completion
+		 * Calculate Coins for task completion
 		 * @param {object} task - The task object with energyCost and priority
 		 * @param {boolean} isCombo - Whether this is part of a combo
 		 */
-		calculateTeamSparks(task, isCombo = false) {
-			let sparks = task.energyCost * 5
+		calculateCoins(task, isCombo = false) {
+			let coins = task.energyCost * 5
 
 			// Combo bonus
-			if (isCombo) sparks *= 2
+			if (isCombo) coins *= 2
 
 			// Priority bonus
-			if (task.priority === 3) sparks += 10
-			if (task.priority === 2) sparks += 5
+			if (task.priority === 3) coins += 10
+			if (task.priority === 2) coins += 5
 
-			return Math.round(sparks)
+			return Math.round(coins)
 		},
 
 		/**
@@ -527,7 +527,7 @@ export const useGameStore = defineStore('game', {
 			this.loading = false
 			this.error = null
 			this.householdProgress = {
-				totalTeamSparks: 0,
+				totalCoins: 0,
 				totalContributionScore: 0,
 				teamStreak: 0,
 				weeklyGoal: {

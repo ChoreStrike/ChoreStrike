@@ -92,9 +92,9 @@ describe('User Store', () => {
 			expect(store.contributionScore).toBe(100)
 		})
 
-		it('teamSparks returns sparks', () => {
-			store.currentUser = { id: 1, teamSparks: 50 }
-			expect(store.teamSparks).toBe(50)
+		it('coins returns coins', () => {
+			store.currentUser = { id: 1, coins: 50 }
+			expect(store.coins).toBe(50)
 		})
 
 		it('currentStreak returns streak', () => {

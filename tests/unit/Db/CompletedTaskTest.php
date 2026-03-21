@@ -21,7 +21,7 @@ class CompletedTaskTest extends TestCase
         $completedTask->setId(1);
         $completedTask->setUserId(2);
         $completedTask->setRoomTaskId(3);
-        $completedTask->setSparksEarned(15);
+        $completedTask->setCoinsEarned(15);
         $completedTask->setWasCombo(true);
         $completedAt = new \DateTime('2026-02-24 15:30:00');
         $completedTask->setCompletedAt($completedAt);
@@ -31,7 +31,7 @@ class CompletedTaskTest extends TestCase
         self::assertEquals(1, $result['id']);
         self::assertEquals(2, $result['userId']);
         self::assertEquals(3, $result['roomTaskId']);
-        self::assertEquals(15, $result['sparksEarned']);
+        self::assertEquals(15, $result['coinsEarned']);
         self::assertTrue($result['wasCombo']);
         self::assertEquals($completedAt->format('c'), $result['completedAt']);
     }
@@ -44,14 +44,14 @@ class CompletedTaskTest extends TestCase
         $completedTask = new CompletedTask();
         $completedTask->setUserId(5);
         $completedTask->setRoomTaskId(10);
-        $completedTask->setSparksEarned(25);
+        $completedTask->setCoinsEarned(25);
         $completedTask->setWasCombo(false);
         $completedAt = new \DateTime('2026-02-24 10:00:00');
         $completedTask->setCompletedAt($completedAt);
 
         self::assertEquals(5, $completedTask->getUserId());
         self::assertEquals(10, $completedTask->getRoomTaskId());
-        self::assertEquals(25, $completedTask->getSparksEarned());
+        self::assertEquals(25, $completedTask->getCoinsEarned());
         self::assertFalse($completedTask->getWasCombo());
         self::assertSame($completedAt, $completedTask->getCompletedAt());
     }
@@ -63,7 +63,7 @@ class CompletedTaskTest extends TestCase
     {
         $completedTask = new CompletedTask();
 
-        self::assertEquals(0, $completedTask->getSparksEarned());
+        self::assertEquals(0, $completedTask->getCoinsEarned());
         self::assertFalse($completedTask->getWasCombo());
     }
 }

@@ -20,8 +20,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setUserId(int $userId)
  * @method \DateTime getCompletedAt()
  * @method void setCompletedAt(\DateTime $completedAt)
- * @method int getSparksEarned()
- * @method void setSparksEarned(int $sparksEarned)
+ * @method int getCoinsEarned()
+ * @method void setCoinsEarned(int $coinsEarned)
  * @method bool getWasCombo()
  * @method void setWasCombo(bool $wasCombo)
  * @method int|null getComboWithUserId()
@@ -55,7 +55,7 @@ class CompletedTask extends Entity implements JsonSerializable
     protected $completedAt;
 
     /** @var int */
-    protected $sparksEarned = 0;
+    protected $coinsEarned = 0;
 
     /** @var bool */
     protected $wasCombo = false;
@@ -93,7 +93,7 @@ class CompletedTask extends Entity implements JsonSerializable
         $this->addType('roomTaskId', 'integer');
         $this->addType('userId', 'integer');
         $this->addType('completedAt', 'datetime');
-        $this->addType('sparksEarned', 'integer');
+        $this->addType('coinsEarned', 'integer');
         $this->addType('wasCombo', 'boolean');
         $this->addType('comboWithUserId', 'integer');
         $this->addType('nextcloudTaskId', 'integer');
@@ -116,7 +116,7 @@ class CompletedTask extends Entity implements JsonSerializable
             'roomTaskId' => $this->roomTaskId,
             'userId' => $this->userId,
             'completedAt' => $this->completedAt?->format('c'),
-            'sparksEarned' => $this->sparksEarned,
+            'coinsEarned' => $this->coinsEarned,
             'wasCombo' => $this->wasCombo,
             'comboWithUserId' => $this->comboWithUserId,
             'nextcloudTaskId' => $this->nextcloudTaskId,

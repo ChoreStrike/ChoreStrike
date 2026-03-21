@@ -20,8 +20,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCompletedTaskId(int $completedTaskId)
  * @method string getUserId()
  * @method void setUserId(string $userId)
- * @method int getSparksEarned()
- * @method void setSparksEarned(int $sparksEarned)
+ * @method int getCoinsEarned()
+ * @method void setCoinsEarned(int $coinsEarned)
  * @method string getParticipationType()
  * @method void setParticipationType(string $participationType)
  * @method \DateTime getJoinedAt()
@@ -36,7 +36,7 @@ class TaskParticipant extends Entity implements JsonSerializable
     protected $userId;
 
     /** @var int */
-    protected $sparksEarned = 0;
+    protected $coinsEarned = 0;
 
     /** @var string */
     protected $participationType = 'helper';
@@ -49,7 +49,7 @@ class TaskParticipant extends Entity implements JsonSerializable
         $this->addType('id', 'integer');
         $this->addType('completedTaskId', 'integer');
         $this->addType('userId', 'string');
-        $this->addType('sparksEarned', 'integer');
+        $this->addType('coinsEarned', 'integer');
         $this->addType('participationType', 'string');
         $this->addType('joinedAt', 'datetime');
     }
@@ -63,7 +63,7 @@ class TaskParticipant extends Entity implements JsonSerializable
             'id' => $this->id,
             'completedTaskId' => $this->completedTaskId,
             'userId' => $this->userId,
-            'sparksEarned' => $this->sparksEarned,
+            'coinsEarned' => $this->coinsEarned,
             'participationType' => $this->participationType,
             'joinedAt' => $this->joinedAt?->format('c'),
         ];

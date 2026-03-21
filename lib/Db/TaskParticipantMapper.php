@@ -99,15 +99,15 @@ class TaskParticipantMapper extends QBMapper
      * @param int $completedTaskId The completed task ID
      * @param string $userId The user ID
      * @param string $participationType 'primary' or 'helper'
-     * @param int $sparksEarned Sparks earned for participation
+     * @param int $coinsEarned Coins earned for participation
      */
-    public function addParticipant(int $completedTaskId, string $userId, string $participationType = 'helper', int $sparksEarned = 0): TaskParticipant
+    public function addParticipant(int $completedTaskId, string $userId, string $participationType = 'helper', int $coinsEarned = 0): TaskParticipant
     {
         $participant = new TaskParticipant();
         $participant->setCompletedTaskId($completedTaskId);
         $participant->setUserId($userId);
         $participant->setParticipationType($participationType);
-        $participant->setSparksEarned($sparksEarned);
+        $participant->setCoinsEarned($coinsEarned);
         $participant->setJoinedAt(new \DateTime());
 
         return $this->insert($participant);
@@ -131,17 +131,17 @@ class TaskParticipantMapper extends QBMapper
     }
 
     /**
-     * Update sparks for a participant
+     * Update coins for a participant
      *
      * @param int $participantId The participant ID
-     * @param int $sparksEarned New sparks value
+     * @param int $coinsEarned New coins value
      */
-    public function updateSparks(int $participantId, int $sparksEarned): void
+    public function updateCoins(int $participantId, int $coinsEarned): void
     {
         $qb = $this->db->getQueryBuilder();
 
         $qb->update($this->getTableName())
-            ->set('sparks_earned', $qb->createNamedParameter($sparksEarned, IQueryBuilder::PARAM_INT))
+            ->set('coins_earned', $qb->createNamedParameter($coinsEarned, IQueryBuilder::PARAM_INT))
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($participantId, IQueryBuilder::PARAM_INT)));
 
         $qb->executeStatement();

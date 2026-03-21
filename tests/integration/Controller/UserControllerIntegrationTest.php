@@ -257,7 +257,7 @@ class UserControllerIntegrationTest extends TestCase
     {
         $houseUser = $this->createHouseUser(1, 1, 'user1', 'Alice', 'owner');
         $houseUser->setContributionScore(1250);
-        $houseUser->setTeamSparks(620);
+        $houseUser->setCoins(620);
         $houseUser->setCurrentStreak(8);
         $houseUser->setLastActivity(new \DateTime('2026-02-24T18:00:00Z'));
 
@@ -276,7 +276,7 @@ class UserControllerIntegrationTest extends TestCase
         $this->assertTrue($data['success']);
         $this->assertEquals('user1', $data['data']['user']['nextcloudUserId']);
         $this->assertEquals(1250, $data['data']['stats']['contributionScore']);
-        $this->assertEquals(620, $data['data']['stats']['teamSparks']);
+        $this->assertEquals(620, $data['data']['stats']['coins']);
         $this->assertEquals(8, $data['data']['stats']['currentStreak']);
     }
 

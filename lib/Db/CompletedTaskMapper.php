@@ -109,7 +109,7 @@ class CompletedTaskMapper extends QBMapper
         $qb = $this->db->getQueryBuilder();
 
         $qb->select('COUNT(*) as task_count')
-            ->addSelect('SUM(sparks_earned) as total_sparks')
+            ->addSelect('SUM(coins_earned) as total_coins')
             ->addSelect('SUM(CASE WHEN was_combo = 1 THEN 1 ELSE 0 END) as combo_count')
             ->from($this->getTableName())
             ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
@@ -122,7 +122,7 @@ class CompletedTaskMapper extends QBMapper
 
         return [
             'taskCount' => (int)($row['task_count'] ?? 0),
-            'totalSparks' => (int)($row['total_sparks'] ?? 0),
+            'totalCoins' => (int)($row['total_coins'] ?? 0),
             'comboCount' => (int)($row['combo_count'] ?? 0),
         ];
     }

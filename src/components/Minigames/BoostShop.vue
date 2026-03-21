@@ -3,10 +3,10 @@
 		<div class="boost-shop" data-testid="boost-shop">
 			<div class="shop-header">
 				<h2>{{ t('chorestrike', 'Boost Shop') }}</h2>
-				<div class="sparks-balance">
-					<span class="sparks-icon">⚡</span>
-					<span class="sparks-value">{{ currentSparks }}</span>
-					<span class="sparks-label">{{ t('chorestrike', 'Sparks') }}</span>
+				<div class="coins-balance">
+					<span class="coins-icon">⚡</span>
+					<span class="coins-value">{{ currentCoins }}</span>
+					<span class="coins-label">{{ t('chorestrike', 'Coins') }}</span>
 				</div>
 			</div>
 
@@ -42,10 +42,10 @@
 					<span class="cost-value">{{ totalCost }}</span>
 					<span class="cost-icon">⚡</span>
 				</div>
-				<div class="remaining-sparks">
+				<div class="remaining-coins">
 					<span>{{ t('chorestrike', 'Remaining') }}:</span>
-					<span :class="{ 'insufficient': remainingSparks < 0 }">
-						{{ remainingSparks }}
+					<span :class="{ 'insufficient': remainingCoins < 0 }">
+						{{ remainingCoins }}
 					</span>
 					<span class="cost-icon">⚡</span>
 				</div>
@@ -74,7 +74,7 @@ import { storeToRefs } from 'pinia'
 const emit = defineEmits(['close', 'purchase'])
 
 const minigameStore = useMinigameStore()
-const { currentSparks, purchasedBoosts } = storeToRefs(minigameStore)
+const { currentCoins, purchasedBoosts } = storeToRefs(minigameStore)
 
 // Available boosts for display
 const availableBoosts = computed(() => {
@@ -94,12 +94,12 @@ const totalCost = computed(() => {
 	}, 0)
 })
 
-const remainingSparks = computed(() => {
-	return currentSparks.value - totalCost.value
+const remainingCoins = computed(() => {
+	return currentCoins.value - totalCost.value
 })
 
 const canPurchase = computed(() => {
-	return selectedBoosts.value.length > 0 && remainingSparks.value >= 0
+	return selectedBoosts.value.length > 0 && remainingCoins.value >= 0
 })
 
 const canAfford = (boostId) => {
@@ -107,7 +107,7 @@ const canAfford = (boostId) => {
 	// Check if adding this boost would still be affordable
 	const currentTotal = totalCost.value
 	const boostCost = isSelected(boostId) ? 0 : cost
-	return currentSparks.value >= (currentTotal + boostCost - (isSelected(boostId) ? cost : 0))
+	return currentCoins.value >= (currentTotal + boostCost - (isSelected(boostId) ? cost : 0))
 }
 
 const isSelected = (boostId) => {
@@ -178,7 +178,7 @@ const confirmPurchase = async () => {
 	color: var(--color-main-text);
 }
 
-.sparks-balance {
+.coins-balance {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
@@ -187,17 +187,17 @@ const confirmPurchase = async () => {
 	border-radius: 8px;
 }
 
-.sparks-icon {
+.coins-icon {
 	font-size: 1.25rem;
 }
 
-.sparks-value {
+.coins-value {
 	font-size: 1.25rem;
 	font-weight: bold;
 	color: var(--color-warning);
 }
 
-.sparks-label {
+.coins-label {
 	font-size: 0.85rem;
 	color: var(--color-text-maxcontrast);
 }
@@ -298,7 +298,7 @@ const confirmPurchase = async () => {
 }
 
 .total-cost,
-.remaining-sparks {
+.remaining-coins {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
@@ -306,7 +306,7 @@ const confirmPurchase = async () => {
 	font-size: 1rem;
 }
 
-.remaining-sparks .insufficient {
+.remaining-coins .insufficient {
 	color: var(--color-error);
 	font-weight: bold;
 }

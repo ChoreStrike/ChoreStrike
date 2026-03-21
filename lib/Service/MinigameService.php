@@ -19,7 +19,7 @@ use OCA\ChoreStrike\Db\MinigameScoreMapper;
 class MinigameService
 {
     /**
-     * Available boosts with their costs in Sparks
+     * Available boosts with their costs in Coins
      */
     public const BOOST_COSTS = [
         'slow_motion' => 10,      // 20% slower
@@ -61,12 +61,12 @@ class MinigameService
 
         $savedScore = $this->scoreMapper->insert($scoreEntity);
 
-        // Award Sparks for playing (1 Spark per 10 points)
-        $sparksEarned = (int) floor($score / 10);
-        if ($sparksEarned > 0) {
+        // Award Coins for playing (1 Coin per 10 points)
+        $coinsEarned = (int) floor($score / 10);
+        if ($coinsEarned > 0) {
             $user = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId);
             if ($user) {
-                $user->addSparks($sparksEarned);
+                $user->addCoins($coinsEarned);
                 $this->houseUserMapper->update($user);
             }
         }

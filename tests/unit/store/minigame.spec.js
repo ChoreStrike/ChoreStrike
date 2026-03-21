@@ -28,7 +28,7 @@ describe('Minigame Store', () => {
 			expect(store.gameOver).toBe(false)
 			expect(store.activeBoosts).toEqual([])
 			expect(store.purchasedBoosts).toEqual([])
-			expect(store.currentSparks).toBe(0)
+			expect(store.currentCoins).toBe(0)
 			expect(store.leaderboard).toEqual([])
 			expect(store.weeklyLeaderboard).toEqual([])
 			expect(store.personalBest).toBeNull()
@@ -43,7 +43,7 @@ describe('Minigame Store', () => {
 
 	describe('Getters', () => {
 		beforeEach(() => {
-			store.currentSparks = 50
+			store.currentCoins = 50
 			store.purchasedBoosts = ['slow_motion']
 			store.activeBoosts = ['slow_motion', 'ghost_mode']
 			store.personalBest = { score: 100 }
@@ -53,8 +53,8 @@ describe('Minigame Store', () => {
 			expect(store.canAffordBoost('slow_motion')).toBe(true) // costs 10
 		})
 
-		it('canAffordBoost returns false when sparks insufficient', () => {
-			store.currentSparks = 5
+		it('canAffordBoost returns false when coins insufficient', () => {
+			store.currentCoins = 5
 			expect(store.canAffordBoost('ghost_mode')).toBe(false) // costs 20
 		})
 
@@ -72,7 +72,7 @@ describe('Minigame Store', () => {
 		})
 
 		it('affordableBoosts returns boosts within budget', () => {
-			store.currentSparks = 25
+			store.currentCoins = 25
 			const affordable = store.affordableBoosts
 			expect(affordable.some(b => b.id === 'slow_motion')).toBe(true) // 10
 			expect(affordable.some(b => b.id === 'shrink')).toBe(true) // 15
@@ -99,23 +99,23 @@ describe('Minigame Store', () => {
 	})
 
 	describe('Actions', () => {
-		describe('fetchSparks', () => {
-			it('fetches sparks successfully', async () => {
+		describe('fetchCoins', () => {
+			it('fetches coins successfully', async () => {
 				axios.get.mockResolvedValue({
-					data: { success: true, data: { currentSparks: 75 } }
+					data: { success: true, data: { currentCoins: 75 } }
 				})
 
-				await store.fetchSparks()
+				await store.fetchCoins()
 
-				expect(store.currentSparks).toBe(75)
+				expect(store.currentCoins).toBe(75)
 			})
 
 			it('handles error gracefully', async () => {
 				axios.get.mockRejectedValue(new Error('Network error'))
 
-				await store.fetchSparks()
+				await store.fetchCoins()
 
-				expect(store.currentSparks).toBe(0)
+				expect(store.currentCoins).toBe(0)
 			})
 		})
 
@@ -171,22 +171,22 @@ describe('Minigame Store', () => {
 
 		describe('purchaseBoost', () => {
 			it('purchases boost successfully', async () => {
-				store.currentSparks = 50
+				store.currentCoins = 50
 				axios.post.mockResolvedValue({
-					data: { success: true, data: { remainingSparks: 40 } }
+					data: { success: true, data: { remainingCoins: 40 } }
 				})
 
 				const result = await store.purchaseBoost('slow_motion')
 
 				expect(result).toBe(true)
-				expect(store.currentSparks).toBe(40)
+				expect(store.currentCoins).toBe(40)
 				expect(store.purchasedBoosts).toContain('slow_motion')
 			})
 
-			it('handles insufficient sparks error', async () => {
-				store.currentSparks = 5
+			it('handles insufficient coins error', async () => {
+				store.currentCoins = 5
 				axios.post.mockRejectedValue({
-					response: { data: { error: { message: 'Insufficient sparks' } } }
+					response: { data: { error: { message: 'Insufficient coins' } } }
 				})
 
 				const result = await store.purchaseBoost('slow_motion')
@@ -327,7 +327,7 @@ describe('Minigame Store', () => {
 		describe('initialize', () => {
 			it('fetches all initial data', async () => {
 				axios.get.mockResolvedValue({
-					data: { success: true, data: { currentSparks: 100 } }
+					data: { success: true, data: { currentCoins: 100 } }
 				})
 
 				await store.initialize('snake')
@@ -346,7 +346,7 @@ describe('Minigame Store', () => {
 				store.gameOver = false
 				store.activeBoosts = ['slow_motion']
 				store.purchasedBoosts = ['ghost_mode']
-				store.currentSparks = 100
+				store.currentCoins = 100
 				store.leaderboard = [{ id: 1 }]
 				store.weeklyLeaderboard = [{ id: 2 }]
 				store.personalBest = { score: 300 }
@@ -366,7 +366,7 @@ describe('Minigame Store', () => {
 				expect(store.gameOver).toBe(false)
 				expect(store.activeBoosts).toEqual([])
 				expect(store.purchasedBoosts).toEqual([])
-				expect(store.currentSparks).toBe(0)
+				expect(store.currentCoins).toBe(0)
 				expect(store.leaderboard).toEqual([])
 				expect(store.weeklyLeaderboard).toEqual([])
 				expect(store.personalBest).toBeNull()

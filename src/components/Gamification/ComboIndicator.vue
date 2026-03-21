@@ -24,7 +24,7 @@
 
 			<div class="combo-stats">
 				<div class="stat">
-					<span class="stat-label">{{ t('chorestrike', 'Bonus Team Sparks') }}</span>
+					<span class="stat-label">{{ t('chorestrike', 'Bonus Coins') }}</span>
 					<span class="stat-value">+{{ comboProgress.bonusPoints }}</span>
 				</div>
 				<div class="stat">

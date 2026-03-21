@@ -339,7 +339,7 @@ class RoomService
                 'energyCost' => $task->getEnergyCost(),
                 'priority' => $task->getPriority(),
                 'contributionScore' => $gameResult['contributionScore'],
-                'teamSparks' => $gameResult['teamSparks'],
+                'coins' => $gameResult['coins'],
                 'isCombo' => $gameResult['isCombo'],
                 'currentStreak' => $gameResult['currentStreak'],
             ]

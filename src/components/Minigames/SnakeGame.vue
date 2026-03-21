@@ -6,9 +6,9 @@
 				<span class="score-label">{{ t('chorestrike', 'Score') }}</span>
 				<span class="score-value">{{ score }}</span>
 			</div>
-			<div class="sparks-display">
-				<span class="sparks-icon">⚡</span>
-				<span class="sparks-value">{{ currentSparks }}</span>
+			<div class="coins-display">
+				<span class="coins-icon">⚡</span>
+				<span class="coins-value">{{ currentCoins }}</span>
 			</div>
 			<div v-if="personalBest" class="personal-best">
 				<span class="best-label">{{ t('chorestrike', 'Best') }}</span>
@@ -48,8 +48,8 @@
 				<div class="game-over-content">
 					<h2>{{ t('chorestrike', 'Game Over!') }}</h2>
 					<p class="final-score">{{ t('chorestrike', 'Score: {score}', { score }) }}</p>
-					<p v-if="sparksEarned > 0" class="sparks-earned">
-						⚡ +{{ sparksEarned }} {{ t('chorestrike', 'Sparks earned!') }}
+					<p v-if="coinsEarned > 0" class="coins-earned">
+						⚡ +{{ coinsEarned }} {{ t('chorestrike', 'Coins earned!') }}
 					</p>
 					<p v-if="isNewPersonalBest" class="new-best">
 						🎉 {{ t('chorestrike', 'New Personal Best!') }} 🎉
@@ -141,7 +141,7 @@ const {
 	gameOver,
 	activeBoosts,
 	purchasedBoosts,
-	currentSparks,
+	currentCoins,
 	personalBest,
 	showBoostShop,
 	showLeaderboard,
@@ -158,7 +158,7 @@ const nextDirection = ref('right')
 const gameSpeed = ref(INITIAL_SPEED)
 const gameLoop = ref(null)
 const lives = ref(1)
-const sparksEarned = ref(0)
+const coinsEarned = ref(0)
 
 // Computed
 const boardStyle = computed(() => ({
@@ -391,7 +391,7 @@ const startNewGame = () => {
 	gameSpeed.value = INITIAL_SPEED
 	obstacles.value = []
 	lives.value = activeBoosts.value.includes('ghost_mode') ? 2 : 1
-	sparksEarned.value = 0
+	coinsEarned.value = 0
 
 	// Generate initial food and obstacles
 	generateFood()
@@ -418,8 +418,8 @@ const resumeGame = () => {
 const endGame = async () => {
 	clearInterval(gameLoop.value)
 	const result = await minigameStore.endGame()
-	if (result?.sparksEarned) {
-		sparksEarned.value = result.sparksEarned
+	if (result?.coinsEarned) {
+		coinsEarned.value = result.coinsEarned
 	}
 }
 
@@ -479,7 +479,7 @@ onUnmounted(() => {
 }
 
 .score-display,
-.sparks-display,
+.coins-display,
 .personal-best {
 	display: flex;
 	flex-direction: column;
@@ -499,11 +499,11 @@ onUnmounted(() => {
 	color: var(--color-primary);
 }
 
-.sparks-icon {
+.coins-icon {
 	font-size: 1.25rem;
 }
 
-.sparks-value {
+.coins-value {
 	font-size: 1rem;
 	font-weight: bold;
 	color: var(--color-warning);
@@ -597,7 +597,7 @@ onUnmounted(() => {
 	margin-bottom: 0.5rem;
 }
 
-.sparks-earned {
+.coins-earned {
 	font-size: 1.1rem;
 	color: #ffd700;
 	margin-bottom: 0.5rem;

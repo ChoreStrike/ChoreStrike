@@ -23,8 +23,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setDisplayName(string $displayName)
  * @method int getContributionScore()
  * @method void setContributionScore(int $contributionScore)
- * @method int getTeamSparks()
- * @method void setTeamSparks(int $teamSparks)
+ * @method int getCoins()
+ * @method void setCoins(int $coins)
  * @method int getCurrentSparks()
  * @method void setCurrentSparks(int $currentSparks)
  * @method int getTotalSparksEarned()
@@ -57,7 +57,7 @@ class HouseUser extends Entity implements JsonSerializable
     protected $contributionScore = 0;
 
     /** @var int */
-    protected $teamSparks = 0;
+    protected $coins = 0;
 
     /** @var int */
     protected $currentStreak = 0;
@@ -90,7 +90,7 @@ class HouseUser extends Entity implements JsonSerializable
         $this->addType('nextcloudUserId', 'string');
         $this->addType('displayName', 'string');
         $this->addType('contributionScore', 'integer');
-        $this->addType('teamSparks', 'integer');
+        $this->addType('coins', 'integer');
         $this->addType('currentSparks', 'integer');
         $this->addType('totalSparksEarned', 'integer');
         $this->addType('currentStreak', 'integer');
@@ -112,7 +112,7 @@ class HouseUser extends Entity implements JsonSerializable
             'nextcloudUserId' => $this->nextcloudUserId,
             'displayName' => $this->displayName,
             'contributionScore' => $this->contributionScore,
-            'teamSparks' => $this->teamSparks,
+            'coins' => $this->coins,
             'currentSparks' => $this->currentSparks,
             'totalSparksEarned' => $this->totalSparksEarned,
             'currentStreak' => $this->currentStreak,
@@ -135,13 +135,13 @@ class HouseUser extends Entity implements JsonSerializable
     }
 
     /**
-     * Add team sparks
+     * Add coins
      *
-     * @param int $sparks Sparks to add
+     * @param int $coins Coins to add
      */
-    public function addTeamSparks(int $sparks): void
+    public function addCoins(int $coins): void
     {
-        $this->setTeamSparks($this->teamSparks + $sparks);
+        $this->setCoins($this->coins + $coins);
     }
 
     /**

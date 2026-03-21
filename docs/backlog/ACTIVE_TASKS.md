@@ -5,6 +5,19 @@
 
 ## Currently Active
 
+### Cascade - REWARD-COINS-001 - Rename Team Sparks → Coins
+**Status**: In Progress
+**Started**: 2026-03-21 15:27
+**Branch**: master
+**Related Files**: lib/Db/HouseUser.php, lib/Db/CompletedTask.php, lib/Service/GameLogicService.php, src/store/game.js, src/components/Gamification/*.vue, src/views/Leaderboard.vue, l10n/en.json, l10n/de.json
+**Blockers**: None
+**Notes**:
+- Phase 1.1 of Reward System Redesign
+- Rename all Team Sparks references to Coins
+- Backend: HouseUser.teamSparks → coins, CompletedTask.sparksEarned → coinsEarned
+- Frontend: Update store, components, and UI labels
+- Database migration for column rename
+
 ### Cascade - REWARD-GAP-ANALYSIS-001 - Reward System Technical Gap Analysis
 **Status**: Done
 **Started**: 2026-03-06 10:00

@@ -59,7 +59,7 @@ class GameLogicServiceTest extends TestCase
         $user->setId($userId);
         $user->setCurrentStreak(5);
         $user->setContributionScore(100);
-        $user->setTeamSparks(50);
+        $user->setCoins(50);
         $user->setLastActivity(new \DateTime('yesterday'));
 
         $recentCompletions = [
@@ -90,7 +90,7 @@ class GameLogicServiceTest extends TestCase
         $result = $this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
 
         $this->assertIsInt($result['contributionScore']);
-        $this->assertIsInt($result['teamSparks']);
+        $this->assertIsInt($result['coins']);
         $this->assertTrue($result['isCombo']);
         $this->assertEquals(6, $result['currentStreak']);
     }
@@ -156,45 +156,45 @@ class GameLogicServiceTest extends TestCase
     }
 
     /**
-     * CalculateTeamSparks_BaseCalculation_ReturnsSparks
+     * CalculateCoins_BaseCalculation_ReturnsCoins
      */
-    public function testCalculateTeamSparks_BaseCalculation_ReturnsSparks(): void
+    public function testCalculateCoins_BaseCalculation_ReturnsCoins(): void
     {
         $task = new Task();
         $task->setEnergyCost(3);
         $task->setPriority(1);
 
-        $result = $this->service->calculateTeamSparks($task, false);
+        $result = $this->service->calculateCoins($task, false);
 
         // 3 * 5 = 15
         $this->assertEquals(15, $result);
     }
 
     /**
-     * CalculateTeamSparks_Combo_ReturnsDoubledSparks
+     * CalculateCoins_Combo_ReturnsDoubledCoins
      */
-    public function testCalculateTeamSparks_Combo_ReturnsDoubledSparks(): void
+    public function testCalculateCoins_Combo_ReturnsDoubledCoins(): void
     {
         $task = new Task();
         $task->setEnergyCost(3);
         $task->setPriority(1);
 
-        $result = $this->service->calculateTeamSparks($task, true);
+        $result = $this->service->calculateCoins($task, true);
 
         // 3 * 5 * 2 = 30
         $this->assertEquals(30, $result);
     }
 
     /**
-     * CalculateTeamSparks_HighPriority_ReturnsBonus
+     * CalculateCoins_HighPriority_ReturnsBonus
      */
-    public function testCalculateTeamSparks_HighPriority_ReturnsBonus(): void
+    public function testCalculateCoins_HighPriority_ReturnsBonus(): void
     {
         $task = new Task();
         $task->setEnergyCost(2);
         $task->setPriority(3);
 
-        $result = $this->service->calculateTeamSparks($task, false);
+        $result = $this->service->calculateCoins($task, false);
 
         // 2 * 5 = 10 + 10 bonus = 20
         $this->assertEquals(20, $result);
@@ -393,7 +393,7 @@ class GameLogicServiceTest extends TestCase
         $this->completedTaskMapper
             ->expects($this->once())
             ->method('getUserStats')
-            ->willReturn(['taskCount' => 15, 'totalSparks' => 100]);
+            ->willReturn(['taskCount' => 15, 'totalCoins' => 100]);
 
         $this->medalMapper
             ->expects($this->once())
@@ -433,7 +433,7 @@ class GameLogicServiceTest extends TestCase
         $this->completedTaskMapper
             ->expects($this->once())
             ->method('getUserStats')
-            ->willReturn(['taskCount' => 5, 'totalSparks' => 50]);
+            ->willReturn(['taskCount' => 5, 'totalCoins' => 50]);
 
         $medal = new Medal();
         $medal->setId(1);

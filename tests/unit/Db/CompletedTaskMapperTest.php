@@ -65,14 +65,14 @@ class CompletedTaskMapperTest extends TestCase
                 'id' => 1,
                 'user_id' => $userId,
                 'room_task_id' => 5,
-                'sparks_earned' => 15,
+                'coins_earned' => 15,
                 'was_combo' => true,
                 'completed_at' => '2026-02-24 15:30:00'
             ], [
                 'id' => 2,
                 'user_id' => $userId,
                 'room_task_id' => 6,
-                'sparks_earned' => 10,
+                'coins_earned' => 10,
                 'was_combo' => false,
                 'completed_at' => '2026-02-24 12:00:00'
             ], false);
@@ -85,9 +85,9 @@ class CompletedTaskMapperTest extends TestCase
 
         $this->assertCount(2, $results);
         $this->assertInstanceOf(CompletedTask::class, $results[0]);
-        $this->assertEquals(15, $results[0]->getSparksEarned());
+        $this->assertEquals(15, $results[0]->getCoinsEarned());
         $this->assertTrue($results[0]->getWasCombo());
-        $this->assertEquals(10, $results[1]->getSparksEarned());
+        $this->assertEquals(10, $results[1]->getCoinsEarned());
         $this->assertFalse($results[1]->getWasCombo());
     }
 
@@ -106,7 +106,7 @@ class CompletedTaskMapperTest extends TestCase
             ->willReturn($this->qb);
         $this->qb->expects($this->once())
             ->method('addSelect')
-            ->with('SUM(sparks_earned) as total_sparks')
+            ->with('SUM(coins_earned) as total_coins')
             ->willReturn($this->qb);
         $this->qb->expects($this->once())
             ->method('from')
@@ -117,7 +117,7 @@ class CompletedTaskMapperTest extends TestCase
         $mockResult->method('fetch')
             ->willReturn([
                 'task_count' => 15,
-                'total_sparks' => 200,
+                'total_coins' => 200,
                 'combo_count' => 5
             ]);
         $mockResult->expects($this->once())
@@ -130,7 +130,7 @@ class CompletedTaskMapperTest extends TestCase
         $result = $this->mapper->getUserStats($userId, $startDate, $endDate);
 
         $this->assertEquals(15, $result['taskCount']);
-        $this->assertEquals(200, $result['totalSparks']);
+        $this->assertEquals(200, $result['totalCoins']);
         $this->assertEquals(5, $result['comboCount']);
     }
 
@@ -157,7 +157,7 @@ class CompletedTaskMapperTest extends TestCase
         $mockResult->method('fetch')
             ->willReturn([
                 'task_count' => null,
-                'total_sparks' => null,
+                'total_coins' => null,
                 'combo_count' => null
             ]);
         $mockResult->expects($this->once())

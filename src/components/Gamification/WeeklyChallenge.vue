@@ -20,7 +20,7 @@
 				</div>
 				<div class="challenge-reward">
 					<span class="reward-label">{{ t('chorestrike', 'Reward:') }}</span>
-					<span class="reward-value">+{{ challenge.reward }} {{ t('chorestrike', 'Team Sparks') }}</span>
+					<span class="reward-value">+{{ challenge.reward }} {{ t('chorestrike', 'Coins') }}</span>
 				</div>
 			</div>
 		</div>

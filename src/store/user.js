@@ -29,7 +29,7 @@ export const useUserStore = defineStore('user', {
 
 		contributionScore: (state) => state.currentUser?.contributionScore || 0,
 
-		teamSparks: (state) => state.currentUser?.teamSparks || 0,
+		coins: (state) => state.currentUser?.coins || 0,
 
 		currentStreak: (state) => state.currentUser?.currentStreak || 0,
 
@@ -289,13 +289,13 @@ export const useUserStore = defineStore('user', {
 		},
 
 		/**
-		 * Add Team Sparks
+		 * Add Coins
 		 * @param {string|number} userId Internal identifier of the user to update.
-		 * @param {number} sparks Team Sparks value to add.
+		 * @param {number} coins Coins value to add.
 		 */
-		addTeamSparks(userId, sparks) {
+		addCoins(userId, coins) {
 			this.updateUserStats(userId, {
-				teamSparks: (this.getUserById(userId)?.teamSparks || 0) + sparks,
+				coins: (this.getUserById(userId)?.coins || 0) + coins,
 			})
 		},
 
@@ -320,7 +320,7 @@ export const useUserStore = defineStore('user', {
 
 			return {
 				contributionScore: user.contributionScore || 0,
-				teamSparks: user.teamSparks || 0,
+				coins: user.coins || 0,
 				currentStreak: user.currentStreak || 0,
 				role: user.role,
 				joinedAt: user.joinedAt,
