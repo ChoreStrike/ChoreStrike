@@ -6,17 +6,23 @@
 ## Currently Active
 
 ### Cascade - REWARD-COINS-001 - Rename Team Sparks → Coins
-**Status**: In Progress
+**Status**: Done
 **Started**: 2026-03-21 15:27
+**Completed**: 2026-03-21 16:45
 **Branch**: master
-**Related Files**: lib/Db/HouseUser.php, lib/Db/CompletedTask.php, lib/Service/GameLogicService.php, src/store/game.js, src/components/Gamification/*.vue, src/views/Leaderboard.vue, l10n/en.json, l10n/de.json
+**Related Files**: lib/Db/HouseUser.php, lib/Db/CompletedTask.php, lib/Db/TaskParticipant.php, lib/Service/GameLogicService.php, lib/Service/MinigameService.php, lib/Service/RoomService.php, lib/Migration/Version1017Date20260321000000.php, src/store/game.js, src/store/user.js, src/store/minigame.js, src/components/Gamification/*.vue, src/components/Minigames/*.vue, src/views/Leaderboard.vue, l10n/en.json, l10n/de.json
 **Blockers**: None
 **Notes**:
-- Phase 1.1 of Reward System Redesign
-- Rename all Team Sparks references to Coins
-- Backend: HouseUser.teamSparks → coins, CompletedTask.sparksEarned → coinsEarned
-- Frontend: Update store, components, and UI labels
-- Database migration for column rename
+- Phase 1.1 of Reward System Redesign COMPLETED
+- Backend: Renamed HouseUser.teamSparks → coins, CompletedTask.sparksEarned → coinsEarned, TaskParticipant.sparksEarned → coinsEarned
+- Backend: Updated GameLogicService, MinigameService, RoomService, CompletedTaskMapper methods
+- Backend: Created DB migration for column renames (team_sparks → coins, sparks_earned → coins_earned)
+- Frontend: Updated game.js, user.js, minigame.js stores
+- Frontend: Updated all Gamification and Minigame Vue components
+- i18n: Updated English and German translations (Team Sparks → Coins, Münzen)
+- Tests: Updated all unit and integration tests for renamed fields
+- Validation: 63 PHPUnit tests pass, 92 Jest store tests pass
+- Commit: 30c94fc
 
 ### Cascade - REWARD-GAP-ANALYSIS-001 - Reward System Technical Gap Analysis
 **Status**: Done
