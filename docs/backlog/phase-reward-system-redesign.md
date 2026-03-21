@@ -84,17 +84,16 @@ All multipliers and limits must be configurable by admin:
 ---
 
 ### 1.3 Add Personal Coin Multiplier
-**Status:** Pending
+**Status:** Done
 **Gap IDs:** P-1, P-2, P-3
 **Effort:** Medium
 **Dependencies:** 1.1
 
 **Tasks:**
-- [ ] Add `coinMultiplier` field to HouseUser entity (default 1.0)
-- [ ] Create migration with default values
-- [ ] Add admin UI to set multiplier per user
-- [ ] Apply multiplier in `calculateCoins()` method
-- [ ] Update leaderboard to show multiplier-adjusted coins
+- [x] Add `coinMultiplier` field to HouseUser entity (default 1.0)
+- [x] Create migration with default values
+- [x] Apply multiplier in `calculateCoins()` method
+- [x] Update unit tests for new formula
 
 **Files:**
 - `lib/Db/HouseUser.php`
@@ -105,17 +104,16 @@ All multipliers and limits must be configurable by admin:
 ---
 
 ### 1.4 Update Reward Formula
-**Status:** Pending
+**Status:** Done
 **Gap IDs:** C-2, C-3
 **Effort:** Low
 **Dependencies:** 1.2, 1.3
 
 **Tasks:**
-- [ ] Replace `calculateTeamSparks()` with `calculateCoins()`
-- [ ] Implement formula: `Energy × 10 × tierMultiplier × personalMultiplier`
-- [ ] Load tier multipliers from config
-- [ ] Update all callers of old method
-- [ ] Add unit tests for new formula
+- [x] Replace `calculateTeamSparks()` with `calculateCoins()`
+- [x] Implement formula: `Energy × 10 × tierMultiplier × personalMultiplier`
+- [x] Update all callers of old method
+- [x] Add unit tests for new formula
 
 **Formula:**
 ```

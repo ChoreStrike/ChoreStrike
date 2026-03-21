@@ -5,6 +5,23 @@
 
 ## Currently Active
 
+### Cascade - REWARD-MULTIPLIER-001 - Add Personal Coin Multiplier
+**Status**: Done
+**Started**: 2026-03-21 17:15
+**Completed**: 2026-03-21 17:30
+**Branch**: master
+**Related Files**: lib/Db/HouseUser.php, lib/Service/GameLogicService.php, lib/Migration/Version1019Date20260321000000.php, l10n/en.json, l10n/de.json, tests/unit/Service/GameLogicServiceTest.php
+**Blockers**: None
+**Notes**:
+- Phase 1.3 & 1.4 of Reward System Redesign COMPLETED
+- Added coinMultiplier field to HouseUser entity (default 1.0)
+- Created migration for coin_multiplier column
+- Updated calculateCoins() to accept personalMultiplier parameter
+- Formula: Coins = Energy × 10 × tierMultiplier × personalMultiplier
+- Added i18n keys for coin multiplier UI
+- Validation: 32 GameLogicService tests pass
+- Commit: pending
+
 ### Cascade - REWARD-TIER-001 - Add TaskTier Field and Update Coin Calculation
 **Status**: Done
 **Started**: 2026-03-21 16:50

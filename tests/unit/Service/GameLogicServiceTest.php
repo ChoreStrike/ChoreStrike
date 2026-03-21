@@ -119,9 +119,9 @@ class GameLogicServiceTest extends TestCase
         $task->setEnergyCost(3);
         $task->setTaskTier('bronze');
 
-        $result = $this->service->calculateCoins($task, false);
+        $result = $this->service->calculateCoins($task, 1.0, false);
 
-        // 3 * 10 * 1.0 = 30
+        // 3 * 10 * 1.0 * 1.0 = 30
         $this->assertEquals(30, $result);
     }
 
@@ -134,9 +134,9 @@ class GameLogicServiceTest extends TestCase
         $task->setEnergyCost(3);
         $task->setTaskTier('silver');
 
-        $result = $this->service->calculateCoins($task, false);
+        $result = $this->service->calculateCoins($task, 1.0, false);
 
-        // 3 * 10 * 1.5 = 45
+        // 3 * 10 * 1.5 * 1.0 = 45
         $this->assertEquals(45, $result);
     }
 
@@ -149,10 +149,25 @@ class GameLogicServiceTest extends TestCase
         $task->setEnergyCost(2);
         $task->setTaskTier('gold');
 
-        $result = $this->service->calculateCoins($task, false);
+        $result = $this->service->calculateCoins($task, 1.0, false);
 
-        // 2 * 10 * 2.0 = 40
+        // 2 * 10 * 2.0 * 1.0 = 40
         $this->assertEquals(40, $result);
+    }
+
+    /**
+     * CalculateCoins_PersonalMultiplier_ReturnsAdjustedCoins
+     */
+    public function testCalculateCoins_PersonalMultiplier_ReturnsAdjustedCoins(): void
+    {
+        $task = new Task();
+        $task->setEnergyCost(2);
+        $task->setTaskTier('silver');
+
+        $result = $this->service->calculateCoins($task, 1.5, false);
+
+        // 2 * 10 * 1.5 * 1.5 = 45
+        $this->assertEquals(45, $result);
     }
 
     /**
@@ -164,9 +179,9 @@ class GameLogicServiceTest extends TestCase
         $task->setEnergyCost(3);
         $task->setTaskTier('silver');
 
-        $result = $this->service->calculateCoins($task, true);
+        $result = $this->service->calculateCoins($task, 1.0, true);
 
-        // 3 * 10 * 1.5 * 2 = 90
+        // 3 * 10 * 1.5 * 1.0 * 2 = 90
         $this->assertEquals(90, $result);
     }
 

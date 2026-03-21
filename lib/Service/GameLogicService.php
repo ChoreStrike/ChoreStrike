@@ -54,7 +54,7 @@ class GameLogicService
         $contributionScore = $this->calculateContributionScore($task, $roomCleanliness);
         $recentCompletions = $this->completedTaskMapper->findRecentByUserId($userId, 5);
         $isCombo = count($recentCompletions) >= 2;
-        $coins = $this->calculateCoins($task, $isCombo);
+        $coins = $this->calculateCoins($task, $user->getCoinMultiplier(), $isCombo);
 
         $completedTask = new CompletedTask();
         $completedTask->setRoomTaskId($roomTaskId);
@@ -101,19 +101,20 @@ class GameLogicService
      * Calculate Coins for task completion
      *
      * @param Task $task The task
+     * @param float $personalMultiplier The user's personal coin multiplier
      * @param bool $isCombo Whether this is part of a combo
      */
-    public function calculateCoins(Task $task, bool $isCombo = false): int
+    public function calculateCoins(Task $task, float $personalMultiplier = 1.0, bool $isCombo = false): int
     {
-        // Formula: Energy × 10 × tierMultiplier × comboMultiplier
+        // Formula: Energy × 10 × tierMultiplier × personalMultiplier × comboMultiplier
         $baseRate = 10;
-        $coins = $task->getEnergyCost() * $baseRate * $task->getTaskTierMultiplier();
+        $coins = $task->getEnergyCost() * $baseRate * $task->getTaskTierMultiplier() * $personalMultiplier;
 
         if ($isCombo) {
             $coins *= 2;
         }
 
-        return (int) $coins;
+        return (int) round($coins);
     }
 
     /**

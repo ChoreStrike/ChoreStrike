@@ -25,6 +25,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setContributionScore(int $contributionScore)
  * @method int getCoins()
  * @method void setCoins(int $coins)
+ * @method float getCoinMultiplier()
+ * @method void setCoinMultiplier(float $coinMultiplier)
  * @method int getCurrentSparks()
  * @method void setCurrentSparks(int $currentSparks)
  * @method int getTotalSparksEarned()
@@ -59,6 +61,9 @@ class HouseUser extends Entity implements JsonSerializable
     /** @var int */
     protected $coins = 0;
 
+    /** @var float */
+    protected $coinMultiplier = 1.0;
+
     /** @var int */
     protected $currentStreak = 0;
 
@@ -91,6 +96,7 @@ class HouseUser extends Entity implements JsonSerializable
         $this->addType('displayName', 'string');
         $this->addType('contributionScore', 'integer');
         $this->addType('coins', 'integer');
+        $this->addType('coinMultiplier', 'decimal');
         $this->addType('currentSparks', 'integer');
         $this->addType('totalSparksEarned', 'integer');
         $this->addType('currentStreak', 'integer');
@@ -113,6 +119,7 @@ class HouseUser extends Entity implements JsonSerializable
             'displayName' => $this->displayName,
             'contributionScore' => $this->contributionScore,
             'coins' => $this->coins,
+            'coinMultiplier' => $this->coinMultiplier,
             'currentSparks' => $this->currentSparks,
             'totalSparksEarned' => $this->totalSparksEarned,
             'currentStreak' => $this->currentStreak,
