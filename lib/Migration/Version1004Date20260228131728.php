@@ -37,7 +37,7 @@ class Version1004Date20260228131728 extends SimpleMigrationStep
             $table->addColumn('nextcloud_user_id', 'string', ['notnull' => true, 'length' => 64]);
             $table->addColumn('display_name', 'string', ['notnull' => true, 'length' => 255]);
             $table->addColumn('contribution_score', 'integer', ['notnull' => true, 'default' => 0]);
-            $table->addColumn('team_sparks', 'integer', ['notnull' => true, 'default' => 0]);
+            $table->addColumn('coins', 'integer', ['notnull' => true, 'default' => 0]);
             $table->addColumn('current_sparks', 'integer', ['notnull' => true, 'default' => 0]);
             $table->addColumn('total_sparks_earned', 'integer', ['notnull' => true, 'default' => 0]);
             $table->addColumn('current_streak', 'integer', ['notnull' => true, 'default' => 0]);
@@ -59,7 +59,7 @@ class Version1004Date20260228131728 extends SimpleMigrationStep
             $table->addColumn('room_task_id', 'bigint', ['notnull' => true]);
             $table->addColumn('user_id', 'bigint', ['notnull' => true]);
             $table->addColumn('completed_at', 'datetime', ['notnull' => true]);
-            $table->addColumn('sparks_earned', 'integer', ['notnull' => true, 'default' => 0]);
+            $table->addColumn('coins_earned', 'integer', ['notnull' => true, 'default' => 0]);
             $table->addColumn('was_combo', 'boolean', ['notnull' => false, 'default' => 0]);
             $table->addColumn('combo_with_user_id', 'bigint', ['notnull' => false]);
             $table->addColumn('nextcloud_task_id', 'bigint', ['notnull' => false]);

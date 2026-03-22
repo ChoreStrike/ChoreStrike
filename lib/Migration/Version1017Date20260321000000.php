@@ -6,13 +6,19 @@ namespace OCA\ChoreStrike\Migration;
 
 use Closure;
 use OCP\DB\ISchemaWrapper;
+use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\IDBConnection;
 use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
+use Psr\Log\LoggerInterface;
 
 /**
  * Migration for renaming Team Sparks to Coins
  * - house_users.team_sparks → coins
  * - completed_tasks.sparks_earned → coins_earned
+ * - task_participants.sparks_earned → coins_earned
+ *
+ * Uses direct SQL for column renames (Doctrine DBAL 4 compatibility)
  */
 class Version1017Date20260321000000 extends SimpleMigrationStep
 {
@@ -21,8 +27,15 @@ class Version1017Date20260321000000 extends SimpleMigrationStep
 	 * @param Closure $closure
 	 * @param array $openedSchema
 	 */
-	public function preSchemaChange(IOutput $output, Closure $closure, array $openedSchema): void
+	public function changeSchema(IOutput $output, Closure $closure, array $openedSchema): ISchemaWrapper
 	{
+		/** @var ISchemaWrapper $schema */
+		$schema = $closure();
+
+		// No schema changes here - we use postSchemaChange for direct SQL renames
+		// This is required for Doctrine DBAL 4 compatibility
+
+		return $schema;
 	}
 
 	/**
@@ -32,43 +45,57 @@ class Version1017Date20260321000000 extends SimpleMigrationStep
 	 */
 	public function postSchemaChange(IOutput $output, Closure $closure, array $openedSchema): void
 	{
+		/** @var IDBConnection $connection */
+		$connection = \OC::$server->get(IDBConnection::class);
+
+		// Rename team_sparks → coins in house_users table
+		$this->renameColumn($connection, $output, 'chorestrike_house_users', 'team_sparks', 'coins', 'INT DEFAULT 0 NOT NULL');
+
+		// Rename sparks_earned → coins_earned in completed_tasks table
+		$this->renameColumn($connection, $output, 'chorestrike_completed_tasks', 'sparks_earned', 'coins_earned', 'INT DEFAULT 0 NOT NULL');
+
+		// Rename sparks_earned → coins_earned in task_participants table
+		$this->renameColumn($connection, $output, 'chorestrike_task_participants', 'sparks_earned', 'coins_earned', 'INT DEFAULT 0 NOT NULL');
 	}
 
 	/**
+	 * Rename a column using direct SQL (MySQL/MariaDB/SQLite compatible)
+	 *
+	 * @param IDBConnection $connection
 	 * @param IOutput $output
-	 * @param Closure $closure
-	 * @param ISchemaWrapper $schema
-	 * @return ISchemaWrapper
+	 * @param string $tableName
+	 * @param string $oldColumn
+	 * @param string $newColumn
+	 * @param string $definition
 	 */
-	public function changeSchema(IOutput $output, Closure $closure, array $openedSchema): ISchemaWrapper
+	private function renameColumn(IDBConnection $connection, IOutput $output, string $tableName, string $oldColumn, string $newColumn, string $definition): void
 	{
-		/** @var ISchemaWrapper $schema */
-		$schema = $closure();
+		$schema = $connection->createSchema();
 
-		// Rename team_sparks → coins in house_users table
-		if ($schema->hasTable('chorestrike_house_users')) {
-			$table = $schema->getTable('chorestrike_house_users');
-			if ($table->hasColumn('team_sparks')) {
-				$table->renameColumn('team_sparks', 'coins');
-			}
+		// Check if table and old column exist
+		if (!$schema->hasTable($tableName)) {
+			$output->info("Table $tableName does not exist, skipping rename");
+			return;
 		}
 
-		// Rename sparks_earned → coins_earned in completed_tasks table
-		if ($schema->hasTable('chorestrike_completed_tasks')) {
-			$table = $schema->getTable('chorestrike_completed_tasks');
-			if ($table->hasColumn('sparks_earned')) {
-				$table->renameColumn('sparks_earned', 'coins_earned');
-			}
+		$table = $schema->getTable($tableName);
+		if (!$table->hasColumn($oldColumn)) {
+			$output->info("Column $oldColumn does not exist in $tableName, skipping rename");
+			return;
 		}
 
-		// Rename sparks_earned → coins_earned in task_participants table
-		if ($schema->hasTable('chorestrike_task_participants')) {
-			$table = $schema->getTable('chorestrike_task_participants');
-			if ($table->hasColumn('sparks_earned')) {
-				$table->renameColumn('sparks_earned', 'coins_earned');
-			}
+		// Use direct SQL for column rename (Doctrine DBAL 4 compatible)
+		$dbPlatform = $connection->getDatabasePlatform()->getName();
+
+		if ($dbPlatform === 'sqlite') {
+			// SQLite requires different syntax
+			$sql = "ALTER TABLE `{$tableName}` RENAME COLUMN `{$oldColumn}` TO `{$newColumn}`";
+		} else {
+			// MySQL/MariaDB syntax
+			$sql = "ALTER TABLE `{$tableName}` CHANGE `{$oldColumn}` `{$newColumn}` {$definition}";
 		}
 
-		return $schema;
+		$connection->executeStatement($sql);
+		$output->info("Renamed column $oldColumn → $newColumn in $tableName");
 	}
 }

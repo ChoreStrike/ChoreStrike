@@ -3,6 +3,23 @@
 > **Purpose**: Central tracking of all tasks currently being worked on by AI agents or developers.
 > **Update Rule**: Every agent MUST update this file when starting, completing, or pausing work.
 
+## Recently Completed
+
+### Cascade - P8-INTERNAL-TEST-001 - Fix Doctrine DBAL 4 Migration & Alpha Test Setup
+**Status**: Done
+**Started**: 2026-03-22 14:30
+**Completed**: 2026-03-22 14:45
+**Branch**: master
+**Related Files**: lib/Migration/Version1017Date20260321000000.php, lib/Migration/Version1004Date20260228131728.php
+**Blockers**: None
+**Notes**:
+- Fixed critical migration error: `renameColumn()` removed in Doctrine DBAL 4
+- Updated Version1017 migration to use direct SQL `ALTER TABLE CHANGE` statements
+- Fixed Version1004 initial migration to use `coins` instead of `team_sparks` for new installations
+- Docker test environment now starts successfully
+- Manual alpha testing validated: Floor/Room creation, Quick Clean, Leaderboard all working
+- House API returns 500 error before fix, now returns correct data
+
 ## Currently Active
 
 ### Cascade - P9-API-CONTRACT-001 - Repair active user and minigame API contracts
