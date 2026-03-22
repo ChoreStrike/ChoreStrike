@@ -264,5 +264,46 @@ describe('RoomTasks Store', () => {
 				expect(store.error).toBeNull()
 			})
 		})
+
+		describe('fetchFilteredDailyTasks', () => {
+			it('fetches filtered daily tasks and stores them', async () => {
+				const mockTasks = [
+					{ roomTask: { id: 1, roomId: 10 }, task: { id: 1, name: 'Task 1' }, room: { id: 10, name: 'Kitchen' } },
+					{ roomTask: { id: 2, roomId: 10 }, task: { id: 2, name: 'Task 2' }, room: { id: 10, name: 'Kitchen' } },
+				]
+				axios.get.mockResolvedValue({
+					data: { success: true, data: mockTasks }
+				})
+
+				const result = await store.fetchFilteredDailyTasks()
+
+				expect(result).toEqual(mockTasks)
+				expect(store.roomTasks).toHaveLength(2)
+				expect(store.roomTasks[0].id).toBe(1)
+			})
+
+			it('updates existing tasks instead of duplicating', async () => {
+				store.roomTasks = [{ id: 1, name: 'Old Task' }]
+				const mockTasks = [
+					{ roomTask: { id: 1, name: 'Updated Task' }, task: { id: 1 }, room: { id: 10 } },
+				]
+				axios.get.mockResolvedValue({
+					data: { success: true, data: mockTasks }
+				})
+
+				await store.fetchFilteredDailyTasks()
+
+				expect(store.roomTasks).toHaveLength(1)
+				expect(store.roomTasks[0].name).toBe('Updated Task')
+			})
+
+			it('throws error on failed request', async () => {
+				axios.get.mockResolvedValue({
+					data: { success: false, error: { message: 'API error' } }
+				})
+
+				await expect(store.fetchFilteredDailyTasks()).rejects.toThrow('API error')
+			})
+		})
 	})
 })

@@ -42,6 +42,7 @@ class SchedulingService
             'userId' => $userId,
             'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
             'weekdayAvailability' => $preferences['weekdayAvailability'] ?? $this->getDefaultAvailability(),
+            'maxDailyTasks' => $preferences['maxDailyTasks'] ?? PHP_INT_MAX,
             'todayConsumedEnergy' => 0,
         ];
     }

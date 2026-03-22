@@ -267,4 +267,269 @@ class RoomTaskServiceDailyTest extends TestCase
         $this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
         $this->service->rescheduleTask($roomTaskId, $newDate);
     }
+
+    public function testGetFilteredDailyTasksForUserReturnsAllTasksForNonChildUser(): void
+    {
+        $houseId = 1;
+        $nextcloudUserId = 'parent';
+        $date = new \DateTime('2026-03-07'); // Saturday
+
+        // Create room tasks
+        $roomTask1 = new RoomTask();
+        $roomTask1->setId(1);
+        $roomTask1->setTaskId(1);
+        $roomTask1->setRoomId(1);
+
+        $roomTask2 = new RoomTask();
+        $roomTask2->setId(2);
+        $roomTask2->setTaskId(2);
+        $roomTask2->setRoomId(1);
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Test Task');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setName('Kitchen');
+
+        // Mock daily tasks
+        $this->roomTaskMapper->expects($this->once())
+            ->method('findDailyTasks')
+            ->with($houseId, $date)
+            ->willReturn([$roomTask1, $roomTask2]);
+
+        $this->taskMapper->expects($this->any())
+            ->method('find')
+            ->willReturn($task);
+
+        $this->roomMapper->expects($this->any())
+            ->method('find')
+            ->willReturn($room);
+
+        // Create real HouseUser entity (non-child)
+        $houseUser = new \OCA\ChoreStrike\Db\HouseUser();
+        $houseUser->setId(1);
+        $houseUser->setRole('owner');
+
+        $houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+        $houseUserMapper->expects($this->once())
+            ->method('findByNextcloudUserId')
+            ->with($houseId, $nextcloudUserId)
+            ->willReturn($houseUser);
+
+        $result = $this->service->getFilteredDailyTasksForUser(
+            $houseId,
+            $nextcloudUserId,
+            $date,
+            $houseUserMapper
+        );
+
+        $this->assertCount(2, $result);
+    }
+
+    public function testGetFilteredDailyTasksForUserFiltersByWeekdayAvailabilityForChild(): void
+    {
+        $houseId = 1;
+        $nextcloudUserId = 'teen';
+        $date = new \DateTime('2026-03-06'); // Friday (weekday)
+
+        // Create room tasks
+        $roomTask1 = new RoomTask();
+        $roomTask1->setId(1);
+        $roomTask1->setTaskId(1);
+        $roomTask1->setRoomId(1);
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Test Task');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setName('Kitchen');
+
+        // Mock daily tasks
+        $this->roomTaskMapper->expects($this->once())
+            ->method('findDailyTasks')
+            ->with($houseId, $date)
+            ->willReturn([$roomTask1]);
+
+        // Create real HouseUser entity (child with weekend-only availability)
+        $houseUser = new \OCA\ChoreStrike\Db\HouseUser();
+        $houseUser->setId(2);
+        $houseUser->setRole('child');
+        $houseUser->setSchedulingPreferences([
+            'weekdayAvailability' => [
+                'monday' => false,
+                'tuesday' => false,
+                'wednesday' => false,
+                'thursday' => false,
+                'friday' => false,
+                'saturday' => true,
+                'sunday' => true,
+            ],
+            'maxDailyTasks' => 3,
+        ]);
+
+        $houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+        $houseUserMapper->expects($this->once())
+            ->method('findByNextcloudUserId')
+            ->with($houseId, $nextcloudUserId)
+            ->willReturn($houseUser);
+
+        $result = $this->service->getFilteredDailyTasksForUser(
+            $houseId,
+            $nextcloudUserId,
+            $date,
+            $houseUserMapper
+        );
+
+        // Friday is not available, so result should be empty
+        $this->assertCount(0, $result);
+    }
+
+    public function testGetFilteredDailyTasksForUserLimitsByMaxDailyTasksForChild(): void
+    {
+        $houseId = 1;
+        $nextcloudUserId = 'kid';
+        $date = new \DateTime('2026-03-07'); // Saturday (available day)
+
+        // Create 5 room tasks
+        $roomTasks = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $roomTask = new RoomTask();
+            $roomTask->setId($i);
+            $roomTask->setTaskId($i);
+            $roomTask->setRoomId(1);
+            $roomTasks[] = $roomTask;
+        }
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Test Task');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setName('Kitchen');
+
+        // Mock daily tasks
+        $this->roomTaskMapper->expects($this->once())
+            ->method('findDailyTasks')
+            ->with($houseId, $date)
+            ->willReturn($roomTasks);
+
+        $this->taskMapper->expects($this->any())
+            ->method('find')
+            ->willReturn($task);
+
+        $this->roomMapper->expects($this->any())
+            ->method('find')
+            ->willReturn($room);
+
+        // Create real HouseUser entity (child with maxDailyTasks=2)
+        $houseUser = new \OCA\ChoreStrike\Db\HouseUser();
+        $houseUser->setId(3);
+        $houseUser->setRole('child');
+        $houseUser->setSchedulingPreferences([
+            'weekdayAvailability' => [
+                'monday' => false,
+                'tuesday' => false,
+                'wednesday' => false,
+                'thursday' => false,
+                'friday' => false,
+                'saturday' => true,
+                'sunday' => true,
+            ],
+            'maxDailyTasks' => 2,
+        ]);
+
+        $houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+        $houseUserMapper->expects($this->once())
+            ->method('findByNextcloudUserId')
+            ->with($houseId, $nextcloudUserId)
+            ->willReturn($houseUser);
+
+        $result = $this->service->getFilteredDailyTasksForUser(
+            $houseId,
+            $nextcloudUserId,
+            $date,
+            $houseUserMapper
+        );
+
+        // Saturday is available, but maxDailyTasks=2 limits to 2 tasks
+        $this->assertCount(2, $result);
+    }
+
+    public function testGetFilteredDailyTasksForChildReturnsTasksOnAvailableDay(): void
+    {
+        $houseId = 1;
+        $nextcloudUserId = 'teen';
+        $date = new \DateTime('2026-03-07'); // Saturday (available day)
+
+        // Create room tasks
+        $roomTask1 = new RoomTask();
+        $roomTask1->setId(1);
+        $roomTask1->setTaskId(1);
+        $roomTask1->setRoomId(1);
+
+        $roomTask2 = new RoomTask();
+        $roomTask2->setId(2);
+        $roomTask2->setTaskId(2);
+        $roomTask2->setRoomId(1);
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Test Task');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setName('Kitchen');
+
+        // Mock daily tasks
+        $this->roomTaskMapper->expects($this->once())
+            ->method('findDailyTasks')
+            ->with($houseId, $date)
+            ->willReturn([$roomTask1, $roomTask2]);
+
+        $this->taskMapper->expects($this->any())
+            ->method('find')
+            ->willReturn($task);
+
+        $this->roomMapper->expects($this->any())
+            ->method('find')
+            ->willReturn($room);
+
+        // Create real HouseUser entity (child with weekend-only availability and maxDailyTasks=3)
+        $houseUser = new \OCA\ChoreStrike\Db\HouseUser();
+        $houseUser->setId(4);
+        $houseUser->setRole('child');
+        $houseUser->setSchedulingPreferences([
+            'weekdayAvailability' => [
+                'monday' => false,
+                'tuesday' => false,
+                'wednesday' => false,
+                'thursday' => false,
+                'friday' => false,
+                'saturday' => true,
+                'sunday' => true,
+            ],
+            'maxDailyTasks' => 3,
+        ]);
+
+        $houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+        $houseUserMapper->expects($this->once())
+            ->method('findByNextcloudUserId')
+            ->with($houseId, $nextcloudUserId)
+            ->willReturn($houseUser);
+
+        $result = $this->service->getFilteredDailyTasksForUser(
+            $houseId,
+            $nextcloudUserId,
+            $date,
+            $houseUserMapper
+        );
+
+        // Saturday is available and maxDailyTasks=3 allows all 2 tasks
+        $this->assertCount(2, $result);
+    }
 }

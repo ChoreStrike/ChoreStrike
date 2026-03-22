@@ -36,6 +36,8 @@ export const useSchedulingStore = defineStore('scheduling', {
 			saturday: true,
 			sunday: true,
 		},
+		/** @type {number} Maximum daily tasks for current user (child role limit) */
+		maxDailyTasks: Infinity,
 		/** @type {boolean} Loading state */
 		loading: false,
 		/** @type {string|null} Error message */
@@ -167,6 +169,9 @@ export const useSchedulingStore = defineStore('scheduling', {
 				if (response.data.success) {
 					this.energyBudget = response.data.data.energyBudget || this.energyBudget
 					this.weekdayAvailability = response.data.data.weekdayAvailability || this.weekdayAvailability
+					this.maxDailyTasks = Number.isFinite(response.data.data.maxDailyTasks)
+						? response.data.data.maxDailyTasks
+						: Infinity
 					this.todayConsumedEnergy = Number.isFinite(response.data.data.todayConsumedEnergy)
 						? response.data.data.todayConsumedEnergy
 						: 0
@@ -366,6 +371,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		reset() {
 			this.memberAvailability = []
 			this.todayConsumedEnergy = 0
+			this.maxDailyTasks = Infinity
 			this.energyBudget = {
 				monday: 10,
 				tuesday: 10,

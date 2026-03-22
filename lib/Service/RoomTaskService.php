@@ -769,4 +769,56 @@ class RoomTaskService
         $roomTask->setNextDue($newDate);
         return $this->roomTaskMapper->update($roomTask);
     }
+
+    /**
+     * Get filtered daily tasks for a user based on their role and scheduling preferences.
+     *
+     * For child users, this filters tasks based on:
+     * - weekdayAvailability: Only shows tasks due on days the user is available
+     * - maxDailyTasks: Limits the number of tasks shown
+     *
+     * Non-child users receive all daily tasks without filtering.
+     *
+     * @param int $houseId The house ID
+     * @param string $nextcloudUserId The Nextcloud user ID
+     * @param \DateTime $date The date to get tasks for
+     * @param HouseUserMapper $houseUserMapper Mapper to get user preferences
+     * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}> Filtered tasks with details
+     */
+    public function getFilteredDailyTasksForUser(
+        int $houseId,
+        string $nextcloudUserId,
+        \DateTime $date,
+        \OCA\ChoreStrike\Db\HouseUserMapper $houseUserMapper
+    ): array {
+        // Get all daily tasks for the house
+        $allTasks = $this->getDailyTasksWithDetails($houseId, $date);
+
+        // Get user to check role and preferences
+        $user = $houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
+
+        // Non-child users see all tasks
+        if (!$user->isChild()) {
+            return $allTasks;
+        }
+
+        // Get user's scheduling preferences
+        $preferences = $user->getSchedulingPreferences();
+        $weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
+        $maxDailyTasks = $preferences['maxDailyTasks'] ?? PHP_INT_MAX;
+
+        // Get current day name (lowercase)
+        $currentDay = strtolower($date->format('l'));
+
+        // Check if user is available today
+        $isAvailableToday = $weekdayAvailability[$currentDay] ?? true;
+
+        // If not available today, return empty array
+        if (!$isAvailableToday) {
+            return [];
+        }
+
+        // Limit tasks to maxDailyTasks
+        return array_slice($allTasks, 0, (int) $maxDailyTasks);
+    }
 }

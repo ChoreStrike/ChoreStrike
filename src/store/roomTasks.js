@@ -622,6 +622,42 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
+		 * Fetch filtered daily tasks for the current user.
+		 * Child users receive a filtered view based on weekdayAvailability and maxDailyTasks.
+		 * @return {Promise<Array>} Filtered daily tasks with task and room details.
+		 */
+		async fetchFilteredDailyTasks() {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.get('/index.php/apps/chorestrike/api/v1/room-tasks/filtered-daily')
+
+				if (response.data.success) {
+					// Store room tasks in state
+					const tasks = response.data.data
+					tasks.forEach((item) => {
+						const existingIndex = this.roomTasks.findIndex(rt => rt.id === item.roomTask.id)
+						if (existingIndex >= 0) {
+							this.roomTasks[existingIndex] = item.roomTask
+						} else {
+							this.roomTasks.push(item.roomTask)
+						}
+					})
+					return tasks
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch filtered daily tasks')
+				}
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to fetch filtered daily tasks', error, { store: 'roomTasks', action: 'fetchFilteredDailyTasks' })
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
 		 * Clear error state
 		 */
 		clearError() {

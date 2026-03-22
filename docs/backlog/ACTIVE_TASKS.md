@@ -36,6 +36,22 @@
 
 ## Currently Active
 
+### Cascade - BUG-002 - Role-based Task-Filterung für Child-User implementieren
+**Status**: Done
+**Started**: 2026-03-22 22:00
+**Completed**: 2026-03-22 22:30
+**Branch**: master
+**Related Files**: lib/Service/RoomTaskService.php, lib/Controller/RoomTaskController.php, lib/Service/SchedulingService.php, appinfo/routes.php, src/store/scheduling.js, src/store/roomTasks.js, tests/unit/Service/RoomTaskServiceDailyTest.php, tests/unit/store/roomTasks.spec.js
+**Blockers**: None
+**Notes**:
+- Implemented `RoomTaskService::getFilteredDailyTasksForUser()` that filters tasks for child users based on `weekdayAvailability` and `maxDailyTasks`.
+- Added `/api/v1/room-tasks/filtered-daily` endpoint in `RoomTaskController::filteredDaily()`.
+- Updated `SchedulingService::getUserPreferences()` to include `maxDailyTasks` in response.
+- Added `maxDailyTasks` state to frontend `scheduling.js` store with loading from API.
+- Added `fetchFilteredDailyTasks()` action to frontend `roomTasks.js` store.
+- Added unit tests for backend filtering logic (4 tests) and frontend action (3 tests).
+- All tests passing: PHPUnit 14 tests, Jest 24 tests.
+
 ### Cascade - P9-API-CONTRACT-001 - Repair active user and minigame API contracts
 **Status**: Done
 **Started**: 2026-03-22 13:00

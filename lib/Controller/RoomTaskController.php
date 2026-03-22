@@ -961,4 +961,51 @@ class RoomTaskController extends OCSController
             ], 500);
         }
     }
+
+    /**
+     * Get filtered daily tasks for the current user based on role and preferences.
+     *
+     * Child users receive a filtered view based on:
+     * - weekdayAvailability: Only tasks on available days
+     * - maxDailyTasks: Limited number of tasks
+     *
+     * @NoAdminRequired
+     */
+    public function filteredDaily(): JSONResponse
+    {
+        try {
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $this->authService->requireHouseMember($house->getId());
+
+            $currentUserId = $this->authService->requireCurrentUserId();
+            $houseUserMapper = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+
+            $filteredTasks = $this->roomTaskService->getFilteredDailyTasksForUser(
+                $house->getId(),
+                $currentUserId,
+                new \DateTime(),
+                $houseUserMapper
+            );
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => array_map(function ($item) {
+                    return [
+                        'roomTask' => $item['roomTask']->jsonSerialize(),
+                        'task' => $item['task']->jsonSerialize(),
+                        'room' => $item['room']->jsonSerialize(),
+                    ];
+                }, $filteredTasks)
+            ]);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'FILTERED_DAILY_TASKS_ERROR',
+                    'message' => $e->getMessage()
+                ]
+            ], 500);
+        }
+    }
 }

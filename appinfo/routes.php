@@ -149,6 +149,7 @@ return [
         ['name' => 'room_task#overdueClaims', 'url' => '/api/v1/room-tasks/overdue-claims', 'verb' => 'GET'],
         ['name' => 'room_task#claimHistory', 'url' => '/api/v1/room-tasks/{id}/claim-history', 'verb' => 'GET'],
         ['name' => 'room_task#claimStats', 'url' => '/api/v1/users/{userId}/claim-stats', 'verb' => 'GET'],
+        ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],
 
         // Test Data API (only available in test mode)
         ['name' => 'test#profiles', 'url' => '/api/v1/test/profiles', 'verb' => 'GET'],

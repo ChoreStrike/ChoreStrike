@@ -1,5 +1,33 @@
 # Bug Backlog
 
+## [P0] Child role task visibility not filtered (BUG-002)
+
+**Status**: Fixed  
+**Assignee**: Cascade  
+**Estimated Effort**: M  
+**Phase**: 9
+
+### Description
+Users with role `child` see all tasks instead of filtered view based on:
+- `weekdayAvailability` (should only see tasks on available days)
+- `maxDailyTasks` (kid should see max 2 tasks)
+
+Teen (weekend-only) should see tasks only for Sat/Sun. Kid (maxDailyTasks=2) should see max 2 tasks. Both were seeing all 12 tasks.
+
+### Acceptance Criteria
+- [x] `RoomTaskService::getFilteredDailyTasksForUser()` filters tasks for child users based on `weekdayAvailability`.
+- [x] Child users see at most `maxDailyTasks` tasks per day.
+- [x] Non-child users (owner, member) see all tasks without filtering.
+- [x] `/api/v1/room-tasks/filtered-daily` endpoint returns filtered tasks for current user.
+- [x] Frontend `fetchFilteredDailyTasks()` action calls the filtered endpoint.
+- [x] Unit tests cover backend filtering logic and frontend action.
+
+### Notes
+- Fixed on 2026-03-22 by implementing role-based filtering in `RoomTaskService`, adding `filteredDaily` endpoint, and updating frontend stores.
+- Test data in `FamilyTestData.php` confirms `teen` and `kid` users have appropriate `weekdayAvailability` and `maxDailyTasks` settings.
+
+---
+
 ## [P0] Active user API contract mismatch breaks current-user bootstrap
 
 **Status**: Fixed  
