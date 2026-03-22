@@ -163,9 +163,9 @@ class UserControllerTest extends TestCase
     }
 
     /**
-     * Test INVITE validates empty user ID
+     * Test INVITE validates empty email
      */
-    public function testInvite_ValidatesEmptyUserId(): void
+    public function testInvite_ValidatesEmptyEmail(): void
     {
         $response = $this->controller->invite('');
 
@@ -175,7 +175,7 @@ class UserControllerTest extends TestCase
         $data = $response->getData();
         $this->assertFalse($data['success']);
         $this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
-        $this->assertEquals('User ID is required', $data['error']['message']);
+        $this->assertEquals('Email is required', $data['error']['message']);
     }
 
     /**
@@ -183,7 +183,7 @@ class UserControllerTest extends TestCase
      */
     public function testInvite_ValidatesInvalidRole(): void
     {
-        $response = $this->controller->invite('user1', 'invalid_role');
+        $response = $this->controller->invite('test@example.com', 'invalid_role');
 
         $this->assertInstanceOf(JSONResponse::class, $response);
         $this->assertEquals(400, $response->getStatus());
@@ -194,16 +194,16 @@ class UserControllerTest extends TestCase
     }
 
     /**
-     * Test INVITE validates non-existent user
+     * Test INVITE validates non-existent user by email
      */
     public function testInvite_ValidatesNonExistentUser(): void
     {
         $this->userManager->expects($this->once())
-            ->method('get')
-            ->with('nonexistent')
-            ->willReturn(null);
+            ->method('getByEmail')
+            ->with('nonexistent@example.com')
+            ->willReturn([]);
 
-        $response = $this->controller->invite('nonexistent');
+        $response = $this->controller->invite('nonexistent@example.com');
 
         $this->assertInstanceOf(JSONResponse::class, $response);
         $this->assertEquals(404, $response->getStatus());
@@ -211,6 +211,64 @@ class UserControllerTest extends TestCase
         $data = $response->getData();
         $this->assertFalse($data['success']);
         $this->assertEquals('USER_NOT_FOUND', $data['error']['code']);
+    }
+
+    /**
+     * Test INVITE successfully invites user by email
+     */
+    public function testInvite_InvitesUserByEmailSuccessfully(): void
+    {
+        $house = new House();
+        $house->setId(1);
+
+        $ncUser = $this->createMock(IUser::class);
+        $ncUser->expects($this->once())
+            ->method('getUID')
+            ->willReturn('user1');
+        $ncUser->expects($this->once())
+            ->method('getDisplayName')
+            ->willReturn('Test User');
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(1);
+        $houseUser->setHouseId(1);
+        $houseUser->setNextcloudUserId('user1');
+        $houseUser->setDisplayName('Test User');
+        $houseUser->setRole('member');
+        $houseUser->setJoinedAt(new \DateTime('2026-03-01T08:00:00Z'));
+
+        $this->userManager->expects($this->once())
+            ->method('getByEmail')
+            ->with('test@example.com')
+            ->willReturn([$ncUser]);
+
+        $this->houseService->expects($this->once())
+            ->method('getInstanceId')
+            ->willReturn('instance-123');
+
+        $this->houseService->expects($this->once())
+            ->method('getOrCreateHouse')
+            ->with('instance-123')
+            ->willReturn($house);
+
+        $this->authService->expects($this->once())
+            ->method('requireHouseOwner')
+            ->with(1);
+
+        $this->houseUserMapper->expects($this->once())
+            ->method('createOrGet')
+            ->with(1, 'user1', 'Test User', 'member')
+            ->willReturn($houseUser);
+
+        $response = $this->controller->invite('test@example.com', 'member');
+
+        $this->assertInstanceOf(JSONResponse::class, $response);
+        $this->assertEquals(200, $response->getStatus());
+
+        $data = $response->getData();
+        $this->assertTrue($data['success']);
+        $this->assertEquals('user1', $data['data']['nextcloudUserId']);
+        $this->assertEquals('Test User', $data['data']['displayName']);
     }
 
     /**

@@ -20,4 +20,12 @@ interface IUserManager
      * @param string $uid User identifier.
      */
     public function userExists($uid);
+
+    /**
+     * Find users by email address.
+     *
+     * @param string $email Email address.
+     * @return array Array of IUser objects.
+     */
+    public function getByEmail($email);
 }

@@ -102,19 +102,22 @@ class UserController extends OCSController
     }
 
     /**
-     * Invite a user to the house
+     * Invite a user to the house by email address.
      *
      * @NoAdminRequired
+     * @param string $email Email address of the user to invite.
+     * @param string $role Role to assign to the invited user.
      */
-    public function invite(string $nextcloudUserId, string $role = 'member'): JSONResponse
+    public function invite(string $email, string $role = 'member'): JSONResponse
     {
         try {
-            if (empty(trim($nextcloudUserId))) {
+            $trimmedEmail = trim($email);
+            if (empty($trimmedEmail)) {
                 return new JSONResponse([
                     'success' => false,
                     'error' => [
                         'code' => 'VALIDATION_ERROR',
-                        'message' => $this->l->t('User ID is required')
+                        'message' => $this->l->t('Email is required')
                     ]
                 ], 400);
             }
@@ -129,16 +132,21 @@ class UserController extends OCSController
                 ], 400);
             }
 
-            $ncUser = $this->userManager->get($nextcloudUserId);
-            if ($ncUser === null) {
+            // Find Nextcloud user by email (returns array of users)
+            $ncUsers = $this->userManager->getByEmail($trimmedEmail);
+            if (empty($ncUsers)) {
                 return new JSONResponse([
                     'success' => false,
                     'error' => [
                         'code' => 'USER_NOT_FOUND',
-                        'message' => $this->l->t('Nextcloud user not found')
+                        'message' => $this->l->t('No Nextcloud user found with this email address')
                     ]
                 ], 404);
             }
+
+            // Use the first matching user if multiple accounts share the same email
+            $ncUser = $ncUsers[0];
+            $nextcloudUserId = $ncUser->getUID();
 
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);

@@ -131,9 +131,9 @@ class UserControllerIntegrationTest extends TestCase
         $houseUser = $this->createHouseUser(3, $house->getId(), 'newuser', 'New User', $role);
 
         $this->userManager->expects($this->once())
-            ->method('get')
-            ->with('newuser')
-            ->willReturn($nextcloudUser);
+            ->method('getByEmail')
+            ->with('newuser@example.com')
+            ->willReturn([$nextcloudUser]);
         $this->houseService->expects($this->once())
             ->method('getInstanceId')
             ->willReturn('instance-123');
@@ -149,7 +149,7 @@ class UserControllerIntegrationTest extends TestCase
             ->with($house->getId(), 'newuser', 'New User', $role)
             ->willReturn($houseUser);
 
-        $response = $this->controller->invite('newuser', $role);
+        $response = $this->controller->invite('newuser@example.com', $role);
 
         $this->assertEquals(200, $response->getStatus());
         $data = $response->getData();
@@ -165,11 +165,11 @@ class UserControllerIntegrationTest extends TestCase
     public function testInvite_NonExistingNextcloudUser_ReturnsNotFound(): void
     {
         $this->userManager->expects($this->once())
-            ->method('get')
-            ->with('missing-user')
-            ->willReturn(null);
+            ->method('getByEmail')
+            ->with('missing-user@example.com')
+            ->willReturn([]);
 
-        $response = $this->controller->invite('missing-user', 'member');
+        $response = $this->controller->invite('missing-user@example.com', 'member');
 
         $this->assertEquals(404, $response->getStatus());
         $data = $response->getData();
