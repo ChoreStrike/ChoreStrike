@@ -140,11 +140,17 @@ ChoreStrike/
 │   │   └── Db/
 │   └── Integration/
 ├── docs/                     # Documentation
-│   ├── CONCEPT.md
+│   ├── README.md             # Documentation entry points
 │   ├── ARCHITECTURE.md
-│   ├── AGENT_GUIDELINES.md
+│   ├── DEVELOPMENT.md
+│   ├── TESTING.md
+│   ├── REVIEW_PLAYBOOK.md
+│   ├── standards/
+│   │   └── README.md
+│   ├── backlog/
+│   │   └── ACTIVE_TASKS.md
 │   ├── API.md
-│   └── DEVELOPMENT.md
+│   └── AGENT_GUIDELINES.md  # Legacy stub only
 ├── .github/                  # GitHub specific
 │   ├── workflows/
 │   │   ├── lint.yml

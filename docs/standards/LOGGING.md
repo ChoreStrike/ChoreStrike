@@ -245,6 +245,6 @@ If a problem is:
 ## References
 
 - `AGENTS.md`
-- `docs/AGENT_GUIDELINES.md`
+- `docs/README.md`
 - `docs/standards/SECURITY.md`
 - `docs/backlog/phase-9-code-quality.md`

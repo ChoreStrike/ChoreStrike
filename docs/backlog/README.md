@@ -34,13 +34,13 @@ backlog/
 
 ### For Review Agents
 1. **Check:** `ACTIVE_TASKS.md` for "Review Ready" tasks
-2. **Review:** Follow checklist in `AGENTS.md` section 3.2
+2. **Review:** Follow `docs/REVIEW_PLAYBOOK.md` together with the active review rules in `AGENTS.md`
 3. **Fix minor issues:** Immediately (< 10 lines)
 4. **Ask user:** For unclear issues
 5. **Move to backlog:** For major refactors
 6. **Complete:** Move to "Recently Completed" in `ACTIVE_TASKS.md`
 
-See `AGENTS.md` for complete workflow details.
+See `AGENTS.md` and `docs/REVIEW_PLAYBOOK.md` for the active workflow details.
 
 ## Backlog Item Format
 

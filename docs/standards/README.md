@@ -14,6 +14,7 @@ All code in ChoreStrike must follow these standards to ensure consistency, maint
 - **Testing Standard** - Unit test requirements, naming conventions
 - **Git Commit Standard** - Conventional commits format
 - **Documentation Standard** - PHPDoc, JSDoc requirements
+- **I18N Standard** - Localization and user-facing content rules
 - **Logging Standard** - Structured backend/frontend logging, privacy guardrails, Nextcloud log levels
 - **External Asset Licensing Standard** - Third-party icons, fonts, and illustrations
 - **Review Playbook** - Reusable review packages, automation strategy, and handoff workflow
@@ -73,10 +74,11 @@ Types: `feat`, `fix`, `docs`, `refactor`, `test`, `i18n`, `perf`, `chore`
 
 ## See Also
 
-- [AGENTS.md](../../AGENTS.md) - AI development guidelines
-- [DEVELOPMENT.md](../DEVELOPMENT.md) - Development workflow
-- [ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture
-- [REVIEW_PLAYBOOK.md](../REVIEW_PLAYBOOK.md) - Reusable review workflow and checklist
+- [AGENTS.md](../../AGENTS.md) - required bootstrap for AI agents and coding assistants
+- [../README.md](../README.md) - documentation entry points and reading order
+- [DEVELOPMENT.md](../DEVELOPMENT.md) - local setup and contributor workflow
+- [ARCHITECTURE.md](../ARCHITECTURE.md) - system architecture
+- [REVIEW_PLAYBOOK.md](../REVIEW_PLAYBOOK.md) - reusable review workflow and checklist
 
 ---
 

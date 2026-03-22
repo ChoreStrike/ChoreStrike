@@ -5,6 +5,20 @@
 
 ## Recently Completed
 
+### Cascade - P9-DOC-003 - Streamline agent bootstrap and documentation entry points
+**Status**: Done
+**Started**: 2026-03-22 17:58
+**Completed**: 2026-03-22 18:12
+**Branch**: master
+**Related Files**: .gitignore, AGENTS.md, docs/AGENT_GUIDELINES.md, docs/ARCHITECTURE.md, docs/DEVELOPMENT.md, docs/README.md, docs/backlog/ACTIVE_TASKS.md, docs/backlog/README.md, docs/backlog/phase-9-code-quality.md, docs/standards/I18N.md, docs/standards/LOGGING.md, docs/standards/README.md
+**Blockers**: None
+**Notes**:
+- Reduced `AGENTS.md` to the stable bootstrap rules that every agent should always read.
+- Added `docs/README.md` as the public documentation map and `docs/standards/I18N.md` as the canonical localization standard.
+- Reworked `docs/AGENT_GUIDELINES.md` into a legacy stub and redirected active references away from it.
+- Removed active documentation dependency on `.windsurfrules` and added it to `.gitignore` for future local/private use.
+- Validation used targeted grep checks and diff review for the documentation chain.
+
 ### Cascade - P8-INTERNAL-TEST-001 - Fix Doctrine DBAL 4 Migration & Alpha Test Setup
 **Status**: Done
 **Started**: 2026-03-22 14:30
@@ -1217,4 +1231,4 @@
 
 ---
 
-**Last Updated**: 2026-03-03 22:05
+**Last Updated**: 2026-03-22 18:12

@@ -2,6 +2,7 @@
 /private/
 /archive/
 /docs/private/
+.windsurfrules
 *.local
 .env
 .env.local

@@ -367,6 +367,34 @@ export const logger = {
 
 ---
 
+### P9-DOC-003 - Streamline Agent Bootstrap and Documentation Entry Points
+**Priority**: MEDIUM  
+**Effort**: 2 hours  
+**Status**: Done
+
+**Description**: `AGENTS.md` had grown beyond a lean bootstrap, while active guidance was spread across duplicated or legacy entry points. This increased token cost, made cross-tool agent behavior less predictable, and kept `.windsurfrules` in the public guidance path even though it is intended for local/private overrides.
+
+**Implementation**:
+1. Reduce `AGENTS.md` to the stable bootstrap rules that always apply.
+2. Add `docs/README.md` as the public documentation map.
+3. Add `docs/standards/I18N.md` as the canonical localization standard.
+4. Mark `docs/AGENT_GUIDELINES.md` as a legacy stub and redirect references to active documents.
+5. Remove active documentation dependencies on `.windsurfrules`.
+
+**Completed**:
+- Replaced the oversized `AGENTS.md` workflow handbook with a shorter bootstrap focused on non-negotiable rules, task-tracking triggers, quality rules, decision rules, and on-demand deeper reads.
+- Added `docs/README.md` to make the documentation map explicit for agents and humans using different tools.
+- Added `docs/standards/I18N.md` and redirected active standards navigation toward it.
+- Reworked `docs/AGENT_GUIDELINES.md` into a legacy-only stub so existing links do not break.
+- Updated related references in `docs/standards/README.md`, `docs/standards/LOGGING.md`, `docs/backlog/README.md`, `docs/ARCHITECTURE.md`, and `docs/DEVELOPMENT.md`.
+- Added `.windsurfrules` to `.gitignore` so future local/private usage is outside the public bootstrap path.
+
+**Validation**:
+- Verified the active documentation chain with targeted grep checks for `AGENT_GUIDELINES.md` and `.windsurfrules` references.
+- Reviewed the unstaged diff to confirm the bootstrap reduction and link rewiring.
+
+---
+
 ## Success Criteria
 
 - [x] All high-priority security issues resolved

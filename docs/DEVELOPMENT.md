@@ -1,5 +1,9 @@
 # Development Guide
 
+This document covers local setup, commands, and contributor workflow.
+
+If you are acting as an AI agent, start with `../AGENTS.md` first. Use this document only when you need environment or execution details.
+
 ## Getting Started
 
 ### Prerequisites
