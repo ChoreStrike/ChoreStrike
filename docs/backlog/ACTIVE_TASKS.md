@@ -5,6 +5,19 @@
 
 ## Currently Active
 
+### Cascade - P9-ARCH-REVIEW-002 - Full project workflow, architecture, and test strategy review
+**Status**: Done
+**Started**: 2026-03-22 12:23
+**Completed**: 2026-03-22 12:55
+**Branch**: master
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, AGENTS.md, docs/REVIEW_PLAYBOOK.md, docs/ARCHITECTURE.md, docs/TESTING.md, docs/backlog/bugs.md, docs/backlog/phase-9-code-quality.md, package.json, composer.json, phpunit.xml, jest.config.js, playwright.config.ts
+**Blockers**: None
+**Notes**:
+- Performing a full-project review focused on workflow guidelines, documentation refactoring opportunities, architecture boundaries, automated coverage strategy, headless testing, and GUI-to-business-logic coverage.
+- Review scope includes identifying documentation drift, layering violations, test realism gaps, and missing tooling or automation.
+- Recorded follow-up backlog tasks for CI workflow truth sync, frontend API-layer consolidation, duplicate room-task store ownership, route/contract coverage, E2E hardening, and architecture/testing doc synchronization.
+- Key findings include missing tracked CI workflows, outdated architecture documentation, mixed frontend API URL conventions, duplicated room-task responsibilities across stores, fragile E2E synchronization patterns, and active-or-legacy boundary drift in unwired components.
+
 ### Cascade - SCHEDULING-003 - Flex Window UI Implementation
 **Status**: Done
 **Started**: 2026-03-21 20:00

@@ -254,6 +254,119 @@ export const logger = {
 
 ---
 
+### P9-WORKFLOW-002 - Add Executable CI Pipeline and Workflow Truth Sync
+**Priority**: HIGH  
+**Effort**: 3 hours  
+**Status**: Planned
+
+**Description**: `docs/ARCHITECTURE.md` and `docs/TESTING.md` describe CI and workflow structure, but the repository currently has no tracked `.github/workflows/*` pipeline. This leaves linting, PHPUnit, Jest, and a headless smoke slice unenforced outside manual execution.
+
+**Implementation**:
+1. Add a repository-tracked CI workflow for frontend lint, backend lint, PHPUnit, and Jest.
+2. Add an optional non-blocking Playwright smoke job or documented nightly workflow.
+3. Document the authoritative local and CI commands in one place.
+4. Update `docs/ARCHITECTURE.md` and `docs/TESTING.md` so they match the real automation setup.
+
+**Tests**:
+- Verify the pipeline runs the documented commands successfully.
+- Verify CI documentation matches the committed workflow files.
+
+---
+
+### P9-ARCH-002 - Introduce a Shared Frontend API Layer and Normalize URL Generation
+**Priority**: HIGH  
+**Effort**: 1 day  
+**Status**: Planned
+
+**Description**: The architecture document describes a frontend API layer, but current stores call `axios` directly and use mixed URL styles (`/apps/...` vs `/index.php/apps/...`). This increases drift risk and makes route-prefix bugs likely.
+
+**Implementation**:
+1. Add a shared frontend API client module for route construction and common response handling.
+2. Replace direct store-level string URLs with shared helpers.
+3. Standardize error mapping and request semantics across stores.
+4. Update architecture docs to describe the real frontend data flow.
+
+**Tests**:
+- Add unit tests for API URL generation and error normalization.
+- Add regression coverage for route prefixing in active stores.
+
+---
+
+### P9-ARCH-003 - Remove Duplicated Room-Task Logic Across Frontend Stores
+**Priority**: HIGH  
+**Effort**: 6 hours  
+**Status**: Planned
+
+**Description**: `src/store/tasks.js` and `src/store/roomTasks.js` both own room-task fetching and derived room-task state. This mixes catalog-task and assignment-task concerns and creates drift in business behavior, test coverage, and API evolution.
+
+**Implementation**:
+1. Define a single owner for room-task state and actions.
+2. Reduce the other store to read-only composition or remove the overlap entirely.
+3. Extract shared derived helpers where appropriate.
+4. Update dependent views and tests to use the canonical store boundary.
+
+**Tests**:
+- Add regression tests for the canonical room-task state owner.
+- Remove or rewrite duplicated test cases that validate the same logic in two stores.
+
+---
+
+### P9-TEST-002 - Add Route and Contract Coverage for Frontend/Backend Wiring
+**Priority**: HIGH  
+**Effort**: 1 day  
+**Status**: Planned
+
+**Description**: The review found missing contract protection between `appinfo/routes.php`, controller methods, and active frontend consumers. This gap would have caught route/controller mismatches and missing active endpoints earlier.
+
+**Implementation**:
+1. Add a backend test that validates each declared route targets an implemented controller method.
+2. Add a frontend contract test for active stores/components against the expected API matrix.
+3. Add a release-gate check for critical active endpoints.
+4. Document how new endpoints must be covered.
+
+**Tests**:
+- Route matrix test for `appinfo/routes.php`.
+- Store contract tests for active API consumers.
+
+---
+
+### P9-E2E-002 - Harden Headless E2E Stability and Add Lightweight UI Semantics Checks
+**Priority**: MEDIUM  
+**Effort**: 1 day  
+**Status**: Planned
+
+**Description**: Current Playwright coverage is broad, but many specs still rely on `waitForTimeout`, text selectors, and CSS implementation details. Visual or semantic GUI checks are minimal, so layout/accessibility regressions can slip through even when core flows pass.
+
+**Implementation**:
+1. Replace arbitrary waits with response-, state-, or test-id-driven synchronization.
+2. Introduce stable selector rules for active views and shared components.
+3. Add a small snapshot or semantic-render smoke suite for key screens.
+4. Add lightweight accessibility assertions for critical flows.
+
+**Tests**:
+- Update fragile Playwright specs to use stable selectors.
+- Add snapshot or semantic smoke checks for dashboard, task manager, settings, and leaderboard.
+
+---
+
+### P9-DOC-002 - Sync Architecture and Testing Documentation with the Live Application
+**Priority**: MEDIUM  
+**Effort**: 4 hours  
+**Status**: Planned
+
+**Description**: `docs/ARCHITECTURE.md` currently documents files and folders that do not exist or are no longer authoritative, including `.github/workflows`, `src/services/api.js`, and an outdated frontend structure. This reduces trust in the docs and makes reviews slower.
+
+**Implementation**:
+1. Update `docs/ARCHITECTURE.md` to reflect the live routed views, actual store list, active scheduling status, and current frontend boundaries.
+2. Update `docs/TESTING.md` to separate release-gate suites from legacy or exploratory suites.
+3. Mark unwired legacy components clearly or move them to a legacy area.
+4. Align backlog references with current quality goals.
+
+**Tests**:
+- Review checklist verifies docs against real files and routes.
+
+---
+
 ## Success Criteria
 
 - [x] All high-priority security issues resolved

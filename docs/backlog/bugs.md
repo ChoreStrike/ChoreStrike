@@ -1,5 +1,56 @@
 # Bug Backlog
 
+## [P0] Active user API contract mismatch breaks current-user bootstrap
+
+**Status**: Planned  
+**Assignee**: Unassigned  
+**Estimated Effort**: M  
+**Phase**: 9
+
+### Description
+Active frontend code calls user endpoints that are not fully implemented in `UserController.php`.
+
+- `src/store/user.js` calls `GET /apps/chorestrike/api/v1/users/current`
+- `appinfo/routes.php` declares `user#current`
+- `lib/Controller/UserController.php` currently has no `current()` method
+
+Additionally, `src/store/user.js` exposes `updateUserProfile()` with `PUT /apps/chorestrike/api/v1/users/{id}`, but the route/controller pair for that update path is not implemented.
+
+This creates an active runtime contract break for current-user bootstrap paths used by routed views such as `src/views/Leaderboard.vue` and by store initialization helpers.
+
+### Acceptance Criteria
+- [ ] `UserController::current()` exists and returns the authenticated house user in the same payload shape expected by the frontend.
+- [ ] Either `updateUserProfile()` is fully implemented end-to-end or removed from active store API until needed.
+- [ ] Route/controller contract tests cover both endpoints.
+- [ ] Routed views depending on current-user bootstrap have regression coverage.
+
+### Notes
+- Evidence reviewed on 2026-03-22 in `src/store/user.js`, `appinfo/routes.php`, `lib/Controller/UserController.php`, and `src/views/Leaderboard.vue`.
+
+---
+
+## [P1] Dashboard arcade uses missing minigame coins endpoint
+
+**Status**: Planned  
+**Assignee**: Unassigned  
+**Estimated Effort**: S  
+**Phase**: 9
+
+### Description
+`src/components/Dashboard/ArcadeSection.vue` calls `minigameStore.fetchCoins()` on mount. That store requests `GET /apps/chorestrike/api/v1/minigames/coins`, but `appinfo/routes.php` currently exposes `minigame#sparks` at `/api/v1/minigames/sparks` instead.
+
+This is an active frontend/backend contract mismatch on a routed dashboard component and likely produces avoidable request failures during dashboard load.
+
+### Acceptance Criteria
+- [ ] Frontend and backend agree on the canonical coins endpoint path and response shape.
+- [ ] Dashboard arcade initializes without missing-endpoint errors.
+- [ ] Regression coverage exists for the minigame coins bootstrap path.
+
+### Notes
+- Evidence reviewed on 2026-03-22 in `src/components/Dashboard/ArcadeSection.vue`, `src/store/minigame.js`, and `appinfo/routes.php`.
+
+---
+
 ## [P1] Docker Test Container: Migration-Fehler bei Boolean-Spalten und zu langen Namen
 
 **Status**: Partially Fixed  
