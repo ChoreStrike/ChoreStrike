@@ -557,15 +557,29 @@
   - Localization for all titles (DE/EN)
   - Title transition animations
 
+### Cascade - ALPHA-MULTIUSER-001 - Multi-User Alpha Tests
+**Status**: In Progress
+**Started**: 2026-03-22 17:00
+**Branch**: master
+**Related Files**: docs/ALPHA_TEST_GUIDE.md, docs/backlog/ALPHA_TEST_RESULTS_2026-03-22.md, lib/Migration/Version1018Date20260321000000.php
+**Blockers**: BUG-002 (child role task filtering not implemented)
+**Notes**:
+- Docker family profile test environment started successfully
+- **BUG-001 FIXED**: Migration columns `task_tier`, `flex_days`, `ideal_due_date` missing - manually added via ALTER TABLE
+- **BUG-002 OPEN**: Child role task visibility not filtered by `weekdayAvailability` or `maxDailyTasks`
+- Test results documented in `docs/backlog/ALPHA_TEST_RESULTS_2026-03-22.md`
+- Mom (owner) sees all 12 tasks ✅
+- Teen (child) sees all 12 tasks ❌ (should filter by weekend availability)
+- Kid (child, 2-task limit) sees all 12 tasks ❌ (should limit to 2)
+
 ## Next Session Tasks (Prioritized)
-1. **P8-INTERNAL-TEST execution** (High) - Execute full manual alpha flow validation on a real Nextcloud instance
-2. **Beta Deployment** (High) - Deploy to personal Nextcloud instance for real-world testing
-3. **E2E Flaky Tests** (Medium) - Investigate and fix 16 flaky Firefox tests
-4. **MS-ICONS-MIGRATION-001** (Done) - Microsoft Fluent UI icon migration completed
-5. **COOPERATIVE-FEATURES-001** (Done) - Cooperative gamification package completed
-6. **TEAM-SPARKS-UI-001** (Done) - Team Sparks UI wording completed
-7. **MONSTER-BATTLE-001** (Medium) - Prepare implementation design decisions and execution plan
-8. **ROLE-TITLE-SYSTEM-001** (Medium) - Start title system implementation planning and scope split
+1. **BUG-002 Fix** (High) - Implement role-based task filtering for child users
+2. **Migration Investigation** (Medium) - Fix why preSchemaChange migrations don't execute in Docker
+3. **P8-INTERNAL-TEST continuation** (High) - Continue permission testing after BUG-002 fix
+4. **Beta Deployment** (High) - Deploy to personal Nextcloud instance for real-world testing
+5. **E2E Flaky Tests** (Medium) - Investigate and fix 16 flaky Firefox tests
+6. **MONSTER-BATTLE-001** (Medium) - Prepare implementation design decisions and execution plan
+7. **ROLE-TITLE-SYSTEM-001** (Medium) - Start title system implementation planning and scope split
 
 ---
 
