@@ -213,6 +213,35 @@ describe('User Store', () => {
 			})
 		})
 
+		describe('updateUserProfile', () => {
+			it('updates the targeted user and current user from the repaired profile endpoint', async () => {
+				store.houseUsers = [{ id: 1, displayName: 'Old Name', schedulingPreferences: {} }]
+				store.currentUser = { id: 1, displayName: 'Old Name', schedulingPreferences: {} }
+				axios.put.mockResolvedValue({
+					data: {
+						success: true,
+						data: {
+							id: 1,
+							displayName: 'New Name',
+							schedulingPreferences: { weekdays: { monday: true } },
+						},
+					},
+				})
+
+				await store.updateUserProfile(1, {
+					displayName: 'New Name',
+					schedulingPreferences: { weekdays: { monday: true } },
+				})
+
+				expect(axios.put).toHaveBeenCalledWith('/apps/chorestrike/api/v1/users/1', {
+					displayName: 'New Name',
+					schedulingPreferences: { weekdays: { monday: true } },
+				})
+				expect(store.houseUsers[0].displayName).toBe('New Name')
+				expect(store.currentUser.displayName).toBe('New Name')
+			})
+		})
+
 		describe('clearError', () => {
 			it('clears error', () => {
 				store.error = 'Some error'

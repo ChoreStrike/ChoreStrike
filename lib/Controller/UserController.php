@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -68,6 +69,33 @@ class UserController extends OCSController
                 'error' => [
                     'code' => 'USERS_ERROR',
                     'message' => $this->l->t('Failed to retrieve users')
+                ]
+            ], 500);
+        }
+    }
+
+    /**
+     * Get the current authenticated house user.
+     *
+     * @NoAdminRequired
+     */
+    public function current(): JSONResponse
+    {
+        try {
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $houseUser = $this->authService->requireHouseMember($house->getId());
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => $houseUser->jsonSerialize(),
+            ]);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'CURRENT_USER_ERROR',
+                    'message' => $this->l->t('Failed to retrieve current user')
                 ]
             ], 500);
         }
@@ -211,6 +239,88 @@ class UserController extends OCSController
                 'error' => [
                     'code' => 'UPDATE_ROLE_ERROR',
                     'message' => $this->l->t('Failed to update user role')
+                ]
+            ], 500);
+        }
+    }
+
+    /**
+     * Update user profile fields.
+     *
+     * @NoAdminRequired
+     * @param int $id The internal house user identifier.
+     * @param string|null $displayName Updated display name.
+     * @param array|null $schedulingPreferences Updated scheduling preferences.
+     */
+    public function update(int $id, ?string $displayName = null, ?array $schedulingPreferences = null): JSONResponse
+    {
+        try {
+            $houseUser = $this->houseUserMapper->find($id);
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $currentHouseUser = $this->authService->requireHouseMember($house->getId());
+
+            if ($houseUser->getHouseId() !== $house->getId()) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'USER_NOT_FOUND',
+                        'message' => $this->l->t('User not found')
+                    ]
+                ], 404);
+            }
+
+            $isOwner = $currentHouseUser->isOwner();
+            $isSelf = $currentHouseUser->getNextcloudUserId() === $houseUser->getNextcloudUserId();
+            if (!$isOwner && !$isSelf) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'FORBIDDEN',
+                        'message' => $this->l->t('You are not allowed to update this user')
+                    ]
+                ], 403);
+            }
+
+            if ($displayName !== null) {
+                $trimmedDisplayName = trim($displayName);
+                if ($trimmedDisplayName === '') {
+                    return new JSONResponse([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'VALIDATION_ERROR',
+                            'message' => $this->l->t('Display name is required')
+                        ]
+                    ], 400);
+                }
+
+                $houseUser->setDisplayName($trimmedDisplayName);
+            }
+
+            if ($schedulingPreferences !== null) {
+                $houseUser->setSchedulingPreferences($schedulingPreferences);
+            }
+
+            $updatedHouseUser = $this->houseUserMapper->update($houseUser);
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => $updatedHouseUser->jsonSerialize(),
+            ]);
+        } catch (DoesNotExistException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'USER_NOT_FOUND',
+                    'message' => $this->l->t('User not found')
+                ]
+            ], 404);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'UPDATE_USER_ERROR',
+                    'message' => $this->l->t('Failed to update user')
                 ]
             ], 500);
         }

@@ -49,6 +49,38 @@ class MinigameServiceTest extends TestCase
         $this->assertEquals('snake', $result->getGameId());
     }
 
+    public function testSaveScoreAwardsCoinsToExistingUser(): void
+    {
+        $score = new MinigameScore();
+        $score->setId(2);
+        $score->setHouseId(1);
+        $score->setUserId('user1');
+        $score->setGameId('snake');
+        $score->setScore(120);
+
+        $user = new HouseUser();
+        $user->setNextcloudUserId('user1');
+        $user->setCoins(5);
+
+        $this->scoreMapper->expects($this->once())
+            ->method('insert')
+            ->willReturn($score);
+
+        $this->houseUserMapper->expects($this->once())
+            ->method('findByHouseIdAndNextcloudUserId')
+            ->with(1, 'user1')
+            ->willReturn($user);
+
+        $this->houseUserMapper->expects($this->once())
+            ->method('update')
+            ->with($this->callback(static function (HouseUser $updatedUser): bool {
+                return $updatedUser->getCoins() === 17;
+            }))
+            ->willReturnCallback(static fn (HouseUser $updatedUser): HouseUser => $updatedUser);
+
+        $this->service->saveScore(1, 'user1', 'snake', 120);
+    }
+
     public function testSaveScoreWithBoosts(): void
     {
         $score = new MinigameScore();
@@ -152,11 +184,11 @@ class MinigameServiceTest extends TestCase
         $this->assertEquals(3, $result);
     }
 
-    public function testPurchaseBoostDeductsSparks(): void
+    public function testPurchaseBoostDeductsCoins(): void
     {
         $user = new HouseUser();
         $user->setNextcloudUserId('user1');
-        $user->setCurrentSparks(50);
+        $user->setCoins(50);
 
         $this->houseUserMapper->expects($this->once())
             ->method('findByHouseIdAndNextcloudUserId')
@@ -171,14 +203,14 @@ class MinigameServiceTest extends TestCase
 
         $this->assertTrue($result['success']);
         $this->assertEquals(10, $result['cost']);
-        $this->assertEquals(40, $result['remainingSparks']);
+        $this->assertEquals(40, $result['remainingCoins']);
     }
 
-    public function testPurchaseBoostFailsWithInsufficientSparks(): void
+    public function testPurchaseBoostFailsWithInsufficientCoins(): void
     {
         $user = new HouseUser();
         $user->setNextcloudUserId('user1');
-        $user->setCurrentSparks(5);
+        $user->setCoins(5);
 
         $this->houseUserMapper->expects($this->once())
             ->method('findByHouseIdAndNextcloudUserId')
@@ -186,7 +218,7 @@ class MinigameServiceTest extends TestCase
             ->willReturn($user);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Insufficient sparks');
+        $this->expectExceptionMessage('Insufficient coins');
 
         $this->service->purchaseBoost(1, 'user1', 'slow_motion');
     }
@@ -210,6 +242,34 @@ class MinigameServiceTest extends TestCase
         $this->assertArrayHasKey('no_obstacles', $boosts);
         $this->assertEquals(10, $boosts['slow_motion']);
         $this->assertEquals(20, $boosts['ghost_mode']);
+    }
+
+    public function testGetUserCoinsReturnsCurrentBalance(): void
+    {
+        $user = new HouseUser();
+        $user->setNextcloudUserId('user1');
+        $user->setCoins(75);
+
+        $this->houseUserMapper->expects($this->once())
+            ->method('findByHouseIdAndNextcloudUserId')
+            ->with(1, 'user1')
+            ->willReturn($user);
+
+        $result = $this->service->getUserCoins(1, 'user1');
+
+        $this->assertEquals(75, $result);
+    }
+
+    public function testGetUserCoinsReturnsZeroForUnknownUser(): void
+    {
+        $this->houseUserMapper->expects($this->once())
+            ->method('findByHouseIdAndNextcloudUserId')
+            ->with(1, 'unknown')
+            ->willReturn(null);
+
+        $result = $this->service->getUserCoins(1, 'unknown');
+
+        $this->assertEquals(0, $result);
     }
 
     public function testGetUserSparksReturnsCurrentBalance(): void

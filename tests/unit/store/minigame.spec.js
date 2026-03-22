@@ -107,6 +107,7 @@ describe('Minigame Store', () => {
 
 				await store.fetchCoins()
 
+				expect(axios.get).toHaveBeenCalledWith('/apps/chorestrike/api/v1/minigames/coins')
 				expect(store.currentCoins).toBe(75)
 			})
 
@@ -264,6 +265,22 @@ describe('Minigame Store', () => {
 				expect(store.gameOver).toBe(true)
 				expect(store.activeBoosts).toEqual([])
 				expect(store.purchasedBoosts).toEqual([])
+			})
+
+			it('returns the saved score payload so the UI can show earned coins', async () => {
+				store.currentGame = 'snake'
+				store.score = 120
+				store.purchasedBoosts = ['slow_motion']
+				axios.post.mockResolvedValue({
+					data: { success: true, data: { id: 1, score: 120, coinsEarned: 12 } }
+				})
+				axios.get.mockResolvedValue({
+					data: { success: true, data: [] }
+				})
+
+				const result = await store.endGame()
+
+				expect(result).toEqual({ id: 1, score: 120, coinsEarned: 12 })
 			})
 
 			it('does not save zero score', async () => {

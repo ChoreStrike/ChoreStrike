@@ -5,6 +5,20 @@
 
 ## Currently Active
 
+### Cascade - P9-API-CONTRACT-001 - Repair active user and minigame API contracts
+**Status**: Done
+**Started**: 2026-03-22 13:00
+**Completed**: 2026-03-22 13:18
+**Branch**: master
+**Related Files**: docs/backlog/ACTIVE_TASKS.md, docs/backlog/bugs.md, appinfo/routes.php, lib/Controller/UserController.php, lib/Controller/MinigameController.php, lib/Service/MinigameService.php, src/store/minigame.js, tests/unit/Controller/UserControllerTest.php, tests/unit/Controller/MinigameControllerTest.php, tests/integration/Controller/UserControllerIntegrationTest.php, tests/unit/Service/MinigameServiceTest.php, tests/unit/store/user.spec.js, tests/unit/store/minigame.spec.js
+**Blockers**: None
+**Notes**:
+- Repairing active route/controller/store mismatches for current-user bootstrap and minigame balance loading.
+- Scope includes adding regression coverage and aligning frontend expectations with live backend payloads.
+- Implemented `UserController::current()` and `UserController::update()` plus matching routes for active frontend bootstrap and profile update calls.
+- Added canonical `/api/v1/minigames/coins` route/controller support, aligned minigame reward and purchase payloads to coins, and returned save results to the active snake game consumer.
+- Validation passed with targeted PHPUnit and Jest runs for affected controller, service, integration, and store suites.
+
 ### Cascade - P9-ARCH-REVIEW-002 - Full project workflow, architecture, and test strategy review
 **Status**: Done
 **Started**: 2026-03-22 12:23

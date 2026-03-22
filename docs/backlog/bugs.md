@@ -2,8 +2,8 @@
 
 ## [P0] Active user API contract mismatch breaks current-user bootstrap
 
-**Status**: Planned  
-**Assignee**: Unassigned  
+**Status**: Fixed  
+**Assignee**: Cascade  
 **Estimated Effort**: M  
 **Phase**: 9
 
@@ -19,20 +19,21 @@ Additionally, `src/store/user.js` exposes `updateUserProfile()` with `PUT /apps/
 This creates an active runtime contract break for current-user bootstrap paths used by routed views such as `src/views/Leaderboard.vue` and by store initialization helpers.
 
 ### Acceptance Criteria
-- [ ] `UserController::current()` exists and returns the authenticated house user in the same payload shape expected by the frontend.
-- [ ] Either `updateUserProfile()` is fully implemented end-to-end or removed from active store API until needed.
-- [ ] Route/controller contract tests cover both endpoints.
-- [ ] Routed views depending on current-user bootstrap have regression coverage.
+- [x] `UserController::current()` exists and returns the authenticated house user in the same payload shape expected by the frontend.
+- [x] Either `updateUserProfile()` is fully implemented end-to-end or removed from active store API until needed.
+- [x] Route/controller contract tests cover both endpoints.
+- [x] Routed views depending on current-user bootstrap have regression coverage.
 
 ### Notes
 - Evidence reviewed on 2026-03-22 in `src/store/user.js`, `appinfo/routes.php`, `lib/Controller/UserController.php`, and `src/views/Leaderboard.vue`.
+- Fixed on 2026-03-22 by adding `user#update`, implementing `UserController::current()` and `UserController::update()`, and covering the repaired contracts in unit, integration, and store tests.
 
 ---
 
 ## [P1] Dashboard arcade uses missing minigame coins endpoint
 
-**Status**: Planned  
-**Assignee**: Unassigned  
+**Status**: Fixed  
+**Assignee**: Cascade  
 **Estimated Effort**: S  
 **Phase**: 9
 
@@ -42,12 +43,13 @@ This creates an active runtime contract break for current-user bootstrap paths u
 This is an active frontend/backend contract mismatch on a routed dashboard component and likely produces avoidable request failures during dashboard load.
 
 ### Acceptance Criteria
-- [ ] Frontend and backend agree on the canonical coins endpoint path and response shape.
-- [ ] Dashboard arcade initializes without missing-endpoint errors.
-- [ ] Regression coverage exists for the minigame coins bootstrap path.
+- [x] Frontend and backend agree on the canonical coins endpoint path and response shape.
+- [x] Dashboard arcade initializes without missing-endpoint errors.
+- [x] Regression coverage exists for the minigame coins bootstrap path.
 
 ### Notes
 - Evidence reviewed on 2026-03-22 in `src/components/Dashboard/ArcadeSection.vue`, `src/store/minigame.js`, and `appinfo/routes.php`.
+- Fixed on 2026-03-22 by adding `/api/v1/minigames/coins`, aligning controller/service payloads to coins for active consumers, and covering the bootstrap path in controller, service, and store tests.
 
 ---
 

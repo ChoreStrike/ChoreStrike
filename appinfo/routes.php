@@ -80,6 +80,7 @@ return [
         ['name' => 'user#current', 'url' => '/api/v1/users/current', 'verb' => 'GET'],
         ['name' => 'user#invite', 'url' => '/api/v1/users/invite', 'verb' => 'POST'],
         ['name' => 'user#remove', 'url' => '/api/v1/users/{id}', 'verb' => 'DELETE'],
+        ['name' => 'user#update', 'url' => '/api/v1/users/{id}', 'verb' => 'PUT'],
         ['name' => 'user#updateRole', 'url' => '/api/v1/users/{id}/role', 'verb' => 'PUT'],
         ['name' => 'user#stats', 'url' => '/api/v1/users/{id}/stats', 'verb' => 'GET'],
 
@@ -163,6 +164,7 @@ return [
         ['name' => 'minigame#recentScores', 'url' => '/api/v1/minigames/{gameId}/recent', 'verb' => 'GET'],
         ['name' => 'minigame#boosts', 'url' => '/api/v1/minigames/boosts', 'verb' => 'GET'],
         ['name' => 'minigame#purchaseBoost', 'url' => '/api/v1/minigames/boosts/{boostId}/purchase', 'verb' => 'POST'],
+        ['name' => 'minigame#coins', 'url' => '/api/v1/minigames/coins', 'verb' => 'GET'],
         ['name' => 'minigame#sparks', 'url' => '/api/v1/minigames/sparks', 'verb' => 'GET'],
 
         // Reward Config API

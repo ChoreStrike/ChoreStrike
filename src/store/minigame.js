@@ -296,15 +296,18 @@ export const useMinigameStore = defineStore('minigame', {
 		async endGame() {
 			this.isPlaying = false
 			this.gameOver = true
+			let saveResult = null
 
 			// Save score to backend
 			if (this.score > 0) {
-				await this.saveScore(this.currentGame)
+				saveResult = await this.saveScore(this.currentGame)
 			}
 
 			// Clear boosts
 			this.activeBoosts = []
 			this.purchasedBoosts = []
+
+			return saveResult
 		},
 
 		/**

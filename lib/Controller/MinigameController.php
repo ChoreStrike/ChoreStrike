@@ -116,8 +116,8 @@ class MinigameController extends OCSController
                 $boostsUsed
             );
 
-            // Calculate sparks earned (1 Spark per 10 points)
-            $sparksEarned = (int) floor($score / 10);
+            // Calculate coins earned (1 Coin per 10 points)
+            $coinsEarned = (int) floor($score / 10);
 
             return new JSONResponse([
                 'success' => true,
@@ -127,7 +127,7 @@ class MinigameController extends OCSController
                     'gameId' => $savedScore->getGameId(),
                     'boostsUsed' => $savedScore->getBoostsUsed(),
                     'createdAt' => $savedScore->getCreatedAt()?->format('c'),
-                    'sparksEarned' => $sparksEarned,
+                    'coinsEarned' => $coinsEarned,
                 ]
             ]);
         } catch (\Exception $e) {
@@ -135,6 +135,38 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SAVE_SCORE_ERROR',
+                    'message' => $e->getMessage()
+                ]
+            ], 500);
+        }
+    }
+
+    /**
+     * Get current user's coins balance.
+     *
+     * @NoAdminRequired
+     */
+    public function coins(): JSONResponse
+    {
+        try {
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $this->authService->requireHouseMember($house->getId());
+
+            $userId = $this->authService->getCurrentUserId();
+            $coins = $this->minigameService->getUserCoins($house->getId(), $userId);
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => [
+                    'currentCoins' => $coins
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'COINS_ERROR',
                     'message' => $e->getMessage()
                 ]
             ], 500);

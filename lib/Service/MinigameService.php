@@ -176,8 +176,8 @@ class MinigameService
      * @param int $houseId The house ID
      * @param string $userId The Nextcloud user ID
      * @param string $boostId The boost ID to purchase
-     * @return array Result with success status and remaining sparks
-     * @throws \InvalidArgumentException If boost is unknown or insufficient sparks
+     * @return array Result with success status and remaining coins
+     * @throws \InvalidArgumentException If boost is unknown or insufficient coins
      */
     public function purchaseBoost(int $houseId, string $userId, string $boostId): array
     {
@@ -193,20 +193,20 @@ class MinigameService
             throw new \InvalidArgumentException("User not found in house");
         }
 
-        // Check if user has enough sparks
-        if ($user->getCurrentSparks() < $cost) {
-            throw new \InvalidArgumentException("Insufficient sparks. Need {$cost}, have {$user->getCurrentSparks()}");
+        // Check if user has enough coins
+        if ($user->getCoins() < $cost) {
+            throw new \InvalidArgumentException("Insufficient coins. Need {$cost}, have {$user->getCoins()}");
         }
 
-        // Deduct sparks
-        $user->spendSparks($cost);
+        // Deduct coins
+        $user->setCoins(max(0, $user->getCoins() - $cost));
         $this->houseUserMapper->update($user);
 
         return [
             'success' => true,
             'boostId' => $boostId,
             'cost' => $cost,
-            'remainingSparks' => $user->getCurrentSparks(),
+            'remainingCoins' => $user->getCoins(),
         ];
     }
 
@@ -218,6 +218,24 @@ class MinigameService
     public function getAvailableBoosts(): array
     {
         return self::BOOST_COSTS;
+    }
+
+    /**
+     * Get user's current coins balance.
+     *
+     * @param int $houseId The house ID
+     * @param string $userId The Nextcloud user ID
+     * @return int Current coins balance
+     */
+    public function getUserCoins(int $houseId, string $userId): int
+    {
+        $user = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId);
+
+        if ($user === null) {
+            return 0;
+        }
+
+        return $user->getCoins();
     }
 
     /**
