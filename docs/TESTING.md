@@ -42,7 +42,7 @@ chmod +x scripts/run-tests.sh
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/volker-ma/ChoreStrike.git
+git clone https://github.com/ChoreStrike/ChoreStrike.git
 cd ChoreStrike
 ```
 

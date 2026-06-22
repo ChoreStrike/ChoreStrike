@@ -1,5 +1,52 @@
 # Bug Backlog
 
+## [P3] Dedicated security reporting address + GPG key
+
+**Status**: Backlog
+**Assignee**: Unassigned
+**Estimated Effort**: S
+**Phase**: 9
+
+### Description
+`SECURITY.md` (updated in CS-PLAN-001) directs reporters to email the maintainer via the Codeberg user profile, since Codeberg/Forgejo has no private advisory feature. A dedicated `security@` address (or repo-owned contact) and a published GPG key would make private, encrypted reporting frictionless.
+
+### Acceptance Criteria
+- [ ] Dedicated security contact address is published in `SECURITY.md` and the Codeberg profile.
+- [ ] GPG public key published and fingerprint referenced in `SECURITY.md`.
+- [ ] `SECURITY.md` "maintainer note" removed once the channel exists.
+
+### Notes
+- Raised during the CS-PLAN-001 security review — the prior GitHub Security Advisories path (private) was replaced because the project moved to Codeberg.
+
+---
+
+## [P1] Pre-existing test/lint gate failures (logged during CS-PLAN-001 verification)
+
+**Status**: Backlog
+**Assignee**: Unassigned
+**Estimated Effort**: M
+**Phase**: 9
+
+### Description
+During the CS-PLAN-001 cleanup verification, the build gate surfaced **pre-existing** failures in application source and tests. None were introduced by the cleanup (the plan changes no application code); they are logged here with a deferral reason per project-rules §3.
+
+- **Jest** (`npm test`): `tests/unit/components/TaskForm.spec.js:57` expects option text `"Priority 2"`, but the UI moved to task tiers (bronze/silver/gold) in REWARD-TIER-001. 487/488 tests pass; this one fails on stale priority-label expectations.
+- **PHPUnit** (`vendor/bin/phpunit --configuration phpunit.unit.xml`): `TestDataServiceTest::testSeedFamilyCreatesCompleteStructure` errors with `__clone method called on non-object` at `lib/Db/RoomTask.php:213`. 360/361 tests pass.
+- **ESLint** (`npm run lint`): 26 errors / 64 warnings in `src/` (SvgIcon, ArcadeSection, Minigames/*, Tasks/FlexWindowDisplay, Tasks/TaskList, store/game, store/minigame, utils/icons) — pre-existing source-quality debt.
+- **Stylelint** (`npm run stylelint`): exits non-zero on a configuration-load error (cosmiconfig) before linting.
+
+### Acceptance Criteria
+- [ ] `TaskForm.spec.js` updated to assert tier labels (or `TaskForm.vue` exposes priority if still intended).
+- [ ] `RoomTask.php:213` clone path fixed so `TestDataServiceTest` passes.
+- [ ] ESLint errors in `src/` resolved or explicitly suppressed with tracked reasons.
+- [ ] Stylelint config loads and lints the style sources.
+
+### Notes
+- `npm run build` (webpack) passes — confirms the cleanup's removed artifacts (`vendor/` untrack, empty `img/` dirs) broke nothing.
+- Deferred from CS-PLAN-001 because that plan explicitly excludes application code changes.
+
+---
+
 ## [P0] Child role task visibility not filtered (BUG-002)
 
 **Status**: Fixed  

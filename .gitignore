@@ -7,6 +7,17 @@
 .env
 .env.local
 
+# Composer installer artifacts (keep installed deps only)
+composer-setup.php
+composer.phar
+fix-email.bat
+
+# Composer dependencies (installed via `composer install`; lock file stays tracked)
+/vendor/
+
+# Local AI tooling state (tool-specific, never committed)
+.kilo/
+
 # Node modules
 node_modules/
 npm-debug.log*
@@ -32,6 +43,7 @@ Thumbs.db
 # Nextcloud
 /data/
 /config/config.php
+.sync-exclude.lst
 
 # Testing
 /coverage/

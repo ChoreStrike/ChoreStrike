@@ -1,0 +1,182 @@
+# Deployment Guide
+
+> Single source of truth for installing, deploying, and rolling back ChoreStrike.
+> Consolidates the former root `DEPLOYMENT.md` and `docs/DEPLOYMENT_CHECKLIST.md`.
+
+## Prerequisites
+
+- Nextcloud 27–31
+- PHP 8.0–8.3
+- MariaDB/MySQL/PostgreSQL/SQLite
+- Docker & Docker Compose (for the test environment)
+- Node.js 20+ & npm 10+ (for the frontend build)
+
+## Installation
+
+### 1. Clone the repository
+
+```bash
+cd /var/www/html/custom_apps/
+git clone https://github.com/ChoreStrike/ChoreStrike.git chorestrike
+cd chorestrike
+```
+
+### 2. Build the frontend
+
+```bash
+npm ci
+npm run build
+```
+
+### 3. Install PHP dependencies
+
+```bash
+composer install --no-dev
+```
+
+> The `vendor/` directory is **not** tracked in Git — run `composer install` after
+> every fresh checkout. `composer.lock` stays committed to pin exact versions.
+
+### 4. Enable the app in Nextcloud
+
+```bash
+occ app:enable chorestrike
+```
+
+## Pre-Deployment Checklist
+
+### Code Quality
+
+- [ ] All unit tests pass (`vendor/bin/phpunit --configuration phpunit.unit.xml tests/unit`)
+- [ ] All frontend tests pass (`npm test`)
+- [ ] PSR-12 compliance verified
+- [ ] ESLint compliance verified (`npm run lint`)
+- [ ] Stylelint compliance verified (`npm run stylelint`)
+- [ ] Security audit completed (see [`standards/guidelines/security.md`](standards/guidelines/security.md))
+- [ ] No hardcoded secrets or API keys in codebase
+
+### Versions & Metadata
+
+- [ ] `appinfo/info.xml` version updated
+- [ ] `package.json` version updated
+- [ ] `composer.json` version updated
+- [ ] `CHANGELOG.md` updated with release notes
+
+### Database
+
+- [ ] Database backup created
+- [ ] Migration files reviewed for breaking changes
+- [ ] Rollback migration prepared (if needed)
+
+## Testing
+
+### Unit Tests (Local)
+
+```bash
+# PHP unit tests
+vendor/bin/phpunit --configuration phpunit.unit.xml
+
+# Frontend tests
+npm test
+```
+
+### Integration & E2E Tests (Docker)
+
+```bash
+# Start the test environment
+docker compose -f docker-compose.test.yml up -d db
+
+# Run all tests
+docker compose -f docker-compose.test.yml run --rm nextcloud-test
+
+# Run a specific suite
+docker compose -f docker-compose.test.yml run --rm nextcloud-test \
+  vendor/bin/phpunit --configuration phpunit.unit.xml
+```
+
+See [`TESTING.md`](TESTING.md) for the full test strategy.
+
+## Production Deployment
+
+### 1. Build the production bundle
+
+```bash
+npm ci
+npm run build
+composer install --no-dev
+```
+
+### 2. Copy to Nextcloud
+
+```bash
+cp -r chorestrike /var/www/html/custom_apps/
+chown -R www-data:www-data /var/www/html/custom_apps/chorestrike
+```
+
+### 3. Run migrations
+
+```bash
+occ migrations:execute chorestrike
+```
+
+### 4. Enable the app
+
+```bash
+occ app:enable chorestrike
+```
+
+## Post-Deployment Verification
+
+- [ ] App appears in Nextcloud app list
+- [ ] App icon visible in the app launcher
+- [ ] Main page loads without errors
+- [ ] Can create/view floors
+- [ ] Can create/view rooms
+- [ ] Can create/view tasks
+- [ ] Task completion works
+- [ ] Gamification features work (coins, combos)
+- [ ] User management works (invite, remove)
+- [ ] No errors in Nextcloud logs (`tail -f nextcloud/data/nextcloud.log`)
+
+### Performance
+
+- [ ] Page load time < 2 seconds
+- [ ] API responses < 500ms
+- [ ] No memory leaks during extended use
+
+## Rollback
+
+### Quick Rollback
+
+```bash
+# Disable the app
+occ app:disable chorestrike
+
+# Restore the previous version
+rm -rf /var/www/html/custom_apps/chorestrike
+cp -r /backup/chorestrike_YYYYMMDD /var/www/html/custom_apps/chorestrike
+chown -R www-data:www-data /var/www/html/custom_apps/chorestrike
+
+# Restore the database (if needed)
+mysql -u nextcloud_user -p nextcloud_db < backup_YYYYMMDD.sql
+
+# Re-enable the app
+occ app:enable chorestrike
+```
+
+### Full Rollback
+
+1. Disable the ChoreStrike app
+2. Restore the database from backup
+3. Restore the previous app version
+4. Clear caches — restart the web/PHP-FPM process (clears OPcache) and flush your
+   configured cache backend (e.g. `redis-cli flushall` for Redis). Nextcloud has no
+   single `occ cache:clear` command.
+5. Re-enable the app
+6. Verify functionality
+
+## Support
+
+- Issues: https://github.com/ChoreStrike/ChoreStrike/issues
+- Documentation: see the [`docs/`](.) folder
+- Changelog: see [`CHANGELOG.md`](../CHANGELOG.md)

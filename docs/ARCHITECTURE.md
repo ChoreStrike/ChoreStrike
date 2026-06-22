@@ -27,148 +27,86 @@ ChoreStrike is built as a Nextcloud app following the standard Nextcloud app arc
 
 ```
 ChoreStrike/
-├── appinfo/
-│   ├── info.xml              # App metadata
-│   ├── routes.php            # API routes
-│   └── database.xml          # Database schema (legacy)
-├── lib/
-│   ├── Controller/           # API controllers
-│   │   ├── PageController.php
-│   │   ├── HouseController.php
-│   │   ├── RoomController.php
-│   │   ├── TaskController.php
-│   │   ├── RoomTaskController.php
-│   │   ├── GameController.php
-│   │   └── UserController.php
-│   ├── Service/              # Business logic
-│   │   ├── HouseService.php
-│   │   ├── RoomService.php
-│   │   ├── TaskService.php
-│   │   ├── GameLogicService.php
-│   │   ├── PointsCalculator.php
-│   │   └── TaskScheduler.php
-│   ├── Db/                   # Database entities & mappers
-│   │   ├── House.php
-│   │   ├── HouseMapper.php
-│   │   ├── Floor.php
-│   │   ├── FloorMapper.php
-│   │   ├── Room.php
-│   │   ├── RoomMapper.php
-│   │   ├── Task.php
-│   │   ├── TaskMapper.php
-│   │   ├── RoomTask.php
-│   │   ├── RoomTaskMapper.php
-│   │   ├── CompletedTask.php
-│   │   ├── CompletedTaskMapper.php
-│   │   ├── HouseUser.php
-│   │   ├── HouseUserMapper.php
-│   │   ├── Medal.php
-│   │   └── MedalMapper.php
-│   └── Migration/            # Database migrations
-│       └── Version1000Date20260224000000.php
-├── src/
-│   ├── main.js               # Entry point
-│   ├── App.vue               # Root component
-│   ├── router.js             # Route definitions
-│   ├── components/           # Vue components
-│   │   ├── Dashboard/
-│   │   │   ├── HouseHealthBar.vue
-│   │   │   ├── FloorList.vue
-│   │   │   ├── RoomCard.vue
-│   │   │   └── QuickStats.vue
-│   │   ├── Room/
-│   │   │   ├── RoomView.vue
-│   │   │   ├── RoomHeader.vue
-│   │   │   ├── TaskList.vue
-│   │   │   └── MonsterCanvas.vue
-│   │   ├── Task/
-│   │   │   ├── TaskItem.vue
-│   │   │   ├── TaskForm.vue
-│   │   │   ├── TaskTemplateSelector.vue
-│   │   │   └── CompletionAnimation.vue
-│   │   ├── Game/
-│   │   │   ├── Monster.vue
-│   │   │   ├── ParticleEffect.vue
-│   │   │   ├── ComboNotification.vue
-│   │   │   └── MedalBadge.vue
-│   │   ├── Settings/
-│   │   │   ├── HouseSettings.vue
-│   │   │   ├── UserManagement.vue
-│   │   │   └── NotificationSettings.vue
-│   │   └── Common/
-│   │       ├── LoadingSpinner.vue
-│   │       ├── EmptyState.vue
-│   │       └── ConfirmDialog.vue
-│   ├── views/                # Page-level components
-│   │   ├── Dashboard.vue
-│   │   ├── RoomDetail.vue
-│   │   ├── TaskManager.vue
-│   │   ├── Leaderboard.vue
-│   │   └── Settings.vue
-│   ├── store/                # Pinia stores
-│   │   ├── house.js
-│   │   ├── rooms.js
-│   │   ├── tasks.js
-│   │   ├── game.js
-│   │   └── user.js
-│   ├── services/             # API & utilities
-│   │   ├── api.js
-│   │   ├── animations.js
-│   │   ├── gameLogic.js
-│   │   └── notifications.js
-│   └── assets/               # Static assets
-│       ├── sprites/
-│       │   ├── dust-bunny.png
-│       │   ├── slime-blob.png
-│       │   └── pixel-spider.png
-│       └── sounds/           # Optional
-│           ├── complete.mp3
-│           └── combo.mp3
-├── l10n/                     # Translations
+├── appinfo/                    # Nextcloud app metadata & routing
+│   ├── info.xml                # App metadata (id, version, URLs, navigation)
+│   └── routes.php              # REST API route definitions
+├── lib/                        # PHP backend
+│   ├── Controller/             # Thin API controllers (House, Floor, Room, Task,
+│   │                           #   RoomTask, Checklist, Scheduling, SmartScheduler,
+│   │                           #   Minigame, RewardConfig, User, UserStats, Template,
+│   │                           #   TaskSync, Game, Page, Test) + ControllerLoggingTrait
+│   ├── Service/                # Business logic (House, HouseUser, Floor, Room, RoomTask,
+│   │                           #   Task, GameLogic, Medal, Combo, Scheduling, SmartScheduler,
+│   │                           #   TaskScheduler, Minigame, RewardConfig, Template, TaskSync,
+│   │                           #   UserStats, TestData, Authorization, AppLogger)
+│   ├── Db/                     # Entities & mappers (House, Floor, Room, Task, RoomTask,
+│   │                           #   CompletedTask, HouseUser, Medal, Combo, MinigameScore,
+│   │                           #   TaskChecklistItem + progress, TaskClaim, TaskParticipant,
+│   │                           #   TaskScope, UserStats, AvailabilitySettings)
+│   ├── Migration/              # Schema migrations (Version1000 … Version1020)
+│   └── Command/                # occ commands (e.g. TestDataSeed)
+├── src/                        # Vue 3 frontend
+│   ├── main.js                 # Entry point
+│   ├── App.vue                 # Root component
+│   ├── router.js               # Route definitions (lazy-loaded)
+│   ├── components/
+│   │   ├── Dashboard/          # HouseHealthBar, FloorList, RoomCard, QuickStats, ArcadeSection
+│   │   ├── Tasks/              # TaskList, TaskForm, TaskEditForm, TaskChecklist,
+│   │   │                       #   FlexWindowDisplay, TemplateSelector
+│   │   ├── Gamification/       # GameStats, MedalDisplay, ComboIndicator, WeeklyChallenge,
+│   │   │                       #   HouseholdProgress, AchievementNotification
+│   │   ├── Scheduling/         # AvailabilitySettings, DailyTaskList, EnergyBudgetSettings,
+│   │   │                       #   ScheduleCalendar, SchedulePreview, SchedulingSuggestions
+│   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop
+│   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge/List/Details,
+│   │   │                       #   MonsterSprite/Collection, ComboNotification
+│   │   └── UserManagement/     # User management UI
+│   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard,
+│   │                           #   Settings, SchedulingView
+│   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
+│   │                           #   user, scheduling, checklist, minigame)
+│   └── utils/                  # currentUser, icons, roomIcons, logger, mobile, performance
+├── l10n/                       # Translations
 │   ├── templates/
-│   │   └── ChoreStrike.pot
-│   ├── de.po
-│   ├── de.json
-│   ├── en.po
-│   └── en.json
-├── img/                      # App icons
+│   │   └── chorestrike.pot     # Translation template
+│   ├── de.json                 # German
+│   └── en.json                 # English
+├── img/                        # App icons
 │   └── app.svg
-├── tests/                    # Tests
-│   ├── Unit/
-│   │   ├── Controller/
-│   │   ├── Service/
-│   │   └── Db/
-│   └── Integration/
-├── docs/                     # Documentation
-│   ├── README.md             # Documentation entry points
-│   ├── ARCHITECTURE.md
-│   ├── DEVELOPMENT.md
-│   ├── TESTING.md
-│   ├── REVIEW_PLAYBOOK.md
-│   ├── standards/
-│   │   └── README.md
-│   ├── backlog/
-│   │   └── ACTIVE_TASKS.md
-│   ├── API.md
-│   └── AGENT_GUIDELINES.md  # Legacy stub only
-├── .github/                  # GitHub specific
-│   ├── workflows/
-│   │   ├── lint.yml
-│   │   └── test.yml
-│   └── ISSUE_TEMPLATE/
-├── private/                  # Local dev (gitignored)
-│   ├── config.local.php
-│   └── test-data/
+├── tests/                      # Test suites
+│   ├── unit/                   # PHPUnit (PHP) + Jest (JS/Vue)
+│   ├── integration/            # PHPUnit integration tests
+│   └── e2e/                    # Playwright end-to-end tests
+├── docs/                       # Documentation
+│   ├── README.md               # Documentation map
+│   ├── ARCHITECTURE.md         # This file
+│   ├── DEVELOPMENT.md          # Dev setup guide
+│   ├── TESTING.md              # Test strategy
+│   ├── DEPLOYMENT.md           # Install/deploy/rollback guide
+│   ├── API.md                  # REST API reference
+│   ├── REVIEW_PLAYBOOK.md      # Review workflow
+│   ├── ROADMAP.md              # Project roadmap
+│   ├── concepts/               # Product vision & design concepts
+│   ├── standards/              # ai/ (rules, skills) + guidelines/
+│   ├── backlog/                # Task tracking (ACTIVE_TASKS.md, phase-*.md)
+│   └── plans/                  # Implementation plans (new/active/onhold/done)
+├── .github/                    # Issue & PR templates (Forgejo-compatible)
+│   ├── ISSUE_TEMPLATE/
+│   └── pull_request_template.md
+├── .forgejo/                   # Codeberg/Forgejo CI
+│   └── workflows/test.yml
+├── private/                    # Local dev only (gitignored)
 ├── LICENSE
 ├── README.md
+├── SECURITY.md
 ├── CONTRIBUTING.md
+├── CHANGELOG.md
 ├── .gitignore
 ├── composer.json
+├── composer.lock               # Pinned PHP deps (vendor/ is gitignored)
 ├── package.json
 ├── webpack.config.js
-├── babel.config.js
-├── .eslintrc.js
-└── stylelint.config.js
+└── jest.config.js
 ```
 
 ## Data Flow

@@ -1,85 +1,32 @@
-# Coding Standards & Conventions
+# Engineering Standards
 
-This directory contains detailed coding standards and conventions for ChoreStrike.
+Entry point for coding standards, conventions, and AI resources.
 
-## Overview
+> Everything here is tool-agnostic and public (MIT). See [`../../AGENTS.md`](../../AGENTS.md) for the agent bootstrap.
 
-All code in ChoreStrike must follow these standards to ensure consistency, maintainability, and quality.
+## AI Resources
 
-## Core Documents
+| Path | Description |
+|------|-------------|
+| [`ai/rules/project-rules.md`](ai/rules/project-rules.md) | Canonical rule set (architecture, security, quality, archive, plans) |
+| [`ai/skills/`](ai/skills/) | Load-on-demand skills — one `SKILL.md` each (`php-backend`, `vue-frontend`, `testing`, `review`, `documentation`, `architecture`, `plan-management`, `git-workflow`, `i18n`) |
 
-- **PHP Coding Standard** - PSR-12 compliance, Nextcloud conventions
-- **JavaScript/Vue Coding Standard** - ES6+, Vue 3 Composition API
-- **CSS/SCSS Standard** - BEM naming, CSS variables
-- **Testing Standard** - Unit test requirements, naming conventions
-- **Git Commit Standard** - Conventional commits format
-- **Documentation Standard** - PHPDoc, JSDoc requirements
-- **I18N Standard** - Localization and user-facing content rules
-- **Logging Standard** - Structured backend/frontend logging, privacy guardrails, Nextcloud log levels
-- **External Asset Licensing Standard** - Third-party icons, fonts, and illustrations
-- **Review Playbook** - Reusable review packages, automation strategy, and handoff workflow
+## Guidelines ([`guidelines/`](guidelines/README.md))
 
-## External Asset Licensing Checklist
+| File | Description |
+|------|-------------|
+| [coding-conventions.md](guidelines/coding-conventions.md) | PHP (PSR-12), Vue 3, CSS, and commit-message conventions |
+| [testing.md](guidelines/testing.md) | Test strategy, naming, coverage expectations |
+| [security.md](guidelines/security.md) | Authorization, ownership, input validation, XSS/SQLi prevention |
+| [i18n.md](guidelines/i18n.md) | Localization rules and user-facing content policy |
+| [logging.md](guidelines/logging.md) | Structured logging, privacy guardrails |
+| [design.md](guidelines/design.md) | UI theme, color palette, brand-asset guidance |
+| [external-asset-licensing.md](guidelines/external-asset-licensing.md) | Third-party icon/font/illustration acceptance rules |
+| [ai-development-guidance.md](guidelines/ai-development-guidance.md) | Tool-agnostic AI agent operational notes |
+| [llm-do-dont-checklist.md](guidelines/llm-do-dont-checklist.md) | One-page final gate before submitting code |
 
-Before adding external assets (for example icon packs), verify and document the following:
+## Related
 
-- License allows commercial use.
-- License allows redistribution in open source repositories.
-- License allows redistribution via Nextcloud app packaging/store delivery.
-- Attribution requirements are explicit and implemented where required.
-- Modification rights are clear (color changes, cropping, composition).
-- No trademarked or protected brand elements are included.
-- Proof of license is stored in project docs.
-
-Use this policy document for the decision log and evidence:
-
-- [EXTERNAL_ASSET_LICENSING.md](./EXTERNAL_ASSET_LICENSING.md)
-
-## Quick Reference
-
-### PHP
-- Follow PSR-12
-- Use type hints
-- Document all public members with PHPDoc
-- Max 30 lines per method, 300 lines per file
-- Use Nextcloud DB abstraction
-
-### JavaScript/Vue
-- Use ES6+ syntax
-- Vue 3 Composition API
-- Meaningful variable names
-- JSDoc for complex functions
-- Prefer const over let
-
-### CSS
-- BEM naming where applicable
-- CSS variables for theming
-- Scoped styles in Vue components
-
-### Testing
-- Every feature needs unit tests
-- Every bug fix needs regression test
-- BDD-style naming: `MethodName_Scenario_ExpectedResult`
-
-### Git Commits
-```
-<type>: <description>
-
-[optional body]
-
-[optional footer]
-```
-
-Types: `feat`, `fix`, `docs`, `refactor`, `test`, `i18n`, `perf`, `chore`
-
-## See Also
-
-- [AGENTS.md](../../AGENTS.md) - required bootstrap for AI agents and coding assistants
-- [../README.md](../README.md) - documentation entry points and reading order
-- [DEVELOPMENT.md](../DEVELOPMENT.md) - local setup and contributor workflow
-- [ARCHITECTURE.md](../ARCHITECTURE.md) - system architecture
-- [REVIEW_PLAYBOOK.md](../REVIEW_PLAYBOOK.md) - reusable review workflow and checklist
-
----
-
-**Remember**: Readable code is better than clever code. KISS & DRY.
+- [Architecture Decision Records](../adr/)
+- [Concept Docs](../concepts/)
+- [Implementation Plans](../plans/)

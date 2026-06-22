@@ -43,7 +43,7 @@ For isolated testing, use the included Docker setup:
 1. **Clone the repository**
    ```bash
    cd /path/to/nextcloud/apps/
-   git clone https://github.com/yourorg/ChoreStrike.git
+   git clone https://github.com/ChoreStrike/ChoreStrike.git
    cd ChoreStrike
    ```
 

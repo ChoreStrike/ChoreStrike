@@ -5,6 +5,24 @@
 
 ## Recently Completed
 
+### CS-PLAN-001 - Project Cleanup & Public-Release Readiness (Step 2)
+**Status**: Done
+**Started**: 2026-06-22 13:00
+**Completed**: 2026-06-22 13:30
+**Branch**: master
+**Related Files**: LICENSE, package.json, appinfo/info.xml, CONTRIBUTING.md, README.md, SECURITY.md, docs/DEVELOPMENT.md, docs/TESTING.md, .gitignore, CHANGELOG.md, docs/ARCHITECTURE.md, docs/README.md, docs/DEPLOYMENT.md, docs/concepts/DESIGN.md, archive/2026-06/
+**Plan**: docs/plans/active/cs-plan-001-project-cleanup.md
+**Blockers**: None
+**Notes**:
+- Repository hygiene for a clean public MIT release on Codeberg. No application code changed.
+- **Phase 1 (Naming & metadata):** LICENSE/package.json/CONTRIBUTING.md "ChoreWars Contributors" -> "ChoreStrike Contributors"; package.json version 0.1.0 -> 0.1.1 (aligned to info.xml); removed incorrect `<logging/>` app type from info.xml.
+- **Phase 2 (Hosting consistency):** README, SECURITY, docs/DEVELOPMENT, docs/TESTING now point to the canonical Codeberg host (was GitHub). SECURITY reporting policy switched from GitHub Security Advisories to Codeberg.
+- **Phase 3 (Untrack artifacts):** `git rm -r --cached vendor/` (1249 files, now gitignored; `composer.lock` stays tracked); untracked `.sync-exclude.lst` (moved to archive/2026-06/cruft/); removed empty `img/emojis/` and `img/icons/`.
+- **Phase 4 (Doc consolidation):** merged root DEPLOYMENT.md + docs/DEPLOYMENT_CHECKLIST.md into a single docs/DEPLOYMENT.md (originals archived); relocated docs/CONCEPT.md to docs/concepts/DESIGN.md (original archived); refreshed the stale directory tree in docs/ARCHITECTURE.md; surfaced operational docs (test/release/roadmap) in docs/README.md.
+- **Phase 5 (Governance):** verified `.github/` templates are valid Forgejo-issue-template markdown; added [0.1.1] CHANGELOG entry; final greps clean (no `ChoreWars` outside CHANGELOG/backlog, no project-own `github.com/volker-ma` URLs).
+- All removed files preserved under archive/2026-06/ (project-rules §5). Changes are uncommitted alongside the Step 1 restructure.
+- **Build gate:** `npm run build` passes (confirms removed artifacts broke nothing). Pre-existing failures (out of scope — no app code changed): 1 Jest (`TaskForm.spec.js` priority→tier drift), 1 PHPUnit (`TestDataServiceTest` clone error), ESLint/Stylelint in `src/`. Logged in docs/backlog/bugs.md with deferral reason.
+
 ### Cascade - P9-DOC-003 - Streamline agent bootstrap and documentation entry points
 **Status**: Done
 **Started**: 2026-03-22 17:58

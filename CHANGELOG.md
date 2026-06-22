@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-06-22
+
+### Changed
+- Renamed project attribution from "ChoreWars Contributors" to "ChoreStrike Contributors" in `LICENSE`, `package.json`, and `CONTRIBUTING.md`.
+- Aligned `package.json` version to `0.1.1` to match `appinfo/info.xml`.
+- Standardized repository URLs to the canonical Codeberg host in `README.md`, `SECURITY.md`, `docs/DEVELOPMENT.md`, and `docs/TESTING.md`.
+- Updated the vulnerability reporting policy to use Codeberg instead of GitHub Security Advisories.
+- Consolidated deployment documentation into a single `docs/DEPLOYMENT.md`.
+- Relocated `docs/CONCEPT.md` to `docs/concepts/DESIGN.md` and refreshed its header.
+- Refreshed the stale directory tree in `docs/ARCHITECTURE.md`.
+
+### Removed
+- Untracked the committed `vendor/` directory (1249 files); `vendor/` is now gitignored while `composer.lock` stays tracked. Run `composer install` after a fresh checkout.
+- Untracked the Nextcloud sync-client artifact `.sync-exclude.lst`.
+- Removed the empty `img/emojis/` and `img/icons/` directories.
+
+### Fixed
+- Removed the incorrect `<logging/>` app type from `appinfo/info.xml`.
+
+> Repository cleanup only — no application code changes. All removed files are preserved under `archive/2026-06/`.
+
 ## [1.0.0] - 2026-03-05
 
 ### Added

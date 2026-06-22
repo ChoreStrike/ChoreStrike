@@ -72,7 +72,7 @@ ChoreStrike combines practical household task management with engaging game mech
 ### Manual Installation
 ```bash
 cd /var/www/nextcloud/apps
-git clone https://github.com/volker-ma/ChoreStrike.git chorestrike
+git clone https://github.com/ChoreStrike/ChoreStrike.git chorestrike
 cd chorestrike
 composer install
 npm install
@@ -143,9 +143,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Architecture](docs/ARCHITECTURE.md) - System design overview
 - [API Documentation](docs/API.md) - REST API endpoints
-- [Security](docs/standards/SECURITY.md) - Security architecture
-- [Deployment](docs/DEPLOYMENT_CHECKLIST.md) - Deployment guide
+- [Security](SECURITY.md) - Vulnerability reporting policy
+- [App security architecture](docs/standards/guidelines/security.md) - Authorization and validation rules
+- [Deployment](docs/DEPLOYMENT.md) - Installation and deployment guide
 - [Testing](docs/TESTING.md) - Testing strategies
+- [Contributing](CONTRIBUTING.md) - How to contribute
 
 ## 💡 Inspiration
 

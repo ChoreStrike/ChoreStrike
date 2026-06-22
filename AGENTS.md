@@ -1,87 +1,93 @@
-# ChoreStrike – Agent Bootstrap
+# ChoreStrike — Agent Bootstrap
 
-> **Single required entry point for AI agents.** Read this file first. Load deeper documents only when your task needs them.
+> **Single required entry point for AI agents.** Read this file first, then load only the deeper docs your task needs.
+> **Core rules:** [`docs/standards/ai/rules/project-rules.md`](docs/standards/ai/rules/project-rules.md).
+> **Tool-agnostic:** works with any AI coding assistant that reads `AGENTS.md` (Kilo, Claude Code, Cursor, Windsurf, …). Skills live in `docs/standards/ai/skills/`. Never put project rules in tool-specific folders (`.kilo/`, `.cursor/`); keep everything in `docs/`.
 
-## Purpose
+## Project Identity
 
-ChoreStrike is a Nextcloud app for gamified household task management.
-
-Use this document as the mandatory bootstrap for any agent or coding assistant. Keep it as the stable, system-neutral entry point. Load only the additional documents that are relevant to the current task.
+- **ChoreStrike** — gamified household task management as a **Nextcloud app** (Vue 3 + PHP).
+- **License:** MIT. Everything outside `/private/` and `archive/` is public.
+- **Stack:** PHP 8.1+ (Nextcloud App API), Vue 3 (Composition API) + Pinia, Webpack 5. DB via Nextcloud abstraction (SQLite/MySQL/PostgreSQL). Tests: PHPUnit + Jest + Playwright.
 
 ## Quick Start
 
 1. Read this file.
-2. If you will change files, review code, or update backlog items, check `docs/backlog/ACTIVE_TASKS.md` first.
-3. Load only the deeper documents that are relevant to your task.
-4. Update tracking docs when you start and finish implementation or review work.
-5. Commit each logical unit of completed work.
+2. Read [`docs/standards/ai/rules/project-rules.md`](docs/standards/ai/rules/project-rules.md).
+3. If you will change files, review code, or update backlog items, check [`docs/backlog/ACTIVE_TASKS.md`](docs/backlog/ACTIVE_TASKS.md) first.
+4. Load only the deeper docs / skills your task needs (see routing below).
+5. Commit each logical unit of completed work (when asked).
 
 ---
 
 ## Non-Negotiable Rules
 
-- **Language:** Code, comments, documentation, and commit messages must be in English. Chat with the user may be in German.
-- **Private Content:** Store personal, business, or secret material only in `/private/`. Never commit private content into public project areas.
-- **Nextcloud Boundary:** Stay within the Nextcloud app ecosystem. Do not introduce external services unless explicitly approved.
-- **KISS and DRY:** Prefer simple, readable solutions. Keep methods and files small. Extract duplication after the rule of three.
-- **Architecture:** Keep controllers and routes thin. Put business logic in services. Keep persistence in mappers and entities.
-- **Logging:** Use shared backend and frontend logging helpers. Do not add raw production `console.*` calls or log sensitive payloads.
-
-## When Task Tracking Is Required
-
-Read `docs/backlog/ACTIVE_TASKS.md` before:
-
-- Implementing or changing files
-- Reviewing another task
-- Updating backlog state
-- Starting work that could conflict with another agent
-
-If you are only answering a question or doing a read-only analysis, checking `ACTIVE_TASKS.md` is optional.
-
-When you start implementation or review work:
-
-- Add or update the active task entry
-- Keep progress notes current when the task meaningfully changes
-- Mark completed work and list modified files
-- Update the related backlog document when the task status changes
+- **Language:** Code, comments, docs, and commit messages must be **English**. Chat with the user may be German.
+- **Privacy:** Never log tokens, cookies, secrets, or full sensitive payloads. Keep personal/secret material only in `/private/` (gitignored). Never commit private content.
+- **Nextcloud Boundary:** Stay within the Nextcloud app ecosystem. No external services without explicit approval.
+- **Architecture:** Thin controllers → services hold business logic → mappers/entities handle persistence. Never concatenate SQL.
+- **Authorization:** `@NoAdminRequired` only (never `@PublicPage`). Validate house membership / ownership on every mutation. Never trust client input.
+- **i18n:** Every user-visible string uses `t()`. Update `l10n/` artifacts in the same change.
+- **Logging:** Backend `AppLogger`, frontend `src/utils/logger.js`. No raw `console.*` in production code.
+- **KISS & DRY:** Simple, readable, minimal diffs. ~30 lines/method, ~300 lines/file. Extract after the rule of three.
 
 ## Quality Rules
 
-- Document every public member with PHPDoc or JSDoc.
-- Every new feature needs unit tests.
-- Every bug fix needs a regression test.
-- All user-facing UI text must use localization via `t()`.
-- Validate authorization and ownership checks. Never trust client input.
-- Use structured, privacy-safe logging. Never log tokens, cookies, secrets, or full sensitive payloads.
+- Every new feature needs a unit/integration/E2E test. Every bug fix needs a regression test.
+- Document every public member with PHPDoc / JSDoc.
+- Fix root causes — never suppress warnings or swallow exceptions silently.
+- No stack traces or internal details in production error responses.
 
 ## Decision Rules
 
 - Fix obvious small issues directly.
-- Ask the user before breaking changes, security-critical decisions, unclear requirements, or large refactors.
-- Batch open questions at the end with two or three concrete options.
+- Ask before breaking changes, security-critical decisions, unclear requirements, or large refactors.
+- Batch open questions at the end with two or three concrete options. Don't guess on irreversible decisions.
 
-## Completion Rules
+## Workflow
 
-Before you finish a logical unit of work:
+1. **Implement + test + docs** in one logical package.
+2. **Self-review** against [`llm-do-dont-checklist.md`](docs/standards/guidelines/llm-do-dont-checklist.md).
+3. **Build gate:** `npm test` + `npm run lint` + backend tests (Docker) must be green.
+4. **Lint/format** before committing (`npm run lint:fix`).
+5. **Commit** with a conventional message (only when the user asks).
+6. **Update** `docs/backlog/ACTIVE_TASKS.md` and the related backlog/plan.
+7. **Propose** the next prioritized tasks. Don't declare done while blockers or open questions remain.
 
-- Run the relevant tests for the touched area
-- Update `docs/backlog/ACTIVE_TASKS.md`
-- Update the related backlog file
-- Commit the completed unit of work
-- Report the next prioritized tasks and a concrete next-step proposal
+## Task Tracking & Plans
+
+- Live coordination: [`docs/backlog/ACTIVE_TASKS.md`](docs/backlog/ACTIVE_TASKS.md) — check it before implementation or review work.
+- Implementation plans live in [`docs/plans/`](docs/plans/) (`new/`, `active/`, `onhold/`, `done/`). **Moves between folders are manual** (by the user). After plan creation, propose a review (mandatory for complex/multi-phase plans).
+
+## Skill Routing
+
+Skills live in [`docs/standards/ai/skills/`](docs/standards/ai/skills/) and are loaded on demand — never all at once. Kilo auto-discovers them via YAML frontmatter; other tools load them manually.
+
+| Task | Load skill (+ reference) |
+|------|--------------------------|
+| PHP backend | `php-backend` + [`security.md`](docs/standards/guidelines/security.md) |
+| Vue frontend | `vue-frontend` + [`design.md`](docs/standards/guidelines/design.md) |
+| Tests | `testing` + [`testing.md`](docs/standards/guidelines/testing.md) |
+| Review | `review` + [`llm-do-dont-checklist.md`](docs/standards/guidelines/llm-do-dont-checklist.md) |
+| Architecture / refactor | `architecture` + [ADRs](docs/adr/) |
+| Documentation | `documentation` |
+| Localization | `i18n` + [`i18n.md`](docs/standards/guidelines/i18n.md) |
+| Plan creation/review | `plan-management` |
+| Git ops | `git-workflow` |
+
+## Archive & Private
+
+- `archive/` (gitignored) keeps obsolete docs/scripts for **local** reference. When removing something from the repo, move it to `archive/YYYY-MM/<name>/` instead of deleting.
+- `/private/` (gitignored) is the only place for personal/secret content.
 
 ## Load More Context Only If Needed
 
-- `docs/README.md` - documentation map and entry points
-- `docs/DEVELOPMENT.md` - local setup, commands, and contributor workflow
-- `docs/ARCHITECTURE.md` - architecture boundaries and responsibilities
-- `docs/TESTING.md` - active suites and testing strategy
-- `docs/REVIEW_PLAYBOOK.md` - review workflow and checklist
-- `docs/standards/README.md` - detailed engineering standards index
-- `docs/backlog/README.md` - backlog structure and workflow
-- `docs/backlog/phase-*.md` and `docs/backlog/bugs.md` - task-specific backlog context
+- [`docs/standards/ai/rules/project-rules.md`](docs/standards/ai/rules/project-rules.md) — canonical rules
+- [`docs/standards/guidelines/README.md`](docs/standards/guidelines/README.md) — standards index
+- [`docs/README.md`](docs/README.md) — documentation map
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/TESTING.md`](docs/TESTING.md), [`docs/REVIEW_PLAYBOOK.md`](docs/REVIEW_PLAYBOOK.md)
+- [`docs/backlog/README.md`](docs/backlog/README.md), [`docs/adr/README.md`](docs/adr/README.md)
 
 ---
 
-**Last Updated:** 2026-03-22
-**Version:** 4.0
+**Last Updated:** 2026-06-22 · **Version:** 5.0

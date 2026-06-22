@@ -1,9 +1,9 @@
 {
   "name": "chorestrike",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Gamified household task management for Nextcloud",
   "license": "MIT",
-  "author": "ChoreWars Contributors",
+  "author": "ChoreStrike Contributors",
   "scripts": {
     "build": "webpack --mode production",
     "dev": "webpack --mode development",

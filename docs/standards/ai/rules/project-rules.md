@@ -1,0 +1,127 @@
+# ChoreStrike — Core Rules
+
+> Canonical rule set for AI agents and contributors. `AGENTS.md` is the bootstrap; this file is the rules.
+> **Project:** ChoreStrike — gamified household task management as a Nextcloud app. **License:** MIT (public).
+
+---
+
+## 1. Core Principles
+
+### Integrity & Privacy
+- User data privacy overrides convenience. Never log tokens, passwords, cookies, or full sensitive payloads.
+- Stay within the **Nextcloud app ecosystem**. Don't introduce external services unless explicitly approved.
+- Store personal/secret material only in `/private/` (gitignored). Never commit private content.
+
+### Architecture (never violate)
+```
+Controllers (thin) → Services (business logic) → Mappers/Entities (persistence)
+                              ↓
+                        Nextcloud DB abstraction (IDBConnection / IQueryBuilder)
+```
+- Routes/controllers only validate input, call a service, and shape the response. **No business logic in controllers.**
+- Services hold business logic. Mappers/entities handle persistence.
+- Use prepared statements with named parameters. **Never concatenate SQL.**
+- Inject dependencies via Nextcloud DI. Keep methods ~30 lines, files ~300 lines.
+
+### Software Quality > Avoiding Findings
+- Fix root causes, not symptoms. **Never suppress warnings** or swallow exceptions silently.
+- Every lint warning, failing test, or build break is a defect — fix it now or log a backlog item with a deferral reason.
+- CI / build must be green before considering work complete.
+
+### KISS
+- No premature abstraction (rule of three). Prefer existing patterns.
+- Keep diffs minimal — no unrelated renames or formatting churn in feature work.
+
+## 2. Technical Requirements
+
+### Nomenclature (consistent, lowercase camelCase in JS, PascalCase in PHP)
+| Concept | Use |
+|---|---|
+| House / Floor / Room / Task / RoomTask | `house`, `floor`, `room`, `task`, `roomTask` |
+| Identifiers | `houseId`, `floorId`, `roomId`, `taskId`, `userId` |
+| Gamification | `sparks`, `combo`, `medal`, `houseHealth` |
+
+### Authorization & Ownership
+- All endpoints use `@NoAdminRequired` (authenticated user). **Never `@PublicPage`.**
+- Every mutation validates **house membership**; owner-only operations use `requireHouseOwner()`.
+- Validate all client input at the controller boundary. **Never trust client input.**
+- See [`../../guidelines/security.md`](../../guidelines/security.md).
+
+### Logging
+- Backend: `AppLogger`. Frontend: `src/utils/logger.js`. **No raw `console.*`** in production code.
+- Structured, short, stable, English messages with stable context keys (`event`, `controller`, `houseId`, …).
+- See [`../../guidelines/logging.md`](../../guidelines/logging.md).
+
+### Internationalization
+- Every user-visible string uses `t()`. Update `l10n/` artifacts in the same change.
+- See [`../../guidelines/i18n.md`](../../guidelines/i18n.md).
+
+### Testing
+- Every feature → test. Every bug fix → regression test.
+- PHPUnit (unit/integration), Jest (frontend), Playwright (E2E). BDD-style naming.
+- See [`../../guidelines/testing.md`](../../guidelines/testing.md) and [`../../../TESTING.md`](../../../TESTING.md).
+
+## 3. Error & Quality Management
+
+- **Build gate:** a non-building tree must not be considered done. `npm test` + lint + backend tests green.
+- **Lint/format before commit** (`npm run lint:fix`). Never ignore lint output.
+- **No silent workarounds.** A temporary workaround is acceptable only when: (a) a backlog item exists with a deferral reason, (b) an inline `// HACK: [reason]` comment is present, (c) the root cause stays traceable.
+- **Parameter validation** at all public boundaries.
+- **No stack traces or internal details** in production error responses — only error codes and messages.
+
+## 4. Prioritization & Backlog
+
+### Priority Order
+1. User privacy and data integrity
+2. Security (authorization, ownership, input validation)
+3. Correctness and architecture boundaries
+4. KISS, minimal diffs, reuse of existing patterns
+5. Documentation clarity and multi-agent handoff quality
+
+### Backlog Rules
+- Non-trivial follow-ups, deferred fixes, and improvement ideas → `docs/backlog/` (e.g. `bugs.md`, `phase-*.md`).
+- Ambiguities → log them and ask; **don't guess** on irreversible decisions.
+- Update `docs/backlog/ACTIVE_TASKS.md` when starting and finishing implementation or review work.
+- Don't declare work done while blockers or open questions remain.
+
+## 5. Archive Policy (`archive/`)
+
+### Purpose
+- `archive/` keeps obsolete/deprecated content for **local historical reference**. It is **gitignored** — nothing here is tracked or shipped.
+- Prefer archiving over deleting: when you remove a doc/script/config from the repo, move it to `archive/` first.
+
+### Rules
+- **Preserve** archived content — don't delete it. It exists for reference.
+- **No** test data, build artifacts, coverage, or logs in `archive/` — remove those entirely (`.gitignore` / `git rm`).
+- **Subdirectory format:** `archive/YYYY-MM/<descriptive-name>/` with an optional `README.md`.
+- **Never commit** files from `archive/`. If a tracked file is being archived, `git rm --cached` it (the local copy stays).
+
+## 6. Private Content (`private/`)
+
+- Personal, business, or secret material lives **only** in `/private/` (gitignored).
+- Never reference private content from tracked docs in a way that leaks it.
+- For a public MIT project, assume everything outside `/private/` and `archive/` will be public.
+
+## 7. Plan Management Workflow (`docs/plans/`)
+
+### Folder Structure
+```
+docs/plans/
+├── new/       # Drafted plans, not yet started (tracked in Git)
+├── active/    # Plans currently being implemented (tracked in Git)
+├── onhold/    # Plans paused but still relevant (tracked in Git)
+└── done/      # Completed plans kept for reference (tracked in Git)
+```
+
+### Lifecycle & Manual Moves
+- **New plans** are created in `docs/plans/new/`.
+- **`new/ → active/`** is a **manual** move by the user when work begins. The AI must **not** auto-move unless explicitly instructed.
+- **`active/ → done/`** is a **manual** move by the user when fully implemented and reviewed.
+- **`active/ → onhold/`** when paused (e.g. blocked by a missing dependency).
+- **`done/ → archive/YYYY-MM/`** (untracked) when a completed plan no longer serves as living documentation.
+- Environment-specific worktree tools (e.g. Kilo Agent Manager) operate **independently** of `docs/plans/` — the plan Markdown files here are the canonical, tool-agnostic source of truth.
+
+### Plan Review
+- After plan creation, the AI **proposes a review** (mandatory for complex/multi-phase plans, optional for trivial fixes).
+- The review checks: feasibility, risk coverage, acceptance criteria completeness, test-plan adequacy.
+- See the [`plan-management`](../skills/plan-management/SKILL.md) skill and the plan [`template.md`](../../../plans/template.md).

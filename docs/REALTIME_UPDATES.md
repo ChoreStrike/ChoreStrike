@@ -329,4 +329,4 @@ test('mom sees dad score update in real-time', async ({ browser }) => {
 - `src/store/*.js` - All stores that fetch data
 - `src/views/Dashboard.vue` - Main view
 - `src/views/Leaderboard.vue` - Real-time critical
-- `docs/TEST_STRATEGY_REVIEW.md` - Test implications
+- `docs/TESTING.md` - Test strategy and implications
