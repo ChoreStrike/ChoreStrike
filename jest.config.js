@@ -1,6 +1,7 @@
 module.exports = {
 	testEnvironment: 'jsdom',
 	moduleFileExtensions: ['js', 'json', 'vue'],
+	testPathIgnorePatterns: ['/node_modules/', '/archive/'],
 	moduleNameMapper: {
 		'^@/(.*)$': '<rootDir>/src/$1',
 		'^@nextcloud/(.*)$': '<rootDir>/tests/unit/__mocks__/nextcloud-$1.js',

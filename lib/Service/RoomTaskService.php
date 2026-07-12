@@ -552,7 +552,7 @@ class RoomTaskService
      *
      * @param int $roomTaskId The room task ID
      * @param string $userId The user claiming the task
-     * @return array Claim result with bonus sparks
+     * @return array Claim result with bonus coins
      */
     public function claimOverdueTask(int $roomTaskId, string $userId): array
     {
@@ -572,13 +572,12 @@ class RoomTaskService
         // Assign to new user
         $this->roomTaskMapper->assignToUser($roomTaskId, $userId);
 
-        // Mark as claimed
-        $roomTask->setWasClaimed(true);
-        $roomTask->setOriginalAssignee($originalAssignee);
-        $roomTask->setClaimedAt(new \DateTime());
+        // Mark as claimed and persist (previously set in-memory only — bug fix)
+        $roomTask->markClaimed($originalAssignee, $userId);
+        $this->roomTaskMapper->update($roomTask);
 
-        // Calculate bonus sparks (5 sparks per day overdue, max 50)
-        $bonusSparks = min($daysOverdue * 5, 50);
+        // Calculate bonus coins (5 per day overdue, max 50)
+        $bonusCoins = min($daysOverdue * 5, 50);
 
         return [
             'success' => true,
@@ -586,7 +585,7 @@ class RoomTaskService
             'daysOverdue' => $daysOverdue,
             'originalAssignee' => $originalAssignee,
             'claimedBy' => $userId,
-            'bonusSparks' => $bonusSparks
+            'bonusCoins' => $bonusCoins
         ];
     }
 

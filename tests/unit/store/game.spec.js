@@ -24,7 +24,6 @@ describe('Game Store', () => {
 			expect(store.gameState).toBeNull()
 			expect(store.leaderboard).toEqual([])
 			expect(store.medals).toEqual([])
-			expect(store.monsters).toEqual({})
 			expect(store.combos).toEqual([])
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
@@ -40,10 +39,6 @@ describe('Game Store', () => {
 
 	describe('Getters', () => {
 		beforeEach(() => {
-			store.monsters = {
-				1: [{ id: 'm1', type: 'dust-bunny' }],
-				2: [{ id: 'm2', type: 'slime-blob' }, { id: 'm3', type: 'pixel-spider' }],
-			}
 			store.medals = [
 				{ id: 1, userId: 1, medalType: 'team_anchor' },
 				{ id: 2, userId: 1, medalType: 'flow_keeper' },
@@ -55,20 +50,6 @@ describe('Game Store', () => {
 				{ id: 3, contributionScore: 700 },
 			]
 			store.combos = [{ id: 1, type: 'speed' }]
-		})
-
-		it('currentMonsters returns monsters for room', () => {
-			const roomMonsters = store.currentMonsters(2)
-			expect(roomMonsters).toHaveLength(2)
-		})
-
-		it('currentMonsters returns empty array for room with no monsters', () => {
-			const roomMonsters = store.currentMonsters(999)
-			expect(roomMonsters).toEqual([])
-		})
-
-		it('totalMonsters counts all monsters', () => {
-			expect(store.totalMonsters).toBe(3)
 		})
 
 		it('userMedals filters by user id', () => {
@@ -140,7 +121,7 @@ describe('Game Store', () => {
 	describe('Actions', () => {
 		describe('fetchGameState', () => {
 			it('fetches game state successfully', async () => {
-				const mockState = { houseHealth: 85, monsters: { 1: [{ id: 'm1' }] } }
+				const mockState = { houseHealth: 85, users: [{ id: 'm1' }] }
 				axios.get.mockResolvedValue({
 					data: { success: true, data: mockState }
 				})
@@ -148,7 +129,6 @@ describe('Game Store', () => {
 				await store.fetchGameState()
 
 				expect(store.gameState).toEqual(mockState)
-				expect(store.monsters).toEqual({ 1: [{ id: 'm1' }] })
 			})
 
 			it('handles error', async () => {
@@ -216,7 +196,6 @@ describe('Game Store', () => {
 				store.gameState = { id: 1 }
 				store.leaderboard = [{ id: 1 }]
 				store.medals = [{ id: 1 }]
-				store.monsters = { 1: [{ id: 1 }] }
 				store.combos = [{ id: 1 }]
 				store.loading = true
 				store.error = 'Error'
@@ -229,7 +208,6 @@ describe('Game Store', () => {
 				expect(store.gameState).toBeNull()
 				expect(store.leaderboard).toEqual([])
 				expect(store.medals).toEqual([])
-				expect(store.monsters).toEqual({})
 				expect(store.combos).toEqual([])
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()

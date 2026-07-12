@@ -10,8 +10,6 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Medal;
 use OCA\ChoreStrike\Db\MedalMapper;
-use OCA\ChoreStrike\Db\Room;
-use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
@@ -28,7 +26,6 @@ class GameLogicServiceTest extends TestCase
     private HouseUserMapper $houseUserMapper;
     private CompletedTaskMapper $completedTaskMapper;
     private MedalMapper $medalMapper;
-    private RoomMapper $roomMapper;
     private RoomTaskMapper $roomTaskMapper;
     private RewardConfigService $configService;
 
@@ -37,7 +34,6 @@ class GameLogicServiceTest extends TestCase
         $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
         $this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
         $this->medalMapper = $this->createMock(MedalMapper::class);
-        $this->roomMapper = $this->createMock(RoomMapper::class);
         $this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
         $this->configService = $this->createMock(RewardConfigService::class);
 
@@ -49,7 +45,6 @@ class GameLogicServiceTest extends TestCase
             $this->houseUserMapper,
             $this->completedTaskMapper,
             $this->medalMapper,
-            $this->roomMapper,
             $this->roomTaskMapper,
             $this->configService
         );
@@ -286,99 +281,9 @@ class GameLogicServiceTest extends TestCase
     }
 
     /**
-     * CalculateMonsterCount_CleanRoom_ReturnsZero
+     * GetGameState_ReturnsUsers
      */
-    public function testCalculateMonsterCount_CleanRoom_ReturnsZero(): void
-    {
-        $result = $this->service->calculateMonsterCount(90);
-
-        $this->assertEquals(0, $result);
-    }
-
-    /**
-     * CalculateMonsterCount_ModeratelyClean_ReturnsOne
-     */
-    public function testCalculateMonsterCount_ModeratelyClean_ReturnsOne(): void
-    {
-        $result = $this->service->calculateMonsterCount(70);
-
-        $this->assertEquals(1, $result);
-    }
-
-    /**
-     * CalculateMonsterCount_SomewhatDirty_ReturnsTwo
-     */
-    public function testCalculateMonsterCount_SomewhatDirty_ReturnsTwo(): void
-    {
-        $result = $this->service->calculateMonsterCount(50);
-
-        $this->assertEquals(2, $result);
-    }
-
-    /**
-     * CalculateMonsterCount_Dirty_ReturnsThree
-     */
-    public function testCalculateMonsterCount_Dirty_ReturnsThree(): void
-    {
-        $result = $this->service->calculateMonsterCount(30);
-
-        $this->assertEquals(3, $result);
-    }
-
-    /**
-     * CalculateMonsterCount_VeryDirty_ReturnsFour
-     */
-    public function testCalculateMonsterCount_VeryDirty_ReturnsFour(): void
-    {
-        $result = $this->service->calculateMonsterCount(10);
-
-        $this->assertEquals(4, $result);
-    }
-
-    /**
-     * GetMonsterType_Clean_ReturnsDustBunny
-     */
-    public function testGetMonsterType_Clean_ReturnsDustBunny(): void
-    {
-        $result = $this->service->getMonsterType(70);
-
-        $this->assertEquals('dust-bunny', $result);
-    }
-
-    /**
-     * GetMonsterType_Moderate_ReturnsSlimeBlob
-     */
-    public function testGetMonsterType_Moderate_ReturnsSlimeBlob(): void
-    {
-        $result = $this->service->getMonsterType(50);
-
-        $this->assertEquals('slime-blob', $result);
-    }
-
-    /**
-     * GetMonsterType_Dirty_ReturnsPixelSpider
-     */
-    public function testGetMonsterType_Dirty_ReturnsPixelSpider(): void
-    {
-        $result = $this->service->getMonsterType(30);
-
-        $this->assertEquals('pixel-spider', $result);
-    }
-
-    /**
-     * GetMonsterType_VeryDirty_ReturnsDustDemon
-     */
-    public function testGetMonsterType_VeryDirty_ReturnsDustDemon(): void
-    {
-        $result = $this->service->getMonsterType(10);
-
-        $this->assertEquals('dust-demon', $result);
-    }
-
-    /**
-     * GetGameState_ReturnsMonstersAndUsers
-     */
-    public function testGetGameState_ReturnsMonstersAndUsers(): void
+    public function testGetGameState_ReturnsUsers(): void
     {
         $houseId = 1;
 
@@ -387,29 +292,16 @@ class GameLogicServiceTest extends TestCase
         $user->setUserId('user123');
         $user->setDisplayName('Test User');
 
-        $room = new Room();
-        $room->setId(1);
-        $room->setName('Kitchen');
-        $room->setCleanliness(30);
-
         $this->houseUserMapper
             ->expects($this->once())
             ->method('findByHouseId')
             ->with($houseId)
             ->willReturn([$user]);
 
-        $this->roomMapper
-            ->expects($this->once())
-            ->method('findByHouseId')
-            ->with($houseId)
-            ->willReturn([$room]);
-
         $result = $this->service->getGameState($houseId);
 
-        $this->assertArrayHasKey('monsters', $result);
         $this->assertArrayHasKey('users', $result);
-        $this->assertArrayHasKey('totalMonsters', $result);
-        $this->assertGreaterThan(0, $result['totalMonsters']);
+        $this->assertCount(1, $result['users']);
     }
 
     /**

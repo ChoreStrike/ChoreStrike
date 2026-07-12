@@ -1,0 +1,265 @@
+# CS-PLAN-002: Gamification Simplification & Core-Loop Completion
+
+> **Status:** In Progress — Phase 0 (subtraction) and Phase 1 core (security/persistence/overdue-takeover) complete and verified.
+> **Effort:** XL
+> **Priority:** P2
+> **Depends on:** Reward-system-redesign (Phase 1 core) — mostly done; this plan extends/clarifies it
+> **Related:** `docs/backlog/phase-reward-system-redesign.md`, `phase-11-task-visibility-features.md`, `phase-2-gamification.md` (notification/streak items), `docs/adr/ADR-004-multi-user-gamification.md`, `docs/plans/template.md`
+
+---
+
+## Progress
+
+- [x] **Phase 0 — Subtraction** (DONE, verified). Sparks endpoint + Monsters logic/UI removed; House Health + cleanliness retained; components archived to `archive/2026-06/gamification-monsters/`.
+- [x] **Phase 1 — Task simplification core** (DONE, verified). Live `RoomTaskController::complete()` was already secure (authenticated session); dead unrouted `RoomController::completeTask()` duplicate removed. `RoomTaskService::claimOverdueTask()` now persists claim fields (was in-memory only); transition centralized in new `RoomTask::markClaimed()` to prevent drift. `RoomService::completeRoomTask()` auto-records a takeover when a member completes another member's overdue task; original assignee streak unaffected. PHPUnit unit + integration tests green.
+- [ ] **Phase 1 — Multi-assign join table** (NOT STARTED). `chorestrike_task_assignees` + entity/mapper/migration, multi-assign CRUD, private-task gate, frontend multi-select in TaskEditor.
+- [ ] **Phase 2 — Core-loop closure** (NOT STARTED). Streak Freeze + cron, `canvas-confetti` celebration, `howler` sound, `@nextcloud/event-bus` wiring, CSP verification.
+- [ ] **Phase 3 — Cooperative glue** (NOT STARTED). Weekly Household Goal + `HouseholdGoalBar.vue`, `RewardConfig` key.
+- [ ] **Phase 4 — Notifications** (NOT STARTED). `INotifier` + `DailyNotificationJob` + toast wiring.
+- [ ] **Phase 5 — Reach & joy** (NOT STARTED). Design tokens, mobile-first/PWA manifest, 2048 + Memory minigames.
+
+Acceptance criteria status: see §8. Phase 0 (Sparks gone, Monsters gone) ✅. Phase 1 core (userId spoofing on live path, claim persistence, overdue-takeover `claimed_by`) ✅. Multi-assign + private-task gate + Phases 2–5 ⬜.
+
+---
+
+## 1. Problem Summary
+
+ChoreStrike's gamification is **fragmented and over-engineered**, with two parallel generations of code and several dead/stub systems. The current reward core (Coins, TaskTier, personal multiplier, flex-window early bonus) is solid and end-to-end wired, but the experience is **not emotionally or functionally "round"**:
+
+**Subtractive problems (clarity):**
+- **Sparks** are a second, never-awarded currency (`GET /minigames/sparks` always returns 0; `addSparks()` has zero callers). Confusing alongside Coins.
+- **Monsters** (cleanliness-derived spawn logic + `MonsterSprite.vue`) add a playful layer the maintainer wants to drop; the useful part — House Health + room cleanliness — should stay.
+- **Teamwork / overdue-claim** exist as stubs with complex confirmation workflows that overcomplicate a simple need: *several people can be assigned a task; anyone may complete a non-private overdue task.*
+
+**Loop-closure problems (motivation):**
+- The core loop is an **open half-circle**: action → reward → progress, with **no mechanism pulling the user back**. No streak protection, no reminders, no celebration moments.
+- Comparison with proven apps (Duolingo) shows the load-bearing mechanic is the **streak + streak protection (freeze)** plus **notifications** and **celebration/dopamine moments**. None of these exist yet (`INotifier` is not used anywhere in `lib/`; no confetti/sound).
+- The strongest unused lever — **the household itself as an accountability group** (Duolingo's "Friend Streak" lifts completion +22%) — is present only as dead code (`HouseholdProgress.vue`, `householdProgress` store state from `COOPERATIVE-FEATURES-001`).
+
+**Reach problems:**
+- UI is functional but not **colourful**; the playful tone is uneven.
+- Minigames ship only Snake, though `MinigameService` is generic on `game_id` (scores/coins/leaderboards reuse trivially).
+- No PWA manifest; mobile is webview-only (works, but not installable/optimised).
+
+This plan makes the product **simple, round, and joyful** by subtracting the noise, closing the motivational loop, and adding reach — without the heavy systems explicitly excluded (Shop, Role-Title packs, Monster Battle, Leagues-with-strangers, Smart Scheduler).
+
+---
+
+## 2. Strategy
+
+Five guiding principles:
+
+1. **Subtract first** (Phase 0) to simplify the mental model before adding.
+2. **Close the core loop** before expanding: Streak Freeze + Celebration + Sound (Phase 2) are the heart; everything else feeds them.
+3. **Reuse, don't rebuild**: the Coins economy, `MinigameService` (generic `game_id`), `RewardConfigService` (admin knobs), and Nextcloud's native `INotifier` are the building blocks.
+4. **KISS on every feature**: no team-confirmation workflow, no shop economy, no random-stranger leagues. Multi-assign = "assign N people"; takeover = "complete it".
+5. **Mobile-first + joyful**: every new view works in the Nextcloud-app webview; confetti/sound/colour provide the dopamine layer the monsters used to (poorly) provide.
+
+**Key technical findings (researched):**
+
+- **Mobile rendering:** Custom Nextcloud apps open **inside the Nextcloud Android/iOS app via an in-app webview** (registered through the standard `<navigation>` entry in `appinfo/info.xml:42`). There is no native client to build — **responsive web design + a PWA manifest** is the correct and sufficient approach.
+- **Libraries (all MIT):**
+  | Purpose | Library | Notes |
+  |---|---|---|
+  | Confetti | `canvas-confetti` | ~7 KB; `disableForReducedMotion` flag for a11y |
+  | Sounds | `howler` | Standard Web-Audio wrapper; respects autoplay policy (unlock on first gesture) |
+
+  *Lottie (`lottie-web`/`vue3-lottie`) deferred — CSP risk (`eval` in After-Effects expressions) + asset-sourcing complexity not justified for MVP. CSS transitions + `canvas-confetti` cover celebration needs.*
+- **Sound assets:** CC0 sources (mixkit / freesound CC0) vendored locally under `img/sounds/` with attribution in `LICENSES.md`. Alternative: tiny Web-Audio-synthesised blips (zero assets).
+- **MIT minigames to vendor:** canonical **2048** (MIT), plus a simple **Memory**. Candidate upstream repos (all MIT, choose during execution): `wavde/games` (12 vanilla games), `lauritsk/games` (13 games, TS + Playwright tests). Vendor under `src/components/Minigames/<Game>/` with per-file licence headers + `LICENSES.md`.
+- **Notifications:** Nextcloud `OCP\Notification` via `IManager`/`INotifier` (`createNotification()`) + a `\OCP\BackgroundJob\TimedJob`. These surface in the **Nextcloud bell and the mobile-app notification feed** for free.
+- **CSP caution:** confirm `howler` and `canvas-confetti` both run under Nextcloud's strict CSP during Phase 2 (no `eval`, no inline scripts, asset URLs allowed by `connect-src`/`media-src`).
+
+**Decisions to confirm before/during execution** (recommendations given):
+
+| # | Decision | Recommendation | Why |
+|---|----------|----------------|-----|
+| D1 | Sparks handling | **Hide & deprecate**, keep DB columns | Remove `/minigames/sparks` endpoint + all frontend reads; leave `current_sparks`/`total_sparks_earned` columns & entity methods as harmless dead code (data-safe, no migration). |
+| D2 | Monsters handling | **Remove logic + UI**, keep House Health | Stop populating `monster_count`; archive `MonsterSprite.vue`; keep `house#health`, cleanliness bar, `calculateHouseHealth`. |
+| D3 | Overdue-takeover credit | Claimer gets completion coins/score; **original assignee keeps streak (no penalty)**; `claimed_by` set automatically when completer ≠ assignee. | Matches phase-11 intent; avoids punishing someone whose task got picked up. |
+| D4 | Multi-assign rewards | **Each assignee who completes gets full coins** (no split, no team bonus) | Simplest, matches GAP-analysis §7. Participation recorded for transparency only. |
+| D5 | Streak Freeze count | **1 freeze/week** (auto-restock Monday via cron → set to 1, not additive), optionally a 2nd earnable via combo (cap 2); configurable in `RewardConfig` (`streak_freezes_per_week`, default 1). Daily cron checks yesterday's inactivity → consumes freeze. | Mirrors Duolingo; forgiving enough for family life. |
+| D6 | Sound licence source | **CC0 assets** vendored locally + `LICENSES.md` | Keeps MIT repo clean; no network/CDN dependency. |
+| D7 | First added minigames | **2048 + Memory** (both MIT) | 2048 canonical & beloved; Memory quick to add and family-friendly. |
+| D8 | PWA scope | **Web app manifest + theme colour now**; full offline (service-worker caching) deferred | Installable on mobile without large scope. |
+| D9 | Colourful UI vs Nextcloud theming | Vibrant accent set as **CSS variables that adapt to dark/light**; never break Nextcloud theming | Colourful without fighting the platform. |
+| D10 | Nextcloud Tasks sync, Shop, Role-Title packs, Leagues, Monster Battle, Smart Scheduler, Energy budget management | **Explicitly OUT of scope** | Keep it round, not bloated (KISS). |
+
+---
+
+## 3. Backend / Frontend Changes
+
+### Phase 0 — Subtraction (clarify the model)
+- **Backend:** Remove/stop-exposing Sparks — drop the `MinigameController::sparks()` route + action (route.php:169); stop populating sparks fields (no schema change). Monsters — stop writing `monster_count` (`RoomMapper::updateMonsterCount`), remove monster calculation from `GameLogicService::getGameState` (line 222: `calculateMonsterCount`); keep `calculateHouseHealth` and cleanliness.
+- **Frontend:** Remove sparks reads from `src/store/minigame.js`; archive `MonsterSprite.vue`, `MonsterCollection.vue` (`src/components/Common/`); archive `GameStats.vue` (`src/components/Gamification/`) — calls non-existent `/api/v1/game/stats/{userId}` endpoint (routes.php has no such route). Keep `HouseHealthBar.vue`.
+- **Docs/i18n:** Update `info.xml` description (drop "pixel monsters"/"Dust invasion" framing), remove monster-themed l10n keys from `en.json`/`de.json` (Monsters, Monster Count, 4 monster type keys). Move archived components to `archive/2026-06/`.
+
+### Phase 1 — Functional task simplification
+- **Security fix (prerequisite):** `RoomController::completeTask()` currently accepts `$userId` from the **client** — replace with `$this->userId` (authenticated session user). Add `isPrivate()` gate: private tasks may only be completed by the assigned user(s). Fix `RoomTaskService::claimOverdueTask()` persistence bug (sets `wasClaimed`/`originalAssignee`/`claimedAt` in-memory at lines 576–578 but never calls `mapper->update()` to persist).
+- **Multi-assign (A):** New `chorestrike_task_assignees` join table (user_id, room_task_id, assigned_at, assigned_by). Each assignee sees the task on login (filter by membership). With write permission a member can add themselves ("we'll do it together"). Completion → full coins to completer (D4), participant row recorded. Unique constraint on (room_task_id, user_id) prevents duplicate completions.
+- **Overdue-takeover (B):** Any house member may complete a non-private overdue task. `claimed_by` set automatically when completer ≠ original assignee. Credit to claimer; original assignee's streak unaffected (D3); notification to original assignee (wired in Phase 4).
+- **Backend:** new `TaskAssignee` entity + mapper; services `RoomTaskService` (multi-assign CRUD, fix `claimOverdueTask` persistence), `RoomService::completeRoomTask()` (add private-task gate + auto-set `claimed_by` when completer ≠ assignee); controller routes; validation of house membership on every mutation (security). Remove the stub return-`[]` methods or implement them minimally.
+- **Frontend:** assignee multi-select in task editor; "Take over" action on overdue tasks; task list shows shared tasks for all assignees.
+
+### Phase 2 — Core-loop closure (heart of the plan)
+- **Streak Freeze (C):** New `house_users.streak_freezes` int (default 1, max 2). Daily background job (`StreakFreezeJob`, 06:00): checks each user's yesterday → if zero completions AND `streak_freezes` > 0, consumes one freeze and preserves streak. Weekly restock job (`StreakRestockJob`, Monday 00:05): sets `streak_freezes` to configured value (default 1). Combo milestone (e.g. 5+ combo) awards bonus freeze (cap 2). All configurable via `RewardConfigService` (`streak_freezes_per_week`).
+- **Celebration layer (D):** `canvas-confetti` burst on task completion; **milestone celebrations** at streak 7/30/100, rank-up, medal unlock, weekly-goal reached. CSS transitions for rank/tier badge animations. `prefers-reduced-motion` honoured. **CSP compatibility must be verified as first task in Phase 2** (confetti + howler under Nextcloud's strict CSP).
+- **Sound layer (E):** `howler` wrapper (`src/utils/sound.js`) — short SFX for complete / combo / medal / milestone; mute toggle persisted (Nextcloud `IConfig` preference). Unlock audio on first user gesture (autoplay policy). CC0 assets under `img/sounds/`. Fallback: Web-Audio-synthesised blips if CSP blocks howler.
+- **Frontend:** `@nextcloud/event-bus` (already in `package.json` v3.3.1, currently unused) introduced for cross-component events. `game`/`roomTasks` store actions emit `task:completed`, `combo:triggered`, `medal:awarded` events; `<CelebrationFx>` composable + `src/utils/sound.js` listen and react.
+
+### Phase 3 — Cooperative glue
+- **Weekly Household Goal (F):** Reactivate the dead `householdProgress` design in simplified form — one shared weekly goal (e.g. "household completes ≥ 80% of due tasks this week") + progress bar + reached-celebration. Target stored in `RewardConfigService` (`weekly_goal_target_percent`, default 80). Computed server-side from `completed_tasks` / `room_tasks` due this week. Surfaced in Dashboard via `HouseholdGoalBar.vue`. Accountability ("don't let the family down") without a separate schema-heavy system.
+
+### Phase 4 — Notifications (ties it together)
+- **Notification infrastructure (new):** `appinfo/Application.php` — register `ChoreStrikeNotifier` via `IManager::registerNotifier()`. `lib/Notification/ChoreStrikeNotifier.php` — implements `OCP\Notification\INotifier`, provides `prepare()` with human-readable text per notification type. `lib/BackgroundJob/DailyNotificationJob.php` — `TimedJob` (daily 06:00), checks: overdue tasks (other member may take over), streak at risk (no completion yesterday + no freeze left), weekly goal reached → creates notifications via `IManager::createNotification()`.
+- **Server notification types:** *your overdue task was taken over* (triggered from `RoomTaskService` on takeover), *streak at risk — complete a task today!* (daily job), *weekly goal reached!* (triggered from `HouseService`), *medal awarded* (triggered from `GameLogicService`).
+- **Frontend toasts:** live events (medal, combo, milestone) via `@nextcloud/event-bus` → `@nextcloud/dialogs` toast. These also surface in the Nextcloud bell and the mobile-app notification feed.
+
+### Phase 5 — Reach & joy
+- **Colourful UI (G):** design-token palette (rank/tier colours, gradient House Health, vibrant tier badges, celebration palette) as theme-adaptive CSS variables; refresh Dashboard/Leaderboard/Room views. Reference `docs/standards/guidelines/design.md`.
+- **Mobile-first + PWA (H):** audit all views for touch/responsive; add `manifest.webmanifest` + theme colour + icons (installable). Touch controls for minigames.
+- **More minigames (I):** vendor **2048** + **Memory** (MIT) into `src/components/Minigames/`, reusing `MinigameService` (generic `game_id`) for scores/coins/leaderboards. Add to `ArcadeSection.vue`.
+
+### Cross-layer contracts affected
+- Task payload gains `assignees[]` (from join table) and `claimedBy`; game-state payload gains `streakFreezes`, `householdProgress`; new `Notification` shape from backend; `RewardConfig` gains `streak_freezes_per_week` + `weekly_goal_target_percent`. Frontend uses `@nextcloud/event-bus` for celebration/sound events. All reflected in `src/services/*.js` API layer ↔ Pinia stores ↔ components.
+
+---
+
+## 4. Tests
+
+Per phase (every new feature needs tests; every bug/regression a test):
+
+- **Unit (PHPUnit):** multi-assign membership/validation; takeover credit + streak-safety; streak-freeze consumption/restock; weekly-goal computation; notification trigger conditions; RewardConfig getters/setters for new keys; **userId-spoofing prevention** (`completeTask` uses authenticated user, rejects client-supplied userId); **private-task gate** (non-assigned user cannot complete private task).
+- **Unit (Jest):** `useCelebration` composable (mock confetti); `sound.js` (mock howler); store actions for assignees/claim/household-progress; reduced-motion & mute paths.
+- **Integration (Docker PHPUnit):** service-level flows — complete a multi-assigned task → credit correct, no duplicate coins if same user completes twice; complete an overdue task as another member → credit correct, streak intact, `claimed_by` persisted; freeze consumed on a no-completion day; **cross-house denial** (user from house B cannot complete task from house A); private-task completion denied for non-assignee.
+- **E2E (Playwright):** complete a task → confetti + sound; hit a 7-day streak milestone → celebration; take over an overdue task; play 2048 → score saved → coins awarded; mobile viewport snapshot of key views; mute toggle persists; reduced-motion respected; **CSP compatibility** (confetti + howler run without console errors under Nextcloud CSP).
+
+---
+
+## 5. File Manifest (indicative — refine during execution)
+
+```
+Phase 0 (subtract)
+  modified: appinfo/info.xml                        # description: drop monster framing
+  modified: appinfo/routes.php                      # remove minigames/sparks route (line 169)
+  modified: lib/Controller/MinigameController.php   # drop sparks() method
+  modified: lib/Service/GameLogicService.php        # stop monster calc in getGameState (line 222)
+  modified: lib/Db/RoomMapper.php                   # stop updateMonsterCount calls
+  modified: lib/Db/Room.php                         # stop monster_count writes (keep cleanliness)
+  modified: src/store/minigame.js                   # drop sparks reads
+  modified: src/store/game.js                       # drop monsters from gameState
+  archived: src/components/Common/MonsterSprite.vue       # -> archive/2026-06/
+  archived: src/components/Common/MonsterCollection.vue   # -> archive/2026-06/
+  archived: src/components/Gamification/GameStats.vue     # calls non-existent endpoint -> archive/2026-06/
+  modified: l10n/en.json, l10n/de.json              # remove monster-themed keys
+
+Phase 1 (tasks + security)
+  modified: lib/Controller/RoomTaskController.php   # fix userId spoofing (use $this->userId), add private-task gate
+  modified: lib/Service/RoomTaskService.php         # fix claimOverdueTask persistence, multi-assign CRUD
+  modified: lib/Service/RoomService.php             # completeRoomTask: add private-task gate + auto-set claimed_by
+  new:      lib/Db/TaskAssignee.php                 # entity (user_id, room_task_id, assigned_at, assigned_by)
+  new:      lib/Db/TaskAssigneeMapper.php           # mapper (findByRoomTaskId, findByUserId, insert, delete)
+  new:      lib/Migration/Version1021Assignees.php  # create chorestrike_task_assignees
+  modified: src/store/roomTasks.js                  # handle assignees[]
+  modified: src/store/tasks.js                      # handle assignees[]
+  modified: src/components/TaskManagement/TaskEditor.vue  # multi-select assignees
+  modified: src/components/TaskManagement/TaskList.vue    # show shared tasks
+
+Phase 2 (loop closure)
+  new:      lib/Migration/Version1022StreakFreezes.php  # house_users.streak_freezes
+  modified: lib/Service/GameLogicService.php         # streak freeze consumption logic
+  new:      lib/BackgroundJob/StreakFreezeJob.php    # daily 06:00: check yesterday, consume freeze
+  new:      lib/BackgroundJob/StreakRestockJob.php   # weekly Monday: restock freezes
+  modified: lib/Service/RewardConfigService.php      # +streak_freezes_per_week key + getter/setter
+  modified: package.json                             # +canvas-confetti, +howler
+  new:      src/utils/sound.js                       # howler wrapper + mute toggle
+  new:      src/utils/confetti.js                    # canvas-confetti wrapper + reduced-motion
+  new:      src/composables/useCelebration.js        # listens to event-bus, triggers confetti + sound
+  new:      img/sounds/complete.ogg, combo.ogg, medal.ogg, milestone.ogg  # CC0 assets
+  new:      LICENSES.md                              # attribution for sounds
+  modified: src/store/game.js                        # streak freeze state
+  modified: src/components/Gamification/*.vue        # wire celebration events
+
+Phase 3 (cooperative)
+  modified: lib/Service/HouseService.php             # compute weekly goal %
+  modified: lib/Service/RewardConfigService.php      # +weekly_goal_target_percent key
+  modified: src/store/game.js                        # reactivate householdProgress
+  new:      src/components/Dashboard/HouseholdGoalBar.vue  # progress bar + celebration
+
+Phase 4 (notifications)
+  modified: appinfo/Application.php                  # register ChoreStrikeNotifier via IManager
+  new:      lib/Notification/ChoreStrikeNotifier.php # INotifier impl (prepare + getName)
+  new:      lib/BackgroundJob/DailyNotificationJob.php  # TimedJob daily 06:00
+  modified: lib/Service/RoomTaskService.php          # emit notification on takeover
+  modified: lib/Service/GameLogicService.php         # emit notification on medal
+  modified: lib/Service/HouseService.php             # emit notification on goal reached
+  modified: src/views/*.vue                          # toast wiring via @nextcloud/event-bus
+
+Phase 5 (reach)
+  new:      src/styles/_tokens.scss                  # colourful design tokens (rank/tier palette)
+  modified: src/views/Dashboard.vue                  # mobile-first responsive pass
+  modified: src/views/Leaderboard.vue                # mobile-first responsive pass
+  modified: src/views/RoomDetail.vue                 # mobile-first responsive pass
+  new:      public/manifest.webmanifest              # PWA manifest + theme colour + icons
+  new:      src/components/Minigames/Game2048.vue    # vendored MIT 2048
+  new:      src/components/Minigames/MemoryGame.vue  # vendored MIT Memory
+  modified: src/components/Dashboard/ArcadeSection.vue  # add new games
+  new:      THIRD_PARTY.md                           # attribution for vendored games + sounds
+```
+
+---
+
+## 6. Implementation Order
+
+Each phase is independently committable and shippable. Verify the build gate (`npm test` + `npm run lint` + `npm run stylelint` + Docker PHPUnit) at the end of every phase.
+
+1. **Phase 0 — Subtraction** (quick clarity wins; reversible).
+2. **Phase 1 — Multi-assign + Overdue-takeover** (functional asks; moderate).
+3. **Phase 2 — Streak Freeze + Celebration + Sound** (the round core loop; tightly coupled, do together; **prove CSP compatibility here**).
+4. **Phase 3 — Weekly Household Goal** (cooperative layer, reactivates dead code).
+5. **Phase 4 — Notifications** (server-side INotifier + cron; connects all prior phases).
+6. **Phase 5 — Colourful UI + Mobile/PWA + More minigames** (reach & joy).
+
+Phases 0–3 can each ship standalone value; Phase 4 amplifies them; Phase 5 polishes reach. If scope/time is tight, **Phases 0–2 already deliver a "round" product.**
+
+---
+
+## 7. Risks & Mitigations
+
+| Risk | Likelihood | Mitigation |
+|------|-----------|------------|
+| **CSP breaks `howler`/`canvas-confetti` in Nextcloud** | Medium | Test confetti + howler under strict CSP as **first task in Phase 2**; fall back to CSS-only celebrations / Web-Audio-synth blips if blocked. Lottie deferred (see Section 2). |
+| Streak-freeze edge cases (timezone, retroactive days) | Medium | Compute day boundaries in server timezone consistently; unit-test freeze consumption across day rollover; make restock idempotent (cron-safe). |
+| Mobile webview quirks (touch, autoplay audio) | Medium | Audio unlocked on first user gesture; test on real Android/iOS via Nextcloud app; PWA manifest validated. |
+| **Security fix (userId spoofing) breaks existing flows** | Low | Replace client-supplied `$userId` with `$this->userId` in controller only; integration tests for task completion auth. Backward-compatible: server always knows the authenticated user. |
+| Multi-assign permission bypass (security) | Medium | Validate house membership + write rights on every mutation server-side; never trust client assignee lists; integration tests for cross-house denial. |
+| **Multi-assign: duplicate completions** | Medium | `completeRoomTask()` must check if user already completed this task (prevent double coins). Unique constraint on (room_task_id, user_id) in `chorestrike_completed_tasks` or check before insert. |
+| Vendor licence/attribution mistakes (MIT minigames/sounds) | Low | Per-file licence headers; central `THIRD_PARTY.md`; review before merge. |
+| Removing monsters breaks references/expectations | Low | Archive (never delete); keep House Health; grep for `monster` references; update info.xml description. |
+| Scope creep (Shop/Leagues/Scheduler creep back in) | Medium | D10 hard out-of-scope; new ideas logged to backlog, not built. |
+| Schema migrations on shared columns (sparks/monster_count) | Low | **No destructive migration** (D1/D2 keep columns); only additive migrations. |
+| Bundle-size bloat (howler + multiple games) | Low | Lazy-load minigames (dynamic import); SVG/canvas over rasters; audit webpack output per phase. |
+
+---
+
+## 8. Acceptance Criteria
+
+- [ ] **Sparks** are gone from all UI and from the API surface; DB columns retained harmlessly (D1).
+- [ ] **Monsters** removed from UI and logic; House Health + cleanliness remain (D2).
+- [ ] `completeTask()` uses the **authenticated session user** (`$this->userId`), not a client-supplied parameter; a spoofed completion attempt is rejected.
+- [ ] **Private tasks** may only be completed by their assigned user(s); a non-assigned member's completion attempt returns 403.
+- [ ] A task can be **assigned to multiple members** (join table); each sees it on login; completion grants full coins to the completer (D4); no duplicate coins for same user re-completing.
+- [ ] Any house member can **take over a non-private overdue task**; claimer gets credit; original assignee's streak is unaffected (D3) and they receive a notification (Phase 4); `claimed_by` persisted correctly.
+- [ ] **Streak Freeze** prevents a streak from breaking on a no-completion day; daily cron consumes freeze; restocks weekly to configured value; combo-earned bonus works (cap 2); correct across timezone day boundaries.
+- [ ] Task completion, combos, medals, streak milestones (7/30/100), rank-up, and weekly-goal-reached trigger **confetti + sound**; both honour `prefers-reduced-motion` and a persisted mute toggle.
+- [ ] **CSP compatibility** of `canvas-confetti` + `howler` verified under Nextcloud's strict CSP (no console errors, no blocked resources).
+- [ ] A **weekly household goal** with progress bar and reached-celebration is live in the Dashboard; target configurable via `RewardConfigService`.
+- [ ] **Server notifications** (overdue-takeover, streak-at-risk, goal-reached, medal) appear in the **Nextcloud bell** and are received on the **Nextcloud mobile app**; live events also toast.
+- [ ] UI is **colourful** (rank/tier palette, gradient House Health, vibrant badges) and **theme-adaptive** (dark/light) without breaking Nextcloud theming (D9).
+- [ ] All views are **mobile-first/responsive** (touch-friendly, viewport-tested) and a **PWA manifest** is installable on mobile.
+- [ ] At least **two new MIT minigames** (2048 + Memory) are integrated, sharing the Coins/leaderboard economy.
+- [ ] All vendored third-party code/assets carry licence headers and `THIRD_PARTY.md` attribution (D6/D7).
+- [ ] All user-visible strings use `t()`; `l10n/en.json` + `l10n/de.json` updated; `npm run l10n:check-keys` passes.
+- [ ] Webpack bundle-size audit confirms no regression after adding `howler` + `canvas-confetti` + minigames (lazy-loaded).
+- [ ] Build gate green: `npm test` + `npm run lint` + `npm run stylelint` + Docker PHPUnit; Forgejo CI unaffected.
+- [ ] `docs/backlog/ACTIVE_TASKS.md` and the related backlog/plan docs updated; `info.xml` description reflects the simplified product.

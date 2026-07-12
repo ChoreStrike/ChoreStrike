@@ -50,7 +50,7 @@ export const useRoomsStore = defineStore('rooms', {
 		},
 
 		roomsNeedingCleaning: (state) => {
-			return state.rooms.filter(room => room.cleanliness < 60 || room.monsterCount > 1)
+			return state.rooms.filter(room => room.cleanliness < 60)
 		},
 
 		totalRooms: (state) => state.rooms.length,
@@ -63,10 +63,6 @@ export const useRoomsStore = defineStore('rooms', {
 			if (state.rooms.length === 0) return 100
 			const total = state.rooms.reduce((sum, room) => sum + room.cleanliness, 0)
 			return Math.round(total / state.rooms.length)
-		},
-
-		totalMonsters: (state) => {
-			return state.rooms.reduce((sum, room) => sum + room.monsterCount, 0)
 		},
 	},
 

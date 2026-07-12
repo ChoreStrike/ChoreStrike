@@ -29,7 +29,6 @@ describe('QuickStats', () => {
 		const totalRooms = roomsData.totalRooms !== undefined ? roomsData.totalRooms : 5
 		const cleanRooms = roomsData.cleanRooms !== undefined ? roomsData.cleanRooms : 3
 		const dirtyRooms = roomsData.dirtyRooms !== undefined ? roomsData.dirtyRooms : 2
-		const totalMonsters = roomsData.totalMonsters !== undefined ? roomsData.totalMonsters : 2
 		
 		// Use override if provided, otherwise create mock rooms
 		if (roomsOverride) {
@@ -37,7 +36,7 @@ describe('QuickStats', () => {
 		} else {
 			// Ensure totalRooms is at least as big as cleanRooms
 			const actualTotalRooms = Math.max(totalRooms, cleanRooms, dirtyRooms)
-			
+
 			// Create mock rooms based on the parameters
 			for (let i = 0; i < actualTotalRooms; i++) {
 				const isClean = i < cleanRooms
@@ -45,7 +44,6 @@ describe('QuickStats', () => {
 					id: i + 1,
 					name: `Room ${i + 1}`,
 					cleanliness: isClean ? 80 : 40,
-					monsterCount: i < totalMonsters ? 1 : 0,
 				})
 			}
 		}
@@ -158,17 +156,6 @@ describe('QuickStats', () => {
 			const wrapper = createWrapper({}, { totalOverdueTasks: 0 })
 			const overdueCard = wrapper.find('.stat-card.urgent')
 			expect(overdueCard.exists()).toBe(false)
-		})
-
-		it('shows monsters card when monsters > 0', () => {
-			const wrapper = createWrapper({ totalMonsters: 5 })
-			expect(wrapper.text()).toContain('5')
-			expect(wrapper.text()).toContain('Monsters')
-		})
-
-		it('hides monsters card when no monsters', () => {
-			const wrapper = createWrapper({ totalMonsters: 0 })
-			expect(wrapper.text()).not.toContain('Monsters')
 		})
 	})
 

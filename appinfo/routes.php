@@ -166,7 +166,6 @@ return [
         ['name' => 'minigame#boosts', 'url' => '/api/v1/minigames/boosts', 'verb' => 'GET'],
         ['name' => 'minigame#purchaseBoost', 'url' => '/api/v1/minigames/boosts/{boostId}/purchase', 'verb' => 'POST'],
         ['name' => 'minigame#coins', 'url' => '/api/v1/minigames/coins', 'verb' => 'GET'],
-        ['name' => 'minigame#sparks', 'url' => '/api/v1/minigames/sparks', 'verb' => 'GET'],
 
         // Reward Config API
         ['name' => 'reward_config#index', 'url' => '/api/v1/reward-config', 'verb' => 'GET'],

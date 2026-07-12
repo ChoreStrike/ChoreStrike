@@ -14,7 +14,6 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Medal;
 use OCA\ChoreStrike\Db\MedalMapper;
-use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
@@ -27,7 +26,6 @@ class GameLogicService
     private HouseUserMapper $houseUserMapper;
     private CompletedTaskMapper $completedTaskMapper;
     private MedalMapper $medalMapper;
-    private RoomMapper $roomMapper;
     private RoomTaskMapper $roomTaskMapper;
     private RewardConfigService $configService;
 
@@ -35,14 +33,12 @@ class GameLogicService
         HouseUserMapper $houseUserMapper,
         CompletedTaskMapper $completedTaskMapper,
         MedalMapper $medalMapper,
-        RoomMapper $roomMapper,
         RoomTaskMapper $roomTaskMapper,
         RewardConfigService $configService
     ) {
         $this->houseUserMapper = $houseUserMapper;
         $this->completedTaskMapper = $completedTaskMapper;
         $this->medalMapper = $medalMapper;
-        $this->roomMapper = $roomMapper;
         $this->roomTaskMapper = $roomTaskMapper;
         $this->configService = $configService;
     }
@@ -170,44 +166,6 @@ class GameLogicService
     }
 
     /**
-     * Calculate monster count based on room cleanliness
-     *
-     * @param int $cleanliness Room cleanliness (0-100)
-     */
-    public function calculateMonsterCount(int $cleanliness): int
-    {
-        if ($cleanliness >= 80) {
-            return 0;
-        } elseif ($cleanliness >= 60) {
-            return 1;
-        } elseif ($cleanliness >= 40) {
-            return 2;
-        } elseif ($cleanliness >= 20) {
-            return 3;
-        } else {
-            return 4;
-        }
-    }
-
-    /**
-     * Get monster type based on cleanliness
-     *
-     * @param int $cleanliness Room cleanliness (0-100)
-     */
-    public function getMonsterType(int $cleanliness): string
-    {
-        if ($cleanliness >= 60) {
-            return 'dust-bunny';
-        } elseif ($cleanliness >= 40) {
-            return 'slime-blob';
-        } elseif ($cleanliness >= 20) {
-            return 'pixel-spider';
-        } else {
-            return 'dust-demon';
-        }
-    }
-
-    /**
      * Get game state for a house
      *
      * @param int $houseId The house ID
@@ -215,32 +173,8 @@ class GameLogicService
     public function getGameState(int $houseId): array
     {
         $users = $this->houseUserMapper->findByHouseId($houseId);
-        $rooms = $this->roomMapper->findByHouseId($houseId);
-
-        $monsters = [];
-        foreach ($rooms as $room) {
-            $monsterCount = $this->calculateMonsterCount($room->getCleanliness());
-            $monsterType = $this->getMonsterType($room->getCleanliness());
-
-            $roomMonsters = [];
-            for ($i = 0; $i < $monsterCount; $i++) {
-                // Use deterministic positioning based on room ID and monster index
-                // for stable, testable output
-                $roomMonsters[] = [
-                    'id' => $room->getId() . '-' . $i,
-                    'type' => $monsterType,
-                    'position' => [
-                        'x' => (($room->getId() * 37 + $i * 13) % 100),
-                        'y' => (($room->getId() * 73 + $i * 17) % 100),
-                    ],
-                ];
-            }
-            $monsters[$room->getId()] = $roomMonsters;
-        }
 
         return [
-            'monsters' => $monsters,
-            'totalMonsters' => array_sum(array_map('count', $monsters)),
             'users' => array_map(fn ($user) => $user->jsonSerialize(), $users),
         ];
     }

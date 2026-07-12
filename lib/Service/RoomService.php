@@ -304,6 +304,19 @@ class RoomService
         $floor = $this->floorMapper->find($room->getFloorId());
         $houseUser = $this->houseUserMapper->findByNextcloudUserId($floor->getHouseId(), $userId);
 
+        // Overdue-takeover: when a member completes an overdue task that was
+        // assigned to someone else, record the takeover. The original assignee's
+        // streak is unaffected because game logic only updates the completer.
+        $assignedToUserId = $roomTask->getAssignedToUserId();
+        if (
+            $roomTask->isOverdue()
+            && $assignedToUserId !== null
+            && $assignedToUserId !== ''
+            && $assignedToUserId !== $userId
+        ) {
+            $roomTask->markClaimed($assignedToUserId, $userId);
+        }
+
         // Get user's scheduling preferences for flex scheduling
         $preferences = $houseUser->getSchedulingPreferences();
         $weekdayAvailability = $preferences['weekdayAvailability'] ?? [];

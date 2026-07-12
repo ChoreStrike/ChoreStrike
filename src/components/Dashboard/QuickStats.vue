@@ -66,21 +66,6 @@
 				</div>
 			</div>
 
-			<!-- Total Monsters -->
-			<div v-if="totalMonsters > 0" class="stat-card monsters">
-				<div class="stat-icon-shell monsters-icon">
-					<Emoji name="monster" :size="24" class="stat-icon" />
-				</div>
-				<div class="stat-content">
-					<div class="stat-value">
-						{{ totalMonsters }}
-					</div>
-					<div class="stat-label">
-						{{ t('chorestrike', 'Monsters') }}
-					</div>
-				</div>
-			</div>
-
 			<!-- Average Cleanliness -->
 			<div class="stat-card average-cleanliness">
 				<div class="stat-icon-shell average-cleanliness-icon">
@@ -127,14 +112,12 @@ import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useRouter } from 'vue-router'
 import { logger } from '../../utils/logger.js'
 import Icon from '../Common/Icon.vue'
-import Emoji from '../Common/Emoji.vue'
 
 export default {
 	name: 'QuickStats',
 
 	components: {
 		Icon,
-		Emoji,
 	},
 
 	props: {
@@ -158,7 +141,6 @@ export default {
 		const cleanRooms = computed(() => roomsStore.cleanRooms)
 		const dirtyRooms = computed(() => roomsStore.dirtyRooms)
 		const averageCleanliness = computed(() => roomsStore.averageCleanliness)
-		const totalMonsters = computed(() => roomsStore.totalMonsters)
 
 		const dueTodayTasks = computed(() => roomTasksStore.totalDueTodayTasks)
 		const overdueTasks = computed(() => roomTasksStore.totalOverdueTasks)
@@ -188,7 +170,6 @@ export default {
 			cleanRooms,
 			dirtyRooms,
 			averageCleanliness,
-			totalMonsters,
 			dueTodayTasks,
 			overdueTasks,
 			loading,
@@ -267,11 +248,6 @@ export default {
 .urgent-icon {
 	background: linear-gradient(135deg, rgba(255, 120, 120, 0.18), rgba(239, 68, 68, 0.28));
 	color: #ff8b8b;
-}
-
-.monsters-icon {
-	background: linear-gradient(135deg, rgba(192, 132, 252, 0.18), rgba(168, 85, 247, 0.28));
-	color: #d6a2ff;
 }
 
 .average-cleanliness-icon {

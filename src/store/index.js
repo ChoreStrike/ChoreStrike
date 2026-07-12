@@ -165,7 +165,6 @@ export const getStoreSummary = () => {
 			floorsCount: roomsStore.floors.length,
 			roomsCount: roomsStore.rooms.length,
 			averageCleanliness: roomsStore.averageCleanliness,
-			totalMonsters: roomsStore.totalMonsters,
 		},
 		tasks: {
 			tasksCount: tasksStore.tasks.length,
@@ -174,7 +173,6 @@ export const getStoreSummary = () => {
 			overdueTasksCount: roomTasksStore.totalOverdueTasks,
 		},
 		game: {
-			totalMonsters: gameStore.totalMonsters,
 			leaderboardCount: gameStore.leaderboard.length,
 			medalsCount: gameStore.medals.length,
 			hasCombos: gameStore.hasActiveCombos,

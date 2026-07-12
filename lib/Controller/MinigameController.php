@@ -303,38 +303,6 @@ class MinigameController extends OCSController
     }
 
     /**
-     * Get current user's sparks balance
-     *
-     * @NoAdminRequired
-     */
-    public function sparks(): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
-
-            $userId = $this->authService->getCurrentUserId();
-            $sparks = $this->minigameService->getUserSparks($house->getId(), $userId);
-
-            return new JSONResponse([
-                'success' => true,
-                'data' => [
-                    'currentSparks' => $sparks
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'SPARKS_ERROR',
-                    'message' => $e->getMessage()
-                ]
-            ], 500);
-        }
-    }
-
-    /**
      * Get recent scores for current user
      *
      * @NoAdminRequired

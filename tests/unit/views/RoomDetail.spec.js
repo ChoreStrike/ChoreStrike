@@ -14,8 +14,8 @@ jest.mock('vue-router', () => ({
 jest.mock('../../../src/store/rooms.js', () => ({
 	useRoomsStore: () => ({
 		floors: [{ id: 1, name: 'Ground Floor' }],
-		rooms: [{ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 70, monsterCount: 2 }],
-		getRoomById: jest.fn((id) => ({ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 70, monsterCount: 2 })),
+		rooms: [{ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 70 }],
+		getRoomById: jest.fn((id) => ({ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 70 })),
 		getFloorById: jest.fn((id) => ({ id: 1, name: 'Ground Floor' })),
 		fetchFloorsWithRooms: jest.fn(),
 	}),
@@ -53,12 +53,6 @@ jest.mock('../../../src/components/Common/Icon.vue', () => ({
 	name: 'Icon',
 	props: ['name', 'size'],
 	template: '<span class="icon">{{ name }}</span>',
-}))
-
-jest.mock('../../../src/components/Common/MonsterSprite.vue', () => ({
-	name: 'MonsterSprite',
-	props: ['monsterType', 'count', 'size'],
-	template: '<div class="monster-sprite">Monsters: {{ count }}</div>',
 }))
 
 jest.mock('../../../src/components/Tasks/TaskList.vue', () => ({
@@ -151,7 +145,7 @@ describe('RoomDetail.vue', () => {
 		expect(wrapper.find('.stat-item').exists()).toBe(true)
 	})
 
-	it('renders MonsterSprite component', () => {
+	it('renders room overview with cleanliness ring', () => {
 		const wrapper = mount(RoomDetail, {
 			props: { id: '1' },
 			global: {
@@ -164,7 +158,8 @@ describe('RoomDetail.vue', () => {
 			},
 		})
 
-		expect(wrapper.find('.monster-sprite').exists()).toBe(true)
+		expect(wrapper.find('.room-overview').exists()).toBe(true)
+		expect(wrapper.find('.cleanliness-ring').exists()).toBe(true)
 	})
 
 	it('renders TaskList component', () => {

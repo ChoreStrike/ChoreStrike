@@ -284,6 +284,25 @@ class RoomTask extends Entity implements JsonSerializable
     }
 
     /**
+     * Mark this task as claimed/taken over by another user.
+     *
+     * Centralizes the claim state transition so the overdue-takeover
+     * (RoomService::completeRoomTask) and the explicit claim
+     * (RoomTaskService::claimOverdueTask) cannot drift apart.
+     *
+     * @param string $originalAssignee The user the task was assigned to before the claim
+     * @param string $claimedByUserId The user taking over the task
+     * @param \DateTime|null $at When the claim happened (defaults to now)
+     */
+    public function markClaimed(string $originalAssignee, string $claimedByUserId, ?\DateTime $at = null): void
+    {
+        $this->setWasClaimed(true);
+        $this->setOriginalAssignee($originalAssignee);
+        $this->setClaimedByUser($claimedByUserId);
+        $this->setClaimedAt($at ?? new \DateTime());
+    }
+
+    /**
      * Calculate next due date for dynamic scheduling (shifts with completion)
      */
     private function calculateNextDynamicDue(\DateTime $completedAt, string $frequencyType, int $frequencyValue): \DateTime

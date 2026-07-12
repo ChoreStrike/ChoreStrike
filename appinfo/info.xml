@@ -3,22 +3,23 @@
       xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
     <id>chorestrike</id>
     <name>ChoreStrike</name>
-    <summary>Gamified household task management - Defend your home base together!</summary>
+    <summary>Gamified household task management - keep your home clean together!</summary>
     <description><![CDATA[
-ChoreStrike transforms household chores into a cooperative tower defense game. 
+ChoreStrike turns household chores into a fun, cooperative game.
 
 **Features:**
 - 🏠 Organize tasks by rooms and floors
 - 📅 Smart scheduling with flexible planning options
-- 🎮 Gamification: Defend against "The Dust" invasion
+- 🎮 Gamification: Coins, combos, streaks and medals
 - 👥 Multi-user support with leaderboards
-- 🏆 Team bonuses and weekly medals
+- 🏆 Weekly medals and household goals
+- 🔥 Streak protection so you never lose progress on a busy day
 - 🌍 Multilingual (German, English, more to come)
-- 📊 Track progress with House Health system
+- 📊 Track progress with House Health and room cleanliness
 
-Keep your home clean by completing tasks and watch cute pixel monsters disappear. No game over - just different levels of chaos vs. order. Perfect for families and roommates!
+Complete tasks, build streaks and keep your home tidy together. Perfect for families and roommates!
     ]]></description>
-    
+
     <version>0.1.1</version>
     <licence>MIT</licence>
     

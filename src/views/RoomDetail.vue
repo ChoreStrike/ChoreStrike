@@ -40,11 +40,11 @@
 		</header>
 
 		<main class="room-content">
-			<div class="room-overview" data-testid="monster-sprite">
-				<MonsterSprite
-					:monster-type="monsterType"
-					:count="monsterCount"
-					:size="'large'" />
+			<div class="room-overview" data-testid="room-overview">
+				<div class="cleanliness-ring" :class="cleanlinessClass">
+					<span class="cleanliness-ring-value">{{ cleanliness }}%</span>
+					<span class="cleanliness-ring-label">{{ t('chorestrike', 'Cleanliness') }}</span>
+				</div>
 			</div>
 
 			<div class="tasks-section">
@@ -90,7 +90,6 @@ import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
-import MonsterSprite from '../components/Common/MonsterSprite.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
 import TaskForm from '../components/Tasks/TaskForm.vue'
 import Modal from '../components/Common/Modal.vue'
@@ -100,7 +99,6 @@ export default {
 
 	components: {
 		Icon,
-		MonsterSprite,
 		TaskList,
 		TaskForm,
 		Modal,
@@ -153,17 +151,6 @@ export default {
 			if (this.cleanliness >= 60) return 'good'
 			if (this.cleanliness >= 40) return 'fair'
 			return 'poor'
-		},
-
-		monsterCount() {
-			return this.room?.monsterCount || 0
-		},
-
-		monsterType() {
-			if (this.cleanliness >= 80) return 'none'
-			if (this.cleanliness >= 60) return 'dust'
-			if (this.cleanliness >= 40) return 'slime'
-			return 'spider'
 		},
 
 		tasks() {
@@ -381,6 +368,47 @@ h1 {
 	justify-content: center;
 	align-items: center;
 	min-height: 300px;
+}
+
+.cleanliness-ring {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 180px;
+	height: 180px;
+	border-radius: 50%;
+	border: 8px solid var(--color-border);
+	gap: 0.25rem;
+}
+
+.cleanliness-ring.excellent {
+	border-color: var(--color-success);
+}
+
+.cleanliness-ring.good {
+	border-color: #4caf50;
+}
+
+.cleanliness-ring.fair {
+	border-color: #ff9800;
+}
+
+.cleanliness-ring.poor {
+	border-color: var(--color-error);
+}
+
+.cleanliness-ring-value {
+	font-size: 2.2rem;
+	font-weight: bold;
+	color: var(--color-main-text);
+}
+
+.cleanliness-ring-label {
+	font-size: 0.8rem;
+	color: var(--color-text-maxcontrast);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
 }
 
 .tasks-section {

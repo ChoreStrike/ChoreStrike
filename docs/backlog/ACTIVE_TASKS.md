@@ -54,6 +54,19 @@
 
 ## Currently Active
 
+### CS-PLAN-002 - Gamification Simplification & Core-Loop Completion
+**Status**: In Progress
+**Started**: 2026-07-12 17:50
+**Branch**: master
+**Plan**: docs/plans/active/cs-plan-002-gamification-simplification.md
+**Blockers**: None (XL effort — phased delivery)
+**Notes**:
+- **Phase 0 — Subtraction (DONE, verified):** Removed Sparks from API surface (dropped `minigame#sparks` route + `MinigameController::sparks()`); DB columns retained harmlessly (D1). Removed Monsters logic + UI: dropped `calculateMonsterCount`/`getMonsterType` from `GameLogicService`, monster block from `getGameState`, `RoomMapper::updateMonsterCount`, and `Room::hasMonsters/addMonster/removeMonster`; simplified `Room::needsCleaning()` to cleanliness-only; removed monster UI from `RoomCard.vue`, `QuickStats.vue`, `RoomDetail.vue` (replaced MonsterSprite with a cleanliness ring); archived `MonsterSprite.vue`, `MonsterCollection.vue`, `GameStats.vue` (+specs) to `archive/2026-06/gamification-monsters/`; removed monster l10n keys (en/de); updated `info.xml` description; excluded `archive/` from Jest.
+- **Phase 1 — Task simplification core (DONE, verified):** Security — the live completion path `RoomTaskController::complete()` already derives the completer from the authenticated session (`requireCurrentUserId()`) + validates ownership; the unrouted duplicate `RoomController::completeTask()` (which accepted a client-supplied `$userId`) was removed as dead code. Bug fix — `RoomTaskService::claimOverdueTask()` now persists claim fields via `mapper->update()` (was in-memory only); the claim transition is centralized in `RoomTask::markClaimed()`. Overdue-takeover — `RoomService::completeRoomTask()` auto-records a takeover (via `markClaimed()`) when a member completes another member's overdue task; original assignee streak unaffected (game logic updates only the completer). Added PHPUnit regression tests (unit + integration).
+- **Remaining Phase 1:** Multi-assign join table (`chorestrike_task_assignees` + entity/mapper/migration), multi-assign CRUD + routes, frontend multi-select in TaskEditor + shared-task list, explicit private-task gate.
+- **Remaining phases:** Phase 2 (Streak Freeze + cron, canvas-confetti, howler, event-bus, CSP verify), Phase 3 (weekly household goal), Phase 4 (INotifier + DailyNotificationJob + toasts), Phase 5 (design tokens, PWA manifest, 2048 + Memory minigames).
+- **Build gate:** Jest 455/456 (1 pre-existing TaskForm priority→tier drift; DailyTaskList vue-jest TS pre-existing), PHPUnit 351/351 +1 pre-existing TestDataService clone error, ESLint clean in edited files (26 pre-existing errors untouched), stylelint blocked by missing `stylelint-config-recommended-scss` dep (pre-existing env), l10n keys synced.
+
 ### Cascade - BUG-002 - Role-based Task-Filterung für Child-User implementieren
 **Status**: Done
 **Started**: 2026-03-22 22:00

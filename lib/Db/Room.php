@@ -116,35 +116,11 @@ class Room extends Entity implements JsonSerializable
     }
 
     /**
-     * Check if room has monsters
-     */
-    public function hasMonsters(): bool
-    {
-        return $this->monsterCount > 0;
-    }
-
-    /**
-     * Add a monster
-     */
-    public function addMonster(): void
-    {
-        $this->setMonsterCount($this->monsterCount + 1);
-    }
-
-    /**
-     * Remove a monster
-     */
-    public function removeMonster(): void
-    {
-        $this->setMonsterCount(max(0, $this->monsterCount - 1));
-    }
-
-    /**
      * Check if room needs cleaning
      */
     public function needsCleaning(): bool
     {
-        return $this->cleanliness < 60 || $this->monsterCount >= 1;
+        return $this->cleanliness < 60;
     }
 
     /**

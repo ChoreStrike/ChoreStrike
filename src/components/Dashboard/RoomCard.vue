@@ -26,16 +26,6 @@
 					</span>
 				</div>
 			</div>
-			<div class="room-actions">
-				<button
-					class="monster-toggle"
-					:class="{ active: showMonsters }"
-					:title="t('chorestrike', 'Toggle monsters')"
-					@click.stop="toggleMonsters">
-					<Emoji name="monster" :size="20" class="icon" />
-					<span class="count">{{ room.monsterCount }}</span>
-				</button>
-			</div>
 		</div>
 
 		<!-- Cleanliness Bar -->
@@ -71,20 +61,6 @@
 			</div>
 		</div>
 
-		<!-- Monsters Display -->
-		<div v-if="showMonsters && room.monsterCount > 0" class="monsters-display">
-			<div class="monsters-container">
-				<div
-					v-for="(monster, index) in monsters"
-					:key="index"
-					class="monster"
-					:class="monster.type"
-					:style="monster.position">
-					<Emoji :name="getMonsterEmoji(monster.type)" class="monster-emoji" />
-				</div>
-			</div>
-		</div>
-
 		<!-- Last Updated -->
 		<div class="room-footer">
 			<span class="last-updated">
@@ -107,17 +83,14 @@ import { translate as t } from '@nextcloud/l10n'
 import { useRouter } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
-import { useGameStore } from '../../store/game.js'
 import { logger } from '../../utils/logger.js'
 import Icon from '../Common/Icon.vue'
-import Emoji from '../Common/Emoji.vue'
 import { resolveRoomIcon } from '../../utils/roomIcons.js'
 
 export default {
 	name: 'RoomCard',
 	components: {
 		Icon,
-		Emoji,
 	},
 
 	props: {
@@ -135,9 +108,7 @@ export default {
 		const router = useRouter()
 		const roomsStore = useRoomsStore()
 		const roomTasksStore = useRoomTasksStore()
-		const gameStore = useGameStore()
 
-		const showMonsters = ref(false)
 		const loading = ref(false)
 
 		// Computed properties
@@ -170,7 +141,6 @@ export default {
 
 		const cardClasses = computed(() => ({
 			'needs-cleaning': props.room.cleanliness < 60,
-			'has-monsters': props.room.monsterCount > 0,
 			compact: props.compact,
 		}))
 
@@ -221,44 +191,15 @@ export default {
 			}).length
 		})
 
-		// Monsters
-		const monsters = computed(() => {
-			return gameStore.currentMonsters(props.room.id) || []
-		})
-
 		// Methods
 		const handleCardClick = () => {
 			router.push(`/room/${props.room.id}`)
-		}
-
-		const toggleMonsters = () => {
-			showMonsters.value = !showMonsters.value
-
-			// Generate monsters if not already generated
-			if (showMonsters.value && monsters.value.length === 0) {
-				gameStore.updateMonstersForCleanliness(props.room.id, props.room.cleanliness)
-			}
-		}
-
-		const getMonsterEmoji = (type) => {
-			const emojiMap = {
-				'dust-bunny': '🐰',
-				'slime-blob': '🟢',
-				'pixel-spider': '🕷️',
-				'dust-demon': '👹',
-			}
-			return emojiMap[type] || '👾'
 		}
 
 		const quickClean = async () => {
 			loading.value = true
 			try {
 				await roomsStore.updateRoomCleanliness(props.room.id, 10)
-
-				// Update monsters if visible
-				if (showMonsters.value) {
-					gameStore.updateMonstersForCleanliness(props.room.id, Math.min(100, props.room.cleanliness + 10))
-				}
 			} catch (error) {
 				logger.error('Failed to quick clean room', error, { component: 'RoomCard', action: 'quickClean', roomId: props.room.id })
 			} finally {
@@ -268,7 +209,6 @@ export default {
 
 		return {
 			t,
-			showMonsters,
 			loading,
 			statusClass,
 			statusText,
@@ -279,10 +219,7 @@ export default {
 			activeTasks,
 			overdueTasks,
 			dueTodayTasks,
-			monsters,
 			handleCardClick,
-			toggleMonsters,
-			getMonsterEmoji,
 			quickClean,
 		}
 	},
@@ -310,10 +247,6 @@ export default {
 .room-card.needs-cleaning {
   border-color: #FF9800;
   background: rgba(255, 152, 0, 0.05);
-}
-
-.room-card.has-monsters {
-  border-color: #9C27B0;
 }
 
 .room-card.compact {
@@ -424,38 +357,6 @@ export default {
   gap: 8px;
 }
 
-.monster-toggle {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-main-background);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 12px;
-}
-
-.monster-toggle:hover {
-  background: var(--color-background-hover);
-  border-color: #9C27B0;
-}
-
-.monster-toggle.active {
-  background: #9C27B0;
-  color: white;
-  border-color: #9C27B0;
-}
-
-.monster-toggle .icon {
-  font-size: 14px;
-}
-
-.monster-toggle .count {
-  font-weight: bold;
-}
-
 .cleanliness-section {
   margin-bottom: 12px;
 }
@@ -548,54 +449,6 @@ export default {
 .task-label {
   text-transform: uppercase;
   letter-spacing: 0.5px;
-}
-
-.monsters-display {
-  margin-bottom: 12px;
-  min-height: 60px;
-  background: rgba(156, 39, 176, 0.1);
-  border-radius: 8px;
-  border: 1px solid rgba(156, 39, 176, 0.3);
-  position: relative;
-  overflow: hidden;
-}
-
-.monsters-container {
-  position: relative;
-  height: 60px;
-}
-
-.monster {
-  position: absolute;
-  font-size: 20px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  animation: float 3s ease-in-out infinite;
-}
-
-.monster:hover {
-  transform: scale(1.2);
-}
-
-.monster.dust-bunny {
-  animation-delay: 0s;
-}
-
-.monster.slime-blob {
-  animation-delay: 0.5s;
-}
-
-.monster.pixel-spider {
-  animation-delay: 1s;
-}
-
-.monster.dust-demon {
-  animation-delay: 1.5s;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
 }
 
 .room-footer {

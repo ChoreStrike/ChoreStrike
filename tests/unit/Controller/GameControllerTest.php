@@ -56,7 +56,6 @@ class GameControllerTest extends TestCase
 
         $gameState = [
             'houseHealth' => 85,
-            'activeMonsters' => 3,
             'completedTasks' => 42,
         ];
 
@@ -102,38 +101,6 @@ class GameControllerTest extends TestCase
             ->willReturn($leaderboard);
 
         $response = $this->controller->leaderboard();
-
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(200, $response->getStatus());
-
-        $data = $response->getData();
-        $this->assertTrue($data['success']);
-        $this->assertCount(2, $data['data']);
-    }
-
-    /**
-     * Test GET /game/monsters returns monsters list
-     */
-    public function testMonsters_ReturnsMonsters(): void
-    {
-        $house = new House();
-        $house->setId(1);
-
-        $monsters = [
-            ['id' => 1, 'type' => 'dust_bunny', 'roomId' => 1],
-            ['id' => 2, 'type' => 'mess_monster', 'roomId' => 2],
-        ];
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('requireHouseMember');
-
-        $this->gameLogicService->expects($this->once())
-            ->method('getMonsters')
-            ->with(1)
-            ->willReturn($monsters);
-
-        $response = $this->controller->monsters();
 
         $this->assertInstanceOf(JSONResponse::class, $response);
         $this->assertEquals(200, $response->getStatus());

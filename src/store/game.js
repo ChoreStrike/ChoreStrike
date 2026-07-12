@@ -12,7 +12,6 @@ export const useGameStore = defineStore('game', {
 		gameState: null,
 		leaderboard: [],
 		medals: [],
-		monsters: {},
 		combos: [],
 		loading: false,
 		error: null,
@@ -31,14 +30,6 @@ export const useGameStore = defineStore('game', {
 	}),
 
 	getters: {
-		currentMonsters: (state) => (roomId) => {
-			return state.monsters[roomId] || []
-		},
-
-		totalMonsters: (state) => {
-			return Object.values(state.monsters).flat().length
-		},
-
 		userMedals: (state) => (userId) => {
 			return state.medals.filter(medal => medal.userId === userId)
 		},
@@ -109,7 +100,6 @@ export const useGameStore = defineStore('game', {
 
 				if (response.data.success) {
 					this.gameState = response.data.data
-					this.monsters = response.data.data.monsters || {}
 				} else {
 					throw new Error(response.data.error?.message || 'Failed to fetch game state')
 				}
@@ -168,15 +158,6 @@ export const useGameStore = defineStore('game', {
 			} finally {
 				this.loading = false
 			}
-		},
-
-		/**
-		 * Update monsters for a room
-		 * @param {number} roomId - The ID of the room
-		 * @param {Array} monsters - The monsters data for the room
-		 */
-		updateRoomMonsters(roomId, monsters) {
-			this.monsters[roomId] = monsters
 		},
 
 		/**
@@ -444,60 +425,6 @@ export const useGameStore = defineStore('game', {
 		},
 
 		/**
-		 * Update monster count based on room cleanliness
-		 * @param {number} roomId - The ID of the room
-		 * @param {number} cleanliness - The cleanliness percentage of the room
-		 */
-		updateMonstersForCleanliness(roomId, cleanliness) {
-			let monsterCount = 0
-
-			if (cleanliness >= 80) {
-				monsterCount = 0
-			} else if (cleanliness >= 60) {
-				monsterCount = 1
-			} else if (cleanliness >= 40) {
-				monsterCount = 2
-			} else if (cleanliness >= 20) {
-				monsterCount = 3
-			} else {
-				monsterCount = 4
-			}
-
-			const monsters = []
-			for (let i = 0; i < monsterCount; i++) {
-				monsters.push({
-					id: `${roomId}-${i}`,
-					type: this.getMonsterType(cleanliness),
-					position: this.getRandomPosition(),
-				})
-			}
-
-			this.updateRoomMonsters(roomId, monsters)
-			return monsters
-		},
-
-		/**
-		 * Get monster type based on cleanliness
-		 * @param {number} cleanliness - The cleanliness percentage of the room
-		 */
-		getMonsterType(cleanliness) {
-			if (cleanliness >= 60) return 'dust-bunny'
-			if (cleanliness >= 40) return 'slime-blob'
-			if (cleanliness >= 20) return 'pixel-spider'
-			return 'dust-demon'
-		},
-
-		/**
-		 * Get random position for monster
-		 */
-		getRandomPosition() {
-			return {
-				x: Math.random() * 100,
-				y: Math.random() * 100,
-			}
-		},
-
-		/**
 		 * Initialize game data
 		 */
 		async initializeGame() {
@@ -522,7 +449,6 @@ export const useGameStore = defineStore('game', {
 			this.gameState = null
 			this.leaderboard = []
 			this.medals = []
-			this.monsters = {}
 			this.combos = []
 			this.loading = false
 			this.error = null

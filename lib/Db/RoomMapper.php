@@ -144,23 +144,4 @@ class RoomMapper extends QBMapper
 
         $qb->executeStatement();
     }
-
-    /**
-     * Update monster count
-     *
-     * @param int $roomId The room ID
-     * @param int $monsterCount The new monster count
-     */
-    public function updateMonsterCount(int $roomId, int $monsterCount): void
-    {
-        $monsterCount = max(0, min(4, $monsterCount)); // Clamp between 0 and 4
-
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->update($this->getTableName())
-            ->set('monster_count', $qb->createNamedParameter($monsterCount, IQueryBuilder::PARAM_INT))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-
-        $qb->executeStatement();
-    }
 }

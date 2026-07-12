@@ -523,39 +523,4 @@ class RoomController extends OCSController
             ], 500);
         }
     }
-
-    /**
-     * Complete room task
-     *
-     * @NoAdminRequired
-     */
-    public function completeTask(int $roomTaskId, string $userId): JSONResponse
-    {
-        try {
-            // Verify house membership - completion uses the current user's house membership
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
-
-            $result = $this->roomService->completeRoomTask($roomTaskId, $userId);
-
-            return new JSONResponse([
-                'success' => true,
-                'data' => [
-                    'roomTask' => $result['roomTask']->jsonSerialize(),
-                    'room' => $result['room']->jsonSerialize(),
-                    'task' => $result['task']->jsonSerialize(),
-                    'rewards' => $result['rewards']
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'COMPLETE_TASK_ERROR',
-                    'message' => $e->getMessage()
-                ]
-            ], 500);
-        }
-    }
 }

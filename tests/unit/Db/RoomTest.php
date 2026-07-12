@@ -108,67 +108,6 @@ class RoomTest extends TestCase
     }
 
     /**
-     * HasMonsters_WithZeroMonsters_ReturnsFalse
-     */
-    public function testHasMonsters_WithZeroMonsters_ReturnsFalse(): void
-    {
-        $room = new Room();
-        $room->setMonsterCount(0);
-
-        self::assertFalse($room->hasMonsters());
-    }
-
-    /**
-     * HasMonsters_WithMonsters_ReturnsTrue
-     */
-    public function testHasMonsters_WithMonsters_ReturnsTrue(): void
-    {
-        $room = new Room();
-        $room->setMonsterCount(3);
-
-        self::assertTrue($room->hasMonsters());
-    }
-
-    /**
-     * AddMonster_IncreasesMonsterCount
-     */
-    public function testAddMonster_IncreasesMonsterCount(): void
-    {
-        $room = new Room();
-        $room->setMonsterCount(2);
-
-        $room->addMonster();
-
-        self::assertEquals(3, $room->getMonsterCount());
-    }
-
-    /**
-     * RemoveMonster_DecreasesMonsterCount
-     */
-    public function testRemoveMonster_DecreasesMonsterCount(): void
-    {
-        $room = new Room();
-        $room->setMonsterCount(3);
-
-        $room->removeMonster();
-
-        self::assertEquals(2, $room->getMonsterCount());
-    }
-
-    /**
-     * RemoveMonster_DoesNotGoBelowZero
-     */
-    public function testRemoveMonster_DoesNotGoBelowZero(): void
-    {
-        $room = new Room();
-        $room->setMonsterCount(0);
-
-        $room->removeMonster();
-
-        self::assertEquals(0, $room->getMonsterCount());
-    }
-
-    /**
      * UpdateCleanliness_UpdatesCleanlinessAndLastCleaned
      */
     public function testUpdateCleanliness_UpdatesCleanlinessAndLastCleaned(): void

@@ -548,4 +548,132 @@ class RoomServiceTest extends TestCase
         $this->assertSame($updatedRoom, $result['room']);
         $this->assertEquals(30, $result['rewards']['cleanlinessChange']);
     }
+
+    /**
+     * CompleteRoomTask_OverdueTakeover_SetsClaimedBy
+     *
+     * When a member completes an overdue task assigned to someone else, the
+     * service must record the takeover (claimedByUser / originalAssignee /
+     * wasClaimed) so the original assignee's streak stays unaffected.
+     */
+    public function testCompleteRoomTask_OverdueTakeover_SetsClaimedBy(): void
+    {
+        $roomTaskId = 1;
+        $originalAssignee = 'original-user';
+        $claimer = 'claimer-user';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Test Task');
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+        $roomTask->setAssignedToUserId($originalAssignee);
+        $roomTask->setNextDue(new \DateTime('yesterday')); // overdue
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $claimer)->willReturn($houseUser);
+        $this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+        ]);
+
+        $this->service->completeRoomTask($roomTaskId, $claimer);
+
+        // Takeover recorded
+        $this->assertTrue($roomTask->getWasClaimed());
+        $this->assertSame($claimer, $roomTask->getClaimedByUser());
+        $this->assertSame($originalAssignee, $roomTask->getOriginalAssignee());
+        $this->assertNotNull($roomTask->getClaimedAt());
+    }
+
+    /**
+     * CompleteRoomTask_AssignedToCompleter_DoesNotMarkTakeover
+     */
+    public function testCompleteRoomTask_AssignedToCompleter_DoesNotMarkTakeover(): void
+    {
+        $roomTaskId = 1;
+        $userId = 'user123';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        // Overdue but assigned to the completer themselves -> no takeover
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+        $roomTask->setAssignedToUserId($userId);
+        $roomTask->setNextDue(new \DateTime('yesterday'));
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(1);
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+        $this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+        ]);
+
+        $this->service->completeRoomTask($roomTaskId, $userId);
+
+        $this->assertFalse($roomTask->getWasClaimed());
+        $this->assertNull($roomTask->getClaimedByUser());
+    }
 }

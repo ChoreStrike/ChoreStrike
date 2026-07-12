@@ -445,6 +445,74 @@ class RoomTaskServiceTest extends TestCase
     }
 
     /**
+     * ClaimOverdueTask_PersistsClaimFields
+     *
+     * Regression test: claimOverdueTask previously set wasClaimed/originalAssignee/
+     * claimedAt in-memory but never persisted them. It must call mapper->update()
+     * and set claimedByUser on the persisted entity.
+     */
+    public function testClaimOverdueTask_PersistsClaimFields(): void
+    {
+        $roomTaskId = 1;
+        $originalAssignee = 'original-user';
+        $claimer = 'claimer-user';
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setIsActive(true);
+        $roomTask->setAssignedToUserId($originalAssignee);
+        $roomTask->setNextDue(new \DateTime('yesterday'));
+
+        $this->roomTaskMapper
+            ->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willReturn($roomTask);
+
+        $this->roomTaskMapper
+            ->expects($this->once())
+            ->method('assignToUser')
+            ->with($roomTaskId, $claimer);
+
+        // The persistence bug fix: update() must be called to persist claim fields
+        $this->roomTaskMapper
+            ->expects($this->once())
+            ->method('update')
+            ->with($roomTask);
+
+        $result = $this->service->claimOverdueTask($roomTaskId, $claimer);
+
+        $this->assertTrue($roomTask->getWasClaimed());
+        $this->assertSame($claimer, $roomTask->getClaimedByUser());
+        $this->assertSame($originalAssignee, $roomTask->getOriginalAssignee());
+        $this->assertNotNull($roomTask->getClaimedAt());
+        $this->assertSame($claimer, $result['claimedBy']);
+        $this->assertSame($originalAssignee, $result['originalAssignee']);
+        $this->assertArrayHasKey('bonusCoins', $result);
+    }
+
+    /**
+     * ClaimOverdueTask_NonOverdueTask_ThrowsException
+     */
+    public function testClaimOverdueTask_NonOverdueTask_ThrowsException(): void
+    {
+        $roomTaskId = 1;
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setIsActive(true);
+        $roomTask->setNextDue(new \DateTime('+2 days'));
+
+        $this->roomTaskMapper
+            ->method('find')
+            ->with($roomTaskId)
+            ->willReturn($roomTask);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->service->claimOverdueTask($roomTaskId, 'claimer');
+    }
+
+    /**
      * DeleteRoomTask_ExistingTask_DeletesTask
      */
     public function testDeleteRoomTask_ExistingTask_DeletesTask(): void

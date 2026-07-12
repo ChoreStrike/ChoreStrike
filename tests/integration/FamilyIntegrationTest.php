@@ -27,7 +27,6 @@ class FamilyIntegrationTest extends TestCase
     private $houseUserMapper;
     private $completedTaskMapper;
     private $medalMapper;
-    private $roomMapper;
 
     protected function setUp(): void
     {
@@ -36,13 +35,11 @@ class FamilyIntegrationTest extends TestCase
         $this->houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
         $this->completedTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class);
         $this->medalMapper = $this->createMock(\OCA\ChoreStrike\Db\MedalMapper::class);
-        $this->roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
 
         $this->gameLogicService = new GameLogicService(
             $this->houseUserMapper,
             $this->completedTaskMapper,
-            $this->medalMapper,
-            $this->roomMapper
+            $this->medalMapper
         );
     }
 

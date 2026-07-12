@@ -313,7 +313,7 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase
         $this->assertEquals(3, $result['daysOverdue']);
         $this->assertEquals($originalAssignee, $result['originalAssignee']);
         $this->assertEquals($newUserId, $result['claimedBy']);
-        $this->assertEquals(15, $result['bonusSparks']); // 5 sparks per day, max 50
+        $this->assertEquals(15, $result['bonusCoins']); // 5 coins per day, max 50
     }
 
     /**
@@ -344,11 +344,11 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase
     }
 
     /**
-     * Test bonus sparks calculation with max cap
+     * Test bonus coins calculation with max cap
      *
      * @test
      */
-    public function testClaimOverdueTaskCapsBonusSparksAt50(): void
+    public function testClaimOverdueTaskCapsBonusCoinsAt50(): void
     {
         $roomTaskId = 1;
         $newUserId = 'user-789';
@@ -376,7 +376,7 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase
 
         $result = $this->service->claimOverdueTask($roomTaskId, $newUserId);
 
-        $this->assertEquals(50, $result['bonusSparks']); // Capped at 50, not 100
+        $this->assertEquals(50, $result['bonusCoins']); // Capped at 50, not 100
     }
 
     /**

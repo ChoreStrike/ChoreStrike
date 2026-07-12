@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Gamification simplification Phase 0 + Phase 1 core (CS-PLAN-002): removed the Sparks and Monsters dead systems; live task completion path was already secure, the unrouted duplicate accepting a client-supplied user id was removed as dead code; `claimOverdueTask` now persists claim fields (centralized in `RoomTask::markClaimed`); completing another member's overdue task now records a takeover (original assignee streak unaffected). See `docs/plans/active/cs-plan-002-gamification-simplification.md` for full scope and remaining work.
+
+### Removed
+- API endpoint `GET /api/v1/minigames/sparks` and the Sparks currency from the frontend (DB columns retained harmlessly).
+- Monsters logic (`GameLogicService::calculateMonsterCount`/`getMonsterType`, `RoomMapper::updateMonsterCount`, `Room::hasMonsters`/`addMonster`/`removeMonster`) and monster UI (`RoomCard` toggle/display, `QuickStats` monsters stat, `RoomDetail` MonsterSprite). The `MonsterSprite.vue`, `MonsterCollection.vue`, and `GameStats.vue` components are archived under `archive/2026-06/gamification-monsters/`.
+- Dead unrouted `RoomController::completeTask()` (the live completion path `RoomTaskController::complete()` was already secure).
+
 ## [0.1.1] - 2026-06-22
 
 ### Changed

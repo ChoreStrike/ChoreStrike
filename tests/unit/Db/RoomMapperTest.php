@@ -144,45 +144,6 @@ class RoomMapperTest extends TestCase
     }
 
     /**
-     * Room_AddMonster_IncreasesCount
-     */
-    public function testRoom_AddMonster_IncreasesCount(): void
-    {
-        $room = new Room();
-        $room->setMonsterCount(2);
-
-        $room->addMonster();
-
-        $this->assertEquals(3, $room->getMonsterCount());
-    }
-
-    /**
-     * Room_RemoveMonster_DecreasesCount
-     */
-    public function testRoom_RemoveMonster_DecreasesCount(): void
-    {
-        $room = new Room();
-        $room->setMonsterCount(3);
-
-        $room->removeMonster();
-
-        $this->assertEquals(2, $room->getMonsterCount());
-    }
-
-    /**
-     * Room_RemoveMonster_DoesNotGoBelowZero
-     */
-    public function testRoom_RemoveMonster_DoesNotGoBelowZero(): void
-    {
-        $room = new Room();
-        $room->setMonsterCount(0);
-
-        $room->removeMonster();
-
-        $this->assertEquals(0, $room->getMonsterCount());
-    }
-
-    /**
      * Room_NeedsCleaning_ReturnsCorrectBoolean
      */
     public function testRoom_NeedsCleaning_ReturnsCorrectBoolean(): void

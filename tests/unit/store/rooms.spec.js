@@ -39,9 +39,9 @@ describe('Rooms Store', () => {
 				{ id: 2, name: 'First Floor' },
 			]
 			store.rooms = [
-				{ id: 1, floorId: 1, name: 'Kitchen', cleanliness: 80, monsterCount: 0 },
-				{ id: 2, floorId: 1, name: 'Living Room', cleanliness: 90, monsterCount: 1 },
-				{ id: 3, floorId: 2, name: 'Bedroom', cleanliness: 70, monsterCount: 2 },
+				{ id: 1, floorId: 1, name: 'Kitchen', cleanliness: 80 },
+				{ id: 2, floorId: 1, name: 'Living Room', cleanliness: 90 },
+				{ id: 3, floorId: 2, name: 'Bedroom', cleanliness: 50 },
 			]
 		})
 
@@ -69,7 +69,7 @@ describe('Rooms Store', () => {
 
 		it('roomsNeedingCleaning filters correctly', () => {
 			const dirtyRooms = store.roomsNeedingCleaning
-			// Rooms with cleanliness < 60 OR monsterCount > 1
+			// Rooms with cleanliness < 60
 			expect(dirtyRooms).toHaveLength(1)
 			expect(dirtyRooms[0].name).toBe('Bedroom')
 		})
@@ -79,25 +79,21 @@ describe('Rooms Store', () => {
 		})
 
 		it('cleanRooms returns count of clean rooms', () => {
-			expect(store.cleanRooms).toBe(3) // All rooms >= 60
+			expect(store.cleanRooms).toBe(2) // Kitchen + Living Room >= 60
 		})
 
 		it('dirtyRooms returns count of dirty rooms', () => {
-			expect(store.dirtyRooms).toBe(0) // No rooms < 60
+			expect(store.dirtyRooms).toBe(1) // Bedroom < 60
 		})
 
 		it('averageCleanliness calculates correctly', () => {
-			// (80 + 90 + 70) / 3 = 80
-			expect(store.averageCleanliness).toBe(80)
+			// (80 + 90 + 50) / 3 = 73
+			expect(store.averageCleanliness).toBe(73)
 		})
 
 		it('averageCleanliness returns 100 when no rooms', () => {
 			store.rooms = []
 			expect(store.averageCleanliness).toBe(100)
-		})
-
-		it('totalMonsters sums monster counts', () => {
-			expect(store.totalMonsters).toBe(3) // 0 + 1 + 2
 		})
 	})
 

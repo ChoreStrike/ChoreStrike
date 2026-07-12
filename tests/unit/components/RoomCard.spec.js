@@ -29,13 +29,6 @@ jest.mock('../../../src/store/roomTasks.js', () => ({
 	})),
 }))
 
-jest.mock('../../../src/store/game.js', () => ({
-	useGameStore: jest.fn(() => ({
-		currentMonsters: jest.fn(() => []),
-		updateMonstersForCleanliness: jest.fn(),
-	})),
-}))
-
 describe('RoomCard', () => {
 	let wrapper
 	const mockRoom = {
@@ -43,7 +36,6 @@ describe('RoomCard', () => {
 		name: 'Kitchen',
 		icon: 'Utensils',
 		cleanliness: 75,
-		monsterCount: 1,
 		lastCleaned: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
 	}
 
@@ -84,12 +76,6 @@ describe('RoomCard', () => {
 			expect(badge.text()).toBe('Good') // 75% = Good
 		})
 
-		it('Renders monster count', () => {
-			const monsterToggle = wrapper.find('.monster-toggle')
-			expect(monsterToggle.exists()).toBe(true)
-			expect(monsterToggle.find('.count').text()).toBe('1')
-		})
-
 		it('Shows last cleaned text', () => {
 			expect(wrapper.find('.last-updated').text()).toContain('Last cleaned')
 		})
@@ -115,29 +101,6 @@ describe('RoomCard', () => {
 				room: { ...mockRoom, cleanliness: 50 },
 			})
 			expect(wrapper.find('.room-card').classes()).toContain('needs-cleaning')
-		})
-
-		it('Applies has-monsters class when monsters present', () => {
-			expect(wrapper.find('.room-card').classes()).toContain('has-monsters')
-		})
-	})
-
-	describe('Monster Toggle', () => {
-		it('Toggles monster display on click', async () => {
-			const toggle = wrapper.find('.monster-toggle')
-			expect(wrapper.vm.showMonsters).toBe(false)
-
-			await toggle.trigger('click')
-			expect(wrapper.vm.showMonsters).toBe(true)
-
-			await toggle.trigger('click')
-			expect(wrapper.vm.showMonsters).toBe(false)
-		})
-
-		it('Shows active state when monsters displayed', async () => {
-			const toggle = wrapper.find('.monster-toggle')
-			await toggle.trigger('click')
-			expect(toggle.classes()).toContain('active')
 		})
 	})
 
@@ -180,13 +143,6 @@ describe('RoomCard', () => {
 		it('Navigates to room detail on card click', async () => {
 			await wrapper.find('.room-card').trigger('click')
 			expect(mockPush).toHaveBeenCalledWith('/room/1')
-		})
-
-		it('Does not navigate when clicking monster toggle', async () => {
-			const toggle = wrapper.find('.monster-toggle')
-
-			await toggle.trigger('click')
-			expect(mockPush).not.toHaveBeenCalled()
 		})
 	})
 
