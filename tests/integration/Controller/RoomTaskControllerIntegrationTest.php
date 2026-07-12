@@ -56,6 +56,7 @@ class RoomTaskControllerIntegrationTest extends TestCase
         $this->roomTaskService->method('getRoomTasks')
             ->with($roomId, true)
             ->willReturn($roomTasks);
+        $this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([]);
 
         $response = $this->controller->index($roomId);
 

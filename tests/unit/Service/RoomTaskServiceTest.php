@@ -9,6 +9,10 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskAssignee;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Service\RoomService;
@@ -27,6 +31,8 @@ class RoomTaskServiceTest extends TestCase
     private RoomMapper $roomMapper;
     private FloorMapper $floorMapper;
     private RoomService $roomService;
+    private TaskAssigneeMapper $taskAssigneeMapper;
+    private HouseUserMapper $houseUserMapper;
 
     protected function setUp(): void
     {
@@ -35,13 +41,17 @@ class RoomTaskServiceTest extends TestCase
         $this->roomMapper = $this->createMock(RoomMapper::class);
         $this->floorMapper = $this->createMock(FloorMapper::class);
         $this->roomService = $this->createMock(RoomService::class);
+        $this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
+        $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 
         $this->service = new RoomTaskService(
             $this->roomTaskMapper,
             $this->taskMapper,
             $this->roomMapper,
             $this->floorMapper,
-            $this->roomService
+            $this->roomService,
+            $this->taskAssigneeMapper,
+            $this->houseUserMapper
         );
     }
 
@@ -701,5 +711,115 @@ class RoomTaskServiceTest extends TestCase
 
         $this->assertCount(2, $result); // Only tasks within 7 days
         $this->assertEquals(1, $result[0]->getId()); // Sorted by due date
+    }
+
+    /**
+     * SetAssignees_ValidMembers_ReplacesAssignees
+     */
+    public function testSetAssignees_ValidMembers_ReplacesAssignees(): void
+    {
+        $roomTaskId = 1;
+        $houseId = 1;
+        $assignedBy = 'assigner';
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+
+        $member1 = new HouseUser();
+        $member1->setNextcloudUserId('user-a');
+        $member2 = new HouseUser();
+        $member2->setNextcloudUserId('user-b');
+
+        $assignee = new TaskAssignee();
+        $assignee->setRoomTaskId($roomTaskId);
+        $assignee->setUserId('user-a');
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->houseUserMapper->method('findByHouseId')->with($houseId)->willReturn([$member1, $member2]);
+        $this->taskAssigneeMapper->expects($this->once())->method('replaceAssignees')->with($roomTaskId, ['user-a', 'user-b'], $assignedBy);
+        $this->taskAssigneeMapper->method('findByRoomTask')->with($roomTaskId)->willReturn([$assignee]);
+
+        $result = $this->service->setAssignees($roomTaskId, ['user-a', 'user-b'], $houseId, $assignedBy);
+
+        $this->assertCount(1, $result);
+        $this->assertSame('user-a', $result[0]->getUserId());
+    }
+
+    /**
+     * SetAssignees_NonMember_Throws
+     *
+     * Client-supplied assignee lists are never trusted: a user who is not a
+     * house member must be rejected before any persistence.
+     */
+    public function testSetAssignees_NonMember_Throws(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+
+        $member = new HouseUser();
+        $member->setNextcloudUserId('user-a');
+
+        $this->roomTaskMapper->method('find')->willReturn($roomTask);
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$member]);
+        $this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->service->setAssignees(1, ['user-a', 'intruder'], 1, 'assigner');
+    }
+
+    /**
+     * AddAssignee_AlreadyAssigned_Throws
+     */
+    public function testAddAssignee_AlreadyAssigned_Throws(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+
+        $member = new HouseUser();
+        $member->setNextcloudUserId('user-a');
+
+        $this->roomTaskMapper->method('find')->willReturn($roomTask);
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$member]);
+        $this->taskAssigneeMapper->method('isAssignee')->willReturn(true);
+        $this->taskAssigneeMapper->expects($this->never())->method('addAssignee');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->service->addAssignee(1, 'user-a', 1, 'assigner');
+    }
+
+    /**
+     * RemoveAssignee_DelegatesToMapper
+     */
+    public function testRemoveAssignee_DelegatesToMapper(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+
+        $this->roomTaskMapper->method('find')->willReturn($roomTask);
+        $this->taskAssigneeMapper->expects($this->once())->method('removeAssignee')->with(1, 'user-a');
+
+        $this->service->removeAssignee(1, 'user-a');
+
+        $this->assertTrue(true);
+    }
+
+    /**
+     * GetAssigneeUserIds_MergesLegacyAssignee
+     *
+     * The effective assignee set is the join-table rows plus the legacy single
+     * assignee column, deduplicated.
+     */
+    public function testGetAssigneeUserIds_MergesLegacyAssignee(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+        $roomTask->setAssignedToUserId('legacy-user');
+
+        $this->roomTaskMapper->method('find')->willReturn($roomTask);
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn(['join-user']);
+
+        $result = $this->service->getAssigneeUserIds(1);
+
+        $this->assertEqualsCanonicalizing(['join-user', 'legacy-user'], $result);
     }
 }

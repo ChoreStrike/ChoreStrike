@@ -9,7 +9,9 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\FloorMapper;
@@ -17,6 +19,8 @@ use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\AppFramework\Http\ForbiddenException;
+use OCP\IDBConnection;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -31,6 +35,9 @@ class RoomServiceTest extends TestCase
     private HouseUserMapper $houseUserMapper;
     private FloorMapper $floorMapper;
     private GameLogicService $gameLogicService;
+    private TaskAssigneeMapper $taskAssigneeMapper;
+    private CompletedTaskMapper $completedTaskMapper;
+    private IDBConnection $db;
 
     protected function setUp(): void
     {
@@ -40,6 +47,9 @@ class RoomServiceTest extends TestCase
         $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
         $this->floorMapper = $this->createMock(FloorMapper::class);
         $this->gameLogicService = $this->createMock(GameLogicService::class);
+        $this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
+        $this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+        $this->db = $this->createMock(IDBConnection::class);
 
         $this->service = new RoomService(
             $this->roomMapper,
@@ -47,7 +57,10 @@ class RoomServiceTest extends TestCase
             $this->taskMapper,
             $this->houseUserMapper,
             $this->floorMapper,
-            $this->gameLogicService
+            $this->gameLogicService,
+            $this->taskAssigneeMapper,
+            $this->completedTaskMapper,
+            $this->db
         );
     }
 
@@ -542,6 +555,9 @@ class RoomServiceTest extends TestCase
                 'currentStreak' => 1
             ]);
 
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
         $result = $this->service->completeRoomTask($roomTaskId, $userId);
 
         $this->assertSame($roomTask, $result['roomTask']);
@@ -608,6 +624,9 @@ class RoomServiceTest extends TestCase
             'currentStreak' => 1,
         ]);
 
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
         $this->service->completeRoomTask($roomTaskId, $claimer);
 
         // Takeover recorded
@@ -615,6 +634,73 @@ class RoomServiceTest extends TestCase
         $this->assertSame($claimer, $roomTask->getClaimedByUser());
         $this->assertSame($originalAssignee, $roomTask->getOriginalAssignee());
         $this->assertNotNull($roomTask->getClaimedAt());
+    }
+
+    /**
+     * CompleteRoomTask_CoAssigneeOverdue_DoesNotMarkTakeover
+     *
+     * A co-assignee (present only in the join table) completing an overdue task
+     * that also has a legacy assignee must NOT be recorded as a takeover — they
+     * are themselves an assignee of the shared task.
+     */
+    public function testCompleteRoomTask_CoAssigneeOverdue_DoesNotMarkTakeover(): void
+    {
+        $roomTaskId = 1;
+        $legacyAssignee = 'legacy-user';
+        $coAssignee = 'co-user';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+        $roomTask->setAssignedToUserId($legacyAssignee);
+        $roomTask->setNextDue(new \DateTime('yesterday')); // overdue
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $coAssignee)->willReturn($houseUser);
+        // Co-assignee exists in the join table only
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([$coAssignee]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+        $this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+        ]);
+
+        $this->service->completeRoomTask($roomTaskId, $coAssignee);
+
+        $this->assertFalse($roomTask->getWasClaimed());
+        $this->assertNull($roomTask->getClaimedByUser());
     }
 
     /**
@@ -671,9 +757,160 @@ class RoomServiceTest extends TestCase
             'currentStreak' => 1,
         ]);
 
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
         $this->service->completeRoomTask($roomTaskId, $userId);
 
         $this->assertFalse($roomTask->getWasClaimed());
         $this->assertNull($roomTask->getClaimedByUser());
+    }
+
+    /**
+     * CompleteRoomTask_PrivateTask_NonAssigneeRejected
+     *
+     * A private task may only be completed by an assigned user. A non-assignee
+     * must be rejected with a ForbiddenException (mapped to 403 by the controller).
+     */
+    public function testCompleteRoomTask_PrivateTask_NonAssigneeRejected(): void
+    {
+        $roomTaskId = 1;
+        $completer = 'completer-user';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setIsPrivate(true);
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $completer)->willReturn($houseUser);
+        // Completer is NOT among the assignees
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn(['someone-else']);
+
+        $this->expectException(ForbiddenException::class);
+        $this->service->completeRoomTask($roomTaskId, $completer);
+    }
+
+    /**
+     * CompleteRoomTask_PrivateTask_AssigneeAllowed
+     *
+     * An assigned user may complete a private task (no exception, completion proceeds).
+     */
+    public function testCompleteRoomTask_PrivateTask_AssigneeAllowed(): void
+    {
+        $roomTaskId = 1;
+        $completer = 'assignee-user';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+        $task->setIsPrivate(true);
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $completer)->willReturn($houseUser);
+        // Completer IS an assignee
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([$completer]);
+        $this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+        ]);
+
+        $result = $this->service->completeRoomTask($roomTaskId, $completer);
+
+        $this->assertSame($roomTask, $result['roomTask']);
+    }
+
+    /**
+     * CompleteRoomTask_AlreadyCompletedToday_Rejected
+     *
+     * The duplicate-completion guard prevents the same user from earning coins
+     * twice for the same room task on the same calendar day.
+     */
+    public function testCompleteRoomTask_AlreadyCompletedToday_Rejected(): void
+    {
+        $roomTaskId = 1;
+        $completer = 'user123';
+
+        $task = new Task();
+        $task->setId(1);
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $completer)->willReturn($houseUser);
+        // Already completed today
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(1);
+
+        $this->expectException(ForbiddenException::class);
+        $this->service->completeRoomTask($roomTaskId, $completer);
     }
 }

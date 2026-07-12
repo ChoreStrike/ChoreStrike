@@ -1,6 +1,6 @@
 # CS-PLAN-002: Gamification Simplification & Core-Loop Completion
 
-> **Status:** In Progress — Phase 0 (subtraction) and Phase 1 core (security/persistence/overdue-takeover) complete and verified.
+> **Status:** In Progress — Phase 0 (subtraction), Phase 1 core (security/persistence/overdue-takeover), and Phase 1 multi-assign complete and verified. Review pass applied: `lockForUpdate` bug fixed (preserves `is_active` instead of forcing `true`), `getClaimableOverdueTasks` now filters by house via new `RoomTaskMapper::findOverdueByHouse()` (was a cross-house data leak).
 > **Effort:** XL
 > **Priority:** P2
 > **Depends on:** Reward-system-redesign (Phase 1 core) — mostly done; this plan extends/clarifies it
@@ -12,13 +12,16 @@
 
 - [x] **Phase 0 — Subtraction** (DONE, verified). Sparks endpoint + Monsters logic/UI removed; House Health + cleanliness retained; components archived to `archive/2026-06/gamification-monsters/`.
 - [x] **Phase 1 — Task simplification core** (DONE, verified). Live `RoomTaskController::complete()` was already secure (authenticated session); dead unrouted `RoomController::completeTask()` duplicate removed. `RoomTaskService::claimOverdueTask()` now persists claim fields (was in-memory only); transition centralized in new `RoomTask::markClaimed()` to prevent drift. `RoomService::completeRoomTask()` auto-records a takeover when a member completes another member's overdue task; original assignee streak unaffected. PHPUnit unit + integration tests green.
-- [ ] **Phase 1 — Multi-assign join table** (NOT STARTED). `chorestrike_task_assignees` + entity/mapper/migration, multi-assign CRUD, private-task gate, frontend multi-select in TaskEditor.
+- [x] **Phase 1 — Multi-assign join table** (DONE, verified). `chorestrike_task_assignees` join table + `TaskAssignee` entity/mapper + `Version1021` migration (also adds `tasks.is_private`). Multi-assign CRUD in `RoomTaskService` (set/add/remove/get + batch fetch) with server-side house-membership validation on every assignee; routes `GET/PUT/POST/DELETE /api/v1/room-tasks/{id}/assignees` + assignees exposed in `index`/`show` payloads. **Private-task gate**: `RoomService::completeRoomTask()` rejects (403 `ForbiddenException`) non-assignees completing a private task; assignee set = join table ∪ legacy `assigned_to_user_id`. **Duplicate-completion guard**: same user cannot earn coins twice for one room task on the same calendar day (`CompletedTaskMapper::countByRoomTaskAndUserOnDate`). `is_private` wired through `Task` entity → `TaskMapper`/`TaskService`/`TaskController::create` (and generic `updateTask` setter). Frontend: `roomTasks` store `setAssignees`/`fetchAssignees`; `TaskEditForm` "Private task" toggle; `TaskList` member multi-select (optimistic + revert) + shared-assignee indicator; en/de l10n. PHPUnit unit + Jest green. **Review fixes applied**: `RoomTaskMapper::lockForUpdate()` now preserves `is_active` (was forcing `true`, could reactivate deactivated tasks); `getClaimableOverdueTasks()` now uses `findOverdueByHouse()` to filter by house (was returning overdue tasks from all houses — data leak).
 - [ ] **Phase 2 — Core-loop closure** (NOT STARTED). Streak Freeze + cron, `canvas-confetti` celebration, `howler` sound, `@nextcloud/event-bus` wiring, CSP verification.
 - [ ] **Phase 3 — Cooperative glue** (NOT STARTED). Weekly Household Goal + `HouseholdGoalBar.vue`, `RewardConfig` key.
 - [ ] **Phase 4 — Notifications** (NOT STARTED). `INotifier` + `DailyNotificationJob` + toast wiring.
 - [ ] **Phase 5 — Reach & joy** (NOT STARTED). Design tokens, mobile-first/PWA manifest, 2048 + Memory minigames.
 
-Acceptance criteria status: see §8. Phase 0 (Sparks gone, Monsters gone) ✅. Phase 1 core (userId spoofing on live path, claim persistence, overdue-takeover `claimed_by`) ✅. Multi-assign + private-task gate + Phases 2–5 ⬜.
+Acceptance criteria status: see §8. Phase 0 (Sparks gone, Monsters gone) ✅. Phase 1 core (userId spoofing on live path, claim persistence, overdue-takeover `claimed_by`) ✅. Multi-assign (join table, multi-assign CRUD, private-task gate 403, duplicate-completion prevention, frontend multi-select + shared indicator) ✅. Phases 2–5 ⬜.
+
+### Review Notes (Phase 1, 2026-07-12)
+- **Pre-existing issues (not blocking, logged for follow-up):** Controller error responses return `$e->getMessage()` which could leak internal details (SQL errors, stack traces) — project-wide pattern, needs a dedicated pass. `RoomTaskService::claimOverdueTask()` calculates bonus coins but never awards them via `GameLogicService` (stub). `joinTask`/`leaveTask`/`getTaskParticipants`/`getUserClaimStats` are stubs returning empty data. Pre-existing test failures in `TaskForm.spec.js` (priority label mismatch) and `DailyTaskList.spec.js` (Vue template compilation) are unrelated to this phase.
 
 ---
 
@@ -246,9 +249,9 @@ Phases 0–3 can each ship standalone value; Phase 4 amplifies them; Phase 5 pol
 
 - [ ] **Sparks** are gone from all UI and from the API surface; DB columns retained harmlessly (D1).
 - [ ] **Monsters** removed from UI and logic; House Health + cleanliness remain (D2).
-- [ ] `completeTask()` uses the **authenticated session user** (`$this->userId`), not a client-supplied parameter; a spoofed completion attempt is rejected.
-- [ ] **Private tasks** may only be completed by their assigned user(s); a non-assigned member's completion attempt returns 403.
-- [ ] A task can be **assigned to multiple members** (join table); each sees it on login; completion grants full coins to the completer (D4); no duplicate coins for same user re-completing.
+- [x] `completeTask()` uses the **authenticated session user** (`$this->userId`), not a client-supplied parameter; a spoofed completion attempt is rejected.
+- [x] **Private tasks** may only be completed by their assigned user(s); a non-assigned member's completion attempt returns 403.
+- [x] A task can be **assigned to multiple members** (join table); each sees it on login; completion grants full coins to the completer (D4); no duplicate coins for same user re-completing.
 - [ ] Any house member can **take over a non-private overdue task**; claimer gets credit; original assignee's streak is unaffected (D3) and they receive a notification (Phase 4); `claimed_by` persisted correctly.
 - [ ] **Streak Freeze** prevents a streak from breaking on a no-completion day; daily cron consumes freeze; restocks weekly to configured value; combo-earned bonus works (cap 2); correct across timezone day boundaries.
 - [ ] Task completion, combos, medals, streak milestones (7/30/100), rank-up, and weekly-goal-reached trigger **confetti + sound**; both honour `prefers-reduced-motion` and a persisted mute toggle.

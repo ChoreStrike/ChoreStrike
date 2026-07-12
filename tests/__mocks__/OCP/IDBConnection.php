@@ -17,4 +17,12 @@ interface IDBConnection
     public function delete(string $table, array $condition);
 
     public function lastInsertId();
+
+    public function beginTransaction();
+
+    public function commit();
+
+    public function rollBack();
+
+    public function inTransaction(): bool;
 }

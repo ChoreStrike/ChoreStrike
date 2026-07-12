@@ -78,8 +78,11 @@
 							<span class="meta-item frequency">
 								<Icon name="RotateCcw" :size="16" /> {{ frequencyLabel(item.task) }}
 							</span>
-							<span v-if="item.roomTask.assignedToUserId" class="meta-item assigned">
-								<Icon name="User" :size="16" /> {{ t('chorestrike', 'Assigned') }}
+							<span v-if="assigneeCount(item.roomTask) > 0" class="meta-item assigned">
+								<Icon name="Users" :size="16" />
+								{{ assigneeCount(item.roomTask) > 1
+									? t('chorestrike', '{count} assigned', { count: assigneeCount(item.roomTask) })
+									: t('chorestrike', 'Assigned') }}
 							</span>
 						</div>
 
@@ -123,6 +126,27 @@
 
 				<!-- Expanded Details with Checklist -->
 				<div v-if="isExpanded(item.roomTask.id)" class="task-details">
+					<!-- Assignee multi-select (multi-assign) -->
+					<div class="assignee-picker">
+						<label class="assignee-label">{{ t('chorestrike', 'Assigned members') }}</label>
+						<div class="assignee-chips">
+							<label
+								v-for="member in houseMembers"
+								:key="member.nextcloudUserId"
+								class="assignee-chip"
+								:class="{ selected: isAssignee(item.roomTask.id, member.nextcloudUserId) }">
+								<input
+									type="checkbox"
+									:checked="isAssignee(item.roomTask.id, member.nextcloudUserId)"
+									@change="toggleAssignee(item.roomTask.id, member.nextcloudUserId)">
+								<span>{{ member.displayName }}</span>
+							</label>
+							<p v-if="houseMembers.length === 0" class="field-error">
+								{{ t('chorestrike', 'No house members found') }}
+							</p>
+						</div>
+					</div>
+
 					<TaskChecklist
 						:items="getTaskItems(item.task.id)"
 						:progress="getRoomTaskProgress(item.roomTask.id)"
@@ -143,6 +167,8 @@ import { Icon } from '../Common/index.js'
 import TaskChecklist from './TaskChecklist.vue'
 import FlexWindowDisplay from './FlexWindowDisplay.vue'
 import { useChecklistStore } from '../../store/checklist.js'
+import { useUserStore } from '../../store/user.js'
+import { useRoomTasksStore } from '../../store/roomTasks.js'
 
 export default {
 	name: 'TaskList',
@@ -168,7 +194,11 @@ export default {
 
 	setup(props, { emit }) {
 		const checklistStore = useChecklistStore()
+		const userStore = useUserStore()
+		const roomTasksStore = useRoomTasksStore()
 		const expandedTaskId = ref(null)
+		// Local draft of assignee user IDs per expanded room task (optimistic)
+		const assigneeDraft = ref({})
 
 		const sortedTasks = computed(() => {
 			const tasks = props.roomTasks || []
@@ -234,10 +264,55 @@ export default {
 				expandedTaskId.value = null
 			} else {
 				expandedTaskId.value = item.roomTask.id
+				// Seed the assignee draft from the current room task assignees
+				assigneeDraft.value = {
+					...assigneeDraft.value,
+					[item.roomTask.id]: [...(item.roomTask.assignees || [])],
+				}
+				// Lazy-load house members for the assignee picker
+				if ((userStore.houseUsers || []).length === 0) {
+					try {
+						await userStore.fetchHouseUsers()
+					} catch (error) {
+						// non-fatal: picker will show an empty hint
+					}
+				}
 				// Load checklist data
 				await checklistStore.fetchTaskItems(item.task.id)
 				await checklistStore.fetchRoomTaskProgress(item.roomTask.id)
 			}
+		}
+
+		const houseMembers = computed(() => userStore.houseUsers || [])
+
+		const isAssignee = (roomTaskId, userId) => {
+			const draft = assigneeDraft.value[roomTaskId] || []
+			return draft.includes(userId)
+		}
+
+		const toggleAssignee = async (roomTaskId, userId) => {
+			const current = new Set(assigneeDraft.value[roomTaskId] || [])
+			if (current.has(userId)) {
+				current.delete(userId)
+			} else {
+				current.add(userId)
+			}
+			const next = [...current]
+			assigneeDraft.value = { ...assigneeDraft.value, [roomTaskId]: next }
+			try {
+				await roomTasksStore.setAssignees(roomTaskId, next)
+			} catch (error) {
+				// Revert the draft on failure so the UI matches the server state
+				const previous = next.includes(userId)
+					? next.filter(id => id !== userId)
+					: [...next, userId]
+				assigneeDraft.value = { ...assigneeDraft.value, [roomTaskId]: previous }
+			}
+		}
+
+		const assigneeCount = (roomTask) => {
+			const ids = roomTask.assignees || (roomTask.assignedToUserId ? [roomTask.assignedToUserId] : [])
+			return ids.length
 		}
 
 		const isExpanded = (roomTaskId) => {
@@ -259,7 +334,7 @@ export default {
 		/**
 		 * Calculate earliest date for flex window
 		 * @param {object} item - Task item with roomTask and task
-		 * @returns {string|null} ISO date string or null
+		 * @return {string|null} ISO date string or null
 		 */
 		const getEarliestDate = (item) => {
 			const ideal = item.roomTask.idealDueDate || item.roomTask.nextDue
@@ -272,7 +347,7 @@ export default {
 		/**
 		 * Get ideal due date for flex window
 		 * @param {object} item - Task item with roomTask and task
-		 * @returns {string|null} ISO date string or null
+		 * @return {string|null} ISO date string or null
 		 */
 		const getIdealDate = (item) => {
 			return item.roomTask.idealDueDate || item.roomTask.nextDue
@@ -281,7 +356,7 @@ export default {
 		/**
 		 * Calculate latest date for flex window
 		 * @param {object} item - Task item with roomTask and task
-		 * @returns {string|null} ISO date string or null
+		 * @return {string|null} ISO date string or null
 		 */
 		const getLatestDate = (item) => {
 			const ideal = item.roomTask.idealDueDate || item.roomTask.nextDue
@@ -308,6 +383,10 @@ export default {
 			getEarliestDate,
 			getIdealDate,
 			getLatestDate,
+			houseMembers,
+			isAssignee,
+			toggleAssignee,
+			assigneeCount,
 			t,
 		}
 	},
@@ -512,6 +591,58 @@ export default {
 	margin-top: 1rem;
 	padding-top: 1rem;
 	border-top: 1px solid var(--color-border);
+}
+
+.assignee-picker {
+	margin-bottom: 1rem;
+}
+
+.assignee-label {
+	display: block;
+	margin-bottom: 0.4rem;
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--color-main-text);
+}
+
+.assignee-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.assignee-chip {
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.35rem 0.7rem;
+	border: 1px solid var(--color-border);
+	border-radius: 20px;
+	cursor: pointer;
+	background: var(--color-main-background);
+	font-size: 0.85rem;
+	transition: all 0.2s;
+}
+
+.assignee-chip:hover {
+	border-color: var(--color-primary);
+}
+
+.assignee-chip input[type="checkbox"] {
+	display: none;
+}
+
+.assignee-chip.selected {
+	background: var(--color-primary-light);
+	border-color: var(--color-primary);
+	color: var(--color-primary);
+	font-weight: 600;
+}
+
+.field-error {
+	color: var(--color-error);
+	font-size: 0.85rem;
+	margin: 0.5rem 0 0 0;
 }
 
 .action-btn {

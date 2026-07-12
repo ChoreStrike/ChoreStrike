@@ -13,9 +13,11 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\RoomService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -28,6 +30,8 @@ class RoomTaskServiceDailyTest extends TestCase
     private RoomMapper|MockObject $roomMapper;
     private FloorMapper|MockObject $floorMapper;
     private RoomService|MockObject $roomService;
+    private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
+    private HouseUserMapper|MockObject $houseUserMapper;
 
     protected function setUp(): void
     {
@@ -36,13 +40,17 @@ class RoomTaskServiceDailyTest extends TestCase
         $this->roomMapper = $this->createMock(RoomMapper::class);
         $this->floorMapper = $this->createMock(FloorMapper::class);
         $this->roomService = $this->createMock(RoomService::class);
+        $this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
+        $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 
         $this->service = new RoomTaskService(
             $this->roomTaskMapper,
             $this->taskMapper,
             $this->roomMapper,
             $this->floorMapper,
-            $this->roomService
+            $this->roomService,
+            $this->taskAssigneeMapper,
+            $this->houseUserMapper
         );
     }
 

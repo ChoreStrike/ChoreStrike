@@ -155,7 +155,8 @@ class TaskMapper extends QBMapper
         ?string $instructions = null,
         ?string $tips = null,
         ?int $estimatedMinutesMin = null,
-        ?int $estimatedMinutesMax = null
+        ?int $estimatedMinutesMax = null,
+        bool $isPrivate = false
     ): Task {
         $task = new Task();
         $task->setName($name);
@@ -180,6 +181,7 @@ class TaskMapper extends QBMapper
         $task->setTips($tips);
         $task->setEstimatedMinutesMin($estimatedMinutesMin);
         $task->setEstimatedMinutesMax($estimatedMinutesMax);
+        $task->setIsPrivate($isPrivate);
         $task->setCreatedAt(new \DateTime());
 
         return $this->insert($task);
@@ -213,7 +215,12 @@ class TaskMapper extends QBMapper
             false, // Not a template
             $template->getSchedulingMode(),
             $template->getFixedScheduleTime(),
-            $template->getFixedScheduleDays()
+            $template->getFixedScheduleDays(),
+            $template->getInstructions(),
+            $template->getTips(),
+            $template->getEstimatedMinutesMin(),
+            $template->getEstimatedMinutesMax(),
+            $template->isPrivate()
         );
     }
 

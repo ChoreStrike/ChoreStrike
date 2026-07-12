@@ -151,7 +151,8 @@ class TaskController extends OCSController
         bool $isTemplate = false,
         string $schedulingMode = 'dynamic',
         ?string $fixedScheduleTime = null,
-        ?string $fixedScheduleDays = null
+        ?string $fixedScheduleDays = null,
+        bool $isPrivate = false
     ): JSONResponse {
         try {
             $activeFromDate = null;
@@ -248,7 +249,12 @@ class TaskController extends OCSController
                 $isTemplate,
                 $schedulingMode,
                 $fixedScheduleTimeDate,
-                $fixedScheduleDays
+                $fixedScheduleDays,
+                null,
+                null,
+                null,
+                null,
+                $isPrivate
             );
 
             return new JSONResponse([

@@ -233,6 +233,16 @@
 					</option>
 				</select>
 			</div>
+
+			<div class="form-group">
+				<label class="checkbox-label">
+					<input v-model="form.isPrivate" type="checkbox" data-testid="task-private-input">
+					<span class="checkbox-text">
+						<strong>{{ t('chorestrike', 'Private task') }}</strong>
+						<small>{{ t('chorestrike', 'Only assigned members can complete this task') }}</small>
+					</span>
+				</label>
+			</div>
 		</div>
 
 		<div class="form-actions">
@@ -324,6 +334,7 @@ export default {
 			fixedScheduleTime: '',
 			scopeType: 'room',
 			flexDays: 0,
+			isPrivate: false,
 		})
 
 		const selectedWeekdays = ref([])
@@ -342,6 +353,7 @@ export default {
 			form.schedulingMode = template.schedulingMode || 'dynamic'
 			form.fixedScheduleTime = template.fixedScheduleTime || ''
 			form.flexDays = template.flexDays || 0
+			form.isPrivate = template.isPrivate || false
 			if (template.fixedScheduleDays) {
 				selectedWeekdays.value = JSON.parse(template.fixedScheduleDays)
 			}
@@ -366,6 +378,7 @@ export default {
 				form.fixedScheduleTime = newTask.fixedScheduleTime || ''
 				form.scopeType = newTask.scopeType || 'room'
 				form.flexDays = newTask.flexDays || 0
+				form.isPrivate = newTask.isPrivate || false
 				selectedWeekdays.value = parseWeekdays(newTask.fixedScheduleDays)
 			}
 		}, { immediate: true })
@@ -524,6 +537,29 @@ export default {
 }
 
 .radio-text small {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85rem;
+}
+
+/* Checkbox label (e.g. private task) */
+.checkbox-label {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.6rem;
+	cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+	margin-top: 0.2rem;
+}
+
+.checkbox-text {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+}
+
+.checkbox-text small {
 	color: var(--color-text-maxcontrast);
 	font-size: 0.85rem;
 }

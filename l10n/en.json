@@ -246,6 +246,13 @@
         "Within optimal window": "Within optimal window",
         "Early completion bonus available!": "Early completion bonus available!",
         "Past latest date": "Past latest date",
-        "Task can be completed {days} days before or after ideal date": "Task can be completed {days} days before or after ideal date"
+        "Task can be completed {days} days before or after ideal date": "Task can be completed {days} days before or after ideal date",
+
+        "Private task": "Private task",
+        "Only assigned members can complete this task": "Only assigned members can complete this task",
+        "Assigned members": "Assigned members",
+        "No house members found": "No house members found",
+        "{count} assigned": "{count} assigned",
+        "Assigned": "Assigned"
     }
 }

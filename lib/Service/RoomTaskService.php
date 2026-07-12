@@ -11,9 +11,12 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskAssignee;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\NotFoundException;
@@ -28,6 +31,8 @@ class RoomTaskService
     private RoomMapper $roomMapper;
     private FloorMapper $floorMapper;
     private RoomService $roomService;
+    private TaskAssigneeMapper $taskAssigneeMapper;
+    private HouseUserMapper $houseUserMapper;
     private ?AppLogger $appLogger;
 
     public function __construct(
@@ -36,6 +41,8 @@ class RoomTaskService
         RoomMapper $roomMapper,
         FloorMapper $floorMapper,
         RoomService $roomService,
+        TaskAssigneeMapper $taskAssigneeMapper,
+        HouseUserMapper $houseUserMapper,
         ?AppLogger $appLogger = null
     ) {
         $this->roomTaskMapper = $roomTaskMapper;
@@ -43,6 +50,8 @@ class RoomTaskService
         $this->roomMapper = $roomMapper;
         $this->floorMapper = $floorMapper;
         $this->roomService = $roomService;
+        $this->taskAssigneeMapper = $taskAssigneeMapper;
+        $this->houseUserMapper = $houseUserMapper;
         $this->appLogger = $appLogger;
     }
 
@@ -230,6 +239,120 @@ class RoomTaskService
 
         // Return updated room task
         return $this->roomTaskMapper->find($roomTaskId);
+    }
+
+    /**
+     * Validate that every Nextcloud user ID is a member of the given house.
+     *
+     * @param string[] $userIds The Nextcloud user IDs to validate
+     * @param int $houseId The house ID to validate against
+     * @throws \InvalidArgumentException if any user is not a house member
+     */
+    private function assertHouseMembers(array $userIds, int $houseId): void
+    {
+        $members = $this->houseUserMapper->findByHouseId($houseId);
+        $memberIds = array_map(fn ($user) => $user->getNextcloudUserId(), $members);
+
+        foreach ($userIds as $userId) {
+            if (!is_string($userId) || trim($userId) === '') {
+                continue;
+            }
+            if (!in_array($userId, $memberIds, true)) {
+                throw new \InvalidArgumentException('User is not a member of this house: ' . $userId);
+            }
+        }
+    }
+
+    /**
+     * Get the Nextcloud user IDs assigned to a room task, including the legacy
+     * single assignee column.
+     *
+     * @param int $roomTaskId The room task ID
+     * @return string[] Unique Nextcloud user IDs
+     */
+    public function getAssigneeUserIds(int $roomTaskId): array
+    {
+        $roomTask = $this->roomTaskMapper->find($roomTaskId);
+        $userIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
+
+        return TaskAssigneeMapper::mergeLegacyAssignee($userIds, $roomTask->getAssignedToUserId());
+    }
+
+    /**
+     * Get the Nextcloud user IDs assigned to multiple room tasks (one query),
+     * each merged with the legacy single assignee column.
+     *
+     * @param RoomTask[] $roomTasks The room tasks
+     * @return array<int, string[]> Map of room task ID => unique Nextcloud user IDs
+     */
+    public function getAssigneeUserIdsByRoomTasks(array $roomTasks): array
+    {
+        $roomTaskIds = array_map(fn ($rt) => $rt->getId(), $roomTasks);
+        $byTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds);
+
+        foreach ($roomTasks as $roomTask) {
+            $ids = $byTask[$roomTask->getId()] ?? [];
+            $byTask[$roomTask->getId()] = TaskAssigneeMapper::mergeLegacyAssignee(
+                $ids,
+                $roomTask->getAssignedToUserId()
+            );
+        }
+
+        return $byTask;
+    }
+
+    /**
+     * Replace the full set of assignees for a room task.
+     *
+     * Every user ID must belong to the given house (membership is validated
+     * server-side; client input is never trusted).
+     *
+     * @param int $roomTaskId The room task ID
+     * @param string[] $userIds Nextcloud user IDs to assign
+     * @param int $houseId The house ID for membership validation
+     * @param string $assignedBy The Nextcloud user ID performing the assignment
+     * @return TaskAssignee[] The resulting assignee list
+     */
+    public function setAssignees(int $roomTaskId, array $userIds, int $houseId, string $assignedBy): array
+    {
+        $this->roomTaskMapper->find($roomTaskId);
+        $this->assertHouseMembers($userIds, $houseId);
+
+        $this->taskAssigneeMapper->replaceAssignees($roomTaskId, $userIds, $assignedBy);
+        return $this->taskAssigneeMapper->findByRoomTask($roomTaskId);
+    }
+
+    /**
+     * Add a single assignee to a room task
+     *
+     * @param int $roomTaskId The room task ID
+     * @param string $userId The Nextcloud user ID to assign
+     * @param int $houseId The house ID for membership validation
+     * @param string $assignedBy The Nextcloud user ID performing the assignment
+     * @throws \InvalidArgumentException if the user is already an assignee or not a member
+     */
+    public function addAssignee(int $roomTaskId, string $userId, int $houseId, string $assignedBy): TaskAssignee
+    {
+        $this->roomTaskMapper->find($roomTaskId);
+        $this->assertHouseMembers([$userId], $houseId);
+
+        if ($this->taskAssigneeMapper->isAssignee($roomTaskId, $userId)) {
+            throw new \InvalidArgumentException('User is already assigned to this task');
+        }
+
+        return $this->taskAssigneeMapper->addAssignee($roomTaskId, $userId, $assignedBy);
+    }
+
+    /**
+     * Remove an assignee from a room task
+     *
+     * @param int $roomTaskId The room task ID
+     * @param string $userId The Nextcloud user ID to remove
+     */
+    public function removeAssignee(int $roomTaskId, string $userId): void
+    {
+        $this->roomTaskMapper->find($roomTaskId);
+        $this->taskAssigneeMapper->removeAssignee($roomTaskId, $userId);
     }
 
     /**
@@ -597,10 +720,8 @@ class RoomTaskService
      */
     public function getClaimableOverdueTasks(int $houseId): array
     {
-        // Get all overdue tasks for the house
-        $overdueTasks = $this->roomTaskMapper->findOverdue();
+        $overdueTasks = $this->roomTaskMapper->findOverdueByHouse($houseId);
 
-        // Filter to only include tasks that are assigned to someone else
         $claimableTasks = array_filter($overdueTasks, function ($task) {
             return $task->getAssignedToUserId() !== null &&
                    $task->getAssignedToUserId() !== '';

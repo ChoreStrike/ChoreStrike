@@ -256,6 +256,70 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
+		 * Fetch the assignee user IDs for a room task
+		 * @param {number} roomTaskId Room task identifier to load assignees for.
+		 * @return {Promise<Array<string>>} Nextcloud user IDs assigned to the task.
+		 */
+		async fetchAssignees(roomTaskId) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/assignees`)
+
+				if (response.data.success) {
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch assignees')
+				}
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to fetch assignees', error, { store: 'roomTasks', action: 'fetchAssignees', roomTaskId })
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Replace the full set of assignees for a room task (multi-assign)
+		 * @param {number} roomTaskId Room task identifier to update.
+		 * @param {Array<string>} userIds Nextcloud user IDs to assign.
+		 * @return {Promise<Array<string>>} The resulting assignee user IDs.
+		 */
+		async setAssignees(roomTaskId, userIds) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.put(
+					`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/assignees`,
+					{ userIds },
+				)
+
+				if (response.data.success) {
+					const assigneeIds = (response.data.data || []).map(a => a.userId)
+					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+					if (roomTaskIndex >= 0) {
+						this.roomTasks[roomTaskIndex] = {
+							...this.roomTasks[roomTaskIndex],
+							assignees: assigneeIds,
+						}
+					}
+					return assigneeIds
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to set assignees')
+				}
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to set assignees', error, { store: 'roomTasks', action: 'setAssignees', roomTaskId })
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
 		 * Deactivate room task
 		 * @param {number} roomTaskId Room task identifier to deactivate.
 		 */

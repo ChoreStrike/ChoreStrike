@@ -73,6 +73,8 @@ class RoomTaskControllerTest extends TestCase
             ->method('getRoomTasks')
             ->willReturn([$roomTask1, $roomTask2]);
 
+        $this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([]);
+
         $response = $this->controller->index();
 
         $this->assertInstanceOf(JSONResponse::class, $response);

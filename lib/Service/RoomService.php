@@ -14,11 +14,15 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\AppFramework\Http\ForbiddenException;
 use OCP\AppFramework\Http\NotFoundException;
+use OCP\IDBConnection;
 
 /**
  * Service for room-related business logic
@@ -31,6 +35,9 @@ class RoomService
     private HouseUserMapper $houseUserMapper;
     private FloorMapper $floorMapper;
     private GameLogicService $gameLogicService;
+    private TaskAssigneeMapper $taskAssigneeMapper;
+    private CompletedTaskMapper $completedTaskMapper;
+    private IDBConnection $db;
 
     public function __construct(
         RoomMapper $roomMapper,
@@ -38,7 +45,10 @@ class RoomService
         TaskMapper $taskMapper,
         HouseUserMapper $houseUserMapper,
         FloorMapper $floorMapper,
-        GameLogicService $gameLogicService
+        GameLogicService $gameLogicService,
+        TaskAssigneeMapper $taskAssigneeMapper,
+        CompletedTaskMapper $completedTaskMapper,
+        IDBConnection $db
     ) {
         $this->roomMapper = $roomMapper;
         $this->roomTaskMapper = $roomTaskMapper;
@@ -46,6 +56,9 @@ class RoomService
         $this->houseUserMapper = $houseUserMapper;
         $this->floorMapper = $floorMapper;
         $this->gameLogicService = $gameLogicService;
+        $this->taskAssigneeMapper = $taskAssigneeMapper;
+        $this->completedTaskMapper = $completedTaskMapper;
+        $this->db = $db;
     }
 
     /**
@@ -304,51 +317,88 @@ class RoomService
         $floor = $this->floorMapper->find($room->getFloorId());
         $houseUser = $this->houseUserMapper->findByNextcloudUserId($floor->getHouseId(), $userId);
 
-        // Overdue-takeover: when a member completes an overdue task that was
-        // assigned to someone else, record the takeover. The original assignee's
-        // streak is unaffected because game logic only updates the completer.
-        $assignedToUserId = $roomTask->getAssignedToUserId();
-        if (
-            $roomTask->isOverdue()
-            && $assignedToUserId !== null
-            && $assignedToUserId !== ''
-            && $assignedToUserId !== $userId
-        ) {
-            $roomTask->markClaimed($assignedToUserId, $userId);
+        // The whole completion (lock, gate, guard, mutations, reward insert) is
+        // atomic: a failure at any step rolls back every prior write. The early
+        // room-task row lock also serializes concurrent completions of the SAME
+        // task so the duplicate-completion guard cannot be raced past (TOCTOU).
+        $this->db->beginTransaction();
+        try {
+            $this->roomTaskMapper->lockForUpdate($roomTaskId);
+
+            // Resolve the full set of assigned Nextcloud user IDs for this room task:
+            // the multi-assign join table plus the legacy single assignee column.
+            $assigneeUserIds = TaskAssigneeMapper::mergeLegacyAssignee(
+                $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId),
+                $roomTask->getAssignedToUserId()
+            );
+
+            // Private-task gate: only assigned users may complete a private task.
+            // Non-private tasks remain completable by any house member.
+            if ($task->isPrivate() && !in_array($userId, $assigneeUserIds, true)) {
+                throw new ForbiddenException('Private tasks may only be completed by assigned users');
+            }
+
+            // Duplicate-completion guard: prevent the same user from earning coins
+            // twice for the same room task on the same calendar day (defense in
+            // depth against double-clicks / API re-submission).
+            $todayCount = $this->completedTaskMapper->countByRoomTaskAndUserOnDate(
+                $roomTaskId,
+                $houseUser->getId(),
+                new \DateTime()
+            );
+            if ($todayCount > 0) {
+                throw new ForbiddenException('You already completed this task today');
+            }
+
+            // Overdue-takeover: only record a takeover when a NON-assignee picks
+            // up an overdue task. A co-assignee (join table or legacy) completing
+            // their own shared task is NOT a takeover. The original assignee's
+            // streak is unaffected because game logic only updates the completer.
+            if ($roomTask->isOverdue() && !in_array($userId, $assigneeUserIds, true)) {
+                $originalAssignee = $roomTask->getAssignedToUserId();
+                if ($originalAssignee !== null && $originalAssignee !== '') {
+                    $roomTask->markClaimed($originalAssignee, $userId);
+                }
+            }
+
+            // Get user's scheduling preferences for flex scheduling
+            $preferences = $houseUser->getSchedulingPreferences();
+            $weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
+            $energyBudget = $preferences['energyBudget'] ?? [];
+
+            // Mark task as completed and calculate next due date with flex scheduling
+            $roomTask->markCompleted(
+                new \DateTime(),
+                $task->getFrequencyType(),
+                $task->getFrequencyValue(),
+                $task->getRecurrenceMode(),
+                $task->getSchedulingMode(),
+                $task->getActiveUntil(),
+                $task->getFixedScheduleTime(),
+                $task->getFixedScheduleDays(),
+                $task->getFlexDays(),
+                $weekdayAvailability,
+                $energyBudget
+            );
+            $this->roomTaskMapper->update($roomTask);
+
+            // Update room cleanliness based on task energy cost
+            $cleanlinessChange = $task->getEnergyCost() * 10; // 10% per energy point
+            $updatedRoom = $this->updateRoomCleanliness($room->getId(), $cleanlinessChange);
+
+            // Trigger game logic for task completion
+            $gameResult = $this->gameLogicService->handleTaskCompletion(
+                $roomTaskId,
+                $houseUser->getId(),
+                $task,
+                $updatedRoom->getCleanliness()
+            );
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
         }
-
-        // Get user's scheduling preferences for flex scheduling
-        $preferences = $houseUser->getSchedulingPreferences();
-        $weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
-        $energyBudget = $preferences['energyBudget'] ?? [];
-
-        // Mark task as completed and calculate next due date with flex scheduling
-        $roomTask->markCompleted(
-            new \DateTime(),
-            $task->getFrequencyType(),
-            $task->getFrequencyValue(),
-            $task->getRecurrenceMode(),
-            $task->getSchedulingMode(),
-            $task->getActiveUntil(),
-            $task->getFixedScheduleTime(),
-            $task->getFixedScheduleDays(),
-            $task->getFlexDays(),
-            $weekdayAvailability,
-            $energyBudget
-        );
-        $this->roomTaskMapper->update($roomTask);
-
-        // Update room cleanliness based on task energy cost
-        $cleanlinessChange = $task->getEnergyCost() * 10; // 10% per energy point
-        $updatedRoom = $this->updateRoomCleanliness($room->getId(), $cleanlinessChange);
-
-        // Trigger game logic for task completion
-        $gameResult = $this->gameLogicService->handleTaskCompletion(
-            $roomTaskId,
-            $houseUser->getId(),
-            $task,
-            $updatedRoom->getCleanliness()
-        );
 
         return [
             'roomTask' => $roomTask,

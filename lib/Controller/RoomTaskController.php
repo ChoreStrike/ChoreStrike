@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCP\AppFramework\Http\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -62,9 +63,15 @@ class RoomTaskController extends OCSController
                 ], 400);
             }
 
+            $assigneesByTask = $this->roomTaskService->getAssigneeUserIdsByRoomTasks($roomTasks);
+
             return new JSONResponse([
                 'success' => true,
-                'data' => array_map(fn ($roomTask) => $roomTask->jsonSerialize(), $roomTasks)
+                'data' => array_map(function ($roomTask) use ($assigneesByTask) {
+                    $data = $roomTask->jsonSerialize();
+                    $data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
+                    return $data;
+                }, $roomTasks)
             ]);
         } catch (\Exception $e) {
             return new JSONResponse([
@@ -104,6 +111,7 @@ class RoomTaskController extends OCSController
                     'roomTask' => $roomTask->jsonSerialize(),
                     'task' => $task->jsonSerialize(),
                     'room' => $roomTaskWithDetails['room']->jsonSerialize(),
+                    'assignees' => $this->roomTaskService->getAssigneeUserIds($id),
                     'status' => $roomTaskWithDetails['status'],
                     'isOverdue' => $roomTaskWithDetails['isOverdue'],
                     'isDueToday' => $roomTaskWithDetails['isDueToday'],
@@ -241,6 +249,168 @@ class RoomTaskController extends OCSController
     }
 
     /**
+     * Get the assignees (Nextcloud user IDs) for a room task
+     *
+     * @NoAdminRequired
+     */
+    public function assignees(int $id): JSONResponse
+    {
+        try {
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $this->authService->requireHouseMember($house->getId());
+            $this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => $this->roomTaskService->getAssigneeUserIds($id)
+            ]);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'ASSIGNEES_ERROR',
+                    'message' => $e->getMessage()
+                ]
+            ], 500);
+        }
+    }
+
+    /**
+     * Replace the full set of assignees for a room task (multi-assign)
+     *
+     * @NoAdminRequired
+     * @param int $id The room task ID
+     * @param string[] $userIds Nextcloud user IDs to assign
+     */
+    public function setAssignees(int $id, array $userIds): JSONResponse
+    {
+        try {
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $this->authService->requireHouseMember($house->getId());
+            $this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
+
+            $assignedBy = $this->authService->requireCurrentUserId();
+            $assignees = $this->roomTaskService->setAssignees($id, $userIds, $house->getId(), $assignedBy);
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => array_map(fn ($a) => $a->jsonSerialize(), $assignees)
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $e->getMessage()
+                ]
+            ], 400);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'SET_ASSIGNEES_ERROR',
+                    'message' => $e->getMessage()
+                ]
+            ], 500);
+        }
+    }
+
+    /**
+     * Add a single assignee to a room task
+     *
+     * @NoAdminRequired
+     * @param int $id The room task ID
+     * @param string $userId The Nextcloud user ID to assign
+     */
+    public function addAssignee(int $id, string $userId): JSONResponse
+    {
+        try {
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $this->authService->requireHouseMember($house->getId());
+            $this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
+
+            if (empty(trim($userId))) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => 'User ID is required'
+                    ]
+                ], 400);
+            }
+
+            $assignedBy = $this->authService->requireCurrentUserId();
+            $assignee = $this->roomTaskService->addAssignee($id, $userId, $house->getId(), $assignedBy);
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => $assignee->jsonSerialize()
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $e->getMessage()
+                ]
+            ], 400);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'ADD_ASSIGNEE_ERROR',
+                    'message' => $e->getMessage()
+                ]
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove an assignee from a room task
+     *
+     * @NoAdminRequired
+     * @param int $id The room task ID
+     * @param string $userId The Nextcloud user ID to remove
+     */
+    public function removeAssignee(int $id, string $userId): JSONResponse
+    {
+        try {
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $this->authService->requireHouseMember($house->getId());
+            $this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
+
+            if (empty(trim($userId))) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => 'User ID is required'
+                    ]
+                ], 400);
+            }
+
+            $this->roomTaskService->removeAssignee($id, $userId);
+
+            return new JSONResponse([
+                'success' => true,
+                'message' => 'Assignee removed successfully'
+            ]);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'REMOVE_ASSIGNEE_ERROR',
+                    'message' => $e->getMessage()
+                ]
+            ], 500);
+        }
+    }
+
+    /**
      * Deactivate room task
      *
      * @NoAdminRequired
@@ -361,6 +531,14 @@ class RoomTaskController extends OCSController
                     'rewards' => $result['rewards']
                 ]
             ]);
+        } catch (ForbiddenException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'FORBIDDEN',
+                    'message' => $e->getMessage()
+                ]
+            ], 403);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,

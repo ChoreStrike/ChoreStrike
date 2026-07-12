@@ -217,4 +217,32 @@ class CompletedTaskMapper extends QBMapper
 
         return $this->findEntities($qb);
     }
+
+    /**
+     * Count completions of a room task by a house user on a specific calendar day.
+     *
+     * Used by the duplicate-completion guard to prevent the same user from
+     * earning coins twice for the same room task on the same day.
+     *
+     * @param int $roomTaskId The room task ID
+     * @param int $houseUserId The house user ID (internal)
+     * @param \DateTimeInterface $date Date used to determine day boundaries
+     * @return int Number of completions on that day
+     */
+    public function countByRoomTaskAndUserOnDate(int $roomTaskId, int $houseUserId, \DateTimeInterface $date): int
+    {
+        $startOfDay = new \DateTimeImmutable($date->format('Y-m-d') . ' 00:00:00');
+        $endOfDay = $startOfDay->modify('+1 day');
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->select($qb->func()->count('*'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)));
+
+        $result = $qb->executeQuery();
+        return (int)$result->fetchOne();
+    }
 }

@@ -18,6 +18,8 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Http\NotFoundException;
@@ -60,7 +62,9 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase
             $this->floorMapper,
             $this->getMockBuilder(\OCA\ChoreStrike\Service\RoomService::class)
                 ->disableOriginalConstructor()
-                ->getMock()
+                ->getMock(),
+            $this->createMock(TaskAssigneeMapper::class),
+            $this->createMock(HouseUserMapper::class)
         );
 
         // Set up test IDs

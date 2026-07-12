@@ -74,6 +74,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setTeamSparkMultiplier(float $teamSparkMultiplier)
  * @method int getFlexDays()
  * @method void setFlexDays(int $flexDays)
+ * @method bool getIsPrivate()
+ * @method void setIsPrivate(bool $isPrivate)
  */
 class Task extends Entity implements JsonSerializable
 {
@@ -167,6 +169,9 @@ class Task extends Entity implements JsonSerializable
     /** @var int */
     protected $flexDays = 0;
 
+    /** @var bool */
+    protected $isPrivate = false;
+
     public function __construct()
     {
         $this->addType('id', 'integer');
@@ -200,6 +205,7 @@ class Task extends Entity implements JsonSerializable
         $this->addType('maxParticipants', 'integer');
         $this->addType('teamSparkMultiplier', 'decimal');
         $this->addType('flexDays', 'integer');
+        $this->addType('isPrivate', 'boolean');
     }
 
     /**
@@ -236,6 +242,7 @@ class Task extends Entity implements JsonSerializable
             'maxParticipants' => $this->maxParticipants,
             'teamSparkMultiplier' => $this->teamSparkMultiplier,
             'flexDays' => $this->flexDays,
+            'isPrivate' => $this->isPrivate,
             'createdAt' => $this->createdAt?->format('c'),
         ];
     }
@@ -275,6 +282,14 @@ class Task extends Entity implements JsonSerializable
             'gold' => 2.0,
             default => 1.5
         };
+    }
+
+    /**
+     * Whether this task is private (only assignees may complete it)
+     */
+    public function isPrivate(): bool
+    {
+        return $this->isPrivate;
     }
 
     /**

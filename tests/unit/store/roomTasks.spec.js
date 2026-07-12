@@ -172,6 +172,45 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
+		describe('fetchAssignees', () => {
+			it('returns assignee user ids', async () => {
+				axios.get.mockResolvedValue({
+					data: { success: true, data: ['user1', 'user2'] },
+				})
+
+				const result = await store.fetchAssignees(1)
+
+				expect(axios.get).toHaveBeenCalledWith('/index.php/apps/chorestrike/api/v1/room-tasks/1/assignees')
+				expect(result).toEqual(['user1', 'user2'])
+			})
+		})
+
+		describe('setAssignees', () => {
+			it('replaces assignees and updates state', async () => {
+				store.roomTasks = [{ id: 1, assignees: [] }]
+				axios.put.mockResolvedValue({
+					data: { success: true, data: [{ userId: 'user1' }, { userId: 'user2' }] },
+				})
+
+				const result = await store.setAssignees(1, ['user1', 'user2'])
+
+				expect(axios.put).toHaveBeenCalledWith(
+					'/index.php/apps/chorestrike/api/v1/room-tasks/1/assignees',
+					{ userIds: ['user1', 'user2'] },
+				)
+				expect(result).toEqual(['user1', 'user2'])
+				expect(store.roomTasks[0].assignees).toEqual(['user1', 'user2'])
+			})
+
+			it('throws on API failure', async () => {
+				axios.put.mockResolvedValue({
+					data: { success: false, error: { message: 'Not a member' } },
+				})
+
+				await expect(store.setAssignees(1, ['intruder'])).rejects.toThrow('Not a member')
+			})
+		})
+
 		describe('deactivateRoomTask', () => {
 			it('deactivates task', async () => {
 				store.roomTasks = [{ id: 1, isActive: true }]

@@ -247,6 +247,13 @@
         "Within optimal window": "Im optimalen Zeitfenster",
         "Early completion bonus available!": "Frühzeitiger Abschluss-Bonus verfügbar!",
         "Past latest date": "Nach spätestem Datum",
-        "Task can be completed {days} days before or after ideal date": "Aufgabe kann {days} Tage vor oder nach dem idealen Datum erledigt werden"
+        "Task can be completed {days} days before or after ideal date": "Aufgabe kann {days} Tage vor oder nach dem idealen Datum erledigt werden",
+
+        "Private task": "Private Aufgabe",
+        "Only assigned members can complete this task": "Nur zugewiesene Mitglieder können diese Aufgabe abschließen",
+        "Assigned members": "Zugewiesene Mitglieder",
+        "No house members found": "Keine Haushaltsmitglieder gefunden",
+        "{count} assigned": "{count} zugewiesen",
+        "Assigned": "Zugewiesen"
     }
 }

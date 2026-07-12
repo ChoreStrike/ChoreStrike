@@ -89,7 +89,8 @@ class TaskService
         ?string $instructions = null,
         ?string $tips = null,
         ?int $estimatedMinutesMin = null,
-        ?int $estimatedMinutesMax = null
+        ?int $estimatedMinutesMax = null,
+        bool $isPrivate = false
     ): Task {
         return $this->taskMapper->create(
             $name,
@@ -113,7 +114,8 @@ class TaskService
             $instructions,
             $tips,
             $estimatedMinutesMin,
-            $estimatedMinutesMax
+            $estimatedMinutesMax,
+            $isPrivate
         );
     }
 

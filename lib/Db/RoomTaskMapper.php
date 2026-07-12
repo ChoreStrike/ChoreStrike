@@ -24,6 +24,28 @@ class RoomTaskMapper extends QBMapper
     }
 
     /**
+     * Acquire an exclusive lock on a room task row.
+     *
+     * A no-op UPDATE (sets is_active to its current value) acquires an exclusive
+     * row lock on locking engines (InnoDB/PostgreSQL) and serializes via the
+     * write lock on SQLite, so concurrent completions of the same task are
+     * ordered and a check-then-act duplicate guard cannot be raced past.
+     *
+     * Must be called inside an open transaction.
+     *
+     * @param int $roomTaskId The room task ID to lock
+     */
+    public function lockForUpdate(int $roomTaskId): void
+    {
+        $roomTask = $this->find($roomTaskId);
+        $qb = $this->db->getQueryBuilder();
+        $qb->update($this->getTableName())
+            ->set('is_active', $qb->createNamedParameter($roomTask->getIsActive(), IQueryBuilder::PARAM_BOOL))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+        $qb->executeStatement();
+    }
+
+    /**
      * Find room task by ID
      *
      * @param int $id The room task ID
@@ -215,6 +237,28 @@ class RoomTaskMapper extends QBMapper
         }
 
         $qb->orderBy('next_due', 'ASC');
+
+        return $this->findEntities($qb);
+    }
+
+    /**
+     * Get overdue tasks for a specific house (joins through rooms → floors).
+     *
+     * @param int $houseId The house ID
+     * @return RoomTask[]
+     */
+    public function findOverdueByHouse(int $houseId): array
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('rt.*')
+            ->from($this->getTableName(), 'rt')
+            ->innerJoin('rt', 'chorestrike_rooms', 'r', $qb->expr()->eq('rt.room_id', 'r.id'))
+            ->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+            ->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+            ->orderBy('rt.next_due', 'ASC');
 
         return $this->findEntities($qb);
     }
