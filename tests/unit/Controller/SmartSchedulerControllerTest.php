@@ -236,7 +236,8 @@ class SmartSchedulerControllerTest extends TestCase
         $this->assertSame(500, $response->getStatus());
         $data = $response->getData();
         $this->assertFalse($data['success']);
-        $this->assertSame('Task not found', $data['error']);
+        // A generic server error must not leak its internal message to the client.
+        $this->assertSame('An unexpected error occurred', $data['error']);
     }
 
     /**

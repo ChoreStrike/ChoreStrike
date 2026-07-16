@@ -124,7 +124,9 @@ class TaskControllerDailyTest extends TestCase
         $data = $response->getData();
         $this->assertFalse($data['success']);
         $this->assertEquals('DAILY_TASKS_ERROR', $data['error']['code']);
-        $this->assertEquals('Database error', $data['error']['message']);
+        // A generic (non-domain) exception must not leak its internal message;
+        // the detail stays server-side in the logs, the client gets a safe message.
+        $this->assertEquals('An unexpected error occurred', $data['error']['message']);
     }
 
     public function testCompleteReturnsSuccess(): void

@@ -11,9 +11,9 @@ jest.mock('@nextcloud/l10n', () => ({
 jest.mock('../../../src/store/tasks.js', () => ({
 	useTasksStore: jest.fn(() => ({
 		tasks: [
-			{ id: 1, name: 'Clean Kitchen', priority: 2 },
-			{ id: 2, name: 'Vacuum Floor', priority: 1 },
-			{ id: 3, name: 'Deep Clean', priority: 3 },
+			{ id: 1, name: 'Clean Kitchen', priority: 2, taskTier: 'silver' },
+			{ id: 2, name: 'Vacuum Floor', priority: 1, taskTier: 'bronze' },
+			{ id: 3, name: 'Deep Clean', priority: 3, taskTier: 'gold' },
 		],
 		fetchTasks: jest.fn(),
 	})),
@@ -52,9 +52,9 @@ describe('TaskForm', () => {
 			expect(options[1].text()).toContain('Vacuum Floor')
 		})
 
-		it('Renders priority indicator in task options', () => {
+		it('Renders tier indicator in task options', () => {
 			const options = wrapper.findAll('option[value]')
-			expect(options[0].text()).toContain('Priority 2')
+			expect(options[0].text()).toContain('silver')
 		})
 	})
 

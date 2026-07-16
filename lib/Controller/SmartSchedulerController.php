@@ -79,7 +79,7 @@ class SmartSchedulerController extends Controller
             $this->logControllerException('getSchedulePreview', $e, ['days' => $days]);
             return new DataResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => ControllerErrorFormatter::safeMessage($e),
             ], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
@@ -126,7 +126,7 @@ class SmartSchedulerController extends Controller
             $this->logControllerException('generateSchedule', $e, ['startDate' => $startDate, 'endDate' => $endDate]);
             return new DataResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => ControllerErrorFormatter::safeMessage($e),
             ], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
@@ -157,7 +157,7 @@ class SmartSchedulerController extends Controller
             $this->logControllerException('getMemberAvailability', $e);
             return new DataResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => ControllerErrorFormatter::safeMessage($e),
             ], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
@@ -217,7 +217,7 @@ class SmartSchedulerController extends Controller
             $this->logControllerException('updateMyAvailability', $e, ['availabilityDays' => array_keys($availability)]);
             return new DataResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => ControllerErrorFormatter::safeMessage($e),
             ], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
@@ -268,7 +268,7 @@ class SmartSchedulerController extends Controller
             $this->logControllerException('updateMyEnergyBudget', $e, ['energyBudgetDays' => array_keys($energyBudget)]);
             return new DataResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => ControllerErrorFormatter::safeMessage($e),
             ], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
@@ -303,7 +303,7 @@ class SmartSchedulerController extends Controller
             $this->logControllerException('getSchedulingSuggestions', $e);
             return new DataResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => ControllerErrorFormatter::safeMessage($e),
             ], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
@@ -347,13 +347,13 @@ class SmartSchedulerController extends Controller
             ]);
             return new DataResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => ControllerErrorFormatter::safeMessage($e),
             ], Http::STATUS_BAD_REQUEST);
         } catch (\Exception $e) {
             $this->logControllerException('applySuggestion', $e, ['taskId' => $taskId, 'assignedTo' => $assignedTo]);
             return new DataResponse([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => ControllerErrorFormatter::safeMessage($e),
             ], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }

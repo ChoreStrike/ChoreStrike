@@ -59,7 +59,7 @@ class TemplateController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'TEMPLATES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -88,7 +88,7 @@ class TemplateController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CATEGORIES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -117,7 +117,7 @@ class TemplateController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CATEGORY_TEMPLATES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -146,7 +146,7 @@ class TemplateController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOM_TYPE_TEMPLATES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -185,7 +185,7 @@ class TemplateController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SEARCH_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -224,7 +224,7 @@ class TemplateController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SUGGESTIONS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -264,7 +264,7 @@ class TemplateController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'TEMPLATE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (\Exception $e) {
@@ -272,7 +272,7 @@ class TemplateController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'IMPORT_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -314,7 +314,7 @@ class TemplateController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'BULK_IMPORT_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -343,7 +343,7 @@ class TemplateController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'STATISTICS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

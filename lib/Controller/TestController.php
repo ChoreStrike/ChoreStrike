@@ -80,7 +80,7 @@ class TestController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SEED_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -119,7 +119,7 @@ class TestController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESET_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

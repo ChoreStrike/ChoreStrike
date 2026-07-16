@@ -63,7 +63,7 @@ class SchedulingController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'PREFERENCES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -96,7 +96,7 @@ class SchedulingController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'VALIDATION_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 400);
         } catch (\Exception $e) {
@@ -104,7 +104,7 @@ class SchedulingController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'UPDATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -137,7 +137,7 @@ class SchedulingController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'VALIDATION_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 400);
         } catch (\Exception $e) {
@@ -145,7 +145,7 @@ class SchedulingController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'UPDATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -174,7 +174,7 @@ class SchedulingController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'MEMBER_AVAILABILITY_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -203,7 +203,7 @@ class SchedulingController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'UPDATE_MEMBER_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -232,7 +232,7 @@ class SchedulingController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SUGGESTIONS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

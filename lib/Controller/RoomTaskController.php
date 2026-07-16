@@ -78,7 +78,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOM_TASKS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -129,7 +129,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOM_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -157,7 +157,7 @@ class RoomTaskController extends OCSController
                 try {
                     $nextDueDate = new \DateTime($nextDue);
                 } catch (\Exception $e) {
-                    throw new \InvalidArgumentException('Invalid nextDue date format: ' . $e->getMessage());
+                    throw new \InvalidArgumentException('Invalid nextDue date format');
                 }
             }
 
@@ -172,7 +172,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOM_TASK_CREATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -212,7 +212,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ASSIGN_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -242,7 +242,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'UNASSIGN_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -270,7 +270,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ASSIGNEES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -303,7 +303,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'VALIDATION_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 400);
         } catch (\Exception $e) {
@@ -311,7 +311,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SET_ASSIGNEES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -354,7 +354,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'VALIDATION_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 400);
         } catch (\Exception $e) {
@@ -362,7 +362,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ADD_ASSIGNEE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -404,7 +404,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'REMOVE_ASSIGNEE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -434,7 +434,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'DEACTIVATE_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -464,7 +464,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'REACTIVATE_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -486,7 +486,7 @@ class RoomTaskController extends OCSController
             try {
                 $nextDueDate = new \DateTime($nextDue);
             } catch (\Exception $e) {
-                throw new \InvalidArgumentException('Invalid nextDue date format: ' . $e->getMessage());
+                throw new \InvalidArgumentException('Invalid nextDue date format');
             }
 
             $roomTask = $this->roomTaskService->updateDueDate($id, $nextDueDate);
@@ -500,7 +500,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'UPDATE_DUE_DATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -536,7 +536,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -544,7 +544,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'COMPLETE_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -574,7 +574,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOM_TASK_DELETE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -603,7 +603,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'OVERDUE_TASKS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -632,7 +632,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'DUE_TODAY_TASKS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -671,7 +671,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'DUE_WITHIN_DAYS_TASKS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -710,7 +710,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'USER_TASKS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -739,7 +739,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOM_STATS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -778,7 +778,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'USER_STATS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -808,7 +808,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ASSIGN_TO_GROUP_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -838,7 +838,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CLAIM_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -867,7 +867,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'UNCLAIM_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -896,7 +896,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'GROUP_TASKS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -928,126 +928,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'VISIBLE_TASKS_ERROR',
-                    'message' => $e->getMessage()
-                ]
-            ], 500);
-        }
-    }
-
-    /**
-     * Join a task as a participant (teamwork)
-     *
-     * @NoAdminRequired
-     */
-    public function joinTask(int $id): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
-
-            $currentUserId = $this->authService->requireCurrentUserId();
-            $result = $this->roomTaskService->joinTask($id, $currentUserId);
-
-            return new JSONResponse([
-                'success' => true,
-                'data' => $result
-            ]);
-        } catch (\Exception $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'JOIN_TASK_ERROR',
-                    'message' => $e->getMessage()
-                ]
-            ], 500);
-        }
-    }
-
-    /**
-     * Leave a task as a participant
-     *
-     * @NoAdminRequired
-     */
-    public function leaveTask(int $id): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
-
-            $currentUserId = $this->authService->requireCurrentUserId();
-            $result = $this->roomTaskService->leaveTask($id, $currentUserId);
-
-            return new JSONResponse([
-                'success' => true,
-                'data' => $result
-            ]);
-        } catch (\Exception $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'LEAVE_TASK_ERROR',
-                    'message' => $e->getMessage()
-                ]
-            ], 500);
-        }
-    }
-
-    /**
-     * Get participants for a task
-     *
-     * @NoAdminRequired
-     */
-    public function getParticipants(int $id): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
-
-            $participants = $this->roomTaskService->getTaskParticipants($id);
-
-            return new JSONResponse([
-                'success' => true,
-                'data' => array_map(fn ($p) => $p->jsonSerialize(), $participants)
-            ]);
-        } catch (\Exception $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'GET_PARTICIPANTS_ERROR',
-                    'message' => $e->getMessage()
-                ]
-            ], 500);
-        }
-    }
-
-    /**
-     * Claim an overdue task from another user
-     *
-     * @NoAdminRequired
-     */
-    public function claimOverdue(int $id): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
-
-            $currentUserId = $this->authService->requireCurrentUserId();
-            $result = $this->roomTaskService->claimOverdueTask($id, $currentUserId);
-
-            return new JSONResponse([
-                'success' => true,
-                'data' => $result
-            ]);
-        } catch (\Exception $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'CLAIM_OVERDUE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -1076,65 +957,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'OVERDUE_CLAIMS_ERROR',
-                    'message' => $e->getMessage()
-                ]
-            ], 500);
-        }
-    }
-
-    /**
-     * Get claim history for a task
-     *
-     * @NoAdminRequired
-     */
-    public function claimHistory(int $id): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
-
-            $claims = $this->roomTaskService->getClaimHistory($id);
-
-            return new JSONResponse([
-                'success' => true,
-                'data' => array_map(fn ($claim) => $claim->jsonSerialize(), $claims)
-            ]);
-        } catch (\Exception $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'CLAIM_HISTORY_ERROR',
-                    'message' => $e->getMessage()
-                ]
-            ], 500);
-        }
-    }
-
-    /**
-     * Get claim statistics for a user
-     *
-     * @NoAdminRequired
-     */
-    public function claimStats(string $userId): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
-
-            $stats = $this->roomTaskService->getUserClaimStats($userId);
-
-            return new JSONResponse([
-                'success' => true,
-                'data' => $stats
-            ]);
-        } catch (\Exception $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'CLAIM_STATS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -1181,7 +1004,7 @@ class RoomTaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FILTERED_DAILY_TASKS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

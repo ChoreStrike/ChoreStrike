@@ -64,7 +64,7 @@ class TaskSyncController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SYNC_COMPLETE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -103,7 +103,7 @@ class TaskSyncController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SYNC_FROM_NEXTCLOUD_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -133,7 +133,7 @@ class TaskSyncController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'REMINDER_MAPPING_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -162,7 +162,7 @@ class TaskSyncController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'PENDING_SYNCS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -191,7 +191,7 @@ class TaskSyncController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'MARK_SYNCED_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -220,7 +220,7 @@ class TaskSyncController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'LINK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

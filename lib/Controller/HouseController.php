@@ -61,7 +61,7 @@ class HouseController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'HOUSE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -103,7 +103,7 @@ class HouseController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'HOUSE_UPDATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -138,7 +138,7 @@ class HouseController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'STATS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -172,7 +172,7 @@ class HouseController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'HEALTH_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -208,7 +208,7 @@ class HouseController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESET_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

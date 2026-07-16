@@ -87,32 +87,23 @@
 	</div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { computed, onMounted, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import axios from '@nextcloud/axios'
 import { logger } from '../../utils/logger.js'
 
-interface Task {
-	id: number
-	name: string
-	roomName: string
-	energyCost: number
-	priority: number
-	completed: boolean
-	isOverdue: boolean
-	allowTeamwork: boolean
-	order: number
-}
+defineProps({
+	userId: {
+		type: String,
+		required: true,
+	},
+})
 
-defineProps<{
-	userId: string
-}>()
-
-const loading = ref(false)
-const tasks = ref<Task[]>([])
-const tasksListRef = ref<HTMLElement | null>(null)
-const draggedTask = ref<Task | null>(null)
+const loading = ref(true)
+const tasks = ref([])
+const tasksListRef = ref(null)
+const draggedTask = ref(null)
 
 const completedCount = computed(() => tasks.value.filter(t => t.completed).length)
 const progressPercentage = computed(() => {
@@ -153,7 +144,7 @@ const loadTasks = async () => {
 	}
 }
 
-const toggleTask = async (task: Task) => {
+const toggleTask = async (task) => {
 	try {
 		if (task.completed) {
 			await axios.put(`/api/v1/tasks/${task.id}/uncomplete`)
@@ -169,7 +160,7 @@ const toggleTask = async (task: Task) => {
 const rescheduleTask = () => {
 }
 
-const skipTask = async (task: Task) => {
+const skipTask = async (task) => {
 	try {
 		await axios.put(`/api/v1/tasks/${task.id}/skip`)
 		// Remove from list
@@ -179,7 +170,7 @@ const skipTask = async (task: Task) => {
 	}
 }
 
-const handleDragStart = (event: DragEvent, task: Task) => {
+const handleDragStart = (event, task) => {
 	draggedTask.value = task
 	if (event.dataTransfer) {
 		event.dataTransfer.effectAllowed = 'move'
@@ -190,14 +181,14 @@ const handleDragEnd = () => {
 	draggedTask.value = null
 }
 
-const handleDrop = (event: DragEvent, targetTask: Task) => {
+const handleDrop = (event, targetTask) => {
 	event.preventDefault()
 	if (!draggedTask.value || draggedTask.value.id === targetTask.id) {
 		return
 	}
 
 	// Reorder tasks
-	const draggedIndex = tasks.value.findIndex(t => t.id === draggedTask.value!.id)
+	const draggedIndex = tasks.value.findIndex(t => t.id === draggedTask.value.id)
 	const targetIndex = tasks.value.findIndex(t => t.id === targetTask.id)
 
 	if (draggedIndex !== -1 && targetIndex !== -1) {
@@ -211,7 +202,7 @@ const handleDrop = (event: DragEvent, targetTask: Task) => {
 	}
 }
 
-const formatDate = (date: Date): string => {
+const formatDate = (date) => {
 	return date.toLocaleDateString(undefined, {
 		weekday: 'long',
 		year: 'numeric',

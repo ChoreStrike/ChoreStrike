@@ -85,7 +85,7 @@ class FloorController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FLOORS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -121,7 +121,7 @@ class FloorController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FLOOR_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -193,7 +193,7 @@ class FloorController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FLOOR_CREATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -309,7 +309,7 @@ class FloorController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FLOOR_UPDATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -350,7 +350,7 @@ class FloorController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FLOOR_REORDER_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -380,7 +380,7 @@ class FloorController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FLOOR_DELETE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -420,7 +420,7 @@ class FloorController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FLOORS_WITH_ROOMS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

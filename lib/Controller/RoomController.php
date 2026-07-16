@@ -105,7 +105,7 @@ class RoomController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOMS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -147,7 +147,7 @@ class RoomController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOM_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -228,7 +228,7 @@ class RoomController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOM_CREATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -344,7 +344,7 @@ class RoomController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOM_UPDATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -374,7 +374,7 @@ class RoomController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOM_DELETE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -414,7 +414,7 @@ class RoomController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CLEANLINESS_UPDATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -450,7 +450,7 @@ class RoomController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ROOMS_NEEDING_CLEANING_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -488,7 +488,7 @@ class RoomController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ADD_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -518,7 +518,7 @@ class RoomController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'REMOVE_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

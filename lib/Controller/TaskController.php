@@ -76,7 +76,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'TASKS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -105,7 +105,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -113,7 +113,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -122,7 +122,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -266,7 +266,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -274,7 +274,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -283,7 +283,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'TASK_CREATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -325,7 +325,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -333,7 +333,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -342,7 +342,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'TASK_UPDATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -371,7 +371,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -379,7 +379,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -388,7 +388,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'TASK_DELETE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -418,7 +418,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'TEMPLATES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -447,7 +447,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -455,7 +455,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -464,7 +464,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CREATE_FROM_TEMPLATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -494,7 +494,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CATEGORY_TASKS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -534,7 +534,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SEARCH_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -564,7 +564,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CATEGORIES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -595,7 +595,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CREATE_DEFAULT_TEMPLATES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -637,7 +637,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'DAILY_TASKS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -667,7 +667,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -675,7 +675,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -684,7 +684,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'COMPLETE_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -714,7 +714,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -722,7 +722,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -731,7 +731,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'UNCOMPLETE_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -761,7 +761,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -769,7 +769,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -778,7 +778,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SKIP_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -820,7 +820,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -828,7 +828,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -837,7 +837,7 @@ class TaskController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESCHEDULE_TASK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

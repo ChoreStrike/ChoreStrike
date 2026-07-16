@@ -56,7 +56,7 @@ class UserStatsController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'LEADERBOARD_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -86,7 +86,7 @@ class UserStatsController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'LEADERBOARD_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -116,7 +116,7 @@ class UserStatsController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'LEADERBOARD_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -146,7 +146,7 @@ class UserStatsController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'STATS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -175,7 +175,7 @@ class UserStatsController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'USERS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -227,7 +227,7 @@ class UserStatsController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ADD_USER_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -257,7 +257,7 @@ class UserStatsController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'REMOVE_USER_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -298,7 +298,7 @@ class UserStatsController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'UPDATE_ROLE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

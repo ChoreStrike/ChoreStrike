@@ -69,7 +69,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CHECKLIST_ITEMS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -115,7 +115,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'ADD_CHECKLIST_ITEM_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -155,7 +155,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'UPDATE_CHECKLIST_ITEM_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -185,7 +185,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'DELETE_CHECKLIST_ITEM_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -226,7 +226,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'REORDER_CHECKLIST_ITEMS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -260,7 +260,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -268,7 +268,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -276,7 +276,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CHECKLIST_PROGRESS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -310,7 +310,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -318,7 +318,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -326,7 +326,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'TOGGLE_CHECKLIST_ITEM_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -362,7 +362,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -370,7 +370,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -378,7 +378,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'INITIALIZE_PROGRESS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -433,7 +433,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
@@ -441,7 +441,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'FORBIDDEN',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 403);
         } catch (\Exception $e) {
@@ -449,7 +449,7 @@ class ChecklistController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'GET_CHECKLIST_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

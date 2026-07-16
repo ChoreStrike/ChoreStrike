@@ -143,16 +143,10 @@ return [
         ['name' => 'room_task#visibleToUser', 'url' => '/api/v1/room-tasks/visible-to-user', 'verb' => 'GET'],
 
         // Multi-User Teamwork API (Feature 6)
-        ['name' => 'room_task#joinTask', 'url' => '/api/v1/room-tasks/{id}/join', 'verb' => 'POST'],
-        ['name' => 'room_task#leaveTask', 'url' => '/api/v1/room-tasks/{id}/leave', 'verb' => 'POST'],
-        ['name' => 'room_task#getParticipants', 'url' => '/api/v1/room-tasks/{id}/participants', 'verb' => 'GET'],
         ['name' => 'room_task#completeWithTeam', 'url' => '/api/v1/room-tasks/{id}/complete-with-team', 'verb' => 'POST'],
 
         // Claiming Overdue Tasks API (Feature 7)
-        ['name' => 'room_task#claimOverdue', 'url' => '/api/v1/room-tasks/{id}/claim-overdue', 'verb' => 'POST'],
         ['name' => 'room_task#overdueClaims', 'url' => '/api/v1/room-tasks/overdue-claims', 'verb' => 'GET'],
-        ['name' => 'room_task#claimHistory', 'url' => '/api/v1/room-tasks/{id}/claim-history', 'verb' => 'GET'],
-        ['name' => 'room_task#claimStats', 'url' => '/api/v1/users/{userId}/claim-stats', 'verb' => 'GET'],
         ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],
 
         // Test Data API (only available in test mode)

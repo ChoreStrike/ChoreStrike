@@ -67,7 +67,7 @@ class GameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'GAME_STATE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -97,7 +97,7 @@ class GameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'LEADERBOARD_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -127,7 +127,7 @@ class GameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'MEDALS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -160,7 +160,7 @@ class GameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'CHECK_MEDALS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }

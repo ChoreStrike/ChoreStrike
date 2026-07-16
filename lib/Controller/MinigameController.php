@@ -55,7 +55,7 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'LEADERBOARD_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -86,7 +86,7 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'LEADERBOARD_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -135,7 +135,7 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'SAVE_SCORE_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -167,7 +167,7 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'COINS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -198,7 +198,7 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'PERSONAL_BEST_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -232,7 +232,7 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'USER_RANK_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -257,7 +257,7 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'BOOSTS_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -288,7 +288,7 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'PURCHASE_BOOST_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 400);
         } catch (\Exception $e) {
@@ -296,7 +296,7 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'PURCHASE_BOOST_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
@@ -328,7 +328,7 @@ class MinigameController extends OCSController
                 'success' => false,
                 'error' => [
                     'code' => 'RECENT_SCORES_ERROR',
-                    'message' => $e->getMessage()
+                    'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 500);
         }
