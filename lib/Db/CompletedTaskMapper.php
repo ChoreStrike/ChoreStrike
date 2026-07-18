@@ -270,6 +270,40 @@ class CompletedTaskMapper extends QBMapper
     }
 
     /**
+     * Build a map of houseUserId → completion count for a specific day.
+     *
+     * Used by the DailyNotificationJob to avoid an N+1 of per-user COUNTs
+     * (the job iterates all house users). One GROUP BY query over the
+     * completed_tasks table returns the per-user counts for everyone who
+     * completed at least one task on the given day; users with zero
+     * completions are absent from the map (caller treats missing keys as 0).
+     *
+     * @param \DateTimeInterface $date Date used to determine day boundaries
+     * @return array<int, int> Map of house user ID → completion count
+     */
+    public function countByUserOnDateGrouped(\DateTimeInterface $date): array
+    {
+        $startOfDay = new \DateTimeImmutable($date->format('Y-m-d') . ' 00:00:00');
+        $endOfDay = $startOfDay->modify('+1 day');
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('user_id')
+            ->addSelect($qb->func()->count('*', 'cnt'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->gte('completed_at', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)))
+            ->groupBy('user_id');
+
+        $result = $qb->executeQuery();
+        $counts = [];
+        while ($row = $result->fetch()) {
+            $counts[(int)$row['user_id']] = (int)$row['cnt'];
+        }
+        $result->closeCursor();
+        return $counts;
+    }
+
+    /**
      * Find distinct room_task_ids with at least one completion within a date range for a house.
      *
      * Used by the weekly household goal as the numerator (distinct tasks done

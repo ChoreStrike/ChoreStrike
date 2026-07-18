@@ -67,7 +67,7 @@ class StreakRestockJobTest extends TestCase
         $user2->setId(2);
         $user2->setStreakFreezes(2);
 
-        $this->houseUserMapper->method('findEntities')->willReturn([$user1, $user2]);
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user1, $user2]);
         $this->houseUserMapper->expects($this->exactly(2))->method('update');
 
         $this->invokeRun($this->job, null);
@@ -82,7 +82,7 @@ class StreakRestockJobTest extends TestCase
         $user->setId(1);
         $user->setStreakFreezes(0);
 
-        $this->houseUserMapper->method('findEntities')->willReturn([$user]);
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
         $this->houseUserMapper->expects($this->once())->method('update')
             ->with($this->callback(function (HouseUser $u) {
                 return $u->getStreakFreezes() === 1;

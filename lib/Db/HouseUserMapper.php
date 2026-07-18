@@ -220,4 +220,23 @@ class HouseUserMapper extends QBMapper
     {
         return $this->findByHouseAndUser($houseId, $nextcloudUserId);
     }
+
+    /**
+     * Find all house users across all houses for background-job iteration.
+     *
+     * Centralising this lookup in the mapper keeps StreakFreezeJob,
+     * StreakRestockJob, and DailyNotificationJob in sync on the canonical
+     * "all house users" set; future filtering (active flag, soft-delete,
+     * tenant scoping) only needs to change here.
+     *
+     * @return HouseUser[]
+     */
+    public function findAllForJobs(): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName());
+
+        return $this->findEntities($qb);
+    }
 }

@@ -30,6 +30,14 @@
         <testsuite name="Service">
             <directory>tests/unit/Service</directory>
         </testsuite>
+        <!-- Background job tests (TimedJob subclasses; mocked DB) -->
+        <testsuite name="BackgroundJob">
+            <directory>tests/unit/BackgroundJob</directory>
+        </testsuite>
+        <!-- Notification renderer tests (INotifier implementation) -->
+        <testsuite name="Notification">
+            <directory>tests/unit/Notification</directory>
+        </testsuite>
     </testsuites>
 
     <coverage processUncoveredFiles="true">

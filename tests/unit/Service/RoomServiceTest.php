@@ -12,12 +12,14 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\ForbiddenException;
@@ -39,7 +41,21 @@ class RoomServiceTest extends TestCase
     private TaskAssigneeMapper $taskAssigneeMapper;
     private CompletedTaskMapper $completedTaskMapper;
     private HouseService $houseService;
+    private HouseMapper $houseMapper;
+    private NotificationService $notificationService;
     private IDBConnection $db;
+
+    /**
+     * Per-test override for the weekly goal snapshot sequence.
+     *
+     * Each entry is returned on the corresponding getWeeklyGoalProgress()
+     * call. Tests that don't care about the transition leave this empty
+     * and the default "not achieved" snapshot is returned on every call.
+     * Tests that exercise the transition push two snapshots here.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    private array $weeklyGoalSequence = [];
 
     protected function setUp(): void
     {
@@ -52,7 +68,29 @@ class RoomServiceTest extends TestCase
         $this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
         $this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
         $this->houseService = $this->createMock(HouseService::class);
+        $this->houseMapper = $this->createMock(HouseMapper::class);
+        $this->notificationService = $this->createMock(NotificationService::class);
         $this->db = $this->createMock(IDBConnection::class);
+
+        // Default weekly goal snapshot: not achieved, no activity. Tests that
+        // exercise the not-achieved → achieved transition populate
+        // $weeklyGoalSequence with two snapshots; otherwise this default is
+        // returned on every call (so no notification fires).
+        $defaultSnapshot = [
+            'dueCount' => 0,
+            'completedCount' => 0,
+            'percent' => 0,
+            'targetPercent' => 80,
+            'achieved' => false,
+            'weekStart' => '2026-07-14T00:00:00+00:00',
+            'weekEnd' => '2026-07-20T23:59:59+00:00',
+        ];
+        $this->houseService->method('getWeeklyGoalProgress')->willReturnCallback(function () use (&$defaultSnapshot) {
+            if (!empty($this->weeklyGoalSequence)) {
+                return array_shift($this->weeklyGoalSequence);
+            }
+            return $defaultSnapshot;
+        });
 
         $this->service = new RoomService(
             $this->roomMapper,
@@ -64,6 +102,8 @@ class RoomServiceTest extends TestCase
             $this->taskAssigneeMapper,
             $this->completedTaskMapper,
             $this->houseService,
+            $this->houseMapper,
+            $this->notificationService,
             $this->db
         );
     }
@@ -609,6 +649,7 @@ class RoomServiceTest extends TestCase
 
         $houseUser = new HouseUser();
         $houseUser->setId(2);
+        $houseUser->setDisplayName('Claimer');
 
         $updatedRoom = new Room();
         $updatedRoom->setId(1);
@@ -916,5 +957,391 @@ class RoomServiceTest extends TestCase
 
         $this->expectException(ForbiddenException::class);
         $this->service->completeRoomTask($roomTaskId, $completer);
+    }
+
+    /**
+     * CompleteRoomTask_OverdueTakeover_DispatchesTakeoverNotification
+     *
+     * The original assignee must receive a server-side notification that
+     * another member took over their overdue task. Best-effort: the
+     * completion must succeed regardless of notification outcome.
+     */
+    public function testCompleteRoomTask_OverdueTakeover_DispatchesTakeoverNotification(): void
+    {
+        $roomTaskId = 1;
+        $originalAssignee = 'original-user';
+        $claimer = 'claimer-user';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Dishes');
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+        $roomTask->setAssignedToUserId($originalAssignee);
+        $roomTask->setNextDue(new \DateTime('yesterday')); // overdue
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+        $houseUser->setNextcloudUserId($claimer);
+        $houseUser->setDisplayName('Claimer Name');
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $claimer)->willReturn($houseUser);
+        $this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+        ]);
+
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
+        // Membership re-check passes for the original assignee.
+        $this->houseUserMapper->method('findByHouseAndUser')->willReturn($houseUser);
+
+        // Takeover notification dispatched post-commit.
+        $this->notificationService->expects($this->once())
+            ->method('notifyOverdueTakenOver')
+            ->with($originalAssignee, 'Dishes', 'Claimer Name', $roomTaskId);
+
+        // No goal transition (default mock → not achieved), so no goal notify.
+        $this->notificationService->expects($this->never())->method('notifyWeeklyGoalReachedForHouse');
+
+        $this->service->completeRoomTask($roomTaskId, $claimer);
+    }
+
+    /**
+     * CompleteRoomTask_OverdueTakeover_FormerMemberSkipsDispatch
+     *
+     * If the original assignee has been removed from the house (house_users
+     * row deleted) but their legacy assigned_to_user_id is still on the room
+     * task, the takeover notification must NOT be dispatched to them.
+     */
+    public function testCompleteRoomTask_OverdueTakeover_FormerMemberSkipsDispatch(): void
+    {
+        $roomTaskId = 1;
+        $originalAssignee = 'former-member';
+        $claimer = 'claimer-user';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Dishes');
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+        $roomTask->setAssignedToUserId($originalAssignee);
+        $roomTask->setNextDue(new \DateTime('yesterday'));
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+        $houseUser->setNextcloudUserId($claimer);
+        $houseUser->setDisplayName('Claimer Name');
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $claimer)->willReturn($houseUser);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+        ]);
+
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
+        // Recipient is no longer a member.
+        $this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+
+        // No takeover notification dispatched.
+        $this->notificationService->expects($this->never())->method('notifyOverdueTakenOver');
+
+        // Takeover is still recorded on the room task.
+        $this->service->completeRoomTask($roomTaskId, $claimer);
+
+        $this->assertTrue($roomTask->getWasClaimed());
+        $this->assertSame($claimer, $roomTask->getClaimedByUser());
+    }
+
+    /**
+     * CompleteRoomTask_NoTakeover_DoesNotDispatchTakeoverNotification
+     *
+     * Completing one's own task (assignee == completer, not overdue, or
+     * co-assignee) must NOT fire a takeover notification.
+     */
+    public function testCompleteRoomTask_NoTakeover_DoesNotDispatchTakeoverNotification(): void
+    {
+        $roomTaskId = 1;
+        $userId = 'user123';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Test Task');
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+        $roomTask->setAssignedToUserId($userId);
+        $roomTask->setNextDue((new \DateTime('tomorrow'))->setTime(12, 0)); // not overdue
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+        $houseUser->setNextcloudUserId($userId);
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+        ]);
+
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
+        $this->notificationService->expects($this->never())->method('notifyOverdueTakenOver');
+
+        $this->service->completeRoomTask($roomTaskId, $userId);
+    }
+
+    /**
+     * CompleteRoomTask_GoalAchievedFirstClaim_DispatchesHouseNotification
+     *
+     * When a completion pushes the weekly household goal to "achieved" and
+     * this caller is the first to claim dispatch for the week (the house row
+     * conditional UPDATE affects 1 row), the server notifies all house
+     * members (the Nextcloud bell + mobile feed).
+     */
+    public function testCompleteRoomTask_GoalAchievedFirstClaim_DispatchesHouseNotification(): void
+    {
+        $roomTaskId = 1;
+        $userId = 'user123';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Test Task');
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+        ]);
+
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
+        // Post-commit snapshot: achieved.
+        $this->weeklyGoalSequence = [
+            [
+                'dueCount' => 5,
+                'completedCount' => 4,
+                'percent' => 80,
+                'targetPercent' => 80,
+                'achieved' => true,
+                'weekStart' => '2026-07-14T00:00:00+00:00',
+                'weekEnd' => '2026-07-20T23:59:59+00:00',
+            ],
+        ];
+
+        // This caller is the first to claim dispatch for the week.
+        $this->houseMapper->expects($this->once())
+            ->method('claimWeeklyGoalNotification')
+            ->with(1, '2026-07-14')
+            ->willReturn(true);
+
+        $this->notificationService->expects($this->once())
+            ->method('notifyWeeklyGoalReachedForHouse')
+            ->with(1, 80, 80, '2026-07-14T00:00:00+00:00');
+
+        $this->service->completeRoomTask($roomTaskId, $userId);
+    }
+
+    /**
+     * CompleteRoomTask_GoalAlreadyClaimed_NoDispatch
+     *
+     * A second concurrent completion in a week where the goal is already
+     * achieved AND already claimed: the conditional UPDATE affects 0 rows,
+     * so the dispatch is suppressed (no duplicate notification per house
+     * per week).
+     */
+    public function testCompleteRoomTask_GoalAlreadyClaimed_NoDispatch(): void
+    {
+        $roomTaskId = 1;
+        $userId = 'user123';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Test Task');
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+        ]);
+
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
+        // Post-commit snapshot: achieved.
+        $this->weeklyGoalSequence = [
+            [
+                'dueCount' => 5,
+                'completedCount' => 5,
+                'percent' => 100,
+                'targetPercent' => 80,
+                'achieved' => true,
+                'weekStart' => '2026-07-14T00:00:00+00:00',
+                'weekEnd' => '2026-07-20T23:59:59+00:00',
+            ],
+        ];
+
+        // Another caller already claimed dispatch.
+        $this->houseMapper->expects($this->once())
+            ->method('claimWeeklyGoalNotification')
+            ->willReturn(false);
+
+        $this->notificationService->expects($this->never())->method('notifyWeeklyGoalReachedForHouse');
+
+        $this->service->completeRoomTask($roomTaskId, $userId);
     }
 }

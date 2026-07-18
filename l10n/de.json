@@ -263,12 +263,26 @@
         "Streak protected by freeze!": "Serie durch Freeze geschützt!",
         "Bonus freeze earned from combo!": "Bonus-Freeze durch Kombo verdient!",
         "Weekly goal reached!": "Wochenziel erreicht!",
+        "Weekly household goal reached!": "Wochenziel des Haushalts erreicht!",
         "Weekly Household Goal": "Wöchentliches Haushaltsziel",
         "{completed} of {due} tasks this week": "{completed} von {due} Aufgaben diese Woche",
         "Goal: {target}%": "Ziel: {target}%",
         "Target: {target}%": "Ziel: {target}%",
         "Sound effects": "Soundeffekte",
         "Mute sounds": "Sounds stummschalten",
-        "Unmute sounds": "Stummschaltung aufheben"
+        "Unmute sounds": "Stummschaltung aufheben",
+
+        "Your task \"%1$s\" was taken over by %2$s": "Deine Aufgabe „%1$s“ wurde von %2$s übernommen",
+        "%1$s completed your overdue task so your streak is safe. Be a hero and pick up one of theirs next time!": "%1$s hat deine überfällige Aufgabe erledigt, deine Serie ist also sicher. Sei beim nächsten Mal der Held und übernimm eine von %1$s!",
+        "You earned a new medal: %1$s": "Du hast eine neue Medaille erhalten: %1$s",
+        "You earned the \"%1$s\" medal with a value of %2$d. Keep up the great work!": "Du hast die Medaille „%1$s“ mit einem Wert von %2$d erhalten. Weiter so!",
+        "Your household hit %1$d%% of this week's tasks (target: %2$d%%). Great teamwork!": "Euer Haushalt hat %1$d%% der Aufgaben dieser Woche geschafft (Ziel: %2$d%%). Tolle Teamarbeit!",
+        "Your %1$d-day streak is at risk — complete a task today!": "Deine %1$d-Tage-Serie ist gefährdet — erledige heute eine Aufgabe!",
+        "You did not complete any tasks yesterday and have no streak freeze left. Complete a task today to keep your streak alive.": "Du hast gestern keine Aufgabe erledigt und hast keinen Serien-Freeze mehr. Erledige heute eine Aufgabe, um deine Serie zu erhalten.",
+        "Weekly goal reached! {percent}% of target {target}%": "Wochenziel erreicht! {percent}% von Ziel {target}%",
+        "You earned a new medal!": "Du hast eine neue Medaille erhalten!",
+        "Streak protected by freeze! {count} freeze remaining": "Serie durch Freeze geschützt! {count} Freeze übrig",
+        "Streak protected by freeze! {count} freezes remaining": "Serie durch Freeze geschützt! {count} Freezes übrig",
+        "Weekly household goal reached!": "Wochenziel des Haushalts erreicht!"
     }
 }

@@ -17,6 +17,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -38,6 +39,8 @@ class RoomService
     private TaskAssigneeMapper $taskAssigneeMapper;
     private CompletedTaskMapper $completedTaskMapper;
     private HouseService $houseService;
+    private HouseMapper $houseMapper;
+    private NotificationService $notificationService;
     private IDBConnection $db;
 
     public function __construct(
@@ -50,6 +53,8 @@ class RoomService
         TaskAssigneeMapper $taskAssigneeMapper,
         CompletedTaskMapper $completedTaskMapper,
         HouseService $houseService,
+        HouseMapper $houseMapper,
+        NotificationService $notificationService,
         IDBConnection $db
     ) {
         $this->roomMapper = $roomMapper;
@@ -61,6 +66,8 @@ class RoomService
         $this->taskAssigneeMapper = $taskAssigneeMapper;
         $this->completedTaskMapper = $completedTaskMapper;
         $this->houseService = $houseService;
+        $this->houseMapper = $houseMapper;
+        $this->notificationService = $notificationService;
         $this->db = $db;
     }
 
@@ -320,6 +327,10 @@ class RoomService
         $floor = $this->floorMapper->find($room->getFloorId());
         $houseUser = $this->houseUserMapper->findByNextcloudUserId($floor->getHouseId(), $userId);
 
+        // Captured inside the transaction if a takeover happens, dispatched
+        // after commit so rollbacks never leave a stale notification.
+        $takeoverNotification = null;
+
         // The whole completion (lock, gate, guard, mutations, reward insert) is
         // atomic: a failure at any step rolls back every prior write. The early
         // room-task row lock also serializes concurrent completions of the SAME
@@ -361,6 +372,16 @@ class RoomService
                 $originalAssignee = $roomTask->getAssignedToUserId();
                 if ($originalAssignee !== null && $originalAssignee !== '') {
                     $roomTask->markClaimed($originalAssignee, $userId);
+                    // Defer the actual notification dispatch until after commit
+                    // (below) so a rollback never leaves a stale "taken over"
+                    // notification in the bell. Capture the context here while
+                    // it's in scope.
+                    $takeoverNotification = [
+                        'recipient' => $originalAssignee,
+                        'taskName' => $task->getName(),
+                        'claimerDisplayName' => $houseUser->getDisplayName(),
+                        'roomTaskId' => $roomTaskId,
+                    ];
                 }
             }
 
@@ -409,6 +430,56 @@ class RoomService
         // not-achieved → achieved transition by comparing its previous store
         // snapshot with this fresh one, so we don't need a pre-read here.
         $weeklyGoal = $this->houseService->getWeeklyGoalProgress($floor->getHouseId());
+
+        // Fire server-side notifications AFTER commit so a rolled-back
+        // completion never leaves a stale notification in the bell. Both are
+        // best-effort (NotificationService logs and swallows failures).
+        //
+        // (1) Overdue-takeover: notify the original assignee that another
+        //     member picked up their overdue task. Their streak is unaffected
+        //     (game logic only updates the completer) but the notification is
+        //     polite + matches the plan's "you got bailed out" message.
+        //     Membership re-check at dispatch time guards against leaking
+        //     task details to former members whose house_users row was
+        //     deleted but whose legacy assigned_to_user_id column wasn't
+        //     cleared (root-cause fix belongs in HouseUserService::removeUserFromHouse).
+        if ($takeoverNotification !== null) {
+            $stillMember = $this->houseUserMapper->findByHouseAndUser(
+                $floor->getHouseId(),
+                $takeoverNotification['recipient']
+            );
+            if ($stillMember !== null) {
+                $this->notificationService->notifyOverdueTakenOver(
+                    $takeoverNotification['recipient'],
+                    $takeoverNotification['taskName'],
+                    $takeoverNotification['claimerDisplayName'],
+                    $takeoverNotification['roomTaskId']
+                );
+            }
+        }
+
+        // (2) Weekly-goal-reached notification: claim dispatch atomically via
+        //     a conditional UPDATE on chorestrike_houses.weekly_goal_notified_week.
+        //     This deduplicates across concurrent completions that together
+        //     cross the threshold — only the first caller's UPDATE affects a
+        //     row, the others get 0 rows and skip dispatch. Per-house-per-week
+        //     guarantee: each household gets exactly one bell notification per
+        //     achievement week (column resets naturally as the ISO weekStart
+        //     changes on Monday).
+        if ($weeklyGoal['achieved']) {
+            // weekStart is ISO 8601; collapse to Y-m-d for the dedup key so
+            // timezone skew in the format doesn't defeat the comparison.
+            $weekKey = substr($weeklyGoal['weekStart'], 0, 10);
+            $claimed = $this->houseMapper->claimWeeklyGoalNotification($floor->getHouseId(), $weekKey);
+            if ($claimed) {
+                $this->notificationService->notifyWeeklyGoalReachedForHouse(
+                    $floor->getHouseId(),
+                    $weeklyGoal['percent'],
+                    $weeklyGoal['targetPercent'],
+                    $weeklyGoal['weekStart']
+                );
+            }
+        }
 
         return [
             'roomTask' => $roomTask,

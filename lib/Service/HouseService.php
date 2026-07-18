@@ -18,7 +18,6 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
-
 /**
  * Service for house-related business logic
  */

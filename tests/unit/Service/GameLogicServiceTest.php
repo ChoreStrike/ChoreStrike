@@ -14,7 +14,9 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\GameLogicService;
+use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RewardConfigService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -28,6 +30,7 @@ class GameLogicServiceTest extends TestCase
     private MedalMapper $medalMapper;
     private RoomTaskMapper $roomTaskMapper;
     private RewardConfigService $configService;
+    private NotificationService $notificationService;
 
     protected function setUp(): void
     {
@@ -36,6 +39,7 @@ class GameLogicServiceTest extends TestCase
         $this->medalMapper = $this->createMock(MedalMapper::class);
         $this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
         $this->configService = $this->createMock(RewardConfigService::class);
+        $this->notificationService = $this->createMock(NotificationService::class);
 
         $this->configService->method('getCoinBasePerEnergy')->willReturn(10);
         $this->configService->method('getEarlyBonusThresholdDays')->willReturn(21);
@@ -48,7 +52,8 @@ class GameLogicServiceTest extends TestCase
             $this->completedTaskMapper,
             $this->medalMapper,
             $this->roomTaskMapper,
-            $this->configService
+            $this->configService,
+            $this->notificationService
         );
     }
 
@@ -380,7 +385,7 @@ class GameLogicServiceTest extends TestCase
         $this->medalMapper
             ->expects($this->once())
             ->method('findByUserTypeAndWeek')
-            ->willThrowException(new \Exception());
+            ->willThrowException(new DoesNotExistException());
 
         $this->medalMapper
             ->expects($this->once())
@@ -425,7 +430,7 @@ class GameLogicServiceTest extends TestCase
         $this->medalMapper
             ->expects($this->once())
             ->method('findByUserTypeAndWeek')
-            ->willThrowException(new \Exception());
+            ->willThrowException(new DoesNotExistException());
 
         $this->medalMapper
             ->expects($this->once())
@@ -435,6 +440,145 @@ class GameLogicServiceTest extends TestCase
         $result = $this->service->checkAndAwardMedals($houseId);
 
         $this->assertCount(1, $result);
+    }
+
+    /**
+     * CheckAndAwardMedals_NewMedal_NotifiesRecipient
+     *
+     * A newly-awarded medal must dispatch a server-side notification to the
+     * recipient's Nextcloud account (bell + mobile feed). The lookup uses
+     * the house user's nextcloud_user_id.
+     */
+    public function testCheckAndAwardMedals_NewMedal_NotifiesRecipient(): void
+    {
+        $houseId = 1;
+
+        $user = new HouseUser();
+        $user->setId(7);
+        $user->setNextcloudUserId('alice');
+        $user->setCurrentStreak(3);
+
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+        $this->completedTaskMapper->method('getUserStats')
+            ->willReturn(['taskCount' => 15, 'totalCoins' => 100]);
+        $this->medalMapper->method('findByUserTypeAndWeek')
+            ->willThrowException(new DoesNotExistException());
+        $this->medalMapper->method('insert')->willReturnArgument(0);
+
+        $this->notificationService->expects($this->once())
+            ->method('notifyMedalAwarded')
+            ->with('alice', 'team_anchor', 15, $this->isType('string'));
+
+        $this->service->checkAndAwardMedals($houseId);
+    }
+
+    /**
+     * CheckAndAwardMedals_ExistingMedal_DoesNotNotifyAgain
+     *
+     * Idempotency: re-checking medals in a week that already saw an award
+     * must NOT re-notify the user. The awardMedalIfNew helper returns null
+     * for already-existing medals and skips the dispatch.
+     */
+    public function testCheckAndAwardMedals_ExistingMedal_DoesNotNotifyAgain(): void
+    {
+        $houseId = 1;
+
+        $user = new HouseUser();
+        $user->setId(7);
+        $user->setNextcloudUserId('alice');
+        $user->setCurrentStreak(10);
+
+        $existingMedal = new Medal();
+        $existingMedal->setId(99);
+        $existingMedal->setMedalType('streak_keeper');
+        $existingMedal->setUserId(7);
+
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+        $this->completedTaskMapper->method('getUserStats')
+            ->willReturn(['taskCount' => 5, 'totalCoins' => 50]);
+        $this->medalMapper->method('findByUserTypeAndWeek')->willReturn($existingMedal);
+        $this->medalMapper->expects($this->never())->method('insert');
+
+        $this->notificationService->expects($this->never())->method('notifyMedalAwarded');
+
+        $result = $this->service->checkAndAwardMedals($houseId);
+
+        // Existing medal returns null from awardMedalIfNew → not collected.
+        $this->assertCount(0, $result);
+    }
+
+    /**
+     * CheckAndAwardMedals_InsertUniqueViolation_TreatsAsExistingAndSkipsNotify
+     *
+     * Race-loser scenario: two concurrent medal checks both find no existing
+     * medal; the loser's insert throws a unique-constraint violation. The
+     * new awardMedalIfNew catches it via OCP\DB\Exception and returns null
+     * (treats the medal as already-existing), so the API call doesn't fail
+     * and no duplicate notification is dispatched.
+     */
+    public function testCheckAndAwardMedals_InsertUniqueViolation_TreatsAsExistingAndSkipsNotify(): void
+    {
+        $houseId = 1;
+
+        $user = new HouseUser();
+        $user->setId(7);
+        $user->setNextcloudUserId('alice');
+        $user->setCurrentStreak(3);
+
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+        $this->completedTaskMapper->method('getUserStats')
+            ->willReturn(['taskCount' => 15, 'totalCoins' => 100]);
+        $this->medalMapper->method('findByUserTypeAndWeek')
+            ->willThrowException(new DoesNotExistException());
+        $this->medalMapper->method('insert')
+            ->willThrowException(new \OCP\DB\Exception(
+                'unique constraint',
+                0,
+                null,
+                \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION
+            ));
+
+        $this->notificationService->expects($this->never())->method('notifyMedalAwarded');
+
+        $result = $this->service->checkAndAwardMedals($houseId);
+
+        $this->assertCount(0, $result);
+    }
+
+    /**
+     * CheckAndAwardMedals_InsertNonUniqueDbError_Propagates
+     *
+     * A non-unique-constraint DB error during medal insert (e.g. FK
+     * violation, deadlock, connection loss) must propagate — the medal is
+     * not silently swallowed as if it were a race-loser. Regression for the
+     * over-broad catch.
+     */
+    public function testCheckAndAwardMedals_InsertNonUniqueDbError_Propagates(): void
+    {
+        $houseId = 1;
+
+        $user = new HouseUser();
+        $user->setId(7);
+        $user->setNextcloudUserId('alice');
+        $user->setCurrentStreak(3);
+
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+        $this->completedTaskMapper->method('getUserStats')
+            ->willReturn(['taskCount' => 15, 'totalCoins' => 100]);
+        $this->medalMapper->method('findByUserTypeAndWeek')
+            ->willThrowException(new DoesNotExistException());
+        $this->medalMapper->method('insert')
+            ->willThrowException(new \OCP\DB\Exception(
+                'connection lost',
+                0,
+                null,
+                \OCP\DB\Exception::REASON_OTHER
+            ));
+
+        $this->notificationService->expects($this->never())->method('notifyMedalAwarded');
+        $this->expectException(\OCP\DB\Exception::class);
+
+        $this->service->checkAndAwardMedals($houseId);
     }
 
     /**

@@ -51,8 +51,31 @@ Complete tasks, build streaks and keep your home tidy together. Perfect for fami
         <command>OCA\ChoreStrike\Command\TestDataSeed</command>
     </commands>
 
+    <!--
+        Background jobs.
+
+        NOTE on the StreakFreeze/DailyNotification 06:00 race: registration
+        order in this list is NOT a guarantee of execution order. Nextcloud's
+        JobList selects ready jobs by last_checked/reserved_at on oc_jobs,
+        not by info.xml ordering. StreakFreezeJob mutates currentStreak to 0
+        for users with no completion yesterday and no freezes left, so a
+        DailyNotificationJob that runs AFTER it would silently skip those
+        users via its `currentStreak > 0` filter — defeating the at-risk
+        reminder. The current implementation accepts this race on the basis
+        that (a) the worst case is a missed reminder, not data corruption,
+        and (b) the jobs run on a 24h cadence so the next day's pass
+        re-evaluates. A future hardening pass could merge the at-risk pass
+        into StreakFreezeJob or have StreakFreezeJob persist a
+        `last_streak_before_reset` column that DailyNotificationJob reads
+        so the reminder fires regardless of order.
+    -->
     <backgroundjobs>
+        <job>OCA\ChoreStrike\BackgroundJob\DailyNotificationJob</job>
         <job>OCA\ChoreStrike\BackgroundJob\StreakFreezeJob</job>
         <job>OCA\ChoreStrike\BackgroundJob\StreakRestockJob</job>
     </backgroundjobs>
+
+    <notifications>
+        <notification>OCA\ChoreStrike\Notification\ChoreStrikeNotifier</notification>
+    </notifications>
 </info>

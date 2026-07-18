@@ -21,6 +21,7 @@ require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/QBMapper.php';
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Db/DoesNotExistException.php';
 require_once __DIR__ . '/__mocks__/OCP/IDBConnection.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/IResult.php';
+require_once __DIR__ . '/__mocks__/OCP/DB/Exception.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IQueryBuilder.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpression.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpressionBuilder.php';
@@ -33,6 +34,15 @@ require_once __DIR__ . '/__mocks__/OCP/IRequest.php';
 require_once __DIR__ . '/__mocks__/OCP/IUser.php';
 require_once __DIR__ . '/__mocks__/OCP/IUserSession.php';
 require_once __DIR__ . '/__mocks__/OCP/ITimeFactory.php';
+require_once __DIR__ . '/__mocks__/OCP/AppFramework/Utility/ITimeFactory.php';
+require_once __DIR__ . '/__mocks__/OCP/IURLGenerator.php';
+require_once __DIR__ . '/__mocks__/OCP/L10N/IFactory.php';
+require_once __DIR__ . '/__mocks__/OCP/Notification/IManager.php';
+require_once __DIR__ . '/__mocks__/OCP/Notification/INotification.php';
+require_once __DIR__ . '/__mocks__/OCP/Notification/INotifier.php';
+require_once __DIR__ . '/__mocks__/OCP/Notification/IAction.php';
+require_once __DIR__ . '/__mocks__/OCP/BackgroundJob/TimedJob.php';
+require_once __DIR__ . '/__mocks__/Psr/Log/LoggerInterface.php';
 
 // Load vendor autoloader
 require_once __DIR__ . '/../vendor/autoload.php';

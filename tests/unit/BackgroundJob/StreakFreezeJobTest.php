@@ -61,7 +61,7 @@ class StreakFreezeJobTest extends TestCase
         $user->setCurrentStreak(5);
         $user->setStreakFreezes(0);
 
-        $this->houseUserMapper->method('findEntities')->willReturn([$user]);
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
         $this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
         $this->houseUserMapper->expects($this->once())->method('update')
             ->with($this->callback(function (HouseUser $u) {
@@ -81,7 +81,7 @@ class StreakFreezeJobTest extends TestCase
         $user->setCurrentStreak(5);
         $user->setStreakFreezes(1);
 
-        $this->houseUserMapper->method('findEntities')->willReturn([$user]);
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
         $this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
         $this->houseUserMapper->expects($this->once())->method('update')
             ->with($this->callback(function (HouseUser $u) {
@@ -101,7 +101,7 @@ class StreakFreezeJobTest extends TestCase
         $user->setCurrentStreak(5);
         $user->setStreakFreezes(1);
 
-        $this->houseUserMapper->method('findEntities')->willReturn([$user]);
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
         $this->completedTaskMapper->method('countByUserOnDate')->willReturn(3);
         $this->houseUserMapper->expects($this->never())->method('update');
 
@@ -118,7 +118,7 @@ class StreakFreezeJobTest extends TestCase
         $user->setCurrentStreak(0);
         $user->setStreakFreezes(1);
 
-        $this->houseUserMapper->method('findEntities')->willReturn([$user]);
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
         $this->houseUserMapper->expects($this->never())->method('update');
 
         $this->invokeRun($this->job, null);

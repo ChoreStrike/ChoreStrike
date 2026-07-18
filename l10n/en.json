@@ -262,12 +262,26 @@
         "Streak protected by freeze!": "Streak protected by freeze!",
         "Bonus freeze earned from combo!": "Bonus freeze earned from combo!",
         "Weekly goal reached!": "Weekly goal reached!",
+        "Weekly household goal reached!": "Weekly household goal reached!",
         "Weekly Household Goal": "Weekly Household Goal",
         "{completed} of {due} tasks this week": "{completed} of {due} tasks this week",
         "Goal: {target}%": "Goal: {target}%",
         "Target: {target}%": "Target: {target}%",
         "Sound effects": "Sound effects",
         "Mute sounds": "Mute sounds",
-        "Unmute sounds": "Unmute sounds"
+        "Unmute sounds": "Unmute sounds",
+
+        "Your task \"%1$s\" was taken over by %2$s": "Your task \"%1$s\" was taken over by %2$s",
+        "%1$s completed your overdue task so your streak is safe. Be a hero and pick up one of theirs next time!": "%1$s completed your overdue task so your streak is safe. Be a hero and pick up one of theirs next time!",
+        "You earned a new medal: %1$s": "You earned a new medal: %1$s",
+        "You earned the \"%1$s\" medal with a value of %2$d. Keep up the great work!": "You earned the \"%1$s\" medal with a value of %2$d. Keep up the great work!",
+        "Your household hit %1$d%% of this week's tasks (target: %2$d%%). Great teamwork!": "Your household hit %1$d%% of this week's tasks (target: %2$d%%). Great teamwork!",
+        "Your %1$d-day streak is at risk — complete a task today!": "Your %1$d-day streak is at risk — complete a task today!",
+        "You did not complete any tasks yesterday and have no streak freeze left. Complete a task today to keep your streak alive.": "You did not complete any tasks yesterday and have no streak freeze left. Complete a task today to keep your streak alive.",
+        "Weekly goal reached! {percent}% of target {target}%": "Weekly goal reached! {percent}% of target {target}%",
+        "You earned a new medal!": "You earned a new medal!",
+        "Streak protected by freeze! {count} freeze remaining": "Streak protected by freeze! {count} freeze remaining",
+        "Streak protected by freeze! {count} freezes remaining": "Streak protected by freeze! {count} freezes remaining",
+        "Weekly household goal reached!": "Weekly household goal reached!"
     }
 }

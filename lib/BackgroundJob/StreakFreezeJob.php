@@ -99,16 +99,15 @@ class StreakFreezeJob extends TimedJob
     }
 
     /**
-     * Find all house users across all houses
+     * Find all house users across all houses.
+     *
+     * Delegates to HouseUserMapper::findAllForJobs so all per-user cron
+     * passes share one definition of the "all house users" set.
      *
      * @return \OCA\ChoreStrike\Db\HouseUser[]
      */
     private function findAllUsers(): array
     {
-        $qb = $this->db->getQueryBuilder();
-        $qb->select('*')
-            ->from('chorestrike_house_users');
-
-        return $this->houseUserMapper->findEntities($qb);
+        return $this->houseUserMapper->findAllForJobs();
     }
 }

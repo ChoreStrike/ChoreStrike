@@ -17,6 +17,7 @@ use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
  * Service for game logic and mechanics
@@ -28,19 +29,22 @@ class GameLogicService
     private MedalMapper $medalMapper;
     private RoomTaskMapper $roomTaskMapper;
     private RewardConfigService $configService;
+    private NotificationService $notificationService;
 
     public function __construct(
         HouseUserMapper $houseUserMapper,
         CompletedTaskMapper $completedTaskMapper,
         MedalMapper $medalMapper,
         RoomTaskMapper $roomTaskMapper,
-        RewardConfigService $configService
+        RewardConfigService $configService,
+        NotificationService $notificationService
     ) {
         $this->houseUserMapper = $houseUserMapper;
         $this->completedTaskMapper = $completedTaskMapper;
         $this->medalMapper = $medalMapper;
         $this->roomTaskMapper = $roomTaskMapper;
         $this->configService = $configService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -240,13 +244,17 @@ class GameLogicService
             );
 
             if ($stats['taskCount'] >= 10) {
-                $medal = $this->awardMedal($user->getId(), 'team_anchor', $stats['taskCount'], $weekStart);
-                $awardedMedals[] = $medal;
+                $medal = $this->awardMedalIfNew($user, 'team_anchor', $stats['taskCount'], $weekStart);
+                if ($medal !== null) {
+                    $awardedMedals[] = $medal;
+                }
             }
 
             if ($user->getCurrentStreak() >= 7) {
-                $medal = $this->awardMedal($user->getId(), 'streak_keeper', $user->getCurrentStreak(), $weekStart);
-                $awardedMedals[] = $medal;
+                $medal = $this->awardMedalIfNew($user, 'streak_keeper', $user->getCurrentStreak(), $weekStart);
+                if ($medal !== null) {
+                    $awardedMedals[] = $medal;
+                }
             }
         }
 
@@ -254,26 +262,82 @@ class GameLogicService
     }
 
     /**
-     * Award a medal to a user
+     * Award a medal to a user if they don't already have one of this type for
+     * the given week, and notify them on the new award.
+     *
+     * Returns null if the medal already existed (idempotent — re-checking
+     * medals in a week doesn't re-notify the user). Returns the new Medal
+     * entity otherwise, and dispatches a best-effort notification to the
+     * member's Nextcloud account so they see it in the bell + mobile feed.
+     *
+     * Race-safe: the read-then-insert window is closed by catching the
+     * unique-constraint violation on insert (the loser of two concurrent
+     * first-time awards re-reads the existing medal and returns null).
+     *
+     * @param HouseUser $user The recipient house user
+     * @param string $medalType Type of medal
+     * @param int $value Medal value
+     * @param string $weekStart Week start date (Y-m-d)
+     */
+    private function awardMedalIfNew(HouseUser $user, string $medalType, int $value, string $weekStart): ?Medal
+    {
+        try {
+            // Already exists — idempotent no-op.
+            $this->medalMapper->findByUserTypeAndWeek($user->getId(), $medalType, $weekStart);
+            return null;
+        } catch (DoesNotExistException $e) {
+            // Not found — create + notify.
+        }
+
+        try {
+            $medal = $this->createMedal($user->getId(), $medalType, $value, $weekStart);
+        } catch (\OCP\DB\Exception $e) {
+            // Only a unique-constraint violation is the expected race-loser
+            // case (two concurrent first-time awards for the same user+type+
+            // week). Any other DB error (FK violation, deadlock, connection
+            // loss, NOT NULL) must propagate so the medal isn't silently
+            // lost.
+            if ($e->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
+                throw $e;
+            }
+            return null;
+        }
+
+        $nextcloudUserId = $user->getNextcloudUserId();
+        if ($nextcloudUserId !== null && $nextcloudUserId !== '') {
+            $this->notificationService->notifyMedalAwarded(
+                $nextcloudUserId,
+                $medalType,
+                $value,
+                $weekStart
+            );
+        }
+
+        return $medal;
+    }
+
+    /**
+     * Construct and persist a new Medal row.
+     *
+     * Shared by the (single) award path so there is exactly one definition of
+     * how a Medal row is built. Throws the underlying mapper exception on
+     * failure so the caller can react (e.g. awardMedalIfNew treats a unique-
+     * constraint violation as the medal already existing).
      *
      * @param int $userId The house user ID
      * @param string $medalType Type of medal
      * @param int $value Medal value
-     * @param string $weekStart Week start date
+     * @param string $weekStart Week start date (Y-m-d)
      */
-    private function awardMedal(int $userId, string $medalType, int $value, string $weekStart): Medal
+    private function createMedal(int $userId, string $medalType, int $value, string $weekStart): Medal
     {
-        try {
-            return $this->medalMapper->findByUserTypeAndWeek($userId, $medalType, $weekStart);
-        } catch (\Exception $e) {
-            $medal = new Medal();
-            $medal->setUserId($userId);
-            $medal->setMedalType($medalType);
-            $medal->setValue($value);
-            $medal->setWeekStart($weekStart);
-            $medal->setAwardedAt(new \DateTime());
-            return $this->medalMapper->insert($medal);
-        }
+        $medal = new Medal();
+        $medal->setUserId($userId);
+        $medal->setMedalType($medalType);
+        $medal->setValue($value);
+        $medal->setWeekStart($weekStart);
+        $medal->setAwardedAt(new \DateTime());
+        return $this->medalMapper->insert($medal);
     }
 
     /**

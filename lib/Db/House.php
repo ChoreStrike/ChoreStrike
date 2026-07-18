@@ -24,6 +24,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCreatedAt(\DateTime $createdAt)
  * @method \DateTime getUpdatedAt()
  * @method void setUpdatedAt(\DateTime $updatedAt)
+ * @method string|null getWeeklyGoalNotifiedWeek()
+ * @method void setWeeklyGoalNotifiedWeek(?string $weeklyGoalNotifiedWeek)
  */
 class House extends Entity implements JsonSerializable
 {
@@ -42,6 +44,16 @@ class House extends Entity implements JsonSerializable
     /** @var \DateTime */
     protected $updatedAt;
 
+    /**
+     * ISO week-start (Y-m-d, Monday) for which the weekly-goal-reached
+     * notification has already been dispatched to this household. NULL or a
+     * different week means a fresh transition can still claim dispatch.
+     * Backed by Version1023 migration.
+     *
+     * @var string|null
+     */
+    protected $weeklyGoalNotifiedWeek;
+
     public function __construct()
     {
         $this->addType('id', 'integer');
@@ -50,6 +62,7 @@ class House extends Entity implements JsonSerializable
         $this->addType('houseHealth', 'integer');
         $this->addType('createdAt', 'datetime');
         $this->addType('updatedAt', 'datetime');
+        $this->addType('weeklyGoalNotifiedWeek', 'string');
     }
 
     /**

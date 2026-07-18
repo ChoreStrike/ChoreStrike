@@ -10,6 +10,7 @@ import App from './App.vue'
 import router from './router.js'
 import { logger } from './utils/logger.js'
 import { useCelebration } from './composables/useCelebration.js'
+import { useToasts } from './composables/useToasts.js'
 import { unlockAudio } from './utils/sound.js'
 
 // Configure axios for Nextcloud CSRF protection
@@ -26,6 +27,7 @@ try {
 	app.mount('#app-chorestrike-vue')
 
 	useCelebration()
+	useToasts()
 
 	document.addEventListener('click', unlockAudio, { once: true })
 	document.addEventListener('touchstart', unlockAudio, { once: true })

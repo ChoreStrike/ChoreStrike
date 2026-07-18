@@ -191,7 +191,15 @@ export const useGameStore = defineStore('game', {
 		},
 
 		/**
-		 * Fetch medals
+		 * Fetch medals.
+		 *
+		 * Emits `chorestrike:medal-awarded` for every medal in the response
+		 * that wasn't already in the previous snapshot — this is the
+		 * frontend producer for the celebration + toast listeners that
+		 * react to new medal awards. The medal payload from the server
+		 * carries an `awardedAt` timestamp so a fresh fetch (e.g. after
+		 * triggering `/api/v1/game/check-medals`) surfaces the new award
+		 * even when the user opened the app mid-week.
 		 */
 		async fetchMedals() {
 			this.loading = true
@@ -201,7 +209,25 @@ export const useGameStore = defineStore('game', {
 				const response = await axios.get('/apps/chorestrike/api/v1/game/medals')
 
 				if (response.data.success) {
-					this.medals = response.data.data
+					const previousIds = new Set(this.medals.map(m => m.id))
+					const incoming = response.data.data
+					const newMedals = incoming.filter(m => !previousIds.has(m.id))
+
+					this.medals = incoming
+
+					// Only emit for genuinely new medals discovered on this
+					// fetch; suppress the initial-load case (previousIds is
+					// empty) so the user isn't greeted by a wall of toasts
+					// for every medal they already earned in prior weeks.
+					if (previousIds.size > 0) {
+						for (const medal of newMedals) {
+							emit('chorestrike:medal-awarded', {
+								medalType: medal.medalType,
+								value: medal.value,
+								weekStart: medal.weekStart,
+							})
+						}
+					}
 				} else {
 					throw new Error(response.data.error?.message || 'Failed to fetch medals')
 				}
