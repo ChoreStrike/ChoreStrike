@@ -36,6 +36,7 @@
 			</header>
 
 			<main class="dashboard-content">
+				<HouseholdGoalBar class="household-goal-section" data-testid="household-goal-section" />
 				<QuickStats class="quick-stats-section" data-testid="quick-stats" />
 				<ArcadeSection class="arcade-section" data-testid="arcade-section" />
 				<FloorList class="floor-list-section" data-testid="floor-list" />
@@ -48,9 +49,11 @@
 import { translate as t } from '@nextcloud/l10n'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
+import { useGameStore } from '../store/game.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import HouseHealthBar from '../components/Dashboard/HouseHealthBar.vue'
+import HouseholdGoalBar from '../components/Dashboard/HouseholdGoalBar.vue'
 import QuickStats from '../components/Dashboard/QuickStats.vue'
 import FloorList from '../components/Dashboard/FloorList.vue'
 import ArcadeSection from '../components/Dashboard/ArcadeSection.vue'
@@ -61,6 +64,7 @@ export default {
 	components: {
 		Icon,
 		HouseHealthBar,
+		HouseholdGoalBar,
 		QuickStats,
 		FloorList,
 		ArcadeSection,
@@ -69,7 +73,8 @@ export default {
 	setup() {
 		const houseStore = useHouseStore()
 		const roomsStore = useRoomsStore()
-		return { houseStore, roomsStore }
+		const gameStore = useGameStore()
+		return { houseStore, roomsStore, gameStore }
 	},
 
 	computed: {
@@ -91,12 +96,30 @@ export default {
 	methods: {
 		t,
 		async initializeDashboard() {
-			try {
-				await this.houseStore.fetchHouse()
-				await this.roomsStore.fetchFloorsWithRooms()
-			} catch (error) {
-				logger.error('Failed to initialize dashboard', error, { view: 'Dashboard', action: 'initializeDashboard' })
-			}
+			// Fetch house, floors, and game state in parallel — they are
+			// independent. The game state call also runs the weekly-goal
+			// computation, so overlapping it with the house/floor fetches
+			// keeps Dashboard mount latency at the slowest call rather than
+			// the sum.
+			const results = await Promise.allSettled([
+				this.houseStore.fetchHouse(),
+				this.roomsStore.fetchFloorsWithRooms(),
+				this.gameStore.fetchGameState(),
+			])
+
+			// Surface any non-fatal failures to the logger. The Dashboard
+			// renders whatever state the stores currently hold, so a single
+			// failed fetch doesn't break the others.
+			const labels = ['fetchHouse', 'fetchFloorsWithRooms', 'fetchGameState']
+			results.forEach((result, index) => {
+				if (result.status === 'rejected') {
+					logger.error(
+						`Dashboard fetch failed: ${labels[index]}`,
+						result.reason,
+						{ view: 'Dashboard', action: labels[index] },
+					)
+				}
+			})
 		},
 	},
 }
@@ -164,6 +187,10 @@ h1 {
 }
 
 .quick-stats-section {
+	margin-bottom: 1rem;
+}
+
+.household-goal-section {
 	margin-bottom: 1rem;
 }
 

@@ -74,10 +74,32 @@ class GameLogicService
         $user->addContributionScore($contributionScore);
         $user->addCoins($coins);
 
-        // Update streak respecting absence days
         $preferences = $user->getSchedulingPreferences();
         $weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
-        $user->updateStreakWithAbsence($weekdayAvailability);
+        $newStreak = $user->calculateStreakWithAbsence($weekdayAvailability);
+        $freezeUsed = false;
+        $cap = $this->configService->getStreakFreezeCap();
+
+        if ($newStreak <= 1 && $user->getCurrentStreak() > 0) {
+            if ($user->consumeFreeze()) {
+                $freezeUsed = true;
+            } else {
+                $user->setCurrentStreak($newStreak);
+            }
+        } else {
+            $user->setCurrentStreak($newStreak);
+        }
+
+        $comboBonusFreeze = false;
+        if ($isCombo) {
+            $recentForCombo = $this->completedTaskMapper->findRecentByUserId($userId, 10);
+            $comboCount = count($recentForCombo);
+            $threshold = $this->configService->getComboBonusFreezeThreshold();
+            if ($comboCount >= $threshold && $user->getStreakFreezes() < $cap) {
+                $user->awardBonusFreeze($cap);
+                $comboBonusFreeze = true;
+            }
+        }
 
         $user->touch();
         $this->houseUserMapper->update($user);
@@ -91,6 +113,9 @@ class GameLogicService
             'currentStreak' => $user->getCurrentStreak(),
             'totalContribution' => $user->getContributionScore(),
             'totalCoins' => $user->getCoins(),
+            'streakFreezeUsed' => $freezeUsed,
+            'streakFreezesRemaining' => $user->getStreakFreezes(),
+            'comboBonusFreeze' => $comboBonusFreeze,
         ];
     }
 

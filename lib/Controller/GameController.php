@@ -56,6 +56,7 @@ class GameController extends OCSController
             $this->authService->requireHouseMember($house->getId());
 
             $gameState = $this->gameLogicService->getGameState($house->getId());
+            $gameState['weeklyGoal'] = $this->houseService->getWeeklyGoalProgress($house->getId());
 
             return new JSONResponse([
                 'success' => true,

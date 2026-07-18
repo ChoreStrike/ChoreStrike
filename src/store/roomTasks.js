@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
+import { emit } from '@nextcloud/event-bus'
 import { logger } from '../utils/logger.js'
 import { useSchedulingStore } from './scheduling.js'
 import { useGameStore } from './game.js'
@@ -431,9 +432,32 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 						schedulingStore.registerTodayEnergyConsumption(energyCost)
 					}
 
-					// Update household cooperative progress
+					// Hydrate the weekly goal snapshot from the server-computed
+					// value (Phase 3). The store detects the not-achieved →
+					// achieved transition and emits the celebration event.
 					const gameStore = useGameStore()
-					gameStore.incrementWeeklyGoal()
+					const weeklyGoal = response.data.data.rewards?.weeklyGoal
+					if (weeklyGoal) {
+						gameStore.setWeeklyGoal(weeklyGoal)
+					}
+
+					const rewards = response.data.data.rewards
+					emit('chorestrike:task-completed', {
+						roomTaskId,
+						coins: rewards?.coins,
+						isCombo: rewards?.isCombo,
+						currentStreak: rewards?.currentStreak,
+						streakFreezeUsed: rewards?.streakFreezeUsed,
+						streakFreezesRemaining: rewards?.streakFreezesRemaining,
+						comboBonusFreeze: rewards?.comboBonusFreeze,
+						contributionScore: rewards?.contributionScore,
+					})
+
+					if (rewards?.streakFreezeUsed) {
+						emit('chorestrike:streak-freeze-used', {
+							remaining: rewards.streakFreezesRemaining,
+						})
+					}
 
 					return response.data.data
 				} else {

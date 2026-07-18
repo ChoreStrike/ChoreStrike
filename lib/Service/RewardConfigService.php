@@ -25,6 +25,10 @@ class RewardConfigService
     public const KEY_EARLY_BONUS_MULTIPLIER = 'early_bonus_multiplier';
     public const KEY_ENERGY_MAX_PER_TASK = 'energy_max_per_task';
     public const KEY_COIN_BASE_PER_ENERGY = 'coin_base_per_energy';
+    public const KEY_STREAK_FREEZES_PER_WEEK = 'streak_freezes_per_week';
+    public const KEY_STREAK_FREEZE_CAP = 'streak_freeze_cap';
+    public const KEY_COMBO_BONUS_FREEZE_THRESHOLD = 'combo_bonus_freeze_threshold';
+    public const KEY_WEEKLY_GOAL_TARGET_PERCENT = 'weekly_goal_target_percent';
 
     private IAppConfig $config;
 
@@ -109,6 +113,110 @@ class RewardConfigService
     }
 
     /**
+     * Get number of streak freezes restocked per week
+     */
+    public function getStreakFreezesPerWeek(): int
+    {
+        return (int) $this->config->getValueString(
+            self::APP_NAME,
+            self::KEY_STREAK_FREEZES_PER_WEEK,
+            '1'
+        );
+    }
+
+    /**
+     * Get maximum number of streak freezes a user can hold
+     */
+    public function getStreakFreezeCap(): int
+    {
+        return (int) $this->config->getValueString(
+            self::APP_NAME,
+            self::KEY_STREAK_FREEZE_CAP,
+            '2'
+        );
+    }
+
+    /**
+     * Get combo count threshold for earning a bonus freeze
+     */
+    public function getComboBonusFreezeThreshold(): int
+    {
+        return (int) $this->config->getValueString(
+            self::APP_NAME,
+            self::KEY_COMBO_BONUS_FREEZE_THRESHOLD,
+            '5'
+        );
+    }
+
+    /**
+     * Get the weekly household goal completion target as a percent (0-100).
+     *
+     * The household "reaches" its weekly goal when the share of due tasks
+     * completed this week is at least this percent. Default 80 (matches the
+     * Phase 3 plan recommendation: forgiving enough for family life).
+     */
+    public function getWeeklyGoalTargetPercent(): int
+    {
+        $value = (int) $this->config->getValueString(
+            self::APP_NAME,
+            self::KEY_WEEKLY_GOAL_TARGET_PERCENT,
+            '80'
+        );
+        // Clamp to a sane range; an admin could store anything via IAppConfig.
+        return max(1, min(100, $value));
+    }
+
+    /**
+     * Set streak freezes per week
+     */
+    public function setStreakFreezesPerWeek(int $count): void
+    {
+        $this->config->setValueString(
+            self::APP_NAME,
+            self::KEY_STREAK_FREEZES_PER_WEEK,
+            (string) $count
+        );
+    }
+
+    /**
+     * Set streak freeze cap
+     */
+    public function setStreakFreezeCap(int $cap): void
+    {
+        $this->config->setValueString(
+            self::APP_NAME,
+            self::KEY_STREAK_FREEZE_CAP,
+            (string) $cap
+        );
+    }
+
+    /**
+     * Set combo bonus freeze threshold
+     */
+    public function setComboBonusFreezeThreshold(int $threshold): void
+    {
+        $this->config->setValueString(
+            self::APP_NAME,
+            self::KEY_COMBO_BONUS_FREEZE_THRESHOLD,
+            (string) $threshold
+        );
+    }
+
+    /**
+     * Set weekly household goal target percent
+     *
+     * @param int $percent Target percent (clamped to 1-100)
+     */
+    public function setWeeklyGoalTargetPercent(int $percent): void
+    {
+        $this->config->setValueString(
+            self::APP_NAME,
+            self::KEY_WEEKLY_GOAL_TARGET_PERCENT,
+            (string) max(1, min(100, $percent))
+        );
+    }
+
+    /**
      * Set tier multiplier
      *
      * @param string $tier The tier (bronze, silver, gold)
@@ -189,6 +297,10 @@ class RewardConfigService
             'earlyBonusMultiplier' => $this->getEarlyBonusMultiplier(),
             'energyMaxPerTask' => $this->getEnergyMaxPerTask(),
             'coinBasePerEnergy' => $this->getCoinBasePerEnergy(),
+            'streakFreezesPerWeek' => $this->getStreakFreezesPerWeek(),
+            'streakFreezeCap' => $this->getStreakFreezeCap(),
+            'comboBonusFreezeThreshold' => $this->getComboBonusFreezeThreshold(),
+            'weeklyGoalTargetPercent' => $this->getWeeklyGoalTargetPercent(),
         ];
     }
 
@@ -219,6 +331,18 @@ class RewardConfigService
         }
         if (isset($values['coinBasePerEnergy'])) {
             $this->setCoinBasePerEnergy((int) $values['coinBasePerEnergy']);
+        }
+        if (isset($values['streakFreezesPerWeek'])) {
+            $this->setStreakFreezesPerWeek((int) $values['streakFreezesPerWeek']);
+        }
+        if (isset($values['streakFreezeCap'])) {
+            $this->setStreakFreezeCap((int) $values['streakFreezeCap']);
+        }
+        if (isset($values['comboBonusFreezeThreshold'])) {
+            $this->setComboBonusFreezeThreshold((int) $values['comboBonusFreezeThreshold']);
+        }
+        if (isset($values['weeklyGoalTargetPercent'])) {
+            $this->setWeeklyGoalTargetPercent((int) $values['weeklyGoalTargetPercent']);
         }
     }
 }

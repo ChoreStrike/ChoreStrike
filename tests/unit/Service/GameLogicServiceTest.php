@@ -40,6 +40,8 @@ class GameLogicServiceTest extends TestCase
         $this->configService->method('getCoinBasePerEnergy')->willReturn(10);
         $this->configService->method('getEarlyBonusThresholdDays')->willReturn(21);
         $this->configService->method('getEarlyBonusMultiplier')->willReturn(1.5);
+        $this->configService->method('getStreakFreezeCap')->willReturn(2);
+        $this->configService->method('getComboBonusFreezeThreshold')->willReturn(5);
 
         $this->service = new GameLogicService(
             $this->houseUserMapper,
@@ -92,10 +94,10 @@ class GameLogicServiceTest extends TestCase
             ->willReturn($roomTask);
 
         $this->completedTaskMapper
-            ->expects($this->once())
             ->method('findRecentByUserId')
-            ->with($userId, 5)
-            ->willReturn($recentCompletions);
+            ->willReturnCallback(function ($uid, $limit) use ($recentCompletions) {
+                return $recentCompletions;
+            });
 
         $this->completedTaskMapper
             ->expects($this->once())
@@ -111,6 +113,9 @@ class GameLogicServiceTest extends TestCase
         $this->assertIsInt($result['coins']);
         $this->assertTrue($result['isCombo']);
         $this->assertEquals(6, $result['currentStreak']);
+        $this->assertArrayHasKey('streakFreezeUsed', $result);
+        $this->assertArrayHasKey('streakFreezesRemaining', $result);
+        $this->assertArrayHasKey('comboBonusFreeze', $result);
     }
 
     /**
@@ -584,5 +589,125 @@ class GameLogicServiceTest extends TestCase
         $shouldReset = $this->service->shouldResetStreak($twoDaysAgo, $availability);
 
         $this->assertTrue($shouldReset);
+    }
+
+    /**
+     * HandleTaskCompletion_StreakWouldReset_FreezeConsumed
+     */
+    public function testHandleTaskCompletion_StreakWouldReset_FreezeConsumed(): void
+    {
+        $roomTaskId = 1;
+        $userId = 1;
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setEnergyCost(3);
+        $task->setTaskTier('bronze');
+
+        $user = new HouseUser();
+        $user->setId($userId);
+        $user->setCurrentStreak(10);
+        $user->setStreakFreezes(2);
+        $user->setLastActivity(new \DateTime('-3 days'));
+
+        $this->houseUserMapper->method('find')->willReturn($user);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setIdealDueDate(null);
+        $this->roomTaskMapper->method('find')->willReturn($roomTask);
+
+        $this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
+        $this->completedTaskMapper->expects($this->once())->method('insert');
+        $this->houseUserMapper->expects($this->once())->method('update');
+
+        $result = $this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+
+        $this->assertTrue($result['streakFreezeUsed']);
+        $this->assertEquals(1, $result['streakFreezesRemaining']);
+        $this->assertEquals(10, $result['currentStreak']);
+    }
+
+    /**
+     * HandleTaskCompletion_StreakWouldReset_NoFreezes_ResetsStreak
+     */
+    public function testHandleTaskCompletion_StreakWouldReset_NoFreezes_ResetsStreak(): void
+    {
+        $roomTaskId = 1;
+        $userId = 1;
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setEnergyCost(3);
+        $task->setTaskTier('bronze');
+
+        $user = new HouseUser();
+        $user->setId($userId);
+        $user->setCurrentStreak(10);
+        $user->setStreakFreezes(0);
+        $user->setLastActivity(new \DateTime('-3 days'));
+
+        $this->houseUserMapper->method('find')->willReturn($user);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setIdealDueDate(null);
+        $this->roomTaskMapper->method('find')->willReturn($roomTask);
+
+        $this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
+        $this->completedTaskMapper->expects($this->once())->method('insert');
+        $this->houseUserMapper->expects($this->once())->method('update');
+
+        $result = $this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+
+        $this->assertFalse($result['streakFreezeUsed']);
+        $this->assertEquals(0, $result['streakFreezesRemaining']);
+        $this->assertEquals(1, $result['currentStreak']);
+    }
+
+    /**
+     * HandleTaskCompletion_ComboBonus_AwardsFreeze
+     */
+    public function testHandleTaskCompletion_ComboBonus_AwardsFreeze(): void
+    {
+        $roomTaskId = 1;
+        $userId = 1;
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setEnergyCost(3);
+        $task->setTaskTier('bronze');
+
+        $user = new HouseUser();
+        $user->setId($userId);
+        $user->setCurrentStreak(5);
+        $user->setStreakFreezes(0);
+        $user->setLastActivity(new \DateTime('yesterday'));
+
+        $this->houseUserMapper->method('find')->willReturn($user);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setIdealDueDate(null);
+        $this->roomTaskMapper->method('find')->willReturn($roomTask);
+
+        $recentCompletions = array_fill(0, 6, new CompletedTask());
+        $this->completedTaskMapper
+            ->method('findRecentByUserId')
+            ->willReturnCallback(function ($uid, $limit) use ($recentCompletions) {
+                if ($limit === 5) {
+                    return array_slice($recentCompletions, 0, 5);
+                }
+                return $recentCompletions;
+            });
+
+        $this->completedTaskMapper->expects($this->once())->method('insert');
+        $this->houseUserMapper->expects($this->once())->method('update');
+
+        $result = $this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+
+        $this->assertTrue($result['isCombo']);
+        $this->assertTrue($result['comboBonusFreeze']);
+        $this->assertEquals(1, $result['streakFreezesRemaining']);
     }
 }

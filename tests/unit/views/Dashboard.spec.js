@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from '@jest/globals'
+import { describe, it, expect, beforeEach } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import Dashboard from '../../../src/views/Dashboard.vue'
@@ -30,11 +30,22 @@ jest.mock('../../../src/store/rooms.js', () => ({
 	}),
 }))
 
+jest.mock('../../../src/store/game.js', () => ({
+	useGameStore: () => ({
+		fetchGameState: jest.fn().mockResolvedValue(undefined),
+	}),
+}))
+
 // Mock child components
 jest.mock('../../../src/components/Dashboard/HouseHealthBar.vue', () => ({
 	name: 'HouseHealthBar',
 	props: ['health', 'size'],
 	template: '<div class="house-health-bar">Health: {{ health }}</div>',
+}))
+
+jest.mock('../../../src/components/Dashboard/HouseholdGoalBar.vue', () => ({
+	name: 'HouseholdGoalBar',
+	template: '<div class="household-goal-bar">Weekly Goal</div>',
 }))
 
 jest.mock('../../../src/components/Dashboard/QuickStats.vue', () => ({
@@ -113,6 +124,16 @@ describe('Dashboard.vue', () => {
 		})
 
 		expect(wrapper.find('.floor-list').exists()).toBe(true)
+	})
+
+	it('renders HouseholdGoalBar component', () => {
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		expect(wrapper.find('.household-goal-bar').exists()).toBe(true)
 	})
 
 	it('calls initializeDashboard on mount', async () => {

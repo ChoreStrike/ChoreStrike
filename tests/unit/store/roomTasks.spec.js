@@ -249,25 +249,61 @@ describe('RoomTasks Store', () => {
 				expect(result.roomTask.isActive).toBe(false)
 			})
 
-			it('registers consumed energy in scheduling store when rewards include energyCost', async () => {
-				const schedulingStore = useSchedulingStore()
-				schedulingStore.todayConsumedEnergy = 2
-				store.roomTasks = [{ id: 1, isActive: true }]
-				axios.post.mockResolvedValue({
+		it('registers consumed energy in scheduling store when rewards include energyCost', async () => {
+			const schedulingStore = useSchedulingStore()
+			schedulingStore.todayConsumedEnergy = 2
+			store.roomTasks = [{ id: 1, isActive: true }]
+			axios.post.mockResolvedValue({
+				data: {
+					success: true,
 					data: {
-						success: true,
-						data: {
-							roomTask: { id: 1, isActive: false },
-							rewards: { energyCost: 3 },
+						roomTask: { id: 1, isActive: false },
+						rewards: { energyCost: 3 },
+					},
+				},
+			})
+
+			await store.completeRoomTask(1)
+
+			expect(schedulingStore.todayConsumedEnergy).toBe(5)
+		})
+
+		it('propagates server weekly goal snapshot to the game store', async () => {
+			// Local import so we can read the resulting state from the same
+			// Pinia instance the roomTasks store writes to.
+			const { useGameStore } = await import('../../../src/store/game.js')
+			const gameStore = useGameStore()
+
+			store.roomTasks = [{ id: 1, isActive: true }]
+			axios.post.mockResolvedValue({
+				data: {
+					success: true,
+					data: {
+						roomTask: { id: 1, isActive: false },
+						rewards: {
+							energyCost: 3,
+							weeklyGoal: {
+								dueCount: 5,
+								completedCount: 4,
+								percent: 80,
+								targetPercent: 80,
+								achieved: true,
+								weekStart: '2026-07-13T00:00:00+00:00',
+								weekEnd: '2026-07-19T23:59:59+00:00',
+							},
 						},
 					},
-				})
-
-				await store.completeRoomTask(1)
-
-				expect(schedulingStore.todayConsumedEnergy).toBe(5)
+				},
 			})
+
+			await store.completeRoomTask(1)
+
+			expect(gameStore.householdProgress.weeklyGoal.dueCount).toBe(5)
+			expect(gameStore.householdProgress.weeklyGoal.completedCount).toBe(4)
+			expect(gameStore.householdProgress.weeklyGoal.percent).toBe(80)
+			expect(gameStore.householdProgress.weeklyGoal.achieved).toBe(true)
 		})
+	})
 
 		describe('deleteRoomTask', () => {
 			it('deletes task', async () => {

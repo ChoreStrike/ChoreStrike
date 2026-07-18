@@ -17,6 +17,7 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Service\GameLogicService;
+use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\ForbiddenException;
@@ -37,6 +38,7 @@ class RoomServiceTest extends TestCase
     private GameLogicService $gameLogicService;
     private TaskAssigneeMapper $taskAssigneeMapper;
     private CompletedTaskMapper $completedTaskMapper;
+    private HouseService $houseService;
     private IDBConnection $db;
 
     protected function setUp(): void
@@ -49,6 +51,7 @@ class RoomServiceTest extends TestCase
         $this->gameLogicService = $this->createMock(GameLogicService::class);
         $this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
         $this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+        $this->houseService = $this->createMock(HouseService::class);
         $this->db = $this->createMock(IDBConnection::class);
 
         $this->service = new RoomService(
@@ -60,6 +63,7 @@ class RoomServiceTest extends TestCase
             $this->gameLogicService,
             $this->taskAssigneeMapper,
             $this->completedTaskMapper,
+            $this->houseService,
             $this->db
         );
     }

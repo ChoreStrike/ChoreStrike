@@ -37,6 +37,7 @@ class RoomService
     private GameLogicService $gameLogicService;
     private TaskAssigneeMapper $taskAssigneeMapper;
     private CompletedTaskMapper $completedTaskMapper;
+    private HouseService $houseService;
     private IDBConnection $db;
 
     public function __construct(
@@ -48,6 +49,7 @@ class RoomService
         GameLogicService $gameLogicService,
         TaskAssigneeMapper $taskAssigneeMapper,
         CompletedTaskMapper $completedTaskMapper,
+        HouseService $houseService,
         IDBConnection $db
     ) {
         $this->roomMapper = $roomMapper;
@@ -58,6 +60,7 @@ class RoomService
         $this->gameLogicService = $gameLogicService;
         $this->taskAssigneeMapper = $taskAssigneeMapper;
         $this->completedTaskMapper = $completedTaskMapper;
+        $this->houseService = $houseService;
         $this->db = $db;
     }
 
@@ -400,6 +403,13 @@ class RoomService
             throw $e;
         }
 
+        // Refresh weekly goal progress AFTER commit so reads are consistent
+        // across engines (the new completion row + any next_due shift from
+        // markCompleted are visible). The frontend detects the
+        // not-achieved → achieved transition by comparing its previous store
+        // snapshot with this fresh one, so we don't need a pre-read here.
+        $weeklyGoal = $this->houseService->getWeeklyGoalProgress($floor->getHouseId());
+
         return [
             'roomTask' => $roomTask,
             'room' => $updatedRoom,
@@ -412,6 +422,10 @@ class RoomService
                 'coins' => $gameResult['coins'],
                 'isCombo' => $gameResult['isCombo'],
                 'currentStreak' => $gameResult['currentStreak'],
+                'streakFreezeUsed' => $gameResult['streakFreezeUsed'] ?? false,
+                'streakFreezesRemaining' => $gameResult['streakFreezesRemaining'] ?? 0,
+                'comboBonusFreeze' => $gameResult['comboBonusFreeze'] ?? false,
+                'weeklyGoal' => $weeklyGoal,
             ]
         ];
     }

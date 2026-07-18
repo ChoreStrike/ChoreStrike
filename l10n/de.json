@@ -254,6 +254,21 @@
         "Assigned members": "Zugewiesene Mitglieder",
         "No house members found": "Keine Haushaltsmitglieder gefunden",
         "{count} assigned": "{count} zugewiesen",
-        "Assigned": "Zugewiesen"
+        "Assigned": "Zugewiesen",
+
+        "Streak Freeze": "Serien-Freeze",
+        "Streak Freezes": "Serien-Freezes",
+        "{count} freeze remaining": "{count} Freeze übrig",
+        "{count} freezes remaining": "{count} Freezes übrig",
+        "Streak protected by freeze!": "Serie durch Freeze geschützt!",
+        "Bonus freeze earned from combo!": "Bonus-Freeze durch Kombo verdient!",
+        "Weekly goal reached!": "Wochenziel erreicht!",
+        "Weekly Household Goal": "Wöchentliches Haushaltsziel",
+        "{completed} of {due} tasks this week": "{completed} von {due} Aufgaben diese Woche",
+        "Goal: {target}%": "Ziel: {target}%",
+        "Target: {target}%": "Ziel: {target}%",
+        "Sound effects": "Soundeffekte",
+        "Mute sounds": "Sounds stummschalten",
+        "Unmute sounds": "Stummschaltung aufheben"
     }
 }

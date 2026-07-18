@@ -31,8 +31,17 @@ describe('Game Store', () => {
 			expect(store.householdProgress.totalCoins).toBe(0)
 			expect(store.householdProgress.totalContributionScore).toBe(0)
 			expect(store.householdProgress.teamStreak).toBe(0)
-			expect(store.householdProgress.weeklyGoal.target).toBe(20)
-			expect(store.householdProgress.weeklyGoal.completed).toBe(0)
+			// Weekly goal snapshot starts empty (server has not been queried
+			// yet); defaults match the server payload shape.
+			expect(store.householdProgress.weeklyGoal).toEqual({
+				dueCount: 0,
+				completedCount: 0,
+				percent: 0,
+				targetPercent: 80,
+				achieved: false,
+				weekStart: null,
+				weekEnd: null,
+			})
 			expect(store.celebrations).toEqual([])
 		})
 	})
@@ -84,27 +93,46 @@ describe('Game Store', () => {
 			expect(store.teamStreak).toBe(7)
 		})
 
-		it('weeklyGoalProgress calculates percentage', () => {
-			store.householdProgress.weeklyGoal.target = 20
-			store.householdProgress.weeklyGoal.completed = 10
+		it('weeklyGoalProgress returns server snapshot percent', () => {
+			store.setWeeklyGoal({
+				dueCount: 10,
+				completedCount: 5,
+				percent: 50,
+				targetPercent: 80,
+				achieved: false,
+				weekStart: null,
+				weekEnd: null,
+			})
 			expect(store.weeklyGoalProgress).toBe(50)
 		})
 
-		it('weeklyGoalProgress caps at 100', () => {
-			store.householdProgress.weeklyGoal.target = 20
-			store.householdProgress.weeklyGoal.completed = 25
-			expect(store.weeklyGoalProgress).toBe(100)
+		it('weeklyGoalProgress defaults to 0 without a snapshot', () => {
+			expect(store.weeklyGoalProgress).toBe(0)
 		})
 
-		it('isWeeklyGoalAchieved returns true when goal met', () => {
-			store.householdProgress.weeklyGoal.target = 20
-			store.householdProgress.weeklyGoal.completed = 20
+		it('isWeeklyGoalAchieved returns true when achieved flag set', () => {
+			store.setWeeklyGoal({
+				dueCount: 5,
+				completedCount: 5,
+				percent: 100,
+				targetPercent: 80,
+				achieved: true,
+				weekStart: null,
+				weekEnd: null,
+			})
 			expect(store.isWeeklyGoalAchieved).toBe(true)
 		})
 
-		it('isWeeklyGoalAchieved returns false when goal not met', () => {
-			store.householdProgress.weeklyGoal.target = 20
-			store.householdProgress.weeklyGoal.completed = 15
+		it('isWeeklyGoalAchieved returns false when not achieved', () => {
+			store.setWeeklyGoal({
+				dueCount: 5,
+				completedCount: 3,
+				percent: 60,
+				targetPercent: 80,
+				achieved: false,
+				weekStart: null,
+				weekEnd: null,
+			})
 			expect(store.isWeeklyGoalAchieved).toBe(false)
 		})
 
@@ -129,6 +157,54 @@ describe('Game Store', () => {
 				await store.fetchGameState()
 
 				expect(store.gameState).toEqual(mockState)
+			})
+
+			it('hydrates weekly goal snapshot from the response', async () => {
+				const mockState = {
+					houseHealth: 85,
+					weeklyGoal: {
+						dueCount: 5,
+						completedCount: 4,
+						percent: 80,
+						targetPercent: 80,
+						achieved: true,
+						weekStart: '2026-07-13T00:00:00+00:00',
+						weekEnd: '2026-07-19T23:59:59+00:00',
+					},
+				}
+				axios.get.mockResolvedValue({ data: { success: true, data: mockState } })
+
+				await store.fetchGameState()
+
+				expect(store.householdProgress.weeklyGoal.dueCount).toBe(5)
+				expect(store.householdProgress.weeklyGoal.completedCount).toBe(4)
+				expect(store.householdProgress.weeklyGoal.percent).toBe(80)
+				expect(store.householdProgress.weeklyGoal.achieved).toBe(true)
+			})
+
+			it('does not celebrate a previously-achieved goal on initial load', async () => {
+				const mockState = {
+					houseHealth: 85,
+					weeklyGoal: {
+						dueCount: 5,
+						completedCount: 5,
+						percent: 100,
+						targetPercent: 80,
+						achieved: true,
+						weekStart: null,
+						weekEnd: null,
+					},
+				}
+				axios.get.mockResolvedValue({ data: { success: true, data: mockState } })
+
+				await store.fetchGameState()
+
+				// The transition celebration is suppressed (dismissed) so the
+				// user is not greeted by a stale toast for a goal that was
+				// already achieved in a previous session.
+				const weeklyCelebration = store.celebrations.find(c => c.type === 'weekly_goal_achieved')
+				expect(weeklyCelebration).toBeDefined()
+				expect(weeklyCelebration.dismissed).toBe(true)
 			})
 
 			it('handles error', async () => {
@@ -199,7 +275,7 @@ describe('Game Store', () => {
 				store.combos = [{ id: 1 }]
 				store.loading = true
 				store.error = 'Error'
-				store.householdProgress.totalTeamSparks = 500
+				store.householdProgress.totalCoins = 500
 				store.householdProgress.teamStreak = 5
 				store.celebrations = [{ id: 1 }]
 
@@ -213,6 +289,8 @@ describe('Game Store', () => {
 				expect(store.error).toBeNull()
 				expect(store.householdProgress.totalCoins).toBe(0)
 				expect(store.householdProgress.teamStreak).toBe(0)
+				expect(store.householdProgress.weeklyGoal.percent).toBe(0)
+				expect(store.householdProgress.weeklyGoal.achieved).toBe(false)
 				expect(store.celebrations).toEqual([])
 			})
 		})
@@ -249,42 +327,105 @@ describe('Game Store', () => {
 			})
 		})
 
-		describe('incrementWeeklyGoal', () => {
-			it('increments completed count', () => {
-				store.householdProgress.weeklyGoal.completed = 5
-				store.incrementWeeklyGoal()
-				expect(store.householdProgress.weeklyGoal.completed).toBe(6)
+		describe('setWeeklyGoal', () => {
+			it('stores the server snapshot verbatim', () => {
+				store.setWeeklyGoal({
+					dueCount: 8,
+					completedCount: 4,
+					percent: 50,
+					targetPercent: 75,
+					achieved: false,
+					weekStart: '2026-07-13T00:00:00+00:00',
+					weekEnd: '2026-07-19T23:59:59+00:00',
+				})
+
+				expect(store.householdProgress.weeklyGoal.dueCount).toBe(8)
+				expect(store.householdProgress.weeklyGoal.completedCount).toBe(4)
+				expect(store.householdProgress.weeklyGoal.percent).toBe(50)
+				expect(store.householdProgress.weeklyGoal.targetPercent).toBe(75)
+				expect(store.householdProgress.weeklyGoal.achieved).toBe(false)
+				expect(store.householdProgress.weeklyGoal.weekStart).toBe('2026-07-13T00:00:00+00:00')
+				expect(store.householdProgress.weeklyGoal.weekEnd).toBe('2026-07-19T23:59:59+00:00')
 			})
 
-			it('triggers celebration when goal achieved', () => {
-				store.householdProgress.weeklyGoal.target = 3
-				store.householdProgress.weeklyGoal.completed = 2
-				store.incrementWeeklyGoal()
+			it('triggers celebration on the not-achieved → achieved transition', () => {
+				store.setWeeklyGoal({
+					dueCount: 5,
+					completedCount: 3,
+					percent: 60,
+					targetPercent: 80,
+					achieved: false,
+					weekStart: null,
+					weekEnd: null,
+				})
+
+				store.setWeeklyGoal({
+					dueCount: 5,
+					completedCount: 4,
+					percent: 80,
+					targetPercent: 80,
+					achieved: true,
+					weekStart: null,
+					weekEnd: null,
+				})
+
 				expect(store.celebrations).toHaveLength(1)
 				expect(store.celebrations[0].type).toBe('weekly_goal_achieved')
 			})
 
-			it('does not trigger celebration if already achieved', () => {
-				store.householdProgress.weeklyGoal.target = 3
-				store.householdProgress.weeklyGoal.completed = 5
-				store.incrementWeeklyGoal()
+			it('does not trigger celebration when already achieved', () => {
+				// Seed the store as already-achieved so subsequent updates do
+				// not re-emit the celebration. (The fresh store starts at
+				// achieved=false; calling setWeeklyGoal with achieved=true
+				// once would emit a celebration — that path is covered above.)
+				store.setWeeklyGoal({
+					dueCount: 5,
+					completedCount: 5,
+					percent: 100,
+					targetPercent: 80,
+					achieved: true,
+					weekStart: null,
+					weekEnd: null,
+				})
+				// Pop and dismiss the legitimate transition celebration so
+				// the assertion below only checks the second call.
+				store.celebrations = []
+
+				// Subsequent update, still achieved — no new celebration.
+				store.setWeeklyGoal({
+					dueCount: 6,
+					completedCount: 6,
+					percent: 100,
+					targetPercent: 80,
+					achieved: true,
+					weekStart: null,
+					weekEnd: null,
+				})
+
 				expect(store.celebrations).toHaveLength(0)
 			})
-		})
 
-		describe('setWeeklyGoalTarget', () => {
-			it('sets new goal target', () => {
-				store.setWeeklyGoalTarget(30)
-				expect(store.householdProgress.weeklyGoal.target).toBe(30)
+			it('ignores non-object payloads gracefully', () => {
+				store.setWeeklyGoal(null)
+				store.setWeeklyGoal(undefined)
+				store.setWeeklyGoal('not-an-object')
+
+				// Initial defaults remain untouched.
+				expect(store.householdProgress.weeklyGoal.percent).toBe(0)
+				expect(store.householdProgress.weeklyGoal.achieved).toBe(false)
 			})
-		})
 
-		describe('resetWeeklyGoal', () => {
-			it('resets completed count and sets start date', () => {
-				store.householdProgress.weeklyGoal.completed = 15
-				store.resetWeeklyGoal()
-				expect(store.householdProgress.weeklyGoal.completed).toBe(0)
-				expect(store.householdProgress.weeklyGoal.startDate).not.toBeNull()
+			it('coerces missing numeric fields to safe defaults', () => {
+				store.setWeeklyGoal({
+					achieved: true,
+					// All numeric fields omitted.
+				})
+
+				expect(store.householdProgress.weeklyGoal.dueCount).toBe(0)
+				expect(store.householdProgress.weeklyGoal.completedCount).toBe(0)
+				expect(store.householdProgress.weeklyGoal.percent).toBe(0)
+				expect(store.householdProgress.weeklyGoal.targetPercent).toBe(80)
+				expect(store.householdProgress.weeklyGoal.achieved).toBe(true)
 			})
 		})
 

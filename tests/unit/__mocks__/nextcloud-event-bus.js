@@ -1,10 +1,9 @@
+export const emit = jest.fn()
+export const subscribe = jest.fn()
+export const unsubscribe = jest.fn()
+
 export default {
-  $on: jest.fn(),
-  $off: jest.fn(),
-  $emit: jest.fn(),
-  on: jest.fn(),
-  off: jest.fn(),
-  emit: jest.fn(),
-  subscribe: jest.fn(() => ({ unsubscribe: jest.fn() })),
-  unsubscribe: jest.fn(),
+	emit,
+	subscribe,
+	unsubscribe,
 }

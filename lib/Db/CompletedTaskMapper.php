@@ -245,4 +245,68 @@ class CompletedTaskMapper extends QBMapper
         $result = $qb->executeQuery();
         return (int)$result->fetchOne();
     }
+
+    /**
+     * Count all completions by a house user on a specific calendar day.
+     *
+     * @param int $houseUserId The house user ID
+     * @param \DateTimeInterface $date Date used to determine day boundaries
+     * @return int Number of completions on that day
+     */
+    public function countByUserOnDate(int $houseUserId, \DateTimeInterface $date): int
+    {
+        $startOfDay = new \DateTimeImmutable($date->format('Y-m-d') . ' 00:00:00');
+        $endOfDay = $startOfDay->modify('+1 day');
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->select($qb->func()->count('*'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)));
+
+        $result = $qb->executeQuery();
+        return (int)$result->fetchOne();
+    }
+
+    /**
+     * Find distinct room_task_ids with at least one completion within a date range for a house.
+     *
+     * Used by the weekly household goal as the numerator (distinct tasks done
+     * this week) and as the "completed" part of the denominator (so a task
+     * that just shifted out of the active-due set still counts as part of
+     * this week's planned work). Joins completed_tasks → room_tasks → rooms →
+     * floors to scope by house because completed_tasks has no denormalized
+     * house_id column.
+     *
+     * Uses COUNT of DISTINCT room_task_id semantics: a daily task completed
+     * three times this week contributes 1 unit, matching the "this task was
+     * done this week" intuition rather than "we did N chores".
+     *
+     * @param int $houseId The house ID
+     * @param \DateTimeInterface $start Inclusive range start
+     * @param \DateTimeInterface $end Inclusive range end
+     * @return int[] Distinct room task IDs with a completion in the range
+     */
+    public function findCompletedRoomTaskIdsBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('ct.room_task_id')
+            ->from($this->getTableName(), 'ct')
+            ->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
+            ->innerJoin('rt', 'chorestrike_rooms', 'r', $qb->expr()->eq('rt.room_id', 'r.id'))
+            ->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+            ->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+            ->groupBy('ct.room_task_id');
+
+        $result = $qb->executeQuery();
+        $ids = [];
+        while ($row = $result->fetch()) {
+            $ids[] = (int)$row['room_task_id'];
+        }
+        $result->closeCursor();
+        return $ids;
+    }
 }

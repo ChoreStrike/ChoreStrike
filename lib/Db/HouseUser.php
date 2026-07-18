@@ -43,6 +43,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setJoinedAt(\DateTime $joinedAt)
  * @method array getSchedulingPreferences()
  * @method void setSchedulingPreferences(array $preferences)
+ * @method int getStreakFreezes()
+ * @method void setStreakFreezes(int $streakFreezes)
  */
 class HouseUser extends Entity implements JsonSerializable
 {
@@ -88,6 +90,9 @@ class HouseUser extends Entity implements JsonSerializable
     /** @var int */
     protected $longestStreak = 0;
 
+    /** @var int */
+    protected $streakFreezes = 1;
+
     public function __construct()
     {
         $this->addType('id', 'integer');
@@ -105,6 +110,7 @@ class HouseUser extends Entity implements JsonSerializable
         $this->addType('role', 'string');
         $this->addType('joinedAt', 'datetime');
         $this->addType('schedulingPreferences', 'json');
+        $this->addType('streakFreezes', 'integer');
     }
 
     /**
@@ -128,6 +134,7 @@ class HouseUser extends Entity implements JsonSerializable
             'role' => $this->role,
             'joinedAt' => $this->joinedAt?->format('c'),
             'schedulingPreferences' => $this->schedulingPreferences,
+            'streakFreezes' => $this->streakFreezes,
         ];
     }
 
@@ -303,6 +310,41 @@ class HouseUser extends Entity implements JsonSerializable
         $this->setCurrentStreak($newStreak);
         if ($newStreak > $this->longestStreak) {
             $this->setLongestStreak($newStreak);
+        }
+    }
+
+    /**
+     * Consume one streak freeze. Returns true if a freeze was consumed, false if none available.
+     */
+    public function consumeFreeze(): bool
+    {
+        if ($this->streakFreezes <= 0) {
+            return false;
+        }
+        $this->setStreakFreezes($this->streakFreezes - 1);
+        return true;
+    }
+
+    /**
+     * Restock streak freezes to the configured amount, capped at the given maximum.
+     *
+     * @param int $count Target freeze count
+     * @param int $cap Maximum allowed freezes
+     */
+    public function restockFreezes(int $count, int $cap = 2): void
+    {
+        $this->setStreakFreezes(min($count, $cap));
+    }
+
+    /**
+     * Award a bonus freeze (e.g. from combo milestone), respecting the cap.
+     *
+     * @param int $cap Maximum allowed freezes
+     */
+    public function awardBonusFreeze(int $cap = 2): void
+    {
+        if ($this->streakFreezes < $cap) {
+            $this->setStreakFreezes($this->streakFreezes + 1);
         }
     }
 }

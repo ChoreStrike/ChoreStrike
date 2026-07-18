@@ -9,6 +9,8 @@ import axios from '@nextcloud/axios'
 import App from './App.vue'
 import router from './router.js'
 import { logger } from './utils/logger.js'
+import { useCelebration } from './composables/useCelebration.js'
+import { unlockAudio } from './utils/sound.js'
 
 // Configure axios for Nextcloud CSRF protection
 axios.defaults.headers.common.requesttoken = window.OC?.requestToken || ''
@@ -22,6 +24,11 @@ try {
 	app.use(router)
 
 	app.mount('#app-chorestrike-vue')
+
+	useCelebration()
+
+	document.addEventListener('click', unlockAudio, { once: true })
+	document.addEventListener('touchstart', unlockAudio, { once: true })
 
 	// Register for debugging
 	window.chorestrike = { app, pinia, router }

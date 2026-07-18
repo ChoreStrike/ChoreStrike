@@ -50,4 +50,9 @@ Complete tasks, build streaks and keep your home tidy together. Perfect for fami
     <commands>
         <command>OCA\ChoreStrike\Command\TestDataSeed</command>
     </commands>
+
+    <backgroundjobs>
+        <job>OCA\ChoreStrike\BackgroundJob\StreakFreezeJob</job>
+        <job>OCA\ChoreStrike\BackgroundJob\StreakRestockJob</job>
+    </backgroundjobs>
 </info>

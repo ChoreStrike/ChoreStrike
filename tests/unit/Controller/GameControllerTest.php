@@ -59,8 +59,19 @@ class GameControllerTest extends TestCase
             'completedTasks' => 42,
         ];
 
+        $weeklyGoal = [
+            'dueCount' => 5,
+            'completedCount' => 4,
+            'percent' => 80,
+            'targetPercent' => 80,
+            'achieved' => true,
+            'weekStart' => '2026-07-13T00:00:00+00:00',
+            'weekEnd' => '2026-07-19T23:59:59+00:00',
+        ];
+
         $this->houseService->method('getInstanceId')->willReturn('instance-123');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->houseService->method('getWeeklyGoalProgress')->with(1)->willReturn($weeklyGoal);
         $this->authService->method('requireHouseMember');
 
         $this->gameLogicService->expects($this->once())
@@ -76,6 +87,7 @@ class GameControllerTest extends TestCase
         $data = $response->getData();
         $this->assertTrue($data['success']);
         $this->assertEquals(85, $data['data']['houseHealth']);
+        $this->assertSame($weeklyGoal, $data['data']['weeklyGoal']);
     }
 
     /**

@@ -198,4 +198,104 @@ class HouseUserTest extends TestCase
         self::assertEquals(0, $houseUser->getCurrentStreak());
         self::assertEquals(10, $houseUser->getLongestStreak());
     }
+
+    /**
+     * ConsumeFreeze_WhenAvailable_ReturnsTrueAndDecrements
+     */
+    public function testConsumeFreeze_WhenAvailable_ReturnsTrueAndDecrements(): void
+    {
+        $houseUser = new HouseUser();
+        $houseUser->setStreakFreezes(2);
+
+        self::assertTrue($houseUser->consumeFreeze());
+        self::assertEquals(1, $houseUser->getStreakFreezes());
+    }
+
+    /**
+     * ConsumeFreeze_WhenNoneAvailable_ReturnsFalse
+     */
+    public function testConsumeFreeze_WhenNoneAvailable_ReturnsFalse(): void
+    {
+        $houseUser = new HouseUser();
+        $houseUser->setStreakFreezes(0);
+
+        self::assertFalse($houseUser->consumeFreeze());
+        self::assertEquals(0, $houseUser->getStreakFreezes());
+    }
+
+    /**
+     * RestockFreezes_SetsToConfiguredValue
+     */
+    public function testRestockFreezes_SetsToConfiguredValue(): void
+    {
+        $houseUser = new HouseUser();
+        $houseUser->setStreakFreezes(0);
+
+        $houseUser->restockFreezes(1, 2);
+
+        self::assertEquals(1, $houseUser->getStreakFreezes());
+    }
+
+    /**
+     * RestockFreezes_RespectsCap
+     */
+    public function testRestockFreezes_RespectsCap(): void
+    {
+        $houseUser = new HouseUser();
+        $houseUser->setStreakFreezes(0);
+
+        $houseUser->restockFreezes(5, 2);
+
+        self::assertEquals(2, $houseUser->getStreakFreezes());
+    }
+
+    /**
+     * AwardBonusFreeze_IncrementsWhenBelowCap
+     */
+    public function testAwardBonusFreeze_IncrementsWhenBelowCap(): void
+    {
+        $houseUser = new HouseUser();
+        $houseUser->setStreakFreezes(1);
+
+        $houseUser->awardBonusFreeze(2);
+
+        self::assertEquals(2, $houseUser->getStreakFreezes());
+    }
+
+    /**
+     * AwardBonusFreeze_NoOpWhenAtCap
+     */
+    public function testAwardBonusFreeze_NoOpWhenAtCap(): void
+    {
+        $houseUser = new HouseUser();
+        $houseUser->setStreakFreezes(2);
+
+        $houseUser->awardBonusFreeze(2);
+
+        self::assertEquals(2, $houseUser->getStreakFreezes());
+    }
+
+    /**
+     * JsonSerialize_IncludesStreakFreezes
+     */
+    public function testJsonSerialize_IncludesStreakFreezes(): void
+    {
+        $houseUser = new HouseUser();
+        $houseUser->setStreakFreezes(2);
+
+        $result = $houseUser->jsonSerialize();
+
+        self::assertArrayHasKey('streakFreezes', $result);
+        self::assertEquals(2, $result['streakFreezes']);
+    }
+
+    /**
+     * DefaultStreakFreezes_IsOne
+     */
+    public function testDefaultStreakFreezes_IsOne(): void
+    {
+        $houseUser = new HouseUser();
+
+        self::assertEquals(1, $houseUser->getStreakFreezes());
+    }
 }

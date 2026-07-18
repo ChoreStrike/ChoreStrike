@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import axios from '@nextcloud/axios'
+import { emit } from '@nextcloud/event-bus'
 import { logger } from '../utils/logger.js'
 
 export const useGameStore = defineStore('game', {
@@ -15,15 +16,27 @@ export const useGameStore = defineStore('game', {
 		combos: [],
 		loading: false,
 		error: null,
-		// Cooperative features state
+		// Cooperative features state.
+		//
+		// `weeklyGoal` is the server-driven weekly household goal snapshot
+		// returned by GameController#state and RoomService::completeRoomTask.
+		// It mirrors the HouseService::getWeeklyGoalProgress payload shape so
+		// the store can be populated directly from API responses without any
+		// client-side arithmetic. The legacy `{ target, completed, startDate }`
+		// shape is gone (it never reflected reality — it only incremented
+		// client-side with no denominator or weekly reset).
 		householdProgress: {
 			totalCoins: 0,
 			totalContributionScore: 0,
 			teamStreak: 0,
 			weeklyGoal: {
-				target: 20, // Configurable weekly task goal
-				completed: 0,
-				startDate: null,
+				dueCount: 0,
+				completedCount: 0,
+				percent: 0,
+				targetPercent: 80,
+				achieved: false,
+				weekStart: null,
+				weekEnd: null,
 			},
 		},
 		celebrations: [],
@@ -65,18 +78,28 @@ export const useGameStore = defineStore('game', {
 		},
 
 		/**
-		 * Get weekly goal progress percentage
+		 * Get weekly goal progress percentage (server-computed).
+		 *
+		 * Reads the server snapshot directly — no client-side math. Returns 0
+		 * when no snapshot has been loaded yet.
 		 */
 		weeklyGoalProgress: (state) => {
-			const { target, completed } = state.householdProgress.weeklyGoal
-			return Math.min(Math.round((completed / target) * 100), 100)
+			return state.householdProgress.weeklyGoal.percent ?? 0
 		},
 
 		/**
-		 * Check if weekly goal is achieved
+		 * Check if weekly goal is achieved (server-computed).
 		 */
 		isWeeklyGoalAchieved: (state) => {
-			return state.householdProgress.weeklyGoal.completed >= state.householdProgress.weeklyGoal.target
+			return state.householdProgress.weeklyGoal.achieved === true
+		},
+
+		/**
+		 * Get the underlying weekly goal snapshot (dueCount, completedCount,
+		 * percent, targetPercent, achieved, weekStart, weekEnd).
+		 */
+		weeklyGoal: (state) => {
+			return state.householdProgress.weeklyGoal
 		},
 
 		/**
@@ -84,6 +107,17 @@ export const useGameStore = defineStore('game', {
 		 */
 		pendingCelebrations: (state) => {
 			return state.celebrations.filter(c => !c.dismissed)
+		},
+
+		/**
+		 * Get streak freezes for a specific user from game state
+		 * @param {object} state - Store state
+		 * @return {function(number): number} Function that takes userId and returns freeze count
+		 */
+		userStreakFreezes: (state) => (nextcloudUserId) => {
+			if (!state.gameState?.users) return 0
+			const user = state.gameState.users.find(u => u.nextcloudUserId === nextcloudUserId)
+			return user?.streakFreezes ?? 0
 		},
 	},
 
@@ -100,6 +134,26 @@ export const useGameStore = defineStore('game', {
 
 				if (response.data.success) {
 					this.gameState = response.data.data
+					// Hydrate the weekly goal snapshot if the server included it
+					// (Phase 3 onwards). Don't emit the celebration here on
+					// initial load — only live transitions during a session
+					// deserve confetti.
+					if (response.data.data?.weeklyGoal) {
+						const previousAchieved = this.householdProgress.weeklyGoal?.achieved === true
+						this.setWeeklyGoal(response.data.data.weeklyGoal)
+						// Suppress the cross-session celebration by marking the
+						// loaded state as already-seen: re-stash achieved flag.
+						// (setWeeklyGoal emits on false→true; on initial load we
+						// don't want to celebrate an already-achieved goal.)
+						if (!previousAchieved && this.householdProgress.weeklyGoal.achieved) {
+							// Pop the celebration we just pushed so the user is
+							// not greeted by a stale toast on page load.
+							const last = this.celebrations[this.celebrations.length - 1]
+							if (last && last.type === 'weekly_goal_achieved') {
+								last.dismissed = true
+							}
+						}
+					}
 				} else {
 					throw new Error(response.data.error?.message || 'Failed to fetch game state')
 				}
@@ -230,35 +284,47 @@ export const useGameStore = defineStore('game', {
 		},
 
 		/**
-		 * Increment weekly goal progress
-		 * @param {number} increment - Number of tasks to add (default 1)
+		 * Replace the weekly goal snapshot from a server payload.
+		 *
+		 * Source: GameController#state (`gameState.weeklyGoal`) or
+		 * RoomService::completeRoomTask rewards (`rewards.weeklyGoal`). On the
+		 * not-achieved → achieved transition the store emits
+		 * `chorestrike:weekly-goal-reached` so the celebration composable can
+		 * fire confetti + sound. Detecting the transition here (rather than in
+		 * the backend) keeps the server stateless about who has already seen
+		 * the celebration.
+		 *
+		 * @param {object} weeklyGoal Server payload shape:
+		 *   `{ dueCount, completedCount, percent, targetPercent, achieved, weekStart, weekEnd }`
 		 */
-		incrementWeeklyGoal(increment = 1) {
-			this.householdProgress.weeklyGoal.completed += increment
-
-			// Check if goal was just achieved
-			if (this.householdProgress.weeklyGoal.completed >= this.householdProgress.weeklyGoal.target
-				&& this.householdProgress.weeklyGoal.completed - increment < this.householdProgress.weeklyGoal.target) {
-				this.triggerCelebration('weekly_goal_achieved')
+		setWeeklyGoal(weeklyGoal) {
+			if (!weeklyGoal || typeof weeklyGoal !== 'object') {
+				return
 			}
-		},
 
-		/**
-		 * Set weekly goal target
-		 * @param {number} target - The new weekly goal target
-		 */
-		setWeeklyGoalTarget(target) {
-			this.householdProgress.weeklyGoal.target = target
-		},
+			const previous = this.householdProgress.weeklyGoal
+			const wasAchieved = previous?.achieved === true
+			const nowAchieved = weeklyGoal.achieved === true
 
-		/**
-		 * Reset weekly goal for new week
-		 */
-		resetWeeklyGoal() {
-			const now = new Date()
-			const weekStart = this.getWeekStart(now)
-			this.householdProgress.weeklyGoal.completed = 0
-			this.householdProgress.weeklyGoal.startDate = weekStart
+			this.householdProgress.weeklyGoal = {
+				dueCount: Number.isFinite(weeklyGoal.dueCount) ? weeklyGoal.dueCount : 0,
+				completedCount: Number.isFinite(weeklyGoal.completedCount) ? weeklyGoal.completedCount : 0,
+				percent: Number.isFinite(weeklyGoal.percent) ? weeklyGoal.percent : 0,
+				targetPercent: Number.isFinite(weeklyGoal.targetPercent) ? weeklyGoal.targetPercent : 80,
+				achieved: nowAchieved,
+				weekStart: weeklyGoal.weekStart ?? null,
+				weekEnd: weeklyGoal.weekEnd ?? null,
+			}
+
+			if (!wasAchieved && nowAchieved) {
+				this.triggerCelebration('weekly_goal_achieved')
+				emit('chorestrike:weekly-goal-reached', {
+					targetPercent: this.householdProgress.weeklyGoal.targetPercent,
+					percent: this.householdProgress.weeklyGoal.percent,
+					dueCount: this.householdProgress.weeklyGoal.dueCount,
+					completedCount: this.householdProgress.weeklyGoal.completedCount,
+				})
+			}
 		},
 
 		/**
@@ -358,73 +424,6 @@ export const useGameStore = defineStore('game', {
 		},
 
 		/**
-		 * Award medal to user
-		 * @param {string} userId - The ID of the user to award the medal to
-		 * @param {string} medalType - The type of medal to award
-		 * @param {number} value - The value associated with the medal
-		 */
-		awardMedal(userId, medalType, value) {
-			const medal = {
-				id: Date.now(),
-				userId,
-				medalType,
-				value,
-				awardedAt: new Date().toISOString(),
-				weekStart: this.getWeekStart(new Date()),
-			}
-
-			this.medals.push(medal)
-			return medal
-		},
-
-		/**
-		 * Get week start date
-		 * @param {Date|string} date - The date to calculate week start from
-		 */
-		getWeekStart(date = new Date()) {
-			const d = new Date(date)
-			const day = d.getDay()
-			const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
-			return new Date(d.setDate(diff)).toISOString().split('T')[0]
-		},
-
-		/**
-		 * Check medal eligibility
-		 * @param {string} userId - The ID of the user to check
-		 * @param {object} weeklyStats - Weekly statistics for the user
-		 */
-		checkMedalEligibility(userId, weeklyStats) {
-			const medals = []
-
-			// Team Anchor: Most tasks completed in a week
-			if (weeklyStats.tasksCompleted >= 10) {
-				medals.push(this.awardMedal(userId, 'team_anchor', weeklyStats.tasksCompleted))
-			}
-
-			// Flow Keeper: Consistent daily activity
-			if (weeklyStats.activeDays >= 5) {
-				medals.push(this.awardMedal(userId, 'flow_keeper', weeklyStats.activeDays))
-			}
-
-			// Room Guardian: Most room improvements
-			if (weeklyStats.roomsImproved >= 3) {
-				medals.push(this.awardMedal(userId, 'room_guardian', weeklyStats.roomsImproved))
-			}
-
-			// Team Player: Most collaborative tasks
-			if (weeklyStats.collaborativeTasks >= 5) {
-				medals.push(this.awardMedal(userId, 'team_player', weeklyStats.collaborativeTasks))
-			}
-
-			// Streak Keeper: Longest activity streak
-			if (weeklyStats.currentStreak >= 7) {
-				medals.push(this.awardMedal(userId, 'streak_keeper', weeklyStats.currentStreak))
-			}
-
-			return medals
-		},
-
-		/**
 		 * Initialize game data
 		 */
 		async initializeGame() {
@@ -457,9 +456,13 @@ export const useGameStore = defineStore('game', {
 				totalContributionScore: 0,
 				teamStreak: 0,
 				weeklyGoal: {
-					target: 20,
-					completed: 0,
-					startDate: null,
+					dueCount: 0,
+					completedCount: 0,
+					percent: 0,
+					targetPercent: 80,
+					achieved: false,
+					weekStart: null,
+					weekEnd: null,
 				},
 			}
 			this.celebrations = []

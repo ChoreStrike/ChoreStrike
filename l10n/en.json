@@ -253,6 +253,21 @@
         "Assigned members": "Assigned members",
         "No house members found": "No house members found",
         "{count} assigned": "{count} assigned",
-        "Assigned": "Assigned"
+        "Assigned": "Assigned",
+
+        "Streak Freeze": "Streak Freeze",
+        "Streak Freezes": "Streak Freezes",
+        "{count} freeze remaining": "{count} freeze remaining",
+        "{count} freezes remaining": "{count} freezes remaining",
+        "Streak protected by freeze!": "Streak protected by freeze!",
+        "Bonus freeze earned from combo!": "Bonus freeze earned from combo!",
+        "Weekly goal reached!": "Weekly goal reached!",
+        "Weekly Household Goal": "Weekly Household Goal",
+        "{completed} of {due} tasks this week": "{completed} of {due} tasks this week",
+        "Goal: {target}%": "Goal: {target}%",
+        "Target: {target}%": "Target: {target}%",
+        "Sound effects": "Sound effects",
+        "Mute sounds": "Mute sounds",
+        "Unmute sounds": "Unmute sounds"
     }
 }
