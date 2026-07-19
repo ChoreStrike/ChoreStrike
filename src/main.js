@@ -12,6 +12,8 @@ import { logger } from './utils/logger.js'
 import { useCelebration } from './composables/useCelebration.js'
 import { useToasts } from './composables/useToasts.js'
 import { unlockAudio } from './utils/sound.js'
+import './styles/tokens.css'
+import './styles/mobile.css'
 
 // Configure axios for Nextcloud CSRF protection
 axios.defaults.headers.common.requesttoken = window.OC?.requestToken || ''

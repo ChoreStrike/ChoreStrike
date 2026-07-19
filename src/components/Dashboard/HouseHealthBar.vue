@@ -176,23 +176,23 @@ export default {
 }
 
 .health-bar-fill.excellent {
-  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  background: linear-gradient(90deg, var(--cs-health-full), var(--cs-health-good));
 }
 
 .health-bar-fill.good {
-  background: linear-gradient(90deg, #2196F3, #03A9F4);
+  background: linear-gradient(90deg, var(--cs-health-full), var(--color-primary-element-light, #4FA8E0));
 }
 
 .health-bar-fill.fair {
-  background: linear-gradient(90deg, #FF9800, #FFC107);
+  background: linear-gradient(90deg, var(--cs-celebrate-gold), var(--cs-celebrate-accent));
 }
 
 .health-bar-fill.poor {
-  background: linear-gradient(90deg, #FF5722, #FF7043);
+  background: linear-gradient(90deg, var(--cs-celebrate-accent), var(--cs-health-low));
 }
 
 .health-bar-fill.terrible {
-  background: linear-gradient(90deg, #F44336, #E91E63);
+  background: linear-gradient(90deg, var(--cs-health-low), var(--cs-streak-flame));
 }
 
 .health-bar-glow {
@@ -226,23 +226,23 @@ export default {
 }
 
 .status-text.excellent {
-  color: #4CAF50;
+  color: var(--cs-celebrate-success);
 }
 
 .status-text.good {
-  color: #2196F3;
+  color: var(--cs-health-full);
 }
 
 .status-text.fair {
-  color: #FF9800;
+  color: var(--cs-celebrate-gold);
 }
 
 .status-text.poor {
-  color: #FF5722;
+  color: var(--cs-celebrate-accent);
 }
 
 .status-text.terrible {
-  color: #F44336;
+  color: var(--cs-health-low);
 }
 
 .refresh-button {

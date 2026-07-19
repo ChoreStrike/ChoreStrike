@@ -14,7 +14,7 @@
 
 		<div class="arcade-content">
 			<!-- Snake Game Card -->
-			<div class="game-card" @click="openSnakeGame">
+			<div class="game-card" data-testid="arcade-card-snake" @click="openSnakeGame">
 				<div class="game-preview">
 					<div class="snake-preview">
 						<span class="snake-icon">🐍</span>
@@ -37,7 +37,10 @@
 					</div>
 					<div class="boosts-available">
 						<span class="boosts-label">{{ t('chorestrike', 'Boosts') }}:</span>
-						<span v-for="boost in boostIcons" :key="boost.id" class="boost-icon" :title="boost.name">
+						<span v-for="boost in boostIcons"
+							:key="boost.id"
+							class="boost-icon"
+							:title="boost.name">
 							{{ boost.icon }}
 						</span>
 					</div>
@@ -49,18 +52,61 @@
 				</div>
 			</div>
 
-			<!-- Future Games Placeholder -->
-			<div class="game-card coming-soon">
-				<div class="game-preview">
-					<div class="coming-soon-preview">
-						<span class="coming-icon">🚧</span>
+			<!-- 2048 Game Card -->
+			<div class="game-card" data-testid="arcade-card-2048" @click="open2048">
+				<div class="game-preview game-preview-2048">
+					<div class="game-preview-tiles">
+						<span class="game-preview-tile t-2">2</span>
+						<span class="game-preview-tile t-4">4</span>
+						<span class="game-preview-tile t-8">8</span>
+						<span class="game-preview-tile t-16">16</span>
 					</div>
 				</div>
 				<div class="game-info">
-					<h3>{{ t('chorestrike', 'More Games Coming Soon!') }}</h3>
+					<h3>{{ t('chorestrike', '2048') }}</h3>
 					<p class="game-description">
-						{{ t('chorestrike', 'Stay tuned for more arcade games') }}
+						{{ t('chorestrike', 'Slide and merge matching tiles to reach 2048!') }}
 					</p>
+					<div class="game-stats">
+						<div class="stat">
+							<span class="stat-label">{{ t('chorestrike', 'Your Best') }}</span>
+							<span class="stat-value">{{ best2048 }}</span>
+						</div>
+					</div>
+				</div>
+				<div class="play-button">
+					<button class="btn btn-primary">
+						{{ t('chorestrike', 'Play') }}
+					</button>
+				</div>
+			</div>
+
+			<!-- Memory Game Card -->
+			<div class="game-card" data-testid="arcade-card-memory" @click="openMemory">
+				<div class="game-preview game-preview-memory">
+					<div class="game-preview-cards">
+						<span class="game-preview-card">🍎</span>
+						<span class="game-preview-card">🍌</span>
+						<span class="game-preview-card">❓</span>
+						<span class="game-preview-card">❓</span>
+					</div>
+				</div>
+				<div class="game-info">
+					<h3>{{ t('chorestrike', 'Memory') }}</h3>
+					<p class="game-description">
+						{{ t('chorestrike', 'Flip cards and match pairs. Train your brain!') }}
+					</p>
+					<div class="game-stats">
+						<div class="stat">
+							<span class="stat-label">{{ t('chorestrike', 'Your Best') }}</span>
+							<span class="stat-value">{{ bestMemory }}</span>
+						</div>
+					</div>
+				</div>
+				<div class="play-button">
+					<button class="btn btn-primary">
+						{{ t('chorestrike', 'Play') }}
+					</button>
 				</div>
 			</div>
 		</div>
@@ -73,8 +119,18 @@
 		</div>
 
 		<!-- Snake Game Modal -->
-		<Modal v-if="showGameModal" @close="closeGameModal">
+		<Modal v-if="activeGame === 'snake'" @close="closeGameModal">
 			<SnakeGame />
+		</Modal>
+
+		<!-- 2048 Game Modal -->
+		<Modal v-if="activeGame === '2048'" @close="closeGameModal">
+			<Game2048 />
+		</Modal>
+
+		<!-- Memory Game Modal -->
+		<Modal v-if="activeGame === 'memory'" @close="closeGameModal">
+			<MemoryGame />
 		</Modal>
 
 		<!-- Leaderboard Modal -->
@@ -89,17 +145,22 @@ import { useMinigameStore, BOOST_DESCRIPTIONS } from '../../store/minigame.js'
 import { storeToRefs } from 'pinia'
 import Modal from '../Common/Modal.vue'
 import SnakeGame from '../Minigames/SnakeGame.vue'
+import Game2048 from '../Minigames/Game2048.vue'
+import MemoryGame from '../Minigames/MemoryGame.vue'
 import SnakeLeaderboard from '../Minigames/SnakeLeaderboard.vue'
 
 const minigameStore = useMinigameStore()
 const { currentCoins, personalBest, userRank } = storeToRefs(minigameStore)
 
-const showGameModal = ref(false)
+const activeGame = ref(null)
 const showLeaderboardModal = ref(false)
 
 const personalBestScore = computed(() => {
 	return personalBest.value?.score || 0
 })
+
+const best2048 = ref(0)
+const bestMemory = ref(0)
 
 const boostIcons = computed(() => {
 	return Object.entries(BOOST_DESCRIPTIONS).map(([id, boost]) => ({
@@ -109,19 +170,27 @@ const boostIcons = computed(() => {
 	}))
 })
 
-const openSnakeGame = () => {
-	showGameModal.value = true
+function openSnakeGame() {
+	activeGame.value = 'snake'
 }
 
-const closeGameModal = () => {
-	showGameModal.value = false
+function open2048() {
+	activeGame.value = '2048'
 }
 
-const showLeaderboard = () => {
+function openMemory() {
+	activeGame.value = 'memory'
+}
+
+function closeGameModal() {
+	activeGame.value = null
+}
+
+function showLeaderboard() {
 	showLeaderboardModal.value = true
 }
 
-const closeLeaderboardModal = () => {
+function closeLeaderboardModal() {
 	showLeaderboardModal.value = false
 }
 
@@ -129,6 +198,10 @@ onMounted(async () => {
 	await minigameStore.fetchCoins()
 	await minigameStore.fetchPersonalBest('snake')
 	await minigameStore.fetchUserRank('snake')
+	await minigameStore.fetchPersonalBest('2048')
+	best2048.value = minigameStore.personalBest?.score || 0
+	await minigameStore.fetchPersonalBest('memory')
+	bestMemory.value = minigameStore.personalBest?.score || 0
 })
 </script>
 
@@ -171,9 +244,9 @@ onMounted(async () => {
 	align-items: center;
 	gap: 0.5rem;
 	padding: 0.5rem 1rem;
-	background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), rgba(255, 152, 0, 0.1));
+	background: linear-gradient(135deg, rgba(253, 203, 110, 0.18), rgba(255, 118, 117, 0.10));
 	border-radius: 8px;
-	border: 1px solid rgba(255, 193, 7, 0.3);
+	border: 1px solid rgba(253, 203, 110, 0.35);
 }
 
 .coins-icon {
@@ -183,7 +256,7 @@ onMounted(async () => {
 .coins-value {
 	font-size: 1.25rem;
 	font-weight: bold;
-	color: var(--color-warning, #ff9800);
+	color: var(--cs-celebrate-gold);
 }
 
 .coins-label {
@@ -209,15 +282,10 @@ onMounted(async () => {
 	border: 2px solid transparent;
 }
 
-.game-card:hover:not(.coming-soon) {
+.game-card:hover {
 	border-color: var(--color-primary);
 	transform: translateY(-2px);
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.game-card.coming-soon {
-	opacity: 0.6;
-	cursor: default;
 }
 
 .game-preview {
@@ -244,15 +312,47 @@ onMounted(async () => {
 	50% { transform: rotate(5deg); }
 }
 
-.coming-soon-preview {
+.game-preview-2048,
+.game-preview-memory {
+	background: linear-gradient(135deg, var(--cs-celebrate-primary), var(--cs-celebrate-accent));
+}
+
+.game-preview-tiles,
+.game-preview-cards {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 6px;
+	padding: 12px;
+}
+
+.game-preview-tile {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	width: 38px;
+	height: 38px;
+	border-radius: 6px;
+	font-weight: 700;
+	font-size: 1.1rem;
+	background: var(--color-background-dark);
+	color: var(--color-main-text);
 }
 
-.coming-icon {
-	font-size: 3rem;
-	opacity: 0.5;
+.game-preview-tile.t-2 { background: #EEE4DA; }
+.game-preview-tile.t-4 { background: #EDE0C8; }
+.game-preview-tile.t-8 { background: #F2B179; color: #FFFFFF; }
+.game-preview-tile.t-16 { background: #F59563; color: #FFFFFF; }
+
+.game-preview-card {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 38px;
+	height: 38px;
+	border-radius: 6px;
+	font-size: 1.2rem;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
 }
 
 .game-info {

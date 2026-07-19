@@ -1,0 +1,126 @@
+/*
+ * ChoreStrike Design Tokens (Phase 5 — Reach & joy)
+ *
+ * Semantic, theme-adaptive CSS variables for ChoreStrike's gamified surface.
+ * Mirrors the brand palette in docs/standards/guidelines/design.md
+ * ("Clean & Alert" — Ocean Blue / Coral Pop / Sunny Yellow) and exposes
+ * the game-specific layers (tier, rank, health, celebration) as named
+ * tokens so component CSS never hard-codes hex values.
+ *
+ * Tokens are loaded once from main.js and inherit from the Nextcloud theme
+ * variables (--color-primary-element, --color-main-background, …) for
+ * dark/light adaptation, falling back to the documented brand palette
+ * only when the host theme is unavailable.
+ */
+
+:root {
+	/* === Tier palette (bronze / silver / gold) =========================
+	 * Used by task badges, coin multipliers and the medal display.
+	 * Light-mode values; the dark block below overrides for dark themes.
+	 */
+	--cs-tier-bronze: #CD7F32;
+	--cs-tier-bronze-bg: rgba(205, 127, 50, 0.14);
+	--cs-tier-bronze-border: rgba(205, 127, 50, 0.45);
+	--cs-tier-silver: #8E9AAF;
+	--cs-tier-silver-bg: rgba(142, 154, 175, 0.18);
+	--cs-tier-silver-border: rgba(142, 154, 175, 0.50);
+	--cs-tier-gold:   #D4A017;
+	--cs-tier-gold-bg: rgba(212, 160, 23, 0.18);
+	--cs-tier-gold-border: rgba(212, 160, 23, 0.55);
+
+	/* === Rank palette (top-3 leaderboard accents) ===================== */
+	--cs-rank-first:  #FDCB6E; /* Sunny Yellow — gold rank */
+	--cs-rank-second: #B2BEC3; /* Polished silver */
+	--cs-rank-third:  #E17055; /* Coral bronze */
+
+	/* === House Health gradient (clean → defend) =======================
+	 * Drives the HouseHealthBar fill and the dashboard header glow.
+	 * Anchored to the brand primary but brightens in the upper bands.
+	 */
+	--cs-health-low:    #FF7675; /* Coral Pop — danger / low health */
+	--cs-health-mid:    #FAB1A0; /* Coral soft — mid health */
+	--cs-health-good:   #00CEC9; /* Turquoise — healthy */
+	--cs-health-full:   #0984E3; /* Ocean Blue — full health */
+	--cs-health-glow:   rgba(9, 132, 227, 0.35);
+
+	/* === Streak & celebration accents =================================
+	 * Single source of truth for the streak indicator, milestone badges
+	 * and the confetti palette used by src/utils/confetti.js.
+	 */
+	--cs-streak-flame:  #FF7675;
+	--cs-streak-flame-glow: rgba(255, 118, 117, 0.45);
+	--cs-celebrate-bronze: #CD7F32;
+	--cs-celebrate-silver: #DFE6E9;
+	--cs-celebrate-gold:   #FDCB6E;
+	--cs-celebrate-primary: var(--color-primary-element, #0984E3);
+	--cs-celebrate-accent: #FAB1A0;
+	--cs-celebrate-success: #00B894;
+
+	/* === Medal palette ================================================ */
+	--cs-medal-bronze: #CD7F32;
+	--cs-medal-silver: #B2BEC3;
+	--cs-medal-gold:   #FDCB6E;
+	--cs-medal-platinum: #74B9FF;
+
+	/* === Surface helpers ==============================================
+	 * Card / chip / shadow tokens used by ArcadeSection, the new
+	 * Minigames and the goal/reward surfaces. Inherit from Nextcloud
+	 * where possible so dark mode "just works".
+	 */
+	--cs-radius-sm: 6px;
+	--cs-radius-md: 10px;
+	--cs-radius-lg: 14px;
+	--cs-radius-pill: 999px;
+
+	--cs-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+	--cs-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+	--cs-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+	--cs-chip-bg: var(--color-background-dark, #F4F5F7);
+	--cs-card-bg: var(--color-main-background, #FFFFFF);
+	--cs-card-border: var(--color-border, #E5E7EB);
+
+	/* === Motion ======================================================= */
+	--cs-transition-fast: 120ms ease;
+	--cs-transition-base: 200ms ease;
+	--cs-transition-slow: 400ms ease;
+}
+
+/* Dark-mode overrides. Nextcloud sets data-theme-dark on the <body>
+ * (and a prefers-color-scheme media query on its own root) so we cover
+ * both. The light-mode defaults above stay intact for any other host. */
+[data-theme-dark] :root,
+:root[data-theme-dark] {
+	--cs-tier-bronze-bg: rgba(205, 127, 50, 0.22);
+	--cs-tier-silver-bg: rgba(142, 154, 175, 0.26);
+	--cs-tier-gold-bg:   rgba(212, 160, 23, 0.24);
+	--cs-health-glow:    rgba(0, 206, 201, 0.40);
+	--cs-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.30);
+	--cs-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.42);
+	--cs-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.50);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme-light]) {
+		--cs-tier-bronze-bg: rgba(205, 127, 50, 0.22);
+		--cs-tier-silver-bg: rgba(142, 154, 175, 0.26);
+		--cs-tier-gold-bg:   rgba(212, 160, 23, 0.24);
+		--cs-health-glow:    rgba(0, 206, 201, 0.40);
+		--cs-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.30);
+		--cs-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.42);
+		--cs-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.50);
+	}
+}
+
+/* === Reduced motion ===============================================
+ * The celebration layer (confetti + sound) already honours
+ * prefers-reduced-motion at runtime; this single token makes it easy
+ * for any future component to opt out as well.
+ */
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--cs-transition-fast: 0ms linear;
+		--cs-transition-base: 0ms linear;
+		--cs-transition-slow: 0ms linear;
+	}
+}

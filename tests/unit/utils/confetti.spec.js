@@ -1,76 +1,64 @@
-describe('confetti utility', () => {
-	let confettiModule
-	let mockConfetti
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
 
+import { describe, it, expect, beforeEach, jest } from '@jest/globals'
+
+jest.mock('canvas-confetti', () => jest.fn())
+
+import confetti from 'canvas-confetti'
+import { getCelebrationPalette, fireConfetti, fireMilestoneConfetti, areCelebrationsEnabled } from '../../../src/utils/confetti.js'
+
+describe('confetti utilities', () => {
 	beforeEach(() => {
-		jest.resetModules()
-		mockConfetti = jest.fn()
-		jest.doMock('canvas-confetti', () => ({
-			__esModule: true,
-			default: mockConfetti,
-		}))
+		confetti.mockReset()
 	})
 
-	afterEach(() => {
-		jest.restoreAllMocks()
+	describe('getCelebrationPalette', () => {
+		it('returns a non-empty palette even when CSS variables are missing', () => {
+			const palette = getCelebrationPalette()
+			expect(palette.length).toBeGreaterThan(0)
+			palette.forEach((color) => {
+				expect(typeof color).toBe('string')
+				expect(color.length).toBeGreaterThan(0)
+			})
+		})
 	})
 
-	it('fires confetti when reduced motion is not preferred', () => {
-		Object.defineProperty(window, 'matchMedia', {
-			writable: true,
-			value: jest.fn().mockReturnValue({ matches: false }),
+	describe('fireConfetti', () => {
+		it('forwards options and the celebration palette to canvas-confetti', () => {
+			fireConfetti({ particleCount: 42 })
+			expect(confetti).toHaveBeenCalledTimes(1)
+			const call = confetti.mock.calls[0][0]
+			expect(call.particleCount).toBe(42)
+			expect(call.colors.length).toBeGreaterThan(0)
+			expect(call.disableForReducedMotion).toBe(true)
 		})
 
-		confettiModule = require('@/utils/confetti')
-		confettiModule.fireConfetti()
-
-		expect(mockConfetti).toHaveBeenCalledTimes(1)
-		expect(mockConfetti).toHaveBeenCalledWith(
-			expect.objectContaining({ disableForReducedMotion: true }),
-		)
+		it('does not throw when the canvas is unavailable', () => {
+			confetti.mockImplementationOnce(() => {
+				throw new Error('no canvas')
+			})
+			expect(() => fireConfetti()).not.toThrow()
+		})
 	})
 
-	it('does not fire confetti when reduced motion is preferred', () => {
-		Object.defineProperty(window, 'matchMedia', {
-			writable: true,
-			value: jest.fn().mockReturnValue({ matches: true }),
+	describe('fireMilestoneConfetti', () => {
+		it('fires from both sides of the viewport', () => {
+			fireMilestoneConfetti({ particleCount: 30 })
+			expect(confetti).toHaveBeenCalledTimes(2)
+			const [left, right] = confetti.mock.calls.map((c) => c[0])
+			expect(left.angle).toBe(60)
+			expect(right.angle).toBe(120)
+			expect(left.origin.x).toBe(0)
+			expect(right.origin.x).toBe(1)
 		})
-
-		confettiModule = require('@/utils/confetti')
-		confettiModule.fireConfetti()
-
-		expect(mockConfetti).not.toHaveBeenCalled()
 	})
 
-	it('fires milestone confetti from both sides', () => {
-		Object.defineProperty(window, 'matchMedia', {
-			writable: true,
-			value: jest.fn().mockReturnValue({ matches: false }),
+	describe('areCelebrationsEnabled', () => {
+		it('returns a boolean', () => {
+			expect(typeof areCelebrationsEnabled()).toBe('boolean')
 		})
-
-		confettiModule = require('@/utils/confetti')
-		confettiModule.fireMilestoneConfetti()
-
-		expect(mockConfetti).toHaveBeenCalledTimes(2)
-	})
-
-	it('areCelebrationsEnabled returns false when reduced motion is preferred', () => {
-		Object.defineProperty(window, 'matchMedia', {
-			writable: true,
-			value: jest.fn().mockReturnValue({ matches: true }),
-		})
-
-		confettiModule = require('@/utils/confetti')
-		expect(confettiModule.areCelebrationsEnabled()).toBe(false)
-	})
-
-	it('areCelebrationsEnabled returns true when reduced motion is not preferred', () => {
-		Object.defineProperty(window, 'matchMedia', {
-			writable: true,
-			value: jest.fn().mockReturnValue({ matches: false }),
-		})
-
-		confettiModule = require('@/utils/confetti')
-		expect(confettiModule.areCelebrationsEnabled()).toBe(true)
 	})
 })

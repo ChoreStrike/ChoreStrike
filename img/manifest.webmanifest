@@ -1,0 +1,22 @@
+{
+	"name": "ChoreStrike",
+	"short_name": "ChoreStrike",
+	"description": "Gamified household task management - keep your home clean together!",
+	"lang": "en",
+	"dir": "ltr",
+	"start_url": "/apps/chorestrike/",
+	"scope": "/apps/chorestrike/",
+	"display": "standalone",
+	"orientation": "any",
+	"background_color": "#ffffff",
+	"theme_color": "#0984E3",
+	"categories": ["productivity", "games", "lifestyle"],
+	"icons": [
+		{
+			"src": "/apps/chorestrike/img/app.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		}
+	]
+}

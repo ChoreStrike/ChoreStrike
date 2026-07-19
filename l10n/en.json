@@ -282,6 +282,18 @@
         "You earned a new medal!": "You earned a new medal!",
         "Streak protected by freeze! {count} freeze remaining": "Streak protected by freeze! {count} freeze remaining",
         "Streak protected by freeze! {count} freezes remaining": "Streak protected by freeze! {count} freezes remaining",
-        "Weekly household goal reached!": "Weekly household goal reached!"
+        "Weekly household goal reached!": "Weekly household goal reached!",
+
+        "2048": "2048",
+        "Memory": "Memory",
+        "Slide and merge matching tiles to reach 2048!": "Slide and merge matching tiles to reach 2048!",
+        "Flip cards and match pairs. Train your brain!": "Flip cards and match pairs. Train your brain!",
+        "Moves": "Moves",
+        "Play again": "Play again",
+        "New game": "New game",
+        "You matched them all!": "You matched them all!",
+        "Matched": "Matched",
+        "Hidden card": "Hidden card",
+        "Use arrow keys or swipe to combine tiles.": "Use arrow keys or swipe to combine tiles."
     }
 }

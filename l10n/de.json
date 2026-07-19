@@ -283,6 +283,18 @@
         "You earned a new medal!": "Du hast eine neue Medaille erhalten!",
         "Streak protected by freeze! {count} freeze remaining": "Serie durch Freeze geschützt! {count} Freeze übrig",
         "Streak protected by freeze! {count} freezes remaining": "Serie durch Freeze geschützt! {count} Freezes übrig",
-        "Weekly household goal reached!": "Wochenziel des Haushalts erreicht!"
+        "Weekly household goal reached!": "Wochenziel des Haushalts erreicht!",
+
+        "2048": "2048",
+        "Memory": "Memory",
+        "Slide and merge matching tiles to reach 2048!": "Schiebe und kombiniere gleiche Kacheln, um 2048 zu erreichen!",
+        "Flip cards and match pairs. Train your brain!": "Decke Karten auf und finde Paare. Trainiere dein Gehirn!",
+        "Moves": "Züge",
+        "Play again": "Nochmal spielen",
+        "New game": "Neues Spiel",
+        "You matched them all!": "Du hast alle Paare gefunden!",
+        "Matched": "Gefunden",
+        "Hidden card": "Verdeckte Karte",
+        "Use arrow keys or swipe to combine tiles.": "Nutze die Pfeiltasten oder wische, um Kacheln zu kombinieren."
     }
 }
