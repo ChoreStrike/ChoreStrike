@@ -1,5 +1,7 @@
 # Phase 10: Gamification Enhancement & Visual Modernization
 
+> **Status: Obsolete** — Monsters feature removed in CS-PLAN-002 Phase 0; remaining gamification components archived in CS-PLAN-003 Phase 2. Close or archive.
+>
 > **Phase Goal**: Close gaps between gamification concepts and implementation, implement full monster battle system, migrate to Microsoft Fluent UI icons
 > **Target Date**: 2026-03-14
 > **Priority**: High

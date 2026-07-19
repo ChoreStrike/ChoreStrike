@@ -10,15 +10,17 @@
 		stroke-linecap="round"
 		stroke-linejoin="round"
 		v-bind="$attrs">
-		<template v-for="(shape, index) in shapes" :key="`${name}-${index}`">
+		<template v-for="(shape, index) in shapes">
 			<path
 				v-if="shape.type === 'path'"
+				:key="`${name}-${index}`"
 				:d="shape.d"
 				:fill="shape.fill ?? 'none'"
 				:stroke="shape.stroke ?? 'currentColor'"
 				:stroke-width="shape.strokeWidth ?? strokeWidth" />
 			<circle
 				v-else-if="shape.type === 'circle'"
+				:key="`${name}-${index}`"
 				:cx="shape.cx"
 				:cy="shape.cy"
 				:r="shape.r"
@@ -27,6 +29,7 @@
 				:stroke-width="shape.strokeWidth ?? strokeWidth" />
 			<rect
 				v-else-if="shape.type === 'rect'"
+				:key="`${name}-${index}`"
 				:x="shape.x"
 				:y="shape.y"
 				:width="shape.width"
@@ -38,6 +41,7 @@
 				:stroke-width="shape.strokeWidth ?? strokeWidth" />
 			<line
 				v-else-if="shape.type === 'line'"
+				:key="`${name}-${index}`"
 				:x1="shape.x1"
 				:y1="shape.y1"
 				:x2="shape.x2"
@@ -46,12 +50,14 @@
 				:stroke-width="shape.strokeWidth ?? strokeWidth" />
 			<polyline
 				v-else-if="shape.type === 'polyline'"
+				:key="`${name}-${index}`"
 				:points="shape.points"
 				:fill="shape.fill ?? 'none'"
 				:stroke="shape.stroke ?? 'currentColor'"
 				:stroke-width="shape.strokeWidth ?? strokeWidth" />
 			<polygon
 				v-else-if="shape.type === 'polygon'"
+				:key="`${name}-${index}`"
 				:points="shape.points"
 				:fill="shape.fill ?? 'none'"
 				:stroke="shape.stroke ?? 'currentColor'"

@@ -1,7 +1,7 @@
 <!--
   @copyright Copyright (c) 2026 ChoreStrike Contributors
   @license MIT
-  
+
   Displays flex window bounds (earliest/ideal/latest dates) for tasks with flexible scheduling.
 -->
 
@@ -12,37 +12,49 @@
 			<span class="flex-label">{{ t('chorestrike', 'Flex Window') }}</span>
 			<span class="flex-days-badge">{{ flexDays }} {{ t('chorestrike', 'days') }}</span>
 		</div>
-		
+
 		<div class="flex-window-timeline">
 			<div class="timeline-point earliest" :class="{ active: isEarliestActive }">
 				<div class="point-marker" />
-				<div class="point-label">{{ t('chorestrike', 'Earliest') }}</div>
-				<div class="point-date">{{ formatDate(earliest) }}</div>
+				<div class="point-label">
+					{{ t('chorestrike', 'Earliest') }}
+				</div>
+				<div class="point-date">
+					{{ formatDate(earliest) }}
+				</div>
 			</div>
-			
+
 			<div class="timeline-connector">
 				<div class="connector-line" />
 			</div>
-			
+
 			<div class="timeline-point ideal" :class="{ active: isIdealActive }">
 				<div class="point-marker">
 					<Icon name="Star" :size="12" />
 				</div>
-				<div class="point-label">{{ t('chorestrike', 'Ideal') }}</div>
-				<div class="point-date">{{ formatDate(ideal) }}</div>
+				<div class="point-label">
+					{{ t('chorestrike', 'Ideal') }}
+				</div>
+				<div class="point-date">
+					{{ formatDate(ideal) }}
+				</div>
 			</div>
-			
+
 			<div class="timeline-connector">
 				<div class="connector-line" />
 			</div>
-			
+
 			<div class="timeline-point latest" :class="{ active: isLatestActive, overdue: isLatestOverdue }">
 				<div class="point-marker" />
-				<div class="point-label">{{ t('chorestrike', 'Latest') }}</div>
-				<div class="point-date">{{ formatDate(latest) }}</div>
+				<div class="point-label">
+					{{ t('chorestrike', 'Latest') }}
+				</div>
+				<div class="point-date">
+					{{ formatDate(latest) }}
+				</div>
 			</div>
 		</div>
-		
+
 		<div v-if="showStatus" class="flex-window-status">
 			<span v-if="isEarlyCompletion" class="status-early">
 				<Icon name="Zap" :size="12" />
@@ -158,17 +170,17 @@ export default {
 		/**
 		 * Format date for display
 		 * @param {string} dateStr - ISO date string
-		 * @returns {string} Formatted date
+		 * @return {string} Formatted date
 		 */
 		const formatDate = (dateStr) => {
 			if (!dateStr) return ''
 			const date = new Date(dateStr)
 			const today = new Date()
 			today.setHours(0, 0, 0, 0)
-			
+
 			const tomorrow = new Date(today)
 			tomorrow.setDate(tomorrow.getDate() + 1)
-			
+
 			const dateOnly = new Date(date)
 			dateOnly.setHours(0, 0, 0, 0)
 
@@ -180,9 +192,9 @@ export default {
 			}
 
 			// Format as short date
-			return date.toLocaleDateString(undefined, { 
-				month: 'short', 
-				day: 'numeric' 
+			return date.toLocaleDateString(undefined, {
+				month: 'short',
+				day: 'numeric',
 			})
 		}
 

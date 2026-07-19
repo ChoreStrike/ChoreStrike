@@ -53,14 +53,9 @@ ChoreStrike/
 │   │   ├── Dashboard/          # HouseHealthBar, FloorList, RoomCard, QuickStats, ArcadeSection
 │   │   ├── Tasks/              # TaskList, TaskForm, TaskEditForm, TaskChecklist,
 │   │   │                       #   FlexWindowDisplay, TemplateSelector
-│   │   ├── Gamification/       # GameStats, MedalDisplay, ComboIndicator, WeeklyChallenge,
-│   │   │                       #   HouseholdProgress, AchievementNotification
-│   │   ├── Scheduling/         # AvailabilitySettings, DailyTaskList, EnergyBudgetSettings,
-│   │   │                       #   ScheduleCalendar, SchedulePreview, SchedulingSuggestions
-│   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop
-│   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge/List/Details,
-│   │   │                       #   MonsterSprite/Collection, ComboNotification
-│   │   └── UserManagement/     # User management UI
+│   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop, Game2048, MemoryGame
+│   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
+│   │   ├── Scheduling/         # DailyTaskList
 │   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard,
 │   │                           #   Settings, SchedulingView
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
@@ -354,7 +349,6 @@ CREATE INDEX idx_house_users_house_id ON ChoreStrike_house_users(house_id);
     medals: []
   },
   actions: {
-    updateMonsters(),
     checkCombo(),
     awardMedal()
   }

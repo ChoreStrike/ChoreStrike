@@ -13,8 +13,6 @@ use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
  * Smart scheduling compatibility facade.
- *
- * @deprecated Use TaskSchedulerService directly for new backend flows.
  */
 class SmartSchedulerService
 {

@@ -63,6 +63,7 @@ export const useMinigameStore = defineStore('minigame', {
 	getters: {
 		/**
 		 * Check if user can afford a boost
+		 * @param state
 		 */
 		canAffordBoost: (state) => (boostId) => {
 			const cost = BOOST_COSTS[boostId]
@@ -71,6 +72,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Get total cost of selected boosts
+		 * @param state
 		 */
 		selectedBoostsCost: (state) => {
 			return state.purchasedBoosts.reduce((sum, boostId) => {
@@ -80,6 +82,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Check if a boost is currently active
+		 * @param state
 		 */
 		isBoostActive: (state) => (boostId) => {
 			return state.activeBoosts.includes(boostId)
@@ -87,6 +90,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Get available boosts that user can afford
+		 * @param state
 		 */
 		affordableBoosts: (state) => {
 			return Object.entries(BOOST_COSTS)
@@ -100,6 +104,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Check if current score is a new personal best
+		 * @param state
 		 */
 		isNewPersonalBest: (state) => {
 			if (!state.personalBest) return state.score > 0
@@ -124,6 +129,8 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Fetch leaderboard for a game
+		 * @param gameId
+		 * @param limit
 		 */
 		async fetchLeaderboard(gameId = 'snake', limit = 10) {
 			this.loading = true
@@ -147,6 +154,8 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Fetch weekly leaderboard
+		 * @param gameId
+		 * @param limit
 		 */
 		async fetchWeeklyLeaderboard(gameId = 'snake', limit = 10) {
 			try {
@@ -164,6 +173,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Fetch personal best score
+		 * @param gameId
 		 */
 		async fetchPersonalBest(gameId = 'snake') {
 			try {
@@ -179,6 +189,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Fetch user rank
+		 * @param gameId
 		 */
 		async fetchUserRank(gameId = 'snake') {
 			try {
@@ -194,6 +205,8 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Fetch recent scores
+		 * @param gameId
+		 * @param limit
 		 */
 		async fetchRecentScores(gameId = 'snake', limit = 5) {
 			try {
@@ -211,6 +224,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Purchase a boost
+		 * @param boostId
 		 */
 		async purchaseBoost(boostId) {
 			this.boostsLoading = true
@@ -235,6 +249,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Save game score
+		 * @param gameId
 		 */
 		async saveScore(gameId = 'snake') {
 			try {
@@ -266,6 +281,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Start a new game
+		 * @param gameId
 		 */
 		startGame(gameId = 'snake') {
 			this.currentGame = gameId
@@ -312,6 +328,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Update score
+		 * @param points
 		 */
 		updateScore(points) {
 			this.score += points
@@ -340,6 +357,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Remove a purchased boost
+		 * @param boostId
 		 */
 		removePurchasedBoost(boostId) {
 			const index = this.purchasedBoosts.indexOf(boostId)
@@ -350,6 +368,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Initialize minigame data
+		 * @param gameId
 		 */
 		async initialize(gameId = 'snake') {
 			this.loading = true

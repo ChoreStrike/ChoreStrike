@@ -22,7 +22,7 @@
 
 ## [P1] Pre-existing test/lint gate failures (logged during CS-PLAN-001 verification)
 
-**Status**: Backlog
+**Status**: Partial — ESLint errors resolved in CS-PLAN-003; PHPUnit clone error remains deferred
 **Assignee**: Unassigned
 **Estimated Effort**: M
 **Phase**: 9
@@ -30,20 +30,21 @@
 ### Description
 During the CS-PLAN-001 cleanup verification, the build gate surfaced **pre-existing** failures in application source and tests. None were introduced by the cleanup (the plan changes no application code); they are logged here with a deferral reason per project-rules §3.
 
-- **Jest** (`npm test`): `tests/unit/components/TaskForm.spec.js:57` expects option text `"Priority 2"`, but the UI moved to task tiers (bronze/silver/gold) in REWARD-TIER-001. 487/488 tests pass; this one fails on stale priority-label expectations.
-- **PHPUnit** (`vendor/bin/phpunit --configuration phpunit.unit.xml`): `TestDataServiceTest::testSeedFamilyCreatesCompleteStructure` errors with `__clone method called on non-object` at `lib/Db/RoomTask.php:213`. 360/361 tests pass.
-- **ESLint** (`npm run lint`): 26 errors / 64 warnings in `src/` (SvgIcon, ArcadeSection, Minigames/*, Tasks/FlexWindowDisplay, Tasks/TaskList, store/game, store/minigame, utils/icons) — pre-existing source-quality debt.
-- **Stylelint** (`npm run stylelint`): exits non-zero on a configuration-load error (cosmiconfig) before linting.
+- **Jest** (`npm test`): `tests/unit/components/TaskForm.spec.js:57` expects option text `"Priority 2"`, but the UI moved to task tiers (bronze/silver/gold) in REWARD-TIER-001. **Fixed by CS-PLAN-002 Phase 1 review follow-ups (2026-07-15).**
+- **PHPUnit** (`vendor/bin/phpunit --configuration phpunit.unit.xml`): `TestDataServiceTest::testSeedFamilyCreatesCompleteStructure` errors with `__clone method called on non-object` at `lib/Db/RoomTask.php:213`. 428/429 tests pass (as of CS-PLAN-003). **Still deferred.**
+- **ESLint** (`npm run lint`): **Resolved by CS-PLAN-003 Phase 0 — 0 errors.** 58 pre-existing JSDoc warnings remain in store files (`game.js`, `minigame.js`) and `utils/icons.js`; these are cosmetic parameter-documentation warnings in active production code and do not block the build gate.
+- **Stylelint** (`npm run stylelint`): **Config now loads after installing `stylelint-config-recommended-scss@14` + `stylelint-config-recommended-vue` + `postcss-html` (CS-PLAN-003 Phase 0).** All 201 reported errors are "Unknown rule" version mismatches between `@nextcloud/stylelint-config@2.4.0` and `stylelint@16.26.1` — genuinely unfixable without changing the upstream dependency.
 
 ### Acceptance Criteria
-- [ ] `TaskForm.spec.js` updated to assert tier labels (or `TaskForm.vue` exposes priority if still intended).
-- [ ] `RoomTask.php:213` clone path fixed so `TestDataServiceTest` passes.
-- [ ] ESLint errors in `src/` resolved or explicitly suppressed with tracked reasons.
-- [ ] Stylelint config loads and lints the style sources.
+- [x] `TaskForm.spec.js` updated to assert tier labels (or `TaskForm.vue` exposes priority if still intended). **Fixed by CS-PLAN-002.**
+- [ ] `RoomTask.php:213` clone path fixed so `TestDataServiceTest` passes. **Still deferred.**
+- [x] ESLint errors in `src/` resolved or explicitly suppressed with tracked reasons. **0 errors (CS-PLAN-003 Phase 0). 58 JSDoc warnings deferred.**
+- [x] Stylelint config loads and lints the style sources. **Config loads; version-mismatch errors are upstream-unfixable.**
 
 ### Notes
 - `npm run build` (webpack) passes — confirms the cleanup's removed artifacts (`vendor/` untrack, empty `img/` dirs) broke nothing.
 - Deferred from CS-PLAN-001 because that plan explicitly excludes application code changes.
+- CS-PLAN-003 Phase 0 resolved the structural ESLint errors (SvgIcon v-for key, SnakeGame unused imports, SnakeLeaderboard unused emit, TaskForm span-in-option) and installed missing stylelint dependencies. PHPUnit clone error and JSDoc warnings intentionally deferred per plan scope.
 
 ---
 

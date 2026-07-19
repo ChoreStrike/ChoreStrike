@@ -58,6 +58,7 @@ export const useGameStore = defineStore('game', {
 		/**
 		 * Get household total Coins (aggregated from all members)
 		 * @param {object} userStore - The user store instance to aggregate from
+		 * @param state
 		 */
 		householdTotalCoins: (state) => {
 			return state.householdProgress.totalCoins
@@ -65,6 +66,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get household total contribution score
+		 * @param state
 		 */
 		householdTotalContribution: (state) => {
 			return state.householdProgress.totalContributionScore
@@ -72,6 +74,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get team streak (household-level streak)
+		 * @param state
 		 */
 		teamStreak: (state) => {
 			return state.householdProgress.teamStreak
@@ -82,6 +85,7 @@ export const useGameStore = defineStore('game', {
 		 *
 		 * Reads the server snapshot directly — no client-side math. Returns 0
 		 * when no snapshot has been loaded yet.
+		 * @param state
 		 */
 		weeklyGoalProgress: (state) => {
 			return state.householdProgress.weeklyGoal.percent ?? 0
@@ -89,6 +93,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Check if weekly goal is achieved (server-computed).
+		 * @param state
 		 */
 		isWeeklyGoalAchieved: (state) => {
 			return state.householdProgress.weeklyGoal.achieved === true
@@ -97,6 +102,7 @@ export const useGameStore = defineStore('game', {
 		/**
 		 * Get the underlying weekly goal snapshot (dueCount, completedCount,
 		 * percent, targetPercent, achieved, weekStart, weekEnd).
+		 * @param state
 		 */
 		weeklyGoal: (state) => {
 			return state.householdProgress.weeklyGoal
@@ -104,6 +110,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get pending celebrations
+		 * @param state
 		 */
 		pendingCelebrations: (state) => {
 			return state.celebrations.filter(c => !c.dismissed)

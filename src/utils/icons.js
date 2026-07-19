@@ -60,6 +60,8 @@ import clothesHanger20Regular from '@fluentui/svg-icons/icons/clothes_hanger_20_
  *
  * The registry keeps the historic icon names stable while rendering local-only
  * SVG shapes through a shared component.
+ * @param name
+ * @param svgMarkup
  */
 const createFluentSvgComponent = (name, svgMarkup) => ({
 	name: `${name}FluentSvgIcon`,
@@ -543,7 +545,7 @@ const iconDefinitions = {
 }
 
 export const icons = Object.fromEntries(
-	Object.entries(iconDefinitions).map(([name, shapes]) => [name, createIconComponent(name, shapes)])
+	Object.entries(iconDefinitions).map(([name, shapes]) => [name, createIconComponent(name, shapes)]),
 )
 
 Object.assign(icons, fluentSvgIcons)

@@ -91,9 +91,6 @@ class TaskSyncService
         $roomTask->setIsActive(true);
         $this->roomTaskMapper->update($roomTask);
 
-        // Log event for conflict resolution
-        $this->logSyncEvent($roomTaskId, 'completed', $houseUserId, $nextcloudTaskId);
-
         return [
             'roomTaskId' => $roomTaskId,
             'taskName' => $task->getName(),
@@ -149,7 +146,6 @@ class TaskSyncService
             $localTime = $localCompletion->getCompletedAt();
             if ($localTime > $completedDate) {
                 // Local completion is newer, use local
-                $this->logSyncEvent($roomTaskId, 'conflict_local_wins', null, $nextcloudTaskId);
                 return null;
             }
         }
@@ -177,8 +173,6 @@ class TaskSyncService
         $roomTask->setNextDue($nextDue);
         $roomTask->setIsActive(true);
         $this->roomTaskMapper->update($roomTask);
-
-        $this->logSyncEvent($roomTaskId, 'synced_from_nextcloud', null, $nextcloudTaskId);
 
         return [
             'roomTaskId' => $roomTaskId,
@@ -399,20 +393,6 @@ class TaskSyncService
             'monthly' => $nextDue->modify("+{$frequencyValue} months"),
             default => $nextDue->modify('+1 week'),
         };
-    }
-
-    /**
-     * Log sync event for conflict resolution
-     *
-     * @param int $roomTaskId The room task ID
-     * @param string $eventType Type of sync event
-     * @param int|null $houseUserId The house user ID
-     * @param int|null $nextcloudTaskId The Nextcloud task ID
-     */
-    private function logSyncEvent(int $roomTaskId, string $eventType, ?int $houseUserId = null, ?int $nextcloudTaskId = null): void
-    {
-        // Event logging would be implemented here
-        // For now, this is a placeholder for future audit logging
     }
 
     /**

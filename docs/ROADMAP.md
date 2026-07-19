@@ -199,7 +199,6 @@
 - [x] Medal display
   - [x] Medal badges with rarity colors
   - [x] Medal history (via MedalDisplay component)
-  - [x] Medal showcase on profiles (via GameStats)
 
 #### Backend
 - [x] Combo detection logic (P4-BE-001)
@@ -224,8 +223,6 @@
 - [x] Achievement notifications (P4-FE-002)
   - [x] AchievementNotification.vue with toast notifications
 - [x] Weekly stats display (P4-FE-002)
-  - [x] GameStats.vue with comprehensive statistics
-  - [x] WeeklyChallenge.vue with progress and rewards
 
 #### Testing
 - [x] Unit tests for combo detection (10 tests)

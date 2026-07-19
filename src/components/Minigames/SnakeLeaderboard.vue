@@ -34,7 +34,7 @@
 			<!-- Leaderboard List -->
 			<div class="leaderboard-list">
 				<div v-if="loading" class="loading">
-					<span class="loading-spinner"></span>
+					<span class="loading-spinner" />
 					{{ t('chorestrike', 'Loading...') }}
 				</div>
 
@@ -100,8 +100,6 @@ import { translate as t } from '@nextcloud/l10n'
 import { useMinigameStore } from '../../store/minigame.js'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '../../store/user.js'
-
-const emit = defineEmits(['close'])
 
 const minigameStore = useMinigameStore()
 const userStore = useUserStore()

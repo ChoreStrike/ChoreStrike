@@ -21,10 +21,14 @@
 						'unaffordable': !canAfford(boost.id),
 					}"
 					@click="toggleBoost(boost.id)">
-					<div class="boost-icon">{{ boost.icon }}</div>
+					<div class="boost-icon">
+						{{ boost.icon }}
+					</div>
 					<div class="boost-info">
 						<h3>{{ boost.name }}</h3>
-						<p class="boost-effect">{{ boost.effect }}</p>
+						<p class="boost-effect">
+							{{ boost.effect }}
+						</p>
 					</div>
 					<div class="boost-cost">
 						<span class="cost-value">{{ boost.cost }}</span>

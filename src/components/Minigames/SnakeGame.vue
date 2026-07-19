@@ -29,25 +29,26 @@
 
 		<!-- Game Board -->
 		<div
+			ref="boardRef"
 			class="game-board"
 			:style="boardStyle"
-			@click="handleBoardClick"
-			@keydown="handleKeyDown"
 			tabindex="0"
-			ref="boardRef">
+			@click="handleBoardClick"
+			@keydown="handleKeyDown">
 			<!-- Grid cells -->
 			<div
 				v-for="cell in gridCells"
 				:key="cell.id"
 				class="grid-cell"
-				:class="getCellClass(cell)">
-			</div>
+				:class="getCellClass(cell)" />
 
 			<!-- Game Over Overlay -->
 			<div v-if="gameOver" class="game-over-overlay">
 				<div class="game-over-content">
 					<h2>{{ t('chorestrike', 'Game Over!') }}</h2>
-					<p class="final-score">{{ t('chorestrike', 'Score: {score}', { score }) }}</p>
+					<p class="final-score">
+						{{ t('chorestrike', 'Score: {score}', { score }) }}
+					</p>
 					<p v-if="coinsEarned > 0" class="coins-earned">
 						⚡ +{{ coinsEarned }} {{ t('chorestrike', 'Coins earned!') }}
 					</p>
@@ -96,11 +97,19 @@
 
 		<!-- Mobile Controls -->
 		<div class="mobile-controls">
-			<button class="control-btn" @click="changeDirection('up')">▲</button>
+			<button class="control-btn" @click="changeDirection('up')">
+				▲
+			</button>
 			<div class="control-row">
-				<button class="control-btn" @click="changeDirection('left')">◀</button>
-				<button class="control-btn" @click="changeDirection('down')">▼</button>
-				<button class="control-btn" @click="changeDirection('right')">▶</button>
+				<button class="control-btn" @click="changeDirection('left')">
+					◀
+				</button>
+				<button class="control-btn" @click="changeDirection('down')">
+					▼
+				</button>
+				<button class="control-btn" @click="changeDirection('right')">
+					▶
+				</button>
 			</div>
 		</div>
 
@@ -118,7 +127,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useMinigameStore, BOOST_DESCRIPTIONS } from '../../store/minigame.js'
 import { storeToRefs } from 'pinia'
@@ -140,7 +149,6 @@ const {
 	isPaused,
 	gameOver,
 	activeBoosts,
-	purchasedBoosts,
 	currentCoins,
 	personalBest,
 	showBoostShop,
@@ -186,8 +194,8 @@ const getCellClass = (cell) => {
 	return {
 		'snake-head': isSnakeHead,
 		'snake-body': isSnakeBody,
-		'food': isFood,
-		'obstacle': isObstacle,
+		food: isFood,
+		obstacle: isObstacle,
 	}
 }
 
@@ -208,8 +216,8 @@ const generateFood = () => {
 			y: Math.floor(Math.random() * GRID_SIZE),
 		}
 	} while (
-		snake.value.some(s => s.x === newFood.x && s.y === newFood.y) ||
-		obstacles.value.some(o => o.x === newFood.x && o.y === newFood.y)
+		snake.value.some(s => s.x === newFood.x && s.y === newFood.y)
+		|| obstacles.value.some(o => o.x === newFood.x && o.y === newFood.y)
 	)
 	food.value = newFood
 }
@@ -231,9 +239,9 @@ const generateObstacles = () => {
 				y: Math.floor(Math.random() * GRID_SIZE),
 			}
 		} while (
-			snake.value.some(s => s.x === obstacle.x && s.y === obstacle.y) ||
-			(food.value.x === obstacle.x && food.value.y === obstacle.y) ||
-			newObstacles.some(o => o.x === obstacle.x && o.y === obstacle.y)
+			snake.value.some(s => s.x === obstacle.x && s.y === obstacle.y)
+			|| (food.value.x === obstacle.x && food.value.y === obstacle.y)
+			|| newObstacles.some(o => o.x === obstacle.x && o.y === obstacle.y)
 		)
 		newObstacles.push(obstacle)
 	}
@@ -251,10 +259,10 @@ const moveSnake = () => {
 	const head = { ...snake.value[0] }
 
 	switch (direction.value) {
-		case 'up': head.y--; break
-		case 'down': head.y++; break
-		case 'left': head.x--; break
-		case 'right': head.x++; break
+	case 'up': head.y--; break
+	case 'down': head.y++; break
+	case 'left': head.x--; break
+	case 'right': head.x++; break
 	}
 
 	// Check wall collision

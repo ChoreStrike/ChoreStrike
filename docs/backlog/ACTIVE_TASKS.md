@@ -5,6 +5,21 @@
 
 ## Recently Completed
 
+### CS-PLAN-003 - Dead-Code Cleanup & Build-Gate Hygiene
+**Status**: Done
+**Started**: 2026-07-19 13:00
+**Completed**: 2026-07-19
+**Branch**: master
+**Plan**: docs/plans/done/cs-plan-003-dead-code-cleanup.md
+**Blockers**: None
+**Notes**:
+- **Phase 0 — Build gate (DONE):** ESLint 0 errors (SvgIcon v-for key, SnakeGame unused watch/purchasedBoosts, SnakeLeaderboard unused emit, TaskForm span-in-option fixed). Stylelint config loads after installing `stylelint-config-recommended-scss@14` + `stylelint-config-recommended-vue` + `postcss-html`; 201 "Unknown rule" errors from `@nextcloud/stylelint-config@2.4.0` / `stylelint@16.26.1` version mismatch (upstream-unfixable, doc in bugs.md). PHPUnit 428/429 (pre-existing TestDataServiceTest clone error untouched).
+- **Phase 1 — lang="ts" audit (DONE):** All 12 `lang="ts"` files are dead components archived in Phase 2 — no-op for active code.
+- **Phase 2 — Dead Vue archive (DONE):** 15 Vue components archived to `archive/2026-07/legacy-unwired/`: SchedulingView + 5 Scheduling/* + 4 Gamification/* + 3 Common/ComboNotification/MedalList/MedalDetails + 2 UserManagement/*. Deleted 3 stale test files (MedalList, MedalDetails, ComboNotification specs). Jest 490/490 (38 suites).
+- **Phase 3 — Dead PHP archive (DONE):** 6 PHP entities/mappers archived: TaskClaim* + TaskParticipant* + TaskScope* (+2 stale TaskScope test files deleted). PHPUnit 428/429 (unchanged).
+- **Phase 4 — logSyncEvent placeholder (DONE):** Removed no-op `logSyncEvent()` method + 3 call sites from `TaskSyncService` (Option B per plan). TaskSyncService tests pass unchanged.
+- **Phase 5 — Docs & meta (DONE):** Removed GameStats/MonsterSprite/MonsterCollection/updateMonsters from ARCHITECTURE.md; updated frontend directory tree. Removed GameStats/WeeklyChallenge from ROADMAP.md. Annotated phase-10-gamification-enhancement.md as Obsolete. Removed misleading `@deprecated` from SmartSchedulerService. Updated bugs.md P1 section (ESLint errors resolved, stylelint loads, Jest fixed by CS-PLAN-002, PHPUnit still deferred).
+
 ### CS-PLAN-001 - Project Cleanup & Public-Release Readiness (Step 2)
 **Status**: Done
 **Started**: 2026-06-22 13:00
