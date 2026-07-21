@@ -43,7 +43,7 @@ ChoreStrike/
 │   │                           #   CompletedTask, HouseUser, Medal, Combo, MinigameScore,
 │   │                           #   TaskChecklistItem + progress, TaskClaim, TaskParticipant,
 │   │                           #   TaskScope, UserStats, AvailabilitySettings)
-│   ├── Migration/              # Schema migrations (Version1000 … Version1020)
+│   ├── Migration/              # Schema migrations (Version1000 … Version1024)
 │   └── Command/                # occ commands (e.g. TestDataSeed)
 ├── src/                        # Vue 3 frontend
 │   ├── main.js                 # Entry point
@@ -52,10 +52,11 @@ ChoreStrike/
 │   ├── components/
 │   │   ├── Dashboard/          # HouseHealthBar, FloorList, RoomCard, QuickStats, ArcadeSection
 │   │   ├── Tasks/              # TaskList, TaskForm, TaskEditForm, TaskChecklist,
-│   │   │                       #   FlexWindowDisplay, TemplateSelector
+│   │   │                       #   FlexWindowDisplay, TemplateSelector, OverdueClaimDialog
 │   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop, Game2048, MemoryGame
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
 │   │   ├── Scheduling/         # DailyTaskList
+│   ├── constants/              # Shared constants (taskVisibility)
 │   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard,
 │   │                           #   Settings, SchedulingView
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
@@ -191,7 +192,13 @@ Component Update (Reactive)
 - `estimated_minutes` (int)
 - `category` (string) - cleaning, organizing, maintenance
 - `is_template` (boolean)
+- `is_private` (boolean) - **legacy column** (kept for back-compat; `visibility_type` is the source of truth)
+- `visibility_type` (string, default `public`) - `public` | `private` | `admin-only` (CS-PLAN-005)
+- `owner_user_id` (string, nullable) - creator of private tasks (Nextcloud UID)
 - `created_at` (datetime)
+- Index `idx_tasks_visibility` on `(visibility_type, owner_user_id)`
+
+> **Visibility matrix:** `public` = visible to all house members; `private` = visible only to `owner_user_id`; `admin-only` = visible only to house owners. Enforced in `TaskMapper::findVisibleByHouse()`, `TaskController::index()`/`show()`/`complete()`.
 
 #### `ChoreStrike_room_tasks`
 - `id` (bigint, PK)

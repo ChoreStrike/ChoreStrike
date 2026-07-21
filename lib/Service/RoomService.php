@@ -352,6 +352,11 @@ class RoomService
                 throw new ForbiddenException('Private tasks may only be completed by assigned users');
             }
 
+            // Admin-only gate: only house owners may complete admin-only tasks.
+            if ($task->getVisibilityType() === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
+                throw new ForbiddenException('Admin-only tasks may only be completed by house owners');
+            }
+
             // Duplicate-completion guard: prevent the same user from earning coins
             // twice for the same room task on the same calendar day (defense in
             // depth against double-clicks / API re-submission).
@@ -417,6 +422,22 @@ class RoomService
                 $task,
                 $updatedRoom->getCleanliness()
             );
+
+            // Teamwork bonus: award additional coins when multiple assignees
+            // complete a task together. The bonus is additive on top of the
+            // base reward and capped to prevent inflation.
+            // Re-fetch the house user so we build on the coins/streak that
+            // handleTaskCompletion() just persisted (avoids a lost-update).
+            $teamworkBonus = 0;
+            if (count($assigneeUserIds) > 1) {
+                $teamworkBonus = $this->gameLogicService->calculateTeamworkBonus($task, $assigneeUserIds);
+                if ($teamworkBonus > 0) {
+                    $freshHouseUser = $this->houseUserMapper->find($houseUser->getId());
+                    $freshHouseUser->addCoins($teamworkBonus);
+                    $freshHouseUser->touch();
+                    $this->houseUserMapper->update($freshHouseUser);
+                }
+            }
 
             $this->db->commit();
         } catch (\Throwable $e) {
@@ -496,6 +517,7 @@ class RoomService
                 'streakFreezeUsed' => $gameResult['streakFreezeUsed'] ?? false,
                 'streakFreezesRemaining' => $gameResult['streakFreezesRemaining'] ?? 0,
                 'comboBonusFreeze' => $gameResult['comboBonusFreeze'] ?? false,
+                'teamworkBonus' => $teamworkBonus,
                 'weeklyGoal' => $weeklyGoal,
             ]
         ];

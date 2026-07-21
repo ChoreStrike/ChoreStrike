@@ -75,10 +75,23 @@ use OCP\AppFramework\Db\Entity;
  * @method int getFlexDays()
  * @method void setFlexDays(int $flexDays)
  * @method bool getIsPrivate()
- * @method void setIsPrivate(bool $isPrivate)
+ * @method string getVisibilityType()
+ * @method void setVisibilityType(string $visibilityType)
+ * @method string|null getOwnerUserId()
+ * @method void setOwnerUserId(?string $ownerUserId)
  */
 class Task extends Entity implements JsonSerializable
 {
+    public const VISIBILITY_PUBLIC = 'public';
+    public const VISIBILITY_PRIVATE = 'private';
+    public const VISIBILITY_ADMIN_ONLY = 'admin-only';
+
+    public const VISIBILITY_TYPES = [
+        self::VISIBILITY_PUBLIC,
+        self::VISIBILITY_PRIVATE,
+        self::VISIBILITY_ADMIN_ONLY,
+    ];
+
     /** @var string */
     protected $name;
 
@@ -172,6 +185,12 @@ class Task extends Entity implements JsonSerializable
     /** @var bool */
     protected $isPrivate = false;
 
+    /** @var string */
+    protected $visibilityType = self::VISIBILITY_PUBLIC;
+
+    /** @var string|null */
+    protected $ownerUserId;
+
     public function __construct()
     {
         $this->addType('id', 'integer');
@@ -206,6 +225,8 @@ class Task extends Entity implements JsonSerializable
         $this->addType('teamSparkMultiplier', 'decimal');
         $this->addType('flexDays', 'integer');
         $this->addType('isPrivate', 'boolean');
+        $this->addType('visibilityType', 'string');
+        $this->addType('ownerUserId', 'string');
     }
 
     /**
@@ -242,7 +263,9 @@ class Task extends Entity implements JsonSerializable
             'maxParticipants' => $this->maxParticipants,
             'teamSparkMultiplier' => $this->teamSparkMultiplier,
             'flexDays' => $this->flexDays,
-            'isPrivate' => $this->isPrivate,
+            'isPrivate' => $this->isPrivate(),
+            'visibilityType' => $this->visibilityType,
+            'ownerUserId' => $this->ownerUserId,
             'createdAt' => $this->createdAt?->format('c'),
         ];
     }
@@ -285,11 +308,20 @@ class Task extends Entity implements JsonSerializable
     }
 
     /**
-     * Whether this task is private (only assignees may complete it)
+     * Whether this task is private (only assignees may complete it).
+     * Derived from visibilityType for backwards compatibility.
      */
     public function isPrivate(): bool
     {
-        return $this->isPrivate;
+        return $this->visibilityType === self::VISIBILITY_PRIVATE;
+    }
+
+    /**
+     * Backwards-compat shim: delegates to setVisibilityType().
+     */
+    public function setIsPrivate(bool $isPrivate): void
+    {
+        $this->setVisibilityType($isPrivate ? self::VISIBILITY_PRIVATE : self::VISIBILITY_PUBLIC);
     }
 
     /**
@@ -370,6 +402,11 @@ class Task extends Entity implements JsonSerializable
         // Validate schedulingMode
         if (!in_array($this->schedulingMode, ['dynamic', 'static'])) {
             $errors[] = 'Invalid scheduling mode';
+        }
+
+        // Validate visibilityType
+        if (!in_array($this->visibilityType, self::VISIBILITY_TYPES, true)) {
+            $errors[] = 'Invalid visibility type';
         }
 
         // Validate static scheduling requirements

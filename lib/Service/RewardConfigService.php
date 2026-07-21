@@ -29,6 +29,8 @@ class RewardConfigService
     public const KEY_STREAK_FREEZE_CAP = 'streak_freeze_cap';
     public const KEY_COMBO_BONUS_FREEZE_THRESHOLD = 'combo_bonus_freeze_threshold';
     public const KEY_WEEKLY_GOAL_TARGET_PERCENT = 'weekly_goal_target_percent';
+    public const KEY_TEAMWORK_BONUS_ENABLED = 'teamwork_bonus_enabled';
+    public const KEY_TEAMWORK_BONUS_MAX_PCT = 'teamwork_bonus_max_pct';
 
     private IAppConfig $config;
 
@@ -167,6 +169,31 @@ class RewardConfigService
     }
 
     /**
+     * Whether the teamwork bonus is enabled.
+     */
+    public function getTeamworkBonusEnabled(): bool
+    {
+        return $this->config->getValueString(
+            self::APP_NAME,
+            self::KEY_TEAMWORK_BONUS_ENABLED,
+            '1'
+        ) === '1';
+    }
+
+    /**
+     * Get the teamwork bonus cap as a percentage of the base reward (0-100).
+     */
+    public function getTeamworkBonusMaxPct(): int
+    {
+        $value = (int) $this->config->getValueString(
+            self::APP_NAME,
+            self::KEY_TEAMWORK_BONUS_MAX_PCT,
+            '50'
+        );
+        return max(0, min(100, $value));
+    }
+
+    /**
      * Set streak freezes per week
      */
     public function setStreakFreezesPerWeek(int $count): void
@@ -213,6 +240,32 @@ class RewardConfigService
             self::APP_NAME,
             self::KEY_WEEKLY_GOAL_TARGET_PERCENT,
             (string) max(1, min(100, $percent))
+        );
+    }
+
+    /**
+     * Set whether the teamwork bonus is enabled.
+     */
+    public function setTeamworkBonusEnabled(bool $enabled): void
+    {
+        $this->config->setValueString(
+            self::APP_NAME,
+            self::KEY_TEAMWORK_BONUS_ENABLED,
+            $enabled ? '1' : '0'
+        );
+    }
+
+    /**
+     * Set the teamwork bonus cap as a percentage of the base reward.
+     *
+     * @param int $pct Cap percent (clamped to 0-100)
+     */
+    public function setTeamworkBonusMaxPct(int $pct): void
+    {
+        $this->config->setValueString(
+            self::APP_NAME,
+            self::KEY_TEAMWORK_BONUS_MAX_PCT,
+            (string) max(0, min(100, $pct))
         );
     }
 
@@ -301,6 +354,8 @@ class RewardConfigService
             'streakFreezeCap' => $this->getStreakFreezeCap(),
             'comboBonusFreezeThreshold' => $this->getComboBonusFreezeThreshold(),
             'weeklyGoalTargetPercent' => $this->getWeeklyGoalTargetPercent(),
+            'teamworkBonusEnabled' => $this->getTeamworkBonusEnabled(),
+            'teamworkBonusMaxPct' => $this->getTeamworkBonusMaxPct(),
         ];
     }
 
@@ -343,6 +398,12 @@ class RewardConfigService
         }
         if (isset($values['weeklyGoalTargetPercent'])) {
             $this->setWeeklyGoalTargetPercent((int) $values['weeklyGoalTargetPercent']);
+        }
+        if (isset($values['teamworkBonusEnabled'])) {
+            $this->setTeamworkBonusEnabled((bool) $values['teamworkBonusEnabled']);
+        }
+        if (isset($values['teamworkBonusMaxPct'])) {
+            $this->setTeamworkBonusMaxPct((int) $values['teamworkBonusMaxPct']);
         }
     }
 }

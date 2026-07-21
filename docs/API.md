@@ -186,7 +186,7 @@ Delete room.
 ### Tasks
 
 #### GET /tasks
-List all tasks.
+List all tasks visible to the current user (role-based visibility filtering applies — private tasks are only visible to their owner, admin-only tasks only to house owners).
 
 **Query Parameters:**
 - `is_template` (boolean): Filter templates
@@ -204,10 +204,20 @@ List all tasks.
     "frequency_value": 1,
     "estimated_minutes": 30,
     "category": "cleaning",
-    "is_template": false
+    "is_template": false,
+    "visibilityType": "public",
+    "isPrivate": false,
+    "ownerUserId": null
   }
 ]
 ```
+
+> **Visibility types:** `public` (visible to all members), `private` (visible only to `ownerUserId`), `admin-only` (visible only to house owners). Only owners can create/modify admin-only tasks.
+
+#### GET /tasks/my-private
+List the current user's private tasks only.
+
+**Response:** Same shape as `GET /tasks`, filtered to `visibilityType='private'` owned by the current user.
 
 #### GET /tasks/templates
 Get predefined task templates.
@@ -240,9 +250,12 @@ Create a new task.
   "frequency_type": "monthly",
   "frequency_value": 1,
   "estimated_minutes": 60,
-  "category": "cleaning"
+  "category": "cleaning",
+  "visibilityType": "public"
 }
 ```
+
+> **visibilityType** (optional, default `public`): One of `public`, `private`, `admin-only`. `admin-only` requires house-owner role. Private tasks automatically record the creator as `ownerUserId`. The legacy `isPrivate` boolean is still accepted for backwards compatibility (`isPrivate=true` with `visibilityType='public'` resolves to `private`).
 
 #### PUT /tasks/{id}
 Update task.

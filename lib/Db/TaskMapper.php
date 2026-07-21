@@ -12,6 +12,7 @@ use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\QBMapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCA\ChoreStrike\Db\HouseUser;
 
 /**
  * @template-extends QBMapper<Task>
@@ -156,7 +157,9 @@ class TaskMapper extends QBMapper
         ?string $tips = null,
         ?int $estimatedMinutesMin = null,
         ?int $estimatedMinutesMax = null,
-        bool $isPrivate = false
+        bool $isPrivate = false,
+        string $visibilityType = 'public',
+        ?string $ownerUserId = null
     ): Task {
         $task = new Task();
         $task->setName($name);
@@ -181,7 +184,8 @@ class TaskMapper extends QBMapper
         $task->setTips($tips);
         $task->setEstimatedMinutesMin($estimatedMinutesMin);
         $task->setEstimatedMinutesMax($estimatedMinutesMax);
-        $task->setIsPrivate($isPrivate);
+        $task->setVisibilityType($visibilityType);
+        $task->setOwnerUserId($ownerUserId);
         $task->setCreatedAt(new \DateTime());
 
         return $this->insert($task);
@@ -220,7 +224,9 @@ class TaskMapper extends QBMapper
             $template->getTips(),
             $template->getEstimatedMinutesMin(),
             $template->getEstimatedMinutesMax(),
-            $template->isPrivate()
+            $template->isPrivate(),
+            $template->getVisibilityType(),
+            $template->getOwnerUserId()
         );
     }
 
@@ -265,6 +271,76 @@ class TaskMapper extends QBMapper
             ->andWhere($qb->expr()->in('status', $qb->createNamedParameter(['pending', 'completed', 'skipped'], IQueryBuilder::PARAM_STR_ARRAY)))
             ->orderBy('task_tier', 'DESC')
             ->addOrderBy('created_at', 'ASC');
+
+        return $this->findEntities($qb);
+    }
+
+    /**
+     * Find tasks visible to a viewer based on the visibility matrix.
+     *
+     * Visibility rules:
+     *   - public: visible to all roles
+     *   - private: visible only to the owner (ownerUserId matches viewer)
+     *   - admin-only: visible only to house owners
+     *
+     * @param int $houseId The house ID (reserved for future house-scoped tasks)
+     * @param HouseUser $viewer The viewing house user
+     * @return Task[]
+     */
+    public function findVisibleByHouse(int $houseId, HouseUser $viewer): array
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('*')
+            ->from($this->getTableName());
+
+        if ($viewer->isOwner()) {
+            // Owners see public + admin-only + their own private
+            // TODO: flip to see ALL private tasks if admin oversight is desired (CS-PLAN-005 §7)
+            $qb->where(
+                $qb->expr()->orX(
+                    $qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PUBLIC)),
+                    $qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_ADMIN_ONLY)),
+                    $qb->expr()->andX(
+                        $qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PRIVATE)),
+                        $qb->expr()->eq('owner_user_id', $qb->createNamedParameter($viewer->getNextcloudUserId()))
+                    )
+                )
+            );
+        } else {
+            // Members and children see public + their own private only
+            $qb->where(
+                $qb->expr()->orX(
+                    $qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PUBLIC)),
+                    $qb->expr()->andX(
+                        $qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PRIVATE)),
+                        $qb->expr()->eq('owner_user_id', $qb->createNamedParameter($viewer->getNextcloudUserId()))
+                    )
+                )
+            );
+        }
+
+        $qb->orderBy('task_tier', 'DESC')
+            ->addOrderBy('name', 'ASC');
+
+        return $this->findEntities($qb);
+    }
+
+    /**
+     * Find private tasks owned by a specific user.
+     *
+     * @param string $ownerUserId The Nextcloud user ID
+     * @return Task[]
+     */
+    public function findPrivateByOwner(string $ownerUserId): array
+    {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PRIVATE)))
+            ->andWhere($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($ownerUserId)))
+            ->orderBy('name', 'ASC');
 
         return $this->findEntities($qb);
     }

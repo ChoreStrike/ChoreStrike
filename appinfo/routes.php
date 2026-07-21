@@ -46,6 +46,7 @@ return [
         ['name' => 'task#search', 'url' => '/api/v1/tasks/search', 'verb' => 'GET'],
         ['name' => 'task#categories', 'url' => '/api/v1/tasks/categories', 'verb' => 'GET'],
         ['name' => 'task#daily', 'url' => '/api/v1/tasks/daily', 'verb' => 'GET'],
+        ['name' => 'task#myPrivate', 'url' => '/api/v1/tasks/my-private', 'verb' => 'GET'],
         ['name' => 'task#complete', 'url' => '/api/v1/tasks/{id}/complete', 'verb' => 'PUT'],
         ['name' => 'task#uncomplete', 'url' => '/api/v1/tasks/{id}/uncomplete', 'verb' => 'PUT'],
         ['name' => 'task#skip', 'url' => '/api/v1/tasks/{id}/skip', 'verb' => 'PUT'],

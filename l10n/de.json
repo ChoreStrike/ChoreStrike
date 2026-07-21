@@ -295,6 +295,22 @@
         "You matched them all!": "Du hast alle Paare gefunden!",
         "Matched": "Gefunden",
         "Hidden card": "Verdeckte Karte",
-        "Use arrow keys or swipe to combine tiles.": "Nutze die Pfeiltasten oder wische, um Kacheln zu kombinieren."
+        "Use arrow keys or swipe to combine tiles.": "Nutze die Pfeiltasten oder wische, um Kacheln zu kombinieren.",
+
+        "Visibility": "Sichtbarkeit",
+        "Public": "Öffentlich",
+        "Private": "Privat",
+        "Admin-Only": "Nur Admins",
+        "Only assigned members can see and complete this task": "Nur zugewiesene Mitglieder können diese Aufgabe sehen und abschließen",
+        "Only house owners can see and complete this task": "Nur Hausbesitzer können diese Aufgabe sehen und abschließen",
+        "All house members can see and complete this task": "Alle Haushaltsmitglieder können diese Aufgabe sehen und abschließen",
+        "Teamwork bonus": "Teamwork-Bonus",
+        "Claim & Complete": "Übernehmen & Erledigen",
+        "Claim & complete": "Übernehmen & erledigen",
+        "Claim Overdue Task": "Überfällige Aufgabe übernehmen",
+        "This will be recorded as taken over from {assignee}.": "Dies wird als übernommen von {assignee} aufgezeichnet.",
+        "My Private Tasks": "Meine privaten Aufgaben",
+        "Admin-only task": "Nur-Admin-Aufgabe",
+        "another Member": "einem anderen Mitglied"
     }
 }

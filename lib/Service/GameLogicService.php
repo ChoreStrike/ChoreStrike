@@ -392,6 +392,39 @@ class GameLogicService
     }
 
     /**
+     * Calculate the teamwork bonus for a multi-assignee task completion.
+     *
+     * Formula: ceil((energyCost * coinBasePerEnergy * 0.5) / participantCount)
+     * Capped at the task's base reward (energyCost * coinBasePerEnergy * tierMultiplier)
+     * to prevent inflation. Returns 0 if teamwork bonus is disabled or only one
+     * participant.
+     *
+     * @param Task $task The task being completed
+     * @param array $assigneeUserIds The Nextcloud user IDs of all assignees
+     * @return int The bonus coins per participant
+     */
+    public function calculateTeamworkBonus(Task $task, array $assigneeUserIds): int
+    {
+        if (!$this->configService->getTeamworkBonusEnabled()) {
+            return 0;
+        }
+
+        $participantCount = count($assigneeUserIds);
+        if ($participantCount <= 1) {
+            return 0;
+        }
+
+        $baseRate = $this->configService->getCoinBasePerEnergy();
+        $rawBonus = (int) ceil(($task->getEnergyCost() * $baseRate * 0.5) / $participantCount);
+
+        $baseReward = (int) round($task->getEnergyCost() * $baseRate * $task->getTaskTierMultiplier());
+        $maxPct = $this->configService->getTeamworkBonusMaxPct();
+        $cap = (int) floor($baseReward * $maxPct / 100);
+
+        return min($rawBonus, max(0, $cap));
+    }
+
+    /**
      * Get all medals for a house with user names
      *
      * @param int $houseId The house ID

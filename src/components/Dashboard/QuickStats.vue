@@ -85,6 +85,15 @@
 		<!-- Action Buttons -->
 		<div v-if="showActions" class="stats-actions">
 			<button
+				class="action-button filter-chip"
+				:class="{ active: showPrivateOnly }"
+				data-testid="private-filter-toggle"
+				@click="togglePrivateFilter">
+				<Icon name="Lock" :size="16" class="icon" />
+				{{ t('chorestrike', 'My Private Tasks') }}
+			</button>
+
+			<button
 				class="action-button refresh-action"
 				data-testid="refresh-dashboard-stats-button"
 				:disabled="loading"
@@ -105,7 +114,7 @@
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
@@ -131,10 +140,13 @@ export default {
 		},
 	},
 
-	setup(props) {
+	emits: ['toggle-private-filter'],
+
+	setup(props, { emit }) {
 		const roomsStore = useRoomsStore()
 		const roomTasksStore = useRoomTasksStore()
 		const router = useRouter()
+		const showPrivateOnly = ref(false)
 
 		// Computed properties
 		const totalRooms = computed(() => roomsStore.totalRooms)
@@ -164,6 +176,11 @@ export default {
 			router.push('/tasks')
 		}
 
+		const togglePrivateFilter = () => {
+			showPrivateOnly.value = !showPrivateOnly.value
+			emit('toggle-private-filter', showPrivateOnly.value)
+		}
+
 		return {
 			t,
 			totalRooms,
@@ -173,8 +190,10 @@ export default {
 			dueTodayTasks,
 			overdueTasks,
 			loading,
+			showPrivateOnly,
 			refreshStats,
 			viewAllTasks,
+			togglePrivateFilter,
 		}
 	},
 }
@@ -322,6 +341,12 @@ export default {
 .action-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.filter-chip.active {
+	background: var(--color-primary);
+	color: var(--color-primary-text);
+	border-color: var(--color-primary);
 }
 
 .action-button .icon {

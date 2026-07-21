@@ -62,9 +62,9 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->requireHouseMember($house->getId());
 
-            $tasks = $this->taskService->getAllTasks();
+            $tasks = $this->taskService->getVisibleTasks($house->getId(), $houseUser);
 
             return new JSONResponse([
                 'success' => true,
@@ -92,9 +92,24 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->requireHouseMember($house->getId());
 
             $task = $this->taskService->getTask($id);
+
+            $visibility = $task->getVisibilityType();
+            if ($visibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE
+                && $task->getOwnerUserId() !== $houseUser->getNextcloudUserId()) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+                ], 404);
+            }
+            if ($visibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+                ], 404);
+            }
 
             return new JSONResponse([
                 'success' => true,
@@ -152,7 +167,8 @@ class TaskController extends OCSController
         string $schedulingMode = 'dynamic',
         ?string $fixedScheduleTime = null,
         ?string $fixedScheduleDays = null,
-        bool $isPrivate = false
+        bool $isPrivate = false,
+        string $visibilityType = 'public'
     ): JSONResponse {
         try {
             $activeFromDate = null;
@@ -204,7 +220,41 @@ class TaskController extends OCSController
 
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->requireHouseMember($house->getId());
+
+            // Validate visibilityType
+            if (!in_array($visibilityType, \OCA\ChoreStrike\Db\Task::VISIBILITY_TYPES, true)) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => 'Invalid visibility type'
+                    ]
+                ], 400);
+            }
+
+            // Admin-only tasks require owner role
+            if ($visibilityType === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'FORBIDDEN',
+                        'message' => 'Only house owners can create admin-only tasks'
+                    ]
+                ], 403);
+            }
+
+            // Private tasks track the creator as owner
+            $ownerUserId = null;
+            if ($visibilityType === \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE) {
+                $ownerUserId = $houseUser->getNextcloudUserId();
+            }
+
+            // Backwards compat: isPrivate=true implies visibilityType=private
+            if ($isPrivate && $visibilityType === 'public') {
+                $visibilityType = \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE;
+                $ownerUserId = $houseUser->getNextcloudUserId();
+            }
 
             // Validate input
             $errors = $this->taskService->validateTaskData([
@@ -254,7 +304,9 @@ class TaskController extends OCSController
                 null,
                 null,
                 null,
-                $isPrivate
+                $isPrivate,
+                $visibilityType,
+                $ownerUserId
             );
 
             return new JSONResponse([
@@ -299,7 +351,40 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->requireHouseMember($house->getId());
+
+            // Load existing task to guard visibility transitions
+            $existingTask = $this->taskService->getTask($id);
+
+            // Admin-only visibility requires owner role (both setting and unsetting)
+            if (isset($updates['visibilityType'])) {
+                $newVisibility = $updates['visibilityType'];
+                if ($newVisibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
+                    return new JSONResponse([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'FORBIDDEN',
+                            'message' => 'Only house owners can set admin-only visibility'
+                        ]
+                    ], 403);
+                }
+                if ($existingTask->getVisibilityType() === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY
+                    && $newVisibility !== \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY
+                    && !$houseUser->isOwner()) {
+                    return new JSONResponse([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'FORBIDDEN',
+                            'message' => 'Only house owners can change admin-only task visibility'
+                        ]
+                    ], 403);
+                }
+            }
+
+            // Prevent non-owners from reassigning task ownership
+            if (isset($updates['ownerUserId']) && !$houseUser->isOwner()) {
+                unset($updates['ownerUserId']);
+            }
 
             // Validate updates
             $errors = $this->taskService->validateTaskData($updates);
@@ -644,6 +729,36 @@ class TaskController extends OCSController
     }
 
     /**
+     * Get the current user's private tasks
+     *
+     * @NoAdminRequired
+     */
+    public function myPrivate(): JSONResponse
+    {
+        try {
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $houseUser = $this->authService->requireHouseMember($house->getId());
+
+            $tasks = $this->taskService->getMyPrivateTasks($houseUser->getNextcloudUserId());
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => array_map(fn ($task) => $task->jsonSerialize(), $tasks)
+            ]);
+        } catch (\Exception $e) {
+            $this->logControllerException('myPrivate', $e);
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'MY_PRIVATE_TASKS_ERROR',
+                    'message' => ControllerErrorFormatter::safeMessage($e)
+                ]
+            ], 500);
+        }
+    }
+
+    /**
      * Complete a task
      *
      * @NoAdminRequired
@@ -653,14 +768,44 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->requireHouseMember($house->getId());
             $this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
-            $task = $this->roomTaskService->completeTaskSimple($id);
+            $details = $this->roomTaskService->getRoomTaskWithDetails($id);
+            $task = $details['task'];
+
+            if ($task->getVisibilityType() === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'FORBIDDEN',
+                        'message' => 'Admin-only tasks may only be completed by house owners'
+                    ]
+                ], 403);
+            }
+
+            if ($task->isPrivate()) {
+                $assigneeUserIds = $this->roomTaskService->getAssigneeUserIds($id);
+                $legacyAssignee = $details['roomTask']->getAssignedToUserId();
+                if ($legacyAssignee && !in_array($legacyAssignee, $assigneeUserIds, true)) {
+                    $assigneeUserIds[] = $legacyAssignee;
+                }
+                if (!in_array($houseUser->getNextcloudUserId(), $assigneeUserIds, true)) {
+                    return new JSONResponse([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'FORBIDDEN',
+                            'message' => 'Private tasks may only be completed by assigned users'
+                        ]
+                    ], 403);
+                }
+            }
+
+            $roomTask = $this->roomTaskService->completeTaskSimple($id);
 
             return new JSONResponse([
                 'success' => true,
-                'data' => $task->jsonSerialize()
+                'data' => $roomTask->jsonSerialize()
             ]);
         } catch (NotFoundException $e) {
             return new JSONResponse([
@@ -863,6 +1008,8 @@ class TaskController extends OCSController
             'order' => $order,
             'nextDue' => $roomTask->getNextDue()?->format('Y-m-d'),
             'assignedToUserId' => $roomTask->getAssignedToUserId(),
+            'visibilityType' => $task->getVisibilityType(),
+            'isPrivate' => $task->isPrivate(),
         ];
     }
 }

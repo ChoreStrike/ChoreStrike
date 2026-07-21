@@ -294,6 +294,22 @@
         "You matched them all!": "You matched them all!",
         "Matched": "Matched",
         "Hidden card": "Hidden card",
-        "Use arrow keys or swipe to combine tiles.": "Use arrow keys or swipe to combine tiles."
+        "Use arrow keys or swipe to combine tiles.": "Use arrow keys or swipe to combine tiles.",
+
+        "Visibility": "Visibility",
+        "Public": "Public",
+        "Private": "Private",
+        "Admin-Only": "Admin-Only",
+        "Only assigned members can see and complete this task": "Only assigned members can see and complete this task",
+        "Only house owners can see and complete this task": "Only house owners can see and complete this task",
+        "All house members can see and complete this task": "All house members can see and complete this task",
+        "Teamwork bonus": "Teamwork bonus",
+        "Claim & Complete": "Claim & Complete",
+        "Claim & complete": "Claim & complete",
+        "Claim Overdue Task": "Claim Overdue Task",
+        "This will be recorded as taken over from {assignee}.": "This will be recorded as taken over from {assignee}.",
+        "My Private Tasks": "My Private Tasks",
+        "Admin-only task": "Admin-only task",
+        "another Member": "another Member"
     }
 }

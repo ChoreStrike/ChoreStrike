@@ -5,6 +5,20 @@
 
 ## Recently Completed
 
+### CS-PLAN-005 - Task Visibility, Teamwork Rewards & Overdue UI (Phase 11)
+**Status**: Done
+**Started**: 2026-07-21
+**Completed**: 2026-07-21
+**Branch**: master
+**Plan**: docs/plans/active/cs-plan-005-task-visibility-teamwork-overdue.md
+**Blockers**: None
+**Notes**:
+- **Phase 1 — Schema (DONE):** `Version1024Date20260719000000` adds `visibility_type` + `owner_user_id` to `chorestrike_tasks`, back-fills `visibility_type='private'` from `is_private=1`, adds index. `Task` entity gains `VISIBILITY_*` constants, `visibilityType`/`ownerUserId` fields, `isPrivate()` derived from `visibilityType`, `setIsPrivate()` shim. `TaskMapper` persists + clones new fields, adds `findVisibleByHouse()` (3×3 visibility matrix) and `findPrivateByOwner()`.
+- **Phase 2 — Backend logic (DONE):** `GameLogicService::calculateTeamworkBonus()` (capped, configurable via `RewardConfigService` keys `teamwork_bonus_enabled`/`teamwork_bonus_max_pct`). `RoomService::completeRoomTask()` gains admin-only gate + teamwork bonus award. `TaskController` validates `visibilityType`, rejects admin-only from non-owners, forces `ownerUserId` for private tasks, adds `myPrivate()` endpoint. `TaskService` extended with visibility params + `getMyPrivateTasks()`. Route `GET /tasks/my-private` added.
+- **Phase 3 — Frontend (DONE):** `src/constants/taskVisibility.js` mirrors PHP constants. `TaskEditForm` 3-way visibility selector (Public/Private/Admin-Only, admin-only owner-gated). `TaskList` lock/crown icons, teamwork-bonus hint, overdue claim button + `OverdueClaimDialog`. `QuickStats` private-filter toggle. `roomTasks` store gains `fetchMyPrivateTasks()` + `claimOverdueTask()`.
+- **Phase 4 — Tests & docs (DONE):** `GameLogicServiceTeamworkTest` (7 tests), `TaskMapperVisibilityTest` (12 tests). l10n keys added to en/de. Phase-11 backlog annotated as shipped. QuickStats test fixed for new filter button.
+- **Build gate:** PHPUnit 447/447, Jest 490/490, ESLint 0 errors (58 JSDoc warnings unchanged).
+
 ### CS-PLAN-004 - Build-Gate Stabilization & Docker Test Environment
 **Status**: Done
 **Started**: 2026-07-21

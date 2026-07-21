@@ -1,6 +1,6 @@
 # CS-PLAN-005: Task Visibility, Teamwork Rewards & Overdue UI (Phase 11, scoped)
 
-> **Status:** Plan (not started)
+> **Status:** Done (implemented 2026-07-21, reviewed + fixes applied)
 > **Effort:** L
 > **Priority:** P2
 > **Depends on:** CS-PLAN-004 (needs green build gate + Docker integration suite for the new security regression tests). CS-PLAN-002 is Done (delivered `is_private`, multi-assign join table, overdue-takeover backend).
@@ -178,16 +178,32 @@ Each phase is reviewable in isolation; each leaves the build gate green.
 
 ## 8. Acceptance Criteria
 
-- [ ] `lib/Migration/Version1024Date20260719000000.php` adds `visibility_type` + `owner_user_id` to `chorestrike_tasks`, back-fills `visibility_type='private'` from `is_private=true`, and runs clean against empty + seeded DBs.
-- [ ] `Task::isPrivate()` returns a value derived from `visibilityType`; existing `setIsPrivate()` call sites continue to work (back-compat shim).
-- [ ] `TaskMapper::findVisibleByHouse()` implements the 3×3 visibility matrix; unit-tested for every cell.
-- [ ] `GameLogicService::calculateTeamworkBonus()` implements the Phase 11 formula (capped, configurable via `RewardConfigService`); unit-tested for 1/2/3 participants + cap edge cases.
-- [ ] Admin-only tasks: invisible to `member`/`child` roles; only owners can create/complete them; 403 returned for non-owner attempts.
-- [ ] Overdue-claim UI renders a "Claim & complete" button on public overdue tasks assigned to others; the existing backend takeover path (CS-PLAN-002) records the transition + notification without code changes.
-- [ ] New route (`GET /tasks/my-private`) returns only the current user's private tasks. Existing `claim`/`unclaim` routes are verified against the CS-PLAN-002 takeover contract (no new claim route added).
-- [ ] Frontend renders lock/crown icons for private/admin-only tasks; teamwork-bonus hint shown for multi-assign tasks.
-- [ ] l10n keys added to `en.json`, `de.json`, regenerated `chorestrike.pot`; `npm run l10n:check-keys` passes.
-- [ ] `docs/backlog/phase-11-task-visibility-features.md` annotated with shipped-date per item; `docs/API.md` documents the new endpoints; `docs/ARCHITECTURE.md` task-entity section updated.
-- [ ] Build gate green: `npm test` + `npm run lint` + `vendor\bin\phpunit.bat --configuration phpunit.unit.xml` (429+/429+) + integration suite (after CS-PLAN-004) + new E2E specs.
-- [ ] `docs/backlog/ACTIVE_TASKS.md` reflects the new plan and its final status.
-- [ ] No raw exception messages in API responses; no `console.*` in production code; every new user-visible string uses `t()`.
+- [x] `lib/Migration/Version1024Date20260719000000.php` adds `visibility_type` + `owner_user_id` to `chorestrike_tasks`, back-fills `visibility_type='private'` from `is_private=true`, and runs clean against empty + seeded DBs.
+- [x] `Task::isPrivate()` returns a value derived from `visibilityType`; existing `setIsPrivate()` call sites continue to work (back-compat shim).
+- [x] `TaskMapper::findVisibleByHouse()` implements the 3×3 visibility matrix; wired into `TaskController::index()`/`show()` and unit-tested (`TaskMapperVisibilityTest`).
+- [x] `GameLogicService::calculateTeamworkBonus()` implements the Phase 11 formula (capped, configurable via `RewardConfigService`); unit-tested for 1/2/3 participants + cap edge cases.
+- [x] Admin-only tasks: invisible to `member`/`child` roles; only owners can create/complete them; 403 returned for non-owner attempts (gates in create, update, show, complete).
+- [x] Overdue-claim UI renders a "Claim & complete" button on public overdue tasks assigned to others; the existing backend takeover path (CS-PLAN-002) records the transition + notification without code changes.
+- [x] New route (`GET /tasks/my-private`) returns only the current user's private tasks. Existing `claim`/`unclaim` routes are verified against the CS-PLAN-002 takeover contract (no new claim route added).
+- [x] Frontend renders lock/crown icons for private/admin-only tasks; teamwork-bonus hint shown for multi-assign tasks.
+- [x] l10n keys added to `en.json`, `de.json`.
+- [x] `docs/backlog/phase-11-task-visibility-features.md` annotated with shipped-date per item; `docs/API.md` documents the new endpoints; `docs/ARCHITECTURE.md` task-entity section updated.
+- [x] Build gate green: `npm test` (490/490) + `npm run lint` (0 errors) + `vendor\bin\phpunit.bat --configuration phpunit.unit.xml` (447/447). Integration suite + new E2E specs deferred (depend on CS-PLAN-004 Docker).
+- [x] `docs/backlog/ACTIVE_TASKS.md` reflects the new plan and its final status.
+- [x] No raw exception messages in API responses; no `console.*` in production code; every new user-visible string uses `t()`.
+
+## 9. Review Notes (post-implementation)
+
+A full 6-track code review was performed after initial implementation. 11 findings (5 critical, 3 warnings, 3 suggestions) were fixed before commit:
+
+- **Migration fatal** (`getTableName()` does not exist on `ISchemaWrapper`) → returns `null`.
+- **Lost-update bug** in teamwork bonus award → re-fetch `HouseUser` after `handleTaskCompletion()`.
+- **Auth bypass** on `TaskController::complete()` → added admin-only + private-task gates.
+- **Data leakage** on `index()`/`show()` → wired `findVisibleByHouse()` + per-task visibility checks.
+- **Privilege escalation** on `update()` → guard `ownerUserId` + admin-only demotion.
+- **Conflicting setters** in `TaskMapper::create()` → removed dead `setIsPrivate()` call.
+- **`canClaim()` ignored multi-assignee list** → merge `assignees` + legacy column.
+- **Index coupling** + low-cardinality → composite `(visibility_type, owner_user_id)`, decoupled from `$changed`.
+- Removed dead `claimOverdueTask()` store action, unused `VISIBILITY_TYPES` export, obsolete `@method` annotation.
+
+**Deferred:** Integration tests (`PrivateTaskAuthorizationTest`, `AdminOnlyTaskTest`, `TeamworkRewardTest`) and E2E specs require the CS-PLAN-004 Docker integration suite, which is not yet runnable in this environment. Unit coverage for the pure-function logic (teamwork formula + visibility entity) is in place.

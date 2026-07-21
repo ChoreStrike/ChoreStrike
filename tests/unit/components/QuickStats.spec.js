@@ -175,7 +175,7 @@ describe('QuickStats', () => {
 		it('disables refresh button when loading', () => {
 			roomsStore.loading = true
 			const wrapper = createWrapper()
-			const refreshBtn = wrapper.find('.action-button')
+			const refreshBtn = wrapper.find('[data-testid="refresh-dashboard-stats-button"]')
 			expect(refreshBtn.attributes('disabled')).toBeDefined()
 		})
 	})

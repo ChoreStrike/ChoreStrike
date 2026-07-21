@@ -753,6 +753,31 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
+		 * Fetch the current user's private tasks.
+		 * @return {Promise<Array>} Private tasks owned by the current user.
+		 */
+		async fetchMyPrivateTasks() {
+			this.loading = true
+			this.error = null
+
+			try {
+				const response = await axios.get('/index.php/apps/chorestrike/api/v1/tasks/my-private')
+
+				if (response.data.success) {
+					return response.data.data
+				} else {
+					throw new Error(response.data.error?.message || 'Failed to fetch private tasks')
+				}
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to fetch private tasks', error, { store: 'roomTasks', action: 'fetchMyPrivateTasks' })
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
 		 * Reset store state
 		 */
 		reset() {

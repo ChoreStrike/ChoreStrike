@@ -52,6 +52,14 @@
 						<span v-else class="completed-check">
 							<Icon name="CheckCircle" :size="20" />
 						</span>
+						<button
+							v-if="canClaim(item)"
+							class="claim-button"
+							data-testid="claim-overdue-button"
+							:title="t('chorestrike', 'Claim & complete')"
+							@click="openClaimDialog(item)">
+							<Icon name="UserPlus" :size="16" />
+						</button>
 					</div>
 
 					<div class="task-content">
@@ -59,6 +67,12 @@
 							<h4 class="task-name">
 								{{ item.task.name }}
 							</h4>
+							<span v-if="item.task.visibilityType === 'private' || item.task.isPrivate" class="visibility-icon" :title="t('chorestrike', 'Private task')">
+								<Icon name="Lock" :size="14" />
+							</span>
+							<span v-if="item.task.visibilityType === 'admin-only'" class="visibility-icon admin-only" :title="t('chorestrike', 'Admin-only task')">
+								<Icon name="Crown" :size="14" />
+							</span>
 							<span class="priority-badge" :class="priorityClass(item.task.priority)">
 								{{ priorityLabel(item.task.priority) }}
 							</span>
@@ -83,6 +97,10 @@
 								{{ assigneeCount(item.roomTask) > 1
 									? t('chorestrike', '{count} assigned', { count: assigneeCount(item.roomTask) })
 									: t('chorestrike', 'Assigned') }}
+							</span>
+							<span v-if="assigneeCount(item.roomTask) > 1" class="meta-item teamwork-hint">
+								<Icon name="Sparkles" :size="16" />
+								{{ t('chorestrike', 'Teamwork bonus') }}
 							</span>
 						</div>
 
@@ -157,6 +175,12 @@
 				</div>
 			</div>
 		</div>
+
+		<OverdueClaimDialog
+			:visible="claimDialogVisible"
+			:assignee-name="claimAssigneeName"
+			@confirm="confirmClaim"
+			@cancel="claimDialogVisible = false" />
 	</div>
 </template>
 
@@ -166,6 +190,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common/index.js'
 import TaskChecklist from './TaskChecklist.vue'
 import FlexWindowDisplay from './FlexWindowDisplay.vue'
+import OverdueClaimDialog from './OverdueClaimDialog.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 import { useUserStore } from '../../store/user.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
@@ -177,6 +202,7 @@ export default {
 		Icon,
 		TaskChecklist,
 		FlexWindowDisplay,
+		OverdueClaimDialog,
 	},
 
 	props: {
@@ -315,6 +341,40 @@ export default {
 			return ids.length
 		}
 
+		const claimDialogVisible = ref(false)
+		const claimAssigneeName = ref('')
+		const claimRoomTaskId = ref(null)
+
+		const currentUserId = computed(() => userStore.currentUser?.nextcloudUserId || userStore.userId)
+
+		const canClaim = (item) => {
+			if (!item.roomTask.isActive) return false
+			if (!isOverdue(item.roomTask)) return false
+			const visibility = item.task.visibilityType || (item.task.isPrivate ? 'private' : 'public')
+			if (visibility !== 'public') return false
+			const mergedAssignees = [...(item.roomTask.assignees || [])]
+			if (item.roomTask.assignedToUserId && !mergedAssignees.includes(item.roomTask.assignedToUserId)) {
+				mergedAssignees.push(item.roomTask.assignedToUserId)
+			}
+			if (mergedAssignees.length === 0) return false
+			return !mergedAssignees.includes(currentUserId.value)
+		}
+
+		const openClaimDialog = (item) => {
+			claimRoomTaskId.value = item.roomTask.id
+			const assigneeId = item.roomTask.assignedToUserId
+			const member = (userStore.houseUsers || []).find(u => u.nextcloudUserId === assigneeId)
+			claimAssigneeName.value = member?.displayName || assigneeId || t('chorestrike', 'another member')
+			claimDialogVisible.value = true
+		}
+
+		const confirmClaim = async () => {
+			claimDialogVisible.value = false
+			if (claimRoomTaskId.value) {
+				emit('complete', claimRoomTaskId.value)
+			}
+		}
+
 		const isExpanded = (roomTaskId) => {
 			return expandedTaskId.value === roomTaskId
 		}
@@ -387,6 +447,11 @@ export default {
 			isAssignee,
 			toggleAssignee,
 			assigneeCount,
+			canClaim,
+			openClaimDialog,
+			confirmClaim,
+			claimDialogVisible,
+			claimAssigneeName,
 			t,
 		}
 	},
@@ -656,6 +721,41 @@ export default {
 
 .action-btn:hover {
 	opacity: 1;
+}
+
+.visibility-icon {
+	display: inline-flex;
+	align-items: center;
+	color: var(--color-text-maxcontrast);
+}
+
+.visibility-icon.admin-only {
+	color: var(--cs-tier-gold, #f0a500);
+}
+
+.teamwork-hint {
+	color: var(--color-primary);
+	font-weight: 500;
+}
+
+.claim-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	margin-top: 0.25rem;
+	border-radius: 50%;
+	border: 1px solid var(--color-primary);
+	background: transparent;
+	color: var(--color-primary);
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.claim-button:hover {
+	background: var(--color-primary);
+	color: white;
 }
 
 @media (max-width: 600px) {

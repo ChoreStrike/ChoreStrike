@@ -35,6 +35,18 @@ class TaskService
     }
 
     /**
+     * Get tasks visible to a specific house user.
+     *
+     * @param int $houseId The house ID
+     * @param \OCA\ChoreStrike\Db\HouseUser $viewer The viewing house user
+     * @return Task[]
+     */
+    public function getVisibleTasks(int $houseId, \OCA\ChoreStrike\Db\HouseUser $viewer): array
+    {
+        return $this->taskMapper->findVisibleByHouse($houseId, $viewer);
+    }
+
+    /**
      * Get task by ID
      *
      * @param int $taskId The task ID
@@ -90,7 +102,9 @@ class TaskService
         ?string $tips = null,
         ?int $estimatedMinutesMin = null,
         ?int $estimatedMinutesMax = null,
-        bool $isPrivate = false
+        bool $isPrivate = false,
+        string $visibilityType = 'public',
+        ?string $ownerUserId = null
     ): Task {
         return $this->taskMapper->create(
             $name,
@@ -115,7 +129,9 @@ class TaskService
             $tips,
             $estimatedMinutesMin,
             $estimatedMinutesMax,
-            $isPrivate
+            $isPrivate,
+            $visibilityType,
+            $ownerUserId
         );
     }
 
@@ -323,6 +339,13 @@ class TaskService
             }
         }
 
+        // Visibility type validation
+        if (isset($taskData['visibilityType'])) {
+            if (!in_array($taskData['visibilityType'], \OCA\ChoreStrike\Db\Task::VISIBILITY_TYPES, true)) {
+                $errors[] = 'Invalid visibility type';
+            }
+        }
+
         return $errors;
     }
 
@@ -387,6 +410,17 @@ class TaskService
     public function getDailyTasks(int $houseId, \DateTime $date): array
     {
         return $this->taskMapper->findDailyTasks($houseId, $date);
+    }
+
+    /**
+     * Get private tasks owned by a specific user.
+     *
+     * @param string $ownerUserId The Nextcloud user ID
+     * @return Task[]
+     */
+    public function getMyPrivateTasks(string $ownerUserId): array
+    {
+        return $this->taskMapper->findPrivateByOwner($ownerUserId);
     }
 
     /**

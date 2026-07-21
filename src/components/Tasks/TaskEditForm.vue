@@ -235,13 +235,24 @@
 			</div>
 
 			<div class="form-group">
-				<label class="checkbox-label">
-					<input v-model="form.isPrivate" type="checkbox" data-testid="task-private-input">
-					<span class="checkbox-text">
-						<strong>{{ t('chorestrike', 'Private task') }}</strong>
-						<small>{{ t('chorestrike', 'Only assigned members can complete this task') }}</small>
-					</span>
-				</label>
+				<label for="visibilityType">{{ t('chorestrike', 'Visibility') }}</label>
+				<select id="visibilityType"
+					v-model="form.visibilityType"
+					class="form-input"
+					data-testid="task-visibility-select">
+					<option value="public">
+						{{ t('chorestrike', 'Public') }}
+					</option>
+					<option value="private">
+						{{ t('chorestrike', 'Private') }}
+					</option>
+					<option v-if="isOwner" value="admin-only">
+						{{ t('chorestrike', 'Admin-Only') }}
+					</option>
+				</select>
+				<p class="visibility-hint">
+					{{ visibilityHint }}
+				</p>
 			</div>
 		</div>
 
@@ -266,6 +277,8 @@ import { computed, reactive, ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common/index.js'
 import TemplateSelector from './TemplateSelector.vue'
+import { useUserStore } from '../../store/user.js'
+import { VISIBILITY_PUBLIC, VISIBILITY_PRIVATE, VISIBILITY_ADMIN_ONLY } from '../../constants/taskVisibility.js'
 
 export default {
 	name: 'TaskEditForm',
@@ -290,6 +303,8 @@ export default {
 
 	setup(props, { emit }) {
 		const isEditing = computed(() => !!props.task)
+		const userStore = useUserStore()
+		const isOwner = computed(() => userStore.isHouseOwner)
 
 		const energyLabels = {
 			1: 'Quick',
@@ -334,7 +349,7 @@ export default {
 			fixedScheduleTime: '',
 			scopeType: 'room',
 			flexDays: 0,
-			isPrivate: false,
+			visibilityType: VISIBILITY_PUBLIC,
 		})
 
 		const selectedWeekdays = ref([])
@@ -353,7 +368,7 @@ export default {
 			form.schedulingMode = template.schedulingMode || 'dynamic'
 			form.fixedScheduleTime = template.fixedScheduleTime || ''
 			form.flexDays = template.flexDays || 0
-			form.isPrivate = template.isPrivate || false
+			form.visibilityType = template.visibilityType || (template.isPrivate ? VISIBILITY_PRIVATE : VISIBILITY_PUBLIC)
 			if (template.fixedScheduleDays) {
 				selectedWeekdays.value = JSON.parse(template.fixedScheduleDays)
 			}
@@ -378,7 +393,7 @@ export default {
 				form.fixedScheduleTime = newTask.fixedScheduleTime || ''
 				form.scopeType = newTask.scopeType || 'room'
 				form.flexDays = newTask.flexDays || 0
-				form.isPrivate = newTask.isPrivate || false
+				form.visibilityType = newTask.visibilityType || (newTask.isPrivate ? VISIBILITY_PRIVATE : VISIBILITY_PUBLIC)
 				selectedWeekdays.value = parseWeekdays(newTask.fixedScheduleDays)
 			}
 		}, { immediate: true })
@@ -399,9 +414,21 @@ export default {
 			return true
 		})
 
+		const visibilityHint = computed(() => {
+			switch (form.visibilityType) {
+			case VISIBILITY_PRIVATE:
+				return t('chorestrike', 'Only assigned members can see and complete this task')
+			case VISIBILITY_ADMIN_ONLY:
+				return t('chorestrike', 'Only house owners can see and complete this task')
+			default:
+				return t('chorestrike', 'All house members can see and complete this task')
+			}
+		})
+
 		const submit = () => {
 			const data = {
 				...form,
+				isPrivate: form.visibilityType === VISIBILITY_PRIVATE,
 				fixedScheduleDays: form.schedulingMode === 'static' && form.frequencyType === 'weekly'
 					? JSON.stringify(selectedWeekdays.value)
 					: null,
@@ -412,12 +439,14 @@ export default {
 		return {
 			form,
 			isEditing,
+			isOwner,
 			selectedTemplate,
 			energyLabels,
 			weekdays,
 			selectedWeekdays,
 			frequencySuffix,
 			isValid,
+			visibilityHint,
 			submit,
 			applyTemplate,
 			clearTemplate,
@@ -560,6 +589,12 @@ export default {
 }
 
 .checkbox-text small {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85rem;
+}
+
+.visibility-hint {
+	margin-top: 0.4rem;
 	color: var(--color-text-maxcontrast);
 	font-size: 0.85rem;
 }

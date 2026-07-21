@@ -1,8 +1,10 @@
 # Phase 11: Task Visibility & Privacy Features
 
-**Status:** Planned  
+**Status:** Shipped by CS-PLAN-005 (2026-07)  
 **Priority:** Medium  
 **Estimated Effort:** 2-3 weeks
+
+> **Note:** All four features below have been implemented. P11-PRIVATE-001 and P11-OVERDUE-004 backend were partially shipped by CS-PLAN-002 (2026-07). The remaining work (visibilityType enum, admin-only tasks, teamwork bonus, overdue-claim UI) was completed by CS-PLAN-005 (2026-07).
 
 ---
 
