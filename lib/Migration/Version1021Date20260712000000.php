@@ -55,7 +55,7 @@ class Version1021Date20260712000000 extends SimpleMigrationStep
 				'notnull' => false,
 				'length' => 255,
 			]);
-			$table->setPrimaryKey(['id']);
+			$table->setPrimaryKey(['id'], 'pk_task_assignees');
 			$table->addUniqueIndex(['room_task_id', 'user_id'], 'cs_task_assignees_unique');
 			$table->addIndex(['user_id'], 'cs_task_assignees_user');
 			$table->addIndex(['room_task_id'], 'cs_task_assignees_task');

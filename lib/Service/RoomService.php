@@ -21,8 +21,8 @@ use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
-use OCP\AppFramework\Http\ForbiddenException;
-use OCP\AppFramework\Http\NotFoundException;
+use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\IDBConnection;
 
 /**

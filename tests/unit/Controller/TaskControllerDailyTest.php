@@ -265,7 +265,7 @@ class TaskControllerDailyTest extends TestCase
         $this->roomTaskService->expects($this->once())
             ->method('validateRoomTaskOwnership')
             ->with(1, 1)
-            ->willThrowException(new \OCP\AppFramework\Http\NotFoundException('Room task not found'));
+            ->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room task not found'));
 
         $response = $this->controller->complete(1);
 
@@ -285,7 +285,7 @@ class TaskControllerDailyTest extends TestCase
         $this->authService->expects($this->once())
             ->method('requireHouseMember')
             ->with(1)
-            ->willThrowException(new \OCP\AppFramework\Http\ForbiddenException('Owner role required'));
+            ->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required'));
 
         $response = $this->controller->complete(1);
 

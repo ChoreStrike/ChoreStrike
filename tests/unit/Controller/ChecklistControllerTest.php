@@ -20,7 +20,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\Http\NotFoundException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 

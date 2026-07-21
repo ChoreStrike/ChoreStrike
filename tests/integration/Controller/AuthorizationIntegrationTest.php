@@ -4,258 +4,231 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
-use OCA\ChoreStrike\Controller\HouseController;
-use OCA\ChoreStrike\Controller\FloorController;
-use OCA\ChoreStrike\Controller\RoomController;
-use OCA\ChoreStrike\Controller\TaskController;
-use OCA\ChoreStrike\Controller\RoomTaskController;
-use OCA\ChoreStrike\Controller\UserController;
-use OCA\ChoreStrike\Controller\GameController;
-use OCA\ChoreStrike\Db\House;
-use OCA\ChoreStrike\Db\HouseMapper;
-use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
-use OCA\ChoreStrike\Service\HouseService;
-use OCP\AppFramework\Http\JSONResponse;
-use OCP\IRequest;
-use OCP\IUserSession;
-use PHPUnit\Framework\TestCase;
+use OCA\ChoreStrike\Service\RoomTaskService;
+use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Exception\NotFoundException;
 
 /**
- * Integration tests for authorization checks across all controllers
+ * Authorization integration tests exercising real DB via OC::$server.
  *
- * Tests verify that:
- * - Unauthenticated users cannot access endpoints
- * - Users not in a house cannot access house resources
- * - Non-owners cannot perform owner-only actions
- * - Authorization checks happen before business logic
+ * Verifies the post-CS-PLAN-002 security contract:
+ * - Cross-house access (IDOR) → 404 RESOURCE_NOT_FOUND (prevents enumeration)
+ * - Forbidden actions → 403 FORBIDDEN
+ * - Owner-only endpoints reject member/child roles
+ *
+ * @see docs/plans/active/cs-plan-004-build-gate-and-docker-test-infra.md Phase 3
  */
-class AuthorizationIntegrationTest extends TestCase
+class AuthorizationIntegrationTest extends IntegrationTestCase
 {
-    private HouseMapper $houseMapper;
-    private HouseUserMapper $houseUserMapper;
-    private IUserSession $userSession;
-    private AuthorizationService $authService;
-    private HouseService $houseService;
-
-    private House $testHouse;
-    private HouseUser $ownerUser;
-    private HouseUser $memberUser;
+    private int $house1Id;
+    private int $house2Id;
+    private int $floor1Id;
+    private int $room1Id;
+    private int $task1Id;
+    private int $roomTask1Id;
+    private int $floor2Id;
+    private int $room2Id;
+    private int $task2Id;
+    private int $roomTask2Id;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->houseMapper = $this->createMock(HouseMapper::class);
-        $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-        $this->userSession = $this->createMock(IUserSession::class);
-        $this->houseService = $this->createMock(HouseService::class);
+        $this->house1Id = $this->createHouse('auth_owner', 'Auth House 1');
+        $this->floor1Id = $this->createFloor($this->house1Id, 'Floor 1', 1);
+        $this->room1Id = $this->createRoom($this->house1Id, $this->floor1Id, 'Kitchen');
+        $this->task1Id = $this->createTask($this->house1Id, 'Dishes', 'Wash dishes', 5, 10);
+        $this->roomTask1Id = $this->assignTaskToRoom($this->task1Id, $this->room1Id, 'auth_owner');
 
-        $this->authService = new AuthorizationService(
-            $this->houseUserMapper,
-            $this->userSession
-        );
-
-        // Create test house
-        $this->testHouse = new House();
-        $this->testHouse->setId(1);
-        $this->testHouse->setNextcloudInstanceId('test-instance');
-        $this->testHouse->setName('Test House');
-        $this->testHouse->setHouseHealth(100);
-
-        // Create owner user
-        $this->ownerUser = new HouseUser();
-        $this->ownerUser->setId(1);
-        $this->ownerUser->setHouseId(1);
-        $this->ownerUser->setNextcloudUserId('owner');
-        $this->ownerUser->setRole('owner');
-
-        // Create member user
-        $this->memberUser = new HouseUser();
-        $this->memberUser->setId(2);
-        $this->memberUser->setHouseId(1);
-        $this->memberUser->setNextcloudUserId('member');
-        $this->memberUser->setRole('member');
+        $this->house2Id = $this->createHouse('auth_outsider', 'Auth House 2');
+        $this->floor2Id = $this->createFloor($this->house2Id, 'Floor 1', 1);
+        $this->room2Id = $this->createRoom($this->house2Id, $this->floor2Id, 'Bedroom');
+        $this->task2Id = $this->createTask($this->house2Id, 'Vacuum', 'Vacuum floor', 4, 20);
+        $this->roomTask2Id = $this->assignTaskToRoom($this->task2Id, $this->room2Id, 'auth_outsider');
     }
 
-    /**
-     * Test that unauthenticated users cannot access HouseController endpoints
-     */
-    public function test_unauthenticatedUserCannotAccessHouseEndpoints(): void
+    // ========== AuthorizationService (real DB) ==========
+
+    public function testGetCurrentUserIdReturnsAuthenticatedUser(): void
     {
-        $this->userSession->method('getUser')->willReturn(null);
+        $this->actingAs('auth_owner');
+        $authService = \OC::$server->get(AuthorizationService::class);
 
-        // Configure houseService mock to return test house
-        $this->houseService->method('getOrCreateHouse')
-            ->willReturn($this->testHouse);
-
-        $controller = new HouseController(
-            $this->createMock(IRequest::class),
-            $this->houseService,
-            $this->authService
-        );
-
-        // Controller catches exception and returns error response
-        $response = $controller->stats();
-        $this->assertEquals(500, $response->getStatus());
-        $data = $response->getData();
-        $this->assertFalse($data['success']);
+        self::assertSame('auth_owner', $authService->getCurrentUserId());
     }
 
-    /**
-     * Test that users not in house cannot access house resources
-     */
-    public function test_nonHouseMemberCannotAccessHouseResources(): void
+    public function testRequireCurrentUserIdThrowsWhenNotAuthenticated(): void
     {
-        // This test requires full AuthorizationService mock setup
-        $this->markTestSkipped('Test requires full AuthorizationService mock setup for non-member access');
+        $this->userSession->setUser(null);
+        $authService = \OC::$server->get(AuthorizationService::class);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Not authenticated');
+        $authService->requireCurrentUserId();
     }
 
-    /**
-     * Test that non-owners cannot perform owner-only actions
-     */
-    public function test_nonOwnerCannotPerformOwnerActions(): void
+    public function testIsHouseMemberReturnsTrueForMember(): void
     {
-        $user = $this->createMock(\OCP\IUser::class);
-        $user->method('getUID')->willReturn('member');
-        $this->userSession->method('getUser')->willReturn($user);
+        $this->actingAs('auth_owner');
+        $authService = \OC::$server->get(AuthorizationService::class);
 
-        $this->houseUserMapper->method('findByHouseAndUser')
-            ->with(1, 'member')
-            ->willReturn($this->memberUser);
+        self::assertTrue($authService->isHouseMember($this->house1Id));
+    }
+
+    public function testIsHouseMemberReturnsFalseForNonMember(): void
+    {
+        $this->actingAs('auth_stranger');
+        $authService = \OC::$server->get(AuthorizationService::class);
+
+        self::assertFalse($authService->isHouseMember($this->house1Id));
+    }
+
+    public function testRequireHouseOwnerSucceedsForOwner(): void
+    {
+        $this->actingAs('auth_owner');
+        $authService = \OC::$server->get(AuthorizationService::class);
+
+        $houseUser = $authService->requireHouseOwner($this->house1Id);
+        self::assertSame('owner', $houseUser->getRole());
+    }
+
+    public function testRequireHouseOwnerThrowsForMember(): void
+    {
+        $this->addHouseMember($this->house1Id, 'auth_member', 'Member', 'member');
+        $this->actingAs('auth_member');
+        $authService = \OC::$server->get(AuthorizationService::class);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Owner role required');
+        $authService->requireHouseOwner($this->house1Id);
+    }
 
-        $this->authService->requireHouseOwner(1);
+    public function testRequireHouseOwnerThrowsForChildRole(): void
+    {
+        $this->addHouseMember($this->house1Id, 'auth_child', 'Child', 'child');
+        $this->actingAs('auth_child');
+        $authService = \OC::$server->get(AuthorizationService::class);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Owner role required');
+        $authService->requireHouseOwner($this->house1Id);
+    }
+
+    // ========== IDOR Protection (validateRoomTaskOwnership) ==========
+
+    /**
+     * Cross-house access to a room task must throw NotFoundException (404).
+     * Per P5-API-HARDENING: same message for non-existent and cross-house
+     * to prevent IDOR enumeration.
+     */
+    public function testCrossHouseRoomTaskAccessThrowsNotFound(): void
+    {
+        $this->actingAs('auth_outsider');
+        $roomTaskService = \OC::$server->get(RoomTaskService::class);
+
+        $this->expectException(NotFoundException::class);
+        $this->expectExceptionMessage('Room task not found');
+        $roomTaskService->validateRoomTaskOwnership($this->roomTask1Id, $this->house2Id);
     }
 
     /**
-     * Test that house members can access member-level endpoints
+     * Accessing a non-existent room task also throws NotFoundException.
      */
-    public function test_houseMemberCanAccessMemberEndpoints(): void
+    public function testNonExistentRoomTaskThrowsNotFound(): void
     {
-        $user = $this->createMock(\OCP\IUser::class);
-        $user->method('getUID')->willReturn('member');
-        $this->userSession->method('getUser')->willReturn($user);
+        $this->actingAs('auth_owner');
+        $roomTaskService = \OC::$server->get(RoomTaskService::class);
 
-        $this->houseUserMapper->method('findByHouseAndUser')
-            ->with(1, 'member')
-            ->willReturn($this->memberUser);
-
-        // Should not throw exception
-        $this->authService->requireHouseMember(1);
-        $this->assertTrue(true);
+        $this->expectException(NotFoundException::class);
+        $this->expectExceptionMessage('Room task not found');
+        $roomTaskService->validateRoomTaskOwnership(999999, $this->house1Id);
     }
 
     /**
-     * Test that house owners can perform owner actions
+     * Owner can access their own room task without exception.
      */
-    public function test_houseOwnerCanPerformOwnerActions(): void
+    public function testOwnerCanAccessOwnRoomTask(): void
     {
-        $user = $this->createMock(\OCP\IUser::class);
-        $user->method('getUID')->willReturn('owner');
-        $this->userSession->method('getUser')->willReturn($user);
+        $this->actingAs('auth_owner');
+        $roomTaskService = \OC::$server->get(RoomTaskService::class);
 
-        $this->houseUserMapper->method('findByHouseAndUser')
-            ->with(1, 'owner')
-            ->willReturn($this->ownerUser);
-
-        // Should not throw exception
-        $this->authService->requireHouseOwner(1);
-        $this->assertTrue(true);
+        $roomTaskService->validateRoomTaskOwnership($this->roomTask1Id, $this->house1Id);
+        self::assertTrue(true);
     }
 
-    /**
-     * Test that getCurrentUserId returns null when not authenticated
-     */
-    public function test_getCurrentUserIdReturnsNullWhenNotAuthenticated(): void
-    {
-        $this->userSession->method('getUser')->willReturn(null);
+    // ========== Security Regression: Private Task Cross-House ==========
 
-        $userId = $this->authService->getCurrentUserId();
-        $this->assertNull($userId);
+    /**
+     * A private task (is_private=true) in House 1 must not be accessible
+     * from House 2 context — same 404 as any cross-house IDOR.
+     */
+    public function testPrivateTaskCrossHouseReturnsNotFound(): void
+    {
+        $this->setTaskPrivate($this->task1Id);
+        $this->actingAs('auth_outsider');
+        $roomTaskService = \OC::$server->get(RoomTaskService::class);
+
+        $this->expectException(NotFoundException::class);
+        $this->expectExceptionMessage('Room task not found');
+        $roomTaskService->validateRoomTaskOwnership($this->roomTask1Id, $this->house2Id);
     }
 
-    /**
-     * Test that getCurrentUserId returns user ID when authenticated
-     */
-    public function test_getCurrentUserIdReturnsUserIdWhenAuthenticated(): void
-    {
-        $user = $this->createMock(\OCP\IUser::class);
-        $user->method('getUID')->willReturn('testuser');
-        $this->userSession->method('getUser')->willReturn($user);
+    // ========== Security Regression: Multi-Assign Cross-House ==========
 
-        $userId = $this->authService->getCurrentUserId();
-        $this->assertEquals('testuser', $userId);
+    /**
+     * A room task with multiple assignees (chorestrike_task_assignees)
+     * must still be protected from cross-house access.
+     */
+    public function testMultiAssignTaskCrossHouseReturnsNotFound(): void
+    {
+        $this->addTaskAssignee($this->roomTask1Id, 'auth_member');
+        $this->actingAs('auth_outsider');
+        $roomTaskService = \OC::$server->get(RoomTaskService::class);
+
+        $this->expectException(NotFoundException::class);
+        $this->expectExceptionMessage('Room task not found');
+        $roomTaskService->validateRoomTaskOwnership($this->roomTask1Id, $this->house2Id);
     }
 
+    // ========== Security Regression: Owner-Only Endpoints ==========
+
     /**
-     * Test that isHouseMember returns false for non-members
+     * Member role must be rejected by requireHouseOwner.
+     * Controllers using this guard return 403/500 for non-owners.
      */
-    public function test_isHouseMemberReturnsFalseForNonMembers(): void
+    public function testOwnerOnlyEndpointsRejectMemberRole(): void
     {
-        $user = $this->createMock(\OCP\IUser::class);
-        $user->method('getUID')->willReturn('outsider');
-        $this->userSession->method('getUser')->willReturn($user);
+        $this->addHouseMember($this->house1Id, 'auth_member2', 'Member2', 'member');
+        $this->actingAs('auth_member2');
+        $authService = \OC::$server->get(AuthorizationService::class);
 
-        $this->houseUserMapper->method('findByHouseAndUser')
-            ->with(1, 'outsider')
-            ->willReturn(null);
-
-        $isMember = $this->authService->isHouseMember(1);
-        $this->assertFalse($isMember);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Owner role required');
+        $authService->requireHouseOwner($this->house1Id);
     }
 
-    /**
-     * Test that isHouseMember returns true for members
-     */
-    public function test_isHouseMemberReturnsTrueForMembers(): void
+    // ========== Helpers ==========
+
+    private function setTaskPrivate(int $taskId): void
     {
-        $user = $this->createMock(\OCP\IUser::class);
-        $user->method('getUID')->willReturn('member');
-        $this->userSession->method('getUser')->willReturn($user);
-
-        $this->houseUserMapper->method('findByHouseAndUser')
-            ->with(1, 'member')
-            ->willReturn($this->memberUser);
-
-        $isMember = $this->authService->isHouseMember(1);
-        $this->assertTrue($isMember);
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('chorestrike_tasks')
+            ->set('is_private', $qb->createNamedParameter(1))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId)));
+        $qb->executeStatement();
     }
 
-    /**
-     * Test that isHouseOwner returns false for non-owners
-     */
-    public function test_isHouseOwnerReturnsFalseForNonOwners(): void
+    private function addTaskAssignee(int $roomTaskId, string $userId): void
     {
-        $user = $this->createMock(\OCP\IUser::class);
-        $user->method('getUID')->willReturn('member');
-        $this->userSession->method('getUser')->willReturn($user);
-
-        $this->houseUserMapper->method('findByHouseAndUser')
-            ->with(1, 'member')
-            ->willReturn($this->memberUser);
-
-        $isOwner = $this->authService->isHouseOwner(1);
-        $this->assertFalse($isOwner);
-    }
-
-    /**
-     * Test that isHouseOwner returns true for owners
-     */
-    public function test_isHouseOwnerReturnsTrueForOwners(): void
-    {
-        $user = $this->createMock(\OCP\IUser::class);
-        $user->method('getUID')->willReturn('owner');
-        $this->userSession->method('getUser')->willReturn($user);
-
-        $this->houseUserMapper->method('findByHouseAndUser')
-            ->with(1, 'owner')
-            ->willReturn($this->ownerUser);
-
-        $isOwner = $this->authService->isHouseOwner(1);
-        $this->assertTrue($isOwner);
+        $qb = $this->db->getQueryBuilder();
+        $qb->insert('chorestrike_task_assignees')
+            ->values([
+                'room_task_id' => $qb->createNamedParameter($roomTaskId),
+                'user_id' => $qb->createNamedParameter($userId),
+                'assigned_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
+            ]);
+        $qb->executeStatement();
     }
 }

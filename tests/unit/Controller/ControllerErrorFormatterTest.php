@@ -7,8 +7,8 @@
 declare(strict_types=1);
 
 use OCA\ChoreStrike\Controller\ControllerErrorFormatter;
-use OCP\AppFramework\Http\ForbiddenException;
-use OCP\AppFramework\Http\NotFoundException;
+use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 
 class ControllerErrorFormatterTest extends \PHPUnit\Framework\TestCase
 {

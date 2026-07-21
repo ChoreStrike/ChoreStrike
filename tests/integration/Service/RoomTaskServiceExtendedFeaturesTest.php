@@ -22,7 +22,7 @@ use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\RoomTaskService;
-use OCP\AppFramework\Http\NotFoundException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use PHPUnit\Framework\TestCase;
 
 /**

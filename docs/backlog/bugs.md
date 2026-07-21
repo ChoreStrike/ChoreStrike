@@ -22,7 +22,7 @@
 
 ## [P1] Pre-existing test/lint gate failures (logged during CS-PLAN-001 verification)
 
-**Status**: Partial — ESLint errors resolved in CS-PLAN-003; PHPUnit clone error remains deferred
+**Status**: Fixed — all items resolved (CS-PLAN-004, 2026-07-21)
 **Assignee**: Unassigned
 **Estimated Effort**: M
 **Phase**: 9
@@ -37,7 +37,7 @@ During the CS-PLAN-001 cleanup verification, the build gate surfaced **pre-exist
 
 ### Acceptance Criteria
 - [x] `TaskForm.spec.js` updated to assert tier labels (or `TaskForm.vue` exposes priority if still intended). **Fixed by CS-PLAN-002.**
-- [ ] `RoomTask.php:213` clone path fixed so `TestDataServiceTest` passes. **Still deferred.**
+- [x] `RoomTask.php:213` clone path fixed so `TestDataServiceTest` passes. **Fixed by CS-PLAN-004 Phase 1 (2026-07-21): null guard + `?int` return type.**
 - [x] ESLint errors in `src/` resolved or explicitly suppressed with tracked reasons. **0 errors (CS-PLAN-003 Phase 0). 58 JSDoc warnings deferred.**
 - [x] Stylelint config loads and lints the style sources. **Config loads; version-mismatch errors are upstream-unfixable.**
 
@@ -131,7 +131,7 @@ This is an active frontend/backend contract mismatch on a routed dashboard compo
 
 ## [P1] Docker Test Container: Migration-Fehler bei Boolean-Spalten und zu langen Namen
 
-**Status**: Partially Fixed  
+**Status**: Fixed (CS-PLAN-004 Phase 2, 2026-07-21)  
 **Assignee**: AI Agent  
 **Estimated Effort**: M  
 **Phase**: 2
@@ -148,14 +148,14 @@ Der Docker Test Container stürzt beim Start ab aufgrund von Nextcloud/MariaDB/D
 - [x] Index-/FK-Namen gekürzt für MariaDB-Kompatibilität
 - [x] Mapper aktualisiert (TaskChecklistItemMapper)
 - [x] Docker Entrypoint: Bessere Erkennung bestehender Installationen
-- [ ] Docker Container startet vollständig und Nextcloud-App wird aktiviert
-- [ ] Backend Unit Tests können in Docker ausgeführt werden
+- [x] Docker Container startet vollständig und Nextcloud-App wird aktiviert
+- [x] Backend Unit Tests können in Docker ausgeführt werden
 
 ### Notes
 - Teilweise gefixt in Commits vom 2026-03-01 (Migration-Fixes)
-- Container stürzt weiterhin ab - weitere unbekannte Migration-Issues möglich
-- Betrifft: `lib/Migration/Version1005Date20260228160000.php`, `Version1008Date20260228190000.php`, `Version1009Date20260228200000.php`
-- Siehe Docker-Logs für weitere Details
+- **Final fix (CS-PLAN-004, 2026-07-21):** `Version1021` had an unnamed `setPrimaryKey(['id'])` — the auto-generated PK name exceeded MariaDB's 64-char limit with the `oc_` prefix. Fixed by using `'pk_task_assignees'`. Container now starts, installs NC 31.0.14, and enables ChoreStrike 0.1.1 successfully.
+- Additionally discovered: `OCP\AppFramework\Http\NotFoundException` and `ForbiddenException` do not exist in NC 31. Created app-level `OCA\ChoreStrike\Exception\{NotFoundException,ForbiddenException}` and updated all imports (6 service/controller files + 5 test files).
+- See `docker/README.md` for the canonical up → enable → test recipe.
 
 ---
 
@@ -276,7 +276,7 @@ This leaks internal details and makes reconnaissance easier.
 
 ## [P1] Authorization integration tests are outdated and not aligned with controller behavior
 
-**Status**: Planned  
+**Status**: Fixed (CS-PLAN-004 Phase 3, 2026-07-21)  
 **Assignee**: Unassigned  
 **Estimated Effort**: M  
 **Phase**: 1
@@ -286,12 +286,13 @@ Current authorization integration tests expect exceptions where controllers now 
 Some expected exception types/messages no longer match service behavior.
 
 ### Acceptance Criteria
-- [ ] Tests assert response code/payload semantics for controllers.
-- [ ] Service-level tests assert exact exception classes/messages where relevant.
-- [ ] Security regression tests are added for IDOR and impersonation paths.
+- [x] Tests assert response code/payload semantics for controllers.
+- [x] Service-level tests assert exact exception classes/messages where relevant.
+- [x] Security regression tests are added for IDOR and impersonation paths.
 
 ### Notes
-- See `tests/integration/Controller/AuthorizationIntegrationTest.php`.
+- Rewritten in CS-PLAN-004 Phase 3: `AuthorizationIntegrationTest` now extends `IntegrationTestCase` (real DB via `OC::$server`), asserts `NotFoundException` for cross-house IDOR, `RuntimeException('Owner role required')` for non-owner access, and includes 3 new security regression cases (private task cross-house, multi-assign cross-house, owner-only endpoint rejection).
+- New infrastructure: `phpunit.integration.xml`, `tests/integration/IntegrationTestCase.php` (DB helpers + tearDown cleanup).
 
 ---
 

@@ -13,9 +13,9 @@ use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
-use OCP\AppFramework\Http\ForbiddenException;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\Http\NotFoundException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
 

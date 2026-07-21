@@ -22,7 +22,7 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCP\AppFramework\Db\DoesNotExistException;
-use OCP\AppFramework\Http\ForbiddenException;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\IDBConnection;
 use PHPUnit\Framework\TestCase;
 

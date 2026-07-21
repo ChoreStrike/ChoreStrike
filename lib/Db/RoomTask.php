@@ -204,10 +204,14 @@ class RoomTask extends Entity implements JsonSerializable
     }
 
     /**
-     * Get days until due (negative if overdue)
+     * Get days until due (negative if overdue, null when no due date is set)
      */
-    public function getDaysUntilDue(): int
+    public function getDaysUntilDue(): ?int
     {
+        if ($this->nextDue === null) {
+            return null;
+        }
+
         $today = new \DateTime();
         $today->setTime(0, 0, 0);
         $due = clone $this->nextDue;

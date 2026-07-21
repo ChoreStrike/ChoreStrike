@@ -19,7 +19,7 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
-use OCP\AppFramework\Http\NotFoundException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 
 /**
  * Service for room task-related business logic

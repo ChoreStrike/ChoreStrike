@@ -251,4 +251,33 @@ class RoomTaskTest extends TestCase
         self::assertFalse($roomTask->getIsActive());
         self::assertNull($roomTask->getIdealDueDate());
     }
+
+    // ========== Null-Safety Regression Tests (CS-PLAN-004 Phase 1) ==========
+
+    /**
+     * getDaysUntilDue must return null (not crash) when nextDue is null.
+     */
+    public function testGetDaysUntilDueReturnsNullWhenNextDueIsNull(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setIsActive(true);
+
+        self::assertNull($roomTask->getDaysUntilDue());
+    }
+
+    /**
+     * jsonSerialize must emit daysUntilDue => null when nextDue is null.
+     */
+    public function testJsonSerializeEmitsNullDaysUntilDueWhenNextDueIsNull(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setIsActive(true);
+        $roomTask->setRoomId(1);
+        $roomTask->setTaskId(1);
+
+        $json = $roomTask->jsonSerialize();
+
+        self::assertNull($json['daysUntilDue']);
+        self::assertNull($json['nextDue']);
+    }
 }

@@ -48,6 +48,7 @@ Thumbs.db
 # Testing
 /coverage/
 /.phpunit.result.cache
+/.phpunit.integration.result.cache
 /test-results/
 /playwright-report/
 /blob-report/

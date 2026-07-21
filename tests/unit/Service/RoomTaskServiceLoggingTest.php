@@ -16,7 +16,7 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
-use OCP\AppFramework\Http\NotFoundException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use PHPUnit\Framework\TestCase;
 
 /**

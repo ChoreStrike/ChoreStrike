@@ -8,8 +8,8 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
-use OCP\AppFramework\Http\ForbiddenException;
-use OCP\AppFramework\Http\NotFoundException;
+use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 
 /**
  * Formats controller error responses so internal exception details (SQL

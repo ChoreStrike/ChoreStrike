@@ -5,6 +5,19 @@
 
 ## Recently Completed
 
+### CS-PLAN-004 - Build-Gate Stabilization & Docker Test Environment
+**Status**: Done
+**Started**: 2026-07-21
+**Completed**: 2026-07-21
+**Branch**: master
+**Plan**: docs/plans/active/cs-plan-004-build-gate-and-docker-test-infra.md
+**Blockers**: None
+**Notes**:
+- **Phase 1 — PHPUnit clone guard (DONE):** `RoomTask::getDaysUntilDue()` now returns `?int` with null guard; `jsonSerialize()` emits `daysUntilDue => null` when `nextDue` is null. 2 regression tests added. PHPUnit 428/428 green.
+- **Phase 2 — Docker test container (DONE):** Root cause: `Version1021` unnamed `setPrimaryKey(['id'])` exceeded MariaDB 64-char PK name limit with `oc_` prefix. Fixed with `'pk_task_assignees'`. Container now starts NC 31.0.14 + ChoreStrike 0.1.1. Also discovered and fixed: `OCP\AppFramework\Http\{NotFoundException,ForbiddenException}` don't exist in NC 31 — created app-level `OCA\ChoreStrike\Exception\{NotFoundException,ForbiddenException}` and updated 11 files. `docker/README.md` created with canonical recipe.
+- **Phase 3 — Authorization integration tests (DONE):** Created `phpunit.integration.xml` + `tests/integration/IntegrationTestCase.php` (DB helpers, actingAs, tearDown cleanup). Rewrote `AuthorizationIntegrationTest` from mocks → real DB with 13 tests (21 assertions): AuthorizationService checks, IDOR via `validateRoomTaskOwnership`, 3 new security regression cases (private task cross-house, multi-assign cross-house, owner-only rejection). All green in Docker.
+- **Build gate:** PHPUnit 428/428, Jest 490/490, ESLint 0 errors (58 JSDoc warnings unchanged).
+
 ### CS-PLAN-003 - Dead-Code Cleanup & Build-Gate Hygiene
 **Status**: Done
 **Started**: 2026-07-19 13:00
@@ -66,6 +79,30 @@
 - Docker test environment now starts successfully
 - Manual alpha testing validated: Floor/Room creation, Quick Clean, Leaderboard all working
 - House API returns 500 error before fix, now returns correct data
+
+## Planned (Awaiting Activation)
+
+> Drafts in `docs/plans/new/`. The `new/ → active/` move is **manual** (project-rules §7) — these entries register intent only.
+
+### CS-PLAN-004 - Build-Gate Stabilization & Docker Test Environment
+**Status**: Done (2026-07-21) — see Recently Completed
+**Priority**: P1 · **Effort**: M · **Depends on**: none
+**Scope**: Closes the three P1 deferrals from CS-PLAN-003 — (1) PHPUnit `RoomTask::getDaysUntilDue()` clone-on-null fix (root cause at `lib/Db/RoomTask.php:213`, ≤10-line patch), (2) Docker test container repair (`docker/Dockerfile.test` + `test-entrypoint.sh` investigation; unblocks integration + E2E + beta deploy), (3) `AuthorizationIntegrationTest` rewrite to match post-CS-PLAN-002 error-response semantics + 3 new IDOR/impersonation regression cases. **Unblocks every downstream feature plan that needs a backend test environment.**
+**Blockers**: None (CS-PLAN-003 is Done).
+
+### CS-PLAN-005 - Task Visibility, Teamwork Rewards & Overdue UI (Phase 11, scoped)
+**Status**: Planned (draft in `docs/plans/new/cs-plan-005-task-visibility-teamwork-overdue.md`)
+**Priority**: P2 · **Effort**: L · **Depends on**: CS-PLAN-004 (needs green integration suite)
+**Scope**: Ships the remaining ~60% of `phase-11-task-visibility-features.md` without re-doing the ~40% CS-PLAN-002 already delivered. Concretely: `visibility_type` enum + `owner_user_id` (`Version1024` migration; back-fills `is_private=true → 'private'`), admin-only tasks (owner-only visibility + completion gate), teamwork bonus rewards (`GameLogicService::calculateTeamworkBonus()` on top of the existing coin formula, capped + configurable), overdue-claim UI (backend takeover path already exists from CS-PLAN-002 Phase 1 review pass — frontend only). Private-tasks `is_private` is kept as a back-compat shim derived from `visibilityType`.
+**Blockers**: CS-PLAN-004 (integration tests need Docker).
+
+### CS-PLAN-006 - Role Title System
+**Status**: Planned (draft in `docs/plans/new/cs-plan-006-role-title-system.md`)
+**Priority**: P2 · **Effort**: M · **Depends on**: CS-PLAN-004 (build gate)
+**Scope**: Closes the 2026-03-07 `ROLE-TITLE-SYSTEM-001` and `GAMIFICATION-CONCEPTS-001` backlog entries. Three title packs × three tiers = 9 titles, each themed around a different progression signal (`contributionScore` / `longestStreak` / `totalSparksEarned`) — Home Helpers, Team Energy, Cozy Home. New `lib/Titles/TitleCatalog.php` + `lib/Service/TitleService.php` (server-authoritative unlocks via `RewardConfigService` thresholds, mirroring the `weekly_goal_target_percent` pattern); `selected_title_pack` + `unlocked_titles` columns on `chorestrike_house_users` (`Version1025`); new `TitleBadge`/`TitlePicker` Vue components; reuse of the CS-PLAN-002 Phase 2 celebration layer for unlock moments. Independent of CS-PLAN-005 (different code paths).
+**Blockers**: CS-PLAN-004 (Phase 4 integration test).
+
+---
 
 ## Currently Active
 
@@ -1317,4 +1354,4 @@
 
 ---
 
-**Last Updated**: 2026-03-22 18:12
+**Last Updated**: 2026-07-19 (three new plans registered: CS-PLAN-004 build-gate/docker, CS-PLAN-005 task visibility/teamwork, CS-PLAN-006 role titles)
