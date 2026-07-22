@@ -65,7 +65,7 @@ class GameLogicService
         $isCombo = count($recentCompletions) >= 2;
         $daysEarly = $this->calculateDaysEarly($roomTask);
         $earlyMultiplier = $this->calculateEarlyBonus($daysEarly);
-        $coins = $this->calculateCoins($task, $user->getCoinMultiplier(), $isCombo, $earlyMultiplier);
+        $coins = $this->calculateCoins($task, (float) $user->getCoinMultiplier(), $isCombo, $earlyMultiplier);
 
         $completedTask = new CompletedTask();
         $completedTask->setRoomTaskId($roomTaskId);

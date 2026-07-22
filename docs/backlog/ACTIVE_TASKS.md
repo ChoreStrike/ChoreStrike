@@ -8,16 +8,17 @@
 ### CS-PLAN-005 - Task Visibility, Teamwork Rewards & Overdue UI (Phase 11)
 **Status**: Done
 **Started**: 2026-07-21
-**Completed**: 2026-07-21
+**Completed**: 2026-07-22
 **Branch**: master
-**Plan**: docs/plans/active/cs-plan-005-task-visibility-teamwork-overdue.md
+**Plan**: docs/plans/done/cs-plan-005-task-visibility-teamwork-overdue.md
 **Blockers**: None
 **Notes**:
 - **Phase 1 — Schema (DONE):** `Version1024Date20260719000000` adds `visibility_type` + `owner_user_id` to `chorestrike_tasks`, back-fills `visibility_type='private'` from `is_private=1`, adds index. `Task` entity gains `VISIBILITY_*` constants, `visibilityType`/`ownerUserId` fields, `isPrivate()` derived from `visibilityType`, `setIsPrivate()` shim. `TaskMapper` persists + clones new fields, adds `findVisibleByHouse()` (3×3 visibility matrix) and `findPrivateByOwner()`.
 - **Phase 2 — Backend logic (DONE):** `GameLogicService::calculateTeamworkBonus()` (capped, configurable via `RewardConfigService` keys `teamwork_bonus_enabled`/`teamwork_bonus_max_pct`). `RoomService::completeRoomTask()` gains admin-only gate + teamwork bonus award. `TaskController` validates `visibilityType`, rejects admin-only from non-owners, forces `ownerUserId` for private tasks, adds `myPrivate()` endpoint. `TaskService` extended with visibility params + `getMyPrivateTasks()`. Route `GET /tasks/my-private` added.
 - **Phase 3 — Frontend (DONE):** `src/constants/taskVisibility.js` mirrors PHP constants. `TaskEditForm` 3-way visibility selector (Public/Private/Admin-Only, admin-only owner-gated). `TaskList` lock/crown icons, teamwork-bonus hint, overdue claim button + `OverdueClaimDialog`. `QuickStats` private-filter toggle. `roomTasks` store gains `fetchMyPrivateTasks()` + `claimOverdueTask()`.
 - **Phase 4 — Tests & docs (DONE):** `GameLogicServiceTeamworkTest` (7 tests), `TaskMapperVisibilityTest` (12 tests). l10n keys added to en/de. Phase-11 backlog annotated as shipped. QuickStats test fixed for new filter button.
-- **Build gate:** PHPUnit 447/447, Jest 490/490, ESLint 0 errors (58 JSDoc warnings unchanged).
+- **Phase 5 — Integration & E2E tests (DONE, 2026-07-22):** 7 new test files in the Docker test environment: `PrivateTaskAuthorizationTest` (11 tests, 3×3 visibility matrix + my-private + completion gate), `AdminOnlyTaskTest` (8 tests, owner-only visibility + completion gate + rewards), `TeamworkRewardTest` (6 tests, single/multi assignee + additive check + cap + disabled), plus 4 E2E specs (`private-tasks`, `admin-only-tasks`, `teamwork-rewards`, `overdue-task-claiming`). Bug fix: `lib/Service/GameLogicService.php:68` — `(float)` cast on `$user->getCoinMultiplier()` (PDO DECIMAL returns string with `declare(strict_types=1)`). Docker schema issue (image cache) resolved via manual `ALTER TABLE` for `task_tier`/`flex_days`/`ideal_due_date`/`coin_multiplier`. Review pass fixed tautological cap test and E2E silent-skip guards.
+- **Build gate (final):** PHPUnit unit 447/447, PHPUnit integration 25/25 (new tests), Jest 490/490, ESLint 0 new errors.
 
 ### CS-PLAN-004 - Build-Gate Stabilization & Docker Test Environment
 **Status**: Done
@@ -105,7 +106,7 @@
 **Blockers**: None (CS-PLAN-003 is Done).
 
 ### CS-PLAN-005 - Task Visibility, Teamwork Rewards & Overdue UI (Phase 11, scoped)
-**Status**: Planned (draft in `docs/plans/new/cs-plan-005-task-visibility-teamwork-overdue.md`)
+**Status**: Done (2026-07-22) — see Recently Completed
 **Priority**: P2 · **Effort**: L · **Depends on**: CS-PLAN-004 (needs green integration suite)
 **Scope**: Ships the remaining ~60% of `phase-11-task-visibility-features.md` without re-doing the ~40% CS-PLAN-002 already delivered. Concretely: `visibility_type` enum + `owner_user_id` (`Version1024` migration; back-fills `is_private=true → 'private'`), admin-only tasks (owner-only visibility + completion gate), teamwork bonus rewards (`GameLogicService::calculateTeamworkBonus()` on top of the existing coin formula, capped + configurable), overdue-claim UI (backend takeover path already exists from CS-PLAN-002 Phase 1 review pass — frontend only). Private-tasks `is_private` is kept as a back-compat shim derived from `visibilityType`.
 **Blockers**: CS-PLAN-004 (integration tests need Docker).
@@ -114,7 +115,7 @@
 **Status**: Planned (draft in `docs/plans/new/cs-plan-006-role-title-system.md`)
 **Priority**: P2 · **Effort**: M · **Depends on**: CS-PLAN-004 (build gate)
 **Scope**: Closes the 2026-03-07 `ROLE-TITLE-SYSTEM-001` and `GAMIFICATION-CONCEPTS-001` backlog entries. Three title packs × three tiers = 9 titles, each themed around a different progression signal (`contributionScore` / `longestStreak` / `totalSparksEarned`) — Home Helpers, Team Energy, Cozy Home. New `lib/Titles/TitleCatalog.php` + `lib/Service/TitleService.php` (server-authoritative unlocks via `RewardConfigService` thresholds, mirroring the `weekly_goal_target_percent` pattern); `selected_title_pack` + `unlocked_titles` columns on `chorestrike_house_users` (`Version1025`); new `TitleBadge`/`TitlePicker` Vue components; reuse of the CS-PLAN-002 Phase 2 celebration layer for unlock moments. Independent of CS-PLAN-005 (different code paths).
-**Blockers**: CS-PLAN-004 (Phase 4 integration test).
+**Blockers**: CS-PLAN-004 (Phase 4 integration test) — Done.
 
 ---
 
