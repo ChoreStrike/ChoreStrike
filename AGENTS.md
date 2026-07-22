@@ -68,6 +68,8 @@ Skills live in [`docs/standards/ai/skills/`](docs/standards/ai/skills/) and are 
 | PHP backend | `php-backend` + [`security.md`](docs/standards/guidelines/security.md) |
 | Vue frontend | `vue-frontend` + [`design.md`](docs/standards/guidelines/design.md) |
 | Tests | `testing` + [`testing.md`](docs/standards/guidelines/testing.md) |
+| Docker test env | `docker-dev` + [`TESTING.md`](docs/TESTING.md) |
+| Gamification / rewards | `gamification` + [ADR-004](docs/adr/ADR-004-multi-user-gamification.md) |
 | Review | `review` + [`llm-do-dont-checklist.md`](docs/standards/guidelines/llm-do-dont-checklist.md) |
 | Architecture / refactor | `architecture` + [ADRs](docs/adr/) |
 | Documentation | `documentation` |
