@@ -10,6 +10,7 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\TitleService;
 use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUser;
@@ -27,6 +28,7 @@ class UserControllerIntegrationTest extends TestCase
     private IUserManager $userManager;
     private AuthorizationService $authService;
     private IRequest $request;
+    private TitleService $titleService;
     private IL10N $l10n;
 
     protected function setUp(): void
@@ -38,6 +40,8 @@ class UserControllerIntegrationTest extends TestCase
         $this->houseService = $this->createMock(HouseService::class);
         $this->userManager = $this->createMock(IUserManager::class);
         $this->authService = $this->createMock(AuthorizationService::class);
+        $this->titleService = $this->createMock(TitleService::class);
+        $this->titleService->method('getCurrentTitle')->willReturn(null);
         $this->l10n = $this->createMock(IL10N::class);
         $this->l10n->method('t')
             ->willReturnCallback(static fn (string $text): string => $text);
@@ -48,6 +52,7 @@ class UserControllerIntegrationTest extends TestCase
             $this->houseService,
             $this->userManager,
             $this->authService,
+            $this->titleService,
             $this->l10n
         );
     }

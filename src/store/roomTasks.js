@@ -459,6 +459,17 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 						})
 					}
 
+					// Title unlock celebration (CS-PLAN-006). Mirrors the
+					// medal/streak-freeze emit pattern; the celebration
+					// composable subscribes to this event.
+					if (rewards?.newTitle) {
+						emit('chorestrike:title-unlocked', {
+							pack: rewards.newTitle.pack,
+							labelKey: rewards.newTitle.labelKey,
+							tierIndex: rewards.newTitle.tierIndex,
+						})
+					}
+
 					return response.data.data
 				} else {
 					throw new Error(response.data.error?.message || 'Failed to complete room task')

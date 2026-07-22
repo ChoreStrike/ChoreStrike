@@ -46,6 +46,11 @@ export function useCelebration() {
 		playSound('medal')
 	})
 
+	on('chorestrike:title-unlocked', () => {
+		fireMilestoneConfetti()
+		playSound('milestone')
+	})
+
 	on('chorestrike:weekly-goal-reached', () => {
 		fireMilestoneConfetti()
 		playSound('milestone')

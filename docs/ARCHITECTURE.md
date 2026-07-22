@@ -38,12 +38,15 @@ ChoreStrike/
 │   ├── Service/                # Business logic (House, HouseUser, Floor, Room, RoomTask,
 │   │                           #   Task, GameLogic, Medal, Combo, Scheduling, SmartScheduler,
 │   │                           #   TaskScheduler, Minigame, RewardConfig, Template, TaskSync,
-│   │                           #   UserStats, TestData, Authorization, AppLogger)
+│   │                           #   UserStats, TestData, Authorization, AppLogger, Title,
+│   │                           #   Notification)
+│   ├── Titles/                 # Title catalog constants (CS-PLAN-006)
+│   │                           #   TitleCatalog — 3 packs × 3 tiers, server-authoritative
 │   ├── Db/                     # Entities & mappers (House, Floor, Room, Task, RoomTask,
 │   │                           #   CompletedTask, HouseUser, Medal, Combo, MinigameScore,
 │   │                           #   TaskChecklistItem + progress, TaskClaim, TaskParticipant,
 │   │                           #   TaskScope, UserStats, AvailabilitySettings)
-│   ├── Migration/              # Schema migrations (Version1000 … Version1024)
+│   ├── Migration/              # Schema migrations (Version1000 … Version1025)
 │   └── Command/                # occ commands (e.g. TestDataSeed)
 ├── src/                        # Vue 3 frontend
 │   ├── main.js                 # Entry point
@@ -55,12 +58,13 @@ ChoreStrike/
 │   │   │                       #   FlexWindowDisplay, TemplateSelector, OverdueClaimDialog
 │   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop, Game2048, MemoryGame
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
+│   │   ├── Profile/            # TitleBadge, TitlePicker (CS-PLAN-006)
 │   │   ├── Scheduling/         # DailyTaskList
-│   ├── constants/              # Shared constants (taskVisibility)
+│   ├── constants/              # Shared constants (taskVisibility, titles)
 │   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard,
 │   │                           #   Settings, SchedulingView
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
-│   │                           #   user, scheduling, checklist, minigame)
+│   │                           #   user, scheduling, checklist, minigame, titles)
 │   └── utils/                  # currentUser, icons, roomIcons, logger, mobile, performance
 ├── l10n/                       # Translations
 │   ├── templates/

@@ -8,9 +8,11 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\TitleService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
@@ -27,6 +29,7 @@ class UserController extends OCSController
     private HouseService $houseService;
     private IUserManager $userManager;
     private AuthorizationService $authService;
+    private TitleService $titleService;
     private IL10N $l;
 
     public function __construct(
@@ -35,6 +38,7 @@ class UserController extends OCSController
         HouseService $houseService,
         IUserManager $userManager,
         AuthorizationService $authService,
+        TitleService $titleService,
         IL10N $l
     ) {
         parent::__construct('chorestrike', $request);
@@ -42,7 +46,19 @@ class UserController extends OCSController
         $this->houseService = $houseService;
         $this->userManager = $userManager;
         $this->authService = $authService;
+        $this->titleService = $titleService;
         $this->l = $l;
+    }
+
+    /**
+     * Serialize a HouseUser with its server-computed current title, so the
+     * leaderboard and active-user views can render the title badge without a
+     * separate round-trip. Delegates to TitleService (shared with
+     * GameLogicService) so the payload shape cannot drift.
+     */
+    private function serializeUserWithTitle(HouseUser $user): array
+    {
+        return $this->titleService->enrichWithCurrentTitle($user->jsonSerialize(), $user);
     }
 
     /**
@@ -61,7 +77,7 @@ class UserController extends OCSController
 
             return new JSONResponse([
                 'success' => true,
-                'data' => array_map(fn ($user) => $user->jsonSerialize(), $users)
+                'data' => array_map(fn ($user) => $this->serializeUserWithTitle($user), $users)
             ]);
         } catch (\Exception $e) {
             return new JSONResponse([
@@ -88,7 +104,7 @@ class UserController extends OCSController
 
             return new JSONResponse([
                 'success' => true,
-                'data' => $houseUser->jsonSerialize(),
+                'data' => $this->serializeUserWithTitle($houseUser),
             ]);
         } catch (\Exception $e) {
             return new JSONResponse([
@@ -329,6 +345,122 @@ class UserController extends OCSController
                 'error' => [
                     'code' => 'UPDATE_USER_ERROR',
                     'message' => $this->l->t('Failed to update user')
+                ]
+            ], 500);
+        }
+    }
+
+    /**
+     * Get the role-title state for a user: current title, all unlocked
+     * tiers (live-derived from stats), and the full pack/tier catalog.
+     *
+     * @NoAdminRequired
+     */
+    public function titles(int $id): JSONResponse
+    {
+        try {
+            $houseUser = $this->houseUserMapper->find($id);
+            $this->authService->requireHouseMember($houseUser->getHouseId());
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => [
+                    'currentTitle' => $this->titleService->getCurrentTitle($houseUser),
+                    'unlockedTitles' => $this->titleService->getUnlockedTitles($houseUser),
+                    'selectedTitlePack' => $houseUser->getSelectedTitlePack(),
+                    'catalog' => $this->titleService->getCatalogView(),
+                ],
+            ]);
+        } catch (DoesNotExistException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'USER_NOT_FOUND',
+                    'message' => $this->l->t('User not found')
+                ]
+            ], 404);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'TITLES_ERROR',
+                    'message' => $this->l->t('Failed to retrieve titles')
+                ]
+            ], 500);
+        }
+    }
+
+    /**
+     * Select the title pack the user displays.
+     *
+     * Titles are identity, not admin — a member picks their own pack. The
+     * requester must be the target user or a house owner.
+     *
+     * @NoAdminRequired
+     * @param int $id The internal house user identifier.
+     * @param string $pack Pack key to display.
+     */
+    public function selectTitle(int $id, string $pack): JSONResponse
+    {
+        try {
+            $houseUser = $this->houseUserMapper->find($id);
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $currentHouseUser = $this->authService->requireHouseMember($house->getId());
+
+            if ($houseUser->getHouseId() !== $house->getId()) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'USER_NOT_FOUND',
+                        'message' => $this->l->t('User not found')
+                    ]
+                ], 404);
+            }
+
+            $isOwner = $currentHouseUser->isOwner();
+            $isSelf = $currentHouseUser->getNextcloudUserId() === $houseUser->getNextcloudUserId();
+            if (!$isOwner && !$isSelf) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'FORBIDDEN',
+                        'message' => $this->l->t('You are not allowed to update this user')
+                    ]
+                ], 403);
+            }
+
+            $this->titleService->selectPack($houseUser, $pack);
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => [
+                    'selectedTitlePack' => $houseUser->getSelectedTitlePack(),
+                    'currentTitle' => $this->titleService->getCurrentTitle($houseUser),
+                ],
+            ]);
+        } catch (DoesNotExistException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'USER_NOT_FOUND',
+                    'message' => $this->l->t('User not found')
+                ]
+            ], 404);
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => $this->l->t('Invalid title pack')
+                ]
+            ], 400);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'SELECT_TITLE_ERROR',
+                    'message' => $this->l->t('Failed to select title')
                 ]
             ], 500);
         }

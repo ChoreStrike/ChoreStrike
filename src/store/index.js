@@ -11,6 +11,7 @@ import { useGameStore } from './game.js'
 import { useUserStore } from './user.js'
 import { useChecklistStore } from './checklist.js'
 import { useMinigameStore } from './minigame.js'
+import { useTitlesStore } from './titles.js'
 import { logger } from '../utils/logger.js'
 
 // Export all stores
@@ -70,6 +71,7 @@ export const resetAllStores = () => {
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
 	const minigameStore = useMinigameStore()
+	const titlesStore = useTitlesStore()
 
 	userStore.reset()
 	houseStore.reset()
@@ -78,6 +80,7 @@ export const resetAllStores = () => {
 	roomTasksStore.reset()
 	gameStore.reset()
 	minigameStore.reset()
+	titlesStore.reset()
 }
 
 // Store error clearing utilities

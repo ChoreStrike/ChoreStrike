@@ -389,6 +389,12 @@ Get medals for current week.
 
 ### Users
 
+> **Title fields on user objects:** every user object returned by `GET /users`, the active-user endpoint, and the leaderboard is enriched with two title fields:
+> - `selectedTitlePack` (`string|null`) — the pack the user has chosen to display (null = none chosen).
+> - `currentTitle` (`object|null`) — the server-computed highest tier the user qualifies for within `selectedTitlePack` (same shape as `currentTitle` under `GET /users/{id}/titles` below), or null.
+>
+> The full `unlockedTitles` list is **not** on the generic user payload — fetch it via `GET /users/{id}/titles`.
+
 #### GET /users
 List all users in the house.
 
@@ -420,6 +426,41 @@ Invite a Nextcloud user to the house.
 
 #### DELETE /users/{id}
 Remove user from house (owner only).
+
+#### GET /users/{id}/titles
+Get the role-title state for a user: the current title (server-computed from
+live stats), every tier the user qualifies for across all packs, the selected
+pack, and the full pack/tier catalog (with per-house threshold overrides) so
+the frontend can render the picker without a second call. House-members only.
+
+**Response `data`:**
+```json
+{
+  "currentTitle": {
+    "pack": "team_energy",
+    "packLabelKey": "titles.pack.team_energy",
+    "tierIndex": 1,
+    "tierKey": "flow_keeper",
+    "labelKey": "titles.team_energy.flow_keeper",
+    "threshold": 30
+  },
+  "unlockedTitles": [/* …tier descriptors… */],
+  "selectedTitlePack": "team_energy",
+  "catalog": {
+    "home_helpers": { "labelKey": "…", "signal": "contributionScore", "tiers": [/* … */] }
+  }
+}
+```
+
+#### PUT /users/{id}/titles/select
+Select the title pack the user displays. Titles are identity, not admin — the
+requester must be the target user or a house owner. Validates the pack key
+against the catalog.
+
+**Request:**
+```json
+{ "pack": "team_energy" }
+```
 
 ## Error Codes
 

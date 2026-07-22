@@ -30,6 +30,7 @@ class GameLogicService
     private RoomTaskMapper $roomTaskMapper;
     private RewardConfigService $configService;
     private NotificationService $notificationService;
+    private ?TitleService $titleService;
 
     public function __construct(
         HouseUserMapper $houseUserMapper,
@@ -37,7 +38,8 @@ class GameLogicService
         MedalMapper $medalMapper,
         RoomTaskMapper $roomTaskMapper,
         RewardConfigService $configService,
-        NotificationService $notificationService
+        NotificationService $notificationService,
+        ?TitleService $titleService = null
     ) {
         $this->houseUserMapper = $houseUserMapper;
         $this->completedTaskMapper = $completedTaskMapper;
@@ -45,6 +47,7 @@ class GameLogicService
         $this->roomTaskMapper = $roomTaskMapper;
         $this->configService = $configService;
         $this->notificationService = $notificationService;
+        $this->titleService = $titleService;
     }
 
     /**
@@ -105,8 +108,54 @@ class GameLogicService
             }
         }
 
+        // Track the all-time longest streak off the effective current streak
+        // (after any freeze preservation). This is the progression signal the
+        // team_energy title pack unlocks on, so it must advance here.
+        $effectiveStreak = $user->getCurrentStreak();
+        if ($effectiveStreak > $user->getLongestStreak()) {
+            $user->setLongestStreak($effectiveStreak);
+        }
+
         $user->touch();
+
+        // Title unlock detection (CS-PLAN-006). Detects newly-crossed tier
+        // thresholds across all packs, mutates the user's unlocked-titles
+        // cache in-memory (so it is persisted by the update below in the
+        // same write), and picks one new title to celebrate. Gated behind
+        // the titlesEnabled feature flag so an aggressive celebration cadence
+        // can be disabled without a redeploy.
+        $newTitle = null;
+        if ($this->titleService !== null && $this->configService->getTitlesEnabled()) {
+            $unlocked = $this->titleService->detectUnlock($user);
+            if (!empty($unlocked)) {
+                // Prefer a new title in the user's selected pack for the
+                // celebration; otherwise fall back to the first new unlock.
+                $selectedPack = $user->getSelectedTitlePack();
+                $newTitle = $unlocked[0];
+                foreach ($unlocked as $candidate) {
+                    if ($candidate['pack'] === $selectedPack) {
+                        $newTitle = $candidate;
+                        break;
+                    }
+                }
+            }
+        }
+
         $this->houseUserMapper->update($user);
+
+        // Best-effort title notification — must never break a completion.
+        if ($newTitle !== null) {
+            $nextcloudUserId = $user->getNextcloudUserId();
+            if ($nextcloudUserId !== null && $nextcloudUserId !== '') {
+                $this->notificationService->notifyTitleUnlocked(
+                    $nextcloudUserId,
+                    $newTitle['pack'],
+                    $newTitle['labelKey'],
+                    $newTitle['packLabelKey'],
+                    $newTitle['tierIndex']
+                );
+            }
+        }
 
         return [
             'contributionScore' => $contributionScore,
@@ -120,6 +169,7 @@ class GameLogicService
             'streakFreezeUsed' => $freezeUsed,
             'streakFreezesRemaining' => $user->getStreakFreezes(),
             'comboBonusFreeze' => $comboBonusFreeze,
+            'newTitle' => $newTitle,
         ];
     }
 
@@ -204,7 +254,7 @@ class GameLogicService
         $users = $this->houseUserMapper->findByHouseId($houseId);
 
         return [
-            'users' => array_map(fn ($user) => $user->jsonSerialize(), $users),
+            'users' => array_map(fn ($user) => $this->serializeUser($user), $users),
         ];
     }
 
@@ -217,7 +267,7 @@ class GameLogicService
     public function getLeaderboard(int $houseId, int $limit = 10): array
     {
         return array_map(
-            fn ($user) => $user->jsonSerialize(),
+            fn ($user) => $this->serializeUser($user),
             $this->houseUserMapper->getLeaderboard($houseId, $limit)
         );
     }
@@ -338,6 +388,20 @@ class GameLogicService
         $medal->setWeekStart($weekStart);
         $medal->setAwardedAt(new \DateTime());
         return $this->medalMapper->insert($medal);
+    }
+
+    /**
+     * Serialize a HouseUser to its JSON shape, enriching it with the
+     * server-computed `currentTitle` when the title system is available.
+     * Delegates to TitleService so the shape stays in sync with UserController.
+     */
+    private function serializeUser(HouseUser $user): array
+    {
+        $data = $user->jsonSerialize();
+        if ($this->titleService !== null) {
+            return $this->titleService->enrichWithCurrentTitle($data, $user);
+        }
+        return $data;
     }
 
     /**

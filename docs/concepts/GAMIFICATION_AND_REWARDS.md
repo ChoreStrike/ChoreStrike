@@ -38,11 +38,38 @@ The system should allow configurable balancing so high-load members receive redu
 
 ## Role Title Systems (Localized)
 
+> **Status: Shipped (CS-PLAN-006).** Three title packs are live as a
+> progression-overlay on top of the existing stats. Titles react to existing
+> progression signals only — no new core loop, currency, or completion path.
+
 Role names must feel friendly and motivating.
 Use localized title packs so each household can choose a style.
 Each pack includes 3 progressive titles (low/medium/high contribution).
 
 MVP scope: provide 3 built-in family-friendly packs.
+
+Implementation (`lib/Titles/TitleCatalog.php` + `lib/Service/TitleService.php`):
+
+| Pack | Signal | Tier thresholds (defaults) |
+|------|--------|----------------------------|
+| Home Helpers | `contributionScore` | 50 / 250 / 1000 |
+| Team Energy | `longestStreak` | 7 / 30 / 90 |
+| Cozy Home | `coins` | 500 / 2500 / 10000 |
+
+- Server-authoritative unlocks: the client only displays what the server returns.
+- Each pack's signal is an **actively-maintained** stat: `contributionScore`
+  and `coins` are incremented on every task completion, and `longestStreak`
+  is tracked from the effective (post-freeze) streak in
+  `GameLogicService::handleTaskCompletion`.
+- Thresholds are **tunable per house** via `RewardConfigService` keys
+  (`title_threshold_{pack}_{tier}`, surfaced through the reward-config API),
+  so a household can adjust difficulty without a code change.
+- The user picks one active pack; within that pack the highest unlocked tier
+  is shown. Switching packs is free (identity, not a consumable).
+- Unlock moments reuse the celebration layer (`chorestrike:title-unlocked`
+  event → confetti + milestone SFX) and fire a best-effort Nextcloud
+  notification. The whole subsystem can be disabled via the
+  `titles_enabled` config flag.
 
 ### Pack A: Home Helpers (Neutral, Family-Friendly)
 

@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RewardConfigService;
+use OCA\ChoreStrike\Service\TitleService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\TestCase;
 
@@ -735,11 +736,50 @@ class GameLogicServiceTest extends TestCase
         $this->assertTrue($shouldReset);
     }
 
-    /**
-     * HandleTaskCompletion_StreakWouldReset_FreezeConsumed
-     */
-    public function testHandleTaskCompletion_StreakWouldReset_FreezeConsumed(): void
-    {
+	/**
+	 * HandleTaskCompletion_AdvancesLongestStreak_ToEffectiveStreak
+	 *
+	 * The longest streak must track the effective (post-freeze) current
+	 * streak, because team_energy title unlocks read longestStreak.
+	 */
+	public function testHandleTaskCompletion_AdvancesLongestStreak_ToEffectiveStreak(): void
+	{
+		$roomTaskId = 1;
+		$userId = 1;
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setEnergyCost(3);
+		$task->setTaskTier('bronze');
+
+		$user = new HouseUser();
+		$user->setId($userId);
+		$user->setCurrentStreak(5);
+		$user->setLongestStreak(3);
+		$user->setLastActivity(new \DateTime('yesterday'));
+
+		$this->houseUserMapper->method('find')->willReturn($user);
+
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setIdealDueDate(null);
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+
+		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
+		$this->completedTaskMapper->expects($this->once())->method('insert');
+		$this->houseUserMapper->expects($this->once())->method('update');
+
+		$this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+
+		// Streak advanced 5 → 6 (yesterday completion), longest tracks it.
+		$this->assertEquals(6, $user->getLongestStreak());
+	}
+
+	/**
+	 * HandleTaskCompletion_StreakWouldReset_FreezeConsumed
+	 */
+	public function testHandleTaskCompletion_StreakWouldReset_FreezeConsumed(): void
+	{
         $roomTaskId = 1;
         $userId = 1;
 
@@ -848,10 +888,187 @@ class GameLogicServiceTest extends TestCase
         $this->completedTaskMapper->expects($this->once())->method('insert');
         $this->houseUserMapper->expects($this->once())->method('update');
 
-        $result = $this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+		$result = $this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
 
-        $this->assertTrue($result['isCombo']);
-        $this->assertTrue($result['comboBonusFreeze']);
-        $this->assertEquals(1, $result['streakFreezesRemaining']);
-    }
+		$this->assertTrue($result['isCombo']);
+		$this->assertTrue($result['comboBonusFreeze']);
+		$this->assertEquals(1, $result['streakFreezesRemaining']);
+	}
+
+	/**
+	 * Build a GameLogicService wired with a TitleService + a config that has
+	 * titles enabled, reusing the mocked mappers from setUp.
+	 */
+	private function createServiceWithTitles(TitleService $titleService): GameLogicService
+	{
+		$this->configService = $this->createMock(RewardConfigService::class);
+		$this->configService->method('getCoinBasePerEnergy')->willReturn(10);
+		$this->configService->method('getEarlyBonusThresholdDays')->willReturn(21);
+		$this->configService->method('getEarlyBonusMultiplier')->willReturn(1.5);
+		$this->configService->method('getStreakFreezeCap')->willReturn(2);
+		$this->configService->method('getComboBonusFreezeThreshold')->willReturn(5);
+		$this->configService->method('getTitlesEnabled')->willReturn(true);
+
+		return new GameLogicService(
+			$this->houseUserMapper,
+			$this->completedTaskMapper,
+			$this->medalMapper,
+			$this->roomTaskMapper,
+			$this->configService,
+			$this->notificationService,
+			$titleService
+		);
+	}
+
+	/**
+	 * HandleTaskCompletion_NewTitleUnlock_FiresNotificationAndSetsNewTitle
+	 */
+	public function testHandleTaskCompletion_NewTitleUnlock_FiresNotificationAndSetsNewTitle(): void
+	{
+		$titleService = $this->createMock(TitleService::class);
+		$newTitle = [
+			'pack' => 'home_helpers',
+			'packLabelKey' => 'titles.pack.home_helpers',
+			'tierIndex' => 0,
+			'tierKey' => 'helper',
+			'labelKey' => 'titles.home_helpers.helper',
+			'threshold' => 50,
+		];
+		$titleService->expects($this->once())
+			->method('detectUnlock')
+			->willReturn([$newTitle]);
+
+		$service = $this->createServiceWithTitles($titleService);
+
+		$roomTaskId = 1;
+		$userId = 1;
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setEnergyCost(3);
+		$task->setTaskTier('bronze');
+
+		$user = new HouseUser();
+		$user->setId($userId);
+		$user->setNextcloudUserId('alice');
+		$user->setCurrentStreak(5);
+		$user->setLastActivity(new \DateTime('yesterday'));
+
+		$this->houseUserMapper->method('find')->willReturn($user);
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setIdealDueDate(null);
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
+		$this->completedTaskMapper->expects($this->once())->method('insert');
+		$this->houseUserMapper->expects($this->once())->method('update');
+
+		$this->notificationService->expects($this->once())
+			->method('notifyTitleUnlocked')
+			->with('alice', 'home_helpers', 'titles.home_helpers.helper', 'titles.pack.home_helpers', 0);
+
+		$result = $service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+
+		$this->assertSame($newTitle, $result['newTitle']);
+	}
+
+	/**
+	 * HandleTaskCompletion_NoThresholdCrossed_DoesNotNotify
+	 */
+	public function testHandleTaskCompletion_NoThresholdCrossed_DoesNotNotify(): void
+	{
+		$titleService = $this->createMock(TitleService::class);
+		$titleService->expects($this->once())
+			->method('detectUnlock')
+			->willReturn([]);
+
+		$service = $this->createServiceWithTitles($titleService);
+
+		$roomTaskId = 1;
+		$userId = 1;
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setEnergyCost(3);
+		$task->setTaskTier('bronze');
+
+		$user = new HouseUser();
+		$user->setId($userId);
+		$user->setNextcloudUserId('alice');
+		$user->setCurrentStreak(5);
+		$user->setLastActivity(new \DateTime('yesterday'));
+
+		$this->houseUserMapper->method('find')->willReturn($user);
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setIdealDueDate(null);
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
+		$this->completedTaskMapper->expects($this->once())->method('insert');
+		$this->houseUserMapper->expects($this->once())->method('update');
+
+		$this->notificationService->expects($this->never())->method('notifyTitleUnlocked');
+
+		$result = $service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+
+		$this->assertNull($result['newTitle']);
+	}
+
+	/**
+	 * HandleTaskCompletion_TitlesDisabled_SkipsDetection
+	 */
+	public function testHandleTaskCompletion_TitlesDisabled_SkipsDetection(): void
+	{
+		$titleService = $this->createMock(TitleService::class);
+		$titleService->expects($this->never())->method('detectUnlock');
+
+		$service = $this->createServiceWithTitles($titleService);
+		// Flip the feature flag off after construction.
+		$this->configService = $this->createMock(RewardConfigService::class);
+		$this->configService->method('getTitlesEnabled')->willReturn(false);
+		// Rebuild with disabled flag (other config methods use defaults that
+		// are not reached when titles are disabled — but the coin calc still
+		// runs, so re-stub the coin getters).
+		$this->configService->method('getCoinBasePerEnergy')->willReturn(10);
+		$this->configService->method('getEarlyBonusThresholdDays')->willReturn(21);
+		$this->configService->method('getEarlyBonusMultiplier')->willReturn(1.5);
+		$this->configService->method('getStreakFreezeCap')->willReturn(2);
+		$this->configService->method('getComboBonusFreezeThreshold')->willReturn(5);
+		$service = new GameLogicService(
+			$this->houseUserMapper,
+			$this->completedTaskMapper,
+			$this->medalMapper,
+			$this->roomTaskMapper,
+			$this->configService,
+			$this->notificationService,
+			$titleService
+		);
+
+		$roomTaskId = 1;
+		$userId = 1;
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setEnergyCost(3);
+		$task->setTaskTier('bronze');
+
+		$user = new HouseUser();
+		$user->setId($userId);
+		$user->setNextcloudUserId('alice');
+		$user->setCurrentStreak(5);
+		$user->setLastActivity(new \DateTime('yesterday'));
+
+		$this->houseUserMapper->method('find')->willReturn($user);
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setIdealDueDate(null);
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
+		$this->completedTaskMapper->expects($this->once())->method('insert');
+		$this->houseUserMapper->expects($this->once())->method('update');
+
+		$result = $service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+
+		$this->assertNull($result['newTitle']);
+	}
 }

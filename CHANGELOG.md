@@ -7,13 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Role Title System** (CS-PLAN-006): server-authoritative progression overlay on top of the existing gamification stats. Three title packs × three tiers (9 titles), each themed around a different progression signal — Home Helpers (`contributionScore`), Team Energy (`longestStreak`), Cozy Home (`coins`). New `lib/Titles/TitleCatalog.php` + `lib/Service/TitleService.php`; `selected_title_pack` + `unlocked_titles` columns on `chorestrike_house_users` (`Version1025`, with a `postSchemaChange` backfill so existing users aren't re-celebrated on deploy); configurable thresholds via `RewardConfigService` (`titles_enabled` flag + 9 `title_threshold_*` keys); `TitleBadge`/`TitlePicker` Vue components on Settings + Leaderboard; title-unlock celebration + Nextcloud notification; `GET /users/{id}/titles` + `PUT /users/{id}/titles/select` API. Closes `ROLE-TITLE-SYSTEM-001` / `GAMIFICATION-CONCEPTS-001`.
+
 ### Changed
 - Gamification simplification Phase 0 + Phase 1 core (CS-PLAN-002): removed the Sparks and Monsters dead systems; live task completion path was already secure, the unrouted duplicate accepting a client-supplied user id was removed as dead code; `claimOverdueTask` now persists claim fields (centralized in `RoomTask::markClaimed`); completing another member's overdue task now records a takeover (original assignee streak unaffected). See `docs/plans/active/cs-plan-002-gamification-simplification.md` for full scope and remaining work.
+- `GameLogicService::handleTaskCompletion` now tracks the all-time `longestStreak` from the effective (post-freeze) streak (CS-PLAN-006: the team-energy title signal was previously never advanced).
 
 ### Removed
 - API endpoint `GET /api/v1/minigames/sparks` and the Sparks currency from the frontend (DB columns retained harmlessly).
 - Monsters logic (`GameLogicService::calculateMonsterCount`/`getMonsterType`, `RoomMapper::updateMonsterCount`, `Room::hasMonsters`/`addMonster`/`removeMonster`) and monster UI (`RoomCard` toggle/display, `QuickStats` monsters stat, `RoomDetail` MonsterSprite). The `MonsterSprite.vue`, `MonsterCollection.vue`, and `GameStats.vue` components are archived under `archive/2026-06/gamification-monsters/`.
 - Dead unrouted `RoomController::completeTask()` (the live completion path `RoomTaskController::complete()` was already secure).
+
+### Fixed (CS-PLAN-006 review pass)
+- Title-unlock notifications no longer drop when two packs unlock the same tier rank — the notification object id is now pack-qualified (`{pack}.{tier}`), so each unlock survives Nextcloud's `(app, user, objectType, objectId)` dedup.
+- The title picker now mirrors the server-authoritative unlocked set instead of recomputing `signal >= threshold` from a separately-fetched (and optimistically mutated) stats object, so checkmarks can no longer disagree with the server's `currentTitle`.
+- Title state (`currentTitle`/`catalog`/`unlockedTitles`) is now cleared on logout/house-switch — the titles store `reset()` is wired into `resetAllStores()`.
+- Title threshold config now rejects non-strictly-ascending values within a pack (throws before any write) so `getCurrentTitle()`'s "highest qualifying tier" semantics can never break silently.
+- The ever-grown `unlockedTitles` cache is no longer exposed in the generic user payload (`GET /users`, active user, leaderboard); the `GET /users/{id}/titles` endpoint is now the sole source of the live-derived unlocked-title list.
 
 ## [0.1.1] - 2026-06-22
 

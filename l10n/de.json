@@ -311,6 +311,34 @@
         "This will be recorded as taken over from {assignee}.": "Dies wird als übernommen von {assignee} aufgezeichnet.",
         "My Private Tasks": "Meine privaten Aufgaben",
         "Admin-only task": "Nur-Admin-Aufgabe",
-        "another Member": "einem anderen Mitglied"
+        "another Member": "einem anderen Mitglied",
+
+        "Your Title": "Dein Titel",
+        "No title yet — pick a track to get started!": "Noch kein Titel — wähle einen Weg, um loszulegen!",
+        "Change title": "Titel ändern",
+        "Choose your title": "Wähle deinen Titel",
+        "Pick a progression track. Tiers unlock automatically as you play.": "Wähle einen Fortschrittsweg. Stufen schalten sich beim Spielen automatisch frei.",
+        "Set as my title": "Als meinen Titel festlegen",
+        "Active": "Aktiv",
+        "All tiers unlocked!": "Alle Stufen freigeschaltet!",
+        "Unlocked titles: {titles}": "Freigeschaltete Titel: {titles}",
+        "Failed to retrieve titles": "Titel konnten nicht abgerufen werden",
+        "Invalid title pack": "Ungültiges Titel-Paket",
+        "Failed to select title": "Titel konnte nicht festgelegt werden",
+        "You unlocked a new title: %1$s": "Du hast einen neuen Titel freigeschaltet: %1$s",
+        "You reached a new tier (\"%1$s\") in the \"%2$s\" pack. Set it as your title in Settings!": "Du hast eine neue Stufe („%1$s“) im Paket „%2$s“ erreicht. Lege ihn in den Einstellungen als deinen Titel fest!",
+
+        "titles.pack.home_helpers": "Haushaltshelden",
+        "titles.pack.team_energy": "Team-Energie",
+        "titles.pack.cozy_home": "Gemütliches Zuhause",
+        "titles.home_helpers.helper": "Helfer",
+        "titles.home_helpers.organizer": "Organisator",
+        "titles.home_helpers.care_captain": "Versorgungskapitän",
+        "titles.team_energy.spark_starter": "Funkenstarter",
+        "titles.team_energy.flow_keeper": "Flow-Bewahrer",
+        "titles.team_energy.team_anchor": "Team-Anker",
+        "titles.cozy_home.cozy_buddy": "Gemütlicher Begleiter",
+        "titles.cozy_home.room_ranger": "Raum-Ranger",
+        "titles.cozy_home.home_guardian": "Heim-Wächter"
     }
 }

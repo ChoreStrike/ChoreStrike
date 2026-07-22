@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Titles\TitleCatalog;
 use OCP\IAppConfig;
 
 /**
@@ -31,6 +32,9 @@ class RewardConfigService
     public const KEY_WEEKLY_GOAL_TARGET_PERCENT = 'weekly_goal_target_percent';
     public const KEY_TEAMWORK_BONUS_ENABLED = 'teamwork_bonus_enabled';
     public const KEY_TEAMWORK_BONUS_MAX_PCT = 'teamwork_bonus_max_pct';
+    public const KEY_TITLES_ENABLED = 'titles_enabled';
+    /** Prefix for per-tier title thresholds; full key is `{prefix}_{pack}_{tierIndex}`. */
+    public const KEY_TITLE_THRESHOLD_PREFIX = 'title_threshold';
 
     private IAppConfig $config;
 
@@ -191,6 +195,78 @@ class RewardConfigService
             '50'
         );
         return max(0, min(100, $value));
+    }
+
+    /**
+     * Whether the role-title system is enabled (CS-PLAN-006 feature flag).
+     *
+     * Wraps the title unlock-detection in GameLogicService so an aggressive
+     * celebration cadence can be disabled without a redeploy. Default true.
+     */
+    public function getTitlesEnabled(): bool
+    {
+        return $this->config->getValueString(
+            self::APP_NAME,
+            self::KEY_TITLES_ENABLED,
+            '1'
+        ) === '1';
+    }
+
+    /**
+     * Set whether the role-title system is enabled.
+     */
+    public function setTitlesEnabled(bool $enabled): void
+    {
+        $this->config->setValueString(
+            self::APP_NAME,
+            self::KEY_TITLES_ENABLED,
+            $enabled ? '1' : '0'
+        );
+    }
+
+    /**
+     * Get the unlock threshold for a specific title tier, honouring any
+     * per-house override stored via IAppConfig. Falls back to the catalog
+     * default. Clamped to >= 1 so a misconfigured threshold can never make
+     * a tier unreachable.
+     *
+     * @param string $packKey Pack key (validated by the catalog lookup)
+     * @param int $tierIndex 0-based tier index within the pack
+     */
+    public function getTitleThreshold(string $packKey, int $tierIndex): int
+    {
+        $tiers = TitleCatalog::getTiers($packKey);
+        $default = $tiers[$tierIndex]['threshold'] ?? 1;
+        $value = (int) $this->config->getValueString(
+            self::APP_NAME,
+            $this->thresholdKey($packKey, $tierIndex),
+            (string) $default
+        );
+        return max(1, $value);
+    }
+
+    /**
+     * Set the unlock threshold for a specific title tier.
+     *
+     * @param string $packKey Pack key
+     * @param int $tierIndex 0-based tier index within the pack
+     * @param int $value Threshold (clamped to >= 1)
+     */
+    public function setTitleThreshold(string $packKey, int $tierIndex, int $value): void
+    {
+        $this->config->setValueString(
+            self::APP_NAME,
+            $this->thresholdKey($packKey, $tierIndex),
+            (string) max(1, $value)
+        );
+    }
+
+    /**
+     * Build the IAppConfig key for a tier threshold.
+     */
+    private function thresholdKey(string $packKey, int $tierIndex): string
+    {
+        return self::KEY_TITLE_THRESHOLD_PREFIX . '_' . $packKey . '_' . $tierIndex;
     }
 
     /**
@@ -356,6 +432,8 @@ class RewardConfigService
             'weeklyGoalTargetPercent' => $this->getWeeklyGoalTargetPercent(),
             'teamworkBonusEnabled' => $this->getTeamworkBonusEnabled(),
             'teamworkBonusMaxPct' => $this->getTeamworkBonusMaxPct(),
+            'titlesEnabled' => $this->getTitlesEnabled(),
+            'titleThresholds' => $this->getAllTitleThresholds(),
         ];
     }
 
@@ -404,6 +482,91 @@ class RewardConfigService
         }
         if (isset($values['teamworkBonusMaxPct'])) {
             $this->setTeamworkBonusMaxPct((int) $values['teamworkBonusMaxPct']);
+        }
+        if (isset($values['titlesEnabled'])) {
+            $this->setTitlesEnabled((bool) $values['titlesEnabled']);
+        }
+        if (isset($values['titleThresholds']) && is_array($values['titleThresholds'])) {
+            $this->applyTitleThresholds($values['titleThresholds']);
+        }
+    }
+
+    /**
+     * Collect every tier threshold as a nested map: pack → [tier0, tier1, tier2].
+     *
+     * @return array<string, int[]>
+     */
+    private function getAllTitleThresholds(): array
+    {
+        $result = [];
+        foreach (TitleCatalog::getPackKeys() as $packKey) {
+            $result[$packKey] = [];
+            foreach (TitleCatalog::getTiers($packKey) as $index => $tier) {
+                $result[$packKey][] = $this->getTitleThreshold($packKey, $index);
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Apply a nested `titleThresholds` payload (pack → tier-index → value).
+     * Unknown packs / tier indices are skipped so a malformed payload can't
+     * poison the config. Thresholds within a pack MUST stay strictly
+     * ascending — a non-ascending set is rejected before anything is written
+     * so getCurrentTitle()'s "last qualifying tier = highest" assumption
+     * can never break silently.
+     *
+     * @param array<string, array<int|string, int>> $thresholds
+     *
+     * @throws \InvalidArgumentException When a pack's provided thresholds are not strictly ascending.
+     */
+    private function applyTitleThresholds(array $thresholds): void
+    {
+        foreach ($thresholds as $packKey => $tierValues) {
+            if (!is_array($tierValues) || !TitleCatalog::isValidPack((string)$packKey)) {
+                continue;
+            }
+            $byIndex = [];
+            foreach (array_values($tierValues) as $index => $value) {
+                if (!is_numeric($value)) {
+                    continue;
+                }
+                $byIndex[(int)$index] = max(1, (int)$value);
+            }
+            $this->assertAscendingThresholds((string)$packKey, $byIndex);
+            foreach ($byIndex as $index => $value) {
+                $this->setTitleThreshold((string)$packKey, $index, $value);
+            }
+        }
+    }
+
+    /**
+     * Reject a non-strictly-ascending set of tier thresholds for a pack.
+     * Only the tiers present in `$byIndex` are compared (gaps are allowed),
+     * so a partial payload that is ascending among itself still validates.
+     *
+     * @param string $packKey Pack key
+     * @param array<int, int> $byIndex tier index → clamped value
+     *
+     * @throws \InvalidArgumentException When two provided tiers are not strictly ascending.
+     */
+    private function assertAscendingThresholds(string $packKey, array $byIndex): void
+    {
+        $tierCount = count(TitleCatalog::getTiers($packKey));
+        $previous = null;
+        for ($i = 0; $i < $tierCount; $i++) {
+            if (!isset($byIndex[$i])) {
+                continue;
+            }
+            $value = $byIndex[$i];
+            if ($previous !== null && $value <= $previous) {
+                throw new \InvalidArgumentException(
+                    'Title thresholds must be strictly ascending within a pack; '
+                    . $packKey . ' tier ' . $i . ' (' . $value . ') is not greater than tier '
+                    . ($i - 1) . ' (' . $previous . ')'
+                );
+            }
+            $previous = $value;
         }
     }
 }

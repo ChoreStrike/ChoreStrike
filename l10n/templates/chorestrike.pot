@@ -491,3 +491,82 @@ msgstr ""
 
 msgid "Suggestion applied successfully"
 msgstr ""
+
+# CS-PLAN-006: Role Title System
+msgid "Your Title"
+msgstr ""
+
+msgid "No title yet — pick a track to get started!"
+msgstr ""
+
+msgid "Change title"
+msgstr ""
+
+msgid "Choose your title"
+msgstr ""
+
+msgid "Pick a progression track. Tiers unlock automatically as you play."
+msgstr ""
+
+msgid "Set as my title"
+msgstr ""
+
+msgid "Active"
+msgstr ""
+
+msgid "All tiers unlocked!"
+msgstr ""
+
+msgid "Unlocked titles: {titles}"
+msgstr ""
+
+msgid "Failed to retrieve titles"
+msgstr ""
+
+msgid "Invalid title pack"
+msgstr ""
+
+msgid "Failed to select title"
+msgstr ""
+
+msgid "You unlocked a new title: %1$s"
+msgstr ""
+
+msgid "You reached a new tier (\"%1$s\") in the \"%2$s\" pack. Set it as your title in Settings!"
+msgstr ""
+
+msgid "titles.pack.home_helpers"
+msgstr ""
+
+msgid "titles.pack.team_energy"
+msgstr ""
+
+msgid "titles.pack.cozy_home"
+msgstr ""
+
+msgid "titles.home_helpers.helper"
+msgstr ""
+
+msgid "titles.home_helpers.organizer"
+msgstr ""
+
+msgid "titles.home_helpers.care_captain"
+msgstr ""
+
+msgid "titles.team_energy.spark_starter"
+msgstr ""
+
+msgid "titles.team_energy.flow_keeper"
+msgstr ""
+
+msgid "titles.team_energy.team_anchor"
+msgstr ""
+
+msgid "titles.cozy_home.cozy_buddy"
+msgstr ""
+
+msgid "titles.cozy_home.room_ranger"
+msgstr ""
+
+msgid "titles.cozy_home.home_guardian"
+msgstr ""

@@ -45,6 +45,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setSchedulingPreferences(array $preferences)
  * @method int getStreakFreezes()
  * @method void setStreakFreezes(int $streakFreezes)
+ * @method string|null getSelectedTitlePack()
+ * @method void setSelectedTitlePack(?string $selectedTitlePack)
+ * @method array getUnlockedTitles()
+ * @method void setUnlockedTitles(array $unlockedTitles)
  */
 class HouseUser extends Entity implements JsonSerializable
 {
@@ -93,6 +97,12 @@ class HouseUser extends Entity implements JsonSerializable
     /** @var int */
     protected $streakFreezes = 1;
 
+    /** @var string|null Selected title pack key (null = no pack chosen). */
+    protected $selectedTitlePack = null;
+
+    /** @var array Cache of `{pack}.{tier}` titles the user has unlocked. */
+    protected $unlockedTitles = [];
+
     public function __construct()
     {
         $this->addType('id', 'integer');
@@ -111,6 +121,8 @@ class HouseUser extends Entity implements JsonSerializable
         $this->addType('joinedAt', 'datetime');
         $this->addType('schedulingPreferences', 'json');
         $this->addType('streakFreezes', 'integer');
+        $this->addType('selectedTitlePack', 'string');
+        $this->addType('unlockedTitles', 'json');
     }
 
     /**
@@ -135,6 +147,7 @@ class HouseUser extends Entity implements JsonSerializable
             'joinedAt' => $this->joinedAt?->format('c'),
             'schedulingPreferences' => $this->schedulingPreferences,
             'streakFreezes' => $this->streakFreezes,
+            'selectedTitlePack' => $this->selectedTitlePack,
         ];
     }
 
@@ -346,5 +359,27 @@ class HouseUser extends Entity implements JsonSerializable
         if ($this->streakFreezes < $cap) {
             $this->setStreakFreezes($this->streakFreezes + 1);
         }
+    }
+
+    /**
+     * Append a `{pack}.{tier}` title id to the unlocked-titles cache.
+     *
+     * Idempotent: returns true only when the title was newly added (drives
+     * the unlock-detection "is this a new unlock?" check). The cache is a
+     * denormalized mirror of the stat-derived unlock set, so a house reset
+     * clears it without data loss.
+     *
+     * @param string $tierId Canonical `{pack}.{tier}` identifier
+     * @return bool True when the title was newly cached
+     */
+    public function addUnlockedTitle(string $tierId): bool
+    {
+        $current = $this->unlockedTitles ?? [];
+        if (in_array($tierId, $current, true)) {
+            return false;
+        }
+        $current[] = $tierId;
+        $this->setUnlockedTitles($current);
+        return true;
     }
 }

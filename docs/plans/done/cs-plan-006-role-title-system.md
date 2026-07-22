@@ -1,6 +1,8 @@
 # CS-PLAN-006: Role Title System
 
-> **Status:** Plan (not started)
+> **Status:** Done (implemented + reviewed, 2026-07-22). Build gate green: PHPUnit unit 472/472, Jest 512/512, ESLint 0 errors, `l10n:check-keys` pass, title integration tests 3/3. Review pass applied: repointed the `cozy_home` signal to the actively-maintained `coins` stat, added `longestStreak` tracking on task completion (both packs' signals were previously never incremented), deduped the TitleService unlock logic + user serialization, drove the picker from the server catalog, removed dead code, and added a `postSchemaChange` backfill so the default-on flag doesn't burst-celebrate veterans. E2E spec delivered (`tests/e2e/title-selection.spec.ts`) but blocked by the pre-existing E2E browser-session auth issue that also fails `settings.spec.ts`.
+>
+> **Review pass 2 (2026-07-22, six-track `/review`):** fixed 3 WARNINGs + 3 quick SUGGESTIONs. (1) `notifyTitleUnlocked()` object id is now pack-qualified (`TitleCatalog::tierId`) so two packs unlocking the same tier rank no longer dedup-drop each other's notification. (2) `TitlePicker.vue` now derives unlock checkmarks from the server-authoritative `titlesStore.unlockedTitles` instead of recomputing `signal >= threshold` from the staleable `currentUser`; the raw signal read is kept only for the progress-bar fill. (3) `useTitlesStore().reset()` is wired into `resetAllStores()` (logout/house-switch no longer leaks title state). (4) `RewardConfigService::applyTitleThresholds()` rejects non-strictly-ascending thresholds within a pack before any write (`assertAscendingThresholds()` + regression test). (5) `unlockedTitles` removed from `HouseUser::jsonSerialize()` — the `/users/{id}/titles` endpoint is the sole source of the live list. (6) Removed the unused `displayTitle`/`isLoaded` store getters. Verified: Jest 509/509, ESLint 0 errors, `php -l` clean on all changed files (backend PHPUnit run via Docker deferred). Remaining review suggestions left for a separate decision: unbatched migration backfill loop, dead `SIGNAL_TOTAL_SPARKS_EARNED` branch / cozy_home coins-vs-sparks intent, migration `signalColumn()` duplication, and the unused `TIER_STYLES.color` field.
 > **Effort:** M
 > **Priority:** P2
 > **Depends on:** CS-PLAN-004 (build gate). Independent of CS-PLAN-005 (different code paths).
@@ -25,7 +27,7 @@ Three packs × three tiers = 9 titles. Each pack is themed around a different pr
 |------|-------|----------------|-------|
 | **A — Home Helpers** | Consistency / breadth | `contributionScore` (total energy spent) | Helper → Organizer → Care Captain |
 | **B — Team Energy** | Streak / dependability | `longestStreak` | Spark Starter → Flow Keeper → Team Anchor |
-| **C — Cozy Home** | Coins / household contribution | `totalSparksEarned` (yes, the column is renamed but the field kept its old name) | Cozy Buddy → Room Ranger → Home Guardian |
+| **C — Cozy Home** | Coins / household contribution | `coins` (review fix: repointed from the never-incremented legacy `totalSparksEarned`) | Cozy Buddy → Room Ranger → Home Guardian |
 
 Each tier has a configurable threshold (via `RewardConfigService`, so owners can tune difficulty without a code change). The user picks **one active pack** at a time; within that pack, the highest unlocked tier is shown. Switching packs is free (not a purchase) — the title is identity, not a consumable.
 

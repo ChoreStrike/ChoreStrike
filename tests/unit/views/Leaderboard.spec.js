@@ -20,12 +20,12 @@ jest.mock('../../../src/store/user.js', () => ({
 		currentUser: { id: 1, nextcloudUserId: 'user1', displayName: 'Current User', contributionScore: 150 },
 		userId: 'user1',
 		houseUsers: [
-			{ id: 1, nextcloudUserId: 'user2', displayName: 'Alice', contributionScore: 200, currentStreak: 5, totalTasksCompleted: 42 },
+			{ id: 1, nextcloudUserId: 'user2', displayName: 'Alice', contributionScore: 200, currentStreak: 5, totalTasksCompleted: 42, currentTitle: { labelKey: 'titles.team_energy.team_anchor', tierIndex: 2, pack: 'team_energy' } },
 			{ id: 2, nextcloudUserId: 'user1', displayName: 'Current User', contributionScore: 150, currentStreak: 3, totalTasksCompleted: 35 },
 			{ id: 3, nextcloudUserId: 'user3', displayName: 'Bob', contributionScore: 100, currentStreak: 2, totalTasksCompleted: 28 },
 		],
 		getLeaderboard: [
-			{ id: 1, nextcloudUserId: 'user2', displayName: 'Alice', contributionScore: 200, currentStreak: 5, totalTasksCompleted: 42 },
+			{ id: 1, nextcloudUserId: 'user2', displayName: 'Alice', contributionScore: 200, currentStreak: 5, totalTasksCompleted: 42, currentTitle: { labelKey: 'titles.team_energy.team_anchor', tierIndex: 2, pack: 'team_energy' } },
 			{ id: 2, nextcloudUserId: 'user1', displayName: 'Current User', contributionScore: 150, currentStreak: 3, totalTasksCompleted: 35 },
 			{ id: 3, nextcloudUserId: 'user3', displayName: 'Bob', contributionScore: 100, currentStreak: 2, totalTasksCompleted: 28 },
 		],
@@ -187,6 +187,19 @@ describe('Leaderboard.vue', () => {
 		})
 
 		expect(wrapper.find('.you-badge').exists()).toBe(true)
+	})
+
+	it('renders the title badge for users with a current title', () => {
+		const wrapper = mount(Leaderboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		// Alice (rank 1) has a title → appears in the podium and the row.
+		const badges = wrapper.findAll('[data-testid="title-badge"]')
+		expect(badges.length).toBeGreaterThan(0)
+		expect(badges[0].text()).toContain('titles.team_energy.team_anchor')
 	})
 
 	it('displays user scores', () => {

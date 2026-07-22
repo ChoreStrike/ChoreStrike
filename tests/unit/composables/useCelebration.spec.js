@@ -46,6 +46,7 @@ describe('useCelebration composable', () => {
 		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:medal-awarded', expect.any(Function))
 		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:weekly-goal-reached', expect.any(Function))
 		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:streak-freeze-used', expect.any(Function))
+		expect(mockSubscribe).toHaveBeenCalledWith('chorestrike:title-unlocked', expect.any(Function))
 	})
 
 	it('fires confetti and plays complete sound on task completion', () => {
@@ -87,12 +88,22 @@ describe('useCelebration composable', () => {
 		expect(mockPlaySound).toHaveBeenCalledWith('medal')
 	})
 
+	it('fires milestone confetti on title unlocked', () => {
+		const { useCelebration } = require('@/composables/useCelebration')
+		useCelebration()
+
+		handlers['chorestrike:title-unlocked']({})
+
+		expect(mockFireMilestoneConfetti).toHaveBeenCalled()
+		expect(mockPlaySound).toHaveBeenCalledWith('milestone')
+	})
+
 	it('returns a cleanup function that unsubscribes all handlers', () => {
 		const { useCelebration } = require('@/composables/useCelebration')
 		const cleanup = useCelebration()
 
 		cleanup()
 
-		expect(mockUnsubscribe).toHaveBeenCalledTimes(4)
+		expect(mockUnsubscribe).toHaveBeenCalledTimes(5)
 	})
 })

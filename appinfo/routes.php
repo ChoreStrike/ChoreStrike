@@ -88,6 +88,8 @@ return [
         ['name' => 'user#update', 'url' => '/api/v1/users/{id}', 'verb' => 'PUT'],
         ['name' => 'user#updateRole', 'url' => '/api/v1/users/{id}/role', 'verb' => 'PUT'],
         ['name' => 'user#stats', 'url' => '/api/v1/users/{id}/stats', 'verb' => 'GET'],
+        ['name' => 'user#titles', 'url' => '/api/v1/users/{id}/titles', 'verb' => 'GET'],
+        ['name' => 'user#selectTitle', 'url' => '/api/v1/users/{id}/titles/select', 'verb' => 'PUT'],
 
         // Scheduling API
         ['name' => 'scheduling#getPreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'GET'],

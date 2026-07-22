@@ -45,6 +45,10 @@
 					</div>
 					<div class="podium-info">
 						<h3>{{ user.displayName }}</h3>
+						<TitleBadge
+							v-if="user.currentTitle"
+							:title="user.currentTitle"
+							compact />
 						<p class="podium-score">
 							{{ formatScore(user.contributionScore) }} pts
 						</p>
@@ -87,6 +91,10 @@
 								{{ getInitials(user.displayName) }}
 							</div>
 							<span class="user-name">{{ user.displayName }}</span>
+							<TitleBadge
+								v-if="user.currentTitle"
+								:title="user.currentTitle"
+								compact />
 							<span v-if="isCurrentUser(user)" class="you-badge">{{ t('chorestrike', 'You') }}</span>
 						</div>
 					</span>
@@ -137,6 +145,7 @@ import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import MedalBadge from '../components/Common/MedalBadge.vue'
+import TitleBadge from '../components/Profile/TitleBadge.vue'
 
 export default {
 	name: 'Leaderboard',
@@ -144,6 +153,7 @@ export default {
 	components: {
 		Icon,
 		MedalBadge,
+		TitleBadge,
 	},
 
 	setup() {

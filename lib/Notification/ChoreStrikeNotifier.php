@@ -110,6 +110,20 @@ class ChoreStrikeNotifier implements INotifier
                 );
                 break;
 
+            case NotificationService::SUBJECT_TITLE_UNLOCKED:
+                $params = $this->params($notification);
+                $titleLabelKey = (string)($params['titleLabelKey'] ?? '');
+                $packLabelKey = (string)($params['packLabelKey'] ?? '');
+                $titleLabel = $l->t($titleLabelKey);
+                $packLabel = $l->t($packLabelKey);
+                $notification->setParsedSubject(
+                    $l->t('You unlocked a new title: %1$s', [$titleLabel])
+                );
+                $notification->setParsedMessage(
+                    $l->t('You reached a new tier ("%1$s") in the "%2$s" pack. Set it as your title in Settings!', [$titleLabel, $packLabel])
+                );
+                break;
+
             case NotificationService::SUBJECT_WEEKLY_GOAL_REACHED:
                 $params = $this->params($notification);
                 $percent = (int)($params['percent'] ?? 0);

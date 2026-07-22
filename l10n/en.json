@@ -310,6 +310,34 @@
         "This will be recorded as taken over from {assignee}.": "This will be recorded as taken over from {assignee}.",
         "My Private Tasks": "My Private Tasks",
         "Admin-only task": "Admin-only task",
-        "another Member": "another Member"
+        "another Member": "another Member",
+
+        "Your Title": "Your Title",
+        "No title yet — pick a track to get started!": "No title yet — pick a track to get started!",
+        "Change title": "Change title",
+        "Choose your title": "Choose your title",
+        "Pick a progression track. Tiers unlock automatically as you play.": "Pick a progression track. Tiers unlock automatically as you play.",
+        "Set as my title": "Set as my title",
+        "Active": "Active",
+        "All tiers unlocked!": "All tiers unlocked!",
+        "Unlocked titles: {titles}": "Unlocked titles: {titles}",
+        "Failed to retrieve titles": "Failed to retrieve titles",
+        "Invalid title pack": "Invalid title pack",
+        "Failed to select title": "Failed to select title",
+        "You unlocked a new title: %1$s": "You unlocked a new title: %1$s",
+        "You reached a new tier (\"%1$s\") in the \"%2$s\" pack. Set it as your title in Settings!": "You reached a new tier (\"%1$s\") in the \"%2$s\" pack. Set it as your title in Settings!",
+
+        "titles.pack.home_helpers": "Home Helpers",
+        "titles.pack.team_energy": "Team Energy",
+        "titles.pack.cozy_home": "Cozy Home",
+        "titles.home_helpers.helper": "Helper",
+        "titles.home_helpers.organizer": "Organizer",
+        "titles.home_helpers.care_captain": "Care Captain",
+        "titles.team_energy.spark_starter": "Spark Starter",
+        "titles.team_energy.flow_keeper": "Flow Keeper",
+        "titles.team_energy.team_anchor": "Team Anchor",
+        "titles.cozy_home.cozy_buddy": "Cozy Buddy",
+        "titles.cozy_home.room_ranger": "Room Ranger",
+        "titles.cozy_home.home_guardian": "Home Guardian"
     }
 }

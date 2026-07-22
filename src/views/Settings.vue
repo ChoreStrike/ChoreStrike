@@ -12,6 +12,29 @@
 		</header>
 
 		<div class="settings-content">
+			<!-- Profile title -->
+			<section class="settings-section">
+				<h2>{{ t('chorestrike', 'Your Title') }}</h2>
+				<div class="setting-card title-card">
+					<div class="title-display">
+						<TitleBadge
+							v-if="currentTitle"
+							:title="currentTitle"
+							:unlocked="titlesStore.unlockedTitles" />
+						<span v-else class="no-title" data-testid="no-title">
+							{{ t('chorestrike', 'No title yet — pick a track to get started!') }}
+						</span>
+					</div>
+					<button
+						class="primary-button"
+						data-testid="change-title-button"
+						@click="openTitlePicker">
+						<Icon name="Award" :size="16" />
+						{{ t('chorestrike', 'Change title') }}
+					</button>
+				</div>
+			</section>
+
 			<!-- House Settings -->
 			<section class="settings-section">
 				<h2>{{ t('chorestrike', 'House') }}</h2>
@@ -198,6 +221,13 @@
 				</div>
 			</div>
 		</Modal>
+
+		<!-- Title Picker Modal -->
+		<TitlePicker
+			:show="showTitlePicker"
+			:house-user-id="houseUserId"
+			@close="showTitlePicker = false"
+			@selected="onTitleSelected" />
 	</div>
 </template>
 
@@ -205,9 +235,13 @@
 import { translate as t } from '@nextcloud/l10n'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
+import { useUserStore } from '../store/user.js'
+import { useTitlesStore } from '../store/titles.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
+import TitleBadge from '../components/Profile/TitleBadge.vue'
+import TitlePicker from '../components/Profile/TitlePicker.vue'
 
 export default {
 	name: 'Settings',
@@ -215,12 +249,16 @@ export default {
 	components: {
 		Icon,
 		Modal,
+		TitleBadge,
+		TitlePicker,
 	},
 
 	setup() {
 		const houseStore = useHouseStore()
 		const roomsStore = useRoomsStore()
-		return { houseStore, roomsStore }
+		const userStore = useUserStore()
+		const titlesStore = useTitlesStore()
+		return { houseStore, roomsStore, userStore, titlesStore }
 	},
 
 	data() {
@@ -229,6 +267,7 @@ export default {
 			showAddFloorModal: false,
 			showEditFloorModal: false,
 			showResetModal: false,
+			showTitlePicker: false,
 			newFloorName: '',
 			editingFloor: null,
 			editingFloorName: '',
@@ -239,6 +278,14 @@ export default {
 	computed: {
 		canSaveHouseName() {
 			return this.houseName.trim() && this.houseName !== this.houseStore.houseName
+		},
+
+		currentTitle() {
+			return this.titlesStore.currentTitle
+		},
+
+		houseUserId() {
+			return this.userStore.userId
 		},
 	},
 
@@ -254,9 +301,29 @@ export default {
 				await this.houseStore.fetchHouse()
 				await this.roomsStore.fetchFloorsWithRooms()
 				this.houseName = this.houseStore.houseName
+				await this.loadTitle()
 			} catch (error) {
 				logger.error('Failed to initialize settings', error, { view: 'Settings', action: 'initializeSettings' })
 			}
+		},
+
+		async loadTitle() {
+			try {
+				await this.userStore.initializeCurrentUser()
+				if (this.houseUserId) {
+					await this.titlesStore.fetchTitles(this.houseUserId)
+				}
+			} catch (error) {
+				logger.error('Failed to load title', error, { view: 'Settings', action: 'loadTitle' })
+			}
+		},
+
+		openTitlePicker() {
+			this.showTitlePicker = true
+		},
+
+		onTitleSelected() {
+			this.showTitlePicker = false
 		},
 
 		getRoomCount(floorId) {
@@ -371,6 +438,25 @@ export default {
 	background: var(--color-background-dark);
 	border-radius: 12px;
 	padding: 1.5rem;
+}
+
+.title-card {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 1rem;
+	flex-wrap: wrap;
+}
+
+.title-display {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.no-title {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9rem;
 }
 
 .setting-card.danger {

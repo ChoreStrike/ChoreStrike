@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Titles\TitleCatalog;
 use OCP\Notification\IManager;
 use OCP\Notification\INotification;
 use Psr\Log\LoggerInterface;
@@ -40,6 +41,7 @@ class NotificationService
     public const SUBJECT_MEDAL_AWARDED = 'medal_awarded';
     public const SUBJECT_WEEKLY_GOAL_REACHED = 'weekly_goal_reached';
     public const SUBJECT_STREAK_AT_RISK = 'streak_at_risk';
+    public const SUBJECT_TITLE_UNLOCKED = 'title_unlocked';
 
     public function __construct(
         private IManager $notificationManager,
@@ -157,6 +159,39 @@ class NotificationService
             $sent++;
         }
         return $sent;
+    }
+
+    /**
+     * Notify a member that they unlocked a new role title.
+     *
+     * The notification object id is pack-qualified (`{pack}.{tier}`) so that
+     * two different packs unlocking the same tier rank do NOT collide on the
+     * Nextcloud dedup key (app, user, objectType, objectId) and drop each
+     * other's notification.
+     *
+     * @param string $recipientNextcloudUserId The recipient's Nextcloud user ID
+     * @param string $pack Pack key the unlocked tier belongs to
+     * @param string $titleLabelKey i18n key for the unlocked tier label
+     * @param string $packLabelKey i18n key for the pack the tier belongs to
+     * @param int $tierIndex 0-based tier rank (for a stable, pack-qualified object id)
+     */
+    public function notifyTitleUnlocked(
+        string $recipientNextcloudUserId,
+        string $pack,
+        string $titleLabelKey,
+        string $packLabelKey,
+        int $tierIndex
+    ): void {
+        $this->dispatch(
+            $recipientNextcloudUserId,
+            self::SUBJECT_TITLE_UNLOCKED,
+            'title',
+            TitleCatalog::tierId($pack, $tierIndex),
+            [
+                'titleLabelKey' => $titleLabelKey,
+                'packLabelKey' => $packLabelKey,
+            ]
+        );
     }
 
     /**

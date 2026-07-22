@@ -360,4 +360,124 @@ class RewardConfigServiceTest extends TestCase
             'weeklyGoalTargetPercent' => 75,
         ]);
     }
+
+    /**
+     * GetTitlesEnabled_ReturnsDefaultTrue
+     */
+    public function testGetTitlesEnabled_ReturnsDefaultTrue(): void
+    {
+        $this->config
+            ->method('getValueString')
+            ->willReturnCallback(function ($app, $key, $default) {
+                return $default;
+            });
+
+        $this->assertTrue($this->service->getTitlesEnabled());
+    }
+
+    /**
+     * SetTitlesEnabled_StoresValue
+     */
+    public function testSetTitlesEnabled_StoresValue(): void
+    {
+        $this->config
+            ->expects($this->once())
+            ->method('setValueString')
+            ->with('chorestrike', 'titles_enabled', '0');
+
+        $this->service->setTitlesEnabled(false);
+    }
+
+    /**
+     * GetTitleThreshold_ReturnsCatalogDefaultWhenUnset
+     */
+    public function testGetTitleThreshold_ReturnsCatalogDefaultWhenUnset(): void
+    {
+        $this->config
+            ->method('getValueString')
+            ->willReturnCallback(function ($app, $key, $default) {
+                return $default;
+            });
+
+        // home_helpers tier 0 default is 50.
+        $this->assertSame(50, $this->service->getTitleThreshold('home_helpers', 0));
+    }
+
+    /**
+     * GetTitleThreshold_ClampsBelowOneToOne
+     */
+    public function testGetTitleThreshold_ClampsBelowOneToOne(): void
+    {
+        $this->config
+            ->method('getValueString')
+            ->willReturn('0');
+
+        $this->assertSame(1, $this->service->getTitleThreshold('home_helpers', 0));
+    }
+
+    /**
+     * SetTitleThreshold_StoresClampedValue
+     */
+    public function testSetTitleThreshold_StoresClampedValue(): void
+    {
+        $this->config
+            ->expects($this->once())
+            ->method('setValueString')
+            ->with('chorestrike', 'title_threshold_home_helpers_1', '15');
+
+        $this->service->setTitleThreshold('home_helpers', 1, 15);
+    }
+
+    /**
+     * GetAllConfig_IncludesTitleKeys
+     */
+    public function testGetAllConfig_IncludesTitleKeys(): void
+    {
+        $this->config
+            ->method('getValueString')
+            ->willReturnCallback(function ($app, $key, $default) {
+                return $default;
+            });
+
+        $result = $this->service->getAllConfig();
+
+        $this->assertArrayHasKey('titlesEnabled', $result);
+        $this->assertTrue($result['titlesEnabled']);
+        $this->assertArrayHasKey('titleThresholds', $result);
+        $this->assertCount(3, $result['titleThresholds']['home_helpers']);
+    }
+
+    /**
+     * UpdateConfig_HandlesTitlesEnabledAndThresholds
+     */
+    public function testUpdateConfig_HandlesTitlesEnabledAndThresholds(): void
+    {
+        $this->config
+            ->expects($this->exactly(4))
+            ->method('setValueString');
+
+        $this->service->updateConfig([
+            'titlesEnabled' => false,
+            'titleThresholds' => [
+                'home_helpers' => [60, 260, 1010],
+            ],
+        ]);
+    }
+
+    /**
+     * UpdateConfig_RejectsNonAscendingThresholds_BeforeAnyWrite
+     */
+    public function testUpdateConfig_RejectsNonAscendingThresholds_BeforeAnyWrite(): void
+    {
+        // Non-ascending (500 then 50) must be rejected before any config write.
+        $this->config->expects($this->never())->method('setValueString');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->service->updateConfig([
+            'titleThresholds' => [
+                'home_helpers' => [500, 50, 1000],
+            ],
+        ]);
+    }
 }
