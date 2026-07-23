@@ -15,7 +15,7 @@ Use this document to find the right ChoreStrike documentation quickly.
 - [`standards/README.md`](standards/README.md) — engineering standards index
 - [`standards/ai/rules/project-rules.md`](standards/ai/rules/project-rules.md) — canonical rule set
 - [`standards/ai/skills/`](standards/ai/skills/) — load-on-demand AI skills
-- [`standards/guidelines/`](standards/guidelines/README.md) — coding conventions, testing, security, i18n, logging, design, external-asset licensing
+- [`standards/guidelines/`](standards/guidelines/README.md) — coding conventions, testing, security, i18n, logging, design, external-asset licensing, AI guidance, agent spawning
 
 ## Workflow, Review & Plans
 

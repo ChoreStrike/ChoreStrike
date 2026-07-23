@@ -34,7 +34,15 @@ Skills live in [`../ai/skills/`](../ai/skills/) and are environment-agnostic. Ea
 
 ## Sub-Agent / Task Delegation
 
-Use the available tool's delegation mechanism for complex sub-tasks (codebase search, multi-step research). Tool names vary (Kilo: `explore`/`general` agents; others: sub-agents).
+Use the available tool's delegation mechanism for complex sub-tasks (codebase search, multi-step research). Tool names vary (Kilo: `explore`/`general`/`reviewer` agents; others: sub-agents).
+
+For Kilo specifically, see [`agent-spawning.md`](./agent-spawning.md) for the full roster and routing rules. Defaults worth remembering:
+
+- **Quick read-only lookups** ("where is X / who calls Y / list files matching Z") → the **`explore`** subagent (cheap/fast). Orchestrators prefer it over grepping inline.
+- **Read-only sub-reviews of non-complex slices** → the **`reviewer`** subagent (mid model), run in parallel for a Full Review — see the [`review`](../ai/skills/review/SKILL.md) skill §4.
+- **Synthesis / consolidation / all writes** stay with the main agent (frontier).
+
+Review slash commands: `/review-chorestrike`, `/review-chorestrike-full`, `/plan-review`.
 
 ## Session Notes
 

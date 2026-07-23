@@ -77,6 +77,11 @@ Skills live in [`docs/standards/ai/skills/`](docs/standards/ai/skills/) and are 
 | Plan creation/review | `plan-management` |
 | Git ops | `git-workflow` |
 
+## Agent Roster & Slash Commands
+
+- **Roster & spawning rules:** [`docs/standards/guidelines/agent-spawning.md`](docs/standards/guidelines/agent-spawning.md). Quick read-only lookups → `explore` (cheap/fast); read-only sub-reviews of non-complex slices → `reviewer` (mid); synthesis & all writes stay with the main agent.
+- **Review commands:** `/review-chorestrike` (changed files), `/review-chorestrike-full` (whole module/domain, 4 parallel `reviewer` subagents), `/plan-review` (plan before `new/` → `active/`). They load the [`review`](docs/standards/ai/skills/review/SKILL.md) skill.
+
 ## Archive & Private
 
 - `archive/` (gitignored) keeps obsolete docs/scripts for **local** reference. When removing something from the repo, move it to `archive/YYYY-MM/<name>/` instead of deleting.

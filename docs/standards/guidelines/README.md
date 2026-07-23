@@ -17,6 +17,7 @@
 | [design.md](./design.md) | UI theme, color palette, and brand-asset guidance |
 | [external-asset-licensing.md](./external-asset-licensing.md) | Third-party icon/font/illustration acceptance rules |
 | [ai-development-guidance.md](./ai-development-guidance.md) | Tool-agnostic AI agent operational notes |
+| [agent-spawning.md](./agent-spawning.md) | Global agent roster, when to fan out, and `explore`/`reviewer` routing |
 | [llm-do-dont-checklist.md](./llm-do-dont-checklist.md) | One-page final gate before submitting AI-generated code |
 
 ## AI Resources
