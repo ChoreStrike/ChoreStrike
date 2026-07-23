@@ -87,9 +87,9 @@ Reserve deep reasoning for ambiguity, security, architecture, and cross-module b
 | `AGENTS.md` | workflow compliance | Are current review steps aligned with agent rules? |
 | `docs/backlog/ACTIVE_TASKS.md` | task coordination | Is the task status current and conflict-free? |
 | `docs/backlog/phase-*.md` and `bugs.md` | backlog accuracy | Are findings reflected as tasks with correct priority? |
-| `docs/ARCHITECTURE.md` | architecture truth | Does the implementation still match the documented boundaries? |
-| `docs/API.md` and `docs/api/*` | contract truth | Do endpoints, payloads, and error semantics match reality? |
-| `docs/TESTING.md` | test truth | Does it describe the current active suites and realistic coverage? |
+| `docs/engineering/architecture.md` | architecture truth | Does the implementation still match the documented boundaries? |
+| `docs/api/README.md` and `docs/api/*` | contract truth | Do endpoints, payloads, and error semantics match reality? |
+| `docs/engineering/testing.md` | test truth | Does it describe the current active suites and realistic coverage? |
 | `docs/standards/*` | policy compliance | Are logging, security, assets, and coding standards respected? |
 | ADRs in `docs/adr/*` | architectural history | Were important design changes documented or superseded? |
 | release docs and checklists | release readiness | Are deployment and validation steps still valid? |

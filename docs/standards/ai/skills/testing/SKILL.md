@@ -9,7 +9,7 @@ description: Writing and reviewing tests across PHPUnit, Jest, and Playwright
 
 **Canonical references:**
 - [`testing.md`](../../../guidelines/testing.md)
-- [`../../TESTING.md`](../../../../TESTING.md) — environment setup & command reference
+- [`testing.md`](../../../../engineering/testing.md) — environment setup & command reference
 - [`docker-dev`](../docker-dev/SKILL.md) — Docker test environment workflow
 
 ---

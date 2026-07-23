@@ -280,7 +280,7 @@
 
 **Deliverable**: Intelligent task scheduling with availability-based distribution
 
-**Architecture Decision**: See [ADR-005](adr/ADR-005-smart-scheduling.md)
+**Architecture Decision**: See [ADR-005](../adr/ADR-005-smart-scheduling.md)
 
 ---
 
@@ -434,7 +434,7 @@
 
 ## Community Contributions Welcome!
 
-We welcome contributions at any phase. Check [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
+We welcome contributions at any phase. Check [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 ### High Priority Areas for Contributors
 - Translations (more languages)

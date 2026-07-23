@@ -8,7 +8,7 @@ description: Docker test environment setup, container workflow, and debugging fo
 **Load when:** Setting up, running, or debugging the Docker-based test environment; working with `docker-compose.test.yml`; or troubleshooting container issues.
 
 **Canonical references:**
-- [`../../TESTING.md`](../../../../TESTING.md) — full environment setup guide
+- [`testing.md`](../../../../engineering/testing.md) — full environment setup guide
 - [`testing`](../testing/SKILL.md) — test writing conventions & coverage rules
 
 ---

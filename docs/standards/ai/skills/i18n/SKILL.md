@@ -9,7 +9,7 @@ description: Adding and changing user-facing strings and translation artifacts
 
 **Canonical references:**
 - [`i18n.md`](../../../guidelines/i18n.md)
-- [`../../I18N_WORKFLOW.md`](../../../../I18N_WORKFLOW.md)
+- [`i18n-workflow.md`](../../../../standards/i18n-workflow.md)
 
 ---
 

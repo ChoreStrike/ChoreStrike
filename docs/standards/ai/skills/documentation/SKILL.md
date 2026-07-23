@@ -29,7 +29,7 @@ description: Writing and updating ChoreStrike documentation
 | Implementation plans | `docs/plans/{new,active,onhold,done}/` |
 | Standards & guidelines | `docs/standards/guidelines/` |
 | AI rules / skills | `docs/standards/ai/{rules,skills}/` |
-| API reference | `docs/API.md`, `docs/api/` |
+| API reference | `docs/api/README.md`, `docs/api/` |
 | Backlog & tasks | `docs/backlog/` |
 
 ## Rules

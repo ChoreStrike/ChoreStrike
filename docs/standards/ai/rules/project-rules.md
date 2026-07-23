@@ -59,7 +59,7 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 ### Testing
 - Every feature → test. Every bug fix → regression test.
 - PHPUnit (unit/integration), Jest (frontend), Playwright (E2E). BDD-style naming.
-- See [`../../guidelines/testing.md`](../../guidelines/testing.md) and [`../../../TESTING.md`](../../../TESTING.md).
+- See [`../../guidelines/testing.md`](../../guidelines/testing.md) and [`testing.md`](../../../engineering/testing.md).
 
 ## 3. Error & Quality Management
 

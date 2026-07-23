@@ -10,7 +10,7 @@ description: Reviewing code changes and applying the quality gates before merge
 **Canonical references:**
 - [`project-rules.md`](../../rules/project-rules.md) §3 — quality & error management
 - [`llm-do-dont-checklist.md`](../../../guidelines/llm-do-dont-checklist.md)
-- [`../../REVIEW_PLAYBOOK.md`](../../../../REVIEW_PLAYBOOK.md)
+- [`review-playbook.md`](../../../../engineering/review-playbook.md)
 
 ---
 

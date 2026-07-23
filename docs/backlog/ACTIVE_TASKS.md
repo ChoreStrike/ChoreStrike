@@ -171,6 +171,24 @@
 
 ## Currently Active
 
+### CS-PLAN-009 - Repo-root & documentation structure cleanup
+**Status**: Done
+**Started**: 2026-07-23
+**Completed**: 2026-07-23
+**Branch**: master
+**Plan**: docs/plans/active/cs-plan-009-repo-and-docs-restructure.md
+**Blockers**: None
+**Notes**:
+- Docs/repository-structure only — no `lib/`, `src/`, migrations, or runtime behavior touched. Executed as small independently-reviewable phases.
+- **Phase 1 (artifact cleanup):** deleted gitignored local artifacts at repo root (`coverage/`, `test-results/`, `playwright-report/`, `line/`, `test-results.json`, `test-results-summary.json`, `.phpunit.result.cache`, `.phpunit.integration.result.cache`).
+- **Phase 2 (duplicate resolution):** root `MANUAL_TEST_CHECKLIST.md` was a stale "Test Family" scenario run (referenced the removed Monsters feature + obsolete `setup-test-family.php`); docs/ copy (`v1.0.0` generic matrix) kept as canonical; root copy `git rm`'d — no valuable unique content to merge.
+- **Phase 3 (backlog archival):** `git rm` + local archive of `CODE_REVIEW_2026-03-{07,11,14}.md` → `archive/2026-03/code-reviews/` and `ALPHA_TEST_RESULTS_2026-03-22.md` → `archive/2026-03/`; shipped phases `phase-5` (Done), `phase-6` (Complete), `phase-11` (Shipped by CS-PLAN-005) → `docs/plans/done/`; obsolete `phase-10` → `archive/2026-07/phases/`. Remaining phase files (Planned/In Progress) left in `docs/backlog/`.
+- **Phase 4 (root tooling):** removed redundant `phpunit.xml.dist` (active `phpunit.xml` is tracked, referenced by `composer.json`/CI). `docker-compose.test.yml` + the three PHPUnit configs kept in root (PHP/Docker convention, wired into CI).
+- **Phase 5 (CAPITALS → kebab-case):** renamed all 20 non-standard CAPITALS docs into thematic subfolders via `git mv` (in-place case renames done two-step for the case-insensitive filesystem). Swept every **live** markdown link + live-doc prose pointer: `AGENTS.md`, root `README.md`, `docs/README.md`, all 11 skill files, `guidelines/{i18n,testing}.md`, `project-rules.md`, `backlog/README.md`, and the moved docs' internal cross-links + the `architecture.md` directory tree. **Decision:** historical records (`docs/plans/done/*`, `ACTIVE_TASKS.md` "Recently Completed"/"Planned" task records, prior `CHANGELOG` entries, backlog phase task descriptions) retain old names as frozen history (same principle the plan applies to `plans/done/`); none contain broken navigational links.
+- **Phase 6 (tooling hardening):** `.gitignore` already covered all artifacts (incl. `playwright-report/`, `/blob-report/`, `/junit.xml`, `line/`); added explicit `outputDir: 'test-results/'` to `playwright.config.ts`.
+- **Phase 7 (verify):** link-integrity grep sweep run; the only remaining old-name occurrences are in frozen historical records by design. Build gate: ESLint 0 errors (69 pre-existing JSDoc warnings), Jest 525/525. Backend PHPUnit not run (zero `lib/`/`src`/migration changes; CI references only the untouched configs).
+- **Review pass (2026-07-23):** full-tree relative-link scan (79 `.md` files) found 4 broken links caused by the directory moves — `deployment.md` → `standards/guidelines/security.md` and `../CHANGELOG.md` (both now `../` relative from `engineering/`), `roadmap.md` → `adr/ADR-005` and `../CONTRIBUTING.md` (now `../` relative from `release/`). All 4 fixed. Re-scan: **0 broken links**.
+
 ### CS-PLAN-002 - Gamification Simplification & Core-Loop Completion
 **Status**: Done
 **Started**: 2026-07-12 17:50

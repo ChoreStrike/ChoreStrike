@@ -127,7 +127,7 @@ npm run build
 
 ✅ **v1.0.0 Release Candidate** - Feature complete, in final testing
 
-See [ROADMAP.md](docs/ROADMAP.md) for detailed progress.
+See [roadmap.md](docs/release/roadmap.md) for detailed progress.
 
 ## 🤝 Contributing
 
@@ -141,12 +141,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📚 Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) - System design overview
-- [API Documentation](docs/API.md) - REST API endpoints
+- [Architecture](docs/engineering/architecture.md) - System design overview
+- [API Documentation](docs/api/README.md) - REST API endpoints
 - [Security](SECURITY.md) - Vulnerability reporting policy
 - [App security architecture](docs/standards/guidelines/security.md) - Authorization and validation rules
-- [Deployment](docs/DEPLOYMENT.md) - Installation and deployment guide
-- [Testing](docs/TESTING.md) - Testing strategies
+- [Deployment](docs/engineering/deployment.md) - Installation and deployment guide
+- [Testing](docs/engineering/testing.md) - Testing strategies
 - [Contributing](CONTRIBUTING.md) - How to contribute
 
 ## 💡 Inspiration

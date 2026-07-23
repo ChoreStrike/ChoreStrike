@@ -81,16 +81,15 @@ ChoreStrike/
 │   └── e2e/                    # Playwright end-to-end tests
 ├── docs/                       # Documentation
 │   ├── README.md               # Documentation map
-│   ├── ARCHITECTURE.md         # This file
-│   ├── DEVELOPMENT.md          # Dev setup guide
-│   ├── TESTING.md              # Test strategy
-│   ├── DEPLOYMENT.md           # Install/deploy/rollback guide
-│   ├── API.md                  # REST API reference
-│   ├── REVIEW_PLAYBOOK.md      # Review workflow
-│   ├── ROADMAP.md              # Project roadmap
+│   ├── engineering/            # architecture, development, testing, deployment, review-playbook
+│   ├── api/                    # REST API reference + feature-specific notes
+│   ├── release/                # roadmap, release-strategy
+│   ├── operations/             # realtime-updates
+│   ├── testing/                # manual-test-checklist, alpha-test-guide, family-test-setup, critical-tests
 │   ├── concepts/               # Product vision & design concepts
-│   ├── standards/              # ai/ (rules, skills) + guidelines/
-│   ├── backlog/                # Task tracking (ACTIVE_TASKS.md, phase-*.md)
+│   ├── standards/              # ai/ (rules, skills) + guidelines/ (+ i18n-workflow)
+│   ├── adr/                    # Architecture decision records
+│   ├── backlog/                # Task tracking (ACTIVE_TASKS.md, phase-*.md, bugs.md)
 │   └── plans/                  # Implementation plans (new/active/onhold/done)
 ├── .github/                    # Issue & PR templates (Forgejo-compatible)
 │   ├── ISSUE_TEMPLATE/
@@ -483,7 +482,7 @@ run on any non-zero **blocking** command:
 Stylelint is **advisory/non-blocking** until the
 `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch
 (201 "Unknown rule" errors) is resolved or pinned. See
-`docs/backlog/bugs.md` and `docs/TESTING.md`.
+`docs/backlog/bugs.md` and `docs/engineering/testing.md`.
 
 ## Deployment
 

@@ -8,8 +8,8 @@ description: ChoreStrike gamification domain model — sparks, combos, medals, e
 **Load when:** Implementing or modifying reward mechanics, scoring, combos, medals, streaks, energy balancing, or role titles.
 
 **Canonical references:**
-- [`GAMIFICATION_AND_REWARDS.md`](../../../../concepts/GAMIFICATION_AND_REWARDS.md)
-- [`ENERGY_AND_BALANCING.md`](../../../../concepts/ENERGY_AND_BALANCING.md)
+- [`gamification-and-rewards.md`](../../../../concepts/gamification-and-rewards.md)
+- [`energy-and-balancing.md`](../../../../concepts/energy-and-balancing.md)
 - [ADR-004: Multi-User Gamification](../../../../adr/ADR-004-multi-user-gamification.md)
 - [ADR-005: Smart Scheduling](../../../../adr/ADR-005-smart-scheduling.md)
 
@@ -72,7 +72,7 @@ description: ChoreStrike gamification domain model — sparks, combos, medals, e
 
 ## Role Titles (localized packs)
 
-3 built-in packs with 3 progressive tiers each (low/medium/high contribution). All packs must be family-friendly. See [`GAMIFICATION_AND_REWARDS.md`](../../../../concepts/GAMIFICATION_AND_REWARDS.md) for current packs.
+3 built-in packs with 3 progressive tiers each (low/medium/high contribution). All packs must be family-friendly. See [`gamification-and-rewards.md`](../../../../concepts/gamification-and-rewards.md) for current packs.
 
 ## When Modifying Gamification
 

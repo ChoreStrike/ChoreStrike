@@ -52,7 +52,7 @@ occ app:enable chorestrike
 - [ ] PSR-12 compliance verified
 - [ ] ESLint compliance verified (`npm run lint`)
 - [ ] Stylelint compliance verified (`npm run stylelint`)
-- [ ] Security audit completed (see [`standards/guidelines/security.md`](standards/guidelines/security.md))
+- [ ] Security audit completed (see [`../standards/guidelines/security.md`](../standards/guidelines/security.md))
 - [ ] No hardcoded secrets or API keys in codebase
 
 ### Versions & Metadata
@@ -94,7 +94,7 @@ docker compose -f docker-compose.test.yml run --rm nextcloud-test \
   vendor/bin/phpunit --configuration phpunit.unit.xml
 ```
 
-See [`TESTING.md`](TESTING.md) for the full test strategy.
+See [`testing.md`](testing.md) for the full test strategy.
 
 ## Production Deployment
 
@@ -179,4 +179,4 @@ occ app:enable chorestrike
 
 - Issues: https://github.com/ChoreStrike/ChoreStrike/issues
 - Documentation: see the [`docs/`](.) folder
-- Changelog: see [`CHANGELOG.md`](../CHANGELOG.md)
+- Changelog: see [`CHANGELOG.md`](../../CHANGELOG.md)

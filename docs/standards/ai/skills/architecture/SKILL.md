@@ -9,7 +9,7 @@ description: ChoreStrike architecture boundaries, layering, and Nextcloud app pa
 
 **Canonical references:**
 - [`project-rules.md`](../../rules/project-rules.md) §1–2
-- [`../../ARCHITECTURE.md`](../../../../ARCHITECTURE.md)
+- [`architecture.md`](../../../../engineering/architecture.md)
 - [ADR index](../../../../adr/)
 
 ---

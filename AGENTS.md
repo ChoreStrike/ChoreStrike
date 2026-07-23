@@ -68,7 +68,7 @@ Skills live in [`docs/standards/ai/skills/`](docs/standards/ai/skills/) and are 
 | PHP backend | `php-backend` + [`security.md`](docs/standards/guidelines/security.md) |
 | Vue frontend | `vue-frontend` + [`design.md`](docs/standards/guidelines/design.md) |
 | Tests | `testing` + [`testing.md`](docs/standards/guidelines/testing.md) |
-| Docker test env | `docker-dev` + [`TESTING.md`](docs/TESTING.md) |
+| Docker test env | `docker-dev` + [`testing.md`](docs/engineering/testing.md) |
 | Gamification / rewards | `gamification` + [ADR-004](docs/adr/ADR-004-multi-user-gamification.md) |
 | Review | `review` + [`llm-do-dont-checklist.md`](docs/standards/guidelines/llm-do-dont-checklist.md) |
 | Architecture / refactor | `architecture` + [ADRs](docs/adr/) |
@@ -87,7 +87,7 @@ Skills live in [`docs/standards/ai/skills/`](docs/standards/ai/skills/) and are 
 - [`docs/standards/ai/rules/project-rules.md`](docs/standards/ai/rules/project-rules.md) — canonical rules
 - [`docs/standards/guidelines/README.md`](docs/standards/guidelines/README.md) — standards index
 - [`docs/README.md`](docs/README.md) — documentation map
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/TESTING.md`](docs/TESTING.md), [`docs/REVIEW_PLAYBOOK.md`](docs/REVIEW_PLAYBOOK.md)
+- [`docs/engineering/architecture.md`](docs/engineering/architecture.md), [`docs/engineering/development.md`](docs/engineering/development.md), [`docs/engineering/testing.md`](docs/engineering/testing.md), [`docs/engineering/review-playbook.md`](docs/engineering/review-playbook.md)
 - [`docs/backlog/README.md`](docs/backlog/README.md), [`docs/adr/README.md`](docs/adr/README.md)
 
 ---

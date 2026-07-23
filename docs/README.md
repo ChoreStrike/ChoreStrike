@@ -5,10 +5,10 @@ Use this document to find the right ChoreStrike documentation quickly.
 ## Start Here
 
 - [`../AGENTS.md`](../AGENTS.md) — required bootstrap for AI agents and coding assistants
-- [`DEVELOPMENT.md`](DEVELOPMENT.md) — local setup, commands, and contributor workflow
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — system boundaries, layers, and responsibilities
-- [`TESTING.md`](TESTING.md) — active suites, release-gate coverage, and test strategy
-- [`API.md`](API.md) and [`api/`](api/) — API contracts and feature-specific API notes
+- [`engineering/development.md`](engineering/development.md) — local setup, commands, and contributor workflow
+- [`engineering/architecture.md`](engineering/architecture.md) — system boundaries, layers, and responsibilities
+- [`engineering/testing.md`](engineering/testing.md) — active suites, release-gate coverage, and test strategy
+- [`api/README.md`](api/README.md) and [`api/`](api/) — API contracts and feature-specific API notes
 
 ## Standards & Guidelines
 
@@ -22,26 +22,26 @@ Use this document to find the right ChoreStrike documentation quickly.
 - [`backlog/ACTIVE_TASKS.md`](backlog/ACTIVE_TASKS.md) — live task coordination
 - [`backlog/README.md`](backlog/README.md) — backlog structure and update workflow
 - [`plans/`](plans/README.md) — implementation plans (`new/`, `active/`, `onhold/`, `done/`)
-- [`REVIEW_PLAYBOOK.md`](REVIEW_PLAYBOOK.md) — reusable review workflow and checklist
+- [`engineering/review-playbook.md`](engineering/review-playbook.md) — reusable review workflow and checklist
 
 ## Testing, Release & Operations
 
-- [`DEPLOYMENT.md`](DEPLOYMENT.md) — installation, deployment, and rollback guide
-- [`MANUAL_TEST_CHECKLIST.md`](MANUAL_TEST_CHECKLIST.md) — manual test scenarios
-- [`ALPHA_TEST_GUIDE.md`](ALPHA_TEST_GUIDE.md) — alpha testing guide
-- [`FAMILY_TEST_SETUP.md`](FAMILY_TEST_SETUP.md) — multi-user family test setup
-- [`RELEASE_STRATEGY.md`](RELEASE_STRATEGY.md) — release and versioning strategy
-- [`ROADMAP.md`](ROADMAP.md) — project roadmap
-- [`REALTIME_UPDATES.md`](REALTIME_UPDATES.md) — realtime update mechanism notes
+- [`engineering/deployment.md`](engineering/deployment.md) — installation, deployment, and rollback guide
+- [`testing/manual-test-checklist.md`](testing/manual-test-checklist.md) — manual test scenarios
+- [`testing/alpha-test-guide.md`](testing/alpha-test-guide.md) — alpha testing guide
+- [`testing/family-test-setup.md`](testing/family-test-setup.md) — multi-user family test setup
+- [`release/release-strategy.md`](release/release-strategy.md) — release and versioning strategy
+- [`release/roadmap.md`](release/roadmap.md) — project roadmap
+- [`operations/realtime-updates.md`](operations/realtime-updates.md) — realtime update mechanism notes
 
 ## Product and Concept Context
 
-- [`concepts/PRODUCT_VISION.md`](concepts/PRODUCT_VISION.md) — product intent and positioning
-- [`concepts/DESIGN.md`](concepts/DESIGN.md) — foundational concept & UX design document
-- [`concepts/GAMIFICATION_AND_REWARDS.md`](concepts/GAMIFICATION_AND_REWARDS.md) — reward model and motivation design
-- [`concepts/ENERGY_AND_BALANCING.md`](concepts/ENERGY_AND_BALANCING.md) — balancing principles and energy model
-- [`concepts/TASK_MODEL_AND_SYNC.md`](concepts/TASK_MODEL_AND_SYNC.md) — task data model and synchronization ideas
-- [`concepts/I18N_AND_CONTENT_POLICY.md`](concepts/I18N_AND_CONTENT_POLICY.md) — wording and content policy context
+- [`concepts/product-vision.md`](concepts/product-vision.md) — product intent and positioning
+- [`concepts/design.md`](concepts/design.md) — foundational concept & UX design document
+- [`concepts/gamification-and-rewards.md`](concepts/gamification-and-rewards.md) — reward model and motivation design
+- [`concepts/energy-and-balancing.md`](concepts/energy-and-balancing.md) — balancing principles and energy model
+- [`concepts/task-model-and-sync.md`](concepts/task-model-and-sync.md) — task data model and synchronization ideas
+- [`concepts/i18n-and-content-policy.md`](concepts/i18n-and-content-policy.md) — wording and content policy context
 - [`adr/README.md`](adr/README.md) — architecture decision records index
 
 ## Rule of Thumb

@@ -2,8 +2,8 @@
 
 > **Status:** Foundational design intent. This document captures the original concept & UX design
 > (room organization, gamification layer, UI mockups, MVP phasing) that guided the implementation.
-> For the **current product vision** see [`PRODUCT_VISION.md`](PRODUCT_VISION.md);
-> for the **current architecture and directory structure** see [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+> For the **current product vision** see [`product-vision.md`](product-vision.md);
+> for the **current architecture and directory structure** see [`../engineering/architecture.md`](../engineering/architecture.md).
 > Some details here (data model, UI layout) have evolved since implementation.
 
 ## 🎯 Vision

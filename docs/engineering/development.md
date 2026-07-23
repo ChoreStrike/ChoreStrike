@@ -147,7 +147,7 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 
 ## Project Structure
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed structure.
+See [architecture.md](architecture.md) for detailed structure.
 
 ## Coding Standards
 
@@ -439,7 +439,7 @@ tail -f /path/to/nextcloud/data/nextcloud.log
    ```
 
 3. **Follow the project workflow:**
-   - Use `docs/I18N_WORKFLOW.md` for the full POT + JSON process.
+   - Use `docs/standards/i18n-workflow.md` for the full POT + JSON process.
    - Update `l10n/templates/chorestrike.pot`, `l10n/de.json`, and `l10n/en.json` in the same change set.
 
 4. **Run key sync validation:**

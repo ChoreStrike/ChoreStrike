@@ -1,6 +1,6 @@
 # Testing Guidelines
 
-> What to test and how. For environment setup and the full command reference, see [`../../TESTING.md`](../../TESTING.md).
+> What to test and how. For environment setup and the full command reference, see [`testing.md`](../../engineering/testing.md).
 > Canonical rules: [`../ai/rules/project-rules.md`](../ai/rules/project-rules.md).
 
 ---
@@ -20,7 +20,7 @@
 | Frontend unit | Jest + @vue/test-utils | `tests/unit/` | Components, Pinia stores, views, l10n consistency |
 | End-to-end | Playwright (Docker) | `tests/e2e/` | Real Nextcloud + Vue, wired user flows |
 
-Backend tests that need Nextcloud core (`OCP\*`) **must** run inside the Docker test environment (`docker-compose.test.yml`). See [`../../TESTING.md`](../../TESTING.md).
+Backend tests that need Nextcloud core (`OCP\*`) **must** run inside the Docker test environment (`docker-compose.test.yml`). See [`testing.md`](../../engineering/testing.md).
 
 ## Naming
 

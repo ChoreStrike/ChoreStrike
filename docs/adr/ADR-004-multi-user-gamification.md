@@ -156,4 +156,4 @@ if priority == 2: sparks += 5
 - GameController: `lib/Controller/GameController.php`
 - Database Schema: `lib/Migration/Version1000Date20260224000000.php`
 - Frontend Store: `src/store/game.js`
-- Concept Doc: `docs/concepts/GAMIFICATION_AND_REWARDS.md`
+- Concept Doc: `docs/concepts/gamification-and-rewards.md`
