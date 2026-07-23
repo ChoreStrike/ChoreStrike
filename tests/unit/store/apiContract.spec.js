@@ -5,19 +5,18 @@
  * API Contract Test
  *
  * Verifies that every API endpoint called by the Pinia stores in
- * `src/store/*.js` matches at least one route declared in
- * `appinfo/routes.php`. The route table is the single source of truth —
- * derived from the same source `RouteMatrixTest` (PHPUnit) parses.
+ * `src/store/*.js` via the shared `api` client matches at least one
+ * route declared in `appinfo/routes.php`. The route table is the
+ * single source of truth — derived from the same source
+ * `RouteMatrixTest` (PHPUnit) parses.
  *
  * Catches the historical drift patterns:
  *   - Store calls an un-routed endpoint (would return 404 at runtime).
- *   - Route is declared but no store calls it (dead route, low priority).
+ *   - Route is declared but no api call references it (dead route).
  *
- * The test normalises both sides:
- *   - Routes: `{id}` placeholders → `[^/]+`, query strings stripped.
- *   - Store calls: template-literal `${var}` placeholders → `[^/]+`,
- *     base path (`/index.php/apps/chorestrike` or `/apps/chorestrike`) stripped,
- *     query strings stripped.
+ * The stores use the shared API client (`src/services/api.js`) with
+ * paths relative to `API_PREFIX = /apps/chorestrike`. The effective
+ * URL is `${API_PREFIX}${path}`.
  */
 
 import { describe, it, expect } from '@jest/globals'
@@ -27,7 +26,9 @@ import { join, resolve } from 'node:path'
 const PROJECT_ROOT = resolve(__dirname, '..', '..', '..')
 const ROUTES_FILE = join(PROJECT_ROOT, 'appinfo', 'routes.php')
 const STORES_DIR = join(PROJECT_ROOT, 'src', 'store')
-const API_PREFIX_RE = /^\/?(index\.php\/)?apps\/chorestrike\//i
+const SERVICES_DIR = join(PROJECT_ROOT, 'src', 'services')
+const API_PREFIX = '/apps/chorestrike'
+const DEPRECATED_PREFIX_RE = /^\/index\.php\/apps\/chorestrike/i
 
 function parsePhpRoutesArray(content) {
 	const routes = []
@@ -51,29 +52,38 @@ function routeToRegexPattern(routeUrl) {
 function extractStoreEndpoints() {
 	const files = readdirSync(STORES_DIR).filter((f) => f.endsWith('.js'))
 	const endpoints = []
-	const axiosCallRegex = /axios\.(get|post|put|delete|patch)\(\s*([`'"])([^`'"]+?)\2/g
+	const apiCallRegex = /api\.(get|post|put|delete|patch)\(\s*([`'"])(\/api\/v1\/[^`'"]+?)\2/g
 
 	for (const file of files) {
 		const content = readFileSync(join(STORES_DIR, file), 'utf-8')
 		let m
-		while ((m = axiosCallRegex.exec(content)) !== null) {
+		while ((m = apiCallRegex.exec(content)) !== null) {
 			const method = m[1].toUpperCase()
-			const rawUrl = m[3]
-			const stripped = rawUrl.replace(API_PREFIX_RE, '/')
-			if (stripped.includes('/api/v1/')) {
-				endpoints.push({ file, method, url: stripped })
-			}
+			const path = m[3]
+			endpoints.push({ file, method, path })
 		}
 	}
 	return endpoints
 }
 
-function endpointPath(url) {
-	return url.split('?')[0].replace(API_PREFIX_RE, '/')
+function extractServiceEndpoints() {
+	const files = readdirSync(SERVICES_DIR).filter((f) => f.endsWith('.js'))
+	const endpoints = []
+	for (const file of files) {
+		const content = readFileSync(join(SERVICES_DIR, file), 'utf-8')
+		const axiosCallRegex = /axios\(\s*\{\s*method:\s*['"]([^'"]+)['"]\s*,\s*url:\s*`\$\{API_PREFIX\}([^`]+)`/g
+		let m
+		while ((m = axiosCallRegex.exec(content)) !== null) {
+			const method = m[1].toUpperCase()
+			const path = m[2]
+			endpoints.push({ file, method, path })
+		}
+	}
+	return endpoints
 }
 
-function normaliseStoreUrl(url) {
-	const pathOnly = url.split('?')[0]
+function normaliseStoreUrl(path) {
+	const pathOnly = path.split('?')[0]
 	return pathOnly.replace(/\$\{[^}]+\}/g, '[^/]+').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
@@ -85,23 +95,22 @@ describe('API Contract — stores → routes', () => {
 		expect(routes.length).toBeGreaterThan(10)
 	})
 
-	it('every store axios call matches at least one declared route', () => {
+	it('every store api call matches at least one declared route', () => {
 		const endpoints = extractStoreEndpoints()
 		expect(endpoints.length).toBeGreaterThan(0)
 
 		const unrouteable = []
 		for (const ep of endpoints) {
-			const path = endpointPath(ep.url)
-			const normalised = '^' + normaliseStoreUrl(path) + '$'
+			const normalised = '^' + normaliseStoreUrl(ep.path) + '$'
 			const matched = routePatterns.some((rp) => {
 				if (rp.route.verb !== ep.method) {
 					return false
 				}
 				const re = new RegExp(rp.pattern)
-				return re.test(path) || re.test(normalised)
+				return re.test(ep.path) || re.test(normalised)
 			})
 			if (!matched) {
-				unrouteable.push(`${ep.file}: ${ep.method} ${path} (no matching route)`)
+				unrouteable.push(`${ep.file}: ${ep.method} ${ep.path} (no matching route)`)
 			}
 		}
 		if (unrouteable.length > 0) {
@@ -110,9 +119,49 @@ describe('API Contract — stores → routes', () => {
 		expect(unrouteable).toEqual([])
 	})
 
+	it('every service axios call matches at least one declared route', () => {
+		const endpoints = extractServiceEndpoints()
+		if (endpoints.length === 0) {
+			return
+		}
+
+		const unrouteable = []
+		for (const ep of endpoints) {
+			const normalised = '^' + normaliseStoreUrl(ep.path) + '$'
+			const matched = routePatterns.some((rp) => {
+				if (rp.route.verb !== ep.method) {
+					return false
+				}
+				const re = new RegExp(rp.pattern)
+				return re.test(ep.path) || re.test(normalised)
+			})
+			if (!matched) {
+				unrouteable.push(`${ep.file}: ${ep.method} ${ep.path} (no matching route)`)
+			}
+		}
+		if (unrouteable.length > 0) {
+			throw new Error('Unrouteable service endpoints:\n' + unrouteable.join('\n'))
+		}
+		expect(unrouteable).toEqual([])
+	})
+
+	it('no store uses the deprecated /index.php/apps/chorestrike prefix', () => {
+		const files = readdirSync(STORES_DIR).filter((f) => f.endsWith('.js'))
+		const violations = []
+
+		for (const file of files) {
+			const content = readFileSync(join(STORES_DIR, file), 'utf-8')
+			if (DEPRECATED_PREFIX_RE.test(content)) {
+				violations.push(file)
+			}
+		}
+
+		expect(violations).toEqual([])
+	})
+
 	it('no store calls the removed completeWithTeam endpoint', () => {
 		const endpoints = extractStoreEndpoints()
-		const usesDead = endpoints.some((ep) => ep.url.includes('complete-with-team'))
+		const usesDead = endpoints.some((ep) => ep.path.includes('complete-with-team'))
 		expect(usesDead).toBe(false)
 	})
 })

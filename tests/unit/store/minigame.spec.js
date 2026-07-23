@@ -2,13 +2,14 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
 import { useMinigameStore, BOOST_COSTS } from '../../../src/store/minigame.js'
 
-// Mock axios
-jest.mock('@nextcloud/axios', () => ({
-	get: jest.fn(),
-	post: jest.fn(),
+jest.mock('../../../src/services/api.js', () => ({
+	api: {
+		get: jest.fn(),
+		post: jest.fn(),
+	},
 }))
 
-import axios from '@nextcloud/axios'
+import { api } from '../../../src/services/api.js'
 
 describe('Minigame Store', () => {
 	let store
@@ -101,18 +102,16 @@ describe('Minigame Store', () => {
 	describe('Actions', () => {
 		describe('fetchCoins', () => {
 			it('fetches coins successfully', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: true, data: { currentCoins: 75 } }
-				})
+				api.get.mockResolvedValue({ currentCoins: 75 })
 
 				await store.fetchCoins()
 
-				expect(axios.get).toHaveBeenCalledWith('/apps/chorestrike/api/v1/minigames/coins')
+				expect(api.get).toHaveBeenCalledWith('/api/v1/minigames/coins')
 				expect(store.currentCoins).toBe(75)
 			})
 
 			it('handles error gracefully', async () => {
-				axios.get.mockRejectedValue(new Error('Network error'))
+				api.get.mockRejectedValue(new Error('Network error'))
 
 				await store.fetchCoins()
 
@@ -126,9 +125,7 @@ describe('Minigame Store', () => {
 					{ id: 1, userId: 'user1', displayName: 'Alice', score: 500 },
 					{ id: 2, userId: 'user2', displayName: 'Bob', score: 300 },
 				]
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockLeaderboard }
-				})
+				api.get.mockResolvedValue(mockLeaderboard)
 
 				await store.fetchLeaderboard('snake', 10)
 
@@ -137,7 +134,7 @@ describe('Minigame Store', () => {
 			})
 
 			it('handles error', async () => {
-				axios.get.mockRejectedValue(new Error('Failed'))
+				api.get.mockRejectedValue(new Error('Failed'))
 
 				await store.fetchLeaderboard('snake')
 
@@ -148,9 +145,7 @@ describe('Minigame Store', () => {
 
 		describe('fetchPersonalBest', () => {
 			it('fetches personal best successfully', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: true, data: { score: 250, id: 1 } }
-				})
+				api.get.mockResolvedValue({ score: 250, id: 1 })
 
 				await store.fetchPersonalBest('snake')
 
@@ -160,9 +155,7 @@ describe('Minigame Store', () => {
 
 		describe('fetchUserRank', () => {
 			it('fetches user rank successfully', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: true, data: { rank: 5 } }
-				})
+				api.get.mockResolvedValue({ rank: 5 })
 
 				await store.fetchUserRank('snake')
 
@@ -173,9 +166,7 @@ describe('Minigame Store', () => {
 		describe('purchaseBoost', () => {
 			it('purchases boost successfully', async () => {
 				store.currentCoins = 50
-				axios.post.mockResolvedValue({
-					data: { success: true, data: { remainingCoins: 40 } }
-				})
+				api.post.mockResolvedValue({ remainingCoins: 40 })
 
 				const result = await store.purchaseBoost('slow_motion')
 
@@ -186,9 +177,7 @@ describe('Minigame Store', () => {
 
 			it('handles insufficient coins error', async () => {
 				store.currentCoins = 5
-				axios.post.mockRejectedValue({
-					response: { data: { error: { message: 'Insufficient coins' } } }
-				})
+				api.post.mockRejectedValue(new Error('Insufficient coins'))
 
 				const result = await store.purchaseBoost('slow_motion')
 
@@ -202,12 +191,8 @@ describe('Minigame Store', () => {
 				store.score = 150
 				store.purchasedBoosts = ['slow_motion']
 
-				axios.post.mockResolvedValue({
-					data: { success: true, data: { id: 1, score: 150 } }
-				})
-				axios.get.mockResolvedValue({
-					data: { success: true, data: [] }
-				})
+				api.post.mockResolvedValue({ id: 1, score: 150 })
+				api.get.mockResolvedValue([])
 
 				const result = await store.saveScore('snake')
 
@@ -252,12 +237,8 @@ describe('Minigame Store', () => {
 				store.isPlaying = true
 				store.activeBoosts = ['slow_motion']
 
-				axios.post.mockResolvedValue({
-					data: { success: true, data: { id: 1 } }
-				})
-				axios.get.mockResolvedValue({
-					data: { success: true, data: null }
-				})
+				api.post.mockResolvedValue({ id: 1 })
+				api.get.mockResolvedValue(null)
 
 				await store.endGame()
 
@@ -271,12 +252,8 @@ describe('Minigame Store', () => {
 				store.currentGame = 'snake'
 				store.score = 120
 				store.purchasedBoosts = ['slow_motion']
-				axios.post.mockResolvedValue({
-					data: { success: true, data: { id: 1, score: 120, coinsEarned: 12 } }
-				})
-				axios.get.mockResolvedValue({
-					data: { success: true, data: [] }
-				})
+				api.post.mockResolvedValue({ id: 1, score: 120, coinsEarned: 12 })
+				api.get.mockResolvedValue([])
 
 				const result = await store.endGame()
 
@@ -289,7 +266,7 @@ describe('Minigame Store', () => {
 
 				await store.endGame()
 
-				expect(axios.post).not.toHaveBeenCalled()
+				expect(api.post).not.toHaveBeenCalled()
 			})
 		})
 
@@ -343,13 +320,11 @@ describe('Minigame Store', () => {
 
 		describe('initialize', () => {
 			it('fetches all initial data', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: true, data: { currentCoins: 100 } }
-				})
+				api.get.mockResolvedValue({ currentCoins: 100 })
 
 				await store.initialize('snake')
 
-				expect(axios.get).toHaveBeenCalledTimes(4)
+				expect(api.get).toHaveBeenCalledTimes(4)
 				expect(store.loading).toBe(false)
 			})
 		})

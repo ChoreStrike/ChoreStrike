@@ -277,38 +277,39 @@ export const logger = {
 ### P9-ARCH-002 - Introduce a Shared Frontend API Layer and Normalize URL Generation
 **Priority**: HIGH  
 **Effort**: 1 day  
-**Status**: Planned
+**Status**: Done (CS-PLAN-008)
 
 **Description**: The architecture document describes a frontend API layer, but current stores call `axios` directly and use mixed URL styles (`/apps/...` vs `/index.php/apps/...`). This increases drift risk and makes route-prefix bugs likely.
 
 **Implementation**:
-1. Add a shared frontend API client module for route construction and common response handling.
-2. Replace direct store-level string URLs with shared helpers.
-3. Standardize error mapping and request semantics across stores.
-4. Update architecture docs to describe the real frontend data flow.
+1. Added `src/services/api.js` as a shared frontend API client with canonical `API_PREFIX = /apps/chorestrike`, envelope unwrap, and `ApiError` normalization.
+2. Migrated all 10 stores to use `api` instead of `axios`, standardizing URL construction.
+3. Simplified the contract test to assert a single prefix and detect deprecated forms.
+4. Updated architecture docs to describe the real frontend data flow.
 
 **Tests**:
-- Add unit tests for API URL generation and error normalization.
-- Add regression coverage for route prefixing in active stores.
+- Added `tests/unit/services/api.spec.js` for URL generation and error normalization.
+- Updated all 10 store tests to mock the new API layer.
+- Contract test now asserts single prefix and deprecated-form absence.
 
 ---
 
 ### P9-ARCH-003 - Remove Duplicated Room-Task Logic Across Frontend Stores
 **Priority**: HIGH  
 **Effort**: 6 hours  
-**Status**: Planned
+**Status**: Done (CS-PLAN-008)
 
 **Description**: `src/store/tasks.js` and `src/store/roomTasks.js` both own room-task fetching and derived room-task state. This mixes catalog-task and assignment-task concerns and creates drift in business behavior, test coverage, and API evolution.
 
 **Implementation**:
-1. Define a single owner for room-task state and actions.
-2. Reduce the other store to read-only composition or remove the overlap entirely.
-3. Extract shared derived helpers where appropriate.
-4. Update dependent views and tests to use the canonical store boundary.
+1. Removed the duplicated room-task surface from `tasks.js` (state, 7 getters, `fetchRoomTasks` action).
+2. `roomTasks.js` is the canonical owner — it already had all the needed getters + extra ones.
+3. Consumer audit confirmed no views used the duplicated `tasks` room-task surface; all consumers already read from `roomTasks`.
+4. Removed unused `tr()` helper and `@nextcloud/l10n` import from the now-catalog-only `tasks.js`.
 
 **Tests**:
-- Add regression tests for the canonical room-task state owner.
-- Remove or rewrite duplicated test cases that validate the same logic in two stores.
+- Added regression tests confirming `useTasksStore` no longer exposes room-task state, getters, or `fetchRoomTasks`.
+- Removed duplicated room-task test cases from `tasks.spec.js`.
 
 ---
 

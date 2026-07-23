@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
-import axios from '@nextcloud/axios'
+import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 
 export const useHouseStore = defineStore('house', {
@@ -29,13 +29,8 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/house')
-
-				if (response.data.success) {
-					this.house = response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch house')
-				}
+				const data = await api.get('/api/v1/house')
+				this.house = data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch house', error, { store: 'house', action: 'fetchHouse' })
@@ -58,13 +53,8 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const response = await axios.put('/apps/chorestrike/api/v1/house', { name })
-
-				if (response.data.success) {
-					this.house = response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to update house')
-				}
+				const data = await api.put('/api/v1/house', { name })
+				this.house = data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to update house', error, { store: 'house', action: 'updateHouseName' })
@@ -82,13 +72,8 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/house/stats')
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch house stats')
-				}
+				const data = await api.get('/api/v1/house/stats')
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch house stats', error, { store: 'house', action: 'fetchHouseStats' })
@@ -106,17 +91,12 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/house/health')
+				const data = await api.get('/api/v1/house/health')
 
-				if (response.data.success) {
-					// Update local house health
-					if (this.house) {
-						this.house.houseHealth = response.data.data.houseHealth
-					}
-					return response.data.data.houseHealth
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to calculate house health')
+				if (this.house) {
+					this.house.houseHealth = data.houseHealth
 				}
+				return data.houseHealth
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to calculate house health', error, { store: 'house', action: 'calculateHouseHealth' })
@@ -134,13 +114,8 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorestrike/api/v1/house/reset')
-
-				if (response.data.success) {
-					this.house = response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to reset house')
-				}
+				const data = await api.post('/api/v1/house/reset')
+				this.house = data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to reset house', error, { store: 'house', action: 'resetHouse' })

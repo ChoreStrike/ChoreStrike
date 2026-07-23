@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
-import axios from '@nextcloud/axios'
+import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -164,24 +164,19 @@ export const useSchedulingStore = defineStore('scheduling', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/scheduling/preferences')
+				const data = await api.get('/api/v1/scheduling/preferences')
 
-				if (response.data.success) {
-					this.energyBudget = response.data.data.energyBudget || this.energyBudget
-					this.weekdayAvailability = response.data.data.weekdayAvailability || this.weekdayAvailability
-					this.maxDailyTasks = Number.isFinite(response.data.data.maxDailyTasks)
-						? response.data.data.maxDailyTasks
-						: Infinity
-					this.todayConsumedEnergy = Number.isFinite(response.data.data.todayConsumedEnergy)
-						? response.data.data.todayConsumedEnergy
-						: 0
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch preferences')
-				}
+				this.energyBudget = data.energyBudget || this.energyBudget
+				this.weekdayAvailability = data.weekdayAvailability || this.weekdayAvailability
+				this.maxDailyTasks = Number.isFinite(data.maxDailyTasks)
+					? data.maxDailyTasks
+					: Infinity
+				this.todayConsumedEnergy = Number.isFinite(data.todayConsumedEnergy)
+					? data.todayConsumedEnergy
+					: 0
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch scheduling preferences', error, { store: 'scheduling', action: 'fetchUserPreferences' })
-				// Use defaults on error
 			} finally {
 				this.loading = false
 			}
@@ -214,16 +209,12 @@ export const useSchedulingStore = defineStore('scheduling', {
 			this.error = null
 
 			try {
-				const response = await axios.put('/apps/chorestrike/api/v1/scheduling/energy', {
+				await api.put('/api/v1/scheduling/energy', {
 					day: dayKey,
 					energy,
 				})
 
-				if (response.data.success) {
-					this.energyBudget[dayKey] = energy
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to update energy budget')
-				}
+				this.energyBudget[dayKey] = energy
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to update energy budget', error, { store: 'scheduling', action: 'updateEnergyBudget', day: dayKey })
@@ -245,16 +236,12 @@ export const useSchedulingStore = defineStore('scheduling', {
 			this.error = null
 
 			try {
-				const response = await axios.put('/apps/chorestrike/api/v1/scheduling/availability', {
+				await api.put('/api/v1/scheduling/availability', {
 					day: dayKey,
 					available,
 				})
 
-				if (response.data.success) {
-					this.weekdayAvailability[dayKey] = available
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to update availability')
-				}
+				this.weekdayAvailability[dayKey] = available
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to update availability', error, { store: 'scheduling', action: 'updateAvailability', day: dayKey })
@@ -272,13 +259,8 @@ export const useSchedulingStore = defineStore('scheduling', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/scheduling/members')
-
-				if (response.data.success) {
-					this.memberAvailability = response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch member availability')
-				}
+				const data = await api.get('/api/v1/scheduling/members')
+				this.memberAvailability = data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch member availability', error, { store: 'scheduling', action: 'fetchMemberAvailability' })
@@ -298,19 +280,14 @@ export const useSchedulingStore = defineStore('scheduling', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorestrike/api/v1/scheduling/members/${userId}`, updates)
+				await api.put(`/api/v1/scheduling/members/${userId}`, updates)
 
-				if (response.data.success) {
-					// Update local member data
-					const index = this.memberAvailability.findIndex(m => m.userId === userId)
-					if (index >= 0) {
-						this.memberAvailability[index] = {
-							...this.memberAvailability[index],
-							...updates,
-						}
+				const index = this.memberAvailability.findIndex(m => m.userId === userId)
+				if (index >= 0) {
+					this.memberAvailability[index] = {
+						...this.memberAvailability[index],
+						...updates,
 					}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to update member availability')
 				}
 			} catch (error) {
 				this.error = error.message
@@ -330,15 +307,11 @@ export const useSchedulingStore = defineStore('scheduling', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorestrike/api/v1/scheduling/suggestions', {
+				const data = await api.post('/api/v1/scheduling/suggestions', {
 					tasks,
 				})
 
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to get suggestions')
-				}
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to get scheduling suggestions', error, { store: 'scheduling', action: 'getSchedulingSuggestions' })

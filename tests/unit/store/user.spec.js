@@ -7,9 +7,8 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
 import { useUserStore } from '../../../src/store/user.js'
 
-jest.mock('@nextcloud/axios', () => ({
-	__esModule: true,
-	default: {
+jest.mock('../../../src/services/api.js', () => ({
+	api: {
 		get: jest.fn(),
 		post: jest.fn(),
 		put: jest.fn(),
@@ -21,7 +20,7 @@ jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, message) => message),
 }))
 
-import axios from '@nextcloud/axios'
+import { api } from '../../../src/services/api.js'
 import { translate as t } from '@nextcloud/l10n'
 
 describe('User Store', () => {
@@ -154,9 +153,7 @@ describe('User Store', () => {
 		describe('initializeCurrentUser', () => {
 			it('fetches and sets current user', async () => {
 				const mockUser = { id: 1, displayName: 'John' }
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockUser }
-				})
+				api.get.mockResolvedValue(mockUser)
 
 				const result = await store.initializeCurrentUser()
 
@@ -164,22 +161,18 @@ describe('User Store', () => {
 				expect(store.currentUser).toEqual(mockUser)
 			})
 
-			it('uses localized fallback for initializeCurrentUser error', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: false, error: {} }
-				})
+			it('throws ApiError on failure', async () => {
+				const error = new Error('Failed to initialize current user')
+				api.get.mockRejectedValue(error)
 
 				await expect(store.initializeCurrentUser()).rejects.toThrow('Failed to initialize current user')
-				expect(t).toHaveBeenCalledWith('chorestrike', 'Failed to initialize current user')
 			})
 		})
 
 		describe('fetchHouseUsers', () => {
 			it('fetches house users', async () => {
 				const mockUsers = [{ id: 1 }, { id: 2 }]
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockUsers }
-				})
+				api.get.mockResolvedValue(mockUsers)
 
 				await store.fetchHouseUsers()
 
@@ -190,13 +183,11 @@ describe('User Store', () => {
 		describe('inviteUser', () => {
 			it('invites user successfully', async () => {
 				const result = { exists: false }
-				axios.post.mockResolvedValue({
-					data: { success: true, data: result }
-				})
+				api.post.mockResolvedValue(result)
 
 				await store.inviteUser('test@test.com', 'member')
 
-				expect(axios.post).toHaveBeenCalledWith('/apps/chorestrike/api/v1/users/invite', { email: 'test@test.com', role: 'member' })
+				expect(api.post).toHaveBeenCalledWith('/api/v1/users/invite', { email: 'test@test.com', role: 'member' })
 			})
 
 			it('throws error for invalid role', async () => {
@@ -217,15 +208,10 @@ describe('User Store', () => {
 			it('updates the targeted user and current user from the repaired profile endpoint', async () => {
 				store.houseUsers = [{ id: 1, displayName: 'Old Name', schedulingPreferences: {} }]
 				store.currentUser = { id: 1, displayName: 'Old Name', schedulingPreferences: {} }
-				axios.put.mockResolvedValue({
-					data: {
-						success: true,
-						data: {
-							id: 1,
-							displayName: 'New Name',
-							schedulingPreferences: { weekdays: { monday: true } },
-						},
-					},
+				api.put.mockResolvedValue({
+					id: 1,
+					displayName: 'New Name',
+					schedulingPreferences: { weekdays: { monday: true } },
 				})
 
 				await store.updateUserProfile(1, {
@@ -233,7 +219,7 @@ describe('User Store', () => {
 					schedulingPreferences: { weekdays: { monday: true } },
 				})
 
-				expect(axios.put).toHaveBeenCalledWith('/apps/chorestrike/api/v1/users/1', {
+				expect(api.put).toHaveBeenCalledWith('/api/v1/users/1', {
 					displayName: 'New Name',
 					schedulingPreferences: { weekdays: { monday: true } },
 				})

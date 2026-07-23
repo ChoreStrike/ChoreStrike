@@ -7,16 +7,15 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
 
-jest.mock('@nextcloud/axios', () => ({
-	__esModule: true,
-	default: {
+jest.mock('../../../src/services/api.js', () => ({
+	api: {
 		get: jest.fn(),
-		post: jest.fn(),
 		put: jest.fn(),
+		post: jest.fn(),
 	},
 }))
 
-import axios from '@nextcloud/axios'
+import { api } from '../../../src/services/api.js'
 
 describe('Scheduling Store', () => {
 	let store
@@ -148,9 +147,7 @@ describe('Scheduling Store', () => {
 					weekdayAvailability: { monday: false },
 					todayConsumedEnergy: 3,
 				}
-				axios.get.mockResolvedValue({
-					data: { success: true, data: prefs }
-				})
+				api.get.mockResolvedValue(prefs)
 
 				await store.fetchUserPreferences()
 
@@ -182,9 +179,7 @@ describe('Scheduling Store', () => {
 
 		describe('updateEnergyBudget', () => {
 			it('updates energy budget', async () => {
-				axios.put.mockResolvedValue({
-					data: { success: true }
-				})
+				api.put.mockResolvedValue(undefined)
 
 				await store.updateEnergyBudget('monday', 15)
 
@@ -198,9 +193,7 @@ describe('Scheduling Store', () => {
 
 		describe('updateAvailability', () => {
 			it('updates availability', async () => {
-				axios.put.mockResolvedValue({
-					data: { success: true }
-				})
+				api.put.mockResolvedValue(undefined)
 
 				await store.updateAvailability('monday', false)
 
@@ -211,9 +204,7 @@ describe('Scheduling Store', () => {
 		describe('fetchMemberAvailability', () => {
 			it('fetches member availability', async () => {
 				const members = [{ userId: 'user1' }, { userId: 'user2' }]
-				axios.get.mockResolvedValue({
-					data: { success: true, data: members }
-				})
+				api.get.mockResolvedValue(members)
 
 				await store.fetchMemberAvailability()
 
@@ -224,9 +215,7 @@ describe('Scheduling Store', () => {
 		describe('updateMemberAvailability', () => {
 			it('updates member availability', async () => {
 				store.memberAvailability = [{ userId: 'user1', energy: 10 }]
-				axios.put.mockResolvedValue({
-					data: { success: true }
-				})
+				api.put.mockResolvedValue(undefined)
 
 				await store.updateMemberAvailability('user1', { energy: 15 })
 
@@ -237,9 +226,7 @@ describe('Scheduling Store', () => {
 		describe('getSchedulingSuggestions', () => {
 			it('gets suggestions', async () => {
 				const suggestions = [{ day: 'monday', tasks: [] }]
-				axios.post.mockResolvedValue({
-					data: { success: true, data: suggestions }
-				})
+				api.post.mockResolvedValue(suggestions)
 
 				const result = await store.getSchedulingSuggestions([{ id: 1 }])
 

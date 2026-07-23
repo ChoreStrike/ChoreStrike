@@ -2,14 +2,15 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
 import { useHouseStore } from '../../../src/store/house.js'
 
-// Mock axios
-jest.mock('@nextcloud/axios', () => ({
-	get: jest.fn(),
-	put: jest.fn(),
-	post: jest.fn(),
+jest.mock('../../../src/services/api.js', () => ({
+	api: {
+		get: jest.fn(),
+		put: jest.fn(),
+		post: jest.fn(),
+	},
 }))
 
-import axios from '@nextcloud/axios'
+import { api } from '../../../src/services/api.js'
 
 describe('House Store', () => {
 	let store
@@ -17,7 +18,6 @@ describe('House Store', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		store = useHouseStore()
-		// Reset mocks
 		jest.clearAllMocks()
 	})
 
@@ -62,9 +62,7 @@ describe('House Store', () => {
 		describe('fetchHouse', () => {
 			it('fetches house successfully', async () => {
 				const mockHouse = { id: 1, name: 'Test House', houseHealth: 90 }
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockHouse }
-				})
+				api.get.mockResolvedValue(mockHouse)
 
 				await store.fetchHouse()
 
@@ -74,9 +72,7 @@ describe('House Store', () => {
 			})
 
 			it('sets loading state while fetching', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: true, data: { id: 1 } }
-				})
+				api.get.mockResolvedValue({ id: 1 })
 
 				const promise = store.fetchHouse()
 				expect(store.loading).toBe(true)
@@ -85,16 +81,14 @@ describe('House Store', () => {
 			})
 
 			it('handles error response', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: false, error: { message: 'Not found' } }
-				})
+				api.get.mockRejectedValue(new Error('Not found'))
 
 				await expect(store.fetchHouse()).rejects.toThrow('Not found')
 				expect(store.error).toBe('Not found')
 			})
 
 			it('handles network error', async () => {
-				axios.get.mockRejectedValue(new Error('Network error'))
+				api.get.mockRejectedValue(new Error('Network error'))
 
 				await expect(store.fetchHouse()).rejects.toThrow('Network error')
 				expect(store.loading).toBe(false)
@@ -104,14 +98,12 @@ describe('House Store', () => {
 		describe('updateHouseName', () => {
 			it('updates house name successfully', async () => {
 				const updatedHouse = { id: 1, name: 'New Name' }
-				axios.put.mockResolvedValue({
-					data: { success: true, data: updatedHouse }
-				})
+				api.put.mockResolvedValue(updatedHouse)
 
 				await store.updateHouseName('New Name')
 
 				expect(store.house).toEqual(updatedHouse)
-				expect(axios.put).toHaveBeenCalledWith('/apps/chorestrike/api/v1/house', { name: 'New Name' })
+				expect(api.put).toHaveBeenCalledWith('/api/v1/house', { name: 'New Name' })
 			})
 
 			it('throws error for empty name', async () => {
@@ -122,10 +114,7 @@ describe('House Store', () => {
 
 		describe('fetchHouseStats', () => {
 			it('fetches stats successfully', async () => {
-				const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
-				axios.get.mockResolvedValue({
-					data: { success: true, data: { totalRooms: 5, cleanliness: 80 } }
-				})
+				api.get.mockResolvedValue({ totalRooms: 5, cleanliness: 80 })
 
 				const result = await store.fetchHouseStats()
 
@@ -133,9 +122,7 @@ describe('House Store', () => {
 			})
 
 			it('handles error', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: false, error: { message: 'Failed' } }
-				})
+				api.get.mockRejectedValue(new Error('Failed'))
 
 				await expect(store.fetchHouseStats()).rejects.toThrow('Failed')
 			})
@@ -144,9 +131,7 @@ describe('House Store', () => {
 		describe('calculateHouseHealth', () => {
 			it('calculates and updates health', async () => {
 				store.house = { id: 1, houseHealth: 50 }
-				axios.get.mockResolvedValue({
-					data: { success: true, data: { houseHealth: 75 } }
-				})
+				api.get.mockResolvedValue({ houseHealth: 75 })
 
 				const result = await store.calculateHouseHealth()
 
@@ -155,9 +140,7 @@ describe('House Store', () => {
 			})
 
 			it('returns health even without local house', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: true, data: { houseHealth: 60 } }
-				})
+				api.get.mockResolvedValue({ houseHealth: 60 })
 
 				const result = await store.calculateHouseHealth()
 
@@ -168,9 +151,7 @@ describe('House Store', () => {
 		describe('resetHouse', () => {
 			it('resets house successfully', async () => {
 				const resetHouse = { id: 1, houseHealth: 100 }
-				axios.post.mockResolvedValue({
-					data: { success: true, data: resetHouse }
-				})
+				api.post.mockResolvedValue(resetHouse)
 
 				await store.resetHouse()
 
@@ -181,14 +162,12 @@ describe('House Store', () => {
 		describe('initializeHouse', () => {
 			it('fetches house if not exists', async () => {
 				const mockHouse = { id: 1 }
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockHouse }
-				})
+				api.get.mockResolvedValue(mockHouse)
 
 				const result = await store.initializeHouse()
 
 				expect(result).toEqual(mockHouse)
-				expect(axios.get).toHaveBeenCalled()
+				expect(api.get).toHaveBeenCalled()
 			})
 
 			it('returns existing house without fetching', async () => {
@@ -197,7 +176,7 @@ describe('House Store', () => {
 				const result = await store.initializeHouse()
 
 				expect(result).toEqual(store.house)
-				expect(axios.get).not.toHaveBeenCalled()
+				expect(api.get).not.toHaveBeenCalled()
 			})
 		})
 

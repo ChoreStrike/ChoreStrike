@@ -140,11 +140,32 @@
 - **Build gate (final, 2026-07-23):** PHPUnit unit 473/473, PHPUnit integration 143/143 (24 documented skips), Jest 512/512, ESLint 0 errors, `npm run build` compiles.
 - **Backlog sync:** `docs/backlog/phase-9-code-quality.md` P9-WORKFLOW-002 / P9-TEST-002 / P9-E2E-002 marked Done. `docs/backlog/bugs.md` "[P1] Internal exception messages" closed (each unchecked acceptance criterion verified: `ControllerErrorFormatter::safeMessage()` applied across 158 catch sites, error-code mapping per-controller). `docs/TESTING.md` + `docs/ARCHITECTURE.md` updated with the authoritative gate and contract tests.
 
+### CS-PLAN-008 - Frontend Store Architecture: Shared API Layer & Room-Task Ownership
+**Status**: Done
+**Started**: 2026-07-23
+**Completed**: 2026-07-23
+**Branch**: master
+**Plan**: docs/plans/active/cs-plan-008-frontend-store-architecture.md
+**Blockers**: None
+**Notes**:
+- **Phase 1 — Shared API layer (P9-ARCH-002) (DONE):** Created `src/services/api.js` with single canonical `API_PREFIX = /apps/chorestrike`, envelope unwrap, and `ApiError` normalization (backend message → generic fallback). Migrated all 10 Pinia stores off direct `@nextcloud/axios` (82 call sites, two accidental prefix forms → single prefix). Created `tests/unit/services/api.spec.js` (16 tests: prefix construction, envelope unwrap, `!success`→`ApiError`, HTTP-error→`ApiError`, method verb mapping). Updated all 10 store spec files + `TitlePicker.spec.js` + `apiContract.spec.js` to mock the new `api` module instead of `@nextcloud/axios`. Contract test now asserts single prefix and detects deprecated `/index.php/apps/chorestrike` form.
+- **Phase 2 — Room-task dedup (P9-ARCH-003) (DONE):** Removed duplicated room-task surface from `tasks.js` (`state.roomTasks`, 7 getters: `getRoomTaskById`, `activeRoomTasks`, `overdueRoomTasks`, `dueTodayRoomTasks`, `dueSoonRoomTasks`, `roomTasksByRoom`, `roomTasksByUser`, plus `fetchRoomTasks` action). `roomTasks.js` is the canonical owner — no views consumed the duplicated surface. Removed unused `tr()`/`@nextcloud/l10n` import from the now-catalog-only `tasks.js`. Added 3 regression tests confirming `useTasksStore` no longer exposes room-task surface.
+- **Phase 3 — Docs & backlog (DONE):** `docs/backlog/phase-9-code-quality.md` P9-ARCH-002 + P9-ARCH-003 marked Done. `apiContract.spec.js` tightened with single-prefix + deprecated-form-absence assertions.
+- **Intentional behavior change:** Minigame leaderboard/personal-best actions that previously tolerated `success:false` silently now surface `this.error` (documented, covered by tests).
+- **Build gate (final):** Jest 525/525, ESLint 0 errors (69 pre-existing JSDoc warnings unchanged), `npm test` + `npm run lint` green.
+
 ### CS-PLAN-006 - Role Title System
 **Status**: Done (2026-07-22) — see Recently Completed
 **Priority**: P2 · **Effort**: M · **Depends on**: CS-PLAN-004 (build gate)
 **Scope**: Ships the role-title progression overlay. Closes the 2026-03-07 `ROLE-TITLE-SYSTEM-001` and `GAMIFICATION-CONCEPTS-001` backlog entries (delivered). Three title packs × three tiers = 9 titles, each themed around a different progression signal (`contributionScore` / `longestStreak` / `totalSparksEarned`) — Home Helpers, Team Energy, Cozy Home. New `lib/Titles/TitleCatalog.php` + `lib/Service/TitleService.php` (server-authoritative unlocks via `RewardConfigService` thresholds, mirroring the `weekly_goal_target_percent` pattern); `selected_title_pack` + `unlocked_titles` columns on `chorestrike_house_users` (`Version1025`); new `TitleBadge`/`TitlePicker` Vue components; reuse of the CS-PLAN-002 Phase 2 celebration layer for unlock moments. Independent of CS-PLAN-005 (different code paths).
 **Blockers**: CS-PLAN-004 (Phase 4 integration test) — Done.
+
+### CS-PLAN-008 - Frontend Store Architecture: Shared API Layer & Room-Task Ownership
+**Status**: Done (2026-07-23) — see Recently Completed
+**Priority**: P1 · **Effort**: L · **Depends on**: CS-PLAN-007 (release gate green — Done)
+**Scope**: Closes the two HIGH frontend-architecture items CS-PLAN-007 explicitly deferred. (1) **P9-ARCH-002** — introduce `src/services/api.js` (shared client: single canonical URL prefix, envelope unwrap, `ApiError` normalization) and migrate all 10 Pinia stores off raw `@nextcloud/axios` (82 call sites) and the accidental `/apps/...` vs `/index.php/apps/...` prefix split. (2) **P9-ARCH-003** — make `roomTasks` the sole owner of room-task state/actions; strip the duplicated room-task surface from `tasks.js` and migrate consumers. Pure refactor — **no backend change, no API contract change, no new features.** Backend untouched. `apiContract.spec.js` tightened to assert a single prefix.
+**Plan**: docs/plans/active/cs-plan-008-frontend-store-architecture.md
+**Blockers**: None (CS-PLAN-007 Done).
 
 ---
 

@@ -4,18 +4,14 @@
  */
 
 import { defineStore } from 'pinia'
-import axios from '@nextcloud/axios'
+import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 
 export const useTitlesStore = defineStore('titles', {
 	state: () => ({
-		// Current title descriptor for the active user (server-computed).
 		currentTitle: null,
-		// Every tier the active user qualifies for (live-derived).
 		unlockedTitles: [],
-		// Pack key the active user has chosen to display (null = none).
 		selectedTitlePack: null,
-		// Catalog view: pack key -> {labelKey, signal, tiers:[{key,labelKey,threshold}]}.
 		catalog: {},
 		loading: false,
 		error: null,
@@ -33,15 +29,11 @@ export const useTitlesStore = defineStore('titles', {
 			this.loading = true
 			this.error = null
 			try {
-				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/users/${houseUserId}/titles`)
-				if (response.data.success) {
-					this.currentTitle = response.data.data.currentTitle
-					this.unlockedTitles = response.data.data.unlockedTitles || []
-					this.selectedTitlePack = response.data.data.selectedTitlePack
-					this.catalog = response.data.data.catalog || {}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch titles')
-				}
+				const data = await api.get(`/api/v1/users/${houseUserId}/titles`)
+				this.currentTitle = data.currentTitle
+				this.unlockedTitles = data.unlockedTitles || []
+				this.selectedTitlePack = data.selectedTitlePack
+				this.catalog = data.catalog || {}
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch titles', error, { store: 'titles', action: 'fetchTitles', houseUserId })
@@ -63,16 +55,12 @@ export const useTitlesStore = defineStore('titles', {
 			this.loading = true
 			this.error = null
 			try {
-				const response = await axios.put(
-					`/index.php/apps/chorestrike/api/v1/users/${houseUserId}/titles/select`,
+				const data = await api.put(
+					`/api/v1/users/${houseUserId}/titles/select`,
 					{ pack: packKey },
 				)
-				if (response.data.success) {
-					this.selectedTitlePack = response.data.data.selectedTitlePack
-					this.currentTitle = response.data.data.currentTitle
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to select title')
-				}
+				this.selectedTitlePack = data.selectedTitlePack
+				this.currentTitle = data.currentTitle
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to select title', error, { store: 'titles', action: 'selectPack', houseUserId, packKey })

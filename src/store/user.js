@@ -4,11 +4,9 @@
  */
 
 import { defineStore } from 'pinia'
-import axios from '@nextcloud/axios'
+import { api } from '../services/api.js'
 import { translate as t } from '@nextcloud/l10n'
 import { logger } from '../utils/logger.js'
-
-const tr = (message) => t('chorestrike', message)
 
 export const useUserStore = defineStore('user', {
 	state: () => ({
@@ -21,7 +19,7 @@ export const useUserStore = defineStore('user', {
 	getters: {
 		userId: (state) => state.currentUser?.id || null,
 
-		userDisplayName: (state) => state.currentUser?.displayName || tr('Unknown User'),
+		userDisplayName: (state) => state.currentUser?.displayName || t('chorestrike', 'Unknown User'),
 
 		isHouseOwner: (state) => state.currentUser?.role === 'owner',
 
@@ -62,15 +60,9 @@ export const useUserStore = defineStore('user', {
 		 */
 		async initializeCurrentUser() {
 			try {
-				// Get current user from Nextcloud
-				const response = await axios.get('/apps/chorestrike/api/v1/users/current')
-
-				if (response.data.success) {
-					this.currentUser = response.data.data
-					return this.currentUser
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to initialize current user'))
-				}
+				const data = await api.get('/api/v1/users/current')
+				this.currentUser = data
+				return this.currentUser
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to initialize current user', error, { store: 'user', action: 'initializeCurrentUser' })
@@ -86,13 +78,8 @@ export const useUserStore = defineStore('user', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/users')
-
-				if (response.data.success) {
-					this.houseUsers = response.data.data
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to fetch house users'))
-				}
+				const data = await api.get('/api/v1/users')
+				this.houseUsers = data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch house users', error, { store: 'user', action: 'fetchHouseUsers' })
@@ -109,28 +96,23 @@ export const useUserStore = defineStore('user', {
 		 */
 		async inviteUser(email, role = 'member') {
 			if (!email || email.trim() === '') {
-				throw new Error(tr('Email is required'))
+				throw new Error(t('chorestrike', 'Email is required'))
 			}
 
 			if (!['owner', 'member', 'child'].includes(role)) {
-				throw new Error(tr('Invalid role'))
+				throw new Error(t('chorestrike', 'Invalid role'))
 			}
 
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorestrike/api/v1/users/invite', { email, role })
+				const data = await api.post('/api/v1/users/invite', { email, role })
 
-				if (response.data.success) {
-					// Add to house users if already exists
-					if (response.data.data.exists) {
-						this.houseUsers.push(response.data.data.user)
-					}
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to invite user'))
+				if (data.exists) {
+					this.houseUsers.push(data.user)
 				}
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to invite user', error, { store: 'user', action: 'inviteUser', role })
@@ -146,21 +128,15 @@ export const useUserStore = defineStore('user', {
 		 */
 		async removeUser(userId) {
 			if (!userId) {
-				throw new Error(tr('User ID is required'))
+				throw new Error(t('chorestrike', 'User ID is required'))
 			}
 
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/apps/chorestrike/api/v1/users/${userId}`)
-
-				if (response.data.success) {
-					// Remove from house users
-					this.houseUsers = this.houseUsers.filter(user => user.id !== userId)
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to remove user'))
-				}
+				await api.delete(`/api/v1/users/${userId}`)
+				this.houseUsers = this.houseUsers.filter(user => user.id !== userId)
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to remove user', error, { store: 'user', action: 'removeUser', userId })
@@ -177,32 +153,26 @@ export const useUserStore = defineStore('user', {
 		 */
 		async updateUserRole(userId, role) {
 			if (!userId) {
-				throw new Error(tr('User ID is required'))
+				throw new Error(t('chorestrike', 'User ID is required'))
 			}
 
 			if (!['owner', 'member', 'child'].includes(role)) {
-				throw new Error(tr('Invalid role'))
+				throw new Error(t('chorestrike', 'Invalid role'))
 			}
 
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorestrike/api/v1/users/${userId}/role`, { role })
+				const data = await api.put(`/api/v1/users/${userId}/role`, { role })
 
-				if (response.data.success) {
-					// Update user in house users
-					const userIndex = this.houseUsers.findIndex(user => user.id === userId)
-					if (userIndex >= 0) {
-						this.houseUsers[userIndex] = response.data.data
-					}
+				const userIndex = this.houseUsers.findIndex(user => user.id === userId)
+				if (userIndex >= 0) {
+					this.houseUsers[userIndex] = data
+				}
 
-					// Update current user if it's the same
-					if (this.currentUser && this.currentUser.id === userId) {
-						this.currentUser = response.data.data
-					}
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to update user role'))
+				if (this.currentUser && this.currentUser.id === userId) {
+					this.currentUser = data
 				}
 			} catch (error) {
 				this.error = error.message
@@ -220,28 +190,22 @@ export const useUserStore = defineStore('user', {
 		 */
 		async updateUserProfile(userId, profileData) {
 			if (!userId) {
-				throw new Error(tr('User ID is required'))
+				throw new Error(t('chorestrike', 'User ID is required'))
 			}
 
 			this.loading = true
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorestrike/api/v1/users/${userId}`, profileData)
+				const data = await api.put(`/api/v1/users/${userId}`, profileData)
 
-				if (response.data.success) {
-					// Update user in house users
-					const userIndex = this.houseUsers.findIndex(user => user.id === userId)
-					if (userIndex >= 0) {
-						this.houseUsers[userIndex] = response.data.data
-					}
+				const userIndex = this.houseUsers.findIndex(user => user.id === userId)
+				if (userIndex >= 0) {
+					this.houseUsers[userIndex] = data
+				}
 
-					// Update current user if it's the same
-					if (this.currentUser && this.currentUser.id === userId) {
-						this.currentUser = response.data.data
-					}
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to update user profile'))
+				if (this.currentUser && this.currentUser.id === userId) {
+					this.currentUser = data
 				}
 			} catch (error) {
 				this.error = error.message

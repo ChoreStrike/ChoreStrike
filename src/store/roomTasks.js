@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
-import axios from '@nextcloud/axios'
+import { api } from '../services/api.js'
 import { emit } from '@nextcloud/event-bus'
 import { logger } from '../utils/logger.js'
 import { useSchedulingStore } from './scheduling.js'
@@ -126,15 +126,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/room-tasks?roomId=${roomId}&activeOnly=${activeOnly}`)
+				const data = await api.get('/api/v1/room-tasks', { params: { roomId, activeOnly } })
 
-				if (response.data.success) {
-					// Update room tasks in state, removing old ones for this room
-					this.roomTasks = this.roomTasks.filter(roomTask => roomTask.roomId !== roomId)
-					this.roomTasks.push(...response.data.data)
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch room tasks')
-				}
+				this.roomTasks = this.roomTasks.filter(roomTask => roomTask.roomId !== roomId)
+				this.roomTasks.push(...data)
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch room tasks', error, { store: 'roomTasks', action: 'fetchRoomTasks', roomId })
@@ -153,13 +148,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}`)
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch room task details')
-				}
+				const data = await api.get(`/api/v1/room-tasks/${roomTaskId}`)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch room task details', error, { store: 'roomTasks', action: 'fetchRoomTaskWithDetails', roomTaskId })
@@ -178,14 +168,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/index.php/apps/chorestrike/api/v1/room-tasks', roomTaskData)
-
-				if (response.data.success) {
-					this.roomTasks.push(response.data.data)
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to create room task')
-				}
+				const data = await api.post('/api/v1/room-tasks', roomTaskData)
+				this.roomTasks.push(data)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to create room task', error, { store: 'roomTasks', action: 'createRoomTask' })
@@ -209,15 +194,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/assign`, { userId })
+				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/assign`, { userId })
 
-				if (response.data.success) {
-					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-					if (roomTaskIndex >= 0) {
-						this.roomTasks[roomTaskIndex] = response.data.data
-					}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to assign room task')
+				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+				if (roomTaskIndex >= 0) {
+					this.roomTasks[roomTaskIndex] = data
 				}
 			} catch (error) {
 				this.error = error.message
@@ -237,15 +218,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/unassign`)
+				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/unassign`)
 
-				if (response.data.success) {
-					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-					if (roomTaskIndex >= 0) {
-						this.roomTasks[roomTaskIndex] = response.data.data
-					}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to unassign room task')
+				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+				if (roomTaskIndex >= 0) {
+					this.roomTasks[roomTaskIndex] = data
 				}
 			} catch (error) {
 				this.error = error.message
@@ -266,13 +243,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/assignees`)
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch assignees')
-				}
+				const data = await api.get(`/api/v1/room-tasks/${roomTaskId}/assignees`)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch assignees', error, { store: 'roomTasks', action: 'fetchAssignees', roomTaskId })
@@ -293,24 +265,20 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.put(
-					`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/assignees`,
+				const data = await api.put(
+					`/api/v1/room-tasks/${roomTaskId}/assignees`,
 					{ userIds },
 				)
 
-				if (response.data.success) {
-					const assigneeIds = (response.data.data || []).map(a => a.userId)
-					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-					if (roomTaskIndex >= 0) {
-						this.roomTasks[roomTaskIndex] = {
-							...this.roomTasks[roomTaskIndex],
-							assignees: assigneeIds,
-						}
+				const assigneeIds = (data || []).map(a => a.userId)
+				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+				if (roomTaskIndex >= 0) {
+					this.roomTasks[roomTaskIndex] = {
+						...this.roomTasks[roomTaskIndex],
+						assignees: assigneeIds,
 					}
-					return assigneeIds
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to set assignees')
 				}
+				return assigneeIds
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to set assignees', error, { store: 'roomTasks', action: 'setAssignees', roomTaskId })
@@ -329,15 +297,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/deactivate`)
+				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/deactivate`)
 
-				if (response.data.success) {
-					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-					if (roomTaskIndex >= 0) {
-						this.roomTasks[roomTaskIndex] = response.data.data
-					}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to deactivate room task')
+				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+				if (roomTaskIndex >= 0) {
+					this.roomTasks[roomTaskIndex] = data
 				}
 			} catch (error) {
 				this.error = error.message
@@ -357,15 +321,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/reactivate`)
+				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/reactivate`)
 
-				if (response.data.success) {
-					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-					if (roomTaskIndex >= 0) {
-						this.roomTasks[roomTaskIndex] = response.data.data
-					}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to reactivate room task')
+				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+				if (roomTaskIndex >= 0) {
+					this.roomTasks[roomTaskIndex] = data
 				}
 			} catch (error) {
 				this.error = error.message
@@ -390,15 +350,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/due-date`, { nextDue })
+				const data = await api.put(`/api/v1/room-tasks/${roomTaskId}/due-date`, { nextDue })
 
-				if (response.data.success) {
-					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-					if (roomTaskIndex >= 0) {
-						this.roomTasks[roomTaskIndex] = response.data.data
-					}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to update room task due date')
+				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+				if (roomTaskIndex >= 0) {
+					this.roomTasks[roomTaskIndex] = data
 				}
 			} catch (error) {
 				this.error = error.message
@@ -418,62 +374,52 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`)
+				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/complete`)
 
-				if (response.data.success) {
-					const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-					if (roomTaskIndex >= 0) {
-						this.roomTasks[roomTaskIndex] = response.data.data.roomTask
-					}
-
-					const energyCost = response.data.data.rewards?.energyCost
-					if (Number.isFinite(energyCost) && energyCost > 0) {
-						const schedulingStore = useSchedulingStore()
-						schedulingStore.registerTodayEnergyConsumption(energyCost)
-					}
-
-					// Hydrate the weekly goal snapshot from the server-computed
-					// value (Phase 3). The store detects the not-achieved →
-					// achieved transition and emits the celebration event.
-					const gameStore = useGameStore()
-					const weeklyGoal = response.data.data.rewards?.weeklyGoal
-					if (weeklyGoal) {
-						gameStore.setWeeklyGoal(weeklyGoal)
-					}
-
-					const rewards = response.data.data.rewards
-					emit('chorestrike:task-completed', {
-						roomTaskId,
-						coins: rewards?.coins,
-						isCombo: rewards?.isCombo,
-						currentStreak: rewards?.currentStreak,
-						streakFreezeUsed: rewards?.streakFreezeUsed,
-						streakFreezesRemaining: rewards?.streakFreezesRemaining,
-						comboBonusFreeze: rewards?.comboBonusFreeze,
-						contributionScore: rewards?.contributionScore,
-					})
-
-					if (rewards?.streakFreezeUsed) {
-						emit('chorestrike:streak-freeze-used', {
-							remaining: rewards.streakFreezesRemaining,
-						})
-					}
-
-					// Title unlock celebration (CS-PLAN-006). Mirrors the
-					// medal/streak-freeze emit pattern; the celebration
-					// composable subscribes to this event.
-					if (rewards?.newTitle) {
-						emit('chorestrike:title-unlocked', {
-							pack: rewards.newTitle.pack,
-							labelKey: rewards.newTitle.labelKey,
-							tierIndex: rewards.newTitle.tierIndex,
-						})
-					}
-
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to complete room task')
+				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+				if (roomTaskIndex >= 0) {
+					this.roomTasks[roomTaskIndex] = data.roomTask
 				}
+
+				const energyCost = data.rewards?.energyCost
+				if (Number.isFinite(energyCost) && energyCost > 0) {
+					const schedulingStore = useSchedulingStore()
+					schedulingStore.registerTodayEnergyConsumption(energyCost)
+				}
+
+				const gameStore = useGameStore()
+				const weeklyGoal = data.rewards?.weeklyGoal
+				if (weeklyGoal) {
+					gameStore.setWeeklyGoal(weeklyGoal)
+				}
+
+				const rewards = data.rewards
+				emit('chorestrike:task-completed', {
+					roomTaskId,
+					coins: rewards?.coins,
+					isCombo: rewards?.isCombo,
+					currentStreak: rewards?.currentStreak,
+					streakFreezeUsed: rewards?.streakFreezeUsed,
+					streakFreezesRemaining: rewards?.streakFreezesRemaining,
+					comboBonusFreeze: rewards?.comboBonusFreeze,
+					contributionScore: rewards?.contributionScore,
+				})
+
+				if (rewards?.streakFreezeUsed) {
+					emit('chorestrike:streak-freeze-used', {
+						remaining: rewards.streakFreezesRemaining,
+					})
+				}
+
+				if (rewards?.newTitle) {
+					emit('chorestrike:title-unlocked', {
+						pack: rewards.newTitle.pack,
+						labelKey: rewards.newTitle.labelKey,
+						tierIndex: rewards.newTitle.tierIndex,
+					})
+				}
+
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to complete room task', error, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
@@ -492,14 +438,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/index.php/apps/chorestrike/api/v1/room-tasks/${roomTaskId}`)
+				await api.delete(`/api/v1/room-tasks/${roomTaskId}`)
 
-				if (response.data.success) {
-					// Remove room task from state
-					this.roomTasks = this.roomTasks.filter(rt => rt.id !== roomTaskId)
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to delete room task')
-				}
+				this.roomTasks = this.roomTasks.filter(rt => rt.id !== roomTaskId)
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to delete room task', error, { store: 'roomTasks', action: 'deleteRoomTask', roomTaskId })
@@ -518,17 +459,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const url = roomId
-					? `/index.php/apps/chorestrike/api/v1/room-tasks/overdue?roomId=${roomId}`
-					: '/index.php/apps/chorestrike/api/v1/room-tasks/overdue'
-
-				const response = await axios.get(url)
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch overdue tasks')
-				}
+				const config = roomId ? { params: { roomId } } : {}
+				const data = await api.get('/api/v1/room-tasks/overdue', config)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch overdue tasks', error, { store: 'roomTasks', action: 'fetchOverdueTasks', roomId })
@@ -547,17 +480,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const url = roomId
-					? `/index.php/apps/chorestrike/api/v1/room-tasks/due-today?roomId=${roomId}`
-					: '/index.php/apps/chorestrike/api/v1/room-tasks/due-today'
-
-				const response = await axios.get(url)
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch due today tasks')
-				}
+				const config = roomId ? { params: { roomId } } : {}
+				const data = await api.get('/api/v1/room-tasks/due-today', config)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch due today tasks', error, { store: 'roomTasks', action: 'fetchDueTodayTasks', roomId })
@@ -581,17 +506,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const url = roomId
-					? `/index.php/apps/chorestrike/api/v1/room-tasks/due-within-days?days=${days}&roomId=${roomId}`
-					: `/index.php/apps/chorestrike/api/v1/room-tasks/due-within-days?days=${days}`
-
-				const response = await axios.get(url)
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch due within days tasks')
-				}
+				const config = { params: { days, ...(roomId && { roomId }) } }
+				const data = await api.get('/api/v1/room-tasks/due-within-days', config)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch due within days tasks', error, { store: 'roomTasks', action: 'fetchDueWithinDaysTasks', days, roomId })
@@ -615,13 +532,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/room-tasks/user/${userId}?activeOnly=${activeOnly}`)
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch user tasks')
-				}
+				const data = await api.get(`/api/v1/room-tasks/user/${userId}`, { params: { activeOnly } })
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch user tasks', error, { store: 'roomTasks', action: 'fetchUserTasks', userId })
@@ -640,13 +552,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/room-tasks/room/${roomId}/stats`)
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch room task stats')
-				}
+				const data = await api.get(`/api/v1/room-tasks/room/${roomId}/stats`)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch room task stats', error, { store: 'roomTasks', action: 'fetchRoomTaskStats', roomId })
@@ -669,13 +576,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/room-tasks/user/${userId}/stats`)
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch user task stats')
-				}
+				const data = await api.get(`/api/v1/room-tasks/user/${userId}/stats`)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch user task stats', error, { store: 'roomTasks', action: 'fetchUserTaskStats', userId })
@@ -730,23 +632,17 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/index.php/apps/chorestrike/api/v1/room-tasks/filtered-daily')
+				const data = await api.get('/api/v1/room-tasks/filtered-daily')
 
-				if (response.data.success) {
-					// Store room tasks in state
-					const tasks = response.data.data
-					tasks.forEach((item) => {
-						const existingIndex = this.roomTasks.findIndex(rt => rt.id === item.roomTask.id)
-						if (existingIndex >= 0) {
-							this.roomTasks[existingIndex] = item.roomTask
-						} else {
-							this.roomTasks.push(item.roomTask)
-						}
-					})
-					return tasks
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch filtered daily tasks')
-				}
+				data.forEach((item) => {
+					const existingIndex = this.roomTasks.findIndex(rt => rt.id === item.roomTask.id)
+					if (existingIndex >= 0) {
+						this.roomTasks[existingIndex] = item.roomTask
+					} else {
+						this.roomTasks.push(item.roomTask)
+					}
+				})
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch filtered daily tasks', error, { store: 'roomTasks', action: 'fetchFilteredDailyTasks' })
@@ -772,13 +668,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/index.php/apps/chorestrike/api/v1/tasks/my-private')
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch private tasks')
-				}
+				const data = await api.get('/api/v1/tasks/my-private')
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch private tasks', error, { store: 'roomTasks', action: 'fetchMyPrivateTasks' })

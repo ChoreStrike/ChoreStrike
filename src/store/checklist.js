@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
-import axios from '@nextcloud/axios'
+import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -52,14 +52,9 @@ export const useChecklistStore = defineStore('checklist', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/checklists/task/${taskId}`)
-
-				if (response.data.success) {
-					this.items[taskId] = response.data.data
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch checklist items')
-				}
+				const data = await api.get(`/api/v1/checklists/task/${taskId}`)
+				this.items[taskId] = data
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch checklist items', error, { store: 'checklist', action: 'fetchTaskItems', taskId })
@@ -78,14 +73,9 @@ export const useChecklistStore = defineStore('checklist', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/checklists/progress/${roomTaskId}`)
-
-				if (response.data.success) {
-					this.progress[roomTaskId] = response.data.data
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch checklist progress')
-				}
+				const data = await api.get(`/api/v1/checklists/progress/${roomTaskId}`)
+				this.progress[roomTaskId] = data
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch checklist progress', error, { store: 'checklist', action: 'fetchRoomTaskProgress', roomTaskId })
@@ -105,18 +95,13 @@ export const useChecklistStore = defineStore('checklist', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/apps/chorestrike/api/v1/checklists/task/${taskId}`, itemData)
+				const data = await api.post(`/api/v1/checklists/task/${taskId}`, itemData)
 
-				if (response.data.success) {
-					// Add to local state
-					if (!this.items[taskId]) {
-						this.items[taskId] = []
-					}
-					this.items[taskId].push(response.data.data)
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to add checklist item')
+				if (!this.items[taskId]) {
+					this.items[taskId] = []
 				}
+				this.items[taskId].push(data)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to add checklist item', error, { store: 'checklist', action: 'addItem', taskId })
@@ -136,21 +121,16 @@ export const useChecklistStore = defineStore('checklist', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/apps/chorestrike/api/v1/checklists/item/${itemId}`, updates)
+				const data = await api.put(`/api/v1/checklists/item/${itemId}`, updates)
 
-				if (response.data.success) {
-					// Update in local state
-					for (const taskId in this.items) {
-						const index = this.items[taskId].findIndex(item => item.id === itemId)
-						if (index >= 0) {
-							this.items[taskId][index] = response.data.data
-							break
-						}
+				for (const taskId in this.items) {
+					const index = this.items[taskId].findIndex(item => item.id === itemId)
+					if (index >= 0) {
+						this.items[taskId][index] = data
+						break
 					}
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to update checklist item')
 				}
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to update checklist item', error, { store: 'checklist', action: 'updateItem', itemId })
@@ -170,15 +150,10 @@ export const useChecklistStore = defineStore('checklist', {
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/apps/chorestrike/api/v1/checklists/item/${itemId}`)
+				await api.delete(`/api/v1/checklists/item/${itemId}`)
 
-				if (response.data.success) {
-					// Remove from local state
-					if (this.items[taskId]) {
-						this.items[taskId] = this.items[taskId].filter(item => item.id !== itemId)
-					}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to delete checklist item')
+				if (this.items[taskId]) {
+					this.items[taskId] = this.items[taskId].filter(item => item.id !== itemId)
 				}
 			} catch (error) {
 				this.error = error.message
@@ -199,25 +174,20 @@ export const useChecklistStore = defineStore('checklist', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/apps/chorestrike/api/v1/checklists/toggle/${roomTaskId}/${itemId}`)
+				const data = await api.post(`/api/v1/checklists/toggle/${roomTaskId}/${itemId}`)
 
-				if (response.data.success) {
-					// Update progress in local state
-					if (!this.progress[roomTaskId]) {
-						this.progress[roomTaskId] = []
-					}
-
-					const existingIndex = this.progress[roomTaskId].findIndex(p => p.itemId === itemId)
-					if (existingIndex >= 0) {
-						this.progress[roomTaskId][existingIndex] = response.data.data
-					} else {
-						this.progress[roomTaskId].push(response.data.data)
-					}
-
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to toggle checklist item')
+				if (!this.progress[roomTaskId]) {
+					this.progress[roomTaskId] = []
 				}
+
+				const existingIndex = this.progress[roomTaskId].findIndex(p => p.itemId === itemId)
+				if (existingIndex >= 0) {
+					this.progress[roomTaskId][existingIndex] = data
+				} else {
+					this.progress[roomTaskId].push(data)
+				}
+
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to toggle checklist item', error, { store: 'checklist', action: 'toggleItem', roomTaskId, itemId })
@@ -237,23 +207,18 @@ export const useChecklistStore = defineStore('checklist', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/apps/chorestrike/api/v1/checklists/reorder', {
+				await api.post('/api/v1/checklists/reorder', {
 					taskId,
 					itemIds,
 				})
 
-				if (response.data.success) {
-					// Update local order
-					if (this.items[taskId]) {
-						const orderedItems = []
-						itemIds.forEach(id => {
-							const item = this.items[taskId].find(i => i.id === id)
-							if (item) orderedItems.push(item)
-						})
-						this.items[taskId] = orderedItems
-					}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to reorder checklist items')
+				if (this.items[taskId]) {
+					const orderedItems = []
+					itemIds.forEach(id => {
+						const item = this.items[taskId].find(i => i.id === id)
+						if (item) orderedItems.push(item)
+					})
+					this.items[taskId] = orderedItems
 				}
 			} catch (error) {
 				this.error = error.message
@@ -273,14 +238,9 @@ export const useChecklistStore = defineStore('checklist', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/apps/chorestrike/api/v1/checklists/initialize/${roomTaskId}`)
-
-				if (response.data.success) {
-					this.progress[roomTaskId] = response.data.data
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to initialize checklist progress')
-				}
+				const data = await api.post(`/api/v1/checklists/initialize/${roomTaskId}`)
+				this.progress[roomTaskId] = data
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to initialize checklist progress', error, { store: 'checklist', action: 'initializeProgress', roomTaskId })

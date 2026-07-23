@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
-import axios from '@nextcloud/axios'
+import { api } from '../services/api.js'
 import { emit } from '@nextcloud/event-bus'
 import { logger } from '../utils/logger.js'
 
@@ -137,32 +137,20 @@ export const useGameStore = defineStore('game', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/game/state')
+				const data = await api.get('/api/v1/game/state')
 
-				if (response.data.success) {
-					this.gameState = response.data.data
-					// Hydrate the weekly goal snapshot if the server included it
-					// (Phase 3 onwards). Don't emit the celebration here on
-					// initial load — only live transitions during a session
-					// deserve confetti.
-					if (response.data.data?.weeklyGoal) {
-						const previousAchieved = this.householdProgress.weeklyGoal?.achieved === true
-						this.setWeeklyGoal(response.data.data.weeklyGoal)
-						// Suppress the cross-session celebration by marking the
-						// loaded state as already-seen: re-stash achieved flag.
-						// (setWeeklyGoal emits on false→true; on initial load we
-						// don't want to celebrate an already-achieved goal.)
-						if (!previousAchieved && this.householdProgress.weeklyGoal.achieved) {
-							// Pop the celebration we just pushed so the user is
-							// not greeted by a stale toast on page load.
-							const last = this.celebrations[this.celebrations.length - 1]
-							if (last && last.type === 'weekly_goal_achieved') {
-								last.dismissed = true
-							}
+				this.gameState = data
+
+				if (data?.weeklyGoal) {
+					const previousAchieved = this.householdProgress.weeklyGoal?.achieved === true
+					this.setWeeklyGoal(data.weeklyGoal)
+
+					if (!previousAchieved && this.householdProgress.weeklyGoal.achieved) {
+						const last = this.celebrations[this.celebrations.length - 1]
+						if (last && last.type === 'weekly_goal_achieved') {
+							last.dismissed = true
 						}
 					}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch game state')
 				}
 			} catch (error) {
 				this.error = error.message
@@ -181,13 +169,8 @@ export const useGameStore = defineStore('game', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/game/leaderboard')
-
-				if (response.data.success) {
-					this.leaderboard = response.data.data
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch leaderboard')
-				}
+				const data = await api.get('/api/v1/game/leaderboard')
+				this.leaderboard = data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch leaderboard', error, { store: 'game', action: 'fetchLeaderboard' })
@@ -213,30 +196,21 @@ export const useGameStore = defineStore('game', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/game/medals')
+				const data = await api.get('/api/v1/game/medals')
 
-				if (response.data.success) {
-					const previousIds = new Set(this.medals.map(m => m.id))
-					const incoming = response.data.data
-					const newMedals = incoming.filter(m => !previousIds.has(m.id))
+				const previousIds = new Set(this.medals.map(m => m.id))
+				const newMedals = data.filter(m => !previousIds.has(m.id))
 
-					this.medals = incoming
+				this.medals = data
 
-					// Only emit for genuinely new medals discovered on this
-					// fetch; suppress the initial-load case (previousIds is
-					// empty) so the user isn't greeted by a wall of toasts
-					// for every medal they already earned in prior weeks.
-					if (previousIds.size > 0) {
-						for (const medal of newMedals) {
-							emit('chorestrike:medal-awarded', {
-								medalType: medal.medalType,
-								value: medal.value,
-								weekStart: medal.weekStart,
-							})
-						}
+				if (previousIds.size > 0) {
+					for (const medal of newMedals) {
+						emit('chorestrike:medal-awarded', {
+							medalType: medal.medalType,
+							value: medal.value,
+							weekStart: medal.weekStart,
+						})
 					}
-				} else {
-					throw new Error(response.data.error?.message || 'Failed to fetch medals')
 				}
 			} catch (error) {
 				this.error = error.message

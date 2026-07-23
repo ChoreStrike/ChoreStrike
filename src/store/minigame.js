@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
-import axios from '@nextcloud/axios'
+import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -118,11 +118,10 @@ export const useMinigameStore = defineStore('minigame', {
 		 */
 		async fetchCoins() {
 			try {
-				const response = await axios.get('/apps/chorestrike/api/v1/minigames/coins')
-				if (response.data.success) {
-					this.currentCoins = response.data.data.currentCoins
-				}
+				const data = await api.get('/api/v1/minigames/coins')
+				this.currentCoins = data.currentCoins
 			} catch (error) {
+				this.error = error.message
 				logger.error('Failed to fetch coins', error, { store: 'minigame', action: 'fetchCoins' })
 			}
 		},
@@ -137,13 +136,10 @@ export const useMinigameStore = defineStore('minigame', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/minigames/${gameId}/leaderboard`, {
+				const data = await api.get(`/api/v1/minigames/${gameId}/leaderboard`, {
 					params: { limit },
 				})
-
-				if (response.data.success) {
-					this.leaderboard = response.data.data
-				}
+				this.leaderboard = data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch leaderboard', error, { store: 'minigame', action: 'fetchLeaderboard' })
@@ -159,14 +155,12 @@ export const useMinigameStore = defineStore('minigame', {
 		 */
 		async fetchWeeklyLeaderboard(gameId = 'snake', limit = 10) {
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/minigames/${gameId}/leaderboard/weekly`, {
+				const data = await api.get(`/api/v1/minigames/${gameId}/leaderboard/weekly`, {
 					params: { limit },
 				})
-
-				if (response.data.success) {
-					this.weeklyLeaderboard = response.data.data
-				}
+				this.weeklyLeaderboard = data
 			} catch (error) {
+				this.error = error.message
 				logger.error('Failed to fetch weekly leaderboard', error, { store: 'minigame', action: 'fetchWeeklyLeaderboard' })
 			}
 		},
@@ -177,12 +171,10 @@ export const useMinigameStore = defineStore('minigame', {
 		 */
 		async fetchPersonalBest(gameId = 'snake') {
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/minigames/${gameId}/personal-best`)
-
-				if (response.data.success) {
-					this.personalBest = response.data.data
-				}
+				const data = await api.get(`/api/v1/minigames/${gameId}/personal-best`)
+				this.personalBest = data
 			} catch (error) {
+				this.error = error.message
 				logger.error('Failed to fetch personal best', error, { store: 'minigame', action: 'fetchPersonalBest' })
 			}
 		},
@@ -193,12 +185,10 @@ export const useMinigameStore = defineStore('minigame', {
 		 */
 		async fetchUserRank(gameId = 'snake') {
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/minigames/${gameId}/rank`)
-
-				if (response.data.success) {
-					this.userRank = response.data.data.rank
-				}
+				const data = await api.get(`/api/v1/minigames/${gameId}/rank`)
+				this.userRank = data.rank
 			} catch (error) {
+				this.error = error.message
 				logger.error('Failed to fetch user rank', error, { store: 'minigame', action: 'fetchUserRank' })
 			}
 		},
@@ -210,14 +200,12 @@ export const useMinigameStore = defineStore('minigame', {
 		 */
 		async fetchRecentScores(gameId = 'snake', limit = 5) {
 			try {
-				const response = await axios.get(`/apps/chorestrike/api/v1/minigames/${gameId}/recent`, {
+				const data = await api.get(`/api/v1/minigames/${gameId}/recent`, {
 					params: { limit },
 				})
-
-				if (response.data.success) {
-					this.recentScores = response.data.data
-				}
+				this.recentScores = data
 			} catch (error) {
+				this.error = error.message
 				logger.error('Failed to fetch recent scores', error, { store: 'minigame', action: 'fetchRecentScores' })
 			}
 		},
@@ -230,15 +218,12 @@ export const useMinigameStore = defineStore('minigame', {
 			this.boostsLoading = true
 
 			try {
-				const response = await axios.post(`/apps/chorestrike/api/v1/minigames/boosts/${boostId}/purchase`)
-
-				if (response.data.success) {
-					this.currentCoins = response.data.data.remainingCoins
-					this.purchasedBoosts.push(boostId)
-					return true
-				}
+				const data = await api.post(`/api/v1/minigames/boosts/${boostId}/purchase`)
+				this.currentCoins = data.remainingCoins
+				this.purchasedBoosts.push(boostId)
+				return true
 			} catch (error) {
-				this.error = error.response?.data?.error?.message || error.message
+				this.error = error.message
 				logger.error('Failed to purchase boost', error, { store: 'minigame', action: 'purchaseBoost', boostId })
 			} finally {
 				this.boostsLoading = false
@@ -253,26 +238,23 @@ export const useMinigameStore = defineStore('minigame', {
 		 */
 		async saveScore(gameId = 'snake') {
 			try {
-				const response = await axios.post(`/apps/chorestrike/api/v1/minigames/${gameId}/scores`, {
+				const data = await api.post(`/api/v1/minigames/${gameId}/scores`, {
 					score: this.score,
 					boostsUsed: this.purchasedBoosts,
 				})
 
-				if (response.data.success) {
-					// Update coins if earned
-					if (response.data.data.coinsEarned > 0) {
-						this.currentCoins += response.data.data.coinsEarned
-					}
-
-					// Refresh leaderboard and personal best
-					await Promise.all([
-						this.fetchPersonalBest(gameId),
-						this.fetchUserRank(gameId),
-						this.fetchLeaderboard(gameId),
-					])
-					return response.data.data
+				if (data.coinsEarned > 0) {
+					this.currentCoins += data.coinsEarned
 				}
+
+				await Promise.all([
+					this.fetchPersonalBest(gameId),
+					this.fetchUserRank(gameId),
+					this.fetchLeaderboard(gameId),
+				])
+				return data
 			} catch (error) {
+				this.error = error.message
 				logger.error('Failed to save score', error, { store: 'minigame', action: 'saveScore' })
 			}
 

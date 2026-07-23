@@ -2,13 +2,11 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
 import { useGameStore } from '../../../src/store/game.js'
 
-// Mock axios
-jest.mock('@nextcloud/axios', () => ({
-	get: jest.fn(),
-	post: jest.fn(),
+jest.mock('../../../src/services/api.js', () => ({
+	api: { get: jest.fn() },
 }))
 
-import axios from '@nextcloud/axios'
+import { api } from '../../../src/services/api.js'
 
 describe('Game Store', () => {
 	let store
@@ -150,9 +148,7 @@ describe('Game Store', () => {
 		describe('fetchGameState', () => {
 			it('fetches game state successfully', async () => {
 				const mockState = { houseHealth: 85, users: [{ id: 'm1' }] }
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockState }
-				})
+				api.get.mockResolvedValue(mockState)
 
 				await store.fetchGameState()
 
@@ -172,7 +168,7 @@ describe('Game Store', () => {
 						weekEnd: '2026-07-19T23:59:59+00:00',
 					},
 				}
-				axios.get.mockResolvedValue({ data: { success: true, data: mockState } })
+				api.get.mockResolvedValue(mockState)
 
 				await store.fetchGameState()
 
@@ -195,7 +191,7 @@ describe('Game Store', () => {
 						weekEnd: null,
 					},
 				}
-				axios.get.mockResolvedValue({ data: { success: true, data: mockState } })
+				api.get.mockResolvedValue(mockState)
 
 				await store.fetchGameState()
 
@@ -208,9 +204,7 @@ describe('Game Store', () => {
 			})
 
 			it('handles error', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: false, error: { message: 'Failed' } }
-				})
+				api.get.mockRejectedValue(new Error('Failed'))
 
 				await expect(store.fetchGameState()).rejects.toThrow('Failed')
 			})
@@ -219,9 +213,7 @@ describe('Game Store', () => {
 		describe('fetchLeaderboard', () => {
 			it('fetches leaderboard successfully', async () => {
 				const mockLeaderboard = [{ id: 1, name: 'User 1', contributionScore: 100 }]
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockLeaderboard }
-				})
+				api.get.mockResolvedValue(mockLeaderboard)
 
 				await store.fetchLeaderboard()
 
@@ -232,9 +224,7 @@ describe('Game Store', () => {
 		describe('fetchMedals', () => {
 			it('fetches medals successfully', async () => {
 				const mockMedals = [{ id: 1, medalType: 'team_anchor' }]
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockMedals }
-				})
+				api.get.mockResolvedValue(mockMedals)
 
 				await store.fetchMedals()
 

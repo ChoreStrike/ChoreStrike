@@ -4,17 +4,13 @@
  */
 
 import { defineStore } from 'pinia'
-import axios from '@nextcloud/axios'
-import { translate as t } from '@nextcloud/l10n'
+import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
-
-const tr = (message) => t('chorestrike', message)
 
 export const useTasksStore = defineStore('tasks', {
 	state: () => ({
 		tasks: [],
 		templates: [],
-		roomTasks: [],
 		loading: false,
 		error: null,
 	}),
@@ -26,10 +22,6 @@ export const useTasksStore = defineStore('tasks', {
 
 		getTaskById: (state) => (taskId) => {
 			return state.tasks.find(task => task.id === taskId)
-		},
-
-		getRoomTaskById: (state) => (roomTaskId) => {
-			return state.roomTasks.find(roomTask => roomTask.id === roomTaskId)
 		},
 
 		tasksByCategory: (state) => {
@@ -48,63 +40,6 @@ export const useTasksStore = defineStore('tasks', {
 		mediumPriorityTasks: (state) => state.tasks.filter(task => task.priority === 2),
 
 		lowPriorityTasks: (state) => state.tasks.filter(task => task.priority === 1),
-
-		// Room task getters
-		activeRoomTasks: (state) => state.roomTasks.filter(roomTask => roomTask.isActive),
-
-		overdueRoomTasks: (state) => {
-			return state.roomTasks.filter(roomTask => {
-				return roomTask.isActive && new Date(roomTask.nextDue) < new Date()
-			})
-		},
-
-		dueTodayRoomTasks: (state) => {
-			const today = new Date()
-			today.setHours(0, 0, 0, 0)
-			const tomorrow = new Date(today)
-			tomorrow.setDate(tomorrow.getDate() + 1)
-
-			return state.roomTasks.filter(roomTask => {
-				if (!roomTask.isActive) return false
-				const dueDate = new Date(roomTask.nextDue)
-				return dueDate >= today && dueDate < tomorrow
-			})
-		},
-
-		dueSoonRoomTasks: (state) => {
-			const now = new Date()
-			const future = new Date()
-			future.setDate(future.getDate() + 3)
-
-			return state.roomTasks.filter(roomTask => {
-				if (!roomTask.isActive) return false
-				const dueDate = new Date(roomTask.nextDue)
-				return dueDate >= now && dueDate <= future
-			})
-		},
-
-		roomTasksByRoom: (state) => {
-			const tasksByRoom = {}
-			state.roomTasks.forEach(roomTask => {
-				if (!tasksByRoom[roomTask.roomId]) {
-					tasksByRoom[roomTask.roomId] = []
-				}
-				tasksByRoom[roomTask.roomId].push(roomTask)
-			})
-			return tasksByRoom
-		},
-
-		roomTasksByUser: (state) => {
-			const tasksByUser = {}
-			state.roomTasks.forEach(roomTask => {
-				const userId = roomTask.assignedToUserId || 'unassigned'
-				if (!tasksByUser[userId]) {
-					tasksByUser[userId] = []
-				}
-				tasksByUser[userId].push(roomTask)
-			})
-			return tasksByUser
-		},
 	},
 
 	actions: {
@@ -116,13 +51,8 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/index.php/apps/chorestrike/api/v1/tasks')
-
-				if (response.data.success) {
-					this.tasks = response.data.data
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to fetch tasks'))
-				}
+				const data = await api.get('/api/v1/tasks')
+				this.tasks = data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch tasks', error, { store: 'tasks', action: 'fetchTasks' })
@@ -140,44 +70,11 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/index.php/apps/chorestrike/api/v1/tasks/templates')
-
-				if (response.data.success) {
-					this.templates = response.data.data
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to fetch task templates'))
-				}
+				const data = await api.get('/api/v1/tasks/templates')
+				this.templates = data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch task templates', error, { store: 'tasks', action: 'fetchTaskTemplates' })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Fetch room tasks for a room
-		 * @param {number} roomId Room identifier to load assignments for.
-		 * @param {boolean} activeOnly Whether only active room tasks should be returned.
-		 */
-		async fetchRoomTasks(roomId, activeOnly = true) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/room-tasks?roomId=${roomId}&activeOnly=${activeOnly}`)
-
-				if (response.data.success) {
-					// Update room tasks in state, removing old ones for this room
-					this.roomTasks = this.roomTasks.filter(roomTask => roomTask.roomId !== roomId)
-					this.roomTasks.push(...response.data.data)
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to fetch room tasks'))
-				}
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch room tasks', error, { store: 'tasks', action: 'fetchRoomTasks', roomId })
 				throw error
 			} finally {
 				this.loading = false
@@ -193,14 +90,9 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/index.php/apps/chorestrike/api/v1/tasks', taskData)
-
-				if (response.data.success) {
-					this.tasks.push(response.data.data)
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to create task'))
-				}
+				const data = await api.post('/api/v1/tasks', taskData)
+				this.tasks.push(data)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to create task', error, { store: 'tasks', action: 'createTask' })
@@ -219,14 +111,9 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post(`/index.php/apps/chorestrike/api/v1/tasks/create-from-template/${templateId}`)
-
-				if (response.data.success) {
-					this.tasks.push(response.data.data)
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to create task from template'))
-				}
+				const data = await api.post(`/api/v1/tasks/create-from-template/${templateId}`)
+				this.tasks.push(data)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to create task from template', error, { store: 'tasks', action: 'createTaskFromTemplate', templateId })
@@ -246,15 +133,11 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.put(`/index.php/apps/chorestrike/api/v1/tasks/${taskId}`, updates)
+				const data = await api.put(`/api/v1/tasks/${taskId}`, updates)
 
-				if (response.data.success) {
-					const taskIndex = this.tasks.findIndex(t => t.id === taskId)
-					if (taskIndex >= 0) {
-						this.tasks[taskIndex] = response.data.data
-					}
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to update task'))
+				const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+				if (taskIndex >= 0) {
+					this.tasks[taskIndex] = data
 				}
 			} catch (error) {
 				this.error = error.message
@@ -274,14 +157,9 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.delete(`/index.php/apps/chorestrike/api/v1/tasks/${taskId}`)
+				await api.delete(`/api/v1/tasks/${taskId}`)
 
-				if (response.data.success) {
-					// Remove task from state
-					this.tasks = this.tasks.filter(t => t.id !== taskId)
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to delete task'))
-				}
+				this.tasks = this.tasks.filter(t => t.id !== taskId)
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to delete task', error, { store: 'tasks', action: 'deleteTask', taskId })
@@ -299,18 +177,13 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.post('/index.php/apps/chorestrike/api/v1/tasks/create-default-templates')
-
-				if (response.data.success) {
-					this.templates = response.data.data
-					response.data.data.forEach(template => {
-						if (!this.tasks.find(t => t.id === template.id)) {
-							this.tasks.push(template)
-						}
-					})
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to create default templates'))
-				}
+				const data = await api.post('/api/v1/tasks/create-default-templates')
+				this.templates = data
+				data.forEach(template => {
+					if (!this.tasks.find(t => t.id === template.id)) {
+						this.tasks.push(template)
+					}
+				})
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to create default templates', error, { store: 'tasks', action: 'createDefaultTemplates' })
@@ -333,13 +206,8 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/tasks/search?query=${encodeURIComponent(query)}`)
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to search tasks'))
-				}
+				const data = await api.get('/api/v1/tasks/search', { params: { query } })
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to search tasks', error, { store: 'tasks', action: 'searchTasks', query })
@@ -358,13 +226,8 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get(`/index.php/apps/chorestrike/api/v1/tasks/category/${encodeURIComponent(category)}`)
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to fetch tasks by category'))
-				}
+				const data = await api.get(`/api/v1/tasks/category/${encodeURIComponent(category)}`)
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch tasks by category', error, { store: 'tasks', action: 'fetchTasksByCategory', category })
@@ -382,13 +245,8 @@ export const useTasksStore = defineStore('tasks', {
 			this.error = null
 
 			try {
-				const response = await axios.get('/index.php/apps/chorestrike/api/v1/tasks/categories')
-
-				if (response.data.success) {
-					return response.data.data
-				} else {
-					throw new Error(response.data.error?.message || tr('Failed to fetch task categories'))
-				}
+				const data = await api.get('/api/v1/tasks/categories')
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch task categories', error, { store: 'tasks', action: 'fetchTaskCategories' })
@@ -421,7 +279,6 @@ export const useTasksStore = defineStore('tasks', {
 		reset() {
 			this.tasks = []
 			this.templates = []
-			this.roomTasks = []
 			this.loading = false
 			this.error = null
 		},

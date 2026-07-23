@@ -223,8 +223,13 @@ docker compose -f docker-compose.test.yml down
   Catches the "missing controller method" and "unrouted implemented method"
   drift patterns.
 - `tests/unit/store/apiContract.spec.js` — every API endpoint called by
-  the Pinia stores (`src/store/*.js`) matches at least one declared route.
-  Derived from the same `appinfo/routes.php` source.
+  the Pinia stores (`src/store/*.js`) via the shared `api` client matches at
+  least one declared route. Derived from the same `appinfo/routes.php` source.
+  Also asserts no store uses the deprecated `/index.php/apps/chorestrike`
+  prefix form (single canonical prefix `/apps/chorestrike` only).
+- `tests/unit/services/api.spec.js` — shared API client (`src/services/api.js`)
+  contract: URL prefix construction, `{ success, data, error }` envelope
+  unwrap, `!success` / HTTP-error → `ApiError`, and method-verb mapping.
 
 These tests are part of the blocking gate.
 

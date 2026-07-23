@@ -2,15 +2,16 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
 import { useRoomsStore } from '../../../src/store/rooms.js'
 
-// Mock axios
-jest.mock('@nextcloud/axios', () => ({
-	get: jest.fn(),
-	post: jest.fn(),
-	put: jest.fn(),
-	delete: jest.fn(),
+jest.mock('../../../src/services/api.js', () => ({
+	api: {
+		get: jest.fn(),
+		post: jest.fn(),
+		put: jest.fn(),
+		delete: jest.fn(),
+	},
 }))
 
-import axios from '@nextcloud/axios'
+import { api } from '../../../src/services/api.js'
 
 describe('Rooms Store', () => {
 	let store
@@ -69,7 +70,6 @@ describe('Rooms Store', () => {
 
 		it('roomsNeedingCleaning filters correctly', () => {
 			const dirtyRooms = store.roomsNeedingCleaning
-			// Rooms with cleanliness < 60
 			expect(dirtyRooms).toHaveLength(1)
 			expect(dirtyRooms[0].name).toBe('Bedroom')
 		})
@@ -79,15 +79,14 @@ describe('Rooms Store', () => {
 		})
 
 		it('cleanRooms returns count of clean rooms', () => {
-			expect(store.cleanRooms).toBe(2) // Kitchen + Living Room >= 60
+			expect(store.cleanRooms).toBe(2)
 		})
 
 		it('dirtyRooms returns count of dirty rooms', () => {
-			expect(store.dirtyRooms).toBe(1) // Bedroom < 60
+			expect(store.dirtyRooms).toBe(1)
 		})
 
 		it('averageCleanliness calculates correctly', () => {
-			// (80 + 90 + 50) / 3 = 73
 			expect(store.averageCleanliness).toBe(73)
 		})
 
@@ -106,9 +105,7 @@ describe('Rooms Store', () => {
 						rooms: [{ id: 1, name: 'Kitchen', floorId: 1 }]
 					}
 				]
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockData }
-				})
+				api.get.mockResolvedValue(mockData)
 
 				await store.fetchFloorsWithRooms()
 
@@ -118,9 +115,7 @@ describe('Rooms Store', () => {
 			})
 
 			it('handles error response', async () => {
-				axios.get.mockResolvedValue({
-					data: { success: false, error: { message: 'Failed' } }
-				})
+				api.get.mockRejectedValue(new Error('Failed'))
 
 				await expect(store.fetchFloorsWithRooms()).rejects.toThrow('Failed')
 			})
@@ -129,9 +124,7 @@ describe('Rooms Store', () => {
 		describe('fetchFloors', () => {
 			it('fetches floors successfully', async () => {
 				const mockFloors = [{ id: 1, name: 'Floor 1' }]
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockFloors }
-				})
+				api.get.mockResolvedValue(mockFloors)
 
 				await store.fetchFloors()
 
@@ -142,9 +135,7 @@ describe('Rooms Store', () => {
 		describe('fetchRooms', () => {
 			it('fetches rooms for floor', async () => {
 				const mockRooms = [{ id: 1, name: 'Room 1', floorId: 1 }]
-				axios.get.mockResolvedValue({
-					data: { success: true, data: mockRooms }
-				})
+				api.get.mockResolvedValue(mockRooms)
 
 				await store.fetchRooms(1)
 
@@ -155,9 +146,7 @@ describe('Rooms Store', () => {
 		describe('createFloor', () => {
 			it('creates floor successfully', async () => {
 				const newFloor = { id: 3, name: 'Basement' }
-				axios.post.mockResolvedValue({
-					data: { success: true, data: newFloor }
-				})
+				api.post.mockResolvedValue(newFloor)
 
 				store.floors = [{ id: 1, name: 'Floor 1' }]
 
@@ -171,9 +160,7 @@ describe('Rooms Store', () => {
 		describe('createRoom', () => {
 			it('creates room successfully', async () => {
 				const newRoom = { id: 4, name: 'Bathroom', floorId: 1, icon: 'Bath' }
-				axios.post.mockResolvedValue({
-					data: { success: true, data: newRoom }
-				})
+				api.post.mockResolvedValue(newRoom)
 
 				store.rooms = []
 
@@ -181,7 +168,7 @@ describe('Rooms Store', () => {
 
 				expect(result).toEqual(newRoom)
 				expect(store.rooms).toHaveLength(1)
-				expect(axios.post).toHaveBeenCalledWith('/index.php/apps/chorestrike/api/v1/rooms', {
+				expect(api.post).toHaveBeenCalledWith('/api/v1/rooms', {
 					floorId: 1,
 					name: 'Bathroom',
 					icon: 'Bath',
@@ -191,9 +178,7 @@ describe('Rooms Store', () => {
 
 		describe('deleteFloor', () => {
 			it('deletes floor successfully', async () => {
-				axios.delete.mockResolvedValue({
-					data: { success: true }
-				})
+				api.delete.mockResolvedValue(undefined)
 
 				store.floors = [{ id: 1, name: 'Floor 1' }, { id: 2, name: 'Floor 2' }]
 

@@ -7,9 +7,8 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 
-jest.mock('@nextcloud/axios', () => ({
-	__esModule: true,
-	default: {
+jest.mock('../../../src/services/api.js', () => ({
+	api: {
 		get: jest.fn(),
 		put: jest.fn(),
 	},
@@ -19,7 +18,7 @@ jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, message) => message),
 }))
 
-import axios from '@nextcloud/axios'
+import { api } from '../../../src/services/api.js'
 import { useTitlesStore } from '../../../src/store/titles.js'
 import { useUserStore } from '../../../src/store/user.js'
 import TitlePicker from '../../../src/components/Profile/TitlePicker.vue'
@@ -97,14 +96,9 @@ describe('TitlePicker', () => {
 	})
 
 	it('selects a pack via the select button', async () => {
-		axios.put.mockResolvedValue({
-			data: {
-				success: true,
-				data: {
-					selectedTitlePack: 'team_energy',
-					currentTitle: { labelKey: 'titles.team_energy.spark_starter', tierIndex: 0 },
-				},
-			},
+		api.put.mockResolvedValue({
+			selectedTitlePack: 'team_energy',
+			currentTitle: { labelKey: 'titles.team_energy.spark_starter', tierIndex: 0 },
 		})
 
 		const wrapper = mount(TitlePicker, {
@@ -119,10 +113,7 @@ describe('TitlePicker', () => {
 		await button.trigger('click')
 		await flushPromises()
 
-		expect(axios.put).toHaveBeenCalledWith(
-			expect.stringContaining('/users/7/titles/select'),
-			{ pack: 'team_energy' },
-		)
+		expect(api.put).toHaveBeenCalledWith('/api/v1/users/7/titles/select', { pack: 'team_energy' })
 		expect(wrapper.emitted('selected')).toBeTruthy()
 		expect(titlesStore.selectedTitlePack).toBe('team_energy')
 	})

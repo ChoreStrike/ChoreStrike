@@ -61,6 +61,8 @@ ChoreStrike/
 │   │   ├── Profile/            # TitleBadge, TitlePicker (CS-PLAN-006)
 │   │   ├── Scheduling/         # DailyTaskList
 │   ├── constants/              # Shared constants (taskVisibility, titles)
+│   ├── services/               # Shared API client (api.js — single URL prefix,
+│   │                           #   envelope unwrap, ApiError normalization)
 │   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard,
 │   │                           #   Settings, SchedulingView
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
@@ -119,9 +121,9 @@ Frontend (Vue Component)
     ↓
 Store Action (Pinia)
     ↓
-API Service (axios)
+Shared API Client (src/services/api.js)
     ↓
-HTTP Request
+HTTP Request (@nextcloud/axios)
     ↓
 Route (routes.php)
     ↓
@@ -133,25 +135,33 @@ Mapper (Database Access)
     ↓
 Database
     ↓
-Response (JSON)
+Response ({ success, data, error } envelope)
+    ↓
+Shared API Client unwraps data / throws ApiError
     ↓
 Store Mutation
     ↓
 Component Update (Reactive)
 ```
 
+The shared API client (`src/services/api.js`) owns the single canonical URL
+prefix (`/apps/chorestrike`), unwraps the `{ success, data, error }` envelope
+once, and normalizes errors to an `ApiError` whose message prefers the
+backend's already-sanitized `error.message` and falls back to one translated
+generic message. All Pinia stores import `api` instead of calling
+`@nextcloud/axios` directly.
+
 ### Example: Completing a Task
 
 1. **User clicks "Complete" button** → `TaskItem.vue`
 2. **Component emits event** → `RoomView.vue`
-3. **Store action called** → `tasks.completeTask(taskId)`
-4. **API request** → `POST /api/v1/room-tasks/{id}/complete`
+3. **Store action called** → `roomTasks.completeRoomTask(roomTaskId)`
+4. **API request** → `POST /apps/chorestrike/api/v1/room-tasks/{id}/complete`
 5. **Controller** → `RoomTaskController::complete()`
 6. **Service logic** → `GameLogicService::handleTaskCompletion()`
    - Calculate points
    - Check for combos
    - Update room cleanliness
-   - Reduce monster count
    - Award medals if applicable
 7. **Database update** → Multiple mappers
 8. **Response** → Updated task, points, game state
@@ -294,6 +304,15 @@ CREATE INDEX idx_house_users_house_id ON ChoreStrike_house_users(house_id);
 
 ## State Management (Pinia)
 
+All Pinia stores consume the shared API client (`src/services/api.js`) for HTTP
+access; no store imports `@nextcloud/axios` directly. Each store owns exactly
+one concern. The canonical store boundaries (post-CS-PLAN-008):
+
+- **`useTasksStore`** — catalog-task concerns only: task templates, categories,
+  search. Room-task state/actions live in `useRoomTasksStore`.
+- **`useRoomTasksStore`** — the sole owner of room-task state, derived getters,
+  and all room-task mutations (assign, complete, deactivate, …).
+
 ### Store Structure
 
 #### `useHouseStore`
@@ -332,22 +351,22 @@ CREATE INDEX idx_house_users_house_id ON ChoreStrike_house_users(house_id);
 }
 ```
 
-#### `useTasksStore`
+#### `useTasksStore` (catalog tasks only)
 ```javascript
 {
   state: {
     tasks: [],
-    templates: [],
-    roomTasks: []
+    templates: []
   },
   actions: {
     fetchTasks(),
-    completeTask(),
-    createTask()
+    createTask(),
+    updateTask(),
+    deleteTask()
   },
   getters: {
-    dueTasks(),
-    overdueTasks()
+    activeTasks(),
+    tasksByCategory()
   }
 }
 ```
@@ -356,13 +375,15 @@ CREATE INDEX idx_house_users_house_id ON ChoreStrike_house_users(house_id);
 ```javascript
 {
   state: {
-    monsters: {},
-    combos: [],
-    medals: []
+    gameState: null,
+    leaderboard: [],
+    medals: [],
+    combos: []
   },
   actions: {
-    checkCombo(),
-    awardMedal()
+    fetchGameState(),
+    fetchMedals(),
+    checkCombo()
   }
 }
 ```
@@ -434,12 +455,17 @@ CREATE INDEX idx_house_users_house_id ON ChoreStrike_house_users(house_id);
 - Complete user flows
 - Cross-browser testing
 
-### Contract Tests (CS-PLAN-007)
+### Contract Tests (CS-PLAN-007 / CS-PLAN-008)
 - `tests/unit/RouteMatrixTest.php` — route → controller method existence
   (PHPUnit, parses `appinfo/routes.php`).
 - `tests/unit/store/apiContract.spec.js` — store → endpoint contract
-  (Jest, same source). Catches the historical drift patterns
-  (`user#current`, `minigame#coins`, missing routes, `task#complete`).
+  (Jest, same source). Scans `src/store/*.js` for `api.{method}()` calls,
+  resolves the effective URL via `API_PREFIX`, and asserts every call matches a
+  declared route. Also asserts no store uses the deprecated
+  `/index.php/apps/chorestrike` prefix form.
+- `tests/unit/services/api.spec.js` — shared API client contract: prefix
+  construction, envelope unwrap, `!success` → `ApiError`, HTTP-error
+  → `ApiError`, method-verb mapping.
 
 ## Continuous Integration (Release Gate)
 

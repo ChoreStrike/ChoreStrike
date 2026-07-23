@@ -405,39 +405,6 @@ msgstr ""
 msgid "Failed to update user profile"
 msgstr ""
 
-msgid "Failed to fetch tasks"
-msgstr ""
-
-msgid "Failed to fetch task templates"
-msgstr ""
-
-msgid "Failed to fetch room tasks"
-msgstr ""
-
-msgid "Failed to create task"
-msgstr ""
-
-msgid "Failed to create task from template"
-msgstr ""
-
-msgid "Failed to update task"
-msgstr ""
-
-msgid "Failed to delete task"
-msgstr ""
-
-msgid "Failed to create default templates"
-msgstr ""
-
-msgid "Failed to search tasks"
-msgstr ""
-
-msgid "Failed to fetch tasks by category"
-msgstr ""
-
-msgid "Failed to fetch task categories"
-msgstr ""
-
 msgid "Failed to retrieve users"
 msgstr ""
 

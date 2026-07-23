@@ -6,9 +6,8 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
 
-jest.mock('@nextcloud/axios', () => ({
-	__esModule: true,
-	default: {
+jest.mock('../../../src/services/api.js', () => ({
+	api: {
 		get: jest.fn(),
 		put: jest.fn(),
 	},
@@ -18,7 +17,7 @@ jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, message) => message),
 }))
 
-import axios from '@nextcloud/axios'
+import { api } from '../../../src/services/api.js'
 import { useTitlesStore } from '../../../src/store/titles.js'
 
 describe('Titles Store', () => {
@@ -49,13 +48,11 @@ describe('Titles Store', () => {
 				selectedTitlePack: 'team_energy',
 				catalog: { team_energy: { tiers: [] } },
 			}
-			axios.get.mockResolvedValue({ data: { success: true, data: payload } })
+			api.get.mockResolvedValue(payload)
 
 			await store.fetchTitles(7)
 
-			expect(axios.get).toHaveBeenCalledWith(
-				expect.stringContaining('/users/7/titles'),
-			)
+			expect(api.get).toHaveBeenCalledWith('/api/v1/users/7/titles')
 			expect(store.currentTitle).toEqual(payload.currentTitle)
 			expect(store.selectedTitlePack).toBe('team_energy')
 			expect(store.catalog).toEqual(payload.catalog)
@@ -67,7 +64,7 @@ describe('Titles Store', () => {
 		})
 
 		it('sets error and rethrows on failure', async () => {
-			axios.get.mockRejectedValue(new Error('boom'))
+			api.get.mockRejectedValue(new Error('boom'))
 			await expect(store.fetchTitles(7)).rejects.toThrow('boom')
 			expect(store.error).toBe('boom')
 			expect(store.loading).toBe(false)
@@ -76,28 +73,20 @@ describe('Titles Store', () => {
 
 	describe('selectPack', () => {
 		it('updates the selected pack and current title from the response', async () => {
-			axios.put.mockResolvedValue({
-				data: {
-					success: true,
-					data: {
-						selectedTitlePack: 'cozy_home',
-						currentTitle: { labelKey: 'titles.cozy_home.cozy_buddy', tierIndex: 0 },
-					},
-				},
+			api.put.mockResolvedValue({
+				selectedTitlePack: 'cozy_home',
+				currentTitle: { labelKey: 'titles.cozy_home.cozy_buddy', tierIndex: 0 },
 			})
 
 			await store.selectPack(7, 'cozy_home')
 
-			expect(axios.put).toHaveBeenCalledWith(
-				expect.stringContaining('/users/7/titles/select'),
-				{ pack: 'cozy_home' },
-			)
+			expect(api.put).toHaveBeenCalledWith('/api/v1/users/7/titles/select', { pack: 'cozy_home' })
 			expect(store.selectedTitlePack).toBe('cozy_home')
 			expect(store.currentTitle.tierIndex).toBe(0)
 		})
 
 		it('rethrows on failure', async () => {
-			axios.put.mockRejectedValue(new Error('nope'))
+			api.put.mockRejectedValue(new Error('nope'))
 			await expect(store.selectPack(7, 'cozy_home')).rejects.toThrow('nope')
 			expect(store.error).toBe('nope')
 		})
