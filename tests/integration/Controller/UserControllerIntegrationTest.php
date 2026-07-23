@@ -42,6 +42,11 @@ class UserControllerIntegrationTest extends TestCase
         $this->authService = $this->createMock(AuthorizationService::class);
         $this->titleService = $this->createMock(TitleService::class);
         $this->titleService->method('getCurrentTitle')->willReturn(null);
+        $this->titleService->method('enrichWithCurrentTitle')
+            ->willReturnCallback(static function (array $data, HouseUser $user): array {
+                $data['currentTitle'] = null;
+                return $data;
+            });
         $this->l10n = $this->createMock(IL10N::class);
         $this->l10n->method('t')
             ->willReturnCallback(static fn (string $text): string => $text);

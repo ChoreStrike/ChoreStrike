@@ -1,0 +1,168 @@
+# ChoreStrike Release-Gate CI Workflow
+#
+# Authoritative quality gate. Runs on every push and pull_request.
+# Fails the run on any non-zero **blocking** command:
+#   - `npm run lint`        (ESLint, 0 errors required)
+#   - `npm test`            (Jest)
+#   - `npm run build`       (Webpack production build)
+#   - `composer validate`   (composer.json sanity)
+#   - PHPUnit unit          (via Docker)
+#   - PHPUnit integration   (via Docker)
+#
+# Stylelint is **advisory/non-blocking** until the
+# `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch
+# (201 "Unknown rule" errors, see docs/backlog/bugs.md) is resolved or pinned.
+# Stylelint output is uploaded as an artifact for review.
+#
+# This workflow is the single source of truth for gate commands. If a runner
+# is not available yet, the commands below are the canonical local gate.
+
+name: release-gate
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main, develop]
+
+env:
+  NEXTCLOUD_TEST_ENV: "true"
+
+jobs:
+  # ---------- Frontend gate ----------
+  frontend:
+    name: Frontend (lint + test + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint (blocking)
+        run: npm run lint
+
+      - name: Jest (blocking)
+        run: npm test -- --ci
+
+      - name: Webpack build (blocking)
+        run: npm run build
+
+      - name: Stylelint (advisory, non-blocking)
+        run: npm run stylelint 2>&1 | tee stylelint-output.txt || true
+        continue-on-error: true
+
+      - name: Upload stylelint advisory output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stylelint-advisory
+          path: stylelint-output.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ---------- Composer sanity ----------
+  composer:
+    name: Composer validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Install Composer
+        run: |
+          php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+          php composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+          php -r "unlink('composer-setup.php');"
+
+      - name: Validate composer.json (blocking)
+        run: composer validate --strict --no-check-publish
+
+  # ---------- Backend unit tests (Docker) ----------
+  phpunit-unit:
+    name: PHPUnit Unit (Docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build test image
+        run: docker build -f docker/Dockerfile.test -t chorestrike-test:ci .
+
+      - name: Install composer dependencies (cached)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
+            -w /var/www/html/custom_apps/chorestrike \
+            chorestrike-test:ci \
+            composer install --no-interaction --prefer-dist
+
+      - name: Run PHPUnit unit (blocking)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
+            -e NEXTCLOUD_TEST_ENV=true \
+            -w /var/www/html/custom_apps/chorestrike \
+            chorestrike-test:ci \
+            vendor/bin/phpunit --configuration phpunit.unit.xml
+
+  # ---------- Backend integration tests (Docker) ----------
+  phpunit-integration:
+    name: PHPUnit Integration (Docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build test image
+        run: docker build -f docker/Dockerfile.test -t chorestrike-test:ci .
+
+      - name: Run PHPUnit integration (blocking)
+        run: |
+          docker compose -f docker-compose.test.yml up -d
+          docker compose -f docker-compose.test.yml run --rm nextcloud-test \
+            bash -c "cd /var/www/html/custom_apps/chorestrike && \
+              vendor/bin/phpunit --configuration phpunit.integration.xml"
+          docker compose -f docker-compose.test.yml down
+
+  # ---------- Summary ----------
+  summary:
+    name: Gate Summary
+    runs-on: ubuntu-latest
+    needs: [frontend, composer, phpunit-unit, phpunit-integration]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          {
+            echo "## ChoreStrike Release Gate"
+            echo ""
+            echo "| Job | Status |"
+            echo "|-----|--------|"
+            echo "| Frontend (lint + test + build) | ${{ needs.frontend.result }} |"
+            echo "| Composer validate              | ${{ needs.composer.result }} |"
+            echo "| PHPUnit Unit (Docker)          | ${{ needs.phpunit-unit.result }} |"
+            echo "| PHPUnit Integration (Docker)   | ${{ needs.phpunit-integration.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if any blocking job failed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "One or more blocking gate jobs failed." >&2
+          exit 1

@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/test-fixtures'
+import { loginAsUser } from './fixtures/database-fixtures'
 
 /**
  * E2E test: Role title selection (CS-PLAN-006).
@@ -11,6 +12,12 @@ import { test, expect } from './fixtures/test-fixtures'
 test.describe('Role Title System', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
+
+		await loginAsUser(
+			page,
+			process.env.NEXTCLOUD_USER || 'admin',
+			process.env.NEXTCLOUD_PASSWORD || 'admin'
+		)
 
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })

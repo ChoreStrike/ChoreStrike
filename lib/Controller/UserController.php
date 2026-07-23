@@ -483,7 +483,7 @@ class UserController extends OCSController
                     'user' => $houseUser->jsonSerialize(),
                     'stats' => [
                         'contributionScore' => $houseUser->getContributionScore(),
-                        'teamSparks' => $houseUser->getTeamSparks(),
+                        'coins' => $houseUser->getCoins(),
                         'currentStreak' => $houseUser->getCurrentStreak(),
                         'lastActivity' => $houseUser->getLastActivity()?->format('c'),
                     ]

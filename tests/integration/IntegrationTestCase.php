@@ -67,11 +67,18 @@ abstract class IntegrationTestCase extends TestCase
     /**
      * Obtain a controller instance from the DI container with a simulated user.
      *
-     * @param string $controllerClass Fully qualified class name
+     * Accepts either a short class name (e.g. `RoomTaskController`) or a
+     * fully qualified class name. Short names are resolved against the
+     * ChoreStrike `Controller` namespace.
+     *
+     * @param string $controllerClass Controller class name (short or FQCN)
      * @param string $userId The user to authenticate as
      */
     protected function getController(string $controllerClass, string $userId): object
     {
+        if (!str_contains($controllerClass, '\\')) {
+            $controllerClass = '\\OCA\\ChoreStrike\\Controller\\' . $controllerClass;
+        }
         $this->actingAs($userId);
         return \OC::$server->get($controllerClass);
     }

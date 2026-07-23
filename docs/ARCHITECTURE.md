@@ -94,6 +94,7 @@ ChoreStrike/
 │   ├── ISSUE_TEMPLATE/
 │   └── pull_request_template.md
 ├── .forgejo/                   # Codeberg/Forgejo CI
+│   ├── workflows/release-gate.yml   # Authoritative blocking gate
 │   └── workflows/test.yml
 ├── private/                    # Local dev only (gitignored)
 ├── LICENSE
@@ -432,6 +433,31 @@ CREATE INDEX idx_house_users_house_id ON ChoreStrike_house_users(house_id);
 ### E2E Tests (Future)
 - Complete user flows
 - Cross-browser testing
+
+### Contract Tests (CS-PLAN-007)
+- `tests/unit/RouteMatrixTest.php` — route → controller method existence
+  (PHPUnit, parses `appinfo/routes.php`).
+- `tests/unit/store/apiContract.spec.js` — store → endpoint contract
+  (Jest, same source). Catches the historical drift patterns
+  (`user#current`, `minigame#coins`, missing routes, `task#complete`).
+
+## Continuous Integration (Release Gate)
+
+The authoritative gate is `.forgejo/workflows/release-gate.yml`
+(GHA-compatible). It runs on `push` and `pull_request` and fails the
+run on any non-zero **blocking** command:
+
+- `npm run lint` (ESLint)
+- `npm test` (Jest)
+- `npm run build` (Webpack)
+- `composer validate --strict`
+- `vendor/bin/phpunit --configuration phpunit.unit.xml` (Docker)
+- `vendor/bin/phpunit --configuration phpunit.integration.xml` (Docker)
+
+Stylelint is **advisory/non-blocking** until the
+`@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch
+(201 "Unknown rule" errors) is resolved or pinned. See
+`docs/backlog/bugs.md` and `docs/TESTING.md`.
 
 ## Deployment
 

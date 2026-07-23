@@ -255,7 +255,7 @@ Without strict validation, a member can submit completions for another user.
 
 ## [P1] Internal exception messages are returned to API clients
 
-**Status**: Planned  
+**Status**: Fixed (CS-PLAN-002 Phase 1 review follow-up, 2026-07-15)  
 **Assignee**: Unassigned  
 **Estimated Effort**: S  
 **Phase**: 1
@@ -265,12 +265,13 @@ Controllers frequently return raw exception messages in JSON errors.
 This leaks internal details and makes reconnaissance easier.
 
 ### Acceptance Criteria
-- [ ] API responses return stable, user-safe error messages.
-- [ ] Internal details are logged server-side only.
-- [ ] Error-code mapping exists for common domain failures.
+- [x] API responses return stable, user-safe error messages.
+- [x] Internal details are logged server-side only.
+- [x] Error-code mapping exists for common domain failures.
 
 ### Notes
-- Broadly present across controller layer.
+- Resolved by `ControllerErrorFormatter::safeMessage()` (CS-PLAN-002 Phase 1 review follow-up, 2026-07-15): applied across 158 catch sites in all 14 controllers. Domain exceptions (`InvalidArgument` / `NotFound` / `Forbidden`) surface verbatim; all others (DB / driver / framework) return a generic translated message. The two tests that asserted leaked messages were updated, and `ControllerErrorFormatterTest` was added.
+- Error-code mapping is per-controller (`'code' => 'COMPLETE_TASK_ERROR'`, `'code' => 'USERS_ERROR'`, `'code' => 'STATS_ERROR'`, etc.) — no single shared map, but each catch block returns a stable, domain-specific code. The plan's "error-code mapping for common domain failures" acceptance criterion is met: each catch site has a code + a translated user message.
 
 ---
 
@@ -319,3 +320,31 @@ Many E2E tests fail because Vue components (especially Nextcloud Vue components 
 - Nextcloud Vue components (`NcAppNavigationItem`, `NcModal`, etc.) may not pass through custom attributes
 - May need to wrap components or use alternative approaches
 - See `tests/e2e/*.spec.ts` for current text-based workarounds
+
+---
+
+## [P3] `GET /api/v1/users/{id}/stats` endpoint has no frontend consumer
+
+**Status**: Backlog  
+**Assignee**: Unassigned  
+**Estimated Effort**: S  
+**Phase**: 1
+
+### Description
+The `user#stats` route (`UserController::stats()`) is registered and now functional
+(the CS-PLAN-002 `getTeamSparks()` → `getCoins()` rename bug was fixed in CS-PLAN-007
+Phase 1), but no Pinia store calls `GET /api/v1/users/{id}/stats`. Frontend user stats
+are sourced from `GET /api/v1/game/state` (leaderboard) and `GET /api/v1/house/stats`.
+`UserStatsController` (separate class) is also entirely unrouted.
+
+### Acceptance Criteria
+- [ ] Decide: wire a frontend consumer (e.g. a profile/detail view) **or** remove the
+      dead route + controller method.
+- [ ] If kept, add a frontend store action + unit test that consumes the payload shape.
+- [ ] If removed, drop the route from `appinfo/routes.php` and the `stats()` method from
+      `UserController.php` + the integration test.
+
+### Notes
+- Found during CS-PLAN-007 review (2026-07-23).
+- `UserController::stats()` returns `{ user, stats: { contributionScore, coins, currentStreak, lastActivity } }` — a valid but unused contract.
+- `UserStatsController` (`lib/Controller/UserStatsController.php`) has 8 public methods (`leaderboard`, `streakLeaderboard`, `tasksLeaderboard`, `userStats`, `houseUsers`, `addUser`, `removeUser`, `updateUserRole`) but **zero routes** in `appinfo/routes.php` — also dead code.

@@ -177,40 +177,56 @@ On Windows without WSL2, file operations can be slow. Enable WSL2 backend in Doc
 
 ## Continuous Integration
 
-The Docker test environment is also used in CI/CD pipelines:
+The authoritative CI workflow is `.forgejo/workflows/release-gate.yml`
+(GHA-compatible, runs on Forgejo Actions / Codeberg CI and GitHub Actions).
+It is the single source of truth for blocking gate commands.
 
-```yaml
-# Example GitHub Actions workflow
-name: PHPUnit Tests
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run tests
-        run: docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
+### Blocking gate commands
+
+| Command | Purpose |
+|---------|---------|
+| `npm run lint` | ESLint, 0 errors required |
+| `npm test` | Jest (Vue components, stores, API contract) |
+| `npm run build` | Webpack production build |
+| `composer validate --strict` | `composer.json` sanity |
+| `vendor/bin/phpunit --configuration phpunit.unit.xml` | Backend unit tests (via Docker) |
+| `vendor/bin/phpunit --configuration phpunit.integration.xml` | Backend integration tests (via Docker) |
+
+### Non-blocking (advisory)
+
+| Command | Reason |
+|---------|--------|
+| `npm run stylelint` | `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch produces 201 "Unknown rule" errors (see `docs/backlog/bugs.md`). Stylelint output is uploaded as an artifact for review. Promoted to blocking once the upstream toolchain is pinned. |
+
+### Running the gate locally
+
+```bash
+# Frontend
+npm ci
+npm run lint
+npm test -- --ci
+npm run build
+
+# Backend (Docker)
+docker compose -f docker-compose.test.yml up -d
+docker compose -f docker-compose.test.yml exec nextcloud-test \
+  bash -c "cd /var/www/html/custom_apps/chorestrike && \
+    vendor/bin/phpunit --configuration phpunit.unit.xml && \
+    vendor/bin/phpunit --configuration phpunit.integration.xml"
+docker compose -f docker-compose.test.yml down
 ```
 
-## How It Works
+### Contract tests (Phase 2 of CS-PLAN-007)
 
-The test environment consists of:
+- `tests/unit/RouteMatrixTest.php` — every route in `appinfo/routes.php`
+  resolves to a public method on the corresponding controller class.
+  Catches the "missing controller method" and "unrouted implemented method"
+  drift patterns.
+- `tests/unit/store/apiContract.spec.js` — every API endpoint called by
+  the Pinia stores (`src/store/*.js`) matches at least one declared route.
+  Derived from the same `appinfo/routes.php` source.
 
-1. **Dockerfile** (`docker/Dockerfile.test`):
-   - Based on PHP 8.2 Apache image
-   - Clones Nextcloud stable29 server for OCP classes
-   - Includes all PHP extensions required for testing
-   - Contains custom autoloader for OCP namespace
-
-2. **docker-compose.test.yml**:
-   - Mounts the ChoreStrike code into the container
-   - Sets environment variables for test mode
-   - Runs `composer install` and PHPUnit
-
-3. **tests/bootstrap.php**:
-   - Detects Docker vs local environment
-   - Registers custom autoloader for OCP classes when in Docker
-   - Falls back to vendor autoloader for local development (limited functionality)
+These tests are part of the blocking gate.
 
 ## E2E Tests with Playwright
 
@@ -402,20 +418,9 @@ vendor/bin/phpunit
 
 ## Continuous Integration
 
-The Docker test environment is also used in CI/CD pipelines:
-
-```yaml
-# Example GitHub Actions workflow
-name: PHPUnit Tests
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run tests
-        run: docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
-```
+The Docker test environment is also used in CI/CD pipelines. See the
+**Continuous Integration** section above for the authoritative
+`.forgejo/workflows/release-gate.yml` workflow and blocking gate commands.
 
 ## Security Regression Test Pack (Recommended)
 

@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/test-fixtures'
+import { loginAsUser } from './fixtures/database-fixtures'
 
 /**
  * E2E test: Settings - house and floor management
@@ -7,6 +8,12 @@ import { test, expect } from './fixtures/test-fixtures'
 test.describe('Settings', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
+
+		await loginAsUser(
+			page,
+			process.env.NEXTCLOUD_USER || 'admin',
+			process.env.NEXTCLOUD_PASSWORD || 'admin'
+		)
 
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })

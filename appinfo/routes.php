@@ -145,9 +145,6 @@ return [
         ['name' => 'room_task#groupTasks', 'url' => '/api/v1/room-tasks/group/{groupId}', 'verb' => 'GET'],
         ['name' => 'room_task#visibleToUser', 'url' => '/api/v1/room-tasks/visible-to-user', 'verb' => 'GET'],
 
-        // Multi-User Teamwork API (Feature 6)
-        ['name' => 'room_task#completeWithTeam', 'url' => '/api/v1/room-tasks/{id}/complete-with-team', 'verb' => 'POST'],
-
         // Claiming Overdue Tasks API (Feature 7)
         ['name' => 'room_task#overdueClaims', 'url' => '/api/v1/room-tasks/overdue-claims', 'verb' => 'GET'],
         ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],

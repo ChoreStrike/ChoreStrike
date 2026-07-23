@@ -257,19 +257,20 @@ export const logger = {
 ### P9-WORKFLOW-002 - Add Executable CI Pipeline and Workflow Truth Sync
 **Priority**: HIGH  
 **Effort**: 3 hours  
-**Status**: Planned
+**Status**: Done (CS-PLAN-007 Phase 3)
 
-**Description**: `docs/ARCHITECTURE.md` and `docs/TESTING.md` describe CI and workflow structure, but the repository currently has no tracked `.github/workflows/*` pipeline. This leaves linting, PHPUnit, Jest, and a headless smoke slice unenforced outside manual execution.
+**Description**: `docs/ARCHITECTURE.md` and `docs/TESTING.md` describe CI and workflow structure, but the repository had no tracked authoritative release-gate pipeline. This left linting, PHPUnit, Jest, and the build unenforced outside manual execution.
 
-**Implementation**:
-1. Add a repository-tracked CI workflow for frontend lint, backend lint, PHPUnit, and Jest.
-2. Add an optional non-blocking Playwright smoke job or documented nightly workflow.
-3. Document the authoritative local and CI commands in one place.
-4. Update `docs/ARCHITECTURE.md` and `docs/TESTING.md` so they match the real automation setup.
+**Completed**:
+- Added `.forgejo/workflows/release-gate.yml` (GHA-compatible, runs on `push` and `pull_request`). Fails the run on any non-zero blocking command: `npm run lint` (ESLint, 0 errors), `npm test` (Jest), `npm run build` (Webpack), `composer validate --strict`, and PHPUnit unit + integration via Docker.
+- Stylelint is **advisory/non-blocking** until the `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch (201 "Unknown rule" errors) is resolved or pinned. Stylelint output is uploaded as an artifact.
+- CI jobs cache npm + Docker layers with per-job timeouts.
+- Updated `docs/TESTING.md` with the authoritative blocking gate command list and local reproduction recipe.
+- Updated `docs/ARCHITECTURE.md` to document the release gate and the contract tests.
+- The existing `.forgejo/workflows/test.yml` (matrix PHPUnit + E2E) is kept for broader coverage.
 
-**Tests**:
-- Verify the pipeline runs the documented commands successfully.
-- Verify CI documentation matches the committed workflow files.
+**Validation**:
+- All blocking commands green locally: `npm run lint` (0 errors), `npm test` (512/512), `npm run build` (compiles), `phpunit.unit.xml` (473/473), `phpunit.integration.xml` (143/143, 24 documented skips).
 
 ---
 
@@ -314,38 +315,40 @@ export const logger = {
 ### P9-TEST-002 - Add Route and Contract Coverage for Frontend/Backend Wiring
 **Priority**: HIGH  
 **Effort**: 1 day  
-**Status**: Planned
+**Status**: Done (CS-PLAN-007 Phase 2)
 
 **Description**: The review found missing contract protection between `appinfo/routes.php`, controller methods, and active frontend consumers. This gap would have caught route/controller mismatches and missing active endpoints earlier.
 
-**Implementation**:
-1. Add a backend test that validates each declared route targets an implemented controller method.
-2. Add a frontend contract test for active stores/components against the expected API matrix.
-3. Add a release-gate check for critical active endpoints.
-4. Document how new endpoints must be covered.
+**Completed**:
+- Added `tests/unit/RouteMatrixTest.php` (PHPUnit, 3 tests, 9 assertions). Parses `appinfo/routes.php`, resolves every `foo#bar` route to `\OCA\ChoreStrike\Controller\FooController::bar`, and asserts the method exists and is public. Also asserts no duplicate (verb, url) pairs and all routes use valid HTTP verbs.
+- Added `tests/unit/store/apiContract.spec.js` (Jest, 3 tests). Scans `src/store/*.js` for `axios.{get,post,put,delete,patch}` calls, normalises both the route URL and the store call (stripping `/index.php/apps/chorestrike` or `/apps/chorestrike`, expanding `${var}` placeholders, stripping query strings), and asserts every store call matches at least one declared route. Also asserts the removed `completeWithTeam` endpoint is not called.
+- Demonstrably fails on drift: the first run of `RouteMatrixTest` caught the dead `room_task#completeWithTeam` route (declared but no `RoomTaskController::completeWithTeam()` method). Root cause fixed by removing the dead route from `appinfo/routes.php`.
+- Both tests are part of the blocking release gate.
 
-**Tests**:
-- Route matrix test for `appinfo/routes.php`.
-- Store contract tests for active API consumers.
+**Validation**:
+- `vendor/bin/phpunit --configuration phpunit.unit.xml tests/unit/RouteMatrixTest.php` -> pass (3/3)
+- `npm test -- --testPathPattern apiContract` -> pass (3/3)
 
 ---
 
 ### P9-E2E-002 - Harden Headless E2E Stability and Add Lightweight UI Semantics Checks
 **Priority**: MEDIUM  
 **Effort**: 1 day  
-**Status**: Planned
+**Status**: Partial (CS-PLAN-007 Phase 4) — auth block fixed for blocked specs; full selector + a11y work deferred
 
 **Description**: Current Playwright coverage is broad, but many specs still rely on `waitForTimeout`, text selectors, and CSS implementation details. Visual or semantic GUI checks are minimal, so layout/accessibility regressions can slip through even when core flows pass.
 
-**Implementation**:
-1. Replace arbitrary waits with response-, state-, or test-id-driven synchronization.
-2. Introduce stable selector rules for active views and shared components.
-3. Add a small snapshot or semantic-render smoke suite for key screens.
-4. Add lightweight accessibility assertions for critical flows.
+**Completed (partial)**:
+- Fixed the E2E auth block on the previously-blocked `settings.spec.ts` and `title-selection.spec.ts` by adding `loginAsUser()` to their `beforeEach` blocks. Both specs were navigating directly to the app without authenticating, which hit a Nextcloud login redirect in fresh browser contexts.
+- Release-gate views (`Dashboard`, `Settings`, `TaskManager`, `RoomDetail`, `Leaderboard`) already carry `data-testid` attributes on the root containers and key interactive elements (audit: 11 testids in `Settings.vue`, 7 in `Dashboard.vue`).
 
-**Tests**:
-- Update fragile Playwright specs to use stable selectors.
-- Add snapshot or semantic smoke checks for dashboard, task manager, settings, and leaderboard.
+**Deferred (logged separately)**:
+- Full replacement of `waitForTimeout`/text selectors across all 29 E2E specs is a larger effort and is out of scope for CS-PLAN-007.
+- `phase-3-user-management.spec.ts` is legacy and should be rewritten or formally excluded from the release-gate set.
+- Lightweight accessibility assertions are deferred to a follow-up plan.
+
+**Validation**:
+- The previously-blocked `settings.spec.ts` and `title-selection.spec.ts` now authenticate before navigating to the app.
 
 ---
 

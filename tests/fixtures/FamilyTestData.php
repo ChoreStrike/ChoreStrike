@@ -75,7 +75,7 @@ class FamilyTestData
         ];
     }
 
-    private static function createHouseUser(int $id, string $nextcloudUserId, string $displayName, string $role, int $age, array $preferences, int $score = 0, int $currentStreak = 0, int $longestStreak = 0, int $teamSparks = 0): HouseUser
+    private static function createHouseUser(int $id, string $nextcloudUserId, string $displayName, string $role, int $age, array $preferences, int $score = 0, int $currentStreak = 0, int $longestStreak = 0, int $coins = 0): HouseUser
     {
         $user = new HouseUser();
         $user->setId($id);
@@ -83,7 +83,7 @@ class FamilyTestData
         $user->setDisplayName($displayName);
         $user->setRole($role);
         $user->setContributionScore($score);
-        $user->setTeamSparks($teamSparks);
+        $user->setCoins($coins);
         $user->setCurrentStreak($currentStreak);
         $user->setLongestStreak($longestStreak);
         $user->setSchedulingPreferences($preferences);
