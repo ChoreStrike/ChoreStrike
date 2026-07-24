@@ -135,7 +135,6 @@ List all rooms.
     "floor_id": 1,
     "name": "Kitchen",
     "cleanliness": 75,
-    "monster_count": 3,
     "last_cleaned": "2026-02-23T14:30:00Z",
     "overdue_tasks": 2,
     "due_tasks": 1
@@ -152,12 +151,11 @@ Get room details with tasks.
   "id": 1,
   "name": "Kitchen",
   "cleanliness": 75,
-  "monster_count": 3,
   "tasks": [
     {
       "id": 1,
       "name": "Empty dishwasher",
-      "difficulty": 2,
+      "energyCost": 2,
       "priority": 1,
       "next_due": "2026-02-24T12:00:00Z",
       "is_overdue": false
@@ -198,7 +196,7 @@ List all tasks visible to the current user (role-based visibility filtering appl
     "id": 1,
     "name": "Vacuum",
     "description": "Vacuum all floors",
-    "difficulty": 3,
+    "energyCost": 3,
     "priority": 2,
     "frequency_type": "weekly",
     "frequency_value": 1,
@@ -228,7 +226,7 @@ Get predefined task templates.
   {
     "id": "template_1",
     "name": "Empty Dishwasher",
-    "difficulty": 2,
+    "energyCost": 2,
     "priority": 1,
     "frequency_type": "daily",
     "estimated_minutes": 10,
@@ -245,7 +243,7 @@ Create a new task.
 {
   "name": "Clean windows",
   "description": "Clean all windows",
-  "difficulty": 4,
+  "energyCost": 4,
   "priority": 3,
   "frequency_type": "monthly",
   "frequency_value": 1,
@@ -280,7 +278,7 @@ List all room-task assignments.
     "room_id": 1,
     "task_id": 1,
     "task_name": "Vacuum",
-    "difficulty": 3,
+    "energyCost": 3,
     "priority": 2,
     "next_due": "2026-02-25T10:00:00Z",
     "last_completed": "2026-02-18T10:00:00Z",
@@ -303,11 +301,26 @@ Assign task to room(s).
 }
 ```
 
-#### PUT /room-tasks/{id}
-Update room task assignment.
+#### PUT /room-tasks/{id}/due-date
+Update a room task's next-due date / ideal due date.
+
+#### PUT /room-tasks/{id}/assignees
+Replace the multi-assignee set for a room task (`POST`/`DELETE` on the same
+sub-path add/remove a single assignee; `GET` reads them). Assignee mutations
+are validated for house membership server-side.
+
+#### POST /room-tasks/{id}/deactivate · POST /room-tasks/{id}/reactivate
+Deactivate / re-activate a room-task instance.
 
 #### DELETE /room-tasks/{id}
 Remove task from room.
+
+> **Full route list:** the canonical, complete route table is
+> [`appinfo/routes.php`](../../appinfo/routes.php) (132 routes spanning `house`,
+> `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
+> `smart_scheduler`, `template`, `checklist`, `task_sync`, `minigame`,
+> `reward_config`, and `test`). This document covers the core CRUD + completion
+> flows; the `RouteMatrixTest` contract test guards route↔controller drift.
 
 #### POST /room-tasks/{id}/complete
 Mark task as completed.
@@ -322,11 +335,10 @@ Mark task as completed.
 **Response:**
 ```json
 {
-  "points_earned": 45,
+  "coins_earned": 45,
   "was_combo": true,
   "combo_with_user": "John",
   "new_cleanliness": 85,
-  "monsters_defeated": 2,
   "next_due": "2026-02-25T15:30:00Z"
 }
 ```
@@ -340,7 +352,6 @@ Get current game state.
 ```json
 {
   "house_health": 85,
-  "total_monsters": 12,
   "active_combos": 1,
   "current_streak": 7,
   "rooms_by_status": {
@@ -363,7 +374,7 @@ Get user leaderboard.
   {
     "user_id": 1,
     "display_name": "Alice",
-    "total_points": 450,
+    "coins": 450,
     "tasks_completed": 23,
     "current_streak": 7,
     "rank": 1
@@ -378,11 +389,11 @@ Get medals for current week.
 ```json
 [
   {
-    "medal_type": "tank",
+    "medal_type": "team_anchor",
     "user_id": 1,
     "user_name": "Alice",
-    "value": 8,
-    "description": "Completed 8 difficult tasks (4-5 stars)"
+    "value": 12,
+    "description": "Completed 12+ tasks this week"
   }
 ]
 ```
@@ -405,7 +416,7 @@ List all users in the house.
     "id": 1,
     "nextcloud_user_id": "alice",
     "display_name": "Alice",
-    "total_points": 450,
+    "coins": 450,
     "current_streak": 7,
     "role": "owner",
     "joined_at": "2026-01-01T00:00:00Z"
@@ -535,11 +546,11 @@ Get available test data profiles.
 }
 ```
 
-### GET /test/seed
+### GET /test/seed/{profile}
 
 Seed database with a specific profile.
 
-**Query Parameters:**
+**Path Parameters:**
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `profile` | string | No | Profile name (default: `minimal`) |

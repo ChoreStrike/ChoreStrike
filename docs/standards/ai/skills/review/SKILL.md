@@ -7,7 +7,7 @@ description: Reviewing code, plans, or domains for ChoreStrike and applying the 
 
 > Canonical review process for ChoreStrike. Loaded automatically when a review is
 > requested, or via the slash commands `/review-chorestrike`,
-> `/review-chorestrike-full`, `/plan-review`. Read [`AGENTS.md`](../../../../AGENTS.md)
+> `/review-chorestrike-full`, `/plan-review`. Read [`AGENTS.md`](../../../../../AGENTS.md)
 > first; this skill is the single source of truth for *how* to review. For
 > time-boxed modes, packages, and report templates see the deeper
 > [`review-playbook.md`](../../../../engineering/review-playbook.md) — this skill
@@ -233,7 +233,7 @@ this report is the conversational summary.
 ## 8. Related documents
 
 - [`../../../../engineering/review-playbook.md`](../../../../engineering/review-playbook.md) — deep modes, packages, report templates.
-- [`../../../../AGENTS.md`](../../../../AGENTS.md) — bootstrap + quality/workflow rules.
+- [`../../../../../AGENTS.md`](../../../../../AGENTS.md) — bootstrap + quality/workflow rules.
 - [`../../rules/project-rules.md`](../../rules/project-rules.md) — canonical rules.
 - [`../../../guidelines/llm-do-dont-checklist.md`](../../../guidelines/llm-do-dont-checklist.md) — final gate.
 - [`../../../guidelines/security.md`](../../../guidelines/security.md) — security/auth checks (Full Review #3).

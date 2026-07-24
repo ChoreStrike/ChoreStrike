@@ -272,34 +272,6 @@ class MinigameServiceTest extends TestCase
         $this->assertEquals(0, $result);
     }
 
-    public function testGetUserSparksReturnsCurrentBalance(): void
-    {
-        $user = new HouseUser();
-        $user->setNextcloudUserId('user1');
-        $user->setCurrentSparks(75);
-
-        $this->houseUserMapper->expects($this->once())
-            ->method('findByHouseIdAndNextcloudUserId')
-            ->with(1, 'user1')
-            ->willReturn($user);
-
-        $result = $this->service->getUserSparks(1, 'user1');
-
-        $this->assertEquals(75, $result);
-    }
-
-    public function testGetUserSparksReturnsZeroForUnknownUser(): void
-    {
-        $this->houseUserMapper->expects($this->once())
-            ->method('findByHouseIdAndNextcloudUserId')
-            ->with(1, 'unknown')
-            ->willReturn(null);
-
-        $result = $this->service->getUserSparks(1, 'unknown');
-
-        $this->assertEquals(0, $result);
-    }
-
     public function testGetRecentScoresReturnsUserScores(): void
     {
         $score1 = new MinigameScore();

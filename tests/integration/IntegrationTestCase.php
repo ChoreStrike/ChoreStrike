@@ -234,8 +234,6 @@ abstract class IntegrationTestCase extends TestCase
                 'role' => $qb->createNamedParameter($role),
                 'contribution_score' => $qb->createNamedParameter(0),
                 'coins' => $qb->createNamedParameter(0),
-                'current_sparks' => $qb->createNamedParameter(0),
-                'total_sparks_earned' => $qb->createNamedParameter(0),
                 'current_streak' => $qb->createNamedParameter(0),
                 'longest_streak' => $qb->createNamedParameter(0),
                 'streak_freezes' => $qb->createNamedParameter(1),

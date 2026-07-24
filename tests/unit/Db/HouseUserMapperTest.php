@@ -70,8 +70,6 @@ class HouseUserMapperTest extends TestCase
                 'nextcloud_user_id' => 'user1',
                 'display_name' => 'User One',
                 'contribution_score' => 500,
-                'current_sparks' => 200,
-                'total_sparks_earned' => 300,
                 'current_streak' => 5,
                 'longest_streak' => 10,
                 'role' => 'admin',
@@ -83,8 +81,6 @@ class HouseUserMapperTest extends TestCase
                 'nextcloud_user_id' => 'user2',
                 'display_name' => 'User Two',
                 'contribution_score' => 300,
-                'current_sparks' => 100,
-                'total_sparks_earned' => 150,
                 'current_streak' => 3,
                 'longest_streak' => 5,
                 'role' => 'member',
@@ -190,21 +186,6 @@ class HouseUserMapperTest extends TestCase
     }
 
     /**
-     * HouseUser_AddSparks_IncreasesSparks
-     */
-    public function testHouseUser_AddSparks_IncreasesSparks(): void
-    {
-        $user = new HouseUser();
-        $user->setCurrentSparks(100);
-        $user->setTotalSparksEarned(200);
-
-        $user->addSparks(50);
-
-        $this->assertEquals(150, $user->getCurrentSparks());
-        $this->assertEquals(250, $user->getTotalSparksEarned());
-    }
-
-    /**
      * HouseUser_IncrementStreak_UpdatesStreaks
      */
     public function testHouseUser_IncrementStreak_UpdatesStreaks(): void
@@ -217,18 +198,5 @@ class HouseUserMapperTest extends TestCase
 
         $this->assertEquals(6, $user->getCurrentStreak());
         $this->assertEquals(6, $user->getLongestStreak());
-    }
-
-    /**
-     * HouseUser_SpendSparks_ReducesCurrentSparks
-     */
-    public function testHouseUser_SpendSparks_ReducesCurrentSparks(): void
-    {
-        $user = new HouseUser();
-        $user->setCurrentSparks(100);
-
-        $user->spendSparks(30);
-
-        $this->assertEquals(70, $user->getCurrentSparks());
     }
 }

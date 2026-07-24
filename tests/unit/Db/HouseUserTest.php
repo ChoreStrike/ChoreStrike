@@ -24,8 +24,6 @@ class HouseUserTest extends TestCase
         $houseUser->setDisplayName('Test User');
         $houseUser->setRole('admin');
         $houseUser->setContributionScore(150);
-        $houseUser->setCurrentSparks(75);
-        $houseUser->setTotalSparksEarned(200);
         $houseUser->setCurrentStreak(5);
         $houseUser->setLongestStreak(10);
         $joinedAt = new \DateTime('2026-02-01 10:00:00');
@@ -41,8 +39,6 @@ class HouseUserTest extends TestCase
         self::assertEquals('Test User', $result['displayName']);
         self::assertEquals('admin', $result['role']);
         self::assertEquals(150, $result['contributionScore']);
-        self::assertEquals(75, $result['currentSparks']);
-        self::assertEquals(200, $result['totalSparksEarned']);
         self::assertEquals(5, $result['currentStreak']);
         self::assertEquals(10, $result['longestStreak']);
         self::assertEquals($joinedAt->format('c'), $result['joinedAt']);
@@ -124,34 +120,6 @@ class HouseUserTest extends TestCase
         $houseUser->setContributionScore(5000);
 
         self::assertEquals('Legend', $houseUser->getRank());
-    }
-
-    /**
-     * AddSparks_UpdatesTotalAndCurrentSparks
-     */
-    public function testAddSparks_UpdatesTotalAndCurrentSparks(): void
-    {
-        $houseUser = new HouseUser();
-        $houseUser->setCurrentSparks(50);
-        $houseUser->setTotalSparksEarned(100);
-
-        $houseUser->addSparks(25);
-
-        self::assertEquals(75, $houseUser->getCurrentSparks());
-        self::assertEquals(125, $houseUser->getTotalSparksEarned());
-    }
-
-    /**
-     * SpendSparks_ReducesCurrentSparks
-     */
-    public function testSpendSparks_ReducesCurrentSparks(): void
-    {
-        $houseUser = new HouseUser();
-        $houseUser->setCurrentSparks(100);
-
-        $houseUser->spendSparks(30);
-
-        self::assertEquals(70, $houseUser->getCurrentSparks());
     }
 
     /**

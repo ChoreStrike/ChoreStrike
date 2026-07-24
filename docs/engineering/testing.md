@@ -292,15 +292,23 @@ npx playwright test tests/e2e/ --project=chromium --headed
 
 ### E2E Test Structure
 
+> The full, current list of spec files is the source of truth — run
+> `git ls-files 'tests/e2e/*.spec.ts'` (or `ls tests/e2e/*.spec.ts`) for it.
+> The groupings below are a navigational aid, not an exhaustive contract.
+
 | Test File | Coverage |
 |-----------|----------|
 | `minimal-smoke-tests.spec.ts`, `fast-core-tests.spec.ts`, `smoke-tests.spec.ts` | Fast smoke coverage for boot, routing, and key pages |
+| `validation.spec.ts`, `error-handling.spec.ts`, `daily-tasks-flow.spec.ts` | Data validation, error handling, and daily-task flows |
 | `dashboard.spec.ts`, `dashboard-navigation.spec.ts`, `core-functionality.spec.ts` | Dashboard and cross-view navigation coverage |
-| `room-management.spec.ts`, `room-detail.spec.ts` | Room CRUD and room-detail flows |
-| `task-manager.spec.ts`, `task-completion.spec.ts` | Task management, task creation, assignment, and completion flows |
-| `settings.spec.ts`, `3-floor-house.spec.ts`, `gui-scratch-flow.spec.ts` | Full-house creation and realistic GUI-first flows |
-| `daily-tasks-flow.spec.ts`, `availability-settings-flow.spec.ts`, `scheduling.spec.ts` | Scheduling and daily-task flows |
-| `leaderboard.spec.ts`, `phase-4-advanced-mechanics.spec.ts`, `task-checklist-and-features.spec.ts` | Gamification, leaderboard, and advanced task features |
+| `room-management.spec.ts`, `room-detail.spec.ts`, `3-floor-house.spec.ts` | Room/floor CRUD, room-detail flows, full-house scenarios |
+| `task-manager.spec.ts`, `task-completion.spec.ts`, `task-completion-full-flow.spec.ts`, `task-checklist-and-features.spec.ts` | Task management, creation, checklist, and completion flows |
+| `settings.spec.ts`, `gui-scratch-flow.spec.ts` | Full-house creation and realistic GUI-first flows |
+| `availability-settings-flow.spec.ts`, `scheduling.spec.ts`, `flex-window-scheduling.spec.ts` | Scheduling, availability, and flex-window flows |
+| `leaderboard.spec.ts`, `phase-4-advanced-mechanics.spec.ts`, `title-selection.spec.ts` | Gamification, leaderboard, advanced mechanics, role titles |
+| `private-tasks.spec.ts`, `admin-only-tasks.spec.ts`, `teamwork-rewards.spec.ts` | Visibility (private/admin-only) and teamwork-bonus rewards (CS-PLAN-005) |
+| `overdue-task-claiming.spec.ts`, `multi-user-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover, multi-user claiming, and family interactions |
+| `snake-game.spec.ts` | Minigame (Snake arcade) coverage |
 | `phase-3-user-management.spec.ts` | Legacy coverage that requires rework before it should be treated as a release gate |
 
 ### Test Architecture
@@ -364,7 +372,7 @@ npx playwright test tests/e2e/ --project=chromium
 
 Repository status:
 
-- **20 Playwright spec files** currently exist under `tests/e2e/`.
+- For the current spec count, run `git ls-files 'tests/e2e/*.spec.ts' | wc -l` (the suite grows over time — e.g. 32 specs at the time of writing).
 - Not every spec has the same maturity level.
 - The most relevant release-oriented UI coverage currently lives in the dashboard, room, task, settings, daily-task, scheduling, and GUI-scratch-flow suites.
 - `phase-3-user-management.spec.ts` should be considered **legacy** until it is rewritten against currently wired views and routes.
@@ -377,7 +385,7 @@ npm test
 
 Repository status:
 
-- **29 Jest spec files** currently exist under `tests/unit/`.
+- For the current Jest spec count, run `git ls-files 'tests/unit/**/*.spec.js' | wc -l` (e.g. 42 specs at the time of writing).
 - Coverage includes:
   - Vue components
   - Pinia stores
@@ -391,12 +399,16 @@ docker compose -f docker-compose.test.yml run --rm nextcloud-test \
   vendor/bin/phpunit --configuration phpunit.unit.xml
 
 docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.xml tests/integration/
+  vendor/bin/phpunit --configuration phpunit.integration.xml
 ```
+
+> `phpunit.unit.xml` runs unit tests only; `phpunit.integration.xml` runs
+> integration tests only. (The umbrella `phpunit.xml` includes both suites, but
+> the dedicated configs are the canonical per-suite commands.)
 
 Repository status:
 
-- **12 integration test files** currently exist under `tests/integration/`.
+- For the current integration test count, run `git ls-files 'tests/integration/**/*Test.php' | wc -l` (e.g. 18 files at the time of writing).
 - Coverage includes controller, API, family, and extended room-task service scenarios.
 - Controller integration tests require the Docker/Nextcloud environment.
 
@@ -629,7 +641,7 @@ npm test
 
 # 2. Backend unit and integration coverage in Docker
 docker compose -f docker-compose.test.yml run --rm nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
-docker compose -f docker-compose.test.yml run --rm nextcloud-test vendor/bin/phpunit --configuration phpunit.xml tests/integration/
+docker compose -f docker-compose.test.yml run --rm nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
 
 # 3. Targeted release-gate GUI smoke coverage
 npx playwright test tests/e2e/task-manager.spec.ts tests/e2e/room-detail.spec.ts tests/e2e/task-completion.spec.ts tests/e2e/gui-scratch-flow.spec.ts --project=chromium

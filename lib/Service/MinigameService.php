@@ -239,24 +239,6 @@ class MinigameService
     }
 
     /**
-     * Get user's current sparks balance
-     *
-     * @param int $houseId The house ID
-     * @param string $userId The Nextcloud user ID
-     * @return int Current sparks balance
-     */
-    public function getUserSparks(int $houseId, string $userId): int
-    {
-        $user = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId);
-        
-        if ($user === null) {
-            return 0;
-        }
-
-        return $user->getCurrentSparks();
-    }
-
-    /**
      * Get recent scores for a user
      *
      * @param int $houseId The house ID

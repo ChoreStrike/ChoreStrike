@@ -31,43 +31,55 @@ ChoreStrike/
 │   ├── info.xml                # App metadata (id, version, URLs, navigation)
 │   └── routes.php              # REST API route definitions
 ├── lib/                        # PHP backend
+│   ├── AppInfo/                # Application.php — DI container wiring, app lifecycle
+│   ├── BackgroundJob/          # Cron jobs (DailyNotificationJob, StreakFreezeJob,
+│   │                           #   StreakRestockJob) registered in appinfo/info.xml
+│   ├── Command/                # occ commands (TestDataSeed)
 │   ├── Controller/             # Thin API controllers (House, Floor, Room, Task,
 │   │                           #   RoomTask, Checklist, Scheduling, SmartScheduler,
-│   │                           #   Minigame, RewardConfig, User, UserStats, Template,
-│   │                           #   TaskSync, Game, Page, Test) + ControllerLoggingTrait
-│   ├── Service/                # Business logic (House, HouseUser, Floor, Room, RoomTask,
-│   │                           #   Task, GameLogic, Medal, Combo, Scheduling, SmartScheduler,
-│   │                           #   TaskScheduler, Minigame, RewardConfig, Template, TaskSync,
-│   │                           #   UserStats, TestData, Authorization, AppLogger, Title,
-│   │                           #   Notification)
-│   ├── Titles/                 # Title catalog constants (CS-PLAN-006)
-│   │                           #   TitleCatalog — 3 packs × 3 tiers, server-authoritative
+│   │                           #   Minigame, RewardConfig, User, Template, TaskSync,
+│   │                           #   Game, Page, Test) + ControllerLoggingTrait +
+│   │                           #   ControllerErrorFormatter (sanitized error messages)
 │   ├── Db/                     # Entities & mappers (House, Floor, Room, Task, RoomTask,
 │   │                           #   CompletedTask, HouseUser, Medal, Combo, MinigameScore,
-│   │                           #   TaskChecklistItem + progress, TaskClaim, TaskParticipant,
-│   │                           #   TaskScope, UserStats, AvailabilitySettings)
-│   ├── Migration/              # Schema migrations (Version1000 … Version1025)
-│   └── Command/                # occ commands (e.g. TestDataSeed)
+│   │                           #   TaskChecklistItem, TaskAssignee, RoomTaskChecklistProgress,
+│   │                           #   UserStats, AvailabilitySettings)
+│   ├── Exception/              # App exceptions (NotFoundException, ForbiddenException) —
+│   │                           #   domain-typed (NC 31 dropped the framework equivalents)
+│   ├── Migration/              # Schema migrations (Version1000 … Version1026,
+│   │                           #   non-contiguous — Version1014 absent)
+│   ├── Notification/           # ChoreStrikeNotifier (renders localized notifications)
+│   ├── Service/                # Business logic (House, HouseUser, Floor, Room, RoomTask,
+│   │                           #   Task, GameLogic, Combo, Scheduling, SmartScheduler,
+│   │                           #   TaskScheduler, Minigame, RewardConfig, Template, TaskSync,
+│   │                           #   UserStats, TestData, Authorization, AppLogger, Title,
+│   │                           #   Notification) + Scheduling/ subfolder (algorithm classes)
+│   ├── Templates/              # TaskTemplates.json (built-in task templates)
+│   └── Titles/                 # TitleCatalog — 3 packs × 3 tiers, server-authoritative
+│                               #   progression signals (CS-PLAN-006)
 ├── src/                        # Vue 3 frontend
 │   ├── main.js                 # Entry point
 │   ├── App.vue                 # Root component
 │   ├── router.js               # Route definitions (lazy-loaded)
 │   ├── components/
-│   │   ├── Dashboard/          # HouseHealthBar, FloorList, RoomCard, QuickStats, ArcadeSection
+│   │   ├── Dashboard/          # HouseHealthBar, HouseholdGoalBar, FloorList, RoomCard,
+│   │   │                       #   QuickStats, ArcadeSection
 │   │   ├── Tasks/              # TaskList, TaskForm, TaskEditForm, TaskChecklist,
 │   │   │                       #   FlexWindowDisplay, TemplateSelector, OverdueClaimDialog
 │   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop, Game2048, MemoryGame
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
 │   │   ├── Profile/            # TitleBadge, TitlePicker (CS-PLAN-006)
-│   │   ├── Scheduling/         # DailyTaskList
+│   │   └── Scheduling/         # DailyTaskList
+│   ├── composables/            # useCelebration (confetti + SFX), useToasts
 │   ├── constants/              # Shared constants (taskVisibility, titles)
 │   ├── services/               # Shared API client (api.js — single URL prefix,
 │   │                           #   envelope unwrap, ApiError normalization)
-│   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard,
-│   │                           #   Settings, SchedulingView
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
 │   │                           #   user, scheduling, checklist, minigame, titles)
-│   └── utils/                  # currentUser, icons, roomIcons, logger, mobile, performance
+│   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css
+│   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard, Settings
+│   └── utils/                  # currentUser, icons, roomIcons, logger, mobile, performance,
+│                               #   confetti, sound
 ├── l10n/                       # Translations
 │   ├── templates/
 │   │   └── chorestrike.pot     # Translation template
@@ -152,115 +164,132 @@ generic message. All Pinia stores import `api` instead of calling
 
 ### Example: Completing a Task
 
-1. **User clicks "Complete" button** → `TaskItem.vue`
-2. **Component emits event** → `RoomView.vue`
-3. **Store action called** → `roomTasks.completeRoomTask(roomTaskId)`
-4. **API request** → `POST /apps/chorestrike/api/v1/room-tasks/{id}/complete`
-5. **Controller** → `RoomTaskController::complete()`
-6. **Service logic** → `GameLogicService::handleTaskCompletion()`
-   - Calculate points
-   - Check for combos
+1. **User clicks "Complete" button** → `TaskList.vue`
+2. **Component dispatches store action** → `useRoomTasksStore.completeRoomTask(roomTaskId)`
+3. **API request** → `POST /apps/chorestrike/api/v1/room-tasks/{id}/complete`
+4. **Controller** → `RoomTaskController::complete()`
+5. **Service logic** → `RoomService::completeRoomTask()` (transactional) → `GameLogicService::handleTaskCompletion()`
+   - Calculate coins (energy × base rate × tier × personal × early multiplier; ×2 on combo)
+   - Check for combos (`checkForCombo`) and combo bonus freeze
    - Update room cleanliness
-   - Award medals if applicable
-7. **Database update** → Multiple mappers
-8. **Response** → Updated task, points, game state
-9. **Store update** → Reactive state changes
-10. **UI updates** → Animation plays, monsters disappear
+   - Award medals if applicable (`checkAndAwardMedals`)
+   - Consume a streak freeze if the streak would otherwise reset
+6. **Database update** → Multiple mappers (atomic within the transaction)
+7. **Response** → Updated task, coins, streak-freeze/medal/title events, game state
+8. **Store update** → Reactive state changes + celebration events emitted
+9. **UI updates** → Confetti/SFX (`useCelebration`), room cleanliness updates
 
 ## Database Schema
 
+All tables use the lowercase `chorestrike_*` prefix (Nextcloud convention). The
+authoritative column list lives in the entity classes under `lib/Db/`; the
+summary below covers the core tables. Column types map to the entity PHP type
+(`integer` → BIGINT/INT, `string` → VARCHAR, `json` → native JSON column).
+
 ### Core Tables
 
-#### `ChoreStrike_houses`
+#### `chorestrike_houses`
 - `id` (bigint, PK)
-- `nextcloud_instance_id` (string) - For multi-instance support
+- `nextcloud_instance_id` (string) — multi-instance support
 - `name` (string)
 - `house_health` (int, 0-100)
-- `created_at` (datetime)
-- `updated_at` (datetime)
+- `weekly_goal_notified_week` (string, nullable) — de-dup token so the weekly-goal-reached notification fires once per week
+- `created_at`, `updated_at` (datetime)
 
-#### `ChoreStrike_floors`
+#### `chorestrike_floors`
 - `id` (bigint, PK)
 - `house_id` (bigint, FK)
 - `name` (string)
 - `sort_order` (int)
 - `created_at` (datetime)
 
-#### `ChoreStrike_rooms`
+#### `chorestrike_rooms`
 - `id` (bigint, PK)
 - `floor_id` (bigint, FK)
 - `name` (string)
 - `cleanliness` (int, 0-100)
-- `monster_count` (int)
+- `monster_count` (int) — **legacy column, retained but unused** (the Monsters feature was removed in CS-PLAN-002; `Room::needsCleaning()` is cleanliness-only)
 - `last_cleaned` (datetime, nullable)
 - `created_at` (datetime)
 
-#### `ChoreStrike_tasks`
+#### `chorestrike_tasks` (task catalog/templates)
 - `id` (bigint, PK)
-- `name` (string)
-- `description` (text, nullable)
-- `difficulty` (int, 1-5)
+- `name`, `description` (text, nullable)
+- `energy_cost` (int, 1-5) — the energy/effort of a task (the legacy `difficulty` column was renamed; `energy_cost` is the source of truth)
 - `priority` (int, 1-3)
-- `frequency_type` (enum: daily, weekly, monthly, custom)
-- `frequency_value` (int) - e.g., every 3 days
+- `task_tier` (string: `bronze`/`silver`/`gold`) — coin-tier multiplier source
+- `frequency_type` (daily/weekly/monthly/custom), `frequency_value` (int)
 - `estimated_minutes` (int)
-- `category` (string) - cleaning, organizing, maintenance
-- `is_template` (boolean)
-- `is_private` (boolean) - **legacy column** (kept for back-compat; `visibility_type` is the source of truth)
-- `visibility_type` (string, default `public`) - `public` | `private` | `admin-only` (CS-PLAN-005)
-- `owner_user_id` (string, nullable) - creator of private tasks (Nextcloud UID)
-- `created_at` (datetime)
+- `category` (string), `is_template` (boolean)
+- `visibility_type` (string, default `public`) — `public` | `private` | `admin-only` (CS-PLAN-005)
+- `owner_user_id` (string, nullable) — creator of private/admin-only tasks (Nextcloud UID)
+- `is_private` (boolean) — **back-compat shim** derived from `visibility_type` (`private`); `visibility_type` is the source of truth
+- `flex_days` (int), scheduling/recurrence fields, `created_at` (datetime)
 - Index `idx_tasks_visibility` on `(visibility_type, owner_user_id)`
 
 > **Visibility matrix:** `public` = visible to all house members; `private` = visible only to `owner_user_id`; `admin-only` = visible only to house owners. Enforced in `TaskMapper::findVisibleByHouse()`, `TaskController::index()`/`show()`/`complete()`.
 
-#### `ChoreStrike_room_tasks`
+#### `chorestrike_room_tasks` (task instances scheduled into a room)
 - `id` (bigint, PK)
-- `room_id` (bigint, FK)
-- `task_id` (bigint, FK)
-- `next_due` (datetime)
-- `last_completed` (datetime, nullable)
-- `assigned_to_user_id` (bigint, FK, nullable)
-- `is_active` (boolean)
-- `created_at` (datetime)
+- `room_id` (bigint, FK), `task_id` (bigint, FK)
+- `next_due` (datetime), `last_completed` (datetime, nullable)
+- `assigned_to_user_id` (string, nullable) — legacy single assignee
+- `is_active` (boolean), `created_at` (datetime)
+- assignment/claim fields (`assignment_type`, `assigned_to_group`, `claimed_by_user`, `was_claimed`, …) — legacy group-assignment feature (see `docs/backlog/bugs.md` IDOR findings)
+- `ideal_due_date` (datetime, nullable) — drives the early-completion bonus
 
-#### `ChoreStrike_house_users`
+#### `chorestrike_house_users` (membership + gamification state)
 - `id` (bigint, PK)
-- `house_id` (bigint, FK)
-- `nextcloud_user_id` (string)
-- `display_name` (string)
-- `total_points` (int)
-- `current_streak` (int)
-- `last_activity` (datetime)
-- `role` (enum: owner, member, child)
-- `joined_at` (datetime)
+- `house_id` (bigint, FK), `nextcloud_user_id` (string), `display_name` (string)
+- `role` (string: `owner`/`member`/`child`), `joined_at`, `last_activity` (datetime, nullable)
+- `contribution_score` (int) — lifetime work done; never decreases; leaderboard/title signal
+- `coins` (int) — renewable currency (`total_points` was renamed to `coins` in Version1017)
+- `coin_multiplier` (decimal, default 1.0)
+- `current_streak` (int), `longest_streak` (int)
+- `streak_freezes` (int, default 1)
+- `scheduling_preferences` (json) — weekday availability etc.
+- `selected_title_pack` (string, nullable), `unlocked_titles` (json) — role-title state (CS-PLAN-006)
 
-#### `ChoreStrike_completed_tasks`
+> **Sparks removed:** the legacy `current_sparks`/`total_sparks_earned` currency columns (a second, never-awarded currency retired in CS-PLAN-002) were dropped in `Version1026` (CS-PLAN-010). `GameLogicService` awards `coins`, never sparks.
+
+#### `chorestrike_completed_tasks`
 - `id` (bigint, PK)
-- `room_task_id` (bigint, FK)
-- `user_id` (bigint, FK)
+- `room_task_id` (bigint, FK), `user_id` (bigint, FK)
 - `completed_at` (datetime)
-- `points_earned` (int)
-- `was_combo` (boolean)
-- `combo_with_user_id` (bigint, FK, nullable)
+- `coins_earned` (int) — (`points_earned`/`sparks_earned` renamed to `coins_earned` in Version1017)
+- `was_combo` (boolean), `combo_with_user_id` (bigint, FK, nullable)
+- teamwork/claim metadata (`is_team_completion`, `participant_count`, `was_claimed_completion`, …)
 
-#### `ChoreStrike_medals`
+#### `chorestrike_medals`
 - `id` (bigint, PK)
 - `user_id` (bigint, FK)
-- `medal_type` (enum: tank, scout, specialist, teamplayer, streak_keeper)
-- `week_start` (date)
-- `value` (int) - e.g., number of tasks
-- `awarded_at` (datetime)
+- `medal_type` (string) — gamification: `team_anchor`/`flow_keeper`/`room_guardian`/`team_player`/`streak_keeper`; standard: `gold`/`silver`/`bronze`
+- `week_start` (date), `value` (int), `awarded_at` (datetime)
+
+> **Award reality (CS-PLAN-010):** only `team_anchor` (10+ tasks/week) and `streak_keeper` (7+ day streak) are actually awarded in the live `GameLogicService::checkAndAwardMedals()` flow. `flow_keeper`/`room_guardian`/`team_player` are catalogued in `Medal` but not yet wired to an award check (see backlog). `gold`/`silver`/`bronze` are legacy. Note: `lib/Service/MedalService.php` is dead code (archived in CS-PLAN-010) — the live path is `GameLogicService::awardMedalIfNew()`.
+
+### Supporting Tables
+
+| Table | Purpose | Entity |
+|-------|---------|--------|
+| `chorestrike_combos` | Active combo state per user (task count, window, bonus) | `Combo` |
+| `chorestrike_minigame_scores` | Minigame scores (game, score, boosts used) | `MinigameScore` |
+| `chorestrike_checklist_items` | Task checklist template items | `TaskChecklistItem` |
+| `chorestrike_room_task_checklist_progress` | Per-room-task checklist progress | `RoomTaskChecklistProgress` |
+| `chorestrike_task_assignees` | Multi-assignee join table (room-task ↔ user) (CS-PLAN-002) | `TaskAssignee` |
+| `chorestrike_user_stats` | Per-user aggregate stats (total points, streaks, tasks completed) | `UserStats` |
+| `chorestrike_availability` | Per-user availability: weekday presence, time ranges, energy budget | `AvailabilitySettings` |
 
 ### Indexes
 
 ```sql
 -- Performance indexes
-CREATE INDEX idx_room_tasks_next_due ON ChoreStrike_room_tasks(next_due);
-CREATE INDEX idx_room_tasks_room_id ON ChoreStrike_room_tasks(room_id);
-CREATE INDEX idx_completed_tasks_user_id ON ChoreStrike_completed_tasks(user_id);
-CREATE INDEX idx_completed_tasks_completed_at ON ChoreStrike_completed_tasks(completed_at);
-CREATE INDEX idx_house_users_house_id ON ChoreStrike_house_users(house_id);
+CREATE INDEX idx_room_tasks_next_due ON chorestrike_room_tasks(next_due);
+CREATE INDEX idx_room_tasks_room_id ON chorestrike_room_tasks(room_id);
+CREATE INDEX idx_completed_tasks_user_id ON chorestrike_completed_tasks(user_id);
+CREATE INDEX idx_completed_tasks_completed_at ON chorestrike_completed_tasks(completed_at);
+CREATE INDEX idx_house_users_house_id ON chorestrike_house_users(house_id);
+CREATE INDEX idx_tasks_visibility ON chorestrike_tasks(visibility_type, owner_user_id);
 ```
 
 ## API Design
@@ -382,7 +411,7 @@ one concern. The canonical store boundaries (post-CS-PLAN-008):
   actions: {
     fetchGameState(),
     fetchMedals(),
-    checkCombo()
+    checkForCombo()
   }
 }
 ```
@@ -418,7 +447,6 @@ one concern. The canonical store boundaries (post-CS-PLAN-008):
 - Lazy loading routes
 - Virtual scrolling for long lists
 - Debounced search/filter
-- Image sprites for monsters
 - CSS animations over JS
 
 ### Network

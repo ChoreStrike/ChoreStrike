@@ -33,7 +33,7 @@ class TitleServiceIntegrationTest extends IntegrationTestCase
      * Create a member in a fresh house with the given stats and return the
      * reloaded HouseUser entity.
      */
-    private function memberWithStats(int $contribution, int $longestStreak, int $totalSparks)
+    private function memberWithStats(int $contribution, int $longestStreak, int $coins)
     {
         $houseId = $this->createHouse('title-owner-' . uniqid());
         $userId = 'title-member-' . uniqid();
@@ -44,7 +44,7 @@ class TitleServiceIntegrationTest extends IntegrationTestCase
         $qb->update('chorestrike_house_users')
             ->set('contribution_score', $qb->createNamedParameter($contribution))
             ->set('longest_streak', $qb->createNamedParameter($longestStreak))
-            ->set('total_sparks_earned', $qb->createNamedParameter($totalSparks))
+            ->set('coins', $qb->createNamedParameter($coins))
             ->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($userId)))
             ->andWhere($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId)));
         $qb->executeStatement();

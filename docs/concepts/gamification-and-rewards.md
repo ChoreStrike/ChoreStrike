@@ -15,7 +15,10 @@ Keep the game layer fun and motivating while preserving a supportive family tone
 
 - Avoid military reward terms.
 - Use friendly terms that fit family collaboration.
-- Use Team Sparks as the default reward currency name.
+- Use **Coins** as the reward currency (shipped). Tasks carry a tier
+  (Bronze/Silver/Gold) multiplier and each member has a personal coin multiplier
+  for fairness; both are configurable via `RewardConfigService`. See
+  [`../api/`](../api/) for the reward-config surface.
 
 ## Parent Contribution Balancing
 
@@ -26,8 +29,8 @@ The system should allow configurable balancing so high-load members receive redu
 
 - Separate "contribution score" from "reward currency".
 - Contribution score reflects actual completed energy.
-- For MVP, do not apply role-based multipliers to Team Sparks.
-- If balancing is needed, compare contribution score and Team Sparks in separate views.
+- For MVP, do not apply role-based multipliers to coins.
+- If balancing is needed, compare contribution score and coins in separate views.
 
 ## Cooperative Features
 
@@ -35,6 +38,33 @@ The system should allow configurable balancing so high-load members receive redu
 - team streaks
 - weekly cooperative goals
 - positive celebration events on completion
+
+## Implemented Reward Mechanics
+
+> These are the shipped, config-driven reward tokens (keys live in
+> `RewardConfigService`; defaults shown). They are policy, not hardcoded constants.
+
+| Mechanic | Behaviour | Config key (default) |
+|----------|-----------|----------------------|
+| **Coins** (renewable currency) | `energy_cost × coin_base_per_energy × tier_multiplier × personal_multiplier × early_multiplier`; **×2 on personal combo** (`GameLogicService::calculateCoins`). | `coin_base_per_energy` (10), `tier_{bronze,silver,gold}_multiplier` (1.0/1.5/2.0), `early_bonus_multiplier` (1.5), `early_bonus_threshold_days` (21) |
+| **Contribution score** (permanent) | Lifetime work done (the task's `energy_cost`); never decreases; leaderboard + `home_helpers` title signal. | — |
+| **Personal combo** | Rapid consecutive completions by the same user double coins (×2). *Not* the cooperative ×1.5 multi-user concept from the foundational design — see Decision Point B (CS-PLAN-010). | (hardcoded ×2 — backlog: source from config) |
+| **Streak freezes** | Protect a streak on a missed available day; consumed in `handleTaskCompletion` and by `StreakFreezeJob`; restocked weekly by `StreakRestockJob`. | `streak_freezes_per_week` (1), `streak_freeze_cap` (2) |
+| **Combo bonus freeze** | A combo reaching the threshold awards one bonus freeze (respecting the cap). | `combo_bonus_freeze_threshold` (5) |
+| **Teamwork bonus** | Multi-assignee task completion grants a shared bonus, capped as a % of the base reward; disabled per house if needed. | `teamwork_bonus_enabled` (true), `teamwork_bonus_max_pct` (50) |
+| **Weekly household goal** | Cooperative progress target; on first achievement each week the household is notified. | `weekly_goal_target_percent` (80) |
+| **Role titles** | Progression overlay (3 packs × 3 tiers); unlock thresholds tunable per house. | `titles_enabled` (true), `title_threshold_{pack}_{tier}` (catalog defaults) |
+
+### Weekly Medals
+
+> **Award reality (CS-PLAN-010, Decision A):** the medal enum
+> (`lib/Db/Medal.php`) catalogues `team_anchor`, `flow_keeper`, `room_guardian`,
+> `team_player`, `streak_keeper`. **Only `team_anchor` (10+ tasks/week) and
+> `streak_keeper` (7+ day streak) are actually awarded** in the live
+> `GameLogicService::checkAndAwardMedals()` flow; the other three are catalogued
+> but their award checks are not yet wired (backlog item). The dead
+> `lib/Service/MedalService.php` is archived; the live path is
+> `GameLogicService::awardMedalIfNew()`.
 
 ## Role Title Systems (Localized)
 
@@ -110,7 +140,7 @@ Streaks are important motivation mechanics.
 ### Task Pass (gag mechanic)
 
 - User can move one assigned task to another available member.
-- Receiver gets a reward boost for that task completion (default: 2x Team Sparks).
+- Receiver gets a reward boost for that task completion (default: 2x coins).
 - System should cap abuse with configurable limits (for example weekly usage cap).
 
 ## Gamification Flexibility

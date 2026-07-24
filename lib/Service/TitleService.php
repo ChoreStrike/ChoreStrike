@@ -16,7 +16,7 @@ use OCA\ChoreStrike\Titles\TitleCatalog;
  * Server-authoritative role-title logic (CS-PLAN-006 Phase 2).
  *
  * Reads existing HouseUser progression stats (contributionScore,
- * longestStreak, totalSparksEarned) and resolves which title tiers a user
+ * longestStreak, coins) and resolves which title tiers a user
  * qualifies for. Unlocks are computed server-side only — the client displays
  * what the server returns.
  *

@@ -52,7 +52,6 @@ class TitleCatalogTest extends TestCase
         $validSignals = [
             TitleCatalog::SIGNAL_CONTRIBUTION_SCORE,
             TitleCatalog::SIGNAL_LONGEST_STREAK,
-            TitleCatalog::SIGNAL_TOTAL_SPARKS_EARNED,
             TitleCatalog::SIGNAL_COINS,
         ];
         foreach (TitleCatalog::getPackKeys() as $packKey) {
@@ -88,13 +87,26 @@ class TitleCatalogTest extends TestCase
         $user = new HouseUser();
         $user->setContributionScore(123);
         $user->setLongestStreak(42);
-        $user->setTotalSparksEarned(999);
         $user->setCoins(777);
 
         $this->assertSame(123, TitleCatalog::getSignalValue($user, TitleCatalog::SIGNAL_CONTRIBUTION_SCORE));
         $this->assertSame(42, TitleCatalog::getSignalValue($user, TitleCatalog::SIGNAL_LONGEST_STREAK));
-        $this->assertSame(999, TitleCatalog::getSignalValue($user, TitleCatalog::SIGNAL_TOTAL_SPARKS_EARNED));
         $this->assertSame(777, TitleCatalog::getSignalValue($user, TitleCatalog::SIGNAL_COINS));
+    }
+
+    /**
+     * Regression (CS-PLAN-010): the catalog must validate without the removed
+     * `SIGNAL_TOTAL_SPARKS_EARNED` (Sparks residue cleanup). Every pack signal
+     * resolves to a live HouseUser stat.
+     */
+    public function testCatalogHasNoSparksSignal_AfterRemoval(): void
+    {
+        $reflection = new \ReflectionClass(TitleCatalog::class);
+        $this->assertFalse(
+            $reflection->hasConstant('SIGNAL_TOTAL_SPARKS_EARNED'),
+            'SIGNAL_TOTAL_SPARKS_EARNED must be removed from TitleCatalog'
+        );
+        $this->assertTrue(TitleCatalog::isValidCatalog());
     }
 
     public function testGetSignalValue_UnknownSignal_ReturnsZero(): void

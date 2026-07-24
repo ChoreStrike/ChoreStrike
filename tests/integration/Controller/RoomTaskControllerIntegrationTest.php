@@ -130,7 +130,7 @@ class RoomTaskControllerIntegrationTest extends TestCase
             'roomTask' => $this->createMockRoomTask($roomTaskId, 1, 1),
             'room' => $this->createMockRoom(1, 'Living Room', 1, 85),
             'task' => $this->createMockTask(1, 'Test Task'),
-            'rewards' => ['score' => 10, 'sparks' => 5]
+            'rewards' => ['coinsEarned' => 10]
         ];
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');

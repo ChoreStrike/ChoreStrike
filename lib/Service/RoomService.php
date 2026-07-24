@@ -245,54 +245,6 @@ class RoomService
     }
 
     /**
-     * Add task to room
-     *
-     * @param int $roomId The room ID
-     * @param int $taskId The task ID
-     * @param \DateTime|null $nextDue Optional next due date (defaults to tomorrow)
-     * @param string|null $assignedToUserId Optional assigned user ID
-     */
-    public function addTaskToRoom(
-        int $roomId,
-        int $taskId,
-        ?\DateTime $nextDue = null,
-        ?string $assignedToUserId = null
-    ): RoomTask {
-        // Check if task already exists in room
-        if ($this->roomTaskMapper->exists($roomId, $taskId)) {
-            throw new \InvalidArgumentException("Task {$taskId} already exists in room {$roomId}");
-        }
-
-        // Default to tomorrow if no due date provided
-        if ($nextDue === null) {
-            $nextDue = new \DateTime();
-            $nextDue->add(new \DateInterval('P1D'));
-        }
-
-        return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $assignedToUserId);
-    }
-
-    /**
-     * Remove task from room
-     *
-     * @param int $roomId The room ID
-     * @param int $taskId The task ID
-     */
-    public function removeTaskFromRoom(int $roomId, int $taskId): void
-    {
-        $roomTasks = $this->roomTaskMapper->findByRoomId($roomId);
-
-        foreach ($roomTasks as $roomTask) {
-            if ($roomTask->getTaskId() === $taskId) {
-                $this->roomTaskMapper->delete($roomTask);
-                return;
-            }
-        }
-
-        throw new DoesNotExistException("Task {$taskId} not found in room {$roomId}");
-    }
-
-    /**
      * Get room task by ID
      *
      * @param int $roomTaskId The room task ID

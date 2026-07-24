@@ -20,6 +20,112 @@
 
 ---
 
+## [P2] Fresh-install schema gap: task_tier / flex_days / ideal_due_date / coin_multiplier never created
+
+**Status**: Backlog
+**Assignee**: Unassigned
+**Estimated Effort**: M
+**Phase**: 9
+**Source**: Reproduced during CS-PLAN-010 integration validation (2026-07-24)
+
+### Description
+On a clean Nextcloud install (fresh DB volume), migrations `Version1018`
+(`task_tier`), `Version1019` (`coin_multiplier`), and `Version1020`
+(`flex_days`, `ideal_due_date`) appear not to persist their columns — the
+migration chain runs through `Version1026` (verified: sparks columns are
+dropped), but these four columns are absent from a fresh schema. The result is
+**runtime 500s on any fresh install**: `TaskMapper` `ORDER BY task_tier`,
+`RoomTask` `SET ideal_due_date`, and the coin-multiplier reads all fail with
+`Unknown column`.
+
+This was previously masked: the Docker test image carried a cached/manual
+`ALTER TABLE` workaround (noted in CS-PLAN-005 Phase 5), and the integration
+baseline (143/143, CS-PLAN-007) was recorded against that patched image, so a
+truly clean install was never green.
+
+### Reproduction
+```powershell
+docker compose -f docker-compose.test.yml down -v
+docker compose -f docker-compose.test.yml up -d --build
+docker exec chorestrike-db mariadb -uroot -proot nextcloud \
+  -e "SHOW COLUMNS FROM oc_chorestrike_tasks LIKE 'task_tier';"   # -> empty
+docker compose -f docker-compose.test.yml exec -T nextcloud-test bash -c \
+  "cd /var/www/html/custom_apps/chorestrike && php vendor/bin/phpunit --configuration phpunit.integration.xml"
+# -> 14 errors: Unknown column 'task_tier' / 'ideal_due_date'
+```
+
+### Acceptance Criteria
+- [ ] A fresh install (`down -v` → `up`) produces a schema with `task_tier`,
+      `flex_days`, `ideal_due_date`, and `coin_multiplier` without manual
+      intervention.
+- [ ] Integration suite is green on a clean volume (no manual `ALTER TABLE`).
+- [ ] Root cause documented (suspected: `changeSchema` not persisting in
+      `Version1018`–`Version1020`, possibly the duplicate `Version1004` files
+      disrupting migration ordering).
+
+### Workaround (current)
+```sql
+ALTER TABLE oc_chorestrike_tasks ADD COLUMN task_tier VARCHAR(10) NOT NULL DEFAULT 'silver';
+ALTER TABLE oc_chorestrike_tasks ADD COLUMN flex_days INT NOT NULL DEFAULT 0;
+ALTER TABLE oc_chorestrike_room_tasks ADD COLUMN ideal_due_date DATETIME NULL;
+ALTER TABLE oc_chorestrike_house_users ADD COLUMN coin_multiplier DECIMAL(3,2) NOT NULL DEFAULT 1.00;
+```
+
+---
+
+## [P1] Authorization gaps & cross-house data leaks (CODE_REVIEW_2026-07-24)
+
+**Status**: Backlog
+**Assignee**: Unassigned
+**Estimated Effort**: L
+**Phase**: 9
+**Source**: Review of the full codebase (`docs/backlog/CODE_REVIEW_2026-07-24.md`)
+
+### Description
+The project-wide review confirmed an authorization / data-isolation cluster. None
+blocks a fresh single-house install, but each violates the project rule
+("validate house membership / ownership on every mutation; never trust client
+input"). Recommend a dedicated plan covering the whole controller auth model.
+
+- **S1/S2 — IDOR on group-task claim endpoints.** `RoomTaskController::claimForUser()` (:822) and `unclaim()` (:852) do not call `validateRoomTaskOwnership()`, unlike sibling `assignToGroup()` (:798). A house member can claim/unclaim any room task by ID (cross-house). Fix: add the ownership guard (or archive the dead group-assignment feature — see D2).
+- **S3 — Task deletion without ownership gate.** `TaskController::delete()` (:441) + `TaskService::deleteTask()` (:168) only check house membership of the caller, not ownership/visibility of the task. Tasks carry no `house_id` (global templates), so a member of house A can delete a task house B uses; no private/admin-only gate either. Fix: load the task and enforce visibility/owner rules (mirror `show()`).
+- **S4 — Mass-assignment in `TaskService::updateTask()`** (:144). Reflective `set*()` over every supplied key; only the controller whitelists. Fix: explicit mutable-field whitelist in the service (defense in depth).
+- **S5 — Cross-house user task-stats.** `RoomTaskController::userTasks()` (:700) / `userStats()` (:753) take an arbitrary `userId` without verifying it belongs to the caller's house → stats leak. Fix: membership check via `houseUserMapper->findByHouseAndUser`.
+- **S6 — Auth failures return HTTP 500.** `AuthorizationService::requireHouseMember/requireCurrentUserId/requireHouseOwner` throw `\RuntimeException`; every controller catches `\Exception` → 500 instead of 403/401. Fix: throw `ForbiddenException` (or add explicit 403 catch blocks) in affected controllers.
+- **S7 — Side-effecting `requireHouseMember()`** (:119-130) auto-creates a membership on miss (`createOrGet`). A "require" check that mutates is surprising/mis-named. Fix: split into a pure `assertHouseMember()` vs. an explicit `ensureHouseMember()`.
+- **L1 — Overdue/due-today/due-soon endpoints unscoped.** `RoomTaskMapper::findOverdue/findDueToday/findDueWithinDays` (:226/270/301) have no house filter and are the live handlers for `room_task#overdue/dueToday/dueWithinDays` (via `RoomTaskService:129/140/152`). The earlier `findOverdueByHouse` fix was never wired in. Cross-house task listing. Fix: switch the service/route to the house-scoped variants.
+- **L2 — Visible-to-user / group-tasks unscoped.** `findVisibleToUser`/`findByGroupId` (:424/398) → `room_task#visibleToUser/groupTasks`. Cross-house leak via group-name collision. (Part of the legacy group-assignment feature — D2.)
+
+### Acceptance Criteria
+- [ ] S1/S2: `claimForUser`/`unclaim` validate task ownership (or the group feature is archived).
+- [ ] S3: task delete enforces visibility/owner + (where applicable) house scope.
+- [ ] S4: `updateTask` whitelists mutable fields; unknown keys rejected with 400.
+- [ ] S5: `userTasks`/`userStats` verify the target userId is in the caller's house.
+- [ ] S6: auth-denial paths return 403/401, not 500; covered by regression tests.
+- [ ] S7: pure membership assertion separated from auto-create.
+- [ ] L1/L2: overdue/due/visible/group endpoints house-scoped; cross-house regression tests added.
+
+### Notes
+- Transaction model on the completion path verified sound (`RoomService::completeRoomTask` wraps `handleTaskCompletion` in a tx). SQL-injection audit clean (all params use `createNamedParameter()`).
+
+---
+
+## [P2] PostgreSQL-incompatible column rename migration (CODE_REVIEW_2026-07-24)
+
+**Status**: Backlog
+**Assignee**: Unassigned
+**Estimated Effort**: S
+**Phase**: 9
+**Source**: Review of the full codebase
+
+### Description
+`Version1017Date20260321000000::renameColumn()` (:93-96) uses MySQL `ALTER TABLE … CHANGE` in its `else` branch. PostgreSQL needs `ALTER TABLE … RENAME COLUMN`, so the migration fails on PG upgrades from the pre-coins schema. Guarded by `hasColumn()`, so it is a no-op on fresh installs.
+
+### Acceptance Criteria
+- [ ] Add an explicit `postgresql` branch using `RENAME COLUMN`, or use the Doctrine schema manager declaratively.
+
+---
+
 ## [P1] Pre-existing test/lint gate failures (logged during CS-PLAN-001 verification)
 
 **Status**: Fixed — all items resolved (CS-PLAN-004, 2026-07-21)

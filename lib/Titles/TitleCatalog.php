@@ -19,7 +19,7 @@ use OCA\ChoreStrike\Db\HouseUser;
  *
  *  - Home Helpers  → contributionScore (total energy spent)
  *  - Team Energy   → longestStreak     (dependability)
- *  - Cozy Home     → totalSparksEarned (household contribution)
+ *  - Cozy Home     → coins             (household contribution)
  *
  * Thresholds here are *defaults*. `RewardConfigService` overrides them per
  * house via the `title_threshold_{pack}_{tier}` keys (one per tier, 9 total)
@@ -36,7 +36,7 @@ class TitleCatalog
 	public const PACK_HOME_HELPERS = 'home_helpers';
 	/** Pack key: streak / dependability — driven by longestStreak. */
 	public const PACK_TEAM_ENERGY = 'team_energy';
-	/** Pack key: coins / household contribution — driven by totalSparksEarned. */
+	/** Pack key: coins / household contribution — driven by `coins`. */
 	public const PACK_COZY_HOME = 'cozy_home';
 
 	/**
@@ -44,7 +44,6 @@ class TitleCatalog
 	 */
 	public const SIGNAL_CONTRIBUTION_SCORE = 'contributionScore';
 	public const SIGNAL_LONGEST_STREAK = 'longestStreak';
-	public const SIGNAL_TOTAL_SPARKS_EARNED = 'totalSparksEarned';
 	public const SIGNAL_COINS = 'coins';
 
 	/**
@@ -154,7 +153,6 @@ class TitleCatalog
 		return match ($signal) {
 			self::SIGNAL_CONTRIBUTION_SCORE => $user->getContributionScore(),
 			self::SIGNAL_LONGEST_STREAK => $user->getLongestStreak(),
-			self::SIGNAL_TOTAL_SPARKS_EARNED => $user->getTotalSparksEarned(),
 			self::SIGNAL_COINS => $user->getCoins(),
 			default => 0,
 		};
@@ -171,7 +169,6 @@ class TitleCatalog
 		$validSignals = [
 			self::SIGNAL_CONTRIBUTION_SCORE,
 			self::SIGNAL_LONGEST_STREAK,
-			self::SIGNAL_TOTAL_SPARKS_EARNED,
 			self::SIGNAL_COINS,
 		];
 

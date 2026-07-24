@@ -66,3 +66,11 @@ If total due energy exceeds available capacity:
 ## Open Decisions
 
 - Whether energy costs can be personalized per member based on age/ability.
+
+## See Also
+
+- Implemented reward tokens driven by energy (coins, tier/early multipliers, streak
+  freezes, teamwork bonus, weekly goal) are documented in
+  [`gamification-and-rewards.md`](gamification-and-rewards.md) § Implemented Reward
+  Mechanics. Energy budgets are configurable per weekday via `AvailabilitySettings`
+  (see [`../engineering/architecture.md`](../engineering/architecture.md)).

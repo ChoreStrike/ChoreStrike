@@ -1,9 +1,19 @@
 # Phase 9: Code Quality & Technical Debt
 
-**Status**: Planned  
+**Status**: In Progress  
 **Priority**: Medium  
 **Estimated Effort**: 2-3 days  
 **Dependencies**: Phase 8 Release Preparation
+
+> **Progress (2026-07-24):** Several P9 items shipped via `cs-plan-007` (CI,
+> contract tests, integration repair) and `cs-plan-008` (shared API layer,
+> store-ownership). The 2026-07-24 project review added new open items — see the
+> fairness (background jobs ignoring `weekdayAvailability`), dead-code (dead
+> mappers, group-assignment feature), and frontend store-barrel findings in
+> `CODE_REVIEW_2026-07-24.md`. The dead `MedalService`/`UserStatsController`,
+> Sparks residue, and doc-vs-impl drift were closed by `cs-plan-010`
+> (**P9-DOC-004**); the catalogued-but-unawarded medal types are logged as
+> **P9-GAME-001**.
 
 ---
 
@@ -396,6 +406,34 @@ export const logger = {
 **Validation**:
 - Verified the active documentation chain with targeted grep checks for `AGENT_GUIDELINES.md` and `.windsurfrules` references.
 - Reviewed the unstaged diff to confirm the bootstrap reduction and link rewiring.
+
+---
+
+### P9-DOC-004 - Documentation-vs-Implementation Reconciliation & Dead-Code Residue Cleanup
+**Priority**: MEDIUM  
+**Effort**: 1.5 days  
+**Status**: Done (CS-PLAN-010)
+
+**Description**: The 2026-07-24 four-agent doc-vs-impl reconciliation found the documentation several plans behind the implementation, plus leftover Sparks/Monsters residue and dead services/controllers from CS-PLAN-002/003 that were never fully closed.
+
+**Completed**:
+- **Doc rewrites:** `architecture.md` (directory tree + DB schema — lowercase tables, `energy_cost`/`coins`, sparks-free, 9 supporting tables, `weekly_goal_notified_week` on `houses`), `design.md` (medal reality note + combo ×2 personal), `gamification-and-rewards.md` + `energy-and-balancing.md` + gamification SKILL (implemented reward tokens, medal award reality, sparks→coins wording), `testing.md` (E2E 20→32 table, command-derived counts, `phpunit.integration.xml` consistency), `api/README.md` (removed phantom `PUT /room-tasks/{id}`, documented real room-task update ops + routes.php pointer, `test/seed/{profile}` path param, stale example fields `difficulty`/`total_points`/`points_earned`/`tank`→real names).
+- **Sparks residue (Decision C — drop):** removed `currentSparks`/`totalSparksEarned` + dead `addSparks()`/`spendSparks()` from `HouseUser`; removed unused `SIGNAL_TOTAL_SPARKS_EARNED` (+ match arm / SELECT column) from `TitleCatalog` and `Version1025` backfill; removed dead `MinigameService::getUserSparks()`; new `Version1026` migration drops the `current_sparks`/`total_sparks_earned` columns. (The plan missed `MinigameService::getUserSparks()` as a reader — folded in; only test-referenced.)
+- **Dead code archived:** `lib/Service/MedalService.php` (+ `MedalServiceTest`), `lib/Controller/UserStatsController.php` → `archive/2026-07/dead-code/`. Removed `RoomController::addTask()`/`removeTask()` unrouted actions + their now-orphaned `RoomService::addTaskToRoom()`/`removeTaskFromRoom()` counterparts (review follow-up). `RouteMatrixTest` `user_stats` mapping dropped.
+- **Medal award gap (Decision A):** documented reality (only `team_anchor` + `streak_keeper` awarded) — see open item **P9-GAME-001** below.
+
+**Validation**: `php -l` clean on all modified PHP; no `lib/` references to archived classes; no live sparks readers (historical migrations untouched).
+
+---
+
+### P9-GAME-001 - Wire the 3 Catalogued-but-Unawarded Medal Types
+**Priority**: LOW  
+**Effort**: 0.5 day  
+**Status**: Open (surfaced by CS-PLAN-010, Decision A — default "document reality" chosen)
+
+**Description**: `lib/Db/Medal.php` catalogues five gamification medal types (`team_anchor`, `flow_keeper`, `room_guardian`, `team_player`, `streak_keeper`), but the live `GameLogicService::checkAndAwardMedals()` flow only awards two: `team_anchor` (10+ tasks/week) and `streak_keeper` (7+ day streak). `flow_keeper`, `room_guardian`, and `team_player` are recognized in the medal label/rarity renderers but have **no award check**, so they can never be earned.
+
+**Proposed implementation**: add the three missing award checks to `GameLogicService::checkAndAwardMedals()` (mirror the existing `awardMedalIfNew()` pattern). Suggested criteria (confirm at implementation): `flow_keeper` (e.g. N-day active streak of daily completions), `room_guardian` (most tasks in a specific room/week), `team_player` (most teamwork/cooperative completions). Add unit + integration regression tests; update docs to remove the "not yet wired" caveats. Split into its own plan if scope grows.
 
 ---
 

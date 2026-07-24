@@ -21,10 +21,15 @@ use PHPUnit\Framework\TestCase;
  */
 class RouteMatrixTest extends TestCase
 {
-    /** @var array<string, string> */
-    private const CONTROLLER_NAME_MAP = [
-        'user_stats' => 'UserStatsController',
-    ];
+    /**
+     * Overrides for snake_case route names that don't PascalCase-convert to
+     * their controller class name. `user_stats` → `UserStatsController` was
+     * removed when that dead controller was archived (CS-PLAN-010); no route
+     * uses it. Keep this map for future non-conforming snake_case names.
+     *
+     * @var array<string, string>
+     */
+    private const CONTROLLER_NAME_MAP = [];
 
     /** @var list<array{name: string, url: string, verb: string}> */
     private array $routes;

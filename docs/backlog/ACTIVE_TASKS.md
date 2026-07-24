@@ -5,6 +5,18 @@
 
 ## Recently Completed
 
+### Project-wide Review (Full) — 2026-07-24
+**Status**: Done
+**Branch**: master (uncommitted: 3 mechanical fixes + backlog docs)
+**Record**: docs/backlog/CODE_REVIEW_2026-07-24.md
+**Scope**: Full review of `lib/` + `src/` + migrations. 4 parallel `reviewer` subagents + orchestrator verification (caller analysis + source reads for every block/major).
+**Outcome**:
+- **0 blocks.** Transaction model on the completion path verified sound; SQL-injection audit clean.
+- **Auto-fixed (mechanical):** `game.js`/`user.js` in-place getter sort mutations → copy; `TaskMapper::getCategories` missing `closeCursor()`. Gate green (Jest 59/59 affected, ESLint 0 errors, `php -l` clean).
+- **13 major + 9 minor + 4 nit routed to backlog.** Security/auth + cross-house leak cluster → `bugs.md` [P1] (S1–S7, L1/L2); fairness (StreakFreeze/DailyNotification jobs ignore `weekdayAvailability`, hardcoded combo multiplier) + dead code (entire `MedalService`, dead RoomTask/Task mappers, group-assignment feature) → `phase-9-code-quality.md`; PostgreSQL migration portability → `bugs.md` [P2]; frontend store-barrel incompleteness (`scheduling` store never imported, `resetAllStores` skips checklist/scheduling) → `phase-9-code-quality.md`.
+- **3 findings discarded as false positives** after verification (handleTaskCompletion transaction; "house_id crash" = dead code with no callers; countByUserOnDateGrouped cross-house — map keyed by globally-unique id).
+- **Not committed** — awaiting approval.
+
 ### CS-PLAN-006 - Role Title System
 **Status**: Done
 **Started**: 2026-07-22
@@ -167,9 +179,38 @@
 **Plan**: docs/plans/active/cs-plan-008-frontend-store-architecture.md
 **Blockers**: None (CS-PLAN-007 Done).
 
+### CS-PLAN-010 - Documentation-vs-Implementation Reconciliation & Dead-Code Cleanup
+**Status**: Planned
+**Priority**: P2 · **Effort**: L · **Depends on**: none (ideally the uncommitted 2026-07-24 review changes are committed first)
+**Scope**: Closes the doc-vs-impl drift found by the 2026-07-24 four-agent reconciliation. (1) Rewrite the stalest docs — `architecture.md` (directory tree + DB schema + data-flow), `design.md` (medal names), concept reward docs, `testing.md` (E2E 20→32 + phpunit command), `api/README.md` (phantom `PUT /room-tasks/{id}`, undocumented route groups). (2) Code/schema cleanup — remove sparks residue from `HouseUser`/`TitleCatalog` + `Version1026` drop migration; archive dead `MedalService`/`UserStatsController`; remove `RoomController` dead actions. Three product decisions surfaced (Decision Points A/B/C) with safe defaults (align docs to reality, drop stale sparks columns). Plan review proposed before activation.
+**Plan**: docs/plans/new/cs-plan-010-doc-vs-impl-reconciliation.md
+**Blockers**: None. Decision Points A/B/C to be confirmed at `new/ → active/`.
+
 ---
 
 ## Currently Active
+
+### CS-PLAN-010 - Documentation-vs-Implementation Reconciliation & Dead-Code Cleanup
+**Status**: Done
+**Started**: 2026-07-24
+**Completed**: 2026-07-24
+**Branch**: master
+**Plan**: docs/plans/active/cs-plan-010-doc-vs-impl-reconciliation.md
+**Blockers**: None
+**Decisions (confirmed at activation):** A = document medal reality + backlog · B = align combo docs to implemented ×2 personal combo · C = drop the stale sparks columns.
+**Scope**: Closes the doc-vs-impl drift from the 2026-07-24 four-agent reconciliation. Doc phases (1–4): rewrite `architecture.md` (tree + DB schema + data-flow), `design.md` medals + reward concept docs + gamification SKILL, `testing.md` (E2E 20→32 + phpunit command), `api/README.md` (phantom `PUT /room-tasks/{id}` + route groups). Code/schema phases (5–7): remove sparks residue (`HouseUser`/`TitleCatalog`/`MinigameService::getUserSparks`/`Version1025` + new `Version1026` drop migration); archive dead `MedalService`/`UserStatsController`; remove `RoomController::addTask()/removeTask()`. Phase 8: link-integrity grep + build gate.
+**Notes**:
+- **Phase 0 — Record & register:** extended `CODE_REVIEW_2026-07-24.md` with the four reconciliation findings (R1–R4).
+- **Phase 1 — `architecture.md`:** rewrote the directory tree (removed archived `TaskClaim`/`TaskParticipant`/`TaskScope`; added `AppInfo/`/`BackgroundJob/`/`Notification/`/`Exception/`/`Templates/`; `composables/`/`styles/`; `confetti.js`/`sound.js`; `HouseholdGoalBar.vue`; Version1000…Version1026 with the 1014 gap) and the DB-schema section (lowercase `chorestrike_*` tables; `energy_cost` not `difficulty`; `coins` not `total_points`; sparks-free; 9 supporting tables; `weekly_goal_notified_week` correctly on `houses`; `monster_count` marked legacy-retained-but-unused). Fixed the data-flow example (`TaskList.vue`/`RoomDetail.vue`, `checkForCombo`, coins) and the `useGameStore` method name.
+- **Phase 2 — medals + rewards:** `design.md` (combo ×2 personal + medal reality note), `gamification-and-rewards.md` (Implemented Reward Mechanics table + Weekly Medals award reality), `energy-and-balancing.md` (cross-ref), gamification SKILL (medal reality, personal combo, sparks→coins wording, reward-token table).
+- **Phase 3 — `testing.md`:** E2E table 20→32 (all 32 specs); replaced drifted hardcoded counts (E2E/Jest/integration) with command-derived guidance; fixed the `phpunit.xml tests/integration/` → `phpunit.integration.xml` inconsistency (2 sites).
+- **Phase 4 — `api/README.md`:** removed the phantom `PUT /room-tasks/{id}` (no route exists); documented the real update ops (`/due-date`, `/assignees`, deactivate/reactivate) + a `routes.php` pointer; fixed `GET /test/seed/{profile}` path-param note; corrected stale example fields (`difficulty`→`energyCost`, `points_earned`→`coins_earned`, `total_points`→`coins`, `medal_type` `tank`→`team_anchor`).
+- **Phase 5 — Sparks residue (Decision C drop):** edited `Version1025` (removed dead `SIGNAL_TOTAL_SPARKS_EARNED` match arm + the unused `total_sparks_earned` SELECT column) → `TitleCatalog` (removed constant + mapping + fixed comments) → `HouseUser` (removed fields/`@method`/`addType`/`jsonSerialize` keys + dead `addSparks()`/`spendSparks()`) → `MinigameService::getUserSparks()` (a live reader the plan missed — dead, only test-referenced) → `TitleService` docblock → new `Version1026` drop migration (`hasColumn`-guarded, idempotent). Updated `TitleCatalogTest` (+ regression), `HouseUserTest`, `HouseUserMapperTest`, `MinigameServiceTest`, integration fixtures (`IntegrationTestCase` INSERT, `TitleServiceIntegrationTest` `coins`, `RoomTaskControllerIntegrationTest` rewards), `TitlePicker.spec.js`.
+- **Phase 6 — Dead code:** archived `MedalService`(+test) + `UserStatsController` to `archive/2026-07/dead-code/`; removed `RoomController::addTask()`/`removeTask()` unrouted actions; emptied the `RouteMatrixTest` `user_stats` mapping. **Review follow-up:** also archived the now-orphaned `RoomService::addTaskToRoom()`/`removeTaskFromRoom()` (their only callers were the removed controller actions) + dropped their `RoomServiceTest` cases.
+- **Phase 7 — Medal award gap (Decision A):** documented "2 of 5 awarded" across docs/SKILL; logged **P9-GAME-001** for the missing award paths.
+- **Phase 8 — Verify:** markdown link-integrity grep = 0 broken (fixed 1 pre-existing `review/SKILL.md` AGENTS.md depth). `phase-9-code-quality.md` updated (P9-DOC-004 Done; P9-GAME-001 open).
+- **Build gate (2026-07-24):** ESLint 0 errors (69 pre-existing JSDoc warnings), Jest 525/525, PHPUnit unit 457/457, PHPUnit integration 143/143 (24 documented skips, 0 errors). `php -l` clean. **Migration verified:** a clean Docker install drops `current_sparks`/`total_sparks_earned` (Version1026 ran).
+- **Incidental finding (logged):** fresh-install schema gap — `Version1018`/`1019`/`1020` don't persist `task_tier`/`flex_days`/`ideal_due_date`/`coin_multiplier` on a clean volume (previously masked by a cached Docker ALTER workaround). Logged as `[P2]` in `bugs.md` for a dedicated plan.
 
 ### CS-PLAN-009 - Repo-root & documentation structure cleanup
 **Status**: Done

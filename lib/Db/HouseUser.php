@@ -27,10 +27,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCoins(int $coins)
  * @method float getCoinMultiplier()
  * @method void setCoinMultiplier(float $coinMultiplier)
- * @method int getCurrentSparks()
- * @method void setCurrentSparks(int $currentSparks)
- * @method int getTotalSparksEarned()
- * @method void setTotalSparksEarned(int $totalSparksEarned)
  * @method int getCurrentStreak()
  * @method void setCurrentStreak(int $currentStreak)
  * @method int getLongestStreak()
@@ -86,12 +82,6 @@ class HouseUser extends Entity implements JsonSerializable
     protected $schedulingPreferences = [];
 
     /** @var int */
-    protected $currentSparks = 0;
-
-    /** @var int */
-    protected $totalSparksEarned = 0;
-
-    /** @var int */
     protected $longestStreak = 0;
 
     /** @var int */
@@ -112,8 +102,6 @@ class HouseUser extends Entity implements JsonSerializable
         $this->addType('contributionScore', 'integer');
         $this->addType('coins', 'integer');
         $this->addType('coinMultiplier', 'decimal');
-        $this->addType('currentSparks', 'integer');
-        $this->addType('totalSparksEarned', 'integer');
         $this->addType('currentStreak', 'integer');
         $this->addType('longestStreak', 'integer');
         $this->addType('lastActivity', 'datetime');
@@ -138,8 +126,6 @@ class HouseUser extends Entity implements JsonSerializable
             'contributionScore' => $this->contributionScore,
             'coins' => $this->coins,
             'coinMultiplier' => $this->coinMultiplier,
-            'currentSparks' => $this->currentSparks,
-            'totalSparksEarned' => $this->totalSparksEarned,
             'currentStreak' => $this->currentStreak,
             'longestStreak' => $this->longestStreak,
             'lastActivity' => $this->lastActivity?->format('c'),
@@ -295,23 +281,6 @@ class HouseUser extends Entity implements JsonSerializable
             $score >= 50 => 'Beginner',
             default => 'Novice'
         };
-    }
-
-    /**
-     * Add sparks to current and total
-     */
-    public function addSparks(int $sparks): void
-    {
-        $this->setCurrentSparks($this->currentSparks + $sparks);
-        $this->setTotalSparksEarned($this->totalSparksEarned + $sparks);
-    }
-
-    /**
-     * Spend sparks
-     */
-    public function spendSparks(int $sparks): void
-    {
-        $this->setCurrentSparks(max(0, $this->currentSparks - $sparks));
     }
 
     /**

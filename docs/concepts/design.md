@@ -4,7 +4,10 @@
 > (room organization, gamification layer, UI mockups, MVP phasing) that guided the implementation.
 > For the **current product vision** see [`product-vision.md`](product-vision.md);
 > for the **current architecture and directory structure** see [`../engineering/architecture.md`](../engineering/architecture.md).
-> Some details here (data model, UI layout) have evolved since implementation.
+> Some details here have evolved since implementation — notably the **monster/"Dust" layer
+> was removed** in `cs-plan-002-gamification-simplification` (House Health + cleanliness were kept,
+> reward currency became Coins). Treat the monster mockups below as historical inspiration, not
+> shipped behaviour.
 
 ## 🎯 Vision
 
@@ -81,7 +84,7 @@ Chaos (0%)      → Monsters cover UI elements (meta-level!)
 ### 3. Cooperative Mechanics
 
 #### Team Bonuses
-- **Combo Multiplier**: 2 users within 10 min → points x1.5
+- **Combo Multiplier**: rapid consecutive completions → coins ×2 (personal combo; the cooperative ×1.5 concept below evolved into the current per-user combo in `GameLogicService::calculateCoins()`)
 - **Synchronized Cleaning**: Same room simultaneously → extra effect
 - **Support Actions**: User can "help" others (bonus points)
 
@@ -91,6 +94,13 @@ Chaos (0%)      → Monsters cover UI elements (meta-level!)
 - **The Specialist**: Focus on specific rooms
 - **The Teamplayer**: Most combo bonuses
 - **The Streak Keeper**: Longest daily streak
+
+> **Implementation reality (CS-PLAN-010):** the shipped medal enum (see `lib/Db/Medal.php`) is
+> `team_anchor` (≈ The Tank), `flow_keeper` (≈ The Scout), `room_guardian` (≈ The Specialist),
+> `team_player` (≈ The Teamplayer), `streak_keeper` (The Streak Keeper). **Only `team_anchor`
+> (10+ tasks/week) and `streak_keeper` (7+ day streak) are actually awarded** in the live
+> `GameLogicService::checkAndAwardMedals()` flow; `flow_keeper`/`room_guardian`/`team_player`
+> are catalogued but their award checks are not yet wired (backlog item).
 
 ### 4. Extended Room Organization
 

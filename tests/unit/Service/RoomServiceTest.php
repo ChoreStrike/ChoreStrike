@@ -21,7 +21,6 @@ use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RoomService;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\IDBConnection;
 use PHPUnit\Framework\TestCase;
@@ -363,106 +362,6 @@ class RoomServiceTest extends TestCase
 
         $this->assertCount(1, $result);
         $this->assertEquals(1, $result[0]->getId());
-    }
-
-    /**
-     * AddTaskToRoom_NewTask_CreatesRoomTask
-     */
-    public function testAddTaskToRoom_NewTask_CreatesRoomTask(): void
-    {
-        $roomId = 1;
-        $taskId = 1;
-
-        $task = new Task();
-        $task->setId($taskId);
-
-        $roomTask = new RoomTask();
-        $roomTask->setId(1);
-        $roomTask->setRoomId($roomId);
-        $roomTask->setTaskId($taskId);
-
-        $this->roomTaskMapper
-            ->expects($this->once())
-            ->method('exists')
-            ->with($roomId, $taskId)
-            ->willReturn(false);
-
-        $this->roomTaskMapper
-            ->expects($this->once())
-            ->method('create')
-            ->willReturn($roomTask);
-
-        $result = $this->service->addTaskToRoom($roomId, $taskId);
-
-        $this->assertSame($roomTask, $result);
-    }
-
-    /**
-     * AddTaskToRoom_DuplicateTask_ThrowsException
-     */
-    public function testAddTaskToRoom_DuplicateTask_ThrowsException(): void
-    {
-        $roomId = 1;
-        $taskId = 1;
-
-        $this->roomTaskMapper
-            ->expects($this->once())
-            ->method('exists')
-            ->with($roomId, $taskId)
-            ->willReturn(true);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Task 1 already exists in room 1');
-
-        $this->service->addTaskToRoom($roomId, $taskId);
-    }
-
-    /**
-     * RemoveTaskFromRoom_ExistingTask_DeletesTask
-     */
-    public function testRemoveTaskFromRoom_ExistingTask_DeletesTask(): void
-    {
-        $roomId = 1;
-        $taskId = 1;
-
-        $roomTask = new RoomTask();
-        $roomTask->setId(1);
-        $roomTask->setTaskId($taskId);
-
-        $this->roomTaskMapper
-            ->expects($this->once())
-            ->method('findByRoomId')
-            ->with($roomId)
-            ->willReturn([$roomTask]);
-
-        $this->roomTaskMapper
-            ->expects($this->once())
-            ->method('delete')
-            ->with($roomTask);
-
-        $this->service->removeTaskFromRoom($roomId, $taskId);
-
-        // Assertions verified by mock expectations
-        $this->assertTrue(true);
-    }
-
-    /**
-     * RemoveTaskFromRoom_NonExistingTask_ThrowsException
-     */
-    public function testRemoveTaskFromRoom_NonExistingTask_ThrowsException(): void
-    {
-        $roomId = 1;
-        $taskId = 999;
-
-        $this->roomTaskMapper
-            ->expects($this->once())
-            ->method('findByRoomId')
-            ->with($roomId)
-            ->willReturn([]);
-
-        $this->expectException(DoesNotExistException::class);
-
-        $this->service->removeTaskFromRoom($roomId, $taskId);
     }
 
     /**

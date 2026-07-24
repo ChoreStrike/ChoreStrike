@@ -103,7 +103,7 @@ class Version1025Date20260719000000 extends SimpleMigrationStep
 		}
 
 		$select = $this->db->getQueryBuilder();
-		$select->select('id', 'contribution_score', 'longest_streak', 'total_sparks_earned', 'coins')
+		$select->select('id', 'contribution_score', 'longest_streak', 'coins')
 			->from('chorestrike_house_users')
 			->where($select->expr()->isNull('unlocked_titles'));
 		$result = $select->executeQuery();
@@ -157,7 +157,6 @@ class Version1025Date20260719000000 extends SimpleMigrationStep
 		return match ($signal) {
 			TitleCatalog::SIGNAL_CONTRIBUTION_SCORE => 'contribution_score',
 			TitleCatalog::SIGNAL_LONGEST_STREAK => 'longest_streak',
-			TitleCatalog::SIGNAL_TOTAL_SPARKS_EARNED => 'total_sparks_earned',
 			TitleCatalog::SIGNAL_COINS => 'coins',
 			default => null,
 		};

@@ -47,7 +47,7 @@ function catalog() {
 		},
 		cozy_home: {
 			labelKey: 'titles.pack.cozy_home',
-			signal: 'totalSparksEarned',
+			signal: 'coins',
 			tiers: [
 				{ key: 'cozy_buddy', labelKey: 'titles.cozy_home.cozy_buddy', threshold: 500 },
 				{ key: 'room_ranger', labelKey: 'titles.cozy_home.room_ranger', threshold: 2500 },
@@ -69,7 +69,7 @@ describe('TitlePicker', () => {
 		userStore.currentUser = {
 			contributionScore: 60,
 			longestStreak: 8,
-			totalSparksEarned: 0,
+			coins: 0,
 		}
 		jest.clearAllMocks()
 	})
