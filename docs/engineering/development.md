@@ -455,7 +455,7 @@ tail -f /path/to/nextcloud/data/nextcloud.log
 - Lazy load routes and components
 - Use virtual scrolling for long lists
 - Debounce search inputs
-- Optimize images (use sprites for monsters)
+- Optimize images (use sprite sheets)
 
 ### Backend
 - Use eager loading to avoid N+1 queries
@@ -493,13 +493,13 @@ tail -f /path/to/nextcloud/data/nextcloud.log
 
 ### Branch naming
 - `feature/task-templates`
-- `fix/monster-spawn-bug`
+- `fix/leaderboard-sort-bug`
 - `docs/api-documentation`
 
 ### Commit messages
 ```
-feat: Add monster spawn animation
-fix: Correct point calculation for combo tasks
+feat: Add task completion celebration
+fix: Correct coin calculation for combo tasks
 docs: Update API documentation
 refactor: Simplify room state calculation
 test: Add unit tests for TaskScheduler

@@ -48,7 +48,7 @@ export const useGameStore = defineStore('game', {
 		},
 
 		topContributors: (state) => {
-			return state.leaderboard
+			return [...state.leaderboard]
 				.sort((a, b) => b.contributionScore - a.contributionScore)
 				.slice(0, 10)
 		},

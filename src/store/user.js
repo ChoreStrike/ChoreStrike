@@ -41,7 +41,7 @@ export const useUserStore = defineStore('user', {
 		},
 
 		getTopContributors: (state) => {
-			return state.houseUsers
+			return [...state.houseUsers]
 				.sort((a, b) => b.contributionScore - a.contributionScore)
 				.slice(0, 5)
 		},

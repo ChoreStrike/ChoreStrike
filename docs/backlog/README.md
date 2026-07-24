@@ -1,89 +1,66 @@
 # Project Backlog
 
-This directory contains the project backlog and task tracking for ChoreStrike.
-
-## Purpose
-
-The backlog tracks:
-- **Active tasks** (currently being worked on) → `ACTIVE_TASKS.md`
-- Planned features (by phase)
-- Known bugs
-- Technical debt
-- Future enhancements
+The backlog tracks outstanding work for ChoreStrike. Shipped phase plans live in
+[`../plans/done/`](../plans/README.md); this directory holds only what is still
+**open or live**.
 
 ## Structure
 
 ```
 backlog/
-├── README.md (this file)
-├── ACTIVE_TASKS.md          ← LIVE tracking (update constantly!)
-├── bugs.md                  ← Bug backlog
-├── phase-1-core-tasks.md    ← Phase 1 features
-├── phase-2-gamification.md  ← Phase 2 features
-└── ...                      ← Additional phase files
+├── README.md                              ← this file
+├── ACTIVE_TASKS.md                        ← LIVE coordination (update constantly)
+├── bugs.md                                ← bugs + tech debt (incl. review findings)
+├── CODE_REVIEW_2026-07-24.md              ← latest project review record
+├── phase-8-release-preparation.md         ← active: staged release (alpha → beta → stable)
+└── phase-9-code-quality.md                ← open: code-quality / technical-debt items
 ```
+
+> Completed phase backlogs (phases 1–4, 7, the reward-system redesign, and the
+> reward gap-analysis) were archived to `archive/2026-07/backlog/` once the work
+> shipped — see that folder's `README.md`. Do not re-add done work here; record it
+> in [`../plans/done/`](../plans/README.md) and the `CHANGELOG.md` instead.
 
 ## Workflow
 
-### For Coding Agents
-1. **Before starting:** Check `ACTIVE_TASKS.md` for conflicts
-2. **When starting:** Add task to `ACTIVE_TASKS.md` with "In Progress" status
-3. **During work:** Update `ACTIVE_TASKS.md` every 30-60 min
-4. **When complete:** Change status to "Review Ready", list modified files
-5. **Update backlog:** Mark task done in phase/bug file
+### For coding agents
+1. **Before starting:** check `ACTIVE_TASKS.md` for conflicts.
+2. **When starting:** add the task to `ACTIVE_TASKS.md` as "In Progress".
+3. **During work:** keep `ACTIVE_TASKS.md` current.
+4. **When complete:** move the entry to "Recently Completed", list modified files.
+5. **Track follow-ups:** log bugs/tech-debt in `bugs.md` or the relevant phase file.
 
-### For Review Agents
-1. **Check:** `ACTIVE_TASKS.md` for "Review Ready" tasks
-2. **Review:** Follow `docs/engineering/review-playbook.md` together with the active review rules in `AGENTS.md`
-3. **Fix minor issues:** Immediately (< 10 lines)
-4. **Ask user:** For unclear issues
-5. **Move to backlog:** For major refactors
-6. **Complete:** Move to "Recently Completed" in `ACTIVE_TASKS.md`
+### For review agents
+See `AGENTS.md` → "Agent Roster & Slash Commands" and
+[`../engineering/review-playbook.md`](../engineering/review-playbook.md).
+The slash commands `/review-chorestrike`, `/review-chorestrike-full`, and
+`/plan-review` load the canonical review process.
 
-See `AGENTS.md` and `docs/engineering/review-playbook.md` for the active workflow details.
-
-## Backlog Item Format
-
-Each item should include:
+## Item format
 
 ```markdown
-## [PRIORITY] Feature/Bug Title
+## [P0–P4] Title
 
-**Status**: [Planned | In Progress | Blocked | Done]  
-**Assignee**: [Name or unassigned]  
-**Estimated Effort**: [S/M/L/XL]  
-**Phase**: [1-8 or Future]
+**Status**: [Planned | In Progress | Blocked | Done]
+**Assignee**: [name or unassigned]
+**Estimated Effort**: [S | M | L | XL]
+**Source**: [where this came from — e.g. "Review of <module>"]
 
 ### Description
-What needs to be done?
-
 ### Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
-
-### Dependencies
-- Depends on: [Other tasks]
-- Blocks: [Other tasks]
-
-### Notes
-Additional context, links, etc.
+### Dependencies / Notes
 ```
 
-## Priority Levels
+## Priority levels
 
-- **P0 (Critical)**: Blocking, must be done immediately
-- **P1 (High)**: Important for current phase
-- **P2 (Medium)**: Should have
-- **P3 (Low)**: Nice to have
-- **P4 (Future)**: Deferred to later phases
+- **P0 (Critical)** — blocking, fix immediately
+- **P1 (High)** — important for the current effort
+- **P2 (Medium)** — should have
+- **P3 (Low)** — nice to have
+- **P4 (Future)** — deferred
 
-## Current Status
+## Current status
 
-See [roadmap.md](../release/roadmap.md) for the overall project roadmap.
-
-Currently in **Phase 0: Foundation**
-
----
-
-**Note**: Keep backlog items updated. Move completed items to CHANGELOG.md.
+See the [roadmap](../release/roadmap.md) for the project phases. The app is in
+the **staged release effort** (Phase 8): `v0.8.x` alpha → `v0.9.x` private beta →
+`v1.0.0` stable manual-install.

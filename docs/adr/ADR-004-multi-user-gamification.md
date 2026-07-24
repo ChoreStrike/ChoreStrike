@@ -1,8 +1,15 @@
 # ADR-004: Multi-User Gamification Architecture
 
-**Status**: Accepted  
+**Status**: Accepted — currency model superseded  
 **Date**: 2026-02-24  
 **Deciders**: Development Team
+
+> **Note (2026-07-24):** The "Team Sparks" currency described below was replaced
+> by the **Coins + task-tier multiplier + personal coin multiplier** model shipped
+> in `cs-plan-002-gamification-simplification` (see `docs/plans/done/`). The
+> multi-user contribution / leaderboard / streak architecture in this ADR still
+> applies; only the currency naming and reward formula changed. The body is kept
+> verbatim as a historical record.
 
 ## Context
 

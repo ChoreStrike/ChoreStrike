@@ -30,12 +30,12 @@ ChoreStrike turns household maintenance into a cooperative, motivating experienc
 
 - Use "energy" as the effort unit.
 - Avoid military resource terms for rewards (for example, avoid "ammo").
-- Use "Team Sparks" as the default reward currency name.
+- Use "Coins" as the reward currency name.
 
 ## Locked Decisions (MVP)
 
-- Reward currency name: Team Sparks.
-- Parent/caregiver balancing model: Keep contribution score and Team Sparks separate, with no role multiplier in MVP.
+- Reward currency: Coins (with per-task tier multipliers and a personal coin multiplier).
+- Parent/caregiver balancing model: Keep contribution score and coins separate, with no role multiplier in MVP.
 
 ## Open Decisions
 

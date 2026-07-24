@@ -82,41 +82,25 @@
 **Timeline**: Week 7-10
 
 #### Game Mechanics
-- [x] Monster spawn system
-  - [x] Calculate monster count based on overdue tasks
-  - [x] Different monster types per category
 - [x] Room cleanliness calculation
   - [x] Based on task completion status
-  - [x] Visual indicators (colors)
+  - [x] Visual indicators (cleanliness ring, status colors)
 - [x] House Health system
   - [x] Aggregate cleanliness across all rooms
   - [x] Health bar visualization
-- [x] Points system
-  - [x] Calculate points based on difficulty + priority
-  - [x] Award points on task completion
+- [x] Reward currency (Coins)
+  - [x] Task-tier multiplier (Bronze/Silver/Gold)
+  - [x] Personal coin multiplier for fairness
+  - [x] Awarded on task completion
 
-#### Visual Design
-- [x] Monster sprites (pixel art)
-  - [x] Dust bunny
-  - [x] Slime blob
-  - [x] Pixel spider
-  - [x] Trash gremlin
-- [x] Monster animations
-  - [x] Idle animation
-  - [x] Spawn animation
-  - [x] Defeat animation
-- [x] Task completion animation
-  - [x] Particle effects
-  - [x] Sound effects (optional)
-- [x] Room status visualization
-  - [x] Clean/Due/Overdue/Critical states
-  - [x] Monster overlay on room cards
+> **Note:** The original "monster spawn/sprite" layer was removed in
+> `cs-plan-002-gamification-simplification` (Phase 0). House Health and room
+> cleanliness were retained; completion confetti + Web-Audio SFX were added later
+> (CS-PLAN-002 Phase 2).
 
 #### Frontend Components
-- [x] MonsterCanvas component
-- [x] ParticleEffect component
 - [x] HouseHealthBar component
-- [x] CompletionAnimation component
+- [x] Cleanliness ring on room cards
 
 **Deliverable**: Gamified task completion with visual feedback
 
@@ -424,7 +408,6 @@
 - [ ] Custom game modes
 - [ ] Seasonal events
 - [ ] Achievement system
-- [ ] Custom monster designs
 - [ ] Sound effects toggle
 - [ ] Theme customization
 - [ ] AI-powered task suggestions
@@ -438,7 +421,6 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../../CONTRIBUTIN
 
 ### High Priority Areas for Contributors
 - Translations (more languages)
-- Monster sprite designs
 - Sound effects
 - Testing
 - Documentation improvements
@@ -446,5 +428,5 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../../CONTRIBUTIN
 
 ---
 
-**Last Updated**: 2026-03-07  
-**Current Phase**: Phase 8 (Release Preparation) - Planned
+**Last Updated**: 2026-07-24  
+**Current Phase**: Phase 8 (Release Preparation) — In Progress (automated release gate shipped via CS-PLAN-007; staged alpha → beta → stable rollout ongoing)

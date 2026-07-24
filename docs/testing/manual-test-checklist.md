@@ -41,7 +41,6 @@
 | Edit room | Rename room | Name updated | [ ] |
 | Delete room | Delete room with tasks | Room and tasks removed | [ ] |
 | Room cleanliness | Complete tasks in room | Cleanliness percentage updates | [ ] |
-| Monster spawn | Let tasks become overdue | Monsters appear in room | [ ] |
 
 ### Task Management
 
@@ -49,7 +48,7 @@
 |------|-------|-----------------|--------|
 | Create task | Add task to room | Task appears in room | [ ] |
 | Task details | Set frequency, difficulty | Settings saved correctly | [ ] |
-| Complete task | Mark task as done | Task marked complete, sparks earned | [ ] |
+| Complete task | Mark task as done | Task marked complete, coins earned | [ ] |
 | Skip task | Skip a task | Task skipped, no penalty | [ ] |
 | Reschedule task | Change due date | Due date updated | [ ] |
 | Task recurrence | Complete recurring task | New instance created | [ ] |

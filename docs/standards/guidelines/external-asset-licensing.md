@@ -196,7 +196,7 @@ copies of the Software...
 **Implementation Plan:**
 1. Download required emojis (SVG/PNG) from the GitHub repository (e.g., 3D or Color variants)
 2. Copy MIT LICENSE to `docs/licenses/fluentui-emoji-LICENSE.txt`
-3. Use for rooms, tasks, avatars, monsters, and gamification elements (sparks, energy, medals)
+3. Use for rooms, tasks, avatars, and gamification elements (coins, energy, medals)
 4. Update README with Fluent UI Emoji attribution
 
 **Reviewer:** AI Agent (volker confirmed)  

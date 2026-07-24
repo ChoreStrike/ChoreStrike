@@ -249,6 +249,7 @@ class TaskMapper extends QBMapper
         while ($row = $result->fetch()) {
             $categories[] = $row['category'];
         }
+        $result->closeCursor();
 
         return $categories;
     }

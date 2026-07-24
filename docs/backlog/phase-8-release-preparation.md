@@ -1,8 +1,16 @@
 # Phase 8: Release Preparation
 
-> **Status**: Planned  
+> **Status**: In Progress  
 > **Timeline**: Week 29-32  
-> **Depends on**: Phase 7 (Complete)
+> **Depends on**: Phase 7 (Complete)  
+> **Progress (2026-07-24):** The automated release gate shipped via
+> `cs-plan-007-release-gate-hardening` (Forgejo CI: blocking ESLint + Jest + build
+> + composer validate + PHPUnit unit/integration via Docker; route↔controller and
+> store↔endpoint contract tests; integration suite repaired). Stylelint is
+> advisory until its upstream toolchain mismatch is pinned. Still open: the
+> staged rollout itself (`v0.8.x` alpha → `v0.9.x` beta → `v1.0.0` stable), App
+> Store readiness (post-`v1.0.0`), screenshots, and the security/audit items
+> tracked in `bugs.md`.
 
 ---
 

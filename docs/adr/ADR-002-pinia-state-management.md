@@ -61,7 +61,7 @@ We organize stores by domain:
 - `rooms.js` - Floors and rooms
 - `tasks.js` - Task templates and definitions
 - `roomTasks.js` - Room-task assignments
-- `game.js` - Game state, monsters, combos, medals
+- `game.js` - Game state, rewards, combos, medals
 - `user.js` - Current user and authentication
 
 ### Patterns
