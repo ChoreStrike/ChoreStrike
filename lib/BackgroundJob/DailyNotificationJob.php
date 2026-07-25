@@ -64,8 +64,10 @@ class DailyNotificationJob extends TimedJob
     protected function run($argument): void
     {
         $yesterday = new \DateTime('yesterday');
+        $yesterdayDayName = strtolower($yesterday->format('l'));
         $processed = 0;
         $notified = 0;
+        $skippedUnavailable = 0;
 
         try {
             $allUsers = $this->findAllUsers();
@@ -76,6 +78,14 @@ class DailyNotificationJob extends TimedJob
 
             foreach ($allUsers as $user) {
                 $processed++;
+
+                $preferences = $user->getSchedulingPreferences();
+                $weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
+
+                if (isset($weekdayAvailability[$yesterdayDayName]) && $weekdayAvailability[$yesterdayDayName] === false) {
+                    $skippedUnavailable++;
+                    continue;
+                }
 
                 if ($user->getCurrentStreak() <= 0) {
                     continue;
@@ -115,6 +125,7 @@ class DailyNotificationJob extends TimedJob
         $this->logger->info('DailyNotificationJob completed', [
             'processed' => $processed,
             'notified' => $notified,
+            'skippedUnavailable' => $skippedUnavailable,
         ]);
     }
 

@@ -71,6 +71,13 @@ export const useTitlesStore = defineStore('titles', {
 		},
 
 		/**
+		 * Clear error state.
+		 */
+		clearError() {
+			this.error = null
+		},
+
+		/**
 		 * Reset store state.
 		 */
 		reset() {

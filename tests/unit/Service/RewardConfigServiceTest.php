@@ -480,4 +480,92 @@ class RewardConfigServiceTest extends TestCase
             ],
         ]);
     }
+
+    /**
+     * GetComboMultiplier_ReturnsDefault
+     */
+    public function testGetComboMultiplier_ReturnsDefault(): void
+    {
+        $this->config
+            ->method('getValueString')
+            ->willReturnCallback(function ($app, $key, $default) {
+                return $default;
+            });
+
+        $result = $this->service->getComboMultiplier();
+
+        $this->assertEquals(2.0, $result);
+    }
+
+    /**
+     * GetComboMultiplier_ClampsNegativeToZero
+     */
+    public function testGetComboMultiplier_ClampsNegativeToZero(): void
+    {
+        $this->config
+            ->method('getValueString')
+            ->willReturn('-1.5');
+
+        $result = $this->service->getComboMultiplier();
+
+        $this->assertEquals(0.0, $result);
+    }
+
+    /**
+     * SetComboMultiplier_StoresClampedValue
+     */
+    public function testSetComboMultiplier_StoresClampedValue(): void
+    {
+        $this->config
+            ->expects($this->once())
+            ->method('setValueString')
+            ->with('chorestrike', 'combo_multiplier', '3');
+
+        $this->service->setComboMultiplier(3.0);
+    }
+
+    /**
+     * SetComboMultiplier_ClampsNegativeToZero
+     */
+    public function testSetComboMultiplier_ClampsNegativeToZero(): void
+    {
+        $this->config
+            ->expects($this->once())
+            ->method('setValueString')
+            ->with('chorestrike', 'combo_multiplier', '0');
+
+        $this->service->setComboMultiplier(-1.0);
+    }
+
+    /**
+     * GetAllConfig_IncludesComboMultiplierKey
+     */
+    public function testGetAllConfig_IncludesComboMultiplierKey(): void
+    {
+        $this->config
+            ->method('getValueString')
+            ->willReturnCallback(function ($app, $key, $default) {
+                return $default;
+            });
+
+        $result = $this->service->getAllConfig();
+
+        $this->assertArrayHasKey('comboMultiplier', $result);
+        $this->assertEquals(2.0, $result['comboMultiplier']);
+    }
+
+    /**
+     * UpdateConfig_HandlesComboMultiplierKey
+     */
+    public function testUpdateConfig_HandlesComboMultiplierKey(): void
+    {
+        $this->config
+            ->expects($this->once())
+            ->method('setValueString')
+            ->with('chorestrike', 'combo_multiplier', '3');
+
+        $this->service->updateConfig([
+            'comboMultiplier' => 3.0,
+        ]);
+    }
 }

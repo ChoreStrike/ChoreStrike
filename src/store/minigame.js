@@ -366,6 +366,13 @@ export const useMinigameStore = defineStore('minigame', {
 		},
 
 		/**
+		 * Clear error state
+		 */
+		clearError() {
+			this.error = null
+		},
+
+		/**
 		 * Reset store state
 		 */
 		reset() {

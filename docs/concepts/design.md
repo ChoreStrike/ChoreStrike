@@ -84,7 +84,7 @@ Chaos (0%)      → Monsters cover UI elements (meta-level!)
 ### 3. Cooperative Mechanics
 
 #### Team Bonuses
-- **Combo Multiplier**: rapid consecutive completions → coins ×2 (personal combo; the cooperative ×1.5 concept below evolved into the current per-user combo in `GameLogicService::calculateCoins()`)
+- **Combo Multiplier**: rapid consecutive completions → coins ×combo_multiplier (configurable, default ×2; personal combo; the cooperative ×1.5 concept below evolved into the current per-user combo in `GameLogicService::calculateCoins()`)
 - **Synchronized Cleaning**: Same room simultaneously → extra effect
 - **Support Actions**: User can "help" others (bonus points)
 

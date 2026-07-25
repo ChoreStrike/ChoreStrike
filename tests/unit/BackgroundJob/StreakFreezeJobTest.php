@@ -124,6 +124,70 @@ class StreakFreezeJobTest extends TestCase
         $this->invokeRun($this->job, null);
     }
 
+    /**
+     * Run_UserOnUnavailableYesterday_SkipsFreezeAndReset
+     *
+     * When yesterday was an unavailable weekday for the user, the job must
+     * skip them — no freeze consumed, no streak reset (fairness rule).
+     */
+    public function testRun_UserOnUnavailableYesterday_SkipsFreezeAndReset(): void
+    {
+        $yesterday = strtolower((new \DateTime('yesterday'))->format('l'));
+
+        $user = new HouseUser();
+        $user->setId(1);
+        $user->setCurrentStreak(5);
+        $user->setStreakFreezes(0);
+        $user->setSchedulingPreferences([
+            'weekdayAvailability' => [$yesterday => false],
+        ]);
+
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
+        $this->completedTaskMapper->expects($this->never())->method('countByUserOnDate');
+        $this->houseUserMapper->expects($this->never())->method('update');
+
+        $this->invokeRun($this->job, null);
+    }
+
+    /**
+     * Run_PerUserErrorIsolation_ContinuesAfterFailure
+     *
+     * A single user failure must not abort the loop — the second user
+     * should still be processed normally.
+     */
+    public function testRun_PerUserErrorIsolation_ContinuesAfterFailure(): void
+    {
+        $user1 = new HouseUser();
+        $user1->setId(1);
+        $user1->setCurrentStreak(5);
+        $user1->setStreakFreezes(0);
+
+        $user2 = new HouseUser();
+        $user2->setId(2);
+        $user2->setCurrentStreak(3);
+        $user2->setStreakFreezes(1);
+
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user1, $user2]);
+
+        $callCount = 0;
+        $this->completedTaskMapper->method('countByUserOnDate')
+            ->willReturnCallback(function () use (&$callCount) {
+                $callCount++;
+                if ($callCount === 1) {
+                    throw new \RuntimeException('DB connection lost');
+                }
+                return 0;
+            });
+
+        // user1 fails (exception caught), user2 succeeds (freeze consumed)
+        $this->houseUserMapper->expects($this->once())->method('update')
+            ->with($this->callback(function (HouseUser $u) {
+                return $u->getId() === 2 && $u->getCurrentStreak() === 3 && $u->getStreakFreezes() === 0;
+            }));
+
+        $this->invokeRun($this->job, null);
+    }
+
     private function invokeRun(object $job, $argument): void
     {
         $ref = new \ReflectionMethod($job, 'run');

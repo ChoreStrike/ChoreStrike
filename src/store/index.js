@@ -10,6 +10,7 @@ import { useRoomTasksStore } from './roomTasks.js'
 import { useGameStore } from './game.js'
 import { useUserStore } from './user.js'
 import { useChecklistStore } from './checklist.js'
+import { useSchedulingStore } from './scheduling.js'
 import { useMinigameStore } from './minigame.js'
 import { useTitlesStore } from './titles.js'
 import { logger } from '../utils/logger.js'
@@ -23,7 +24,9 @@ export {
 	useGameStore,
 	useUserStore,
 	useChecklistStore,
+	useSchedulingStore,
 	useMinigameStore,
+	useTitlesStore,
 }
 
 // Store initialization utilities
@@ -70,6 +73,8 @@ export const resetAllStores = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const checklistStore = useChecklistStore()
+	const schedulingStore = useSchedulingStore()
 	const minigameStore = useMinigameStore()
 	const titlesStore = useTitlesStore()
 
@@ -79,6 +84,8 @@ export const resetAllStores = () => {
 	tasksStore.reset()
 	roomTasksStore.reset()
 	gameStore.reset()
+	checklistStore.reset()
+	schedulingStore.reset()
 	minigameStore.reset()
 	titlesStore.reset()
 }
@@ -91,7 +98,10 @@ export const clearAllStoreErrors = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const checklistStore = useChecklistStore()
+	const schedulingStore = useSchedulingStore()
 	const minigameStore = useMinigameStore()
+	const titlesStore = useTitlesStore()
 
 	userStore.clearError()
 	houseStore.clearError()
@@ -99,7 +109,10 @@ export const clearAllStoreErrors = () => {
 	tasksStore.clearError()
 	roomTasksStore.clearError()
 	gameStore.clearError()
-	minigameStore.error = null
+	checklistStore.clearError()
+	schedulingStore.clearError()
+	minigameStore.clearError()
+	titlesStore.clearError()
 }
 
 // Store loading state utilities
@@ -110,7 +123,10 @@ export const getAnyStoreLoading = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const checklistStore = useChecklistStore()
+	const schedulingStore = useSchedulingStore()
 	const minigameStore = useMinigameStore()
+	const titlesStore = useTitlesStore()
 
 	return (
 		userStore.loading
@@ -119,7 +135,10 @@ export const getAnyStoreLoading = () => {
     || tasksStore.loading
     || roomTasksStore.loading
     || gameStore.loading
+    || checklistStore.loading
+    || schedulingStore.loading
     || minigameStore.loading
+    || titlesStore.loading
 	)
 }
 
@@ -131,7 +150,10 @@ export const getAnyStoreError = () => {
 	const tasksStore = useTasksStore()
 	const roomTasksStore = useRoomTasksStore()
 	const gameStore = useGameStore()
+	const checklistStore = useChecklistStore()
+	const schedulingStore = useSchedulingStore()
 	const minigameStore = useMinigameStore()
+	const titlesStore = useTitlesStore()
 
 	return (
 		userStore.error
@@ -140,7 +162,10 @@ export const getAnyStoreError = () => {
     || tasksStore.error
     || roomTasksStore.error
     || gameStore.error
+    || checklistStore.error
+    || schedulingStore.error
     || minigameStore.error
+    || titlesStore.error
 	)
 }
 
@@ -205,7 +230,10 @@ export default {
 	useRoomTasksStore,
 	useGameStore,
 	useUserStore,
+	useChecklistStore,
+	useSchedulingStore,
 	useMinigameStore,
+	useTitlesStore,
 	initializeStores,
 	resetAllStores,
 	clearAllStoreErrors,

@@ -163,6 +163,28 @@ class DailyNotificationJobTest extends TestCase
         $this->invokeRun($this->job, null);
     }
 
+    /**
+     * Run_UserOnUnavailableYesterday_SkipsNotification
+     *
+     * When yesterday was an unavailable weekday for the user, no streak-at-risk
+     * notification should be sent (fairness rule — they weren't expected to work).
+     */
+    public function testRun_UserOnUnavailableYesterday_SkipsNotification(): void
+    {
+        $yesterday = strtolower((new \DateTime('yesterday'))->format('l'));
+
+        $user = $this->buildUser(1, 'alice', streak: 5, freezes: 0);
+        $user->setSchedulingPreferences([
+            'weekdayAvailability' => [$yesterday => false],
+        ]);
+
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
+        $this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
+        $this->notificationService->expects($this->never())->method('notifyStreakAtRisk');
+
+        $this->invokeRun($this->job, null);
+    }
+
     private function buildUser(int $id, string $nextcloudUserId, int $streak, int $freezes): HouseUser
     {
         $user = new HouseUser();

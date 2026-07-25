@@ -46,9 +46,9 @@ The system should allow configurable balancing so high-load members receive redu
 
 | Mechanic | Behaviour | Config key (default) |
 |----------|-----------|----------------------|
-| **Coins** (renewable currency) | `energy_cost × coin_base_per_energy × tier_multiplier × personal_multiplier × early_multiplier`; **×2 on personal combo** (`GameLogicService::calculateCoins`). | `coin_base_per_energy` (10), `tier_{bronze,silver,gold}_multiplier` (1.0/1.5/2.0), `early_bonus_multiplier` (1.5), `early_bonus_threshold_days` (21) |
+| **Coins** (renewable currency) | `energy_cost × coin_base_per_energy × tier_multiplier × personal_multiplier × early_multiplier`; **×combo_multiplier on personal combo** (`GameLogicService::calculateCoins`). | `coin_base_per_energy` (10), `tier_{bronze,silver,gold}_multiplier` (1.0/1.5/2.0), `early_bonus_multiplier` (1.5), `early_bonus_threshold_days` (21), `combo_multiplier` (2.0) |
 | **Contribution score** (permanent) | Lifetime work done (the task's `energy_cost`); never decreases; leaderboard + `home_helpers` title signal. | — |
-| **Personal combo** | Rapid consecutive completions by the same user double coins (×2). *Not* the cooperative ×1.5 multi-user concept from the foundational design — see Decision Point B (CS-PLAN-010). | (hardcoded ×2 — backlog: source from config) |
+| **Personal combo** | Rapid consecutive completions by the same user double coins (configurable multiplier). *Not* the cooperative ×1.5 multi-user concept from the foundational design — see Decision Point B (CS-PLAN-010). | `combo_multiplier` (2.0) |
 | **Streak freezes** | Protect a streak on a missed available day; consumed in `handleTaskCompletion` and by `StreakFreezeJob`; restocked weekly by `StreakRestockJob`. | `streak_freezes_per_week` (1), `streak_freeze_cap` (2) |
 | **Combo bonus freeze** | A combo reaching the threshold awards one bonus freeze (respecting the cap). | `combo_bonus_freeze_threshold` (5) |
 | **Teamwork bonus** | Multi-assignee task completion grants a shared bonus, capped as a % of the base reward; disabled per house if needed. | `teamwork_bonus_enabled` (true), `teamwork_bonus_max_pct` (50) |

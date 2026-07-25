@@ -235,6 +235,22 @@
 
 ## Currently Active
 
+### CS-PLAN-013 - Gamification Fairness, Store-Barrel Completeness & Dead-Code Cleanup
+**Status**: In Progress (review passed, awaiting commit)
+**Started**: 2026-07-25
+**Branch**: master (uncommitted)
+**Plan**: docs/plans/active/cs-plan-013-fairness-store-barrel-cleanup.md
+**Blockers**: None
+**Notes**:
+- **Phase 1a — StreakFreezeJob weekday-awareness + error isolation (G1/G4, DONE):** reads `weekdayAvailability` from `$user->getSchedulingPreferences()` (same source as `handleTaskCompletion`); skips users for whom yesterday was an unavailable weekday; per-user try/catch isolates failures (one user error no longer aborts the loop).
+- **Phase 1b — DailyNotificationJob weekday-awareness (G2, DONE):** same getter-based availability check; skips unavailable-day users (no "streak at risk" notification for a day they weren't expected to work).
+- **Phase 2 — Store-barrel completeness (F1/F2/F3, DONE):** `useSchedulingStore` + `useTitlesStore` imported and exported (named + default); `resetAllStores()` calls `reset()` on all 10 stores; `clearAllStoreErrors()`/`getAnyStoreLoading()`/`getAnyStoreError()` include all 10 stores; `clearError()` added to `titles` + `minigame` stores. New `storeBarrel.spec.js` (6 tests).
+- **Phase 3a — Combo multiplier config (G3, DONE):** `KEY_COMBO_MULTIPLIER` + `getComboMultiplier()`/`setComboMultiplier()` in `RewardConfigService` (default 2.0, clamped ≥ 0); `calculateCoins()` combo branch now reads from config. 6 new `RewardConfigServiceTest` cases + 1 `GameLogicServiceTest` combo-config case.
+- **Phase 3b — Dead-method removal (D5, DONE):** removed 5 dead methods from `GameLogicService` (`calculatePoints`, `calculateStreakBonus`, `calculateComboBonus`, `updateStreakCount`, `shouldResetStreak`) + their 10 test cases.
+- **Phase 4 — Docs (DONE):** `design.md` + `gamification-and-rewards.md` note combo multiplier is now configurable (default ×2).
+- **Build gate:** Jest 533/533, ESLint 0 errors, `php -l` clean. PHPUnit unit pending (Docker).
+- **Review (Standard B, 2026-07-25):** 0 blocks, 0 majors. 2 NITs (availability-check ordering cosmetic metric difference between jobs; `findAllUsers()` outside try/catch intentional per G4 scope). 1 minor (ACTIVE_TASKS update — this entry).
+
 ### CS-PLAN-010 - Documentation-vs-Implementation Reconciliation & Dead-Code Cleanup
 **Status**: Done
 **Started**: 2026-07-24

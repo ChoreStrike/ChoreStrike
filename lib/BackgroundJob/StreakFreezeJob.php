@@ -51,18 +51,29 @@ class StreakFreezeJob extends TimedJob
     protected function run($argument): void
     {
         $yesterday = new \DateTime('yesterday');
+        $yesterdayDayName = strtolower($yesterday->format('l'));
         $processed = 0;
         $frozen = 0;
         $reset = 0;
+        $skippedUnavailable = 0;
+        $errors = 0;
 
-        try {
-            $allUsers = $this->findAllUsers();
+        $allUsers = $this->findAllUsers();
 
-            foreach ($allUsers as $user) {
+        foreach ($allUsers as $user) {
+            try {
                 $processed++;
                 $currentStreak = $user->getCurrentStreak();
 
                 if ($currentStreak <= 0) {
+                    continue;
+                }
+
+                $preferences = $user->getSchedulingPreferences();
+                $weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
+
+                if (isset($weekdayAvailability[$yesterdayDayName]) && $weekdayAvailability[$yesterdayDayName] === false) {
+                    $skippedUnavailable++;
                     continue;
                 }
 
@@ -83,18 +94,21 @@ class StreakFreezeJob extends TimedJob
                 }
 
                 $this->houseUserMapper->update($user);
+            } catch (\Throwable $e) {
+                $errors++;
+                $this->logger->error('StreakFreezeJob: per-user failure', [
+                    'userId' => $user->getId(),
+                    'exception' => $e->getMessage(),
+                ]);
             }
-        } catch (\Throwable $e) {
-            $this->logger->error('StreakFreezeJob failed', [
-                'exception' => $e->getMessage(),
-            ]);
-            return;
         }
 
         $this->logger->info('StreakFreezeJob completed', [
             'processed' => $processed,
             'frozen' => $frozen,
             'reset' => $reset,
+            'skippedUnavailable' => $skippedUnavailable,
+            'errors' => $errors,
         ]);
     }
 

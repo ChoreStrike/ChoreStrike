@@ -29,6 +29,7 @@ class RewardConfigService
     public const KEY_STREAK_FREEZES_PER_WEEK = 'streak_freezes_per_week';
     public const KEY_STREAK_FREEZE_CAP = 'streak_freeze_cap';
     public const KEY_COMBO_BONUS_FREEZE_THRESHOLD = 'combo_bonus_freeze_threshold';
+    public const KEY_COMBO_MULTIPLIER = 'combo_multiplier';
     public const KEY_WEEKLY_GOAL_TARGET_PERCENT = 'weekly_goal_target_percent';
     public const KEY_TEAMWORK_BONUS_ENABLED = 'teamwork_bonus_enabled';
     public const KEY_TEAMWORK_BONUS_MAX_PCT = 'teamwork_bonus_max_pct';
@@ -306,6 +307,36 @@ class RewardConfigService
     }
 
     /**
+     * Get the combo multiplier applied when a user has an active combo.
+     *
+     * Default 2.0 (doubles coins). Clamped to >= 0 to forbid a nonsensical
+     * negative value that would invert combo rewards.
+     */
+    public function getComboMultiplier(): float
+    {
+        $value = (float) $this->config->getValueString(
+            self::APP_NAME,
+            self::KEY_COMBO_MULTIPLIER,
+            '2.0'
+        );
+        return max(0.0, $value);
+    }
+
+    /**
+     * Set the combo multiplier.
+     *
+     * @param float $multiplier Clamped to >= 0
+     */
+    public function setComboMultiplier(float $multiplier): void
+    {
+        $this->config->setValueString(
+            self::APP_NAME,
+            self::KEY_COMBO_MULTIPLIER,
+            (string) max(0.0, $multiplier)
+        );
+    }
+
+    /**
      * Set weekly household goal target percent
      *
      * @param int $percent Target percent (clamped to 1-100)
@@ -429,6 +460,7 @@ class RewardConfigService
             'streakFreezesPerWeek' => $this->getStreakFreezesPerWeek(),
             'streakFreezeCap' => $this->getStreakFreezeCap(),
             'comboBonusFreezeThreshold' => $this->getComboBonusFreezeThreshold(),
+            'comboMultiplier' => $this->getComboMultiplier(),
             'weeklyGoalTargetPercent' => $this->getWeeklyGoalTargetPercent(),
             'teamworkBonusEnabled' => $this->getTeamworkBonusEnabled(),
             'teamworkBonusMaxPct' => $this->getTeamworkBonusMaxPct(),
@@ -473,6 +505,9 @@ class RewardConfigService
         }
         if (isset($values['comboBonusFreezeThreshold'])) {
             $this->setComboBonusFreezeThreshold((int) $values['comboBonusFreezeThreshold']);
+        }
+        if (isset($values['comboMultiplier'])) {
+            $this->setComboMultiplier((float) $values['comboMultiplier']);
         }
         if (isset($values['weeklyGoalTargetPercent'])) {
             $this->setWeeklyGoalTargetPercent((int) $values['weeklyGoalTargetPercent']);

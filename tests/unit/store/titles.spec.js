@@ -107,4 +107,12 @@ describe('Titles Store', () => {
 			expect(store.error).toBeNull()
 		})
 	})
+
+	describe('clearError', () => {
+		it('clears the error state', () => {
+			store.error = 'some error'
+			store.clearError()
+			expect(store.error).toBeNull()
+		})
+	})
 })

@@ -206,7 +206,7 @@ class GameLogicService
         $coins = $task->getEnergyCost() * $baseRate * $task->getTaskTierMultiplier() * $personalMultiplier * $earlyMultiplier;
 
         if ($isCombo) {
-            $coins *= 2;
+            $coins *= $this->configService->getComboMultiplier();
         }
 
         return (int) round($coins);
@@ -453,45 +453,6 @@ class GameLogicService
     }
 
     /**
-     * Calculate points for task completion
-     *
-     * @param Task $task The task
-     * @param int $difficulty Task difficulty (1-5)
-     * @param int $priority Task priority (1-3)
-     * @param bool $isBonus Whether this is a bonus completion
-     */
-    public function calculatePoints(Task $task, int $difficulty = 1, int $priority = 1, bool $isBonus = false): int
-    {
-        $basePoints = $difficulty * $priority * 10;
-
-        if ($isBonus) {
-            $basePoints = (int)($basePoints * 1.5);
-        }
-
-        return $basePoints;
-    }
-
-    /**
-     * Calculate streak bonus points
-     *
-     * @param int $currentStreak Current streak count
-     */
-    public function calculateStreakBonus(int $currentStreak): int
-    {
-        return $currentStreak * 5;
-    }
-
-    /**
-     * Calculate combo bonus points
-     *
-     * @param int $comboCount Number of tasks completed in combo
-     */
-    public function calculateComboBonus(int $comboCount): int
-    {
-        return $comboCount * 10;
-    }
-
-    /**
      * Calculate the teamwork bonus for a multi-assignee task completion.
      *
      * Formula: ceil((energyCost * coinBasePerEnergy * 0.5) / participantCount)
@@ -553,50 +514,4 @@ class GameLogicService
         return $medals;
     }
 
-    /**
-     * Update user streak after task completion
-     *
-     * @param int $currentStreak Current streak
-     * @param bool $completedToday Whether user completed task today
-     */
-    public function updateStreakCount(int $currentStreak, bool $completedToday = true): int
-    {
-        if (!$completedToday) {
-            return 1;
-        }
-
-        return $currentStreak + 1;
-    }
-
-    /**
-     * Check if streak should be reset
-     *
-     * @param \DateTime $lastCompletionDate Last completion date
-     * @param array $weekdayAvailability Weekday availability
-     */
-    public function shouldResetStreak(\DateTime $lastCompletionDate, array $weekdayAvailability): bool
-    {
-        $today = new \DateTime();
-        $today->setTime(0, 0, 0);
-        $lastDate = clone $lastCompletionDate;
-        $lastDate->setTime(0, 0, 0);
-
-        $daysSinceCompletion = (int)$lastDate->diff($today)->days;
-
-        // If completed today, don't reset
-        if ($daysSinceCompletion === 0) {
-            return false;
-        }
-
-        // If completed yesterday, check if available today
-        if ($daysSinceCompletion === 1) {
-            $todayName = strtolower($today->format('l'));
-            $isAvailableToday = $weekdayAvailability[$todayName] ?? true;
-            // Reset streak if NOT available today
-            return !$isAvailableToday;
-        }
-
-        // If more than 1 day, reset
-        return true;
-    }
 }
