@@ -231,6 +231,21 @@
 **Plan**: docs/plans/new/cs-plan-011-authorization-hardening.md
 **Blockers**: None.
 
+### CS-PLAN-014 - Documentation-vs-Implementation Sync (P9-DOC-002)
+**Status**: Active (plan reviewed 2026-07-26, moved `new/ → active/`)
+**Priority**: P2 · **Effort**: S–M · **Depends on**: none
+**Scope**: Closes the residual doc drift CS-PLAN-010 did not cover. Doc-and-prose only — no `lib/`/`src/` change. **`development.md` (HIGH):** replace the non-existent `.github/workflows/` CI section with the real `.forgejo/workflows/release-gate.yml`; fix `tests/Unit/` → `tests/unit/`; replace the fictional `PointsCalculator` example with `GameLogicService::calculateCoins()`; align the PR/branch flow with Forgejo (`master`, no `develop`); fix the broken `../AGENTS.md` link and the "Open an issue on GitHub" help line (Codeberg); `docker-compose` → `docker compose`; keep `PHP 8.0+` (info.xml/composer.json are the source of truth — the 8.1 alignment is a backlog item). **`architecture.md` (MEDIUM):** keep the correct `.github/` entry, fix the "E2E Tests (Future)" label (E2E is live), note `img/manifest.webmanifest`, correct minor `useHouseStore`/`useRoomsStore` getter drift. **`testing.md` (MEDIUM):** remove the archived `multi-user-task-claiming.spec.ts` name from its shared E2E row, drop stale parenthetical spec counts, `docker compose` (keep the apt package name). **`api/README.md` (optional LOW):** annotate `assigned_to_user_id` as legacy. Verified by relative-link-integrity grep + source spot-reads. Explicitly **out of scope** (already done by CS-PLAN-010): `src/services/api.js` docs, frontend directory tree, DB schema, API response fields.
+**Plan**: docs/plans/active/cs-plan-014-docs-sync.md
+**Review**: Standard-A plan review 2026-07-26 — 1 block fixed (`.github/` entry is accurate, kept), 2 majors fixed (PHP 8.0 manifest truth instead of 8.1; acceptance criterion narrowed + example-code drift deferred to backlog). See the plan's `## Review Outcome`.
+**Blockers**: None.
+
+### CS-PLAN-015 - E2E Stabilization — data-testid, Stable Selectors & Auth Optimization
+**Status**: Planned (drafted, awaiting `new/ → active/` move)
+**Priority**: P2 · **Effort**: L · **Depends on**: none (CS-PLAN-007 Phase 4 did the partial auth fix; release-gate views already carry root testids)
+**Scope**: Closes `bugs.md` [P2] data-testid + `phase-9-code-quality.md` P9-E2E-002. Pre-plan audit quantified: 176 `waitForTimeout` across 26 specs, 102 text selectors across 22 specs, **0** `getByRole`/`getByLabel` usage, 20+ phantom testids specs query but source lacks, and the root cause of nav text-selectors — `<NcAppNavigationItem>` does **not** pass `data-testid` through to the DOM. Phased: (1) **Foundation** — fix the `App.vue` nav passthrough (wrapper/`aria-label`/`getByRole` fallback), introduce `storageState` auth so specs stop re-logging in (~3–5 s/spec × 31 specs), write a testid-convention doc; (2) **Close testid gaps** in `Modal.vue`/`TaskList.vue` (+ `private-filter-toggle`, `visibility-crown-icon`) and resolve the Scheduling dead-UI question (add testids **or** exclude the specs); (3) **Migrate worst-offender specs** (`snake-game` 32, `flex-window-scheduling` 25, `scheduling` 17, `core-functionality` 15+10, `task-completion*` 11+11, …) off `waitForTimeout`/text selectors onto auto-waiting `getByTestId`/`getByRole` locators; (4) **Retire** `phase-3-user-management.spec.ts` (rewrite against current UI **or** archive — tests the archived User-Management feature); (5) optional a11y/role-check layer. Success = 3 consecutive flake-free local E2E runs (chromium+firefox+webkit), `waitForTimeout` ≈ 0 on migrated specs. Frontend/E2E only — no backend change.
+**Plan**: docs/plans/new/cs-plan-015-e2e-stabilization.md
+**Blockers**: None.
+
 ---
 
 ## Currently Active

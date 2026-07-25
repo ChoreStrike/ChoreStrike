@@ -435,7 +435,7 @@ Some expected exception types/messages no longer match service behavior.
 
 ## [P2] E2E Tests: Missing data-testid attributes in Vue components
 
-**Status**: Backlog  
+**Status**: Backlog (plan drafted: CS-PLAN-015)  
 **Assignee**: Unassigned  
 **Estimated Effort**: M  
 **Phase**: 1

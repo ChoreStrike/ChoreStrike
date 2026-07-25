@@ -355,7 +355,7 @@ export const logger = {
 ### P9-E2E-002 - Harden Headless E2E Stability and Add Lightweight UI Semantics Checks
 **Priority**: MEDIUM  
 **Effort**: 1 day  
-**Status**: Partial (CS-PLAN-007 Phase 4) — auth block fixed for blocked specs; full selector + a11y work deferred
+**Status**: Partial (CS-PLAN-007 Phase 4) — auth block fixed for blocked specs; full selector + a11y work deferred (plan drafted: CS-PLAN-015, combined with the [P2] data-testid item)
 
 **Description**: Current Playwright coverage is broad, but many specs still rely on `waitForTimeout`, text selectors, and CSS implementation details. Visual or semantic GUI checks are minimal, so layout/accessibility regressions can slip through even when core flows pass.
 
@@ -376,7 +376,7 @@ export const logger = {
 ### P9-DOC-002 - Sync Architecture and Testing Documentation with the Live Application
 **Priority**: MEDIUM  
 **Effort**: 4 hours  
-**Status**: Planned
+**Status**: Planned (plan drafted: CS-PLAN-014 — residual drift only; CS-PLAN-010 already did the core rewrite)
 
 **Description**: `docs/ARCHITECTURE.md` currently documents files and folders that do not exist or are no longer authoritative, including `.github/workflows`, `src/services/api.js`, and an outdated frontend structure. This reduces trust in the docs and makes reviews slower.
 
