@@ -51,7 +51,7 @@ class FloorControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->floorService->method('getFloors')
             ->willReturn($floors);
 
@@ -104,7 +104,7 @@ class FloorControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->floorService->method('createFloor')
             ->willReturn($floor);
 
@@ -139,7 +139,7 @@ class FloorControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->floorService->method('updateFloorName')
             ->willReturn($floor);
 
@@ -159,7 +159,7 @@ class FloorControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->floorService->method('deleteFloor')
             ->with($floorId);
 
@@ -179,7 +179,7 @@ class FloorControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->floorService->method('validateFloorOwnership')
             ->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Floor not found'));
 
@@ -205,7 +205,7 @@ class FloorControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->floorService->method('reorderFloors')
             ->willReturn($floors);
 

@@ -72,7 +72,7 @@ class GameControllerTest extends TestCase
         $this->houseService->method('getInstanceId')->willReturn('instance-123');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
         $this->houseService->method('getWeeklyGoalProgress')->with(1)->willReturn($weeklyGoal);
-        $this->authService->method('requireHouseMember');
+        $this->authService->method('ensureHouseMember');
 
         $this->gameLogicService->expects($this->once())
             ->method('getGameState')
@@ -105,7 +105,7 @@ class GameControllerTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('instance-123');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('requireHouseMember');
+        $this->authService->method('ensureHouseMember');
 
         $this->gameLogicService->expects($this->once())
             ->method('getLeaderboard')

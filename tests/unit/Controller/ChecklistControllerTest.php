@@ -94,7 +94,7 @@ class ChecklistControllerTest extends TestCase
             ->willReturn($this->createHouseMock($houseId));
 
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with($houseId);
     }
 
@@ -110,7 +110,7 @@ class ChecklistControllerTest extends TestCase
         $progress->setIsChecked(true);
 
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(1)
             ->willReturn($this->createHouseUserMock(5));
         $this->houseService->expects($this->once())
@@ -147,7 +147,7 @@ class ChecklistControllerTest extends TestCase
     public function testToggleItem_Returns404WhenRoomTaskIsHidden(): void
     {
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(1)
             ->willReturn($this->createHouseUserMock(5));
         $this->houseService->expects($this->once())

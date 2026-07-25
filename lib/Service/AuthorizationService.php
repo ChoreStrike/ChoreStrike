@@ -10,10 +10,22 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\IUserSession;
 
 /**
  * Service for authorization checks across the application.
+ *
+ * Two membership primitives:
+ *  - {@see ensureHouseMember()} MUTATES: it auto-creates a membership on first
+ *    access (the bootstrap / join flow behind getOrCreateHouse). Use it only
+ *    where auto-join is the intended behaviour.
+ *  - {@see assertHouseMember()} is a pure, read-only check that throws
+ *    {@see ForbiddenException} on a miss without side effects. Use it for
+ *    ordinary authorization gates.
+ *
+ * All "require*" / "assert*" methods throw {@see ForbiddenException} so the
+ * controllers can translate a denial into a 403 instead of a 500.
  */
 class AuthorizationService
 {
@@ -52,7 +64,7 @@ class AuthorizationService
     /**
      * Require an authenticated user and return the current user ID.
      *
-     * @throws \RuntimeException
+     * @throws ForbiddenException if there is no authenticated user
      */
     public function requireCurrentUserId(): string
     {
@@ -62,7 +74,7 @@ class AuthorizationService
                 'service' => 'AuthorizationService',
                 'action' => 'requireCurrentUserId',
             ]);
-            throw new \RuntimeException('Not authenticated');
+            throw new ForbiddenException('Not authenticated');
         }
 
         return $userId;
@@ -94,21 +106,27 @@ class AuthorizationService
     }
 
     /**
-     * Require the current user to be a house member.
+     * Ensure the current user is a member of the given house, auto-creating
+     * the membership on first access (bootstrap / join flow).
      *
-     * @throws \RuntimeException
+     * This MUTATES state on a miss: the first authenticated user to reach a
+     * house becomes its owner, subsequent users become members. It must only
+     * be used where auto-join is intended (the getOrCreateHouse flows). For a
+     * pure authorization gate use {@see assertHouseMember()} instead.
+     *
+     * @throws ForbiddenException if there is no authenticated user
      */
-    public function requireHouseMember(int $houseId): HouseUser
+    public function ensureHouseMember(int $houseId): HouseUser
     {
         $user = $this->userSession->getUser();
         $userId = $user?->getUID();
         if ($userId === null) {
             $this->appLogger?->warning('House membership required for anonymous access', [
                 'service' => 'AuthorizationService',
-                'action' => 'requireHouseMember',
+                'action' => 'ensureHouseMember',
                 'houseId' => $houseId,
             ]);
-            throw new \RuntimeException('Not authenticated');
+            throw new ForbiddenException('Not authenticated');
         }
 
         $houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
@@ -121,7 +139,7 @@ class AuthorizationService
         $displayName = $user->getDisplayName() ?: $userId;
         $this->appLogger?->info('House membership auto-created for current user', [
             'service' => 'AuthorizationService',
-            'action' => 'requireHouseMember',
+            'action' => 'ensureHouseMember',
             'houseId' => $houseId,
             'userId' => $userId,
             'role' => $role,
@@ -131,12 +149,47 @@ class AuthorizationService
     }
 
     /**
+     * Assert (pure, read-only check) that the current user is a member of the
+     * given house.
+     *
+     * Unlike {@see ensureHouseMember()} this NEVER auto-creates a membership:
+     * a miss is an authorization failure. Use this for ordinary access gates.
+     *
+     * @throws ForbiddenException if the user is anonymous or not a member
+     */
+    public function assertHouseMember(int $houseId): HouseUser
+    {
+        $userId = $this->getCurrentUserId();
+        if ($userId === null) {
+            $this->appLogger?->warning('House membership asserted for anonymous access', [
+                'service' => 'AuthorizationService',
+                'action' => 'assertHouseMember',
+                'houseId' => $houseId,
+            ]);
+            throw new ForbiddenException('Not authenticated');
+        }
+
+        $houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
+        if ($houseUser === null) {
+            $this->appLogger?->securityWarning('House membership assertion failed', [
+                'service' => 'AuthorizationService',
+                'action' => 'assertHouseMember',
+                'houseId' => $houseId,
+                'userId' => $userId,
+            ]);
+            throw new ForbiddenException('Not a member of this house');
+        }
+
+        return $houseUser;
+    }
+
+    /**
      * Check if the current user has the owner role in the given house.
      */
     public function isHouseOwner(int $houseId): bool
     {
         try {
-            $houseUser = $this->requireHouseMember($houseId);
+            $houseUser = $this->ensureHouseMember($houseId);
             return $houseUser->isOwner();
         } catch (\Exception $e) {
             return false;
@@ -146,11 +199,11 @@ class AuthorizationService
     /**
      * Require the current user to be a house owner.
      *
-     * @throws \RuntimeException
+     * @throws ForbiddenException if the user is not authenticated or not an owner
      */
     public function requireHouseOwner(int $houseId): HouseUser
     {
-        $houseUser = $this->requireHouseMember($houseId);
+        $houseUser = $this->ensureHouseMember($houseId);
 
         if (!$houseUser->isOwner()) {
             $this->appLogger?->warning('Owner role required', [
@@ -159,9 +212,32 @@ class AuthorizationService
                 'houseId' => $houseId,
                 'userId' => $houseUser->getNextcloudUserId(),
             ]);
-            throw new \RuntimeException('Owner role required');
+            throw new ForbiddenException('Owner role required');
         }
 
         return $houseUser;
+    }
+
+    /**
+     * Assert that the given Nextcloud user ID is a member of the given house.
+     *
+     * Used to prevent cross-house data access on endpoints that accept an
+     * arbitrary user ID (e.g. per-user stats lookups). The target user need
+     * not be the current user; only membership is checked.
+     *
+     * @throws ForbiddenException if the target user is not a member of the house
+     */
+    public function assertUserInHouse(int $houseId, string $userId): void
+    {
+        $houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
+        if ($houseUser === null) {
+            $this->appLogger?->securityWarning('Cross-house user access denied', [
+                'service' => 'AuthorizationService',
+                'action' => 'assertUserInHouse',
+                'houseId' => $houseId,
+                'targetUserId' => $userId,
+            ]);
+            throw new ForbiddenException('User is not a member of this house');
+        }
     }
 }

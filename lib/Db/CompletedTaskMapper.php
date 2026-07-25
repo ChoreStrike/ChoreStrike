@@ -98,11 +98,17 @@ class CompletedTaskMapper extends QBMapper
     }
 
     /**
-     * Get user statistics for a date range
+     * Get user statistics for a date range.
+     *
+     * Returns task count, total coins, combo count, and the number of
+     * distinct active days in one query (same table / range, no JOIN) so
+     * the medal-check loop makes a single round trip per user instead of
+     * two. DATE() is portable across MariaDB, PostgreSQL, and SQLite.
      *
      * @param int $userId The house user ID
      * @param \DateTime $startDate Start date
      * @param \DateTime $endDate End date
+     * @return array{taskCount:int, totalCoins:int, comboCount:int, activeDays:int}
      */
     public function getUserStats(int $userId, \DateTime $startDate, \DateTime $endDate): array
     {
@@ -111,6 +117,7 @@ class CompletedTaskMapper extends QBMapper
         $qb->select('COUNT(*) as task_count')
             ->addSelect('SUM(coins_earned) as total_coins')
             ->addSelect('SUM(CASE WHEN was_combo = 1 THEN 1 ELSE 0 END) as combo_count')
+            ->addSelect('COUNT(DISTINCT DATE(completed_at)) as active_days')
             ->from($this->getTableName())
             ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($startDate, IQueryBuilder::PARAM_DATE)))
@@ -124,6 +131,7 @@ class CompletedTaskMapper extends QBMapper
             'taskCount' => (int)($row['task_count'] ?? 0),
             'totalCoins' => (int)($row['total_coins'] ?? 0),
             'comboCount' => (int)($row['combo_count'] ?? 0),
+            'activeDays' => (int)($row['active_days'] ?? 0),
         ];
     }
 
@@ -301,6 +309,45 @@ class CompletedTaskMapper extends QBMapper
         }
         $result->closeCursor();
         return $counts;
+    }
+
+    /**
+     * Get the highest single-room completion count for a user in [start, end].
+     *
+     * Used by the room_guardian medal check (concentration in one room).
+     * Joins completed_tasks → room_tasks to group by room_id, orders by
+     * count descending, and returns the top row's count (0 when no completions).
+     *
+     * @param int $userId The house user ID
+     * @param \DateTime $start Inclusive range start
+     * @param \DateTime $end Inclusive range end
+     * @return int Highest per-room completion count
+     */
+    public function getMaxRoomCompletionCountByUser(int $userId, \DateTime $start, \DateTime $end): int
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('rt.room_id')
+            ->addSelect('COUNT(*) AS room_count')
+            ->from($this->getTableName(), 'ct')
+            ->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
+            ->where($qb->expr()->eq('ct.user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+            ->groupBy('rt.room_id')
+            ->orderBy('room_count', 'DESC')
+            ->setMaxResults(1);
+
+        $result = $qb->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        // GROUP BY + LIMIT 1 yields zero rows when the user has no
+        // completions, so fetch() returns false — guard before offset access.
+        if ($row === false) {
+            return 0;
+        }
+
+        return (int)($row['room_count'] ?? 0);
     }
 
     /**

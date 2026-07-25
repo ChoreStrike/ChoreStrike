@@ -171,10 +171,10 @@ class ChoreStrikeNotifier implements INotifier
     /**
      * Localise a medal type identifier into a human-readable label.
      *
-     * Medal types come from GameLogicService::awardMedalIfNew (currently
-     * 'team_anchor' and 'streak_keeper'). Falls back to a prettified version
-     * of the identifier for any unknown type so we never show raw snake_case
-     * to the user.
+     * Medal types come from GameLogicService::awardMedalIfNew (all five:
+     * 'team_anchor', 'streak_keeper', 'flow_keeper', 'room_guardian',
+     * 'team_player'). Falls back to a prettified version of the identifier
+     * for any unknown type so we never show raw snake_case to the user.
      *
      * @param IL10N $l L10n instance
      * @param string $medalType Medal type identifier
@@ -184,6 +184,9 @@ class ChoreStrikeNotifier implements INotifier
         $labels = [
             'team_anchor' => $l->t('Team Anchor'),
             'streak_keeper' => $l->t('Streak Keeper'),
+            'flow_keeper' => $l->t('Flow Keeper'),
+            'room_guardian' => $l->t('Room Guardian'),
+            'team_player' => $l->t('Team Player'),
         ];
 
         return $labels[$medalType] ?? ucfirst(str_replace('_', ' ', $medalType));

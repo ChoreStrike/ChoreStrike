@@ -62,114 +62,6 @@ class RoomTaskMapper extends QBMapper
     }
 
     /**
-     * Find tasks by house ID
-     *
-     * @param int $houseId The house ID
-     * @return RoomTask[] Array of tasks
-     */
-    public function findByHouseId(int $houseId): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-            ->orderBy('created_at', 'DESC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Find unscheduled tasks for a house
-     *
-     * @param int $houseId The house ID
-     * @return RoomTask[] Array of unscheduled tasks
-     */
-    public function findUnscheduledByHouseId(int $houseId): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->isNull('assigned_to'))
-            ->andWhere($qb->expr()->isNull('completed_at'))
-            ->orderBy('priority', 'ASC')
-            ->addOrderBy('deadline', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Find tasks assigned to a specific user
-     *
-     * @param int $houseId The house ID
-     * @param int $assignedTo The user ID
-     * @return RoomTask[] Array of assigned tasks
-     */
-    public function findByAssignedUser(int $houseId, int $assignedTo): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->eq('assigned_to', $qb->createNamedParameter($assignedTo, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->isNull('completed_at'))
-            ->orderBy('deadline', 'ASC')
-            ->addOrderBy('priority', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Find tasks with deadlines in a date range
-     *
-     * @param int $houseId The house ID
-     * @param string $startDate Start date (Y-m-d format)
-     * @param string $endDate End date (Y-m-d format)
-     * @return RoomTask[] Array of tasks with deadlines
-     */
-    public function findByDeadlineRange(int $houseId, string $startDate, string $endDate): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->isNotNull('deadline'))
-            ->andWhere($qb->expr()->gte('deadline', $qb->createNamedParameter($startDate)))
-            ->andWhere($qb->expr()->lte('deadline', $qb->createNamedParameter($endDate)))
-            ->andWhere($qb->expr()->isNull('completed_at'))
-            ->orderBy('deadline', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-
-    /**
-     * Find tasks scheduled for a specific date
-     *
-     * @param int $houseId The house ID
-     * @param string $date Date (Y-m-d format)
-     * @return RoomTask[] Array of tasks scheduled for the date
-     */
-    public function findByScheduledDate(int $houseId, string $date): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->eq('scheduled_for', $qb->createNamedParameter($date)))
-            ->andWhere($qb->expr()->isNull('completed_at'))
-            ->orderBy('priority', 'ASC')
-            ->addOrderBy('deadline', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
      * Get all room tasks for a room
      *
      * @param int $roomId The room ID
@@ -218,36 +110,13 @@ class RoomTaskMapper extends QBMapper
     }
 
     /**
-     * Get overdue tasks
-     *
-     * @param int|null $roomId Optional room ID to filter by
-     * @return RoomTask[]
-     */
-    public function findOverdue(?int $roomId = null): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->lt('next_due', $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-
-        if ($roomId !== null) {
-            $qb->andWhere($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-        }
-
-        $qb->orderBy('next_due', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
      * Get overdue tasks for a specific house (joins through rooms → floors).
      *
      * @param int $houseId The house ID
+     * @param int|null $roomId Optional room ID to filter by
      * @return RoomTask[]
      */
-    public function findOverdueByHouse(int $houseId): array
+    public function findOverdueByHouse(int $houseId, ?int $roomId = null): array
     {
         $qb = $this->db->getQueryBuilder();
 
@@ -255,19 +124,25 @@ class RoomTaskMapper extends QBMapper
             ->from($this->getTableName(), 'rt');
         $this->applyHouseScope($qb, 'rt', $houseId);
         $qb->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
-            ->orderBy('rt.next_due', 'ASC');
+            ->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+
+        if ($roomId !== null) {
+            $qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+        }
+
+        $qb->orderBy('rt.next_due', 'ASC');
 
         return $this->findEntities($qb);
     }
 
     /**
-     * Get tasks due today
+     * Get tasks due today for a specific house (joins through rooms → floors).
      *
+     * @param int $houseId The house ID
      * @param int|null $roomId Optional room ID to filter by
      * @return RoomTask[]
      */
-    public function findDueToday(?int $roomId = null): array
+    public function findDueTodayByHouse(int $houseId, ?int $roomId = null): array
     {
         $today = new \DateTime();
         $today->setTime(0, 0, 0);
@@ -276,29 +151,32 @@ class RoomTaskMapper extends QBMapper
 
         $qb = $this->db->getQueryBuilder();
 
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->gte('next_due', $qb->createNamedParameter($today, IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->lt('next_due', $qb->createNamedParameter($tomorrow, IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+        $qb->select('rt.*')
+            ->from($this->getTableName(), 'rt');
+        $this->applyHouseScope($qb, 'rt', $houseId);
+        $qb->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($today, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($tomorrow, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
 
         if ($roomId !== null) {
-            $qb->andWhere($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+            $qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
         }
 
-        $qb->orderBy('next_due', 'ASC');
+        $qb->orderBy('rt.next_due', 'ASC');
 
         return $this->findEntities($qb);
     }
 
     /**
-     * Get tasks due within the next N days
+     * Get tasks due within the next N days for a specific house
+     * (joins through rooms → floors).
      *
+     * @param int $houseId The house ID
      * @param int $days Number of days
      * @param int|null $roomId Optional room ID to filter by
      * @return RoomTask[]
      */
-    public function findDueWithinDays(int $days, ?int $roomId = null): array
+    public function findDueWithinDaysByHouse(int $houseId, int $days, ?int $roomId = null): array
     {
         $today = new \DateTime();
         $future = clone $today;
@@ -306,17 +184,18 @@ class RoomTaskMapper extends QBMapper
 
         $qb = $this->db->getQueryBuilder();
 
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->lte('next_due', $qb->createNamedParameter($future, IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->gte('next_due', $qb->createNamedParameter($today, IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+        $qb->select('rt.*')
+            ->from($this->getTableName(), 'rt');
+        $this->applyHouseScope($qb, 'rt', $houseId);
+        $qb->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($future, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($today, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
 
         if ($roomId !== null) {
-            $qb->andWhere($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+            $qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
         }
 
-        $qb->orderBy('next_due', 'ASC');
+        $qb->orderBy('rt.next_due', 'ASC');
 
         return $this->findEntities($qb);
     }
@@ -386,126 +265,6 @@ class RoomTaskMapper extends QBMapper
         $qb->orderBy('next_due', 'ASC');
 
         return $this->findEntities($qb);
-    }
-
-    /**
-     * Get all room tasks for a group
-     *
-     * @param string $groupId The group ID
-     * @param bool $activeOnly Whether to return only active tasks
-     * @return RoomTask[]
-     */
-    public function findByGroupId(string $groupId, bool $activeOnly = true): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('assigned_to_group', $qb->createNamedParameter($groupId)))
-            ->andWhere($qb->expr()->eq('assignment_type', $qb->createNamedParameter('group')));
-
-        if ($activeOnly) {
-            $qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-        }
-
-        $qb->orderBy('next_due', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Find all tasks visible to a user (assigned directly or via group)
-     *
-     * @param string $userId The user ID
-     * @param array $groupIds The group IDs the user belongs to
-     * @param bool $activeOnly Whether to return only active tasks
-     * @return RoomTask[]
-     */
-    public function findVisibleToUser(string $userId, array $groupIds, bool $activeOnly = true): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName());
-
-        // Build OR condition: assigned to user OR assigned to any of user's groups
-        $conditions = [
-            $qb->expr()->eq('assigned_to_user_id', $qb->createNamedParameter($userId))
-        ];
-
-        if (!empty($groupIds)) {
-            $groupConditions = [];
-            foreach ($groupIds as $groupId) {
-                $groupConditions[] = $qb->expr()->eq('assigned_to_group', $qb->createNamedParameter($groupId));
-            }
-            $conditions[] = $qb->expr()->andX(
-                $qb->expr()->eq('assignment_type', $qb->createNamedParameter('group')),
-                $qb->expr()->orX(...$groupConditions)
-            );
-        }
-
-        $qb->where($qb->expr()->orX(...$conditions));
-
-        if ($activeOnly) {
-            $qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-        }
-
-        $qb->orderBy('next_due', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Assign task to group
-     *
-     * @param int $roomTaskId The room task ID
-     * @param string $groupId The group ID
-     */
-    public function assignToGroup(int $roomTaskId, string $groupId): void
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->update($this->getTableName())
-            ->set('assigned_to_group', $qb->createNamedParameter($groupId))
-            ->set('assignment_type', $qb->createNamedParameter('group'))
-            ->set('claimed_by_user', $qb->createNamedParameter(null))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-
-        $qb->executeStatement();
-    }
-
-    /**
-     * Claim a group-assigned task for a user
-     *
-     * @param int $roomTaskId The room task ID
-     * @param string $userId The claiming user ID
-     */
-    public function claimForUser(int $roomTaskId, string $userId): void
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->update($this->getTableName())
-            ->set('claimed_by_user', $qb->createNamedParameter($userId))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->eq('assignment_type', $qb->createNamedParameter('group')));
-
-        $qb->executeStatement();
-    }
-
-    /**
-     * Unclaim a group-assigned task
-     *
-     * @param int $roomTaskId The room task ID
-     */
-    public function unclaim(int $roomTaskId): void
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->update($this->getTableName())
-            ->set('claimed_by_user', $qb->createNamedParameter(null))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-
-        $qb->executeStatement();
     }
 
     /**

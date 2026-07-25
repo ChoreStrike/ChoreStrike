@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskSyncService;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -51,7 +52,7 @@ class TaskSyncController extends OCSController
 
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $result = $this->taskSyncService->completeTaskForHouse($roomTaskId, $userId, $house->getId(), $nextcloudTaskId);
 
@@ -59,6 +60,8 @@ class TaskSyncController extends OCSController
                 'success' => true,
                 'data' => $result
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -80,7 +83,7 @@ class TaskSyncController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $result = $this->taskSyncService->syncCompletionFromNextcloudForHouse($nextcloudTaskId, $completedAt, $house->getId(), $roomTaskId);
 
@@ -98,6 +101,8 @@ class TaskSyncController extends OCSController
                 'success' => true,
                 'data' => $result
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -119,7 +124,7 @@ class TaskSyncController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $roomTask = $this->taskSyncService->getRoomTaskForHouse($roomTaskId, $house->getId());
             $reminders = $this->taskSyncService->mapRemindersToNextcloud($roomTask);
@@ -128,6 +133,8 @@ class TaskSyncController extends OCSController
                 'success' => true,
                 'data' => $reminders
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -149,7 +156,7 @@ class TaskSyncController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $pending = $this->taskSyncService->getPendingSyncsForHouse($house->getId(), $limit);
 
@@ -157,6 +164,8 @@ class TaskSyncController extends OCSController
                 'success' => true,
                 'data' => $pending
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -178,7 +187,7 @@ class TaskSyncController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $this->taskSyncService->markAsSyncedForHouse($completedTaskId, $house->getId());
 
@@ -186,6 +195,8 @@ class TaskSyncController extends OCSController
                 'success' => true,
                 'message' => 'Marked as synced'
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -207,7 +218,7 @@ class TaskSyncController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $this->taskSyncService->linkTaskForHouse($roomTaskId, $nextcloudTaskId, $house->getId());
 
@@ -215,6 +226,8 @@ class TaskSyncController extends OCSController
                 'success' => true,
                 'message' => 'Tasks linked successfully'
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,

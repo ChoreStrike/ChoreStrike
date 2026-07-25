@@ -46,7 +46,7 @@ ChoreStrike/
 │   │                           #   UserStats, AvailabilitySettings)
 │   ├── Exception/              # App exceptions (NotFoundException, ForbiddenException) —
 │   │                           #   domain-typed (NC 31 dropped the framework equivalents)
-│   ├── Migration/              # Schema migrations (Version1000 … Version1026,
+│   ├── Migration/              # Schema migrations (Version1000 … Version1027,
 │   │                           #   non-contiguous — Version1014 absent)
 │   ├── Notification/           # ChoreStrikeNotifier (renders localized notifications)
 │   ├── Service/                # Business logic (House, HouseUser, Floor, Room, RoomTask,
@@ -235,7 +235,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `next_due` (datetime), `last_completed` (datetime, nullable)
 - `assigned_to_user_id` (string, nullable) — legacy single assignee
 - `is_active` (boolean), `created_at` (datetime)
-- assignment/claim fields (`assignment_type`, `assigned_to_group`, `claimed_by_user`, `was_claimed`, …) — legacy group-assignment feature (see `docs/backlog/bugs.md` IDOR findings)
+- assignment/claim fields (`assignment_type`, `assigned_to_group`, `claimed_by_user`, `was_claimed`, …) — **retained columns** of the legacy group-assignment feature, which was archived in CS-PLAN-011 (routes/controller/service/mapper removed; columns kept harmlessly to avoid data loss on existing installs)
 - `ideal_due_date` (datetime, nullable) — drives the early-completion bonus
 
 #### `chorestrike_house_users` (membership + gamification state)
@@ -266,7 +266,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `medal_type` (string) — gamification: `team_anchor`/`flow_keeper`/`room_guardian`/`team_player`/`streak_keeper`; standard: `gold`/`silver`/`bronze`
 - `week_start` (date), `value` (int), `awarded_at` (datetime)
 
-> **Award reality (CS-PLAN-010):** only `team_anchor` (10+ tasks/week) and `streak_keeper` (7+ day streak) are actually awarded in the live `GameLogicService::checkAndAwardMedals()` flow. `flow_keeper`/`room_guardian`/`team_player` are catalogued in `Medal` but not yet wired to an award check (see backlog). `gold`/`silver`/`bronze` are legacy. Note: `lib/Service/MedalService.php` is dead code (archived in CS-PLAN-010) — the live path is `GameLogicService::awardMedalIfNew()`.
+> **Award reality (CS-PLAN-012):** all five gamification medal types are awarded in the live `GameLogicService::checkAndAwardMedals()` flow: `team_anchor` (10+ tasks/week), `streak_keeper` (7+ day streak), `flow_keeper` (4+ distinct active days), `room_guardian` (5+ completions in one room), `team_player` (3+ combo bonuses). `gold`/`silver`/`bronze` are legacy. Note: `lib/Service/MedalService.php` is dead code (archived in CS-PLAN-010) — the live path is `GameLogicService::awardMedalIfNew()`.
 
 ### Supporting Tables
 

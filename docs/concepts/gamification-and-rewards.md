@@ -57,13 +57,18 @@ The system should allow configurable balancing so high-load members receive redu
 
 ### Weekly Medals
 
-> **Award reality (CS-PLAN-010, Decision A):** the medal enum
+> **Award reality (CS-PLAN-012):** the medal enum
 > (`lib/Db/Medal.php`) catalogues `team_anchor`, `flow_keeper`, `room_guardian`,
-> `team_player`, `streak_keeper`. **Only `team_anchor` (10+ tasks/week) and
-> `streak_keeper` (7+ day streak) are actually awarded** in the live
-> `GameLogicService::checkAndAwardMedals()` flow; the other three are catalogued
-> but their award checks are not yet wired (backlog item). The dead
-> `lib/Service/MedalService.php` is archived; the live path is
+> `team_player`, `streak_keeper`. **All five are awarded** in the live
+> `GameLogicService::checkAndAwardMedals()` flow via `awardMedalIfNew()`
+> (idempotent, race-safe, notifies once per user+type+week):
+> - `team_anchor` — 10+ task completions in the week
+> - `streak_keeper` — 7+ day streak
+> - `flow_keeper` — 4+ distinct active days in the week
+> - `room_guardian` — 5+ completions in a single room (concentration)
+> - `team_player` — 3+ combo bonuses in the week (`comboCount` aggregation)
+>
+> The dead `lib/Service/MedalService.php` is archived; the live path is
 > `GameLogicService::awardMedalIfNew()`.
 
 ## Role Title Systems (Localized)

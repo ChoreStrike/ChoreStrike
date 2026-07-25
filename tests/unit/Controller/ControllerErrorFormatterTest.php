@@ -12,12 +12,16 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 
 class ControllerErrorFormatterTest extends \PHPUnit\Framework\TestCase
 {
-    public function testInvalidArgumentExceptionMessageIsSurfaced(): void
+    public function testInvalidArgumentExceptionFallsBackToGenericMessage(): void
     {
-        $e = new \InvalidArgumentException('User is not a member of this house');
+        // InvalidArgumentException is used by services to reject bad input
+        // (e.g. an unknown mass-assignment field), and its message echoes
+        // client-controlled values. It must NOT be surfaced — otherwise the
+        // endpoint becomes a schema-disclosure oracle.
+        $e = new \InvalidArgumentException('Unknown or immutable field: bogusColumn');
 
         $this->assertSame(
-            'User is not a member of this house',
+            'An unexpected error occurred',
             ControllerErrorFormatter::safeMessage($e)
         );
     }

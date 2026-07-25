@@ -138,13 +138,6 @@ return [
         ['name' => 'task_sync#markAsSynced', 'url' => '/api/v1/task-sync/{completedTaskId}/mark-synced', 'verb' => 'POST'],
         ['name' => 'task_sync#linkTask', 'url' => '/api/v1/task-sync/link', 'verb' => 'POST'],
 
-        // Group Assignment API (Feature 5)
-        ['name' => 'room_task#assignToGroup', 'url' => '/api/v1/room-tasks/{id}/assign-to-group', 'verb' => 'POST'],
-        ['name' => 'room_task#claimForUser', 'url' => '/api/v1/room-tasks/{id}/claim', 'verb' => 'POST'],
-        ['name' => 'room_task#unclaim', 'url' => '/api/v1/room-tasks/{id}/unclaim', 'verb' => 'POST'],
-        ['name' => 'room_task#groupTasks', 'url' => '/api/v1/room-tasks/group/{groupId}', 'verb' => 'GET'],
-        ['name' => 'room_task#visibleToUser', 'url' => '/api/v1/room-tasks/visible-to-user', 'verb' => 'GET'],
-
         // Claiming Overdue Tasks API (Feature 7)
         ['name' => 'room_task#overdueClaims', 'url' => '/api/v1/room-tasks/overdue-claims', 'verb' => 'GET'],
         ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],

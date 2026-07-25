@@ -53,7 +53,7 @@ class GameControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->gameLogicService->method('getGameState')
             ->willReturn($gameState);
 
@@ -97,7 +97,7 @@ class GameControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->gameLogicService->method('getLeaderboard')
             ->willReturn($leaderboard);
 
@@ -120,7 +120,7 @@ class GameControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->gameLogicService->method('getMedals')
             ->willReturn($medals);
 

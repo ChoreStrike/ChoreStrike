@@ -7,6 +7,7 @@ namespace OCA\ChoreStrike\Tests\Integration\Controller;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 
 /**
@@ -64,7 +65,7 @@ class AuthorizationIntegrationTest extends IntegrationTestCase
         $this->userSession->setUser(null);
         $authService = \OC::$server->get(AuthorizationService::class);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(ForbiddenException::class);
         $this->expectExceptionMessage('Not authenticated');
         $authService->requireCurrentUserId();
     }
@@ -100,7 +101,7 @@ class AuthorizationIntegrationTest extends IntegrationTestCase
         $this->actingAs('auth_member');
         $authService = \OC::$server->get(AuthorizationService::class);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(ForbiddenException::class);
         $this->expectExceptionMessage('Owner role required');
         $authService->requireHouseOwner($this->house1Id);
     }
@@ -111,7 +112,7 @@ class AuthorizationIntegrationTest extends IntegrationTestCase
         $this->actingAs('auth_child');
         $authService = \OC::$server->get(AuthorizationService::class);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(ForbiddenException::class);
         $this->expectExceptionMessage('Owner role required');
         $authService->requireHouseOwner($this->house1Id);
     }
@@ -204,7 +205,7 @@ class AuthorizationIntegrationTest extends IntegrationTestCase
         $this->actingAs('auth_member2');
         $authService = \OC::$server->get(AuthorizationService::class);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(ForbiddenException::class);
         $this->expectExceptionMessage('Owner role required');
         $authService->requireHouseOwner($this->house1Id);
     }

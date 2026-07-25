@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
@@ -17,6 +18,29 @@ use OCP\AppFramework\Db\DoesNotExistException;
  */
 class TaskService
 {
+    /**
+     * Fields a client is allowed to change through updateTask.
+     *
+     * Defense against mass-assignment: only these keys are honoured; any
+     * other key throws {@see \InvalidArgumentException} (→ 400). Derived from
+     * the controller-level whitelist + the TaskEditForm field set. Note that
+     * `ownerUserId` is whitelisted for transfer, but *who* may change it is
+     * still governed by the controller authorization (CS-PLAN-005) — the
+     * whitelist is defense-in-depth, not an authorization bypass.
+     */
+    private const MUTABLE_FIELDS = [
+        'name', 'description', 'energyCost', 'priority',
+        'frequencyType', 'frequencyValue', 'estimatedMinutes',
+        'category', 'scopeType', 'scopeLabel', 'recurrenceMode',
+        'activeFrom', 'activeUntil', 'isVoluntary',
+        'schedulingMode', 'fixedScheduleTime', 'fixedScheduleDays',
+        'instructions', 'tips', 'estimatedMinutesMin', 'estimatedMinutesMax',
+        'visibilityType', 'ownerUserId', 'taskTier', 'flexDays',
+    ];
+
+    /** Fields whose value is a date and must be parsed from string input. */
+    private const DATE_FIELDS = ['activeFrom', 'activeUntil', 'fixedScheduleTime'];
+
     private TaskMapper $taskMapper;
 
     public function __construct(TaskMapper $taskMapper)
@@ -136,38 +160,75 @@ class TaskService
     }
 
     /**
-     * Update task
+     * Update task.
+     *
+     * Applies only the whitelisted {@see MUTABLE_FIELDS} from `$updates`;
+     * any key not on the whitelist is rejected with
+     * {@see \InvalidArgumentException} (translated to 400 by the controller)
+     * to prevent mass-assignment of internal columns.
      *
      * @param int $taskId The task ID
-     * @param array $updates The updates to apply
+     * @param array $updates The updates to apply (only whitelisted keys)
+     * @throws \InvalidArgumentException if an update key is not whitelisted
      */
     public function updateTask(int $taskId, array $updates): Task
     {
         $task = $this->taskMapper->find($taskId);
 
-        $dateFields = ['activeFrom', 'activeUntil'];
-
         foreach ($updates as $field => $value) {
-            $method = 'set' . ucfirst($field);
-            if (method_exists($task, $method)) {
-                if (in_array($field, $dateFields) && is_string($value)) {
-                    $value = new \DateTime($value);
-                }
-                $task->$method($value);
+            if (!in_array($field, self::MUTABLE_FIELDS, true)) {
+                throw new \InvalidArgumentException('Unknown or immutable field: ' . $field);
             }
+
+            // Task extends Nextcloud's Entity, whose accessors are magic
+            // (@method/__call), so method_exists() returns false for them and
+            // cannot be used as a gate. The MUTABLE_FIELDS whitelist above is
+            // the authoritative guard; the Entity setter applies the value.
+            $method = 'set' . ucfirst($field);
+
+            if (in_array($field, self::DATE_FIELDS, true) && is_string($value)) {
+                $value = new \DateTime($value);
+            }
+
+            $task->$method($value);
         }
 
         return $this->taskMapper->update($task);
     }
 
     /**
-     * Delete task
+     * Delete task.
+     *
+     * Enforces the task-visibility matrix as defense-in-depth so the rule
+     * holds even if a caller bypasses the controller gate:
+     *   - private:    only the task owner may delete
+     *   - admin-only: only a house owner may delete
+     *   - public:     any caller
+     *
+     * Callers MUST supply authorization context ($callerUserId, $isOwner);
+     * the parameter is non-nullable so a caller can never silently bypass
+     * the private-task ownership check. The production path
+     * (TaskController::delete) always supplies it.
      *
      * @param int $taskId The task ID
+     * @param string $callerUserId The Nextcloud user ID requesting the delete
+     * @param bool $isOwner Whether the caller is a house owner
+     * @throws ForbiddenException if the caller lacks permission for this task
      */
-    public function deleteTask(int $taskId): void
+    public function deleteTask(int $taskId, string $callerUserId, bool $isOwner = false): void
     {
         $task = $this->taskMapper->find($taskId);
+
+        $visibility = $task->getVisibilityType();
+        if ($visibility === Task::VISIBILITY_PRIVATE
+            && $task->getOwnerUserId() !== $callerUserId
+        ) {
+            throw new ForbiddenException('Only the task owner may delete a private task');
+        }
+        if ($visibility === Task::VISIBILITY_ADMIN_ONLY && !$isOwner) {
+            throw new ForbiddenException('Only house owners may delete an admin-only task');
+        }
+
         $this->taskMapper->delete($task);
     }
 
@@ -398,18 +459,6 @@ class TaskService
         }
 
         return $createdTemplates;
-    }
-
-    /**
-     * Get today's scheduled tasks for a house
-     *
-     * @param int $houseId The house ID
-     * @param DateTime $date The date to get tasks for
-     * @return Task[]
-     */
-    public function getDailyTasks(int $houseId, \DateTime $date): array
-    {
-        return $this->taskMapper->findDailyTasks($houseId, $date);
     }
 
     /**

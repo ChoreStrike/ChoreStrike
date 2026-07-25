@@ -152,7 +152,8 @@ class RoomTaskServiceTest extends TestCase
      */
     public function testGetOverdueTasks_ReturnsOverdueTasks(): void
     {
-        $roomId = 1;
+        $houseId = 1;
+        $roomId = 2;
 
         $roomTask = new RoomTask();
         $roomTask->setId(1);
@@ -160,11 +161,11 @@ class RoomTaskServiceTest extends TestCase
 
         $this->roomTaskMapper
             ->expects($this->once())
-            ->method('findOverdue')
-            ->with($roomId)
+            ->method('findOverdueByHouse')
+            ->with($houseId, $roomId)
             ->willReturn([$roomTask]);
 
-        $result = $this->service->getOverdueTasks($roomId);
+        $result = $this->service->getOverdueTasks($houseId, $roomId);
 
         $this->assertCount(1, $result);
     }
@@ -174,7 +175,8 @@ class RoomTaskServiceTest extends TestCase
      */
     public function testGetDueTodayTasks_ReturnsDueTodayTasks(): void
     {
-        $roomId = 1;
+        $houseId = 1;
+        $roomId = 2;
 
         $roomTask = new RoomTask();
         $roomTask->setId(1);
@@ -182,11 +184,11 @@ class RoomTaskServiceTest extends TestCase
 
         $this->roomTaskMapper
             ->expects($this->once())
-            ->method('findDueToday')
-            ->with($roomId)
+            ->method('findDueTodayByHouse')
+            ->with($houseId, $roomId)
             ->willReturn([$roomTask]);
 
-        $result = $this->service->getDueTodayTasks($roomId);
+        $result = $this->service->getDueTodayTasks($houseId, $roomId);
 
         $this->assertCount(1, $result);
     }
@@ -196,8 +198,9 @@ class RoomTaskServiceTest extends TestCase
      */
     public function testGetDueWithinDaysTasks_ReturnsTasksWithinRange(): void
     {
+        $houseId = 1;
         $days = 7;
-        $roomId = 1;
+        $roomId = 2;
 
         $roomTask = new RoomTask();
         $roomTask->setId(1);
@@ -205,11 +208,11 @@ class RoomTaskServiceTest extends TestCase
 
         $this->roomTaskMapper
             ->expects($this->once())
-            ->method('findDueWithinDays')
-            ->with($days, $roomId)
+            ->method('findDueWithinDaysByHouse')
+            ->with($houseId, $days, $roomId)
             ->willReturn([$roomTask]);
 
-        $result = $this->service->getDueWithinDaysTasks($days, $roomId);
+        $result = $this->service->getDueWithinDaysTasks($houseId, $days, $roomId);
 
         $this->assertCount(1, $result);
     }

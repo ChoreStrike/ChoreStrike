@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TitleService;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
@@ -71,7 +72,7 @@ class UserController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $users = $this->houseUserMapper->findByHouseId($house->getId());
 
@@ -79,6 +80,8 @@ class UserController extends OCSController
                 'success' => true,
                 'data' => array_map(fn ($user) => $this->serializeUserWithTitle($user), $users)
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -100,12 +103,14 @@ class UserController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $houseUser = $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->ensureHouseMember($house->getId());
 
             return new JSONResponse([
                 'success' => true,
                 'data' => $this->serializeUserWithTitle($houseUser),
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -180,6 +185,8 @@ class UserController extends OCSController
                 'data' => $houseUser->jsonSerialize(),
                 'message' => $this->l->t('User invited to house')
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -218,6 +225,8 @@ class UserController extends OCSController
                 'success' => true,
                 'message' => $this->l->t('User removed from house')
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -257,6 +266,8 @@ class UserController extends OCSController
                 'success' => true,
                 'data' => $houseUser->jsonSerialize()
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -282,7 +293,7 @@ class UserController extends OCSController
             $houseUser = $this->houseUserMapper->find($id);
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $currentHouseUser = $this->authService->requireHouseMember($house->getId());
+            $currentHouseUser = $this->authService->ensureHouseMember($house->getId());
 
             if ($houseUser->getHouseId() !== $house->getId()) {
                 return new JSONResponse([
@@ -339,6 +350,8 @@ class UserController extends OCSController
                     'message' => $this->l->t('User not found')
                 ]
             ], 404);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -360,7 +373,7 @@ class UserController extends OCSController
     {
         try {
             $houseUser = $this->houseUserMapper->find($id);
-            $this->authService->requireHouseMember($houseUser->getHouseId());
+            $this->authService->ensureHouseMember($houseUser->getHouseId());
 
             return new JSONResponse([
                 'success' => true,
@@ -379,6 +392,8 @@ class UserController extends OCSController
                     'message' => $this->l->t('User not found')
                 ]
             ], 404);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -406,7 +421,7 @@ class UserController extends OCSController
             $houseUser = $this->houseUserMapper->find($id);
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $currentHouseUser = $this->authService->requireHouseMember($house->getId());
+            $currentHouseUser = $this->authService->ensureHouseMember($house->getId());
 
             if ($houseUser->getHouseId() !== $house->getId()) {
                 return new JSONResponse([
@@ -455,6 +470,8 @@ class UserController extends OCSController
                     'message' => $this->l->t('Invalid title pack')
                 ]
             ], 400);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -475,7 +492,7 @@ class UserController extends OCSController
     {
         try {
             $houseUser = $this->houseUserMapper->find($id);
-            $this->authService->requireHouseMember($houseUser->getHouseId());
+            $this->authService->ensureHouseMember($houseUser->getHouseId());
 
             return new JSONResponse([
                 'success' => true,
@@ -489,6 +506,8 @@ class UserController extends OCSController
                     ]
                 ]
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,

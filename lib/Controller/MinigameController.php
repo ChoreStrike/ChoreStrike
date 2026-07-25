@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\MinigameService;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -42,7 +43,7 @@ class MinigameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $leaderboard = $this->minigameService->getLeaderboard($house->getId(), $gameId, $limit);
 
@@ -50,6 +51,8 @@ class MinigameController extends OCSController
                 'success' => true,
                 'data' => $leaderboard
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -73,7 +76,7 @@ class MinigameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $leaderboard = $this->minigameService->getWeeklyLeaderboard($house->getId(), $gameId, $limit);
 
@@ -81,6 +84,8 @@ class MinigameController extends OCSController
                 'success' => true,
                 'data' => $leaderboard
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -105,7 +110,7 @@ class MinigameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $userId = $this->authService->getCurrentUserId();
             $savedScore = $this->minigameService->saveScore(
@@ -130,6 +135,8 @@ class MinigameController extends OCSController
                     'coinsEarned' => $coinsEarned,
                 ]
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -151,7 +158,7 @@ class MinigameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $userId = $this->authService->getCurrentUserId();
             $coins = $this->minigameService->getUserCoins($house->getId(), $userId);
@@ -162,6 +169,8 @@ class MinigameController extends OCSController
                     'currentCoins' => $coins
                 ]
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -184,7 +193,7 @@ class MinigameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $userId = $this->authService->getCurrentUserId();
             $personalBest = $this->minigameService->getPersonalBest($house->getId(), $userId, $gameId);
@@ -193,6 +202,8 @@ class MinigameController extends OCSController
                 'success' => true,
                 'data' => $personalBest
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -215,7 +226,7 @@ class MinigameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $userId = $this->authService->getCurrentUserId();
             $rank = $this->minigameService->getUserRank($house->getId(), $userId, $gameId);
@@ -227,6 +238,8 @@ class MinigameController extends OCSController
                     'gameId' => $gameId
                 ]
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -274,7 +287,7 @@ class MinigameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $userId = $this->authService->getCurrentUserId();
             $result = $this->minigameService->purchaseBoost($house->getId(), $userId, $boostId);
@@ -291,6 +304,8 @@ class MinigameController extends OCSController
                     'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 400);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -314,7 +329,7 @@ class MinigameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $userId = $this->authService->getCurrentUserId();
             $scores = $this->minigameService->getRecentScores($house->getId(), $userId, $gameId, $limit);
@@ -323,6 +338,8 @@ class MinigameController extends OCSController
                 'success' => true,
                 'data' => $scores
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,

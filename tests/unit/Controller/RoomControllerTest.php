@@ -72,7 +72,7 @@ class RoomControllerTest extends TestCase
             ->willReturn($floor);
 
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(1);
 
         $this->roomService->expects($this->once())
@@ -130,7 +130,7 @@ class RoomControllerTest extends TestCase
             ->willReturn($floor);
 
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(1);
 
         $this->roomService->expects($this->once())
@@ -171,7 +171,7 @@ class RoomControllerTest extends TestCase
             ->willReturn($floor);
 
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(1);
 
         $this->roomService->expects($this->once())
@@ -216,7 +216,7 @@ class RoomControllerTest extends TestCase
         $house = new \OCA\ChoreStrike\Db\House();
         $house->setId(1);
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('requireHouseMember');
+        $this->authService->method('ensureHouseMember');
 
         $response = $this->controller->show(1);
 
@@ -237,7 +237,7 @@ class RoomControllerTest extends TestCase
         $house = new \OCA\ChoreStrike\Db\House();
         $house->setId(1);
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('requireHouseMember');
+        $this->authService->method('ensureHouseMember');
 
         $this->roomService->expects($this->once())
             ->method('validateRoomOwnership')

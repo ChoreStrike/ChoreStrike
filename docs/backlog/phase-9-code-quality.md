@@ -14,6 +14,16 @@
 > Sparks residue, and doc-vs-impl drift were closed by `cs-plan-010`
 > (**P9-DOC-004**); the catalogued-but-unawarded medal types are logged as
 > **P9-GAME-001**.
+>
+> **Progress (2026-07-25, `cs-plan-011`):** Closed the authorization + dead-code
+> cluster from the review: the dead group-assignment feature (**D2**) was
+> archived (5 routes / 5 controller actions / 5 service + 5 mapper methods, zero
+> frontend consumers, phantom `getCurrentUserGroupIds()` call); the dead
+> `RoomTaskMapper` query methods (**D3**: `findByHouseId`,
+> `findUnscheduledByHouseId`, `findByAssignedUser`, `findByDeadlineRange`,
+> `findByScheduledDate`) and `TaskMapper::findDailyTasks()` + its only caller
+> `TaskService::getDailyTasks()` (**D4**) were removed. See `bugs.md` for the
+> security/auth closure (S1–S7, L1/L2) and the fresh-install schema gap.
 
 ---
 
@@ -429,11 +439,7 @@ export const logger = {
 ### P9-GAME-001 - Wire the 3 Catalogued-but-Unawarded Medal Types
 **Priority**: LOW  
 **Effort**: 0.5 day  
-**Status**: Open (surfaced by CS-PLAN-010, Decision A — default "document reality" chosen)
-
-**Description**: `lib/Db/Medal.php` catalogues five gamification medal types (`team_anchor`, `flow_keeper`, `room_guardian`, `team_player`, `streak_keeper`), but the live `GameLogicService::checkAndAwardMedals()` flow only awards two: `team_anchor` (10+ tasks/week) and `streak_keeper` (7+ day streak). `flow_keeper`, `room_guardian`, and `team_player` are recognized in the medal label/rarity renderers but have **no award check**, so they can never be earned.
-
-**Proposed implementation**: add the three missing award checks to `GameLogicService::checkAndAwardMedals()` (mirror the existing `awardMedalIfNew()` pattern). Suggested criteria (confirm at implementation): `flow_keeper` (e.g. N-day active streak of daily completions), `room_guardian` (most tasks in a specific room/week), `team_player` (most teamwork/cooperative completions). Add unit + integration regression tests; update docs to remove the "not yet wired" caveats. Split into its own plan if scope grows.
+**Status**: Done — implemented via CS-PLAN-012 (2026-07-25). All five medal types (`team_anchor`, `streak_keeper`, `flow_keeper`, `room_guardian`, `team_player`) are now awarded in `GameLogicService::checkAndAwardMedals()`. Criteria: `flow_keeper` ≥ 4 distinct active days, `room_guardian` ≥ 5 completions in one room (concentration), `team_player` ≥ 3 combo bonuses. New `CompletedTaskMapper::getMaxRoomCompletionCountByUser` query; the `flow_keeper` active-days count is aggregated inside `getUserStats()` (review-driven N+1 optimization — the planned standalone `countDistinctActiveDaysByUser` method was merged in instead of added separately); `ChoreStrikeNotifier::medalLabel()` extended with all five labels. Unit tests cover award + below-threshold for each new medal. Docs updated to remove "not yet wired" caveats.
 
 ---
 

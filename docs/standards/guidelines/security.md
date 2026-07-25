@@ -28,13 +28,22 @@ All API endpoints use `@NoAdminRequired` annotation (requires authenticated user
 
 ### House Membership Checks
 
-Every controller method validates house membership before data access:
+Every controller method validates house membership before data access. Two
+primitives exist in `AuthorizationService` (both throw `ForbiddenException`,
+caught by every controller → **403**, never 500):
 
+- `ensureHouseMember()` — auto-creates the membership on first access (the
+  `getOrCreateHouse` bootstrap/join flow). This is what the standard controller
+  preamble uses:
 ```php
 $instanceId = $this->houseService->getInstanceId();
 $house = $this->houseService->getOrCreateHouse($instanceId);
-$this->authService->requireHouseMember($house->getId());
+$this->authService->ensureHouseMember($house->getId());
 ```
+- `assertHouseMember()` — a pure, read-only gate (no mutation). Use it for
+  ordinary authorization checks where auto-join is not intended, e.g.
+  `assertUserInHouse($houseId, $targetUserId)` to reject cross-house access on
+  endpoints that accept an arbitrary userId (`userTasks`/`userStats`).
 
 ### Role-Based Access Control
 
@@ -187,7 +196,7 @@ Error responses contain only error codes and messages, not stack traces.
 | Category | Status | Notes |
 |----------|--------|-------|
 | Authorization Annotations | ✅ Pass | No `@PublicPage` annotations found |
-| House Membership Checks | ✅ Pass | All controllers use `requireHouseMember`/`requireHouseOwner` |
+| House Membership Checks | ✅ Pass | All controllers use `ensureHouseMember`/`assertHouseMember`/`requireHouseOwner`; auth denials return 403 (CS-PLAN-011) |
 | Input Validation | ✅ Pass | `VALIDATION_ERROR` responses present |
 | SQL Injection Prevention | ✅ Pass | All queries use `createNamedParameter()` |
 | XSS Prevention | ✅ Pass | No `v-html` directives in Vue components |

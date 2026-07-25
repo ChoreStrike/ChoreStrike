@@ -25,7 +25,7 @@ class Version1021Date20260712000000 extends SimpleMigrationStep
 	 * @param Closure $schemaClosure
 	 * @param array $options
 	 */
-	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?string
+	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper
 	{
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
@@ -72,6 +72,8 @@ class Version1021Date20260712000000 extends SimpleMigrationStep
 			}
 		}
 
-		return null;
+		// The runner persists schema diffs produced by changeSchema(), so the
+		// modified wrapper MUST be returned (returning null silently drops it).
+		return $schema;
 	}
 }

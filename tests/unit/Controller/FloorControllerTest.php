@@ -67,7 +67,7 @@ class FloorControllerTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('instance-123');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('requireHouseMember');
+        $this->authService->method('ensureHouseMember');
 
         $this->floorService->expects($this->once())
             ->method('getFloors')
@@ -123,7 +123,7 @@ class FloorControllerTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('instance-123');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('requireHouseMember');
+        $this->authService->method('ensureHouseMember');
         $this->floorService->expects($this->once())
             ->method('createFloor')
             ->with(1, 'Basement', null)

@@ -94,7 +94,7 @@ class UserControllerTest extends TestCase
             ->willReturn($house);
 
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(1);
 
         $this->houseUserMapper->expects($this->once())
@@ -157,7 +157,7 @@ class UserControllerTest extends TestCase
             ->willReturn($house);
 
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(5)
             ->willReturn($houseUser);
 
@@ -320,7 +320,7 @@ class UserControllerTest extends TestCase
             ->willReturn($house);
 
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(2)
             ->willReturn($currentHouseUser);
 

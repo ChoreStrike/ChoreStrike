@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\SchedulingService;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -51,13 +52,15 @@ class SchedulingController extends OCSController
                 throw new \Exception('Not authenticated');
             }
 
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
             $preferences = $this->schedulingService->getUserPreferencesByNextcloudUserId($house->getId(), $userId);
 
             return new JSONResponse([
                 'success' => true,
                 'data' => $preferences
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -84,7 +87,7 @@ class SchedulingController extends OCSController
                 throw new \Exception('Not authenticated');
             }
 
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
             $this->schedulingService->updateEnergyBudgetByNextcloudUserId($house->getId(), $userId, $day, $energy);
 
             return new JSONResponse([
@@ -99,6 +102,8 @@ class SchedulingController extends OCSController
                     'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 400);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -125,7 +130,7 @@ class SchedulingController extends OCSController
                 throw new \Exception('Not authenticated');
             }
 
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
             $this->schedulingService->updateAvailabilityByNextcloudUserId($house->getId(), $userId, $day, $available);
 
             return new JSONResponse([
@@ -140,6 +145,8 @@ class SchedulingController extends OCSController
                     'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 400);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -169,6 +176,8 @@ class SchedulingController extends OCSController
                 'success' => true,
                 'data' => $availability
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -198,6 +207,8 @@ class SchedulingController extends OCSController
                 'success' => true,
                 'message' => 'Member availability updated'
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -219,7 +230,7 @@ class SchedulingController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $suggestions = $this->schedulingService->getSchedulingSuggestions($tasks, $house->getId());
 
@@ -227,6 +238,8 @@ class SchedulingController extends OCSController
                 'success' => true,
                 'data' => $suggestions
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,

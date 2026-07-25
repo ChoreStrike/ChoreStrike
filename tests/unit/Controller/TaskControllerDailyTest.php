@@ -54,7 +54,7 @@ class TaskControllerDailyTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+        $this->authService->expects($this->once())->method('ensureHouseMember')->with(1);
 
         $today = new \DateTime();
 
@@ -111,7 +111,7 @@ class TaskControllerDailyTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+        $this->authService->expects($this->once())->method('ensureHouseMember')->with(1);
 
         $this->roomTaskService->expects($this->once())
             ->method('getDailyTasksWithDetails')
@@ -136,7 +136,7 @@ class TaskControllerDailyTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+        $this->authService->expects($this->once())->method('ensureHouseMember')->with(1);
         $this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
         $roomTask = $this->createMock(RoomTask::class);
@@ -162,7 +162,7 @@ class TaskControllerDailyTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+        $this->authService->expects($this->once())->method('ensureHouseMember')->with(1);
         $this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
         $roomTask = $this->createMock(RoomTask::class);
@@ -188,7 +188,7 @@ class TaskControllerDailyTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+        $this->authService->expects($this->once())->method('ensureHouseMember')->with(1);
         $this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
         $roomTask = $this->createMock(RoomTask::class);
@@ -214,7 +214,7 @@ class TaskControllerDailyTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+        $this->authService->expects($this->once())->method('ensureHouseMember')->with(1);
         $this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
         $roomTask = $this->createMock(RoomTask::class);
@@ -240,7 +240,7 @@ class TaskControllerDailyTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+        $this->authService->expects($this->once())->method('ensureHouseMember')->with(1);
         $this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
         $this->roomTaskService->expects($this->never())->method('rescheduleTask');
@@ -261,7 +261,7 @@ class TaskControllerDailyTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->expects($this->once())->method('requireHouseMember')->with(1);
+        $this->authService->expects($this->once())->method('ensureHouseMember')->with(1);
         $this->roomTaskService->expects($this->once())
             ->method('validateRoomTaskOwnership')
             ->with(1, 1)
@@ -283,7 +283,7 @@ class TaskControllerDailyTest extends TestCase
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(1)
             ->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required'));
 

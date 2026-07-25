@@ -29,7 +29,7 @@ description: ChoreStrike gamification domain model — coins, combos, medals, en
 
 ### 3. Weekly Medals (recognition)
 - Catalogue (`lib/Db/Medal.php`): `team_anchor`, `flow_keeper`, `room_guardian`, `team_player`, `streak_keeper`.
-- **Award reality:** only `team_anchor` (10+ tasks/week) and `streak_keeper` (7+ day streak) are actually awarded in the live `GameLogicService::checkAndAwardMedals()` flow; `flow_keeper`/`room_guardian`/`team_player` are catalogued but not yet wired (backlog). Awarded weekly, reset weekly.
+- **Award reality (CS-PLAN-012):** all five medal types are awarded in the live `GameLogicService::checkAndAwardMedals()` flow: `team_anchor` (10+ tasks/week), `streak_keeper` (7+ day streak), `flow_keeper` (4+ distinct active days), `room_guardian` (5+ completions in one room), `team_player` (3+ combo bonuses). Awarded weekly, reset weekly.
 - The dead `lib/Service/MedalService.php` is archived (CS-PLAN-010); the live path is `GameLogicService::awardMedalIfNew()` (race-safe via unique-constraint handling).
 
 ### 4. Combos

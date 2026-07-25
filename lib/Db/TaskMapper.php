@@ -255,28 +255,6 @@ class TaskMapper extends QBMapper
     }
 
     /**
-     * Find daily tasks for a house
-     *
-     * @param int $houseId The house ID
-     * @param DateTime $date The date to find tasks for
-     * @return Task[]
-     */
-    public function findDailyTasks(int $houseId, \DateTime $date): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->eq('scheduled_date', $qb->createNamedParameter($date->format('Y-m-d'), IQueryBuilder::PARAM_STR)))
-            ->andWhere($qb->expr()->in('status', $qb->createNamedParameter(['pending', 'completed', 'skipped'], IQueryBuilder::PARAM_STR_ARRAY)))
-            ->orderBy('task_tier', 'DESC')
-            ->addOrderBy('created_at', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
      * Find tasks visible to a viewer based on the visibility matrix.
      *
      * Visibility rules:

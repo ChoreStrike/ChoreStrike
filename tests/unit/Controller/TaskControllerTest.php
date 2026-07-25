@@ -60,6 +60,16 @@ class TaskControllerTest extends TestCase
         return $house;
     }
 
+    private function createHouseUserMock(string $userId = 'caller', bool $isOwner = false): object
+    {
+        // HouseUser accessors are magic (Entity __call), so use a real entity.
+        // isOwner() is a real method reading $this->role.
+        $houseUser = new \OCA\ChoreStrike\Db\HouseUser();
+        $houseUser->setNextcloudUserId($userId);
+        $houseUser->setRole($isOwner ? 'owner' : 'member');
+        return $houseUser;
+    }
+
     private function expectHouseMembershipContext(int $houseId = 1): void
     {
         $this->houseService->expects($this->once())
@@ -71,8 +81,9 @@ class TaskControllerTest extends TestCase
             ->willReturn($this->createHouseMock($houseId));
 
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
-            ->with($houseId);
+            ->method('ensureHouseMember')
+            ->with($houseId)
+            ->willReturn($this->createHouseUserMock());
     }
 
     /**
@@ -192,9 +203,18 @@ class TaskControllerTest extends TestCase
     {
         $this->expectHouseMembershipContext();
 
+        $task = new Task();
+        $task->setId(1);
+        $task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+        $this->taskService->expects($this->once())
+            ->method('getTask')
+            ->with(1)
+            ->willReturn($task);
+
         $this->taskService->expects($this->once())
             ->method('deleteTask')
-            ->with(1);
+            ->with(1, 'caller', false);
 
         $response = $this->controller->delete(1);
 
@@ -213,9 +233,12 @@ class TaskControllerTest extends TestCase
         $this->expectHouseMembershipContext();
 
         $this->taskService->expects($this->once())
-            ->method('deleteTask')
+            ->method('getTask')
             ->with(1)
             ->willThrowException(new NotFoundException('Task not found'));
+
+        $this->taskService->expects($this->never())
+            ->method('deleteTask');
 
         $response = $this->controller->delete(1);
 
@@ -241,7 +264,7 @@ class TaskControllerTest extends TestCase
             ->willReturn($this->createHouseMock());
 
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(1)
             ->willThrowException(new ForbiddenException('Owner role required'));
 
@@ -256,5 +279,163 @@ class TaskControllerTest extends TestCase
         $data = $response->getData();
         $this->assertFalse($data['success']);
         $this->assertEquals('FORBIDDEN', $data['error']['code']);
+    }
+
+    /**
+     * A private task may only be deleted by its owner; a non-owner member
+     * receives 404 (anti-enumeration, same as show()).
+     */
+    public function testDelete_Returns404WhenNonOwnerDeletesPrivateTask(): void
+    {
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+        $this->authService->method('ensureHouseMember')
+            ->willReturn($this->createHouseUserMock('member', false));
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setVisibilityType(Task::VISIBILITY_PRIVATE);
+        $task->setOwnerUserId('someone-else');
+
+        $this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+        $this->taskService->expects($this->never())->method('deleteTask');
+
+        $response = $this->controller->delete(1);
+
+        $this->assertEquals(404, $response->getStatus());
+        $this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+    }
+
+    /**
+     * An admin-only task may only be deleted by a house owner; a non-owner
+     * member receives 404.
+     */
+    public function testDelete_Returns404WhenNonOwnerDeletesAdminOnlyTask(): void
+    {
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+        $this->authService->method('ensureHouseMember')
+            ->willReturn($this->createHouseUserMock('member', false));
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setVisibilityType(Task::VISIBILITY_ADMIN_ONLY);
+
+        $this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+        $this->taskService->expects($this->never())->method('deleteTask');
+
+        $response = $this->controller->delete(1);
+
+        $this->assertEquals(404, $response->getStatus());
+        $this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+    }
+
+    /**
+     * The owner of a private task may delete it.
+     */
+    public function testDelete_AllowsOwnerToDeleteOwnPrivateTask(): void
+    {
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+        $this->authService->method('ensureHouseMember')
+            ->willReturn($this->createHouseUserMock('owner', true));
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setVisibilityType(Task::VISIBILITY_PRIVATE);
+        $task->setOwnerUserId('owner');
+
+        $this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+        $this->taskService->expects($this->once())->method('deleteTask')->with(1, 'owner', true);
+
+        $response = $this->controller->delete(1);
+
+        $this->assertEquals(200, $response->getStatus());
+        $this->assertTrue($response->getData()['success']);
+    }
+
+    /**
+     * A non-owner may not update another member's private task. The update
+     * gate mirrors show()/delete() and returns 404 (anti-enumeration) before
+     * any mutation. Regression for the missing visibility gate on update().
+     */
+    public function testUpdate_Returns404WhenNonOwnerUpdatesPrivateTask(): void
+    {
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+        $this->authService->method('ensureHouseMember')
+            ->willReturn($this->createHouseUserMock('member', false));
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setVisibilityType(Task::VISIBILITY_PRIVATE);
+        $task->setOwnerUserId('someone-else');
+
+        $this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+        $this->taskService->expects($this->never())->method('updateTask');
+
+        $response = $this->controller->update(1, ['name' => 'Hijacked']);
+
+        $this->assertEquals(404, $response->getStatus());
+        $this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+    }
+
+    /**
+     * A non-owner may not update an admin-only task → 404.
+     */
+    public function testUpdate_Returns404WhenNonOwnerUpdatesAdminOnlyTask(): void
+    {
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+        $this->authService->method('ensureHouseMember')
+            ->willReturn($this->createHouseUserMock('member', false));
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setVisibilityType(Task::VISIBILITY_ADMIN_ONLY);
+
+        $this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+        $this->taskService->expects($this->never())->method('updateTask');
+
+        $response = $this->controller->update(1, ['name' => 'Hijacked']);
+
+        $this->assertEquals(404, $response->getStatus());
+        $this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+    }
+
+    /**
+     * The legacy `isPrivate` shim must be normalized into the canonical
+     * `visibilityType` (and stripped) so it can't clobber an admin-only
+     * value or bypass the transition gate. Going private must also claim
+     * ownership so the task isn't orphaned (private + null owner).
+     */
+    public function testUpdate_NormalizesIsPrivateAndClaimsOwnershipWhenGoingPrivate(): void
+    {
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+        $this->authService->method('ensureHouseMember')
+            ->willReturn($this->createHouseUserMock('member', false));
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+        $this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+        $this->taskService->method('validateTaskData')->willReturn([]);
+
+        $captured = null;
+        $this->taskService->expects($this->once())
+            ->method('updateTask')
+            ->willReturnCallback(function (int $id, array $updates) use ($task, &$captured) {
+                $captured = $updates;
+                return $task;
+            });
+
+        $response = $this->controller->update(1, ['isPrivate' => true]);
+
+        $this->assertEquals(200, $response->getStatus());
+        $this->assertSame(Task::VISIBILITY_PRIVATE, $captured['visibilityType']);
+        $this->assertArrayNotHasKey('isPrivate', $captured);
+        $this->assertSame('member', $captured['ownerUserId']);
     }
 }

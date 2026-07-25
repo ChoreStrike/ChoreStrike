@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Migration;
 
 use Closure;
-use OCP\DB\ISchemaTools;
+use OCP\DB\ISchemaWrapper;
 use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
 
 class Version1011Date20260301220000 extends SimpleMigrationStep
 {
-    public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?string
+    public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper
     {
         $schema = $schemaClosure();
 
@@ -41,8 +41,8 @@ class Version1011Date20260301220000 extends SimpleMigrationStep
             }
         }
 
-        // Create CompletedTask enhancement table for tracking who completed tasks
-        if (!$schema->hasTable('chorestrike_completed_tasks')) {
+        // Add completion-tracking columns to the existing completed_tasks table
+        if ($schema->hasTable('chorestrike_completed_tasks')) {
             $table = $schema->getTable('chorestrike_completed_tasks');
 
             if (!$table->hasColumn('completed_by_user_id')) {
@@ -77,6 +77,8 @@ class Version1011Date20260301220000 extends SimpleMigrationStep
             }
         }
 
-        return null;
+        // The runner persists schema diffs produced by changeSchema(), so the
+        // modified wrapper MUST be returned (returning null silently drops it).
+        return $schema;
     }
 }

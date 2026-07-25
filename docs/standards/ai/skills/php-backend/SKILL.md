@@ -27,7 +27,10 @@ Controller (thin) → Service (logic) → Mapper/Entity (persistence)
 ## Must-Haves for Any Change
 
 - `@NoAdminRequired` annotation (never `@PublicPage`).
-- Authorization: `requireHouseMember()` on every read/mutation; `requireHouseOwner()` for owner-only ops.
+- Authorization — two membership primitives in `AuthorizationService`, both throwing `ForbiddenException` (caught by every controller → **403**, never 500):
+  - `assertHouseMember($houseId)` — pure read-only gate; use this on ordinary reads/mutations.
+  - `ensureHouseMember($houseId)` — **auto-creates** a membership on first access (the `getOrCreateHouse` bootstrap/join flow); use only where auto-join is intended.
+  - `requireHouseOwner($houseId)` for owner-only ops; `assertUserInHouse($houseId, $userId)` to guard endpoints that take an arbitrary target userId.
 - Input validation at the controller boundary → return `{ success: false, error: { code, message } }` with a stable code and HTTP status.
 - DB access via `IQueryBuilder` with `createNamedParameter()`. **Never** string-concatenate SQL.
 - Log failures once, at the boundary, with structured context (`AppLogger`).
@@ -43,9 +46,9 @@ Controller (thin) → Service (logic) → Mapper/Entity (persistence)
 
 ```bash
 # Unit (Docker) — services, mappers, entities
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
+docker compose -f docker-compose.test.yml exec -T nextcloud-test \
   vendor/bin/phpunit --configuration phpunit.unit.xml
 # Integration (Docker) — controllers, API
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.xml tests/integration/
+docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+  vendor/bin/phpunit --configuration phpunit.integration.xml
 ```

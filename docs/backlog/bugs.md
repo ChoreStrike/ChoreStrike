@@ -22,7 +22,7 @@
 
 ## [P2] Fresh-install schema gap: task_tier / flex_days / ideal_due_date / coin_multiplier never created
 
-**Status**: Backlog
+**Status**: Done (CS-PLAN-011 Phase 8, 2026-07-25) — **broadened + fully closed** by the 2026-07-25 review cycle (10 additional migrations)
 **Assignee**: Unassigned
 **Estimated Effort**: M
 **Phase**: 9
@@ -55,13 +55,16 @@ docker compose -f docker-compose.test.yml exec -T nextcloud-test bash -c \
 ```
 
 ### Acceptance Criteria
-- [ ] A fresh install (`down -v` → `up`) produces a schema with `task_tier`,
+- [x] A fresh install (`down -v` → `up`) produces a schema with `task_tier`,
       `flex_days`, `ideal_due_date`, and `coin_multiplier` without manual
-      intervention.
-- [ ] Integration suite is green on a clean volume (no manual `ALTER TABLE`).
-- [ ] Root cause documented (suspected: `changeSchema` not persisting in
+      intervention. — `Version1027Date20260725000000::changeSchema()` adds all
+      four with `hasColumn` guards (idempotent).
+- [x] Integration suite is green on a clean volume (no manual `ALTER TABLE`).
+- [x] Root cause documented (suspected: `changeSchema` not persisting in
       `Version1018`–`Version1020`, possibly the duplicate `Version1004` files
-      disrupting migration ordering).
+      disrupting migration ordering). — **Confirmed:** `Version1018`–`1020` add
+      columns in `preSchemaChange()` (void), which the NC migration runner does
+      not persist; `Version1027` re-adds them via `changeSchema()`.
 
 ### Workaround (current)
 ```sql
@@ -71,11 +74,38 @@ ALTER TABLE oc_chorestrike_room_tasks ADD COLUMN ideal_due_date DATETIME NULL;
 ALTER TABLE oc_chorestrike_house_users ADD COLUMN coin_multiplier DECIMAL(3,2) NOT NULL DEFAULT 1.00;
 ```
 
+### Follow-up (2026-07-25 review cycle) — same bug was much wider
+
+The deploy-safety review track found that `Version1027` (above) only fixed the 4
+columns it was written for — **ten other migrations** had the identical
+`changeSchema(...): ?string { …; return null; }` defect, so a fresh install was
+still missing most of the schema despite the `Version1027` "Done". All ten now
+return `$schema` with `?ISchemaWrapper`, matching `Version1027`:
+
+| Migration | Schema object now actually persisted on fresh install |
+|---|---|
+| Version1010 | `chorestrike_house_users` + `chorestrike_user_stats` tables |
+| Version1011 | assignment/completion-tracking columns + indexes (`chorestrike_completed_tasks`/`room_tasks`); **also** fixed a negated `hasTable` guard (`!hasTable` → `hasTable`) that meant the completed-task columns were never added even on the intended path |
+| Version1012 | `chorestrike_combos` table |
+| Version1013 | `chorestrike_availability` table |
+| Version1021 | `chorestrike_task_assignees` table + `is_private` column |
+| Version1022 | `streak_freezes` column |
+| Version1023 | `weekly_goal_notified_week` column |
+| Version1024 | `visibility_type` + `owner_user_id` columns + index (its `postSchemaChange` backfill was also failing on the missing column) |
+| Version1025 | `selected_title_pack` + `unlocked_titles` columns (backfill was failing on the missing column) |
+| Version1026 | drops legacy `current_sparks` / `total_sparks_earned` |
+
+Early table-missing `return null` guards in 1024/1025/1026 were deliberately kept
+(`null` there correctly signals "no diff"). `Version1010–1013` also carried a wrong
+`use OCP\DB\ISchemaTools;` import (dead) — replaced with `ISchemaWrapper`. With
+these, the `down -v → up` repro above now produces the **full** schema with no
+manual `ALTER TABLE`.
+
 ---
 
 ## [P1] Authorization gaps & cross-house data leaks (CODE_REVIEW_2026-07-24)
 
-**Status**: Backlog
+**Status**: Done (CS-PLAN-011, 2026-07-25)
 **Assignee**: Unassigned
 **Estimated Effort**: L
 **Phase**: 9
@@ -97,13 +127,13 @@ input"). Recommend a dedicated plan covering the whole controller auth model.
 - **L2 — Visible-to-user / group-tasks unscoped.** `findVisibleToUser`/`findByGroupId` (:424/398) → `room_task#visibleToUser/groupTasks`. Cross-house leak via group-name collision. (Part of the legacy group-assignment feature — D2.)
 
 ### Acceptance Criteria
-- [ ] S1/S2: `claimForUser`/`unclaim` validate task ownership (or the group feature is archived).
-- [ ] S3: task delete enforces visibility/owner + (where applicable) house scope.
-- [ ] S4: `updateTask` whitelists mutable fields; unknown keys rejected with 400.
-- [ ] S5: `userTasks`/`userStats` verify the target userId is in the caller's house.
-- [ ] S6: auth-denial paths return 403/401, not 500; covered by regression tests.
-- [ ] S7: pure membership assertion separated from auto-create.
-- [ ] L1/L2: overdue/due/visible/group endpoints house-scoped; cross-house regression tests added.
+- [x] S1/S2: `claimForUser`/`unclaim` validate task ownership (or the group feature is archived). — **Archived** (Phase 6): the dead group-assignment feature (5 routes, 5 controller actions, 5 service + 5 mapper methods) was removed; zero frontend consumers + phantom `getCurrentUserGroupIds()` call.
+- [x] S3: task delete enforces visibility/owner + (where applicable) house scope. — `TaskController::delete()` mirrors `show()` (404 on denied private/admin-only); `TaskService::deleteTask()` re-checks as defense-in-depth.
+- [x] S4: `updateTask` whitelists mutable fields; unknown keys rejected with 400. — `TaskService::MUTABLE_FIELDS` + `\InvalidArgumentException`.
+- [x] S5: `userTasks`/`userStats` verify the target userId is in the caller's house. — `AuthorizationService::assertUserInHouse()` → 403.
+- [x] S6: auth-denial paths return 403/401, not 500; covered by regression tests. — `ForbiddenException` thrown by `AuthorizationService`; all 12 controllers catch it → 403 via `ControllerErrorFormatter::forbiddenResponse()`.
+- [x] S7: pure membership assertion separated from auto-create. — `assertHouseMember()` (pure) vs. `ensureHouseMember()` (auto-join).
+- [x] L1/L2: overdue/due/visible/group endpoints house-scoped; cross-house regression tests added. — L1 via `findDueTodayByHouse`/`findDueWithinDaysByHouse` + `findOverdueByHouse` room filter; L2 resolved by the group-assignment archival.
 
 ### Notes
 - Transaction model on the completion path verified sound (`RoomService::completeRoomTask` wraps `handleTaskCompletion` in a tx). SQL-injection audit clean (all params use `createNamedParameter()`).
@@ -112,7 +142,7 @@ input"). Recommend a dedicated plan covering the whole controller auth model.
 
 ## [P2] PostgreSQL-incompatible column rename migration (CODE_REVIEW_2026-07-24)
 
-**Status**: Backlog
+**Status**: Done (CS-PLAN-011 Phase 8, 2026-07-25)
 **Assignee**: Unassigned
 **Estimated Effort**: S
 **Phase**: 9
@@ -122,7 +152,7 @@ input"). Recommend a dedicated plan covering the whole controller auth model.
 `Version1017Date20260321000000::renameColumn()` (:93-96) uses MySQL `ALTER TABLE … CHANGE` in its `else` branch. PostgreSQL needs `ALTER TABLE … RENAME COLUMN`, so the migration fails on PG upgrades from the pre-coins schema. Guarded by `hasColumn()`, so it is a no-op on fresh installs.
 
 ### Acceptance Criteria
-- [ ] Add an explicit `postgresql` branch using `RENAME COLUMN`, or use the Doctrine schema manager declaratively.
+- [x] Add an explicit `postgresql` branch using `RENAME COLUMN`, or use the Doctrine schema manager declaratively. — `Version1017` now branches on `postgresql` and emits `ALTER TABLE … RENAME COLUMN` (unquoted identifiers, safe for the lowercase `chorestrike_*` names).
 
 ---
 

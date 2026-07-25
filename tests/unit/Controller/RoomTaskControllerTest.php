@@ -67,7 +67,7 @@ class RoomTaskControllerTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('instance-123');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('requireHouseMember');
+        $this->authService->method('ensureHouseMember');
 
         $this->roomTaskService->expects($this->once())
             ->method('getRoomTasks')
@@ -130,7 +130,7 @@ class RoomTaskControllerTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('instance-123');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('requireHouseMember');
+        $this->authService->method('ensureHouseMember');
 
         $this->roomTaskService->expects($this->once())
             ->method('completeRoomTask')
@@ -144,5 +144,107 @@ class RoomTaskControllerTest extends TestCase
 
         $data = $response->getData();
         $this->assertTrue($data['success']);
+    }
+
+    /**
+     * userTasks must reject a target userId that is not a member of the
+     * caller's house (cross-house access → 403).
+     */
+    public function testUserTasks_Returns403ForCrossHouseUser(): void
+    {
+        $house = new House();
+        $house->setId(1);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('ensureHouseMember');
+        $this->authService->expects($this->once())
+            ->method('assertUserInHouse')
+            ->with(1, 'outsider')
+            ->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
+
+        $this->roomTaskService->expects($this->never())->method('getUserTasks');
+
+        $response = $this->controller->userTasks('outsider');
+
+        $this->assertEquals(403, $response->getStatus());
+        $this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+    }
+
+    /**
+     * userStats must reject a cross-house target userId (403).
+     */
+    public function testUserStats_Returns403ForCrossHouseUser(): void
+    {
+        $house = new House();
+        $house->setId(1);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('ensureHouseMember');
+        $this->authService->expects($this->once())
+            ->method('assertUserInHouse')
+            ->with(1, 'outsider')
+            ->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
+
+        $this->roomTaskService->expects($this->never())->method('getUserTaskStats');
+
+        $response = $this->controller->userStats('outsider');
+
+        $this->assertEquals(403, $response->getStatus());
+        $this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+    }
+
+    /**
+     * userTasks for a same-house member returns 200.
+     */
+    public function testUserTasks_ReturnsTasksForSameHouseUser(): void
+    {
+        $house = new House();
+        $house->setId(1);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId(7);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('ensureHouseMember');
+        $this->authService->method('assertUserInHouse');
+        $this->roomTaskService->expects($this->once())
+            ->method('getUserTasks')
+            ->with('member', true)
+            ->willReturn([$roomTask]);
+
+        $response = $this->controller->userTasks('member');
+
+        $this->assertEquals(200, $response->getStatus());
+        $this->assertTrue($response->getData()['success']);
+    }
+
+    /**
+     * assign must reject a target userId that is not a member of the caller's
+     * house (cross-house BOLA → 403). Regression for the missing membership
+     * check on the legacy assign() endpoint.
+     */
+    public function testAssign_Returns403ForCrossHouseUser(): void
+    {
+        $house = new House();
+        $house->setId(1);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('ensureHouseMember');
+        $this->roomTaskService->method('validateRoomTaskOwnership');
+        $this->authService->expects($this->once())
+            ->method('assertUserInHouse')
+            ->with(1, 'outsider')
+            ->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
+
+        $this->roomTaskService->expects($this->never())->method('assignTask');
+
+        $response = $this->controller->assign(7, 'outsider');
+
+        $this->assertEquals(403, $response->getStatus());
+        $this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
     }
 }

@@ -53,7 +53,7 @@ class RoomControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomService->method('getFloor')
             ->with($floorId)
             ->willReturn($floor);
@@ -121,7 +121,7 @@ class RoomControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomService->method('getRoomWithTasks')
             ->with($roomId)
             ->willReturn(['room' => $room, 'tasks' => [], 'stats' => ['totalTasks' => 0]]);
@@ -176,7 +176,7 @@ class RoomControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomService->method('getFloor')
             ->with($floorId)
             ->willReturn($floor);
@@ -201,7 +201,7 @@ class RoomControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomService->method('updateRoomName')
             ->willReturn($room);
 
@@ -221,7 +221,7 @@ class RoomControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomService->method('deleteRoom')
             ->with($roomId);
 
@@ -243,7 +243,7 @@ class RoomControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
         $this->roomService->method('updateRoomCleanliness')
             ->willReturn($room);
 

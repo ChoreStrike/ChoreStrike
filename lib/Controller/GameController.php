@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -53,7 +54,7 @@ class GameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $gameState = $this->gameLogicService->getGameState($house->getId());
             $gameState['weeklyGoal'] = $this->houseService->getWeeklyGoalProgress($house->getId());
@@ -62,6 +63,8 @@ class GameController extends OCSController
                 'success' => true,
                 'data' => $gameState
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('state', $e);
             return new JSONResponse([
@@ -84,7 +87,7 @@ class GameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $leaderboard = $this->gameLogicService->getLeaderboard($house->getId());
 
@@ -92,6 +95,8 @@ class GameController extends OCSController
                 'success' => true,
                 'data' => $leaderboard
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('leaderboard', $e);
             return new JSONResponse([
@@ -114,7 +119,7 @@ class GameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $medals = $this->gameLogicService->getMedals($house->getId());
 
@@ -122,6 +127,8 @@ class GameController extends OCSController
                 'success' => true,
                 'data' => $medals
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('medals', $e);
             return new JSONResponse([
@@ -144,7 +151,7 @@ class GameController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $awardedMedals = $this->gameLogicService->checkAndAwardMedals($house->getId());
 
@@ -155,6 +162,8 @@ class GameController extends OCSController
                     'count' => count($awardedMedals)
                 ]
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('checkMedals', $e);
             return new JSONResponse([

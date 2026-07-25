@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCP\AppFramework\Http\JSONResponse;
 
 /**
  * Formats controller error responses so internal exception details (SQL
@@ -29,13 +30,37 @@ final class ControllerErrorFormatter
      */
     public static function safeMessage(\Throwable $e, string $fallback = 'An unexpected error occurred'): string
     {
-        if ($e instanceof \InvalidArgumentException
-            || $e instanceof NotFoundException
+        // Only NotFoundException / ForbiddenException carry intentional,
+        // user-facing messages. InvalidArgumentException is intentionally
+        // excluded: services use it to reject bad input (e.g. an unknown
+        // mass-assignment field in TaskService::updateTask) and its message
+        // echoes client-controlled values — surfacing it would leak internal
+        // entity schema. Callers that want to expose a validation message
+        // must catch it explicitly and return a curated 400 response.
+        if ($e instanceof NotFoundException
             || $e instanceof ForbiddenException
         ) {
             return $e->getMessage();
         }
 
         return $fallback;
+    }
+
+    /**
+     * Build the standard 403 response for a {@see ForbiddenException}.
+     *
+     * Centralises the auth-denial payload so every controller returns an
+     * identical shape (status 403, code `FORBIDDEN`, safe message) instead of
+     * the generic 500 the catch-all would otherwise produce.
+     */
+    public static function forbiddenResponse(ForbiddenException $e): JSONResponse
+    {
+        return new JSONResponse([
+            'success' => false,
+            'error' => [
+                'code' => 'FORBIDDEN',
+                'message' => self::safeMessage($e),
+            ],
+        ], 403);
     }
 }

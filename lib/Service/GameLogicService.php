@@ -24,6 +24,12 @@ use OCP\AppFramework\Db\DoesNotExistException;
  */
 class GameLogicService
 {
+    private const MEDAL_TEAM_ANCHOR_MIN_TASKS = 10;
+    private const MEDAL_STREAK_KEEPER_MIN_DAYS = 7;
+    private const MEDAL_FLOW_KEEPER_MIN_ACTIVE_DAYS = 4;
+    private const MEDAL_ROOM_GUARDIAN_MIN_PER_ROOM = 5;
+    private const MEDAL_TEAM_PLAYER_MIN_COMBOS = 3;
+
     private HouseUserMapper $houseUserMapper;
     private CompletedTaskMapper $completedTaskMapper;
     private MedalMapper $medalMapper;
@@ -293,15 +299,45 @@ class GameLogicService
                 $weekEnd
             );
 
-            if ($stats['taskCount'] >= 10) {
+            if ($stats['taskCount'] >= self::MEDAL_TEAM_ANCHOR_MIN_TASKS) {
                 $medal = $this->awardMedalIfNew($user, 'team_anchor', $stats['taskCount'], $weekStart);
                 if ($medal !== null) {
                     $awardedMedals[] = $medal;
                 }
             }
 
-            if ($user->getCurrentStreak() >= 7) {
+            if ($user->getCurrentStreak() >= self::MEDAL_STREAK_KEEPER_MIN_DAYS) {
                 $medal = $this->awardMedalIfNew($user, 'streak_keeper', $user->getCurrentStreak(), $weekStart);
+                if ($medal !== null) {
+                    $awardedMedals[] = $medal;
+                }
+            }
+
+            $activeDays = $stats['activeDays'] ?? 0;
+            if ($activeDays >= self::MEDAL_FLOW_KEEPER_MIN_ACTIVE_DAYS) {
+                $medal = $this->awardMedalIfNew($user, 'flow_keeper', $activeDays, $weekStart);
+                if ($medal !== null) {
+                    $awardedMedals[] = $medal;
+                }
+            }
+
+            $maxPerRoom = $this->completedTaskMapper->getMaxRoomCompletionCountByUser(
+                $user->getId(),
+                new \DateTime($weekStart),
+                $weekEnd
+            );
+            if ($maxPerRoom >= self::MEDAL_ROOM_GUARDIAN_MIN_PER_ROOM) {
+                $medal = $this->awardMedalIfNew($user, 'room_guardian', $maxPerRoom, $weekStart);
+                if ($medal !== null) {
+                    $awardedMedals[] = $medal;
+                }
+            }
+
+            // team_player is driven by comboCount (wasCombo flag), not the
+            // dead isTeamCompletion/participantCount/teamSparkBonus residue.
+            $combos = $stats['comboCount'] ?? 0;
+            if ($combos >= self::MEDAL_TEAM_PLAYER_MIN_COMBOS) {
+                $medal = $this->awardMedalIfNew($user, 'team_player', $combos, $weekStart);
                 if ($medal !== null) {
                     $awardedMedals[] = $medal;
                 }

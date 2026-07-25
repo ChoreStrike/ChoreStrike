@@ -583,6 +583,165 @@ class GameLogicServiceTest extends TestCase
     }
 
     /**
+     * CheckAndAwardMedals_FrequentDailyActivity_AwardsFlowKeeper
+     */
+    public function testCheckAndAwardMedals_FrequentDailyActivity_AwardsFlowKeeper(): void
+    {
+        $houseId = 1;
+
+        $user = new HouseUser();
+        $user->setId(1);
+        $user->setCurrentStreak(3);
+
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+        $this->completedTaskMapper->method('getUserStats')
+            ->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 4]);
+        $this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
+            ->willReturn(2);
+
+        $this->medalMapper->method('findByUserTypeAndWeek')
+            ->willThrowException(new DoesNotExistException());
+        $this->medalMapper->method('insert')->willReturnArgument(0);
+
+        $result = $this->service->checkAndAwardMedals($houseId);
+
+        $this->assertCount(1, $result);
+        $this->assertEquals('flow_keeper', $result[0]->getMedalType());
+        $this->assertEquals(4, $result[0]->getValue());
+    }
+
+    /**
+     * CheckAndAwardMedals_BelowFlowKeeperThreshold_NoAward
+     */
+    public function testCheckAndAwardMedals_BelowFlowKeeperThreshold_NoAward(): void
+    {
+        $houseId = 1;
+
+        $user = new HouseUser();
+        $user->setId(1);
+        $user->setCurrentStreak(3);
+
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+        $this->completedTaskMapper->method('getUserStats')
+            ->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 3]);
+        $this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
+            ->willReturn(2);
+
+        $this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
+        $this->medalMapper->expects($this->never())->method('insert');
+
+        $result = $this->service->checkAndAwardMedals($houseId);
+
+        $this->assertCount(0, $result);
+    }
+
+    /**
+     * CheckAndAwardMedals_RoomConcentration_AwardsRoomGuardian
+     */
+    public function testCheckAndAwardMedals_RoomConcentration_AwardsRoomGuardian(): void
+    {
+        $houseId = 1;
+
+        $user = new HouseUser();
+        $user->setId(1);
+        $user->setCurrentStreak(3);
+
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+        $this->completedTaskMapper->method('getUserStats')
+            ->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 2]);
+        $this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
+            ->willReturn(5);
+
+        $this->medalMapper->method('findByUserTypeAndWeek')
+            ->willThrowException(new DoesNotExistException());
+        $this->medalMapper->method('insert')->willReturnArgument(0);
+
+        $result = $this->service->checkAndAwardMedals($houseId);
+
+        $this->assertCount(1, $result);
+        $this->assertEquals('room_guardian', $result[0]->getMedalType());
+        $this->assertEquals(5, $result[0]->getValue());
+    }
+
+    /**
+     * CheckAndAwardMedals_BelowRoomGuardianThreshold_NoAward
+     */
+    public function testCheckAndAwardMedals_BelowRoomGuardianThreshold_NoAward(): void
+    {
+        $houseId = 1;
+
+        $user = new HouseUser();
+        $user->setId(1);
+        $user->setCurrentStreak(3);
+
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+        $this->completedTaskMapper->method('getUserStats')
+            ->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 2]);
+        $this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
+            ->willReturn(4);
+
+        $this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
+        $this->medalMapper->expects($this->never())->method('insert');
+
+        $result = $this->service->checkAndAwardMedals($houseId);
+
+        $this->assertCount(0, $result);
+    }
+
+    /**
+     * CheckAndAwardMedals_ManyCombos_AwardsTeamPlayer
+     */
+    public function testCheckAndAwardMedals_ManyCombos_AwardsTeamPlayer(): void
+    {
+        $houseId = 1;
+
+        $user = new HouseUser();
+        $user->setId(1);
+        $user->setCurrentStreak(3);
+
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+        $this->completedTaskMapper->method('getUserStats')
+            ->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 3, 'activeDays' => 2]);
+        $this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
+            ->willReturn(2);
+
+        $this->medalMapper->method('findByUserTypeAndWeek')
+            ->willThrowException(new DoesNotExistException());
+        $this->medalMapper->method('insert')->willReturnArgument(0);
+
+        $result = $this->service->checkAndAwardMedals($houseId);
+
+        $this->assertCount(1, $result);
+        $this->assertEquals('team_player', $result[0]->getMedalType());
+        $this->assertEquals(3, $result[0]->getValue());
+    }
+
+    /**
+     * CheckAndAwardMedals_BelowTeamPlayerThreshold_NoAward
+     */
+    public function testCheckAndAwardMedals_BelowTeamPlayerThreshold_NoAward(): void
+    {
+        $houseId = 1;
+
+        $user = new HouseUser();
+        $user->setId(1);
+        $user->setCurrentStreak(3);
+
+        $this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+        $this->completedTaskMapper->method('getUserStats')
+            ->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 2, 'activeDays' => 2]);
+        $this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
+            ->willReturn(2);
+
+        $this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
+        $this->medalMapper->expects($this->never())->method('insert');
+
+        $result = $this->service->checkAndAwardMedals($houseId);
+
+        $this->assertCount(0, $result);
+    }
+
+    /**
      * GetMedals_ReturnsAllMedalsWithUserNames
      */
     public function testGetMedals_ReturnsAllMedalsWithUserNames(): void

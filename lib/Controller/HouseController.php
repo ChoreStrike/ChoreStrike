@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -49,12 +50,14 @@ class HouseController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             return new JSONResponse([
                 'success' => true,
                 'data' => $house->jsonSerialize()
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('get', $e);
             return new JSONResponse([
@@ -97,6 +100,8 @@ class HouseController extends OCSController
                 'success' => true,
                 'data' => $updatedHouse->jsonSerialize()
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('update', $e, ['houseName' => $name]);
             return new JSONResponse([
@@ -121,7 +126,7 @@ class HouseController extends OCSController
             $house = $this->houseService->getOrCreateHouse($instanceId);
 
             // Require house membership
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $stats = $this->houseService->getHouseStats($house->getId());
 
@@ -132,6 +137,8 @@ class HouseController extends OCSController
                     'stats' => $stats['stats']
                 ]
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('stats', $e);
             return new JSONResponse([
@@ -156,7 +163,7 @@ class HouseController extends OCSController
             $house = $this->houseService->getOrCreateHouse($instanceId);
 
             // Require house membership
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $health = $this->houseService->calculateHouseHealth($house->getId());
 
@@ -166,6 +173,8 @@ class HouseController extends OCSController
                     'houseHealth' => $health
                 ]
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('health', $e);
             return new JSONResponse([
@@ -202,6 +211,8 @@ class HouseController extends OCSController
                 'data' => $updatedHouse->jsonSerialize(),
                 'message' => 'House has been reset to initial state'
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('reset', $e);
             return new JSONResponse([

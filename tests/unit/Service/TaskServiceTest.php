@@ -199,7 +199,7 @@ class TaskServiceTest extends TestCase
             ->method('delete')
             ->with($task);
 
-        $this->service->deleteTask($taskId);
+        $this->service->deleteTask($taskId, 'owner-user', false);
 
         $this->assertTrue(true);
     }

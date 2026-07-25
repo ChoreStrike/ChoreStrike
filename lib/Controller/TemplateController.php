@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Controller;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TemplateService;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
@@ -46,7 +47,7 @@ class TemplateController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $templates = $this->templateService->getAllTemplates();
 
@@ -54,6 +55,8 @@ class TemplateController extends OCSController
                 'success' => true,
                 'data' => $templates
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -75,7 +78,7 @@ class TemplateController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $categories = $this->templateService->getCategories();
 
@@ -83,6 +86,8 @@ class TemplateController extends OCSController
                 'success' => true,
                 'data' => $categories
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -104,7 +109,7 @@ class TemplateController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $templates = $this->templateService->getTemplatesByCategory($category);
 
@@ -112,6 +117,8 @@ class TemplateController extends OCSController
                 'success' => true,
                 'data' => array_values($templates)
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -133,7 +140,7 @@ class TemplateController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $templates = $this->templateService->getTemplatesByRoomType($roomType);
 
@@ -141,6 +148,8 @@ class TemplateController extends OCSController
                 'success' => true,
                 'data' => array_values($templates)
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -172,7 +181,7 @@ class TemplateController extends OCSController
 
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $templates = $this->templateService->searchTemplates($query);
 
@@ -180,6 +189,8 @@ class TemplateController extends OCSController
                 'success' => true,
                 'data' => array_values($templates)
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -211,7 +222,7 @@ class TemplateController extends OCSController
 
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $templates = $this->templateService->getSuggestionsForRoom($roomName);
 
@@ -219,6 +230,8 @@ class TemplateController extends OCSController
                 'success' => true,
                 'data' => array_values($templates)
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -250,7 +263,7 @@ class TemplateController extends OCSController
 
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $task = $this->templateService->importTemplate($templateId);
 
@@ -267,6 +280,8 @@ class TemplateController extends OCSController
                     'message' => ControllerErrorFormatter::safeMessage($e)
                 ]
             ], 404);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -300,7 +315,7 @@ class TemplateController extends OCSController
 
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $tasks = $this->templateService->bulkImport($templateIds);
 
@@ -309,6 +324,8 @@ class TemplateController extends OCSController
                 'data' => array_map(fn ($t) => $t->jsonSerialize(), $tasks),
                 'message' => count($tasks) . ' templates imported successfully'
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,
@@ -330,7 +347,7 @@ class TemplateController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $stats = $this->templateService->getStatistics();
 
@@ -338,6 +355,8 @@ class TemplateController extends OCSController
                 'success' => true,
                 'data' => $stats
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             return new JSONResponse([
                 'success' => false,

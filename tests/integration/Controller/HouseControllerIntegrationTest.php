@@ -42,7 +42,7 @@ class HouseControllerIntegrationTest extends TestCase
     {
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
 
         $response = $this->controller->get();
 
@@ -153,7 +153,7 @@ class HouseControllerIntegrationTest extends TestCase
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->houseService->method('getHouseStats')
             ->willReturn(['house' => $this->createMockHouse(), 'stats' => $stats]);
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
 
         $response = $this->controller->stats();
 
@@ -171,7 +171,7 @@ class HouseControllerIntegrationTest extends TestCase
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
         $this->houseService->method('calculateHouseHealth')
             ->willReturn(82);
-        $this->authService->method('requireHouseMember')->willReturn($this->createMockHouseUser());
+        $this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
 
         $response = $this->controller->health();
 

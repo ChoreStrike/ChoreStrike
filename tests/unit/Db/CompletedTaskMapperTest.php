@@ -104,21 +104,22 @@ class CompletedTaskMapperTest extends TestCase
             ->method('select')
             ->with('COUNT(*) as task_count')
             ->willReturn($this->qb);
-        $this->qb->expects($this->once())
-            ->method('addSelect')
-            ->with('SUM(coins_earned) as total_coins')
-            ->willReturn($this->qb);
+        // getUserStats now issues two addSelect calls (combo_count + active_days).
+        $this->qb->method('addSelect')->willReturn($this->qb);
         $this->qb->expects($this->once())
             ->method('from')
             ->with('chorestrike_completed_tasks')
             ->willReturn($this->qb);
+        $this->qb->method('where')->willReturn($this->qb);
+        $this->qb->method('andWhere')->willReturn($this->qb);
 
         $mockResult = $this->createMock(IResult::class);
         $mockResult->method('fetch')
             ->willReturn([
                 'task_count' => 15,
                 'total_coins' => 200,
-                'combo_count' => 5
+                'combo_count' => 5,
+                'active_days' => 4
             ]);
         $mockResult->expects($this->once())
             ->method('closeCursor');
@@ -132,6 +133,7 @@ class CompletedTaskMapperTest extends TestCase
         $this->assertEquals(15, $result['taskCount']);
         $this->assertEquals(200, $result['totalCoins']);
         $this->assertEquals(5, $result['comboCount']);
+        $this->assertEquals(4, $result['activeDays']);
     }
 
     /**
@@ -146,19 +148,20 @@ class CompletedTaskMapperTest extends TestCase
         $this->qb->expects($this->once())
             ->method('select')
             ->willReturn($this->qb);
-        $this->qb->expects($this->once())
-            ->method('addSelect')
-            ->willReturn($this->qb);
+        $this->qb->method('addSelect')->willReturn($this->qb);
         $this->qb->expects($this->once())
             ->method('from')
             ->willReturn($this->qb);
+        $this->qb->method('where')->willReturn($this->qb);
+        $this->qb->method('andWhere')->willReturn($this->qb);
 
         $mockResult = $this->createMock(IResult::class);
         $mockResult->method('fetch')
             ->willReturn([
                 'task_count' => null,
                 'total_coins' => null,
-                'combo_count' => null
+                'combo_count' => null,
+                'active_days' => null
             ]);
         $mockResult->expects($this->once())
             ->method('closeCursor');
@@ -170,7 +173,85 @@ class CompletedTaskMapperTest extends TestCase
         $result = $this->mapper->getUserStats($userId, $startDate, $endDate);
 
         $this->assertEquals(0, $result['taskCount']);
-        $this->assertEquals(0, $result['totalSparks']);
+        $this->assertEquals(0, $result['totalCoins']);
         $this->assertEquals(0, $result['comboCount']);
+        $this->assertEquals(0, $result['activeDays']);
+    }
+
+    /**
+     * GetMaxRoomCompletionCountByUser_ReturnsHighestRoomCount
+     */
+    public function testGetMaxRoomCompletionCountByUser_ReturnsHighestRoomCount(): void
+    {
+        $userId = 1;
+        $start = new \DateTime('2026-07-21');
+        $end = new \DateTime('2026-07-28');
+
+        $this->qb->expects($this->once())
+            ->method('select')
+            ->with('rt.room_id')
+            ->willReturn($this->qb);
+        $this->qb->expects($this->once())
+            ->method('addSelect')
+            ->with('COUNT(*) AS room_count')
+            ->willReturn($this->qb);
+        $this->qb->expects($this->once())
+            ->method('from')
+            ->with('chorestrike_completed_tasks', 'ct')
+            ->willReturn($this->qb);
+        $this->qb->method('innerJoin')->willReturn($this->qb);
+        $this->qb->method('where')->willReturn($this->qb);
+        $this->qb->method('andWhere')->willReturn($this->qb);
+        $this->qb->method('groupBy')->willReturn($this->qb);
+        $this->qb->method('orderBy')->willReturn($this->qb);
+        $this->qb->method('setMaxResults')->willReturn($this->qb);
+
+        $mockResult = $this->createMock(IResult::class);
+        $mockResult->method('fetch')
+            ->willReturn(['room_id' => 3, 'room_count' => 7]);
+        $mockResult->expects($this->once())
+            ->method('closeCursor');
+
+        $this->qb->expects($this->once())
+            ->method('executeQuery')
+            ->willReturn($mockResult);
+
+        $result = $this->mapper->getMaxRoomCompletionCountByUser($userId, $start, $end);
+
+        $this->assertEquals(7, $result);
+    }
+
+    /**
+     * GetMaxRoomCompletionCountByUser_NoCompletions_ReturnsZero
+     */
+    public function testGetMaxRoomCompletionCountByUser_NoCompletions_ReturnsZero(): void
+    {
+        $userId = 1;
+        $start = new \DateTime('2026-07-21');
+        $end = new \DateTime('2026-07-28');
+
+        $this->qb->method('select')->willReturn($this->qb);
+        $this->qb->method('addSelect')->willReturn($this->qb);
+        $this->qb->method('from')->willReturn($this->qb);
+        $this->qb->method('innerJoin')->willReturn($this->qb);
+        $this->qb->method('where')->willReturn($this->qb);
+        $this->qb->method('andWhere')->willReturn($this->qb);
+        $this->qb->method('groupBy')->willReturn($this->qb);
+        $this->qb->method('orderBy')->willReturn($this->qb);
+        $this->qb->method('setMaxResults')->willReturn($this->qb);
+
+        $mockResult = $this->createMock(IResult::class);
+        $mockResult->method('fetch')
+            ->willReturn(false);
+        $mockResult->expects($this->once())
+            ->method('closeCursor');
+
+        $this->qb->expects($this->once())
+            ->method('executeQuery')
+            ->willReturn($mockResult);
+
+        $result = $this->mapper->getMaxRoomCompletionCountByUser($userId, $start, $end);
+
+        $this->assertEquals(0, $result);
     }
 }

@@ -88,10 +88,15 @@ class Version1017Date20260321000000 extends SimpleMigrationStep
 		$dbPlatform = $connection->getDatabasePlatform()->getName();
 
 		if ($dbPlatform === 'sqlite') {
-			// SQLite requires different syntax
+			// SQLite syntax (backticks tolerated as identifier quotes)
 			$sql = "ALTER TABLE `{$tableName}` RENAME COLUMN `{$oldColumn}` TO `{$newColumn}`";
+		} elseif ($dbPlatform === 'postgresql') {
+			// PostgreSQL syntax: RENAME COLUMN (MySQL's CHANGE is invalid here).
+			// Identifiers are simple lowercase names, so unquoted is portable;
+			// backticks are MySQL-specific and would be a syntax error on PG.
+			$sql = "ALTER TABLE {$tableName} RENAME COLUMN {$oldColumn} TO {$newColumn}";
 		} else {
-			// MySQL/MariaDB syntax
+			// MySQL/MariaDB syntax (CHANGE requires the full column definition)
 			$sql = "ALTER TABLE `{$tableName}` CHANGE `{$oldColumn}` `{$newColumn}` {$definition}";
 		}
 

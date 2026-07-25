@@ -62,7 +62,7 @@ class SchedulingControllerTest extends TestCase
         $house->setId(1);
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
         $this->authService->method('getCurrentUserId')->willReturn('user1');
-        $this->authService->method('requireHouseMember');
+        $this->authService->method('ensureHouseMember');
 
         $this->schedulingService->expects($this->once())
             ->method('getUserPreferencesByNextcloudUserId')

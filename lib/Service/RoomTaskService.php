@@ -119,37 +119,40 @@ class RoomTaskService
     }
 
     /**
-     * Get overdue tasks
+     * Get overdue tasks for a house
      *
+     * @param int $houseId The house ID (scopes the query to one house)
      * @param int|null $roomId Optional room ID to filter by
      * @return RoomTask[]
      */
-    public function getOverdueTasks(?int $roomId = null): array
+    public function getOverdueTasks(int $houseId, ?int $roomId = null): array
     {
-        return $this->roomTaskMapper->findOverdue($roomId);
+        return $this->roomTaskMapper->findOverdueByHouse($houseId, $roomId);
     }
 
     /**
-     * Get tasks due today
+     * Get tasks due today for a house
      *
+     * @param int $houseId The house ID (scopes the query to one house)
      * @param int|null $roomId Optional room ID to filter by
      * @return RoomTask[]
      */
-    public function getDueTodayTasks(?int $roomId = null): array
+    public function getDueTodayTasks(int $houseId, ?int $roomId = null): array
     {
-        return $this->roomTaskMapper->findDueToday($roomId);
+        return $this->roomTaskMapper->findDueTodayByHouse($houseId, $roomId);
     }
 
     /**
-     * Get tasks due within the next N days
+     * Get tasks due within the next N days for a house
      *
+     * @param int $houseId The house ID (scopes the query to one house)
      * @param int $days Number of days
      * @param int|null $roomId Optional room ID to filter by
      * @return RoomTask[]
      */
-    public function getDueWithinDaysTasks(int $days, ?int $roomId = null): array
+    public function getDueWithinDaysTasks(int $houseId, int $days, ?int $roomId = null): array
     {
-        return $this->roomTaskMapper->findDueWithinDays($days, $roomId);
+        return $this->roomTaskMapper->findDueWithinDaysByHouse($houseId, $days, $roomId);
     }
 
     /**
@@ -535,74 +538,6 @@ class RoomTaskService
         });
 
         return $upcomingTasks;
-    }
-
-    /**
-     * Assign room task to a group
-     *
-     * @param int $roomTaskId The room task ID
-     * @param string $groupId The group ID
-     */
-    public function assignToGroup(int $roomTaskId, string $groupId): RoomTask
-    {
-        $this->roomTaskMapper->find($roomTaskId);
-        $this->roomTaskMapper->assignToGroup($roomTaskId, $groupId);
-        return $this->roomTaskMapper->find($roomTaskId);
-    }
-
-    /**
-     * Claim a group-assigned task for a user
-     *
-     * @param int $roomTaskId The room task ID
-     * @param string $userId The user ID claiming the task
-     */
-    public function claimForUser(int $roomTaskId, string $userId): RoomTask
-    {
-        $roomTask = $this->roomTaskMapper->find($roomTaskId);
-
-        // Only allow claiming if assigned to a group
-        if ($roomTask->getAssignmentType() !== 'group') {
-            throw new \InvalidArgumentException('Task is not assigned to a group');
-        }
-
-        $this->roomTaskMapper->claimForUser($roomTaskId, $userId);
-        return $this->roomTaskMapper->find($roomTaskId);
-    }
-
-    /**
-     * Unclaim a group-assigned task
-     *
-     * @param int $roomTaskId The room task ID
-     */
-    public function unclaim(int $roomTaskId): RoomTask
-    {
-        $this->roomTaskMapper->find($roomTaskId);
-        $this->roomTaskMapper->unclaim($roomTaskId);
-        return $this->roomTaskMapper->find($roomTaskId);
-    }
-
-    /**
-     * Get tasks assigned to a group
-     *
-     * @param string $groupId The group ID
-     * @param bool $activeOnly Whether to return only active tasks
-     * @return RoomTask[]
-     */
-    public function getGroupTasks(string $groupId, bool $activeOnly = true): array
-    {
-        return $this->roomTaskMapper->findByGroupId($groupId, $activeOnly);
-    }
-
-    /**
-     * Get tasks visible to a user (assigned directly or via group)
-     *
-     * @param string $userId The user ID
-     * @param array $groupIds Array of group IDs the user belongs to
-     * @return RoomTask[]
-     */
-    public function getTasksVisibleToUser(string $userId, array $groupIds): array
-    {
-        return $this->roomTaskMapper->findVisibleToUser($userId, $groupIds);
     }
 
     /**

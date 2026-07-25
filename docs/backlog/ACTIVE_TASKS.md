@@ -5,6 +5,39 @@
 
 ## Recently Completed
 
+### Review Hardening Pass — 2026-07-25 (three six-track `/review` cycles + migration cluster)
+**Status**: Done
+**Started/Completed**: 2026-07-25
+**Branch**: master (uncommitted)
+**Scope**: Iterative `/review uncommitted` over the CS-PLAN-011/012 changeset — found and fixed defects the original passes missed, across security, business logic, deploy safety, duplication, and dead code.
+**Notes**:
+- **Pass 1 (medal/N+1 + cleanup):** `CompletedTaskMapper::getMaxRoomCompletionCountByUser` empty-`GROUP BY` guard (`fetch() === false → 0`, was emitting a PHP warning on every medal check for inactive users); removed 5 unreachable duplicate `catch (ForbiddenException)` blocks (`ChecklistController` ×4, `RoomTaskController::complete` ×1); `TaskService::deleteTask` `callerUserId` made non-nullable (was a default-`null` bypass of the private-task ownership check); merged `countDistinctActiveDaysByUser` into `getUserStats()` to cut the medal-loop N+1 from 3 → 2 stat queries/user (CS-PLAN-012 deviation, see plan file).
+- **Pass 2 (auth + regression):** `Version1027` `changeSchema()` was returning `null` instead of `$schema` (the exact fresh-install no-op its own docblock describes) — fixed to `return $schema` / `?ISchemaWrapper`; `isPrivate` added to `MUTABLE_FIELDS` (frontend always sends it → every task edit was 500-ing); `TaskController::update` gained the private/admin visibility access gate it was missing (BOLA — mirrors `show`/`delete`, 404 anti-enumeration); `RoomTaskController::assign` now calls `assertUserInHouse` (cross-house BOLA); `ControllerErrorFormatter::safeMessage` no longer surfaces `InvalidArgumentException` (was leaking client-controlled field names); `TaskController::delete` wraps `deleteTask()` so its defense-in-depth `ForbiddenException` maps to 404 (anti-enumeration) while the outer house-auth catch stays 403.
+- **Pass 3 (isPrivate regression + data integrity):** the Pass-2 `isPrivate` whitelist introduced an overwrite (`setIsPrivate(false)`→`public` clobbered `admin-only`) and a gate bypass — fixed by **normalizing `isPrivate` → `visibilityType` and stripping it in the controller** (canonical field), removing it from the whitelist (service rejects it as defense in depth); `update` now **auto-claims `ownerUserId`** when a member takes a task private (prevents orphaned private-with-null-owner tasks that no user could see/delete); removed the dead `ForbiddenException` catch from `MinigameController::boosts()` (no house gate, nothing throws it). `AuthorizationService::assertHouseMember` reviewed — **retained** as documented intended API (`security.md` / `php-backend` SKILL / `cs-plan-011` prescribe it); removal would have broken the docs.
+- **Migration cluster (out-of-scope carry-over, now closed):** the deploy track found 10 *additional* committed migrations (`Version1010–1013`, `1021–1026`) with the identical `changeSchema() return null` defect — `Version1027` alone did **not** make fresh installs work. All 10 now return `$schema` / `?ISchemaWrapper`; `Version1010–1013` also had a wrong `use OCP\DB\ISchemaTools;` import → `ISchemaWrapper`. `Version1011` had a **negated `hasTable` guard** (`!hasTable` → `getTable`) that meant its completed-task columns were never added even on the intended path — fixed to a positive guard. See `bugs.md [P2]` follow-up table for the per-migration detail.
+- **Tests:** regression coverage added for every fix — `TaskControllerTest` (update visibility gate ×2, isPrivate normalization+ownership-claim), `RoomTaskControllerTest` (assign cross-house → 403), `TaskServiceWhitelistTest` (`isPrivate` now rejected at service), `GameLogicServiceTest` (merged-stats medal cases), `CompletedTaskMapperTest` (`getUserStats` activeDays + empty-result guard); `ControllerErrorFormatterTest` rewritten to assert `InvalidArgumentException` falls back to the generic message.
+- **Build gate (final):** PHPUnit unit **479/479**, ESLint 0 errors (69 pre-existing JSDoc warnings), `php -l` clean on all touched files. No frontend change.
+- **Not committed** — awaiting approval.
+
+### CS-PLAN-011 - Authorization Hardening, Cross-House Leak Repair & Fresh-Install Schema Fix
+**Status**: Done
+**Started**: 2026-07-25
+**Completed**: 2026-07-25
+**Branch**: master
+**Plan**: docs/plans/active/cs-plan-011-authorization-hardening.md
+**Blockers**: None
+**Notes**:
+- **Phase 1 — AuthorizationService exception model (S6/S7, DONE):** split `requireHouseMember` → `ensureHouseMember` (auto-join, used by getOrCreateHouse flows) + new pure `assertHouseMember` (throws `ForbiddenException`, no mutation). `requireCurrentUserId`/`requireHouseOwner` now throw `ForbiddenException` (was `\RuntimeException` → 500). New `assertUserInHouse($houseId, $userId)` cross-house guard. Added `ControllerErrorFormatter::forbiddenResponse()` and `catch (ForbiddenException) → 403` blocks across all 12 controllers that inject `AuthorizationService` (imports + catch ordering audited; the 4 non-injecting controllers — Page/SmartScheduler/RewardConfig/Test — untouched). Internal callers `isHouseOwner`/`requireHouseOwner` delegate to `ensureHouseMember`.
+- **Phase 2 — House-scoped due/overdue (L1, DONE):** added `RoomTaskMapper::findDueTodayByHouse`/`findDueWithinDaysByHouse` via `applyHouseScope`, extended `findOverdueByHouse` with an optional `$roomId` filter, and removed the unscoped `findOverdue`/`findDueToday`/`findDueWithinDays`. `RoomTaskService::getOverdueTasks`/`getDueTodayTasks`/`getDueWithinDaysTasks` now take `$houseId`; controller passes `$house->getId()`.
+- **Phase 3 — Task delete gate (S3, DONE):** `TaskController::delete()` loads the task and enforces the visibility matrix (private → owner only, admin-only → house owner, public → any member) returning 404 on denial (anti-enumeration, mirrors `show()`). `TaskService::deleteTask()` re-checks as defense-in-depth, now taking `$callerUserId` + `$isOwner`.
+- **Phase 4 — Mass-assignment whitelist (S4, DONE):** `TaskService::MUTABLE_FIELDS` constant + `DATE_FIELDS`; unknown keys are rejected with `\InvalidArgumentException` (→ 400). The Entity magic-setter caveat is documented (method_exists cannot gate `@method` accessors — the whitelist is authoritative).
+- **Phase 5 — Cross-house user stats (S5, DONE):** `RoomTaskController::userTasks()`/`userStats()` call `assertUserInHouse` before returning → 403 on cross-house access.
+- **Phase 6 — Group-assignment archival (S1/S2/L2/D2, DONE):** removed 5 routes, 5 controller actions, 5 service methods, 5 mapper methods; archived to `archive/2026-07/group-assignment/` (incl. the stale `multi-user-task-claiming.spec.ts` E2E spec that referenced a non-existent `unclaim-button`). DB columns retained harmlessly (no drop migration). `RouteMatrixTest` stays green (parses routes dynamically).
+- **Phase 7 — Dead mapper cleanup (D3/D4, DONE):** removed 5 dead `RoomTaskMapper` query methods (queried non-existent `house_id`/`deadline`/`scheduled_for` columns) + `TaskMapper::findDailyTasks()` + its only caller `TaskService::getDailyTasks()`. The active `RoomTaskMapper::findDailyTasks`/`RoomTaskService::getDailyTasks` were kept (house-scoped via `applyHouseScope`).
+- **Phase 8 — Fresh-install schema + PostgreSQL (P2, DONE):** new `Version1027Date20260725000000` re-adds `task_tier`/`coin_multiplier`/`flex_days`/`ideal_due_date` via `changeSchema()` (the NC migration runner only persists `changeSchema` diffs, not `preSchemaChange` as used by the original Version1018–1020) with `hasColumn` guards (idempotent). `Version1017` gained an explicit `postgresql` branch (`ALTER TABLE … RENAME COLUMN`, unquoted identifiers). **Verified on a clean Docker volume:** all 4 columns present with correct types/defaults; integration suite green without the manual `ALTER TABLE` workaround.
+- **Phase 9 — Build gate + backlog sync (DONE):** new unit tests `AuthorizationServiceExceptionTest` (12) + `TaskServiceWhitelistTest` (6); extended `TaskControllerTest` (delete visibility matrix: private/admin-only non-owner → 404, owner deletes own private → 200) and `RoomTaskControllerTest` (userTasks/userStats cross-house → 403). Test-mock rename `requireHouseMember` → `ensureHouseMember` across 17 files; `AuthorizationIntegrationTest` now expects `ForbiddenException`. Updated `bugs.md` (S1–S7, L1/L2, schema gap, PG all closed) + `phase-9-code-quality.md`.
+- **Build gate (final, 2026-07-25):** PHPUnit unit 472/472, PHPUnit integration 137/137 (24 documented skips, 0 errors), Jest 525/525, ESLint 0 errors (69 pre-existing JSDoc warnings), `npm run build` compiles, `php -l` clean. Fresh-install schema verified (4 columns present on clean volume).
+
 ### Project-wide Review (Full) — 2026-07-24
 **Status**: Done
 **Branch**: master (uncommitted: 3 mechanical fixes + backlog docs)
@@ -180,11 +213,23 @@
 **Blockers**: None (CS-PLAN-007 Done).
 
 ### CS-PLAN-010 - Documentation-vs-Implementation Reconciliation & Dead-Code Cleanup
-**Status**: Planned
-**Priority**: P2 · **Effort**: L · **Depends on**: none (ideally the uncommitted 2026-07-24 review changes are committed first)
-**Scope**: Closes the doc-vs-impl drift found by the 2026-07-24 four-agent reconciliation. (1) Rewrite the stalest docs — `architecture.md` (directory tree + DB schema + data-flow), `design.md` (medal names), concept reward docs, `testing.md` (E2E 20→32 + phpunit command), `api/README.md` (phantom `PUT /room-tasks/{id}`, undocumented route groups). (2) Code/schema cleanup — remove sparks residue from `HouseUser`/`TitleCatalog` + `Version1026` drop migration; archive dead `MedalService`/`UserStatsController`; remove `RoomController` dead actions. Three product decisions surfaced (Decision Points A/B/C) with safe defaults (align docs to reality, drop stale sparks columns). Plan review proposed before activation.
-**Plan**: docs/plans/new/cs-plan-010-doc-vs-impl-reconciliation.md
-**Blockers**: None. Decision Points A/B/C to be confirmed at `new/ → active/`.
+**Status**: Done (2026-07-24) — see Currently Active
+**Priority**: P2 · **Effort**: L · **Depends on**: none
+**Plan**: docs/plans/active/cs-plan-010-doc-vs-impl-reconciliation.md
+
+### CS-PLAN-012 - Wire the 3 Catalogued-but-Unawarded Medal Types
+**Status**: Done (2026-07-25)
+**Priority**: P3 · **Effort**: S–M · **Depends on**: none (build gate green as of CS-PLAN-011)
+**Scope**: Closes backlog item **P9-GAME-001**. Added the three missing award checks (`flow_keeper`, `room_guardian`, `team_player`) to `GameLogicService::checkAndAwardMedals()`, mirroring the existing `team_anchor`/`streak_keeper` pattern via `awardMedalIfNew()` (idempotent, race-safe, notifies once). New `CompletedTaskMapper::getMaxRoomCompletionCountByUser` query plus the `flow_keeper` active-days aggregation **merged into `getUserStats()`** (review-driven N+1 optimization — cut the loop from 3 → 2 stat queries/user; the planned standalone `countDistinctActiveDaysByUser` was not added); `team_player` reuses the existing `comboCount` aggregation. `ChoreStrikeNotifier::medalLabel()` extended with all five labels. Thresholds: `flow_keeper` ≥ 4 active days, `room_guardian` ≥ 5 per-room completions (concentration, D1), `team_player` ≥ 3 combos. Hardcoded constants (D3, matches existing precedent). 6 new unit tests (3 award + 3 below-threshold) + mapper coverage. Docs updated (design.md, gamification-and-rewards.md, architecture.md, gamification SKILL). No migration / frontend / l10n-artifact change.
+**Plan**: docs/plans/active/cs-plan-012-medal-award-wiring.md
+**Blockers**: None.
+
+### CS-PLAN-011 - Authorization Hardening, Cross-House Leak Repair & Fresh-Install Schema Fix
+**Status**: Done (2026-07-25) — see Recently Completed
+**Priority**: P1 · **Effort**: L · **Depends on**: none (ideally the uncommitted 2026-07-24 review changes are committed first)
+**Scope**: Closes the P1 authorization cluster from CODE_REVIEW_2026-07-24 (S1–S7, L1/L2) plus two P2 deployment blockers. (1) `AuthorizationService` exception model: split `requireHouseMember` into pure `assertHouseMember` + explicit `ensureHouseMember`; throw `ForbiddenException` instead of `\RuntimeException`; 403 catch blocks across all controllers (S6/S7). (2) House-scoped due/overdue queries via `applyHouseScope` (L1). (3) Task delete visibility/owner gate (S3). (4) `updateTask` mutable-field whitelist (S4). (5) Cross-house user-stats membership check (S5). (6) Archive the dead group-assignment feature — 5 routes, 5 controller actions, 6 service + 6 mapper methods, zero frontend consumers, phantom `getCurrentUserGroupIds()` call (S1/S2/L2/D2). (7) Remove 5 dead `RoomTaskMapper` methods + `TaskMapper::findDailyTasks()` (D3/D4). (8) Fresh-install schema fix: `Version1027` via `changeSchema()` (root cause: Version1018–1020 used `preSchemaChange` which the NC migration runner does not persist) + PostgreSQL `RENAME COLUMN` branch in Version1017.
+**Plan**: docs/plans/new/cs-plan-011-authorization-hardening.md
+**Blockers**: None.
 
 ---
 

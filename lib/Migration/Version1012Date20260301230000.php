@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Migration;
 
 use Closure;
-use OCP\DB\ISchemaTools;
+use OCP\DB\ISchemaWrapper;
 use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
 
 class Version1012Date20260301230000 extends SimpleMigrationStep
 {
-    public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?string
+    public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper
     {
         $schema = $schemaClosure();
 
@@ -67,6 +67,8 @@ class Version1012Date20260301230000 extends SimpleMigrationStep
             $table->addUniqueIndex(['house_id', 'user_id', 'is_active'], 'uniq_active_combo');
         }
 
-        return null;
+        // The runner persists schema diffs produced by changeSchema(), so the
+        // modified wrapper MUST be returned (returning null silently drops it).
+        return $schema;
     }
 }

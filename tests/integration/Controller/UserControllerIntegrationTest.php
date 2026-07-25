@@ -81,7 +81,7 @@ class UserControllerIntegrationTest extends TestCase
             ->with('instance-123')
             ->willReturn($house);
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with($house->getId());
         $this->houseUserMapper->expects($this->once())
             ->method('findByHouseId')
@@ -114,7 +114,7 @@ class UserControllerIntegrationTest extends TestCase
             ->with('instance-123')
             ->willReturn($house);
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with($house->getId())
             ->willReturn($currentUser);
 
@@ -311,7 +311,7 @@ class UserControllerIntegrationTest extends TestCase
             ->with('instance-123')
             ->willReturn($house);
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with($houseUser->getHouseId())
             ->willReturn($currentUser);
         $this->houseUserMapper->expects($this->once())
@@ -347,7 +347,7 @@ class UserControllerIntegrationTest extends TestCase
             ->with(1)
             ->willReturn($houseUser);
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with($houseUser->getHouseId());
 
         $response = $this->controller->stats(1);

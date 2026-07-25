@@ -95,12 +95,15 @@ Chaos (0%)      → Monsters cover UI elements (meta-level!)
 - **The Teamplayer**: Most combo bonuses
 - **The Streak Keeper**: Longest daily streak
 
-> **Implementation reality (CS-PLAN-010):** the shipped medal enum (see `lib/Db/Medal.php`) is
+> **Implementation reality (CS-PLAN-012):** the shipped medal enum (see `lib/Db/Medal.php`) is
 > `team_anchor` (≈ The Tank), `flow_keeper` (≈ The Scout), `room_guardian` (≈ The Specialist),
-> `team_player` (≈ The Teamplayer), `streak_keeper` (The Streak Keeper). **Only `team_anchor`
-> (10+ tasks/week) and `streak_keeper` (7+ day streak) are actually awarded** in the live
-> `GameLogicService::checkAndAwardMedals()` flow; `flow_keeper`/`room_guardian`/`team_player`
-> are catalogued but their award checks are not yet wired (backlog item).
+> `team_player` (≈ The Teamplayer), `streak_keeper` (The Streak Keeper). **All five are awarded**
+> in the live `GameLogicService::checkAndAwardMedals()` flow:
+> - `team_anchor` — 10+ task completions in the week
+> - `streak_keeper` — 7+ day streak
+> - `flow_keeper` — 4+ distinct active days in the week
+> - `room_guardian` — 5+ completions in a single room (concentration, "The Specialist")
+> - `team_player` — 3+ combo bonuses in the week (driven by `comboCount`, not the dead `isTeamCompletion` residue)
 
 ### 4. Extended Room Organization
 

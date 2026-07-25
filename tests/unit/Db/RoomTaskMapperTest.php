@@ -86,29 +86,23 @@ class RoomTaskMapperTest extends TestCase
     }
 
     /**
-     * FindOverdue_WithRoomId_ReturnsOverdueTasks
+     * FindOverdueByHouse_WithHouseId_ScopesQueryByHouse
+     *
+     * Verifies the house-scoped overdue query delegates to the house JOIN
+     * chain and returns entities. Cross-house isolation is verified by the
+     * integration suite on a real DB (AuthorizationIntegrationTest).
      */
-    public function testFindOverdue_WithRoomId_ReturnsOverdueTasks(): void
+    public function testFindOverdueByHouse_WithHouseId_ScopesQueryByHouse(): void
     {
-        $roomId = 1;
+        $houseId = 1;
+        $roomId = 2;
 
-        $this->qb->expects($this->once())
-            ->method('select')
-            ->with('*')
-            ->willReturn($this->qb);
-        $this->qb->expects($this->once())
-            ->method('from')
-            ->with('chorestrike_room_tasks')
-            ->willReturn($this->qb);
-        $this->qb->expects($this->any())
-            ->method('where')
-            ->willReturn($this->qb);
-        $this->qb->expects($this->any())
-            ->method('andWhere')
-            ->willReturn($this->qb);
-        $this->qb->expects($this->once())
-            ->method('orderBy')
-            ->willReturn($this->qb);
+        $this->qb->expects($this->once())->method('select')->willReturn($this->qb);
+        $this->qb->expects($this->once())->method('from')->willReturn($this->qb);
+        $this->qb->expects($this->exactly(2))->method('innerJoin')->willReturn($this->qb);
+        $this->qb->expects($this->any())->method('where')->willReturn($this->qb);
+        $this->qb->expects($this->any())->method('andWhere')->willReturn($this->qb);
+        $this->qb->expects($this->any())->method('orderBy')->willReturn($this->qb);
 
         $mockResult = $this->createMock(IResult::class);
         $mockResult->method('fetch')
@@ -117,14 +111,12 @@ class RoomTaskMapperTest extends TestCase
                 'room_id' => $roomId,
                 'task_id' => 5,
                 'is_active' => true,
-                'next_due' => '2026-02-20 10:00:00', // Overdue
+                'next_due' => '2026-02-20 10:00:00',
             ], false);
 
-        $this->qb->expects($this->once())
-            ->method('executeQuery')
-            ->willReturn($mockResult);
+        $this->qb->expects($this->once())->method('executeQuery')->willReturn($mockResult);
 
-        $results = $this->mapper->findOverdue($roomId);
+        $results = $this->mapper->findOverdueByHouse($houseId, $roomId);
 
         $this->assertCount(1, $results);
     }

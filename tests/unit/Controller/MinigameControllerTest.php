@@ -63,7 +63,7 @@ class MinigameControllerTest extends TestCase
             ->with('instance-123')
             ->willReturn($house);
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(1);
         $this->authService->expects($this->once())
             ->method('getCurrentUserId')
@@ -106,7 +106,7 @@ class MinigameControllerTest extends TestCase
             ->with('instance-123')
             ->willReturn($house);
         $this->authService->expects($this->once())
-            ->method('requireHouseMember')
+            ->method('ensureHouseMember')
             ->with(1);
         $this->authService->expects($this->once())
             ->method('getCurrentUserId')

@@ -62,7 +62,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $houseUser = $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->ensureHouseMember($house->getId());
 
             $tasks = $this->taskService->getVisibleTasks($house->getId(), $houseUser);
 
@@ -70,6 +70,8 @@ class TaskController extends OCSController
                 'success' => true,
                 'data' => array_map(fn ($task) => $task->jsonSerialize(), $tasks)
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('index', $e);
             return new JSONResponse([
@@ -92,7 +94,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $houseUser = $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->ensureHouseMember($house->getId());
 
             $task = $this->taskService->getTask($id);
 
@@ -124,13 +126,7 @@ class TaskController extends OCSController
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'FORBIDDEN',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 403);
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('show', $e, ['taskId' => $id]);
             return new JSONResponse([
@@ -220,7 +216,7 @@ class TaskController extends OCSController
 
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $houseUser = $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->ensureHouseMember($house->getId());
 
             // Validate visibilityType
             if (!in_array($visibilityType, \OCA\ChoreStrike\Db\Task::VISIBILITY_TYPES, true)) {
@@ -322,13 +318,7 @@ class TaskController extends OCSController
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'FORBIDDEN',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 403);
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('create', $e, ['taskName' => $name]);
             return new JSONResponse([
@@ -351,10 +341,44 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $houseUser = $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->ensureHouseMember($house->getId());
 
             // Load existing task to guard visibility transitions
             $existingTask = $this->taskService->getTask($id);
+
+            // Visibility access gate (mirrors show()/delete()): a non-owner
+            // may not even touch a private task, and only an owner may touch
+            // an admin-only task. Denied with 404 (anti-enumeration) — same
+            // shape as show()/delete() so the endpoint cannot be used to
+            // enumerate which task IDs exist.
+            $existingVisibility = $existingTask->getVisibilityType();
+            if ($existingVisibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE
+                && $existingTask->getOwnerUserId() !== $houseUser->getNextcloudUserId()
+            ) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+                ], 404);
+            }
+            if ($existingVisibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+                ], 404);
+            }
+
+            // Normalize the legacy `isPrivate` shim into the canonical
+            // `visibilityType`. The frontend sends both; applying `isPrivate`
+            // separately would (a) let setIsPrivate() clobber an admin-only
+            // value — it only maps to public/private — and (b) bypass the
+            // visibility-transition gate below, which keys on `visibilityType`.
+            // `visibilityType` is therefore the sole source of truth.
+            if (isset($updates['isPrivate']) && !isset($updates['visibilityType'])) {
+                $updates['visibilityType'] = $updates['isPrivate']
+                    ? \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE
+                    : \OCA\ChoreStrike\Db\Task::VISIBILITY_PUBLIC;
+            }
+            unset($updates['isPrivate']);
 
             // Admin-only visibility requires owner role (both setting and unsetting)
             if (isset($updates['visibilityType'])) {
@@ -386,6 +410,19 @@ class TaskController extends OCSController
                 unset($updates['ownerUserId']);
             }
 
+            // Taking a task private claims ownership for the caller when no
+            // owner is set. Otherwise a member could make a public task
+            // private with a null owner, orphaning it — show()/delete() then
+            // return 404 for every user (null !== any userId), so the task
+            // would be invisible and undeletable through the API.
+            $effectiveVisibility = $updates['visibilityType'] ?? $existingTask->getVisibilityType();
+            if ($effectiveVisibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE
+                && !isset($updates['ownerUserId'])
+                && $existingTask->getOwnerUserId() !== $houseUser->getNextcloudUserId()
+            ) {
+                $updates['ownerUserId'] = $houseUser->getNextcloudUserId();
+            }
+
             // Validate updates
             $errors = $this->taskService->validateTaskData($updates);
             if (!empty($errors)) {
@@ -414,13 +451,7 @@ class TaskController extends OCSController
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'FORBIDDEN',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 403);
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('update', $e, ['taskId' => $id]);
             return new JSONResponse([
@@ -436,6 +467,13 @@ class TaskController extends OCSController
     /**
      * Delete task
      *
+     * Enforces the task-visibility matrix before deletion (mirrors show()):
+     *   - private:    only the task owner may delete
+     *   - admin-only: only a house owner may delete
+     *   - public:     any house member may delete
+     * A denied delete returns 404 RESOURCE_NOT_FOUND (same as show) so the
+     * endpoint cannot be used to enumerate which tasks exist.
+     *
      * @NoAdminRequired
      */
     public function delete(int $id): JSONResponse
@@ -443,9 +481,42 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->ensureHouseMember($house->getId());
 
-            $this->taskService->deleteTask($id);
+            $task = $this->taskService->getTask($id);
+
+            $visibility = $task->getVisibilityType();
+            if ($visibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE
+                && $task->getOwnerUserId() !== $houseUser->getNextcloudUserId()) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+                ], 404);
+            }
+            if ($visibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+                ], 404);
+            }
+
+            try {
+                $this->taskService->deleteTask(
+                    $id,
+                    $houseUser->getNextcloudUserId(),
+                    $houseUser->isOwner()
+                );
+            } catch (ForbiddenException $e) {
+                // Defense-in-depth visibility denial from the service must
+                // preserve the 404 anti-enumeration contract (same as the
+                // gates above and show()), never a 403 that confirms the
+                // task exists. House-access ForbiddenExceptions are still
+                // handled as 403 by the outer catch below.
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+                ], 404);
+            }
 
             return new JSONResponse([
                 'success' => true,
@@ -460,13 +531,7 @@ class TaskController extends OCSController
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'FORBIDDEN',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 403);
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('delete', $e, ['taskId' => $id]);
             return new JSONResponse([
@@ -489,7 +554,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $templates = $this->taskService->getTaskTemplates();
 
@@ -497,6 +562,8 @@ class TaskController extends OCSController
                 'success' => true,
                 'data' => array_map(fn ($template) => $template->jsonSerialize(), $templates)
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('templates', $e);
             return new JSONResponse([
@@ -519,7 +586,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $task = $this->taskService->createFromTemplate($templateId);
 
@@ -536,13 +603,7 @@ class TaskController extends OCSController
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'FORBIDDEN',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 403);
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('createFromTemplate', $e, ['templateId' => $templateId]);
             return new JSONResponse([
@@ -565,7 +626,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $tasks = $this->taskService->getTasksByCategory($category);
 
@@ -573,6 +634,8 @@ class TaskController extends OCSController
                 'success' => true,
                 'data' => array_map(fn ($task) => $task->jsonSerialize(), $tasks)
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('byCategory', $e, ['category' => $category]);
             return new JSONResponse([
@@ -605,7 +668,7 @@ class TaskController extends OCSController
 
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $tasks = $this->taskService->searchTasks($query);
 
@@ -613,6 +676,8 @@ class TaskController extends OCSController
                 'success' => true,
                 'data' => array_map(fn ($task) => $task->jsonSerialize(), $tasks)
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('search', $e, ['query' => $query]);
             return new JSONResponse([
@@ -635,7 +700,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $categories = $this->taskService->getTaskCategories();
 
@@ -643,6 +708,8 @@ class TaskController extends OCSController
                 'success' => true,
                 'data' => $categories
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('categories', $e);
             return new JSONResponse([
@@ -665,7 +732,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $templates = $this->taskService->createDefaultTemplates();
 
@@ -674,6 +741,8 @@ class TaskController extends OCSController
                 'data' => array_map(fn ($template) => $template->jsonSerialize(), $templates),
                 'message' => 'Default task templates created successfully'
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('createDefaultTemplates', $e);
             return new JSONResponse([
@@ -696,7 +765,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
 
             $today = new \DateTime();
             $dailyTasks = $this->roomTaskService->getDailyTasksWithDetails($house->getId(), $today);
@@ -716,6 +785,8 @@ class TaskController extends OCSController
                 'success' => true,
                 'data' => $taskPayload
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('daily', $e);
             return new JSONResponse([
@@ -738,7 +809,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $houseUser = $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->ensureHouseMember($house->getId());
 
             $tasks = $this->taskService->getMyPrivateTasks($houseUser->getNextcloudUserId());
 
@@ -746,6 +817,8 @@ class TaskController extends OCSController
                 'success' => true,
                 'data' => array_map(fn ($task) => $task->jsonSerialize(), $tasks)
             ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('myPrivate', $e);
             return new JSONResponse([
@@ -768,7 +841,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $houseUser = $this->authService->requireHouseMember($house->getId());
+            $houseUser = $this->authService->ensureHouseMember($house->getId());
             $this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
             $details = $this->roomTaskService->getRoomTaskWithDetails($id);
@@ -816,13 +889,7 @@ class TaskController extends OCSController
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'FORBIDDEN',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 403);
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('complete', $e, ['roomTaskId' => $id]);
             return new JSONResponse([
@@ -845,7 +912,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
             $this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
             $task = $this->roomTaskService->uncompleteTask($id);
@@ -863,13 +930,7 @@ class TaskController extends OCSController
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'FORBIDDEN',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 403);
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('uncomplete', $e, ['roomTaskId' => $id]);
             return new JSONResponse([
@@ -892,7 +953,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
             $this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
             $task = $this->roomTaskService->skipTask($id);
@@ -910,13 +971,7 @@ class TaskController extends OCSController
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'FORBIDDEN',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 403);
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('skip', $e, ['roomTaskId' => $id]);
             return new JSONResponse([
@@ -939,7 +994,7 @@ class TaskController extends OCSController
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->requireHouseMember($house->getId());
+            $this->authService->ensureHouseMember($house->getId());
             $this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
             try {
@@ -969,13 +1024,7 @@ class TaskController extends OCSController
                 ]
             ], 404);
         } catch (ForbiddenException $e) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'FORBIDDEN',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 403);
+            return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
             $this->logControllerException('reschedule', $e, ['roomTaskId' => $id]);
             return new JSONResponse([
