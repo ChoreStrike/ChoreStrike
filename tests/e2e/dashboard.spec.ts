@@ -33,16 +33,16 @@ test.describe('User Login and Dashboard', () => {
 	test('Navigation menu works correctly', async ({ page }) => {
 		test.setTimeout(60000)
 
-		await page.getByRole('link', { name: 'Tasks' }).click()
+		await page.getByTestId('nav-tasks').click()
 		await expect(page).toHaveURL(/.*tasks/)
 
-		await page.getByRole('link', { name: 'Leaderboard' }).click()
+		await page.getByTestId('nav-leaderboard').click()
 		await expect(page).toHaveURL(/.*leaderboard/)
 
-		await page.getByRole('link', { name: 'Settings' }).click()
+		await page.getByTestId('nav-settings').click()
 		await expect(page).toHaveURL(/.*settings/)
 
-		await page.getByRole('link', { name: 'Dashboard' }).click()
+		await page.getByTestId('nav-dashboard').click()
 		await expect(page).toHaveURL(/.*dashboard/)
 	})
 })

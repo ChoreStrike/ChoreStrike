@@ -8,9 +8,10 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCP\ILogger;
 use OCP\IRequest;
 use OCP\IUserSession;
+use OCP\Log\ILogFactory;
+use Psr\Log\LoggerInterface;
 
 /**
  * Application-level structured logger for privacy-safe diagnostics.
@@ -31,10 +32,13 @@ class AppLogger
         'csrf',
     ];
 
+    private LoggerInterface $logger;
+
     public function __construct(
-        private ILogger $logger,
+        ILogFactory $logFactory,
         private IUserSession $userSession
     ) {
+        $this->logger = $logFactory->getCustomPsrLogger('');
     }
 
     /**

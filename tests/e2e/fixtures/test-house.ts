@@ -74,8 +74,9 @@ export async function setupTestHouse(page: Page): Promise<TestHouseData> {
 		await page.click('[data-testid="add-floor-button"]')
 		await page.waitForSelector('.modal-content', { timeout: 5000 })
 
-		// Fill floor name
-		await page.fill('input[type="text"]', floorName)
+		// Fill floor name — use the modal-specific input id to avoid matching
+		// the NC contacts search bar that also has type="text".
+		await page.fill('#new-floor-name', floorName)
 
 		// Click create
 		await page.click('button:has-text("Create")')

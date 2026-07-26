@@ -26,25 +26,25 @@ test.describe('Fast Core Tests', () => {
 
 	test('Basic navigation works', async ({ page }: { page: Page }) => {
 		const navigationTests = [
-			{ name: 'Tasks', urlPattern: /tasks/ },
-			{ name: 'Settings', urlPattern: /settings/ },
-			{ name: 'Dashboard', urlPattern: /dashboard/ },
+			{ testid: 'nav-tasks', urlPattern: /tasks/ },
+			{ testid: 'nav-settings', urlPattern: /settings/ },
+			{ testid: 'nav-dashboard', urlPattern: /dashboard/ },
 		]
 
 		for (const navTest of navigationTests) {
 			try {
-				await page.getByRole('link', { name: navTest.name }).click()
+				await page.getByTestId(navTest.testid).click()
 				await expect(page).toHaveURL(navTest.urlPattern)
 			} catch (error: unknown) {
 				// Some navigation items might not be reachable in every state.
-				console.log(`Navigation to ${navTest.name} failed:`, error instanceof Error ? error.message : 'Unknown error')
+				console.log(`Navigation to ${navTest.testid} failed:`, error instanceof Error ? error.message : 'Unknown error')
 			}
 		}
 	})
 
 	test('Task Manager basic functionality', async ({ page }: { page: Page }) => {
 		try {
-			await page.getByRole('link', { name: 'Tasks' }).click()
+			await page.getByTestId('nav-tasks').click()
 			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 
 			const addTaskButton = await BrowserAwareNavigation.waitForElementWithFallback(
@@ -63,7 +63,7 @@ test.describe('Fast Core Tests', () => {
 
 	test('Settings page loads', async ({ page }: { page: Page }) => {
 		try {
-			await page.getByRole('link', { name: 'Settings' }).click()
+			await page.getByTestId('nav-settings').click()
 			await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
 
 			const houseNameInput = await BrowserAwareNavigation.waitForElementWithFallback(
@@ -120,13 +120,13 @@ test.describe('Fast Core Tests', () => {
 		})
 
 		// Navigate around to trigger any errors.
-		await page.getByRole('link', { name: 'Tasks' }).click()
+		await page.getByTestId('nav-tasks').click()
 		await expect(page).toHaveURL(/tasks/).catch(() => undefined)
 
-		await page.getByRole('link', { name: 'Settings' }).click()
+		await page.getByTestId('nav-settings').click()
 		await expect(page).toHaveURL(/settings/).catch(() => undefined)
 
-		await page.getByRole('link', { name: 'Dashboard' }).click()
+		await page.getByTestId('nav-dashboard').click()
 		await expect(page).toHaveURL(/dashboard/).catch(() => undefined)
 
 		// Allow up to 5 non-critical errors for flakiness tolerance.

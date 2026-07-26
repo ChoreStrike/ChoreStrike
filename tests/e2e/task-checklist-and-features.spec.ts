@@ -20,7 +20,7 @@ test.describe('Task Checklist', () => {
 
 	test('should display checklist when expanding a task', async ({ page }) => {
 		// Navigate to task manager
-		await page.click('text=Task Manager')
+		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
 		// Find first active task
@@ -36,7 +36,7 @@ test.describe('Task Checklist', () => {
 
 	test('should show progress bar in checklist', async ({ page }) => {
 		// Navigate to task manager
-		await page.click('text=Task Manager')
+		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
 		// Expand first task
@@ -50,7 +50,7 @@ test.describe('Task Checklist', () => {
 
 	test('should toggle checklist item completion', async ({ page }) => {
 		// Navigate to task manager
-		await page.click('text=Task Manager')
+		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
 		// Expand first task
@@ -80,7 +80,7 @@ test.describe('Task Checklist', () => {
 
 	test('should collapse task details', async ({ page }) => {
 		// Navigate to task manager
-		await page.click('text=Task Manager')
+		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
 		// Expand first task
@@ -99,7 +99,7 @@ test.describe('Task Checklist', () => {
 
 	test('should show completion badge with correct count', async ({ page }) => {
 		// Navigate to task manager
-		await page.click('text=Task Manager')
+		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
 		// Expand first task
@@ -117,7 +117,7 @@ test.describe('Task Checklist', () => {
 
 	test('completed checklist items should have strikethrough', async ({ page }) => {
 		// Navigate to task manager
-		await page.click('text=Task Manager')
+		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
 		// Expand first task
@@ -150,7 +150,7 @@ test.describe('Group Assignment', () => {
 
 	test('should show assigned status for tasks', async ({ page }) => {
 		// Navigate to task manager
-		await page.click('text=Task Manager')
+		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
 		// Check for assigned indicator in task meta
@@ -179,7 +179,7 @@ test.describe('Task Scheduling Modes', () => {
 
 	test('should show scheduling mode options in task edit form', async ({ page }) => {
 		// Navigate to task manager
-		await page.click('text=Task Manager')
+		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
 		// Click add new task
@@ -195,7 +195,7 @@ test.describe('Task Scheduling Modes', () => {
 
 	test('should show time input for static scheduling', async ({ page }) => {
 		// Navigate to task manager
-		await page.click('text=Task Manager')
+		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
 		// Click add new task
@@ -224,7 +224,7 @@ test.describe('Template Selector', () => {
 
 	test('should show template selector when creating task', async ({ page }) => {
 		// Navigate to task manager
-		await page.click('text=Task Manager')
+		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
 		// Click add new task

@@ -23,7 +23,7 @@ test.describe('Role Title System', () => {
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
-		await page.click('text=Settings')
+		await page.getByTestId('nav-settings').click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 	})

@@ -8,24 +8,13 @@ test.describe('Room and Floor Management', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
-		await page.goto('/')
-		const loginFormVisible = await page.locator('#user, input[name="user"]').first().isVisible().catch(() => false)
-		if (loginFormVisible) {
-			await page.fill('#user, input[name="user"]', process.env.NEXTCLOUD_USER || 'admin')
-			await page.fill('#password, input[name="password"]', process.env.NEXTCLOUD_PASSWORD || 'admin')
-			await page.click('#submit-form, button[type="submit"], button:has-text("Log in")')
-			await page.waitForLoadState('networkidle', { timeout: 30000 })
-		}
-
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		// Wait for dashboard to load with longer timeout
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 	})
 
 	test('User can create a new floor', async ({ page }) => {
-		// Navigate to settings using text selector
-		await page.click('text=Settings')
+		await page.getByTestId('nav-settings').click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 
@@ -34,7 +23,7 @@ test.describe('Room and Floor Management', () => {
 
 		// Wait for modal and fill floor name
 		await page.waitForSelector('.modal-content', { timeout: 15000 })
-		await page.fill('input[type="text"]', 'Basement')
+		await page.fill('#new-floor-name', 'Basement')
 
 		// Save floor
 		await page.click('button:has-text("Create")')
@@ -45,8 +34,7 @@ test.describe('Room and Floor Management', () => {
 	})
 
 	test('User can add room to floor', async ({ page }) => {
-		// Navigate to settings
-		await page.click('text=Settings')
+		await page.getByTestId('nav-settings').click()
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 
 		// First create a floor if none exists
@@ -54,13 +42,13 @@ test.describe('Room and Floor Management', () => {
 		if (await noFloorsMessage.isVisible().catch(() => false)) {
 			await page.click('[data-testid="create-first-floor"]')
 			await page.waitForSelector('.modal-content', { timeout: 15000 })
-			await page.fill('input[type="text"]', 'Test Floor')
+			await page.fill('#new-floor-name', 'Test Floor')
 			await page.click('button:has-text("Create")')
 			await page.waitForTimeout(1000)
 		}
 
 		// Navigate to dashboard to see rooms
-		await page.click('text=Dashboard')
+		await page.getByTestId('nav-dashboard').click()
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
 		// Expand first floor and add room through GUI modal
@@ -84,8 +72,7 @@ test.describe('Room and Floor Management', () => {
 	})
 
 	test('User can update room cleanliness', async ({ page }) => {
-		// Navigate to dashboard and find a room
-		await page.click('text=Dashboard')
+		await page.getByTestId('nav-dashboard').click()
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
 		// Check if any room card exists
@@ -110,8 +97,7 @@ test.describe('Room and Floor Management', () => {
 	})
 
 	test('Room detail shows cleanliness overview', async ({ page }) => {
-		// Navigate to dashboard using text selector
-		await page.click('text=Dashboard')
+		await page.getByTestId('nav-dashboard').click()
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
 		// Check if any room cards exist

@@ -11,7 +11,6 @@ namespace OCA\ChoreStrike\Controller;
 
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\TemplateResponse;
-use OCP\ILogger;
 use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\Util;
@@ -21,8 +20,7 @@ class PageController extends Controller
     public function __construct(
         string $appName,
         IRequest $request,
-        private IURLGenerator $urlGenerator,
-        private ILogger $logger
+        private IURLGenerator $urlGenerator
     ) {
         parent::__construct($appName, $request);
     }
@@ -54,11 +52,8 @@ class PageController extends Controller
                 'manifest',
                 $this->urlGenerator->imagePath($this->appName, 'manifest.webmanifest')
             );
-        } catch (\Throwable $e) {
-            $this->logger->info('PWA manifest link injection failed (host may not support addLink)', [
-                'app' => $this->appName,
-                'exception' => $e->getMessage(),
-            ]);
+        } catch (\Throwable) {
+            // Best-effort — host may not support addLink.
         }
 
         try {
@@ -74,11 +69,8 @@ class PageController extends Controller
                 'name' => 'mobile-web-app-capable',
                 'content' => 'yes',
             ]);
-        } catch (\Throwable $e) {
-            $this->logger->info('PWA meta header injection failed', [
-                'app' => $this->appName,
-                'exception' => $e->getMessage(),
-            ]);
+        } catch (\Throwable) {
+            // Best-effort — host may not support addHeader.
         }
     }
 }

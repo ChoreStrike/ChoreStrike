@@ -190,16 +190,24 @@ export async function loginAsUser(page: Page, userId: string, password: string):
 		return
 	}
 
-	// Switching users requires clearing the active session first, otherwise
-	// /login redirects back to the already-authenticated app. When we cannot
-	// detect the active user but landed on the app, clear the session anyway so
-	// the form-login below reliably targets the requested user.
+	// Switching users requires logging out the active session first, otherwise
+	// /login redirects back to the already-authenticated app.  NC 28+ wraps
+	// /logout in a CSRF-protected POST.  We use fetch() to POST the token,
+	// then hard-navigate to /login.
 	if (current || page.url().includes('/apps/')) {
-		await page.goto('/logout')
-		await page.waitForURL('**/login**', { timeout: 15000 }).catch(() => {})
+		await page.evaluate(async () => {
+			const token = (window as { OC?: { requestToken?: string } }).OC?.requestToken
+			if (token) {
+				await fetch('/logout', {
+					method: 'POST',
+					headers: { 'requesttoken': token },
+				}).catch(() => {})
+			}
+		})
+		// Navigate to login — the fetch above may have already logged us out.
+		await page.goto('/login', { waitUntil: 'domcontentloaded' })
 	} else if (!page.url().includes('/login')) {
-		await page.goto('/login')
-		await page.waitForLoadState('domcontentloaded')
+		await page.goto('/login', { waitUntil: 'domcontentloaded' })
 	}
 
 	await submitLoginForm(page, userId, password)

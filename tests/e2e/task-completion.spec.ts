@@ -20,7 +20,7 @@ async function selectFirstAssignableTask(page: import('@playwright/test').Page):
 		return false
 	}
 
-	await page.selectOption(page.getByTestId('task-id-select'), optionValue)
+	await page.getByTestId('task-id-select').selectOption(optionValue)
 	return true
 }
 
@@ -45,9 +45,9 @@ test.describe('Task Creation and Completion', () => {
 
 		await taskNameInput.fill('Test Task - Vacuum Living Room')
 		await page.getByTestId('task-description-input').fill('Weekly vacuuming of the living room carpet')
-		await page.selectOption(page.getByTestId('task-energy-select'), '2')
-		await page.selectOption(page.getByTestId('task-priority-select'), '2')
-		await page.selectOption(page.getByTestId('task-frequency-type'), 'weekly')
+		await page.getByTestId('task-energy-select').selectOption('2')
+		await page.getByTestId('task-priority-select').selectOption('2')
+		await page.getByTestId('task-frequency-type').selectOption('weekly')
 		await page.getByTestId('task-frequency-value').fill('1')
 
 		// Wait for the create request, then save.

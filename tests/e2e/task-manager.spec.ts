@@ -41,17 +41,17 @@ test.describe('Task Manager', () => {
 	})
 
 	test('User can filter tasks by status', async ({ page }) => {
-		await page.selectOption(page.getByTestId('status-filter'), 'active')
+		await page.getByTestId('status-filter').selectOption('active')
 		await expect(page.getByTestId('task-manager-view')).toBeVisible()
 	})
 
 	test('User can filter tasks by priority', async ({ page }) => {
-		await page.selectOption(page.getByTestId('priority-filter'), 'urgent')
+		await page.getByTestId('priority-filter').selectOption('urgent')
 		await expect(page.getByTestId('task-manager-view')).toBeVisible()
 	})
 
 	test('User can filter tasks by difficulty', async ({ page }) => {
-		await page.selectOption(page.getByTestId('difficulty-filter'), '3')
+		await page.getByTestId('difficulty-filter').selectOption('3')
 		await expect(page.getByTestId('task-manager-view')).toBeVisible()
 	})
 

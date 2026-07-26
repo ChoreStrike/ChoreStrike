@@ -32,34 +32,26 @@ test.describe('Smoke Tests', () => {
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForTimeout(1000)
 		
-		// Try to click navigation items
-		const navItems = ['Tasks', 'Leaderboard', 'Settings', 'Dashboard']
-		
+		// Try to click navigation items using stable testids
+		const navItems = [
+			{ name: 'Tasks', testid: 'nav-tasks', urlPattern: /tasks/ },
+			{ name: 'Leaderboard', testid: 'nav-leaderboard', urlPattern: /leaderboard/ },
+			{ name: 'Settings', testid: 'nav-settings', urlPattern: /settings/ },
+			{ name: 'Dashboard', testid: 'nav-dashboard', urlPattern: /dashboard/ },
+		]
+
 		for (const item of navItems) {
 			try {
-				// Look for clickable element with this text
-				const element = page.locator(`text=${item}`).first()
+				const element = page.getByTestId(item.testid)
 				const isVisible = await element.isVisible().catch(() => false)
-				
+
 				if (isVisible) {
 					await element.click()
-					await page.waitForTimeout(1000)
-					
-					// Check that URL changed appropriately
-					const url = page.url()
-					if (item === 'Dashboard') {
-						expect(url).toMatch(/dashboard/)
-					} else if (item === 'Tasks') {
-						expect(url).toMatch(/tasks/)
-					} else if (item === 'Leaderboard') {
-						expect(url).toMatch(/leaderboard/)
-					} else if (item === 'Settings') {
-						expect(url).toMatch(/settings/)
-					}
+					await expect(page).toHaveURL(item.urlPattern, { timeout: 10000 })
 				}
 			} catch (error: any) {
 				// Navigation item might not exist or be clickable - that's ok for smoke test
-				console.log(`Could not navigate to ${item}:`, error?.message || 'Unknown error')
+				console.log(`Could not navigate to ${item.name}:`, error?.message || 'Unknown error')
 			}
 		}
 	})

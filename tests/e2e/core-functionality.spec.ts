@@ -22,21 +22,21 @@ test.describe('Core App Functionality', () => {
 	})
 
 	test('Navigation between main views works', async ({ page }) => {
-		await page.getByRole('link', { name: 'Tasks' }).click()
+		await page.getByTestId('nav-tasks').click()
 		await expect(page).toHaveURL(/.*tasks/)
 
-		await page.getByRole('link', { name: 'Leaderboard' }).click()
+		await page.getByTestId('nav-leaderboard').click()
 		await expect(page).toHaveURL(/.*leaderboard/)
 
-		await page.getByRole('link', { name: 'Settings' }).click()
+		await page.getByTestId('nav-settings').click()
 		await expect(page).toHaveURL(/.*settings/)
 
-		await page.getByRole('link', { name: 'Dashboard' }).click()
+		await page.getByTestId('nav-dashboard').click()
 		await expect(page).toHaveURL(/.*dashboard/)
 	})
 
 	test('Task Manager loads and displays controls', async ({ page }) => {
-		await page.getByRole('link', { name: 'Tasks' }).click()
+		await page.getByTestId('nav-tasks').click()
 		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 
 		await expect(page.getByTestId('status-filter')).toBeVisible({ timeout: 15000 })
@@ -47,16 +47,16 @@ test.describe('Core App Functionality', () => {
 	})
 
 	test('Settings page loads and displays controls', async ({ page }) => {
-		await page.getByRole('link', { name: 'Settings' }).click()
+		await page.getByTestId('nav-settings').click()
 		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
 
 		await expect(page.getByTestId('house-name-input')).toBeVisible({ timeout: 15000 })
-		await expect(page.getByTestId('floors-section')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('floors-list')).toBeVisible({ timeout: 15000 })
 		await expect(page.getByTestId('add-floor-button')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Leaderboard page loads', async ({ page }) => {
-		await page.getByRole('link', { name: 'Leaderboard' }).click()
+		await page.getByTestId('nav-leaderboard').click()
 		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
 	})
 
@@ -72,7 +72,7 @@ test.describe('Core App Functionality', () => {
 	})
 
 	test('Task completion flow works', async ({ page }) => {
-		await page.getByRole('link', { name: 'Tasks' }).click()
+		await page.getByTestId('nav-tasks').click()
 		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 
 		// Room-task completion lives in the room detail view; navigate to the
@@ -96,11 +96,11 @@ test.describe('Core App Functionality', () => {
 	})
 
 	test('Filters and search work in Task Manager', async ({ page }) => {
-		await page.getByRole('link', { name: 'Tasks' }).click()
+		await page.getByTestId('nav-tasks').click()
 		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 
-		await page.selectOption(page.getByTestId('status-filter'), 'active')
-		await page.selectOption(page.getByTestId('priority-filter'), 'urgent')
+		await page.getByTestId('status-filter').selectOption('active')
+		await page.getByTestId('priority-filter').selectOption('urgent')
 		await page.getByTestId('search-input').fill('test')
 		await page.getByTestId('search-input').fill('')
 

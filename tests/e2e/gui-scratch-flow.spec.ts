@@ -32,7 +32,7 @@ async function openApp(page: Page): Promise<void> {
 }
 
 async function navigateToSettings(page: Page): Promise<void> {
-	await page.getByRole('link', { name: 'Settings' }).click()
+	await page.getByTestId('nav-settings').click()
 	await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
 }
 
@@ -49,9 +49,9 @@ async function createTaskFromUi(page: Page, taskName: string): Promise<void> {
 	await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
 	await page.getByTestId('task-name-input').fill(taskName)
 	await page.getByTestId('task-description-input').fill('Created in GUI scratch flow')
-	await page.selectOption(page.getByTestId('task-energy-select'), '2')
-	await page.selectOption(page.getByTestId('task-priority-select'), '2')
-	await page.selectOption(page.getByTestId('task-frequency-type'), 'weekly')
+	await page.getByTestId('task-energy-select').selectOption('2')
+	await page.getByTestId('task-priority-select').selectOption('2')
+	await page.getByTestId('task-frequency-type').selectOption('weekly')
 	await page.getByTestId('task-frequency-value').fill('1')
 	await page.getByTestId('save-task-button').click()
 	const createTaskResponse = await createTaskResponsePromise
@@ -106,7 +106,7 @@ async function assignTaskToRoomFromUi(page: Page, taskName: string, roomName: st
 	if (optionValue === null) {
 		throw new Error(`Could not find task option for ${taskName}`)
 	}
-	await page.selectOption(page.getByTestId('task-id-select'), optionValue)
+	await page.getByTestId('task-id-select').selectOption(optionValue)
 	await page.getByTestId('assign-task-button').click()
 	await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 15000 })
 }
