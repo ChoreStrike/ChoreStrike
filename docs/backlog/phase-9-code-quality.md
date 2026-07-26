@@ -376,7 +376,7 @@ export const logger = {
 ### P9-DOC-002 - Sync Architecture and Testing Documentation with the Live Application
 **Priority**: MEDIUM  
 **Effort**: 4 hours  
-**Status**: Planned (plan drafted: CS-PLAN-014 — residual drift only; CS-PLAN-010 already did the core rewrite)
+**Status**: Done (CS-PLAN-014)
 
 **Description**: `docs/ARCHITECTURE.md` currently documents files and folders that do not exist or are no longer authoritative, including `.github/workflows`, `src/services/api.js`, and an outdated frontend structure. This reduces trust in the docs and makes reviews slower.
 
@@ -388,6 +388,15 @@ export const logger = {
 
 **Tests**:
 - Review checklist verifies docs against real files and routes.
+
+**Completed (CS-PLAN-014, 2026-07-26)**:
+- `development.md`: replaced the non-existent `.github/workflows/` CI section with the real `.forgejo/workflows/release-gate.yml` gate (mirrors `testing.md`); fixed `tests/Unit/` → `tests/unit/`; replaced the fictional `PointsCalculator` example with the real `GameLogicService::calculateCoins()` signature + pointer to `GameLogicServiceTest.php`; aligned the PR flow with Forgejo (`master`, no `develop`) and cross-linked the git-workflow skill; fixed the broken `../AGENTS.md` → `../../AGENTS.md` link; replaced "Open an issue on GitHub" with the Codeberg tracker; converted the legacy `docker-compose` CLI → `docker compose`. Kept `PHP 8.0+` (matches `info.xml`/`composer.json`).
+- `architecture.md`: **kept** the correct `.github/` tree entry; changed `### E2E Tests (Future)` → present-tense (Playwright, live) with a `testing.md` cross-link; added `img/manifest.webmanifest` to the directory tree; corrected `useHouseStore` (removed the non-existent `health` state / `updateHealth()` action; documented the real `houseHealth` getter + `calculateHouseHealth()` action) and `useRoomsStore` (dropped the non-existent `overdueRooms` getter, fixed action names); kept `PHP 8.0+`.
+- `testing.md`: removed the archived `multi-user-task-claiming.spec.ts` from its shared E2E row (kept the two live specs); dropped the stale parenthetical spec counts ("32 specs", "42 specs", "18 files"); converted the lone legacy `docker-compose` CLI invocation → `docker compose` (kept the apt `docker-compose-plugin` package name and the legacy fallback note).
+- `api/README.md`: annotated `assigned_to_user_id` as the legacy single-assignee field (retained alongside the multi-assignee table; still settable/returned and merged into the assignee set).
+- Verified by relative-link-integrity grep (0 broken links across the 4 touched docs) + source spot-reads; no `lib/`/`src/` change, so the build gate is unaffected.
+
+**Deferred (new backlog items P9-DOC-005 + P9-CONFIG-001 below)**: PHP minimum-version alignment (8.0 vs 8.1) and the remaining `development.md` example-code drift (`TaskService::calculateNextDue` PHPDoc example + raw-`axios` endpoint example).
 
 ---
 
@@ -440,6 +449,32 @@ export const logger = {
 **Priority**: LOW  
 **Effort**: 0.5 day  
 **Status**: Done — implemented via CS-PLAN-012 (2026-07-25). All five medal types (`team_anchor`, `streak_keeper`, `flow_keeper`, `room_guardian`, `team_player`) are now awarded in `GameLogicService::checkAndAwardMedals()`. Criteria: `flow_keeper` ≥ 4 distinct active days, `room_guardian` ≥ 5 completions in one room (concentration), `team_player` ≥ 3 combo bonuses. New `CompletedTaskMapper::getMaxRoomCompletionCountByUser` query; the `flow_keeper` active-days count is aggregated inside `getUserStats()` (review-driven N+1 optimization — the planned standalone `countDistinctActiveDaysByUser` method was merged in instead of added separately); `ChoreStrikeNotifier::medalLabel()` extended with all five labels. Unit tests cover award + below-threshold for each new medal. Docs updated to remove "not yet wired" caveats.
+
+---
+
+### P9-DOC-005 - development.md Example-Code Audit
+**Priority**: LOW  
+**Effort**: 1 hour  
+**Status**: Open
+
+**Description**: CS-PLAN-014 fixed the fictional `PointsCalculator` example in `development.md`, but two further example-code drifts were deliberately deferred. (1) The PHP coding-standards example documents a fictional `TaskService::calculateNextDue(Task): \DateTime` method — no such method exists (verified: `TaskService` does not compute due dates; scheduling is owned by `SchedulingService`, `TaskSchedulerService`, `SmartSchedulerService`, and the `lib/Service/Scheduling/` subfolder). (2) The "Adding a new API endpoint" example shows a raw `axios.post('/apps/ChoreStrike/...')` call, which contradicts the canonical shared `src/services/api.js` client enforced by the `tests/unit/store/apiContract.spec.js` contract test.
+
+**Implementation**: Replace the fictional `calculateNextDue` example with a real method (or drop it in favor of a pointer to the relevant scheduling service), and rewrite the endpoint example to use the shared `api` client (`src/services/api.js`). Verify against `lib/Service/` + the contract test.
+
+**Source**: Review of CS-PLAN-014 (2026-07-26).
+
+---
+
+### P9-CONFIG-001 - Align PHP Minimum Version Across Manifest, composer.json, and AGENTS.md
+**Priority**: LOW  
+**Effort**: 0.5 hour  
+**Status**: Open
+
+**Description**: `appinfo/info.xml` declares `<php min-version="8.0" max-version="8.3"/>` and `composer.json` requires `"php": "^8.0"`, but `AGENTS.md` states "PHP 8.1+". The install-time manifest (8.0) is the source of truth, so the engineering docs (CS-PLAN-014) deliberately keep `PHP 8.0+`. This item decides the real minimum: either bump the manifest + `composer.json` to `^8.1` (and verify nothing assumes an 8.1+ feature below the declared floor) and align `AGENTS.md`, or correct `AGENTS.md` down to 8.0+.
+
+**Implementation**: Make the decision, then apply it to `appinfo/info.xml`, `composer.json`, and `AGENTS.md` together so all three agree. CI (`setup-php` in `.forgejo/workflows/release-gate.yml`) currently pins PHP 8.2 for the `composer validate` job.
+
+**Source**: Review of CS-PLAN-014 (2026-07-26).
 
 ---
 

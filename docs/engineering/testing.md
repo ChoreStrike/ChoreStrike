@@ -82,7 +82,7 @@ For interactive debugging or running commands inside the container:
 
 ```bash
 # Start a shell in the test container
-docker-compose -f docker-compose.test.yml run --rm nextcloud-test bash
+docker compose -f docker-compose.test.yml run --rm nextcloud-test bash
 
 # Then inside the container:
 composer install
@@ -307,7 +307,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `availability-settings-flow.spec.ts`, `scheduling.spec.ts`, `flex-window-scheduling.spec.ts` | Scheduling, availability, and flex-window flows |
 | `leaderboard.spec.ts`, `phase-4-advanced-mechanics.spec.ts`, `title-selection.spec.ts` | Gamification, leaderboard, advanced mechanics, role titles |
 | `private-tasks.spec.ts`, `admin-only-tasks.spec.ts`, `teamwork-rewards.spec.ts` | Visibility (private/admin-only) and teamwork-bonus rewards (CS-PLAN-005) |
-| `overdue-task-claiming.spec.ts`, `multi-user-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover, multi-user claiming, and family interactions |
+| `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage |
 | `phase-3-user-management.spec.ts` | Legacy coverage that requires rework before it should be treated as a release gate |
 
@@ -372,7 +372,7 @@ npx playwright test tests/e2e/ --project=chromium
 
 Repository status:
 
-- For the current spec count, run `git ls-files 'tests/e2e/*.spec.ts' | wc -l` (the suite grows over time — e.g. 32 specs at the time of writing).
+- For the current spec count, run `git ls-files 'tests/e2e/*.spec.ts' | wc -l` (the suite grows over time).
 - Not every spec has the same maturity level.
 - The most relevant release-oriented UI coverage currently lives in the dashboard, room, task, settings, daily-task, scheduling, and GUI-scratch-flow suites.
 - `phase-3-user-management.spec.ts` should be considered **legacy** until it is rewritten against currently wired views and routes.
@@ -385,7 +385,7 @@ npm test
 
 Repository status:
 
-- For the current Jest spec count, run `git ls-files 'tests/unit/**/*.spec.js' | wc -l` (e.g. 42 specs at the time of writing).
+- For the current Jest spec count, run `git ls-files 'tests/unit/**/*.spec.js' | wc -l` (the count grows as coverage expands).
 - Coverage includes:
   - Vue components
   - Pinia stores
@@ -408,7 +408,7 @@ docker compose -f docker-compose.test.yml run --rm nextcloud-test \
 
 Repository status:
 
-- For the current integration test count, run `git ls-files 'tests/integration/**/*Test.php' | wc -l` (e.g. 18 files at the time of writing).
+- For the current integration test count, run `git ls-files 'tests/integration/**/*Test.php' | wc -l` (the count grows as coverage expands).
 - Coverage includes controller, API, family, and extended room-task service scenarios.
 - Controller integration tests require the Docker/Nextcloud environment.
 

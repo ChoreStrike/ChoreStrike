@@ -289,6 +289,12 @@ List all room-task assignments.
 ]
 ```
 
+> **`assigned_to_user_id`** is the legacy single-assignee field, retained
+> alongside the multi-assignee `chorestrike_task_assignees` table (CS-PLAN-002).
+> It is still set via the POST body (`assignedToUserId`) and the assign endpoint,
+> returned as `assignedToUserId`, and merged into the assignee set by
+> `TaskAssigneeMapper`. See `architecture.md` (`chorestrike_room_tasks`).
+
 #### POST /room-tasks
 Assign task to room(s).
 

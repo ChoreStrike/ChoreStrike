@@ -2,7 +2,7 @@
 
 This document covers local setup, commands, and contributor workflow.
 
-If you are acting as an AI agent, start with `../AGENTS.md` first. Use this document only when you need environment or execution details.
+If you are acting as an AI agent, start with [`../../AGENTS.md`](../../AGENTS.md) first. Use this document only when you need environment or execution details.
 
 ## Getting Started
 
@@ -20,7 +20,7 @@ For isolated testing, use the included Docker setup:
 
 1. **Start the test environment**
    ```bash
-   docker-compose -f docker-compose.test.yml up --build
+   docker compose -f docker-compose.test.yml up --build
    ```
 
 2. **Access the application**
@@ -35,7 +35,7 @@ For isolated testing, use the included Docker setup:
 
 4. **Stop the environment**
    ```bash
-   docker-compose -f docker-compose.test.yml down
+   docker compose -f docker-compose.test.yml down
    ```
 
 ### Initial Setup
@@ -249,33 +249,20 @@ export default {
 
 ### PHP Unit Tests
 
-Located in `tests/Unit/`
+Located in `tests/unit/` (PHPUnit). The canonical, working example is
+[`tests/unit/Service/GameLogicServiceTest.php`](../../tests/unit/Service/GameLogicServiceTest.php),
+which exercises the real coin calculation in
+[`GameLogicService::calculateCoins()`](../../lib/Service/GameLogicService.php):
 
-**Example:**
 ```php
-<?php
-namespace OCA\ChoreStrike\Tests\Unit\Service;
-
-use OCA\ChoreStrike\Service\PointsCalculator;
-use PHPUnit\Framework\TestCase;
-
-class PointsCalculatorTest extends TestCase {
-    private PointsCalculator $calculator;
-    
-    protected function setUp(): void {
-        $this->calculator = new PointsCalculator();
-    }
-    
-    public function testCalculateBasePoints() {
-        $points = $this->calculator->calculate(3, 2, false);
-        $this->assertEquals(30, $points);
-    }
-    
-    public function testCalculateComboBonus() {
-        $points = $this->calculator->calculate(3, 2, true);
-        $this->assertEquals(45, $points);
-    }
-}
+public function calculateCoins(
+    Task $task,
+    float $personalMultiplier = 1.0,
+    bool $isCombo = false,
+    float $earlyMultiplier = 1.0
+): int
+// coins = energy_cost × base rate × task_tier × personal × early
+//         (× combo multiplier when $isCombo)
 ```
 
 **Run tests:**
@@ -507,20 +494,39 @@ i18n: Add German translations
 ```
 
 ### Pull requests
-1. Create feature branch from `develop`
-2. Make changes and commit
+
+The default branch is `master`. The canonical branch and commit workflow lives
+in [`docs/standards/ai/skills/git-workflow`](../standards/ai/skills/git-workflow/SKILL.md)
+and `AGENTS.md`; in short:
+
+1. Create a feature branch from `master`
+2. Make changes and commit (conventional-commit messages)
 3. Push to your fork
-4. Open PR against `develop`
-5. Wait for review and CI checks
+4. Open a pull request against `master`
+5. Wait for review and the release-gate CI (see CI/CD below)
 6. Merge when approved
 
 ## CI/CD
 
-GitHub Actions workflows in `.github/workflows/`:
+The authoritative CI workflow is `.forgejo/workflows/release-gate.yml`
+(Forgejo Actions / Codeberg CI, GHA-compatible). It is the single source of
+truth for the blocking quality gate and runs on every `push` and `pull_request`.
 
-- **lint.yml**: Runs linters on every push
-- **test.yml**: Runs tests on every PR
-- **build.yml**: Builds app for releases
+### Blocking gate commands
+
+| Command | Purpose |
+|---------|---------|
+| `npm run lint` | ESLint, 0 errors required |
+| `npm test` | Jest (Vue components, stores, API contract) |
+| `npm run build` | Webpack production build |
+| `composer validate --strict` | `composer.json` sanity |
+| `vendor/bin/phpunit --configuration phpunit.unit.xml` | Backend unit tests (via Docker) |
+| `vendor/bin/phpunit --configuration phpunit.integration.xml` | Backend integration tests (via Docker) |
+
+Stylelint is **advisory/non-blocking** until the
+`@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch is
+resolved (see `docs/backlog/bugs.md`). See [`testing.md`](testing.md) for the
+local reproduction recipe and full CI detail.
 
 ## Resources
 
@@ -531,7 +537,7 @@ GitHub Actions workflows in `.github/workflows/`:
 
 ## Getting Help
 
-- Open an issue on GitHub
+- Open an issue on the [Codeberg tracker](https://github.com/ChoreStrike/ChoreStrike/issues)
 - Check existing documentation
 - Ask in Nextcloud developer forums
 

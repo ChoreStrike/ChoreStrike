@@ -1,6 +1,6 @@
 # CS-PLAN-014: Documentation-vs-Implementation Sync (P9-DOC-002)
 
-> **Status:** Plan (not started)
+> **Status:** Done (2026-07-26) — all 4 doc phases shipped and reviewed; plan moved `active/ → done/`.
 > **Effort:** S–M
 > **Priority:** P2
 > **Depends on:** none (CS-PLAN-010 already rewrote the core doc bodies; this closes the residual drift)
@@ -138,3 +138,28 @@ verified against the live repo. Corrections applied directly to this plan:
 
 **Verdict:** approved for `new/ → active/` after these corrections (applied
 above). No blockers remain.
+
+## Review Outcome (post-implementation, Standard Type B, 2026-07-26)
+
+All four doc phases shipped and verified (`/review uncommitted`, docs-only,
+no subagents). Link-integrity grep = 0 broken links across the 4 touched docs;
+every factual claim spot-read against source (`.forgejo` CI files, `tests/unit/`
+casing, `GameLogicService::calculateCoins()` signature + formula, `master`
+default branch, `info.xml`/`composer.json` PHP 8.0, `houseHealth`/`calculateHouseHealth()`,
+no `overdueRooms`, 31 live E2E specs, archived spec not tracked).
+
+**1 WARNING found and fixed:** the initial `api/README.md` note labelled
+`assigned_to_user_id` "legacy-retained-but-unused / always `null`". Source trace
+proved this false — the field is still set (`RoomTaskController` POST body +
+`RoomTaskService::assignToUser()` → `RoomTaskMapper`), returned
+(`TaskController`, `RoomTask::jsonSerialize()`), and merged into the
+multi-assignee set (`TaskAssigneeMapper`). Note reworded to describe it
+accurately as the legacy single-assignee field retained alongside the
+multi-assignee table; the same correction propagated to the `phase-9` Completed
+bullet and `ACTIVE_TASKS.md`. (This mirrors the pre-activation review's PHP-8.0
+pattern: a plan premise that did not survive source verification.)
+
+**Deferred (unchanged, logged):** P9-DOC-005 (development.md example-code
+audit) and P9-CONFIG-001 (PHP minimum-version alignment). Build gate
+unaffected — `npm run lint` 0 errors (no `lib/`/`src/` change). Not committed
+— awaiting approval.

@@ -85,8 +85,9 @@ ChoreStrike/
 │   │   └── chorestrike.pot     # Translation template
 │   ├── de.json                 # German
 │   └── en.json                 # English
-├── img/                        # App icons
-│   └── app.svg
+├── img/                        # App icons & PWA bootstrap
+│   ├── app.svg
+│   └── manifest.webmanifest    # PWA manifest (CS-PLAN-002 Phase 5)
 ├── tests/                      # Test suites
 │   ├── unit/                   # PHPUnit (PHP) + Jest (JS/Vue)
 │   ├── integration/            # PHPUnit integration tests
@@ -347,16 +348,30 @@ one concern. The canonical store boundaries (post-CS-PLAN-008):
 ```javascript
 {
   state: {
-    house: null,
-    health: 100,
-    loading: false
+    house: null,        // the full house object; houseHealth lives on house.houseHealth
+    loading: false,
+    error: null
+  },
+  getters: {
+    houseHealth()       // derived: state.house?.houseHealth || 100
   },
   actions: {
     fetchHouse(),
-    updateHealth()
+    updateHouseName(),
+    calculateHouseHealth(),   // GET /api/v1/house/health, persists house.houseHealth
+    fetchHouseStats(),
+    resetHouse(),
+    initializeHouse(),
+    clearError(),
+    reset()
   }
 }
 ```
+
+> There is **no** standalone `health` state field or `updateHealth()` action —
+> house health is derived from `state.house.houseHealth` via the `houseHealth`
+> getter and refreshed by `calculateHouseHealth()`. Canonical definition:
+> [`src/store/house.js`](../../src/store/house.js).
 
 #### `useRoomsStore`
 ```javascript
@@ -364,20 +379,27 @@ one concern. The canonical store boundaries (post-CS-PLAN-008):
   state: {
     rooms: [],
     floors: [],
+    currentFloor: null,
     currentRoom: null
   },
   actions: {
+    fetchFloorsWithRooms(),
     fetchRooms(),
     createRoom(),
-    updateRoom(),
+    updateRoomName(),
     deleteRoom()
   },
   getters: {
     roomsByFloor(),
-    overdueRooms()
+    getRoomById(),
+    roomsNeedingCleaning()
   }
 }
 ```
+
+> Overdue/due room-task views are owned by `useRoomTasksStore` (not
+> `useRoomsStore`); `useRoomsStore` has no `overdueRooms` getter. Canonical
+> definition: [`src/store/rooms.js`](../../src/store/rooms.js).
 
 #### `useTasksStore` (catalog tasks only)
 ```javascript
@@ -478,9 +500,11 @@ one concern. The canonical store boundaries (post-CS-PLAN-008):
 - Database operations
 - Multi-user scenarios
 
-### E2E Tests (Future)
-- Complete user flows
-- Cross-browser testing
+### E2E Tests (Playwright — live)
+- Complete user flows against the real Vue frontend (run
+  `git ls-files 'tests/e2e/*.spec.ts' | wc -l` for the current spec count)
+- Cross-browser coverage — see [`testing.md`](testing.md) for the browser
+  projects and the full E2E matrix
 
 ### Contract Tests (CS-PLAN-007 / CS-PLAN-008)
 - `tests/unit/RouteMatrixTest.php` — route → controller method existence
