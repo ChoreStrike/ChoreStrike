@@ -39,10 +39,20 @@ export default defineConfig({
 
 	/* Configure projects for major browsers */
 	projects: [
+		// Auth setup: logs in each role once and saves storageState.
+		// Browser projects depend on it so the authenticated session is
+		// ready before any spec runs. See tests/e2e/auth.setup.ts.
+		{
+			name: 'setup',
+			testMatch: /.*\.setup\.ts/,
+		},
 		{
 			name: 'chromium',
-			use: { 
+			dependencies: ['setup'],
+			use: {
 				...devices['Desktop Chrome'],
+				/* Reuse the admin storageState so specs start authenticated */
+				storageState: '.playwright/.auth/admin.json',
 				/* Faster timeouts for Chrome (more stable) */
 				actionTimeout: 15000,
 				navigationTimeout: 30000,
@@ -50,8 +60,10 @@ export default defineConfig({
 		},
 		{
 			name: 'firefox',
-			use: { 
+			dependencies: ['setup'],
+			use: {
 				...devices['Desktop Firefox'],
+				storageState: '.playwright/.auth/admin.json',
 				/* Longer timeouts for Firefox (slower but more stable) */
 				actionTimeout: 25000,
 				navigationTimeout: 60000,
@@ -59,8 +71,10 @@ export default defineConfig({
 		},
 		{
 			name: 'webkit',
-			use: { 
+			dependencies: ['setup'],
+			use: {
 				...devices['Desktop Safari'],
+				storageState: '.playwright/.auth/admin.json',
 				/* Standard timeouts for WebKit */
 				actionTimeout: 20000,
 				navigationTimeout: 45000,

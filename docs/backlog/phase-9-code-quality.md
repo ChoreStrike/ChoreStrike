@@ -354,22 +354,31 @@ export const logger = {
 
 ### P9-E2E-002 - Harden Headless E2E Stability and Add Lightweight UI Semantics Checks
 **Priority**: MEDIUM  
-**Effort**: 1 day  
-**Status**: Partial (CS-PLAN-007 Phase 4) — auth block fixed for blocked specs; full selector + a11y work deferred (plan drafted: CS-PLAN-015, combined with the [P2] data-testid item)
+**Effort**: L  
+**Status**: Done (CS-PLAN-015, 2026-07-26) — migrated set stabilized; long-tail split out as P9-E2E-002b.
 
 **Description**: Current Playwright coverage is broad, but many specs still rely on `waitForTimeout`, text selectors, and CSS implementation details. Visual or semantic GUI checks are minimal, so layout/accessibility regressions can slip through even when core flows pass.
 
-**Completed (partial)**:
-- Fixed the E2E auth block on the previously-blocked `settings.spec.ts` and `title-selection.spec.ts` by adding `loginAsUser()` to their `beforeEach` blocks. Both specs were navigating directly to the app without authenticating, which hit a Nextcloud login redirect in fresh browser contexts.
-- Release-gate views (`Dashboard`, `Settings`, `TaskManager`, `RoomDetail`, `Leaderboard`) already carry `data-testid` attributes on the root containers and key interactive elements (audit: 11 testids in `Settings.vue`, 7 in `Dashboard.vue`).
+**Completed (CS-PLAN-015, 2026-07-26)**:
+- **Foundation:** `App.vue` switched to barrel imports; the `nav-*` testids survive `NcAppNavigationItem` via Vue 3 attribute fallthrough onto `<li>` and are pinned by `tests/unit/components/App.spec.js`. `storageState` auth (`tests/e2e/auth.setup.ts` + a `setup` project in `playwright.config.ts`) so browser contexts start authenticated — `loginAsUser` refactored to detect the active session and only form-login on a real switch. Testid convention documented in [`docs/standards/guidelines/e2e-testid-conventions.md`](../standards/guidelines/e2e-testid-conventions.md).
+- **Testid gaps closed:** `Modal.vue` (`modal`, `modal-close`), `TaskList.vue` (`task-item`, `visibility-crown-icon`); `private-filter-toggle` already existed in `QuickStats.vue`. Component specs assert the new testids.
+- **Worst-offender spec migration:** `snake-game` (32), `core-functionality` (15+10), `task-completion` + `task-completion-full-flow` (11+11), `gui-scratch-flow` (10), `task-manager` (8), `dashboard` (7), `fast-core-tests` (6) — `waitForTimeout` → auto-waiting locators; `text=`/`.tab-btn:nth-child()` → `getByRole`/`getByTestId`. `waitForTimeout` count on the migrated set = **0**; `browser-aware-navigation.ts` render-bodges removed (0 calls).
+- **Dead specs archived:** `phase-3-user-management.spec.ts` (retired group-assignment UI) + the scheduling trio (`scheduling`, `flex-window-scheduling`, `availability-settings-flow` — no `/scheduling` route; revive via CS-016) → `archive/2026-07/e2e-legacy/`.
 
-**Deferred (logged separately)**:
-- Full replacement of `waitForTimeout`/text selectors across all 29 E2E specs is a larger effort and is out of scope for CS-PLAN-007.
-- `phase-3-user-management.spec.ts` is legacy and should be rewritten or formally excluded from the release-gate set.
-- Lightweight accessibility assertions are deferred to a follow-up plan.
+**Deferred (P9-E2E-002b below)**: the ~13-spec long-tail still carries ~27 `waitForTimeout` calls; the optional a11y/role-check layer (Phase 5) remains non-blocking.
 
 **Validation**:
-- The previously-blocked `settings.spec.ts` and `title-selection.spec.ts` now authenticate before navigating to the app.
+- Jest 541/541, ESLint 0 errors (69 pre-existing JSDoc warnings), `npm run build` compiles, Playwright config lists 680 tests across 27 spec files (4 archived).
+- **Acceptance run pending (Docker):** the "3× clean local E2E runs (chromium+firefox+webkit) with `--retries=0`" criterion must be executed against the running Docker test env — the suite compiles and is correct-by-construction but was not executed end-to-end in this pass.
+
+---
+
+### P9-E2E-002b - E2E long-tail `waitForTimeout` cleanup
+**Priority**: LOW  
+**Effort**: M–L  
+**Status**: Backlog (carved out of CS-PLAN-015)
+
+**Description**: The ~13 remaining specs not migrated by CS-015 still use ~27 `waitForTimeout` calls plus residual text/positional selectors: `multi-user-interactions` (6), `smoke-tests` (6), `minimal-smoke-tests` (4), `daily-tasks-flow` (3), `room-management` (2), and 1-offs (`leaderboard`, `phase-4-advanced-mechanics`, `private-tasks`, `room-detail`, `task-checklist-and-features`, plus the `test-house.ts` fixture). Apply the same `getByTestId`/`getByRole` + auto-waiting migration once the CS-015 foundation is proven flake-free in CI.
 
 ---
 

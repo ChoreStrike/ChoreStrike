@@ -151,6 +151,38 @@ describe('TaskList', () => {
 		})
 	})
 
+	describe('stable testids (CS-PLAN-015)', () => {
+		it('renders data-testid="task-item" on every task row', () => {
+			const tasks = [
+				mockTask({ task: { id: 1 }, roomTask: { id: 1 } }),
+				mockTask({ task: { id: 2 }, roomTask: { id: 2 } }),
+			]
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: tasks },
+			})
+
+			expect(wrapper.findAll('[data-testid="task-item"]')).toHaveLength(2)
+		})
+
+		it('renders the visibility-crown-icon testid on admin-only tasks', () => {
+			const tasks = [mockTask({ task: { visibilityType: 'admin-only' } })]
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: tasks },
+			})
+
+			expect(wrapper.find('[data-testid="visibility-crown-icon"]').exists()).toBe(true)
+		})
+
+		it('does not render the crown testid on public tasks', () => {
+			const tasks = [mockTask({ task: { visibilityType: 'public' } })]
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: tasks },
+			})
+
+			expect(wrapper.find('[data-testid="visibility-crown-icon"]').exists()).toBe(false)
+		})
+	})
+
 	describe('task status', () => {
 		it('should show complete button for active tasks', () => {
 			const tasks = [mockTask({ roomTask: { isActive: true } })]

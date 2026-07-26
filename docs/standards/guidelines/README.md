@@ -11,6 +11,7 @@
 |------|-------------|
 | [coding-conventions.md](./coding-conventions.md) | PHP (PSR-12), Vue 3, CSS, and commit-message conventions |
 | [testing.md](./testing.md) | Test strategy, naming, and coverage expectations |
+| [e2e-testid-conventions.md](./e2e-testid-conventions.md) | Stable Playwright selectors, `data-testid` naming, and auth (`storageState`) |
 | [security.md](./security.md) | Authorization, ownership, input validation, XSS/SQLi prevention |
 | [i18n.md](./i18n.md) | Localization rules and user-facing content policy |
 | [logging.md](./logging.md) | Structured backend/frontend logging, privacy guardrails |

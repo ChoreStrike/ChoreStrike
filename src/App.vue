@@ -36,10 +36,12 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import NcContent from '@nextcloud/vue/components/NcContent'
-import NcAppNavigation from '@nextcloud/vue/components/NcAppNavigation'
-import NcAppNavigationItem from '@nextcloud/vue/components/NcAppNavigationItem'
-import NcAppContent from '@nextcloud/vue/components/NcAppContent'
+import {
+	NcContent,
+	NcAppNavigation,
+	NcAppNavigationItem,
+	NcAppContent,
+} from '@nextcloud/vue'
 
 export default {
 	name: 'App',

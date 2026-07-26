@@ -435,27 +435,33 @@ Some expected exception types/messages no longer match service behavior.
 
 ## [P2] E2E Tests: Missing data-testid attributes in Vue components
 
-**Status**: Backlog (plan drafted: CS-PLAN-015)  
+**Status**: Done (CS-PLAN-015, 2026-07-26)  
 **Assignee**: Unassigned  
-**Estimated Effort**: M  
+**Estimated Effort**: L  
 **Phase**: 1
 
 ### Description
 Many E2E tests fail because Vue components (especially Nextcloud Vue components like `NcAppNavigationItem`) don't pass `data-testid` attributes through to the rendered HTML elements. This forces tests to use less stable text-based selectors.
 
 ### Acceptance Criteria
-- [ ] Add `data-testid` attributes to all navigation items in App.vue
-- [ ] Add `data-testid` attributes to Dashboard view components (stat cards, floor list, room cards)
-- [ ] Add `data-testid` attributes to Task Manager components
-- [ ] Add `data-testid` attributes to Leaderboard components
-- [ ] Add `data-testid` attributes to Settings components
-- [ ] Update E2E tests to use stable `data-testid` selectors instead of text-based selectors
-- [ ] Document pattern for adding test IDs to new components
+- [x] Add `data-testid` attributes to all navigation items in App.vue
+- [x] Add `data-testid` attributes to Dashboard view components (stat cards, floor list, room cards)
+- [x] Add `data-testid` attributes to Task Manager components
+- [x] Add `data-testid` attributes to Leaderboard components
+- [x] Add `data-testid` attributes to Settings components
+- [x] Update E2E tests to use stable `data-testid` selectors instead of text-based selectors
+- [x] Document pattern for adding test IDs to new components
+
+### Resolution
+- The `nav-*` testids on `App.vue`'s `NcAppNavigationItem` entries survive via Vue 3 attribute fallthrough onto the rendered `<li>`; pinned by `tests/unit/components/App.spec.js`. Specs prefer the semantic `getByRole('link', { name })`.
+- New testids added to `Modal.vue` (`modal`, `modal-close`) and `TaskList.vue` (`task-item`, `visibility-crown-icon`); `private-filter-toggle` already existed in `QuickStats.vue`.
+- 7 worst-offender specs migrated off `waitForTimeout`/text/positional selectors onto auto-waiting `getByTestId`/`getByRole` locators; `browser-aware-navigation.ts` render-bodges removed; `storageState` auth setup added.
+- Convention documented in [`docs/standards/guidelines/e2e-testid-conventions.md`](../standards/guidelines/e2e-testid-conventions.md).
+- **Residual** (separate item P9-E2E-002b): the ~13-spec long-tail still carries ~27 `waitForTimeout` calls — out of CS-015 scope.
 
 ### Notes
-- Nextcloud Vue components (`NcAppNavigationItem`, `NcModal`, etc.) may not pass through custom attributes
-- May need to wrap components or use alternative approaches
-- See `tests/e2e/*.spec.ts` for current text-based workarounds
+- Nextcloud Vue components (`NcAppNavigationItem`, `NcModal`, etc.) may not pass through custom attributes — the convention doc records the `getByRole` fallback.
+- See `tests/e2e/*.spec.ts` for the migrated selectors.
 
 ---
 

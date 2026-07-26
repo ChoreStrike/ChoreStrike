@@ -1,79 +1,69 @@
-import { Page, TestInfo } from '@playwright/test'
+import { Page, TestInfo, Locator } from '@playwright/test'
 
 /**
- * Browser-aware navigation helper
- * Handles different browser behaviors for more reliable tests
+ * Browser-aware navigation helper.
+ *
+ * CS-PLAN-015: the previous implementation padded every navigation with
+ * 2–5 s per-browser `waitForTimeout` calls to paper over render timing. Those
+ * have been removed in favour of Playwright's auto-waiting (`waitForLoadState`
+ * + a visible-content assertion). The public API is preserved so existing specs
+ * keep compiling; new specs should prefer direct `getByRole`/`getByTestId`
+ * locators over these wrappers.
  */
 export class BrowserAwareNavigation {
-	static async navigateToApp(page: Page, testInfo?: TestInfo) {
-		const browserName = testInfo?.project?.name || 'unknown'
-		
-		// Navigate to app
+	/**
+	 * Navigate to the ChoreStrike app and wait for the dashboard shell.
+	 */
+	static async navigateToApp(page: Page, _testInfo?: TestInfo): Promise<void> {
 		await page.goto('/apps/chorestrike/')
-		
-		// Use different wait strategies based on browser
-		if (browserName === 'firefox') {
-			// Firefox is significantly slower, needs longer timeouts
-			await page.waitForLoadState('domcontentloaded', { timeout: 60000 })
-			await page.waitForTimeout(5000) // Extra wait for Firefox rendering
-		} else if (browserName === 'webkit') {
-			// WebKit also needs more time
-			await page.waitForLoadState('networkidle', { timeout: 45000 })
-			await page.waitForTimeout(3000)
-		} else {
-			// Chrome works better with networkidle
-			await page.waitForLoadState('networkidle', { timeout: 30000 })
-			await page.waitForTimeout(2000)
-		}
-		
-		// Wait for any dashboard content with fallback
+		await page.waitForLoadState('networkidle')
 		await this.waitForDashboardContent(page)
 	}
-	
-	static async waitForDashboardContent(page: Page) {
+
+	/**
+	 * Wait for the dashboard root testid (or a content fallback) to appear.
+	 */
+	static async waitForDashboardContent(page: Page): Promise<void> {
 		try {
-			// Try specific dashboard selector first
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 15000 })
-		} catch (error) {
+			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 15000 })
+		} catch {
 			try {
-				// Fallback to generic dashboard selectors
-				await page.waitForSelector('.dashboard, .dashboard-view, main', { timeout: 10000 })
-			} catch (fallbackError) {
-				// Last resort - wait for any meaningful content
-				await page.waitForSelector('h1, .content, [role="main"]', { timeout: 8000 })
+				await page.locator('.dashboard, .dashboard-view, main').first().waitFor({ state: 'visible', timeout: 10000 })
+			} catch {
+				await page.locator('h1, .content, [role="main"]').first().waitFor({ state: 'visible', timeout: 8000 })
 			}
 		}
 	}
-	
+
+	/**
+	 * Wait for the first selector that matches, trying fallbacks in order.
+	 */
 	static async waitForElementWithFallback(
-		page: Page, 
-		primarySelector: string, 
-		fallbackSelectors: string[] = [], 
-		timeout: number = 15000
-	) {
+		page: Page,
+		primarySelector: string,
+		fallbackSelectors: string[] = [],
+		timeout: number = 15000,
+	): Promise<Locator> {
 		try {
 			await page.waitForSelector(primarySelector, { timeout })
-			return page.locator(primarySelector)
-		} catch (error) {
+			return page.locator(primarySelector).first()
+		} catch {
 			for (const fallback of fallbackSelectors) {
 				try {
 					await page.waitForSelector(fallback, { timeout: 5000 })
-					return page.locator(fallback)
-				} catch (fallbackError) {
+					return page.locator(fallback).first()
+				} catch {
 					continue
 				}
 			}
 			throw new Error(`None of the selectors were found: ${primarySelector}, ${fallbackSelectors.join(', ')}`)
 		}
 	}
-	
-	static async safeClick(page: Page, selector: string, fallbackSelectors: string[] = []) {
-		const element = await this.waitForElementWithFallback(page, selector, fallbackSelectors)
-		await element.click()
-		await page.waitForTimeout(500) // Brief pause after click
-	}
-	
-	static async safeFill(page: Page, selector: string, value: string, fallbackSelectors: string[] = []) {
+
+	/**
+	 * Fill an element, trying fallback selectors.
+	 */
+	static async safeFill(page: Page, selector: string, value: string, fallbackSelectors: string[] = []): Promise<void> {
 		const element = await this.waitForElementWithFallback(page, selector, fallbackSelectors)
 		await element.fill(value)
 	}

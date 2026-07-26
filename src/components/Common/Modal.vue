@@ -5,8 +5,14 @@
 
 <template>
 	<div v-if="show" class="modal-overlay" @click.self="$emit('close')">
-		<div class="modal-container" @click.stop>
-			<button class="close-button" aria-label="Close" @click="$emit('close')">
+		<div
+			class="modal-container"
+			data-testid="modal"
+			@click.stop>
+			<button class="close-button"
+				data-testid="modal-close"
+				aria-label="Close"
+				@click="$emit('close')">
 				×
 			</button>
 			<slot name="header" />

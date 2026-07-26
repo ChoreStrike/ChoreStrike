@@ -151,43 +151,58 @@ export const test = baseTest.extend<DatabaseFixtures>({
 	},
 })
 
-// Helper function to login a user
-export async function loginAsUser(page: Page, userId: string, password: string): Promise<void> {
-	await page.goto('/')
-	
-	// Check if already logged in as this user
-	const userMenu = page.locator('#user-menu, .user-menu, [data-testid="user-menu"]')
-	const isLoggedIn = await userMenu.isVisible().catch(() => false)
-	
-	if (isLoggedIn) {
-		// Check if we need to switch user
-		const currentUser = await page.locator('#user-menu .user-name, .user-menu .user-name').textContent().catch(() => '')
-		if (currentUser?.toLowerCase().includes(userId.toLowerCase())) {
-			// Already logged in as correct user
-			return
-		}
-		// Need to logout first
-		await page.goto('/logout')
-		await page.waitForURL('**/login**', { timeout: 10000 }).catch(() => {})
-	}
-	
-	// Check if login form is visible
-	const loginForm = page.locator('#user, input[name="user"]').first()
-	const isLoginFormVisible = await loginForm.isVisible().catch(() => false)
-	
-	if (!isLoginFormVisible) {
-		// Navigate to login page
-		await page.goto('/login')
-		await page.waitForLoadState('networkidle')
-	}
-	
-	// Login
-	await page.fill('#user, input[name="user"]', userId)
-	await page.fill('#password, input[name="password"]', password)
-	await page.click('input[type="submit"], button[type="submit"], #submit-form')
-	
-	// Wait for redirect after login
+// Read the authenticated user id. Nextcloud exposes it both as the
+// `window.OC.currentUser` JS global (set once the app shell loads) and as a
+// `data-user` attribute on <head>; we try both. Returns null when not
+// authenticated or not yet exposed.
+async function currentUserId(page: Page): Promise<string | null> {
+	return page.evaluate(() => {
+		const oc = (window as { OC?: { currentUser?: string } }).OC
+		return oc?.currentUser
+			|| document.querySelector('head')?.getAttribute('data-user')
+			|| null
+	}).catch(() => null)
+}
+
+// Submit the Nextcloud login form for the given credentials.
+async function submitLoginForm(page: Page, userId: string, password: string): Promise<void> {
+	await page.locator('#user, input[name="user"]').first().fill(userId)
+	await page.locator('#password, input[name="password"]').first().fill(password)
+	await page.locator('button[type="submit"], #submit-form, input[type="submit"]').first().click()
 	await page.waitForURL('**/apps/**', { timeout: 30000 })
+}
+
+// Helper function to login a user.
+//
+// StorageState-aware (CS-PLAN-015 Phase 1b): browser contexts created by the
+// Playwright projects start with the `admin` storageState, so the common case
+// (already authenticated as the requested user) is detected and skipped. When a
+// switch is needed, the active session is logged out first (Nextcloud otherwise
+// bounces /login back to the app), then the form-login path runs with
+// auto-waiting locators instead of fixed sleeps.
+export async function loginAsUser(page: Page, userId: string, password: string): Promise<void> {
+	await page.goto('/apps/chorestrike/')
+	await page.waitForLoadState('domcontentloaded')
+
+	// Fast path: already authenticated as the requested user (storageState reuse).
+	const current = await currentUserId(page)
+	if (current && current.toLowerCase() === userId.toLowerCase()) {
+		return
+	}
+
+	// Switching users requires clearing the active session first, otherwise
+	// /login redirects back to the already-authenticated app. When we cannot
+	// detect the active user but landed on the app, clear the session anyway so
+	// the form-login below reliably targets the requested user.
+	if (current || page.url().includes('/apps/')) {
+		await page.goto('/logout')
+		await page.waitForURL('**/login**', { timeout: 15000 }).catch(() => {})
+	} else if (!page.url().includes('/login')) {
+		await page.goto('/login')
+		await page.waitForLoadState('domcontentloaded')
+	}
+
+	await submitLoginForm(page, userId, password)
 }
 
 // Helper to get user credentials for a profile

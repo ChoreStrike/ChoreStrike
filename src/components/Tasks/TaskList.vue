@@ -38,6 +38,7 @@
 				v-for="item in sortedTasks"
 				:key="item.roomTask.id"
 				class="task-item"
+				data-testid="task-item"
 				:class="{ overdue: isOverdue(item.roomTask), completed: !item.roomTask.isActive }">
 				<div class="task-main">
 					<div class="task-status">
@@ -70,7 +71,11 @@
 							<span v-if="item.task.visibilityType === 'private' || item.task.isPrivate" class="visibility-icon" :title="t('chorestrike', 'Private task')">
 								<Icon name="Lock" :size="14" />
 							</span>
-							<span v-if="item.task.visibilityType === 'admin-only'" class="visibility-icon admin-only" :title="t('chorestrike', 'Admin-only task')">
+							<span
+								v-if="item.task.visibilityType === 'admin-only'"
+								class="visibility-icon admin-only"
+								data-testid="visibility-crown-icon"
+								:title="t('chorestrike', 'Admin-only task')">
 								<Icon name="Crown" :size="14" />
 							</span>
 							<span class="priority-badge" :class="priorityClass(item.task.priority)">

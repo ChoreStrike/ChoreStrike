@@ -304,12 +304,36 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `room-management.spec.ts`, `room-detail.spec.ts`, `3-floor-house.spec.ts` | Room/floor CRUD, room-detail flows, full-house scenarios |
 | `task-manager.spec.ts`, `task-completion.spec.ts`, `task-completion-full-flow.spec.ts`, `task-checklist-and-features.spec.ts` | Task management, creation, checklist, and completion flows |
 | `settings.spec.ts`, `gui-scratch-flow.spec.ts` | Full-house creation and realistic GUI-first flows |
-| `availability-settings-flow.spec.ts`, `scheduling.spec.ts`, `flex-window-scheduling.spec.ts` | Scheduling, availability, and flex-window flows |
 | `leaderboard.spec.ts`, `phase-4-advanced-mechanics.spec.ts`, `title-selection.spec.ts` | Gamification, leaderboard, advanced mechanics, role titles |
 | `private-tasks.spec.ts`, `admin-only-tasks.spec.ts`, `teamwork-rewards.spec.ts` | Visibility (private/admin-only) and teamwork-bonus rewards (CS-PLAN-005) |
 | `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage |
-| `phase-3-user-management.spec.ts` | Legacy coverage that requires rework before it should be treated as a release gate |
+
+> **Archived (CS-PLAN-015, 2026-07-26):** `phase-3-user-management.spec.ts`
+> (retired group-assignment UI) and the scheduling trio (`scheduling`,
+> `flex-window-scheduling`, `availability-settings-flow` — the Smart-Scheduling
+> *view* is stripped; revive via CS-PLAN-016) were moved to
+> `archive/2026-07/e2e-legacy/`. They are no longer part of the suite.
+
+### E2E Auth & Stable Selectors (CS-PLAN-015)
+
+- **Auth via `storageState`:** a Playwright `setup` project
+  ([`tests/e2e/auth.setup.ts`](../../tests/e2e/auth.setup.ts)) logs in `admin`
+  once and saves the browser context to `.playwright/.auth/admin.json`
+  (gitignored); it also seeds the test profiles so the NC user accounts exist.
+  The browser projects depend on it and start authenticated, so specs that run
+  as `admin` need **no login call** — just navigate to the app. Specs that need
+  a seeded profile user call `loginAsUser(page, id, pass)`
+  ([`tests/e2e/fixtures/database-fixtures.ts`](../../tests/e2e/fixtures/database-fixtures.ts));
+  it detects the active session and only logs out → form-logs-in on a real
+  switch (auto-waiting, no sleeps).
+- **Stable selectors:** prefer `getByRole`/`getByLabel`, fall back to
+  `getByTestId`. Never use `text=` or positional CSS selectors. No
+  `waitForTimeout` — use auto-waiting locators/assertions. See
+  [`docs/standards/guidelines/e2e-testid-conventions.md`](../standards/guidelines/e2e-testid-conventions.md).
+- **Flake acceptance run:** the live config retries twice, which masks flakes —
+  verify the migrated set with `npx playwright test --retries=0` across
+  chromium + firefox + webkit.
 
 ### Test Architecture
 

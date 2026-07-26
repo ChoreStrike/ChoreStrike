@@ -241,11 +241,18 @@
 **Blockers**: None.
 
 ### CS-PLAN-015 - E2E Stabilization — data-testid, Stable Selectors & Auth Optimization
-**Status**: Planned (drafted, awaiting `new/ → active/` move)
+**Status**: Done (2026-07-26) — implemented; Docker acceptance run (`--retries=0` × 3 browsers) pending the operator. Scope adjustment: the Scheduling UI is split out → **CS-016**; the 3 dead scheduling specs (`scheduling`, `flex-window-scheduling`, `availability-settings-flow`) + `phase-3-user-management.spec.ts` are now **archived with revive-notes** (not migrated/rewritten). ACs sharpened for `--retries=0` flake measurement and `storageState`×parallel seed races. See the plan's `## Implementation Outcome`.
 **Priority**: P2 · **Effort**: L · **Depends on**: none (CS-PLAN-007 Phase 4 did the partial auth fix; release-gate views already carry root testids)
 **Scope**: Closes `bugs.md` [P2] data-testid + `phase-9-code-quality.md` P9-E2E-002. Pre-plan audit quantified: 176 `waitForTimeout` across 26 specs, 102 text selectors across 22 specs, **0** `getByRole`/`getByLabel` usage, 20+ phantom testids specs query but source lacks, and the root cause of nav text-selectors — `<NcAppNavigationItem>` does **not** pass `data-testid` through to the DOM. Phased: (1) **Foundation** — fix the `App.vue` nav passthrough (wrapper/`aria-label`/`getByRole` fallback), introduce `storageState` auth so specs stop re-logging in (~3–5 s/spec × 31 specs), write a testid-convention doc; (2) **Close testid gaps** in `Modal.vue`/`TaskList.vue` (+ `private-filter-toggle`, `visibility-crown-icon`) and resolve the Scheduling dead-UI question (add testids **or** exclude the specs); (3) **Migrate worst-offender specs** (`snake-game` 32, `flex-window-scheduling` 25, `scheduling` 17, `core-functionality` 15+10, `task-completion*` 11+11, …) off `waitForTimeout`/text selectors onto auto-waiting `getByTestId`/`getByRole` locators; (4) **Retire** `phase-3-user-management.spec.ts` (rewrite against current UI **or** archive — tests the archived User-Management feature); (5) optional a11y/role-check layer. Success = 3 consecutive flake-free local E2E runs (chromium+firefox+webkit), `waitForTimeout` ≈ 0 on migrated specs. Frontend/E2E only — no backend change.
-**Plan**: docs/plans/new/cs-plan-015-e2e-stabilization.md
-**Blockers**: None.
+**Plan**: docs/plans/active/cs-plan-015-e2e-stabilization.md
+**Blockers**: Docker acceptance run pending.
+
+### CS-PLAN-016 - Smart Scheduling UI — Revive the Built-but-Stripped Frontend
+**Status**: Planned (drafted, awaiting `new/ → active/` move)
+**Priority**: P2 · **Effort**: L · **Depends on**: prefers CS-015 (testid convention + `storageState` E2E auth infra), not hard-blocked
+**Scope**: Scheduling is a **built-but-UI-stripped feature**. The backend is complete and load-bearing (`SchedulingController` + `SmartSchedulerController` + `lib/Service/Scheduling/` 5 algorithm classes + 8 routes + full `scheduling` Pinia store), but **no view mounts the store** (verified: 0 `useSchedulingStore` mounts in `src/views`+`src/components`; CS-PLAN-003 archived `SchedulingView.vue` + 5 components to `archive/2026-07/legacy-unwired/`; `router.js` has no `/scheduling` route). Users today cannot edit availability/energy — the jobs run against migration defaults only. This plan **revives/adapts** the archived Vue against the existing backend: add `/scheduling` route + `nav-scheduling` item, reconcile the two overlapping controller surfaces (`scheduling#*` vs `smart-schedule#*` — decision D1), enforce owner/self authorization on member-mutation endpoints, add `data-testid`s per the CS-015 convention, i18n, Jest + integration-auth tests, and **reintroduce the 3 scheduling E2E specs** CS-015 archived (`scheduling`, `flex-window-scheduling`, `availability-settings-flow`). Not a UX redesign — a revive. Raised during the CS-015 plan review (2026-07-26).
+**Plan**: docs/plans/new/cs-plan-016-scheduling-ui.md
+**Blockers**: None (prefers CS-015 foundation).
 
 ---
 

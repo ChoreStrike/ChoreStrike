@@ -53,6 +53,7 @@ Thumbs.db
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/.playwright/.auth/
 /.nyc_output/
 /junit.xml
 

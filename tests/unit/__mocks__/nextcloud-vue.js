@@ -5,6 +5,7 @@ export const NcLoadingIcon = { name: 'NcLoadingIcon', template: '<div class="loa
 export const NcAvatar = { name: 'NcAvatar', template: '<div class="avatar"></div>' }
 export const NcAppNavigation = { name: 'NcAppNavigation', template: '<nav><slot /></nav>' }
 export const NcAppNavigationItem = { name: 'NcAppNavigationItem', template: '<div><slot /></div>' }
+export const NcAppContent = { name: 'NcAppContent', template: '<div id="app-content"><slot /></div>' }
 export const NcContent = { name: 'NcContent', template: '<main><slot /></main>' }
 export const NcEmptyContent = { name: 'NcEmptyContent', template: '<div class="empty"><slot /></div>' }
 export const NcModal = { name: 'NcModal', template: '<div class="modal"><slot /></div>' }

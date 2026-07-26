@@ -48,6 +48,23 @@ describe('Modal', () => {
 		})
 	})
 
+	describe('Stable testids (CS-PLAN-015)', () => {
+		it('renders data-testid="modal" on the dialog surface', () => {
+			const wrapper = createWrapper({ show: true })
+			expect(wrapper.find('[data-testid="modal"]').exists()).toBe(true)
+		})
+
+		it('renders data-testid="modal-close" on the close button', () => {
+			const wrapper = createWrapper({ show: true })
+			expect(wrapper.find('[data-testid="modal-close"]').exists()).toBe(true)
+		})
+
+		it('does not render any testid when hidden', () => {
+			const wrapper = createWrapper({ show: false })
+			expect(wrapper.find('[data-testid="modal"]').exists()).toBe(false)
+		})
+	})
+
 	describe('Close Behavior', () => {
 		it('emits close event when clicking overlay', async () => {
 			const wrapper = createWrapper()
