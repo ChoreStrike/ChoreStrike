@@ -76,10 +76,12 @@ setup('seed profile users', async ({ baseURL }) => {
 
 /**
  * Log in every profile user once and save per-user storageState files.
- * Each `setup()` test gets its own browser context, so the logins are
- * parallel-safe. The seed step above guarantees the NC accounts exist.
+ * Each user gets its OWN browser context so a prior login cannot leak into
+ * the next iteration (a shared context would bounce /login to /apps and save
+ * the first user's session for everyone). The seed step above guarantees the
+ * NC accounts exist.
  */
-setup('authenticate profile users', async ({ page, baseURL }) => {
+setup('authenticate profile users', async ({ browser, baseURL }) => {
 	const origin = baseURL || process.env.NEXTCLOUD_URL || 'http://localhost:8080'
 
 	const testMode = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`)
@@ -94,10 +96,14 @@ setup('authenticate profile users', async ({ page, baseURL }) => {
 		for (const user of PROFILE_USERS[profile]) {
 			if (seen.has(user.userId)) continue
 			seen.add(user.userId)
+			const context = await browser.newContext()
+			const page = await context.newPage()
 			try {
 				await loginAndSave(page, user.userId, user.password, userStatePath(user.userId))
 			} catch {
 				console.log(`[setup] Could not authenticate '${user.userId}' — specs using this user may skip.`)
+			} finally {
+				await context.close()
 			}
 		}
 	}

@@ -38,6 +38,12 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Nextcloud requires mod_rewrite for its front controller; without it,
+# /apps/... URLs bypass index.php and non-GET API requests are misrouted.
+# The custom vhost replaces the stock default site (see apache-nextcloud.conf).
+COPY docker/apache-nextcloud.conf /etc/apache2/conf-available/nextcloud.conf
+RUN a2enmod rewrite headers && a2enconf nextcloud && a2dissite 000-default
+
 # Set up PHP configuration for testing
 RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory.ini
 RUN echo "error_reporting=E_ALL" > /usr/local/etc/php/conf.d/error_reporting.ini

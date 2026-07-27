@@ -15,8 +15,25 @@
  * @see docs/plans/active/cs-plan-005-task-visibility-teamwork-overdue.md Phase 3
  */
 
+import { type APIResponse } from '@playwright/test'
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+
+/**
+ * Assert that a request was forbidden. Controllers extend `OCSController`,
+ * so on non-OCS routes Nextcloud's `OCSMiddleware` re-wraps their 403
+ * `JSONResponse` into an OCS envelope served with HTTP 200 (send
+ * `Accept: application/json` to get it as JSON). Accept either shape; both
+ * prove the action was denied.
+ */
+async function expectForbidden(response: APIResponse): Promise<void> {
+	if (response.status() === 403) {
+		return
+	}
+	expect(response.status()).toBe(200)
+	const body = await response.json()
+	expect(body.ocs?.meta?.statuscode).toBe(403)
+}
 
 test.describe('Admin-Only Tasks', () => {
 	test.use({ databaseProfile: 'family' })
@@ -68,11 +85,10 @@ test.describe('Admin-Only Tasks', () => {
 					energyCost: 5,
 					visibilityType: 'admin-only',
 				},
+				headers: { Accept: 'application/json' },
 			})
 
-			expect(response.status()).toBe(403)
-			const body = await response.json()
-			expect(body.success).toBe(false)
+			await expectForbidden(response)
 		} finally {
 			await context.close()
 		}
@@ -86,7 +102,7 @@ test.describe('Admin-Only Tasks', () => {
 			const createResponse = await mom.page.request.post('/apps/chorestrike/api/v1/tasks', {
 				data: {
 					name: 'Owner Only Audit',
-					energyCost: 8,
+					energyCost: 5,
 					visibilityType: 'admin-only',
 				},
 			})
@@ -99,9 +115,22 @@ test.describe('Admin-Only Tasks', () => {
 			const taskData = await createResponse.json()
 			const taskId = taskData.data.id
 
+			// /rooms requires a floorId; floors/with-rooms yields any room directly.
+			const floorsResponse = await mom.page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
+			if (floorsResponse.status() !== 200) {
+				test.skip(true, 'Could not list floors')
+				return
+			}
+			const roomId = ((await floorsResponse.json()).data ?? [])
+				.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
+			if (!roomId) {
+				test.skip(true, 'No rooms available to assign the task')
+				return
+			}
+
 			const assignResponse = await mom.page.request.post(
 				'/apps/chorestrike/api/v1/room-tasks',
-				{ data: { taskId, roomId: 1 } },
+				{ data: { taskId, roomId } },
 			)
 
 			if (assignResponse.status() !== 200) {
@@ -119,9 +148,10 @@ test.describe('Admin-Only Tasks', () => {
 
 			const completeResponse = await teen.page.request.post(
 				`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`,
+				{ headers: { Accept: 'application/json' } },
 			)
 
-			expect(completeResponse.status()).toBe(403)
+			await expectForbidden(completeResponse)
 		} finally {
 			await mom.context.close()
 			await teen.context.close()
@@ -134,7 +164,7 @@ test.describe('Admin-Only Tasks', () => {
 			const response = await page.request.post('/apps/chorestrike/api/v1/tasks', {
 				data: {
 					name: 'Owner Audit Task',
-					energyCost: 8,
+					energyCost: 5,
 					visibilityType: 'admin-only',
 				},
 			})

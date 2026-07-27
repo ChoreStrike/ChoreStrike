@@ -266,3 +266,23 @@ modified: docs/plans/active/cs-plan-015-e2e-stabilization.md   (AC check-off aft
 - `getUserCredentials` in `database-fixtures.ts` now has zero callers (dead code) — author intended to retain for API tests; confirm and remove or document.
 - Consider a `userContext` Playwright fixture (auto-cleanup) to replace the 32× `try/finally` boilerplate (rule-of-three).
 - e2e TS has no lint gate (`npm run lint` is `src/`-only) — consider adding `tests/e2e` to lint.
+
+## Review Outcome (B1 resolution — verified in Docker, 2026-07-27)
+
+**Block B1 resolved and E2E-verified.** `auth.setup.ts` "authenticate profile users" now creates a fresh `browser.newContext()` + page per user (closed in `finally`), so each `{userId}.json` is the user's own session; `loginAndSave` unchanged (its `/apps/` guard is correct again because every call starts unauthenticated). Admin + seed setups untouched; no `/logout` anywhere.
+
+**Verification (Docker test env, `TEST_DB_PROFILE=family`, fresh `down -v` + `up -d`):**
+- `--project=setup` green; every `.playwright/.auth/{userId}.json` opened in a throwaway context and identified via `GET /ocs/v2.php/cloud/user` — 7 distinct identities, each matching its filename.
+- `--project=chromium-serial-db`: 39 passed / 0 failed (multi-user-interactions two-context flows included).
+- `--project=chromium tests/e2e/admin-only-tasks.spec.ts --retries=0`: **8/8 passed**, including the two-user "non-owner cannot complete admin-only task" actually executing (no skip).
+- Build gate: ESLint 0 errors (69 pre-existing warnings), Jest 542/542.
+
+**Pre-existing defects that blocked B1 verification (fixed as enablers, all verified pre-existing on the unmodified tree):**
+- *E2E infra:* specs call the app's regular API routes without the CSRF `requesttoken` header the frontend sets (`src/main.js`) → HTTP 412 on every `page.request` API call. Fix: `createUserContext` primes the context (loads the dashboard once, registers `OC.requestToken` as an extra header).
+- *Docker env:* `Dockerfile.test` never enabled `mod_rewrite`, so NC's front controller was dead and `/apps/...` URLs fell through to the `ErrorDocument 404` handler, which silently turns POST into GET (an in-app workaround comment in `RoomController::index` documents the same symptom). Fix: `docker/apache-nextcloud.conf` front-controller vhost + `a2enmod rewrite headers` + disable the stock default site.
+- *Docker env:* NC brute-force protection was enabled (the plan's risk table claimed CS-015 disabled it — it did not); the expected `adult` login failures in setup accumulate and exponentially delay all later logins until setup times out. Fix: `test-entrypoint.sh` sets `auth.bruteforce.protection.enabled=false`.
+- *admin-only-tasks.spec.ts data/contract bugs:* `energyCost: 8` exceeds the domain max of 5 (`TaskService::validateTaskData`) → 400/skip (fixed to 5); hardcoded `roomId: 1` does not survive re-seeding (fixed via `floors/with-rooms`); 403 assertions now accept NC's OCS envelope (see new `bugs.md` item) while still proving denial.
+
+**New follow-up logged:** `bugs.md` [P2] — `OCSController`-derived controllers on non-OCS routes have their 401/403 `JSONResponse`s re-wrapped by NC's `OCSMiddleware` into an OCS envelope (HTTP 200, XML by default); the frontend receives 200/XML for authorization denials.
+
+**Still open from the Full review:** block B2 (`.forgejo/workflows/test.yml` `chromium-serial-db` on every matrix row) and all deferred backlog items — unchanged by this fix. Phase 4 acceptance (3× clean runs, full matrix) remains pending.

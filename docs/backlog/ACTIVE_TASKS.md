@@ -264,7 +264,7 @@
 **Blockers**: Acceptance failed (B1–B6) → resolution in CS-PLAN-015b.
 
 ### CS-PLAN-015b - E2E Stabilization Phase 2 — Session-Safe Multi-User Auth, Seed-Race Containment & Acceptance
-**Status**: Implemented + reviewed (2026-07-27) — Phases 1–4 code complete; **full review found 2 blocks** (auth.setup per-user storageState corrupted by page reuse; CI `chromium-serial-db` appended to every matrix row → firefox/webkit fail) — see plan `## Review Outcome`. Docker acceptance runs blocked until fixes land.
+**Status**: Implemented + reviewed (2026-07-27) — **block B1 resolved & Docker-verified 2026-07-27** (per-user browser contexts in `auth.setup.ts`; setup produces distinct per-user storageStates, `chromium-serial-db` green, `admin-only-tasks` 8/8 incl. the two-user proof, lint + Jest green; enabler fixes: CSRF priming in `createUserContext`, Docker `mod_rewrite` front-controller vhost, brute-force protection off in the test entrypoint — see plan `## Review Outcome (B1 resolution)`). **Block B2 still open** (CI `chromium-serial-db` appended to every matrix row → firefox/webkit fail). Phase 4 acceptance (3× clean runs, full matrix) pending.
 **Priority**: P2 · **Effort**: L · **Depends on**: CS-PLAN-015 (Phase 1–4 shipped) · **Blocks**: CS-016
 **Scope**: Resolves the failed CS-015 Docker acceptance (best 87/166 chromium). Key revisions vs. the first draft, all verified against source: (1) **B1 root cause is precise** — `fetch('/logout')` kills the *server-side* session behind `admin.json`, so one logout kills the whole parallel worker pool; fix = per-user `storageState` files (`.playwright/.auth/{user}.json`) + new `auth-contexts.ts` fixture (`createUserContext`), `loginAsUser` + the logout path are **deleted** (39 call sites / 10 specs migrated). (2) B2/B3 "stale CSS selectors" are mostly **B1 collateral** — the classes exist in source (`.arcade-section`, `.pause-overlay`, `.checklist-item`, …); only `.sparks-display`/`.sparks-value` were genuinely absent (fixed → `coins-display`/`coins-value` testids). (3) B4 is not a routing bug (`/tasks` route + `task-manager-view` testid both exist). (4) **Seed race** (`seededData` re-seeds per test under `fullyParallel`) contained via a serial `chromium-serial-db` project for the 4 seed-dependent specs. Per-user storageState viability verified: `TestDataService::reset()` truncates only app tables, never `oc_users`. **D-CI:** `test.yml` repaired (triggers on `master`, NC pinned to `31-apache`, app mounted, `chromium-serial-db` included). **Does NOT close P9-E2E-002b** (long-tail `waitForTimeout` — stays open, stale `phase-4-advanced-mechanics` ref removed).
 **Plan**: docs/plans/active/cs-plan-015b-e2e-phase2.md
@@ -289,7 +289,7 @@
 ## Currently Active
 
 ### CS-PLAN-015b - E2E Stabilization Phase 2 (Execution)
-**Status**: Active (activated 2026-07-27 per user decision; implementation not yet started)
+**Status**: Active (activated 2026-07-27 per user decision; B1 review block resolved & verified 2026-07-27)
 **Started**: 2026-07-27 (activation)
 **Branch**: master
 **Plan**: docs/plans/active/cs-plan-015b-e2e-phase2.md
@@ -297,7 +297,8 @@
 **Notes**:
 - Plan passed two Standard-A reviews on 2026-07-27 (source verification + pipeline-wide re-review); pending corrections applied; CI-E2E scope (D-CI) added to Phase 4 + acceptance criteria.
 - **Sequencing decisions (user, 2026-07-27):** CS-017 starts only after 015b (decision 1b); CS-016 remains sequenced after 015b; E2E fold-in into `release-gate.yml` as a blocking job is follow-up work after 015b acceptance (`bugs.md` [P1]).
-- **Next step:** Phase 0 — serial + parallel baseline runs (`--retries=0`) in the Docker test env to classify failures {auth-caused, seed-race, genuine} before any code change.
+- **B1 resolved (2026-07-27):** `auth.setup.ts` gives each profile user its own browser context; verified in Docker from a fresh `down -v` + `up -d` (`TEST_DB_PROFILE=family`): distinct per-user storageStates (identity-checked via OCS `cloud/user`), `chromium-serial-db` 39 passed / 0 failed, `admin-only-tasks` 8/8 with the two-user proof executing, ESLint 0 errors, Jest 542/542. Enabler fixes (all pre-existing defects): CSRF `requesttoken` priming in `createUserContext`, Docker `mod_rewrite` + front-controller vhost (`docker/apache-nextcloud.conf`), brute-force protection disabled in `test-entrypoint.sh`, `admin-only-tasks.spec.ts` data/contract corrections. New follow-up: `bugs.md` [P2] OCS-envelope 403s.
+- **Next step:** block B2 (`.forgejo/workflows/test.yml` serial-db matrix fix), then Phase 4 acceptance runs.
 
 ### CS-PLAN-013 - Gamification Fairness, Store-Barrel Completeness & Dead-Code Cleanup
 **Status**: Done (committed 2026-07-25, `f394c2e`)

@@ -2,6 +2,25 @@ import { type Browser, type BrowserContext, type Page } from '@playwright/test'
 
 export const AUTH_DIR = '.playwright/.auth'
 
+const BASE_URL = process.env.NEXTCLOUD_URL || 'http://localhost:8080'
+
+/**
+ * Prime the context for calls to the app's regular (non-OCS) API routes.
+ * Nextcloud rejects those without a CSRF `requesttoken` header (HTTP 412);
+ * the frontend sets it globally (`src/main.js`), so E2E API requests must
+ * too. Loads one authenticated page, reads `OC.requestToken` and registers
+ * it as an extra header on the context.
+ */
+async function primeCsrfToken(context: BrowserContext, page: Page): Promise<void> {
+	await page.goto(`${BASE_URL}/index.php/apps/dashboard/`)
+	const token = await page.evaluate(
+		() => (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken,
+	)
+	if (token) {
+		await context.setExtraHTTPHeaders({ requesttoken: token })
+	}
+}
+
 /**
  * Path to the saved storageState file for a given user.
  * Created once by `auth.setup.ts` and reused by every browser project.
@@ -21,6 +40,9 @@ export function userStatePath(userId: string): string {
  * In-tree precedent: `multi-user-interactions.spec.ts:195` already uses
  * `browser.newContext()` for two-user flows.
  *
+ * The returned page has loaded the dashboard once so the context carries the
+ * CSRF `requesttoken` header required by the app's API routes.
+ *
  * @param browser - Playwright browser to create the context on.
  * @param userId - Profile user id whose storageState should be loaded.
  * @returns The owned `{ context, page }`; close `context` when done.
@@ -33,5 +55,6 @@ export async function createUserContext(
 		storageState: userStatePath(userId),
 	})
 	const page = await context.newPage()
+	await primeCsrfToken(context, page)
 	return { context, page }
 }

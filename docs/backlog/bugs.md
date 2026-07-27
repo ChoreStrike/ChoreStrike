@@ -44,6 +44,29 @@ The only CI workflow that runs Playwright (`.forgejo/workflows/test.yml`) trigge
 
 ---
 
+## [P2] Authorization denials surface as HTTP 200 OCS envelopes (OCSController on non-OCS routes)
+
+**Status**: Backlog (pre-existing; surfaced 2026-07-27 while verifying the CS-PLAN-015b B1 fix in Docker)  
+**Assignee**: Unassigned  
+**Estimated Effort**: M  
+**Phase**: 9  
+**Source**: CS-PLAN-015b B1 verification run
+
+### Description
+All API controllers extend `OCSController` but are registered as regular (non-OCS) routes in `appinfo/routes.php`. Nextcloud's `OCSMiddleware::afterController` re-wraps any non-`BaseResponse` 401/403 response from an `OCSController` into an OCS envelope: **HTTP 200** with an `<ocs>` body (XML unless `Accept: application/json`, `statuscode` 403 inside `meta`, controller message dropped — NC logs `Undefined array key "message"` at `OCSMiddleware.php#95` because our error shape is `{success, error: {code, message}}`). Consequences: (1) the Vue frontend (`src/services/api.js`) sees a 200 XML string for every authorization denial — `ApiError` falls back to the generic "Request failed" with `status: 200`, so UI error handling for 403 paths (admin-only create/complete, cross-house gates) is effectively broken; (2) E2E specs cannot assert the HTTP contract — `admin-only-tasks.spec.ts` now works around it with an `expectForbidden` helper accepting either a plain 403 or the envelope. Verified: `TaskController::create` returns the correct 403 internally; only the transport shape is wrong.
+
+### Acceptance Criteria
+- [ ] Authorization denials on the app's regular routes return a plain `JSONResponse` with the correct HTTP status (401/403) and the `{success: false, error: {code, message}}` envelope — e.g. controllers that only serve non-OCS routes extend `Controller` instead of `OCSController` (audit CORS implications), or denials are raised in a middleware-safe way.
+- [ ] Frontend `ApiError` paths for 403 show the backend message (regression test: non-owner admin-only create/complete).
+- [ ] `admin-only-tasks.spec.ts` `expectForbidden` workaround reverted to plain `expect(status).toBe(403)` assertions; `overdue-task-claiming.spec.ts:160` checked likewise.
+- [ ] The `RoomController::index` "Apache/Nextcloud POST-to-GET rewrite" workaround (body sniffing) re-evaluated — the Docker test env now routes POST correctly (`docker/apache-nextcloud.conf`); confirm whether production shapes still need it.
+
+### Notes
+- The Docker test environment previously lacked `mod_rewrite` entirely, which turned every `/apps/...` POST into a GET via the 404 ErrorDocument — fixed 2026-07-27 (CS-015b B1 enablers); this envelope issue is what remains after correct routing.
+- Touches authorization error reporting — security-adjacent; review with the security checklist.
+
+---
+
 ## [P2] CI PHPUnit unit gate runs no controller tests; `phpunit.xml` excludes 5 controller test files as "outdated"
 
 **Status**: Backlog  

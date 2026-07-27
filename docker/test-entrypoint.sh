@@ -86,6 +86,12 @@ echo "Configuring trusted domains and URL..."
 su -s /bin/bash www-data -c "php occ config:system:set trusted_domains 1 --value=localhost:8080"
 su -s /bin/bash www-data -c "php occ config:system:set overwrite.cli.url --value=http://localhost:8080"
 
+# The E2E setup logs several users in per run (including expected failures for
+# profile users the active DB profile does not create). Without this, the
+# brute-force throttle delays logins exponentially and breaks the auth setup.
+echo "Disabling brute-force protection (disposable test environment)..."
+su -s /bin/bash www-data -c "php occ config:system:set auth.bruteforce.protection.enabled --value false --type boolean"
+
 echo "Linking local chorestrike app into Nextcloud apps path..."
 ln -sfn /var/www/html/custom_apps/chorestrike /var/www/html/apps/chorestrike
 chown -h www-data:www-data /var/www/html/apps/chorestrike
