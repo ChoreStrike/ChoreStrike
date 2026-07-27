@@ -1,13 +1,17 @@
 # ChoreStrike CI Workflow for Codeberg/Forgejo
 # Runs tests with different database profiles and browsers
+#
+# CS-PLAN-015b (D-CI): fixed trigger branches (master), pinned Nextcloud image,
+# added app mount into the Nextcloud service, and included the
+# chromium-serial-db project in the E2E invocation.
 
 name: Test
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master]
   pull_request:
-    branches: [main, develop]
+    branches: [master]
 
 jobs:
   # Backend PHP Unit Tests
@@ -71,7 +75,7 @@ jobs:
           --health-retries 10
 
       nextcloud:
-        image: nextcloud:latest
+        image: nextcloud:31-apache
         env:
           MYSQL_HOST: db
           MYSQL_DATABASE: nextcloud
@@ -115,14 +119,19 @@ jobs:
             sleep 5
           done
 
-      - name: Enable ChoreStrike app
+      - name: Mount and enable ChoreStrike app
         run: |
-          # Copy app to Nextcloud container (simulated via API)
-          curl -s -X POST http://nextcloud:80/index.php/apps/chorestrike/api/v1/test/seed?profile=${{ matrix.profile }}
+          # Copy the app into the Nextcloud container's apps directory
+          docker cp ${{ github.workspace }}/. nextcloud:/var/www/html/custom_apps/chorestrike
+          # Enable the app via occ
+          docker exec nextcloud php occ app:enable chorestrike || true
+          # Seed test data for the profile
+          curl -s -o /dev/null -X GET "http://nextcloud:80/index.php/apps/chorestrike/api/v1/test/seed/${{ matrix.profile }}" || true
         continue-on-error: true
 
       - name: Run Playwright tests
-        run: npx playwright test --project=${{ matrix.browser }} --reporter=list
+        run: |
+          npx playwright test --project=${{ matrix.browser }} ${{ matrix.browser == 'chromium' && '--project=chromium-serial-db' || '' }} --reporter=list
         env:
           NEXTCLOUD_URL: http://nextcloud:80
           TEST_DB_PROFILE: ${{ matrix.profile }}

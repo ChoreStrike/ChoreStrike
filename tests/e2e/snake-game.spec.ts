@@ -28,7 +28,7 @@ test.describe('Snake Arcade Game', () => {
 	test('Arcade section is visible on dashboard', async ({ page }) => {
 		test.setTimeout(60000)
 
-		await expect(page.locator('.arcade-section .sparks-display')).toBeVisible()
+		await expect(page.getByTestId('coins-display')).toBeVisible()
 		await expect(page.locator('.game-card').first()).toBeVisible()
 		await expect(page.locator('.game-card h3').first()).toContainText('Snake')
 	})
@@ -187,11 +187,11 @@ test.describe('Snake Arcade Game', () => {
 		})
 	})
 
-	test('Sparks balance is displayed in arcade header', async ({ page }) => {
+	test('Coins balance is displayed in arcade header', async ({ page }) => {
 		test.setTimeout(60000)
 
-		const sparksValue = page.locator('.arcade-section .sparks-value')
-		await expect(sparksValue).toBeVisible()
-		expect(await sparksValue.textContent()).toMatch(/^\d+$/)
+		const coinsValue = page.getByTestId('coins-value')
+		await expect(coinsValue).toBeVisible()
+		expect(await coinsValue.textContent()).toMatch(/^\d+$/)
 	})
 })

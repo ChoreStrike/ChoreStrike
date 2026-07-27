@@ -1,5 +1,4 @@
 import { test, expect } from './fixtures/test-fixtures'
-import { loginAsUser } from './fixtures/database-fixtures'
 
 /**
  * E2E test: Role title selection (CS-PLAN-006).
@@ -8,16 +7,12 @@ import { loginAsUser } from './fixtures/database-fixtures'
  * renders, selecting a pack marks it active, and the badge/active state
  * updates. Unlock thresholds are not exercised here (covered by the
  * TitleService integration test); this spec covers the selection UI flow.
+ *
+ * CS-PLAN-015b: admin auth via project-level storageState (no loginAsUser).
  */
 test.describe('Role Title System', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
-
-		await loginAsUser(
-			page,
-			process.env.NEXTCLOUD_USER || 'admin',
-			process.env.NEXTCLOUD_PASSWORD || 'admin'
-		)
 
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
@@ -45,17 +40,13 @@ test.describe('Role Title System', () => {
 		await page.click('[data-testid="change-title-button"]')
 		await page.waitForSelector('[data-testid="title-picker"]', { timeout: 10000 })
 
-		// Pick the team_energy pack via its select button.
 		const teamCard = page.locator('[data-testid="title-pack-team_energy"]')
 		const selectButton = teamCard.locator('[data-testid="select-pack-button"]')
 
-		// The button only exists when the pack is not already active.
 		if (await selectButton.isVisible().catch(() => false)) {
 			await selectButton.click()
-			// Wait for the API round-trip to flip the card to active.
 			await expect(teamCard.locator('[data-testid="active-pack-tag"]')).toBeVisible({ timeout: 10000 })
 		} else {
-			// Already active from a prior run — assert the active tag is present.
 			await expect(teamCard.locator('[data-testid="active-pack-tag"]')).toBeVisible()
 		}
 	})

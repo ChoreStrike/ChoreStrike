@@ -3,7 +3,20 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * Playwright configuration for E2E testing
  * @see https://playwright.dev/docs/test-configuration
+ *
+ * CS-PLAN-015b Phase 2: seed-dependent specs (error-handling, validation,
+ * multi-user-interactions, task-completion-full-flow) run in a dedicated
+ * serial project (`chromium-serial-db`) so the parallel pool never touches
+ * the seed/reset endpoints concurrently.
  */
+
+const SEED_DEPENDENT_SPECS = [
+	/error-handling\.spec\.ts/,
+	/validation\.spec\.ts/,
+	/multi-user-interactions\.spec\.ts/,
+	/task-completion-full-flow\.spec\.ts/,
+]
+
 export default defineConfig({
 	testDir: './tests/e2e',
 	outputDir: 'test-results/',
@@ -49,6 +62,7 @@ export default defineConfig({
 		{
 			name: 'chromium',
 			dependencies: ['setup'],
+			testIgnore: SEED_DEPENDENT_SPECS,
 			use: {
 				...devices['Desktop Chrome'],
 				/* Reuse the admin storageState so specs start authenticated */
@@ -61,6 +75,7 @@ export default defineConfig({
 		{
 			name: 'firefox',
 			dependencies: ['setup'],
+			testIgnore: SEED_DEPENDENT_SPECS,
 			use: {
 				...devices['Desktop Firefox'],
 				storageState: '.playwright/.auth/admin.json',
@@ -72,12 +87,29 @@ export default defineConfig({
 		{
 			name: 'webkit',
 			dependencies: ['setup'],
+			testIgnore: SEED_DEPENDENT_SPECS,
 			use: {
 				...devices['Desktop Safari'],
 				storageState: '.playwright/.auth/admin.json',
 				/* Standard timeouts for WebKit */
 				actionTimeout: 20000,
 				navigationTimeout: 45000,
+			},
+		},
+		// Seed-dependent specs run serially in chromium only. The seed
+		// assertions are browser-agnostic data checks; running them in one
+		// worker prevents parallel specs from wiping each other's data.
+		{
+			name: 'chromium-serial-db',
+			dependencies: ['setup'],
+			testMatch: SEED_DEPENDENT_SPECS,
+			fullyParallel: false,
+			workers: 1,
+			use: {
+				...devices['Desktop Chrome'],
+				storageState: '.playwright/.auth/admin.json',
+				actionTimeout: 15000,
+				navigationTimeout: 30000,
 			},
 		},
 	],

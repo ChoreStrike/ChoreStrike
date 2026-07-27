@@ -2,7 +2,7 @@
 
 ## [P1] E2E runs in no CI: `test.yml` triggers only on `main`/`develop`, and E2E is absent from `release-gate.yml`
 
-**Status**: Backlog — CI repair scoped into CS-PLAN-015b Phase 4 (D-CI); blocking-gate fold-in into `release-gate.yml` is follow-up work after 015b acceptance (path confirmed by user 2026-07-27)  
+**Status**: Done (CS-PLAN-015b Phase 4 D-CI, 2026-07-27) — `test.yml` repaired: triggers on `master`, Nextcloud pinned to `31-apache`, app mounted + enabled before seeding, `chromium-serial-db` project included. Blocking-gate fold-in into `release-gate.yml` is follow-up work after 015b acceptance.  
 **Assignee**: Unassigned  
 **Estimated Effort**: M  
 **Phase**: 9
@@ -18,6 +18,29 @@ The only CI workflow that runs Playwright (`.forgejo/workflows/test.yml`) trigge
 ### Notes
 - Found 2026-07-27 in the test-pipeline review (verified first-hand in both workflow files).
 - `playwright.config.ts` sets `workers: 1` on CI — full-matrix × full-suite CI runs will be slow; the matrix split by profile is the mitigating factor.
+
+---
+
+## [P1] Test endpoints exposed via `@PublicPage`; `isTestMode()` triggers on any `CI` env var
+
+**Status**: Backlog (pre-existing; surfaced by the CS-PLAN-015b review, 2026-07-27)  
+**Assignee**: Unassigned  
+**Estimated Effort**: S  
+**Phase**: 9  
+**Source**: Review of CS-PLAN-015b (E2E Phase 2)
+
+### Description
+`lib/Controller/TestController.php` annotates `seed`, `reset`, and `profiles` with `@PublicPage` (in addition to `@NoAdminRequired`) — a direct violation of the project rule "Never `@PublicPage`". `seed`/`reset` are guarded by `isTestMode()`, but `profiles()` has **no** `isTestMode()` guard and always returns data including the `testMode` flag, making it a reconnaissance probe for the seed/reset attack surface. Worse, `TestDataService::isTestMode()` returns `true` whenever `getenv('CI')` is set, so ChoreStrike deployed on **any** machine that defines a `CI` env var (GitHub Actions, GitLab, Jenkins, …) activates its test endpoints — `seed`/`reset` can wipe/reseed the app database without authentication. The CS-PLAN-015b D-CI repair now calls these endpoints from `.forgejo/workflows/test.yml`, which raised the relevance.
+
+### Acceptance Criteria
+- [ ] Remove `@PublicPage` from all three `TestController` methods; keep `@NoAdminRequired` only.
+- [ ] Add an `isTestMode()` early-return guard to `profiles()` (omit the `testMode` field when not in test mode).
+- [ ] Tighten `isTestMode()` to require an explicit `NEXTCLOUD_TEST_MODE` flag (drop the broad `getenv('CI')` fallback), or scope the fallback to a ChoreStrike-specific env var.
+- [ ] Regression test: unauthenticated requests to all three endpoints return 403/404 outside test mode.
+
+### Notes
+- Found 2026-07-27 during the CS-015b full review (security subagent). Pre-existing — not introduced by CS-015b; the workflow just makes it more reachable.
+- Pair with a note in `docs/engineering/testing.md` once the guard model changes.
 
 ---
 

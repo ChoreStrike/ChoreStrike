@@ -1,11 +1,14 @@
 /**
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
- * 
+ *
  * E2E tests for data validation and edge cases
+ *
+ * CS-PLAN-015b: auth via per-user storageState (no loginAsUser / no logout).
  */
 
-import { test, expect, DatabaseProfile, loginAsUser, getUserCredentials } from './fixtures/database-fixtures'
+import { test, expect, DatabaseProfile } from './fixtures/database-fixtures'
+import { createUserContext } from './fixtures/auth-contexts'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -72,25 +75,34 @@ test.describe('Data Validation - Family Profile', () => {
 test.describe('User Access Validation', () => {
 	test.use({ databaseProfile: 'family' as DatabaseProfile })
 
-	test('mom can access dashboard', async ({ page }) => {
-		const creds = getUserCredentials('family', 'mom')
-		await loginAsUser(page, creds!.userId, creds!.password)
-		await page.goto('/apps/chorestrike/')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+	test('mom can access dashboard', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			await page.goto('/apps/chorestrike/')
+			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+		} finally {
+			await context.close()
+		}
 	})
 
-	test('kid can access dashboard', async ({ page }) => {
-		const creds = getUserCredentials('family', 'kid')
-		await loginAsUser(page, creds!.userId, creds!.password)
-		await page.goto('/apps/chorestrike/')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+	test('kid can access dashboard', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, 'kid')
+		try {
+			await page.goto('/apps/chorestrike/')
+			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+		} finally {
+			await context.close()
+		}
 	})
 
-	test('grandma can access dashboard', async ({ page }) => {
-		const creds = getUserCredentials('family', 'grandma')
-		await loginAsUser(page, creds!.userId, creds!.password)
-		await page.goto('/apps/chorestrike/')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+	test('grandma can access dashboard', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, 'grandma')
+		try {
+			await page.goto('/apps/chorestrike/')
+			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+		} finally {
+			await context.close()
+		}
 	})
 })
 

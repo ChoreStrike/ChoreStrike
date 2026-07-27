@@ -193,3 +193,76 @@ modified: docs/plans/active/cs-plan-015-e2e-stabilization.md   (AC check-off aft
 - `phase-9-code-quality.md` → new **P9-TEST-003**: backend unit gaps (`TemplateService`, `RewardConfigController`, `TemplateController`, `TaskSyncController`, 5 mappers, migration smoke test).
 - P9-E2E-002b wording corrected ("proven flake-free in CI" referenced a CI E2E run that does not exist).
 - Manual release test plan (user requirement: no release without it) → **CS-PLAN-017** drafted in `new/`.
+
+## Implementation Outcome
+
+**Implemented 2026-07-27.** Phases 1–4 code complete; Docker acceptance runs pending.
+
+### Phase 1 — Auth architecture (B1)
+- `auth.setup.ts`: now logs in every `PROFILE_USERS` account once and saves `.playwright/.auth/{userId}.json` (admin + mom/dad/teen/kid/grandma/friend/adult). Each setup test gets its own browser context.
+- New `tests/e2e/fixtures/auth-contexts.ts`: `userStatePath(userId)` + `createUserContext(browser, userId)` → `{ context, page }`.
+- All 39 `loginAsUser` call sites across 10 specs migrated:
+  - `multi-user-interactions` (9) → `createUserContext` per test / two-context flows.
+  - `admin-only-tasks` (6) → `createUserContext`; the two-user "non-owner cannot complete" test uses two owned contexts.
+  - `overdue-task-claiming` (5) → `createUserContext`.
+  - `private-tasks` (4) → `createUserContext`.
+  - `task-completion-full-flow` (4) → `createUserContext`.
+  - `validation` (3) → `createUserContext`.
+  - `error-handling` (3) → `createUserContext`.
+  - `teamwork-rewards` (3) → `test.use({ storageState: userStatePath('mom') })` (single-user describe).
+  - `settings` (1) → removed admin `beforeEach` login (project storageState covers it).
+  - `title-selection` (1) → removed admin `beforeEach` login.
+- `loginAsUser`, `submitLoginForm`, `currentUserId` removed from `database-fixtures.ts`. `PROFILE_USERS` / `getUserCredentials` retained.
+- No-logout guard: grep confirms zero `/logout` references in any spec.
+
+### Phase 2 — Seed-race containment
+- `playwright.config.ts`: chromium/firefox/webkit projects exclude the 4 seed-dependent specs via `testIgnore`. New `chromium-serial-db` project (`fullyParallel: false`, `workers: 1`, chromium only) runs `error-handling`, `validation`, `multi-user-interactions`, `task-completion-full-flow`.
+- Playwright `--list` confirms 415 tests across 27 files; serial-db project picks up exactly the 4 specs.
+
+### Phase 3 — Verified residue
+- `snake-game.spec.ts`: `.sparks-display` / `.sparks-value` → genuinely absent (coins rename). Added `data-testid="coins-display"` + `data-testid="coins-value"` to `ArcadeSection.vue`; spec updated to `getByTestId`. Jest spec extended with testid assertions.
+- `title-selection.spec.ts`: `active-pack-tag` testid exists in `TitlePicker.vue:37` — no change needed.
+- `room-management.spec.ts`: `create-first-floor`, `room-name-input`, `create-room-button` all exist in source — no change needed.
+- `core-functionality.spec.ts`: `stat-card`, `room-card-*` exist — no change needed.
+
+### Phase 4 — Acceptance & docs
+- **D-CI:** `.forgejo/workflows/test.yml` repaired: triggers on `master` (was `main`/`develop`), Nextcloud pinned to `31-apache` (was `latest`), app mounted + enabled via `docker cp` + `occ app:enable`, `chromium-serial-db` project included in the Playwright invocation.
+- `e2e-testid-conventions.md` §6 rewritten: per-user storageState patterns, `createUserContext`, no-logout rule + checklist item.
+- `testing.md`: auth architecture, serial-db project, CI status updated; Playwright integration example rewritten.
+- `bugs.md` [P1] E2E-CI: marked Done.
+- `phase-9-code-quality.md` P9-E2E-002b: stale `phase-4-advanced-mechanics` reference removed; stays open.
+- `ACTIVE_TASKS.md` updated.
+
+### Build gate
+- ESLint: 0 errors (69 pre-existing JSDoc warnings).
+- Jest: 542/542 pass.
+- Playwright `--list`: 415 tests compile across 27 files.
+- No backend change.
+
+### Pending
+- Docker acceptance runs: 3× chromium `--retries=0` → 3× full matrix `--retries=0`.
+- CS-PLAN-015 AC check-off after acceptance.
+
+## Review Outcome
+
+**Full review (4 parallel `reviewer` subagents), 2026-07-27.** Tier = Full (>1 domain, >5 files, auth-relevant). Quality gate green: Jest 542/542, `npm run lint` (src) 0 errors / 69 pre-existing warnings. **Not committed — 2 blocks must be fixed first.** e2e TS is outside the project lint gate (`eslint --ext .js,.vue src`), so e2e findings below are not gate-breakers but are tracked.
+
+### Blocks (must fix before acceptance)
+1. **`auth.setup.ts:83-104` — per-user storageState corrupted.** The "authenticate profile users" loop reuses one `page`; after the first login `/login` bounces to `/apps`, the `if (!page.url().includes('/apps/'))` guard skips the form, and the first user's session is saved as every subsequent `{userId}.json`. All multi-user specs would silently run as the first user. **Fix:** create a fresh `browser.newContext()` + `newPage()` per user (close in `finally`), or `clearCookies()` between iterations. (Confirmed by 3 of 4 subagents; auth-relevant → not auto-fixed.)
+2. **`.forgejo/workflows/test.yml:134` — `chromium-serial-db` appended on every matrix row.** Only `${{ matrix.browser }}` is installed, so firefox/webkit rows fail with a missing-Chromium error. Also wasteful (4 seed specs × every row). **Fix:** run `--project=chromium-serial-db` only on the chromium row (`${{ matrix.browser == 'chromium' && '--project=chromium-serial-db' || '' }}`), or install Chromium unconditionally.
+
+### Auto-fixed inline (this review)
+- `snake-game.spec.ts`: stale "Sparks" test name + `sparksValue` var → "Coins" / `coinsValue` (testid is `coins-value`).
+- `auth-contexts.ts`: JSDoc `@param`/`@returns` added; `AUTH_DIR` exported (was duplicated in `auth.setup.ts`).
+- `auth.setup.ts`: local `AUTH_DIR` removed — imported from `auth-contexts` (DRY).
+- `multi-user-interactions.spec.ts`: unused `PROFILE_USERS` import removed.
+- `test.yml`: seed `curl -s -o /dev/null` so the seeded JSON body (user ids/names/roles) is not written to CI logs.
+
+### Deferred → backlog
+- `TestController.php` `@PublicPage` on seed/reset/profiles + `profiles()` lacks `isTestMode()` guard + `isTestMode()` triggers on any `getenv('CI')` → pre-existing security surface (test endpoints reachable in any CI env). Logged in `docs/backlog/bugs.md`. (Not introduced by this change.)
+- `createUserContext` throws raw ENOENT on a missing storageState file — add a descriptive error + `fs.existsSync` check.
+- Two-user tests (`admin-only-tasks`, `multi-user-interactions`) leak the first context if the second `createUserContext` throws — nest the try/finally.
+- `docker cp ${{ github.workspace }}/.` copies the whole repo (node_modules/.git) into the container — selective copy.
+- `getUserCredentials` in `database-fixtures.ts` now has zero callers (dead code) — author intended to retain for API tests; confirm and remove or document.
+- Consider a `userContext` Playwright fixture (auto-cleanup) to replace the 32× `try/finally` boilerplate (rule-of-three).
+- e2e TS has no lint gate (`npm run lint` is `src/`-only) — consider adding `tests/e2e` to lint.

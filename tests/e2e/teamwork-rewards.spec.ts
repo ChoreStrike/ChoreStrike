@@ -10,18 +10,19 @@
  * - Single-assign tasks show no teamwork hint
  *
  * Requires: Docker test environment with the `family` database profile.
+ * CS-PLAN-015b: auth via per-user storageState (no loginAsUser / no logout).
+ * All tests run as mom via describe-level `test.use({ storageState })`.
  * @see docs/plans/active/cs-plan-005-task-visibility-teamwork-overdue.md Phase 3
  */
 
-import { test, expect, loginAsUser, getUserCredentials } from './fixtures/database-fixtures'
+import { test, expect } from './fixtures/database-fixtures'
+import { userStatePath } from './fixtures/auth-contexts'
 
 test.describe('Teamwork Rewards', () => {
 	test.use({ databaseProfile: 'family' })
+	test.use({ storageState: userStatePath('mom') })
 
 	test('multi-assign task shows teamwork bonus hint', async ({ page }) => {
-		const momCreds = getUserCredentials('family', 'mom')
-		await loginAsUser(page, momCreds!.userId, momCreds!.password)
-
 		await page.goto('/apps/chorestrike/#/tasks')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 20000 })
@@ -37,9 +38,6 @@ test.describe('Teamwork Rewards', () => {
 	})
 
 	test('completing multi-assign task returns teamwork bonus via API', async ({ page }) => {
-		const momCreds = getUserCredentials('family', 'mom')
-		await loginAsUser(page, momCreds!.userId, momCreds!.password)
-
 		const createResponse = await page.request.post('/apps/chorestrike/api/v1/tasks', {
 			data: {
 				name: 'Team Clean Test',
@@ -89,9 +87,6 @@ test.describe('Teamwork Rewards', () => {
 	})
 
 	test('single-assign task has no teamwork bonus', async ({ page }) => {
-		const momCreds = getUserCredentials('family', 'mom')
-		await loginAsUser(page, momCreds!.userId, momCreds!.password)
-
 		const createResponse = await page.request.post('/apps/chorestrike/api/v1/tasks', {
 			data: {
 				name: 'Solo Task Test',

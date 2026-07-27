@@ -57,6 +57,22 @@ describe('ArcadeSection.vue (Phase 5 — 2048 + Memory)', () => {
 		expect(wrapper.find('[data-testid="arcade-card-memory"]').exists()).toBe(true)
 	})
 
+	it('renders coins display with testids', () => {
+		const wrapper = mount(ArcadeSection, {
+			global: { plugins: [pinia] },
+			stubs: {
+				Modal: { template: '<div><slot /></div>' },
+				SnakeGame: { template: '<div />' },
+				Game2048: { template: '<div />' },
+				MemoryGame: { template: '<div />' },
+				SnakeLeaderboard: { template: '<div />' },
+			},
+		})
+
+		expect(wrapper.find('[data-testid="coins-display"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="coins-value"]').exists()).toBe(true)
+	})
+
 	it('renders localised titles for 2048 and Memory', () => {
 		const wrapper = mount(ArcadeSection, {
 			global: { plugins: [pinia] },

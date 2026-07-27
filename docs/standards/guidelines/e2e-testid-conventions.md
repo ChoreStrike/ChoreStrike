@@ -79,23 +79,59 @@ Replace them with Playwright's auto-waiting:
 A `waitForTimeout` in a spec is a defect — fix the underlying race (a missing
 loading state, an un-awaited request) instead of masking it.
 
-## 6. Auth — `storageState` (CS-PLAN-015)
+## 6. Auth — per-user `storageState` (CS-PLAN-015b)
 
 Every browser context starts authenticated via the `setup` project in
 [`playwright.config.ts`](../../../playwright.config.ts) (see
-[`tests/e2e/auth.setup.ts`](../../../tests/e2e/auth.setup.ts)). It logs in the
-roles once and saves the session to `.playwright/.auth/*.json` (gitignored).
+[`tests/e2e/auth.setup.ts`](../../../tests/e2e/auth.setup.ts)). It logs in
+**every** account once (admin + all seeded profile users) and saves the sessions
+to `.playwright/.auth/{userId}.json` (gitignored). Accounts survive re-seeding
+(`TestDataService::reset()` touches only `chorestrike_*` tables, never `oc_users`).
 
-- Specs that operate as `admin` need **no login call at all** — the context is
-  pre-authenticated. Just navigate to the app.
-- Specs that switch to a seeded profile user call `loginAsUser(page, id, pass)`
-  from [`database-fixtures.ts`](../../../tests/e2e/fixtures/database-fixtures.ts);
-  it detects the active session and logs out → form-logs-in only when needed
-  (auto-waiting, no sleeps).
+### Consumption patterns
+
+1. **Admin (default):** the browser projects set
+   `storageState: '.playwright/.auth/admin.json'` — specs that operate as admin
+   need **no login call at all**. Just navigate to the app.
+
+2. **Single-user describe:** when every test in a `describe` runs as the same
+   profile user, set the storageState at describe level:
+   ```ts
+   import { userStatePath } from './fixtures/auth-contexts'
+   test.describe('Teamwork Rewards', () => {
+       test.use({ storageState: userStatePath('mom') })
+       // …tests use the default `page` as mom
+   })
+   ```
+
+3. **Per-test user / multi-user flows:** create an owned context via
+   [`createUserContext`](../../../tests/e2e/fixtures/auth-contexts.ts):
+   ```ts
+   import { createUserContext } from './fixtures/auth-contexts'
+   test('mom sees tasks', async ({ browser }) => {
+       const { context, page } = await createUserContext(browser, 'mom')
+       try {
+           await page.goto('/apps/chorestrike/')
+           // …assertions
+       } finally {
+           await context.close()
+       }
+   })
+   ```
+   For two simultaneous users, create two contexts (in-tree precedent:
+   `multi-user-interactions.spec.ts`).
+
+### No-logout rule
+
+**No spec may navigate to or fetch `/logout`.** The shared admin session (and
+every per-user session) is created once in the setup project and reused by all
+parallel workers. A single logout invalidates the server-side session for every
+spec on that worker pool. This is enforced by code review and a grep guard.
 
 ## 7. Checklist before committing an E2E change
 
 - [ ] No new `waitForTimeout` / text-only / positional selectors.
+- [ ] No navigation to or fetch of `/logout` (no-logout rule).
 - [ ] Every newly-touched element has a role/label or `data-testid`.
 - [ ] New testid added in the same change to the component that renders it.
 - [ ] If a testid was added/renamed, the component spec asserts it renders.

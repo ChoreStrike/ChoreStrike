@@ -5,9 +5,9 @@
 				<span class="arcade-icon">🎮</span>
 				<h2>{{ t('chorestrike', 'Arcade') }}</h2>
 			</div>
-			<div class="coins-display">
+			<div class="coins-display" data-testid="coins-display">
 				<span class="coins-icon">⚡</span>
-				<span class="coins-value">{{ currentCoins }}</span>
+				<span class="coins-value" data-testid="coins-value">{{ currentCoins }}</span>
 				<span class="coins-label">{{ t('chorestrike', 'Coins') }}</span>
 			</div>
 		</div>

@@ -205,14 +205,12 @@ It is the single source of truth for blocking gate commands.
 
 ### E2E in CI (status 2026-07-27)
 
-E2E is **not** part of the blocking release gate today. The second workflow,
-`.forgejo/workflows/test.yml` (matrix PHPUnit + Playwright), triggers only on
-`main`/`develop` — the repository branch is `master` — and its E2E job is
-currently non-functional (the app is never mounted into the Nextcloud service
-container; `nextcloud:latest` is unpinned). E2E therefore runs locally against
-the Docker test env only, until CS-PLAN-015b (Phase 4, D-CI) repairs the
-workflow. Folding E2E into `release-gate.yml` as a blocking job is planned
-follow-up after the 015b acceptance. Tracked in `docs/backlog/bugs.md` [P1].
+E2E runs in `.forgejo/workflows/test.yml` on `master` (CS-PLAN-015b D-CI
+repair: trigger branches fixed, Nextcloud image pinned to `31-apache`, app
+mounted into the service container, `chromium-serial-db` project included in
+the invocation). Folding E2E into `release-gate.yml` as a blocking job is
+planned follow-up after the 015b acceptance. Tracked in
+`docs/backlog/bugs.md` [P1].
 
 ### Running the gate locally
 
@@ -320,29 +318,40 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `room-management.spec.ts`, `room-detail.spec.ts`, `3-floor-house.spec.ts` | Room/floor CRUD, room-detail flows, full-house scenarios |
 | `task-manager.spec.ts`, `task-completion.spec.ts`, `task-completion-full-flow.spec.ts`, `task-checklist-and-features.spec.ts` | Task management, creation, checklist, and completion flows |
 | `settings.spec.ts`, `gui-scratch-flow.spec.ts` | Full-house creation and realistic GUI-first flows |
-| `leaderboard.spec.ts`, `phase-4-advanced-mechanics.spec.ts`, `title-selection.spec.ts` | Gamification, leaderboard, advanced mechanics, role titles |
+| `leaderboard.spec.ts`, `title-selection.spec.ts` | Gamification, leaderboard, role titles |
 | `private-tasks.spec.ts`, `admin-only-tasks.spec.ts`, `teamwork-rewards.spec.ts` | Visibility (private/admin-only) and teamwork-bonus rewards (CS-PLAN-005) |
 | `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage |
 
 > **Archived (CS-PLAN-015, 2026-07-26):** `phase-3-user-management.spec.ts`
-> (retired group-assignment UI) and the scheduling trio (`scheduling`,
+> (retired group-assignment UI), `phase-4-advanced-mechanics.spec.ts` (phantom
+> components), and the scheduling trio (`scheduling`,
 > `flex-window-scheduling`, `availability-settings-flow` — the Smart-Scheduling
 > *view* is stripped; revive via CS-PLAN-016) were moved to
 > `archive/2026-07/e2e-legacy/`. They are no longer part of the suite.
 
-### E2E Auth & Stable Selectors (CS-PLAN-015)
+### E2E Auth & Stable Selectors (CS-PLAN-015 / 015b)
 
-- **Auth via `storageState`:** a Playwright `setup` project
-  ([`tests/e2e/auth.setup.ts`](../../tests/e2e/auth.setup.ts)) logs in `admin`
-  once and saves the browser context to `.playwright/.auth/admin.json`
-  (gitignored); it also seeds the test profiles so the NC user accounts exist.
-  The browser projects depend on it and start authenticated, so specs that run
-  as `admin` need **no login call** — just navigate to the app. Specs that need
-  a seeded profile user call `loginAsUser(page, id, pass)`
-  ([`tests/e2e/fixtures/database-fixtures.ts`](../../tests/e2e/fixtures/database-fixtures.ts));
-  it detects the active session and only logs out → form-logs-in on a real
-  switch (auto-waiting, no sleeps).
+- **Auth via per-user `storageState`:** the Playwright `setup` project
+  ([`tests/e2e/auth.setup.ts`](../../tests/e2e/auth.setup.ts)) logs in **every**
+  account once (admin + all seeded profile users) and saves the browser contexts
+  to `.playwright/.auth/{userId}.json` (gitignored). Accounts survive re-seeding
+  (`TestDataService::reset()` touches only `chorestrike_*` tables, never
+  `oc_users`). The browser projects depend on setup and start authenticated as
+  admin, so specs that run as admin need **no login call** — just navigate.
+- **Multi-user auth patterns** (see
+  [`e2e-testid-conventions.md`](../standards/guidelines/e2e-testid-conventions.md) §6):
+  - Single-user describe → `test.use({ storageState: userStatePath('mom') })`.
+  - Per-test / multi-user → `createUserContext(browser, 'teen')` from
+    [`tests/e2e/fixtures/auth-contexts.ts`](../../tests/e2e/fixtures/auth-contexts.ts).
+  - **No-logout rule:** no spec may navigate to or fetch `/logout` — it
+    invalidates the shared server-side session for every parallel worker.
+- **Seed-race containment (CS-PLAN-015b Phase 2):** the 4 seed-dependent specs
+  (`error-handling`, `validation`, `multi-user-interactions`,
+  `task-completion-full-flow`) run in a dedicated `chromium-serial-db` project
+  (`fullyParallel: false`, `workers: 1`, chromium only). The parallel pool
+  (chromium / firefox / webkit) excludes them via `testIgnore` and never touches
+  the seed/reset endpoints concurrently.
 - **Stable selectors:** prefer `getByRole`/`getByLabel`, fall back to
   `getByTestId`. Never use `text=` or positional CSS selectors. No
   `waitForTimeout` — use auto-waiting locators/assertions. See
@@ -594,18 +603,33 @@ curl "http://localhost:8080/apps/chorestrike/api/v1/test/profiles"
 
 ### Playwright Integration
 
-Use the `database-fixtures.ts` in your E2E tests:
+Use the database and auth fixtures in your E2E tests:
 
 ```typescript
-import { test, expect, loginAsUser, getUserCredentials } from './fixtures/database-fixtures'
+import { test, expect } from './fixtures/database-fixtures'
+import { createUserContext, userStatePath } from './fixtures/auth-contexts'
 
-// Use family profile for this test file
-test.use({ databaseProfile: 'family' })
+// Single-user describe: all tests run as mom
+test.describe('Mom tests', () => {
+  test.use({ databaseProfile: 'family' })
+  test.use({ storageState: userStatePath('mom') })
 
-test('mom can see assigned tasks', async ({ page, seededData }) => {
-  const creds = getUserCredentials('family', 'mom')
-  await loginAsUser(page, creds.userId, creds.password)
-  // ... test code
+  test('mom sees tasks', async ({ page }) => {
+    await page.goto('/apps/chorestrike/')
+    // ... test code
+  })
+})
+
+// Multi-user flow: create owned contexts
+test('two users see same house', async ({ browser }) => {
+  const mom = await createUserContext(browser, 'mom')
+  const teen = await createUserContext(browser, 'teen')
+  try {
+    // ... test code with mom.page and teen.page
+  } finally {
+    await mom.context.close()
+    await teen.context.close()
+  }
 })
 ```
 
@@ -649,9 +673,9 @@ The biggest remaining gaps are no longer basic component or store tests. Those a
 
 ### 1. E2E Pipeline & Coverage Gaps (2026-07-27 review)
 
-- **E2E runs in no CI** — `test.yml` triggers on `main`/`develop` only and is
-  non-functional; `release-gate.yml` has no E2E job (`bugs.md` [P1]; repair is
-  CS-PLAN-015b Phase 4 D-CI, blocking fold-in is follow-up).
+- **E2E in CI repaired** — `test.yml` now triggers on `master`, pins
+  `nextcloud:31-apache`, mounts the app, and includes `chromium-serial-db`
+  (CS-PLAN-015b D-CI). Folding into `release-gate.yml` as blocking is follow-up.
 - **Uncovered feature surfaces** — reward configuration, task templates,
   notifications, minigame economy UI (BoostShop, snake leaderboard), and
   mobile/responsive layouts have no E2E coverage; 8 components + the

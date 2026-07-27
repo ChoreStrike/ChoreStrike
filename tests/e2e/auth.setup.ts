@@ -1,24 +1,24 @@
 import { test as setup, type Page } from '@playwright/test'
 import { PROFILE_USERS, type DatabaseProfile } from './fixtures/database-fixtures'
+import { userStatePath, AUTH_DIR } from './fixtures/auth-contexts'
 
 /**
- * Playwright auth setup (CS-PLAN-015 Phase 1b)
+ * Playwright auth setup (CS-PLAN-015b Phase 1)
  *
- * Logs the `admin` role into Nextcloud once and saves the browser context
- * (`storageState`) so the browser projects can reuse the authenticated session
- * instead of re-submitting the login form on every spec (~3–5 s saved per spec).
+ * Logs every account in once and saves the browser context (`storageState`)
+ * so browser projects can reuse authenticated sessions instead of
+ * re-submitting the login form on every spec.
  *
- * The `admin` login is REQUIRED: it is the default session every browser project
- * starts from (`storageState: '.playwright/.auth/admin.json'` in the config). If
- * it fails, the dependent specs cannot run anyway.
+ * - `admin` login is REQUIRED: it is the default session every browser project
+ *   starts from (`storageState: '.playwright/.auth/admin.json'` in the config).
+ * - Profile users (mom/dad/teen/kid/grandma/friend/adult) are logged in once
+ *   each; specs consume them via `test.use({ storageState })` or
+ *   `createUserContext(browser, userId)`.
  *
- * Seeded profile users (adult/kid/mom/…) are NOT logged in here: only `admin`
- * storageState is referenced by the projects, and profile-user specs authenticate
- * via `loginAsUser()`. The setup only *seeds* the profiles so those accounts
- * exist before any spec runs.
+ * Accounts survive re-seeding: `TestDataService::reset()` truncates only
+ * `chorestrike_*` tables, never `oc_users` (verified at source level).
  */
 
-const AUTH_DIR = '.playwright/.auth'
 const ADMIN_USER = process.env.NEXTCLOUD_USER || 'admin'
 const ADMIN_PASS = process.env.NEXTCLOUD_PASSWORD || 'admin'
 
@@ -31,7 +31,6 @@ async function loginAndSave(page: Page, user: string, password: string, statePat
 	await page.goto('/login')
 	await page.waitForLoadState('domcontentloaded')
 
-	// Already authenticated? Nextcloud bounces /login → /apps.
 	if (!page.url().includes('/apps/')) {
 		await page.locator('#user, input[name="user"]').first().fill(user)
 		await page.locator('#password, input[name="password"]').first().fill(password)
@@ -59,7 +58,6 @@ setup('authenticate as admin', async ({ page }) => {
 setup('seed profile users', async ({ baseURL }) => {
 	const origin = baseURL || process.env.NEXTCLOUD_URL || 'http://localhost:8080'
 
-	// Only seed when the test endpoints are enabled.
 	const testMode = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`)
 		.then((r) => r.ok)
 		.catch(() => false)
@@ -67,9 +65,6 @@ setup('seed profile users', async ({ baseURL }) => {
 		return
 	}
 
-	// Best-effort: create the profile accounts so loginAsUser() can authenticate
-	// them. Per-spec seeding (the seededData fixture) still runs for specs that
-	// need fresh data; this just guarantees the NC accounts exist up front.
 	for (const profile of Object.keys(PROFILE_USERS) as DatabaseProfile[]) {
 		try {
 			await seedProfile(origin, profile)
@@ -79,3 +74,31 @@ setup('seed profile users', async ({ baseURL }) => {
 	}
 })
 
+/**
+ * Log in every profile user once and save per-user storageState files.
+ * Each `setup()` test gets its own browser context, so the logins are
+ * parallel-safe. The seed step above guarantees the NC accounts exist.
+ */
+setup('authenticate profile users', async ({ page, baseURL }) => {
+	const origin = baseURL || process.env.NEXTCLOUD_URL || 'http://localhost:8080'
+
+	const testMode = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`)
+		.then((r) => r.ok)
+		.catch(() => false)
+	if (!testMode) {
+		return
+	}
+
+	const seen = new Set<string>()
+	for (const profile of Object.keys(PROFILE_USERS) as DatabaseProfile[]) {
+		for (const user of PROFILE_USERS[profile]) {
+			if (seen.has(user.userId)) continue
+			seen.add(user.userId)
+			try {
+				await loginAndSave(page, user.userId, user.password, userStatePath(user.userId))
+			} catch {
+				console.log(`[setup] Could not authenticate '${user.userId}' — specs using this user may skip.`)
+			}
+		}
+	}
+})

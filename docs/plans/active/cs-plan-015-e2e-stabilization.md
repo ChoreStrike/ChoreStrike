@@ -245,6 +245,11 @@ The following spec categories pass reliably:
 
 ## Remaining Work (→ CS-PLAN-015b)
 
+> **Resolved by CS-PLAN-015b (implemented 2026-07-27).** All four priorities below
+> are addressed; see `cs-plan-015b-e2e-phase2.md` § Implementation Outcome.
+> The two open ACs of this plan (3× clean runs; E2E build gate) are pending
+> the Docker acceptance runs.
+
 The following items must be resolved to reach the acceptance criteria (3× clean runs, `--retries=0`):
 
 ### Priority 1: Fix `loginAsUser` for multi-user tests

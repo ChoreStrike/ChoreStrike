@@ -1,4 +1,4 @@
-import { test as baseTest, expect, Page, BrowserContext } from '@playwright/test'
+import { test as baseTest, expect } from '@playwright/test'
 
 /**
  * Database fixtures for ChoreStrike E2E tests
@@ -150,68 +150,6 @@ export const test = baseTest.extend<DatabaseFixtures>({
 		await use(data)
 	},
 })
-
-// Read the authenticated user id. Nextcloud exposes it both as the
-// `window.OC.currentUser` JS global (set once the app shell loads) and as a
-// `data-user` attribute on <head>; we try both. Returns null when not
-// authenticated or not yet exposed.
-async function currentUserId(page: Page): Promise<string | null> {
-	return page.evaluate(() => {
-		const oc = (window as { OC?: { currentUser?: string } }).OC
-		return oc?.currentUser
-			|| document.querySelector('head')?.getAttribute('data-user')
-			|| null
-	}).catch(() => null)
-}
-
-// Submit the Nextcloud login form for the given credentials.
-async function submitLoginForm(page: Page, userId: string, password: string): Promise<void> {
-	await page.locator('#user, input[name="user"]').first().fill(userId)
-	await page.locator('#password, input[name="password"]').first().fill(password)
-	await page.locator('button[type="submit"], #submit-form, input[type="submit"]').first().click()
-	await page.waitForURL('**/apps/**', { timeout: 30000 })
-}
-
-// Helper function to login a user.
-//
-// StorageState-aware (CS-PLAN-015 Phase 1b): browser contexts created by the
-// Playwright projects start with the `admin` storageState, so the common case
-// (already authenticated as the requested user) is detected and skipped. When a
-// switch is needed, the active session is logged out first (Nextcloud otherwise
-// bounces /login back to the app), then the form-login path runs with
-// auto-waiting locators instead of fixed sleeps.
-export async function loginAsUser(page: Page, userId: string, password: string): Promise<void> {
-	await page.goto('/apps/chorestrike/')
-	await page.waitForLoadState('domcontentloaded')
-
-	// Fast path: already authenticated as the requested user (storageState reuse).
-	const current = await currentUserId(page)
-	if (current && current.toLowerCase() === userId.toLowerCase()) {
-		return
-	}
-
-	// Switching users requires logging out the active session first, otherwise
-	// /login redirects back to the already-authenticated app.  NC 28+ wraps
-	// /logout in a CSRF-protected POST.  We use fetch() to POST the token,
-	// then hard-navigate to /login.
-	if (current || page.url().includes('/apps/')) {
-		await page.evaluate(async () => {
-			const token = (window as { OC?: { requestToken?: string } }).OC?.requestToken
-			if (token) {
-				await fetch('/logout', {
-					method: 'POST',
-					headers: { 'requesttoken': token },
-				}).catch(() => {})
-			}
-		})
-		// Navigate to login — the fetch above may have already logged us out.
-		await page.goto('/login', { waitUntil: 'domcontentloaded' })
-	} else if (!page.url().includes('/login')) {
-		await page.goto('/login', { waitUntil: 'domcontentloaded' })
-	}
-
-	await submitLoginForm(page, userId, password)
-}
 
 // Helper to get user credentials for a profile
 export function getUserCredentials(profile: DatabaseProfile, userId: string): { userId: string; password: string } | null {
