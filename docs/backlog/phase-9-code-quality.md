@@ -378,7 +378,31 @@ export const logger = {
 **Effort**: M–L  
 **Status**: Backlog (carved out of CS-PLAN-015)
 
-**Description**: The ~13 remaining specs not migrated by CS-015 still use ~27 `waitForTimeout` calls plus residual text/positional selectors: `multi-user-interactions` (6), `smoke-tests` (6), `minimal-smoke-tests` (4), `daily-tasks-flow` (3), `room-management` (2), and 1-offs (`leaderboard`, `phase-4-advanced-mechanics`, `private-tasks`, `room-detail`, `task-checklist-and-features`, plus the `test-house.ts` fixture). Apply the same `getByTestId`/`getByRole` + auto-waiting migration once the CS-015 foundation is proven flake-free in CI.
+**Description**: The ~13 remaining specs not migrated by CS-015 still use ~27 `waitForTimeout` calls plus residual text/positional selectors: `multi-user-interactions` (6), `smoke-tests` (6), `minimal-smoke-tests` (4), `daily-tasks-flow` (3), `room-management` (2), and 1-offs (`leaderboard`, `phase-4-advanced-mechanics`, `private-tasks`, `room-detail`, `task-checklist-and-features`, plus the `test-house.ts` fixture). Apply the same `getByTestId`/`getByRole` + auto-waiting migration once the CS-015/015b foundation is proven flake-free (3× `--retries=0` acceptance runs, locally and — once E2E runs there, see `bugs.md` [P1] E2E-CI item — in CI).
+
+---
+
+### P9-E2E-003 - E2E coverage extension beyond stabilization
+**Priority**: MEDIUM  
+**Effort**: L  
+**Status**: Backlog (raised by the 2026-07-27 test-pipeline review)
+
+**Description**: CS-015/015b stabilize the existing ~169 E2E tests and CS-016 re-adds the 3 scheduling specs, but whole feature surfaces still have no E2E coverage: reward configuration (admin reward/economy settings), task templates (`TemplateSelector`, template apply flow), notifications (title unlock / medal / daily notification surfacing), minigame economy (BoostShop purchase flow, snake leaderboard), and mobile/responsive layouts (currently manual-only). Jest gaps on the same surfaces: no specs for `SnakeGame.vue`, `BoostShop.vue`, `SnakeLeaderboard.vue`, `TaskEditForm.vue`, `OverdueClaimDialog.vue`, `TemplateSelector.vue`, `FlexWindowDisplay.vue`, `SvgIcon.vue`, and the `checklist` Pinia store. Sequence after CS-PLAN-015b + CS-016 land (shared auth/seed infra).
+
+**Implementation**: Per surface: additive `data-testid`s where missing, Jest component specs, then Playwright specs on the CS-015 conventions (`getByTestId`/`getByRole`, no `waitForTimeout`, per-user storageState auth, `chromium-serial-db` project if seed-dependent).
+
+**Source**: Test-pipeline review 2026-07-27 (coverage inventory via explore subagents).
+
+---
+
+### P9-TEST-003 - Backend unit-test gaps: TemplateService, 3 controllers, 5 mappers, migration smoke
+**Priority**: MEDIUM  
+**Effort**: M  
+**Status**: Backlog (raised by the 2026-07-27 test-pipeline review)
+
+**Description**: `lib/Service/TemplateService.php` has no unit test; `RewardConfigController` (gates the whole reward economy — owner-only config), `TemplateController`, and `TaskSyncController` have no unit tests (`RouteMatrixTest` covers existence only, not behavior). Five mappers lack tests: `TaskAssigneeMapper`, `TaskChecklistItemMapper`, `RoomTaskChecklistProgressMapper`, `MinigameScoreMapper`, `UserStatsMapper`. Only 1 of 28 migrations has a test despite repeated migration defects (Version1011 negated guard, Version1017 PG rename, Version1018–1020 `preSchemaChange` no-op) — a fresh-install migration smoke test (run all migrations on a clean DB, assert expected columns) would catch this recurring defect class. Related: the CI unit gate runs no controller tests at all (`bugs.md` [P2]).
+
+**Source**: Test-pipeline review 2026-07-27.
 
 ---
 

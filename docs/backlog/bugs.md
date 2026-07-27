@@ -1,5 +1,47 @@
 # Bug Backlog
 
+## [P1] E2E runs in no CI: `test.yml` triggers only on `main`/`develop`, and E2E is absent from `release-gate.yml`
+
+**Status**: Backlog — CI repair scoped into CS-PLAN-015b Phase 4 (D-CI); blocking-gate fold-in into `release-gate.yml` is follow-up work after 015b acceptance (path confirmed by user 2026-07-27)  
+**Assignee**: Unassigned  
+**Estimated Effort**: M  
+**Phase**: 9
+
+### Description
+The only CI workflow that runs Playwright (`.forgejo/workflows/test.yml`) triggers on `push`/`pull_request` to `main` and `develop` — the repository's only branch is `master`, so **the E2E suite has never run in CI**. Even if triggered, the job would fail: the Nextcloud service container never gets the app mounted (the "Enable ChoreStrike app" step is a seed `curl` with `continue-on-error: true` against a Nextcloud that does not contain ChoreStrike), and it pins `nextcloud:latest` (version drift vs. the NC 31.0.14 test env). The authoritative gate (`release-gate.yml`, triggers correctly on `master`) has **no E2E job at all** — lint, Jest, build, composer, PHPUnit only. Net effect: the entire E2E investment (CS-015/015b) has zero CI protection, and a release could gate green while E2E is red.
+
+### Acceptance Criteria
+- [ ] E2E runs on every push/PR to `master` (repaired `test.yml` or equivalent) and fails the run on red — including the `chromium-serial-db` project from CS-PLAN-015b.
+- [ ] The Nextcloud image is pinned (no `latest`); the app is mounted and enabled before seeding; brute-force protection disabled as in the local test env.
+- [ ] Follow-up logged/planned: E2E as a blocking job in `release-gate.yml` (chromium first, full matrix after CS-PLAN-015b acceptance).
+
+### Notes
+- Found 2026-07-27 in the test-pipeline review (verified first-hand in both workflow files).
+- `playwright.config.ts` sets `workers: 1` on CI — full-matrix × full-suite CI runs will be slow; the matrix split by profile is the mitigating factor.
+
+---
+
+## [P2] CI PHPUnit unit gate runs no controller tests; `phpunit.xml` excludes 5 controller test files as "outdated"
+
+**Status**: Backlog  
+**Assignee**: Unassigned  
+**Estimated Effort**: M  
+**Phase**: 9
+
+### Description
+Two config splits make the backend unit gate blind at the controller layer. (1) `phpunit.unit.xml` — the config the CI gate runs (`.forgejo/workflows/release-gate.yml`) — has suites for Entity, Service, BackgroundJob, and Notification only: **zero controller tests, zero migration tests, zero l10n tests run in CI**. The authorization regression tests added by CS-PLAN-011/012 (`TaskControllerTest`, `RoomTaskControllerTest` visibility/cross-house gates) are not exercised by the gate. (2) `phpunit.xml` (the default `composer test` config) excludes 5 controller test files as "outdated … need complete rewrite": `GameControllerTest`, `PageControllerTest`, `RoomControllerTest`, `RoomTaskControllerTest`, `SchedulingControllerTest` — yet `RoomTaskControllerTest` is actively maintained and green (extended in CS-PLAN-011/012), so the exclusion silently drops real coverage. No single PHPUnit config today runs the full green unit set.
+
+### Acceptance Criteria
+- [ ] One authoritative unit config (or the CI job) runs Controller + Service + Db(entity) + BackgroundJob + Notification + Migration + l10n suites.
+- [ ] Each of the 5 excluded controller test files is either repaired and re-included or deleted with a documented reason (`SchedulingControllerTest` is owned by CS-PLAN-016 T1).
+- [ ] The CI unit job runs the authoritative config.
+
+### Notes
+- Found 2026-07-27 in the test-pipeline review (verified in `phpunit.xml`, `phpunit.unit.xml`, `release-gate.yml`).
+- Historical "479/479" gate reports came from partial configs / explicit file runs — the gate was never as green as reported at the controller layer.
+
+---
+
 ## [P3] Dedicated security reporting address + GPG key
 
 **Status**: Backlog

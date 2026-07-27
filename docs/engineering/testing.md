@@ -198,6 +198,22 @@ It is the single source of truth for blocking gate commands.
 |---------|--------|
 | `npm run stylelint` | `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch produces 201 "Unknown rule" errors (see `docs/backlog/bugs.md`). Stylelint output is uploaded as an artifact for review. Promoted to blocking once the upstream toolchain is pinned. |
 
+> **Unit-gate scope caveat (2026-07-27):** `phpunit.unit.xml` currently runs the
+> Entity/Service/BackgroundJob/Notification suites only — controller, migration,
+> and l10n unit tests are outside the CI gate, and `phpunit.xml` excludes 5
+> controller test files as "outdated". Tracked in `docs/backlog/bugs.md` [P2].
+
+### E2E in CI (status 2026-07-27)
+
+E2E is **not** part of the blocking release gate today. The second workflow,
+`.forgejo/workflows/test.yml` (matrix PHPUnit + Playwright), triggers only on
+`main`/`develop` — the repository branch is `master` — and its E2E job is
+currently non-functional (the app is never mounted into the Nextcloud service
+container; `nextcloud:latest` is unpinned). E2E therefore runs locally against
+the Docker test env only, until CS-PLAN-015b (Phase 4, D-CI) repairs the
+workflow. Folding E2E into `release-gate.yml` as a blocking job is planned
+follow-up after the 015b acceptance. Tracked in `docs/backlog/bugs.md` [P1].
+
 ### Running the gate locally
 
 ```bash
@@ -631,18 +647,29 @@ strategy:
 
 The biggest remaining gaps are no longer basic component or store tests. Those areas now have meaningful automated coverage. The highest-value remaining work is here:
 
-### 1. Real Multi-User GUI Coverage
+### 1. E2E Pipeline & Coverage Gaps (2026-07-27 review)
 
-- The current realistic shared-state smoke coverage is centered on `tests/e2e/gui-scratch-flow.spec.ts`.
-- There is still no broad release-gate Playwright pack for:
-  - two-user task claiming
-  - teamwork participation joins/leaves
-  - reassignment or overdue-claim flows across separate sessions
+- **E2E runs in no CI** — `test.yml` triggers on `main`/`develop` only and is
+  non-functional; `release-gate.yml` has no E2E job (`bugs.md` [P1]; repair is
+  CS-PLAN-015b Phase 4 D-CI, blocking fold-in is follow-up).
+- **Uncovered feature surfaces** — reward configuration, task templates,
+  notifications, minigame economy UI (BoostShop, snake leaderboard), and
+  mobile/responsive layouts have no E2E coverage; 8 components + the
+  `checklist` store lack Jest specs (`phase-9-code-quality.md` P9-E2E-003).
+- **Backend unit gaps** — `TemplateService`, `RewardConfigController`,
+  `TemplateController`, `TaskSyncController`, 5 mappers, and a fresh-install
+  migration smoke test (`phase-9-code-quality.md` P9-TEST-003).
+- **Stabilization in flight** — CS-PLAN-015b (session-safe multi-user auth,
+  seed-race containment); CS-016 re-adds the 3 archived scheduling specs.
 
 ### 2. Legacy E2E Drift
 
-- Some older Playwright specs still drift when selectors or form flows change.
-- `phase-3-user-management.spec.ts` is the clearest example and should be rewritten or excluded from release-gate expectations until it targets currently wired screens.
+- The known dead specs were archived by CS-PLAN-015 (`archive/2026-07/e2e-legacy/`):
+  `phase-3-user-management`, the scheduling trio (revive via CS-016), and
+  `phase-4-advanced-mechanics`.
+- The ~13-spec long tail still carries ~27 `waitForTimeout` calls plus residual
+  text/positional selectors (`phase-9-code-quality.md` P9-E2E-002b, starts once
+  the CS-015/015b foundation is proven flake-free).
 
 ### 3. Cross-Layer Contract Changes
 

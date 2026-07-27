@@ -5,6 +5,22 @@
 
 ## Recently Completed
 
+### Test-Pipeline Review (CS-015b / CS-015 / CS-016) — 2026-07-27
+**Status**: Done
+**Started/Completed**: 2026-07-27
+**Branch**: master (uncommitted: plan corrections + backlog items + CS-017 draft)
+**Scope**: Standard-A re-review of CS-PLAN-015b in pipeline context + Standard-A review of CS-PLAN-016; full automated-test inventory via 2 `explore` subagents (26 E2E specs / ~169 tests, 45 Jest specs, ~67 PHPUnit unit classes, 18 integration classes); `phpunit.xml`, `phpunit.unit.xml`, and both CI workflows verified first-hand.
+**Findings & routing**:
+- **F1 [P1] E2E runs in no CI** — `test.yml` triggers only on `main`/`develop` (repo branch is `master`), never mounts the app into the Nextcloud service, pins `nextcloud:latest`; `release-gate.yml` has no E2E job. → `bugs.md` [P1]; minimal CI repair scoped into CS-015b Phase 4 (D-CI) + new AC.
+- **F2 [P2] CI unit gate blind at controller layer** — `phpunit.unit.xml` has no Controller/Migration/l10n suites; `phpunit.xml` excludes 5 controller test files as "outdated" (incl. the actively-maintained `RoomTaskControllerTest`). → `bugs.md` [P2].
+- **F3 Manual test plan stale + not gating** (user requirement: none release without it) — references archived features, "sparks" wording, no sign-off, alpha guide German-only. → **CS-PLAN-017** drafted in `new/`.
+- **F4 E2E coverage gaps** (reward config, templates, notifications, minigame economy, mobile + 8 Jest-less components + checklist store) → `phase-9-code-quality.md` P9-E2E-003.
+- **F5 015b plan body** — its own first-review corrections (39 call sites, gui-scratch-flow, test-fixtures.ts) had never been applied; applied now + 2nd Review Outcome recorded.
+- **F6 Backend unit gaps** (TemplateService, RewardConfigController, TemplateController, TaskSyncController, 5 mappers, migration smoke) → P9-TEST-003.
+- **F7 CS-016 additions applied** — T1: repair + re-include the excluded `SchedulingControllerTest`; manual-checklist scheduling section update; Standard-A Review Outcome recorded (no blocks/majors).
+- P9-E2E-002b wording fixed ("in CI" referenced a non-existent CI E2E run); P8-INTERNAL-TEST annotated.
+**Notes**: Not committed — awaiting approval.
+
 ### Review Hardening Pass — 2026-07-25 (three six-track `/review` cycles + migration cluster)
 **Status**: Done
 **Started/Completed**: 2026-07-25
@@ -241,22 +257,47 @@
 **Blockers**: None.
 
 ### CS-PLAN-015 - E2E Stabilization — data-testid, Stable Selectors & Auth Optimization
-**Status**: Done (2026-07-26) — implemented; Docker acceptance run (`--retries=0` × 3 browsers) pending the operator. Scope adjustment: the Scheduling UI is split out → **CS-016**; the 3 dead scheduling specs (`scheduling`, `flex-window-scheduling`, `availability-settings-flow`) + `phase-3-user-management.spec.ts` are now **archived with revive-notes** (not migrated/rewritten). ACs sharpened for `--retries=0` flake measurement and `storageState`×parallel seed races. See the plan's `## Implementation Outcome`.
+**Status**: Done (2026-07-26) — Phase 1–4 implemented; **Docker acceptance FAILED** (best 87/166 chromium, Run #4 regression to 50 after `fetch('/logout')`). Blockers B1–B6 documented in the plan's `## Acceptance Run Results`; resolution deferred → **CS-PLAN-015b**. Scope adjustment: the Scheduling UI is split out → **CS-016**; the 3 dead scheduling specs (`scheduling`, `flex-window-scheduling`, `availability-settings-flow`) + `phase-3-user-management.spec.ts` are now **archived with revive-notes** (not migrated/rewritten). See the plan's `## Implementation Outcome`.
 **Priority**: P2 · **Effort**: L · **Depends on**: none (CS-PLAN-007 Phase 4 did the partial auth fix; release-gate views already carry root testids)
 **Scope**: Closes `bugs.md` [P2] data-testid + `phase-9-code-quality.md` P9-E2E-002. Pre-plan audit quantified: 176 `waitForTimeout` across 26 specs, 102 text selectors across 22 specs, **0** `getByRole`/`getByLabel` usage, 20+ phantom testids specs query but source lacks, and the root cause of nav text-selectors — `<NcAppNavigationItem>` does **not** pass `data-testid` through to the DOM. Phased: (1) **Foundation** — fix the `App.vue` nav passthrough (wrapper/`aria-label`/`getByRole` fallback), introduce `storageState` auth so specs stop re-logging in (~3–5 s/spec × 31 specs), write a testid-convention doc; (2) **Close testid gaps** in `Modal.vue`/`TaskList.vue` (+ `private-filter-toggle`, `visibility-crown-icon`) and resolve the Scheduling dead-UI question (add testids **or** exclude the specs); (3) **Migrate worst-offender specs** (`snake-game` 32, `flex-window-scheduling` 25, `scheduling` 17, `core-functionality` 15+10, `task-completion*` 11+11, …) off `waitForTimeout`/text selectors onto auto-waiting `getByTestId`/`getByRole` locators; (4) **Retire** `phase-3-user-management.spec.ts` (rewrite against current UI **or** archive — tests the archived User-Management feature); (5) optional a11y/role-check layer. Success = 3 consecutive flake-free local E2E runs (chromium+firefox+webkit), `waitForTimeout` ≈ 0 on migrated specs. Frontend/E2E only — no backend change.
 **Plan**: docs/plans/active/cs-plan-015-e2e-stabilization.md
-**Blockers**: Docker acceptance run pending.
+**Blockers**: Acceptance failed (B1–B6) → resolution in CS-PLAN-015b.
+
+### CS-PLAN-015b - E2E Stabilization Phase 2 — Session-Safe Multi-User Auth, Seed-Race Containment & Acceptance
+**Status**: Active (moved `new/ → active/` 2026-07-27 per user decision; revised + **reviewed 2× 2026-07-27** — second pass applied the pending corrections and added the CI-E2E scope D-CI)
+**Priority**: P2 · **Effort**: L · **Depends on**: CS-PLAN-015 (Phase 1–4 shipped) · **Blocks**: CS-016
+**Scope**: Resolves the failed CS-015 Docker acceptance (best 87/166 chromium). Key revisions vs. the first draft, all verified against source: (1) **B1 root cause is precise** — `fetch('/logout')` kills the *server-side* session behind `admin.json`, so one logout kills the whole parallel worker pool; fix = per-user `storageState` files (`.playwright/.auth/{user}.json`) + new `auth-contexts.ts` fixture (`createUserContext`), `loginAsUser` + the logout path are **deleted** (42 call sites / 10 specs migrate). (2) B2/B3 "stale CSS selectors" are mostly **B1 collateral** — the classes exist in source (`.arcade-section`, `.pause-overlay`, `.checklist-item`, …); only `.sparks-display`/`.sparks-value` are genuinely absent. (3) B4 is not a routing bug (`/tasks` route + `task-manager-view` testid both exist). (4) **Seed race** (`seededData` re-seeds per test under `fullyParallel`) contained via a serial `chromium-serial-db` project for the 4 seed-dependent specs. Per-user storageState viability verified: `TestDataService::reset()` truncates only app tables, never `oc_users`. Phase 0 (serial baseline) classifies failures before any fix. **Does NOT close P9-E2E-002b** (long-tail `waitForTimeout` — stays open).
+**Plan**: docs/plans/active/cs-plan-015b-e2e-phase2.md
+**Blockers**: None.
 
 ### CS-PLAN-016 - Smart Scheduling UI — Revive the Built-but-Stripped Frontend
-**Status**: Planned (drafted, awaiting `new/ → active/` move)
+**Status**: Active (manually moved `new/ → active/`, 2026-07-26) — **sequenced AFTER CS-PLAN-015b** (shares the E2E auth infra + spec surface; starting it before 015b lands would collide)
 **Priority**: P2 · **Effort**: L · **Depends on**: prefers CS-015 (testid convention + `storageState` E2E auth infra), not hard-blocked
 **Scope**: Scheduling is a **built-but-UI-stripped feature**. The backend is complete and load-bearing (`SchedulingController` + `SmartSchedulerController` + `lib/Service/Scheduling/` 5 algorithm classes + 8 routes + full `scheduling` Pinia store), but **no view mounts the store** (verified: 0 `useSchedulingStore` mounts in `src/views`+`src/components`; CS-PLAN-003 archived `SchedulingView.vue` + 5 components to `archive/2026-07/legacy-unwired/`; `router.js` has no `/scheduling` route). Users today cannot edit availability/energy — the jobs run against migration defaults only. This plan **revives/adapts** the archived Vue against the existing backend: add `/scheduling` route + `nav-scheduling` item, reconcile the two overlapping controller surfaces (`scheduling#*` vs `smart-schedule#*` — decision D1), enforce owner/self authorization on member-mutation endpoints, add `data-testid`s per the CS-015 convention, i18n, Jest + integration-auth tests, and **reintroduce the 3 scheduling E2E specs** CS-015 archived (`scheduling`, `flex-window-scheduling`, `availability-settings-flow`). Not a UX redesign — a revive. Raised during the CS-015 plan review (2026-07-26).
-**Plan**: docs/plans/new/cs-plan-016-scheduling-ui.md
-**Blockers**: None (prefers CS-015 foundation).
+**Plan**: docs/plans/active/cs-plan-016-scheduling-ui.md
+**Blockers**: CS-PLAN-015b (E2E auth infra + green baseline first).
+
+### CS-PLAN-017 - Manual Release Test Plan — Consolidate, Refresh & Gate
+**Status**: Planned (drafted in `new/` 2026-07-27 from the test-pipeline review; user decision 2026-07-27 (1b): **sequenced behind CS-015b** — plan review at activation)
+**Priority**: P1 · **Effort**: M · **Depends on**: CS-015b (per user decision: starts only after 015b; scheduling section marked "applies once CS-016 ships")
+**Scope**: User requirement: no release without an existing + executed manual test plan. Consolidates the four overlapping, stale testing docs (`manual-test-checklist.md` — archived features + "sparks" wording; `alpha-test-guide.md` — German-only; `family-test-setup.md`; `critical-tests.md`) into one authoritative, English, stage-mapped `docs/testing/release-test-plan.md` with a per-release execution/sign-off record, and wires it as a gate into `release-strategy.md` exit criteria + `deployment.md` pre-release steps. Docs-only.
+**Plan**: docs/plans/new/cs-plan-017-manual-release-test-plan.md
+**Blockers**: CS-PLAN-015b (user decision 1b).
 
 ---
 
 ## Currently Active
+
+### CS-PLAN-015b - E2E Stabilization Phase 2 (Execution)
+**Status**: Active (activated 2026-07-27 per user decision; implementation not yet started)
+**Started**: 2026-07-27 (activation)
+**Branch**: master
+**Plan**: docs/plans/active/cs-plan-015b-e2e-phase2.md
+**Blockers**: None
+**Notes**:
+- Plan passed two Standard-A reviews on 2026-07-27 (source verification + pipeline-wide re-review); pending corrections applied; CI-E2E scope (D-CI) added to Phase 4 + acceptance criteria.
+- **Sequencing decisions (user, 2026-07-27):** CS-017 starts only after 015b (decision 1b); CS-016 remains sequenced after 015b; E2E fold-in into `release-gate.yml` as a blocking job is follow-up work after 015b acceptance (`bugs.md` [P1]).
+- **Next step:** Phase 0 — serial + parallel baseline runs (`--retries=0`) in the Docker test env to classify failures {auth-caused, seed-race, genuine} before any code change.
 
 ### CS-PLAN-013 - Gamification Fairness, Store-Barrel Completeness & Dead-Code Cleanup
 **Status**: Done (committed 2026-07-25, `f394c2e`)

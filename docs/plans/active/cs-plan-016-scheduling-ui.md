@@ -30,6 +30,7 @@ Wire a real Scheduling UI to the **existing** backend+store — revive/adapt the
 ### Backend (`lib/`)
 - **Decision (D1):** reconcile `SchedulingController` vs `SmartSchedulerController`. Options: (a) UI consumes only `scheduling#*` and the `smart-schedule#*` surface is archived/removed if unused; (b) consolidate the two into one controller. Prefer (a) unless the smart-schedule preview/generate UX is wanted.
 - **Authorization (S1):** audit `updateMemberAvailability`/`updateMyAvailability`/`updateMyEnergyBudget`/`applySuggestion` — owner-only mutations use `requireHouseOwner()`, self mutations verify `userId === current`. Return 404 (anti-enumeration) on denial. **No `@PublicPage`**, `@NoAdminRequired` only.
+- **Test repair (T1):** `tests/unit/Controller/SchedulingControllerTest.php` is currently **excluded** from `phpunit.xml` as "outdated" — repair it and remove the exclude so the revived UI sits on a tested controller surface; verify `SmartSchedulerControllerTest` (+ `SmartSchedulerControllerAnnotationsTest`) still passes post-D1.
 - Likely **no schema/migration change** (columns exist: `scheduling_preferences` JSON, `weekdayAvailability`, `maxDailyTasks`, energy fields). Confirm during Phase 1.
 
 ### Frontend (`src/`)
@@ -49,6 +50,7 @@ Wire a real Scheduling UI to the **existing** backend+store — revive/adapt the
 ## 4. Tests
 
 - **Unit (Jest):** component specs for each revived component (render + store wiring + testid assertions); extend `scheduling.spec.js` store tests for any new action.
+- **Unit (PHPUnit):** repair + re-include `SchedulingControllerTest` (T1).
 - **Integration (PHPUnit, Docker):** authorization tests for the member-mutation endpoints (owner-only → 200/404, self vs other, cross-house).
 - **E2E (Playwright):** the 3 reintroduced specs against the real UI (family profile). Success = stable across chromium/firefox/webkit (`--retries=0`, per CS-015's measurement rule).
 
@@ -66,6 +68,9 @@ modified: src/App.vue                                         (nav-scheduling it
 modified: src/store/scheduling.js                             (mount wiring if needed)
 modified: lib/Controller/SchedulingController.php            (auth audit; post-D1)
 modified: lib/Controller/SmartSchedulerController.php        (auth audit; post-D1 — archive if D1=a)
+modified: tests/unit/Controller/SchedulingControllerTest.php  (repair + re-include; T1)
+modified: phpunit.xml                                         (remove SchedulingControllerTest exclude)
+modified: docs/testing/manual-test-checklist.md               (Smart Scheduling section → revived UI; aligns with CS-017)
 new:      tests/unit/components/SchedulingView.spec.js       (+ per-component specs)
 modified: tests/unit/store/scheduling.spec.js                (any new action)
 new:      tests/integration/SchedulingAuthorizationTest.php  (owner/self/cross-house)
@@ -102,6 +107,8 @@ new:      docs/plans/active/cs-plan-016-scheduling-ui.md     (manual new/ -> act
 - [ ] A user can view + edit their weekday availability and per-day energy budget; changes persist (round-trip via the store → `scheduling#*` endpoints → DB).
 - [ ] D1 resolved: exactly one canonical scheduling controller surface is consumed by the UI; the other is documented or archived.
 - [ ] Member-mutation endpoints enforce owner/self authorization; covered by integration tests (404 anti-enumeration on denial).
+- [ ] `SchedulingControllerTest` runs in the default PHPUnit suite (exclude removed) and is green (T1).
+- [ ] `docs/testing/manual-test-checklist.md` Smart Scheduling section matches the revived UI (aligns with the CS-017 release test plan).
 - [ ] Every revived interactive element carries a `data-testid` per the CS-015 convention; no `waitForTimeout`/text selectors in the reintroduced E2E specs.
 - [ ] The 3 archived scheduling E2E specs are reintroduced and pass across chromium/firefox/webkit with `--retries=0`.
 - [ ] i18n: all new user-visible strings use `t()`; `l10n/` artifacts updated; `npm run l10n:check-keys` passes.
@@ -110,4 +117,15 @@ new:      docs/plans/active/cs-plan-016-scheduling-ui.md     (manual new/ -> act
 
 ## Review Outcome
 
-_Pending — propose a Standard-A review after the user moves `new/ → active/` (or now, on request). Key open question to confirm at review time: the D1 controller-surface decision._
+**Standard-A plan review, 2026-07-27** (pipeline-wide review together with CS-015/CS-015b; test inventory via `explore` subagents, CI configs verified first-hand).
+
+**Result:** no blocks, no majors. Plan is coherent, correctly sequenced after CS-015b (shared E2E auth/seed infra), and the D1 controller-surface decision is properly flagged as the Phase-1 gate. Two scope additions applied directly:
+
+| # | Severity | Finding | Resolution |
+|---|----------|---------|------------|
+| 1 | major | `tests/unit/Controller/SchedulingControllerTest.php` is **excluded** from `phpunit.xml` as "outdated" — the plan revives a UI on top of a controller whose unit test does not run, and its "build gate green" AC would not exercise it. | Added **T1** (Phase 1): repair + re-include the test, remove the exclude; manifest + AC updated. |
+| 2 | minor | The stale "Smart Scheduling" section of `docs/testing/manual-test-checklist.md` (archived UI) becomes user-facing again once the UI is revived, but no plan item updates it. | Added to manifest + AC; aligns with the CS-017 release test plan. |
+
+**Verified claims:** backend scheduling coverage is otherwise strong (5 algorithm + 3 service unit tests, `SmartSchedulerControllerTest` ×2, `AvailabilityApiTest` integration); `src/store/scheduling.js` has a Jest spec; no `/scheduling` route and 0 `useSchedulingStore` mounts confirmed; the 3 archived E2E specs exist under `archive/2026-07/e2e-legacy/`.
+
+**Context noted (owned elsewhere):** the CI unit gate runs no controller tests at all (`bugs.md` [P2]); E2E acceptance for this plan inherits the CI-wiring requirement from CS-015b D-CI (`bugs.md` [P1]).

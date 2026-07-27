@@ -148,6 +148,7 @@ Review preparation documents:
   - [x] Document rollback procedure (documented in checklist)
 - [x] Manual Testing Checklist
   - [x] Create comprehensive test checklist (docs/MANUAL_TEST_CHECKLIST.md)
+  - [ ] **Refresh + execute before any release (2026-07-27 test-pipeline review):** the checklist (now `docs/testing/manual-test-checklist.md`, v1.0.0 of 2026-03-05) is stale — it references archived features (User Management, Smart Scheduling UI) and pre-rename "sparks" wording, is not tied to the release stages, and has no execution/sign-off record; `docs/testing/alpha-test-guide.md` is German-only. Owned by **CS-PLAN-017** (manual release test plan).
 - [ ] Beta Deployment on Personal Server
   - [ ] Deploy to personal Nextcloud instance
   - [ ] Verify no impact on other Nextcloud apps
