@@ -118,8 +118,14 @@ to `.playwright/.auth/{userId}.json` (gitignored). Accounts survive re-seeding
        }
    })
    ```
-   For two simultaneous users, create two contexts (in-tree precedent:
-   `multi-user-interactions.spec.ts`).
+   `createUserContext` primes the CSRF `requesttoken` header (loads the
+   dashboard once) and **throws** if the token is unavailable (expired
+   storageState or unreachable instance) — the context is auto-closed on
+   failure. The available user ids are the `family` accounts
+   (`mom`/`dad`/`teen`/`kid`/`grandma`/`friend`); the setup authenticates them
+   regardless of `TEST_DB_PROFILE` (seed data and auth identities are
+   decoupled). For two simultaneous users, create two contexts (in-tree
+   precedent: `multi-user-interactions.spec.ts`).
 
 ### No-logout rule
 

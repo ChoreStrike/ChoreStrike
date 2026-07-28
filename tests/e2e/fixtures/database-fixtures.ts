@@ -151,12 +151,5 @@ export const test = baseTest.extend<DatabaseFixtures>({
 	},
 })
 
-// Helper to get user credentials for a profile
-export function getUserCredentials(profile: DatabaseProfile, userId: string): { userId: string; password: string } | null {
-	const users = PROFILE_USERS[profile]
-	const user = users.find(u => u.userId === userId)
-	return user ? { userId: user.userId, password: user.password } : null
-}
-
 // Re-export expect
 export { expect }

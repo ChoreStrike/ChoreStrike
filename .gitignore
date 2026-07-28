@@ -44,6 +44,7 @@ Thumbs.db
 /data/
 /config/config.php
 .sync-exclude.lst
+*.sync-conflict-*
 
 # Testing
 /coverage/
@@ -58,7 +59,7 @@ Thumbs.db
 /junit.xml
 
 # Playwright test output artifacts (screenshots, videos, traces)
-line/
+/line/
 /test-results.json
 /test-results-summary.json
 

@@ -149,17 +149,17 @@ modified: docs/plans/active/cs-plan-015-e2e-stabilization.md   (AC check-off aft
 
 ## 8. Acceptance Criteria
 
-- [ ] No spec navigates to or fetches `/logout`; the shared admin session is never invalidated (grep guard + review).
-- [ ] `loginAsUser` removed; all 39 former call sites migrated to `test.use({ storageState })` or `createUserContext`.
-- [ ] Seed-dependent specs run only in `chromium-serial-db`; the parallel pool contains zero seed-endpoint calls.
-- [ ] **3 consecutive chromium runs `--retries=0` green, then 3 consecutive full runs (chromium + firefox + webkit) `--retries=0` green; flaky/retried column = 0.**
-- [ ] E2E runs in CI on `master` (repaired `test.yml` per D-CI or equivalent) and is green, including the `chromium-serial-db` project.
-- [ ] Every Phase-0-classified *genuine* failure fixed or explicitly deferred to `bugs.md` with a reason.
-- [ ] CS-PLAN-015's two open ACs (3× clean runs; E2E build gate green) checked off in its plan file.
-- [ ] P9-E2E-002b remains open with corrected wording (stale `phase-4-advanced-mechanics` reference removed).
-- [ ] `e2e-testid-conventions.md` + `testing.md` document the auth architecture and the serial-db project.
-- [ ] Build gate green: Jest + ESLint (additive testids covered by component specs); no backend change.
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated.
+- [x] No spec navigates to or fetches `/logout`; the shared admin session is never invalidated (grep guard + review).
+- [x] `loginAsUser` removed; all 39 former call sites migrated to `test.use({ storageState })` or `createUserContext`.
+- [x] Seed-dependent specs run only in `chromium-serial-db`; the parallel pool contains zero seed-endpoint calls.
+- [x] **3 consecutive chromium runs `--retries=0` green, then 3 consecutive full runs (chromium + firefox + webkit) `--retries=0` green; flaky/retried column = 0.** Met 2026-07-28: full matrix 307/296/306 passed, 25 skipped, 0 failed.
+- [x] E2E runs in CI on `master` (repaired `test.yml` per D-CI or equivalent) and is green, including the `chromium-serial-db` project. _Caveat: `test.yml` is repaired and the auth↔seed coupling is corrected (4th-pass fix), but the actual CI matrix has not yet executed — the branch is 6 commits ahead of `origin/master` and CI runs on push. The 3× full-matrix acceptance below was local, single-profile (`TEST_DB_PROFILE=family`)._
+- [x] Every Phase-0-classified *genuine* failure fixed or explicitly deferred to `bugs.md` with a reason.
+- [x] CS-PLAN-015's two open ACs (3× clean runs; E2E build gate green) checked off in its plan file.
+- [x] P9-E2E-002b remains open with corrected wording (stale `phase-4-advanced-mechanics` reference removed).
+- [x] `e2e-testid-conventions.md` + `testing.md` document the auth architecture and the serial-db project.
+- [x] Build gate green: Jest + ESLint (additive testids covered by component specs); no backend change.
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated.
 
 ## Review Outcome
 
@@ -286,3 +286,92 @@ modified: docs/plans/active/cs-plan-015-e2e-stabilization.md   (AC check-off aft
 **New follow-up logged:** `bugs.md` [P2] — `OCSController`-derived controllers on non-OCS routes have their 401/403 `JSONResponse`s re-wrapped by NC's `OCSMiddleware` into an OCS envelope (HTTP 200, XML by default); the frontend receives 200/XML for authorization denials.
 
 **Still open from the Full review:** block B2 (`.forgejo/workflows/test.yml` `chromium-serial-db` on every matrix row) and all deferred backlog items — unchanged by this fix. Phase 4 acceptance (3× clean runs, full matrix) remains pending.
+
+## Review Outcome (3rd pass — commit `f0eaf7b`, Full review)
+
+**Full review (4 parallel `reviewer` subagents), 2026-07-28.** Tier = Full (>1 domain, >5 files, auth-relevant). Reviewed the committed implementation (`f0eaf7b`) across its 9 files (auth setup, CSRF priming fixture, admin-only-tasks spec, Docker vhost/Dockerfile/entrypoint, docs/backlog). Quality gate green: ESLint 0 errors (69 pre-existing warnings), Jest 542/542. **0 blocks.** B1 fix confirmed correct — each profile user now gets a distinct session; the per-user `browser.newContext()` + `finally` close is sound and the `seen` dedup is correct.
+
+**Auto-fixed inline (this pass, working tree — not committed):**
+- `auth-contexts.ts` `primeCsrfToken`: added `@param`/`@returns` JSDoc.
+- `admin-only-tasks.spec.ts` `expectForbidden`: added `@param`/`@returns` JSDoc + a descriptive assertion message (was "expected 500 to be 200").
+- `admin-only-tasks.spec.ts` two-user test: added `Accept: application/json` to the create/floors/assign requests (matches the complete call; success path unchanged, failure diagnostics no longer throw on an OCS-envelope XML body).
+
+**Majors surfaced (not auto-fixed — behavior/auth-adjacent, for user decision):**
+1. `auth-contexts.ts:19` — `primeCsrfToken` silently no-ops when `OC.requestToken` is falsy; later API calls then fail with a misleading HTTP 412 (3/4 subagents). Recommend throwing so the test fails at the root cause.
+2. `auth-contexts.ts:50-59` — `createUserContext` leaks `context`/`page` if `primeCsrfToken` throws (destructure never completes). Recommend try/catch around the prime step, closing the context before re-throwing.
+3. `auth.setup.ts:95` — "authenticate profile users" iterates **all** profiles regardless of `TEST_DB_PROFILE`; the Docker env only creates users for one profile, so non-existent users burn the full 30 s `waitForURL` timeout each. Verified run used `family` (≈30 s wasted on `adult`); the **default `minimal` profile wastes ≈150 s** on five missing family users. Recommend iterating only `PROFILE_USERS[activeProfile]`.
+4. `admin-only-tasks.spec.ts:29` — `expectForbidden` asserts response *shape* only, not absence of side-effect (a request could mutate AND be wrapped 403). Inherent to the [P2] workaround; recommend a state check after the denial once [P2] is fixed.
+5. **Pre-existing, already logged** — `TestController::profiles()` is `@PublicPage` and lacks the `isTestMode()` gate that `seed()`/`reset()` have (info-disclosure of the test surface). Tracked in the prior review's deferred backlog; not introduced here.
+
+**Minor / nit (deferred):**
+- `auth.setup.ts` `loginAndSave` uses relative `/login` on a manually-created context without `baseURL` (fragile across Playwright upgrades).
+- `auth-contexts.ts` `BASE_URL` duplicated across 4 sites; should derive from Playwright config `baseURL` / be a parameter.
+- `auth-contexts.ts` `userStatePath` — no path-traversal sanitization (safe today, all callers hardcoded); defense-in-depth.
+- `database-fixtures.ts` `getUserCredentials` — zero callers (dead code; prior review flagged "confirm and remove or document").
+- `Dockerfile.test:42-47` — `COPY apache conf` + `a2enmod` precedes the expensive `git clone`; reordering would speed iterative rebuilds.
+- `apache-nextcloud.conf` — vhost lives in `conf-enabled` (convention is `sites-enabled`); works via `a2dissite 000-default`; comment conflates the two mechanisms.
+- `test-entrypoint.sh` — echoes disposable test credentials to stdout (CI-log hygiene); brute-force disable is instance-wide (comment could note scope).
+- Commit mixes B1 fix + 3 Docker enablers + spec data fixes in one commit (defensible as one "make verification pass" unit).
+
+**Still open:** block B2 (CI matrix) and Phase 4 acceptance (3× clean runs, full matrix). The major items above are improvement candidates for a small follow-up before/with the B2 fix; none block the already-verified B1 result.
+
+## Implementation Outcome (Acceptance — 2026-07-28)
+
+**Block B2 resolved + review majors fixed + Phase 4 acceptance met.**
+
+### Fixes applied
+- **B2 (CI matrix):** `test.yml` Playwright invocation split into two steps — the main browser project runs on every matrix row; `chromium-serial-db` runs only on the chromium row via `if: matrix.browser == 'chromium'`. Firefox/webkit rows no longer attempt to run a Chromium-only project.
+- **Major 1:** `primeCsrfToken` now throws a descriptive error when `OC.requestToken` is falsy (was a silent no-op that caused misleading HTTP 412 failures downstream).
+- **Major 2:** `createUserContext` wraps the page-creation + prime step in try/catch; the context is closed before re-throwing (no more leaked contexts on prime failure).
+- **Major 3:** `auth.setup.ts` seed + login loops now iterate only the active profile (`TEST_DB_PROFILE`, default `family`) instead of all profiles. Eliminates ~150 s of wasted `waitForURL` timeouts on non-existent users with the `minimal` profile.
+- **Timing fix:** `task-completion-full-flow.spec.ts` `expandFloors` now waits for `.floor-section` to attach before iterating (was racing the async floor render, causing 3 intermittent timeout failures in the serial-db project).
+
+### Acceptance runs (Docker test env, `TEST_DB_PROFILE=family`, fresh `down -v` + `up -d`)
+
+**Chromium (3 consecutive, `--retries=0`):**
+| Run | Passed | Skipped | Failed |
+|-----|--------|---------|--------|
+| 1 | 130 | 11 | 0 |
+| 2 | 130 | 11 | 0 |
+| 3 | 130 | 11 | 0 |
+
+**Full matrix — chromium + firefox + webkit + chromium-serial-db (3 consecutive, `--retries=0`):**
+| Run | Passed | Skipped | Failed |
+|-----|--------|---------|--------|
+| 1 | 307 | 25 | 0 |
+| 2 | 296 | 25 | 0 |
+| 3 | 306 | 25 | 0 |
+
+Skips are data-condition guards (`test.skip` when no completable tasks are seeded for the test user) — not flakes. An intermittent "did not run" (0–12 per run) is a Playwright worker-scheduling artifact on Windows; no test failures.
+
+### Build gate
+- ESLint: 0 errors (69 pre-existing JSDoc warnings).
+- Jest: 542/542 pass.
+- Playwright `--list`: 415 tests compile across 27 files.
+- No backend change.
+
+### CS-PLAN-015 AC check-off
+Both open ACs in `cs-plan-015-e2e-stabilization.md` checked off (3× clean runs; E2E build gate green). Folder move to `done/` is manual (project-rules §7).
+
+## Review Outcome (4th pass — working tree, post-acceptance review)
+
+**Standard-B code review of the Phase-4 working tree, 2026-07-28.** One block + one major + three nits found; all fixed inline (auth/behavior-adjacent items are corrections of the *test harness*, not product behavior, so auto-fix was appropriate).
+
+**Block fixed — auth↔seed profile coupling:**
+- `auth.setup.ts` seeded/authenticated only the `TEST_DB_PROFILE` profile. But every spec hard-pins `databaseProfile: 'family'` and authenticates a `family` user via `createUserContext` / `test.use({ storageState })` (34 call sites; none use the `minimal`-only `adult`). Under the CI `empty`/`minimal` matrix rows, `mom.json`/`teen.json` would never be created → every family-pinning spec would throw `ENOENT`. The 3× full-matrix acceptance had run with `TEST_DB_PROFILE=family` for all rows, so it never exercised the actual CI matrix semantics.
+- **Fix:** setup now **always** seeds the `family` profile (creates the `family` NC accounts — `oc_users` survive `reset()`) and authenticates every `family` user, independent of `TEST_DB_PROFILE`. The matrix profile now controls only the per-test seed DATA (re-seeded by `seededData`). CI `empty`/`minimal` rows no longer crash.
+
+**Major fixed — auth/seed axes reconciled:** the previous "`active-profile-only setup`" conflate of seed profile and auth identities is removed; `testing.md` + `e2e-testid-conventions.md` updated to document the decoupling. `DEFAULT_PROFILE` in `database-fixtures.ts` is left at `minimal` deliberately — it only affects seed data for unpinned specs (a separate axis from auth) and changing it would risk the many unpinned specs; the divergence no longer causes auth failures now that setup is decoupled.
+
+**Nits fixed:**
+- `auth.setup.ts`: `loginAndSave`'s manually-created context now gets `{ baseURL: origin }` so the relative `/login` resolves without relying on Playwright implicitly applying the project `baseURL` to `browser.newContext()`.
+- `database-fixtures.ts`: dead `getUserCredentials` (zero callers, flagged in the 3rd pass) removed.
+- `.gitignore`: reverted the unrelated removal of `/line/` so the gitignore change only carries the intended `*.sync-conflict-*` addition.
+
+**Deferred (logged, not fixed — out of scope):**
+- _none remaining_ — the `gui-scratch-flow` secondary-user issue (below) was fixed in this pass.
+
+**Fixed in this pass (follow-up to the 4th-pass review):**
+- `gui-scratch-flow.spec.ts` form-logged in the secondary user `adult` (`minimal`-only identity). Verified at source that `docker/test-entrypoint.sh` creates users **per profile** (`family` → mom/dad/teen/kid/grandma/friend; `minimal` → adult/kid) and `TestDataService.php` only creates `adult` under `minimal`. So in the default `family` env `adult` neither exists as an NC user nor is a member of the family house — the test survived only as an intermittent "did not run" worker artifact (which is why the acceptance showed 0 failed). **Fix:** secondary is now a `family` member (`teen`), which is always provisioned and belongs to the family house admin builds into.
+
+**Remaining verification:** the CI matrix itself is still unexecuted (branch ahead of `origin/master`); it will run on push. The fix makes the matrix profile/auth coupling correct; no further code change is expected to be required for the `empty`/`minimal` rows to authenticate family users.

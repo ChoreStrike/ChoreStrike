@@ -10,15 +10,23 @@ const BASE_URL = process.env.NEXTCLOUD_URL || 'http://localhost:8080'
  * the frontend sets it globally (`src/main.js`), so E2E API requests must
  * too. Loads one authenticated page, reads `OC.requestToken` and registers
  * it as an extra header on the context.
+ *
+ * @param context - Context to attach the `requesttoken` header to.
+ * @param page - Authenticated page used to read `window.OC.requestToken`.
+ * @returns Resolves once the header is registered (no-op if no token).
  */
 async function primeCsrfToken(context: BrowserContext, page: Page): Promise<void> {
 	await page.goto(`${BASE_URL}/index.php/apps/dashboard/`)
 	const token = await page.evaluate(
 		() => (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken,
 	)
-	if (token) {
-		await context.setExtraHTTPHeaders({ requesttoken: token })
+	if (!token) {
+		throw new Error(
+			'primeCsrfToken: OC.requestToken not found after loading the dashboard. ' +
+			'The storageState may be expired or the Nextcloud instance is unreachable.',
+		)
 	}
+	await context.setExtraHTTPHeaders({ requesttoken: token })
 }
 
 /**
@@ -54,7 +62,13 @@ export async function createUserContext(
 	const context = await browser.newContext({
 		storageState: userStatePath(userId),
 	})
-	const page = await context.newPage()
-	await primeCsrfToken(context, page)
+	let page: Page
+	try {
+		page = await context.newPage()
+		await primeCsrfToken(context, page)
+	} catch (err) {
+		await context.close()
+		throw err
+	}
 	return { context, page }
 }

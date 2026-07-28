@@ -16,6 +16,7 @@ import type { Page } from '@playwright/test'
 /** Expand collapsed floor sections so room cards become visible. Toggling an
  * already-expanded floor would collapse it, so only collapsed floors are toggled. */
 async function expandFloors(page: Page): Promise<void> {
+	await page.locator('.floor-section').first().waitFor({ state: 'attached', timeout: 15000 })
 	const floors = page.locator('.floor-section')
 	const floorCount = await floors.count()
 	for (let i = 0; i < floorCount; i++) {

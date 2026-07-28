@@ -65,12 +65,17 @@ setup('seed profile users', async ({ baseURL }) => {
 		return
 	}
 
-	for (const profile of Object.keys(PROFILE_USERS) as DatabaseProfile[]) {
-		try {
-			await seedProfile(origin, profile)
-		} catch {
-			// Seeding best-effort — admin session remains the guaranteed fallback.
-		}
+	// Seed the `family` profile unconditionally: it owns the NC accounts
+	// (mom/dad/teen/kid/grandma/friend) that every spec authenticates below.
+	// `oc_users` survive `TestDataService::reset()` (app tables only), so a
+	// single family seed provides the identities for the whole run. Auth is
+	// decoupled from `TEST_DB_PROFILE` — the matrix profile only shapes the
+	// per-test seed DATA (re-seeded by the `seededData` fixture), never which
+	// users can log in.
+	try {
+		await seedProfile(origin, 'family')
+	} catch {
+		// Seeding best-effort — admin session remains the guaranteed fallback.
 	}
 })
 
@@ -91,20 +96,23 @@ setup('authenticate profile users', async ({ browser, baseURL }) => {
 		return
 	}
 
-	const seen = new Set<string>()
-	for (const profile of Object.keys(PROFILE_USERS) as DatabaseProfile[]) {
-		for (const user of PROFILE_USERS[profile]) {
-			if (seen.has(user.userId)) continue
-			seen.add(user.userId)
-			const context = await browser.newContext()
-			const page = await context.newPage()
-			try {
-				await loginAndSave(page, user.userId, user.password, userStatePath(user.userId))
-			} catch {
-				console.log(`[setup] Could not authenticate '${user.userId}' — specs using this user may skip.`)
-			} finally {
-				await context.close()
-			}
+	// Authenticate the `family` users regardless of `TEST_DB_PROFILE`. All
+	// specs request these identities via `createUserContext` /
+	// `test.use({ storageState })` (34 call sites, none use the `minimal`-only
+	// `adult`), so coupling login to the matrix profile would break every
+	// family-pinning spec under the CI `empty`/`minimal` rows. The family seed
+	// above guarantees the NC accounts exist for these logins. `baseURL` is
+	// passed to `newContext` so the relative `/login` in `loginAndSave`
+	// resolves even on a manually-created context.
+	for (const user of PROFILE_USERS.family) {
+		const context = await browser.newContext({ baseURL: origin })
+		const page = await context.newPage()
+		try {
+			await loginAndSave(page, user.userId, user.password, userStatePath(user.userId))
+		} catch {
+			console.log(`[setup] Could not authenticate '${user.userId}' — specs using this user may skip.`)
+		} finally {
+			await context.close()
 		}
 	}
 })

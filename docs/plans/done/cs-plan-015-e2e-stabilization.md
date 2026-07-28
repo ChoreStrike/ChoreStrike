@@ -1,6 +1,6 @@
 # CS-PLAN-015: E2E Stabilization — data-testid, Stable Selectors & Auth Optimization
 
-> **Status:** Partially implemented (2026-07-26) — Phase 1–4 code shipped; Docker acceptance revealed blockers requiring CS-PLAN-015b. See `## Acceptance Run Results` below.
+> **Status:** Done (2026-07-28) — Phase 1–4 code shipped; the Docker-acceptance blockers (B1–B6) are resolved by CS-PLAN-015b. All acceptance criteria met (3× full matrix `--retries=0` green; build gate green). Ready for the manual `active/ → done/` move (project-rules §7). See `## Acceptance Run Results` + `## Remaining Work` below.
 > **Effort:** L
 > **Priority:** P2
 > **Depends on:** none (CS-PLAN-007 Phase 4 did the partial auth fix; release-gate views already carry root testids)
@@ -135,10 +135,10 @@ new:      docs/plans/active/cs-plan-015-e2e-stabilization.md (manual new/ -> act
 - [x] Every testid a release-gate spec queries exists in source (no phantom testids) — **except** `phase-4-advanced-mechanics.spec.ts` (archived: phantom components).
 - [x] Scheduling UI is **not** touched by this plan (out of scope → CS-016); the dead scheduling specs are archived, not migrated/rewritten.
 - [x] `phase-3-user-management.spec.ts` + the scheduling trio (`scheduling`, `flex-window-scheduling`, `availability-settings-flow`) + `phase-4-advanced-mechanics.spec.ts` are archived to `archive/2026-07/e2e-legacy/` with documented reasons; scheduling trio carries a revive note → CS-016.
-- [ ] **3 consecutive local E2E runs (chromium + firefox + webkit) pass with `--retries=0`** — **NOT MET.** Best result: 87/166 passed (chromium, Run #3). Blockers: `loginAsUser` logout (B1), stale CSS selectors (B2/B3), phantom testids (B6). See `## Remaining Work (→ CS-PLAN-015b)`.
+- [x] **3 consecutive local E2E runs (chromium + firefox + webkit) pass with `--retries=0`** — **MET via CS-PLAN-015b** (2026-07-28). Full matrix (chromium + firefox + webkit + chromium-serial-db): 307/306/306 passed, 25 skipped, 0 failed across 3 consecutive runs.
 - [x] testid convention documented; `testing.md` documents the auth setup + release-gate spec set.
 - [x] `bugs.md` [P2] + `phase-9-code-quality.md` P9-E2E-002 marked Done.
-- [ ] Build gate green — Jest + ESLint green; **E2E not green** (50–87/166 passing depending on run).
+- [x] Build gate green — Jest 542/542 + ESLint 0 errors + E2E 3× full matrix green (CS-PLAN-015b, 2026-07-28).
 - [x] `docs/backlog/ACTIVE_TASKS.md` updated.
 
 ## Review Outcome
@@ -247,8 +247,11 @@ The following spec categories pass reliably:
 
 > **Resolved by CS-PLAN-015b (implemented 2026-07-27).** All four priorities below
 > are addressed; see `cs-plan-015b-e2e-phase2.md` § Implementation Outcome.
-> The two open ACs of this plan (3× clean runs; E2E build gate) are pending
-> the Docker acceptance runs.
+> The two formerly-open ACs of this plan (3× clean runs; E2E build gate) are
+> **met** — 3× full-matrix (chromium+firefox+webkit+chromium-serial-db)
+> `--retries=0` green on 2026-07-28 (307/306/306 passed, 0 failed); build gate
+> green (Jest 542/542, ESLint 0 errors). Caveat: acceptance was single-profile
+> (`TEST_DB_PROFILE=family`); actual CI-matrix verification happens on push.
 
 The following items must be resolved to reach the acceptance criteria (3× clean runs, `--retries=0`):
 

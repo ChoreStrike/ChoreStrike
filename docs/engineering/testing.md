@@ -333,9 +333,14 @@ npx playwright test tests/e2e/ --project=chromium --headed
 ### E2E Auth & Stable Selectors (CS-PLAN-015 / 015b)
 
 - **Auth via per-user `storageState`:** the Playwright `setup` project
-  ([`tests/e2e/auth.setup.ts`](../../tests/e2e/auth.setup.ts)) logs in **every**
-  account once (admin + all seeded profile users) and saves the browser contexts
-  to `.playwright/.auth/{userId}.json` (gitignored). Accounts survive re-seeding
+  ([`tests/e2e/auth.setup.ts`](../../tests/e2e/auth.setup.ts)) logs in the admin
+  plus every **`family`** user once and saves the browser contexts to
+  `.playwright/.auth/{userId}.json` (gitignored). Auth is **decoupled from
+  `TEST_DB_PROFILE`**: the setup always seeds + authenticates the `family`
+  identities every spec consumes (mom/dad/teen/kid/grandma/friend), while
+  `TEST_DB_PROFILE` only controls the per-test seed DATA (re-seeded by the
+  `seededData` fixture). This keeps family-pinning specs green under every CI
+  matrix row (`empty`/`minimal`/`family`). Accounts survive re-seeding
   (`TestDataService::reset()` touches only `chorestrike_*` tables, never
   `oc_users`). The browser projects depend on setup and start authenticated as
   admin, so specs that run as admin need **no login call** — just navigate.
@@ -674,8 +679,9 @@ The biggest remaining gaps are no longer basic component or store tests. Those a
 ### 1. E2E Pipeline & Coverage Gaps (2026-07-27 review)
 
 - **E2E in CI repaired** — `test.yml` now triggers on `master`, pins
-  `nextcloud:31-apache`, mounts the app, and includes `chromium-serial-db`
-  (CS-PLAN-015b D-CI). Folding into `release-gate.yml` as blocking is follow-up.
+  `nextcloud:31-apache`, mounts the app, and runs `chromium-serial-db` as a
+  separate step on the chromium matrix row only (CS-PLAN-015b D-CI). Folding
+  into `release-gate.yml` as blocking is follow-up.
 - **Uncovered feature surfaces** — reward configuration, task templates,
   notifications, minigame economy UI (BoostShop, snake leaderboard), and
   mobile/responsive layouts have no E2E coverage; 8 components + the
@@ -683,8 +689,9 @@ The biggest remaining gaps are no longer basic component or store tests. Those a
 - **Backend unit gaps** — `TemplateService`, `RewardConfigController`,
   `TemplateController`, `TaskSyncController`, 5 mappers, and a fresh-install
   migration smoke test (`phase-9-code-quality.md` P9-TEST-003).
-- **Stabilization in flight** — CS-PLAN-015b (session-safe multi-user auth,
-  seed-race containment); CS-016 re-adds the 3 archived scheduling specs.
+- **Stabilization done** — CS-PLAN-015b shipped session-safe multi-user auth +
+  seed-race containment; 3× full-matrix acceptance green (2026-07-28). CS-016
+  re-adds the 3 archived scheduling specs.
 
 ### 2. Legacy E2E Drift
 

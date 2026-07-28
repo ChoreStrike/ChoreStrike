@@ -25,12 +25,18 @@ import { createUserContext } from './fixtures/auth-contexts'
  * `JSONResponse` into an OCS envelope served with HTTP 200 (send
  * `Accept: application/json` to get it as JSON). Accept either shape; both
  * prove the action was denied.
+ *
+ * @param response - API response to assert a denial for.
+ * @returns Resolves when the response is a plain 403 or a 200 OCS-envelope 403.
  */
 async function expectForbidden(response: APIResponse): Promise<void> {
 	if (response.status() === 403) {
 		return
 	}
-	expect(response.status()).toBe(200)
+	expect(
+		response.status(),
+		`Expected a denial (plain 403 or 200 OCS-envelope 403), got HTTP ${response.status()}`,
+	).toBe(200)
 	const body = await response.json()
 	expect(body.ocs?.meta?.statuscode).toBe(403)
 }
@@ -105,6 +111,7 @@ test.describe('Admin-Only Tasks', () => {
 					energyCost: 5,
 					visibilityType: 'admin-only',
 				},
+				headers: { Accept: 'application/json' },
 			})
 
 			if (createResponse.status() !== 200) {
@@ -116,7 +123,9 @@ test.describe('Admin-Only Tasks', () => {
 			const taskId = taskData.data.id
 
 			// /rooms requires a floorId; floors/with-rooms yields any room directly.
-			const floorsResponse = await mom.page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
+			const floorsResponse = await mom.page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
+				headers: { Accept: 'application/json' },
+			})
 			if (floorsResponse.status() !== 200) {
 				test.skip(true, 'Could not list floors')
 				return
@@ -130,7 +139,7 @@ test.describe('Admin-Only Tasks', () => {
 
 			const assignResponse = await mom.page.request.post(
 				'/apps/chorestrike/api/v1/room-tasks',
-				{ data: { taskId, roomId } },
+				{ data: { taskId, roomId }, headers: { Accept: 'application/json' } },
 			)
 
 			if (assignResponse.status() !== 200) {

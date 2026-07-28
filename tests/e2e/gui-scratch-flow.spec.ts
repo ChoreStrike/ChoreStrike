@@ -11,6 +11,11 @@ import type { Browser, Page } from '@playwright/test'
  * CS-PLAN-015: the primary user is authenticated via storageState (no inline
  * form-login). The secondary user still form-logs in (fresh context). Nav uses
  * `getByRole('link', { name })`; fixed sleeps replaced by auto-waiting.
+ *
+ * The secondary is a `family` member (`teen`) so it exists as an NC user and
+ * belongs to the family house admin builds into — `adult` is `minimal`-only
+ * (never provisioned under the default `family` profile), so it would both
+ * fail to log in and lack house membership.
  */
 
 /** Form-login a secondary user in a fresh context (no storageState reuse). */
@@ -115,7 +120,7 @@ async function verifySharedViewAsSecondaryUser(browser: Browser, taskName: strin
 	const context = await browser.newContext()
 	const page = await context.newPage()
 
-	await loginSecondary(page, process.env.NEXTCLOUD_SECONDARY_USER || 'adult', process.env.NEXTCLOUD_SECONDARY_PASSWORD || 'Adult123!')
+	await loginSecondary(page, process.env.NEXTCLOUD_SECONDARY_USER || 'teen', process.env.NEXTCLOUD_SECONDARY_PASSWORD || 'Teen123!')
 	await openApp(page)
 
 	const roomCard = page.getByTestId(`room-card-${roomName}`)
