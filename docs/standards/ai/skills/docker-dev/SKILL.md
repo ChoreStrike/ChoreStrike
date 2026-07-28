@@ -27,6 +27,14 @@ docker-compose.test.yml
 
 The app source is **bind-mounted** into the container — code changes on the host are immediately visible inside.
 
+## Availability
+
+Docker Desktop **is installed** on the development machine and the daemon is expected to be running. If a `docker` command fails:
+
+1. Check the daemon with `docker info`. If unreachable, start Docker Desktop (`& "C:\Program Files\Docker\Docker\Docker Desktop.exe"`) and wait until `docker info` succeeds.
+2. First builds take ~3–5 minutes — set the shell timeout to ≥ 300 s or run as a background process. A tool timeout is not a Docker failure.
+3. Never conclude "Docker is not available" from a single failed probe, and never switch to the "Without Docker" fallback path (`docs/engineering/testing.md`) on this machine.
+
 ## Essential Commands
 
 ```bash
@@ -79,6 +87,11 @@ Set via `TEST_DB_PROFILE` environment variable (default: `minimal`):
 TEST_DB_PROFILE=family docker compose -f docker-compose.test.yml up -d
 ```
 
+```powershell
+# PowerShell 5.1 (this repo's shell) — bash VAR=value syntax does NOT work here:
+$env:TEST_DB_PROFILE='family'; docker compose -f docker-compose.test.yml up -d
+```
+
 ## Docker MCP Gateway
 
 The Kilo project config (`.kilo/kilo.jsonc`) connects to the Docker MCP gateway which provides a containerized Playwright browser. Use `MCP_DOCKER_browser_*` tools for interactive E2E verification against the running test environment (port 8080).
@@ -87,6 +100,8 @@ The Kilo project config (`.kilo/kilo.jsonc`) connects to the Docker MCP gateway 
 
 | Symptom | Fix |
 |---------|-----|
+| `docker` command fails / daemon unreachable | Start Docker Desktop, wait until `docker info` succeeds — do not conclude Docker is absent |
+| First build or test run hits a tool timeout | Expected (~3–5 min): raise shell timeout ≥ 300 s or run as background process, then retry |
 | `chorestrike-db` unhealthy | `docker compose -f docker-compose.test.yml down -v` then restart |
 | Tests fail with "connection refused" | Wait for DB healthcheck: `docker inspect --format='{{.State.Health.Status}}' chorestrike-db` |
 | Stale vendor/ in container | Rebuild: `docker compose -f docker-compose.test.yml build --no-cache` |

@@ -29,11 +29,13 @@
 - **Authorization:** `@NoAdminRequired` only (never `@PublicPage`). Validate house membership / ownership on every mutation. Never trust client input.
 - **i18n:** Every user-visible string uses `t()`. Update `l10n/` artifacts in the same change.
 - **Logging:** Backend `AppLogger`, frontend `src/utils/logger.js`. No raw `console.*` in production code.
+- **Pre-release:** no backward compatibility until the user declares productive use (~V0.9): no upgrade migrations/backfills, legacy shims, or old-version fallbacks — only fresh installs must work (project-rules §1).
 - **KISS & DRY:** Simple, readable, minimal diffs. ~30 lines/method, ~300 lines/file. Extract after the rule of three.
 
 ## Quality Rules
 
 - Every new feature needs a unit/integration/E2E test. Every bug fix needs a regression test.
+- **No completion without tests:** a task/plan is not done while tests required by the plan or by these rules are missing, skipped, or red (project-rules §2).
 - Document every public member with PHPDoc / JSDoc.
 - Fix root causes — never suppress warnings or swallow exceptions silently.
 - No stack traces or internal details in production error responses.
@@ -48,7 +50,7 @@
 
 1. **Implement + test + docs** in one logical package.
 2. **Self-review** against [`llm-do-dont-checklist.md`](docs/standards/guidelines/llm-do-dont-checklist.md).
-3. **Build gate:** `npm test` + `npm run lint` + backend tests (Docker) must be green.
+3. **Build gate:** `npm test` + `npm run lint` + backend tests (Docker) must be green. Docker Desktop **is installed** on this machine — if a `docker` probe fails, diagnose per project-rules §2 ("Test Environment (Docker)"); never conclude Docker is absent.
 4. **Lint/format** before committing (`npm run lint:fix`).
 5. **Commit** with a conventional message (only when the user asks).
 6. **Update** `docs/backlog/ACTIVE_TASKS.md` and the related backlog/plan.
@@ -97,4 +99,4 @@ Skills live in [`docs/standards/ai/skills/`](docs/standards/ai/skills/) and are 
 
 ---
 
-**Last Updated:** 2026-06-22 · **Version:** 5.0
+**Last Updated:** 2026-07-28 · **Version:** 5.1

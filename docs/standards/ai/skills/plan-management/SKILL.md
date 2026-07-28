@@ -41,3 +41,7 @@ See [`template.md`](../../../../plans/template.md):
 - **Mandatory** for complex/multi-phase plans; **optional** for trivial fixes.
 - Checks: feasibility, risk coverage, acceptance criteria completeness, test-plan adequacy.
 - After review, revise in `new/` until ready. The user moves it to `active/`.
+
+## Completion Gate
+
+A plan/task is **not done** while tests required by its `4. Tests` section, its acceptance criteria, or project-rules §2 are missing, skipped, or failing ("No completion without tests"). Any deferral needs an explicit backlog entry (reason + remaining risk) and user approval before the `active/ → done/` move is recommended.

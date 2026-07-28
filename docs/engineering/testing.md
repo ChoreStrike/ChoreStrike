@@ -468,6 +468,8 @@ Repository status:
 
 ## Without Docker (Limited)
 
+> **Not applicable on the main development machine** — Docker Desktop is installed there and is the canonical test path (see project-rules §2 "Test Environment (Docker)"). This fallback exists **only for machines without any Docker installation**. AI agents must not treat a failed `docker` probe as a reason to use this section; diagnose the daemon first.
+
 Running tests without Docker is possible but **limited**:
 
 ```bash
@@ -581,6 +583,11 @@ TEST_DB_PROFILE=family docker compose -f docker-compose.test.yml up
 
 # Run with empty profile
 TEST_DB_PROFILE=empty docker compose -f docker-compose.test.yml up
+```
+
+```powershell
+# PowerShell 5.1 equivalent (the dev machine's shell) — VAR=value prefix syntax does not work there:
+$env:TEST_DB_PROFILE='family'; docker compose -f docker-compose.test.yml up
 ```
 
 #### OCC Command

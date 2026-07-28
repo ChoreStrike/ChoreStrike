@@ -32,6 +32,12 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 - No premature abstraction (rule of three). Prefer existing patterns.
 - Keep diffs minimal — no unrelated renames or formatting churn in feature work.
 
+### Pre-Release Compatibility (until explicitly lifted)
+- **Until the user declares the app productive (~V0.9), there is NO backward-compatibility requirement** — there is no release and no production database.
+- Schema changes: only **fresh installs** must work. Adjust the existing migration chain instead of writing upgrade paths, backfills, or data-preservation code for hypothetical older installs. Test/dev databases are disposable (`down -v` + `up -d`).
+- **No legacy shims, fallbacks, or deprecated-API wrappers** for older app versions — update the call sites and delete the old code instead of layering compatibility on top. Compat code this early only bloats the codebase and adds bug surface.
+- Backward compatibility starts **only** when the user explicitly declares "ab jetzt abwärtskompatibel" (productive use). Until then, never add compat code "just in case".
+
 ## 2. Technical Requirements
 
 ### Nomenclature (consistent, lowercase camelCase in JS, PascalCase in PHP)
@@ -58,8 +64,16 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 
 ### Testing
 - Every feature → test. Every bug fix → regression test.
+- **No completion without tests:** a task or plan must never be marked done while tests required by the plan, the backlog item, or these rules are missing, skipped, or failing. Deferring a required test is only acceptable with an explicit backlog entry (reason + remaining risk) and user approval.
 - PHPUnit (unit/integration), Jest (frontend), Playwright (E2E). BDD-style naming.
 - See [`../../guidelines/testing.md`](../../guidelines/testing.md) and [`testing.md`](../../../engineering/testing.md).
+
+### Test Environment (Docker)
+- **Docker Desktop is installed and available on the development machine.** The `docker-compose.test.yml` environment is the canonical way to run backend and E2E tests.
+- If a `docker` command fails, **diagnose before concluding Docker is absent**: start Docker Desktop and wait until `docker info` succeeds. Never declare "no Docker" from a single failed probe.
+- First image builds take ~3–5 minutes — raise the shell timeout (≥ 300 s) or use a background process. A tool timeout is not a Docker failure.
+- Never use the "Without Docker" fallback (`docs/engineering/testing.md`) on this machine — it exists only for machines without a Docker installation.
+- The shell is PowerShell 5.1: use `$env:TEST_DB_PROFILE='family'; docker compose ...`, not bash `VAR=value cmd` syntax.
 
 ## 3. Error & Quality Management
 

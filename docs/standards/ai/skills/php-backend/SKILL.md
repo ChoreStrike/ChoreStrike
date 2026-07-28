@@ -40,7 +40,7 @@ Controller (thin) → Service (logic) → Mapper/Entity (persistence)
 
 - Constructor injection via Nextcloud DI. No `new Service(...)` in controllers.
 - Throw domain exceptions in services; catch + translate in the controller.
-- Schema changes → a migration in `lib/Migration/` (`Version<seq>Date<UTC>.php`).
+- Schema changes → a migration in `lib/Migration/` (`Version<seq>Date<UTC>.php`). Pre-release (until declared productive, project-rules §1): **fresh-install correctness only** — no upgrade paths, backfills, or legacy shims.
 
 ## Verification
 

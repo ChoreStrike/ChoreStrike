@@ -5,6 +5,20 @@
 
 ## Recently Completed
 
+### Agent-Rules Hardening: Docker Availability Misdiagnosis — 2026-07-28
+**Status**: Done
+**Started/Completed**: 2026-07-28
+**Branch**: master
+**Scope**: Root-caused why LLM agents repeatedly concluded "no Docker available" despite a running Docker Desktop + healthy test env: (1) no doc stated Docker as a machine fact — all Docker docs read as human install guides; (2) no probe-and-recover procedure existed, so one failed probe (daemon down, PATH, timeout) became "absent"; (3) the documented ~3–4 min first build exceeds the 120 s default shell timeout; (4) bash `VAR=value cmd` syntax in skills fails on PowerShell 5.1; (5) the sanctioned "Without Docker (Limited)" fallback in `testing.md` legitimized giving up.
+**Fixes applied**:
+- `docs/standards/ai/rules/project-rules.md` — new §2 subsection "Test Environment (Docker)": Docker Desktop installed as a machine fact, diagnose-before-concluding duty, ≥300 s timeout guidance, "Without Docker" fallback banned on this machine, PowerShell env-var syntax.
+- `docs/standards/ai/skills/docker-dev/SKILL.md` — new "Availability" section (daemon check, Docker Desktop start, timeout rule, no-absence-conclusion rule); troubleshooting table gained daemon-unreachable + first-build-timeout rows; PowerShell variant for `TEST_DB_PROFILE`.
+- `docs/engineering/testing.md` — "Without Docker (Limited)" marked as not applicable on the main dev machine (agents must diagnose the daemon instead); PowerShell variant added to the DB-profile examples.
+- `AGENTS.md` — build-gate bullet now states Docker is installed locally + points to project-rules §2; Last Updated bumped.
+- **No-completion-without-tests rule** (same change set): `project-rules.md` §2 Testing + `AGENTS.md` Quality Rules now state explicitly that a task/plan must never be marked done while tests required by the plan, the backlog item, or the rules are missing, skipped, or failing — deferral only via explicit backlog entry (reason + risk) with user approval. `plan-management` SKILL gained a matching "Completion Gate" section tied to the plan's Tests section / acceptance criteria and the `active/ → done/` recommendation.
+- **Pre-release compatibility rule** (same change set, user-directed): `project-rules.md` §1 gained "Pre-Release Compatibility (until explicitly lifted)" — no backward-compatibility requirement until the user declares productive use (~V0.9): fresh installs only for schema changes (no upgrade migrations/backfills), no legacy shims/fallbacks/deprecated-API wrappers for older app versions. Mirrored as a Non-Negotiable in `AGENTS.md` and as a migration note in the `php-backend` SKILL. Implication: existing shims (e.g. `Task::setIsPrivate()`) may be removed in future cleanup passes without a compat layer.
+**Notes**: Docs/rules only, no code change — no test gate required.
+
 ### Test-Pipeline Review (CS-015b / CS-015 / CS-016) — 2026-07-27
 **Status**: Done
 **Started/Completed**: 2026-07-27
