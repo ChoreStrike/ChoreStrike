@@ -224,13 +224,71 @@ describe('Scheduling Store', () => {
 		})
 
 		describe('getSchedulingSuggestions', () => {
-			it('gets suggestions', async () => {
-				const suggestions = [{ day: 'monday', tasks: [] }]
-				api.post.mockResolvedValue(suggestions)
+			it('normalizes the weekday-keyed backend payload into an array', async () => {
+				api.post.mockResolvedValue({
+					monday: { availableMembers: 2, totalEnergy: 20, recommendedTasks: 4 },
+					saturday: { availableMembers: 1, totalEnergy: 15, recommendedTasks: 3 },
+				})
 
 				const result = await store.getSchedulingSuggestions([{ id: 1 }])
 
-				expect(result).toEqual(suggestions)
+				expect(api.post).toHaveBeenCalledWith('/api/v1/scheduling/suggestions', { tasks: [{ id: 1 }] })
+				expect(Array.isArray(result)).toBe(true)
+				expect(result).toHaveLength(2)
+				expect(result[0]).toMatchObject({
+					day: 'monday',
+					availableMembers: 2,
+					totalEnergy: 20,
+					recommendedTasks: 4,
+				})
+				expect(result[0].title).toBeTruthy()
+				expect(result[0].description).toBeTruthy()
+			})
+
+			it('returns an empty array for an empty payload', async () => {
+				api.post.mockResolvedValue({})
+
+				const result = await store.getSchedulingSuggestions([])
+
+				expect(result).toEqual([])
+			})
+
+			it('does not toggle the shared loading flag', async () => {
+				api.post.mockResolvedValue({})
+
+				await store.getSchedulingSuggestions([])
+
+				expect(store.loading).toBe(false)
+			})
+		})
+
+		describe('loading flag ownership', () => {
+			it('mutation actions do not toggle the shared loading flag', async () => {
+				api.put.mockResolvedValue(undefined)
+
+				await store.updateEnergyBudget('monday', 12)
+				expect(store.loading).toBe(false)
+
+				await store.updateAvailability('monday', false)
+				expect(store.loading).toBe(false)
+			})
+
+			it('initializeScheduling owns the loading flag and survives owner-only member fetch failures', async () => {
+				api.get.mockImplementation((path) => {
+					if (path === '/api/v1/scheduling/preferences') {
+						return Promise.resolve({ energyBudget: { monday: 11 } })
+					}
+					return Promise.reject(new Error('Forbidden'))
+				})
+
+				const promise = store.initializeScheduling()
+				expect(store.loading).toBe(true)
+
+				await promise
+
+				expect(store.loading).toBe(false)
+				expect(store.error).toBeNull()
+				expect(store.energyBudget.monday).toBe(11)
 			})
 		})
 

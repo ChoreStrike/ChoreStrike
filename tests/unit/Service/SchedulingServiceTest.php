@@ -187,4 +187,104 @@ class SchedulingServiceTest extends TestCase
 
         $this->service->updateMemberAvailability(1, 22, ['weekdayAvailability' => ['monday' => true]]);
     }
+
+    /**
+     * UpdateMemberAvailabilityByNextcloudUserId_DelegatesToScopedLookupAndAppliesUpdates
+     */
+    public function testUpdateMemberAvailabilityByNextcloudUserId_AppliesUpdatesViaScopedLookup(): void
+    {
+        $targetUser = new HouseUser();
+        $targetUser->setId(22);
+        $targetUser->setHouseId(1);
+        $targetUser->setSchedulingPreferences([
+            'energyBudget' => ['monday' => 10],
+            'weekdayAvailability' => ['monday' => true],
+        ]);
+
+        // Scoped lookup by houseId + nextcloud uid enforces membership.
+        $this->houseUserMapper
+            ->expects($this->once())
+            ->method('findByNextcloudUserId')
+            ->with(1, 'alice')
+            ->willReturn($targetUser);
+
+        $this->houseUserMapper
+            ->expects($this->once())
+            ->method('update')
+            ->with($targetUser);
+
+        $this->service->updateMemberAvailabilityByNextcloudUserId(
+            1,
+            'alice',
+            ['weekdayAvailability' => ['monday' => false], 'energyBudget' => ['monday' => 15]]
+        );
+
+        $preferences = $targetUser->getSchedulingPreferences();
+        $this->assertFalse($preferences['weekdayAvailability']['monday']);
+        $this->assertSame(15, $preferences['energyBudget']['monday']);
+    }
+
+    /**
+     * Out-of-range energy values in a member update are rejected (not silently
+     * dropped) and nothing is persisted.
+     */
+    public function testUpdateMemberAvailabilityByNextcloudUserId_RejectsOutOfRangeEnergy(): void
+    {
+        $targetUser = new HouseUser();
+        $targetUser->setId(22);
+        $targetUser->setHouseId(1);
+        $targetUser->setSchedulingPreferences([
+            'energyBudget' => ['monday' => 10],
+            'weekdayAvailability' => ['monday' => true],
+        ]);
+
+        $this->houseUserMapper
+            ->method('findByNextcloudUserId')
+            ->with(1, 'alice')
+            ->willReturn($targetUser);
+
+        $this->houseUserMapper
+            ->expects($this->never())
+            ->method('update');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Energy budget must be between 1 and 20');
+
+        $this->service->updateMemberAvailabilityByNextcloudUserId(
+            1,
+            'alice',
+            ['energyBudget' => ['monday' => 25]]
+        );
+    }
+
+    /**
+     * Non-integer energy values in a member update are rejected.
+     */
+    public function testUpdateMemberAvailabilityByNextcloudUserId_RejectsNonIntegerEnergy(): void
+    {
+        $targetUser = new HouseUser();
+        $targetUser->setId(22);
+        $targetUser->setHouseId(1);
+        $targetUser->setSchedulingPreferences([
+            'energyBudget' => ['monday' => 10],
+            'weekdayAvailability' => ['monday' => true],
+        ]);
+
+        $this->houseUserMapper
+            ->method('findByNextcloudUserId')
+            ->with(1, 'alice')
+            ->willReturn($targetUser);
+
+        $this->houseUserMapper
+            ->expects($this->never())
+            ->method('update');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->service->updateMemberAvailabilityByNextcloudUserId(
+            1,
+            'alice',
+            ['energyBudget' => ['monday' => '15']]
+        );
+    }
 }

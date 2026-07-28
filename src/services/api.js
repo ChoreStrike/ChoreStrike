@@ -33,7 +33,7 @@ export class ApiError extends Error {
  *
  * @param {string} method HTTP method (get, post, put, patch, delete)
  * @param {string} path URL path relative to API_PREFIX (e.g. '/api/v1/house')
- * @param {object} [config={}] Additional axios config (data, params, headers, …)
+ * @param {object} [config] Additional axios config (data, params, headers, …)
  * @return {Promise<any>} Unwrapped response data
  * @throws {ApiError} When the request fails (HTTP non-2xx or success === false)
  */

@@ -19,7 +19,7 @@
             <exclude>tests/unit/Controller/PageControllerTest.php</exclude>
             <exclude>tests/unit/Controller/RoomControllerTest.php</exclude>
             <exclude>tests/unit/Controller/RoomTaskControllerTest.php</exclude>
-            <exclude>tests/unit/Controller/SchedulingControllerTest.php</exclude>
+
             <!-- Service tests -->
             <directory suffix="Test.php">tests/unit/Service</directory>
             <!-- Migration tests -->

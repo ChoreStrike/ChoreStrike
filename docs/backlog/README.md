@@ -12,7 +12,8 @@ backlog/
 ├── ACTIVE_TASKS.md                        ← LIVE coordination (update constantly)
 ├── bugs.md                                ← bugs + tech debt (incl. review findings)
 ├── features.md                            ← new features & UX improvements
-├── CODE_REVIEW_2026-07-24.md              ← latest project review record
+├── CODE_REVIEW_2026-07-28.md              ← latest project review record (CS-016)
+├── CODE_REVIEW_2026-07-24.md              ← project review record (project-wide)
 ├── phase-8-release-preparation.md         ← active: staged release (alpha → beta → stable)
 └── phase-9-code-quality.md                ← open: code-quality / technical-debt items
 ```

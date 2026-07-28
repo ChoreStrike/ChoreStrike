@@ -40,6 +40,11 @@ ChoreStrike/
 │   │                           #   Minigame, RewardConfig, User, Template, TaskSync,
 │   │                           #   Game, Page, Test) + ControllerLoggingTrait +
 │   │                           #   ControllerErrorFormatter (sanitized error messages)
+│   │                           # D1 (CS-016): the UI consumes `scheduling#*` via the
+│   │                           #   scheduling Pinia store as the canonical surface. The
+│   │                           #   `smart-schedule#*` routes were REMOVED (CS-016 review,
+│   │                           #   2026-07-28) because SmartSchedulerController injected no
+│   │                           #   AuthorizationService — re-add with auth gating if revived.
 │   ├── Db/                     # Entities & mappers (House, Floor, Room, Task, RoomTask,
 │   │                           #   CompletedTask, HouseUser, Medal, Combo, MinigameScore,
 │   │                           #   TaskChecklistItem, TaskAssignee, RoomTaskChecklistProgress,
@@ -69,7 +74,8 @@ ChoreStrike/
 │   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop, Game2048, MemoryGame
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
 │   │   ├── Profile/            # TitleBadge, TitlePicker (CS-PLAN-006)
-│   │   └── Scheduling/         # DailyTaskList
+│   │   └── Scheduling/         # DailyTaskList, AvailabilitySettings, EnergyBudgetSettings,
+│   │                           #   SchedulePreview, ScheduleCalendar, SchedulingSuggestions
 │   ├── composables/            # useCelebration (confetti + SFX), useToasts
 │   ├── constants/              # Shared constants (taskVisibility, titles)
 │   ├── services/               # Shared API client (api.js — single URL prefix,
@@ -77,7 +83,7 @@ ChoreStrike/
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
 │   │                           #   user, scheduling, checklist, minigame, titles)
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css
-│   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard, Settings
+│   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard, Scheduling, Settings
 │   └── utils/                  # currentUser, icons, roomIcons, logger, mobile, performance,
 │                               #   confetti, sound
 ├── l10n/                       # Translations

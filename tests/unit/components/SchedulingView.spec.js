@@ -1,0 +1,84 @@
+import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import SchedulingView from '../../../src/views/SchedulingView.vue'
+import { useSchedulingStore } from '../../../src/store/scheduling.js'
+import { api } from '../../../src/services/api.js'
+
+jest.mock('@nextcloud/l10n', () => ({
+	translate: jest.fn((app, text) => text),
+}))
+
+jest.mock('@nextcloud/dialogs', () => ({
+	showSuccess: jest.fn(),
+	showError: jest.fn(),
+}))
+
+jest.mock('../../../src/services/api.js', () => ({
+	api: {
+		get: jest.fn(),
+		put: jest.fn(),
+		post: jest.fn(),
+	},
+}))
+
+jest.mock('../../../src/utils/currentUser.js', () => ({
+	resolveCurrentUser: jest.fn(() => ({ uid: 'alice', displayName: 'Alice', userId: 'alice' })),
+}))
+
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+const stubs = {
+	AvailabilitySettings: true,
+	EnergyBudgetSettings: true,
+	SchedulePreview: true,
+	ScheduleCalendar: true,
+	SchedulingSuggestions: true,
+}
+
+describe('SchedulingView', () => {
+	beforeEach(() => {
+		setActivePinia(createPinia())
+		jest.clearAllMocks()
+		api.get.mockResolvedValue({})
+	})
+
+	it('renders the scheduling view with testid', () => {
+		const wrapper = mount(SchedulingView, { global: { stubs } })
+		expect(wrapper.find('[data-testid="scheduling-view"]').exists()).toBe(true)
+	})
+
+	it('renders the header with title', () => {
+		const wrapper = mount(SchedulingView, { global: { stubs } })
+		expect(wrapper.find('h1').text()).toBe('Smart Scheduling')
+	})
+
+	it('renders all five sub-components', () => {
+		const wrapper = mount(SchedulingView, { global: { stubs } })
+
+		expect(wrapper.findComponent({ name: 'AvailabilitySettings' }).exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'EnergyBudgetSettings' }).exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'SchedulePreview' }).exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'ScheduleCalendar' }).exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'SchedulingSuggestions' }).exists()).toBe(true)
+	})
+
+	it('initializes the scheduling store on mount', async () => {
+		const store = useSchedulingStore()
+		const spy = jest.spyOn(store, 'initializeScheduling')
+
+		mount(SchedulingView, { global: { stubs } })
+		await flushPromises()
+
+		expect(spy).toHaveBeenCalledTimes(1)
+	})
+
+	it('shows an error banner when initialization fails', async () => {
+		api.get.mockRejectedValueOnce(new Error('preferences unavailable'))
+
+		const wrapper = mount(SchedulingView, { global: { stubs } })
+		await flushPromises()
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="scheduling-error"]').exists()).toBe(true)
+	})
+})

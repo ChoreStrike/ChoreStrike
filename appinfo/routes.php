@@ -99,14 +99,14 @@ return [
         ['name' => 'scheduling#updateMemberAvailability', 'url' => '/api/v1/scheduling/members/{userId}', 'verb' => 'PUT'],
         ['name' => 'scheduling#getSuggestions', 'url' => '/api/v1/scheduling/suggestions', 'verb' => 'POST'],
 
-        // Smart Scheduler API (Phase 2)
-        ['name' => 'smart_scheduler#getSchedulePreview', 'url' => '/api/v1/smart-schedule/preview', 'verb' => 'GET'],
-        ['name' => 'smart_scheduler#generateSchedule', 'url' => '/api/v1/smart-schedule/generate', 'verb' => 'POST'],
-        ['name' => 'smart_scheduler#getMemberAvailability', 'url' => '/api/v1/smart-schedule/availability', 'verb' => 'GET'],
-        ['name' => 'smart_scheduler#updateMyAvailability', 'url' => '/api/v1/smart-schedule/availability', 'verb' => 'PUT'],
-        ['name' => 'smart_scheduler#updateMyEnergyBudget', 'url' => '/api/v1/smart-schedule/energy-budget', 'verb' => 'PUT'],
-        ['name' => 'smart_scheduler#getSchedulingSuggestions', 'url' => '/api/v1/smart-schedule/suggestions', 'verb' => 'GET'],
-        ['name' => 'smart_scheduler#applySuggestion', 'url' => '/api/v1/smart-schedule/apply', 'verb' => 'POST'],
+        // Smart Scheduler API (Phase 2) — DISABLED 2026-07-28 (CS-016 review).
+        // SmartSchedulerController injected no AuthorizationService, so all 7
+        // endpoints were reachable by any authenticated user (applySuggestion
+        // reassigned tasks across users). The UI consumes only scheduling#*
+        // (decision D1=a), so these routes are removed to close the auth gap.
+        // SmartSchedulerController + SmartSchedulerService + their tests remain
+        // pending archival; re-add with AuthorizationService gating if the
+        // smart-schedule UX is revived. See docs/plans/active/cs-plan-016.
 
         // Template API
         ['name' => 'template#index', 'url' => '/api/v1/templates', 'verb' => 'GET'],

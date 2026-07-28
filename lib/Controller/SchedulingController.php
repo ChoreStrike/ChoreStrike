@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
@@ -21,6 +22,13 @@ use OCP\IRequest;
  */
 class SchedulingController extends OCSController
 {
+    use ControllerLoggingTrait;
+
+    /** @var list<string> */
+    private const VALID_WEEKDAYS = [
+        'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+    ];
+
     private SchedulingService $schedulingService;
     private HouseService $houseService;
     private AuthorizationService $authService;
@@ -29,18 +37,23 @@ class SchedulingController extends OCSController
         IRequest $request,
         SchedulingService $schedulingService,
         HouseService $houseService,
-        AuthorizationService $authService
+        AuthorizationService $authService,
+        ?AppLogger $appLogger = null
     ) {
         parent::__construct('chorestrike', $request);
         $this->schedulingService = $schedulingService;
         $this->houseService = $houseService;
         $this->authService = $authService;
+        if ($appLogger !== null) {
+            $this->initializeControllerLogger($appLogger);
+        }
     }
 
     /**
      * Get current user's scheduling preferences
      *
      * @NoAdminRequired
+     * @return JSONResponse
      */
     public function getPreferences(): JSONResponse
     {
@@ -62,6 +75,7 @@ class SchedulingController extends OCSController
         } catch (ForbiddenException $e) {
             return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
+            $this->logControllerException('getPreferences', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -76,6 +90,7 @@ class SchedulingController extends OCSController
      * Update energy budget for a day
      *
      * @NoAdminRequired
+     * @return JSONResponse
      */
     public function updateEnergy(string $day, int $energy): JSONResponse
     {
@@ -88,6 +103,7 @@ class SchedulingController extends OCSController
             }
 
             $this->authService->ensureHouseMember($house->getId());
+            $this->validateWeekday($day);
             $this->schedulingService->updateEnergyBudgetByNextcloudUserId($house->getId(), $userId, $day, $energy);
 
             return new JSONResponse([
@@ -105,6 +121,7 @@ class SchedulingController extends OCSController
         } catch (ForbiddenException $e) {
             return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
+            $this->logControllerException('updateEnergy', $e, ['day' => $day]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -119,6 +136,7 @@ class SchedulingController extends OCSController
      * Update availability for a day
      *
      * @NoAdminRequired
+     * @return JSONResponse
      */
     public function updateAvailability(string $day, bool $available): JSONResponse
     {
@@ -131,6 +149,7 @@ class SchedulingController extends OCSController
             }
 
             $this->authService->ensureHouseMember($house->getId());
+            $this->validateWeekday($day);
             $this->schedulingService->updateAvailabilityByNextcloudUserId($house->getId(), $userId, $day, $available);
 
             return new JSONResponse([
@@ -148,6 +167,7 @@ class SchedulingController extends OCSController
         } catch (ForbiddenException $e) {
             return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
+            $this->logControllerException('updateAvailability', $e, ['day' => $day]);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -162,6 +182,7 @@ class SchedulingController extends OCSController
      * Get all member availability (house owner only)
      *
      * @NoAdminRequired
+     * @return JSONResponse
      */
     public function getMemberAvailability(): JSONResponse
     {
@@ -179,6 +200,7 @@ class SchedulingController extends OCSController
         } catch (ForbiddenException $e) {
             return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
+            $this->logControllerException('getMemberAvailability', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -190,26 +212,37 @@ class SchedulingController extends OCSController
     }
 
     /**
-     * Update member availability (admin only)
+     * Update member availability (house owner only)
      *
      * @NoAdminRequired
+     * @return JSONResponse
      */
-    public function updateMemberAvailability(int $userId, array $updates): JSONResponse
+    public function updateMemberAvailability(string $userId, array $updates): JSONResponse
     {
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
             $this->authService->requireHouseOwner($house->getId());
 
-            $this->schedulingService->updateMemberAvailability($house->getId(), $userId, $updates);
+            $this->validateMemberUpdates($updates);
+            $this->schedulingService->updateMemberAvailabilityByNextcloudUserId($house->getId(), $userId, $updates);
 
             return new JSONResponse([
                 'success' => true,
                 'message' => 'Member availability updated'
             ]);
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => ControllerErrorFormatter::safeMessage($e)
+                ]
+            ], 400);
         } catch (ForbiddenException $e) {
             return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
+            $this->logControllerException('updateMemberAvailability', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -224,6 +257,7 @@ class SchedulingController extends OCSController
      * Get scheduling suggestions
      *
      * @NoAdminRequired
+     * @return JSONResponse
      */
     public function getSuggestions(array $tasks): JSONResponse
     {
@@ -241,6 +275,7 @@ class SchedulingController extends OCSController
         } catch (ForbiddenException $e) {
             return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
+            $this->logControllerException('getSuggestions', $e);
             return new JSONResponse([
                 'success' => false,
                 'error' => [
@@ -251,4 +286,33 @@ class SchedulingController extends OCSController
         }
     }
 
+    /**
+     * Validate that a day string is a recognized weekday name.
+     *
+     * @param string $day Weekday name (case-insensitive)
+     * @throws \InvalidArgumentException When the day is not a valid weekday
+     */
+    private function validateWeekday(string $day): void
+    {
+        if (!in_array(strtolower($day), self::VALID_WEEKDAYS, true)) {
+            throw new \InvalidArgumentException('Invalid weekday: ' . $day);
+        }
+    }
+
+    /**
+     * Validate the keys of a member-availability update payload.
+     *
+     * @param array $updates Availability/energy updates keyed by weekday
+     * @throws \InvalidArgumentException When any key is not a valid weekday
+     */
+    private function validateMemberUpdates(array $updates): void
+    {
+        foreach (['weekdayAvailability', 'energyBudget'] as $section) {
+            if (isset($updates[$section]) && is_array($updates[$section])) {
+                foreach (array_keys($updates[$section]) as $day) {
+                    $this->validateWeekday((string) $day);
+                }
+            }
+        }
+    }
 }

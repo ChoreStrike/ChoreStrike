@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 
 /**
@@ -171,10 +172,10 @@ class SchedulingService
     }
 
     /**
-     * Update another member's availability (admin only)
+     * Update another member's availability (house owner only)
      *
      * @param int $houseId The current house ID
-     * @param int $targetUserId The user to update
+     * @param int $targetUserId The house user ID to update
      * @param array $updates Availability and energy updates
      */
     public function updateMemberAvailability(int $houseId, int $targetUserId, array $updates): void
@@ -184,13 +185,45 @@ class SchedulingService
             throw new \InvalidArgumentException('Target user does not belong to this house');
         }
 
+        $this->applyMemberUpdates($user, $updates);
+    }
+
+    /**
+     * Update a member's availability by Nextcloud user ID within a specific house.
+     *
+     * The lookup is scoped by houseId, so a user who is not a member of the
+     * house is not found (membership enforced at the persistence layer).
+     *
+     * @param int $houseId The current house ID
+     * @param string $nextcloudUserId The Nextcloud user ID to update
+     * @param array $updates Availability and energy updates
+     */
+    public function updateMemberAvailabilityByNextcloudUserId(int $houseId, string $nextcloudUserId, array $updates): void
+    {
+        $user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
+        $this->applyMemberUpdates($user, $updates);
+    }
+
+    /**
+     * Apply availability and energy-budget updates to a house user's preferences.
+     *
+     * Rejects out-of-range energy values instead of silently dropping them,
+     * so the caller never receives a success response for unpersisted data.
+     *
+     * @param HouseUser $user The house user to update
+     * @param array $updates Availability and energy updates keyed by weekday
+     * @throws \InvalidArgumentException When an energy value is not an integer in 1-20
+     */
+    private function applyMemberUpdates(HouseUser $user, array $updates): void
+    {
         $preferences = $user->getSchedulingPreferences();
 
         if (isset($updates['energyBudget'])) {
             foreach ($updates['energyBudget'] as $day => $energy) {
-                if ($energy >= 1 && $energy <= 20) {
-                    $preferences['energyBudget'][$day] = $energy;
+                if (!is_int($energy) || $energy < 1 || $energy > 20) {
+                    throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
                 }
+                $preferences['energyBudget'][$day] = $energy;
             }
         }
 

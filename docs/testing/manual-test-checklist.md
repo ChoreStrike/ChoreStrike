@@ -97,10 +97,16 @@
 
 | Test | Steps | Expected Result | Status |
 |------|-------|-----------------|--------|
-| View suggestions | Open smart scheduler | Task suggestions shown | [ ] |
-| Apply suggestion | Accept suggested assignment | Task assigned to user | [ ] |
-| Availability settings | Set available days | Settings saved | [ ] |
-| Energy budget | Set daily energy budget | Budget applied to scheduling | [ ] |
+| Open scheduling view | Click "Scheduling" in nav | Scheduling view with 5 sections renders | [ ] |
+| View member availability | Open scheduling → Availability section | Member cards with weekday grid shown | [ ] |
+| Edit own availability | Click "Edit" on own member card → toggle days → Save | Availability toggles persist after reload | [ ] |
+| Apply quick template | Edit availability → click "Balanced" template | All days toggled on, energy set to 10/15 | [ ] |
+| Set energy budget | Adjust energy slider for a day → Save | Energy value persists after reload | [ ] |
+| Apply energy template | Click "Heavy Schedule" template | All sliders move to 15/20 | [ ] |
+| View schedule calendar | Open scheduling → Calendar section | Week grid with member rows and capacity shown | [ ] |
+| Navigate weeks | Click next/previous week buttons | Week range label updates | [ ] |
+| Load schedule preview | Click "Load Preview" in Preview section | Suggestions or empty state shown | [ ] |
+| Load scheduling suggestions | Click "Load Suggestions" in Suggestions section | Suggestions list or empty state shown | [ ] |
 
 ---
 

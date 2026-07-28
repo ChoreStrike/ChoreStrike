@@ -2,6 +2,14 @@
 
 > Smart Scheduling endpoints for daily tasks and member availability
 
+> **DEPRECATED (CS-016 review, 2026-07-28):** the `/api/v1/smart-schedule/*`
+> endpoints documented below were **removed** from `appinfo/routes.php`.
+> `SmartSchedulerController` injected no `AuthorizationService`, so all 7
+> endpoints were reachable by any authenticated user. The UI consumes only the
+> `scheduling#*` surface (decision D1=a). The controller/service/classes remain
+> pending archival; the `scheduling#*` endpoints are the canonical surface —
+> see `docs/api/README.md`. This document is kept for historical reference only.
+
 ## Daily Tasks API
 
 ### GET /api/v1/tasks/daily

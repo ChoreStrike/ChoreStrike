@@ -148,7 +148,7 @@ class CompletedTaskMapper extends QBMapper
         $endOfDay = $startOfDay->modify('+1 day');
 
         $qb = $this->db->getQueryBuilder();
-        $qb->select('COALESCE(SUM(t.energy_cost), 0) AS consumed_energy')
+        $qb->selectAlias($qb->createFunction('COALESCE(SUM(t.energy_cost), 0)'), 'consumed_energy')
             ->from($this->getTableName(), 'ct')
             ->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
             ->innerJoin('rt', 'chorestrike_tasks', 't', $qb->expr()->eq('rt.task_id', 't.id'))
