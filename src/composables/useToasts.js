@@ -10,7 +10,7 @@ import { logger } from '../utils/logger.js'
 
 /**
  * Subscribe to ChoreStrike event-bus events and surface them as Nextcloud
- * toasts via @nextcloud/dialogs.
+ * toasts via `@nextcloud/dialogs`.
  *
  * Complements `useCelebration`: that composable handles confetti +
  * sound for the dopamine moments; this one renders a textual toast so the

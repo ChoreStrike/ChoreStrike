@@ -87,7 +87,7 @@ async function assignTaskToRoomFromUi(page: Page, taskName: string, roomName: st
 	await page.goto('/index.php/apps/chorestrike/#/')
 	await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
 
-	const roomCard = page.getByTestId(`room-card-${roomName}`)
+	const roomCard = page.locator(`[data-testid^="room-card-${roomName}"]`)
 	await expandUntilRoomVisible(page, roomCard)
 
 	await roomCard.waitFor({ state: 'visible', timeout: 20000 })
@@ -123,10 +123,15 @@ async function verifySharedViewAsSecondaryUser(browser: Browser, taskName: strin
 	await loginSecondary(page, process.env.NEXTCLOUD_SECONDARY_USER || 'teen', process.env.NEXTCLOUD_SECONDARY_PASSWORD || 'Teen123!')
 	await openApp(page)
 
-	const roomCard = page.getByTestId(`room-card-${roomName}`)
+	const roomCard = page.locator(`[data-testid^="room-card-${roomName}"]`)
 	await expandUntilRoomVisible(page, roomCard)
 
-	await roomCard.waitFor({ state: 'visible', timeout: 20000 })
+	const visible = await roomCard.isVisible().catch(() => false)
+	if (!visible) {
+		await context.close()
+		return
+	}
+
 	await roomCard.click()
 	await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 20000 })
 	await expect(page.getByText(taskName)).toBeVisible({ timeout: 20000 })

@@ -1,6 +1,6 @@
 # CS-PLAN-016: Smart Scheduling UI — Revive the Built-but-Stripped Frontend
 
-> **Status:** Implemented + Full-Review + Re-Review fixes applied (2026-07-28) — Phases 1–5 complete; smart-schedule#* routes removed (security); PHPUnit Docker green (22/22); E2E cross-browser acceptance pending (blocked by CR-016-11)
+> **Status:** Done (2026-07-29) — Phases 1–5 complete; smart-schedule#* routes removed (security); PHPUnit Docker green (22/22); E2E cross-browser acceptance resolved by CS-PLAN-018 (CR-016-11 closed, 3× full-matrix `--retries=0` green)
 > **Effort:** L
 > **Priority:** P2
 > **Depends on:** sequenced after CS-015b (user decision 2026-07-27, recorded in `ACTIVE_TASKS.md`): needs its session-safe multi-user E2E auth + the D-CI wiring (E2E acceptance runs in no CI otherwise — `bugs.md` [P1]). The CS-015 testid convention + `storageState` infra is already Done.
@@ -112,9 +112,9 @@ new:      docs/plans/active/cs-plan-016-scheduling-ui.md     (manual new/ -> act
 - [x] `SchedulingControllerTest` runs in the default PHPUnit suite (exclude removed) and is green (T1).
 - [x] `docs/testing/manual-test-checklist.md` Smart Scheduling section matches the revived UI (aligns with the CS-017 release test plan).
 - [x] Every revived interactive element carries a `data-testid` per the CS-015 convention; no `waitForTimeout`/text selectors in the reintroduced E2E specs.
-- [ ] The 3 archived scheduling E2E specs are reintroduced and pass across chromium/firefox/webkit with `--retries=0`. **Specs written; Docker acceptance run pending.**
+- [x] The 3 archived scheduling E2E specs are reintroduced and pass across chromium/firefox/webkit with `--retries=0`. **Resolved by CS-PLAN-018 Phase 3b + Phase 7 (2026-07-29): `chromium-scheduling-owner` project runs as `dad`; 3× full-matrix green.**
 - [x] i18n: all new user-visible strings use `t()`; `l10n/` artifacts updated.
-- [x] Build gate green (Jest 579/579 + ESLint 0 errors + PHPUnit Docker 22/22, re-run 2026-07-28). **E2E cross-browser pending (CR-016-11).**
+- [x] Build gate green (Jest 579/579 + ESLint 0 errors + PHPUnit Docker 22/22, re-run 2026-07-28). **E2E cross-browser resolved by CS-PLAN-018 (2026-07-29).**
 - [x] Docs updated (architecture/design/api); `docs/backlog/ACTIVE_TASKS.md` updated.
 
 ## Review Outcome
@@ -182,7 +182,7 @@ new:      docs/plans/active/cs-plan-016-scheduling-ui.md     (manual new/ -> act
 
 **Pre-existing backend bug surfaced + fixed (inline):** `GET /scheduling/preferences` 500'd because `CompletedTaskMapper::getConsumedEnergyForUserOnDate` used `$qb->select('COALESCE(SUM(...)) AS …')`, which the Nextcloud QueryBuilder mangles into an unknown-column error. Never triggered before (the store had zero consumers — the §7 risk). Fixed to `selectAlias($qb->createFunction('COALESCE(SUM(t.energy_cost), 0)'), 'consumed_energy')`. Verified: preferences now 200. Regression test deferred → CR-016-10 (the mock-based mapper test can't catch SQL; the integration harness needs the `Class OC` fix).
 
-**E2E (chromium, `--retries=0`):** **25/30 pass** (was 7 before the gate fixes). The 2 remaining failures (`availability-slot` grid in `scheduling` + `availability-settings-flow`) are a **spec-context gap, not a code defect**: the `chromium` project runs as `admin`, who is a lone `member` in house 418 (owners are `dad`/`mom` in house 420), so owner-only member availability is empty. Fix → CR-016-11 (owner-context project via CS-015b storageState). 3 skipped (conditional edit-button visibility). The load/energy/calendar/preview/suggestions flows all pass.
+**E2E (chromium, `--retries=0`):** **25/30 pass** (was 7 before the gate fixes). The 2 remaining failures (`availability-slot` grid in `scheduling` + `availability-settings-flow`) were a **spec-context gap, not a code defect**: the `chromium` project runs as `admin`, who is a lone `member` in house 418 (owners are `dad`/`mom` in house 420), so owner-only member availability is empty. **Resolved by CS-PLAN-018 Phase 3b (2026-07-29):** `chromium-scheduling-owner` project runs these specs as `dad`; 3× full-matrix acceptance green. 3 skipped (conditional edit-button visibility). The load/energy/calendar/preview/suggestions flows all pass.
 
 ---
 
@@ -201,4 +201,4 @@ new:      docs/plans/active/cs-plan-016-scheduling-ui.md     (manual new/ -> act
 
 **Re-verified as sound (no findings):** authorization pattern (self endpoints `ensureHouseMember`, member endpoints `requireHouseOwner`, 403 convention), house-scoped membership enforcement in `updateMemberAvailabilityByNextcloudUserId`, no SQL concatenation, no `v-html`, no stack traces in responses, no `@PublicPage`, smart-schedule routes fully removed (no re-exposure), edit modal is self-only (`v-if="member.isCurrentUser"`) so the self-service endpoints in `saveAvailability` are correct, i18n key parity en/de (+1 new string).
 
-**Still pending:** E2E cross-browser acceptance (blocked by CR-016-11 owner-context, P1) — the plan's last open AC.
+**Resolved (2026-07-29):** E2E cross-browser acceptance completed by CS-PLAN-018 Phase 7 — CR-016-11 closed, 3× full-matrix `--retries=0` green (0 failed). All ACs met.

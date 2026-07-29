@@ -87,10 +87,10 @@ The 7 `smart-schedule#*` routes were removed (security), so `SmartSchedulerContr
 - **Notes**: Current regression coverage = the E2E "loads scheduling view" spec (fails if `/scheduling/preferences` 500s).
 
 ### [P1] CR-016-11 — Scheduling E2E owner-context project
-**Status**: Planned · **Effort**: S · **Source**: Docker gate of CS-016 (2026-07-28)
+**Status**: Resolved by CS-PLAN-018 (Phase 3b + Phase 7 acceptance, 2026-07-29) · **Effort**: S · **Source**: Docker gate of CS-016 (2026-07-28)
 The reintroduced scheduling E2E runs under the `chromium` project as `admin`, who is a lone `member` (house 418) — but 2 specs assert the owner-only member-availability grid (`availability-slot`). Owners are `dad`/`mom` (house 420). So 2/30 specs fail on missing owner data, not on a code defect.
 - **AC**: Add a Playwright project (or per-spec `storageState` override) that runs the owner-scoped scheduling specs as `dad`/`mom` (`.playwright/.auth/dad.json`); the 2 specs pass; the `admin`-scoped specs keep passing (25). Re-tick the plan's cross-browser E2E AC.
-- **Notes**: Ties into CS-015b's `storageState` auth infra. After this, run chromium/firefox/webkit `--retries=0` to satisfy the AC.
+- **Notes**: Ties into CS-015b's `storageState` auth infra. After this, run chromium/firefox/webkit `--retries=0` to satisfy the AC. **Ownership transfer (2026-07-29):** resolved inside CS-PLAN-018's quality sweep (Phase 3b adds the owner-context project; Phase 4 F4 is the same root cause, fix direction corrected from "seed for admin" to "run as owner"). CS-018's Phase 7 acceptance also re-ticks CS-016's E2E AC.
 
 ### [P2] CR-016-12 — Non-owner availability editing surface
 **Status**: Planned · **Effort**: M · **Source**: Re-review of CS-016 (2026-07-28)

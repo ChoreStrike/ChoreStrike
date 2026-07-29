@@ -22,8 +22,8 @@ async function primeCsrfToken(context: BrowserContext, page: Page): Promise<void
 	)
 	if (!token) {
 		throw new Error(
-			'primeCsrfToken: OC.requestToken not found after loading the dashboard. ' +
-			'The storageState may be expired or the Nextcloud instance is unreachable.',
+			'primeCsrfToken: OC.requestToken not found after loading the dashboard. '
+			+ 'The storageState may be expired or the Nextcloud instance is unreachable.',
 		)
 	}
 	await context.setExtraHTTPHeaders({ requesttoken: token })

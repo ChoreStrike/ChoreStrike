@@ -32,7 +32,7 @@ async function expandFloors(page: Page): Promise<void> {
 test.describe('Task Completion Full Flow', () => {
 	test.use({ databaseProfile: 'family' })
 
-	test('complete task shows rewards toast and updates score', async ({ browser, seededData }) => {
+	test('complete task shows rewards toast and updates score', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -90,7 +90,7 @@ test.describe('Task Completion Full Flow', () => {
 		}
 	})
 
-	test('completing multiple tasks triggers combo indicator', async ({ browser, seededData }) => {
+	test('completing multiple tasks triggers combo indicator', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -117,7 +117,7 @@ test.describe('Task Completion Full Flow', () => {
 		}
 	})
 
-	test('task completion updates room cleanliness', async ({ browser, seededData }) => {
+	test('task completion updates room cleanliness', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -156,7 +156,7 @@ test.describe('Task Completion Full Flow', () => {
 		}
 	})
 
-	test('completed task shows completed checkmark instead of button', async ({ browser, seededData }) => {
+	test('completed task shows completed checkmark instead of button', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
 			await page.goto('/apps/chorestrike/')

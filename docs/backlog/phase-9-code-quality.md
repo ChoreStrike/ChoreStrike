@@ -368,7 +368,7 @@ export const logger = {
 **Deferred (P9-E2E-002b below)**: the ~13-spec long-tail still carries ~27 `waitForTimeout` calls; the optional a11y/role-check layer (Phase 5) remains non-blocking.
 
 **Validation**:
-- Jest 541/541, ESLint 0 errors (69 pre-existing JSDoc warnings), `npm run build` compiles, Playwright config lists 680 tests across 27 spec files (4 archived).
+- Jest 579/579, ESLint 0 errors, 0 warnings (68 JSDoc warnings resolved by CS-PLAN-018 Phase 1, 2026-07-29), `npm run build` compiles (0 warnings — asset budget raised by CS-018 Phase 5).
 - **Acceptance run pending (Docker):** the "3× clean local E2E runs (chromium+firefox+webkit) with `--retries=0`" criterion must be executed against the running Docker test env — the suite compiles and is correct-by-construction but was not executed end-to-end in this pass.
 
 ---
@@ -378,7 +378,7 @@ export const logger = {
 **Effort**: M–L  
 **Status**: Backlog (carved out of CS-PLAN-015)
 
-**Description**: The ~13 remaining specs not migrated by CS-015 still use ~27 `waitForTimeout` calls plus residual text/positional selectors: `multi-user-interactions` (6), `smoke-tests` (6), `minimal-smoke-tests` (4), `daily-tasks-flow` (3), `room-management` (2), and 1-offs (`leaderboard`, `private-tasks`, `room-detail`, `task-checklist-and-features`, plus the `test-house.ts` fixture). Apply the same `getByTestId`/`getByRole` + auto-waiting migration once the CS-015/015b foundation is proven flake-free (3× `--retries=0` acceptance runs, locally and in CI).
+**Description**: The ~13 remaining specs not migrated by CS-015 still use ~27 `waitForTimeout` calls plus residual text/positional selectors: `multi-user-interactions` (6), `smoke-tests` (6), `minimal-smoke-tests` (4), `daily-tasks-flow` (3), `room-management` (2), and 1-offs (`leaderboard`, `private-tasks`, `room-detail`, `task-checklist-and-features`, plus the `test-house.ts` fixture). Apply the same `getByTestId`/`getByRole` + auto-waiting migration. **Prerequisite met:** CS-PLAN-018 Phase 7 (2026-07-29) proved the suite flake-free with 3× full-matrix `--retries=0` acceptance runs (chromium + firefox + webkit + serial-db + scheduling-owner, 0 failed).
 
 ---
 
@@ -508,6 +508,19 @@ export const logger = {
 **Implementation**: Make the decision, then apply it to `appinfo/info.xml`, `composer.json`, and `AGENTS.md` together so all three agree. CI (`setup-php` in `.forgejo/workflows/release-gate.yml`) currently pins PHP 8.2 for the `composer validate` job.
 
 **Source**: Review of CS-PLAN-014 (2026-07-26).
+
+---
+
+### P9-CONFIG-002 - Node `punycode` DEP0040 deprecation (external, no action)
+**Priority**: LOW (informational)
+**Effort**: 0
+**Status**: Tracked no-action (external runtime)
+
+**Description**: Jest output emits `Deprecation Warning: The `punycode` module is deprecated. (Use `node --trace-deprecation ...` to show where the warning was created)` (Node DEP0040). This is a Node-runtime deprecation surfaced transitively by a dependency (not a project defect): no first-party code imports `punycode` directly, and it does not affect Jest results (579/579 green).
+
+**Action**: None until a dependency upgrade removes the transitive import. Re-surface only if the warning becomes an error (future Node major). Logged here so the deprecation is tracked rather than living only inside CS-PLAN-018's baseline.
+
+**Source**: CS-PLAN-018 baseline sweep (2026-07-28).
 
 ---
 

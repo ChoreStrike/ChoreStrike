@@ -33,7 +33,7 @@ test.describe('Multi-User Family Interactions', () => {
 		expect(userIds).toContain('friend')
 	})
 
-	test('mom can see assigned tasks on dashboard', async ({ browser, seededData }) => {
+	test('mom can see assigned tasks on dashboard', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -66,7 +66,7 @@ test.describe('Multi-User Family Interactions', () => {
 		}
 	})
 
-	test('teen can claim and complete a task', async ({ browser, seededData }) => {
+	test('teen can claim and complete a task', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -83,7 +83,7 @@ test.describe('Multi-User Family Interactions', () => {
 		}
 	})
 
-	test('leaderboard shows all family members', async ({ browser, seededData }) => {
+	test('leaderboard shows all family members', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -110,7 +110,7 @@ test.describe('Multi-User Family Interactions', () => {
 		}
 	})
 
-	test('kid can see their simple task list', async ({ browser, seededData }) => {
+	test('kid can see their simple task list', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'kid')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -140,7 +140,7 @@ test.describe('Multi-User Family Interactions', () => {
 		}
 	})
 
-	test('grandma can view but has limited tasks', async ({ browser, seededData }) => {
+	test('grandma can view but has limited tasks', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'grandma')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -174,7 +174,7 @@ test.describe('Multi-User Family Interactions', () => {
 test.describe('Multi-User Task Interactions', () => {
 	test.use({ databaseProfile: 'family' as DatabaseProfile })
 
-	test('task assignment persists across users', async ({ browser, seededData }) => {
+	test('task assignment persists across users', async ({ browser, seededData: _seededData }) => {
 		const mom = await createUserContext(browser, 'mom')
 		const teen = await createUserContext(browser, 'teen')
 
@@ -226,7 +226,7 @@ test.describe('Multi-User Task Interactions', () => {
 		}
 	})
 
-	test('task completion updates house health', async ({ browser, seededData }) => {
+	test('task completion updates house health', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -242,7 +242,7 @@ test.describe('Multi-User Task Interactions', () => {
 		}
 	})
 
-	test('leaderboard updates after task completion', async ({ browser, seededData }) => {
+	test('leaderboard updates after task completion', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
 			await page.goto('/apps/chorestrike/')

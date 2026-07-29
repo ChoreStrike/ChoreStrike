@@ -57,8 +57,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get household total Coins (aggregated from all members)
-		 * @param {object} userStore - The user store instance to aggregate from
-		 * @param state
+		 * @param {object} state Pinia store state
 		 */
 		householdTotalCoins: (state) => {
 			return state.householdProgress.totalCoins
@@ -66,7 +65,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get household total contribution score
-		 * @param state
+		 * @param {object} state Pinia store state
 		 */
 		householdTotalContribution: (state) => {
 			return state.householdProgress.totalContributionScore
@@ -74,7 +73,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get team streak (household-level streak)
-		 * @param state
+		 * @param {object} state Pinia store state
 		 */
 		teamStreak: (state) => {
 			return state.householdProgress.teamStreak
@@ -85,7 +84,7 @@ export const useGameStore = defineStore('game', {
 		 *
 		 * Reads the server snapshot directly — no client-side math. Returns 0
 		 * when no snapshot has been loaded yet.
-		 * @param state
+		 * @param {object} state Pinia store state
 		 */
 		weeklyGoalProgress: (state) => {
 			return state.householdProgress.weeklyGoal.percent ?? 0
@@ -93,7 +92,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Check if weekly goal is achieved (server-computed).
-		 * @param state
+		 * @param {object} state Pinia store state
 		 */
 		isWeeklyGoalAchieved: (state) => {
 			return state.householdProgress.weeklyGoal.achieved === true
@@ -102,7 +101,7 @@ export const useGameStore = defineStore('game', {
 		/**
 		 * Get the underlying weekly goal snapshot (dueCount, completedCount,
 		 * percent, targetPercent, achieved, weekStart, weekEnd).
-		 * @param state
+		 * @param {object} state Pinia store state
 		 */
 		weeklyGoal: (state) => {
 			return state.householdProgress.weeklyGoal
@@ -110,7 +109,7 @@ export const useGameStore = defineStore('game', {
 
 		/**
 		 * Get pending celebrations
-		 * @param state
+		 * @param {object} state Pinia store state
 		 */
 		pendingCelebrations: (state) => {
 			return state.celebrations.filter(c => !c.dismissed)

@@ -34,15 +34,15 @@ test.describe('User Login and Dashboard', () => {
 		test.setTimeout(60000)
 
 		await page.getByTestId('nav-tasks').click()
-		await expect(page).toHaveURL(/.*tasks/)
+		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 15000 })
 
 		await page.getByTestId('nav-leaderboard').click()
-		await expect(page).toHaveURL(/.*leaderboard/)
+		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 15000 })
 
 		await page.getByTestId('nav-settings').click()
-		await expect(page).toHaveURL(/.*settings/)
+		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 15000 })
 
 		await page.getByTestId('nav-dashboard').click()
-		await expect(page).toHaveURL(/.*dashboard/)
+		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 15000 })
 	})
 })

@@ -26,19 +26,14 @@ test.describe('Fast Core Tests', () => {
 
 	test('Basic navigation works', async ({ page }: { page: Page }) => {
 		const navigationTests = [
-			{ testid: 'nav-tasks', urlPattern: /tasks/ },
-			{ testid: 'nav-settings', urlPattern: /settings/ },
-			{ testid: 'nav-dashboard', urlPattern: /dashboard/ },
+			{ testid: 'nav-tasks', viewTestid: 'task-manager-view' },
+			{ testid: 'nav-settings', viewTestid: 'settings-view' },
+			{ testid: 'nav-dashboard', viewTestid: 'dashboard-view' },
 		]
 
 		for (const navTest of navigationTests) {
-			try {
-				await page.getByTestId(navTest.testid).click()
-				await expect(page).toHaveURL(navTest.urlPattern)
-			} catch (error: unknown) {
-				// Some navigation items might not be reachable in every state.
-				console.log(`Navigation to ${navTest.testid} failed:`, error instanceof Error ? error.message : 'Unknown error')
-			}
+			await page.getByTestId(navTest.testid).click()
+			await expect(page.getByTestId(navTest.viewTestid)).toBeVisible({ timeout: 15000 })
 		}
 	})
 
@@ -121,13 +116,13 @@ test.describe('Fast Core Tests', () => {
 
 		// Navigate around to trigger any errors.
 		await page.getByTestId('nav-tasks').click()
-		await expect(page).toHaveURL(/tasks/).catch(() => undefined)
+		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 15000 })
 
 		await page.getByTestId('nav-settings').click()
-		await expect(page).toHaveURL(/settings/).catch(() => undefined)
+		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 15000 })
 
 		await page.getByTestId('nav-dashboard').click()
-		await expect(page).toHaveURL(/dashboard/).catch(() => undefined)
+		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 15000 })
 
 		// Allow up to 5 non-critical errors for flakiness tolerance.
 		expect(errors.length).toBeLessThan(5)

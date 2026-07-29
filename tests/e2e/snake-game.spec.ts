@@ -105,7 +105,7 @@ test.describe('Snake Arcade Game', () => {
 		await expect(page.getByTestId('boost-shop')).toBeVisible({ timeout: 10000 })
 		await expect(page.locator('.boost-card')).toHaveCount(5, { timeout: 5000 })
 
-		await page.locator('.boost-shop-overlay').click()
+		await page.locator('.boost-shop-overlay .btn-secondary').click()
 		await expect(page.getByTestId('boost-shop')).not.toBeVisible()
 	})
 
@@ -118,7 +118,7 @@ test.describe('Snake Arcade Game', () => {
 		await expect(page.locator('.tab-btn')).toHaveCount(2)
 		await expect(page.locator('.personal-stats')).toBeVisible()
 
-		await page.locator('.leaderboard-overlay').click()
+		await page.locator('.leaderboard-overlay .btn-secondary').click()
 		await expect(page.getByTestId('snake-leaderboard')).not.toBeVisible()
 	})
 
@@ -174,17 +174,14 @@ test.describe('Snake Arcade Game', () => {
 		await expect(page.locator('.score-value')).toContainText('0')
 	})
 
-	test('Active boosts are displayed during gameplay', async ({ page }) => {
+	test('No active boosts displayed without purchase', async ({ page }) => {
 		test.setTimeout(90000)
 
 		await openSnake(page)
 		await page.locator('.start-overlay .btn-primary').click()
 		await expect(page.locator('.start-overlay')).not.toBeVisible({ timeout: 5000 })
 
-		const activeBoosts = page.locator('.active-boosts')
-		await expect(activeBoosts).toBeVisible().catch(() => {
-			return expect(activeBoosts).toBeAttached()
-		})
+		await expect(page.locator('.active-boosts')).not.toBeVisible()
 	})
 
 	test('Coins balance is displayed in arcade header', async ({ page }) => {

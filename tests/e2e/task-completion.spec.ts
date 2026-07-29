@@ -25,7 +25,7 @@ async function selectFirstAssignableTask(page: import('@playwright/test').Page):
 }
 
 test.describe('Task Creation and Completion', () => {
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(async ({ page: _page }) => {
 		test.setTimeout(60000)
 	})
 

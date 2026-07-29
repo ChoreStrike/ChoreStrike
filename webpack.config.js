@@ -52,4 +52,9 @@ webpackConfig.module.rules.push({
 	}],
 })
 
+webpackConfig.performance = {
+	maxAssetSize: 4 * 1024 * 1024,
+	maxEntrypointSize: 4 * 1024 * 1024,
+}
+
 module.exports = webpackConfig

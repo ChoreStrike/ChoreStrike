@@ -8,7 +8,7 @@ import { test, expect } from './fixtures/test-fixtures'
 test.describe('Daily Tasks Flow', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
-		
+
 		// Navigate to app
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })

@@ -25,7 +25,7 @@ class TestDataManager {
 			const response = await fetch(`${this.baseURL}/apps/chorestrike/api/reset-test-data`, {
 				method: 'POST',
 				headers: {
-					'Authorization': 'Basic ' + Buffer.from(`${this.credentials.user}:${this.credentials.pass}`).toString('base64'),
+					Authorization: 'Basic ' + Buffer.from(`${this.credentials.user}:${this.credentials.pass}`).toString('base64'),
 					'Content-Type': 'application/json',
 				},
 			})
@@ -34,7 +34,7 @@ class TestDataManager {
 				console.log('Test data reset successfully')
 				return true
 			}
-		} catch (error) {
+		} catch {
 			console.log('Reset endpoint not available, using default state')
 		}
 
@@ -50,13 +50,13 @@ class TestDataManager {
 			const response = await fetch(`${this.baseURL}/apps/chorestrike/api/seed-minimal`, {
 				method: 'POST',
 				headers: {
-					'Authorization': 'Basic ' + Buffer.from(`${this.credentials.user}:${this.credentials.pass}`).toString('base64'),
+					Authorization: 'Basic ' + Buffer.from(`${this.credentials.user}:${this.credentials.pass}`).toString('base64'),
 					'Content-Type': 'application/json',
 				},
 			})
 
 			return response.ok
-		} catch (error) {
+		} catch {
 			console.log('Seed endpoint not available')
 			return false
 		}
@@ -76,8 +76,8 @@ export const test = baseTest.extend<TestFixtures>({
 			baseURL || 'http://localhost:8080',
 			{
 				user: process.env.NEXTCLOUD_USER || 'admin',
-				pass: process.env.NEXTCLOUD_PASSWORD || 'admin'
-			}
+				pass: process.env.NEXTCLOUD_PASSWORD || 'admin',
+			},
 		)
 		await use(manager)
 	},

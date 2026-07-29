@@ -51,17 +51,21 @@ test.describe('Room and Floor Management', () => {
 		await page.getByTestId('nav-dashboard').click()
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 
-		// Expand first floor and add room through GUI modal
-		const floorToggle = page.locator('.floor-section .toggle-button').first()
-		if (await floorToggle.count() > 0) {
-			await floorToggle.click()
+		await page.locator('.floor-section').first().waitFor({ state: 'attached', timeout: 15000 })
+
+		const floorContent = page.locator('.floor-section .floor-content').first()
+		if (!(await floorContent.isVisible().catch(() => false))) {
+			await page.locator('.floor-section .toggle-button').first().click()
+			await floorContent.waitFor({ state: 'visible', timeout: 10000 })
 		}
 
 		const addRoomButton = page.locator('[data-testid^="add-room-button-"]').first()
-		if (await addRoomButton.count() > 0) {
+		const addRoomCard = page.locator('[data-testid^="add-room-card-"]').first()
+		if (await addRoomButton.isVisible().catch(() => false)) {
 			await addRoomButton.click()
 		} else {
-			await page.locator('[data-testid^="add-room-card-"]').first().click()
+			await addRoomCard.waitFor({ state: 'visible', timeout: 10000 })
+			await addRoomCard.click()
 		}
 
 		await page.waitForSelector('[data-testid="room-name-input"]', { timeout: 15000 })

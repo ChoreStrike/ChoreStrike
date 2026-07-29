@@ -28,13 +28,13 @@ export class ApiError extends Error {
 
 /**
  * Core request function. Builds the canonical URL from API_PREFIX + path,
- * calls @nextcloud/axios, unwraps the { success, data, error } envelope,
+ * calls `@nextcloud/axios`, unwraps the { success, data, error } envelope,
  * and throws ApiError on any failure.
  *
  * @param {string} method HTTP method (get, post, put, patch, delete)
  * @param {string} path URL path relative to API_PREFIX (e.g. '/api/v1/house')
  * @param {object} [config] Additional axios config (data, params, headers, …)
- * @return {Promise<any>} Unwrapped response data
+ * @return {Promise<object>} Unwrapped response data
  * @throws {ApiError} When the request fails (HTTP non-2xx or success === false)
  */
 async function request(method, path, config = {}) {
@@ -61,7 +61,7 @@ async function request(method, path, config = {}) {
  * GET request
  * @param {string} path URL path relative to API_PREFIX
  * @param {object} [config] Additional axios config (params, headers, …)
- * @return {Promise<any>} Unwrapped response data
+ * @return {Promise<object>} Unwrapped response data
  */
 export function get(path, config) {
 	return request('get', path, config)
@@ -70,9 +70,9 @@ export function get(path, config) {
 /**
  * POST request
  * @param {string} path URL path relative to API_PREFIX
- * @param {*} [data] Request body
+ * @param {object} [data] Request body
  * @param {object} [config] Additional axios config
- * @return {Promise<any>} Unwrapped response data
+ * @return {Promise<object>} Unwrapped response data
  */
 export function post(path, data, config) {
 	return request('post', path, { ...config, data })
@@ -81,9 +81,9 @@ export function post(path, data, config) {
 /**
  * PUT request
  * @param {string} path URL path relative to API_PREFIX
- * @param {*} [data] Request body
+ * @param {object} [data] Request body
  * @param {object} [config] Additional axios config
- * @return {Promise<any>} Unwrapped response data
+ * @return {Promise<object>} Unwrapped response data
  */
 export function put(path, data, config) {
 	return request('put', path, { ...config, data })
@@ -92,9 +92,9 @@ export function put(path, data, config) {
 /**
  * PATCH request
  * @param {string} path URL path relative to API_PREFIX
- * @param {*} [data] Request body
+ * @param {object} [data] Request body
  * @param {object} [config] Additional axios config
- * @return {Promise<any>} Unwrapped response data
+ * @return {Promise<object>} Unwrapped response data
  */
 export function patch(path, data, config) {
 	return request('patch', path, { ...config, data })
@@ -104,7 +104,7 @@ export function patch(path, data, config) {
  * DELETE request
  * @param {string} path URL path relative to API_PREFIX
  * @param {object} [config] Additional axios config
- * @return {Promise<any>} Unwrapped response data
+ * @return {Promise<object>} Unwrapped response data
  */
 export function del(path, config) {
 	return request('delete', path, config)

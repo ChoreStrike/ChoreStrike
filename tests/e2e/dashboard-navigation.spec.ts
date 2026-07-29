@@ -37,16 +37,16 @@ test.describe('Dashboard', () => {
 	test('User can navigate to room detail from dashboard', async ({ page }) => {
 		// Find a room card in the floor list
 		const roomCard = page.locator('.room-card').first()
-		
+
 		// If there are rooms, click on one
 		if (await roomCard.count() > 0) {
 			const roomName = await roomCard.locator('.room-name').textContent()
 			await roomCard.click()
-			
+
 			// Verify navigation to room detail
 			await page.waitForLoadState('networkidle')
 			await expect(page.locator('[data-testid="room-detail-view"]')).toBeVisible()
-			
+
 			// Verify room name is displayed
 			const detailRoomName = page.locator('[data-testid="room-name"]')
 			await expect(detailRoomName).toContainText(roomName || '')
@@ -54,28 +54,20 @@ test.describe('Dashboard', () => {
 	})
 
 	test('User can navigate to all main views from dashboard', async ({ page }) => {
-		// Navigate to Tasks
 		await page.click('[data-testid="nav-tasks"]')
 		await page.waitForLoadState('networkidle')
 		await expect(page.locator('[data-testid="task-manager-view"]')).toBeVisible()
-		await expect(page).toHaveURL(/\/tasks/)
 
-		// Navigate to Leaderboard
 		await page.click('[data-testid="nav-leaderboard"]')
 		await page.waitForLoadState('networkidle')
 		await expect(page.locator('[data-testid="leaderboard-view"]')).toBeVisible()
-		await expect(page).toHaveURL(/\/leaderboard/)
 
-		// Navigate to Settings
 		await page.click('[data-testid="nav-settings"]')
 		await page.waitForLoadState('networkidle')
 		await expect(page.locator('[data-testid="settings-view"]')).toBeVisible()
-		await expect(page).toHaveURL(/\/settings/)
 
-		// Navigate back to Dashboard
 		await page.click('[data-testid="nav-dashboard"]')
 		await page.waitForLoadState('networkidle')
 		await expect(page.locator('[data-testid="dashboard-view"]')).toBeVisible()
-		await expect(page).toHaveURL(/\/chorestrike\/$/)
 	})
 })

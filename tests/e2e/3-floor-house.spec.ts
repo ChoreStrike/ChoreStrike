@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/test-fixtures'
-import { setupTestHouse, type TestHouseData } from './fixtures/test-house'
+import { setupTestHouse } from './fixtures/test-house'
 
 /**
  * E2E Test: 3-Floor House Scenario
@@ -19,7 +19,7 @@ import { setupTestHouse, type TestHouseData } from './fixtures/test-house'
 test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
-		
+
 		// Navigate to app (assuming already logged in)
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })

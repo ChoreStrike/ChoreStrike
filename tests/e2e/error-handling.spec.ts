@@ -68,7 +68,7 @@ test.describe('User Role Validation', () => {
 			return acc
 		}, {} as Record<string, number>)
 
-		expect(roleCounts['owner']).toBeGreaterThanOrEqual(1)
+		expect(roleCounts.owner).toBeGreaterThanOrEqual(1)
 	})
 })
 

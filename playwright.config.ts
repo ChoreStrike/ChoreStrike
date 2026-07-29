@@ -15,6 +15,20 @@ const SEED_DEPENDENT_SPECS = [
 	/validation\.spec\.ts/,
 	/multi-user-interactions\.spec\.ts/,
 	/task-completion-full-flow\.spec\.ts/,
+	/3-floor-house\.spec\.ts/,
+]
+
+// Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a
+// member, so owner-only data (member-availability grid) is empty under admin.
+// Playwright matches the regex against the full file path, so the patterns
+// anchor on a preceding path separator + end-of-string. A bare
+// `/scheduling\.spec\.ts/` also matched flex-window-scheduling.spec.ts; the
+// separator anchor excludes it unless listed explicitly. All three scheduling
+// specs run here.
+const SCHEDULING_OWNER_SPECS = [
+	/[/\\]scheduling\.spec\.ts$/,
+	/[/\\]flex-window-scheduling\.spec\.ts$/,
+	/[/\\]availability-settings-flow\.spec\.ts$/,
 ]
 
 export default defineConfig({
@@ -62,12 +76,10 @@ export default defineConfig({
 		{
 			name: 'chromium',
 			dependencies: ['setup'],
-			testIgnore: SEED_DEPENDENT_SPECS,
+			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS],
 			use: {
 				...devices['Desktop Chrome'],
-				/* Reuse the admin storageState so specs start authenticated */
 				storageState: '.playwright/.auth/admin.json',
-				/* Faster timeouts for Chrome (more stable) */
 				actionTimeout: 15000,
 				navigationTimeout: 30000,
 			},
@@ -75,11 +87,10 @@ export default defineConfig({
 		{
 			name: 'firefox',
 			dependencies: ['setup'],
-			testIgnore: SEED_DEPENDENT_SPECS,
+			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS],
 			use: {
 				...devices['Desktop Firefox'],
 				storageState: '.playwright/.auth/admin.json',
-				/* Longer timeouts for Firefox (slower but more stable) */
 				actionTimeout: 25000,
 				navigationTimeout: 60000,
 			},
@@ -87,11 +98,10 @@ export default defineConfig({
 		{
 			name: 'webkit',
 			dependencies: ['setup'],
-			testIgnore: SEED_DEPENDENT_SPECS,
+			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS],
 			use: {
 				...devices['Desktop Safari'],
 				storageState: '.playwright/.auth/admin.json',
-				/* Standard timeouts for WebKit */
 				actionTimeout: 20000,
 				navigationTimeout: 45000,
 			},
@@ -108,6 +118,19 @@ export default defineConfig({
 			use: {
 				...devices['Desktop Chrome'],
 				storageState: '.playwright/.auth/admin.json',
+				actionTimeout: 15000,
+				navigationTimeout: 30000,
+			},
+		},
+		{
+			name: 'chromium-scheduling-owner',
+			dependencies: ['setup'],
+			testMatch: SCHEDULING_OWNER_SPECS,
+			fullyParallel: false,
+			workers: 1,
+			use: {
+				...devices['Desktop Chrome'],
+				storageState: '.playwright/.auth/dad.json',
 				actionTimeout: 15000,
 				navigationTimeout: 30000,
 			},

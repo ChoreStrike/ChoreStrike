@@ -322,13 +322,14 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `private-tasks.spec.ts`, `admin-only-tasks.spec.ts`, `teamwork-rewards.spec.ts` | Visibility (private/admin-only) and teamwork-bonus rewards (CS-PLAN-005) |
 | `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage |
+| `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Smart Scheduling UI — availability grid, energy budget, calendar, suggestions (revived by CS-PLAN-016) |
 
 > **Archived (CS-PLAN-015, 2026-07-26):** `phase-3-user-management.spec.ts`
-> (retired group-assignment UI), `phase-4-advanced-mechanics.spec.ts` (phantom
-> components), and the scheduling trio (`scheduling`,
-> `flex-window-scheduling`, `availability-settings-flow` — the Smart-Scheduling
-> *view* is stripped; revive via CS-PLAN-016) were moved to
-> `archive/2026-07/e2e-legacy/`. They are no longer part of the suite.
+> (retired group-assignment UI) and `phase-4-advanced-mechanics.spec.ts` (phantom
+> components) were moved to `archive/2026-07/e2e-legacy/`. The scheduling trio
+> (`scheduling`, `flex-window-scheduling`, `availability-settings-flow`) was
+> also archived but has been **revived by CS-PLAN-016** (2026-07-28) and is
+> active again — see the table above.
 
 ### E2E Auth & Stable Selectors (CS-PLAN-015 / 015b)
 
@@ -351,19 +352,28 @@ npx playwright test tests/e2e/ --project=chromium --headed
     [`tests/e2e/fixtures/auth-contexts.ts`](../../tests/e2e/fixtures/auth-contexts.ts).
   - **No-logout rule:** no spec may navigate to or fetch `/logout` — it
     invalidates the shared server-side session for every parallel worker.
-- **Seed-race containment (CS-PLAN-015b Phase 2):** the 4 seed-dependent specs
+- **Seed-race containment (CS-PLAN-015b Phase 2):** the 5 seed-dependent specs
   (`error-handling`, `validation`, `multi-user-interactions`,
-  `task-completion-full-flow`) run in a dedicated `chromium-serial-db` project
-  (`fullyParallel: false`, `workers: 1`, chromium only). The parallel pool
-  (chromium / firefox / webkit) excludes them via `testIgnore` and never touches
-  the seed/reset endpoints concurrently.
+  `task-completion-full-flow`, `3-floor-house`) run in a dedicated
+  `chromium-serial-db` project (`fullyParallel: false`, `workers: 1`, chromium
+  only). The parallel pool (chromium / firefox / webkit) excludes them via
+  `testIgnore` and never touches the seed/reset endpoints concurrently.
+- **Scheduling owner-context (CS-PLAN-018 Phase 3b):** `scheduling.spec.ts` and
+  `availability-settings-flow.spec.ts` run in a dedicated
+  `chromium-scheduling-owner` project as `dad`
+  (`storageState: '.playwright/.auth/dad.json'`, `fullyParallel: false`,
+  `workers: 1`). Root cause: admin is a lone `member` (house 418) with no
+  owner-only availability data; owners are `dad`/`mom` (house 420). The
+  parallel pool excludes these specs via `testIgnore`.
 - **Stable selectors:** prefer `getByRole`/`getByLabel`, fall back to
   `getByTestId`. Never use `text=` or positional CSS selectors. No
   `waitForTimeout` — use auto-waiting locators/assertions. See
   [`docs/standards/guidelines/e2e-testid-conventions.md`](../standards/guidelines/e2e-testid-conventions.md).
 - **Flake acceptance run:** the live config retries twice, which masks flakes —
-  verify the migrated set with `npx playwright test --retries=0` across
-  chromium + firefox + webkit.
+  verify with `npx playwright test --retries=0` across the full matrix
+  (chromium + firefox + webkit + chromium-serial-db + chromium-scheduling-owner).
+  CS-PLAN-018 Phase 7 (2026-07-29) proved the suite flake-free: 3× full-matrix
+  `--retries=0`, 0 failed.
 
 ### Test Architecture
 

@@ -11,7 +11,7 @@ import { test, expect } from './fixtures/test-fixtures'
 test.describe('Task Checklist', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
-		
+
 		// Navigate to app (assuming already logged in)
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
@@ -59,20 +59,19 @@ test.describe('Task Checklist', () => {
 
 		// Find first checklist item
 		const checklistItem = page.locator('[data-testid^="checklist-item-"]').first()
-		
+
 		// Check if there are checklist items
 		const count = await checklistItem.count()
 		if (count > 0) {
 			// Get checkbox
 			const checkbox = checklistItem.locator('input[type="checkbox"]')
-			
+
 			// Toggle checkbox
-			const initialState = await checkbox.isChecked()
 			await checkbox.click()
-			
+
 			// Wait for state change
 			await page.waitForTimeout(500)
-			
+
 			// Verify state changed (or API call was made)
 			// Note: Actual state depends on backend response
 		}
@@ -109,7 +108,7 @@ test.describe('Task Checklist', () => {
 		// Progress badge should show format "X/Y"
 		const progressBadge = page.locator('.progress-badge')
 		await expect(progressBadge).toBeVisible()
-		
+
 		// Badge text should match pattern "number/number"
 		const badgeText = await progressBadge.textContent()
 		expect(badgeText).toMatch(/^\d+\/\d+$/)
@@ -126,7 +125,7 @@ test.describe('Task Checklist', () => {
 
 		// Find completed items (checked checkboxes)
 		const completedItems = page.locator('.checklist-item .item-checkbox.is-completed')
-		
+
 		// If there are completed items, verify styling
 		const count = await completedItems.count()
 		if (count > 0) {
@@ -141,7 +140,7 @@ test.describe('Task Checklist', () => {
 test.describe('Group Assignment', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
-		
+
 		// Navigate to app (assuming already logged in)
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
@@ -155,7 +154,7 @@ test.describe('Group Assignment', () => {
 
 		// Check for assigned indicator in task meta
 		const assignedIndicators = page.locator('.meta-item.assigned')
-		
+
 		// Either there are assigned tasks or not
 		const count = await assignedIndicators.count()
 		if (count > 0) {
@@ -170,7 +169,7 @@ test.describe('Group Assignment', () => {
 test.describe('Task Scheduling Modes', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
-		
+
 		// Navigate to app (assuming already logged in)
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
@@ -186,7 +185,7 @@ test.describe('Task Scheduling Modes', () => {
 		await page.click('[data-testid="add-task-button"]')
 
 		// Modal should open
-		await expect(page.locator('.modal')).toBeVisible()
+		await expect(page.locator('[data-testid="modal"]')).toBeVisible()
 
 		// Scheduling mode options should be visible
 		await expect(page.locator('text=Dynamic')).toBeVisible()
@@ -215,7 +214,7 @@ test.describe('Task Scheduling Modes', () => {
 test.describe('Template Selector', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
-		
+
 		// Navigate to app (assuming already logged in)
 		await page.goto('/apps/chorestrike/')
 		await page.waitForLoadState('networkidle', { timeout: 30000 })

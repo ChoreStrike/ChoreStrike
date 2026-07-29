@@ -19,12 +19,12 @@ test.describe('Leaderboard and Gamification', () => {
 	})
 
 	test('Leaderboard shows contribution scores', async ({ page }) => {
-		await page.goto('/apps/chorestrike/leaderboard')
+		await page.goto('/apps/chorestrike/#/leaderboard')
 		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
 	})
 
 	test('User medals are displayed on leaderboard', async ({ page }) => {
-		await page.goto('/apps/chorestrike/leaderboard')
+		await page.goto('/apps/chorestrike/#/leaderboard')
 		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
 
 		const medalSummary = page.locator('[data-testid="medal-summary"]')
@@ -34,7 +34,7 @@ test.describe('Leaderboard and Gamification', () => {
 	})
 
 	test('Weekly stats are displayed correctly', async ({ page }) => {
-		await page.goto('/apps/chorestrike/leaderboard')
+		await page.goto('/apps/chorestrike/#/leaderboard')
 		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
 
 		const weeklyStats = page.locator('[data-testid="weekly-stats"]')
@@ -44,7 +44,7 @@ test.describe('Leaderboard and Gamification', () => {
 	})
 
 	test('Leaderboard updates after task completion', async ({ page }) => {
-		await page.goto('/apps/chorestrike/leaderboard')
+		await page.goto('/apps/chorestrike/#/leaderboard')
 		await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 20000 })
 	})
 })

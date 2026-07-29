@@ -14,7 +14,7 @@ test.describe('Room Detail', () => {
 	test('Room detail displays room information', async ({ page }) => {
 		// Navigate to a room from dashboard
 		const roomCard = page.locator('.room-card').first()
-		
+
 		// Skip if no rooms available
 		const roomCount = await roomCard.count()
 		if (roomCount === 0) {
@@ -41,7 +41,7 @@ test.describe('Room Detail', () => {
 	test('Room detail displays monster sprite based on cleanliness', async ({ page }) => {
 		// Navigate to a room
 		const roomCard = page.locator('.room-card').first()
-		
+
 		// Skip if no rooms available
 		const roomCount = await roomCard.count()
 		if (roomCount === 0) {
@@ -58,7 +58,7 @@ test.describe('Room Detail', () => {
 	test('User can navigate back to dashboard from room detail', async ({ page }) => {
 		// Navigate to a room
 		const roomCard = page.locator('.room-card').first()
-		
+
 		// Skip if no rooms available
 		const roomCount = await roomCard.count()
 		if (roomCount === 0) {
@@ -79,7 +79,7 @@ test.describe('Room Detail', () => {
 	test('User can open add task modal', async ({ page }) => {
 		// Navigate to a room
 		const roomCard = page.locator('.room-card').first()
-		
+
 		// Skip if no rooms available
 		const roomCount = await roomCard.count()
 		if (roomCount === 0) {
@@ -100,7 +100,7 @@ test.describe('Room Detail', () => {
 	test('Room cleanliness value is displayed correctly', async ({ page }) => {
 		// Navigate to a room
 		const roomCard = page.locator('.room-card').first()
-		
+
 		// Skip if no rooms available
 		const roomCount = await roomCard.count()
 		if (roomCount === 0) {
@@ -112,10 +112,10 @@ test.describe('Room Detail', () => {
 
 		// Get cleanliness value
 		const cleanlinessText = await page.locator('[data-testid="cleanliness-value"]').textContent()
-		
+
 		// Verify it's a percentage value
 		expect(cleanlinessText).toMatch(/\d+%/)
-		
+
 		// Parse and verify range
 		const cleanlinessValue = parseInt(cleanlinessText?.replace('%', '') || '0', 10)
 		expect(cleanlinessValue).toBeGreaterThanOrEqual(0)

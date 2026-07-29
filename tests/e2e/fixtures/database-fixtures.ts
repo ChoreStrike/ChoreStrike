@@ -2,7 +2,7 @@ import { test as baseTest, expect } from '@playwright/test'
 
 /**
  * Database fixtures for ChoreStrike E2E tests
- * 
+ *
  * Supports three profiles:
  * - empty: Clean database (no data)
  * - minimal: 1 House, 1 Floor, 1 Room, 2 Users (adult, kid)
@@ -138,7 +138,7 @@ export const test = baseTest.extend<DatabaseFixtures>({
 
 		// Check if test mode is available
 		const isTestMode = await databaseManager.isTestMode()
-		
+
 		if (isTestMode) {
 			console.log(`[${testInfo.title}] Seeding database with profile: ${databaseProfile}`)
 			data = await databaseManager.seed(databaseProfile)

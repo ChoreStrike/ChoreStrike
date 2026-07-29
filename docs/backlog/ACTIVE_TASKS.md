@@ -5,6 +5,14 @@
 
 ## Recently Completed
 
+### CS-PLAN-018 - Full Quality Sweep — Test, Lint & Build Audit — 2026-07-29
+**Status**: Done
+**Started/Completed**: 2026-07-29
+**Branch**: master (uncommitted — awaiting approval)
+**Plan**: docs/plans/done/cs-plan-018-full-quality-sweep.md
+**Scope**: Closed the 26 chromium E2E failures + 68 JSDoc warnings + 2 webpack asset-size warnings + missing E2E-TS lint gate. Also closed CR-016-11 (scheduling owner-context project) and re-ticked CS-016's last open E2E AC. Seven phases: (1) JSDoc → 0 warnings in 5 src files; (2) hash-router URL→testid migration across 6 specs + removed 3 stilled `.catch()` no-ops; (3) `playwright.config.ts` — `3-floor-house` → serial-db + `chromium-scheduling-owner` project (3 scheduling specs as `dad`); (4) snake-game overlay close-button fix + 5 F5 selector fixes; (5) webpack 4 MiB budget; (6) E2E-TS lint gate; (7) 3× full-matrix Docker acceptance `--retries=0` green. Standard-B post-implementation review + 4 minor review-fixes (regex anchoring, smoke-test hash URLs, doc accuracy, title-selection hardening). All ACs met.
+**Gate**: `npm run lint` 0/0, `npm test` 579/579, `npm run build` 0 warnings, E2E 3× full-matrix 0 failed.
+
 ### Agent-Rules Hardening: Docker Availability Misdiagnosis — 2026-07-28
 **Status**: Done
 **Started/Completed**: 2026-07-28
@@ -296,8 +304,8 @@
 **Status**: Implemented + Full-Review + Re-Review fixes applied (2026-07-28) — Phases 1–5 complete. D1 resolved: option (a), UI consumes `scheduling#*` via the store exclusively; **the 7 `smart-schedule#*` routes were REMOVED** (Full Review) because `SmartSchedulerController` had no authorization. `SchedulingControllerTest` repaired + re-included in `phpunit.xml` (T1); `updateMemberAvailability` fixed (`string $userId` + by-uid service method); weekday validation added at the controller boundary. Frontend correctness fixes: EnergyBudgetSettings data-loss watcher, suggestions now pass real tasks, init/error handling, ScheduleCalendar week-start. **Re-Review round (2026-07-28):** 2 new blocks fixed — suggestions weekday-object→array normalization in the store (both suggestion sections were non-functional; Jest mocks had the wrong shape) + shared-loading-flag separation (view unmounted mid-save/mid-load; `loading` now owned by `initializeScheduling`, local refs in Preview/Suggestions); 2 majors fixed — `applyMemberUpdates` now throws on out-of-range energy (was silent drop) + `SchedulingController` gained `ControllerLoggingTrait`/`AppLogger`. 5 components revived + adapted; 3 E2E specs reintroduced. **Gate re-run green: Jest 579/579, ESLint 0 errors, PHPUnit Docker 22/22.** New backlog: CR-016-12 (non-owner availability surface), CR-016-13 (dead code/payload), CR-016-14 (save guard/unreachable loading).
 **Priority**: P2 · **Effort**: L · **Depends on**: CS-015b (E2E auth infra)
 **Scope**: Scheduling is a **built-but-UI-stripped feature**. The backend is complete and load-bearing (`SchedulingController` + `SmartSchedulerController` + `lib/Service/Scheduling/` 5 algorithm classes + 13 routes + full `scheduling` Pinia store), but **no view mounts the store** (verified: 0 `useSchedulingStore` mounts in `src/views`+`src/components`; CS-PLAN-003 archived `SchedulingView.vue` + 5 components to `archive/2026-07/legacy-unwired/`; `router.js` has no `/scheduling` route). Users today cannot edit availability/energy — the jobs run against migration defaults only. This plan **revives/adapts** the archived Vue against the existing backend: add `/scheduling` route + `nav-scheduling` item, reconcile the two overlapping controller surfaces (`scheduling#*` vs `smart-schedule#*` — decision D1), enforce owner/self authorization on member-mutation endpoints, add `data-testid`s per the CS-015 convention, i18n, Jest + integration-auth tests, and **reintroduce the 3 scheduling E2E specs** CS-015 archived (`scheduling`, `flex-window-scheduling`, `availability-settings-flow`). Not a UX redesign — a revive. Raised during the CS-015 plan review (2026-07-26).
-**Plan**: docs/plans/active/cs-plan-016-scheduling-ui.md
-**Blockers**: E2E cross-browser acceptance — blocked by CR-016-11 (owner-context project, P1). PHPUnit Docker acceptance is green (22/22).
+**Plan**: docs/plans/done/cs-plan-016-scheduling-ui.md
+**Blockers**: None — CR-016-11 resolved by CS-PLAN-018 Phase 3b + Phase 7 acceptance (2026-07-29). E2E AC re-ticked. **`active/ → done/` complete (2026-07-29).**
 
 ### CS-PLAN-017 - Manual Release Test Plan — Consolidate, Refresh & Gate
 **Status**: Planned (drafted in `new/` 2026-07-27 from the test-pipeline review; user decision 2026-07-27 (1b): **sequenced behind CS-015b** — plan review at activation)
