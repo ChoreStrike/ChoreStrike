@@ -709,6 +709,77 @@ class RoomTaskController extends Controller
     }
 
     /**
+     * Get scheduled and completed tasks within a date range for the calendar view.
+     *
+     * @NoAdminRequired
+     *
+     * @param string $from Start date (Y-m-d)
+     * @param string $to End date (Y-m-d)
+     */
+    public function range(string $from, string $to): JSONResponse
+    {
+        try {
+            $fromDate = \DateTime::createFromFormat('Y-m-d', $from);
+            $toDate = \DateTime::createFromFormat('Y-m-d', $to);
+
+            if ($fromDate === false || $toDate === false) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => 'from and to must be valid Y-m-d dates'
+                    ]
+                ], 400);
+            }
+
+            $fromDate->setTime(0, 0, 0);
+            $toDate->setTime(23, 59, 59);
+
+            if ($fromDate > $toDate) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => 'from must not be after to'
+                    ]
+                ], 400);
+            }
+
+            $spanDays = $fromDate->diff($toDate)->days;
+            if ($spanDays > 60) {
+                return new JSONResponse([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'VALIDATION_ERROR',
+                        'message' => 'Range must not exceed 60 days'
+                    ]
+                ], 400);
+            }
+
+            $instanceId = $this->houseService->getInstanceId();
+            $house = $this->houseService->getOrCreateHouse($instanceId);
+            $this->authService->ensureHouseMember($house->getId());
+
+            $data = $this->roomTaskService->getRangeTasks($house->getId(), $fromDate, $toDate);
+
+            return new JSONResponse([
+                'success' => true,
+                'data' => $data
+            ]);
+        } catch (ForbiddenException $e) {
+            return ControllerErrorFormatter::forbiddenResponse($e);
+        } catch (\Exception $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'RANGE_TASKS_ERROR',
+                    'message' => ControllerErrorFormatter::safeMessage($e)
+                ]
+            ], 500);
+        }
+    }
+
+    /**
      * Get user tasks
      *
      * @NoAdminRequired

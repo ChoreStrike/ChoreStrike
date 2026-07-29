@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
@@ -33,6 +34,7 @@ class RoomTaskService
     private RoomService $roomService;
     private TaskAssigneeMapper $taskAssigneeMapper;
     private HouseUserMapper $houseUserMapper;
+    private CompletedTaskMapper $completedTaskMapper;
     private ?AppLogger $appLogger;
 
     public function __construct(
@@ -43,6 +45,7 @@ class RoomTaskService
         RoomService $roomService,
         TaskAssigneeMapper $taskAssigneeMapper,
         HouseUserMapper $houseUserMapper,
+        CompletedTaskMapper $completedTaskMapper,
         ?AppLogger $appLogger = null
     ) {
         $this->roomTaskMapper = $roomTaskMapper;
@@ -52,6 +55,7 @@ class RoomTaskService
         $this->roomService = $roomService;
         $this->taskAssigneeMapper = $taskAssigneeMapper;
         $this->houseUserMapper = $houseUserMapper;
+        $this->completedTaskMapper = $completedTaskMapper;
         $this->appLogger = $appLogger;
     }
 
@@ -629,6 +633,62 @@ class RoomTaskService
         }
 
         return $details;
+    }
+
+    /**
+     * Get scheduled and completed tasks for a house within a date range.
+     *
+     * Batch-fetches task and room entities by unique-ID sets to avoid N+1
+     * queries over a multi-day range. Returns enriched scheduled items with
+     * flex window bounds and projected completion rows.
+     *
+     * @param int $houseId The house ID
+     * @param \DateTime $from Inclusive range start
+     * @param \DateTime $to Inclusive range end
+     * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, flexWindow: array}>, completed: array<int, array>}
+     */
+    public function getRangeTasks(int $houseId, \DateTime $from, \DateTime $to): array
+    {
+        $roomTasks = $this->roomTaskMapper->findActiveDueBetweenByHouse($houseId, $from, $to);
+        $completions = $this->completedTaskMapper->findCompletionsBetweenByHouse($houseId, $from, $to);
+
+        $taskIds = [];
+        $roomIds = [];
+        foreach ($roomTasks as $rt) {
+            $taskIds[$rt->getTaskId()] = true;
+            $roomIds[$rt->getRoomId()] = true;
+        }
+
+        $taskCache = [];
+        foreach (array_keys($taskIds) as $taskId) {
+            $taskCache[$taskId] = $this->taskMapper->find($taskId);
+        }
+
+        $roomCache = [];
+        foreach (array_keys($roomIds) as $roomId) {
+            $roomCache[$roomId] = $this->roomMapper->find($roomId);
+        }
+
+        $scheduled = [];
+        foreach ($roomTasks as $rt) {
+            $task = $taskCache[$rt->getTaskId()];
+            $flexWindow = $rt->getFlexWindowBounds($task->getFlexDays());
+            $scheduled[] = [
+                'roomTask' => $rt->jsonSerialize(),
+                'task' => $task->jsonSerialize(),
+                'room' => $roomCache[$rt->getRoomId()]->jsonSerialize(),
+                'flexWindow' => [
+                    'earliest' => $flexWindow['earliest']?->format('Y-m-d'),
+                    'ideal' => $flexWindow['ideal']?->format('Y-m-d'),
+                    'latest' => $flexWindow['latest']?->format('Y-m-d'),
+                ],
+            ];
+        }
+
+        return [
+            'scheduled' => $scheduled,
+            'completed' => $completions,
+        ];
     }
 
     /**

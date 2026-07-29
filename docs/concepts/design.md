@@ -31,13 +31,20 @@ ChoreStrike transforms household chores into a cooperative game that motivates r
 - Based on available time/effort budget
 - Weekday-specific configuration
 
-### 4. Multi-User Support
+### 4. Calendar View
+- Week (Mon–Sun) and rolling 30-day month toggle
+- Day cells show task count badges; click expands the day's task list
+- Scheduled tasks highlighted, completed instances rendered muted/checkmarked
+- Overdue tasks visually flagged on their original due date
+- Single round-trip range endpoint (`/api/v1/room-tasks/range`) for performance
+
+### 5. Multi-User Support
 - Invite household members
 - Cooperative progress tracking
 - Task approval workflow for children
 - Fair workload distribution
 
-### 5. Streak & History
+### 6. Streak & History
 - Streak tracking (motivation through continuity)
 - Completed task history
 - Progress visualization

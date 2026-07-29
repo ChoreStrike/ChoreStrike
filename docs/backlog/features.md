@@ -6,7 +6,7 @@
 
 ## [P1] Week / Month (30-day) Calendar View for Tasks
 
-**Status**: Planned
+**Status**: Planned — drafted as CS-PLAN-021 (`docs/plans/new/cs-plan-021-task-calendar-view.md`, 2026-07-29; awaiting plan review + `new/ → active/`)
 **Assignee**: unassigned
 **Estimated Effort**: L
 **Source**: User request 2026-07-27

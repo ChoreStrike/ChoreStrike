@@ -15,6 +15,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		roomTasks: [],
 		loading: false,
 		error: null,
+		rangeTasks: { scheduled: [], completed: [], from: null, to: null },
 	}),
 
 	getters: {
@@ -112,6 +113,23 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				const dueDate = new Date(roomTask.nextDue)
 				return dueDate >= today && dueDate < tomorrow
 			}).length
+		},
+
+		rangeTasksByDay: (state) => {
+			const byDay = {}
+			for (const item of state.rangeTasks.scheduled) {
+				const day = (item.roomTask.nextDue || '').slice(0, 10)
+				if (!day) continue
+				if (!byDay[day]) byDay[day] = { scheduled: [], completed: [] }
+				byDay[day].scheduled.push(item)
+			}
+			for (const item of state.rangeTasks.completed) {
+				const day = (item.completedAt || '').slice(0, 10)
+				if (!day) continue
+				if (!byDay[day]) byDay[day] = { scheduled: [], completed: [] }
+				byDay[day].completed.push(item)
+			}
+			return byDay
 		},
 	},
 
@@ -680,12 +698,32 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
+		 * Fetch scheduled and completed tasks for a date range (calendar view).
+		 * @param {string} from Start date (Y-m-d).
+		 * @param {string} to End date (Y-m-d).
+		 */
+		async fetchRangeTasks(from, to) {
+			this.error = null
+
+			try {
+				const data = await api.get('/api/v1/room-tasks/range', { params: { from, to } })
+				this.rangeTasks = { scheduled: data.scheduled, completed: data.completed, from, to }
+				return data
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to fetch range tasks', error, { store: 'roomTasks', action: 'fetchRangeTasks' })
+				throw error
+			}
+		},
+
+		/**
 		 * Reset store state
 		 */
 		reset() {
 			this.roomTasks = []
 			this.loading = false
 			this.error = null
+			this.rangeTasks = { scheduled: [], completed: [], from: null, to: null }
 		},
 	},
 })

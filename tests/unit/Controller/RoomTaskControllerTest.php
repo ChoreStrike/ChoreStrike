@@ -232,4 +232,70 @@ class RoomTaskControllerTest extends TestCase
         $this->assertEquals(403, $response->getStatus());
         $this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
     }
+
+    public function testRange_ReturnsScheduledAndCompleted(): void
+    {
+        $house = new House();
+        $house->setId(1);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('ensureHouseMember');
+
+        $mockData = [
+            'scheduled' => [['roomTask' => ['id' => 1], 'task' => ['name' => 'T'], 'room' => ['name' => 'R'], 'flexWindow' => []]],
+            'completed' => [['roomTaskId' => 2, 'taskName' => 'Done']],
+        ];
+        $this->roomTaskService->expects($this->once())
+            ->method('getRangeTasks')
+            ->willReturn($mockData);
+
+        $response = $this->controller->range('2026-07-28', '2026-08-03');
+
+        $this->assertEquals(200, $response->getStatus());
+        $data = $response->getData();
+        $this->assertTrue($data['success']);
+        $this->assertCount(1, $data['data']['scheduled']);
+        $this->assertCount(1, $data['data']['completed']);
+    }
+
+    public function testRange_Returns400ForInvalidDate(): void
+    {
+        $response = $this->controller->range('not-a-date', '2026-08-03');
+
+        $this->assertEquals(400, $response->getStatus());
+        $this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+    }
+
+    public function testRange_Returns400WhenFromAfterTo(): void
+    {
+        $response = $this->controller->range('2026-08-03', '2026-07-28');
+
+        $this->assertEquals(400, $response->getStatus());
+        $this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+    }
+
+    public function testRange_Returns400WhenSpanExceeds60Days(): void
+    {
+        $response = $this->controller->range('2026-01-01', '2026-06-01');
+
+        $this->assertEquals(400, $response->getStatus());
+        $this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+    }
+
+    public function testRange_Returns403ForNonMember(): void
+    {
+        $house = new House();
+        $house->setId(1);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('ensureHouseMember')
+            ->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Not a member'));
+
+        $response = $this->controller->range('2026-07-28', '2026-08-03');
+
+        $this->assertEquals(403, $response->getStatus());
+        $this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+    }
 }

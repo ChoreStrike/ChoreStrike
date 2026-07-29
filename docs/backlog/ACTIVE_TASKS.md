@@ -5,6 +5,14 @@
 
 ## Recently Completed
 
+### CS-PLAN-021 - Task Calendar View (Week / Rolling 30-Day) — 2026-07-29
+**Status**: Done
+**Started/Completed**: 2026-07-29
+**Branch**: master (uncommitted — awaiting approval)
+**Plan**: docs/plans/active/cs-plan-021-task-calendar-view.md
+**Scope**: Added a house-scoped range endpoint (`GET /api/v1/room-tasks/range?from=&to=`) returning `{scheduled, completed}` in a single round-trip, plus a `/calendar` view with week/month toggle, prev/next navigation, day-cell grid, and per-day drill-down. Backend: `RoomTaskMapper::findActiveDueBetweenByHouse`, `CompletedTaskMapper::findCompletionsBetweenByHouse`, `RoomTaskService::getRangeTasks` (batch-fetch, no N+1), `RoomTaskController::range` (date validation + 60-day span clamp). Frontend: `CalendarView.vue`, `TaskCalendar.vue`, `CalendarDayCell.vue`, store `rangeTasks` state + `rangeTasksByDay` getter + `fetchRangeTasks` action. Tests: 5 new controller unit tests, Jest store + component specs, E2E `calendar.spec.ts`. Phase-2 recurrence projection documented as follow-up (D2 scope).
+**Gate**: `npm run lint` 0 errors; `npm test` 594/594; `npm run build` green; PHPUnit unit 571/571 (Docker).
+
 ### CS-PLAN-020 - Release-Quality Gate Cluster (OCS Envelope, Controller Test Gate, E2E in release-gate) — 2026-07-29
 **Status**: Done
 **Started/Completed**: 2026-07-29
@@ -339,6 +347,13 @@
 **Status**: Done (2026-07-29) — see Recently Completed
 **Priority**: P1 · **Effort**: L · **Depends on**: none
 **Plan**: docs/plans/done/cs-plan-020-release-quality-gate-cluster.md
+
+### CS-PLAN-021 - Task Calendar View (Week / Rolling 30-Day)
+**Status**: Planned (drafted in `new/` 2026-07-29; awaiting plan review + manual `new/ → active/` move)
+**Priority**: P1 · **Effort**: L · **Depends on**: none hard-blocked (reuses CS-015/015b E2E conventions + CS-008 shared `api` client)
+**Scope**: Closes `features.md` [P1] Calendar View (user request 2026-07-27). Adds a temporal overview the list-only UI lacks. (1) One house-scoped range endpoint `GET /api/v1/room-tasks/range?from=&to=` returning `{ scheduled, completed }` enriched with task/room details + flex window in a single round-trip (new mapper methods `findActiveDueBetweenByHouse` + `findCompletionsBetweenByHouse`, batch-fetched service `getRangeTasks`, controller `range` with date validation + max-span clamp). (2) `/calendar` route + `nav-calendar` item + week/month toggle + day drill-down (new `CalendarView.vue` / `TaskCalendar.vue` / `CalendarDayCell.vue`, store `fetchRangeTasks` + `rangeTasksByDay` getter). (3) **D2 scope:** Phase 1 shows each task's next-due occurrence + completed history in range; full future-occurrence projection (recurring tasks store only `nextDue`) is a documented Phase-2 follow-up. No schema change. Tests: PHPUnit unit (mapper + controller) + integration (house-scoped isolation / cross-house 403) + Jest (store + components) + Playwright `calendar.spec.ts`.
+**Plan**: docs/plans/new/cs-plan-021-task-calendar-view.md
+**Blockers**: None (plan review pending).
 
 ---
 

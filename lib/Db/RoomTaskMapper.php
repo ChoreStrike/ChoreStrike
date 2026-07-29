@@ -402,6 +402,32 @@ class RoomTaskMapper extends QBMapper
     }
 
     /**
+     * Find active room tasks whose next_due falls within a date range for a house.
+     *
+     * Entity-returning sibling of findActiveDueIdsBetweenByHouse for the
+     * calendar range endpoint. Reuses applyHouseScope for house isolation.
+     *
+     * @param int $houseId The house ID
+     * @param \DateTimeInterface $start Inclusive range start
+     * @param \DateTimeInterface $end Inclusive range end
+     * @return RoomTask[] Active room tasks due in [start, end]
+     */
+    public function findActiveDueBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('rt.*')
+            ->from($this->getTableName(), 'rt');
+        $this->applyHouseScope($qb, 'rt', $houseId);
+        $qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+            ->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+            ->orderBy('rt.next_due', 'ASC')
+            ->addOrderBy('rt.created_at', 'ASC');
+
+        return $this->findEntities($qb);
+    }
+
+    /**
      * Find IDs of active room tasks whose next_due falls within a date range for a house.
      *
      * Used by the weekly household goal to determine the "still-open" part of

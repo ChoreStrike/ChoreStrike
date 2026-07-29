@@ -390,4 +390,46 @@ class CompletedTaskMapper extends QBMapper
         $result->closeCursor();
         return $ids;
     }
+
+    /**
+     * Find completion rows in a date range for a house, enriched with task/room names.
+     *
+     * Returns projected rows (not entities) for the calendar range endpoint.
+     * Each row: {roomTaskId, taskId, taskName, roomId, roomName, completedAt, completedByUserId}.
+     *
+     * @param int $houseId The house ID
+     * @param \DateTimeInterface $start Inclusive range start
+     * @param \DateTimeInterface $end Inclusive range end
+     * @return array<int, array{roomTaskId: int, taskId: int, taskName: string, roomId: int, roomName: string, completedAt: string, completedByUserId: int}>
+     */
+    public function findCompletionsBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('ct.room_task_id', 'rt.task_id', 't.name AS task_name', 'rt.room_id', 'r.name AS room_name', 'ct.completed_at', 'ct.user_id')
+            ->from($this->getTableName(), 'ct')
+            ->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
+            ->innerJoin('rt', 'chorestrike_tasks', 't', $qb->expr()->eq('rt.task_id', 't.id'))
+            ->innerJoin('rt', 'chorestrike_rooms', 'r', $qb->expr()->eq('rt.room_id', 'r.id'))
+            ->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+            ->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+            ->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+            ->orderBy('ct.completed_at', 'ASC');
+
+        $result = $qb->executeQuery();
+        $rows = [];
+        while ($row = $result->fetch()) {
+            $rows[] = [
+                'roomTaskId' => (int)$row['room_task_id'],
+                'taskId' => (int)$row['task_id'],
+                'taskName' => $row['task_name'],
+                'roomId' => (int)$row['room_id'],
+                'roomName' => $row['room_name'],
+                'completedAt' => $row['completed_at'],
+                'completedByUserId' => (int)$row['user_id'],
+            ];
+        }
+        $result->closeCursor();
+        return $rows;
+    }
 }

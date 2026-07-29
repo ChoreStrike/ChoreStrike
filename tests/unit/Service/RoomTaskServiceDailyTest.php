@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
@@ -50,7 +51,8 @@ class RoomTaskServiceDailyTest extends TestCase
             $this->floorMapper,
             $this->roomService,
             $this->taskAssigneeMapper,
-            $this->houseUserMapper
+            $this->houseUserMapper,
+            $this->createMock(CompletedTaskMapper::class)
         );
     }
 

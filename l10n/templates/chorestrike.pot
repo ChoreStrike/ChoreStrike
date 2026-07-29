@@ -537,3 +537,13 @@ msgstr ""
 
 msgid "titles.cozy_home.home_guardian"
 msgstr ""
+
+# Calendar view
+msgid "Calendar"
+msgstr ""
+
+msgid "Week"
+msgstr ""
+
+msgid "Month"
+msgstr ""

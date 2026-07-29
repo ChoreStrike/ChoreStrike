@@ -70,6 +70,7 @@ return [
         ['name' => 'room_task#overdue', 'url' => '/api/v1/room-tasks/overdue', 'verb' => 'GET'],
         ['name' => 'room_task#dueToday', 'url' => '/api/v1/room-tasks/due-today', 'verb' => 'GET'],
         ['name' => 'room_task#dueWithinDays', 'url' => '/api/v1/room-tasks/due-within-days', 'verb' => 'GET'],
+        ['name' => 'room_task#range', 'url' => '/api/v1/room-tasks/range', 'verb' => 'GET'],
         ['name' => 'room_task#userTasks', 'url' => '/api/v1/room-tasks/user/{userId}', 'verb' => 'GET'],
         ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET'],
         ['name' => 'room_task#userStats', 'url' => '/api/v1/room-tasks/user/{userId}/stats', 'verb' => 'GET'],

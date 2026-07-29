@@ -27,6 +27,11 @@
 				data-testid="nav-scheduling"
 				:name="t('chorestrike', 'Scheduling')" />
 			<NcAppNavigationItem
+				:to="{ name: 'calendar' }"
+				icon="icon-calendar-dark"
+				data-testid="nav-calendar"
+				:name="t('chorestrike', 'Calendar')" />
+			<NcAppNavigationItem
 				:to="{ name: 'settings' }"
 				icon="icon-settings"
 				data-testid="nav-settings"

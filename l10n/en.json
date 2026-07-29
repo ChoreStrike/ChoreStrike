@@ -170,6 +170,9 @@
         "Suggestion applied successfully": "Suggestion applied successfully",
 
         "Scheduling": "Scheduling",
+        "Calendar": "Calendar",
+        "Week": "Week",
+        "Month": "Month",
         "Smart Scheduling": "Smart Scheduling",
         "Intelligent task distribution based on member availability and preferences": "Intelligent task distribution based on member availability and preferences",
         "Member Availability": "Member Availability",

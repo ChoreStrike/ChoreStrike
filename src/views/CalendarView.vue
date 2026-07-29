@@ -1,0 +1,308 @@
+<!--
+  @copyright Copyright (c) 2026 ChoreStrike Contributors
+  @license MIT
+-->
+
+<template>
+	<div class="calendar-view" data-testid="calendar-view">
+		<header class="calendar-header">
+			<h1>{{ t('chorestrike', 'Calendar') }}</h1>
+			<div class="calendar-controls">
+				<div class="calendar-mode-toggle" data-testid="calendar-mode-toggle">
+					<button
+						class="toggle-btn"
+						:class="{ active: mode === 'week' }"
+						data-testid="calendar-mode-week"
+						@click="mode = 'week'">
+						{{ t('chorestrike', 'Week') }}
+					</button>
+					<button
+						class="toggle-btn"
+						:class="{ active: mode === 'month' }"
+						data-testid="calendar-mode-month"
+						@click="mode = 'month'">
+						{{ t('chorestrike', 'Month') }}
+					</button>
+				</div>
+				<div class="calendar-nav">
+					<button data-testid="calendar-prev" @click="navigate(-1)">
+						&lt;
+					</button>
+					<span data-testid="calendar-range-label" class="range-label">{{ rangeLabel }}</span>
+					<button data-testid="calendar-next" @click="navigate(1)">
+						&gt;
+					</button>
+				</div>
+			</div>
+		</header>
+
+		<div v-if="loading" class="calendar-loading">
+			<div class="skeleton skeleton-grid" />
+		</div>
+
+		<div v-else-if="error" class="calendar-error" data-testid="calendar-error">
+			<p>{{ error }}</p>
+		</div>
+
+		<TaskCalendar
+			v-else
+			:mode="mode"
+			:days="visibleDays"
+			:tasks-by-day="roomTasksStore.rangeTasksByDay"
+			@select-day="selectedDay = $event" />
+
+		<div v-if="selectedDay" class="day-detail" data-testid="calendar-day-list">
+			<h3>{{ formatDate(selectedDay) }}</h3>
+			<ul class="day-task-list">
+				<li
+					v-for="item in dayDetail.scheduled"
+					:key="'s-' + item.roomTask.id"
+					class="task-item"
+					:class="{ overdue: isOverdue(item) }">
+					<span class="task-name">{{ item.task.name }}</span>
+					<span class="task-room">{{ item.room.name }}</span>
+				</li>
+				<li
+					v-for="(item, idx) in dayDetail.completed"
+					:key="'c-' + idx"
+					class="task-item completed">
+					<span class="task-name">{{ item.taskName }}</span>
+					<span class="task-room">{{ item.roomName }}</span>
+				</li>
+			</ul>
+			<button class="close-detail" @click="selectedDay = null">
+				{{ t('chorestrike', 'Close') }}
+			</button>
+		</div>
+	</div>
+</template>
+
+<script>
+import { translate as t } from '@nextcloud/l10n'
+import { useRoomTasksStore } from '../store/roomTasks.js'
+import { logger } from '../utils/logger.js'
+import TaskCalendar from '../components/Tasks/TaskCalendar.vue'
+
+export default {
+	name: 'CalendarView',
+
+	components: {
+		TaskCalendar,
+	},
+
+	setup() {
+		const roomTasksStore = useRoomTasksStore()
+		return { roomTasksStore }
+	},
+
+	data() {
+		return {
+			mode: 'week',
+			anchorDate: this.getMonday(new Date()),
+			selectedDay: null,
+			loading: false,
+			error: null,
+		}
+	},
+
+	computed: {
+		rangeStart() {
+			return this.toYMD(this.anchorDate)
+		},
+
+		rangeEnd() {
+			const end = new Date(this.anchorDate)
+			end.setDate(end.getDate() + (this.mode === 'week' ? 6 : 29))
+			return this.toYMD(end)
+		},
+
+		visibleDays() {
+			const days = []
+			const count = this.mode === 'week' ? 7 : 30
+			for (let i = 0; i < count; i++) {
+				const d = new Date(this.anchorDate)
+				d.setDate(d.getDate() + i)
+				days.push(this.toYMD(d))
+			}
+			return days
+		},
+
+		rangeLabel() {
+			const start = this.formatDate(this.rangeStart)
+			const end = this.formatDate(this.rangeEnd)
+			return `${start} – ${end}`
+		},
+
+		dayDetail() {
+			if (!this.selectedDay) return { scheduled: [], completed: [] }
+			return this.roomTasksStore.rangeTasksByDay[this.selectedDay] || { scheduled: [], completed: [] }
+		},
+	},
+
+	watch: {
+		rangeStart: {
+			immediate: true,
+			handler() {
+				this.fetchData()
+			},
+		},
+	},
+
+	methods: {
+		t,
+
+		async fetchData() {
+			this.loading = true
+			this.error = null
+			try {
+				await this.roomTasksStore.fetchRangeTasks(this.rangeStart, this.rangeEnd)
+			} catch (e) {
+				this.error = e.message
+				logger.error('Calendar fetch failed', e, { view: 'CalendarView' })
+			} finally {
+				this.loading = false
+			}
+		},
+
+		navigate(direction) {
+			const step = this.mode === 'week' ? 7 : 30
+			const d = new Date(this.anchorDate)
+			d.setDate(d.getDate() + direction * step)
+			this.anchorDate = d
+			this.selectedDay = null
+		},
+
+		getMonday(date) {
+			const d = new Date(date)
+			const day = d.getDay()
+			const diff = day === 0 ? -6 : 1 - day
+			d.setDate(d.getDate() + diff)
+			d.setHours(0, 0, 0, 0)
+			return d
+		},
+
+		toYMD(date) {
+			const y = date.getFullYear()
+			const m = String(date.getMonth() + 1).padStart(2, '0')
+			const d = String(date.getDate()).padStart(2, '0')
+			return `${y}-${m}-${d}`
+		},
+
+		formatDate(ymd) {
+			const [y, m, d] = ymd.split('-').map(Number)
+			const date = new Date(y, m - 1, d)
+			return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+		},
+
+		isOverdue(item) {
+			const due = item.roomTask.nextDue
+			return due && new Date(due) < new Date()
+		},
+	},
+}
+</script>
+
+<style scoped>
+.calendar-view {
+	padding: 20px;
+	max-width: 1200px;
+	margin: 0 auto;
+}
+
+.calendar-header h1 {
+	margin-bottom: 12px;
+}
+
+.calendar-controls {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+
+.calendar-mode-toggle {
+	display: flex;
+	border: 1px solid var(--color-border, #ddd);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.toggle-btn {
+	padding: 6px 14px;
+	border: none;
+	background: var(--color-main-background, #fff);
+	cursor: pointer;
+}
+
+.toggle-btn.active {
+	background: var(--color-primary, #0082c9);
+	color: var(--color-primary-text, #fff);
+}
+
+.calendar-nav {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.calendar-nav button {
+	padding: 4px 10px;
+	cursor: pointer;
+}
+
+.range-label {
+	font-weight: 600;
+	min-width: 180px;
+	text-align: center;
+}
+
+.calendar-loading .skeleton-grid {
+	height: 300px;
+	background: var(--color-background-dark, #eee);
+	border-radius: 8px;
+	animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.5; }
+}
+
+.calendar-error {
+	color: var(--color-error, #e9322d);
+}
+
+.day-detail {
+	margin-top: 20px;
+	padding: 16px;
+	border: 1px solid var(--color-border, #ddd);
+	border-radius: 8px;
+}
+
+.day-task-list {
+	list-style: none;
+	padding: 0;
+	margin: 8px 0;
+}
+
+.task-item {
+	display: flex;
+	justify-content: space-between;
+	padding: 6px 8px;
+	border-radius: 4px;
+}
+
+.task-item.completed {
+	opacity: 0.5;
+	text-decoration: line-through;
+}
+
+.task-item.overdue {
+	background: var(--color-error-hover, #fde8e8);
+}
+
+.close-detail {
+	margin-top: 8px;
+	cursor: pointer;
+}
+</style>

@@ -83,7 +83,7 @@ ChoreStrike/
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
 │   │                           #   user, scheduling, checklist, minigame, titles)
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css
-│   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard, Scheduling, Settings
+│   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard, Scheduling, Calendar, Settings
 │   └── utils/                  # currentUser, icons, roomIcons, logger, mobile, performance,
 │                               #   confetti, sound
 ├── l10n/                       # Translations

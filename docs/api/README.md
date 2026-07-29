@@ -349,6 +349,43 @@ Mark task as completed.
 }
 ```
 
+#### GET /room-tasks/range?from=&to=
+Get scheduled and completed tasks within a date range (calendar view). Max span: 60 days.
+
+**Parameters:**
+- `from` (required): Start date, `Y-m-d` format.
+- `to` (required): End date, `Y-m-d` format.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "scheduled": [
+      {
+        "roomTask": { "id": 1, "nextDue": "2026-07-28", "isActive": true },
+        "task": { "id": 5, "name": "Vacuum", "energyCost": 3 },
+        "room": { "id": 2, "name": "Living Room" },
+        "flexWindow": { "earliest": "2026-07-26", "ideal": "2026-07-28", "latest": "2026-07-30" }
+      }
+    ],
+    "completed": [
+      {
+        "roomTaskId": 3,
+        "taskId": 7,
+        "taskName": "Dishes",
+        "roomId": 1,
+        "roomName": "Kitchen",
+        "completedAt": "2026-07-28 14:30:00",
+        "completedByUserId": 2
+      }
+    ]
+  }
+}
+```
+
+**Errors:** `400 VALIDATION_ERROR` (unparseable date, `from > to`, span > 60 days), `403 FORBIDDEN` (non-member).
+
 ### Game
 
 #### GET /game/state

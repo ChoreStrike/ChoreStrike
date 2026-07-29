@@ -339,5 +339,65 @@ describe('RoomTasks Store', () => {
 				await expect(store.fetchFilteredDailyTasks()).rejects.toThrow('API error')
 			})
 		})
+
+		describe('fetchRangeTasks', () => {
+			it('calls the range endpoint and stores result', async () => {
+				const mockData = {
+					scheduled: [{ roomTask: { id: 1, nextDue: '2026-07-28' }, task: { name: 'T' }, room: { name: 'R' }, flexWindow: {} }],
+					completed: [{ roomTaskId: 2, taskName: 'Done', roomName: 'R', completedAt: '2026-07-29' }],
+				}
+				api.get.mockResolvedValue(mockData)
+
+				const result = await store.fetchRangeTasks('2026-07-28', '2026-08-03')
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/range', { params: { from: '2026-07-28', to: '2026-08-03' } })
+				expect(result).toEqual(mockData)
+				expect(store.rangeTasks.scheduled).toHaveLength(1)
+				expect(store.rangeTasks.completed).toHaveLength(1)
+				expect(store.rangeTasks.from).toBe('2026-07-28')
+				expect(store.rangeTasks.to).toBe('2026-08-03')
+			})
+
+			it('sets error and rethrows on failure', async () => {
+				api.get.mockRejectedValue(new Error('Network'))
+
+				await expect(store.fetchRangeTasks('2026-07-28', '2026-08-03')).rejects.toThrow('Network')
+				expect(store.error).toBe('Network')
+			})
+		})
+
+		describe('rangeTasksByDay', () => {
+			it('groups scheduled by nextDue and completed by completedAt', () => {
+				store.rangeTasks = {
+					scheduled: [
+						{ roomTask: { id: 1, nextDue: '2026-07-28T10:00:00' }, task: { name: 'A' }, room: { name: 'R' } },
+						{ roomTask: { id: 2, nextDue: '2026-07-29T08:00:00' }, task: { name: 'B' }, room: { name: 'R' } },
+					],
+					completed: [
+						{ roomTaskId: 3, taskName: 'C', roomName: 'R', completedAt: '2026-07-28T14:00:00' },
+					],
+					from: '2026-07-28',
+					to: '2026-08-03',
+				}
+
+				const byDay = store.rangeTasksByDay
+				expect(byDay['2026-07-28'].scheduled).toHaveLength(1)
+				expect(byDay['2026-07-28'].completed).toHaveLength(1)
+				expect(byDay['2026-07-29'].scheduled).toHaveLength(1)
+			})
+
+			it('returns empty object for empty range', () => {
+				store.rangeTasks = { scheduled: [], completed: [], from: null, to: null }
+				expect(store.rangeTasksByDay).toEqual({})
+			})
+		})
+
+		describe('reset clears rangeTasks', () => {
+			it('resets rangeTasks to initial state', () => {
+				store.rangeTasks = { scheduled: [{ id: 1 }], completed: [{ id: 2 }], from: '2026-01-01', to: '2026-01-07' }
+				store.reset()
+				expect(store.rangeTasks).toEqual({ scheduled: [], completed: [], from: null, to: null })
+			})
+		})
 	})
 })
