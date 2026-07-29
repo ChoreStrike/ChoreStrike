@@ -513,7 +513,11 @@ Clients should **not** parse these messages; they are for display purposes only.
 
 ## Test Data API
 
-**Only available in test mode** (CI environment or `NEXTCLOUD_TEST_MODE=true`). These endpoints are used for E2E testing and database seeding.
+**Requires an authenticated Nextcloud session** (`@NoAdminRequired`) **and test
+mode** (`NEXTCLOUD_TEST_MODE=true` on the PHP process). A generic `CI` env var
+does **not** activate test mode (CS-PLAN-019). The canonical seed path is
+`occ chorestrike:test-data:seed`; these HTTP endpoints are a secondary
+convenience for authenticated test tooling.
 
 ### GET /test/profiles
 
@@ -546,15 +550,15 @@ Get available test data profiles.
         "rooms": 6,
         "tasks": 12
       }
-    ],
-    "testMode": true
+    ]
   }
 }
 ```
 
-### GET /test/seed/{profile}
+### POST /test/seed/{profile}
 
-Seed database with a specific profile.
+Seed database with a specific profile. (Mutating verbs are POST, not GET —
+CS-PLAN-019 hardening.)
 
 **Path Parameters:**
 | Parameter | Type | Required | Description |
@@ -579,7 +583,7 @@ Seed database with a specific profile.
 }
 ```
 
-### GET /test/reset
+### POST /test/reset
 
 Reset database (equivalent to seeding with `empty` profile).
 

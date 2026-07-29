@@ -413,9 +413,7 @@ class TestDataService
      */
     public function isTestMode(): bool
     {
-        // Check for test environment indicator
         return getenv('NEXTCLOUD_TEST_MODE') === 'true'
-            || getenv('CI') !== false
-            || isset($_ENV['NEXTCLOUD_TEST_MODE']);
+            || ($_ENV['NEXTCLOUD_TEST_MODE'] ?? '') === 'true';
     }
 }

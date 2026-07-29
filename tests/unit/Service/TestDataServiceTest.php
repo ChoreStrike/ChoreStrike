@@ -73,6 +73,16 @@ class TestDataServiceTest extends TestCase
 		);
 	}
 
+	protected function tearDown(): void
+	{
+		// Restore a clean process environment between env-mutating tests
+		putenv('CI');
+		putenv('NEXTCLOUD_TEST_MODE');
+		unset($_ENV['NEXTCLOUD_TEST_MODE']);
+
+		parent::tearDown();
+	}
+
 	/**
 	 * Test seedEmpty resets database and returns empty profile
 	 */
@@ -229,17 +239,15 @@ class TestDataServiceTest extends TestCase
 	}
 
 	/**
-	 * Test isTestMode detects CI environment
+	 * Test isTestMode returns false when only CI env var is set (CS-PLAN-019)
 	 */
-	public function testIsTestModeDetectsCI(): void
+	public function testIsTestModeIgnoresCIEnvVar(): void
 	{
-		// Set CI environment variable
 		putenv('CI=true');
+		putenv('NEXTCLOUD_TEST_MODE');
+		unset($_ENV['NEXTCLOUD_TEST_MODE']);
 
-		$this->assertTrue($this->service->isTestMode());
-
-		// Cleanup
-		putenv('CI');
+		$this->assertFalse($this->service->isTestMode());
 	}
 
 	/**
@@ -250,9 +258,28 @@ class TestDataServiceTest extends TestCase
 		putenv('NEXTCLOUD_TEST_MODE=true');
 
 		$this->assertTrue($this->service->isTestMode());
+	}
 
-		// Cleanup
+	/**
+	 * Test isTestMode detects NEXTCLOUD_TEST_MODE via $_ENV (CS-PLAN-019)
+	 */
+	public function testIsTestModeDetectsTestModeViaEnvSuperglobal(): void
+	{
 		putenv('NEXTCLOUD_TEST_MODE');
+		$_ENV['NEXTCLOUD_TEST_MODE'] = 'true';
+
+		$this->assertTrue($this->service->isTestMode());
+	}
+
+	/**
+	 * Test isTestMode ignores a non-true $_ENV value (CS-PLAN-019)
+	 */
+	public function testIsTestModeIgnoresNonTrueEnvSuperglobalValue(): void
+	{
+		putenv('NEXTCLOUD_TEST_MODE');
+		$_ENV['NEXTCLOUD_TEST_MODE'] = 'false';
+
+		$this->assertFalse($this->service->isTestMode());
 	}
 
 	/**
@@ -260,7 +287,7 @@ class TestDataServiceTest extends TestCase
 	 */
 	public function testIsTestModeReturnsFalseInProduction(): void
 	{
-		// Ensure no test mode indicators
+		// Defensive: ensure no test-mode indicators even if the process env is polluted
 		putenv('CI');
 		putenv('NEXTCLOUD_TEST_MODE');
 		unset($_ENV['NEXTCLOUD_TEST_MODE']);

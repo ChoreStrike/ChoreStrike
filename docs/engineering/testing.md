@@ -600,7 +600,7 @@ TEST_DB_PROFILE=empty docker compose -f docker-compose.test.yml up
 $env:TEST_DB_PROFILE='family'; docker compose -f docker-compose.test.yml up
 ```
 
-#### OCC Command
+#### OCC Command (canonical seed path)
 
 ```bash
 # Seed database with specific profile
@@ -612,9 +612,17 @@ docker exec chorestrike-test php occ chorestrike:test-data:seed --reset
 
 #### API Endpoint
 
+> **CS-PLAN-019 (security hardening):** the HTTP test endpoints require an
+> authenticated Nextcloud session (`@NoAdminRequired`, no `@PublicPage`) and
+> are gated by `isTestMode()`. Test mode is active **only** when the explicit
+> `NEXTCLOUD_TEST_MODE=true` environment variable is set on the PHP process —
+> a generic `CI` env var no longer activates it. The canonical seed path is
+> the `occ` command above; the HTTP endpoints are a secondary convenience for
+> authenticated test tooling.
+
 ```bash
-# Seed via HTTP (only available in test mode)
-curl -X POST "http://localhost:8080/apps/chorestrike/api/v1/test/seed?profile=family"
+# Seed via HTTP (requires authenticated session + NEXTCLOUD_TEST_MODE=true)
+curl -X POST "http://localhost:8080/apps/chorestrike/api/v1/test/seed/family"
 
 # Reset database
 curl -X POST "http://localhost:8080/apps/chorestrike/api/v1/test/reset"

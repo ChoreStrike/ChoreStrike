@@ -16,7 +16,8 @@ use OCP\IRequest;
 /**
  * API controller for test data management
  *
- * Only accessible in test mode (CI or NEXTCLOUD_TEST_MODE=true)
+ * Only accessible in test mode (NEXTCLOUD_TEST_MODE=true) and with an
+ * authenticated Nextcloud session. Never annotate with @PublicPage.
  */
 class TestController extends OCSController
 {
@@ -34,27 +35,20 @@ class TestController extends OCSController
      * Seed test data with a specific profile
      *
      * @NoAdminRequired
-     * @PublicPage
      * @NoCSRFRequired
      */
     public function seed(string $profile = 'minimal'): JSONResponse
     {
+        $guard = $this->requireTestMode();
+        if ($guard !== null) {
+            return $guard;
+        }
+
         // Workaround for Apache/Nextcloud POST-to-GET rewrite issue:
         // Extract profile from query params if the route parameter is empty or default
         $queryProfile = $this->request->getParam('profile');
         if ($queryProfile !== null && $queryProfile !== '') {
             $profile = $queryProfile;
-        }
-
-        // Safety check: only allow in test mode
-        if (!$this->testDataService->isTestMode()) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'NOT_TEST_MODE',
-                    'message' => 'Test data API only available in test mode'
-                ]
-            ], 403);
         }
 
         $validProfiles = ['empty', 'minimal', 'family'];
@@ -90,20 +84,13 @@ class TestController extends OCSController
      * Reset database (equivalent to seed empty)
      *
      * @NoAdminRequired
-     * @PublicPage
      * @NoCSRFRequired
      */
     public function reset(): JSONResponse
     {
-        // Safety check: only allow in test mode
-        if (!$this->testDataService->isTestMode()) {
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'NOT_TEST_MODE',
-                    'message' => 'Test data API only available in test mode'
-                ]
-            ], 403);
+        $guard = $this->requireTestMode();
+        if ($guard !== null) {
+            return $guard;
         }
 
         try {
@@ -129,11 +116,15 @@ class TestController extends OCSController
      * Get available profiles
      *
      * @NoAdminRequired
-     * @PublicPage
      * @NoCSRFRequired
      */
     public function profiles(): JSONResponse
     {
+        $guard = $this->requireTestMode();
+        if ($guard !== null) {
+            return $guard;
+        }
+
         return new JSONResponse([
             'success' => true,
             'data' => [
@@ -160,8 +151,25 @@ class TestController extends OCSController
                         'tasks' => 12,
                     ],
                 ],
-                'testMode' => $this->testDataService->isTestMode(),
             ]
         ]);
+    }
+
+    /**
+     * Return a 403 response when test mode is not active, null otherwise
+     */
+    private function requireTestMode(): ?JSONResponse
+    {
+        if ($this->testDataService->isTestMode()) {
+            return null;
+        }
+
+        return new JSONResponse([
+            'success' => false,
+            'error' => [
+                'code' => 'NOT_TEST_MODE',
+                'message' => 'Test data API only available in test mode'
+            ]
+        ], 403);
     }
 }

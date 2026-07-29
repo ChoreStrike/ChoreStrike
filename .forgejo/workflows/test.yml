@@ -124,10 +124,9 @@ jobs:
           # Copy the app into the Nextcloud container's apps directory
           docker cp ${{ github.workspace }}/. nextcloud:/var/www/html/custom_apps/chorestrike
           # Enable the app via occ
-          docker exec nextcloud php occ app:enable chorestrike || true
-          # Seed test data for the profile
-          curl -s -o /dev/null -X GET "http://nextcloud:80/index.php/apps/chorestrike/api/v1/test/seed/${{ matrix.profile }}" || true
-        continue-on-error: true
+          docker exec nextcloud php occ app:enable chorestrike
+          # Seed test data via authenticated occ command (canonical path, CS-PLAN-019)
+          docker exec nextcloud su -s /bin/bash www-data -c "cd /var/www/html && php occ chorestrike:test-data:seed --profile=${{ matrix.profile }}"
 
       - name: Run Playwright tests
         run: |

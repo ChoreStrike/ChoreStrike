@@ -5,6 +5,14 @@
 
 ## Recently Completed
 
+### CS-PLAN-019 - Test-Endpoint Security Hardening — 2026-07-29
+**Status**: Done
+**Started/Completed**: 2026-07-29
+**Branch**: master (uncommitted — awaiting approval)
+**Plan**: docs/plans/done/cs-plan-019-test-endpoint-security-hardening.md
+**Scope**: Closed the only open P1 in the backlog — test endpoints (`seed`, `reset`, `profiles`) over-exposed via `@PublicPage` + broad `isTestMode()` CI fallback. Decision D1: keep + harden (Option A). Changes: (1) `isTestMode()` dropped the `getenv('CI')` fallback — requires explicit `NEXTCLOUD_TEST_MODE=true` only; (2) `@PublicPage` removed from all three `TestController` methods, `@NoAdminRequired` remains (session-authenticated); (3) `profiles()` guarded by `isTestMode()` via a shared `requireTestMode()` helper, `testMode` field removed from payload; (4) CI `test.yml` seeds via authenticated `occ chorestrike:test-data:seed` (replaces unauthenticated curl), `|| true`/`continue-on-error: true` masking removed; (5) `docker/seed-test-data.sh` API fallback removed (occ = single seed path); (6) unit test inverted (`CI=true` alone → false), `$_ENV` branch covered, integration tests updated for `profiles()` 403 guard. **Code-review refinements (F1/F3):** `isTestMode()` `$_ENV` term now requires `'true'` (parity); `seed`/`reset` routes `GET`→`POST` (no GET-mutation / CSRF-via-GET); verified unauth access → 401 ×3 in Docker.
+**Gate**: `php -l` clean (5 files); ESLint 0 errors; PHPUnit unit 482/484 (2 pre-existing `AppLoggerTest` errors, unrelated); `TestControllerTest` 9/9; unauthenticated access to all 3 endpoints → 401; `occ` seed verified in Docker.
+
 ### CS-PLAN-018 - Full Quality Sweep — Test, Lint & Build Audit — 2026-07-29
 **Status**: Done
 **Started/Completed**: 2026-07-29
@@ -313,6 +321,11 @@
 **Scope**: User requirement: no release without an existing + executed manual test plan. Consolidates the four overlapping, stale testing docs (`manual-test-checklist.md` — archived features + "sparks" wording; `alpha-test-guide.md` — German-only; `family-test-setup.md`; `critical-tests.md`) into one authoritative, English, stage-mapped `docs/testing/release-test-plan.md` with a per-release execution/sign-off record, and wires it as a gate into `release-strategy.md` exit criteria + `deployment.md` pre-release steps. Docs-only.
 **Plan**: docs/plans/new/cs-plan-017-manual-release-test-plan.md
 **Blockers**: CS-PLAN-015b (user decision 1b).
+
+### CS-PLAN-019 - Test-Endpoint Security Hardening (`@PublicPage` removal + `isTestMode()` tightening)
+**Status**: Done (2026-07-29) — see Recently Completed
+**Priority**: P1 · **Effort**: S · **Depends on**: none
+**Plan**: docs/plans/done/cs-plan-019-test-endpoint-security-hardening.md
 
 ---
 

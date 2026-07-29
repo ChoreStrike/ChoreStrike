@@ -23,7 +23,7 @@ The only CI workflow that runs Playwright (`.forgejo/workflows/test.yml`) trigge
 
 ## [P1] Test endpoints exposed via `@PublicPage`; `isTestMode()` triggers on any `CI` env var
 
-**Status**: Backlog (pre-existing; surfaced by the CS-PLAN-015b review, 2026-07-27)  
+**Status**: Closed (CS-PLAN-019, 2026-07-29)  
 **Assignee**: Unassigned  
 **Estimated Effort**: S  
 **Phase**: 9  
@@ -33,10 +33,19 @@ The only CI workflow that runs Playwright (`.forgejo/workflows/test.yml`) trigge
 `lib/Controller/TestController.php` annotates `seed`, `reset`, and `profiles` with `@PublicPage` (in addition to `@NoAdminRequired`) — a direct violation of the project rule "Never `@PublicPage`". `seed`/`reset` are guarded by `isTestMode()`, but `profiles()` has **no** `isTestMode()` guard and always returns data including the `testMode` flag, making it a reconnaissance probe for the seed/reset attack surface. Worse, `TestDataService::isTestMode()` returns `true` whenever `getenv('CI')` is set, so ChoreStrike deployed on **any** machine that defines a `CI` env var (GitHub Actions, GitLab, Jenkins, …) activates its test endpoints — `seed`/`reset` can wipe/reseed the app database without authentication. The CS-PLAN-015b D-CI repair now calls these endpoints from `.forgejo/workflows/test.yml`, which raised the relevance.
 
 ### Acceptance Criteria
-- [ ] Remove `@PublicPage` from all three `TestController` methods; keep `@NoAdminRequired` only.
-- [ ] Add an `isTestMode()` early-return guard to `profiles()` (omit the `testMode` field when not in test mode).
-- [ ] Tighten `isTestMode()` to require an explicit `NEXTCLOUD_TEST_MODE` flag (drop the broad `getenv('CI')` fallback), or scope the fallback to a ChoreStrike-specific env var.
-- [ ] Regression test: unauthenticated requests to all three endpoints return 403/404 outside test mode.
+- [x] Remove `@PublicPage` from all three `TestController` methods; keep `@NoAdminRequired` only.
+- [x] Add an `isTestMode()` early-return guard to `profiles()` (omit the `testMode` field when not in test mode).
+- [x] Tighten `isTestMode()` to require an explicit `NEXTCLOUD_TEST_MODE` flag (drop the broad `getenv('CI')` fallback), or scope the fallback to a ChoreStrike-specific env var.
+- [x] Regression test: unauthenticated requests to all three endpoints return 403/404 outside test mode.
+
+### Resolution (CS-PLAN-019, 2026-07-29)
+- `@PublicPage` removed from `seed`/`reset`/`profiles`; `@NoAdminRequired` + `@NoCSRFRequired` remain (session-authenticated).
+- `profiles()` guarded by `isTestMode()` via a shared `requireTestMode()` helper; `testMode` field removed from the payload.
+- `isTestMode()` now requires `NEXTCLOUD_TEST_MODE=true` (via `getenv` or `$_ENV`); the `getenv('CI')` fallback is removed.
+- CI `test.yml` seeds via authenticated `occ chorestrike:test-data:seed` (replaces the unauthenticated curl); `|| true` / `continue-on-error: true` masking removed.
+- `docker/seed-test-data.sh` API fallback removed; `occ` is the single seed path.
+- Unit test inverted: `CI=true` alone → `isTestMode()` is `false`. Integration tests cover `profiles()` 403 outside test mode.
+- **Code-review refinements (2026-07-29):** `isTestMode()` `$_ENV` term tightened to require exactly `'true'` (parity with the `getenv` term — F1, regressed by `testIsTestModeIgnoresNonTrueEnvSuperglobalValue`); `seed`/`reset` routes changed `GET`→`POST` (no GET-mutation / CSRF-via-GET — F3); verified in Docker that unauthenticated access to all three endpoints → **401** (auth-layer rejection, stronger than the 403 criterion).
 
 ### Notes
 - Found 2026-07-27 during the CS-015b full review (security subagent). Pre-existing — not introduced by CS-015b; the workflow just makes it more reachable.

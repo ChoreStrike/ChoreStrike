@@ -144,8 +144,8 @@ return [
 
         // Test Data API (only available in test mode)
         ['name' => 'test#profiles', 'url' => '/api/v1/test/profiles', 'verb' => 'GET'],
-        ['name' => 'test#seed', 'url' => '/api/v1/test/seed/{profile}', 'verb' => 'GET'],
-        ['name' => 'test#reset', 'url' => '/api/v1/test/reset', 'verb' => 'GET'],
+        ['name' => 'test#seed', 'url' => '/api/v1/test/seed/{profile}', 'verb' => 'POST'],
+        ['name' => 'test#reset', 'url' => '/api/v1/test/reset', 'verb' => 'POST'],
 
         // Minigame API
         ['name' => 'minigame#leaderboard', 'url' => '/api/v1/minigames/{gameId}/leaderboard', 'verb' => 'GET'],

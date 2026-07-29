@@ -134,6 +134,7 @@ class TestControllerTest extends TestCase
 		$data = json_decode(json_encode($response->getData()), true);
 		$this->assertTrue($data['success']);
 		$this->assertCount(3, $data['data']['profiles']);
+		$this->assertArrayNotHasKey('testMode', $data['data']);
 
 		$profileNames = array_column($data['data']['profiles'], 'name');
 		$this->assertContains('empty', $profileNames);
@@ -144,14 +145,17 @@ class TestControllerTest extends TestCase
 	/**
 	 * Test profiles endpoint includes testMode status
 	 */
-	public function testProfilesIncludesTestModeStatus(): void
+	public function testProfilesReturns403WhenNotInTestMode(): void
 	{
 		$this->testDataService->method('isTestMode')->willReturn(false);
 
 		$response = $this->controller->profiles();
 
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(403, $response->getStatus());
 		$data = json_decode(json_encode($response->getData()), true);
-		$this->assertFalse($data['data']['testMode']);
+		$this->assertFalse($data['success']);
+		$this->assertEquals('NOT_TEST_MODE', $data['error']['code']);
 	}
 
 	/**
