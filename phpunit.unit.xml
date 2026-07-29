@@ -38,6 +38,18 @@
         <testsuite name="Notification">
             <directory>tests/unit/Notification</directory>
         </testsuite>
+        <!-- Controller tests (CS-PLAN-020): now run in the CI unit gate -->
+        <testsuite name="Controller">
+            <directory suffix="Test.php">tests/unit/Controller</directory>
+        </testsuite>
+        <!-- Migration tests (CS-PLAN-020): changeSchema defect-class guard -->
+        <testsuite name="Migration">
+            <directory suffix="Test.php">tests/unit/Migration</directory>
+        </testsuite>
+        <!-- l10n tests (currently Jest-backed; no *Test.php files yet) -->
+        <testsuite name="l10n">
+            <directory suffix="Test.php">tests/unit/l10n</directory>
+        </testsuite>
     </testsuites>
 
     <coverage processUncoveredFiles="true">

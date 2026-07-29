@@ -139,6 +139,14 @@ class TaskControllerDailyTest extends TestCase
         $this->authService->expects($this->once())->method('ensureHouseMember')->with(1);
         $this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
+        // TaskController::complete() loads the task to run the visibility gate;
+        // a default (public) Task passes both the admin-only and private checks.
+        $task = new Task();
+        $this->roomTaskService->expects($this->once())
+            ->method('getRoomTaskWithDetails')
+            ->with(1)
+            ->willReturn(['task' => $task]);
+
         $roomTask = $this->createMock(RoomTask::class);
         $roomTask->method('jsonSerialize')->willReturn(['id' => 1, 'completed' => true]);
 

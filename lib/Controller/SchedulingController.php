@@ -14,13 +14,13 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
 use OCP\IRequest;
 
 /**
  * API controller for scheduling preferences
  */
-class SchedulingController extends OCSController
+class SchedulingController extends Controller
 {
     use ControllerLoggingTrait;
 

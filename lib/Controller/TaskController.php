@@ -19,13 +19,13 @@ use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
 use OCP\IRequest;
 
 /**
  * API controller for task-related endpoints
  */
-class TaskController extends OCSController
+class TaskController extends Controller
 {
     use ControllerLoggingTrait;
 

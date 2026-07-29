@@ -5,6 +5,14 @@
 
 ## Recently Completed
 
+### CS-PLAN-020 - Release-Quality Gate Cluster (OCS Envelope, Controller Test Gate, E2E in release-gate) — 2026-07-29
+**Status**: Done
+**Started/Completed**: 2026-07-29
+**Branch**: master (uncommitted — awaiting approval)
+**Plan**: docs/plans/done/cs-plan-020-release-quality-gate-cluster.md
+**Scope**: Closed the three backlog items that silently weakened the release gate. **Phase 1 (OCS envelope, D1 Option A):** all 13 API controllers switched `extends OCSController` → `extends Controller` (the routes live under `/api/v1/...`, not `/ocs/v2.php/...`, so they were never OCS endpoints); `OCSMiddleware` only re-wraps `instanceof OCSController`, so authorization denials now reach the client as a plain `JSONResponse(403)` with the `{success:false, error:{code,message}}` body instead of a 200 XML/JSON OCS envelope. Mock `Controller` corrected to the real 2-param `(string $appName, IRequest $request)` signature; dead mock `OCSController` archived. Frontend `api.js` unchanged (already expected a plain 403); `api.spec.js` gained a 403→`ApiError` regression; `admin-only-tasks.spec.ts` `expectForbidden` workaround reverted to plain `expect(status).toBe(403)`. New integration test `WireStatusAuthDenialTest` asserts 2 denial paths → 403 against the real service/DB stack. **Phase 2 (controller/migration test gate, D2):** `phpunit.unit.xml` gained Controller + Migration + l10n suites (migration mocks added to `bootstrap-entity.php`); the 4 `phpunit.xml` excludes resolved (`Game`/`Room`/`RoomTask` re-included after drift repair, `PageControllerTest` archived); new `FreshInstallMigrationSmokeTest` guards the recurring `changeSchema() return null` fresh-install defect class. Surfaced+fixed pre-existing drift: `AppLoggerTest` (ILogFactory), `TaskControllerIntegrationTest::testDelete`, `SmartSchedulerController` constructor (its drift-heavy test archived pending CS-016 archival). **Phase 3 (E2E gate, D3):** blocking chromium-only `e2e` job added to `release-gate.yml` (`family` profile, `chromium`+`chromium-serial-db`, wired into `summary.needs`, fails on red); full matrix stays in `test.yml` as follow-up. Docs updated (`testing.md`, `architecture.md`); the 3 `bugs.md` items closed.
+**Gate**: `npm run lint` 0/0; `npm test` 580/580; `npm run build` green; PHPUnit unit 566/566 (full Controller+Migration+l10n set); PHPUnit integration 139/139 (24 documented skips, 0 errors); E2E specs lint clean. Wire shape verified type-level (0 OCSController refs) + integration test + Playwright specs (run in the new gate job).
+
 ### CS-PLAN-019 - Test-Endpoint Security Hardening — 2026-07-29
 **Status**: Done
 **Started/Completed**: 2026-07-29
@@ -326,6 +334,11 @@
 **Status**: Done (2026-07-29) — see Recently Completed
 **Priority**: P1 · **Effort**: S · **Depends on**: none
 **Plan**: docs/plans/done/cs-plan-019-test-endpoint-security-hardening.md
+
+### CS-PLAN-020 - Release-Quality Gate Cluster — OCS Envelope, Controller Test Gate & E2E in release-gate
+**Status**: Done (2026-07-29) — see Recently Completed
+**Priority**: P1 · **Effort**: L · **Depends on**: none
+**Plan**: docs/plans/done/cs-plan-020-release-quality-gate-cluster.md
 
 ---
 

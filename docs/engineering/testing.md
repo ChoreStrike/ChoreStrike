@@ -189,8 +189,9 @@ It is the single source of truth for blocking gate commands.
 | `npm test` | Jest (Vue components, stores, API contract) |
 | `npm run build` | Webpack production build |
 | `composer validate --strict` | `composer.json` sanity |
-| `vendor/bin/phpunit --configuration phpunit.unit.xml` | Backend unit tests (via Docker) |
+| `vendor/bin/phpunit --configuration phpunit.unit.xml` | Backend unit tests — Entity/Service/Controller/BackgroundJob/Notification/Migration/l10n suites (via Docker) |
 | `vendor/bin/phpunit --configuration phpunit.integration.xml` | Backend integration tests (via Docker) |
+| `npx playwright test --project=chromium --project=chromium-serial-db` | Playwright E2E — chromium, `family` seed profile (via Docker) |
 
 ### Non-blocking (advisory)
 
@@ -198,19 +199,28 @@ It is the single source of truth for blocking gate commands.
 |---------|--------|
 | `npm run stylelint` | `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch produces 201 "Unknown rule" errors (see `docs/backlog/bugs.md`). Stylelint output is uploaded as an artifact for review. Promoted to blocking once the upstream toolchain is pinned. |
 
-> **Unit-gate scope caveat (2026-07-27):** `phpunit.unit.xml` currently runs the
-> Entity/Service/BackgroundJob/Notification suites only — controller, migration,
-> and l10n unit tests are outside the CI gate, and `phpunit.xml` excludes 5
-> controller test files as "outdated". Tracked in `docs/backlog/bugs.md` [P2].
+> **Unit-gate scope (CS-PLAN-020, 2026-07-29):** `phpunit.unit.xml` now runs the
+> full green unit set — Controller + Service + Entity(Db) + BackgroundJob +
+> Notification + Migration + l10n suites. The migration mock deps
+> (`ISchemaWrapper`/`IOutput`/`SimpleMigrationStep`) were added to
+> `bootstrap-entity.php` so the Migration suite runs in the CI unit gate, and a
+> `FreshInstallMigrationSmokeTest` guards the recurring `changeSchema() return
+> null` fresh-install defect class. The 4 stale `phpunit.xml` controller-test
+> excludes are resolved: `GameControllerTest`/`RoomControllerTest`/
+> `RoomTaskControllerTest` re-included after drift repair,
+> `PageControllerTest` archived (framework wiring covered by E2E).
 
-### E2E in CI (status 2026-07-27)
+### E2E in CI (blocking, CS-PLAN-020)
 
-E2E runs in `.forgejo/workflows/test.yml` on `master` (CS-PLAN-015b D-CI
-repair: trigger branches fixed, Nextcloud image pinned to `31-apache`, app
-mounted into the service container, `chromium-serial-db` project included in
-the invocation). Folding E2E into `release-gate.yml` as a blocking job is
-planned follow-up after the 015b acceptance. Tracked in
-`docs/backlog/bugs.md` [P1].
+E2E is a **blocking job** in `.forgejo/workflows/release-gate.yml` (chromium
+only, `family` seed profile, runs the `chromium` + `chromium-serial-db`
+projects, fails the run on red, wired into `summary.needs`). It mirrors the
+proven `test.yml` service setup (NC pinned to `31-apache`, app mounted,
+authenticated `occ` seed). The full browser matrix (firefox/webkit) stays in
+`.forgejo/workflows/test.yml` and is a documented follow-up once the
+chromium-only gate proves stable in CI. The authorisation-denial wire contract
+(plain HTTP 403, not a 200 OCS envelope) is verified by the E2E specs
+`admin-only-tasks.spec.ts` and `overdue-task-claiming.spec.ts`.
 
 ### Running the gate locally
 

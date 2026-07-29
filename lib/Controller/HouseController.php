@@ -13,13 +13,13 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
 use OCP\IRequest;
 
 /**
  * API controller for house-related endpoints
  */
-class HouseController extends OCSController
+class HouseController extends Controller
 {
     use ControllerLoggingTrait;
 

@@ -10,7 +10,7 @@ namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
 use OCP\IRequest;
 
 /**
@@ -19,7 +19,7 @@ use OCP\IRequest;
  * Only accessible in test mode (NEXTCLOUD_TEST_MODE=true) and with an
  * authenticated Nextcloud session. Never annotate with @PublicPage.
  */
-class TestController extends OCSController
+class TestController extends Controller
 {
     private TestDataService $testDataService;
 

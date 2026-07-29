@@ -41,7 +41,7 @@ class SmartSchedulerController extends Controller
         IL10N $l,
         ?AppLogger $appLogger = null
     ) {
-        parent::__construct($request);
+        parent::__construct('chorestrike', $request);
         $this->smartSchedulerService = $smartSchedulerService;
         $this->schedulingService = $schedulingService;
         $this->houseService = $houseService;

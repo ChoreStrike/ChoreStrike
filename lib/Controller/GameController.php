@@ -14,13 +14,13 @@ use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
 use OCP\IRequest;
 
 /**
  * API controller for game-related endpoints
  */
-class GameController extends OCSController
+class GameController extends Controller
 {
     use ControllerLoggingTrait;
 

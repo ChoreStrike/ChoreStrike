@@ -15,31 +15,8 @@
  * @see docs/plans/active/cs-plan-005-task-visibility-teamwork-overdue.md Phase 3
  */
 
-import { type APIResponse } from '@playwright/test'
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
-
-/**
- * Assert that a request was forbidden. Controllers extend `OCSController`,
- * so on non-OCS routes Nextcloud's `OCSMiddleware` re-wraps their 403
- * `JSONResponse` into an OCS envelope served with HTTP 200 (send
- * `Accept: application/json` to get it as JSON). Accept either shape; both
- * prove the action was denied.
- *
- * @param response - API response to assert a denial for.
- * @returns Resolves when the response is a plain 403 or a 200 OCS-envelope 403.
- */
-async function expectForbidden(response: APIResponse): Promise<void> {
-	if (response.status() === 403) {
-		return
-	}
-	expect(
-		response.status(),
-		`Expected a denial (plain 403 or 200 OCS-envelope 403), got HTTP ${response.status()}`,
-	).toBe(200)
-	const body = await response.json()
-	expect(body.ocs?.meta?.statuscode).toBe(403)
-}
 
 test.describe('Admin-Only Tasks', () => {
 	test.use({ databaseProfile: 'family' })
@@ -94,7 +71,7 @@ test.describe('Admin-Only Tasks', () => {
 				headers: { Accept: 'application/json' },
 			})
 
-			await expectForbidden(response)
+			expect(response.status()).toBe(403)
 		} finally {
 			await context.close()
 		}
@@ -160,7 +137,7 @@ test.describe('Admin-Only Tasks', () => {
 				{ headers: { Accept: 'application/json' } },
 			)
 
-			await expectForbidden(completeResponse)
+			expect(completeResponse.status()).toBe(403)
 		} finally {
 			await mom.context.close()
 			await teen.context.close()

@@ -102,7 +102,7 @@ class TaskControllerTest extends TestCase
         $this->expectHouseMembershipContext();
 
         $this->taskService->expects($this->once())
-            ->method('getAllTasks')
+            ->method('getVisibleTasks')
             ->willReturn([$task1, $task2]);
 
         $response = $this->controller->index();

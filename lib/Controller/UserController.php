@@ -16,7 +16,7 @@ use OCA\ChoreStrike\Service\TitleService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
 use OCP\IRequest;
 use OCP\IUserManager;
 use OCP\IL10N;
@@ -24,7 +24,7 @@ use OCP\IL10N;
 /**
  * API controller for user management
  */
-class UserController extends OCSController
+class UserController extends Controller
 {
     private HouseUserMapper $houseUserMapper;
     private HouseService $houseService;

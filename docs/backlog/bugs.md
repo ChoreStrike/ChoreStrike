@@ -2,7 +2,7 @@
 
 ## [P1] E2E runs in no CI: `test.yml` triggers only on `main`/`develop`, and E2E is absent from `release-gate.yml`
 
-**Status**: Done (CS-PLAN-015b Phase 4 D-CI, 2026-07-27) — `test.yml` repaired: triggers on `master`, Nextcloud pinned to `31-apache`, app mounted + enabled before seeding, `chromium-serial-db` project included. Blocking-gate fold-in into `release-gate.yml` is follow-up work after 015b acceptance.  
+**Status**: Done — `test.yml` repaired (CS-PLAN-015b Phase 4 D-CI, 2026-07-27); E2E folded into `release-gate.yml` as a blocking chromium job (CS-PLAN-020 Phase 3, 2026-07-29).  
 **Assignee**: Unassigned  
 **Estimated Effort**: M  
 **Phase**: 9
@@ -11,9 +11,9 @@
 The only CI workflow that runs Playwright (`.forgejo/workflows/test.yml`) triggers on `push`/`pull_request` to `main` and `develop` — the repository's only branch is `master`, so **the E2E suite has never run in CI**. Even if triggered, the job would fail: the Nextcloud service container never gets the app mounted (the "Enable ChoreStrike app" step is a seed `curl` with `continue-on-error: true` against a Nextcloud that does not contain ChoreStrike), and it pins `nextcloud:latest` (version drift vs. the NC 31.0.14 test env). The authoritative gate (`release-gate.yml`, triggers correctly on `master`) has **no E2E job at all** — lint, Jest, build, composer, PHPUnit only. Net effect: the entire E2E investment (CS-015/015b) has zero CI protection, and a release could gate green while E2E is red.
 
 ### Acceptance Criteria
-- [ ] E2E runs on every push/PR to `master` (repaired `test.yml` or equivalent) and fails the run on red — including the `chromium-serial-db` project from CS-PLAN-015b.
-- [ ] The Nextcloud image is pinned (no `latest`); the app is mounted and enabled before seeding; brute-force protection disabled as in the local test env.
-- [ ] Follow-up logged/planned: E2E as a blocking job in `release-gate.yml` (chromium first, full matrix after CS-PLAN-015b acceptance).
+- [x] E2E runs on every push/PR to `master` (repaired `test.yml` or equivalent) and fails the run on red — including the `chromium-serial-db` project from CS-PLAN-015b.
+- [x] The Nextcloud image is pinned (no `latest`); the app is mounted and enabled before seeding; brute-force protection disabled as in the local test env.
+- [x] Follow-up logged/planned: E2E as a blocking job in `release-gate.yml` (chromium first, full matrix after CS-PLAN-015b acceptance). — **Done (CS-PLAN-020 Phase 3):** a chromium-only `e2e` job (`family` profile, `chromium` + `chromium-serial-db` projects) is wired into `release-gate.yml` `summary.needs` and fails the run on red. Full matrix remains a follow-up.
 
 ### Notes
 - Found 2026-07-27 in the test-pipeline review (verified first-hand in both workflow files).
@@ -55,7 +55,7 @@ The only CI workflow that runs Playwright (`.forgejo/workflows/test.yml`) trigge
 
 ## [P2] Authorization denials surface as HTTP 200 OCS envelopes (OCSController on non-OCS routes)
 
-**Status**: Backlog (pre-existing; surfaced 2026-07-27 while verifying the CS-PLAN-015b B1 fix in Docker)  
+**Status**: Done (CS-PLAN-020 Phase 1, 2026-07-29)  
 **Assignee**: Unassigned  
 **Estimated Effort**: M  
 **Phase**: 9  
@@ -65,10 +65,15 @@ The only CI workflow that runs Playwright (`.forgejo/workflows/test.yml`) trigge
 All API controllers extend `OCSController` but are registered as regular (non-OCS) routes in `appinfo/routes.php`. Nextcloud's `OCSMiddleware::afterController` re-wraps any non-`BaseResponse` 401/403 response from an `OCSController` into an OCS envelope: **HTTP 200** with an `<ocs>` body (XML unless `Accept: application/json`, `statuscode` 403 inside `meta`, controller message dropped — NC logs `Undefined array key "message"` at `OCSMiddleware.php#95` because our error shape is `{success, error: {code, message}}`). Consequences: (1) the Vue frontend (`src/services/api.js`) sees a 200 XML string for every authorization denial — `ApiError` falls back to the generic "Request failed" with `status: 200`, so UI error handling for 403 paths (admin-only create/complete, cross-house gates) is effectively broken; (2) E2E specs cannot assert the HTTP contract — `admin-only-tasks.spec.ts` now works around it with an `expectForbidden` helper accepting either a plain 403 or the envelope. Verified: `TaskController::create` returns the correct 403 internally; only the transport shape is wrong.
 
 ### Acceptance Criteria
-- [ ] Authorization denials on the app's regular routes return a plain `JSONResponse` with the correct HTTP status (401/403) and the `{success: false, error: {code, message}}` envelope — e.g. controllers that only serve non-OCS routes extend `Controller` instead of `OCSController` (audit CORS implications), or denials are raised in a middleware-safe way.
-- [ ] Frontend `ApiError` paths for 403 show the backend message (regression test: non-owner admin-only create/complete).
-- [ ] `admin-only-tasks.spec.ts` `expectForbidden` workaround reverted to plain `expect(status).toBe(403)` assertions; `overdue-task-claiming.spec.ts:160` checked likewise.
-- [ ] The `RoomController::index` "Apache/Nextcloud POST-to-GET rewrite" workaround (body sniffing) re-evaluated — the Docker test env now routes POST correctly (`docker/apache-nextcloud.conf`); confirm whether production shapes still need it.
+- [x] Authorization denials on the app's regular routes return a plain `JSONResponse` with the correct HTTP status (401/403) and the `{success: false, error: { code, message }}` envelope — e.g. controllers that only serve non-OCS routes extend `Controller` instead of `OCSController` (audit CORS implications), or denials are raised in a middleware-safe way.
+- [x] Frontend `ApiError` paths for 403 show the backend message (regression test: non-owner admin-only create/complete).
+- [x] `admin-only-tasks.spec.ts` `expectForbidden` workaround reverted to plain `expect(status).toBe(403)` assertions; `overdue-task-claiming.spec.ts:160` checked likewise.
+- [ ] The `RoomController::index` "Apache/Nextcloud POST-to-GET rewrite" workaround (body sniffing) re-evaluated — the Docker test env now routes POST correctly (`docker/apache-nextcloud.conf`); confirm whether production shapes still need it. *(Deferred — the fallback remains as harmless dead code in the Docker env; removing it is a separate production-routing decision.)*
+
+### Resolution (CS-PLAN-020 Phase 1, 2026-07-29)
+- All 13 API controllers (`Task`/`RoomTask`/`Floor`/`Room`/`House`/`Game`/`Minigame`/`User`/`Scheduling`/`Checklist`/`Template`/`TaskSync`/`Test`) switched from `extends OCSController` → `extends Controller` (`OCSMiddleware` only re-wraps `instanceof OCSController`, so their `JSONResponse(403)` now reaches the client verbatim). CORS is unaffected (same-origin app; no `OCSController`-only API was used). The mock `Controller` was corrected to the real 2-param `(string $appName, IRequest $request)` signature; the now-dead mock `OCSController` was archived.
+- Wire verification: the type change is deterministic (0 `OCSController` refs in `lib/`), the integration test `WireStatusAuthDenialTest` confirms 2 denial paths return status 403 + `{success:false, error:{code:'FORBIDDEN'}}` against the real service/DB stack, and the Playwright specs (`admin-only-tasks.spec.ts`, `overdue-task-claiming.spec.ts`) assert a plain HTTP 403 and run in the new blocking `release-gate.yml` e2e job.
+- Frontend regression: `tests/unit/services/api.spec.js` locks in 403 → `ApiError` with the backend message + `status === 403`.
 
 ### Notes
 - The Docker test environment previously lacked `mod_rewrite` entirely, which turned every `/apps/...` POST into a GET via the 404 ErrorDocument — fixed 2026-07-27 (CS-015b B1 enablers); this envelope issue is what remains after correct routing.
@@ -78,7 +83,7 @@ All API controllers extend `OCSController` but are registered as regular (non-OC
 
 ## [P2] CI PHPUnit unit gate runs no controller tests; `phpunit.xml` excludes 5 controller test files as "outdated"
 
-**Status**: Backlog  
+**Status**: Done (CS-PLAN-020 Phase 2, 2026-07-29)  
 **Assignee**: Unassigned  
 **Estimated Effort**: M  
 **Phase**: 9
@@ -87,9 +92,15 @@ All API controllers extend `OCSController` but are registered as regular (non-OC
 Two config splits make the backend unit gate blind at the controller layer. (1) `phpunit.unit.xml` — the config the CI gate runs (`.forgejo/workflows/release-gate.yml`) — has suites for Entity, Service, BackgroundJob, and Notification only: **zero controller tests, zero migration tests, zero l10n tests run in CI**. The authorization regression tests added by CS-PLAN-011/012 (`TaskControllerTest`, `RoomTaskControllerTest` visibility/cross-house gates) are not exercised by the gate. (2) `phpunit.xml` (the default `composer test` config) excludes 5 controller test files as "outdated … need complete rewrite": `GameControllerTest`, `PageControllerTest`, `RoomControllerTest`, `RoomTaskControllerTest`, `SchedulingControllerTest` — yet `RoomTaskControllerTest` is actively maintained and green (extended in CS-PLAN-011/012), so the exclusion silently drops real coverage. No single PHPUnit config today runs the full green unit set.
 
 ### Acceptance Criteria
-- [ ] One authoritative unit config (or the CI job) runs Controller + Service + Db(entity) + BackgroundJob + Notification + Migration + l10n suites.
-- [ ] Each of the 5 excluded controller test files is either repaired and re-included or deleted with a documented reason (`SchedulingControllerTest` is owned by CS-PLAN-016 T1).
-- [ ] The CI unit job runs the authoritative config.
+- [x] One authoritative unit config (or the CI job) runs Controller + Service + Db(entity) + BackgroundJob + Notification + Migration + l10n suites.
+- [x] Each of the 5 excluded controller test files is either repaired and re-included or deleted with a documented reason (`SchedulingControllerTest` is owned by CS-PLAN-016 T1).
+- [x] The CI unit job runs the authoritative config.
+
+### Resolution (CS-PLAN-020 Phase 2, 2026-07-29)
+- `phpunit.unit.xml` (the CI gate config) gained `Controller` + `Migration` + `l10n` suites; the migration mock deps (`ISchemaWrapper`/`IOutput`/`SimpleMigrationStep`) were added to `bootstrap-entity.php`. The full green unit set now runs in the gate (566 tests).
+- The 4 remaining `phpunit.xml` excludes are resolved: `GameControllerTest`/`RoomControllerTest`/`RoomTaskControllerTest` re-included after drift repair (mocked method names and signatures had drifted: `getAllTasks`→`getVisibleTasks`, `completeRoomTask`→`completeTask`, missing `getRoomTaskWithDetails` mock, `Version1015` `hasTable` count); `PageControllerTest` archived (single `instanceof TemplateResponse` assertion, needs `OCP\Util`/`TemplateResponse` mocks not worth the wiring coverage already provided by E2E). `SchedulingControllerTest` was already re-included by CS-PLAN-016 T1.
+- New `FreshInstallMigrationSmokeTest` runs every migration's persisted `changeSchema()` against a stateful recording schema (in order) and asserts (a) no step returns `null` and (b) the historically-missing columns (`task_tier`/`flex_days`/`ideal_due_date`/`coin_multiplier`) land — catching the recurring fresh-install defect class at test time.
+- Surfaced-and-fixed pre-existing drift: `AppLoggerTest` (mocked `ILogger` → correct `ILogFactory` + PSR `LoggerInterface`), `TaskControllerIntegrationTest::testDelete` (missing `ensureHouseMember`/`getTask` mocks after the CS-011 callerUserId hardening), and `SmartSchedulerController`'s broken 1-arg `parent::__construct` (dead/unrouted controller, fixed inline; its drift-heavy test archived pending the CS-016 controller+service archival).
 
 ### Notes
 - Found 2026-07-27 in the test-pipeline review (verified in `phpunit.xml`, `phpunit.unit.xml`, `release-gate.yml`).

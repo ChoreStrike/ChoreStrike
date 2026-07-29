@@ -16,13 +16,13 @@ use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCA\ChoreStrike\Exception\NotFoundException;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
 use OCP\IRequest;
 
 /**
  * API controller for checklist-related endpoints
  */
-class ChecklistController extends OCSController
+class ChecklistController extends Controller
 {
     private TaskChecklistItemMapper $checklistItemMapper;
     private RoomTaskChecklistProgressMapper $progressMapper;

@@ -191,8 +191,17 @@ class TaskControllerIntegrationTest extends TestCase
 
         $this->houseService->method('getInstanceId')->willReturn('test-instance');
         $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-        $this->taskService->method('deleteTask')
-            ->with($taskId);
+
+        // TaskController::delete() resolves the actor + task for the visibility
+        // gate, then deletes with (callerUserId, isOwner).
+        $houseUser = new \OCA\ChoreStrike\Db\HouseUser();
+        $houseUser->setNextcloudUserId('owner-user');
+        $houseUser->setRole('owner');
+        $this->authService->method('ensureHouseMember')->willReturn($houseUser);
+        $this->taskService->method('getTask')->willReturn($this->createMockTask($taskId, 'Test Task'));
+        $this->taskService->expects($this->once())
+            ->method('deleteTask')
+            ->with($taskId, 'owner-user', true);
 
         $response = $this->controller->delete($taskId);
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
-         bootstrap="tests/bootstrap.php"
+         bootstrap="tests/bootstrap-entity.php"
          cacheResultFile=".phpunit.result.cache"
          executionOrder="depends,defects"
          beStrictAboutCoversAnnotation="true"
@@ -10,15 +10,17 @@
          failOnRisky="true"
          failOnWarning="true"
          verbose="true">
+    <!-- `composer test` config. CS-PLAN-020: aligned with the authoritative
+         `phpunit.unit.xml` on the mock-based `bootstrap-entity.php` (works
+         locally without Docker). Integration tests run separately via
+         `phpunit.integration.xml` (real Nextcloud + DB). -->
     <testsuites>
         <testsuite name="Unit">
-            <!-- Controller tests -->
+            <!-- Controller tests (CS-PLAN-020: 4 stale excludes resolved —
+                 GameControllerTest/RoomControllerTest/RoomTaskControllerTest
+                 re-included (modern, green); PageControllerTest archived as
+                 pure framework-wiring covered by E2E) -->
             <directory suffix="Test.php">tests/unit/Controller</directory>
-            <!-- Exclude outdated controller tests that need complete rewrite -->
-            <exclude>tests/unit/Controller/GameControllerTest.php</exclude>
-            <exclude>tests/unit/Controller/PageControllerTest.php</exclude>
-            <exclude>tests/unit/Controller/RoomControllerTest.php</exclude>
-            <exclude>tests/unit/Controller/RoomTaskControllerTest.php</exclude>
 
             <!-- Service tests -->
             <directory suffix="Test.php">tests/unit/Service</directory>
@@ -28,9 +30,7 @@
             <directory suffix="Test.php">tests/unit/l10n</directory>
             <!-- Note: Db/Mapper tests excluded - require real DB connection -->
         </testsuite>
-        <testsuite name="Integration">
-            <directory>tests/integration</directory>
-        </testsuite>
+        <!-- Integration tests: run via phpunit.integration.xml (Docker required) -->
     </testsuites>
 
     <coverage processUncoveredFiles="true">

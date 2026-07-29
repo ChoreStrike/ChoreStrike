@@ -13,13 +13,13 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TemplateService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
 use OCP\IRequest;
 
 /**
  * API controller for task template endpoints
  */
-class TemplateController extends OCSController
+class TemplateController extends Controller
 {
     private TemplateService $templateService;
     private HouseService $houseService;

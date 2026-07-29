@@ -133,7 +133,7 @@ Vue templates automatically escape interpolated values:
 
 ## CSRF Protection
 
-Nextcloud's OCSController automatically validates CSRF tokens for POST/PUT/DELETE requests via the `@NoAdminRequired` annotation.
+Nextcloud's `SecurityMiddleware` automatically validates CSRF tokens for POST/PUT/DELETE requests unless the method carries `@NoCSRFRequired`. This is annotation-based and independent of the controller base class (`Controller` vs `OCSController`). All ChoreStrike API controllers extend `Controller` (CS-PLAN-020) and rely on the middleware's default CSRF enforcement.
 
 ---
 
@@ -201,7 +201,7 @@ Error responses contain only error codes and messages, not stack traces.
 | SQL Injection Prevention | ✅ Pass | All queries use `createNamedParameter()` |
 | XSS Prevention | ✅ Pass | No `v-html` directives in Vue components |
 | Exception Handling | ✅ Pass | All controllers have try-catch blocks |
-| CSRF Protection | ✅ Pass | OCSController handles automatically |
+| CSRF Protection | ✅ Pass | SecurityMiddleware enforces via annotation (no `@NoCSRFRequired` on mutation endpoints) |
 
 ### Recommendations
 

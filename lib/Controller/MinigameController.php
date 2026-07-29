@@ -14,13 +14,13 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\MinigameService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
 use OCP\IRequest;
 
 /**
  * API controller for minigame scores and leaderboards
  */
-class MinigameController extends OCSController
+class MinigameController extends Controller
 {
     public function __construct(
         IRequest $request,

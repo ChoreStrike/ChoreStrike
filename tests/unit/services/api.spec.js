@@ -88,6 +88,32 @@ describe('api.js', () => {
 			}
 		})
 
+		it('throws ApiError with backend message and status 403 for authorization denials', async () => {
+			// Regression for the OCS-envelope transport bug (CS-PLAN-020):
+			// a backend 403 auth-denial must surface as ApiError with the
+			// backend message and a meaningful status, not be swallowed as a
+			// 2xx "Request failed" (the symptom when OCSController re-wrapped
+			// denials into a 200 envelope).
+			const axiosError = new Error('Request failed with status code 403')
+			axiosError.response = {
+				status: 403,
+				data: {
+					success: false,
+					error: { code: 'FORBIDDEN', message: 'Only house owners can create admin-only tasks' },
+				},
+			}
+			axios.mockRejectedValue(axiosError)
+
+			try {
+				await post('/api/v1/tasks', { visibilityType: 'admin-only' })
+				throw new Error('Expected post() to throw ApiError')
+			} catch (error) {
+				expect(error).toBeInstanceOf(ApiError)
+				expect(error.message).toBe('Only house owners can create admin-only tasks')
+				expect(error.status).toBe(403)
+			}
+		})
+
 		it('throws ApiError on HTTP error with generic fallback when no backend message', async () => {
 			const axiosError = new Error('Network error')
 			axiosError.response = {

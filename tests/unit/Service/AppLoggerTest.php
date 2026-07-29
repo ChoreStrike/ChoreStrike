@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Service\AppLogger;
-use OCP\ILogger;
+use OCP\Log\ILogFactory;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 /**
  * Unit tests for AppLogger.
@@ -17,7 +18,8 @@ use PHPUnit\Framework\TestCase;
 class AppLoggerTest extends TestCase
 {
     private AppLogger $service;
-    private ILogger $logger;
+    private LoggerInterface $logger;
+    private ILogFactory $logFactory;
     private IUserSession $userSession;
     private IUser $user;
 
@@ -25,14 +27,16 @@ class AppLoggerTest extends TestCase
     {
         parent::setUp();
 
-        $this->logger = $this->createMock(ILogger::class);
+        $this->logger = $this->createMock(LoggerInterface::class);
+        $this->logFactory = $this->createMock(ILogFactory::class);
+        $this->logFactory->method('getCustomPsrLogger')->willReturn($this->logger);
         $this->userSession = $this->createMock(IUserSession::class);
         $this->user = $this->createMock(IUser::class);
 
         $this->user->method('getUID')->willReturn('current-user');
         $this->userSession->method('getUser')->willReturn($this->user);
 
-        $this->service = new AppLogger($this->logger, $this->userSession);
+        $this->service = new AppLogger($this->logFactory, $this->userSession);
     }
 
     /**

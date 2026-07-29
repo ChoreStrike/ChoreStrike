@@ -14,6 +14,8 @@ use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\Room;
+use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\House;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -75,7 +77,7 @@ class RoomTaskControllerTest extends TestCase
 
         $this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([]);
 
-        $response = $this->controller->index();
+        $response = $this->controller->index(1);
 
         $this->assertInstanceOf(JSONResponse::class, $response);
         $this->assertEquals(200, $response->getStatus());
@@ -86,58 +88,41 @@ class RoomTaskControllerTest extends TestCase
     }
 
     /**
-     * Test POST /room-tasks validates missing roomId
-     */
-    public function testCreate_ValidatesMissingRoomId(): void
-    {
-        $response = $this->controller->create(null, 1);
-
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(400, $response->getStatus());
-
-        $data = $response->getData();
-        $this->assertFalse($data['success']);
-        $this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
-    }
-
-    /**
-     * Test POST /room-tasks validates missing taskId
-     */
-    public function testCreate_ValidatesMissingTaskId(): void
-    {
-        $response = $this->controller->create(1, null);
-
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(400, $response->getStatus());
-
-        $data = $response->getData();
-        $this->assertFalse($data['success']);
-        $this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
-    }
-
-    /**
-     * Test POST /room-tasks/{id}/complete completes successfully
+     * Test POST /room-tasks/{id}/complete completes successfully.
+     *
+     * The current RoomTaskController::complete() resolves the actor via
+     * requireCurrentUserId() and delegates to RoomTaskService::completeTask(),
+     * returning the {roomTask, room, task, rewards} payload.
      */
     public function testComplete_CompletesSuccessfully(): void
     {
         $house = new House();
         $house->setId(1);
 
-        $roomTask = new RoomTask();
-        $roomTask->setId(1);
-        $roomTask->setRoomId(1);
-        $roomTask->setIsActive(true);
-
         $this->houseService->method('getInstanceId')->willReturn('instance-123');
         $this->houseService->method('getOrCreateHouse')->willReturn($house);
         $this->authService->method('ensureHouseMember');
+        $this->roomTaskService->method('validateRoomTaskOwnership');
+        $this->authService->expects($this->once())
+            ->method('requireCurrentUserId')
+            ->willReturn('user1');
+
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+        $room = new Room();
+        $task = new Task();
 
         $this->roomTaskService->expects($this->once())
-            ->method('completeRoomTask')
+            ->method('completeTask')
             ->with(1, 'user1')
-            ->willReturn(['roomTask' => $roomTask, 'medals' => []]);
+            ->willReturn([
+                'roomTask' => $roomTask,
+                'room' => $room,
+                'task' => $task,
+                'rewards' => [],
+            ]);
 
-        $response = $this->controller->complete(1, 'user1');
+        $response = $this->controller->complete(1);
 
         $this->assertInstanceOf(JSONResponse::class, $response);
         $this->assertEquals(200, $response->getStatus());

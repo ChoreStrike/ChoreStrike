@@ -13,13 +13,13 @@ use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Controller;
 use OCP\IRequest;
 
 /**
  * API controller for floor-related endpoints
  */
-class FloorController extends OCSController
+class FloorController extends Controller
 {
     private FloorService $floorService;
     private HouseService $houseService;

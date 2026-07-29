@@ -8,6 +8,7 @@
 #   - `composer validate`   (composer.json sanity)
 #   - PHPUnit unit          (via Docker)
 #   - PHPUnit integration   (via Docker)
+#   - Playwright E2E        (chromium, via Docker — blocking, CS-PLAN-020)
 #
 # Stylelint is **advisory/non-blocking** until the
 # `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch
@@ -141,11 +142,86 @@ jobs:
               vendor/bin/phpunit --configuration phpunit.integration.xml"
           docker compose -f docker-compose.test.yml down
 
+  # ---------- E2E gate (chromium, blocking) ----------
+  # CS-PLAN-020 Phase 3 (D3): a red E2E run now fails a release. Starts
+  # chromium-only on the `family` seed profile (mirrors the proven test.yml
+  # setup) and runs the chromium-based Playwright projects, including the
+  # seed-dependent `chromium-serial-db` project. Folding in the full browser
+  # matrix (firefox/webkit) is a documented follow-up once a chromium-only
+  # gate proves stable in CI.
+  e2e:
+    name: E2E (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Install Playwright browser (chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Bring up Docker test env (NC 31 + app + family seed)
+        run: |
+          TEST_DB_PROFILE=family docker compose -f docker-compose.test.yml up -d --build
+          # Wait for Nextcloud to report installed + healthy.
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:8080/status.php | grep -q '"installed":true'; then
+              echo "Nextcloud is ready."
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "ERROR: Nextcloud failed to start within 300s"
+              exit 1
+            fi
+            echo "Waiting for Nextcloud... ($i/60)"
+            sleep 5
+          done
+          # Seed via the authenticated occ path (canonical, CS-PLAN-019).
+          docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+            su -s /bin/bash www-data -c \
+            "cd /var/www/html && php occ chorestrike:test-data:seed --profile=family"
+
+      - name: Run Playwright (chromium projects, blocking)
+        run: |
+          npx playwright test \
+            --project=chromium \
+            --project=chromium-serial-db \
+            --reporter=list,html
+        env:
+          NEXTCLOUD_URL: http://localhost:8080
+          TEST_DB_PROFILE: family
+          NEXTCLOUD_TEST_MODE: "true"
+          CI: "true"
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-release-gate
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Tear down Docker test env
+        if: always()
+        run: docker compose -f docker-compose.test.yml down
+
   # ---------- Summary ----------
   summary:
     name: Gate Summary
     runs-on: ubuntu-latest
-    needs: [frontend, composer, phpunit-unit, phpunit-integration]
+    needs: [frontend, composer, phpunit-unit, phpunit-integration, e2e]
     if: always()
     steps:
       - name: Check results
@@ -159,6 +235,7 @@ jobs:
             echo "| Composer validate              | ${{ needs.composer.result }} |"
             echo "| PHPUnit Unit (Docker)          | ${{ needs.phpunit-unit.result }} |"
             echo "| PHPUnit Integration (Docker)   | ${{ needs.phpunit-integration.result }} |"
+            echo "| E2E (chromium, Docker)         | ${{ needs.e2e.result }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if any blocking job failed

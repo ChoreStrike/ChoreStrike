@@ -23,7 +23,7 @@ class Version1015Date20260304000000Test extends TestCase
         $output = $this->createMock(IOutput::class);
         $schema = $this->createMock(ISchemaWrapper::class);
 
-        $schema->expects($this->exactly(8))
+        $schema->expects($this->exactly(9))
             ->method('hasTable')
             ->willReturn(false);
 
