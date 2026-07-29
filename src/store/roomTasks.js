@@ -115,13 +115,34 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			}).length
 		},
 
+		/**
+		 * Group rangeTasks.scheduled by YYYY-MM-DD, expanding each task
+		 * across its projected occurrences. Falls back to nextDue when
+		 * the backend omits the occurrences array.
+		 * @param {object} state Pinia state
+		 * @return {{[date: string]: {scheduled: Array, completed: Array}}}
+		 */
 		rangeTasksByDay: (state) => {
 			const byDay = {}
 			for (const item of state.rangeTasks.scheduled) {
-				const day = (item.roomTask.nextDue || '').slice(0, 10)
-				if (!day) continue
-				if (!byDay[day]) byDay[day] = { scheduled: [], completed: [] }
-				byDay[day].scheduled.push(item)
+				// Recurrence projection (D2): when the backend supplies an
+				// `occurrences` list, the task appears on each of those days.
+				// Fall back to the single nextDue for items without occurrences.
+				const dates = Array.isArray(item.occurrences) && item.occurrences.length
+					? item.occurrences
+					: [(item.roomTask?.nextDue || '').slice(0, 10)]
+
+				for (const date of dates) {
+					if (!date) continue
+					if (!byDay[date]) byDay[date] = { scheduled: [], completed: [] }
+					byDay[date].scheduled.push({
+						roomTask: item.roomTask,
+						task: item.task,
+						room: item.room,
+						flexWindow: item.flexWindow,
+						dueDate: date,
+					})
+				}
 			}
 			for (const item of state.rangeTasks.completed) {
 				const day = (item.completedAt || '').slice(0, 10)

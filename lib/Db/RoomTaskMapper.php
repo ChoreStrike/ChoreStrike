@@ -383,10 +383,9 @@ class RoomTaskMapper extends QBMapper
      *
      * chorestrike_room_tasks has no denormalized house_id column, so every
      * house-scoped query must INNER JOIN rooms → floors and pin
-     * floors.house_id. Centralising the chain here keeps the three callers
-     * (findOverdueByHouse, findDailyTasks, findActiveDueIdsBetweenByHouse) in
-     * sync if the schema ever changes (floor soft-delete, multi-house
-     * isolation, etc.).
+     * floors.house_id. Centralising the chain here keeps all house-scoped
+     * callers in sync if the schema ever changes (floor soft-delete,
+     * multi-house isolation, etc.).
      *
      * Must be called after `from()` and before any caller-specific ANDs.
      *
@@ -399,6 +398,32 @@ class RoomTaskMapper extends QBMapper
         $qb->innerJoin($roomTaskAlias, 'chorestrike_rooms', 'r', $qb->expr()->eq("{$roomTaskAlias}.room_id", 'r.id'))
             ->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
             ->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+    }
+
+    /**
+     * Find active room tasks whose next_due is on or before a bound, for a house.
+     *
+     * The recurrence-projection base set for the calendar range endpoint:
+     * returns every active task that could recur into a future window
+     * (next_due <= end), so projectOccurrences() can expand each into its
+     * in-window occurrences. Reuses applyHouseScope for house isolation.
+     *
+     * @param int $houseId The house ID
+     * @param \DateTimeInterface $end Inclusive upper bound for next_due
+     * @return RoomTask[] Active room tasks due on or before $end
+     */
+    public function findActiveDueUpToByHouse(int $houseId, \DateTimeInterface $end): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('rt.*')
+            ->from($this->getTableName(), 'rt');
+        $this->applyHouseScope($qb, 'rt', $houseId);
+        $qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+            ->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+            ->orderBy('rt.next_due', 'ASC')
+            ->addOrderBy('rt.created_at', 'ASC');
+
+        return $this->findEntities($qb);
     }
 
     /**

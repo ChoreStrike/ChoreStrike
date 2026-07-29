@@ -386,10 +386,49 @@ describe('RoomTasks Store', () => {
 				expect(byDay['2026-07-29'].scheduled).toHaveLength(1)
 			})
 
-			it('returns empty object for empty range', () => {
-				store.rangeTasks = { scheduled: [], completed: [], from: null, to: null }
-				expect(store.rangeTasksByDay).toEqual({})
-			})
+		it('returns empty object for empty range', () => {
+			store.rangeTasks = { scheduled: [], completed: [], from: null, to: null }
+			expect(store.rangeTasksByDay).toEqual({})
+		})
+
+		it('expands recurring tasks across their occurrences', () => {
+			store.rangeTasks = {
+				scheduled: [
+					{
+						roomTask: { id: 1, nextDue: '2026-07-29T10:00:00' },
+						task: { name: 'Dishes', recurrenceMode: 'recurring' },
+						room: { name: 'Kitchen' },
+						flexWindow: {},
+						occurrences: ['2026-07-29', '2026-07-30', '2026-07-31'],
+					},
+				],
+				completed: [],
+				from: '2026-07-29',
+				to: '2026-08-04',
+			}
+
+			const byDay = store.rangeTasksByDay
+			expect(byDay['2026-07-29'].scheduled).toHaveLength(1)
+			expect(byDay['2026-07-30'].scheduled).toHaveLength(1)
+			expect(byDay['2026-07-31'].scheduled).toHaveLength(1)
+			// Each bucketed item carries the occurrence date for overdue calc.
+			expect(byDay['2026-07-30'].scheduled[0].dueDate).toBe('2026-07-30')
+			expect(byDay['2026-07-30'].scheduled[0].task.name).toBe('Dishes')
+		})
+
+		it('falls back to nextDue when occurrences are absent', () => {
+			store.rangeTasks = {
+				scheduled: [
+					{ roomTask: { id: 1, nextDue: '2026-07-29T10:00:00' }, task: { name: 'A' }, room: { name: 'R' } },
+				],
+				completed: [],
+				from: null,
+				to: null,
+			}
+
+			const byDay = store.rangeTasksByDay
+			expect(byDay['2026-07-29'].scheduled).toHaveLength(1)
+		})
 		})
 
 		describe('reset clears rangeTasks', () => {

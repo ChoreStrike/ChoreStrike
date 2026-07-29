@@ -21,6 +21,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use PHPUnit\Framework\TestCase;
@@ -64,7 +65,8 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase
                 ->disableOriginalConstructor()
                 ->getMock(),
             $this->createMock(TaskAssigneeMapper::class),
-            $this->createMock(HouseUserMapper::class)
+            $this->createMock(HouseUserMapper::class),
+            $this->createMock(CompletedTaskMapper::class)
         );
 
         // Set up test IDs

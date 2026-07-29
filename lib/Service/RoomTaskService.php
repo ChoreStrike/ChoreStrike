@@ -642,14 +642,24 @@ class RoomTaskService
      * queries over a multi-day range. Returns enriched scheduled items with
      * flex window bounds and projected completion rows.
      *
+     * Recurrence projection (D2): each recurring task is expanded into every
+     * occurrence it would have within [from, to] via RoomTask::projectOccurrences,
+     * reusing the same recurrence rules as task completion so the calendar and
+     * the scheduler never disagree. The base set is every active task due on or
+     * before `to` (findActiveDueUpToByHouse); tasks that produce no in-window
+     * occurrence are omitted. Occurrence dates are returned as a compact
+     * `occurrences` list of Y-m-d strings; the top-level `flexWindow` stays
+     * anchored on the stored nextDue for response-shape stability.
+     *
      * @param int $houseId The house ID
      * @param \DateTime $from Inclusive range start
      * @param \DateTime $to Inclusive range end
-     * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, flexWindow: array}>, completed: array<int, array>}
+     * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, flexWindow: array, occurrences: array<int, string>}>, completed: array<int, array>}
      */
     public function getRangeTasks(int $houseId, \DateTime $from, \DateTime $to): array
     {
-        $roomTasks = $this->roomTaskMapper->findActiveDueBetweenByHouse($houseId, $from, $to);
+        // Base set: every active task that could recur into the window (nextDue <= to).
+        $roomTasks = $this->roomTaskMapper->findActiveDueUpToByHouse($houseId, $to);
         $completions = $this->completedTaskMapper->findCompletionsBetweenByHouse($houseId, $from, $to);
 
         $taskIds = [];
@@ -672,7 +682,25 @@ class RoomTaskService
         $scheduled = [];
         foreach ($roomTasks as $rt) {
             $task = $taskCache[$rt->getTaskId()];
+
+            $occurrenceDates = $rt->projectOccurrences(
+                $from,
+                $to,
+                $task->getFrequencyType(),
+                $task->getFrequencyValue(),
+                $task->getRecurrenceMode(),
+                $task->getSchedulingMode(),
+                $task->getFixedScheduleDays(),
+                $task->getActiveUntil(),
+            );
+
+            // Skip tasks that produce no occurrence inside the window.
+            if (empty($occurrenceDates)) {
+                continue;
+            }
+
             $flexWindow = $rt->getFlexWindowBounds($task->getFlexDays());
+
             $scheduled[] = [
                 'roomTask' => $rt->jsonSerialize(),
                 'task' => $task->jsonSerialize(),
@@ -682,6 +710,10 @@ class RoomTaskService
                     'ideal' => $flexWindow['ideal']?->format('Y-m-d'),
                     'latest' => $flexWindow['latest']?->format('Y-m-d'),
                 ],
+                'occurrences' => array_map(
+                    fn (\DateTime $date) => $date->format('Y-m-d'),
+                    $occurrenceDates,
+                ),
             ];
         }
 

@@ -56,11 +56,15 @@
 			<ul class="day-task-list">
 				<li
 					v-for="item in dayDetail.scheduled"
-					:key="'s-' + item.roomTask.id"
+					:key="'s-' + item.roomTask.id + '-' + item.dueDate"
 					class="task-item"
 					:class="{ overdue: isOverdue(item) }">
 					<span class="task-name">{{ item.task.name }}</span>
 					<span class="task-room">{{ item.room.name }}</span>
+					<span
+						v-if="isRecurring(item)"
+						class="task-repeat"
+						:title="t('chorestrike', 'Repeats')">↻</span>
 				</li>
 				<li
 					v-for="(item, idx) in dayDetail.completed"
@@ -106,6 +110,10 @@ export default {
 	},
 
 	computed: {
+		todayYmd() {
+			return this.toYMD(new Date())
+		},
+
 		rangeStart() {
 			return this.toYMD(this.anchorDate)
 		},
@@ -195,8 +203,13 @@ export default {
 		},
 
 		isOverdue(item) {
-			const due = item.roomTask.nextDue
-			return due && new Date(due) < new Date()
+			const due = item.dueDate || (item.roomTask?.nextDue || '').slice(0, 10)
+			if (!due) return false
+			return due < this.todayYmd
+		},
+
+		isRecurring(item) {
+			return item.task?.recurrenceMode === 'recurring'
 		},
 	},
 }
@@ -299,6 +312,11 @@ export default {
 
 .task-item.overdue {
 	background: var(--color-error-hover, #fde8e8);
+}
+
+.task-repeat {
+	opacity: 0.6;
+	font-size: 0.9em;
 }
 
 .close-detail {

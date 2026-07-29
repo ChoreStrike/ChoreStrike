@@ -173,6 +173,7 @@
         "Calendar": "Calendar",
         "Week": "Week",
         "Month": "Month",
+        "Repeats": "Repeats",
         "Smart Scheduling": "Smart Scheduling",
         "Intelligent task distribution based on member availability and preferences": "Intelligent task distribution based on member availability and preferences",
         "Member Availability": "Member Availability",

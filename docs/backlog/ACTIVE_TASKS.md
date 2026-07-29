@@ -5,6 +5,14 @@
 
 ## Recently Completed
 
+### CS-PLAN-021 D2 - Calendar Full Future-Occurrence Projection — 2026-07-29
+**Status**: Done
+**Started/Completed**: 2026-07-29
+**Branch**: master (uncommitted — awaiting approval)
+**Plan**: docs/plans/active/cs-plan-021-task-calendar-view.md (§9)
+**Scope**: Delivered the Phase-2 D2 enhancement deferred by CS-PLAN-021 — recurring tasks now appear on **every** due date in the visible calendar window, not just their stored next-due. **Decision:** implemented **server-side** projection (single source of truth for recurrence rules) rather than the plan's suggested client-side expansion, so the calendar can never disagree with `markCompleted()`. `RoomTask::projectOccurrences()` replays the exact recurrence methods used at completion (`calculateNextDynamicDue` / static-weekday enumeration), clamped to `[from,to]` + `activeUntil`, forward-only from `nextDue`, with a fast-forward for overdue anchors and an iteration cap. New mapper `findActiveDueUpToByHouse` (nextDue ≤ `to`, house-scoped) supplies the base set; `getRangeTasks` expands each task into a compact `occurrences: string[]` (Y-m-d). Store getter `rangeTasksByDay` buckets by occurrences (nextDue fallback); `CalendarView` overdue check is TZ-safe on the occurrence date and recurring tasks show a "↻ Repeats" marker. i18n `Repeats` added (en/de/pot); `docs/api/README.md` documents `occurrences`.
+**Gate**: `npm run lint` 0 errors; `npm test` 597/597; `npm run build` 0 warnings; PHPUnit unit 583/583 (10 new `projectOccurrences` + 2 new `getRangeTasks`); PHPUnit integration 139/139 (0 errors, 24 documented skips). Drive-by: fixed a pre-existing `RoomTaskServiceExtendedFeaturesTest` constructor-arg break (CS-021 Phase-1 added the `CompletedTaskMapper` dep but this integration test wasn't updated).
+
 ### CS-PLAN-021 - Task Calendar View (Week / Rolling 30-Day) — 2026-07-29
 **Status**: Done
 **Started/Completed**: 2026-07-29

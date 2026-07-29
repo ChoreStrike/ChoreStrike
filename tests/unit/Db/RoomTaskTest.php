@@ -252,6 +252,230 @@ class RoomTaskTest extends TestCase
         self::assertNull($roomTask->getIdealDueDate());
     }
 
+    // ========== Occurrence Projection Tests (CS-PLAN-021 D2) ==========
+
+    /**
+     * A daily recurring task must project an occurrence on every day of the window.
+     */
+    public function testProjectOccurrences_Daily_EmitsEveryDay(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setNextDue(new \DateTime('2026-07-01'));
+
+        $occ = $roomTask->projectOccurrences(
+            new \DateTime('2026-07-01'),
+            new \DateTime('2026-07-07'),
+            'daily',
+            1,
+        );
+
+        self::assertSame(
+            ['2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05', '2026-07-06', '2026-07-07'],
+            array_map(fn (\DateTime $d) => $d->format('Y-m-d'), $occ),
+        );
+    }
+
+    /**
+     * An every-3-days recurrence must step by the configured interval.
+     */
+    public function testProjectOccurrences_DailyInterval_StepsByInterval(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setNextDue(new \DateTime('2026-07-01'));
+
+        $occ = $roomTask->projectOccurrences(
+            new \DateTime('2026-07-01'),
+            new \DateTime('2026-07-10'),
+            'daily',
+            3,
+        );
+
+        self::assertSame(
+            ['2026-07-01', '2026-07-04', '2026-07-07', '2026-07-10'],
+            array_map(fn (\DateTime $d) => $d->format('Y-m-d'), $occ),
+        );
+    }
+
+    /**
+     * Weekly dynamic recurrence projects every N weeks on the anchor weekday.
+     */
+    public function testProjectOccurrences_WeeklyDynamic_EmitsEveryWeek(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setNextDue(new \DateTime('2026-07-01')); // Wednesday
+
+        $occ = $roomTask->projectOccurrences(
+            new \DateTime('2026-07-01'),
+            new \DateTime('2026-07-22'),
+            'weekly',
+            1,
+            'recurring',
+            'dynamic',
+        );
+
+        self::assertSame(
+            ['2026-07-01', '2026-07-08', '2026-07-15', '2026-07-22'],
+            array_map(fn (\DateTime $d) => $d->format('Y-m-d'), $occ),
+        );
+    }
+
+    /**
+     * Static weekly on named weekdays must project only those weekdays.
+     */
+    public function testProjectOccurrences_StaticWeekly_EmitsConfiguredWeekdays(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setNextDue(new \DateTime('2026-07-01')); // Wednesday
+
+        $occ = $roomTask->projectOccurrences(
+            new \DateTime('2026-06-29'),
+            new \DateTime('2026-07-12'),
+            'weekly',
+            1,
+            'recurring',
+            'static',
+            json_encode(['monday', 'friday']),
+        );
+
+        self::assertSame(
+            ['2026-07-03', '2026-07-06', '2026-07-10'],
+            array_map(fn (\DateTime $d) => $d->format('Y-m-d'), $occ),
+        );
+    }
+
+    /**
+     * Occurrences before the stored nextDue must never be projected.
+     */
+    public function testProjectOccurrences_StaticWeekly_NeverProjectsBeforeNextDue(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setNextDue(new \DateTime('2026-07-01')); // Wednesday, after Mon
+
+        $occ = $roomTask->projectOccurrences(
+            new \DateTime('2026-06-29'),
+            new \DateTime('2026-07-12'),
+            'weekly',
+            1,
+            'recurring',
+            'static',
+            json_encode(['monday', 'friday']),
+        );
+
+        // 2026-06-29 (Mon) is before nextDue and must be excluded.
+        $dates = array_map(fn (\DateTime $d) => $d->format('Y-m-d'), $occ);
+        self::assertNotContains('2026-06-29', $dates);
+        self::assertContains('2026-07-03', $dates);
+    }
+
+    /**
+     * activeUntil must clamp the projection past the active window.
+     */
+    public function testProjectOccurrences_ActiveUntil_ClampsProjection(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setNextDue(new \DateTime('2026-07-01'));
+
+        $occ = $roomTask->projectOccurrences(
+            new \DateTime('2026-07-01'),
+            new \DateTime('2026-07-10'),
+            'daily',
+            1,
+            'recurring',
+            'dynamic',
+            null,
+            new \DateTime('2026-07-03'),
+        );
+
+        self::assertSame(
+            ['2026-07-01', '2026-07-02', '2026-07-03'],
+            array_map(fn (\DateTime $d) => $d->format('Y-m-d'), $occ),
+        );
+    }
+
+    /**
+     * An overdue anchor (nextDue before the window) must fast-forward into range.
+     */
+    public function testProjectOccurrences_OverdueAnchor_FastForwardsIntoWindow(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setNextDue(new \DateTime('2026-06-01'));
+
+        $occ = $roomTask->projectOccurrences(
+            new \DateTime('2026-07-01'),
+            new \DateTime('2026-07-05'),
+            'daily',
+            1,
+        );
+
+        self::assertSame(
+            ['2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05'],
+            array_map(fn (\DateTime $d) => $d->format('Y-m-d'), $occ),
+        );
+    }
+
+    /**
+     * An anchor after the window must produce no occurrences.
+     */
+    public function testProjectOccurrences_AnchorAfterWindow_ReturnsEmpty(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setNextDue(new \DateTime('2026-08-01'));
+
+        $occ = $roomTask->projectOccurrences(
+            new \DateTime('2026-07-01'),
+            new \DateTime('2026-07-31'),
+            'daily',
+            1,
+        );
+
+        self::assertSame([], $occ);
+    }
+
+    /**
+     * A one-time task must yield its single nextDue only when it lands in window.
+     */
+    public function testProjectOccurrences_OneTime_SingleOccurrenceInWindow(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setNextDue(new \DateTime('2026-07-15'));
+
+        $inWindow = $roomTask->projectOccurrences(
+            new \DateTime('2026-07-01'),
+            new \DateTime('2026-07-31'),
+            'weekly',
+            1,
+            'one_time',
+        );
+        $outOfWindow = $roomTask->projectOccurrences(
+            new \DateTime('2026-08-01'),
+            new \DateTime('2026-08-31'),
+            'weekly',
+            1,
+            'one_time',
+        );
+
+        self::assertCount(1, $inWindow);
+        self::assertSame('2026-07-15', $inWindow[0]->format('Y-m-d'));
+        self::assertSame([], $outOfWindow);
+    }
+
+    /**
+     * A null nextDue must produce no occurrences (null-safety).
+     */
+    public function testProjectOccurrences_NullNextDue_ReturnsEmpty(): void
+    {
+        $roomTask = new RoomTask();
+
+        $occ = $roomTask->projectOccurrences(
+            new \DateTime('2026-07-01'),
+            new \DateTime('2026-07-31'),
+            'daily',
+            1,
+        );
+
+        self::assertSame([], $occ);
+    }
+
     // ========== Null-Safety Regression Tests (CS-PLAN-004 Phase 1) ==========
 
     /**

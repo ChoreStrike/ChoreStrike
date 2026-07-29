@@ -26,7 +26,7 @@ Add one **house-scoped range endpoint** that returns everything the calendar nee
 
 1. **One range endpoint** (`D1`) — `GET /api/v1/room-tasks/range?from=&to=` returns `{ scheduled, completed }` enriched with task/room details + flex window. Single round-trip replaces N daily queries.
 2. **Calendar view** (`D3`) — `/calendar` route + `nav-calendar` item (CS-015 nav-testid passthrough). Toggle between **week** (Mon–Sun) and **month** (rolling 30 days). A day cell shows a compact count/badge list; clicking a day expands its task list (reuse the existing list-component look).
-3. **Occurrences** (`D2`) — recurring room tasks store only their **next** due date. Phase 1 shows the next-due occurrence of each task in the window **plus all completed instances in range** (history). Full future-occurrence projection (a daily task appearing on all 30 days) is a **Phase-2** enhancement flagged as a decision.
+3. **Occurrences** (`D2`) — recurring room tasks store only their **next** due date. Phase 1 shows the next-due occurrence of each task in the window **plus all completed instances in range** (history). Full future-occurrence projection (a daily task appearing on all 30 days) is a **Phase-2** enhancement flagged as a decision. **[IMPLEMENTED 2026-07-29 — see §9 D2 Outcome]**
 4. **Reuse** — house-scoping via `applyHouseScope`, authorization via the established `ensureHouseMember` + `ControllerErrorFormatter` pattern, shared `src/services/api.js` client, CS-015 testid convention + `storageState` E2E auth.
 
 ## 3. Changes
@@ -111,7 +111,7 @@ new:      docs/plans/active/cs-plan-021-task-calendar-view.md (manual new/ -> ac
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
 | N+1 over a 30-day range (per-item task/room fetch) | High | `getRangeTasks` **batch-fetches** task + room rows by unique-ID sets (one query per relation), mirroring how the medal loop was de-N+1'd in CS-PLAN-012. Enforced by a Jest/PHP spec that counts mapper calls is optional; the batch design is the mitigation. |
-| Future-occurrence projection is expected but hard (recurring tasks store only `nextDue`) | Medium | **D2:** Phase 1 shows next-due occurrence + completed history only; full recurrence projection is a documented Phase-2 enhancement (client-side expansion using `frequencyType/value` + the weekday rules already in `RoomTask::calculateNextStaticDue`). AC #6 states this scope explicitly so expectations are set. |
+| Future-occurrence projection is expected but hard (recurring tasks store only `nextDue`) | Medium | **D2 [IMPLEMENTED]:** full projection ships server-side (single source of truth for recurrence rules). `RoomTask::projectOccurrences()` replays the same recurrence rules used at completion (`calculateNextDynamicDue` / `findNextWeekday`), so the projected calendar never disagrees with the scheduler. New mapper `findActiveDueUpToByHouse` (nextDue ≤ `to`) supplies the projection base set; `getRangeTasks` expands each into a compact `occurrences` list of Y-m-d dates. Frontend store getter `rangeTasksByDay` buckets by occurrences (falls back to nextDue). See §9. |
 | Revived/new view surfaces a backend bug never exercised at the range granularity | Medium | Phase 2 smoke + Phase 4 specs surface contract gaps early; fix at the source (e.g. a `selectAlias`/SQL-shape issue like the CS-016 `getConsumedEnergyForUserOnDate` regression) rather than masking. |
 | Shared `loading` flag unmounts the calendar mid-fetch (CS-016 lesson) | Medium | `CalendarView` owns the page loading flag; `TaskCalendar`/day cells use local refs. Regression test: "fetching does not unmount the grid." |
 | Max-span abuse / huge payloads | Low | Controller clamps `to - from` to a max (e.g. 60 days) → 400 on overflow. |
@@ -124,9 +124,65 @@ new:      docs/plans/active/cs-plan-021-task-calendar-view.md (manual new/ -> ac
 - [ ] Week/Month toggle works; prev/next changes the visible range; the range label is correct and localized.
 - [ ] `GET /api/v1/room-tasks/range?from=&to=` returns `{ scheduled, completed }` in a single round-trip, enriched with task + room details + flex window; `from > to` / unparseable date / span-over-max → 400.
 - [ ] A day with a scheduled task shows a count and expands to its task list on click; completed instances render distinctly (muted/checkmark); overdue tasks are highlighted on their original due date.
-- [ ] **D2 scope stated:** Phase 1 shows each task's next-due occurrence + completed history in range; full future-occurrence projection is a documented Phase-2 follow-up (not blocking this plan's "done").
+- [x] **D2 scope stated + delivered:** Phase 1 showed each task's next-due occurrence + completed history in range; full future-occurrence projection is now implemented (see §9) — recurring tasks project across the whole window.
 - [ ] House-scoped: tasks/completions from other houses never appear; non-member of the caller's house → 403 (integration test). `@NoAdminRequired` only; never `@PublicPage`.
 - [ ] Every interactive element carries a `data-testid` per the CS-015 convention; the E2E spec uses `getByTestId`/`getByRole` + auto-waiting locators, no `waitForTimeout`.
 - [ ] i18n: all new user-visible strings use `t()`; `l10n/` artifacts updated.
 - [ ] Build gate green (`npm test` + `npm run lint` 0 errors + `npm run build` + PHPUnit unit/integration via Docker + E2E chromium).
 - [ ] Docs updated (architecture/design/api); `docs/backlog/ACTIVE_TASKS.md` updated; `features.md` [P1] item marked shipped.
+
+## 9. D2 Outcome — Full Future-Occurrence Projection (2026-07-29)
+
+> Implements the Phase-2 enhancement deferred in §2.3 / §7. Recurring tasks now appear on **every** due date in the visible window, not just their stored next-due.
+
+### Decision
+The plan's §7 mitigation suggested **client-side** expansion. Implemented **server-side** instead to keep a single source of truth for recurrence rules (priority #3: correctness/architecture over KISS). Porting the weekday + interval logic to JS would risk drift between what the calendar *shows* and what `markCompleted()` actually *produces*; server-side projection reuses the exact PHP recurrence methods, so the calendar and the scheduler can never disagree.
+
+### Changes
+- **`lib/Db/RoomTask.php`** — new `projectOccurrences($from, $to, frequencyType, frequencyValue, recurrenceMode, schedulingMode, fixedScheduleDays, activeUntil): \DateTime[]`. Replays `calculateNextDynamicDue` (daily/weekly-dynamic/monthly) and a dedicated `projectWeeklyWeekdays` (named weekdays, every-N-weeks). Anchor = `nextDue`; occurrences are forward-only, clamped to `[from, to]` and `activeUntil`; one-time tasks emit a single in-window occurrence; overdue anchors fast-forward into range; hard iteration cap guards against runaway loops.
+- **`lib/Db/RoomTaskMapper.php`** — new `findActiveDueUpToByHouse($houseId, $end)`: projection base set (active tasks with `next_due <= end`), house-scoped via `applyHouseScope`. `findActiveDueBetweenByHouse` retained as a documented exact-range primitive.
+- **`lib/Service/RoomTaskService.php`** — `getRangeTasks` now fetches the base set, calls `projectOccurrences` per task (skips tasks with no in-window occurrence), and returns a compact `occurrences: string[]` (Y-m-d) per scheduled item. Top-level `flexWindow` retained for response-shape stability.
+- **`src/store/roomTasks.js`** — `rangeTasksByDay` buckets each scheduled item across its `occurrences` (falls back to `nextDue` when absent); each bucketed item carries `dueDate`.
+- **`src/views/CalendarView.vue`** — `isOverdue` compares the occurrence date (calendar-day, TZ-safe); day-detail list key includes `dueDate`; recurring tasks show a "↻" marker (`t('chorestrike', 'Repeats')`).
+- **l10n** — `Repeats` added to en/de/`.pot`.
+- **Docs** — `docs/api/README.md` documents the `occurrences` field.
+
+### Tests
+- PHPUnit `RoomTaskTest`: 9 `projectOccurrences` cases (daily/daily-interval/weekly-dynamic/static-weekday/never-before-nextDue/activeUntil-clamp/overdue-fast-forward/anchor-after-window/one-time/null-nextDue).
+- Jest `roomTasks.spec.js`: occurrence expansion + nextDue fallback.
+- Jest `CalendarView.spec.js`: recurring marker renders in the day detail.
+
+### Gate
+See `docs/backlog/ACTIVE_TASKS.md` D2 entry for the final build-gate numbers.
+
+## 10. Review Outcome — Full Review (2026-07-29)
+
+**Scope:** 16 files (uncommitted D2 changes). **Tier:** Full (4 parallel reviewer subagents).
+
+### Auto-fixes applied (7 items)
+- Extracted `WEEKDAY_MAP` + `MAX_PROJECTION_OCCURRENCES` class constants in `RoomTask.php` (DRY — `$dayMap` was duplicated in `findNextWeekday` and `projectWeeklyWeekdays`; magic number 1000 in two loops).
+- One-time branch now returns `$anchor` (midnight) instead of original `nextDue` (consistency with recurring branches).
+- Updated stale `applyHouseScope` docblock ("three callers" → "all house-scoped callers").
+- `CalendarView.todayYmd` converted from method to computed property (avoids redundant `new Date()` per `isOverdue` call).
+- Added missing `@param` tags on `projectWeeklyWeekdays`.
+- Added JSDoc on `rangeTasksByDay` getter.
+- `npm run lint:fix` + `npm test` + `npm run build` green (597/597, 0 errors, 0 warnings).
+
+### Deferred findings (→ backlog)
+| # | Sev | Issue | Action |
+|---|-----|-------|--------|
+| 1 | major | Orphaned task/room in `getRangeTasks` → unhandled `DoesNotExistException` | Backlog: wrap batch lookups in try-catch |
+| 2 | major | Zero test coverage for monthly recurrence (month-end drift untested) | Backlog: add monthly test cases |
+| 3 | major | `projectOccurrences` in Entity violates layering (8 params, ~80 lines) | Backlog: extract to `RecurrenceProjector` service |
+| 4 | major | `RoomTask.php` 779 lines (2.5× limit) | Backlog: extract scheduling/projection logic |
+| 5 | major | Iterative fast-forward (up to 1000 DateTime clones for stale tasks) | Backlog: arithmetic skip optimization |
+| 6 | major | `findActiveDueUpToByHouse` no lower bound on `next_due` | Backlog: add SQL lower bound or cap stale-task fetch |
+| 7 | minor | Static-weekday path no fast-forward | Backlog: calculate first iteration index |
+| 8 | minor | `fixedScheduleDays: '[]'` falls through to arithmetic | Backlog: return [] early for static+empty |
+| 9 | minor | Missing edge-case tests (frequencyValue=0, unknown type, leap year) | Backlog: add boundary test matrix |
+| 10 | minor | N+1 per unique taskId/roomId in batch cache | Backlog: batch findByIds methods |
+| 11 | minor | `RoomTaskService.php` 833 lines | Pre-existing; backlog for service split |
+| 12 | minor | Raw Unicode `↻` marker — no `aria-label` | Backlog: use NC icon or add aria |
+
+### Security verdict
+House isolation ✅, SQL injection ✅ (`createNamedParameter`), no `v-html` ✅, no secrets in logs ✅, JSON decode safe ✅. One pre-existing finding (controller date validation trailing-char check) — out of scope for this diff.

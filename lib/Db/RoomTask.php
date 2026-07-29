@@ -53,6 +53,13 @@ use OCP\AppFramework\Db\Entity;
  */
 class RoomTask extends Entity implements JsonSerializable
 {
+    private const WEEKDAY_MAP = [
+        'monday' => 1, 'tuesday' => 2, 'wednesday' => 3, 'thursday' => 4,
+        'friday' => 5, 'saturday' => 6, 'sunday' => 7,
+    ];
+
+    private const MAX_PROJECTION_OCCURRENCES = 1000;
+
     /** @var int */
     protected $roomId;
 
@@ -385,14 +392,9 @@ class RoomTask extends Entity implements JsonSerializable
      */
     private function findNextWeekday(\DateTime $from, array $weekdays, int $weeksInterval = 1): \DateTime
     {
-        $dayMap = [
-            'monday' => 1, 'tuesday' => 2, 'wednesday' => 3,
-            'thursday' => 4, 'friday' => 5, 'saturday' => 6, 'sunday' => 7
-        ];
-
         // Normalize weekday names
         $targetDays = array_map(fn ($day) => strtolower(trim($day)), $weekdays);
-        $targetDays = array_filter($targetDays, fn ($day) => isset($dayMap[$day]));
+        $targetDays = array_filter($targetDays, fn ($day) => isset(self::WEEKDAY_MAP[$day]));
 
         if (empty($targetDays)) {
             return $from;
@@ -404,7 +406,7 @@ class RoomTask extends Entity implements JsonSerializable
         // Find the next matching day within the same week
         $daysToCheck = [];
         foreach ($targetDays as $targetDay) {
-            $targetDayNum = $dayMap[$targetDay];
+            $targetDayNum = self::WEEKDAY_MAP[$targetDay];
             if ($targetDayNum > $currentDayNum) {
                 $daysToCheck[] = $targetDayNum - $currentDayNum;
             }
@@ -416,7 +418,7 @@ class RoomTask extends Entity implements JsonSerializable
             $current->add(new \DateInterval("P{$daysToAdd}D"));
         } else {
             // Need to go to next week
-            $firstTargetDay = min(array_map(fn ($day) => $dayMap[$day], $targetDays));
+            $firstTargetDay = min(array_map(fn ($day) => self::WEEKDAY_MAP[$day], $targetDays));
             $daysToNextWeek = 7 - $currentDayNum + $firstTargetDay;
             if ($weeksInterval > 1) {
                 $daysToNextWeek += ($weeksInterval - 1) * 7;
@@ -572,6 +574,181 @@ class RoomTask extends Entity implements JsonSerializable
         }
 
         return $bestDay;
+    }
+
+    /**
+     * Project the future due dates this task would have within [from, to].
+     *
+     * Recurring room tasks store only their next due date, but the calendar
+     * needs to show every occurrence in the visible window (e.g. a daily task
+     * on each of the 30 days). This enumerates those occurrences by replaying
+     * the same recurrence rules used at completion time
+     * (calculateNextDynamicDue / findNextWeekday), so the projected calendar
+     * always agrees with the dates the scheduler actually produces.
+     *
+     * The anchor is the stored nextDue; occurrences are projected forward only
+     * (never before nextDue) and clamped to [from, to] and to activeUntil.
+     *
+     * @param \DateTimeInterface $from Inclusive window start (day boundary)
+     * @param \DateTimeInterface $to Inclusive window end (day boundary)
+     * @param string $frequencyType daily|weekly|monthly|custom
+     * @param int $frequencyValue Recurrence interval in the frequency unit
+     * @param string $recurrenceMode one_time|recurring
+     * @param string $schedulingMode dynamic|static
+     * @param string|null $fixedScheduleDays JSON array of weekday names (static+weekly)
+     * @param \DateTime|null $activeUntil Don't project past this date
+     * @return list<\DateTime> Occurrence dates within [from, to], ascending
+     */
+    public function projectOccurrences(
+        \DateTimeInterface $from,
+        \DateTimeInterface $to,
+        string $frequencyType,
+        int $frequencyValue,
+        string $recurrenceMode = 'recurring',
+        string $schedulingMode = 'dynamic',
+        ?string $fixedScheduleDays = null,
+        ?\DateTime $activeUntil = null
+    ): array {
+        if ($this->nextDue === null) {
+            return [];
+        }
+
+        $anchor = \DateTime::createFromInterface($this->nextDue)->setTime(0, 0, 0);
+        $fromDay = \DateTime::createFromInterface($from)->setTime(0, 0, 0);
+        $toDay = \DateTime::createFromInterface($to)->setTime(23, 59, 59);
+
+        // One-time task: a single occurrence at nextDue if it lands in the window.
+        if ($recurrenceMode === 'one_time') {
+            if ($anchor >= $fromDay && $anchor <= $toDay) {
+                return [$anchor];
+            }
+            return [];
+        }
+
+        $value = max(1, $frequencyValue);
+        $cap = self::MAX_PROJECTION_OCCURRENCES;
+
+        // Static weekly on named weekdays: enumerate matching weekdays week-by-week.
+        $staticWeekdays = [];
+        if ($schedulingMode === 'static' && $frequencyType === 'weekly' && $fixedScheduleDays) {
+            $decoded = json_decode($fixedScheduleDays, true);
+            if (is_array($decoded)) {
+                $staticWeekdays = array_values(array_filter($decoded, fn ($d) => is_string($d)));
+            }
+        }
+        if (!empty($staticWeekdays)) {
+            return $this->projectWeeklyWeekdays($anchor, $fromDay, $toDay, $value, $staticWeekdays, $activeUntil, $cap);
+        }
+
+        // Arithmetic recurrence: daily / weekly-dynamic / monthly / custom fallback.
+        $step = match ($frequencyType) {
+            'daily' => new \DateInterval("P{$value}D"),
+            'weekly' => new \DateInterval("P{$value}W"),
+            'monthly' => new \DateInterval("P{$value}M"),
+            default => new \DateInterval('P1W'),
+        };
+
+        $occurrences = [];
+        $current = clone $anchor;
+
+        // Fast-forward the anchor into the window without collecting (bounded).
+        $advances = 0;
+        while ($current < $fromDay && $advances < $cap) {
+            $next = (clone $current)->add($step);
+            if ($next <= $current) {
+                break; // non-advancing recurrence guard
+            }
+            $current = $next;
+            $advances++;
+        }
+
+        // Collect occurrences inside [from, to].
+        while ($current <= $toDay && count($occurrences) < $cap) {
+            if ($activeUntil !== null && $current > $activeUntil) {
+                break;
+            }
+            if ($current >= $fromDay) {
+                $occurrences[] = clone $current;
+            }
+            $next = (clone $current)->add($step);
+            if ($next <= $current) {
+                break; // non-advancing recurrence guard
+            }
+            $current = $next;
+        }
+
+        return $occurrences;
+    }
+
+    /**
+     * Enumerate static-weekly occurrences (named weekdays recurring every N weeks).
+     *
+     * Anchors the cadence on the Monday of nextDue's ISO week and steps forward
+     * in whole-week intervals, emitting each configured weekday that falls in
+     * [from, to] and on/after the stored nextDue.
+     *
+     * @param \DateTime $anchor The stored nextDue (time-normalised to midnight)
+     * @param \DateTime $fromDay Inclusive window start (midnight)
+     * @param \DateTime $toDay Inclusive window end (23:59:59)
+     * @param int $weeksInterval Recurrence interval in weeks (e.g. 1 = every week, 2 = biweekly)
+     * @param array<string> $weekdayNames Lowercase weekday names to emit (e.g. ['monday', 'friday'])
+     * @param \DateTime|null $activeUntil Don't project past this date
+     * @param int $cap Hard iteration guard
+     * @return list<\DateTime>
+     */
+    private function projectWeeklyWeekdays(
+        \DateTime $anchor,
+        \DateTime $fromDay,
+        \DateTime $toDay,
+        int $weeksInterval,
+        array $weekdayNames,
+        ?\DateTime $activeUntil,
+        int $cap
+    ): array {
+        $targetSet = [];
+        foreach ($weekdayNames as $name) {
+            $key = strtolower(trim((string)$name));
+            if (isset(self::WEEKDAY_MAP[$key])) {
+                $targetSet[self::WEEKDAY_MAP[$key]] = true;
+            }
+        }
+        if (empty($targetSet)) {
+            return [];
+        }
+        $targetDays = array_keys($targetSet);
+        sort($targetDays);
+
+        // Monday of the anchor's ISO week is the recurrence cadence origin.
+        $weekOrigin = clone $anchor;
+        $dow = (int)$weekOrigin->format('N'); // 1=Mon..7=Sun
+        $weekOrigin->sub(new \DateInterval('P' . ($dow - 1) . 'D'));
+        $weekOrigin->setTime(0, 0, 0);
+
+        $occurrences = [];
+        $week = 0;
+        while (count($occurrences) < $cap && $week <= $cap) {
+            $weekStart = (clone $weekOrigin)->modify('+' . ($week * $weeksInterval) . ' weeks');
+            if ($weekStart > $toDay) {
+                break;
+            }
+            foreach ($targetDays as $dayNum) {
+                $occ = (clone $weekStart)->add(new \DateInterval('P' . ($dayNum - 1) . 'D'));
+                if ($occ < $anchor) {
+                    continue; // never before the stored nextDue
+                }
+                if ($occ < $fromDay || $occ > $toDay) {
+                    continue;
+                }
+                if ($activeUntil !== null && $occ > $activeUntil) {
+                    continue;
+                }
+                $occurrences[] = $occ;
+            }
+            $week++;
+        }
+
+        usort($occurrences, fn (\DateTime $a, \DateTime $b) => $a->getTimestamp() <=> $b->getTimestamp());
+        return $occurrences;
     }
 
     /**

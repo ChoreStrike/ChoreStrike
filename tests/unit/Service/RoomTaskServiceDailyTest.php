@@ -33,6 +33,7 @@ class RoomTaskServiceDailyTest extends TestCase
     private RoomService|MockObject $roomService;
     private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
     private HouseUserMapper|MockObject $houseUserMapper;
+    private CompletedTaskMapper|MockObject $completedTaskMapper;
 
     protected function setUp(): void
     {
@@ -43,6 +44,7 @@ class RoomTaskServiceDailyTest extends TestCase
         $this->roomService = $this->createMock(RoomService::class);
         $this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
         $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+        $this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 
         $this->service = new RoomTaskService(
             $this->roomTaskMapper,
@@ -52,7 +54,7 @@ class RoomTaskServiceDailyTest extends TestCase
             $this->roomService,
             $this->taskAssigneeMapper,
             $this->houseUserMapper,
-            $this->createMock(CompletedTaskMapper::class)
+            $this->completedTaskMapper
         );
     }
 
@@ -73,6 +75,95 @@ class RoomTaskServiceDailyTest extends TestCase
 
         $this->assertCount(1, $result);
         $this->assertSame($roomTask, $result[0]);
+    }
+
+    /**
+     * A daily recurring task must be expanded into one occurrence per window day.
+     */
+    public function testGetRangeTasksProjectsRecurringOccurrences(): void
+    {
+        $houseId = 1;
+        $from = new \DateTime('2026-07-01');
+        $to = new \DateTime('2026-07-07');
+
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+        $roomTask->setTaskId(5);
+        $roomTask->setRoomId(2);
+        $roomTask->setNextDue(new \DateTime('2026-07-01'));
+
+        $task = new Task();
+        $task->setId(5);
+        $task->setName('Dishes');
+        $task->setFrequencyType('daily');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+        $task->setSchedulingMode('dynamic');
+
+        $room = new Room();
+        $room->setId(2);
+        $room->setName('Kitchen');
+
+        $this->roomTaskMapper->expects($this->once())
+            ->method('findActiveDueUpToByHouse')
+            ->with($houseId, $to)
+            ->willReturn([$roomTask]);
+
+        $this->completedTaskMapper->expects($this->once())
+            ->method('findCompletionsBetweenByHouse')
+            ->with($houseId, $from, $to)
+            ->willReturn([]);
+
+        $this->taskMapper->expects($this->once())->method('find')->with(5)->willReturn($task);
+        $this->roomMapper->expects($this->once())->method('find')->with(2)->willReturn($room);
+
+        $result = $this->service->getRangeTasks($houseId, $from, $to);
+
+        $this->assertCount(1, $result['scheduled']);
+        $this->assertSame(
+            ['2026-07-01', '2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05', '2026-07-06', '2026-07-07'],
+            $result['scheduled'][0]['occurrences'],
+        );
+        $this->assertSame([], $result['completed']);
+    }
+
+    /**
+     * A task whose next occurrence falls outside the window must be omitted.
+     */
+    public function testGetRangeTasksSkipsTasksWithNoInWindowOccurrences(): void
+    {
+        $houseId = 1;
+        $from = new \DateTime('2026-07-01');
+        $to = new \DateTime('2026-07-07');
+
+        // nextDue is before the window (<= to, so the base query returns it) but
+        // the next monthly occurrence (07-15) lands past `to`.
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+        $roomTask->setTaskId(5);
+        $roomTask->setRoomId(2);
+        $roomTask->setNextDue(new \DateTime('2026-06-15'));
+
+        $task = new Task();
+        $task->setId(5);
+        $task->setName('Monthly');
+        $task->setFrequencyType('monthly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+        $task->setSchedulingMode('dynamic');
+
+        $room = new Room();
+        $room->setId(2);
+        $room->setName('Kitchen');
+
+        $this->roomTaskMapper->method('findActiveDueUpToByHouse')->willReturn([$roomTask]);
+        $this->completedTaskMapper->method('findCompletionsBetweenByHouse')->willReturn([]);
+        $this->taskMapper->method('find')->willReturn($task);
+        $this->roomMapper->method('find')->willReturn($room);
+
+        $result = $this->service->getRangeTasks($houseId, $from, $to);
+
+        $this->assertSame([], $result['scheduled']);
     }
 
     public function testGetDailyTasksWithDetailsCachesTaskAndRoomLookups(): void

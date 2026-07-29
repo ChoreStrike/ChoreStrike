@@ -352,6 +352,10 @@ Mark task as completed.
 #### GET /room-tasks/range?from=&to=
 Get scheduled and completed tasks within a date range (calendar view). Max span: 60 days.
 
+Recurring tasks are **projected** across the window: each scheduled item carries an
+`occurrences` array of `Y-m-d` dates (one per future occurrence in `[from, to]`), so a
+daily task appears on every day it recurs. One-time tasks emit a single occurrence.
+
 **Parameters:**
 - `from` (required): Start date, `Y-m-d` format.
 - `to` (required): End date, `Y-m-d` format.
@@ -366,7 +370,8 @@ Get scheduled and completed tasks within a date range (calendar view). Max span:
         "roomTask": { "id": 1, "nextDue": "2026-07-28", "isActive": true },
         "task": { "id": 5, "name": "Vacuum", "energyCost": 3 },
         "room": { "id": 2, "name": "Living Room" },
-        "flexWindow": { "earliest": "2026-07-26", "ideal": "2026-07-28", "latest": "2026-07-30" }
+        "flexWindow": { "earliest": "2026-07-26", "ideal": "2026-07-28", "latest": "2026-07-30" },
+        "occurrences": ["2026-07-28", "2026-08-04", "2026-08-11"]
       }
     ],
     "completed": [

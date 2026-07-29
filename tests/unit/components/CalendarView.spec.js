@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import CalendarView from '../../../src/views/CalendarView.vue'
+import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 
 jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, text) => text),
@@ -67,5 +68,33 @@ describe('CalendarView', () => {
 		expect(wrapper.vm.visibleDays).toHaveLength(7)
 		await wrapper.find('[data-testid="calendar-mode-month"]').trigger('click')
 		expect(wrapper.vm.visibleDays).toHaveLength(30)
+	})
+
+	it('renders a recurring marker for recurring tasks in the day detail', async () => {
+		const store = useRoomTasksStore()
+		const wrapper = mount(CalendarView, {
+			global: { stubs: { TaskCalendar: true } },
+		})
+		// Let the mount-time range fetch settle before seeding the store.
+		await wrapper.vm.$nextTick()
+
+		const day = wrapper.vm.visibleDays[0]
+		store.rangeTasks = {
+			scheduled: [{
+				roomTask: { id: 1, nextDue: day + 'T10:00:00' },
+				task: { name: 'Dishes', recurrenceMode: 'recurring' },
+				room: { name: 'Kitchen' },
+				flexWindow: {},
+				occurrences: [day],
+			}],
+			completed: [],
+			from: day,
+			to: day,
+		}
+		await wrapper.setData({ selectedDay: day })
+		await wrapper.vm.$nextTick()
+
+		expect(wrapper.find('[data-testid="calendar-day-list"]').exists()).toBe(true)
+		expect(wrapper.find('.task-repeat').exists()).toBe(true)
 	})
 })
