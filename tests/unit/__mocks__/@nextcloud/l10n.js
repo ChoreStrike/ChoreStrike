@@ -21,3 +21,13 @@ export function translate(app, string, vars) {
 export function translatePlural(app, singular, plural, count) {
 	return count === 1 ? singular : plural
 }
+
+/**
+ * Mock for `loadTranslations`. The real implementation fetches the bundle for
+ * the current language; the mock is a configurable jest.fn (defaulting to a
+ * resolved empty bundle) so `i18n.spec.js` and any other importer can assert
+ * the call and control success/failure. Default export shape keeps it usable
+ * as a plain jest.fn().
+ */
+export const loadTranslations = jest.fn(() => Promise.resolve({ translations: {} }))
+
