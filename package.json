@@ -14,6 +14,7 @@
     "stylelint:fix": "stylelint src/**/*.vue src/**/*.scss src/**/*.css --fix",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "l10n:check-keys": "node scripts/check-l10n-keys.js"
   },
   "dependencies": {

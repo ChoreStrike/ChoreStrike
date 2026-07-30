@@ -217,6 +217,57 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.test.yml down
 
+  # ---------- Coverage artifacts (non-blocking, CS-PLAN-022 Phase 1) ----------
+  coverage:
+    name: Coverage (artifacts, non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Jest coverage
+        run: npm run test:coverage -- --ci
+
+      - name: Build test image
+        run: docker build -f docker/Dockerfile.test -t chorestrike-test:ci .
+
+      - name: Install composer dependencies
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
+            -w /var/www/html/custom_apps/chorestrike \
+            chorestrike-test:ci \
+            composer install --no-interaction --prefer-dist
+
+      - name: PHPUnit coverage (PCOV)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/var/www/html/custom_apps/chorestrike" \
+            -e NEXTCLOUD_TEST_ENV=true \
+            -w /var/www/html/custom_apps/chorestrike \
+            chorestrike-test:ci \
+            composer test:coverage
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: build/coverage/
+          retention-days: 14
+          if-no-files-found: ignore
+
   # ---------- Summary ----------
   summary:
     name: Gate Summary

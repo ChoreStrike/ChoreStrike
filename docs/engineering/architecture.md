@@ -534,9 +534,15 @@ run on any non-zero **blocking** command:
 - `npm test` (Jest)
 - `npm run build` (Webpack)
 - `composer validate --strict`
-- `vendor/bin/phpunit --configuration phpunit.unit.xml` (Docker) — Controller + Service + Entity + BackgroundJob + Notification + Migration + l10n suites
+- `vendor/bin/phpunit --configuration phpunit.unit.xml` (Docker) — Controller + Service + Entity + Mapper + BackgroundJob + Notification + Migration + l10n suites
 - `vendor/bin/phpunit --configuration phpunit.integration.xml` (Docker)
 - `npx playwright test --project=chromium --project=chromium-serial-db` (Docker) — blocking E2E, `family` profile (CS-PLAN-020)
+
+A **non-blocking `coverage` job** (CS-PLAN-022) generates PHPUnit coverage
+(PCOV driver in `docker/Dockerfile.test`) and Jest coverage (v8 provider),
+uploading `build/coverage/**` as a CI artifact. Jest enforces a
+`coverageThreshold` (regression-only, set below baseline); PHPUnit coverage
+is artifacts-only. See `docs/engineering/testing.md` § Coverage Measurement.
 
 Stylelint is **advisory/non-blocking** until the
 `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch

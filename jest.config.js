@@ -2,6 +2,20 @@ module.exports = {
 	testEnvironment: 'jsdom',
 	moduleFileExtensions: ['js', 'json', 'vue'],
 	testPathIgnorePatterns: ['/node_modules/', '/archive/'],
+	collectCoverageFrom: [
+		'src/**/*.{js,vue}',
+		'!src/**/*.d.ts',
+	],
+	coverageDirectory: 'build/coverage/jest',
+	coverageProvider: 'v8',
+	coverageThreshold: {
+		global: {
+			statements: 80,
+			branches: 75,
+			functions: 62,
+			lines: 80,
+		},
+	},
 	moduleNameMapper: {
 		'^@/(.*)$': '<rootDir>/src/$1',
 		'^@nextcloud/(.*)$': '<rootDir>/tests/unit/__mocks__/nextcloud-$1.js',

@@ -73,4 +73,20 @@ trait ControllerLoggingTrait
             $this->request
         );
     }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    protected function logDebug(string $message, array $context = []): void
+    {
+        if ($this->appLogger === null) {
+            return;
+        }
+
+        $this->appLogger->debug(
+            $message,
+            array_merge($context, ['controller' => static::class]),
+            $this->request
+        );
+    }
 }

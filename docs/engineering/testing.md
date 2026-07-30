@@ -707,23 +707,68 @@ strategy:
 
 ---
 
+## Coverage Measurement (CS-PLAN-022 Phase 1)
+
+Coverage is generated with built-in tooling only (no nyc/c8/istanbul). CI emits
+artifacts non-blocking; thresholds are added in Phase 6 once the baseline is stable.
+
+### PHPUnit coverage (PCOV)
+
+The Docker test image (`docker/Dockerfile.test`) includes the PCOV extension.
+Generate reports locally:
+
+```bash
+docker compose -f docker-compose.test.yml run --rm nextcloud-test \
+  bash -c "composer install && composer test:coverage"
+```
+
+Artifacts: `build/coverage/phpunit-clover.xml` + `build/coverage/phpunit-html/`.
+
+### Jest coverage
+
+```bash
+npm run test:coverage
+```
+
+Artifacts: `build/coverage/jest/` (HTML + lcov).
+
+### Baseline (2026-07-30, CS-PLAN-022 Phase 1+4)
+
+| Metric | PHPUnit (unit gate) | Jest |
+|--------|-------------------|------|
+| Statements | 54.3% (5310/9787) | 90.3% |
+| Branches | — | 80.4% |
+| Methods | 47.2% (395/837) | 68.3% |
+| Lines | 54.3% | 90.3% |
+| Tests | 760 | 667 |
+
+PHPUnit coverage uses `processUncoveredFiles="false"` (only files loaded during
+tests are measured; loading all `lib/` files fails on unmocked OCP dependencies).
+
+---
+
 ## Remaining Coverage Gaps
 
 The biggest remaining gaps are no longer basic component or store tests. Those areas now have meaningful automated coverage. The highest-value remaining work is here:
 
-### 1. E2E Pipeline & Coverage Gaps (2026-07-27 review)
+### 1. E2E Pipeline & Coverage Gaps (updated 2026-07-30, CS-PLAN-022)
 
 - **E2E in CI repaired** — `test.yml` now triggers on `master`, pins
   `nextcloud:31-apache`, mounts the app, and runs `chromium-serial-db` as a
   separate step on the chromium matrix row only (CS-PLAN-015b D-CI). Folding
   into `release-gate.yml` as blocking is follow-up.
-- **Uncovered feature surfaces** — reward configuration, task templates,
-  notifications, minigame economy UI (BoostShop, snake leaderboard), and
-  mobile/responsive layouts have no E2E coverage; 8 components + the
-  `checklist` store lack Jest specs (`phase-9-code-quality.md` P9-E2E-003).
-- **Backend unit gaps** — `TemplateService`, `RewardConfigController`,
-  `TemplateController`, `TaskSyncController`, 5 mappers, and a fresh-install
-  migration smoke test (`phase-9-code-quality.md` P9-TEST-003).
+- **Jest gaps closed (CS-PLAN-022)** — `TaskEditForm`, `OverdueClaimDialog`,
+  `TemplateSelector`, `FlexWindowDisplay`, `CalendarDayCell`, `SvgIcon`
+  component specs + `checklist` store + 4 util specs added. `SnakeGame`,
+  `BoostShop`, `SnakeLeaderboard` deferred (deep `storeToRefs` integration;
+  E2E `snake-game.spec.ts` covers the integration path).
+- **Backend unit gaps closed (CS-PLAN-022)** — `TemplateService`,
+  `RewardConfigController`, `TemplateController`, `TaskSyncController`,
+  `SmartSchedulerController` behavior tests + 7 mapper tests + 5 entity tests.
+  P9-TEST-003 closed.
+- **Remaining E2E gaps** — reward configuration, task templates, notifications,
+  BoostShop purchase flow, and mobile/responsive layouts still have no E2E
+  coverage (deferred to follow-up plan).
 - **Stabilization done** — CS-PLAN-015b shipped session-safe multi-user auth +
   seed-race containment; 3× full-matrix acceptance green (2026-07-28). CS-016
   re-adds the 3 archived scheduling specs.

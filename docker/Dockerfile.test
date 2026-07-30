@@ -35,6 +35,10 @@ RUN apt-get update && apt-get install -y \
     pdo_pgsql \
     && rm -rf /var/lib/apt/lists/*
 
+# Install PCOV for PHPUnit coverage (faster than Xdebug, CI-friendly)
+RUN pecl install pcov && docker-php-ext-enable pcov \
+    && echo "pcov.directory=/var/www/html/custom_apps/chorestrike/lib" > /usr/local/etc/php/conf.d/pcov.ini
+
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

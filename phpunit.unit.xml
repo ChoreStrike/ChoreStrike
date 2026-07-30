@@ -11,20 +11,35 @@
          failOnWarning="true"
          verbose="true">
     <testsuites>
-        <!-- Entity tests only - no Mapper dependencies -->
+        <!-- Entity tests only (no Mapper dependencies) -->
         <testsuite name="Entity">
             <directory suffix="Test.php">tests/unit/Db</directory>
             <exclude>tests/unit/Db/HouseMapperTest.php</exclude>
             <exclude>tests/unit/Db/TaskMapperTest.php</exclude>
-            <exclude>tests/unit/Db/TaskScopeMapperTest.php</exclude>
             <exclude>tests/unit/Db/FloorMapperTest.php</exclude>
             <exclude>tests/unit/Db/CompletedTaskMapperTest.php</exclude>
             <exclude>tests/unit/Db/HouseUserMapperTest.php</exclude>
             <exclude>tests/unit/Db/RoomMapperTest.php</exclude>
             <exclude>tests/unit/Db/RoomTaskMapperTest.php</exclude>
-            <exclude>tests/unit/Db/AvailabilitySettingsMapperTest.php</exclude>
             <exclude>tests/unit/Db/MedalMapperTest.php</exclude>
-            <exclude>tests/unit/Db/ComboMapperTest.php</exclude>
+        </testsuite>
+        <!-- Mock-based mapper tests (CS-PLAN-022 D2: run in the no-DB CI gate) -->
+        <testsuite name="Mapper">
+            <file>tests/unit/Db/HouseMapperTest.php</file>
+            <file>tests/unit/Db/TaskMapperTest.php</file>
+            <file>tests/unit/Db/FloorMapperTest.php</file>
+            <file>tests/unit/Db/CompletedTaskMapperTest.php</file>
+            <file>tests/unit/Db/HouseUserMapperTest.php</file>
+            <file>tests/unit/Db/RoomMapperTest.php</file>
+            <file>tests/unit/Db/RoomTaskMapperTest.php</file>
+            <file>tests/unit/Db/MedalMapperTest.php</file>
+            <file>tests/unit/Db/TaskAssigneeMapperTest.php</file>
+            <file>tests/unit/Db/TaskChecklistItemMapperTest.php</file>
+            <file>tests/unit/Db/RoomTaskChecklistProgressMapperTest.php</file>
+            <file>tests/unit/Db/MinigameScoreMapperTest.php</file>
+            <file>tests/unit/Db/UserStatsMapperTest.php</file>
+            <file>tests/unit/Db/AvailabilitySettingsMapperTest.php</file>
+            <file>tests/unit/Db/ComboMapperTest.php</file>
         </testsuite>
         <!-- Service tests that don't require real database -->
         <testsuite name="Service">
@@ -52,7 +67,7 @@
         </testsuite>
     </testsuites>
 
-    <coverage processUncoveredFiles="true">
+    <coverage processUncoveredFiles="false">
         <include>
             <directory suffix=".php">lib</directory>
         </include>

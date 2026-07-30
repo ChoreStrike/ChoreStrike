@@ -237,6 +237,14 @@
 
 > Drafts in `docs/plans/new/`. The `new/ → active/` move is **manual** (project-rules §7) — these entries register intent only.
 
+### CS-PLAN-022 - Test Coverage Expansion — Tooling, Reward-Economy Gap & Remaining Surfaces
+**Status**: Done (Phases 1–4, 6; Phase 5 E2E deferred to follow-up)
+**Started/Completed**: 2026-07-30
+**Branch**: master (uncommitted — awaiting approval)
+**Plan**: docs/plans/active/cs-plan-022-test-coverage-expansion.md
+**Scope**: Closes **P9-TEST-003** + **P9-E2E-003** (Jest gaps). Six phases delivered: (1) **Coverage tooling** — PCOV in Docker, `test:coverage` scripts (composer + npm), Jest coverage config (v8, `collectCoverageFrom`), non-blocking CI coverage job + artifacts, mapper-gate repair (8 mock-based mapper tests un-excluded, 3 stale dead-file excludes deleted), QBMapper mock fixed to execute queries, baseline recorded; (2) **Reward-economy & controllers** — `RewardConfigControllerTest` (5), `TemplateServiceTest` (20), `TemplateControllerTest` (14), `TaskSyncControllerTest` (12), `SmartSchedulerControllerTest` (17 behavior tests); bugs found+fixed: `ControllerLoggingTrait::logDebug` missing, `TemplateService::importTemplate` string→int priority + `fixedScheduleDays` JSON encoding; (3) **Mappers/entities** — 7 new mapper tests + 5 entity tests (`Combo`, `AvailabilitySettings`, `UserStats`, `TaskChecklistItem`, `RoomTaskChecklistProgress`); (4) **Frontend** — 6 component specs (`TaskEditForm`, `OverdueClaimDialog`, `TemplateSelector`, `FlexWindowDisplay`, `CalendarDayCell`, `SvgIcon`), `checklist` store spec, 4 util specs (`icons`, `performance`, `mobile`, `roomIcons`); `SnakeGame`/`BoostShop`/`SnakeLeaderboard` deferred (deep `storeToRefs` integration); (6) **Thresholds** — Jest `coverageThreshold` set at 80/75/62/80 (regression-only, ~5% below baseline); docs + backlog updated. Phase 5 (E2E: reward-config, task-templates, boost-shop, notifications) deferred to a follow-up plan.
+**Gate**: `npm run lint` 0 errors; `npm test` 667/667; PHPUnit unit 760/760 (Docker); Jest coverage 90.3% stmts / 80.4% branches / 68.3% functions.
+
 ### CS-PLAN-004 - Build-Gate Stabilization & Docker Test Environment
 **Status**: Done (2026-07-21) — see Recently Completed
 **Priority**: P1 · **Effort**: M · **Depends on**: none

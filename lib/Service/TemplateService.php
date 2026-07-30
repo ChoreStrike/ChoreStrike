@@ -197,11 +197,17 @@ class TemplateService
             $fixedScheduleTime = new \DateTime($template['fixedScheduleTime']);
         }
 
+        $priority = match (strtolower((string)($template['priority'] ?? 'medium'))) {
+            'low' => 1,
+            'high' => 3,
+            default => 2,
+        };
+
         return $this->taskMapper->create(
             $template['name'],
             $template['description'] ?? null,
             $template['energyCost'],
-            $template['priority'],
+            $priority,
             $template['frequencyType'],
             $template['frequencyValue'],
             $template['estimatedMinutes'],
@@ -215,7 +221,7 @@ class TemplateService
             $asTemplate,
             $template['schedulingMode'] ?? 'dynamic',
             $fixedScheduleTime,
-            $template['fixedScheduleDays'] ?? null
+            isset($template['fixedScheduleDays']) ? json_encode($template['fixedScheduleDays']) : null
         );
     }
 

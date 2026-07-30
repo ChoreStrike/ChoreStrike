@@ -385,9 +385,11 @@ export const logger = {
 ### P9-E2E-003 - E2E coverage extension beyond stabilization
 **Priority**: MEDIUM  
 **Effort**: L  
-**Status**: Backlog (raised by the 2026-07-27 test-pipeline review)
+**Status**: Done (CS-PLAN-022 Phases 1–4, 6; E2E Phase 5 deferred to follow-up)
 
 **Description**: CS-015/015b stabilize the existing ~169 E2E tests and CS-016 re-adds the 3 scheduling specs, but whole feature surfaces still have no E2E coverage: reward configuration (admin reward/economy settings), task templates (`TemplateSelector`, template apply flow), notifications (title unlock / medal / daily notification surfacing), minigame economy (BoostShop purchase flow, snake leaderboard), and mobile/responsive layouts (currently manual-only). Jest gaps on the same surfaces: no specs for `SnakeGame.vue`, `BoostShop.vue`, `SnakeLeaderboard.vue`, `TaskEditForm.vue`, `OverdueClaimDialog.vue`, `TemplateSelector.vue`, `FlexWindowDisplay.vue`, `SvgIcon.vue`, and the `checklist` Pinia store. Sequence after CS-PLAN-015b + CS-016 land (shared auth/seed infra).
+
+**Resolution (CS-PLAN-022):** Jest gaps closed: `TaskEditForm`, `OverdueClaimDialog`, `TemplateSelector`, `FlexWindowDisplay`, `CalendarDayCell`, `SvgIcon` component specs + `checklist` store spec + 4 util specs (`icons`, `performance`, `mobile`, `roomIcons`) added. `SnakeGame`/`BoostShop`/`SnakeLeaderboard` deferred (deep `storeToRefs` integration makes isolation expensive; E2E `snake-game.spec.ts` covers the integration path). Coverage tooling (PCOV + Jest v8) + thresholds added. E2E specs (reward-config, task-templates, boost-shop, notifications) deferred to a follow-up plan.
 
 **Implementation**: Per surface: additive `data-testid`s where missing, Jest component specs, then Playwright specs on the CS-015 conventions (`getByTestId`/`getByRole`, no `waitForTimeout`, per-user storageState auth, `chromium-serial-db` project if seed-dependent).
 
@@ -398,9 +400,11 @@ export const logger = {
 ### P9-TEST-003 - Backend unit-test gaps: TemplateService, 3 controllers, 5 mappers, migration smoke
 **Priority**: MEDIUM  
 **Effort**: M  
-**Status**: Backlog (raised by the 2026-07-27 test-pipeline review)
+**Status**: Done (CS-PLAN-022 Phases 2–3)
 
 **Description**: `lib/Service/TemplateService.php` has no unit test; `RewardConfigController` (gates the whole reward economy — owner-only config), `TemplateController`, and `TaskSyncController` have no unit tests (`RouteMatrixTest` covers existence only, not behavior). Five mappers lack tests: `TaskAssigneeMapper`, `TaskChecklistItemMapper`, `RoomTaskChecklistProgressMapper`, `MinigameScoreMapper`, `UserStatsMapper`. Only 1 of 28 migrations has a test despite repeated migration defects (Version1011 negated guard, Version1017 PG rename, Version1018–1020 `preSchemaChange` no-op) — a fresh-install migration smoke test (run all migrations on a clean DB, assert expected columns) would catch this recurring defect class. Related: the CI unit gate runs no controller tests at all (`bugs.md` [P2]).
+
+**Resolution (CS-PLAN-022):** All gaps closed: `TemplateServiceTest` (20 tests), `RewardConfigControllerTest` (5), `TemplateControllerTest` (14), `TaskSyncControllerTest` (12), `SmartSchedulerControllerTest` (17 behavior tests). 7 new mapper tests (`TaskAssignee`, `TaskChecklistItem`, `RoomTaskChecklistProgress`, `MinigameScore`, `UserStats`, `AvailabilitySettings`, `Combo`) + 5 entity tests (`Combo`, `AvailabilitySettings`, `UserStats`, `TaskChecklistItem`, `RoomTaskChecklistProgress`). The 8 pre-existing mock-based mapper tests un-excluded from the CI gate; 3 stale dead-file excludes removed. QBMapper mock fixed to actually execute queries. Bugs found and fixed: `ControllerLoggingTrait::logDebug` missing, `TemplateService::importTemplate` string→int priority mapping + `fixedScheduleDays` JSON encoding.
 
 **Source**: Test-pipeline review 2026-07-27.
 

@@ -2,6 +2,7 @@
 
 /**
  * Mock QBMapper for testing
+ * Executes queries against the mocked IQueryBuilder/IResult and maps rows to entities.
  */
 
 namespace OCP\AppFramework\Db;
@@ -12,11 +13,13 @@ abstract class QBMapper
 {
     protected IDBConnection $db;
     protected string $tableName;
+    protected string $entityClass;
 
-    public function __construct(IDBConnection $db, string $tableName)
+    public function __construct(IDBConnection $db, string $tableName, string $entityClass = Entity::class)
     {
         $this->db = $db;
         $this->tableName = $tableName;
+        $this->entityClass = $entityClass;
     }
 
     public function getTableName(): string
@@ -24,24 +27,56 @@ abstract class QBMapper
         return $this->tableName;
     }
 
+    /**
+     * @throws DoesNotExistException
+     */
     public function find(int $id)
     {
-        return null;
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->tableName)
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
+
+        return $this->findEntity($qb);
     }
 
     public function findAll()
     {
-        return [];
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->tableName);
+
+        return $this->findEntities($qb);
     }
 
+    /**
+     * @throws DoesNotExistException
+     */
     public function findEntity($query)
     {
-        return null;
+        $result = $query->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        if ($row === false) {
+            throw new DoesNotExistException('Entity not found');
+        }
+
+        return $this->mapRowToEntity($row);
     }
 
     public function findEntities($query)
     {
-        return [];
+        $result = $query->executeQuery();
+        $entities = [];
+
+        while ($row = $result->fetch()) {
+            $entities[] = $this->mapRowToEntity($row);
+        }
+
+        $result->closeCursor();
+
+        return $entities;
     }
 
     public function insert($entity)
@@ -56,6 +91,18 @@ abstract class QBMapper
 
     public function delete($entity)
     {
+        return $entity;
+    }
+
+    protected function mapRowToEntity(array $row)
+    {
+        $entity = new $this->entityClass();
+
+        foreach ($row as $column => $value) {
+            $setter = 'set' . str_replace(' ', '', ucwords(str_replace('_', ' ', $column)));
+            $entity->$setter($value);
+        }
+
         return $entity;
     }
 }

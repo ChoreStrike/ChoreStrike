@@ -598,3 +598,46 @@ are sourced from `GET /api/v1/game/state` (leaderboard) and `GET /api/v1/house/s
 - Found during CS-PLAN-007 review (2026-07-23).
 - `UserController::stats()` returns `{ user, stats: { contributionScore, coins, currentStreak, lastActivity } }` — a valid but unused contract.
 - `UserStatsController` (`lib/Controller/UserStatsController.php`) has 8 public methods (`leaderboard`, `streakLeaderboard`, `tasksLeaderboard`, `userStats`, `houseUsers`, `addUser`, `removeUser`, `updateUserRole`) but **zero routes** in `appinfo/routes.php` — also dead code.
+
+---
+
+## [P2] Three latent bugs found during CS-PLAN-022 test writing
+
+**Status**: Closed (CS-PLAN-022 Phase 2, 2026-07-30)
+**Assignee**: Unassigned
+**Estimated Effort**: S
+**Phase**: 9
+**Source**: Writing `RewardConfigControllerTest` and `TemplateServiceTest` (CS-PLAN-022 Phase 2)
+
+### Description
+Three latent bugs discovered while writing unit tests:
+
+1. **`ControllerLoggingTrait::logDebug` missing** — `RewardConfigController` calls `$this->logDebug()` (via `ControllerLoggingTrait`) but the trait only defined `logControllerException`, `logControllerWarning`, `logControllerInfo`. Any call to `RewardConfigController::index()` or `update()` would fatal with "Call to undefined method". Fixed by adding `logDebug()` to the trait (delegates to `AppLogger::debug()`).
+
+2. **`TemplateService::importTemplate` string→int priority** — Template JSON uses string priorities (`'medium'`, `'high'`) but `TaskMapper::create()` declares `int $priority`. Every template import would throw a `TypeError`. Fixed with a `match` mapping: `low→1`, `high→3`, default `2`.
+
+3. **`TemplateService::importTemplate` array→string fixedScheduleDays** — Template JSON uses arrays (`['saturday']`) but `TaskMapper::create()` declares `?string $fixedScheduleDays`. Fixed with `json_encode()`.
+
+### Acceptance Criteria
+- [x] `logDebug()` added to `ControllerLoggingTrait` with regression coverage in `RewardConfigControllerTest`.
+- [x] Priority mapping in `TemplateService::importTemplate` with regression coverage in `TemplateServiceTest`.
+- [x] `fixedScheduleDays` JSON encoding with regression coverage in `TemplateServiceTest`.
+
+### Notes
+- All three were latent (no runtime path exercised them before CS-PLAN-022 tests). Bug 1 would have been a P1 in production (fatal on every reward-config page load).
+
+---
+
+## [P3] TemplateService::bulkImport silently swallows exceptions
+
+**Status**: Open
+**Assignee**: Unassigned
+**Estimated Effort**: XS
+**Phase**: 9
+**Source**: Review of CS-PLAN-022 implementation (2026-07-30)
+
+### Description
+`TemplateService::bulkImport()` (`lib/Service/TemplateService.php:289`) catches `\Exception` with the comment "Log error and continue" but never actually logs. Violates project-rules §3 ("Never swallow exceptions silently"). Pre-existing code, not introduced by CS-PLAN-022.
+
+### Acceptance Criteria
+- [ ] Add `AppLogger` warning/error for each skipped template ID in the catch block.
