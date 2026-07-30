@@ -63,7 +63,56 @@ Confirm whether production shapes still need it; if not, remove it.
 
 ---
 
+### [P1] BUG-UI-001 — Overdue/priority colors hardcoded, unreadable in Dark Mode
+**Status**: Open · **Effort**: S · **Source**: Manual test 2026-07-30
+
+Several overdue / priority / status styles use hardcoded light hex colors that
+flip to near-white in Nextcloud Dark Mode → white-on-white text. `CalendarView.vue`
+already uses `var(--color-error-hover)` correctly; the rest must follow.
+
+- [ ] `src/components/Tasks/TaskList.vue` L526–529 (`.task-item.overdue { background: #fdf2f2 }`)
+      and priority badges L605–618 (`#d5f4e6`/`#fef9e7`/`#fdedec` + hardcoded text) →
+      `--color-error-hover` / `--color-success-hover` / `--color-warning-hover` + `--color-error/-success/-warning`.
+- [ ] `src/components/Tasks/FlexWindowDisplay.vue` L298–303, L350–363 (status-early/overdue) → same variables.
+- [ ] `src/components/Dashboard/RoomCard.vue` L431–438 (`#F44336`/`#FF9800`) → `--color-error`/`--color-warning`.
+- [ ] Verify visually in Light + Dark; add a theme-consistency unit assertion where feasible.
+
+---
+
+### [P1] BUG-I18N-001 — Frontend stays English even when Nextcloud user language is German
+**Status**: Open · **Effort**: S · **Source**: Manual test 2026-07-30
+
+ChoreStrike has no own language switch; language comes from the Nextcloud user
+setting. Backend (`IL10N`) honors it, but the Vue frontend relies on Nextcloud's
+`OC.L10N` injection and there is **no `registerTranslations()` in `main.js`** and
+the `l10n/de.json` is not pulled into the bundle. In dev-mount / stale-cache
+setups `translate()` falls back to the English source string.
+
+- [ ] Add `registerTranslations('chorestrike', de.translations)` in `src/main.js`
+      (import `l10n/de.json`) as a defense-in-depth fallback.
+- [ ] Confirm on the personal server: app enabled via `occ app:enable chorestrike`
+      (not just volume/symlink) so Nextcloud injects the bundle; hard-refresh.
+- [ ] Jest: extend the `@nextcloud/l10n` mock + a spec asserting a registered
+      translation is returned by `translate()`.
+
+See also FEAT-I18N-001 (German default) — same change set.
+
+---
+
 ## Features
+
+### [P2] FEAT-I18N-001 — German as default language
+**Status**: Planned · **Effort**: XS · **Source**: User request 2026-07-30
+
+German should be the default for users who have not chosen a language (manual
+testing happens primarily in German for the user's children).
+
+- [ ] Add `<default_language>de</default_language>` to `appinfo/info.xml`.
+- [ ] Document that the personal Nextcloud server's `config.php` should also set
+      `'default_language' => 'de'` (server-global fallback) in `docs/engineering/deployment.md`.
+- [ ] Per-user override remains available (Nextcloud's user language setting is not removed).
+
+---
 
 ### [P2] FEAT-NOTIFY-001 — Task-Due Push Reminders
 **Status**: Planned · **Effort**: S · **Source**: User request 2026-07-27
@@ -80,6 +129,57 @@ NC notification system already delivers to mobile).
 ---
 
 ## Tech Debt / Code Quality
+
+### [P2] TECH-LINT-001 — Stylelint config reports "Unknown rule" for every file (stylelint 16.x mismatch)
+**Status**: Open · **Effort**: S · **Source**: discovered during BUG-UI-001 (2026-07-30)
+
+`npm run stylelint` fails with 181 "Unknown rule" errors across **every** CSS/Vue
+file (incl. untouched `tokens.css`, `mobile.css`). The referenced rules
+(`indentation`, `number-leading-zero`, `string-quotes`, `selector-list-comma-newline-after`)
+were removed as built-ins in Stylelint 15/16 and must now come from a SCSS/Vue
+plugin config. `@nextcloud/stylelint-config` references them as if still built-in.
+This is a config/versions mismatch, **not** introduced by any individual change.
+
+- [ ] Reconcile `@nextcloud/stylelint-config` with the installed `stylelint@16`:
+      either pin a compatible stylelint version or add the required
+      plugin configs so `npm run stylelint` runs clean.
+- [ ] Re-enable stylelint in CI once green (currently `npm run lint` / `npm test`
+      are the effective gate; stylelint is in the pre-deployment checklist only).
+
+---
+
+### [P2] TECH-TEST-001 — Time-travel testing in Docker (libfaketime + occ job trigger)
+**Status**: Planned · **Effort**: M · **Source**: User request 2026-07-30 · **Plan**: [`docs/plans/new/cs-plan-023-time-travel-testing.md`](../plans/new/cs-plan-023-time-travel-testing.md)
+
+The three BackgroundJobs + `TaskSyncService` already inject `ITimeFactory`
+(unit tests mock it). For integration/E2E in Docker we need to exercise
+"task overdue after N days", streak-freeze, and notification timing without
+waiting real time.
+
+- [ ] `libfaketime` (`LD_PRELOAD`) in `docker/Dockerfile.test` + an opt-in env flag
+      (e.g. `FAKETIME=+3d`) to shift the container clock for a run.
+- [ ] `occ` command that triggers `DailyNotificationJob` / `StreakFreezeJob` /
+      `StreakRestockJob` immediately (don't wait for cron) — usable from E2E.
+- [ ] Seed profiles with overdue/past due-dates in `docker/seed-test-data.sh`.
+- [ ] E2E: "advance clock 3 days → streak-freeze consumed → at-risk notification".
+
+---
+
+### [P3] TECH-TEST-002 — E2E regression suite covering the automatable part of CS-017
+**Status**: Planned · **Effort**: L (grown over releases) · **Source**: User request 2026-07-30 · **Plan**: [`docs/plans/new/cs-plan-024-release-e2e-regression-suite.md`](../plans/new/cs-plan-024-release-e2e-regression-suite.md)
+
+CS-017 is deliberately manual (exploratory UX, mobile feel, multi-user social
+flows). Build a companion E2E regression suite that fills the "covered by E2E?"
+markers in `release-test-plan.md`, so the manual pass per release shrinks to the
+genuinely non-automatable items. Anti-rot rule already in CS-017 §7.
+
+- [ ] Map each `release-test-plan.md` section to "automated / manual / partial".
+- [ ] Promote partial items to full Playwright specs (full task lifecycle incl.
+      skip/reschedule/recurrence/checklist, overdue-claim + teamwork, visibility filtering).
+- [ ] Notification regression depends on TECH-TEST-001's occ trigger.
+- [ ] Update `release-test-plan.md` markers as specs land.
+
+---
 
 ### [P2] P9-E2E-002b — E2E long-tail `waitForTimeout` cleanup
 **Status**: Backlog · **Effort**: M–L · **Source**: carved out of CS-015

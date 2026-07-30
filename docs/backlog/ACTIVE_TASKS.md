@@ -10,7 +10,14 @@
 
 ## In Progress
 
-_(none)_
+### Manual-test follow-up changeset (BUG-UI-001, BUG-I18N-001, FEAT-I18N-001)
+**Status**: In Progress — implementation done, awaiting commit + visual verify · **Started**: 2026-07-30 · **Branch**: master
+**Scope**: Quick-win changeset from the 2026-07-30 manual test review.
+- BUG-UI-001 — overdue/priority colors → Nextcloud CSS variables (Dark-Mode fix) ✅ implemented + regression test (`tests/unit/css/theme-consistency.spec.js`).
+- BUG-I18N-001 — new `src/i18n.js` calls `loadTranslations('chorestrike')` before mount (root cause: `@nextcloud/l10n` v3 has no auto-load); wired in `main.js` + Jest test. Hardened with a 5s `Promise.race` timeout so a stalled fetch cannot hang startup (review WARNING) ✅.
+- FEAT-I18N-001 — `default_language: de` in `info.xml` + deployment note ✅.
+**Gate**: `npm test` (66 suites / 676 tests) + `npm run lint` + `l10n:check-keys` all green. Stylelint pre-existing config break logged as TECH-LINT-001.
+Related plans drafted: CS-023 (time-travel testing), CS-024 (release E2E suite) in `docs/plans/new/`.
 
 <!-- When you start work, add an entry here in this shape:
 ### CS-PLAN-NNN — Title
