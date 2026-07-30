@@ -547,7 +547,7 @@ is artifacts-only. See `docs/engineering/testing.md` § Coverage Measurement.
 Stylelint is **advisory/non-blocking** until the
 `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch
 (201 "Unknown rule" errors) is resolved or pinned. See
-`docs/backlog/bugs.md` and `docs/engineering/testing.md`.
+`docs/engineering/testing.md` (history: `docs/backlog/archive/2026-07.md`).
 
 ## Deployment
 

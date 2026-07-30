@@ -197,7 +197,7 @@ It is the single source of truth for blocking gate commands.
 
 | Command | Reason |
 |---------|--------|
-| `npm run stylelint` | `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch produces 201 "Unknown rule" errors (see `docs/backlog/bugs.md`). Stylelint output is uploaded as an artifact for review. Promoted to blocking once the upstream toolchain is pinned. |
+| `npm run stylelint` | `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch produces 201 "Unknown rule" errors (see `docs/backlog/archive/2026-07.md`). Stylelint output is uploaded as an artifact for review. Promoted to blocking once the upstream toolchain is pinned. |
 
 > **Unit-gate scope (CS-PLAN-020, 2026-07-29):** `phpunit.unit.xml` now runs the
 > full green unit set — Controller + Service + Entity(Db) + BackgroundJob +

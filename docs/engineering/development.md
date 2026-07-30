@@ -525,7 +525,7 @@ truth for the blocking quality gate and runs on every `push` and `pull_request`.
 
 Stylelint is **advisory/non-blocking** until the
 `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch is
-resolved (see `docs/backlog/bugs.md`). See [`testing.md`](testing.md) for the
+resolved (see `docs/backlog/archive/2026-07.md`). See [`testing.md`](testing.md) for the
 local reproduction recipe and full CI detail.
 
 ## Resources

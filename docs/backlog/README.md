@@ -1,56 +1,78 @@
 # Project Backlog
 
-The backlog tracks outstanding work for ChoreStrike. Shipped phase plans live in
-[`../plans/done/`](../plans/README.md); this directory holds only what is still
-**open or live**.
+Tracks outstanding and recently-completed work for ChoreStrike. Shipped phase
+plans live in [`../plans/done/`](../plans/README.md); this directory holds only
+what is **open or live**.
 
 ## Structure
 
 ```
 backlog/
-├── README.md                              ← this file
-├── ACTIVE_TASKS.md                        ← LIVE coordination (update constantly)
-├── bugs.md                                ← bugs + tech debt (incl. review findings)
-├── features.md                            ← new features & UX improvements
-├── CODE_REVIEW_2026-07-28.md              ← latest project review record (CS-016)
-├── CODE_REVIEW_2026-07-24.md              ← project review record (project-wide)
-├── phase-8-release-preparation.md         ← active: staged release (alpha → beta → stable)
-└── phase-9-code-quality.md                ← open: code-quality / technical-debt items
+├── README.md          ← this file (workflow + rules)
+├── ACTIVE_TASKS.md    ← LIVE coordination: in-progress + rolling "Recently Completed"
+├── backlog.md         ← single source of truth for ALL open items
+└── archive/           ← completed history, TRACKED in Git (one file per month)
+    ├── README.md      ← archive convention
+    ├── 2026-03.md
+    ├── 2026-07.md
+    └── CODE_REVIEW_YYYY-MM-DD.md   ← review records (kept verbatim)
 ```
 
-> Completed phase backlogs (phases 1–4, 7, the reward-system redesign, and the
-> reward gap-analysis) were archived to `archive/2026-07/backlog/` once the work
-> shipped — see that folder's `README.md`. Do not re-add done work here; record it
-> in [`../plans/done/`](../plans/README.md) and the `CHANGELOG.md` instead.
+> **Distinction from the repo-root [`../../archive/`](../../archive/):** that
+> top-level `archive/` is gitignored local reference for dead code/sensitive
+> material. `docs/backlog/archive/` is **tracked in Git** so the completion
+> history is publicly visible.
+
+## What goes where
+
+| Content | Location |
+|---|---|
+| Work **in progress right now** | `ACTIVE_TASKS.md` → *In Progress* |
+| A bug / feature / tech-debt item that is **not done** | `backlog.md` |
+| A code-review **open** follow-up | `backlog.md` (cite the review record) |
+| A **completed** plan / bug / debt item | `archive/YYYY-MM.md` |
+| A raw **review record** (evidence) | `archive/CODE_REVIEW_YYYY-MM-DD.md` |
+| A **plan draft** (not started) | `../plans/new/` (registered in `ACTIVE_TASKS.md` → *Planned*) |
 
 ## Workflow
 
 ### For coding agents
 1. **Before starting:** check `ACTIVE_TASKS.md` for conflicts.
-2. **When starting:** add the task to `ACTIVE_TASKS.md` as "In Progress".
+2. **When starting:** add the task under *In Progress* (move a `backlog.md`
+   entry to *In Progress*, or link the plan).
 3. **During work:** keep `ACTIVE_TASKS.md` current.
-4. **When complete:** move the entry to "Recently Completed", list modified files.
-5. **Track follow-ups:** log bugs/tech-debt in `bugs.md` or the relevant phase file.
+4. **On completion:** add a one-line entry under *Recently Completed*, and
+   **move the item out of `backlog.md` into `archive/YYYY-MM.md`** (the month
+   it was completed).
+5. **Track follow-ups:** log new bugs/debt/findings in `backlog.md`.
+
+### Housekeeping (enforced)
+- `ACTIVE_TASKS.md` is **not a history log**. An entry older than **~2 weeks**
+  or beyond the **~10-entry rolling cap** must be moved to `archive/YYYY-MM.md`.
+- `backlog.md` holds **only open items**. Never leave a "Done" item here — move
+  it to the monthly archive at completion.
+- `archive/` holds **only completed/rejected items**. Never put open work there.
+- One consolidated open list — do **not** re-introduce `bugs.md` / `features.md`
+  / `phase-*.md` splits; add a themed section to `backlog.md` instead.
 
 ### For review agents
 See `AGENTS.md` → "Agent Roster & Slash Commands" and
-[`../engineering/review-playbook.md`](../engineering/review-playbook.md).
-The slash commands `/review-chorestrike`, `/review-chorestrike-full`, and
-`/plan-review` load the canonical review process.
+[`../engineering/review-playbook.md`](../engineering/review-playbook.md). The
+slash commands `/review-chorestrike`, `/review-chorestrike-full`, and
+`/plan-review` load the canonical review process. **Open** findings →
+`backlog.md`; the review record → `archive/`.
 
-## Item format
+## Item format (`backlog.md`)
 
 ```markdown
-## [P0–P4] Title
+### [P0–P4] ID — Title
+**Status**: [Planned | In Progress | Blocked | Backlog | Deferred]
+**Effort**: [XS | S | M | L | XL] · **Source**: [where this came from]
 
-**Status**: [Planned | In Progress | Blocked | Done]
-**Assignee**: [name or unassigned]
-**Estimated Effort**: [S | M | L | XL]
-**Source**: [where this came from — e.g. "Review of <module>"]
+Short description.
 
-### Description
-### Acceptance Criteria
-### Dependencies / Notes
+- [ ] Acceptance criterion 1
+- [ ] Acceptance criterion 2
 ```
 
 ## Priority levels
@@ -63,6 +85,6 @@ The slash commands `/review-chorestrike`, `/review-chorestrike-full`, and
 
 ## Current status
 
-See the [roadmap](../release/roadmap.md) for the project phases. The app is in
-the **staged release effort** (Phase 8): `v0.8.x` alpha → `v0.9.x` private beta →
-`v1.0.0` stable manual-install.
+The app is in the **staged release effort**: `v0.8.x` alpha → `v0.9.x` private
+beta → `v1.0.0` stable manual-install. See the
+[roadmap](../release/roadmap.md) and [`backlog.md`](backlog.md) → *Release / Rollout*.

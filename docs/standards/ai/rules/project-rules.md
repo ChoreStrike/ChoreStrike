@@ -92,10 +92,33 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 4. KISS, minimal diffs, reuse of existing patterns
 5. Documentation clarity and multi-agent handoff quality
 
-### Backlog Rules
-- Non-trivial follow-ups, deferred fixes, and improvement ideas → `docs/backlog/` (e.g. `bugs.md`, `phase-*.md`).
+### Backlog Structure & Discipline
+`docs/backlog/` has a fixed layout — do **not** re-introduce ad-hoc splits like
+`bugs.md` / `features.md` / `phase-*.md`. See [`docs/backlog/README.md`](../../../backlog/README.md).
+
+- **`backlog.md`** — the **single source of truth for everything open**: bugs,
+  features, tech-debt, and review follow-ups (themed sections). An item that is
+  not done lives here and **only** here.
+- **`ACTIVE_TASKS.md`** — **live coordination only**: work *in progress right
+  now* + a rolling *Recently Completed* window. It is **not** a history log.
+- **`archive/YYYY-MM.md`** — **tracked-in-Git** completion history, one file per
+  month of resolution. (Distinct from the repo-root gitignored `archive/`.)
+- **`archive/CODE_REVIEW_YYYY-MM-DD.md`** — review records kept verbatim.
+
+### Backlog Rules (enforced)
+- Non-trivial follow-ups, deferred fixes, and improvement ideas → a themed
+  section in `backlog.md` (never a new loose file).
+- On **completion**, move the item from `backlog.md` to `archive/YYYY-MM.md`
+  (the month it was resolved) **immediately** — do not leave "Done" items in
+  `backlog.md`, and do not let them accumulate in `ACTIVE_TASKS.md`.
+- `ACTIVE_TASKS.md` entries older than **~2 weeks** or beyond the **~10-entry
+  rolling cap** must be moved to `archive/YYYY-MM.md`. Keep *Recently Completed*
+  entries to **one line** (full scope lives in the linked plan).
+- A code-review's **open** findings go to `backlog.md`; the **review record**
+  goes to `archive/`.
+- Update `ACTIVE_TASKS.md` when starting, pausing, and finishing implementation
+  or review work.
 - Ambiguities → log them and ask; **don't guess** on irreversible decisions.
-- Update `docs/backlog/ACTIVE_TASKS.md` when starting and finishing implementation or review work.
 - Don't declare work done while blockers or open questions remain.
 
 ## 5. Archive Policy (`archive/`)

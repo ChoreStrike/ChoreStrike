@@ -53,12 +53,14 @@
 3. **Build gate:** `npm test` + `npm run lint` + backend tests (Docker) must be green. Docker Desktop **is installed** on this machine — if a `docker` probe fails, diagnose per project-rules §2 ("Test Environment (Docker)"); never conclude Docker is absent.
 4. **Lint/format** before committing (`npm run lint:fix`).
 5. **Commit** with a conventional message (only when the user asks).
-6. **Update** `docs/backlog/ACTIVE_TASKS.md` and the related backlog/plan.
+6. **Update** [`docs/backlog/ACTIVE_TASKS.md`](docs/backlog/ACTIVE_TASKS.md) (live coordination) and move completed items out of [`docs/backlog/backlog.md`](docs/backlog/backlog.md) into [`docs/backlog/archive/`](docs/backlog/archive/) (monthly) — never leave "Done" items in `backlog.md` or `ACTIVE_TASKS.md`.
 7. **Propose** the next prioritized tasks. Don't declare done while blockers or open questions remain.
 
 ## Task Tracking & Plans
 
-- Live coordination: [`docs/backlog/ACTIVE_TASKS.md`](docs/backlog/ACTIVE_TASKS.md) — check it before implementation or review work.
+- **Open items** (bugs / features / tech-debt / review follow-ups) have a **single source of truth**: [`docs/backlog/backlog.md`](docs/backlog/backlog.md). Log new findings there as a themed section — never in loose `bugs.md` / `features.md` / `phase-*.md` files.
+- **Live coordination:** [`docs/backlog/ACTIVE_TASKS.md`](docs/backlog/ACTIVE_TASKS.md) — in-progress work + a ~2-week rolling "Recently Completed" window. It is **not** a history log. Check it before implementation or review work.
+- **Done items** move to [`docs/backlog/archive/`](docs/backlog/archive/) (one file per month, tracked in Git) at completion.
 - Implementation plans live in [`docs/plans/`](docs/plans/) (`new/`, `active/`, `onhold/`, `done/`). **Moves between folders are manual** (by the user). After plan creation, propose a review (mandatory for complex/multi-phase plans).
 
 ## Skill Routing
@@ -99,4 +101,4 @@ Skills live in [`docs/standards/ai/skills/`](docs/standards/ai/skills/) and are 
 
 ---
 
-**Last Updated:** 2026-07-28 · **Version:** 5.1
+**Last Updated:** 2026-07-30 · **Version:** 5.2
