@@ -288,7 +288,7 @@ export default {
 }
 
 .timeline-point.latest .point-marker {
-	border-color: #e74c3c;
+	border-color: var(--color-error, #e74c3c);
 }
 
 .timeline-point.active .point-marker {
@@ -296,16 +296,16 @@ export default {
 }
 
 .timeline-point.earliest.active .point-marker {
-	background: #d5f4e6;
+	background: var(--color-success-hover, #d5f4e6);
 }
 
 .timeline-point.latest.active .point-marker {
-	background: #fdedec;
+	background: var(--color-error-hover, #fdedec);
 }
 
 .timeline-point.latest.overdue .point-marker {
-	background: #e74c3c;
-	border-color: #e74c3c;
+	background: var(--color-error, #e74c3c);
+	border-color: var(--color-error, #e74c3c);
 }
 
 .point-label {
@@ -348,8 +348,8 @@ export default {
 }
 
 .status-early {
-	color: #27ae60;
-	background: #d5f4e6;
+	color: var(--color-success, #27ae60);
+	background: var(--color-success-hover, #d5f4e6);
 }
 
 .status-optimal {
@@ -358,8 +358,8 @@ export default {
 }
 
 .status-overdue {
-	color: #e74c3c;
-	background: #fdedec;
+	color: var(--color-error, #e74c3c);
+	background: var(--color-error-hover, #fdedec);
 }
 
 .flex-window-status span {

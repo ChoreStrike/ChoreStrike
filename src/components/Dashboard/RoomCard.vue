@@ -429,12 +429,12 @@ export default {
 }
 
 .task-item.overdue {
-  color: #F44336;
+  color: var(--color-error, #F44336);
   font-weight: 500;
 }
 
 .task-item.due-today {
-  color: #FF9800;
+  color: var(--color-warning, #FF9800);
   font-weight: 500;
 }
 

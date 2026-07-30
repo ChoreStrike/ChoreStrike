@@ -524,8 +524,8 @@ export default {
 }
 
 .task-item.overdue {
-	border-color: #e74c3c;
-	background: #fdf2f2;
+	border-color: var(--color-error, #e74c3c);
+	background: var(--color-error-hover, #fdf2f2);
 }
 
 .task-item.completed {
@@ -603,18 +603,18 @@ export default {
 }
 
 .priority-badge.low {
-	background: #d5f4e6;
-	color: #27ae60;
+	background: var(--color-success-hover, #d5f4e6);
+	color: var(--color-success, #27ae60);
 }
 
 .priority-badge.medium {
-	background: #fef9e7;
-	color: #f39c12;
+	background: var(--color-warning-hover, #fef9e7);
+	color: var(--color-warning, #f39c12);
 }
 
 .priority-badge.high {
-	background: #fdedec;
-	color: #e74c3c;
+	background: var(--color-error-hover, #fdedec);
+	color: var(--color-error, #e74c3c);
 }
 
 .task-description {
@@ -640,15 +640,15 @@ export default {
 }
 
 .task-due.overdue {
-	color: #e74c3c;
+	color: var(--color-error, #e74c3c);
 }
 
 .task-due.today {
-	color: #f39c12;
+	color: var(--color-warning, #f39c12);
 }
 
 .task-due.completed {
-	color: #27ae60;
+	color: var(--color-success, #27ae60);
 }
 
 .task-actions {
