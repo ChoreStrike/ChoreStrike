@@ -179,6 +179,12 @@ Before App Store submission, ChoreStrike should have:
 
 The following milestone gates define the minimum quality bar before a release can be promoted.
 
+> **Manual release test gate (all stages):** every release tag requires a completed
+> Execution & Sign-off record from the authoritative
+> [`../testing/release-test-plan.md`](../testing/release-test-plan.md) (stage-mapped
+> per its §1.2 stage map). No completed manual record → no tag. Completed records
+> are archived under [`../backlog/archive/`](../backlog/archive/).
+
 ### v0.8 Alpha Gate
 - Manual install succeeds on the personal Nextcloud instance.
 - Core flows work in real usage: floor creation, room creation, task creation, task completion, and core scheduling screens.
@@ -186,6 +192,7 @@ The following milestone gates define the minimum quality bar before a release ca
 - No unresolved P0 issue exists.
 - Any open P1 issue is explicitly accepted for alpha and documented.
 - Bugs found during alpha are recorded in backlog or issue tracking.
+- A completed manual release test record exists for the alpha stage protocol ([`../testing/release-test-plan.md`](../testing/release-test-plan.md)).
 - A short alpha validation note exists before tagging the release.
 
 ### v0.9 Beta Gate
@@ -197,6 +204,7 @@ The following milestone gates define the minimum quality bar before a release ca
 - No unresolved P0 issue exists.
 - No unresolved P1 issue remains in the supported beta workflows unless explicitly documented and accepted.
 - Critical fixes from earlier alpha usage have been revalidated.
+- A completed manual release test record exists for the beta stage protocol ([`../testing/release-test-plan.md`](../testing/release-test-plan.md)).
 
 ### v1.0 Stable Gate
 - Supported workflows are clearly documented.
@@ -206,6 +214,7 @@ The following milestone gates define the minimum quality bar before a release ca
 - Linting is clean for the supported code paths.
 - Targeted automated tests and manual validation for supported workflows have been completed.
 - The stable release is judged fit for manual-install users even without App Store distribution.
+- A completed manual release test record exists for the stable stage protocol, **including the upgrade/migration smoke on a personal instance** ([`../testing/release-test-plan.md`](../testing/release-test-plan.md) §16).
 - App Store submission is evaluated separately and documented as a distinct go/no-go decision.
 
 ## Exit Criteria Checklist Format
@@ -214,6 +223,7 @@ For each release candidate, ChoreStrike should capture:
 
 - **Build/Version**: candidate tag or version number
 - **Validated Workflows**: the specific user flows checked before release
+- **Manual test record**: completed sign-off record from [`../testing/release-test-plan.md`](../testing/release-test-plan.md)
 - **Open Risks**: accepted non-blocking issues
 - **Blocked By**: unresolved release-stopping issues, if any
 - **Decision**: promote, hold, or defer

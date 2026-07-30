@@ -104,7 +104,7 @@ ChoreStrike/
 │   ├── api/                    # REST API reference + feature-specific notes
 │   ├── release/                # roadmap, release-strategy
 │   ├── operations/             # realtime-updates
-│   ├── testing/                # manual-test-checklist, alpha-test-guide, family-test-setup, critical-tests
+│   ├── testing/                # release-test-plan (authoritative manual release plan + record)
 │   ├── concepts/               # Product vision & design concepts
 │   ├── standards/              # ai/ (rules, skills) + guidelines/ (+ i18n-workflow)
 │   ├── adr/                    # Architecture decision records

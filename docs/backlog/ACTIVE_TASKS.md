@@ -25,6 +25,7 @@ _(none)_
 > work → [`archive/`](archive/) (e.g. [`archive/2026-07.md`](archive/2026-07.md)).
 
 - **CS-PLAN-022** — Test Coverage Expansion (2026-07-30, Done) → `../plans/active/cs-plan-022-test-coverage-expansion.md`
+- **CS-PLAN-017** — Manual Release Test Plan (consolidate 4 stale testing docs → authoritative stage-mapped plan + sign-off record; release gate wired) (2026-07-30, Done) → `../plans/active/cs-plan-017-manual-release-test-plan.md`
 - **CS-PLAN-021 D2** — Calendar server-side future-occurrence projection (2026-07-29, Done) → `../plans/done/cs-plan-021-task-calendar-view.md` §9
 - **CS-PLAN-021** — Task Calendar View (week / rolling 30-day) (2026-07-29, Done) → `../plans/done/cs-plan-021-task-calendar-view.md`
 - **CS-PLAN-020** — Release-Quality Gate Cluster (OCS envelope, controller test gate, E2E in release-gate) (2026-07-29, Done) → `../plans/done/cs-plan-020-release-quality-gate-cluster.md`
@@ -38,4 +39,4 @@ _(none)_
 
 > The `new/ → active/` move is **manual** (project-rules §7). These register intent only.
 
-- **CS-PLAN-017** — Manual Release Test Plan (P1) — sequenced behind CS-015b; see [`backlog.md`](backlog.md) → Release.
+_(none — RELEASE-001/CS-PLAN-017 completed 2026-07-30; RELEASE-002/-003 remain pending in [`backlog.md`](backlog.md) → Release)_

@@ -27,9 +27,7 @@ Use this document to find the right ChoreStrike documentation quickly.
 ## Testing, Release & Operations
 
 - [`engineering/deployment.md`](engineering/deployment.md) — installation, deployment, and rollback guide
-- [`testing/manual-test-checklist.md`](testing/manual-test-checklist.md) — manual test scenarios
-- [`testing/alpha-test-guide.md`](testing/alpha-test-guide.md) — alpha testing guide
-- [`testing/family-test-setup.md`](testing/family-test-setup.md) — multi-user family test setup
+- [`testing/release-test-plan.md`](testing/release-test-plan.md) — authoritative manual release test plan + per-release sign-off record (release gate)
 - [`release/release-strategy.md`](release/release-strategy.md) — release and versioning strategy
 - [`release/roadmap.md`](release/roadmap.md) — project roadmap
 - [`operations/realtime-updates.md`](operations/realtime-updates.md) — realtime update mechanism notes

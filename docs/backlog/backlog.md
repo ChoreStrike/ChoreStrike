@@ -199,16 +199,6 @@ inside the view's `v-else`, loading=false).
 > Stage path: `v0.8.x` alpha → `v0.9.x` beta → `v1.0.0` stable (manual install).
 > App Store submission is explicitly deferred until stable quality is proven.
 
-### [P1] RELEASE-001 — Manual release test plan (CS-PLAN-017)
-**Status**: Planned (drafted in [`../plans/new/`](../plans/)) · **Effort**: M
-
-User requirement: **no release without an existing + executed manual test plan.**
-The four stale testing docs (`manual-test-checklist.md`, `alpha-test-guide.md`,
-`family-test-setup.md`, `critical-tests.md`) must be consolidated into one
-authoritative, English, stage-mapped `docs/testing/release-test-plan.md` with a
-per-release execution/sign-off record, wired as a gate into `release-strategy.md`
-exit criteria. Sequenced behind CS-015b.
-
 ### [P2] RELEASE-002 — Beta deployment + real-world alpha usage
 **Status**: Pending — deploy to a personal Nextcloud instance; verify no impact
 on other apps; real-world `v0.8.x` alpha usage; (optional) private tester

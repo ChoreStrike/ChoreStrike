@@ -125,6 +125,18 @@ occ migrations:execute chorestrike
 occ app:enable chorestrike
 ```
 
+## Pre-Release Manual Test (gate)
+
+Before cutting any release tag (alpha / beta / stable), execute the stage
+protocol from the authoritative manual release test plan and complete its
+sign-off record. **A release tag requires a completed record.**
+
+- Plan + stage map + record template:
+  [`../testing/release-test-plan.md`](../testing/release-test-plan.md)
+- Gate definition: [`../release/release-strategy.md`](../release/release-strategy.md) → Exit Criteria
+- **Stable only**: also run the upgrade/migration smoke on a personal instance
+  (release-test-plan §16), with a backup taken first.
+
 ## Post-Deployment Verification
 
 - [ ] App appears in Nextcloud app list
