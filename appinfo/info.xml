@@ -22,6 +22,7 @@ Complete tasks, build streaks and keep your home tidy together. Perfect for fami
 
     <version>0.1.1</version>
     <licence>MIT</licence>
+    <default_language>de</default_language>
     
     <author>ChoreStrike Contributors</author>
     

@@ -43,6 +43,24 @@ composer install --no-dev
 occ app:enable chorestrike
 ```
 
+### 5. Localization (German default)
+
+ChoreStrike declares `<default_language>de</default_language>` in `info.xml`, so
+users who have not chosen a Nextcloud language default to German. The frontend
+loads its own translation bundle via `@nextcloud/l10n`'s `loadTranslations()` at
+startup (`src/i18n.js`), so no server-side l10n injection is required for the UI
+to honor the user's language.
+
+For a server-wide German default (e.g. a family instance with German children),
+also set in Nextcloud's `config/config.php`:
+
+```php
+'default_language' => 'de',
+```
+
+Per-user language selection in Nextcloud's personal settings still overrides
+both defaults — individual users can switch to any available language.
+
 ## Pre-Deployment Checklist
 
 ### Code Quality
