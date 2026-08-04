@@ -16,6 +16,10 @@ const SEED_DEPENDENT_SPECS = [
 	/multi-user-interactions\.spec\.ts/,
 	/task-completion-full-flow\.spec\.ts/,
 	/3-floor-house\.spec\.ts/,
+	// CS-PLAN-023: time-travel specs re-seed the family profile and mutate
+	// job state via `occ chorestrike:trigger-jobs` — serial pool only.
+	/time-travel-overdue\.spec\.ts/,
+	/time-travel-streak-notification\.spec\.ts/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

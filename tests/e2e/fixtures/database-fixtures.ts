@@ -7,6 +7,11 @@ import { test as baseTest, expect } from '@playwright/test'
  * - empty: Clean database (no data)
  * - minimal: 1 House, 1 Floor, 1 Room, 2 Users (adult, kid)
  * - family: Complete family (6 Users, 3 Floors, 6 Rooms, 12 Tasks)
+ *
+ * CS-PLAN-019 hardened the test endpoints to authenticated sessions
+ * (no `@PublicPage`), so every request below authenticates with the admin
+ * account (Basic auth — disposable test environment; the same credentials
+ * auth.setup.ts uses).
  */
 
 // Profile types
@@ -51,10 +56,24 @@ class DatabaseManager {
 	}
 
 	/**
+	 * Basic-auth header for the disposable test instance (CS-PLAN-019
+	 * requires an authenticated session on every test endpoint; Basic auth
+	 * also satisfies the CSRF gate that rejects cookie-session POSTs).
+	 */
+	private authHeaders(): Record<string, string> {
+		const user = process.env.NEXTCLOUD_USER || 'admin'
+		const pass = process.env.NEXTCLOUD_PASSWORD || 'admin'
+		const token = Buffer.from(`${user}:${pass}`).toString('base64')
+		return { Authorization: `Basic ${token}` }
+	}
+
+	/**
 	 * Get available profiles
 	 */
 	async getProfiles(): Promise<Array<{ name: string; description: string }>> {
-		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/profiles`)
+		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/profiles`, {
+			headers: this.authHeaders(),
+		})
 		if (!response.ok) {
 			throw new Error(`Failed to get profiles: ${response.status}`)
 		}
@@ -67,7 +86,8 @@ class DatabaseManager {
 	 */
 	async seed(profile: DatabaseProfile): Promise<SeededData> {
 		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/seed/${profile}`, {
-			method: 'GET',
+			method: 'POST',
+			headers: this.authHeaders(),
 		})
 
 		if (!response.ok) {
@@ -88,7 +108,8 @@ class DatabaseManager {
 	 */
 	async reset(): Promise<void> {
 		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/reset`, {
-			method: 'GET',
+			method: 'POST',
+			headers: this.authHeaders(),
 		})
 
 		if (!response.ok) {
@@ -97,14 +118,20 @@ class DatabaseManager {
 	}
 
 	/**
-	 * Check if test mode is enabled
+	 * Check if test mode is enabled.
+	 *
+	 * The profiles endpoint is itself gated by isTestMode() (403
+	 * NOT_TEST_MODE when off), so a successful authenticated probe is the
+	 * signal — the payload carries no testMode flag (CS-PLAN-019).
 	 */
 	async isTestMode(): Promise<boolean> {
 		try {
-			const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/profiles`)
+			const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/profiles`, {
+				headers: this.authHeaders(),
+			})
 			if (!response.ok) return false
 			const result = await response.json()
-			return result.data.testMode === true
+			return result.success === true
 		} catch {
 			return false
 		}

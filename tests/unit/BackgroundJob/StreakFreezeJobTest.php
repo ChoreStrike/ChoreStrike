@@ -5,187 +5,84 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\BackgroundJob;
 
 use OCA\ChoreStrike\BackgroundJob\StreakFreezeJob;
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Service\StreakFreezeService;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\DB\QueryBuilder\IExpressionBuilder;
-use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 
 /**
- * Unit tests for StreakFreezeJob
+ * Unit tests for StreakFreezeJob.
+ *
+ * Since CS-PLAN-023 the job is a thin delegate: it derives "yesterday"
+ * from the injected ITimeFactory and hands the pass to
+ * StreakFreezeService. The freeze/reset behaviour itself is covered by
+ * StreakFreezeServiceTest as a function of the injected date.
  */
 class StreakFreezeJobTest extends TestCase
 {
-    private HouseUserMapper $houseUserMapper;
-    private CompletedTaskMapper $completedTaskMapper;
-    private IDBConnection $db;
-    private IQueryBuilder $qb;
-    private LoggerInterface $logger;
+    private ITimeFactory&MockObject $timeFactory;
+    private StreakFreezeService&MockObject $freezeService;
     private StreakFreezeJob $job;
 
     protected function setUp(): void
     {
-        $timeFactory = $this->createMock(ITimeFactory::class);
-        $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-        $this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
-        $this->db = $this->createMock(IDBConnection::class);
-        $this->logger = $this->createMock(LoggerInterface::class);
-        $this->qb = $this->createMock(IQueryBuilder::class);
-
-        $expr = $this->createMock(IExpressionBuilder::class);
-        $this->qb->method('expr')->willReturn($expr);
-        $this->qb->method('select')->willReturnSelf();
-        $this->qb->method('from')->willReturnSelf();
-        $this->db->method('getQueryBuilder')->willReturn($this->qb);
+        $this->timeFactory = $this->createMock(ITimeFactory::class);
+        $this->freezeService = $this->createMock(StreakFreezeService::class);
 
         $this->job = new StreakFreezeJob(
-            $timeFactory,
-            $this->houseUserMapper,
-            $this->completedTaskMapper,
-            $this->db,
-            $this->logger,
+            $this->timeFactory,
+            $this->freezeService,
         );
     }
 
     /**
-     * Run_UserWithNoActivityYesterday_ResetsStreak
-     */
-    public function testRun_UserWithNoActivityYesterday_ResetsStreak(): void
-    {
-        $user = new HouseUser();
-        $user->setId(1);
-        $user->setCurrentStreak(5);
-        $user->setStreakFreezes(0);
-
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        $this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
-        $this->houseUserMapper->expects($this->once())->method('update')
-            ->with($this->callback(function (HouseUser $u) {
-                return $u->getCurrentStreak() === 0;
-            }));
-
-        $this->invokeRun($this->job, null);
-    }
-
-    /**
-     * Run_UserWithNoActivityYesterday_ConsumesFreeze
-     */
-    public function testRun_UserWithNoActivityYesterday_ConsumesFreeze(): void
-    {
-        $user = new HouseUser();
-        $user->setId(1);
-        $user->setCurrentStreak(5);
-        $user->setStreakFreezes(1);
-
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        $this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
-        $this->houseUserMapper->expects($this->once())->method('update')
-            ->with($this->callback(function (HouseUser $u) {
-                return $u->getCurrentStreak() === 5 && $u->getStreakFreezes() === 0;
-            }));
-
-        $this->invokeRun($this->job, null);
-    }
-
-    /**
-     * Run_UserWithActivityYesterday_Skips
-     */
-    public function testRun_UserWithActivityYesterday_Skips(): void
-    {
-        $user = new HouseUser();
-        $user->setId(1);
-        $user->setCurrentStreak(5);
-        $user->setStreakFreezes(1);
-
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        $this->completedTaskMapper->method('countByUserOnDate')->willReturn(3);
-        $this->houseUserMapper->expects($this->never())->method('update');
-
-        $this->invokeRun($this->job, null);
-    }
-
-    /**
-     * Run_UserWithZeroStreak_Skips
-     */
-    public function testRun_UserWithZeroStreak_Skips(): void
-    {
-        $user = new HouseUser();
-        $user->setId(1);
-        $user->setCurrentStreak(0);
-        $user->setStreakFreezes(1);
-
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        $this->houseUserMapper->expects($this->never())->method('update');
-
-        $this->invokeRun($this->job, null);
-    }
-
-    /**
-     * Run_UserOnUnavailableYesterday_SkipsFreezeAndReset
+     * Run_DerivesYesterdayFromInjectedFactoryAndDelegates
      *
-     * When yesterday was an unavailable weekday for the user, the job must
-     * skip them — no freeze consumed, no streak reset (fairness rule).
+     * The time seam (CS-PLAN-023): "yesterday" must be a pure function of
+     * the injected clock — no hardcoded `new \DateTime('yesterday')`.
      */
-    public function testRun_UserOnUnavailableYesterday_SkipsFreezeAndReset(): void
+    public function testRun_DerivesYesterdayFromInjectedFactoryAndDelegates(): void
     {
-        $yesterday = strtolower((new \DateTime('yesterday'))->format('l'));
+        $now = new \DateTime('2026-08-04 15:30:00');
+        $this->timeFactory->method('getDateTime')->willReturn($now);
 
-        $user = new HouseUser();
-        $user->setId(1);
-        $user->setCurrentStreak(5);
-        $user->setStreakFreezes(0);
-        $user->setSchedulingPreferences([
-            'weekdayAvailability' => [$yesterday => false],
+        $this->freezeService->expects($this->once())
+            ->method('process')
+            ->with($this->callback(function (\DateTimeInterface $yesterday) {
+                return $yesterday->format('Y-m-d') === '2026-08-03';
+            }))
+            ->willReturn([
+                'processed' => 0,
+                'frozen' => 0,
+                'reset' => 0,
+                'skippedUnavailable' => 0,
+                'errors' => 0,
+            ]);
+
+        $this->invokeRun($this->job, null);
+    }
+
+    /**
+     * Run_DoesNotMutateTheFactoryDateTime
+     *
+     * The job clones before modify(); the factory's instance must survive
+     * the run untouched (guards against shared-instance clock drift).
+     */
+    public function testRun_DoesNotMutateTheFactoryDateTime(): void
+    {
+        $now = new \DateTime('2026-08-04 15:30:00');
+        $this->timeFactory->method('getDateTime')->willReturn($now);
+        $this->freezeService->method('process')->willReturn([
+            'processed' => 0,
+            'frozen' => 0,
+            'reset' => 0,
+            'skippedUnavailable' => 0,
+            'errors' => 0,
         ]);
 
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        $this->completedTaskMapper->expects($this->never())->method('countByUserOnDate');
-        $this->houseUserMapper->expects($this->never())->method('update');
-
         $this->invokeRun($this->job, null);
-    }
 
-    /**
-     * Run_PerUserErrorIsolation_ContinuesAfterFailure
-     *
-     * A single user failure must not abort the loop — the second user
-     * should still be processed normally.
-     */
-    public function testRun_PerUserErrorIsolation_ContinuesAfterFailure(): void
-    {
-        $user1 = new HouseUser();
-        $user1->setId(1);
-        $user1->setCurrentStreak(5);
-        $user1->setStreakFreezes(0);
-
-        $user2 = new HouseUser();
-        $user2->setId(2);
-        $user2->setCurrentStreak(3);
-        $user2->setStreakFreezes(1);
-
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user1, $user2]);
-
-        $callCount = 0;
-        $this->completedTaskMapper->method('countByUserOnDate')
-            ->willReturnCallback(function () use (&$callCount) {
-                $callCount++;
-                if ($callCount === 1) {
-                    throw new \RuntimeException('DB connection lost');
-                }
-                return 0;
-            });
-
-        // user1 fails (exception caught), user2 succeeds (freeze consumed)
-        $this->houseUserMapper->expects($this->once())->method('update')
-            ->with($this->callback(function (HouseUser $u) {
-                return $u->getId() === 2 && $u->getCurrentStreak() === 3 && $u->getStreakFreezes() === 0;
-            }));
-
-        $this->invokeRun($this->job, null);
+        $this->assertSame('2026-08-04 15:30:00', $now->format('Y-m-d H:i:s'));
     }
 
     private function invokeRun(object $job, $argument): void

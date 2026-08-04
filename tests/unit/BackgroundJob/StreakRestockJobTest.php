@@ -5,88 +5,52 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\BackgroundJob;
 
 use OCA\ChoreStrike\BackgroundJob\StreakRestockJob;
-use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Service\RewardConfigService;
+use OCA\ChoreStrike\Service\StreakRestockService;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\DB\QueryBuilder\IExpressionBuilder;
-use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 
 /**
- * Unit tests for StreakRestockJob
+ * Unit tests for StreakRestockJob.
+ *
+ * Since CS-PLAN-023 the job is a thin delegate to StreakRestockService.
+ * The restock is time-independent — the job derives no date and passes
+ * none (triggering the pass once is sufficient).
  */
 class StreakRestockJobTest extends TestCase
 {
-    private HouseUserMapper $houseUserMapper;
-    private RewardConfigService $configService;
-    private IDBConnection $db;
-    private IQueryBuilder $qb;
-    private LoggerInterface $logger;
+    private ITimeFactory&MockObject $timeFactory;
+    private StreakRestockService&MockObject $restockService;
     private StreakRestockJob $job;
 
     protected function setUp(): void
     {
-        $timeFactory = $this->createMock(ITimeFactory::class);
-        $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-        $this->configService = $this->createMock(RewardConfigService::class);
-        $this->db = $this->createMock(IDBConnection::class);
-        $this->logger = $this->createMock(LoggerInterface::class);
-        $this->qb = $this->createMock(IQueryBuilder::class);
-
-        $expr = $this->createMock(IExpressionBuilder::class);
-        $this->qb->method('expr')->willReturn($expr);
-        $this->qb->method('select')->willReturnSelf();
-        $this->qb->method('from')->willReturnSelf();
-        $this->db->method('getQueryBuilder')->willReturn($this->qb);
-
-        $this->configService->method('getStreakFreezesPerWeek')->willReturn(1);
-        $this->configService->method('getStreakFreezeCap')->willReturn(2);
+        $this->timeFactory = $this->createMock(ITimeFactory::class);
+        $this->restockService = $this->createMock(StreakRestockService::class);
 
         $this->job = new StreakRestockJob(
-            $timeFactory,
-            $this->houseUserMapper,
-            $this->configService,
-            $this->db,
-            $this->logger,
+            $this->timeFactory,
+            $this->restockService,
         );
     }
 
     /**
-     * Run_RestocksAllUsers
+     * Run_DelegatesToServiceWithoutDate
+     *
+     * The restock pass is time-independent: the job must not consult the
+     * clock for its logic and must delegate without a date argument.
      */
-    public function testRun_RestocksAllUsers(): void
+    public function testRun_DelegatesToServiceWithoutDate(): void
     {
-        $user1 = new HouseUser();
-        $user1->setId(1);
-        $user1->setStreakFreezes(0);
+        $this->timeFactory->expects($this->never())->method('getDateTime');
 
-        $user2 = new HouseUser();
-        $user2->setId(2);
-        $user2->setStreakFreezes(2);
-
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user1, $user2]);
-        $this->houseUserMapper->expects($this->exactly(2))->method('update');
-
-        $this->invokeRun($this->job, null);
-    }
-
-    /**
-     * Run_RespectsConfiguredValue
-     */
-    public function testRun_RespectsConfiguredValue(): void
-    {
-        $user = new HouseUser();
-        $user->setId(1);
-        $user->setStreakFreezes(0);
-
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        $this->houseUserMapper->expects($this->once())->method('update')
-            ->with($this->callback(function (HouseUser $u) {
-                return $u->getStreakFreezes() === 1;
-            }));
+        $this->restockService->expects($this->once())
+            ->method('process')
+            ->willReturn([
+                'processed' => 2,
+                'freezesPerWeek' => 1,
+                'cap' => 2,
+            ]);
 
         $this->invokeRun($this->job, null);
     }

@@ -5,194 +5,80 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\BackgroundJob;
 
 use OCA\ChoreStrike\BackgroundJob\DailyNotificationJob;
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Service\NotificationService;
+use OCA\ChoreStrike\Service\StreakAtRiskService;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\DB\QueryBuilder\IExpressionBuilder;
-use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 
 /**
- * Unit tests for DailyNotificationJob
+ * Unit tests for DailyNotificationJob.
+ *
+ * Since CS-PLAN-023 the job is a thin delegate: it derives "yesterday"
+ * from the injected ITimeFactory and hands the pass to
+ * StreakAtRiskService. The at-risk notification behaviour itself is
+ * covered by StreakAtRiskServiceTest as a function of the injected date.
  */
 class DailyNotificationJobTest extends TestCase
 {
-    private HouseUserMapper&MockObject $houseUserMapper;
-    private CompletedTaskMapper&MockObject $completedTaskMapper;
-    private NotificationService&MockObject $notificationService;
-    private IDBConnection&MockObject $db;
-    private IQueryBuilder&MockObject $qb;
-    private LoggerInterface&MockObject $logger;
+    private ITimeFactory&MockObject $timeFactory;
+    private StreakAtRiskService&MockObject $atRiskService;
     private DailyNotificationJob $job;
 
     protected function setUp(): void
     {
-        $timeFactory = $this->createMock(ITimeFactory::class);
-        $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-        $this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
-        $this->notificationService = $this->createMock(NotificationService::class);
-        $this->db = $this->createMock(IDBConnection::class);
-        $this->logger = $this->createMock(LoggerInterface::class);
-        $this->qb = $this->createMock(IQueryBuilder::class);
-
-        // The job now delegates to HouseUserMapper::findAllForJobs instead
-        // of running its own getQueryBuilder; the db/qb mocks remain for
-        // backward compatibility with the constructor signature but are
-        // unused in the test paths.
+        $this->timeFactory = $this->createMock(ITimeFactory::class);
+        $this->atRiskService = $this->createMock(StreakAtRiskService::class);
 
         $this->job = new DailyNotificationJob(
-            $timeFactory,
-            $this->houseUserMapper,
-            $this->completedTaskMapper,
-            $this->notificationService,
-            $this->db,
-            $this->logger,
+            $this->timeFactory,
+            $this->atRiskService,
         );
     }
 
     /**
-     * Run_AtRiskUser_SendsNotification
-     */
-    public function testRun_AtRiskUser_SendsNotification(): void
-    {
-        $user = $this->buildUser(1, 'alice', streak: 5, freezes: 0);
-
-        $this->houseUserMapper->expects($this->once())
-            ->method('findAllForJobs')
-            ->willReturn([$user]);
-        $this->completedTaskMapper->expects($this->once())
-            ->method('countByUserOnDateGrouped')
-            ->willReturn([]); // alice absent → 0 completions
-        $this->notificationService->expects($this->once())
-            ->method('notifyStreakAtRisk')
-            ->with('alice', 5);
-
-        $this->invokeRun($this->job, null);
-    }
-
-    /**
-     * Run_UserWithFreeze_SkipsNotification
+     * Run_DerivesYesterdayFromInjectedFactoryAndDelegates
      *
-     * The streak would be silently protected by a freeze — no nudge.
+     * The time seam (CS-PLAN-023): "yesterday" must be a pure function of
+     * the injected clock — no hardcoded `new \DateTime('yesterday')`.
      */
-    public function testRun_UserWithFreeze_SkipsNotification(): void
+    public function testRun_DerivesYesterdayFromInjectedFactoryAndDelegates(): void
     {
-        $user = $this->buildUser(1, 'alice', streak: 5, freezes: 1);
+        $now = new \DateTime('2026-08-04 06:00:00');
+        $this->timeFactory->method('getDateTime')->willReturn($now);
 
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        // The batched GROUP BY runs once unconditionally (cheap); the filter
-        // happens in PHP per user.
-        $this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
-        $this->notificationService->expects($this->never())->method('notifyStreakAtRisk');
+        $this->atRiskService->expects($this->once())
+            ->method('process')
+            ->with($this->callback(function (\DateTimeInterface $yesterday) {
+                return $yesterday->format('Y-m-d') === '2026-08-03';
+            }))
+            ->willReturn([
+                'processed' => 0,
+                'notified' => 0,
+                'skippedUnavailable' => 0,
+            ]);
 
         $this->invokeRun($this->job, null);
     }
 
     /**
-     * Run_UserWithYesterdayCompletion_SkipsNotification
-     */
-    public function testRun_UserWithYesterdayCompletion_SkipsNotification(): void
-    {
-        $user = $this->buildUser(1, 'alice', streak: 5, freezes: 0);
-
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        $this->completedTaskMapper->method('countByUserOnDateGrouped')
-            ->willReturn([1 => 2]); // alice (id=1) had 2 completions
-        $this->notificationService->expects($this->never())->method('notifyStreakAtRisk');
-
-        $this->invokeRun($this->job, null);
-    }
-
-    /**
-     * Run_UserWithZeroStreak_SkipsNotification
-     */
-    public function testRun_UserWithZeroStreak_SkipsNotification(): void
-    {
-        $user = $this->buildUser(1, 'alice', streak: 0, freezes: 0);
-
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        $this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
-        $this->notificationService->expects($this->never())->method('notifyStreakAtRisk');
-
-        $this->invokeRun($this->job, null);
-    }
-
-    /**
-     * Run_UserWithEmptyNextcloudId_SkipsNotification
-     */
-    public function testRun_UserWithEmptyNextcloudId_SkipsNotification(): void
-    {
-        $user = $this->buildUser(1, '', streak: 5, freezes: 0);
-
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        $this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
-        $this->notificationService->expects($this->never())->method('notifyStreakAtRisk');
-
-        $this->invokeRun($this->job, null);
-    }
-
-    /**
-     * Run_MixedUserSet_OnlyNotifiesAtRisk
+     * Run_DoesNotMutateTheFactoryDateTime
      *
-     * The batched GROUP BY query returns counts for every user who completed
-     * anything yesterday; users absent from the map are treated as 0.
+     * The job clones before modify(); the factory's instance must survive
+     * the run untouched (guards against shared-instance clock drift).
      */
-    public function testRun_MixedUserSet_OnlyNotifiesAtRisk(): void
+    public function testRun_DoesNotMutateTheFactoryDateTime(): void
     {
-        $atRisk = $this->buildUser(1, 'alice', streak: 7, freezes: 0);
-        $protected = $this->buildUser(2, 'bob', streak: 10, freezes: 1);
-        $inactive = $this->buildUser(3, 'carol', streak: 0, freezes: 0);
-        $activeYesterday = $this->buildUser(4, 'dan', streak: 4, freezes: 0);
-
-        $this->houseUserMapper->method('findAllForJobs')
-            ->willReturn([$atRisk, $protected, $inactive, $activeYesterday]);
-        // Single GROUP BY result: dan (id=4) completed yesterday; everyone else absent.
-        $this->completedTaskMapper->expects($this->once())
-            ->method('countByUserOnDateGrouped')
-            ->willReturn([4 => 1]);
-
-        $this->notificationService->expects($this->once())
-            ->method('notifyStreakAtRisk')
-            ->with('alice', 7);
-
-        $this->invokeRun($this->job, null);
-    }
-
-    /**
-     * Run_UserOnUnavailableYesterday_SkipsNotification
-     *
-     * When yesterday was an unavailable weekday for the user, no streak-at-risk
-     * notification should be sent (fairness rule — they weren't expected to work).
-     */
-    public function testRun_UserOnUnavailableYesterday_SkipsNotification(): void
-    {
-        $yesterday = strtolower((new \DateTime('yesterday'))->format('l'));
-
-        $user = $this->buildUser(1, 'alice', streak: 5, freezes: 0);
-        $user->setSchedulingPreferences([
-            'weekdayAvailability' => [$yesterday => false],
+        $now = new \DateTime('2026-08-04 06:00:00');
+        $this->timeFactory->method('getDateTime')->willReturn($now);
+        $this->atRiskService->method('process')->willReturn([
+            'processed' => 0,
+            'notified' => 0,
+            'skippedUnavailable' => 0,
         ]);
 
-        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-        $this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
-        $this->notificationService->expects($this->never())->method('notifyStreakAtRisk');
-
         $this->invokeRun($this->job, null);
-    }
 
-    private function buildUser(int $id, string $nextcloudUserId, int $streak, int $freezes): HouseUser
-    {
-        $user = new HouseUser();
-        $user->setId($id);
-        $user->setNextcloudUserId($nextcloudUserId);
-        $user->setCurrentStreak($streak);
-        $user->setStreakFreezes($freezes);
-        return $user;
+        $this->assertSame('2026-08-04 06:00:00', $now->format('Y-m-d H:i:s'));
     }
 
     private function invokeRun(object $job, $argument): void

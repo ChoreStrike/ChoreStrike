@@ -267,12 +267,16 @@ Availability, Energy Budget, Preview, Calendar, Suggestions.
 ## 13. Notifications
 
 Route surface: background jobs (`DailyNotificationJob`, `StreakFreezeJob`,
-`StreakRestockJob`) + `ChoreStrikeNotifier`.
+`StreakRestockJob` — thin delegates over `StreakAtRiskService` /
+`StreakFreezeService` / `StreakRestockService` since CS-PLAN-023) +
+`ChoreStrikeNotifier`. Time-dependent flows are testable without waiting via
+`occ chorestrike:trigger-jobs --as-of` (see `docs/engineering/testing.md` §
+Time-Travel Testing).
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
-| Daily reminder | Trigger/await the daily notification job | A localized task reminder is delivered via Nextcloud notifications | — |
-| Streak freeze/restock | Consume then restock a streak freeze via the jobs | Freeze consumed on a miss; restocked per job schedule | — |
+| Daily reminder | Trigger/await the daily notification job | A localized task reminder is delivered via Nextcloud notifications | `time-travel-streak-notification` (at-risk reminder via `trigger-jobs --as-of`, CS-PLAN-023) |
+| Streak freeze/restock | Consume then restock a streak freeze via the jobs | Freeze consumed on a miss; restocked per job schedule | `time-travel-streak-notification` (freeze/reset) + `TriggerJobsIntegrationTest` (restock covered by unit/integration) |
 | Weekly goal | Reach the house weekly goal | Weekly-goal-reached notification fires once per week (de-duped) | — |
 
 ---

@@ -31,6 +31,8 @@ Related plans drafted: CS-023 (time-travel testing), CS-024 (release E2E suite) 
 > One-line entries only — full scope lives in the linked plan. Older completed
 > work → [`archive/`](archive/) (e.g. [`archive/2026-07.md`](archive/2026-07.md)).
 
+- **CS-PLAN-023** — Time-Travel Testing in Docker (injectable-time job services, `occ chorestrike:trigger-jobs --as-of`, overdue/at-risk family seed, 2 E2E specs; also fixed route-shadowing + notifier-registration + seed-fixture defects, see [`archive/2026-08.md`](archive/2026-08.md)) (2026-08-04, Done) → `../plans/active/cs-plan-023-time-travel-testing.md`
+
 - **CS-PLAN-022** — Test Coverage Expansion (2026-07-30, Done) → `../plans/active/cs-plan-022-test-coverage-expansion.md`
 - **CS-PLAN-017** — Manual Release Test Plan (consolidate 4 stale testing docs → authoritative stage-mapped plan + sign-off record; release gate wired) (2026-07-30, Done) → `../plans/active/cs-plan-017-manual-release-test-plan.md`
 - **CS-PLAN-021 D2** — Calendar server-side future-occurrence projection (2026-07-29, Done) → `../plans/done/cs-plan-021-task-calendar-view.md` §9

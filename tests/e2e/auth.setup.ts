@@ -19,8 +19,23 @@ import { userStatePath, AUTH_DIR } from './fixtures/auth-contexts'
  * `chorestrike_*` tables, never `oc_users` (verified at source level).
  */
 
+// The three setup tests build on each other (admin session → seed → profile
+// logins); keep them ordered even under the global fullyParallel config.
+setup.describe.configure({ mode: 'serial' })
+
 const ADMIN_USER = process.env.NEXTCLOUD_USER || 'admin'
 const ADMIN_PASS = process.env.NEXTCLOUD_PASSWORD || 'admin'
+
+/**
+ * Basic-auth header for the disposable test instance. The test endpoints
+ * require an authenticated session (CS-PLAN-019 removed `@PublicPage`), and
+ * Basic auth also satisfies the CSRF gate that rejects cookie-session
+ * POSTs — so the unauthenticated probes used before no longer reach them.
+ */
+function adminAuthHeader(): Record<string, string> {
+	const token = Buffer.from(`${ADMIN_USER}:${ADMIN_PASS}`).toString('base64')
+	return { Authorization: `Basic ${token}` }
+}
 
 /**
  * Submit the Nextcloud login form and persist the authenticated context.
@@ -43,7 +58,11 @@ async function loginAndSave(page: Page, user: string, password: string, statePat
 
 /** Seed a profile so its user accounts exist before specs run. */
 async function seedProfile(baseURL: string, profile: DatabaseProfile): Promise<void> {
-	const ok = await fetch(`${baseURL.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/seed/${profile}`)
+	const origin = baseURL.replace(/\/$/, '')
+	const ok = await fetch(`${origin}/apps/chorestrike/api/v1/test/seed/${profile}`, {
+		method: 'POST',
+		headers: adminAuthHeader(),
+	})
 		.then((r) => r.ok)
 		.catch(() => false)
 	if (!ok) {
@@ -58,7 +77,9 @@ setup('authenticate as admin', async ({ page }) => {
 setup('seed profile users', async ({ baseURL }) => {
 	const origin = baseURL || process.env.NEXTCLOUD_URL || 'http://localhost:8080'
 
-	const testMode = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`)
+	const testMode = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`, {
+		headers: adminAuthHeader(),
+	})
 		.then((r) => r.ok)
 		.catch(() => false)
 	if (!testMode) {
@@ -89,7 +110,9 @@ setup('seed profile users', async ({ baseURL }) => {
 setup('authenticate profile users', async ({ browser, baseURL }) => {
 	const origin = baseURL || process.env.NEXTCLOUD_URL || 'http://localhost:8080'
 
-	const testMode = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`)
+	const testMode = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`, {
+		headers: adminAuthHeader(),
+	})
 		.then((r) => r.ok)
 		.catch(() => false)
 	if (!testMode) {

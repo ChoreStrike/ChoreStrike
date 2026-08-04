@@ -33,8 +33,13 @@ ChoreStrike/
 ├── lib/                        # PHP backend
 │   ├── AppInfo/                # Application.php — DI container wiring, app lifecycle
 │   ├── BackgroundJob/          # Cron jobs (DailyNotificationJob, StreakFreezeJob,
-│   │                           #   StreakRestockJob) registered in appinfo/info.xml
-│   ├── Command/                # occ commands (TestDataSeed)
+│   │                           #   StreakRestockJob) registered in appinfo/info.xml.
+│   │                           #   Thin delegates (CS-PLAN-023): each derives
+│   │                           #   "yesterday" from the injected ITimeFactory and
+│   │                           #   hands the pass to its Service (time seam for
+│   │                           #   time-travel testing via occ trigger-jobs).
+│   ├── Command/                # occ commands (TestDataSeed, TriggerJobs — test-mode-
+│   │                           #   guarded job trigger with --as-of, CS-PLAN-023)
 │   ├── Controller/             # Thin API controllers (House, Floor, Room, Task,
 │   │                           #   RoomTask, Checklist, Scheduling, SmartScheduler,
 │   │                           #   Minigame, RewardConfig, User, Template, TaskSync,
@@ -53,12 +58,18 @@ ChoreStrike/
 │   │                           #   domain-typed (NC 31 dropped the framework equivalents)
 │   ├── Migration/              # Schema migrations (Version1000 … Version1027,
 │   │                           #   non-contiguous — Version1014 absent)
-│   ├── Notification/           # ChoreStrikeNotifier (renders localized notifications)
+│   ├── Notification/           # ChoreStrikeNotifier (renders localized notifications;
+│   │                           #   registered via Application::registerNotifierService —
+│   │                           #   the legacy info.xml <notifications> tag is not wired
+│   │                           #   on modern Nextcloud, CS-PLAN-023)
 │   ├── Service/                # Business logic (House, HouseUser, Floor, Room, RoomTask,
 │   │                           #   Task, GameLogic, Combo, Scheduling, SmartScheduler,
 │   │                           #   TaskScheduler, Minigame, RewardConfig, Template, TaskSync,
 │   │                           #   UserStats, TestData, Authorization, AppLogger, Title,
-│   │                           #   Notification) + Scheduling/ subfolder (algorithm classes)
+│   │                           #   Notification, StreakAtRisk, StreakFreeze, StreakRestock)
+│   │                           #   + Scheduling/ subfolder (algorithm classes). The three
+│   │                           #   Streak*/AtRisk services hold the job bodies and take an
+│   │                           #   injected "yesterday" date (CS-PLAN-023).
 │   ├── Templates/              # TaskTemplates.json (built-in task templates)
 │   └── Titles/                 # TitleCatalog — 3 packs × 3 tiers, server-authoritative
 │                               #   progression signals (CS-PLAN-006)
@@ -534,7 +545,7 @@ run on any non-zero **blocking** command:
 - `npm test` (Jest)
 - `npm run build` (Webpack)
 - `composer validate --strict`
-- `vendor/bin/phpunit --configuration phpunit.unit.xml` (Docker) — Controller + Service + Entity + Mapper + BackgroundJob + Notification + Migration + l10n suites
+- `vendor/bin/phpunit --configuration phpunit.unit.xml` (Docker) — Controller + Service + Entity + Mapper + BackgroundJob + Command + Contract + Notification + Migration + l10n suites
 - `vendor/bin/phpunit --configuration phpunit.integration.xml` (Docker)
 - `npx playwright test --project=chromium --project=chromium-serial-db` (Docker) — blocking E2E, `family` profile (CS-PLAN-020)
 

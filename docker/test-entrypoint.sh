@@ -96,6 +96,9 @@ echo "Linking local chorestrike app into Nextcloud apps path..."
 ln -sfn /var/www/html/custom_apps/chorestrike /var/www/html/apps/chorestrike
 chown -h www-data:www-data /var/www/html/apps/chorestrike
 
+echo "Enabling notifications app (bell support for E2E, CS-PLAN-023)..."
+su -s /bin/bash www-data -c "php occ app:enable notifications"
+
 echo "Enabling chorestrike app..."
 su -s /bin/bash www-data -c "php occ app:enable chorestrike"
 

@@ -8,25 +8,18 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\BackgroundJob;
 
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Service\NotificationService;
+use OCA\ChoreStrike\Service\StreakAtRiskService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
-use OCP\IDBConnection;
-use Psr\Log\LoggerInterface;
 
 /**
  * Daily notification job (06:00 server time).
  *
- * Sends "streak at risk" reminders to members who:
- *   - have a positive streak (something to lose), AND
- *   - did NOT complete any task yesterday (so the StreakFreezeJob would
- *     consume a freeze or reset the streak), AND
- *   - have zero streak freezes left (so today's inactivity would actually
- *     break the streak rather than silently consume a freeze).
+ * Thin delegate (CS-PLAN-023): derives "yesterday" from the injected
+ * ITimeFactory and hands the pass to {@see StreakAtRiskService}, which
+ * holds the at-risk logic and is independently triggerable via
+ * occ chorestrike:trigger-jobs.
  *
- * Notifications are dispatched best-effort via {@see NotificationService}.
  * Overdue-takeover, medal-awarded and weekly-goal-reached notifications are
  * fired from their respective trigger points (RoomService,
  * GameLogicService) and are NOT handled here — this job covers only the
@@ -34,28 +27,16 @@ use Psr\Log\LoggerInterface;
  */
 class DailyNotificationJob extends TimedJob
 {
-    private HouseUserMapper $houseUserMapper;
-    private CompletedTaskMapper $completedTaskMapper;
-    private NotificationService $notificationService;
-    private IDBConnection $db;
-    private LoggerInterface $logger;
+    private StreakAtRiskService $atRiskService;
 
     public function __construct(
         ITimeFactory $time,
-        HouseUserMapper $houseUserMapper,
-        CompletedTaskMapper $completedTaskMapper,
-        NotificationService $notificationService,
-        IDBConnection $db,
-        LoggerInterface $logger
+        StreakAtRiskService $atRiskService
     ) {
         parent::__construct($time);
         $this->setInterval(24 * 60 * 60);
 
-        $this->houseUserMapper = $houseUserMapper;
-        $this->completedTaskMapper = $completedTaskMapper;
-        $this->notificationService = $notificationService;
-        $this->db = $db;
-        $this->logger = $logger;
+        $this->atRiskService = $atRiskService;
     }
 
     /**
@@ -63,83 +44,20 @@ class DailyNotificationJob extends TimedJob
      */
     protected function run($argument): void
     {
-        $yesterday = new \DateTime('yesterday');
-        $yesterdayDayName = strtolower($yesterday->format('l'));
-        $processed = 0;
-        $notified = 0;
-        $skippedUnavailable = 0;
-
-        try {
-            $allUsers = $this->findAllUsers();
-
-            // Single GROUP BY query for everyone's yesterday completions;
-            // users with zero completions are absent from the map (treated as 0).
-            $yesterdayCounts = $this->completedTaskMapper->countByUserOnDateGrouped($yesterday);
-
-            foreach ($allUsers as $user) {
-                $processed++;
-
-                $preferences = $user->getSchedulingPreferences();
-                $weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
-
-                if (isset($weekdayAvailability[$yesterdayDayName]) && $weekdayAvailability[$yesterdayDayName] === false) {
-                    $skippedUnavailable++;
-                    continue;
-                }
-
-                if ($user->getCurrentStreak() <= 0) {
-                    continue;
-                }
-
-                if ($user->getStreakFreezes() > 0) {
-                    // The StreakFreezeJob would consume a freeze for yesterday's
-                    // inactivity — the streak is silently protected, no nudge.
-                    continue;
-                }
-
-                $yesterdayCompletions = $yesterdayCounts[$user->getId()] ?? 0;
-
-                if ($yesterdayCompletions > 0) {
-                    // They completed something yesterday; no risk reminder due.
-                    continue;
-                }
-
-                $nextcloudUserId = $user->getNextcloudUserId();
-                if ($nextcloudUserId === null || $nextcloudUserId === '') {
-                    continue;
-                }
-
-                $this->notificationService->notifyStreakAtRisk(
-                    $nextcloudUserId,
-                    $user->getCurrentStreak()
-                );
-                $notified++;
-            }
-        } catch (\Throwable $e) {
-            $this->logger->error('DailyNotificationJob failed', [
-                'exception' => $e->getMessage(),
-            ]);
-            return;
-        }
-
-        $this->logger->info('DailyNotificationJob completed', [
-            'processed' => $processed,
-            'notified' => $notified,
-            'skippedUnavailable' => $skippedUnavailable,
-        ]);
+        $this->atRiskService->process($this->deriveYesterday());
     }
 
     /**
-     * Find all house users across all houses.
+     * Derive "yesterday" from the injected time factory.
      *
-     * Delegates to HouseUserMapper::findAllForJobs so the "all house users"
-     * set stays consistent across StreakFreezeJob, StreakRestockJob, and
-     * this job (single point of change for any future filtering).
-     *
-     * @return \OCA\ChoreStrike\Db\HouseUser[]
+     * The time seam required by CS-PLAN-023: the date is a pure function of
+     * the injected clock, so unit tests control it and the trigger command
+     * can substitute an --as-of-derived date. Cloned before modify() so the
+     * factory's instance is never mutated.
      */
-    private function findAllUsers(): array
+    private function deriveYesterday(): \DateTimeInterface
     {
-        return $this->houseUserMapper->findAllForJobs();
+        $yesterday = clone $this->time->getDateTime();
+        return $yesterday->modify('-1 day');
     }
 }

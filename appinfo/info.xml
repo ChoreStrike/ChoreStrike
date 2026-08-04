@@ -50,6 +50,7 @@ Complete tasks, build streaks and keep your home tidy together. Perfect for fami
     
     <commands>
         <command>OCA\ChoreStrike\Command\TestDataSeed</command>
+        <command>OCA\ChoreStrike\Command\TriggerJobs</command>
     </commands>
 
     <!--
@@ -76,7 +77,10 @@ Complete tasks, build streaks and keep your home tidy together. Perfect for fami
         <job>OCA\ChoreStrike\BackgroundJob\StreakRestockJob</job>
     </backgroundjobs>
 
-    <notifications>
-        <notification>OCA\ChoreStrike\Notification\ChoreStrikeNotifier</notification>
-    </notifications>
+    <!--
+        The notifier is registered programmatically in
+        lib/AppInfo/Application.php (registerNotifierService). The legacy
+        <notifications> info.xml tag is not wired on modern Nextcloud and
+        was removed (CS-PLAN-023).
+    -->
 </info>

@@ -60,6 +60,12 @@ RUN git config --global --add safe.directory /var/www/html \
     && cd /var/www/html \
     && git submodule update --init --recursive
 
+# The `notifications` app ships in Nextcloud release tarballs but NOT in the
+# server git clone; the E2E bell assertions (CS-PLAN-023 at-risk notification
+# flow) need it. Pinned to the stable31 branch to match the server clone.
+RUN git clone --depth 1 --branch stable31 https://github.com/nextcloud/notifications.git /var/www/html/apps/notifications \
+    && git config --global --add safe.directory /var/www/html/apps/notifications
+
 # Set up directory structure
 RUN mkdir -p /var/www/html/custom_apps/chorestrike
 

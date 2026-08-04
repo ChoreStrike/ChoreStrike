@@ -24,21 +24,23 @@ return [
         ['name' => 'floor#show', 'url' => '/api/v1/floors/{id}', 'verb' => 'GET'],
         
         // Room API
+        // NOTE: needing-cleaning MUST precede room#show `{id}` (shadowing
+        // rule, CS-PLAN-023).
         ['name' => 'room#create', 'url' => '/api/v1/rooms', 'verb' => 'POST'],
         ['name' => 'room#index', 'url' => '/api/v1/rooms', 'verb' => 'GET'],
-        ['name' => 'room#show', 'url' => '/api/v1/rooms/{id}', 'verb' => 'GET'],
         ['name' => 'room#createExplicit', 'url' => '/api/v1/rooms/create', 'verb' => 'POST'],
+        ['name' => 'room#needingCleaning', 'url' => '/api/v1/rooms/needing-cleaning', 'verb' => 'GET'],
+        ['name' => 'room#show', 'url' => '/api/v1/rooms/{id}', 'verb' => 'GET'],
         ['name' => 'room#update', 'url' => '/api/v1/rooms/{id}', 'verb' => 'PUT'],
         ['name' => 'room#delete', 'url' => '/api/v1/rooms/{id}', 'verb' => 'DELETE'],
         ['name' => 'room#updateCleanliness', 'url' => '/api/v1/rooms/{id}/cleanliness', 'verb' => 'PUT'],
-        ['name' => 'room#needingCleaning', 'url' => '/api/v1/rooms/needing-cleaning', 'verb' => 'GET'],
         
         // Task API
+        // NOTE: static single-segment routes MUST precede the parameterized
+        // `{id}` routes — Nextcloud's router matches in registration order,
+        // so a later /tasks/daily would be swallowed by /tasks/{id}
+        // (shadowing bug fixed by CS-PLAN-023; guarded by RouteMatrixTest).
         ['name' => 'task#index', 'url' => '/api/v1/tasks', 'verb' => 'GET'],
-        ['name' => 'task#show', 'url' => '/api/v1/tasks/{id}', 'verb' => 'GET'],
-        ['name' => 'task#create', 'url' => '/api/v1/tasks', 'verb' => 'POST'],
-        ['name' => 'task#update', 'url' => '/api/v1/tasks/{id}', 'verb' => 'PUT'],
-        ['name' => 'task#delete', 'url' => '/api/v1/tasks/{id}', 'verb' => 'DELETE'],
         ['name' => 'task#templates', 'url' => '/api/v1/tasks/templates', 'verb' => 'GET'],
         ['name' => 'task#createFromTemplate', 'url' => '/api/v1/tasks/create-from-template/{templateId}', 'verb' => 'POST'],
         ['name' => 'task#createDefaultTemplates', 'url' => '/api/v1/tasks/create-default-templates', 'verb' => 'POST'],
@@ -47,13 +49,25 @@ return [
         ['name' => 'task#categories', 'url' => '/api/v1/tasks/categories', 'verb' => 'GET'],
         ['name' => 'task#daily', 'url' => '/api/v1/tasks/daily', 'verb' => 'GET'],
         ['name' => 'task#myPrivate', 'url' => '/api/v1/tasks/my-private', 'verb' => 'GET'],
+        ['name' => 'task#show', 'url' => '/api/v1/tasks/{id}', 'verb' => 'GET'],
+        ['name' => 'task#create', 'url' => '/api/v1/tasks', 'verb' => 'POST'],
+        ['name' => 'task#update', 'url' => '/api/v1/tasks/{id}', 'verb' => 'PUT'],
+        ['name' => 'task#delete', 'url' => '/api/v1/tasks/{id}', 'verb' => 'DELETE'],
         ['name' => 'task#complete', 'url' => '/api/v1/tasks/{id}/complete', 'verb' => 'PUT'],
         ['name' => 'task#uncomplete', 'url' => '/api/v1/tasks/{id}/uncomplete', 'verb' => 'PUT'],
         ['name' => 'task#skip', 'url' => '/api/v1/tasks/{id}/skip', 'verb' => 'PUT'],
         ['name' => 'task#reschedule', 'url' => '/api/v1/tasks/{id}/reschedule', 'verb' => 'PUT'],
         
         // Room Task API
+        // NOTE: static single-segment routes MUST precede `{id}` (same
+        // shadowing rule as the Task API above; fixed by CS-PLAN-023).
         ['name' => 'room_task#index', 'url' => '/api/v1/room-tasks', 'verb' => 'GET'],
+        ['name' => 'room_task#overdue', 'url' => '/api/v1/room-tasks/overdue', 'verb' => 'GET'],
+        ['name' => 'room_task#dueToday', 'url' => '/api/v1/room-tasks/due-today', 'verb' => 'GET'],
+        ['name' => 'room_task#dueWithinDays', 'url' => '/api/v1/room-tasks/due-within-days', 'verb' => 'GET'],
+        ['name' => 'room_task#range', 'url' => '/api/v1/room-tasks/range', 'verb' => 'GET'],
+        ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],
+        ['name' => 'room_task#overdueClaims', 'url' => '/api/v1/room-tasks/overdue-claims', 'verb' => 'GET'],
         ['name' => 'room_task#show', 'url' => '/api/v1/room-tasks/{id}', 'verb' => 'GET'],
         ['name' => 'room_task#create', 'url' => '/api/v1/room-tasks', 'verb' => 'POST'],
         ['name' => 'room_task#delete', 'url' => '/api/v1/room-tasks/{id}', 'verb' => 'DELETE'],
@@ -67,10 +81,6 @@ return [
         ['name' => 'room_task#deactivate', 'url' => '/api/v1/room-tasks/{id}/deactivate', 'verb' => 'POST'],
         ['name' => 'room_task#reactivate', 'url' => '/api/v1/room-tasks/{id}/reactivate', 'verb' => 'POST'],
         ['name' => 'room_task#updateDueDate', 'url' => '/api/v1/room-tasks/{id}/due-date', 'verb' => 'PUT'],
-        ['name' => 'room_task#overdue', 'url' => '/api/v1/room-tasks/overdue', 'verb' => 'GET'],
-        ['name' => 'room_task#dueToday', 'url' => '/api/v1/room-tasks/due-today', 'verb' => 'GET'],
-        ['name' => 'room_task#dueWithinDays', 'url' => '/api/v1/room-tasks/due-within-days', 'verb' => 'GET'],
-        ['name' => 'room_task#range', 'url' => '/api/v1/room-tasks/range', 'verb' => 'GET'],
         ['name' => 'room_task#userTasks', 'url' => '/api/v1/room-tasks/user/{userId}', 'verb' => 'GET'],
         ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET'],
         ['name' => 'room_task#userStats', 'url' => '/api/v1/room-tasks/user/{userId}/stats', 'verb' => 'GET'],
@@ -140,8 +150,8 @@ return [
         ['name' => 'task_sync#linkTask', 'url' => '/api/v1/task-sync/link', 'verb' => 'POST'],
 
         // Claiming Overdue Tasks API (Feature 7)
-        ['name' => 'room_task#overdueClaims', 'url' => '/api/v1/room-tasks/overdue-claims', 'verb' => 'GET'],
-        ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],
+        // overdueClaims + filteredDaily live in the Room Task API block
+        // above — they must precede the `{id}` routes (shadowing rule).
 
         // Test Data API (only available in test mode)
         ['name' => 'test#profiles', 'url' => '/api/v1/test/profiles', 'verb' => 'GET'],

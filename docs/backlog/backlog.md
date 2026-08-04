@@ -148,20 +148,19 @@ This is a config/versions mismatch, **not** introduced by any individual change.
 
 ---
 
-### [P2] TECH-TEST-001 — Time-travel testing in Docker (libfaketime + occ job trigger)
-**Status**: Planned · **Effort**: M · **Source**: User request 2026-07-30 · **Plan**: [`docs/plans/new/cs-plan-023-time-travel-testing.md`](../plans/new/cs-plan-023-time-travel-testing.md)
+### [P2] BUG-API-DAILY-001 — `GET /api/v1/tasks/daily` 500s: `DATE(rt.next_due)` used as a column in WHERE
+**Status**: Open · **Effort**: S · **Source**: discovered during CS-PLAN-023 E2E verification (2026-08-04)
 
-The three BackgroundJobs + `TaskSyncService` already inject `ITimeFactory`
-(unit tests mock it). For integration/E2E in Docker we need to exercise
-"task overdue after N days", streak-freeze, and notification timing without
-waiting real time.
+`TaskController::daily()` → `RoomTaskService::getDailyTasksWithDetails()` fails
+with `SQLSTATE[42S22] Column not found: 1054 Unknown column 'DATE(rt.next_due)'
+in 'WHERE'` — a `DATE(...)` function expression is compared as if it were a
+column. The endpoint has been silently 500ing (route-shadowed by
+`/tasks/{id}` until CS-PLAN-023 un-shadowed it, which surfaced the SQL bug).
+The frontend daily view degrades to an empty state, so no UI crash hid it.
 
-- [ ] `libfaketime` (`LD_PRELOAD`) in `docker/Dockerfile.test` + an opt-in env flag
-      (e.g. `FAKETIME=+3d`) to shift the container clock for a run.
-- [ ] `occ` command that triggers `DailyNotificationJob` / `StreakFreezeJob` /
-      `StreakRestockJob` immediately (don't wait for cron) — usable from E2E.
-- [ ] Seed profiles with overdue/past due-dates in `docker/seed-test-data.sh`.
-- [ ] E2E: "advance clock 3 days → streak-freeze consumed → at-risk notification".
+- [ ] Fix the query builder expression (compare `rt.next_due` against the
+      day's `[start, end)` range like `CompletedTaskMapper::countByUserOnDate`).
+- [ ] Regression test (mapper unit test + integration smoke).
 
 ---
 
@@ -178,6 +177,16 @@ genuinely non-automatable items. Anti-rot rule already in CS-017 §7.
       skip/reschedule/recurrence/checklist, overdue-claim + teamwork, visibility filtering).
 - [ ] Notification regression depends on TECH-TEST-001's occ trigger.
 - [ ] Update `release-test-plan.md` markers as specs land.
+
+---
+
+### [P3] TECH-CLEANUP-ITIMEFACTORY — Normalize the two `ITimeFactory` interfaces
+**Status**: Backlog · **Effort**: S · **Source**: CS-023 review (2026-07-30)
+
+`TaskSyncService` imports `OCP\ITimeFactory` while the three BackgroundJobs import
+`OCP\AppFramework\Utility\ITimeFactory`; two mock files exist under
+`tests/__mocks__/OCP/`. Pre-existing inconsistency. Normalize to one interface
+(and drop the redundant mock) next time `TaskSyncService` is touched.
 
 ---
 

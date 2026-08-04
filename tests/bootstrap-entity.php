@@ -46,6 +46,11 @@ require_once __DIR__ . '/__mocks__/OCP/Notification/INotifier.php';
 require_once __DIR__ . '/__mocks__/OCP/Notification/IAction.php';
 require_once __DIR__ . '/__mocks__/OCP/BackgroundJob/TimedJob.php';
 require_once __DIR__ . '/__mocks__/Psr/Log/LoggerInterface.php';
+require_once __DIR__ . '/__mocks__/Symfony/Component/Console/Command/Command.php';
+require_once __DIR__ . '/__mocks__/Symfony/Component/Console/Input/InputInterface.php';
+require_once __DIR__ . '/__mocks__/Symfony/Component/Console/Input/InputArgument.php';
+require_once __DIR__ . '/__mocks__/Symfony/Component/Console/Input/InputOption.php';
+require_once __DIR__ . '/__mocks__/Symfony/Component/Console/Output/OutputInterface.php';
 
 // Load vendor autoloader
 require_once __DIR__ . '/../vendor/autoload.php';

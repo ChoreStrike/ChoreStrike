@@ -135,6 +135,59 @@ class RouteMatrixTest extends TestCase
     }
 
     /**
+     * A parameterized route (e.g. /api/v1/tasks/{id}) must not be declared
+     * BEFORE a static route it would swallow (e.g. /api/v1/tasks/daily):
+     * Nextcloud's router matches in registration order, so the later static
+     * route would 500 through the parameterized one (the CS-PLAN-023
+     * shadowing bug that broke /room-tasks/overdue, /tasks/daily, ...).
+     */
+    public function testParameterizedRoutesDoNotShadowLaterStaticRoutes(): void
+    {
+        $shadowed = [];
+        $routes = $this->routes['routes'];
+        $count = count($routes);
+
+        for ($i = 0; $i < $count; $i++) {
+            $parameterized = $routes[$i];
+            if (!str_contains($parameterized['url'], '{')) {
+                continue;
+            }
+
+            // Compile the parameterized URL to a pattern: each {param}
+            // matches exactly one static path segment.
+            $pattern = '#^' . preg_replace('/\{[^}]+\}/', '[^/]+', $parameterized['url']) . '$#';
+
+            for ($j = $i + 1; $j < $count; $j++) {
+                $candidate = $routes[$j];
+                if ($candidate['verb'] !== $parameterized['verb']) {
+                    continue;
+                }
+                if (str_contains($candidate['url'], '{')) {
+                    continue;
+                }
+                if (preg_match($pattern, $candidate['url']) === 1) {
+                    $shadowed[] = sprintf(
+                        '%s %s (%s) is shadowed by the earlier %s %s (%s)',
+                        $candidate['verb'],
+                        $candidate['url'],
+                        $candidate['name'],
+                        $parameterized['verb'],
+                        $parameterized['url'],
+                        $parameterized['name']
+                    );
+                }
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $shadowed,
+            "Route shadowing detected — move the static routes before the parameterized ones:\n"
+                . implode("\n", $shadowed)
+        );
+    }
+
+    /**
      * Resolve a short controller name (e.g. `room_task`) to the fully
      * qualified ChoreStrike controller class name.
      */

@@ -49,6 +49,14 @@
         <testsuite name="BackgroundJob">
             <directory>tests/unit/BackgroundJob</directory>
         </testsuite>
+        <!-- OCC command tests (CS-PLAN-023; Symfony Console surface mocked) -->
+        <testsuite name="Command">
+            <directory suffix="Test.php">tests/unit/Command</directory>
+        </testsuite>
+        <!-- Route contract tests (route matrix + shadowing guard, CS-PLAN-023) -->
+        <testsuite name="Contract">
+            <file>tests/unit/RouteMatrixTest.php</file>
+        </testsuite>
         <!-- Notification renderer tests (INotifier implementation) -->
         <testsuite name="Notification">
             <directory>tests/unit/Notification</directory>

@@ -211,6 +211,72 @@ class TestDataServiceTest extends TestCase
 	}
 
 	/**
+	 * Test seedFamily includes the time-travel seeds (CS-PLAN-023):
+	 * at least one room task with a past due-date (overdue flow) and mom
+	 * with a live streak but zero freezes (streak/at-risk flow).
+	 */
+	public function testSeedFamilyIncludesTimeTravelSeeds(): void
+	{
+		// Mock reset
+		$qb = $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
+			'delete' => $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
+				'executeStatement' => 0
+			])
+		]);
+		$this->db->method('getQueryBuilder')->willReturn($qb);
+
+		$house = new House();
+		$house->setId(1);
+		$this->houseMapper->method('insert')->willReturn($house);
+
+		$floor = new Floor();
+		$floor->setId(1);
+		$this->floorMapper->method('create')->willReturn($floor);
+
+		$room = new Room();
+		$room->setId(1);
+		$this->roomMapper->method('insert')->willReturn($room);
+
+		$task = new Task();
+		$task->setId(1);
+		$this->taskMapper->method('create')->willReturn($task);
+
+		// Capture the seeded house users and room-task due-dates.
+		$seededUsers = [];
+		$this->houseUserMapper->method('insert')
+			->willReturnCallback(function (HouseUser $user) use (&$seededUsers) {
+				if ($user->getId() === null) {
+					$user->setId(count($seededUsers) + 1);
+				}
+				$seededUsers[$user->getNextcloudUserId()] = $user;
+				return $user;
+			});
+
+		$dueDates = [];
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$this->roomTaskMapper->method('create')
+			->willReturnCallback(function ($roomId, $taskId, \DateTime $nextDue) use (&$dueDates, $roomTask) {
+				$dueDates[] = $nextDue;
+				return $roomTask;
+			});
+
+		$this->service->seedFamily();
+
+		// Overdue seed: at least one due-date must already be in the past.
+		$pastDueDates = array_filter($dueDates, fn (\DateTime $due) => $due < new \DateTime());
+		$this->assertNotEmpty(
+			$pastDueDates,
+			'family seed must include at least one room task with a past due-date'
+		);
+
+		// Streak seed: mom has something to lose and no freeze to spend.
+		$this->assertArrayHasKey('mom', $seededUsers);
+		$this->assertSame(5, $seededUsers['mom']->getCurrentStreak());
+		$this->assertSame(0, $seededUsers['mom']->getStreakFreezes());
+	}
+
+	/**
 	 * Test seed method with invalid profile throws exception
 	 */
 	public function testSeedWithInvalidProfileThrowsException(): void

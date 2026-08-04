@@ -189,7 +189,7 @@ It is the single source of truth for blocking gate commands.
 | `npm test` | Jest (Vue components, stores, API contract) |
 | `npm run build` | Webpack production build |
 | `composer validate --strict` | `composer.json` sanity |
-| `vendor/bin/phpunit --configuration phpunit.unit.xml` | Backend unit tests — Entity/Service/Controller/BackgroundJob/Notification/Migration/l10n suites (via Docker) |
+| `vendor/bin/phpunit --configuration phpunit.unit.xml` | Backend unit tests — Entity/Service/Controller/BackgroundJob/Command/Contract/Notification/Migration/l10n suites (via Docker) |
 | `vendor/bin/phpunit --configuration phpunit.integration.xml` | Backend integration tests (via Docker) |
 | `npx playwright test --project=chromium --project=chromium-serial-db` | Playwright E2E — chromium, `family` seed profile (via Docker) |
 
@@ -201,14 +201,18 @@ It is the single source of truth for blocking gate commands.
 
 > **Unit-gate scope (CS-PLAN-020, 2026-07-29):** `phpunit.unit.xml` now runs the
 > full green unit set — Controller + Service + Entity(Db) + BackgroundJob +
-> Notification + Migration + l10n suites. The migration mock deps
+> Command + Contract + Notification + Migration + l10n suites. The migration mock deps
 > (`ISchemaWrapper`/`IOutput`/`SimpleMigrationStep`) were added to
 > `bootstrap-entity.php` so the Migration suite runs in the CI unit gate, and a
 > `FreshInstallMigrationSmokeTest` guards the recurring `changeSchema() return
-> null` fresh-install defect class. The 4 stale `phpunit.xml` controller-test
+> null` defect class. The 4 stale `phpunit.xml` controller-test
 > excludes are resolved: `GameControllerTest`/`RoomControllerTest`/
 > `RoomTaskControllerTest` re-included after drift repair,
 > `PageControllerTest` archived (framework wiring covered by E2E).
+> CS-PLAN-023 (2026-08-04) added the **Command** suite (OCC commands;
+> Symfony Console surface mocked under `tests/__mocks__/Symfony/`) and the
+> **Contract** suite (`RouteMatrixTest`, which previously lived in no suite;
+> now incl. the route-shadowing guard).
 
 ### E2E in CI (blocking, CS-PLAN-020)
 
@@ -331,6 +335,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `leaderboard.spec.ts`, `title-selection.spec.ts` | Gamification, leaderboard, role titles |
 | `private-tasks.spec.ts`, `admin-only-tasks.spec.ts`, `teamwork-rewards.spec.ts` | Visibility (private/admin-only) and teamwork-bonus rewards (CS-PLAN-005) |
 | `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
+| `time-travel-overdue.spec.ts`, `time-travel-streak-notification.spec.ts` | Time-travel flows (CS-PLAN-023): overdue via seeded past due-date, streak-freeze + at-risk notification via `trigger-jobs --as-of` |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage |
 | `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Smart Scheduling UI — availability grid, energy budget, calendar, suggestions (revived by CS-PLAN-016) |
 
@@ -362,12 +367,19 @@ npx playwright test tests/e2e/ --project=chromium --headed
     [`tests/e2e/fixtures/auth-contexts.ts`](../../tests/e2e/fixtures/auth-contexts.ts).
   - **No-logout rule:** no spec may navigate to or fetch `/logout` — it
     invalidates the shared server-side session for every parallel worker.
-- **Seed-race containment (CS-PLAN-015b Phase 2):** the 5 seed-dependent specs
+- **Seed-race containment (CS-PLAN-015b Phase 2):** the 7 seed-dependent specs
   (`error-handling`, `validation`, `multi-user-interactions`,
-  `task-completion-full-flow`, `3-floor-house`) run in a dedicated
+  `task-completion-full-flow`, `3-floor-house`, plus the two CS-PLAN-023
+  time-travel specs `time-travel-overdue` and
+  `time-travel-streak-notification`) run in a dedicated
   `chromium-serial-db` project (`fullyParallel: false`, `workers: 1`, chromium
   only). The parallel pool (chromium / firefox / webkit) excludes them via
   `testIgnore` and never touches the seed/reset endpoints concurrently.
+- **Seed/test-endpoint auth (CS-PLAN-019 + CS-PLAN-023):** the test endpoints
+  require an authenticated session (no `@PublicPage`). The E2E fixtures
+  (`database-fixtures.ts`) and `auth.setup.ts` therefore authenticate with the
+  admin account via Basic auth and use POST for seed/reset. The time-travel
+  specs additionally shell out to `occ` via `tests/e2e/fixtures/occ-runner.ts`.
 - **Scheduling owner-context (CS-PLAN-018 Phase 3b):** `scheduling.spec.ts` and
   `availability-settings-flow.spec.ts` run in a dedicated
   `chromium-scheduling-owner` project as `dad`
@@ -694,6 +706,12 @@ The `family` profile creates a realistic family scenario:
 - Daily: Dishes, counters, trash, toys, beds
 - Weekly: Vacuum, dust, laundry, toilets, sinks
 
+**Time-travel seeds (CS-PLAN-023):**
+- `mom` carries the streak state: `currentStreak=5`, `streakFreezes=0` (no
+  completions exist in the seed) — the at-risk/freeze flow target.
+- "Take out trash" (assigned to `dad`) is seeded with a due-date three days
+  in the past — immediately overdue against the real clock.
+
 ### CI/CD Integration
 
 The Forgejo/Codeberg workflow runs tests with all profiles:
@@ -704,6 +722,74 @@ strategy:
     profile: [empty, minimal, family]
     browser: [chromium, firefox]
 ```
+
+---
+
+## Time-Travel Testing (CS-PLAN-023)
+
+Time-dependent flows — "task overdue after N days", streak-freeze
+consumption, and the streak-at-risk notification — are testable in Docker
+**without waiting real time**. The three BackgroundJobs
+(`DailyNotificationJob`, `StreakFreezeJob`, `StreakRestockJob`) are thin
+delegates: they derive "yesterday" from the injected `ITimeFactory` and
+hand the pass to services (`StreakAtRiskService`, `StreakFreezeService`,
+`StreakRestockService`). Time is injectable at the logic level, and the
+`occ` trigger below calls the same services directly.
+
+### `occ chorestrike:trigger-jobs` (test mode only)
+
+```bash
+# Run one job type now (yesterday = the real yesterday)
+docker exec chorestrike-test su -s /bin/bash www-data -c \
+  "cd /var/www/html && php occ chorestrike:trigger-jobs streak-freeze"
+
+# Simulate "a day passed": --as-of sets the reference day, and
+# "yesterday" is derived as as-of minus one day (as-of=tomorrow ⇒
+# yesterday=today). Zero clock trickery.
+docker exec chorestrike-test su -s /bin/bash www-data -c \
+  "cd /var/www/html && php occ chorestrike:trigger-jobs streak-freeze --as-of=$(date -d '+1 day' +%Y-%m-%d)"
+
+# All three passes. Order is deterministic: daily-notification runs
+# BEFORE streak-freeze so the at-risk reminder fires while the streak is
+# still positive (resolves the 06:00 ordering race noted in info.xml).
+docker exec chorestrike-test su -s /bin/bash www-data -c \
+  "cd /var/www/html && php occ chorestrike:trigger-jobs all"
+```
+
+- `<type>` ∈ `daily-notification | streak-freeze | streak-restock | all`.
+- Guarded by `TestDataService::isTestMode()` (`NEXTCLOUD_TEST_MODE=true`),
+  mirroring `TestDataSeed` — it refuses to run in production.
+- `[--user=UID]` is accepted but not yet scoped in the services; the
+  command logs a notice and runs the full pass.
+- `streak-restock` is **time-independent** (it sets freezes to the
+  configured weekly value) — triggering it once is sufficient and it
+  ignores `--as-of`.
+
+### Seeded time-travel state (`family` profile)
+
+- **Overdue:** one room task ("Take out trash", assigned to `dad`) is
+  seeded with a due-date three days in the past, so the overdue flow is
+  live against the real clock — no shift needed.
+- **Streak/at-risk:** `mom` is seeded with a 5-day streak and zero
+  freezes (and no completions exist in the seed), so
+  `daily-notification` + `streak-freeze` with `--as-of=tomorrow`
+  exercise the reminder + reset within seconds.
+
+E2E coverage: `tests/e2e/time-travel-overdue.spec.ts` and
+`tests/e2e/time-travel-streak-notification.spec.ts` (both in the
+`chromium-serial-db` project). The specs trigger the jobs via
+`tests/e2e/fixtures/occ-runner.ts` (`docker exec`, container
+auto-detected; override with `NEXTCLOUD_CONTAINER`).
+
+### Optional: `libfaketime` (not wired, demoted)
+
+A whole-container clock shift (`LD_PRELOAD` libfaketime) is only needed
+for global multi-day transitions that cannot be encoded as `--as-of` or
+seeded past dates. It is **off by default and not wired** into
+`docker/Dockerfile.test`. Rule if it is ever introduced: never combine
+`libfaketime` with time-relative seeded dates in one assertion —
+"yesterday" and seeded due-dates drift inconsistently under a shift.
+Prefer seed + `--as-of` (no clock shift) as the default.
 
 ---
 

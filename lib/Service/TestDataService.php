@@ -272,7 +272,13 @@ class TestDataService
         // Create users
         $users = [];
         $userData = [
-            ['userId' => 'mom', 'displayName' => 'Mom', 'role' => 'owner', 'preferences' => [
+            // mom carries the time-travel streak state (CS-PLAN-023): a live
+            // streak with zero freezes and no completions, so the seeded
+            // family can exercise streak-freeze consumption / reset + the
+            // at-risk notification via `occ chorestrike:trigger-jobs --as-of`
+            // without any real multi-day wait. She is available every weekday,
+            // so the fairness skip never interferes regardless of run day.
+            ['userId' => 'mom', 'displayName' => 'Mom', 'role' => 'owner', 'currentStreak' => 5, 'streakFreezes' => 0, 'preferences' => [
                 'weekdayAvailability' => ['monday' => true, 'tuesday' => true, 'wednesday' => true, 'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true],
                 'preferredTasks' => ['kitchen', 'laundry'],
                 'maxDailyTasks' => 5,
@@ -312,6 +318,12 @@ class TestDataService
             $houseUser->setRole($data['role']);
             $houseUser->setSchedulingPreferences($data['preferences']);
             $houseUser->setJoinedAt(new \DateTime());
+            if (isset($data['currentStreak'])) {
+                $houseUser->setCurrentStreak($data['currentStreak']);
+            }
+            if (isset($data['streakFreezes'])) {
+                $houseUser->setStreakFreezes($data['streakFreezes']);
+            }
             $houseUser = $this->houseUserMapper->insert($houseUser);
             $users[$data['userId']] = $houseUser;
         }
@@ -351,11 +363,15 @@ class TestDataService
         $roomTasks = [];
         $today = new \DateTime();
         $tomorrow = (clone $today)->modify('+1 day');
+        // Time-travel overdue seed (CS-PLAN-023): a due-date already in the
+        // past, so the overdue flow (RoomTask::isOverdue / findOverdueByHouse)
+        // is exercisable against the real clock with no multi-day wait.
+        $threeDaysAgo = (clone $today)->modify('-3 days');
 
         $roomTaskData = [
             ['room' => 'Kitchen', 'task' => 'Do the dishes', 'due' => $today, 'assignedTo' => 'mom'],
             ['room' => 'Kitchen', 'task' => 'Wipe kitchen counters', 'due' => $today, 'assignedTo' => 'teen'],
-            ['room' => 'Kitchen', 'task' => 'Take out trash', 'due' => $today, 'assignedTo' => 'dad'],
+            ['room' => 'Kitchen', 'task' => 'Take out trash', 'due' => $threeDaysAgo, 'assignedTo' => 'dad'],
             ['room' => 'Living Room', 'task' => 'Tidy up toys', 'due' => $today, 'assignedTo' => 'kid'],
             ['room' => 'Living Room', 'task' => 'Vacuum living room', 'due' => $tomorrow, 'assignedTo' => null],
             ['room' => 'Living Room', 'task' => 'Dust furniture', 'due' => $tomorrow, 'assignedTo' => 'grandma'],
