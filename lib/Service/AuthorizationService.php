@@ -185,11 +185,14 @@ class AuthorizationService
 
     /**
      * Check if the current user has the owner role in the given house.
+     *
+     * Read-only: never auto-creates a membership (CR-SVC-06). A non-member is
+     * simply reported as not-an-owner.
      */
     public function isHouseOwner(int $houseId): bool
     {
         try {
-            $houseUser = $this->ensureHouseMember($houseId);
+            $houseUser = $this->assertHouseMember($houseId);
             return $houseUser->isOwner();
         } catch (\Exception $e) {
             return false;
@@ -199,11 +202,16 @@ class AuthorizationService
     /**
      * Require the current user to be a house owner.
      *
-     * @throws ForbiddenException if the user is not authenticated or not an owner
+     * Read-only: never auto-creates a membership (CR-SVC-06). Callers must
+     * have ensured membership upstream (getOrCreateHouse + ensureHouseMember)
+     * so the happy path is unchanged; a non-member now gets a 403 instead of a
+     * phantom member row followed by a 403.
+     *
+     * @throws ForbiddenException if the user is not authenticated, not a member, or not an owner
      */
     public function requireHouseOwner(int $houseId): HouseUser
     {
-        $houseUser = $this->ensureHouseMember($houseId);
+        $houseUser = $this->assertHouseMember($houseId);
 
         if (!$houseUser->isOwner()) {
             $this->appLogger?->warning('Owner role required', [

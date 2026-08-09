@@ -29,6 +29,16 @@ class MinigameService
         'no_obstacles' => 25,     // Remove obstacles
     ];
 
+    /**
+     * Sane per-game score ceiling (CR-SVC-05).
+     *
+     * Client scores are untrusted: an unbounded value minted unlimited Coins
+     * via floor(score/10) and a negative value drained Coins. This ceiling is
+     * generous for any realistic game (a snake high score is in the low
+     * thousands) while blocking INT_MAX coin farming and negative drains.
+     */
+    public const MAX_SCORE = 100000;
+
     private MinigameScoreMapper $scoreMapper;
     private HouseUserMapper $houseUserMapper;
 
@@ -51,6 +61,15 @@ class MinigameService
      */
     public function saveScore(int $houseId, string $userId, string $gameId, int $score, array $boostsUsed = []): MinigameScore
     {
+        // CR-SVC-05: bound the client-supplied score before any insert or coin
+        // award. Reject negatives (coin drain) and over-cap values (coin
+        // farming via floor(score/10)).
+        if ($score < 0 || $score > self::MAX_SCORE) {
+            throw new \InvalidArgumentException(
+                'Score must be between 0 and ' . self::MAX_SCORE
+            );
+        }
+
         $scoreEntity = new MinigameScore();
         $scoreEntity->setHouseId($houseId);
         $scoreEntity->setUserId($userId);

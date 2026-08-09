@@ -49,6 +49,57 @@ class MinigameServiceTest extends TestCase
         $this->assertEquals('snake', $result->getGameId());
     }
 
+    /**
+     * SaveScore_NegativeScore_RejectedBeforeInsertOrCoinAward
+     *
+     * CR-SVC-05: a negative client score (coin drain) must be rejected before
+     * any persistence or coin mutation.
+     */
+    public function testSaveScore_NegativeScore_RejectedBeforeInsertOrCoinAward(): void
+    {
+        $this->scoreMapper->expects($this->never())->method('insert');
+        $this->houseUserMapper->expects($this->never())->method('update');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->service->saveScore(1, 'user1', 'snake', -50);
+    }
+
+    /**
+     * SaveScore_OverCapScore_RejectedBeforeInsertOrCoinAward
+     *
+     * CR-SVC-05: an over-cap score (coin farming via floor(score/10)) must be
+     * rejected before any persistence or coin mutation.
+     */
+    public function testSaveScore_OverCapScore_RejectedBeforeInsertOrCoinAward(): void
+    {
+        $this->scoreMapper->expects($this->never())->method('insert');
+        $this->houseUserMapper->expects($this->never())->method('update');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->service->saveScore(1, 'user1', 'snake', MinigameService::MAX_SCORE + 1);
+    }
+
+    /**
+     * SaveScore_AtMaxScore_Accepted
+     *
+     * CR-SVC-05: the cap is inclusive — exactly MAX_SCORE is a valid score.
+     */
+    public function testSaveScore_AtMaxScore_Accepted(): void
+    {
+        $score = new MinigameScore();
+        $score->setId(1);
+        $score->setScore(MinigameService::MAX_SCORE);
+
+        $this->scoreMapper->expects($this->once())->method('insert')->willReturn($score);
+        $this->houseUserMapper->expects($this->never())->method('update');
+
+        $result = $this->service->saveScore(1, 'user1', 'snake', MinigameService::MAX_SCORE);
+
+        $this->assertSame(MinigameService::MAX_SCORE, $result->getScore());
+    }
+
     public function testSaveScoreAwardsCoinsToExistingUser(): void
     {
         $score = new MinigameScore();

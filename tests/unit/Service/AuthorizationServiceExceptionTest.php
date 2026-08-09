@@ -191,6 +191,59 @@ class AuthorizationServiceExceptionTest extends TestCase
         $this->service->requireHouseOwner(1);
     }
 
+    /**
+     * RequireHouseOwner_WhenNotMember_ThrowsForbiddenWithoutCreating
+     *
+     * CR-SVC-06: a non-member attempting an owner-only op must be denied with
+     * a 403 and must NOT leave a phantom house_users row behind (the old path
+     * auto-created a 'member' row via ensureHouseMember before the 403).
+     */
+    public function testRequireHouseOwner_WhenNotMember_ThrowsForbiddenWithoutCreating(): void
+    {
+        $this->actingAs('alice');
+        $this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+        $this->houseUserMapper->expects($this->never())->method('createOrGet');
+        $this->houseUserMapper->expects($this->never())->method('findByHouseId');
+
+        $this->expectException(ForbiddenException::class);
+        $this->service->requireHouseOwner(1);
+    }
+
+    // ---------- isHouseOwner (read-only) ----------
+
+    public function testIsHouseOwner_WhenOwner_ReturnsTrue(): void
+    {
+        $this->actingAs('alice');
+        $this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('owner', 'alice'));
+        $this->houseUserMapper->expects($this->never())->method('createOrGet');
+
+        $this->assertTrue($this->service->isHouseOwner(1));
+    }
+
+    public function testIsHouseOwner_WhenMember_ReturnsFalse(): void
+    {
+        $this->actingAs('bob');
+        $this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('member', 'bob'));
+        $this->houseUserMapper->expects($this->never())->method('createOrGet');
+
+        $this->assertFalse($this->service->isHouseOwner(1));
+    }
+
+    /**
+     * IsHouseOwner_WhenNotMember_ReturnsFalseWithoutCreating
+     *
+     * CR-SVC-06: the read-looking owner check must not write a membership row.
+     */
+    public function testIsHouseOwner_WhenNotMember_ReturnsFalseWithoutCreating(): void
+    {
+        $this->actingAs('alice');
+        $this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+        $this->houseUserMapper->expects($this->never())->method('createOrGet');
+        $this->houseUserMapper->expects($this->never())->method('findByHouseId');
+
+        $this->assertFalse($this->service->isHouseOwner(1));
+    }
+
     // ---------- assertUserInHouse (cross-house guard) ----------
 
     public function testAssertUserInHouse_WhenTargetIsMember_DoesNotThrow(): void

@@ -135,6 +135,14 @@ class MinigameController extends Controller
                     'coinsEarned' => $coinsEarned,
                 ]
             ]);
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => ControllerErrorFormatter::safeMessage($e)
+                ]
+            ], 400);
         } catch (ForbiddenException $e) {
             return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {
