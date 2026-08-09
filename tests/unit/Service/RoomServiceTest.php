@@ -648,6 +648,141 @@ class RoomServiceTest extends TestCase
     }
 
     /**
+     * CompleteRoomTask_NewTitleInGameResult_DispatchesTitleNotificationAfterCommit
+     *
+     * CR-SVC-12: the title-unlock notification must dispatch AFTER commit
+     * (never inside the transaction), using the newTitle payload returned by
+     * GameLogicService::handleTaskCompletion.
+     */
+    public function testCompleteRoomTask_NewTitleInGameResult_DispatchesTitleNotificationAfterCommit(): void
+    {
+        $roomTaskId = 1;
+        $userId = 'user123';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+        $roomTask->setNextDue(new \DateTime('tomorrow'));
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $newTitle = [
+            'pack' => 'home_helpers',
+            'packLabelKey' => 'titles.pack.home_helpers',
+            'tierIndex' => 0,
+            'labelKey' => 'titles.home_helpers.helper',
+        ];
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+        $this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+            'newTitle' => $newTitle,
+        ]);
+
+        $this->notificationService->expects($this->once())
+            ->method('notifyTitleUnlocked')
+            ->with($userId, 'home_helpers', 'titles.home_helpers.helper', 'titles.pack.home_helpers', 0);
+
+        $this->service->completeRoomTask($roomTaskId, $userId);
+    }
+
+    /**
+     * CompleteRoomTask_NoNewTitle_DoesNotDispatchTitleNotification
+     *
+     * CR-SVC-12: a completion that unlocks no title must not dispatch.
+     */
+    public function testCompleteRoomTask_NoNewTitle_DoesNotDispatchTitleNotification(): void
+    {
+        $roomTaskId = 1;
+        $userId = 'user123';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setEnergyCost(3);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+        $roomTask->setNextDue(new \DateTime('tomorrow'));
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(2);
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+        $this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+        $this->gameLogicService->method('handleTaskCompletion')->willReturn([
+            'contributionScore' => 10,
+            'coins' => 50,
+            'isCombo' => false,
+            'currentStreak' => 1,
+            'newTitle' => null,
+        ]);
+
+        $this->notificationService->expects($this->never())->method('notifyTitleUnlocked');
+
+        $this->service->completeRoomTask($roomTaskId, $userId);
+    }
+
+    /**
      * CompleteRoomTask_AssignedToCompleter_DoesNotMarkTakeover
      */
     public function testCompleteRoomTask_AssignedToCompleter_DoesNotMarkTakeover(): void

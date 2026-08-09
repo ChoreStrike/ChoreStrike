@@ -41,6 +41,34 @@ class HouseUserMapper extends QBMapper
     }
 
     /**
+     * Find a house user by ID and acquire an exclusive row lock.
+     *
+     * Mirrors {@see RoomTaskMapper::lockForUpdate()}: a no-op UPDATE acquires
+     * an exclusive row lock on locking engines (InnoDB/PostgreSQL) and
+     * serializes via the write lock on SQLite. This closes the read-modify-
+     * write race where two concurrent same-user completions each read the
+     * coins/streak row and the second update clobbers the first (CR-SVC-04).
+     *
+     * Must be called inside an open transaction. Re-reads the row after the
+     * lock is granted so the caller builds on the freshest committed state.
+     *
+     * @param int $id The house user ID
+     * @throws DoesNotExistException
+     */
+    public function findForUpdate(int $id): HouseUser
+    {
+        $houseUser = $this->find($id);
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->update($this->getTableName())
+            ->set('contribution_score', $qb->createNamedParameter($houseUser->getContributionScore(), IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+        $qb->executeStatement();
+
+        return $this->find($id);
+    }
+
+    /**
      * Find all users in a house
      *
      * @param int $houseId The house ID

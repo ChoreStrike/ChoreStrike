@@ -66,7 +66,11 @@ class GameLogicService
      */
     public function handleTaskCompletion(int $roomTaskId, int $userId, Task $task, int $roomCleanliness): array
     {
-        $user = $this->houseUserMapper->find($userId);
+        // CR-SVC-04: lock the house_user row for the duration of this read-
+        // modify-write so two concurrent same-user completions cannot clobber
+        // each other's coins/streak update. Runs inside the caller's open
+        // transaction (RoomService::completeRoomTask).
+        $user = $this->houseUserMapper->findForUpdate($userId);
         $roomTask = $this->roomTaskMapper->find($roomTaskId);
 
         $contributionScore = $this->calculateContributionScore($task, $roomCleanliness);
@@ -149,20 +153,10 @@ class GameLogicService
 
         $this->houseUserMapper->update($user);
 
-        // Best-effort title notification — must never break a completion.
-        if ($newTitle !== null) {
-            $nextcloudUserId = $user->getNextcloudUserId();
-            if ($nextcloudUserId !== null && $nextcloudUserId !== '') {
-                $this->notificationService->notifyTitleUnlocked(
-                    $nextcloudUserId,
-                    $newTitle['pack'],
-                    $newTitle['labelKey'],
-                    $newTitle['packLabelKey'],
-                    $newTitle['tierIndex']
-                );
-            }
-        }
-
+        // CR-SVC-12: the title-unlock notification is NOT dispatched here.
+        // Returning the payload lets RoomService::completeRoomTask dispatch it
+        // AFTER commit() so a rolled-back completion never raises a stale
+        // title notification (mirrors the takeover/weekly-goal deferral).
         return [
             'contributionScore' => $contributionScore,
             'coins' => $coins,

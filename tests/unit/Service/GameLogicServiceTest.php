@@ -84,11 +84,16 @@ class GameLogicServiceTest extends TestCase
             new CompletedTask()
         ];
 
+        // CR-SVC-04: the house_user row must be locked (findForUpdate) inside
+        // the completion path so concurrent same-user completions cannot
+        // clobber each other's coins/streak update.
         $this->houseUserMapper
             ->expects($this->once())
-            ->method('find')
+            ->method('findForUpdate')
             ->with($userId)
             ->willReturn($user);
+
+        $this->houseUserMapper->expects($this->never())->method('find');
 
         $roomTask = new RoomTask();
         $roomTask->setId($roomTaskId);
@@ -800,7 +805,7 @@ class GameLogicServiceTest extends TestCase
 		$user->setLongestStreak(3);
 		$user->setLastActivity(new \DateTime('yesterday'));
 
-		$this->houseUserMapper->method('find')->willReturn($user);
+		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
 
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
@@ -836,7 +841,7 @@ class GameLogicServiceTest extends TestCase
         $user->setStreakFreezes(2);
         $user->setLastActivity(new \DateTime('-3 days'));
 
-        $this->houseUserMapper->method('find')->willReturn($user);
+        $this->houseUserMapper->method('findForUpdate')->willReturn($user);
 
         $roomTask = new RoomTask();
         $roomTask->setId($roomTaskId);
@@ -873,7 +878,7 @@ class GameLogicServiceTest extends TestCase
         $user->setStreakFreezes(0);
         $user->setLastActivity(new \DateTime('-3 days'));
 
-        $this->houseUserMapper->method('find')->willReturn($user);
+        $this->houseUserMapper->method('findForUpdate')->willReturn($user);
 
         $roomTask = new RoomTask();
         $roomTask->setId($roomTaskId);
@@ -910,7 +915,7 @@ class GameLogicServiceTest extends TestCase
         $user->setStreakFreezes(0);
         $user->setLastActivity(new \DateTime('yesterday'));
 
-        $this->houseUserMapper->method('find')->willReturn($user);
+        $this->houseUserMapper->method('findForUpdate')->willReturn($user);
 
         $roomTask = new RoomTask();
         $roomTask->setId($roomTaskId);
@@ -995,9 +1000,13 @@ class GameLogicServiceTest extends TestCase
 	}
 
 	/**
-	 * HandleTaskCompletion_NewTitleUnlock_FiresNotificationAndSetsNewTitle
+	 * HandleTaskCompletion_NewTitleUnlock_ReturnsPayloadWithoutDispatching
+	 *
+	 * CR-SVC-12: the title-unlock notification is deferred past commit, so
+	 * handleTaskCompletion must return the new-title payload WITHOUT
+	 * dispatching notifyTitleUnlocked (RoomService dispatches it after commit).
 	 */
-	public function testHandleTaskCompletion_NewTitleUnlock_FiresNotificationAndSetsNewTitle(): void
+	public function testHandleTaskCompletion_NewTitleUnlock_ReturnsPayloadWithoutDispatching(): void
 	{
 		$titleService = $this->createMock(TitleService::class);
 		$newTitle = [
@@ -1028,7 +1037,7 @@ class GameLogicServiceTest extends TestCase
 		$user->setCurrentStreak(5);
 		$user->setLastActivity(new \DateTime('yesterday'));
 
-		$this->houseUserMapper->method('find')->willReturn($user);
+		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
 		$roomTask->setIdealDueDate(null);
@@ -1037,12 +1046,13 @@ class GameLogicServiceTest extends TestCase
 		$this->completedTaskMapper->expects($this->once())->method('insert');
 		$this->houseUserMapper->expects($this->once())->method('update');
 
-		$this->notificationService->expects($this->once())
-			->method('notifyTitleUnlocked')
-			->with('alice', 'home_helpers', 'titles.home_helpers.helper', 'titles.pack.home_helpers', 0);
+		// The service must NOT dispatch the notification itself (deferred to
+		// RoomService, after commit).
+		$this->notificationService->expects($this->never())->method('notifyTitleUnlocked');
 
 		$result = $service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
 
+		// ...but it must surface the payload so RoomService can dispatch it.
 		$this->assertSame($newTitle, $result['newTitle']);
 	}
 
@@ -1072,7 +1082,7 @@ class GameLogicServiceTest extends TestCase
 		$user->setCurrentStreak(5);
 		$user->setLastActivity(new \DateTime('yesterday'));
 
-		$this->houseUserMapper->method('find')->willReturn($user);
+		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
 		$roomTask->setIdealDueDate(null);
@@ -1133,7 +1143,7 @@ class GameLogicServiceTest extends TestCase
 		$user->setCurrentStreak(5);
 		$user->setLastActivity(new \DateTime('yesterday'));
 
-		$this->houseUserMapper->method('find')->willReturn($user);
+		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
 		$roomTask->setIdealDueDate(null);

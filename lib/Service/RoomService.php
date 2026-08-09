@@ -455,6 +455,21 @@ class RoomService
             }
         }
 
+        // (3) Title-unlock celebration (CR-SVC-12): dispatched after commit so
+        //     a rolled-back completion never raises a stale title notification.
+        //     The payload is produced inside the lock by GameLogicService and
+        //     surfaced via the game result; only the dispatch is deferred.
+        $newTitle = $gameResult['newTitle'] ?? null;
+        if ($newTitle !== null && $userId !== '') {
+            $this->notificationService->notifyTitleUnlocked(
+                $userId,
+                $newTitle['pack'],
+                $newTitle['labelKey'],
+                $newTitle['packLabelKey'],
+                $newTitle['tierIndex']
+            );
+        }
+
         return [
             'roomTask' => $roomTask,
             'room' => $updatedRoom,
