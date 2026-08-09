@@ -12,12 +12,11 @@ use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCP\ITimeFactory;
+use OCA\ChoreStrike\Db\FloorMapper;
 
 /**
  * Service for synchronizing with Nextcloud Tasks (CalDAV)
@@ -28,27 +27,37 @@ class TaskSyncService
     private CompletedTaskMapper $completedTaskMapper;
     private TaskMapper $taskMapper;
     private RoomMapper $roomMapper;
+    private FloorMapper $floorMapper;
     private HouseUserMapper $houseUserMapper;
-    private ITimeFactory $timeFactory;
+    private RoomService $roomService;
 
     public function __construct(
         RoomTaskMapper $roomTaskMapper,
         CompletedTaskMapper $completedTaskMapper,
         TaskMapper $taskMapper,
         RoomMapper $roomMapper,
+        FloorMapper $floorMapper,
         HouseUserMapper $houseUserMapper,
-        ITimeFactory $timeFactory
+        RoomService $roomService
     ) {
         $this->roomTaskMapper = $roomTaskMapper;
         $this->completedTaskMapper = $completedTaskMapper;
         $this->taskMapper = $taskMapper;
         $this->roomMapper = $roomMapper;
+        $this->floorMapper = $floorMapper;
         $this->houseUserMapper = $houseUserMapper;
-        $this->timeFactory = $timeFactory;
+        $this->roomService = $roomService;
     }
 
     /**
-     * Mark a room task as completed and sync to Nextcloud Tasks
+     * Mark a room task as completed and sync to Nextcloud Tasks.
+     *
+     * CR-SVC-07: routed through the canonical {@see RoomService::completeRoomTask}
+     * so rewards, the house_user row lock, the daily duplicate guard, the
+     * cleanliness update, and recurrence (RoomTask::markCompleted) all apply
+     * uniformly — replacing the reward-less, lock-less, divergent-recurrence
+     * parallel path. Only the sync-specific concern (linking the Nextcloud
+     * task id) is layered on top.
      *
      * @param int $roomTaskId The room task ID
      * @param string $nextcloudUserId The Nextcloud user ID completing the task
@@ -57,47 +66,25 @@ class TaskSyncService
      */
     public function completeTask(int $roomTaskId, string $nextcloudUserId, ?int $nextcloudTaskId = null): array
     {
-        $roomTask = $this->roomTaskMapper->find($roomTaskId);
-        $task = $this->taskMapper->find($roomTask->getTaskId());
-        $room = $this->roomMapper->find($roomTask->getRoomId());
+        $completion = $this->roomService->completeRoomTask($roomTaskId, $nextcloudUserId);
 
-        // Get house user ID from Nextcloud user ID
-        $houseUser = $this->houseUserMapper->findByNextcloudUserId($room->getHouseId(), $nextcloudUserId);
-        $houseUserId = $houseUser->getId();
-
-        $completedAt = new \DateTime();
-
-        // Mark room task as completed
-        $roomTask->setIsActive(false);
-        $roomTask->setLastCompleted($completedAt);
-        $this->roomTaskMapper->update($roomTask);
-
-        // Create completion record
-        $completedTask = new CompletedTask();
-        $completedTask->setRoomTaskId($roomTaskId);
-        $completedTask->setUserId($houseUserId);
-        $completedTask->setCompletedAt($completedAt);
-        $completedTask->setSparksEarned(0);
-        $completedTask->setWasCombo(false);
-        $completedTask->setSyncedToNextcloud(false);
-        if ($nextcloudTaskId) {
-            $completedTask->setNextcloudTaskId($nextcloudTaskId);
+        // Link the Nextcloud task id (if provided) for later sync.
+        if ($nextcloudTaskId !== null) {
+            $this->linkTask($roomTaskId, $nextcloudTaskId);
         }
-        $this->completedTaskMapper->insert($completedTask);
 
-        // Calculate next due date
-        $nextDue = $this->calculateNextDueDateFromTask($task);
-        $roomTask->setNextDue($nextDue);
-        $roomTask->setIsActive(true);
-        $this->roomTaskMapper->update($roomTask);
+        $roomTask = $completion['roomTask'];
+        $task = $completion['task'];
+        $nextDue = $roomTask->getNextDue();
 
         return [
             'roomTaskId' => $roomTaskId,
             'taskName' => $task->getName(),
-            'completedAt' => $completedAt->format('c'),
+            'completedAt' => $roomTask->getLastCompleted()?->format('c'),
             'nextcloudTaskId' => $nextcloudTaskId,
             'nextDue' => $nextDue ? $nextDue->format('Y-m-d') : null,
             'synced' => false,
+            'rewards' => $completion['rewards'],
         ];
     }
 
@@ -150,9 +137,26 @@ class TaskSyncService
             }
         }
 
-        // Apply completion from Nextcloud
-        $roomTask->setIsActive(false);
-        $roomTask->setLastCompleted($completedDate);
+        // Apply completion from Nextcloud. Recurrence uses the canonical
+        // RoomTask::markCompleted (CR-SVC-07) instead of the deleted divergent
+        // helper, so a Nextcloud-originated completion advances identically to
+        // a normal one. No reward is awarded here: the external completer is
+        // unknown (rewards flow through the canonical path when a known user
+        // completes via completeTask).
+        $task = $this->taskMapper->find($roomTask->getTaskId());
+        $roomTask->markCompleted(
+            $completedDate,
+            $task->getFrequencyType(),
+            $task->getFrequencyValue(),
+            $task->getRecurrenceMode(),
+            $task->getSchedulingMode(),
+            $task->getActiveUntil(),
+            $task->getFixedScheduleTime(),
+            $task->getFixedScheduleDays(),
+            $task->getFlexDays(),
+            [],
+            []
+        );
         $this->roomTaskMapper->update($roomTask);
 
         // Create or update completion record
@@ -168,11 +172,7 @@ class TaskSyncService
             $this->completedTaskMapper->insert($completedTask);
         }
 
-        // Calculate and set next due
-        $nextDue = $this->calculateNextDueDate($roomTask);
-        $roomTask->setNextDue($nextDue);
-        $roomTask->setIsActive(true);
-        $this->roomTaskMapper->update($roomTask);
+        $nextDue = $roomTask->getNextDue();
 
         return [
             'roomTaskId' => $roomTaskId,
@@ -358,45 +358,12 @@ class TaskSyncService
     }
 
     /**
-     * Calculate next due date based on frequency
-     *
-     * @param RoomTask $roomTask The room task
-     * @return \DateTime|null Next due date or null
-     */
-    private function calculateNextDueDate(RoomTask $roomTask): ?\DateTime
-    {
-        $task = $this->taskMapper->find($roomTask->getTaskId());
-
-        return $this->calculateNextDueDateFromTask($task);
-    }
-
-    /**
-     * Calculate next due date from task frequency settings.
-     *
-     * @param Task $task The task
-     * @return \DateTime|null Next due date or null
-     */
-    private function calculateNextDueDateFromTask(Task $task): ?\DateTime
-    {
-        $frequencyType = $task->getFrequencyType();
-        $frequencyValue = $task->getFrequencyValue() ?? 1;
-
-        if (!$frequencyType || $frequencyType === 'once') {
-            return null;
-        }
-
-        $nextDue = new \DateTime();
-
-        return match ($frequencyType) {
-            'daily' => $nextDue->modify("+{$frequencyValue} days"),
-            'weekly' => $nextDue->modify("+{$frequencyValue} weeks"),
-            'monthly' => $nextDue->modify("+{$frequencyValue} months"),
-            default => $nextDue->modify('+1 week'),
-        };
-    }
-
-    /**
      * Check whether a room task belongs to the given house.
+     *
+     * Resolves the house via the floor chain (room → floor → house) — Room has
+     * no house_id column, so the previous `$room->getHouseId()` was a latent
+     * bug that threw on the real DB (CR-SVC-21 house-scoping inconsistency,
+     * exposed by the CR-SVC-07 integration test).
      *
      * @param int $roomTaskId The room task ID
      * @param int $houseId The house ID
@@ -406,8 +373,9 @@ class TaskSyncService
     {
         $roomTask = $this->roomTaskMapper->find($roomTaskId);
         $room = $this->roomMapper->find($roomTask->getRoomId());
+        $floor = $this->floorMapper->find($room->getFloorId());
 
-        return $room->getHouseId() === $houseId;
+        return $floor->getHouseId() === $houseId;
     }
 
     /**

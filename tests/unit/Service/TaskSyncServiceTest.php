@@ -6,7 +6,6 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
@@ -14,8 +13,10 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\Floor;
+use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\TaskSyncService;
-use OCP\ITimeFactory;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -28,8 +29,9 @@ class TaskSyncServiceTest extends TestCase
     private CompletedTaskMapper $completedTaskMapper;
     private TaskMapper $taskMapper;
     private RoomMapper $roomMapper;
+    private FloorMapper $floorMapper;
     private HouseUserMapper $houseUserMapper;
-    private ITimeFactory $timeFactory;
+    private RoomService $roomService;
 
     protected function setUp(): void
     {
@@ -37,82 +39,100 @@ class TaskSyncServiceTest extends TestCase
         $this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
         $this->taskMapper = $this->createMock(TaskMapper::class);
         $this->roomMapper = $this->createMock(RoomMapper::class);
+        $this->floorMapper = $this->createMock(FloorMapper::class);
         $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-        $this->timeFactory = $this->createMock(ITimeFactory::class);
+        $this->roomService = $this->createMock(RoomService::class);
 
         $this->service = new TaskSyncService(
             $this->roomTaskMapper,
             $this->completedTaskMapper,
             $this->taskMapper,
             $this->roomMapper,
+            $this->floorMapper,
             $this->houseUserMapper,
-            $this->timeFactory
+            $this->roomService
         );
     }
 
     /**
-     * CompleteTask_ValidTask_ReturnsCompletionData
+     * CompleteTask_DelegatesToCanonicalCompletionAndSurfacesRewards
+     *
+     * CR-SVC-07: completeTask routes through RoomService::completeRoomTask so
+     * rewards, locking, the daily duplicate guard, the cleanliness update, and
+     * recurrence all apply uniformly — no reward-less parallel path. The
+     * rewards from the canonical path flow through to the sync result.
      */
-    public function testCompleteTask_ValidTask_ReturnsCompletionData(): void
+    public function testCompleteTask_DelegatesToCanonicalCompletionAndSurfacesRewards(): void
     {
         $roomTaskId = 1;
         $nextcloudUserId = 'testuser';
-        $houseUserId = 1;
-        $houseId = 1;
 
         $roomTask = new RoomTask();
         $roomTask->setId($roomTaskId);
-        $roomTask->setTaskId(1);
-        $roomTask->setRoomId(1);
-        $roomTask->setIsActive(true);
+        $roomTask->setLastCompleted(new \DateTime('2026-08-09T10:00:00+00:00'));
+        $roomTask->setNextDue(new \DateTime('2026-08-16'));
 
         $task = new Task();
         $task->setId(1);
         $task->setName('Test Task');
-        $task->setFrequencyType('weekly');
-        $task->setFrequencyValue(1);
 
-        $room = new Room();
-        $room->setId(1);
-        $room->setHouseId($houseId);
+        $rewards = ['coins' => 30, 'contributionScore' => 3, 'currentStreak' => 1];
 
-        $user = new HouseUser();
-        $user->setId($houseUserId);
-        $user->setHouseId($houseId);
-        $user->setNextcloudUserId($nextcloudUserId);
+        $this->roomService->expects($this->once())
+            ->method('completeRoomTask')
+            ->with($roomTaskId, $nextcloudUserId)
+            ->willReturn([
+                'roomTask' => $roomTask,
+                'room' => new Room(),
+                'task' => $task,
+                'rewards' => $rewards,
+            ]);
 
-        $this->roomTaskMapper
-            ->expects($this->once())
-            ->method('find')
-            ->with($roomTaskId)
-            ->willReturn($roomTask);
-
-        $this->taskMapper
-            ->expects($this->once())
-            ->method('find')
-            ->with(1)
-            ->willReturn($task);
-
-        $this->roomMapper
-            ->expects($this->once())
-            ->method('find')
-            ->with(1)
-            ->willReturn($room);
-
-        $this->houseUserMapper
-            ->expects($this->once())
-            ->method('findByNextcloudUserId')
-            ->with($houseId, $nextcloudUserId)
-            ->willReturn($user);
-
-        $this->roomTaskMapper->expects($this->exactly(2))->method('update');
-        $this->completedTaskMapper->expects($this->once())->method('insert');
+        // The divergent path (direct mapper writes + sparksEarned=0) must not run.
+        $this->roomTaskMapper->expects($this->never())->method('update');
+        $this->completedTaskMapper->expects($this->never())->method('insert');
 
         $result = $this->service->completeTask($roomTaskId, $nextcloudUserId);
 
         $this->assertEquals($roomTaskId, $result['roomTaskId']);
         $this->assertEquals('Test Task', $result['taskName']);
         $this->assertFalse($result['synced']);
+        $this->assertSame($rewards, $result['rewards']);
+    }
+
+    /**
+     * CompleteTask_WithNextcloudTaskId_LinksAfterCanonicalCompletion
+     *
+     * The Nextcloud task id is linked after the canonical completion so the
+     * later sync can find the room task.
+     */
+    public function testCompleteTask_WithNextcloudTaskId_LinksAfterCanonicalCompletion(): void
+    {
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+        $roomTask->setNextDue(new \DateTime('2026-08-16'));
+
+        $task = new Task();
+        $task->setName('Test Task');
+
+        $this->roomService->method('completeRoomTask')->willReturn([
+            'roomTask' => $roomTask,
+            'room' => new Room(),
+            'task' => $task,
+            'rewards' => [],
+        ]);
+
+        $linked = new RoomTask();
+        $linked->setId(1);
+        $this->roomTaskMapper->method('find')->willReturn($linked);
+        $this->roomTaskMapper->expects($this->once())->method('update')
+            ->with($this->callback(function ($t) {
+                return $t->getNextcloudTaskId() === 4242;
+            }));
+
+        $result = $this->service->completeTask(1, 'testuser', 4242);
+
+        $this->assertSame(4242, $result['nextcloudTaskId']);
     }
 
     /**
@@ -139,6 +159,14 @@ class TaskSyncServiceTest extends TestCase
             ->method('find')
             ->with($roomTaskId)
             ->willReturn($roomTask);
+
+        // CR-SVC-07: recurrence now uses the canonical RoomTask::markCompleted,
+        // which needs the task's frequency settings.
+        $this->taskMapper
+            ->expects($this->once())
+            ->method('find')
+            ->with(1)
+            ->willReturn($task);
 
         $this->completedTaskMapper
             ->expects($this->once())
@@ -269,7 +297,12 @@ class TaskSyncServiceTest extends TestCase
 
         $room = new Room();
         $room->setId(101);
-        $room->setHouseId(2);
+        $room->setFloorId(201);
+
+        // House is resolved via the floor chain (Room has no house_id).
+        $floor = new Floor();
+        $floor->setId(201);
+        $floor->setHouseId(2); // a different house
 
         $this->roomTaskMapper
             ->expects($this->once())
@@ -282,6 +315,14 @@ class TaskSyncServiceTest extends TestCase
             ->method('find')
             ->with(101)
             ->willReturn($room);
+
+        $this->floorMapper
+            ->expects($this->once())
+            ->method('find')
+            ->with(201)
+            ->willReturn($floor);
+
+        $this->roomService->expects($this->never())->method('completeRoomTask');
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Room task does not belong to this house');
@@ -328,15 +369,16 @@ class TaskSyncServiceTest extends TestCase
                 [1003, $roomTaskThree],
             ]);
 
+        // Rooms carry a floorId; the house is resolved via the floor chain.
         $roomOne = new Room();
         $roomOne->setId(201);
-        $roomOne->setHouseId(1);
+        $roomOne->setFloorId(301);
         $roomTwo = new Room();
         $roomTwo->setId(202);
-        $roomTwo->setHouseId(2);
+        $roomTwo->setFloorId(302);
         $roomThree = new Room();
         $roomThree->setId(203);
-        $roomThree->setHouseId(1);
+        $roomThree->setFloorId(303);
 
         $this->roomMapper
             ->expects($this->exactly(3))
@@ -345,6 +387,25 @@ class TaskSyncServiceTest extends TestCase
                 [201, $roomOne],
                 [202, $roomTwo],
                 [203, $roomThree],
+            ]);
+
+        $floorOne = new Floor();
+        $floorOne->setId(301);
+        $floorOne->setHouseId(1);
+        $floorTwo = new Floor();
+        $floorTwo->setId(302);
+        $floorTwo->setHouseId(2);
+        $floorThree = new Floor();
+        $floorThree->setId(303);
+        $floorThree->setHouseId(1);
+
+        $this->floorMapper
+            ->expects($this->exactly(3))
+            ->method('find')
+            ->willReturnMap([
+                [301, $floorOne],
+                [302, $floorTwo],
+                [303, $floorThree],
             ]);
 
         $result = $this->service->getPendingSyncsForHouse($houseId, $limit);
