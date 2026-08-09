@@ -758,8 +758,10 @@ class RoomTaskService
     public function skipTask(int $roomTaskId): RoomTask
     {
         $roomTask = $this->roomTaskMapper->find($roomTaskId);
-        // Skip by moving due date forward by 1 day
         $nextDue = $roomTask->getNextDue();
+        if ($nextDue === null) {
+            throw new \InvalidArgumentException('Cannot skip a room task without a due date');
+        }
         $nextDue->modify('+1 day');
         $roomTask->setNextDue($nextDue);
         return $this->roomTaskMapper->update($roomTask);

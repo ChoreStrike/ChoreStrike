@@ -482,6 +482,35 @@ class RewardConfigServiceTest extends TestCase
     }
 
     /**
+     * UpdateConfig_TitleThresholdsSparsePayload_WritesCorrectTierIndex
+     *
+     * Regression: applyTitleThresholds() iterated array_values($tierValues),
+     * which reindexes a sparse payload (e.g. [2 => 1000]) to position 0, so
+     * the value was written to the wrong tier. The tier index must come from
+     * the original key.
+     */
+    public function testUpdateConfig_TitleThresholdsSparsePayload_WritesCorrectTierIndex(): void
+    {
+        $written = [];
+        $this->config
+            ->method('setValueString')
+            ->willReturnCallback(function (string $app, string $key, string $value) use (&$written): void {
+                $written[$key] = $value;
+            });
+
+        // Sparse payload: only tier index 2 provided.
+        $this->service->updateConfig([
+            'titleThresholds' => [
+                'home_helpers' => [2 => 1000],
+            ],
+        ]);
+
+        $this->assertSame('1000', $written['title_threshold_home_helpers_2'] ?? null);
+        $this->assertArrayNotHasKey('title_threshold_home_helpers_0', $written);
+        $this->assertArrayNotHasKey('title_threshold_home_helpers_1', $written);
+    }
+
+    /**
      * GetComboMultiplier_ReturnsDefault
      */
     public function testGetComboMultiplier_ReturnsDefault(): void

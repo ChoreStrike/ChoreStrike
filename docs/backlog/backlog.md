@@ -303,6 +303,221 @@ inside the view's `v-else`, loading=false).
 
 ---
 
+## Review Follow-ups — Full Review of `lib/Service` (2026-08-04)
+
+> From [`archive/CODE_REVIEW_2026-08-04.md`](archive/CODE_REVIEW_2026-08-04.md).
+> Full Review (4 parallel reviewer subagents) of all 29 `lib/Service` files. Three
+> minor findings were **auto-fixed** this review (gate green); the rest are open.
+
+### [P0] CR-SVC-01 — `RoomTaskService::createRoomTask` cross-house IDOR
+**Status**: Open · **Effort**: S · **Source**: Review of `lib/Service` (2026-08-04)
+`RoomTaskController::create` (`lib/Controller/RoomTaskController.php:157`) calls
+`ensureHouseMember` but never `validateRoomOwnership($roomId,…)` nor
+`assertUserInHouse($assignedToUserId)`. A member can create room tasks in any house's
+rooms and stamp an arbitrary Nextcloud userId as the legacy assignee.
+- [ ] Add `validateRoomOwnership($roomId, $houseId)` + assignee membership validation
+      in the controller (or inside `createRoomTask`); regression test (unit + integration).
+
+### [P0] CR-SVC-02 — `TestDataService` destructive ops have no internal `isTestMode()` self-gate
+**Status**: Open · **Effort**: XS · **Source**: Review of `lib/Service` (2026-08-04)
+`reset()`/`seedEmpty()`/`seedMinimal()`/`seedFamily()`/`seed()` truncate all app tables
+but only callers enforce `isTestMode()`. CS-PLAN-019 hardened the endpoints, not the
+service; any future caller omits the gate → prod DB wipe.
+- [ ] `$this->assertTestMode()` (throw unless `isTestMode()`) as first line of every
+      destructive entry point; test that a non-test-mode call throws.
+
+### [P1] CR-SVC-03 — `StreakFreezeService::process` is not idempotent (data loss)
+**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
+Re-running the daily freeze job (retry / `occ chorestrike:trigger-jobs`) double-consumes
+freezes or resets an already-preserved streak. No last-processed-date guard.
+- [ ] Record a per-user last-freeze date (or a `frozen_for_date` marker) and skip if
+      already processed for `$yesterday`; re-runnability test (CS-PLAN-023 time-travel harness).
+
+### [P1] CR-SVC-04 — Lost-update race on `house_user` coins/streak on concurrent completion
+**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
+`RoomService::completeRoomTask` locks `room_task` but not `house_user`; two concurrent
+same-user completions read the same row and the second write clobbers the first
+(`GameLogicService::handleTaskCompletion:69` → `update():150`).
+- [ ] `SELECT … FOR UPDATE` the `house_user` row inside the transaction, or move the
+      read+write under the same `lockForUpdate` discipline.
+
+### [P1] CR-SVC-05 — `MinigameService::saveScore` unbounded client score (coin farming)
+**Status**: Open · **Effort**: XS · **Source**: Review of `lib/Service` (2026-08-04)
+`score` is untrusted client input; `coinsEarned = floor($score/10)` with no bound →
+negative-score coin drain / unlimited minting via `score=INT_MAX`.
+- [ ] Validate/clamp `$score >= 0` and a sane per-game maximum before insert + coin award.
+
+### [P1] CR-SVC-06 — `requireHouseOwner`/`isHouseOwner` auto-create a membership on a miss
+**Status**: Open · **Effort**: S · **Source**: Review of `lib/Service` (2026-08-04)
+Both delegate to `ensureHouseMember`, which mutates on a miss (`AuthorizationService.php:192,206`).
+A non-member attempting an owner-only op becomes a phantom `member` row, then gets a 403.
+A read-looking/owner check must not write.
+- [ ] Switch both to the read-only `assertHouseMember()` (or a pure `findByHouseAndUser`);
+      test that a denied owner check leaves no `house_users` row.
+
+### [P1] CR-SVC-07 — `TaskSyncService` divergent, reward-less completion path
+**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
+`completeTask`/`calculateNextDueDateFromTask` write a `CompletedTask` with `sparksEarned=0`,
+no locking, no daily duplicate guard, and a recurrence that ignores flex scheduling —
+diverging from the canonical `RoomService::completeRoomTask` / `RoomTask::markCompleted`.
+- [ ] Route CalDAV-sync completions through the canonical completion core; delete the
+      divergent recurrence helper.
+
+### [P1] CR-SVC-12 — `completeRoomTask` holds the DB transaction across a notification dispatch
+**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
+The `beginTransaction`…`commit` + `lockForUpdate` wraps `GameLogicService::handleTaskCompletion`,
+which dispatches `notifyTitleUnlocked` *before* commit (`RoomService.php:290-394`). Locks
+held across an external call → contention; rollback leaves a stale bell notification.
+- [ ] Collect title-unlock data inside the transaction (like the takeover/weekly-goal
+      notifications) and dispatch `notifyTitleUnlocked` **after** commit.
+
+### [P2] CR-SVC-08 — Delete the unreachable scheduler dead cluster + 3 orphan services
+**Status**: Open · **Decision**: delete (confirmed by user 2026-08-04) · **Plan**: [CS-PLAN-025](../plans/new/cs-plan-025-service-security-concurrency-cleanup.md) Phase 2 · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
+After the 7 `smart-schedule#*` routes were removed (security), `SmartSchedulerService` →
+`TaskSchedulerService` → all of `lib/Service/Scheduling/*` is unreachable, and
+`ComboService`/`HouseUserService`/`UserStatsService` have no callers (~11 files). Extends
+CR-016-07 / CR-016-13. **Deleting this retires the dead-code-only bugs** (rand() workload
+balancing, DI `new`-violations, scheduler N+1, `TaskPriorityScorer`/`ScheduleOptimizer`
+correctness, `ComboService` cap, `UserStatsService` duplicate-on-multiple, etc.) listed in
+the review record.
+- [ ] Confirm delete-vs-keep (batched question in the review record); if delete, remove
+      the chain + orphans + their tests; update `gamification`/ADR-005 docs + `RESET_TABLES`.
+
+### [P2] CR-SVC-09 — Harden `RoomTaskService::assignTask`/`bulkAssignTasks` internally
+**Status**: Open · **Effort**: S · **Source**: Review of `lib/Service` (2026-08-04)
+The HTTP path validates today, but the public methods do not (`:228,:502`);
+`bulkAssignTasks` also logs the userId in plaintext (`:513`). One new caller that forgets
+the preamble = cross-house assignment / arbitrary-user write.
+- [ ] Require `houseId` + assert membership + room-task ownership inside `assignTask`
+      (mirror `setAssignees`/`addAssignee`); stop logging the raw userId.
+
+### [P2] CR-SVC-10 — `completeRoomTask` membership re-check + null safety
+**Status**: Open · **Effort**: S · **Source**: Review of `lib/Service` (2026-08-04)
+Ordinary (non-private, non-admin-only) tasks have no membership re-check inside the
+transaction (`RoomService.php:280`); a null `$houseUser` yields a 500, not a clean 403.
+- [ ] Assert house membership for `$userId` at the top of the transaction; throw
+      `ForbiddenException` if `$houseUser === null`.
+
+### [P2] CR-SVC-11 — N+1 query cluster across services
+**Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)
+Pervasive per-row mapper calls in loops. Hot spots: `HouseService::calculateHouseHealth`/
+`getHouseStats`/`resetHouse`; `GameLogicService::checkAndAwardMedals`/`getMedals`;
+`TaskSchedulerService::getActiveRoomTasks` (3-level); `TaskPriorityScorer::calculateScores`;
+`FloorService::getFloorsWithRooms`/`reorderFloors`; `RoomService::getRoomWithTasks`/
+`deleteRoom`; `RoomTaskService::getDailyTasksWithDetails`/`getRangeTasks`/`bulkAssignTasks`;
+`MinigameService` leaderboards; `TaskSyncService::getPendingSyncsForHouse`;
+`StreakFreezeService::process`.
+- [ ] Add batch mapper queries (`findByHouseId`, `findByIds` IN, JOINs, grouped counts);
+      replace per-id `find` loops with set-based lookups. (Scheduler N+1s retire with CR-SVC-08.)
+
+### [P2] CR-SVC-13 — Migrate raw `LoggerInterface` services to `AppLogger`
+**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
+`NotificationService`, `StreakAtRiskService`, `StreakFreezeService`, `StreakRestockService`
+inject raw `Psr\Log\LoggerInterface` instead of `AppLogger` (project-rules §2), bypassing
+sensitive-key sanitization; ~16 services have no logger at all.
+- [ ] Inject `AppLogger` in the 4 services; route dispatch/process failures through it.
+
+### [P2] CR-SVC-15 — Decompose God-methods / God-services
+**Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)
+Over the ~300-line/~30-line guidelines: `RoomService::completeRoomTask` (~200 lines),
+`GameLogicService` (517, 7 concerns), `handleTaskCompletion` (~113) /
+`checkAndAwardMedals` (~62, 5 near-identical award blocks), `RoomTaskService` (833),
+`RewardConfigService` (607), `TaskService::createTask` (24 positional params).
+- [ ] Extract cohesive steps (overdue-takeover, post-commit notification dispatch,
+      medal-rules table) and split GameLogicService along domain lines.
+
+### [P2] CR-SVC-16 — `RewardConfigService` registry refactor (DRY)
+**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
+Every config key is touched in 4-5 places (const + get + set + `updateConfig` branch +
+`getAllConfig` entry); `updateConfig` mirrors `getAllConfig`.
+- [ ] Drive get/set/update/all from a single `key => [type, default, clamp]` registry.
+
+### [P3] CR-SVC-17 — `TaskService::updateTask` missing task-visibility matrix
+**Effort**: S — asymmetric with `deleteTask`; `ownerUserId` is whitelisted so a private
+task can be silently re-assigned away from its owner. Mirror `deleteTask`'s caller/owner
+checks.
+
+### [P3] CR-SVC-19 — `RewardConfigService` inconsistent clamping
+**Effort**: S — several setters/getters return raw values (tier multiplier, coin base,
+freeze cap/count, early-bonus) that can invert rewards (negative multiplier). Admin-gated.
+Clamp to `>= 0`/`>= 1` consistently.
+
+### [P3] CR-SVC-21 — `TaskSyncService` inconsistent house-scoping + unscoped public mutators
+**Effort**: S — uses `room->getHouseId()` directly while the authoritative path resolves
+`room->floor->house`; the non-`ForHouse` variants (`completeTask`, `linkTask`,
+`markAsSynced`, `getPendingSyncs`) are unscoped public mutators. Make them private,
+expose only the `*ForHouse` wrappers.
+
+### [P3] CR-SVC-22 — `RoomTaskService::removeAssignee` unguarded
+**Effort**: XS — inconsistent with `addAssignee`; require `houseId` + validate membership
++ room-task ownership.
+
+### [P3] CR-SVC-23 — `MinigameService::purchaseBoost` lost-update
+**Effort**: S — read-check-deduct with no lock; concurrent purchases can pay once for two
+boosts. Wrap in a transaction with `SELECT … FOR UPDATE` on the `house_user` row.
+
+### [P3] CR-SVC-26 — `removeUserFromHouse` leaves orphaned assignee references
+**Effort**: S — root cause of the defensive re-check at `RoomService.php:419`. On removal,
+null `room_tasks.assigned_to_user_id` and delete `task_assignees` rows for the user.
+
+### [P3] CR-SVC-27 — `notifyStreakAtRisk` objectId not day-qualified
+**Effort**: XS — Nextcloud dedups on `(app,user,objectType,objectId)`; using the bare
+streak number drops the second day's reminder. Qualify with the date.
+
+### [P3] CR-SVC-28 — `SchedulingService::getUserPreferences` stale consumed energy
+**Effort**: XS — hardcodes `todayConsumedEnergy=0` (only the `…ByNextcloudUserId` variant
+computes the real value). Compute it in both, or drop the field from this variant.
+
+### [P3] CR-SVC-30 — `StreakRestockService::process` non-resilient loop
+**Effort**: XS — one try/catch wraps the whole loop; a single user's failure aborts the
+weekly restock. Move the try/catch inside the `foreach` (match `StreakFreezeService`).
+
+### [P3] CR-SVC-31 — `completionRate` conflates inactive with completed
+**Effort**: S — `getRoomTaskStats`/`getUserTaskStats` compute `(total-active)/total`,
+counting deactivated/skipped/one-time tasks as completed. Count real completions or
+rename the metric.
+
+### [P3] CR-SVC-32 — `calculateDaysEarly` DST/timezone edge cases
+**Effort**: S — divides a second-difference by 86400; across DST / near midnight this can
+round to the wrong day and flip the early bonus. Use calendar-day `diff`.
+
+### [P3] CR-SVC-33 — `TaskService::completeTask` reward-less Task-level path
+**Effort**: S — sets `status='completed'` with no coins/streak/cleanliness, parallel to
+the real `RoomTaskService::completeTask`. Remove or document as admin/template-only.
+
+### [P3] CR-SVC-36 — `calculateContributionScore` unused `$roomCleanliness` param
+**Effort**: XS — public method ignores the param (signature/PHPDoc mislead). Drop it
+(update caller + test) or fold cleanliness in per the documented intent.
+
+### [P3] CR-SVC-37 — Service-layer i18n: hardcoded user-facing strings
+**Effort**: S — `TaskService::validateTaskData` validation messages and
+`MinigameService::purchaseBoost` exception messages are English literals returned to
+clients. Inject `IL10N`, wrap with `t()`, update `l10n/` artifacts.
+
+### [P3] CR-SVC-39 — Missing PHPDoc on Scheduling public members
+**Effort**: S — `AvailabilityCalculator` (and others) public methods carry only a
+one-line summary, no `@param`/`@return`. Add mechanically. (Retired if CR-SVC-08 deletes.)
+
+### [P3] CR-SVC-40 — `RoomService` reaches below its layer (`IDBConnection`)
+**Effort**: M — injects `IDBConnection` for `beginTransaction`/`lockForUpdate` (persistence
+plumbing in a service). Move transaction+lock into the mapper/repository.
+
+### [P3] CR-SVC-41 — Service DI inconsistencies
+**Effort**: M — nullable `?AppLogger` in 3 services (silent null-skip risk);
+`getFilteredDailyTasksForUser` takes `HouseUserMapper` as a param despite ctor injection;
+duplicated stat helpers; duplicated `validate*Ownership` across Floor/Room/RoomTask services.
+
+### [P3] CR-SVC-42 — `TestDataService::RESET_TABLES` legacy table aliases
+**Effort**: XS — pre-release compat shim (project-rules §1 forbids). Drop the legacy names.
+
+### [P3] CR-SVC-44 — Minor performance cluster
+**Effort**: M — `TaskService::getAllTasks` unbounded `findAll`; `createDefaultTemplates`
+15 sequential inserts; `StreakFreeze`/`StreakRestock` per-user UPDATEs; `assignTask`/
+`unassignTask`/`deactivate`/`reactivate`/`updateDueDate` triple-fetch pattern;
+`ScheduleOptimizer` O(n²) recompute; `extractHouseIdFromSchedule` 3 dependent queries.
+
+---
+
 ## Release / Rollout
 
 > Stage path: `v0.8.x` alpha → `v0.9.x` beta → `v1.0.0` stable (manual install).

@@ -261,20 +261,11 @@ class FloorServiceTest extends TestCase
         $floor = new Floor();
         $floor->setId($floorId);
 
-        $room = new Room();
-        $room->setId(1);
-
         $this->floorMapper
             ->expects($this->once())
             ->method('find')
             ->with($floorId)
             ->willReturn($floor);
-
-        $this->roomMapper
-            ->expects($this->once())
-            ->method('findByFloorId')
-            ->with($floorId)
-            ->willReturn([$room]);
 
         $this->floorMapper
             ->expects($this->once())

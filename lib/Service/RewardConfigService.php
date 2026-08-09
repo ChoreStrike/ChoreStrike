@@ -562,8 +562,8 @@ class RewardConfigService
                 continue;
             }
             $byIndex = [];
-            foreach (array_values($tierValues) as $index => $value) {
-                if (!is_numeric($value)) {
+            foreach ($tierValues as $index => $value) {
+                if (!is_numeric($value) || !is_numeric($index)) {
                     continue;
                 }
                 $byIndex[(int)$index] = max(1, (int)$value);

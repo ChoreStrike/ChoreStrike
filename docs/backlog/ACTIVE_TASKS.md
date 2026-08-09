@@ -31,6 +31,7 @@ Related plans drafted: CS-023 (time-travel testing), CS-024 (release E2E suite) 
 > One-line entries only — full scope lives in the linked plan. Older completed
 > work → [`archive/`](archive/) (e.g. [`archive/2026-07.md`](archive/2026-07.md)).
 
+- **Full Review — `lib/Service`** (Deep Slice, 4 parallel reviewer subagents; 3 minor auto-fixes applied, gate green; 2 P0 + 6 P1 + P2/P3 follow-ups logged as CR-SVC-*) (2026-08-04, Done) → [`archive/CODE_REVIEW_2026-08-04.md`](archive/CODE_REVIEW_2026-08-04.md)
 - **CS-PLAN-023** — Time-Travel Testing in Docker (injectable-time job services, `occ chorestrike:trigger-jobs --as-of`, overdue/at-risk family seed, 2 E2E specs; also fixed route-shadowing + notifier-registration + seed-fixture defects, see [`archive/2026-08.md`](archive/2026-08.md)) (2026-08-04, Done) → `../plans/active/cs-plan-023-time-travel-testing.md`
 
 - **CS-PLAN-022** — Test Coverage Expansion (2026-07-30, Done) → `../plans/active/cs-plan-022-test-coverage-expansion.md`
@@ -48,4 +49,5 @@ Related plans drafted: CS-023 (time-travel testing), CS-024 (release E2E suite) 
 
 > The `new/ → active/` move is **manual** (project-rules §7). These register intent only.
 
-_(none — RELEASE-001/CS-PLAN-017 completed 2026-07-30; RELEASE-002/-003 remain pending in [`backlog.md`](backlog.md) → Release)_
+- **CS-PLAN-025** — `lib/Service` Security, Concurrency & Dead-Code Cleanup (P0 IDOR + test-mode gate; delete dead scheduler cluster; P1 locking/idempotency/owner-check/sync-path). → [`../plans/new/cs-plan-025-service-security-concurrency-cleanup.md`](../plans/new/cs-plan-025-service-security-concurrency-cleanup.md) · Source: [`archive/CODE_REVIEW_2026-08-04.md`](archive/CODE_REVIEW_2026-08-04.md)
+- **CS-PLAN-024** — Release E2E regression suite. → [`../plans/new/cs-plan-024-release-e2e-regression-suite.md`](../plans/new/cs-plan-024-release-e2e-regression-suite.md)

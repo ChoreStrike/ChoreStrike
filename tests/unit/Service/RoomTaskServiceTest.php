@@ -651,6 +651,34 @@ class RoomTaskServiceTest extends TestCase
     }
 
     /**
+     * SkipTask_NullNextDue_ThrowsInsteadOfCrashing
+     *
+     * Regression: skipTask() dereferenced getNextDue()->modify('+1 day')
+     * with no null check, causing a TypeError when a room task had no due
+     * date. It must throw a clean InvalidArgumentException instead.
+     */
+    public function testSkipTask_NullNextDue_ThrowsInsteadOfCrashing(): void
+    {
+        $roomTaskId = 1;
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setIsActive(true);
+
+        $this->roomTaskMapper
+            ->expects($this->once())
+            ->method('find')
+            ->with($roomTaskId)
+            ->willReturn($roomTask);
+
+        $this->roomTaskMapper->expects($this->never())->method('update');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->service->skipTask($roomTaskId);
+    }
+
+    /**
      * SetAssignees_ValidMembers_ReplacesAssignees
      */
     public function testSetAssignees_ValidMembers_ReplacesAssignees(): void

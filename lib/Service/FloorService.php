@@ -135,15 +135,7 @@ class FloorService
      */
     public function deleteFloor(int $floorId): void
     {
-        $floor = $this->floorMapper->find($floorId);
-
-        // Check if floor has rooms and if deletion is allowed
-        $rooms = $this->roomMapper->findByFloorId($floorId);
-        if (!empty($rooms)) {
-            // For now, allow deletion with rooms (cascade will handle it)
-            // In the future, we might want to require explicit confirmation
-        }
-
+        $this->floorMapper->find($floorId);
         $this->floorMapper->deleteWithRooms($floorId);
     }
 
