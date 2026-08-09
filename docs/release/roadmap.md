@@ -264,7 +264,17 @@
 
 **Deliverable**: Intelligent task scheduling with availability-based distribution
 
-**Architecture Decision**: See [ADR-005](../adr/ADR-005-smart-scheduling.md)
+**Architecture Decision**: See [ADR-005](../adr/ADR-005-smart-scheduling.md) (Superseded)
+
+> **Removed (CS-PLAN-025 / CR-SVC-08, 2026-08-09):** the smart-scheduler
+> backend (`TaskSchedulerService` + 5 `Scheduling/*` collaborators,
+> `SmartSchedulerService`, `SmartSchedulerController`, and the orphan
+> `ComboService`/`HouseUserService`/`UserStatsService` + `Combo`/`UserStats`
+> tables) was unreachable after the CS-016 auth-gap route removal and has been
+> deleted. The live scheduling surface (`SchedulingController` +
+> `SchedulingService`: preferences, energy, availability, suggestions) and the
+> frontend components above remain. Re-add with `AuthorizationService` gating if
+> smart scheduling is revived.
 
 ---
 

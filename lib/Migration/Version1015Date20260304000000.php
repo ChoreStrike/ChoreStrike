@@ -125,25 +125,9 @@ class Version1015Date20260304000000 extends SimpleMigrationStep
             }
         }
 
-        // chorestrike_user_stats indexes
-        if ($schema->hasTable('chorestrike_user_stats')) {
-            $table = $schema->getTable('chorestrike_user_stats');
-
-            // Index for findByHouse queries
-            if (!$table->hasIndex('us_house_id_idx')) {
-                $table->addIndex(['house_id'], 'us_house_id_idx');
-            }
-
-            // Index for leaderboard queries
-            if (!$table->hasIndex('us_house_points_idx')) {
-                $table->addIndex(['house_id', 'total_points'], 'us_house_points_idx');
-            }
-
-            // Index for house + user lookup
-            if (!$table->hasIndex('us_house_user_idx')) {
-                $table->addIndex(['house_id', 'user_id'], 'us_house_user_idx');
-            }
-        }
+        // chorestrike_user_stats indexes removed (CS-PLAN-025 / CR-SVC-08):
+        // the table was dropped from the migration chain — no live code
+        // referenced UserStatsService/UserStatsMapper.
 
         // chorestrike_availability indexes
         if ($schema->hasTable('chorestrike_availability')) {

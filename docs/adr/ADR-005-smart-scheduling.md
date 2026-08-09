@@ -1,8 +1,20 @@
 # ADR-005: Smart Scheduling Architecture
 
-**Status**: Accepted  
+**Status**: Superseded (2026-08-09)  
 **Date**: 2026-03-03  
 **Deciders**: Development Team
+
+> **Superseded by removal (CS-PLAN-025 / CR-SVC-08):** the `TaskSchedulerService`
+> architecture described below — together with `SmartSchedulerService`,
+> `SmartSchedulerController`, the five `Scheduling/*` collaborators
+> (`AvailabilityCalculator`, `ScheduleOptimizer`, `TaskAssignmentAlgorithm`,
+> `TaskPriorityScorer`, `TaskReassignmentSuggester`), and the orphan
+> `ComboService` / `HouseUserService` / `UserStatsService` — was unreachable
+> after the smart-schedule routes were removed for an authorization gap
+> (CS-016, 2026-07-28) and has been deleted. The **live** scheduling surface is
+> `SchedulingController` + `SchedulingService` (preferences, energy, availability,
+> suggestions). This ADR is retained for historical context only; do not revive
+> the deleted classes without re-establishing `AuthorizationService` gating.
 
 ## Context
 

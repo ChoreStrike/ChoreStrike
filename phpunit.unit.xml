@@ -37,9 +37,7 @@
             <file>tests/unit/Db/TaskChecklistItemMapperTest.php</file>
             <file>tests/unit/Db/RoomTaskChecklistProgressMapperTest.php</file>
             <file>tests/unit/Db/MinigameScoreMapperTest.php</file>
-            <file>tests/unit/Db/UserStatsMapperTest.php</file>
             <file>tests/unit/Db/AvailabilitySettingsMapperTest.php</file>
-            <file>tests/unit/Db/ComboMapperTest.php</file>
         </testsuite>
         <!-- Service tests that don't require real database -->
         <testsuite name="Service">

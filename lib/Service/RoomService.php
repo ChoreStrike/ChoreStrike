@@ -415,7 +415,8 @@ class RoomService
         //     Membership re-check at dispatch time guards against leaking
         //     task details to former members whose house_users row was
         //     deleted but whose legacy assigned_to_user_id column wasn't
-        //     cleared (root-cause fix belongs in HouseUserService::removeUserFromHouse).
+        //     cleared (root-cause fix tracked as CR-SVC-26: null
+        //     assigned_to_user_id + delete task_assignees on member removal).
         if ($takeoverNotification !== null) {
             $stillMember = $this->houseUserMapper->findByHouseAndUser(
                 $floor->getHouseId(),

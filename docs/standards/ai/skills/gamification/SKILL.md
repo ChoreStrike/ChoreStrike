@@ -34,7 +34,7 @@ description: ChoreStrike gamification domain model — coins, combos, medals, en
 
 ### 4. Combos
 - Consecutive completions by the **same user** (≥2 recent completions) double coins: `coins *= 2` in `GameLogicService::calculateCoins()`. This is a **personal** combo, not the cooperative ×1.5 multi-user concept from the foundational design.
-- Combo tracking state is held in `ComboService` / `Combo` entity.
+- Combo state is derived inline in `GameLogicService` from `CompletedTaskMapper::findRecentByUserId()` — there is no persistent combo table (the dead `ComboService`/`Combo` cluster was removed in CS-PLAN-025 / CR-SVC-08).
 - Combo milestone (≥ `combo_bonus_freeze_threshold`) awards a bonus streak freeze.
 
 ### 5. Energy Model
@@ -49,20 +49,20 @@ Coins (`coin_base_per_energy` 10), tier multipliers (bronze/silver/gold 1.0/1.5/
 
 | Service | Responsibility |
 |---------|---------------|
-| `GameLogicService` | Core reward calculation on task completion |
-| `ComboService` | Combo tracking and multiplier windows |
-| `GameLogicService` | Core reward calculation **and** weekly medal evaluation (`awardMedalIfNew`, race-safe via unique-constraint handling) |
-| `UserStatsService` | Contribution score, streaks |
+| `GameLogicService` | Core reward calculation on task completion, combo detection, and weekly medal evaluation (`awardMedalIfNew`, race-safe via unique-constraint handling) |
 | `RewardConfigService` | Configurable reward formulas per house |
-| `SmartSchedulerService` | Energy-aware task distribution |
+| `SchedulingService` | Live scheduling API (preferences, energy, availability, suggestions) |
+
+> The dead `ComboService`, `UserStatsService`, `HouseUserService` (service),
+> `SmartSchedulerService`, and `TaskSchedulerService` cluster was removed in
+> CS-PLAN-025 (CR-SVC-08) — `GameLogicService` inlines combo logic and no live
+> code referenced them.
 
 ## Persistence
 
 | Entity/Mapper | Stores |
 |---------------|--------|
-| `UserStats` / `UserStatsMapper` | Per-user contribution, streak data |
 | `HouseUser` / `HouseUserMapper` | Coins, streak, streak-freeze, title state |
-| `Combo` / `ComboMapper` | Active combo state per user |
 | `Medal` / `MedalMapper` | Awarded medals (user, type, week) |
 | `CompletedTask` / `CompletedTaskMapper` | Completion history for scoring |
 | `AvailabilitySettings` / `AvailabilitySettingsMapper` | Presence days, energy budgets |

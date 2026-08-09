@@ -63,8 +63,6 @@ class TestDataService
         'chorestrike_houses',
         'chorestrike_task_scopes',
         'chorestrike_medals',
-        'chorestrike_combos',
-        'chorestrike_user_stats',
         'chorestrike_minigame_scores',
     ];
 

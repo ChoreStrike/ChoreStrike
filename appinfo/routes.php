@@ -110,14 +110,13 @@ return [
         ['name' => 'scheduling#updateMemberAvailability', 'url' => '/api/v1/scheduling/members/{userId}', 'verb' => 'PUT'],
         ['name' => 'scheduling#getSuggestions', 'url' => '/api/v1/scheduling/suggestions', 'verb' => 'POST'],
 
-        // Smart Scheduler API (Phase 2) — DISABLED 2026-07-28 (CS-016 review).
-        // SmartSchedulerController injected no AuthorizationService, so all 7
-        // endpoints were reachable by any authenticated user (applySuggestion
-        // reassigned tasks across users). The UI consumes only scheduling#*
-        // (decision D1=a), so these routes are removed to close the auth gap.
-        // SmartSchedulerController + SmartSchedulerService + their tests remain
-        // pending archival; re-add with AuthorizationService gating if the
-        // smart-schedule UX is revived. See docs/plans/active/cs-plan-016.
+        // Smart Scheduler API — removed 2026-07-28 (CS-016 review: the
+        // SmartSchedulerController had no AuthorizationService, so all 7
+        // endpoints were reachable by any authenticated user). The whole
+        // smart-scheduler cluster + orphan services were deleted in
+        // CS-PLAN-025 (CR-SVC-08); the UI consumes only scheduling#*.
+        // Re-add with AuthorizationService gating if the smart-schedule UX
+        // is revived. See docs/adr/ADR-005-smart-scheduling.md (Superseded).
 
         // Template API
         ['name' => 'template#index', 'url' => '/api/v1/templates', 'verb' => 'GET'],
