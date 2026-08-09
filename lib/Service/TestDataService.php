@@ -109,10 +109,31 @@ class TestDataService
     }
 
     /**
+     * Guard every destructive entry point against a production run.
+     *
+     * Defense-in-depth backstop: callers (e.g. TestDataController) already
+     * gate on isTestMode(), but a future caller that forgets the preamble must
+     * not be able to truncate a production database. Throws unless the process
+     * is explicitly in test mode.
+     *
+     * @throws \RuntimeException when not running in test mode
+     */
+    private function assertTestMode(): void
+    {
+        if (!$this->isTestMode()) {
+            throw new \RuntimeException(
+                'TestDataService destructive operations require test mode (NEXTCLOUD_TEST_MODE=true)'
+            );
+        }
+    }
+
+    /**
      * Reset all tables (truncate, preserve schema)
      */
     public function reset(): void
     {
+        $this->assertTestMode();
+
         foreach (self::RESET_TABLES as $table) {
             $qb = $this->db->getQueryBuilder();
             try {
@@ -148,6 +169,7 @@ class TestDataService
      */
     public function seedEmpty(): array
     {
+        $this->assertTestMode();
         $this->reset();
         return ['profile' => 'empty', 'data' => []];
     }
@@ -165,6 +187,7 @@ class TestDataService
      */
     public function seedMinimal(): array
     {
+        $this->assertTestMode();
         $this->reset();
 
         // Create house with real instance ID
@@ -226,6 +249,7 @@ class TestDataService
      */
     public function seedFamily(): array
     {
+        $this->assertTestMode();
         $this->reset();
 
         // Create house with real instance ID
@@ -414,6 +438,8 @@ class TestDataService
      */
     public function seed(string $profile): array
     {
+        $this->assertTestMode();
+
         return match ($profile) {
             'empty' => $this->seedEmpty(),
             'minimal' => $this->seedMinimal(),

@@ -47,6 +47,11 @@ class TestDataServiceTest extends TestCase
 	{
 		parent::setUp();
 
+		// CR-SVC-02: destructive methods self-gate on isTestMode(). Default the
+		// suite to test mode so the destructive-path tests pass the gate; tests
+		// that assert non-test-mode behaviour (or the gate itself) override it.
+		putenv('NEXTCLOUD_TEST_MODE=true');
+
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->config = $this->createMock(IConfig::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
@@ -437,5 +442,75 @@ class TestDataServiceTest extends TestCase
 		$this->db->method('getQueryBuilder')->willReturn($qb);
 
 		$this->service->reset();
+	}
+
+	/**
+	 * CR-SVC-02: reset() must refuse to run outside test mode (prod-DB wipe guard).
+	 */
+	public function testResetThrowsWhenNotInTestMode(): void
+	{
+		putenv('NEXTCLOUD_TEST_MODE');
+		unset($_ENV['NEXTCLOUD_TEST_MODE']);
+
+		$this->db->expects($this->never())->method('getQueryBuilder');
+
+		$this->expectException(\RuntimeException::class);
+		$this->service->reset();
+	}
+
+	/**
+	 * CR-SVC-02: seedEmpty() must refuse to run outside test mode.
+	 */
+	public function testSeedEmptyThrowsWhenNotInTestMode(): void
+	{
+		putenv('NEXTCLOUD_TEST_MODE');
+		unset($_ENV['NEXTCLOUD_TEST_MODE']);
+
+		$this->db->expects($this->never())->method('getQueryBuilder');
+
+		$this->expectException(\RuntimeException::class);
+		$this->service->seedEmpty();
+	}
+
+	/**
+	 * CR-SVC-02: seedMinimal() must refuse to run outside test mode.
+	 */
+	public function testSeedMinimalThrowsWhenNotInTestMode(): void
+	{
+		putenv('NEXTCLOUD_TEST_MODE');
+		unset($_ENV['NEXTCLOUD_TEST_MODE']);
+
+		$this->houseMapper->expects($this->never())->method('insert');
+
+		$this->expectException(\RuntimeException::class);
+		$this->service->seedMinimal();
+	}
+
+	/**
+	 * CR-SVC-02: seedFamily() must refuse to run outside test mode.
+	 */
+	public function testSeedFamilyThrowsWhenNotInTestMode(): void
+	{
+		putenv('NEXTCLOUD_TEST_MODE');
+		unset($_ENV['NEXTCLOUD_TEST_MODE']);
+
+		$this->houseMapper->expects($this->never())->method('insert');
+
+		$this->expectException(\RuntimeException::class);
+		$this->service->seedFamily();
+	}
+
+	/**
+	 * CR-SVC-02: seed() must refuse to run outside test mode, before profile routing.
+	 */
+	public function testSeedThrowsWhenNotInTestMode(): void
+	{
+		putenv('NEXTCLOUD_TEST_MODE');
+		unset($_ENV['NEXTCLOUD_TEST_MODE']);
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('test mode');
+
+		$this->service->seed('empty');
 	}
 }

@@ -162,15 +162,24 @@ class RoomTaskService
     /**
      * Create a new room task
      *
+     * Authorization is enforced inside the service (CR-SVC-01): the target
+     * room is resolved through the floor chain (room → floor → house) and must
+     * belong to the caller's `$houseId`, and any `$assignedToUserId` must be a
+     * member of that house. No caller can bypass this preamble.
+     *
+     * @param int $houseId The caller's house ID (scopes the target room)
      * @param int $roomId The room ID
      * @param int $taskId The task ID
      * @param \DateTime|null $nextDue Optional next due date (defaults to tomorrow)
      * @param int|null $scopeId Optional scope ID
-     * @param string|null $assignedToUserId Optional assigned user ID
+     * @param string|null $assignedToUserId Optional assigned user ID (must be a house member)
      * @param array $weekdayAvailability Optional weekday availability for flex scheduling
      * @param array $energyBudget Optional energy budget for flex scheduling
+     * @throws NotFoundException if the room does not exist or belongs to another house
+     * @throws \InvalidArgumentException if the assignee is not a member of the house
      */
     public function createRoomTask(
+        int $houseId,
         int $roomId,
         int $taskId,
         ?\DateTime $nextDue = null,
@@ -179,8 +188,34 @@ class RoomTaskService
         array $weekdayAvailability = [],
         array $energyBudget = []
     ): RoomTask {
-        // Verify room exists
-        $this->roomMapper->find($roomId);
+        // CR-SVC-01: resolve the room's house via the floor chain and reject a
+        // cross-house write before any persistence. A miss returns
+        // NotFoundException so the existence/house boundary is not leaked.
+        try {
+            $room = $this->roomMapper->find($roomId);
+            $floor = $this->floorMapper->find($room->getFloorId());
+        } catch (DoesNotExistException $e) {
+            throw new NotFoundException('Room not found');
+        }
+
+        if ($floor->getHouseId() !== $houseId) {
+            $this->appLogger?->securityWarning('Cross-house room task creation denied', [
+                'service' => 'RoomTaskService',
+                'roomId' => $roomId,
+                'houseId' => $houseId,
+                'actualHouseId' => $floor->getHouseId(),
+            ]);
+            throw new NotFoundException('Room not found');
+        }
+
+        // CR-SVC-01: a stamped assignee must be a member of the caller's house.
+        if ($assignedToUserId !== null && $assignedToUserId !== '') {
+            if ($this->houseUserMapper->findByHouseAndUser($houseId, $assignedToUserId) === null) {
+                throw new \InvalidArgumentException(
+                    'Assigned user is not a member of this house: ' . $assignedToUserId
+                );
+            }
+        }
 
         // Verify task exists and get flexDays
         $task = $this->taskMapper->find($taskId);

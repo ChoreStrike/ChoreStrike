@@ -298,4 +298,81 @@ class RoomTaskControllerTest extends TestCase
         $this->assertEquals(403, $response->getStatus());
         $this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
     }
+
+    /**
+     * Create_PassesHouseIdToService
+     *
+     * CR-SVC-01: the controller must forward the caller's house id as the
+     * first argument so the service can scope the target room itself.
+     */
+    public function testCreate_PassesHouseIdToService(): void
+    {
+        $house = new House();
+        $house->setId(42);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId(9);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('ensureHouseMember');
+
+        $this->roomTaskService->expects($this->once())
+            ->method('createRoomTask')
+            ->with(42, 1, 5, null, null, null)
+            ->willReturn($roomTask);
+
+        $response = $this->controller->create(1, 5);
+
+        $this->assertEquals(200, $response->getStatus());
+        $this->assertTrue($response->getData()['success']);
+    }
+
+    /**
+     * Create_Returns404ForCrossHouseRoom
+     *
+     * CR-SVC-01: a cross-house room (NotFoundException from the service) maps
+     * to 404, not a 500.
+     */
+    public function testCreate_Returns404ForCrossHouseRoom(): void
+    {
+        $house = new House();
+        $house->setId(42);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('ensureHouseMember');
+
+        $this->roomTaskService->method('createRoomTask')
+            ->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room not found'));
+
+        $response = $this->controller->create(1, 5);
+
+        $this->assertEquals(404, $response->getStatus());
+        $this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+    }
+
+    /**
+     * Create_Returns400ForNonMemberAssignee
+     *
+     * CR-SVC-01: a non-member assignee (InvalidArgumentException from the
+     * service) maps to a 400 validation error, not a 500.
+     */
+    public function testCreate_Returns400ForNonMemberAssignee(): void
+    {
+        $house = new House();
+        $house->setId(42);
+
+        $this->houseService->method('getInstanceId')->willReturn('instance-123');
+        $this->houseService->method('getOrCreateHouse')->willReturn($house);
+        $this->authService->method('ensureHouseMember');
+
+        $this->roomTaskService->method('createRoomTask')
+            ->willThrowException(new \InvalidArgumentException('not a member'));
+
+        $response = $this->controller->create(1, 5, null, null, 'intruder');
+
+        $this->assertEquals(400, $response->getStatus());
+        $this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+    }
 }

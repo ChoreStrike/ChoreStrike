@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Controller;
 use OCP\IRequest;
@@ -165,12 +166,28 @@ class RoomTaskController extends Controller
                 }
             }
 
-            $roomTask = $this->roomTaskService->createRoomTask($roomId, $taskId, $nextDueDate, $scopeId, $assignedToUserId);
+            $roomTask = $this->roomTaskService->createRoomTask($house->getId(), $roomId, $taskId, $nextDueDate, $scopeId, $assignedToUserId);
 
             return new JSONResponse([
                 'success' => true,
                 'data' => $roomTask->jsonSerialize()
             ]);
+        } catch (NotFoundException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'RESOURCE_NOT_FOUND',
+                    'message' => ControllerErrorFormatter::safeMessage($e)
+                ]
+            ], 404);
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse([
+                'success' => false,
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => ControllerErrorFormatter::safeMessage($e)
+                ]
+            ], 400);
         } catch (ForbiddenException $e) {
             return ControllerErrorFormatter::forbiddenResponse($e);
         } catch (\Exception $e) {

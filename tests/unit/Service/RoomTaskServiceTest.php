@@ -16,8 +16,10 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\TestCase;
 
@@ -221,14 +223,24 @@ class RoomTaskServiceTest extends TestCase
 
     /**
      * CreateRoomTask_NewTask_CreatesRoomTask
+     *
+     * The room resolves through the floor chain to the caller's house, so a
+     * same-house create succeeds.
      */
     public function testCreateRoomTask_NewTask_CreatesRoomTask(): void
     {
+        $houseId = 10;
         $roomId = 1;
         $taskId = 1;
+        $floorId = 7;
 
         $room = new Room();
         $room->setId($roomId);
+        $room->setFloorId($floorId);
+
+        $floor = new Floor();
+        $floor->setId($floorId);
+        $floor->setHouseId($houseId);
 
         $task = new Task();
         $task->setId($taskId);
@@ -241,6 +253,12 @@ class RoomTaskServiceTest extends TestCase
             ->method('find')
             ->with($roomId)
             ->willReturn($room);
+
+        $this->floorMapper
+            ->expects($this->once())
+            ->method('find')
+            ->with($floorId)
+            ->willReturn($floor);
 
         $this->taskMapper
             ->expects($this->once())
@@ -259,7 +277,7 @@ class RoomTaskServiceTest extends TestCase
             ->method('create')
             ->willReturn($roomTask);
 
-        $result = $this->service->createRoomTask($roomId, $taskId);
+        $result = $this->service->createRoomTask($houseId, $roomId, $taskId);
 
         $this->assertSame($roomTask, $result);
     }
@@ -269,24 +287,25 @@ class RoomTaskServiceTest extends TestCase
      */
     public function testCreateRoomTask_DuplicateTask_ThrowsException(): void
     {
+        $houseId = 10;
         $roomId = 1;
         $taskId = 1;
+        $floorId = 7;
 
         $room = new Room();
         $room->setId($roomId);
+        $room->setFloorId($floorId);
+
+        $floor = new Floor();
+        $floor->setId($floorId);
+        $floor->setHouseId($houseId);
 
         $task = new Task();
         $task->setId($taskId);
 
-        $this->roomMapper
-            ->expects($this->once())
-            ->method('find')
-            ->willReturn($room);
-
-        $this->taskMapper
-            ->expects($this->once())
-            ->method('find')
-            ->willReturn($task);
+        $this->roomMapper->method('find')->willReturn($room);
+        $this->floorMapper->method('find')->willReturn($floor);
+        $this->taskMapper->method('find')->willReturn($task);
 
         $this->roomTaskMapper
             ->expects($this->once())
@@ -295,7 +314,132 @@ class RoomTaskServiceTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->service->createRoomTask($roomId, $taskId);
+        $this->service->createRoomTask($houseId, $roomId, $taskId);
+    }
+
+    /**
+     * CreateRoomTask_CrossHouseRoom_ThrowsNotFound
+     *
+     * CR-SVC-01 regression: a room that resolves to another house must be
+     * rejected (NotFoundException) before any persistence. The room/floor
+     * existence boundary must not be leaked.
+     */
+    public function testCreateRoomTask_CrossHouseRoom_ThrowsNotFound(): void
+    {
+        $houseId = 10;
+        $roomId = 1;
+        $floorId = 7;
+
+        $room = new Room();
+        $room->setId($roomId);
+        $room->setFloorId($floorId);
+
+        $floor = new Floor();
+        $floor->setId($floorId);
+        $floor->setHouseId(99); // a different house
+
+        $this->roomMapper->method('find')->with($roomId)->willReturn($room);
+        $this->floorMapper->method('find')->with($floorId)->willReturn($floor);
+        $this->taskMapper->expects($this->never())->method('find');
+        $this->roomTaskMapper->expects($this->never())->method('create');
+
+        $this->expectException(NotFoundException::class);
+
+        $this->service->createRoomTask($houseId, $roomId, 1);
+    }
+
+    /**
+     * CreateRoomTask_RoomNotFound_ThrowsNotFound
+     *
+     * A missing room (or floor) maps to NotFoundException, not a raw
+     * DoesNotExistException leak.
+     */
+    public function testCreateRoomTask_RoomNotFound_ThrowsNotFound(): void
+    {
+        $this->roomMapper->method('find')
+            ->willThrowException(new DoesNotExistException('room gone'));
+
+        $this->taskMapper->expects($this->never())->method('find');
+        $this->roomTaskMapper->expects($this->never())->method('create');
+
+        $this->expectException(NotFoundException::class);
+
+        $this->service->createRoomTask(10, 1, 1);
+    }
+
+    /**
+     * CreateRoomTask_NonMemberAssignee_Throws
+     *
+     * CR-SVC-01 regression: an assignee stamped by the client who is not a
+     * member of the caller's house must be rejected before persistence.
+     */
+    public function testCreateRoomTask_NonMemberAssignee_Throws(): void
+    {
+        $houseId = 10;
+        $roomId = 1;
+        $floorId = 7;
+
+        $room = new Room();
+        $room->setId($roomId);
+        $room->setFloorId($floorId);
+
+        $floor = new Floor();
+        $floor->setId($floorId);
+        $floor->setHouseId($houseId);
+
+        $this->roomMapper->method('find')->willReturn($room);
+        $this->floorMapper->method('find')->willReturn($floor);
+        $this->houseUserMapper->expects($this->once())
+            ->method('findByHouseAndUser')
+            ->with($houseId, 'intruder')
+            ->willReturn(null);
+        $this->taskMapper->expects($this->never())->method('find');
+        $this->roomTaskMapper->expects($this->never())->method('create');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->service->createRoomTask($houseId, $roomId, 1, null, null, 'intruder');
+    }
+
+    /**
+     * CreateRoomTask_ValidMemberAssignee_CreatesRoomTask
+     *
+     * CR-SVC-01 happy path: an assignee who IS a house member is accepted.
+     */
+    public function testCreateRoomTask_ValidMemberAssignee_CreatesRoomTask(): void
+    {
+        $houseId = 10;
+        $roomId = 1;
+        $taskId = 1;
+        $floorId = 7;
+
+        $room = new Room();
+        $room->setId($roomId);
+        $room->setFloorId($floorId);
+
+        $floor = new Floor();
+        $floor->setId($floorId);
+        $floor->setHouseId($houseId);
+
+        $task = new Task();
+        $task->setId($taskId);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+
+        $this->roomMapper->method('find')->willReturn($room);
+        $this->floorMapper->method('find')->willReturn($floor);
+        $this->taskMapper->method('find')->willReturn($task);
+        $this->houseUserMapper->expects($this->once())
+            ->method('findByHouseAndUser')
+            ->with($houseId, 'member-user')
+            ->willReturn(new HouseUser());
+        $this->roomTaskMapper->method('exists')->willReturn(false);
+        $this->roomTaskMapper->expects($this->once())->method('create')->willReturn($roomTask);
+
+        $result = $this->service->createRoomTask($houseId, $roomId, $taskId, null, null, 'member-user');
+
+        $this->assertSame($roomTask, $result);
     }
 
     /**
