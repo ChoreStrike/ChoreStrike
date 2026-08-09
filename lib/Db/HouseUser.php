@@ -45,6 +45,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setSelectedTitlePack(?string $selectedTitlePack)
  * @method array getUnlockedTitles()
  * @method void setUnlockedTitles(array $unlockedTitles)
+ * @method \DateTime|null getLastFreezeDate()
+ * @method void setLastFreezeDate(?\DateTime $lastFreezeDate)
  */
 class HouseUser extends Entity implements JsonSerializable
 {
@@ -93,6 +95,9 @@ class HouseUser extends Entity implements JsonSerializable
     /** @var array Cache of `{pack}.{tier}` titles the user has unlocked. */
     protected $unlockedTitles = [];
 
+    /** @var \DateTime|null Last day the streak-freeze job processed this user (CR-SVC-03 idempotency). */
+    protected $lastFreezeDate = null;
+
     public function __construct()
     {
         $this->addType('id', 'integer');
@@ -111,6 +116,7 @@ class HouseUser extends Entity implements JsonSerializable
         $this->addType('streakFreezes', 'integer');
         $this->addType('selectedTitlePack', 'string');
         $this->addType('unlockedTitles', 'json');
+        $this->addType('lastFreezeDate', 'date');
     }
 
     /**

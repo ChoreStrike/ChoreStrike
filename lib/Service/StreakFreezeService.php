@@ -41,6 +41,9 @@ class StreakFreezeService
     public function process(\DateTimeInterface $yesterday): array
     {
         $yesterdayDayName = strtolower($yesterday->format('l'));
+        // CR-SVC-03: collapse to a Y-m-d key for the idempotency comparison so
+        // timezone/time skew in the formatting can't defeat the guard.
+        $yesterdayKey = $yesterday->format('Y-m-d');
         $stats = [
             'processed' => 0,
             'frozen' => 0,
@@ -75,6 +78,16 @@ class StreakFreezeService
                     continue;
                 }
 
+                // CR-SVC-03 idempotency: a re-run for the same day is a no-op.
+                // The destructive branch (freeze consume / streak reset) stamps
+                // last_freeze_date below, so a job retry or a manual
+                // `occ trigger-jobs` cannot double-consume a freeze or reset an
+                // already-preserved streak.
+                $lastFreeze = $user->getLastFreezeDate();
+                if ($lastFreeze !== null && $lastFreeze->format('Y-m-d') === $yesterdayKey) {
+                    continue;
+                }
+
                 if ($user->consumeFreeze()) {
                     $stats['frozen']++;
                 } else {
@@ -82,6 +95,7 @@ class StreakFreezeService
                     $stats['reset']++;
                 }
 
+                $user->setLastFreezeDate(new \DateTime($yesterdayKey));
                 $this->houseUserMapper->update($user);
             } catch (\Throwable $e) {
                 $stats['errors']++;

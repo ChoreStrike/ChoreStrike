@@ -77,6 +77,17 @@ class Version1027Date20260725000000 extends SimpleMigrationStep
 					'default' => 1.00,
 				]);
 			}
+			// chorestrike_house_users.last_freeze_date (DATE, nullable) — CR-SVC-03
+			// idempotency guard for the daily streak-freeze job: records the last
+			// day StreakFreezeService::process handled a user so a re-run (job
+			// retry / occ trigger-jobs) is a no-op instead of double-consuming a
+			// freeze or resetting an already-preserved streak.
+			if (!$table->hasColumn('last_freeze_date')) {
+				$table->addColumn('last_freeze_date', 'date', [
+					'notnull' => false,
+					'default' => null,
+				]);
+			}
 		}
 
 		// chorestrike_room_tasks.ideal_due_date (DATETIME, nullable)

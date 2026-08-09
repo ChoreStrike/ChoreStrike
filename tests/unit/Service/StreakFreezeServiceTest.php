@@ -173,6 +173,72 @@ class StreakFreezeServiceTest extends TestCase
     }
 
     /**
+     * Process_FirstRunForDay_StampsLastFreezeDate
+     *
+     * CR-SVC-03: a destructive pass stamps last_freeze_date so the next run
+     * for the same day is idempotent.
+     */
+    public function testProcess_FirstRunForDay_StampsLastFreezeDate(): void
+    {
+        $user = $this->buildUser(1, streak: 5, freezes: 1);
+
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
+        $this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+        $this->houseUserMapper->expects($this->once())->method('update')
+            ->with($this->callback(function (HouseUser $u) {
+                return $u->getLastFreezeDate() !== null
+                    && $u->getLastFreezeDate()->format('Y-m-d') === '2026-07-29';
+            }));
+
+        $this->service->process($this->yesterday);
+    }
+
+    /**
+     * Process_AlreadyProcessedForYesterday_SkipsAsNoOp
+     *
+     * CR-SVC-03: a re-run for a day already processed is a no-op — no freeze
+     * is consumed and the (preserved) streak is untouched.
+     */
+    public function testProcess_AlreadyProcessedForYesterday_SkipsAsNoOp(): void
+    {
+        $user = $this->buildUser(1, streak: 5, freezes: 2);
+        // A previous run already handled this exact injected day.
+        $user->setLastFreezeDate(new \DateTime('2026-07-29'));
+
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
+        $this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+        $this->houseUserMapper->expects($this->never())->method('update');
+
+        $stats = $this->service->process($this->yesterday);
+
+        $this->assertSame(0, $stats['frozen']);
+        $this->assertSame(0, $stats['reset']);
+        $this->assertSame(5, $user->getCurrentStreak());
+        $this->assertSame(2, $user->getStreakFreezes());
+    }
+
+    /**
+     * Process_DifferentDayIsProcessed_EvenAfterAnEarlierRun
+     *
+     * CR-SVC-03: the guard is day-scoped — a user stamped for an earlier day
+     * is still processed for the new injected day.
+     */
+    public function testProcess_DifferentDayIsProcessed_EvenAfterAnEarlierRun(): void
+    {
+        $user = $this->buildUser(1, streak: 5, freezes: 1);
+        // Stamped for a DIFFERENT day than the injected yesterday.
+        $user->setLastFreezeDate(new \DateTime('2026-07-20'));
+
+        $this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
+        $this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+        $this->houseUserMapper->expects($this->once())->method('update');
+
+        $stats = $this->service->process($this->yesterday);
+
+        $this->assertSame(1, $stats['frozen']);
+    }
+
+    /**
      * Process_PerUserErrorIsolation_ContinuesAfterFailure
      *
      * A single user failure must not abort the loop — the second user
