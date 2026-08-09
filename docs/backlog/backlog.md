@@ -309,79 +309,23 @@ inside the view's `v-else`, loading=false).
 > Full Review (4 parallel reviewer subagents) of all 29 `lib/Service` files. Three
 > minor findings were **auto-fixed** this review (gate green); the rest are open.
 
-### [P0] CR-SVC-01 — `RoomTaskService::createRoomTask` cross-house IDOR
-**Status**: Open · **Effort**: S · **Source**: Review of `lib/Service` (2026-08-04)
-`RoomTaskController::create` (`lib/Controller/RoomTaskController.php:157`) calls
-`ensureHouseMember` but never `validateRoomOwnership($roomId,…)` nor
-`assertUserInHouse($assignedToUserId)`. A member can create room tasks in any house's
-rooms and stamp an arbitrary Nextcloud userId as the legacy assignee.
-- [ ] Add `validateRoomOwnership($roomId, $houseId)` + assignee membership validation
-      in the controller (or inside `createRoomTask`); regression test (unit + integration).
+> **Resolved 2026-08-09 by [CS-PLAN-025](../plans/active/cs-plan-025-service-security-concurrency-cleanup.md)**
+> (record: [`archive/2026-08.md`](archive/2026-08.md#cs-plan-025--libservice-security-concurrency--dead-code-cleanup)):
+> the 2 P0 + 6 P1 items **CR-SVC-01/02/03/04/05/06/07/12** and the dead-cluster
+> delete **CR-SVC-08** landed. The remaining open items below (CR-SVC-09/10/11/…,
+> P2/P3) stay here.
 
-### [P0] CR-SVC-02 — `TestDataService` destructive ops have no internal `isTestMode()` self-gate
-**Status**: Open · **Effort**: XS · **Source**: Review of `lib/Service` (2026-08-04)
-`reset()`/`seedEmpty()`/`seedMinimal()`/`seedFamily()`/`seed()` truncate all app tables
-but only callers enforce `isTestMode()`. CS-PLAN-019 hardened the endpoints, not the
-service; any future caller omits the gate → prod DB wipe.
-- [ ] `$this->assertTestMode()` (throw unless `isTestMode()`) as first line of every
-      destructive entry point; test that a non-test-mode call throws.
-
-### [P1] CR-SVC-03 — `StreakFreezeService::process` is not idempotent (data loss)
-**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
-Re-running the daily freeze job (retry / `occ chorestrike:trigger-jobs`) double-consumes
-freezes or resets an already-preserved streak. No last-processed-date guard.
-- [ ] Record a per-user last-freeze date (or a `frozen_for_date` marker) and skip if
-      already processed for `$yesterday`; re-runnability test (CS-PLAN-023 time-travel harness).
-
-### [P1] CR-SVC-04 — Lost-update race on `house_user` coins/streak on concurrent completion
-**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
-`RoomService::completeRoomTask` locks `room_task` but not `house_user`; two concurrent
-same-user completions read the same row and the second write clobbers the first
-(`GameLogicService::handleTaskCompletion:69` → `update():150`).
-- [ ] `SELECT … FOR UPDATE` the `house_user` row inside the transaction, or move the
-      read+write under the same `lockForUpdate` discipline.
-
-### [P1] CR-SVC-05 — `MinigameService::saveScore` unbounded client score (coin farming)
-**Status**: Open · **Effort**: XS · **Source**: Review of `lib/Service` (2026-08-04)
-`score` is untrusted client input; `coinsEarned = floor($score/10)` with no bound →
-negative-score coin drain / unlimited minting via `score=INT_MAX`.
-- [ ] Validate/clamp `$score >= 0` and a sane per-game maximum before insert + coin award.
-
-### [P1] CR-SVC-06 — `requireHouseOwner`/`isHouseOwner` auto-create a membership on a miss
-**Status**: Open · **Effort**: S · **Source**: Review of `lib/Service` (2026-08-04)
-Both delegate to `ensureHouseMember`, which mutates on a miss (`AuthorizationService.php:192,206`).
-A non-member attempting an owner-only op becomes a phantom `member` row, then gets a 403.
-A read-looking/owner check must not write.
-- [ ] Switch both to the read-only `assertHouseMember()` (or a pure `findByHouseAndUser`);
-      test that a denied owner check leaves no `house_users` row.
-
-### [P1] CR-SVC-07 — `TaskSyncService` divergent, reward-less completion path
-**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
-`completeTask`/`calculateNextDueDateFromTask` write a `CompletedTask` with `sparksEarned=0`,
-no locking, no daily duplicate guard, and a recurrence that ignores flex scheduling —
-diverging from the canonical `RoomService::completeRoomTask` / `RoomTask::markCompleted`.
-- [ ] Route CalDAV-sync completions through the canonical completion core; delete the
-      divergent recurrence helper.
-
-### [P1] CR-SVC-12 — `completeRoomTask` holds the DB transaction across a notification dispatch
-**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
-The `beginTransaction`…`commit` + `lockForUpdate` wraps `GameLogicService::handleTaskCompletion`,
-which dispatches `notifyTitleUnlocked` *before* commit (`RoomService.php:290-394`). Locks
-held across an external call → contention; rollback leaves a stale bell notification.
-- [ ] Collect title-unlock data inside the transaction (like the takeover/weekly-goal
-      notifications) and dispatch `notifyTitleUnlocked` **after** commit.
-
-### [P2] CR-SVC-08 — Delete the unreachable scheduler dead cluster + 3 orphan services
-**Status**: Open · **Decision**: delete (confirmed by user 2026-08-04) · **Plan**: [CS-PLAN-025](../plans/new/cs-plan-025-service-security-concurrency-cleanup.md) Phase 2 · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
-After the 7 `smart-schedule#*` routes were removed (security), `SmartSchedulerService` →
-`TaskSchedulerService` → all of `lib/Service/Scheduling/*` is unreachable, and
-`ComboService`/`HouseUserService`/`UserStatsService` have no callers (~11 files). Extends
-CR-016-07 / CR-016-13. **Deleting this retires the dead-code-only bugs** (rand() workload
-balancing, DI `new`-violations, scheduler N+1, `TaskPriorityScorer`/`ScheduleOptimizer`
-correctness, `ComboService` cap, `UserStatsService` duplicate-on-multiple, etc.) listed in
-the review record.
-- [ ] Confirm delete-vs-keep (batched question in the review record); if delete, remove
-      the chain + orphans + their tests; update `gamification`/ADR-005 docs + `RESET_TABLES`.
+### [P1] CR-SVC-45 — `CompletedTask` entity/schema mismatch (`completed_by_user_id` unmapped)
+**Status**: Open · **Effort**: S · **Source**: CS-PLAN-025 (found by the CR-SVC-07 integration test)
+`oc_chorestrike_completed_tasks` has a `completed_by_user_id` column that the
+`CompletedTask` entity does **not** declare, so any SELECT that maps the full row throws
+`BadFunctionCallException: completedByUserId is not a valid attribute` on the real DB
+(e.g. `CompletedTaskMapper::findLatestByRoomTask`, used by `TaskSyncService::syncCompletionFromNextcloud`).
+INSERTs work (they only set declared columns), masking the bug. Also note CR-SVC-21
+(TaskSync `*ForHouse`-only public surface) was only **partially** advanced by CS-025 — the
+base `completeTask`/`syncCompletionFromNextcloud`/… methods are still public.
+- [ ] Declare `completed_byUserId` on the `CompletedTask` entity (addType + getter/setter)
+      or drop the column; add a real-DB `findLatestByRoomTask` regression test.
 
 ### [P2] CR-SVC-09 — Harden `RoomTaskService::assignTask`/`bulkAssignTasks` internally
 **Status**: Open · **Effort**: S · **Source**: Review of `lib/Service` (2026-08-04)

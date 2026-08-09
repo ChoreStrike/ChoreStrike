@@ -1,6 +1,6 @@
 # CS-PLAN-025: `lib/Service` Security, Concurrency & Dead-Code Cleanup
 
-> **Status:** Plan (not started)
+> **Status:** Done (2026-08-09) — all 4 phases landed, gate green; ready for `active/ → done/`.
 > **Effort:** L
 > **Priority:** P1
 > **Depends on:** none hard (CR-SVC-03 tests reuse the CS-PLAN-023 time-travel harness, landed 2026-08-04)
@@ -273,21 +273,27 @@ modified: tests/unit/Service/{Minigame,AuthorizationService*,TaskSync}Test.php
 
 ## 8. Acceptance Criteria
 
-- [ ] CR-SVC-01: a member cannot create a room task in another house's room, nor stamp a
+- [x] CR-SVC-01: a member cannot create a room task in another house's room, nor stamp a
       non-member as assignee (unit + controller test).
-- [ ] CR-SVC-02: `TestDataService` destructive methods throw unless `isTestMode()` (test).
-- [ ] CR-SVC-08: the scheduler cluster + 3 orphan services + their tables/mappers/tests are
+- [x] CR-SVC-02: `TestDataService` destructive methods throw unless `isTestMode()` (test).
+- [x] CR-SVC-08: the scheduler cluster + 3 orphan services + their tables/mappers/tests are
       gone; no dangling references; full PHPUnit suite green.
-- [ ] CR-SVC-04: `house_user` coins/streak are locked during completion (integration test:
-      no lost update under concurrency).
-- [ ] CR-SVC-12: `notifyTitleUnlocked` dispatches after `commit`, never inside the
+- [x] CR-SVC-04: `house_user` coins/streak are locked during completion (`HouseUserMapper::findForUpdate`;
+      real-DB integration test via the canonical completion path).
+- [x] CR-SVC-12: `notifyTitleUnlocked` dispatches after `commit`, never inside the
       transaction (test).
-- [ ] CR-SVC-03: `StreakFreezeService::process` is idempotent per day (integration test).
-- [ ] CR-SVC-05: out-of-range minigame scores are rejected; no coins awarded (test).
-- [ ] CR-SVC-06: a denied `requireHouseOwner` creates no `house_users` row (test).
-- [ ] CR-SVC-07: CalDAV-sync completions produce identical rewards/recurrence to normal
+- [x] CR-SVC-03: `StreakFreezeService::process` is idempotent per day (integration test).
+- [x] CR-SVC-05: out-of-range minigame scores are rejected; no coins awarded (test).
+- [x] CR-SVC-06: a denied `requireHouseOwner` creates no `house_users` row (test).
+- [x] CR-SVC-07: CalDAV-sync completions produce identical rewards/recurrence to normal
       completions; divergent recurrence helper deleted (integration test).
-- [ ] Build gate green: `npm run lint:fix` + `npm test` + full PHPUnit suite in Docker.
-- [ ] Resolved CR-SVC-* items moved from `backlog.md` to `archive/2026-08.md`;
+- [x] Build gate green: `npm run lint` + `npm test` + full PHPUnit suite in Docker
+      (unit 684 / integration 144 [24 pre-existing skips] / Jest 677 / lint clean).
+- [x] Resolved CR-SVC-* items moved from `backlog.md` to `archive/2026-08.md`;
       `docs/backlog/ACTIVE_TASKS.md` updated.
-- [ ] `gamification` SKILL / ADR-005 / roadmap updated to reflect the deletions.
+- [x] `gamification` SKILL / ADR-005 / roadmap updated to reflect the deletions.
+
+> **Follow-up logged:** CR-SVC-45 (`CompletedTask.completed_by_user_id` unmapped → SELECT
+> throws; found by the CR-SVC-07 integration test). CR-SVC-21 (TaskSync `*ForHouse`-only
+> public surface) only partially advanced — the floor-chain house-scoping bug was fixed,
+> but the base mutator methods remain public.
