@@ -171,6 +171,9 @@ class UserController extends Controller
 
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
+            // CR-SVC-47: bootstrap membership before the owner check so the
+            // first user on a fresh instance becomes the owner.
+            $this->authService->ensureHouseMember($house->getId());
             $this->authService->requireHouseOwner($house->getId());
 
             $houseUser = $this->houseUserMapper->createOrGet(

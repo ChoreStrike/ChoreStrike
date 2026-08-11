@@ -509,6 +509,72 @@ class RoomServiceTest extends TestCase
     }
 
     /**
+     * CompleteRoomTask_WithNextcloudTaskId_ThreadsIdToGameLogic
+     *
+     * CR-SVC-46: sync completions pass the Nextcloud task id through the
+     * canonical completion so the completion row is stamped with it.
+     */
+    public function testCompleteRoomTask_WithNextcloudTaskId_ThreadsIdToGameLogic(): void
+    {
+        $roomTaskId = 1;
+        $userId = 'user123';
+
+        $task = new Task();
+        $task->setId(1);
+        $task->setName('Test Task');
+        $task->setEnergyCost(3);
+        $task->setPriority(2);
+        $task->setFrequencyType('weekly');
+        $task->setFrequencyValue(1);
+        $task->setRecurrenceMode('recurring');
+
+        $room = new Room();
+        $room->setId(1);
+        $room->setFloorId(1);
+        $room->setCleanliness(50);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId($roomTaskId);
+        $roomTask->setTaskId(1);
+        $roomTask->setRoomId(1);
+        $roomTask->setIsActive(true);
+
+        $floor = new Floor();
+        $floor->setId(1);
+        $floor->setHouseId(1);
+
+        $houseUser = new HouseUser();
+        $houseUser->setId(1);
+
+        $updatedRoom = new Room();
+        $updatedRoom->setId(1);
+        $updatedRoom->setCleanliness(80);
+
+        $this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+        $this->taskMapper->method('find')->with(1)->willReturn($task);
+        $this->roomMapper->method('find')->with(1)->willReturn($room);
+        $this->floorMapper->method('find')->with(1)->willReturn($floor);
+        $this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+        $this->roomMapper->method('update')->willReturn($updatedRoom);
+
+        $this->gameLogicService
+            ->expects($this->once())
+            ->method('handleTaskCompletion')
+            ->with($roomTaskId, $houseUser->getId(), $task, 80, 4242)
+            ->willReturn([
+                'contributionScore' => 10,
+                'coins' => 50,
+                'isCombo' => false,
+                'currentStreak' => 1
+            ]);
+
+        $this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+        $this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
+        $this->service->completeRoomTask($roomTaskId, $userId, 4242);
+    }
+
+    /**
      * CompleteRoomTask_OverdueTakeover_SetsClaimedBy
      *
      * When a member completes an overdue task assigned to someone else, the

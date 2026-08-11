@@ -181,11 +181,14 @@ class RoomTaskController extends Controller
                 ]
             ], 404);
         } catch (\InvalidArgumentException $e) {
+            // Service-curated messages (non-member assignee, invalid nextDue,
+            // duplicate task) — safe to surface verbatim; safeMessage() would
+            // replace them with the generic fallback.
             return new JSONResponse([
                 'success' => false,
                 'error' => [
                     'code' => 'VALIDATION_ERROR',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
+                    'message' => $e->getMessage()
                 ]
             ], 400);
         } catch (ForbiddenException $e) {

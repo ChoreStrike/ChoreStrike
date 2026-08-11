@@ -199,4 +199,102 @@ class HouseUserMapperTest extends TestCase
         $this->assertEquals(6, $user->getCurrentStreak());
         $this->assertEquals(6, $user->getLongestStreak());
     }
+
+    /**
+     * FindForUpdate_LockingEngines_AcquiresLockViaSelectForUpdate
+     *
+     * CR-SVC-04 (reopened): on MySQL/MariaDB/PostgreSQL the lock must be a
+     * true locking read — never an UPDATE that writes pre-read data back.
+     */
+    public function testFindForUpdate_LockingEngines_AcquiresLockViaSelectForUpdate(): void
+    {
+        $this->db->method('getDatabaseProvider')
+            ->willReturn(IDBConnection::PLATFORM_MYSQL);
+
+        $mockResult = $this->createMock(IResult::class);
+        $mockResult->method('fetch')->willReturn([
+            'id' => 7,
+            'house_id' => 1,
+            'nextcloud_user_id' => 'user1',
+            'display_name' => 'User One',
+            'role' => 'owner',
+            'contribution_score' => 15,
+            'coins' => 10,
+        ]);
+        $mockResult->expects($this->once())->method('closeCursor');
+
+        $this->db->expects($this->once())
+            ->method('executeQuery')
+            ->with(
+                $this->callback(function (string $sql): bool {
+                    return str_contains($sql, 'chorestrike_house_users')
+                        && str_contains($sql, 'FOR UPDATE');
+                }),
+                ['id' => 7],
+                ['id' => IQueryBuilder::PARAM_INT]
+            )
+            ->willReturn($mockResult);
+
+        // The stale-write lock path (UPDATE with a pre-read value) must not run.
+        $this->qb->expects($this->never())->method('update');
+
+        $user = $this->mapper->findForUpdate(7);
+
+        $this->assertSame(7, $user->getId());
+        $this->assertSame(15, $user->getContributionScore());
+        $this->assertSame(10, $user->getCoins());
+    }
+
+    /**
+     * FindForUpdate_MissingRow_ThrowsDoesNotExist
+     */
+    public function testFindForUpdate_MissingRow_ThrowsDoesNotExist(): void
+    {
+        $this->db->method('getDatabaseProvider')
+            ->willReturn(IDBConnection::PLATFORM_MYSQL);
+
+        $mockResult = $this->createMock(IResult::class);
+        $mockResult->method('fetch')->willReturn(false);
+
+        $this->db->method('executeQuery')->willReturn($mockResult);
+
+        $this->expectException(DoesNotExistException::class);
+        $this->mapper->findForUpdate(999);
+    }
+
+    /**
+     * FindForUpdate_Sqlite_NoOpSelfAssignThenFreshRead
+     *
+     * SQLite has no FOR UPDATE; the lock is a no-op UPDATE that self-assigns
+     * the column's own current value (never a pre-read value), then re-reads.
+     */
+    public function testFindForUpdate_Sqlite_NoOpSelfAssignThenFreshRead(): void
+    {
+        $this->db->method('getDatabaseProvider')
+            ->willReturn(IDBConnection::PLATFORM_SQLITE);
+
+        $this->qb->method('update')->willReturn($this->qb);
+        $this->qb->method('createFunction')->with('contribution_score')->willReturn('contribution_score');
+        $this->qb->method('set')->willReturn($this->qb);
+        $this->qb->method('where')->willReturn($this->qb);
+        $this->qb->method('from')->willReturn($this->qb);
+        $this->qb->method('select')->willReturn($this->qb);
+        $this->qb->expects($this->once())->method('executeStatement')->willReturn(1);
+
+        $mockResult = $this->createMock(IResult::class);
+        $mockResult->method('fetch')->willReturn([
+            'id' => 7,
+            'house_id' => 1,
+            'nextcloud_user_id' => 'user1',
+            'display_name' => 'User One',
+            'role' => 'owner',
+            'contribution_score' => 15,
+            'coins' => 10,
+        ]);
+        $this->qb->method('executeQuery')->willReturn($mockResult);
+
+        $user = $this->mapper->findForUpdate(7);
+
+        $this->assertSame(15, $user->getContributionScore());
+    }
 }

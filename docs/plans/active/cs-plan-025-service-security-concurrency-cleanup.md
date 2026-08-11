@@ -1,6 +1,9 @@
 # CS-PLAN-025: `lib/Service` Security, Concurrency & Dead-Code Cleanup
 
-> **Status:** Done (2026-08-09) — all 4 phases landed, gate green; ready for `active/ → done/`.
+> **Status:** Ready for `active/ → done/` (2026-08-10) — all 4 phases landed, the
+> post-implementation review's reopened **[P0] CR-SVC-04** and follow-ups
+> **[P1] CR-SVC-45/46/47** are resolved with regression tests, and the full gate is
+> green again. See `## Review Outcome` and `## Reopened Items — Resolution (2026-08-10)`.
 > **Effort:** L
 > **Priority:** P1
 > **Depends on:** none hard (CR-SVC-03 tests reuse the CS-PLAN-023 time-travel harness, landed 2026-08-04)
@@ -278,8 +281,15 @@ modified: tests/unit/Service/{Minigame,AuthorizationService*,TaskSync}Test.php
 - [x] CR-SVC-02: `TestDataService` destructive methods throw unless `isTestMode()` (test).
 - [x] CR-SVC-08: the scheduler cluster + 3 orphan services + their tables/mappers/tests are
       gone; no dangling references; full PHPUnit suite green.
-- [x] CR-SVC-04: `house_user` coins/streak are locked during completion (`HouseUserMapper::findForUpdate`;
-      real-DB integration test via the canonical completion path).
+- [x] CR-SVC-04: `house_user` coins/streak are locked during completion
+      (`HouseUserMapper::findForUpdate`; real-DB integration test via the canonical
+      completion path). *Reopened 2026-08-09 (stale-write lock + missing test),
+      **resolved 2026-08-10**: the lock is now a true `SELECT … FOR UPDATE` on
+      locking engines (SQLite: no-op self-assigning UPDATE + fresh re-read) — no
+      pre-read data is ever written back. The real-DB concurrency test
+      (`tests/integration/Service/ConcurrentCompletionTest.php`) reproduces the
+      clobber against the old implementation (verified failing) and passes with
+      the fix.*
 - [x] CR-SVC-12: `notifyTitleUnlocked` dispatches after `commit`, never inside the
       transaction (test).
 - [x] CR-SVC-03: `StreakFreezeService::process` is idempotent per day (integration test).
@@ -288,12 +298,203 @@ modified: tests/unit/Service/{Minigame,AuthorizationService*,TaskSync}Test.php
 - [x] CR-SVC-07: CalDAV-sync completions produce identical rewards/recurrence to normal
       completions; divergent recurrence helper deleted (integration test).
 - [x] Build gate green: `npm run lint` + `npm test` + full PHPUnit suite in Docker
-      (unit 684 / integration 144 [24 pre-existing skips] / Jest 677 / lint clean).
+      (unit 690 / integration 150 [24 pre-existing skips] / Jest 677 / lint clean —
+      re-run 2026-08-10 after the reopened items landed).
 - [x] Resolved CR-SVC-* items moved from `backlog.md` to `archive/2026-08.md`;
       `docs/backlog/ACTIVE_TASKS.md` updated.
 - [x] `gamification` SKILL / ADR-005 / roadmap updated to reflect the deletions.
 
-> **Follow-up logged:** CR-SVC-45 (`CompletedTask.completed_by_user_id` unmapped → SELECT
-> throws; found by the CR-SVC-07 integration test). CR-SVC-21 (TaskSync `*ForHouse`-only
+> **Follow-up logged:** ~~CR-SVC-45 (`CompletedTask.completed_by_user_id` unmapped → SELECT
+> throws)~~ — **resolved 2026-08-10** with the reopened items (dead columns dropped from
+> the Version1011 migration). CR-SVC-21 (TaskSync `*ForHouse`-only
 > public surface) only partially advanced — the floor-chain house-scoping bug was fixed,
 > but the base mutator methods remain public.
+
+## Review Outcome
+
+**2026-08-09 — Standard→Full implementation review (4 parallel `reviewer` subagents:
+correctness / architecture / security-auth / perf-quality), commit range `48e5f15..1b4e680`.**
+
+Verified clean: CR-SVC-01 (IDOR fix airtight — service-internal floor-chain check +
+assignee membership, single live caller passes the caller's house), CR-SVC-02
+(`assertTestMode` first line of all five destructive methods, server-side env gate),
+CR-SVC-05 (both bounds enforced before insert and coin award), CR-SVC-12 (title
+payload returned from `GameLogicService`, dispatched only after `commit()` in
+`RoomService`), CR-SVC-03 (guard stamps on both consume and reset paths; Y-m-d key
+is timezone-stable), CR-SVC-07 canonical direction (delegates to
+`RoomService::completeRoomTask`; divergent recurrence helper deleted), Phase-2
+deletions (no dangling references in `lib/`, `tests/`, `appinfo/`, migrations, or
+`RESET_TABLES`).
+
+**Reopened / blocked (never auto-fixed — security & data-integrity):**
+
+- **[P0] CR-SVC-04 (reopened)** — `HouseUserMapper::findForUpdate` acquires the lock by
+  UPDATE-ing `contribution_score` back to the value read **before** the lock was held
+  (lib/Db/HouseUserMapper.php:58-69). A concurrent same-user completion of a different
+  task commits while this transaction waits; the stale UPDATE then clobbers the committed
+  increment and the post-lock re-read builds on the clobbered row (on MySQL REPEATABLE
+  READ the plain re-read can be snapshot-stale too, so coins/streak are also at risk).
+  Fix: acquire the lock without writing pre-read data (self-assigning `SET id = :id`
+  with a row-count existence check, or a true `SELECT … FOR UPDATE`), then re-read.
+  The promised two-connection concurrency integration test (plan §4, acceptance line
+  "CR-SVC-04 … real-DB integration test") was never added and must land with the fix.
+- **[P1] CR-SVC-46** — CR-SVC-07 refactor regression: completions via
+  `TaskSyncService::completeTask` no longer stamp `completed_tasks.nextcloud_task_id`,
+  and `findPendingSyncs` filters on exactly that column → sync-out never sees them.
+- **[P1] CR-SVC-47** — CR-SVC-06 audit gap: five owner-only endpoints
+  (HouseController:95,202; SchedulingController:192,225; UserController:174) run
+  `getOrCreateHouse` (no membership side effect) then `requireHouseOwner` — a first-time
+  user previously auto-bootstrapped to owner, now gets 403. Fails closed but breaks the
+  fresh-install bootstrap when one of these is the first endpoint reached.
+
+**Auto-fixed in this review (minor, gate re-run):**
+
+- `MinigameController::saveScore` + `RoomTaskController::create`: the dedicated
+  `InvalidArgumentException` 400 catches routed through `safeMessage()`, which
+  intentionally excludes that exception type — the curated validation messages never
+  reached the client. Now returned verbatim (service-curated, safe). Remaining
+  instances of the pattern → CR-SVC-49.
+- `StreakFreezeService::process`: moved the `last_freeze_date` guard above
+  `countByUserOnDate` so a same-day re-run skips the per-user query.
+- `TaskSyncService`: removed dead `use Room` import left by the CR-SVC-07 refactor.
+- PHPDoc: `GameLogicService::handleTaskCompletion` `@return array{…}` contract
+  (incl. `newTitle`), `MinigameService::saveScore` `@return`/`@throws`,
+  `AuthorizationService::isHouseOwner` `@param`/`@return`.
+- Docs: `docs/engineering/architecture.md` (deleted classes/tables removed from the
+  tree + Supporting Tables), `docs/api/phase5-smart-scheduling.md` (cluster deleted,
+  no longer "pending archival"), backlog hygiene (CR-016-07 + CR-SVC-39 retired to
+  `archive/2026-08.md`; deleted class names dropped from CR-SVC-11/44).
+
+**Logged only (→ backlog.md, Source: Review of CS-PLAN-025):** CR-SVC-46, CR-SVC-47,
+CR-SVC-48 (reverse-sync `completedAt` validation + undocumented cleanliness deviation),
+CR-SVC-49 (`safeMessage` pattern at 6 remaining catches), CR-SVC-50 (extra queries
+inside the house_user lock), CR-SVC-51 (controller recomputes the coin formula),
+CR-SVC-52 (CR-SVC-12 test asserts dispatch but not after-commit ordering).
+
+**Rejected subagent findings (verified non-issues):** whitespace-only assignee does
+**not** bypass the membership check (fails closed as a non-member → 400);
+`TestDataServiceTest` **does** restore the env in `tearDown()`.
+
+## Reopened Items — Resolution (2026-08-10)
+
+All four reopened/follow-up items landed with regression tests; full gate green
+(unit 690 / integration 150 [24 pre-existing skips] / Jest 677 / lint clean).
+
+- **[P0] CR-SVC-04 (reopened)** — `HouseUserMapper::findForUpdate`
+  (lib/Db/HouseUserMapper.php) no longer writes pre-read data back:
+  - MySQL/MariaDB/PostgreSQL: a true locking read (`SELECT … FOR UPDATE` via a
+    prepared raw statement) acquires the exclusive row lock **and** returns the
+    freshest committed row in one statement. A no-op UPDATE + plain re-read is
+    insufficient: Nextcloud sessions run at READ COMMITTED
+    (`SetTransactionIsolationLevel`), and the stale-write clobber manifests when
+    the concurrent winner commits between the lock's inner pre-read and its lock
+    write.
+  - SQLite (no FOR UPDATE): a no-op **self-assigning** UPDATE
+    (`SET contribution_score = contribution_score` — never a pre-read value)
+    acquires the database-wide write lock, then a fresh re-read.
+  - `RoomTaskMapper::lockForUpdate` hardened with the same self-assigning
+    pattern (same defect class: it wrote the pre-lock `is_active` back).
+  - The promised real-DB concurrency integration test landed
+    (`tests/integration/Service/ConcurrentCompletionTest.php`): a second PHP
+    process locks the `house_user` row, holds the lock, and commits a winner
+    increment (+5/+10) while the test's `findForUpdate` blocks — asserting the
+    lock builds on the winner state and both increments land (no lost update).
+    **Verified the test fails against the old stale-write implementation**
+    (clobber reproduced: asserted 5, got 0) and passes with the fix. A second
+    test covers sequential same-user completions accumulating both rewards.
+- **[P1] CR-SVC-45** (blocker for the concurrency test) — the dead
+  `completed_by_user_id` / `points_earned` / `bonus_points` columns + their two
+  indexes were **removed from the Version1011 migration** (fresh-install chain
+  edit, project-rules §1; no code referenced them). Every `SELECT *` entity
+  mapping on `completed_tasks` threw before; the new sync + sequential
+  completion integration tests map full completion rows on the real DB.
+- **[P1] CR-SVC-46** — `TaskSyncService::completeTask` threads the
+  `nextcloudTaskId` through `RoomService::completeRoomTask` →
+  `GameLogicService::handleTaskCompletion`, which stamps it on the completion
+  row inside the canonical transaction (optional parameter; non-sync completions
+  stay un-stamped). `findPendingSyncs` sees sync completions again — integration
+  test asserts the completion appears in `getPendingSyncsForHouse` with the id.
+- **[P1] CR-SVC-47** — decision: **restore the old bootstrap** (backlog
+  option 1). The five `getOrCreateHouse` + `requireHouseOwner` sites
+  (HouseController update/reset, SchedulingController get/updateMemberAvailability,
+  UserController invite) now call `ensureHouseMember()` **before** the owner
+  check: the first user on a fresh instance becomes owner (bootstrap works
+  whichever endpoint is reached first), consistent with the app-wide auto-join
+  model; `requireHouseOwner` itself remains read-only (CR-SVC-06 intact).
+  Regression tests: real-DB empty-house bootstrap to owner
+  (AuthorizationIntegrationTest) + controller call-order tests
+  (HouseControllerIntegrationTest update/reset).
+
+## Full Review (2026-08-11)
+
+**Tier:** Full (4 parallel `reviewer` subagents: correctness / architecture /
+security-auth / perf-quality) of all 4 active plans (CS-017/022/023/025), with the
+focus on the uncommitted CS-025 reopened-items changeset. Record:
+[`docs/backlog/CODE_REVIEW_2026-08-11.md`](../../backlog/CODE_REVIEW_2026-08-11.md).
+
+**Gate re-verified green on the uncommitted tree (+ 1 auto-fix):**
+PHPUnit unit **690/690** (1842 assertions) · integration **150/150** (24 pre-existing
+skips) · Jest **677/677** · `ConcurrentCompletionTest` **2/2** (incl. the 2.1 s
+real-lock "Find for update builds on committed winner state" proof) · ESLint clean.
+E2E (Playwright) was **not** re-run this turn; plan §10 records 160 passed at
+implementation time (4 baseline failures proven pre-existing via stash round-trip).
+
+**Verified clean (no action):** CR-SVC-01 IDOR (service-internal floor-chain +
+assignee membership, single live caller passes caller houseId), CR-SVC-02 test-mode
+gate (all 5 destructive methods, strict `NEXTCLOUD_TEST_MODE === 'true'`, no CI
+fallback), CR-SVC-05 score bound (both bounds before insert + coin award),
+CR-SVC-06 owner-check read-only (`assertHouseMember`, no row created), CR-SVC-03
+idempotency (guard before the per-user query, stamps both paths, TZ-stable Y-m-d key),
+CR-SVC-12 title dispatch after commit, CR-SVC-45 dead columns removed (zero `lib/`
+references), CR-SVC-46 `nextcloudTaskId` threaded fully, CR-SVC-47 bootstrap ordering
+correct at all 5 endpoints + `requireHouseOwner` stays read-only (minor accepted
+tradeoff: those 5 endpoints re-introduce the auto-join side effect CR-SVC-06 removed
+from the owner check itself — documented), Phase-2 dead-code deletions (no dangling
+references), `HouseUserMapper::findForUpdate` (true `SELECT … FOR UPDATE`, fresh row,
+injection-safe), `ConcurrentCompletionTest` (deterministic, strict assertions, clean
+tearDown).
+
+**Auto-fixed this review (minor, gate re-run green):**
+- `TaskSyncService::syncCompletionFromNextcloud` (`:172`): dead
+  `$completedTask->setSparksEarned(0)` (the only `sparksEarned` reference left in the
+  codebase — `completed_tasks.sparks_earned` was renamed to `coins_earned` by
+  `Version1017`; the entity declares `coinsEarned`, not `sparksEarned`) →
+  `setCoinsEarned(0)`.
+
+**New findings (→ `backlog.md`, Source: Full Review 2026-08-11):**
+- **[P1] CR-SVC-53** — `RoomService::completeRoomTask` operates on a **stale
+  `RoomTask`** after `lockForUpdate` (`RoomService.php:276/295/331/354`):
+  `lockForUpdate()` returns `void` and `$roomTask` is never refreshed, so the
+  overdue-takeover check, `markClaimed`, and `markCompleted` recurrence all run on the
+  pre-lock snapshot — the exact freshness asymmetry `findForUpdate` was hardened to
+  avoid. Pre-existing (predates CS-025), surfaced by this concurrency slice; sibling
+  gap to CR-SVC-04. **Decision point for `active/ → done/`**: reopen the CR-SVC-04
+  class to cover `lockForUpdate`'s caller, or accept as a P1 backlog follow-up.
+- **[P3] CR-SVC-54** — `MinigameService::saveScore` coin award has no row
+  lock/transaction (lost-update class, mirror of CR-SVC-04).
+- **[P3] CR-SVC-55** — `StreakFreezeService::process` per-user N+1 (sibling
+  `StreakAtRiskService` already uses a GROUP BY).
+- **[P3] CR-SVC-56** — `MinigameService::getLeaderboard` N+1 display-name enrichment.
+- **[P3] CR-SVC-57** — `GameLogicService::calculateContributionScore` ignores its
+  `$roomCleanliness` parameter (dead param).
+- **[P3] CR-SVC-58** — `phpunit.unit.xml` Entity/Mapper suites double-run the 5 newer
+  mapper tests (fragile split that already drifted once).
+
+**Confirmed-open (already in `backlog.md`, no change):** CR-SVC-48 (unvalidated
+`$completedAt` in reverse-sync — confirmed it also throws uncaught on malformed input),
+CR-SVC-50 (extra queries inside the `house_user` lock — confirmed), CR-SVC-51
+(MinigameController recomputes the coin formula — confirmed), CR-SVC-49/52.
+
+**Deferred nits (logged in the CODE_REVIEW record, not separate backlog items):**
+`deriveYesterday()` duplicated in 2 jobs (rule-of-three not met); the 3 streak services
+inject `LoggerInterface` instead of `AppLogger` (codebase-wide normalization, relates to
+CR-SVC-13); `TriggerJobs --user` declared but not honored + error message mentions CI;
+i18n gaps (HouseController/MinigameController/RoomTaskController raw English strings);
+PHPDoc `@return` gaps on ~15 touched public methods; `ConcurrentCompletionTest`
+hardcoded `/var/www/html/lib/base.php`; `TaskMapperVisibilityTest` misleading name.
+
+**Separate finding (not part of this plan's scope, surfaced during review):**
+`docs/plans/done/` is completely empty in the working tree — 24 tracked done-plan
+files deleted, unstaged (looks like an accidental or half-finished archival); 7
+dangling links in `ACTIVE_TASKS.md` + 4 doc references. Reported to the user; no
+action taken in this review.

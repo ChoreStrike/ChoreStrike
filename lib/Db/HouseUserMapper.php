@@ -43,29 +43,52 @@ class HouseUserMapper extends QBMapper
     /**
      * Find a house user by ID and acquire an exclusive row lock.
      *
-     * Mirrors {@see RoomTaskMapper::lockForUpdate()}: a no-op UPDATE acquires
-     * an exclusive row lock on locking engines (InnoDB/PostgreSQL) and
-     * serializes via the write lock on SQLite. This closes the read-modify-
-     * write race where two concurrent same-user completions each read the
-     * coins/streak row and the second update clobbers the first (CR-SVC-04).
+     * Closes the read-modify-write race where two concurrent same-user
+     * completions each read the coins/streak row and the second update
+     * clobbers the first (CR-SVC-04). The lock must never write pre-read
+     * data back: the previous implementation UPDATE-d contribution_score to
+     * the value read BEFORE the lock was held, which clobbered a concurrent
+     * winner's committed increment — re-introducing the very race.
      *
-     * Must be called inside an open transaction. Re-reads the row after the
-     * lock is granted so the caller builds on the freshest committed state.
+     * - MySQL/MariaDB/PostgreSQL: a true locking read (SELECT … FOR UPDATE)
+     *   acquires the exclusive row lock AND returns the latest committed
+     *   state in one statement. A read-then-lock UPDATE is not enough:
+     *   Nextcloud sessions run at READ COMMITTED, so a concurrent winner
+     *   committing between the pre-read and the lock write is clobbered by
+     *   the stale write (and under REPEATABLE READ a plain re-read after a
+     *   no-op UPDATE can additionally be snapshot-stale).
+     * - SQLite: no FOR UPDATE support. A no-op self-assignment UPDATE
+     *   (writes the column's own current value — never pre-read data)
+     *   acquires the database-wide write lock and serializes writers; the
+     *   re-read afterwards sees the latest committed state.
+     *
+     * Must be called inside an open transaction.
      *
      * @param int $id The house user ID
      * @throws DoesNotExistException
      */
     public function findForUpdate(int $id): HouseUser
     {
-        $houseUser = $this->find($id);
+        if ($this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE) {
+            $qb = $this->db->getQueryBuilder();
+            $qb->update($this->getTableName())
+                ->set('contribution_score', $qb->createFunction('contribution_score'))
+                ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+            $qb->executeStatement();
 
-        $qb = $this->db->getQueryBuilder();
-        $qb->update($this->getTableName())
-            ->set('contribution_score', $qb->createNamedParameter($houseUser->getContributionScore(), IQueryBuilder::PARAM_INT))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
-        $qb->executeStatement();
+            return $this->find($id);
+        }
 
-        return $this->find($id);
+        $sql = 'SELECT * FROM *PREFIX*' . $this->getTableName() . ' WHERE id = :id FOR UPDATE';
+        $result = $this->db->executeQuery($sql, ['id' => $id], ['id' => IQueryBuilder::PARAM_INT]);
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        if ($row === false) {
+            throw new DoesNotExistException('HouseUser with id ' . $id . ' does not exist');
+        }
+
+        return $this->mapRowToEntity($row);
     }
 
     /**

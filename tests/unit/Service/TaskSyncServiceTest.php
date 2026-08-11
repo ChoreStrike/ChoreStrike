@@ -80,7 +80,7 @@ class TaskSyncServiceTest extends TestCase
 
         $this->roomService->expects($this->once())
             ->method('completeRoomTask')
-            ->with($roomTaskId, $nextcloudUserId)
+            ->with($roomTaskId, $nextcloudUserId, null)
             ->willReturn([
                 'roomTask' => $roomTask,
                 'room' => new Room(),
@@ -104,7 +104,9 @@ class TaskSyncServiceTest extends TestCase
      * CompleteTask_WithNextcloudTaskId_LinksAfterCanonicalCompletion
      *
      * The Nextcloud task id is linked after the canonical completion so the
-     * later sync can find the room task.
+     * later sync can find the room task. CR-SVC-46: the id is also threaded
+     * into the canonical completion so the completion row itself carries it
+     * (findPendingSyncs filters on completed_tasks.nextcloud_task_id).
      */
     public function testCompleteTask_WithNextcloudTaskId_LinksAfterCanonicalCompletion(): void
     {
@@ -115,12 +117,15 @@ class TaskSyncServiceTest extends TestCase
         $task = new Task();
         $task->setName('Test Task');
 
-        $this->roomService->method('completeRoomTask')->willReturn([
-            'roomTask' => $roomTask,
-            'room' => new Room(),
-            'task' => $task,
-            'rewards' => [],
-        ]);
+        $this->roomService->expects($this->once())
+            ->method('completeRoomTask')
+            ->with(1, 'testuser', 4242)
+            ->willReturn([
+                'roomTask' => $roomTask,
+                'room' => new Room(),
+                'task' => $task,
+                'rewards' => [],
+            ]);
 
         $linked = new RoomTask();
         $linked->setId(1);

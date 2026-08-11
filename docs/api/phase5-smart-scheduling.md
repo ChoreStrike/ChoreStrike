@@ -6,9 +6,10 @@
 > endpoints documented below were **removed** from `appinfo/routes.php`.
 > `SmartSchedulerController` injected no `AuthorizationService`, so all 7
 > endpoints were reachable by any authenticated user. The UI consumes only the
-> `scheduling#*` surface (decision D1=a). The controller/service/classes remain
-> pending archival; the `scheduling#*` endpoints are the canonical surface —
-> see `docs/api/README.md`. This document is kept for historical reference only.
+> `scheduling#*` surface (decision D1=a). The controller/service/class cluster
+> was **deleted** in CS-PLAN-025 (2026-08-09, CR-SVC-08); the `scheduling#*`
+> endpoints are the canonical surface — see `docs/api/README.md`. This document
+> is kept for historical reference only.
 
 ## Daily Tasks API
 

@@ -278,11 +278,6 @@ component (or shared composable).
 **Effort**: S — `weekRange` uses bare `toLocaleDateString()` (system-locale
 dependent). Use Nextcloud's date formatter or explicit translated names.
 
-### [P3] CR-016-07 — Archive orphaned SmartScheduler surface
-**Effort**: M — after the 7 `smart-schedule#*` routes were removed (security),
-`SmartSchedulerController` + `SmartSchedulerService` + their tests exercise a
-route-less surface (dead code). Decide archive-vs-keep.
-
 ### [P3] CR-016-09 — `DailyTaskList.vue` tech debt (pre-existing)
 **Effort**: S — bypasses the API service (raw `axios`), dead ternary, empty
 `rescheduleTask` stub, missing `data-testid`s. Route through store/API; fix stubs.
@@ -310,22 +305,141 @@ inside the view's `v-else`, loading=false).
 > minor findings were **auto-fixed** this review (gate green); the rest are open.
 
 > **Resolved 2026-08-09 by [CS-PLAN-025](../plans/active/cs-plan-025-service-security-concurrency-cleanup.md)**
-> (record: [`archive/2026-08.md`](archive/2026-08.md#cs-plan-025--libservice-security-concurrency--dead-code-cleanup)):
+> (record: [`archive/2026-08.md`](archive/2026-08.md)):
 > the 2 P0 + 6 P1 items **CR-SVC-01/02/03/04/05/06/07/12** and the dead-cluster
 > delete **CR-SVC-08** landed. The remaining open items below (CR-SVC-09/10/11/…,
 > P2/P3) stay here.
+>
+> **Reopened 2026-08-09 by the CS-025 implementation review:** **CR-SVC-04**
+> plus follow-ups **CR-SVC-45/46/47** — all four **resolved 2026-08-10**
+> (record: [`archive/2026-08.md`](archive/2026-08.md)).
+> The review's smaller follow-ups **CR-SVC-48…52** stay open below.
 
-### [P1] CR-SVC-45 — `CompletedTask` entity/schema mismatch (`completed_by_user_id` unmapped)
-**Status**: Open · **Effort**: S · **Source**: CS-PLAN-025 (found by the CR-SVC-07 integration test)
-`oc_chorestrike_completed_tasks` has a `completed_by_user_id` column that the
-`CompletedTask` entity does **not** declare, so any SELECT that maps the full row throws
-`BadFunctionCallException: completedByUserId is not a valid attribute` on the real DB
-(e.g. `CompletedTaskMapper::findLatestByRoomTask`, used by `TaskSyncService::syncCompletionFromNextcloud`).
-INSERTs work (they only set declared columns), masking the bug. Also note CR-SVC-21
-(TaskSync `*ForHouse`-only public surface) was only **partially** advanced by CS-025 — the
-base `completeTask`/`syncCompletionFromNextcloud`/… methods are still public.
-- [ ] Declare `completed_byUserId` on the `CompletedTask` entity (addType + getter/setter)
-      or drop the column; add a real-DB `findLatestByRoomTask` regression test.
+### [P2] CR-SVC-48 — Reverse-sync input validation + undocumented deviations
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025 (CR-SVC-07)
+`TaskSyncService::syncCompletionFromNextcloud` passes the client-controlled
+`$completedAt` straight into `new \DateTime(...)` — a malformed string surfaces
+as a 500 (generic catch) instead of a 400 VALIDATION_ERROR, and an attacker-
+supplied far-future date pushes `next_due` out indefinitely (house-scoped, no
+reward impact). The reverse path also skips the room-cleanliness update; the
+no-reward deviation is documented, the cleanliness deviation is not.
+- [ ] Validate `$completedAt` at the controller boundary (400 on malformed /
+      unreasonable dates); document or close the cleanliness deviation.
+
+### [P3] CR-SVC-49 — `safeMessage()` defeats the dedicated `InvalidArgumentException` 400 catches
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025
+`ControllerErrorFormatter::safeMessage()` intentionally excludes
+`InvalidArgumentException`, so the 400 catches that route through it return the
+generic "An unexpected error occurred" instead of the curated validation message.
+Fixed for the two CS-025-introduced catches (`MinigameController::saveScore`,
+`RoomTaskController::create`) by returning `$e->getMessage()` directly; the same
+misuse remains at `MinigameController:307`, `RoomTaskController:335,388`,
+`SchedulingController:113,159,234`, `TemplateController:275`.
+- [ ] Surface curated messages at the remaining sites (or add a
+      `validationMessage()` helper), auditing each message for client-controlled
+      echo before exposing it.
+
+### [P3] CR-SVC-50 — Extra queries inside the `house_user` lock (critical section)
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025 (CR-SVC-04)
+`GameLogicService::handleTaskCompletion` runs `roomTaskMapper->find($roomTaskId)`
+after `findForUpdate` although `RoomService::completeRoomTask` already holds that
+entity, and calls `findRecentByUserId` twice (limit 5, then 10) when combo. Both
+add round-trips inside the new row lock; the plan's risk table promised a short
+critical section.
+- [ ] Pass the loaded `RoomTask` into `handleTaskCompletion` (or fetch before
+      the lock); fetch the last 10 completions once and slice for the combo check.
+
+### [P3] CR-SVC-51 — `MinigameController::saveScore` recomputes the coin formula
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025 (CR-SVC-05 adjacent)
+The controller recomputes `coinsEarned = floor($score/10)` from raw client input
+for the response, duplicating `MinigameService::saveScore` — and diverging when
+the house user is missing (service awards 0, response reports >0).
+- [ ] Have `saveScore` return the awarded coins; controller only shapes the response.
+
+### [P3] CR-SVC-52 — CR-SVC-12 unit test does not assert dispatch-after-commit ordering
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025
+`RoomServiceTest::testCompleteRoomTask_NewTitleInGameResult_DispatchesTitleNotificationAfterCommit`
+asserts `notifyTitleUnlocked` is dispatched, but with the mocked `IDBConnection`
+a dispatch **before** commit would pass too — the ordering guarantee (the point
+of CR-SVC-12) is untested.
+- [ ] Record the call order (commit callback appends to a sequence log) and
+      assert `notifyTitleUnlocked` runs after the commit entry.
+
+> **2026-08-11 — Full Review of the 4 active plans** (CS-017/022/023/025; 4 parallel
+> `reviewer` subagents + gate re-verification; record:
+> [`CODE_REVIEW_2026-08-11.md`](CODE_REVIEW_2026-08-11.md)). Gate re-verified green on
+> the uncommitted CS-025 reopened-items tree + 1 auto-fix (`TaskSyncService::setSparksEarned`
+> dead line → `setCoinsEarned`): PHPUnit unit 690 / integration 150 (24 pre-existing
+> skips) / Jest 677 / ConcurrentCompletionTest 2/2 (incl. the 2.1 s real-lock proof) /
+> ESLint clean. **One auto-fix applied**, **one new [P1] concurrency finding
+> (CR-SVC-53)** surfaced, and the minor perf/quality follow-ups below (CR-SVC-54..58).
+
+### [P1] CR-SVC-53 — `RoomService::completeRoomTask` operates on a stale `RoomTask` after `lockForUpdate`
+**Status**: Open · **Effort**: S · **Source**: Full Review 2026-08-11 (CS-PLAN-025 concurrency slice)
+`RoomTaskMapper::lockForUpdate()` returns `void`; `RoomService::completeRoomTask`
+fetches `$roomTask` at `:276` (before `beginTransaction()` at `:293`), locks at `:295`,
+but never refreshes the entity. Every post-lock decision then runs on the pre-lock
+snapshot: `isOverdue()` (`:331`), `markClaimed()` (`:334`), and `markCompleted()`
+(`:354`, which derives recurrence from a stale `next_due`/`idealDueDate`). This is the
+exact freshness asymmetry `HouseUserMapper::findForUpdate` was hardened to avoid (it
+returns the freshest committed row in one `SELECT … FOR UPDATE`); `lockForUpdate` was
+hardened to the self-assigning-UPDATE defect class but the fix was **not** threaded to
+the caller. Under READ COMMITTED, a concurrent winner completing the same overdue task
+advances `next_due`/clears overdue state, but this transaction still sees the stale
+overdue state → **spurious overdue-takeover notification** + claim state from a stale
+snapshot + recurrence computed from a stale `next_due`. Pre-existing (lockForUpdate
+predates CS-025), but surfaced by this review of the completion-path concurrency — the
+sibling gap to CR-SVC-04. No integration test covers `RoomTaskMapper::lockForUpdate`
+(only `HouseUserMapper::findForUpdate` has the two-process proof).
+- [ ] Make `lockForUpdate` return a fresh `RoomTask` via `SELECT … FOR UPDATE` on
+      locking engines (mirror `findForUpdate`), or re-fetch `$roomTask` after the lock;
+      add a two-connection integration test analogous to `ConcurrentCompletionTest`.
+
+### [P3] CR-SVC-54 — `MinigameService::saveScore` coin award has no row lock/transaction
+**Status**: Open · **Effort**: S · **Source**: Full Review 2026-08-11
+`MinigameService::saveScore` (`:75-86`) runs the score insert + the `house_user` coin
+increment (`addCoins` + `update`) without a transaction or `findForUpdate` — the same
+lost-update class CR-SVC-04 fixed for task completion. Two concurrent minigame
+submissions for the same user can clobber each other's coin increment, and a partial
+failure between `insert()` and `update()` leaves a score row with no coins.
+- [ ] Wrap in a transaction and call `HouseUserMapper::findForUpdate` before the coin
+      increment (or document the deferral with a reason).
+
+### [P3] CR-SVC-55 — `StreakFreezeService::process` per-user N+1
+**Status**: Open · **Effort**: S · **Source**: Full Review 2026-08-11
+The daily loop calls `completedTaskMapper->countByUserOnDate($user->getId(), $yesterday)`
+once per house user (`StreakFreezeService.php:81`) — N queries for N users. The sibling
+`StreakAtRiskService` was already optimized to a single GROUP BY
+(`countByUserOnDateGrouped`, `StreakAtRiskService.php:53`); `StreakFreezeService` was not.
+- [ ] Reuse `countByUserOnDateGrouped` and look up each user's count from the map.
+
+### [P3] CR-SVC-56 — `MinigameService::getLeaderboard` N+1 display-name enrichment
+**Status**: Open · **Effort**: S · **Source**: Full Review 2026-08-11
+`getLeaderboard` (`:96`) and `getWeeklyLeaderboard` (`:122`) call
+`findByHouseIdAndNextcloudUserId` per score row to enrich `displayName` — N extra
+queries for an N-entry leaderboard (default limit 10 → 10 round trips per fetch).
+- [ ] Add a batch lookup (`findByHouseIdAndNextcloudUserIds`) or a JOIN in
+      `MinigameScoreMapper::getLeaderboard` that returns `displayName` alongside the rows.
+
+### [P3] CR-SVC-57 — `GameLogicService::calculateContributionScore` ignores its `$roomCleanliness` parameter
+**Status**: Open · **Effort**: XS · **Source**: Full Review 2026-08-11
+`calculateContributionScore(Task $task, int $roomCleanliness)` (`:184`) has a comment
+"Simplified: contribution = energy cost" and never reads `$roomCleanliness`. Dead
+parameter on a public method is a maintenance trap (callers reasonably assume
+cleanliness affects the score).
+- [ ] Use `$roomCleanliness` in the formula, drop the parameter, or mark `@deprecated`
+      with a TODO referencing the simplification.
+
+### [P3] CR-SVC-58 — `phpunit.unit.xml` Entity/Mapper suites double-run 5 mapper tests
+**Status**: Open · **Effort**: XS · **Source**: Full Review 2026-08-11 (CS-PLAN-022 D2)
+The 5 newer mapper tests (`TaskAssignee`, `TaskChecklistItem`, `RoomTaskChecklistProgress`,
+`MinigameScore`, `AvailabilitySettings`) are listed in the `Mapper` suite's `<file>` set
+but **not** in the `Entity` suite's `<exclude>` set, so the `Entity` suite's
+`<directory>tests/unit/Db</directory>` glob matches them too — they execute in **both**
+suites. The directory+exclude+file-list pattern already drifted once (CS-022); harmless
+(same result twice) but wasteful and fragile.
+- [ ] Split by subdirectory (`tests/unit/Db/Entity/` + `tests/unit/Db/Mapper/`), each
+      suite globbing its own dir; delete the exclude list so the split can't silently drift.
 
 ### [P2] CR-SVC-09 — Harden `RoomTaskService::assignTask`/`bulkAssignTasks` internally
 **Status**: Open · **Effort**: S · **Source**: Review of `lib/Service` (2026-08-04)
@@ -346,13 +460,13 @@ transaction (`RoomService.php:280`); a null `$houseUser` yields a 500, not a cle
 **Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)
 Pervasive per-row mapper calls in loops. Hot spots: `HouseService::calculateHouseHealth`/
 `getHouseStats`/`resetHouse`; `GameLogicService::checkAndAwardMedals`/`getMedals`;
-`TaskSchedulerService::getActiveRoomTasks` (3-level); `TaskPriorityScorer::calculateScores`;
 `FloorService::getFloorsWithRooms`/`reorderFloors`; `RoomService::getRoomWithTasks`/
 `deleteRoom`; `RoomTaskService::getDailyTasksWithDetails`/`getRangeTasks`/`bulkAssignTasks`;
 `MinigameService` leaderboards; `TaskSyncService::getPendingSyncsForHouse`;
 `StreakFreezeService::process`.
 - [ ] Add batch mapper queries (`findByHouseId`, `findByIds` IN, JOINs, grouped counts);
-      replace per-id `find` loops with set-based lookups. (Scheduler N+1s retire with CR-SVC-08.)
+      replace per-id `find` loops with set-based lookups. (Scheduler-cluster N+1s were
+      retired by the CR-SVC-08 deletions in CS-PLAN-025.)
 
 ### [P2] CR-SVC-13 — Migrate raw `LoggerInterface` services to `AppLogger`
 **Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
@@ -438,10 +552,6 @@ the real `RoomTaskService::completeTask`. Remove or document as admin/template-o
 `MinigameService::purchaseBoost` exception messages are English literals returned to
 clients. Inject `IL10N`, wrap with `t()`, update `l10n/` artifacts.
 
-### [P3] CR-SVC-39 — Missing PHPDoc on Scheduling public members
-**Effort**: S — `AvailabilityCalculator` (and others) public methods carry only a
-one-line summary, no `@param`/`@return`. Add mechanically. (Retired if CR-SVC-08 deletes.)
-
 ### [P3] CR-SVC-40 — `RoomService` reaches below its layer (`IDBConnection`)
 **Effort**: M — injects `IDBConnection` for `beginTransaction`/`lockForUpdate` (persistence
 plumbing in a service). Move transaction+lock into the mapper/repository.
@@ -458,7 +568,7 @@ duplicated stat helpers; duplicated `validate*Ownership` across Floor/Room/RoomT
 **Effort**: M — `TaskService::getAllTasks` unbounded `findAll`; `createDefaultTemplates`
 15 sequential inserts; `StreakFreeze`/`StreakRestock` per-user UPDATEs; `assignTask`/
 `unassignTask`/`deactivate`/`reactivate`/`updateDueDate` triple-fetch pattern;
-`ScheduleOptimizer` O(n²) recompute; `extractHouseIdFromSchedule` 3 dependent queries.
+`extractHouseIdFromSchedule` 3 dependent queries.
 
 ---
 

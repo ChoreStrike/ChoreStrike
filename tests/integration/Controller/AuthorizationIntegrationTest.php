@@ -117,6 +117,26 @@ class AuthorizationIntegrationTest extends IntegrationTestCase
         $authService->requireHouseOwner($this->house1Id);
     }
 
+    /**
+     * CR-SVC-47: the first user on a fresh instance (empty house) is
+     * bootstrapped to owner by ensureHouseMember, and the owner check the
+     * getOrCreateHouse-based owner endpoints run right after passes. This is
+     * the fresh-install bootstrap the five owner-only endpoints rely on.
+     */
+    public function testFirstUserIsBootstrappedToOwnerOnEmptyHouse(): void
+    {
+        $houseId = $this->createBareHouse('Fresh House');
+        $this->actingAs('fresh_first_user');
+        $authService = \OC::$server->get(AuthorizationService::class);
+
+        $houseUser = $authService->ensureHouseMember($houseId);
+        self::assertSame('owner', $houseUser->getRole(), 'first member of an empty house becomes owner');
+
+        $owner = $authService->requireHouseOwner($houseId);
+        self::assertSame('fresh_first_user', $owner->getNextcloudUserId());
+        self::assertSame('owner', $owner->getRole());
+    }
+
     // ========== IDOR Protection (validateRoomTaskOwnership) ==========
 
     /**

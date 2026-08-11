@@ -111,6 +111,66 @@ class HouseControllerIntegrationTest extends TestCase
     }
 
     /**
+     * Update_BootstrapsMembershipBeforeOwnerCheck
+     *
+     * CR-SVC-47: house.update runs getOrCreateHouse (no membership side
+     * effect) and must explicitly bootstrap membership BEFORE the owner check
+     * so the first user on a fresh instance becomes the owner instead of a
+     * 403. requireHouseOwner itself stays read-only (CR-SVC-06).
+     */
+    public function testUpdate_BootstrapsMembershipBeforeOwnerCheck(): void
+    {
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+        $this->houseService->method('updateHouseName')->willReturn($this->createMockHouse());
+
+        $callOrder = [];
+        $this->authService->method('ensureHouseMember')
+            ->willReturnCallback(function () use (&$callOrder) {
+                $callOrder[] = 'ensureHouseMember';
+                return $this->createMockHouseUser();
+            });
+        $this->authService->method('requireHouseOwner')
+            ->willReturnCallback(function () use (&$callOrder) {
+                $callOrder[] = 'requireHouseOwner';
+                return $this->createMockHouseUser();
+            });
+
+        $response = $this->controller->update('New Name');
+
+        $this->assertEquals(200, $response->getStatus());
+        $this->assertSame(['ensureHouseMember', 'requireHouseOwner'], $callOrder);
+    }
+
+    /**
+     * Reset_BootstrapsMembershipBeforeOwnerCheck
+     *
+     * CR-SVC-47: same bootstrap-before-owner-check contract for house.reset.
+     */
+    public function testReset_BootstrapsMembershipBeforeOwnerCheck(): void
+    {
+        $this->houseService->method('getInstanceId')->willReturn('test-instance');
+        $this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+
+        $callOrder = [];
+        $this->authService->method('ensureHouseMember')
+            ->willReturnCallback(function () use (&$callOrder) {
+                $callOrder[] = 'ensureHouseMember';
+                return $this->createMockHouseUser();
+            });
+        $this->authService->method('requireHouseOwner')
+            ->willReturnCallback(function () use (&$callOrder) {
+                $callOrder[] = 'requireHouseOwner';
+                return $this->createMockHouseUser();
+            });
+
+        $response = $this->controller->reset();
+
+        $this->assertEquals(200, $response->getStatus());
+        $this->assertSame(['ensureHouseMember', 'requireHouseOwner'], $callOrder);
+    }
+
+    /**
      * Update_EmptyName_ReturnsValidationError
      */
     public function testUpdate_EmptyName_ReturnsValidationError(): void

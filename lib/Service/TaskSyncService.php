@@ -13,7 +13,6 @@ use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
@@ -59,6 +58,11 @@ class TaskSyncService
      * parallel path. Only the sync-specific concern (linking the Nextcloud
      * task id) is layered on top.
      *
+     * CR-SVC-46: the Nextcloud task id is threaded into the canonical path so
+     * the completion row itself carries it — {@see CompletedTaskMapper::findPendingSyncs()}
+     * filters on completed_tasks.nextcloud_task_id, so without the stamp the
+     * ChoreStrike → Nextcloud sync-out never saw these completions.
+     *
      * @param int $roomTaskId The room task ID
      * @param string $nextcloudUserId The Nextcloud user ID completing the task
      * @param int|null $nextcloudTaskId Optional linked Nextcloud task ID
@@ -66,7 +70,7 @@ class TaskSyncService
      */
     public function completeTask(int $roomTaskId, string $nextcloudUserId, ?int $nextcloudTaskId = null): array
     {
-        $completion = $this->roomService->completeRoomTask($roomTaskId, $nextcloudUserId);
+        $completion = $this->roomService->completeRoomTask($roomTaskId, $nextcloudUserId, $nextcloudTaskId);
 
         // Link the Nextcloud task id (if provided) for later sync.
         if ($nextcloudTaskId !== null) {
@@ -165,7 +169,7 @@ class TaskSyncService
             $completedTask->setRoomTaskId($roomTaskId);
             $completedTask->setUserId(null); // Unknown from Nextcloud
             $completedTask->setCompletedAt($completedDate);
-            $completedTask->setSparksEarned(0);
+            $completedTask->setCoinsEarned(0);
             $completedTask->setWasCombo(false);
             $completedTask->setNextcloudTaskId($nextcloudTaskId);
             $completedTask->setSyncedToNextcloud(true);

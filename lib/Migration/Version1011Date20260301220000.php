@@ -41,41 +41,12 @@ class Version1011Date20260301220000 extends SimpleMigrationStep
             }
         }
 
-        // Add completion-tracking columns to the existing completed_tasks table
-        if ($schema->hasTable('chorestrike_completed_tasks')) {
-            $table = $schema->getTable('chorestrike_completed_tasks');
-
-            if (!$table->hasColumn('completed_by_user_id')) {
-                $table->addColumn('completed_by_user_id', 'string', [
-                    'notnull' => false,
-                    'length' => 255,
-                ]);
-            }
-
-            if (!$table->hasColumn('points_earned')) {
-                $table->addColumn('points_earned', 'integer', [
-                    'notnull' => true,
-                    'default' => 0,
-                    'unsigned' => true,
-                ]);
-            }
-
-            if (!$table->hasColumn('bonus_points')) {
-                $table->addColumn('bonus_points', 'integer', [
-                    'notnull' => true,
-                    'default' => 0,
-                    'unsigned' => true,
-                ]);
-            }
-
-            if (!$table->hasIndex('idx_completed_user')) {
-                $table->addIndex(['completed_by_user_id'], 'idx_completed_user');
-            }
-
-            if (!$table->hasIndex('idx_completed_points')) {
-                $table->addIndex(['points_earned'], 'idx_completed_points');
-            }
-        }
+        // The completed_by_user_id / points_earned / bonus_points columns this
+        // migration used to add to chorestrike_completed_tasks were removed
+        // from the chain (CR-SVC-45, pre-release fresh-install edit per
+        // project-rules §1): no code ever read or wrote them, and because the
+        // CompletedTask entity does not declare them, every SELECT * that maps
+        // a full row threw BadFunctionCallException on the real DB.
 
         // The runner persists schema diffs produced by changeSchema(), so the
         // modified wrapper MUST be returned (returning null silently drops it).

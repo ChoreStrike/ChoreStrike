@@ -26,10 +26,11 @@ class RoomTaskMapper extends QBMapper
     /**
      * Acquire an exclusive lock on a room task row.
      *
-     * A no-op UPDATE (sets is_active to its current value) acquires an exclusive
-     * row lock on locking engines (InnoDB/PostgreSQL) and serializes via the
-     * write lock on SQLite, so concurrent completions of the same task are
-     * ordered and a check-then-act duplicate guard cannot be raced past.
+     * A no-op UPDATE (self-assigns is_active — never a pre-read value, so it
+     * cannot clobber a concurrent commit; CR-SVC-04 defect class) acquires an
+     * exclusive row lock on locking engines (InnoDB/PostgreSQL) and serializes
+     * via the write lock on SQLite, so concurrent completions of the same task
+     * are ordered and a check-then-act duplicate guard cannot be raced past.
      *
      * Must be called inside an open transaction.
      *
@@ -37,10 +38,9 @@ class RoomTaskMapper extends QBMapper
      */
     public function lockForUpdate(int $roomTaskId): void
     {
-        $roomTask = $this->find($roomTaskId);
         $qb = $this->db->getQueryBuilder();
         $qb->update($this->getTableName())
-            ->set('is_active', $qb->createNamedParameter($roomTask->getIsActive(), IQueryBuilder::PARAM_BOOL))
+            ->set('is_active', $qb->createFunction('is_active'))
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
         $qb->executeStatement();
     }

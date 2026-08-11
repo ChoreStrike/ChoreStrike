@@ -92,6 +92,20 @@ abstract class IntegrationTestCase extends TestCase
     {
         $this->actingAs($ownerUserId);
 
+        $houseId = $this->createBareHouse($name);
+        $this->addHouseMember($houseId, $ownerUserId, $ownerUserId, 'owner');
+
+        return $houseId;
+    }
+
+    /**
+     * Create a house WITHOUT any members (fresh-install fixture, e.g. for
+     * first-user bootstrap tests).
+     *
+     * @return int The house ID
+     */
+    protected function createBareHouse(string $name = 'Empty House'): int
+    {
         $instanceId = 'test-' . uniqid();
         $now = date('Y-m-d H:i:s');
 
@@ -108,8 +122,6 @@ abstract class IntegrationTestCase extends TestCase
 
         $houseId = (int)$this->db->lastInsertId('chorestrike_houses');
         $this->createdHouseIds[] = $houseId;
-
-        $this->addHouseMember($houseId, $ownerUserId, $ownerUserId, 'owner');
 
         return $houseId;
     }
@@ -255,6 +267,7 @@ abstract class IntegrationTestCase extends TestCase
         $this->deleteByIds('chorestrike_rooms', $this->createdRoomIds);
         $this->deleteByIds('chorestrike_floors', $this->createdFloorIds);
         $this->deleteByIds('chorestrike_house_users', $this->createdHouseUserIds);
+        $this->deleteHouseUsersByHouseIds($this->createdHouseIds);
         $this->deleteByIds('chorestrike_houses', $this->createdHouseIds);
 
         $this->createdRoomTaskIds = [];
@@ -277,6 +290,25 @@ abstract class IntegrationTestCase extends TestCase
         $qb = $this->db->getQueryBuilder();
         $qb->delete($tableName)
             ->where($qb->expr()->in('id', $qb->createNamedParameter($ids, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
+        $qb->executeStatement();
+    }
+
+    /**
+     * Remove house_users rows that reference the given houses. Catches
+     * memberships created through services (e.g. ensureHouseMember bootstrap)
+     * rather than addHouseMember(), which are not in $createdHouseUserIds.
+     *
+     * @param array<int> $houseIds
+     */
+    private function deleteHouseUsersByHouseIds(array $houseIds): void
+    {
+        if (empty($houseIds)) {
+            return;
+        }
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->delete('chorestrike_house_users')
+            ->where($qb->expr()->in('house_id', $qb->createNamedParameter($houseIds, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
         $qb->executeStatement();
     }
 }

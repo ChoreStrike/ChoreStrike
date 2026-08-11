@@ -267,8 +267,11 @@ class RoomService
      *
      * @param int $roomTaskId The room task ID
      * @param string $userId The Nextcloud user ID who completed the task
+     * @param int|null $nextcloudTaskId Optional Nextcloud task id stamped on
+     *     the completion row for sync completions (CR-SVC-46), so the
+     *     ChoreStrike → Nextcloud sync-out picks the completion up.
      */
-    public function completeRoomTask(int $roomTaskId, string $userId): array
+    public function completeRoomTask(int $roomTaskId, string $userId, ?int $nextcloudTaskId = null): array
     {
         $roomTaskData = $this->getRoomTask($roomTaskId);
         $roomTask = $roomTaskData['roomTask'];
@@ -372,7 +375,8 @@ class RoomService
                 $roomTaskId,
                 $houseUser->getId(),
                 $task,
-                $updatedRoom->getCleanliness()
+                $updatedRoom->getCleanliness(),
+                $nextcloudTaskId
             );
 
             // Teamwork bonus: award additional coins when multiple assignees

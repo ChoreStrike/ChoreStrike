@@ -136,11 +136,13 @@ class MinigameController extends Controller
                 ]
             ]);
         } catch (\InvalidArgumentException $e) {
+            // Service-curated message (score bounds) — safe to surface verbatim;
+            // safeMessage() would replace it with the generic fallback.
             return new JSONResponse([
                 'success' => false,
                 'error' => [
                     'code' => 'VALIDATION_ERROR',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
+                    'message' => $e->getMessage()
                 ]
             ], 400);
         } catch (ForbiddenException $e) {

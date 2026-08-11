@@ -189,6 +189,9 @@ class SchedulingController extends Controller
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
+            // CR-SVC-47: bootstrap membership before the owner check so the
+            // first user on a fresh instance becomes the owner.
+            $this->authService->ensureHouseMember($house->getId());
             $this->authService->requireHouseOwner($house->getId());
 
             $availability = $this->schedulingService->getMemberAvailability($house->getId());
@@ -222,6 +225,9 @@ class SchedulingController extends Controller
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
+            // CR-SVC-47: bootstrap membership before the owner check so the
+            // first user on a fresh instance becomes the owner.
+            $this->authService->ensureHouseMember($house->getId());
             $this->authService->requireHouseOwner($house->getId());
 
             $this->validateMemberUpdates($updates);

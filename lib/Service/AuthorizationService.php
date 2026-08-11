@@ -188,6 +188,9 @@ class AuthorizationService
      *
      * Read-only: never auto-creates a membership (CR-SVC-06). A non-member is
      * simply reported as not-an-owner.
+     *
+     * @param int $houseId The house ID
+     * @return bool True if the current user is a member with the owner role
      */
     public function isHouseOwner(int $houseId): bool
     {

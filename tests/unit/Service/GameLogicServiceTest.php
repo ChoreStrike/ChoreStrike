@@ -131,6 +131,77 @@ class GameLogicServiceTest extends TestCase
     }
 
     /**
+     * HandleTaskCompletion_WithNextcloudTaskId_StampsCompletionRow
+     *
+     * CR-SVC-46: sync completions thread the Nextcloud task id through the
+     * canonical path so the inserted completion row carries it —
+     * findPendingSyncs() filters on completed_tasks.nextcloud_task_id and
+     * never saw un-stamped rows. Without the id the row stays un-stamped.
+     */
+    public function testHandleTaskCompletion_WithNextcloudTaskId_StampsCompletionRow(): void
+    {
+        $task = new Task();
+        $task->setId(1);
+        $task->setEnergyCost(3);
+
+        $user = new HouseUser();
+        $user->setId(1);
+        $user->setCurrentStreak(1);
+        $user->setLastActivity(new \DateTime('yesterday'));
+
+        $this->houseUserMapper->method('findForUpdate')->willReturn($user);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+        $roomTask->setIdealDueDate(null);
+        $this->roomTaskMapper->method('find')->willReturn($roomTask);
+
+        $this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
+
+        $this->completedTaskMapper
+            ->expects($this->once())
+            ->method('insert')
+            ->with($this->callback(function (CompletedTask $completedTask): bool {
+                return $completedTask->getNextcloudTaskId() === 4242;
+            }));
+
+        $this->service->handleTaskCompletion(1, 1, $task, 50, 4242);
+    }
+
+    /**
+     * HandleTaskCompletion_WithoutNextcloudTaskId_LeavesCompletionRowUnstamped
+     */
+    public function testHandleTaskCompletion_WithoutNextcloudTaskId_LeavesCompletionRowUnstamped(): void
+    {
+        $task = new Task();
+        $task->setId(1);
+        $task->setEnergyCost(3);
+
+        $user = new HouseUser();
+        $user->setId(1);
+        $user->setCurrentStreak(1);
+        $user->setLastActivity(new \DateTime('yesterday'));
+
+        $this->houseUserMapper->method('findForUpdate')->willReturn($user);
+
+        $roomTask = new RoomTask();
+        $roomTask->setId(1);
+        $roomTask->setIdealDueDate(null);
+        $this->roomTaskMapper->method('find')->willReturn($roomTask);
+
+        $this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
+
+        $this->completedTaskMapper
+            ->expects($this->once())
+            ->method('insert')
+            ->with($this->callback(function (CompletedTask $completedTask): bool {
+                return $completedTask->getNextcloudTaskId() === null;
+            }));
+
+        $this->service->handleTaskCompletion(1, 1, $task, 50);
+    }
+
+    /**
      * CalculateContributionScore_ReturnsEnergyCost
      */
     public function testCalculateContributionScore_ReturnsEnergyCost(): void

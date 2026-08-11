@@ -91,6 +91,11 @@ class HouseController extends Controller
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
 
+            // CR-SVC-47: bootstrap membership before the owner check so the
+            // first user on a fresh instance becomes the owner (pre-CS-025
+            // behaviour). requireHouseOwner itself stays read-only (CR-SVC-06).
+            $this->authService->ensureHouseMember($house->getId());
+
             // Require house ownership for update
             $this->authService->requireHouseOwner($house->getId());
 
@@ -197,6 +202,10 @@ class HouseController extends Controller
         try {
             $instanceId = $this->houseService->getInstanceId();
             $house = $this->houseService->getOrCreateHouse($instanceId);
+
+            // CR-SVC-47: bootstrap membership before the owner check so the
+            // first user on a fresh instance becomes the owner.
+            $this->authService->ensureHouseMember($house->getId());
 
             // Require house ownership for reset
             $this->authService->requireHouseOwner($house->getId());

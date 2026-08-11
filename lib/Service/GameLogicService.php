@@ -63,8 +63,19 @@ class GameLogicService
      * @param int $userId The house user ID
      * @param Task $task The task entity
      * @param int $roomCleanliness Current room cleanliness
+     * @param int|null $nextcloudTaskId Optional Nextcloud task id stamped on the
+     *     completion row (CR-SVC-46): sync completions pass the linked id so
+     *     {@see \OCA\ChoreStrike\Db\CompletedTaskMapper::findPendingSyncs()}
+     *     picks the row up for ChoreStrike → Nextcloud sync-out.
+     * @return array{
+     *     contributionScore: int, coins: int, isCombo: bool, daysEarly: int,
+     *     earlyMultiplier: float, currentStreak: int, totalContribution: int,
+     *     totalCoins: int, streakFreezeUsed: bool, streakFreezesRemaining: int,
+     *     comboBonusFreeze: bool, newTitle: array<string, mixed>|null
+     * } Result payload; `newTitle` (CR-SVC-12) must be dispatched by the caller
+     *   after commit, never inside the transaction.
      */
-    public function handleTaskCompletion(int $roomTaskId, int $userId, Task $task, int $roomCleanliness): array
+    public function handleTaskCompletion(int $roomTaskId, int $userId, Task $task, int $roomCleanliness, ?int $nextcloudTaskId = null): array
     {
         // CR-SVC-04: lock the house_user row for the duration of this read-
         // modify-write so two concurrent same-user completions cannot clobber
@@ -86,6 +97,12 @@ class GameLogicService
         $completedTask->setCompletedAt(new \DateTime());
         $completedTask->setCoinsEarned($coins);
         $completedTask->setWasCombo($isCombo);
+        if ($nextcloudTaskId !== null) {
+            // CR-SVC-46: stamp the linked Nextcloud task id inside the
+            // canonical transaction so findPendingSyncs() (which filters on
+            // completed_tasks.nextcloud_task_id) sees sync completions.
+            $completedTask->setNextcloudTaskId($nextcloudTaskId);
+        }
         $this->completedTaskMapper->insert($completedTask);
 
         $user->addContributionScore($contributionScore);

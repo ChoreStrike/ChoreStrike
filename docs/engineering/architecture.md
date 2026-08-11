@@ -41,7 +41,7 @@ ChoreStrike/
 │   ├── Command/                # occ commands (TestDataSeed, TriggerJobs — test-mode-
 │   │                           #   guarded job trigger with --as-of, CS-PLAN-023)
 │   ├── Controller/             # Thin API controllers (House, Floor, Room, Task,
-│   │                           #   RoomTask, Checklist, Scheduling, SmartScheduler,
+│   │                           #   RoomTask, Checklist, Scheduling,
 │   │                           #   Minigame, RewardConfig, User, Template, TaskSync,
 │   │                           #   Game, Page, Test) + ControllerLoggingTrait +
 │   │                           #   ControllerErrorFormatter (sanitized error messages)
@@ -49,11 +49,12 @@ ChoreStrike/
 │   │                           #   scheduling Pinia store as the canonical surface. The
 │   │                           #   `smart-schedule#*` routes were REMOVED (CS-016 review,
 │   │                           #   2026-07-28) because SmartSchedulerController injected no
-│   │                           #   AuthorizationService — re-add with auth gating if revived.
+│   │                           #   AuthorizationService; the controller/service cluster was
+│   │                           #   deleted in CS-PLAN-025 — re-add with auth gating if revived.
 │   ├── Db/                     # Entities & mappers (House, Floor, Room, Task, RoomTask,
-│   │                           #   CompletedTask, HouseUser, Medal, Combo, MinigameScore,
+│   │                           #   CompletedTask, HouseUser, Medal, MinigameScore,
 │   │                           #   TaskChecklistItem, TaskAssignee, RoomTaskChecklistProgress,
-│   │                           #   UserStats, AvailabilitySettings)
+│   │                           #   AvailabilitySettings)
 │   ├── Exception/              # App exceptions (NotFoundException, ForbiddenException) —
 │   │                           #   domain-typed (NC 31 dropped the framework equivalents)
 │   ├── Migration/              # Schema migrations (Version1000 … Version1027,
@@ -62,12 +63,12 @@ ChoreStrike/
 │   │                           #   registered via Application::registerNotifierService —
 │   │                           #   the legacy info.xml <notifications> tag is not wired
 │   │                           #   on modern Nextcloud, CS-PLAN-023)
-│   ├── Service/                # Business logic (House, HouseUser, Floor, Room, RoomTask,
-│   │                           #   Task, GameLogic, Combo, Scheduling, SmartScheduler,
-│   │                           #   TaskScheduler, Minigame, RewardConfig, Template, TaskSync,
-│   │                           #   UserStats, TestData, Authorization, AppLogger, Title,
-│   │                           #   Notification, StreakAtRisk, StreakFreeze, StreakRestock)
-│   │                           #   + Scheduling/ subfolder (algorithm classes). The three
+│   ├── Service/                # Business logic (House, Floor, Room, RoomTask,
+│   │                           #   Task, GameLogic, Scheduling,
+│   │                           #   Minigame, RewardConfig, Template, TaskSync,
+│   │                           #   TestData, Authorization, AppLogger, Title,
+│   │                           #   Notification, StreakAtRisk, StreakFreeze, StreakRestock).
+│   │                           #   The three
 │   │                           #   Streak*/AtRisk services hold the job bodies and take an
 │   │                           #   injected "yesterday" date (CS-PLAN-023).
 │   ├── Templates/              # TaskTemplates.json (built-in task templates)
@@ -290,12 +291,10 @@ summary below covers the core tables. Column types map to the entity PHP type
 
 | Table | Purpose | Entity |
 |-------|---------|--------|
-| `chorestrike_combos` | Active combo state per user (task count, window, bonus) | `Combo` |
 | `chorestrike_minigame_scores` | Minigame scores (game, score, boosts used) | `MinigameScore` |
 | `chorestrike_checklist_items` | Task checklist template items | `TaskChecklistItem` |
 | `chorestrike_room_task_checklist_progress` | Per-room-task checklist progress | `RoomTaskChecklistProgress` |
 | `chorestrike_task_assignees` | Multi-assignee join table (room-task ↔ user) (CS-PLAN-002) | `TaskAssignee` |
-| `chorestrike_user_stats` | Per-user aggregate stats (total points, streaks, tasks completed) | `UserStats` |
 | `chorestrike_availability` | Per-user availability: weekday presence, time ranges, energy budget | `AvailabilitySettings` |
 
 ### Indexes

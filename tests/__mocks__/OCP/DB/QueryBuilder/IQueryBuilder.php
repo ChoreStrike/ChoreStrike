@@ -151,6 +151,11 @@ interface IQueryBuilder
     public function createPositionalParameter($value, $type = self::PARAM_STR);
 
     /**
+     * @return mixed
+     */
+    public function createFunction($call);
+
+    /**
      * @return IFunctionBuilder
      */
     public function func();

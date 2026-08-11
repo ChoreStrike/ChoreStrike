@@ -58,6 +58,8 @@ class MinigameService
      * @param string $gameId The game ID (e.g., 'snake')
      * @param int $score The achieved score
      * @param array $boostsUsed List of boost IDs used during the game
+     * @return MinigameScore The persisted score entity
+     * @throws \InvalidArgumentException if the score is out of bounds (CR-SVC-05)
      */
     public function saveScore(int $houseId, string $userId, string $gameId, int $score, array $boostsUsed = []): MinigameScore
     {

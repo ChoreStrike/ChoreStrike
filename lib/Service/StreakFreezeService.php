@@ -69,22 +69,23 @@ class StreakFreezeService
                     continue;
                 }
 
+                // CR-SVC-03 idempotency: a re-run for the same day is a no-op.
+                // The destructive branch (freeze consume / streak reset) stamps
+                // last_freeze_date below, so a job retry or a manual
+                // `occ trigger-jobs` cannot double-consume a freeze or reset an
+                // already-preserved streak. Checked before the completion count
+                // so a re-run skips the per-user query entirely.
+                $lastFreeze = $user->getLastFreezeDate();
+                if ($lastFreeze !== null && $lastFreeze->format('Y-m-d') === $yesterdayKey) {
+                    continue;
+                }
+
                 $yesterdayCompletions = $this->completedTaskMapper->countByUserOnDate(
                     $user->getId(),
                     $yesterday
                 );
 
                 if ($yesterdayCompletions > 0) {
-                    continue;
-                }
-
-                // CR-SVC-03 idempotency: a re-run for the same day is a no-op.
-                // The destructive branch (freeze consume / streak reset) stamps
-                // last_freeze_date below, so a job retry or a manual
-                // `occ trigger-jobs` cannot double-consume a freeze or reset an
-                // already-preserved streak.
-                $lastFreeze = $user->getLastFreezeDate();
-                if ($lastFreeze !== null && $lastFreeze->format('Y-m-d') === $yesterdayKey) {
                     continue;
                 }
 
