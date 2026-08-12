@@ -98,10 +98,30 @@ E2E spec basenames under `tests/e2e/`, plus PHPUnit suites):
 - Minigames: `snake-game`
 - Settings: `settings`
 - Errors/validation: `error-handling`, `validation`
+- Release regression suite (CS-PLAN-024, `release-*`): task lifecycle
+  (`release-task-lifecycle`), visibility/roles (`release-visibility-roles`),
+  reward config (`release-reward-config`), task templates
+  (`release-task-templates`), boost shop (`release-boost-shop`), notifications
+  (`release-notifications`).
 
 > **Drift rule:** if an E2E spec comes to cover a manual item reliably, mark the
 > manual row **Automated** (with the spec pointer) instead of removing the row —
 > the row still documents the expected behaviour for exploratory spot-checks.
+
+### 2.1 Tagging convention (the `Automated?` column)
+
+Every row carries exactly one tag in the `Automated?` column (CS-PLAN-024
+audit). The tag is the executable form of the drift rule above:
+
+| Tag | Meaning |
+|-----|---------|
+| **Automated** `spec-basename` | A Playwright spec under `tests/e2e/` reliably covers the row. The manual tester may spot-check but is not required to re-execute it. |
+| **partial** `spec-basename` *(gap note)* | A spec covers part of the row (e.g. the happy path but not the denial branch). The gap note records what is still manual. |
+| **PHPUnit** `TestClass::method` | Covered by a backend unit/integration test (no UI), so the manual tester validates only the UX surface. |
+| **—** | Genuinely manual (exploratory / mobile / social / perf / upgrade-smoke). No automation is planned. |
+
+A row is never *removed* when it becomes automated — it is re-tagged so the
+expected behaviour stays documented for exploratory spot-checks.
 
 ---
 
@@ -115,7 +135,7 @@ Route surface: `page#index`, `house#get/update/stats/health/reset`.
 | First-run house bootstrap | Open the app for the first time as a new user | A house is created automatically and the Dashboard renders | `gui-scratch-flow` |
 | House name update | Edit the house name in Settings | Name persists after reload | — |
 | House health | Complete/skip a few tasks, reopen Dashboard | House health bar reflects recent activity | `dashboard` |
-| House reset (owner only) | Trigger house reset as owner, then as a non-owner | Owner succeeds; non-owner is denied (403) | — |
+| House reset (owner only) | Trigger house reset as owner, then as a non-owner | Owner succeeds; non-owner is denied (403) | partial `settings` (happy-path UI only; 403 branch still manual) |
 
 ---
 
@@ -147,13 +167,13 @@ Route surface: `task#*`, `room_task#*`, `checklist#*`.
 | Create task | Add a task (set energy, priority, tier, frequency) | Task appears in the task list / room | `task-manager` |
 | Complete task | Mark a room-task complete | Status changes, coins awarded, celebration fires | `task-completion` |
 | Uncomplete task | Revert a completion | Status restored, coins adjusted consistently | `task-completion-full-flow` |
-| Skip task | Skip a task | Task skipped without an unfair penalty | — |
-| Reschedule task | Change the due date | Due date updates | — |
+| Skip task | Skip a task | Task skipped without an unfair penalty | `release-task-lifecycle` |
+| Reschedule task | Change the due date | Due date updates | `release-task-lifecycle` |
 | Recurrence | Complete a recurring (daily/weekly/monthly) task | A new instance is generated per frequency | `daily-tasks-flow` |
 | Assignees | Assign / unassign members; multi-assign | Assignee set persists; multi-assign works | `task-manager` |
-| Deactivate / reactivate | Deactivate then reactivate a room-task | Task hides from active lists, then returns | — |
+| Deactivate / reactivate | Deactivate then reactivate a room-task | Task hides from active lists, then returns | `release-task-lifecycle` |
 | Checklist items | Add / toggle / reorder / delete checklist items on a task | Progress tracked; room-task checklist progress updates | `task-checklist-and-features` |
-| Task templates | Create from / import a task template | Task created with template defaults | `task-manager` |
+| Task templates | Create from / import a task template | Task created with template defaults | `task-manager`, `release-task-templates` |
 
 ---
 
@@ -184,8 +204,8 @@ Route surface: `task#myPrivate`, `visibility_type` (`public`/`private`/`admin-on
 | Child filtering | Log in as a `child` role user | Child sees only age-/role-appropriate tasks | `multi-user-interactions` |
 | Invite member | Owner invites a Nextcloud user | Invite succeeds; user joins the house | — |
 | Remove member | Owner removes a member | Member loses house access | — |
-| Change role | Owner changes a member's role (`owner`/`member`/`child`) | Role change persists and affects visibility | — |
-| Owner-only config | Open reward configuration as owner vs. non-owner | Owner can read/edit; non-owner is denied | `settings` |
+| Change role | Owner changes a member's role (`owner`/`member`/`child`) | Role change persists and affects visibility | `release-visibility-roles` |
+| Admin-only config (global) | Read the reward configuration as a member; edit it as a Nextcloud server admin vs. a non-admin | Any member can read; the server admin can edit; a non-admin is denied (403) | `release-reward-config` |
 
 ---
 
@@ -217,8 +237,8 @@ Route surface: `minigame#*`. Components: Snake, 2048, Memory, BoostShop (Dashboa
 |---|---|---|---|
 | Play a minigame | Open the arcade on the Dashboard; play Snake/2048/Memory | Game is playable; score saved | `snake-game` |
 | Personal best / rank | Play repeatedly | Personal best and weekly leaderboard update | — |
-| Boost shop | Browse and purchase a boost with coins | Coins deducted; boost applied | — |
-| Coin spend balance | Spend coins, then complete a task | Earn/spend ledger stays consistent | — |
+| Boost shop | Browse and purchase a boost with coins | Coins deducted; boost applied | `release-boost-shop` |
+| Coin spend balance | Spend coins, then complete a task | Earn/spend ledger stays consistent | `release-boost-shop` |
 
 ---
 
@@ -277,7 +297,7 @@ Time-Travel Testing).
 |---|---|---|---|
 | Daily reminder | Trigger/await the daily notification job | A localized task reminder is delivered via Nextcloud notifications | `time-travel-streak-notification` (at-risk reminder via `trigger-jobs --as-of`, CS-PLAN-023) |
 | Streak freeze/restock | Consume then restock a streak freeze via the jobs | Freeze consumed on a miss; restocked per job schedule | `time-travel-streak-notification` (freeze/reset) + `TriggerJobsIntegrationTest` (restock covered by unit/integration) |
-| Weekly goal | Reach the house weekly goal | Weekly-goal-reached notification fires once per week (de-duped) | — |
+| Weekly goal | Reach the house weekly goal | Weekly-goal-reached notification fires once per week (de-duped) | `release-notifications` |
 
 ---
 

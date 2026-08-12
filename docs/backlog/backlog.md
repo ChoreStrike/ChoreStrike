@@ -213,27 +213,6 @@ The frontend daily view degrades to an empty state, so no UI crash hid it.
 
 ---
 
-### [P3] TECH-TEST-002 — E2E regression suite covering the automatable part of CS-017
-**Status**: Planned · **Effort**: L (grown over releases) · **Source**: User request 2026-07-30 · **Plan**: [`docs/plans/new/cs-plan-024-release-e2e-regression-suite.md`](../plans/new/cs-plan-024-release-e2e-regression-suite.md)
-
-CS-017 is deliberately manual (exploratory UX, mobile feel, multi-user social
-flows). Build a companion E2E regression suite that fills the "covered by E2E?"
-markers in `release-test-plan.md`, so the manual pass per release shrinks to the
-genuinely non-automatable items. Anti-rot rule already in CS-017 §7.
-
-> **Absorbs CS-022 Phase 5 (2026-08-12):** the economy-config / task-template /
-> boost-shop E2E specs deferred by CS-022 land here (reward-config, task-templates,
-> boost-shop) instead of a duplicate plan.
-
-- [ ] Map each `release-test-plan.md` section to "automated / manual / partial".
-- [ ] Promote partial items to full Playwright specs (full task lifecycle incl.
-      skip/reschedule/recurrence/checklist, overdue-claim + teamwork, visibility filtering).
-- [ ] Reward-economy specs (absorbed from CS-022 Phase 5): reward-config, task-templates, boost-shop.
-- [ ] Notification regression — CS-023's `occ chorestrike:trigger-jobs` is now available.
-- [ ] Update `release-test-plan.md` markers as specs land.
-
----
-
 ### [P3] TECH-CLEANUP-ITIMEFACTORY — Normalize the two `ITimeFactory` interfaces
 **Status**: Backlog · **Effort**: S · **Source**: CS-023 review (2026-07-30)
 

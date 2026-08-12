@@ -20,6 +20,16 @@ const SEED_DEPENDENT_SPECS = [
 	// job state via `occ chorestrike:trigger-jobs` — serial pool only.
 	/time-travel-overdue\.spec\.ts/,
 	/time-travel-streak-notification\.spec\.ts/,
+	// CS-PLAN-024: release regression specs mutate seed state (task lifecycle,
+	// role changes, global reward config, template imports, coin spend,
+	// weekly-goal completion) — serial pool only. Separator-anchored per the
+	// SCHEDULING_OWNER_SPECS convention so a substring can never match twice.
+	/[/\\]release-task-lifecycle\.spec\.ts$/,
+	/[/\\]release-visibility-roles\.spec\.ts$/,
+	/[/\\]release-reward-config\.spec\.ts$/,
+	/[/\\]release-task-templates\.spec\.ts$/,
+	/[/\\]release-boost-shop\.spec\.ts$/,
+	/[/\\]release-notifications\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a
