@@ -40,6 +40,14 @@ describe('SchedulingView', () => {
 		setActivePinia(createPinia())
 		jest.clearAllMocks()
 		api.get.mockResolvedValue({})
+		// The "shows an error banner when initialization fails" test (and any
+		// benign init log) routes through src/utils/logger.js → console.error.
+		// These are expected failure paths; silence the console noise.
+		jest.spyOn(console, 'error').mockImplementation(() => {})
+	})
+
+	afterEach(() => {
+		jest.restoreAllMocks()
 	})
 
 	it('renders the scheduling view with testid', () => {

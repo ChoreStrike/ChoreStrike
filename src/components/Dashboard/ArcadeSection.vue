@@ -339,8 +339,11 @@ onMounted(async () => {
 }
 
 .game-preview-tile.t-2 { background: #EEE4DA; }
+
 .game-preview-tile.t-4 { background: #EDE0C8; }
+
 .game-preview-tile.t-8 { background: #F2B179; color: #FFFFFF; }
+
 .game-preview-tile.t-16 { background: #F59563; color: #FFFFFF; }
 
 .game-preview-card {

@@ -15,7 +15,10 @@
 
 ## PHP (Backend)
 
-- Follow **PSR-12**. Use strict types where practical.
+- Follow the **Nextcloud coding standard** (`nextcloud/coding-standard` — a PSR-12
+  superset: **tabs**, same-line braces, ordered imports). Enforced by
+  `.php-cs-fixer.dist.php`: run `composer cs:check` before committing,
+  `composer cs:fix` auto-applies. Use strict types where practical.
 - Use **type hints** and **return types** on all methods.
 - Document every public member with **PHPDoc**.
 - **Thin controllers:** routes/controllers only validate input, call a service, and return a `JSONResponse`. No business logic in controllers.
@@ -26,7 +29,7 @@
 
 ```php
 public function create(int $floorId, string $name): JSONResponse {
-    // validate -> service -> response
+	// validate -> service -> response
 }
 ```
 

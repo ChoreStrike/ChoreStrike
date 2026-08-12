@@ -8,7 +8,7 @@ If you are acting as an AI agent, start with [`../../AGENTS.md`](../../AGENTS.md
 
 ### Prerequisites
 
-- **PHP 8.0+** with extensions: `pdo`, `mbstring`, `curl`, `gd`, `zip`
+- **PHP 8.2+** with extensions: `pdo`, `mbstring`, `curl`, `gd`, `zip`
 - **Node.js 20+** and npm 10+
 - **Nextcloud 27+** development instance
 - **Composer** for PHP dependencies
@@ -153,7 +153,10 @@ See [architecture.md](architecture.md) for detailed structure.
 
 ### PHP
 
-- Follow **PSR-12** coding standard
+- Follow the **Nextcloud coding standard** (enforced by `.php-cs-fixer.dist.php`
+  → `nextcloud/coding-standard`; superset of PSR-12: **tabs** + same-line
+  braces + ordered imports). Run `composer cs:check` before committing;
+  `composer cs:fix` auto-applies.
 - Use **type hints** for all parameters and return types
 - Document all public methods with **PHPDoc**
 - Keep methods **small and focused** (< 50 lines)
@@ -517,23 +520,29 @@ truth for the blocking quality gate and runs on every `push` and `pull_request`.
 | Command | Purpose |
 |---------|---------|
 | `npm run lint` | ESLint, 0 errors required |
+| `npm run stylelint` | Stylelint, 0 errors required (`src/` Vue/CSS/SCSS) |
 | `npm test` | Jest (Vue components, stores, API contract) |
 | `npm run build` | Webpack production build |
 | `composer validate --strict` | `composer.json` sanity |
+| `composer cs:check` | PHP coding standard (Nextcloud CS), 0 diff required |
 | `vendor/bin/phpunit --configuration phpunit.unit.xml` | Backend unit tests (via Docker) |
 | `vendor/bin/phpunit --configuration phpunit.integration.xml` | Backend integration tests (via Docker) |
 
-Stylelint is **advisory/non-blocking** until the
-`@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch is
-resolved (see `docs/backlog/archive/2026-07.md`). See [`testing.md`](testing.md) for the
-local reproduction recipe and full CI detail.
+Stylelint (`npm run stylelint`) and the PHP coding standard
+(`composer cs:check`) are **enforced/blocking** gates as of CS-026 (the
+`@nextcloud/stylelint-config` ↔ `stylelint` version mismatch and the missing
+`.php-cs-fixer.dist.php` were both resolved 2026-08-12). Stylelint still emits
+~26 `use-logical` *warnings* (deferred RTL sweep →
+[`backlog.md`](../backlog.md) TECH-LINT-004); warnings do not fail the gate
+(absent `--max-warnings`). See [`testing.md`](testing.md) for the local
+reproduction recipe and full CI detail.
 
 ## Resources
 
 - [Nextcloud Developer Docs](https://docs.nextcloud.com/server/latest/developer_manual/)
 - [Vue.js 3 Docs](https://vuejs.org/)
 - [Nextcloud Vue Components](https://nextcloud-vue-components.netlify.app/)
-- [PSR-12 Standard](https://www.php-fig.org/psr/psr-12/)
+- [Nextcloud Coding Standard](https://github.com/nextcloud/coding-standard) (PSR-12 superset, enforced via `.php-cs-fixer.dist.php`)
 
 ## Getting Help
 

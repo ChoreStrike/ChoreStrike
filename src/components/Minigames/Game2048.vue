@@ -390,15 +390,25 @@ export default {
 }
 
 .board-cell.tile-2    { background: #EEE4DA; }
+
 .board-cell.tile-4    { background: #EDE0C8; }
+
 .board-cell.tile-8    { background: #F2B179; color: #FFFFFF; }
+
 .board-cell.tile-16   { background: #F59563; color: #FFFFFF; }
+
 .board-cell.tile-32   { background: #F67C5F; color: #FFFFFF; }
+
 .board-cell.tile-64   { background: #F65E3B; color: #FFFFFF; }
+
 .board-cell.tile-128  { background: #EDCF72; color: #FFFFFF; }
+
 .board-cell.tile-256  { background: #EDCC61; color: #FFFFFF; }
+
 .board-cell.tile-512  { background: #EDC850; color: #FFFFFF; }
+
 .board-cell.tile-1024 { background: #EDC53F; color: #FFFFFF; }
+
 .board-cell.tile-2048 { background: #EDC22E; color: #FFFFFF; box-shadow: 0 0 20px var(--cs-celebrate-gold); }
 
 .game-over-overlay {

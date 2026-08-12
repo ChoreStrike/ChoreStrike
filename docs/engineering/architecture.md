@@ -7,10 +7,10 @@ ChoreStrike is built as a Nextcloud app following the standard Nextcloud app arc
 ## Technology Stack
 
 ### Backend
-- **PHP 8.0+**: Server-side logic
+- **PHP 8.2+**: Server-side logic
 - **Nextcloud App Framework**: Controllers, Database abstraction
 - **Doctrine DBAL**: Database queries
-- **PSR-12**: Coding standard
+- **Nextcloud coding standard**: Code style (PSR-12 superset with tabs; enforced via `composer cs:check`)
 
 ### Frontend
 - **Vue.js 3**: UI framework (Composition API)
@@ -554,10 +554,12 @@ uploading `build/coverage/**` as a CI artifact. Jest enforces a
 `coverageThreshold` (regression-only, set below baseline); PHPUnit coverage
 is artifacts-only. See `docs/engineering/testing.md` § Coverage Measurement.
 
-Stylelint is **advisory/non-blocking** until the
-`@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch
-(201 "Unknown rule" errors) is resolved or pinned. See
-`docs/engineering/testing.md` (history: `docs/backlog/archive/2026-07.md`).
+Stylelint (`npm run stylelint`) is a **blocking** gate as of CS-026 (2026-08-12):
+the `@nextcloud/stylelint-config` ↔ `stylelint` version mismatch that produced
+201 "Unknown rule" errors was resolved by aligning the dependency trio (config
+3.x / stylelint 17). It still emits ~26 `use-logical` *warnings* (deferred RTL
+sweep → `docs/backlog/backlog.md` TECH-LINT-004); warnings do not fail the gate.
+See `docs/engineering/testing.md`.
 
 ## Deployment
 

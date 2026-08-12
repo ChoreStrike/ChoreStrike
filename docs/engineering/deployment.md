@@ -6,7 +6,7 @@
 ## Prerequisites
 
 - Nextcloud 27–31
-- PHP 8.0–8.3
+- PHP 8.2–8.3
 - MariaDB/MySQL/PostgreSQL/SQLite
 - Docker & Docker Compose (for the test environment)
 - Node.js 20+ & npm 10+ (for the frontend build)
@@ -67,7 +67,7 @@ both defaults — individual users can switch to any available language.
 
 - [ ] All unit tests pass (`vendor/bin/phpunit --configuration phpunit.unit.xml tests/unit`)
 - [ ] All frontend tests pass (`npm test`)
-- [ ] PSR-12 compliance verified
+- [ ] PHP coding standard verified (`composer cs:check` — Nextcloud coding standard)
 - [ ] ESLint compliance verified (`npm run lint`)
 - [ ] Stylelint compliance verified (`npm run stylelint`)
 - [ ] Security audit completed (see [`../standards/guidelines/security.md`](../standards/guidelines/security.md))

@@ -130,21 +130,70 @@ NC notification system already delivers to mobile).
 
 ## Tech Debt / Code Quality
 
-### [P2] TECH-LINT-001 — Stylelint config reports "Unknown rule" for every file (stylelint 16.x mismatch)
-**Status**: Open · **Effort**: S · **Source**: discovered during BUG-UI-001 (2026-07-30)
+### [P3] TECH-LINT-003 — Build/test noise (remaining console.error)
+**Status**: Open · **Effort**: S · **Source**: compiler-warnings review (2026-08-12) → [CS-PLAN-026](../plans/active/cs-plan-026-fix-compiler-warnings.md)
 
-`npm run stylelint` fails with 181 "Unknown rule" errors across **every** CSS/Vue
-file (incl. untouched `tokens.css`, `mobile.css`). The referenced rules
-(`indentation`, `number-leading-zero`, `string-quotes`, `selector-list-comma-newline-after`)
-were removed as built-ins in Stylelint 15/16 and must now come from a SCSS/Vue
-plugin config. `@nextcloud/stylelint-config` references them as if still built-in.
-This is a config/versions mismatch, **not** introduced by any individual change.
+Most of the 2026-08-12 noise sweep landed in CS-026 (browserslist data refreshed;
+punycode `DEP0040` suppressed via `tests/jest.setup.deprecations.js`; the two
+named error-path specs silenced). The remaining noise is folded into
+**TECH-LINT-005** below. This item stays open only as the umbrella tracker for
+"keep the Jest output clean"; close it once TECH-LINT-005 lands.
 
-- [ ] Reconcile `@nextcloud/stylelint-config` with the installed `stylelint@16`:
-      either pin a compatible stylelint version or add the required
-      plugin configs so `npm run stylelint` runs clean.
-- [ ] Re-enable stylelint in CI once green (currently `npm run lint` / `npm test`
-      are the effective gate; stylelint is in the pre-deployment checklist only).
+---
+
+### [P2] TECH-LINT-004 — Stylelint `use-logical` warnings (26, physical→logical property sweep)
+**Status**: Open · **Effort**: M · **Source**: surfaced after CS-026 fixed the stylelint config (2026-08-12)
+
+Once `@nextcloud/stylelint-config@3.x` was aligned (CS-026), the previously-silent
+`stylelint-use-logical` rule started firing: **26 warnings** across `src/`
+recommending logical properties (`left`→`inset-inline-start`,
+`border-left`→`border-inline-start`, `text-align: left`→`start`, …). These are
+**RTL/i18n layout improvements, not formatting** — auto-fixing them would change
+rendering (e.g. a `left: 50%`+`translateX` centering pair becomes inconsistent
+under the logical rewrite), so CS-026 deliberately left them as warnings (gate
+still exits 0: warnings ≠ error-severity). `npm run stylelint` → 0 errors,
+26 warnings.
+
+- [ ] Audit each `use-logical` hit and convert to logical properties where the
+      full positioning/transform context is verified for both LTR and RTL (or
+      add a scoped `stylelint-disable-next-line` with a reason where physical is
+      intentional).
+- [ ] Consider adding RTL/Playwright coverage so the conversions are verifiable.
+
+---
+
+### [P2] TECH-LINT-005 — Jest `[ChoreStrike] [error]` noise from `api.js`↔mock gap (95 lines, ~8 store specs)
+**Status**: Open · **Effort**: M · **Source**: surfaced during CS-026 noise sweep (2026-08-12)
+
+`src/services/api.js::request()` calls `axios({ method, url, …config })` — the
+**default export** of `@nextcloud/axios` — but the store/component unit-test
+mocks only provide `{ get, post }`. Every API call therefore throws, falls into
+the store's catch block, and logs via `src/utils/logger.js` → `console.error`.
+The tests pass (the catch is graceful), but **~95 `[ChoreStrike] [error]` lines**
+flood the Jest output across `minigame`, `house`, `roomTasks`, `titles`, `user`,
+`game`, `tasks`, `rooms` store specs. CS-026 silenced the two originally-named
+specs (MemoryGame, SchedulingView) per plan; the systemic mock gap is the real
+fix and is deferred here.
+
+- [ ] Standardize the `@nextcloud/axios` mock to also export a `default: jest.fn()`
+      (matching how `api.js` calls it) and switch the store-spec setups from
+      `axios.get.mockResolvedValue(…)` to `axios.mockResolvedValue(…)`, so the
+      API calls resolve instead of hitting the catch/logger.
+- [ ] Alternatively, if the default-export call is unintended, change `api.js`
+      to use `axios.get`/`axios.post` (named exports) — but that is a production
+      change needing its own review.
+
+---
+
+### [P3] TECH-LINT-006 — npm peer-dep ERESOLVE requires `--legacy-peer-deps`
+**Status**: Open · **Effort**: S · **Source**: CS-026 dependency reinstall (2026-08-12)
+
+`npm install` fails with `ERESOLVE`: `eslint-config-standard@17.1.0` wants
+`eslint-plugin-n@^15 || ^16` but `package.json` pins `eslint-plugin-n@^17.24.0`
+(via `@nextcloud/eslint-config@8.3.0`). The repo therefore installs with
+`--legacy-peer-deps`. Pre-existing (not introduced by CS-026), but now documented.
+Resolving it cleanly likely needs an `eslint-plugin-n`/`eslint-config-standard`
+bump coordinated with the Nextcloud eslint config.
 
 ---
 
@@ -218,24 +267,6 @@ canonical `src/services/api.js` client enforced by `apiContract.spec.js`.
 
 - [ ] Replace/drop the fictional `calculateNextDue` example; rewrite the endpoint
       example to use the shared `api` client.
-
----
-
-### [P2] P9-CONFIG-001 — Align PHP minimum version (8.0 vs 8.1)
-**Status**: Open · **Effort**: XS · **Source**: CS-014 review (2026-07-26)
-
-`info.xml` declares `<php min-version="8.0" max-version="8.3"/>`, `composer.json`
-requires `^8.0`, but `AGENTS.md` says "PHP 8.1+". Decide the real minimum, then
-align all three (CI pins PHP 8.2 for `composer validate`).
-
----
-
-### [P4] P9-CONFIG-002 — Node `punycode` DEP0040 deprecation (informational)
-**Status**: Tracked no-action (external) · **Effort**: 0 · **Source**: CS-018 baseline
-
-Jest emits a `punycode` deprecation (Node DEP0040), surfaced transitively by a
-dependency — no first-party import, does not affect results. Re-surface only if
-it becomes an error in a future Node major.
 
 ---
 

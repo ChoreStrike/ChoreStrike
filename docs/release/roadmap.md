@@ -351,7 +351,7 @@
 #### Tasks
 - [ ] Code Review (Day 1)
   - [ ] P6 & P7 code review
-  - [ ] PSR-12 compliance check
+  - [ ] PHP coding-standard check (`composer cs:check` — Nextcloud coding standard)
   - [ ] ESLint compliance check
   - [ ] Dead code removal
 - [ ] Security audit

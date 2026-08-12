@@ -37,7 +37,7 @@ Complete tasks, build streaks and keep your home tidy together. Perfect for fami
     
     <dependencies>
         <nextcloud min-version="27" max-version="31"/>
-        <php min-version="8.0" max-version="8.3"/>
+        <php min-version="8.2" max-version="8.3"/>
     </dependencies>
     
     <navigations>

@@ -8,7 +8,7 @@
 
 - **ChoreStrike** — gamified household task management as a **Nextcloud app** (Vue 3 + PHP).
 - **License:** MIT. Everything outside `/private/` and `archive/` is public.
-- **Stack:** PHP 8.1+ (Nextcloud App API), Vue 3 (Composition API) + Pinia, Webpack 5. DB via Nextcloud abstraction (SQLite/MySQL/PostgreSQL). Tests: PHPUnit + Jest + Playwright.
+- **Stack:** PHP 8.2+ (Nextcloud App API), Vue 3 (Composition API) + Pinia, Webpack 5. DB via Nextcloud abstraction (SQLite/MySQL/PostgreSQL). Tests: PHPUnit + Jest + Playwright.
 
 ## Quick Start
 

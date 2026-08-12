@@ -186,9 +186,11 @@ It is the single source of truth for blocking gate commands.
 | Command | Purpose |
 |---------|---------|
 | `npm run lint` | ESLint, 0 errors required |
+| `npm run stylelint` | Stylelint, 0 errors required (`src/` Vue/CSS/SCSS) — CS-026 |
 | `npm test` | Jest (Vue components, stores, API contract) |
 | `npm run build` | Webpack production build |
 | `composer validate --strict` | `composer.json` sanity |
+| `composer cs:check` | PHP coding standard (Nextcloud CS), 0 diff required — CS-026 |
 | `vendor/bin/phpunit --configuration phpunit.unit.xml` | Backend unit tests — Entity/Service/Controller/BackgroundJob/Command/Contract/Notification/Migration/l10n suites (via Docker) |
 | `vendor/bin/phpunit --configuration phpunit.integration.xml` | Backend integration tests (via Docker) |
 | `npx playwright test --project=chromium --project=chromium-serial-db` | Playwright E2E — chromium, `family` seed profile (via Docker) |
@@ -197,7 +199,7 @@ It is the single source of truth for blocking gate commands.
 
 | Command | Reason |
 |---------|--------|
-| `npm run stylelint` | `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch produces 201 "Unknown rule" errors (see `docs/backlog/archive/2026-07.md`). Stylelint output is uploaded as an artifact for review. Promoted to blocking once the upstream toolchain is pinned. |
+| _(none — stylelint + PHP CS were promoted to blocking in CS-026, 2026-08-12; stylelint still emits ~26 `use-logical` warnings, deferred → backlog TECH-LINT-004)_ |
 
 > **Unit-gate scope (CS-PLAN-020, 2026-07-29):** `phpunit.unit.xml` now runs the
 > full green unit set — Controller + Service + Entity(Db) + BackgroundJob +
@@ -505,7 +507,7 @@ Repository status:
 Running tests without Docker is possible but **limited**:
 
 ```bash
-# Install PHP 8.0+ locally (winget on Windows, apt on Linux, brew on macOS)
+# Install PHP 8.2+ locally (winget on Windows, apt on Linux, brew on macOS)
 winget install PHP.PHP.8.3  # Windows example
 
 # Install Composer (see https://getcomposer.org/download/)

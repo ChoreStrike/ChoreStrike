@@ -19,11 +19,9 @@
 	--mobile-font-small: 14px;
 }
 
-/* Mobile viewport adjustments */
-@viewport {
-	width: device-width;
-	initial-scale: 1;
-}
+/* The deprecated `@viewport` at-rule was removed here: it is unsupported by
+   modern browsers and Nextcloud's server shell already injects an equivalent
+   `<meta name="viewport" content="width=device-width, initial-scale=1">`. */
 
 /* Prevent horizontal scroll on mobile */
 html, body {

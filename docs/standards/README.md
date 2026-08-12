@@ -15,7 +15,7 @@ Entry point for coding standards, conventions, and AI resources.
 
 | File | Description |
 |------|-------------|
-| [coding-conventions.md](guidelines/coding-conventions.md) | PHP (PSR-12), Vue 3, CSS, and commit-message conventions |
+| [coding-conventions.md](guidelines/coding-conventions.md) | PHP (Nextcloud coding standard), Vue 3, CSS, and commit-message conventions |
 | [testing.md](guidelines/testing.md) | Test strategy, naming, coverage expectations |
 | [security.md](guidelines/security.md) | Authorization, ownership, input validation, XSS/SQLi prevention |
 | [i18n.md](guidelines/i18n.md) | Localization rules and user-facing content policy |

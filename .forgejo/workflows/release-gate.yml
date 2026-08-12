@@ -3,17 +3,17 @@
 # Authoritative quality gate. Runs on every push and pull_request.
 # Fails the run on any non-zero **blocking** command:
 #   - `npm run lint`        (ESLint, 0 errors required)
+#   - `npm run stylelint`   (Stylelint, 0 errors required — CS-026)
 #   - `npm test`            (Jest)
 #   - `npm run build`       (Webpack production build)
 #   - `composer validate`   (composer.json sanity)
+#   - `composer cs:check`   (PHP coding standard, 0 diff — CS-026)
 #   - PHPUnit unit          (via Docker)
 #   - PHPUnit integration   (via Docker)
 #   - Playwright E2E        (chromium, via Docker — blocking, CS-PLAN-020)
 #
-# Stylelint is **advisory/non-blocking** until the
-# `@nextcloud/stylelint-config` ↔ `stylelint` upstream version mismatch
-# (201 "Unknown rule" errors, see docs/backlog/bugs.md) is resolved or pinned.
-# Stylelint output is uploaded as an artifact for review.
+# Stylelint emits ~26 `use-logical` *warnings* (deferred RTL sweep → backlog
+# TECH-LINT-004); warnings do not fail the gate (no `--max-warnings` set).
 #
 # This workflow is the single source of truth for gate commands. If a runner
 # is not available yet, the commands below are the canonical local gate.
@@ -57,24 +57,14 @@ jobs:
       - name: Webpack build (blocking)
         run: npm run build
 
-      - name: Stylelint (advisory, non-blocking)
-        run: npm run stylelint 2>&1 | tee stylelint-output.txt || true
-        continue-on-error: true
+      - name: Stylelint (blocking, CS-026)
+        run: npm run stylelint
 
-      - name: Upload stylelint advisory output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: stylelint-advisory
-          path: stylelint-output.txt
-          retention-days: 7
-          if-no-files-found: ignore
-
-  # ---------- Composer sanity ----------
+  # ---------- Composer sanity + PHP CS ----------
   composer:
-    name: Composer validate
+    name: Composer validate + PHP CS
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -92,6 +82,12 @@ jobs:
 
       - name: Validate composer.json (blocking)
         run: composer validate --strict --no-check-publish
+
+      - name: Install dependencies (for php-cs-fixer)
+        run: composer install --no-interaction --prefer-dist
+
+      - name: PHP coding standard (blocking, CS-026)
+        run: composer cs:check
 
   # ---------- Backend unit tests (Docker) ----------
   phpunit-unit:
@@ -282,8 +278,8 @@ jobs:
             echo ""
             echo "| Job | Status |"
             echo "|-----|--------|"
-            echo "| Frontend (lint + test + build) | ${{ needs.frontend.result }} |"
-            echo "| Composer validate              | ${{ needs.composer.result }} |"
+            echo "| Frontend (lint + stylelint + test + build) | ${{ needs.frontend.result }} |"
+            echo "| Composer validate + PHP CS                 | ${{ needs.composer.result }} |"
             echo "| PHPUnit Unit (Docker)          | ${{ needs.phpunit-unit.result }} |"
             echo "| PHPUnit Integration (Docker)   | ${{ needs.phpunit-integration.result }} |"
             echo "| E2E (chromium, Docker)         | ${{ needs.e2e.result }} |"

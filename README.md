@@ -60,7 +60,7 @@ ChoreStrike combines practical household task management with engaging game mech
 
 ### Requirements
 - Nextcloud 28 or higher
-- PHP 8.1 or higher
+- PHP 8.2 or higher
 - MySQL/PostgreSQL/SQLite
 
 ### Install from App Store
@@ -118,7 +118,7 @@ npm run build
 
 - **Platform**: Nextcloud App
 - **Frontend**: Vue.js 3 (Composition API) + Pinia
-- **Backend**: PHP 8.1+ (Nextcloud App API)
+- **Backend**: PHP 8.2+ (Nextcloud App API)
 - **Database**: SQLite/MySQL/PostgreSQL (via Nextcloud DB abstraction)
 - **Graphics**: Pixel art sprites with CSS animations
 - **Testing**: PHPUnit (backend), Jest (frontend), Playwright (E2E)

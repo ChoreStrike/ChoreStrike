@@ -50,6 +50,7 @@ Thumbs.db
 /coverage/
 /.phpunit.result.cache
 /.phpunit.integration.result.cache
+/.php-cs-fixer.cache
 /test-results/
 /playwright-report/
 /blob-report/

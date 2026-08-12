@@ -31,6 +31,9 @@ module.exports = {
 		'/node_modules/(?!(@nextcloud|vue-router)/)',
 	],
 	setupFilesAfterEnv: ['<rootDir>/tests/unit/setup.js'],
+	// Runs before the test framework loads — early enough to override
+	// process.emitWarning for the DEP0040 punycode noise (see file header).
+	setupFiles: ['<rootDir>/tests/jest.setup.deprecations.js'],
 	testEnvironmentOptions: {
 		customExportConditions: ['node', 'node-addons'],
 	},
