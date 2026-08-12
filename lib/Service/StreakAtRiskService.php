@@ -28,86 +28,84 @@ use Psr\Log\LoggerInterface;
  *
  * Notifications are dispatched best-effort via {@see NotificationService}.
  */
-class StreakAtRiskService
-{
-    public function __construct(
-        private HouseUserMapper $houseUserMapper,
-        private CompletedTaskMapper $completedTaskMapper,
-        private NotificationService $notificationService,
-        private LoggerInterface $logger
-    ) {
-    }
+class StreakAtRiskService {
+	public function __construct(
+		private HouseUserMapper $houseUserMapper,
+		private CompletedTaskMapper $completedTaskMapper,
+		private NotificationService $notificationService,
+		private LoggerInterface $logger,
+	) {
+	}
 
-    /**
-     * Run the streak-at-risk notification pass for the given day.
-     *
-     * @param \DateTimeInterface $yesterday The day to check for completions
-     * @return array{processed: int, notified: int, skippedUnavailable: int}
-     */
-    public function process(\DateTimeInterface $yesterday): array
-    {
-        $yesterdayDayName = strtolower($yesterday->format('l'));
-        $stats = [
-            'processed' => 0,
-            'notified' => 0,
-            'skippedUnavailable' => 0,
-        ];
+	/**
+	 * Run the streak-at-risk notification pass for the given day.
+	 *
+	 * @param \DateTimeInterface $yesterday The day to check for completions
+	 * @return array{processed: int, notified: int, skippedUnavailable: int}
+	 */
+	public function process(\DateTimeInterface $yesterday): array {
+		$yesterdayDayName = strtolower($yesterday->format('l'));
+		$stats = [
+			'processed' => 0,
+			'notified' => 0,
+			'skippedUnavailable' => 0,
+		];
 
-        try {
-            $allUsers = $this->houseUserMapper->findAllForJobs();
+		try {
+			$allUsers = $this->houseUserMapper->findAllForJobs();
 
-            // Single GROUP BY query for everyone's completions on the day;
-            // users with zero completions are absent from the map (treated as 0).
-            $yesterdayCounts = $this->completedTaskMapper->countByUserOnDateGrouped($yesterday);
+			// Single GROUP BY query for everyone's completions on the day;
+			// users with zero completions are absent from the map (treated as 0).
+			$yesterdayCounts = $this->completedTaskMapper->countByUserOnDateGrouped($yesterday);
 
-            foreach ($allUsers as $user) {
-                $stats['processed']++;
+			foreach ($allUsers as $user) {
+				$stats['processed']++;
 
-                $preferences = $user->getSchedulingPreferences();
-                $weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
+				$preferences = $user->getSchedulingPreferences();
+				$weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
 
-                if (isset($weekdayAvailability[$yesterdayDayName]) && $weekdayAvailability[$yesterdayDayName] === false) {
-                    $stats['skippedUnavailable']++;
-                    continue;
-                }
+				if (isset($weekdayAvailability[$yesterdayDayName]) && $weekdayAvailability[$yesterdayDayName] === false) {
+					$stats['skippedUnavailable']++;
+					continue;
+				}
 
-                if ($user->getCurrentStreak() <= 0) {
-                    continue;
-                }
+				if ($user->getCurrentStreak() <= 0) {
+					continue;
+				}
 
-                if ($user->getStreakFreezes() > 0) {
-                    // The freeze pass would consume a freeze for the day's
-                    // inactivity — the streak is silently protected, no nudge.
-                    continue;
-                }
+				if ($user->getStreakFreezes() > 0) {
+					// The freeze pass would consume a freeze for the day's
+					// inactivity — the streak is silently protected, no nudge.
+					continue;
+				}
 
-                $yesterdayCompletions = $yesterdayCounts[$user->getId()] ?? 0;
+				$yesterdayCompletions = $yesterdayCounts[$user->getId()] ?? 0;
 
-                if ($yesterdayCompletions > 0) {
-                    // They completed something that day; no risk reminder due.
-                    continue;
-                }
+				if ($yesterdayCompletions > 0) {
+					// They completed something that day; no risk reminder due.
+					continue;
+				}
 
-                $nextcloudUserId = $user->getNextcloudUserId();
-                if ($nextcloudUserId === null || $nextcloudUserId === '') {
-                    continue;
-                }
+				$nextcloudUserId = $user->getNextcloudUserId();
+				if ($nextcloudUserId === null || $nextcloudUserId === '') {
+					continue;
+				}
 
-                $this->notificationService->notifyStreakAtRisk(
-                    $nextcloudUserId,
-                    $user->getCurrentStreak()
-                );
-                $stats['notified']++;
-            }
-        } catch (\Throwable $e) {
-            $this->logger->error('StreakAtRiskService failed', [
-                'exception' => $e->getMessage(),
-            ]);
-            return $stats;
-        }
+				$this->notificationService->notifyStreakAtRisk(
+					$nextcloudUserId,
+					$user->getCurrentStreak()
+				);
+				$stats['notified']++;
+			}
+		} catch (\Throwable $e) {
+			$this->logger->error('StreakAtRiskService failed', [
+				'exception' => $e->getMessage(),
+			]);
+			return $stats;
+		}
 
-        $this->logger->info('StreakAtRiskService completed', $stats);
+		$this->logger->info('StreakAtRiskService completed', $stats);
 
-        return $stats;
-    }
+		return $stats;
+	}
 }

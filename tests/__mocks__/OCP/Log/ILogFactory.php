@@ -10,8 +10,7 @@ use Psr\Log\LoggerInterface;
  * Mock Nextcloud ILogFactory for unit testing AppLogger, which obtains its
  * PSR logger via `getCustomPsrLogger()`.
  */
-interface ILogFactory
-{
+interface ILogFactory {
 	/**
 	 * @return LoggerInterface
 	 */

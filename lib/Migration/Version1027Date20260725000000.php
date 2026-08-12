@@ -35,15 +35,13 @@ use OCP\Migration\SimpleMigrationStep;
  * @see lib/Migration/Version1019Date20260321000000.php (coin_multiplier)
  * @see lib/Migration/Version1020Date20260321000000.php (flex_days, ideal_due_date)
  */
-class Version1027Date20260725000000 extends SimpleMigrationStep
-{
+class Version1027Date20260725000000 extends SimpleMigrationStep {
 	/**
 	 * @param IOutput $output
 	 * @param Closure $schemaClosure
 	 * @param array $options
 	 */
-	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper
-	{
+	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 

@@ -20,25 +20,23 @@ use OCP\BackgroundJob\TimedJob;
  * freezes to the configured weekly value), so no date is derived or
  * passed — triggering it once is sufficient.
  */
-class StreakRestockJob extends TimedJob
-{
-    private StreakRestockService $restockService;
+class StreakRestockJob extends TimedJob {
+	private StreakRestockService $restockService;
 
-    public function __construct(
-        ITimeFactory $time,
-        StreakRestockService $restockService
-    ) {
-        parent::__construct($time);
-        $this->setInterval(7 * 24 * 60 * 60);
+	public function __construct(
+		ITimeFactory $time,
+		StreakRestockService $restockService,
+	) {
+		parent::__construct($time);
+		$this->setInterval(7 * 24 * 60 * 60);
 
-        $this->restockService = $restockService;
-    }
+		$this->restockService = $restockService;
+	}
 
-    /**
-     * Run the weekly restock
-     */
-    protected function run($argument): void
-    {
-        $this->restockService->process();
-    }
+	/**
+	 * Run the weekly restock
+	 */
+	protected function run($argument): void {
+		$this->restockService->process();
+	}
 }

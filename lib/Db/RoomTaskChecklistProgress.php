@@ -25,58 +25,54 @@ use OCP\AppFramework\Db\Entity;
  * @method int|null getCheckedByUserId()
  * @method void setCheckedByUserId(?int $checkedByUserId)
  */
-class RoomTaskChecklistProgress extends Entity implements JsonSerializable
-{
-    /** @var int */
-    protected $roomTaskId;
+class RoomTaskChecklistProgress extends Entity implements JsonSerializable {
+	/** @var int */
+	protected $roomTaskId;
 
-    /** @var int */
-    protected $checklistItemId;
+	/** @var int */
+	protected $checklistItemId;
 
-    /** @var bool */
-    protected $isChecked = false;
+	/** @var bool */
+	protected $isChecked = false;
 
-    /** @var \DateTime|null */
-    protected $checkedAt;
+	/** @var \DateTime|null */
+	protected $checkedAt;
 
-    /** @var int|null */
-    protected $checkedByUserId;
+	/** @var int|null */
+	protected $checkedByUserId;
 
-    public function __construct()
-    {
-        $this->addType('id', 'integer');
-        $this->addType('roomTaskId', 'integer');
-        $this->addType('checklistItemId', 'integer');
-        $this->addType('isChecked', 'boolean');
-        $this->addType('checkedAt', 'datetime');
-        $this->addType('checkedByUserId', 'integer');
-    }
+	public function __construct() {
+		$this->addType('id', 'integer');
+		$this->addType('roomTaskId', 'integer');
+		$this->addType('checklistItemId', 'integer');
+		$this->addType('isChecked', 'boolean');
+		$this->addType('checkedAt', 'datetime');
+		$this->addType('checkedByUserId', 'integer');
+	}
 
-    /**
-     * Convert checklist progress to JSON representation
-     */
-    public function jsonSerialize(): array
-    {
-        return [
-            'id' => $this->id,
-            'roomTaskId' => $this->roomTaskId,
-            'checklistItemId' => $this->checklistItemId,
-            'isChecked' => $this->isChecked,
-            'checkedAt' => $this->checkedAt?->format('c'),
-            'checkedByUserId' => $this->checkedByUserId,
-        ];
-    }
+	/**
+	 * Convert checklist progress to JSON representation
+	 */
+	public function jsonSerialize(): array {
+		return [
+			'id' => $this->id,
+			'roomTaskId' => $this->roomTaskId,
+			'checklistItemId' => $this->checklistItemId,
+			'isChecked' => $this->isChecked,
+			'checkedAt' => $this->checkedAt?->format('c'),
+			'checkedByUserId' => $this->checkedByUserId,
+		];
+	}
 
-    /**
-     * Check if this progress item was checked recently
-     */
-    public function wasCheckedRecently(int $minutes = 5): bool
-    {
-        if (!$this->isChecked || $this->checkedAt === null) {
-            return false;
-        }
+	/**
+	 * Check if this progress item was checked recently
+	 */
+	public function wasCheckedRecently(int $minutes = 5): bool {
+		if (!$this->isChecked || $this->checkedAt === null) {
+			return false;
+		}
 
-        $cutoff = new \DateTime("-{$minutes} minutes");
-        return $this->checkedAt >= $cutoff;
-    }
+		$cutoff = new \DateTime("-{$minutes} minutes");
+		return $this->checkedAt >= $cutoff;
+	}
 }

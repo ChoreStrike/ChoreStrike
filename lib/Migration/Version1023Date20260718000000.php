@@ -22,15 +22,13 @@ use OCP\Migration\SimpleMigrationStep;
  *    (or a caller) uses it to ensure exactly one notification per house per
  *    week even when multiple concurrent completions cross the threshold.
  */
-class Version1023Date20260718000000 extends SimpleMigrationStep
-{
+class Version1023Date20260718000000 extends SimpleMigrationStep {
 	/**
 	 * @param IOutput $output
 	 * @param Closure $schemaClosure
 	 * @param array $options
 	 */
-	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper
-	{
+	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 

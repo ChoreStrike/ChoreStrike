@@ -30,8 +30,7 @@ use OCA\ChoreStrike\Db\HouseUser;
  * Thresholds in a pack MUST be strictly ascending (tier 1 < tier 2 < tier 3)
  * — {@see self::isValidCatalog()} enforces this for the test suite.
  */
-class TitleCatalog
-{
+class TitleCatalog {
 	/** Pack key: consistency / breadth — driven by contributionScore. */
 	public const PACK_HOME_HELPERS = 'home_helpers';
 	/** Pack key: streak / dependability — driven by longestStreak. */
@@ -95,16 +94,14 @@ class TitleCatalog
 	 *
 	 * @return string[]
 	 */
-	public static function getPackKeys(): array
-	{
+	public static function getPackKeys(): array {
 		return array_keys(self::PACKS);
 	}
 
 	/**
 	 * Whether `$packKey` is a known pack.
 	 */
-	public static function isValidPack(string $packKey): bool
-	{
+	public static function isValidPack(string $packKey): bool {
 		return isset(self::PACKS[$packKey]);
 	}
 
@@ -114,8 +111,7 @@ class TitleCatalog
 	 *
 	 * @return array{labelKey: string, signal: string, tiers: array<int, array{key: string, labelKey: string, threshold: int}>}
 	 */
-	public static function getPack(string $packKey): array
-	{
+	public static function getPack(string $packKey): array {
 		if (!isset(self::PACKS[$packKey])) {
 			throw new \InvalidArgumentException('Unknown title pack: ' . $packKey);
 		}
@@ -127,8 +123,7 @@ class TitleCatalog
 	 *
 	 * @return array<int, array{key: string, labelKey: string, threshold: int}>
 	 */
-	public static function getTiers(string $packKey): array
-	{
+	public static function getTiers(string $packKey): array {
 		return self::getPack($packKey)['tiers'];
 	}
 
@@ -138,8 +133,7 @@ class TitleCatalog
 	 * This is the canonical string stored in the `unlocked_titles` cache and
 	 * exchanged with the frontend.
 	 */
-	public static function tierId(string $packKey, int $tierIndex): string
-	{
+	public static function tierId(string $packKey, int $tierIndex): string {
 		return $packKey . '.' . self::getTiers($packKey)[$tierIndex]['key'];
 	}
 
@@ -148,8 +142,7 @@ class TitleCatalog
 	 *
 	 * @return int The current signal value (0 when the signal is unknown).
 	 */
-	public static function getSignalValue(HouseUser $user, string $signal): int
-	{
+	public static function getSignalValue(HouseUser $user, string $signal): int {
 		return match ($signal) {
 			self::SIGNAL_CONTRIBUTION_SCORE => $user->getContributionScore(),
 			self::SIGNAL_LONGEST_STREAK => $user->getLongestStreak(),
@@ -164,8 +157,7 @@ class TitleCatalog
 	 * Returns true when every pack has 3 tiers, unique tier keys, a known
 	 * signal, non-zero thresholds, and strictly ascending thresholds.
 	 */
-	public static function isValidCatalog(): bool
-	{
+	public static function isValidCatalog(): bool {
 		$validSignals = [
 			self::SIGNAL_CONTRIBUTION_SCORE,
 			self::SIGNAL_LONGEST_STREAK,

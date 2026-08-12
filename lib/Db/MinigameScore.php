@@ -28,50 +28,47 @@ use OCP\AppFramework\Db\Entity;
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  */
-class MinigameScore extends Entity implements JsonSerializable
-{
-    /** @var int */
-    protected $houseId;
+class MinigameScore extends Entity implements JsonSerializable {
+	/** @var int */
+	protected $houseId;
 
-    /** @var string */
-    protected $userId;
+	/** @var string */
+	protected $userId;
 
-    /** @var string */
-    protected $gameId = 'snake';
+	/** @var string */
+	protected $gameId = 'snake';
 
-    /** @var int */
-    protected $score = 0;
+	/** @var int */
+	protected $score = 0;
 
-    /** @var array|null */
-    protected $boostsUsed;
+	/** @var array|null */
+	protected $boostsUsed;
 
-    /** @var \DateTime */
-    protected $createdAt;
+	/** @var \DateTime */
+	protected $createdAt;
 
-    public function __construct()
-    {
-        $this->addType('id', 'integer');
-        $this->addType('houseId', 'integer');
-        $this->addType('userId', 'string');
-        $this->addType('gameId', 'string');
-        $this->addType('score', 'integer');
-        $this->addType('boostsUsed', 'json');
-        $this->addType('createdAt', 'datetime');
-    }
+	public function __construct() {
+		$this->addType('id', 'integer');
+		$this->addType('houseId', 'integer');
+		$this->addType('userId', 'string');
+		$this->addType('gameId', 'string');
+		$this->addType('score', 'integer');
+		$this->addType('boostsUsed', 'json');
+		$this->addType('createdAt', 'datetime');
+	}
 
-    /**
-     * Convert minigame score to JSON representation
-     */
-    public function jsonSerialize(): array
-    {
-        return [
-            'id' => $this->id,
-            'houseId' => $this->houseId,
-            'userId' => $this->userId,
-            'gameId' => $this->gameId,
-            'score' => $this->score,
-            'boostsUsed' => $this->boostsUsed,
-            'createdAt' => $this->createdAt?->format('c'),
-        ];
-    }
+	/**
+	 * Convert minigame score to JSON representation
+	 */
+	public function jsonSerialize(): array {
+		return [
+			'id' => $this->id,
+			'houseId' => $this->houseId,
+			'userId' => $this->userId,
+			'gameId' => $this->gameId,
+			'score' => $this->score,
+			'boostsUsed' => $this->boostsUsed,
+			'createdAt' => $this->createdAt?->format('c'),
+		];
+	}
 }

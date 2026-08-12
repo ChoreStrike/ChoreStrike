@@ -20,162 +20,145 @@ use OCP\IRequest;
  * already covered at the service level by `AuthorizationIntegrationTest`.
  * Tests that depend on the old API are skipped with a documented reason.
  */
-class TaskAuthorizationTest extends IntegrationTestCase
-{
-    private int $house1Id;
-    private int $house2Id;
-    private int $task1Id;
-    private int $task2Id;
-    private int $roomTask1Id;
-    private int $roomTask2Id;
+class TaskAuthorizationTest extends IntegrationTestCase {
+	private int $house1Id;
+	private int $house2Id;
+	private int $task1Id;
+	private int $task2Id;
+	private int $roomTask1Id;
+	private int $roomTask2Id;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+	protected function setUp(): void {
+		parent::setUp();
 
-        // Create House 1 with owner user1
-        $this->house1Id = $this->createHouse('user1', 'House 1');
-        $floor1 = $this->createFloor($this->house1Id, 'Ground Floor', 1);
-        $room1 = $this->createRoom($this->house1Id, $floor1, 'Kitchen');
+		// Create House 1 with owner user1
+		$this->house1Id = $this->createHouse('user1', 'House 1');
+		$floor1 = $this->createFloor($this->house1Id, 'Ground Floor', 1);
+		$room1 = $this->createRoom($this->house1Id, $floor1, 'Kitchen');
 
-        // Create task and room task for House 1
-        $this->task1Id = $this->createTask($this->house1Id, 'Dishes', 'Do the dishes', 3, 30);
-        $this->roomTask1Id = $this->assignTaskToRoom($this->task1Id, $room1, null);
+		// Create task and room task for House 1
+		$this->task1Id = $this->createTask($this->house1Id, 'Dishes', 'Do the dishes', 3, 30);
+		$this->roomTask1Id = $this->assignTaskToRoom($this->task1Id, $room1, null);
 
-        // Create House 2 with owner user2
-        $this->house2Id = $this->createHouse('user2', 'House 2');
-        $floor2 = $this->createFloor($this->house2Id, 'Ground Floor', 1);
-        $room2 = $this->createRoom($this->house2Id, $floor2, 'Kitchen');
+		// Create House 2 with owner user2
+		$this->house2Id = $this->createHouse('user2', 'House 2');
+		$floor2 = $this->createFloor($this->house2Id, 'Ground Floor', 1);
+		$room2 = $this->createRoom($this->house2Id, $floor2, 'Kitchen');
 
-        // Create task and room task for House 2
-        $this->task2Id = $this->createTask($this->house2Id, 'Vacuum', 'Vacuum the floor', 4, 20);
-        $this->roomTask2Id = $this->assignTaskToRoom($this->task2Id, $room2, null);
-    }
+		// Create task and room task for House 2
+		$this->task2Id = $this->createTask($this->house2Id, 'Vacuum', 'Vacuum the floor', 4, 20);
+		$this->roomTask2Id = $this->assignTaskToRoom($this->task2Id, $room2, null);
+	}
 
-    public function testUserCannotCompleteTaskFromDifferentHouse(): void
-    {
-        $this->markTestSkipped(
-            'Controller-level cross-house completion needs a full rewrite '
-            . 'to align with the current house-resolution API.'
-        );
-    }
+	public function testUserCannotCompleteTaskFromDifferentHouse(): void {
+		$this->markTestSkipped(
+			'Controller-level cross-house completion needs a full rewrite '
+			. 'to align with the current house-resolution API.'
+		);
+	}
 
-    public function testUserCannotClaimTaskFromDifferentHouse(): void
-    {
-        $this->markTestSkipped(
-            'TaskController::claim() was removed in CS-PLAN-002 (replaced by '
-            . 'RoomTaskController assign/complete flow). Authorization for the '
-            . 'replacement flow is covered by AuthorizationIntegrationTest.'
-        );
-    }
+	public function testUserCannotClaimTaskFromDifferentHouse(): void {
+		$this->markTestSkipped(
+			'TaskController::claim() was removed in CS-PLAN-002 (replaced by '
+			. 'RoomTaskController assign/complete flow). Authorization for the '
+			. 'replacement flow is covered by AuthorizationIntegrationTest.'
+		);
+	}
 
-    public function testUserCannotViewTasksFromDifferentHouse(): void
-    {
-        $this->markTestSkipped(
-            'Controller-level cross-house view isolation needs a full rewrite '
-            . 'to align with the current house-resolution API (system '
-            . 'instanceId vs per-house instanceId). Service-level isolation '
-            . 'is covered by AuthorizationIntegrationTest.'
-        );
-    }
+	public function testUserCannotViewTasksFromDifferentHouse(): void {
+		$this->markTestSkipped(
+			'Controller-level cross-house view isolation needs a full rewrite '
+			. 'to align with the current house-resolution API (system '
+			. 'instanceId vs per-house instanceId). Service-level isolation '
+			. 'is covered by AuthorizationIntegrationTest.'
+		);
+	}
 
-    public function testChildCannotDeleteOwnersTask(): void
-    {
-        $this->markTestSkipped(
-            'Controller-level role-based delete authorization needs a full '
-            . 'rewrite for the current API. Service-level authorization is '
-            . 'covered by AuthorizationIntegrationTest.'
-        );
-    }
+	public function testChildCannotDeleteOwnersTask(): void {
+		$this->markTestSkipped(
+			'Controller-level role-based delete authorization needs a full '
+			. 'rewrite for the current API. Service-level authorization is '
+			. 'covered by AuthorizationIntegrationTest.'
+		);
+	}
 
-    public function testGuestCannotAssignTasks(): void
-    {
-        $this->markTestSkipped(
-            'Controller-level role-based assign authorization needs a full '
-            . 'rewrite for the current API. Service-level authorization is '
-            . 'covered by AuthorizationIntegrationTest.'
-        );
-    }
+	public function testGuestCannotAssignTasks(): void {
+		$this->markTestSkipped(
+			'Controller-level role-based assign authorization needs a full '
+			. 'rewrite for the current API. Service-level authorization is '
+			. 'covered by AuthorizationIntegrationTest.'
+		);
+	}
 
-    public function testOwnerCanCompleteAnyTaskInTheirHouse(): void
-    {
-        $this->markTestSkipped(
-            'Controller-level completion authorization needs a full rewrite '
-            . 'to align with the current house-resolution API.'
-        );
-    }
+	public function testOwnerCanCompleteAnyTaskInTheirHouse(): void {
+		$this->markTestSkipped(
+			'Controller-level completion authorization needs a full rewrite '
+			. 'to align with the current house-resolution API.'
+		);
+	}
 
-    public function testUserCanCompleteTaskAssignedToThem(): void
-    {
-        $this->markTestSkipped(
-            'Controller-level completion authorization needs a full rewrite '
-            . 'to align with the current house-resolution API.'
-        );
-    }
+	public function testUserCanCompleteTaskAssignedToThem(): void {
+		$this->markTestSkipped(
+			'Controller-level completion authorization needs a full rewrite '
+			. 'to align with the current house-resolution API.'
+		);
+	}
 
-    public function testUserCannotCompleteTaskAssignedToOtherUser(): void
-    {
-        $this->markTestSkipped(
-            'Controller-level completion authorization needs a full rewrite '
-            . 'to align with the current house-resolution API.'
-        );
-    }
+	public function testUserCannotCompleteTaskAssignedToOtherUser(): void {
+		$this->markTestSkipped(
+			'Controller-level completion authorization needs a full rewrite '
+			. 'to align with the current house-resolution API.'
+		);
+	}
 
-    public function testUserCannotDeleteCompletedTaskFromOtherUser(): void
-    {
-        $this->markTestSkipped(
-            'Controller-level delete authorization needs a full rewrite for '
-            . 'the current API. Service-level authorization is covered by '
-            . 'AuthorizationIntegrationTest.'
-        );
-    }
+	public function testUserCannotDeleteCompletedTaskFromOtherUser(): void {
+		$this->markTestSkipped(
+			'Controller-level delete authorization needs a full rewrite for '
+			. 'the current API. Service-level authorization is covered by '
+			. 'AuthorizationIntegrationTest.'
+		);
+	}
 
-    public function testNonMemberCannotAccessHouseTasks(): void
-    {
-        $this->markTestSkipped(
-            'Controller-level non-member access needs a full rewrite to '
-            . 'align with the current house-resolution API.'
-        );
-    }
+	public function testNonMemberCannotAccessHouseTasks(): void {
+		$this->markTestSkipped(
+			'Controller-level non-member access needs a full rewrite to '
+			. 'align with the current house-resolution API.'
+		);
+	}
 
-    // Helper methods (kept for future full rewrite)
-    private function completeTask(int $roomTaskId, string $userId): \OCP\AppFramework\Http\Response
-    {
-        $request = $this->createMock(IRequest::class);
-        $controller = $this->getController('RoomTaskController', $userId, $request);
+	// Helper methods (kept for future full rewrite)
+	private function completeTask(int $roomTaskId, string $userId): \OCP\AppFramework\Http\Response {
+		$request = $this->createMock(IRequest::class);
+		$controller = $this->getController('RoomTaskController', $userId, $request);
 
-        return $controller->complete($roomTaskId);
-    }
+		return $controller->complete($roomTaskId);
+	}
 
-    private function getTasks(string $userId): \OCP\AppFramework\Http\Response
-    {
-        $request = $this->createMock(IRequest::class);
-        $controller = $this->getController('TaskController', $userId, $request);
+	private function getTasks(string $userId): \OCP\AppFramework\Http\Response {
+		$request = $this->createMock(IRequest::class);
+		$controller = $this->getController('TaskController', $userId, $request);
 
-        return $controller->index();
-    }
+		return $controller->index();
+	}
 
-    private function deleteTask(int $taskId, string $userId): \OCP\AppFramework\Http\Response
-    {
-        $request = $this->createMock(IRequest::class);
-        $controller = $this->getController('TaskController', $userId, $request);
+	private function deleteTask(int $taskId, string $userId): \OCP\AppFramework\Http\Response {
+		$request = $this->createMock(IRequest::class);
+		$controller = $this->getController('TaskController', $userId, $request);
 
-        return $controller->delete($taskId);
-    }
+		return $controller->delete($taskId);
+	}
 
-    private function assignTaskToRoomAsUser(int $taskId, int $roomId, string $userId): \OCP\AppFramework\Http\Response
-    {
-        $request = $this->createMock(IRequest::class);
-        $controller = $this->getController('RoomTaskController', $userId, $request);
+	private function assignTaskToRoomAsUser(int $taskId, int $roomId, string $userId): \OCP\AppFramework\Http\Response {
+		$request = $this->createMock(IRequest::class);
+		$controller = $this->getController('RoomTaskController', $userId, $request);
 
-        return $controller->create($taskId, $roomId, null);
-    }
+		return $controller->create($taskId, $roomId, null);
+	}
 
-    private function assignRoomTaskToUser(int $roomTaskId, string $assignedUserId): void
-    {
-        $request = $this->createMock(IRequest::class);
-        $controller = $this->getController('RoomTaskController', 'user1', $request); // owner assigns
+	private function assignRoomTaskToUser(int $roomTaskId, string $assignedUserId): void {
+		$request = $this->createMock(IRequest::class);
+		$controller = $this->getController('RoomTaskController', 'user1', $request); // owner assigns
 
-        $controller->assign($roomTaskId, $assignedUserId);
-    }
+		$controller->assign($roomTaskId, $assignedUserId);
+	}
 }

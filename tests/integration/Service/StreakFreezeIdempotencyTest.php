@@ -21,13 +21,11 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * Uses the CS-PLAN-023 injectable-time seam — process() takes $yesterday —
  * so the regression is provable against the real DB without a multi-day wait.
  */
-class StreakFreezeIdempotencyTest extends IntegrationTestCase
-{
+class StreakFreezeIdempotencyTest extends IntegrationTestCase {
 	private int $houseId;
 	private string $userId = 'freeze_member';
 
-	protected function setUp(): void
-	{
+	protected function setUp(): void {
 		parent::setUp();
 
 		$this->houseId = $this->createHouse('freeze_owner', 'Freeze House');
@@ -38,8 +36,7 @@ class StreakFreezeIdempotencyTest extends IntegrationTestCase
 	 * Reprocessing the same day consumes at most one freeze and never resets a
 	 * preserved streak.
 	 */
-	public function testReprocessingSameDayIsNoOp(): void
-	{
+	public function testReprocessingSameDayIsNoOp(): void {
 		$mapper = \OC::$server->get(HouseUserMapper::class);
 
 		// Seed a live streak with two freezes to spend.
@@ -73,8 +70,7 @@ class StreakFreezeIdempotencyTest extends IntegrationTestCase
 	 * The guard is day-scoped: after a run for day N, a run for day N+1 still
 	 * processes the user (the freeze balance drops again).
 	 */
-	public function testDifferentDayIsProcessedAfterEarlierRun(): void
-	{
+	public function testDifferentDayIsProcessedAfterEarlierRun(): void {
 		$mapper = \OC::$server->get(HouseUserMapper::class);
 
 		$user = $mapper->findByNextcloudUserId($this->houseId, $this->userId);

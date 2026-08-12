@@ -24,13 +24,11 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * uniformly — the old parallel path awarded sparksEarned=0 and used a
  * divergent recurrence helper.
  */
-class TaskSyncCompletionTest extends IntegrationTestCase
-{
+class TaskSyncCompletionTest extends IntegrationTestCase {
 	/** @var int[] Room task ids whose completion rows need cleanup */
 	private array $completedRoomTaskIds = [];
 
-	protected function tearDown(): void
-	{
+	protected function tearDown(): void {
 		// The base cleanup does not track completed_tasks rows; remove the
 		// rows this test created so the shared Docker DB stays clean.
 		if (!empty($this->completedRoomTaskIds)) {
@@ -46,8 +44,7 @@ class TaskSyncCompletionTest extends IntegrationTestCase
 		parent::tearDown();
 	}
 
-	public function testSyncCompletionAwardsCanonicalRewardsAndAdvancesRecurrence(): void
-	{
+	public function testSyncCompletionAwardsCanonicalRewardsAndAdvancesRecurrence(): void {
 		$houseId = $this->createHouse('sync_owner', 'Sync House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
@@ -80,8 +77,7 @@ class TaskSyncCompletionTest extends IntegrationTestCase
 	 * fix only room_tasks.nextcloud_task_id was linked and the completion
 	 * never appeared in getPendingSyncs().
 	 */
-	public function testSyncCompletionStampsNextcloudTaskIdAndAppearsInPendingSyncs(): void
-	{
+	public function testSyncCompletionStampsNextcloudTaskIdAndAppearsInPendingSyncs(): void {
 		$houseId = $this->createHouse('sync_owner2', 'Sync House 2');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');

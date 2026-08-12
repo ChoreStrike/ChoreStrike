@@ -43,101 +43,97 @@ use OCP\AppFramework\Db\Entity;
  * @method int|null getDaysOverdueWhenClaimed()
  * @method void setDaysOverdueWhenClaimed(?int $daysOverdueWhenClaimed)
  */
-class CompletedTask extends Entity implements JsonSerializable
-{
-    /** @var int */
-    protected $roomTaskId;
+class CompletedTask extends Entity implements JsonSerializable {
+	/** @var int */
+	protected $roomTaskId;
 
-    /** @var int */
-    protected $userId;
+	/** @var int */
+	protected $userId;
 
-    /** @var \DateTime */
-    protected $completedAt;
+	/** @var \DateTime */
+	protected $completedAt;
 
-    /** @var int */
-    protected $coinsEarned = 0;
+	/** @var int */
+	protected $coinsEarned = 0;
 
-    /** @var bool */
-    protected $wasCombo = false;
+	/** @var bool */
+	protected $wasCombo = false;
 
-    /** @var int|null */
-    protected $comboWithUserId;
+	/** @var int|null */
+	protected $comboWithUserId;
 
-    /** @var int|null */
-    protected $nextcloudTaskId;
+	/** @var int|null */
+	protected $nextcloudTaskId;
 
-    /** @var bool */
-    protected $syncedToNextcloud = false;
+	/** @var bool */
+	protected $syncedToNextcloud = false;
 
-    /** @var bool */
-    protected $isTeamCompletion = false;
+	/** @var bool */
+	protected $isTeamCompletion = false;
 
-    /** @var int */
-    protected $participantCount = 1;
+	/** @var int */
+	protected $participantCount = 1;
 
-    /** @var int */
-    protected $teamSparkBonus = 0;
+	/** @var int */
+	protected $teamSparkBonus = 0;
 
-    /** @var bool */
-    protected $wasClaimedCompletion = false;
+	/** @var bool */
+	protected $wasClaimedCompletion = false;
 
-    /** @var int */
-    protected $claimBonusSparks = 0;
+	/** @var int */
+	protected $claimBonusSparks = 0;
 
-    /** @var int|null */
-    protected $daysOverdueWhenClaimed;
+	/** @var int|null */
+	protected $daysOverdueWhenClaimed;
 
-    public function __construct()
-    {
-        $this->addType('id', 'integer');
-        $this->addType('roomTaskId', 'integer');
-        $this->addType('userId', 'integer');
-        $this->addType('completedAt', 'datetime');
-        $this->addType('coinsEarned', 'integer');
-        $this->addType('wasCombo', 'boolean');
-        $this->addType('comboWithUserId', 'integer');
-        $this->addType('nextcloudTaskId', 'integer');
-        $this->addType('syncedToNextcloud', 'boolean');
-        $this->addType('isTeamCompletion', 'boolean');
-        $this->addType('participantCount', 'integer');
-        $this->addType('teamSparkBonus', 'integer');
-        $this->addType('wasClaimedCompletion', 'boolean');
-        $this->addType('claimBonusSparks', 'integer');
-        $this->addType('daysOverdueWhenClaimed', 'integer');
-    }
+	public function __construct() {
+		$this->addType('id', 'integer');
+		$this->addType('roomTaskId', 'integer');
+		$this->addType('userId', 'integer');
+		$this->addType('completedAt', 'datetime');
+		$this->addType('coinsEarned', 'integer');
+		$this->addType('wasCombo', 'boolean');
+		$this->addType('comboWithUserId', 'integer');
+		$this->addType('nextcloudTaskId', 'integer');
+		$this->addType('syncedToNextcloud', 'boolean');
+		$this->addType('isTeamCompletion', 'boolean');
+		$this->addType('participantCount', 'integer');
+		$this->addType('teamSparkBonus', 'integer');
+		$this->addType('wasClaimedCompletion', 'boolean');
+		$this->addType('claimBonusSparks', 'integer');
+		$this->addType('daysOverdueWhenClaimed', 'integer');
+	}
 
-    /**
-     * Convert completed task to JSON representation
-     */
-    public function jsonSerialize(): array
-    {
-        return [
-            'id' => $this->id,
-            'roomTaskId' => $this->roomTaskId,
-            'userId' => $this->userId,
-            'completedAt' => $this->completedAt?->format('c'),
-            'coinsEarned' => $this->coinsEarned,
-            'wasCombo' => $this->wasCombo,
-            'comboWithUserId' => $this->comboWithUserId,
-            'nextcloudTaskId' => $this->nextcloudTaskId,
-            'syncedToNextcloud' => $this->syncedToNextcloud,
-            'isTeamCompletion' => $this->isTeamCompletion,
-            'participantCount' => $this->participantCount,
-            'teamSparkBonus' => $this->teamSparkBonus,
-            'wasClaimedCompletion' => $this->wasClaimedCompletion,
-            'claimBonusSparks' => $this->claimBonusSparks,
-            'daysOverdueWhenClaimed' => $this->daysOverdueWhenClaimed,
-        ];
-    }
+	/**
+	 * Convert completed task to JSON representation
+	 */
+	public function jsonSerialize(): array {
+		return [
+			'id' => $this->id,
+			'roomTaskId' => $this->roomTaskId,
+			'userId' => $this->userId,
+			'completedAt' => $this->completedAt?->format('c'),
+			'coinsEarned' => $this->coinsEarned,
+			'wasCombo' => $this->wasCombo,
+			'comboWithUserId' => $this->comboWithUserId,
+			'nextcloudTaskId' => $this->nextcloudTaskId,
+			'syncedToNextcloud' => $this->syncedToNextcloud,
+			'isTeamCompletion' => $this->isTeamCompletion,
+			'participantCount' => $this->participantCount,
+			'teamSparkBonus' => $this->teamSparkBonus,
+			'wasClaimedCompletion' => $this->wasClaimedCompletion,
+			'claimBonusSparks' => $this->claimBonusSparks,
+			'daysOverdueWhenClaimed' => $this->daysOverdueWhenClaimed,
+		];
+	}
 
-    /**
-     * Check if completion was recent (within last N minutes)
-     *
-     * @param int $minutes Number of minutes
-     */
-    public function isRecent(int $minutes = 5): bool
-    {
-        $cutoff = new \DateTime("-{$minutes} minutes");
-        return $this->completedAt >= $cutoff;
-    }
+	/**
+	 * Check if completion was recent (within last N minutes)
+	 *
+	 * @param int $minutes Number of minutes
+	 */
+	public function isRecent(int $minutes = 5): bool {
+		$cutoff = new \DateTime("-{$minutes} minutes");
+		return $this->completedAt >= $cutoff;
+	}
 }

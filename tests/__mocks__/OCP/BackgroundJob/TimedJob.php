@@ -17,29 +17,26 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * The class is declared abstract with a public constructor + protected
  * run so subclasses can extend it without being forced to implement run.
  */
-abstract class TimedJob
-{
-    protected ITimeFactory $time;
+abstract class TimedJob {
+	protected ITimeFactory $time;
 
-    public function __construct(ITimeFactory $time)
-    {
-        $this->time = $time;
-    }
+	public function __construct(ITimeFactory $time) {
+		$this->time = $time;
+	}
 
-    /**
-     * Set the desired run interval in seconds.
-     *
-     * @param int $interval Interval in seconds
-     */
-    public function setInterval(int $interval): void
-    {
-        // No-op for tests: the real impl stores this for the scheduler.
-    }
+	/**
+	 * Set the desired run interval in seconds.
+	 *
+	 * @param int $interval Interval in seconds
+	 */
+	public function setInterval(int $interval): void {
+		// No-op for tests: the real impl stores this for the scheduler.
+	}
 
-    /**
-     * Subclasses implement their run logic here.
-     *
-     * @param mixed $argument Job argument
-     */
-    abstract protected function run($argument);
+	/**
+	 * Subclasses implement their run logic here.
+	 *
+	 * @param mixed $argument Job argument
+	 */
+	abstract protected function run($argument);
 }

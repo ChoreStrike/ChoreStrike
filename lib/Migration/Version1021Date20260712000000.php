@@ -18,15 +18,13 @@ use OCP\Migration\SimpleMigrationStep;
  *  - creates the `chorestrike_task_assignees` join table (multiple assignees per room task)
  *  - adds `is_private` flag to `chorestrike_tasks` for the private-task completion gate
  */
-class Version1021Date20260712000000 extends SimpleMigrationStep
-{
+class Version1021Date20260712000000 extends SimpleMigrationStep {
 	/**
 	 * @param IOutput $output
 	 * @param Closure $schemaClosure
 	 * @param array $options
 	 */
-	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper
-	{
+	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 

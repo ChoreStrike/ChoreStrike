@@ -24,242 +24,221 @@ use PHPUnit\Framework\TestCase;
  * "require"/"assert" method throws {@see ForbiddenException} (→ 403) rather
  * than a bare \RuntimeException (→ 500).
  */
-class AuthorizationServiceExceptionTest extends TestCase
-{
-    private HouseUserMapper $houseUserMapper;
-    private IUserSession $userSession;
-    private IUser $user;
-    private AuthorizationService $service;
+class AuthorizationServiceExceptionTest extends TestCase {
+	private HouseUserMapper $houseUserMapper;
+	private IUserSession $userSession;
+	private IUser $user;
+	private AuthorizationService $service;
 
-    protected function setUp(): void
-    {
-        $this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-        $this->userSession = $this->createMock(IUserSession::class);
-        $this->user = $this->createMock(IUser::class);
+	protected function setUp(): void {
+		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$this->userSession = $this->createMock(IUserSession::class);
+		$this->user = $this->createMock(IUser::class);
 
-        $this->service = new AuthorizationService($this->houseUserMapper, $this->userSession);
-    }
+		$this->service = new AuthorizationService($this->houseUserMapper, $this->userSession);
+	}
 
-    private function actingAs(string $uid, string $displayName = 'Tester'): void
-    {
-        $this->user->method('getUID')->willReturn($uid);
-        $this->user->method('getDisplayName')->willReturn($displayName);
-        $this->userSession->method('getUser')->willReturn($this->user);
-    }
+	private function actingAs(string $uid, string $displayName = 'Tester'): void {
+		$this->user->method('getUID')->willReturn($uid);
+		$this->user->method('getDisplayName')->willReturn($displayName);
+		$this->userSession->method('getUser')->willReturn($this->user);
+	}
 
-    private function makeHouseUser(string $role, string $uid): HouseUser
-    {
-        // HouseUser extends Nextcloud's Entity, whose accessors are magic
-        // (@method/__call), so PHPUnit cannot mock getNextcloudUserId/isOwner.
-        // Build a real entity and rely on the magic setters + the real
-        // isOwner() (which checks $this->role === 'owner').
-        $houseUser = new HouseUser();
-        $houseUser->setRole($role);
-        $houseUser->setNextcloudUserId($uid);
-        return $houseUser;
-    }
+	private function makeHouseUser(string $role, string $uid): HouseUser {
+		// HouseUser extends Nextcloud's Entity, whose accessors are magic
+		// (@method/__call), so PHPUnit cannot mock getNextcloudUserId/isOwner.
+		// Build a real entity and rely on the magic setters + the real
+		// isOwner() (which checks $this->role === 'owner').
+		$houseUser = new HouseUser();
+		$houseUser->setRole($role);
+		$houseUser->setNextcloudUserId($uid);
+		return $houseUser;
+	}
 
-    // ---------- requireCurrentUserId ----------
+	// ---------- requireCurrentUserId ----------
 
-    public function testRequireCurrentUserId_WhenAnonymous_ThrowsForbidden(): void
-    {
-        $this->userSession->method('getUser')->willReturn(null);
+	public function testRequireCurrentUserId_WhenAnonymous_ThrowsForbidden(): void {
+		$this->userSession->method('getUser')->willReturn(null);
 
-        $this->expectException(ForbiddenException::class);
-        $this->expectExceptionMessage('Not authenticated');
-        $this->service->requireCurrentUserId();
-    }
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Not authenticated');
+		$this->service->requireCurrentUserId();
+	}
 
-    public function testRequireCurrentUserId_WhenAuthenticated_ReturnsUserId(): void
-    {
-        $this->actingAs('alice');
-        $this->assertSame('alice', $this->service->requireCurrentUserId());
-    }
+	public function testRequireCurrentUserId_WhenAuthenticated_ReturnsUserId(): void {
+		$this->actingAs('alice');
+		$this->assertSame('alice', $this->service->requireCurrentUserId());
+	}
 
-    // ---------- ensureHouseMember (auto-join) ----------
+	// ---------- ensureHouseMember (auto-join) ----------
 
-    public function testEnsureHouseMember_WhenExistingMember_ReturnsMembershipWithoutCreating(): void
-    {
-        $this->actingAs('alice');
-        $membership = $this->makeHouseUser('member', 'alice');
+	public function testEnsureHouseMember_WhenExistingMember_ReturnsMembershipWithoutCreating(): void {
+		$this->actingAs('alice');
+		$membership = $this->makeHouseUser('member', 'alice');
 
-        $this->houseUserMapper
-            ->expects($this->once())
-            ->method('findByHouseAndUser')
-            ->with(1, 'alice')
-            ->willReturn($membership);
-        $this->houseUserMapper->expects($this->never())->method('createOrGet');
+		$this->houseUserMapper
+			->expects($this->once())
+			->method('findByHouseAndUser')
+			->with(1, 'alice')
+			->willReturn($membership);
+		$this->houseUserMapper->expects($this->never())->method('createOrGet');
 
-        $result = $this->service->ensureHouseMember(1);
-        $this->assertSame($membership, $result);
-    }
+		$result = $this->service->ensureHouseMember(1);
+		$this->assertSame($membership, $result);
+	}
 
-    public function testEnsureHouseMember_WhenFirstUser_AutoCreatesOwner(): void
-    {
-        $this->actingAs('alice');
-        $created = $this->makeHouseUser('owner', 'alice');
+	public function testEnsureHouseMember_WhenFirstUser_AutoCreatesOwner(): void {
+		$this->actingAs('alice');
+		$created = $this->makeHouseUser('owner', 'alice');
 
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
-        $this->houseUserMapper->expects($this->once())->method('findByHouseId')->willReturn([]);
-        $this->houseUserMapper
-            ->expects($this->once())
-            ->method('createOrGet')
-            ->with(1, 'alice', $this->anything(), 'owner')
-            ->willReturn($created);
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+		$this->houseUserMapper->expects($this->once())->method('findByHouseId')->willReturn([]);
+		$this->houseUserMapper
+			->expects($this->once())
+			->method('createOrGet')
+			->with(1, 'alice', $this->anything(), 'owner')
+			->willReturn($created);
 
-        $result = $this->service->ensureHouseMember(1);
-        $this->assertSame('owner', $result->getRole());
-    }
+		$result = $this->service->ensureHouseMember(1);
+		$this->assertSame('owner', $result->getRole());
+	}
 
-    public function testEnsureHouseMember_WhenSubsequentUser_AutoCreatesMember(): void
-    {
-        $this->actingAs('bob');
-        $created = $this->makeHouseUser('member', 'bob');
+	public function testEnsureHouseMember_WhenSubsequentUser_AutoCreatesMember(): void {
+		$this->actingAs('bob');
+		$created = $this->makeHouseUser('member', 'bob');
 
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
-        $this->houseUserMapper->expects($this->once())->method('findByHouseId')->willReturn([$this->makeHouseUser('owner', 'alice')]);
-        $this->houseUserMapper
-            ->expects($this->once())
-            ->method('createOrGet')
-            ->with(1, 'bob', $this->anything(), 'member')
-            ->willReturn($created);
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+		$this->houseUserMapper->expects($this->once())->method('findByHouseId')->willReturn([$this->makeHouseUser('owner', 'alice')]);
+		$this->houseUserMapper
+			->expects($this->once())
+			->method('createOrGet')
+			->with(1, 'bob', $this->anything(), 'member')
+			->willReturn($created);
 
-        $result = $this->service->ensureHouseMember(1);
-        $this->assertSame('member', $result->getRole());
-    }
+		$result = $this->service->ensureHouseMember(1);
+		$this->assertSame('member', $result->getRole());
+	}
 
-    public function testEnsureHouseMember_WhenAnonymous_ThrowsForbidden(): void
-    {
-        $this->userSession->method('getUser')->willReturn(null);
+	public function testEnsureHouseMember_WhenAnonymous_ThrowsForbidden(): void {
+		$this->userSession->method('getUser')->willReturn(null);
 
-        $this->expectException(ForbiddenException::class);
-        $this->expectExceptionMessage('Not authenticated');
-        $this->service->ensureHouseMember(1);
-    }
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Not authenticated');
+		$this->service->ensureHouseMember(1);
+	}
 
-    // ---------- assertHouseMember (pure check) ----------
+	// ---------- assertHouseMember (pure check) ----------
 
-    public function testAssertHouseMember_WhenMember_ReturnsMembership(): void
-    {
-        $this->actingAs('alice');
-        $membership = $this->makeHouseUser('member', 'alice');
+	public function testAssertHouseMember_WhenMember_ReturnsMembership(): void {
+		$this->actingAs('alice');
+		$membership = $this->makeHouseUser('member', 'alice');
 
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn($membership);
-        $this->houseUserMapper->expects($this->never())->method('createOrGet');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($membership);
+		$this->houseUserMapper->expects($this->never())->method('createOrGet');
 
-        $this->assertSame($membership, $this->service->assertHouseMember(1));
-    }
+		$this->assertSame($membership, $this->service->assertHouseMember(1));
+	}
 
-    public function testAssertHouseMember_WhenNotMember_ThrowsForbiddenWithoutCreating(): void
-    {
-        $this->actingAs('alice');
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
-        $this->houseUserMapper->expects($this->never())->method('createOrGet');
-        $this->houseUserMapper->expects($this->never())->method('findByHouseId');
+	public function testAssertHouseMember_WhenNotMember_ThrowsForbiddenWithoutCreating(): void {
+		$this->actingAs('alice');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+		$this->houseUserMapper->expects($this->never())->method('createOrGet');
+		$this->houseUserMapper->expects($this->never())->method('findByHouseId');
 
-        $this->expectException(ForbiddenException::class);
-        $this->expectExceptionMessage('Not a member of this house');
-        $this->service->assertHouseMember(1);
-    }
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Not a member of this house');
+		$this->service->assertHouseMember(1);
+	}
 
-    public function testAssertHouseMember_WhenAnonymous_ThrowsForbidden(): void
-    {
-        $this->userSession->method('getUser')->willReturn(null);
+	public function testAssertHouseMember_WhenAnonymous_ThrowsForbidden(): void {
+		$this->userSession->method('getUser')->willReturn(null);
 
-        $this->expectException(ForbiddenException::class);
-        $this->service->assertHouseMember(1);
-    }
+		$this->expectException(ForbiddenException::class);
+		$this->service->assertHouseMember(1);
+	}
 
-    // ---------- requireHouseOwner ----------
+	// ---------- requireHouseOwner ----------
 
-    public function testRequireHouseOwner_WhenOwner_ReturnsMembership(): void
-    {
-        $this->actingAs('alice');
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('owner', 'alice'));
+	public function testRequireHouseOwner_WhenOwner_ReturnsMembership(): void {
+		$this->actingAs('alice');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('owner', 'alice'));
 
-        $result = $this->service->requireHouseOwner(1);
-        $this->assertSame('owner', $result->getRole());
-    }
+		$result = $this->service->requireHouseOwner(1);
+		$this->assertSame('owner', $result->getRole());
+	}
 
-    public function testRequireHouseOwner_WhenMember_ThrowsForbidden(): void
-    {
-        $this->actingAs('bob');
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('member', 'bob'));
+	public function testRequireHouseOwner_WhenMember_ThrowsForbidden(): void {
+		$this->actingAs('bob');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('member', 'bob'));
 
-        $this->expectException(ForbiddenException::class);
-        $this->expectExceptionMessage('Owner role required');
-        $this->service->requireHouseOwner(1);
-    }
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Owner role required');
+		$this->service->requireHouseOwner(1);
+	}
 
-    /**
-     * RequireHouseOwner_WhenNotMember_ThrowsForbiddenWithoutCreating
-     *
-     * CR-SVC-06: a non-member attempting an owner-only op must be denied with
-     * a 403 and must NOT leave a phantom house_users row behind (the old path
-     * auto-created a 'member' row via ensureHouseMember before the 403).
-     */
-    public function testRequireHouseOwner_WhenNotMember_ThrowsForbiddenWithoutCreating(): void
-    {
-        $this->actingAs('alice');
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
-        $this->houseUserMapper->expects($this->never())->method('createOrGet');
-        $this->houseUserMapper->expects($this->never())->method('findByHouseId');
+	/**
+	 * RequireHouseOwner_WhenNotMember_ThrowsForbiddenWithoutCreating
+	 *
+	 * CR-SVC-06: a non-member attempting an owner-only op must be denied with
+	 * a 403 and must NOT leave a phantom house_users row behind (the old path
+	 * auto-created a 'member' row via ensureHouseMember before the 403).
+	 */
+	public function testRequireHouseOwner_WhenNotMember_ThrowsForbiddenWithoutCreating(): void {
+		$this->actingAs('alice');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+		$this->houseUserMapper->expects($this->never())->method('createOrGet');
+		$this->houseUserMapper->expects($this->never())->method('findByHouseId');
 
-        $this->expectException(ForbiddenException::class);
-        $this->service->requireHouseOwner(1);
-    }
+		$this->expectException(ForbiddenException::class);
+		$this->service->requireHouseOwner(1);
+	}
 
-    // ---------- isHouseOwner (read-only) ----------
+	// ---------- isHouseOwner (read-only) ----------
 
-    public function testIsHouseOwner_WhenOwner_ReturnsTrue(): void
-    {
-        $this->actingAs('alice');
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('owner', 'alice'));
-        $this->houseUserMapper->expects($this->never())->method('createOrGet');
+	public function testIsHouseOwner_WhenOwner_ReturnsTrue(): void {
+		$this->actingAs('alice');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('owner', 'alice'));
+		$this->houseUserMapper->expects($this->never())->method('createOrGet');
 
-        $this->assertTrue($this->service->isHouseOwner(1));
-    }
+		$this->assertTrue($this->service->isHouseOwner(1));
+	}
 
-    public function testIsHouseOwner_WhenMember_ReturnsFalse(): void
-    {
-        $this->actingAs('bob');
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('member', 'bob'));
-        $this->houseUserMapper->expects($this->never())->method('createOrGet');
+	public function testIsHouseOwner_WhenMember_ReturnsFalse(): void {
+		$this->actingAs('bob');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('member', 'bob'));
+		$this->houseUserMapper->expects($this->never())->method('createOrGet');
 
-        $this->assertFalse($this->service->isHouseOwner(1));
-    }
+		$this->assertFalse($this->service->isHouseOwner(1));
+	}
 
-    /**
-     * IsHouseOwner_WhenNotMember_ReturnsFalseWithoutCreating
-     *
-     * CR-SVC-06: the read-looking owner check must not write a membership row.
-     */
-    public function testIsHouseOwner_WhenNotMember_ReturnsFalseWithoutCreating(): void
-    {
-        $this->actingAs('alice');
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
-        $this->houseUserMapper->expects($this->never())->method('createOrGet');
-        $this->houseUserMapper->expects($this->never())->method('findByHouseId');
+	/**
+	 * IsHouseOwner_WhenNotMember_ReturnsFalseWithoutCreating
+	 *
+	 * CR-SVC-06: the read-looking owner check must not write a membership row.
+	 */
+	public function testIsHouseOwner_WhenNotMember_ReturnsFalseWithoutCreating(): void {
+		$this->actingAs('alice');
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+		$this->houseUserMapper->expects($this->never())->method('createOrGet');
+		$this->houseUserMapper->expects($this->never())->method('findByHouseId');
 
-        $this->assertFalse($this->service->isHouseOwner(1));
-    }
+		$this->assertFalse($this->service->isHouseOwner(1));
+	}
 
-    // ---------- assertUserInHouse (cross-house guard) ----------
+	// ---------- assertUserInHouse (cross-house guard) ----------
 
-    public function testAssertUserInHouse_WhenTargetIsMember_DoesNotThrow(): void
-    {
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('member', 'carol'));
+	public function testAssertUserInHouse_WhenTargetIsMember_DoesNotThrow(): void {
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($this->makeHouseUser('member', 'carol'));
 
-        $this->service->assertUserInHouse(1, 'carol');
-        $this->assertTrue(true);
-    }
+		$this->service->assertUserInHouse(1, 'carol');
+		$this->assertTrue(true);
+	}
 
-    public function testAssertUserInHouse_WhenTargetIsNotMember_ThrowsForbidden(): void
-    {
-        $this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+	public function testAssertUserInHouse_WhenTargetIsNotMember_ThrowsForbidden(): void {
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
 
-        $this->expectException(ForbiddenException::class);
-        $this->expectExceptionMessage('User is not a member of this house');
-        $this->service->assertUserInHouse(1, 'outsider');
-    }
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('User is not a member of this house');
+		$this->service->assertUserInHouse(1, 'outsider');
+	}
 }

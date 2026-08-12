@@ -10,9 +10,9 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\HouseController;
+use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Db\House;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -20,146 +20,138 @@ use PHPUnit\Framework\TestCase;
 /**
  * Unit tests for HouseController
  */
-class HouseControllerTest extends TestCase
-{
-    private HouseController $controller;
-    private $houseService;
-    private $authService;
-    private $request;
+class HouseControllerTest extends TestCase {
+	private HouseController $controller;
+	private $houseService;
+	private $authService;
+	private $request;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+	protected function setUp(): void {
+		parent::setUp();
 
-        $this->request = $this->createMock(IRequest::class);
-        $this->houseService = $this->createMock(HouseService::class);
-        $this->authService = $this->createMock(AuthorizationService::class);
+		$this->request = $this->createMock(IRequest::class);
+		$this->houseService = $this->createMock(HouseService::class);
+		$this->authService = $this->createMock(AuthorizationService::class);
 
-        $this->controller = new HouseController(
-            $this->request,
-            $this->houseService,
-            $this->authService
-        );
-    }
+		$this->controller = new HouseController(
+			$this->request,
+			$this->houseService,
+			$this->authService
+		);
+	}
 
-    /**
-     * Test GET /house returns house successfully
-     */
-    public function testGet_ReturnsHouseSuccessfully(): void
-    {
-        $house = new House();
-        $house->setId(1);
-        $house->setName('Test House');
+	/**
+	 * Test GET /house returns house successfully
+	 */
+	public function testGet_ReturnsHouseSuccessfully(): void {
+		$house = new House();
+		$house->setId(1);
+		$house->setName('Test House');
 
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
 
-        $response = $this->controller->get();
+		$response = $this->controller->get();
 
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(200, $response->getStatus());
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(200, $response->getStatus());
 
-        $data = $response->getData();
-        $this->assertTrue($data['success']);
-        $this->assertEquals('Test House', $data['data']['name']);
-    }
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertEquals('Test House', $data['data']['name']);
+	}
 
-    /**
-     * Test GET /house handles exceptions
-     */
-    public function testGet_HandlesException(): void
-    {
-        $this->houseService->method('getInstanceId')
-            ->willThrowException(new \Exception('Database error'));
+	/**
+	 * Test GET /house handles exceptions
+	 */
+	public function testGet_HandlesException(): void {
+		$this->houseService->method('getInstanceId')
+			->willThrowException(new \Exception('Database error'));
 
-        $response = $this->controller->get();
+		$response = $this->controller->get();
 
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(500, $response->getStatus());
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(500, $response->getStatus());
 
-        $data = $response->getData();
-        $this->assertFalse($data['success']);
-        $this->assertEquals('HOUSE_ERROR', $data['error']['code']);
-    }
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('HOUSE_ERROR', $data['error']['code']);
+	}
 
-    /**
-     * Test UPDATE /house validates empty name
-     */
-    public function testUpdate_ValidatesEmptyName(): void
-    {
-        $response = $this->controller->update('');
+	/**
+	 * Test UPDATE /house validates empty name
+	 */
+	public function testUpdate_ValidatesEmptyName(): void {
+		$response = $this->controller->update('');
 
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(400, $response->getStatus());
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(400, $response->getStatus());
 
-        $data = $response->getData();
-        $this->assertFalse($data['success']);
-        $this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
-    }
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+	}
 
-    /**
-     * Test UPDATE /house validates whitespace only name
-     */
-    public function testUpdate_ValidatesWhitespaceName(): void
-    {
-        $response = $this->controller->update('   ');
+	/**
+	 * Test UPDATE /house validates whitespace only name
+	 */
+	public function testUpdate_ValidatesWhitespaceName(): void {
+		$response = $this->controller->update('   ');
 
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(400, $response->getStatus());
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(400, $response->getStatus());
 
-        $data = $response->getData();
-        $this->assertFalse($data['success']);
-        $this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
-    }
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+	}
 
-    /**
-     * Test UPDATE /house updates successfully
-     */
-    public function testUpdate_UpdatesSuccessfully(): void
-    {
-        $house = new House();
-        $house->setId(1);
-        $house->setName('Updated House');
+	/**
+	 * Test UPDATE /house updates successfully
+	 */
+	public function testUpdate_UpdatesSuccessfully(): void {
+		$house = new House();
+		$house->setId(1);
+		$house->setName('Updated House');
 
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('requireHouseOwner');
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('requireHouseOwner');
 
-        $this->houseService->expects($this->once())
-            ->method('updateHouseName')
-            ->with(1, 'New House Name')
-            ->willReturn($house);
+		$this->houseService->expects($this->once())
+			->method('updateHouseName')
+			->with(1, 'New House Name')
+			->willReturn($house);
 
-        $response = $this->controller->update('New House Name');
+		$response = $this->controller->update('New House Name');
 
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(200, $response->getStatus());
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(200, $response->getStatus());
 
-        $data = $response->getData();
-        $this->assertTrue($data['success']);
-    }
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+	}
 
-    /**
-     * Test UPDATE /house handles exceptions
-     */
-    public function testUpdate_HandlesException(): void
-    {
-        $house = new House();
-        $house->setId(1);
+	/**
+	 * Test UPDATE /house handles exceptions
+	 */
+	public function testUpdate_HandlesException(): void {
+		$house = new House();
+		$house->setId(1);
 
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('requireHouseOwner')
-            ->willThrowException(new \Exception('Not authorized'));
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('requireHouseOwner')
+			->willThrowException(new \Exception('Not authorized'));
 
-        $response = $this->controller->update('New Name');
+		$response = $this->controller->update('New Name');
 
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(500, $response->getStatus());
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(500, $response->getStatus());
 
-        $data = $response->getData();
-        $this->assertFalse($data['success']);
-        $this->assertEquals('HOUSE_UPDATE_ERROR', $data['error']['code']);
-    }
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('HOUSE_UPDATE_ERROR', $data['error']['code']);
+	}
 }

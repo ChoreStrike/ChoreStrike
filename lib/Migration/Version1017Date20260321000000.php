@@ -6,11 +6,9 @@ namespace OCA\ChoreStrike\Migration;
 
 use Closure;
 use OCP\DB\ISchemaWrapper;
-use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
-use Psr\Log\LoggerInterface;
 
 /**
  * Migration for renaming Team Sparks to Coins
@@ -20,15 +18,13 @@ use Psr\Log\LoggerInterface;
  *
  * Uses direct SQL for column renames (Doctrine DBAL 4 compatibility)
  */
-class Version1017Date20260321000000 extends SimpleMigrationStep
-{
+class Version1017Date20260321000000 extends SimpleMigrationStep {
 	/**
 	 * @param IOutput $output
 	 * @param Closure $closure
 	 * @param array $openedSchema
 	 */
-	public function changeSchema(IOutput $output, Closure $closure, array $openedSchema): ISchemaWrapper
-	{
+	public function changeSchema(IOutput $output, Closure $closure, array $openedSchema): ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $closure();
 
@@ -43,8 +39,7 @@ class Version1017Date20260321000000 extends SimpleMigrationStep
 	 * @param Closure $closure
 	 * @param array $openedSchema
 	 */
-	public function postSchemaChange(IOutput $output, Closure $closure, array $openedSchema): void
-	{
+	public function postSchemaChange(IOutput $output, Closure $closure, array $openedSchema): void {
 		/** @var IDBConnection $connection */
 		$connection = \OC::$server->get(IDBConnection::class);
 
@@ -68,8 +63,7 @@ class Version1017Date20260321000000 extends SimpleMigrationStep
 	 * @param string $newColumn
 	 * @param string $definition
 	 */
-	private function renameColumn(IDBConnection $connection, IOutput $output, string $tableName, string $oldColumn, string $newColumn, string $definition): void
-	{
+	private function renameColumn(IDBConnection $connection, IOutput $output, string $tableName, string $oldColumn, string $newColumn, string $definition): void {
 		$schema = $connection->createSchema();
 
 		// Check if table and old column exist

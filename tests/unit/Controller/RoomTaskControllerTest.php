@@ -10,13 +10,13 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
-use OCA\ChoreStrike\Service\RoomTaskService;
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\Room;
+use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\Room;
-use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -24,355 +24,339 @@ use PHPUnit\Framework\TestCase;
 /**
  * Unit tests for RoomTaskController
  */
-class RoomTaskControllerTest extends TestCase
-{
-    private RoomTaskController $controller;
-    private $roomTaskService;
-    private $houseService;
-    private $authService;
-    private $request;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->request = $this->createMock(IRequest::class);
-        $this->roomTaskService = $this->createMock(RoomTaskService::class);
-        $this->houseService = $this->createMock(HouseService::class);
-        $this->authService = $this->createMock(AuthorizationService::class);
-
-        $this->controller = new RoomTaskController(
-            $this->request,
-            $this->roomTaskService,
-            $this->houseService,
-            $this->authService
-        );
-    }
-
-    /**
-     * Test GET /room-tasks returns list successfully
-     */
-    public function testIndex_ReturnsRoomTasksSuccessfully(): void
-    {
-        $house = new House();
-        $house->setId(1);
-
-        $roomTask1 = new RoomTask();
-        $roomTask1->setId(1);
-        $roomTask1->setRoomId(1);
-        $roomTask1->setTaskId(1);
-
-        $roomTask2 = new RoomTask();
-        $roomTask2->setId(2);
-        $roomTask2->setRoomId(2);
-        $roomTask2->setTaskId(2);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
-
-        $this->roomTaskService->expects($this->once())
-            ->method('getRoomTasks')
-            ->willReturn([$roomTask1, $roomTask2]);
-
-        $this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([]);
-
-        $response = $this->controller->index(1);
-
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(200, $response->getStatus());
-
-        $data = $response->getData();
-        $this->assertTrue($data['success']);
-        $this->assertCount(2, $data['data']);
-    }
-
-    /**
-     * Test POST /room-tasks/{id}/complete completes successfully.
-     *
-     * The current RoomTaskController::complete() resolves the actor via
-     * requireCurrentUserId() and delegates to RoomTaskService::completeTask(),
-     * returning the {roomTask, room, task, rewards} payload.
-     */
-    public function testComplete_CompletesSuccessfully(): void
-    {
-        $house = new House();
-        $house->setId(1);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
-        $this->roomTaskService->method('validateRoomTaskOwnership');
-        $this->authService->expects($this->once())
-            ->method('requireCurrentUserId')
-            ->willReturn('user1');
-
-        $roomTask = new RoomTask();
-        $roomTask->setId(1);
-        $room = new Room();
-        $task = new Task();
-
-        $this->roomTaskService->expects($this->once())
-            ->method('completeTask')
-            ->with(1, 'user1')
-            ->willReturn([
-                'roomTask' => $roomTask,
-                'room' => $room,
-                'task' => $task,
-                'rewards' => [],
-            ]);
-
-        $response = $this->controller->complete(1);
-
-        $this->assertInstanceOf(JSONResponse::class, $response);
-        $this->assertEquals(200, $response->getStatus());
-
-        $data = $response->getData();
-        $this->assertTrue($data['success']);
-    }
-
-    /**
-     * userTasks must reject a target userId that is not a member of the
-     * caller's house (cross-house access → 403).
-     */
-    public function testUserTasks_Returns403ForCrossHouseUser(): void
-    {
-        $house = new House();
-        $house->setId(1);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
-        $this->authService->expects($this->once())
-            ->method('assertUserInHouse')
-            ->with(1, 'outsider')
-            ->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
-
-        $this->roomTaskService->expects($this->never())->method('getUserTasks');
-
-        $response = $this->controller->userTasks('outsider');
-
-        $this->assertEquals(403, $response->getStatus());
-        $this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
-    }
-
-    /**
-     * userStats must reject a cross-house target userId (403).
-     */
-    public function testUserStats_Returns403ForCrossHouseUser(): void
-    {
-        $house = new House();
-        $house->setId(1);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
-        $this->authService->expects($this->once())
-            ->method('assertUserInHouse')
-            ->with(1, 'outsider')
-            ->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
-
-        $this->roomTaskService->expects($this->never())->method('getUserTaskStats');
-
-        $response = $this->controller->userStats('outsider');
-
-        $this->assertEquals(403, $response->getStatus());
-        $this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
-    }
-
-    /**
-     * userTasks for a same-house member returns 200.
-     */
-    public function testUserTasks_ReturnsTasksForSameHouseUser(): void
-    {
-        $house = new House();
-        $house->setId(1);
-
-        $roomTask = new RoomTask();
-        $roomTask->setId(7);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
-        $this->authService->method('assertUserInHouse');
-        $this->roomTaskService->expects($this->once())
-            ->method('getUserTasks')
-            ->with('member', true)
-            ->willReturn([$roomTask]);
-
-        $response = $this->controller->userTasks('member');
-
-        $this->assertEquals(200, $response->getStatus());
-        $this->assertTrue($response->getData()['success']);
-    }
-
-    /**
-     * assign must reject a target userId that is not a member of the caller's
-     * house (cross-house BOLA → 403). Regression for the missing membership
-     * check on the legacy assign() endpoint.
-     */
-    public function testAssign_Returns403ForCrossHouseUser(): void
-    {
-        $house = new House();
-        $house->setId(1);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
-        $this->roomTaskService->method('validateRoomTaskOwnership');
-        $this->authService->expects($this->once())
-            ->method('assertUserInHouse')
-            ->with(1, 'outsider')
-            ->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
-
-        $this->roomTaskService->expects($this->never())->method('assignTask');
-
-        $response = $this->controller->assign(7, 'outsider');
-
-        $this->assertEquals(403, $response->getStatus());
-        $this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
-    }
-
-    public function testRange_ReturnsScheduledAndCompleted(): void
-    {
-        $house = new House();
-        $house->setId(1);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
-
-        $mockData = [
-            'scheduled' => [['roomTask' => ['id' => 1], 'task' => ['name' => 'T'], 'room' => ['name' => 'R'], 'flexWindow' => []]],
-            'completed' => [['roomTaskId' => 2, 'taskName' => 'Done']],
-        ];
-        $this->roomTaskService->expects($this->once())
-            ->method('getRangeTasks')
-            ->willReturn($mockData);
-
-        $response = $this->controller->range('2026-07-28', '2026-08-03');
-
-        $this->assertEquals(200, $response->getStatus());
-        $data = $response->getData();
-        $this->assertTrue($data['success']);
-        $this->assertCount(1, $data['data']['scheduled']);
-        $this->assertCount(1, $data['data']['completed']);
-    }
-
-    public function testRange_Returns400ForInvalidDate(): void
-    {
-        $response = $this->controller->range('not-a-date', '2026-08-03');
-
-        $this->assertEquals(400, $response->getStatus());
-        $this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
-    }
-
-    public function testRange_Returns400WhenFromAfterTo(): void
-    {
-        $response = $this->controller->range('2026-08-03', '2026-07-28');
-
-        $this->assertEquals(400, $response->getStatus());
-        $this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
-    }
-
-    public function testRange_Returns400WhenSpanExceeds60Days(): void
-    {
-        $response = $this->controller->range('2026-01-01', '2026-06-01');
-
-        $this->assertEquals(400, $response->getStatus());
-        $this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
-    }
-
-    public function testRange_Returns403ForNonMember(): void
-    {
-        $house = new House();
-        $house->setId(1);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember')
-            ->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Not a member'));
-
-        $response = $this->controller->range('2026-07-28', '2026-08-03');
-
-        $this->assertEquals(403, $response->getStatus());
-        $this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
-    }
-
-    /**
-     * Create_PassesHouseIdToService
-     *
-     * CR-SVC-01: the controller must forward the caller's house id as the
-     * first argument so the service can scope the target room itself.
-     */
-    public function testCreate_PassesHouseIdToService(): void
-    {
-        $house = new House();
-        $house->setId(42);
-
-        $roomTask = new RoomTask();
-        $roomTask->setId(9);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
-
-        $this->roomTaskService->expects($this->once())
-            ->method('createRoomTask')
-            ->with(42, 1, 5, null, null, null)
-            ->willReturn($roomTask);
-
-        $response = $this->controller->create(1, 5);
-
-        $this->assertEquals(200, $response->getStatus());
-        $this->assertTrue($response->getData()['success']);
-    }
-
-    /**
-     * Create_Returns404ForCrossHouseRoom
-     *
-     * CR-SVC-01: a cross-house room (NotFoundException from the service) maps
-     * to 404, not a 500.
-     */
-    public function testCreate_Returns404ForCrossHouseRoom(): void
-    {
-        $house = new House();
-        $house->setId(42);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
-
-        $this->roomTaskService->method('createRoomTask')
-            ->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room not found'));
-
-        $response = $this->controller->create(1, 5);
-
-        $this->assertEquals(404, $response->getStatus());
-        $this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
-    }
-
-    /**
-     * Create_Returns400ForNonMemberAssignee
-     *
-     * CR-SVC-01: a non-member assignee (InvalidArgumentException from the
-     * service) maps to a 400 validation error, not a 500.
-     */
-    public function testCreate_Returns400ForNonMemberAssignee(): void
-    {
-        $house = new House();
-        $house->setId(42);
-
-        $this->houseService->method('getInstanceId')->willReturn('instance-123');
-        $this->houseService->method('getOrCreateHouse')->willReturn($house);
-        $this->authService->method('ensureHouseMember');
-
-        $this->roomTaskService->method('createRoomTask')
-            ->willThrowException(new \InvalidArgumentException('not a member'));
-
-        $response = $this->controller->create(1, 5, null, null, 'intruder');
-
-        $this->assertEquals(400, $response->getStatus());
-        $this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
-    }
+class RoomTaskControllerTest extends TestCase {
+	private RoomTaskController $controller;
+	private $roomTaskService;
+	private $houseService;
+	private $authService;
+	private $request;
+
+	protected function setUp(): void {
+		parent::setUp();
+
+		$this->request = $this->createMock(IRequest::class);
+		$this->roomTaskService = $this->createMock(RoomTaskService::class);
+		$this->houseService = $this->createMock(HouseService::class);
+		$this->authService = $this->createMock(AuthorizationService::class);
+
+		$this->controller = new RoomTaskController(
+			$this->request,
+			$this->roomTaskService,
+			$this->houseService,
+			$this->authService
+		);
+	}
+
+	/**
+	 * Test GET /room-tasks returns list successfully
+	 */
+	public function testIndex_ReturnsRoomTasksSuccessfully(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$roomTask1 = new RoomTask();
+		$roomTask1->setId(1);
+		$roomTask1->setRoomId(1);
+		$roomTask1->setTaskId(1);
+
+		$roomTask2 = new RoomTask();
+		$roomTask2->setId(2);
+		$roomTask2->setRoomId(2);
+		$roomTask2->setTaskId(2);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+
+		$this->roomTaskService->expects($this->once())
+			->method('getRoomTasks')
+			->willReturn([$roomTask1, $roomTask2]);
+
+		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([]);
+
+		$response = $this->controller->index(1);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(200, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertCount(2, $data['data']);
+	}
+
+	/**
+	 * Test POST /room-tasks/{id}/complete completes successfully.
+	 *
+	 * The current RoomTaskController::complete() resolves the actor via
+	 * requireCurrentUserId() and delegates to RoomTaskService::completeTask(),
+	 * returning the {roomTask, room, task, rewards} payload.
+	 */
+	public function testComplete_CompletesSuccessfully(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+		$this->authService->expects($this->once())
+			->method('requireCurrentUserId')
+			->willReturn('user1');
+
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$room = new Room();
+		$task = new Task();
+
+		$this->roomTaskService->expects($this->once())
+			->method('completeTask')
+			->with(1, 'user1')
+			->willReturn([
+				'roomTask' => $roomTask,
+				'room' => $room,
+				'task' => $task,
+				'rewards' => [],
+			]);
+
+		$response = $this->controller->complete(1);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(200, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+	}
+
+	/**
+	 * userTasks must reject a target userId that is not a member of the
+	 * caller's house (cross-house access → 403).
+	 */
+	public function testUserTasks_Returns403ForCrossHouseUser(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+		$this->authService->expects($this->once())
+			->method('assertUserInHouse')
+			->with(1, 'outsider')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
+
+		$this->roomTaskService->expects($this->never())->method('getUserTasks');
+
+		$response = $this->controller->userTasks('outsider');
+
+		$this->assertEquals(403, $response->getStatus());
+		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * userStats must reject a cross-house target userId (403).
+	 */
+	public function testUserStats_Returns403ForCrossHouseUser(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+		$this->authService->expects($this->once())
+			->method('assertUserInHouse')
+			->with(1, 'outsider')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
+
+		$this->roomTaskService->expects($this->never())->method('getUserTaskStats');
+
+		$response = $this->controller->userStats('outsider');
+
+		$this->assertEquals(403, $response->getStatus());
+		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * userTasks for a same-house member returns 200.
+	 */
+	public function testUserTasks_ReturnsTasksForSameHouseUser(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$roomTask = new RoomTask();
+		$roomTask->setId(7);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertUserInHouse');
+		$this->roomTaskService->expects($this->once())
+			->method('getUserTasks')
+			->with('member', true)
+			->willReturn([$roomTask]);
+
+		$response = $this->controller->userTasks('member');
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertTrue($response->getData()['success']);
+	}
+
+	/**
+	 * assign must reject a target userId that is not a member of the caller's
+	 * house (cross-house BOLA → 403). Regression for the missing membership
+	 * check on the legacy assign() endpoint.
+	 */
+	public function testAssign_Returns403ForCrossHouseUser(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+		$this->authService->expects($this->once())
+			->method('assertUserInHouse')
+			->with(1, 'outsider')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
+
+		$this->roomTaskService->expects($this->never())->method('assignTask');
+
+		$response = $this->controller->assign(7, 'outsider');
+
+		$this->assertEquals(403, $response->getStatus());
+		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	public function testRange_ReturnsScheduledAndCompleted(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+
+		$mockData = [
+			'scheduled' => [['roomTask' => ['id' => 1], 'task' => ['name' => 'T'], 'room' => ['name' => 'R'], 'flexWindow' => []]],
+			'completed' => [['roomTaskId' => 2, 'taskName' => 'Done']],
+		];
+		$this->roomTaskService->expects($this->once())
+			->method('getRangeTasks')
+			->willReturn($mockData);
+
+		$response = $this->controller->range('2026-07-28', '2026-08-03');
+
+		$this->assertEquals(200, $response->getStatus());
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertCount(1, $data['data']['scheduled']);
+		$this->assertCount(1, $data['data']['completed']);
+	}
+
+	public function testRange_Returns400ForInvalidDate(): void {
+		$response = $this->controller->range('not-a-date', '2026-08-03');
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	public function testRange_Returns400WhenFromAfterTo(): void {
+		$response = $this->controller->range('2026-08-03', '2026-07-28');
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	public function testRange_Returns400WhenSpanExceeds60Days(): void {
+		$response = $this->controller->range('2026-01-01', '2026-06-01');
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	public function testRange_Returns403ForNonMember(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Not a member'));
+
+		$response = $this->controller->range('2026-07-28', '2026-08-03');
+
+		$this->assertEquals(403, $response->getStatus());
+		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * Create_PassesHouseIdToService
+	 *
+	 * CR-SVC-01: the controller must forward the caller's house id as the
+	 * first argument so the service can scope the target room itself.
+	 */
+	public function testCreate_PassesHouseIdToService(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$roomTask = new RoomTask();
+		$roomTask->setId(9);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+
+		$this->roomTaskService->expects($this->once())
+			->method('createRoomTask')
+			->with(42, 1, 5, null, null, null)
+			->willReturn($roomTask);
+
+		$response = $this->controller->create(1, 5);
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertTrue($response->getData()['success']);
+	}
+
+	/**
+	 * Create_Returns404ForCrossHouseRoom
+	 *
+	 * CR-SVC-01: a cross-house room (NotFoundException from the service) maps
+	 * to 404, not a 500.
+	 */
+	public function testCreate_Returns404ForCrossHouseRoom(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+
+		$this->roomTaskService->method('createRoomTask')
+			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room not found'));
+
+		$response = $this->controller->create(1, 5);
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * Create_Returns400ForNonMemberAssignee
+	 *
+	 * CR-SVC-01: a non-member assignee (InvalidArgumentException from the
+	 * service) maps to a 400 validation error, not a 500.
+	 */
+	public function testCreate_Returns400ForNonMemberAssignee(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+
+		$this->roomTaskService->method('createRoomTask')
+			->willThrowException(new \InvalidArgumentException('not a member'));
+
+		$response = $this->controller->create(1, 5, null, null, 'intruder');
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
 }

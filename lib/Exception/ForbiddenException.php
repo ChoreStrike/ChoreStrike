@@ -7,6 +7,5 @@ namespace OCA\ChoreStrike\Exception;
 /**
  * Thrown when the authenticated user lacks permission for the requested action.
  */
-class ForbiddenException extends \Exception
-{
+class ForbiddenException extends \Exception {
 }

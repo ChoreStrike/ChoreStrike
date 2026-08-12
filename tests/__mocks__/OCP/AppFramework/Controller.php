@@ -14,14 +14,12 @@ namespace OCP\AppFramework;
 
 use OCP\IRequest;
 
-class Controller
-{
-    protected string $appName;
-    protected IRequest $request;
+class Controller {
+	protected string $appName;
+	protected IRequest $request;
 
-    public function __construct(string $appName, IRequest $request)
-    {
-        $this->appName = $appName;
-        $this->request = $request;
-    }
+	public function __construct(string $appName, IRequest $request) {
+		$this->appName = $appName;
+		$this->request = $request;
+	}
 }

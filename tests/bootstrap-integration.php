@@ -11,8 +11,8 @@
 $isDocker = getenv('NEXTCLOUD_TEST_ENV') === 'true' || file_exists('/.dockerenv');
 
 if (!$isDocker) {
-    echo "Integration tests require Docker environment with full Nextcloud\n";
-    exit(1);
+	echo "Integration tests require Docker environment with full Nextcloud\n";
+	exit(1);
 }
 
 // Load Nextcloud core - this initializes OC::$server

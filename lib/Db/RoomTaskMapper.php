@@ -16,474 +16,452 @@ use OCP\IDBConnection;
 /**
  * @template-extends QBMapper<RoomTask>
  */
-class RoomTaskMapper extends QBMapper
-{
-    public function __construct(IDBConnection $db)
-    {
-        parent::__construct($db, 'chorestrike_room_tasks', RoomTask::class);
-    }
-
-    /**
-     * Acquire an exclusive lock on a room task row.
-     *
-     * A no-op UPDATE (self-assigns is_active — never a pre-read value, so it
-     * cannot clobber a concurrent commit; CR-SVC-04 defect class) acquires an
-     * exclusive row lock on locking engines (InnoDB/PostgreSQL) and serializes
-     * via the write lock on SQLite, so concurrent completions of the same task
-     * are ordered and a check-then-act duplicate guard cannot be raced past.
-     *
-     * Must be called inside an open transaction.
-     *
-     * @param int $roomTaskId The room task ID to lock
-     */
-    public function lockForUpdate(int $roomTaskId): void
-    {
-        $qb = $this->db->getQueryBuilder();
-        $qb->update($this->getTableName())
-            ->set('is_active', $qb->createFunction('is_active'))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-        $qb->executeStatement();
-    }
-
-    /**
-     * Find room task by ID
-     *
-     * @param int $id The room task ID
-     * @throws DoesNotExistException if not found
-     */
-    public function find(int $id): RoomTask
-    {
-        $qb = $this->db->getQueryBuilder();
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
-
-        return $this->findEntity($qb);
-    }
-
-    /**
-     * Get all room tasks for a room
-     *
-     * @param int $roomId The room ID
-     * @param bool $activeOnly Whether to return only active tasks
-     * @return RoomTask[]
-     */
-    public function findByRoomId(int $roomId, bool $activeOnly = true): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-
-        if ($activeOnly) {
-            $qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-        }
-
-        $qb->orderBy('next_due', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Get all room tasks for a user
-     *
-     * @param string $userId The user ID
-     * @param bool $activeOnly Whether to return only active tasks
-     * @return RoomTask[]
-     */
-    public function findByUserId(string $userId, bool $activeOnly = true): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('assigned_to_user_id', $qb->createNamedParameter($userId)));
-
-        if ($activeOnly) {
-            $qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-        }
-
-        $qb->orderBy('next_due', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Get overdue tasks for a specific house (joins through rooms → floors).
-     *
-     * @param int $houseId The house ID
-     * @param int|null $roomId Optional room ID to filter by
-     * @return RoomTask[]
-     */
-    public function findOverdueByHouse(int $houseId, ?int $roomId = null): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('rt.*')
-            ->from($this->getTableName(), 'rt');
-        $this->applyHouseScope($qb, 'rt', $houseId);
-        $qb->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-
-        if ($roomId !== null) {
-            $qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-        }
-
-        $qb->orderBy('rt.next_due', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Get tasks due today for a specific house (joins through rooms → floors).
-     *
-     * @param int $houseId The house ID
-     * @param int|null $roomId Optional room ID to filter by
-     * @return RoomTask[]
-     */
-    public function findDueTodayByHouse(int $houseId, ?int $roomId = null): array
-    {
-        $today = new \DateTime();
-        $today->setTime(0, 0, 0);
-        $tomorrow = clone $today;
-        $tomorrow->add(new \DateInterval('P1D'));
-
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('rt.*')
-            ->from($this->getTableName(), 'rt');
-        $this->applyHouseScope($qb, 'rt', $houseId);
-        $qb->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($today, IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($tomorrow, IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-
-        if ($roomId !== null) {
-            $qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-        }
-
-        $qb->orderBy('rt.next_due', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Get tasks due within the next N days for a specific house
-     * (joins through rooms → floors).
-     *
-     * @param int $houseId The house ID
-     * @param int $days Number of days
-     * @param int|null $roomId Optional room ID to filter by
-     * @return RoomTask[]
-     */
-    public function findDueWithinDaysByHouse(int $houseId, int $days, ?int $roomId = null): array
-    {
-        $today = new \DateTime();
-        $future = clone $today;
-        $future->add(new \DateInterval("P{$days}D"));
-
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('rt.*')
-            ->from($this->getTableName(), 'rt');
-        $this->applyHouseScope($qb, 'rt', $houseId);
-        $qb->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($future, IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($today, IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-
-        if ($roomId !== null) {
-            $qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-        }
-
-        $qb->orderBy('rt.next_due', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Create a new room task
-     *
-     * @param int $roomId The room ID
-     * @param int $taskId The task ID
-     * @param \DateTime $nextDue The next due date
-     * @param string|null $assignedToUserId Optional assigned user ID
-     * @param int|null $scopeId Optional scope ID
-     * @param \DateTime|null $idealDueDate Optional ideal due date for flex scheduling
-     */
-    public function create(int $roomId, int $taskId, \DateTime $nextDue, ?string $assignedToUserId = null, ?int $scopeId = null, ?\DateTime $idealDueDate = null): RoomTask
-    {
-        $roomTask = new RoomTask();
-        $roomTask->setRoomId($roomId);
-        $roomTask->setTaskId($taskId);
-        $roomTask->setNextDue($nextDue);
-        $roomTask->setAssignedToUserId($assignedToUserId);
-        $roomTask->setScopeId($scopeId);
-        $roomTask->setIdealDueDate($idealDueDate);
-        $roomTask->setIsActive(true);
-        $roomTask->setCreatedAt(new \DateTime());
-
-        return $this->insert($roomTask);
-    }
-
-    /**
-     * Find room task linked to a Nextcloud task
-     *
-     * @param int $nextcloudTaskId The Nextcloud task ID
-     */
-    public function findByNextcloudTaskId(int $nextcloudTaskId): ?RoomTask
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('nextcloud_task_id', $qb->createNamedParameter($nextcloudTaskId, IQueryBuilder::PARAM_INT)))
-            ->setMaxResults(1);
-
-        $entities = $this->findEntities($qb);
-        return $entities[0] ?? null;
-    }
-
-    /**
-     * Find room tasks by scope ID
-     *
-     * @param int $scopeId The scope ID
-     * @param bool $activeOnly Whether to return only active tasks
-     * @return RoomTask[]
-     */
-    public function findByScopeId(int $scopeId, bool $activeOnly = true): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('*')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('scope_id', $qb->createNamedParameter($scopeId, IQueryBuilder::PARAM_INT)));
-
-        if ($activeOnly) {
-            $qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-        }
-
-        $qb->orderBy('next_due', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Assign task to user
-     *
-     * @param int $roomTaskId The room task ID
-     * @param string $userId The user ID
-     */
-    public function assignToUser(int $roomTaskId, string $userId): void
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->update($this->getTableName())
-            ->set('assigned_to_user_id', $qb->createNamedParameter($userId))
-            ->set('assignment_type', $qb->createNamedParameter('user'))
-            ->set('assigned_to_group', $qb->createNamedParameter(null))
-            ->set('claimed_by_user', $qb->createNamedParameter(null))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-
-        $qb->executeStatement();
-    }
-
-    /**
-     * Deactivate task
-     *
-     * @param int $roomTaskId The room task ID
-     */
-    public function deactivate(int $roomTaskId): void
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->update($this->getTableName())
-            ->set('is_active', $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-
-        $qb->executeStatement();
-    }
-
-    /**
-     * Reactivate task
-     *
-     * @param int $roomTaskId The room task ID
-     */
-    public function reactivate(int $roomTaskId): void
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->update($this->getTableName())
-            ->set('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-
-        $qb->executeStatement();
-    }
-
-    /**
-     * Update next due date
-     *
-     * @param int $roomTaskId The room task ID
-     * @param \DateTime $nextDue The new due date
-     */
-    public function updateNextDue(int $roomTaskId, \DateTime $nextDue): void
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->update($this->getTableName())
-            ->set('next_due', $qb->createNamedParameter($nextDue, IQueryBuilder::PARAM_DATE))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-
-        $qb->executeStatement();
-    }
-
-    /**
-     * Check if room already has this task
-     *
-     * @param int $roomId The room ID
-     * @param int $taskId The task ID
-     * @return bool
-     */
-    public function exists(int $roomId, int $taskId): bool
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('id')
-            ->from($this->getTableName())
-            ->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->eq('task_id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)));
-
-        $result = $qb->executeQuery();
-        return $result->fetchOne() !== false;
-    }
-
-    /**
-     * Find daily tasks for a house
-     *
-     * @param int $houseId The house ID
-     * @param DateTime $date The date to find tasks for
-     * @return RoomTask[]
-     */
-    public function findDailyTasks(int $houseId, \DateTime $date): array
-    {
-        $qb = $this->db->getQueryBuilder();
-
-        $qb->select('rt.*')
-            ->from($this->getTableName(), 'rt');
-        $this->applyHouseScope($qb, 'rt', $houseId);
-        $qb->andWhere($qb->expr()->eq('DATE(rt.next_due)', $qb->createNamedParameter($date->format('Y-m-d'), IQueryBuilder::PARAM_STR)))
-            ->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
-            ->orderBy('rt.next_due', 'ASC')
-            ->addOrderBy('rt.created_at', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Apply the house-scope JOIN chain to a room_tasks query.
-     *
-     * chorestrike_room_tasks has no denormalized house_id column, so every
-     * house-scoped query must INNER JOIN rooms → floors and pin
-     * floors.house_id. Centralising the chain here keeps all house-scoped
-     * callers in sync if the schema ever changes (floor soft-delete,
-     * multi-house isolation, etc.).
-     *
-     * Must be called after `from()` and before any caller-specific ANDs.
-     *
-     * @param IQueryBuilder $qb The query builder to mutate
-     * @param string $roomTaskAlias The alias used for chorestrike_room_tasks in the FROM/SELECT
-     * @param int $houseId The house ID to scope to
-     */
-    private function applyHouseScope(IQueryBuilder $qb, string $roomTaskAlias, int $houseId): void
-    {
-        $qb->innerJoin($roomTaskAlias, 'chorestrike_rooms', 'r', $qb->expr()->eq("{$roomTaskAlias}.room_id", 'r.id'))
-            ->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
-            ->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
-    }
-
-    /**
-     * Find active room tasks whose next_due is on or before a bound, for a house.
-     *
-     * The recurrence-projection base set for the calendar range endpoint:
-     * returns every active task that could recur into a future window
-     * (next_due <= end), so projectOccurrences() can expand each into its
-     * in-window occurrences. Reuses applyHouseScope for house isolation.
-     *
-     * @param int $houseId The house ID
-     * @param \DateTimeInterface $end Inclusive upper bound for next_due
-     * @return RoomTask[] Active room tasks due on or before $end
-     */
-    public function findActiveDueUpToByHouse(int $houseId, \DateTimeInterface $end): array
-    {
-        $qb = $this->db->getQueryBuilder();
-        $qb->select('rt.*')
-            ->from($this->getTableName(), 'rt');
-        $this->applyHouseScope($qb, 'rt', $houseId);
-        $qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
-            ->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
-            ->orderBy('rt.next_due', 'ASC')
-            ->addOrderBy('rt.created_at', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Find active room tasks whose next_due falls within a date range for a house.
-     *
-     * Entity-returning sibling of findActiveDueIdsBetweenByHouse for the
-     * calendar range endpoint. Reuses applyHouseScope for house isolation.
-     *
-     * @param int $houseId The house ID
-     * @param \DateTimeInterface $start Inclusive range start
-     * @param \DateTimeInterface $end Inclusive range end
-     * @return RoomTask[] Active room tasks due in [start, end]
-     */
-    public function findActiveDueBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array
-    {
-        $qb = $this->db->getQueryBuilder();
-        $qb->select('rt.*')
-            ->from($this->getTableName(), 'rt');
-        $this->applyHouseScope($qb, 'rt', $houseId);
-        $qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
-            ->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
-            ->orderBy('rt.next_due', 'ASC')
-            ->addOrderBy('rt.created_at', 'ASC');
-
-        return $this->findEntities($qb);
-    }
-
-    /**
-     * Find IDs of active room tasks whose next_due falls within a date range for a house.
-     *
-     * Used by the weekly household goal to determine the "still-open" part of
-     * the denominator (tasks on the radar this week). Joins through rooms →
-     * floors to scope by house because chorestrike_room_tasks has no
-     * denormalized house_id column.
-     *
-     * Returns IDs (not entities) so HouseService can union them with the
-     * completed-this-week ID set without re-fetching rows.
-     *
-     * @param int $houseId The house ID
-     * @param \DateTimeInterface $start Inclusive range start
-     * @param \DateTimeInterface $end Inclusive range end
-     * @return int[] List of room task IDs
-     */
-    public function findActiveDueIdsBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array
-    {
-        $qb = $this->db->getQueryBuilder();
-        $qb->select('rt.id')
-            ->from($this->getTableName(), 'rt');
-        $this->applyHouseScope($qb, 'rt', $houseId);
-        $qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
-            ->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-            ->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)));
-
-        $result = $qb->executeQuery();
-        $ids = [];
-        while ($row = $result->fetch()) {
-            $ids[] = (int)$row['id'];
-        }
-        $result->closeCursor();
-        return $ids;
-    }
+class RoomTaskMapper extends QBMapper {
+	public function __construct(IDBConnection $db) {
+		parent::__construct($db, 'chorestrike_room_tasks', RoomTask::class);
+	}
+
+	/**
+	 * Acquire an exclusive lock on a room task row.
+	 *
+	 * A no-op UPDATE (self-assigns is_active — never a pre-read value, so it
+	 * cannot clobber a concurrent commit; CR-SVC-04 defect class) acquires an
+	 * exclusive row lock on locking engines (InnoDB/PostgreSQL) and serializes
+	 * via the write lock on SQLite, so concurrent completions of the same task
+	 * are ordered and a check-then-act duplicate guard cannot be raced past.
+	 *
+	 * Must be called inside an open transaction.
+	 *
+	 * @param int $roomTaskId The room task ID to lock
+	 */
+	public function lockForUpdate(int $roomTaskId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update($this->getTableName())
+			->set('is_active', $qb->createFunction('is_active'))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+	}
+
+	/**
+	 * Find room task by ID
+	 *
+	 * @param int $id The room task ID
+	 * @throws DoesNotExistException if not found
+	 */
+	public function find(int $id): RoomTask {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+
+		return $this->findEntity($qb);
+	}
+
+	/**
+	 * Get all room tasks for a room
+	 *
+	 * @param int $roomId The room ID
+	 * @param bool $activeOnly Whether to return only active tasks
+	 * @return RoomTask[]
+	 */
+	public function findByRoomId(int $roomId, bool $activeOnly = true): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+
+		if ($activeOnly) {
+			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+		}
+
+		$qb->orderBy('next_due', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Get all room tasks for a user
+	 *
+	 * @param string $userId The user ID
+	 * @param bool $activeOnly Whether to return only active tasks
+	 * @return RoomTask[]
+	 */
+	public function findByUserId(string $userId, bool $activeOnly = true): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('assigned_to_user_id', $qb->createNamedParameter($userId)));
+
+		if ($activeOnly) {
+			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+		}
+
+		$qb->orderBy('next_due', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Get overdue tasks for a specific house (joins through rooms → floors).
+	 *
+	 * @param int $houseId The house ID
+	 * @param int|null $roomId Optional room ID to filter by
+	 * @return RoomTask[]
+	 */
+	public function findOverdueByHouse(int $houseId, ?int $roomId = null): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('rt.*')
+			->from($this->getTableName(), 'rt');
+		$this->applyHouseScope($qb, 'rt', $houseId);
+		$qb->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+
+		if ($roomId !== null) {
+			$qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+		}
+
+		$qb->orderBy('rt.next_due', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Get tasks due today for a specific house (joins through rooms → floors).
+	 *
+	 * @param int $houseId The house ID
+	 * @param int|null $roomId Optional room ID to filter by
+	 * @return RoomTask[]
+	 */
+	public function findDueTodayByHouse(int $houseId, ?int $roomId = null): array {
+		$today = new \DateTime();
+		$today->setTime(0, 0, 0);
+		$tomorrow = clone $today;
+		$tomorrow->add(new \DateInterval('P1D'));
+
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('rt.*')
+			->from($this->getTableName(), 'rt');
+		$this->applyHouseScope($qb, 'rt', $houseId);
+		$qb->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($today, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($tomorrow, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+
+		if ($roomId !== null) {
+			$qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+		}
+
+		$qb->orderBy('rt.next_due', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Get tasks due within the next N days for a specific house
+	 * (joins through rooms → floors).
+	 *
+	 * @param int $houseId The house ID
+	 * @param int $days Number of days
+	 * @param int|null $roomId Optional room ID to filter by
+	 * @return RoomTask[]
+	 */
+	public function findDueWithinDaysByHouse(int $houseId, int $days, ?int $roomId = null): array {
+		$today = new \DateTime();
+		$future = clone $today;
+		$future->add(new \DateInterval("P{$days}D"));
+
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('rt.*')
+			->from($this->getTableName(), 'rt');
+		$this->applyHouseScope($qb, 'rt', $houseId);
+		$qb->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($future, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($today, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+
+		if ($roomId !== null) {
+			$qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+		}
+
+		$qb->orderBy('rt.next_due', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Create a new room task
+	 *
+	 * @param int $roomId The room ID
+	 * @param int $taskId The task ID
+	 * @param \DateTime $nextDue The next due date
+	 * @param string|null $assignedToUserId Optional assigned user ID
+	 * @param int|null $scopeId Optional scope ID
+	 * @param \DateTime|null $idealDueDate Optional ideal due date for flex scheduling
+	 */
+	public function create(int $roomId, int $taskId, \DateTime $nextDue, ?string $assignedToUserId = null, ?int $scopeId = null, ?\DateTime $idealDueDate = null): RoomTask {
+		$roomTask = new RoomTask();
+		$roomTask->setRoomId($roomId);
+		$roomTask->setTaskId($taskId);
+		$roomTask->setNextDue($nextDue);
+		$roomTask->setAssignedToUserId($assignedToUserId);
+		$roomTask->setScopeId($scopeId);
+		$roomTask->setIdealDueDate($idealDueDate);
+		$roomTask->setIsActive(true);
+		$roomTask->setCreatedAt(new \DateTime());
+
+		return $this->insert($roomTask);
+	}
+
+	/**
+	 * Find room task linked to a Nextcloud task
+	 *
+	 * @param int $nextcloudTaskId The Nextcloud task ID
+	 */
+	public function findByNextcloudTaskId(int $nextcloudTaskId): ?RoomTask {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('nextcloud_task_id', $qb->createNamedParameter($nextcloudTaskId, IQueryBuilder::PARAM_INT)))
+			->setMaxResults(1);
+
+		$entities = $this->findEntities($qb);
+		return $entities[0] ?? null;
+	}
+
+	/**
+	 * Find room tasks by scope ID
+	 *
+	 * @param int $scopeId The scope ID
+	 * @param bool $activeOnly Whether to return only active tasks
+	 * @return RoomTask[]
+	 */
+	public function findByScopeId(int $scopeId, bool $activeOnly = true): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('scope_id', $qb->createNamedParameter($scopeId, IQueryBuilder::PARAM_INT)));
+
+		if ($activeOnly) {
+			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+		}
+
+		$qb->orderBy('next_due', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Assign task to user
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param string $userId The user ID
+	 */
+	public function assignToUser(int $roomTaskId, string $userId): void {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->update($this->getTableName())
+			->set('assigned_to_user_id', $qb->createNamedParameter($userId))
+			->set('assignment_type', $qb->createNamedParameter('user'))
+			->set('assigned_to_group', $qb->createNamedParameter(null))
+			->set('claimed_by_user', $qb->createNamedParameter(null))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+
+		$qb->executeStatement();
+	}
+
+	/**
+	 * Deactivate task
+	 *
+	 * @param int $roomTaskId The room task ID
+	 */
+	public function deactivate(int $roomTaskId): void {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->update($this->getTableName())
+			->set('is_active', $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+
+		$qb->executeStatement();
+	}
+
+	/**
+	 * Reactivate task
+	 *
+	 * @param int $roomTaskId The room task ID
+	 */
+	public function reactivate(int $roomTaskId): void {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->update($this->getTableName())
+			->set('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+
+		$qb->executeStatement();
+	}
+
+	/**
+	 * Update next due date
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param \DateTime $nextDue The new due date
+	 */
+	public function updateNextDue(int $roomTaskId, \DateTime $nextDue): void {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->update($this->getTableName())
+			->set('next_due', $qb->createNamedParameter($nextDue, IQueryBuilder::PARAM_DATE))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+
+		$qb->executeStatement();
+	}
+
+	/**
+	 * Check if room already has this task
+	 *
+	 * @param int $roomId The room ID
+	 * @param int $taskId The task ID
+	 * @return bool
+	 */
+	public function exists(int $roomId, int $taskId): bool {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('id')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('task_id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)));
+
+		$result = $qb->executeQuery();
+		return $result->fetchOne() !== false;
+	}
+
+	/**
+	 * Find daily tasks for a house
+	 *
+	 * @param int $houseId The house ID
+	 * @param DateTime $date The date to find tasks for
+	 * @return RoomTask[]
+	 */
+	public function findDailyTasks(int $houseId, \DateTime $date): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('rt.*')
+			->from($this->getTableName(), 'rt');
+		$this->applyHouseScope($qb, 'rt', $houseId);
+		$qb->andWhere($qb->expr()->eq('DATE(rt.next_due)', $qb->createNamedParameter($date->format('Y-m-d'), IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+			->orderBy('rt.next_due', 'ASC')
+			->addOrderBy('rt.created_at', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Apply the house-scope JOIN chain to a room_tasks query.
+	 *
+	 * chorestrike_room_tasks has no denormalized house_id column, so every
+	 * house-scoped query must INNER JOIN rooms → floors and pin
+	 * floors.house_id. Centralising the chain here keeps all house-scoped
+	 * callers in sync if the schema ever changes (floor soft-delete,
+	 * multi-house isolation, etc.).
+	 *
+	 * Must be called after `from()` and before any caller-specific ANDs.
+	 *
+	 * @param IQueryBuilder $qb The query builder to mutate
+	 * @param string $roomTaskAlias The alias used for chorestrike_room_tasks in the FROM/SELECT
+	 * @param int $houseId The house ID to scope to
+	 */
+	private function applyHouseScope(IQueryBuilder $qb, string $roomTaskAlias, int $houseId): void {
+		$qb->innerJoin($roomTaskAlias, 'chorestrike_rooms', 'r', $qb->expr()->eq("{$roomTaskAlias}.room_id", 'r.id'))
+			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+	}
+
+	/**
+	 * Find active room tasks whose next_due is on or before a bound, for a house.
+	 *
+	 * The recurrence-projection base set for the calendar range endpoint:
+	 * returns every active task that could recur into a future window
+	 * (next_due <= end), so projectOccurrences() can expand each into its
+	 * in-window occurrences. Reuses applyHouseScope for house isolation.
+	 *
+	 * @param int $houseId The house ID
+	 * @param \DateTimeInterface $end Inclusive upper bound for next_due
+	 * @return RoomTask[] Active room tasks due on or before $end
+	 */
+	public function findActiveDueUpToByHouse(int $houseId, \DateTimeInterface $end): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('rt.*')
+			->from($this->getTableName(), 'rt');
+		$this->applyHouseScope($qb, 'rt', $houseId);
+		$qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+			->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->orderBy('rt.next_due', 'ASC')
+			->addOrderBy('rt.created_at', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Find active room tasks whose next_due falls within a date range for a house.
+	 *
+	 * Entity-returning sibling of findActiveDueIdsBetweenByHouse for the
+	 * calendar range endpoint. Reuses applyHouseScope for house isolation.
+	 *
+	 * @param int $houseId The house ID
+	 * @param \DateTimeInterface $start Inclusive range start
+	 * @param \DateTimeInterface $end Inclusive range end
+	 * @return RoomTask[] Active room tasks due in [start, end]
+	 */
+	public function findActiveDueBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('rt.*')
+			->from($this->getTableName(), 'rt');
+		$this->applyHouseScope($qb, 'rt', $houseId);
+		$qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+			->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->orderBy('rt.next_due', 'ASC')
+			->addOrderBy('rt.created_at', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Find IDs of active room tasks whose next_due falls within a date range for a house.
+	 *
+	 * Used by the weekly household goal to determine the "still-open" part of
+	 * the denominator (tasks on the radar this week). Joins through rooms →
+	 * floors to scope by house because chorestrike_room_tasks has no
+	 * denormalized house_id column.
+	 *
+	 * Returns IDs (not entities) so HouseService can union them with the
+	 * completed-this-week ID set without re-fetching rows.
+	 *
+	 * @param int $houseId The house ID
+	 * @param \DateTimeInterface $start Inclusive range start
+	 * @param \DateTimeInterface $end Inclusive range end
+	 * @return int[] List of room task IDs
+	 */
+	public function findActiveDueIdsBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('rt.id')
+			->from($this->getTableName(), 'rt');
+		$this->applyHouseScope($qb, 'rt', $houseId);
+		$qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+			->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)));
+
+		$result = $qb->executeQuery();
+		$ids = [];
+		while ($row = $result->fetch()) {
+			$ids[] = (int)$row['id'];
+		}
+		$result->closeCursor();
+		return $ids;
+	}
 }

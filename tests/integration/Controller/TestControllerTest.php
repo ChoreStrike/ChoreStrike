@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
@@ -17,13 +18,11 @@ use PHPUnit\Framework\TestCase;
 /**
  * Integration tests for TestController
  */
-class TestControllerTest extends TestCase
-{
+class TestControllerTest extends TestCase {
 	private TestController $controller;
 	private TestDataService $testDataService;
 
-	protected function setUp(): void
-	{
+	protected function setUp(): void {
 		parent::setUp();
 
 		$request = $this->createMock(IRequest::class);
@@ -38,8 +37,7 @@ class TestControllerTest extends TestCase
 	/**
 	 * Test seed endpoint returns success when in test mode
 	 */
-	public function testSeedReturnsSuccessInTestMode(): void
-	{
+	public function testSeedReturnsSuccessInTestMode(): void {
 		$this->testDataService->method('isTestMode')->willReturn(true);
 		$this->testDataService->method('seed')
 			->with('minimal')
@@ -59,8 +57,7 @@ class TestControllerTest extends TestCase
 	/**
 	 * Test seed endpoint returns 403 when not in test mode
 	 */
-	public function testSeedReturns403WhenNotInTestMode(): void
-	{
+	public function testSeedReturns403WhenNotInTestMode(): void {
 		$this->testDataService->method('isTestMode')->willReturn(false);
 
 		$response = $this->controller->seed('minimal');
@@ -75,8 +72,7 @@ class TestControllerTest extends TestCase
 	/**
 	 * Test seed endpoint validates profile parameter
 	 */
-	public function testSeedValidatesProfileParameter(): void
-	{
+	public function testSeedValidatesProfileParameter(): void {
 		$this->testDataService->method('isTestMode')->willReturn(true);
 
 		$response = $this->controller->seed('invalid_profile');
@@ -91,8 +87,7 @@ class TestControllerTest extends TestCase
 	/**
 	 * Test reset endpoint returns success in test mode
 	 */
-	public function testResetReturnsSuccessInTestMode(): void
-	{
+	public function testResetReturnsSuccessInTestMode(): void {
 		$this->testDataService->method('isTestMode')->willReturn(true);
 		$this->testDataService->method('seed')
 			->with('empty')
@@ -109,8 +104,7 @@ class TestControllerTest extends TestCase
 	/**
 	 * Test reset endpoint returns 403 when not in test mode
 	 */
-	public function testResetReturns403WhenNotInTestMode(): void
-	{
+	public function testResetReturns403WhenNotInTestMode(): void {
 		$this->testDataService->method('isTestMode')->willReturn(false);
 
 		$response = $this->controller->reset();
@@ -124,8 +118,7 @@ class TestControllerTest extends TestCase
 	/**
 	 * Test profiles endpoint returns available profiles
 	 */
-	public function testProfilesReturnsAvailableProfiles(): void
-	{
+	public function testProfilesReturnsAvailableProfiles(): void {
 		$this->testDataService->method('isTestMode')->willReturn(true);
 
 		$response = $this->controller->profiles();
@@ -145,8 +138,7 @@ class TestControllerTest extends TestCase
 	/**
 	 * Test profiles endpoint includes testMode status
 	 */
-	public function testProfilesReturns403WhenNotInTestMode(): void
-	{
+	public function testProfilesReturns403WhenNotInTestMode(): void {
 		$this->testDataService->method('isTestMode')->willReturn(false);
 
 		$response = $this->controller->profiles();
@@ -161,8 +153,7 @@ class TestControllerTest extends TestCase
 	/**
 	 * Test seed handles service exceptions
 	 */
-	public function testSeedHandlesServiceException(): void
-	{
+	public function testSeedHandlesServiceException(): void {
 		$this->testDataService->method('isTestMode')->willReturn(true);
 		$this->testDataService->method('seed')
 			->willThrowException(new \Exception('Database error'));
@@ -179,8 +170,7 @@ class TestControllerTest extends TestCase
 	/**
 	 * Test all valid profiles can be seeded
 	 */
-	public function testAllValidProfilesCanBeSeeded(): void
-	{
+	public function testAllValidProfilesCanBeSeeded(): void {
 		$this->testDataService->method('isTestMode')->willReturn(true);
 
 		$profiles = ['empty', 'minimal', 'family'];

@@ -17,87 +17,81 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * detectUnlock + the unlocked_titles cache round-trip through the mapper +
  * the new JSON column.
  */
-class TitleServiceIntegrationTest extends IntegrationTestCase
-{
-    private TitleService $titleService;
-    private HouseUserMapper $houseUserMapper;
+class TitleServiceIntegrationTest extends IntegrationTestCase {
+	private TitleService $titleService;
+	private HouseUserMapper $houseUserMapper;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->titleService = \OC::$server->get(TitleService::class);
-        $this->houseUserMapper = \OC::$server->get(HouseUserMapper::class);
-    }
+	protected function setUp(): void {
+		parent::setUp();
+		$this->titleService = \OC::$server->get(TitleService::class);
+		$this->houseUserMapper = \OC::$server->get(HouseUserMapper::class);
+	}
 
-    /**
-     * Create a member in a fresh house with the given stats and return the
-     * reloaded HouseUser entity.
-     */
-    private function memberWithStats(int $contribution, int $longestStreak, int $coins)
-    {
-        $houseId = $this->createHouse('title-owner-' . uniqid());
-        $userId = 'title-member-' . uniqid();
-        $this->addHouseMember($houseId, $userId, 'Title Member', 'member');
+	/**
+	 * Create a member in a fresh house with the given stats and return the
+	 * reloaded HouseUser entity.
+	 */
+	private function memberWithStats(int $contribution, int $longestStreak, int $coins) {
+		$houseId = $this->createHouse('title-owner-' . uniqid());
+		$userId = 'title-member-' . uniqid();
+		$this->addHouseMember($houseId, $userId, 'Title Member', 'member');
 
-        // Bump the stats directly so we don't have to grind completions.
-        $qb = $this->db->getQueryBuilder();
-        $qb->update('chorestrike_house_users')
-            ->set('contribution_score', $qb->createNamedParameter($contribution))
-            ->set('longest_streak', $qb->createNamedParameter($longestStreak))
-            ->set('coins', $qb->createNamedParameter($coins))
-            ->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($userId)))
-            ->andWhere($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId)));
-        $qb->executeStatement();
+		// Bump the stats directly so we don't have to grind completions.
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_house_users')
+			->set('contribution_score', $qb->createNamedParameter($contribution))
+			->set('longest_streak', $qb->createNamedParameter($longestStreak))
+			->set('coins', $qb->createNamedParameter($coins))
+			->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($userId)))
+			->andWhere($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId)));
+		$qb->executeStatement();
 
-        return $this->houseUserMapper->findByNextcloudUserId($houseId, $userId);
-    }
+		return $this->houseUserMapper->findByNextcloudUserId($houseId, $userId);
+	}
 
-    public function testSelectPack_PersistsAndGetCurrentTitleReadsLiveStats(): void
-    {
-        $user = $this->memberWithStats(1500, 1, 0);
+	public function testSelectPack_PersistsAndGetCurrentTitleReadsLiveStats(): void {
+		$user = $this->memberWithStats(1500, 1, 0);
 
-        $this->titleService->selectPack($user, 'home_helpers');
+		$this->titleService->selectPack($user, 'home_helpers');
 
-        $reloaded = $this->houseUserMapper->find($user->getId());
-        $this->assertSame('home_helpers', $reloaded->getSelectedTitlePack());
+		$reloaded = $this->houseUserMapper->find($user->getId());
+		$this->assertSame('home_helpers', $reloaded->getSelectedTitlePack());
 
-        $title = $this->titleService->getCurrentTitle($reloaded);
-        $this->assertNotNull($title);
-        $this->assertSame('home_helpers', $title['pack']);
-        $this->assertSame('care_captain', $title['tierKey']);
-    }
+		$title = $this->titleService->getCurrentTitle($reloaded);
+		$this->assertNotNull($title);
+		$this->assertSame('home_helpers', $title['pack']);
+		$this->assertSame('care_captain', $title['tierKey']);
+	}
 
-    public function testDetectUnlock_PersistsCacheToTheJsonColumn(): void
-    {
-        $user = $this->memberWithStats(60, 8, 0);
+	public function testDetectUnlock_PersistsCacheToTheJsonColumn(): void {
+		$user = $this->memberWithStats(60, 8, 0);
 
-        $unlocked = $this->titleService->detectUnlock($user);
-        // detectUnlock only mutates in-memory — persist via the mapper.
-        $this->houseUserMapper->update($user);
+		$unlocked = $this->titleService->detectUnlock($user);
+		// detectUnlock only mutates in-memory — persist via the mapper.
+		$this->houseUserMapper->update($user);
 
-        $this->assertNotEmpty($unlocked);
+		$this->assertNotEmpty($unlocked);
 
-        $reloaded = $this->houseUserMapper->find($user->getId());
-        $cached = $reloaded->getUnlockedTitles();
-        $this->assertContains('home_helpers.helper', $cached);
-        $this->assertContains('team_energy.spark_starter', $cached);
-    }
+		$reloaded = $this->houseUserMapper->find($user->getId());
+		$cached = $reloaded->getUnlockedTitles();
+		$this->assertContains('home_helpers.helper', $cached);
+		$this->assertContains('team_energy.spark_starter', $cached);
+	}
 
-    public function testGetCurrentTitle_WithConfigOverride_AppliesLowerThreshold(): void
-    {
-        /** @var RewardConfigService $config */
-        $config = \OC::$server->get(RewardConfigService::class);
-        $original = $config->getTitleThreshold('home_helpers', 0);
-        try {
-            $config->setTitleThreshold('home_helpers', 0, 5);
-            $user = $this->memberWithStats(10, 1, 0);
-            $user->setSelectedTitlePack('home_helpers');
+	public function testGetCurrentTitle_WithConfigOverride_AppliesLowerThreshold(): void {
+		/** @var RewardConfigService $config */
+		$config = \OC::$server->get(RewardConfigService::class);
+		$original = $config->getTitleThreshold('home_helpers', 0);
+		try {
+			$config->setTitleThreshold('home_helpers', 0, 5);
+			$user = $this->memberWithStats(10, 1, 0);
+			$user->setSelectedTitlePack('home_helpers');
 
-            $title = $this->titleService->getCurrentTitle($user);
-            $this->assertNotNull($title);
-            $this->assertSame('helper', $title['tierKey']);
-        } finally {
-            $config->setTitleThreshold('home_helpers', 0, $original);
-        }
-    }
+			$title = $this->titleService->getCurrentTitle($user);
+			$this->assertNotNull($title);
+			$this->assertSame('helper', $title['tierKey']);
+		} finally {
+			$config->setTitleThreshold('home_helpers', 0, $original);
+		}
+	}
 }

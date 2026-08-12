@@ -17,48 +17,44 @@ use PHPUnit\Framework\TestCase;
  * The restock is time-independent — the job derives no date and passes
  * none (triggering the pass once is sufficient).
  */
-class StreakRestockJobTest extends TestCase
-{
-    private ITimeFactory&MockObject $timeFactory;
-    private StreakRestockService&MockObject $restockService;
-    private StreakRestockJob $job;
+class StreakRestockJobTest extends TestCase {
+	private ITimeFactory&MockObject $timeFactory;
+	private StreakRestockService&MockObject $restockService;
+	private StreakRestockJob $job;
 
-    protected function setUp(): void
-    {
-        $this->timeFactory = $this->createMock(ITimeFactory::class);
-        $this->restockService = $this->createMock(StreakRestockService::class);
+	protected function setUp(): void {
+		$this->timeFactory = $this->createMock(ITimeFactory::class);
+		$this->restockService = $this->createMock(StreakRestockService::class);
 
-        $this->job = new StreakRestockJob(
-            $this->timeFactory,
-            $this->restockService,
-        );
-    }
+		$this->job = new StreakRestockJob(
+			$this->timeFactory,
+			$this->restockService,
+		);
+	}
 
-    /**
-     * Run_DelegatesToServiceWithoutDate
-     *
-     * The restock pass is time-independent: the job must not consult the
-     * clock for its logic and must delegate without a date argument.
-     */
-    public function testRun_DelegatesToServiceWithoutDate(): void
-    {
-        $this->timeFactory->expects($this->never())->method('getDateTime');
+	/**
+	 * Run_DelegatesToServiceWithoutDate
+	 *
+	 * The restock pass is time-independent: the job must not consult the
+	 * clock for its logic and must delegate without a date argument.
+	 */
+	public function testRun_DelegatesToServiceWithoutDate(): void {
+		$this->timeFactory->expects($this->never())->method('getDateTime');
 
-        $this->restockService->expects($this->once())
-            ->method('process')
-            ->willReturn([
-                'processed' => 2,
-                'freezesPerWeek' => 1,
-                'cap' => 2,
-            ]);
+		$this->restockService->expects($this->once())
+			->method('process')
+			->willReturn([
+				'processed' => 2,
+				'freezesPerWeek' => 1,
+				'cap' => 2,
+			]);
 
-        $this->invokeRun($this->job, null);
-    }
+		$this->invokeRun($this->job, null);
+	}
 
-    private function invokeRun(object $job, $argument): void
-    {
-        $ref = new \ReflectionMethod($job, 'run');
-        $ref->setAccessible(true);
-        $ref->invoke($job, $argument);
-    }
+	private function invokeRun(object $job, $argument): void {
+		$ref = new \ReflectionMethod($job, 'run');
+		$ref->setAccessible(true);
+		$ref->invoke($job, $argument);
+	}
 }

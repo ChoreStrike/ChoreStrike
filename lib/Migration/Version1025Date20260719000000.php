@@ -39,12 +39,10 @@ use OCP\Migration\SimpleMigrationStep;
  * already-cached and stays quiet. The feature flag (`titles_enabled`)
  * defaults on; this backfill is what makes that safe to ship.
  */
-class Version1025Date20260719000000 extends SimpleMigrationStep
-{
+class Version1025Date20260719000000 extends SimpleMigrationStep {
 	private IDBConnection $db;
 
-	public function __construct(IDBConnection $db)
-	{
+	public function __construct(IDBConnection $db) {
 		$this->db = $db;
 	}
 
@@ -53,8 +51,7 @@ class Version1025Date20260719000000 extends SimpleMigrationStep
 	 * @param Closure $schemaClosure
 	 * @param array $options
 	 */
-	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper
-	{
+	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 
@@ -96,8 +93,7 @@ class Version1025Date20260719000000 extends SimpleMigrationStep
 	 * @param Closure $schemaClosure
 	 * @param array $options
 	 */
-	public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void
-	{
+	public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 		if (!$schema->hasTable('chorestrike_house_users')) {
@@ -132,8 +128,7 @@ class Version1025Date20260719000000 extends SimpleMigrationStep
 	 * @param array<string, mixed> $row DB row with stat columns
 	 * @return string[] `{pack}.{tier}` identifiers
 	 */
-	private function computeBackfilledTiers(array $row): array
-	{
+	private function computeBackfilledTiers(array $row): array {
 		$tierIds = [];
 		foreach (TitleCatalog::getPackKeys() as $packKey) {
 			$pack = TitleCatalog::getPack($packKey);
@@ -154,8 +149,7 @@ class Version1025Date20260719000000 extends SimpleMigrationStep
 	/**
 	 * Map a progression-signal identifier to its DB column.
 	 */
-	private function signalColumn(string $signal): ?string
-	{
+	private function signalColumn(string $signal): ?string {
 		return match ($signal) {
 			TitleCatalog::SIGNAL_CONTRIBUTION_SCORE => 'contribution_score',
 			TitleCatalog::SIGNAL_LONGEST_STREAK => 'longest_streak',

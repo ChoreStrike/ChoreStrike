@@ -9,189 +9,188 @@ namespace OCP\DB\QueryBuilder;
 /**
  * Mock IQueryBuilder for unit tests
  */
-interface IQueryBuilder
-{
-    public const PARAM_NULL = 0;
-    public const PARAM_INT = 1;
-    public const PARAM_STR = 2;
-    public const PARAM_LOB = 3;
-    public const PARAM_BOOL = 5;
-    public const PARAM_DATE = 6;
-    public const PARAM_STR_ARRAY = 100;
-    public const PARAM_INT_ARRAY = 101;
+interface IQueryBuilder {
+	public const PARAM_NULL = 0;
+	public const PARAM_INT = 1;
+	public const PARAM_STR = 2;
+	public const PARAM_LOB = 3;
+	public const PARAM_BOOL = 5;
+	public const PARAM_DATE = 6;
+	public const PARAM_STR_ARRAY = 100;
+	public const PARAM_INT_ARRAY = 101;
 
-    /**
-     * @return $this
-     */
-    public function select(...$columns);
+	/**
+	 * @return $this
+	 */
+	public function select(...$columns);
 
-    /**
-     * @return $this
-     */
-    public function addSelect(...$columns);
+	/**
+	 * @return $this
+	 */
+	public function addSelect(...$columns);
 
-    /**
-     * @return $this
-     */
-    public function selectDistinct(...$columns);
+	/**
+	 * @return $this
+	 */
+	public function selectDistinct(...$columns);
 
-    /**
-     * @return $this
-     */
-    public function delete($table, $alias = null);
+	/**
+	 * @return $this
+	 */
+	public function delete($table, $alias = null);
 
-    /**
-     * @return $this
-     */
-    public function update($table, $alias = null);
+	/**
+	 * @return $this
+	 */
+	public function update($table, $alias = null);
 
-    /**
-     * @return $this
-     */
-    public function insert($table);
+	/**
+	 * @return $this
+	 */
+	public function insert($table);
 
-    /**
-     * @return $this
-     */
-    public function from($table, $alias = null);
+	/**
+	 * @return $this
+	 */
+	public function from($table, $alias = null);
 
-    /**
-     * @return $this
-     */
-    public function join($fromAlias, $join, $alias, $condition);
+	/**
+	 * @return $this
+	 */
+	public function join($fromAlias, $join, $alias, $condition);
 
-    /**
-     * @return $this
-     */
-    public function innerJoin($fromAlias, $join, $alias, $condition);
+	/**
+	 * @return $this
+	 */
+	public function innerJoin($fromAlias, $join, $alias, $condition);
 
-    /**
-     * @return $this
-     */
-    public function leftJoin($fromAlias, $join, $alias, $condition);
+	/**
+	 * @return $this
+	 */
+	public function leftJoin($fromAlias, $join, $alias, $condition);
 
-    /**
-     * @return $this
-     */
-    public function rightJoin($fromAlias, $join, $alias, $condition);
+	/**
+	 * @return $this
+	 */
+	public function rightJoin($fromAlias, $join, $alias, $condition);
 
-    /**
-     * @return $this
-     */
-    public function where(...$expressions);
+	/**
+	 * @return $this
+	 */
+	public function where(...$expressions);
 
-    /**
-     * @return $this
-     */
-    public function andWhere(...$expressions);
+	/**
+	 * @return $this
+	 */
+	public function andWhere(...$expressions);
 
-    /**
-     * @return $this
-     */
-    public function orWhere(...$expressions);
+	/**
+	 * @return $this
+	 */
+	public function orWhere(...$expressions);
 
-    /**
-     * @return $this
-     */
-    public function groupBy(...$columns);
+	/**
+	 * @return $this
+	 */
+	public function groupBy(...$columns);
 
-    /**
-     * @return $this
-     */
-    public function addGroupBy(...$columns);
+	/**
+	 * @return $this
+	 */
+	public function addGroupBy(...$columns);
 
-    /**
-     * @return $this
-     */
-    public function having(...$expressions);
+	/**
+	 * @return $this
+	 */
+	public function having(...$expressions);
 
-    /**
-     * @return $this
-     */
-    public function andHaving(...$expressions);
+	/**
+	 * @return $this
+	 */
+	public function andHaving(...$expressions);
 
-    /**
-     * @return $this
-     */
-    public function orHaving(...$expressions);
+	/**
+	 * @return $this
+	 */
+	public function orHaving(...$expressions);
 
-    /**
-     * @return $this
-     */
-    public function orderBy($column, $direction = 'ASC');
+	/**
+	 * @return $this
+	 */
+	public function orderBy($column, $direction = 'ASC');
 
-    /**
-     * @return $this
-     */
-    public function addOrderBy($column, $direction = 'ASC');
+	/**
+	 * @return $this
+	 */
+	public function addOrderBy($column, $direction = 'ASC');
 
-    /**
-     * @return $this
-     */
-    public function set($column, $value);
+	/**
+	 * @return $this
+	 */
+	public function set($column, $value);
 
-    /**
-     * @return $this
-     */
-    public function setMaxResults($maxResults);
+	/**
+	 * @return $this
+	 */
+	public function setMaxResults($maxResults);
 
-    /**
-     * @return $this
-     */
-    public function setFirstResult($firstResult);
+	/**
+	 * @return $this
+	 */
+	public function setFirstResult($firstResult);
 
-    /**
-     * @return IParameter
-     */
-    public function createNamedParameter($value, $type = self::PARAM_STR);
+	/**
+	 * @return IParameter
+	 */
+	public function createNamedParameter($value, $type = self::PARAM_STR);
 
-    /**
-     * @return IParameter
-     */
-    public function createPositionalParameter($value, $type = self::PARAM_STR);
+	/**
+	 * @return IParameter
+	 */
+	public function createPositionalParameter($value, $type = self::PARAM_STR);
 
-    /**
-     * @return mixed
-     */
-    public function createFunction($call);
+	/**
+	 * @return mixed
+	 */
+	public function createFunction($call);
 
-    /**
-     * @return IFunctionBuilder
-     */
-    public function func();
+	/**
+	 * @return IFunctionBuilder
+	 */
+	public function func();
 
-    /**
-     * @return \OCP\DB\QueryBuilder\IExpression
-     */
-    public function expr();
+	/**
+	 * @return \OCP\DB\QueryBuilder\IExpression
+	 */
+	public function expr();
 
-    /**
-     * @return string
-     */
-    public function getSQL();
+	/**
+	 * @return string
+	 */
+	public function getSQL();
 
-    /**
-     * @return \Doctrine\DBAL\Result|int
-     */
-    public function executeQuery();
+	/**
+	 * @return \Doctrine\DBAL\Result|int
+	 */
+	public function executeQuery();
 
-    /**
-     * @return int
-     */
-    public function executeStatement();
+	/**
+	 * @return int
+	 */
+	public function executeStatement();
 
-    /**
-     * @return string
-     */
-    public function getTableName($tableName);
+	/**
+	 * @return string
+	 */
+	public function getTableName($tableName);
 
-    /**
-     * @return string
-     */
-    public function getColumnName($columnName);
+	/**
+	 * @return string
+	 */
+	public function getColumnName($columnName);
 
-    /**
-     * @return string
-     */
-    public function getColumnNameAlias($columnAlias);
+	/**
+	 * @return string
+	 */
+	public function getColumnNameAlias($columnAlias);
 }

@@ -27,12 +27,10 @@ use OCP\Migration\SimpleMigrationStep;
  * - Composite index on (visibility_type, owner_user_id) to support the
  *   visibility-filter and private-by-owner queries.
  */
-class Version1024Date20260719000000 extends SimpleMigrationStep
-{
+class Version1024Date20260719000000 extends SimpleMigrationStep {
 	private IDBConnection $db;
 
-	public function __construct(IDBConnection $db)
-	{
+	public function __construct(IDBConnection $db) {
 		$this->db = $db;
 	}
 
@@ -41,8 +39,7 @@ class Version1024Date20260719000000 extends SimpleMigrationStep
 	 * @param Closure $schemaClosure
 	 * @param array $options
 	 */
-	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper
-	{
+	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 
@@ -86,8 +83,7 @@ class Version1024Date20260719000000 extends SimpleMigrationStep
 	 * @param Closure $schemaClosure
 	 * @param array $options
 	 */
-	public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void
-	{
+	public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 		if (!$schema->hasTable('chorestrike_tasks')) {

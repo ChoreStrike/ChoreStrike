@@ -19,187 +19,180 @@ use PHPUnit\Framework\TestCase;
  * Snake_case route names (`room_task`) resolve to PascalCase controller
  * class names (`RoomTaskController`).
  */
-class RouteMatrixTest extends TestCase
-{
-    /**
-     * Overrides for snake_case route names that don't PascalCase-convert to
-     * their controller class name. `user_stats` → `UserStatsController` was
-     * removed when that dead controller was archived (CS-PLAN-010); no route
-     * uses it. Keep this map for future non-conforming snake_case names.
-     *
-     * @var array<string, string>
-     */
-    private const CONTROLLER_NAME_MAP = [];
+class RouteMatrixTest extends TestCase {
+	/**
+	 * Overrides for snake_case route names that don't PascalCase-convert to
+	 * their controller class name. `user_stats` → `UserStatsController` was
+	 * removed when that dead controller was archived (CS-PLAN-010); no route
+	 * uses it. Keep this map for future non-conforming snake_case names.
+	 *
+	 * @var array<string, string>
+	 */
+	private const CONTROLLER_NAME_MAP = [];
 
-    /** @var list<array{name: string, url: string, verb: string}> */
-    private array $routes;
+	/** @var list<array{name: string, url: string, verb: string}> */
+	private array $routes;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $routesFile = dirname(__DIR__, 2) . '/appinfo/routes.php';
-        $this->assertFileExists($routesFile, 'appinfo/routes.php must exist');
-        $this->routes = require $routesFile;
-        $this->assertArrayHasKey('routes', $this->routes, 'routes.php must define a "routes" key');
-    }
+	protected function setUp(): void {
+		parent::setUp();
+		$routesFile = dirname(__DIR__, 2) . '/appinfo/routes.php';
+		$this->assertFileExists($routesFile, 'appinfo/routes.php must exist');
+		$this->routes = require $routesFile;
+		$this->assertArrayHasKey('routes', $this->routes, 'routes.php must define a "routes" key');
+	}
 
-    /**
-     * Every declared route must resolve to a public method on the
-     * corresponding controller class.
-     */
-    public function testEveryRouteResolvesToExistingControllerMethod(): void
-    {
-        $missing = [];
-        foreach ($this->routes['routes'] as $route) {
-            [$controllerName, $method] = explode('#', $route['name'], 2);
-            $className = $this->controllerClassName($controllerName);
+	/**
+	 * Every declared route must resolve to a public method on the
+	 * corresponding controller class.
+	 */
+	public function testEveryRouteResolvesToExistingControllerMethod(): void {
+		$missing = [];
+		foreach ($this->routes['routes'] as $route) {
+			[$controllerName, $method] = explode('#', $route['name'], 2);
+			$className = $this->controllerClassName($controllerName);
 
-            if (!class_exists($className)) {
-                $missing[] = sprintf(
-                    'Route %s %s (%s): controller class %s does not exist',
-                    $route['verb'],
-                    $route['url'],
-                    $route['name'],
-                    $className
-                );
-                continue;
-            }
-            if (!method_exists($className, $method)) {
-                $missing[] = sprintf(
-                    'Route %s %s (%s): %s has no public method %s()',
-                    $route['verb'],
-                    $route['url'],
-                    $route['name'],
-                    $className,
-                    $method
-                );
-                continue;
-            }
-            $reflection = new \ReflectionMethod($className, $method);
-            if (!$reflection->isPublic()) {
-                $missing[] = sprintf(
-                    'Route %s %s (%s): %s::%s() is not public',
-                    $route['verb'],
-                    $route['url'],
-                    $route['name'],
-                    $className,
-                    $method
-                );
-            }
-        }
-        $this->assertSame([], $missing, "Route matrix drift detected:\n" . implode("\n", $missing));
-    }
+			if (!class_exists($className)) {
+				$missing[] = sprintf(
+					'Route %s %s (%s): controller class %s does not exist',
+					$route['verb'],
+					$route['url'],
+					$route['name'],
+					$className
+				);
+				continue;
+			}
+			if (!method_exists($className, $method)) {
+				$missing[] = sprintf(
+					'Route %s %s (%s): %s has no public method %s()',
+					$route['verb'],
+					$route['url'],
+					$route['name'],
+					$className,
+					$method
+				);
+				continue;
+			}
+			$reflection = new \ReflectionMethod($className, $method);
+			if (!$reflection->isPublic()) {
+				$missing[] = sprintf(
+					'Route %s %s (%s): %s::%s() is not public',
+					$route['verb'],
+					$route['url'],
+					$route['name'],
+					$className,
+					$method
+				);
+			}
+		}
+		$this->assertSame([], $missing, "Route matrix drift detected:\n" . implode("\n", $missing));
+	}
 
-    /**
-     * No duplicate (verb, url) pairs in the route table.
-     */
-    public function testNoDuplicateVerbUrlPairs(): void
-    {
-        $seen = [];
-        $duplicates = [];
-        foreach ($this->routes['routes'] as $route) {
-            $key = $route['verb'] . ' ' . $route['url'];
-            if (isset($seen[$key])) {
-                $duplicates[] = sprintf(
-                    'Duplicate route: %s %s (first declared as %s, then as %s)',
-                    $route['verb'],
-                    $route['url'],
-                    $seen[$key],
-                    $route['name']
-                );
-            } else {
-                $seen[$key] = $route['name'];
-            }
-        }
-        $this->assertSame([], $duplicates, "Duplicate routes detected:\n" . implode("\n", $duplicates));
-    }
+	/**
+	 * No duplicate (verb, url) pairs in the route table.
+	 */
+	public function testNoDuplicateVerbUrlPairs(): void {
+		$seen = [];
+		$duplicates = [];
+		foreach ($this->routes['routes'] as $route) {
+			$key = $route['verb'] . ' ' . $route['url'];
+			if (isset($seen[$key])) {
+				$duplicates[] = sprintf(
+					'Duplicate route: %s %s (first declared as %s, then as %s)',
+					$route['verb'],
+					$route['url'],
+					$seen[$key],
+					$route['name']
+				);
+			} else {
+				$seen[$key] = $route['name'];
+			}
+		}
+		$this->assertSame([], $duplicates, "Duplicate routes detected:\n" . implode("\n", $duplicates));
+	}
 
-    /**
-     * All routes should carry a valid HTTP verb.
-     */
-    public function testAllRoutesUseValidHttpVerbs(): void
-    {
-        $validVerbs = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
-        $invalid = [];
-        foreach ($this->routes['routes'] as $route) {
-            if (!in_array($route['verb'], $validVerbs, true)) {
-                $invalid[] = sprintf(
-                    'Route %s (%s): invalid verb "%s"',
-                    $route['url'],
-                    $route['name'],
-                    $route['verb']
-                );
-            }
-        }
-        $this->assertSame([], $invalid, "Invalid HTTP verbs:\n" . implode("\n", $invalid));
-    }
+	/**
+	 * All routes should carry a valid HTTP verb.
+	 */
+	public function testAllRoutesUseValidHttpVerbs(): void {
+		$validVerbs = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+		$invalid = [];
+		foreach ($this->routes['routes'] as $route) {
+			if (!in_array($route['verb'], $validVerbs, true)) {
+				$invalid[] = sprintf(
+					'Route %s (%s): invalid verb "%s"',
+					$route['url'],
+					$route['name'],
+					$route['verb']
+				);
+			}
+		}
+		$this->assertSame([], $invalid, "Invalid HTTP verbs:\n" . implode("\n", $invalid));
+	}
 
-    /**
-     * A parameterized route (e.g. /api/v1/tasks/{id}) must not be declared
-     * BEFORE a static route it would swallow (e.g. /api/v1/tasks/daily):
-     * Nextcloud's router matches in registration order, so the later static
-     * route would 500 through the parameterized one (the CS-PLAN-023
-     * shadowing bug that broke /room-tasks/overdue, /tasks/daily, ...).
-     */
-    public function testParameterizedRoutesDoNotShadowLaterStaticRoutes(): void
-    {
-        $shadowed = [];
-        $routes = $this->routes['routes'];
-        $count = count($routes);
+	/**
+	 * A parameterized route (e.g. /api/v1/tasks/{id}) must not be declared
+	 * BEFORE a static route it would swallow (e.g. /api/v1/tasks/daily):
+	 * Nextcloud's router matches in registration order, so the later static
+	 * route would 500 through the parameterized one (the CS-PLAN-023
+	 * shadowing bug that broke /room-tasks/overdue, /tasks/daily, ...).
+	 */
+	public function testParameterizedRoutesDoNotShadowLaterStaticRoutes(): void {
+		$shadowed = [];
+		$routes = $this->routes['routes'];
+		$count = count($routes);
 
-        for ($i = 0; $i < $count; $i++) {
-            $parameterized = $routes[$i];
-            if (!str_contains($parameterized['url'], '{')) {
-                continue;
-            }
+		for ($i = 0; $i < $count; $i++) {
+			$parameterized = $routes[$i];
+			if (!str_contains($parameterized['url'], '{')) {
+				continue;
+			}
 
-            // Compile the parameterized URL to a pattern: each {param}
-            // matches exactly one static path segment.
-            $pattern = '#^' . preg_replace('/\{[^}]+\}/', '[^/]+', $parameterized['url']) . '$#';
+			// Compile the parameterized URL to a pattern: each {param}
+			// matches exactly one static path segment.
+			$pattern = '#^' . preg_replace('/\{[^}]+\}/', '[^/]+', $parameterized['url']) . '$#';
 
-            for ($j = $i + 1; $j < $count; $j++) {
-                $candidate = $routes[$j];
-                if ($candidate['verb'] !== $parameterized['verb']) {
-                    continue;
-                }
-                if (str_contains($candidate['url'], '{')) {
-                    continue;
-                }
-                if (preg_match($pattern, $candidate['url']) === 1) {
-                    $shadowed[] = sprintf(
-                        '%s %s (%s) is shadowed by the earlier %s %s (%s)',
-                        $candidate['verb'],
-                        $candidate['url'],
-                        $candidate['name'],
-                        $parameterized['verb'],
-                        $parameterized['url'],
-                        $parameterized['name']
-                    );
-                }
-            }
-        }
+			for ($j = $i + 1; $j < $count; $j++) {
+				$candidate = $routes[$j];
+				if ($candidate['verb'] !== $parameterized['verb']) {
+					continue;
+				}
+				if (str_contains($candidate['url'], '{')) {
+					continue;
+				}
+				if (preg_match($pattern, $candidate['url']) === 1) {
+					$shadowed[] = sprintf(
+						'%s %s (%s) is shadowed by the earlier %s %s (%s)',
+						$candidate['verb'],
+						$candidate['url'],
+						$candidate['name'],
+						$parameterized['verb'],
+						$parameterized['url'],
+						$parameterized['name']
+					);
+				}
+			}
+		}
 
-        $this->assertSame(
-            [],
-            $shadowed,
-            "Route shadowing detected — move the static routes before the parameterized ones:\n"
-                . implode("\n", $shadowed)
-        );
-    }
+		$this->assertSame(
+			[],
+			$shadowed,
+			"Route shadowing detected — move the static routes before the parameterized ones:\n"
+				. implode("\n", $shadowed)
+		);
+	}
 
-    /**
-     * Resolve a short controller name (e.g. `room_task`) to the fully
-     * qualified ChoreStrike controller class name.
-     */
-    private function controllerClassName(string $shortName): string
-    {
-        if (isset(self::CONTROLLER_NAME_MAP[$shortName])) {
-            $className = self::CONTROLLER_NAME_MAP[$shortName];
-        } else {
-            $parts = explode('_', $shortName);
-            $parts = array_map(static fn (string $p): string => ucfirst($p), $parts);
-            $className = implode('', $parts) . 'Controller';
-        }
-        return '\\OCA\\ChoreStrike\\Controller\\' . $className;
-    }
+	/**
+	 * Resolve a short controller name (e.g. `room_task`) to the fully
+	 * qualified ChoreStrike controller class name.
+	 */
+	private function controllerClassName(string $shortName): string {
+		if (isset(self::CONTROLLER_NAME_MAP[$shortName])) {
+			$className = self::CONTROLLER_NAME_MAP[$shortName];
+		} else {
+			$parts = explode('_', $shortName);
+			$parts = array_map(static fn (string $p): string => ucfirst($p), $parts);
+			$className = implode('', $parts) . 'Controller';
+		}
+		return '\\OCA\\ChoreStrike\\Controller\\' . $className;
+	}
 }

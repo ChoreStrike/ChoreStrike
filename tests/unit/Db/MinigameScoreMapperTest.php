@@ -15,107 +15,100 @@ use PHPUnit\Framework\TestCase;
 /**
  * Unit tests for MinigameScoreMapper
  */
-class MinigameScoreMapperTest extends TestCase
-{
-    private MinigameScoreMapper $mapper;
-    private IDBConnection $db;
-    private IQueryBuilder $qb;
-    private IExpressionBuilder $expr;
+class MinigameScoreMapperTest extends TestCase {
+	private MinigameScoreMapper $mapper;
+	private IDBConnection $db;
+	private IQueryBuilder $qb;
+	private IExpressionBuilder $expr;
 
-    protected function setUp(): void
-    {
-        $this->db = $this->createMock(IDBConnection::class);
-        $this->qb = $this->createMock(IQueryBuilder::class);
-        $this->expr = $this->createMock(IExpressionBuilder::class);
+	protected function setUp(): void {
+		$this->db = $this->createMock(IDBConnection::class);
+		$this->qb = $this->createMock(IQueryBuilder::class);
+		$this->expr = $this->createMock(IExpressionBuilder::class);
 
-        $this->db->method('getQueryBuilder')->willReturn($this->qb);
-        $this->qb->method('expr')->willReturn($this->expr);
+		$this->db->method('getQueryBuilder')->willReturn($this->qb);
+		$this->qb->method('expr')->willReturn($this->expr);
 
-        $this->mapper = new MinigameScoreMapper($this->db);
-    }
+		$this->mapper = new MinigameScoreMapper($this->db);
+	}
 
-    public function testFindByHouseAndGame_ReturnsScores(): void
-    {
-        $this->qb->method('select')->willReturnSelf();
-        $this->qb->method('from')->willReturnSelf();
-        $this->qb->method('where')->willReturnSelf();
-        $this->qb->method('andWhere')->willReturnSelf();
-        $this->qb->method('orderBy')->willReturnSelf();
+	public function testFindByHouseAndGame_ReturnsScores(): void {
+		$this->qb->method('select')->willReturnSelf();
+		$this->qb->method('from')->willReturnSelf();
+		$this->qb->method('where')->willReturnSelf();
+		$this->qb->method('andWhere')->willReturnSelf();
+		$this->qb->method('orderBy')->willReturnSelf();
 
-        $result = $this->createMock(IResult::class);
-        $result->method('fetch')->willReturnOnConsecutiveCalls(
-            ['id' => 1, 'house_id' => 1, 'user_id' => 'alice', 'game_id' => 'snake', 'score' => 100],
-            ['id' => 2, 'house_id' => 1, 'user_id' => 'bob', 'game_id' => 'snake', 'score' => 50],
-            false
-        );
-        $this->qb->method('executeQuery')->willReturn($result);
+		$result = $this->createMock(IResult::class);
+		$result->method('fetch')->willReturnOnConsecutiveCalls(
+			['id' => 1, 'house_id' => 1, 'user_id' => 'alice', 'game_id' => 'snake', 'score' => 100],
+			['id' => 2, 'house_id' => 1, 'user_id' => 'bob', 'game_id' => 'snake', 'score' => 50],
+			false
+		);
+		$this->qb->method('executeQuery')->willReturn($result);
 
-        $scores = $this->mapper->findByHouseAndGame(1, 'snake');
+		$scores = $this->mapper->findByHouseAndGame(1, 'snake');
 
-        $this->assertCount(2, $scores);
-        $this->assertInstanceOf(MinigameScore::class, $scores[0]);
-    }
+		$this->assertCount(2, $scores);
+		$this->assertInstanceOf(MinigameScore::class, $scores[0]);
+	}
 
-    public function testGetLeaderboard_LimitsResults(): void
-    {
-        $this->qb->method('select')->willReturnSelf();
-        $this->qb->method('from')->willReturnSelf();
-        $this->qb->method('where')->willReturnSelf();
-        $this->qb->method('andWhere')->willReturnSelf();
-        $this->qb->method('orderBy')->willReturnSelf();
-        $this->qb->method('setMaxResults')->willReturnSelf();
+	public function testGetLeaderboard_LimitsResults(): void {
+		$this->qb->method('select')->willReturnSelf();
+		$this->qb->method('from')->willReturnSelf();
+		$this->qb->method('where')->willReturnSelf();
+		$this->qb->method('andWhere')->willReturnSelf();
+		$this->qb->method('orderBy')->willReturnSelf();
+		$this->qb->method('setMaxResults')->willReturnSelf();
 
-        $result = $this->createMock(IResult::class);
-        $result->method('fetch')->willReturnOnConsecutiveCalls(
-            ['id' => 1, 'house_id' => 1, 'user_id' => 'alice', 'game_id' => 'snake', 'score' => 200],
-            false
-        );
-        $this->qb->method('executeQuery')->willReturn($result);
+		$result = $this->createMock(IResult::class);
+		$result->method('fetch')->willReturnOnConsecutiveCalls(
+			['id' => 1, 'house_id' => 1, 'user_id' => 'alice', 'game_id' => 'snake', 'score' => 200],
+			false
+		);
+		$this->qb->method('executeQuery')->willReturn($result);
 
-        $scores = $this->mapper->getLeaderboard(1, 'snake', 5);
+		$scores = $this->mapper->getLeaderboard(1, 'snake', 5);
 
-        $this->assertCount(1, $scores);
-    }
+		$this->assertCount(1, $scores);
+	}
 
-    public function testGetPersonalBest_ReturnsNullWhenNoScores(): void
-    {
-        $this->qb->method('select')->willReturnSelf();
-        $this->qb->method('from')->willReturnSelf();
-        $this->qb->method('where')->willReturnSelf();
-        $this->qb->method('andWhere')->willReturnSelf();
-        $this->qb->method('orderBy')->willReturnSelf();
-        $this->qb->method('setMaxResults')->willReturnSelf();
+	public function testGetPersonalBest_ReturnsNullWhenNoScores(): void {
+		$this->qb->method('select')->willReturnSelf();
+		$this->qb->method('from')->willReturnSelf();
+		$this->qb->method('where')->willReturnSelf();
+		$this->qb->method('andWhere')->willReturnSelf();
+		$this->qb->method('orderBy')->willReturnSelf();
+		$this->qb->method('setMaxResults')->willReturnSelf();
 
-        $result = $this->createMock(IResult::class);
-        $result->method('fetch')->willReturn(false);
-        $this->qb->method('executeQuery')->willReturn($result);
+		$result = $this->createMock(IResult::class);
+		$result->method('fetch')->willReturn(false);
+		$this->qb->method('executeQuery')->willReturn($result);
 
-        $this->assertNull($this->mapper->getPersonalBest(1, 'alice', 'snake'));
-    }
+		$this->assertNull($this->mapper->getPersonalBest(1, 'alice', 'snake'));
+	}
 
-    public function testMinigameScoreEntity_DefaultGameId(): void
-    {
-        $score = new MinigameScore();
+	public function testMinigameScoreEntity_DefaultGameId(): void {
+		$score = new MinigameScore();
 
-        $this->assertEquals('snake', $score->getGameId());
-        $this->assertEquals(0, $score->getScore());
-    }
+		$this->assertEquals('snake', $score->getGameId());
+		$this->assertEquals(0, $score->getScore());
+	}
 
-    public function testMinigameScoreEntity_JsonSerialize(): void
-    {
-        $score = new MinigameScore();
-        $score->setId(1);
-        $score->setHouseId(2);
-        $score->setUserId('alice');
-        $score->setGameId('snake');
-        $score->setScore(150);
-        $score->setBoostsUsed(['speed' => 2]);
-        $score->setCreatedAt(new \DateTime('2026-01-15'));
+	public function testMinigameScoreEntity_JsonSerialize(): void {
+		$score = new MinigameScore();
+		$score->setId(1);
+		$score->setHouseId(2);
+		$score->setUserId('alice');
+		$score->setGameId('snake');
+		$score->setScore(150);
+		$score->setBoostsUsed(['speed' => 2]);
+		$score->setCreatedAt(new \DateTime('2026-01-15'));
 
-        $json = $score->jsonSerialize();
+		$json = $score->jsonSerialize();
 
-        $this->assertEquals(1, $json['id']);
-        $this->assertEquals(150, $json['score']);
-        $this->assertEquals(['speed' => 2], $json['boostsUsed']);
-    }
+		$this->assertEquals(1, $json['id']);
+		$this->assertEquals(150, $json['score']);
+		$this->assertEquals(['speed' => 2], $json['boostsUsed']);
+	}
 }

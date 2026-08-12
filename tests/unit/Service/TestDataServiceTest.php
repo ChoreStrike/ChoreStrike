@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
@@ -8,30 +9,29 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Db\AvailabilitySettingsMapper;
+use OCA\ChoreStrike\Db\Floor;
+use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Floor;
-use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
-use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\AvailabilitySettingsMapper;
+use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\TestDataService;
-use OCP\IDBConnection;
 use OCP\IConfig;
+use OCP\IDBConnection;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Unit tests for TestDataService
  */
-class TestDataServiceTest extends TestCase
-{
+class TestDataServiceTest extends TestCase {
 	private IDBConnection&MockObject $db;
 	private IConfig&MockObject $config;
 	private HouseMapper&MockObject $houseMapper;
@@ -43,8 +43,7 @@ class TestDataServiceTest extends TestCase
 	private AvailabilitySettingsMapper&MockObject $availabilityMapper;
 	private TestDataService $service;
 
-	protected function setUp(): void
-	{
+	protected function setUp(): void {
 		parent::setUp();
 
 		// CR-SVC-02: destructive methods self-gate on isTestMode(). Default the
@@ -78,8 +77,7 @@ class TestDataServiceTest extends TestCase
 		);
 	}
 
-	protected function tearDown(): void
-	{
+	protected function tearDown(): void {
 		// Restore a clean process environment between env-mutating tests
 		putenv('CI');
 		putenv('NEXTCLOUD_TEST_MODE');
@@ -91,8 +89,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test seedEmpty resets database and returns empty profile
 	 */
-	public function testSeedEmptyReturnsCorrectProfile(): void
-	{
+	public function testSeedEmptyReturnsCorrectProfile(): void {
 		// Mock the delete query builder chain
 		$qb = $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
 			'delete' => $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
@@ -110,8 +107,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test seedMinimal creates house, floor, room, and 2 users
 	 */
-	public function testSeedMinimalCreatesCorrectData(): void
-	{
+	public function testSeedMinimalCreatesCorrectData(): void {
 		// Mock reset (delete queries)
 		$qb = $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
 			'delete' => $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
@@ -155,8 +151,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test seedFamily creates complete family structure
 	 */
-	public function testSeedFamilyCreatesCompleteStructure(): void
-	{
+	public function testSeedFamilyCreatesCompleteStructure(): void {
 		// Mock reset
 		$qb = $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
 			'delete' => $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
@@ -220,8 +215,7 @@ class TestDataServiceTest extends TestCase
 	 * at least one room task with a past due-date (overdue flow) and mom
 	 * with a live streak but zero freezes (streak/at-risk flow).
 	 */
-	public function testSeedFamilyIncludesTimeTravelSeeds(): void
-	{
+	public function testSeedFamilyIncludesTimeTravelSeeds(): void {
 		// Mock reset
 		$qb = $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
 			'delete' => $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
@@ -284,8 +278,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test seed method with invalid profile throws exception
 	 */
-	public function testSeedWithInvalidProfileThrowsException(): void
-	{
+	public function testSeedWithInvalidProfileThrowsException(): void {
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown profile: invalid');
 
@@ -295,8 +288,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test seed method routes to correct profile method
 	 */
-	public function testSeedRoutesToCorrectMethod(): void
-	{
+	public function testSeedRoutesToCorrectMethod(): void {
 		// Mock reset for empty
 		$qb = $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
 			'delete' => $this->createConfiguredMock(\OCP\DB\QueryBuilder\IQueryBuilder::class, [
@@ -312,8 +304,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test isTestMode returns false when only CI env var is set (CS-PLAN-019)
 	 */
-	public function testIsTestModeIgnoresCIEnvVar(): void
-	{
+	public function testIsTestModeIgnoresCIEnvVar(): void {
 		putenv('CI=true');
 		putenv('NEXTCLOUD_TEST_MODE');
 		unset($_ENV['NEXTCLOUD_TEST_MODE']);
@@ -324,8 +315,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test isTestMode detects NEXTCLOUD_TEST_MODE
 	 */
-	public function testIsTestModeDetectsTestMode(): void
-	{
+	public function testIsTestModeDetectsTestMode(): void {
 		putenv('NEXTCLOUD_TEST_MODE=true');
 
 		$this->assertTrue($this->service->isTestMode());
@@ -334,8 +324,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test isTestMode detects NEXTCLOUD_TEST_MODE via $_ENV (CS-PLAN-019)
 	 */
-	public function testIsTestModeDetectsTestModeViaEnvSuperglobal(): void
-	{
+	public function testIsTestModeDetectsTestModeViaEnvSuperglobal(): void {
 		putenv('NEXTCLOUD_TEST_MODE');
 		$_ENV['NEXTCLOUD_TEST_MODE'] = 'true';
 
@@ -345,8 +334,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test isTestMode ignores a non-true $_ENV value (CS-PLAN-019)
 	 */
-	public function testIsTestModeIgnoresNonTrueEnvSuperglobalValue(): void
-	{
+	public function testIsTestModeIgnoresNonTrueEnvSuperglobalValue(): void {
 		putenv('NEXTCLOUD_TEST_MODE');
 		$_ENV['NEXTCLOUD_TEST_MODE'] = 'false';
 
@@ -356,8 +344,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test isTestMode returns false in production
 	 */
-	public function testIsTestModeReturnsFalseInProduction(): void
-	{
+	public function testIsTestModeReturnsFalseInProduction(): void {
 		// Defensive: ensure no test-mode indicators even if the process env is polluted
 		putenv('CI');
 		putenv('NEXTCLOUD_TEST_MODE');
@@ -369,8 +356,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test reset clears canonical and legacy table variants
 	 */
-	public function testResetShouldClearCanonicalAndLegacyTables(): void
-	{
+	public function testResetShouldClearCanonicalAndLegacyTables(): void {
 		$resetTables = (new \ReflectionClass(TestDataService::class))->getConstant('RESET_TABLES');
 		$this->assertIsArray($resetTables);
 
@@ -406,8 +392,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test reset ignores missing table errors from mixed migration states
 	 */
-	public function testResetShouldIgnoreMissingTableErrors(): void
-	{
+	public function testResetShouldIgnoreMissingTableErrors(): void {
 		$resetTables = (new \ReflectionClass(TestDataService::class))->getConstant('RESET_TABLES');
 		$this->assertIsArray($resetTables);
 
@@ -431,8 +416,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * Test reset rethrows non-missing-table errors
 	 */
-	public function testResetShouldRethrowUnexpectedErrors(): void
-	{
+	public function testResetShouldRethrowUnexpectedErrors(): void {
 		$this->expectException(\RuntimeException::class);
 		$this->expectExceptionMessage('syntax error');
 
@@ -447,8 +431,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * CR-SVC-02: reset() must refuse to run outside test mode (prod-DB wipe guard).
 	 */
-	public function testResetThrowsWhenNotInTestMode(): void
-	{
+	public function testResetThrowsWhenNotInTestMode(): void {
 		putenv('NEXTCLOUD_TEST_MODE');
 		unset($_ENV['NEXTCLOUD_TEST_MODE']);
 
@@ -461,8 +444,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * CR-SVC-02: seedEmpty() must refuse to run outside test mode.
 	 */
-	public function testSeedEmptyThrowsWhenNotInTestMode(): void
-	{
+	public function testSeedEmptyThrowsWhenNotInTestMode(): void {
 		putenv('NEXTCLOUD_TEST_MODE');
 		unset($_ENV['NEXTCLOUD_TEST_MODE']);
 
@@ -475,8 +457,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * CR-SVC-02: seedMinimal() must refuse to run outside test mode.
 	 */
-	public function testSeedMinimalThrowsWhenNotInTestMode(): void
-	{
+	public function testSeedMinimalThrowsWhenNotInTestMode(): void {
 		putenv('NEXTCLOUD_TEST_MODE');
 		unset($_ENV['NEXTCLOUD_TEST_MODE']);
 
@@ -489,8 +470,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * CR-SVC-02: seedFamily() must refuse to run outside test mode.
 	 */
-	public function testSeedFamilyThrowsWhenNotInTestMode(): void
-	{
+	public function testSeedFamilyThrowsWhenNotInTestMode(): void {
 		putenv('NEXTCLOUD_TEST_MODE');
 		unset($_ENV['NEXTCLOUD_TEST_MODE']);
 
@@ -503,8 +483,7 @@ class TestDataServiceTest extends TestCase
 	/**
 	 * CR-SVC-02: seed() must refuse to run outside test mode, before profile routing.
 	 */
-	public function testSeedThrowsWhenNotInTestMode(): void
-	{
+	public function testSeedThrowsWhenNotInTestMode(): void {
 		putenv('NEXTCLOUD_TEST_MODE');
 		unset($_ENV['NEXTCLOUD_TEST_MODE']);
 

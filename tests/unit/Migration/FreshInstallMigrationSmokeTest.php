@@ -36,15 +36,13 @@ use PHPUnit\Framework\TestCase;
  *
  * @see docs/plans/active/cs-plan-020-release-quality-gate-cluster.md Phase 2
  */
-class FreshInstallMigrationSmokeTest extends TestCase
-{
+class FreshInstallMigrationSmokeTest extends TestCase {
 	/**
 	 * Run the full persisted migration chain and assert (a) no step returns
 	 * null, and (b) the resulting schema carries the tables/columns whose
 	 * absence historically broke fresh installs.
 	 */
-	public function testFullChainProducesExpectedSchemaOnFreshInstall(): void
-	{
+	public function testFullChainProducesExpectedSchemaOnFreshInstall(): void {
 		$schema = new RecordingSchema();
 		$output = $this->createMock(IOutput::class);
 
@@ -86,8 +84,7 @@ class FreshInstallMigrationSmokeTest extends TestCase
 	 * Isolated guard for the canonical historically-broken step: Version1027
 	 * must add all four columns through changeSchema() (not preSchemaChange).
 	 */
-	public function testVersion1027AddsHistoricallyMissingColumnsViaChangeSchema(): void
-	{
+	public function testVersion1027AddsHistoricallyMissingColumnsViaChangeSchema(): void {
 		$schema = new RecordingSchema();
 		// Version1027 only adds columns to tables that already exist, so seed
 		// the three target tables (as earlier migrations would on a fresh run).
@@ -112,8 +109,7 @@ class FreshInstallMigrationSmokeTest extends TestCase
 	/**
 	 * @return list<class-string>
 	 */
-	private function orderedMigrationClasses(): array
-	{
+	private function orderedMigrationClasses(): array {
 		$dir = __DIR__ . '/../../../lib/Migration';
 		$files = glob($dir . '/Version*.php') ?: [];
 		$classes = [];
@@ -128,8 +124,7 @@ class FreshInstallMigrationSmokeTest extends TestCase
 	 * Instantiate a migration via reflection, injecting mocks for constructor
 	 * dependencies (migrations variably take IDBConnection or nothing).
 	 */
-	private function instantiateMigration(string $class): object
-	{
+	private function instantiateMigration(string $class): object {
 		$reflection = new \ReflectionClass($class);
 		$constructor = $reflection->getConstructor();
 		if ($constructor === null) {
@@ -163,49 +158,41 @@ class FreshInstallMigrationSmokeTest extends TestCase
  * methods are swallowed via {@see __call()} so the smoke test never crashes
  * on a schema API detail.
  */
-class RecordingSchema implements ISchemaWrapper
-{
+class RecordingSchema implements ISchemaWrapper {
 	/** @var array<string, RecordingTable> */
 	private array $tables = [];
 
-	public function hasTable(string $tableName): bool
-	{
+	public function hasTable(string $tableName): bool {
 		return isset($this->tables[$tableName]);
 	}
 
-	public function getTable(string $tableName): RecordingTable
-	{
+	public function getTable(string $tableName): RecordingTable {
 		return $this->tables[$tableName] ??= new RecordingTable($tableName);
 	}
 
-	public function createTable(string $tableName): RecordingTable
-	{
+	public function createTable(string $tableName): RecordingTable {
 		return $this->tables[$tableName] = new RecordingTable($tableName);
 	}
 
-	public function dropTable(string $tableName): void
-	{
+	public function dropTable(string $tableName): void {
 		unset($this->tables[$tableName]);
 	}
 
 	/**
 	 * @return RecordingTable[]
 	 */
-	public function getTables(): array
-	{
+	public function getTables(): array {
 		return array_values($this->tables);
 	}
 
-	public function hasColumn(string $tableName, string $columnName): bool
-	{
+	public function hasColumn(string $tableName, string $columnName): bool {
 		return isset($this->tables[$tableName]) && $this->tables[$tableName]->hasColumn($columnName);
 	}
 
 	/**
 	 * @return mixed
 	 */
-	public function __call(string $name, array $arguments)
-	{
+	public function __call(string $name, array $arguments) {
 		return $this;
 	}
 }
@@ -214,29 +201,26 @@ class RecordingSchema implements ISchemaWrapper
  * Permissive recording table: records added/renamed columns and drops, and
  * swallows any other schema-table method via {@see __call()}.
  */
-class RecordingTable
-{
+class RecordingTable {
 	/** @var array<string, bool> */
 	private array $columns = [];
 
-	public function __construct(private string $name)
-	{
+	public function __construct(
+		private string $name,
+	) {
 	}
 
-	public function addColumn(string $name, string $type = '', array $options = []): self
-	{
+	public function addColumn(string $name, string $type = '', array $options = []): self {
 		$this->columns[$name] = true;
 		return $this;
 	}
 
-	public function changeColumn(string $name, array $options = []): self
-	{
+	public function changeColumn(string $name, array $options = []): self {
 		$this->columns[$name] = true;
 		return $this;
 	}
 
-	public function renameColumn(string $oldName, string $newName): self
-	{
+	public function renameColumn(string $oldName, string $newName): self {
 		if (isset($this->columns[$oldName])) {
 			unset($this->columns[$oldName]);
 			$this->columns[$newName] = true;
@@ -244,50 +228,42 @@ class RecordingTable
 		return $this;
 	}
 
-	public function dropColumn(string $name): self
-	{
+	public function dropColumn(string $name): self {
 		unset($this->columns[$name]);
 		return $this;
 	}
 
-	public function hasColumn(string $name): bool
-	{
+	public function hasColumn(string $name): bool {
 		return isset($this->columns[$name]);
 	}
 
-	public function getName(): string
-	{
+	public function getName(): string {
 		return $this->name;
 	}
 
 	/**
 	 * @return list<string>
 	 */
-	public function getColumns(): array
-	{
+	public function getColumns(): array {
 		return array_keys($this->columns);
 	}
 
-	public function setPrimaryKey(array $columnNames, ?string $indexName = null): self
-	{
+	public function setPrimaryKey(array $columnNames, ?string $indexName = null): self {
 		return $this;
 	}
 
-	public function setUniqueConstraint(array $columnNames, ?string $indexName = null): self
-	{
+	public function setUniqueConstraint(array $columnNames, ?string $indexName = null): self {
 		return $this;
 	}
 
-	public function setIndex(array $columnNames, ?string $indexName = null): self
-	{
+	public function setIndex(array $columnNames, ?string $indexName = null): self {
 		return $this;
 	}
 
 	/**
 	 * @return mixed
 	 */
-	public function __call(string $name, array $arguments)
-	{
+	public function __call(string $name, array $arguments) {
 		return $this;
 	}
 }

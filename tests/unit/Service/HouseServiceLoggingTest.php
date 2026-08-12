@@ -20,60 +20,58 @@ use PHPUnit\Framework\TestCase;
 /**
  * Logging-focused tests for HouseService.
  */
-class HouseServiceLoggingTest extends TestCase
-{
-    /**
-     * GetOrCreateHouse_NewHouse_LogsCreation.
-     */
-    public function testGetOrCreateHouse_NewHouse_LogsCreation(): void
-    {
-        $houseMapper = $this->createMock(HouseMapper::class);
-        $floorMapper = $this->createMock(FloorMapper::class);
-        $roomMapper = $this->createMock(RoomMapper::class);
-        $roomTaskMapper = $this->createMock(RoomTaskMapper::class);
-        $completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
-        $rewardConfigService = $this->createMock(RewardConfigService::class);
-        $config = $this->createMock(IConfig::class);
-        $appLogger = $this->createMock(AppLogger::class);
+class HouseServiceLoggingTest extends TestCase {
+	/**
+	 * GetOrCreateHouse_NewHouse_LogsCreation.
+	 */
+	public function testGetOrCreateHouse_NewHouse_LogsCreation(): void {
+		$houseMapper = $this->createMock(HouseMapper::class);
+		$floorMapper = $this->createMock(FloorMapper::class);
+		$roomMapper = $this->createMock(RoomMapper::class);
+		$roomTaskMapper = $this->createMock(RoomTaskMapper::class);
+		$completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+		$rewardConfigService = $this->createMock(RewardConfigService::class);
+		$config = $this->createMock(IConfig::class);
+		$appLogger = $this->createMock(AppLogger::class);
 
-        $house = new House();
-        $house->setId(5);
-        $house->setName('Family Home');
+		$house = new House();
+		$house->setId(5);
+		$house->setName('Family Home');
 
-        $houseMapper->expects($this->once())
-            ->method('findByInstanceId')
-            ->with('instance-1')
-            ->willThrowException(new DoesNotExistException('Not found'));
+		$houseMapper->expects($this->once())
+			->method('findByInstanceId')
+			->with('instance-1')
+			->willThrowException(new DoesNotExistException('Not found'));
 
-        $appLogger->expects($this->once())
-            ->method('info')
-            ->with(
-                'Creating house for instance',
-                $this->callback(function (array $context): bool {
-                    return $context['service'] === 'HouseService'
-                        && $context['instanceId'] === 'instance-1'
-                        && $context['houseName'] === 'Family Home';
-                })
-            );
+		$appLogger->expects($this->once())
+			->method('info')
+			->with(
+				'Creating house for instance',
+				$this->callback(function (array $context): bool {
+					return $context['service'] === 'HouseService'
+						&& $context['instanceId'] === 'instance-1'
+						&& $context['houseName'] === 'Family Home';
+				})
+			);
 
-        $houseMapper->expects($this->once())
-            ->method('createForInstance')
-            ->with('instance-1', 'Family Home')
-            ->willReturn($house);
+		$houseMapper->expects($this->once())
+			->method('createForInstance')
+			->with('instance-1', 'Family Home')
+			->willReturn($house);
 
-        $service = new HouseService(
-            $houseMapper,
-            $floorMapper,
-            $roomMapper,
-            $roomTaskMapper,
-            $completedTaskMapper,
-            $rewardConfigService,
-            $config,
-            $appLogger
-        );
+		$service = new HouseService(
+			$houseMapper,
+			$floorMapper,
+			$roomMapper,
+			$roomTaskMapper,
+			$completedTaskMapper,
+			$rewardConfigService,
+			$config,
+			$appLogger
+		);
 
-        $result = $service->getOrCreateHouse('instance-1', 'Family Home');
+		$result = $service->getOrCreateHouse('instance-1', 'Family Home');
 
-        $this->assertSame($house, $result);
-    }
+		$this->assertSame($house, $result);
+	}
 }

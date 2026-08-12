@@ -8,171 +8,166 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
-use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Exception\ForbiddenException;
-use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 
 /**
  * API controller for game-related endpoints
  */
-class GameController extends Controller
-{
-    use ControllerLoggingTrait;
+class GameController extends Controller {
+	use ControllerLoggingTrait;
 
-    private GameLogicService $gameLogicService;
-    private HouseService $houseService;
-    private AuthorizationService $authService;
+	private GameLogicService $gameLogicService;
+	private HouseService $houseService;
+	private AuthorizationService $authService;
 
-    public function __construct(
-        IRequest $request,
-        GameLogicService $gameLogicService,
-        HouseService $houseService,
-        AuthorizationService $authService,
-        ?AppLogger $appLogger = null
-    ) {
-        parent::__construct('chorestrike', $request);
-        $this->gameLogicService = $gameLogicService;
-        $this->houseService = $houseService;
-        $this->authService = $authService;
-        if ($appLogger !== null) {
-            $this->initializeControllerLogger($appLogger);
-        }
-    }
+	public function __construct(
+		IRequest $request,
+		GameLogicService $gameLogicService,
+		HouseService $houseService,
+		AuthorizationService $authService,
+		?AppLogger $appLogger = null,
+	) {
+		parent::__construct('chorestrike', $request);
+		$this->gameLogicService = $gameLogicService;
+		$this->houseService = $houseService;
+		$this->authService = $authService;
+		if ($appLogger !== null) {
+			$this->initializeControllerLogger($appLogger);
+		}
+	}
 
-    /**
-     * Get current game state
-     *
-     * @NoAdminRequired
-     */
-    public function state(): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->ensureHouseMember($house->getId());
+	/**
+	 * Get current game state
+	 *
+	 * @NoAdminRequired
+	 */
+	public function state(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->ensureHouseMember($house->getId());
 
-            $gameState = $this->gameLogicService->getGameState($house->getId());
-            $gameState['weeklyGoal'] = $this->houseService->getWeeklyGoalProgress($house->getId());
+			$gameState = $this->gameLogicService->getGameState($house->getId());
+			$gameState['weeklyGoal'] = $this->houseService->getWeeklyGoalProgress($house->getId());
 
-            return new JSONResponse([
-                'success' => true,
-                'data' => $gameState
-            ]);
-        } catch (ForbiddenException $e) {
-            return ControllerErrorFormatter::forbiddenResponse($e);
-        } catch (\Exception $e) {
-            $this->logControllerException('state', $e);
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'GAME_STATE_ERROR',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 500);
-        }
-    }
+			return new JSONResponse([
+				'success' => true,
+				'data' => $gameState
+			]);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('state', $e);
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'GAME_STATE_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
 
-    /**
-     * Get leaderboard
-     *
-     * @NoAdminRequired
-     */
-    public function leaderboard(): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->ensureHouseMember($house->getId());
+	/**
+	 * Get leaderboard
+	 *
+	 * @NoAdminRequired
+	 */
+	public function leaderboard(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->ensureHouseMember($house->getId());
 
-            $leaderboard = $this->gameLogicService->getLeaderboard($house->getId());
+			$leaderboard = $this->gameLogicService->getLeaderboard($house->getId());
 
-            return new JSONResponse([
-                'success' => true,
-                'data' => $leaderboard
-            ]);
-        } catch (ForbiddenException $e) {
-            return ControllerErrorFormatter::forbiddenResponse($e);
-        } catch (\Exception $e) {
-            $this->logControllerException('leaderboard', $e);
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'LEADERBOARD_ERROR',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 500);
-        }
-    }
+			return new JSONResponse([
+				'success' => true,
+				'data' => $leaderboard
+			]);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('leaderboard', $e);
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'LEADERBOARD_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
 
-    /**
-     * Get medals
-     *
-     * @NoAdminRequired
-     */
-    public function medals(): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->ensureHouseMember($house->getId());
+	/**
+	 * Get medals
+	 *
+	 * @NoAdminRequired
+	 */
+	public function medals(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->ensureHouseMember($house->getId());
 
-            $medals = $this->gameLogicService->getMedals($house->getId());
+			$medals = $this->gameLogicService->getMedals($house->getId());
 
-            return new JSONResponse([
-                'success' => true,
-                'data' => $medals
-            ]);
-        } catch (ForbiddenException $e) {
-            return ControllerErrorFormatter::forbiddenResponse($e);
-        } catch (\Exception $e) {
-            $this->logControllerException('medals', $e);
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'MEDALS_ERROR',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 500);
-        }
-    }
+			return new JSONResponse([
+				'success' => true,
+				'data' => $medals
+			]);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('medals', $e);
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'MEDALS_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
 
-    /**
-     * Check and award weekly medals
-     *
-     * @NoAdminRequired
-     */
-    public function checkMedals(): JSONResponse
-    {
-        try {
-            $instanceId = $this->houseService->getInstanceId();
-            $house = $this->houseService->getOrCreateHouse($instanceId);
-            $this->authService->ensureHouseMember($house->getId());
+	/**
+	 * Check and award weekly medals
+	 *
+	 * @NoAdminRequired
+	 */
+	public function checkMedals(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->ensureHouseMember($house->getId());
 
-            $awardedMedals = $this->gameLogicService->checkAndAwardMedals($house->getId());
+			$awardedMedals = $this->gameLogicService->checkAndAwardMedals($house->getId());
 
-            return new JSONResponse([
-                'success' => true,
-                'data' => [
-                    'awardedMedals' => array_map(fn ($medal) => $medal->jsonSerialize(), $awardedMedals),
-                    'count' => count($awardedMedals)
-                ]
-            ]);
-        } catch (ForbiddenException $e) {
-            return ControllerErrorFormatter::forbiddenResponse($e);
-        } catch (\Exception $e) {
-            $this->logControllerException('checkMedals', $e);
-            return new JSONResponse([
-                'success' => false,
-                'error' => [
-                    'code' => 'CHECK_MEDALS_ERROR',
-                    'message' => ControllerErrorFormatter::safeMessage($e)
-                ]
-            ], 500);
-        }
-    }
+			return new JSONResponse([
+				'success' => true,
+				'data' => [
+					'awardedMedals' => array_map(fn ($medal) => $medal->jsonSerialize(), $awardedMedals),
+					'count' => count($awardedMedals)
+				]
+			]);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('checkMedals', $e);
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'CHECK_MEDALS_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
 }

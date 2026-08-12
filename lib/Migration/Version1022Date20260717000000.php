@@ -17,15 +17,13 @@ use OCP\Migration\SimpleMigrationStep;
  * Migration for Phase 2 streak freeze:
  *  - adds `streak_freezes` int column (default 1) to `chorestrike_house_users`
  */
-class Version1022Date20260717000000 extends SimpleMigrationStep
-{
+class Version1022Date20260717000000 extends SimpleMigrationStep {
 	/**
 	 * @param IOutput $output
 	 * @param Closure $schemaClosure
 	 * @param array $options
 	 */
-	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper
-	{
+	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 

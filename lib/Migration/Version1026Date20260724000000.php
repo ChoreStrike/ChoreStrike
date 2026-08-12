@@ -32,15 +32,13 @@ use OCP\Migration\SimpleMigrationStep;
  * `hasColumn()` guards make this idempotent: a re-run, or a fresh install that
  * never had the columns, is a no-op.
  */
-class Version1026Date20260724000000 extends SimpleMigrationStep
-{
+class Version1026Date20260724000000 extends SimpleMigrationStep {
 	/**
 	 * @param IOutput $output
 	 * @param Closure $schemaClosure
 	 * @param array $options
 	 */
-	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper
-	{
+	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 

@@ -6,7 +6,6 @@
 
 namespace OCP;
 
-interface IUserSession
-{
-    public function getUser(): ?IUser;
+interface IUserSession {
+	public function getUser(): ?IUser;
 }

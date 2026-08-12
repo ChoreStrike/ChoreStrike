@@ -15,10 +15,8 @@ use OCP\IDBConnection;
 /**
  * @template-extends QBMapper<TaskAssignee>
  */
-class TaskAssigneeMapper extends QBMapper
-{
-	public function __construct(IDBConnection $db)
-	{
+class TaskAssigneeMapper extends QBMapper {
+	public function __construct(IDBConnection $db) {
 		parent::__construct($db, 'chorestrike_task_assignees', TaskAssignee::class);
 	}
 
@@ -28,8 +26,7 @@ class TaskAssigneeMapper extends QBMapper
 	 * @param int $roomTaskId The room task ID
 	 * @return TaskAssignee[]
 	 */
-	public function findByRoomTask(int $roomTaskId): array
-	{
+	public function findByRoomTask(int $roomTaskId): array {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->select('*')
@@ -46,8 +43,7 @@ class TaskAssigneeMapper extends QBMapper
 	 * @param int $roomTaskId The room task ID
 	 * @return string[] List of Nextcloud user IDs
 	 */
-	public function findUserIdsByRoomTask(int $roomTaskId): array
-	{
+	public function findUserIdsByRoomTask(int $roomTaskId): array {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->select('user_id')
@@ -70,8 +66,7 @@ class TaskAssigneeMapper extends QBMapper
 	 * @param int[] $roomTaskIds The room task IDs
 	 * @return array<int, string[]> Map of room task ID => list of Nextcloud user IDs
 	 */
-	public function findUserIdsByRoomTasks(array $roomTaskIds): array
-	{
+	public function findUserIdsByRoomTasks(array $roomTaskIds): array {
 		$result = array_fill_keys($roomTaskIds, []);
 		if (empty($roomTaskIds)) {
 			return $result;
@@ -103,8 +98,7 @@ class TaskAssigneeMapper extends QBMapper
 	 * @param string|null $legacyAssignee Legacy room_tasks.assigned_to_user_id
 	 * @return string[] Unique merged user IDs
 	 */
-	public static function mergeLegacyAssignee(array $userIds, ?string $legacyAssignee): array
-	{
+	public static function mergeLegacyAssignee(array $userIds, ?string $legacyAssignee): array {
 		if ($legacyAssignee !== null && $legacyAssignee !== '' && !in_array($legacyAssignee, $userIds, true)) {
 			$userIds[] = $legacyAssignee;
 		}
@@ -118,8 +112,7 @@ class TaskAssigneeMapper extends QBMapper
 	 * @param int $roomTaskId The room task ID
 	 * @param string $userId The Nextcloud user ID
 	 */
-	public function isAssignee(int $roomTaskId, string $userId): bool
-	{
+	public function isAssignee(int $roomTaskId, string $userId): bool {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->select('id')
@@ -139,8 +132,7 @@ class TaskAssigneeMapper extends QBMapper
 	 * @param string $userId The Nextcloud user ID
 	 * @param string|null $assignedBy The Nextcloud user ID who assigned (or null)
 	 */
-	public function addAssignee(int $roomTaskId, string $userId, ?string $assignedBy = null): TaskAssignee
-	{
+	public function addAssignee(int $roomTaskId, string $userId, ?string $assignedBy = null): TaskAssignee {
 		$assignee = new TaskAssignee();
 		$assignee->setRoomTaskId($roomTaskId);
 		$assignee->setUserId($userId);
@@ -156,8 +148,7 @@ class TaskAssigneeMapper extends QBMapper
 	 * @param int $roomTaskId The room task ID
 	 * @param string $userId The Nextcloud user ID
 	 */
-	public function removeAssignee(int $roomTaskId, string $userId): void
-	{
+	public function removeAssignee(int $roomTaskId, string $userId): void {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->delete($this->getTableName())
@@ -172,8 +163,7 @@ class TaskAssigneeMapper extends QBMapper
 	 *
 	 * @param int $roomTaskId The room task ID
 	 */
-	public function deleteByRoomTask(int $roomTaskId): void
-	{
+	public function deleteByRoomTask(int $roomTaskId): void {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->delete($this->getTableName())
@@ -193,8 +183,7 @@ class TaskAssigneeMapper extends QBMapper
 	 * @param string[] $userIds List of Nextcloud user IDs to assign
 	 * @param string|null $assignedBy The Nextcloud user ID who assigned (or null)
 	 */
-	public function replaceAssignees(int $roomTaskId, array $userIds, ?string $assignedBy = null): void
-	{
+	public function replaceAssignees(int $roomTaskId, array $userIds, ?string $assignedBy = null): void {
 		$uniqueIds = array_values(array_unique(array_filter($userIds, fn ($id) => is_string($id) && trim($id) !== '')));
 
 		// Atomic delete-then-insert: a failure mid-replace must not leave the

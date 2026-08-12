@@ -28,8 +28,7 @@ use OCP\AppFramework\Db\Entity;
  * @method string|null getAssignedBy()
  * @method void setAssignedBy(?string $assignedBy)
  */
-class TaskAssignee extends Entity implements JsonSerializable
-{
+class TaskAssignee extends Entity implements JsonSerializable {
 	/** @var int */
 	protected $roomTaskId;
 
@@ -42,8 +41,7 @@ class TaskAssignee extends Entity implements JsonSerializable
 	/** @var string|null */
 	protected $assignedBy;
 
-	public function __construct()
-	{
+	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomTaskId', 'integer');
 		$this->addType('userId', 'string');
@@ -54,8 +52,7 @@ class TaskAssignee extends Entity implements JsonSerializable
 	/**
 	 * Convert task assignee to JSON representation
 	 */
-	public function jsonSerialize(): array
-	{
+	public function jsonSerialize(): array {
 		return [
 			'id' => $this->id,
 			'roomTaskId' => $this->roomTaskId,
