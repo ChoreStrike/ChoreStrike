@@ -172,10 +172,15 @@ flows). Build a companion E2E regression suite that fills the "covered by E2E?"
 markers in `release-test-plan.md`, so the manual pass per release shrinks to the
 genuinely non-automatable items. Anti-rot rule already in CS-017 §7.
 
+> **Absorbs CS-022 Phase 5 (2026-08-12):** the economy-config / task-template /
+> boost-shop E2E specs deferred by CS-022 land here (reward-config, task-templates,
+> boost-shop) instead of a duplicate plan.
+
 - [ ] Map each `release-test-plan.md` section to "automated / manual / partial".
 - [ ] Promote partial items to full Playwright specs (full task lifecycle incl.
       skip/reschedule/recurrence/checklist, overdue-claim + teamwork, visibility filtering).
-- [ ] Notification regression depends on TECH-TEST-001's occ trigger.
+- [ ] Reward-economy specs (absorbed from CS-022 Phase 5): reward-config, task-templates, boost-shop.
+- [ ] Notification regression — CS-023's `occ chorestrike:trigger-jobs` is now available.
 - [ ] Update `release-test-plan.md` markers as specs land.
 
 ---
@@ -304,7 +309,7 @@ inside the view's `v-else`, loading=false).
 > Full Review (4 parallel reviewer subagents) of all 29 `lib/Service` files. Three
 > minor findings were **auto-fixed** this review (gate green); the rest are open.
 
-> **Resolved 2026-08-09 by [CS-PLAN-025](../plans/active/cs-plan-025-service-security-concurrency-cleanup.md)**
+> **Resolved 2026-08-09 by [CS-PLAN-025](../plans/done/cs-plan-025-service-security-concurrency-cleanup.md)**
 > (record: [`archive/2026-08.md`](archive/2026-08.md)):
 > the 2 P0 + 6 P1 items **CR-SVC-01/02/03/04/05/06/07/12** and the dead-cluster
 > delete **CR-SVC-08** landed. The remaining open items below (CR-SVC-09/10/11/…,

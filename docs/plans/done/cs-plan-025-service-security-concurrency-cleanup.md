@@ -1,9 +1,11 @@
 # CS-PLAN-025: `lib/Service` Security, Concurrency & Dead-Code Cleanup
 
-> **Status:** Ready for `active/ → done/` (2026-08-10) — all 4 phases landed, the
+> **Status:** Done — moved `active/ → done/` (2026-08-12). All 4 phases landed, the
 > post-implementation review's reopened **[P0] CR-SVC-04** and follow-ups
 > **[P1] CR-SVC-45/46/47** are resolved with regression tests, and the full gate is
-> green again. See `## Review Outcome` and `## Reopened Items — Resolution (2026-08-10)`.
+> green again. Durable decisions integrated into [ADR-006](../../adr/ADR-006-service-layer-authorization.md)
+> + [ADR-007](../../adr/ADR-007-concurrency-safe-task-completion.md). See `## Review Outcome`
+> and `## Reopened Items — Resolution (2026-08-10)`.
 > **Effort:** L
 > **Priority:** P1
 > **Depends on:** none hard (CR-SVC-03 tests reuse the CS-PLAN-023 time-travel harness, landed 2026-08-04)

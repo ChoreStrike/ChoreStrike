@@ -5,6 +5,13 @@
 > **Priority:** P3
 > **Backlog:** [`backlog.md`](../../backlog/backlog.md) → TECH-TEST-002
 > **Relates:** CS-017 (release test plan), CS-022 (test coverage), CS-023 (time-travel — notifications)
+>
+> **Absorbs CS-022 Phase 5 (2026-08-12):** CS-022 deferred its Phase 5 E2E specs
+> (`reward-config`, `task-templates`, `boost-shop`, `notifications`) to "a follow-up
+> plan". This plan is that follow-up home — adding the economy-config / template /
+> boost-shop specs here instead of a separate plan (DRY; this plan already carries an
+> anti-duplication-with-CS-022 rule in §7). `notifications` (was "blocked on CS-023")
+> is unblocked — CS-023's `occ chorestrike:trigger-jobs` landed 2026-08-04.
 
 ## 1. Problem Summary
 
@@ -26,7 +33,13 @@ but it is not yet operationalized.
    - Overdue-claim + teamwork.
    - Visibility & roles (private / admin-only, child filtering).
    - Gamification (medals, leaderboards, house health).
-3. **Notifications** are blocked on CS-023's `occ` job trigger.
+   - **Reward economy (absorbed from CS-022 Phase 5):** reward-config (owner edits
+     coin/multiplier/medal-threshold config; non-owner → 403), task-templates (create +
+     apply-to-room; CRUD), boost-shop (purchase: coins decrease + boost active;
+     insufficient-coins rejection).
+3. **Notifications** — CS-023's `occ chorestrike:trigger-jobs --as-of` now exists, so
+   the notification regression spec is unblocked (trigger a title/medal unlock + a daily
+   notification, open the bell, assert text + dismiss).
 4. **Update** `release-test-plan.md` "covered by E2E?" markers as each spec
    lands — this *is* the CS-017 §7 anti-rot rule, made executable.
 
@@ -54,7 +67,10 @@ new:      tests/e2e/release-task-lifecycle.spec.ts
 new:      tests/e2e/release-overdue-teamwork.spec.ts
 new:      tests/e2e/release-visibility-roles.spec.ts
 new:      tests/e2e/release-gamification.spec.ts       (later phase)
-new:      tests/e2e/release-notifications.spec.ts      (after CS-023)
+new:      tests/e2e/release-notifications.spec.ts      (CS-023 trigger-jobs now available)
+new:      tests/e2e/release-reward-config.spec.ts      (absorbed from CS-022 Phase 5)
+new:      tests/e2e/release-task-templates.spec.ts     (absorbed from CS-022 Phase 5)
+new:      tests/e2e/release-boost-shop.spec.ts         (absorbed from CS-022 Phase 5)
 modified: docs/testing/release-test-plan.md            (markers updated as specs land)
 ```
 
@@ -63,8 +79,9 @@ modified: docs/testing/release-test-plan.md            (markers updated as specs
 1. **Phase 1 — Audit + tag:** go through `release-test-plan.md`, assign tags.
 2. **Phase 2 — Task lifecycle** spec (highest value, most repeated manual step).
 3. **Phase 3 — Overdue/teamwork + visibility/roles.**
-4. **Phase 4 — Gamification** (medals/leaderboards).
-5. **Phase 5 — Notifications** (after CS-023's trigger command exists).
+4. **Phase 4 — Gamification + reward economy** (medals/leaderboards, plus reward-config /
+   task-templates / boost-shop — absorbed from CS-022 Phase 5).
+5. **Phase 5 — Notifications** (CS-023's `trigger-jobs` command now exists).
 
 ## 7. Risks & Mitigations
 

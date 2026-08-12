@@ -62,6 +62,9 @@ Example: `ADR-001-use-vue3-for-frontend.md`
 2. [ADR-002: Pinia for State Management](ADR-002-pinia-state-management.md) - **Accepted** (2026-02-24)
 3. [ADR-003: Task Scope System (Beyond Rooms)](ADR-003-task-scope-system.md) - **Accepted** (2026-02-24)
 4. [ADR-004: Multi-User Gamification Architecture](ADR-004-multi-user-gamification.md) - **Accepted** (2026-02-24)
+5. [ADR-005: Smart Scheduling](ADR-005-smart-scheduling.md) - **Superseded** (cluster deleted in CS-PLAN-025)
+6. [ADR-006: Service-Layer Authorization (Defense in Depth)](ADR-006-service-layer-authorization.md) - **Accepted** (2026-08-12)
+7. [ADR-007: Concurrency-Safe Task Completion](ADR-007-concurrency-safe-task-completion.md) - **Accepted** (2026-08-12)
 
 ---
 

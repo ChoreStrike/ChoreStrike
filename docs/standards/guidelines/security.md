@@ -45,6 +45,14 @@ $this->authService->ensureHouseMember($house->getId());
   `assertUserInHouse($houseId, $targetUserId)` to reject cross-house access on
   endpoints that accept an arbitrary userId (`userTasks`/`userStats`).
 
+> **Defense in depth (ADR-006):** authorization for a mutation is enforced
+> **inside the service**, not only in the controller preamble. House-scoped
+> mutators take the caller's `houseId` and validate floor-chain ownership +
+> assignee membership internally, so a caller that forgets the preamble cannot
+> bypass the check. Read-only checks (`requireHouseOwner` / `isHouseOwner`) use
+> `assertHouseMember()` and never mutate. See
+> [ADR-006](../../adr/ADR-006-service-layer-authorization.md).
+
 ### Role-Based Access Control
 
 | Role | Permissions |
