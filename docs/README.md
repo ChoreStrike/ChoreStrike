@@ -21,7 +21,7 @@ Use this document to find the right ChoreStrike documentation quickly.
 
 - [`backlog/ACTIVE_TASKS.md`](backlog/ACTIVE_TASKS.md) — live task coordination
 - [`backlog/README.md`](backlog/README.md) — backlog structure and update workflow
-- [`plans/`](plans/README.md) — implementation plans (`new/`, `active/`, `onhold/`, `done/`)
+- [`plans/`](plans/README.md) — implementation plans (`new/`, `active/`, `onhold/`, `done/`); temporary working docs — durable outcomes are integrated into `concepts/`, `adr/`, `engineering/`, `api/`, `standards/`
 - [`engineering/review-playbook.md`](engineering/review-playbook.md) — reusable review workflow and checklist
 
 ## Testing, Release & Operations

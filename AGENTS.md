@@ -62,6 +62,7 @@
 - **Live coordination:** [`docs/backlog/ACTIVE_TASKS.md`](docs/backlog/ACTIVE_TASKS.md) — in-progress work + a ~2-week rolling "Recently Completed" window. It is **not** a history log. Check it before implementation or review work.
 - **Done items** move to [`docs/backlog/archive/`](docs/backlog/archive/) (one file per month, tracked in Git) at completion.
 - Implementation plans live in [`docs/plans/`](docs/plans/) (`new/`, `active/`, `onhold/`, `done/`). **Moves between folders are manual** (by the user). After plan creation, propose a review (mandatory for complex/multi-phase plans).
+- **Plans are temporary** working documents, not living documentation. On completion, integrate durable concepts/decisions into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — see project-rules §7.
 
 ## Skill Routing
 

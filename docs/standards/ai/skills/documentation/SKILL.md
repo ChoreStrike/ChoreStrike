@@ -26,7 +26,7 @@ description: Writing and updating ChoreStrike documentation
 |---------|----------|
 | Architecture decisions | `docs/adr/` (one ADR per file, numbered) |
 | Concept / design context | `docs/concepts/` |
-| Implementation plans | `docs/plans/{new,active,onhold,done}/` |
+| Implementation plans (temporary working docs) | `docs/plans/{new,active,onhold,done}/` |
 | Standards & guidelines | `docs/standards/guidelines/` |
 | AI rules / skills | `docs/standards/ai/{rules,skills}/` |
 | API reference | `docs/api/README.md`, `docs/api/` |
@@ -38,6 +38,7 @@ description: Writing and updating ChoreStrike documentation
 - When you remove a doc from the repo, move it to `archive/YYYY-MM/<name>/` (gitignored), don't delete it.
 - Update the relevant index (`docs/README.md`, `docs/standards/guidelines/README.md`) when adding a new doc.
 - Keep "current counts" (test inventories, statuses) out of prose where possible — they drift fast; prefer pointing to commands.
+- **Plans are temporary.** Durable concepts, decisions, and behaviors from a completed plan must live in the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — the plan file itself is only a historical record. See `project-rules.md` §7.
 
 ## ADR Format (short)
 

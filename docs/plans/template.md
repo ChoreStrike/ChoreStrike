@@ -54,4 +54,5 @@ Ordered, reviewable steps.
 - [ ] Criterion 1
 - [ ] Criterion 2
 - [ ] Build gate green (`npm test` + lint + backend tests)
+- [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
 - [ ] `docs/backlog/ACTIVE_TASKS.md` updated

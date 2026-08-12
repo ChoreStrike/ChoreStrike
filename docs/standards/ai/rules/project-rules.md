@@ -162,3 +162,14 @@ docs/plans/
 - After plan creation, the AI **proposes a review** (mandatory for complex/multi-phase plans, optional for trivial fixes).
 - The review checks: feasibility, risk coverage, acceptance criteria completeness, test-plan adequacy.
 - See the [`plan-management`](../skills/plan-management/SKILL.md) skill and the plan [`template.md`](../../../plans/template.md).
+
+### Plans Are Temporary — Knowledge Integration
+- Plans are **temporary working documents**: they coordinate implementation and are **not living documentation**. A plan must never remain the only place where a concept, decision, or behavior is described.
+- On completion (before recommending the `active/ → done/` move), integrate everything durable into the permanent docs:
+  - Concepts, product & design intent → [`docs/concepts/`](../../../concepts/)
+  - Architecture decisions → [`docs/adr/`](../../../adr/) (one ADR per decision)
+  - System / layer behavior → [`docs/engineering/`](../../../engineering/)
+  - API contracts → [`docs/api/`](../../../api/)
+  - Rules & conventions → `docs/standards/`
+- The plan file in `done/` is kept only as a historical implementation record. The canonical description of *how things work* always lives in the permanent docs above.
+- Missing integration is treated like missing docs: the plan is **not fully done** until its durable outcomes are integrated.

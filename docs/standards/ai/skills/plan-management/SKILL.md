@@ -42,6 +42,14 @@ See [`template.md`](../../../../plans/template.md):
 - Checks: feasibility, risk coverage, acceptance criteria completeness, test-plan adequacy.
 - After review, revise in `new/` until ready. The user moves it to `active/`.
 
+## Plans Are Temporary — Knowledge Integration
+
+Plans are **temporary working documents** — they coordinate implementation, they are not living documentation. Before recommending the `active/ → done/` move, integrate everything durable into the permanent docs: concepts/design intent → `docs/concepts/`, architecture decisions → `docs/adr/`, system behavior → `docs/engineering/`, API contracts → `docs/api/`, rules & conventions → `docs/standards/`. The plan file in `done/` is only a historical record; the canonical description of how things work lives in the permanent docs.
+
+➡️ Canonical rule: [`project-rules.md`](../../rules/project-rules.md) §7 ("Plans Are Temporary — Knowledge Integration").
+
 ## Completion Gate
 
 A plan/task is **not done** while tests required by its `4. Tests` section, its acceptance criteria, or project-rules §2 are missing, skipped, or failing ("No completion without tests"). Any deferral needs an explicit backlog entry (reason + remaining risk) and user approval before the `active/ → done/` move is recommended.
+
+A plan is also **not fully done** while its durable concepts/decisions exist only in the plan file — missing knowledge integration is treated like missing docs.
