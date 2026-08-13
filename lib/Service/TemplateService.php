@@ -8,69 +8,199 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskMapper;
 use OCP\IL10N;
 
 /**
- * Service for managing task templates from JSON database
+ * Service for the v2 room-type-based task template catalog.
+ *
+ * The catalog is two JSON files in lib/Templates/:
+ *  - RoomTypes.json     room-type registry (id, defaultName, icon, templateIds)
+ *  - TaskTemplates.json leveled task templates (v2 schema)
+ *
+ * A template applies to a room type when the type is present in the
+ * template's roomTypes[] array. House-wide chores live under the
+ * `household` room type, floor-wide chores under `hallway`, so the
+ * materialization stays 100% room-based (no floor/house scope columns).
+ *
+ * Catalog strings are English source text; they are localized at runtime
+ * via IL10N::t() so the German (l10n/de.json) and other translations are
+ * resolved by Nextcloud's standard mechanism.
  */
 class TemplateService {
-	private TaskMapper $taskMapper;
-	private IL10N $l10n;
-	private ?array $templates = null;
+	/** Thorough level: all tasks, standard frequencies. */
+	public const LEVEL_PUTZTEUFEL = 'putzteufel';
+	/** Relaxed level: fewer tasks, lower frequencies, shorter times. */
+	public const LEVEL_PUTZMUFFEL = 'putzmuffel';
 
-	public function __construct(TaskMapper $taskMapper, IL10N $l10n) {
-		$this->taskMapper = $taskMapper;
+	/** All supported cleaning levels. */
+	public const LEVELS = [
+		self::LEVEL_PUTZTEUFEL,
+		self::LEVEL_PUTZMUFFEL,
+	];
+
+	/**
+	 * Template fields a caller may override when materializing a task.
+	 * Whitelisted to prevent mass-assignment of catalog internals.
+	 */
+	private const MATERIALIZE_OVERRIDE_FIELDS = [
+		'name',
+		'frequencyType',
+		'frequencyValue',
+		'estimatedMinutes',
+		'energyCost',
+		'priority',
+	];
+
+	private IL10N $l10n;
+	private ?array $templatesCache = null;
+	private ?array $templatesById = null;
+	private ?array $roomTypesCache = null;
+
+	public function __construct(IL10N $l10n) {
 		$this->l10n = $l10n;
 	}
 
 	/**
-	 * Load templates from JSON file
+	 * Load the raw (un-localized) templates from the v2 JSON catalog.
+	 *
+	 * @return array<int, array>
 	 */
 	private function loadTemplates(): array {
-		if ($this->templates !== null) {
-			return $this->templates;
+		if ($this->templatesCache !== null) {
+			return $this->templatesCache;
 		}
 
-		$templateFile = __DIR__ . '/../Templates/TaskTemplates.json';
-
-		if (!file_exists($templateFile)) {
-			return [];
-		}
-
-		$content = file_get_contents($templateFile);
-		$data = json_decode($content, true);
-
-		if (json_last_error() !== JSON_ERROR_NONE) {
-			return [];
-		}
-
-		$this->templates = $data['templates'] ?? [];
-		return $this->templates;
+		$this->templatesCache = $this->loadJsonFile(
+			__DIR__ . '/../Templates/TaskTemplates.json',
+			'templates'
+		);
+		return $this->templatesCache;
 	}
 
 	/**
-	 * Get all available templates
+	 * Load the raw room-type registry from JSON.
 	 *
-	 * @return array
+	 * @return array<int, array>
 	 */
-	public function getAllTemplates(): array {
-		return $this->loadTemplates();
+	private function loadRoomTypes(): array {
+		if ($this->roomTypesCache !== null) {
+			return $this->roomTypesCache;
+		}
+
+		$this->roomTypesCache = $this->loadJsonFile(
+			__DIR__ . '/../Templates/RoomTypes.json',
+			'roomTypes'
+		);
+		return $this->roomTypesCache;
 	}
 
 	/**
-	 * Get template by ID
+	 * Decode a JSON file and return the keyed section, or [] on any failure.
 	 *
-	 * @param string $templateId
+	 * @param string $path Absolute path to the JSON catalog file
+	 * @param string $section Top-level key to extract
+	 * @return array<int, array>
+	 */
+	private function loadJsonFile(string $path, string $section): array {
+		if (!is_file($path)) {
+			return [];
+		}
+
+		$content = file_get_contents($path);
+		if (!is_string($content) || $content === '') {
+			return [];
+		}
+
+		$data = json_decode($content, true);
+		if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
+			return [];
+		}
+
+		$section = $data[$section] ?? [];
+		return is_array($section) ? array_values($section) : [];
+	}
+
+	/**
+	 * Index templates by id (lazy, memoized).
+	 *
+	 * @return array<string, array>
+	 */
+	private function getTemplatesById(): array {
+		if ($this->templatesById === null) {
+			$this->templatesById = [];
+			foreach ($this->loadTemplates() as $template) {
+				if (isset($template['id'])) {
+					$this->templatesById[$template['id']] = $template;
+				}
+			}
+		}
+
+		return $this->templatesById;
+	}
+
+	/**
+	 * Build the localized catalog payload for the wizard and the per-room
+	 * template picker.
+	 *
+	 * @return array{levels: array<int, array>, roomTypes: array<int, array>, templates: array<int, array>}
+	 */
+	public function getCatalog(): array {
+		return [
+			'levels' => $this->getLevelDefinitions(),
+			'roomTypes' => $this->getRoomTypes(),
+			'templates' => array_map(fn ($t) => $this->localizeTemplate($t), $this->loadTemplates()),
+		];
+	}
+
+	/**
+	 * Static level metadata (keys + localized labels/descriptions).
+	 *
+	 * @return array<int, array{id: string, label: string, description: string}>
+	 */
+	public function getLevelDefinitions(): array {
+		return [
+			[
+				'id' => self::LEVEL_PUTZTEUFEL,
+				'label' => $this->l10n->t('Putzteufel'),
+				'description' => $this->l10n->t('Everything shines! Lots of tasks, but everything is sparkling clean in no time.'),
+			],
+			[
+				'id' => self::LEVEL_PUTZMUFFEL,
+				'label' => $this->l10n->t('Putzmuffel'),
+				'description' => $this->l10n->t('Keep it relaxed! Only the essentials, with shorter times.'),
+			],
+		];
+	}
+
+	/**
+	 * Localized room types (id, defaultName, icon, templateIds).
+	 *
+	 * @return array<int, array{id: string, defaultName: string, icon: string, templateIds: array<int, string>}>
+	 */
+	public function getRoomTypes(): array {
+		return array_map(function ($rt): array {
+			$templateIds = isset($rt['templateIds']) && is_array($rt['templateIds'])
+				? array_values(array_map('strval', $rt['templateIds']))
+				: [];
+			return [
+				'id' => (string)$rt['id'],
+				'defaultName' => $this->l10n->t((string)$rt['defaultName']),
+				'icon' => (string)($rt['icon'] ?? 'Home'),
+				'templateIds' => $templateIds,
+			];
+		}, $this->loadRoomTypes());
+	}
+
+	/**
+	 * Get a single room-type definition by id (localized), or null.
+	 *
+	 * @param string $roomType The room-type id
 	 * @return array|null
 	 */
-	public function getTemplate(string $templateId): ?array {
-		$templates = $this->loadTemplates();
-
-		foreach ($templates as $template) {
-			if ($template['id'] === $templateId) {
-				return $template;
+	public function getRoomType(string $roomType): ?array {
+		foreach ($this->getRoomTypes() as $rt) {
+			if ($rt['id'] === $roomType) {
+				return $rt;
 			}
 		}
 
@@ -78,234 +208,180 @@ class TemplateService {
 	}
 
 	/**
-	 * Get templates filtered by category
+	 * Whether a room-type id is part of the registry.
 	 *
-	 * @param string $category
-	 * @return array
+	 * @param string $roomType The room-type id
 	 */
-	public function getTemplatesByCategory(string $category): array {
-		$templates = $this->loadTemplates();
-
-		return array_filter($templates, fn ($t) => $t['category'] === $category);
+	public function isValidRoomType(string $roomType): bool {
+		return $this->getRoomType($roomType) !== null;
 	}
 
 	/**
-	 * Get templates filtered by scope label (room type)
+	 * Get templates applicable to a room type (multi-valued).
 	 *
-	 * @param string $scopeLabel
-	 * @return array
+	 * Generalizes the old single-valued getTemplatesByRoomType(): a template
+	 * matches when ANY of its roomTypes[] equals the requested type. House-wide
+	 * chores (roomTypes includes 'household') are NOT auto-added for every
+	 * room type — they are surfaced explicitly via the 'household' room type
+	 * and the picker adds them separately.
+	 *
+	 * @param string $roomType The room-type id
+	 * @return array<int, array> Localized templates whose roomTypes[] include $roomType
 	 */
-	public function getTemplatesByRoomType(string $scopeLabel): array {
-		$templates = $this->loadTemplates();
-
-		return array_filter(
-			$templates,
-			fn ($t)
-			=> $t['scopeLabel'] === $scopeLabel || $t['scopeType'] === 'house'
+	public function getTemplatesForRoomType(string $roomType): array {
+		$matched = array_filter(
+			$this->loadTemplates(),
+			fn ($t) => is_array($t['roomTypes'] ?? null) && in_array($roomType, $t['roomTypes'], true)
 		);
+
+		return array_map(fn ($t) => $this->localizeTemplate($t), array_values($matched));
 	}
 
 	/**
-	 * Search templates by name or description
+	 * Search templates by name, description, category or tags (localized view).
 	 *
-	 * @param string $query
-	 * @return array
+	 * @param string $query Search text (case-insensitive)
+	 * @return array<int, array>
 	 */
 	public function searchTemplates(string $query): array {
-		$templates = $this->loadTemplates();
-		$lowerQuery = strtolower($query);
+		$lower = strtolower(trim($query));
+		if ($lower === '') {
+			return array_map(fn ($t) => $this->localizeTemplate($t), $this->loadTemplates());
+		}
 
-		return array_filter(
-			$templates,
-			fn ($t)
-			=> stripos(strtolower($t['name']), $lowerQuery) !== false
-			|| stripos(strtolower($t['description'] ?? ''), $lowerQuery) !== false
-			|| in_array($lowerQuery, array_map('strtolower', $t['tags'] ?? []))
+		$matched = array_filter(
+			$this->loadTemplates(),
+			function ($t) use ($lower): bool {
+				if (stripos((string)($t['name'] ?? ''), $lower) !== false) {
+					return true;
+				}
+				if (stripos((string)($t['description'] ?? ''), $lower) !== false) {
+					return true;
+				}
+				if (stripos((string)($t['category'] ?? ''), $lower) !== false) {
+					return true;
+				}
+				$tags = $t['tags'] ?? [];
+				if (is_array($tags)) {
+					foreach ($tags as $tag) {
+						if (stripos((string)$tag, $lower) !== false) {
+							return true;
+						}
+					}
+				}
+				return false;
+			}
 		);
+
+		return array_map(fn ($t) => $this->localizeTemplate($t), array_values($matched));
 	}
 
 	/**
-	 * Get all available categories
+	 * Get a raw (un-localized) template by id.
 	 *
-	 * @return array
+	 * @param string $templateId The template id
+	 * @return array|null
 	 */
-	public function getCategories(): array {
-		$templates = $this->loadTemplates();
-		$categories = array_unique(array_column($templates, 'category'));
-		sort($categories);
-		return $categories;
+	public function getTemplate(string $templateId): ?array {
+		return $this->getTemplatesById()[$templateId] ?? null;
 	}
 
 	/**
-	 * Get all available room types (scope labels)
+	 * Resolve a template + level into a Task-ready payload, applying
+	 * whitelisted overrides. Localizes the user-visible strings.
 	 *
-	 * @return array
+	 * @param string $templateId The template id
+	 * @param string $level One of self::LEVELS
+	 * @param array $overrides Optional overrides (name, frequencyType,
+	 *                          frequencyValue, estimatedMinutes, energyCost, priority)
+	 * @return array{name: string, description: ?string, instructions: ?string, category: string, energyCost: int, priority: int, frequencyType: string, frequencyValue: int, estimatedMinutes: int, schedulingMode: string, scopeType: string}
+	 * @throws \InvalidArgumentException if the template or level is invalid,
+	 *         or the template is not available for the requested level
 	 */
-	public function getRoomTypes(): array {
-		$templates = $this->loadTemplates();
-		$roomTypes = array_filter(array_unique(array_column($templates, 'scopeLabel')));
-		sort($roomTypes);
-		return $roomTypes;
-	}
-
-	/**
-	 * Get templates with their localized names
-	 *
-	 * @return array
-	 */
-	public function getLocalizedTemplates(): array {
-		$templates = $this->loadTemplates();
-
-		return array_map(fn ($t) => [
-			...$t,
-			'name' => $this->l10n->t($t['name']),
-			'description' => $this->l10n->t($t['description']),
-			'instructions' => $this->l10n->t($t['instructions'] ?? ''),
-		], $templates);
-	}
-
-	/**
-	 * Import template as a new task
-	 *
-	 * @param string $templateId
-	 * @param bool $asTemplate Whether to create as template or regular task
-	 * @return Task
-	 * @throws \InvalidArgumentException if template not found
-	 */
-	public function importTemplate(string $templateId, bool $asTemplate = false): Task {
+	public function materializeTemplate(string $templateId, string $level, array $overrides = []): array {
 		$template = $this->getTemplate($templateId);
-
 		if ($template === null) {
 			throw new \InvalidArgumentException('Template not found: ' . $templateId);
 		}
 
-		// Parse fixed schedule time if present
-		$fixedScheduleTime = null;
-		if (!empty($template['fixedScheduleTime'])) {
-			$fixedScheduleTime = new \DateTime($template['fixedScheduleTime']);
+		if (!in_array($level, self::LEVELS, true)) {
+			throw new \InvalidArgumentException('Invalid cleaning level: ' . $level);
 		}
 
-		$priority = match (strtolower((string)($template['priority'] ?? 'medium'))) {
-			'low' => 1,
-			'high' => 3,
-			default => 2,
-		};
+		$levelData = $template['levels'][$level] ?? null;
+		if (!is_array($levelData)) {
+			throw new \InvalidArgumentException(
+				'Template "' . $templateId . '" is not available for level "' . $level . '"'
+			);
+		}
 
-		return $this->taskMapper->create(
-			$template['name'],
-			$template['description'] ?? null,
-			$template['energyCost'],
-			$priority,
-			$template['frequencyType'],
-			$template['frequencyValue'],
-			$template['estimatedMinutes'],
-			$template['category'],
-			$template['scopeType'] ?? 'room',
-			$template['scopeLabel'] ?? null,
-			'recurring',
-			null, // activeFrom
-			null, // activeUntil
-			false, // isVoluntary
-			$asTemplate,
-			$template['schedulingMode'] ?? 'dynamic',
-			$fixedScheduleTime,
-			isset($template['fixedScheduleDays']) ? json_encode($template['fixedScheduleDays']) : null
-		);
-	}
-
-	/**
-	 * Get suggested templates for a room based on room name
-	 *
-	 * @param string $roomName
-	 * @return array
-	 */
-	public function getSuggestionsForRoom(string $roomName): array {
-		$templates = $this->loadTemplates();
-		$roomNameLower = strtolower($roomName);
-
-		// Map common room names to categories
-		$roomMappings = [
-			'kitchen' => ['kitchen', 'cooking'],
-			'bad' => ['bathroom', 'toilet', 'wc'],
-			'bathroom' => ['bathroom', 'toilet', 'wc'],
-			'schlafzimmer' => ['bedroom', 'sleeping'],
-			'bedroom' => ['bedroom', 'sleeping'],
-			'wohnzimmer' => ['living', 'lounge'],
-			'living' => ['living', 'lounge'],
-			'eingang' => ['entrance', 'hallway'],
-			'entrance' => ['entrance', 'hallway'],
-			'flur' => ['entrance', 'hallway'],
-			'hallway' => ['entrance', 'hallway'],
+		$payload = [
+			'name' => $this->l10n->t((string)$template['name']),
+			'description' => $this->l10n->t((string)($template['description'] ?? '')),
+			'instructions' => $this->l10n->t((string)($template['instructions'] ?? '')),
+			'category' => (string)$template['category'],
+			'energyCost' => (int)$template['energyCost'],
+			'priority' => (int)$template['priority'],
+			'frequencyType' => (string)$levelData['frequencyType'],
+			'frequencyValue' => (int)$levelData['frequencyValue'],
+			'estimatedMinutes' => (int)$levelData['estimatedMinutes'],
+			'schedulingMode' => 'dynamic',
+			'scopeType' => 'room',
 		];
 
-		// Find matching category
-		$matchingCategories = [];
-		foreach ($roomMappings as $key => $categories) {
-			if (strpos($roomNameLower, $key) !== false) {
-				$matchingCategories = array_merge($matchingCategories, $categories);
+		foreach (self::MATERIALIZE_OVERRIDE_FIELDS as $field) {
+			if (array_key_exists($field, $overrides) && $overrides[$field] !== null) {
+				$payload[$field] = $overrides[$field];
 			}
 		}
 
-		// Return templates matching those categories
-		if (empty($matchingCategories)) {
-			return [];
-		}
-
-		return array_filter(
-			$templates,
-			fn ($t)
-			=> in_array(strtolower($t['category']), $matchingCategories)
-			|| in_array(strtolower($t['scopeLabel'] ?? ''), $matchingCategories)
-		);
+		return $payload;
 	}
 
 	/**
-	 * Bulk import multiple templates
+	 * Project a raw template into the localized public view (incl. level data).
 	 *
-	 * @param array $templateIds
-	 * @param bool $asTemplate
-	 * @return array Created tasks
+	 * @param array $t Raw template from the catalog
+	 * @return array
 	 */
-	public function bulkImport(array $templateIds, bool $asTemplate = false): array {
-		$created = [];
+	private function localizeTemplate(array $t): array {
+		return [
+			'id' => (string)$t['id'],
+			'name' => $this->l10n->t((string)$t['name']),
+			'description' => $this->l10n->t((string)($t['description'] ?? '')),
+			'instructions' => $this->l10n->t((string)($t['instructions'] ?? '')),
+			'category' => (string)$t['category'],
+			'energyCost' => (int)$t['energyCost'],
+			'priority' => (int)$t['priority'],
+			'roomTypes' => array_values(array_map('strval', $t['roomTypes'] ?? [])),
+			'levels' => $this->normalizeLevels($t['levels'] ?? []),
+			'tags' => array_values(array_map('strval', $t['tags'] ?? [])),
+		];
+	}
 
-		foreach ($templateIds as $id) {
-			try {
-				$created[] = $this->importTemplate($id, $asTemplate);
-			} catch (\Exception $e) {
-				// Log error and continue
+	/**
+	 * Ensure each level entry carries its scheduling details; keep null
+	 * entries explicit so the UI can mark a task as level-exclusive.
+	 *
+	 * @param array $levels Raw levels map
+	 * @return array
+	 */
+	private function normalizeLevels(array $levels): array {
+		$normalized = [];
+		foreach (self::LEVELS as $level) {
+			$data = $levels[$level] ?? null;
+			if (!is_array($data)) {
+				$normalized[$level] = null;
 				continue;
 			}
+
+			$normalized[$level] = [
+				'frequencyType' => (string)($data['frequencyType'] ?? 'weekly'),
+				'frequencyValue' => (int)($data['frequencyValue'] ?? 1),
+				'estimatedMinutes' => (int)($data['estimatedMinutes'] ?? 15),
+			];
 		}
 
-		return $created;
-	}
-
-	/**
-	 * Get template statistics
-	 *
-	 * @return array
-	 */
-	public function getStatistics(): array {
-		$templates = $this->loadTemplates();
-
-		$byCategory = [];
-		foreach ($templates as $t) {
-			$cat = $t['category'];
-			if (!isset($byCategory[$cat])) {
-				$byCategory[$cat] = 0;
-			}
-			$byCategory[$cat]++;
-		}
-
-		return [
-			'total' => count($templates),
-			'byCategory' => $byCategory,
-			'bySchedulingMode' => [
-				'dynamic' => count(array_filter($templates, fn ($t) => ($t['schedulingMode'] ?? 'dynamic') === 'dynamic')),
-				'static' => count(array_filter($templates, fn ($t) => ($t['schedulingMode'] ?? 'dynamic') === 'static')),
-			],
-			'categories' => array_keys($byCategory),
-		];
+		return $normalized;
 	}
 }

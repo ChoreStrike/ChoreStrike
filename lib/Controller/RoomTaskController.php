@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCA\ChoreStrike\Service\TemplateService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -35,6 +36,72 @@ class RoomTaskController extends Controller {
 		$this->roomTaskService = $roomTaskService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+	}
+
+	/**
+	 * Create a room task from a catalog template (per-room picker).
+	 *
+	 * @NoAdminRequired
+	 */
+	public function fromTemplate(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->ensureHouseMember($house->getId());
+
+			$roomId = (int)$this->request->getParam('roomId');
+			$templateId = (string)($this->request->getParam('templateId') ?? '');
+			$level = (string)($this->request->getParam('level') ?? TemplateService::LEVEL_PUTZTEUFEL);
+			$overrides = $this->request->getParam('overrides');
+			$assigneeUserId = $this->request->getParam('assigneeUserId');
+
+			if ($roomId <= 0) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => 'roomId is required'],
+				], 400);
+			}
+			if (trim($templateId) === '') {
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => 'templateId is required'],
+				], 400);
+			}
+
+			// Resolve the room server-side and validate it belongs to the caller's house.
+			$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
+
+			$roomTask = $this->roomTaskService->createFromTemplate(
+				$house->getId(),
+				$roomId,
+				$templateId,
+				$level,
+				is_array($overrides) ? $overrides : [],
+				is_string($assigneeUserId) && trim($assigneeUserId) !== '' ? $assigneeUserId : null
+			);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $roomTask->jsonSerialize(),
+			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => ControllerErrorFormatter::safeMessage($e)],
+			], 404);
+		} catch (\InvalidArgumentException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => ['code' => 'VALIDATION_ERROR', 'message' => $e->getMessage()],
+			], 400);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => ['code' => 'FROM_TEMPLATE_ERROR', 'message' => ControllerErrorFormatter::safeMessage($e)],
+			], 500);
+		}
 	}
 
 	/**

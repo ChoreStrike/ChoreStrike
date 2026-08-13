@@ -152,7 +152,6 @@ class FamilyTestData {
 		$task->setFrequencyValue($frequencyValue);
 		$task->setScopeType('house'); // Default scope type
 		$task->setCategory('general');
-		$task->setIsTemplate(false);
 		$task->setRecurrenceMode('standard');
 		$task->setIsVoluntary(false);
 		$task->setSchedulingMode('flexible');

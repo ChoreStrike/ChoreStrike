@@ -1,0 +1,131 @@
+{
+  "version": "2.0.0",
+  "description": "ChoreStrike room-type registry. Each room type carries a default (localized) name, an icon registry key, and the ordered template IDs that apply to it. The materialization is 100% room-based: floor-wide chores live in 'hallway' (one per floor), house-wide chores in 'household' (one per house).",
+  "roomTypes": [
+    {
+      "id": "kitchen",
+      "defaultName": "Kitchen",
+      "icon": "Utensils",
+      "templateIds": [
+        "kitchen_dishes",
+        "kitchen_counters",
+        "kitchen_sink",
+        "kitchen_stove",
+        "kitchen_microwave",
+        "kitchen_floor",
+        "kitchen_fridge",
+        "kitchen_oven"
+      ]
+    },
+    {
+      "id": "bathroom",
+      "defaultName": "Bathroom",
+      "icon": "Bath",
+      "templateIds": [
+        "bathroom_toilet",
+        "bathroom_shower",
+        "bathroom_sink",
+        "bathroom_mirror",
+        "bathroom_floor",
+        "bathroom_grout"
+      ]
+    },
+    {
+      "id": "bedroom",
+      "defaultName": "Bedroom",
+      "icon": "Bed",
+      "templateIds": [
+        "bedroom_bed",
+        "bedroom_laundry",
+        "bedroom_dust",
+        "bedroom_vacuum",
+        "bedroom_sheets"
+      ]
+    },
+    {
+      "id": "living",
+      "defaultName": "Living Room",
+      "icon": "Sofa",
+      "templateIds": [
+        "living_vacuum",
+        "living_dust",
+        "living_tidy"
+      ]
+    },
+    {
+      "id": "kids",
+      "defaultName": "Kids Room",
+      "icon": "Baby",
+      "templateIds": [
+        "kids_tidy",
+        "kids_dust",
+        "kids_floor"
+      ]
+    },
+    {
+      "id": "office",
+      "defaultName": "Office",
+      "icon": "Briefcase",
+      "templateIds": [
+        "office_desk",
+        "office_dust",
+        "office_trash"
+      ]
+    },
+    {
+      "id": "hallway",
+      "defaultName": "Hallway & Stairs",
+      "icon": "DoorOpen",
+      "templateIds": [
+        "hallway_robot",
+        "hallway_vacuum",
+        "hallway_floor",
+        "hallway_tidy"
+      ]
+    },
+    {
+      "id": "household",
+      "defaultName": "Household & Co.",
+      "icon": "WashingMachine",
+      "templateIds": [
+        "household_laundry",
+        "household_trash",
+        "household_recycling",
+        "household_mail",
+        "household_plants",
+        "household_floor",
+        "household_dust",
+        "household_appliances"
+      ]
+    },
+    {
+      "id": "basement",
+      "defaultName": "Basement",
+      "icon": "Package",
+      "templateIds": [
+        "basement_tidy",
+        "basement_sweep"
+      ]
+    },
+    {
+      "id": "outdoor",
+      "defaultName": "Garden & Balcony",
+      "icon": "Trees",
+      "templateIds": [
+        "outdoor_weed",
+        "outdoor_water",
+        "outdoor_sweep"
+      ]
+    },
+    {
+      "id": "generic",
+      "defaultName": "Room",
+      "icon": "Home",
+      "templateIds": [
+        "generic_dust",
+        "generic_vacuum",
+        "generic_tidy"
+      ]
+    }
+  ]
+}

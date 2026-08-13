@@ -1,15 +1,15 @@
 import { mount } from '@vue/test-utils'
-import TemplateSelector from '@/components/Tasks/TemplateSelector.vue'
+import RecurrencePresetSelector from '@/components/Tasks/RecurrencePresetSelector.vue'
 
-describe('TemplateSelector', () => {
+describe('RecurrencePresetSelector', () => {
 	it('renders template options', () => {
-		const wrapper = mount(TemplateSelector)
+		const wrapper = mount(RecurrencePresetSelector)
 		const buttons = wrapper.findAll('button')
 		expect(buttons.length).toBeGreaterThanOrEqual(4)
 	})
 
 	it('emits select with template data on click', async () => {
-		const wrapper = mount(TemplateSelector)
+		const wrapper = mount(RecurrencePresetSelector)
 		const buttons = wrapper.findAll('button')
 		await buttons[0].trigger('click')
 
@@ -21,7 +21,7 @@ describe('TemplateSelector', () => {
 	})
 
 	it('highlights selected template', async () => {
-		const wrapper = mount(TemplateSelector)
+		const wrapper = mount(RecurrencePresetSelector)
 		const buttons = wrapper.findAll('button')
 		await buttons[0].trigger('click')
 

@@ -227,6 +227,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `floor_id` (bigint, FK)
 - `name` (string)
 - `cleanliness` (int, 0-100)
+- `room_type` (string, default `generic`) — room-type key for template filtering (CS-PLAN-027); see [house-setup-and-templates.md](../concepts/house-setup-and-templates.md)
 - `monster_count` (int) — **legacy column, retained but unused** (the Monsters feature was removed in CS-PLAN-002; `Room::needsCleaning()` is cleanliness-only)
 - `last_cleaned` (datetime, nullable)
 - `created_at` (datetime)
@@ -239,7 +240,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `task_tier` (string: `bronze`/`silver`/`gold`) — coin-tier multiplier source
 - `frequency_type` (daily/weekly/monthly/custom), `frequency_value` (int)
 - `estimated_minutes` (int)
-- `category` (string), `is_template` (boolean)
+- `category` (string) — the DB-backed `is_template` column was removed (CS-PLAN-027 D7); catalog templates now live in `lib/Templates/`
 - `visibility_type` (string, default `public`) — `public` | `private` | `admin-only` (CS-PLAN-005)
 - `owner_user_id` (string, nullable) — creator of private/admin-only tasks (Nextcloud UID)
 - `is_private` (boolean) — **back-compat shim** derived from `visibility_type` (`private`); `visibility_type` is the source of truth

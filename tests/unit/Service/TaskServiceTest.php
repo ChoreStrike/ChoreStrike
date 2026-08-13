@@ -196,47 +196,6 @@ class TaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetTaskTemplates_ReturnsTemplates
-	 */
-	public function testGetTaskTemplates_ReturnsTemplates(): void {
-		$template = new Task();
-		$template->setId(1);
-		$template->setName('Template Task');
-		$template->setIsTemplate(true);
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('findTemplates')
-			->willReturn([$template]);
-
-		$result = $this->service->getTaskTemplates();
-
-		$this->assertCount(1, $result);
-		$this->assertTrue($result[0]->getIsTemplate());
-	}
-
-	/**
-	 * CreateFromTemplate_CreatesTaskFromTemplate
-	 */
-	public function testCreateFromTemplate_CreatesTaskFromTemplate(): void {
-		$templateId = 1;
-
-		$task = new Task();
-		$task->setId(2);
-		$task->setName('Copied Task');
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('createFromTemplate')
-			->with($templateId)
-			->willReturn($task);
-
-		$result = $this->service->createFromTemplate($templateId);
-
-		$this->assertSame($task, $result);
-	}
-
-	/**
 	 * GetTasksByCategory_ReturnsFilteredTasks
 	 */
 	public function testGetTasksByCategory_ReturnsFilteredTasks(): void {
@@ -292,34 +251,6 @@ class TaskServiceTest extends TestCase {
 		$result = $this->service->getTaskCategories();
 
 		$this->assertEquals($categories, $result);
-	}
-
-	/**
-	 * CreateTaskTemplate_CreatesTemplate
-	 */
-	public function testCreateTaskTemplate_CreatesTemplate(): void {
-		$template = new Task();
-		$template->setId(1);
-		$template->setName('Template');
-		$template->setIsTemplate(true);
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('create')
-			->willReturn($template);
-
-		$result = $this->service->createTaskTemplate(
-			'Template',
-			'Description',
-			2,
-			1,
-			'weekly',
-			1,
-			30,
-			'cleaning'
-		);
-
-		$this->assertTrue($result->getIsTemplate());
 	}
 
 	/**
@@ -420,26 +351,5 @@ class TaskServiceTest extends TestCase {
 		$result = $this->service->validateTaskData($taskData);
 
 		$this->assertEmpty($result);
-	}
-
-	/**
-	 * CreateDefaultTemplates_CreatesMultipleTemplates
-	 */
-	public function testCreateDefaultTemplates_CreatesMultipleTemplates(): void {
-		$this->taskMapper
-			->expects($this->exactly(15))
-			->method('create')
-			->willReturnCallback(function () {
-				static $id = 1;
-				$task = new Task();
-				$task->setId($id++);
-				$task->setIsTemplate(true);
-				return $task;
-			});
-
-		$result = $this->service->createDefaultTemplates();
-
-		$this->assertCount(15, $result);
-		$this->assertTrue($result[0]->getIsTemplate());
 	}
 }

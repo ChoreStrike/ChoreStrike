@@ -8,7 +8,7 @@
 		<!-- Template Selection (only when creating) -->
 		<div v-if="!isEditing" class="form-section">
 			<h3>{{ t('chorestrike', 'Start from Template') }}</h3>
-			<TemplateSelector
+			<RecurrencePresetSelector
 				:selected-template="selectedTemplate"
 				@select="applyTemplate"
 				@clear="clearTemplate" />
@@ -276,7 +276,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common/index.js'
-import TemplateSelector from './TemplateSelector.vue'
+import RecurrencePresetSelector from './RecurrencePresetSelector.vue'
 import { useUserStore } from '../../store/user.js'
 import { VISIBILITY_PUBLIC, VISIBILITY_PRIVATE, VISIBILITY_ADMIN_ONLY } from '../../constants/taskVisibility.js'
 
@@ -285,7 +285,7 @@ export default {
 
 	components: {
 		Icon,
-		TemplateSelector,
+		RecurrencePresetSelector,
 	},
 
 	props: {

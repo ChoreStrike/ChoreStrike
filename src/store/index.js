@@ -13,6 +13,7 @@ import { useChecklistStore } from './checklist.js'
 import { useSchedulingStore } from './scheduling.js'
 import { useMinigameStore } from './minigame.js'
 import { useTitlesStore } from './titles.js'
+import { useSetupStore } from './setup.js'
 import { logger } from '../utils/logger.js'
 
 // Export all stores
@@ -27,6 +28,7 @@ export {
 	useSchedulingStore,
 	useMinigameStore,
 	useTitlesStore,
+	useSetupStore,
 }
 
 // Store initialization utilities
@@ -196,7 +198,6 @@ export const getStoreSummary = () => {
 		},
 		tasks: {
 			tasksCount: tasksStore.tasks.length,
-			templatesCount: tasksStore.templates.length,
 			activeRoomTasksCount: roomTasksStore.totalActiveTasks,
 			overdueTasksCount: roomTasksStore.totalOverdueTasks,
 		},
@@ -234,6 +235,7 @@ export default {
 	useSchedulingStore,
 	useMinigameStore,
 	useTitlesStore,
+	useSetupStore,
 	initializeStores,
 	resetAllStores,
 	clearAllStoreErrors,

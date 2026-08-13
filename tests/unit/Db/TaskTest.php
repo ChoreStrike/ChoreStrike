@@ -284,7 +284,6 @@ class TaskTest extends TestCase {
 		$task->setScopeLabel('Kitchen');
 		$task->setRecurrenceMode('recurring');
 		$task->setIsVoluntary(false);
-		$task->setIsTemplate(false);
 		$createdAt = new \DateTime('2026-02-24 12:00:00');
 		$task->setCreatedAt($createdAt);
 

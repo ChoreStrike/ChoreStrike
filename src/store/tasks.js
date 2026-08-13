@@ -10,15 +10,12 @@ import { logger } from '../utils/logger.js'
 export const useTasksStore = defineStore('tasks', {
 	state: () => ({
 		tasks: [],
-		templates: [],
 		loading: false,
 		error: null,
 	}),
 
 	getters: {
-		activeTasks: (state) => state.tasks.filter(task => !task.isTemplate),
-
-		taskTemplates: (state) => state.tasks.filter(task => task.isTemplate),
+		activeTasks: (state) => state.tasks,
 
 		getTaskById: (state) => (taskId) => {
 			return state.tasks.find(task => task.id === taskId)
@@ -63,25 +60,6 @@ export const useTasksStore = defineStore('tasks', {
 		},
 
 		/**
-		 * Fetch task templates
-		 */
-		async fetchTaskTemplates() {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get('/api/v1/tasks/templates')
-				this.templates = data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch task templates', error, { store: 'tasks', action: 'fetchTaskTemplates' })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
 		 * Create a new task
 		 * @param {object} taskData Payload used to create the task.
 		 */
@@ -96,27 +74,6 @@ export const useTasksStore = defineStore('tasks', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to create task', error, { store: 'tasks', action: 'createTask' })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Create task from template
-		 * @param {number} templateId Template identifier used as source.
-		 */
-		async createTaskFromTemplate(templateId) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.post(`/api/v1/tasks/create-from-template/${templateId}`)
-				this.tasks.push(data)
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to create task from template', error, { store: 'tasks', action: 'createTaskFromTemplate', templateId })
 				throw error
 			} finally {
 				this.loading = false
@@ -163,30 +120,6 @@ export const useTasksStore = defineStore('tasks', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to delete task', error, { store: 'tasks', action: 'deleteTask', taskId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Create default task templates
-		 */
-		async createDefaultTemplates() {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.post('/api/v1/tasks/create-default-templates')
-				this.templates = data
-				data.forEach(template => {
-					if (!this.tasks.find(t => t.id === template.id)) {
-						this.tasks.push(template)
-					}
-				})
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to create default templates', error, { store: 'tasks', action: 'createDefaultTemplates' })
 				throw error
 			} finally {
 				this.loading = false
@@ -257,13 +190,10 @@ export const useTasksStore = defineStore('tasks', {
 		},
 
 		/**
-		 * Initialize tasks and templates
+		 * Initialize tasks
 		 */
 		async initializeTasks() {
-			await Promise.all([
-				this.fetchTasks(),
-				this.fetchTaskTemplates(),
-			])
+			await this.fetchTasks()
 		},
 
 		/**
@@ -278,7 +208,6 @@ export const useTasksStore = defineStore('tasks', {
 		 */
 		reset() {
 			this.tasks = []
-			this.templates = []
 			this.loading = false
 			this.error = null
 		},

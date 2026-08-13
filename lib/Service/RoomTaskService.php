@@ -34,6 +34,7 @@ class RoomTaskService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private TemplateService $templateService;
 	private ?AppLogger $appLogger;
 
 	public function __construct(
@@ -45,6 +46,7 @@ class RoomTaskService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		HouseUserMapper $houseUserMapper,
 		CompletedTaskMapper $completedTaskMapper,
+		TemplateService $templateService,
 		?AppLogger $appLogger = null,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -55,6 +57,7 @@ class RoomTaskService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
+		$this->templateService = $templateService;
 		$this->appLogger = $appLogger;
 	}
 
@@ -83,6 +86,20 @@ class RoomTaskService {
 			]);
 			throw new NotFoundException('Room task not found');
 		}
+	}
+
+	/**
+	 * Validate that a room belongs to the specified house.
+	 *
+	 * Delegates to RoomService so the from-template endpoint can reject a
+	 * cross-house roomId before materializing/creating any task.
+	 *
+	 * @param int $roomId The room ID
+	 * @param int $houseId The house ID to validate against
+	 * @throws NotFoundException if the room doesn't belong to the house
+	 */
+	public function validateRoomOwnership(int $roomId, int $houseId): void {
+		$this->roomService->validateRoomOwnership($roomId, $houseId);
 	}
 
 	/**
@@ -232,6 +249,53 @@ class RoomTaskService {
 		}
 
 		return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $assignedToUserId, $scopeId, $idealDueDate);
+	}
+
+	/**
+	 * Create a room task from a catalog template.
+	 *
+	 * Materializes the template at the given cleaning level (default
+	 * putzteufel), applies whitelisted overrides, creates the Task, and links
+	 * it to the room with an optional assignee. Authorization (room belongs to
+	 * the caller's house, assignee is a member) is enforced by
+	 * {@see createRoomTask()}.
+	 *
+	 * @param int $houseId The caller's house ID (scopes the target room)
+	 * @param int $roomId The room ID (resolved + validated server-side)
+	 * @param string $templateId The catalog template ID
+	 * @param string $level One of TemplateService::LEVELS (default putzteufel)
+	 * @param array $overrides Optional materialization overrides
+	 * @param string|null $assignedToUserId Optional assignee (must be a house member)
+	 * @return RoomTask The created room task
+	 *
+	 * @throws NotFoundException if the room does not exist or belongs to another house
+	 * @throws \InvalidArgumentException if the template/level is invalid or the assignee is not a member
+	 */
+	public function createFromTemplate(
+		int $houseId,
+		int $roomId,
+		string $templateId,
+		string $level = TemplateService::LEVEL_PUTZTEUFEL,
+		array $overrides = [],
+		?string $assignedToUserId = null,
+	): RoomTask {
+		$materialized = $this->templateService->materializeTemplate($templateId, $level, $overrides);
+
+		$task = $this->taskMapper->create(
+			name: $materialized['name'],
+			description: $materialized['description'],
+			energyCost: $materialized['energyCost'],
+			priority: $materialized['priority'],
+			frequencyType: $materialized['frequencyType'],
+			frequencyValue: $materialized['frequencyValue'],
+			estimatedMinutes: $materialized['estimatedMinutes'],
+			category: $materialized['category'],
+			scopeType: $materialized['scopeType'],
+			schedulingMode: $materialized['schedulingMode'],
+			instructions: $materialized['instructions'],
+		);
+
+		return $this->createRoomTask($houseId, $roomId, $task->getId(), null, null, $assignedToUserId);
 	}
 
 	/**

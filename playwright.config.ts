@@ -30,6 +30,10 @@ const SEED_DEPENDENT_SPECS = [
 	/[/\\]release-task-templates\.spec\.ts$/,
 	/[/\\]release-boost-shop\.spec\.ts$/,
 	/[/\\]release-notifications\.spec\.ts$/,
+	// CS-PLAN-027: setup-wizard re-seeds the family profile (catalog is
+	// read-only, but the `seededData` fixture wipes + reseeds the DB) and the
+	// template spec inserts rows — serial pool only, like the other release-*.
+	/[/\\]release-setup-wizard\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

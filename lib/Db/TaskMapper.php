@@ -53,23 +53,6 @@ class TaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Get all task templates
-	 *
-	 * @return Task[]
-	 */
-	public function findTemplates(): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('is_template', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
-			->orderBy('category', 'ASC')
-			->addOrderBy('name', 'ASC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Get tasks by category
 	 *
 	 * @param string $category The task category
@@ -121,7 +104,6 @@ class TaskMapper extends QBMapper {
 	 * @param \DateTime|null $activeFrom Optional start date
 	 * @param \DateTime|null $activeUntil Optional end date
 	 * @param bool $isVoluntary Whether task is voluntary
-	 * @param bool $isTemplate Whether this is a template
 	 * @param string $schedulingMode Scheduling mode (dynamic, fixed)
 	 * @param \DateTime|null $fixedScheduleTime Optional fixed schedule time
 	 * @param string|null $fixedScheduleDays Optional fixed schedule days
@@ -141,7 +123,6 @@ class TaskMapper extends QBMapper {
 		?\DateTime $activeFrom = null,
 		?\DateTime $activeUntil = null,
 		bool $isVoluntary = false,
-		bool $isTemplate = false,
 		string $schedulingMode = 'dynamic',
 		?\DateTime $fixedScheduleTime = null,
 		?string $fixedScheduleDays = null,
@@ -168,7 +149,6 @@ class TaskMapper extends QBMapper {
 		$task->setActiveFrom($activeFrom);
 		$task->setActiveUntil($activeUntil);
 		$task->setIsVoluntary($isVoluntary);
-		$task->setIsTemplate($isTemplate);
 		$task->setSchedulingMode($schedulingMode);
 		$task->setFixedScheduleTime($fixedScheduleTime);
 		$task->setFixedScheduleDays($fixedScheduleDays);
@@ -181,44 +161,6 @@ class TaskMapper extends QBMapper {
 		$task->setCreatedAt(new \DateTime());
 
 		return $this->insert($task);
-	}
-
-	/**
-	 * Create task from template
-	 *
-	 * @param int $templateId The template ID
-	 * @return Task The new task (not a template)
-	 */
-	public function createFromTemplate(int $templateId): Task {
-		$template = $this->find($templateId);
-
-		return $this->create(
-			$template->getName(),
-			$template->getDescription(),
-			$template->getEnergyCost(),
-			$template->getPriority(),
-			$template->getFrequencyType(),
-			$template->getFrequencyValue(),
-			$template->getEstimatedMinutes(),
-			$template->getCategory(),
-			$template->getScopeType(),
-			$template->getScopeLabel(),
-			$template->getRecurrenceMode(),
-			$template->getActiveFrom(),
-			$template->getActiveUntil(),
-			$template->getIsVoluntary(),
-			false, // Not a template
-			$template->getSchedulingMode(),
-			$template->getFixedScheduleTime(),
-			$template->getFixedScheduleDays(),
-			$template->getInstructions(),
-			$template->getTips(),
-			$template->getEstimatedMinutesMin(),
-			$template->getEstimatedMinutesMax(),
-			$template->isPrivate(),
-			$template->getVisibilityType(),
-			$template->getOwnerUserId()
-		);
 	}
 
 	/**

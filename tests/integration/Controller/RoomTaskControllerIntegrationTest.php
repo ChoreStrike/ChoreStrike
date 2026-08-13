@@ -234,7 +234,6 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$task->setFrequencyValue(1);
 		$task->setEstimatedMinutes(15);
 		$task->setCategory('cleaning');
-		$task->setIsTemplate(false);
 		$task->setScopeType('room');
 		$task->setRecurrenceMode('repeat');
 		$task->setIsVoluntary(false);

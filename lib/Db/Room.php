@@ -24,6 +24,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setMonsterCount(int $monsterCount)
  * @method string getIcon()
  * @method void setIcon(string $icon)
+ * @method string getRoomType()
+ * @method void setRoomType(string $roomType)
  * @method string getDescription()
  * @method void setDescription(string $description)
  * @method \DateTime getLastCleaned()
@@ -50,6 +52,9 @@ class Room extends Entity implements JsonSerializable {
 	/** @var string */
 	protected $icon = 'Home';
 
+	/** @var string */
+	protected $roomType = 'generic';
+
 	/** @var \DateTime|null */
 	protected $lastCleaned;
 
@@ -64,6 +69,7 @@ class Room extends Entity implements JsonSerializable {
 		$this->addType('cleanliness', 'integer');
 		$this->addType('monsterCount', 'integer');
 		$this->addType('icon', 'string');
+		$this->addType('roomType', 'string');
 		$this->addType('lastCleaned', 'datetime');
 		$this->addType('createdAt', 'datetime');
 	}
@@ -80,6 +86,7 @@ class Room extends Entity implements JsonSerializable {
 			'cleanliness' => $this->cleanliness,
 			'monsterCount' => $this->monsterCount,
 			'icon' => $this->icon ?? 'Home',
+			'roomType' => $this->roomType ?? 'generic',
 			'lastCleaned' => $this->lastCleaned?->format('c'),
 			'createdAt' => $this->createdAt?->format('c'),
 		];

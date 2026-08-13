@@ -203,28 +203,6 @@ class TaskControllerIntegrationTest extends TestCase {
 	}
 
 	/**
-	 * Templates_ReturnsTemplateTasks_SuccessResponse
-	 */
-	public function testTemplates_ReturnsTemplateTasks_SuccessResponse(): void {
-		$task1 = $this->createMockTask(100, 'Vacuum floor');
-		$task1->setIsTemplate(true);
-		$task2 = $this->createMockTask(101, 'Clean windows');
-		$task2->setIsTemplate(true);
-		$templates = [$task1, $task2];
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->taskService->method('getTaskTemplates')
-			->willReturn($templates);
-
-		$response = $this->controller->templates();
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
-
-	/**
 	 * Categories_ReturnsCategoryList_SuccessResponse
 	 */
 	public function testCategories_ReturnsCategoryList_SuccessResponse(): void {
@@ -264,7 +242,6 @@ class TaskControllerIntegrationTest extends TestCase {
 		$task->setFrequencyValue(1);
 		$task->setSchedulingMode('flexible');
 		$task->setScopeType('house');
-		$task->setIsTemplate(false);
 		$task->setIsVoluntary(false);
 		$task->setAllowTeamwork(false);
 		$task->setTeamSparkMultiplier(1.0);

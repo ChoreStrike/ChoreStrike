@@ -74,6 +74,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$taskAssigneeMapper,
 			$houseUserMapper,
 			$this->createMock(CompletedTaskMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			$appLogger
 		);
 

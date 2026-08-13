@@ -119,6 +119,43 @@ Update floor.
 #### DELETE /floors/{id}
 Delete floor (only if empty).
 
+### Setup Wizard
+
+First-run house setup (CS-PLAN-027). Both endpoints require house membership.
+The wizard is gated to a house with **no floors** (first run); `apply` on an
+already-set-up house returns `409 HOUSE_ALREADY_SET_UP`.
+
+#### GET /setup/catalog
+Localized room types + leveled templates for the wizard and the per-room picker.
+
+**Response:**
+```json
+{
+  "levels": [{ "id": "putzteufel", "label": "Putzteufel", "description": "..." }],
+  "roomTypes": [{ "id": "kitchen", "defaultName": "Kitchen", "icon": "Utensils", "templateIds": ["kitchen_counters"] }],
+  "templates": [{ "id": "kitchen_counters", "name": "Wipe kitchen counters", "roomTypes": ["kitchen"], "levels": { "putzteufel": { "frequencyType": "daily", "frequencyValue": 1, "estimatedMinutes": 10 }, "putzmuffel": null } }]
+}
+```
+
+#### POST /setup/apply
+Create floors, rooms (with `roomType`), tasks from the leveled catalog, and
+per-room assignments in one transaction.
+
+**Request:**
+```json
+{
+  "intensityLevel": "putzteufel",
+  "options": { "createHouseholdRoom": true, "createHallways": true },
+  "floors": [
+    { "name": "Ground Floor", "rooms": [ { "name": "Kitchen", "roomType": "kitchen", "icon": "Utensils", "assigneeUserId": "alice" } ] }
+  ]
+}
+```
+
+**Response:** `{ "floors": 1, "rooms": 4, "tasks": 12, "roomTasks": 12, "skipped": [] }`.
+
+> See [house-setup-and-templates.md](../concepts/house-setup-and-templates.md).
+
 ### Rooms
 
 #### GET /rooms
@@ -186,9 +223,6 @@ Delete room.
 #### GET /tasks
 List all tasks visible to the current user (role-based visibility filtering applies — private tasks are only visible to their owner, admin-only tasks only to house owners).
 
-**Query Parameters:**
-- `is_template` (boolean): Filter templates
-
 **Response:**
 ```json
 [
@@ -202,7 +236,6 @@ List all tasks visible to the current user (role-based visibility filtering appl
     "frequency_value": 1,
     "estimated_minutes": 30,
     "category": "cleaning",
-    "is_template": false,
     "visibilityType": "public",
     "isPrivate": false,
     "ownerUserId": null
@@ -212,28 +245,15 @@ List all tasks visible to the current user (role-based visibility filtering appl
 
 > **Visibility types:** `public` (visible to all members), `private` (visible only to `ownerUserId`), `admin-only` (visible only to house owners). Only owners can create/modify admin-only tasks.
 
+> **Catalog templates:** the DB-backed `is_template` / `GET /tasks/templates`
+> system was removed (CS-PLAN-027 D7). Task templates now come from the
+> [setup catalog](#setup-wizard) (`GET /setup/catalog`). See
+> [house-setup-and-templates.md](../concepts/house-setup-and-templates.md).
+
 #### GET /tasks/my-private
 List the current user's private tasks only.
 
 **Response:** Same shape as `GET /tasks`, filtered to `visibilityType='private'` owned by the current user.
-
-#### GET /tasks/templates
-Get predefined task templates.
-
-**Response:**
-```json
-[
-  {
-    "id": "template_1",
-    "name": "Empty Dishwasher",
-    "energyCost": 2,
-    "priority": 1,
-    "frequency_type": "daily",
-    "estimated_minutes": 10,
-    "category": "cleaning"
-  }
-]
-```
 
 #### POST /tasks
 Create a new task.
@@ -262,6 +282,28 @@ Update task.
 Delete task.
 
 ### Room Tasks
+
+#### POST /room-tasks/from-template
+Create a room task from a catalog template (per-room picker). The `roomId` is
+resolved server-side and validated against the caller's house; an
+`assigneeUserId` (if set) is checked for membership.
+
+**Request:**
+```json
+{
+  "roomId": 12,
+  "templateId": "kitchen_counters",
+  "level": "putzteufel",
+  "overrides": { "name": "My counters", "estimatedMinutes": 8 },
+  "assigneeUserId": "alice"
+}
+```
+
+> `level` is optional (default `putzteufel`). `overrides` is optional and
+> restricted to `name`, `frequencyType`, `frequencyValue`, `estimatedMinutes`,
+> `energyCost`, `priority`.
+
+**Response:** the created room task (existing room-task payload shape).
 
 #### GET /room-tasks
 List all room-task assignments.

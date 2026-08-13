@@ -25,7 +25,6 @@ describe('Tasks Store', () => {
 	describe('State', () => {
 		it('has correct initial state', () => {
 			expect(store.tasks).toEqual([])
-			expect(store.templates).toEqual([])
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
 		})
@@ -40,16 +39,9 @@ describe('Tasks Store', () => {
 			]
 		})
 
-		it('activeTasks filters non-templates', () => {
+		it('activeTasks returns all tasks (templates live in the setup store)', () => {
 			const active = store.activeTasks
-			expect(active).toHaveLength(2)
-			expect(active.every(t => !t.isTemplate)).toBe(true)
-		})
-
-		it('taskTemplates filters templates', () => {
-			const templates = store.taskTemplates
-			expect(templates).toHaveLength(1)
-			expect(templates[0].isTemplate).toBe(true)
+			expect(active).toHaveLength(3)
 		})
 
 		it('getTaskById finds task', () => {
@@ -108,14 +100,12 @@ describe('Tasks Store', () => {
 		describe('reset', () => {
 			it('resets all state', () => {
 				store.tasks = [{ id: 1 }]
-				store.templates = [{ id: 1 }]
 				store.loading = true
 				store.error = 'Error'
 
 				store.reset()
 
 				expect(store.tasks).toEqual([])
-				expect(store.templates).toEqual([])
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
 			})

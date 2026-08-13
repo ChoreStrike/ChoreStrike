@@ -146,7 +146,6 @@ class RoomControllerIntegrationTest extends TestCase {
 		$task->setFrequencyValue(1);
 		$task->setSchedulingMode('flexible');
 		$task->setScopeType('house');
-		$task->setIsTemplate(false);
 		$task->setIsVoluntary(false);
 		$task->setAllowTeamwork(false);
 		$task->setTeamSparkMultiplier(1.0);

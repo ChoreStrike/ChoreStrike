@@ -41,9 +41,6 @@ return [
         // so a later /tasks/daily would be swallowed by /tasks/{id}
         // (shadowing bug fixed by CS-PLAN-023; guarded by RouteMatrixTest).
         ['name' => 'task#index', 'url' => '/api/v1/tasks', 'verb' => 'GET'],
-        ['name' => 'task#templates', 'url' => '/api/v1/tasks/templates', 'verb' => 'GET'],
-        ['name' => 'task#createFromTemplate', 'url' => '/api/v1/tasks/create-from-template/{templateId}', 'verb' => 'POST'],
-        ['name' => 'task#createDefaultTemplates', 'url' => '/api/v1/tasks/create-default-templates', 'verb' => 'POST'],
         ['name' => 'task#byCategory', 'url' => '/api/v1/tasks/category/{category}', 'verb' => 'GET'],
         ['name' => 'task#search', 'url' => '/api/v1/tasks/search', 'verb' => 'GET'],
         ['name' => 'task#categories', 'url' => '/api/v1/tasks/categories', 'verb' => 'GET'],
@@ -64,6 +61,7 @@ return [
         ['name' => 'room_task#index', 'url' => '/api/v1/room-tasks', 'verb' => 'GET'],
         ['name' => 'room_task#overdue', 'url' => '/api/v1/room-tasks/overdue', 'verb' => 'GET'],
         ['name' => 'room_task#dueToday', 'url' => '/api/v1/room-tasks/due-today', 'verb' => 'GET'],
+        ['name' => 'room_task#fromTemplate', 'url' => '/api/v1/room-tasks/from-template', 'verb' => 'POST'],
         ['name' => 'room_task#dueWithinDays', 'url' => '/api/v1/room-tasks/due-within-days', 'verb' => 'GET'],
         ['name' => 'room_task#range', 'url' => '/api/v1/room-tasks/range', 'verb' => 'GET'],
         ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],
@@ -118,16 +116,10 @@ return [
         // Re-add with AuthorizationService gating if the smart-schedule UX
         // is revived. See docs/adr/ADR-005-smart-scheduling.md (Superseded).
 
-        // Template API
-        ['name' => 'template#index', 'url' => '/api/v1/templates', 'verb' => 'GET'],
-        ['name' => 'template#categories', 'url' => '/api/v1/templates/categories', 'verb' => 'GET'],
-        ['name' => 'template#byCategory', 'url' => '/api/v1/templates/category/{category}', 'verb' => 'GET'],
-        ['name' => 'template#byRoomType', 'url' => '/api/v1/templates/room-type/{roomType}', 'verb' => 'GET'],
-        ['name' => 'template#search', 'url' => '/api/v1/templates/search', 'verb' => 'GET'],
-        ['name' => 'template#suggestions', 'url' => '/api/v1/templates/suggestions/{roomName}', 'verb' => 'GET'],
-        ['name' => 'template#import', 'url' => '/api/v1/templates/import/{templateId}', 'verb' => 'POST'],
-        ['name' => 'template#bulkImport', 'url' => '/api/v1/templates/bulk-import', 'verb' => 'POST'],
-        ['name' => 'template#statistics', 'url' => '/api/v1/templates/statistics', 'verb' => 'GET'],
+        // Template API — removed (CS-PLAN-027 D7): the dead JSON
+        // TemplateController endpoints were superseded by the setup catalog
+        // (setup#catalog) and the per-room from-template endpoint
+        // (room_task#fromTemplate). The v2 catalog lives in TemplateService.
 
         // Checklist API
         ['name' => 'checklist#getTaskItems', 'url' => '/api/v1/checklists/task/{taskId}', 'verb' => 'GET'],
@@ -171,5 +163,9 @@ return [
         // Reward Config API
         ['name' => 'reward_config#index', 'url' => '/api/v1/reward-config', 'verb' => 'GET'],
         ['name' => 'reward_config#update', 'url' => '/api/v1/reward-config', 'verb' => 'PUT'],
+
+        // Setup Wizard API (CS-PLAN-027) — first-run house setup
+        ['name' => 'setup#catalog', 'url' => '/api/v1/setup/catalog', 'verb' => 'GET'],
+        ['name' => 'setup#apply', 'url' => '/api/v1/setup/apply', 'verb' => 'POST'],
     ]
 ];

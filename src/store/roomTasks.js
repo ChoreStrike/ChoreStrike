@@ -220,6 +220,28 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
+		 * Create a room task from a catalog template (per-room picker).
+		 * @param {object} payload { roomId, templateId, level?, overrides?, assigneeUserId? }
+		 * @return {Promise<object>} Created room task
+		 */
+		async createFromTemplate(payload) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const data = await api.post('/api/v1/room-tasks/from-template', payload)
+				this.roomTasks.push(data)
+				return data
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to create room task from template', error, { store: 'roomTasks', action: 'createFromTemplate', templateId: payload?.templateId })
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
 		 * Assign room task to user
 		 * @param {number} roomTaskId Room task identifier to assign.
 		 * @param {string} userId User identifier receiving the assignment.

@@ -121,9 +121,10 @@ class RoomService {
 	 * @param int $floorId The floor ID
 	 * @param string $name The room name
 	 * @param ?string $icon The configured room icon
+	 * @param string $roomType The room type (defaults to 'generic')
 	 */
-	public function createRoom(int $floorId, string $name, ?string $icon = null): Room {
-		return $this->roomMapper->create($floorId, $name, $icon);
+	public function createRoom(int $floorId, string $name, ?string $icon = null, string $roomType = 'generic'): Room {
+		return $this->roomMapper->create($floorId, $name, $icon, $roomType);
 	}
 
 	/**

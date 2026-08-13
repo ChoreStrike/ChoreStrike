@@ -50,7 +50,7 @@
 			<div class="tasks-section">
 				<div class="section-header">
 					<h2>{{ t('chorestrike', 'Tasks') }}</h2>
-					<button class="primary-button" data-testid="add-task-button" @click="showAddTaskModal = true">
+					<button class="primary-button" data-testid="add-task-button" @click="openAddTask">
 						<Icon name="Plus" :size="16" class="icon" />
 						{{ t('chorestrike', 'Add Task') }}
 					</button>
@@ -66,7 +66,16 @@
 		</main>
 
 		<Modal v-if="showAddTaskModal" @close="showAddTaskModal = false">
+			<TaskTemplatePicker
+				v-if="addTaskMode === 'template'"
+				:room-id="roomId"
+				:room-type="roomType"
+				data-testid="add-task-picker"
+				@custom="addTaskMode = 'custom'"
+				@created="handleTemplateCreated"
+				@error="handleTemplateError" />
 			<TaskForm
+				v-else
 				:room-id="roomId"
 				@submit="handleAddTask"
 				@cancel="showAddTaskModal = false" />
@@ -92,6 +101,7 @@ import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
 import TaskForm from '../components/Tasks/TaskForm.vue'
+import TaskTemplatePicker from '../components/Tasks/TaskTemplatePicker.vue'
 import Modal from '../components/Common/Modal.vue'
 
 export default {
@@ -101,6 +111,7 @@ export default {
 		Icon,
 		TaskList,
 		TaskForm,
+		TaskTemplatePicker,
 		Modal,
 	},
 
@@ -123,6 +134,7 @@ export default {
 		return {
 			loading: false,
 			showAddTaskModal: false,
+			addTaskMode: 'template',
 			showEditTaskModal: false,
 			editingTask: null,
 		}
@@ -135,6 +147,10 @@ export default {
 
 		room() {
 			return this.roomsStore.getRoomById(this.roomId)
+		},
+
+		roomType() {
+			return this.room?.roomType || 'generic'
 		},
 
 		floor() {
@@ -184,6 +200,10 @@ export default {
 
 	methods: {
 		t,
+		openAddTask() {
+			this.addTaskMode = 'template'
+			this.showAddTaskModal = true
+		},
 		async initializeRoom() {
 			this.loading = true
 			try {
@@ -234,6 +254,18 @@ export default {
 				.catch(error => {
 					logger.error('Failed to create task', error, { view: 'RoomDetail', action: 'handleAddTask', roomId: this.roomId })
 				})
+		},
+
+		handleTemplateCreated() {
+			this.showAddTaskModal = false
+			this.roomTasksStore.fetchRoomTasks(this.roomId)
+				.catch(error => {
+					logger.error('Failed to reload room tasks after template creation', error, { view: 'RoomDetail', action: 'handleTemplateCreated', roomId: this.roomId })
+				})
+		},
+
+		handleTemplateError(error) {
+			logger.error('Failed to create task from template', error, { view: 'RoomDetail', action: 'handleTemplateError', roomId: this.roomId })
 		},
 
 		handleUpdateTask(taskData) {

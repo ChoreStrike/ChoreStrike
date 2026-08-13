@@ -192,6 +192,18 @@ class HouseService {
 	}
 
 	/**
+	 * Whether the house has any floors yet.
+	 *
+	 * Used by the first-run setup gate (the wizard is only available while the
+	 * house is structurally empty — decision D3).
+	 *
+	 * @param int $houseId The house ID
+	 */
+	public function hasFloors(int $houseId): bool {
+		return $this->floorMapper->findByHouseId($houseId) !== [];
+	}
+
+	/**
 	 * Compute the weekly household goal progress for a house.
 	 *
 	 * The household "reaches" its goal when the share of completed work meets

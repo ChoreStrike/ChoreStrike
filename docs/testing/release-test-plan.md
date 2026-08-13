@@ -127,12 +127,16 @@ expected behaviour stays documented for exploratory spot-checks.
 
 ## 3. First-Run & House Setup
 
-Route surface: `page#index`, `house#get/update/stats/health/reset`.
+Route surface: `page#index`, `house#get/update/stats/health/reset`, `setup#catalog/apply`.
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
 | App install & enable | Enable `chorestrike` via `occ` / app list | App appears in launcher, main page loads, no errors in `nextcloud.log` | — |
-| First-run house bootstrap | Open the app for the first time as a new user | A house is created automatically and the Dashboard renders | `gui-scratch-flow` |
+| First-run house bootstrap | Open the app for the first time as a new user | A house is created automatically, the Dashboard renders, and the setup wizard opens (house has no floors) | `gui-scratch-flow` |
+| Setup wizard — quick start | Pick home type, floors, basement, rooms/floor, Putzteufel/Putzmuffel; advance | A generated, editable room list (name, room type, person) appears | `release-setup-wizard` (gate only), `SetupWizard` Jest spec |
+| Setup wizard — apply | Apply the wizard | Floors, rooms (with room type), tasks from the leveled catalog, and per-room assignments are created in one transaction | `HouseSetupIntegrationTest`, `release-setup-wizard` (gate only) |
+| Setup wizard — skip | Click „Leer starten" | Wizard closes, empty house remains | `SetupWizard` Jest spec |
+| Wizard first-run gate | Open a house that already has floors | The wizard does not auto-open and `setup/apply` returns 409 | `release-setup-wizard` |
 | House name update | Edit the house name in Settings | Name persists after reload | — |
 | House health | Complete/skip a few tasks, reopen Dashboard | House health bar reflects recent activity | `dashboard` |
 | House reset (owner only) | Trigger house reset as owner, then as a non-owner | Owner succeeds; non-owner is denied (403) | partial `settings` (happy-path UI only; 403 branch still manual) |
@@ -173,7 +177,7 @@ Route surface: `task#*`, `room_task#*`, `checklist#*`.
 | Assignees | Assign / unassign members; multi-assign | Assignee set persists; multi-assign works | `task-manager` |
 | Deactivate / reactivate | Deactivate then reactivate a room-task | Task hides from active lists, then returns | `release-task-lifecycle` |
 | Checklist items | Add / toggle / reorder / delete checklist items on a task | Progress tracked; room-task checklist progress updates | `task-checklist-and-features` |
-| Task templates | Create from / import a task template | Task created with template defaults | `task-manager`, `release-task-templates` |
+| Task templates (per-room picker) | Open a room's add-task flow, pick a template (filtered by room type + house-wide), adjust overrides, add | A room task is created from the template; custom-task path still works | `release-task-templates`, `TaskTemplatePicker` Jest spec |
 
 ---
 

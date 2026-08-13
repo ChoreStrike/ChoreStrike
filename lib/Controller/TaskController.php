@@ -156,7 +156,6 @@ class TaskController extends Controller {
 		?string $activeFrom = null,
 		?string $activeUntil = null,
 		bool $isVoluntary = false,
-		bool $isTemplate = false,
 		string $schedulingMode = 'dynamic',
 		?string $fixedScheduleTime = null,
 		?string $fixedScheduleDays = null,
@@ -289,7 +288,6 @@ class TaskController extends Controller {
 				$activeFromDate,
 				$activeUntilDate,
 				$isVoluntary,
-				$isTemplate,
 				$schedulingMode,
 				$fixedScheduleTimeDate,
 				$fixedScheduleDays,
@@ -540,76 +538,6 @@ class TaskController extends Controller {
 	}
 
 	/**
-	 * Get task templates
-	 *
-	 * @NoAdminRequired
-	 */
-	public function templates(): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
-
-			$templates = $this->taskService->getTaskTemplates();
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => array_map(fn ($template) => $template->jsonSerialize(), $templates)
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('templates', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'TEMPLATES_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Create task from template
-	 *
-	 * @NoAdminRequired
-	 */
-	public function createFromTemplate(int $templateId): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
-
-			$task = $this->taskService->createFromTemplate($templateId);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $task->jsonSerialize()
-			]);
-		} catch (NotFoundException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'RESOURCE_NOT_FOUND',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 404);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('createFromTemplate', $e, ['templateId' => $templateId]);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'CREATE_FROM_TEMPLATE_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
 	 * Get tasks by category
 	 *
 	 * @NoAdminRequired
@@ -706,38 +634,6 @@ class TaskController extends Controller {
 				'success' => false,
 				'error' => [
 					'code' => 'CATEGORIES_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Create default task templates
-	 *
-	 * @NoAdminRequired
-	 */
-	public function createDefaultTemplates(): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
-
-			$templates = $this->taskService->createDefaultTemplates();
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => array_map(fn ($template) => $template->jsonSerialize(), $templates),
-				'message' => 'Default task templates created successfully'
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('createDefaultTemplates', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'CREATE_DEFAULT_TEMPLATES_ERROR',
 					'message' => ControllerErrorFormatter::safeMessage($e)
 				]
 			], 500);

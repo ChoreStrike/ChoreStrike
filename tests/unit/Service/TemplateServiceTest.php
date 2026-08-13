@@ -4,299 +4,260 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\TemplateService;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for TemplateService
+ * Unit tests for the v2 room-type-based TemplateService.
  */
 class TemplateServiceTest extends TestCase {
 	private TemplateService $service;
-	private TaskMapper $taskMapper;
 	private IL10N $l10n;
-
-	private const FIXTURE_TEMPLATES = [
-		[
-			'id' => 'tpl-kitchen-01',
-			'name' => 'Wipe Counters',
-			'description' => 'Clean kitchen counters',
-			'category' => 'kitchen',
-			'scopeType' => 'room',
-			'scopeLabel' => 'Kitchen',
-			'energyCost' => 5,
-			'priority' => 'medium',
-			'frequencyType' => 'daily',
-			'frequencyValue' => 1,
-			'estimatedMinutes' => 10,
-			'schedulingMode' => 'dynamic',
-			'tags' => ['cleaning', 'kitchen'],
-		],
-		[
-			'id' => 'tpl-bath-01',
-			'name' => 'Scrub Toilet',
-			'description' => 'Clean the toilet',
-			'category' => 'bathroom',
-			'scopeType' => 'room',
-			'scopeLabel' => 'Bathroom',
-			'energyCost' => 8,
-			'priority' => 'high',
-			'frequencyType' => 'weekly',
-			'frequencyValue' => 1,
-			'estimatedMinutes' => 15,
-			'schedulingMode' => 'static',
-			'fixedScheduleTime' => '09:00',
-			'fixedScheduleDays' => ['saturday'],
-			'tags' => ['cleaning', 'bathroom'],
-		],
-		[
-			'id' => 'tpl-general-01',
-			'name' => 'Vacuum',
-			'description' => 'Vacuum all rooms',
-			'category' => 'general',
-			'scopeType' => 'house',
-			'scopeLabel' => '',
-			'energyCost' => 12,
-			'priority' => 'medium',
-			'frequencyType' => 'weekly',
-			'frequencyValue' => 2,
-			'estimatedMinutes' => 30,
-			'schedulingMode' => 'dynamic',
-			'tags' => ['cleaning'],
-		],
-	];
 
 	protected function setUp(): void {
 		parent::setUp();
 
-		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->l10n = $this->createMock(IL10N::class);
+		// t() is the identity function for tests; the catalog ships English
+		// source text so this mirrors the untranslated (en) path exactly.
 		$this->l10n->method('t')->willReturnCallback(fn ($text) => $text);
 
-		$this->service = new TemplateService($this->taskMapper, $this->l10n);
+		$this->service = new TemplateService($this->l10n);
 
-		$this->injectTemplates(self::FIXTURE_TEMPLATES);
+		$this->injectProperty('templatesCache', self::FIXTURE_TEMPLATES);
+		$this->injectProperty('templatesById', null);
+		$this->injectProperty('roomTypesCache', self::FIXTURE_ROOM_TYPES);
 	}
 
-	private function injectTemplates(array $templates): void {
-		$ref = new \ReflectionProperty(TemplateService::class, 'templates');
+	private function injectProperty(string $name, $value): void {
+		$ref = new \ReflectionProperty(TemplateService::class, $name);
 		$ref->setAccessible(true);
-		$ref->setValue($this->service, $templates);
+		$ref->setValue($this->service, $value);
 	}
 
-	public function testGetAllTemplates_ReturnsInjectedTemplates(): void {
-		$result = $this->service->getAllTemplates();
+	private const FIXTURE_ROOM_TYPES = [
+		['id' => 'kitchen', 'defaultName' => 'Kitchen', 'icon' => 'Utensils', 'templateIds' => ['kitchen_counters', 'shared_dust']],
+		['id' => 'bathroom', 'defaultName' => 'Bathroom', 'icon' => 'Bath', 'templateIds' => ['bathroom_toilet']],
+		['id' => 'household', 'defaultName' => 'Household & Co.', 'icon' => 'WashingMachine', 'templateIds' => ['household_trash']],
+	];
 
-		$this->assertCount(3, $result);
-		$this->assertEquals('tpl-kitchen-01', $result[0]['id']);
+	private const FIXTURE_TEMPLATES = [
+		[
+			'id' => 'kitchen_counters',
+			'name' => 'Wipe kitchen counters',
+			'description' => 'Clear and wipe down the countertops.',
+			'instructions' => 'Spray and wipe.',
+			'category' => 'cleaning',
+			'energyCost' => 1,
+			'priority' => 3,
+			'roomTypes' => ['kitchen'],
+			'levels' => [
+				'putzteufel' => ['frequencyType' => 'daily', 'frequencyValue' => 1, 'estimatedMinutes' => 10],
+				'putzmuffel' => null,
+			],
+			'tags' => ['daily', 'hygiene'],
+		],
+		[
+			'id' => 'shared_dust',
+			'name' => 'Dust surfaces',
+			'description' => 'Dust the surfaces.',
+			'instructions' => 'Work top to bottom.',
+			'category' => 'cleaning',
+			'energyCost' => 2,
+			'priority' => 2,
+			'roomTypes' => ['kitchen', 'living', 'generic'],
+			'levels' => [
+				'putzteufel' => ['frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15],
+				'putzmuffel' => ['frequencyType' => 'weekly', 'frequencyValue' => 2, 'estimatedMinutes' => 12],
+			],
+			'tags' => ['weekly', 'dust'],
+		],
+		[
+			'id' => 'bathroom_toilet',
+			'name' => 'Clean toilet',
+			'description' => 'Scrub the bowl.',
+			'instructions' => 'Scrub and wipe.',
+			'category' => 'cleaning',
+			'energyCost' => 3,
+			'priority' => 3,
+			'roomTypes' => ['bathroom'],
+			'levels' => [
+				'putzteufel' => ['frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15],
+				'putzmuffel' => ['frequencyType' => 'weekly', 'frequencyValue' => 2, 'estimatedMinutes' => 12],
+			],
+			'tags' => ['weekly', 'hygiene'],
+		],
+		[
+			'id' => 'household_trash',
+			'name' => 'Take out all trash',
+			'description' => 'Empty the bins.',
+			'instructions' => 'Empty and reline.',
+			'category' => 'cleaning',
+			'energyCost' => 2,
+			'priority' => 3,
+			'roomTypes' => ['household'],
+			'levels' => [
+				'putzteufel' => ['frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15],
+				'putzmuffel' => ['frequencyType' => 'weekly', 'frequencyValue' => 1, 'estimatedMinutes' => 15],
+			],
+			'tags' => ['weekly', 'trash'],
+		],
+	];
+
+	public function testGetCatalog_ReturnsLevelsRoomTypesAndTemplates(): void {
+		$catalog = $this->service->getCatalog();
+
+		$this->assertArrayHasKey('levels', $catalog);
+		$this->assertArrayHasKey('roomTypes', $catalog);
+		$this->assertArrayHasKey('templates', $catalog);
+
+		$this->assertCount(2, $catalog['levels']);
+		$this->assertSame(['putzteufel', 'putzmuffel'], array_column($catalog['levels'], 'id'));
+		$this->assertCount(4, $catalog['templates']);
 	}
 
-	public function testGetTemplate_ExistingId_ReturnsTemplate(): void {
-		$result = $this->service->getTemplate('tpl-bath-01');
+	public function testGetRoomTypes_AreLocalizedAndCarryTemplateIds(): void {
+		$roomTypes = $this->service->getRoomTypes();
 
-		$this->assertNotNull($result);
-		$this->assertEquals('Scrub Toilet', $result['name']);
+		$this->assertCount(3, $roomTypes);
+		$kitchen = $roomTypes[0];
+		$this->assertSame('kitchen', $kitchen['id']);
+		$this->assertSame('Kitchen', $kitchen['defaultName']);
+		$this->assertSame('Utensils', $kitchen['icon']);
+		$this->assertSame(['kitchen_counters', 'shared_dust'], $kitchen['templateIds']);
 	}
 
-	public function testGetTemplate_UnknownId_ReturnsNull(): void {
-		$this->assertNull($this->service->getTemplate('nonexistent'));
+	public function testIsValidRoomType(): void {
+		$this->assertTrue($this->service->isValidRoomType('kitchen'));
+		$this->assertFalse($this->service->isValidRoomType('dungeon'));
 	}
 
-	public function testGetTemplatesByCategory_FiltersCorrectly(): void {
-		$result = $this->service->getTemplatesByCategory('kitchen');
+	public function testGetTemplatesForRoomType_IsMultiValued(): void {
+		// shared_dust lists both kitchen and living — both must match.
+		$kitchen = $this->service->getTemplatesForRoomType('kitchen');
+		$ids = array_column($kitchen, 'id');
 
-		$this->assertCount(1, $result);
-		$this->assertEquals('tpl-kitchen-01', array_values($result)[0]['id']);
+		$this->assertContains('kitchen_counters', $ids);
+		$this->assertContains('shared_dust', $ids);
+		$this->assertNotContains('household_trash', $ids);
 	}
 
-	public function testGetTemplatesByCategory_NoMatch_ReturnsEmpty(): void {
-		$this->assertEmpty($this->service->getTemplatesByCategory('garage'));
+	public function testGetTemplatesForRoomType_LivingMatchesSharedTemplate(): void {
+		$living = $this->service->getTemplatesForRoomType('living');
+
+		$this->assertSame(['shared_dust'], array_column($living, 'id'));
 	}
 
-	public function testGetTemplatesByRoomType_MatchesScopeLabel(): void {
-		$result = $this->service->getTemplatesByRoomType('Kitchen');
-
-		$this->assertGreaterThanOrEqual(1, count($result));
-		$ids = array_column(array_values($result), 'id');
-		$this->assertContains('tpl-kitchen-01', $ids);
-	}
-
-	public function testGetTemplatesByRoomType_IncludesHouseScope(): void {
-		$result = $this->service->getTemplatesByRoomType('Kitchen');
-
-		$ids = array_column(array_values($result), 'id');
-		$this->assertContains('tpl-general-01', $ids);
+	public function testGetTemplatesForRoomType_UnknownType_ReturnsEmpty(): void {
+		$this->assertSame([], $this->service->getTemplatesForRoomType('dungeon'));
 	}
 
 	public function testSearchTemplates_MatchesName(): void {
-		$result = $this->service->searchTemplates('vacuum');
+		$result = $this->service->searchTemplates('toilet');
 
-		$this->assertCount(1, $result);
-		$this->assertEquals('tpl-general-01', array_values($result)[0]['id']);
+		$this->assertSame(['bathroom_toilet'], array_column($result, 'id'));
 	}
 
 	public function testSearchTemplates_MatchesTag(): void {
-		$result = $this->service->searchTemplates('bathroom');
+		$result = $this->service->searchTemplates('trash');
 
-		$this->assertCount(1, $result);
+		$this->assertSame(['household_trash'], array_column($result, 'id'));
+	}
+
+	public function testSearchTemplates_EmptyQuery_ReturnsAll(): void {
+		$this->assertCount(4, $this->service->searchTemplates(''));
 	}
 
 	public function testSearchTemplates_NoMatch_ReturnsEmpty(): void {
-		$this->assertEmpty($this->service->searchTemplates('zzzznotfound'));
+		$this->assertSame([], $this->service->searchTemplates('zzzz'));
 	}
 
-	public function testGetCategories_ReturnsSortedUnique(): void {
-		$result = $this->service->getCategories();
+	public function testMaterializeTemplate_Putzteufel_UsesStandardFrequency(): void {
+		$payload = $this->service->materializeTemplate('kitchen_counters', TemplateService::LEVEL_PUTZTEUFEL);
 
-		$this->assertEquals(['bathroom', 'general', 'kitchen'], $result);
+		$this->assertSame('Wipe kitchen counters', $payload['name']);
+		$this->assertSame('daily', $payload['frequencyType']);
+		$this->assertSame(1, $payload['frequencyValue']);
+		$this->assertSame(10, $payload['estimatedMinutes']);
+		$this->assertSame(1, $payload['energyCost']);
+		$this->assertSame('room', $payload['scopeType']);
+		$this->assertSame('dynamic', $payload['schedulingMode']);
 	}
 
-	public function testGetRoomTypes_ReturnsSortedUnique(): void {
-		$result = $this->service->getRoomTypes();
+	public function testMaterializeTemplate_Putmuffel_UsesRelaxedFrequency(): void {
+		$payload = $this->service->materializeTemplate('shared_dust', TemplateService::LEVEL_PUTZMUFFEL);
 
-		$this->assertContains('Bathroom', $result);
-		$this->assertContains('Kitchen', $result);
+		// Putzmuffel roughly halves the frequency and shortens the time.
+		$this->assertSame('weekly', $payload['frequencyType']);
+		$this->assertSame(2, $payload['frequencyValue']);
+		$this->assertSame(12, $payload['estimatedMinutes']);
 	}
 
-	public function testImportTemplate_ValidId_CreatesTask(): void {
-		$task = new Task();
-		$task->setId(42);
-		$task->setName('Wipe Counters');
-
-		$this->taskMapper->expects($this->once())
-			->method('create')
-			->with(
-				'Wipe Counters',
-				'Clean kitchen counters',
-				5,
-				2,
-				'daily',
-				1,
-				10,
-				'kitchen',
-				'room',
-				'Kitchen',
-				'recurring',
-				null,
-				null,
-				false,
-				false,
-				'dynamic',
-				null,
-				null
-			)
-			->willReturn($task);
-
-		$result = $this->service->importTemplate('tpl-kitchen-01');
-
-		$this->assertSame($task, $result);
-	}
-
-	public function testImportTemplate_WithFixedSchedule_ParsesTime(): void {
-		$task = new Task();
-		$task->setId(43);
-
-		$this->taskMapper->expects($this->once())
-			->method('create')
-			->with(
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				$this->anything(),
-				'static',
-				$this->callback(fn ($dt) => $dt instanceof \DateTime),
-				json_encode(['saturday'])
-			)
-			->willReturn($task);
-
-		$this->service->importTemplate('tpl-bath-01');
-	}
-
-	public function testImportTemplate_UnknownId_ThrowsInvalidArgument(): void {
+	public function testMaterializeTemplate_LevelExclusiveNull_Throws(): void {
 		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Template not found: nonexistent');
+		$this->expectExceptionMessage('not available for level');
 
-		$this->service->importTemplate('nonexistent');
+		// kitchen_counters has putzmuffel === null.
+		$this->service->materializeTemplate('kitchen_counters', TemplateService::LEVEL_PUTZMUFFEL);
 	}
 
-	public function testBulkImport_MultipleIds_CreatesAll(): void {
-		$task1 = new Task();
-		$task1->setId(1);
-		$task2 = new Task();
-		$task2->setId(2);
+	public function testMaterializeTemplate_UnknownTemplate_Throws(): void {
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Template not found');
 
-		$this->taskMapper->method('create')
-			->willReturnOnConsecutiveCalls($task1, $task2);
-
-		$result = $this->service->bulkImport(['tpl-kitchen-01', 'tpl-bath-01']);
-
-		$this->assertCount(2, $result);
+		$this->service->materializeTemplate('nope', TemplateService::LEVEL_PUTZTEUFEL);
 	}
 
-	public function testBulkImport_SkipsInvalidIds(): void {
-		$task = new Task();
-		$task->setId(1);
+	public function testMaterializeTemplate_InvalidLevel_Throws(): void {
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Invalid cleaning level');
 
-		$this->taskMapper->method('create')->willReturn($task);
-
-		$result = $this->service->bulkImport(['tpl-kitchen-01', 'bad-id']);
-
-		$this->assertCount(1, $result);
+		$this->service->materializeTemplate('shared_dust', 'gammypuss');
 	}
 
-	public function testGetSuggestionsForRoom_Kitchen_ReturnsKitchenTemplates(): void {
-		$result = $this->service->getSuggestionsForRoom('Kitchen');
+	public function testMaterializeTemplate_OverridesApplied(): void {
+		$payload = $this->service->materializeTemplate(
+			'shared_dust',
+			TemplateService::LEVEL_PUTZTEUFEL,
+			[
+				'name' => 'My dust task',
+				'frequencyValue' => 3,
+				'estimatedMinutes' => 20,
+				'energyCost' => 4,
+			]
+		);
 
-		$this->assertNotEmpty($result);
+		$this->assertSame('My dust task', $payload['name']);
+		$this->assertSame(3, $payload['frequencyValue']);
+		$this->assertSame(20, $payload['estimatedMinutes']);
+		$this->assertSame(4, $payload['energyCost']);
+		// Non-overridden fields keep their catalog/level values.
+		$this->assertSame('weekly', $payload['frequencyType']);
 	}
 
-	public function testGetSuggestionsForRoom_UnknownRoom_ReturnsEmpty(): void {
-		$this->assertEmpty($this->service->getSuggestionsForRoom('Dungeon'));
+	public function testMaterializeTemplate_OverridesIgnoreNull(): void {
+		$payload = $this->service->materializeTemplate(
+			'shared_dust',
+			TemplateService::LEVEL_PUTZTEUFEL,
+			['name' => null]
+		);
+
+		$this->assertSame('Dust surfaces', $payload['name']);
 	}
 
-	public function testGetStatistics_ReturnsCountsByCategory(): void {
-		$stats = $this->service->getStatistics();
+	public function testLocalizedTemplate_NormalizesLevels(): void {
+		$catalog = $this->service->getCatalog();
+		$kitchen = null;
+		foreach ($catalog['templates'] as $template) {
+			if ($template['id'] === 'kitchen_counters') {
+				$kitchen = $template;
+				break;
+			}
+		}
 
-		$this->assertEquals(3, $stats['total']);
-		$this->assertEquals(1, $stats['byCategory']['kitchen']);
-		$this->assertEquals(1, $stats['byCategory']['bathroom']);
-		$this->assertEquals(1, $stats['byCategory']['general']);
-		$this->assertEquals(2, $stats['bySchedulingMode']['dynamic']);
-		$this->assertEquals(1, $stats['bySchedulingMode']['static']);
-	}
-
-	public function testGetLocalizedTemplates_TranslatesFields(): void {
-		$result = $this->service->getLocalizedTemplates();
-
-		$this->assertCount(3, $result);
-		$this->assertEquals('Wipe Counters', $result[0]['name']);
-	}
-
-	public function testLoadTemplates_EmptyCache_ReturnsEmptyWhenNoFile(): void {
-		$service = new TemplateService($this->taskMapper, $this->l10n);
-
-		$ref = new \ReflectionProperty(TemplateService::class, 'templates');
-		$ref->setAccessible(true);
-		$ref->setValue($service, null);
-
-		$fileRef = new \ReflectionMethod(TemplateService::class, 'loadTemplates');
-		$fileRef->setAccessible(true);
-
-		$result = $fileRef->invoke($service);
-
-		$this->assertIsArray($result);
+		$this->assertNotNull($kitchen);
+		$this->assertNull($kitchen['levels']['putzmuffel']);
+		$this->assertSame('daily', $kitchen['levels']['putzteufel']['frequencyType']);
 	}
 }

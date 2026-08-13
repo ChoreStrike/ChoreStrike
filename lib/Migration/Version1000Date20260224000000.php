@@ -59,6 +59,7 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('name', 'string', ['notnull' => true, 'length' => 255]);
 			$table->addColumn('cleanliness', 'integer', ['notnull' => true, 'default' => 50]);
 			$table->addColumn('monster_count', 'integer', ['notnull' => true, 'default' => 0]);
+			$table->addColumn('room_type', 'string', ['notnull' => true, 'length' => 50, 'default' => 'generic']);
 			$table->addColumn('last_cleaned', 'datetime', ['notnull' => false]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
 			$table->setPrimaryKey(['id'], 'pk_rooms');
@@ -77,10 +78,8 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('frequency_value', 'integer', ['notnull' => true, 'default' => 1]);
 			$table->addColumn('estimated_minutes', 'integer', ['notnull' => true, 'default' => 15]);
 			$table->addColumn('category', 'string', ['notnull' => true, 'length' => 50, 'default' => 'cleaning']);
-			$table->addColumn('is_template', 'boolean', ['notnull' => false, 'default' => 0]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
 			$table->setPrimaryKey(['id'], 'pk_tasks');
-			$table->addIndex(['is_template'], 'idx_task_tpl');
 			$table->addIndex(['category'], 'idx_task_cat');
 		}
 

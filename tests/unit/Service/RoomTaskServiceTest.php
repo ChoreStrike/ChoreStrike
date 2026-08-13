@@ -53,7 +53,8 @@ class RoomTaskServiceTest extends TestCase {
 			$this->roomService,
 			$this->taskAssigneeMapper,
 			$this->houseUserMapper,
-			$this->createMock(CompletedTaskMapper::class)
+			$this->createMock(CompletedTaskMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class)
 		);
 	}
 

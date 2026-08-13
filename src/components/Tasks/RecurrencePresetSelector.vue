@@ -26,7 +26,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common/index.js'
 
 export default {
-	name: 'TemplateSelector',
+	name: 'RecurrencePresetSelector',
 
 	components: {
 		Icon,

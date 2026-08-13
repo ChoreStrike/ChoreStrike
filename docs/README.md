@@ -39,6 +39,7 @@ Use this document to find the right ChoreStrike documentation quickly.
 - [`concepts/gamification-and-rewards.md`](concepts/gamification-and-rewards.md) — reward model and motivation design
 - [`concepts/energy-and-balancing.md`](concepts/energy-and-balancing.md) — balancing principles and energy model
 - [`concepts/task-model-and-sync.md`](concepts/task-model-and-sync.md) — task data model and synchronization ideas
+- [`concepts/house-setup-and-templates.md`](concepts/house-setup-and-templates.md) — first-run setup wizard & room-type cleaning template catalog (CS-PLAN-027)
 - [`concepts/i18n-and-content-policy.md`](concepts/i18n-and-content-policy.md) — wording and content policy context
 - [`adr/README.md`](adr/README.md) — architecture decision records index
 

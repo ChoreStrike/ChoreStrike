@@ -2,121 +2,132 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  *
- * Release E2E regression — Task Templates (CS-PLAN-024, Phase 4; absorbed
- * from CS-022 Phase 5).
+ * Release E2E regression — Task Templates (rewritten for CS-PLAN-027 v2).
  *
- * Covers the template-catalog half of the release-test-plan.md §5 "Task
- * templates" row (create/import). The template catalog is a static JSON file
- * (`lib/Templates/TaskTemplates.json`), so the read paths are available
- * without seeding; the import paths create real Task rows.
+ * The v2 catalog is a static JSON file materialized via TemplateService and
+ * exposed through the setup catalog endpoint. The legacy DB-backed
+ * `/api/v1/templates/*` endpoints were removed (decision D7); their
+ * room-type filtering + import behaviour is now covered by the catalog and
+ * the per-room from-template endpoint.
  *
  * Verified:
- *  - GET /templates returns the catalog (non-empty, with categories).
- *  - GET /templates/category/{cat} filters by category.
- *  - POST /templates/import/{id} creates a task from a template.
- *  - POST /templates/bulk-import creates one task per requested id.
+ *  - GET /setup/catalog returns levels, room types, and templates.
+ *  - Room-type filtering: a template lists the room types it applies to.
+ *  - POST /room-tasks/from-template creates a room task from a template.
  *
- * Seed-mutating (template import inserts Task rows): registered in
+ * Seed-mutating (from-template inserts Task + RoomTask rows): registered in
  * `SEED_DEPENDENT_SPECS` (chromium-serial-db).
  * Requires: Docker test environment with the `family` database profile.
  */
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
-import type { Page } from '@playwright/test'
 
-interface TemplateJson {
+interface CatalogTemplate {
 	id: string
 	name: string
-	category?: string
+	roomTypes: string[]
+	levels: Record<string, unknown>
 }
 
-async function fetchTemplates(page: Page): Promise<TemplateJson[]> {
-	const response = await page.request.get('/apps/chorestrike/api/v1/templates', {
+interface Catalog {
+	levels: { id: string }[]
+	roomTypes: { id: string; defaultName: string }[]
+	templates: CatalogTemplate[]
+}
+
+async function fetchCatalog(page: import('@playwright/test').Page): Promise<Catalog> {
+	const response = await page.request.get('/apps/chorestrike/api/v1/setup/catalog', {
 		headers: { Accept: 'application/json' },
 	})
 	expect(response.status()).toBe(200)
 	const body = await response.json()
 	expect(body.success).toBe(true)
-	return (body.data || []) as TemplateJson[]
+	return body.data as Catalog
 }
 
-test.describe('Release: Task Templates', () => {
+async function firstRoomId(page: import('@playwright/test').Page): Promise<number> {
+	const response = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
+		headers: { Accept: 'application/json' },
+	})
+	expect(response.status()).toBe(200)
+	const body = await response.json()
+	const floors = body.data || []
+	for (const floor of floors) {
+		for (const room of floor.rooms || []) {
+			if (room.id) {
+				return room.id as number
+			}
+		}
+	}
+	throw new Error('No room found in seeded data')
+}
+
+test.describe('Release: Task Templates (v2 catalog)', () => {
 	test.use({ databaseProfile: 'family' })
 
-	test('template catalog is readable and filterable by category', async ({ browser, seededData }) => {
+	test('setup catalog returns levels, room types, and templates', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			const templates = await fetchTemplates(page)
-			expect(templates.length).toBeGreaterThan(0)
+			const catalog = await fetchCatalog(page)
 
-			const first = templates[0]
+			expect(catalog.levels.length).toBe(2)
+			expect(catalog.roomTypes.length).toBeGreaterThan(0)
+			expect(catalog.templates.length).toBeGreaterThan(0)
+
+			const first = catalog.templates[0]
 			expect(first.id).toBeTruthy()
 			expect(first.name).toBeTruthy()
-
-			// Categories endpoint is non-empty.
-			const catResponse = await page.request.get('/apps/chorestrike/api/v1/templates/categories', {
-				headers: { Accept: 'application/json' },
-			})
-			expect(catResponse.status()).toBe(200)
-			const catBody = await catResponse.json()
-			expect(Array.isArray(catBody.data)).toBe(true)
-			expect(catBody.data.length).toBeGreaterThan(0)
-
-			// Category filter returns only that category's templates.
-			const category = first.category ?? catBody.data[0]
-			const byCatResponse = await page.request.get(
-				`/apps/chorestrike/api/v1/templates/category/${encodeURIComponent(category)}`,
-				{ headers: { Accept: 'application/json' } },
-			)
-			expect(byCatResponse.status()).toBe(200)
-			const byCat = await byCatResponse.json()
-			expect(byCat.data.length).toBeGreaterThan(0)
+			expect(Array.isArray(first.roomTypes)).toBe(true)
+			expect(first.roomTypes.length).toBeGreaterThan(0)
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('importing a template creates a task with the template defaults', async ({ browser, seededData }) => {
+	test('a room type exposes the templates that apply to it', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			const templates = await fetchTemplates(page)
-			const template = templates[0]
+			const catalog = await fetchCatalog(page)
+			const roomType = catalog.roomTypes[0].id
 
-			const importResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/templates/import/${encodeURIComponent(template.id)}`,
-				{ headers: { Accept: 'application/json' } },
+			const applicable = catalog.templates.filter((t) => t.roomTypes.includes(roomType))
+			expect(applicable.length).toBeGreaterThan(0)
+		} finally {
+			await context.close()
+		}
+	})
+
+	test('creating a room task from a template succeeds', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const catalog = await fetchCatalog(page)
+			const roomId = await firstRoomId(page)
+			const roomResponse = await page.request.get(`/apps/chorestrike/api/v1/rooms/${roomId}`, {
+				headers: { Accept: 'application/json' },
+			})
+			const room = (await roomResponse.json()).data.room
+			const template = catalog.templates.find((t) => t.roomTypes.includes(room.roomType))
+				?? catalog.templates.find((t) => t.roomTypes.includes('household'))
+				?? catalog.templates[0]
+
+			const createResponse = await page.request.post(
+				'/apps/chorestrike/api/v1/room-tasks/from-template',
+				{
+					data: { roomId, templateId: template.id, level: 'putzteufel' },
+					headers: { Accept: 'application/json' },
+				},
 			)
-			expect(importResponse.status()).toBe(200)
-			const body = await importResponse.json()
+			expect(createResponse.status()).toBe(200)
+			const body = await createResponse.json()
 			expect(body.success).toBe(true)
 			expect(body.data.id).toBeTruthy()
-		} finally {
-			await context.close()
-		}
-	})
-
-	test('bulk-import creates one task per requested template id', async ({ browser, seededData }) => {
-		expect(seededData).not.toBeNull()
-
-		const { context, page } = await createUserContext(browser, 'mom')
-		try {
-			const templates = await fetchTemplates(page)
-			const ids = templates.slice(0, 2).map((t) => t.id)
-			expect(ids.length).toBe(2)
-
-			const bulkResponse = await page.request.post('/apps/chorestrike/api/v1/templates/bulk-import', {
-				data: { templateIds: ids },
-				headers: { Accept: 'application/json' },
-			})
-			expect(bulkResponse.status()).toBe(200)
-			const body = await bulkResponse.json()
-			expect(body.success).toBe(true)
-			expect(body.data.length).toBe(ids.length)
 		} finally {
 			await context.close()
 		}

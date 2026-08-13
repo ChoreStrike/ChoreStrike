@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from '@jest/globals'
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import Dashboard from '../../../src/views/Dashboard.vue'
@@ -21,13 +21,16 @@ jest.mock('../../../src/store/house.js', () => ({
 	}),
 }))
 
+// Mutable so individual tests can simulate an empty (first-run) house.
+const mockRoomsState = {
+	floors: [{ id: 1, name: 'Ground Floor' }],
+	rooms: [{ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 80 }],
+	loading: false,
+	fetchFloorsWithRooms: jest.fn(),
+}
+
 jest.mock('../../../src/store/rooms.js', () => ({
-	useRoomsStore: () => ({
-		floors: [{ id: 1, name: 'Ground Floor' }],
-		rooms: [{ id: 1, name: 'Kitchen', floorId: 1, cleanliness: 80 }],
-		loading: false,
-		fetchFloorsWithRooms: jest.fn(),
-	}),
+	useRoomsStore: () => mockRoomsState,
 }))
 
 jest.mock('../../../src/store/game.js', () => ({
@@ -58,12 +61,22 @@ jest.mock('../../../src/components/Dashboard/FloorList.vue', () => ({
 	template: '<div class="floor-list">Floor List</div>',
 }))
 
+jest.mock('../../../src/components/Setup/SetupWizard.vue', () => ({
+	name: 'SetupWizard',
+	emits: ['close', 'applied', 'skipped'],
+	template: '<div class="setup-wizard-stub" />',
+}))
+
 describe('Dashboard.vue', () => {
 	let pinia
 
 	beforeEach(() => {
 		pinia = createPinia()
 		setActivePinia(pinia)
+	})
+
+	afterEach(() => {
+		mockRoomsState.floors = [{ id: 1, name: 'Ground Floor' }]
 	})
 
 	it('renders dashboard component', () => {
@@ -134,6 +147,29 @@ describe('Dashboard.vue', () => {
 		})
 
 		expect(wrapper.find('.household-goal-bar').exists()).toBe(true)
+	})
+
+	it('hides the manual setup entry point once the house has floors', () => {
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(false)
+	})
+
+	it('shows the manual setup entry point while the house has no floors', async () => {
+		mockRoomsState.floors = []
+
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(true)
 	})
 
 	it('calls initializeDashboard on mount', async () => {

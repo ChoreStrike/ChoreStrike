@@ -73,7 +73,7 @@ class RoomController extends Controller {
 		}
 
 		if ($resolvedName !== null) {
-			return $this->create($resolvedFloorId, $resolvedName, $resolvedIcon);
+			return $this->create($resolvedFloorId, $resolvedName, $resolvedIcon, $this->resolveNullableString('roomType'));
 		}
 
 		$resolvedFloorId = $floorId ?? $resolvedFloorId ?? $this->resolveNullableInt('floorId');
@@ -160,8 +160,8 @@ class RoomController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 */
-	public function create(?int $floorId = null, ?string $name = null, ?string $icon = null): JSONResponse {
-		return $this->createRoomResponse($floorId, $name, $icon);
+	public function create(?int $floorId = null, ?string $name = null, ?string $icon = null, ?string $roomType = null): JSONResponse {
+		return $this->createRoomResponse($floorId, $name, $icon, $roomType);
 	}
 
 	/**
@@ -169,8 +169,8 @@ class RoomController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 */
-	public function createExplicit(?int $floorId = null, ?string $name = null, ?string $icon = null): JSONResponse {
-		return $this->createRoomResponse($floorId, $name, $icon);
+	public function createExplicit(?int $floorId = null, ?string $name = null, ?string $icon = null, ?string $roomType = null): JSONResponse {
+		return $this->createRoomResponse($floorId, $name, $icon, $roomType);
 	}
 
 	/**
@@ -178,18 +178,19 @@ class RoomController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 */
-	public function createAlias(?int $floorId = null, ?string $name = null, ?string $icon = null): JSONResponse {
-		return $this->createRoomResponse($floorId, $name, $icon);
+	public function createAlias(?int $floorId = null, ?string $name = null, ?string $icon = null, ?string $roomType = null): JSONResponse {
+		return $this->createRoomResponse($floorId, $name, $icon, $roomType);
 	}
 
 	/**
 	 * Build a room create response from explicit arguments or request params.
 	 */
-	private function createRoomResponse(?int $floorId = null, ?string $name = null, ?string $icon = null): JSONResponse {
+	private function createRoomResponse(?int $floorId = null, ?string $name = null, ?string $icon = null, ?string $roomType = null): JSONResponse {
 		try {
 			$resolvedFloorId = $floorId ?? $this->resolveNullableInt('floorId');
 			$resolvedName = $name ?? $this->resolveNullableString('name');
 			$resolvedIcon = $icon ?? $this->resolveNullableString('icon');
+			$resolvedRoomType = $roomType ?? $this->resolveNullableString('roomType') ?? 'generic';
 
 			if ($resolvedFloorId === null) {
 				return new JSONResponse([
@@ -215,7 +216,7 @@ class RoomController extends Controller {
 			$floor = $this->roomService->getFloor($resolvedFloorId);
 			$this->authService->ensureHouseMember($floor->getHouseId());
 
-			$room = $this->roomService->createRoom($resolvedFloorId, $resolvedName, $resolvedIcon);
+			$room = $this->roomService->createRoom($resolvedFloorId, $resolvedName, $resolvedIcon, $resolvedRoomType);
 
 			return new JSONResponse([
 				'success' => true,

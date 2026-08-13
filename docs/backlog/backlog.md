@@ -40,18 +40,6 @@ it; stats are sourced from `/game/state` + `/house/stats`. The separate
 
 ---
 
-### [P3] BUG-TEMPLATE-001 — `TemplateService::bulkImport` silently swallows exceptions
-**Status**: Open · **Effort**: XS · **Source**: CS-022 review (2026-07-30)
-
-`TemplateService::bulkImport()` (`lib/Service/TemplateService.php`) catches
-`\Exception` with the comment "Log error and continue" but never logs — violates
-project-rules §3 ("Never swallow exceptions silently"). Pre-existing, not
-introduced by CS-022.
-
-- [ ] Add an `AppLogger` warning/error for each skipped template ID in the catch block.
-
----
-
 ### [P3] BUG-ROOM-001 — Re-evaluate the `RoomController::index` POST→GET rewrite workaround
 **Status**: Deferred (low) · **Effort**: S · **Source**: CS-020 (deferred AC)
 
@@ -160,6 +148,12 @@ still exits 0: warnings ≠ error-severity). `npm run stylelint` → 0 errors,
       intentional).
 - [ ] Consider adding RTL/Playwright coverage so the conversions are verifiable.
 
+> **Warning (2026-08-13, CS-027 review):** `npm run stylelint:fix` applies these
+> conversions mechanically across all 15 files (the rule is auto-fixable). A
+> review gate run did exactly that and the churn had to be reverted. Do **not**
+> run `stylelint:fix` repo-wide until this item is resolved — fix file-by-file
+> with verification instead.
+
 ---
 
 ### [P2] TECH-LINT-005 — Jest `[ChoreStrike] [error]` noise from `api.js`↔mock gap (95 lines, ~8 store specs)
@@ -253,11 +247,6 @@ canonical `src/services/api.js` client enforced by `apiContract.spec.js`.
 
 > From [`archive/CODE_REVIEW_2026-07-28.md`](archive/CODE_REVIEW_2026-07-28.md).
 > CR-016-11 is **resolved** (CS-018); the rest are open.
-
-### [P2] CR-016-01 — Regenerate `l10n/templates/chorestrike.pot`
-**Effort**: S — `.pot` not regenerated (~90 scheduling keys missing). Decide on
-an `l10n:extract` tool; `chorestrike.pot` must contain every `t()` string;
-`l10n:check-keys` stays green.
 
 ### [P2] CR-016-02 — Batch the scheduling save endpoints
 **Effort**: M — `AvailabilitySettings.saveAvailability` (≤14 calls) +
@@ -584,6 +573,44 @@ duplicated stat helpers; duplicated `validate*Ownership` across Floor/Room/RoomT
 15 sequential inserts; `StreakFreeze`/`StreakRestock` per-user UPDATEs; `assignTask`/
 `unassignTask`/`deactivate`/`reactivate`/`updateDueDate` triple-fetch pattern;
 `extractHouseIdFromSchedule` 3 dependent queries.
+
+---
+
+## Review Follow-ups — CS-027 (House Setup Wizard & Cleaning Templates)
+
+> From the Standard-B review of the CS-PLAN-027 implementation (2026-08-13).
+> Six smaller findings were auto-fixed inline (plan §13); these four remain.
+
+### [P3] CR-027-01 — Free room create/update persists unvalidated `roomType`
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-027 (2026-08-13)
+`RoomController` create/update accepts any client `roomType` string and persists
+it (DB column length 50 → overlong input surfaces as a 500). Only the wizard
+validates against the catalog registry. An unknown type degrades the template
+picker to house-wide templates for that room.
+- [ ] Validate `roomType` against `TemplateService::isValidRoomType()` at the
+      controller boundary (400 or 'generic' fallback — decide); reject >50 chars.
+
+### [P3] CR-027-02 — `TemplateService::searchTemplates` dead + unlocalized since D7
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-027 (2026-08-13)
+The legacy `template#search` route was removed with `TemplateController`, leaving
+`searchTemplates()` without a caller. It also matches the raw English source
+text, not the localized view, so German queries (e.g. „Staubsaugen") miss.
+- [ ] Wire it into the template picker as a search field (localize the match),
+      or remove the method + its tests.
+
+### [P4] CR-027-03 — Wizard collects `homeType` but never sends it
+**Status**: Open · **Effort**: XS · **Source**: Review of CS-PLAN-027 (2026-08-13)
+`SetupWizard` step 1 collects Haus/Wohnung, but the apply payload contract omits
+it — the input has no effect.
+- [ ] Use it (e.g. apartment → suggest 1 floor, house → outdoor room type) or
+      drop the field.
+
+### [P4] CR-027-04 — Wizard preview lacks the task-count summary
+**Status**: Open · **Effort**: XS · **Source**: Review of CS-PLAN-027 (2026-08-13)
+Plan §5 step 3 promised a preview with floors/rooms/**task count per level**;
+the implementation shows floors/rooms/level label only.
+- [ ] Compute the applicable-template count from the catalog + selected level
+      and show it in the preview.
 
 ---
 

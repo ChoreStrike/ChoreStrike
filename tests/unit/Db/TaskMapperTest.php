@@ -65,8 +65,7 @@ class TaskMapperTest extends TestCase {
 				'category' => 'cleaning',
 				'scope_type' => 'room',
 				'recurrence_mode' => 'recurring',
-				'is_voluntary' => false,
-				'is_template' => false
+				'is_voluntary' => false
 			]);
 
 		$this->qb->expects($this->once())

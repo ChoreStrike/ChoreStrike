@@ -104,14 +104,16 @@ class RoomMapper extends QBMapper {
 	 * @param int $floorId The floor ID
 	 * @param string $name The room name
 	 * @param ?string $icon The configured room icon
+	 * @param string $roomType The room type (defaults to 'generic')
 	 */
-	public function create(int $floorId, string $name, ?string $icon = null): Room {
+	public function create(int $floorId, string $name, ?string $icon = null, string $roomType = 'generic'): Room {
 		$room = new Room();
 		$room->setFloorId($floorId);
 		$room->setName($name);
 		$room->setCleanliness(50);
 		$room->setMonsterCount(0);
 		$room->setIcon($icon ?? 'Home');
+		$room->setRoomType($roomType !== '' ? $roomType : 'generic');
 		$room->setCreatedAt(new \DateTime());
 
 		return $this->insert($room);

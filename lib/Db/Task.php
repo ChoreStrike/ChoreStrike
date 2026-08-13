@@ -32,8 +32,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setEstimatedMinutes(int $estimatedMinutes)
  * @method string getCategory()
  * @method void setCategory(string $category)
- * @method bool getIsTemplate()
- * @method void setIsTemplate(bool $isTemplate)
  * @method string getScopeType()
  * @method void setScopeType(string $scopeType)
  * @method string|null getScopeLabel()
@@ -118,9 +116,6 @@ class Task extends Entity implements JsonSerializable {
 	/** @var string */
 	protected $category = 'cleaning';
 
-	/** @var bool */
-	protected $isTemplate = false;
-
 	/** @var string */
 	protected $scopeType = 'room';
 
@@ -201,7 +196,6 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('frequencyValue', 'integer');
 		$this->addType('estimatedMinutes', 'integer');
 		$this->addType('category', 'string');
-		$this->addType('isTemplate', 'boolean');
 		$this->addType('scopeType', 'string');
 		$this->addType('scopeLabel', 'string');
 		$this->addType('recurrenceMode', 'string');
@@ -246,7 +240,6 @@ class Task extends Entity implements JsonSerializable {
 			'estimatedMinutesMin' => $this->estimatedMinutesMin,
 			'estimatedMinutesMax' => $this->estimatedMinutesMax,
 			'category' => $this->category,
-			'isTemplate' => $this->isTemplate,
 			'scopeType' => $this->scopeType,
 			'scopeLabel' => $this->scopeLabel,
 			'recurrenceMode' => $this->recurrenceMode,

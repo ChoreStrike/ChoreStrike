@@ -28,6 +28,12 @@
 					<p class="tagline">
 						{{ t('chorestrike', 'Defend your Home Base. Together.') }}
 					</p>
+					<button v-if="roomsStore.floors.length === 0"
+						class="primary-button setup-entry-button"
+						data-testid="open-setup-wizard"
+						@click="showWizard = true">
+						{{ t('chorestrike', 'Set up your home') }}
+					</button>
 				</div>
 				<HouseHealthBar
 					:health="houseHealth"
@@ -42,6 +48,12 @@
 				<FloorList class="floor-list-section" data-testid="floor-list" />
 			</main>
 		</template>
+
+		<SetupWizard
+			v-if="showWizard"
+			@applied="handleWizardApplied"
+			@skipped="handleWizardSkipped"
+			@close="closeWizard" />
 	</div>
 </template>
 
@@ -57,6 +69,7 @@ import HouseholdGoalBar from '../components/Dashboard/HouseholdGoalBar.vue'
 import QuickStats from '../components/Dashboard/QuickStats.vue'
 import FloorList from '../components/Dashboard/FloorList.vue'
 import ArcadeSection from '../components/Dashboard/ArcadeSection.vue'
+import SetupWizard from '../components/Setup/SetupWizard.vue'
 
 export default {
 	name: 'Dashboard',
@@ -68,6 +81,7 @@ export default {
 		QuickStats,
 		FloorList,
 		ArcadeSection,
+		SetupWizard,
 	},
 
 	setup() {
@@ -75,6 +89,13 @@ export default {
 		const roomsStore = useRoomsStore()
 		const gameStore = useGameStore()
 		return { houseStore, roomsStore, gameStore }
+	},
+
+	data() {
+		return {
+			showWizard: false,
+			wizardDismissed: false,
+		}
 	},
 
 	computed: {
@@ -120,6 +141,37 @@ export default {
 					)
 				}
 			})
+
+			// First-run detection (D3): a house with no floors is brand new.
+			// Open the setup wizard automatically; "Start empty" dismisses it
+			// for the session. The manual entry point (header button) stays
+			// available while the house is empty.
+			if (!this.wizardDismissed && this.roomsStore.floors.length === 0) {
+				this.showWizard = true
+			}
+		},
+		handleWizardApplied() {
+			this.showWizard = false
+			this.wizardDismissed = true
+			// The wizard created floors/rooms/tasks server-side; reload the
+			// structural view and the game state so the Dashboard reflects it.
+			Promise.allSettled([
+				this.roomsStore.fetchFloorsWithRooms(),
+				this.gameStore.fetchGameState(),
+			]).then(results => {
+				results.forEach((result, index) => {
+					if (result.status === 'rejected') {
+						logger.error('Post-wizard reload failed', result.reason, { view: 'Dashboard', action: 'handleWizardApplied', step: index })
+					}
+				})
+			})
+		},
+		handleWizardSkipped() {
+			this.showWizard = false
+			this.wizardDismissed = true
+		},
+		closeWizard() {
+			this.showWizard = false
 		},
 	},
 }
@@ -177,7 +229,11 @@ h1 {
 .tagline {
 	font-size: 1.1rem;
 	color: var(--color-text-maxcontrast);
-	margin: 0;
+	margin-bottom: 0;
+}
+
+.setup-entry-button {
+	margin-top: 0.75rem;
 }
 
 .dashboard-content {

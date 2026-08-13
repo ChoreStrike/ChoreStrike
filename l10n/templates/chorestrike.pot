@@ -1,237 +1,35 @@
 # SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Copyright (C) 2026 ChoreStrike Contributors
+# This file is distributed under the MIT License.
 #
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: ChoreStrike 0.1.0\n"
+"Project-Id-Version: ChoreStrike\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 18:00+0100\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"Last-Translator: ChoreStrike\n"
+"Language-Team: German\n"
+"Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-# App name
-msgid "ChoreStrike"
+msgid "%1$s completed your overdue task so your streak is safe. Be a hero and pick up one of theirs next time!"
 msgstr ""
 
-# General UI
-msgid "Dashboard"
+msgid 0
 msgstr ""
 
-msgid "Tasks"
+msgid "15-20 energy per day"
 msgstr ""
 
-msgid "Leaderboard"
+msgid "5-8 energy per day"
 msgstr ""
 
-msgid "Settings"
+msgid "8-12 energy per day"
 msgstr ""
 
-msgid "Loading..."
-msgstr ""
-
-msgid "Error"
-msgstr ""
-
-msgid "Retry"
-msgstr ""
-
-msgid "Cancel"
-msgstr ""
-
-msgid "Save"
-msgstr ""
-
-msgid "Delete"
-msgstr ""
-
-msgid "Edit"
-msgstr ""
-
-msgid "Add"
-msgstr ""
-
-msgid "Close"
-msgstr ""
-
-# House
-msgid "House Health"
-msgstr ""
-
-msgid "My House"
-msgstr ""
-
-msgid "House Name"
-msgstr ""
-
-msgid "Reset House"
-msgstr ""
-
-msgid "Are you sure you want to reset the house?"
-msgstr ""
-
-# Floors & Rooms
-msgid "Floors"
-msgstr ""
-
-msgid "Add Floor"
-msgstr ""
-
-msgid "Edit Floor"
-msgstr ""
-
-msgid "Delete Floor"
-msgstr ""
-
-msgid "Are you sure you want to delete this floor and all its rooms?"
-msgstr ""
-
-msgid "Rooms"
-msgstr ""
-
-msgid "Add Room"
-msgstr ""
-
-msgid "Edit Room"
-msgstr ""
-
-msgid "Delete Room"
-msgstr ""
-
-msgid "Room Details"
-msgstr ""
-
-msgid "Cleanliness"
-msgstr ""
-
-msgid "Last Cleaned"
-msgstr ""
-
-msgid "Never"
-msgstr ""
-
-# Tasks
-msgid "Task Name"
-msgstr ""
-
-msgid "Description"
-msgstr ""
-
-msgid "Energy Cost"
-msgstr ""
-
-msgid "Priority"
-msgstr ""
-
-msgid "Low"
-msgstr ""
-
-msgid "Medium"
-msgstr ""
-
-msgid "High"
-msgstr ""
-
-msgid "Frequency"
-msgstr ""
-
-msgid "Daily"
-msgstr ""
-
-msgid "Weekly"
-msgstr ""
-
-msgid "Monthly"
-msgstr ""
-
-msgid "Custom"
-msgstr ""
-
-msgid "Estimated Time"
-msgstr ""
-
-msgid "minutes"
-msgstr ""
-
-msgid "Category"
-msgstr ""
-
-msgid "Cleaning"
-msgstr ""
-
-msgid "Organizing"
-msgstr ""
-
-msgid "Maintenance"
-msgstr ""
-
-msgid "Add Task"
-msgstr ""
-
-msgid "Edit Task"
-msgstr ""
-
-msgid "Delete Task"
-msgstr ""
-
-msgid "Are you sure you want to remove this task?"
-msgstr ""
-
-msgid "Complete Task"
-msgstr ""
-
-msgid "Task completed!"
-msgstr ""
-
-msgid "Due"
-msgstr ""
-
-msgid "Overdue"
-msgstr ""
-
-msgid "Due Today"
-msgstr ""
-
-msgid "Due Soon"
-msgstr ""
-
-msgid "Upcoming"
-msgstr ""
-
-# Task Scope
-msgid "Scope"
-msgstr ""
-
-msgid "Room"
-msgstr ""
-
-msgid "Garden"
-msgstr ""
-
-msgid "Home"
-msgstr ""
-
-msgid "Outside"
-msgstr ""
-
-msgid "Work"
-msgstr ""
-
-# Task Lifecycle
-msgid "Recurrence"
-msgstr ""
-
-msgid "One Time"
-msgstr ""
-
-msgid "Recurring"
+msgid "Active"
 msgstr ""
 
 msgid "Active From"
@@ -240,275 +38,1765 @@ msgstr ""
 msgid "Active Until"
 msgstr ""
 
-msgid "Voluntary"
+msgid "Add"
 msgstr ""
 
-# Game Elements
-msgid "Team Sparks"
+msgid "Add Floor"
 msgstr ""
 
-msgid "Contribution Score"
+msgid "Add Room"
 msgstr ""
 
-msgid "Current Streak"
-msgstr ""
-
-msgid "Combo!"
-msgstr ""
-
-msgid "Monster Count"
-msgstr ""
-
-# Medals
-msgid "Medals"
-msgstr ""
-
-msgid "Team Anchor"
-msgstr ""
-
-msgid "Flow Keeper"
-msgstr ""
-
-msgid "Room Guardian"
-msgstr ""
-
-msgid "Team Player"
-msgstr ""
-
-msgid "Streak Keeper"
-msgstr ""
-
-msgid "Most tasks completed this week"
-msgstr ""
-
-msgid "Consistent daily activity"
-msgstr ""
-
-msgid "Most room improvements"
-msgstr ""
-
-msgid "Most collaborative tasks"
-msgstr ""
-
-msgid "Longest activity streak"
-msgstr ""
-
-# Users
-msgid "Users"
-msgstr ""
-
-msgid "Invite User"
-msgstr ""
-
-msgid "Remove User"
-msgstr ""
-
-msgid "Owner"
-msgstr ""
-
-msgid "Member"
-msgstr ""
-
-msgid "Child"
-msgstr ""
-
-msgid "Display Name"
-msgstr ""
-
-msgid "Role"
-msgstr ""
-
-msgid "Joined"
-msgstr ""
-
-msgid "Last Activity"
-msgstr ""
-
-# Statistics
-msgid "Total Tasks"
-msgstr ""
-
-msgid "Completed Tasks"
-msgstr ""
-
-msgid "Clean Rooms"
-msgstr ""
-
-msgid "Dirty Rooms"
-msgstr ""
-
-msgid "Rooms Needing Cleaning"
-msgstr ""
-
-# Empty States
-msgid "No tasks yet"
-msgstr ""
-
-msgid "Create your first task to get started!"
-msgstr ""
-
-msgid "No rooms yet"
+msgid "Add Task"
 msgstr ""
 
 msgid "Add floors and rooms to organize your house."
 msgstr ""
 
-msgid "No floors yet"
+msgid "Add members to your house to configure availability"
 msgstr ""
 
-msgid "Create your first floor to organize rooms."
+msgid "Add room"
 msgstr ""
 
-# Errors
-msgid "Failed to load data"
+msgid "Add tasks and configure member availability to get scheduling suggestions"
 msgstr ""
 
-msgid "Failed to save changes"
+msgid "Add to room"
 msgstr ""
 
-msgid "Failed to delete item"
+msgid "Adjust"
 msgstr ""
 
-msgid "Something went wrong"
+msgid "Admin-Only"
 msgstr ""
 
-msgid "Please try again later"
+msgid "Admin-only task"
 msgstr ""
 
-msgid "Unknown User"
+msgid "Affected Tasks"
 msgstr ""
 
-msgid "Failed to initialize current user"
-msgstr ""
-
-msgid "Failed to fetch house users"
-msgstr ""
-
-msgid "Email is required"
-msgstr ""
-
-msgid "Invalid role"
-msgstr ""
-
-msgid "Failed to invite user"
-msgstr ""
-
-msgid "User ID is required"
-msgstr ""
-
-msgid "Failed to remove user"
-msgstr ""
-
-msgid "Failed to update user role"
-msgstr ""
-
-msgid "Failed to update user profile"
-msgstr ""
-
-msgid "Failed to retrieve users"
-msgstr ""
-
-msgid "Invalid role. Must be owner, member, or child"
-msgstr ""
-
-msgid "Nextcloud user not found"
-msgstr ""
-
-msgid "User invited to house"
-msgstr ""
-
-msgid "Cannot remove house owner"
-msgstr ""
-
-msgid "User removed from house"
-msgstr ""
-
-msgid "Failed to retrieve user stats"
-msgstr ""
-
-msgid "No house found for current user"
-msgstr ""
-
-msgid "Start date must be before end date"
-msgstr ""
-
-msgid "Schedule range cannot exceed 30 days"
-msgstr ""
-
-msgid "User or house not found"
-msgstr ""
-
-msgid "Invalid day: {day}"
-msgstr ""
-
-msgid "Availability must be boolean for {day}"
-msgstr ""
-
-msgid "At least one day must be available"
-msgstr ""
-
-msgid "Availability updated successfully"
-msgstr ""
-
-msgid "Energy must be between 1 and 20 for {day}"
-msgstr ""
-
-msgid "Energy budget updated successfully"
-msgstr ""
-
-msgid "Suggestion applied successfully"
-msgstr ""
-
-# CS-PLAN-006: Role Title System
-msgid "Your Title"
-msgstr ""
-
-msgid "No title yet — pick a track to get started!"
-msgstr ""
-
-msgid "Change title"
-msgstr ""
-
-msgid "Choose your title"
-msgstr ""
-
-msgid "Pick a progression track. Tiers unlock automatically as you play."
-msgstr ""
-
-msgid "Set as my title"
-msgstr ""
-
-msgid "Active"
+msgid "All house members can see and complete this task"
 msgstr ""
 
 msgid "All tiers unlocked!"
 msgstr ""
 
-msgid "Unlocked titles: {titles}"
+msgid "Analyzing tasks and generating optimal schedule..."
+msgstr ""
+
+msgid "Analyzing tasks and generating suggestions..."
+msgstr ""
+
+msgid "And {count} more tasks"
+msgstr ""
+
+msgid "Apartment"
+msgstr ""
+
+msgid "Apply bowl cleaner, let it sit, scrub with the brush, then wipe the seat and the outside from top to bottom."
+msgstr ""
+
+msgid "Apply cleaner to the walls and tub, scrub the grout and tiles, descale the showerhead if needed, rinse thoroughly, and wipe the fixtures."
+msgstr ""
+
+msgid "Apply grout cleaner, scrub the lines with a small brush, rinse, and wipe the tiles dry."
+msgstr ""
+
+msgid "Are you sure you want to delete this floor and all its rooms?"
+msgstr ""
+
+msgid "Are you sure you want to remove this task?"
+msgstr ""
+
+msgid "Are you sure you want to reset the house?"
+msgstr ""
+
+msgid "Assigned"
+msgstr ""
+
+msgid "Assigned members"
+msgstr ""
+
+msgid "At least one day must be available"
+msgstr ""
+
+msgid "Availability must be boolean for {day}"
+msgstr ""
+
+msgid "Availability settings saved successfully"
+msgstr ""
+
+msgid "Availability updated successfully"
+msgstr ""
+
+msgid "Available"
+msgstr ""
+
+msgid "Available Members"
+msgstr ""
+
+msgid "Avg Daily Energy"
+msgstr ""
+
+msgid "Back"
+msgstr ""
+
+msgid "Balanced"
+msgstr ""
+
+msgid "Basement"
+msgstr ""
+
+msgid "Bathroom"
+msgstr ""
+
+msgid "Bedroom"
+msgstr ""
+
+msgid "Bonus"
+msgstr ""
+
+msgid "Bonus Coins"
+msgstr ""
+
+msgid "Bonus freeze earned from combo!"
+msgstr ""
+
+msgid "Bronze"
+msgstr ""
+
+msgid "Budget Analysis"
+msgstr ""
+
+msgid "Calendar"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Cannot remove house owner"
+msgstr ""
+
+msgid "Capacity"
+msgstr ""
+
+msgid "Category"
+msgstr ""
+
+msgid "Celebration!"
+msgstr ""
+
+msgid "Change bed sheets"
+msgstr ""
+
+msgid "Change title"
+msgstr ""
+
+msgid "Check the dishwasher, empty it if clean, and load or hand-wash any dirty dishes. Give the sink a quick wipe."
+msgstr ""
+
+msgid "Check the hamper, pick up items from floor and chairs, sort roughly, and take them to the laundry area."
+msgstr ""
+
+msgid "Check the soil moisture, water as needed, pick off dead leaves, and rotate the pots for even light."
+msgstr ""
+
+msgid "Check the soil, water the beds and balcony plants in the cooler hours, and deadhead the flowers."
+msgstr ""
+
+msgid "Child"
+msgstr ""
+
+msgid "Choose your title"
+msgstr ""
+
+msgid "ChoreStrike"
+msgstr ""
+
+msgid "Claim & Complete"
+msgstr ""
+
+msgid "Claim & complete"
+msgstr ""
+
+msgid "Claim Overdue Task"
+msgstr ""
+
+msgid "Clean Rooms"
+msgstr ""
+
+msgid "Clean basin, tap, and counter."
+msgstr ""
+
+msgid "Clean bathroom floor"
+msgstr ""
+
+msgid "Clean kitchen sink"
+msgstr ""
+
+msgid "Clean microwave"
+msgstr ""
+
+msgid "Clean mirror"
+msgstr ""
+
+msgid "Clean refrigerator"
+msgstr ""
+
+msgid "Clean shower\/bathtub"
+msgstr ""
+
+msgid "Clean sink and vanity"
+msgstr ""
+
+msgid "Clean stove and cooktop"
+msgstr ""
+
+msgid "Clean the outside of the big appliances."
+msgstr ""
+
+msgid "Clean toilet"
+msgstr ""
+
+msgid "Cleaning"
+msgstr ""
+
+msgid "Cleaning level"
+msgstr ""
+
+msgid "Cleanliness"
+msgstr ""
+
+msgid "Clear and wipe desk"
+msgstr ""
+
+msgid "Clear and wipe down the countertops."
+msgstr ""
+
+msgid "Clear cables and loose items off the floor, start the robot vacuum, and empty its bin afterwards."
+msgstr ""
+
+msgid "Clear surfaces, put away remotes and magazines, plump the cushions, and fold blankets."
+msgstr ""
+
+msgid "Clear the counter, spray the sink and counter, scrub the basin and drain, and polish the tap."
+msgstr ""
+
+msgid "Clear the desk and wipe it down."
+msgstr ""
+
+msgid "Clear the floor, vacuum in both directions, and use the attachments for the edges and corners."
+msgstr ""
+
+msgid "Clear the floor, vacuum under furniture if you can, use the attachments on the upholstery, and move in slow overlapping strokes."
+msgstr ""
+
+msgid "Clear the floors of obstacles, vacuum room by room, and use the attachments for the corners."
+msgstr ""
+
+msgid "Clear the sink and get the dishes done."
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "Coin Multiplier"
+msgstr ""
+
+msgid "Coins"
+msgstr ""
+
+msgid "Coins earned!"
+msgstr ""
+
+msgid "Collect all mail and papers, sort into action, file, and recycle, and bin the junk right away."
+msgstr ""
+
+msgid "Collect dirty clothes for washing."
+msgstr ""
+
+msgid "Collect paper, plastic, and glass, sort them into the right bins, and take them out."
+msgstr ""
+
+msgid "Combo!"
+msgstr ""
+
+msgid "Complete Task"
+msgstr ""
+
+msgid "Completed Tasks"
+msgstr ""
+
+msgid "Configure daily energy budgets for optimal task distribution"
+msgstr ""
+
+msgid "Configure when each member is available for tasks"
+msgstr ""
+
+msgid "Consistent daily activity"
+msgstr ""
+
+msgid "Contribution Score"
+msgstr ""
+
+msgid "Create your first floor to organize rooms."
+msgstr ""
+
+msgid "Create your first task to get started!"
+msgstr ""
+
+msgid "Current Streak"
+msgstr ""
+
+msgid "Custom"
+msgstr ""
+
+msgid "Custom task"
+msgstr ""
+
+msgid "Daily"
+msgstr ""
+
+msgid "Daily Energy Budget"
+msgstr ""
+
+msgid "Dashboard"
+msgstr ""
+
+msgid "Deal with the paper pile."
+msgstr ""
+
+msgid "Deep clean grout and tiles"
+msgstr ""
+
+msgid "Deep clean oven"
+msgstr ""
+
+msgid "Degrease the stovetop and knobs."
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "Delete Floor"
+msgstr ""
+
+msgid "Delete Room"
+msgstr ""
+
+msgid "Delete Task"
+msgstr ""
+
+msgid "Description"
+msgstr ""
+
+msgid "Dirty Rooms"
+msgstr ""
+
+msgid "Display Name"
+msgstr ""
+
+msgid "Do laundry"
+msgstr ""
+
+msgid "Due"
+msgstr ""
+
+msgid "Due Soon"
+msgstr ""
+
+msgid "Due Today"
+msgstr ""
+
+msgid "Dust all the surfaces."
+msgstr ""
+
+msgid "Dust bedroom surfaces"
+msgstr ""
+
+msgid "Dust entire house"
+msgstr ""
+
+msgid "Dust furniture and electronics."
+msgstr ""
+
+msgid "Dust furniture and shelves."
+msgstr ""
+
+msgid "Dust kids room"
+msgstr ""
+
+msgid "Dust living room"
+msgstr ""
+
+msgid "Dust office surfaces"
+msgstr ""
+
+msgid "Dust shelves and equipment."
+msgstr ""
+
+msgid "Dust surfaces"
+msgstr ""
+
+msgid "Dust the TV and electronics first, then the shelves and bookcase, and wipe the coffee and side tables."
+msgstr ""
+
+msgid "Dust the shelves, the monitor, and the printer, and wipe the window sill."
+msgstr ""
+
+msgid "Dust the shelves, wipe the desk and window sill, and tidy as you go."
+msgstr ""
+
+msgid "Dust the surfaces in the room."
+msgstr ""
+
+msgid "Earliest"
+msgstr ""
+
+msgid "Early Completion Bonus"
+msgstr ""
+
+msgid "Early completion bonus available!"
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "Edit Availability"
+msgstr ""
+
+msgid "Edit Floor"
+msgstr ""
+
+msgid "Edit Room"
+msgstr ""
+
+msgid "Edit Task"
+msgstr ""
+
+msgid "Email is required"
+msgstr ""
+
+msgid "Empty dishwasher \/ do dishes"
+msgstr ""
+
+msgid "Empty office trash"
+msgstr ""
+
+msgid "Empty the bin and add a fresh liner."
+msgstr ""
+
+msgid "Empty the bins around the house."
+msgstr ""
+
+msgid "Empty the recycling and sort it."
+msgstr ""
+
+msgid "Empty the sink, scrub the basin and drain, and wipe the tap until it shines."
+msgstr ""
+
+msgid "Energy"
+msgstr ""
+
+msgid "Energy Budget Settings"
+msgstr ""
+
+msgid "Energy Cost"
+msgstr ""
+
+msgid "Energy budget saved successfully!"
+msgstr ""
+
+msgid "Energy budget updated successfully"
+msgstr ""
+
+msgid "Energy must be between 1 and 20 for {day}"
+msgstr ""
+
+msgid "Energy values must be between 1 and 20"
+msgstr ""
+
+msgid "Error"
+msgstr ""
+
+msgid "Estimated Time"
+msgstr ""
+
+msgid "Estimated time"
+msgstr ""
+
+msgid "Even distribution"
+msgstr ""
+
+msgid "Every week"
+msgstr ""
+
+msgid "Every {n} weeks"
+msgstr ""
+
+msgid "Everything shines! Lots of tasks, but everything is sparkling clean in no time."
+msgstr ""
+
+msgid "Failed to delete item"
+msgstr ""
+
+msgid "Failed to fetch house users"
+msgstr ""
+
+msgid "Failed to initialize current user"
+msgstr ""
+
+msgid "Failed to invite user"
+msgstr ""
+
+msgid "Failed to load data"
+msgstr ""
+
+msgid "Failed to load schedule preview"
+msgstr ""
+
+msgid "Failed to load scheduling suggestions"
+msgstr ""
+
+msgid "Failed to remove user"
 msgstr ""
 
 msgid "Failed to retrieve titles"
 msgstr ""
 
-msgid "Invalid title pack"
+msgid "Failed to retrieve user stats"
+msgstr ""
+
+msgid "Failed to retrieve users"
+msgstr ""
+
+msgid "Failed to save availability settings"
+msgstr ""
+
+msgid "Failed to save changes"
+msgstr ""
+
+msgid "Failed to save energy budget"
 msgstr ""
 
 msgid "Failed to select title"
 msgstr ""
 
-msgid "You unlocked a new title: %1$s"
+msgid "Failed to update user profile"
+msgstr ""
+
+msgid "Failed to update user role"
+msgstr ""
+
+msgid "Flex Days"
+msgstr ""
+
+msgid "Flex Window"
+msgstr ""
+
+msgid "Flexible scheduling window in days"
+msgstr ""
+
+msgid "Flip cards and match pairs. Train your brain!"
+msgstr ""
+
+msgid "Floor"
+msgstr ""
+
+msgid "Floors"
+msgstr ""
+
+msgid "Flow Keeper"
+msgstr ""
+
+msgid "For everyone"
+msgstr ""
+
+msgid "Frequency"
+msgstr ""
+
+msgid "Fri"
+msgstr ""
+
+msgid "Friday"
+msgstr ""
+
+msgid "From template"
+msgstr ""
+
+msgid "Garden"
+msgstr ""
+
+msgid "Garden & Balcony"
+msgstr ""
+
+msgid "Gather bedroom laundry"
+msgstr ""
+
+msgid "Get the bathroom mirror streak-free."
+msgstr ""
+
+msgid "Give the plants a drink."
+msgstr ""
+
+msgid "Go room to room, empty the small bins, replace the liners, and take everything to the outdoor bins."
+msgstr ""
+
+msgid "Goal achieved!"
+msgstr ""
+
+msgid "Goal: {target}%"
+msgstr ""
+
+msgid "Gold"
+msgstr ""
+
+msgid "Great job!"
+msgstr ""
+
+msgid "Ground Floor"
+msgstr ""
+
+msgid "Hallway & Stairs"
+msgstr ""
+
+msgid "Has basement"
+msgstr ""
+
+msgid "Heat a bowl of water for two minutes to loosen grime, wipe the interior, clean the turntable, and wipe the outside."
+msgstr ""
+
+msgid "Heavy Schedule"
+msgstr ""
+
+msgid "Hidden card"
+msgstr ""
+
+msgid "High"
+msgstr ""
+
+msgid "High energy on weekends"
+msgstr ""
+
+msgid "Home"
+msgstr ""
+
+msgid "Home type"
+msgstr ""
+
+msgid "House"
+msgstr ""
+
+msgid "House Health"
+msgstr ""
+
+msgid "House Name"
+msgstr ""
+
+msgid "Household & Co."
+msgstr ""
+
+msgid "Household Milestone!"
+msgstr ""
+
+msgid "Household Progress"
+msgstr ""
+
+msgid "Ideal"
+msgstr ""
+
+msgid "Ideal Due Date"
+msgstr ""
+
+msgid "Intelligent task distribution based on member availability and preferences"
+msgstr ""
+
+msgid "Invalid day: {day}"
+msgstr ""
+
+msgid "Invalid role"
+msgstr ""
+
+msgid "Invalid role. Must be owner, member, or child"
+msgstr ""
+
+msgid "Invalid title pack"
+msgstr ""
+
+msgid "Invite User"
+msgstr ""
+
+msgid "Joined"
+msgstr ""
+
+msgid "Keep it relaxed! Only the essentials, with shorter times."
+msgstr ""
+
+msgid "Kids Room"
+msgstr ""
+
+msgid "Kitchen"
+msgstr ""
+
+msgid "Last Activity"
+msgstr ""
+
+msgid "Last Cleaned"
+msgstr ""
+
+msgid "Latest"
+msgstr ""
+
+msgid "Leaderboard"
+msgstr ""
+
+msgid "Let the robot vacuum do the floors."
+msgstr ""
+
+msgid "Let's go!"
+msgstr ""
+
+msgid "Let's set up your home in about 5 minutes."
+msgstr ""
+
+msgid "Light Schedule"
+msgstr ""
+
+msgid "Line up shoes, hang up coats, and clear the mail and clutter by the door."
+msgstr ""
+
+msgid "Living Room"
+msgstr ""
+
+msgid "Load Preview"
+msgstr ""
+
+msgid "Load Suggestions"
+msgstr ""
+
+msgid "Load a preview to see scheduling capacity and suggestions"
+msgstr ""
+
+msgid "Loading energy budget settings..."
+msgstr ""
+
+msgid "Loading member availability..."
+msgstr ""
+
+msgid "Loading schedule calendar..."
+msgstr ""
+
+msgid "Loading..."
+msgstr ""
+
+msgid "Longest activity streak"
+msgstr ""
+
+msgid "Low"
+msgstr ""
+
+msgid "Low Energy Days"
+msgstr ""
+
+msgid "Low energy schedule"
+msgstr ""
+
+msgid "Low weekdays, high weekends"
+msgstr ""
+
+msgid "Maintenance"
+msgstr ""
+
+msgid "Make the bed"
+msgstr ""
+
+msgid "Matched"
+msgstr ""
+
+msgid "Medals"
+msgstr ""
+
+msgid "Medium"
+msgstr ""
+
+msgid "Member"
+msgstr ""
+
+msgid "Member Availability"
+msgstr ""
+
+msgid "Members Affected"
+msgstr ""
+
+msgid "Memory"
+msgstr ""
+
+msgid "Minimal"
+msgstr ""
+
+msgid "Minutes"
+msgstr ""
+
+msgid "Moderate Schedule"
+msgstr ""
+
+msgid "Mon"
+msgstr ""
+
+msgid "Monday"
+msgstr ""
+
+msgid "Month"
+msgstr ""
+
+msgid "Monthly"
+msgstr ""
+
+msgid "Mop kitchen floor"
+msgstr ""
+
+msgid "Mop the hallway floor."
+msgstr ""
+
+msgid "Most collaborative tasks"
+msgstr ""
+
+msgid "Most room improvements"
+msgstr ""
+
+msgid "Most tasks completed this week"
+msgstr ""
+
+msgid "Move small items aside, spray the counters, and wipe them down. Pay attention to corners and the area behind the sink."
+msgstr ""
+
+msgid "Moves"
+msgstr ""
+
+msgid "Mute sounds"
+msgstr ""
+
+msgid "My Energy Budget"
+msgstr ""
+
+msgid "My House"
+msgstr ""
+
+msgid "My Private Tasks"
+msgstr ""
+
+msgid "Mystery Combo!"
+msgstr ""
+
+msgid "Never"
+msgstr ""
+
+msgid "New game"
+msgstr ""
+
+msgid "Next"
+msgstr ""
+
+msgid "Nextcloud user not found"
+msgstr ""
+
+msgid "No Members Found"
+msgstr ""
+
+msgid "No Preview Available"
+msgstr ""
+
+msgid "No Suggestions Available"
+msgstr ""
+
+msgid "No floors yet"
+msgstr ""
+
+msgid "No house found for current user"
+msgstr ""
+
+msgid "No house members found"
+msgstr ""
+
+msgid "No member data available. Load scheduling data first."
+msgstr ""
+
+msgid "No rooms yet"
+msgstr ""
+
+msgid "No scheduling suggestions available. Add more tasks or adjust member availability."
+msgstr ""
+
+msgid "No tasks yet"
+msgstr ""
+
+msgid "No title yet — pick a track to get started!"
+msgstr ""
+
+msgid "None"
+msgstr ""
+
+msgid "Not in this level"
+msgstr ""
+
+msgid "Number of floors"
+msgstr ""
+
+msgid "Office"
+msgstr ""
+
+msgid "On fire!"
+msgstr ""
+
+msgid "One Time"
+msgstr ""
+
+msgid "Only assigned members can complete this task"
+msgstr ""
+
+msgid "Only assigned members can see and complete this task"
+msgstr ""
+
+msgid "Only house owners can see and complete this task"
+msgstr ""
+
+msgid "Organize and declutter the basement."
+msgstr ""
+
+msgid "Organize shoes and coats."
+msgstr ""
+
+msgid "Organizing"
+msgstr ""
+
+msgid "Outside"
+msgstr ""
+
+msgid "Overdue"
+msgstr ""
+
+msgid "Owner"
+msgstr ""
+
+msgid "Past latest date"
+msgstr ""
+
+msgid "Peak Day"
+msgstr ""
+
+msgid "Person"
+msgstr ""
+
+msgid "Personal coin bonus for fairness"
+msgstr ""
+
+msgid "Pick a progression track. Tiers unlock automatically as you play."
+msgstr ""
+
+msgid "Pick up items from the floor, vacuum under the bed if you can, and use the attachments for edges and corners."
+msgstr ""
+
+msgid "Pick up toys first, then vacuum or sweep the whole floor, edges included."
+msgstr ""
+
+msgid "Play again"
+msgstr ""
+
+msgid "Please try again later"
+msgstr ""
+
+msgid "Preview"
+msgstr ""
+
+msgid "Priority"
+msgstr ""
+
+msgid "Private"
+msgstr ""
+
+msgid "Private task"
+msgstr ""
+
+msgid "Public"
+msgstr ""
+
+msgid "Pull the weeds."
+msgstr ""
+
+msgid "Pull weeds by the root in the beds and on the balcony, and tidy the edges."
+msgstr ""
+
+msgid "Put everything back in its place."
+msgstr ""
+
+msgid "Put fresh sheets on the bed."
+msgstr ""
+
+msgid "Putzmuffel"
+msgstr ""
+
+msgid "Putzteufel"
+msgstr ""
+
+msgid "Quick Start"
+msgstr ""
+
+msgid "Quick Templates"
+msgstr ""
+
+msgid "Recommendations for optimal task distribution"
+msgstr ""
+
+msgid "Recurrence"
+msgstr ""
+
+msgid "Recurring"
+msgstr ""
+
+msgid "Refresh Suggestions"
+msgstr ""
+
+msgid "Refresh the tile grout."
+msgstr ""
+
+msgid "Remove User"
+msgstr ""
+
+msgid "Remove expired items, take out the removable shelves, wash them, wipe the interior walls, and put everything back tidy."
+msgstr ""
+
+msgid "Remove room"
+msgstr ""
+
+msgid "Repeats"
+msgstr ""
+
+msgid "Reset House"
+msgstr ""
+
+msgid "Retry"
+msgstr ""
+
+msgid "Role"
+msgstr ""
+
+msgid "Room"
+msgstr ""
+
+msgid "Room Combo!"
+msgstr ""
+
+msgid "Room Details"
+msgstr ""
+
+msgid "Room Guardian"
+msgstr ""
+
+msgid "Room List"
+msgstr ""
+
+msgid "Room name"
+msgstr ""
+
+msgid "Room type"
+msgstr ""
+
+msgid "Rooms"
+msgstr ""
+
+msgid "Rooms Needing Cleaning"
+msgstr ""
+
+msgid "Rooms per floor"
+msgstr ""
+
+msgid "Round up the toys."
+msgstr ""
+
+msgid "Run a cleaner cycle or scrub with oven cleaner, wipe the racks, and clean the door glass."
+msgstr ""
+
+msgid "Run robot vacuum"
+msgstr ""
+
+msgid "Sat"
+msgstr ""
+
+msgid "Saturday"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Save Changes"
+msgstr ""
+
+msgid "Save Energy Budget"
+msgstr ""
+
+msgid "Saving..."
+msgstr ""
+
+msgid "Schedule Calendar"
+msgstr ""
+
+msgid "Schedule Preview"
+msgstr ""
+
+msgid "Schedule range cannot exceed 30 days"
+msgstr ""
+
+msgid "Scheduling"
+msgstr ""
+
+msgid "Scheduling Suggestions"
+msgstr ""
+
+msgid "Scope"
+msgstr ""
+
+msgid "Scrub the bowl, seat, and outside."
+msgstr ""
+
+msgid "Scrub the oven inside and out."
+msgstr ""
+
+msgid "Scrub the sink and polish the tap."
+msgstr ""
+
+msgid "Scrub tiles, tub, and fixtures."
+msgstr ""
+
+msgid "Set as my title"
+msgstr ""
+
+msgid "Set how much energy you have for tasks each day (1-20)"
+msgstr ""
+
+msgid "Set up your home"
+msgstr ""
+
+msgid "Setting up your home…"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid "Setup complete! Your home is ready."
+msgstr ""
+
+msgid "Silver"
+msgstr ""
+
+msgid "Skip"
+msgstr ""
+
+msgid "Slide and merge matching tiles to reach 2048!"
+msgstr ""
+
+msgid "Smart Scheduling"
+msgstr ""
+
+msgid "Smart Scheduling Suggestions"
+msgstr ""
+
+msgid "Smooth the fitted sheet, tuck in the flat sheet, fluff the pillows, and straighten the blanket."
+msgstr ""
+
+msgid "Something went wrong"
+msgstr ""
+
+msgid "Sort and take out recycling"
+msgstr ""
+
+msgid "Sort boxes, put loose items in bins, label what you keep, and clear a path."
+msgstr ""
+
+msgid "Sort by color, load the washer, move to the dryer, then fold and put away."
+msgstr ""
+
+msgid "Sort mail and papers"
+msgstr ""
+
+msgid "Sort toys into their boxes, put away games and books, and clear the floor so you can vacuum."
+msgstr ""
+
+msgid "Sound effects"
+msgstr ""
+
+msgid "Speed Combo!"
+msgstr ""
+
+msgid "Spray glass cleaner and wipe the mirror with a lint-free cloth."
+msgstr ""
+
+msgid "Start date must be before end date"
+msgstr ""
+
+msgid "Start empty"
+msgstr ""
+
+msgid "Start with the highest surfaces and work down, hitting every room, and don't forget the ceiling fans and light fixtures."
+msgstr ""
+
+msgid "Straighten sheets and fluff pillows."
+msgstr ""
+
+msgid "Streak Combo!"
+msgstr ""
+
+msgid "Streak Freeze"
+msgstr ""
+
+msgid "Streak Freezes"
+msgstr ""
+
+msgid "Streak Keeper"
+msgstr ""
+
+msgid "Streak protected by freeze!"
+msgstr ""
+
+msgid "Streak protected by freeze! {count} freeze remaining"
+msgstr ""
+
+msgid "Streak protected by freeze! {count} freezes remaining"
+msgstr ""
+
+msgid "Strip the old sheets and pillowcases, put them in the laundry, and make the bed with fresh bedding."
+msgstr ""
+
+msgid "Suggestion"
+msgstr ""
+
+msgid "Suggestion applied successfully"
+msgstr ""
+
+msgid "Suggestions"
+msgstr ""
+
+msgid "Suggestions Available"
+msgstr ""
+
+msgid "Sun"
+msgstr ""
+
+msgid "Sunday"
+msgstr ""
+
+msgid "Sweep and mop the bathroom floor."
+msgstr ""
+
+msgid "Sweep and mop the kitchen floor."
+msgstr ""
+
+msgid "Sweep basement floor"
+msgstr ""
+
+msgid "Sweep first, then mop the hallway floor, paying attention to the entrance area."
+msgstr ""
+
+msgid "Sweep or vacuum first, then mop with cleaning solution. Watch the corners and under the cabinets."
+msgstr ""
+
+msgid "Sweep or vacuum, then mop. Watch the corners and the spot behind the toilet."
+msgstr ""
+
+msgid "Sweep out the dust and cobwebs."
+msgstr ""
+
+msgid "Sweep patio and balcony"
+msgstr ""
+
+msgid "Sweep the floor, knock down cobwebs, and tidy as you go."
+msgstr ""
+
+msgid "Sweep the outdoor surfaces."
+msgstr ""
+
+msgid "Sweep the patio or balcony, shake out the mats, and tidy the outdoor furniture."
+msgstr ""
+
+msgid "Take off the grates, wipe the surface with degreaser, clean the burner caps and control panel, then put everything back."
+msgstr ""
+
+msgid "Take out all trash"
+msgstr ""
+
+msgid "Target: {target}%"
+msgstr ""
+
+msgid "Task Name"
+msgstr ""
+
+msgid "Task Templates"
+msgstr ""
+
+msgid "Task Tier"
+msgstr ""
+
+msgid "Task can be completed {days} days before or after ideal date"
+msgstr ""
+
+msgid "Task completed!"
+msgstr ""
+
+msgid "Tasks"
+msgstr ""
+
+msgid "Team Anchor"
+msgstr ""
+
+msgid "Team Combo!"
+msgstr ""
+
+msgid "Team Player"
+msgstr ""
+
+msgid "Team Streak"
+msgstr ""
+
+msgid "Team Streak Milestone!"
+msgstr ""
+
+msgid "Teamwork bonus"
+msgstr ""
+
+msgid "The house is already set up. Use the per-room template picker instead."
+msgstr ""
+
+msgid "This will be recorded as taken over from {assignee}."
+msgstr ""
+
+msgid "Thu"
+msgstr ""
+
+msgid "Thursday"
+msgstr ""
+
+msgid "Tidy basement"
+msgstr ""
+
+msgid "Tidy hallway and shoes"
+msgstr ""
+
+msgid "Tidy living room"
+msgstr ""
+
+msgid "Tidy papers and cables, wipe the desk surface, and clean the keyboard and monitor."
+msgstr ""
+
+msgid "Tidy toys and games"
+msgstr ""
+
+msgid "Tie up the bag, take it out, and put in a new liner."
+msgstr ""
+
+msgid "Today"
+msgstr ""
+
+msgid "Toss expired food and wipe the shelves."
+msgstr ""
+
+msgid "Total Tasks"
+msgstr ""
+
+msgid "Tue"
+msgstr ""
+
+msgid "Tuesday"
+msgstr ""
+
+msgid "Unavailable"
+msgstr ""
+
+msgid "Unknown User"
+msgstr ""
+
+msgid "Unlocked titles: {titles}"
+msgstr ""
+
+msgid "Unmute sounds"
+msgstr ""
+
+msgid "Upcoming"
+msgstr ""
+
+msgid "Use arrow keys or swipe to combine tiles."
+msgstr ""
+
+msgid "User ID is required"
+msgstr ""
+
+msgid "User invited to house"
+msgstr ""
+
+msgid "User or house not found"
+msgstr ""
+
+msgid "User removed from house"
+msgstr ""
+
+msgid "Users"
+msgstr ""
+
+msgid "Vacuum all floors"
+msgstr ""
+
+msgid "Vacuum bedroom"
+msgstr ""
+
+msgid "Vacuum carpets, rugs, and upholstery."
+msgstr ""
+
+msgid "Vacuum hallway and stairs"
+msgstr ""
+
+msgid "Vacuum kids floor"
+msgstr ""
+
+msgid "Vacuum living room"
+msgstr ""
+
+msgid "Vacuum or sweep the floor."
+msgstr ""
+
+msgid "Vacuum the bedroom floor."
+msgstr ""
+
+msgid "Vacuum the floors throughout the house."
+msgstr ""
+
+msgid "Vacuum the hallway and staircase."
+msgstr ""
+
+msgid "Vacuum the hallway floor and the stairs step by step, edges and corners included."
+msgstr ""
+
+msgid "Vacuum the room"
+msgstr ""
+
+msgid "Visibility"
+msgstr ""
+
+msgid "Voluntary"
+msgstr ""
+
+msgid "Wash, dry, and fold a load."
+msgstr ""
+
+msgid "Water garden plants"
+msgstr ""
+
+msgid "Water houseplants"
+msgstr ""
+
+msgid "Water the outdoor plants."
+msgstr ""
+
+msgid "Wed"
+msgstr ""
+
+msgid "Wednesday"
+msgstr ""
+
+msgid "Weed garden and balcony"
+msgstr ""
+
+msgid "Week"
+msgstr ""
+
+msgid "Weekend Warrior"
+msgstr ""
+
+msgid "Weekly"
+msgstr ""
+
+msgid "Weekly Availability"
+msgstr ""
+
+msgid "Weekly Energy"
+msgstr ""
+
+msgid "Weekly Goal"
+msgstr ""
+
+msgid "Weekly Goal Achieved!"
+msgstr ""
+
+msgid "Weekly Household Goal"
+msgstr ""
+
+msgid "Weekly goal reached!"
+msgstr ""
+
+msgid "Weekly goal reached! {percent}% of target {target}%"
+msgstr ""
+
+msgid "Weekly household goal reached!"
+msgstr ""
+
+msgid "Welcome to ChoreStrike!"
+msgstr ""
+
+msgid "Wipe down appliances"
+msgstr ""
+
+msgid "Wipe hallway floor"
+msgstr ""
+
+msgid "Wipe kitchen counters"
+msgstr ""
+
+msgid "Wipe shelves and surfaces."
+msgstr ""
+
+msgid "Wipe the fridge, dishwasher, and washing machine fronts, and clean the handles and controls."
+msgstr ""
+
+msgid "Wipe the microwave inside and out."
+msgstr ""
+
+msgid "Within optimal window"
+msgstr ""
+
+msgid "Work"
+msgstr ""
+
+msgid "Work top to bottom, dust the shelves and decor, and wipe the nightstand and dresser."
+msgstr ""
+
+msgid "Work top to bottom, dust the shelves and furniture, and wipe the window sill."
+msgstr ""
+
+msgid "You did not complete any tasks yesterday and have no streak freeze left. Complete a task today to keep your streak alive."
+msgstr ""
+
+msgid "You earned a new medal!"
+msgstr ""
+
+msgid "You earned a new medal: %1$s"
+msgstr ""
+
+msgid "You earned the \"%1$s\" medal with a value of %2$d. Keep up the great work!"
+msgstr ""
+
+msgid "You matched them all!"
 msgstr ""
 
 msgid "You reached a new tier (\"%1$s\") in the \"%2$s\" pack. Set it as your title in Settings!"
 msgstr ""
 
-msgid "titles.pack.home_helpers"
+msgid "You unlocked a new title: %1$s"
 msgstr ""
 
-msgid "titles.pack.team_energy"
+msgid "Your %1$d-day streak is at risk — complete a task today!"
 msgstr ""
 
-msgid "titles.pack.cozy_home"
+msgid "Your Title"
+msgstr ""
+
+msgid "Your household completed the weekly goal together!"
+msgstr ""
+
+msgid "Your household hit %1$d%% of this week's tasks (target: %2$d%%). Great teamwork!"
+msgstr ""
+
+msgid "Your household reached a new milestone!"
+msgstr ""
+
+msgid "Your task \"%1$s\" was taken over by %2$s"
+msgstr ""
+
+msgid "Your team is on a roll! Keep up the great work!"
+msgstr ""
+
+msgid "another Member"
+msgstr ""
+
+msgid "bonus Coins"
+msgstr ""
+
+msgid "days available"
+msgstr ""
+
+msgid "energy"
+msgstr ""
+
+msgid "floors"
+msgstr ""
+
+msgid "minutes"
+msgstr ""
+
+msgid "rooms"
+msgstr ""
+
+msgid "tasks"
+msgstr ""
+
+msgid "template.check_carbon_monoxide"
+msgstr ""
+
+msgid "template.check_carbon_monoxide.desc"
+msgstr ""
+
+msgid "template.clean_countertops"
+msgstr ""
+
+msgid "template.clean_countertops.desc"
+msgstr ""
+
+msgid "template.clean_fridge"
+msgstr ""
+
+msgid "template.clean_fridge.desc"
+msgstr ""
+
+msgid "template.clean_microwave"
+msgstr ""
+
+msgid "template.clean_microwave.desc"
+msgstr ""
+
+msgid "template.clean_mirror"
+msgstr ""
+
+msgid "template.clean_mirror.desc"
+msgstr ""
+
+msgid "template.clean_oven"
+msgstr ""
+
+msgid "template.clean_oven.desc"
+msgstr ""
+
+msgid "template.clean_shower"
+msgstr ""
+
+msgid "template.clean_shower.desc"
+msgstr ""
+
+msgid "template.clean_sink"
+msgstr ""
+
+msgid "template.clean_sink.desc"
+msgstr ""
+
+msgid "template.clean_toilet"
+msgstr ""
+
+msgid "template.clean_toilet.desc"
+msgstr ""
+
+msgid "template.clean_windows"
+msgstr ""
+
+msgid "template.clean_windows.desc"
+msgstr ""
+
+msgid "template.do_laundry"
+msgstr ""
+
+msgid "template.do_laundry.desc"
+msgstr ""
+
+msgid "template.dust_surfaces"
+msgstr ""
+
+msgid "template.dust_surfaces.desc"
+msgstr ""
+
+msgid "template.fold_laundry"
+msgstr ""
+
+msgid "template.fold_laundry.desc"
+msgstr ""
+
+msgid "template.iron_clothes"
+msgstr ""
+
+msgid "template.iron_clothes.desc"
+msgstr ""
+
+msgid "template.load_dishwasher"
+msgstr ""
+
+msgid "template.load_dishwasher.desc"
+msgstr ""
+
+msgid "template.mop_floor"
+msgstr ""
+
+msgid "template.mop_floor.desc"
+msgstr ""
+
+msgid "template.organize_closet"
+msgstr ""
+
+msgid "template.organize_closet.desc"
+msgstr ""
+
+msgid "template.organize_pantry"
+msgstr ""
+
+msgid "template.organize_pantry.desc"
+msgstr ""
+
+msgid "template.replace_air_filter"
+msgstr ""
+
+msgid "template.replace_air_filter.desc"
+msgstr ""
+
+msgid "template.sort_mail"
+msgstr ""
+
+msgid "template.sort_mail.desc"
+msgstr ""
+
+msgid "template.take_out_trash"
+msgstr ""
+
+msgid "template.take_out_trash.desc"
+msgstr ""
+
+msgid "template.test_smoke_detectors"
+msgstr ""
+
+msgid "template.test_smoke_detectors.desc"
+msgstr ""
+
+msgid "template.unload_dishwasher"
+msgstr ""
+
+msgid "template.unload_dishwasher.desc"
+msgstr ""
+
+msgid "template.vacuum_floor"
+msgstr ""
+
+msgid "template.vacuum_floor.desc"
+msgstr ""
+
+msgid "template.wash_towels"
+msgstr ""
+
+msgid "template.wash_towels.desc"
+msgstr ""
+
+msgid "titles.cozy_home.cozy_buddy"
+msgstr ""
+
+msgid "titles.cozy_home.home_guardian"
+msgstr ""
+
+msgid "titles.cozy_home.room_ranger"
+msgstr ""
+
+msgid "titles.home_helpers.care_captain"
 msgstr ""
 
 msgid "titles.home_helpers.helper"
@@ -517,36 +1805,39 @@ msgstr ""
 msgid "titles.home_helpers.organizer"
 msgstr ""
 
-msgid "titles.home_helpers.care_captain"
+msgid "titles.pack.cozy_home"
 msgstr ""
 
-msgid "titles.team_energy.spark_starter"
+msgid "titles.pack.home_helpers"
+msgstr ""
+
+msgid "titles.pack.team_energy"
 msgstr ""
 
 msgid "titles.team_energy.flow_keeper"
 msgstr ""
 
+msgid "titles.team_energy.spark_starter"
+msgstr ""
+
 msgid "titles.team_energy.team_anchor"
 msgstr ""
 
-msgid "titles.cozy_home.cozy_buddy"
+msgid "total energy\/week"
 msgstr ""
 
-msgid "titles.cozy_home.room_ranger"
+msgid "{completed} of {due} tasks this week"
 msgstr ""
 
-msgid "titles.cozy_home.home_guardian"
+msgid "{count} assigned"
 msgstr ""
 
-# Calendar view
-msgid "Calendar"
+msgid "{count} freeze remaining"
 msgstr ""
 
-msgid "Week"
+msgid "{count} freezes remaining"
 msgstr ""
 
-msgid "Month"
+msgid "{members} members available, {energy} energy, up to {tasks} tasks"
 msgstr ""
 
-msgid "Repeats"
-msgstr ""

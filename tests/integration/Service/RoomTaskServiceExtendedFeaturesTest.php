@@ -60,7 +60,8 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 				->getMock(),
 			$this->createMock(TaskAssigneeMapper::class),
 			$this->createMock(HouseUserMapper::class),
-			$this->createMock(CompletedTaskMapper::class)
+			$this->createMock(CompletedTaskMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class)
 		);
 
 		// Set up test IDs
