@@ -51,56 +51,7 @@ Confirm whether production shapes still need it; if not, remove it.
 
 ---
 
-### [P1] BUG-UI-001 — Overdue/priority colors hardcoded, unreadable in Dark Mode
-**Status**: Open · **Effort**: S · **Source**: Manual test 2026-07-30
-
-Several overdue / priority / status styles use hardcoded light hex colors that
-flip to near-white in Nextcloud Dark Mode → white-on-white text. `CalendarView.vue`
-already uses `var(--color-error-hover)` correctly; the rest must follow.
-
-- [ ] `src/components/Tasks/TaskList.vue` L526–529 (`.task-item.overdue { background: #fdf2f2 }`)
-      and priority badges L605–618 (`#d5f4e6`/`#fef9e7`/`#fdedec` + hardcoded text) →
-      `--color-error-hover` / `--color-success-hover` / `--color-warning-hover` + `--color-error/-success/-warning`.
-- [ ] `src/components/Tasks/FlexWindowDisplay.vue` L298–303, L350–363 (status-early/overdue) → same variables.
-- [ ] `src/components/Dashboard/RoomCard.vue` L431–438 (`#F44336`/`#FF9800`) → `--color-error`/`--color-warning`.
-- [ ] Verify visually in Light + Dark; add a theme-consistency unit assertion where feasible.
-
----
-
-### [P1] BUG-I18N-001 — Frontend stays English even when Nextcloud user language is German
-**Status**: Open · **Effort**: S · **Source**: Manual test 2026-07-30
-
-ChoreStrike has no own language switch; language comes from the Nextcloud user
-setting. Backend (`IL10N`) honors it, but the Vue frontend relies on Nextcloud's
-`OC.L10N` injection and there is **no `registerTranslations()` in `main.js`** and
-the `l10n/de.json` is not pulled into the bundle. In dev-mount / stale-cache
-setups `translate()` falls back to the English source string.
-
-- [ ] Add `registerTranslations('chorestrike', de.translations)` in `src/main.js`
-      (import `l10n/de.json`) as a defense-in-depth fallback.
-- [ ] Confirm on the personal server: app enabled via `occ app:enable chorestrike`
-      (not just volume/symlink) so Nextcloud injects the bundle; hard-refresh.
-- [ ] Jest: extend the `@nextcloud/l10n` mock + a spec asserting a registered
-      translation is returned by `translate()`.
-
-See also FEAT-I18N-001 (German default) — same change set.
-
----
-
 ## Features
-
-### [P2] FEAT-I18N-001 — German as default language
-**Status**: Planned · **Effort**: XS · **Source**: User request 2026-07-30
-
-German should be the default for users who have not chosen a language (manual
-testing happens primarily in German for the user's children).
-
-- [ ] Add `<default_language>de</default_language>` to `appinfo/info.xml`.
-- [ ] Document that the personal Nextcloud server's `config.php` should also set
-      `'default_language' => 'de'` (server-global fallback) in `docs/engineering/deployment.md`.
-- [ ] Per-user override remains available (Nextcloud's user language setting is not removed).
-
----
 
 ### [P2] FEAT-NOTIFY-001 — Task-Due Push Reminders
 **Status**: Planned · **Effort**: S · **Source**: User request 2026-07-27
@@ -188,22 +139,6 @@ fix and is deferred here.
 `--legacy-peer-deps`. Pre-existing (not introduced by CS-026), but now documented.
 Resolving it cleanly likely needs an `eslint-plugin-n`/`eslint-config-standard`
 bump coordinated with the Nextcloud eslint config.
-
----
-
-### [P2] BUG-API-DAILY-001 — `GET /api/v1/tasks/daily` 500s: `DATE(rt.next_due)` used as a column in WHERE
-**Status**: Open · **Effort**: S · **Source**: discovered during CS-PLAN-023 E2E verification (2026-08-04)
-
-`TaskController::daily()` → `RoomTaskService::getDailyTasksWithDetails()` fails
-with `SQLSTATE[42S22] Column not found: 1054 Unknown column 'DATE(rt.next_due)'
-in 'WHERE'` — a `DATE(...)` function expression is compared as if it were a
-column. The endpoint has been silently 500ing (route-shadowed by
-`/tasks/{id}` until CS-PLAN-023 un-shadowed it, which surfaced the SQL bug).
-The frontend daily view degrades to an empty state, so no UI crash hid it.
-
-- [ ] Fix the query builder expression (compare `rt.next_due` against the
-      day's `[start, end)` range like `CompletedTaskMapper::countByUserOnDate`).
-- [ ] Regression test (mapper unit test + integration smoke).
 
 ---
 
@@ -377,27 +312,6 @@ of CR-SVC-12) is untested.
 > skips) / Jest 677 / ConcurrentCompletionTest 2/2 (incl. the 2.1 s real-lock proof) /
 > ESLint clean. **One auto-fix applied**, **one new [P1] concurrency finding
 > (CR-SVC-53)** surfaced, and the minor perf/quality follow-ups below (CR-SVC-54..58).
-
-### [P1] CR-SVC-53 — `RoomService::completeRoomTask` operates on a stale `RoomTask` after `lockForUpdate`
-**Status**: Open · **Effort**: S · **Source**: Full Review 2026-08-11 (CS-PLAN-025 concurrency slice)
-`RoomTaskMapper::lockForUpdate()` returns `void`; `RoomService::completeRoomTask`
-fetches `$roomTask` at `:276` (before `beginTransaction()` at `:293`), locks at `:295`,
-but never refreshes the entity. Every post-lock decision then runs on the pre-lock
-snapshot: `isOverdue()` (`:331`), `markClaimed()` (`:334`), and `markCompleted()`
-(`:354`, which derives recurrence from a stale `next_due`/`idealDueDate`). This is the
-exact freshness asymmetry `HouseUserMapper::findForUpdate` was hardened to avoid (it
-returns the freshest committed row in one `SELECT … FOR UPDATE`); `lockForUpdate` was
-hardened to the self-assigning-UPDATE defect class but the fix was **not** threaded to
-the caller. Under READ COMMITTED, a concurrent winner completing the same overdue task
-advances `next_due`/clears overdue state, but this transaction still sees the stale
-overdue state → **spurious overdue-takeover notification** + claim state from a stale
-snapshot + recurrence computed from a stale `next_due`. Pre-existing (lockForUpdate
-predates CS-025), but surfaced by this review of the completion-path concurrency — the
-sibling gap to CR-SVC-04. No integration test covers `RoomTaskMapper::lockForUpdate`
-(only `HouseUserMapper::findForUpdate` has the two-process proof).
-- [ ] Make `lockForUpdate` return a fresh `RoomTask` via `SELECT … FOR UPDATE` on
-      locking engines (mirror `findForUpdate`), or re-fetch `$roomTask` after the lock;
-      add a two-connection integration test analogous to `ConcurrentCompletionTest`.
 
 ### [P3] CR-SVC-54 — `MinigameService::saveScore` coin award has no row lock/transaction
 **Status**: Open · **Effort**: S · **Source**: Full Review 2026-08-11

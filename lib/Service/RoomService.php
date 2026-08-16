@@ -278,7 +278,13 @@ class RoomService {
 		// task so the duplicate-completion guard cannot be raced past (TOCTOU).
 		$this->db->beginTransaction();
 		try {
-			$this->roomTaskMapper->lockForUpdate($roomTaskId);
+			// CR-SVC-53: replace the pre-lock entity with the freshly locked
+			// one so every post-lock decision (overdue takeover, claim state,
+			// markCompleted recurrence) sees the latest committed state — a
+			// concurrent winner may have advanced next_due before our lock
+			// was granted. The pre-lock fetch above stays: it provides
+			// $task, $room, and the early membership resolution.
+			$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
 
 			// Resolve the full set of assigned Nextcloud user IDs for this room task:
 			// the multi-assign join table plus the legacy single assignee column.

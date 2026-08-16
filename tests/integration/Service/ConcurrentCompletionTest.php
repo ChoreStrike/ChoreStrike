@@ -209,4 +209,159 @@ $db->executeStatement(
 $db->commit();
 PHP;
 	}
+
+	/**
+	 * CR-SVC-53: completeRoomTask must decide the overdue takeover on the
+	 * FRESH post-lock entity, not the pre-lock snapshot (two-connection proof).
+	 *
+	 * Deterministic interleaving — the exact one that produced a spurious
+	 * takeover before the fix:
+	 *
+	 *   T1 (helper process): locks the overdue room task row, holds the
+	 *                        lock, then commits a concurrent winner's
+	 *                        completion effect (next_due advanced to
+	 *                        tomorrow → overdue state cleared)
+	 *   T2 (this test):      completeRoomTask() for a NON-assignee: the
+	 *                        pre-lock fetch reads the still-overdue
+	 *                        committed state, then lockForUpdate() blocks
+	 *                        until T1 commits and must hand back the fresh,
+	 *                        no-longer-overdue entity
+	 *   Final:               no takeover recorded (was_claimed stays 0,
+	 *                        claimed_by_user NULL) and T2's completion
+	 *                        succeeds on the advanced row.
+	 *
+	 * Fails on the old (void-returning) lockForUpdate: T2 kept operating on
+	 * the stale overdue snapshot → markClaimed() fired → was_claimed = 1.
+	 */
+	public function testCompleteRoomTaskAfterConcurrentWinner_NoSpuriousTakeover(): void {
+		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
+			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
+		}
+
+		$houseId = $this->createHouse('rt_owner', 'Race House RT');
+		$this->addHouseMember($houseId, 'rt_helper', 'Helper', 'member');
+		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
+		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
+		$taskId = $this->createTask($houseId, 'Dishes', 'Do the dishes', 5, 3);
+		// Overdue and assigned to rt_owner; rt_helper is a non-assignee.
+		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'rt_owner');
+		$this->completedRoomTaskIds = [$roomTaskId];
+
+		$yesterday = (new \DateTime('-1 day'))->format('Y-m-d H:i:s');
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_room_tasks')
+			->set('next_due', $qb->createNamedParameter($yesterday))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+
+		$signalFile = sys_get_temp_dir() . '/cs-rt-race-locked-' . uniqid();
+		$helperScript = sys_get_temp_dir() . '/cs-rt-race-lock-holder-' . uniqid() . '.php';
+		file_put_contents($helperScript, $this->buildRoomTaskLockHolderScript());
+
+		$process = proc_open(
+			[PHP_BINARY, $helperScript, (string)$roomTaskId, $signalFile],
+			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+			$pipes
+		);
+		self::assertIsResource($process, 'failed to start the lock-holder process');
+
+		try {
+			// Wait until T1 holds the room task row lock.
+			$deadline = microtime(true) + 30.0;
+			while (!file_exists($signalFile)) {
+				if (microtime(true) > $deadline) {
+					self::fail('The lock-holder process did not acquire the row lock in time');
+				}
+				usleep(50000);
+			}
+
+			// T2: a non-assignee completion while T1 holds the lock. The
+			// pre-lock fetch sees the overdue committed state; the locked
+			// entity must reflect T1's committed advance instead.
+			$this->actingAs('rt_helper');
+			$roomService = \OC::$server->get(RoomService::class);
+			$roomService->completeRoomTask($roomTaskId, 'rt_helper');
+
+			$row = $this->fetchRoomTaskRow($roomTaskId);
+			self::assertSame(
+				0,
+				(int)$row['was_claimed'],
+				'no takeover may be recorded when the fresh post-lock entity is no longer overdue'
+			);
+			self::assertNull($row['claimed_by_user'], 'no claim may be recorded from the stale pre-lock snapshot');
+			self::assertGreaterThan(
+				(new \DateTime())->getTimestamp(),
+				(new \DateTime($row['next_due']))->getTimestamp(),
+				'completion must build on the winner-advanced next_due (in the future), not the stale overdue one'
+			);
+		} finally {
+			$status = proc_get_status($process);
+			if ($status !== false && $status['running']) {
+				proc_terminate($process);
+			}
+			foreach ([1, 2] as $pipe) {
+				if (isset($pipes[$pipe]) && is_resource($pipes[$pipe])) {
+					fclose($pipes[$pipe]);
+				}
+			}
+			proc_close($process);
+			@unlink($signalFile);
+			@unlink($helperScript);
+		}
+	}
+
+	/**
+	 * Fetch a room task row as a raw array for state assertions.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function fetchRoomTaskRow(int $roomTaskId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('was_claimed', 'claimed_by_user', 'next_due')
+			->from('chorestrike_room_tasks')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+
+		self::assertIsArray($row, 'room task row must exist after the completion');
+		return $row;
+	}
+
+	/**
+	 * The T1 helper for the room-task race: boots Nextcloud in a separate
+	 * process, locks the room task row, signals the parent, holds the lock
+	 * briefly, then commits a concurrent winner's completion effect — the
+	 * overdue state is cleared by advancing next_due to tomorrow.
+	 */
+	private function buildRoomTaskLockHolderScript(): string {
+		return <<<'PHP'
+<?php
+require '/var/www/html/lib/base.php';
+
+$roomTaskId = (int)$argv[1];
+$signalFile = $argv[2];
+
+$db = \OC::$server->get(\OCP\IDBConnection::class);
+$db->beginTransaction();
+$result = $db->executeQuery(
+    'SELECT id FROM *PREFIX*chorestrike_room_tasks WHERE id = :id FOR UPDATE',
+    ['id' => $roomTaskId],
+    ['id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
+);
+$result->closeCursor();
+
+file_put_contents($signalFile, 'locked');
+usleep(2000000);
+
+$tomorrow = (new DateTime('+1 day'))->format('Y-m-d H:i:s');
+$now = (new DateTime())->format('Y-m-d H:i:s');
+$db->executeStatement(
+    'UPDATE *PREFIX*chorestrike_room_tasks SET next_due = :tomorrow, last_completed = :completed WHERE id = :id',
+    ['tomorrow' => $tomorrow, 'completed' => $now, 'id' => $roomTaskId],
+    ['tomorrow' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'completed' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
+);
+$db->commit();
+PHP;
+	}
 }

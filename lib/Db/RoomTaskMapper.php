@@ -22,24 +22,51 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Acquire an exclusive lock on a room task row.
+	 * Find a room task by ID and acquire an exclusive lock on its row.
 	 *
-	 * A no-op UPDATE (self-assigns is_active — never a pre-read value, so it
-	 * cannot clobber a concurrent commit; CR-SVC-04 defect class) acquires an
-	 * exclusive row lock on locking engines (InnoDB/PostgreSQL) and serializes
-	 * via the write lock on SQLite, so concurrent completions of the same task
-	 * are ordered and a check-then-act duplicate guard cannot be raced past.
+	 * Mirrors HouseUserMapper::findForUpdate: the lock AND the freshest
+	 * committed entity come back together, so callers never make decisions
+	 * (overdue takeover, claim state, recurrence from next_due) on a
+	 * pre-lock snapshot (CR-SVC-53: under READ COMMITTED a concurrent winner
+	 * completing the same overdue task advances next_due; a stale snapshot
+	 * produced spurious overdue-takeover notifications and recurrence from
+	 * the old next_due).
+	 *
+	 * - MySQL/MariaDB/PostgreSQL: a true locking read (SELECT … FOR UPDATE)
+	 *   acquires the exclusive row lock and returns the latest committed
+	 *   state in one statement.
+	 * - SQLite: no FOR UPDATE support. A no-op self-assignment UPDATE
+	 *   (writes is_active's own current value — never pre-read data, so it
+	 *   cannot clobber a concurrent commit; CR-SVC-04 defect class) acquires
+	 *   the database-wide write lock and serializes writers; the re-read
+	 *   afterwards sees the latest committed state.
 	 *
 	 * Must be called inside an open transaction.
 	 *
 	 * @param int $roomTaskId The room task ID to lock
+	 * @throws DoesNotExistException if the row does not exist
 	 */
-	public function lockForUpdate(int $roomTaskId): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->update($this->getTableName())
-			->set('is_active', $qb->createFunction('is_active'))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-		$qb->executeStatement();
+	public function lockForUpdate(int $roomTaskId): RoomTask {
+		if ($this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->update($this->getTableName())
+				->set('is_active', $qb->createFunction('is_active'))
+				->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+			$qb->executeStatement();
+
+			return $this->find($roomTaskId);
+		}
+
+		$sql = 'SELECT * FROM *PREFIX*' . $this->getTableName() . ' WHERE id = :id FOR UPDATE';
+		$result = $this->db->executeQuery($sql, ['id' => $roomTaskId], ['id' => IQueryBuilder::PARAM_INT]);
+		$row = $result->fetch();
+		$result->closeCursor();
+
+		if ($row === false) {
+			throw new DoesNotExistException('RoomTask with id ' . $roomTaskId . ' does not exist');
+		}
+
+		return $this->mapRowToEntity($row);
 	}
 
 	/**
@@ -342,17 +369,27 @@ class RoomTaskMapper extends QBMapper {
 	/**
 	 * Find daily tasks for a house
 	 *
+	 * Matches tasks whose next_due falls on the given calendar day via a
+	 * [start, end) range comparison — NOT `DATE(rt.next_due) = :day`, which
+	 * the query builder escapes as a quoted column name and 500s on every
+	 * engine (BUG-API-DAILY-001). Range pattern mirrors
+	 * CompletedTaskMapper::countByUserOnDate().
+	 *
 	 * @param int $houseId The house ID
-	 * @param DateTime $date The date to find tasks for
+	 * @param \DateTime $date The date to find tasks for (only the calendar day is used)
 	 * @return RoomTask[]
 	 */
 	public function findDailyTasks(int $houseId, \DateTime $date): array {
+		$startOfDay = new \DateTimeImmutable($date->format('Y-m-d') . ' 00:00:00');
+		$endOfDay = $startOfDay->modify('+1 day');
+
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->select('rt.*')
 			->from($this->getTableName(), 'rt');
 		$this->applyHouseScope($qb, 'rt', $houseId);
-		$qb->andWhere($qb->expr()->eq('DATE(rt.next_due)', $qb->createNamedParameter($date->format('Y-m-d'), IQueryBuilder::PARAM_STR)))
+		$qb->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)))
 			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
 			->orderBy('rt.next_due', 'ASC')
 			->addOrderBy('rt.created_at', 'ASC');

@@ -798,28 +798,28 @@ export default {
 }
 
 .cleanliness-badge.excellent {
-  background: #4CAF50;
-  color: white;
+  background: var(--color-success, #4CAF50);
+  color: var(--color-primary-text, #ffffff);
 }
 
 .cleanliness-badge.good {
-  background: #2196F3;
-  color: white;
+  background: var(--color-primary, #2196F3);
+  color: var(--color-primary-text, #ffffff);
 }
 
 .cleanliness-badge.fair {
-  background: #FF9800;
-  color: white;
+  background: var(--color-warning, #FF9800);
+  color: var(--color-primary-text, #ffffff);
 }
 
 .cleanliness-badge.poor {
-  background: #FF5722;
-  color: white;
+  background: var(--color-warning, #FF5722);
+  color: var(--color-primary-text, #ffffff);
 }
 
 .cleanliness-badge.terrible {
-  background: #F44336;
-  color: white;
+  background: var(--color-error, #F44336);
+  color: var(--color-primary-text, #ffffff);
 }
 
 .floor-section-actions {
@@ -864,8 +864,8 @@ export default {
 }
 
 .delete-button:hover {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--color-error, #F44336);
+  color: var(--color-error, #F44336);
 }
 
 .floor-content {

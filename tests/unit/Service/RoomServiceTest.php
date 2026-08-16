@@ -442,6 +442,11 @@ class RoomServiceTest extends TestCase {
 			->with($roomTaskId)
 			->willReturn($roomTask);
 
+		$this->roomTaskMapper
+			->method('lockForUpdate')
+			->with($roomTaskId)
+			->willReturn($roomTask);
+
 		$this->taskMapper
 			->expects($this->once())
 			->method('find')
@@ -538,6 +543,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -607,6 +613,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -630,6 +637,94 @@ class RoomServiceTest extends TestCase {
 		$this->assertSame($claimer, $roomTask->getClaimedByUser());
 		$this->assertSame($originalAssignee, $roomTask->getOriginalAssignee());
 		$this->assertNotNull($roomTask->getClaimedAt());
+	}
+
+	/**
+	 * CompleteRoomTask_FreshEntityAfterLock_NoSpuriousTakeover
+	 *
+	 * CR-SVC-53: every post-lock decision must run on the entity returned
+	 * by lockForUpdate(), not the pre-lock snapshot. Here the pre-lock fetch
+	 * sees an overdue task while a concurrent winner has already advanced
+	 * next_due — the locked entity is NOT overdue anymore, so no takeover
+	 * may be recorded and no notification may fire.
+	 */
+	public function testCompleteRoomTask_FreshEntityAfterLock_NoSpuriousTakeover(): void {
+		$roomTaskId = 1;
+		$originalAssignee = 'original-user';
+		$claimer = 'claimer-user';
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setName('Test Task');
+		$task->setEnergyCost(3);
+		$task->setFrequencyType('weekly');
+		$task->setFrequencyValue(1);
+		$task->setRecurrenceMode('recurring');
+
+		$room = new Room();
+		$room->setId(1);
+		$room->setFloorId(1);
+		$room->setCleanliness(50);
+
+		// Pre-lock snapshot: overdue and assigned to someone else — would
+		// trigger a takeover if the stale entity were used post-lock.
+		$staleRoomTask = new RoomTask();
+		$staleRoomTask->setId($roomTaskId);
+		$staleRoomTask->setTaskId(1);
+		$staleRoomTask->setRoomId(1);
+		$staleRoomTask->setIsActive(true);
+		$staleRoomTask->setAssignedToUserId($originalAssignee);
+		$staleRoomTask->setNextDue(new \DateTime('yesterday'));
+
+		// Fresh post-lock entity: the concurrent winner's completion
+		// advanced next_due past now — no longer overdue.
+		$freshRoomTask = new RoomTask();
+		$freshRoomTask->setId($roomTaskId);
+		$freshRoomTask->setTaskId(1);
+		$freshRoomTask->setRoomId(1);
+		$freshRoomTask->setIsActive(true);
+		$freshRoomTask->setAssignedToUserId($originalAssignee);
+		$freshRoomTask->setNextDue(new \DateTime('tomorrow'));
+
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+
+		$houseUser = new HouseUser();
+		$houseUser->setId(2);
+		$houseUser->setNextcloudUserId($claimer);
+		$houseUser->setDisplayName('Claimer Name');
+
+		$updatedRoom = new Room();
+		$updatedRoom->setId(1);
+		$updatedRoom->setCleanliness(80);
+
+		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($staleRoomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($freshRoomTask);
+		$this->taskMapper->method('find')->with(1)->willReturn($task);
+		$this->roomMapper->method('find')->with(1)->willReturn($room);
+		$this->floorMapper->method('find')->with(1)->willReturn($floor);
+		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $claimer)->willReturn($houseUser);
+		// Every persisted mutation must target the FRESH entity.
+		$this->roomTaskMapper->expects($this->once())->method('update')->with($freshRoomTask);
+		$this->roomMapper->method('update')->willReturn($updatedRoom);
+		$this->gameLogicService->method('handleTaskCompletion')->willReturn([
+			'contributionScore' => 10,
+			'coins' => 50,
+			'isCombo' => false,
+			'currentStreak' => 1,
+		]);
+
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
+		$this->notificationService->expects($this->never())->method('notifyOverdueTakenOver');
+
+		$result = $this->service->completeRoomTask($roomTaskId, $claimer);
+
+		$this->assertSame($freshRoomTask, $result['roomTask']);
+		$this->assertFalse($freshRoomTask->getWasClaimed(), 'stale overdue snapshot must not produce a takeover');
+		$this->assertNull($freshRoomTask->getClaimedByUser());
 	}
 
 	/**
@@ -676,6 +771,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -747,6 +843,7 @@ class RoomServiceTest extends TestCase {
 		];
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -810,6 +907,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -871,6 +969,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -925,6 +1024,7 @@ class RoomServiceTest extends TestCase {
 		$houseUser->setId(2);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -976,6 +1076,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -1027,6 +1128,7 @@ class RoomServiceTest extends TestCase {
 		$houseUser->setId(2);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -1085,6 +1187,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -1162,6 +1265,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -1234,6 +1338,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -1297,6 +1402,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
@@ -1381,6 +1487,7 @@ class RoomServiceTest extends TestCase {
 		$updatedRoom->setCleanliness(80);
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);

@@ -293,10 +293,10 @@ class TemplateService {
 	 * @param string $templateId The template id
 	 * @param string $level One of self::LEVELS
 	 * @param array $overrides Optional overrides (name, frequencyType,
-	 *                          frequencyValue, estimatedMinutes, energyCost, priority)
+	 *                         frequencyValue, estimatedMinutes, energyCost, priority)
 	 * @return array{name: string, description: ?string, instructions: ?string, category: string, energyCost: int, priority: int, frequencyType: string, frequencyValue: int, estimatedMinutes: int, schedulingMode: string, scopeType: string}
 	 * @throws \InvalidArgumentException if the template or level is invalid,
-	 *         or the template is not available for the requested level
+	 *                                   or the template is not available for the requested level
 	 */
 	public function materializeTemplate(string $templateId, string $level, array $overrides = []): array {
 		$template = $this->getTemplate($templateId);

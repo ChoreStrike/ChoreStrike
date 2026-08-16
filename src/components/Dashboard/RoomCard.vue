@@ -328,28 +328,28 @@ export default {
 }
 
 .status-badge.excellent {
-  background: #4CAF50;
-  color: white;
+  background: var(--color-success, #4CAF50);
+  color: var(--color-primary-text, #ffffff);
 }
 
 .status-badge.good {
-  background: #2196F3;
-  color: white;
+  background: var(--color-primary, #2196F3);
+  color: var(--color-primary-text, #ffffff);
 }
 
 .status-badge.fair {
-  background: #FF9800;
-  color: white;
+  background: var(--color-warning, #FF9800);
+  color: var(--color-primary-text, #ffffff);
 }
 
 .status-badge.poor {
-  background: #FF5722;
-  color: white;
+  background: var(--color-warning, #FF5722);
+  color: var(--color-primary-text, #ffffff);
 }
 
 .status-badge.terrible {
-  background: #F44336;
-  color: white;
+  background: var(--color-error, #F44336);
+  color: var(--color-primary-text, #ffffff);
 }
 
 .room-actions {
@@ -394,23 +394,23 @@ export default {
 }
 
 .cleanliness-fill.excellent {
-  background: #4CAF50;
+  background: var(--color-success, #4CAF50);
 }
 
 .cleanliness-fill.good {
-  background: #2196F3;
+  background: var(--color-primary, #2196F3);
 }
 
 .cleanliness-fill.fair {
-  background: #FF9800;
+  background: var(--color-warning, #FF9800);
 }
 
 .cleanliness-fill.poor {
-  background: #FF5722;
+  background: var(--color-warning, #FF5722);
 }
 
 .cleanliness-fill.terrible {
-  background: #F44336;
+  background: var(--color-error, #F44336);
 }
 
 .task-summary {

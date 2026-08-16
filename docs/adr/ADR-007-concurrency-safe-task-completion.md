@@ -46,15 +46,24 @@ external call inside the critical section.**
    pattern.)
 
 2. **Defer side-effecting notifications past `commit()`.** `handleTaskCompletion`
-   *returns* the title-unlock payload(s) instead of dispatching them;
-   `RoomService::completeRoomTask` dispatches `notifyTitleUnlocked` **after** the
-   transaction commits. No external call holds the lock. This mirrors how the
-   takeover and weekly-goal notifications were already deferred.
+    *returns* the title-unlock payload(s) instead of dispatching them;
+    `RoomService::completeRoomTask` dispatches `notifyTitleUnlocked` **after** the
+    transaction commits. No external call holds the lock. This mirrors how the
+    takeover and weekly-goal notifications were already deferred.
 
-   > Follow-up: CR-SVC-53 (P1, open in `backlog.md`) — the *caller* of
-   > `RoomTaskMapper::lockForUpdate` still operates on a pre-lock `RoomTask` snapshot
-   > (the lock returns `void` and the entity is not refreshed). Same freshness class,
-   > sibling to CR-SVC-04; not yet fixed.
+3. **Refresh the locked entity; never keep the pre-lock snapshot.**
+    `RoomTaskMapper::lockForUpdate(int $roomTaskId): RoomTask` now returns the
+    freshest committed entity alongside the lock (same platform split as
+    `findForUpdate`: `SELECT … FOR UPDATE` on locking engines, self-assigning
+    UPDATE + re-read on SQLite), and `completeRoomTask` replaces its pre-lock
+    `$roomTask` with it. A lock alone is not enough: every post-lock decision
+    (overdue takeover, claim state, recurrence from `next_due`) must run on the
+    entity the lock handed back, or a concurrent winner's commit between the
+    pre-read and the lock grant is silently ignored (spurious takeover
+    notification, recurrence from a stale `next_due`). Landed by
+    [CS-PLAN-028](../plans/done/cs-plan-028-top-priority-fixes.md) (CR-SVC-53);
+    proven by a two-connection integration test in
+    `tests/integration/Service/ConcurrentCompletionTest.php`.
 
 ## Consequences
 
@@ -79,5 +88,6 @@ external call inside the critical section.**
 ## References
 
 - [`docs/engineering/architecture.md`](../engineering/architecture.md) — service/mapper layering.
+- [`docs/plans/done/cs-plan-028-top-priority-fixes.md`](../plans/done/cs-plan-028-top-priority-fixes.md) — CR-SVC-53 fresh-entity-after-lock fix.
 - [`docs/plans/done/cs-plan-025-service-security-concurrency-cleanup.md`](../plans/done/cs-plan-025-service-security-concurrency-cleanup.md) — implementation record (Phase 3).
-- [`docs/backlog/backlog.md`](../backlog/backlog.md) — CR-SVC-04/12 (resolved), CR-SVC-50/53 (open follow-ups).
+- [`docs/backlog/backlog.md`](../backlog/backlog.md) — CR-SVC-04/12/53 (resolved), CR-SVC-50 (open follow-up).
