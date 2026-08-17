@@ -480,12 +480,15 @@ class RoomTaskController extends Controller {
 				], 400);
 			}
 
-			$this->roomTaskService->removeAssignee($id, $userId);
+			$this->roomTaskService->removeAssignee($id, $userId, $house->getId());
 
 			return new JSONResponse([
 				'success' => true,
 				'message' => 'Assignee removed successfully'
 			]);
+		} catch (\InvalidArgumentException $e) {
+			// Service-curated message (non-member) — safe to surface verbatim.
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {

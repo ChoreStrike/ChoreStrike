@@ -50,7 +50,7 @@
 						data-testid="wizard-floor-count">
 				</label>
 
-				<label class="field checkbox">
+				<label v-if="quick.homeType !== 'apartment'" class="field checkbox">
 					<input v-model="quick.basement" type="checkbox" data-testid="wizard-basement">
 					<span>{{ t('chorestrike', 'Has basement') }}</span>
 				</label>
@@ -145,6 +145,32 @@
 					<div class="preview-row">
 						<strong>{{ selectedLevelLabel }}</strong>
 					</div>
+					<div v-for="(floor, fi) in floors" :key="fi" class="preview-floor">
+						<h4>{{ floor.name }}</h4>
+						<div v-for="(room, ri) in floor.rooms" :key="ri" class="preview-room">
+							<span>{{ room.name }}</span>
+							<span class="task-chip" :data-testid="`wizard-room-task-count-${fi}-${ri}`">
+								{{ t('chorestrike', '≈ {n} tasks', { n: taskCountForRoom(room) }) }}
+							</span>
+						</div>
+						<div v-if="options.createHallways" class="preview-room">
+							<span>{{ t('chorestrike', 'Hallway & Stairs') }}</span>
+							<span class="task-chip" :data-testid="`wizard-room-task-count-${fi}-hallway`">
+								{{ t('chorestrike', '≈ {n} tasks', { n: taskCountForRoomType('hallway') }) }}
+							</span>
+						</div>
+						<div v-if="options.createHouseholdRoom && fi === householdFloorIndex" class="preview-room">
+							<span>{{ t('chorestrike', 'Household & Co.') }}</span>
+							<span class="task-chip" data-testid="wizard-room-task-count-household">
+								{{ t('chorestrike', '≈ {n} tasks', { n: taskCountForRoomType('household') }) }}
+							</span>
+						</div>
+					</div>
+					<div class="preview-row">
+						<strong data-testid="wizard-preview-task-count">
+							{{ t('chorestrike', '≈ {n} tasks will be created', { n: totalTaskCount }) }}
+						</strong>
+					</div>
 				</template>
 			</section>
 
@@ -228,6 +254,58 @@ export default {
 			const lvl = this.setupStore.levels.find(l => l.id === this.quick.intensityLevel)
 			return lvl ? lvl.label : this.quick.intensityLevel
 		},
+		/**
+		 * Floor index that receives the auto-created household room — mirrors
+		 * HouseSetupService::injectAutoRooms(): the ground floor, unless the
+		 * last floor holds a basement-typed room.
+		 */
+		householdFloorIndex() {
+			if (this.floors.length === 0) {
+				return 0
+			}
+			const lastFloor = this.floors[this.floors.length - 1]
+			const lastFloorHasBasement = lastFloor.rooms.some(r => r.roomType === 'basement')
+			return lastFloorHasBasement ? this.floors.length - 1 : 0
+		},
+		/**
+		 * Approximate number of room tasks applySetup will create (CR-027-04):
+		 * per room the templates matching its roomType at the chosen level,
+		 * plus the auto rooms (hallway per floor + household room) per the
+		 * options toggles — mirroring HouseSetupService's materialization.
+		 */
+		totalTaskCount() {
+			let total = 0
+			this.floors.forEach(floor => {
+				floor.rooms.forEach(room => {
+					total += this.taskCountForRoom(room)
+				})
+				if (this.options.createHallways) {
+					total += this.taskCountForRoomType('hallway')
+				}
+			})
+			if (this.options.createHouseholdRoom && this.floors.length > 0) {
+				total += this.taskCountForRoomType('household')
+			}
+			return total
+		},
+	},
+
+	watch: {
+		/**
+		 * CR-027-03: make the home-type input effective without changing the
+		 * apply payload — an apartment pins one floor and rules out a
+		 * basement; switching back to a house restores the defaults.
+		 *
+		 * @param {string} type The newly selected home type
+		 */
+		'quick.homeType'(type) {
+			if (type === 'apartment') {
+				this.quick.floorCount = 1
+				this.quick.basement = false
+			} else {
+				this.quick.floorCount = 2
+			}
+		},
 	},
 
 	async mounted() {
@@ -281,6 +359,24 @@ export default {
 			if (rt) {
 				room.name = rt.defaultName
 			}
+		},
+		/**
+		 * Approximate task count for one wizard room: catalog templates that
+		 * target its roomType and are not level-exclusive at the chosen level
+		 * (a null level entry is skipped by applySetup).
+		 *
+		 * @param {object} room A wizard room ({ name, roomType, assigneeUserId })
+		 */
+		taskCountForRoom(room) {
+			return this.taskCountForRoomType(room.roomType)
+		},
+		taskCountForRoomType(roomType) {
+			return this.setupStore.templates.filter(t =>
+				Array.isArray(t.roomTypes)
+				&& t.roomTypes.includes(roomType)
+				&& t.levels
+				&& t.levels[this.quick.intensityLevel] != null,
+			).length
 		},
 		addRoom(floorIndex) {
 			this.floors[floorIndex].rooms.push({
@@ -405,6 +501,20 @@ export default {
 .room-remove { background: transparent; border: none; cursor: pointer; font-size: 1.25rem; }
 
 .wizard-error { color: var(--color-error); margin: 0; }
+
+.preview-floor { border-top: 1px solid var(--color-border); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; }
+
+.preview-floor h4 { margin: 0; }
+
+.preview-room { display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; }
+
+.task-chip {
+	background: var(--color-primary-light);
+	border-radius: 999px;
+	padding: 0.1rem 0.6rem;
+	font-size: 0.8rem;
+	color: var(--color-text-maxcontrast);
+}
 
 .wizard-footer { display: flex; justify-content: flex-end; gap: 0.5rem; }
 

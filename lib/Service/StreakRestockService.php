@@ -33,7 +33,11 @@ class StreakRestockService {
 	 * Sets each house user's streak_freezes to the configured weekly value,
 	 * capped at the configured maximum.
 	 *
-	 * @return array{processed: int, freezesPerWeek: int, cap: int}
+	 * CR-SVC-30: the try/catch is per user (mirroring StreakFreezeService) so
+	 * one user's failure no longer aborts the weekly restock for everyone —
+	 * the loop continues and the failure is counted + logged.
+	 *
+	 * @return array{processed: int, freezesPerWeek: int, cap: int, failed: int}
 	 */
 	public function process(): array {
 		$freezesPerWeek = $this->configService->getStreakFreezesPerWeek();
@@ -42,19 +46,21 @@ class StreakRestockService {
 			'processed' => 0,
 			'freezesPerWeek' => $freezesPerWeek,
 			'cap' => $cap,
+			'failed' => 0,
 		];
 
-		try {
-			foreach ($this->houseUserMapper->findAllForJobs() as $user) {
+		foreach ($this->houseUserMapper->findAllForJobs() as $user) {
+			try {
 				$stats['processed']++;
 				$user->restockFreezes($freezesPerWeek, $cap);
 				$this->houseUserMapper->update($user);
+			} catch (\Throwable $e) {
+				$stats['failed']++;
+				$this->logger->error('StreakRestockService: per-user failure', [
+					'userId' => $user->getId(),
+					'exception' => $e->getMessage(),
+				]);
 			}
-		} catch (\Throwable $e) {
-			$this->logger->error('StreakRestockService failed', [
-				'exception' => $e->getMessage(),
-			]);
-			return $stats;
 		}
 
 		$this->logger->info('StreakRestockService completed', $stats);

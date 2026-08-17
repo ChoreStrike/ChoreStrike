@@ -144,6 +144,36 @@ class ChoreStrikeNotifierTest extends TestCase {
 		$this->notifier->prepare($notification, 'en');
 	}
 
+	public function testPrepare_TaskDueToday_RendersRichAndParsed(): void {
+		$notification = $this->buildNotification(
+			'chorestrike',
+			'task_due_today',
+			['task' => 'Dishes', 'taskId' => 42, 'dueDate' => '2026-08-18']
+		);
+		$notification->expects($this->once())->method('setRichSubject')
+			->with('Task "{task}" is due today');
+		$notification->expects($this->once())->method('setParsedSubject')
+			->with('Task "Dishes" is due today');
+		$notification->expects($this->once())->method('setParsedMessage');
+
+		$this->notifier->prepare($notification, 'en');
+	}
+
+	public function testPrepare_TaskDueTomorrow_RendersRichAndParsed(): void {
+		$notification = $this->buildNotification(
+			'chorestrike',
+			'task_due_tomorrow',
+			['task' => 'Dishes', 'taskId' => 42, 'dueDate' => '2026-08-18']
+		);
+		$notification->expects($this->once())->method('setRichSubject')
+			->with('Task "{task}" is due tomorrow');
+		$notification->expects($this->once())->method('setParsedSubject')
+			->with('Task "Dishes" is due tomorrow');
+		$notification->expects($this->once())->method('setParsedMessage');
+
+		$this->notifier->prepare($notification, 'en');
+	}
+
 	/**
 	 * Build a notification mock that returns the supplied subject/params.
 	 *

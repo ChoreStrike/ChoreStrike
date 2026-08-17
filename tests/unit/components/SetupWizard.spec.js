@@ -4,7 +4,9 @@ import { createPinia, setActivePinia } from 'pinia'
 import SetupWizard from '../../../src/components/Setup/SetupWizard.vue'
 
 jest.mock('@nextcloud/l10n', () => ({
-	translate: jest.fn((app, text) => text),
+	translate: jest.fn((app, text, vars = {}) =>
+		text.replace(/\{(\w+)\}/g, (m, key) => (key in vars ? String(vars[key]) : m))
+	),
 }))
 
 let mockSetupStore
@@ -102,6 +104,62 @@ describe('SetupWizard.vue', () => {
 		await wrapper.vm.$nextTick()
 		await wrapper.find('[data-testid="wizard-skip"]').trigger('click')
 		expect(wrapper.emitted('skipped')).toBeTruthy()
+	})
+
+	it('apartment pins one floor and hides the basement option; house restores defaults (CR-027-03)', async () => {
+		const wrapper = mountWizard()
+		await wrapper.vm.$nextTick()
+		expect(wrapper.find('[data-testid="wizard-basement"]').exists()).toBe(true)
+
+		await wrapper.find('[data-testid="wizard-home-type"]').setValue('apartment')
+
+		expect(wrapper.vm.quick.floorCount).toBe(1)
+		expect(wrapper.vm.quick.basement).toBe(false)
+		expect(wrapper.find('[data-testid="wizard-basement"]').exists()).toBe(false)
+
+		await wrapper.find('[data-testid="wizard-home-type"]').setValue('house')
+
+		expect(wrapper.vm.quick.floorCount).toBe(2)
+		expect(wrapper.find('[data-testid="wizard-basement"]').exists()).toBe(true)
+	})
+
+	it('preview shows per-room and total task counts from the catalog templates (CR-027-04)', async () => {
+		// kitchen: 2 templates (one level-exclusive on putzmuffel), bathroom /
+		// hallway / household: 1 each — counts must mirror applySetup's
+		// materialization incl. the auto rooms (D7).
+		mockSetupStore.templates = [
+			{ id: 'k1', roomTypes: ['kitchen'], levels: { putzteufel: {}, putzmuffel: {} } },
+			{ id: 'k2', roomTypes: ['kitchen'], levels: { putzteufel: {}, putzmuffel: null } },
+			{ id: 'b1', roomTypes: ['bathroom'], levels: { putzteufel: {}, putzmuffel: {} } },
+			{ id: 'h1', roomTypes: ['hallway'], levels: { putzteufel: {}, putzmuffel: {} } },
+			{ id: 'hh1', roomTypes: ['household'], levels: { putzteufel: {}, putzmuffel: {} } },
+		]
+
+		const wrapper = mountWizard()
+		await wrapper.vm.$nextTick()
+		await wrapper.find('[data-testid="wizard-floor-count"]').setValue(1)
+		await wrapper.find('[data-testid="wizard-rooms-per-floor"]').setValue(2)
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click') // -> step 2
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click') // -> step 3
+
+		// Rooms are generated round-robin: kitchen, bathroom.
+		expect(wrapper.find('[data-testid="wizard-room-task-count-0-0"]').text()).toBe('≈ 2 tasks')
+		expect(wrapper.find('[data-testid="wizard-room-task-count-0-1"]').text()).toBe('≈ 1 tasks')
+		// Auto rooms: hallway per floor + household room (both options on).
+		expect(wrapper.find('[data-testid="wizard-room-task-count-0-hallway"]').text()).toBe('≈ 1 tasks')
+		expect(wrapper.find('[data-testid="wizard-room-task-count-household"]').text()).toBe('≈ 1 tasks')
+		// 2 + 1 + 1 (hallway) + 1 (household) = 5 on putzteufel.
+		expect(wrapper.find('[data-testid="wizard-preview-task-count"]').text()).toBe('≈ 5 tasks will be created')
+
+		// Level-exclusive template drops out on the relaxed level (D7 a).
+		await wrapper.find('[data-testid="wizard-back"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-back"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-level-putzmuffel"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+
+		expect(wrapper.find('[data-testid="wizard-room-task-count-0-0"]').text()).toBe('≈ 1 tasks')
+		expect(wrapper.find('[data-testid="wizard-preview-task-count"]').text()).toBe('≈ 4 tasks will be created')
 	})
 
 	it('surfaces the store error so a failed apply is visible', async () => {

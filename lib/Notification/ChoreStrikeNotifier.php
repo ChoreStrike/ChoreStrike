@@ -143,6 +143,32 @@ class ChoreStrikeNotifier implements INotifier {
 				);
 				break;
 
+			case NotificationService::SUBJECT_TASK_DUE_TODAY:
+			case NotificationService::SUBJECT_TASK_DUE_TOMORROW:
+				$params = $this->params($notification);
+				$task = (string)($params['task'] ?? '');
+				$taskId = (string)($params['taskId'] ?? '0');
+				if ($notification->getSubject() === NotificationService::SUBJECT_TASK_DUE_TOMORROW) {
+					$richSubject = $l->t('Task "{task}" is due tomorrow');
+					$parsedSubject = $l->t('Task "%1$s" is due tomorrow', [$task]);
+					$parsedMessage = $l->t('Plan ahead so the chore does not sneak up on you tomorrow.');
+				} else {
+					$richSubject = $l->t('Task "{task}" is due today');
+					$parsedSubject = $l->t('Task "%1$s" is due today', [$task]);
+					$parsedMessage = $l->t('Complete it today to collect your coins and keep your streak.');
+				}
+				// Rich subject: the task name is user-controlled, so it must
+				// ride as an escaped placeholder parameter, never pre-interpolated.
+				$notification->setRichSubject(
+					$richSubject,
+					[
+						'task' => ['type' => 'highlight', 'id' => $taskId, 'name' => $task],
+					]
+				);
+				$notification->setParsedSubject($parsedSubject);
+				$notification->setParsedMessage($parsedMessage);
+				break;
+
 			default:
 				throw new \InvalidArgumentException('Unknown ChoreStrike notification subject');
 		}

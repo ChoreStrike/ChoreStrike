@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Command;
 use OCA\ChoreStrike\Service\StreakAtRiskService;
 use OCA\ChoreStrike\Service\StreakFreezeService;
 use OCA\ChoreStrike\Service\StreakRestockService;
+use OCA\ChoreStrike\Service\TaskDueReminderService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use Symfony\Component\Console\Command\Command;
@@ -24,8 +25,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * The job bodies live in services (CS-PLAN-023 refactor), so this command
  * calls them directly — no cron, no multi-day waits. `--as-of` sets the
- * reference "now" day and "yesterday" is derived as as-of minus one day,
- * so an E2E can simulate "N days passed" with zero clock trickery.
+ * reference "now" day: "yesterday" is derived as as-of minus one day for the
+ * streak passes, and the task-due reminder pass (CS-PLAN-030) uses the
+ * as-of day itself, so an E2E can simulate "N days passed" with zero clock
+ * trickery.
  *
  * Usage:
  *   php occ chorestrike:trigger-jobs streak-freeze --as-of=2026-08-05
@@ -48,6 +51,7 @@ class TriggerJobs extends Command {
 	public function __construct(
 		private TestDataService $testDataService,
 		private StreakAtRiskService $atRiskService,
+		private TaskDueReminderService $taskDueReminderService,
 		private StreakFreezeService $freezeService,
 		private StreakRestockService $restockService,
 		private ITimeFactory $time,
@@ -67,7 +71,7 @@ class TriggerJobs extends Command {
 			'as-of',
 			null,
 			InputOption::VALUE_OPTIONAL,
-			'Reference date (YYYY-MM-DD); "yesterday" is derived as as-of minus one day. Defaults to now.'
+			'Reference date (YYYY-MM-DD); "yesterday" (streak passes) is derived as as-of minus one day, the task-due pass uses the day itself. Defaults to now.'
 		);
 		$this->addOption(
 			'user',
@@ -92,11 +96,12 @@ class TriggerJobs extends Command {
 		}
 
 		try {
-			$yesterday = $this->resolveYesterday($input->getOption('as-of'));
+			$today = $this->resolveToday($input->getOption('as-of'));
 		} catch (\InvalidArgumentException $e) {
 			$output->writeln('<error>' . $e->getMessage() . '</error>');
 			return Command::FAILURE;
 		}
+		$yesterday = (clone $today)->modify('-1 day');
 
 		if ($input->getOption('user') !== null && $input->getOption('user') !== '') {
 			$output->writeln(
@@ -107,6 +112,7 @@ class TriggerJobs extends Command {
 		$results = [];
 		if ($type === 'daily-notification' || $type === 'all') {
 			$results['daily-notification'] = $this->atRiskService->process($yesterday);
+			$results['task-due-reminders'] = $this->taskDueReminderService->process($today);
 		}
 		if ($type === 'streak-freeze' || $type === 'all') {
 			$results['streak-freeze'] = $this->freezeService->process($yesterday);
@@ -127,19 +133,18 @@ class TriggerJobs extends Command {
 	}
 
 	/**
-	 * Derive the "yesterday" date passed to the services.
+	 * Derive the "today" reference date passed to (or derived by) the services.
 	 *
-	 * Without --as-of the injected clock provides "now" (so "yesterday" is
-	 * the real yesterday); with --as-of the given day is the reference and
-	 * "yesterday" is the day before it.
+	 * Without --as-of the injected clock provides "now"; with --as-of the given
+	 * day is the reference. "Yesterday" (streak passes) is derived as today
+	 * minus one day by the caller; the task-due pass uses "today" itself.
 	 *
 	 * @param string|null $asOf Optional reference date (YYYY-MM-DD)
 	 * @throws \InvalidArgumentException When --as-of is not a valid Y-m-d date
 	 */
-	private function resolveYesterday(?string $asOf): \DateTimeInterface {
+	private function resolveToday(?string $asOf): \DateTime {
 		if ($asOf === null || $asOf === '') {
-			$yesterday = clone $this->time->getDateTime();
-			return $yesterday->modify('-1 day');
+			return clone $this->time->getDateTime();
 		}
 
 		$parsed = \DateTime::createFromFormat('Y-m-d', $asOf);
@@ -148,6 +153,6 @@ class TriggerJobs extends Command {
 		}
 
 		$parsed->setTime(0, 0, 0);
-		return $parsed->modify('-1 day');
+		return $parsed;
 	}
 }

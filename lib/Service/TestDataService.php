@@ -35,23 +35,22 @@ class TestDataService {
 	/**
 	 * Tables to clear during test-data reset.
 	 *
-	 * Includes both canonical and legacy names to keep reset compatible across
-	 * migration states used in local/dev/CI environments.
+	 * Canonical tables only, audited against the current migration chain
+	 * (CR-SVC-42): the pre-release legacy aliases (chk_items, chk_progress,
+	 * task_parts, task_participants, task_claims, claims) were removed per
+	 * project-rules §1. `chorestrike_task_assignees` is deleted before
+	 * `chorestrike_room_tasks` to keep the logical dependency order (the
+	 * schema declares indexes, not DB-level foreign keys).
 	 *
 	 * @var list<string>
 	 */
 	private const RESET_TABLES = [
+		'chorestrike_task_assignees',
 		'chorestrike_availability',
 		'chorestrike_room_task_checklist_progress',
-		'chorestrike_chk_progress',
-		'chorestrike_task_participants',
-		'chorestrike_task_parts',
-		'chorestrike_task_claims',
-		'chorestrike_claims',
 		'chorestrike_completed_tasks',
 		'chorestrike_room_tasks',
 		'chorestrike_checklist_items',
-		'chorestrike_chk_items',
 		'chorestrike_tasks',
 		'chorestrike_rooms',
 		'chorestrike_floors',

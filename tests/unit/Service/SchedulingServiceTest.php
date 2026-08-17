@@ -27,6 +27,34 @@ class SchedulingServiceTest extends TestCase {
 	}
 
 	/**
+	 * GetUserPreferences_ReturnsRealConsumedEnergy
+	 *
+	 * CR-SVC-28 regression: the variant without a Nextcloud user ID reports
+	 * the real consumed energy, not a hardcoded 0.
+	 */
+	public function testGetUserPreferences_ReturnsRealConsumedEnergy(): void {
+		$houseUser = new HouseUser();
+		$houseUser->setId(7);
+		$houseUser->setSchedulingPreferences([]);
+
+		$this->houseUserMapper
+			->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($houseUser);
+
+		$this->completedTaskMapper
+			->expects($this->once())
+			->method('getConsumedEnergyForUserOnDate')
+			->with($this->equalTo(7), $this->isInstanceOf(\DateTimeInterface::class))
+			->willReturn(9);
+
+		$preferences = $this->service->getUserPreferences(7);
+
+		$this->assertSame(9, $preferences['todayConsumedEnergy']);
+	}
+
+	/**
 	 * GetUserPreferencesByNextcloudUserId_ValidUser_ReturnsResolvedPreferences
 	 */
 	public function testGetUserPreferencesByNextcloudUserId_ValidUser_ReturnsResolvedPreferences(): void {

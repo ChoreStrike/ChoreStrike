@@ -67,10 +67,11 @@ ChoreStrike/
 │   │                           #   Task, GameLogic, Scheduling,
 │   │                           #   Minigame, RewardConfig, Template, TaskSync,
 │   │                           #   TestData, Authorization, AppLogger, Title,
-│   │                           #   Notification, StreakAtRisk, StreakFreeze, StreakRestock).
-│   │                           #   The three
-│   │                           #   Streak*/AtRisk services hold the job bodies and take an
-│   │                           #   injected "yesterday" date (CS-PLAN-023).
+│   │                           #   Notification, StreakAtRisk, StreakFreeze,
+│   │                           #   StreakRestock, TaskDueReminder). The daily
+│   │                           #   job services (Streak*/AtRisk/TaskDueReminder)
+│   │                           #   hold the job bodies and take an injected
+│   │                           #   reference date (CS-PLAN-023 / CS-PLAN-030).
 │   ├── Templates/              # TaskTemplates.json (built-in task templates)
 │   └── Titles/                 # TitleCatalog — 3 packs × 3 tiers, server-authoritative
 │                               #   progression signals (CS-PLAN-006)
@@ -455,6 +456,49 @@ one concern. The canonical store boundaries (post-CS-PLAN-008):
 }
 ```
 
+## Notifications (Nextcloud bell + mobile push)
+
+All ChoreStrike notifications are dispatched through
+`NotificationService` (thin wrapper around `OCP\Notification\IManager`) and
+rendered by `ChoreStrikeNotifier` (registered INotifier; rich-subject
+parameters for user-controlled strings like task names). The subject
+constants live on `NotificationService` and are referenced from both sides —
+a subject without a matching notifier case fails at render time.
+
+### Subject catalog
+
+| Subject | Trigger point | objectType / objectId |
+|---------|--------------|----------------------|
+| `overdue_taken_over` | `RoomService` (overdue takeover) | `room_task` / roomTaskId |
+| `medal_awarded` | `GameLogicService::awardMedalIfNew` | `medal` / weekStart |
+| `weekly_goal_reached` | `HouseService` (per house-week, deduped) | `weekly_goal` / weekStart |
+| `title_unlocked` | `RoomService` post-commit (CR-SVC-12) | `title` / pack-qualified tier id |
+| `streak_at_risk` | `StreakAtRiskService` (daily job) | `streak` / `{pass-day Y-m-d}:{streak}` |
+| `task_due_today` / `task_due_tomorrow` | `TaskDueReminderService` (daily job, CS-PLAN-030) | `task_due` / `{roomTaskId}:{run-day Y-m-d}` |
+
+### Dedup rule (day-qualified objectIds)
+
+Nextcloud deduplicates on `(app, user, objectType, objectId)`. Any
+notification that may legitimately repeat on later days MUST day-qualify its
+objectId (`{identity}:{Y-m-d}`) — a bare streak number made consecutive
+days' at-risk reminders collapse into one bell entry whenever the value
+repeated (CR-SVC-27). Run-date (not due-date) keying keeps the "due
+tomorrow" reminder of day D−1 and the "due today" reminder of day D as
+separate entries while same-day re-runs dedup.
+
+### Daily job passes
+
+`DailyNotificationJob` (06:00 server time, 24 h interval) is a thin
+delegate that runs, in order: `StreakAtRiskService::process(yesterday)` and
+`TaskDueReminderService::process(today)`. Task-due reminders go to
+**assignees only** (join table + legacy column; unassigned tasks are
+visible in the daily dashboard instead), skip users unavailable on the due
+weekday, and need no completed-task guard (completion advances `next_due`
+or deactivates the row). Both passes are triggerable on demand with an
+injected reference day via `occ chorestrike:trigger-jobs --type
+daily-notification --as-of YYYY-MM-DD` (test mode only); `--as-of` sets
+"today", from which "yesterday" is derived for the streak passes.
+
 ## Security Considerations
 
 ### Authentication
@@ -603,7 +647,7 @@ window.addEventListener('error', (event) => {
 ## Future Enhancements
 
 - **WebSocket**: Real-time updates for multi-user
-- **Push Notifications**: Task reminders
+- **Push Notifications**: Task-due reminders ship via the Nextcloud notification system (see [Notifications](#notifications-nextcloud-bell--mobile-push)); richer per-category preferences remain future work
 - **Mobile App**: Native iOS/Android
 - **Statistics Dashboard**: Advanced analytics
 - **AI Suggestions**: Smart task scheduling

@@ -6,6 +6,7 @@ namespace OCA\ChoreStrike\Tests\Unit\BackgroundJob;
 
 use OCA\ChoreStrike\BackgroundJob\DailyNotificationJob;
 use OCA\ChoreStrike\Service\StreakAtRiskService;
+use OCA\ChoreStrike\Service\TaskDueReminderService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -15,21 +16,26 @@ use PHPUnit\Framework\TestCase;
  *
  * Since CS-PLAN-023 the job is a thin delegate: it derives "yesterday"
  * from the injected ITimeFactory and hands the pass to
- * StreakAtRiskService. The at-risk notification behaviour itself is
- * covered by StreakAtRiskServiceTest as a function of the injected date.
+ * StreakAtRiskService. Since CS-PLAN-030 it additionally runs the
+ * TaskDueReminderService pass with the current day (FEAT-NOTIFY-001). The
+ * notification behaviour itself is covered by the services' tests as a
+ * function of the injected date.
  */
 class DailyNotificationJobTest extends TestCase {
 	private ITimeFactory&MockObject $timeFactory;
 	private StreakAtRiskService&MockObject $atRiskService;
+	private TaskDueReminderService&MockObject $taskDueReminderService;
 	private DailyNotificationJob $job;
 
 	protected function setUp(): void {
 		$this->timeFactory = $this->createMock(ITimeFactory::class);
 		$this->atRiskService = $this->createMock(StreakAtRiskService::class);
+		$this->taskDueReminderService = $this->createMock(TaskDueReminderService::class);
 
 		$this->job = new DailyNotificationJob(
 			$this->timeFactory,
 			$this->atRiskService,
+			$this->taskDueReminderService,
 		);
 	}
 
@@ -58,6 +64,36 @@ class DailyNotificationJobTest extends TestCase {
 	}
 
 	/**
+	 * Run_DelegatesDueRemindersWithCurrentDay
+	 *
+	 * CS-PLAN-030: the task-due pass receives the job's "today" derived
+	 * from the same injected clock.
+	 */
+	public function testRun_DelegatesDueRemindersWithCurrentDay(): void {
+		$now = new \DateTime('2026-08-04 06:00:00');
+		$this->timeFactory->method('getDateTime')->willReturn($now);
+		$this->atRiskService->method('process')->willReturn([
+			'processed' => 0,
+			'notified' => 0,
+			'skippedUnavailable' => 0,
+		]);
+
+		$this->taskDueReminderService->expects($this->once())
+			->method('process')
+			->with($this->callback(function (\DateTimeInterface $today) {
+				return $today->format('Y-m-d') === '2026-08-04';
+			}))
+			->willReturn([
+				'processed' => 0,
+				'notifiedToday' => 0,
+				'notifiedTomorrow' => 0,
+				'skippedUnavailable' => 0,
+			]);
+
+		$this->invokeRun($this->job, null);
+	}
+
+	/**
 	 * Run_DoesNotMutateTheFactoryDateTime
 	 *
 	 * The job clones before modify(); the factory's instance must survive
@@ -69,6 +105,12 @@ class DailyNotificationJobTest extends TestCase {
 		$this->atRiskService->method('process')->willReturn([
 			'processed' => 0,
 			'notified' => 0,
+			'skippedUnavailable' => 0,
+		]);
+		$this->taskDueReminderService->method('process')->willReturn([
+			'processed' => 0,
+			'notifiedToday' => 0,
+			'notifiedTomorrow' => 0,
 			'skippedUnavailable' => 0,
 		]);
 

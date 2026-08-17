@@ -22,6 +22,11 @@ use Psr\Log\LoggerInterface;
  * renders them, and lets every caller treat notifications as fire-and-forget
  * (every method logs and swallows — notifications are best-effort and must
  * never break a task completion or medal award).
+ *
+ * Dedup rule (Nextcloud key: app, user, objectType, objectId): any
+ * notification that may legitimately repeat on later days MUST day-qualify
+ * its objectId (`{identity}:{Y-m-d}`) so consecutive passes do not collapse
+ * into one bell entry — see notifyStreakAtRisk (CR-SVC-27) and notifyTaskDue.
  */
 class NotificationService {
 	public const APP_ID = 'chorestrike';
@@ -40,6 +45,8 @@ class NotificationService {
 	public const SUBJECT_WEEKLY_GOAL_REACHED = 'weekly_goal_reached';
 	public const SUBJECT_STREAK_AT_RISK = 'streak_at_risk';
 	public const SUBJECT_TITLE_UNLOCKED = 'title_unlocked';
+	public const SUBJECT_TASK_DUE_TODAY = 'task_due_today';
+	public const SUBJECT_TASK_DUE_TOMORROW = 'task_due_tomorrow';
 
 	public function __construct(
 		private IManager $notificationManager,
@@ -196,20 +203,71 @@ class NotificationService {
 	 * Notify a user that their streak is at risk and they should complete a
 	 * task today to preserve it.
 	 *
+	 * The objectId is day-qualified (`{Y-m-d}:{streak}`, CR-SVC-27): Nextcloud
+	 * dedups on (app, user, objectType, objectId), so a bare streak number made
+	 * consecutive days' reminders collapse into one bell entry whenever the
+	 * streak value repeated. Keying on the pass's reference day keeps one entry
+	 * per pass while same-day re-runs still dedup.
+	 *
 	 * @param string $recipientNextcloudUserId Recipient's Nextcloud user ID
 	 * @param int $currentStreak The current streak count
+	 * @param \DateTimeInterface $passDay The pass's reference day (the evaluated "yesterday")
 	 */
 	public function notifyStreakAtRisk(
 		string $recipientNextcloudUserId,
 		int $currentStreak,
+		\DateTimeInterface $passDay,
 	): void {
 		$this->dispatch(
 			$recipientNextcloudUserId,
 			self::SUBJECT_STREAK_AT_RISK,
 			'streak',
-			(string)$currentStreak,
+			$passDay->format('Y-m-d') . ':' . $currentStreak,
 			[
 				'currentStreak' => $currentStreak,
+			]
+		);
+	}
+
+	/**
+	 * Notify an assignee that one of their tasks is due today or tomorrow
+	 * (FEAT-NOTIFY-001).
+	 *
+	 * The objectId is day-qualified with the PASS RUN DATE, not the due date:
+	 * `{roomTaskId}:{Y-m-d}` where Y-m-d is the day the reminder pass ran.
+	 * That keying keeps the "due tomorrow" reminder sent on day D−1 and the
+	 * "due today" reminder sent on day D as separate bell entries (different
+	 * objectIds) while a same-day re-run of the pass collapses into the same
+	 * objectId and is deduplicated by Nextcloud — the CR-SVC-27 lesson applied
+	 * from the start. Because the pass for "due tomorrow" always runs exactly
+	 * one day before the due date, the run date is derived as dueDate minus
+	 * one day for the tomorrow variant.
+	 *
+	 * @param string $recipientNextcloudUserId Assignee's Nextcloud user ID
+	 * @param string $taskName Display name of the task (user-controlled; rendered as a rich param)
+	 * @param int $roomTaskId Room task ID (object identity + rich param)
+	 * @param \DateTimeInterface $dueDate The task's due date (only the calendar day is used)
+	 * @param bool $dueTomorrow True for the "due tomorrow" pass, false for "due today"
+	 */
+	public function notifyTaskDue(
+		string $recipientNextcloudUserId,
+		string $taskName,
+		int $roomTaskId,
+		\DateTimeInterface $dueDate,
+		bool $dueTomorrow,
+	): void {
+		$dueDay = new \DateTimeImmutable($dueDate->format('Y-m-d'));
+		$runDate = $dueTomorrow ? $dueDay->modify('-1 day') : $dueDay;
+
+		$this->dispatch(
+			$recipientNextcloudUserId,
+			$dueTomorrow ? self::SUBJECT_TASK_DUE_TOMORROW : self::SUBJECT_TASK_DUE_TODAY,
+			'task_due',
+			$roomTaskId . ':' . $runDate->format('Y-m-d'),
+			[
+				'task' => $taskName,
+				'taskId' => $roomTaskId,
+				'dueDate' => $dueDate->format('Y-m-d'),
 			]
 		);
 	}

@@ -93,7 +93,8 @@ class StreakAtRiskService {
 
 				$this->notificationService->notifyStreakAtRisk(
 					$nextcloudUserId,
-					$user->getCurrentStreak()
+					$user->getCurrentStreak(),
+					$yesterday
 				);
 				$stats['notified']++;
 			}

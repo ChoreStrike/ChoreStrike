@@ -398,6 +398,38 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Find active room tasks whose next_due falls on a calendar day — across
+	 * ALL houses (FEAT-NOTIFY-001).
+	 *
+	 * Job-only query (D4): background jobs are instance-global (like
+	 * findAllForJobs()), so this method deliberately has NO house scope.
+	 * Do not reuse it for house-facing API endpoints — use the house-scoped
+	 * variants (findDailyTasks, findDueTodayByHouse) instead.
+	 *
+	 * Same [start, end) range-comparison pattern as findDailyTasks (never
+	 * DATE(next_due) = :day — see BUG-API-DAILY-001).
+	 *
+	 * @param \DateTimeInterface $day The day to find tasks for (only the calendar day is used)
+	 * @return RoomTask[] Active room tasks due within [day 00:00:00, day+1)
+	 */
+	public function findDueOnDate(\DateTimeInterface $day): array {
+		$startOfDay = new \DateTimeImmutable($day->format('Y-m-d') . ' 00:00:00');
+		$endOfDay = $startOfDay->modify('+1 day');
+
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName())
+			->andWhere($qb->expr()->gte('next_due', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('next_due', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+			->orderBy('next_due', 'ASC')
+			->addOrderBy('created_at', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * Apply the house-scope JOIN chain to a room_tasks query.
 	 *
 	 * chorestrike_room_tasks has no denormalized house_id column, so every

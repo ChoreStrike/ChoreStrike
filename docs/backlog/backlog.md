@@ -51,22 +51,6 @@ Confirm whether production shapes still need it; if not, remove it.
 
 ---
 
-## Features
-
-### [P2] FEAT-NOTIFY-001 — Task-Due Push Reminders
-**Status**: Planned · **Effort**: S · **Source**: User request 2026-07-27
-
-Extend `DailyNotificationJob` / `NotificationService` to send "task X is due
-today / tomorrow" via the Nextcloud bell + mobile push (no CalDAV needed — the
-NC notification system already delivers to mobile).
-
-- [ ] New subjects `task_due_today`, `task_due_tomorrow`; localized rich params.
-- [ ] `DailyNotificationJob` (or dedicated job) queries due-today/tomorrow per user.
-- [ ] Respect per-category notification preferences; no duplicate on completed tasks.
-- [ ] Unit tests for job + notifier rendering.
-
----
-
 ## Tech Debt / Code Quality
 
 ### [P3] TECH-LINT-003 — Build/test noise (remaining console.error)
@@ -319,15 +303,6 @@ queries for an N-entry leaderboard (default limit 10 → 10 round trips per fetc
 - [ ] Add a batch lookup (`findByHouseIdAndNextcloudUserIds`) or a JOIN in
       `MinigameScoreMapper::getLeaderboard` that returns `displayName` alongside the rows.
 
-### [P3] CR-SVC-57 — `GameLogicService::calculateContributionScore` ignores its `$roomCleanliness` parameter
-**Status**: Open · **Effort**: XS · **Source**: Full Review 2026-08-11
-`calculateContributionScore(Task $task, int $roomCleanliness)` (`:184`) has a comment
-"Simplified: contribution = energy cost" and never reads `$roomCleanliness`. Dead
-parameter on a public method is a maintenance trap (callers reasonably assume
-cleanliness affects the score).
-- [ ] Use `$roomCleanliness` in the formula, drop the parameter, or mark `@deprecated`
-      with a TODO referencing the simplification.
-
 ### [P3] CR-SVC-58 — `phpunit.unit.xml` Entity/Mapper suites double-run 5 mapper tests
 **Status**: Open · **Effort**: XS · **Source**: Full Review 2026-08-11 (CS-PLAN-022 D2)
 The 5 newer mapper tests (`TaskAssignee`, `TaskChecklistItem`, `RoomTaskChecklistProgress`,
@@ -389,10 +364,6 @@ Clamp to `>= 0`/`>= 1` consistently.
 `markAsSynced`, `getPendingSyncs`) are unscoped public mutators. Make them private,
 expose only the `*ForHouse` wrappers.
 
-### [P3] CR-SVC-22 — `RoomTaskService::removeAssignee` unguarded
-**Effort**: XS — inconsistent with `addAssignee`; require `houseId` + validate membership
-+ room-task ownership.
-
 ### [P3] CR-SVC-23 — `MinigameService::purchaseBoost` lost-update
 **Effort**: S — read-check-deduct with no lock; concurrent purchases can pay once for two
 boosts. Wrap in a transaction with `SELECT … FOR UPDATE` on the `house_user` row.
@@ -400,18 +371,6 @@ boosts. Wrap in a transaction with `SELECT … FOR UPDATE` on the `house_user` r
 ### [P3] CR-SVC-26 — `removeUserFromHouse` leaves orphaned assignee references
 **Effort**: S — root cause of the defensive re-check at `RoomService.php:419`. On removal,
 null `room_tasks.assigned_to_user_id` and delete `task_assignees` rows for the user.
-
-### [P3] CR-SVC-27 — `notifyStreakAtRisk` objectId not day-qualified
-**Effort**: XS — Nextcloud dedups on `(app,user,objectType,objectId)`; using the bare
-streak number drops the second day's reminder. Qualify with the date.
-
-### [P3] CR-SVC-28 — `SchedulingService::getUserPreferences` stale consumed energy
-**Effort**: XS — hardcodes `todayConsumedEnergy=0` (only the `…ByNextcloudUserId` variant
-computes the real value). Compute it in both, or drop the field from this variant.
-
-### [P3] CR-SVC-30 — `StreakRestockService::process` non-resilient loop
-**Effort**: XS — one try/catch wraps the whole loop; a single user's failure aborts the
-weekly restock. Move the try/catch inside the `foreach` (match `StreakFreezeService`).
 
 ### [P3] CR-SVC-31 — `completionRate` conflates inactive with completed
 **Effort**: S — `getRoomTaskStats`/`getUserTaskStats` compute `(total-active)/total`,
@@ -425,10 +384,6 @@ round to the wrong day and flip the early bonus. Use calendar-day `diff`.
 ### [P3] CR-SVC-33 — `TaskService::completeTask` reward-less Task-level path
 **Effort**: S — sets `status='completed'` with no coins/streak/cleanliness, parallel to
 the real `RoomTaskService::completeTask`. Remove or document as admin/template-only.
-
-### [P3] CR-SVC-36 — `calculateContributionScore` unused `$roomCleanliness` param
-**Effort**: XS — public method ignores the param (signature/PHPDoc mislead). Drop it
-(update caller + test) or fold cleanliness in per the documented intent.
 
 ### [P3] CR-SVC-37 — Service-layer i18n: hardcoded user-facing strings
 **Effort**: S — `TaskService::validateTaskData` validation messages and
@@ -444,9 +399,6 @@ plumbing in a service). Move transaction+lock into the mapper/repository.
 `getFilteredDailyTasksForUser` takes `HouseUserMapper` as a param despite ctor injection;
 duplicated stat helpers; duplicated `validate*Ownership` across Floor/Room/RoomTask services.
 
-### [P3] CR-SVC-42 — `TestDataService::RESET_TABLES` legacy table aliases
-**Effort**: XS — pre-release compat shim (project-rules §1 forbids). Drop the legacy names.
-
 ### [P3] CR-SVC-44 — Minor performance cluster
 **Effort**: M — `TaskService::getAllTasks` unbounded `findAll`; `createDefaultTemplates`
 15 sequential inserts; `StreakFreeze`/`StreakRestock` per-user UPDATEs; `assignTask`/
@@ -458,7 +410,8 @@ duplicated stat helpers; duplicated `validate*Ownership` across Floor/Room/RoomT
 ## Review Follow-ups — CS-027 (House Setup Wizard & Cleaning Templates)
 
 > From the Standard-B review of the CS-PLAN-027 implementation (2026-08-13).
-> Six smaller findings were auto-fixed inline (plan §13); these four remain.
+> Six smaller findings were auto-fixed inline (plan §13); these two remain
+> (CR-027-03/04 were closed by CS-PLAN-030).
 
 ### [P3] CR-027-01 — Free room create/update persists unvalidated `roomType`
 **Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-027 (2026-08-13)
@@ -476,20 +429,6 @@ The legacy `template#search` route was removed with `TemplateController`, leavin
 text, not the localized view, so German queries (e.g. „Staubsaugen") miss.
 - [ ] Wire it into the template picker as a search field (localize the match),
       or remove the method + its tests.
-
-### [P4] CR-027-03 — Wizard collects `homeType` but never sends it
-**Status**: Open · **Effort**: XS · **Source**: Review of CS-PLAN-027 (2026-08-13)
-`SetupWizard` step 1 collects Haus/Wohnung, but the apply payload contract omits
-it — the input has no effect.
-- [ ] Use it (e.g. apartment → suggest 1 floor, house → outdoor room type) or
-      drop the field.
-
-### [P4] CR-027-04 — Wizard preview lacks the task-count summary
-**Status**: Open · **Effort**: XS · **Source**: Review of CS-PLAN-027 (2026-08-13)
-Plan §5 step 3 promised a preview with floors/rooms/**task count per level**;
-the implementation shows floors/rooms/level label only.
-- [ ] Compute the applicable-template count from the catalog + selected level
-      and show it in the preview.
 
 ---
 

@@ -129,4 +129,56 @@ class RoomTaskMapperDailyTest extends IntegrationTestCase {
 		self::assertCount(1, $result);
 		self::assertSame($dueYesterday, $result[0]->getId());
 	}
+
+	/**
+	 * findDueOnDate (job-only, NO house scope — D4 of CS-PLAN-030) returns
+	 * the active rows of the requested calendar day across ALL houses and
+	 * excludes inactive rows. A distinct future day avoids interference with
+	 * other specs' "now"-dated fixtures.
+	 */
+	public function testFindDueOnDate_ReturnsActiveRowsAcrossHouses(): void {
+		$day = (new \DateTimeImmutable('today'))->modify('+40 days');
+		$dayNoon = $day->modify('12:00:00');
+
+		$houseA = $this->createHouse('due_owner_a', 'House A');
+		$floorA = $this->createFloor($houseA, 'Ground Floor', 1);
+		$roomA = $this->createRoom($houseA, $floorA, 'Kitchen');
+
+		$houseB = $this->createHouse('due_owner_b', 'House B');
+		$floorB = $this->createFloor($houseB, 'Ground Floor', 1);
+		$roomB = $this->createRoom($houseB, $floorB, 'Bathroom');
+
+		$dueA = $this->assignTaskToRoom($this->createTask($houseA, 'Dishes'), $roomA, 'due_owner_a');
+		$this->setNextDue($dueA, $dayNoon);
+
+		// Same day, different house → still returned (no house scope).
+		$dueB = $this->assignTaskToRoom($this->createTask($houseB, 'Toilet'), $roomB, 'due_owner_b');
+		$this->setNextDue($dueB, $day->modify('23:59:59'));
+
+		// Different day → excluded.
+		$otherDay = $this->assignTaskToRoom($this->createTask($houseA, 'Vacuum'), $roomA, 'due_owner_a');
+		$this->setNextDue($otherDay, $day->modify('+1 day'));
+
+		// Inactive on the requested day → excluded.
+		$inactive = $this->assignTaskToRoom($this->createTask($houseA, 'Windows'), $roomA, 'due_owner_a');
+		$this->setNextDue($inactive, $dayNoon);
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_room_tasks')
+			->set('is_active', $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($inactive, IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+
+		$result = $this->mapper->findDueOnDate($day);
+
+		$ids = array_map(fn ($roomTask) => $roomTask->getId(), $result);
+		sort($ids);
+		$expected = [$dueA, $dueB];
+		sort($expected);
+
+		self::assertSame(
+			$expected,
+			$ids,
+			'findDueOnDate must return the active rows of the requested day across all houses'
+		);
+	}
 }

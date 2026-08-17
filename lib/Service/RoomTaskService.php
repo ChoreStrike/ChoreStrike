@@ -446,11 +446,17 @@ class RoomTaskService {
 	/**
 	 * Remove an assignee from a room task
 	 *
+	 * Mirrors addAssignee's guard (CR-SVC-22): the target user must be a
+	 * member of the house — client-supplied user IDs are never trusted.
+	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param string $userId The Nextcloud user ID to remove
+	 * @param int $houseId The house ID for membership validation
+	 * @throws \InvalidArgumentException if the user is not a house member
 	 */
-	public function removeAssignee(int $roomTaskId, string $userId): void {
+	public function removeAssignee(int $roomTaskId, string $userId, int $houseId): void {
 		$this->roomTaskMapper->find($roomTaskId);
+		$this->assertHouseMembers([$userId], $houseId);
 		$this->taskAssigneeMapper->removeAssignee($roomTaskId, $userId);
 	}
 

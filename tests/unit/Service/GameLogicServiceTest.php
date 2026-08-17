@@ -198,13 +198,16 @@ class GameLogicServiceTest extends TestCase {
 
 	/**
 	 * CalculateContributionScore_ReturnsEnergyCost
+	 *
+	 * CR-SVC-57: the signature carries no cleanliness param — contribution
+	 * is the documented energy-cost simplification.
 	 */
 	public function testCalculateContributionScore_ReturnsEnergyCost(): void {
 		$task = new Task();
 		$task->setEnergyCost(2);
 		$task->setTaskTier('silver');
 
-		$result = $this->service->calculateContributionScore($task, 70);
+		$result = $this->service->calculateContributionScore($task);
 
 		// Simplified: contribution = energy cost
 		$this->assertEquals(2, $result);

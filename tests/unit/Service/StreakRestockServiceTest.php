@@ -89,6 +89,40 @@ class StreakRestockServiceTest extends TestCase {
 			'processed' => 0,
 			'freezesPerWeek' => 1,
 			'cap' => 2,
+			'failed' => 0,
 		], $stats);
+	}
+
+	/**
+	 * Process_OneFailingUser_DoesNotAbortTheLoop
+	 *
+	 * CR-SVC-30 regression: the try/catch lives inside the foreach, so the
+	 * second user is still restocked after the first user's update fails.
+	 */
+	public function testProcess_OneFailingUser_DoesNotAbortTheLoop(): void {
+		$failing = new HouseUser();
+		$failing->setId(1);
+		$failing->setStreakFreezes(0);
+
+		$healthy = new HouseUser();
+		$healthy->setId(2);
+		$healthy->setStreakFreezes(0);
+
+		$this->houseUserMapper->method('findAllForJobs')->willReturn([$failing, $healthy]);
+		$this->houseUserMapper->method('update')
+			->willReturnCallback(function (HouseUser $user) {
+				if ($user->getId() === 1) {
+					throw new \RuntimeException('db gone');
+				}
+				return $user;
+			});
+		$this->logger->expects($this->once())->method('error');
+
+		$stats = $this->service->process();
+
+		$this->assertSame(2, $stats['processed']);
+		$this->assertSame(1, $stats['failed']);
+		// The healthy user was restocked despite the first user's failure.
+		$this->assertSame(1, $healthy->getStreakFreezes());
 	}
 }

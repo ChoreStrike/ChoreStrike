@@ -61,7 +61,8 @@ class GameLogicService {
 	 * @param int $roomTaskId The room task ID
 	 * @param int $userId The house user ID
 	 * @param Task $task The task entity
-	 * @param int $roomCleanliness Current room cleanliness
+	 * @param int $roomCleanliness Current room cleanliness — completion context
+	 *                             only; NOT part of the payout math (CR-SVC-57: contribution = energy cost)
 	 * @param int|null $nextcloudTaskId Optional Nextcloud task id stamped on the
 	 *                                  completion row (CR-SVC-46): sync completions pass the linked id so
 	 *                                  {@see \OCA\ChoreStrike\Db\CompletedTaskMapper::findPendingSyncs()}
@@ -82,7 +83,7 @@ class GameLogicService {
 		$user = $this->houseUserMapper->findForUpdate($userId);
 		$roomTask = $this->roomTaskMapper->find($roomTaskId);
 
-		$contributionScore = $this->calculateContributionScore($task, $roomCleanliness);
+		$contributionScore = $this->calculateContributionScore($task);
 		$recentCompletions = $this->completedTaskMapper->findRecentByUserId($userId, 5);
 		$isCombo = count($recentCompletions) >= 2;
 		$daysEarly = $this->calculateDaysEarly($roomTask);
@@ -191,11 +192,13 @@ class GameLogicService {
 	/**
 	 * Calculate contribution score for task completion
 	 *
+	 * Documented simplification (CR-SVC-57): contribution = energy cost.
+	 * Room cleanliness deliberately does NOT factor in — folding it in would
+	 * change gamification payout behavior and needs its own review first.
+	 *
 	 * @param Task $task The task
-	 * @param int $roomCleanliness Current room cleanliness (0-100)
 	 */
-	public function calculateContributionScore(Task $task, int $roomCleanliness): int {
-		// Simplified: contribution = energy cost (no multipliers)
+	public function calculateContributionScore(Task $task): int {
 		return $task->getEnergyCost();
 	}
 

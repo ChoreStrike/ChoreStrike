@@ -608,6 +608,14 @@
         "Dust the surfaces in the room.": "Dust the surfaces in the room.",
         "Work top to bottom, dust the shelves and furniture, and wipe the window sill.": "Work top to bottom, dust the shelves and furniture, and wipe the window sill.",
         "Vacuum the room": "Vacuum the room",
-        "Clear the floor, vacuum in both directions, and use the attachments for the edges and corners.": "Clear the floor, vacuum in both directions, and use the attachments for the edges and corners."
+        "Clear the floor, vacuum in both directions, and use the attachments for the edges and corners.": "Clear the floor, vacuum in both directions, and use the attachments for the edges and corners.",
+        "Task \"{task}\" is due today": "Task \"{task}\" is due today",
+        "Task \"%1$s\" is due today": "Task \"%1$s\" is due today",
+        "Complete it today to collect your coins and keep your streak.": "Complete it today to collect your coins and keep your streak.",
+        "Task \"{task}\" is due tomorrow": "Task \"{task}\" is due tomorrow",
+        "Task \"%1$s\" is due tomorrow": "Task \"%1$s\" is due tomorrow",
+        "Plan ahead so the chore does not sneak up on you tomorrow.": "Plan ahead so the chore does not sneak up on you tomorrow.",
+        "≈ {n} tasks": "≈ {n} tasks",
+        "≈ {n} tasks will be created": "≈ {n} tasks will be created"
     }
 }

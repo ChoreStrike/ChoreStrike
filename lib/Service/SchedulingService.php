@@ -27,6 +27,9 @@ class SchedulingService {
 	/**
 	 * Get scheduling preferences for a user
 	 *
+	 * CR-SVC-28: reports the real consumed energy for today instead of a
+	 * hardcoded 0, so both this and the ByNextcloudUserId variant agree.
+	 *
 	 * @param int $userId The house user ID
 	 * @return array Scheduling preferences
 	 */
@@ -41,7 +44,10 @@ class SchedulingService {
 			'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
 			'weekdayAvailability' => $preferences['weekdayAvailability'] ?? $this->getDefaultAvailability(),
 			'maxDailyTasks' => $preferences['maxDailyTasks'] ?? PHP_INT_MAX,
-			'todayConsumedEnergy' => 0,
+			'todayConsumedEnergy' => $this->completedTaskMapper->getConsumedEnergyForUserOnDate(
+				$userId,
+				new \DateTimeImmutable()
+			),
 		];
 	}
 
@@ -55,13 +61,7 @@ class SchedulingService {
 	public function getUserPreferencesByNextcloudUserId(int $houseId, string $nextcloudUserId): array {
 		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
 
-		$preferences = $this->getUserPreferences($user->getId());
-		$preferences['todayConsumedEnergy'] = $this->completedTaskMapper->getConsumedEnergyForUserOnDate(
-			$user->getId(),
-			new \DateTimeImmutable()
-		);
-
-		return $preferences;
+		return $this->getUserPreferences($user->getId());
 	}
 
 	/**

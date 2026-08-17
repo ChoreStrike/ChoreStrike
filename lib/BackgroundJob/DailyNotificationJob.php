@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\BackgroundJob;
 
 use OCA\ChoreStrike\Service\StreakAtRiskService;
+use OCA\ChoreStrike\Service\TaskDueReminderService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 
@@ -18,31 +19,38 @@ use OCP\BackgroundJob\TimedJob;
  * Thin delegate (CS-PLAN-023): derives "yesterday" from the injected
  * ITimeFactory and hands the pass to {@see StreakAtRiskService}, which
  * holds the at-risk logic and is independently triggerable via
- * occ chorestrike:trigger-jobs.
+ * occ chorestrike:trigger-jobs. Since CS-PLAN-030 the job additionally runs
+ * the task-due reminder pass ({@see TaskDueReminderService}) with the
+ * current day, covering the "task X is due today / tomorrow" nudges
+ * (FEAT-NOTIFY-001).
  *
  * Overdue-takeover, medal-awarded and weekly-goal-reached notifications are
  * fired from their respective trigger points (RoomService,
  * GameLogicService) and are NOT handled here — this job covers only the
- * time-based reminder that no single mutation can detect.
+ * time-based reminders that no single mutation can detect.
  */
 class DailyNotificationJob extends TimedJob {
 	private StreakAtRiskService $atRiskService;
+	private TaskDueReminderService $taskDueReminderService;
 
 	public function __construct(
 		ITimeFactory $time,
 		StreakAtRiskService $atRiskService,
+		TaskDueReminderService $taskDueReminderService,
 	) {
 		parent::__construct($time);
 		$this->setInterval(24 * 60 * 60);
 
 		$this->atRiskService = $atRiskService;
+		$this->taskDueReminderService = $taskDueReminderService;
 	}
 
 	/**
-	 * Run the daily streak-at-risk notification pass
+	 * Run the daily notification passes (streak-at-risk + task-due reminders)
 	 */
 	protected function run($argument): void {
 		$this->atRiskService->process($this->deriveYesterday());
+		$this->taskDueReminderService->process($this->time->getDateTime());
 	}
 
 	/**

@@ -28,6 +28,8 @@ class NotificationServiceTest extends TestCase {
 	private ?string $lastObjectType = null;
 	private ?string $lastObjectId = null;
 	private ?string $lastUser = null;
+	/** @var string[] Every dispatched objectId, in dispatch order. */
+	private array $objectIds = [];
 
 	protected function setUp(): void {
 		$this->manager = $this->createMock(IManager::class);
@@ -44,6 +46,7 @@ class NotificationServiceTest extends TestCase {
 		$this->lastObjectType = null;
 		$this->lastObjectId = null;
 		$this->lastUser = null;
+		$this->objectIds = [];
 	}
 
 	/**
@@ -63,6 +66,7 @@ class NotificationServiceTest extends TestCase {
 			function (string $type, string $id) use ($notification) {
 				$this->lastObjectType = $type;
 				$this->lastObjectId = $id;
+				$this->objectIds[] = $id;
 				return $notification;
 			}
 		);
@@ -151,11 +155,77 @@ class NotificationServiceTest extends TestCase {
 	public function testNotifyStreakAtRisk_BuildsAndNotifies(): void {
 		$this->wireRecordingNotification();
 
-		$this->service->notifyStreakAtRisk('alice', 5);
+		$this->service->notifyStreakAtRisk('alice', 5, new \DateTimeImmutable('2026-08-10 06:00:00'));
 
 		$this->assertSame('streak_at_risk', $this->lastSubjectName);
 		$this->assertSame(['currentStreak' => 5], $this->lastSubject);
 		$this->assertSame('streak', $this->lastObjectType);
+		// CR-SVC-27: day-qualified objectId (pass day + streak).
+		$this->assertSame('2026-08-10:5', $this->lastObjectId);
+	}
+
+	/**
+	 * NotifyStreakAtRisk_ConsecutiveDays_BuildDifferentObjectIds
+	 *
+	 * CR-SVC-27 regression: the bare streak number made Nextcloud's
+	 * (app, user, objectType, objectId) dedup drop day 2's reminder whenever
+	 * the streak value repeated. Day-qualified objectIds must differ.
+	 */
+	public function testNotifyStreakAtRisk_ConsecutiveDays_BuildDifferentObjectIds(): void {
+		$this->wireRecordingNotification();
+
+		$this->service->notifyStreakAtRisk('alice', 5, new \DateTimeImmutable('2026-08-09 06:00:00'));
+		$this->service->notifyStreakAtRisk('alice', 5, new \DateTimeImmutable('2026-08-10 06:00:00'));
+
+		$this->assertSame(['2026-08-09:5', '2026-08-10:5'], $this->objectIds);
+	}
+
+	/**
+	 * NotifyTaskDue_DueToday_BuildsRunDateQualifiedObjectId
+	 */
+	public function testNotifyTaskDue_DueToday_BuildsRunDateQualifiedObjectId(): void {
+		$this->wireRecordingNotification();
+
+		$this->service->notifyTaskDue(
+			'alice',
+			'Dishes',
+			42,
+			new \DateTimeImmutable('2026-08-18 14:30:00'),
+			false
+		);
+
+		$this->assertSame('alice', $this->lastUser);
+		$this->assertSame('task_due_today', $this->lastSubjectName);
+		$this->assertSame(
+			['task' => 'Dishes', 'taskId' => 42, 'dueDate' => '2026-08-18'],
+			$this->lastSubject
+		);
+		$this->assertSame('task_due', $this->lastObjectType);
+		// Run-date keying: due today on the 18th → objectId day is the 18th.
+		$this->assertSame('42:2026-08-18', $this->lastObjectId);
+	}
+
+	/**
+	 * NotifyTaskDue_DueTomorrow_KeysObjectIdOnRunDateNotDueDate
+	 *
+	 * The "due tomorrow" pass runs one day before the due date, so the same
+	 * task reminded on day D−1 (tomorrow) and day D (today) produces two
+	 * distinct bell entries; a same-day re-run would collapse (same objectId).
+	 */
+	public function testNotifyTaskDue_DueTomorrow_KeysObjectIdOnRunDateNotDueDate(): void {
+		$this->wireRecordingNotification();
+
+		$this->service->notifyTaskDue(
+			'alice',
+			'Dishes',
+			42,
+			new \DateTimeImmutable('2026-08-18 14:30:00'),
+			true
+		);
+
+		$this->assertSame('task_due_tomorrow', $this->lastSubjectName);
+		// Run date = due date − 1 day for the tomorrow variant.
+		$this->assertSame('42:2026-08-17', $this->lastObjectId);
 	}
 
 	/**

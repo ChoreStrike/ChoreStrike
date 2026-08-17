@@ -608,6 +608,14 @@
         "Dust the surfaces in the room.": "Die Flächen im Raum abstäuben.",
         "Work top to bottom, dust the shelves and furniture, and wipe the window sill.": "Von oben nach unten, Regale und Möbel abstäuben, Fensterbank abwischen.",
         "Vacuum the room": "Zimmer staubsaugen",
-        "Clear the floor, vacuum in both directions, and use the attachments for the edges and corners.": "Boden frei machen, in beiden Richtungen saugen, Kanten und Ecken mit Aufsatz."
+        "Clear the floor, vacuum in both directions, and use the attachments for the edges and corners.": "Boden frei machen, in beiden Richtungen saugen, Kanten und Ecken mit Aufsatz.",
+        "Task \"{task}\" is due today": "Aufgabe „{task}“ ist heute fällig",
+        "Task \"%1$s\" is due today": "Aufgabe „%1$s“ ist heute fällig",
+        "Complete it today to collect your coins and keep your streak.": "Erledige sie heute, um deine Münzen zu kassieren und deine Serie zu halten.",
+        "Task \"{task}\" is due tomorrow": "Aufgabe „{task}“ ist morgen fällig",
+        "Task \"%1$s\" is due tomorrow": "Aufgabe „%1$s“ ist morgen fällig",
+        "Plan ahead so the chore does not sneak up on you tomorrow.": "Plane voraus, damit dich die Aufgabe morgen nicht überrumpelt.",
+        "≈ {n} tasks": "≈ {n} Aufgaben",
+        "≈ {n} tasks will be created": "≈ {n} Aufgaben werden erstellt"
     }
 }

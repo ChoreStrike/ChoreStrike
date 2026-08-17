@@ -1043,12 +1043,37 @@ class RoomTaskServiceTest extends TestCase {
 		$roomTask = new RoomTask();
 		$roomTask->setId(1);
 
+		$member = new HouseUser();
+		$member->setNextcloudUserId('user-a');
+
 		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$member]);
 		$this->taskAssigneeMapper->expects($this->once())->method('removeAssignee')->with(1, 'user-a');
 
-		$this->service->removeAssignee(1, 'user-a');
+		$this->service->removeAssignee(1, 'user-a', 1);
 
 		$this->assertTrue(true);
+	}
+
+	/**
+	 * RemoveAssignee_NonMember_Throws
+	 *
+	 * CR-SVC-22 regression: like addAssignee, removal validates that the
+	 * target user belongs to the house before touching persistence.
+	 */
+	public function testRemoveAssignee_NonMember_Throws(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+
+		$member = new HouseUser();
+		$member->setNextcloudUserId('user-a');
+
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$member]);
+		$this->taskAssigneeMapper->expects($this->never())->method('removeAssignee');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->service->removeAssignee(1, 'intruder', 1);
 	}
 
 	/**

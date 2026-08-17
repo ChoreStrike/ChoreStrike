@@ -354,9 +354,9 @@ class TestDataServiceTest extends TestCase {
 	}
 
 	/**
-	 * Test reset clears canonical and legacy table variants
+	 * Test reset clears exactly the canonical tables (CR-SVC-42)
 	 */
-	public function testResetShouldClearCanonicalAndLegacyTables(): void {
+	public function testResetShouldClearCanonicalTablesOnly(): void {
 		$resetTables = (new \ReflectionClass(TestDataService::class))->getConstant('RESET_TABLES');
 		$this->assertIsArray($resetTables);
 
@@ -379,14 +379,17 @@ class TestDataServiceTest extends TestCase {
 
 		$this->service->reset();
 
-		$this->assertContains('chorestrike_chk_progress', $deletedTables);
+		$this->assertContains('chorestrike_task_assignees', $deletedTables);
 		$this->assertContains('chorestrike_room_task_checklist_progress', $deletedTables);
-		$this->assertContains('chorestrike_task_parts', $deletedTables);
-		$this->assertContains('chorestrike_task_participants', $deletedTables);
-		$this->assertContains('chorestrike_claims', $deletedTables);
-		$this->assertContains('chorestrike_task_claims', $deletedTables);
-		$this->assertContains('chorestrike_chk_items', $deletedTables);
 		$this->assertContains('chorestrike_checklist_items', $deletedTables);
+
+		// CR-SVC-42 regression: pre-release legacy aliases are gone.
+		$this->assertNotContains('chorestrike_chk_progress', $deletedTables);
+		$this->assertNotContains('chorestrike_chk_items', $deletedTables);
+		$this->assertNotContains('chorestrike_task_parts', $deletedTables);
+		$this->assertNotContains('chorestrike_task_participants', $deletedTables);
+		$this->assertNotContains('chorestrike_task_claims', $deletedTables);
+		$this->assertNotContains('chorestrike_claims', $deletedTables);
 	}
 
 	/**
@@ -403,7 +406,7 @@ class TestDataServiceTest extends TestCase {
 
 		$qb->expects($this->exactly(count($resetTables)))
 			->method('executeStatement')
-			->willThrowException(new \RuntimeException('no such table: chorestrike_task_claims'));
+			->willThrowException(new \RuntimeException('no such table: chorestrike_task_scopes'));
 
 		$this->db->expects($this->exactly(count($resetTables)))
 			->method('getQueryBuilder')

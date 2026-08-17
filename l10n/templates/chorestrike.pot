@@ -326,6 +326,9 @@ msgstr ""
 msgid "Complete Task"
 msgstr ""
 
+msgid "Complete it today to collect your coins and keep your streak."
+msgstr ""
+
 msgid "Completed Tasks"
 msgstr ""
 
@@ -1001,6 +1004,9 @@ msgstr ""
 msgid "Pick up toys first, then vacuum or sweep the whole floor, edges included."
 msgstr ""
 
+msgid "Plan ahead so the chore does not sneak up on you tomorrow."
+msgstr ""
+
 msgid "Play again"
 msgstr ""
 
@@ -1326,6 +1332,18 @@ msgid "Take out all trash"
 msgstr ""
 
 msgid "Target: {target}%"
+msgstr ""
+
+msgid "Task \"%1$s\" is due today"
+msgstr ""
+
+msgid "Task \"%1$s\" is due tomorrow"
+msgstr ""
+
+msgid "Task \"{task}\" is due today"
+msgstr ""
+
+msgid "Task \"{task}\" is due tomorrow"
 msgstr ""
 
 msgid "Task Name"
@@ -1839,5 +1857,11 @@ msgid "{count} freezes remaining"
 msgstr ""
 
 msgid "{members} members available, {energy} energy, up to {tasks} tasks"
+msgstr ""
+
+msgid "≈ {n} tasks"
+msgstr ""
+
+msgid "≈ {n} tasks will be created"
 msgstr ""
 

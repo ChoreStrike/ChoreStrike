@@ -8,6 +8,7 @@ use OCA\ChoreStrike\Command\TriggerJobs;
 use OCA\ChoreStrike\Service\StreakAtRiskService;
 use OCA\ChoreStrike\Service\StreakFreezeService;
 use OCA\ChoreStrike\Service\StreakRestockService;
+use OCA\ChoreStrike\Service\TaskDueReminderService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -26,6 +27,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class TriggerJobsTest extends TestCase {
 	private TestDataService&MockObject $testDataService;
 	private StreakAtRiskService&MockObject $atRiskService;
+	private TaskDueReminderService&MockObject $taskDueReminderService;
 	private StreakFreezeService&MockObject $freezeService;
 	private StreakRestockService&MockObject $restockService;
 	private ITimeFactory&MockObject $timeFactory;
@@ -37,6 +39,7 @@ class TriggerJobsTest extends TestCase {
 	protected function setUp(): void {
 		$this->testDataService = $this->createMock(TestDataService::class);
 		$this->atRiskService = $this->createMock(StreakAtRiskService::class);
+		$this->taskDueReminderService = $this->createMock(TaskDueReminderService::class);
 		$this->freezeService = $this->createMock(StreakFreezeService::class);
 		$this->restockService = $this->createMock(StreakRestockService::class);
 		$this->timeFactory = $this->createMock(ITimeFactory::class);
@@ -44,6 +47,7 @@ class TriggerJobsTest extends TestCase {
 		$this->command = new TriggerJobs(
 			$this->testDataService,
 			$this->atRiskService,
+			$this->taskDueReminderService,
 			$this->freezeService,
 			$this->restockService,
 			$this->timeFactory,
@@ -71,12 +75,14 @@ class TriggerJobsTest extends TestCase {
 		$command = new TriggerJobs(
 			$testDataService,
 			$this->atRiskService,
+			$this->taskDueReminderService,
 			$this->freezeService,
 			$this->restockService,
 			$this->timeFactory,
 		);
 
 		$this->atRiskService->expects($this->never())->method('process');
+		$this->taskDueReminderService->expects($this->never())->method('process');
 		$this->freezeService->expects($this->never())->method('process');
 		$this->restockService->expects($this->never())->method('process');
 
@@ -94,6 +100,7 @@ class TriggerJobsTest extends TestCase {
 	 */
 	public function testExecute_RejectsUnknownType(): void {
 		$this->atRiskService->expects($this->never())->method('process');
+		$this->taskDueReminderService->expects($this->never())->method('process');
 		$this->freezeService->expects($this->never())->method('process');
 		$this->restockService->expects($this->never())->method('process');
 
@@ -108,10 +115,15 @@ class TriggerJobsTest extends TestCase {
 
 	/**
 	 * Execute_DispatchesDailyNotificationOnly
+	 *
+	 * daily-notification covers both daily passes: the streak-at-risk pass
+	 * (yesterday) and the task-due reminder pass (today) — CS-PLAN-030.
 	 */
 	public function testExecute_DispatchesDailyNotificationOnly(): void {
 		$this->atRiskService->expects($this->once())->method('process')
 			->willReturn(['processed' => 0, 'notified' => 0, 'skippedUnavailable' => 0]);
+		$this->taskDueReminderService->expects($this->once())->method('process')
+			->willReturn(['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0]);
 		$this->freezeService->expects($this->never())->method('process');
 		$this->restockService->expects($this->never())->method('process');
 
@@ -173,6 +185,11 @@ class TriggerJobsTest extends TestCase {
 				$order[] = 'daily-notification';
 				return ['processed' => 0, 'notified' => 0, 'skippedUnavailable' => 0];
 			});
+		$this->taskDueReminderService->expects($this->once())->method('process')
+			->willReturnCallback(function () use (&$order) {
+				$order[] = 'task-due-reminders';
+				return ['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0];
+			});
 		$this->freezeService->expects($this->once())->method('process')
 			->willReturnCallback(function () use (&$order) {
 				$order[] = 'streak-freeze';
@@ -181,7 +198,7 @@ class TriggerJobsTest extends TestCase {
 		$this->restockService->expects($this->once())->method('process')
 			->willReturnCallback(function () use (&$order) {
 				$order[] = 'streak-restock';
-				return ['processed' => 0, 'freezesPerWeek' => 1, 'cap' => 2];
+				return ['processed' => 0, 'freezesPerWeek' => 1, 'cap' => 2, 'failed' => 0];
 			});
 
 		$exitCode = $this->command->run(
@@ -190,15 +207,21 @@ class TriggerJobsTest extends TestCase {
 		);
 
 		$this->assertSame(TriggerJobs::SUCCESS, $exitCode);
-		$this->assertSame(['daily-notification', 'streak-freeze', 'streak-restock'], $order);
+		$this->assertSame(['daily-notification', 'task-due-reminders', 'streak-freeze', 'streak-restock'], $order);
 	}
 
 	/**
-	 * Execute_DefaultAsOfDerivesYesterdayFromInjectedFactory
+	 * Execute_DefaultAsOfDerivesTodayAndYesterdayFromInjectedFactory
 	 *
-	 * Without --as-of the injected clock defines "yesterday".
+	 * Without --as-of the injected clock defines "today" (task-due pass) and
+	 * "yesterday" (streak passes).
 	 */
-	public function testExecute_DefaultAsOfDerivesYesterdayFromInjectedFactory(): void {
+	public function testExecute_DefaultAsOfDerivesTodayAndYesterdayFromInjectedFactory(): void {
+		$this->taskDueReminderService->expects($this->once())->method('process')
+			->with($this->callback(function (\DateTimeInterface $today) {
+				return $today->format('Y-m-d') === '2026-08-04';
+			}))
+			->willReturn(['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0]);
 		$this->freezeService->expects($this->once())->method('process')
 			->with($this->callback(function (\DateTimeInterface $yesterday) {
 				return $yesterday->format('Y-m-d') === '2026-08-03';
@@ -206,23 +229,29 @@ class TriggerJobsTest extends TestCase {
 			->willReturn(['processed' => 0, 'frozen' => 0, 'reset' => 0, 'skippedUnavailable' => 0, 'errors' => 0]);
 
 		$this->command->run(
-			$this->makeInput('streak-freeze'),
+			$this->makeInput('all'),
 			$this->output
 		);
 	}
 
 	/**
-	 * Execute_AsOfControlsYesterday
+	 * Execute_AsOfControlsTodayAndYesterday
 	 *
-	 * --as-of=2026-08-10 makes "yesterday" 2026-08-09 — the E2E seam for
+	 * --as-of=2026-08-10 makes "yesterday" 2026-08-09 for the streak passes
+	 * and "today" 2026-08-10 for the task-due pass — the E2E seam for
 	 * simulating "N days passed" with zero clock trickery.
 	 */
-	public function testExecute_AsOfControlsYesterday(): void {
+	public function testExecute_AsOfControlsTodayAndYesterday(): void {
 		$this->atRiskService->expects($this->once())->method('process')
 			->with($this->callback(function (\DateTimeInterface $yesterday) {
 				return $yesterday->format('Y-m-d') === '2026-08-09';
 			}))
 			->willReturn(['processed' => 0, 'notified' => 0, 'skippedUnavailable' => 0]);
+		$this->taskDueReminderService->expects($this->once())->method('process')
+			->with($this->callback(function (\DateTimeInterface $today) {
+				return $today->format('Y-m-d') === '2026-08-10';
+			}))
+			->willReturn(['processed' => 0, 'notifiedToday' => 0, 'notifiedTomorrow' => 0, 'skippedUnavailable' => 0]);
 		$this->freezeService->expects($this->once())->method('process')
 			->with($this->callback(function (\DateTimeInterface $yesterday) {
 				return $yesterday->format('Y-m-d') === '2026-08-09';
