@@ -114,6 +114,8 @@ class SchedulingControllerTest extends TestCase {
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertFalse($response->getData()['success']);
+		// CR-SVC-49: the curated service message must surface verbatim.
+		$this->assertEquals('Energy must be between 1 and 20', $response->getData()['error']['message']);
 	}
 
 	public function testUpdateAvailabilityUpdatesFlag(): void {
@@ -193,6 +195,8 @@ class SchedulingControllerTest extends TestCase {
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertFalse($response->getData()['success']);
+		// CR-SVC-49: the curated weekday message must surface verbatim.
+		$this->assertEquals('Invalid weekday: funday', $response->getData()['error']['message']);
 	}
 
 	public function testUpdateEnergyReturnsBadRequestForInvalidWeekday(): void {
@@ -203,6 +207,7 @@ class SchedulingControllerTest extends TestCase {
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertFalse($response->getData()['success']);
+		$this->assertEquals('Invalid weekday: funday', $response->getData()['error']['message']);
 	}
 
 	public function testUpdateAvailabilityReturnsBadRequestForInvalidWeekday(): void {

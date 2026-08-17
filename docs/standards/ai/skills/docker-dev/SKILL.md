@@ -47,31 +47,30 @@ docker compose -f docker-compose.test.yml down
 # Full rebuild (after Dockerfile/composer changes)
 docker compose -f docker-compose.test.yml build --no-cache
 
-# Run all PHPUnit tests
-docker compose -f docker-compose.test.yml run --rm nextcloud-test
-
 # Unit tests only
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.unit.xml
+docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.unit.xml
 
-# Integration tests only
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.xml tests/integration/
+# Integration tests only (real Nextcloud + DB bootstrap)
+docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.integration.xml
 
 # Single test file
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit tests/unit/Service/TaskServiceTest.php
+docker exec chorestrike-test vendor/bin/phpunit tests/unit/Service/TaskServiceTest.php
 
 # Single test method
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask
+docker exec chorestrike-test vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask
 
 # Interactive shell in container
-docker compose -f docker-compose.test.yml run --rm nextcloud-test sh
+docker exec -it chorestrike-test sh
 
 # Check container health
 docker inspect --format='{{.State.Health.Status}}' chorestrike-test
 ```
+
+> **Always `exec` into the running container — never `docker compose run`.**
+> Nextcloud is installed by the entrypoint of the long-running
+> `chorestrike-test` container (the image only clones the server source);
+> `run --rm` creates a fresh container whose command override skips the
+> entrypoint, so PHPUnit dies in the bootstrap with `Exception: Not installed`.
 
 ## DB Profiles
 

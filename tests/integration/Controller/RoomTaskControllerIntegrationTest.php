@@ -152,7 +152,11 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
 		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+		$this->authService->method('assertUserInHouse');
+		// CR-SVC-09: the service signature is house-scoped.
 		$this->roomTaskService->method('assignTask')
+			->with($roomTaskId, $userId, 1)
 			->willReturn($assignedRoomTask);
 
 		$response = $this->controller->assign($roomTaskId, $userId);

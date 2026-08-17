@@ -68,8 +68,14 @@ preamble remains as the first line of defense but is no longer the sole gate.
   This is intentional defense in depth, not duplication to be removed.
 
 ### Neutral
-- The same pattern should be applied to remaining unscoped public service mutators
-  (tracked as CR-SVC-09/10/21/22 in [`backlog.md`](../backlog/backlog.md)).
+- The same pattern has since been applied to further mutators:
+  CR-SVC-09 (`RoomTaskService::assignTask`/`bulkAssignTasks` take `houseId`
+  and validate ownership + assignee membership internally) and CR-SVC-10
+  (`RoomService::completeRoomTask` resolves membership via the nullable
+  `findByHouseAndUser()` and re-checks it **inside** the transaction, right
+  after `lockForUpdate`) — both landed by [CS-PLAN-029](../plans/done/cs-plan-029-service-hardening.md).
+  Remaining unscoped mutators are tracked as CR-SVC-21/22 in
+  [`backlog.md`](../backlog/backlog.md).
 
 ## References
 

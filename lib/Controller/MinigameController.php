@@ -134,13 +134,7 @@ class MinigameController extends Controller {
 		} catch (\InvalidArgumentException $e) {
 			// Service-curated message (score bounds) — safe to surface verbatim;
 			// safeMessage() would replace it with the generic fallback.
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'VALIDATION_ERROR',
-					'message' => $e->getMessage()
-				]
-			], 400);
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -298,13 +292,9 @@ class MinigameController extends Controller {
 				'data' => $result
 			]);
 		} catch (\InvalidArgumentException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'PURCHASE_BOOST_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 400);
+			// Service-curated messages (unknown boost id, insufficient coins) —
+			// safe to surface verbatim; keeps the endpoint-specific error code.
+			return ControllerErrorFormatter::validation($e, 'PURCHASE_BOOST_ERROR');
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {

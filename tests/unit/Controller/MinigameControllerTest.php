@@ -46,6 +46,30 @@ class MinigameControllerTest extends TestCase {
 	}
 
 	/**
+	 * Test POST /minigames/boosts/{boostId}/purchase returns the curated
+	 * validation message with the endpoint-specific error code (CR-SVC-49).
+	 */
+	public function testPurchaseBoost_InvalidBoost_Returns400WithCuratedMessage(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->minigameService->method('purchaseBoost')
+			->willThrowException(new \InvalidArgumentException('Unknown boost: mystery-box'));
+
+		$response = $this->controller->purchaseBoost('mystery-box');
+
+		$this->assertEquals(400, $response->getStatus());
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('PURCHASE_BOOST_ERROR', $data['error']['code']);
+		$this->assertEquals('Unknown boost: mystery-box', $data['error']['message']);
+	}
+
+	/**
 	 * Test GET /minigames/coins returns current coins balance.
 	 */
 	public function testCoins_ReturnsCurrentCoinsSuccessfully(): void {

@@ -312,10 +312,20 @@ class RoomTaskService {
 	/**
 	 * Assign room task to user
 	 *
+	 * Authorization is enforced inside the service (CR-SVC-09): the room
+	 * task must belong to `$houseId` (floor-chain ownership) and the target
+	 * user must be a member of that house — no caller can bypass the
+	 * checks by forgetting a controller preamble.
+	 *
 	 * @param int $roomTaskId The room task ID
-	 * @param string $userId The user ID
+	 * @param string $userId The user ID (must be a house member)
+	 * @param int $houseId The caller's house ID (scopes the room task)
+	 * @throws NotFoundException if the room task does not exist or belongs to another house
+	 * @throws \InvalidArgumentException if the user is not a member of the house
 	 */
-	public function assignTask(int $roomTaskId, string $userId): RoomTask {
+	public function assignTask(int $roomTaskId, string $userId, int $houseId): RoomTask {
+		$this->validateRoomTaskOwnership($roomTaskId, $houseId);
+		$this->assertHouseMembers([$userId], $houseId);
 		$this->roomTaskMapper->find($roomTaskId);
 		$this->roomTaskMapper->assignToUser($roomTaskId, $userId);
 
@@ -570,20 +580,26 @@ class RoomTaskService {
 	/**
 	 * Bulk assign tasks to user
 	 *
+	 * Each item is routed through {@see assignTask()} so ownership and
+	 * membership validation (CR-SVC-09) apply per task; failing items are
+	 * skipped and logged without the raw target userId (privacy).
+	 *
 	 * @param array $roomTaskIds Array of room task IDs
-	 * @param string $userId The user ID
+	 * @param string $userId The user ID (must be a house member)
+	 * @param int $houseId The caller's house ID (scopes the room tasks)
+	 * @return RoomTask[] The successfully assigned room tasks
 	 */
-	public function bulkAssignTasks(array $roomTaskIds, string $userId): array {
+	public function bulkAssignTasks(array $roomTaskIds, string $userId, int $houseId): array {
 		$assignedTasks = [];
 
 		foreach ($roomTaskIds as $roomTaskId) {
 			try {
-				$assignedTasks[] = $this->assignTask($roomTaskId, $userId);
+				$assignedTasks[] = $this->assignTask($roomTaskId, $userId, $houseId);
 			} catch (\Exception $e) {
 				$this->appLogger?->warning('Bulk room task assignment skipped failed item', [
 					'service' => 'RoomTaskService',
 					'roomTaskId' => $roomTaskId,
-					'userId' => $userId,
+					'houseId' => $houseId,
 					'exception' => get_class($e),
 				]);
 				continue;

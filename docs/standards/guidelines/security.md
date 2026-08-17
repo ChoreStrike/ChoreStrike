@@ -104,6 +104,14 @@ if (!in_array($role, ['owner', 'member', 'child'], true)) {
 }
 ```
 
+### Client-Supplied Dates
+
+Date strings from the client are parsed at the controller boundary and bounded
+against the future (`now + 1h` clock-skew tolerance) before reaching a service —
+malformed or far-future input returns 400 `VALIDATION_ERROR` instead of a 500
+from the `DateTime` constructor or an indefinitely pushed `next_due`
+(CR-SVC-48, `TaskSyncController::syncFromNextcloud`).
+
 ---
 
 ## SQL Injection Prevention

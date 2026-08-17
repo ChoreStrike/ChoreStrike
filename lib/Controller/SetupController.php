@@ -132,13 +132,7 @@ class SetupController extends Controller {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\InvalidArgumentException $e) {
 			// Service-curated validation messages are safe to surface verbatim.
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'VALIDATION_ERROR',
-					'message' => $e->getMessage(),
-				],
-			], 400);
+			return ControllerErrorFormatter::validation($e);
 		} catch (\Exception $e) {
 			$this->appLogger?->error('Setup apply failed', [
 				'service' => 'SetupController',

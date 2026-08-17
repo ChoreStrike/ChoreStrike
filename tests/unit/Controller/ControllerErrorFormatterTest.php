@@ -9,6 +9,7 @@ declare(strict_types=1);
 use OCA\ChoreStrike\Controller\ControllerErrorFormatter;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCP\AppFramework\Http\JSONResponse;
 
 class ControllerErrorFormatterTest extends \PHPUnit\Framework\TestCase {
 	public function testInvalidArgumentExceptionFallsBackToGenericMessage(): void {
@@ -50,5 +51,29 @@ class ControllerErrorFormatterTest extends \PHPUnit\Framework\TestCase {
 		$e = new \Exception('internal detail');
 
 		$this->assertSame('Something went wrong', ControllerErrorFormatter::safeMessage($e, 'Something went wrong'));
+	}
+
+	public function testValidationReturns400WithVerbatimMessageAndDefaultCode(): void {
+		$e = new \InvalidArgumentException('Energy must be between 1 and 20');
+
+		$response = ControllerErrorFormatter::validation($e);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertSame(400, $response->getStatus());
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertSame('VALIDATION_ERROR', $data['error']['code']);
+		$this->assertSame('Energy must be between 1 and 20', $data['error']['message']);
+	}
+
+	public function testValidationReturnsGivenErrorCode(): void {
+		$e = new \InvalidArgumentException('Unknown boost: xyz');
+
+		$response = ControllerErrorFormatter::validation($e, 'PURCHASE_BOOST_ERROR');
+
+		$this->assertSame(400, $response->getStatus());
+		$data = $response->getData();
+		$this->assertSame('PURCHASE_BOOST_ERROR', $data['error']['code']);
+		$this->assertSame('Unknown boost: xyz', $data['error']['message']);
 	}
 }

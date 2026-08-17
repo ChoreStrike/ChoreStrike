@@ -78,6 +78,33 @@ class TaskSyncController extends Controller {
 	 */
 	public function syncFromNextcloud(int $nextcloudTaskId, string $completedAt, ?int $roomTaskId = null): JSONResponse {
 		try {
+			// CR-SVC-48: the client-controlled completion timestamp is
+			// validated at the boundary — malformed input must surface as a
+			// 400 VALIDATION_ERROR, not a 500 from the DateTime constructor,
+			// and a far-future date must not push next_due out indefinitely.
+			// The +1h bound tolerates modest client clock skew.
+			try {
+				$completedAtDate = new \DateTime($completedAt);
+			} catch (\Exception $e) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => 'completedAt must be a valid date string'
+					]
+				], 400);
+			}
+
+			if ($completedAtDate > (new \DateTime())->add(new \DateInterval('PT1H'))) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => 'completedAt must not be in the future'
+					]
+				], 400);
+			}
+
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->ensureHouseMember($house->getId());

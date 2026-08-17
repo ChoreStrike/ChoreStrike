@@ -246,37 +246,17 @@ inside the view's `v-else`, loading=false).
 > **Resolved 2026-08-09 by [CS-PLAN-025](../plans/done/cs-plan-025-service-security-concurrency-cleanup.md)**
 > (record: [`archive/2026-08.md`](archive/2026-08.md)):
 > the 2 P0 + 6 P1 items **CR-SVC-01/02/03/04/05/06/07/12** and the dead-cluster
-> delete **CR-SVC-08** landed. The remaining open items below (CR-SVC-09/10/11/…,
-> P2/P3) stay here.
+> delete **CR-SVC-08** landed. **CR-SVC-09/10** were **resolved 2026-08-16** by
+> [CS-PLAN-029](../plans/done/cs-plan-029-service-hardening.md)
+> (record: [`archive/2026-08.md`](archive/2026-08.md)). The remaining open items
+> below (CR-SVC-11/13/…, P2/P3) stay here.
 >
 > **Reopened 2026-08-09 by the CS-025 implementation review:** **CR-SVC-04**
 > plus follow-ups **CR-SVC-45/46/47** — all four **resolved 2026-08-10**
 > (record: [`archive/2026-08.md`](archive/2026-08.md)).
-> The review's smaller follow-ups **CR-SVC-48…52** stay open below.
-
-### [P2] CR-SVC-48 — Reverse-sync input validation + undocumented deviations
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025 (CR-SVC-07)
-`TaskSyncService::syncCompletionFromNextcloud` passes the client-controlled
-`$completedAt` straight into `new \DateTime(...)` — a malformed string surfaces
-as a 500 (generic catch) instead of a 400 VALIDATION_ERROR, and an attacker-
-supplied far-future date pushes `next_due` out indefinitely (house-scoped, no
-reward impact). The reverse path also skips the room-cleanliness update; the
-no-reward deviation is documented, the cleanliness deviation is not.
-- [ ] Validate `$completedAt` at the controller boundary (400 on malformed /
-      unreasonable dates); document or close the cleanliness deviation.
-
-### [P3] CR-SVC-49 — `safeMessage()` defeats the dedicated `InvalidArgumentException` 400 catches
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025
-`ControllerErrorFormatter::safeMessage()` intentionally excludes
-`InvalidArgumentException`, so the 400 catches that route through it return the
-generic "An unexpected error occurred" instead of the curated validation message.
-Fixed for the two CS-025-introduced catches (`MinigameController::saveScore`,
-`RoomTaskController::create`) by returning `$e->getMessage()` directly; the same
-misuse remains at `MinigameController:307`, `RoomTaskController:335,388`,
-`SchedulingController:113,159,234`, `TemplateController:275`.
-- [ ] Surface curated messages at the remaining sites (or add a
-      `validationMessage()` helper), auditing each message for client-controlled
-      echo before exposing it.
+> The review's smaller follow-ups **CR-SVC-48/49** were **resolved 2026-08-16**
+> by [CS-PLAN-029](../plans/done/cs-plan-029-service-hardening.md)
+> (record: [`archive/2026-08.md`](archive/2026-08.md)); **CR-SVC-50…52** stay open below.
 
 ### [P3] CR-SVC-50 — Extra queries inside the `house_user` lock (critical section)
 **Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025 (CR-SVC-04)
@@ -358,21 +338,6 @@ suites. The directory+exclude+file-list pattern already drifted once (CS-022); h
 (same result twice) but wasteful and fragile.
 - [ ] Split by subdirectory (`tests/unit/Db/Entity/` + `tests/unit/Db/Mapper/`), each
       suite globbing its own dir; delete the exclude list so the split can't silently drift.
-
-### [P2] CR-SVC-09 — Harden `RoomTaskService::assignTask`/`bulkAssignTasks` internally
-**Status**: Open · **Effort**: S · **Source**: Review of `lib/Service` (2026-08-04)
-The HTTP path validates today, but the public methods do not (`:228,:502`);
-`bulkAssignTasks` also logs the userId in plaintext (`:513`). One new caller that forgets
-the preamble = cross-house assignment / arbitrary-user write.
-- [ ] Require `houseId` + assert membership + room-task ownership inside `assignTask`
-      (mirror `setAssignees`/`addAssignee`); stop logging the raw userId.
-
-### [P2] CR-SVC-10 — `completeRoomTask` membership re-check + null safety
-**Status**: Open · **Effort**: S · **Source**: Review of `lib/Service` (2026-08-04)
-Ordinary (non-private, non-admin-only) tasks have no membership re-check inside the
-transaction (`RoomService.php:280`); a null `$houseUser` yields a 500, not a clean 403.
-- [ ] Assert house membership for `$userId` at the top of the transaction; throw
-      `ForbiddenException` if `$houseUser === null`.
 
 ### [P2] CR-SVC-11 — N+1 query cluster across services
 **Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)

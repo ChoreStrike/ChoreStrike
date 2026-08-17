@@ -45,6 +45,28 @@ final class ControllerErrorFormatter {
 	}
 
 	/**
+	 * Build the standard 400 response for a service-thrown
+	 * {@see \InvalidArgumentException}.
+	 *
+	 * Surfaces the exception message verbatim — unlike
+	 * {@see safeMessage()}, which deliberately hides it (services also use
+	 * InvalidArgumentException to reject untrusted input whose message
+	 * echoes client-controlled values, e.g. an unknown mass-assignment
+	 * field in TaskService::updateTask). Only use this helper at catch
+	 * sites whose thrown messages are audited as client-safe (curated
+	 * constants or caller-owned values such as bounds and boost ids).
+	 */
+	public static function validation(\InvalidArgumentException $e, string $code = 'VALIDATION_ERROR'): JSONResponse {
+		return new JSONResponse([
+			'success' => false,
+			'error' => [
+				'code' => $code,
+				'message' => $e->getMessage(),
+			],
+		], 400);
+	}
+
+	/**
 	 * Build the standard 403 response for a {@see ForbiddenException}.
 	 *
 	 * Centralises the auth-denial payload so every controller returns an

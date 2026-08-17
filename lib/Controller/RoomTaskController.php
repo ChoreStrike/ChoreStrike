@@ -90,10 +90,7 @@ class RoomTaskController extends Controller {
 				'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => ControllerErrorFormatter::safeMessage($e)],
 			], 404);
 		} catch (\InvalidArgumentException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => ['code' => 'VALIDATION_ERROR', 'message' => $e->getMessage()],
-			], 400);
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -248,13 +245,7 @@ class RoomTaskController extends Controller {
 			// Service-curated messages (non-member assignee, invalid nextDue,
 			// duplicate task) — safe to surface verbatim; safeMessage() would
 			// replace them with the generic fallback.
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'VALIDATION_ERROR',
-					'message' => $e->getMessage()
-				]
-			], 400);
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -292,15 +283,21 @@ class RoomTaskController extends Controller {
 
 			// The target user must belong to the caller's house; otherwise a
 			// member could assign room tasks to arbitrary Nextcloud users
-			// (cross-house BOLA). Mirrors userTasks()/userStats().
+			// (cross-house BOLA). Mirrors userTasks()/userStats(). The
+			// service re-validates internally (CR-SVC-09) — this preamble
+			// stays as defense in depth.
 			$this->authService->assertUserInHouse($house->getId(), $userId);
 
-			$roomTask = $this->roomTaskService->assignTask($id, $userId);
+			$roomTask = $this->roomTaskService->assignTask($id, $userId, $house->getId());
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => $roomTask->jsonSerialize()
 			]);
+		} catch (\InvalidArgumentException $e) {
+			// Service-curated membership message (CR-SVC-09) — safe to
+			// surface verbatim.
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -396,13 +393,8 @@ class RoomTaskController extends Controller {
 				'data' => array_map(fn ($a) => $a->jsonSerialize(), $assignees)
 			]);
 		} catch (\InvalidArgumentException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'VALIDATION_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 400);
+			// Service-curated membership message — safe to surface verbatim.
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -448,13 +440,9 @@ class RoomTaskController extends Controller {
 				'data' => $assignee->jsonSerialize()
 			]);
 		} catch (\InvalidArgumentException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'VALIDATION_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 400);
+			// Service-curated messages (non-member, duplicate assignee) —
+			// safe to surface verbatim.
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -597,6 +585,9 @@ class RoomTaskController extends Controller {
 				'success' => true,
 				'data' => $roomTask->jsonSerialize()
 			]);
+		} catch (\InvalidArgumentException $e) {
+			// Curated date-format message — safe to surface verbatim.
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {

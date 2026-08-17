@@ -108,6 +108,12 @@ class TaskSyncService {
 	/**
 	 * Sync completion from Nextcloud Task back to ChoreStrike
 	 *
+	 * Recurrence advances via the canonical RoomTask::markCompleted and the
+	 * room-cleanliness bump (energyCost * 10) mirrors the canonical path;
+	 * only rewards are skipped by design (the external completer is
+	 * unknown). The `$completedAt` timestamp itself is validated at the
+	 * controller boundary (CR-SVC-48).
+	 *
 	 * @param int $nextcloudTaskId The Nextcloud task ID
 	 * @param string $completedAt ISO date string of completion
 	 * @param int|null $roomTaskId Optional linked room task ID
@@ -140,9 +146,11 @@ class TaskSyncService {
 		// Apply completion from Nextcloud. Recurrence uses the canonical
 		// RoomTask::markCompleted (CR-SVC-07) instead of the deleted divergent
 		// helper, so a Nextcloud-originated completion advances identically to
-		// a normal one. No reward is awarded here: the external completer is
-		// unknown (rewards flow through the canonical path when a known user
-		// completes via completeTask).
+		// a normal one. Room cleanliness is bumped with the same formula as
+		// the canonical path (CR-SVC-48: energyCost * 10 — a Nextcloud
+		// completion is a real completion). No reward is awarded here by
+		// design: the external completer is unknown (rewards flow through the
+		// canonical path when a known user completes via completeTask).
 		$task = $this->taskMapper->find($roomTask->getTaskId());
 		$roomTask->markCompleted(
 			$completedDate,
@@ -158,6 +166,10 @@ class TaskSyncService {
 			[]
 		);
 		$this->roomTaskMapper->update($roomTask);
+		$this->roomService->updateRoomCleanliness(
+			$roomTask->getRoomId(),
+			$task->getEnergyCost() * 10
+		);
 
 		// Create or update completion record
 		if (!$localCompletion) {

@@ -466,8 +466,8 @@ class RoomServiceTest extends TestCase {
 			->willReturn($floor);
 
 		$this->houseUserMapper
-			->expects($this->once())
-			->method('findByNextcloudUserId')
+			->expects($this->exactly(2))
+			->method('findByHouseAndUser')
 			->with(1, $userId)
 			->willReturn($houseUser);
 
@@ -547,7 +547,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $userId)->willReturn($houseUser);
 		$this->roomMapper->method('update')->willReturn($updatedRoom);
 
 		$this->gameLogicService
@@ -617,7 +617,10 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $claimer)->willReturn($houseUser);
+		// Claimer resolution, in-transaction re-check, and the post-commit
+		// recipient membership re-check all use findByHouseAndUser (the
+		// recipient is a different uid than the completer).
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($houseUser);
 		$this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
 		$this->roomMapper->method('update')->willReturn($updatedRoom);
 		$this->gameLogicService->method('handleTaskCompletion')->willReturn([
@@ -704,7 +707,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $claimer)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $claimer)->willReturn($houseUser);
 		// Every persisted mutation must target the FRESH entity.
 		$this->roomTaskMapper->expects($this->once())->method('update')->with($freshRoomTask);
 		$this->roomMapper->method('update')->willReturn($updatedRoom);
@@ -775,7 +778,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $coAssignee)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $coAssignee)->willReturn($houseUser);
 		// Co-assignee exists in the join table only
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([$coAssignee]);
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
@@ -847,7 +850,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $userId)->willReturn($houseUser);
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
 		$this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
@@ -911,7 +914,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $userId)->willReturn($houseUser);
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
 		$this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
@@ -973,7 +976,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $userId)->willReturn($houseUser);
 		$this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
 		$this->roomMapper->method('update')->willReturn($updatedRoom);
 		$this->gameLogicService->method('handleTaskCompletion')->willReturn([
@@ -1028,7 +1031,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $completer)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $completer)->willReturn($houseUser);
 		// Completer is NOT among the assignees
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn(['someone-else']);
 
@@ -1080,7 +1083,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $completer)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $completer)->willReturn($houseUser);
 		// Completer IS an assignee
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([$completer]);
 		$this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
@@ -1132,7 +1135,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $completer)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $completer)->willReturn($houseUser);
 		// Already completed today
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(1);
 
@@ -1191,7 +1194,6 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $claimer)->willReturn($houseUser);
 		$this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
 		$this->roomMapper->method('update')->willReturn($updatedRoom);
 		$this->gameLogicService->method('handleTaskCompletion')->willReturn([
@@ -1204,7 +1206,9 @@ class RoomServiceTest extends TestCase {
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
 
-		// Membership re-check passes for the original assignee.
+		// Completer resolution, the in-transaction re-check, and the
+		// recipient membership re-check all resolve via findByHouseAndUser;
+		// both the claimer and the original assignee are members here.
 		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($houseUser);
 
 		// Takeover notification dispatched post-commit.
@@ -1269,7 +1273,11 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $claimer)->willReturn($houseUser);
+		// The claimer resolves (pre-transaction and in-transaction re-check),
+		// but the former member recipient does not — keyed on the uid so the
+		// same stub serves all three findByHouseAndUser calls.
+		$this->houseUserMapper->method('findByHouseAndUser')
+			->willReturnCallback(fn (int $houseId, string $uid) => $uid === $claimer ? $houseUser : null);
 		$this->roomMapper->method('update')->willReturn($updatedRoom);
 		$this->gameLogicService->method('handleTaskCompletion')->willReturn([
 			'contributionScore' => 10,
@@ -1280,9 +1288,6 @@ class RoomServiceTest extends TestCase {
 
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
-
-		// Recipient is no longer a member.
-		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
 
 		// No takeover notification dispatched.
 		$this->notificationService->expects($this->never())->method('notifyOverdueTakenOver');
@@ -1342,7 +1347,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $userId)->willReturn($houseUser);
 		$this->roomMapper->method('update')->willReturn($updatedRoom);
 		$this->gameLogicService->method('handleTaskCompletion')->willReturn([
 			'contributionScore' => 10,
@@ -1406,7 +1411,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $userId)->willReturn($houseUser);
 		$this->roomMapper->method('update')->willReturn($updatedRoom);
 		$this->gameLogicService->method('handleTaskCompletion')->willReturn([
 			'contributionScore' => 10,
@@ -1491,7 +1496,7 @@ class RoomServiceTest extends TestCase {
 		$this->taskMapper->method('find')->with(1)->willReturn($task);
 		$this->roomMapper->method('find')->with(1)->willReturn($room);
 		$this->floorMapper->method('find')->with(1)->willReturn($floor);
-		$this->houseUserMapper->method('findByNextcloudUserId')->with(1, $userId)->willReturn($houseUser);
+		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $userId)->willReturn($houseUser);
 		$this->roomMapper->method('update')->willReturn($updatedRoom);
 		$this->gameLogicService->method('handleTaskCompletion')->willReturn([
 			'contributionScore' => 10,
@@ -1523,6 +1528,100 @@ class RoomServiceTest extends TestCase {
 
 		$this->notificationService->expects($this->never())->method('notifyWeeklyGoalReachedForHouse');
 
+		$this->service->completeRoomTask($roomTaskId, $userId);
+	}
+
+	/**
+	 * CompleteRoomTask_UnknownUser_ThrowsForbidden
+	 *
+	 * CR-SVC-10: a user with no house membership must get a clean
+	 * ForbiddenException (403), not an uncaught DoesNotExistException from
+	 * the throwing lookup (500).
+	 */
+	public function testCompleteRoomTask_UnknownUser_ThrowsForbidden(): void {
+		$roomTaskId = 1;
+		$stranger = 'stranger-user';
+
+		$task = new Task();
+		$task->setId(1);
+
+		$room = new Room();
+		$room->setId(1);
+		$room->setFloorId(1);
+
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setTaskId(1);
+		$roomTask->setRoomId(1);
+
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+
+		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->taskMapper->method('find')->with(1)->willReturn($task);
+		$this->roomMapper->method('find')->with(1)->willReturn($room);
+		$this->floorMapper->method('find')->with(1)->willReturn($floor);
+
+		// No house_users row for the completer.
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+
+		$this->roomTaskMapper->expects($this->never())->method('lockForUpdate');
+
+		$this->expectException(ForbiddenException::class);
+		$this->service->completeRoomTask($roomTaskId, $stranger);
+	}
+
+	/**
+	 * CompleteRoomTask_MemberRemovedBeforeLock_ThrowsForbidden
+	 *
+	 * CR-SVC-10 regression: a member removed between the pre-transaction
+	 * fetch and the in-transaction re-check (membership disappeared under
+	 * the lock) previously crashed on the stale entity → 500. Must throw a
+	 * clean ForbiddenException with no partial writes.
+	 */
+	public function testCompleteRoomTask_MemberRemovedBeforeLock_ThrowsForbidden(): void {
+		$roomTaskId = 1;
+		$userId = 'user123';
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setEnergyCost(3);
+
+		$room = new Room();
+		$room->setId(1);
+		$room->setFloorId(1);
+
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setTaskId(1);
+		$roomTask->setRoomId(1);
+
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+
+		$houseUser = new HouseUser();
+		$houseUser->setId(2);
+
+		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->with($roomTaskId)->willReturn($roomTask);
+		$this->taskMapper->method('find')->with(1)->willReturn($task);
+		$this->roomMapper->method('find')->with(1)->willReturn($room);
+		$this->floorMapper->method('find')->with(1)->willReturn($floor);
+
+		// Pre-transaction resolution succeeds, the in-transaction re-check
+		// finds the membership deleted.
+		$this->houseUserMapper->method('findByHouseAndUser')
+			->willReturnOnConsecutiveCalls($houseUser, null);
+
+		// No completion may be persisted once membership is gone.
+		$this->roomTaskMapper->expects($this->never())->method('update');
+		$this->roomMapper->expects($this->never())->method('update');
+		$this->gameLogicService->expects($this->never())->method('handleTaskCompletion');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Only house members can complete tasks');
 		$this->service->completeRoomTask($roomTaskId, $userId);
 	}
 }

@@ -264,9 +264,16 @@ class RoomService {
 		$task = $roomTaskData['task'];
 		$room = $roomTaskData['room'];
 
-		// Get house user for scheduling preferences
+		// Get house user for scheduling preferences. CR-SVC-10: use the
+		// nullable lookup and map a missing membership to a clean 403 —
+		// findByNextcloudUserId() throws DoesNotExistException (uncaught →
+		// 500) and must not be dereferenced.
 		$floor = $this->floorMapper->find($room->getFloorId());
-		$houseUser = $this->houseUserMapper->findByNextcloudUserId($floor->getHouseId(), $userId);
+		$houseId = $floor->getHouseId();
+		$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
+		if ($houseUser === null) {
+			throw new ForbiddenException('Only house members can complete tasks');
+		}
 
 		// Captured inside the transaction if a takeover happens, dispatched
 		// after commit so rollbacks never leave a stale notification.
@@ -285,6 +292,16 @@ class RoomService {
 			// was granted. The pre-lock fetch above stays: it provides
 			// $task, $room, and the early membership resolution.
 			$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
+
+			// CR-SVC-10: re-resolve membership under the lock — a member
+			// removed between the pre-transaction fetch and this point must
+			// yield a clean 403, not a dereference of a stale entity. One
+			// indexed (house_id, nextcloud_user_id) lookup inside the
+			// critical section (CR-SVC-50 targets a different query class).
+			$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
+			if ($houseUser === null) {
+				throw new ForbiddenException('Only house members can complete tasks');
+			}
 
 			// Resolve the full set of assigned Nextcloud user IDs for this room task:
 			// the multi-assign join table plus the legacy single assignee column.

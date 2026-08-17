@@ -483,16 +483,20 @@ Repository status:
 ### PHPUnit Unit and Integration Tests
 
 ```bash
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
+docker compose -f docker-compose.test.yml exec nextcloud-test \
   vendor/bin/phpunit --configuration phpunit.unit.xml
 
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
+docker compose -f docker-compose.test.yml exec nextcloud-test \
   vendor/bin/phpunit --configuration phpunit.integration.xml
 ```
 
 > `phpunit.unit.xml` runs unit tests only; `phpunit.integration.xml` runs
-> integration tests only. (The umbrella `phpunit.xml` includes both suites, but
-> the dedicated configs are the canonical per-suite commands.)
+> integration tests only (real Nextcloud + DB bootstrap). The umbrella
+> `phpunit.xml` is aligned with the unit suite (`bootstrap-entity.php`,
+> CS-PLAN-020) — the dedicated configs are the canonical per-suite commands.
+> Run via `exec` against the running container: `docker compose run --rm`
+> overrides the entrypoint, so its fresh container has no installed
+> Nextcloud and the integration bootstrap fails with `Not installed`.
 
 Repository status:
 
@@ -890,8 +894,8 @@ Before manual server testing or production rollout, prefer this order:
 npm test
 
 # 2. Backend unit and integration coverage in Docker
-docker compose -f docker-compose.test.yml run --rm nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
-docker compose -f docker-compose.test.yml run --rm nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
+docker compose -f docker-compose.test.yml exec nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
+docker compose -f docker-compose.test.yml exec nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
 
 # 3. Targeted release-gate GUI smoke coverage
 npx playwright test tests/e2e/task-manager.spec.ts tests/e2e/room-detail.spec.ts tests/e2e/task-completion.spec.ts tests/e2e/gui-scratch-flow.spec.ts --project=chromium

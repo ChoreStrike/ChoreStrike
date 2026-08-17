@@ -147,6 +147,7 @@ class TaskSyncServiceTest extends TestCase {
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
 		$roomTask->setTaskId(1);
+		$roomTask->setRoomId(2);
 		$roomTask->setIsActive(true);
 
 		$task = new Task();
@@ -185,6 +186,41 @@ class TaskSyncServiceTest extends TestCase {
 	}
 
 	/**
+	 * SyncCompletionFromNextcloud_AppliesCanonicalCleanlinessBump
+	 *
+	 * CR-SVC-48: the reverse path bumps room cleanliness with the same
+	 * formula as the canonical completion (energyCost * 10) — a
+	 * Nextcloud-originated completion is a real completion.
+	 */
+	public function testSyncCompletionFromNextcloud_AppliesCanonicalCleanlinessBump(): void {
+		$nextcloudTaskId = 123;
+		$completedAt = '2025-03-15T10:00:00+00:00';
+		$roomTaskId = 1;
+		$roomId = 8;
+
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setTaskId(1);
+		$roomTask->setRoomId($roomId);
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setFrequencyType('daily');
+		$task->setFrequencyValue(1);
+		$task->setEnergyCost(3);
+
+		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->taskMapper->method('find')->with(1)->willReturn($task);
+		$this->completedTaskMapper->method('findLatestByRoomTask')->willReturn(null);
+
+		$this->roomService->expects($this->once())
+			->method('updateRoomCleanliness')
+			->with($roomId, 30); // energyCost 3 * 10
+
+		$this->service->syncCompletionFromNextcloud($nextcloudTaskId, $completedAt, $roomTaskId);
+	}
+
+	/**
 	 * SyncCompletionFromNextcloud_ConflictLocalWins_ReturnsNull
 	 */
 	public function testSyncCompletionFromNextcloud_ConflictLocalWins_ReturnsNull(): void {
@@ -198,11 +234,17 @@ class TaskSyncServiceTest extends TestCase {
 		$localCompletion = new CompletedTask();
 		$localCompletion->setCompletedAt(new \DateTime('2025-03-15T11:00:00+00:00')); // Later than remote
 
+		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
 		$this->completedTaskMapper
 			->expects($this->once())
 			->method('findLatestByRoomTask')
 			->with($roomTaskId)
 			->willReturn($localCompletion);
+
+		// Conflict resolution prefers local state: no recurrence write, no
+		// cleanliness bump.
+		$this->roomTaskMapper->expects($this->never())->method('update');
+		$this->roomService->expects($this->never())->method('updateRoomCleanliness');
 
 		$result = $this->service->syncCompletionFromNextcloud($nextcloudTaskId, $completedAt, $roomTaskId);
 

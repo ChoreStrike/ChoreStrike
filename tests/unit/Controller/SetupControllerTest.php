@@ -123,12 +123,16 @@ class SetupControllerTest extends TestCase {
 		$this->houseSetupService->method('applySetup')
 			->willThrowException(new \InvalidArgumentException('Invalid intensity level'));
 
-		$this->request->method('getParams')->willReturn(['intensityLevel' => 'bad']);
+		// A payload carrying 'floors' passes readJsonBody so the service
+		// (and its validation exception) is actually reached.
+		$this->request->method('getParams')->willReturn(['intensityLevel' => 'bad', 'floors' => []]);
 
 		$response = $this->controller->apply();
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+		// CR-SVC-49: the curated service message must surface verbatim.
+		$this->assertSame('Invalid intensity level', $response->getData()['error']['message']);
 	}
 
 	public function testApply_NoJsonBody_Returns400(): void {

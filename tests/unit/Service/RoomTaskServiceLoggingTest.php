@@ -83,4 +83,68 @@ class RoomTaskServiceLoggingTest extends TestCase {
 
 		$service->validateRoomTaskOwnership(10, 1);
 	}
+
+	/**
+	 * BulkAssignTasks_SkippedItem_LogsWithoutUserId.
+	 *
+	 * CR-SVC-09: the warning context must not contain the raw target
+	 * userId (privacy) — houseId and roomTaskId are sufficient context.
+	 */
+	public function testBulkAssignTasks_SkippedItem_LogsWithoutUserId(): void {
+		$roomTaskMapper = $this->createMock(RoomTaskMapper::class);
+		$taskMapper = $this->createMock(TaskMapper::class);
+		$roomMapper = $this->createMock(RoomMapper::class);
+		$floorMapper = $this->createMock(FloorMapper::class);
+		$roomService = $this->createMock(RoomService::class);
+		$taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
+		$houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$appLogger = $this->createMock(AppLogger::class);
+
+		// The room task belongs to another house -> ownership fails -> skip.
+		$roomTask = new RoomTask();
+		$roomTask->setId(20);
+		$roomTask->setRoomId(5);
+
+		$room = new Room();
+		$room->setId(5);
+		$room->setFloorId(7);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(99);
+
+		$roomTaskMapper->method('find')->with(20)->willReturn($roomTask);
+		$roomMapper->method('find')->with(5)->willReturn($room);
+		$floorMapper->method('find')->with(7)->willReturn($floor);
+
+		$appLogger->expects($this->once())
+			->method('warning')
+			->with(
+				'Bulk room task assignment skipped failed item',
+				$this->callback(function (array $context): bool {
+					return !array_key_exists('userId', $context)
+						&& $context['service'] === 'RoomTaskService'
+						&& $context['roomTaskId'] === 20
+						&& $context['houseId'] === 1
+						&& $context['exception'] === NotFoundException::class;
+				})
+			);
+
+		$service = new RoomTaskService(
+			$roomTaskMapper,
+			$taskMapper,
+			$roomMapper,
+			$floorMapper,
+			$roomService,
+			$taskAssigneeMapper,
+			$houseUserMapper,
+			$this->createMock(CompletedTaskMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
+			$appLogger
+		);
+
+		$result = $service->bulkAssignTasks([20], 'target-user', 1);
+
+		$this->assertSame([], $result);
+	}
 }

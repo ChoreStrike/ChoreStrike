@@ -135,6 +135,53 @@ class TaskSyncControllerTest extends TestCase {
 		$this->assertEquals('TASK_NOT_FOUND', $response->getData()['error']['code']);
 	}
 
+	public function testSyncFromNextcloud_MalformedCompletedAt_Returns400(): void {
+		$this->expectHouseContext();
+
+		$this->taskSyncService->expects($this->never())
+			->method('syncCompletionFromNextcloudForHouse');
+
+		$response = $this->controller->syncFromNextcloud(50, 'not-a-date');
+
+		$this->assertEquals(400, $response->getStatus());
+		$data = $response->getData();
+		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+		$this->assertEquals('completedAt must be a valid date string', $data['error']['message']);
+	}
+
+	public function testSyncFromNextcloud_FutureCompletedAt_Returns400(): void {
+		$this->expectHouseContext();
+
+		$this->taskSyncService->expects($this->never())
+			->method('syncCompletionFromNextcloudForHouse');
+
+		// Far beyond the +1h clock-skew tolerance.
+		$response = $this->controller->syncFromNextcloud(
+			50,
+			(new \DateTime('+2 hours'))->format('c')
+		);
+
+		$this->assertEquals(400, $response->getStatus());
+		$data = $response->getData();
+		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+		$this->assertEquals('completedAt must not be in the future', $data['error']['message']);
+	}
+
+	public function testSyncFromNextcloud_SmallClockSkew_IsAccepted(): void {
+		$this->expectHouseContext();
+
+		// Within the +1h tolerance the request proceeds normally.
+		$this->taskSyncService->method('syncCompletionFromNextcloudForHouse')
+			->willReturn(['synced' => true]);
+
+		$response = $this->controller->syncFromNextcloud(
+			50,
+			(new \DateTime('+30 minutes'))->format('c')
+		);
+
+		$this->assertTrue($response->getData()['success']);
+	}
+
 	public function testGetReminders_ReturnsMappedReminders(): void {
 		$this->expectHouseContext();
 

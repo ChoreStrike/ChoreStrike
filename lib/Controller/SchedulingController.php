@@ -108,13 +108,8 @@ class SchedulingController extends Controller {
 				'message' => 'Energy budget updated'
 			]);
 		} catch (\InvalidArgumentException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'VALIDATION_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 400);
+			// Curated bounds/weekday messages — safe to surface verbatim.
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -153,13 +148,8 @@ class SchedulingController extends Controller {
 				'message' => 'Availability updated'
 			]);
 		} catch (\InvalidArgumentException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'VALIDATION_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 400);
+			// Curated weekday message — safe to surface verbatim.
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -232,13 +222,8 @@ class SchedulingController extends Controller {
 				'message' => 'Member availability updated'
 			]);
 		} catch (\InvalidArgumentException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'VALIDATION_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 400);
+			// Curated weekday message — safe to surface verbatim.
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {

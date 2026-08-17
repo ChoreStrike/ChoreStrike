@@ -429,30 +429,118 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * AssignTask_ExistingTask_AssignsToUser
+	 * AssignTask_ExistingTaskHouseScoped_AssignsToMember
+	 *
+	 * CR-SVC-09: assignTask validates room-task ownership (floor chain)
+	 * and target-user membership internally before writing.
 	 */
-	public function testAssignTask_ExistingTask_AssignsToUser(): void {
-		$roomTaskId = 1;
+	public function testAssignTask_ExistingTaskHouseScoped_AssignsToMember(): void {
+		$houseId = 1;
+		$roomTaskId = 10;
+		$roomId = 5;
+		$floorId = 7;
 		$userId = 'user123';
 
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
-		$roomTask->setAssignedToUserId($userId);
+		$roomTask->setRoomId($roomId);
 
-		$this->roomTaskMapper
-			->expects($this->exactly(2))
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
+		$room = new Room();
+		$room->setId($roomId);
+		$room->setFloorId($floorId);
+
+		$floor = new Floor();
+		$floor->setId($floorId);
+		$floor->setHouseId($houseId);
+
+		$member = new HouseUser();
+		$member->setNextcloudUserId($userId);
+
+		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomMapper->method('find')->with($roomId)->willReturn($room);
+		$this->floorMapper->method('find')->with($floorId)->willReturn($floor);
+		$this->houseUserMapper->method('findByHouseId')->with($houseId)->willReturn([$member]);
 
 		$this->roomTaskMapper
 			->expects($this->once())
 			->method('assignToUser')
 			->with($roomTaskId, $userId);
 
-		$result = $this->service->assignTask($roomTaskId, $userId);
+		$result = $this->service->assignTask($roomTaskId, $userId, $houseId);
 
 		$this->assertSame($roomTask, $result);
+	}
+
+	/**
+	 * AssignTask_NonMemberTarget_Throws
+	 *
+	 * CR-SVC-09: the target user must belong to the given house — an
+	 * arbitrary-user write is rejected before any persistence.
+	 */
+	public function testAssignTask_NonMemberTarget_Throws(): void {
+		$houseId = 1;
+		$roomTaskId = 10;
+
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setRoomId(5);
+
+		$room = new Room();
+		$room->setId(5);
+		$room->setFloorId(7);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId($houseId);
+
+		$member = new HouseUser();
+		$member->setNextcloudUserId('member-a');
+
+		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomMapper->method('find')->with(5)->willReturn($room);
+		$this->floorMapper->method('find')->with(7)->willReturn($floor);
+		$this->houseUserMapper->method('findByHouseId')->with($houseId)->willReturn([$member]);
+
+		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('User is not a member of this house: intruder');
+
+		$this->service->assignTask($roomTaskId, 'intruder', $houseId);
+	}
+
+	/**
+	 * AssignTask_ForeignHouseRoomTask_ThrowsNotFound
+	 *
+	 * CR-SVC-09: a room task belonging to another house is rejected with
+	 * NotFoundException (no existence leak) before any write.
+	 */
+	public function testAssignTask_ForeignHouseRoomTask_ThrowsNotFound(): void {
+		$roomTaskId = 10;
+
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setRoomId(5);
+
+		$room = new Room();
+		$room->setId(5);
+		$room->setFloorId(7);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(99); // different house
+
+		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
+		$this->roomMapper->method('find')->with(5)->willReturn($room);
+		$this->floorMapper->method('find')->with(7)->willReturn($floor);
+
+		$this->houseUserMapper->expects($this->never())->method('findByHouseId');
+		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Room task not found');
+
+		$this->service->assignTask($roomTaskId, 'user123', 1);
 	}
 
 	/**
@@ -712,27 +800,109 @@ class RoomTaskServiceTest extends TestCase {
 
 	/**
 	 * BulkAssignTasks_MultipleTasks_AssignsAll
+	 *
+	 * CR-SVC-09: bulkAssignTasks threads houseId through assignTask so
+	 * ownership + membership validation apply per item.
 	 */
 	public function testBulkAssignTasks_MultipleTasks_AssignsAll(): void {
+		$houseId = 1;
 		$roomTaskIds = [1, 2, 3];
 		$userId = 'user123';
 
 		$roomTask = new RoomTask();
 		$roomTask->setId(1);
+		$roomTask->setRoomId(5);
 		$roomTask->setAssignedToUserId($userId);
 
+		$room = new Room();
+		$room->setId(5);
+		$room->setFloorId(7);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId($houseId);
+
+		$member = new HouseUser();
+		$member->setNextcloudUserId($userId);
+
 		$this->roomTaskMapper
-			->expects($this->exactly(6))
 			->method('find')
 			->willReturn($roomTask);
+
+		$this->roomMapper->method('find')->with(5)->willReturn($room);
+		$this->floorMapper->method('find')->with(7)->willReturn($floor);
+		$this->houseUserMapper->method('findByHouseId')->with($houseId)->willReturn([$member]);
 
 		$this->roomTaskMapper
 			->expects($this->exactly(3))
 			->method('assignToUser');
 
-		$result = $this->service->bulkAssignTasks($roomTaskIds, $userId);
+		$result = $this->service->bulkAssignTasks($roomTaskIds, $userId, $houseId);
 
 		$this->assertCount(3, $result);
+	}
+
+	/**
+	 * BulkAssignTasks_FailingItemSkipped_ReturnsOnlyAssigned
+	 *
+	 * CR-SVC-09: an item that fails validation (e.g. belongs to another
+	 * house) is skipped without aborting the batch.
+	 */
+	public function testBulkAssignTasks_FailingItemSkipped_ReturnsOnlyAssigned(): void {
+		$houseId = 1;
+
+		$foreignRoomTask = new RoomTask();
+		$foreignRoomTask->setId(1);
+		$foreignRoomTask->setRoomId(5);
+
+		$ownedRoomTask = new RoomTask();
+		$ownedRoomTask->setId(2);
+		$ownedRoomTask->setRoomId(6);
+
+		$room = new Room();
+		$room->setId(6);
+		$room->setFloorId(7);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId($houseId);
+
+		$member = new HouseUser();
+		$member->setNextcloudUserId('user123');
+
+		$this->roomTaskMapper->method('find')->willReturnMap([
+			[1, $foreignRoomTask],
+			[2, $ownedRoomTask],
+		]);
+
+		// Both rooms resolve via floor 7; houseId of the floor decides:
+		// room 5's floor is in house 99, room 6's in the caller's house.
+		$foreignRoom = new Room();
+		$foreignRoom->setId(5);
+		$foreignRoom->setFloorId(8);
+		$foreignFloor = new Floor();
+		$foreignFloor->setId(8);
+		$foreignFloor->setHouseId(99);
+
+		$this->roomMapper->method('find')->willReturnMap([
+			[5, $foreignRoom],
+			[6, $room],
+		]);
+		$this->floorMapper->method('find')->willReturnMap([
+			[8, $foreignFloor],
+			[7, $floor],
+		]);
+		$this->houseUserMapper->method('findByHouseId')->with($houseId)->willReturn([$member]);
+
+		$this->roomTaskMapper
+			->expects($this->once())
+			->method('assignToUser')
+			->with(2, 'user123');
+
+		$result = $this->service->bulkAssignTasks([1, 2], 'user123', $houseId);
+
+		$this->assertCount(1, $result);
+		$this->assertSame(2, $result[0]->getId());
 	}
 
 	/**
