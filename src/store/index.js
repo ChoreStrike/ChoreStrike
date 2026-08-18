@@ -210,19 +210,9 @@ export const getStoreSummary = () => {
 }
 
 // Pinia plugin for store initialization
-export const piniaInitializationPlugin = ({ pinia }) => {
-	// Auto-initialize stores when they are first used
-	pinia.use(({ store }) => {
-		if (store.$id === 'user') {
-			// Auto-initialize user store
-			if (!store.currentUser) {
-				store.initializeCurrentUser().catch(error => {
-					logger.error('Failed to auto-initialize user store', error, { module: 'store/index', action: 'piniaInitializationPlugin', storeId: store.$id })
-				})
-			}
-		}
-	})
-}
+// (moved to the leaf module `userAutoInit.js` so the app bootstrap does not
+// import the whole store barrel into the eager entry bundle)
+export { piniaUserAutoInitPlugin } from './userAutoInit.js'
 
 export default {
 	useHouseStore,
@@ -242,5 +232,4 @@ export default {
 	getAnyStoreLoading,
 	getAnyStoreError,
 	getStoreSummary,
-	piniaInitializationPlugin,
 }

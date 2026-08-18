@@ -1,6 +1,6 @@
 # CS-PLAN-032: Non-Owner Availability Editing Surface
 
-> **Status:** Plan (not started)
+> **Status:** Implemented + reviewed (2026-08-18) — ready for `active/ → done/`
 > **Effort:** M
 > **Priority:** P2
 > **Depends on:** `CS-PLAN-033` (batch scheduling saves) — **soft**: must work with per-day saves; adopt the bulk endpoint with a one-line swap if CS-033 lands first
@@ -20,7 +20,7 @@ The backend already has everything needed: `GET /api/v1/scheduling/preferences` 
 
 **UX decision (required up front): self-availability section driven by `getPreferences` data.**
 
-Add a new self-service section component `SelfAvailabilitySettings.vue` ("My Availability") that binds directly to the scheduling store's existing `weekdayAvailability` state (populated for every member by `fetchUserPreferences` during `initializeScheduling`) and saves through the existing self-service store action `updateAvailability` — only for days that actually changed.
+Add a new self-service section component `SelfAvailabilitySettings.vue` ("My Availability") that binds directly to the scheduling store's existing `weekdayAvailability` state (populated for the current user regardless of role by `fetchUserPreferences` during `initializeScheduling`) and saves through the existing self-service store action `updateAvailability` — only for days that actually changed.
 
 Justification (KISS + reuse):
 
@@ -53,7 +53,7 @@ Additionally, `SchedulingView` gates the owner-only grid (`AvailabilitySettings`
 
 - **Unit (Jest):**
   - New `tests/unit/components/SelfAvailabilitySettings.spec.js` — follow the harness of `tests/unit/components/AvailabilitySettings.spec.js` (mock `@nextcloud/l10n`, `@nextcloud/dialogs`, `src/services/api.js`): renders 7 day toggles from store state; reflects current `weekdayAvailability`; Save disabled without changes; Save calls `updateAvailability` **only for changed days**; store state updated on success; error toast + no state corruption on API failure; Cancel reverts local edits.
-  - Update `tests/unit/views/SchedulingView.spec.js`: self-availability section renders for every role; `AvailabilitySettings` section rendered when `currentUser.role === 'owner'`, absent otherwise (no "No Members Found" for members).
+  - Update `tests/unit/components/SchedulingView.spec.js`: self-availability section renders for every role; `AvailabilitySettings` section rendered when `currentUser.role === 'owner'`, absent otherwise (no "No Members Found" for members).
 - **Unit/integration (PHPUnit):** none — no backend change. Existing coverage of the consumed endpoints stays authoritative: `tests/unit/Controller/SchedulingControllerTest.php` (`getPreferences`, `updateAvailability` incl. membership validation), `tests/unit/Service/SchedulingServiceTest.php`.
 - **E2E (Playwright):** New `tests/e2e/self-availability-member.spec.ts`, run in the **default `chromium` project** with the standard `admin` storageState (`playwright.config.ts:100`) — `admin` is a plain house **member** under the unconditionally seeded `family` profile (see `playwright.config.ts:39-41` comment; seed roles in `lib/Service/TestDataService.php:291-318`: mom/dad = owner, teen/kid = child, grandma/friend = member — admin is bootstrapped as member and can never take the owner slot). `test.describe.configure({ mode: 'serial' })` + restore mutated days in-test so intra-file parallelism and other specs are unaffected. Cases:
   1. "My Availability" section visible with 7 toggles for a non-owner.
@@ -68,11 +68,76 @@ new:      src/components/Scheduling/SelfAvailabilitySettings.vue
 new:      tests/unit/components/SelfAvailabilitySettings.spec.js
 new:      tests/e2e/self-availability-member.spec.ts
 modified: src/views/SchedulingView.vue
-modified: tests/unit/views/SchedulingView.spec.js
+modified: tests/unit/components/SchedulingView.spec.js
 modified: l10n/templates/chorestrike.pot
 modified: l10n/de.json
 modified: l10n/en.json
 ```
+
+### Implementation deltas (2026-08-18)
+
+Beyond the manifest, implementation required/fixed:
+
+- `src/main.js` — the plan assumed the user store auto-initializes via
+  `piniaInitializationPlugin` (`src/store/index.js`), but the plugin was never
+  installed in the bootstrap, so `isHouseOwner` stayed `false` on a direct
+  Dashboard → Scheduling path and owners lost the member grid. Root-cause fix:
+  the plugin is now wired in `bootstrap()` (fire-and-forget; moved to the leaf
+  module `src/store/userAutoInit.js` during review — see §9 — so the bootstrap
+  does not import the store barrel).
+- `src/store/user.js` — `initializeCurrentUser` made idempotent (in-flight
+  dedup + cached early-return; review fix §9.3).
+- `playwright.config.ts` — risk §7/3 decision: the spec runs in the default
+  `chromium` project (admin/member) per §4; `firefox`/`webkit` ignore it via
+  `SELF_AVAILABILITY_MEMBER_SPECS` so the mutation never runs 3× in parallel.
+- `tests/e2e/availability-settings-flow.spec.ts` — pre-existing defect fixed
+  inline (verified on unmodified tree): `getByTestId('availability-grid')`
+  resolves to one grid per member card (6 under the family seed) → strict-mode
+  violation, and the slot count was 7×members; the test now scopes to the
+  first grid and its 7 slots.
+- Docs integrated: `docs/concepts/design.md` (role-based scheduling UI),
+  `docs/engineering/testing.md` + `docs/testing/release-test-plan.md` §11
+  (new spec + role-dependent section description).
+- New backlog finding logged: the owner modal tests (`availability-settings-flow`
+  lines with `test.skip()` guards) skip vacuously because the own-card Edit
+  button never becomes visible in E2E (pre-existing on master; root cause
+  unexplored).
+
+## 9. Review Outcome (2026-08-18)
+
+Standard `/review uncommitted` with 6 parallel reviewer sub-agents (security,
+performance, business logic, deploy safety, duplication, dead code). Security /
+deploy safety / duplication: no findings. 6 findings (1 WARNING, 5
+SUGGESTIONS) — **all fixed inline in the same change**:
+
+1. **[WARNING] E2E save-completion signal** (`self-availability-member.spec.ts`):
+   `toBeDisabled()` is already true while saving → reload could race the PUT;
+   restore test blind to failed saves. Fixed: wait for the actual PUT response
+   (`page.waitForResponse`) and assert `ok()` before reloading.
+2. **Bundle size** (`src/main.js`): importing the store barrel pulled all 11
+   stores into the eager entry chunk. Fixed: plugin moved to the leaf module
+   `src/store/userAutoInit.js` (barrel re-exports it; main.js imports the
+   leaf).
+3. **Duplicate `/users/current` fetch** (`src/store/user.js`):
+   `initializeCurrentUser` now idempotent — early-returns a resolved
+   `currentUser` and shares one in-flight promise across concurrent callers
+   (plugin + Leaderboard/Settings mounts). +3 Jest regression tests.
+4. **No retry for role resolution** (`src/store/userAutoInit.js`): the plugin
+   retries once before logging, so a single transient failure no longer hides
+   role-dependent UI for the session.
+5. **Role guard bypass on probe failure**: the guard now skips on anything but
+   a confirmed `member`. This exposed that the original HTTP probe never
+   worked (bare `page.request` fails the Nextcloud CSRF check) — the role is
+   now read from the app's Pinia state after the auto-init resolved it.
+6. **Vacuous unit assertion**: dropped `not.toContain('No Members Found')`
+   from `SchedulingView.spec.js` (component is stubbed; real assertion lives
+   in the E2E spec).
+
+Gate re-verified after fixes: Jest **713**/713 · ESLint clean · stylelint
+0 errors (27 TECH-LINT-004 warnings) · `l10n:check-keys` clean · PHPUnit unit
+734 / integration 160 (24 pre-existing skips) · E2E
+`self-availability-member` 4/4 (chromium) + `availability-settings-flow`
+9 passed / 3 pre-existing vacuous skips (BUG-E2E-002).
 
 ## 6. Implementation Order
 
@@ -88,17 +153,18 @@ modified: l10n/en.json
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
 | Mid-run DB re-seed (serial specs) wipes the house while the member spec runs → admin re-bootstraps as owner of a fresh house → "grid hidden" assertion flakes | Low | Same exposure class as the existing `chromium-scheduling-owner` specs; `retries: 2` covers; core save/persist assertions hold for any role. Optionally assert role via `/api/v1/users/current` and skip with reason if owner. |
-| Owner briefly doesn't see the member grid (user store auto-init is fire-and-forget, `src/store/index.js:215-222`) | Low | `v-if` is reactive — grid appears once `currentUser` resolves; view already renders behind the store `loading` skeleton. |
+| Owner briefly doesn't see the member grid (user store auto-init is fire-and-forget, `src/store/index.js:213-224`) | Low | `v-if` is reactive — grid appears once `currentUser` resolves; view already renders behind the store `loading` skeleton. |
+| New spec matches no `testIgnore` pattern → runs under all three default browser projects (`chromium`, `firefox`, `webkit`) in parallel against the shared backend, so the same mutation spec executes three times concurrently | High | Pin the spec to a single project before implementation: add the file pattern to `SEED_DEPENDENT_SPECS` (`chromium-serial-db` only, `workers: 1`, admin storage — mid-run re-seed then handled by the row above) **or** add per-project `testIgnore` for `firefox`/`webkit`. **Decision required at activation.** |
 | Redundancy: owners can edit their own availability in both the grid modal and the new self section | Accepted | Consistent with existing overlap (energy editable in both `EnergyBudgetSettings` and the owner modal); one canonical self-service surface aids discoverability. |
 | CS-033 lands after this plan → per-day save loop stays (≤7 calls, changed days only) | Accepted by design | Soft dependency: swap to bulk call is a one-line change in the save handler when available. |
 
 ## 8. Acceptance Criteria
 
-- [ ] A non-owner (member/child) sees a "My Availability" section on the scheduling view, backed by `getPreferences` data, with a toggle per weekday.
-- [ ] Saving toggles persists via the self-service `updateAvailability` endpoint (changed days only; bulk endpoint if CS-033 landed) and survives a page reload.
-- [ ] Non-owners no longer see the owner-only grid or the misleading "No Members Found" state; owners keep the member grid unchanged.
-- [ ] E2E coverage for the non-owner path exists (`self-availability-member.spec.ts`, default `chromium` project as `admin`) and is green; owner regression green.
-- [ ] New user-visible strings use `t()` and `l10n/` artifacts are updated in the same change.
-- [ ] Build gate green (`npm test` + lint + backend tests)
-- [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+- [x] A non-owner (member/child) sees a "My Availability" section on the scheduling view, backed by `getPreferences` data, with a toggle per weekday.
+- [x] Saving toggles persists via the self-service `updateAvailability` endpoint (changed days only; bulk endpoint if CS-033 landed) and survives a page reload.
+- [x] Non-owners no longer see the owner-only grid or the misleading "No Members Found" state; owners keep the member grid unchanged.
+- [x] E2E coverage for the non-owner path exists (`self-availability-member.spec.ts`, default `chromium` project as `admin`) and is green; owner regression green.
+- [x] New user-visible strings use `t()` and `l10n/` artifacts are updated in the same change.
+- [x] Build gate green (`npm test` 713 · lint + stylelint 0 errors · `l10n:check-keys` · PHPUnit unit 734 / integration 160 [24 known skips])
+- [x] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/design.md`, `docs/engineering/testing.md`, `docs/testing/release-test-plan.md`)
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated

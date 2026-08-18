@@ -260,15 +260,18 @@ Route surface: `room_task#overdueClaims/filteredDaily`, teamwork completion fiel
 
 ## 11. Scheduling (Member Availability & Energy)
 
-Route surface: `scheduling#*`. View: **Scheduling** in nav — five sections:
-Availability, Energy Budget, Preview, Calendar, Suggestions.
+Route surface: `scheduling#*`. View: **Scheduling** in nav — role-dependent
+sections: My Availability + Energy Budget, Preview, Calendar, Suggestions for
+everyone; the owner-only Member Availability grid renders for owners only
+(CS-032).
 
 > The unauthenticated `smart-schedule#*` routes were removed (CS-016). The UI
 > consumes `scheduling#*` only.
 
 | Check | Steps | Expected | Automated? |
 |---|---|---|---|
-| View availability | Open Scheduling → Availability section | Member cards with weekday grid render | `scheduling` |
+| My Availability (any role) | Open Scheduling → My Availability → toggle a weekday → Save → reload | Section with 7 toggles renders for non-owners too; value persists | `self-availability-member` |
+| View availability (owner) | Open Scheduling → Member Availability section | Owner sees member cards with weekday grid; non-owners see no grid and no "No Members Found" state | `scheduling`, `self-availability-member` |
 | Edit own availability | Toggle weekdays on your card → Save | Availability persists after reload | `availability-settings-flow` |
 | Energy budget | Adjust an energy value for a day → Save | Energy value persists after reload | `flex-window-scheduling` |
 | Schedule calendar | Open the Schedule Calendar section | Week grid with member rows/capacity renders | `scheduling` |

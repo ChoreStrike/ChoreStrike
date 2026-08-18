@@ -49,6 +49,15 @@ const SCHEDULING_OWNER_SPECS = [
 	/[/\\]availability-settings-flow\.spec\.ts$/,
 ]
 
+// CS-PLAN-032: the member self-availability spec mutates the admin user's own
+// weekday availability and asserts single-save semantics. It runs exactly once
+// in the default `chromium` project (admin is a plain member under the family
+// seed); firefox and webkit ignore it so the same mutation never executes
+// three times concurrently against the shared backend.
+const SELF_AVAILABILITY_MEMBER_SPECS = [
+	/[/\\]self-availability-member\.spec\.ts$/,
+]
+
 export default defineConfig({
 	testDir: './tests/e2e',
 	outputDir: 'test-results/',
@@ -105,7 +114,7 @@ export default defineConfig({
 		{
 			name: 'firefox',
 			dependencies: ['setup'],
-			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS],
+			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...SELF_AVAILABILITY_MEMBER_SPECS],
 			use: {
 				...devices['Desktop Firefox'],
 				storageState: '.playwright/.auth/admin.json',
@@ -116,7 +125,7 @@ export default defineConfig({
 		{
 			name: 'webkit',
 			dependencies: ['setup'],
-			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS],
+			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...SELF_AVAILABILITY_MEMBER_SPECS],
 			use: {
 				...devices['Desktop Safari'],
 				storageState: '.playwright/.auth/admin.json',

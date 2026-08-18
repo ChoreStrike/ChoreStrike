@@ -179,6 +179,8 @@
         "Intelligent task distribution based on member availability and preferences": "Intelligente Aufgabenverteilung basierend auf Verfügbarkeit und Präferenzen der Mitglieder",
         "Member Availability": "Mitglieder-Verfügbarkeit",
         "Configure when each member is available for tasks": "Konfiguriere, wann jedes Mitglied für Aufgaben verfügbar ist",
+        "My Availability": "Meine Verfügbarkeit",
+        "Choose on which days you are available for tasks": "Wähle, an welchen Tagen du für Aufgaben verfügbar bist",
         "Loading member availability...": "Mitglieder-Verfügbarkeit wird geladen...",
         "days available": "Tage verfügbar",
         "Available": "Verfügbar",

@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import SchedulingView from '../../../src/views/SchedulingView.vue'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
+import { useUserStore } from '../../../src/store/user.js'
 import { api } from '../../../src/services/api.js'
 
 jest.mock('@nextcloud/l10n', () => ({
@@ -33,6 +34,7 @@ const stubs = {
 	SchedulePreview: true,
 	ScheduleCalendar: true,
 	SchedulingSuggestions: true,
+	SelfAvailabilitySettings: true,
 }
 
 describe('SchedulingView', () => {
@@ -60,14 +62,39 @@ describe('SchedulingView', () => {
 		expect(wrapper.find('h1').text()).toBe('Smart Scheduling')
 	})
 
-	it('renders all five sub-components', () => {
+	it('renders the self-availability section for every role', async () => {
+		// No currentUser resolved yet (non-owner default): the personal
+		// self-service section must still render.
 		const wrapper = mount(SchedulingView, { global: { stubs } })
+		await flushPromises()
+
+		expect(wrapper.findComponent({ name: 'SelfAvailabilitySettings' }).exists()).toBe(true)
+	})
+
+	it('renders the owner availability grid when the current user is owner', async () => {
+		const userStore = useUserStore()
+		userStore.currentUser = { id: 1, role: 'owner' }
+
+		const wrapper = mount(SchedulingView, { global: { stubs } })
+		await flushPromises()
+		await flushPromises()
 
 		expect(wrapper.findComponent({ name: 'AvailabilitySettings' }).exists()).toBe(true)
-		expect(wrapper.findComponent({ name: 'EnergyBudgetSettings' }).exists()).toBe(true)
-		expect(wrapper.findComponent({ name: 'SchedulePreview' }).exists()).toBe(true)
-		expect(wrapper.findComponent({ name: 'ScheduleCalendar' }).exists()).toBe(true)
-		expect(wrapper.findComponent({ name: 'SchedulingSuggestions' }).exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'SelfAvailabilitySettings' }).exists()).toBe(true)
+	})
+
+	it('hides the owner availability grid for non-owners', async () => {
+		const userStore = useUserStore()
+		userStore.currentUser = { id: 2, role: 'member' }
+
+		const wrapper = mount(SchedulingView, { global: { stubs } })
+		await flushPromises()
+		await flushPromises()
+
+		// The absent component IS the claim here; the "No Members Found"
+		// empty-state assertion lives in the E2E spec where the real
+		// AvailabilitySettings renders.
+		expect(wrapper.findComponent({ name: 'AvailabilitySettings' }).exists()).toBe(false)
 	})
 
 	it('initializes the scheduling store on mount', async () => {

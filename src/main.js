@@ -9,6 +9,7 @@ import axios from '@nextcloud/axios'
 import App from './App.vue'
 import router from './router.js'
 import { initI18n } from './i18n.js'
+import { piniaUserAutoInitPlugin } from './store/userAutoInit.js'
 import { logger } from './utils/logger.js'
 import { useCelebration } from './composables/useCelebration.js'
 import { useToasts } from './composables/useToasts.js'
@@ -24,6 +25,10 @@ async function bootstrap() {
 	try {
 		const pinia = createPinia()
 		const app = createApp(App)
+
+		// Fire-and-forget auto-init of the user store on first use, so role
+		// getters like isHouseOwner resolve reactively in any view.
+		piniaUserAutoInitPlugin({ pinia })
 
 		app.use(pinia)
 		app.use(router)

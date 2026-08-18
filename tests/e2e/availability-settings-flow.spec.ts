@@ -21,8 +21,10 @@ test.describe('Availability Settings Flow', () => {
 	})
 
 	test('displays availability grid with weekday slots', async ({ page }) => {
-		await expect(page.getByTestId('availability-grid')).toBeVisible()
-		const slots = page.getByTestId('availability-slot')
+		// One grid per member card: scope to the first to satisfy strict mode.
+		const firstGrid = page.getByTestId('availability-grid').first()
+		await expect(firstGrid).toBeVisible()
+		const slots = firstGrid.locator('[data-testid="availability-slot"]')
 		expect(await slots.count()).toBe(7)
 	})
 

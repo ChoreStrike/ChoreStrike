@@ -179,6 +179,8 @@
         "Intelligent task distribution based on member availability and preferences": "Intelligent task distribution based on member availability and preferences",
         "Member Availability": "Member Availability",
         "Configure when each member is available for tasks": "Configure when each member is available for tasks",
+        "My Availability": "My Availability",
+        "Choose on which days you are available for tasks": "Choose on which days you are available for tasks",
         "Loading member availability...": "Loading member availability...",
         "days available": "days available",
         "Available": "Available",

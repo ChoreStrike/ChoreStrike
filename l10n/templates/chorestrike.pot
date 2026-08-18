@@ -209,6 +209,9 @@ msgstr ""
 msgid "Child"
 msgstr ""
 
+msgid "Choose on which days you are available for tasks"
+msgstr ""
+
 msgid "Choose your title"
 msgstr ""
 
@@ -879,6 +882,9 @@ msgid "Moves"
 msgstr ""
 
 msgid "Mute sounds"
+msgstr ""
+
+msgid "My Availability"
 msgstr ""
 
 msgid "My Energy Budget"

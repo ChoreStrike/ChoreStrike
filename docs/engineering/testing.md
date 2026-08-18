@@ -340,6 +340,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `time-travel-overdue.spec.ts`, `time-travel-streak-notification.spec.ts` | Time-travel flows (CS-PLAN-023): overdue via seeded past due-date, streak-freeze + at-risk notification via `trigger-jobs --as-of` |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage |
 | `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Smart Scheduling UI — availability grid, energy budget, calendar, suggestions (revived by CS-PLAN-016) |
+| `self-availability-member.spec.ts` | Non-owner scheduling surface: "My Availability" self-service toggles, hidden owner grid, persist/reload round-trip (CS-PLAN-032; runs in default `chromium` as `admin`, ignored by firefox/webkit) |
 
 > **Archived (CS-PLAN-015, 2026-07-26):** `phase-3-user-management.spec.ts`
 > (retired group-assignment UI) and `phase-4-advanced-mechanics.spec.ts` (phantom

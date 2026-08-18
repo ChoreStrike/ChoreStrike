@@ -24,6 +24,10 @@
 
 		<div v-else class="scheduling-content">
 			<section class="scheduling-section">
+				<SelfAvailabilitySettings data-testid="self-availability-settings" />
+			</section>
+
+			<section v-if="userStore.isHouseOwner" class="scheduling-section">
 				<AvailabilitySettings data-testid="availability-settings" />
 			</section>
 
@@ -50,12 +54,14 @@
 import { translate as t } from '@nextcloud/l10n'
 import { useSchedulingStore } from '../store/scheduling.js'
 import { useTasksStore } from '../store/tasks.js'
+import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 import AvailabilitySettings from '../components/Scheduling/AvailabilitySettings.vue'
 import EnergyBudgetSettings from '../components/Scheduling/EnergyBudgetSettings.vue'
 import SchedulePreview from '../components/Scheduling/SchedulePreview.vue'
 import ScheduleCalendar from '../components/Scheduling/ScheduleCalendar.vue'
 import SchedulingSuggestions from '../components/Scheduling/SchedulingSuggestions.vue'
+import SelfAvailabilitySettings from '../components/Scheduling/SelfAvailabilitySettings.vue'
 
 export default {
 	name: 'SchedulingView',
@@ -66,12 +72,14 @@ export default {
 		SchedulePreview,
 		ScheduleCalendar,
 		SchedulingSuggestions,
+		SelfAvailabilitySettings,
 	},
 
 	setup() {
 		const schedulingStore = useSchedulingStore()
 		const tasksStore = useTasksStore()
-		return { schedulingStore, tasksStore }
+		const userStore = useUserStore()
+		return { schedulingStore, tasksStore, userStore }
 	},
 
 	computed: {

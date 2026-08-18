@@ -167,6 +167,44 @@ describe('User Store', () => {
 
 				await expect(store.initializeCurrentUser()).rejects.toThrow('Failed to initialize current user')
 			})
+
+			it('shares one request across concurrent callers', async () => {
+				const mockUser = { id: 1, displayName: 'John' }
+				let resolveGet
+				api.get.mockReturnValue(new Promise((resolve) => {
+					resolveGet = resolve
+				}))
+
+				const first = store.initializeCurrentUser()
+				const second = store.initializeCurrentUser()
+
+				resolveGet(mockUser)
+				await expect(first).resolves.toEqual(mockUser)
+				await expect(second).resolves.toEqual(mockUser)
+				expect(api.get).toHaveBeenCalledTimes(1)
+			})
+
+			it('returns the cached user without re-fetching once resolved', async () => {
+				const mockUser = { id: 1, displayName: 'John' }
+				api.get.mockResolvedValue(mockUser)
+
+				await store.initializeCurrentUser()
+				const result = await store.initializeCurrentUser()
+
+				expect(result).toEqual(mockUser)
+				expect(api.get).toHaveBeenCalledTimes(1)
+			})
+
+			it('allows a retry after a failed initialization', async () => {
+				const mockUser = { id: 1, displayName: 'John' }
+				api.get
+					.mockRejectedValueOnce(new Error('transient failure'))
+					.mockResolvedValueOnce(mockUser)
+
+				await expect(store.initializeCurrentUser()).rejects.toThrow('transient failure')
+				await expect(store.initializeCurrentUser()).resolves.toEqual(mockUser)
+				expect(store.currentUser).toEqual(mockUser)
+			})
 		})
 
 		describe('fetchHouseUsers', () => {

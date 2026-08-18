@@ -158,6 +158,18 @@ House
 - App suggests matching tasks
 - Considers energy cost + priority
 
+#### Role-Based Scheduling UI (CS-032)
+- **Personal settings first**: every member (owner, member, child) manages
+  their own weekday availability ("My Availability") and energy budget through
+  self-service sections backed by the member-gated `scheduling#preferences` /
+  self-service availability endpoints — no owner privileges required.
+- **Household grids are owner-only**: the "Member Availability" overview grid
+  is rendered for house owners only; non-owners never see it (previously they
+  saw a misleading "No Members Found" empty state).
+- Personal sections are driven by `getPreferences` data already loaded on view
+  mount; saves go through the self-service endpoints and persist only changed
+  days.
+
 ## 🎨 UI/UX Design
 
 ### Design Principles

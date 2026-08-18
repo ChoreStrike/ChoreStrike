@@ -8,6 +8,9 @@ import { api } from '../services/api.js'
 import { translate as t } from '@nextcloud/l10n'
 import { logger } from '../utils/logger.js'
 
+/** @type {Promise<object>|null} Shared in-flight request for initializeCurrentUser */
+let currentUserRequest = null
+
 export const useUserStore = defineStore('user', {
 	state: () => ({
 		currentUser: null,
@@ -56,18 +59,35 @@ export const useUserStore = defineStore('user', {
 
 	actions: {
 		/**
-		 * Initialize current user from Nextcloud
+		 * Initialize current user from Nextcloud.
+		 *
+		 * Idempotent: returns the cached user when already resolved and
+		 * shares one in-flight request across concurrent callers (the
+		 * auto-init plugin and view-level mounts), so only one
+		 * GET /api/v1/users/current fires per resolution.
 		 */
 		async initializeCurrentUser() {
-			try {
-				const data = await api.get('/api/v1/users/current')
-				this.currentUser = data
+			if (this.currentUser) {
 				return this.currentUser
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to initialize current user', error, { store: 'user', action: 'initializeCurrentUser' })
-				throw error
 			}
+
+			if (!currentUserRequest) {
+				currentUserRequest = api.get('/api/v1/users/current')
+					.then((data) => {
+						this.currentUser = data
+						return data
+					})
+					.catch((error) => {
+						this.error = error.message
+						logger.error('Failed to initialize current user', error, { store: 'user', action: 'initializeCurrentUser' })
+						throw error
+					})
+					.finally(() => {
+						currentUserRequest = null
+					})
+			}
+
+			return currentUserRequest
 		},
 
 		/**

@@ -71,6 +71,23 @@ CS-031 change (backend-only, no floor/task-create surface touched).
 
 ---
 
+### [P3] BUG-E2E-002 — Own-card Edit button never visible in E2E → owner modal tests skip vacuously
+**Status**: Open · **Effort**: S · **Source**: CS-PLAN-032 gate run (2026-08-18)
+
+In `tests/e2e/availability-settings-flow.spec.ts` (chromium-scheduling-owner,
+`dad`), `edit-availability-button` never becomes visible, so the three guarded
+modal tests (`can toggle weekday availability`, `shows energy budget inputs`,
+`can apply quick templates`) call `test.skip()` and `shows edit button …`
+passes vacuously. Verified **pre-existing** during the CS-032 gate: the skip
+also occurs on the unmodified tree (stash-verified). Suspect:
+`resolveCurrentUser()` (`@nextcloud/auth getCurrentUser`) returns null in the
+E2E page context, so `member.isCurrentUser` is never true.
+
+- [ ] Root-cause why the own-card Edit button does not render for `dad`;
+      un-guard the three modal tests so they assert instead of skipping.
+
+---
+
 ## Tech Debt / Code Quality
 
 ### [P3] TECH-LINT-003 — Build/test noise (remaining console.error)
@@ -175,7 +192,7 @@ canonical `src/services/api.js` client enforced by `apiContract.spec.js`.
 ## Review Follow-ups — CS-016 (Scheduling UI)
 
 > From [`archive/CODE_REVIEW_2026-07-28.md`](archive/CODE_REVIEW_2026-07-28.md).
-> CR-016-11 is **resolved** (CS-018); the rest are open.
+> CR-016-11 is **resolved** (CS-018); CR-016-12 is **resolved** (CS-032); the rest are open.
 
 ### [P2] CR-016-02 — Batch the scheduling save endpoints
 **Effort**: M — `AvailabilitySettings.saveAvailability` (≤14 calls) +
@@ -188,13 +205,6 @@ section must be the complete week, neither section → 400. **Plan:** CS-PLAN-03
 **Effort**: S — mock-based mapper test cannot catch SQL errors; needs a real-DB
 mapper/integration test (0 with no completions; >0 seeded). Unblock the
 integration harness first (`AvailabilityApiTest` `Class OC not found`).
-
-### [P2] CR-016-12 — Non-owner availability editing surface
-**Effort**: M — the member-availability grid is owner-only and the edit button
-only renders on the current user's card, so non-owners have **no UI to toggle
-their own weekday availability** (only energy budget). Self-availability section
-driven by `getPreferences` + self-service `updateAvailability`; E2E for the
-non-owner path.
 
 ### [P3] CR-016-03 — Split oversized scheduling components
 **Effort**: M — `AvailabilitySettings.vue` (694) + `EnergyBudgetSettings.vue`
