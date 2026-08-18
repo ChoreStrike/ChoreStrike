@@ -430,6 +430,41 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Clear the legacy single-assignee reference of a removed member,
+	 * scoped to one house (CR-SVC-26).
+	 *
+	 * `UPDATE room_tasks SET assigned_to_user_id = NULL WHERE
+	 * assigned_to_user_id = :user AND room_id IN (house-scoped rooms →
+	 * floors subquery)` — built with the query-builder subquery pattern
+	 * (the house parameter is bound on the OUTER builder and its
+	 * placeholder embedded into the subquery SQL, so the parameter is
+	 * bound exactly once where execution happens). No raw SQL.
+	 *
+	 * Called transactionally by HouseService::removeHouseMember so a
+	 * member removal leaves no orphaned assignee references behind.
+	 *
+	 * @param string $ncUserId The Nextcloud user ID of the removed member
+	 * @param int $houseId The house ID scope
+	 */
+	public function clearAssignedUserForHouse(string $ncUserId, int $houseId): void {
+		$qb = $this->db->getQueryBuilder();
+		$houseIdParam = $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT);
+
+		$roomsInHouse = $this->db->getQueryBuilder();
+		$roomsInHouse->select('r.id')
+			->from('chorestrike_rooms', 'r')
+			->innerJoin('r', 'chorestrike_floors', 'f', $roomsInHouse->expr()->eq('r.floor_id', 'f.id'))
+			->where($roomsInHouse->expr()->eq('f.house_id', $houseIdParam));
+
+		$qb->update($this->getTableName())
+			->set('assigned_to_user_id', $qb->createNamedParameter(null))
+			->where($qb->expr()->eq('assigned_to_user_id', $qb->createNamedParameter($ncUserId)))
+			->andWhere($qb->expr()->in('room_id', $qb->createFunction($roomsInHouse->getSQL())));
+
+		$qb->executeStatement();
+	}
+
+	/**
 	 * Apply the house-scope JOIN chain to a room_tasks query.
 	 *
 	 * chorestrike_room_tasks has no denormalized house_id column, so every

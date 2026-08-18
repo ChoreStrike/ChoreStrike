@@ -430,7 +430,25 @@ class TaskController extends Controller {
 				], 400);
 			}
 
-			$task = $this->taskService->updateTask($id, $updates);
+			try {
+				$task = $this->taskService->updateTask(
+					$id,
+					$updates,
+					$houseUser->getNextcloudUserId(),
+					$houseUser->isOwner()
+				);
+			} catch (ForbiddenException $e) {
+				// Defense-in-depth visibility denial from the service
+				// (CR-SVC-17) must preserve the 404 anti-enumeration
+				// contract (same as the gates above, show(), and delete()),
+				// never a 403 that confirms the task exists. House-access
+				// ForbiddenExceptions are still handled as 403 by the outer
+				// catch below.
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+				], 404);
+			}
 
 			return new JSONResponse([
 				'success' => true,

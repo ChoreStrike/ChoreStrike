@@ -35,7 +35,7 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: bogusColumn');
-		$this->service->updateTask(1, ['bogusColumn' => 'evil']);
+		$this->service->updateTask(1, ['bogusColumn' => 'evil'], 'caller-user', false);
 	}
 
 	public function testUpdateTask_RejectsImmutableInternalColumn_WithInvalidArgument(): void {
@@ -47,7 +47,7 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: isTemplate');
-		$this->service->updateTask(1, ['isTemplate' => true]);
+		$this->service->updateTask(1, ['isTemplate' => true], 'caller-user', false);
 	}
 
 	public function testUpdateTask_AppliesWhitelistedField(): void {
@@ -55,7 +55,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 
-		$result = $this->service->updateTask(1, ['name' => 'Shiny New Name']);
+		$result = $this->service->updateTask(1, ['name' => 'Shiny New Name'], 'caller-user', false);
 
 		$this->assertSame('Shiny New Name', $result->getName());
 	}
@@ -65,7 +65,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$this->taskMapper->method('find')->willReturn($task);
 		$this->taskMapper->method('update')->willReturnArgument(0);
 
-		$result = $this->service->updateTask(1, ['activeFrom' => '2026-01-15']);
+		$result = $this->service->updateTask(1, ['activeFrom' => '2026-01-15'], 'caller-user', false);
 
 		$this->assertInstanceOf(\DateTime::class, $result->getActiveFrom());
 		$this->assertSame('2026-01-15', $result->getActiveFrom()->format('Y-m-d'));
@@ -81,7 +81,7 @@ class TaskServiceWhitelistTest extends TestCase {
 			'energyCost' => 3,
 			'priority' => 1,
 			'taskTier' => 'gold',
-		]);
+		], 'caller-user', false);
 
 		$this->assertSame('Multi', $result->getName());
 		$this->assertSame(3, $result->getEnergyCost());
@@ -95,7 +95,7 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: id');
-		$this->service->updateTask(42, ['id' => 999]);
+		$this->service->updateTask(42, ['id' => 999], 'caller-user', false);
 	}
 
 	/**
@@ -112,6 +112,6 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: isPrivate');
-		$this->service->updateTask(1, ['isPrivate' => true]);
+		$this->service->updateTask(1, ['isPrivate' => true], 'caller-user', false);
 	}
 }

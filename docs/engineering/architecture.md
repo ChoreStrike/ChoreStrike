@@ -248,7 +248,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `flex_days` (int), scheduling/recurrence fields, `created_at` (datetime)
 - Index `idx_tasks_visibility` on `(visibility_type, owner_user_id)`
 
-> **Visibility matrix:** `public` = visible to all house members; `private` = visible only to `owner_user_id`; `admin-only` = visible only to house owners. Enforced in `TaskMapper::findVisibleByHouse()`, `TaskController::index()`/`show()`/`complete()`.
+> **Visibility matrix:** `public` = visible to all house members; `private` = visible only to `owner_user_id`; `admin-only` = visible only to house owners. Enforced in `TaskMapper::findVisibleByHouse()`, `TaskController::index()`/`show()`/`complete()`, and on mutation in `TaskService::deleteTask()`/`updateTask()` (service-side matrix, CS-PLAN-031 CR-SVC-17) with controller gates in `TaskController::delete()`/`update()` (anti-enumeration 404s).
 
 #### `chorestrike_room_tasks` (task instances scheduled into a room)
 - `id` (bigint, PK)

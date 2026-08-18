@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
+use OCP\IDBConnection;
 
 /**
  * Service for managing minigame scores and leaderboards
@@ -40,27 +41,39 @@ class MinigameService {
 
 	private MinigameScoreMapper $scoreMapper;
 	private HouseUserMapper $houseUserMapper;
+	private IDBConnection $db;
 
 	public function __construct(
 		MinigameScoreMapper $scoreMapper,
 		HouseUserMapper $houseUserMapper,
+		IDBConnection $db,
 	) {
 		$this->scoreMapper = $scoreMapper;
 		$this->houseUserMapper = $houseUserMapper;
+		$this->db = $db;
 	}
 
 	/**
-	 * Save a game score
+	 * Save a game score and award the earned Coins atomically (CR-SVC-54).
+	 *
+	 * The score insert and the coin increment run in one transaction behind
+	 * `HouseUserMapper::findForUpdate()` (ADR-007 pattern): two concurrent
+	 * same-user submissions can no longer clobber each other's increment,
+	 * and a failure between insert and coin award rolls both back. A missing
+	 * house_user row keeps the previous behavior: the score is saved, 0
+	 * Coins are awarded — and the response now reports that honestly
+	 * (CR-SVC-51: the awarded amount is returned by the service instead of
+	 * being recomputed from client input by the controller).
 	 *
 	 * @param int $houseId The house ID
 	 * @param string $userId The Nextcloud user ID
 	 * @param string $gameId The game ID (e.g., 'snake')
 	 * @param int $score The achieved score
 	 * @param array $boostsUsed List of boost IDs used during the game
-	 * @return MinigameScore The persisted score entity
+	 * @return array{score: MinigameScore, coinsEarned: int} The persisted score entity and the Coins actually awarded
 	 * @throws \InvalidArgumentException if the score is out of bounds (CR-SVC-05)
 	 */
-	public function saveScore(int $houseId, string $userId, string $gameId, int $score, array $boostsUsed = []): MinigameScore {
+	public function saveScore(int $houseId, string $userId, string $gameId, int $score, array $boostsUsed = []): array {
 		// CR-SVC-05: bound the client-supplied score before any insert or coin
 		// award. Reject negatives (coin drain) and over-cap values (coin
 		// farming via floor(score/10)).
@@ -78,19 +91,37 @@ class MinigameService {
 		$scoreEntity->setBoostsUsed(!empty($boostsUsed) ? $boostsUsed : null);
 		$scoreEntity->setCreatedAt(new \DateTime());
 
-		$savedScore = $this->scoreMapper->insert($scoreEntity);
-
-		// Award Coins for playing (1 Coin per 10 points)
+		// Award Coins for playing (1 Coin per 10 points). Resolving the
+		// house_user id before the transaction is fine — the row is then
+		// locked by primary key inside it.
 		$coinsEarned = (int)floor($score / 10);
-		if ($coinsEarned > 0) {
-			$user = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId);
-			if ($user) {
-				$user->addCoins($coinsEarned);
-				$this->houseUserMapper->update($user);
+		$user = $coinsEarned > 0
+			? $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId)
+			: null;
+		$awardedCoins = 0;
+
+		$this->db->beginTransaction();
+		try {
+			$savedScore = $this->scoreMapper->insert($scoreEntity);
+
+			if ($user !== null) {
+				$lockedUser = $this->houseUserMapper->findForUpdate($user->getId());
+				$lockedUser->addCoins($coinsEarned);
+				$lockedUser->touch();
+				$this->houseUserMapper->update($lockedUser);
+				$awardedCoins = $coinsEarned;
 			}
+
+			$this->db->commit();
+		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			throw $e;
 		}
 
-		return $savedScore;
+		return [
+			'score' => $savedScore,
+			'coinsEarned' => $awardedCoins,
+		];
 	}
 
 	/**
@@ -188,6 +219,11 @@ class MinigameService {
 	/**
 	 * Purchase a boost for a game
 	 *
+	 * Lock-check-deduct under a transaction (CR-SVC-23): the sufficiency
+	 * check runs on the locked house_user row, so two concurrent purchases
+	 * with a single-boost balance cannot both pass the check and buy two
+	 * boosts while paying once (ADR-007 lock pattern).
+	 *
 	 * @param int $houseId The house ID
 	 * @param string $userId The Nextcloud user ID
 	 * @param string $boostId The boost ID to purchase
@@ -207,20 +243,33 @@ class MinigameService {
 			throw new \InvalidArgumentException('User not found in house');
 		}
 
-		// Check if user has enough coins
-		if ($user->getCoins() < $cost) {
-			throw new \InvalidArgumentException("Insufficient coins. Need {$cost}, have {$user->getCoins()}");
-		}
+		$this->db->beginTransaction();
+		try {
+			// Check sufficiency on the LOCKED row — the authoritative
+			// balance. No max(0, …) mask on the deduction: the locked check
+			// guarantees sufficiency and the mask would only hide bugs.
+			$lockedUser = $this->houseUserMapper->findForUpdate($user->getId());
+			if ($lockedUser->getCoins() < $cost) {
+				throw new \InvalidArgumentException(
+					"Insufficient coins. Need {$cost}, have {$lockedUser->getCoins()}"
+				);
+			}
 
-		// Deduct coins
-		$user->setCoins(max(0, $user->getCoins() - $cost));
-		$this->houseUserMapper->update($user);
+			$lockedUser->setCoins($lockedUser->getCoins() - $cost);
+			$lockedUser->touch();
+			$this->houseUserMapper->update($lockedUser);
+
+			$this->db->commit();
+		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			throw $e;
+		}
 
 		return [
 			'success' => true,
 			'boostId' => $boostId,
 			'cost' => $cost,
-			'remainingCoins' => $user->getCoins(),
+			'remainingCoins' => $lockedUser->getCoins(),
 		];
 	}
 

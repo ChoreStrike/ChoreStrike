@@ -331,4 +331,124 @@ class UserControllerTest extends TestCase {
 		$this->assertTrue($data['success']);
 		$this->assertEquals('New Name', $data['data']['displayName']);
 	}
+
+	/**
+	 * Test DELETE /users/{id} delegates the aggregate removal to the
+	 * service (CR-SVC-26) — the controller contains no mapper deletes.
+	 */
+	public function testRemove_DelegatesToHouseServiceAndReturnsSuccess(): void {
+		$member = new HouseUser();
+		$member->setId(7);
+		$member->setHouseId(3);
+		$member->setNextcloudUserId('member1');
+		$member->setRole('member');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($member);
+
+		$this->authService->expects($this->once())
+			->method('requireHouseOwner')
+			->with(3);
+
+		$this->houseService->expects($this->once())
+			->method('removeHouseMember')
+			->with(7);
+
+		$this->houseUserMapper->expects($this->never())->method('delete');
+
+		$response = $this->controller->remove(7);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(200, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+	}
+
+	/**
+	 * Test DELETE /users/{id} maps the service's owner-target guard to the
+	 * endpoint-specific CANNOT_REMOVE_OWNER 403 (response contract unchanged).
+	 */
+	public function testRemove_OwnerTarget_ReturnsCannotRemoveOwner403(): void {
+		$owner = new HouseUser();
+		$owner->setId(7);
+		$owner->setHouseId(3);
+		$owner->setNextcloudUserId('owner1');
+		$owner->setRole('owner');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($owner);
+
+		$this->authService->expects($this->once())
+			->method('requireHouseOwner')
+			->with(3);
+
+		$this->houseService->expects($this->once())
+			->method('removeHouseMember')
+			->with(7)
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Cannot remove the house owner'));
+
+		$response = $this->controller->remove(7);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(403, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('CANNOT_REMOVE_OWNER', $data['error']['code']);
+	}
+
+	/**
+	 * Test DELETE /users/{id} denies non-owner callers with the standard
+	 * 403 FORBIDDEN shape.
+	 */
+	public function testRemove_NonOwnerCaller_ReturnsForbidden403(): void {
+		$member = new HouseUser();
+		$member->setId(7);
+		$member->setHouseId(3);
+		$member->setRole('member');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($member);
+
+		$this->authService->expects($this->once())
+			->method('requireHouseOwner')
+			->with(3)
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owners only'));
+
+		$this->houseService->expects($this->never())->method('removeHouseMember');
+
+		$response = $this->controller->remove(7);
+
+		$this->assertEquals(403, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('FORBIDDEN', $data['error']['code']);
+	}
+
+	/**
+	 * Test DELETE /users/{id} returns 404 for an unknown target (same
+	 * shape as update()/titles()).
+	 */
+	public function testRemove_UnknownUser_Returns404(): void {
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(999)
+			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('not found'));
+
+		$response = $this->controller->remove(999);
+
+		$this->assertEquals(404, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('USER_NOT_FOUND', $data['error']['code']);
+	}
 }

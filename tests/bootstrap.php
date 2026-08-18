@@ -46,7 +46,6 @@ if ($isDocker) {
 		'OCP/IUserSession.php',
 		'OCP/IUser.php',
 		'OCP/IServerContainer.php',
-		'OCP/ITimeFactory.php',
 	];
 
 	foreach ($ocpClasses as $class) {
@@ -94,7 +93,6 @@ if ($isDocker) {
 	require_once __DIR__ . '/__mocks__/OCP/IUser.php';
 	require_once __DIR__ . '/__mocks__/OCP/IUserSession.php';
 	require_once __DIR__ . '/__mocks__/OCP/IDBConnection.php';
-	require_once __DIR__ . '/__mocks__/OCP/ITimeFactory.php';
 	require_once __DIR__ . '/__mocks__/OCP/IConfig.php';
 	require_once __DIR__ . '/__mocks__/OCP/IAppConfig.php';
 	require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IQueryBuilder.php';

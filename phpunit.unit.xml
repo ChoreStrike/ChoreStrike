@@ -11,33 +11,15 @@
          failOnWarning="true"
          verbose="true">
     <testsuites>
-        <!-- Entity tests only (no Mapper dependencies) -->
+        <!-- Pure entity tests (no Mapper dependencies) -->
         <testsuite name="Entity">
-            <directory suffix="Test.php">tests/unit/Db</directory>
-            <exclude>tests/unit/Db/HouseMapperTest.php</exclude>
-            <exclude>tests/unit/Db/TaskMapperTest.php</exclude>
-            <exclude>tests/unit/Db/FloorMapperTest.php</exclude>
-            <exclude>tests/unit/Db/CompletedTaskMapperTest.php</exclude>
-            <exclude>tests/unit/Db/HouseUserMapperTest.php</exclude>
-            <exclude>tests/unit/Db/RoomMapperTest.php</exclude>
-            <exclude>tests/unit/Db/RoomTaskMapperTest.php</exclude>
-            <exclude>tests/unit/Db/MedalMapperTest.php</exclude>
+            <directory suffix="Test.php">tests/unit/Db/Entity</directory>
         </testsuite>
-        <!-- Mock-based mapper tests (CS-PLAN-022 D2: run in the no-DB CI gate) -->
+        <!-- Mock-based mapper tests (CS-PLAN-022 D2: run in the no-DB CI gate;
+             CS-PLAN-031 D7/CR-SVC-58: globbed by subdirectory so the suite
+             lists cannot drift from the directory layout again) -->
         <testsuite name="Mapper">
-            <file>tests/unit/Db/HouseMapperTest.php</file>
-            <file>tests/unit/Db/TaskMapperTest.php</file>
-            <file>tests/unit/Db/FloorMapperTest.php</file>
-            <file>tests/unit/Db/CompletedTaskMapperTest.php</file>
-            <file>tests/unit/Db/HouseUserMapperTest.php</file>
-            <file>tests/unit/Db/RoomMapperTest.php</file>
-            <file>tests/unit/Db/RoomTaskMapperTest.php</file>
-            <file>tests/unit/Db/MedalMapperTest.php</file>
-            <file>tests/unit/Db/TaskAssigneeMapperTest.php</file>
-            <file>tests/unit/Db/TaskChecklistItemMapperTest.php</file>
-            <file>tests/unit/Db/RoomTaskChecklistProgressMapperTest.php</file>
-            <file>tests/unit/Db/MinigameScoreMapperTest.php</file>
-            <file>tests/unit/Db/AvailabilitySettingsMapperTest.php</file>
+            <directory suffix="Test.php">tests/unit/Db/Mapper</directory>
         </testsuite>
         <!-- Service tests that don't require real database -->
         <testsuite name="Service">

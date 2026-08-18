@@ -12,11 +12,15 @@ use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
+use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
+use OCP\IDBConnection;
 
 /**
  * Service for house-related business logic
@@ -27,8 +31,11 @@ class HouseService {
 	private RoomMapper $roomMapper;
 	private RoomTaskMapper $roomTaskMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private HouseUserMapper $houseUserMapper;
+	private TaskAssigneeMapper $taskAssigneeMapper;
 	private RewardConfigService $rewardConfigService;
 	private IConfig $config;
+	private IDBConnection $db;
 	private ?AppLogger $appLogger;
 
 	public function __construct(
@@ -37,8 +44,11 @@ class HouseService {
 		RoomMapper $roomMapper,
 		RoomTaskMapper $roomTaskMapper,
 		CompletedTaskMapper $completedTaskMapper,
+		HouseUserMapper $houseUserMapper,
+		TaskAssigneeMapper $taskAssigneeMapper,
 		RewardConfigService $rewardConfigService,
 		IConfig $config,
+		IDBConnection $db,
 		?AppLogger $appLogger = null,
 	) {
 		$this->houseMapper = $houseMapper;
@@ -46,9 +56,54 @@ class HouseService {
 		$this->roomMapper = $roomMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
+		$this->houseUserMapper = $houseUserMapper;
+		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->rewardConfigService = $rewardConfigService;
 		$this->config = $config;
+		$this->db = $db;
 		$this->appLogger = $appLogger;
+	}
+
+	/**
+	 * Remove a member from the house and clean up their task references
+	 * transactionally (CR-SVC-26).
+	 *
+	 * House membership is a house concern, so the whole removal runs as one
+	 * aggregate operation: null `room_tasks.assigned_to_user_id`, delete
+	 * `task_assignees` rows, and delete the `house_users` row — all scoped
+	 * to the member's house (another house's assignments are untouched).
+	 * Before the fix the controller deleted only the house_users row and
+	 * left orphaned assignee references to a former member behind.
+	 *
+	 * The caller (controller) is responsible for the requireHouseOwner
+	 * gate; this method guards its own invariant: the target must not be
+	 * an owner (throws ForbiddenException so the API can map its
+	 * CANNOT_REMOVE_OWNER 403).
+	 *
+	 * @param int $houseUserId The house user ID of the member to remove
+	 * @throws ForbiddenException if the target is the house owner
+	 * @throws DoesNotExistException if the house user does not exist
+	 */
+	public function removeHouseMember(int $houseUserId): void {
+		$houseUser = $this->houseUserMapper->find($houseUserId);
+
+		if ($houseUser->isOwner()) {
+			throw new ForbiddenException('Cannot remove the house owner');
+		}
+
+		$ncUserId = $houseUser->getNextcloudUserId();
+		$houseId = $houseUser->getHouseId();
+
+		$this->db->beginTransaction();
+		try {
+			$this->roomTaskMapper->clearAssignedUserForHouse($ncUserId, $houseId);
+			$this->taskAssigneeMapper->deleteByUserForHouse($ncUserId, $houseId);
+			$this->houseUserMapper->delete($houseUser);
+			$this->db->commit();
+		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			throw $e;
+		}
 	}
 
 	/**

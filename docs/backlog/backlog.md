@@ -51,6 +51,26 @@ Confirm whether production shapes still need it; if not, remove it.
 
 ---
 
+### [P3] BUG-E2E-001 — `3-floor-house.spec.ts`: 2 pre-existing failures in the serial pool
+**Status**: Open · **Effort**: M · **Source**: CS-PLAN-031 gate run (2026-08-18)
+
+Running the full `chromium-serial-db` project (family profile) fails 2 of 13
+tests in `tests/e2e/3-floor-house.spec.ts`:
+
+- `Navigation: Can navigate to all 3 floors from dashboard` (`:45`)
+- `Task Management: Add cleaning task to Gästebad` (`:192` — times out
+  waiting for a `Save`/`Create` button)
+
+Verified **pre-existing** during the CS-031 gate: both tests fail identically
+on the unmodified tree (stash-verified). All 16 `Release:*` specs pass; the
+plan-level gates (`Release:*`) never covered this spec. Not related to any
+CS-031 change (backend-only, no floor/task-create surface touched).
+
+- [ ] Reproduce standalone, capture the error context, and fix the spec or
+      the underlying UI flow; re-add to the blocking serial gate.
+
+---
+
 ## Tech Debt / Code Quality
 
 ### [P3] TECH-LINT-003 — Build/test noise (remaining console.error)
@@ -126,16 +146,6 @@ bump coordinated with the Nextcloud eslint config.
 
 ---
 
-### [P3] TECH-CLEANUP-ITIMEFACTORY — Normalize the two `ITimeFactory` interfaces
-**Status**: Backlog · **Effort**: S · **Source**: CS-023 review (2026-07-30)
-
-`TaskSyncService` imports `OCP\ITimeFactory` while the three BackgroundJobs import
-`OCP\AppFramework\Utility\ITimeFactory`; two mock files exist under
-`tests/__mocks__/OCP/`. Pre-existing inconsistency. Normalize to one interface
-(and drop the redundant mock) next time `TaskSyncService` is touched.
-
----
-
 ### [P2] P9-E2E-002b — E2E long-tail `waitForTimeout` cleanup
 **Status**: Backlog · **Effort**: M–L · **Source**: carved out of CS-015
 
@@ -170,7 +180,9 @@ canonical `src/services/api.js` client enforced by `apiContract.spec.js`.
 ### [P2] CR-016-02 — Batch the scheduling save endpoints
 **Effort**: M — `AvailabilitySettings.saveAvailability` (≤14 calls) +
 `EnergyBudgetSettings` (7) save per-day sequentially. Add a bulk `PUT` for a
-full week; call once; loading flicker gone.
+full week; call once; loading flicker gone. **Decision (2026-08-18):** sections
+optional — energy-only/availability-only payloads allowed, each provided
+section must be the complete week, neither section → 400. **Plan:** CS-PLAN-033.
 
 ### [P2] CR-016-10 — Regression test for `getConsumedEnergyForUserOnDate` SQL fix
 **Effort**: S — mock-based mapper test cannot catch SQL errors; needs a real-DB
@@ -252,13 +264,6 @@ critical section.
 - [ ] Pass the loaded `RoomTask` into `handleTaskCompletion` (or fetch before
       the lock); fetch the last 10 completions once and slice for the combo check.
 
-### [P3] CR-SVC-51 — `MinigameController::saveScore` recomputes the coin formula
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025 (CR-SVC-05 adjacent)
-The controller recomputes `coinsEarned = floor($score/10)` from raw client input
-for the response, duplicating `MinigameService::saveScore` — and diverging when
-the house user is missing (service awards 0, response reports >0).
-- [ ] Have `saveScore` return the awarded coins; controller only shapes the response.
-
 ### [P3] CR-SVC-52 — CR-SVC-12 unit test does not assert dispatch-after-commit ordering
 **Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025
 `RoomServiceTest::testCompleteRoomTask_NewTitleInGameResult_DispatchesTitleNotificationAfterCommit`
@@ -277,16 +282,6 @@ of CR-SVC-12) is untested.
 > ESLint clean. **One auto-fix applied**, **one new [P1] concurrency finding
 > (CR-SVC-53)** surfaced, and the minor perf/quality follow-ups below (CR-SVC-54..58).
 
-### [P3] CR-SVC-54 — `MinigameService::saveScore` coin award has no row lock/transaction
-**Status**: Open · **Effort**: S · **Source**: Full Review 2026-08-11
-`MinigameService::saveScore` (`:75-86`) runs the score insert + the `house_user` coin
-increment (`addCoins` + `update`) without a transaction or `findForUpdate` — the same
-lost-update class CR-SVC-04 fixed for task completion. Two concurrent minigame
-submissions for the same user can clobber each other's coin increment, and a partial
-failure between `insert()` and `update()` leaves a score row with no coins.
-- [ ] Wrap in a transaction and call `HouseUserMapper::findForUpdate` before the coin
-      increment (or document the deferral with a reason).
-
 ### [P3] CR-SVC-55 — `StreakFreezeService::process` per-user N+1
 **Status**: Open · **Effort**: S · **Source**: Full Review 2026-08-11
 The daily loop calls `completedTaskMapper->countByUserOnDate($user->getId(), $yesterday)`
@@ -302,17 +297,6 @@ once per house user (`StreakFreezeService.php:81`) — N queries for N users. Th
 queries for an N-entry leaderboard (default limit 10 → 10 round trips per fetch).
 - [ ] Add a batch lookup (`findByHouseIdAndNextcloudUserIds`) or a JOIN in
       `MinigameScoreMapper::getLeaderboard` that returns `displayName` alongside the rows.
-
-### [P3] CR-SVC-58 — `phpunit.unit.xml` Entity/Mapper suites double-run 5 mapper tests
-**Status**: Open · **Effort**: XS · **Source**: Full Review 2026-08-11 (CS-PLAN-022 D2)
-The 5 newer mapper tests (`TaskAssignee`, `TaskChecklistItem`, `RoomTaskChecklistProgress`,
-`MinigameScore`, `AvailabilitySettings`) are listed in the `Mapper` suite's `<file>` set
-but **not** in the `Entity` suite's `<exclude>` set, so the `Entity` suite's
-`<directory>tests/unit/Db</directory>` glob matches them too — they execute in **both**
-suites. The directory+exclude+file-list pattern already drifted once (CS-022); harmless
-(same result twice) but wasteful and fragile.
-- [ ] Split by subdirectory (`tests/unit/Db/Entity/` + `tests/unit/Db/Mapper/`), each
-      suite globbing its own dir; delete the exclude list so the split can't silently drift.
 
 ### [P2] CR-SVC-11 — N+1 query cluster across services
 **Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)
@@ -331,7 +315,9 @@ Pervasive per-row mapper calls in loops. Hot spots: `HouseService::calculateHous
 `NotificationService`, `StreakAtRiskService`, `StreakFreezeService`, `StreakRestockService`
 inject raw `Psr\Log\LoggerInterface` instead of `AppLogger` (project-rules §2), bypassing
 sensitive-key sanitization; ~16 services have no logger at all.
-- [ ] Inject `AppLogger` in the 4 services; route dispatch/process failures through it.
+- [ ] Inject `AppLogger` in the 5 services (incl. `TaskDueReminderService`, added by
+      decision 2026-08-18 — it postdates the 2026-08-04 source review); route
+      dispatch/process failures through it. **Plan:** CS-PLAN-035.
 
 ### [P2] CR-SVC-15 — Decompose God-methods / God-services
 **Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)
@@ -348,29 +334,10 @@ Every config key is touched in 4-5 places (const + get + set + `updateConfig` br
 `getAllConfig` entry); `updateConfig` mirrors `getAllConfig`.
 - [ ] Drive get/set/update/all from a single `key => [type, default, clamp]` registry.
 
-### [P3] CR-SVC-17 — `TaskService::updateTask` missing task-visibility matrix
-**Effort**: S — asymmetric with `deleteTask`; `ownerUserId` is whitelisted so a private
-task can be silently re-assigned away from its owner. Mirror `deleteTask`'s caller/owner
-checks.
-
 ### [P3] CR-SVC-19 — `RewardConfigService` inconsistent clamping
 **Effort**: S — several setters/getters return raw values (tier multiplier, coin base,
 freeze cap/count, early-bonus) that can invert rewards (negative multiplier). Admin-gated.
 Clamp to `>= 0`/`>= 1` consistently.
-
-### [P3] CR-SVC-21 — `TaskSyncService` inconsistent house-scoping + unscoped public mutators
-**Effort**: S — uses `room->getHouseId()` directly while the authoritative path resolves
-`room->floor->house`; the non-`ForHouse` variants (`completeTask`, `linkTask`,
-`markAsSynced`, `getPendingSyncs`) are unscoped public mutators. Make them private,
-expose only the `*ForHouse` wrappers.
-
-### [P3] CR-SVC-23 — `MinigameService::purchaseBoost` lost-update
-**Effort**: S — read-check-deduct with no lock; concurrent purchases can pay once for two
-boosts. Wrap in a transaction with `SELECT … FOR UPDATE` on the `house_user` row.
-
-### [P3] CR-SVC-26 — `removeUserFromHouse` leaves orphaned assignee references
-**Effort**: S — root cause of the defensive re-check at `RoomService.php:419`. On removal,
-null `room_tasks.assigned_to_user_id` and delete `task_assignees` rows for the user.
 
 ### [P3] CR-SVC-31 — `completionRate` conflates inactive with completed
 **Effort**: S — `getRoomTaskStats`/`getUserTaskStats` compute `(total-active)/total`,

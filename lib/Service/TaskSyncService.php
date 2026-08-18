@@ -50,6 +50,9 @@ class TaskSyncService {
 	/**
 	 * Mark a room task as completed and sync to Nextcloud Tasks.
 	 *
+	 * Internal helper (CR-SVC-21): the public surface is the house-scoped
+	 * {@see completeTaskForHouse}.
+	 *
 	 * CR-SVC-07: routed through the canonical {@see RoomService::completeRoomTask}
 	 * so rewards, the house_user row lock, the daily duplicate guard, the
 	 * cleanliness update, and recurrence (RoomTask::markCompleted) all apply
@@ -67,7 +70,7 @@ class TaskSyncService {
 	 * @param int|null $nextcloudTaskId Optional linked Nextcloud task ID
 	 * @return array Completion result with sync status
 	 */
-	public function completeTask(int $roomTaskId, string $nextcloudUserId, ?int $nextcloudTaskId = null): array {
+	private function completeTask(int $roomTaskId, string $nextcloudUserId, ?int $nextcloudTaskId = null): array {
 		$completion = $this->roomService->completeRoomTask($roomTaskId, $nextcloudUserId, $nextcloudTaskId);
 
 		// Link the Nextcloud task id (if provided) for later sync.
@@ -254,12 +257,16 @@ class TaskSyncService {
 	}
 
 	/**
-	 * Get pending completions that need to be synced to Nextcloud
+	 * Get pending completions that need to be synced to Nextcloud.
+	 *
+	 * Internal helper (CR-SVC-21): the public surface is the house-scoped
+	 * {@see getPendingSyncsForHouse} — an unscoped listing would leak other
+	 * houses' completions.
 	 *
 	 * @param int $limit Maximum number of records to return
 	 * @return array Pending completions
 	 */
-	public function getPendingSyncs(int $limit = 50): array {
+	private function getPendingSyncs(int $limit = 50): array {
 		return $this->completedTaskMapper->findPendingSyncs($limit);
 	}
 
@@ -288,11 +295,14 @@ class TaskSyncService {
 	}
 
 	/**
-	 * Mark completion as synced to Nextcloud
+	 * Mark completion as synced to Nextcloud.
+	 *
+	 * Internal helper (CR-SVC-21): the public surface is the house-scoped
+	 * {@see markAsSyncedForHouse}.
 	 *
 	 * @param int $completedTaskId The completed task ID
 	 */
-	public function markAsSynced(int $completedTaskId): void {
+	private function markAsSynced(int $completedTaskId): void {
 		$completedTask = $this->completedTaskMapper->find($completedTaskId);
 		$completedTask->setSyncedToNextcloud(true);
 		$this->completedTaskMapper->update($completedTask);
@@ -312,12 +322,15 @@ class TaskSyncService {
 	}
 
 	/**
-	 * Link a room task to a Nextcloud task
+	 * Link a room task to a Nextcloud task.
+	 *
+	 * Internal helper (CR-SVC-21): the public surface is the house-scoped
+	 * {@see linkTaskForHouse}.
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param int $nextcloudTaskId The Nextcloud task ID
 	 */
-	public function linkTask(int $roomTaskId, int $nextcloudTaskId): void {
+	private function linkTask(int $roomTaskId, int $nextcloudTaskId): void {
 		$roomTask = $this->roomTaskMapper->find($roomTaskId);
 		$roomTask->setNextcloudTaskId($nextcloudTaskId);
 		$this->roomTaskMapper->update($roomTask);

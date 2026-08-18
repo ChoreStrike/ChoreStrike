@@ -53,27 +53,46 @@ class TaskSyncServiceTest extends TestCase {
 	}
 
 	/**
-	 * CompleteTask_DelegatesToCanonicalCompletionAndSurfacesRewards
+	 * CompleteTaskForHouse_DelegatesToCanonicalCompletionAndSurfacesRewards
 	 *
-	 * CR-SVC-07: completeTask routes through RoomService::completeRoomTask so
-	 * rewards, locking, the daily duplicate guard, the cleanliness update, and
-	 * recurrence all apply uniformly — no reward-less parallel path. The
-	 * rewards from the canonical path flow through to the sync result.
+	 * CR-SVC-07: the completion routes through
+	 * RoomService::completeRoomTask so rewards, locking, the daily duplicate
+	 * guard, the cleanliness update, and recurrence all apply uniformly —
+	 * no reward-less parallel path. CR-SVC-21: the unscoped completeTask is
+	 * private; the house-scoped wrapper is the public surface, so the test
+	 * goes through it (mocking the room → floor → house chain).
 	 */
-	public function testCompleteTask_DelegatesToCanonicalCompletionAndSurfacesRewards(): void {
+	public function testCompleteTaskForHouse_DelegatesToCanonicalCompletionAndSurfacesRewards(): void {
 		$roomTaskId = 1;
 		$nextcloudUserId = 'testuser';
+		$houseId = 5;
 
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
+		$roomTask->setRoomId(2);
 		$roomTask->setLastCompleted(new \DateTime('2026-08-09T10:00:00+00:00'));
 		$roomTask->setNextDue(new \DateTime('2026-08-16'));
+
+		$room = new Room();
+		$room->setId(2);
+		$room->setFloorId(3);
+
+		$floor = new Floor();
+		$floor->setId(3);
+		$floor->setHouseId($houseId);
 
 		$task = new Task();
 		$task->setId(1);
 		$task->setName('Test Task');
 
 		$rewards = ['coins' => 30, 'contributionScore' => 3, 'currentStreak' => 1];
+
+		$this->roomTaskMapper->expects($this->once())
+			->method('find')
+			->with($roomTaskId)
+			->willReturn($roomTask);
+		$this->roomMapper->expects($this->once())->method('find')->with(2)->willReturn($room);
+		$this->floorMapper->expects($this->once())->method('find')->with(3)->willReturn($floor);
 
 		$this->roomService->expects($this->once())
 			->method('completeRoomTask')
@@ -89,7 +108,7 @@ class TaskSyncServiceTest extends TestCase {
 		$this->roomTaskMapper->expects($this->never())->method('update');
 		$this->completedTaskMapper->expects($this->never())->method('insert');
 
-		$result = $this->service->completeTask($roomTaskId, $nextcloudUserId);
+		$result = $this->service->completeTaskForHouse($roomTaskId, $nextcloudUserId, $houseId);
 
 		$this->assertEquals($roomTaskId, $result['roomTaskId']);
 		$this->assertEquals('Test Task', $result['taskName']);
@@ -98,20 +117,36 @@ class TaskSyncServiceTest extends TestCase {
 	}
 
 	/**
-	 * CompleteTask_WithNextcloudTaskId_LinksAfterCanonicalCompletion
+	 * CompleteTaskForHouse_WithNextcloudTaskId_LinksAfterCanonicalCompletion
 	 *
 	 * The Nextcloud task id is linked after the canonical completion so the
 	 * later sync can find the room task. CR-SVC-46: the id is also threaded
 	 * into the canonical completion so the completion row itself carries it
 	 * (findPendingSyncs filters on completed_tasks.nextcloud_task_id).
 	 */
-	public function testCompleteTask_WithNextcloudTaskId_LinksAfterCanonicalCompletion(): void {
+	public function testCompleteTaskForHouse_WithNextcloudTaskId_LinksAfterCanonicalCompletion(): void {
+		$houseId = 5;
+
 		$roomTask = new RoomTask();
 		$roomTask->setId(1);
+		$roomTask->setRoomId(2);
 		$roomTask->setNextDue(new \DateTime('2026-08-16'));
+
+		$room = new Room();
+		$room->setId(2);
+		$room->setFloorId(3);
+
+		$floor = new Floor();
+		$floor->setId(3);
+		$floor->setHouseId($houseId);
 
 		$task = new Task();
 		$task->setName('Test Task');
+
+		// find() runs for the scope check and again for the link.
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->roomMapper->method('find')->willReturn($room);
+		$this->floorMapper->method('find')->willReturn($floor);
 
 		$this->roomService->expects($this->once())
 			->method('completeRoomTask')
@@ -123,15 +158,12 @@ class TaskSyncServiceTest extends TestCase {
 				'rewards' => [],
 			]);
 
-		$linked = new RoomTask();
-		$linked->setId(1);
-		$this->roomTaskMapper->method('find')->willReturn($linked);
 		$this->roomTaskMapper->expects($this->once())->method('update')
 			->with($this->callback(function ($t) {
 				return $t->getNextcloudTaskId() === 4242;
 			}));
 
-		$result = $this->service->completeTask(1, 'testuser', 4242);
+		$result = $this->service->completeTaskForHouse(1, 'testuser', $houseId, 4242);
 
 		$this->assertSame(4242, $result['nextcloudTaskId']);
 	}
@@ -300,28 +332,6 @@ class TaskSyncServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetPendingSyncs_CallsMapperWithLimit
-	 */
-	public function testGetPendingSyncs_CallsMapperWithLimit(): void {
-		$limit = 25;
-
-		$pending = [
-			new CompletedTask(),
-			new CompletedTask(),
-		];
-
-		$this->completedTaskMapper
-			->expects($this->once())
-			->method('findPendingSyncs')
-			->with($limit)
-			->willReturn($pending);
-
-		$result = $this->service->getPendingSyncs($limit);
-
-		$this->assertCount(2, $result);
-	}
-
-	/**
 	 * CompleteTaskForHouse_RoomTaskOutsideHouse_ThrowsInvalidArgumentException
 	 */
 	public function testCompleteTaskForHouse_RoomTaskOutsideHouse_ThrowsInvalidArgumentException(): void {
@@ -369,6 +379,10 @@ class TaskSyncServiceTest extends TestCase {
 
 	/**
 	 * GetPendingSyncsForHouse_FiltersPendingResultsByHouseAndLimit
+	 *
+	 * (CR-SVC-21: the unscoped getPendingSyncs is private — the wrapper's
+	 * mapper-limit contract `findPendingSyncs($limit * 5)` is asserted here
+	 * and replaces the old direct-mutator test.)
 	 */
 	public function testGetPendingSyncsForHouse_FiltersPendingResultsByHouseAndLimit(): void {
 		$houseId = 1;
@@ -452,20 +466,40 @@ class TaskSyncServiceTest extends TestCase {
 	}
 
 	/**
-	 * MarkAsSynced_UpdatesCompletedTask
+	 * MarkAsSyncedForHouse_UpdatesCompletedTaskAfterScopeCheck
+	 *
+	 * (CR-SVC-21: the unscoped markAsSynced is private — the wrapper
+	 * enforces the house scope before the mutation.)
 	 */
-	public function testMarkAsSynced_UpdatesCompletedTask(): void {
+	public function testMarkAsSyncedForHouse_UpdatesCompletedTaskAfterScopeCheck(): void {
 		$completedTaskId = 1;
+		$houseId = 5;
 
 		$completedTask = new CompletedTask();
 		$completedTask->setId($completedTaskId);
+		$completedTask->setRoomTaskId(10);
 		$completedTask->setSyncedToNextcloud(false);
 
+		$roomTask = new RoomTask();
+		$roomTask->setId(10);
+		$roomTask->setRoomId(2);
+
+		$room = new Room();
+		$room->setId(2);
+		$room->setFloorId(3);
+
+		$floor = new Floor();
+		$floor->setId(3);
+		$floor->setHouseId($houseId);
+
 		$this->completedTaskMapper
-			->expects($this->once())
 			->method('find')
 			->with($completedTaskId)
 			->willReturn($completedTask);
+
+		$this->roomTaskMapper->expects($this->once())->method('find')->with(10)->willReturn($roomTask);
+		$this->roomMapper->expects($this->once())->method('find')->with(2)->willReturn($room);
+		$this->floorMapper->expects($this->once())->method('find')->with(3)->willReturn($floor);
 
 		$this->completedTaskMapper
 			->expects($this->once())
@@ -474,27 +508,39 @@ class TaskSyncServiceTest extends TestCase {
 				return $t->getSyncedToNextcloud() === true;
 			}));
 
-		$this->service->markAsSynced($completedTaskId);
+		$this->service->markAsSyncedForHouse($completedTaskId, $houseId);
 
 		// Assertions verified by mock expectations
 		$this->assertTrue(true);
 	}
 
 	/**
-	 * LinkTask_UpdatesRoomTask
+	 * LinkTaskForHouse_UpdatesRoomTaskAfterScopeCheck
+	 *
+	 * (CR-SVC-21: the unscoped linkTask is private — the wrapper enforces
+	 * the house scope before the mutation.)
 	 */
-	public function testLinkTask_UpdatesRoomTask(): void {
+	public function testLinkTaskForHouse_UpdatesRoomTaskAfterScopeCheck(): void {
 		$roomTaskId = 1;
 		$nextcloudTaskId = 123;
+		$houseId = 5;
 
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
+		$roomTask->setRoomId(2);
 
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
+		$room = new Room();
+		$room->setId(2);
+		$room->setFloorId(3);
+
+		$floor = new Floor();
+		$floor->setId(3);
+		$floor->setHouseId($houseId);
+
+		// find() runs for the scope check and again for the link itself.
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->roomMapper->method('find')->willReturn($room);
+		$this->floorMapper->method('find')->willReturn($floor);
 
 		$this->roomTaskMapper
 			->expects($this->once())
@@ -503,9 +549,26 @@ class TaskSyncServiceTest extends TestCase {
 				return $t->getNextcloudTaskId() === $nextcloudTaskId;
 			}));
 
-		$this->service->linkTask($roomTaskId, $nextcloudTaskId);
+		$this->service->linkTaskForHouse($roomTaskId, $nextcloudTaskId, $houseId);
 
 		// Assertions verified by mock expectations
 		$this->assertTrue(true);
+	}
+
+	/**
+	 * UnscopedMutators_AreNotPubliclyCallable
+	 *
+	 * CR-SVC-21 regression guard: the unscoped mutators are an
+	 * authorization-bypass hazard kept alive only as internal helpers —
+	 * the *ForHouse wrappers are the only public surface.
+	 */
+	public function testUnscopedMutators_AreNotPubliclyCallable(): void {
+		foreach (['completeTask', 'linkTask', 'markAsSynced', 'getPendingSyncs'] as $method) {
+			$reflection = new \ReflectionMethod(TaskSyncService::class, $method);
+			$this->assertFalse(
+				$reflection->isPublic(),
+				$method . ' must not be public — use its *ForHouse wrapper (CR-SVC-21)'
+			);
+		}
 	}
 }

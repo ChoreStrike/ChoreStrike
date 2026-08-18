@@ -199,6 +199,10 @@ class UserController extends Controller {
 	/**
 	 * Remove a user from the house
 	 *
+	 * Thin endpoint (CR-SVC-26): the owner gate runs here, the aggregate
+	 * removal (membership row + task-assignee cleanup, transactionally)
+	 * lives in HouseService::removeHouseMember.
+	 *
 	 * @NoAdminRequired
 	 */
 	public function remove(int $id): JSONResponse {
@@ -206,7 +210,13 @@ class UserController extends Controller {
 			$houseUser = $this->houseUserMapper->find($id);
 			$this->authService->requireHouseOwner($houseUser->getHouseId());
 
-			if ($houseUser->isOwner()) {
+			try {
+				$this->houseService->removeHouseMember($houseUser->getId());
+			} catch (ForbiddenException $e) {
+				// The only ForbiddenException removeHouseMember throws is
+				// its owner-target guard — map it to the endpoint-specific
+				// 403 code (response contract unchanged). House-access
+				// forbiddens are handled as 403 by the outer catch below.
 				return new JSONResponse([
 					'success' => false,
 					'error' => [
@@ -216,12 +226,18 @@ class UserController extends Controller {
 				], 403);
 			}
 
-			$this->houseUserMapper->delete($houseUser);
-
 			return new JSONResponse([
 				'success' => true,
 				'message' => $this->l->t('User removed from house')
 			]);
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'USER_NOT_FOUND',
+					'message' => $this->l->t('User not found')
+				]
+			], 404);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {

@@ -173,6 +173,41 @@ class TaskAssigneeMapper extends QBMapper {
 	}
 
 	/**
+	 * Delete all assignee rows of a removed member, scoped to one house
+	 * (CR-SVC-26).
+	 *
+	 * `DELETE FROM task_assignees WHERE user_id = :user AND room_task_id IN
+	 * (house-scoped room_tasks → rooms → floors subquery)` — built with the
+	 * query-builder subquery pattern (the house parameter is bound on the
+	 * OUTER builder and its placeholder embedded into the subquery SQL, so
+	 * the parameter is bound exactly once where execution happens). No raw
+	 * SQL.
+	 *
+	 * Called transactionally by HouseService::removeHouseMember so a
+	 * member removal leaves no orphaned assignee references behind.
+	 *
+	 * @param string $ncUserId The Nextcloud user ID of the removed member
+	 * @param int $houseId The house ID scope
+	 */
+	public function deleteByUserForHouse(string $ncUserId, int $houseId): void {
+		$qb = $this->db->getQueryBuilder();
+		$houseIdParam = $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT);
+
+		$roomTasksInHouse = $this->db->getQueryBuilder();
+		$roomTasksInHouse->select('rt.id')
+			->from('chorestrike_room_tasks', 'rt')
+			->innerJoin('rt', 'chorestrike_rooms', 'r', $roomTasksInHouse->expr()->eq('rt.room_id', 'r.id'))
+			->innerJoin('r', 'chorestrike_floors', 'f', $roomTasksInHouse->expr()->eq('r.floor_id', 'f.id'))
+			->where($roomTasksInHouse->expr()->eq('f.house_id', $houseIdParam));
+
+		$qb->delete($this->getTableName())
+			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($ncUserId)))
+			->andWhere($qb->expr()->in('room_task_id', $qb->createFunction($roomTasksInHouse->getSQL())));
+
+		$qb->executeStatement();
+	}
+
+	/**
 	 * Replace the full set of assignees for a room task
 	 *
 	 * Removes existing assignees and inserts the provided list. Duplicate user

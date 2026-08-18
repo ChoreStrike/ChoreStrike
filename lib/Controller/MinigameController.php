@@ -109,7 +109,7 @@ class MinigameController extends Controller {
 			$this->authService->ensureHouseMember($house->getId());
 
 			$userId = $this->authService->getCurrentUserId();
-			$savedScore = $this->minigameService->saveScore(
+			$result = $this->minigameService->saveScore(
 				$house->getId(),
 				$userId,
 				$gameId,
@@ -117,8 +117,12 @@ class MinigameController extends Controller {
 				$boostsUsed
 			);
 
-			// Calculate coins earned (1 Coin per 10 points)
-			$coinsEarned = (int)floor($score / 10);
+			// CR-SVC-51: the service is the single source of truth for the
+			// awarded Coins (it knows whether a house_user row existed);
+			// recomputing floor(score/10) from client input here diverged
+			// from what was actually awarded.
+			$savedScore = $result['score'];
+			$coinsEarned = $result['coinsEarned'];
 
 			return new JSONResponse([
 				'success' => true,

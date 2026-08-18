@@ -9,13 +9,18 @@ use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
+use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
+use OCP\IDBConnection;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -28,8 +33,11 @@ class HouseServiceTest extends TestCase {
 	private RoomMapper $roomMapper;
 	private RoomTaskMapper $roomTaskMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private HouseUserMapper $houseUserMapper;
+	private TaskAssigneeMapper $taskAssigneeMapper;
 	private RewardConfigService $rewardConfigService;
 	private IConfig $config;
+	private IDBConnection $db;
 
 	protected function setUp(): void {
 		$this->houseMapper = $this->createMock(HouseMapper::class);
@@ -37,8 +45,11 @@ class HouseServiceTest extends TestCase {
 		$this->roomMapper = $this->createMock(RoomMapper::class);
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->rewardConfigService = $this->createMock(RewardConfigService::class);
 		$this->config = $this->createMock(IConfig::class);
+		$this->db = $this->createMock(IDBConnection::class);
 
 		$this->service = new HouseService(
 			$this->houseMapper,
@@ -46,8 +57,11 @@ class HouseServiceTest extends TestCase {
 			$this->roomMapper,
 			$this->roomTaskMapper,
 			$this->completedTaskMapper,
+			$this->houseUserMapper,
+			$this->taskAssigneeMapper,
 			$this->rewardConfigService,
-			$this->config
+			$this->config,
+			$this->db
 		);
 	}
 
@@ -494,5 +508,116 @@ class HouseServiceTest extends TestCase {
 		$sunday = new \DateTimeImmutable($result['weekEnd']);
 		$this->assertSame(7, (int)$sunday->format('N'));
 		$this->assertSame(6, (int)$monday->diff($sunday)->days);
+	}
+
+	/**
+	 * RemoveHouseMember_CleansUpAssignmentsAndDeletesRow_InOneTransaction
+	 *
+	 * CR-SVC-26: the removal is an aggregate transaction — clear the legacy
+	 * assignee column, delete join-table assignee rows (both scoped to the
+	 * member's house), then delete the house_users row.
+	 */
+	public function testRemoveHouseMember_CleansUpAssignmentsAndDeletesRow_InOneTransaction(): void {
+		$member = new HouseUser();
+		$member->setId(11);
+		$member->setHouseId(3);
+		$member->setNextcloudUserId('member-nc');
+		$member->setRole('member');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(11)
+			->willReturn($member);
+
+		$this->roomTaskMapper->expects($this->once())
+			->method('clearAssignedUserForHouse')
+			->with('member-nc', 3);
+
+		$this->taskAssigneeMapper->expects($this->once())
+			->method('deleteByUserForHouse')
+			->with('member-nc', 3);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('delete')
+			->with($member);
+
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('commit');
+		$this->db->expects($this->never())->method('rollBack');
+
+		$this->service->removeHouseMember(11);
+	}
+
+	/**
+	 * RemoveHouseMember_OwnerTarget_ThrowsForbiddenException
+	 *
+	 * The API maps this to its CANNOT_REMOVE_OWNER 403; the service guard
+	 * keeps the invariant even for direct (non-controller) callers.
+	 */
+	public function testRemoveHouseMember_OwnerTarget_ThrowsForbiddenException(): void {
+		$owner = new HouseUser();
+		$owner->setId(11);
+		$owner->setHouseId(3);
+		$owner->setNextcloudUserId('owner-nc');
+		$owner->setRole('owner');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(11)
+			->willReturn($owner);
+
+		$this->db->expects($this->never())->method('beginTransaction');
+		$this->houseUserMapper->expects($this->never())->method('delete');
+		$this->roomTaskMapper->expects($this->never())->method('clearAssignedUserForHouse');
+		$this->taskAssigneeMapper->expects($this->never())->method('deleteByUserForHouse');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Cannot remove the house owner');
+
+		$this->service->removeHouseMember(11);
+	}
+
+	/**
+	 * RemoveHouseMember_CleanupFailure_RollsBackAndReThrows
+	 *
+	 * A failure between the assignee cleanup and the membership delete must
+	 * roll the whole aggregate back — no partially-removed member.
+	 */
+	public function testRemoveHouseMember_CleanupFailure_RollsBackAndReThrows(): void {
+		$member = new HouseUser();
+		$member->setId(11);
+		$member->setHouseId(3);
+		$member->setNextcloudUserId('member-nc');
+		$member->setRole('member');
+
+		$this->houseUserMapper->method('find')->willReturn($member);
+		$this->roomTaskMapper->method('clearAssignedUserForHouse')
+			->willThrowException(new \RuntimeException('db down'));
+
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+		$this->houseUserMapper->expects($this->never())->method('delete');
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('db down');
+
+		$this->service->removeHouseMember(11);
+	}
+
+	/**
+	 * RemoveHouseMember_UnknownTarget_ThrowsDoesNotExist
+	 */
+	public function testRemoveHouseMember_UnknownTarget_ThrowsDoesNotExist(): void {
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(999)
+			->willThrowException(new DoesNotExistException('not found'));
+
+		$this->db->expects($this->never())->method('beginTransaction');
+
+		$this->expectException(DoesNotExistException::class);
+
+		$this->service->removeHouseMember(999);
 	}
 }

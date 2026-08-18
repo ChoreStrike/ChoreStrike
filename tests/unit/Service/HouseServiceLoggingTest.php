@@ -8,13 +8,16 @@ use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
+use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
+use OCP\IDBConnection;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -30,8 +33,11 @@ class HouseServiceLoggingTest extends TestCase {
 		$roomMapper = $this->createMock(RoomMapper::class);
 		$roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+		$houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$rewardConfigService = $this->createMock(RewardConfigService::class);
 		$config = $this->createMock(IConfig::class);
+		$db = $this->createMock(IDBConnection::class);
 		$appLogger = $this->createMock(AppLogger::class);
 
 		$house = new House();
@@ -65,8 +71,11 @@ class HouseServiceLoggingTest extends TestCase {
 			$roomMapper,
 			$roomTaskMapper,
 			$completedTaskMapper,
+			$houseUserMapper,
+			$taskAssigneeMapper,
 			$rewardConfigService,
 			$config,
+			$db,
 			$appLogger
 		);
 

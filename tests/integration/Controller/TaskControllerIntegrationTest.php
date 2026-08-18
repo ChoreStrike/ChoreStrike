@@ -160,11 +160,18 @@ class TaskControllerIntegrationTest extends TestCase {
 		$updatedTask->setEnergyCost(3);
 		$updatedTask->setPriority(2);
 
+		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
+		$houseUser->setNextcloudUserId('owner-user');
+		$houseUser->setRole('owner');
+
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+		$this->authService->method('ensureHouseMember')->willReturn($houseUser);
+		$this->taskService->method('getTask')->willReturn($this->createMockTask($taskId, 'Vacuum'));
 		$this->taskService->method('validateTaskData')->willReturn([]);
+		// CR-SVC-17: updateTask receives the authorization context.
 		$this->taskService->method('updateTask')
-			->with($taskId, $updates)
+			->with($taskId, $updates, 'owner-user', true)
 			->willReturn($updatedTask);
 
 		$response = $this->controller->update($taskId, $updates);

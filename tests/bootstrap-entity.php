@@ -36,7 +36,6 @@ require_once __DIR__ . '/__mocks__/OCP/IUserManager.php';
 require_once __DIR__ . '/__mocks__/OCP/IRequest.php';
 require_once __DIR__ . '/__mocks__/OCP/IUser.php';
 require_once __DIR__ . '/__mocks__/OCP/IUserSession.php';
-require_once __DIR__ . '/__mocks__/OCP/ITimeFactory.php';
 require_once __DIR__ . '/__mocks__/OCP/AppFramework/Utility/ITimeFactory.php';
 require_once __DIR__ . '/__mocks__/OCP/IURLGenerator.php';
 require_once __DIR__ . '/__mocks__/OCP/L10N/IFactory.php';

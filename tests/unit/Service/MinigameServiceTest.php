@@ -14,36 +14,49 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Service\MinigameService;
+use OCP\IDBConnection;
 use PHPUnit\Framework\TestCase;
 
 class MinigameServiceTest extends TestCase {
 	private MinigameService $service;
 	private MinigameScoreMapper $scoreMapper;
 	private HouseUserMapper $houseUserMapper;
+	private IDBConnection $db;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->scoreMapper = $this->createMock(MinigameScoreMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper);
+		$this->db = $this->createMock(IDBConnection::class);
+		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, $this->db);
+	}
+
+	private function makeScore(int $score, array $boostsUsed = []): MinigameScore {
+		$scoreEntity = new MinigameScore();
+		$scoreEntity->setId(1);
+		$scoreEntity->setHouseId(1);
+		$scoreEntity->setUserId('user1');
+		$scoreEntity->setGameId('snake');
+		$scoreEntity->setScore($score);
+		$scoreEntity->setBoostsUsed(!empty($boostsUsed) ? $boostsUsed : null);
+
+		return $scoreEntity;
 	}
 
 	public function testSaveScoreCreatesNewScore(): void {
-		$score = new MinigameScore();
-		$score->setId(1);
-		$score->setHouseId(1);
-		$score->setUserId('user1');
-		$score->setGameId('snake');
-		$score->setScore(150);
-
 		$this->scoreMapper->expects($this->once())
 			->method('insert')
-			->willReturn($score);
+			->willReturn($this->makeScore(150));
+
+		// No house_user row → no coin award, transaction still runs.
+		$this->houseUserMapper->method('findByHouseIdAndNextcloudUserId')->willReturn(null);
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('commit');
 
 		$result = $this->service->saveScore(1, 'user1', 'snake', 150);
 
-		$this->assertEquals(150, $result->getScore());
-		$this->assertEquals('snake', $result->getGameId());
+		$this->assertEquals(150, $result['score']->getScore());
+		$this->assertEquals('snake', $result['score']->getGameId());
 	}
 
 	/**
@@ -55,6 +68,7 @@ class MinigameServiceTest extends TestCase {
 	public function testSaveScore_NegativeScore_RejectedBeforeInsertOrCoinAward(): void {
 		$this->scoreMapper->expects($this->never())->method('insert');
 		$this->houseUserMapper->expects($this->never())->method('update');
+		$this->db->expects($this->never())->method('beginTransaction');
 
 		$this->expectException(\InvalidArgumentException::class);
 
@@ -70,6 +84,7 @@ class MinigameServiceTest extends TestCase {
 	public function testSaveScore_OverCapScore_RejectedBeforeInsertOrCoinAward(): void {
 		$this->scoreMapper->expects($this->never())->method('insert');
 		$this->houseUserMapper->expects($this->never())->method('update');
+		$this->db->expects($this->never())->method('beginTransaction');
 
 		$this->expectException(\InvalidArgumentException::class);
 
@@ -82,66 +97,128 @@ class MinigameServiceTest extends TestCase {
 	 * CR-SVC-05: the cap is inclusive — exactly MAX_SCORE is a valid score.
 	 */
 	public function testSaveScore_AtMaxScore_Accepted(): void {
-		$score = new MinigameScore();
-		$score->setId(1);
-		$score->setScore(MinigameService::MAX_SCORE);
-
-		$this->scoreMapper->expects($this->once())->method('insert')->willReturn($score);
+		$this->scoreMapper->expects($this->once())->method('insert')->willReturn($this->makeScore(MinigameService::MAX_SCORE));
+		$this->houseUserMapper->method('findByHouseIdAndNextcloudUserId')->willReturn(null);
 		$this->houseUserMapper->expects($this->never())->method('update');
 
 		$result = $this->service->saveScore(1, 'user1', 'snake', MinigameService::MAX_SCORE);
 
-		$this->assertSame(MinigameService::MAX_SCORE, $result->getScore());
+		$this->assertSame(MinigameService::MAX_SCORE, $result['score']->getScore());
 	}
 
-	public function testSaveScoreAwardsCoinsToExistingUser(): void {
-		$score = new MinigameScore();
-		$score->setId(2);
-		$score->setHouseId(1);
-		$score->setUserId('user1');
-		$score->setGameId('snake');
-		$score->setScore(120);
+	/**
+	 * SaveScore_AwardsCoinsOnLockedRow_InOneTransaction
+	 *
+	 * CR-SVC-54: the coin increment must run inside a transaction behind
+	 * findForUpdate and build on the LOCKED row's balance — the pre-read
+	 * entity's balance must never be written back (lost-update class).
+	 */
+	public function testSaveScore_AwardsCoinsOnLockedRow_InOneTransaction(): void {
+		// Pre-read: stale balance 5 (a concurrent winner already committed 100).
+		$preReadUser = new HouseUser();
+		$preReadUser->setId(7);
+		$preReadUser->setNextcloudUserId('user1');
+		$preReadUser->setCoins(5);
 
-		$user = new HouseUser();
-		$user->setNextcloudUserId('user1');
-		$user->setCoins(5);
+		// Locked row: fresh balance 100 — the increment must build on this.
+		$lockedUser = new HouseUser();
+		$lockedUser->setId(7);
+		$lockedUser->setNextcloudUserId('user1');
+		$lockedUser->setCoins(100);
 
 		$this->scoreMapper->expects($this->once())
 			->method('insert')
-			->willReturn($score);
+			->willReturn($this->makeScore(120));
 
 		$this->houseUserMapper->expects($this->once())
 			->method('findByHouseIdAndNextcloudUserId')
 			->with(1, 'user1')
-			->willReturn($user);
+			->willReturn($preReadUser);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('findForUpdate')
+			->with(7)
+			->willReturn($lockedUser);
 
 		$this->houseUserMapper->expects($this->once())
 			->method('update')
 			->with($this->callback(static function (HouseUser $updatedUser): bool {
-				return $updatedUser->getCoins() === 17;
+				// 100 (locked) + 12 (score 120) — NOT 5 + 12 (stale pre-read).
+				return $updatedUser->getCoins() === 112;
 			}))
 			->willReturnCallback(static fn (HouseUser $updatedUser): HouseUser => $updatedUser);
+
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('commit');
+		$this->db->expects($this->never())->method('rollBack');
+
+		$result = $this->service->saveScore(1, 'user1', 'snake', 120);
+
+		$this->assertSame(12, $result['coinsEarned']);
+	}
+
+	/**
+	 * SaveScore_MissingHouseUserRow_SavesScoreWithZeroCoins
+	 *
+	 * CR-SVC-54/51: with no house_user row the score is still saved, 0 coins
+	 * are awarded, and the service reports coinsEarned = 0 honestly.
+	 */
+	public function testSaveScore_MissingHouseUserRow_SavesScoreWithZeroCoins(): void {
+		$this->scoreMapper->expects($this->once())
+			->method('insert')
+			->willReturn($this->makeScore(120));
+
+		$this->houseUserMapper->expects($this->once())
+			->method('findByHouseIdAndNextcloudUserId')
+			->with(1, 'user1')
+			->willReturn(null);
+
+		$this->houseUserMapper->expects($this->never())->method('findForUpdate');
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$result = $this->service->saveScore(1, 'user1', 'snake', 120);
+
+		$this->assertSame(120, $result['score']->getScore());
+		$this->assertSame(0, $result['coinsEarned']);
+	}
+
+	/**
+	 * SaveScore_InsertFailure_RollsBackAndReThrows
+	 *
+	 * CR-SVC-54: a failure between insert and coin award must roll the
+	 * transaction back and propagate — no partial score-without-coins state.
+	 */
+	public function testSaveScore_InsertFailure_RollsBackAndReThrows(): void {
+		$preReadUser = new HouseUser();
+		$preReadUser->setId(7);
+		$preReadUser->setNextcloudUserId('user1');
+		$preReadUser->setCoins(5);
+
+		$this->houseUserMapper->method('findByHouseIdAndNextcloudUserId')->willReturn($preReadUser);
+		$this->scoreMapper->method('insert')->willThrowException(new \RuntimeException('db down'));
+
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('db down');
 
 		$this->service->saveScore(1, 'user1', 'snake', 120);
 	}
 
 	public function testSaveScoreWithBoosts(): void {
-		$score = new MinigameScore();
-		$score->setId(1);
-		$score->setHouseId(1);
-		$score->setUserId('user1');
-		$score->setGameId('snake');
-		$score->setScore(200);
-		$score->setBoostsUsed(['slow_motion', 'ghost_mode']);
-
 		$this->scoreMapper->expects($this->once())
 			->method('insert')
-			->willReturn($score);
+			->willReturn($this->makeScore(200, ['slow_motion', 'ghost_mode']));
+
+		$this->houseUserMapper->method('findByHouseIdAndNextcloudUserId')->willReturn(null);
 
 		$result = $this->service->saveScore(1, 'user1', 'snake', 200, ['slow_motion', 'ghost_mode']);
 
-		$this->assertEquals(200, $result->getScore());
-		$this->assertEquals(['slow_motion', 'ghost_mode'], $result->getBoostsUsed());
+		$this->assertEquals(200, $result['score']->getScore());
+		$this->assertEquals(['slow_motion', 'ghost_mode'], $result['score']->getBoostsUsed());
 	}
 
 	public function testGetLeaderboardReturnsScoresWithDisplayNames(): void {
@@ -223,19 +300,47 @@ class MinigameServiceTest extends TestCase {
 		$this->assertEquals(3, $result);
 	}
 
-	public function testPurchaseBoostDeductsCoins(): void {
-		$user = new HouseUser();
-		$user->setNextcloudUserId('user1');
-		$user->setCoins(50);
+	/**
+	 * PurchaseBoost_ChecksLockedRowBalance_AndDeductsAtomically
+	 *
+	 * CR-SVC-23: the sufficiency check and deduction run on the LOCKED row.
+	 * The pre-read balance may be stale (a concurrent purchase may have
+	 * spent the coins between the pre-read and the lock) — the locked
+	 * balance is authoritative.
+	 */
+	public function testPurchaseBoost_ChecksLockedRowBalance_AndDeductsAtomically(): void {
+		// Pre-read: balance 50 (stale — a concurrent purchase spent 45).
+		$preReadUser = new HouseUser();
+		$preReadUser->setId(7);
+		$preReadUser->setNextcloudUserId('user1');
+		$preReadUser->setCoins(50);
+
+		// Locked row: fresh balance 50 here, deduction lands on it.
+		$lockedUser = new HouseUser();
+		$lockedUser->setId(7);
+		$lockedUser->setNextcloudUserId('user1');
+		$lockedUser->setCoins(50);
 
 		$this->houseUserMapper->expects($this->once())
 			->method('findByHouseIdAndNextcloudUserId')
 			->with(1, 'user1')
-			->willReturn($user);
+			->willReturn($preReadUser);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('findForUpdate')
+			->with(7)
+			->willReturn($lockedUser);
 
 		$this->houseUserMapper->expects($this->once())
 			->method('update')
-			->willReturn($user);
+			->with($this->callback(static function (HouseUser $updatedUser): bool {
+				return $updatedUser->getCoins() === 40;
+			}))
+			->willReturnCallback(static fn (HouseUser $updatedUser): HouseUser => $updatedUser);
+
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('commit');
+		$this->db->expects($this->never())->method('rollBack');
 
 		$result = $this->service->purchaseBoost(1, 'user1', 'slow_motion');
 
@@ -244,14 +349,60 @@ class MinigameServiceTest extends TestCase {
 		$this->assertEquals(40, $result['remainingCoins']);
 	}
 
+	/**
+	 * PurchaseBoost_RejectsOnLockedRowBalance_EvenWhenPreReadSuffices
+	 *
+	 * CR-SVC-23 regression: the pre-read balance (50) would pass the check,
+	 * but the LOCKED balance (5) is authoritative — a concurrent purchase
+	 * already spent the coins. Fails on the lock-less pre-fix code, which
+	 * checked only the pre-read balance and bought the boost anyway.
+	 */
+	public function testPurchaseBoost_RejectsOnLockedRowBalance_EvenWhenPreReadSuffices(): void {
+		$preReadUser = new HouseUser();
+		$preReadUser->setId(7);
+		$preReadUser->setNextcloudUserId('user1');
+		$preReadUser->setCoins(50);
+
+		$lockedUser = new HouseUser();
+		$lockedUser->setId(7);
+		$lockedUser->setNextcloudUserId('user1');
+		$lockedUser->setCoins(5);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('findByHouseIdAndNextcloudUserId')
+			->with(1, 'user1')
+			->willReturn($preReadUser);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('findForUpdate')
+			->with(7)
+			->willReturn($lockedUser);
+
+		$this->houseUserMapper->expects($this->never())->method('update');
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Insufficient coins. Need 10, have 5');
+
+		$this->service->purchaseBoost(1, 'user1', 'slow_motion');
+	}
+
 	public function testPurchaseBoostFailsWithInsufficientCoins(): void {
 		$user = new HouseUser();
+		$user->setId(7);
 		$user->setNextcloudUserId('user1');
 		$user->setCoins(5);
 
 		$this->houseUserMapper->expects($this->once())
 			->method('findByHouseIdAndNextcloudUserId')
 			->with(1, 'user1')
+			->willReturn($user);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('findForUpdate')
+			->with(7)
 			->willReturn($user);
 
 		$this->expectException(\InvalidArgumentException::class);
@@ -265,6 +416,31 @@ class MinigameServiceTest extends TestCase {
 		$this->expectExceptionMessage('Unknown boost');
 
 		$this->service->purchaseBoost(1, 'user1', 'unknown_boost');
+	}
+
+	/**
+	 * PurchaseBoost_DeductFailure_RollsBackAndReThrows
+	 *
+	 * CR-SVC-23: a failure during the locked deduction must roll the
+	 * transaction back and propagate.
+	 */
+	public function testPurchaseBoost_DeductFailure_RollsBackAndReThrows(): void {
+		$user = new HouseUser();
+		$user->setId(7);
+		$user->setNextcloudUserId('user1');
+		$user->setCoins(50);
+
+		$this->houseUserMapper->method('findByHouseIdAndNextcloudUserId')->willReturn($user);
+		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
+		$this->houseUserMapper->method('update')->willThrowException(new \RuntimeException('db down'));
+
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('db down');
+
+		$this->service->purchaseBoost(1, 'user1', 'slow_motion');
 	}
 
 	public function testGetAvailableBoostsReturnsAllBoosts(): void {

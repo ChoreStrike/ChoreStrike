@@ -425,11 +425,13 @@ class RoomService {
 		//     member picked up their overdue task. Their streak is unaffected
 		//     (game logic only updates the completer) but the notification is
 		//     polite + matches the plan's "you got bailed out" message.
-		//     Membership re-check at dispatch time guards against leaking
-		//     task details to former members whose house_users row was
-		//     deleted but whose legacy assigned_to_user_id column wasn't
-		//     cleared (root-cause fix tracked as CR-SVC-26: null
-		//     assigned_to_user_id + delete task_assignees on member removal).
+		//     Membership re-check at dispatch time is documented
+		//     defense-in-depth: the root cause (house_users row deleted
+		//     while the legacy assigned_to_user_id column stayed set) is
+		//     fixed transactionally by HouseService::removeHouseMember
+		//     (CR-SVC-26), but a removed member must never receive task
+		//     details even if a future path reintroduces a stale
+		//     reference.
 		if ($takeoverNotification !== null) {
 			$stillMember = $this->houseUserMapper->findByHouseAndUser(
 				$floor->getHouseId(),

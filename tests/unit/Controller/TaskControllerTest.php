@@ -408,7 +408,7 @@ class TaskControllerTest extends TestCase {
 		$captured = null;
 		$this->taskService->expects($this->once())
 			->method('updateTask')
-			->willReturnCallback(function (int $id, array $updates) use ($task, &$captured) {
+			->willReturnCallback(function (int $id, array $updates, string $callerUserId, bool $isOwner) use ($task, &$captured) {
 				$captured = $updates;
 				return $task;
 			});
@@ -419,5 +419,58 @@ class TaskControllerTest extends TestCase {
 		$this->assertSame(Task::VISIBILITY_PRIVATE, $captured['visibilityType']);
 		$this->assertArrayNotHasKey('isPrivate', $captured);
 		$this->assertSame('member', $captured['ownerUserId']);
+	}
+
+	/**
+	 * CR-SVC-17: the controller must pass non-nullable authorization context
+	 * (caller user id + owner flag) into the service's visibility matrix.
+	 */
+	public function testUpdate_PassesAuthorizationContextToService(): void {
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+		$this->authService->method('ensureHouseMember')
+			->willReturn($this->createHouseUserMock('owner', true));
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->method('validateTaskData')->willReturn([]);
+
+		$this->taskService->expects($this->once())
+			->method('updateTask')
+			->with(1, ['name' => 'Renamed'], 'owner', true)
+			->willReturn($task);
+
+		$response = $this->controller->update(1, ['name' => 'Renamed']);
+
+		$this->assertEquals(200, $response->getStatus());
+	}
+
+	/**
+	 * CR-SVC-17 defense-in-depth: a ForbiddenException from the service's
+	 * updateTask matrix must surface as 404 (anti-enumeration), mirroring
+	 * delete() — never a 403 that confirms the task exists.
+	 */
+	public function testUpdate_ServiceVisibilityDenial_Returns404(): void {
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+		$this->authService->method('ensureHouseMember')
+			->willReturn($this->createHouseUserMock('member', false));
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->method('validateTaskData')->willReturn([]);
+		$this->taskService->method('updateTask')
+			->willThrowException(new ForbiddenException('Only the task owner may update a private task'));
+
+		$response = $this->controller->update(1, ['ownerUserId' => 'attacker']);
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
 	}
 }

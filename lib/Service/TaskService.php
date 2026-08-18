@@ -159,12 +159,38 @@ class TaskService {
 	 * {@see \InvalidArgumentException} (translated to 400 by the controller)
 	 * to prevent mass-assignment of internal columns.
 	 *
+	 * Enforces the task-visibility matrix as defense-in-depth — the same
+	 * matrix as {@see deleteTask}, so a private task can no longer be
+	 * silently re-assigned away from its owner by a caller that bypasses
+	 * the controller gate (CR-SVC-17):
+	 *   - private:    only the task owner may update
+	 *   - admin-only: only a house owner may update
+	 *   - public:     any caller
+	 *
+	 * Callers MUST supply authorization context ($callerUserId, $isOwner);
+	 * the parameter is non-nullable so a caller can never silently bypass
+	 * the private-task ownership check. The production path
+	 * (TaskController::update) always supplies it.
+	 *
 	 * @param int $taskId The task ID
 	 * @param array $updates The updates to apply (only whitelisted keys)
+	 * @param string $callerUserId The Nextcloud user ID requesting the update
+	 * @param bool $isOwner Whether the caller is a house owner
 	 * @throws \InvalidArgumentException if an update key is not whitelisted
+	 * @throws ForbiddenException if the caller lacks permission for this task
 	 */
-	public function updateTask(int $taskId, array $updates): Task {
+	public function updateTask(int $taskId, array $updates, string $callerUserId, bool $isOwner = false): Task {
 		$task = $this->taskMapper->find($taskId);
+
+		$visibility = $task->getVisibilityType();
+		if ($visibility === Task::VISIBILITY_PRIVATE
+			&& $task->getOwnerUserId() !== $callerUserId
+		) {
+			throw new ForbiddenException('Only the task owner may update a private task');
+		}
+		if ($visibility === Task::VISIBILITY_ADMIN_ONLY && !$isOwner) {
+			throw new ForbiddenException('Only house owners may update an admin-only task');
+		}
 
 		foreach ($updates as $field => $value) {
 			if (!in_array($field, self::MUTABLE_FIELDS, true)) {

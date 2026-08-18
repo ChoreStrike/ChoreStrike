@@ -52,18 +52,33 @@ external call inside the critical section.**
     takeover and weekly-goal notifications were already deferred.
 
 3. **Refresh the locked entity; never keep the pre-lock snapshot.**
-    `RoomTaskMapper::lockForUpdate(int $roomTaskId): RoomTask` now returns the
-    freshest committed entity alongside the lock (same platform split as
-    `findForUpdate`: `SELECT … FOR UPDATE` on locking engines, self-assigning
-    UPDATE + re-read on SQLite), and `completeRoomTask` replaces its pre-lock
-    `$roomTask` with it. A lock alone is not enough: every post-lock decision
-    (overdue takeover, claim state, recurrence from `next_due`) must run on the
-    entity the lock handed back, or a concurrent winner's commit between the
-    pre-read and the lock grant is silently ignored (spurious takeover
-    notification, recurrence from a stale `next_due`). Landed by
-    [CS-PLAN-028](../plans/done/cs-plan-028-top-priority-fixes.md) (CR-SVC-53);
-    proven by a two-connection integration test in
-    `tests/integration/Service/ConcurrentCompletionTest.php`.
+   `RoomTaskMapper::lockForUpdate(int $roomTaskId): RoomTask` now returns the
+   freshest committed entity alongside the lock (same platform split as
+   `findForUpdate`: `SELECT … FOR UPDATE` on locking engines, self-assigning
+   UPDATE + re-read on SQLite), and `completeRoomTask` replaces its pre-lock
+   `$roomTask` with it. A lock alone is not enough: every post-lock decision
+   (overdue takeover, claim state, recurrence from `next_due`) must run on the
+   entity the lock handed back, or a concurrent winner's commit between the
+   pre-read and the lock grant is silently ignored (spurious takeover
+   notification, recurrence from a stale `next_due`). Landed by
+   [CS-PLAN-028](../plans/done/cs-plan-028-top-priority-fixes.md) (CR-SVC-53);
+   proven by a two-connection integration test in
+   `tests/integration/Service/ConcurrentCompletionTest.php`.
+
+4. **All coin mutations on `house_users` follow the same lock, not just task
+   completion** (extended by [CS-PLAN-031](../plans/done/cs-plan-031-concurrency-integrity-quick-wins.md),
+   CR-SVC-54/23). `MinigameService::saveScore` (score insert + coin award) and
+   `MinigameService::purchaseBoost` (lock-check-deduct) wrap their whole
+   mutation in `beginTransaction()` → `findForUpdate()` → mutate → `commit()`
+   with `rollBack()`-and-rethrow on failure. The sufficiency check in
+   `purchaseBoost` runs **on the locked row** — the pre-read balance is only
+   used to resolve the row id and may be stale. Proven by the same
+   two-connection pattern in
+   `tests/integration/Service/MinigameConcurrencyTest.php` (verified to fail
+   on the lock-less code). `TaskService`/`HouseService` do not own coin
+   mutations outside this pattern; any future `house_users` writer must
+   reuse `findForUpdate` inside a transaction rather than reintroducing a
+   lock-less read-modify-write.
 
 ## Consequences
 
@@ -90,4 +105,4 @@ external call inside the critical section.**
 - [`docs/engineering/architecture.md`](../engineering/architecture.md) — service/mapper layering.
 - [`docs/plans/done/cs-plan-028-top-priority-fixes.md`](../plans/done/cs-plan-028-top-priority-fixes.md) — CR-SVC-53 fresh-entity-after-lock fix.
 - [`docs/plans/done/cs-plan-025-service-security-concurrency-cleanup.md`](../plans/done/cs-plan-025-service-security-concurrency-cleanup.md) — implementation record (Phase 3).
-- [`docs/backlog/backlog.md`](../backlog/backlog.md) — CR-SVC-04/12/53 (resolved), CR-SVC-50 (open follow-up).
+- [`docs/backlog/backlog.md`](../backlog/backlog.md) — CR-SVC-04/12/53/54/23 (resolved), CR-SVC-50 (open follow-up).

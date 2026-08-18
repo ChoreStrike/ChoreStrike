@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\ChoreStrike\Tests\Unit\Db;
+namespace OCA\ChoreStrike\Tests\Unit\Db\Entity;
 
 use OCA\ChoreStrike\Db\Task;
 use PHPUnit\Framework\TestCase;

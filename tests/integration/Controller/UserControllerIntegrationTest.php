@@ -194,9 +194,13 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
 			->with($houseUser->getHouseId());
-		$this->houseUserMapper->expects($this->once())
-			->method('delete')
-			->with($houseUser);
+		// CR-SVC-26: the aggregate removal lives in HouseService — the
+		// controller must not delete mapper rows itself.
+		$this->houseService->expects($this->once())
+			->method('removeHouseMember')
+			->with(2);
+		$this->houseUserMapper->expects($this->never())
+			->method('delete');
 
 		$response = $this->controller->remove(2);
 
@@ -219,6 +223,12 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
 			->with($owner->getHouseId());
+		// The owner-target guard lives in HouseService::removeHouseMember
+		// and surfaces as the endpoint-specific CANNOT_REMOVE_OWNER 403.
+		$this->houseService->expects($this->once())
+			->method('removeHouseMember')
+			->with(1)
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Cannot remove the house owner'));
 
 		$response = $this->controller->remove(1);
 

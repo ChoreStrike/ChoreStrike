@@ -6,6 +6,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\TaskService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\TestCase;
@@ -138,7 +139,7 @@ class TaskServiceTest extends TestCase {
 			->method('update')
 			->willReturn($updatedTask);
 
-		$result = $this->service->updateTask($taskId, $updates);
+		$result = $this->service->updateTask($taskId, $updates, 'caller-user', false);
 
 		$this->assertEquals('Updated Name', $result->getName());
 		$this->assertEquals(4, $result->getEnergyCost());
@@ -165,9 +166,97 @@ class TaskServiceTest extends TestCase {
 			->method('update')
 			->willReturn($task);
 
-		$result = $this->service->updateTask($taskId, $updates);
+		$result = $this->service->updateTask($taskId, $updates, 'caller-user', false);
 
 		$this->assertSame($task, $result);
+	}
+
+	/**
+	 * UpdateTask_PrivateTask_NonOwnerCaller_ThrowsForbidden
+	 *
+	 * CR-SVC-17: a private task must not be silently updated — and via the
+	 * whitelisted ownerUserId field, re-assigned away from its owner — by
+	 * a caller who is not the task owner.
+	 */
+	public function testUpdateTask_PrivateTask_NonOwnerCaller_ThrowsForbidden(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
+		$task->setOwnerUserId('task-owner');
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->taskMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Only the task owner may update a private task');
+
+		$this->service->updateTask(1, ['ownerUserId' => 'attacker'], 'some-other-user', false);
+	}
+
+	/**
+	 * UpdateTask_PrivateTask_OwnerCaller_Succeeds
+	 */
+	public function testUpdateTask_PrivateTask_OwnerCaller_Succeeds(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
+		$task->setOwnerUserId('task-owner');
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+
+		$result = $this->service->updateTask(1, ['name' => 'Renamed'], 'task-owner', false);
+
+		$this->assertSame('Renamed', $result->getName());
+	}
+
+	/**
+	 * UpdateTask_AdminOnlyTask_MemberCaller_ThrowsForbidden
+	 */
+	public function testUpdateTask_AdminOnlyTask_MemberCaller_ThrowsForbidden(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_ADMIN_ONLY);
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->taskMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Only house owners may update an admin-only task');
+
+		$this->service->updateTask(1, ['name' => 'Nope'], 'member-user', false);
+	}
+
+	/**
+	 * UpdateTask_AdminOnlyTask_HouseOwner_Succeeds
+	 */
+	public function testUpdateTask_AdminOnlyTask_HouseOwner_Succeeds(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_ADMIN_ONLY);
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+
+		$result = $this->service->updateTask(1, ['name' => 'Renamed'], 'house-owner', true);
+
+		$this->assertSame('Renamed', $result->getName());
+	}
+
+	/**
+	 * UpdateTask_PublicTask_AnyCaller_Succeeds
+	 */
+	public function testUpdateTask_PublicTask_AnyCaller_Succeeds(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+
+		$result = $this->service->updateTask(1, ['name' => 'Renamed'], 'any-member', false);
+
+		$this->assertSame('Renamed', $result->getName());
 	}
 
 	/**
