@@ -7,11 +7,11 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\StreakAtRiskService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 
 /**
  * Unit tests for StreakAtRiskService (CS-PLAN-023).
@@ -30,7 +30,7 @@ class StreakAtRiskServiceTest extends TestCase {
 	private HouseUserMapper&MockObject $houseUserMapper;
 	private CompletedTaskMapper&MockObject $completedTaskMapper;
 	private NotificationService&MockObject $notificationService;
-	private LoggerInterface&MockObject $logger;
+	private AppLogger&MockObject $appLogger;
 	private StreakAtRiskService $service;
 	private \DateTime $yesterday;
 
@@ -38,14 +38,14 @@ class StreakAtRiskServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
-		$this->logger = $this->createMock(LoggerInterface::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->yesterday = new \DateTime(self::YESTERDAY);
 
 		$this->service = new StreakAtRiskService(
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->notificationService,
-			$this->logger,
+			$this->appLogger,
 		);
 	}
 
@@ -201,6 +201,26 @@ class StreakAtRiskServiceTest extends TestCase {
 	public function testProcess_ReturnsCompleteStats(): void {
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([]);
 		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
+
+		$stats = $this->service->process($this->yesterday);
+
+		$this->assertSame([
+			'processed' => 0,
+			'notified' => 0,
+			'skippedUnavailable' => 0,
+		], $stats);
+	}
+
+	/**
+	 * Process_MapperThrows_LogsExceptionAndReturnsZeroedStats
+	 *
+	 * CS-PLAN-035: pass failures route through AppLogger::logException and
+	 * the pass still returns its zeroed stats instead of propagating.
+	 */
+	public function testProcess_MapperThrows_LogsExceptionAndReturnsZeroedStats(): void {
+		$this->houseUserMapper->method('findAllForJobs')->willThrowException(new \RuntimeException('db gone'));
+		$this->appLogger->expects($this->once())->method('logException');
+		$this->notificationService->expects($this->never())->method('notifyStreakAtRisk');
 
 		$stats = $this->service->process($this->yesterday);
 

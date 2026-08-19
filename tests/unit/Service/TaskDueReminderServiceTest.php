@@ -11,11 +11,11 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\TaskDueReminderService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 
 /**
  * Unit tests for TaskDueReminderService (CS-PLAN-030 / FEAT-NOTIFY-001).
@@ -36,7 +36,7 @@ class TaskDueReminderServiceTest extends TestCase {
 	private HouseUserMapper&MockObject $houseUserMapper;
 	private TaskMapper&MockObject $taskMapper;
 	private NotificationService&MockObject $notificationService;
-	private LoggerInterface&MockObject $logger;
+	private AppLogger&MockObject $appLogger;
 	private TaskDueReminderService $service;
 	private \DateTime $today;
 
@@ -46,7 +46,7 @@ class TaskDueReminderServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
-		$this->logger = $this->createMock(LoggerInterface::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->today = new \DateTime(self::TODAY);
 
 		$this->service = new TaskDueReminderService(
@@ -55,7 +55,7 @@ class TaskDueReminderServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->taskMapper,
 			$this->notificationService,
-			$this->logger,
+			$this->appLogger,
 		);
 	}
 
@@ -211,7 +211,7 @@ class TaskDueReminderServiceTest extends TestCase {
 	 */
 	public function testProcess_MapperThrows_ReturnsStatsWithoutPropagating(): void {
 		$this->roomTaskMapper->method('findDueOnDate')->willThrowException(new \RuntimeException('db gone'));
-		$this->logger->expects($this->once())->method('error');
+		$this->appLogger->expects($this->once())->method('logException');
 
 		$stats = $this->service->process($this->today);
 

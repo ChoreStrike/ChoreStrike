@@ -9,7 +9,6 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use Psr\Log\LoggerInterface;
 
 /**
  * Weekly streak freeze restock pass (CS-PLAN-023).
@@ -23,7 +22,7 @@ class StreakRestockService {
 	public function __construct(
 		private HouseUserMapper $houseUserMapper,
 		private RewardConfigService $configService,
-		private LoggerInterface $logger,
+		private AppLogger $appLogger,
 	) {
 	}
 
@@ -56,14 +55,18 @@ class StreakRestockService {
 				$this->houseUserMapper->update($user);
 			} catch (\Throwable $e) {
 				$stats['failed']++;
-				$this->logger->error('StreakRestockService: per-user failure', [
+				$this->appLogger->logException('StreakRestockService: per-user failure', $e, [
+					'event' => 'streak_restock_user_failed',
+					'service' => 'StreakRestockService',
 					'userId' => $user->getId(),
-					'exception' => $e->getMessage(),
 				]);
 			}
 		}
 
-		$this->logger->info('StreakRestockService completed', $stats);
+		$this->appLogger->info('StreakRestockService completed', $stats + [
+			'event' => 'streak_restock_pass_completed',
+			'service' => 'StreakRestockService',
+		]);
 
 		return $stats;
 	}

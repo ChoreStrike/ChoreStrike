@@ -1,6 +1,6 @@
 # CS-PLAN-035: Migrate raw `LoggerInterface` services to `AppLogger`
 
-> **Status:** Plan (not started)
+> **Status:** Done (2026-08-19) — Standard-B review passed; moved to `done/`
 > **Effort:** M
 > **Priority:** P2
 > **Depends on:** none
@@ -41,7 +41,7 @@ the five services, so no new `use` import is needed — the PSR import is
 simply deleted. `AppLogger` is auto-wired by the Nextcloud container (its
 constructor deps `ILogFactory` + `IUserSession` are core services); it is
 **not** registered in `lib/AppInfo/Application.php` and needs no registration
-— already-migrated services (e.g. `HouseService.php:42`, `RoomTaskService.php:50`)
+— already-migrated services (e.g. `HouseService.php:52`, `RoomTaskService.php:50`)
 receive it via container resolution today.
 
 Injection style: **required, non-nullable** `AppLogger` — these services'
@@ -122,7 +122,7 @@ changes.
 ## 4. Tests
 
 **Unit (PHPUnit)** — swap `$this->logger = $this->createMock(LoggerInterface::class)`
-for `createMock(AppLogger::class)` (same pattern as `HouseServiceLoggingTest.php:35`,
+for `createMock(AppLogger::class)` (same pattern as `HouseServiceLoggingTest.php:41`,
 `RoomTaskServiceLoggingTest.php:38`) and assert `AppLogger` interaction on
 failure paths:
 
@@ -204,10 +204,42 @@ No new files; nothing archived.
 
 ## 8. Acceptance Criteria
 
-- [ ] The 5 services inject `AppLogger`; no `use Psr\Log\LoggerInterface` remains in them
-- [ ] All dispatch/process failure paths route through `AppLogger` (`logException` for exceptions) with stable `event` + `service` context keys
-- [ ] Unit tests construct the services with mocked `AppLogger` and assert the failure routing (`logException` once per failure path, including 2 new tests)
-- [ ] Docker integration suite green (verifies container wiring of `AppLogger`)
-- [ ] Build gate green (`npm test` + lint + backend tests)
-- [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary (here: `logging.md` already canonical; no doc change expected)
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+- [x] The 5 services inject `AppLogger`; no `use Psr\Log\LoggerInterface` remains in them
+- [x] All dispatch/process failure paths route through `AppLogger` (`logException` for exceptions) and the completed-pass `info` lines carry stable `event` + `service` context keys
+- [x] Unit tests construct the services with mocked `AppLogger` and assert the failure routing (`logException` once per failure path, including 2 new tests)
+- [x] Docker integration suite green (verifies container wiring of `AppLogger`)
+- [x] Build gate green (`npm test` + lint + backend tests)
+- [x] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary (here: `logging.md` already canonical; no doc change expected)
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated
+
+## Review Outcome
+
+**Standard-B review (2026-08-19):** checklist clean on all points —
+architecture (service-local DI swap only, no layering change), authorization
+(no endpoint/route changes), security (exceptions route through
+`AppLogger::logException()` → `sanitizeContext()`; no secrets/PII in any
+context; `Throwable` never passed as a context value), KISS/minimal diff
+(matches the §3 mapping exactly, messages unchanged), logging (the plan's
+purpose), i18n (no user-visible strings), tests (5 setUps migrated + 2 new
+failure-path tests per §4). No blocking/major/minor findings on the
+implementation.
+
+Gate re-verified green during review: PHPUnit unit **742** / integration
+**165** [24 pre-existing skips] in Docker / Jest **717** (71 suites) /
+`npm run lint:fix` clean / `composer cs:check` 0 of 258. Plan §6 step 6
+re-confirmed: `Psr\Log\LoggerInterface` remains only in `AppLogger.php`
+(its own PSR implementation). No manual instantiation of the 5 services
+outside their unit tests.
+
+Auto-fixes applied by the review (docs-only, same follow-up cluster):
+- Repaired literal `?` mojibake (lost `→`/`≤`) in
+  `docs/backlog/archive/2026-08.md` — the new CS-035 section plus the
+  pre-existing CS-033/CS-034 sections that carried the same corruption.
+- Fixed stale `plans/active/` → `plans/done/` links in
+  `docs/backlog/archive/2026-08.md` (CS-024/026/027/035) and
+  `docs/backlog/ACTIVE_TASKS.md` (CS-030/032/035).
+- Logged **TECH-DOCS-001** (`docs/backlog/backlog.md`) for the recurring
+  write-path encoding corruption (cp1252-safe files mis-detected as ANSI,
+  non-cp1252 characters replaced by literal `?`).
+
+Plan moved `active/ → done/` on completion.

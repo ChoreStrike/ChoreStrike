@@ -7,10 +7,10 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\StreakFreezeService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 
 /**
  * Unit tests for StreakFreezeService (CS-PLAN-023).
@@ -28,20 +28,20 @@ class StreakFreezeServiceTest extends TestCase {
 
 	private HouseUserMapper&MockObject $houseUserMapper;
 	private CompletedTaskMapper&MockObject $completedTaskMapper;
-	private LoggerInterface&MockObject $logger;
+	private AppLogger&MockObject $appLogger;
 	private StreakFreezeService $service;
 	private \DateTime $yesterday;
 
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
-		$this->logger = $this->createMock(LoggerInterface::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->yesterday = new \DateTime(self::YESTERDAY);
 
 		$this->service = new StreakFreezeService(
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
-			$this->logger,
+			$this->appLogger,
 		);
 	}
 
@@ -259,6 +259,35 @@ class StreakFreezeServiceTest extends TestCase {
 
 		$this->assertSame(2, $stats['processed']);
 		$this->assertSame(1, $stats['errors']);
+		$this->assertSame(1, $stats['frozen']);
+	}
+
+	/**
+	 * Process_PerUserFailure_LogsExceptionViaAppLogger
+	 *
+	 * CS-PLAN-035: per-user failures route through AppLogger::logException,
+	 * are counted in stats, and do not abort the loop (CR-SVC-30 pattern).
+	 */
+	public function testProcess_PerUserFailure_LogsExceptionViaAppLogger(): void {
+		$user1 = $this->buildUser(1, streak: 5, freezes: 0);
+		$user2 = $this->buildUser(2, streak: 3, freezes: 1);
+
+		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user1, $user2]);
+		$this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+		$this->houseUserMapper->method('update')
+			->willReturnCallback(function (HouseUser $user) {
+				if ($user->getId() === 1) {
+					throw new \RuntimeException('db gone');
+				}
+				return $user;
+			});
+		$this->appLogger->expects($this->once())->method('logException');
+
+		$stats = $this->service->process($this->yesterday);
+
+		$this->assertSame(2, $stats['processed']);
+		$this->assertSame(1, $stats['errors']);
+		// The loop continued: user2's freeze was consumed.
 		$this->assertSame(1, $stats['frozen']);
 	}
 

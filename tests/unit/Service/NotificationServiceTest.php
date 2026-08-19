@@ -6,12 +6,12 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCP\Notification\IManager;
 use OCP\Notification\INotification;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 
 /**
  * Unit tests for NotificationService
@@ -19,7 +19,7 @@ use Psr\Log\LoggerInterface;
 class NotificationServiceTest extends TestCase {
 	private IManager&MockObject $manager;
 	private HouseUserMapper&MockObject $houseUserMapper;
-	private LoggerInterface&MockObject $logger;
+	private AppLogger&MockObject $appLogger;
 	private NotificationService $service;
 
 	/** @var array<string, mixed>|null */
@@ -34,11 +34,11 @@ class NotificationServiceTest extends TestCase {
 	protected function setUp(): void {
 		$this->manager = $this->createMock(IManager::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-		$this->logger = $this->createMock(LoggerInterface::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->service = new NotificationService(
 			$this->manager,
 			$this->houseUserMapper,
-			$this->logger
+			$this->appLogger
 		);
 
 		$this->lastSubject = null;
@@ -240,10 +240,13 @@ class NotificationServiceTest extends TestCase {
 
 	/**
 	 * Dispatch_ManagerThrows_LogsAndSwallows
+	 *
+	 * CS-PLAN-035: dispatch failures route through AppLogger::logException
+	 * (error level + standardized exception context).
 	 */
 	public function testDispatch_ManagerThrows_LogsAndSwallows(): void {
 		$this->manager->method('createNotification')->willThrowException(new \RuntimeException('boom'));
-		$this->logger->expects($this->once())->method('warning');
+		$this->appLogger->expects($this->once())->method('logException');
 
 		// Must not propagate the exception.
 		$this->service->notifyOverdueTakenOver('alice', 'Dishes', 'Bob', 42);

@@ -155,6 +155,23 @@ canonical `src/services/api.js` client enforced by `apiContract.spec.js`.
 
 ---
 
+### [P3] TECH-DOCS-001 — Recurring `?` corruption of non-cp1252 characters in backlog docs
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-035 (2026-08-19)
+
+`docs/backlog/archive/2026-08.md` repeatedly accumulated literal `?` bytes in
+place of `→` / `≤` (CS-033 and CS-034 commits carried them; the CS-035 review
+repaired all of them). Signature: characters present in Windows-1252 (`—`, `§`)
+survive, characters outside it (`→`, `≤`) become `?` — i.e. a write path that
+mis-detects the file as ANSI while its content is still cp1252-safe, then
+re-encodes on save. Files that already contain a non-cp1252 character are
+detected as UTF-8 and write fine.
+
+- [ ] After editing backlog/archive docs, byte-verify non-ASCII content
+      (e.g. scan for literal `0x3F` in prose) or write with explicit UTF-8;
+      consider a small `npm run docs:encoding` check in the doc-touching gates.
+
+---
+
 ## Review Follow-ups — CS-016 (Scheduling UI)
 
 > From [`archive/CODE_REVIEW_2026-07-28.md`](archive/CODE_REVIEW_2026-07-28.md).
@@ -287,14 +304,13 @@ Pervasive per-row mapper calls in loops. Hot spots: `HouseService::calculateHous
       replace per-id `find` loops with set-based lookups. (Scheduler-cluster N+1s were
       retired by the CR-SVC-08 deletions in CS-PLAN-025.)
 
-### [P2] CR-SVC-13 — Migrate raw `LoggerInterface` services to `AppLogger`
-**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
-`NotificationService`, `StreakAtRiskService`, `StreakFreezeService`, `StreakRestockService`
-inject raw `Psr\Log\LoggerInterface` instead of `AppLogger` (project-rules §2), bypassing
-sensitive-key sanitization; ~16 services have no logger at all.
-- [ ] Inject `AppLogger` in the 5 services (incl. `TaskDueReminderService`, added by
-      decision 2026-08-18 — it postdates the 2026-08-04 source review); route
-      dispatch/process failures through it. **Plan:** CS-PLAN-035.
+### [P3] CR-SVC-59 — Add `AppLogger` to logger-less services
+**Status**: Open · **Effort**: M · **Source**: CR-SVC-13 remainder (review of `lib/Service`, 2026-08-04; split off 2026-08-19)
+~16 services have no logger at all. The raw-`LoggerInterface` half of CR-SVC-13 is
+closed by CS-PLAN-035 (5 services migrated to `AppLogger`); this remainder tracks
+incremental `AppLogger` adoption in services that swallow failures silently.
+- [ ] Survey the logger-less services and inject `AppLogger` where failure paths
+      (catch blocks, best-effort skips) currently go unlogged.
 
 ### [P2] CR-SVC-15 — Decompose God-methods / God-services
 **Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)

@@ -14,7 +14,6 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
-use Psr\Log\LoggerInterface;
 
 /**
  * Daily task-due reminder pass (FEAT-NOTIFY-001 / CS-PLAN-030).
@@ -40,7 +39,7 @@ class TaskDueReminderService {
 		private HouseUserMapper $houseUserMapper,
 		private TaskMapper $taskMapper,
 		private NotificationService $notificationService,
-		private LoggerInterface $logger,
+		private AppLogger $appLogger,
 	) {
 	}
 
@@ -76,13 +75,17 @@ class TaskDueReminderService {
 			$this->dispatchReminders($dueToday, $assigneesByTask, $usersByNextcloudId, $today, false, $stats);
 			$this->dispatchReminders($dueTomorrow, $assigneesByTask, $usersByNextcloudId, $tomorrow, true, $stats);
 		} catch (\Throwable $e) {
-			$this->logger->error('TaskDueReminderService failed', [
-				'exception' => $e->getMessage(),
+			$this->appLogger->logException('TaskDueReminderService failed', $e, [
+				'event' => 'task_due_reminder_pass_failed',
+				'service' => 'TaskDueReminderService',
 			]);
 			return $stats;
 		}
 
-		$this->logger->info('TaskDueReminderService completed', $stats);
+		$this->appLogger->info('TaskDueReminderService completed', $stats + [
+			'event' => 'task_due_reminder_pass_completed',
+			'service' => 'TaskDueReminderService',
+		]);
 
 		return $stats;
 	}

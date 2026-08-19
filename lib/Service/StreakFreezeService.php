@@ -10,7 +10,6 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use Psr\Log\LoggerInterface;
 
 /**
  * Daily streak freeze pass (CS-PLAN-023).
@@ -27,7 +26,7 @@ class StreakFreezeService {
 	public function __construct(
 		private HouseUserMapper $houseUserMapper,
 		private CompletedTaskMapper $completedTaskMapper,
-		private LoggerInterface $logger,
+		private AppLogger $appLogger,
 	) {
 	}
 
@@ -98,14 +97,18 @@ class StreakFreezeService {
 				$this->houseUserMapper->update($user);
 			} catch (\Throwable $e) {
 				$stats['errors']++;
-				$this->logger->error('StreakFreezeService: per-user failure', [
+				$this->appLogger->logException('StreakFreezeService: per-user failure', $e, [
+					'event' => 'streak_freeze_user_failed',
+					'service' => 'StreakFreezeService',
 					'userId' => $user->getId(),
-					'exception' => $e->getMessage(),
 				]);
 			}
 		}
 
-		$this->logger->info('StreakFreezeService completed', $stats);
+		$this->appLogger->info('StreakFreezeService completed', $stats + [
+			'event' => 'streak_freeze_pass_completed',
+			'service' => 'StreakFreezeService',
+		]);
 
 		return $stats;
 	}

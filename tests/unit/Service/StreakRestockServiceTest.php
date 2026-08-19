@@ -6,11 +6,11 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Service\StreakRestockService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 
 /**
  * Unit tests for StreakRestockService (CS-PLAN-023).
@@ -22,13 +22,13 @@ use Psr\Log\LoggerInterface;
 class StreakRestockServiceTest extends TestCase {
 	private HouseUserMapper&MockObject $houseUserMapper;
 	private RewardConfigService&MockObject $configService;
-	private LoggerInterface&MockObject $logger;
+	private AppLogger&MockObject $appLogger;
 	private StreakRestockService $service;
 
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->configService = $this->createMock(RewardConfigService::class);
-		$this->logger = $this->createMock(LoggerInterface::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 
 		$this->configService->method('getStreakFreezesPerWeek')->willReturn(1);
 		$this->configService->method('getStreakFreezeCap')->willReturn(2);
@@ -36,7 +36,7 @@ class StreakRestockServiceTest extends TestCase {
 		$this->service = new StreakRestockService(
 			$this->houseUserMapper,
 			$this->configService,
-			$this->logger,
+			$this->appLogger,
 		);
 	}
 
@@ -116,7 +116,7 @@ class StreakRestockServiceTest extends TestCase {
 				}
 				return $user;
 			});
-		$this->logger->expects($this->once())->method('error');
+		$this->appLogger->expects($this->once())->method('logException');
 
 		$stats = $this->service->process();
 

@@ -11,7 +11,6 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Titles\TitleCatalog;
 use OCP\Notification\IManager;
-use Psr\Log\LoggerInterface;
 
 /**
  * Thin wrapper around Nextcloud's OCP\Notification\IManager that builds and
@@ -51,7 +50,7 @@ class NotificationService {
 	public function __construct(
 		private IManager $notificationManager,
 		private HouseUserMapper $houseUserMapper,
-		private LoggerInterface $logger,
+		private AppLogger $appLogger,
 	) {
 	}
 
@@ -303,13 +302,12 @@ class NotificationService {
 				->setSubject($subject, $parameters);
 			$this->notificationManager->notify($notification);
 		} catch (\Throwable $e) {
-			$this->logger->warning('Failed to dispatch ChoreStrike notification', [
-				'app' => self::APP_ID,
-				'recipient' => $recipientNextcloudUserId,
+			$this->appLogger->logException('Failed to dispatch ChoreStrike notification', $e, [
+				'event' => 'notification_dispatch_failed',
+				'service' => 'NotificationService',
 				'subject' => $subject,
 				'objectType' => $objectType,
 				'objectId' => $objectId,
-				'exception' => $e->getMessage(),
 			]);
 		}
 	}

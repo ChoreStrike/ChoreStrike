@@ -10,7 +10,6 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use Psr\Log\LoggerInterface;
 
 /**
  * Daily streak-at-risk notification pass (CS-PLAN-023).
@@ -33,7 +32,7 @@ class StreakAtRiskService {
 		private HouseUserMapper $houseUserMapper,
 		private CompletedTaskMapper $completedTaskMapper,
 		private NotificationService $notificationService,
-		private LoggerInterface $logger,
+		private AppLogger $appLogger,
 	) {
 	}
 
@@ -99,13 +98,17 @@ class StreakAtRiskService {
 				$stats['notified']++;
 			}
 		} catch (\Throwable $e) {
-			$this->logger->error('StreakAtRiskService failed', [
-				'exception' => $e->getMessage(),
+			$this->appLogger->logException('StreakAtRiskService failed', $e, [
+				'event' => 'streak_at_risk_pass_failed',
+				'service' => 'StreakAtRiskService',
 			]);
 			return $stats;
 		}
 
-		$this->logger->info('StreakAtRiskService completed', $stats);
+		$this->appLogger->info('StreakAtRiskService completed', $stats + [
+			'event' => 'streak_at_risk_pass_completed',
+			'service' => 'StreakAtRiskService',
+		]);
 
 		return $stats;
 	}
