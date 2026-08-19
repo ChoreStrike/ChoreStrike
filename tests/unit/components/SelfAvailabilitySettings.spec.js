@@ -22,6 +22,15 @@ jest.mock('../../../src/services/api.js', () => ({
 	},
 }))
 
+jest.mock('@/utils/logger', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const allDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
@@ -34,13 +43,6 @@ describe('SelfAvailabilitySettings', () => {
 		store = useSchedulingStore()
 		jest.clearAllMocks()
 		api.put.mockResolvedValue({})
-		// The API-failure test routes through src/utils/logger.js →
-		// console.error; silence the expected failure-path noise.
-		jest.spyOn(console, 'error').mockImplementation(() => {})
-	})
-
-	afterEach(() => {
-		jest.restoreAllMocks()
 	})
 
 	const mountComponent = () => mount(SelfAvailabilitySettings)

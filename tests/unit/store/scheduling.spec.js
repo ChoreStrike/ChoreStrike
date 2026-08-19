@@ -15,23 +15,25 @@ jest.mock('../../../src/services/api.js', () => ({
 	},
 }))
 
+jest.mock('@/utils/logger', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
 import { api } from '../../../src/services/api.js'
 
 describe('Scheduling Store', () => {
 	let store
 
-beforeEach(() => {
-	setActivePinia(createPinia())
-	store = useSchedulingStore()
-	jest.clearAllMocks()
-	// The error-path tests route through src/utils/logger.js → console.error;
-	// silence the expected failure-path noise (removed by CS-PLAN-034).
-	jest.spyOn(console, 'error').mockImplementation(() => {})
-})
-
-afterEach(() => {
-	jest.restoreAllMocks()
-})
+	beforeEach(() => {
+		setActivePinia(createPinia())
+		store = useSchedulingStore()
+		jest.clearAllMocks()
+	})
 
 	describe('Initial State', () => {
 		it('has correct initial state', () => {

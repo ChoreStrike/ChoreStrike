@@ -26,6 +26,15 @@ jest.mock('../../../src/utils/currentUser.js', () => ({
 	resolveCurrentUser: jest.fn(() => ({ uid: 'alice', displayName: 'Alice', userId: 'alice' })),
 }))
 
+jest.mock('@/utils/logger', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const stubs = {
@@ -42,14 +51,6 @@ describe('SchedulingView', () => {
 		setActivePinia(createPinia())
 		jest.clearAllMocks()
 		api.get.mockResolvedValue({})
-		// The "shows an error banner when initialization fails" test (and any
-		// benign init log) routes through src/utils/logger.js → console.error.
-		// These are expected failure paths; silence the console noise.
-		jest.spyOn(console, 'error').mockImplementation(() => {})
-	})
-
-	afterEach(() => {
-		jest.restoreAllMocks()
 	})
 
 	it('renders the scheduling view with testid', () => {

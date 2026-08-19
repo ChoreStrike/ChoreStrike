@@ -2,11 +2,6 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 
-jest.mock('@nextcloud/axios', () => ({
-	get: jest.fn(),
-	post: jest.fn(),
-}))
-
 import axios from '@nextcloud/axios'
 import Game2048 from '../../../src/components/Minigames/Game2048.vue'
 import { useMinigameStore } from '../../../src/store/minigame.js'
@@ -20,7 +15,7 @@ describe('Game2048.vue', () => {
 		setActivePinia(pinia)
 		store = useMinigameStore()
 		jest.clearAllMocks()
-		axios.get.mockResolvedValue({ data: { success: true, data: { score: 0 } } })
+		axios.mockResolvedValue({ data: { success: true, data: { score: 0 } } })
 	})
 
 	it('mounts and renders the board with two initial tiles', async () => {

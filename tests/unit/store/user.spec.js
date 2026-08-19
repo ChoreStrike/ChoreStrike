@@ -16,6 +16,15 @@ jest.mock('../../../src/services/api.js', () => ({
 	},
 }))
 
+jest.mock('@/utils/logger', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
 jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, message) => message),
 }))

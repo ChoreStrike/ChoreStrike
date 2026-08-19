@@ -2,11 +2,6 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 
-jest.mock('@nextcloud/axios', () => ({
-	get: jest.fn(),
-	post: jest.fn(),
-}))
-
 import axios from '@nextcloud/axios'
 import MemoryGame from '../../../src/components/Minigames/MemoryGame.vue'
 import { useMinigameStore } from '../../../src/store/minigame.js'
@@ -20,17 +15,7 @@ describe('MemoryGame.vue', () => {
 		setActivePinia(pinia)
 		store = useMinigameStore()
 		jest.clearAllMocks()
-		axios.get.mockResolvedValue({ data: { success: true, data: { score: 0 } } })
-		// The component fetches the personal best on mount. The api.js mock gap
-		// (it calls axios() as a function while the mock only provides .get/.post)
-		// routes that through the store's catch block, which logs via the logger.
-		// That error path is expected and benign here — silence its console
-		// output so it does not pollute the test report.
-		jest.spyOn(console, 'error').mockImplementation(() => {})
-	})
-
-	afterEach(() => {
-		jest.restoreAllMocks()
+		axios.mockResolvedValue({ data: { success: true, data: { score: 0 } } })
 	})
 
 	it('mounts and renders 16 cards', async () => {

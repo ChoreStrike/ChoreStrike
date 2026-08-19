@@ -90,17 +90,6 @@ E2E page context, so `member.isCurrentUser` is never true.
 
 ## Tech Debt / Code Quality
 
-### [P3] TECH-LINT-003 — Build/test noise (remaining console.error)
-**Status**: Open · **Effort**: S · **Source**: compiler-warnings review (2026-08-12) → [CS-PLAN-026](../plans/active/cs-plan-026-fix-compiler-warnings.md)
-
-Most of the 2026-08-12 noise sweep landed in CS-026 (browserslist data refreshed;
-punycode `DEP0040` suppressed via `tests/jest.setup.deprecations.js`; the two
-named error-path specs silenced). The remaining noise is folded into
-**TECH-LINT-005** below. This item stays open only as the umbrella tracker for
-"keep the Jest output clean"; close it once TECH-LINT-005 lands.
-
----
-
 ### [P2] TECH-LINT-004 — Stylelint `use-logical` warnings (26, physical→logical property sweep)
 **Status**: Open · **Effort**: M · **Source**: surfaced after CS-026 fixed the stylelint config (2026-08-12)
 
@@ -125,29 +114,6 @@ still exits 0: warnings ≠ error-severity). `npm run stylelint` → 0 errors,
 > review gate run did exactly that and the churn had to be reverted. Do **not**
 > run `stylelint:fix` repo-wide until this item is resolved — fix file-by-file
 > with verification instead.
-
----
-
-### [P2] TECH-LINT-005 — Jest `[ChoreStrike] [error]` noise from `api.js`↔mock gap (95 lines, ~8 store specs)
-**Status**: Open · **Effort**: M · **Source**: surfaced during CS-026 noise sweep (2026-08-12)
-
-`src/services/api.js::request()` calls `axios({ method, url, …config })` — the
-**default export** of `@nextcloud/axios` — but the store/component unit-test
-mocks only provide `{ get, post }`. Every API call therefore throws, falls into
-the store's catch block, and logs via `src/utils/logger.js` → `console.error`.
-The tests pass (the catch is graceful), but **~95 `[ChoreStrike] [error]` lines**
-flood the Jest output across `minigame`, `house`, `roomTasks`, `titles`, `user`,
-`game`, `tasks`, `rooms` store specs. CS-026 silenced the two originally-named
-specs (MemoryGame, SchedulingView) per plan; the systemic mock gap is the real
-fix and is deferred here.
-
-- [ ] Standardize the `@nextcloud/axios` mock to also export a `default: jest.fn()`
-      (matching how `api.js` calls it) and switch the store-spec setups from
-      `axios.get.mockResolvedValue(…)` to `axios.mockResolvedValue(…)`, so the
-      API calls resolve instead of hitting the catch/logger.
-- [ ] Alternatively, if the default-export call is unintended, change `api.js`
-      to use `axios.get`/`axios.post` (named exports) — but that is a production
-      change needing its own review.
 
 ---
 

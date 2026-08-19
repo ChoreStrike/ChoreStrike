@@ -1,10 +1,10 @@
 # CS-PLAN-034: Kill the Jest `[ChoreStrike] [error]` noise — canonical `@nextcloud/axios` mock
 
-> **Status:** Plan (not started)
+> **Status:** Done (2026-08-19) — implementation + review complete, moved to `done/`
 > **Effort:** M
 > **Priority:** P2
 > **Depends on:** none
-> **Related:** backlog [TECH-LINT-005](../../backlog/backlog.md) (`docs/backlog/backlog.md:94-113`); closes umbrella [TECH-LINT-003](../../backlog/backlog.md) (`docs/backlog/backlog.md:56-63`) when landed; supersedes the two CS-026 silencing workarounds (MemoryGame, SchedulingView).
+> **Related:** backlog [TECH-LINT-005](../../backlog/backlog.md) (`docs/backlog/backlog.md:131-150`); closes umbrella [TECH-LINT-003](../../backlog/backlog.md) (`docs/backlog/backlog.md:93-100`) when landed; supersedes the two CS-026 silencing workarounds (MemoryGame, SchedulingView).
 
 ## 1. Problem Summary
 
@@ -32,11 +32,11 @@ Measured per-spec attribution (per-file Jest runs; the backlog's "~95 lines / ~8
 
 1. **One canonical mock**: rewrite `tests/unit/__mocks__/nextcloud-axios.js` so the default export is a **callable `jest.fn()`** resolving the *success envelope* `{ data: { success: true, data: {} } }`, while keeping named verb mocks (`get/post/put/patch/delete`) with the same envelope plus `defaults`/`interceptors`. Specs override per test via `axios.mockResolvedValue(…)` (default) or `axios.get.mockResolvedValue(…)` (named).
 2. **Remove the three inline axios-mock overrides** so every spec uses the shared mock (Game2048, MemoryGame, DailyTaskList). Game2048/MemoryGame switch `axios.get.mockResolvedValue(…)` → `axios.mockResolvedValue(…)` because the real `api.js` calls the default export. `DailyTaskList.spec.js` keeps `axios.get.mockResolvedValue(…)` because `DailyTaskList.vue:136` calls `axios.get` directly (bypassing `api.js`).
-3. **Deliberate error-path tests stay, their console output goes**: mock `src/utils/logger.js` in the specs that test error paths (the established pattern in `checklist.spec.js:13-20`), so `mockRejectedValue` assertions are kept (optionally strengthened with `expect(logger.error).toHaveBeenCalled()`), without printing.
+3. **Deliberate error-path tests stay, their console output goes**: mock `src/utils/logger.js` in the specs that test error paths (the established pattern in `tests/unit/store/checklist.spec.js:13-20`), so `mockRejectedValue` assertions are kept (optionally strengthened with `expect(logger.error).toHaveBeenCalled()`), without printing.
 4. **Un-silence the two CS-026 specs** (remove their `console.error` spies) and close TECH-LINT-003 (umbrella) together with TECH-LINT-005.
 5. **Verifiable gate**: new `npm run test:noise` fails when any `[ChoreStrike] [error]` line appears in Jest output.
 
-**Alternative rejected — switch `api.js` to named verbs (`axios.get`/`axios.post`)** (backlog `docs/backlog/backlog.md:111-113`):
+**Alternative rejected — switch `api.js` to named verbs (`axios.get`/`axios.post`)** (backlog `docs/backlog/backlog.md:148-150`):
 
 - It is a production change requiring its own review; this plan is scoped to test infrastructure (P2 tech-debt, minimal diff).
 - It would **not** fix the noise anyway: the shared mock's named verbs resolve `{ data: {} }` without `success`, so `src/services/api.js:52-57` would still throw `ApiError` and the logger noise would persist. The missing-envelope problem is independent of the call style.
@@ -94,7 +94,7 @@ All `mockRejectedValue` call sites and their assertions remain unchanged (error 
 
 **D. Un-silence CS-026 workaround (SchedulingView; overlaps B for MemoryGame):**
 
-- `tests/unit/components/SchedulingView.spec.js` — remove the `console.error` spy (lines 43-46), add the logger mock from C. The failing-init test (`api.get.mockRejectedValueOnce`, line 84) keeps asserting the error banner.
+- `tests/unit/components/SchedulingView.spec.js` — remove the `console.error` spy (comment + `jest.spyOn` at lines 45-48), add the logger mock from C. The failing-init test (`api.get.mockRejectedValueOnce`, line 111) keeps asserting the error banner.
 
 **E. Zero-noise gate:**
 
@@ -170,3 +170,20 @@ Untouched beneficiaries: `tests/unit/views/Dashboard.spec.js`, `tests/unit/views
 - [ ] Build gate green (`npm test` + lint + backend tests)
 - [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
 - [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+
+## Review Outcome
+
+**Reviewed:** 2026-08-19 · Standard Review tier A (plan, pre-activation) · **Verdict: GO-WITH-CHANGES** (all changes applied inline during review)
+
+- Verified against the tree: root-cause chain (`api.js:45` default-export call, `api.js:52-57` envelope unwrap, shared mock's non-callable default without envelope/patch, `logger.js:88`), the three inline mock overrides (`Game2048.spec.js:5-8`, `MemoryGame.spec.js:5-8`, `DailyTaskList.spec.js:13-21`), both CS-026 silencing spies, the `DailyTaskList.vue:136` direct-`axios.get` exception, the `tests/unit/store/checklist.spec.js:13-20` logger-mock pattern, `api.spec.js:8-11` reference shape, and backlog TECH-LINT-005/003. No overlap with active plans (none) or sibling CS-PLAN-035 (backend PHP logging).
+- Fixed inline (reference accuracy only): stale backlog line refs (`:94-113`→`:131-150`, `:56-63`→`:93-100`, `:111-113`→`:148-150`), `checklist.spec.js` path missing `store/`, `SchedulingView.spec.js` spy lines `43-46`→`45-48` and failing-init test line `84`→`111`.
+- Notes (no edit): (1) §4 vs acceptance criterion on the backend gate — no PHP changes, but run the Docker backend suite once if in doubt; (2) `scripts/check-test-noise.js` must combine stdout+stderr and tolerate Jest's console banner/ANSI wrapping around `[ChoreStrike] [error]`; (3) `DailyTaskList.vue` bypassing the canonical `api.js` client is deferred production cleanup (risk row 6) — backlog candidate, separate review.
+
+## Implementation Outcome (2026-08-19)
+
+Implemented as planned (§3 A–E, order per §6) with these deviations:
+
+- **Suite size:** 71 suites / 717 tests (plan measured 70/701 — the tree grew with CS-033); all green, no assertions weakened or skipped.
+- **Beyond the manifest (same workaround class):** `tests/unit/store/scheduling.spec.js` also carried a CS-026-style `console.error` silencing spy (its comment pre-announced removal by CS-034) — replaced with the logger mock. `tests/unit/components/SelfAvailabilitySettings.spec.js` (CS-032-era) had the identical silencing pattern — also replaced, so the noise gate honestly covers that spec instead of a spy masking future unexpected errors.
+- **Backend gate:** not run — zero backend changes (lib/, composer, PHP tests untouched); frontend gate (Jest + `test:noise` + ESLint) fully green.
+- Verification: `npm run test:noise` → exit 0, zero `[ChoreStrike] [error]` occurrences (108 → 0). Mock-matcher self-tested against ANSI + CRLF input. Durable conventions integrated into `docs/standards/guidelines/testing.md` ("Frontend Unit Test Mocking (Jest)"); TECH-LINT-005 + TECH-LINT-003 archived in `docs/backlog/archive/2026-08.md`; `ACTIVE_TASKS.md` updated.

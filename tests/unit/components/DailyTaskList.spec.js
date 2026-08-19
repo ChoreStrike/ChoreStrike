@@ -9,17 +9,6 @@ jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, text) => text),
 }))
 
-// Mock axios
-jest.mock('@nextcloud/axios', () => ({
-	__esModule: true,
-	default: {
-		get: jest.fn(),
-		post: jest.fn(),
-		put: jest.fn(),
-		delete: jest.fn(),
-	},
-}))
-
 describe('DailyTaskList', () => {
 	beforeEach(() => {
 		const pinia = createPinia()

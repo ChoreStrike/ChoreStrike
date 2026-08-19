@@ -6,6 +6,15 @@ jest.mock('../../../src/services/api.js', () => ({
 	api: { get: jest.fn() },
 }))
 
+jest.mock('@/utils/logger', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
 import { api } from '../../../src/services/api.js'
 
 describe('Game Store', () => {

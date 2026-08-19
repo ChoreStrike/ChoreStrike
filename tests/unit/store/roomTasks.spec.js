@@ -17,6 +17,15 @@ jest.mock('../../../src/services/api.js', () => ({
 	},
 }))
 
+jest.mock('@/utils/logger', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
 import { api } from '../../../src/services/api.js'
 
 describe('RoomTasks Store', () => {

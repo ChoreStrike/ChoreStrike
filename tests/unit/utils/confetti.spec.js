@@ -7,6 +7,15 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 
 jest.mock('canvas-confetti', () => jest.fn())
 
+jest.mock('@/utils/logger', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
 import confetti from 'canvas-confetti'
 import { getCelebrationPalette, fireConfetti, fireMilestoneConfetti, areCelebrationsEnabled } from '../../../src/utils/confetti.js'
 
