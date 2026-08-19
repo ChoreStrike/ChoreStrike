@@ -20,11 +20,18 @@ import { api } from '../../../src/services/api.js'
 describe('Scheduling Store', () => {
 	let store
 
-	beforeEach(() => {
-		setActivePinia(createPinia())
-		store = useSchedulingStore()
-		jest.clearAllMocks()
-	})
+beforeEach(() => {
+	setActivePinia(createPinia())
+	store = useSchedulingStore()
+	jest.clearAllMocks()
+	// The error-path tests route through src/utils/logger.js → console.error;
+	// silence the expected failure-path noise (removed by CS-PLAN-034).
+	jest.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+afterEach(() => {
+	jest.restoreAllMocks()
+})
 
 	describe('Initial State', () => {
 		it('has correct initial state', () => {
@@ -177,27 +184,53 @@ describe('Scheduling Store', () => {
 			})
 		})
 
-		describe('updateEnergyBudget', () => {
-			it('updates energy budget', async () => {
-				api.put.mockResolvedValue(undefined)
+		describe('saveWeeklyPreferences', () => {
+			const fullAvailability = {
+				monday: true, tuesday: false, wednesday: true, thursday: true,
+				friday: true, saturday: true, sunday: true,
+			}
+			const fullEnergy = {
+				monday: 12, tuesday: 12, wednesday: 12, thursday: 12,
+				friday: 12, saturday: 15, sunday: 15,
+			}
 
-				await store.updateEnergyBudget('monday', 15)
+			it('sends exactly one PUT with both sections and replaces state from the response', async () => {
+				api.put.mockResolvedValue({
+					weekdayAvailability: fullAvailability,
+					energyBudget: fullEnergy,
+				})
 
-				expect(store.energyBudget.monday).toBe(15)
+				await store.saveWeeklyPreferences({ weekdayAvailability: fullAvailability, energyBudget: fullEnergy })
+
+				expect(api.put).toHaveBeenCalledTimes(1)
+				expect(api.put).toHaveBeenCalledWith('/api/v1/scheduling/preferences', {
+					weekdayAvailability: fullAvailability,
+					energyBudget: fullEnergy,
+				})
+				expect(store.weekdayAvailability).toEqual(fullAvailability)
+				expect(store.energyBudget).toEqual(fullEnergy)
 			})
 
-			it('throws error for invalid energy value', async () => {
-				await expect(store.updateEnergyBudget('monday', 25)).rejects.toThrow('Energy budget must be between 1 and 20')
+			it('sends only the provided section (energy-only payload)', async () => {
+				api.put.mockResolvedValue({ energyBudget: fullEnergy })
+
+				await store.saveWeeklyPreferences({ energyBudget: fullEnergy })
+
+				expect(api.put).toHaveBeenCalledTimes(1)
+				expect(api.put).toHaveBeenCalledWith('/api/v1/scheduling/preferences', {
+					energyBudget: fullEnergy,
+				})
+				// Availability state untouched by the response.
+				expect(store.weekdayAvailability.monday).toBe(true)
 			})
-		})
 
-		describe('updateAvailability', () => {
-			it('updates availability', async () => {
-				api.put.mockResolvedValue(undefined)
+			it('propagates errors and records them in state', async () => {
+				api.put.mockRejectedValue(new Error('Request failed'))
 
-				await store.updateAvailability('monday', false)
+				await expect(store.saveWeeklyPreferences({ energyBudget: fullEnergy })).rejects.toThrow('Request failed')
 
-				expect(store.weekdayAvailability.monday).toBe(false)
+				expect(api.put).toHaveBeenCalledTimes(1)
+				expect(store.error).toBe('Request failed')
 			})
 		})
 
@@ -264,12 +297,11 @@ describe('Scheduling Store', () => {
 
 		describe('loading flag ownership', () => {
 			it('mutation actions do not toggle the shared loading flag', async () => {
-				api.put.mockResolvedValue(undefined)
+				api.put.mockResolvedValue({})
 
-				await store.updateEnergyBudget('monday', 12)
-				expect(store.loading).toBe(false)
-
-				await store.updateAvailability('monday', false)
+				await store.saveWeeklyPreferences({
+					weekdayAvailability: { ...store.weekdayAvailability },
+				})
 				expect(store.loading).toBe(false)
 			})
 

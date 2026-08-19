@@ -89,47 +89,165 @@ class SchedulingControllerTest extends TestCase {
 		$this->assertEquals(403, $response->getStatus());
 	}
 
-	public function testUpdateEnergyUpdatesBudget(): void {
+	private function fullWeek(callable $valueFor): array {
+		$week = [];
+		foreach (['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $day) {
+			$week[$day] = $valueFor($day);
+		}
+		return $week;
+	}
+
+	public function testUpdatePreferences_PersistsFullWeek_SuccessResponse(): void {
+		$preferences = [
+			'userId' => 7,
+			'weekdayAvailability' => $this->fullWeek(fn () => true),
+			'energyBudget' => $this->fullWeek(fn () => 10),
+		];
+		$weekdayAvailability = $this->fullWeek(fn (string $day) => $day !== 'sunday');
+		$energyBudget = $this->fullWeek(fn (string $day) => $day === 'saturday' ? 15 : 10);
+
 		$this->mockHouse();
 		$this->authService->method('getCurrentUserId')->willReturn('user1');
 
 		$this->schedulingService->expects($this->once())
-			->method('updateEnergyBudgetByNextcloudUserId')
-			->with(1, 'user1', 'monday', 15);
+			->method('updatePreferencesByNextcloudUserId')
+			->with(1, 'user1', $weekdayAvailability, $energyBudget)
+			->willReturn($preferences);
 
-		$response = $this->controller->updateEnergy('monday', 15);
+		$response = $this->controller->updatePreferences($weekdayAvailability, $energyBudget);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(200, $response->getStatus());
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertEquals($preferences, $data['data']);
+	}
+
+	public function testUpdatePreferences_EnergyOnly_Success(): void {
+		$energyBudget = $this->fullWeek(fn () => 12);
+
+		$this->mockHouse();
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+
+		$this->schedulingService->expects($this->once())
+			->method('updatePreferencesByNextcloudUserId')
+			->with(1, 'user1', null, $energyBudget);
+
+		$response = $this->controller->updatePreferences(null, $energyBudget);
 
 		$this->assertEquals(200, $response->getStatus());
 		$this->assertTrue($response->getData()['success']);
 	}
 
-	public function testUpdateEnergyReturnsBadRequestForInvalidValue(): void {
+	public function testUpdatePreferences_AvailabilityOnly_Success(): void {
+		$weekdayAvailability = $this->fullWeek(fn () => false);
+
 		$this->mockHouse();
 		$this->authService->method('getCurrentUserId')->willReturn('user1');
 
-		$this->schedulingService->method('updateEnergyBudgetByNextcloudUserId')
-			->willThrowException(new \InvalidArgumentException('Energy must be between 1 and 20'));
+		$this->schedulingService->expects($this->once())
+			->method('updatePreferencesByNextcloudUserId')
+			->with(1, 'user1', $weekdayAvailability, null);
 
-		$response = $this->controller->updateEnergy('monday', 25);
+		$response = $this->controller->updatePreferences($weekdayAvailability, null);
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertTrue($response->getData()['success']);
+	}
+
+	public function testUpdatePreferences_ReturnsBadRequestWhenNeitherSectionProvided(): void {
+		$this->mockHouse();
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+
+		$this->schedulingService->expects($this->never())
+			->method('updatePreferencesByNextcloudUserId');
+
+		$response = $this->controller->updatePreferences(null, null);
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertFalse($response->getData()['success']);
-		// CR-SVC-49: the curated service message must surface verbatim.
-		$this->assertEquals('Energy must be between 1 and 20', $response->getData()['error']['message']);
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
 	}
 
-	public function testUpdateAvailabilityUpdatesFlag(): void {
+	public function testUpdatePreferences_ReturnsBadRequestForPartialWeek(): void {
+		$weekdayAvailability = $this->fullWeek(fn () => true);
+		unset($weekdayAvailability['friday']);
+
 		$this->mockHouse();
 		$this->authService->method('getCurrentUserId')->willReturn('user1');
 
-		$this->schedulingService->expects($this->once())
-			->method('updateAvailabilityByNextcloudUserId')
-			->with(1, 'user1', 'tuesday', false);
+		$response = $this->controller->updatePreferences($weekdayAvailability, null);
 
-		$response = $this->controller->updateAvailability('tuesday', false);
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertFalse($response->getData()['success']);
+		$this->assertStringContainsString('must contain all seven weekdays', $response->getData()['error']['message']);
+	}
 
-		$this->assertEquals(200, $response->getStatus());
-		$this->assertTrue($response->getData()['success']);
+	public function testUpdatePreferences_ReturnsBadRequestForUnknownDayKey(): void {
+		$energyBudget = $this->fullWeek(fn () => 10);
+		$energyBudget['funday'] = 10;
+
+		$this->mockHouse();
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+
+		$response = $this->controller->updatePreferences(null, $energyBudget);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertFalse($response->getData()['success']);
+		$this->assertEquals('Invalid weekday: funday', $response->getData()['error']['message']);
+	}
+
+	public function testUpdatePreferences_ReturnsBadRequestForNonIntegerEnergy(): void {
+		$energyBudget = $this->fullWeek(fn () => 10);
+		$energyBudget['monday'] = '15';
+
+		$this->mockHouse();
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+
+		$response = $this->controller->updatePreferences(null, $energyBudget);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertFalse($response->getData()['success']);
+		// CR-SVC-49: the curated bounds message must surface verbatim.
+		$this->assertEquals('Energy budget must be between 1 and 20', $response->getData()['error']['message']);
+	}
+
+	public function testUpdatePreferences_ReturnsBadRequestForOutOfRangeEnergy(): void {
+		$energyBudget = $this->fullWeek(fn () => 25);
+
+		$this->mockHouse();
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+
+		$response = $this->controller->updatePreferences(null, $energyBudget);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertFalse($response->getData()['success']);
+		$this->assertEquals('Energy budget must be between 1 and 20', $response->getData()['error']['message']);
+	}
+
+	public function testUpdatePreferences_ReturnsBadRequestForNonBoolAvailability(): void {
+		$weekdayAvailability = $this->fullWeek(fn () => true);
+		$weekdayAvailability['monday'] = 'yes';
+
+		$this->mockHouse();
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+
+		$response = $this->controller->updatePreferences($weekdayAvailability, null);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertFalse($response->getData()['success']);
+		$this->assertEquals('Availability values must be booleans', $response->getData()['error']['message']);
+	}
+
+	public function testUpdatePreferences_ReturnsForbiddenForNonMember(): void {
+		$this->mockHouse();
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('ensureHouseMember')
+			->willThrowException(new ForbiddenException('Not a house member'));
+
+		$response = $this->controller->updatePreferences($this->fullWeek(fn () => true), null);
+
+		$this->assertEquals(403, $response->getStatus());
 	}
 
 	public function testGetMemberAvailabilityReturnsListForOwner(): void {
@@ -197,27 +315,6 @@ class SchedulingControllerTest extends TestCase {
 		$this->assertFalse($response->getData()['success']);
 		// CR-SVC-49: the curated weekday message must surface verbatim.
 		$this->assertEquals('Invalid weekday: funday', $response->getData()['error']['message']);
-	}
-
-	public function testUpdateEnergyReturnsBadRequestForInvalidWeekday(): void {
-		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
-
-		$response = $this->controller->updateEnergy('funday', 10);
-
-		$this->assertEquals(400, $response->getStatus());
-		$this->assertFalse($response->getData()['success']);
-		$this->assertEquals('Invalid weekday: funday', $response->getData()['error']['message']);
-	}
-
-	public function testUpdateAvailabilityReturnsBadRequestForInvalidWeekday(): void {
-		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
-
-		$response = $this->controller->updateAvailability('funday', true);
-
-		$this->assertEquals(400, $response->getStatus());
-		$this->assertFalse($response->getData()['success']);
 	}
 
 	public function testGetSuggestionsReturnsSuggestions(): void {

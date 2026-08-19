@@ -94,71 +94,111 @@ class SchedulingServiceTest extends TestCase {
 	}
 
 	/**
-	 * UpdateAvailabilityByNextcloudUserId_ValidUser_UpdatesResolvedHouseUser
+	 * UpdatePreferencesByNextcloudUserId_ProvidedSections_ReplacedWholesale
+	 *
+	 * Section-granular merge: provided sections replace the stored ones,
+	 * absent sections and sibling keys (maxDailyTasks) are preserved.
 	 */
-	public function testUpdateAvailabilityByNextcloudUserId_ValidUser_UpdatesResolvedHouseUser(): void {
+	public function testUpdatePreferencesByNextcloudUserId_ProvidedSections_ReplacedAndSiblingsPreserved(): void {
 		$houseUser = new HouseUser();
-		$houseUser->setId(11);
+		$houseUser->setId(13);
 		$houseUser->setHouseId(3);
-		$houseUser->setNextcloudUserId('member-b');
-		$houseUser->setSchedulingPreferences([]);
+		$houseUser->setNextcloudUserId('member-d');
+		$houseUser->setSchedulingPreferences([
+			'energyBudget' => ['monday' => 10, 'tuesday' => 10, 'wednesday' => 10, 'thursday' => 10, 'friday' => 10, 'saturday' => 10, 'sunday' => 10],
+			'weekdayAvailability' => ['monday' => true, 'tuesday' => true, 'wednesday' => true, 'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true],
+			'maxDailyTasks' => 5,
+		]);
 
+		// Scoped lookup by houseId + nextcloud uid enforces membership.
 		$this->houseUserMapper
 			->expects($this->once())
 			->method('findByNextcloudUserId')
-			->with(3, 'member-b')
-			->willReturn($houseUser);
-
-		$this->houseUserMapper
-			->expects($this->once())
-			->method('find')
-			->with(11)
+			->with(3, 'member-d')
 			->willReturn($houseUser);
 
 		$this->houseUserMapper
 			->expects($this->once())
 			->method('update')
-			->with($this->callback(function (HouseUser $updatedUser): bool {
-				$preferences = $updatedUser->getSchedulingPreferences();
-				return isset($preferences['weekdayAvailability']['friday'])
-					&& $preferences['weekdayAvailability']['friday'] === true;
-			}));
+			->with($houseUser);
 
-		$this->service->updateAvailabilityByNextcloudUserId(3, 'member-b', 'friday', true);
+		// The response is built from the in-memory entity — no second find.
+		$this->houseUserMapper
+			->expects($this->never())
+			->method('find');
+
+		$energyBudget = ['monday' => 20, 'tuesday' => 20, 'wednesday' => 20, 'thursday' => 20, 'friday' => 20, 'saturday' => 20, 'sunday' => 20];
+		$result = $this->service->updatePreferencesByNextcloudUserId(3, 'member-d', null, $energyBudget);
+
+		$preferences = $houseUser->getSchedulingPreferences();
+		$this->assertSame($energyBudget, $preferences['energyBudget']);
+		// Absent section unchanged.
+		$this->assertTrue($preferences['weekdayAvailability']['monday']);
+		// Sibling key preserved.
+		$this->assertSame(5, $preferences['maxDailyTasks']);
+		// The returned array is the full persisted preferences shape.
+		$this->assertSame(13, $result['userId']);
+		$this->assertSame($energyBudget, $result['energyBudget']);
 	}
 
 	/**
-	 * UpdateEnergyBudgetByNextcloudUserId_ValidUser_UpdatesResolvedHouseUser
+	 * UpdatePreferencesByNextcloudUserId_AvailabilityOnly_ReplacesWeekdaySection
 	 */
-	public function testUpdateEnergyBudgetByNextcloudUserId_ValidUser_UpdatesResolvedHouseUser(): void {
+	public function testUpdatePreferencesByNextcloudUserId_AvailabilityOnly_ReplacesWeekdaySection(): void {
 		$houseUser = new HouseUser();
-		$houseUser->setId(12);
+		$houseUser->setId(14);
 		$houseUser->setHouseId(3);
-		$houseUser->setNextcloudUserId('member-c');
+		$houseUser->setNextcloudUserId('member-e');
+		$houseUser->setSchedulingPreferences([
+			'energyBudget' => ['monday' => 7],
+		]);
+
+		$this->houseUserMapper
+			->method('findByNextcloudUserId')
+			->with(3, 'member-e')
+			->willReturn($houseUser);
+
+		// The response is built from the in-memory entity — no second find.
+		$this->houseUserMapper
+			->expects($this->never())
+			->method('find');
+
+		$weekdayAvailability = ['monday' => false, 'tuesday' => false, 'wednesday' => true, 'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true];
+		$this->service->updatePreferencesByNextcloudUserId(3, 'member-e', $weekdayAvailability, null);
+
+		$preferences = $houseUser->getSchedulingPreferences();
+		$this->assertSame($weekdayAvailability, $preferences['weekdayAvailability']);
+		$this->assertSame(7, $preferences['energyBudget']['monday']);
+	}
+
+	/**
+	 * Out-of-range energy in a bulk save is rejected and nothing is persisted.
+	 */
+	public function testUpdatePreferencesByNextcloudUserId_RejectsOutOfRangeEnergy(): void {
+		$houseUser = new HouseUser();
+		$houseUser->setId(15);
+		$houseUser->setHouseId(3);
+		$houseUser->setNextcloudUserId('member-f');
 		$houseUser->setSchedulingPreferences([]);
 
 		$this->houseUserMapper
-			->expects($this->once())
 			->method('findByNextcloudUserId')
-			->with(3, 'member-c')
+			->with(3, 'member-f')
 			->willReturn($houseUser);
 
 		$this->houseUserMapper
-			->expects($this->once())
-			->method('find')
-			->with(12)
-			->willReturn($houseUser);
+			->expects($this->never())
+			->method('update');
 
-		$this->houseUserMapper
-			->expects($this->once())
-			->method('update')
-			->with($this->callback(function (HouseUser $updatedUser): bool {
-				$preferences = $updatedUser->getSchedulingPreferences();
-				return isset($preferences['energyBudget']['wednesday'])
-					&& $preferences['energyBudget']['wednesday'] === 15;
-			}));
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Energy budget must be between 1 and 20');
 
-		$this->service->updateEnergyBudgetByNextcloudUserId(3, 'member-c', 'wednesday', 15);
+		$this->service->updatePreferencesByNextcloudUserId(
+			3,
+			'member-f',
+			['monday' => true, 'tuesday' => true, 'wednesday' => true, 'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true],
+			['monday' => 25, 'tuesday' => 10, 'wednesday' => 10, 'thursday' => 10, 'friday' => 10, 'saturday' => 10, 'sunday' => 10]
+		);
 	}
 
 	/**

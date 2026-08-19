@@ -197,60 +197,32 @@ export const useSchedulingStore = defineStore('scheduling', {
 		},
 
 		/**
-		 * Update energy budget for a specific day.
+		 * Save the current user's weekly preferences in one bulk request.
 		 *
-		 * Does not touch `loading` (callers manage their own saving state);
-		 * toggling the shared flag per call unmounted the scheduling view
-		 * mid-save-loop.
+		 * Sections are optional (energy-only / availability-only saves are
+		 * valid); each provided section must be a full week.
 		 *
-		 * @param {string} day Weekday name (e.g., 'monday')
-		 * @param {number} energy Energy points (1-20)
+		 * Does not touch `loading` (callers manage their own saving state).
+		 *
+		 * @param {object} sections Sections to persist
+		 * @param {object} [sections.weekdayAvailability] Full week of availability flags
+		 * @param {object} [sections.energyBudget] Full week of energy budgets (1-20)
 		 */
-		async updateEnergyBudget(day, energy) {
-			const dayKey = day.toLowerCase()
-			if (energy < 1 || energy > 20) {
-				throw new Error('Energy budget must be between 1 and 20')
-			}
+		async saveWeeklyPreferences({ weekdayAvailability = null, energyBudget = null } = {}) {
+			const payload = {}
+			if (weekdayAvailability !== null) payload.weekdayAvailability = weekdayAvailability
+			if (energyBudget !== null) payload.energyBudget = energyBudget
 
 			this.error = null
 
 			try {
-				await api.put('/api/v1/scheduling/energy', {
-					day: dayKey,
-					energy,
-				})
+				const data = await api.put('/api/v1/scheduling/preferences', payload)
 
-				this.energyBudget[dayKey] = energy
+				this.weekdayAvailability = data.weekdayAvailability || this.weekdayAvailability
+				this.energyBudget = data.energyBudget || this.energyBudget
 			} catch (error) {
 				this.error = error.message
-				logger.error('Failed to update energy budget', error, { store: 'scheduling', action: 'updateEnergyBudget', day: dayKey })
-				throw error
-			}
-		},
-
-		/**
-		 * Update weekday availability.
-		 *
-		 * Does not touch `loading` — see `updateEnergyBudget`.
-		 *
-		 * @param {string} day Weekday name
-		 * @param {boolean} available Whether user is available
-		 */
-		async updateAvailability(day, available) {
-			const dayKey = day.toLowerCase()
-
-			this.error = null
-
-			try {
-				await api.put('/api/v1/scheduling/availability', {
-					day: dayKey,
-					available,
-				})
-
-				this.weekdayAvailability[dayKey] = available
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to update availability', error, { store: 'scheduling', action: 'updateAvailability', day: dayKey })
+				logger.error('Failed to save scheduling preferences', error, { store: 'scheduling', action: 'saveWeeklyPreferences' })
 				throw error
 			}
 		},
@@ -258,7 +230,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		/**
 		 * Fetch all member availability (for house owners).
 		 *
-		 * Does not touch `loading` — see `updateEnergyBudget`.
+		 * Does not touch `loading` — see `saveWeeklyPreferences`.
 		 */
 		async fetchMemberAvailability() {
 			this.error = null
@@ -276,7 +248,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		/**
 		 * Update another member's availability (house owner only).
 		 *
-		 * Does not touch `loading` — see `updateEnergyBudget`.
+		 * Does not touch `loading` — see `saveWeeklyPreferences`.
 		 *
 		 * @param {string} userId Member user ID
 		 * @param {object} updates Availability and energy updates
@@ -307,7 +279,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 * The backend returns an object keyed by weekday; this action
 		 * normalizes it to an array of suggestion objects so the UI components
 		 * can iterate it directly. Does not touch `loading` — see
-		 * `updateEnergyBudget`.
+		 * `saveWeeklyPreferences`.
 		 *
 		 * @param {Array} tasks Tasks to schedule
 		 * @return {Promise<Array>} One suggestion object per weekday

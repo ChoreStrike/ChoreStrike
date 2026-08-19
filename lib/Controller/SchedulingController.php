@@ -85,12 +85,17 @@ class SchedulingController extends Controller {
 	}
 
 	/**
-	 * Update energy budget for a day
+	 * Update the current user's scheduling preferences in bulk
+	 *
+	 * Each provided section must be a complete week (exact 7-day key set);
+	 * absent sections are left unchanged. At least one section is required.
 	 *
 	 * @NoAdminRequired
+	 * @param array|null $weekdayAvailability Full week of availability flags
+	 * @param array|null $energyBudget Full week of energy budgets (1-20)
 	 * @return JSONResponse
 	 */
-	public function updateEnergy(string $day, int $energy): JSONResponse {
+	public function updatePreferences(?array $weekdayAvailability, ?array $energyBudget): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
@@ -100,60 +105,29 @@ class SchedulingController extends Controller {
 			}
 
 			$this->authService->ensureHouseMember($house->getId());
-			$this->validateWeekday($day);
-			$this->schedulingService->updateEnergyBudgetByNextcloudUserId($house->getId(), $userId, $day, $energy);
-
-			return new JSONResponse([
-				'success' => true,
-				'message' => 'Energy budget updated'
-			]);
-		} catch (\InvalidArgumentException $e) {
-			// Curated bounds/weekday messages — safe to surface verbatim.
-			return ControllerErrorFormatter::validation($e);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('updateEnergy', $e, ['day' => $day]);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'UPDATE_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Update availability for a day
-	 *
-	 * @NoAdminRequired
-	 * @return JSONResponse
-	 */
-	public function updateAvailability(string $day, bool $available): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$userId = $this->authService->getCurrentUserId();
-			if ($userId === null) {
-				throw new \Exception('Not authenticated');
+			if ($weekdayAvailability === null && $energyBudget === null) {
+				throw new \InvalidArgumentException('At least one section (weekdayAvailability or energyBudget) must be provided');
 			}
-
-			$this->authService->ensureHouseMember($house->getId());
-			$this->validateWeekday($day);
-			$this->schedulingService->updateAvailabilityByNextcloudUserId($house->getId(), $userId, $day, $available);
+			$this->validatePreferencesSection($weekdayAvailability, 'weekdayAvailability');
+			$this->validatePreferencesSection($energyBudget, 'energyBudget');
+			$preferences = $this->schedulingService->updatePreferencesByNextcloudUserId(
+				$house->getId(),
+				$userId,
+				$weekdayAvailability,
+				$energyBudget
+			);
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Availability updated'
+				'data' => $preferences
 			]);
 		} catch (\InvalidArgumentException $e) {
-			// Curated weekday message — safe to surface verbatim.
+			// Curated section/weekday/bounds messages — safe to surface verbatim.
 			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			$this->logControllerException('updateAvailability', $e, ['day' => $day]);
+			$this->logControllerException('updatePreferences', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -279,6 +253,40 @@ class SchedulingController extends Controller {
 	private function validateWeekday(string $day): void {
 		if (!in_array(strtolower($day), self::VALID_WEEKDAYS, true)) {
 			throw new \InvalidArgumentException('Invalid weekday: ' . $day);
+		}
+	}
+
+	/**
+	 * Validate one bulk-update section: a provided section must be exactly
+	 * the 7 canonical weekday keys (no extra, no missing) and carry only
+	 * bool availability flags or int energy budgets within 1-20.
+	 *
+	 * @param array|null $section Section payload keyed by weekday (null = absent)
+	 * @param string $sectionName 'weekdayAvailability' or 'energyBudget'
+	 * @throws \InvalidArgumentException When the section is not a complete, well-typed week
+	 */
+	private function validatePreferencesSection(?array $section, string $sectionName): void {
+		if ($section === null) {
+			return;
+		}
+
+		$keys = array_map('strval', array_keys($section));
+		foreach (array_diff($keys, self::VALID_WEEKDAYS) as $unknownDay) {
+			throw new \InvalidArgumentException('Invalid weekday: ' . $unknownDay);
+		}
+		$missingDays = array_diff(self::VALID_WEEKDAYS, $keys);
+		if (count($missingDays) > 0) {
+			throw new \InvalidArgumentException($sectionName . ' must contain all seven weekdays (missing: ' . implode(', ', $missingDays) . ')');
+		}
+
+		foreach ($section as $day => $value) {
+			if ($sectionName === 'weekdayAvailability') {
+				if (!is_bool($value)) {
+					throw new \InvalidArgumentException('Availability values must be booleans');
+				}
+			} elseif (!is_int($value) || $value < 1 || $value > 20) {
+				throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
+			}
 		}
 	}
 

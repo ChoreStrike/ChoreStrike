@@ -23,6 +23,12 @@ jest.mock('../../../src/services/api.js', () => ({
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0))
 
+const fullBudget = (overrides = {}) => ({
+	monday: 10, tuesday: 10, wednesday: 10, thursday: 10,
+	friday: 10, saturday: 10, sunday: 10,
+	...overrides,
+})
+
 describe('EnergyBudgetSettings', () => {
 	let store
 
@@ -79,28 +85,46 @@ describe('EnergyBudgetSettings', () => {
 		expect(wrapper.text()).not.toContain('80')
 	})
 
-	it('persists the full edited set (snapshot) without the store watcher reverting unsaved days', async () => {
+	it('saves the whole edited week in one bulk request', async () => {
 		// Baseline: every day at 10 in the store.
-		store.energyBudget = {
-			monday: 10, tuesday: 10, wednesday: 10, thursday: 10,
-			friday: 10, saturday: 10, sunday: 10,
-		}
-		api.put.mockResolvedValue(undefined)
+		store.energyBudget = fullBudget()
+		api.put.mockResolvedValue({ energyBudget: fullBudget({ monday: 5, tuesday: 7 }) })
 
 		const wrapper = mountComponent()
 
-		// Edit two days. Without the pre-loop snapshot, persisting monday would
-		// mutate the store, the deep watcher would reset localBudget, and tuesday
-		// would be saved as 10 instead of the user's 7.
+		// Edit two days; the save must carry the full week (not per-day PUTs),
+		// with the untouched days at their current values.
 		await wrapper.find('[data-testid="energy-input-monday"]').setValue(5)
 		await wrapper.find('[data-testid="energy-input-tuesday"]').setValue(7)
 		await wrapper.find('[data-testid="save-energy-budget-button"]').trigger('click')
 		await flushPromises()
 
-		const calls = Object.fromEntries(
-			api.put.mock.calls.map(([, body]) => [body.day, body.energy]),
-		)
-		expect(calls.monday).toBe(5)
-		expect(calls.tuesday).toBe(7)
+		expect(api.put).toHaveBeenCalledTimes(1)
+		expect(api.put).toHaveBeenCalledWith('/api/v1/scheduling/preferences', {
+			energyBudget: fullBudget({ monday: 5, tuesday: 7 }),
+		})
+		// Store state is replaced from the response.
+		expect(store.energyBudget).toEqual(fullBudget({ monday: 5, tuesday: 7 }))
+	})
+
+	it('disables the day inputs and templates while a save is in flight', async () => {
+		store.energyBudget = fullBudget()
+		let resolvePut
+		api.put.mockReturnValue(new Promise((resolve) => { resolvePut = resolve }))
+
+		const wrapper = mountComponent()
+		await wrapper.find('[data-testid="energy-input-monday"]').setValue(5)
+		await wrapper.find('[data-testid="save-energy-budget-button"]').trigger('click')
+		await flushPromises()
+
+		// In-flight: no further edits possible, so the response sync can
+		// never clobber an edit made between click and response.
+		expect(wrapper.find('[data-testid="energy-slider-monday"]').attributes('disabled')).toBeDefined()
+		expect(wrapper.find('[data-testid="energy-input-tuesday"]').attributes('disabled')).toBeDefined()
+		expect(wrapper.find('[data-testid="template-light"]').attributes('disabled')).toBeDefined()
+
+		resolvePut({ energyBudget: fullBudget({ monday: 5 }) })
+		await flushPromises()
+		expect(wrapper.find('[data-testid="energy-input-monday"]').attributes('disabled')).toBeUndefined()
 	})
 })

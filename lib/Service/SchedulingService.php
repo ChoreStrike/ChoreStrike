@@ -36,19 +36,7 @@ class SchedulingService {
 	public function getUserPreferences(int $userId): array {
 		$user = $this->houseUserMapper->find($userId);
 
-		// Get stored preferences or return defaults
-		$preferences = $user->getSchedulingPreferences();
-
-		return [
-			'userId' => $userId,
-			'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
-			'weekdayAvailability' => $preferences['weekdayAvailability'] ?? $this->getDefaultAvailability(),
-			'maxDailyTasks' => $preferences['maxDailyTasks'] ?? PHP_INT_MAX,
-			'todayConsumedEnergy' => $this->completedTaskMapper->getConsumedEnergyForUserOnDate(
-				$userId,
-				new \DateTimeImmutable()
-			),
-		];
+		return $this->buildPreferencesPayload($user, $user->getSchedulingPreferences());
 	}
 
 	/**
@@ -65,77 +53,67 @@ class SchedulingService {
 	}
 
 	/**
-	 * Update energy budget for a specific day
+	 * Update the current user's scheduling preferences in bulk
+	 * (section-granular, never day-granular).
 	 *
-	 * @param int $userId The house user ID
-	 * @param string $day Weekday name (e.g., 'monday')
-	 * @param int $energy Energy points (1-20)
+	 * Each provided section replaces the stored section wholesale; absent
+	 * sections and sibling keys (e.g. `maxDailyTasks`) are preserved. The
+	 * lookup is scoped by houseId, so a user who is not a member of the
+	 * house is not found (membership enforced at the persistence layer).
+	 *
+	 * @param int $houseId The current house ID
+	 * @param string $nextcloudUserId The Nextcloud user ID
+	 * @param array|null $weekdayAvailability Full week of availability flags (null = leave unchanged)
+	 * @param array|null $energyBudget Full week of energy budgets 1-20 (null = leave unchanged)
+	 * @return array The persisted scheduling preferences
+	 * @throws \InvalidArgumentException When an energy value is not an integer in 1-20
 	 */
-	public function updateEnergyBudget(int $userId, string $day, int $energy): void {
-		if ($energy < 1 || $energy > 20) {
-			throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
-		}
-
-		$user = $this->houseUserMapper->find($userId);
+	public function updatePreferencesByNextcloudUserId(int $houseId, string $nextcloudUserId, ?array $weekdayAvailability, ?array $energyBudget): array {
+		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
 		$preferences = $user->getSchedulingPreferences();
 
-		if (!isset($preferences['energyBudget'])) {
-			$preferences['energyBudget'] = $this->getDefaultEnergyBudget();
+		if ($energyBudget !== null) {
+			foreach ($energyBudget as $energy) {
+				if (!is_int($energy) || $energy < 1 || $energy > 20) {
+					throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
+				}
+			}
+			$preferences['energyBudget'] = $energyBudget;
 		}
 
-		$preferences['energyBudget'][$day] = $energy;
-		$user->setSchedulingPreferences($preferences);
-
-		$this->houseUserMapper->update($user);
-	}
-
-	/**
-	 * Update availability for a Nextcloud user within a specific house.
-	 *
-	 * @param int $houseId The house ID
-	 * @param string $nextcloudUserId The Nextcloud user ID
-	 * @param string $day Weekday name
-	 * @param bool $available Whether user is available
-	 */
-	public function updateAvailabilityByNextcloudUserId(int $houseId, string $nextcloudUserId, string $day, bool $available): void {
-		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
-
-		$this->updateAvailability($user->getId(), $day, $available);
-	}
-
-	/**
-	 * Update energy budget for a Nextcloud user within a specific house.
-	 *
-	 * @param int $houseId The house ID
-	 * @param string $nextcloudUserId The Nextcloud user ID
-	 * @param string $day Weekday name (e.g., 'monday')
-	 * @param int $energy Energy points (1-20)
-	 */
-	public function updateEnergyBudgetByNextcloudUserId(int $houseId, string $nextcloudUserId, string $day, int $energy): void {
-		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
-
-		$this->updateEnergyBudget($user->getId(), $day, $energy);
-	}
-
-	/**
-	 * Update weekday availability
-	 *
-	 * @param int $userId The house user ID
-	 * @param string $day Weekday name
-	 * @param bool $available Whether user is available
-	 */
-	public function updateAvailability(int $userId, string $day, bool $available): void {
-		$user = $this->houseUserMapper->find($userId);
-		$preferences = $user->getSchedulingPreferences();
-
-		if (!isset($preferences['weekdayAvailability'])) {
-			$preferences['weekdayAvailability'] = $this->getDefaultAvailability();
+		if ($weekdayAvailability !== null) {
+			$preferences['weekdayAvailability'] = $weekdayAvailability;
 		}
 
-		$preferences['weekdayAvailability'][$day] = $available;
 		$user->setSchedulingPreferences($preferences);
-
 		$this->houseUserMapper->update($user);
+
+		return $this->buildPreferencesPayload($user, $user->getSchedulingPreferences());
+	}
+
+	/**
+	 * Build the public preferences payload for a house user.
+	 *
+	 * CR-SVC-28: reports the real consumed energy for today instead of a
+	 * hardcoded 0, so both this and the ByNextcloudUserId variant agree.
+	 *
+	 * @param HouseUser $user The house user (already loaded)
+	 * @param array|null $preferences The user's scheduling preferences (null for rows without stored preferences)
+	 * @return array The full preferences shape exposed to controllers
+	 */
+	private function buildPreferencesPayload(HouseUser $user, ?array $preferences): array {
+		$preferences = $preferences ?? [];
+
+		return [
+			'userId' => $user->getId(),
+			'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
+			'weekdayAvailability' => $preferences['weekdayAvailability'] ?? $this->getDefaultAvailability(),
+			'maxDailyTasks' => $preferences['maxDailyTasks'] ?? PHP_INT_MAX,
+			'todayConsumedEnergy' => $this->completedTaskMapper->getConsumedEnergyForUserOnDate(
+				$user->getId(),
+				new \DateTimeImmutable()
+			),
+		];
 	}
 
 	/**

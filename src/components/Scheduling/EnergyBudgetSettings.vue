@@ -41,6 +41,7 @@
 								min="1"
 								max="20"
 								class="energy-slider"
+								:disabled="saving"
 								:data-testid="`energy-slider-${day.key}`">
 							<div class="slider-marks">
 								<span v-for="mark in [1, 5, 10, 15, 20]" :key="mark" class="mark">{{ mark }}</span>
@@ -54,6 +55,7 @@
 								min="1"
 								max="20"
 								class="energy-number-input"
+								:disabled="saving"
 								:data-testid="`energy-input-${day.key}`">
 							<span class="energy-unit">{{ t('chorestrike', 'energy') }}</span>
 						</div>
@@ -73,6 +75,7 @@
 						v-for="template in energyTemplates"
 						:key="template.id"
 						class="template-button"
+						:disabled="saving"
 						:data-testid="`template-${template.id}`"
 						@click="applyEnergyTemplate(template)">
 						<div class="template-content">
@@ -222,14 +225,9 @@ const applyEnergyTemplate = (template) => {
 }
 
 const saveEnergyBudget = async () => {
-	// Snapshot before any await: the deep watcher on schedulingStore.energyBudget
-	// resets localBudget mid-loop (each persisted day mutates the store), which
-	// would silently revert unsaved days to their prior store values.
-	const snapshot = { ...localBudget.value }
-
 	// Validate every value up front so a partial set is never saved silently.
 	const invalid = weekDays.filter((day) => {
-		const energy = snapshot[day.key]
+		const energy = localBudget.value[day.key]
 		return !Number.isInteger(energy) || energy < 1 || energy > 20
 	})
 	if (invalid.length > 0) {
@@ -239,9 +237,7 @@ const saveEnergyBudget = async () => {
 
 	saving.value = true
 	try {
-		for (const day of weekDays) {
-			await schedulingStore.updateEnergyBudget(day.key, snapshot[day.key])
-		}
+		await schedulingStore.saveWeeklyPreferences({ energyBudget: { ...localBudget.value } })
 		showSuccess(t('chorestrike', 'Energy budget saved successfully!'))
 	} catch (error) {
 		logger.error('Failed to save energy budget', error, { component: 'EnergyBudgetSettings', action: 'saveEnergyBudget' })
@@ -256,9 +252,6 @@ onMounted(() => {
 })
 
 watch(() => schedulingStore.energyBudget, () => {
-	// Don't fight an in-flight save: the loop mutates the store day-by-day and
-	// would otherwise reset localBudget out from under the snapshot-based save.
-	if (saving.value) return
 	syncFromStore()
 }, { deep: true })
 </script>

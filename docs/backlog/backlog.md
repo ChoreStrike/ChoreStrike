@@ -192,14 +192,8 @@ canonical `src/services/api.js` client enforced by `apiContract.spec.js`.
 ## Review Follow-ups — CS-016 (Scheduling UI)
 
 > From [`archive/CODE_REVIEW_2026-07-28.md`](archive/CODE_REVIEW_2026-07-28.md).
-> CR-016-11 is **resolved** (CS-018); CR-016-12 is **resolved** (CS-032); the rest are open.
-
-### [P2] CR-016-02 — Batch the scheduling save endpoints
-**Effort**: M — `AvailabilitySettings.saveAvailability` (≤14 calls) +
-`EnergyBudgetSettings` (7) save per-day sequentially. Add a bulk `PUT` for a
-full week; call once; loading flicker gone. **Decision (2026-08-18):** sections
-optional — energy-only/availability-only payloads allowed, each provided
-section must be the complete week, neither section → 400. **Plan:** CS-PLAN-033.
+> CR-016-11 is **resolved** (CS-018); CR-016-12 is **resolved** (CS-032);
+> CR-016-02 is **resolved** (CS-033); the rest are open.
 
 ### [P2] CR-016-10 — Regression test for `getConsumedEnergyForUserOnDate` SQL fix
 **Effort**: S — mock-based mapper test cannot catch SQL errors; needs a real-DB
@@ -234,9 +228,16 @@ has no UI consumer; (c) `getSuggestions` sends the full task array though backen
 only uses `count($tasks)` → send `{ taskCount }`.
 
 ### [P3] CR-016-14 — AvailabilitySettings save guard + unreachable loading states
-**Effort**: S — (a) no `hasChanges` guard (Save with no edits fires ≤14 calls);
+**Effort**: S — (a) no `hasChanges` guard (Save with no edits fires 1 bulk call);
 (b) per-component `loading` blocks are unreachable dead UI (components mount only
 inside the view's `v-else`, loading=false).
+
+### [P3] CR-016-15 — Shared backend energy-bounds validation (drift risk)
+**Effort**: S — the 1–20 check + curated message now exists at three sites:
+`SchedulingController::validatePreferencesSection`, `SchedulingService::updatePreferencesByNextcloudUserId`,
+and the pre-existing `SchedulingService::applyMemberUpdates`. A bounds/message
+change must be made in all three or the self path and the owner path reject/persist
+different values for the same column. Source: Review of CS-PLAN-033 (2026-08-19).
 
 ### [P4] CR-016-08 — Convert `SchedulingView` to `<script setup>`
 **Effort**: S — uses Options API while all 5 children use `<script setup>`.

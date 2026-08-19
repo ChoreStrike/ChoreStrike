@@ -207,6 +207,18 @@ const weekDays = [
 	{ key: 'sunday', name: t('chorestrike', 'Sunday'), short: t('chorestrike', 'Sun') },
 ]
 
+// Mirrors SchedulingService::getDefaultEnergyBudget — used when a member's
+// stored budget lacks a day (partial section from the owner day-granular path).
+const defaultEnergyFallback = {
+	monday: 10,
+	tuesday: 10,
+	wednesday: 10,
+	thursday: 10,
+	friday: 10,
+	saturday: 15,
+	sunday: 15,
+}
+
 const loading = computed(() => schedulingStore.loading)
 
 const members = computed(() => {
@@ -263,15 +275,21 @@ const saveAvailability = async () => {
 
 	saving.value = true
 	try {
+		// Build full-week payloads: availability from the form, energy from
+		// the edited values with unset days defaulting to the member's
+		// stored budget (empty input = leave unchanged).
+		const storedBudget = editingMember.value.energyBudget ?? {}
+		const weekdayAvailability = {}
+		const energyBudget = {}
 		for (const day of weekDays) {
-			const available = editForm.value.availability[day.key]
-			await schedulingStore.updateAvailability(day.key, !!available)
-
+			weekdayAvailability[day.key] = !!editForm.value.availability[day.key]
 			const energy = editForm.value.energyBudget[day.key]
-			if (Number.isInteger(energy)) {
-				await schedulingStore.updateEnergyBudget(day.key, energy)
-			}
+			energyBudget[day.key] = Number.isInteger(energy)
+				? energy
+				: (storedBudget[day.key] ?? defaultEnergyFallback[day.key])
 		}
+
+		await schedulingStore.saveWeeklyPreferences({ weekdayAvailability, energyBudget })
 
 		showSuccess(t('chorestrike', 'Availability settings saved successfully'))
 		await schedulingStore.fetchMemberAvailability()

@@ -102,8 +102,7 @@ return [
 
         // Scheduling API
         ['name' => 'scheduling#getPreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'GET'],
-        ['name' => 'scheduling#updateEnergy', 'url' => '/api/v1/scheduling/energy', 'verb' => 'PUT'],
-        ['name' => 'scheduling#updateAvailability', 'url' => '/api/v1/scheduling/availability', 'verb' => 'PUT'],
+        ['name' => 'scheduling#updatePreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'PUT'],
         ['name' => 'scheduling#getMemberAvailability', 'url' => '/api/v1/scheduling/members', 'verb' => 'GET'],
         ['name' => 'scheduling#updateMemberAvailability', 'url' => '/api/v1/scheduling/members/{userId}', 'verb' => 'PUT'],
         ['name' => 'scheduling#getSuggestions', 'url' => '/api/v1/scheduling/suggestions', 'verb' => 'POST'],

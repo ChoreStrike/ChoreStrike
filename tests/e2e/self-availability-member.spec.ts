@@ -135,7 +135,7 @@ test.describe('Self Availability (member)', () => {
 		// round-trip instead.
 		const putResponse = page.waitForResponse((response) =>
 			response.request().method() === 'PUT'
-			&& response.url().includes('/scheduling/availability'))
+			&& response.url().includes('/scheduling/preferences'))
 		await saveButton.click()
 		expect((await putResponse).ok()).toBe(true)
 		await expect(saveButton).toBeDisabled()
@@ -164,7 +164,7 @@ test.describe('Self Availability (member)', () => {
 			// cannot pass silently on local checkbox state alone.
 			const putResponse = page.waitForResponse((response) =>
 				response.request().method() === 'PUT'
-				&& response.url().includes('/scheduling/availability'))
+				&& response.url().includes('/scheduling/preferences'))
 			await saveButton.click()
 			expect((await putResponse).ok()).toBe(true)
 			await expect(saveButton).toBeDisabled()

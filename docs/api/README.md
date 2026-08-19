@@ -364,10 +364,10 @@ Deactivate / re-activate a room-task instance.
 Remove task from room.
 
 > **Full route list:** the canonical, complete route table is
-> [`appinfo/routes.php`](../../appinfo/routes.php) (132 routes spanning `house`,
+> [`appinfo/routes.php`](../../appinfo/routes.php) (111 routes spanning `house`,
 > `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
-> `smart_scheduler`, `template`, `checklist`, `task_sync`, `minigame`,
-> `reward_config`, and `test`). This document covers the core CRUD + completion
+> `checklist`, `task_sync`, `minigame`, `reward_config`, `setup`, and `test`).
+> This document covers the core CRUD + completion
 > flows; the `RouteMatrixTest` contract test guards route↔controller drift.
 
 #### POST /room-tasks/{id}/complete
@@ -487,6 +487,56 @@ Get medals for current week.
   }
 ]
 ```
+
+### Scheduling
+
+#### GET /scheduling/preferences
+Get the current user's scheduling preferences (member-gated).
+
+**Response `data`:**
+```json
+{
+  "userId": 7,
+  "energyBudget": { "monday": 10, "tuesday": 10, "wednesday": 10, "thursday": 10, "friday": 10, "saturday": 15, "sunday": 15 },
+  "weekdayAvailability": { "monday": true, "tuesday": true, "wednesday": true, "thursday": true, "friday": true, "saturday": true, "sunday": true },
+  "maxDailyTasks": null,
+  "todayConsumedEnergy": 3
+}
+```
+
+#### PUT /scheduling/preferences
+Save the current user's weekly preferences in **one** bulk request
+(CS-PLAN-033, closes CR-016-02; replaced the removed per-day
+`PUT /scheduling/energy` and `PUT /scheduling/availability`).
+
+**Request** — sections are optional, but at least one is required; each
+provided section must be the **complete week** (exactly the seven canonical
+weekday keys). The merge is section-granular: a provided section replaces the
+stored one wholesale, absent sections and sibling keys (e.g. `maxDailyTasks`)
+stay unchanged.
+
+```json
+{
+  "weekdayAvailability": { "monday": true, "tuesday": false, "wednesday": true, "thursday": true, "friday": true, "saturday": true, "sunday": true },
+  "energyBudget": { "monday": 10, "tuesday": 10, "wednesday": 10, "thursday": 10, "friday": 10, "saturday": 15, "sunday": 15 }
+}
+```
+
+**Response `data`:** the full persisted preferences (same shape as `GET`).
+
+**Errors:** `400 VALIDATION_ERROR` (neither section provided, partial week,
+unknown weekday key, non-bool availability, energy outside 1-20), `403 FORBIDDEN`
+(non-member). Persistence is a single validated read-modify-write on one
+`house_user` JSON column — inherently atomic, no multi-statement transaction.
+
+#### GET /scheduling/members
+Get all member availability (house owner only).
+
+#### PUT /scheduling/members/{userId}
+Update another member's weekday availability/energy (house owner only).
+
+#### POST /scheduling/suggestions
+Get scheduling suggestions for a set of tasks.
 
 ### Users
 

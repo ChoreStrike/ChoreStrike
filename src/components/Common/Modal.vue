@@ -17,6 +17,7 @@
 			</button>
 			<slot name="header" />
 			<slot />
+			<slot name="footer" />
 		</div>
 	</div>
 </template>

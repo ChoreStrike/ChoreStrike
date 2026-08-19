@@ -37,7 +37,7 @@ use OCP\AppFramework\Db\Entity;
  * @method void setRole(string $role)
  * @method \DateTime getJoinedAt()
  * @method void setJoinedAt(\DateTime $joinedAt)
- * @method array getSchedulingPreferences()
+ * @method array|null getSchedulingPreferences()
  * @method void setSchedulingPreferences(array $preferences)
  * @method int getStreakFreezes()
  * @method void setStreakFreezes(int $streakFreezes)

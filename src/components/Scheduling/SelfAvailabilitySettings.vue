@@ -28,6 +28,7 @@
 							v-model="localAvailability[day.key]"
 							type="checkbox"
 							class="toggle-input"
+							:disabled="saving"
 							:data-testid="`self-availability-${day.key}`">
 						<span class="toggle-slider" />
 						<span class="toggle-text">{{ day.name }}</span>
@@ -106,19 +107,19 @@ const resetFromStore = () => {
 }
 
 const saveAvailability = async () => {
-	// Snapshot before any await: the watcher on schedulingStore.weekdayAvailability
-	// re-syncs local state after each per-day save, which would revert unsaved
-	// days to their prior store values mid-loop.
-	const snapshot = { ...localAvailability.value }
 	const changedDays = weekDays
-		.filter(day => !!snapshot[day.key] !== !!schedulingStore.weekdayAvailability[day.key])
+		.filter(day => !!localAvailability.value[day.key] !== !!schedulingStore.weekdayAvailability[day.key])
 	if (changedDays.length === 0) return
 
 	saving.value = true
 	try {
-		for (const day of changedDays) {
-			await schedulingStore.updateAvailability(day.key, !!snapshot[day.key])
+		// One bulk save carrying the full week (CS-033 adoption hook,
+		// recorded in CS-PLAN-032's save handler).
+		const weekdayAvailability = {}
+		for (const day of weekDays) {
+			weekdayAvailability[day.key] = !!localAvailability.value[day.key]
 		}
+		await schedulingStore.saveWeeklyPreferences({ weekdayAvailability })
 		showSuccess(t('chorestrike', 'Availability settings saved successfully'))
 	} catch (error) {
 		logger.error('Failed to save availability', error, { component: 'SelfAvailabilitySettings', action: 'saveAvailability' })
@@ -133,9 +134,6 @@ onMounted(() => {
 })
 
 watch(() => schedulingStore.weekdayAvailability, () => {
-	// Don't fight an in-flight save: the loop mutates the store day-by-day and
-	// would otherwise reset localAvailability out from under the snapshot.
-	if (saving.value) return
 	syncFromStore()
 }, { deep: true })
 </script>

@@ -84,7 +84,13 @@ describe('SelfAvailabilitySettings', () => {
 		expect(saveButton.attributes('disabled')).toBeUndefined()
 	})
 
-	it('saves only changed days and updates store state on success', async () => {
+	it('saves the full week in one bulk call and updates store state on success', async () => {
+		const editedWeek = {
+			monday: true, tuesday: false, wednesday: true, thursday: true,
+			friday: true, saturday: false, sunday: true,
+		}
+		api.put.mockResolvedValue({ weekdayAvailability: editedWeek })
+
 		const wrapper = mountComponent()
 
 		await wrapper.find('[data-testid="self-availability-tuesday"]').setValue(false)
@@ -92,13 +98,30 @@ describe('SelfAvailabilitySettings', () => {
 		await wrapper.find('[data-testid="save-self-availability-button"]').trigger('click')
 		await flushPromises()
 
-		expect(api.put).toHaveBeenCalledTimes(2)
-		expect(api.put).toHaveBeenCalledWith('/api/v1/scheduling/availability', { day: 'tuesday', available: false })
-		expect(api.put).toHaveBeenCalledWith('/api/v1/scheduling/availability', { day: 'saturday', available: false })
+		expect(api.put).toHaveBeenCalledTimes(1)
+		expect(api.put).toHaveBeenCalledWith('/api/v1/scheduling/preferences', {
+			weekdayAvailability: editedWeek,
+		})
 
-		expect(store.weekdayAvailability.tuesday).toBe(false)
-		expect(store.weekdayAvailability.saturday).toBe(false)
-		expect(store.weekdayAvailability.monday).toBe(true)
+		expect(store.weekdayAvailability).toEqual(editedWeek)
+	})
+
+	it('disables the day toggles while a save is in flight', async () => {
+		let resolvePut
+		api.put.mockReturnValue(new Promise((resolve) => { resolvePut = resolve }))
+
+		const wrapper = mountComponent()
+		await wrapper.find('[data-testid="self-availability-tuesday"]').setValue(false)
+		await wrapper.find('[data-testid="save-self-availability-button"]').trigger('click')
+		await flushPromises()
+
+		// In-flight: no further edits possible, so the response sync can
+		// never clobber an edit made between click and response.
+		expect(wrapper.find('[data-testid="self-availability-monday"]').attributes('disabled')).toBeDefined()
+
+		resolvePut({ weekdayAvailability: { ...store.weekdayAvailability, tuesday: false } })
+		await flushPromises()
+		expect(wrapper.find('[data-testid="self-availability-monday"]').attributes('disabled')).toBeUndefined()
 	})
 
 	it('shows an error toast and keeps local edits on API failure', async () => {
