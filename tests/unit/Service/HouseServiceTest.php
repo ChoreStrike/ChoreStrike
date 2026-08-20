@@ -156,7 +156,7 @@ class HouseServiceTest extends TestCase {
 	public function testCalculateHouseHealth_NoRooms_Returns100(): void {
 		$houseId = 1;
 
-		$this->floorMapper
+		$this->roomMapper
 			->expects($this->once())
 			->method('findByHouseId')
 			->with($houseId)
@@ -169,12 +169,12 @@ class HouseServiceTest extends TestCase {
 
 	/**
 	 * CalculateHouseHealth_WithRooms_ReturnsAverageCleanliness
+	 *
+	 * CS-PLAN-036: one house-scoped room fetch replaces the
+	 * floors → findByFloorId loop.
 	 */
 	public function testCalculateHouseHealth_WithRooms_ReturnsAverageCleanliness(): void {
 		$houseId = 1;
-
-		$floor = new Floor();
-		$floor->setId(1);
 
 		$room1 = new Room();
 		$room1->setId(1);
@@ -184,16 +184,10 @@ class HouseServiceTest extends TestCase {
 		$room2->setId(2);
 		$room2->setCleanliness(60);
 
-		$this->floorMapper
+		$this->roomMapper
 			->expects($this->once())
 			->method('findByHouseId')
 			->with($houseId)
-			->willReturn([$floor]);
-
-		$this->roomMapper
-			->expects($this->once())
-			->method('findByFloorId')
-			->with(1)
 			->willReturn([$room1, $room2]);
 
 		$this->houseMapper
@@ -241,8 +235,8 @@ class HouseServiceTest extends TestCase {
 
 		$this->roomMapper
 			->expects($this->once())
-			->method('findByFloorId')
-			->with(1)
+			->method('findByHouseId')
+			->with($houseId)
 			->willReturn([$cleanRoom, $dirtyRoom]);
 
 		$result = $this->service->getHouseStats($houseId);

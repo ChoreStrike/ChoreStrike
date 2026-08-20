@@ -31,7 +31,6 @@ class FamilyIntegrationTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
 		$this->completedTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class);
 		$this->medalMapper = $this->createMock(\OCA\ChoreStrike\Db\MedalMapper::class);
-		$roomTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
 		$rewardConfigService = $this->createMock(\OCA\ChoreStrike\Service\RewardConfigService::class);
 		$notificationService = $this->createMock(\OCA\ChoreStrike\Service\NotificationService::class);
 
@@ -39,7 +38,6 @@ class FamilyIntegrationTest extends TestCase {
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->medalMapper,
-			$roomTaskMapper,
 			$rewardConfigService,
 			$notificationService
 		);
@@ -145,10 +143,9 @@ class FamilyIntegrationTest extends TestCase {
 			$this->mockMappersForUser($user);
 
 			$result = $this->gameLogicService->handleTaskCompletion(
-				$roomTask->getId(),
+				$roomTask,
 				$user->getId(),
-				$task,
-				75
+				$task
 			);
 
 			$totalPoints += $result['contributionScore'];

@@ -193,6 +193,68 @@ class HouseUserMapperTest extends TestCase {
 	}
 
 	/**
+	 * FindByHouseIdAndNextcloudUserIds_EmptyInput_ReturnsEmptyMapWithoutQuery
+	 *
+	 * CS-PLAN-036: the empty-array early return must not build an IN () —
+	 * that would be a syntax error on MariaDB/SQLite.
+	 */
+	public function testFindByHouseIdAndNextcloudUserIds_EmptyInput_ReturnsEmptyMapWithoutQuery(): void {
+		$this->qb->expects($this->never())->method('select');
+
+		$this->assertSame([], $this->mapper->findByHouseIdAndNextcloudUserIds(1, []));
+	}
+
+	/**
+	 * FindByHouseIdAndNextcloudUserIds_BuildsInQueryAndMapsByNextcloudUserId
+	 */
+	public function testFindByHouseIdAndNextcloudUserIds_BuildsInQueryAndMapsByNextcloudUserId(): void {
+		$capturedTypes = [];
+		$this->qb->method('createNamedParameter')->willReturnCallback(
+			function ($value, $type) use (&$capturedTypes) {
+				$capturedTypes[] = $type;
+				return 'param_' . count($capturedTypes);
+			}
+		);
+		$this->qb->method('select')->willReturnSelf();
+		$this->qb->method('from')->willReturnSelf();
+		$this->qb->method('where')->willReturnSelf();
+		$this->qb->method('andWhere')->willReturnSelf();
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturnOnConsecutiveCalls(
+			['id' => 1, 'house_id' => 1, 'nextcloud_user_id' => 'user1', 'display_name' => 'User One', 'role' => 'owner'],
+			['id' => 2, 'house_id' => 1, 'nextcloud_user_id' => 'user2', 'display_name' => 'User Two', 'role' => 'member'],
+			false
+		);
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$map = $this->mapper->findByHouseIdAndNextcloudUserIds(1, ['user1', 'user2', 'absent']);
+
+		$this->assertSame(['user1', 'user2'], array_keys($map));
+		$this->assertInstanceOf(HouseUser::class, $map['user1']);
+		$this->assertSame('User One', $map['user1']->getDisplayName());
+		// The IN list must be bound with the STR array type.
+		$this->assertContains(IQueryBuilder::PARAM_STR_ARRAY, $capturedTypes);
+	}
+
+	/**
+	 * FindByHouseIdAndNextcloudUserIds_NoRows_ReturnsEmptyMap
+	 */
+	public function testFindByHouseIdAndNextcloudUserIds_NoRows_ReturnsEmptyMap(): void {
+		$this->qb->method('createNamedParameter')->willReturn('p');
+		$this->qb->method('select')->willReturnSelf();
+		$this->qb->method('from')->willReturnSelf();
+		$this->qb->method('where')->willReturnSelf();
+		$this->qb->method('andWhere')->willReturnSelf();
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturn(false);
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$this->assertSame([], $this->mapper->findByHouseIdAndNextcloudUserIds(7, ['nobody']));
+	}
+
+	/**
 	 * FindForUpdate_LockingEngines_AcquiresLockViaSelectForUpdate
 	 *
 	 * CR-SVC-04 (reopened): on MySQL/MariaDB/PostgreSQL the lock must be a

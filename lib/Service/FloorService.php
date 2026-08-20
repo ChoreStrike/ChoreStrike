@@ -185,14 +185,29 @@ class FloorService {
 	/**
 	 * Get all floors with their rooms for a house
 	 *
+	 * Rooms for every floor come from ONE house-scoped fetch
+	 * (RoomMapper::findByHouseId, CS-PLAN-036) grouped by floor_id in PHP,
+	 * instead of delegating to getFloorWithRooms' 2 queries per floor.
+	 * The single-floor endpoint keeps its own behavior.
+	 *
 	 * @param int $houseId The house ID
 	 */
 	public function getFloorsWithRooms(int $houseId): array {
 		$floors = $this->floorMapper->findByHouseId($houseId);
-		$result = [];
 
+		$roomsByFloorId = [];
+		foreach ($this->roomMapper->findByHouseId($houseId) as $room) {
+			$roomsByFloorId[$room->getFloorId()][] = $room;
+		}
+
+		$result = [];
 		foreach ($floors as $floor) {
-			$result[] = $this->getFloorWithRooms($floor->getId());
+			$rooms = $roomsByFloorId[$floor->getId()] ?? [];
+			$result[] = [
+				'floor' => $floor,
+				'rooms' => $rooms,
+				'stats' => $this->calculateFloorStats($rooms)
+			];
 		}
 
 		return $result;

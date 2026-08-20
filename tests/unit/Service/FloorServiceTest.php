@@ -309,6 +309,10 @@ class FloorServiceTest extends TestCase {
 
 	/**
 	 * GetFloorsWithRooms_ReturnsAllFloorsWithRooms
+	 *
+	 * CS-PLAN-036: rooms for all floors come from ONE house-scoped fetch
+	 * grouped by floor_id, instead of 2 queries per floor via
+	 * getFloorWithRooms.
 	 */
 	public function testGetFloorsWithRooms_ReturnsAllFloorsWithRooms(): void {
 		$houseId = 1;
@@ -323,6 +327,7 @@ class FloorServiceTest extends TestCase {
 
 		$room = new Room();
 		$room->setId(1);
+		$room->setFloorId(1);
 		$room->setCleanliness(100);
 
 		$this->floorMapper
@@ -331,13 +336,16 @@ class FloorServiceTest extends TestCase {
 			->with($houseId)
 			->willReturn([$floor1, $floor2]);
 
-		$this->floorMapper
-			->method('find')
-			->willReturnOnConsecutiveCalls($floor1, $floor2);
-
+		// One batch fetch; rooms are grouped onto their floor in PHP.
 		$this->roomMapper
-			->method('findByFloorId')
-			->willReturnOnConsecutiveCalls([$room], []);
+			->expects($this->once())
+			->method('findByHouseId')
+			->with($houseId)
+			->willReturn([$room]);
+
+		// The plural path never re-fetches floors or per-floor rooms.
+		$this->floorMapper->expects($this->never())->method('find');
+		$this->roomMapper->expects($this->never())->method('findByFloorId');
 
 		$result = $this->service->getFloorsWithRooms($houseId);
 

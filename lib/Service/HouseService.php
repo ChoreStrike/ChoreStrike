@@ -141,24 +141,22 @@ class HouseService {
 	/**
 	 * Calculate overall house health based on room cleanliness
 	 *
+	 * One house-scoped room fetch (CS-PLAN-036) instead of a
+	 * floors → findByFloorId loop (1 + N_floors → 1 query).
+	 *
 	 * @param int $houseId The house ID
 	 */
 	public function calculateHouseHealth(int $houseId): int {
-		$floors = $this->floorMapper->findByHouseId($houseId);
-		$totalCleanliness = 0;
-		$roomCount = 0;
-
-		foreach ($floors as $floor) {
-			$rooms = $this->roomMapper->findByFloorId($floor->getId());
-
-			foreach ($rooms as $room) {
-				$totalCleanliness += $room->getCleanliness();
-				$roomCount++;
-			}
-		}
+		$rooms = $this->roomMapper->findByHouseId($houseId);
+		$roomCount = count($rooms);
 
 		if ($roomCount === 0) {
 			return 100; // Empty house is perfectly clean
+		}
+
+		$totalCleanliness = 0;
+		foreach ($rooms as $room) {
+			$totalCleanliness += $room->getCleanliness();
 		}
 
 		$averageCleanliness = (int)round($totalCleanliness / $roomCount);
@@ -170,31 +168,33 @@ class HouseService {
 	/**
 	 * Get house statistics
 	 *
+	 * Rooms come from one house-scoped fetch (CS-PLAN-036) instead of a
+	 * per-floor loop (1 + N_floors → 2 queries); the floors list stays in
+	 * the payload.
+	 *
 	 * @param int $houseId The house ID
 	 */
 	public function getHouseStats(int $houseId): array {
 		$house = $this->houseMapper->find($houseId);
 		$floors = $this->floorMapper->findByHouseId($houseId);
+		$rooms = $this->roomMapper->findByHouseId($houseId);
 
 		$roomCount = 0;
 		$cleanRooms = 0;
 		$dirtyRooms = 0;
 		$roomsNeedingCleaning = 0;
 
-		foreach ($floors as $floor) {
-			$rooms = $this->roomMapper->findByFloorId($floor->getId());
-			$roomCount += count($rooms);
+		foreach ($rooms as $room) {
+			$roomCount++;
 
-			foreach ($rooms as $room) {
-				if ($room->getCleanliness() >= 60) {
-					$cleanRooms++;
-				} else {
-					$dirtyRooms++;
-				}
+			if ($room->getCleanliness() >= 60) {
+				$cleanRooms++;
+			} else {
+				$dirtyRooms++;
+			}
 
-				if ($room->needsCleaning()) {
-					$roomsNeedingCleaning++;
-				}
+			if ($room->needsCleaning()) {
+				$roomsNeedingCleaning++;
 			}
 		}
 

@@ -245,12 +245,12 @@ class MinigameServiceTest extends TestCase {
 			->with(1, 'snake', 10)
 			->willReturn([$score1, $score2]);
 
-		$this->houseUserMapper->expects($this->exactly(2))
-			->method('findByHouseIdAndNextcloudUserId')
-			->willReturnMap([
-				[1, 'user1', $user1],
-				[1, 'user2', $user2],
-			]);
+		// CR-SVC-56: ONE batch lookup for both members instead of per-row
+		// membership fetches.
+		$this->houseUserMapper->expects($this->once())
+			->method('findByHouseIdAndNextcloudUserIds')
+			->with(1, ['user1', 'user2'])
+			->willReturn(['user1' => $user1, 'user2' => $user2]);
 
 		$result = $this->service->getLeaderboard(1, 'snake', 10);
 
@@ -259,6 +259,66 @@ class MinigameServiceTest extends TestCase {
 		$this->assertEquals(500, $result[0]['score']);
 		$this->assertEquals('Bob', $result[1]['displayName']);
 		$this->assertEquals(300, $result[1]['score']);
+	}
+
+	/**
+	 * GetLeaderboard_MissingMember_FallsBackToUserId
+	 *
+	 * A score row whose submitter has no house_users row (removed member)
+	 * falls back to the raw userId as displayName.
+	 */
+	public function testGetLeaderboard_MissingMember_FallsBackToUserId(): void {
+		$score = new MinigameScore();
+		$score->setId(1);
+		$score->setUserId('ghost');
+		$score->setScore(120);
+
+		$this->scoreMapper->method('getLeaderboard')->willReturn([$score]);
+		$this->houseUserMapper->method('findByHouseIdAndNextcloudUserIds')->willReturn([]);
+
+		$result = $this->service->getLeaderboard(1, 'snake', 10);
+
+		$this->assertCount(1, $result);
+		$this->assertEquals('ghost', $result[0]['displayName']);
+	}
+
+	/**
+	 * GetWeeklyLeaderboard_EnrichesScoresWithDisplayNames
+	 *
+	 * The weekly variant shares the batch enrichment (CR-SVC-56) — one
+	 * findByHouseIdAndNextcloudUserIds call for the period's scores.
+	 */
+	public function testGetWeeklyLeaderboard_EnrichesScoresWithDisplayNames(): void {
+		$score1 = new MinigameScore();
+		$score1->setId(1);
+		$score1->setUserId('user1');
+		$score1->setScore(500);
+
+		$score2 = new MinigameScore();
+		$score2->setId(2);
+		$score2->setUserId('user2');
+		$score2->setScore(300);
+
+		$user1 = new HouseUser();
+		$user1->setNextcloudUserId('user1');
+		$user1->setDisplayName('Alice');
+
+		$this->scoreMapper->expects($this->once())
+			->method('getLeaderboardForPeriod')
+			->with(1, 'snake', $this->callback(fn ($date) => $date instanceof \DateTime), 10)
+			->willReturn([$score1, $score2]);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('findByHouseIdAndNextcloudUserIds')
+			->with(1, ['user1', 'user2'])
+			->willReturn(['user1' => $user1]);
+
+		$result = $this->service->getWeeklyLeaderboard(1, 'snake', 10);
+
+		$this->assertCount(2, $result);
+		$this->assertEquals('Alice', $result[0]['displayName']);
+		// user2 has no house_user row → userId fallback.
+		$this->assertEquals('user2', $result[1]['displayName']);
 	}
 
 	public function testGetPersonalBestReturnsHighestScore(): void {

@@ -259,6 +259,41 @@ class HouseUserMapper extends QBMapper {
 	}
 
 	/**
+	 * Find house users by house ID and multiple Nextcloud user IDs in one query.
+	 *
+	 * Batch sibling of findByHouseIdAndNextcloudUserId (CS-PLAN-036): an
+	 * IN-clause lookup returning a map nextcloud_user_id → HouseUser.
+	 * Users without a membership in this house are simply absent from the
+	 * map — callers treat a missing key as "not found" instead of running
+	 * N per-row lookups (leaderboard enrichment).
+	 *
+	 * @param int $houseId The house ID
+	 * @param string[] $ncUserIds The Nextcloud user IDs
+	 * @return array<string, HouseUser> Map of Nextcloud user ID → HouseUser
+	 */
+	public function findByHouseIdAndNextcloudUserIds(int $houseId, array $ncUserIds): array {
+		if (empty($ncUserIds)) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->in('nextcloud_user_id', $qb->createNamedParameter($ncUserIds, IQueryBuilder::PARAM_STR_ARRAY)));
+
+		$result = $qb->executeQuery();
+		$map = [];
+		while ($row = $result->fetch()) {
+			$entity = $this->mapRowToEntity($row);
+			$map[$entity->getNextcloudUserId()] = $entity;
+		}
+		$result->closeCursor();
+
+		return $map;
+	}
+
+	/**
 	 * Find all house users across all houses for background-job iteration.
 	 *
 	 * Centralising this lookup in the mapper keeps StreakFreezeJob,

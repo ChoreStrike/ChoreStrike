@@ -107,10 +107,13 @@ class CompletedTaskMapper extends QBMapper {
 	public function getUserStats(int $userId, \DateTime $startDate, \DateTime $endDate): array {
 		$qb = $this->db->getQueryBuilder();
 
-		$qb->select('COUNT(*) as task_count')
-			->addSelect('SUM(coins_earned) as total_coins')
-			->addSelect('SUM(CASE WHEN was_combo = 1 THEN 1 ELSE 0 END) as combo_count')
-			->addSelect('COUNT(DISTINCT DATE(completed_at)) as active_days')
+		// Aggregate expressions must go through createFunction — the raw
+		// strings would otherwise be quoted as column names and fail on the
+		// real DB (exposed by the CS-PLAN-036 equivalence integration test).
+		$qb->select($qb->createFunction('COUNT(*) AS task_count'))
+			->addSelect($qb->createFunction('SUM(coins_earned) AS total_coins'))
+			->addSelect($qb->createFunction('SUM(CASE WHEN was_combo = 1 THEN 1 ELSE 0 END) AS combo_count'))
+			->addSelect($qb->createFunction('COUNT(DISTINCT DATE(completed_at)) AS active_days'))
 			->from($this->getTableName())
 			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($startDate, IQueryBuilder::PARAM_DATE)))
@@ -126,6 +129,51 @@ class CompletedTaskMapper extends QBMapper {
 			'comboCount' => (int)($row['combo_count'] ?? 0),
 			'activeDays' => (int)($row['active_days'] ?? 0),
 		];
+	}
+
+	/**
+	 * Get weekly statistics for ALL users of a house in one grouped query (CS-PLAN-036).
+	 *
+	 * Grouped sibling of getUserStats: same aggregates and DATE() portability,
+	 * but GROUP BY user_id over the house's users (joined via
+	 * chorestrike_house_users.house_id) so the medal check makes one round
+	 * trip instead of one per user. Users without completions in the range
+	 * are absent from the map — callers treat a missing key as all-zero
+	 * stats (equivalent to getUserStats on an empty range).
+	 *
+	 * @param int $houseId The house ID
+	 * @param \DateTime $startDate Start date
+	 * @param \DateTime $endDate End date
+	 * @return array<int, array{taskCount:int, totalCoins:int, comboCount:int, activeDays:int}> Map of house user ID → stats
+	 */
+	public function getUserStatsByHouse(int $houseId, \DateTime $startDate, \DateTime $endDate): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('ct.user_id')
+			->addSelect($qb->createFunction('COUNT(*) AS task_count'))
+			->addSelect($qb->createFunction('SUM(ct.coins_earned) AS total_coins'))
+			->addSelect($qb->createFunction('SUM(CASE WHEN ct.was_combo = 1 THEN 1 ELSE 0 END) AS combo_count'))
+			->addSelect($qb->createFunction('COUNT(DISTINCT DATE(ct.completed_at)) AS active_days'))
+			->from($this->getTableName(), 'ct')
+			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
+			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($startDate, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($endDate, IQueryBuilder::PARAM_DATE)))
+			->groupBy('ct.user_id');
+
+		$result = $qb->executeQuery();
+		$stats = [];
+		while ($row = $result->fetch()) {
+			$stats[(int)$row['user_id']] = [
+				'taskCount' => (int)($row['task_count'] ?? 0),
+				'totalCoins' => (int)($row['total_coins'] ?? 0),
+				'comboCount' => (int)($row['combo_count'] ?? 0),
+				'activeDays' => (int)($row['active_days'] ?? 0),
+			];
+		}
+		$result->closeCursor();
+
+		return $stats;
 	}
 
 	/**
@@ -210,6 +258,36 @@ class CompletedTaskMapper extends QBMapper {
 			->where($qb->expr()->eq('synced_to_nextcloud', $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL)))
 			->andWhere($qb->expr()->isNotNull('nextcloud_task_id'))
 			->orderBy('completed_at', 'ASC')
+			->setMaxResults($limit);
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Find completions pending sync to Nextcloud, scoped to one house (CS-PLAN-036).
+	 *
+	 * House-scoped JOIN sibling of findPendingSyncs (completed_tasks has no
+	 * denormalized house_id column): completed_tasks → room_tasks → rooms →
+	 * floors on floors.house_id. Replaces the per-row ownership chain
+	 * (3 queries × N rows) plus the limit×5 overfetch in
+	 * TaskSyncService::getPendingSyncsForHouse with one bounded query.
+	 *
+	 * @param int $houseId The house ID
+	 * @param int $limit Maximum number of records
+	 * @return CompletedTask[] Pending completions of the house, completed_at ASC
+	 */
+	public function findPendingSyncsForHouse(int $houseId, int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('ct.*')
+			->from($this->getTableName(), 'ct')
+			->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
+			->innerJoin('rt', 'chorestrike_rooms', 'r', $qb->expr()->eq('rt.room_id', 'r.id'))
+			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('ct.synced_to_nextcloud', $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL)))
+			->andWhere($qb->expr()->isNotNull('ct.nextcloud_task_id'))
+			->orderBy('ct.completed_at', 'ASC')
 			->setMaxResults($limit);
 
 		return $this->findEntities($qb);
@@ -311,15 +389,16 @@ class CompletedTaskMapper extends QBMapper {
 	 */
 	public function getMaxRoomCompletionCountByUser(int $userId, \DateTime $start, \DateTime $end): int {
 		$qb = $this->db->getQueryBuilder();
+		$countExpr = $qb->createFunction('COUNT(*)');
 		$qb->select('rt.room_id')
-			->addSelect('COUNT(*) AS room_count')
+			->addSelect($qb->createFunction('COUNT(*) AS room_count'))
 			->from($this->getTableName(), 'ct')
 			->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
 			->where($qb->expr()->eq('ct.user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
 			->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->groupBy('rt.room_id')
-			->orderBy('room_count', 'DESC')
+			->orderBy($countExpr, 'DESC')
 			->setMaxResults(1);
 
 		$result = $qb->executeQuery();
@@ -333,6 +412,49 @@ class CompletedTaskMapper extends QBMapper {
 		}
 
 		return (int)($row['room_count'] ?? 0);
+	}
+
+	/**
+	 * Get the highest single-room completion count per user for a whole house (CS-PLAN-036).
+	 *
+	 * Grouped sibling of getMaxRoomCompletionCountByUser: groups by
+	 * (user_id, room_id) over the house's users (joined via
+	 * chorestrike_house_users.house_id), then reduces to the per-user
+	 * maximum in PHP. Users without completions are absent from the map —
+	 * callers treat a missing key as 0 (equivalent to the per-user method
+	 * on an empty range).
+	 *
+	 * @param int $houseId The house ID
+	 * @param \DateTime $start Inclusive range start
+	 * @param \DateTime $end Inclusive range end
+	 * @return array<int, int> Map of house user ID → highest per-room completion count
+	 */
+	public function getMaxRoomCompletionCountByHouse(int $houseId, \DateTime $start, \DateTime $end): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('ct.user_id')
+			->addSelect('rt.room_id')
+			->addSelect($qb->createFunction('COUNT(*) AS room_count'))
+			->from($this->getTableName(), 'ct')
+			->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
+			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
+			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->groupBy('ct.user_id')
+			->addGroupBy('rt.room_id');
+
+		$result = $qb->executeQuery();
+		$max = [];
+		while ($row = $result->fetch()) {
+			$userId = (int)$row['user_id'];
+			$count = (int)($row['room_count'] ?? 0);
+			if (!isset($max[$userId]) || $count > $max[$userId]) {
+				$max[$userId] = $count;
+			}
+		}
+		$result->closeCursor();
+
+		return $max;
 	}
 
 	/**

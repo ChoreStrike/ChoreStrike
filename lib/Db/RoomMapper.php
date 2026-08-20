@@ -37,6 +37,34 @@ class RoomMapper extends QBMapper {
 	}
 
 	/**
+	 * Find multiple rooms by IDs in one query (CS-PLAN-036).
+	 *
+	 * IN-clause batch lookup returning a map id → Room. Missing ids are
+	 * tolerated and simply absent from the map (skip-on-missing semantics
+	 * for callers iterating room tasks).
+	 *
+	 * @param int[] $ids The room IDs
+	 * @return array<int, Room> Map of room ID → Room entity
+	 */
+	public function findByIds(array $ids): array {
+		if (empty($ids)) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+
+		$map = [];
+		foreach ($this->findEntities($qb) as $room) {
+			$map[$room->getId()] = $room;
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Get all rooms for a floor
 	 *
 	 * @param int $floorId The floor ID

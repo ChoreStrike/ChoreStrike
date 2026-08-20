@@ -690,8 +690,10 @@ class RoomTaskService {
 	/**
 	 * Get today's tasks for a house including task and room details.
 	 *
-	 * Uses per-request caching for task and room entities to avoid repeated
-	 * lookups when multiple daily room tasks reference the same task or room.
+	 * Task and room entities are fetched in two batch queries
+	 * (TaskMapper/RoomMapper::findByIds, CS-PLAN-036) instead of per-id
+	 * lookups — superseding the old per-request id cache. A missing task
+	 * or room row (map absence) skips the room task.
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTime $date The date to get tasks for
@@ -699,25 +701,29 @@ class RoomTaskService {
 	 */
 	public function getDailyTasksWithDetails(int $houseId, \DateTime $date): array {
 		$dailyTasks = $this->getDailyTasks($houseId, $date);
-		$taskCache = [];
-		$roomCache = [];
-		$details = [];
 
+		$taskIds = [];
+		$roomIds = [];
 		foreach ($dailyTasks as $roomTask) {
-			$taskId = $roomTask->getTaskId();
-			if (!isset($taskCache[$taskId])) {
-				$taskCache[$taskId] = $this->taskMapper->find($taskId);
-			}
+			$taskIds[$roomTask->getTaskId()] = true;
+			$roomIds[$roomTask->getRoomId()] = true;
+		}
 
-			$roomId = $roomTask->getRoomId();
-			if (!isset($roomCache[$roomId])) {
-				$roomCache[$roomId] = $this->roomMapper->find($roomId);
+		$tasksById = $this->taskMapper->findByIds(array_keys($taskIds));
+		$roomsById = $this->roomMapper->findByIds(array_keys($roomIds));
+
+		$details = [];
+		foreach ($dailyTasks as $roomTask) {
+			$task = $tasksById[$roomTask->getTaskId()] ?? null;
+			$room = $roomsById[$roomTask->getRoomId()] ?? null;
+			if ($task === null || $room === null) {
+				continue;
 			}
 
 			$details[] = [
 				'roomTask' => $roomTask,
-				'task' => $taskCache[$taskId],
-				'room' => $roomCache[$roomId],
+				'task' => $task,
+				'room' => $room,
 			];
 		}
 
@@ -757,19 +763,17 @@ class RoomTaskService {
 			$roomIds[$rt->getRoomId()] = true;
 		}
 
-		$taskCache = [];
-		foreach (array_keys($taskIds) as $taskId) {
-			$taskCache[$taskId] = $this->taskMapper->find($taskId);
-		}
-
-		$roomCache = [];
-		foreach (array_keys($roomIds) as $roomId) {
-			$roomCache[$roomId] = $this->roomMapper->find($roomId);
-		}
+		$tasksById = $this->taskMapper->findByIds(array_keys($taskIds));
+		$roomsById = $this->roomMapper->findByIds(array_keys($roomIds));
 
 		$scheduled = [];
 		foreach ($roomTasks as $rt) {
-			$task = $taskCache[$rt->getTaskId()];
+			$task = $tasksById[$rt->getTaskId()] ?? null;
+			$room = $roomsById[$rt->getRoomId()] ?? null;
+			if ($task === null || $room === null) {
+				// Orphaned row (task/room definition gone) — skip it.
+				continue;
+			}
 
 			$occurrenceDates = $rt->projectOccurrences(
 				$from,
@@ -792,7 +796,7 @@ class RoomTaskService {
 			$scheduled[] = [
 				'roomTask' => $rt->jsonSerialize(),
 				'task' => $task->jsonSerialize(),
-				'room' => $roomCache[$rt->getRoomId()]->jsonSerialize(),
+				'room' => $room->jsonSerialize(),
 				'flexWindow' => [
 					'earliest' => $flexWindow['earliest']?->format('Y-m-d'),
 					'ideal' => $flexWindow['ideal']?->format('Y-m-d'),

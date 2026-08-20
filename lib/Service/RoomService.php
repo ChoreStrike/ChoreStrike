@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
@@ -171,25 +172,33 @@ class RoomService {
 	/**
 	 * Get room with tasks
 	 *
+	 * Task details come from one findByIds batch fetch (CS-PLAN-036) instead
+	 * of a per-room-task lookup; a room task whose task definition is missing
+	 * is skipped (map absence = skip, same semantics as the old try/catch).
+	 *
 	 * @param int $roomId The room ID
 	 */
 	public function getRoomWithTasks(int $roomId): array {
 		$room = $this->roomMapper->find($roomId);
 		$roomTasks = $this->roomTaskMapper->findByRoomId($roomId);
 
+		$tasksById = $this->taskMapper->findByIds(array_map(
+			static fn (RoomTask $roomTask) => $roomTask->getTaskId(),
+			$roomTasks
+		));
+
 		// Load task details for each room task
 		$tasksWithDetails = [];
 		foreach ($roomTasks as $roomTask) {
-			try {
-				$task = $this->taskMapper->find($roomTask->getTaskId());
-				$tasksWithDetails[] = [
-					'roomTask' => $roomTask,
-					'task' => $task
-				];
-			} catch (DoesNotExistException $e) {
+			$task = $tasksById[$roomTask->getTaskId()] ?? null;
+			if ($task === null) {
 				// Task doesn't exist, skip this room task
 				continue;
 			}
+			$tasksWithDetails[] = [
+				'roomTask' => $roomTask,
+				'task' => $task
+			];
 		}
 
 		return [
@@ -379,12 +388,13 @@ class RoomService {
 			$cleanlinessChange = $task->getEnergyCost() * 10; // 10% per energy point
 			$updatedRoom = $this->updateRoomCleanliness($room->getId(), $cleanlinessChange);
 
-			// Trigger game logic for task completion
+			// Trigger game logic for task completion. The locked room task
+			// entity is threaded in (CR-SVC-50) so game logic never
+			// re-fetches it inside the house_user lock.
 			$gameResult = $this->gameLogicService->handleTaskCompletion(
-				$roomTaskId,
+				$roomTask,
 				$houseUser->getId(),
 				$task,
-				$updatedRoom->getCleanliness(),
 				$nextcloudTaskId
 			);
 

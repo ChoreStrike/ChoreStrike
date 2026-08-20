@@ -111,8 +111,8 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->with($houseId, $from, $to)
 			->willReturn([]);
 
-		$this->taskMapper->expects($this->once())->method('find')->with(5)->willReturn($task);
-		$this->roomMapper->expects($this->once())->method('find')->with(2)->willReturn($room);
+		$this->taskMapper->expects($this->once())->method('findByIds')->with([5])->willReturn([5 => $task]);
+		$this->roomMapper->expects($this->once())->method('findByIds')->with([2])->willReturn([2 => $room]);
 
 		$result = $this->service->getRangeTasks($houseId, $from, $to);
 
@@ -154,15 +154,19 @@ class RoomTaskServiceDailyTest extends TestCase {
 
 		$this->roomTaskMapper->method('findActiveDueUpToByHouse')->willReturn([$roomTask]);
 		$this->completedTaskMapper->method('findCompletionsBetweenByHouse')->willReturn([]);
-		$this->taskMapper->method('find')->willReturn($task);
-		$this->roomMapper->method('find')->willReturn($room);
+		$this->taskMapper->method('findByIds')->willReturn([5 => $task]);
+		$this->roomMapper->method('findByIds')->willReturn([2 => $room]);
 
 		$result = $this->service->getRangeTasks($houseId, $from, $to);
 
 		$this->assertSame([], $result['scheduled']);
 	}
 
-	public function testGetDailyTasksWithDetailsCachesTaskAndRoomLookups(): void {
+	/**
+	 * CS-PLAN-036: task and room entities are resolved with two batch
+	 * findByIds calls (one per distinct id set) instead of per-id lookups.
+	 */
+	public function testGetDailyTasksWithDetailsBatchesTaskAndRoomLookups(): void {
 		$houseId = 1;
 		$date = new \DateTime('2026-03-02');
 
@@ -189,15 +193,16 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->with($houseId, $date)
 			->willReturn([$firstRoomTask, $secondRoomTask]);
 
+		// Distinct id sets collapse the two room tasks into one call each.
 		$this->taskMapper->expects($this->once())
-			->method('find')
-			->with(5)
-			->willReturn($task);
+			->method('findByIds')
+			->with([5])
+			->willReturn([5 => $task]);
 
 		$this->roomMapper->expects($this->once())
-			->method('find')
-			->with(2)
-			->willReturn($room);
+			->method('findByIds')
+			->with([2])
+			->willReturn([2 => $room]);
 
 		$result = $this->service->getDailyTasksWithDetails($houseId, $date);
 
@@ -387,12 +392,12 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->willReturn([$roomTask1, $roomTask2]);
 
 		$this->taskMapper->expects($this->any())
-			->method('find')
-			->willReturn($task);
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
 
 		$this->roomMapper->expects($this->any())
-			->method('find')
-			->willReturn($room);
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
 
 		// Create real HouseUser entity (non-child)
 		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
@@ -504,12 +509,12 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->willReturn($roomTasks);
 
 		$this->taskMapper->expects($this->any())
-			->method('find')
-			->willReturn($task);
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
 
 		$this->roomMapper->expects($this->any())
-			->method('find')
-			->willReturn($room);
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
 
 		// Create real HouseUser entity (child with maxDailyTasks=2)
 		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
@@ -576,12 +581,12 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->willReturn([$roomTask1, $roomTask2]);
 
 		$this->taskMapper->expects($this->any())
-			->method('find')
-			->willReturn($task);
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
 
 		$this->roomMapper->expects($this->any())
-			->method('find')
-			->willReturn($room);
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
 
 		// Create real HouseUser entity (child with weekend-only availability and maxDailyTasks=3)
 		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();

@@ -10,6 +10,11 @@
 
 ## In Progress
 
+### DOC-STD-001 — AI-Context Token & Consistency Optimization
+**Status**: In Progress · **Started**: 2026-08-20 · **Branch**: master
+**Plan**: none (user-directed docs-standards refactor) · **Blockers**: none
+**Scope**: slim AGENTS.md/project-rules.md (dedupe always-on load), trim review skill + slash commands + agent-spawning, delete ai-development-guidance.md, merge i18n-workflow.md into i18n.md, condense asset-licensing/security/logging, fix `run --rm`→`exec` in testing docs, sparks→coins nomenclature.
+
 <!-- When you start work, add an entry here in this shape:
 ### CS-PLAN-NNN — Title
 **Status**: In Progress · **Started**: YYYY-MM-DD · **Branch**: master
@@ -21,6 +26,8 @@
 
 > One-line entries only — full scope lives in the linked plan. Older completed
 > work → [`archive/`](archive/) (e.g. [`archive/2026-07.md`](archive/2026-07.md)).
+
+- **CS-PLAN-036** — Batch Query Optimization (closed **CR-SVC-50/55/56** + **CR-SVC-11 read-path**; split write-path remainder into **CR-SVC-60**): N+1 elimination across service read paths via the three in-repo batch idioms (IN-map `findByIds`/`findByUserIds`/`findByHouseIdAndNextcloudUserIds`, grouped aggregates `getUserStatsByHouse`/`getMaxRoomCompletionCountByHouse`, house-scoped JOIN `findPendingSyncsForHouse`); `handleTaskCompletion` takes the locked `RoomTask` entity + one merged pre-insert 10-min combo-window fetch; real-DB `BatchQueryRegressionTest` (skip-on-missing, cross-house isolation, limit/order, grouped-vs-per-user equivalence) — which exposed and fixed `getUserStats`/`getMaxRoomCompletionCountByUser` aggregates being quoted as columns (`createFunction` fix). Behavior-neutral; batch patterns documented in `docs/engineering/architecture.md`. Gate: PHPUnit unit 761 / integration 169 [24 pre-existing skips] / Jest + lint green. (2026-08-20, Done — Standard-B review 2026-08-20 clean, no auto-fixes; one minor scope note: `CalendarDayCell.spec.js` UTC-date fix to be committed as its own `test:` commit) → [`../plans/done/cs-plan-036-query-batch-optimization.md`](../plans/done/cs-plan-036-query-batch-optimization.md)
 
 - **CS-PLAN-035** — AppLogger Migration (closed **CR-SVC-13**, split off **CR-SVC-59** for the ~16 logger-less services): the 5 raw-`LoggerInterface` services (`NotificationService`, 3 streak services, `TaskDueReminderService`) now inject `AppLogger` (required, non-nullable); failures route through `logException()` (notification dispatch `warning`→`error`, confirmed 2026-08-18), completed passes log `info` with stable `event`+`service` keys; tests mock `AppLogger` + 2 new failure-path tests. Gate green: PHPUnit unit 742 / integration 165 [24 pre-existing skips] / Jest 717 / lint clean; container wiring of `AppLogger` re-verified via `StreakFreezeIdempotencyTest`. Standard-B review (2026-08-19): implementation clean, no findings; repaired recurring `?` doc-encoding corruption + stale plan links in `archive/2026-08.md` → logged **TECH-DOCS-001**. (2026-08-19, Done) → [`../plans/done/cs-plan-035-applogger-migration.md`](../plans/done/cs-plan-035-applogger-migration.md)
 
@@ -42,3 +49,5 @@
 ## Planned (awaiting activation — drafts in `docs/plans/new/`)
 
 > The `new/ → active/` move is **manual** (project-rules §7). These register intent only.
+
+> CS-PLAN-036 was activated and implemented (2026-08-20) — see Recently Completed above.

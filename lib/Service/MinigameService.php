@@ -134,22 +134,7 @@ class MinigameService {
 	 */
 	public function getLeaderboard(int $houseId, string $gameId, int $limit = 10): array {
 		$scores = $this->scoreMapper->getLeaderboard($houseId, $gameId, $limit);
-
-		// Enrich with user display names
-		$result = [];
-		foreach ($scores as $score) {
-			$user = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $score->getUserId());
-			$result[] = [
-				'id' => $score->getId(),
-				'userId' => $score->getUserId(),
-				'displayName' => $user ? $user->getDisplayName() : $score->getUserId(),
-				'score' => $score->getScore(),
-				'boostsUsed' => $score->getBoostsUsed(),
-				'createdAt' => $score->getCreatedAt()?->format('c'),
-			];
-		}
-
-		return $result;
+		return $this->enrichScoresWithDisplayNames($houseId, $scores);
 	}
 
 	/**
@@ -163,11 +148,29 @@ class MinigameService {
 	public function getWeeklyLeaderboard(int $houseId, string $gameId, int $limit = 10): array {
 		$weekStart = new \DateTime('monday this week');
 		$scores = $this->scoreMapper->getLeaderboardForPeriod($houseId, $gameId, $weekStart, $limit);
+		return $this->enrichScoresWithDisplayNames($houseId, $scores);
+	}
 
-		// Enrich with user display names
+	/**
+	 * Enrich score rows with display names via one batch lookup (CR-SVC-56 /
+	 * CS-PLAN-036): a single findByHouseIdAndNextcloudUserIds query replaces
+	 * the per-row membership fetch. Members without a house_users row (e.g.
+	 * removed mid-flight) keep the userId-as-name fallback.
+	 *
+	 * @param int $houseId The house ID
+	 * @param MinigameScore[] $scores Score rows to enrich
+	 * @return array Array of score payload rows with user display names
+	 */
+	private function enrichScoresWithDisplayNames(int $houseId, array $scores): array {
+		$ncUserIds = array_values(array_unique(array_map(
+			static fn (MinigameScore $score) => $score->getUserId(),
+			$scores
+		)));
+		$usersByNcId = $this->houseUserMapper->findByHouseIdAndNextcloudUserIds($houseId, $ncUserIds);
+
 		$result = [];
 		foreach ($scores as $score) {
-			$user = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $score->getUserId());
+			$user = $usersByNcId[$score->getUserId()] ?? null;
 			$result[] = [
 				'id' => $score->getId(),
 				'userId' => $score->getUserId(),

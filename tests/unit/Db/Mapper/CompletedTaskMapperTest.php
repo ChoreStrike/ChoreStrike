@@ -96,11 +96,17 @@ class CompletedTaskMapperTest extends TestCase {
 		$startDate = new \DateTime('2026-02-01');
 		$endDate = new \DateTime('2026-02-28');
 
+		// Aggregate expressions pass through createFunction (CS-PLAN-036:
+		// raw strings would be quoted as column names on the real DB).
+		$this->qb->method('createFunction')->willReturnCallback(
+			static fn (string $sql) => $sql
+		);
+
 		$this->qb->expects($this->once())
 			->method('select')
-			->with('COUNT(*) as task_count')
+			->with('COUNT(*) AS task_count')
 			->willReturn($this->qb);
-		// getUserStats now issues two addSelect calls (combo_count + active_days).
+		// getUserStats now issues three addSelect calls (coins/combo/days).
 		$this->qb->method('addSelect')->willReturn($this->qb);
 		$this->qb->expects($this->once())
 			->method('from')
@@ -181,6 +187,10 @@ class CompletedTaskMapperTest extends TestCase {
 		$start = new \DateTime('2026-07-21');
 		$end = new \DateTime('2026-07-28');
 
+		$this->qb->method('createFunction')->willReturnCallback(
+			static fn (string $sql) => $sql
+		);
+
 		$this->qb->expects($this->once())
 			->method('select')
 			->with('rt.room_id')
@@ -246,5 +256,161 @@ class CompletedTaskMapperTest extends TestCase {
 		$result = $this->mapper->getMaxRoomCompletionCountByUser($userId, $start, $end);
 
 		$this->assertEquals(0, $result);
+	}
+
+	/**
+	 * FindPendingSyncsForHouse_BuildsHouseScopedJoinQuery
+	 *
+	 * CS-PLAN-036: the house scope rides on the floors JOIN (pattern
+	 * findCompletionsBetweenByHouse); ordering is completed_at ASC with a
+	 * limit.
+	 */
+	public function testFindPendingSyncsForHouse_BuildsHouseScopedJoinQuery(): void {
+		$this->qb->expects($this->once())
+			->method('select')
+			->with('ct.*')
+			->willReturn($this->qb);
+		$this->qb->expects($this->once())
+			->method('from')
+			->with('chorestrike_completed_tasks', 'ct')
+			->willReturn($this->qb);
+		$this->qb->expects($this->exactly(3))
+			->method('innerJoin')
+			->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
+		$this->qb->expects($this->once())
+			->method('orderBy')
+			->with('ct.completed_at', 'ASC')
+			->willReturn($this->qb);
+		$this->qb->expects($this->once())
+			->method('setMaxResults')
+			->with(25)
+			->willReturn($this->qb);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturnOnConsecutiveCalls(
+			['id' => 1, 'room_task_id' => 10, 'user_id' => 2, 'completed_at' => '2026-08-01 10:00:00', 'coins_earned' => 5, 'was_combo' => 0],
+			false
+		);
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$result = $this->mapper->findPendingSyncsForHouse(7, 25);
+
+		$this->assertCount(1, $result);
+		$this->assertInstanceOf(CompletedTask::class, $result[0]);
+		$this->assertEquals(10, $result[0]->getRoomTaskId());
+	}
+
+	/**
+	 * GetUserStatsByHouse_GroupsRowsIntoPerUserMap
+	 */
+	public function testGetUserStatsByHouse_GroupsRowsIntoPerUserMap(): void {
+		$this->qb->expects($this->once())
+			->method('select')
+			->with('ct.user_id')
+			->willReturn($this->qb);
+		$this->qb->method('addSelect')->willReturn($this->qb);
+		$this->qb->expects($this->once())
+			->method('from')
+			->with('chorestrike_completed_tasks', 'ct')
+			->willReturn($this->qb);
+		$this->qb->method('innerJoin')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
+		$this->qb->expects($this->once())
+			->method('groupBy')
+			->with('ct.user_id')
+			->willReturn($this->qb);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturnOnConsecutiveCalls(
+			['user_id' => 1, 'task_count' => 15, 'total_coins' => 200, 'combo_count' => 5, 'active_days' => 4],
+			['user_id' => 2, 'task_count' => 3, 'total_coins' => 30, 'combo_count' => 0, 'active_days' => 2],
+			false
+		);
+		$mockResult->expects($this->once())->method('closeCursor');
+
+		$this->qb->expects($this->once())
+			->method('executeQuery')
+			->willReturn($mockResult);
+
+		$map = $this->mapper->getUserStatsByHouse(
+			1,
+			new \DateTime('2026-08-01'),
+			new \DateTime('2026-08-08')
+		);
+
+		$this->assertSame([1, 2], array_keys($map));
+		$this->assertSame(15, $map[1]['taskCount']);
+		$this->assertSame(4, $map[1]['activeDays']);
+		$this->assertSame(3, $map[2]['taskCount']);
+	}
+
+	/**
+	 * GetUserStatsByHouse_NoCompletions_ReturnsEmptyMap
+	 */
+	public function testGetUserStatsByHouse_NoCompletions_ReturnsEmptyMap(): void {
+		$this->qb->method('select')->willReturn($this->qb);
+		$this->qb->method('addSelect')->willReturn($this->qb);
+		$this->qb->method('from')->willReturn($this->qb);
+		$this->qb->method('innerJoin')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
+		$this->qb->method('groupBy')->willReturn($this->qb);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturn(false);
+		$mockResult->expects($this->once())->method('closeCursor');
+
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$this->assertSame([], $this->mapper->getUserStatsByHouse(
+			1,
+			new \DateTime('2026-08-01'),
+			new \DateTime('2026-08-08')
+		));
+	}
+
+	/**
+	 * GetMaxRoomCompletionCountByHouse_ReducesPerUserMaxInPhp
+	 */
+	public function testGetMaxRoomCompletionCountByHouse_ReducesPerUserMaxInPhp(): void {
+		$this->qb->expects($this->once())
+			->method('select')
+			->with('ct.user_id')
+			->willReturn($this->qb);
+		$this->qb->method('addSelect')->willReturn($this->qb);
+		$this->qb->expects($this->once())
+			->method('from')
+			->with('chorestrike_completed_tasks', 'ct')
+			->willReturn($this->qb);
+		$this->qb->method('innerJoin')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
+		$this->qb->method('groupBy')->willReturn($this->qb);
+		$this->qb->method('addGroupBy')->willReturn($this->qb);
+
+		// user 1: rooms A(2) B(7) → max 7; user 2: room C(4) → max 4.
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturnOnConsecutiveCalls(
+			['user_id' => 1, 'room_id' => 10, 'room_count' => 2],
+			['user_id' => 1, 'room_id' => 11, 'room_count' => 7],
+			['user_id' => 2, 'room_id' => 12, 'room_count' => 4],
+			false
+		);
+		$mockResult->expects($this->once())->method('closeCursor');
+
+		$this->qb->expects($this->once())
+			->method('executeQuery')
+			->willReturn($mockResult);
+
+		$map = $this->mapper->getMaxRoomCompletionCountByHouse(
+			1,
+			new \DateTime('2026-08-01'),
+			new \DateTime('2026-08-08')
+		);
+
+		$this->assertSame([1 => 7, 2 => 4], $map);
 	}
 }

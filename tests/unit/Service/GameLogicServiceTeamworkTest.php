@@ -7,7 +7,6 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MedalMapper;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\NotificationService;
@@ -25,7 +24,6 @@ class GameLogicServiceTeamworkTest extends TestCase {
 		$houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$medalMapper = $this->createMock(MedalMapper::class);
-		$roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->configService = $this->createMock(RewardConfigService::class);
 		$notificationService = $this->createMock(NotificationService::class);
 
@@ -35,7 +33,6 @@ class GameLogicServiceTeamworkTest extends TestCase {
 			$houseUserMapper,
 			$completedTaskMapper,
 			$medalMapper,
-			$roomTaskMapper,
 			$this->configService,
 			$notificationService
 		);

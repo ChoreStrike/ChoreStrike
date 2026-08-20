@@ -37,6 +37,35 @@ class TaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Find multiple tasks by IDs in one query (CS-PLAN-036).
+	 *
+	 * IN-clause batch lookup returning a map id → Task. Missing ids are
+	 * tolerated and simply absent from the map — callers skip rows whose
+	 * key is missing (skip-on-missing semantics, e.g. a room task whose
+	 * task definition vanished).
+	 *
+	 * @param int[] $ids The task IDs
+	 * @return array<int, Task> Map of task ID → Task entity
+	 */
+	public function findByIds(array $ids): array {
+		if (empty($ids)) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+
+		$map = [];
+		foreach ($this->findEntities($qb) as $task) {
+			$map[$task->getId()] = $task;
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Get all tasks
 	 *
 	 * @return Task[]

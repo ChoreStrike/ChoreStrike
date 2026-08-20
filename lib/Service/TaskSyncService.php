@@ -273,25 +273,16 @@ class TaskSyncService {
 	/**
 	 * Get pending completions restricted to one house.
 	 *
+	 * One house-scoped query (CompletedTaskMapper::findPendingSyncsForHouse,
+	 * CS-PLAN-036) instead of the old overfetch-and-filter loop (up to
+	 * limit×5 fetched rows, each with a 3-query ownership chain).
+	 *
 	 * @param int $houseId The authorized house ID
 	 * @param int $limit Maximum number of records to return
 	 * @return array Pending completions for the house
 	 */
 	public function getPendingSyncsForHouse(int $houseId, int $limit = 50): array {
-		$pending = $this->completedTaskMapper->findPendingSyncs($limit * 5);
-		$filtered = [];
-
-		foreach ($pending as $completedTask) {
-			if ($this->roomTaskBelongsToHouse($completedTask->getRoomTaskId(), $houseId)) {
-				$filtered[] = $completedTask;
-			}
-
-			if (count($filtered) >= $limit) {
-				break;
-			}
-		}
-
-		return $filtered;
+		return $this->completedTaskMapper->findPendingSyncsForHouse($houseId, $limit);
 	}
 
 	/**

@@ -55,6 +55,37 @@ class MedalMapper extends QBMapper {
 	}
 
 	/**
+	 * Find all medals for multiple users in one query (CS-PLAN-036).
+	 *
+	 * IN-clause batch lookup grouped in PHP into a map user_id → Medal[]
+	 * (each list ordered awarded_at DESC, matching findByUserId). Users
+	 * without medals are absent from the map — callers treat a missing
+	 * key as an empty list.
+	 *
+	 * @param int[] $userIds The house user IDs
+	 * @return array<int, Medal[]> Map of house user ID → list of medals
+	 */
+	public function findByUserIds(array $userIds): array {
+		if (empty($userIds)) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->in('user_id', $qb->createNamedParameter($userIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->orderBy('awarded_at', 'DESC');
+
+		$map = [];
+		foreach ($this->findEntities($qb) as $medal) {
+			$map[$medal->getUserId()][] = $medal;
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Find medals for a specific week
 	 *
 	 * @param string $weekStart Week start date (YYYY-MM-DD)

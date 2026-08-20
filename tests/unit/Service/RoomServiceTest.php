@@ -284,6 +284,9 @@ class RoomServiceTest extends TestCase {
 
 	/**
 	 * GetRoomWithTasks_WithTasks_ReturnsRoomAndTasks
+	 *
+	 * CS-PLAN-036: task details come from one findByIds batch fetch; a
+	 * missing task id is skipped (map absence = skip).
 	 */
 	public function testGetRoomWithTasks_WithTasks_ReturnsRoomAndTasks(): void {
 		$roomId = 1;
@@ -303,6 +306,12 @@ class RoomServiceTest extends TestCase {
 		$roomTask->setNextDue(new \DateTime('+1 day'));
 		$roomTask->setIsActive(true);
 
+		$orphanedRoomTask = new RoomTask();
+		$orphanedRoomTask->setId(2);
+		$orphanedRoomTask->setTaskId(999);
+		$orphanedRoomTask->setNextDue(new \DateTime('+1 day'));
+		$orphanedRoomTask->setIsActive(true);
+
 		$this->roomMapper
 			->expects($this->once())
 			->method('find')
@@ -313,18 +322,20 @@ class RoomServiceTest extends TestCase {
 			->expects($this->once())
 			->method('findByRoomId')
 			->with($roomId)
-			->willReturn([$roomTask]);
+			->willReturn([$roomTask, $orphanedRoomTask]);
 
+		// One batch call; task 999 is absent from the map → skipped.
 		$this->taskMapper
 			->expects($this->once())
-			->method('find')
-			->with(1)
-			->willReturn($task);
+			->method('findByIds')
+			->with([1, 999])
+			->willReturn([1 => $task]);
 
 		$result = $this->service->getRoomWithTasks($roomId);
 
 		$this->assertSame($room, $result['room']);
 		$this->assertCount(1, $result['tasks']);
+		$this->assertSame($task, $result['tasks'][0]['task']);
 		$this->assertEquals(80, $result['stats']['cleanliness']);
 	}
 
@@ -553,7 +564,10 @@ class RoomServiceTest extends TestCase {
 		$this->gameLogicService
 			->expects($this->once())
 			->method('handleTaskCompletion')
-			->with($roomTaskId, $houseUser->getId(), $task, 80, 4242)
+			->with($this->callback(function ($rt) use ($roomTask): bool {
+				// CS-PLAN-036: the locked entity is threaded in directly.
+				return $rt === $roomTask;
+			}), $houseUser->getId(), $task, 4242)
 			->willReturn([
 				'contributionScore' => 10,
 				'coins' => 50,

@@ -49,6 +49,12 @@ class StreakFreezeService {
 			'errors' => 0,
 		];
 
+		// Single GROUP BY query for everyone's completions on the day
+		// (CR-SVC-55 / CS-PLAN-036) instead of a per-user COUNT inside the
+		// loop; users with zero completions are absent from the map
+		// (treated as 0) — same shape as StreakAtRiskService.
+		$yesterdayCounts = $this->completedTaskMapper->countByUserOnDateGrouped($yesterday);
+
 		foreach ($this->houseUserMapper->findAllForJobs() as $user) {
 			try {
 				$stats['processed']++;
@@ -70,17 +76,13 @@ class StreakFreezeService {
 				// The destructive branch (freeze consume / streak reset) stamps
 				// last_freeze_date below, so a job retry or a manual
 				// `occ trigger-jobs` cannot double-consume a freeze or reset an
-				// already-preserved streak. Checked before the completion count
-				// so a re-run skips the per-user query entirely.
+				// already-preserved streak.
 				$lastFreeze = $user->getLastFreezeDate();
 				if ($lastFreeze !== null && $lastFreeze->format('Y-m-d') === $yesterdayKey) {
 					continue;
 				}
 
-				$yesterdayCompletions = $this->completedTaskMapper->countByUserOnDate(
-					$user->getId(),
-					$yesterday
-				);
+				$yesterdayCompletions = $yesterdayCounts[$user->getId()] ?? 0;
 
 				if ($yesterdayCompletions > 0) {
 					continue;

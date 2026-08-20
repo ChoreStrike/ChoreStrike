@@ -11,7 +11,6 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Medal;
 use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\NotificationService;
@@ -28,7 +27,6 @@ class GameLogicServiceTest extends TestCase {
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private MedalMapper $medalMapper;
-	private RoomTaskMapper $roomTaskMapper;
 	private RewardConfigService $configService;
 	private NotificationService $notificationService;
 
@@ -36,7 +34,6 @@ class GameLogicServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->medalMapper = $this->createMock(MedalMapper::class);
-		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->configService = $this->createMock(RewardConfigService::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
 
@@ -51,10 +48,32 @@ class GameLogicServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->medalMapper,
-			$this->roomTaskMapper,
 			$this->configService,
 			$this->notificationService
 		);
+	}
+
+	/**
+	 * Build a CompletedTask seeded with a completed_at offset from now.
+	 *
+	 * The merged combo-window fetch (CR-SVC-50) filters on the timestamp,
+	 * so completion fixtures must carry a real completed_at.
+	 */
+	private function completionAt(string $modifier): CompletedTask {
+		$completion = new CompletedTask();
+		$completion->setCompletedAt(new \DateTime($modifier));
+		return $completion;
+	}
+
+	/**
+	 * Build a minimal RoomTask for handleTaskCompletion (the locked entity
+	 * is threaded in by the caller since CS-PLAN-036).
+	 */
+	private function roomTaskEntity(int $roomTaskId): RoomTask {
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setIdealDueDate(null);
+		return $roomTask;
 	}
 
 	/**
@@ -77,8 +96,8 @@ class GameLogicServiceTest extends TestCase {
 		$user->setLastActivity(new \DateTime('yesterday'));
 
 		$recentCompletions = [
-			new CompletedTask(),
-			new CompletedTask()
+			$this->completionAt('-1 minute'),
+			$this->completionAt('-2 minutes'),
 		];
 
 		// CR-SVC-04: the house_user row must be locked (findForUpdate) inside
@@ -92,21 +111,13 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->houseUserMapper->expects($this->never())->method('find');
 
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setIdealDueDate(null);
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
-
+		// CS-PLAN-036: ONE pre-insert 10-minute window fetch replaces the old
+		// 5-minute + post-insert 10-minute query pair (CR-SVC-50).
 		$this->completedTaskMapper
+			->expects($this->once())
 			->method('findRecentByUserId')
-			->willReturnCallback(function ($uid, $limit) use ($recentCompletions) {
-				return $recentCompletions;
-			});
+			->with($userId, 10)
+			->willReturn($recentCompletions);
 
 		$this->completedTaskMapper
 			->expects($this->once())
@@ -116,7 +127,7 @@ class GameLogicServiceTest extends TestCase {
 			->expects($this->once())
 			->method('update');
 
-		$result = $this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+		$result = $this->service->handleTaskCompletion($this->roomTaskEntity($roomTaskId), $userId, $task);
 
 		$this->assertIsInt($result['contributionScore']);
 		$this->assertIsInt($result['coins']);
@@ -147,11 +158,6 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
 
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setIdealDueDate(null);
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-
 		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
 
 		$this->completedTaskMapper
@@ -161,7 +167,7 @@ class GameLogicServiceTest extends TestCase {
 				return $completedTask->getNextcloudTaskId() === 4242;
 			}));
 
-		$this->service->handleTaskCompletion(1, 1, $task, 50, 4242);
+		$this->service->handleTaskCompletion($this->roomTaskEntity(1), 1, $task, 4242);
 	}
 
 	/**
@@ -179,11 +185,6 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
 
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setIdealDueDate(null);
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-
 		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
 
 		$this->completedTaskMapper
@@ -193,7 +194,7 @@ class GameLogicServiceTest extends TestCase {
 				return $completedTask->getNextcloudTaskId() === null;
 			}));
 
-		$this->service->handleTaskCompletion(1, 1, $task, 50);
+		$this->service->handleTaskCompletion($this->roomTaskEntity(1), 1, $task);
 	}
 
 	/**
@@ -439,8 +440,8 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->completedTaskMapper
 			->expects($this->once())
-			->method('getUserStats')
-			->willReturn(['taskCount' => 15, 'totalCoins' => 100]);
+			->method('getUserStatsByHouse')
+			->willReturn([1 => ['taskCount' => 15, 'totalCoins' => 100]]);
 
 		$this->medalMapper
 			->expects($this->once())
@@ -478,8 +479,8 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->completedTaskMapper
 			->expects($this->once())
-			->method('getUserStats')
-			->willReturn(['taskCount' => 5, 'totalCoins' => 50]);
+			->method('getUserStatsByHouse')
+			->willReturn([1 => ['taskCount' => 5, 'totalCoins' => 50]]);
 
 		$medal = new Medal();
 		$medal->setId(1);
@@ -517,8 +518,8 @@ class GameLogicServiceTest extends TestCase {
 		$user->setCurrentStreak(3);
 
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStats')
-			->willReturn(['taskCount' => 15, 'totalCoins' => 100]);
+		$this->completedTaskMapper->method('getUserStatsByHouse')
+			->willReturn([7 => ['taskCount' => 15, 'totalCoins' => 100]]);
 		$this->medalMapper->method('findByUserTypeAndWeek')
 			->willThrowException(new DoesNotExistException());
 		$this->medalMapper->method('insert')->willReturnArgument(0);
@@ -551,8 +552,8 @@ class GameLogicServiceTest extends TestCase {
 		$existingMedal->setUserId(7);
 
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStats')
-			->willReturn(['taskCount' => 5, 'totalCoins' => 50]);
+		$this->completedTaskMapper->method('getUserStatsByHouse')
+			->willReturn([7 => ['taskCount' => 5, 'totalCoins' => 50]]);
 		$this->medalMapper->method('findByUserTypeAndWeek')->willReturn($existingMedal);
 		$this->medalMapper->expects($this->never())->method('insert');
 
@@ -582,8 +583,8 @@ class GameLogicServiceTest extends TestCase {
 		$user->setCurrentStreak(3);
 
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStats')
-			->willReturn(['taskCount' => 15, 'totalCoins' => 100]);
+		$this->completedTaskMapper->method('getUserStatsByHouse')
+			->willReturn([7 => ['taskCount' => 15, 'totalCoins' => 100]]);
 		$this->medalMapper->method('findByUserTypeAndWeek')
 			->willThrowException(new DoesNotExistException());
 		$this->medalMapper->method('insert')
@@ -618,8 +619,8 @@ class GameLogicServiceTest extends TestCase {
 		$user->setCurrentStreak(3);
 
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStats')
-			->willReturn(['taskCount' => 15, 'totalCoins' => 100]);
+		$this->completedTaskMapper->method('getUserStatsByHouse')
+			->willReturn([7 => ['taskCount' => 15, 'totalCoins' => 100]]);
 		$this->medalMapper->method('findByUserTypeAndWeek')
 			->willThrowException(new DoesNotExistException());
 		$this->medalMapper->method('insert')
@@ -647,10 +648,10 @@ class GameLogicServiceTest extends TestCase {
 		$user->setCurrentStreak(3);
 
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStats')
-			->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 4]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
-			->willReturn(2);
+		$this->completedTaskMapper->method('getUserStatsByHouse')
+			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 4]]);
+		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
+			->willReturn([1 => 2]);
 
 		$this->medalMapper->method('findByUserTypeAndWeek')
 			->willThrowException(new DoesNotExistException());
@@ -674,10 +675,10 @@ class GameLogicServiceTest extends TestCase {
 		$user->setCurrentStreak(3);
 
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStats')
-			->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 3]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
-			->willReturn(2);
+		$this->completedTaskMapper->method('getUserStatsByHouse')
+			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 3]]);
+		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
+			->willReturn([1 => 2]);
 
 		$this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
 		$this->medalMapper->expects($this->never())->method('insert');
@@ -698,10 +699,10 @@ class GameLogicServiceTest extends TestCase {
 		$user->setCurrentStreak(3);
 
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStats')
-			->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 2]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
-			->willReturn(5);
+		$this->completedTaskMapper->method('getUserStatsByHouse')
+			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 2]]);
+		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
+			->willReturn([1 => 5]);
 
 		$this->medalMapper->method('findByUserTypeAndWeek')
 			->willThrowException(new DoesNotExistException());
@@ -725,10 +726,10 @@ class GameLogicServiceTest extends TestCase {
 		$user->setCurrentStreak(3);
 
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStats')
-			->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 2]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
-			->willReturn(4);
+		$this->completedTaskMapper->method('getUserStatsByHouse')
+			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 0, 'activeDays' => 2]]);
+		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
+			->willReturn([1 => 4]);
 
 		$this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
 		$this->medalMapper->expects($this->never())->method('insert');
@@ -749,10 +750,10 @@ class GameLogicServiceTest extends TestCase {
 		$user->setCurrentStreak(3);
 
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStats')
-			->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 3, 'activeDays' => 2]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
-			->willReturn(2);
+		$this->completedTaskMapper->method('getUserStatsByHouse')
+			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 3, 'activeDays' => 2]]);
+		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
+			->willReturn([1 => 2]);
 
 		$this->medalMapper->method('findByUserTypeAndWeek')
 			->willThrowException(new DoesNotExistException());
@@ -776,10 +777,36 @@ class GameLogicServiceTest extends TestCase {
 		$user->setCurrentStreak(3);
 
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
-		$this->completedTaskMapper->method('getUserStats')
-			->willReturn(['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 2, 'activeDays' => 2]);
-		$this->completedTaskMapper->method('getMaxRoomCompletionCountByUser')
-			->willReturn(2);
+		$this->completedTaskMapper->method('getUserStatsByHouse')
+			->willReturn([1 => ['taskCount' => 2, 'totalCoins' => 20, 'comboCount' => 2, 'activeDays' => 2]]);
+		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')
+			->willReturn([1 => 2]);
+
+		$this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
+		$this->medalMapper->expects($this->never())->method('insert');
+
+		$result = $this->service->checkAndAwardMedals($houseId);
+
+		$this->assertCount(0, $result);
+	}
+
+	/**
+	 * CheckAndAwardMedals_UserAbsentFromGroupedMaps_TreatedAsZero
+	 *
+	 * CS-PLAN-036: a user with no completions in the range is absent from
+	 * the grouped maps — medal checks must treat that as all-zero stats
+	 * (same as the old per-user getUserStats on an empty range).
+	 */
+	public function testCheckAndAwardMedals_UserAbsentFromGroupedMaps_TreatedAsZero(): void {
+		$houseId = 1;
+
+		$user = new HouseUser();
+		$user->setId(42);
+		$user->setCurrentStreak(3);
+
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$user]);
+		$this->completedTaskMapper->method('getUserStatsByHouse')->willReturn([]);
+		$this->completedTaskMapper->method('getMaxRoomCompletionCountByHouse')->willReturn([]);
 
 		$this->medalMapper->expects($this->never())->method('findByUserTypeAndWeek');
 		$this->medalMapper->expects($this->never())->method('insert');
@@ -791,6 +818,9 @@ class GameLogicServiceTest extends TestCase {
 
 	/**
 	 * GetMedals_ReturnsAllMedalsWithUserNames
+	 *
+	 * CS-PLAN-036: medals come from one findByUserIds batch fetch; the
+	 * payload shape (user order, then that user's medals) is unchanged.
 	 */
 	public function testGetMedals_ReturnsAllMedalsWithUserNames(): void {
 		$houseId = 1;
@@ -813,9 +843,9 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->medalMapper
 			->expects($this->once())
-			->method('findByUserId')
-			->with(1)
-			->willReturn([$medal]);
+			->method('findByUserIds')
+			->with([1])
+			->willReturn([1 => [$medal]]);
 
 		$result = $this->service->getMedals($houseId);
 
@@ -847,16 +877,11 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
 
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setIdealDueDate(null);
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-
 		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
 		$this->completedTaskMapper->expects($this->once())->method('insert');
 		$this->houseUserMapper->expects($this->once())->method('update');
 
-		$this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+		$this->service->handleTaskCompletion($this->roomTaskEntity($roomTaskId), $userId, $task);
 
 		// Streak advanced 5 → 6 (yesterday completion), longest tracks it.
 		$this->assertEquals(6, $user->getLongestStreak());
@@ -882,16 +907,11 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
 
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setIdealDueDate(null);
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-
 		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
 		$this->completedTaskMapper->expects($this->once())->method('insert');
 		$this->houseUserMapper->expects($this->once())->method('update');
 
-		$result = $this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+		$result = $this->service->handleTaskCompletion($this->roomTaskEntity($roomTaskId), $userId, $task);
 
 		$this->assertTrue($result['streakFreezeUsed']);
 		$this->assertEquals(1, $result['streakFreezesRemaining']);
@@ -918,16 +938,11 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
 
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setIdealDueDate(null);
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-
 		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
 		$this->completedTaskMapper->expects($this->once())->method('insert');
 		$this->houseUserMapper->expects($this->once())->method('update');
 
-		$result = $this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+		$result = $this->service->handleTaskCompletion($this->roomTaskEntity($roomTaskId), $userId, $task);
 
 		$this->assertFalse($result['streakFreezeUsed']);
 		$this->assertEquals(0, $result['streakFreezesRemaining']);
@@ -936,6 +951,10 @@ class GameLogicServiceTest extends TestCase {
 
 	/**
 	 * HandleTaskCompletion_ComboBonus_AwardsFreeze
+	 *
+	 * CS-PLAN-036: threshold − 1 prior completions (4) + the in-flight
+	 * completion (+1) reach the threshold of 5 — the merged pre-insert
+	 * fetch must still count the completion being processed.
 	 */
 	public function testHandleTaskCompletion_ComboBonus_AwardsFreeze(): void {
 		$roomTaskId = 1;
@@ -954,29 +973,107 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
 
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setIdealDueDate(null);
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-
-		$recentCompletions = array_fill(0, 6, new CompletedTask());
-		$this->completedTaskMapper
-			->method('findRecentByUserId')
-			->willReturnCallback(function ($uid, $limit) use ($recentCompletions) {
-				if ($limit === 5) {
-					return array_slice($recentCompletions, 0, 5);
-				}
-				return $recentCompletions;
-			});
+		// 4 prior completions (threshold 5 − 1): two inside the 5-minute
+		// combo window (isCombo), two more inside the 10-minute window.
+		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([
+			$this->completionAt('-1 minute'),
+			$this->completionAt('-2 minutes'),
+			$this->completionAt('-7 minutes'),
+			$this->completionAt('-8 minutes'),
+		]);
 
 		$this->completedTaskMapper->expects($this->once())->method('insert');
 		$this->houseUserMapper->expects($this->once())->method('update');
 
-		$result = $this->service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+		$result = $this->service->handleTaskCompletion($this->roomTaskEntity($roomTaskId), $userId, $task);
 
 		$this->assertTrue($result['isCombo']);
 		$this->assertTrue($result['comboBonusFreeze']);
 		$this->assertEquals(1, $result['streakFreezesRemaining']);
+	}
+
+	/**
+	 * HandleTaskCompletion_ComboWindow_FiveMinuteBoundary
+	 *
+	 * CS-PLAN-036: the 5-minute combo window is derived in PHP by timestamp
+	 * filtering of the single 10-minute fetch. −4:59 rows count toward
+	 * isCombo; −5:01 rows do not.
+	 */
+	public function testHandleTaskCompletion_ComboWindow_FiveMinuteBoundary(): void {
+		// Fresh mocks per case: re-stubbing the same mock would not
+		// reliably override the previous window fixture.
+		$isComboFor = function (array $recent): bool {
+			$task = new Task();
+			$task->setId(1);
+			$task->setEnergyCost(1);
+
+			$user = new HouseUser();
+			$user->setId(1);
+			$user->setCurrentStreak(1);
+			$user->setLastActivity(new \DateTime('yesterday'));
+
+			$houseUserMapper = $this->createMock(HouseUserMapper::class);
+			$houseUserMapper->method('findForUpdate')->willReturn($user);
+			$completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+			$completedTaskMapper->method('findRecentByUserId')->willReturn($recent);
+
+			$service = new GameLogicService(
+				$houseUserMapper,
+				$completedTaskMapper,
+				$this->medalMapper,
+				$this->configService,
+				$this->notificationService
+			);
+
+			return $service->handleTaskCompletion($this->roomTaskEntity(1), 1, $task)['isCombo'];
+		};
+
+		$this->assertTrue($isComboFor([
+			$this->completionAt('-1 minute'),
+			$this->completionAt('-299 seconds'),
+		]), 'Two completions within 5 minutes (−4:59) must be a combo');
+
+		$this->assertFalse($isComboFor([
+			$this->completionAt('-1 minute'),
+			$this->completionAt('-301 seconds'),
+		]), 'Only one completion within 5 minutes (−5:01) must not be a combo');
+
+		$this->assertTrue($isComboFor([
+			$this->completionAt('-301 seconds'),
+			$this->completionAt('-599 seconds'),
+			$this->completionAt('-1 minute'),
+			$this->completionAt('-2 minutes'),
+		]), 'Stale (5–10 min) rows stay in the fetch but only the two fresh ones drive isCombo');
+	}
+
+	/**
+	 * HandleTaskCompletion_ComboWindow_StaleRowsDoNotMintBonusFreeze
+	 *
+	 * Rows beyond the 10-minute window (mapper contract: not returned) must
+	 * not reach the bonus threshold. Two −5:01 completions alone are no
+	 * combo at all; even counted, 2 + 1 < threshold 5.
+	 */
+	public function testHandleTaskCompletion_ComboWindow_StaleRowsDoNotMintBonusFreeze(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setEnergyCost(1);
+
+		$user = new HouseUser();
+		$user->setId(1);
+		$user->setCurrentStreak(5);
+		$user->setStreakFreezes(0);
+		$user->setLastActivity(new \DateTime('yesterday'));
+
+		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
+		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([
+			$this->completionAt('-301 seconds'),
+			$this->completionAt('-601 seconds'),
+		]);
+
+		$result = $this->service->handleTaskCompletion($this->roomTaskEntity(1), 1, $task);
+
+		$this->assertFalse($result['isCombo']);
+		$this->assertFalse($result['comboBonusFreeze']);
 	}
 
 	/**
@@ -998,7 +1095,6 @@ class GameLogicServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->medalMapper,
-			$this->roomTaskMapper,
 			$this->configService,
 			$this->notificationService
 		);
@@ -1027,7 +1123,6 @@ class GameLogicServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->medalMapper,
-			$this->roomTaskMapper,
 			$this->configService,
 			$this->notificationService,
 			$titleService
@@ -1072,10 +1167,6 @@ class GameLogicServiceTest extends TestCase {
 		$user->setLastActivity(new \DateTime('yesterday'));
 
 		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setIdealDueDate(null);
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
 		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
 		$this->completedTaskMapper->expects($this->once())->method('insert');
 		$this->houseUserMapper->expects($this->once())->method('update');
@@ -1084,7 +1175,7 @@ class GameLogicServiceTest extends TestCase {
 		// RoomService, after commit).
 		$this->notificationService->expects($this->never())->method('notifyTitleUnlocked');
 
-		$result = $service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+		$result = $service->handleTaskCompletion($this->roomTaskEntity($roomTaskId), $userId, $task);
 
 		// ...but it must surface the payload so RoomService can dispatch it.
 		$this->assertSame($newTitle, $result['newTitle']);
@@ -1116,17 +1207,13 @@ class GameLogicServiceTest extends TestCase {
 		$user->setLastActivity(new \DateTime('yesterday'));
 
 		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setIdealDueDate(null);
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
 		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
 		$this->completedTaskMapper->expects($this->once())->method('insert');
 		$this->houseUserMapper->expects($this->once())->method('update');
 
 		$this->notificationService->expects($this->never())->method('notifyTitleUnlocked');
 
-		$result = $service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+		$result = $service->handleTaskCompletion($this->roomTaskEntity($roomTaskId), $userId, $task);
 
 		$this->assertNull($result['newTitle']);
 	}
@@ -1155,7 +1242,6 @@ class GameLogicServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->medalMapper,
-			$this->roomTaskMapper,
 			$this->configService,
 			$this->notificationService,
 			$titleService
@@ -1176,15 +1262,11 @@ class GameLogicServiceTest extends TestCase {
 		$user->setLastActivity(new \DateTime('yesterday'));
 
 		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setIdealDueDate(null);
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
 		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
 		$this->completedTaskMapper->expects($this->once())->method('insert');
 		$this->houseUserMapper->expects($this->once())->method('update');
 
-		$result = $service->handleTaskCompletion($roomTaskId, $userId, $task, 50);
+		$result = $service->handleTaskCompletion($this->roomTaskEntity($roomTaskId), $userId, $task);
 
 		$this->assertNull($result['newTitle']);
 	}

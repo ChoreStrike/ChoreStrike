@@ -119,7 +119,7 @@ ChoreStrike/
 │   ├── operations/             # realtime-updates
 │   ├── testing/                # release-test-plan (authoritative manual release plan + record)
 │   ├── concepts/               # Product vision & design concepts
-│   ├── standards/              # ai/ (rules, skills) + guidelines/ (+ i18n-workflow)
+│   ├── standards/              # ai/ (rules, skills) + guidelines/
 │   ├── adr/                    # Architecture decision records
 │   ├── backlog/                # Task tracking (ACTIVE_TASKS.md, phase-*.md, bugs.md)
 │   └── plans/                  # Implementation plans (new/active/onhold/done)
@@ -525,6 +525,55 @@ daily-notification --as-of YYYY-MM-DD` (test mode only); `--as-of` sets
 - Eager loading for related entities
 - Caching for frequently accessed data
 - Pagination for large lists
+
+### Batch Query Patterns (N+1 elimination)
+
+> Canonical patterns established by CS-PLAN-036. When a service loop calls a
+> mapper per row, convert it to one of these three idioms — all three are
+> proven in-repo and covered by real-DB regression tests
+> (`tests/integration/Db/BatchQueryRegressionTest.php`).
+
+1. **IN-clause id→row map** — fetch many rows by id in one query, return a map.
+   Pattern: `TaskAssigneeMapper::findUserIdsByRoomTasks`, `TaskMapper::findByIds`,
+   `RoomMapper::findByIds`, `MedalMapper::findByUserIds`,
+   `HouseUserMapper::findByHouseIdAndNextcloudUserIds`.
+   - Always `array_fill_keys`/`[]`-default + **empty-input early return**
+     (an empty IN () is a syntax error on MariaDB/SQLite).
+   - Use `$qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY))`
+     (or `PARAM_STR_ARRAY` for string ids).
+   - **Missing ids are tolerated**: absent map key = skip. Consumers must not
+     assume every requested id resolves (skip-on-missing semantics, e.g.
+     `RoomService::getRoomWithTasks`).
+   - Callers look up with `$map[$id] ?? $default` — never re-fetch per row.
+
+2. **Grouped aggregate (single GROUP BY → PHP map)** — replace per-user
+   aggregates with one grouped query; users with no rows are absent from the
+   map and default to zero/empty in PHP.
+   Pattern: `CompletedTaskMapper::countByUserOnDateGrouped` (consumed by
+   `StreakFreezeService`/`StreakAtRiskService`), `getUserStatsByHouse`,
+   `getMaxRoomCompletionCountByHouse` (consumed by `checkAndAwardMedals`).
+   - Keep grouped siblings **expression-identical** to their per-user
+     counterparts (`getUserStats`, `getMaxRoomCompletionCountByUser`) — the
+     equivalence is pinned by a real-DB regression test.
+   - ⚠️ Aggregate expressions (`COUNT(*) AS x`, `SUM(...)`), must be wrapped
+     in `$qb->createFunction(...)` — raw select strings get quoted as column
+     names and fail on the real DB (mock tests cannot catch this).
+
+3. **House-scoped JOIN** — when the fact table has no denormalized
+   `house_id`, scope through the ownership chain in one query instead of
+   per-row ownership checks.
+   Pattern: `CompletedTaskMapper::findCompletionsBetweenByHouse`,
+   `findPendingSyncsForHouse` (consumed by `TaskSyncService::getPendingSyncsForHouse`),
+   `RoomMapper::findByHouseId`.
+
+**What stays per-row on purpose:** medal existence checks + inserts (unique-
+constraint race handling in `GameLogicService::awardMedalIfNew`), per-award
+notifications, per-item error isolation (e.g. the freeze write in
+`StreakFreezeService::process`), and genuine single-entity lookups.
+
+**Out of scope (tracked as CR-SVC-60):** bulk write paths (`resetHouse`,
+`deleteRoom`, `reorderFloors`, `bulkAssignTasks`) — bulk UPDATE/DELETE/CASE-WHEN
+conversions need their own FK/error-isolation verification.
 
 ### Frontend
 - Lazy loading routes

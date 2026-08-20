@@ -81,6 +81,48 @@ class RoomMapperTest extends TestCase {
 	}
 
 	/**
+	 * FindByIds_EmptyInput_ReturnsEmptyMapWithoutQuery
+	 *
+	 * CS-PLAN-036: the empty-array early return must not build an IN ().
+	 */
+	public function testFindByIds_EmptyInput_ReturnsEmptyMapWithoutQuery(): void {
+		$this->qb->expects($this->never())->method('select');
+
+		$this->assertSame([], $this->mapper->findByIds([]));
+	}
+
+	/**
+	 * FindByIds_BuildsInQueryAndMapsById
+	 */
+	public function testFindByIds_BuildsInQueryAndMapsById(): void {
+		$capturedTypes = [];
+		$this->qb->method('createNamedParameter')->willReturnCallback(
+			function ($value, $type) use (&$capturedTypes) {
+				$capturedTypes[] = $type;
+				return 'param_' . count($capturedTypes);
+			}
+		);
+		$this->qb->method('select')->willReturn($this->qb);
+		$this->qb->method('from')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturnOnConsecutiveCalls(
+			['id' => 4, 'floor_id' => 1, 'name' => 'Kitchen', 'cleanliness' => 80, 'monster_count' => 0],
+			false
+		);
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$map = $this->mapper->findByIds([4, 99]);
+
+		// id 99 is missing from the result → tolerated, absent from the map.
+		$this->assertSame([4], array_keys($map));
+		$this->assertInstanceOf(Room::class, $map[4]);
+		$this->assertSame('Kitchen', $map[4]->getName());
+		$this->assertContains(IQueryBuilder::PARAM_INT_ARRAY, $capturedTypes);
+	}
+
+	/**
 	 * FindNeedingCleaning_WithDirtyRooms_ReturnsDirtyRooms
 	 */
 	public function testFindNeedingCleaning_WithDirtyRooms_ReturnsDirtyRooms(): void {

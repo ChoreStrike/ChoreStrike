@@ -52,7 +52,7 @@ class StreakFreezeServiceTest extends TestCase {
 		$user = $this->buildUser(1, streak: 5, freezes: 0);
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-		$this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
 		$this->houseUserMapper->expects($this->once())->method('update')
 			->with($this->callback(function (HouseUser $u) {
 				return $u->getCurrentStreak() === 0;
@@ -71,7 +71,7 @@ class StreakFreezeServiceTest extends TestCase {
 		$user = $this->buildUser(1, streak: 5, freezes: 1);
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-		$this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
 		$this->houseUserMapper->expects($this->once())->method('update')
 			->with($this->callback(function (HouseUser $u) {
 				return $u->getCurrentStreak() === 5 && $u->getStreakFreezes() === 0;
@@ -86,19 +86,20 @@ class StreakFreezeServiceTest extends TestCase {
 	/**
 	 * Process_CompletionsOnInjectedDay_SkipsAndPassesDateThrough
 	 *
-	 * The completion count must be queried for the injected date — the
-	 * actual time seam under test.
+	 * The completion counts must be queried for the injected date — the
+	 * actual time seam under test (CR-SVC-55: one grouped query for
+	 * everyone instead of per-user COUNTs).
 	 */
 	public function testProcess_CompletionsOnInjectedDay_SkipsAndPassesDateThrough(): void {
 		$user = $this->buildUser(1, streak: 5, freezes: 1);
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
 		$this->completedTaskMapper->expects($this->once())
-			->method('countByUserOnDate')
-			->with(1, $this->callback(function (\DateTimeInterface $date) {
+			->method('countByUserOnDateGrouped')
+			->with($this->callback(function (\DateTimeInterface $date) {
 				return $date->format('Y-m-d') === '2026-07-29';
 			}))
-			->willReturn(3);
+			->willReturn([1 => 3]);
 		$this->houseUserMapper->expects($this->never())->method('update');
 
 		$stats = $this->service->process($this->yesterday);
@@ -114,7 +115,9 @@ class StreakFreezeServiceTest extends TestCase {
 		$user = $this->buildUser(1, streak: 0, freezes: 1);
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-		$this->completedTaskMapper->expects($this->never())->method('countByUserOnDate');
+		// The grouped count fetch runs once up front (CR-SVC-55) even when
+		// every user later skips on the streak gate.
+		$this->completedTaskMapper->expects($this->once())->method('countByUserOnDateGrouped')->willReturn([]);
 		$this->houseUserMapper->expects($this->never())->method('update');
 
 		$this->service->process($this->yesterday);
@@ -134,7 +137,7 @@ class StreakFreezeServiceTest extends TestCase {
 		]);
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-		$this->completedTaskMapper->expects($this->never())->method('countByUserOnDate');
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
 		$this->houseUserMapper->expects($this->never())->method('update');
 
 		$stats = $this->service->process($this->yesterday);
@@ -155,7 +158,7 @@ class StreakFreezeServiceTest extends TestCase {
 		]);
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-		$this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
 		$this->houseUserMapper->expects($this->once())->method('update');
 
 		$stats = $this->service->process($this->yesterday);
@@ -174,7 +177,7 @@ class StreakFreezeServiceTest extends TestCase {
 		$user = $this->buildUser(1, streak: 5, freezes: 1);
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-		$this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
 		$this->houseUserMapper->expects($this->once())->method('update')
 			->with($this->callback(function (HouseUser $u) {
 				return $u->getLastFreezeDate() !== null
@@ -196,7 +199,7 @@ class StreakFreezeServiceTest extends TestCase {
 		$user->setLastFreezeDate(new \DateTime('2026-07-29'));
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-		$this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
 		$this->houseUserMapper->expects($this->never())->method('update');
 
 		$stats = $this->service->process($this->yesterday);
@@ -219,7 +222,7 @@ class StreakFreezeServiceTest extends TestCase {
 		$user->setLastFreezeDate(new \DateTime('2026-07-20'));
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
-		$this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
 		$this->houseUserMapper->expects($this->once())->method('update');
 
 		$stats = $this->service->process($this->yesterday);
@@ -230,35 +233,33 @@ class StreakFreezeServiceTest extends TestCase {
 	/**
 	 * Process_PerUserErrorIsolation_ContinuesAfterFailure
 	 *
-	 * A single user failure must not abort the loop — the second user
-	 * should still be processed normally.
+	 * A single user's freeze-write failure must not abort the loop — the
+	 * second user should still be processed normally. Since CS-PLAN-036
+	 * the completion counts come from one grouped query fetched up front,
+	 * so per-user isolation concerns only the freeze write.
 	 */
 	public function testProcess_PerUserErrorIsolation_ContinuesAfterFailure(): void {
+		// user1 has no freezes left → reset branch; user2 consumes a freeze.
 		$user1 = $this->buildUser(1, streak: 5, freezes: 0);
 		$user2 = $this->buildUser(2, streak: 3, freezes: 1);
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user1, $user2]);
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
 
-		$callCount = 0;
-		$this->completedTaskMapper->method('countByUserOnDate')
-			->willReturnCallback(function () use (&$callCount) {
-				$callCount++;
-				if ($callCount === 1) {
+		// user1's write fails (exception caught), user2's write succeeds.
+		$this->houseUserMapper->method('update')
+			->willReturnCallback(function (HouseUser $user) {
+				if ($user->getId() === 1) {
 					throw new \RuntimeException('DB connection lost');
 				}
-				return 0;
+				return $user;
 			});
-
-		// user1 fails (exception caught), user2 succeeds (freeze consumed)
-		$this->houseUserMapper->expects($this->once())->method('update')
-			->with($this->callback(function (HouseUser $u) {
-				return $u->getId() === 2 && $u->getCurrentStreak() === 3 && $u->getStreakFreezes() === 0;
-			}));
 
 		$stats = $this->service->process($this->yesterday);
 
 		$this->assertSame(2, $stats['processed']);
 		$this->assertSame(1, $stats['errors']);
+		// The loop continued: user2's freeze was consumed and persisted.
 		$this->assertSame(1, $stats['frozen']);
 	}
 
@@ -273,7 +274,7 @@ class StreakFreezeServiceTest extends TestCase {
 		$user2 = $this->buildUser(2, streak: 3, freezes: 1);
 
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user1, $user2]);
-		$this->completedTaskMapper->method('countByUserOnDate')->willReturn(0);
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
 		$this->houseUserMapper->method('update')
 			->willReturnCallback(function (HouseUser $user) {
 				if ($user->getId() === 1) {
@@ -296,6 +297,7 @@ class StreakFreezeServiceTest extends TestCase {
 	 */
 	public function testProcess_ReturnsCompleteStats(): void {
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([]);
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([]);
 
 		$stats = $this->service->process($this->yesterday);
 
@@ -306,6 +308,27 @@ class StreakFreezeServiceTest extends TestCase {
 			'skippedUnavailable' => 0,
 			'errors' => 0,
 		], $stats);
+	}
+
+	/**
+	 * Process_GroupedCounts_UsersWithZeroCompletionsAbsentFromMap
+	 *
+	 * CR-SVC-55: users absent from the grouped count map are treated as
+	 * zero completions — the freeze/reset decision is unchanged.
+	 */
+	public function testProcess_GroupedCounts_UsersWithZeroCompletionsAbsentFromMap(): void {
+		$activeUser = $this->buildUser(1, streak: 5, freezes: 0);
+		$idleUser = $this->buildUser(2, streak: 4, freezes: 2);
+
+		$this->houseUserMapper->method('findAllForJobs')->willReturn([$activeUser, $idleUser]);
+		// Only the active user appears in the grouped map; idle user → 0.
+		$this->completedTaskMapper->method('countByUserOnDateGrouped')->willReturn([1 => 2]);
+
+		$stats = $this->service->process($this->yesterday);
+
+		// activeUser completed something → untouched; idleUser → freeze.
+		$this->assertSame(0, $stats['reset']);
+		$this->assertSame(1, $stats['frozen']);
 	}
 
 	private function buildUser(int $id, int $streak, int $freezes): HouseUser {

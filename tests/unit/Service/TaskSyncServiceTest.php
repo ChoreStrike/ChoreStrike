@@ -378,13 +378,13 @@ class TaskSyncServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetPendingSyncsForHouse_FiltersPendingResultsByHouseAndLimit
+	 * GetPendingSyncsForHouse_DelegatesToHouseScopedQuery
 	 *
-	 * (CR-SVC-21: the unscoped getPendingSyncs is private — the wrapper's
-	 * mapper-limit contract `findPendingSyncs($limit * 5)` is asserted here
-	 * and replaces the old direct-mutator test.)
+	 * (CR-SVC-21 scope + CS-PLAN-036: the overfetch-and-filter loop with its
+	 * per-row 3-query ownership chain is replaced by one house-scoped
+	 * mapper query carrying house + limit directly.)
 	 */
-	public function testGetPendingSyncsForHouse_FiltersPendingResultsByHouseAndLimit(): void {
+	public function testGetPendingSyncsForHouse_DelegatesToHouseScopedQuery(): void {
 		$houseId = 1;
 		$limit = 2;
 
@@ -392,71 +392,18 @@ class TaskSyncServiceTest extends TestCase {
 		$completedTaskOne->setRoomTaskId(1001);
 
 		$completedTaskTwo = new CompletedTask();
-		$completedTaskTwo->setRoomTaskId(1002);
-
-		$completedTaskThree = new CompletedTask();
-		$completedTaskThree->setRoomTaskId(1003);
+		$completedTaskTwo->setRoomTaskId(1003);
 
 		$this->completedTaskMapper
 			->expects($this->once())
-			->method('findPendingSyncs')
-			->with($limit * 5)
-			->willReturn([$completedTaskOne, $completedTaskTwo, $completedTaskThree]);
+			->method('findPendingSyncsForHouse')
+			->with($houseId, $limit)
+			->willReturn([$completedTaskOne, $completedTaskTwo]);
 
-		$roomTaskOne = new RoomTask();
-		$roomTaskOne->setRoomId(201);
-		$roomTaskTwo = new RoomTask();
-		$roomTaskTwo->setRoomId(202);
-		$roomTaskThree = new RoomTask();
-		$roomTaskThree->setRoomId(203);
-
-		$this->roomTaskMapper
-			->expects($this->exactly(3))
-			->method('find')
-			->willReturnMap([
-				[1001, $roomTaskOne],
-				[1002, $roomTaskTwo],
-				[1003, $roomTaskThree],
-			]);
-
-		// Rooms carry a floorId; the house is resolved via the floor chain.
-		$roomOne = new Room();
-		$roomOne->setId(201);
-		$roomOne->setFloorId(301);
-		$roomTwo = new Room();
-		$roomTwo->setId(202);
-		$roomTwo->setFloorId(302);
-		$roomThree = new Room();
-		$roomThree->setId(203);
-		$roomThree->setFloorId(303);
-
-		$this->roomMapper
-			->expects($this->exactly(3))
-			->method('find')
-			->willReturnMap([
-				[201, $roomOne],
-				[202, $roomTwo],
-				[203, $roomThree],
-			]);
-
-		$floorOne = new Floor();
-		$floorOne->setId(301);
-		$floorOne->setHouseId(1);
-		$floorTwo = new Floor();
-		$floorTwo->setId(302);
-		$floorTwo->setHouseId(2);
-		$floorThree = new Floor();
-		$floorThree->setId(303);
-		$floorThree->setHouseId(1);
-
-		$this->floorMapper
-			->expects($this->exactly(3))
-			->method('find')
-			->willReturnMap([
-				[301, $floorOne],
-				[302, $floorTwo],
-				[303, $floorThree],
-			]);
+		// No per-row ownership chain may run anymore.
+		$this->roomTaskMapper->expects($this->never())->method('find');
+		$this->roomMapper->expects($this->never())->method('find');
+		$this->floorMapper->expects($this->never())->method('find');
 
 		$result = $this->service->getPendingSyncsForHouse($houseId, $limit);
 

@@ -15,7 +15,6 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Medal;
 use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCP\AppFramework\Db\DoesNotExistException;
 
@@ -32,7 +31,6 @@ class GameLogicService {
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private MedalMapper $medalMapper;
-	private RoomTaskMapper $roomTaskMapper;
 	private RewardConfigService $configService;
 	private NotificationService $notificationService;
 	private ?TitleService $titleService;
@@ -41,7 +39,6 @@ class GameLogicService {
 		HouseUserMapper $houseUserMapper,
 		CompletedTaskMapper $completedTaskMapper,
 		MedalMapper $medalMapper,
-		RoomTaskMapper $roomTaskMapper,
 		RewardConfigService $configService,
 		NotificationService $notificationService,
 		?TitleService $titleService = null,
@@ -49,7 +46,6 @@ class GameLogicService {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->medalMapper = $medalMapper;
-		$this->roomTaskMapper = $roomTaskMapper;
 		$this->configService = $configService;
 		$this->notificationService = $notificationService;
 		$this->titleService = $titleService;
@@ -58,11 +54,16 @@ class GameLogicService {
 	/**
 	 * Handle task completion with game logic
 	 *
-	 * @param int $roomTaskId The room task ID
+	 * CR-SVC-50 / CS-PLAN-036: the locked RoomTask entity is threaded in
+	 * by the caller (RoomService::completeRoomTask holds it since its
+	 * lockForUpdate) — no re-fetch inside the house_user lock. The two
+	 * completion-window queries are merged into ONE pre-insert 10-minute
+	 * fetch; the 5-minute combo window is derived in PHP by timestamp
+	 * filtering (the argument is a minute window, not a row limit).
+	 *
+	 * @param RoomTask $roomTask The locked room task entity (held by the caller)
 	 * @param int $userId The house user ID
 	 * @param Task $task The task entity
-	 * @param int $roomCleanliness Current room cleanliness — completion context
-	 *                             only; NOT part of the payout math (CR-SVC-57: contribution = energy cost)
 	 * @param int|null $nextcloudTaskId Optional Nextcloud task id stamped on the
 	 *                                  completion row (CR-SVC-46): sync completions pass the linked id so
 	 *                                  {@see \OCA\ChoreStrike\Db\CompletedTaskMapper::findPendingSyncs()}
@@ -75,17 +76,27 @@ class GameLogicService {
 	 * } Result payload; `newTitle` (CR-SVC-12) must be dispatched by the caller
 	 *   after commit, never inside the transaction.
 	 */
-	public function handleTaskCompletion(int $roomTaskId, int $userId, Task $task, int $roomCleanliness, ?int $nextcloudTaskId = null): array {
+	public function handleTaskCompletion(RoomTask $roomTask, int $userId, Task $task, ?int $nextcloudTaskId = null): array {
 		// CR-SVC-04: lock the house_user row for the duration of this read-
 		// modify-write so two concurrent same-user completions cannot clobber
 		// each other's coins/streak update. Runs inside the caller's open
 		// transaction (RoomService::completeRoomTask).
 		$user = $this->houseUserMapper->findForUpdate($userId);
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		$roomTaskId = $roomTask->getId();
+
+		// One 10-minute window fetch, taken BEFORE the completion insert.
+		// $isCombo (5-minute window) is derived in PHP; the combo-bonus
+		// count below adds 1 for the in-flight completion because the old
+		// post-insert 10-minute query included it.
+		$comboWindow = $this->completedTaskMapper->findRecentByUserId($userId, 10);
+		$fiveMinuteCutoff = (new \DateTime())->modify('-5 minutes');
+		$recentInComboWindow = array_filter(
+			$comboWindow,
+			fn (CompletedTask $c) => $c->getCompletedAt() !== null && $c->getCompletedAt() >= $fiveMinuteCutoff
+		);
+		$isCombo = count($recentInComboWindow) >= 2;
 
 		$contributionScore = $this->calculateContributionScore($task);
-		$recentCompletions = $this->completedTaskMapper->findRecentByUserId($userId, 5);
-		$isCombo = count($recentCompletions) >= 2;
 		$daysEarly = $this->calculateDaysEarly($roomTask);
 		$earlyMultiplier = $this->calculateEarlyBonus($daysEarly);
 		$coins = $this->calculateCoins($task, (float)$user->getCoinMultiplier(), $isCombo, $earlyMultiplier);
@@ -125,8 +136,10 @@ class GameLogicService {
 
 		$comboBonusFreeze = false;
 		if ($isCombo) {
-			$recentForCombo = $this->completedTaskMapper->findRecentByUserId($userId, 10);
-			$comboCount = count($recentForCombo);
+			// +1: the in-flight completion counts toward the threshold —
+			// the old post-insert 10-minute query included it, this fetch
+			// runs pre-insert.
+			$comboCount = count($comboWindow) + 1;
 			$threshold = $this->configService->getComboBonusFreezeThreshold();
 			if ($comboCount >= $threshold && $user->getStreakFreezes() < $cap) {
 				$user->awardBonusFreeze($cap);
@@ -287,6 +300,13 @@ class GameLogicService {
 	/**
 	 * Check and award medals for weekly achievements
 	 *
+	 * The completion stats and max-room-count aggregates are fetched once
+	 * per house as grouped maps (CS-PLAN-036) instead of two queries per
+	 * user; users absent from a map get zero defaults. Medal existence
+	 * checks, inserts, and notifications stay deliberately per-row: the
+	 * unique-constraint race handling in awardMedalIfNew and the
+	 * per-award notification are inherently per-row concerns.
+	 *
 	 * @param int $houseId The house ID
 	 */
 	public function checkAndAwardMedals(int $houseId): array {
@@ -295,14 +315,22 @@ class GameLogicService {
 		$weekEnd->modify('+7 days');
 
 		$users = $this->houseUserMapper->findByHouseId($houseId);
+		$zeroStats = ['taskCount' => 0, 'totalCoins' => 0, 'comboCount' => 0, 'activeDays' => 0];
+		$statsByUser = $this->completedTaskMapper->getUserStatsByHouse(
+			$houseId,
+			new \DateTime($weekStart),
+			$weekEnd
+		);
+		$maxPerRoomByUser = $this->completedTaskMapper->getMaxRoomCompletionCountByHouse(
+			$houseId,
+			new \DateTime($weekStart),
+			$weekEnd
+		);
+
 		$awardedMedals = [];
 
 		foreach ($users as $user) {
-			$stats = $this->completedTaskMapper->getUserStats(
-				$user->getId(),
-				new \DateTime($weekStart),
-				$weekEnd
-			);
+			$stats = $statsByUser[$user->getId()] ?? $zeroStats;
 
 			if ($stats['taskCount'] >= self::MEDAL_TEAM_ANCHOR_MIN_TASKS) {
 				$medal = $this->awardMedalIfNew($user, 'team_anchor', $stats['taskCount'], $weekStart);
@@ -326,11 +354,7 @@ class GameLogicService {
 				}
 			}
 
-			$maxPerRoom = $this->completedTaskMapper->getMaxRoomCompletionCountByUser(
-				$user->getId(),
-				new \DateTime($weekStart),
-				$weekEnd
-			);
+			$maxPerRoom = $maxPerRoomByUser[$user->getId()] ?? 0;
 			if ($maxPerRoom >= self::MEDAL_ROOM_GUARDIAN_MIN_PER_ROOM) {
 				$medal = $this->awardMedalIfNew($user, 'room_guardian', $maxPerRoom, $weekStart);
 				if ($medal !== null) {
@@ -488,16 +512,24 @@ class GameLogicService {
 	/**
 	 * Get all medals for a house with user names
 	 *
+	 * One findByUserIds batch fetch (CS-PLAN-036) instead of a per-user
+	 * lookup; the payload shape (house-user order, then each user's medals
+	 * awarded_at DESC) is unchanged.
+	 *
 	 * @param int $houseId The house ID
 	 * @return array Array of medals with user names
 	 */
 	public function getMedals(int $houseId): array {
 		$users = $this->houseUserMapper->findByHouseId($houseId);
-		$medals = [];
 
+		$medalsByUserId = $this->medalMapper->findByUserIds(array_map(
+			static fn (HouseUser $user) => $user->getId(),
+			$users
+		));
+
+		$medals = [];
 		foreach ($users as $user) {
-			$userMedals = $this->medalMapper->findByUserId($user->getId());
-			foreach ($userMedals as $medal) {
+			foreach ($medalsByUserId[$user->getId()] ?? [] as $medal) {
 				$medals[] = [
 					'id' => $medal->getId(),
 					'userId' => $medal->getUserId(),

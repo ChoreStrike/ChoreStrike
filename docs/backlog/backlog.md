@@ -90,6 +90,15 @@ E2E page context, so `member.isCurrentUser` is never true.
 
 ## Tech Debt / Code Quality
 
+### [P3] SEC-AUDIT-001 — Security hardening follow-ups from P8-SECURITY-001 audit
+**Status**: Open · **Effort**: M · **Source**: security audit 2026-03-05 (record archived 2026-08-20, DOC-STD-001)
+
+- [ ] Rate limiting for sensitive endpoints (user management).
+- [ ] Audit logging for owner-level operations.
+- [ ] Document security assumptions in the API documentation (`docs/api/`).
+
+---
+
 ### [P2] TECH-LINT-004 — Stylelint `use-logical` warnings (26, physical→logical property sweep)
 **Status**: Open · **Effort**: M · **Source**: surfaced after CS-026 fixed the stylelint config (2026-08-12)
 
@@ -246,17 +255,10 @@ different values for the same column. Source: Review of CS-PLAN-033 (2026-08-19)
 > (record: [`archive/2026-08.md`](archive/2026-08.md)).
 > The review's smaller follow-ups **CR-SVC-48/49** were **resolved 2026-08-16**
 > by [CS-PLAN-029](../plans/done/cs-plan-029-service-hardening.md)
-> (record: [`archive/2026-08.md`](archive/2026-08.md)); **CR-SVC-50…52** stay open below.
-
-### [P3] CR-SVC-50 — Extra queries inside the `house_user` lock (critical section)
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025 (CR-SVC-04)
-`GameLogicService::handleTaskCompletion` runs `roomTaskMapper->find($roomTaskId)`
-after `findForUpdate` although `RoomService::completeRoomTask` already holds that
-entity, and calls `findRecentByUserId` twice (limit 5, then 10) when combo. Both
-add round-trips inside the new row lock; the plan's risk table promised a short
-critical section.
-- [ ] Pass the loaded `RoomTask` into `handleTaskCompletion` (or fetch before
-      the lock); fetch the last 10 completions once and slice for the combo check.
+> (record: [`archive/2026-08.md`](archive/2026-08.md)).
+> **CR-SVC-50** was **resolved 2026-08-20** by
+> [CS-PLAN-036](../plans/done/cs-plan-036-query-batch-optimization.md)
+> (record: [`archive/2026-08.md`](archive/2026-08.md)); **CR-SVC-52** stays open below.
 
 ### [P3] CR-SVC-52 — CR-SVC-12 unit test does not assert dispatch-after-commit ordering
 **Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025
@@ -276,33 +278,12 @@ of CR-SVC-12) is untested.
 > ESLint clean. **One auto-fix applied**, **one new [P1] concurrency finding
 > (CR-SVC-53)** surfaced, and the minor perf/quality follow-ups below (CR-SVC-54..58).
 
-### [P3] CR-SVC-55 — `StreakFreezeService::process` per-user N+1
-**Status**: Open · **Effort**: S · **Source**: Full Review 2026-08-11
-The daily loop calls `completedTaskMapper->countByUserOnDate($user->getId(), $yesterday)`
-once per house user (`StreakFreezeService.php:81`) — N queries for N users. The sibling
-`StreakAtRiskService` was already optimized to a single GROUP BY
-(`countByUserOnDateGrouped`, `StreakAtRiskService.php:53`); `StreakFreezeService` was not.
-- [ ] Reuse `countByUserOnDateGrouped` and look up each user's count from the map.
-
-### [P3] CR-SVC-56 — `MinigameService::getLeaderboard` N+1 display-name enrichment
-**Status**: Open · **Effort**: S · **Source**: Full Review 2026-08-11
-`getLeaderboard` (`:96`) and `getWeeklyLeaderboard` (`:122`) call
-`findByHouseIdAndNextcloudUserId` per score row to enrich `displayName` — N extra
-queries for an N-entry leaderboard (default limit 10 → 10 round trips per fetch).
-- [ ] Add a batch lookup (`findByHouseIdAndNextcloudUserIds`) or a JOIN in
-      `MinigameScoreMapper::getLeaderboard` that returns `displayName` alongside the rows.
-
-### [P2] CR-SVC-11 — N+1 query cluster across services
-**Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)
-Pervasive per-row mapper calls in loops. Hot spots: `HouseService::calculateHouseHealth`/
-`getHouseStats`/`resetHouse`; `GameLogicService::checkAndAwardMedals`/`getMedals`;
-`FloorService::getFloorsWithRooms`/`reorderFloors`; `RoomService::getRoomWithTasks`/
-`deleteRoom`; `RoomTaskService::getDailyTasksWithDetails`/`getRangeTasks`/`bulkAssignTasks`;
-`MinigameService` leaderboards; `TaskSyncService::getPendingSyncsForHouse`;
-`StreakFreezeService::process`.
-- [ ] Add batch mapper queries (`findByHouseId`, `findByIds` IN, JOINs, grouped counts);
-      replace per-id `find` loops with set-based lookups. (Scheduler-cluster N+1s were
-      retired by the CR-SVC-08 deletions in CS-PLAN-025.)
+> **Resolved 2026-08-20 by
+> [CS-PLAN-036](../plans/done/cs-plan-036-query-batch-optimization.md)**
+> (record: [`archive/2026-08.md`](archive/2026-08.md)): **CR-SVC-55/56** and the
+> **read-path** cluster of **CR-SVC-11** are closed; the write-path remainder
+> (resetHouse, deleteRoom, reorderFloors, bulkAssignTasks) is split into
+> **CR-SVC-60** below.
 
 ### [P3] CR-SVC-59 — Add `AppLogger` to logger-less services
 **Status**: Open · **Effort**: M · **Source**: CR-SVC-13 remainder (review of `lib/Service`, 2026-08-04; split off 2026-08-19)
@@ -311,6 +292,20 @@ closed by CS-PLAN-035 (5 services migrated to `AppLogger`); this remainder track
 incremental `AppLogger` adoption in services that swallow failures silently.
 - [ ] Survey the logger-less services and inject `AppLogger` where failure paths
       (catch blocks, best-effort skips) currently go unlogged.
+
+### [P2] CR-SVC-60 — Bulk write-path batching (CR-SVC-11 write remainder)
+**Status**: Open · **Effort**: M · **Source**: Split off from CR-SVC-11 by
+[CS-PLAN-036](../plans/done/cs-plan-036-query-batch-optimization.md) (2026-08-20)
+The read-path N+1 cluster of CR-SVC-11 is closed by CS-PLAN-036; these write paths
+were deliberately deferred because bulk-UPDATE/DELETE/CASE-WHEN conversions carry
+FK-semantics and error-isolation contracts that need their own verification first:
+`HouseService::resetHouse` (per-room UPDATE loop), `RoomService::deleteRoom`
+(per-roomTask DELETE loop — verify FK behavior of `completed_tasks.room_task_id`
+first), `FloorService::reorderFloors` (per-floor `updateSortOrder` + re-fetch —
+CASE-WHEN candidate), and the write half of `RoomTaskService::bulkAssignTasks`
+(read pre-validation batching).
+- [ ] Convert to set-based writes after verifying FK/error-isolation contracts;
+      keep per-item error isolation where the API promises it.
 
 ### [P2] CR-SVC-15 — Decompose God-methods / God-services
 **Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)
