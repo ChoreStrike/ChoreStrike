@@ -136,4 +136,52 @@ class FloorMapperTest extends TestCase {
 		$this->assertIsArray($results);
 		$this->assertEmpty($results);
 	}
+
+	/**
+	 * UpdateSortOrders_EmptyInput_SkipsStatement
+	 *
+	 * CS-PLAN-037: the empty-map early return must not touch the DB.
+	 */
+	public function testUpdateSortOrders_EmptyInput_SkipsStatement(): void {
+		$this->qb->expects($this->never())->method('update');
+
+		$this->mapper->updateSortOrders([]);
+	}
+
+	/**
+	 * UpdateSortOrders_BuildsCaseWhenWithIntInlining
+	 *
+	 * The CASE list is inlined via sprintf('%d') — ids and orders must
+	 * appear as plain integers; any non-int noise is cast away (no user
+	 * strings can reach the SQL).
+	 */
+	public function testUpdateSortOrders_BuildsCaseWhenWithIntInlining(): void {
+		$capturedFunctions = [];
+		$capturedParams = [];
+		$this->qb->method('createFunction')->willReturnCallback(
+			function ($sql) use (&$capturedFunctions) {
+				$capturedFunctions[] = $sql;
+				return 'func_' . count($capturedFunctions);
+			}
+		);
+		$this->qb->method('createNamedParameter')->willReturnCallback(
+			function ($value, $type) use (&$capturedParams) {
+				$capturedParams[] = ['value' => $value, 'type' => $type];
+				return 'param_' . count($capturedParams);
+			}
+		);
+		$this->qb->method('update')->willReturn($this->qb);
+		$this->qb->method('set')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->expects($this->once())->method('executeStatement');
+
+		// Key 2 carries a poisoned string suffix — the %d cast must drop it.
+		$this->mapper->updateSortOrders([1 => 0, '2 OR 1=1' => '5', 3 => 2]);
+
+		$this->assertSame('CASE id WHEN 1 THEN 0 WHEN 2 THEN 5 WHEN 3 THEN 2 ELSE sort_order END', $capturedFunctions[0]);
+
+		// The IN scope carries the sanitized id list as ints.
+		$this->assertSame([1, 2, 3], $capturedParams[0]['value']);
+		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[0]['type']);
+	}
 }

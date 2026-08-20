@@ -465,6 +465,99 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Find the IDs of all room tasks in the given rooms in one query
+	 * (CS-PLAN-037 cascade base).
+	 *
+	 * @param int[] $roomIds The room IDs
+	 * @return int[] List of room task IDs
+	 */
+	public function findIdsByRoomIds(array $roomIds): array {
+		$roomIds = array_values(array_map('intval', $roomIds));
+		if ($roomIds === []) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from($this->getTableName())
+			->where($qb->expr()->in('room_id', $qb->createNamedParameter($roomIds, IQueryBuilder::PARAM_INT_ARRAY)));
+
+		$result = $qb->executeQuery();
+		$ids = [];
+		while ($row = $result->fetch()) {
+			$ids[] = (int)$row['id'];
+		}
+		$result->closeCursor();
+		return $ids;
+	}
+
+	/**
+	 * Find the IDs of all room tasks of a room.
+	 *
+	 * @param int $roomId The room ID
+	 * @return int[] List of room task IDs
+	 */
+	public function findIdsByRoomId(int $roomId): array {
+		return $this->findIdsByRoomIds([$roomId]);
+	}
+
+	/**
+	 * Delete all room tasks in the given rooms in one statement
+	 * (CS-PLAN-037 cascade; dependents must be cleaned up by the caller
+	 * first — the schema has no FK constraints).
+	 *
+	 * @param int[] $roomIds The room IDs
+	 */
+	public function deleteByRoomIds(array $roomIds): void {
+		$roomIds = array_values(array_map('intval', $roomIds));
+		if ($roomIds === []) {
+			return;
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete($this->getTableName())
+			->where($qb->expr()->in('room_id', $qb->createNamedParameter($roomIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->executeStatement();
+	}
+
+	/**
+	 * Delete all room tasks of a room in one statement.
+	 *
+	 * @param int $roomId The room ID
+	 */
+	public function deleteByRoomId(int $roomId): void {
+		$this->deleteByRoomIds([$roomId]);
+	}
+
+	/**
+	 * Find multiple room tasks by IDs, scoped to one house, in one query
+	 * (CS-PLAN-037, CR-SVC-60).
+	 *
+	 * IN-clause fetch joined through rooms → floors filtered on
+	 * floors.house_id — the batch replacement for the per-item 3-query
+	 * ownership chain. Ids that are missing or belong to another house
+	 * are simply absent from the result (skip-on-missing semantics).
+	 *
+	 * @param int[] $roomTaskIds The room task IDs
+	 * @param int $houseId The house ID scope
+	 * @return RoomTask[] Room tasks of the house (unordered)
+	 */
+	public function findByIdsScopedToHouse(array $roomTaskIds, int $houseId): array {
+		$roomTaskIds = array_values(array_map('intval', $roomTaskIds));
+		if ($roomTaskIds === []) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('rt.*')
+			->from($this->getTableName(), 'rt');
+		$this->applyHouseScope($qb, 'rt', $houseId);
+		$qb->andWhere($qb->expr()->in('rt.id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)));
+
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * Apply the house-scope JOIN chain to a room_tasks query.
 	 *
 	 * chorestrike_room_tasks has no denormalized house_id column, so every

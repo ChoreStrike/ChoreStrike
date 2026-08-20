@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
@@ -38,6 +39,7 @@ class RoomServiceTest extends TestCase {
 	private GameLogicService $gameLogicService;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private RoomTaskChecklistProgressMapper $checklistProgressMapper;
 	private HouseService $houseService;
 	private HouseMapper $houseMapper;
 	private NotificationService $notificationService;
@@ -64,6 +66,7 @@ class RoomServiceTest extends TestCase {
 		$this->gameLogicService = $this->createMock(GameLogicService::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+		$this->checklistProgressMapper = $this->createMock(RoomTaskChecklistProgressMapper::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
@@ -98,6 +101,7 @@ class RoomServiceTest extends TestCase {
 			$this->gameLogicService,
 			$this->taskAssigneeMapper,
 			$this->completedTaskMapper,
+			$this->checklistProgressMapper,
 			$this->houseService,
 			$this->houseMapper,
 			$this->notificationService,
@@ -212,16 +216,18 @@ class RoomServiceTest extends TestCase {
 	}
 
 	/**
-	 * DeleteRoom_WithTasks_DeletesRoomAndTasks
+	 * DeleteRoom_WithTasks_CascadesDependentsInOneTransaction
+	 *
+	 * CS-PLAN-037 (D1/D2): room deletion is an explicit, orphan-free
+	 * cascade in dependency order (checklist progress → assignees →
+	 * completions → room tasks → room), wrapped in one transaction.
 	 */
-	public function testDeleteRoom_WithTasks_DeletesRoomAndTasks(): void {
+	public function testDeleteRoom_WithTasks_CascadesDependentsInOneTransaction(): void {
 		$roomId = 1;
+		$roomTaskIds = [10, 11];
 
 		$room = new Room();
 		$room->setId($roomId);
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
 
 		$this->roomMapper
 			->expects($this->once())
@@ -231,24 +237,69 @@ class RoomServiceTest extends TestCase {
 
 		$this->roomTaskMapper
 			->expects($this->once())
-			->method('findByRoomId')
+			->method('findIdsByRoomId')
 			->with($roomId)
-			->willReturn([$roomTask]);
+			->willReturn($roomTaskIds);
+
+		$this->checklistProgressMapper
+			->expects($this->once())
+			->method('deleteByRoomTaskIds')
+			->with($roomTaskIds);
+
+		$this->taskAssigneeMapper
+			->expects($this->once())
+			->method('deleteByRoomTasks')
+			->with($roomTaskIds);
+
+		$this->completedTaskMapper
+			->expects($this->once())
+			->method('deleteByRoomTaskIds')
+			->with($roomTaskIds);
 
 		$this->roomTaskMapper
 			->expects($this->once())
-			->method('delete')
-			->with($roomTask);
+			->method('deleteByRoomId')
+			->with($roomId);
 
 		$this->roomMapper
 			->expects($this->once())
 			->method('delete')
 			->with($room);
 
-		$this->service->deleteRoom($roomId);
+		// The whole cascade is all-or-nothing.
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('commit');
+		$this->db->expects($this->never())->method('rollBack');
 
-		// Assertions verified by mock expectations
-		$this->assertTrue(true);
+		$this->service->deleteRoom($roomId);
+	}
+
+	/**
+	 * DeleteRoom_DependentFailure_RollsBackAndReThrows
+	 *
+	 * A failure anywhere in the cascade must leave no partial deletion.
+	 */
+	public function testDeleteRoom_DependentFailure_RollsBackAndReThrows(): void {
+		$roomId = 1;
+
+		$room = new Room();
+		$room->setId($roomId);
+
+		$this->roomMapper->method('find')->willReturn($room);
+		$this->roomTaskMapper->method('findIdsByRoomId')->willReturn([10]);
+		$this->taskAssigneeMapper->method('deleteByRoomTasks')
+			->willThrowException(new \RuntimeException('db down'));
+
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+		$this->roomMapper->expects($this->never())->method('delete');
+		$this->roomTaskMapper->expects($this->never())->method('deleteByRoomId');
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('db down');
+
+		$this->service->deleteRoom($roomId);
 	}
 
 	/**

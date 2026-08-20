@@ -173,6 +173,24 @@ class TaskAssigneeMapper extends QBMapper {
 	}
 
 	/**
+	 * Delete all assignee rows of the given room tasks in one statement
+	 * (CS-PLAN-037 cascade; plural sibling of deleteByRoomTask).
+	 *
+	 * @param int[] $roomTaskIds The room task IDs
+	 */
+	public function deleteByRoomTasks(array $roomTaskIds): void {
+		$roomTaskIds = array_values(array_map('intval', $roomTaskIds));
+		if ($roomTaskIds === []) {
+			return;
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete($this->getTableName())
+			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->executeStatement();
+	}
+
+	/**
 	 * Delete all assignee rows of a removed member, scoped to one house
 	 * (CR-SVC-26).
 	 *

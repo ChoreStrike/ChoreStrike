@@ -214,6 +214,10 @@ class HouseService {
 	/**
 	 * Reset house to initial state
 	 *
+	 * All rooms reset via one house-scoped subquery UPDATE
+	 * (CS-PLAN-037, CR-SVC-60) instead of the floors → rooms double
+	 * loop (3 + N_floors + N_rooms → 3 queries).
+	 *
 	 * @param int $houseId The house ID
 	 */
 	public function resetHouse(int $houseId): void {
@@ -226,17 +230,7 @@ class HouseService {
 		$house->touch();
 		$this->houseMapper->update($house);
 
-		// Reset all rooms
-		$floors = $this->floorMapper->findByHouseId($houseId);
-		foreach ($floors as $floor) {
-			$rooms = $this->roomMapper->findByFloorId($floor->getId());
-			foreach ($rooms as $room) {
-				$room->setCleanliness(100);
-				$room->setMonsterCount(0);
-				$room->setLastCleaned(null);
-				$this->roomMapper->update($room);
-			}
-		}
+		$this->roomMapper->resetByHouseId($houseId);
 	}
 
 	/**

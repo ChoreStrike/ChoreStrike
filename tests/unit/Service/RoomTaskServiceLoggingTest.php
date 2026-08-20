@@ -75,6 +75,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$houseUserMapper,
 			$this->createMock(CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
+			$this->createMock(\OCP\IDBConnection::class),
 			$appLogger
 		);
 
@@ -89,6 +90,8 @@ class RoomTaskServiceLoggingTest extends TestCase {
 	 *
 	 * CR-SVC-09: the warning context must not contain the raw target
 	 * userId (privacy) — houseId and roomTaskId are sufficient context.
+	 * CS-PLAN-037: a foreign id never comes back from the house-scoped
+	 * fetch, so the skip is logged with a reason instead of an exception.
 	 */
 	public function testBulkAssignTasks_SkippedItem_LogsWithoutUserId(): void {
 		$roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -100,22 +103,12 @@ class RoomTaskServiceLoggingTest extends TestCase {
 		$houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$appLogger = $this->createMock(AppLogger::class);
 
-		// The room task belongs to another house -> ownership fails -> skip.
-		$roomTask = new RoomTask();
-		$roomTask->setId(20);
-		$roomTask->setRoomId(5);
+		// The house-scoped fetch returns NOTHING for the foreign id 20.
+		$roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([]);
 
-		$room = new Room();
-		$room->setId(5);
-		$room->setFloorId(7);
-
-		$floor = new Floor();
-		$floor->setId(7);
-		$floor->setHouseId(99);
-
-		$roomTaskMapper->method('find')->with(20)->willReturn($roomTask);
-		$roomMapper->method('find')->with(5)->willReturn($room);
-		$floorMapper->method('find')->with(7)->willReturn($floor);
+		$member = new \OCA\ChoreStrike\Db\HouseUser();
+		$member->setNextcloudUserId('target-user');
+		$houseUserMapper->method('findByHouseId')->willReturn([$member]);
 
 		$appLogger->expects($this->once())
 			->method('warning')
@@ -126,7 +119,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 						&& $context['service'] === 'RoomTaskService'
 						&& $context['roomTaskId'] === 20
 						&& $context['houseId'] === 1
-						&& $context['exception'] === NotFoundException::class;
+						&& $context['reason'] === 'not_found_in_house';
 				})
 			);
 
@@ -140,6 +133,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$houseUserMapper,
 			$this->createMock(CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
+			$this->createMock(\OCP\IDBConnection::class),
 			$appLogger
 		);
 

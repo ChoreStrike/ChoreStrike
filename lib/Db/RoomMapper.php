@@ -148,6 +148,52 @@ class RoomMapper extends QBMapper {
 	}
 
 	/**
+	 * Reset every room of a house to its initial state in one UPDATE
+	 * (CS-PLAN-037, CR-SVC-60).
+	 *
+	 * `UPDATE rooms SET cleanliness = 100, monster_count = 0,
+	 * last_cleaned = NULL WHERE floor_id IN (SELECT id FROM floors WHERE
+	 * house_id = :house)` — built with the query-builder subquery pattern
+	 * (the house parameter is bound on the OUTER builder and its
+	 * placeholder embedded into the subquery SQL, so the parameter is
+	 * bound exactly once where execution happens; CR-SVC-26 precedent).
+	 * Portable `IN (SELECT …)` instead of the non-portable UPDATE … JOIN.
+	 *
+	 * @param int $houseId The house ID scope
+	 * @return int Number of affected room rows
+	 */
+	public function resetByHouseId(int $houseId): int {
+		$qb = $this->db->getQueryBuilder();
+		$houseIdParam = $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT);
+
+		$floorsInHouse = $this->db->getQueryBuilder();
+		$floorsInHouse->select('f.id')
+			->from('chorestrike_floors', 'f')
+			->where($floorsInHouse->expr()->eq('f.house_id', $houseIdParam));
+
+		$qb->update($this->getTableName())
+			->set('cleanliness', $qb->createNamedParameter(100, IQueryBuilder::PARAM_INT))
+			->set('monster_count', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT))
+			->set('last_cleaned', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+			->where($qb->expr()->in('floor_id', $qb->createFunction($floorsInHouse->getSQL())));
+
+		return $qb->executeStatement();
+	}
+
+	/**
+	 * Delete all rooms of a floor in one statement (CS-PLAN-037 cascade;
+	 * dependents must be cleaned up by the caller first — no FK cascade).
+	 *
+	 * @param int $floorId The floor ID
+	 */
+	public function deleteByFloorId(int $floorId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete($this->getTableName())
+			->where($qb->expr()->eq('floor_id', $qb->createNamedParameter($floorId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+	}
+
+	/**
 	 * Update room cleanliness
 	 *
 	 * @param int $roomId The room ID

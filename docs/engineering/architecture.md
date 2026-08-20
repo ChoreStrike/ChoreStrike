@@ -294,8 +294,8 @@ summary below covers the core tables. Column types map to the entity PHP type
 | Table | Purpose | Entity |
 |-------|---------|--------|
 | `chorestrike_minigame_scores` | Minigame scores (game, score, boosts used) | `MinigameScore` |
-| `chorestrike_checklist_items` | Task checklist template items | `TaskChecklistItem` |
-| `chorestrike_room_task_checklist_progress` | Per-room-task checklist progress | `RoomTaskChecklistProgress` |
+| `chorestrike_chk_items` | Task checklist template items (Version1005 name) | `TaskChecklistItem` |
+| `chorestrike_chk_progress` | Per-room-task checklist progress (Version1005 name) | `RoomTaskChecklistProgress` |
 | `chorestrike_task_assignees` | Multi-assignee join table (room-task ↔ user) (CS-PLAN-002) | `TaskAssignee` |
 | `chorestrike_availability` | Per-user availability: weekday presence, time ranges, energy budget | `AvailabilitySettings` |
 
@@ -528,22 +528,25 @@ daily-notification --as-of YYYY-MM-DD` (test mode only); `--as-of` sets
 
 ### Batch Query Patterns (N+1 elimination)
 
-> Canonical patterns established by CS-PLAN-036. When a service loop calls a
-> mapper per row, convert it to one of these three idioms — all three are
+> Canonical patterns established by CS-PLAN-036 (read paths) and extended
+> to the write paths by CS-PLAN-037. When a service loop calls a
+> mapper per row, convert it to one of these idioms — all of them are
 > proven in-repo and covered by real-DB regression tests
-> (`tests/integration/Db/BatchQueryRegressionTest.php`).
+> (`tests/integration/Db/BatchQueryRegressionTest.php`,
+> `tests/integration/Db/WriteBatchRegressionTest.php`).
 
 1. **IN-clause id→row map** — fetch many rows by id in one query, return a map.
    Pattern: `TaskAssigneeMapper::findUserIdsByRoomTasks`, `TaskMapper::findByIds`,
    `RoomMapper::findByIds`, `MedalMapper::findByUserIds`,
-   `HouseUserMapper::findByHouseIdAndNextcloudUserIds`.
+   `HouseUserMapper::findByHouseIdAndNextcloudUserIds`,
+   `RoomTaskMapper::findByIdsScopedToHouse` (house-scoped variant).
    - Always `array_fill_keys`/`[]`-default + **empty-input early return**
      (an empty IN () is a syntax error on MariaDB/SQLite).
    - Use `$qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY))`
      (or `PARAM_STR_ARRAY` for string ids).
    - **Missing ids are tolerated**: absent map key = skip. Consumers must not
      assume every requested id resolves (skip-on-missing semantics, e.g.
-     `RoomService::getRoomWithTasks`).
+     `RoomService::getRoomWithTasks`, `bulkAssignTasks`' foreign-id skip).
    - Callers look up with `$map[$id] ?? $default` — never re-fetch per row.
 
 2. **Grouped aggregate (single GROUP BY → PHP map)** — replace per-user
@@ -566,14 +569,53 @@ daily-notification --as-of YYYY-MM-DD` (test mode only); `--as-of` sets
    `findPendingSyncsForHouse` (consumed by `TaskSyncService::getPendingSyncsForHouse`),
    `RoomMapper::findByHouseId`.
 
+**Write-path idioms (CS-PLAN-037)** — the same conversion for loops that
+UPDATE/DELETE per row:
+
+4. **House/parent-scoped subquery UPDATE/DELETE** — one statement scoped by
+   `WHERE … IN (SELECT …)` instead of a fetch-then-loop.
+   Pattern: `RoomMapper::resetByHouseId` (floors-of-house subquery UPDATE,
+   replaces the `resetHouse` floors→rooms loop), CR-SVC-26 precedents
+   `TaskAssigneeMapper::deleteByUserForHouse`,
+   `RoomTaskMapper::clearAssignedUserForHouse`.
+   - Build the subquery on a separate builder; bind the scope parameter on
+     the OUTER builder (`createNamedParameter`) and embed the subquery via
+     `$qb->createFunction($subQb->getSQL())` so the parameter is bound
+     exactly once where execution happens.
+   - `IN (SELECT …)` is SQL-92 (portable); avoid the non-portable
+     `UPDATE … JOIN`.
+
+5. **Bulk DELETE by id list** — one statement over the loop's id set.
+   Pattern: `CompletedTaskMapper::deleteByRoomTaskIds`,
+   `TaskAssigneeMapper::deleteByRoomTasks`,
+   `RoomTaskChecklistProgressMapper::deleteByRoomTaskIds`,
+   `RoomTaskMapper::deleteByRoomIds`, `RoomMapper::deleteByFloorId`.
+   - Same empty-input early return as idiom 1; ids are `intval`-cast.
+   - **There are no FK constraints** — a delete cascade must be explicit, in
+     dependency order (progress → assignees → completions → room tasks →
+     rooms), and transactional. The shared helper is
+     `RoomService::deleteRoomTaskDependents` (used by `deleteRoom`,
+     `deleteRoomTask`, `deleteFloor`); D2 decision: the completion history
+     is deleted with its task (medals/streaks/coins are denormalized
+     snapshots and stay valid).
+
+6. **CASE-WHEN bulk UPDATE** — per-row `SET` values differing by id become
+   one statement: `SET sort_order = CASE id WHEN … THEN … ELSE
+   sort_order END WHERE id IN (…)`.
+   Pattern: `FloorMapper::updateSortOrders` (consumed by
+   `FloorService::reorderFloors`, which builds the return payload from the
+   already-fetched entities instead of re-fetching per row).
+   - Only for validated scalar values (ints): inline via
+     `sprintf('%d', …)` inside `createFunction` — never user strings.
+   - The `ELSE` arm keeps untouched rows stable; the IN clause scopes the
+     statement.
+
 **What stays per-row on purpose:** medal existence checks + inserts (unique-
 constraint race handling in `GameLogicService::awardMedalIfNew`), per-award
 notifications, per-item error isolation (e.g. the freeze write in
-`StreakFreezeService::process`), and genuine single-entity lookups.
-
-**Out of scope (tracked as CR-SVC-60):** bulk write paths (`resetHouse`,
-`deleteRoom`, `reorderFloors`, `bulkAssignTasks`) — bulk UPDATE/DELETE/CASE-WHEN
-conversions need their own FK/error-isolation verification.
+`StreakFreezeService::process`, the per-item `assignToUser` writes in
+`bulkAssignTasks` — the API promises item-granular skip behavior), and
+genuine single-entity lookups.
 
 ### Frontend
 - Lazy loading routes

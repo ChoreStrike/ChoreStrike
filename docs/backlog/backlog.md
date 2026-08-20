@@ -293,20 +293,21 @@ incremental `AppLogger` adoption in services that swallow failures silently.
 - [ ] Survey the logger-less services and inject `AppLogger` where failure paths
       (catch blocks, best-effort skips) currently go unlogged.
 
-### [P2] CR-SVC-60 — Bulk write-path batching (CR-SVC-11 write remainder)
-**Status**: Open · **Effort**: M · **Source**: Split off from CR-SVC-11 by
-[CS-PLAN-036](../plans/done/cs-plan-036-query-batch-optimization.md) (2026-08-20) ·
-**Plan**: [CS-PLAN-037](../plans/active/cs-plan-037-bulk-write-batching.md) (active, 2026-08-20)
-The read-path N+1 cluster of CR-SVC-11 is closed by CS-PLAN-036; these write paths
-were deliberately deferred because bulk-UPDATE/DELETE/CASE-WHEN conversions carry
-FK-semantics and error-isolation contracts that need their own verification first:
-`HouseService::resetHouse` (per-room UPDATE loop), `RoomService::deleteRoom`
-(per-roomTask DELETE loop — verify FK behavior of `completed_tasks.room_task_id`
-first), `FloorService::reorderFloors` (per-floor `updateSortOrder` + re-fetch —
-CASE-WHEN candidate), and the write half of `RoomTaskService::bulkAssignTasks`
-(read pre-validation batching).
-- [ ] Convert to set-based writes after verifying FK/error-isolation contracts;
-      keep per-item error isolation where the API promises it.
+> **Resolved 2026-08-20 by
+> [CS-PLAN-037](../plans/done/cs-plan-037-bulk-write-batching.md)**
+> (record: [`archive/2026-08.md`](archive/2026-08.md)): **CR-SVC-60** closed —
+> all four write hot spots converted to set-based writes with explicit,
+> transactional, orphan-free delete cascades (D1=YES/D2=DELETE).
+
+### [P3] CR-SVC-61 — `bulkAssignTasks` has no controller/route caller
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-037 (2026-08-20)
+The CS-PLAN-037 Phase-D batch pre-validation (`RoomTaskMapper::findByIdsScopedToHouse`)
+is currently exercised only by tests: no controller/route calls
+`RoomTaskService::bulkAssignTasks` — the frontend store still loops
+`assignRoomTask` per item ("API doesn't have bulk endpoint yet"), so the
+optimized write path is dead code until an endpoint is wired.
+- [ ] Add a bulk-assign endpoint (route + controller with `ensureHouseMember`
+      and `InvalidArgumentException` → 400) and switch the store to call it.
 
 ### [P2] CR-SVC-15 — Decompose God-methods / God-services
 **Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)

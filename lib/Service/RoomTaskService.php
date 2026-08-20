@@ -21,6 +21,7 @@ use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\IDBConnection;
 
 /**
  * Service for room task-related business logic
@@ -35,6 +36,7 @@ class RoomTaskService {
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private TemplateService $templateService;
+	private IDBConnection $db;
 	private ?AppLogger $appLogger;
 
 	public function __construct(
@@ -47,6 +49,7 @@ class RoomTaskService {
 		HouseUserMapper $houseUserMapper,
 		CompletedTaskMapper $completedTaskMapper,
 		TemplateService $templateService,
+		IDBConnection $db,
 		?AppLogger $appLogger = null,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -58,6 +61,7 @@ class RoomTaskService {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->templateService = $templateService;
+		$this->db = $db;
 		$this->appLogger = $appLogger;
 	}
 
@@ -511,13 +515,26 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Delete room task
+	 * Delete room task and everything that depends on it (CS-PLAN-037, D1/D2).
+	 *
+	 * Explicit, transactional cascade for a single id — before this, the
+	 * row's completions, assignees, and checklist progress were left
+	 * orphaned (no FK constraints in the schema).
 	 *
 	 * @param int $roomTaskId The room task ID
 	 */
 	public function deleteRoomTask(int $roomTaskId): void {
 		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		$this->roomTaskMapper->delete($roomTask);
+
+		$this->db->beginTransaction();
+		try {
+			$this->roomService->deleteRoomTaskDependents([$roomTaskId]);
+			$this->roomTaskMapper->delete($roomTask);
+			$this->db->commit();
+		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			throw $e;
+		}
 	}
 
 	/**
@@ -586,21 +603,44 @@ class RoomTaskService {
 	/**
 	 * Bulk assign tasks to user
 	 *
-	 * Each item is routed through {@see assignTask()} so ownership and
-	 * membership validation (CR-SVC-09) apply per task; failing items are
-	 * skipped and logged without the raw target userId (privacy).
+	 * Batch pre-validation (CS-PLAN-037, CR-SVC-60): one house-scoped
+	 * fetch ({@see RoomTaskMapper::findByIdsScopedToHouse}) replaces the
+	 * per-item 3-query ownership chain, and one assertHouseMembers call
+	 * replaces the per-item membership fetch (≈7N → 3 + N queries). The
+	 * target user is a request-level parameter, so a non-member fails
+	 * the whole call up front; per-ITEM isolation is preserved — ids
+	 * that are missing or belong to another house are skipped and logged
+	 * without the raw target userId (privacy), and a failing
+	 * assignToUser write never aborts the batch.
 	 *
 	 * @param array $roomTaskIds Array of room task IDs
 	 * @param string $userId The user ID (must be a house member)
 	 * @param int $houseId The caller's house ID (scopes the room tasks)
-	 * @return RoomTask[] The successfully assigned room tasks
+	 * @return RoomTask[] The successfully assigned room tasks, in input order
 	 */
 	public function bulkAssignTasks(array $roomTaskIds, string $userId, int $houseId): array {
-		$assignedTasks = [];
+		$this->assertHouseMembers([$userId], $houseId);
 
+		$scopedIds = [];
+		foreach ($this->roomTaskMapper->findByIdsScopedToHouse($roomTaskIds, $houseId) as $scopedRoomTask) {
+			$scopedIds[$scopedRoomTask->getId()] = true;
+		}
+
+		$assignedIds = [];
 		foreach ($roomTaskIds as $roomTaskId) {
+			if (!isset($scopedIds[(int)$roomTaskId])) {
+				$this->appLogger?->warning('Bulk room task assignment skipped failed item', [
+					'service' => 'RoomTaskService',
+					'roomTaskId' => $roomTaskId,
+					'houseId' => $houseId,
+					'reason' => 'not_found_in_house',
+				]);
+				continue;
+			}
+
 			try {
-				$assignedTasks[] = $this->assignTask($roomTaskId, $userId, $houseId);
+				$this->roomTaskMapper->assignToUser((int)$roomTaskId, $userId);
+				$assignedIds[] = (int)$roomTaskId;
 			} catch (\Exception $e) {
 				$this->appLogger?->warning('Bulk room task assignment skipped failed item', [
 					'service' => 'RoomTaskService',
@@ -609,6 +649,24 @@ class RoomTaskService {
 					'exception' => get_class($e),
 				]);
 				continue;
+			}
+		}
+
+		if ($assignedIds === []) {
+			return [];
+		}
+
+		// One re-fetch of the successfully-assigned ids builds the return
+		// payload with the persisted assignment state, in input order.
+		$freshById = [];
+		foreach ($this->roomTaskMapper->findByIdsScopedToHouse($assignedIds, $houseId) as $freshRoomTask) {
+			$freshById[$freshRoomTask->getId()] = $freshRoomTask;
+		}
+
+		$assignedTasks = [];
+		foreach ($assignedIds as $assignedId) {
+			if (isset($freshById[$assignedId])) {
+				$assignedTasks[] = $freshById[$assignedId];
 			}
 		}
 

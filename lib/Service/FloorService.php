@@ -12,8 +12,10 @@ use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\IDBConnection;
 
 /**
  * Service for floor-related business logic
@@ -21,13 +23,22 @@ use OCP\AppFramework\Db\DoesNotExistException;
 class FloorService {
 	private FloorMapper $floorMapper;
 	private RoomMapper $roomMapper;
+	private RoomTaskMapper $roomTaskMapper;
+	private RoomService $roomService;
+	private IDBConnection $db;
 
 	public function __construct(
 		FloorMapper $floorMapper,
 		RoomMapper $roomMapper,
+		RoomTaskMapper $roomTaskMapper,
+		RoomService $roomService,
+		IDBConnection $db,
 	) {
 		$this->floorMapper = $floorMapper;
 		$this->roomMapper = $roomMapper;
+		$this->roomTaskMapper = $roomTaskMapper;
+		$this->roomService = $roomService;
+		$this->db = $db;
 	}
 
 	/**
@@ -97,38 +108,81 @@ class FloorService {
 	/**
 	 * Reorder floors
 	 *
+	 * One CASE-WHEN bulk UPDATE (CS-PLAN-037, CR-SVC-60) instead of a
+	 * per-floor updateSortOrder + find re-fetch (1 + 2N → 2 queries);
+	 * the return payload is built from the already-fetched floor
+	 * entities with their new sort_order set in PHP.
+	 *
 	 * @param int $houseId The house ID
 	 * @param array $floorOrder Array of floor IDs in desired order
 	 */
 	public function reorderFloors(int $houseId, array $floorOrder): array {
 		$floors = $this->floorMapper->findByHouseId($houseId);
-		$updatedFloors = [];
+
+		$floorsById = [];
+		foreach ($floors as $floor) {
+			$floorsById[$floor->getId()] = $floor;
+		}
 
 		// Validate all floor IDs belong to this house
-		$houseFloorIds = array_map(fn ($floor) => $floor->getId(), $floors);
 		foreach ($floorOrder as $floorId) {
-			if (!in_array($floorId, $houseFloorIds)) {
+			if (!isset($floorsById[$floorId])) {
 				throw new \InvalidArgumentException("Floor ID {$floorId} does not belong to house {$houseId}");
 			}
 		}
 
-		// Update sort order
+		$floorIdToOrder = [];
 		foreach ($floorOrder as $index => $floorId) {
-			$this->floorMapper->updateSortOrder($floorId, $index);
-			$updatedFloors[] = $this->floorMapper->find($floorId);
+			$floorIdToOrder[$floorId] = $index;
+		}
+		$this->floorMapper->updateSortOrders($floorIdToOrder);
+
+		// Build the payload from the already-fetched entities — the only
+		// floors in the payload are the reordered ones, in the new order.
+		$updatedFloors = [];
+		foreach ($floorOrder as $index => $floorId) {
+			$floor = $floorsById[$floorId];
+			$floor->setSortOrder($index);
+			$updatedFloors[] = $floor;
 		}
 
 		return $updatedFloors;
 	}
 
 	/**
-	 * Delete floor and all associated rooms
+	 * Delete floor and everything that depends on it (CS-PLAN-037, D1/D2).
+	 *
+	 * The explicit cascade lives here, not in FloorMapper (architecture
+	 * fix: mappers never cross-instantiate other mappers; the old
+	 * deleteWithRooms also left orphaned dependents behind and carried a
+	 * misleading "cascade will handle this" comment — the schema has no
+	 * FK constraints). Transactional, constant query count: dependents
+	 * via RoomService::deleteRoomTaskDependents, then room tasks by room
+	 * ids, rooms by floor id, and the floor itself.
 	 *
 	 * @param int $floorId The floor ID
 	 */
 	public function deleteFloor(int $floorId): void {
-		$this->floorMapper->find($floorId);
-		$this->floorMapper->deleteWithRooms($floorId);
+		$floor = $this->floorMapper->find($floorId);
+
+		$roomIds = [];
+		foreach ($this->roomMapper->findByFloorId($floorId) as $room) {
+			$roomIds[] = $room->getId();
+		}
+
+		$this->db->beginTransaction();
+		try {
+			$this->roomService->deleteRoomTaskDependents(
+				$this->roomTaskMapper->findIdsByRoomIds($roomIds)
+			);
+			$this->roomTaskMapper->deleteByRoomIds($roomIds);
+			$this->roomMapper->deleteByFloorId($floorId);
+			$this->floorMapper->delete($floor);
+			$this->db->commit();
+		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			throw $e;
+		}
 	}
 
 	/**

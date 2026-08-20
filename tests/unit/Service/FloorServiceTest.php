@@ -8,8 +8,11 @@ use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
+use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Service\FloorService;
+use OCA\ChoreStrike\Service\RoomService;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\IDBConnection;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -19,14 +22,23 @@ class FloorServiceTest extends TestCase {
 	private FloorService $service;
 	private FloorMapper $floorMapper;
 	private RoomMapper $roomMapper;
+	private RoomTaskMapper $roomTaskMapper;
+	private RoomService $roomService;
+	private IDBConnection $db;
 
 	protected function setUp(): void {
 		$this->floorMapper = $this->createMock(FloorMapper::class);
 		$this->roomMapper = $this->createMock(RoomMapper::class);
+		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
+		$this->roomService = $this->createMock(RoomService::class);
+		$this->db = $this->createMock(IDBConnection::class);
 
 		$this->service = new FloorService(
 			$this->floorMapper,
-			$this->roomMapper
+			$this->roomMapper,
+			$this->roomTaskMapper,
+			$this->roomService,
+			$this->db
 		);
 	}
 
@@ -184,20 +196,27 @@ class FloorServiceTest extends TestCase {
 	}
 
 	/**
-	 * ReorderFloors_ValidOrder_UpdatesSortOrder
+	 * ReorderFloors_ValidOrder_BulkUpdatesAndBuildsPayloadWithoutReFetch
+	 *
+	 * CS-PLAN-037: one CASE-WHEN bulk UPDATE instead of per-floor
+	 * updateSortOrder + find re-fetch; the payload is built from the
+	 * already-fetched entities with the new sort_order set in PHP.
 	 */
-	public function testReorderFloors_ValidOrder_UpdatesSortOrder(): void {
+	public function testReorderFloors_ValidOrder_BulkUpdatesAndBuildsPayloadWithoutReFetch(): void {
 		$houseId = 1;
 		$floorOrder = [2, 1, 3];
 
 		$floor1 = new Floor();
 		$floor1->setId(1);
+		$floor1->setSortOrder(0);
 
 		$floor2 = new Floor();
 		$floor2->setId(2);
+		$floor2->setSortOrder(1);
 
 		$floor3 = new Floor();
 		$floor3->setId(3);
+		$floor3->setSortOrder(2);
 
 		$this->floorMapper
 			->expects($this->once())
@@ -205,18 +224,25 @@ class FloorServiceTest extends TestCase {
 			->with($houseId)
 			->willReturn([$floor1, $floor2, $floor3]);
 
+		// ONE bulk call carrying the full id → order map.
 		$this->floorMapper
-			->expects($this->exactly(3))
-			->method('updateSortOrder')
-			->withConsecutive([2, 0], [1, 1], [3, 2]);
+			->expects($this->once())
+			->method('updateSortOrders')
+			->with([2 => 0, 1 => 1, 3 => 2]);
 
-		$this->floorMapper
-			->method('find')
-			->willReturnOnConsecutiveCalls($floor2, $floor1, $floor3);
+		// The payload path never re-fetches floors.
+		$this->floorMapper->expects($this->never())->method('find');
 
 		$result = $this->service->reorderFloors($houseId, $floorOrder);
 
 		$this->assertCount(3, $result);
+		// Payload is in the NEW order, entities carry the new sort_order.
+		$this->assertSame($floor2, $result[0]);
+		$this->assertSame(0, $result[0]->getSortOrder());
+		$this->assertSame($floor1, $result[1]);
+		$this->assertSame(1, $result[1]->getSortOrder());
+		$this->assertSame($floor3, $result[2]);
+		$this->assertSame(2, $result[2]->getSortOrder());
 	}
 
 	/**
@@ -242,13 +268,27 @@ class FloorServiceTest extends TestCase {
 	}
 
 	/**
-	 * DeleteFloor_WithRooms_DeletesFloorAndRooms
+	 * DeleteFloor_WithRooms_CascadesDependentsInOneTransaction
+	 *
+	 * CS-PLAN-037 (D1/D2): the floor cascade lives in the service (the
+	 * mapper no longer cross-instantiates RoomMapper) and is orphan-free:
+	 * room-task dependents first, then room tasks, rooms, and the floor.
 	 */
-	public function testDeleteFloor_WithRooms_DeletesFloorAndRooms(): void {
+	public function testDeleteFloor_WithRooms_CascadesDependentsInOneTransaction(): void {
 		$floorId = 1;
 
 		$floor = new Floor();
 		$floor->setId($floorId);
+
+		$room1 = new Room();
+		$room1->setId(5);
+		$room1->setFloorId($floorId);
+
+		$room2 = new Room();
+		$room2->setId(6);
+		$room2->setFloorId($floorId);
+
+		$roomTaskIds = [10, 11];
 
 		$this->floorMapper
 			->expects($this->once())
@@ -256,15 +296,74 @@ class FloorServiceTest extends TestCase {
 			->with($floorId)
 			->willReturn($floor);
 
-		$this->floorMapper
+		$this->roomMapper
 			->expects($this->once())
-			->method('deleteWithRooms')
+			->method('findByFloorId')
+			->with($floorId)
+			->willReturn([$room1, $room2]);
+
+		$this->roomTaskMapper
+			->expects($this->once())
+			->method('findIdsByRoomIds')
+			->with([5, 6])
+			->willReturn($roomTaskIds);
+
+		$this->roomService
+			->expects($this->once())
+			->method('deleteRoomTaskDependents')
+			->with($roomTaskIds);
+
+		$this->roomTaskMapper
+			->expects($this->once())
+			->method('deleteByRoomIds')
+			->with([5, 6]);
+
+		$this->roomMapper
+			->expects($this->once())
+			->method('deleteByFloorId')
 			->with($floorId);
 
-		$this->service->deleteFloor($floorId);
+		$this->floorMapper
+			->expects($this->once())
+			->method('delete')
+			->with($floor);
 
-		// Assertions verified by mock expectations
-		$this->assertTrue(true);
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('commit');
+		$this->db->expects($this->never())->method('rollBack');
+
+		$this->service->deleteFloor($floorId);
+	}
+
+	/**
+	 * DeleteFloor_CascadeFailure_RollsBackAndReThrows
+	 */
+	public function testDeleteFloor_CascadeFailure_RollsBackAndReThrows(): void {
+		$floorId = 1;
+
+		$floor = new Floor();
+		$floor->setId($floorId);
+
+		$room = new Room();
+		$room->setId(5);
+		$room->setFloorId($floorId);
+
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->roomMapper->method('findByFloorId')->willReturn([$room]);
+		$this->roomTaskMapper->method('findIdsByRoomIds')->willReturn([10]);
+		$this->roomTaskMapper->method('deleteByRoomIds')
+			->willThrowException(new \RuntimeException('db down'));
+
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+		$this->roomMapper->expects($this->never())->method('deleteByFloorId');
+		$this->floorMapper->expects($this->never())->method('delete');
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('db down');
+
+		$this->service->deleteFloor($floorId);
 	}
 
 	/**

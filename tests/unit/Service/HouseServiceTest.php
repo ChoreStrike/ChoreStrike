@@ -249,22 +249,17 @@ class HouseServiceTest extends TestCase {
 	}
 
 	/**
-	 * ResetHouse_UpdatesHealthAndRooms
+	 * ResetHouse_UpdatesHealthAndResetsRoomsInBulk
+	 *
+	 * CS-PLAN-037: the floors → rooms loop is replaced by ONE
+	 * house-scoped subquery UPDATE; no floor fetch, no per-room update.
 	 */
-	public function testResetHouse_UpdatesHealthAndRooms(): void {
+	public function testResetHouse_UpdatesHealthAndResetsRoomsInBulk(): void {
 		$houseId = 1;
 
 		$house = new House();
 		$house->setId($houseId);
 		$house->setHouseHealth(50);
-
-		$floor = new Floor();
-		$floor->setId(1);
-
-		$room = new Room();
-		$room->setId(1);
-		$room->setCleanliness(20);
-		$room->setMonsterCount(3);
 
 		$this->houseMapper
 			->expects($this->once())
@@ -279,29 +274,17 @@ class HouseServiceTest extends TestCase {
 				return $h->getHouseHealth() === 100;
 			}));
 
-		$this->floorMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn([$floor]);
-
 		$this->roomMapper
 			->expects($this->once())
-			->method('findByFloorId')
-			->with(1)
-			->willReturn([$room]);
+			->method('resetByHouseId')
+			->with($houseId);
 
-		$this->roomMapper
-			->expects($this->once())
-			->method('update')
-			->with($this->callback(function ($r) {
-				return $r->getCleanliness() === 100 && $r->getMonsterCount() === 0;
-			}));
+		// The bulk path never iterates floors or updates room entities.
+		$this->floorMapper->expects($this->never())->method('findByHouseId');
+		$this->roomMapper->expects($this->never())->method('findByFloorId');
+		$this->roomMapper->expects($this->never())->method('update');
 
 		$this->service->resetHouse($houseId);
-
-		// Assertions verified by mock expectations
-		$this->assertTrue(true);
 	}
 
 	/**

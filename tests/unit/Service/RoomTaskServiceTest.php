@@ -21,6 +21,7 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\IDBConnection;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -35,6 +36,7 @@ class RoomTaskServiceTest extends TestCase {
 	private RoomService $roomService;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private HouseUserMapper $houseUserMapper;
+	private IDBConnection $db;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -44,6 +46,7 @@ class RoomTaskServiceTest extends TestCase {
 		$this->roomService = $this->createMock(RoomService::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$this->db = $this->createMock(IDBConnection::class);
 
 		$this->service = new RoomTaskService(
 			$this->roomTaskMapper,
@@ -54,7 +57,8 @@ class RoomTaskServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->houseUserMapper,
 			$this->createMock(CompletedTaskMapper::class),
-			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class)
+			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
+			$this->db
 		);
 	}
 
@@ -672,9 +676,13 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * DeleteRoomTask_ExistingTask_DeletesTask
+	 * DeleteRoomTask_ExistingTask_CascadesDependentsInOneTransaction
+	 *
+	 * CS-PLAN-037 (D1/D2): single-task deletion is orphan-free — the
+	 * room task's dependents (checklist progress, assignees,
+	 * completions) are removed with it via the shared cascade helper.
 	 */
-	public function testDeleteRoomTask_ExistingTask_DeletesTask(): void {
+	public function testDeleteRoomTask_ExistingTask_CascadesDependentsInOneTransaction(): void {
 		$roomTaskId = 1;
 
 		$roomTask = new RoomTask();
@@ -686,14 +694,45 @@ class RoomTaskServiceTest extends TestCase {
 			->with($roomTaskId)
 			->willReturn($roomTask);
 
+		$this->roomService
+			->expects($this->once())
+			->method('deleteRoomTaskDependents')
+			->with([$roomTaskId]);
+
 		$this->roomTaskMapper
 			->expects($this->once())
 			->method('delete')
 			->with($roomTask);
 
-		$this->service->deleteRoomTask($roomTaskId);
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('commit');
+		$this->db->expects($this->never())->method('rollBack');
 
-		$this->assertTrue(true);
+		$this->service->deleteRoomTask($roomTaskId);
+	}
+
+	/**
+	 * DeleteRoomTask_DependentFailure_RollsBackAndReThrows
+	 */
+	public function testDeleteRoomTask_DependentFailure_RollsBackAndReThrows(): void {
+		$roomTaskId = 1;
+
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->roomService->method('deleteRoomTaskDependents')
+			->willThrowException(new \RuntimeException('db down'));
+
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+		$this->roomTaskMapper->expects($this->never())->method('delete');
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('db down');
+
+		$this->service->deleteRoomTask($roomTaskId);
 	}
 
 	/**
@@ -799,110 +838,213 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * BulkAssignTasks_MultipleTasks_AssignsAll
+	 * BulkAssignTasks_MultipleTasks_AssignsAllWithBatchPreValidation
 	 *
-	 * CR-SVC-09: bulkAssignTasks threads houseId through assignTask so
-	 * ownership + membership validation apply per item.
+	 * CS-PLAN-037: ONE house-scoped fetch + ONE membership validation
+	 * replace the per-item ownership chain (≈7N → 3 + N); the return
+	 * payload comes from one re-fetch of the assigned ids, in input order.
 	 */
-	public function testBulkAssignTasks_MultipleTasks_AssignsAll(): void {
+	public function testBulkAssignTasks_MultipleTasks_AssignsAllWithBatchPreValidation(): void {
 		$houseId = 1;
 		$roomTaskIds = [1, 2, 3];
 		$userId = 'user123';
 
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setRoomId(5);
-		$roomTask->setAssignedToUserId($userId);
+		$scopedTask1 = new RoomTask();
+		$scopedTask1->setId(1);
 
-		$room = new Room();
-		$room->setId(5);
-		$room->setFloorId(7);
+		$scopedTask2 = new RoomTask();
+		$scopedTask2->setId(2);
 
-		$floor = new Floor();
-		$floor->setId(7);
-		$floor->setHouseId($houseId);
+		$scopedTask3 = new RoomTask();
+		$scopedTask3->setId(3);
+
+		$freshTask1 = new RoomTask();
+		$freshTask1->setId(1);
+		$freshTask1->setAssignedToUserId($userId);
+
+		$freshTask2 = new RoomTask();
+		$freshTask2->setId(2);
+		$freshTask2->setAssignedToUserId($userId);
+
+		$freshTask3 = new RoomTask();
+		$freshTask3->setId(3);
+		$freshTask3->setAssignedToUserId($userId);
 
 		$member = new HouseUser();
 		$member->setNextcloudUserId($userId);
 
+		// One batch fetch up front, one re-fetch for the payload.
 		$this->roomTaskMapper
-			->method('find')
-			->willReturn($roomTask);
+			->expects($this->exactly(2))
+			->method('findByIdsScopedToHouse')
+			->willReturnOnConsecutiveCalls(
+				[$scopedTask1, $scopedTask2, $scopedTask3],
+				[$freshTask1, $freshTask2, $freshTask3]
+			);
 
-		$this->roomMapper->method('find')->with(5)->willReturn($room);
-		$this->floorMapper->method('find')->with(7)->willReturn($floor);
-		$this->houseUserMapper->method('findByHouseId')->with($houseId)->willReturn([$member]);
+		$this->houseUserMapper
+			->expects($this->once())
+			->method('findByHouseId')
+			->with($houseId)
+			->willReturn([$member]);
 
 		$this->roomTaskMapper
 			->expects($this->exactly(3))
 			->method('assignToUser');
 
+		// The bulk path never runs the per-item ownership chain.
+		$this->roomMapper->expects($this->never())->method('find');
+		$this->floorMapper->expects($this->never())->method('find');
+
 		$result = $this->service->bulkAssignTasks($roomTaskIds, $userId, $houseId);
 
 		$this->assertCount(3, $result);
+		$this->assertSame([1, 2, 3], array_map(fn ($rt) => $rt->getId(), $result));
 	}
 
 	/**
-	 * BulkAssignTasks_FailingItemSkipped_ReturnsOnlyAssigned
+	 * BulkAssignTasks_ForeignOrMissingIdsSkipped_ReturnsOnlyAssigned
 	 *
-	 * CR-SVC-09: an item that fails validation (e.g. belongs to another
-	 * house) is skipped without aborting the batch.
+	 * Isolation regression (CR-SVC-09/CS-PLAN-037): ids absent from the
+	 * house-scoped fetch (foreign house or missing) are skipped without
+	 * aborting the batch — the write only ever targets owned ids.
 	 */
-	public function testBulkAssignTasks_FailingItemSkipped_ReturnsOnlyAssigned(): void {
+	public function testBulkAssignTasks_ForeignOrMissingIdsSkipped_ReturnsOnlyAssigned(): void {
 		$houseId = 1;
+		$userId = 'user123';
 
-		$foreignRoomTask = new RoomTask();
-		$foreignRoomTask->setId(1);
-		$foreignRoomTask->setRoomId(5);
+		$ownedScoped = new RoomTask();
+		$ownedScoped->setId(2);
 
-		$ownedRoomTask = new RoomTask();
-		$ownedRoomTask->setId(2);
-		$ownedRoomTask->setRoomId(6);
-
-		$room = new Room();
-		$room->setId(6);
-		$room->setFloorId(7);
-
-		$floor = new Floor();
-		$floor->setId(7);
-		$floor->setHouseId($houseId);
+		$freshOwned = new RoomTask();
+		$freshOwned->setId(2);
+		$freshOwned->setAssignedToUserId($userId);
 
 		$member = new HouseUser();
-		$member->setNextcloudUserId('user123');
+		$member->setNextcloudUserId($userId);
 
-		$this->roomTaskMapper->method('find')->willReturnMap([
-			[1, $foreignRoomTask],
-			[2, $ownedRoomTask],
-		]);
+		// id 1 (foreign house) and id 99 (missing) never come back from
+		// the scoped fetch — only the owned id 2 does.
+		$this->roomTaskMapper
+			->expects($this->exactly(2))
+			->method('findByIdsScopedToHouse')
+			->willReturnOnConsecutiveCalls([$ownedScoped], [$freshOwned]);
 
-		// Both rooms resolve via floor 7; houseId of the floor decides:
-		// room 5's floor is in house 99, room 6's in the caller's house.
-		$foreignRoom = new Room();
-		$foreignRoom->setId(5);
-		$foreignRoom->setFloorId(8);
-		$foreignFloor = new Floor();
-		$foreignFloor->setId(8);
-		$foreignFloor->setHouseId(99);
-
-		$this->roomMapper->method('find')->willReturnMap([
-			[5, $foreignRoom],
-			[6, $room],
-		]);
-		$this->floorMapper->method('find')->willReturnMap([
-			[8, $foreignFloor],
-			[7, $floor],
-		]);
-		$this->houseUserMapper->method('findByHouseId')->with($houseId)->willReturn([$member]);
+		$this->houseUserMapper
+			->method('findByHouseId')
+			->with($houseId)
+			->willReturn([$member]);
 
 		$this->roomTaskMapper
 			->expects($this->once())
 			->method('assignToUser')
-			->with(2, 'user123');
+			->with(2, $userId);
 
-		$result = $this->service->bulkAssignTasks([1, 2], 'user123', $houseId);
+		$result = $this->service->bulkAssignTasks([1, 2, 99], $userId, $houseId);
 
 		$this->assertCount(1, $result);
 		$this->assertSame(2, $result[0]->getId());
+	}
+
+	/**
+	 * BulkAssignTasks_NonMemberTarget_ThrowsUpFront
+	 *
+	 * The target user is a request-level parameter: a non-member fails
+	 * the whole call (clean InvalidArgumentException) before any write
+	 * instead of silently skipping every item.
+	 */
+	public function testBulkAssignTasks_NonMemberTarget_ThrowsUpFront(): void {
+		$houseId = 1;
+		$userId = 'stranger';
+
+		$member = new HouseUser();
+		$member->setNextcloudUserId('someone-else');
+
+		$this->houseUserMapper
+			->method('findByHouseId')
+			->with($houseId)
+			->willReturn([$member]);
+
+		$this->roomTaskMapper->expects($this->never())->method('findByIdsScopedToHouse');
+		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('User is not a member of this house: stranger');
+
+		$this->service->bulkAssignTasks([1, 2], $userId, $houseId);
+	}
+
+	/**
+	 * BulkAssignTasks_WriteFailureSkipped_DoesNotAbortBatch
+	 *
+	 * A failing assignToUser write is isolated per item: the batch
+	 * continues and the failed id is absent from the payload.
+	 */
+	public function testBulkAssignTasks_WriteFailureSkipped_DoesNotAbortBatch(): void {
+		$houseId = 1;
+		$userId = 'user123';
+
+		$scoped1 = new RoomTask();
+		$scoped1->setId(1);
+
+		$scoped2 = new RoomTask();
+		$scoped2->setId(2);
+
+		$fresh2 = new RoomTask();
+		$fresh2->setId(2);
+		$fresh2->setAssignedToUserId($userId);
+
+		$member = new HouseUser();
+		$member->setNextcloudUserId($userId);
+
+		$this->roomTaskMapper
+			->expects($this->exactly(2))
+			->method('findByIdsScopedToHouse')
+			->willReturnOnConsecutiveCalls([$scoped1, $scoped2], [$fresh2]);
+
+		$this->houseUserMapper
+			->method('findByHouseId')
+			->with($houseId)
+			->willReturn([$member]);
+
+		$this->roomTaskMapper
+			->method('assignToUser')
+			->willReturnCallback(function (int $roomTaskId) {
+				if ($roomTaskId === 1) {
+					throw new \RuntimeException('write failed');
+				}
+			});
+
+		$result = $this->service->bulkAssignTasks([1, 2], $userId, $houseId);
+
+		$this->assertCount(1, $result);
+		$this->assertSame(2, $result[0]->getId());
+	}
+
+	/**
+	 * BulkAssignTasks_EmptyInput_ReturnsEmptyWithoutQueries
+	 */
+	public function testBulkAssignTasks_EmptyInput_ReturnsEmptyWithoutQueries(): void {
+		$houseId = 1;
+		$userId = 'user123';
+
+		$member = new HouseUser();
+		$member->setNextcloudUserId($userId);
+
+		$this->houseUserMapper
+			->method('findByHouseId')
+			->with($houseId)
+			->willReturn([$member]);
+
+		// The mapper's empty-input early return means no query runs;
+		// nothing is ever assigned.
+		$this->roomTaskMapper
+			->method('findByIdsScopedToHouse')
+			->with([], $houseId)
+			->willReturn([]);
+		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
+
+		$this->assertSame([], $this->service->bulkAssignTasks([], $userId, $houseId));
 	}
 
 	/**

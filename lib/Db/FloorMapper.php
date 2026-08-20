@@ -103,36 +103,35 @@ class FloorMapper extends QBMapper {
 	}
 
 	/**
-	 * Update floor sort order
+	 * Update the sort orders of multiple floors in one CASE-WHEN UPDATE
+	 * (CS-PLAN-037, CR-SVC-60).
 	 *
-	 * @param int $floorId The floor ID
-	 * @param int $sortOrder The new sort order
-	 */
-	public function updateSortOrder(int $floorId, int $sortOrder): void {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->update($this->getTableName())
-			->set('sort_order', $qb->createNamedParameter($sortOrder, IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($floorId, IQueryBuilder::PARAM_INT)));
-
-		$qb->executeStatement();
-	}
-
-	/**
-	 * Delete floor and all associated rooms
+	 * `UPDATE floors SET sort_order = CASE id WHEN :i0 THEN :o0 … ELSE
+	 * sort_order END WHERE id IN (…)`. Ids and orders are validated ints
+	 * inlined via `sprintf('%d')` — no user strings reach the SQL, so no
+	 * parameter placeholders are needed inside the CASE list. The ELSE
+	 * arm keeps floors not in the map untouched; the IN clause scopes the
+	 * statement to the given ids. Portable across MariaDB/SQLite/PostgreSQL.
 	 *
-	 * @param int $floorId The floor ID
+	 * @param array<int, int> $floorIdToOrder Map of floor ID => new sort order
 	 */
-	public function deleteWithRooms(int $floorId): void {
-		// Delete rooms first (cascade will handle this, but being explicit)
-		$roomMapper = new RoomMapper($this->db);
-		$rooms = $roomMapper->findByFloorId($floorId);
-		foreach ($rooms as $room) {
-			$roomMapper->delete($room);
+	public function updateSortOrders(array $floorIdToOrder): void {
+		if (empty($floorIdToOrder)) {
+			return;
 		}
 
-		// Delete the floor
-		$floor = $this->find($floorId);
-		$this->delete($floor);
+		$whens = [];
+		$floorIds = [];
+		foreach ($floorIdToOrder as $floorId => $sortOrder) {
+			$floorIds[] = (int)$floorId;
+			$whens[] = sprintf('WHEN %d THEN %d', (int)$floorId, (int)$sortOrder);
+		}
+		$case = 'CASE id ' . implode(' ', $whens) . ' ELSE sort_order END';
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->update($this->getTableName())
+			->set('sort_order', $qb->createFunction($case))
+			->where($qb->expr()->in('id', $qb->createNamedParameter($floorIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->executeStatement();
 	}
 }

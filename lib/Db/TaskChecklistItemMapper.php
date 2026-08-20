@@ -18,7 +18,11 @@ use OCP\IDBConnection;
  */
 class TaskChecklistItemMapper extends QBMapper {
 	public function __construct(IDBConnection $db) {
-		parent::__construct($db, 'chorestrike_checklist_items', TaskChecklistItem::class);
+		// Table name fixed to the migration chain (CS-PLAN-037): the
+		// schema creates chorestrike_chk_items (Version1005) — the
+		// previously referenced chorestrike_checklist_items never
+		// existed, so every real-DB call 500'd.
+		parent::__construct($db, 'chorestrike_chk_items', TaskChecklistItem::class);
 	}
 
 	/**

@@ -61,7 +61,8 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			$this->createMock(TaskAssigneeMapper::class),
 			$this->createMock(HouseUserMapper::class),
 			$this->createMock(CompletedTaskMapper::class),
-			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class)
+			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
+			$this->createMock(\OCP\IDBConnection::class)
 		);
 
 		// Set up test IDs

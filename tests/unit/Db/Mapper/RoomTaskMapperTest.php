@@ -181,6 +181,159 @@ class RoomTaskMapperTest extends TestCase {
 	}
 
 	/**
+	 * FindIdsByRoomIds_EmptyInput_ReturnsEmptyWithoutQuery
+	 *
+	 * CS-PLAN-037: the empty-array early return must not build an IN ().
+	 */
+	public function testFindIdsByRoomIds_EmptyInput_ReturnsEmptyWithoutQuery(): void {
+		$this->qb->expects($this->never())->method('select');
+
+		$this->assertSame([], $this->mapper->findIdsByRoomIds([]));
+	}
+
+	/**
+	 * FindIdsByRoomIds_BuildsInQueryAndCastsIdsToInt
+	 */
+	public function testFindIdsByRoomIds_BuildsInQueryAndCastsIdsToInt(): void {
+		$capturedParams = [];
+		$this->qb->method('createNamedParameter')->willReturnCallback(
+			function ($value, $type) use (&$capturedParams) {
+				$capturedParams[] = ['value' => $value, 'type' => $type];
+				return 'param_' . count($capturedParams);
+			}
+		);
+		$this->qb->method('select')->willReturn($this->qb);
+		$this->qb->method('from')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturnOnConsecutiveCalls(
+			['id' => '10'],
+			['id' => '11'],
+			false
+		);
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$this->assertSame([10, 11], $this->mapper->findIdsByRoomIds(['5', 6]));
+		$this->assertSame([5, 6], $capturedParams[0]['value']);
+		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[0]['type']);
+	}
+
+	/**
+	 * FindIdsByRoomId_DelegatesToPluralVariant
+	 */
+	public function testFindIdsByRoomId_DelegatesToPluralVariant(): void {
+		$this->qb->method('select')->willReturn($this->qb);
+		$this->qb->method('from')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturnOnConsecutiveCalls(['id' => '42'], false);
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$this->assertSame([42], $this->mapper->findIdsByRoomId(7));
+	}
+
+	/**
+	 * DeleteByRoomIds_EmptyInput_SkipsStatement
+	 */
+	public function testDeleteByRoomIds_EmptyInput_SkipsStatement(): void {
+		$this->qb->expects($this->never())->method('delete');
+
+		$this->mapper->deleteByRoomIds([]);
+	}
+
+	/**
+	 * DeleteByRoomIds_BuildsInDeleteWithIntArray
+	 */
+	public function testDeleteByRoomIds_BuildsInDeleteWithIntArray(): void {
+		$capturedParams = [];
+		$this->qb->method('createNamedParameter')->willReturnCallback(
+			function ($value, $type) use (&$capturedParams) {
+				$capturedParams[] = ['value' => $value, 'type' => $type];
+				return 'param_' . count($capturedParams);
+			}
+		);
+		$this->qb->method('delete')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->expects($this->once())->method('executeStatement');
+
+		$this->mapper->deleteByRoomIds([5, 6]);
+
+		$this->assertSame([5, 6], $capturedParams[0]['value']);
+		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[0]['type']);
+	}
+
+	/**
+	 * DeleteByRoomId_DelegatesToPluralVariant
+	 */
+	public function testDeleteByRoomId_DelegatesToPluralVariant(): void {
+		$capturedParams = [];
+		$this->qb->method('createNamedParameter')->willReturnCallback(
+			function ($value, $type) use (&$capturedParams) {
+				$capturedParams[] = ['value' => $value, 'type' => $type];
+				return 'param_' . count($capturedParams);
+			}
+		);
+		$this->qb->method('delete')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->expects($this->once())->method('executeStatement');
+
+		$this->mapper->deleteByRoomId(5);
+
+		$this->assertSame([5], $capturedParams[0]['value']);
+	}
+
+	/**
+	 * FindByIdsScopedToHouse_EmptyInput_ReturnsEmptyWithoutQuery
+	 */
+	public function testFindByIdsScopedToHouse_EmptyInput_ReturnsEmptyWithoutQuery(): void {
+		$this->qb->expects($this->never())->method('select');
+
+		$this->assertSame([], $this->mapper->findByIdsScopedToHouse([], 1));
+	}
+
+	/**
+	 * FindByIdsScopedToHouse_BuildsHouseScopedJoinWithInClause
+	 *
+	 * CS-PLAN-037: the batch pre-validation fetch joins rooms → floors
+	 * on floors.house_id and filters the requested ids in one query;
+	 * ids of other houses simply never come back.
+	 */
+	public function testFindByIdsScopedToHouse_BuildsHouseScopedJoinWithInClause(): void {
+		$capturedParams = [];
+		$this->qb->method('createNamedParameter')->willReturnCallback(
+			function ($value, $type) use (&$capturedParams) {
+				$capturedParams[] = ['value' => $value, 'type' => $type];
+				return 'param_' . count($capturedParams);
+			}
+		);
+		$this->qb->method('select')->willReturn($this->qb);
+		$this->qb->method('from')->willReturn($this->qb);
+		$this->qb->expects($this->exactly(2))->method('innerJoin')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturnOnConsecutiveCalls(
+			['id' => 2, 'room_id' => 5, 'task_id' => 7, 'is_active' => true, 'next_due' => '2026-08-20 10:00:00'],
+			false
+		);
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$results = $this->mapper->findByIdsScopedToHouse([1, 2, 3], 9);
+
+		$this->assertCount(1, $results);
+		$this->assertInstanceOf(RoomTask::class, $results[0]);
+		$this->assertSame(2, $results[0]->getId());
+
+		// First param: house scope; second: the IN id list.
+		$this->assertSame(9, $capturedParams[0]['value']);
+		$this->assertSame([1, 2, 3], $capturedParams[1]['value']);
+		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[1]['type']);
+	}
+
+	/**
 	 * MarkCompleted_WithOneTimeRecurrence_DeactivatesTask
 	 */
 	public function testMarkCompleted_WithOneTimeRecurrence_DeactivatesTask(): void {

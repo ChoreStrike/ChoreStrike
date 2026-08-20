@@ -18,7 +18,11 @@ use OCP\IDBConnection;
  */
 class RoomTaskChecklistProgressMapper extends QBMapper {
 	public function __construct(IDBConnection $db) {
-		parent::__construct($db, 'chorestrike_room_task_checklist_progress', RoomTaskChecklistProgress::class);
+		// Table name fixed to the migration chain (CS-PLAN-037): the
+		// schema creates chorestrike_chk_progress (Version1005) — the
+		// previously referenced chorestrike_room_task_checklist_progress
+		// never existed, so every real-DB call 500'd.
+		parent::__construct($db, 'chorestrike_chk_progress', RoomTaskChecklistProgress::class);
 	}
 
 	/**
@@ -181,6 +185,24 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 			->set('checked_at', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
 			->set('checked_by_user_id', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
 			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+	}
+
+	/**
+	 * Delete all progress entries of the given room tasks in one statement
+	 * (CS-PLAN-037 cascade; plural sibling of deleteByRoomTaskId).
+	 *
+	 * @param int[] $roomTaskIds The room task IDs
+	 */
+	public function deleteByRoomTaskIds(array $roomTaskIds): void {
+		$roomTaskIds = array_values(array_map('intval', $roomTaskIds));
+		if ($roomTaskIds === []) {
+			return;
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete($this->getTableName())
+			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
 			->executeStatement();
 	}
 

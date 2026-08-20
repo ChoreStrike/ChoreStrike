@@ -159,6 +159,73 @@ class RoomMapperTest extends TestCase {
 	}
 
 	/**
+	 * ResetByHouseId_BuildsSubqueryUpdateAndReturnsAffectedRows
+	 *
+	 * CS-PLAN-037: one UPDATE scoped by a floors-of-house subquery; the
+	 * house parameter placeholder is embedded into the subquery SQL and
+	 * the affected row count is passed through.
+	 */
+	public function testResetByHouseId_BuildsSubqueryUpdateAndReturnsAffectedRows(): void {
+		$capturedParams = [];
+		$capturedFunctions = [];
+		$this->qb->method('createNamedParameter')->willReturnCallback(
+			function ($value, $type) use (&$capturedParams) {
+				$capturedParams[] = ['value' => $value, 'type' => $type];
+				return 'param_' . count($capturedParams);
+			}
+		);
+		$this->qb->method('createFunction')->willReturnCallback(
+			function ($sql) use (&$capturedFunctions) {
+				$capturedFunctions[] = $sql;
+				return 'func_' . count($capturedFunctions);
+			}
+		);
+		$this->qb->method('getSQL')->willReturn('SELECT f.id FROM *PREFIX*chorestrike_floors f WHERE f.house_id = :param_1');
+		$this->qb->method('select')->willReturn($this->qb);
+		$this->qb->method('from')->willReturn($this->qb);
+		$this->qb->method('update')->willReturn($this->qb);
+		$this->qb->method('set')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('executeStatement')->willReturn(5);
+
+		$this->assertSame(5, $this->mapper->resetByHouseId(3));
+
+		// The WHERE carries the subquery SQL verbatim.
+		$this->assertCount(1, $capturedFunctions);
+		$this->assertStringContainsString('SELECT f.id FROM', $capturedFunctions[0]);
+		$this->assertStringContainsString('house_id = :param_1', $capturedFunctions[0]);
+
+		// Params in order: houseId, cleanliness 100, monsters 0, NULL.
+		$this->assertSame(3, $capturedParams[0]['value']);
+		$this->assertSame(IQueryBuilder::PARAM_INT, $capturedParams[0]['type']);
+		$this->assertSame(100, $capturedParams[1]['value']);
+		$this->assertSame(0, $capturedParams[2]['value']);
+		$this->assertNull($capturedParams[3]['value']);
+		$this->assertSame(IQueryBuilder::PARAM_NULL, $capturedParams[3]['type']);
+	}
+
+	/**
+	 * DeleteByFloorId_BuildsFloorScopedDeleteStatement
+	 */
+	public function testDeleteByFloorId_BuildsFloorScopedDeleteStatement(): void {
+		$capturedParams = [];
+		$this->qb->method('createNamedParameter')->willReturnCallback(
+			function ($value, $type) use (&$capturedParams) {
+				$capturedParams[] = ['value' => $value, 'type' => $type];
+				return 'param_' . count($capturedParams);
+			}
+		);
+		$this->qb->method('delete')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->expects($this->once())->method('executeStatement');
+
+		$this->mapper->deleteByFloorId(7);
+
+		$this->assertSame(7, $capturedParams[0]['value']);
+		$this->assertSame(IQueryBuilder::PARAM_INT, $capturedParams[0]['type']);
+	}
+
+	/**
 	 * Room_GetCleanlinessLabel_ReturnsCorrectLabel
 	 */
 	public function testRoom_GetCleanlinessLabel_ReturnsCorrectLabel(): void {

@@ -498,6 +498,26 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Delete all completions of the given room tasks in one statement
+	 * (CS-PLAN-037 cascade, decision D2: deletions of a room task take
+	 * their completion history with it — medals/streaks/coins are
+	 * denormalized snapshots and stay valid).
+	 *
+	 * @param int[] $roomTaskIds The room task IDs
+	 */
+	public function deleteByRoomTaskIds(array $roomTaskIds): void {
+		$roomTaskIds = array_values(array_map('intval', $roomTaskIds));
+		if ($roomTaskIds === []) {
+			return;
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete($this->getTableName())
+			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->executeStatement();
+	}
+
+	/**
 	 * Find completion rows in a date range for a house, enriched with task/room names.
 	 *
 	 * Returns projected rows (not entities) for the calendar range endpoint.

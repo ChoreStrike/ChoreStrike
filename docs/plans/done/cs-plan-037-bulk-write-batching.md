@@ -1,10 +1,10 @@
 # CS-PLAN-037: Bulk Write-Path Batching — Set-Based Writes for the CR-SVC-60 Cluster
 
-> **Status:** Plan (not started)
+> **Status:** Done (2026-08-20)
 > **Effort:** M
 > **Priority:** P2
 > **Depends on:** CS-PLAN-036 (done — read-path conversion + batch idioms)
-> **Related:** CR-SVC-60, CR-SVC-11 (write remainder)
+> **Related:** CR-SVC-60 (closed), CR-SVC-11 (write remainder, closed)
 
 ## 1. Problem Summary
 
@@ -199,17 +199,117 @@ modified: docs/backlog/ACTIVE_TASKS.md
 
 ## 8. Acceptance Criteria
 
-- [ ] D1/D2 decided by the user and implemented as decided; orphan-free
-      deletion proven by real-DB regression (5 tables checked).
-- [ ] All four hot spots converted; query-count reduction documented in the
-      plan's implementation outcome (§9).
-- [ ] Per-item error isolation in `bulkAssignTasks` preserved (regression tests).
-- [ ] No API/payload/UI change; `Release:*` E2E gate green unchanged.
-- [ ] `FloorMapper` architecture violation removed (no cross-mapper `new`).
-- [ ] New mapper methods PHPDoc'd + unit-tested; integration suite green
-      (169+ tests, 24 pre-existing skips).
-- [ ] Build gate green (`npm test` + lint + PHPUnit unit + integration +
-      stylelint + cs:check + l10n).
-- [ ] Write-path batch idioms documented in `architecture.md` (§ Batch Query
-      Patterns).
-- [ ] CR-SVC-60 closed and moved to `archive/2026-08.md`; ACTIVE_TASKS updated.
+- [x] D1/D2 decided by the user and implemented as decided (D1=YES cascade,
+      D2=DELETE completions); orphan-free deletion proven by real-DB
+      regression (`WriteBatchRegressionTest`: `deleteRoom` across all five
+      tables with sibling-house survival, plus `deleteRoomTask` and
+      `deleteFloor` variants).
+- [x] All four hot spots converted; query-count reduction documented in
+      §9.
+- [x] Per-item error isolation in `bulkAssignTasks` preserved (unit:
+      foreign/missing skip, write-failure isolation, empty input; real-DB:
+      cross-house skip on a real id).
+- [x] No API/payload/UI change; `release-*` E2E gate green unchanged (16/16).
+- [x] `FloorMapper` architecture violation removed (no cross-mapper `new`;
+      `deleteWithRooms` deleted, cascade in `FloorService`).
+- [x] New mapper methods PHPDoc'd + unit-tested; integration suite green
+      (175 tests, 24 pre-existing skips).
+- [x] Build gate green (`npm test` 717 + lint + PHPUnit unit 785 +
+      integration 175 + stylelint 0 errors + cs:check 0/260 + l10n clean).
+- [x] Write-path batch idioms documented in `architecture.md`
+      (§ Batch Query Patterns, idioms 4–6).
+- [x] CR-SVC-60 closed and moved to `archive/2026-08.md`; ACTIVE_TASKS
+      updated.
+
+## 9. Implementation Outcome (2026-08-20)
+
+**Decisions:** D1 = YES (explicit orphan-free cascade), D2 = DELETE
+(completions go with their task) — signed off by the user up front.
+
+**Query-count reductions (all verified against the shipped code):**
+
+| Hot spot | Before | After |
+|---|---|---|
+| `HouseService::resetHouse` | 3 + N_floors + N_rooms | 3 (`RoomMapper::resetByHouseId` subquery UPDATE) |
+| `RoomService::deleteRoom` | 3 + N_roomTasks + orphans | ~7 constant, orphan-free, transactional |
+| `RoomTaskService::deleteRoomTask` | 2 + orphans | ~6 constant, orphan-free, transactional |
+| `FloorService::deleteFloor` (was `FloorMapper::deleteWithRooms`) | 2 + N_rooms + orphans | ~8 constant, orphan-free, transactional |
+| `FloorService::reorderFloors` | 1 + 2N | 2 (CASE-WHEN + entity-mutation payload) |
+| `RoomTaskService::bulkAssignTasks` | ≈ 7N | 3 + N |
+
+**Mapper additions:** `RoomMapper::resetByHouseId` / `deleteByFloorId`;
+`RoomTaskMapper::findIdsByRoomId(s)` / `deleteByRoomId(s)` /
+`findByIdsScopedToHouse`; `CompletedTaskMapper::deleteByRoomTaskIds`;
+`TaskAssigneeMapper::deleteByRoomTasks`;
+`RoomTaskChecklistProgressMapper::deleteByRoomTaskIds`;
+`FloorMapper::updateSortOrders`. Removed (pre-release, no BC):
+`FloorMapper::deleteWithRooms`, `FloorMapper::updateSortOrder`.
+
+**Shared cascade:** `RoomService::deleteRoomTaskDependents(array $roomTaskIds)`
+(checklist progress → assignees → completions) is consumed by `deleteRoom`,
+`deleteRoomTask`, and `deleteFloor`; each caller wraps it in one transaction.
+It lives in `RoomService` because `RoomTaskService` already depends on
+`RoomService` — the dependency arrow can only point that way.
+
+**Behavior deltas (pre-release, no BC):**
+- `bulkAssignTasks` with a non-member target user now throws
+  `InvalidArgumentException` up front instead of silently returning `[]` —
+  the target user is a request-level parameter, not a per-item concern.
+- Deleting a room/floor/room task now removes its completion history (D2).
+  Medals/streaks/coins on `house_users` are denormalized snapshots and stay
+  valid.
+- Skipped foreign/missing bulk-assign items log `reason:
+  'not_found_in_house'` instead of an exception class (no exception is
+  thrown on the batch path anymore).
+
+**Root-cause fix beyond the manifest (surfaced by the new real-DB
+regression suite):** the checklist mappers referenced tables that never
+existed — `RoomTaskChecklistProgressMapper` used
+`chorestrike_room_task_checklist_progress` and `TaskChecklistItemMapper`
+used `chorestrike_checklist_items`, while Version1005 creates
+`chorestrike_chk_progress` / `chorestrike_chk_items` (nothing renames them;
+`TestDataService::RESET_TABLES` and the CR-SVC-42 unit test carried the same
+inverted names). Every `ChecklistController` call would have 500'd on a real
+DB. All sites fixed to the migration-truth names.
+
+**Tests:** +24 unit (mapper query shape incl. CASE-WHEN poisoned-key proof,
+subquery SQL + named params, IN-array deletes with empty-input early
+returns; service cascade/rollback; bulk-assign isolation matrix), +6
+real-DB integration (`tests/integration/Db/WriteBatchRegressionTest.php`).
+
+**Gate:** PHPUnit unit 785 / integration 175 [24 pre-existing skips] /
+Jest 71 suites · 717 tests / ESLint clean / stylelint 0 errors (27
+TECH-LINT-004 warnings) / cs:check 0/260 / l10n synchronized / E2E
+`release-*` 16/16 (chromium-serial-db).
+
+## Review Outcome (Standard B — 2026-08-20)
+
+Reviewed the full uncommitted implementation against the shared checklist
+(architecture, authorization, security, KISS, workarounds, logging, i18n,
+tests). **No findings — no auto-fixes, no backlog items.**
+
+- **Architecture:** `FloorMapper::deleteWithRooms` (cross-mapper `new
+  RoomMapper`) removed; the cascade lives in `FloorService::deleteFloor`
+  and the shared `RoomService::deleteRoomTaskDependents`. Dependency arrow
+  verified acyclic (`FloorService → RoomService → HouseService`, no cycle).
+- **Authorization:** all four mutations still gated at the controller
+  boundary (`ensureHouseMember` + ownership validation); `@NoAdminRequired`
+  only. `bulkAssignTasks` target-membership is validated up front; foreign/
+  missing ids are skipped via the house-scoped fetch (no cross-house write).
+- **Security:** CASE-WHEN inlines validated ints via `sprintf('%d')`
+  (poisoned-key unit proof); subquery UPDATE binds the house param on the
+  outer builder (CR-SVC-26 precedent); IN lists use `PARAM_INT_ARRAY`. No
+  SQL concatenation, no `v-html`, no secrets logged.
+- **Logging/i18n:** `AppLogger` with stable keys, no raw `userId` in the
+  bulk-skip log; no new user-visible strings (`l10n:check-keys` clean).
+- **Root-cause fix verified:** checklist mapper/`TestDataService` table
+  names now match Version1005 (`chorestrike_chk_progress`/
+  `chorestrike_chk_items`); no stale references remain in `lib/`.
+- **Gate re-run green:** `npm run lint:fix` clean · Jest 717 · PHPUnit unit
+  785 · integration 175 [24 pre-existing skips] · `cs:check` 0/260 ·
+  `l10n:check-keys` synchronized. (stylelint not re-run — no styles touched.)
+
+Scope note (no action): `bulkAssignTasks` has no controller/route caller yet
+(the frontend store still loops `assignRoomTask` per item), so Phase D is
+currently exercised by unit + real-DB tests only — consistent with the plan's
+"no API change" scope; the endpoint wiring is future work.

@@ -380,12 +380,14 @@ class TestDataServiceTest extends TestCase {
 		$this->service->reset();
 
 		$this->assertContains('chorestrike_task_assignees', $deletedTables);
-		$this->assertContains('chorestrike_room_task_checklist_progress', $deletedTables);
-		$this->assertContains('chorestrike_checklist_items', $deletedTables);
+		// Checklist tables under their migration-chain names (Version1005;
+		// re-verified against the real schema by CS-PLAN-037).
+		$this->assertContains('chorestrike_chk_progress', $deletedTables);
+		$this->assertContains('chorestrike_chk_items', $deletedTables);
 
-		// CR-SVC-42 regression: pre-release legacy aliases are gone.
-		$this->assertNotContains('chorestrike_chk_progress', $deletedTables);
-		$this->assertNotContains('chorestrike_chk_items', $deletedTables);
+		// Names that never existed in the schema are gone.
+		$this->assertNotContains('chorestrike_room_task_checklist_progress', $deletedTables);
+		$this->assertNotContains('chorestrike_checklist_items', $deletedTables);
 		$this->assertNotContains('chorestrike_task_parts', $deletedTables);
 		$this->assertNotContains('chorestrike_task_participants', $deletedTables);
 		$this->assertNotContains('chorestrike_task_claims', $deletedTables);

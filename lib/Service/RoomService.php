@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
@@ -37,6 +38,7 @@ class RoomService {
 	private GameLogicService $gameLogicService;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private RoomTaskChecklistProgressMapper $checklistProgressMapper;
 	private HouseService $houseService;
 	private HouseMapper $houseMapper;
 	private NotificationService $notificationService;
@@ -51,6 +53,7 @@ class RoomService {
 		GameLogicService $gameLogicService,
 		TaskAssigneeMapper $taskAssigneeMapper,
 		CompletedTaskMapper $completedTaskMapper,
+		RoomTaskChecklistProgressMapper $checklistProgressMapper,
 		HouseService $houseService,
 		HouseMapper $houseMapper,
 		NotificationService $notificationService,
@@ -64,6 +67,7 @@ class RoomService {
 		$this->gameLogicService = $gameLogicService;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
+		$this->checklistProgressMapper = $checklistProgressMapper;
 		$this->houseService = $houseService;
 		$this->houseMapper = $houseMapper;
 		$this->notificationService = $notificationService;
@@ -141,20 +145,51 @@ class RoomService {
 	}
 
 	/**
-	 * Delete room and all associated tasks
+	 * Delete room and everything that depends on it (CS-PLAN-037, D1/D2).
+	 *
+	 * The schema has no FK constraints, so the cascade is explicit and
+	 * transactional (all-or-nothing): checklist progress → assignees →
+	 * completions → room tasks → room, each as one bulk statement over
+	 * the room's room-task ids (3 + N_roomTasks → constant ~7 queries).
+	 * Before this, dependent rows in completed_tasks, task_assignees,
+	 * and room_task_checklist_progress were left orphaned.
 	 *
 	 * @param int $roomId The room ID
 	 */
 	public function deleteRoom(int $roomId): void {
 		$room = $this->roomMapper->find($roomId);
 
-		// Delete associated room tasks
-		$roomTasks = $this->roomTaskMapper->findByRoomId($roomId);
-		foreach ($roomTasks as $roomTask) {
-			$this->roomTaskMapper->delete($roomTask);
+		$this->db->beginTransaction();
+		try {
+			$this->deleteRoomTaskDependents($this->roomTaskMapper->findIdsByRoomId($roomId));
+			$this->roomTaskMapper->deleteByRoomId($roomId);
+			$this->roomMapper->delete($room);
+			$this->db->commit();
+		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			throw $e;
 		}
+	}
 
-		$this->roomMapper->delete($room);
+	/**
+	 * Delete all rows that depend on the given room tasks — the explicit
+	 * FK-cascade replacement shared by deleteRoom,
+	 * RoomTaskService::deleteRoomTask, and FloorService::deleteFloor
+	 * (CS-PLAN-037).
+	 *
+	 * Dependency order: room_task_checklist_progress → task_assignees →
+	 * completed_tasks (D2: the completion history goes with its task;
+	 * medals/streaks/coins are denormalized snapshots and stay valid).
+	 * Lives here (not RoomTaskService) because RoomTaskService already
+	 * depends on RoomService — the dependency arrow can only point this
+	 * way. Callers wrap it in their own transaction.
+	 *
+	 * @param int[] $roomTaskIds The room task IDs (empty input is a no-op)
+	 */
+	public function deleteRoomTaskDependents(array $roomTaskIds): void {
+		$this->checklistProgressMapper->deleteByRoomTaskIds($roomTaskIds);
+		$this->taskAssigneeMapper->deleteByRoomTasks($roomTaskIds);
+		$this->completedTaskMapper->deleteByRoomTaskIds($roomTaskIds);
 	}
 
 	/**

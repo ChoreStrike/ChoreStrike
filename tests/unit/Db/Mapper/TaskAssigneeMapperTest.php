@@ -129,4 +129,36 @@ class TaskAssigneeMapperTest extends TestCase {
 
 		$this->assertFalse($this->mapper->isAssignee(10, 'nobody'));
 	}
+
+	/**
+	 * DeleteByRoomTasks_EmptyInput_SkipsStatement
+	 *
+	 * CS-PLAN-037: the empty-array early return must not build an IN ().
+	 */
+	public function testDeleteByRoomTasks_EmptyInput_SkipsStatement(): void {
+		$this->qb->expects($this->never())->method('delete');
+
+		$this->mapper->deleteByRoomTasks([]);
+	}
+
+	/**
+	 * DeleteByRoomTasks_BuildsInDeleteWithIntArray
+	 */
+	public function testDeleteByRoomTasks_BuildsInDeleteWithIntArray(): void {
+		$capturedParams = [];
+		$this->qb->method('createNamedParameter')->willReturnCallback(
+			function ($value, $type) use (&$capturedParams) {
+				$capturedParams[] = ['value' => $value, 'type' => $type];
+				return 'param_' . count($capturedParams);
+			}
+		);
+		$this->qb->method('delete')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->expects($this->once())->method('executeStatement');
+
+		$this->mapper->deleteByRoomTasks([10, 11]);
+
+		$this->assertSame([10, 11], $capturedParams[0]['value']);
+		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[0]['type']);
+	}
 }
