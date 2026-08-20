@@ -37,7 +37,7 @@ Backend tests needing `OCP\*` run **only** inside the Docker test env (`docker-c
 ## Coverage Priority
 
 1. Authorization & ownership (house membership, owner-only ops).
-2. Core domain: tasks, rooms, floors, gamification (sparks/combos), scheduling.
+2. Core domain: tasks, rooms, floors, gamification (coins/combos), scheduling.
 3. Cross-layer contracts (payload ↔ store ↔ component ↔ selector).
 4. Failure paths — every swallowed/translated exception has a regression test.
 
@@ -50,13 +50,11 @@ When payload shapes change, refresh **both** unit and E2E coverage in the same c
 npm test
 npm run lint
 
-# Backend unit tests (Docker)
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.unit.xml
+# Backend unit tests (Docker — env must be up; always exec, never `compose run`)
+docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.unit.xml
 
 # Backend integration tests (Docker)
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.xml tests/integration/
+docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.integration.xml
 
 # E2E via Playwright (local, against running Docker test env)
 npx playwright test tests/e2e/ --project=chromium

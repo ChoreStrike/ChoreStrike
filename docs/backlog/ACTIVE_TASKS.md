@@ -10,11 +10,6 @@
 
 ## In Progress
 
-### DOC-STD-001 — AI-Context Token & Consistency Optimization
-**Status**: In Progress · **Started**: 2026-08-20 · **Branch**: master
-**Plan**: none (user-directed docs-standards refactor) · **Blockers**: none
-**Scope**: slim AGENTS.md/project-rules.md (dedupe always-on load), trim review skill + slash commands + agent-spawning, delete ai-development-guidance.md, merge i18n-workflow.md into i18n.md, condense asset-licensing/security/logging, fix `run --rm`→`exec` in testing docs, sparks→coins nomenclature.
-
 <!-- When you start work, add an entry here in this shape:
 ### CS-PLAN-NNN — Title
 **Status**: In Progress · **Started**: YYYY-MM-DD · **Branch**: master
@@ -46,8 +41,12 @@
 - **Standard-B Review — CS-PLAN-028 implementation**: shared checklist clean, no auto-fixes needed, no findings; gate re-verified green (Jest 699 / PHPUnit unit 682 / integration 155 [24 skips] incl. the 5 new regression tests / lint + stylelint 0 errors + cs:check + l10n clean). Plan `## Review Outcome` recorded; plan moved to `done/`. (2026-08-16, Done) → [`../plans/done/cs-plan-028-top-priority-fixes.md`](../plans/done/cs-plan-028-top-priority-fixes.md)
 - **CS-PLAN-028** — Top-Priority Fixes: CR-SVC-53 closed (`lockForUpdate` returns the fresh post-lock `RoomTask` via `SELECT … FOR UPDATE` / SQLite self-assign + re-read; `completeRoomTask` uses it for every post-lock decision; unit + two-connection integration proof that fails on the old code; ADR-007 note appended); BUG-API-DAILY-001 closed (`findDailyTasks` `[start,end)` range fix, real-DB regression test); BUG-UI-001 remainder closed (RoomCard/FloorList status hex → NC CSS vars + `theme-consistency.spec.js` guard); stale BUG-I18N-001 + FEAT-I18N-001 closed (already implemented). Gate: see plan §8. (2026-08-16, Done) → [`../plans/done/cs-plan-028-top-priority-fixes.md`](../plans/done/cs-plan-028-top-priority-fixes.md)
 
+- **DOC-STD-001** — AI-Context Token & Consistency Optimization: AGENTS.md 8.1→5.1 KB + project-rules deduped (always-on −18%), review skill 12.8→9.2 KB + slash commands −59% (Mermaid→lists, commands as delegates), agent-spawning 9.6→5.7 KB, `ai-development-guidance.md` deleted (100% duplicate), `i18n-workflow.md` merged into `i18n.md` (Artifact Workflow), asset-licensing 8.9→2.0 KB (log table), logging 6.3→2.7 KB, security audit record archived (recommendations → **SEC-AUDIT-001**), single standards index; consistency fixes: `docker compose run --rm`→`docker exec` in testing skill/guideline/engineering/deployment docs (entrypoint-skip bug), `sparks`→`coins` nomenclature, review frontmatter shortened. Docs-only change — no code/test gate affected; link-integrity greps clean. (2026-08-20, Done)
+
 ## Planned (awaiting activation — drafts in `docs/plans/new/`)
 
 > The `new/ → active/` move is **manual** (project-rules §7). These register intent only.
 
 > CS-PLAN-036 was activated and implemented (2026-08-20) — see Recently Completed above.
+
+- **CS-PLAN-037** (CR-SVC-60) — Bulk write-path batching: `resetHouse` subquery UPDATE, `deleteRoom`/`deleteRoomTask`/`deleteFloor` explicit orphan-free cascade (FK verification done: no FKs exist), `reorderFloors` CASE-WHEN, `bulkAssignTasks` batch pre-validation. Draft awaiting D1/D2 sign-off (orphan-cascade semantics).

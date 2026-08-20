@@ -82,10 +82,6 @@ Set via `TEST_DB_PROFILE` environment variable (default: `minimal`):
 | `minimal` | One house, one user, basic rooms |
 | `family` | Multi-user household with gamification data |
 
-```bash
-TEST_DB_PROFILE=family docker compose -f docker-compose.test.yml up -d
-```
-
 ```powershell
 # PowerShell 5.1 (this repo's shell) — bash VAR=value syntax does NOT work here:
 $env:TEST_DB_PROFILE='family'; docker compose -f docker-compose.test.yml up -d

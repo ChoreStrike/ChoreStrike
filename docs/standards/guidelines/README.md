@@ -1,33 +1,7 @@
-# Standards & Guidelines
+# Guidelines
 
-> Coding conventions, testing, security, i18n, logging, and AI guidance for ChoreStrike.
-> **Tool-agnostic:** these files work with any AI coding assistant that reads [`AGENTS.md`](../../../AGENTS.md).
+The full standards index lives in [`../README.md`](../README.md) — one index, no duplicates.
 
----
+Quick access: [coding-conventions](coding-conventions.md) · [testing](testing.md) · [e2e-testid-conventions](e2e-testid-conventions.md) · [security](security.md) · [i18n](i18n.md) · [logging](logging.md) · [design](design.md) · [external-asset-licensing](external-asset-licensing.md) · [agent-spawning](agent-spawning.md) · [llm-do-dont-checklist](llm-do-dont-checklist.md)
 
-## Guidelines
-
-| File | Description |
-|------|-------------|
-| [coding-conventions.md](./coding-conventions.md) | PHP (Nextcloud coding standard), Vue 3, CSS, and commit-message conventions |
-| [testing.md](./testing.md) | Test strategy, naming, and coverage expectations |
-| [e2e-testid-conventions.md](./e2e-testid-conventions.md) | Stable Playwright selectors, `data-testid` naming, and auth (`storageState`) |
-| [security.md](./security.md) | Authorization, ownership, input validation, XSS/SQLi prevention |
-| [i18n.md](./i18n.md) | Localization rules and user-facing content policy |
-| [logging.md](./logging.md) | Structured backend/frontend logging, privacy guardrails |
-| [design.md](./design.md) | UI theme, color palette, and brand-asset guidance |
-| [external-asset-licensing.md](./external-asset-licensing.md) | Third-party icon/font/illustration acceptance rules |
-| [ai-development-guidance.md](./ai-development-guidance.md) | Tool-agnostic AI agent operational notes |
-| [agent-spawning.md](./agent-spawning.md) | Global agent roster, when to fan out, and `explore`/`reviewer` routing |
-| [llm-do-dont-checklist.md](./llm-do-dont-checklist.md) | One-page final gate before submitting AI-generated code |
-
-## AI Resources
-
-- [AI Rules](../ai/rules/project-rules.md) — canonical rule set
-- [AI Skills](../ai/skills/) — load-on-demand skills (one `SKILL.md` each)
-
-## Related
-
-- [Architecture Decision Records](../../adr/)
-- [Concept Docs](../../concepts/)
-- [Plans](../../plans/) — implementation plans (`new/`, `active/`, `onhold/`, `done/`)
+AI resources: [rules](../ai/rules/project-rules.md) · [skills](../ai/skills/) · [ADR index](../../adr/)

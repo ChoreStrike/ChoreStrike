@@ -1,7 +1,7 @@
 # Security Standards
 
-> **Last Updated**: 2026-03-05
-> **Audit Status**: ✅ Passed (P8-SECURITY-001)
+> **Last Updated**: 2026-08-20
+> **Last Audit**: 2026-03-05 (P8-SECURITY-001, passed — record in `archive/`; open recommendations tracked in the backlog)
 
 ---
 
@@ -199,31 +199,6 @@ Error responses contain only error codes and messages, not stack traces.
 - [ ] New Vue components don't use `v-html`
 - [ ] New controller methods validate input
 - [ ] New services don't expose sensitive data
-
----
-
-## Security Audit Results (P8-SECURITY-001)
-
-**Date**: 2026-03-05
-**Status**: ✅ PASSED
-
-### Findings
-
-| Category | Status | Notes |
-|----------|--------|-------|
-| Authorization Annotations | ✅ Pass | No `@PublicPage` annotations found |
-| House Membership Checks | ✅ Pass | All controllers use `ensureHouseMember`/`assertHouseMember`/`requireHouseOwner`; auth denials return 403 (CS-PLAN-011) |
-| Input Validation | ✅ Pass | `VALIDATION_ERROR` responses present |
-| SQL Injection Prevention | ✅ Pass | All queries use `createNamedParameter()` |
-| XSS Prevention | ✅ Pass | No `v-html` directives in Vue components |
-| Exception Handling | ✅ Pass | All controllers have try-catch blocks |
-| CSRF Protection | ✅ Pass | SecurityMiddleware enforces via annotation (no `@NoCSRFRequired` on mutation endpoints) |
-
-### Recommendations
-
-1. **Consider rate limiting** for sensitive endpoints (user management)
-2. **Add audit logging** for owner-level operations
-3. **Document security assumptions** in API documentation
 
 ---
 

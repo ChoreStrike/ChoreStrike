@@ -55,25 +55,23 @@ docker compose -f docker-compose.test.yml build --no-cache
 
 ### 3. Run Tests
 
+> Always `docker exec` into the **running** `chorestrike-test` container — never `docker compose run` (a fresh container skips the entrypoint, so Nextcloud is not installed and PHPUnit dies with `Exception: Not installed`).
+
 ```bash
-# Run all tests
-docker compose -f docker-compose.test.yml run --rm nextcloud-test
+# Make sure the environment is up
+docker compose -f docker-compose.test.yml up -d
 
-# Run only unit tests
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  sh -c "composer install && vendor/bin/phpunit --testsuite Unit"
+# Run all unit tests
+docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.unit.xml
 
-# Run only integration tests
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  sh -c "composer install && vendor/bin/phpunit --testsuite Integration"
+# Run all integration tests
+docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.integration.xml
 
-# Run specific test file
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  sh -c "composer install && vendor/bin/phpunit tests/unit/Service/TaskServiceTest.php"
+# Run a specific test file
+docker exec chorestrike-test vendor/bin/phpunit tests/unit/Service/TaskServiceTest.php
 
-# Run specific test method
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  sh -c "composer install && vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask"
+# Run a specific test method
+docker exec chorestrike-test vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask
 ```
 
 ### 4. Interactive Development
@@ -82,10 +80,9 @@ For interactive debugging or running commands inside the container:
 
 ```bash
 # Start a shell in the test container
-docker compose -f docker-compose.test.yml run --rm nextcloud-test bash
+docker exec -it chorestrike-test bash
 
 # Then inside the container:
-composer install
 vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask
 ```
 
@@ -589,10 +586,9 @@ docker rmi <image_id>
 ### 5) Run manual test session in container
 
 ```bash
-docker compose -f docker-compose.test.yml run --rm nextcloud-test bash
+docker exec -it chorestrike-test bash
 
 # inside container
-composer install
 vendor/bin/phpunit tests/unit/Service/SchedulingServiceTest.php
 vendor/bin/phpunit tests/unit/Service/TaskSyncServiceTest.php
 ```
@@ -811,8 +807,7 @@ The Docker test image (`docker/Dockerfile.test`) includes the PCOV extension.
 Generate reports locally:
 
 ```bash
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  bash -c "composer install && composer test:coverage"
+docker exec chorestrike-test bash -c "composer test:coverage"
 ```
 
 Artifacts: `build/coverage/phpunit-clover.xml` + `build/coverage/phpunit-html/`.

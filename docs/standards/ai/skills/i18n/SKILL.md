@@ -8,8 +8,7 @@ description: Adding and changing user-facing strings and translation artifacts
 **Load when:** Adding or changing any user-visible text.
 
 **Canonical references:**
-- [`i18n.md`](../../../guidelines/i18n.md)
-- [`i18n-workflow.md`](../../../../standards/i18n-workflow.md)
+- [`i18n.md`](../../../guidelines/i18n.md) — rules + artifact workflow (POT/JSON)
 
 ---
 

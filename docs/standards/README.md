@@ -9,20 +9,21 @@ Entry point for coding standards, conventions, and AI resources.
 | Path | Description |
 |------|-------------|
 | [`ai/rules/project-rules.md`](ai/rules/project-rules.md) | Canonical rule set (architecture, security, quality, archive, plans) |
-| [`ai/skills/`](ai/skills/) | Load-on-demand skills — one `SKILL.md` each (`php-backend`, `vue-frontend`, `testing`, `review`, `documentation`, `architecture`, `plan-management`, `git-workflow`, `i18n`) |
+| [`ai/skills/`](ai/skills/) | Load-on-demand skills — one `SKILL.md` each (`php-backend`, `vue-frontend`, `testing`, `docker-dev`, `gamification`, `review`, `documentation`, `architecture`, `plan-management`, `git-workflow`, `i18n`) |
 
-## Guidelines ([`guidelines/`](guidelines/README.md))
+## Guidelines ([`guidelines/`](guidelines/))
 
 | File | Description |
 |------|-------------|
 | [coding-conventions.md](guidelines/coding-conventions.md) | PHP (Nextcloud coding standard), Vue 3, CSS, and commit-message conventions |
 | [testing.md](guidelines/testing.md) | Test strategy, naming, coverage expectations |
+| [e2e-testid-conventions.md](guidelines/e2e-testid-conventions.md) | Stable Playwright selectors, `data-testid` naming, and auth (`storageState`) |
 | [security.md](guidelines/security.md) | Authorization, ownership, input validation, XSS/SQLi prevention |
-| [i18n.md](guidelines/i18n.md) | Localization rules and user-facing content policy |
+| [i18n.md](guidelines/i18n.md) | Localization rules, content policy, and the POT/JSON artifact workflow |
 | [logging.md](guidelines/logging.md) | Structured logging, privacy guardrails |
-| [design.md](guidelines/design.md) | UI theme, color palette, brand-asset guidance |
-| [external-asset-licensing.md](guidelines/external-asset-licensing.md) | Third-party icon/font/illustration acceptance rules |
-| [ai-development-guidance.md](guidelines/ai-development-guidance.md) | Tool-agnostic AI agent operational notes |
+| [design.md](guidelines/design.md) | UI theme, color palette, and brand-asset guidance |
+| [external-asset-licensing.md](guidelines/external-asset-licensing.md) | Third-party icon/font/illustration acceptance rules + decision log |
+| [agent-spawning.md](guidelines/agent-spawning.md) | Global agent roster, when to fan out, and `explore`/`reviewer` routing |
 | [llm-do-dont-checklist.md](guidelines/llm-do-dont-checklist.md) | One-page final gate before submitting code |
 
 ## Related

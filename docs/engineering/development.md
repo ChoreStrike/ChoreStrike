@@ -429,7 +429,7 @@ tail -f /path/to/nextcloud/data/nextcloud.log
    ```
 
 3. **Follow the project workflow:**
-   - Use `docs/standards/i18n-workflow.md` for the full POT + JSON process.
+   - Use `docs/standards/guidelines/i18n.md` (Artifact Workflow section) for the full POT + JSON process.
    - Update `l10n/templates/chorestrike.pot`, `l10n/de.json`, and `l10n/en.json` in the same change set.
 
 4. **Run key sync validation:**

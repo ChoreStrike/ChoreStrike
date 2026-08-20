@@ -295,7 +295,8 @@ incremental `AppLogger` adoption in services that swallow failures silently.
 
 ### [P2] CR-SVC-60 — Bulk write-path batching (CR-SVC-11 write remainder)
 **Status**: Open · **Effort**: M · **Source**: Split off from CR-SVC-11 by
-[CS-PLAN-036](../plans/done/cs-plan-036-query-batch-optimization.md) (2026-08-20)
+[CS-PLAN-036](../plans/done/cs-plan-036-query-batch-optimization.md) (2026-08-20) ·
+**Plan**: [CS-PLAN-037](../plans/active/cs-plan-037-bulk-write-batching.md) (active, 2026-08-20)
 The read-path N+1 cluster of CR-SVC-11 is closed by CS-PLAN-036; these write paths
 were deliberately deferred because bulk-UPDATE/DELETE/CASE-WHEN conversions carry
 FK-semantics and error-isolation contracts that need their own verification first:

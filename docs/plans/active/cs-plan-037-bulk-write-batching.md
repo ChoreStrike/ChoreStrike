@@ -36,11 +36,11 @@ Extend the three CS-PLAN-036 batch idioms to writes, plus the two in-repo
 bulk-write precedents:
 
 - **House-scoped subquery UPDATE/DELETE** — precedent: the CR-SVC-26
-  QB-subquery mappers (`TaskAssigneeMapper::deleteByUserForHouse`,
-  `lib/Db/TaskAssigneeMapper.php:192`) and
-  `AvailabilitySettingsMapper::deleteForUser` (`:113`). Portable
-  (`WHERE … IN (SELECT …)` works on MariaDB/SQLite/PostgreSQL; avoids the
-  non-portable `UPDATE … JOIN`).
+  house-scoped mappers (`TaskAssigneeMapper::deleteByUserForHouse` — QB
+  subquery, `lib/Db/TaskAssigneeMapper.php:192`;
+  `AvailabilitySettingsMapper::deleteForUser` — direct house_id delete,
+  `:113`). Portable (`WHERE … IN (SELECT …)` works on
+  MariaDB/SQLite/PostgreSQL; avoids the non-portable `UPDATE … JOIN`).
 - **Bulk DELETE by id list** — precedent: `TaskAssigneeMapper::deleteByRoomTask`
   (`:166`), `RoomTaskChecklistProgressMapper::deleteByRoomTaskId` (`:192`),
   `TaskChecklistItemMapper::deleteByTaskId` (`:108`) — extend to plural-id
@@ -112,8 +112,9 @@ parameters. No controllers, routes, or payloads change.
   (`validateRoomTaskOwnership`). Items absent from the result are foreign or
   missing → skipped per-item (isolation contract preserved).
 - `bulkAssignTasks`: one scoped fetch + one `assertHouseMembers` (unchanged) +
-  per-item `assignToUser` writes inside the existing per-item try/catch +
-  one `findByIds` re-fetch for the return payload. ≈7N → 3 + N.
+   per-item `assignToUser` writes inside the existing per-item try/catch +
+   one `findByIds` re-fetch (successfully-assigned ids only) for the return
+   payload. ≈7N → 3 + N.
 - `assignTask` (single-item public API) keeps `validateRoomTaskOwnership` —
   only the bulk path is re-based (no BC concern; both stay correct).
 

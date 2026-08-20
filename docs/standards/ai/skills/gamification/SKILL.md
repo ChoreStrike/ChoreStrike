@@ -29,12 +29,12 @@ description: ChoreStrike gamification domain model — coins, combos, medals, en
 
 ### 3. Weekly Medals (recognition)
 - Catalogue (`lib/Db/Medal.php`): `team_anchor`, `flow_keeper`, `room_guardian`, `team_player`, `streak_keeper`.
-- **Award reality (CS-PLAN-012):** all five medal types are awarded in the live `GameLogicService::checkAndAwardMedals()` flow: `team_anchor` (10+ tasks/week), `streak_keeper` (7+ day streak), `flow_keeper` (4+ distinct active days), `room_guardian` (5+ completions in one room), `team_player` (3+ combo bonuses). Awarded weekly, reset weekly.
-- The dead `lib/Service/MedalService.php` is archived (CS-PLAN-010); the live path is `GameLogicService::awardMedalIfNew()` (race-safe via unique-constraint handling).
+- All five types are awarded weekly by `GameLogicService::checkAndAwardMedals()`: `team_anchor` (10+ tasks/week), `streak_keeper` (7+ day streak), `flow_keeper` (4+ distinct active days), `room_guardian` (5+ completions in one room), `team_player` (3+ combo bonuses). Reset weekly.
+- Live award path: `GameLogicService::awardMedalIfNew()` (race-safe via unique-constraint handling).
 
 ### 4. Combos
 - Consecutive completions by the **same user** (≥2 recent completions) double coins: `coins *= 2` in `GameLogicService::calculateCoins()`. This is a **personal** combo, not the cooperative ×1.5 multi-user concept from the foundational design.
-- Combo state is derived inline in `GameLogicService` from `CompletedTaskMapper::findRecentByUserId()` — there is no persistent combo table (the dead `ComboService`/`Combo` cluster was removed in CS-PLAN-025 / CR-SVC-08).
+- Combo state is derived inline in `GameLogicService` from `CompletedTaskMapper::findRecentByUserId()` — there is no persistent combo table.
 - Combo milestone (≥ `combo_bonus_freeze_threshold`) awards a bonus streak freeze.
 
 ### 5. Energy Model
@@ -53,10 +53,7 @@ Coins (`coin_base_per_energy` 10), tier multipliers (bronze/silver/gold 1.0/1.5/
 | `RewardConfigService` | Configurable reward formulas per house |
 | `SchedulingService` | Live scheduling API (preferences, energy, availability, suggestions) |
 
-> The dead `ComboService`, `UserStatsService`, `HouseUserService` (service),
-> `SmartSchedulerService`, and `TaskSchedulerService` cluster was removed in
-> CS-PLAN-025 (CR-SVC-08) — `GameLogicService` inlines combo logic and no live
-> code referenced them.
+> Removed as dead code (CS-PLAN-025): `ComboService`, `UserStatsService`, `HouseUserService` (service), `SmartSchedulerService`, `TaskSchedulerService` — `GameLogicService` inlines the combo logic.
 
 ## Persistence
 

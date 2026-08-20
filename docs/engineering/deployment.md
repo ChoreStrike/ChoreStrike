@@ -102,14 +102,10 @@ npm test
 
 ```bash
 # Start the test environment
-docker compose -f docker-compose.test.yml up -d db
+docker compose -f docker-compose.test.yml up -d
 
-# Run all tests
-docker compose -f docker-compose.test.yml run --rm nextcloud-test
-
-# Run a specific suite
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.unit.xml
+# Run a suite (exec into the running container — never `compose run`)
+docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.integration.xml
 ```
 
 See [`testing.md`](testing.md) for the full test strategy.

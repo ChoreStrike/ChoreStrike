@@ -32,7 +32,7 @@ Backend tests that need Nextcloud core (`OCP\*`) **must** run inside the Docker 
 Prioritize:
 
 1. Authorization & ownership (house membership, owner-only ops) — [`security.md`](./security.md).
-2. Core domain: tasks, rooms, floors, gamification (sparks/combos), scheduling.
+2. Core domain: tasks, rooms, floors, gamification (coins/combos), scheduling.
 3. Cross-layer contracts (backend payload ↔ Pinia store ↔ Vue component ↔ Playwright selector).
 4. Failure paths — every swallowed/translated exception has a regression test.
 
@@ -61,9 +61,8 @@ Established by [CS-PLAN-034](../../plans/done/cs-plan-034-jest-axios-mock-noise.
 npm test
 npm run lint
 
-# Backend (Docker)
-docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-  vendor/bin/phpunit --configuration phpunit.unit.xml
+# Backend (Docker — env must be up; always exec, never `compose run`)
+docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.unit.xml
 ```
 
 Build must be green before considering work complete. See [`llm-do-dont-checklist.md`](./llm-do-dont-checklist.md).

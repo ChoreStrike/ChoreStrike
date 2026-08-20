@@ -45,7 +45,7 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 |---|---|
 | House / Floor / Room / Task / RoomTask | `house`, `floor`, `room`, `task`, `roomTask` |
 | Identifiers | `houseId`, `floorId`, `roomId`, `taskId`, `userId` |
-| Gamification | `sparks`, `combo`, `medal`, `houseHealth` |
+| Gamification | `coins`, `combo`, `medal`, `houseHealth` |
 
 ### Authorization & Ownership
 - All endpoints use `@NoAdminRequired` (authenticated user). **Never `@PublicPage`.**
@@ -69,11 +69,9 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 - See [`../../guidelines/testing.md`](../../guidelines/testing.md) and [`testing.md`](../../../engineering/testing.md).
 
 ### Test Environment (Docker)
-- **Docker Desktop is installed and available on the development machine.** The `docker-compose.test.yml` environment is the canonical way to run backend and E2E tests.
-- If a `docker` command fails, **diagnose before concluding Docker is absent**: start Docker Desktop and wait until `docker info` succeeds. Never declare "no Docker" from a single failed probe.
-- First image builds take ~3–5 minutes — raise the shell timeout (≥ 300 s) or use a background process. A tool timeout is not a Docker failure.
-- Never use the "Without Docker" fallback (`docs/engineering/testing.md`) on this machine — it exists only for machines without a Docker installation.
-- The shell is PowerShell 5.1: use `$env:TEST_DB_PROFILE='family'; docker compose ...`, not bash `VAR=value cmd` syntax.
+- `docker-compose.test.yml` is the canonical backend/E2E environment. Docker Desktop **is installed**; if a `docker` probe fails, diagnose (`docker info`, start Docker Desktop) — never conclude Docker is absent, never use the "Without Docker" fallback on this machine.
+- First image builds take ~3–5 min — raise the shell timeout (≥ 300 s) or use a background process; a tool timeout is not a Docker failure.
+- Shell is PowerShell 5.1: `$env:TEST_DB_PROFILE='family'; docker compose ...`, not bash `VAR=value cmd`.
 
 ## 3. Error & Quality Management
 
@@ -106,20 +104,11 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 - **`archive/CODE_REVIEW_YYYY-MM-DD.md`** — review records kept verbatim.
 
 ### Backlog Rules (enforced)
-- Non-trivial follow-ups, deferred fixes, and improvement ideas → a themed
-  section in `backlog.md` (never a new loose file).
-- On **completion**, move the item from `backlog.md` to `archive/YYYY-MM.md`
-  (the month it was resolved) **immediately** — do not leave "Done" items in
-  `backlog.md`, and do not let them accumulate in `ACTIVE_TASKS.md`.
-- `ACTIVE_TASKS.md` entries older than **~2 weeks** or beyond the **~10-entry
-  rolling cap** must be moved to `archive/YYYY-MM.md`. Keep *Recently Completed*
-  entries to **one line** (full scope lives in the linked plan).
-- A code-review's **open** findings go to `backlog.md`; the **review record**
-  goes to `archive/`.
-- Update `ACTIVE_TASKS.md` when starting, pausing, and finishing implementation
-  or review work.
-- Ambiguities → log them and ask; **don't guess** on irreversible decisions.
-- Don't declare work done while blockers or open questions remain.
+- Non-trivial follow-ups, deferred fixes, and improvement ideas → a themed section in `backlog.md` (never a new loose file).
+- On **completion**, move the item from `backlog.md` to `archive/YYYY-MM.md` (the month it was resolved) **immediately**.
+- `ACTIVE_TASKS.md` is rolling: entries older than **~2 weeks** or beyond the **~10-entry cap** move to `archive/`; *Recently Completed* entries are **one line**. Update it when starting, pausing, and finishing implementation or review work.
+- A code-review's **open** findings go to `backlog.md`; the **review record** goes to `archive/`.
+- Ambiguities → log them and ask; **don't guess** on irreversible decisions. Don't declare work done while blockers or open questions remain.
 
 ## 5. Archive Policy (`archive/`)
 
@@ -151,11 +140,15 @@ docs/plans/
 ```
 
 ### Lifecycle & Manual Moves
-- **New plans** are created in `docs/plans/new/`.
-- **`new/ → active/`** is a **manual** move by the user when work begins. The AI must **not** auto-move unless explicitly instructed.
-- **`active/ → done/`** is a **manual** move by the user when fully implemented and reviewed.
-- **`active/ → onhold/`** when paused (e.g. blocked by a missing dependency).
-- **`done/ → archive/YYYY-MM/`** (untracked) when a completed plan no longer serves as living documentation.
+- Plans are created in `docs/plans/new/`. All folder moves are **manual** by the user — the AI must **not** auto-move unless explicitly instructed.
+
+| Move | When |
+|------|------|
+| `new/ → active/` | User starts the work |
+| `active/ → done/` | Fully implemented and reviewed |
+| `active/ → onhold/` | Paused (e.g. blocked by a missing dependency) |
+| `done/ → archive/YYYY-MM/` (untracked) | No longer serves as living documentation |
+
 - Environment-specific worktree tools (e.g. Kilo Agent Manager) operate **independently** of `docs/plans/` — the plan Markdown files here are the canonical, tool-agnostic source of truth.
 
 ### Plan Review
