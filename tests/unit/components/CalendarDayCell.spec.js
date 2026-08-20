@@ -2,7 +2,10 @@ import { mount } from '@vue/test-utils'
 import CalendarDayCell from '@/components/Tasks/CalendarDayCell.vue'
 
 describe('CalendarDayCell', () => {
-	const today = new Date().toISOString().split('T')[0]
+	// Local-date "today" (the component builds its key from local date
+	// parts); toISOString() would be UTC and diverge around local midnight.
+	const now = new Date()
+	const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
 	it('renders day label', () => {
 		const wrapper = mount(CalendarDayCell, {
