@@ -84,6 +84,65 @@ Update house information.
 }
 ```
 
+#### GET /house/stats
+House overview statistics for the Insights view (CS-PLAN-040).
+
+**Response:**
+```json
+{
+  "house": { "id": 1, "name": "My Home", "houseHealth": 85 },
+  "stats": {
+    "totalRooms": 6,
+    "cleanRooms": 4,
+    "dirtyRooms": 2,
+    "roomsNeedingCleaning": 1,
+    "houseHealth": 85
+  }
+}
+```
+
+#### GET /house/activity?days=&limit=&userId=
+Completion activity feed ("who did what when", CS-PLAN-040). Also the
+per-member completed-energy source for the Insights fairness table.
+
+**Query parameters:**
+- `days` — period length in days, clamped to 1–90 (default 30)
+- `limit` — maximum completions, clamped to 1–200 (default 50)
+- `userId` — optional Nextcloud user ID filter; must be a member of the house (else 404 `USER_NOT_FOUND`)
+
+**Response:**
+```json
+{
+  "completions": [
+    {
+      "id": 42,
+      "completedAt": "2026-08-21T10:00:00+00:00",
+      "wasCombo": false,
+      "coinsEarned": 12,
+      "comboWithUserId": null,
+      "isTeamCompletion": false,
+      "participantCount": 1,
+      "teamSparkBonus": 0,
+      "wasClaimedCompletion": false,
+      "claimBonusSparks": 0,
+      "houseUserId": 7,
+      "displayName": "Alice",
+      "taskId": 5,
+      "taskTitle": "Vacuum living room",
+      "energyCost": 3,
+      "roomId": 2,
+      "roomName": "Living Room"
+    }
+  ],
+  "total": 1
+}
+```
+
+**Note:** completions whose room task was deleted later keep appearing with
+`taskId`/`taskTitle`/`energyCost`/`roomId`/`roomName` = `null` — the UI
+renders a fallback label for them (single-task deletion does not cascade its
+completion history).
+
 ### Floors
 
 #### GET /floors
@@ -433,6 +492,26 @@ daily task appears on every day it recurs. One-time tasks emit a single occurren
 
 **Errors:** `400 VALIDATION_ERROR` (unparseable date, `from > to`, span > 60 days), `403 FORBIDDEN` (non-member).
 
+#### GET /room-tasks/room/{roomId}/stats
+Room task statistics for the RoomDetail stats card (CS-PLAN-040). Rejects a
+cross-house `roomId` with `404 RESOURCE_NOT_FOUND`.
+
+**Response:**
+```json
+{
+  "totalTasks": 5,
+  "activeTasks": 3,
+  "overdueTasks": 1,
+  "dueTodayTasks": 2,
+  "dueSoonTasks": 1,
+  "completionRate": 40
+}
+```
+
+> **`completionRate` semantics (CR-SVC-31 root fix):** share of the room's
+> current tasks with at least one real completion row — deactivated/skipped
+> tasks do NOT count as completed; an empty room returns `0`.
+
 ### Game
 
 #### GET /game/state
@@ -577,6 +656,15 @@ Invite a Nextcloud user to the house.
 
 #### DELETE /users/{id}
 Remove user from house (owner only).
+
+> **Pruned (CS-PLAN-040):** `GET /users/{id}/stats` was fully dead — every
+> field it returned is already part of the `GET /users` serialization, which
+> since CS-PLAN-040 also includes `streakFreezes` (owned freeze count) and
+> `lastFreezeDate` (ISO date of the last freeze consumption, `null` when the
+> streak was never frozen) for the freeze badges. The per-user room-task
+> endpoints `GET /room-tasks/user/{userId}` and
+> `GET /room-tasks/user/{userId}/stats` were pruned with it; per-member
+> history lives in `GET /house/activity`.
 
 #### GET /users/{id}/titles
 Get the role-title state for a user: the current title (server-computed from

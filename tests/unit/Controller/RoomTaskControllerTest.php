@@ -128,75 +128,53 @@ class RoomTaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * userTasks must reject a target userId that is not a member of the
-	 * caller's house (cross-house access → 403).
+	 * roomStats must reject a roomId from another house (404) — regression
+	 * for the missing room-ownership validation (CS-PLAN-040): membership
+	 * alone let any member read foreign houses' room stat counts.
 	 */
-	public function testUserTasks_Returns403ForCrossHouseUser(): void {
+	public function testRoomStats_Returns404ForForeignHouseRoom(): void {
 		$house = new House();
 		$house->setId(1);
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('ensureHouseMember');
-		$this->authService->expects($this->once())
-			->method('assertUserInHouse')
-			->with(1, 'outsider')
-			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
-
-		$this->roomTaskService->expects($this->never())->method('getUserTasks');
-
-		$response = $this->controller->userTasks('outsider');
-
-		$this->assertEquals(403, $response->getStatus());
-		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
-	}
-
-	/**
-	 * userStats must reject a cross-house target userId (403).
-	 */
-	public function testUserStats_Returns403ForCrossHouseUser(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
-		$this->authService->expects($this->once())
-			->method('assertUserInHouse')
-			->with(1, 'outsider')
-			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
-
-		$this->roomTaskService->expects($this->never())->method('getUserTaskStats');
-
-		$response = $this->controller->userStats('outsider');
-
-		$this->assertEquals(403, $response->getStatus());
-		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
-	}
-
-	/**
-	 * userTasks for a same-house member returns 200.
-	 */
-	public function testUserTasks_ReturnsTasksForSameHouseUser(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(7);
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
-		$this->authService->method('assertUserInHouse');
 		$this->roomTaskService->expects($this->once())
-			->method('getUserTasks')
-			->with('member', true)
-			->willReturn([$roomTask]);
+			->method('validateRoomOwnership')
+			->with(9, 1)
+			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room not found'));
 
-		$response = $this->controller->userTasks('member');
+		$this->roomTaskService->expects($this->never())->method('getRoomTaskStats');
+
+		$response = $this->controller->roomStats(9);
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * roomStats returns stats for a same-house room.
+	 */
+	public function testRoomStats_ReturnsStatsForSameHouseRoom(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+		$this->roomTaskService->method('validateRoomOwnership');
+
+		$stats = ['totalTasks' => 2, 'completionRate' => 50];
+		$this->roomTaskService->expects($this->once())
+			->method('getRoomTaskStats')
+			->with(3)
+			->willReturn($stats);
+
+		$response = $this->controller->roomStats(3);
 
 		$this->assertEquals(200, $response->getStatus());
 		$this->assertTrue($response->getData()['success']);
+		$this->assertEquals($stats, $response->getData()['data']);
 	}
 
 	/**

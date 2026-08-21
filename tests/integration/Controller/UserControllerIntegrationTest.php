@@ -330,35 +330,6 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->assertEquals(['weekdays' => ['monday' => true]], $data['data']['schedulingPreferences']);
 	}
 
-	/**
-	 * Stats_ReturnsUserStatistics_SuccessResponse
-	 */
-	public function testStats_ReturnsUserStatistics_SuccessResponse(): void {
-		$houseUser = $this->createHouseUser(1, 1, 'user1', 'Alice', 'owner');
-		$houseUser->setContributionScore(1250);
-		$houseUser->setCoins(620);
-		$houseUser->setCurrentStreak(8);
-		$houseUser->setLastActivity(new \DateTime('2026-02-24T18:00:00Z'));
-
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(1)
-			->willReturn($houseUser);
-		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
-			->with($houseUser->getHouseId());
-
-		$response = $this->controller->stats(1);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertEquals('user1', $data['data']['user']['nextcloudUserId']);
-		$this->assertEquals(1250, $data['data']['stats']['contributionScore']);
-		$this->assertEquals(620, $data['data']['stats']['coins']);
-		$this->assertEquals(8, $data['data']['stats']['currentStreak']);
-	}
-
 	private function createHouse(int $id = 1): House {
 		$house = new House();
 		$house->setId($id);

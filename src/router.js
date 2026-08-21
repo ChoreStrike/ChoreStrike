@@ -35,6 +35,11 @@ const routes = [
 		component: () => import(/* webpackChunkName: "leaderboard" */ './views/Leaderboard.vue'),
 	},
 	{
+		path: '/insights',
+		name: 'insights',
+		component: () => import(/* webpackChunkName: "insights" */ './views/InsightsView.vue'),
+	},
+	{
 		path: '/scheduling',
 		name: 'scheduling',
 		component: () => import(/* webpackChunkName: "scheduling" */ './views/SchedulingView.vue'),

@@ -518,10 +518,40 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Find completion rows in a date range for a house, enriched with task/room names.
+	 * Count distinct room tasks of one room with at least one completion.
 	 *
-	 * Returns projected rows (not entities) for the calendar range endpoint.
-	 * Each row: {roomTaskId, taskId, taskName, roomId, roomName, completedAt, completedByUserId}.
+	 * Numerator for the CR-SVC-31 root fix (CS-PLAN-040): the room-stats
+	 * completionRate counts REAL completions — the share of the room's
+	 * tasks with a completion row — instead of `(total − active)/total`,
+	 * which counted deactivated/skipped tasks as completed. The room-task
+	 * JOIN also excludes dangling completion rows (single-task deletion
+	 * does not cascade its history), so they can never inflate the count.
+	 *
+	 * @param int $roomId The room ID
+	 * @return int Number of distinct completed room tasks in the room
+	 */
+	public function countDistinctCompletedRoomTasksByRoom(int $roomId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->createFunction('COUNT(DISTINCT ct.room_task_id) AS completed_count'))
+			->from($this->getTableName(), 'ct')
+			->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
+			->where($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+
+		return (int)($row['completed_count'] ?? 0);
+	}
+
+	/**
+	 * Find completions of one house in a period with task/room names
+	 * projected flat.
+	 *
+	 * House scoping goes through the rooms → floors chain, so rows whose
+	 * room task is gone are excluded here (unlike
+	 * {@see findActivityBetweenByHouse}, which keeps them for null-safe
+	 * enrichment).
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTimeInterface $start Inclusive range start
@@ -556,5 +586,86 @@ class CompletedTaskMapper extends QBMapper {
 		}
 		$result->closeCursor();
 		return $rows;
+	}
+
+	/**
+	 * Find activity-feed completions for a house, newest first (CS-PLAN-040).
+	 *
+	 * House scoping goes through the completer's house_users membership
+	 * (ct.user_id = hu.id) rather than the rooms → floors chain, so rows
+	 * whose room task was later deleted still appear — the ActivityService
+	 * enrichment renders their missing task/room references as fallbacks.
+	 *
+	 * @param int $houseId The house ID
+	 * @param \DateTimeInterface $start Inclusive range start
+	 * @param \DateTimeInterface $end Inclusive range end
+	 * @param int $limit Maximum number of rows
+	 * @param int|null $houseUserId Optional house-user filter (internal id)
+	 * @return CompletedTask[] Completions, completed_at DESC
+	 */
+	public function findActivityBetweenByHouse(
+		int $houseId,
+		\DateTimeInterface $start,
+		\DateTimeInterface $end,
+		int $limit,
+		?int $houseUserId = null,
+	): array {
+		$qb = $this->buildActivityQuery($houseId, $start, $end, $houseUserId);
+		$qb->setMaxResults($limit);
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Count activity-feed completions for a house in a period (CS-PLAN-040).
+	 *
+	 * Same filters as {@see findActivityBetweenByHouse} without the limit —
+	 * the `total` of the /house/activity response.
+	 *
+	 * @param int $houseId The house ID
+	 * @param \DateTimeInterface $start Inclusive range start
+	 * @param \DateTimeInterface $end Inclusive range end
+	 * @param int|null $houseUserId Optional house-user filter (internal id)
+	 * @return int Number of completions in the period
+	 */
+	public function countActivityByHouse(
+		int $houseId,
+		\DateTimeInterface $start,
+		\DateTimeInterface $end,
+		?int $houseUserId = null,
+	): int {
+		$qb = $this->buildActivityQuery($houseId, $start, $end, $houseUserId);
+		$qb->select($qb->func()->count('*', 'cnt'));
+
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+
+		return (int)($row['cnt'] ?? 0);
+	}
+
+	/**
+	 * Shared FROM/WHERE of the two activity queries (list + count).
+	 */
+	private function buildActivityQuery(
+		int $houseId,
+		\DateTimeInterface $start,
+		\DateTimeInterface $end,
+		?int $houseUserId,
+	): IQueryBuilder {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('ct.*')
+			->from($this->getTableName(), 'ct')
+			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
+			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->orderBy('ct.completed_at', 'DESC');
+
+		if ($houseUserId !== null) {
+			$qb->andWhere($qb->expr()->eq('ct.user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)));
+		}
+
+		return $qb;
 	}
 }

@@ -36,6 +36,7 @@ Use this document to find the right ChoreStrike documentation quickly.
 
 - [`concepts/product-vision.md`](concepts/product-vision.md) — product intent and positioning
 - [`concepts/design.md`](concepts/design.md) — foundational concept & UX design document
+- [`concepts/ui-use-cases.md`](concepts/ui-use-cases.md) — use-case/workflow inventory of required GUI elements & actions (with endpoint + status mapping)
 - [`concepts/gamification-and-rewards.md`](concepts/gamification-and-rewards.md) — reward model and motivation design
 - [`concepts/energy-and-balancing.md`](concepts/energy-and-balancing.md) — balancing principles and energy model
 - [`concepts/task-model-and-sync.md`](concepts/task-model-and-sync.md) — task data model and synchronization ideas

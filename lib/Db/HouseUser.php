@@ -136,6 +136,7 @@ class HouseUser extends Entity implements JsonSerializable {
 			'joinedAt' => $this->joinedAt?->format('c'),
 			'schedulingPreferences' => $this->schedulingPreferences,
 			'streakFreezes' => $this->streakFreezes,
+			'lastFreezeDate' => $this->lastFreezeDate?->format('c'),
 			'selectedTitlePack' => $this->selectedTitlePack,
 		];
 	}

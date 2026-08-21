@@ -623,31 +623,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Get user tasks
-		 * @param {string} userId User identifier to filter by.
-		 * @param {boolean} activeOnly Whether to limit results to active tasks.
-		 */
-		async fetchUserTasks(userId, activeOnly = true) {
-			if (!userId || userId.trim() === '') {
-				throw new Error('User ID is required')
-			}
-
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get(`/api/v1/room-tasks/user/${userId}`, { params: { activeOnly } })
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch user tasks', error, { store: 'roomTasks', action: 'fetchUserTasks', userId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
 		 * Get room task statistics
 		 * @param {number} roomId Room identifier to load statistics for.
 		 */
@@ -661,30 +636,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch room task stats', error, { store: 'roomTasks', action: 'fetchRoomTaskStats', roomId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Get user task statistics
-		 * @param {string} userId User identifier to load statistics for.
-		 */
-		async fetchUserTaskStats(userId) {
-			if (!userId || userId.trim() === '') {
-				throw new Error('User ID is required')
-			}
-
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get(`/api/v1/room-tasks/user/${userId}/stats`)
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch user task stats', error, { store: 'roomTasks', action: 'fetchUserTaskStats', userId })
 				throw error
 			} finally {
 				this.loading = false

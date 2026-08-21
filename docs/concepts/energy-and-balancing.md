@@ -47,6 +47,15 @@ Balancing must exclude unavailable days from assignment calculations.
 - Never assign tasks to members on unavailable days.
 - Weekly fairness comparisons should normalize by each member's available energy capacity, not by raw task count.
 
+**Implemented (CS-PLAN-040):** the Insights `MemberFairnessTable` normalizes
+load per member as `completed energy / weekly capacity`, where completed
+energy is the Σ `energyCost` of the member's completions in the activity
+window (`GET /house/activity`) and weekly capacity is Σ `energyBudget` over
+the member's available weekdays from their serialized
+`schedulingPreferences` (fallback budgets 10 weekday / 15 weekend).
+Contribution score and coins are always shown as separate columns — they are
+never merged into one metric.
+
 ## Balancing Strategy (MVP)
 
 1. Filter tasks by due window.
@@ -62,6 +71,14 @@ If total due energy exceeds available capacity:
 - defer lower-priority tasks first
 - keep higher-priority tasks in the nearest available slots
 - show a scheduling warning that explains which tasks were deferred and why
+
+**Implemented (CS-PLAN-040):** the scheduling-store getter
+`overcapacityDays()` computes planned energy per day (Σ `energyCost` of
+active room tasks due that day — the canonical planned-energy source) against
+`getCapacityForDay` (member totals for owners; own preferences with the 10/15
+fallback for non-owners). `SchedulingView` renders `OvercapacityWarning`
+listing each overloaded day with its would-be-deferred tasks sorted lowest
+priority first; `ScheduleCalendar` marks overloaded day headers inline.
 
 ## Open Decisions
 

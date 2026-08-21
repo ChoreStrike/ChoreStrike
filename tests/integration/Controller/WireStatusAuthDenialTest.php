@@ -70,17 +70,14 @@ class WireStatusAuthDenialTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * Requesting another user's stats when that user is not a member of the
-	 * caller's house must be denied with 403 (cross-house BOLA gate).
+	 * The pruned per-user room-task stats endpoint (removed CS-PLAN-040,
+	 * CR-SVC-31-flawed metric, no consumer) must be gone — its former
+	 * cross-house 403 gate is superseded by the route's absence (404).
 	 */
-	public function testCrossHouseUserStatsReturns403(): void {
-		$controller = $this->getController(RoomTaskController::class, self::MEMBER);
-
-		$response = $controller->userStats(self::FOREIGN);
-
-		self::assertSame(403, $response->getStatus());
-		$data = $response->getData();
-		self::assertFalse($data['success']);
-		self::assertSame('FORBIDDEN', $data['error']['code']);
+	public function testPrunedUserStatsActionNoLongerExists(): void {
+		self::assertFalse(
+			method_exists(RoomTaskController::class, 'userStats'),
+			'room_task#userStats was pruned in CS-PLAN-040 — re-adding it requires a new expose decision'
+		);
 	}
 }

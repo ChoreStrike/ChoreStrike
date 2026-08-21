@@ -27,6 +27,11 @@
 				data-testid="nav-leaderboard"
 				:name="t('chorestrike', 'Leaderboard')" />
 			<NcAppNavigationItem
+				:to="{ name: 'insights' }"
+				icon="icon-category-monitoring"
+				data-testid="nav-insights"
+				:name="t('chorestrike', 'Insights')" />
+			<NcAppNavigationItem
 				:to="{ name: 'scheduling' }"
 				icon="icon-calendar"
 				data-testid="nav-scheduling"

@@ -175,6 +175,21 @@ bump coordinated with the Nextcloud eslint config.
 
 ---
 
+### [P3] TECH-DRY-001 — Weekend fallback energy budget map duplicated (3 sites)
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-040 (2026-08-21)
+
+The weekday→energy fallback budget (`monday…friday: 10, saturday/sunday: 15`)
+now lives in three places: `getCapacityForDay` in `src/store/scheduling.js`,
+the fairness rows in `src/components/Insights/MemberFairnessTable.vue`, and the
+per-member `?? 10` default in `getTotalEnergyForDay`. Rule of three reached —
+extract one shared constant/helper (e.g. `src/utils/energyBudgets.js`) and use
+it in all three sites so a balancing change touches one place.
+
+- [ ] Extract the shared fallback-budget constant + weekday list.
+- [ ] Replace all three sites; keep Jest coverage for the 10/15 weekend values.
+
+---
+
 ### [P2] P9-E2E-002b — E2E long-tail `waitForTimeout` cleanup
 **Status**: Backlog · **Effort**: M–L · **Source**: carved out of CS-015
 
@@ -365,11 +380,6 @@ Every config key is touched in 4-5 places (const + get + set + `updateConfig` br
 freeze cap/count, early-bonus) that can invert rewards (negative multiplier). Admin-gated.
 Clamp to `>= 0`/`>= 1` consistently.
 
-### [P3] CR-SVC-31 — `completionRate` conflates inactive with completed
-**Effort**: S — `getRoomTaskStats`/`getUserTaskStats` compute `(total-active)/total`,
-counting deactivated/skipped/one-time tasks as completed. Count real completions or
-rename the metric.
-
 ### [P3] CR-SVC-32 — `calculateDaysEarly` DST/timezone edge cases
 **Effort**: S — divides a second-difference by 86400; across DST / near midnight this can
 round to the wrong day and flip the early bonus. Use calendar-day `diff`.
@@ -530,7 +540,10 @@ hardcode hex colors instead of NC vars/`--cs-*` tokens (dark-mode drift);
 
 "Start empty" dismissal is session-only → wizard re-opens every reload while
 the house is empty; no house-name step; per-room assignee dropdown is useless
-at first run (single member); no invite step (see UX-003).
+at first run (single member). The invite step is **done** (wizard step 4,
+shipped with CS-PLAN-038 — see UC-01 in
+[`../concepts/ui-use-cases.md`](../concepts/ui-use-cases.md)); the original
+"no invite step (see UX-003)" note is obsolete.
 
 ### [P3] UX-012 — Modal accessibility
 **Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
@@ -552,6 +565,141 @@ Owners get two parallel editors for their own availability; owner grid is
 read-only for others while implying management (`PUT /scheduling/members/{id}`
 unused); Preview + Suggestions duplicate the same endpoint (cf. `CR-016-05`);
 suggestions have no "apply" action.
+
+---
+
+## Review Follow-ups — UI Use-Case Review (2026-08-21)
+
+> From the Standard-B review of
+> [`../concepts/ui-use-cases.md`](../concepts/ui-use-cases.md) and the endpoint
+> audit (both 2026-08-21). These are **whitespace candidates**: documented
+> intent without UI surface (Group A) and review ideas (Group B), indexed from
+> the *Whitespace* section of `ui-use-cases.md`. No expose-or-prune decision is
+> pre-empted by their existence; P4 items are explicitly "future / needs
+> decision". **FEAT-UX-016/017/020/022 were resolved by CS-PLAN-040
+> (2026-08-21) → [`archive/2026-08.md`](archive/2026-08.md).**
+
+### [P3] FEAT-UX-018 — Task-approval workflow for children
+**Status**: Open · **Effort**: L · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+design.md §5 lists "task approval workflow for children"; gamification open
+decisions touch it too. Today every completion is final immediately.
+
+- [ ] Product decision recorded: approval flow vs. current auto-complete
+      (which roles, which tasks).
+- [ ] Backend: needs-review state + owner approve/reject endpoints with
+      membership/owner gating + tests.
+- [ ] Owner approval queue UI + child-facing "waiting for approval" feedback.
+
+### [P4] FEAT-UX-019 — Task Pass & support actions (gag mechanic)
+**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+gamification-and-rewards.md sketches a post-MVP "Task Pass" gag mechanic;
+explicitly future / needs decision.
+
+- [ ] Product decision whether the gag mechanic fits the target audience.
+- [ ] Only after decision: concept extension + endpoint design sketch.
+
+### [P3] FEAT-UX-021 — NC-Tasks sync surface
+**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+Six `task-sync` routes are backend-only (task-model-and-sync.md). Blocked on
+the cluster's expose-or-prune decision.
+
+- [ ] Record the expose-or-prune decision for the 6 `task-sync` routes first.
+- [ ] If exposed: link/unlink + pending/conflict list UI (RoomDetail or
+      TaskManager) + tests; if pruned: close this item referencing the ADR.
+
+### [P3] FEAT-UX-023 — Onboarding & help layer
+**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+No tour, glossary, or contextual hints; vocabulary drift (UX-007) makes
+self-service discovery harder.
+
+- [ ] Help entry point per major view (Dashboard, TodayView, SchedulingView).
+- [ ] Glossary unifying the UX-007 vocabulary drift (priority labels,
+      Admin-Only, Scope).
+- [ ] Contextual hints for gamification terms (combo, medal, streak freeze).
+
+### [P3] FEAT-UX-024 — Notification settings
+**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+UC-14 reminders are passive server jobs with no settings surface.
+
+- [ ] Backend: per-user notification preferences (storage + membership-gated
+      endpoints).
+- [ ] Settings surface: digest toggle, quiet hours; background jobs respect
+      them.
+- [ ] Service + settings tests.
+
+### [P4] FEAT-UX-025 — Vacation / house-pause mode
+**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+Future / needs decision: pause semantics undefined (streaks? due dates?
+notifications? per-member vs whole-house).
+
+- [ ] Product decision on pause semantics + scope recorded.
+- [ ] Concept extension before any implementation.
+
+### [P4] FEAT-UX-026 — Real-world reward shop
+**Status**: Open · **Effort**: L · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+Future / needs decision: coins → owner-defined real-world rewards beyond the
+coin/boost model.
+
+- [ ] Product decision + gamification-doc concept extension (reward model,
+      redemption flow).
+- [ ] Implementation only after the concept lands.
+
+### [P4] FEAT-UX-027 — Print view (weekly plan / calendar)
+**Status**: Open · **Effort**: S · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+Future: paper-friendly weekly plan for fridge-door households.
+
+- [ ] Print styles or dedicated print route reusing CalendarView range data.
+- [ ] No new endpoints unless a gap is proven.
+
+### [P3] FEAT-UX-028 — Global search
+**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+`GET /tasks/search` exists with a dead store wrapper (`searchTasks`); no UI.
+
+- [ ] Search entry point covering task definitions + room tasks (NC search
+      integration or in-app field).
+- [ ] Decide fate of the dead `searchTasks` wrapper with the implementation.
+- [ ] Tests.
+
+### [P4] FEAT-UX-029 — Bulk maintenance ops
+**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+Future: owner tools to reschedule/clear overdue tasks in bulk and seasonally
+deactivate/reactivate by filter (cf. CR-SVC-61 bulk-endpoint pattern).
+
+- [ ] Server-side bulk reschedule endpoint + owner action on the overdue list.
+- [ ] Seasonal deactivate/reactivate by filter (room/category/idle).
+- [ ] Styled confirmations per cross-cutting conventions + tests.
+
+### [P3] FEAT-UX-030 — A11y & kids-mode conventions
+**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+Accessibility conventions exist piecemeal (UX-007, mobile.css targets);
+reduced-motion and screen-reader support are undocumented; simplified child
+surface is an open question.
+
+- [ ] Codify conventions in design.md (≥44 px targets, aria-labels, focus
+      states, reduced-motion) and apply to new components.
+- [ ] Fix the UX-007 chip-toggle keyboard regression as part of this.
+- [ ] Answer the open question: simplified child surface yes/no (recorded).
+
+### [P3] FEAT-UX-031 — Error/empty/offline-state conventions
+**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
+
+Error/empty states are ad-hoc per component; offline behavior undefined.
+
+- [ ] Shared empty/error/offline state components with retry actions.
+- [ ] Conventions documented in design.md; applied to Dashboard, TodayView,
+      TaskList.
+- [ ] Offline detection strategy decided within NC ecosystem constraints.
 
 ---
 

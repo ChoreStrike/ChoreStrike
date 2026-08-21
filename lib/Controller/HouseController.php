@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -24,16 +26,19 @@ class HouseController extends Controller {
 
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private ActivityService $activityService;
 
 	public function __construct(
 		IRequest $request,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		ActivityService $activityService,
 		?AppLogger $appLogger = null,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->activityService = $activityService;
 		if ($appLogger !== null) {
 			$this->initializeControllerLogger($appLogger);
 		}
@@ -146,6 +151,54 @@ class HouseController extends Controller {
 				'success' => false,
 				'error' => [
 					'code' => 'STATS_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Get the house completion activity feed ("who did what when",
+	 * CS-PLAN-040 / FEAT-UX-016). Also the per-member completed-energy
+	 * source for the Insights fairness table.
+	 *
+	 * @NoAdminRequired
+	 */
+	public function activity(?int $days = null, ?int $limit = null, ?string $userId = null): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+
+			// Require house membership
+			$this->authService->ensureHouseMember($house->getId());
+
+			$data = $this->activityService->getActivity(
+				$house->getId(),
+				$days ?? ActivityService::DEFAULT_DAYS,
+				$limit ?? ActivityService::DEFAULT_LIMIT,
+				$userId,
+			);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $data
+			]);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'USER_NOT_FOUND',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 404);
+		} catch (\Exception $e) {
+			$this->logControllerException('activity', $e);
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'ACTIVITY_ERROR',
 					'message' => ControllerErrorFormatter::safeMessage($e)
 				]
 			], 500);

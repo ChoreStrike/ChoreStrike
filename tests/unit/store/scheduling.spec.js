@@ -6,6 +6,8 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
+import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
+import { useTasksStore } from '../../../src/store/tasks.js'
 
 jest.mock('../../../src/services/api.js', () => ({
 	api: {
@@ -145,6 +147,112 @@ describe('Scheduling Store', () => {
 			store.todayConsumedEnergy = 14
 
 			expect(store.todayRemainingEnergy).toBe(0)
+		})
+	})
+
+	describe('Planned Energy & Overcapacity (CS-PLAN-040)', () => {
+		const localDateKey = (date) => {
+			const y = date.getFullYear()
+			const m = String(date.getMonth() + 1).padStart(2, '0')
+			const d = String(date.getDate()).padStart(2, '0')
+			return `${y}-${m}-${d}`
+		}
+
+		const dateKeyInDays = (offset) => {
+			const date = new Date()
+			date.setHours(0, 0, 0, 0)
+			date.setDate(date.getDate() + offset)
+			return localDateKey(date)
+		}
+
+		const weekdayNameOf = (dateKey) => {
+			const names = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+			return names[new Date(`${dateKey}T00:00:00`).getDay()]
+		}
+
+		const seedTaskDueOn = (roomTasksStore, tasksStore, { roomTaskId, taskId, name, energyCost, priority, offset }) => {
+			tasksStore.tasks.push({ id: taskId, name, energyCost, priority })
+			roomTasksStore.roomTasks.push({
+				id: roomTaskId,
+				taskId,
+				roomId: 1,
+				isActive: true,
+				nextDue: new Date(new Date().setHours(12, 0, 0, 0) + offset * 24 * 60 * 60 * 1000).toISOString(),
+			})
+		}
+
+		beforeEach(() => {
+			useRoomTasksStore().$reset()
+			useTasksStore().$reset()
+		})
+
+		it('getCapacityForDay uses member totals when member availability is loaded', () => {
+			store.memberAvailability = [
+				{ userId: 'a', weekdayAvailability: { monday: true }, energyBudget: { monday: 8 } },
+				{ userId: 'b', weekdayAvailability: { monday: true }, energyBudget: { monday: 5 } },
+			]
+			expect(store.getCapacityForDay('monday')).toBe(13)
+		})
+
+		it('getCapacityForDay falls back to own budget with weekend 15', () => {
+			store.memberAvailability = []
+			store.energyBudget = { monday: 6 }
+			store.weekdayAvailability = { monday: true }
+
+			expect(store.getCapacityForDay('monday')).toBe(6)
+			expect(store.getCapacityForDay('saturday')).toBe(15)
+			expect(store.getCapacityForDay('unknown-day')).toBe(10)
+		})
+
+		it('plannedEnergyForDay sums energy costs of active room tasks due that day', () => {
+			const roomTasksStore = useRoomTasksStore()
+			const tasksStore = useTasksStore()
+
+			seedTaskDueOn(roomTasksStore, tasksStore, { roomTaskId: 1, taskId: 11, name: 'A', energyCost: 4, priority: 2, offset: 1 })
+			seedTaskDueOn(roomTasksStore, tasksStore, { roomTaskId: 2, taskId: 12, name: 'B', energyCost: 3, priority: 3, offset: 1 })
+			seedTaskDueOn(roomTasksStore, tasksStore, { roomTaskId: 3, taskId: 13, name: 'Inactive', energyCost: 9, priority: 1, offset: 1 })
+			// Deactivate one of the three tasks.
+			roomTasksStore.roomTasks[2].isActive = false
+			seedTaskDueOn(roomTasksStore, tasksStore, { roomTaskId: 4, taskId: 14, name: 'Other day', energyCost: 7, priority: 2, offset: 2 })
+
+			const targetKey = dateKeyInDays(1)
+			expect(store.plannedEnergyForDay(targetKey)).toBe(7)
+			expect(store.plannedEnergyForDay(dateKeyInDays(2))).toBe(7)
+		})
+
+		it('overcapacityDays is empty when planned stays under capacity', () => {
+			const roomTasksStore = useRoomTasksStore()
+			const tasksStore = useTasksStore()
+
+			seedTaskDueOn(roomTasksStore, tasksStore, { roomTaskId: 1, taskId: 11, name: 'Small', energyCost: 2, priority: 2, offset: 1 })
+
+			expect(store.overcapacityDays).toEqual([])
+		})
+
+		it('overcapacityDays lists deferred tasks lowest priority first', () => {
+			const roomTasksStore = useRoomTasksStore()
+			const tasksStore = useTasksStore()
+
+			// Capacity for the day (no member data → own budget fallback).
+			const offset = 1
+			const dayName = weekdayNameOf(dateKeyInDays(offset))
+			store.memberAvailability = []
+			store.weekdayAvailability[dayName] = true
+			store.energyBudget[dayName] = 2
+
+			seedTaskDueOn(roomTasksStore, tasksStore, { roomTaskId: 1, taskId: 11, name: 'Low prio big', energyCost: 4, priority: 1, offset })
+			seedTaskDueOn(roomTasksStore, tasksStore, { roomTaskId: 2, taskId: 12, name: 'High prio small', energyCost: 2, priority: 3, offset })
+			seedTaskDueOn(roomTasksStore, tasksStore, { roomTaskId: 3, taskId: 13, name: 'Medium prio big', energyCost: 5, priority: 2, offset })
+
+			const overloaded = store.overcapacityDays
+
+			expect(overloaded).toHaveLength(1)
+			const day = overloaded[0]
+			expect(day.planned).toBe(11)
+			expect(day.capacity).toBe(2)
+			// Locked policy: explain which tasks are deferred FIRST —
+			// lowest priority first.
+			expect(day.deferred.map(task => task.title)).toEqual(['Low prio big', 'Medium prio big'])
 		})
 	})
 

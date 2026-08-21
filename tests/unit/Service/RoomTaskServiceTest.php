@@ -36,6 +36,7 @@ class RoomTaskServiceTest extends TestCase {
 	private RoomService $roomService;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private HouseUserMapper $houseUserMapper;
+	private CompletedTaskMapper $completedTaskMapper;
 	private IDBConnection $db;
 
 	protected function setUp(): void {
@@ -46,6 +47,7 @@ class RoomTaskServiceTest extends TestCase {
 		$this->roomService = $this->createMock(RoomService::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->db = $this->createMock(IDBConnection::class);
 
 		$this->service = new RoomTaskService(
@@ -56,7 +58,7 @@ class RoomTaskServiceTest extends TestCase {
 			$this->roomService,
 			$this->taskAssigneeMapper,
 			$this->houseUserMapper,
-			$this->createMock(CompletedTaskMapper::class),
+			$this->completedTaskMapper,
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			$this->db
 		);
@@ -125,27 +127,6 @@ class RoomTaskServiceTest extends TestCase {
 			->willReturn([$roomTask]);
 
 		$result = $this->service->getScopeTasks($scopeId);
-
-		$this->assertCount(1, $result);
-	}
-
-	/**
-	 * GetUserTasks_ReturnsTasksForUser
-	 */
-	public function testGetUserTasks_ReturnsTasksForUser(): void {
-		$userId = 'user123';
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setAssignedToUserId($userId);
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByUserId')
-			->with($userId, true)
-			->willReturn([$roomTask]);
-
-		$result = $this->service->getUserTasks($userId);
 
 		$this->assertCount(1, $result);
 	}
@@ -783,6 +764,10 @@ class RoomTaskServiceTest extends TestCase {
 
 	/**
 	 * GetRoomTaskStats_WithTasks_ReturnsStats
+	 *
+	 * CR-SVC-31 (CS-PLAN-040): completionRate counts REAL completions —
+	 * distinct completed room tasks from CompletedTaskMapper — not
+	 * `(total − active)/total`, which counted deactivated tasks as done.
 	 */
 	public function testGetRoomTaskStats_WithTasks_ReturnsStats(): void {
 		$roomId = 1;
@@ -802,6 +787,13 @@ class RoomTaskServiceTest extends TestCase {
 			->with($roomId, false)
 			->willReturn([$activeTask, $inactiveTask]);
 
+		// Only one of the two room tasks has a real completion row.
+		$this->completedTaskMapper
+			->expects($this->once())
+			->method('countDistinctCompletedRoomTasksByRoom')
+			->with($roomId)
+			->willReturn(1);
+
 		$result = $this->service->getRoomTaskStats($roomId);
 
 		$this->assertEquals(2, $result['totalTasks']);
@@ -811,30 +803,58 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetUserTaskStats_WithTasks_ReturnsStats
+	 * GetRoomTaskStats_EmptyRoom_CompletionRateIsZero
+	 *
+	 * CR-SVC-31 regression: the old formula returned 100 for an empty set;
+	 * with real completions an empty room has completed nothing → 0.
 	 */
-	public function testGetUserTaskStats_WithTasks_ReturnsStats(): void {
-		$userId = 'user123';
-
-		$activeTask = new RoomTask();
-		$activeTask->setId(1);
-		$activeTask->setIsActive(true);
-
-		$inactiveTask = new RoomTask();
-		$inactiveTask->setId(2);
-		$inactiveTask->setIsActive(false);
+	public function testGetRoomTaskStats_EmptyRoom_CompletionRateIsZero(): void {
+		$roomId = 1;
 
 		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByUserId')
-			->with($userId, false)
-			->willReturn([$activeTask, $inactiveTask]);
+			->method('findByRoomId')
+			->willReturn([]);
 
-		$result = $this->service->getUserTaskStats($userId);
+		$this->completedTaskMapper
+			->method('countDistinctCompletedRoomTasksByRoom')
+			->willReturn(0);
+
+		$result = $this->service->getRoomTaskStats($roomId);
+
+		$this->assertEquals(0, $result['totalTasks']);
+		$this->assertEquals(0, $result['completionRate']);
+	}
+
+	/**
+	 * GetRoomTaskStats_DeactivatedTasksDoNotCountAsCompleted
+	 *
+	 * CR-SVC-31 regression: deactivating every task must NOT push the rate
+	 * to 100 — only actual completion rows move it.
+	 */
+	public function testGetRoomTaskStats_DeactivatedTasksDoNotCountAsCompleted(): void {
+		$roomId = 1;
+
+		$inactiveTaskA = new RoomTask();
+		$inactiveTaskA->setId(1);
+		$inactiveTaskA->setIsActive(false);
+
+		$inactiveTaskB = new RoomTask();
+		$inactiveTaskB->setId(2);
+		$inactiveTaskB->setIsActive(false);
+
+		$this->roomTaskMapper
+			->method('findByRoomId')
+			->willReturn([$inactiveTaskA, $inactiveTaskB]);
+
+		$this->completedTaskMapper
+			->method('countDistinctCompletedRoomTasksByRoom')
+			->willReturn(0);
+
+		$result = $this->service->getRoomTaskStats($roomId);
 
 		$this->assertEquals(2, $result['totalTasks']);
-		$this->assertEquals(1, $result['activeTasks']);
-		$this->assertEquals(50, $result['completionRate']);
+		$this->assertEquals(0, $result['activeTasks']);
+		$this->assertEquals(0, $result['completionRate']);
 	}
 
 	/**
@@ -1045,39 +1065,6 @@ class RoomTaskServiceTest extends TestCase {
 		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
 
 		$this->assertSame([], $this->service->bulkAssignTasks([], $userId, $houseId));
-	}
-
-	/**
-	 * GetUpcomingTasksForUser_ReturnsSortedTasks
-	 */
-	public function testGetUpcomingTasksForUser_ReturnsSortedTasks(): void {
-		$userId = 'user123';
-
-		$task1 = new RoomTask();
-		$task1->setId(1);
-		$task1->setNextDue(new \DateTime('+1 day'));
-		$task1->setIsActive(true);
-
-		$task2 = new RoomTask();
-		$task2->setId(2);
-		$task2->setNextDue(new \DateTime('+3 days'));
-		$task2->setIsActive(true);
-
-		$farTask = new RoomTask();
-		$farTask->setId(3);
-		$farTask->setNextDue(new \DateTime('+10 days'));
-		$farTask->setIsActive(true);
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByUserId')
-			->with($userId, true)
-			->willReturn([$task2, $task1, $farTask]);
-
-		$result = $this->service->getUpcomingTasksForUser($userId);
-
-		$this->assertCount(2, $result); // Only tasks within 7 days
-		$this->assertEquals(1, $result[0]->getId()); // Sorted by due date
 	}
 
 	/**

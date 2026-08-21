@@ -11,6 +11,9 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\HouseController;
 use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
@@ -24,6 +27,7 @@ class HouseControllerTest extends TestCase {
 	private HouseController $controller;
 	private $houseService;
 	private $authService;
+	private $activityService;
 	private $request;
 
 	protected function setUp(): void {
@@ -32,11 +36,13 @@ class HouseControllerTest extends TestCase {
 		$this->request = $this->createMock(IRequest::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		$this->activityService = $this->createMock(ActivityService::class);
 
 		$this->controller = new HouseController(
 			$this->request,
 			$this->houseService,
-			$this->authService
+			$this->authService,
+			$this->activityService
 		);
 	}
 
@@ -153,5 +159,89 @@ class HouseControllerTest extends TestCase {
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
 		$this->assertEquals('HOUSE_UPDATE_ERROR', $data['error']['code']);
+	}
+
+	/**
+	 * GET /house/activity returns the activity payload (CS-PLAN-040).
+	 */
+	public function testActivity_ReturnsActivitySuccessfully(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+
+		$payload = ['completions' => [['id' => 5, 'taskTitle' => 'Vacuum']], 'total' => 1];
+		$this->activityService->expects($this->once())
+			->method('getActivity')
+			->with(1, ActivityService::DEFAULT_DAYS, ActivityService::DEFAULT_LIMIT, null)
+			->willReturn($payload);
+
+		$response = $this->controller->activity();
+
+		$this->assertEquals(200, $response->getStatus());
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertSame($payload, $data['data']);
+	}
+
+	/**
+	 * GET /house/activity forwards the query params to the service.
+	 */
+	public function testActivity_ForwardsParams(): void {
+		$house = new House();
+		$house->setId(2);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+
+		$this->activityService->expects($this->once())
+			->method('getActivity')
+			->with(2, 7, 25, 'alice')
+			->willReturn(['completions' => [], 'total' => 0]);
+
+		$response = $this->controller->activity(7, 25, 'alice');
+
+		$this->assertEquals(200, $response->getStatus());
+	}
+
+	/**
+	 * GET /house/activity denies non-members with 403.
+	 */
+	public function testActivity_Returns403ForNonMember(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember')
+			->willThrowException(new ForbiddenException('Not a member'));
+
+		$response = $this->controller->activity();
+
+		$this->assertEquals(403, $response->getStatus());
+		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * GET /house/activity maps a non-member target userId (NotFoundException
+	 * from the service) to a clean 404 — not a 500.
+	 */
+	public function testActivity_Returns404ForNonMemberTargetUser(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+		$this->activityService->method('getActivity')
+			->willThrowException(new NotFoundException('User is not a member of this house'));
+
+		$response = $this->controller->activity(30, 50, 'outsider');
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertFalse($response->getData()['success']);
 	}
 }

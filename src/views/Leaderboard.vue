@@ -100,9 +100,13 @@
 					</span>
 					<span class="score-col" data-testid="contribution-score">{{ formatScore(user.contributionScore) }}</span>
 					<span class="streak-col" data-testid="user-streak">
-						<span class="streak-badge" :class="{ active: user.currentStreak > 0 }">
+						<span
+							class="streak-badge"
+							:class="{ active: user.currentStreak > 0, frozen: isFrozen(user) }"
+							:data-testid="`user-freezes-${user.id}`">
 							<Icon name="Zap" :size="14" />
 							{{ user.currentStreak }}
+							<span v-if="user.streakFreezes > 0" class="freeze-indicator">❄ {{ user.streakFreezes }}</span>
 						</span>
 					</span>
 					<span class="tasks-col" data-testid="tasks-completed-stat">{{ user.totalTasksCompleted || 0 }}</span>
@@ -230,6 +234,24 @@ export default {
 
 		isCurrentUser(user) {
 			return user.nextcloudUserId === this.userStore.userId
+		},
+
+		/**
+		 * Active-freeze display rule (CS-PLAN-040): the "frozen" styling
+		 * applies only when the last freeze consumption was yesterday —
+		 * compared on calendar dates, never on raw timestamps.
+		 *
+		 * @param {object} user Leaderboard user with lastFreezeDate
+		 * @return {boolean} True when the user's streak is freeze-protected
+		 */
+		isFrozen(user) {
+			if (!user.lastFreezeDate) return false
+			const freezeDate = new Date(user.lastFreezeDate)
+			const yesterday = new Date()
+			yesterday.setDate(yesterday.getDate() - 1)
+			return freezeDate.getFullYear() === yesterday.getFullYear()
+				&& freezeDate.getMonth() === yesterday.getMonth()
+				&& freezeDate.getDate() === yesterday.getDate()
 		},
 
 		getPodiumHeight(rank) {
@@ -503,6 +525,17 @@ export default {
 .streak-badge.active {
 	background: #ffeb3b;
 	color: #333;
+}
+
+.freeze-indicator {
+	font-size: 0.75rem;
+	padding-inline-start: 0.35rem;
+	border-inline-start: 1px solid currentcolor;
+}
+
+.streak-badge.frozen {
+	background: #b3e5fc;
+	color: #01579b;
 }
 
 .empty-state {

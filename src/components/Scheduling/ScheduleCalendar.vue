@@ -53,6 +53,13 @@
 						<div class="day-capacity">
 							<span class="capacity-label">{{ t('chorestrike', 'Capacity') }}:</span>
 							<span class="capacity-value">{{ getDayCapacity(day.dayKey) }}</span>
+							<span
+								v-if="isOvercapacity(day)"
+								class="day-warning"
+								data-testid="overcapacity-marker"
+								:title="overcapacityTitle(day)">
+								⚠ {{ plannedEnergy(day.date) }}/{{ getDayCapacity(day.dayKey) }}
+							</span>
 						</div>
 					</div>
 				</div>
@@ -146,7 +153,27 @@ const generateWeekDays = () => {
 }
 
 const getDayCapacity = (dayKey) => {
-	return schedulingStore.getTotalEnergyForDay(dayKey)
+	// getCapacityForDay falls back to the current user's own budget for
+	// non-owners (member availability is owner-only data).
+	return schedulingStore.getCapacityForDay(dayKey)
+}
+
+// CS-PLAN-040 (FEAT-UX-022): per-day overcapacity marker — planned energy
+// vs available capacity, computed by the scheduling-store getters.
+const plannedEnergy = (dateKey) => {
+	return schedulingStore.plannedEnergyForDay(dateKey)
+}
+
+const isOvercapacity = (day) => {
+	const planned = plannedEnergy(day.date)
+	return planned > 0 && planned > getDayCapacity(day.dayKey)
+}
+
+const overcapacityTitle = (day) => {
+	return t('chorestrike', 'Planned energy ({planned}) exceeds the available capacity ({capacity})', {
+		planned: plannedEnergy(day.date),
+		capacity: getDayCapacity(day.dayKey),
+	})
 }
 
 const isMemberAvailableOnDay = (member, dayKey) => {
@@ -359,6 +386,19 @@ watch(() => schedulingStore.memberAvailability, () => {
 .capacity-value {
 	font-weight: 600;
 	color: var(--color-primary);
+}
+
+.day-warning {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.2rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--color-error);
+	background: var(--color-error-hover, #fdedec);
+	border-radius: 8px;
+	padding: 0.1rem 0.4rem;
+	margin-top: 0.25rem;
 }
 
 .member-rows {

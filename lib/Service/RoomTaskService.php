@@ -128,17 +128,6 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Get all room tasks for a user
-	 *
-	 * @param string $userId The user ID
-	 * @param bool $activeOnly Whether to return only active tasks
-	 * @return RoomTask[]
-	 */
-	public function getUserTasks(string $userId, bool $activeOnly = true): array {
-		return $this->roomTaskMapper->findByUserId($userId, $activeOnly);
-	}
-
-	/**
 	 * Get overdue tasks for a house
 	 *
 	 * @param int $houseId The house ID (scopes the query to one house)
@@ -561,6 +550,16 @@ class RoomTaskService {
 	/**
 	 * Get task statistics for a room
 	 *
+	 * CR-SVC-31 root fix (CS-PLAN-040): completionRate counts REAL
+	 * completions — the share of the room's current tasks with at least
+	 * one completion row — instead of `(total − active)/total`, which
+	 * counted deactivated/skipped tasks as completed. An empty room
+	 * returns 0 (not 100).
+	 *
+	 * Dangling completion rows (single-task deletion does not cascade) are
+	 * excluded by the mapper's room-scoped JOIN, so they can never inflate
+	 * the numerator.
+	 *
 	 * @param int $roomId The room ID
 	 */
 	public function getRoomTaskStats(int $roomId): array {
@@ -570,33 +569,17 @@ class RoomTaskService {
 		$dueTodayTasks = array_filter($activeTasks, fn ($task) => $task->isDueToday());
 		$dueSoonTasks = array_filter($activeTasks, fn ($task) => $task->isDueWithinDays(3));
 
+		$completedCount = $this->completedTaskMapper->countDistinctCompletedRoomTasksByRoom($roomId);
+
 		return [
 			'totalTasks' => count($allTasks),
 			'activeTasks' => count($activeTasks),
 			'overdueTasks' => count($overdueTasks),
 			'dueTodayTasks' => count($dueTodayTasks),
 			'dueSoonTasks' => count($dueSoonTasks),
-			'completionRate' => count($allTasks) > 0 ? round((count($allTasks) - count($activeTasks)) / count($allTasks) * 100, 2) : 100
-		];
-	}
-
-	/**
-	 * Get task statistics for a user
-	 *
-	 * @param string $userId The user ID
-	 */
-	public function getUserTaskStats(string $userId): array {
-		$allTasks = $this->roomTaskMapper->findByUserId($userId, false);
-		$activeTasks = array_filter($allTasks, fn ($task) => $task->getIsActive());
-		$overdueTasks = array_filter($activeTasks, fn ($task) => $task->isOverdue());
-		$dueTodayTasks = array_filter($activeTasks, fn ($task) => $task->isDueToday());
-
-		return [
-			'totalTasks' => count($allTasks),
-			'activeTasks' => count($activeTasks),
-			'overdueTasks' => count($overdueTasks),
-			'dueTodayTasks' => count($dueTodayTasks),
-			'completionRate' => count($allTasks) > 0 ? round((count($allTasks) - count($activeTasks)) / count($allTasks) * 100, 2) : 100
+			'completionRate' => count($allTasks) > 0
+				? round(min($completedCount, count($allTasks)) / count($allTasks) * 100, 2)
+				: 0
 		];
 	}
 
@@ -671,29 +654,6 @@ class RoomTaskService {
 		}
 
 		return $assignedTasks;
-	}
-
-	/**
-	 * Get upcoming tasks for user (next 7 days)
-	 *
-	 * @param string $userId The user ID
-	 */
-	public function getUpcomingTasksForUser(string $userId): array {
-		$allTasks = $this->getUserTasks($userId);
-		$upcomingTasks = [];
-
-		foreach ($allTasks as $task) {
-			if ($task->isDueWithinDays(7)) {
-				$upcomingTasks[] = $task;
-			}
-		}
-
-		// Sort by due date
-		usort($upcomingTasks, function ($a, $b) {
-			return $a->getNextDue() <=> $b->getNextDue();
-		});
-
-		return $upcomingTasks;
 	}
 
 	/**

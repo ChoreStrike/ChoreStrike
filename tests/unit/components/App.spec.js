@@ -30,15 +30,16 @@ describe('App', () => {
 			expect(html).toContain('data-testid="nav-today"')
 			expect(html).toContain('data-testid="nav-tasks"')
 			expect(html).toContain('data-testid="nav-leaderboard"')
+			expect(html).toContain('data-testid="nav-insights"')
 			expect(html).toContain('data-testid="nav-scheduling"')
 			expect(html).toContain('data-testid="nav-calendar"')
 			expect(html).toContain('data-testid="nav-settings"')
 		})
 
-		it('renders all seven navigation entries', () => {
+		it('renders all eight navigation entries', () => {
 			const navItems = mountApp().findAllComponents({ name: 'NcAppNavigationItem' })
 
-			expect(navItems).toHaveLength(7)
+			expect(navItems).toHaveLength(8)
 		})
 	})
 })

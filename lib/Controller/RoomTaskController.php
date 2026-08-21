@@ -843,50 +843,6 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
-	 * Get user tasks
-	 *
-	 * @NoAdminRequired
-	 */
-	public function userTasks(string $userId, bool $activeOnly = true): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
-
-			if (empty(trim($userId))) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'VALIDATION_ERROR',
-						'message' => 'User ID is required'
-					]
-				], 400);
-			}
-
-			// Prevent cross-house access: the target user must be a member of
-			// the caller's house before returning their tasks.
-			$this->authService->assertUserInHouse($house->getId(), $userId);
-
-			$userTasks = $this->roomTaskService->getUserTasks($userId, $activeOnly);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => array_map(fn ($task) => $task->jsonSerialize(), $userTasks)
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'USER_TASKS_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
 	 * Get room task statistics
 	 *
 	 * @NoAdminRequired
@@ -897,12 +853,35 @@ class RoomTaskController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->ensureHouseMember($house->getId());
 
+			if ($roomId <= 0) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => 'roomId is required'
+					]
+				], 400);
+			}
+
+			// CS-PLAN-040 security fix: the roomId is caller-supplied, so it
+			// must be validated against the caller's house like every sibling
+			// endpoint — membership alone did not stop cross-house reads.
+			$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
+
 			$stats = $this->roomTaskService->getRoomTaskStats($roomId);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => $stats
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 404);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -910,50 +889,6 @@ class RoomTaskController extends Controller {
 				'success' => false,
 				'error' => [
 					'code' => 'ROOM_STATS_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
-	 * Get user task statistics
-	 *
-	 * @NoAdminRequired
-	 */
-	public function userStats(string $userId): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
-
-			if (empty(trim($userId))) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'VALIDATION_ERROR',
-						'message' => 'User ID is required'
-					]
-				], 400);
-			}
-
-			// Prevent cross-house access: the target user must be a member of
-			// the caller's house before returning their stats.
-			$this->authService->assertUserInHouse($house->getId(), $userId);
-
-			$stats = $this->roomTaskService->getUserTaskStats($userId);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $stats
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'USER_STATS_ERROR',
 					'message' => ControllerErrorFormatter::safeMessage($e)
 				]
 			], 500);

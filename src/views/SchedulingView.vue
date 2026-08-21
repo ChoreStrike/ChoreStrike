@@ -27,6 +27,8 @@
 				<SelfAvailabilitySettings data-testid="self-availability-settings" />
 			</section>
 
+			<OvercapacityWarning data-testid="overcapacity-warning" />
+
 			<section v-if="userStore.isHouseOwner" class="scheduling-section">
 				<AvailabilitySettings data-testid="availability-settings" />
 			</section>
@@ -53,6 +55,8 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import { useSchedulingStore } from '../store/scheduling.js'
+import { useRoomTasksStore } from '../store/roomTasks.js'
+import { useRoomsStore } from '../store/rooms.js'
 import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
@@ -62,6 +66,7 @@ import SchedulePreview from '../components/Scheduling/SchedulePreview.vue'
 import ScheduleCalendar from '../components/Scheduling/ScheduleCalendar.vue'
 import SchedulingSuggestions from '../components/Scheduling/SchedulingSuggestions.vue'
 import SelfAvailabilitySettings from '../components/Scheduling/SelfAvailabilitySettings.vue'
+import OvercapacityWarning from '../components/Scheduling/OvercapacityWarning.vue'
 
 export default {
 	name: 'SchedulingView',
@@ -73,6 +78,7 @@ export default {
 		ScheduleCalendar,
 		SchedulingSuggestions,
 		SelfAvailabilitySettings,
+		OvercapacityWarning,
 	},
 
 	setup() {
@@ -100,6 +106,18 @@ export default {
 			await this.tasksStore.fetchTasks()
 		} catch (error) {
 			logger.warn('Could not preload tasks for scheduling preview', { view: 'SchedulingView', error })
+		}
+		// Best-effort: room tasks feed the overcapacity warning. A failure
+		// must not break the scheduling view (warning simply stays empty).
+		try {
+			const roomsStore = useRoomsStore()
+			const roomTasksStore = useRoomTasksStore()
+			await roomsStore.fetchFloorsWithRooms()
+			await Promise.all(
+				roomsStore.rooms.map(room => roomTasksStore.fetchRoomTasks(room.id)),
+			)
+		} catch (error) {
+			logger.warn('Could not preload room tasks for overcapacity warning', { view: 'SchedulingView', error })
 		}
 	},
 

@@ -39,6 +39,9 @@ const SEED_DEPENDENT_SPECS = [
 	// side effect) — serial pool only.
 	/[/\\]today-view\.spec\.ts$/,
 	/[/\\]members-owner\.spec\.ts$/,
+	// CS-PLAN-040: insights-flow completes a seeded task and creates
+	// overcapacity tasks — mutates seed state, serial pool only.
+	/[/\\]insights-flow\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

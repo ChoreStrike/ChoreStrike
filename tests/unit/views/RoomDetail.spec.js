@@ -1,5 +1,5 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import RoomDetail from '../../../src/views/RoomDetail.vue'
 
@@ -26,6 +26,13 @@ jest.mock('../../../src/store/roomTasks.js', () => ({
 		roomTasks: [{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: new Date().toISOString() }],
 		roomTasksByRoom: { 1: [{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: new Date().toISOString() }] },
 		fetchRoomTasks: jest.fn(),
+		fetchRoomTaskStats: jest.fn().mockResolvedValue({
+			totalTasks: 5,
+			activeTasks: 3,
+			overdueTasks: 1,
+			dueTodayTasks: 2,
+			completionRate: 40,
+		}),
 		createRoomTask: jest.fn(),
 		createTaskWithRoomTask: jest.fn(),
 		updateRoomTaskDueDate: jest.fn(),
@@ -168,6 +175,29 @@ describe('RoomDetail.vue', () => {
 
 		expect(wrapper.find('.room-overview').exists()).toBe(true)
 		expect(wrapper.find('.cleanliness-ring').exists()).toBe(true)
+	})
+
+	it('renders the task stats card after loading (CS-PLAN-040)', async () => {
+		const wrapper = mount(RoomDetail, {
+			props: { id: '1' },
+			global: {
+				plugins: [pinia],
+				stubs: {
+					RouterLink: {
+						template: '<a class="router-link-stub"><slot /></a>',
+					},
+				},
+			},
+		})
+
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="room-stats-card"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="room-stats-total"]').text()).toBe('5')
+		expect(wrapper.find('[data-testid="room-stats-active"]').text()).toBe('3')
+		expect(wrapper.find('[data-testid="room-stats-overdue"]').text()).toBe('1')
+		expect(wrapper.find('[data-testid="room-stats-due-today"]').text()).toBe('2')
+		expect(wrapper.find('[data-testid="room-stats-completion-rate"]').text()).toBe('40%')
 	})
 
 	it('renders TaskList component', () => {

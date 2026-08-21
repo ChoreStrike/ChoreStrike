@@ -8,6 +8,7 @@ return [
         ['name' => 'house#get', 'url' => '/api/v1/house', 'verb' => 'GET'],
         ['name' => 'house#update', 'url' => '/api/v1/house', 'verb' => 'PUT'],
         ['name' => 'house#stats', 'url' => '/api/v1/house/stats', 'verb' => 'GET'],
+        ['name' => 'house#activity', 'url' => '/api/v1/house/activity', 'verb' => 'GET'],
         ['name' => 'house#health', 'url' => '/api/v1/house/health', 'verb' => 'GET'],
         ['name' => 'house#reset', 'url' => '/api/v1/house/reset', 'verb' => 'POST'],
         ['name' => 'floor#createAlias', 'url' => '/api/v1/floor-create', 'verb' => 'POST'],
@@ -79,9 +80,13 @@ return [
         ['name' => 'room_task#deactivate', 'url' => '/api/v1/room-tasks/{id}/deactivate', 'verb' => 'POST'],
         ['name' => 'room_task#reactivate', 'url' => '/api/v1/room-tasks/{id}/reactivate', 'verb' => 'POST'],
         ['name' => 'room_task#updateDueDate', 'url' => '/api/v1/room-tasks/{id}/due-date', 'verb' => 'PUT'],
-        ['name' => 'room_task#userTasks', 'url' => '/api/v1/room-tasks/user/{userId}', 'verb' => 'GET'],
         ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET'],
-        ['name' => 'room_task#userStats', 'url' => '/api/v1/room-tasks/user/{userId}/stats', 'verb' => 'GET'],
+
+        // Pruned 2026-08-21 (CS-PLAN-040): `userTasks` read only the legacy
+        // single-assignee column (misleading since multi-assignee) and
+        // `userStats` carried the CR-SVC-31-flawed completionRate — both had
+        // no consumer. `user#stats` was fully dead (every field already in
+        // the GET /users serialization).
         
         // Game API
         ['name' => 'game#state', 'url' => '/api/v1/game/state', 'verb' => 'GET'],
@@ -96,7 +101,6 @@ return [
         ['name' => 'user#remove', 'url' => '/api/v1/users/{id}', 'verb' => 'DELETE'],
         ['name' => 'user#update', 'url' => '/api/v1/users/{id}', 'verb' => 'PUT'],
         ['name' => 'user#updateRole', 'url' => '/api/v1/users/{id}/role', 'verb' => 'PUT'],
-        ['name' => 'user#stats', 'url' => '/api/v1/users/{id}/stats', 'verb' => 'GET'],
         ['name' => 'user#titles', 'url' => '/api/v1/users/{id}/titles', 'verb' => 'GET'],
         ['name' => 'user#selectTitle', 'url' => '/api/v1/users/{id}/titles/select', 'verb' => 'PUT'],
 

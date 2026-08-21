@@ -45,6 +45,41 @@
 					<span class="cleanliness-ring-value">{{ cleanliness }}%</span>
 					<span class="cleanliness-ring-label">{{ t('chorestrike', 'Cleanliness') }}</span>
 				</div>
+				<div v-if="roomStats" class="room-stats-card" data-testid="room-stats-card">
+					<h3>{{ t('chorestrike', 'Task Stats') }}</h3>
+					<dl class="stats-grid">
+						<div class="stats-entry">
+							<dt>{{ t('chorestrike', 'Total') }}</dt>
+							<dd data-testid="room-stats-total">
+								{{ roomStats.totalTasks }}
+							</dd>
+						</div>
+						<div class="stats-entry">
+							<dt>{{ t('chorestrike', 'Active') }}</dt>
+							<dd data-testid="room-stats-active">
+								{{ roomStats.activeTasks }}
+							</dd>
+						</div>
+						<div class="stats-entry">
+							<dt>{{ t('chorestrike', 'Overdue') }}</dt>
+							<dd :class="{ warning: roomStats.overdueTasks > 0 }" data-testid="room-stats-overdue">
+								{{ roomStats.overdueTasks }}
+							</dd>
+						</div>
+						<div class="stats-entry">
+							<dt>{{ t('chorestrike', 'Due today') }}</dt>
+							<dd data-testid="room-stats-due-today">
+								{{ roomStats.dueTodayTasks }}
+							</dd>
+						</div>
+						<div class="stats-entry">
+							<dt>{{ t('chorestrike', 'Completion') }}</dt>
+							<dd data-testid="room-stats-completion-rate">
+								{{ roomStats.completionRate }}%
+							</dd>
+						</div>
+					</dl>
+				</div>
 			</div>
 
 			<div class="tasks-section">
@@ -142,6 +177,7 @@ export default {
 			addTaskMode: 'template',
 			showEditTaskModal: false,
 			editingTask: null,
+			roomStats: null,
 		}
 	},
 
@@ -220,6 +256,8 @@ export default {
 				await this.roomsStore.fetchFloorsWithRooms()
 				await this.tasksStore.fetchTasks()
 				await this.roomTasksStore.fetchRoomTasks(this.roomId)
+				// Best-effort: the stats card must not block the room view.
+				this.roomStats = await this.roomTasksStore.fetchRoomTaskStats(this.roomId)
 			} catch (error) {
 				logger.error('Failed to initialize room', error, { view: 'RoomDetail', action: 'initializeRoom', roomId: this.roomId })
 			} finally {
@@ -425,9 +463,50 @@ h1 {
 	border-radius: 12px;
 	padding: 2rem;
 	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
 	justify-content: center;
 	align-items: center;
 	min-height: 300px;
+}
+
+.room-stats-card {
+	width: 100%;
+	background: var(--color-main-background);
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	padding: 1rem;
+}
+
+.room-stats-card h3 {
+	margin: 0 0 0.75rem 0;
+	font-size: 1rem;
+	color: var(--color-main-text);
+}
+
+.stats-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 0.5rem;
+	margin: 0;
+}
+
+.stats-entry dt {
+	font-size: 0.75rem;
+	color: var(--color-text-maxcontrast);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.stats-entry dd {
+	margin: 0;
+	font-size: 1.15rem;
+	font-weight: bold;
+	color: var(--color-main-text);
+}
+
+.stats-entry dd.warning {
+	color: var(--color-error);
 }
 
 .cleanliness-ring {

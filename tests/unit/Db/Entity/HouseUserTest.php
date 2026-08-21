@@ -28,6 +28,8 @@ class HouseUserTest extends TestCase {
 		$houseUser->setJoinedAt($joinedAt);
 		$lastActivity = new \DateTime('2026-02-24 15:30:00');
 		$houseUser->setLastActivity($lastActivity);
+		$lastFreezeDate = new \DateTime('2026-02-24 00:00:00');
+		$houseUser->setLastFreezeDate($lastFreezeDate);
 
 		$result = $houseUser->jsonSerialize();
 
@@ -41,6 +43,21 @@ class HouseUserTest extends TestCase {
 		self::assertEquals(10, $result['longestStreak']);
 		self::assertEquals($joinedAt->format('c'), $result['joinedAt']);
 		self::assertEquals($lastActivity->format('c'), $result['lastActivity']);
+		// CS-PLAN-040 (FEAT-UX-020): freeze visibility data.
+		self::assertEquals($lastFreezeDate->format('c'), $result['lastFreezeDate']);
+	}
+
+	/**
+	 * JsonSerialize_WithoutFreeze_LastFreezeDateIsNull
+	 *
+	 * CS-PLAN-040 (FEAT-UX-020): users whose streak was never frozen must
+	 * serialize lastFreezeDate as null (not an epoch or empty string) so the
+	 * UI can distinguish "no active freeze".
+	 */
+	public function testJsonSerialize_WithoutFreeze_LastFreezeDateIsNull(): void {
+		$houseUser = new HouseUser();
+
+		self::assertNull($houseUser->jsonSerialize()['lastFreezeDate']);
 	}
 
 	/**

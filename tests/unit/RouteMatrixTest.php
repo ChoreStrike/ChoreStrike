@@ -182,6 +182,30 @@ class RouteMatrixTest extends TestCase {
 	}
 
 	/**
+	 * Routes pruned in CS-PLAN-040 must stay gone: the legacy single-assignee
+	 * `userTasks` read, the CR-SVC-31-flawed `userStats`, and the fully dead
+	 * `user#stats`. Re-adding any of them requires a new expose decision.
+	 */
+	public function testPrunedStatsRoutesAreNotReintroduced(): void {
+		$pruned = [
+			'GET /api/v1/room-tasks/user/{userId}',
+			'GET /api/v1/room-tasks/user/{userId}/stats',
+			'GET /api/v1/users/{id}/stats',
+		];
+		$declared = array_map(
+			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
+			$this->routes['routes']
+		);
+
+		$reintroduced = array_intersect($pruned, $declared);
+		$this->assertSame(
+			[],
+			array_values($reintroduced),
+			'Pruned stats endpoints reappeared in routes.php — see CS-PLAN-040 §2'
+		);
+	}
+
+	/**
 	 * Resolve a short controller name (e.g. `room_task`) to the fully
 	 * qualified ChoreStrike controller class name.
 	 */

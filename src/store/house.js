@@ -12,6 +12,14 @@ export const useHouseStore = defineStore('house', {
 		house: null,
 		loading: false,
 		error: null,
+		/** @type {object|null} Insights payload ({ house, stats }) from GET /house/stats */
+		insights: null,
+		/** @type {Array} Activity feed completions from GET /house/activity */
+		activity: [],
+		/** @type {boolean} Loading state of the activity fetch */
+		activityLoading: false,
+		/** @type {string|null} Error message of the activity fetch */
+		activityError: null,
 	}),
 
 	getters: {
@@ -65,21 +73,45 @@ export const useHouseStore = defineStore('house', {
 		},
 
 		/**
-		 * Get house statistics
+		 * Fetch the insights payload (house stats) for the Insights view.
+		 * Replaces the never-consumed `fetchHouseStats` wrapper (CS-PLAN-040).
 		 */
-		async fetchHouseStats() {
+		async fetchInsights() {
 			this.loading = true
 			this.error = null
 
 			try {
 				const data = await api.get('/api/v1/house/stats')
+				this.insights = data
 				return data
 			} catch (error) {
 				this.error = error.message
-				logger.error('Failed to fetch house stats', error, { store: 'house', action: 'fetchHouseStats' })
+				logger.error('Failed to fetch house stats', error, { store: 'house', action: 'fetchInsights' })
 				throw error
 			} finally {
 				this.loading = false
+			}
+		},
+
+		/**
+		 * Fetch the house activity feed ("who did what when").
+		 * @param {number} days Period length in days (1-90, default 30).
+		 * @param {number} limit Maximum completions (1-200, default 50).
+		 */
+		async fetchActivity(days = 30, limit = 50) {
+			this.activityLoading = true
+			this.activityError = null
+
+			try {
+				const data = await api.get('/api/v1/house/activity', { params: { days, limit } })
+				this.activity = data.completions || []
+				return data
+			} catch (error) {
+				this.activityError = error.message
+				logger.error('Failed to fetch house activity', error, { store: 'house', action: 'fetchActivity', days, limit })
+				throw error
+			} finally {
+				this.activityLoading = false
 			}
 		},
 
@@ -149,6 +181,10 @@ export const useHouseStore = defineStore('house', {
 			this.house = null
 			this.loading = false
 			this.error = null
+			this.insights = null
+			this.activity = []
+			this.activityLoading = false
+			this.activityError = null
 		},
 	},
 })

@@ -35,6 +35,10 @@ describe('House Store', () => {
 			expect(store.house).toBeNull()
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
+			expect(store.insights).toBeNull()
+			expect(store.activity).toEqual([])
+			expect(store.activityLoading).toBe(false)
+			expect(store.activityError).toBeNull()
 		})
 	})
 
@@ -121,19 +125,66 @@ describe('House Store', () => {
 			})
 		})
 
-		describe('fetchHouseStats', () => {
-			it('fetches stats successfully', async () => {
-				api.get.mockResolvedValue({ totalRooms: 5, cleanliness: 80 })
+		describe('fetchInsights', () => {
+			it('fetches insights and stores them', async () => {
+				const mockInsights = {
+					house: { id: 1, name: 'Test House', houseHealth: 85 },
+					stats: { totalRooms: 5, cleanRooms: 4, dirtyRooms: 1, roomsNeedingCleaning: 1, houseHealth: 85 },
+				}
+				api.get.mockResolvedValue(mockInsights)
 
-				const result = await store.fetchHouseStats()
+				const result = await store.fetchInsights()
 
-				expect(result).toEqual({ totalRooms: 5, cleanliness: 80 })
+				expect(api.get).toHaveBeenCalledWith('/api/v1/house/stats')
+				expect(result).toEqual(mockInsights)
+				expect(store.insights).toEqual(mockInsights)
+				expect(store.loading).toBe(false)
+				expect(store.error).toBeNull()
 			})
 
 			it('handles error', async () => {
 				api.get.mockRejectedValue(new Error('Failed'))
 
-				await expect(store.fetchHouseStats()).rejects.toThrow('Failed')
+				await expect(store.fetchInsights()).rejects.toThrow('Failed')
+				expect(store.error).toBe('Failed')
+				expect(store.loading).toBe(false)
+			})
+		})
+
+		describe('fetchActivity', () => {
+			it('fetches activity and stores completions', async () => {
+				const payload = {
+					completions: [
+						{ id: 1, taskTitle: 'Vacuum', displayName: 'Alice', energyCost: 3 },
+					],
+					total: 1,
+				}
+				api.get.mockResolvedValue(payload)
+
+				const result = await store.fetchActivity()
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/house/activity', { params: { days: 30, limit: 50 } })
+				expect(result).toEqual(payload)
+				expect(store.activity).toEqual(payload.completions)
+				expect(store.activityLoading).toBe(false)
+				expect(store.activityError).toBeNull()
+			})
+
+			it('forwards custom days/limit', async () => {
+				api.get.mockResolvedValue({ completions: [], total: 0 })
+
+				await store.fetchActivity(7, 10)
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/house/activity', { params: { days: 7, limit: 10 } })
+			})
+
+			it('handles error into activityError without touching shared error state', async () => {
+				api.get.mockRejectedValue(new Error('Boom'))
+
+				await expect(store.fetchActivity()).rejects.toThrow('Boom')
+				expect(store.activityError).toBe('Boom')
+				expect(store.error).toBeNull()
+				expect(store.activityLoading).toBe(false)
 			})
 		})
 

@@ -491,39 +491,4 @@ class UserController extends Controller {
 			], 500);
 		}
 	}
-
-	/**
-	 * Get user statistics
-	 *
-	 * @NoAdminRequired
-	 */
-	public function stats(int $id): JSONResponse {
-		try {
-			$houseUser = $this->houseUserMapper->find($id);
-			$this->authService->ensureHouseMember($houseUser->getHouseId());
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => [
-					'user' => $houseUser->jsonSerialize(),
-					'stats' => [
-						'contributionScore' => $houseUser->getContributionScore(),
-						'coins' => $houseUser->getCoins(),
-						'currentStreak' => $houseUser->getCurrentStreak(),
-						'lastActivity' => $houseUser->getLastActivity()?->format('c'),
-					]
-				]
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'STATS_ERROR',
-					'message' => $this->l->t('Failed to retrieve user stats')
-				]
-			], 500);
-		}
-	}
 }

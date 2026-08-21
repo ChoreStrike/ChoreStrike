@@ -108,29 +108,6 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Get all room tasks for a user
-	 *
-	 * @param string $userId The user ID
-	 * @param bool $activeOnly Whether to return only active tasks
-	 * @return RoomTask[]
-	 */
-	public function findByUserId(string $userId, bool $activeOnly = true): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('assigned_to_user_id', $qb->createNamedParameter($userId)));
-
-		if ($activeOnly) {
-			$qb->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-		}
-
-		$qb->orderBy('next_due', 'ASC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Get overdue tasks for a specific house (joins through rooms → floors).
 	 *
 	 * @param int $houseId The house ID

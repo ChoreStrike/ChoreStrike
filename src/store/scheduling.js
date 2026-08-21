@@ -7,6 +7,23 @@ import { defineStore } from 'pinia'
 import { translate as t } from '@nextcloud/l10n'
 import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
+import { useRoomTasksStore } from './roomTasks.js'
+import { useTasksStore } from './tasks.js'
+
+const WEEKDAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
+/**
+ * Local YYYY-MM-DD for a Date (no UTC drift near midnight).
+ *
+ * @param {Date} date The date to format
+ * @return {string} Local YYYY-MM-DD key
+ */
+export function localDateKey(date) {
+	const y = date.getFullYear()
+	const m = String(date.getMonth() + 1).padStart(2, '0')
+	const d = String(date.getDate()).padStart(2, '0')
+	return `${y}-${m}-${d}`
+}
 
 /**
  * Store for managing member availability and scheduling preferences
@@ -79,14 +96,15 @@ export const useSchedulingStore = defineStore('scheduling', {
 
 		/**
 		 * Calculate average daily energy
-		 * @param {object} state Store state
-		 * @param {object} getters Store getters
+		 *
+		 * Pinia option-getters are called with the store only — other
+		 * getters must be reached via `this`, never a second parameter.
 		 * @return {number} Average energy per available day
 		 */
-		averageDailyEnergy: (state, getters) => {
-			const availableDays = getters.availableWeekdays.length
+		averageDailyEnergy() {
+			const availableDays = this.availableWeekdays.length
 			if (availableDays === 0) return 0
-			return Math.round(getters.totalWeeklyEnergy / availableDays)
+			return Math.round(this.totalWeeklyEnergy / availableDays)
 		},
 
 		/**
@@ -153,6 +171,122 @@ export const useSchedulingStore = defineStore('scheduling', {
 			return availableMembers.reduce((sum, m) => {
 				return sum + (m.energyBudget?.[dayKey] ?? 10)
 			}, 0)
+		},
+
+		/**
+		 * Available energy capacity for a day (CS-PLAN-040).
+		 *
+		 * Member availability (owner-only fetch) when loaded; otherwise the
+		 * current user's own preferences with the weekend 10/15 fallback —
+		 * non-owners must still get a meaningful capacity, never 0-by-default.
+		 *
+		 * @param {object} state Store state
+		 * @return {(day: string) => number} Function that takes a weekday key
+		 */
+		getCapacityForDay: (state) => (day) => {
+			const dayKey = day.toLowerCase()
+			if (state.memberAvailability.length > 0) {
+				const availableMembers = state.memberAvailability.filter(
+					m => m.weekdayAvailability?.[dayKey] !== false,
+				)
+				return availableMembers.reduce((sum, m) => sum + (m.energyBudget?.[dayKey] ?? 10), 0)
+			}
+
+			if (state.weekdayAvailability[dayKey] === false) {
+				return 0
+			}
+			const fallbackBudget = { monday: 10, tuesday: 10, wednesday: 10, thursday: 10, friday: 10, saturday: 15, sunday: 15 }
+			return state.energyBudget[dayKey] ?? fallbackBudget[dayKey] ?? 10
+		},
+
+		/**
+		 * Planned energy for a calendar day: Σ energyCost of active room
+		 * tasks due that day, joined via the tasks store energy map
+		 * (CS-PLAN-040 / FEAT-UX-022). The canonical planned-energy source.
+		 *
+		 * @return {(dateKey: string) => number} Function that takes a local YYYY-MM-DD key
+		 */
+		plannedEnergyForDay: () => (dateKey) => {
+			const roomTasksStore = useRoomTasksStore()
+			const tasksStore = useTasksStore()
+
+			let total = 0
+			for (const roomTask of roomTasksStore.roomTasks) {
+				if (!roomTask.isActive || !roomTask.nextDue) continue
+				if (localDateKey(new Date(roomTask.nextDue)) !== dateKey) continue
+				const task = tasksStore.getTaskById(roomTask.taskId)
+				total += task?.energyCost ?? 0
+			}
+			return total
+		},
+
+		/**
+		 * Days (next 7, starting today) whose planned energy exceeds the
+		 * available capacity, each with the would-be-deferred tasks sorted
+		 * LOWEST priority first — the locked overcapacity policy's warning
+		 * duty (CS-PLAN-040 / FEAT-UX-022).
+		 *
+		 * Pinia option-getters receive the store only — sibling getters are
+		 * reached via `this`.
+		 * @return {Array<{date: string, dayName: string, planned: number, capacity: number, deferred: Array<{id: number, title: string, energyCost: number, priority: number}>}>}
+		 */
+		overcapacityDays() {
+			const roomTasksStore = useRoomTasksStore()
+			const tasksStore = useTasksStore()
+
+			const dueByDay = {}
+			for (const roomTask of roomTasksStore.roomTasks) {
+				if (!roomTask.isActive || !roomTask.nextDue) continue
+				const task = tasksStore.getTaskById(roomTask.taskId)
+				if (!task) continue
+				const dateKey = localDateKey(new Date(roomTask.nextDue))
+				if (!dueByDay[dateKey]) {
+					dueByDay[dateKey] = []
+				}
+				dueByDay[dateKey].push({
+					id: roomTask.id,
+					title: task.name,
+					energyCost: task.energyCost ?? 0,
+					priority: task.priority ?? 2,
+				})
+			}
+
+			const today = new Date()
+			today.setHours(0, 0, 0, 0)
+
+			const overloaded = []
+			for (let i = 0; i < 7; i++) {
+				const day = new Date(today)
+				day.setDate(today.getDate() + i)
+				const dateKey = localDateKey(day)
+				const items = dueByDay[dateKey]
+				if (!items) continue
+
+				const dayName = WEEKDAY_KEYS[day.getDay()]
+				const planned = items.reduce((sum, item) => sum + item.energyCost, 0)
+				const capacity = this.getCapacityForDay(dayName)
+				if (planned <= capacity) continue
+
+				// Highest priority first; what no longer fits is deferred.
+				const ordered = [...items].sort((a, b) =>
+					(b.priority - a.priority) || (b.energyCost - a.energyCost))
+				let remaining = capacity
+				const deferred = []
+				for (const item of ordered) {
+					if (item.energyCost <= remaining) {
+						remaining -= item.energyCost
+					} else {
+						deferred.push(item)
+					}
+				}
+				// Locked policy: explain which tasks are deferred first —
+				// lowest priority first.
+				deferred.sort((a, b) => (a.priority - b.priority) || (a.energyCost - b.energyCost))
+
+				overloaded.push({ date: dateKey, dayName, planned, capacity, deferred })
+			}
+
+			return overloaded
 		},
 	},
 
