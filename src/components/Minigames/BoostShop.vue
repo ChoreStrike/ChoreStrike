@@ -146,8 +146,7 @@ const confirmPurchase = async () => {
 .boost-shop-overlay {
 	position: fixed;
 	top: 0;
-	left: 0;
-	right: 0;
+	inset-inline: 0;
 	bottom: 0;
 	background: rgba(0, 0, 0, 0.5);
 	display: flex;
@@ -284,7 +283,7 @@ const confirmPurchase = async () => {
 .selected-badge {
 	position: absolute;
 	top: 0.5rem;
-	right: 0.5rem;
+	inset-inline-end: 0.5rem;
 	width: 24px;
 	height: 24px;
 	display: flex;

@@ -676,8 +676,7 @@ export default {
 .empty-state p {
   margin: 0 0 20px 0;
   max-width: 300px;
-  margin-left: auto;
-  margin-right: auto;
+  margin-inline: auto;
 }
 
 .primary-button {
@@ -954,8 +953,7 @@ export default {
 .modal-overlay {
   position: fixed;
   top: 0;
-  left: 0;
-  right: 0;
+  inset-inline: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;

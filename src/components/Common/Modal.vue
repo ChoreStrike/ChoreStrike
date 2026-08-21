@@ -62,7 +62,7 @@ export default {
 .close-button {
 	position: absolute;
 	top: 0.5rem;
-	right: 0.5rem;
+	inset-inline-end: 0.5rem;
 	width: 2rem;
 	height: 2rem;
 	border: none;

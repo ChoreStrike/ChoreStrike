@@ -352,7 +352,7 @@ export default {
 .rank-badge {
 	position: absolute;
 	bottom: -4px;
-	right: -4px;
+	inset-inline-end: -4px;
 	width: 24px;
 	height: 24px;
 	border-radius: 50%;

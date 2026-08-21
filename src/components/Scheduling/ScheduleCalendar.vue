@@ -312,12 +312,12 @@ watch(() => schedulingStore.memberAvailability, () => {
 
 .day-header {
 	padding: 1rem;
-	border-right: 1px solid var(--color-border);
+	border-inline-end: 1px solid var(--color-border);
 	text-align: center;
 }
 
 .day-header:last-child {
-	border-right: none;
+	border-inline-end: none;
 }
 
 .day-header.today {
@@ -378,7 +378,7 @@ watch(() => schedulingStore.memberAvailability, () => {
 
 .member-label {
 	padding: 1rem;
-	border-right: 1px solid var(--color-border);
+	border-inline-end: 1px solid var(--color-border);
 	background: var(--color-background-dark);
 	font-weight: 500;
 	color: var(--color-main-text);
@@ -388,7 +388,7 @@ watch(() => schedulingStore.memberAvailability, () => {
 
 .member-day-cell {
 	padding: 1rem;
-	border-right: 1px solid var(--color-border);
+	border-inline-end: 1px solid var(--color-border);
 	text-align: center;
 	display: flex;
 	align-items: center;
@@ -396,7 +396,7 @@ watch(() => schedulingStore.memberAvailability, () => {
 }
 
 .member-day-cell:last-child {
-	border-right: none;
+	border-inline-end: none;
 }
 
 .member-day-cell.available {

@@ -157,8 +157,7 @@ export default {
 .health-bar-background {
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
+  inset-inline: 0;
   bottom: 0;
   background: var(--color-background-dark);
   border-radius: 12px;
@@ -168,7 +167,7 @@ export default {
 .health-bar-fill {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   height: 100%;
   border-radius: 12px;
   transition: width 0.6s ease, background-color 0.3s ease;
@@ -198,8 +197,7 @@ export default {
 .health-bar-glow {
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
+  inset-inline: 0;
   bottom: 0;
   background: linear-gradient(90deg,
     rgba(255, 255, 255, 0.3) 0%,

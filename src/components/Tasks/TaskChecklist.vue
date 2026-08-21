@@ -421,7 +421,7 @@ export default {
 .checkmark {
 	position: absolute;
 	top: 0;
-	left: 0;
+	inset-inline-start: 0;
 	width: 20px;
 	height: 20px;
 	border: 2px solid var(--color-border);
@@ -437,7 +437,7 @@ export default {
 .item-checkbox input:checked + .checkmark::after {
 	content: '';
 	position: absolute;
-	left: 5px;
+	inset-inline-start: 5px;
 	top: 1px;
 	width: 5px;
 	height: 10px;

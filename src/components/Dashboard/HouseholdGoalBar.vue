@@ -148,7 +148,7 @@ export default {
 .goal-bar-fill {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   height: 100%;
   background: linear-gradient(90deg, var(--color-primary-element), var(--color-primary-element-light));
   border-radius: 8px;

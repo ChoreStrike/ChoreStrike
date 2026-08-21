@@ -169,8 +169,7 @@ html, body {
 .mobile-nav {
 	position: fixed;
 	bottom: 0;
-	left: 0;
-	right: 0;
+	inset-inline: 0;
 	height: 60px;
 	background: var(--color-main-background);
 	border-top: 1px solid var(--color-border);
@@ -205,7 +204,7 @@ html, body {
 .pull-to-refresh {
 	position: absolute;
 	top: -50px;
-	left: 50%;
+	inset-inline-start: 50%;
 	transform: translateX(-50%);
 	width: 40px;
 	height: 40px;
@@ -234,8 +233,7 @@ html, body {
 .bottom-sheet {
 	position: fixed;
 	bottom: 0;
-	left: 0;
-	right: 0;
+	inset-inline: 0;
 	background: var(--color-main-background);
 	border-radius: 16px 16px 0 0;
 	max-height: 90vh;

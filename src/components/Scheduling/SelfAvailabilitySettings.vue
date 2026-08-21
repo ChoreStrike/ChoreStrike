@@ -223,7 +223,7 @@ watch(() => schedulingStore.weekdayAvailability, () => {
 	content: '';
 	position: absolute;
 	top: 2px;
-	left: 2px;
+	inset-inline-start: 2px;
 	width: 20px;
 	height: 20px;
 	background: white;
