@@ -14,6 +14,43 @@
 
 ## Bugs
 
+### [P3] BUG-E2E-003 — `title-selection.spec.ts` "Selecting a pack marks it active" flaky
+**Status**: Open · **Effort**: S · **Source**: CS-PLAN-038 full-suite gate run (2026-08-21)
+
+`tests/e2e/title-selection.spec.ts:39` intermittently fails (initial attempt,
+passes on retry) even standalone on the unmodified tree — **stash-verified**
+during the CS-038 gate: the `active-pack-tag` does not appear within 10 s of
+clicking `select-pack-button`. Likely a race between admin's house-membership
+bootstrap (`ensureHouseMember` on `/users/current`) and the pack-selection PUT,
+or a concurrent family re-seed wiping admin's house user mid-test in parallel
+runs.
+
+- [ ] Reproduce with tracing, identify the failing request (PUT vs membership
+      bootstrap), fix the race or harden the spec's wait; keep it out of
+      soft-skip territory.
+
+---
+
+### [P3] BUG-SEC-002 — `PUT /users/{id}/role` lacks self-demotion / last-owner guard
+**Status**: Open · **Effort**: S · **Source**: CS-PLAN-038 Phase C risk register (2026-08-21)
+
+`UserController::updateRole` (via `HouseService::updateUserRole`) validates the
+role value and caller ownership but has **no guard** against (a) an owner
+demoting *themselves* or (b) demoting the **last remaining owner** of a house —
+either can orphan the house with no owner able to manage it. Contrast:
+`remove` already blocks owners (`CANNOT_REMOVE_OWNER`). The CS-038 members UI
+ships a frontend mitigation only (own role select disabled, `MemberList.vue`),
+which is trivially bypassed by a direct API call — the root cause must be fixed
+server-side.
+
+- [ ] Backend: reject self-demotion and last-owner demotion in
+      `updateUserRole` with a 400/409 error code; integration tests for both
+      cases (mirror `CANNOT_REMOVE_OWNER` pattern).
+- [ ] Frontend: surface the new error code in `MemberList.vue` role-change
+      error toast (keep the disabled own-select as UX sugar).
+
+---
+
 ### [P3] BUG-SEC-001 — Dedicated security reporting address + GPG key
 **Status**: Backlog · **Effort**: S · **Source**: CS-001 security review
 
@@ -210,8 +247,7 @@ component (or shared composable).
 dependent). Use Nextcloud's date formatter or explicit translated names.
 
 ### [P3] CR-016-09 — `DailyTaskList.vue` tech debt (pre-existing)
-**Effort**: S — bypasses the API service (raw `axios`), dead ternary, empty
-`rescheduleTask` stub, missing `data-testid`s. Route through store/API; fix stubs.
+**Status**: Resolved 2026-08-21 (CS-PLAN-038, component archived) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-016-13 — Scheduling dead code + oversized suggestion payload
 **Effort**: S — (a) `SchedulingService::updateMemberAvailability(int…)` no longer
@@ -386,6 +422,136 @@ The legacy `template#search` route was removed with `TemplateController`, leavin
 text, not the localized view, so German queries (e.g. „Staubsaugen") miss.
 - [ ] Wire it into the template picker as a search field (localize the match),
       or remove the method + its tests.
+
+---
+
+## Review Follow-ups — Usability & UI Review (2026-08-20)
+
+> From the usability/UI workflow review (house setup → tasks → assignment →
+> completion, adults + children). Full record:
+> [`archive/USABILITY_REVIEW_2026-08-20.md`](archive/USABILITY_REVIEW_2026-08-20.md).
+> **UX-001/002/003 resolved 2026-08-21 by CS-PLAN-038**; `CR-016-09` closed by
+> archiving DailyTaskList. Related existing items: `CR-016-05`/`CR-016-03`
+> (scheduling merge/split), `CR-SVC-61` (bulkAssign), `BUG-USER-001`,
+> `CR-SVC-33` (reward-less Task-level path).
+
+### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
+**Status**: Open · **Effort**: M · **Source**: UX-003 remainder (CS-PLAN-038)
+
+Members cannot leave a house on their own; removal is owner-only. Needs a
+product decision on owner-transfer semantics when the *last* owner leaves
+(interplay with the BUG-SEC-002 last-owner guard), then a backend endpoint +
+Settings action.
+
+- [ ] Decide owner-transfer/last-owner semantics for leaving.
+- [ ] Backend leave endpoint (+ guards) + Settings Leave button + tests.
+
+### [P1] UX-001 — Task creation is three inconsistent paths; TaskManager creates invisible tasks
+**Status**: Resolved 2026-08-21 (CS-PLAN-038) → [`archive/2026-08.md`](archive/2026-08.md)
+
+### [P1] UX-002 — No "Today / my tasks" surface (child persona gap)
+**Status**: Resolved 2026-08-21 (CS-PLAN-038) → [`archive/2026-08.md`](archive/2026-08.md)
+
+### [P1] UX-003 — Member management has zero UI (backend + stores complete)
+**Status**: Resolved 2026-08-21 (CS-PLAN-038) → [`archive/2026-08.md`](archive/2026-08.md); leave-house remainder → FEAT-UX-015
+
+### [P2] UX-004 — Structure gaps: room rename/delete + floor reorder UI-less; floor mgmt duplicated
+**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
+
+`updateRoomName`/`deleteRoom` store actions have no buttons;
+`POST /floors/reorder` + `reorderFloors` exist but FloorList has no drag&drop.
+Floor management exists twice (Dashboard FloorList + Settings). Settings shows
+owner-only controls (rename/reset/floor CRUD) to all members → 403s instead of
+being role-gated in the template.
+
+- [ ] Room rename/delete in RoomDetail header; floor reorder (drag or ↑/↓);
+      keep floor CRUD in one surface; role-gate owner-only Settings controls.
+
+### [P2] UX-005 — Dead/misleading controls
+**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
+
+Leaderboard period filter has no effect (state set, never re-fetched); medals
+section hardcoded `[]` while `GET /game/medals`/`leaderboard`/`check-medals`
+and `initializeGame()` are unreachable → medal celebrations never fire;
+QuickStats "My Private Tasks" emits `toggle-private-filter` that Dashboard never
+binds.
+
+- [ ] Fix or remove each control; wire the game endpoints so medals evaluate
+      and celebrate.
+
+### [P2] UX-006 — No undo for completion; native confirms; silent Settings saves
+**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
+
+`uncomplete`/`reactivate` endpoints have no UI (misclick = permanent); task/
+floor deletes use native `confirm()`; Settings saves give no toast feedback.
+
+- [ ] Post-complete undo snackbar (~5 s) → uncomplete/reactivate; styled
+      confirmation dialogs; toasts on Settings save/rename.
+
+### [P2] UX-007 — Kid-sized controls & inconsistent vocabulary
+**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
+
+Complete button 28 px, claim 24 px, action icons ~16 px (mobile.css itself
+demands ≥44 px touch targets); icon-only buttons rely on `title` tooltips;
+priority labels differ per surface (Low/Medium/High vs High/Normal/Low vs
+Urgent/Normal/Can Wait); abstract terms (Admin-Only, Dynamic/Static, Scope).
+Review of CS-PLAN-038 (2026-08-21): the new chip toggles (`AssigneeChips.vue`,
+weekday chips) hide their checkbox with `display:none`, removing them from
+keyboard tab order.
+
+- [ ] ≥44 px targets + aria-labels; one priority vocabulary; friendlier labels
+      or child-mode wording.
+- [ ] Make chip toggles keyboard-accessible (visually-hidden checkbox instead
+      of `display:none`, or `role="checkbox"` + key handling).
+
+### [P3] UX-008 — Assignment discoverability
+**Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
+
+Multi-assign chips only inside an expanded task row; absent from all create
+forms; no bulk-assign UI (cf. `CR-SVC-61`).
+
+### [P3] UX-009 — Checklist editor implemented but permanently locked
+**Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
+
+`TaskChecklist.vue` supports add/edit/delete/reorder; the only mount passes
+`:can-edit="false"`; item CRUD endpoints unused; items only originate from
+templates. Unlock for owners (or remove the dead editor).
+
+### [P3] UX-010 — Hardcoded colors bypass tokens; stale mobile.css selectors
+**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
+
+RoomDetail stat values, FloorList action buttons, TaskList badge fallbacks etc.
+hardcode hex colors instead of NC vars/`--cs-*` tokens (dark-mode drift);
+`mobile.css` still targets legacy class names (`.room-card`, `.task-item`,
+`.leaderboard-entry`, `.mobile-only`) not used by current components.
+
+### [P3] UX-011 — Setup wizard polish
+**Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
+
+"Start empty" dismissal is session-only → wizard re-opens every reload while
+the house is empty; no house-name step; per-room assignee dropdown is useless
+at first run (single member); no invite step (see UX-003).
+
+### [P3] UX-012 — Modal accessibility
+**Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
+
+Shared `Modal.vue` has no ESC handling, focus trap/restore, `aria-modal`, or
+scroll lock; CalendarView prev/next use raw `<`/`>` glyphs without aria-labels.
+
+### [P3] UX-013 — Boost prices duplicated client-side
+**Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
+
+`BOOST_COSTS` hardcoded in `store/minigame.js`; authoritative
+`GET /minigames/boosts` never fetched → price drift between affordability
+check and purchase. Fetch the catalog.
+
+### [P3] UX-014 — SchedulingView redundancy & suggestions without action
+**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
+
+Owners get two parallel editors for their own availability; owner grid is
+read-only for others while implying management (`PUT /scheduling/members/{id}`
+unused); Preview + Suggestions duplicate the same endpoint (cf. `CR-016-05`);
+suggestions have no "apply" action.
 
 ---
 

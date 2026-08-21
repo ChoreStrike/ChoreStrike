@@ -122,6 +122,7 @@
 
 		<Modal v-if="showAddTaskModal" @close="showAddTaskModal = false">
 			<TaskEditForm
+				:loading="creating"
 				@submit="handleAddTask"
 				@cancel="showAddTaskModal = false" />
 		</Modal>
@@ -137,6 +138,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useTasksStore } from '../store/tasks.js'
@@ -168,6 +170,7 @@ export default {
 	data() {
 		return {
 			loading: false,
+			creating: false,
 			filterStatus: 'all',
 			filterPriority: 'all',
 			filterDifficulty: 'all',
@@ -298,16 +301,41 @@ export default {
 				})
 		},
 
-		handleAddTask(taskData) {
-			// Use the tasks store to create a new task with all scheduling fields
-			const tasksStore = useTasksStore()
-			tasksStore.createTask(taskData)
-				.then(() => {
+		async handleAddTask(taskData) {
+			const { roomId, assigneeUserIds, ...definition } = taskData
+			this.creating = true
+			try {
+				const result = await this.roomTasksStore.createTaskWithRoomTask(
+					definition,
+					roomId,
+					assigneeUserIds || [],
+				)
+				if (result.roomTaskError) {
+					showError(t('chorestrike', 'Task saved, but adding it to the room failed. Try again from the room page.'))
+				} else {
+					if (result.assignError) {
+						showWarning(t('chorestrike', 'Task created, but assigning members failed. You can assign them in the task list.'))
+					} else {
+						showSuccess(t('chorestrike', 'Task created'))
+					}
 					this.showAddTaskModal = false
-				})
-				.catch(error => {
-					logger.error('Failed to create task', error, { view: 'TaskManager', action: 'handleAddTask' })
-				})
+					await this.refreshAfterCreate(roomId)
+				}
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to create task'))
+				logger.error('Failed to create task', error, { view: 'TaskManager', action: 'handleAddTask', roomId })
+			} finally {
+				this.creating = false
+			}
+		},
+
+		async refreshAfterCreate(roomId) {
+			try {
+				await this.roomTasksStore.fetchRoomTasks(roomId)
+				await this.tasksStore.fetchTasks()
+			} catch (error) {
+				logger.error('Failed to refresh tasks after creation', error, { view: 'TaskManager', action: 'refreshAfterCreate', roomId })
+			}
 		},
 
 		handleUpdateTask(taskData) {

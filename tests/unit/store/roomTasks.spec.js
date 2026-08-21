@@ -314,40 +314,104 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
-		describe('fetchFilteredDailyTasks', () => {
-			it('fetches filtered daily tasks and stores them', async () => {
-				const mockTasks = [
-					{ roomTask: { id: 1, roomId: 10 }, task: { id: 1, name: 'Task 1' }, room: { id: 10, name: 'Kitchen' } },
-					{ roomTask: { id: 2, roomId: 10 }, task: { id: 2, name: 'Task 2' }, room: { id: 10, name: 'Kitchen' } },
-				]
-				api.get.mockResolvedValue(mockTasks)
+	describe('fetchFilteredDailyTasks', () => {
+		it('fetches filtered daily tasks into the dedicated dailyTasks slice', async () => {
+			const mockTasks = [
+				{ roomTask: { id: 1, roomId: 10 }, task: { id: 1, name: 'Task 1' }, room: { id: 10, name: 'Kitchen' } },
+				{ roomTask: { id: 2, roomId: 10 }, task: { id: 2, name: 'Task 2' }, room: { id: 10, name: 'Kitchen' } },
+			]
+			api.get.mockResolvedValue(mockTasks)
 
-				const result = await store.fetchFilteredDailyTasks()
+			const result = await store.fetchFilteredDailyTasks()
 
-				expect(result).toEqual(mockTasks)
-				expect(store.roomTasks).toHaveLength(2)
-				expect(store.roomTasks[0].id).toBe(1)
-			})
-
-			it('updates existing tasks instead of duplicating', async () => {
-				store.roomTasks = [{ id: 1, name: 'Old Task' }]
-				const mockTasks = [
-					{ roomTask: { id: 1, name: 'Updated Task' }, task: { id: 1 }, room: { id: 10 } },
-				]
-				api.get.mockResolvedValue(mockTasks)
-
-				await store.fetchFilteredDailyTasks()
-
-				expect(store.roomTasks).toHaveLength(1)
-				expect(store.roomTasks[0].name).toBe('Updated Task')
-			})
-
-			it('throws error on failed request', async () => {
-				api.get.mockRejectedValue(new Error('API error'))
-
-				await expect(store.fetchFilteredDailyTasks()).rejects.toThrow('API error')
-			})
+			expect(result).toEqual(mockTasks)
+			expect(store.dailyTasks).toHaveLength(2)
+			expect(store.dailyTasks[0].roomTask.id).toBe(1)
 		})
+
+		it('keeps the shared roomTasks list untouched (no Today bleed)', async () => {
+			store.roomTasks = [{ id: 5, name: 'Room task' }]
+			const mockTasks = [
+				{ roomTask: { id: 1, name: 'Today task' }, task: { id: 1 }, room: { id: 10 } },
+			]
+			api.get.mockResolvedValue(mockTasks)
+
+			await store.fetchFilteredDailyTasks()
+
+			expect(store.roomTasks).toHaveLength(1)
+			expect(store.roomTasks[0].id).toBe(5)
+		})
+
+		it('throws error on failed request', async () => {
+			api.get.mockRejectedValue(new Error('API error'))
+
+			await expect(store.fetchFilteredDailyTasks()).rejects.toThrow('API error')
+		})
+	})
+
+	describe('createTaskWithRoomTask', () => {
+		it('chains definition, room task and assignees', async () => {
+			api.post.mockImplementation((url) => {
+				if (url === '/api/v1/tasks') {
+					return Promise.resolve({ id: 7, name: 'Dishes' })
+				}
+				if (url === '/api/v1/room-tasks') {
+					return Promise.resolve({ id: 42, roomId: 3, taskId: 7 })
+				}
+				return Promise.resolve([{ userId: 'mom' }, { userId: 'dad' }])
+			})
+			api.put.mockResolvedValue([{ userId: 'mom' }, { userId: 'dad' }])
+			store.roomTasks = []
+
+			const result = await store.createTaskWithRoomTask({ name: 'Dishes' }, 3, ['mom', 'dad'])
+
+			expect(result.task.id).toBe(7)
+			expect(result.roomTask.id).toBe(42)
+			expect(result.roomTaskError).toBeNull()
+			expect(result.assignError).toBeNull()
+			expect(api.post).toHaveBeenCalledWith('/api/v1/tasks', { name: 'Dishes' })
+			expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks', { roomId: 3, taskId: 7, nextDue: null })
+			expect(api.put).toHaveBeenCalledWith('/api/v1/room-tasks/42/assignees', { userIds: ['mom', 'dad'] })
+		})
+
+		it('keeps the definition when the room task creation fails', async () => {
+			api.post.mockImplementation((url) => {
+				if (url === '/api/v1/tasks') {
+					return Promise.resolve({ id: 7, name: 'Dishes' })
+				}
+				return Promise.reject(new Error('Room task failed'))
+			})
+			store.roomTasks = []
+
+			const result = await store.createTaskWithRoomTask({ name: 'Dishes' }, 3, [])
+
+			expect(result.task.id).toBe(7)
+			expect(result.roomTask).toBeNull()
+			expect(result.roomTaskError.message).toBe('Room task failed')
+		})
+
+		it('keeps the room task when the assignment fails (partial success)', async () => {
+			api.post.mockImplementation((url) => {
+				if (url === '/api/v1/tasks') {
+					return Promise.resolve({ id: 7, name: 'Dishes' })
+				}
+				return Promise.resolve({ id: 42, roomId: 3, taskId: 7 })
+			})
+			api.put.mockRejectedValue(new Error('Assign failed'))
+			store.roomTasks = []
+
+			const result = await store.createTaskWithRoomTask({ name: 'Dishes' }, 3, ['mom'])
+
+			expect(result.roomTask.id).toBe(42)
+			expect(result.assignError.message).toBe('Assign failed')
+		})
+
+		it('propagates a definition creation failure', async () => {
+			api.post.mockRejectedValue(new Error('Task failed'))
+
+			await expect(store.createTaskWithRoomTask({ name: 'Dishes' }, 3, [])).rejects.toThrow('Task failed')
+		})
+	})
 
 		describe('fetchRangeTasks', () => {
 			it('calls the range endpoint and stores result', async () => {

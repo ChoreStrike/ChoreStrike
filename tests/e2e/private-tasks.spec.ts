@@ -60,12 +60,21 @@ test.describe('Private Tasks', () => {
 				await visibilitySelect.selectOption('private')
 			}
 
+			// Unified creation (CS-PLAN-038): a room is required — pick the
+			// first available room so the save button enables and the
+			// definition POST fires as part of the create chain.
+			const roomSelect = page.getByTestId('room-picker-room')
+			const roomOption = await roomSelect.locator('option').nth(1).getAttribute('value')
+			if (roomOption) {
+				await roomSelect.selectOption(roomOption)
+			}
+
 			const createResponse = page.waitForResponse(
 				(response) => response.request().method() === 'POST' && response.url().includes('/api/v1/tasks'),
 				{ timeout: 15000 },
 			)
 
-			await page.locator('[data-testid="task-save-button"], button:has-text("Save"), button:has-text("Create")').first().click()
+			await page.getByTestId('save-task-button').click()
 			const response = await createResponse
 			expect(response.status()).toBe(200)
 

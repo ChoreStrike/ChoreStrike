@@ -216,23 +216,24 @@
 			</div>
 		</div>
 
-		<div class="form-section">
-			<h3>{{ t('chorestrike', 'Scope & Assignment') }}</h3>
+		<!-- Where & Who (creation only: every custom task is room-scoped and
+		     may be assigned right away; editing only touches the definition) -->
+		<div v-if="!isEditing" class="form-section">
+			<h3>{{ t('chorestrike', 'Where & Who') }}</h3>
 
 			<div class="form-group">
-				<label for="scopeType">{{ t('chorestrike', 'Scope') }}</label>
-				<select id="scopeType" v-model="form.scopeType" class="form-input">
-					<option value="room">
-						{{ t('chorestrike', 'Single Room') }}
-					</option>
-					<option value="floor">
-						{{ t('chorestrike', 'Whole Floor') }}
-					</option>
-					<option value="house">
-						{{ t('chorestrike', 'Entire House') }}
-					</option>
-				</select>
+				<label>{{ t('chorestrike', 'Room') }} *</label>
+				<RoomPicker v-model="selectedRoomId" :preset-room-id="presetRoomId" />
 			</div>
+
+			<div class="form-group">
+				<label>{{ t('chorestrike', 'Assigned members') }}</label>
+				<AssigneeChips v-model="assigneeUserIds" />
+			</div>
+		</div>
+
+		<div class="form-section">
+			<h3>{{ t('chorestrike', 'Visibility') }}</h3>
 
 			<div class="form-group">
 				<label for="visibilityType">{{ t('chorestrike', 'Visibility') }}</label>
@@ -277,6 +278,8 @@ import { computed, reactive, ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common/index.js'
 import RecurrencePresetSelector from './RecurrencePresetSelector.vue'
+import RoomPicker from './RoomPicker.vue'
+import AssigneeChips from './AssigneeChips.vue'
 import { useUserStore } from '../../store/user.js'
 import { VISIBILITY_PUBLIC, VISIBILITY_PRIVATE, VISIBILITY_ADMIN_ONLY } from '../../constants/taskVisibility.js'
 
@@ -286,6 +289,8 @@ export default {
 	components: {
 		Icon,
 		RecurrencePresetSelector,
+		RoomPicker,
+		AssigneeChips,
 	},
 
 	props: {
@@ -296,6 +301,11 @@ export default {
 		loading: {
 			type: Boolean,
 			default: false,
+		},
+		// Fixed room for creation from a room's context (locked picker)
+		presetRoomId: {
+			type: Number,
+			default: null,
 		},
 	},
 
@@ -347,12 +357,13 @@ export default {
 			frequencyValue: 1,
 			schedulingMode: 'dynamic',
 			fixedScheduleTime: '',
-			scopeType: 'room',
 			flexDays: 0,
 			visibilityType: VISIBILITY_PUBLIC,
 		})
 
 		const selectedWeekdays = ref([])
+		const selectedRoomId = ref(props.presetRoomId)
+		const assigneeUserIds = ref([])
 
 		// Apply template data to form
 		const applyTemplate = (template) => {
@@ -391,7 +402,6 @@ export default {
 				form.frequencyValue = newTask.frequencyValue || 1
 				form.schedulingMode = newTask.schedulingMode || 'dynamic'
 				form.fixedScheduleTime = newTask.fixedScheduleTime || ''
-				form.scopeType = newTask.scopeType || 'room'
 				form.flexDays = newTask.flexDays || 0
 				form.visibilityType = newTask.visibilityType || (newTask.isPrivate ? VISIBILITY_PRIVATE : VISIBILITY_PUBLIC)
 				selectedWeekdays.value = parseWeekdays(newTask.fixedScheduleDays)
@@ -409,6 +419,7 @@ export default {
 
 		const isValid = computed(() => {
 			if (!form.name?.trim()) return false
+			if (!isEditing.value && !selectedRoomId.value) return false
 			if (form.schedulingMode === 'static' && !form.fixedScheduleTime) return false
 			if (form.schedulingMode === 'static' && form.frequencyType === 'weekly' && selectedWeekdays.value.length === 0) return false
 			return true
@@ -433,6 +444,10 @@ export default {
 					? JSON.stringify(selectedWeekdays.value)
 					: null,
 			}
+			if (!isEditing.value) {
+				data.roomId = selectedRoomId.value
+				data.assigneeUserIds = [...assigneeUserIds.value]
+			}
 			emit('submit', data)
 		}
 
@@ -441,6 +456,8 @@ export default {
 			isEditing,
 			isOwner,
 			selectedTemplate,
+			selectedRoomId,
+			assigneeUserIds,
 			energyLabels,
 			weekdays,
 			selectedWeekdays,

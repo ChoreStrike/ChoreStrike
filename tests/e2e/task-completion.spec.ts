@@ -8,19 +8,14 @@ import { test, expect } from './fixtures/test-fixtures'
  * assertions (response waits, visibility assertions); modal via testid.
  */
 
-async function selectFirstAssignableTask(page: import('@playwright/test').Page): Promise<boolean> {
-	const taskOptions = page.getByTestId('task-id-select').locator('option')
-	const optionCount = await taskOptions.count()
-	if (optionCount < 2) {
-		return false
-	}
-
-	const optionValue = await taskOptions.nth(1).getAttribute('value')
+async function selectFirstRoomWithRooms(page: import('@playwright/test').Page): Promise<boolean> {
+	const roomSelect = page.getByTestId('room-picker-room')
+	await expect(roomSelect).toBeVisible({ timeout: 15000 })
+	const optionValue = await roomSelect.locator('option').nth(1).getAttribute('value')
 	if (!optionValue) {
 		return false
 	}
-
-	await page.getByTestId('task-id-select').selectOption(optionValue)
+	await roomSelect.selectOption(optionValue)
 	return true
 }
 
@@ -48,23 +43,27 @@ test.describe('Task Creation and Completion', () => {
 		await page.getByTestId('task-energy-select').selectOption('2')
 		await page.getByTestId('task-priority-select').selectOption('2')
 		await page.getByTestId('task-frequency-type').selectOption('weekly')
-		await page.getByTestId('task-frequency-value').fill('1')
 
-		// Wait for the create request, then save.
-		const createTaskResponsePromise = page.waitForResponse((response) => {
+		// Unified creation (CS-PLAN-038): a room is required; saving chains
+		// the definition POST with the room-task materialization POST.
+		if (!await selectFirstRoomWithRooms(page)) {
+			return // Skip if no rooms exist yet
+		}
+
+		const roomTaskResponsePromise = page.waitForResponse((response) => {
 			const isPostRequest = response.request().method() === 'POST'
 			const pathname = new URL(response.url()).pathname
-			return isPostRequest && pathname.endsWith('/apps/chorestrike/api/v1/tasks')
+			return isPostRequest && pathname.endsWith('/apps/chorestrike/api/v1/room-tasks')
 		})
 		await page.getByTestId('save-task-button').click()
-		const createTaskResponse = await createTaskResponsePromise
-		expect(createTaskResponse.ok()).toBeTruthy()
+		const roomTaskResponse = await roomTaskResponsePromise
+		expect(roomTaskResponse.ok()).toBeTruthy()
 
 		// Modal closes once the task is persisted.
 		await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 15000 })
 	})
 
-	test('User can assign task to a room', async ({ page }) => {
+	test('User can create a custom task inside a room', async ({ page }) => {
 		await page.goto('/apps/chorestrike/#/')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
 
@@ -82,16 +81,27 @@ test.describe('Task Creation and Completion', () => {
 		}
 
 		await page.getByTestId('add-task-button').click()
-		await expect(page.getByTestId('task-id-select')).toBeVisible({ timeout: 15000 })
-		const hasAssignableTask = await selectFirstAssignableTask(page)
-		if (!hasAssignableTask) {
-			return
-		}
+		await expect(page.getByTestId('add-task-picker')).toBeVisible({ timeout: 15000 })
 
-		await page.getByTestId('assign-task-button').click()
+		// Switch to the custom-task tab; the room is preset and locked.
+		await page.getByTestId('picker-tab-custom').click()
+		const taskNameInput = page.getByTestId('task-name-input')
+		await expect(taskNameInput).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('room-picker-locked')).toBeVisible()
 
-		// Assignment renders the room-task list.
-		await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 15000 })
+		await taskNameInput.fill('Custom room task')
+
+		const roomTaskResponsePromise = page.waitForResponse((response) => {
+			const isPostRequest = response.request().method() === 'POST'
+			const pathname = new URL(response.url()).pathname
+			return isPostRequest && pathname.endsWith('/apps/chorestrike/api/v1/room-tasks')
+		})
+		await page.getByTestId('save-task-button').click()
+		const roomTaskResponse = await roomTaskResponsePromise
+		expect(roomTaskResponse.ok()).toBeTruthy()
+
+		// The materialized room task shows up in the room list.
+		await expect(page.getByTestId('room-task-list').getByText('Custom room task')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('User can complete a task and earn points', async ({ page }) => {

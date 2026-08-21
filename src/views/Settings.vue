@@ -62,6 +62,14 @@
 				</div>
 			</section>
 
+			<!-- House Members (owner only) -->
+			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="members-section">
+				<h2>{{ t('chorestrike', 'Members') }}</h2>
+				<div class="setting-card">
+					<MemberList />
+				</div>
+			</section>
+
 			<!-- Floors & Rooms Management -->
 			<section class="settings-section">
 				<h2>{{ t('chorestrike', 'Floors & Rooms') }}</h2>
@@ -240,6 +248,7 @@ import { useTitlesStore } from '../store/titles.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
+import MemberList from '../components/Members/MemberList.vue'
 import TitleBadge from '../components/Profile/TitleBadge.vue'
 import TitlePicker from '../components/Profile/TitlePicker.vue'
 
@@ -249,6 +258,7 @@ export default {
 	components: {
 		Icon,
 		Modal,
+		MemberList,
 		TitleBadge,
 		TitlePicker,
 	},
@@ -680,7 +690,7 @@ export default {
 
 .confirmation-input {
 	margin: 1.5rem 0;
-	text-align: left;
+	text-align: start;
 }
 
 .confirmation-input label {

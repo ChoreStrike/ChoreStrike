@@ -9,6 +9,21 @@ jest.mock('@nextcloud/l10n', () => ({
 	),
 }))
 
+jest.mock('@nextcloud/dialogs', () => ({
+	showSuccess: jest.fn(),
+	showError: jest.fn(),
+	showWarning: jest.fn(),
+}))
+
+jest.mock('../../../src/utils/logger.js', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
 let mockSetupStore
 let mockUserStore
 
@@ -43,6 +58,7 @@ describe('SetupWizard.vue', () => {
 		mockUserStore = {
 			houseUsers: [{ nextcloudUserId: 'u1', displayName: 'Alice' }],
 			fetchHouseUsers: jest.fn().mockResolvedValue([]),
+			inviteUser: jest.fn().mockResolvedValue({ exists: true, user: { displayName: 'Bob' } }),
 		}
 	})
 
@@ -79,7 +95,7 @@ describe('SetupWizard.vue', () => {
 		expect(wrapper.vm.quick.intensityLevel).toBe('putzmuffel')
 	})
 
-	it('builds the apply payload from the generated rooms and emits applied', async () => {
+	it('builds the apply payload from the generated rooms, then moves to the invite step', async () => {
 		const wrapper = mountWizard()
 		await wrapper.vm.$nextTick()
 		await wrapper.find('[data-testid="wizard-floor-count"]').setValue(1)
@@ -96,7 +112,66 @@ describe('SetupWizard.vue', () => {
 		expect(payload.floors).toHaveLength(1)
 		expect(payload.floors[0].rooms[0]).toHaveProperty('roomType')
 		expect(payload.floors[0].rooms[0]).toHaveProperty('icon')
+		// Applied is only emitted after the optional invite step finishes
+		expect(wrapper.emitted('applied')).toBeFalsy()
+		expect(wrapper.find('[data-testid="wizard-step-invite"]').exists()).toBe(true)
+	})
+
+	it('step 4: skipping invites finishes the wizard and emits applied', async () => {
+		const wrapper = mountWizard()
+		await wrapper.vm.$nextTick()
+		await wrapper.find('[data-testid="wizard-floor-count"]').setValue(1)
+		await wrapper.find('[data-testid="wizard-rooms-per-floor"]').setValue(1)
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-apply"]').trigger('click')
+		await wrapper.vm.$nextTick()
+
+		await wrapper.find('[data-testid="wizard-finish"]').trigger('click')
+
+		expect(mockUserStore.inviteUser).not.toHaveBeenCalled()
 		expect(wrapper.emitted('applied')).toBeTruthy()
+	})
+
+	it('step 4: sends one invite per valid email and finishes', async () => {
+		const wrapper = mountWizard()
+		await wrapper.vm.$nextTick()
+		await wrapper.find('[data-testid="wizard-floor-count"]').setValue(1)
+		await wrapper.find('[data-testid="wizard-rooms-per-floor"]').setValue(1)
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-apply"]').trigger('click')
+		await wrapper.vm.$nextTick()
+
+		await wrapper.find('[data-testid="wizard-invite-email-0"]').setValue('mom@example.org')
+		await wrapper.find('[data-testid="wizard-invite-add"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-invite-email-1"]').setValue('kid@example.org')
+
+		await wrapper.find('[data-testid="wizard-send-invites"]').trigger('click')
+		await wrapper.vm.$nextTick()
+
+		expect(mockUserStore.inviteUser).toHaveBeenCalledWith('mom@example.org', 'member')
+		expect(mockUserStore.inviteUser).toHaveBeenCalledWith('kid@example.org', 'member')
+		expect(wrapper.emitted('applied')).toBeTruthy()
+	})
+
+	it('step 4: failed invites keep the step open with feedback', async () => {
+		mockUserStore.inviteUser.mockRejectedValue(new Error('No Nextcloud user found'))
+		const wrapper = mountWizard()
+		await wrapper.vm.$nextTick()
+		await wrapper.find('[data-testid="wizard-floor-count"]').setValue(1)
+		await wrapper.find('[data-testid="wizard-rooms-per-floor"]').setValue(1)
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-apply"]').trigger('click')
+		await wrapper.vm.$nextTick()
+
+		await wrapper.find('[data-testid="wizard-invite-email-0"]').setValue('ghost@example.org')
+		await wrapper.find('[data-testid="wizard-send-invites"]').trigger('click')
+		await wrapper.vm.$nextTick()
+
+		expect(wrapper.find('[data-testid="wizard-invite-feedback"]').text()).toContain('failed')
+		expect(wrapper.emitted('applied')).toBeFalsy()
 	})
 
 	it('emits skipped when starting empty', async () => {

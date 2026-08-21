@@ -34,6 +34,11 @@ const SEED_DEPENDENT_SPECS = [
 	// read-only, but the `seededData` fixture wipes + reseeds the DB) and the
 	// template spec inserts rows — serial pool only, like the other release-*.
 	/[/\\]release-setup-wizard\.spec\.ts$/,
+	// CS-PLAN-038: today-view completes a seeded task and members-owner
+	// invites/reorders/removes members (plus an occ email provisioning
+	// side effect) — serial pool only.
+	/[/\\]today-view\.spec\.ts$/,
+	/[/\\]members-owner\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

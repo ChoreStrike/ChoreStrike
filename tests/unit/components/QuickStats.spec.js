@@ -9,6 +9,11 @@ jest.mock('vue-router', () => ({
 	useRouter: () => ({
 		push: jest.fn(),
 	}),
+	RouterLink: {
+		name: 'RouterLink',
+		props: ['to'],
+		template: '<a class="router-link-stub" :data-to="(to && to.name) || to"><slot /></a>',
+	},
 }))
 
 describe('QuickStats', () => {
@@ -156,6 +161,22 @@ describe('QuickStats', () => {
 			const wrapper = createWrapper({}, { totalOverdueTasks: 0 })
 			const overdueCard = wrapper.find('.stat-card.urgent')
 			expect(overdueCard.exists()).toBe(false)
+		})
+	})
+
+	describe('today links', () => {
+		it('links the Due Today card to the today view', () => {
+			const wrapper = createWrapper()
+			const card = wrapper.find('.stat-card.due-today')
+			expect(card.exists()).toBe(true)
+			expect(card.attributes('data-to')).toBe('today')
+		})
+
+		it('links the Overdue card to the today view', () => {
+			const wrapper = createWrapper({}, { totalOverdueTasks: 2 })
+			const card = wrapper.find('.stat-card.urgent')
+			expect(card.exists()).toBe(true)
+			expect(card.attributes('data-to')).toBe('today')
 		})
 	})
 

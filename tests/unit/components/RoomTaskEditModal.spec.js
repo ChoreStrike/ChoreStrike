@@ -1,0 +1,118 @@
+import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import RoomTaskEditModal from '@/components/Tasks/RoomTaskEditModal.vue'
+import { useRoomTasksStore } from '@/store/roomTasks.js'
+
+jest.mock('@nextcloud/l10n', () => ({
+	translate: jest.fn((app, text) => text),
+}))
+
+jest.mock('@nextcloud/dialogs', () => ({
+	showSuccess: jest.fn(),
+	showError: jest.fn(),
+	showWarning: jest.fn(),
+}))
+
+jest.mock('@/utils/logger', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
+jest.mock('@/components/Tasks/AssigneeChips.vue', () => ({
+	name: 'AssigneeChips',
+	props: ['modelValue'],
+	emits: ['update:modelValue'],
+	template: '<button type="button" data-testid="assignee-chips-stub" @click="$emit(\'update:modelValue\', [\'dad\'])">chips</button>',
+}))
+
+import { showSuccess, showError, showWarning } from '@nextcloud/dialogs'
+
+describe('RoomTaskEditModal', () => {
+	let roomTasksStore
+	let pinia
+
+	beforeEach(() => {
+		pinia = createPinia()
+		setActivePinia(pinia)
+		roomTasksStore = useRoomTasksStore()
+		roomTasksStore.updateRoomTaskDueDate = jest.fn().mockResolvedValue({})
+		roomTasksStore.setAssignees = jest.fn().mockResolvedValue(['dad'])
+	})
+
+	const mountModal = (roomTaskOverrides = {}) => mount(RoomTaskEditModal, {
+		props: {
+			roomTask: {
+				id: 42,
+				taskId: 7,
+				nextDue: '2026-08-21T00:00:00+00:00',
+				assignees: ['mom'],
+				...roomTaskOverrides,
+			},
+			task: { id: 7, name: 'Do the dishes' },
+		},
+		global: { plugins: [pinia] },
+	})
+
+	it('renders due date input seeded from the room task and the task name', () => {
+		const wrapper = mountModal()
+		expect(wrapper.find('[data-testid="room-task-edit-modal"]').exists()).toBe(true)
+		expect((wrapper.find('[data-testid="room-task-due-input"]').element).value).toBe('2026-08-21')
+		expect(wrapper.find('h3').text()).toBe('Do the dishes')
+	})
+
+	it('persists a changed due date and changed assignees, then emits saved', async () => {
+		const wrapper = mountModal()
+		await wrapper.find('[data-testid="room-task-due-input"]').setValue('2026-08-25')
+		await wrapper.find('[data-testid="assignee-chips-stub"]').trigger('click')
+		await wrapper.find('form').trigger('submit')
+
+		expect(roomTasksStore.updateRoomTaskDueDate).toHaveBeenCalledWith(42, '2026-08-25')
+		expect(roomTasksStore.setAssignees).toHaveBeenCalledWith(42, ['dad'])
+		expect(wrapper.emitted('saved')).toBeTruthy()
+		expect(showSuccess).toHaveBeenCalled()
+	})
+
+	it('skips both store calls when nothing changed', async () => {
+		const wrapper = mountModal()
+		await wrapper.find('form').trigger('submit')
+
+		expect(roomTasksStore.updateRoomTaskDueDate).not.toHaveBeenCalled()
+		expect(roomTasksStore.setAssignees).not.toHaveBeenCalled()
+		expect(wrapper.emitted('saved')).toBeTruthy()
+	})
+
+	it('emits cancel cleanly without persisting', async () => {
+		const wrapper = mountModal()
+		await wrapper.find('[data-testid="room-task-due-input"]').setValue('2026-08-25')
+		await wrapper.find('[data-testid="room-task-edit-cancel"]').trigger('click')
+
+		expect(wrapper.emitted('cancel')).toBeTruthy()
+		expect(roomTasksStore.updateRoomTaskDueDate).not.toHaveBeenCalled()
+	})
+
+	it('surfaces an error toast when the due date update fails and stays open', async () => {
+		roomTasksStore.updateRoomTaskDueDate = jest.fn().mockRejectedValue(new Error('boom'))
+		const wrapper = mountModal()
+		await wrapper.find('[data-testid="room-task-due-input"]').setValue('2026-08-25')
+		await wrapper.find('form').trigger('submit')
+
+		expect(showError).toHaveBeenCalled()
+		expect(wrapper.emitted('saved')).toBeFalsy()
+	})
+
+	it('reports partial success when only the assignment fails', async () => {
+		roomTasksStore.setAssignees = jest.fn().mockRejectedValue(new Error('assign boom'))
+		const wrapper = mountModal()
+		await wrapper.find('[data-testid="assignee-chips-stub"]').trigger('click')
+		await wrapper.find('form').trigger('submit')
+
+		expect(roomTasksStore.updateRoomTaskDueDate).not.toHaveBeenCalled()
+		expect(roomTasksStore.setAssignees).toHaveBeenCalled()
+		expect(showWarning).toHaveBeenCalled()
+		expect(wrapper.emitted('saved')).toBeTruthy()
+	})
+})

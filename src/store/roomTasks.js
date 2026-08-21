@@ -9,6 +9,7 @@ import { emit } from '@nextcloud/event-bus'
 import { logger } from '../utils/logger.js'
 import { useSchedulingStore } from './scheduling.js'
 import { useGameStore } from './game.js'
+import { useTasksStore } from './tasks.js'
 
 export const useRoomTasksStore = defineStore('roomTasks', {
 	state: () => ({
@@ -16,6 +17,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		loading: false,
 		error: null,
 		rangeTasks: { scheduled: [], completed: [], from: null, to: null },
+		// Today-view slice: keeps the child-aware filtered daily payload
+		// separate so Today items never bleed into the shared flat list
+		// consumed by TaskManager/RoomDetail.
+		dailyTasks: [],
 	}),
 
 	getters: {
@@ -347,6 +352,44 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * Create a task definition and materialize it as a room task,
+		 * optionally assigning members (unified creation chain, UX-001).
+		 *
+		 * The definition stays created when a later stage fails — the result
+		 * reports which stage failed so the caller can toast partial success
+		 * instead of silently dropping the user's work.
+		 *
+		 * @param {object} taskData Task definition payload (POST /tasks).
+		 * @param {number} roomId Room the task is materialized in.
+		 * @param {Array<string>} assigneeUserIds Nextcloud user IDs to assign.
+		 * @return {Promise<{task: object, roomTask: ?object, roomTaskError: ?Error, assignError: ?Error}>}
+		 */
+		async createTaskWithRoomTask(taskData, roomId, assigneeUserIds = []) {
+			const tasksStore = useTasksStore()
+			const task = await tasksStore.createTask(taskData)
+
+			let roomTask = null
+			let roomTaskError = null
+			try {
+				roomTask = await this.createRoomTask({ roomId, taskId: task.id, nextDue: null })
+			} catch (error) {
+				roomTaskError = error
+				return { task, roomTask, roomTaskError, assignError: null }
+			}
+
+			let assignError = null
+			if (assigneeUserIds.length > 0) {
+				try {
+					await this.setAssignees(roomTask.id, assigneeUserIds)
+				} catch (error) {
+					assignError = error
+				}
+			}
+
+			return { task, roomTask, roomTaskError, assignError }
 		},
 
 		/**
@@ -695,14 +738,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			try {
 				const data = await api.get('/api/v1/room-tasks/filtered-daily')
 
-				data.forEach((item) => {
-					const existingIndex = this.roomTasks.findIndex(rt => rt.id === item.roomTask.id)
-					if (existingIndex >= 0) {
-						this.roomTasks[existingIndex] = item.roomTask
-					} else {
-						this.roomTasks.push(item.roomTask)
-					}
-				})
+				// Dedicated slice: the shared `roomTasks` list must stay
+				// scoped to room fetches, or Today items bleed into the
+				// TaskManager flat list.
+				this.dailyTasks = data
 				return data
 			} catch (error) {
 				this.error = error.message
@@ -767,6 +806,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.loading = false
 			this.error = null
 			this.rangeTasks = { scheduled: [], completed: [], from: null, to: null }
+			this.dailyTasks = []
 		},
 	},
 })

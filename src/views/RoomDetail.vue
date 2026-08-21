@@ -74,25 +74,27 @@
 				@custom="addTaskMode = 'custom'"
 				@created="handleTemplateCreated"
 				@error="handleTemplateError" />
-			<TaskForm
+			<TaskEditForm
 				v-else
-				:room-id="roomId"
+				:preset-room-id="roomId"
+				:loading="creating"
 				@submit="handleAddTask"
 				@cancel="showAddTaskModal = false" />
 		</Modal>
 
-		<Modal v-if="showEditTaskModal" @close="showEditTaskModal = false">
-			<TaskForm
-				:room-id="roomId"
-				:task="editingTask"
-				@submit="handleUpdateTask"
-				@cancel="showEditTaskModal = false" />
+		<Modal v-if="showEditTaskModal" @close="closeEditModal">
+			<RoomTaskEditModal
+				:room-task="editingTask"
+				:task="editingTaskDefinition"
+				@saved="handleTaskSaved"
+				@cancel="closeEditModal" />
 		</Modal>
 	</div>
 </template>
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useTasksStore } from '../store/tasks.js'
@@ -100,7 +102,8 @@ import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
-import TaskForm from '../components/Tasks/TaskForm.vue'
+import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
+import RoomTaskEditModal from '../components/Tasks/RoomTaskEditModal.vue'
 import TaskTemplatePicker from '../components/Tasks/TaskTemplatePicker.vue'
 import Modal from '../components/Common/Modal.vue'
 
@@ -110,7 +113,8 @@ export default {
 	components: {
 		Icon,
 		TaskList,
-		TaskForm,
+		TaskEditForm,
+		RoomTaskEditModal,
 		TaskTemplatePicker,
 		Modal,
 	},
@@ -133,6 +137,7 @@ export default {
 	data() {
 		return {
 			loading: false,
+			creating: false,
 			showAddTaskModal: false,
 			addTaskMode: 'template',
 			showEditTaskModal: false,
@@ -192,6 +197,11 @@ export default {
 				return new Date(item.roomTask.nextDue) < new Date()
 			}).length
 		},
+
+		editingTaskDefinition() {
+			if (!this.editingTask) return null
+			return this.tasksStore.getTaskById(this.editingTask.taskId) || null
+		},
 	},
 
 	async mounted() {
@@ -232,6 +242,20 @@ export default {
 			this.showEditTaskModal = true
 		},
 
+		closeEditModal() {
+			this.showEditTaskModal = false
+			this.editingTask = null
+		},
+
+		async handleTaskSaved() {
+			this.closeEditModal()
+			try {
+				await this.roomTasksStore.fetchRoomTasks(this.roomId)
+			} catch (error) {
+				logger.error('Failed to reload room tasks after edit', error, { view: 'RoomDetail', action: 'handleTaskSaved', roomId: this.roomId })
+			}
+		},
+
 		handleDeleteTask(roomTaskId) {
 			if (!confirm(t('chorestrike', 'Are you sure you want to delete this task?'))) {
 				return
@@ -242,18 +266,34 @@ export default {
 				})
 		},
 
-		handleAddTask(taskData) {
-			const newTask = {
-				...taskData,
-				roomId: this.roomId,
-			}
-			this.roomTasksStore.createRoomTask(newTask)
-				.then(() => {
+		async handleAddTask(taskData) {
+			const { roomId, assigneeUserIds, ...definition } = taskData
+			this.creating = true
+			try {
+				const result = await this.roomTasksStore.createTaskWithRoomTask(
+					definition,
+					this.roomId,
+					assigneeUserIds || [],
+				)
+				if (result.roomTaskError) {
+					showError(t('chorestrike', 'Task saved, but adding it to the room failed'))
+				} else {
+					if (result.assignError) {
+						showWarning(t('chorestrike', 'Task created, but assigning members failed. You can assign them in the task list.'))
+					} else {
+						showSuccess(t('chorestrike', 'Task created'))
+					}
 					this.showAddTaskModal = false
-				})
-				.catch(error => {
-					logger.error('Failed to create task', error, { view: 'RoomDetail', action: 'handleAddTask', roomId: this.roomId })
-				})
+					this.addTaskMode = 'template'
+					await this.roomTasksStore.fetchRoomTasks(this.roomId)
+					await this.tasksStore.fetchTasks()
+				}
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to create task'))
+				logger.error('Failed to create task', error, { view: 'RoomDetail', action: 'handleAddTask', roomId: this.roomId })
+			} finally {
+				this.creating = false
+			}
 		},
 
 		handleTemplateCreated() {
@@ -266,18 +306,6 @@ export default {
 
 		handleTemplateError(error) {
 			logger.error('Failed to create task from template', error, { view: 'RoomDetail', action: 'handleTemplateError', roomId: this.roomId })
-		},
-
-		handleUpdateTask(taskData) {
-			if (!this.editingTask) return
-			this.roomTasksStore.updateRoomTaskDueDate(this.editingTask.id, taskData.nextDue)
-				.then(() => {
-					this.showEditTaskModal = false
-					this.editingTask = null
-				})
-				.catch(error => {
-					logger.error('Failed to update task', error, { view: 'RoomDetail', action: 'handleUpdateTask', roomTaskId: this.editingTask?.id })
-				})
 		},
 	},
 }

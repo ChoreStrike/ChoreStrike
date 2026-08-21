@@ -27,7 +27,9 @@ jest.mock('../../../src/store/roomTasks.js', () => ({
 		roomTasksByRoom: { 1: [{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: new Date().toISOString() }] },
 		fetchRoomTasks: jest.fn(),
 		createRoomTask: jest.fn(),
+		createTaskWithRoomTask: jest.fn(),
 		updateRoomTaskDueDate: jest.fn(),
+		setAssignees: jest.fn(),
 		completeRoomTask: jest.fn(),
 		deleteRoomTask: jest.fn(),
 	}),
@@ -61,10 +63,16 @@ jest.mock('../../../src/components/Tasks/TaskList.vue', () => ({
 	template: '<div class="task-list">Task List ({{ roomTasks.length }} tasks)</div>',
 }))
 
-jest.mock('../../../src/components/Tasks/TaskForm.vue', () => ({
-	name: 'TaskForm',
-	props: ['task', 'roomId'],
-	template: '<div class="task-form">Task Form</div>',
+jest.mock('../../../src/components/Tasks/TaskEditForm.vue', () => ({
+	name: 'TaskEditForm',
+	props: ['task', 'loading', 'presetRoomId'],
+	template: '<div class="task-edit-form">Task Edit Form</div>',
+}))
+
+jest.mock('../../../src/components/Tasks/RoomTaskEditModal.vue', () => ({
+	name: 'RoomTaskEditModal',
+	props: ['roomTask', 'task'],
+	template: '<div class="room-task-edit-modal">Room Task Edit Modal</div>',
 }))
 
 jest.mock('../../../src/components/Common/Modal.vue', () => ({

@@ -112,15 +112,19 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
 ## 6. Frontend
 
 - **Setup wizard** (`src/components/Setup/SetupWizard.vue`, `src/store/setup.js`):
-  3 steps — *Quick Start* (home type, floors, basement, rooms/floor, level) →
+  4 steps — *Quick Start* (home type, floors, basement, rooms/floor, level) →
   *Room List* (editable name, room type, person; household/hallway toggles) →
-  *Preview* → apply. The Dashboard opens it automatically on a first-run house
-  (no floors); „Leer starten" skips it. A manual entry point (Dashboard header
-  button) stays available while the house has no floors.
+  *Preview* → apply → **Invite Family** (CS-PLAN-038): optional email list
+  (add/remove rows) inviting existing Nextcloud accounts as members; skippable
+  and non-blocking. The Dashboard opens the wizard automatically on a
+  first-run house (no floors); „Leer starten" skips it. A manual entry point
+  (Dashboard header button) stays available while the house has no floors.
 - **Per-room template picker** (`src/components/Tasks/TaskTemplatePicker.vue`):
   the room add-task flow defaults to the picker (templates filtered by the
   room’s type + house-wide), with a level toggle, an „Anpassen" override form,
-  and a switch to the custom-task form.
+  and a switch to the custom-task form (which reuses the unified
+  `TaskEditForm` with the room preset+locked — see
+  [`task-model-and-sync.md`](task-model-and-sync.md) §Creation Model).
 
 ## 7. Authorization
 
@@ -130,6 +134,12 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
 - The from-template endpoint validates room ownership server-side and rejects a
   cross-house `roomId` before creating any task, and rejects a non-member
   assignee.
+- **Member management** (CS-PLAN-038): invite/role-change/remove are
+  owner-gated (`requireHouseOwner`) in the backend; the Settings Members
+  section mirrors the gate via `userStore.isHouseOwner`. The wizard invite step
+  also runs post-apply for the (first-run) owner. Known gap: `updateRole` has
+  no self/last-owner guard yet (**BUG-SEC-002**); the UI disables changing
+  one's own role as mitigation.
 
 ## 8. Legacy removal (decision D7)
 

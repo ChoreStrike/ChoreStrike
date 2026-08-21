@@ -14,6 +14,11 @@ const routes = [
 		component: () => import(/* webpackChunkName: "dashboard" */ './views/Dashboard.vue'),
 	},
 	{
+		path: '/today',
+		name: 'today',
+		component: () => import(/* webpackChunkName: "today" */ './views/TodayView.vue'),
+	},
+	{
 		path: '/tasks',
 		name: 'tasks',
 		component: () => import(/* webpackChunkName: "tasks" */ './views/TaskManager.vue'),

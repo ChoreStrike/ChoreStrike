@@ -10,6 +10,13 @@ jest.mock('@nextcloud/router', () => ({
 jest.mock('vue-router', () => ({
 	createRouter: jest.fn((config) => ({
 		resolve: (path) => {
+			if (path === '/today') {
+				return {
+					name: 'today',
+					params: {},
+					matched: [{ name: 'today' }],
+				}
+			}
 			const match = path.match(/\/room\/(\d+)/)
 			if (match) {
 				return {
@@ -57,5 +64,12 @@ describe('Router room detail route', () => {
 		const resolved = router.resolve('/rooms/42')
 		expect(resolved.name).toBeUndefined()
 		expect(resolved.matched.length).toBe(0)
+	})
+})
+
+describe('Router today route', () => {
+	it('should resolve the today view route', () => {
+		const resolved = router.resolve('/today')
+		expect(resolved.name).toBe('today')
 	})
 })

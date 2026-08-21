@@ -37,7 +37,7 @@
 			</div>
 
 			<!-- Tasks Due Today -->
-			<div class="stat-card due-today" data-testid="stat-card">
+			<RouterLink :to="{ name: 'today' }" class="stat-card due-today" data-testid="stat-card">
 				<div class="stat-icon-shell due-today-icon">
 					<Icon name="Calendar" :size="24" class="stat-icon" />
 				</div>
@@ -49,10 +49,13 @@
 						{{ t('chorestrike', 'Due Today') }}
 					</div>
 				</div>
-			</div>
+			</RouterLink>
 
 			<!-- Overdue Tasks -->
-			<div v-if="overdueTasks > 0" class="stat-card urgent">
+			<RouterLink v-if="overdueTasks > 0"
+				:to="{ name: 'today', query: { scope: 'all' } }"
+				class="stat-card urgent"
+				data-testid="overdue-stat-card">
 				<div class="stat-icon-shell urgent-icon">
 					<Icon name="AlertCircle" :size="24" class="stat-icon" />
 				</div>
@@ -64,7 +67,7 @@
 						{{ t('chorestrike', 'Overdue') }}
 					</div>
 				</div>
-			</div>
+			</RouterLink>
 
 			<!-- Average Cleanliness -->
 			<div class="stat-card average-cleanliness">
@@ -116,9 +119,10 @@
 <script>
 import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { RouterLink, useRouter } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
-import { useRouter } from 'vue-router'
+
 import { logger } from '../../utils/logger.js'
 import Icon from '../Common/Icon.vue'
 
@@ -127,6 +131,7 @@ export default {
 
 	components: {
 		Icon,
+		RouterLink,
 	},
 
 	props: {
@@ -224,6 +229,8 @@ export default {
   border-radius: 8px;
   border: 1px solid var(--color-border);
   transition: all 0.2s ease;
+  text-decoration: none;
+  color: inherit;
 }
 
 .stat-icon-shell {

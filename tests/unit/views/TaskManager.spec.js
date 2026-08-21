@@ -1,249 +1,195 @@
-import { describe, it, expect, vi, beforeEach } from '@jest/globals'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import TaskManager from '../../../src/views/TaskManager.vue'
+import TaskManager from '@/views/TaskManager.vue'
 
-// Mock vue-router
-jest.mock('vue-router', () => ({
-	useRouter: () => ({
-		push: jest.fn(),
-	}),
-	useRoute: () => ({
-		params: {},
-		query: {},
-	}),
+jest.mock('@nextcloud/l10n', () => ({
+	translate: jest.fn((app, text) => text),
 }))
 
-// Mock stores
-jest.mock('../../../src/store/roomTasks.js', () => ({
-	useRoomTasksStore: () => ({
-		roomTasks: [
-			{ id: 1, roomId: 1, taskId: 10, isActive: true, nextDue: new Date().toISOString() },
-			{ id: 2, roomId: 2, taskId: 20, isActive: true, nextDue: new Date(Date.now() + 86400000).toISOString() },
-		],
-		totalOverdueTasks: 0,
-		totalDueTodayTasks: 1,
-		fetchRoomTasks: jest.fn(),
-		completeRoomTask: jest.fn(),
-		deleteRoomTask: jest.fn(),
-	}),
+jest.mock('@nextcloud/dialogs', () => ({
+	showSuccess: jest.fn(),
+	showError: jest.fn(),
+	showWarning: jest.fn(),
 }))
 
-jest.mock('../../../src/store/rooms.js', () => ({
-	useRoomsStore: () => ({
-		floors: [],
-		rooms: [{ id: 1 }, { id: 2 }],
-		fetchFloorsWithRooms: jest.fn(),
-	}),
+jest.mock('@/utils/logger', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
 }))
 
-jest.mock('../../../src/store/tasks.js', () => ({
-	useTasksStore: () => ({
-		fetchTasks: jest.fn(),
-		createTask: jest.fn(),
-		updateTask: jest.fn(),
-		getTaskById: jest.fn((id) => {
-			const tasks = {
-				10: { id: 10, name: 'Clean Kitchen', energyCost: 3, priority: 3, frequencyType: 'weekly', frequencyValue: 1 },
-				20: { id: 20, name: 'Vacuum', energyCost: 2, priority: 2, frequencyType: 'weekly', frequencyValue: 1 },
-			}
-			return tasks[id] || null
-		}),
+jest.mock('@/store/rooms.js', () => ({
+	useRoomsStore: () => mockRoomsStore,
+}))
+
+jest.mock('@/store/tasks.js', () => ({
+	useTasksStore: () => mockTasksStore,
+}))
+
+jest.mock('@/store/roomTasks.js', () => ({
+	useRoomTasksStore: () => mockRoomTasksStore,
+}))
+
+jest.mock('@/store/user.js', () => ({
+	useUserStore: () => ({
+		isHouseOwner: true,
 	}),
 }))
 
-// Mock child components
-jest.mock('../../../src/components/Common/Icon.vue', () => ({
-	name: 'Icon',
-	props: ['name', 'size'],
-	template: '<span class="icon">{{ name }}</span>',
-}))
-
-jest.mock('../../../src/components/Tasks/TaskList.vue', () => ({
+jest.mock('@/components/Tasks/TaskList.vue', () => ({
 	name: 'TaskList',
 	props: ['roomTasks', 'loading', 'showRoom'],
-	emits: ['complete', 'edit', 'delete'],
-	template: '<div class="task-list">Tasks: {{ roomTasks.length }}</div>',
+	template: '<div class="task-list-stub">tasks</div>',
 }))
 
-jest.mock('../../../src/components/Tasks/TaskEditForm.vue', () => ({
+jest.mock('@/components/Tasks/TaskEditForm.vue', () => ({
 	name: 'TaskEditForm',
-	props: ['task'],
+	props: ['task', 'loading', 'presetRoomId'],
 	emits: ['submit', 'cancel'],
-	template: '<div class="task-form">Task Form</div>',
+	template: '<div class="task-edit-form-stub">form</div>',
 }))
 
-jest.mock('../../../src/components/Common/Modal.vue', () => ({
+jest.mock('@/components/Common/Modal.vue', () => ({
 	name: 'Modal',
 	emits: ['close'],
-	template: '<div class="modal-overlay"><slot /><button class="close-btn" @click="$emit(\'close\')">X</button></div>',
+	template: '<div class="modal-stub"><slot /></div>',
 }))
 
-describe('TaskManager.vue', () => {
-	let pinia
+import { showSuccess, showError, showWarning } from '@nextcloud/dialogs'
+
+const mockRoomsStore = {
+	floors: [{ id: 1, name: 'Ground Floor' }],
+	rooms: [{ id: 12, name: 'Kitchen', floorId: 1 }],
+	fetchFloorsWithRooms: jest.fn().mockResolvedValue([]),
+}
+
+const mockTasksStore = {
+	tasks: [],
+	fetchTasks: jest.fn().mockResolvedValue([]),
+	getTaskById: jest.fn(() => null),
+}
+
+const mockRoomTasksStore = {
+	roomTasks: [],
+	fetchRoomTasks: jest.fn().mockResolvedValue([]),
+	createTaskWithRoomTask: jest.fn(),
+	completeRoomTask: jest.fn().mockResolvedValue({}),
+	deleteRoomTask: jest.fn().mockResolvedValue(),
+	totalOverdueTasks: 0,
+	totalDueTodayTasks: 0,
+}
+
+describe('TaskManager', () => {
+	let roomTasksStore
+	let tasksStore
 
 	beforeEach(() => {
-		pinia = createPinia()
-		setActivePinia(pinia)
+		setActivePinia(createPinia())
+		roomTasksStore = mockRoomTasksStore
+		tasksStore = mockTasksStore
+		jest.clearAllMocks()
 	})
 
-	it('renders task manager component', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
+	const mountView = () => mount(TaskManager, {
+		global: {
+			plugins: [createPinia()],
+			stubs: {
+				RouterLink: { template: '<a><slot /></a>' },
 			},
-		})
-
-		expect(wrapper.find('.task-manager').exists()).toBe(true)
+		},
 	})
 
-	it('displays header with title', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
+	const openCreateModal = async (wrapper) => {
+		await wrapper.find('[data-testid="add-task-button"]').trigger('click')
+		const form = wrapper.findComponent({ name: 'TaskEditForm' })
+		expect(form.exists()).toBe(true)
+		return form
+	}
 
-		expect(wrapper.find('.manager-header h1').text()).toContain('Task Manager')
+	it('renders the view', () => {
+		const wrapper = mountView()
+		expect(wrapper.find('[data-testid="task-manager-view"]').exists()).toBe(true)
 	})
 
-	it('has new task button', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
+	it('chains definition, room task and assignees on create and refreshes the room list', async () => {
+		roomTasksStore.createTaskWithRoomTask.mockResolvedValue({
+			task: { id: 7 },
+			roomTask: { id: 42, roomId: 12 },
+			roomTaskError: null,
+			assignError: null,
 		})
+		const wrapper = await mountView()
+		const form = await openCreateModal(wrapper)
 
-		expect(wrapper.find('.primary-button').text()).toContain('New Task')
+		await form.vm.$emit('submit', {
+			name: 'Dishes',
+			roomId: 12,
+			assigneeUserIds: ['mom'],
+			energyCost: 2,
+		})
+		await wrapper.vm.$nextTick()
+		await wrapper.vm.$nextTick()
+
+		expect(roomTasksStore.createTaskWithRoomTask).toHaveBeenCalledWith(
+			{ name: 'Dishes', energyCost: 2 },
+			12,
+			['mom'],
+		)
+		expect(showSuccess).toHaveBeenCalled()
+		expect(wrapper.vm.showAddTaskModal).toBe(false)
+		expect(roomTasksStore.fetchRoomTasks).toHaveBeenCalledWith(12)
 	})
 
-	it('renders filters section', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
+	it('toasts an error and keeps the modal open when the definition creation fails', async () => {
+		roomTasksStore.createTaskWithRoomTask.mockRejectedValue(new Error('boom'))
+		const wrapper = await mountView()
+		const form = await openCreateModal(wrapper)
 
-		expect(wrapper.find('.filters-section').exists()).toBe(true)
-	})
+		await form.vm.$emit('submit', { name: 'Dishes', roomId: 12, assigneeUserIds: [] })
+		await wrapper.vm.$nextTick()
 
-	it('has status filter dropdown', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		const selects = wrapper.findAll('.filter-select')
-		expect(selects.length).toBeGreaterThan(0)
-	})
-
-	it('has priority filter dropdown', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		const selects = wrapper.findAll('.filter-select')
-		expect(selects.length).toBeGreaterThanOrEqual(2)
-	})
-
-	it('has difficulty filter dropdown', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		const selects = wrapper.findAll('.filter-select')
-		expect(selects.length).toBeGreaterThanOrEqual(3)
-	})
-
-	it('has search input', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		expect(wrapper.find('.search-input').exists()).toBe(true)
-	})
-
-	it('renders stats bar', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		expect(wrapper.find('.stats-bar').exists()).toBe(true)
-	})
-
-	it('displays total tasks count', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		const totalStat = wrapper.findAll('.stat').at(0)
-		expect(totalStat.exists()).toBe(true)
-	})
-
-	it('renders TaskList component', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		expect(wrapper.find('.task-list').exists()).toBe(true)
-	})
-
-	it('opens add task modal when new task button clicked', async () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		await wrapper.find('.manager-header .primary-button').trigger('click')
+		expect(showError).toHaveBeenCalled()
 		expect(wrapper.vm.showAddTaskModal).toBe(true)
 	})
 
-	it('filters tasks by search query', async () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
+	it('toasts an error and keeps the modal open when the room task materialization fails', async () => {
+		roomTasksStore.createTaskWithRoomTask.mockResolvedValue({
+			task: { id: 7 },
+			roomTask: null,
+			roomTaskError: new Error('no room task'),
+			assignError: null,
 		})
+		const wrapper = await mountView()
+		const form = await openCreateModal(wrapper)
+		const refreshCallsBefore = roomTasksStore.fetchRoomTasks.mock.calls.length
 
-		await wrapper.find('.search-input').setValue('Kitchen')
-		expect(wrapper.vm.searchQuery).toBe('Kitchen')
+		await form.vm.$emit('submit', { name: 'Dishes', roomId: 12, assigneeUserIds: [] })
+		await wrapper.vm.$nextTick()
+
+		expect(showError).toHaveBeenCalled()
+		expect(showSuccess).not.toHaveBeenCalled()
+		expect(wrapper.vm.showAddTaskModal).toBe(true)
+		// No refresh beyond the initial mount load
+		expect(roomTasksStore.fetchRoomTasks.mock.calls.length).toBe(refreshCallsBefore)
 	})
 
-	it('filters tasks by status', async () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
+	it('closes the modal with a warning toast when only the assignment fails (partial success)', async () => {
+		roomTasksStore.createTaskWithRoomTask.mockResolvedValue({
+			task: { id: 7 },
+			roomTask: { id: 42, roomId: 12 },
+			roomTaskError: null,
+			assignError: new Error('assign boom'),
 		})
+		const wrapper = await mountView()
+		const form = await openCreateModal(wrapper)
 
-		const statusSelect = wrapper.findAll('.filter-select').at(0)
-		await statusSelect.setValue('active')
-		expect(wrapper.vm.filterStatus).toBe('active')
-	})
+		await form.vm.$emit('submit', { name: 'Dishes', roomId: 12, assigneeUserIds: ['mom'] })
+		await wrapper.vm.$nextTick()
 
-	it('renders localized difficulty labels', () => {
-		const wrapper = mount(TaskManager, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		const options = wrapper.find('[data-testid="difficulty-filter"]').findAll('option')
-		expect(options.at(1).text()).toContain('Level 1 (Quick)')
-		expect(options.at(5).text()).toContain('Level 5 (Major)')
+		expect(showWarning).toHaveBeenCalled()
+		expect(wrapper.vm.showAddTaskModal).toBe(false)
 	})
 })

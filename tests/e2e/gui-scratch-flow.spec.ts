@@ -41,26 +41,39 @@ async function navigateToSettings(page: Page): Promise<void> {
 	await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
 }
 
-async function createTaskFromUi(page: Page, taskName: string): Promise<void> {
+async function createTaskFromUi(page: Page, taskName: string, roomName: string): Promise<void> {
 	await page.goto('/apps/chorestrike/#/tasks')
 	await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 30000 })
 
 	await page.getByTestId('add-task-button').click()
-	const createTaskResponsePromise = page.waitForResponse((response) => {
-		const isPostRequest = response.request().method() === 'POST'
-		const pathname = new URL(response.url()).pathname
-		return isPostRequest && pathname.endsWith('/apps/chorestrike/api/v1/tasks')
-	})
 	await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
 	await page.getByTestId('task-name-input').fill(taskName)
 	await page.getByTestId('task-description-input').fill('Created in GUI scratch flow')
 	await page.getByTestId('task-energy-select').selectOption('2')
 	await page.getByTestId('task-priority-select').selectOption('2')
 	await page.getByTestId('task-frequency-type').selectOption('weekly')
-	await page.getByTestId('task-frequency-value').fill('1')
+
+	// Unified creation (CS-PLAN-038): the definition form now includes the
+	// room picker; saving chains definition → room task materialization.
+	const roomSelect = page.getByTestId('room-picker-room')
+	await expect(roomSelect).toBeVisible({ timeout: 15000 })
+	const optionValue = await roomSelect.locator('option').evaluateAll((options, currentRoomName) => {
+		const matchingOption = options.find((option) => option.textContent?.includes(String(currentRoomName)))
+		return matchingOption?.getAttribute('value') ?? null
+	}, roomName)
+	if (optionValue === null) {
+		throw new Error(`Could not find room option for ${roomName}`)
+	}
+	await roomSelect.selectOption(optionValue)
+
+	const roomTaskResponsePromise = page.waitForResponse((response) => {
+		const isPostRequest = response.request().method() === 'POST'
+		const pathname = new URL(response.url()).pathname
+		return isPostRequest && pathname.endsWith('/apps/chorestrike/api/v1/room-tasks')
+	})
 	await page.getByTestId('save-task-button').click()
-	const createTaskResponse = await createTaskResponsePromise
-	expect(createTaskResponse.ok()).toBeTruthy()
+	const roomTaskResponse = await roomTaskResponsePromise
+	expect(roomTaskResponse.ok()).toBeTruthy()
 	await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 15000 })
 }
 
@@ -83,7 +96,7 @@ async function expandUntilRoomVisible(page: Page, roomCard: ReturnType<Page['loc
 	}
 }
 
-async function assignTaskToRoomFromUi(page: Page, taskName: string, roomName: string): Promise<void> {
+async function verifyTaskInRoomFromUi(page: Page, taskName: string, roomName: string): Promise<void> {
 	await page.goto('/index.php/apps/chorestrike/#/')
 	await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
 
@@ -94,26 +107,9 @@ async function assignTaskToRoomFromUi(page: Page, taskName: string, roomName: st
 	await roomCard.click()
 	await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 20000 })
 
-	await page.getByTestId('add-task-button').click()
-	await expect(page.getByTestId('task-id-select')).toBeVisible({ timeout: 15000 })
-
-	// TaskForm fetches tasks on mount; wait for that GET to settle.
-	await page.waitForResponse((response) => {
-		const pathname = new URL(response.url()).pathname
-		return pathname.includes('/chorestrike/api/v1/tasks') && response.request().method() === 'GET'
-	}, { timeout: 15000 }).catch(() => undefined)
-
-	const taskOptions = page.getByTestId('task-id-select').locator('option')
-	const optionValue = await taskOptions.evaluateAll((options, currentTaskName) => {
-		const matchingOption = options.find((option) => option.textContent?.includes(String(currentTaskName)))
-		return matchingOption?.getAttribute('value') ?? null
-	}, taskName)
-	if (optionValue === null) {
-		throw new Error(`Could not find task option for ${taskName}`)
-	}
-	await page.getByTestId('task-id-select').selectOption(optionValue)
-	await page.getByTestId('assign-task-button').click()
-	await expect(page.getByTestId('room-task-list')).toBeVisible({ timeout: 15000 })
+	// The created room task must be visible in its room (no invisible
+	// definitions anymore — UX-001).
+	await expect(page.getByTestId('room-task-list').getByText(taskName)).toBeVisible({ timeout: 15000 })
 }
 
 async function verifySharedViewAsSecondaryUser(browser: Browser, taskName: string, roomName: string): Promise<void> {
@@ -221,8 +217,8 @@ test.describe('GUI scratch flow with realistic users', () => {
 		await expect(page.getByText(roomName)).toBeVisible({ timeout: 15000 })
 
 		const taskName = `GUI Weekly Kitchen Cleanup ${suffix}`
-		await createTaskFromUi(page, taskName)
-		await assignTaskToRoomFromUi(page, taskName, roomName)
+		await createTaskFromUi(page, taskName, roomName)
+		await verifyTaskInRoomFromUi(page, taskName, roomName)
 		await verifySharedViewAsSecondaryUser(browser, taskName, roomName)
 	})
 })

@@ -12,6 +12,11 @@
 				data-testid="nav-dashboard"
 				:name="t('chorestrike', 'Dashboard')" />
 			<NcAppNavigationItem
+				:to="{ name: 'today' }"
+				icon="icon-clock"
+				data-testid="nav-today"
+				:name="t('chorestrike', 'My Day')" />
+			<NcAppNavigationItem
 				:to="{ name: 'tasks' }"
 				icon="icon-checkmark"
 				data-testid="nav-tasks"

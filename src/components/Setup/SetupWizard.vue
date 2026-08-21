@@ -29,6 +29,9 @@
 				<li :class="{ active: step === 3 }">
 					{{ t('chorestrike', 'Preview') }}
 				</li>
+				<li :class="{ active: step === 4 }">
+					{{ t('chorestrike', 'Invite Family') }}
+				</li>
 			</ol>
 
 			<!-- Step 1: Quick Start -->
@@ -131,7 +134,7 @@
 			</section>
 
 			<!-- Step 3: Preview -->
-			<section v-else class="wizard-step" data-testid="wizard-step-preview">
+			<section v-else-if="step === 3" class="wizard-step" data-testid="wizard-step-preview">
 				<p v-if="setupStore.applying">
 					{{ t('chorestrike', 'Setting up your home…') }}
 				</p>
@@ -174,12 +177,47 @@
 				</template>
 			</section>
 
+			<!-- Step 4: Invite Family (optional, after apply) -->
+			<section v-else-if="step === 4" class="wizard-step" data-testid="wizard-step-invite">
+				<p>{{ t('chorestrike', 'Your home is set up! Invite your family so everyone can join the fun.') }}</p>
+				<p class="invite-hint">
+					{{ t('chorestrike', 'Each person needs an existing Nextcloud account with this email address.') }}
+				</p>
+
+				<div v-for="(invite, index) in invites" :key="index" class="invite-row">
+					<input
+						v-model.trim="invite.email"
+						type="email"
+						class="invite-email-input"
+						:placeholder="t('chorestrike', 'Email address')"
+						:data-testid="`wizard-invite-email-${index}`">
+					<button v-if="invites.length > 1"
+						type="button"
+						class="invite-remove"
+						:data-testid="`wizard-invite-remove-${index}`"
+						:title="t('chorestrike', 'Remove email')"
+						@click="removeInviteRow(index)">
+						×
+					</button>
+				</div>
+				<button type="button"
+					class="invite-add"
+					data-testid="wizard-invite-add"
+					@click="addInviteRow">
+					{{ t('chorestrike', 'Add another email') }}
+				</button>
+
+				<p v-if="inviteFeedback" class="invite-feedback" data-testid="wizard-invite-feedback">
+					{{ inviteFeedback }}
+				</p>
+			</section>
+
 			<p v-if="setupStore.error" class="wizard-error" data-testid="wizard-error">
 				{{ setupStore.error }}
 			</p>
 
 			<footer class="wizard-footer">
-				<button v-if="step > 1"
+				<button v-if="step > 1 && step < 4"
 					class="secondary-button"
 					data-testid="wizard-back"
 					@click="step--">
@@ -191,13 +229,28 @@
 					@click="next">
 					{{ t('chorestrike', 'Next') }}
 				</button>
-				<button v-else
+				<button v-else-if="step === 3"
 					class="primary-button"
 					data-testid="wizard-apply"
 					:disabled="setupStore.applying"
 					@click="apply">
 					{{ t('chorestrike', "Let's go!") }}
 				</button>
+				<template v-else>
+					<button
+						class="secondary-button"
+						data-testid="wizard-finish"
+						@click="finish">
+						{{ t('chorestrike', 'Skip and finish') }}
+					</button>
+					<button
+						class="primary-button"
+						data-testid="wizard-send-invites"
+						:disabled="sendingInvites || !hasValidInvites"
+						@click="sendInvites">
+						{{ t('chorestrike', 'Send invites') }}
+					</button>
+				</template>
 			</footer>
 		</div>
 	</div>
@@ -205,10 +258,13 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import { useSetupStore } from '../../store/setup.js'
 import { useUserStore } from '../../store/user.js'
 import { iconForRoomType } from '../../utils/roomIcons.js'
 import { logger } from '../../utils/logger.js'
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default {
 	name: 'SetupWizard',
@@ -240,12 +296,19 @@ export default {
 				createHallways: true,
 			},
 			floors: [],
+			invites: [{ email: '' }],
+			sendingInvites: false,
+			inviteFeedback: '',
+			applyResult: null,
 		}
 	},
 
 	computed: {
 		people() {
 			return this.userStore.houseUsers
+		},
+		hasValidInvites() {
+			return this.invites.some(invite => EMAIL_PATTERN.test(invite.email))
 		},
 		totalRooms() {
 			return this.floors.reduce((sum, f) => sum + f.rooms.length, 0)
@@ -404,10 +467,49 @@ export default {
 					})),
 				}
 				const result = await this.setupStore.applySetup(payload)
-				this.$emit('applied', result)
+				this.applyResult = result
+				// Optional invite step before the wizard closes (UX-003)
+				this.step = 4
 			} catch (error) {
 				logger.error('Wizard apply failed', error, { component: 'SetupWizard', action: 'apply' })
 			}
+		},
+		addInviteRow() {
+			this.invites.push({ email: '' })
+		},
+		removeInviteRow(index) {
+			this.invites.splice(index, 1)
+		},
+		async sendInvites() {
+			const emails = this.invites
+				.map(invite => invite.email)
+				.filter(email => EMAIL_PATTERN.test(email))
+			if (emails.length === 0) return
+
+			this.sendingInvites = true
+			this.inviteFeedback = ''
+			const results = await Promise.allSettled(
+				emails.map(email => this.userStore.inviteUser(email, 'member')),
+			)
+			const joined = results.filter(result => result.status === 'fulfilled')
+			const failed = results.filter(result => result.status === 'rejected')
+
+			if (joined.length > 0) {
+				showSuccess(t('chorestrike', '{count} invite(s) sent', { count: joined.length }))
+			}
+			if (failed.length > 0) {
+				showError(t('chorestrike', '{count} invite(s) failed', { count: failed.length }))
+				logger.error('Wizard invites failed', failed.map(result => result.reason), { component: 'SetupWizard', action: 'sendInvites' })
+				this.inviteFeedback = t('chorestrike', '{count} invite(s) failed', { count: failed.length })
+				this.sendingInvites = false
+				return
+			}
+
+			this.sendingInvites = false
+			this.finish()
+		},
+		finish() {
+			this.$emit('applied', this.applyResult)
 		},
 		skip() {
 			this.$emit('skipped')
@@ -523,4 +625,16 @@ export default {
 .primary-button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .secondary-button { background: transparent; border: 1px solid var(--color-border); border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; }
+
+.invite-hint { color: var(--color-text-maxcontrast); font-size: 0.85rem; margin: 0; }
+
+.invite-row { display: flex; gap: 0.5rem; align-items: center; }
+
+.invite-email-input { flex: 1; min-height: 44px; padding: 0.5rem 0.75rem; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-main-background); color: var(--color-main-text); }
+
+.invite-remove { background: transparent; border: none; cursor: pointer; font-size: 1.25rem; min-width: 44px; min-height: 44px; }
+
+.invite-add { background: transparent; border: none; color: var(--color-primary); cursor: pointer; padding: 0.5rem 0; align-self: flex-start; }
+
+.invite-feedback { color: var(--color-error); margin: 0; }
 </style>
