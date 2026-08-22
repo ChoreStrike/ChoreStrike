@@ -79,6 +79,18 @@
 				</select>
 			</div>
 
+			<div class="filter-group">
+				<label>{{ t('chorestrike', 'Visibility') }}</label>
+				<select v-model="filterVisibility" class="filter-select" data-testid="visibility-filter">
+					<option value="all">
+						{{ t('chorestrike', 'All') }}
+					</option>
+					<option value="private">
+						{{ t('chorestrike', 'Private') }}
+					</option>
+				</select>
+			</div>
+
 			<div class="filter-group search-group">
 				<label>{{ t('chorestrike', 'Search') }}</label>
 				<div class="search-input-wrapper">
@@ -133,6 +145,13 @@
 				@submit="handleUpdateTask"
 				@cancel="showEditTaskModal = false" />
 		</Modal>
+
+		<ConfirmDialog
+			v-if="taskToDelete !== null"
+			:title="t('chorestrike', 'Are you sure you want to delete this task?')"
+			:loading="deleting"
+			@confirm="confirmDeleteTask"
+			@cancel="taskToDelete = null" />
 	</div>
 </template>
 
@@ -146,8 +165,10 @@ import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
 import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
+import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import { useUserStore } from '../store/user.js'
 import Modal from '../components/Common/Modal.vue'
+import { useRoute } from 'vue-router'
 
 export default {
 	name: 'TaskManager',
@@ -157,6 +178,7 @@ export default {
 		TaskList,
 		TaskEditForm,
 		Modal,
+		ConfirmDialog,
 	},
 
 	setup() {
@@ -164,7 +186,8 @@ export default {
 		const roomsStore = useRoomsStore()
 		const tasksStore = useTasksStore()
 		const userStore = useUserStore()
-		return { roomTasksStore, roomsStore, tasksStore, userStore }
+		const route = useRoute()
+		return { roomTasksStore, roomsStore, tasksStore, userStore, route }
 	},
 
 	data() {
@@ -174,10 +197,13 @@ export default {
 			filterStatus: 'all',
 			filterPriority: 'all',
 			filterDifficulty: 'all',
+			filterVisibility: 'all',
 			searchQuery: '',
 			showAddTaskModal: false,
 			showEditTaskModal: false,
 			editingTask: null,
+			taskToDelete: null,
+			deleting: false,
 		}
 	},
 
@@ -234,6 +260,13 @@ export default {
 				tasks = tasks.filter(t => t.task.energyCost === parseInt(this.filterDifficulty, 10))
 			}
 
+			// Visibility filter (CS-PLAN-041): "private" scopes the list to the
+			// current user's private task definitions — the destination of the
+			// Dashboard QuickStats "My Private Tasks" chip.
+			if (this.filterVisibility === 'private') {
+				tasks = tasks.filter(t => t.task.visibilityType === 'private' || t.task.isPrivate)
+			}
+
 			// Search filter
 			if (this.searchQuery.trim()) {
 				const query = this.searchQuery.toLowerCase()
@@ -257,6 +290,11 @@ export default {
 	},
 
 	async mounted() {
+		// Deep-link scope: the Dashboard "My Private Tasks" chip routes here
+		// with ?visibility=private (CS-PLAN-041).
+		if (this.route?.query?.visibility === 'private') {
+			this.filterVisibility = 'private'
+		}
 		await this.initializeTasks()
 	},
 
@@ -292,13 +330,22 @@ export default {
 		},
 
 		handleDeleteTask(roomTaskId) {
-			if (!confirm(t('chorestrike', 'Are you sure you want to delete this task?'))) {
-				return
+			this.taskToDelete = roomTaskId
+		},
+
+		async confirmDeleteTask() {
+			const roomTaskId = this.taskToDelete
+			if (roomTaskId === null) return
+			this.deleting = true
+			try {
+				await this.roomTasksStore.deleteRoomTask(roomTaskId)
+				this.taskToDelete = null
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to delete task'))
+				logger.error('Failed to delete task', error, { view: 'TaskManager', action: 'confirmDeleteTask', roomTaskId })
+			} finally {
+				this.deleting = false
 			}
-			this.roomTasksStore.deleteRoomTask(roomTaskId)
-				.catch(error => {
-					logger.error('Failed to delete task', error, { view: 'TaskManager', action: 'handleDeleteTask', roomTaskId })
-				})
 		},
 
 		async handleAddTask(taskData) {

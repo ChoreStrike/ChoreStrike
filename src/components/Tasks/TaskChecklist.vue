@@ -126,6 +126,13 @@
 				</div>
 			</div>
 		</Modal>
+
+		<!-- Delete Item Confirmation -->
+		<ConfirmDialog
+			v-if="itemToDelete !== null"
+			:title="t('chorestrike', 'Delete this sub-task?')"
+			@confirm="confirmDeleteItem"
+			@cancel="itemToDelete = null" />
 	</div>
 </template>
 
@@ -134,6 +141,7 @@ import { computed, ref, nextTick } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import Icon from '../Common/Icon.vue'
 import Modal from '../Common/Modal.vue'
+import ConfirmDialog from '../Common/ConfirmDialog.vue'
 
 export default {
 	name: 'TaskChecklist',
@@ -141,6 +149,7 @@ export default {
 	components: {
 		Icon,
 		Modal,
+		ConfirmDialog,
 	},
 
 	props: {
@@ -174,6 +183,7 @@ export default {
 		const newItem = ref({ title: '', description: '' })
 		const editingItem = ref(null)
 		const draggedItem = ref(null)
+		const itemToDelete = ref(null)
 
 		// Completed item IDs from progress
 		const completedIds = computed(() => {
@@ -260,9 +270,14 @@ export default {
 		}
 
 		const deleteItem = (itemId) => {
-			if (confirm(t('chorestrike', 'Delete this sub-task?'))) {
-				emit('delete', { itemId, roomTaskId: props.roomTaskId })
-			}
+			itemToDelete.value = itemId
+		}
+
+		const confirmDeleteItem = () => {
+			const itemId = itemToDelete.value
+			if (itemId === null) return
+			itemToDelete.value = null
+			emit('delete', { itemId, roomTaskId: props.roomTaskId })
 		}
 
 		// Drag and drop for reordering
@@ -305,6 +320,8 @@ export default {
 			cancelEdit,
 			saveEdit,
 			deleteItem,
+			itemToDelete,
+			confirmDeleteItem,
 			dragStart,
 			drop,
 			t,

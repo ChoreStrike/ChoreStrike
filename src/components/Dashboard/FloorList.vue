@@ -238,16 +238,27 @@
 				</form>
 			</div>
 		</div>
+
+		<!-- Delete Floor Confirmation -->
+		<ConfirmDialog
+			v-if="floorToDelete"
+			:title="deleteFloorTitle"
+			:description="t('chorestrike', 'All rooms and tasks on this floor will be deleted.')"
+			:loading="deletingFloor"
+			@confirm="confirmDeleteFloor"
+			@cancel="floorToDelete = null" />
 	</div>
 </template>
 
 <script>
 import { computed, ref, onMounted, nextTick } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { showError } from '@nextcloud/dialogs'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRouter } from 'vue-router'
 import { logger } from '../../utils/logger.js'
 import Icon from '../Common/Icon.vue'
+import ConfirmDialog from '../Common/ConfirmDialog.vue'
 import { ROOM_ICON_OPTIONS, resolveRoomIcon } from '../../utils/roomIcons.js'
 import RoomCard from './RoomCard.vue'
 
@@ -257,6 +268,7 @@ export default {
 	components: {
 		Icon,
 		RoomCard,
+		ConfirmDialog,
 	},
 
 	props: {
@@ -285,6 +297,8 @@ export default {
 		const editingFloorId = ref(null)
 		const editingFloorName = ref('')
 		const editFloorInput = ref(null)
+		const floorToDelete = ref(null)
+		const deletingFloor = ref(false)
 
 		// Computed properties
 		const floors = computed(() => roomsStore.floors)
@@ -303,6 +317,13 @@ export default {
 
 			const floor = roomsStore.getFloorById(selectedFloorId.value)
 			return floor?.name || t('chorestrike', 'Unknown')
+		})
+
+		const deleteFloorTitle = computed(() => {
+			if (!floorToDelete.value) return ''
+			return t('chorestrike', 'Delete "{name}" and all its rooms?', {
+				name: floorToDelete.value.name,
+			})
 		})
 
 		// Methods
@@ -442,22 +463,25 @@ export default {
 			editingFloorName.value = ''
 		}
 
-		const deleteFloor = async (floor) => {
-			const message = t('chorestrike', 'Are you sure you want to delete "{name}" and all its rooms?', {
-				name: floor.name,
-			})
+		const deleteFloor = (floor) => {
+			floorToDelete.value = floor
+		}
 
-			if (!confirm(message)) {
-				return
-			}
-
+		const confirmDeleteFloor = async () => {
+			const floor = floorToDelete.value
+			if (!floor) return
+			deletingFloor.value = true
 			try {
 				await roomsStore.deleteFloor(floor.id)
 
 				// Remove from expanded floors
 				roomsStore.setFloorCollapsed(floor.id)
+				floorToDelete.value = null
 			} catch (error) {
-				logger.error('Failed to delete floor', error, { component: 'FloorList', action: 'deleteFloor', floorId: floor.id })
+				showError(t('chorestrike', 'Failed to delete floor'))
+				logger.error('Failed to delete floor', error, { component: 'FloorList', action: 'confirmDeleteFloor', floorId: floor.id })
+			} finally {
+				deletingFloor.value = false
 			}
 		}
 
@@ -524,6 +548,7 @@ export default {
 			floors,
 			loading,
 			sortedFloors,
+			deleteFloorTitle,
 			getFloorRooms,
 			getRoomCount,
 			getFloorCleanliness,
@@ -543,6 +568,9 @@ export default {
 			editingFloorName,
 			editFloorInput,
 			deleteFloor,
+			floorToDelete,
+			deletingFloor,
+			confirmDeleteFloor,
 			addRoom,
 			closeAddRoomModal,
 			handleAddRoom,

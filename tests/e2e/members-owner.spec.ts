@@ -93,7 +93,7 @@ test.describe('Release: Members (owner)', () => {
 		}
 	})
 
-	test('removing a member requires the styled confirm modal', async ({ browser, seededData }) => {
+	test('removing a member requires the styled confirm dialog', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
 		const { context, page } = await createUserContext(browser, 'mom')
@@ -103,11 +103,11 @@ test.describe('Release: Members (owner)', () => {
 			await expect(page.getByTestId('member-row-friend')).toBeVisible()
 			await page.getByTestId('member-remove-friend').click()
 
-			// Confirm modal (no native confirm() in the new UI)
-			await expect(page.getByTestId('member-remove-confirm')).toBeVisible()
-			await page.getByTestId('member-remove-confirm-button').click()
+			// Shared ConfirmDialog (CS-PLAN-041; no native confirm() in the UI)
+			await expect(page.getByTestId('confirm-dialog')).toBeVisible()
+			await page.getByTestId('confirm-dialog-confirm').click()
 
-			await expect(page.getByTestId('member-remove-confirm')).toHaveCount(0)
+			await expect(page.getByTestId('confirm-dialog')).toHaveCount(0)
 			await expect(page.getByTestId('member-row-friend')).toHaveCount(0)
 		} finally {
 			await context.close()

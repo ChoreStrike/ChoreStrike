@@ -124,6 +124,13 @@
 				@saved="handleTaskSaved"
 				@cancel="closeEditModal" />
 		</Modal>
+
+		<ConfirmDialog
+			v-if="taskToDelete !== null"
+			:title="t('chorestrike', 'Are you sure you want to delete this task?')"
+			:loading="deleting"
+			@confirm="confirmDeleteTask"
+			@cancel="taskToDelete = null" />
 	</div>
 </template>
 
@@ -141,6 +148,7 @@ import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
 import RoomTaskEditModal from '../components/Tasks/RoomTaskEditModal.vue'
 import TaskTemplatePicker from '../components/Tasks/TaskTemplatePicker.vue'
 import Modal from '../components/Common/Modal.vue'
+import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 
 export default {
 	name: 'RoomDetail',
@@ -152,6 +160,7 @@ export default {
 		RoomTaskEditModal,
 		TaskTemplatePicker,
 		Modal,
+		ConfirmDialog,
 	},
 
 	props: {
@@ -178,6 +187,8 @@ export default {
 			showEditTaskModal: false,
 			editingTask: null,
 			roomStats: null,
+			taskToDelete: null,
+			deleting: false,
 		}
 	},
 
@@ -295,13 +306,22 @@ export default {
 		},
 
 		handleDeleteTask(roomTaskId) {
-			if (!confirm(t('chorestrike', 'Are you sure you want to delete this task?'))) {
-				return
+			this.taskToDelete = roomTaskId
+		},
+
+		async confirmDeleteTask() {
+			const roomTaskId = this.taskToDelete
+			if (roomTaskId === null) return
+			this.deleting = true
+			try {
+				await this.roomTasksStore.deleteRoomTask(roomTaskId)
+				this.taskToDelete = null
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to delete task'))
+				logger.error('Failed to delete task', error, { view: 'RoomDetail', action: 'confirmDeleteTask', roomTaskId })
+			} finally {
+				this.deleting = false
 			}
-			this.roomTasksStore.deleteRoomTask(roomTaskId)
-				.catch(error => {
-					logger.error('Failed to delete task', error, { view: 'RoomDetail', action: 'handleDeleteTask', roomTaskId })
-				})
 		},
 
 		async handleAddTask(taskData) {

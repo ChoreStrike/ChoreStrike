@@ -36,3 +36,24 @@ The primary visual style for the project's branding (Logo, Repo Avatar) is **Mod
 
 **16-Bit Pixel Art (Retro Tower Defense)**
 > **Prompt:** 16-bit pixel art of a cute fortress house in ocean blue and coral orange, defending against tiny, cute dust monsters. Bright sunny yellow highlights from the windows. The house has a broom mounted on the roof like a playful defense turret. Cozy retro gaming aesthetic, vibrant colors, clear silhouette, isometric perspective, clean pixel perfect lines.
+
+## 5. Feedback Patterns (CS-PLAN-041)
+
+Canonical interaction-feedback rules; every destructive or mutating action
+follows one of these three patterns. No native confirm(), no silent saves.
+
+| Situation | Pattern | Implementation |
+|---|---|---|
+| Destructive action (task/floor delete, member remove) | Styled confirmation dialog | shared src/components/Common/ConfirmDialog.vue (data-testid="confirm-dialog", danger styling, loading state) |
+| Async mutation (saves, renames, deletes) | Success/error toast | showSuccess/showError from @nextcloud/dialogs; error toasts on every failure path, never raw logger-only |
+| Completion of a task | Undo snackbar (~5 s) | global src/components/Common/UndoSnackbar.vue — *Undo* reverts via the uncomplete/reactivate endpoints, dismiss/timeout hides without effect |
+
+Rules:
+
+- Controls must never lie: a filter that cannot change the output is removed,
+  not decorated (see the Leaderboard period filter removal).
+- Prices and other authoritative data come from the server catalog; when the
+  catalog is unavailable the action renders a disabled state with an explicit
+  error instead of stale values.
+- Every new user-visible string goes through `t()` with `l10n/` artifacts
+  updated in the same change.

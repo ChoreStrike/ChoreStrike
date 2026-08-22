@@ -131,6 +131,7 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import { showError } from '@nextcloud/dialogs'
+import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useTasksStore } from '../store/tasks.js'
@@ -161,6 +162,7 @@ export default {
 			todayItems: [],
 			overdueItems: [],
 			completingIds: new Set(),
+			uncompletedHandler: null,
 		}
 	},
 
@@ -190,7 +192,26 @@ export default {
 		if (this.$route?.query?.scope === 'all') {
 			this.filter = 'all'
 		}
+		// Undo snackbar (CS-PLAN-041): restore local rows of undone tasks.
+		// Rows already removed from the list (recurring task whose next
+		// occurrence is in the future) stay removed — the server keeps the
+		// advanced nextDue, so re-adding would show a not-due task.
+		this.uncompletedHandler = ({ roomTask }) => {
+			if (!roomTask?.id) return
+			const apply = list => list.forEach(item => {
+				if (item.roomTask.id === roomTask.id) item.roomTask = { ...roomTask }
+			})
+			apply(this.todayItems)
+			apply(this.overdueItems)
+		}
+		subscribe('chorestrike:task-uncompleted', this.uncompletedHandler)
 		await this.load()
+	},
+
+	beforeUnmount() {
+		if (this.uncompletedHandler) {
+			unsubscribe('chorestrike:task-uncompleted', this.uncompletedHandler)
+		}
 	},
 
 	methods: {

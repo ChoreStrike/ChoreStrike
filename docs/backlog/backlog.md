@@ -64,19 +64,6 @@ encrypted reporting frictionless.
 
 ---
 
-### [P3] BUG-USER-001 — `GET /api/v1/users/{id}/stats` has no frontend consumer (dead surface)
-**Status**: Backlog · **Effort**: S · **Source**: CS-007 review (2026-07-23)
-
-`user#stats` (`UserController::stats()`) is registered + functional (the
-`getTeamSparks()`→`getCoins()` bug was fixed in CS-007) but no Pinia store calls
-it; stats are sourced from `/game/state` + `/house/stats`. The separate
-`UserStatsController` (8 public methods) is **entirely unrouted** = dead code.
-
-- [ ] Decide: wire a frontend consumer (profile/detail view) **or** remove the
-      dead route + method + the unrouted `UserStatsController`.
-
----
-
 ### [P3] BUG-ROOM-001 — Re-evaluate the `RoomController::index` POST→GET rewrite workaround
 **Status**: Deferred (low) · **Effort**: S · **Source**: CS-020 (deferred AC)
 
@@ -138,6 +125,7 @@ E2E page context, so `member.isCurrentUser` is never true.
 
 ### [P2] TECH-LINT-004 — Stylelint `use-logical` warnings (26, physical→logical property sweep)
 **Status**: Open · **Effort**: M · **Source**: surfaced after CS-026 fixed the stylelint config (2026-08-12)
+**Planned**: CS-PLAN-044 (file-by-file audit; no repo-wide auto-fix).
 
 Once `@nextcloud/stylelint-config@3.x` was aligned (CS-026), the previously-silent
 `stylelint-use-logical` rule started firing: **26 warnings** across `src/`
@@ -177,6 +165,7 @@ bump coordinated with the Nextcloud eslint config.
 
 ### [P3] TECH-DRY-001 — Weekend fallback energy budget map duplicated (3 sites)
 **Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-040 (2026-08-21)
+**Planned**: CS-PLAN-043.
 
 The weekday→energy fallback budget (`monday…friday: 10, saturday/sunday: 15`)
 now lives in three places: `getCapacityForDay` in `src/store/scheduling.js`,
@@ -238,6 +227,8 @@ detected as UTF-8 and write fine.
 > From [`archive/CODE_REVIEW_2026-07-28.md`](archive/CODE_REVIEW_2026-07-28.md).
 > CR-016-11 is **resolved** (CS-018); CR-016-12 is **resolved** (CS-032);
 > CR-016-02 is **resolved** (CS-033); the rest are open.
+> The open UI-side items here are consolidated in draft **CS-PLAN-043**
+> ([`../plans/new/`](../plans/new/)).
 
 ### [P2] CR-016-10 — Regression test for `getConsumedEnergyForUserOnDate` SQL fix
 **Effort**: S — mock-based mapper test cannot catch SQL errors; needs a real-DB
@@ -442,8 +433,12 @@ text, not the localized view, so German queries (e.g. „Staubsaugen") miss.
 > [`archive/USABILITY_REVIEW_2026-08-20.md`](archive/USABILITY_REVIEW_2026-08-20.md).
 > **UX-001/002/003 resolved 2026-08-21 by CS-PLAN-038**; `CR-016-09` closed by
 > archiving DailyTaskList. Related existing items: `CR-016-05`/`CR-016-03`
-> (scheduling merge/split), `CR-SVC-61` (bulkAssign), `BUG-USER-001`,
+> (scheduling merge/split), `CR-SVC-61` (bulkAssign),
 > `CR-SVC-33` (reward-less Task-level path).
+> Implementation planned (2026-08-21, drafts in [`../plans/new/`](../plans/new/)):
+> **CS-PLAN-041** (UX-005/006/013), **CS-PLAN-042** (UX-004/008/009/011 +
+> CR-SVC-61 endpoint), **CS-PLAN-043** (UX-014), **CS-PLAN-044**
+> (UX-007/010/012).
 
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
 **Status**: Open · **Effort**: M · **Source**: UX-003 remainder (CS-PLAN-038)
@@ -478,25 +473,10 @@ being role-gated in the template.
       keep floor CRUD in one surface; role-gate owner-only Settings controls.
 
 ### [P2] UX-005 — Dead/misleading controls
-**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
-
-Leaderboard period filter has no effect (state set, never re-fetched); medals
-section hardcoded `[]` while `GET /game/medals`/`leaderboard`/`check-medals`
-and `initializeGame()` are unreachable → medal celebrations never fire;
-QuickStats "My Private Tasks" emits `toggle-private-filter` that Dashboard never
-binds.
-
-- [ ] Fix or remove each control; wire the game endpoints so medals evaluate
-      and celebrate.
+**Status**: Resolved 2026-08-22 (CS-PLAN-041) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P2] UX-006 — No undo for completion; native confirms; silent Settings saves
-**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
-
-`uncomplete`/`reactivate` endpoints have no UI (misclick = permanent); task/
-floor deletes use native `confirm()`; Settings saves give no toast feedback.
-
-- [ ] Post-complete undo snackbar (~5 s) → uncomplete/reactivate; styled
-      confirmation dialogs; toasts on Settings save/rename.
+**Status**: Resolved 2026-08-22 (CS-PLAN-041) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P2] UX-007 — Kid-sized controls & inconsistent vocabulary
 **Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
@@ -552,11 +532,7 @@ Shared `Modal.vue` has no ESC handling, focus trap/restore, `aria-modal`, or
 scroll lock; CalendarView prev/next use raw `<`/`>` glyphs without aria-labels.
 
 ### [P3] UX-013 — Boost prices duplicated client-side
-**Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
-
-`BOOST_COSTS` hardcoded in `store/minigame.js`; authoritative
-`GET /minigames/boosts` never fetched → price drift between affordability
-check and purchase. Fetch the catalog.
+**Status**: Resolved 2026-08-22 (CS-PLAN-041) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] UX-014 — SchedulingView redundancy & suggestions without action
 **Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
@@ -565,6 +541,15 @@ Owners get two parallel editors for their own availability; owner grid is
 read-only for others while implying management (`PUT /scheduling/members/{id}`
 unused); Preview + Suggestions duplicate the same endpoint (cf. `CR-016-05`);
 suggestions have no "apply" action.
+
+### [P3] UX-015 — Undo snackbar holds only the latest completion
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-041 (2026-08-22)
+
+The global `UndoSnackbar` (CS-PLAN-041) keeps a single undo slot: completing a
+second task within the ~5 s window silently replaces the first task as the undo
+target, so a misclick on the first task can no longer be reverted. Decide
+between queueing undo targets (stacked/snackbar list) or explicitly accepting
+the single-slot limitation in the design docs.
 
 ---
 

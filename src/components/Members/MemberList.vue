@@ -107,27 +107,14 @@
 		</div>
 
 		<!-- Remove confirmation -->
-		<Modal v-if="removingMember" :show="true" @close="removingMember = null">
-			<div class="confirm-modal" data-testid="member-remove-confirm">
-				<div class="confirm-icon">
-					<Icon name="AlertTriangle" :size="40" />
-				</div>
-				<h4>{{ t('chorestrike', 'Remove {name} from the house?', { name: removingMember.displayName }) }}</h4>
-				<p>{{ t('chorestrike', 'They will lose access to all house tasks and progress.') }}</p>
-				<div class="confirm-actions">
-					<button class="secondary-button" data-testid="member-remove-cancel" @click="removingMember = null">
-						{{ t('chorestrike', 'Cancel') }}
-					</button>
-					<button
-						class="danger-button"
-						data-testid="member-remove-confirm-button"
-						:disabled="removing"
-						@click="confirmRemove">
-						{{ t('chorestrike', 'Remove') }}
-					</button>
-				</div>
-			</div>
-		</Modal>
+		<ConfirmDialog
+			v-if="removingMember"
+			:title="t('chorestrike', 'Remove {name} from the house?', { name: removingMember.displayName })"
+			:description="t('chorestrike', 'They will lose access to all house tasks and progress.')"
+			:confirm-label="t('chorestrike', 'Remove')"
+			:loading="removing"
+			@confirm="confirmRemove"
+			@cancel="removingMember = null" />
 	</section>
 </template>
 
@@ -137,7 +124,7 @@ import { showError, showSuccess } from '@nextcloud/dialogs'
 import { useUserStore } from '../../store/user.js'
 import { logger } from '../../utils/logger.js'
 import Icon from '../Common/Icon.vue'
-import Modal from '../Common/Modal.vue'
+import ConfirmDialog from '../Common/ConfirmDialog.vue'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -146,7 +133,7 @@ export default {
 
 	components: {
 		Icon,
-		Modal,
+		ConfirmDialog,
 	},
 
 	setup() {
@@ -428,32 +415,6 @@ export default {
 	cursor: not-allowed;
 }
 
-.confirm-modal {
-	padding: 1.5rem;
-	text-align: center;
-}
-
-.confirm-icon {
-	color: var(--color-error);
-	margin-bottom: 0.5rem;
-}
-
-.confirm-modal h4 {
-	margin: 0 0 0.5rem 0;
-	font-size: 1.1rem;
-}
-
-.confirm-modal p {
-	margin: 0 0 1rem 0;
-	color: var(--color-text-maxcontrast);
-}
-
-.confirm-actions {
-	display: flex;
-	justify-content: center;
-	gap: 0.75rem;
-}
-
 .primary-button {
 	display: flex;
 	align-items: center;
@@ -470,34 +431,6 @@ export default {
 }
 
 .primary-button:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-}
-
-.secondary-button {
-	min-height: 44px;
-	padding: 0.5rem 1rem;
-	background: transparent;
-	color: var(--color-main-text);
-	border: 1px solid var(--color-border);
-	border-radius: 6px;
-	cursor: pointer;
-	font-size: 0.9rem;
-}
-
-.danger-button {
-	min-height: 44px;
-	padding: 0.5rem 1rem;
-	background: var(--color-error);
-	color: #fff;
-	border: none;
-	border-radius: 6px;
-	cursor: pointer;
-	font-size: 0.9rem;
-	font-weight: 500;
-}
-
-.danger-button:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
 }

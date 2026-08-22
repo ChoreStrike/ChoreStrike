@@ -92,20 +92,26 @@ test.describe('Private Tasks', () => {
 			await page.goto('/apps/chorestrike/')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
-			const privateFilter = page.locator('[data-testid="private-filter-toggle"], button:has-text("Private"), [aria-label*="private" i]')
+			const privateFilter = page.getByTestId('private-filter-toggle')
 
 			if (await privateFilter.count() > 0) {
+				// CS-PLAN-041: the chip routes to the task list pre-filtered to
+				// private visibility.
 				await privateFilter.first().click()
-				await page.waitForTimeout(1000)
+				await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 15000 })
 
-				const taskItems = page.locator('[data-testid="task-item"], .task-item')
+				const visibilityFilter = page.getByTestId('visibility-filter')
+				if (await visibilityFilter.count() > 0) {
+					await expect(visibilityFilter).toHaveValue('private')
+				}
+
+				const taskItems = page.locator('[data-testid="task-item"]')
 				const count = await taskItems.count()
 
 				for (let i = 0; i < count; i++) {
 					const item = taskItems.nth(i)
-					const lockIcon = item.locator('[data-testid="visibility-lock-icon"], .icon-lock, svg[data-icon="lock"]')
 					if (await item.isVisible()) {
-						expect(await lockIcon.count()).toBeGreaterThan(0)
+						await expect(item.locator('.visibility-icon')).toBeVisible()
 					}
 				}
 			}

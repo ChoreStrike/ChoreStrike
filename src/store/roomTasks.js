@@ -419,6 +419,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		/**
 		 * Reactivate room task
 		 * @param {number} roomTaskId Room task identifier to reactivate.
+		 * @return {Promise<object>} Updated room task.
 		 */
 		async reactivateRoomTask(roomTaskId) {
 			this.loading = true
@@ -431,6 +432,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				if (roomTaskIndex >= 0) {
 					this.roomTasks[roomTaskIndex] = data
 				}
+
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to reactivate room task', error, { store: 'roomTasks', action: 'reactivateRoomTask', roomTaskId })
@@ -530,6 +533,81 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				throw error
 			} finally {
 				this.loading = false
+			}
+		},
+
+		/**
+		 * Uncomplete a room task (undo primitive, CS-PLAN-041).
+		 *
+		 * The uncomplete endpoint lives under /tasks/{id}/uncomplete but
+		 * operates on the room task id (TaskController::uncomplete →
+		 * RoomTaskService::uncompleteTask) and only clears `lastCompleted`.
+		 *
+		 * @param {number} roomTaskId Room task identifier to uncomplete.
+		 * @return {Promise<object>} Updated room task.
+		 */
+		async uncompleteRoomTask(roomTaskId) {
+			this.loading = true
+			this.error = null
+
+			try {
+				const data = await api.put(`/api/v1/tasks/${roomTaskId}/uncomplete`)
+				this.replaceRoomTaskInState(roomTaskId, data)
+				return data
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to uncomplete room task', error, { store: 'roomTasks', action: 'uncompleteRoomTask', roomTaskId })
+				throw error
+			} finally {
+				this.loading = false
+			}
+		},
+
+		/**
+		 * Undo a completion (CS-PLAN-041): clears lastCompleted and — for
+		 * one-time tasks, whose completion deactivates them — reactivates.
+		 *
+		 * Known limitation (accepted pre-release): server-side rewards,
+		 * streaks and recurrence advances from the completion are not
+		 * reverted; this restores the task itself for a misclick.
+		 *
+		 * Emits `chorestrike:task-uncompleted` with the final room task so
+		 * open views can restore their local rows.
+		 *
+		 * @param {number} roomTaskId Room task identifier to restore.
+		 * @return {Promise<object>} Final room task state.
+		 */
+		async undoRoomTaskCompletion(roomTaskId) {
+			let roomTask = await this.uncompleteRoomTask(roomTaskId)
+
+			if (!roomTask.isActive) {
+				roomTask = await this.reactivateRoomTask(roomTaskId)
+			}
+
+			emit('chorestrike:task-uncompleted', { roomTaskId, roomTask })
+
+			return roomTask
+		},
+
+		/**
+		 * Replace a room task in every store slice that caches it.
+		 * @param {number} roomTaskId Room task identifier to replace.
+		 * @param {object} roomTask Fresh room task payload.
+		 */
+		replaceRoomTaskInState(roomTaskId, roomTask) {
+			if (!roomTask) return
+
+			const index = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+			if (index >= 0) {
+				this.roomTasks[index] = roomTask
+			}
+
+			const dailyIndex = this.dailyTasks.findIndex(item => item.roomTask?.id === roomTaskId)
+			if (dailyIndex >= 0) {
+				this.dailyTasks[dailyIndex] = {
+					...this.dailyTasks[dailyIndex],
+					roomTask,
+				}
 			}
 		},
 

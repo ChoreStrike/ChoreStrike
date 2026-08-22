@@ -707,6 +707,26 @@
         "Overloaded days ahead": "Überlastete Tage bevorstehen",
         "More chores are planned than energy is available. These tasks would be deferred first (lowest priority first):": "Es sind mehr Aufgaben geplant, als Energie verfügbar ist. Diese Aufgaben würden zuerst verschoben (niedrigste Priorität zuerst):",
         "Planned energy ({planned}) exceeds the available capacity ({capacity})": "Geplante Energie ({planned}) überschreitet die verfügbare Kapazität ({capacity})",
-        "No activity in this period yet.": "Noch keine Aktivität in diesem Zeitraum."
+        "No activity in this period yet.": "Noch keine Aktivität in diesem Zeitraum.",
+        "Undo": "Rückgängig",
+        "Dismiss": "Ausblenden",
+        "Task completed": "Aufgabe erledigt",
+        "Could not undo the completion": "Die Erledigung konnte nicht rückgängig gemacht werden",
+        "Failed to delete task": "Aufgabe konnte nicht gelöscht werden",
+        "Delete \"{name}\"?": "\"{name}\" löschen?",
+        "Delete \"{name}\" and all its rooms?": "\"{name}\" und alle zugehörigen Räume löschen?",
+        "All rooms and tasks on this floor will be deleted.": "Alle Räume und Aufgaben auf dieser Etage werden gelöscht.",
+        "All": "Alle",
+        "House name saved": "Hausname gespeichert",
+        "Failed to save house name": "Hausname konnte nicht gespeichert werden",
+        "Floor created": "Etage erstellt",
+        "Failed to create floor": "Etage konnte nicht erstellt werden",
+        "Floor renamed": "Etage umbenannt",
+        "Failed to update floor": "Etage konnte nicht aktualisiert werden",
+        "Floor deleted": "Etage gelöscht",
+        "Failed to delete floor": "Etage konnte nicht gelöscht werden",
+        "House was reset": "Haus wurde zurückgesetzt",
+        "Failed to reset house": "Haus konnte nicht zurückgesetzt werden",
+        "Boost prices could not be loaded. Purchases are disabled.": "Boost-Preise konnten nicht geladen werden. Käufe sind deaktiviert."
     }
 }

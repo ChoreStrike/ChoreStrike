@@ -20,38 +20,49 @@ jest.mock('vue-router', () => ({
 	}),
 }))
 
-// Mock stores
-jest.mock('../../../src/store/house.js', () => ({
-	useHouseStore: () => ({
-		house: { id: 1, name: 'Test House' },
-		houseName: 'Test House',
-		loading: false,
-		fetchHouse: jest.fn(),
-		updateHouseName: jest.fn(),
-		resetHouse: jest.fn(),
-	}),
+jest.mock('@nextcloud/dialogs', () => ({
+	showSuccess: jest.fn(),
+	showError: jest.fn(),
 }))
 
+import { showSuccess } from '@nextcloud/dialogs'
+
+// Mutable so individual tests can assert store interactions.
+const mockHouseState = {
+	house: { id: 1, name: 'Test House' },
+	houseName: 'Test House',
+	loading: false,
+	fetchHouse: jest.fn(),
+	updateHouseName: jest.fn().mockResolvedValue(),
+	resetHouse: jest.fn(),
+}
+
+jest.mock('../../../src/store/house.js', () => ({
+	useHouseStore: () => mockHouseState,
+}))
+
+const mockRoomsState = {
+	floors: [
+		{ id: 1, name: 'Ground Floor' },
+		{ id: 2, name: 'First Floor' },
+	],
+	rooms: [
+		{ id: 1, name: 'Kitchen', floorId: 1 },
+		{ id: 2, name: 'Living Room', floorId: 1 },
+		{ id: 3, name: 'Bedroom', floorId: 2 },
+	],
+	roomsByFloor: {
+		1: [{ id: 1, name: 'Kitchen' }, { id: 2, name: 'Living Room' }],
+		2: [{ id: 3, name: 'Bedroom' }],
+	},
+	fetchFloorsWithRooms: jest.fn(),
+	createFloor: jest.fn(),
+	updateFloorName: jest.fn(),
+	deleteFloor: jest.fn().mockResolvedValue(),
+}
+
 jest.mock('../../../src/store/rooms.js', () => ({
-	useRoomsStore: () => ({
-		floors: [
-			{ id: 1, name: 'Ground Floor' },
-			{ id: 2, name: 'First Floor' },
-		],
-		rooms: [
-			{ id: 1, name: 'Kitchen', floorId: 1 },
-			{ id: 2, name: 'Living Room', floorId: 1 },
-			{ id: 3, name: 'Bedroom', floorId: 2 },
-		],
-		roomsByFloor: {
-			1: [{ id: 1, name: 'Kitchen' }, { id: 2, name: 'Living Room' }],
-			2: [{ id: 3, name: 'Bedroom' }],
-		},
-		fetchFloorsWithRooms: jest.fn(),
-		createFloor: jest.fn(),
-		updateFloorName: jest.fn(),
-		deleteFloor: jest.fn(),
-	}),
+	useRoomsStore: () => mockRoomsState,
 }))
 
 // Mock child components
@@ -74,6 +85,9 @@ describe('Settings.vue', () => {
 		pinia = createPinia()
 		setActivePinia(pinia)
 		translate.mockClear()
+		showSuccess.mockClear()
+		mockHouseState.updateHouseName.mockClear().mockResolvedValue()
+		mockRoomsState.deleteFloor.mockClear().mockResolvedValue()
 	})
 
 	it('renders settings component', () => {
@@ -259,5 +273,41 @@ describe('Settings.vue', () => {
 
 		await wrapper.find('.danger-button').trigger('click')
 		expect(translate).toHaveBeenCalledWith('chorestrike', 'RESET')
+	})
+
+	it('toasts success after saving the house name (CS-PLAN-041)', async () => {
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await flushPromises()
+
+		await wrapper.find('[data-testid="house-name-input"]').setValue('Renamed House')
+		await wrapper.find('[data-testid="save-house-name"]').trigger('click')
+		await flushPromises()
+
+		expect(mockHouseState.updateHouseName).toHaveBeenCalledWith('Renamed House')
+		expect(showSuccess).toHaveBeenCalled()
+	})
+
+	it('deletes a floor via the styled confirm dialog (CS-PLAN-041)', async () => {
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await flushPromises()
+
+		const deleteButtons = wrapper.findAll('.icon-button.danger')
+		await deleteButtons[0].trigger('click')
+
+		expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true)
+		expect(wrapper.text()).toContain('Ground Floor')
+
+		await wrapper.find('[data-testid="confirm-dialog-confirm"]').trigger('click')
+		await flushPromises()
+
+		expect(mockRoomsState.deleteFloor).toHaveBeenCalledWith(1)
 	})
 })

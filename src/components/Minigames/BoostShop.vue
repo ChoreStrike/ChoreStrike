@@ -10,6 +10,17 @@
 				</div>
 			</div>
 
+			<div v-if="catalogError" class="catalog-error" data-testid="boost-catalog-error">
+				<p>{{ t('chorestrike', 'Boost prices could not be loaded. Purchases are disabled.') }}</p>
+				<button
+					class="btn btn-secondary"
+					data-testid="boost-catalog-retry"
+					:disabled="boostsLoading"
+					@click="loadCatalog">
+					{{ t('chorestrike', 'Try again') }}
+				</button>
+			</div>
+
 			<div class="boosts-grid">
 				<div
 					v-for="boost in availableBoosts"
@@ -41,18 +52,20 @@
 			</div>
 
 			<div class="shop-footer">
-				<div class="total-cost">
-					<span>{{ t('chorestrike', 'Total') }}:</span>
-					<span class="cost-value">{{ totalCost }}</span>
-					<span class="cost-icon">⚡</span>
-				</div>
-				<div class="remaining-coins">
-					<span>{{ t('chorestrike', 'Remaining') }}:</span>
-					<span :class="{ 'insufficient': remainingCoins < 0 }">
-						{{ remainingCoins }}
-					</span>
-					<span class="cost-icon">⚡</span>
-				</div>
+				<template v-if="!catalogError">
+					<div class="total-cost">
+						<span>{{ t('chorestrike', 'Total') }}:</span>
+						<span class="cost-value">{{ totalCost }}</span>
+						<span class="cost-icon">⚡</span>
+					</div>
+					<div class="remaining-coins">
+						<span>{{ t('chorestrike', 'Remaining') }}:</span>
+						<span :class="{ 'insufficient': remainingCoins < 0 }">
+							{{ remainingCoins }}
+						</span>
+						<span class="cost-icon">⚡</span>
+					</div>
+				</template>
 				<div class="shop-buttons">
 					<button class="btn btn-secondary" @click="$emit('close')">
 						{{ t('chorestrike', 'Cancel') }}
@@ -70,31 +83,44 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { useMinigameStore, BOOST_COSTS, BOOST_DESCRIPTIONS } from '../../store/minigame.js'
+import { useMinigameStore } from '../../store/minigame.js'
 import { storeToRefs } from 'pinia'
 
 const emit = defineEmits(['close', 'purchase'])
 
 const minigameStore = useMinigameStore()
-const { currentCoins, purchasedBoosts } = storeToRefs(minigameStore)
+const { currentCoins, purchasedBoosts, boostsLoading } = storeToRefs(minigameStore)
 
-// Available boosts for display
-const availableBoosts = computed(() => {
-	return Object.entries(BOOST_COSTS).map(([id, cost]) => ({
-		id,
-		cost,
-		...BOOST_DESCRIPTIONS[id],
-	}))
+// Catalog availability (UX-013): without the authoritative price catalog
+// the shop renders a clear error and disables purchases.
+const catalogError = ref(false)
+
+const loadCatalog = async () => {
+	catalogError.value = false
+	try {
+		await minigameStore.fetchBoostCatalog()
+	} catch (error) {
+		catalogError.value = true
+	}
+}
+
+onMounted(() => {
+	if (!minigameStore.boostsLoaded) {
+		loadCatalog()
+	}
 })
+
+// Available boosts for display — catalog-driven, sorted by cost.
+const availableBoosts = computed(() => minigameStore.availableBoosts)
 
 // Selected boosts tracking (local state)
 const selectedBoosts = computed(() => purchasedBoosts.value)
 
 const totalCost = computed(() => {
 	return selectedBoosts.value.reduce((sum, boostId) => {
-		return sum + (BOOST_COSTS[boostId] || 0)
+		return sum + (minigameStore.boostCatalog?.[boostId] || 0)
 	}, 0)
 })
 
@@ -103,15 +129,19 @@ const remainingCoins = computed(() => {
 })
 
 const canPurchase = computed(() => {
-	return selectedBoosts.value.length > 0 && remainingCoins.value >= 0
+	return !catalogError.value && selectedBoosts.value.length > 0 && remainingCoins.value >= 0
 })
 
+const boostCost = (boostId) => {
+	return minigameStore.boostCatalog?.[boostId] ?? Number.POSITIVE_INFINITY
+}
+
 const canAfford = (boostId) => {
-	const cost = BOOST_COSTS[boostId]
 	// Check if adding this boost would still be affordable
 	const currentTotal = totalCost.value
-	const boostCost = isSelected(boostId) ? 0 : cost
-	return currentCoins.value >= (currentTotal + boostCost - (isSelected(boostId) ? cost : 0))
+	const cost = boostCost(boostId)
+	const addedCost = isSelected(boostId) ? 0 : cost
+	return currentCoins.value >= currentTotal + addedCost
 }
 
 const isSelected = (boostId) => {
@@ -121,7 +151,7 @@ const isSelected = (boostId) => {
 const toggleBoost = (boostId) => {
 	if (isSelected(boostId)) {
 		minigameStore.removePurchasedBoost(boostId)
-	} else if (canAfford(boostId)) {
+	} else if (!catalogError.value && canAfford(boostId)) {
 		// Add to purchased boosts (will be confirmed on purchase)
 		minigameStore.purchasedBoosts.push(boostId)
 	}
@@ -238,6 +268,21 @@ const confirmPurchase = async () => {
 .boost-card.unaffordable {
 	opacity: 0.5;
 	cursor: not-allowed;
+}
+
+.catalog-error {
+	padding: 1rem;
+	margin-bottom: 1rem;
+	background: var(--color-error-hover);
+	border: 1px solid var(--color-error);
+	border-radius: 8px;
+	text-align: center;
+}
+
+.catalog-error p {
+	margin: 0 0 0.75rem 0;
+	color: var(--color-error);
+	font-weight: 500;
 }
 
 .boost-icon {

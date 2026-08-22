@@ -50,6 +50,7 @@
 
 		<NcAppContent>
 			<router-view />
+			<UndoSnackbar />
 		</NcAppContent>
 	</NcContent>
 </template>
@@ -62,6 +63,7 @@ import {
 	NcAppNavigationItem,
 	NcAppContent,
 } from '@nextcloud/vue'
+import UndoSnackbar from './components/Common/UndoSnackbar.vue'
 
 export default {
 	name: 'App',
@@ -71,6 +73,7 @@ export default {
 		NcAppNavigation,
 		NcAppNavigationItem,
 		NcAppContent,
+		UndoSnackbar,
 	},
 
 	methods: {

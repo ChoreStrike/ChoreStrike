@@ -89,7 +89,6 @@
 		<div v-if="showActions" class="stats-actions">
 			<button
 				class="action-button filter-chip"
-				:class="{ active: showPrivateOnly }"
 				data-testid="private-filter-toggle"
 				@click="togglePrivateFilter">
 				<Icon name="Lock" :size="16" class="icon" />
@@ -117,7 +116,7 @@
 </template>
 
 <script>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { RouterLink, useRouter } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
@@ -151,7 +150,6 @@ export default {
 		const roomsStore = useRoomsStore()
 		const roomTasksStore = useRoomTasksStore()
 		const router = useRouter()
-		const showPrivateOnly = ref(false)
 
 		// Computed properties
 		const totalRooms = computed(() => roomsStore.totalRooms)
@@ -181,9 +179,13 @@ export default {
 			router.push('/tasks')
 		}
 
+		/**
+		 * Request the private-task scope. The Dashboard binds this event and
+		 * routes to the task list pre-filtered to the current user's private
+		 * tasks (CS-PLAN-041) — QuickStats itself renders no task list.
+		 */
 		const togglePrivateFilter = () => {
-			showPrivateOnly.value = !showPrivateOnly.value
-			emit('toggle-private-filter', showPrivateOnly.value)
+			emit('toggle-private-filter', true)
 		}
 
 		return {
@@ -195,7 +197,6 @@ export default {
 			dueTodayTasks,
 			overdueTasks,
 			loading,
-			showPrivateOnly,
 			refreshStats,
 			viewAllTasks,
 			togglePrivateFilter,

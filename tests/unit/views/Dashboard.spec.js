@@ -4,9 +4,11 @@ import { createPinia, setActivePinia } from 'pinia'
 import Dashboard from '../../../src/views/Dashboard.vue'
 
 // Mock vue-router
+const mockRouterPush = jest.fn()
+
 jest.mock('vue-router', () => ({
 	useRouter: () => ({
-		push: jest.fn(),
+		push: mockRouterPush,
 	}),
 }))
 
@@ -53,6 +55,7 @@ jest.mock('../../../src/components/Dashboard/HouseholdGoalBar.vue', () => ({
 
 jest.mock('../../../src/components/Dashboard/QuickStats.vue', () => ({
 	name: 'QuickStats',
+	emits: ['toggle-private-filter'],
 	template: '<div class="quick-stats">Quick Stats</div>',
 }))
 
@@ -127,6 +130,19 @@ describe('Dashboard.vue', () => {
 		})
 
 		expect(wrapper.find('.quick-stats').exists()).toBe(true)
+	})
+
+	it('routes to the private task scope when QuickStats emits toggle-private-filter (CS-PLAN-041)', async () => {
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+
+		wrapper.findComponent({ name: 'QuickStats' }).vm.$emit('toggle-private-filter', true)
+		await wrapper.vm.$nextTick()
+
+		expect(mockRouterPush).toHaveBeenCalledWith({ name: 'tasks', query: { visibility: 'private' } })
 	})
 
 	it('renders FloorList component', () => {

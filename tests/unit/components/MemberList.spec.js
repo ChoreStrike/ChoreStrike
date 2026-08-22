@@ -138,27 +138,27 @@ describe('MemberList', () => {
 		expect(showSuccess).toHaveBeenCalled()
 	})
 
-	it('requires confirm-modal consent before removing a member', async () => {
+	it('requires confirm-dialog consent before removing a member', async () => {
 		const wrapper = await mountList()
 
 		await wrapper.find('[data-testid="member-remove-friend"]').trigger('click')
-		expect(wrapper.find('[data-testid="member-remove-confirm"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true)
 		expect(mockUserStore.removeUser).not.toHaveBeenCalled()
 
-		await wrapper.find('[data-testid="member-remove-confirm-button"]').trigger('click')
+		await wrapper.find('[data-testid="confirm-dialog-confirm"]').trigger('click')
 		await flushAsync()
 
 		expect(mockUserStore.removeUser).toHaveBeenCalledWith(3)
 		expect(showSuccess).toHaveBeenCalled()
 	})
 
-	it('cancel in the confirm modal closes it without removing', async () => {
+	it('cancel in the confirm dialog closes it without removing', async () => {
 		const wrapper = await mountList()
 
 		await wrapper.find('[data-testid="member-remove-friend"]').trigger('click')
-		await wrapper.find('[data-testid="member-remove-cancel"]').trigger('click')
+		await wrapper.find('[data-testid="confirm-dialog-cancel"]').trigger('click')
 
-		expect(wrapper.find('[data-testid="member-remove-confirm"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false)
 		expect(mockUserStore.removeUser).not.toHaveBeenCalled()
 	})
 })

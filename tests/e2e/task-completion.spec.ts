@@ -137,6 +137,49 @@ test.describe('Task Creation and Completion', () => {
 		await expect(taskRow.locator('[data-testid="complete-task-button"]')).toHaveCount(0)
 	})
 
+	test('Completion offers Undo which restores the task (CS-PLAN-041)', async ({ page }) => {
+		await page.goto('/apps/chorestrike/#/')
+		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
+
+		const kitchen = page.getByTestId('room-card-Kitchen')
+		if (await kitchen.count() > 0) {
+			await kitchen.click()
+		} else {
+			const firstRoom = page.locator('[data-testid^="room-card-"]').first()
+			if (await firstRoom.count() === 0) {
+				return // Skip if no rooms
+			}
+			await firstRoom.click()
+		}
+
+		await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+
+		const taskRow = page.locator('[data-testid="task-item"]:has([data-testid="complete-task-button"])').first()
+		const completeButton = taskRow.locator('[data-testid="complete-task-button"]')
+		if (await completeButton.count() === 0) {
+			return // Skip if no tasks to complete
+		}
+
+		await completeButton.click()
+
+		// The undo snackbar appears within its window…
+		const snackbar = page.getByTestId('undo-snackbar')
+		await expect(snackbar).toBeVisible({ timeout: 15000 })
+
+		// …and Undo reverts the row to its active state.
+		const uncompleteResponsePromise = page.waitForResponse((response) => {
+			const method = response.request().method()
+			const pathname = new URL(response.url()).pathname
+			return method === 'PUT' && /\/api\/v1\/tasks\/\d+\/uncomplete$/.test(pathname)
+		})
+		await page.getByTestId('undo-snackbar-undo-button').click()
+		expect((await uncompleteResponsePromise).ok()).toBeTruthy()
+
+		await expect(taskRow).not.toHaveClass(/completed/, { timeout: 15000 })
+		await expect(taskRow.locator('[data-testid="complete-task-button"]')).toBeVisible()
+		await expect(snackbar).toHaveCount(0)
+	})
+
 	test('Completing multiple tasks triggers combo', async ({ page }) => {
 		await page.goto('/apps/chorestrike/#/')
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })

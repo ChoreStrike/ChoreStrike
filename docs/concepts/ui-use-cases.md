@@ -129,7 +129,7 @@ points:** TaskManager.
 | Delete definition | — | `DELETE /tasks/{id}` | ❌ (store wrapper `deleteTask` dead) |
 | Search definitions | — | `GET /tasks/search` | ❌ (store wrapper `searchTasks` dead) |
 | Browse by category / categories | — | `GET /tasks/category/{c}`, `GET /tasks/categories` | ❌ (store wrappers `fetchTasksByCategory`/`fetchTaskCategories` dead) |
-| Private (personal) task list | — | `GET /tasks/my-private` | ⚠️ QuickStats filter emits an event nobody handles; store wrapper `fetchMyPrivateTasks` unused (UX-005) |
+| Private (personal) task list | Dashboard chip → TaskManager visibility filter | `GET /tasks` + client-side `?visibility=private` scope | ✅ (CS-PLAN-041; `GET /tasks/my-private` stays backend-only — definitions without room-task context) |
 | Task-level complete/uncomplete/skip/reschedule/daily | — | legacy `PUT /tasks/{id}/…`, `GET /tasks/daily` | ❌ backend-only (RoomTask equivalents are the live path) |
 
 ## UC-06 — Task creation (materialize room tasks)
@@ -156,8 +156,8 @@ points:** RoomDetail (slim modal), TaskManager, TaskList.
 | Edit assignees | RoomTaskEditModal, TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
 | Delete room task | RoomDetail, TaskManager | `DELETE /room-tasks/{id}` | ✅ |
 | Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ❌ (store wrapper `deactivateRoomTask` dead) |
-| Reactivate task | — | `POST /room-tasks/{id}/reactivate` | ❌ (store wrapper `reactivateRoomTask` dead; also the undo-completion primitive, UX-006) |
-| Undo a completion (snackbar) | — | via `reactivate` | ❌ (UX-006) |
+| Reactivate task | UndoSnackbar (via store) | `POST /room-tasks/{id}/reactivate` | ✅ (undo of one-time completions, CS-PLAN-041) |
+| Undo a completion (snackbar) | global `UndoSnackbar` (~5 s) | `PUT /tasks/{roomTaskId}/uncomplete` (+ reactivate for deactivated tasks) | ✅ (CS-PLAN-041; rewards/streaks are not reverted — accepted pre-release) |
 
 ## UC-08 — Daily execution ("My Day")
 
@@ -214,9 +214,9 @@ service), Owner (overview). **Entry points:** SchedulingView.
 | Coin balance | ArcadeSection | `GET /minigames/coins` | ✅ |
 | Game/global state (streaks, goal) | Dashboard | `GET /game/state` | ✅ |
 | Leaderboard (podium, streak badges, "You") | Leaderboard | `GET /game/leaderboard` | ✅ |
-| Leaderboard period filter (week/month/all) | Leaderboard | — | ⚠️ dead control, no refetch (UX-005) |
-| Medals overview | Leaderboard `MedalBadge` | `GET /game/medals` | ⚠️ unreachable — `initializeStores()` is never invoked (UX-005) |
-| Medal evaluation trigger | — | `POST /game/check-medals` | ❌ |
+| Leaderboard period filter (week/month/all) | Leaderboard | — | ⛔ removed (CS-PLAN-041): `getLeaderboard` has no period parameter; a filter that changes nothing is dishonest UI |
+| Medals overview | Leaderboard medal cards | `GET /game/medals` | ✅ (store-driven, CS-PLAN-041) |
+| Medal evaluation trigger | Leaderboard mount (pre-pass) | `POST /game/check-medals` | ✅ (CS-PLAN-041) |
 | Unlock & select title | Settings → `TitlePicker` | `GET+PUT /users/{id}/titles(/select)` | ✅ |
 | Weekly goal progress | HouseholdGoalBar | client state | ✅ |
 | Reward rules configuration (coin/combo values) | — | `GET+PUT /reward-config` | ❌ |
@@ -232,7 +232,7 @@ service), Owner (overview). **Entry points:** SchedulingView.
 | Personal best / rank / recent scores | ArcadeSection, `SnakeLeaderboard` | `GET /minigames/{g}/personal-best`, `/rank`, `/recent` | ✅ |
 | All-time + weekly game leaderboard | SnakeLeaderboard | `GET /minigames/{g}/leaderboard(/weekly)` | ✅ |
 | Buy boost (coins) | `BoostShop` | `POST /minigames/boosts/{id}/purchase` | ✅ |
-| Authoritative boost catalog (price/effect) | — | `GET /minigames/boosts` | ❌ prices duplicated client-side (`BOOST_COSTS`, UX-013) |
+| Authoritative boost catalog (price/effect) | `BoostShop` / minigame store | `GET /minigames/boosts` | ✅ prices live server-side only (`BOOST_COSTS` deleted, UX-013) |
 
 ## UC-13 — Members, roles & household changes
 
@@ -308,13 +308,13 @@ badges. Shipped with CS-PLAN-040.
 | 01 | UX-011 (naming, skip persistence; invite step ✅ since CS-PLAN-038, UX-003 closed) |
 | 02 | UX-004 (role gating), UX-006 (silent save); insights/fairness view ✅ since CS-PLAN-040 (UC-16) |
 | 03/04 | UX-004 (room rename/delete, floor reorder, duplicate floor mgmt), UX-006 |
-| 05 | definition delete/search/categories unused; private-filter event (UX-005); global-search surface → FEAT-UX-028 |
-| 07 | deactivate/reactivate UI, completion undo (UX-006) |
+| 05 | definition delete/search/categories unused; global-search surface → FEAT-UX-028 |
+| 07 | deactivate (pause) UI |
 | 08 | checklist editor lock (UX-009) |
 | 09 | bulk assign + assignment in create forms (UX-008), claim target size (UX-007) |
 | 10 | suggestion apply missing (UX-014), duplicate preview buttons (CR-016-05); overcapacity warning ✅ since CS-PLAN-040 (UC-16) |
-| 11 | medals unreachable (UX-005), dead period filter (UX-005), reward-config UI |
-| 12 | boost catalog drift (UX-013) |
+| 11 | reward-config UI |
+| 12 | — |
 | 13 | profile edit, leave house (FEAT-UX-015), BUG-SEC-002 backend guard; per-member history ✅ since CS-PLAN-040 (UC-16) |
 | 14 | reminder-settings concept → FEAT-UX-024, task-sync surface decision → FEAT-UX-021 |
 | 15 | complete/assign from a calendar day (W6) |
@@ -423,15 +423,15 @@ surface) · `needs-decision` · `post-MVP`.
 
 ---
 
-**Last verified:** 2026-08-21 — CS-PLAN-040 completion pass: added UC-16
-(Insights: stats cards, fairness, activity feed, freeze badges,
-overcapacity warning), flipped `GET /house/stats` and
-`GET /room-tasks/room/{roomId}/stats` to ✅ with their new consumers,
-marked the three pruned stats routes ⛔, updated the Whitespace Group A
-closures (FEAT-UX-016/017/020/022), and recounted the ledger to 109 routes.
-Earlier same-day passes: CS-PLAN-039 added the route coverage appendix
-(uniform dead-store-wrapper annotations on ❌/⚠️ rows) and a Standard-B
-review corrected the UC-01 invite status (wizard step 4 shipped with
-CS-PLAN-038), added the live consumers for `due-today` / `range` /
-`GET assignees`, and added UC-15 (CalendarView was previously only a gap
-row in UC-08).
+**Last verified:** 2026-08-22 — CS-PLAN-041 pass (UX-005/006/013): medals
+overview + `check-medals` pre-pass ✅ on the Leaderboard mount, period filter
+⛔ removed (no backend parameter), Dashboard private chip → TaskManager
+`?visibility=private` scope ✅, completion undo snackbar (`uncomplete` +
+conditional `reactivate`) ✅, boost catalog ✅ server-authoritative
+(`BOOST_COSTS` deleted), styled confirms replace native `confirm()`.
+Earlier passes: 2026-08-21 — CS-PLAN-040 added UC-16 and flipped the stats
+routes; CS-PLAN-039 added the route coverage appendix (uniform
+dead-store-wrapper annotations) and a Standard-B review corrected the UC-01
+invite status, added the live consumers for `due-today` / `range` /
+`GET assignees`, and added UC-15 (CalendarView was previously only a gap row
+in UC-08).

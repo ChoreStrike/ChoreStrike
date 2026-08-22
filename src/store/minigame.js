@@ -8,18 +8,10 @@ import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 
 /**
- * Available boost types with their costs
- */
-export const BOOST_COSTS = {
-	slow_motion: 10,
-	ghost_mode: 20,
-	magnet: 30,
-	shrink: 15,
-	no_obstacles: 25,
-}
-
-/**
- * Boost descriptions for UI display
+ * Boost display copy (name/icon/effect). Prices are NOT defined here —
+ * they come exclusively from `GET /minigames/boosts` into the store
+ * catalog so affordability check and purchase can never drift apart
+ * (CS-PLAN-041, UX-013).
  */
 export const BOOST_DESCRIPTIONS = {
 	slow_motion: { name: 'Slow Motion', icon: '🐌', effect: '20% slower snake' },
@@ -42,6 +34,10 @@ export const useMinigameStore = defineStore('minigame', {
 		activeBoosts: [],
 		purchasedBoosts: [],
 		boostsLoading: false,
+		// Authoritative boost price catalog from GET /minigames/boosts:
+		// `{ [boostId]: cost }`. Null until loaded; purchases stay
+		// disabled without it instead of falling back to stale prices.
+		boostCatalog: null,
 
 		// Coins
 		currentCoins: 0,
@@ -62,12 +58,32 @@ export const useMinigameStore = defineStore('minigame', {
 
 	getters: {
 		/**
-		 * Check if user can afford a boost
+		 * Whether the authoritative boost catalog has been loaded.
+		 * @param {object} state Pinia store state
+		 */
+		boostsLoaded: (state) => state.boostCatalog !== null,
+
+		/**
+		 * Catalog entries enriched with display copy, sorted by cost.
+		 * Empty until the catalog is loaded — consumers render a disabled
+		 * error state instead of stale prices.
+		 * @param {object} state Pinia store state
+		 */
+		availableBoosts: (state) => {
+			if (!state.boostCatalog) return []
+			return Object.entries(state.boostCatalog)
+				.map(([id, cost]) => ({ id, cost, ...BOOST_DESCRIPTIONS[id] }))
+				.sort((a, b) => a.cost - b.cost)
+		},
+
+		/**
+		 * Check if user can afford a boost (catalog-authoritative price).
+		 * Unknown/uncataloged boosts are never affordable.
 		 * @param {object} state Pinia store state
 		 */
 		canAffordBoost: (state) => (boostId) => {
-			const cost = BOOST_COSTS[boostId]
-			return state.currentCoins >= cost
+			const cost = state.boostCatalog?.[boostId]
+			return Number.isFinite(cost) && state.currentCoins >= cost
 		},
 
 		/**
@@ -75,8 +91,9 @@ export const useMinigameStore = defineStore('minigame', {
 		 * @param {object} state Pinia store state
 		 */
 		selectedBoostsCost: (state) => {
+			if (!state.boostCatalog) return 0
 			return state.purchasedBoosts.reduce((sum, boostId) => {
-				return sum + (BOOST_COSTS[boostId] || 0)
+				return sum + (state.boostCatalog[boostId] || 0)
 			}, 0)
 		},
 
@@ -90,16 +107,9 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Get available boosts that user can afford
-		 * @param {object} state Pinia store state
 		 */
-		affordableBoosts: (state) => {
-			return Object.entries(BOOST_COSTS)
-				.filter(([id, cost]) => state.currentCoins >= cost)
-				.map(([id, cost]) => ({
-					id,
-					cost,
-					...BOOST_DESCRIPTIONS[id],
-				}))
+		affordableBoosts() {
+			return this.availableBoosts.filter(boost => this.canAffordBoost(boost.id))
 		},
 
 		/**
@@ -211,10 +221,39 @@ export const useMinigameStore = defineStore('minigame', {
 		},
 
 		/**
+		 * Fetch the authoritative boost price catalog.
+		 *
+		 * Prices live server-side only; until this succeeds every
+		 * affordability check fails and purchases are disabled so the UI can
+		 * never offer stale prices (UX-013).
+		 */
+		async fetchBoostCatalog() {
+			this.boostsLoading = true
+
+			try {
+				const data = await api.get('/api/v1/minigames/boosts')
+				this.boostCatalog = { ...data }
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to fetch boost catalog', error, { store: 'minigame', action: 'fetchBoostCatalog' })
+				throw error
+			} finally {
+				this.boostsLoading = false
+			}
+		},
+
+		/**
 		 * Purchase a boost
 		 * @param {string} boostId Boost identifier to purchase
 		 */
 		async purchaseBoost(boostId) {
+			// No stale-price fallback: without the authoritative catalog the
+			// purchase is refused up front instead of guessing the cost.
+			if (!this.boostCatalog?.[boostId]) {
+				logger.error('Purchase blocked - boost catalog unavailable', undefined, { store: 'minigame', action: 'purchaseBoost', boostId })
+				return false
+			}
+
 			this.boostsLoading = true
 
 			try {
@@ -357,6 +396,7 @@ export const useMinigameStore = defineStore('minigame', {
 
 			await Promise.all([
 				this.fetchCoins(),
+				this.fetchBoostCatalog(),
 				this.fetchLeaderboard(gameId),
 				this.fetchPersonalBest(gameId),
 				this.fetchUserRank(gameId),
@@ -383,6 +423,7 @@ export const useMinigameStore = defineStore('minigame', {
 			this.gameOver = false
 			this.activeBoosts = []
 			this.purchasedBoosts = []
+			this.boostCatalog = null
 			this.currentCoins = 0
 			this.leaderboard = []
 			this.weeklyLeaderboard = []

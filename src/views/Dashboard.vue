@@ -43,7 +43,10 @@
 
 			<main class="dashboard-content">
 				<HouseholdGoalBar class="household-goal-section" data-testid="household-goal-section" />
-				<QuickStats class="quick-stats-section" data-testid="quick-stats" />
+				<QuickStats
+					class="quick-stats-section"
+					data-testid="quick-stats"
+					@toggle-private-filter="handleTogglePrivateFilter" />
 				<ArcadeSection class="arcade-section" data-testid="arcade-section" />
 				<FloorList class="floor-list-section" data-testid="floor-list" />
 			</main>
@@ -59,6 +62,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { useRouter } from 'vue-router'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useGameStore } from '../store/game.js'
@@ -88,7 +92,8 @@ export default {
 		const houseStore = useHouseStore()
 		const roomsStore = useRoomsStore()
 		const gameStore = useGameStore()
-		return { houseStore, roomsStore, gameStore }
+		const router = useRouter()
+		return { houseStore, roomsStore, gameStore, router }
 	},
 
 	data() {
@@ -172,6 +177,15 @@ export default {
 		},
 		closeWizard() {
 			this.showWizard = false
+		},
+		/**
+		 * "My Private Tasks" chip (CS-PLAN-041): the Dashboard renders no task
+		 * list of its own, so the binding routes to the Task Manager
+		 * pre-filtered to the current user's private tasks — a client-side
+		 * scope mechanism consistent with TodayView's My-tasks scope.
+		 */
+		handleTogglePrivateFilter() {
+			this.router.push({ name: 'tasks', query: { visibility: 'private' } })
 		},
 	},
 }

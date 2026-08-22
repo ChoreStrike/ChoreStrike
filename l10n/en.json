@@ -707,6 +707,26 @@
         "Overloaded days ahead": "Overloaded days ahead",
         "More chores are planned than energy is available. These tasks would be deferred first (lowest priority first):": "More chores are planned than energy is available. These tasks would be deferred first (lowest priority first):",
         "Planned energy ({planned}) exceeds the available capacity ({capacity})": "Planned energy ({planned}) exceeds the available capacity ({capacity})",
-        "No activity in this period yet.": "No activity in this period yet."
+        "No activity in this period yet.": "No activity in this period yet.",
+        "Undo": "Undo",
+        "Dismiss": "Dismiss",
+        "Task completed": "Task completed",
+        "Could not undo the completion": "Could not undo the completion",
+        "Failed to delete task": "Failed to delete task",
+        "Delete \"{name}\"?": "Delete \"{name}\"?",
+        "Delete \"{name}\" and all its rooms?": "Delete \"{name}\" and all its rooms?",
+        "All rooms and tasks on this floor will be deleted.": "All rooms and tasks on this floor will be deleted.",
+        "All": "All",
+        "House name saved": "House name saved",
+        "Failed to save house name": "Failed to save house name",
+        "Floor created": "Floor created",
+        "Failed to create floor": "Failed to create floor",
+        "Floor renamed": "Floor renamed",
+        "Failed to update floor": "Failed to update floor",
+        "Floor deleted": "Floor deleted",
+        "Failed to delete floor": "Failed to delete floor",
+        "House was reset": "House was reset",
+        "Failed to reset house": "Failed to reset house",
+        "Boost prices could not be loaded. Purchases are disabled.": "Boost prices could not be loaded. Purchases are disabled."
     }
 }

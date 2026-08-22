@@ -58,6 +58,12 @@ jest.mock('@/components/Common/Modal.vue', () => ({
 	template: '<div class="modal-stub"><slot /></div>',
 }))
 
+let mockRoute = { query: {} }
+
+jest.mock('vue-router', () => ({
+	useRoute: () => mockRoute,
+}))
+
 import { showSuccess, showError, showWarning } from '@nextcloud/dialogs'
 
 const mockRoomsStore = {
@@ -90,6 +96,7 @@ describe('TaskManager', () => {
 		setActivePinia(createPinia())
 		roomTasksStore = mockRoomTasksStore
 		tasksStore = mockTasksStore
+		mockRoute = { query: {} }
 		jest.clearAllMocks()
 	})
 
@@ -191,5 +198,57 @@ describe('TaskManager', () => {
 
 		expect(showWarning).toHaveBeenCalled()
 		expect(wrapper.vm.showAddTaskModal).toBe(false)
+	})
+
+	it('pre-filters to private tasks when routed with ?visibility=private (CS-PLAN-041)', async () => {
+		mockRoute = { query: { visibility: 'private' } }
+		mockRoomTasksStore.roomTasks = [
+			{ id: 1, taskId: 101, isActive: true },
+			{ id: 2, taskId: 102, isActive: true },
+		]
+		mockTasksStore.getTaskById.mockImplementation(id => ({
+			101: { id: 101, name: 'Public chore', visibilityType: 'public' },
+			102: { id: 102, name: 'Private chore', visibilityType: 'private' },
+		}[id]))
+
+		const wrapper = await mountView()
+
+		expect(wrapper.vm.filterVisibility).toBe('private')
+		const shown = wrapper.findComponent({ name: 'TaskList' })
+		expect(shown.props('roomTasks').map(t => t.task.name)).toEqual(['Private chore'])
+	})
+
+	it('requires confirm-dialog consent and toasts before deleting a task', async () => {
+		mockRoomTasksStore.roomTasks = [{ id: 5, taskId: 101, isActive: true }]
+		mockTasksStore.getTaskById.mockReturnValue({ id: 101, name: 'Chore', visibilityType: 'public' })
+
+		const wrapper = await mountView()
+		wrapper.vm.handleDeleteTask(5)
+		await wrapper.vm.$nextTick()
+
+		expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true)
+		expect(mockRoomTasksStore.deleteRoomTask).not.toHaveBeenCalled()
+
+		await wrapper.find('[data-testid="confirm-dialog-confirm"]').trigger('click')
+		await wrapper.vm.$nextTick()
+
+		expect(mockRoomTasksStore.deleteRoomTask).toHaveBeenCalledWith(5)
+		expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(false)
+	})
+
+	it('toasts an error and keeps the dialog open when the delete fails', async () => {
+		mockRoomTasksStore.deleteRoomTask.mockRejectedValue(new Error('boom'))
+		mockRoomTasksStore.roomTasks = [{ id: 6, taskId: 101, isActive: true }]
+		mockTasksStore.getTaskById.mockReturnValue({ id: 101, name: 'Chore', visibilityType: 'public' })
+
+		const wrapper = await mountView()
+		wrapper.vm.handleDeleteTask(6)
+		await wrapper.vm.$nextTick()
+
+		await wrapper.find('[data-testid="confirm-dialog-confirm"]').trigger('click')
+		await wrapper.vm.$nextTick()
+
+		expect(showError).toHaveBeenCalled()
+		expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true)
 	})
 })

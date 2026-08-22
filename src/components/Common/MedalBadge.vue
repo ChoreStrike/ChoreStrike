@@ -15,6 +15,19 @@ import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 
 /**
+ * Medal type → translation key (source string). Exported so surfaces that
+ * only need the label (e.g. the Leaderboard medal cards) stay in sync with
+ * the badge without re-declaring the mapping.
+ */
+export const MEDAL_LABELS = {
+	team_anchor: 'Team Anchor',
+	flow_keeper: 'Flow Keeper',
+	room_guardian: 'Room Guardian',
+	team_player: 'Team Player',
+	streak_keeper: 'Streak Keeper',
+}
+
+/**
  * Medal badge component for displaying a single medal
  */
 export default {
@@ -26,13 +39,7 @@ export default {
 		type: {
 			type: String,
 			required: true,
-			validator: (value) => [
-				'team_anchor',
-				'flow_keeper',
-				'room_guardian',
-				'team_player',
-				'streak_keeper',
-			].includes(value),
+			validator: (value) => Object.keys(MEDAL_LABELS).includes(value),
 		},
 		/**
 		 * Display size variant
@@ -51,14 +58,6 @@ export default {
 		},
 	},
 	setup(props) {
-		const labels = {
-			team_anchor: t('chorestrike', 'Team Anchor'),
-			flow_keeper: t('chorestrike', 'Flow Keeper'),
-			room_guardian: t('chorestrike', 'Room Guardian'),
-			team_player: t('chorestrike', 'Team Player'),
-			streak_keeper: t('chorestrike', 'Streak Keeper'),
-		}
-
 		const icons = {
 			team_anchor: '🛟',
 			flow_keeper: '🌊',
@@ -67,7 +66,10 @@ export default {
 			streak_keeper: '🔥',
 		}
 
-		const label = computed(() => labels[props.type] || props.type)
+		const label = computed(() => {
+			const key = MEDAL_LABELS[props.type]
+			return key ? t('chorestrike', key) : props.type
+		})
 		const icon = computed(() => icons[props.type] || '🏅')
 
 		return {

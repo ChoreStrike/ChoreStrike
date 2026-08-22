@@ -14,18 +14,6 @@
 			</p>
 		</header>
 
-		<div class="time-filter" data-testid="time-range-filter">
-			<button
-				v-for="period in periods"
-				:key="period.value"
-				class="filter-button"
-				:data-testid="`filter-${period.value}`"
-				:class="{ active: selectedPeriod === period.value }"
-				@click="selectedPeriod = period.value">
-				{{ period.label }}
-			</button>
-		</div>
-
 		<div class="leaderboard-content">
 			<!-- Podium for top 3 -->
 			<div v-if="leaderboard.length >= 3" class="podium" data-testid="podium-section">
@@ -121,13 +109,13 @@
 				</div>
 			</div>
 
-			<!-- Weekly medals -->
-			<div v-if="medals.length > 0" class="medals-section" data-testid="medal-summary">
+			<!-- Weekly medals (store-driven; CS-PLAN-041) -->
+			<div v-if="weeklyMedals.length > 0" class="medals-section" data-testid="medal-summary">
 				<h2>{{ t('chorestrike', 'This Week\'s Medals') }}</h2>
 				<div class="medals-grid">
 					<div
-						v-for="medal in medals"
-						:key="medal.type"
+						v-for="medal in weeklyMedals"
+						:key="medal.id"
 						class="medal-card"
 						data-testid="medal-badge"
 						:data-medal-type="medal.type">
@@ -146,9 +134,10 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import { useUserStore } from '../store/user.js'
+import { useGameStore } from '../store/game.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
-import MedalBadge from '../components/Common/MedalBadge.vue'
+import MedalBadge, { MEDAL_LABELS } from '../components/Common/MedalBadge.vue'
 import TitleBadge from '../components/Profile/TitleBadge.vue'
 
 export default {
@@ -162,17 +151,12 @@ export default {
 
 	setup() {
 		const userStore = useUserStore()
-		return { userStore }
+		const gameStore = useGameStore()
+		return { userStore, gameStore }
 	},
 
 	data() {
 		return {
-			selectedPeriod: 'week',
-			periods: [
-				{ value: 'week', label: t('chorestrike', 'This Week') },
-				{ value: 'month', label: t('chorestrike', 'This Month') },
-				{ value: 'all', label: t('chorestrike', 'All Time') },
-			],
 			loading: false,
 		}
 	},
@@ -193,9 +177,20 @@ export default {
 			return this.rankedLeaderboard.slice(0, 3)
 		},
 
-		medals() {
-			// Placeholder for weekly medals - would come from store/API
-			return []
+		/**
+		 * Weekly medals from the game store, mapped for display. The store is
+		 * populated by fetchMedals() (after the check-medals evaluation
+		 * pre-pass) in initializeLeaderboard().
+		 */
+		weeklyMedals() {
+			return this.gameStore.medals.map(medal => ({
+				id: medal.id,
+				type: medal.medalType,
+				label: MEDAL_LABELS[medal.medalType]
+					? t('chorestrike', MEDAL_LABELS[medal.medalType])
+					: medal.medalType,
+				recipient: medal.userName,
+			}))
 		},
 	},
 
@@ -209,8 +204,13 @@ export default {
 		async initializeLeaderboard() {
 			this.loading = true
 			try {
+				// Evaluate any due weekly medals first so fetchMedals() picks
+				// up genuinely new awards (celebrations fire once, guarded by
+				// the previous snapshot inside the store).
 				await this.userStore.initializeCurrentUser()
 				await this.userStore.fetchHouseUsers()
+				await this.gameStore.checkMedals()
+				await this.gameStore.fetchMedals()
 			} catch (error) {
 				logger.error('Failed to initialize leaderboard', error, { view: 'Leaderboard', action: 'initializeLeaderboard' })
 			} finally {
@@ -283,34 +283,6 @@ export default {
 .subtitle {
 	color: var(--color-text-maxcontrast);
 	margin: 0;
-}
-
-.time-filter {
-	display: flex;
-	justify-content: center;
-	gap: 0.5rem;
-	margin-bottom: 2rem;
-}
-
-.filter-button {
-	padding: 0.5rem 1rem;
-	background: var(--color-background-dark);
-	color: var(--color-main-text);
-	border: none;
-	border-radius: 20px;
-	cursor: pointer;
-	font-size: 0.9rem;
-	transition: all 0.2s;
-}
-
-.filter-button:hover {
-	background: var(--color-primary);
-	color: var(--color-primary-text);
-}
-
-.filter-button.active {
-	background: var(--color-primary);
-	color: var(--color-primary-text);
 }
 
 .leaderboard-content {

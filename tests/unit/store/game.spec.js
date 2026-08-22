@@ -3,7 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useGameStore } from '../../../src/store/game.js'
 
 jest.mock('../../../src/services/api.js', () => ({
-	api: { get: jest.fn() },
+	api: { get: jest.fn(), post: jest.fn() },
 }))
 
 jest.mock('@/utils/logger', () => ({
@@ -238,6 +238,24 @@ describe('Game Store', () => {
 				await store.fetchMedals()
 
 				expect(store.medals).toEqual(mockMedals)
+			})
+		})
+
+		describe('checkMedals', () => {
+			it('posts the check-medals endpoint', async () => {
+				api.post.mockResolvedValue({ awardedMedals: [], count: 0 })
+
+				await store.checkMedals()
+
+				expect(api.post).toHaveBeenCalledWith('/api/v1/game/check-medals')
+			})
+
+			it('swallows failures so the Leaderboard view keeps working', async () => {
+				api.post.mockRejectedValue(new Error('Offline'))
+
+				await expect(store.checkMedals()).resolves.toBeUndefined()
+
+				expect(store.error).toBeNull()
 			})
 		})
 

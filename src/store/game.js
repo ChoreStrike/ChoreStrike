@@ -180,6 +180,23 @@ export const useGameStore = defineStore('game', {
 		},
 
 		/**
+		 * Trigger medal evaluation server-side.
+		 *
+		 * Best-effort pre-pass before fetchMedals(): asks the backend to
+		 * evaluate and award any due weekly medals so the subsequent fetch
+		 * surfaces them (and their celebrations). A failure here must not
+		 * break the Leaderboard view — medals simply stay at their last
+		 * known state.
+		 */
+		async checkMedals() {
+			try {
+				await api.post('/api/v1/game/check-medals')
+			} catch (error) {
+				logger.error('Failed to check medals', error, { store: 'game', action: 'checkMedals' })
+			}
+		},
+
+		/**
 		 * Fetch medals.
 		 *
 		 * Emits `chorestrike:medal-awarded` for every medal in the response

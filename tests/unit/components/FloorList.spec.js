@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from '@jest/globals'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { translate } from '@nextcloud/l10n'
 import FloorList from '../../../src/components/Dashboard/FloorList.vue'
@@ -8,8 +8,26 @@ import RoomCard from '../../../src/components/Dashboard/RoomCard.vue'
 let mockRoomsStore
 
 jest.mock('@nextcloud/l10n', () => ({
-	translate: jest.fn((app, text) => text),
+	translate: jest.fn((app, text, vars = {}) =>
+		text.replace(/\{(\w+)\}/g, (m, key) => (key in vars ? String(vars[key]) : m))
+	),
 }))
+
+jest.mock('@nextcloud/dialogs', () => ({
+	showError: jest.fn(),
+	showSuccess: jest.fn(),
+}))
+
+jest.mock('../../../src/utils/logger.js', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
+import { showError } from '@nextcloud/dialogs'
 
 global.confirm = jest.fn(() => true)
 
@@ -62,6 +80,7 @@ describe('FloorList.vue', () => {
 		}
 		translate.mockClear()
 		global.confirm.mockClear()
+		showError.mockClear()
 	})
 
 	it('renders component', () => {
@@ -198,7 +217,7 @@ describe('FloorList.vue', () => {
 		expect(translate).toHaveBeenCalledWith('chorestrike', 'No floors yet')
 	})
 
-	it('uses localized floor deletion confirmation message', async () => {
+	it('opens the styled confirm dialog for floor deletion', async () => {
 		const wrapper = mount(FloorList, {
 			global: {
 				plugins: [pinia],
@@ -207,9 +226,32 @@ describe('FloorList.vue', () => {
 		})
 
 		await wrapper.vm.deleteFloor({ id: 1, name: 'Ground Floor' })
+		await wrapper.vm.$nextTick()
 
-		expect(global.confirm).toHaveBeenCalledTimes(1)
-		expect(global.confirm.mock.calls[0][0]).toContain('Are you sure you want to delete')
+		expect(global.confirm).not.toHaveBeenCalled()
+		expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true)
+		expect(wrapper.text()).toContain('Ground Floor')
+	})
+
+	it('toasts an error and keeps the dialog open when floor deletion fails', async () => {
+		mockRoomsStore.deleteFloor.mockRejectedValue(new Error('boom'))
+		mockRoomsStore.floors = [{ id: 1, name: 'Ground Floor', sortOrder: 0 }]
+
+		const wrapper = mount(FloorList, {
+			global: {
+				plugins: [pinia],
+				components: { RoomCard },
+			},
+		})
+
+		await wrapper.vm.deleteFloor({ id: 1, name: 'Ground Floor' })
+		await wrapper.vm.$nextTick()
+
+		await wrapper.find('[data-testid="confirm-dialog-confirm"]').trigger('click')
+		await flushPromises()
+
+		expect(showError).toHaveBeenCalled()
+		expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true)
 	})
 
 	it('shows add room action when expanding an empty floor', async () => {

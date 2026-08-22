@@ -1,6 +1,15 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
-import { useMinigameStore, BOOST_COSTS } from '../../../src/store/minigame.js'
+import { useMinigameStore } from '../../../src/store/minigame.js'
+
+// Authoritative catalog shape as returned by GET /minigames/boosts.
+const MOCK_CATALOG = {
+	slow_motion: 10,
+	ghost_mode: 20,
+	magnet: 30,
+	shrink: 15,
+	no_obstacles: 25,
+}
 
 jest.mock('../../../src/services/api.js', () => ({
 	api: {
@@ -38,6 +47,7 @@ describe('Minigame Store', () => {
 			expect(store.gameOver).toBe(false)
 			expect(store.activeBoosts).toEqual([])
 			expect(store.purchasedBoosts).toEqual([])
+			expect(store.boostCatalog).toBeNull()
 			expect(store.currentCoins).toBe(0)
 			expect(store.leaderboard).toEqual([])
 			expect(store.weeklyLeaderboard).toEqual([])
@@ -51,8 +61,58 @@ describe('Minigame Store', () => {
 		})
 	})
 
+	describe('Boost catalog (UX-013)', () => {
+		it('boostsLoaded is false until the catalog is fetched', () => {
+			expect(store.boostsLoaded).toBe(false)
+		})
+
+		it('fetchBoostCatalog stores the authoritative prices', async () => {
+			api.get.mockResolvedValue(MOCK_CATALOG)
+
+			await store.fetchBoostCatalog()
+
+			expect(api.get).toHaveBeenCalledWith('/api/v1/minigames/boosts')
+			expect(store.boostCatalog).toEqual(MOCK_CATALOG)
+			expect(store.boostsLoaded).toBe(true)
+		})
+
+		it('fetchBoostCatalog failure keeps the catalog absent and throws', async () => {
+			api.get.mockRejectedValue(new Error('Offline'))
+
+			await expect(store.fetchBoostCatalog()).rejects.toThrow('Offline')
+
+			expect(store.boostCatalog).toBeNull()
+			expect(store.boostsLoaded).toBe(false)
+		})
+
+		it('availableBoosts enriches catalog entries with display copy, sorted by cost', () => {
+			store.boostCatalog = { magnet: 30, slow_motion: 10 }
+
+			const boosts = store.availableBoosts
+
+			expect(boosts.map(b => b.id)).toEqual(['slow_motion', 'magnet'])
+			expect(boosts[0].cost).toBe(10)
+			expect(boosts[0].name).toBe('Slow Motion')
+		})
+
+		it('availableBoosts is empty without a catalog', () => {
+			expect(store.availableBoosts).toEqual([])
+		})
+
+		it('blocks purchases without a catalog instead of using stale prices', async () => {
+			store.currentCoins = 100
+
+			const result = await store.purchaseBoost('slow_motion')
+
+			expect(result).toBe(false)
+			expect(api.post).not.toHaveBeenCalled()
+			expect(store.purchasedBoosts).toEqual([])
+		})
+	})
+
 	describe('Getters', () => {
 		beforeEach(() => {
+			store.boostCatalog = { ...MOCK_CATALOG }
 			store.currentCoins = 50
 			store.purchasedBoosts = ['slow_motion']
 			store.activeBoosts = ['slow_motion', 'ghost_mode']
@@ -173,6 +233,10 @@ describe('Minigame Store', () => {
 		})
 
 		describe('purchaseBoost', () => {
+			beforeEach(() => {
+				store.boostCatalog = { ...MOCK_CATALOG }
+			})
+
 			it('purchases boost successfully', async () => {
 				store.currentCoins = 50
 				api.post.mockResolvedValue({ remainingCoins: 40 })
@@ -328,12 +392,13 @@ describe('Minigame Store', () => {
 		})
 
 		describe('initialize', () => {
-			it('fetches all initial data', async () => {
+			it('fetches all initial data incl. the boost catalog', async () => {
 				api.get.mockResolvedValue({ currentCoins: 100 })
 
 				await store.initialize('snake')
 
-				expect(api.get).toHaveBeenCalledTimes(4)
+				expect(api.get).toHaveBeenCalledTimes(5)
+				expect(store.boostCatalog).toEqual({ currentCoins: 100 })
 				expect(store.loading).toBe(false)
 			})
 		})
@@ -347,6 +412,7 @@ describe('Minigame Store', () => {
 				store.gameOver = false
 				store.activeBoosts = ['slow_motion']
 				store.purchasedBoosts = ['ghost_mode']
+				store.boostCatalog = { ...MOCK_CATALOG }
 				store.currentCoins = 100
 				store.leaderboard = [{ id: 1 }]
 				store.weeklyLeaderboard = [{ id: 2 }]
@@ -367,6 +433,7 @@ describe('Minigame Store', () => {
 				expect(store.gameOver).toBe(false)
 				expect(store.activeBoosts).toEqual([])
 				expect(store.purchasedBoosts).toEqual([])
+				expect(store.boostCatalog).toBeNull()
 				expect(store.currentCoins).toBe(0)
 				expect(store.leaderboard).toEqual([])
 				expect(store.weeklyLeaderboard).toEqual([])
@@ -378,16 +445,6 @@ describe('Minigame Store', () => {
 				expect(store.showBoostShop).toBe(false)
 				expect(store.showLeaderboard).toBe(false)
 			})
-		})
-	})
-
-	describe('BOOST_COSTS', () => {
-		it('has correct boost costs', () => {
-			expect(BOOST_COSTS.slow_motion).toBe(10)
-			expect(BOOST_COSTS.ghost_mode).toBe(20)
-			expect(BOOST_COSTS.magnet).toBe(30)
-			expect(BOOST_COSTS.shrink).toBe(15)
-			expect(BOOST_COSTS.no_obstacles).toBe(25)
 		})
 	})
 })

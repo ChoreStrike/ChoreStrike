@@ -39,6 +39,20 @@ jest.mock('../../../src/store/user.js', () => {
 	}
 })
 
+const mockCheckMedals = jest.fn().mockResolvedValue()
+const mockFetchMedals = jest.fn().mockResolvedValue()
+
+jest.mock('../../../src/store/game.js', () => ({
+	useGameStore: () => ({
+		medals: [
+			{ id: 11, userId: 1, userName: 'Alice', medalType: 'streak_keeper', value: 7 },
+			{ id: 12, userId: 2, userName: 'Current User', medalType: 'team_anchor', value: 10 },
+		],
+		checkMedals: (...args) => mockCheckMedals(...args),
+		fetchMedals: (...args) => mockFetchMedals(...args),
+	}),
+}))
+
 // Mock child components
 jest.mock('../../../src/components/Common/Icon.vue', () => ({
 	name: 'Icon',
@@ -47,9 +61,19 @@ jest.mock('../../../src/components/Common/Icon.vue', () => ({
 }))
 
 jest.mock('../../../src/components/Common/MedalBadge.vue', () => ({
-	name: 'MedalBadge',
-	props: ['type', 'size'],
-	template: '<div class="medal-badge">{{ type }}</div>',
+	__esModule: true,
+	MEDAL_LABELS: {
+		team_anchor: 'Team Anchor',
+		flow_keeper: 'Flow Keeper',
+		room_guardian: 'Room Guardian',
+		team_player: 'Team Player',
+		streak_keeper: 'Streak Keeper',
+	},
+	default: {
+		name: 'MedalBadge',
+		props: ['type', 'size'],
+		template: '<div class="medal-badge">{{ type }}</div>',
+	},
 }))
 
 describe('Leaderboard.vue', () => {
@@ -90,35 +114,42 @@ describe('Leaderboard.vue', () => {
 		expect(wrapper.find('.subtitle').exists()).toBe(true)
 	})
 
-	it('has time period filters', () => {
+	it('has no dead period filter (CS-PLAN-041 removal)', () => {
 		const wrapper = mount(Leaderboard, {
 			global: {
 				plugins: [pinia],
 			},
 		})
 
-		expect(wrapper.find('.time-filter').exists()).toBe(true)
+		expect(wrapper.find('.time-filter').exists()).toBe(false)
+		expect(wrapper.findAll('.filter-button').length).toBe(0)
 	})
 
-	it('renders filter buttons for each period', () => {
-		const wrapper = mount(Leaderboard, {
+	it('evaluates and fetches medals on mount', async () => {
+		await mount(Leaderboard, {
 			global: {
 				plugins: [pinia],
 			},
 		})
 
-		const filterButtons = wrapper.findAll('.filter-button')
-		expect(filterButtons.length).toBe(3)
+		expect(mockCheckMedals).toHaveBeenCalled()
+		expect(mockFetchMedals).toHaveBeenCalled()
 	})
 
-	it('has active period filter by default', () => {
-		const wrapper = mount(Leaderboard, {
+	it('renders the weekly medals section from the game store', async () => {
+		const wrapper = await mount(Leaderboard, {
 			global: {
 				plugins: [pinia],
 			},
 		})
 
-		expect(wrapper.vm.selectedPeriod).toBe('week')
+		const section = wrapper.find('[data-testid="medal-summary"]')
+		expect(section.exists()).toBe(true)
+
+		const badges = wrapper.findAll('[data-testid="medal-badge"]')
+		expect(badges.length).toBe(2)
+		expect(badges[0].attributes('data-medal-type')).toBe('streak_keeper')
+		expect(badges[0].text()).toContain('Alice')
 	})
 
 	it('renders podium section when 3+ users', () => {
@@ -291,19 +322,6 @@ describe('Leaderboard.vue', () => {
 
 		const currentUser = { nextcloudUserId: 'user1' }
 		expect(wrapper.vm.isCurrentUser(currentUser)).toBe(true)
-	})
-
-	it('changes active filter when clicked', async () => {
-		const wrapper = mount(Leaderboard, {
-			global: {
-				plugins: [pinia],
-			},
-		})
-
-		const filters = wrapper.findAll('.filter-button')
-		await filters.at(1).trigger('click')
-
-		expect(wrapper.vm.selectedPeriod).toBe('month')
 	})
 
 	it('computes podium heights correctly', () => {

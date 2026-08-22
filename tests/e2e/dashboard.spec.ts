@@ -45,4 +45,51 @@ test.describe('User Login and Dashboard', () => {
 		await page.getByTestId('nav-dashboard').click()
 		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 15000 })
 	})
+
+	test('Private filter chip scopes the task list to private tasks (CS-PLAN-041)', async ({ page }) => {
+		test.setTimeout(90000)
+
+		// Seed one public and one private task so the filter outcome is
+		// deterministic regardless of prior seed state.
+		await page.goto('/apps/chorestrike/#/tasks')
+		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+
+		const createTask = async (name: string, visibility: string) => {
+			await page.getByTestId('add-task-button').click()
+			await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
+			await page.getByTestId('task-name-input').fill(name)
+			await page.getByTestId('task-visibility-select').selectOption(visibility)
+
+			const roomSelect = page.getByTestId('room-picker-room')
+			const roomOption = await roomSelect.locator('option').nth(1).getAttribute('value')
+			if (!roomOption) {
+				await page.getByTestId('modal').getByTestId('modal-close').click()
+				return false
+			}
+			await roomSelect.selectOption(roomOption)
+
+			const createResponse = page.waitForResponse(
+				(response) => response.request().method() === 'POST' && response.url().includes('/api/v1/room-tasks'),
+				{ timeout: 15000 },
+			)
+			await page.getByTestId('save-task-button').click()
+			expect((await createResponse).ok()).toBeTruthy()
+			await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 15000 })
+			return true
+		}
+
+		if (!await createTask('E2E Public Filter Task', 'public')) return
+		if (!await createTask('E2E Private Filter Task', 'private')) return
+
+		// The chip on the Dashboard routes to the pre-filtered task list.
+		await page.goto('/apps/chorestrike/#/')
+		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
+		await page.getByTestId('private-filter-toggle').click()
+
+		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('visibility-filter')).toHaveValue('private')
+
+		await expect(page.getByText('E2E Private Filter Task')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByText('E2E Public Filter Task')).toHaveCount(0)
+	})
 })

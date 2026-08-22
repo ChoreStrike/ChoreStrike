@@ -236,11 +236,21 @@
 			:house-user-id="houseUserId"
 			@close="showTitlePicker = false"
 			@selected="onTitleSelected" />
+
+		<!-- Delete Floor Confirmation -->
+		<ConfirmDialog
+			v-if="floorToDelete !== null"
+			:title="deleteFloorTitle"
+			:description="t('chorestrike', 'All rooms and tasks on this floor will be deleted.')"
+			:loading="deletingFloor"
+			@confirm="confirmDeleteFloor"
+			@cancel="floorToDelete = null" />
 	</div>
 </template>
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useUserStore } from '../store/user.js'
@@ -248,6 +258,7 @@ import { useTitlesStore } from '../store/titles.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
+import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
 import MemberList from '../components/Members/MemberList.vue'
 import TitleBadge from '../components/Profile/TitleBadge.vue'
 import TitlePicker from '../components/Profile/TitlePicker.vue'
@@ -258,6 +269,7 @@ export default {
 	components: {
 		Icon,
 		Modal,
+		ConfirmDialog,
 		MemberList,
 		TitleBadge,
 		TitlePicker,
@@ -282,6 +294,8 @@ export default {
 			editingFloor: null,
 			editingFloorName: '',
 			resetConfirmation: '',
+			floorToDelete: null,
+			deletingFloor: false,
 		}
 	},
 
@@ -296,6 +310,12 @@ export default {
 
 		houseUserId() {
 			return this.userStore.userId
+		},
+
+		deleteFloorTitle() {
+			const floor = this.floorToDelete
+			if (!floor) return ''
+			return t('chorestrike', 'Delete "{name}"?', { name: floor.name })
 		},
 	},
 
@@ -344,7 +364,9 @@ export default {
 			if (!this.canSaveHouseName) return
 			try {
 				await this.houseStore.updateHouseName(this.houseName.trim())
+				showSuccess(t('chorestrike', 'House name saved'))
 			} catch (error) {
+				showError(t('chorestrike', 'Failed to save house name'))
 				logger.error('Failed to save house name', error, { view: 'Settings', action: 'saveHouseName' })
 			}
 		},
@@ -353,9 +375,11 @@ export default {
 			if (!this.newFloorName.trim()) return
 			try {
 				await this.roomsStore.createFloor(this.newFloorName.trim())
+				showSuccess(t('chorestrike', 'Floor created'))
 				this.newFloorName = ''
 				this.showAddFloorModal = false
 			} catch (error) {
+				showError(t('chorestrike', 'Failed to create floor'))
 				logger.error('Failed to create floor', error, { view: 'Settings', action: 'createFloor' })
 			}
 		},
@@ -370,26 +394,33 @@ export default {
 			if (!this.editingFloor || !this.editingFloorName.trim()) return
 			try {
 				await this.roomsStore.updateFloorName(this.editingFloor.id, this.editingFloorName.trim())
+				showSuccess(t('chorestrike', 'Floor renamed'))
 				this.editingFloor = null
 				this.editingFloorName = ''
 				this.showEditFloorModal = false
 			} catch (error) {
+				showError(t('chorestrike', 'Failed to update floor'))
 				logger.error('Failed to update floor', error, { view: 'Settings', action: 'updateFloor', floorId: this.editingFloor?.id })
 			}
 		},
 
-		async deleteFloor(floor) {
-			const roomCount = this.getRoomCount(floor.id)
-			const confirmMessage = roomCount > 0
-				? t('chorestrike', 'This floor has {count} rooms. Deleting it will also delete all rooms. Are you sure?', { count: roomCount })
-				: t('chorestrike', 'Are you sure you want to delete "{name}"?', { name: floor.name })
+		deleteFloor(floor) {
+			this.floorToDelete = floor
+		},
 
-			if (!confirm(confirmMessage)) return
-
+		async confirmDeleteFloor() {
+			const floor = this.floorToDelete
+			if (!floor) return
+			this.deletingFloor = true
 			try {
 				await this.roomsStore.deleteFloor(floor.id)
+				showSuccess(t('chorestrike', 'Floor deleted'))
+				this.floorToDelete = null
 			} catch (error) {
-				logger.error('Failed to delete floor', error, { view: 'Settings', action: 'deleteFloor', floorId: floor.id })
+				showError(t('chorestrike', 'Failed to delete floor'))
+				logger.error('Failed to delete floor', error, { view: 'Settings', action: 'confirmDeleteFloor', floorId: floor.id })
+			} finally {
+				this.deletingFloor = false
 			}
 		},
 
@@ -402,10 +433,12 @@ export default {
 			if (this.resetConfirmation !== 'RESET') return
 			try {
 				await this.houseStore.resetHouse()
+				showSuccess(t('chorestrike', 'House was reset'))
 				this.resetConfirmation = ''
 				this.showResetModal = false
 				await this.initializeSettings()
 			} catch (error) {
+				showError(t('chorestrike', 'Failed to reset house'))
 				logger.error('Failed to reset house', error, { view: 'Settings', action: 'resetHouse' })
 			}
 		},

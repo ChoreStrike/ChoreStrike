@@ -221,9 +221,56 @@ describe('RoomTasks Store', () => {
 				store.roomTasks = [{ id: 1, isActive: false }]
 				api.post.mockResolvedValue({ id: 1, isActive: true })
 
-				await store.reactivateRoomTask(1)
+				const result = await store.reactivateRoomTask(1)
 
 				expect(store.roomTasks[0].isActive).toBe(true)
+				expect(result.isActive).toBe(true)
+			})
+		})
+
+		describe('uncompleteRoomTask (CS-PLAN-041)', () => {
+			it('calls the room-task uncomplete endpoint and updates the slices', async () => {
+				store.roomTasks = [{ id: 1, isActive: false, lastCompleted: '2026-08-22T10:00:00Z' }]
+				store.dailyTasks = [{ roomTask: { id: 1, isActive: false }, task: { id: 5 }, room: null }]
+				api.put.mockResolvedValue({ id: 1, isActive: false, lastCompleted: null })
+
+				const result = await store.uncompleteRoomTask(1)
+
+				expect(api.put).toHaveBeenCalledWith('/api/v1/tasks/1/uncomplete')
+				expect(result.lastCompleted).toBeNull()
+				expect(store.roomTasks[0].lastCompleted).toBeNull()
+				expect(store.dailyTasks[0].roomTask.lastCompleted).toBeNull()
+			})
+
+			it('propagates failures', async () => {
+				api.put.mockRejectedValue(new Error('Offline'))
+
+				await expect(store.uncompleteRoomTask(1)).rejects.toThrow('Offline')
+				expect(store.error).toBe('Offline')
+			})
+		})
+
+		describe('undoRoomTaskCompletion (CS-PLAN-041)', () => {
+			it('restores an inactive one-time task via uncomplete + reactivate', async () => {
+				store.roomTasks = [{ id: 7, isActive: false, lastCompleted: '2026-08-22T10:00:00Z' }]
+				api.put.mockResolvedValue({ id: 7, isActive: false, lastCompleted: null })
+				api.post.mockResolvedValue({ id: 7, isActive: true, lastCompleted: null })
+
+				const result = await store.undoRoomTaskCompletion(7)
+
+				expect(api.put).toHaveBeenCalledWith('/api/v1/tasks/7/uncomplete')
+				expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/7/reactivate')
+				expect(result.isActive).toBe(true)
+				expect(store.roomTasks[0].isActive).toBe(true)
+			})
+
+			it('skips reactivation when the task is still active after uncomplete', async () => {
+				store.roomTasks = [{ id: 8, isActive: true }]
+				api.put.mockResolvedValue({ id: 8, isActive: true, lastCompleted: null })
+
+				await store.undoRoomTaskCompletion(8)
+
+				expect(api.post).not.toHaveBeenCalled()
 			})
 		})
 
