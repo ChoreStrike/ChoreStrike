@@ -673,6 +673,80 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
+	 * Bulk-assign multiple room tasks to one house member (CR-SVC-61).
+	 *
+	 * Delegates to {@see RoomTaskService::bulkAssignTasks}, which scopes the
+	 * ids to the caller's house in one query: foreign/missing ids are
+	 * skipped per item (isolation contract), while a non-member target user
+	 * fails the whole request up front (→ 400).
+	 *
+	 * @NoAdminRequired
+	 */
+	public function bulkAssign(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->ensureHouseMember($house->getId());
+
+			$userId = (string)($this->request->getParam('userId') ?? '');
+			if (empty(trim($userId))) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => 'User ID is required'
+					]
+				], 400);
+			}
+
+			$rawIds = $this->request->getParam('roomTaskIds');
+			if (!is_array($rawIds)) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => 'roomTaskIds must be an array of room task IDs'
+					]
+				], 400);
+			}
+
+			$roomTaskIds = [];
+			foreach ($rawIds as $rawId) {
+				if (!is_numeric($rawId) || (int)$rawId < 1) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => [
+							'code' => 'VALIDATION_ERROR',
+							'message' => 'roomTaskIds must be an array of positive integers'
+						]
+					], 400);
+				}
+				$roomTaskIds[] = (int)$rawId;
+			}
+
+			$assignedTasks = $this->roomTaskService->bulkAssignTasks($roomTaskIds, $userId, $house->getId());
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => array_map(fn ($roomTask) => $roomTask->jsonSerialize(), $assignedTasks)
+			]);
+		} catch (\InvalidArgumentException $e) {
+			// Service-curated membership message — safe to surface verbatim.
+			return ControllerErrorFormatter::validation($e);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (\Exception $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'BULK_ASSIGN_TASKS_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
+
+	/**
 	 * Get overdue tasks
 	 *
 	 * @NoAdminRequired

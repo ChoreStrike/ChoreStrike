@@ -320,6 +320,26 @@ CREATE INDEX idx_tasks_visibility ON chorestrike_tasks(visibility_type, owner_us
 - **PUT**: Update existing resource
 - **DELETE**: Remove resource
 
+### Bulk Endpoints
+
+Batch operations are single-call endpoints backed by set-based service
+writes, not frontend loops. `POST /api/v1/room-tasks/bulk-assign`
+(CS-PLAN-042 / CR-SVC-61) takes `{ roomTaskIds: number[], userId: string }`,
+pre-validates all ids against the caller's house in one query
+(`findByIdsScopedToHouse`) and skips foreign/missing ids per item while a
+non-member target user fails the whole request up front (400). The response
+carries only the successfully assigned room tasks; the TaskList selection
+bar derives its partial-success toast from the diff.
+
+### Single-Surface Rule (structure editing)
+
+Since CS-PLAN-042 there is exactly **one** UI surface for house structure
+mutations: the Settings structure section (owner-gated rendering; floor
+create/rename/delete/reorder + inline room add/delete). The Dashboard
+FloorList is strictly read-only (navigation), and RoomDetail exposes only
+per-room rename/delete in its header. New structure affordances belong in
+Settings — do not re-introduce a second editing surface.
+
 ### Response Format
 
 ```json

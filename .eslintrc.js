@@ -11,6 +11,15 @@ module.exports = {
 			},
 		},
 		{
+			// `localStorage` is a standard browser global (not a Node
+			// experimental builtin) — used for the persistent setup-wizard
+			// dismissal (CS-PLAN-042).
+			files: ['src/**/*.js', 'src/**/*.vue'],
+			rules: {
+				'n/no-unsupported-features/node-builtins': ['error', { ignores: ['localStorage'] }],
+			},
+		},
+		{
 			files: ['tests/e2e/**/*.ts'],
 			parser: '@typescript-eslint/parser',
 			parserOptions: {

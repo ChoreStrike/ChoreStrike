@@ -22,6 +22,8 @@
 > One-line entries only — full scope lives in the linked plan. Older completed
 > work → [`archive/`](archive/) (e.g. [`archive/2026-07.md`](archive/2026-07.md)).
 
+- **CS-PLAN-042** — Structure Management & Role Gating (closed **UX-004/008/009/011** + **CR-SVC-61**): new `POST /api/v1/room-tasks/bulk-assign` (route + thin controller → batched `RoomTaskService::bulkAssignTasks`; real-DB integration tests for scoping/isolation/400/403); TaskList selection checkboxes + bulk-assign bar (one call, partial-success toast); Settings is the sole owner-gated structure surface (role-gated House/Floors/Danger/Members sections, floor up/down reorder via `POST /floors/reorder`, inline per-floor room add/delete) while the Dashboard FloorList is read-only; RoomDetail header gains owner-only room rename/delete (styled confirm); checklist editor unlocked for owners with the checklist store adapted to the backend contract (`label`/`sortOrder`, `itemOrders`, `{items, stats}` envelope); wizard: house-name step (`PUT /house` after apply), per-house persistent "Start empty" dismissal, single-member assignee-dropdown guard. Docs: architecture.md (bulk endpoints + single-surface rule), ui-use-cases.md (UC-01/02/03/04/08/09, gap index, route ledger → 110). Gate: PHPUnit unit 795 / integration 190 [24 pre-existing skips] / Jest 786 / lint + stylelint 0 errors / webpack build green / l10n clean / **Docker E2E 34/34 green (`--retries=0`; structure specs repointed to owner actor `mom`, serial-pooled, duplicate-floor race + two-level room-picker handling fixed)**. Standard-B review 2026-08-22: PASS — 3 auto-fixes (checklist `initializeProgress` payload-less-envelope TypeError + regression spec, plan manifest gained `checklist.js`, Settings.spec user-store mock noise), gate re-verified (lint/stylelint/l10n clean, Jest 787, PHPUnit 795/190 [24 pre-existing skips], BulkAssign 8/8) (2026-08-22, Done) → [`../plans/active/cs-plan-042-structure-management-role-gating.md`](../plans/active/cs-plan-042-structure-management-role-gating.md)
+
 - **CS-PLAN-041** — UI Honesty & Feedback (closed **UX-005/006/013**): Leaderboard period filter removed (backend takes no period param); weekly medals store-driven (`checkMedals` pre-pass + `fetchMedals` on mount, celebrate-once guard kept); Dashboard binds QuickStats `toggle-private-filter` → TaskManager `?visibility=private` client-side scope; global `UndoSnackbar` (~5 s) + roomTasks `uncompleteRoomTask`/`undoRoomTaskCompletion` (uncomplete + conditional reactivate; rewards not reverted, accepted); shared `ConfirmDialog.vue` replaces native `confirm()` in TaskManager/RoomDetail/Settings/FloorList/TaskChecklist (+MemberList migration); Settings saves toast success/error; minigame store fetches `GET /minigames/boosts` catalog, `BOOST_COSTS` deleted, purchases blocked without it; l10n de/en updated. Gate: PHPUnit unit 795 / integration 179 [24 pre-existing skips] / Jest 764 / lint+stylelint 0 errors / l10n clean / E2E leaderboard 10/10 + dashboard/private-tasks 11/11 + task-completion 8/8 (incl. undo) + members-owner 6/6 + snake-game 15/15 + release-boost-shop 4/4. Standard-B review 2026-08-22: PASS — 1 auto-fix (FloorList delete-error toast + failure-path spec), UX-015 (undo slot) logged, gate re-verified (Jest 765, lint/stylelint/l10n/noise clean). (2026-08-22, Done) → [`../plans/active/cs-plan-041-ui-honesty-feedback.md`](../plans/active/cs-plan-041-ui-honesty-feedback.md)
 
 - **CS-PLAN-040** — Transparency & Insights UI (closed **FEAT-UX-016/017/020/022** + **CR-SVC-31** + roomStats cross-house fix): new house-scoped `GET /house/activity` (`ActivityService`, batch null-safe enrichment) rendered by new `/insights` route (HouseStatsCards over the now-live `GET /house/stats`, capacity-normalized MemberFairnessTable with contribution/coins split, ActivityFeed); freeze badges on Leaderboard via newly serialized `lastFreezeDate`; overcapacity warning (`plannedEnergyForDay`/`overcapacityDays` getters → `OvercapacityWarning` + ScheduleCalendar markers); pruned dead `user#stats`/`userTasks`/`userStats` (+ orphaned `getUpcomingTasksForUser`/`RoomTaskMapper::findByUserId`), room-stats completionRate now counts real completions; RoomDetail stats card. Gate: PHPUnit unit 795 / integration 179 [24 pre-existing skips] / Jest 737 / lint+stylelint 0 errors / l10n clean / E2E insights-flow 3/3 + regression suites green. (2026-08-21, Done — Standard-B review 2026-08-21: checklist clean; 5 auto-fixes [corrupted mapper docblock, NotFoundException import, missing ActivityFeed l10n key, orphaned test docblock, cs:fix PHPDoc alignment]; weekend fallback-budget map triplication logged as **TECH-DRY-001**; gate re-verified green incl. Docker PHPUnit 795/179) → [`../plans/done/cs-plan-040-transparency-insights-ui.md`](../plans/done/cs-plan-040-transparency-insights-ui.md)
@@ -60,13 +62,20 @@
 
 > **CS-PLAN-041** was activated and implemented (2026-08-22) — see Recently Completed above.
 
+> **CS-PLAN-042** was activated and implemented (2026-08-22) — see Recently Completed above.
+
 > **CS-PLAN-041…044 drafted (2026-08-21)** — GUI debt split into four plans in
 > `docs/plans/new/`: ~~**041** UI Honesty & Feedback (UX-005/006/013)~~
-> (implemented 2026-08-22), **042**
-> Structure Management & Role Gating (UX-004/008/009/011 + CR-SVC-61 endpoint),
-> **043** Scheduling UI Consolidation (CR-016-03/04/05/06/08/13/14 + UX-014 +
-> TECH-DRY-001), **044** A11y & Visual Consistency (UX-007/010/012 +
-> TECH-LINT-004 + FEAT-UX-030/031; soft-after 043). Recommended order:
-> 041 → 042 → 043 → 044. Decision-gated items stay in `backlog.md`
-> (FEAT-UX-015/018/021, FEAT-UX-023/024/028, P4 futures). BUG-USER-001 closed
-> as already resolved (CS-PLAN-040 prune) → `archive/2026-08.md`.
+> (implemented 2026-08-22), ~~**042**
+> Structure Management & Role Gating (UX-004/008/009/011 + CR-SVC-61 endpoint)~~
+> (implemented 2026-08-22), **043** Scheduling UI Consolidation
+> (CR-016-03/04/05/06/08/13/14 + UX-014 + TECH-DRY-001), **044** A11y & Visual
+> Consistency (UX-007/010/012 + TECH-LINT-004 + FEAT-UX-030/031;
+> soft-after 043). Recommended order: 041 → 042 → 043 → 044. Decision-gated
+> items stay in `backlog.md` (FEAT-UX-015/018/021, FEAT-UX-023/024/028, P4
+> futures). BUG-USER-001 closed as already resolved (CS-PLAN-040 prune) →
+> `archive/2026-08.md`.
+
+> **CS-PLAN-042 plan review (2026-08-22)**: Standard A — **GO-WITH-CHANGES**,
+> fixes applied inline to the plan (store manifest → `roomTasks.js`, test
+> wording, risk rows, l10n gate); ready for manual `new/ → active/` move.

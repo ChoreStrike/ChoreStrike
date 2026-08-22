@@ -73,7 +73,7 @@ import HouseholdGoalBar from '../components/Dashboard/HouseholdGoalBar.vue'
 import QuickStats from '../components/Dashboard/QuickStats.vue'
 import FloorList from '../components/Dashboard/FloorList.vue'
 import ArcadeSection from '../components/Dashboard/ArcadeSection.vue'
-import SetupWizard from '../components/Setup/SetupWizard.vue'
+import SetupWizard, { isWizardDismissedForHouse } from '../components/Setup/SetupWizard.vue'
 
 export default {
 	name: 'Dashboard',
@@ -148,10 +148,13 @@ export default {
 			})
 
 			// First-run detection (D3): a house with no floors is brand new.
-			// Open the setup wizard automatically; "Start empty" dismisses it
-			// for the session. The manual entry point (header button) stays
+			// Open the setup wizard automatically — unless "Start empty" was
+			// dismissed for this house in any previous session (UX-011) or
+			// this session. The manual entry point (header button) stays
 			// available while the house is empty.
-			if (!this.wizardDismissed && this.roomsStore.floors.length === 0) {
+			if (!this.wizardDismissed
+				&& !isWizardDismissedForHouse(this.houseStore.house?.id ?? null)
+				&& this.roomsStore.floors.length === 0) {
 				this.showWizard = true
 			}
 		},

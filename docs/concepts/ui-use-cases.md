@@ -66,11 +66,12 @@ without a dedicated endpoint call.
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Auto-create house on first open | Dashboard mount | `GET /house` | ✅ |
-| Guided wizard: home type, floor/room counts, cleaning level | SetupWizard step 1 | `GET /setup/catalog` | ✅ |
+| Guided wizard: house name, home type, floor/room counts, cleaning level | SetupWizard step 1 | `GET /setup/catalog` | ✅ |
 | Room list editing (rename, type, person per room, add/remove) | SetupWizard step 2 | client state | ✅ |
 | Preview (floors/rooms/≈tasks) + apply | SetupWizard step 3 | `POST /setup/apply` | ✅ |
-| "Start empty" skip | SetupWizard | — | ⚠️ session-only, wizard re-opens on reload (UX-011) |
-| House naming step | SetupWizard | `PUT /house` | ❌ (UX-011) |
+| "Start empty" skip | SetupWizard | localStorage flag (per house) | ✅ (persistent since CS-PLAN-042; manual entry point stays) |
+| House naming step | SetupWizard step 1 → apply | `POST /setup/apply` + `PUT /house` | ✅ (CS-PLAN-042) |
+| Per-room assignee dropdown | SetupWizard step 2 | client state | ✅ (hidden while the house has a single member, CS-PLAN-042) |
 | "Invite your family" final step (step 4, after apply) | SetupWizard | `POST /users/invite` | ✅ (since CS-PLAN-038) |
 
 ## UC-02 — House administration
@@ -85,32 +86,33 @@ visibility should be read-only). **Entry points:** Settings; Dashboard bars.
 | Household weekly goal bar | Dashboard `HouseholdGoalBar` | client state | ✅ |
 | House statistics | InsightsView `HouseStatsCards` | `GET /house/stats` | ✅ (live since CS-PLAN-040; wrapper renamed to `fetchInsights`) |
 | Reset house (typed `RESET` confirm) | Settings danger zone | `POST /house/reset` | ✅ server owner-gated |
-| Role-gate owner controls in Settings | Settings template | — | ⚠️ members see owner controls → 403 (UX-004) |
+| Role-gate owner controls in Settings | Settings template (`v-if` owner role) | — | ✅ (CS-PLAN-042: house/floors/danger/members sections hidden for members — no 403 paths) |
 
 ## UC-03 — Structure: floors
 
 **Goal:** model the home's storeys. **Personas:** Owner. **Entry points:**
-Dashboard `FloorList`; Settings (duplicate surface).
+Settings (sole CRUD+reorder surface); Dashboard `FloorList` (read-only).
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | List floors with rooms | FloorList | `GET /floors/with-rooms` | ✅ |
-| Add floor (modal: name) | FloorList + Settings | `POST /floors` | ⚠️ two divergent surfaces (UX-004) |
-| Rename floor (inline input) | FloorList | `PUT /floors/{id}` | ✅ |
-| Delete floor | FloorList | `DELETE /floors/{id}` | ⚠️ native `confirm()` (UX-006) |
-| Reorder floors | — | `POST /floors/reorder` | ❌ (store wrapper `reorderFloors` dead; UX-004) |
-| Expand/collapse, per-floor stats | FloorList | client state | ✅ |
+| Add floor (modal: name) | Settings | `POST /floors` | ✅ (single surface since CS-PLAN-042; FloorList is read-only) |
+| Rename floor (modal) | Settings | `PUT /floors/{id}` | ✅ (styled confirm/toasts; CS-PLAN-041/042) |
+| Delete floor (styled confirm) | Settings | `DELETE /floors/{id}` | ✅ (CS-PLAN-041) |
+| Reorder floors (up/down buttons) | Settings floor rows | `POST /floors/reorder` | ✅ (CS-PLAN-042) |
+| Expand/collapse, per-floor stats | FloorList, Settings room list | client state | ✅ |
 
 ## UC-04 — Structure: rooms
 
 **Goal:** model rooms and their state. **Personas:** Owner. **Entry points:**
-FloorList (cards), RoomDetail.
+Settings (create/delete), RoomDetail (rename/delete), FloorList (cards,
+read-only).
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Add room (name + icon with live preview) | FloorList modal | `POST /rooms` | ✅ |
-| Rename room | — | `PUT /rooms/{id}` | ❌ (store wrapper `updateRoomName` dead; UX-004) |
-| Delete room | — | `DELETE /rooms/{id}` | ❌ (store wrapper `deleteRoom` dead; UX-004) |
+| Add room (inline name input per floor row) | Settings structure section | `POST /rooms` | ✅ (CS-PLAN-042; icon defaults, the old FloorList icon-picker modal was removed with the duplicate surface) |
+| Rename room (header action) | RoomDetail | `PUT /rooms/{id}` | ✅ (CS-PLAN-042) |
+| Delete room (styled confirm) | RoomDetail header; Settings floor room list | `DELETE /rooms/{id}` | ✅ (CS-PLAN-042) |
 | Cleanliness change (+10 on task completion) | RoomCard | `PUT /rooms/{id}/cleanliness` | ✅ |
 | "Rooms needing cleaning" list | — | `GET /rooms/needing-cleaning` | ❌ (store wrapper `fetchRoomsNeedingCleaning` dead) |
 | Open room detail | RoomCard click → RoomDetail | `GET /room-tasks?roomId=` | ✅ |
@@ -173,7 +175,7 @@ Member/child. **Entry points:** `/today` route; Dashboard stat cards link in.
 | Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ✅ (Overdue links `?scope=all`) |
 | Per-row assignee resolution | TodayView | `GET /room-tasks/{id}/assignees` | ✅ |
 | Checklist toggle while completing | TaskList → `TaskChecklist` | `POST /checklists/toggle/{rt}/{item}`, `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}` | ✅ |
-| Checklist editor (add/edit/delete/reorder items) | TaskChecklist (emits unbound events) | `POST /checklists/task/{id}`, `PUT+DELETE /checklists/item/{id}`, `POST /checklists/reorder`, `POST /checklists/initialize/{rt}` | ❌ locked `can-edit="false"` (UX-009) |
+| Checklist editor (add/edit/delete/reorder items) | TaskList → `TaskChecklist` (owner-only `can-edit`) | `POST /checklists/task/{id}`, `PUT+DELETE /checklists/item/{id}`, `POST /checklists/reorder` | ✅ (unlocked for owners since CS-PLAN-042; store speaks the backend contract: `label`/`sortOrder`, `itemOrders` map, `{items, stats}` progress envelope) |
 | Complete/assign from calendar day | CalendarView | — | ❌ read-only (review W6) |
 
 ## UC-09 — Assignment & teamwork
@@ -184,8 +186,8 @@ Members. **Entry points:** TaskList expanded row; TodayView claim button.
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Multi-assign via member chips (optimistic + rollback) | TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
-| Single assign / unassign actions | — | `POST /room-tasks/{id}/assign`, `POST …/unassign` | ❌ (wrappers `assignRoomTask`/`unassignRoomTask` only called by the unconsumed `bulkAssignTasks`; set-assignees is the live path) |
-| Bulk assignment | — | `POST /room-tasks/{id}/assign` loop (`bulkAssignTasks`) | ❌ (UX-008) |
+| Single assign / unassign actions | — | `POST /room-tasks/{id}/assign`, `POST …/unassign` | ❌ (wrappers `assignRoomTask`/`unassignRoomTask`; set-assignees is the live single-edit path) |
+| Bulk assignment (selection bar → one call) | TaskList selection → member dropdown | `POST /room-tasks/bulk-assign` | ✅ (CS-PLAN-042, CR-SVC-61 closed; per-item isolation, partial-success toast) |
 | Claim overdue public task (dialog → complete) | TaskList → `OverdueClaimDialog` | `GET /room-tasks/overdue` + complete | ✅ (claim target ≤24 px, UX-007) |
 | Dedicated claimable-tasks query | — | `GET /room-tasks/overdue-claims` | ❌ (UI uses `/overdue` + client filter) |
 
@@ -305,13 +307,13 @@ badges. Shipped with CS-PLAN-040.
 
 | UC | Open gaps |
 |---|---|
-| 01 | UX-011 (naming, skip persistence; invite step ✅ since CS-PLAN-038, UX-003 closed) |
-| 02 | UX-004 (role gating), UX-006 (silent save); insights/fairness view ✅ since CS-PLAN-040 (UC-16) |
-| 03/04 | UX-004 (room rename/delete, floor reorder, duplicate floor mgmt), UX-006 |
+| 01 | — (naming + skip persistence ✅ since CS-PLAN-042; invite step ✅ since CS-PLAN-038) |
+| 02 | UX-006 (silent save); role gating ✅ since CS-PLAN-042; insights/fairness view ✅ since CS-PLAN-040 (UC-16) |
+| 03/04 | UX-006; room rename/delete, floor reorder, single CRUD surface ✅ since CS-PLAN-042 |
 | 05 | definition delete/search/categories unused; global-search surface → FEAT-UX-028 |
 | 07 | deactivate (pause) UI |
-| 08 | checklist editor lock (UX-009) |
-| 09 | bulk assign + assignment in create forms (UX-008), claim target size (UX-007) |
+| 08 | — (checklist editor ✅ owner-only since CS-PLAN-042) |
+| 09 | claim target size (UX-007); bulk assign + create-form chips ✅ since CS-PLAN-042 / CS-PLAN-038 |
 | 10 | suggestion apply missing (UX-014), duplicate preview buttons (CR-016-05); overcapacity warning ✅ since CS-PLAN-040 (UC-16) |
 | 11 | reward-config UI |
 | 12 | — |
@@ -361,18 +363,19 @@ surface) · `needs-decision` · `post-MVP`.
 
 ---
 
-## Appendix A — Route coverage ledger (all 109 routes)
+## Appendix A — Route coverage ledger (all 110 routes)
 
 > Completeness ledger behind the endpoint audits' "every route mapped"
-> claim. Accounting: **91** routes are mapped individually in the UC tables
+> claim. Accounting: **92** routes are mapped individually in the UC tables
 > above, **17** routes are ledgered below, **1** is explicitly excluded
-> (`page#index` — serves the app shell): 91 + 17 + 1 = 109. Four endpoints
+> (`page#index` — serves the app shell): 92 + 17 + 1 = 110. Four endpoints
 > referenced by more than one use case (`PUT /house`, `POST /users/invite`,
 > `PUT /room-tasks/{id}/assignees`, `GET /room-tasks/overdue`) are counted
 > once. CS-PLAN-040 pruned three dead stats routes (`GET /users/{id}/stats`,
 > `GET /room-tasks/user/{userId}`, `GET /room-tasks/user/{userId}/stats`),
 > added `GET /house/activity` (UC-16), and moved
 > `GET /room-tasks/room/{roomId}/stats` into UC-04 after exposing it.
+> CS-PLAN-042 added `POST /room-tasks/bulk-assign` (UC-09).
 > Every status was verified against `src/`; wording stays neutral —
 > expose-or-prune decisions are out of scope. `GET /room-tasks`
 > (index) is already mapped individually (UC-04: RoomDetail, TaskManager) and
@@ -423,13 +426,20 @@ surface) · `needs-decision` · `post-MVP`.
 
 ---
 
-**Last verified:** 2026-08-22 — CS-PLAN-041 pass (UX-005/006/013): medals
-overview + `check-medals` pre-pass ✅ on the Leaderboard mount, period filter
-⛔ removed (no backend parameter), Dashboard private chip → TaskManager
-`?visibility=private` scope ✅, completion undo snackbar (`uncomplete` +
-conditional `reactivate`) ✅, boost catalog ✅ server-authoritative
-(`BOOST_COSTS` deleted), styled confirms replace native `confirm()`.
-Earlier passes: 2026-08-21 — CS-PLAN-040 added UC-16 and flipped the stats
+**Last verified:** 2026-08-22 — CS-PLAN-042 pass (UX-004/008/009/011 +
+CR-SVC-61): Settings is the sole owner-gated structure surface (floor CRUD +
+up/down reorder, inline room add/delete), Dashboard FloorList read-only,
+room rename/delete in the RoomDetail header, checklist editor unlocked for
+owners on the backend contract (`label`/`sortOrder`/`itemOrders`), bulk
+assign via `POST /room-tasks/bulk-assign` with a TaskList selection bar,
+wizard house-name step + persistent per-house dismissal + single-member
+assignee guard. Earlier passes: 2026-08-22 — CS-PLAN-041 (UX-005/006/013):
+medals overview + `check-medals` pre-pass ✅ on the Leaderboard mount,
+period filter ⛔ removed (no backend parameter), Dashboard private chip →
+TaskManager `?visibility=private` scope ✅, completion undo snackbar
+(`uncomplete` + conditional `reactivate`) ✅, boost catalog ✅
+server-authoritative (`BOOST_COSTS` deleted), styled confirms replace native
+`confirm()`. 2026-08-21 — CS-PLAN-040 added UC-16 and flipped the stats
 routes; CS-PLAN-039 added the route coverage appendix (uniform
 dead-store-wrapper annotations) and a Standard-B review corrected the UC-01
 invite status, added the live consumers for `due-today` / `range` /

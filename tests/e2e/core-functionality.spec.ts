@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/test-fixtures'
+import { userStatePath } from './fixtures/auth-contexts'
 
 /**
  * E2E Tests for Core App Functionality
@@ -46,13 +47,19 @@ test.describe('Core App Functionality', () => {
 		await expect(page.getByTestId('add-task-button')).toBeVisible({ timeout: 15000 })
 	})
 
-	test('Settings page loads and displays controls', async ({ page }) => {
-		await page.getByTestId('nav-settings').click()
-		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
+	// CS-PLAN-042: house-name/floors controls are owner-only; assert them as
+	// `mom` (seeded family-house owner), not the default member `admin`.
+	test.describe('Settings page controls (owner surface)', () => {
+		test.use({ storageState: userStatePath('mom') })
 
-		await expect(page.getByTestId('house-name-input')).toBeVisible({ timeout: 15000 })
-		await expect(page.getByTestId('floors-list')).toBeVisible({ timeout: 15000 })
-		await expect(page.getByTestId('add-floor-button')).toBeVisible({ timeout: 15000 })
+		test('Settings page loads and displays controls', async ({ page }) => {
+			await page.getByTestId('nav-settings').click()
+			await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
+
+			await expect(page.getByTestId('house-name-input')).toBeVisible({ timeout: 15000 })
+			await expect(page.getByTestId('floors-list')).toBeVisible({ timeout: 15000 })
+			await expect(page.getByTestId('add-floor-button')).toBeVisible({ timeout: 15000 })
+		})
 	})
 
 	test('Leaderboard page loads', async ({ page }) => {

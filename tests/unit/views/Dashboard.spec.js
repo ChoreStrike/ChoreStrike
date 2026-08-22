@@ -64,10 +64,15 @@ jest.mock('../../../src/components/Dashboard/FloorList.vue', () => ({
 	template: '<div class="floor-list">Floor List</div>',
 }))
 
+// Mutable so individual tests can simulate a persisted "Start empty"
+// dismissal (UX-011).
+const mockWizardState = { dismissed: false }
+
 jest.mock('../../../src/components/Setup/SetupWizard.vue', () => ({
 	name: 'SetupWizard',
 	emits: ['close', 'applied', 'skipped'],
 	template: '<div class="setup-wizard-stub" />',
+	isWizardDismissedForHouse: () => mockWizardState.dismissed,
 }))
 
 describe('Dashboard.vue', () => {
@@ -76,6 +81,7 @@ describe('Dashboard.vue', () => {
 	beforeEach(() => {
 		pinia = createPinia()
 		setActivePinia(pinia)
+		mockWizardState.dismissed = false
 	})
 
 	afterEach(() => {
@@ -185,6 +191,22 @@ describe('Dashboard.vue', () => {
 		})
 		await new Promise(resolve => setTimeout(resolve, 0))
 
+		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(true)
+	})
+
+	it('does not auto-open the wizard when "Start empty" was dismissed for this house (UX-011)', async () => {
+		mockRoomsState.floors = []
+		mockWizardState.dismissed = true
+
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		expect(wrapper.find('.setup-wizard-stub').exists()).toBe(false)
+		// The manual entry point stays available while the house is empty.
 		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(true)
 	})
 

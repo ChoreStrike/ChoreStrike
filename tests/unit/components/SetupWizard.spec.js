@@ -1,7 +1,8 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import SetupWizard from '../../../src/components/Setup/SetupWizard.vue'
+import { useHouseStore } from '../../../src/store/house.js'
 
 jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, text, vars = {}) =>
@@ -179,6 +180,52 @@ describe('SetupWizard.vue', () => {
 		await wrapper.vm.$nextTick()
 		await wrapper.find('[data-testid="wizard-skip"]').trigger('click')
 		expect(wrapper.emitted('skipped')).toBeTruthy()
+	})
+
+	// --- CS-PLAN-042 (UX-011): house-name step, persistent dismissal, single-member guard ---
+
+	it('persists a per-house dismissal flag when starting empty', async () => {
+		const houseStore = useHouseStore()
+		houseStore.house = { id: 42, name: 'Test House' }
+
+		const wrapper = mountWizard()
+		await wrapper.vm.$nextTick()
+		await wrapper.find('[data-testid="wizard-skip"]').trigger('click')
+
+		expect(window.localStorage.getItem('chorestrike:wizard-dismissed:42')).toBe('1')
+		expect(wrapper.emitted('skipped')).toBeTruthy()
+	})
+
+	it('applies the house name via the house store after setup', async () => {
+		const houseStore = useHouseStore()
+		houseStore.house = { id: 7, name: 'My House' }
+		const updateHouseName = jest.fn().mockResolvedValue(undefined)
+		houseStore.updateHouseName = updateHouseName
+
+		const wrapper = mountWizard()
+		await wrapper.vm.$nextTick()
+		await wrapper.find('[data-testid="wizard-house-name"]').setValue('Family Home')
+		await wrapper.find('[data-testid="wizard-floor-count"]').setValue(1)
+		await wrapper.find('[data-testid="wizard-rooms-per-floor"]').setValue(1)
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+		await wrapper.find('[data-testid="wizard-apply"]').trigger('click')
+		await flushPromises()
+
+		expect(updateHouseName).toHaveBeenCalledWith('Family Home')
+		expect(wrapper.emitted('applied')).toBeFalsy() // invite step still open
+	})
+
+	it('hides the per-room assignee dropdown while the house has a single member', async () => {
+		mockUserStore.houseUsers = [{ nextcloudUserId: 'u1', displayName: 'Alice' }]
+
+		const wrapper = mountWizard()
+		await wrapper.vm.$nextTick()
+		await wrapper.find('[data-testid="wizard-floor-count"]').setValue(1)
+		await wrapper.find('[data-testid="wizard-rooms-per-floor"]').setValue(2)
+		await wrapper.find('[data-testid="wizard-next"]').trigger('click')
+
+		expect(wrapper.find('[data-testid^="wizard-room-person-"]').exists()).toBe(false)
 	})
 
 	it('apartment pins one floor and hides the basement option; house restores defaults (CR-027-03)', async () => {

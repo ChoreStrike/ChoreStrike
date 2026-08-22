@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures/test-fixtures'
-import { setupTestHouse } from './fixtures/test-house'
+import { setupTestHouse, createRoomViaSettings } from './fixtures/test-house'
+import { userStatePath } from './fixtures/auth-contexts'
 
 /**
  * E2E Test: 3-Floor House Scenario
@@ -12,11 +13,19 @@ import { setupTestHouse } from './fixtures/test-house'
  * Testszenarien:
  * 1. Haus-Setup (alle Etagen erstellen)
  * 2. Navigation durch alle Etagen
- * 3. Räume verwalten (WC, Gästebad, Dusche, Garten)
+ * 3. Räume verwalten (WC, Gästebad, Dusche, Garten) — via Settings
+ *    (CS-PLAN-042: the Dashboard FloorList is read-only; Settings is the
+ *    sole structure CRUD surface)
  * 4. Tasks für Badezimmer-Räume erstellen
+ *
+ * Runs as `mom` (a seeded family-house OWNER): structure CRUD is
+ * owner-gated since CS-PLAN-042 and the default `admin` identity is a
+ * plain member under the family profile.
  */
 
 test.describe('3-Floor House: Keller, EG, 1.OG', () => {
+	test.use({ storageState: userStatePath('mom') })
+
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
 
@@ -29,7 +38,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 	test('Setup: Create all 3 floors (Keller, EG, 1.OG)', async ({ page }) => {
 		const house = await setupTestHouse(page)
 
-		// We're already on settings view from beforeEach, verify floors exist
+		// We're already on settings view from setupTestHouse, verify floors exist
 		// Check Keller exists
 		await expect(page.locator('[data-testid="floor-Keller"]')).toBeVisible()
 
@@ -50,171 +59,77 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await page.click('[data-testid="nav-dashboard"]')
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
 
-		// Verify all floors are visible on dashboard
-		const floorsList = page.locator('[data-testid="floors-list"]')
-		await expect(floorsList).toBeVisible()
-
-		// Should see at least 3 floors
-		const floorItems = page.locator('.floor-item')
-		await expect(floorItems).toHaveCount(3)
-
-		// Verify floor names are visible
-		await expect(page.locator('text=Keller')).toBeVisible()
-		await expect(page.locator('text=Erdgeschoss')).toBeVisible()
-		await expect(page.locator('text=1. Obergeschoss')).toBeVisible()
+		// Verify the three scenario floors are visible on the dashboard. The
+		// seeded family house contributes its own floors (Ground/First/Second),
+		// so assert presence + a floor count of at least three instead of an
+		// exact count that would couple the spec to the seed contents.
+		for (const name of ['Keller', 'Erdgeschoss', '1. Obergeschoss']) {
+			await expect(page.getByTestId(`floor-${name}`)).toBeVisible({ timeout: 15000 })
+		}
+		const sectionCount = await page.locator('.floor-section').count()
+		expect(sectionCount).toBeGreaterThanOrEqual(3)
 	})
 
-	test('Room Management: Create WC in Keller', async ({ page }) => {
-		// Setup house
+	test('Room Management: Create WC in Keller (Settings surface)', async ({ page }) => {
 		await setupTestHouse(page)
-
-		// Navigate to dashboard
-		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
-
-		// Find Keller floor and click add room (if UI supports it)
-		const kellerFloor = page.locator('[data-testid="floor-Keller"]')
-		await expect(kellerFloor).toBeVisible()
-
-		// Click on Keller floor to expand/collapse or see rooms
-		await kellerFloor.click()
-
-		// If add room button exists, use it
-		const addRoomButton = kellerFloor.locator('button:has-text("Add Room"), [data-testid="add-room-button"]')
-		if (await addRoomButton.isVisible().catch(() => false)) {
-			await addRoomButton.click()
-
-			// Fill room name
-			await page.fill('input[placeholder*="room" i], input[data-testid="room-name-input"]', 'WC')
-
-			// Save room
-			await page.click('button:has-text("Save"), button:has-text("Create")')
-
-			// Verify WC appears under Keller
-			await expect(kellerFloor.locator('text=WC')).toBeVisible()
-		}
+		await createRoomViaSettings(page, 'Keller', 'WC')
 	})
 
-	test('Room Management: Create Gästebad in EG', async ({ page }) => {
-		// Setup house
+	test('Room Management: Create Gästebad in EG (Settings surface)', async ({ page }) => {
 		await setupTestHouse(page)
-
-		// Navigate to dashboard
-		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
-
-		// Find EG floor
-		const egFloor = page.locator('[data-testid="floor-Erdgeschoss"]')
-		await expect(egFloor).toBeVisible()
-
-		// Click on floor
-		await egFloor.click()
-
-		// Check if we can add rooms
-		const addRoomButton = egFloor.locator('button:has-text("Add Room"), [data-testid="add-room-button"]')
-		if (await addRoomButton.isVisible().catch(() => false)) {
-			await addRoomButton.click()
-			await page.fill('input[placeholder*="room" i], input[data-testid="room-name-input"]', 'Gästebad')
-			await page.click('button:has-text("Save"), button:has-text("Create")')
-			await expect(egFloor.locator('text=Gästebad')).toBeVisible()
-		}
+		await createRoomViaSettings(page, 'Erdgeschoss', 'Gästebad')
 	})
 
-	test('Room Management: Create Garten in EG', async ({ page }) => {
-		// Setup house
+	test('Room Management: Create Garten in EG (Settings surface)', async ({ page }) => {
 		await setupTestHouse(page)
-
-		// Navigate to dashboard
-		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
-
-		// Find EG floor
-		const egFloor = page.locator('[data-testid="floor-Erdgeschoss"]')
-		await expect(egFloor).toBeVisible()
-		await egFloor.click()
-
-		// Add Garten room if possible
-		const addRoomButton = egFloor.locator('button:has-text("Add Room"), [data-testid="add-room-button"]')
-		if (await addRoomButton.isVisible().catch(() => false)) {
-			await addRoomButton.click()
-			await page.fill('input[placeholder*="room" i], input[data-testid="room-name-input"]', 'Garten')
-			await page.click('button:has-text("Save"), button:has-text("Create")')
-			await expect(egFloor.locator('text=Garten')).toBeVisible()
-		}
+		await createRoomViaSettings(page, 'Erdgeschoss', 'Garten')
 	})
 
-	test('Room Management: Create Dusche in Keller', async ({ page }) => {
-		// Setup house
+	test('Room Management: Create Dusche in Keller (Settings surface)', async ({ page }) => {
 		await setupTestHouse(page)
-
-		// Navigate to dashboard
-		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
-
-		// Find Keller floor
-		const kellerFloor = page.locator('[data-testid="floor-Keller"]')
-		await expect(kellerFloor).toBeVisible()
-		await kellerFloor.click()
-
-		// Add Dusche room if possible
-		const addRoomButton = kellerFloor.locator('button:has-text("Add Room"), [data-testid="add-room-button"]')
-		if (await addRoomButton.isVisible().catch(() => false)) {
-			await addRoomButton.click()
-			await page.fill('input[placeholder*="room" i], input[data-testid="room-name-input"]', 'Dusche')
-			await page.click('button:has-text("Save"), button:has-text("Create")')
-			await expect(kellerFloor.locator('text=Dusche')).toBeVisible()
-		}
+		await createRoomViaSettings(page, 'Keller', 'Dusche')
 	})
 
-	test('Room Management: Create WC in 1.OG', async ({ page }) => {
-		// Setup house
+	test('Room Management: Create WC in 1.OG (Settings surface)', async ({ page }) => {
 		await setupTestHouse(page)
-
-		// Navigate to dashboard
-		await page.click('[data-testid="nav-dashboard"]')
-		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
-
-		// Find 1.OG floor
-		const ogFloor = page.locator('[data-testid="floor-1. Obergeschoss"]')
-		await expect(ogFloor).toBeVisible()
-		await ogFloor.click()
-
-		// Add WC room if possible
-		const addRoomButton = ogFloor.locator('button:has-text("Add Room"), [data-testid="add-room-button"]')
-		if (await addRoomButton.isVisible().catch(() => false)) {
-			await addRoomButton.click()
-			await page.fill('input[placeholder*="room" i], input[data-testid="room-name-input"]', 'WC')
-			await page.click('button:has-text("Save"), button:has-text("Create")')
-			await expect(ogFloor.locator('text=WC')).toBeVisible()
-		}
+		await createRoomViaSettings(page, '1. Obergeschoss', 'WC')
 	})
 
 	test('Task Management: Add cleaning task to Gästebad', async ({ page }) => {
 		// Setup house with rooms
 		await setupTestHouse(page)
+		await createRoomViaSettings(page, 'Erdgeschoss', 'Gästebad')
 
-		// Navigate to tasks
-		await page.click('[data-testid="nav-tasks"]')
+		// Unified task creation (CS-PLAN-038): the definition form includes
+		// the room picker; saving chains definition → room task.
+		await page.goto('/apps/chorestrike/#/tasks')
 		await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 10000 })
+		await page.getByTestId('add-task-button').click()
+		await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
 
-		// Try to add a task
-		const addTaskButton = page.locator('button:has-text("Add Task"), [data-testid="add-task-button"]')
-		if (await addTaskButton.isVisible().catch(() => false)) {
-			await addTaskButton.click()
+		await page.getByTestId('task-name-input').fill('Gästebad putzen')
+		await page.getByTestId('task-description-input').fill('Boden wischen, Spiegel reinigen')
+		await page.getByTestId('task-energy-select').selectOption('2')
+		await page.getByTestId('task-priority-select').selectOption('2')
+		await page.getByTestId('task-frequency-type').selectOption('weekly')
 
-			// Fill task details
-			await page.fill('input[placeholder*="task" i], input[data-testid="task-name-input"]', 'Gästebad putzen')
-			await page.fill('textarea[placeholder*="description" i], textarea[data-testid="task-description"]', 'Boden wischen, Spiegel reinigen')
+		// Two-level picker (floor → rooms of that floor): select the target
+		// floor first, otherwise only the default floor's rooms are offered.
+		await page.getByTestId('room-picker-floor').selectOption({ label: 'Erdgeschoss' })
+		await page.getByTestId('room-picker-room').selectOption({ label: 'Gästebad' })
 
-			// Select room
-			await page.selectOption('select[data-testid="task-room-select"]', 'Gästebad')
+		const roomTaskResponsePromise = page.waitForResponse((response) => {
+			const isPostRequest = response.request().method() === 'POST'
+			const pathname = new URL(response.url()).pathname
+			return isPostRequest && pathname.endsWith('/apps/chorestrike/api/v1/room-tasks')
+		})
+		await page.getByTestId('save-task-button').click()
 
-			// Save task
-			await page.click('button:has-text("Save"), button:has-text("Create")')
-
-			// Verify task appears
-			await expect(page.locator('text=Gästebad putzen')).toBeVisible()
-		}
+		// The room task materialized (201 response) and the form closed —
+		// no invisible definitions anymore (UX-001).
+		const roomTaskResponse = await roomTaskResponsePromise
+		expect(roomTaskResponse.ok()).toBeTruthy()
+		await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 15000 })
 	})
 
 	test('Settings: Verify all floors listed in settings', async ({ page }) => {
@@ -233,10 +148,11 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		const count = await floorItems.count()
 		expect(count).toBeGreaterThanOrEqual(3)
 
-		// Verify specific floors
-		await expect(page.locator('text=Keller')).toBeVisible()
-		await expect(page.locator('text=Erdgeschoss')).toBeVisible()
-		await expect(page.locator('text=1. Obergeschoss')).toBeVisible()
+		// Verify specific floors (testid-scoped: a bare text= locator would
+		// be a strict-mode hazard once several floors exist)
+		await expect(page.getByTestId('floor-Keller')).toBeVisible()
+		await expect(page.getByTestId('floor-Erdgeschoss')).toBeVisible()
+		await expect(page.getByTestId('floor-1. Obergeschoss')).toBeVisible()
 	})
 
 	test('Complete Workflow: Setup house with all rooms and verify', async ({ page }) => {
@@ -265,9 +181,9 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 10000 })
 
 		// Verify floors are still there
-		await expect(page.locator('text=Keller')).toBeVisible()
-		await expect(page.locator('text=Erdgeschoss')).toBeVisible()
-		await expect(page.locator('text=1. Obergeschoss')).toBeVisible()
+		await expect(page.locator('text=Keller').first()).toBeVisible()
+		await expect(page.locator('text=Erdgeschoss').first()).toBeVisible()
+		await expect(page.locator('text=1. Obergeschoss').first()).toBeVisible()
 
 		console.log('Complete workflow test passed for house:', house)
 	})

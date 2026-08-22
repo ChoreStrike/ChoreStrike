@@ -721,31 +721,37 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Bulk assign tasks to user
+		 * Bulk assign tasks to one house member in a single call
+		 * (CR-SVC-61). Foreign/missing ids are skipped server-side; the
+		 * response carries only the successfully assigned room tasks.
 		 * @param {Array<number>} roomTaskIds Room task identifiers to assign.
 		 * @param {string} userId User identifier receiving assignments.
+		 * @return {Promise<Array<object>>} The assigned room tasks (input order).
 		 */
 		async bulkAssignTasks(roomTaskIds, userId) {
 			if (!userId || userId.trim() === '') {
 				throw new Error('User ID is required')
+			}
+			if (!Array.isArray(roomTaskIds)) {
+				throw new Error('Room task IDs must be an array')
 			}
 
 			this.loading = true
 			this.error = null
 
 			try {
-				// For now, assign tasks one by one (API doesn't have bulk endpoint yet)
-				const results = []
-				for (const roomTaskId of roomTaskIds) {
-					try {
-						await this.assignRoomTask(roomTaskId, userId)
-						results.push({ success: true, roomTaskId })
-					} catch (error) {
-						results.push({ success: false, roomTaskId, error: error.message })
-					}
+				const assigned = await api.post('/api/v1/room-tasks/bulk-assign', { roomTaskIds, userId })
+
+				// Merge the persisted assignment into the cached slices so
+				// assignee chips and counters update without a re-fetch.
+				for (const roomTask of assigned || []) {
+					this.replaceRoomTaskInState(roomTask.id, {
+						...roomTask,
+						assignees: [...new Set([...(roomTask.assignees || []), userId])],
+					})
 				}
 
-				return results
+				return assigned || []
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to bulk assign tasks', error, { store: 'roomTasks', action: 'bulkAssignTasks', userId })

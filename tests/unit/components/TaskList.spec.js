@@ -1,6 +1,8 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import TaskList from '../../../src/components/Tasks/TaskList.vue'
+import { useUserStore } from '../../../src/store/user.js'
+import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 
 // Mock Nextcloud l10n
 jest.mock('@nextcloud/l10n', () => ({
@@ -31,8 +33,12 @@ jest.mock('../../../src/store/checklist.js', () => ({
 		fetchTaskItems: jest.fn(),
 		fetchRoomTaskProgress: jest.fn(),
 		toggleItem: jest.fn(),
+		addItem: jest.fn(),
+		updateItem: jest.fn(),
+		deleteItem: jest.fn(),
+		reorderItems: jest.fn(),
 		getTaskItems: jest.fn(() => []),
-		getRoomTaskProgress: jest.fn(() => ({})),
+		getRoomTaskProgress: jest.fn(() => []),
 	})),
 }))
 
@@ -315,6 +321,91 @@ describe('TaskList', () => {
 
 			// Should show empty state since roomTasks is null
 			expect(wrapper.find('.empty-state').exists()).toBe(true)
+		})
+	})
+
+	describe('bulk assignment + checklist editor gating (CS-PLAN-042)', () => {
+		const seedMembers = () => {
+			const userStore = useUserStore()
+			userStore.houseUsers = [
+				{ nextcloudUserId: 'u1', displayName: 'Alice' },
+				{ nextcloudUserId: 'u2', displayName: 'Bob' },
+			]
+			return userStore
+		}
+
+		it('hides the bulk bar until a task is selected', () => {
+			seedMembers()
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: [mockTask()] },
+			})
+
+			expect(wrapper.find('[data-testid="bulk-assign-bar"]').exists()).toBe(false)
+		})
+
+		it('shows the bulk bar when a task row is selected', async () => {
+			seedMembers()
+			const tasks = [
+				mockTask({ roomTask: { id: 1 } }),
+				mockTask({ task: { id: 2 }, roomTask: { id: 2 } }),
+			]
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: tasks },
+			})
+
+			await wrapper.find('[data-testid="select-task-1"]').setValue(true)
+
+			const bar = wrapper.find('[data-testid="bulk-assign-bar"]')
+			expect(bar.exists()).toBe(true)
+			expect(bar.text()).toContain('1 selected')
+
+			await wrapper.find('[data-testid="select-task-2"]').setValue(true)
+			expect(wrapper.find('[data-testid="bulk-assign-bar"]').text()).toContain('2 selected')
+		})
+
+		it('issues one bulk call for the selection and clears it on success', async () => {
+			seedMembers()
+			const tasks = [mockTask({ roomTask: { id: 1 } }), mockTask({ task: { id: 2 }, roomTask: { id: 2 } })]
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: tasks },
+			})
+			const roomTasksStore = useRoomTasksStore()
+			roomTasksStore.bulkAssignTasks = jest.fn().mockResolvedValue([{ id: 1 }, { id: 2 }])
+
+			await wrapper.find('[data-testid="select-task-1"]').setValue(true)
+			await wrapper.find('[data-testid="select-task-2"]').setValue(true)
+			await wrapper.find('[data-testid="bulk-assign-target"]').setValue('u1')
+			await wrapper.find('[data-testid="bulk-assign-button"]').trigger('click')
+			await flushPromises()
+
+			expect(roomTasksStore.bulkAssignTasks).toHaveBeenCalledTimes(1)
+			expect(roomTasksStore.bulkAssignTasks).toHaveBeenCalledWith([1, 2], 'u1')
+			expect(wrapper.find('[data-testid="bulk-assign-bar"]').exists()).toBe(false)
+		})
+
+		it('enables the checklist editor for owners', async () => {
+			const userStore = seedMembers()
+			userStore.currentUser = { id: 1, role: 'owner', nextcloudUserId: 'u1' }
+
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: [mockTask()] },
+			})
+			// Expand the task row to render TaskChecklist
+			await wrapper.findAll('.action-btn')[1].trigger('click')
+
+			expect(wrapper.findComponent({ name: 'TaskChecklist' }).props('canEdit')).toBe(true)
+		})
+
+		it('keeps the checklist editor locked for members', async () => {
+			const userStore = seedMembers()
+			userStore.currentUser = { id: 2, role: 'member', nextcloudUserId: 'u2' }
+
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: [mockTask()] },
+			})
+			await wrapper.findAll('.action-btn')[1].trigger('click')
+
+			expect(wrapper.findComponent({ name: 'TaskChecklist' }).props('canEdit')).toBe(false)
 		})
 	})
 })

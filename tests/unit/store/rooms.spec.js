@@ -198,6 +198,28 @@ describe('Rooms Store', () => {
 			})
 		})
 
+		describe('reorderFloors (CS-PLAN-042, UX-004)', () => {
+			it('posts the new floor order and adopts the server payload', async () => {
+				const reordered = [
+					{ id: 2, name: 'First Floor', sortOrder: 0 },
+					{ id: 1, name: 'Ground Floor', sortOrder: 1 },
+				]
+				api.post.mockResolvedValue(reordered)
+
+				await store.reorderFloors([2, 1])
+
+				expect(api.post).toHaveBeenCalledWith('/api/v1/floors/reorder', { floorOrder: [2, 1] })
+				expect(store.floors).toEqual(reordered)
+			})
+
+			it('propagates API errors', async () => {
+				api.post.mockRejectedValue(new Error('boom'))
+
+				await expect(store.reorderFloors([2, 1])).rejects.toThrow('boom')
+				expect(store.error).toBe('boom')
+			})
+		})
+
 		describe('clearError', () => {
 			it('clears error', () => {
 				store.error = 'Some error'

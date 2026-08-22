@@ -67,6 +67,8 @@ return [
         ['name' => 'room_task#range', 'url' => '/api/v1/room-tasks/range', 'verb' => 'GET'],
         ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],
         ['name' => 'room_task#overdueClaims', 'url' => '/api/v1/room-tasks/overdue-claims', 'verb' => 'GET'],
+        // Static single-segment route — must stay ahead of the `{id}` block.
+        ['name' => 'room_task#bulkAssign', 'url' => '/api/v1/room-tasks/bulk-assign', 'verb' => 'POST'],
         ['name' => 'room_task#show', 'url' => '/api/v1/room-tasks/{id}', 'verb' => 'GET'],
         ['name' => 'room_task#create', 'url' => '/api/v1/room-tasks', 'verb' => 'POST'],
         ['name' => 'room_task#delete', 'url' => '/api/v1/room-tasks/{id}', 'verb' => 'DELETE'],

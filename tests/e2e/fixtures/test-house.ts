@@ -59,11 +59,17 @@ export async function setupTestHouse(page: Page): Promise<TestHouseData> {
 
 	// Helper to create floor
 	const createFloor = async (floorName: string) => {
-		// Check if floor already exists
-		const floorSelector = `[data-testid="floor-${floorName}"]`
-		const existingFloor = page.locator(floorSelector)
+		const floorRow = page.getByTestId(`floor-${floorName}`).first()
 
-		if (await existingFloor.isVisible().catch(() => false)) {
+		// The floors list renders asynchronously after Settings mounts. Give
+		// the row a bounded chance to appear before treating it as missing —
+		// an instant isVisible() probe races the fetch and would silently
+		// create duplicate floors (the backend allows duplicate names).
+		const floorExists = await floorRow.waitFor({ state: 'attached', timeout: 10000 })
+			.then(() => true)
+			.catch(() => false)
+
+		if (floorExists) {
 			console.log(`Floor "${floorName}" already exists`)
 			return
 		}
@@ -81,11 +87,9 @@ export async function setupTestHouse(page: Page): Promise<TestHouseData> {
 		// Click create
 		await page.click('button:has-text("Create")')
 
-		// Wait for modal to close
-		await page.waitForTimeout(500)
-
-		// Verify floor was created
-		await expect(page.locator(`text=${floorName}`)).toBeVisible()
+		// Verify the floor row rendered (auto-waiting replaces a fixed sleep;
+		// scoped to the testid so duplicate text elsewhere cannot break it).
+		await expect(floorRow).toBeVisible({ timeout: 10000 })
 	}
 
 	// Create all 3 floors
@@ -94,6 +98,37 @@ export async function setupTestHouse(page: Page): Promise<TestHouseData> {
 	await createFloor('1. Obergeschoss')
 
 	return testData
+}
+
+/**
+ * Creates a room on a floor via the Settings structure section
+ * (CS-PLAN-042, UX-004): the Dashboard FloorList is read-only and Settings
+ * is the sole CRUD surface. Creates the floor when it is missing.
+ */
+export async function createRoomViaSettings(page: Page, floorName: string, roomName: string): Promise<void> {
+	await page.click('[data-testid="nav-settings"]')
+	await page.waitForSelector('[data-testid="settings-view"]', { timeout: 10000 })
+
+	const floorItem = page.getByTestId(`floor-${floorName}`).first()
+	// Bounded wait for the asynchronously rendered floors list (see
+	// createFloor) — an instant visibility probe would race the fetch.
+	const floorExists = await floorItem.waitFor({ state: 'attached', timeout: 10000 })
+		.then(() => true)
+		.catch(() => false)
+
+	if (!floorExists) {
+		await page.click('[data-testid="add-floor-button"]')
+		await page.waitForSelector('.modal-content', { timeout: 5000 })
+		await page.fill('#new-floor-name', floorName)
+		await page.click('button:has-text("Create")')
+		await floorItem.waitFor({ state: 'visible', timeout: 10000 })
+	}
+
+	await floorItem.locator('[data-testid^="expand-floor-"]').click()
+	await floorItem.locator('[data-testid="new-room-name-input"]').fill(roomName)
+	await floorItem.locator('[data-testid="add-room-to-floor-button"]').click()
+
+	await expect(floorItem.locator('.room-row-name', { hasText: roomName })).toBeVisible({ timeout: 10000 })
 }
 
 /**

@@ -37,6 +37,15 @@
 			<!-- Step 1: Quick Start -->
 			<section v-if="step === 1" class="wizard-step" data-testid="wizard-step-quickstart">
 				<label class="field">
+					<span>{{ t('chorestrike', 'House name') }}</span>
+					<input
+						v-model.trim="houseName"
+						type="text"
+						data-testid="wizard-house-name"
+						:placeholder="t('chorestrike', 'e.g., Family Home')">
+				</label>
+
+				<label class="field">
 					<span>{{ t('chorestrike', 'Home type') }}</span>
 					<select v-model="quick.homeType" data-testid="wizard-home-type">
 						<option value="house">{{ t('chorestrike', 'House') }}</option>
@@ -100,7 +109,11 @@
 								{{ rt.defaultName }}
 							</option>
 						</select>
-						<select v-model="room.assigneeUserId" :data-testid="`wizard-room-person-${fi}-${ri}`">
+						<!-- UX-011: pointless while the house has a single member -->
+						<select
+							v-if="people.length > 1"
+							v-model="room.assigneeUserId"
+							:data-testid="`wizard-room-person-${fi}-${ri}`">
 							<option value="">
 								{{ t('chorestrike', 'For everyone') }}
 							</option>
@@ -261,10 +274,35 @@ import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { useSetupStore } from '../../store/setup.js'
 import { useUserStore } from '../../store/user.js'
+import { useHouseStore } from '../../store/house.js'
 import { iconForRoomType } from '../../utils/roomIcons.js'
 import { logger } from '../../utils/logger.js'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * localStorage flag namespace for the persistent "start empty" dismissal
+ * (CS-PLAN-042, UX-011) — per house so a reset/second house re-opens the
+ * wizard. Also read by Dashboard to suppress the auto-open.
+ *
+ * @param {?number} houseId The current house ID
+ * @return {string} The storage key
+ */
+export const wizardDismissedKey = (houseId) => `chorestrike:wizard-dismissed:${houseId ?? 'unknown'}`
+
+/**
+ * Whether "Start empty" was dismissed for this house in any previous
+ * session.
+ * @param {?number} houseId The current house ID
+ * @return {boolean}
+ */
+export const isWizardDismissedForHouse = (houseId) => {
+	try {
+		return window.localStorage.getItem(wizardDismissedKey(houseId)) === '1'
+	} catch (error) {
+		return false
+	}
+}
 
 export default {
 	name: 'SetupWizard',
@@ -278,12 +316,14 @@ export default {
 	setup() {
 		const setupStore = useSetupStore()
 		const userStore = useUserStore()
-		return { setupStore, userStore }
+		const houseStore = useHouseStore()
+		return { setupStore, userStore, houseStore }
 	},
 
 	data() {
 		return {
 			step: 1,
+			houseName: '',
 			quick: {
 				homeType: 'house',
 				floorCount: 2,
@@ -468,6 +508,18 @@ export default {
 				}
 				const result = await this.setupStore.applySetup(payload)
 				this.applyResult = result
+
+				// UX-011 house-name step: the setup endpoint does not take a
+				// house name, so it is applied right after via the existing
+				// owner-gated PUT /house (the first user is the owner).
+				if (this.houseName && this.houseName !== this.houseStore.houseName) {
+					try {
+						await this.houseStore.updateHouseName(this.houseName)
+					} catch (error) {
+						logger.error('Failed to set house name after setup', error, { component: 'SetupWizard', action: 'apply' })
+					}
+				}
+
 				// Optional invite step before the wizard closes (UX-003)
 				this.step = 4
 			} catch (error) {
@@ -511,7 +563,17 @@ export default {
 		finish() {
 			this.$emit('applied', this.applyResult)
 		},
+		/**
+		 * "Start empty" (UX-011): the dismissal persists per house so the
+		 * wizard does not re-open on every reload while the house is empty.
+		 * The manual entry point on the Dashboard stays available.
+		 */
 		skip() {
+			try {
+				window.localStorage.setItem(wizardDismissedKey(this.houseStore.house?.id ?? null), '1')
+			} catch (error) {
+				logger.warn('Could not persist wizard dismissal', { component: 'SetupWizard', action: 'skip' })
+			}
 			this.$emit('skipped')
 		},
 	},

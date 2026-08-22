@@ -161,6 +161,56 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
+		describe('bulkAssignTasks (CS-PLAN-042, CR-SVC-61)', () => {
+			it('posts one bulk call and merges the assignment into cached tasks', async () => {
+				store.roomTasks = [
+					{ id: 1, assignedToUserId: null, assignees: [] },
+					{ id: 2, assignedToUserId: null, assignees: [] },
+				]
+				api.post.mockResolvedValue([
+					{ id: 1, assignedToUserId: 'user1', assignees: [] },
+				])
+
+				const assigned = await store.bulkAssignTasks([1, 2], 'user1')
+
+				expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/bulk-assign', {
+					roomTaskIds: [1, 2],
+					userId: 'user1',
+				})
+				expect(assigned).toEqual([{ id: 1, assignedToUserId: 'user1', assignees: [] }])
+				// The assigned task's chip state gains the target member.
+				expect(store.roomTasks[0].assignees).toEqual(['user1'])
+				// The skipped task stays untouched.
+				expect(store.roomTasks[1].assignees).toEqual([])
+			})
+
+			it('does not duplicate an existing assignee', async () => {
+				store.roomTasks = [{ id: 1, assignees: ['user1'] }]
+				api.post.mockResolvedValue([{ id: 1, assignees: ['user1'] }])
+
+				await store.bulkAssignTasks([1], 'user1')
+
+				expect(store.roomTasks[0].assignees).toEqual(['user1'])
+			})
+
+			it('throws for empty userId without calling the API', async () => {
+				await expect(store.bulkAssignTasks([1], '  ')).rejects.toThrow('User ID is required')
+				expect(api.post).not.toHaveBeenCalled()
+			})
+
+			it('throws when roomTaskIds is not an array', async () => {
+				await expect(store.bulkAssignTasks(5, 'user1')).rejects.toThrow('Room task IDs must be an array')
+				expect(api.post).not.toHaveBeenCalled()
+			})
+
+			it('propagates API errors', async () => {
+				api.post.mockRejectedValue(new Error('boom'))
+
+				await expect(store.bulkAssignTasks([1], 'user1')).rejects.toThrow('boom')
+				expect(store.error).toBe('boom')
+			})
+		})
+
 		describe('unassignRoomTask', () => {
 			it('unassigns task', async () => {
 				store.roomTasks = [{ id: 1, assignedToUserId: 'user1' }]

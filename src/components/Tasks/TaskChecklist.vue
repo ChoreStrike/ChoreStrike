@@ -40,10 +40,7 @@
 
 				<!-- Item Content -->
 				<div class="item-content" :class="{ 'is-completed': isCompleted(item.id) }">
-					<span class="item-title">{{ item.title }}</span>
-					<span v-if="item.description" class="item-description">
-						{{ item.description }}
-					</span>
+					<span class="item-title">{{ item.label }}</span>
 				</div>
 
 				<!-- Item Actions -->
@@ -80,22 +77,22 @@
 			<div v-else class="add-item-inputs">
 				<input
 					ref="newItemInput"
-					v-model="newItem.title"
+					v-model="newItemLabel"
 					type="text"
 					class="form-input"
+					data-testid="checklist-new-item-input"
 					:placeholder="t('chorestrike', 'Sub-task title...')"
 					@keyup.enter="saveNewItem"
 					@keyup.esc="cancelAdd">
-				<textarea
-					v-model="newItem.description"
-					class="form-input"
-					rows="2"
-					:placeholder="t('chorestrike', 'Description (optional)...')" />
 				<div class="form-actions">
 					<button class="btn-secondary" @click="cancelAdd">
 						{{ t('chorestrike', 'Cancel') }}
 					</button>
-					<button class="btn-primary" :disabled="!newItem.title" @click="saveNewItem">
+					<button
+						class="btn-primary"
+						data-testid="checklist-add-item-button"
+						:disabled="!newItemLabel.trim()"
+						@click="saveNewItem">
 						{{ t('chorestrike', 'Add') }}
 					</button>
 				</div>
@@ -107,20 +104,15 @@
 			<div class="edit-item-modal">
 				<h4>{{ t('chorestrike', 'Edit Sub-Task') }}</h4>
 				<input
-					v-model="editingItem.title"
+					v-model="editingItem.label"
 					type="text"
 					class="form-input"
 					:placeholder="t('chorestrike', 'Title')">
-				<textarea
-					v-model="editingItem.description"
-					class="form-input"
-					rows="3"
-					:placeholder="t('chorestrike', 'Description')" />
 				<div class="form-actions">
 					<button class="btn-secondary" @click="cancelEdit">
 						{{ t('chorestrike', 'Cancel') }}
 					</button>
-					<button class="btn-primary" :disabled="!editingItem.title" @click="saveEdit">
+					<button class="btn-primary" :disabled="!editingItem.label || !editingItem.label.trim()" @click="saveEdit">
 						{{ t('chorestrike', 'Save') }}
 					</button>
 				</div>
@@ -173,6 +165,11 @@ export default {
 			type: Number,
 			default: null,
 		},
+		// Task definition ID — needed by the add/delete/reorder endpoints
+		taskId: {
+			type: Number,
+			default: null,
+		},
 	},
 
 	emits: ['toggle', 'add', 'update', 'delete', 'reorder'],
@@ -180,16 +177,17 @@ export default {
 	setup(props, { emit }) {
 		const isAdding = ref(false)
 		const newItemInput = ref(null)
-		const newItem = ref({ title: '', description: '' })
+		const newItemLabel = ref('')
 		const editingItem = ref(null)
 		const draggedItem = ref(null)
 		const itemToDelete = ref(null)
 
-		// Completed item IDs from progress
+		// Completed item IDs from progress (backend rows carry
+		// checklistItemId + isChecked)
 		const completedIds = computed(() => {
 			return props.progress
-				?.filter(p => p.isCompleted)
-				?.map(p => p.itemId) || []
+				?.filter(p => p.isChecked)
+				?.map(p => p.checklistItemId) || []
 		})
 
 		const isCompleted = (itemId) => {
@@ -212,10 +210,10 @@ export default {
 		})
 
 		const sortedItems = computed(() => {
-			// Sort by orderIndex if available
+			// Sort by sortOrder if available (backend contract)
 			return [...props.items].sort((a, b) => {
-				const orderA = a.orderIndex ?? a.id
-				const orderB = b.orderIndex ?? b.id
+				const orderA = a.sortOrder ?? a.id
+				const orderB = b.sortOrder ?? b.id
 				return orderA - orderB
 			})
 		})
@@ -226,7 +224,7 @@ export default {
 
 		const startAdd = () => {
 			isAdding.value = true
-			newItem.value = { title: '', description: '' }
+			newItemLabel.value = ''
 			nextTick(() => {
 				newItemInput.value?.focus()
 			})
@@ -234,16 +232,15 @@ export default {
 
 		const cancelAdd = () => {
 			isAdding.value = false
-			newItem.value = { title: '', description: '' }
+			newItemLabel.value = ''
 		}
 
 		const saveNewItem = () => {
-			if (!newItem.value.title.trim()) return
+			if (!newItemLabel.value.trim()) return
 
 			emit('add', {
-				title: newItem.value.title.trim(),
-				description: newItem.value.description.trim(),
-				roomTaskId: props.roomTaskId,
+				label: newItemLabel.value.trim(),
+				taskId: props.taskId,
 			})
 
 			cancelAdd()
@@ -258,12 +255,11 @@ export default {
 		}
 
 		const saveEdit = () => {
-			if (!editingItem.value?.title.trim()) return
+			if (!editingItem.value?.label || !editingItem.value.label.trim()) return
 
 			emit('update', {
-				id: editingItem.value.id,
-				title: editingItem.value.title.trim(),
-				description: editingItem.value.description.trim(),
+				itemId: editingItem.value.id,
+				label: editingItem.value.label.trim(),
 			})
 
 			cancelEdit()
@@ -277,7 +273,7 @@ export default {
 			const itemId = itemToDelete.value
 			if (itemId === null) return
 			itemToDelete.value = null
-			emit('delete', { itemId, roomTaskId: props.roomTaskId })
+			emit('delete', { itemId, taskId: props.taskId })
 		}
 
 		// Drag and drop for reordering
@@ -298,14 +294,14 @@ export default {
 			reordered.splice(fromIndex, 1)
 			reordered.splice(toIndex, 0, draggedItem.value.id)
 
-			emit('reorder', { itemIds: reordered, roomTaskId: props.roomTaskId })
+			emit('reorder', { itemIds: reordered, taskId: props.taskId })
 			draggedItem.value = null
 		}
 
 		return {
 			isAdding,
 			newItemInput,
-			newItem,
+			newItemLabel,
 			editingItem,
 			sortedItems,
 			isCompleted,
@@ -481,11 +477,6 @@ export default {
 
 .item-content.is-completed .item-title {
 	text-decoration: line-through;
-}
-
-.item-description {
-	font-size: 0.85rem;
-	color: var(--color-text-maxcontrast);
 }
 
 .item-actions {

@@ -33,165 +33,210 @@
 			</p>
 		</div>
 
-		<div v-else class="task-items">
-			<div
-				v-for="item in sortedTasks"
-				:key="item.roomTask.id"
-				class="task-item"
-				data-testid="task-item"
-				:class="{ overdue: isOverdue(item.roomTask), completed: !item.roomTask.isActive }">
-				<div class="task-main">
-					<div class="task-status">
-						<button
-							v-if="item.roomTask.isActive"
-							class="complete-button"
-							data-testid="complete-task-button"
-							:title="t('chorestrike', 'Mark as complete')"
-							@click="$emit('complete', item.roomTask.id)">
-							<Icon name="Circle" :size="20" />
-						</button>
-						<span v-else class="completed-check">
-							<Icon name="CheckCircle" :size="20" />
-						</span>
-						<button
-							v-if="canClaim(item)"
-							class="claim-button"
-							data-testid="claim-overdue-button"
-							:title="t('chorestrike', 'Claim & complete')"
-							@click="openClaimDialog(item)">
-							<Icon name="UserPlus" :size="16" />
-						</button>
-					</div>
+		<div v-else class="task-list-body">
+			<!-- Bulk assignment bar (CS-PLAN-042, UX-008): one API call for the
+			     whole selection instead of a per-item loop -->
+			<div v-if="selectedRoomTaskIds.length > 0" class="bulk-assign-bar" data-testid="bulk-assign-bar">
+				<span class="bulk-selection-count">
+					{{ t('chorestrike', '{count} selected', { count: selectedRoomTaskIds.length }) }}
+				</span>
+				<select
+					v-model="bulkTargetUserId"
+					class="bulk-target-select"
+					data-testid="bulk-assign-target">
+					<option value="" disabled>
+						{{ t('chorestrike', 'Assign to member…') }}
+					</option>
+					<option v-for="member in houseMembers" :key="member.nextcloudUserId" :value="member.nextcloudUserId">
+						{{ member.displayName }}
+					</option>
+				</select>
+				<button
+					class="bulk-assign-button"
+					data-testid="bulk-assign-button"
+					:disabled="!bulkTargetUserId || bulkAssigning"
+					@click="handleBulkAssign">
+					{{ t('chorestrike', 'Assign') }}
+				</button>
+				<button class="bulk-clear-button" :title="t('chorestrike', 'Clear selection')" @click="clearSelection">
+					<Icon name="X" :size="14" />
+				</button>
+			</div>
 
-					<div class="task-content">
-						<div class="task-header">
-							<h4 class="task-name">
-								{{ item.task.name }}
-							</h4>
-							<span v-if="item.task.visibilityType === 'private' || item.task.isPrivate" class="visibility-icon" :title="t('chorestrike', 'Private task')">
-								<Icon name="Lock" :size="14" />
+			<div class="task-items">
+				<div
+					v-for="item in sortedTasks"
+					:key="item.roomTask.id"
+					class="task-item"
+					data-testid="task-item"
+					:class="{ overdue: isOverdue(item.roomTask), completed: !item.roomTask.isActive }">
+					<div class="task-select">
+						<input
+							type="checkbox"
+							:data-testid="`select-task-${item.roomTask.id}`"
+							:checked="isSelected(item.roomTask.id)"
+							:aria-label="t('chorestrike', 'Select task')"
+							@change="toggleSelected(item.roomTask.id)">
+					</div>
+					<div class="task-main">
+						<div class="task-status">
+							<button
+								v-if="item.roomTask.isActive"
+								class="complete-button"
+								data-testid="complete-task-button"
+								:title="t('chorestrike', 'Mark as complete')"
+								@click="$emit('complete', item.roomTask.id)">
+								<Icon name="Circle" :size="20" />
+							</button>
+							<span v-else class="completed-check">
+								<Icon name="CheckCircle" :size="20" />
 							</span>
-							<span
-								v-if="item.task.visibilityType === 'admin-only'"
-								class="visibility-icon admin-only"
-								data-testid="visibility-crown-icon"
-								:title="t('chorestrike', 'Admin-only task')">
-								<Icon name="Crown" :size="14" />
-							</span>
-							<span class="priority-badge" :class="priorityClass(item.task.priority)">
-								{{ priorityLabel(item.task.priority) }}
-							</span>
+							<button
+								v-if="canClaim(item)"
+								class="claim-button"
+								data-testid="claim-overdue-button"
+								:title="t('chorestrike', 'Claim & complete')"
+								@click="openClaimDialog(item)">
+								<Icon name="UserPlus" :size="16" />
+							</button>
 						</div>
 
-						<p v-if="item.task.description" class="task-description">
-							{{ item.task.description }}
-						</p>
+						<div class="task-content">
+							<div class="task-header">
+								<h4 class="task-name">
+									{{ item.task.name }}
+								</h4>
+								<span v-if="item.task.visibilityType === 'private' || item.task.isPrivate" class="visibility-icon" :title="t('chorestrike', 'Private task')">
+									<Icon name="Lock" :size="14" />
+								</span>
+								<span
+									v-if="item.task.visibilityType === 'admin-only'"
+									class="visibility-icon admin-only"
+									data-testid="visibility-crown-icon"
+									:title="t('chorestrike', 'Admin-only task')">
+									<Icon name="Crown" :size="14" />
+								</span>
+								<span class="priority-badge" :class="priorityClass(item.task.priority)">
+									{{ priorityLabel(item.task.priority) }}
+								</span>
+							</div>
 
-						<div class="task-meta">
-							<span class="meta-item energy">
-								<Icon name="Zap" :size="16" /> {{ item.task.energyCost }}
-							</span>
-							<span class="meta-item time">
-								<Icon name="Clock" :size="16" /> {{ item.task.estimatedMinutes }}m
-							</span>
-							<span class="meta-item frequency">
-								<Icon name="RotateCcw" :size="16" /> {{ frequencyLabel(item.task) }}
-							</span>
-							<span v-if="assigneeCount(item.roomTask) > 0" class="meta-item assigned">
-								<Icon name="Users" :size="16" />
-								{{ assigneeCount(item.roomTask) > 1
-									? t('chorestrike', '{count} assigned', { count: assigneeCount(item.roomTask) })
-									: t('chorestrike', 'Assigned') }}
-							</span>
-							<span v-if="assigneeCount(item.roomTask) > 1" class="meta-item teamwork-hint">
-								<Icon name="Sparkles" :size="16" />
-								{{ t('chorestrike', 'Teamwork bonus') }}
-							</span>
-						</div>
-
-						<div class="task-due" :class="dueClass(item.roomTask)">
-							{{ dueText(item.roomTask) }}
-						</div>
-
-						<!-- Flex Window Display -->
-						<FlexWindowDisplay
-							v-if="item.task.flexDays > 0"
-							:earliest="getEarliestDate(item)"
-							:ideal="getIdealDate(item)"
-							:latest="getLatestDate(item)"
-							:flex-days="item.task.flexDays"
-							:compact="true"
-							:show-status="true" />
-					</div>
-
-					<div class="task-actions">
-						<button
-							v-if="item.roomTask.isActive"
-							class="action-btn"
-							:title="t('chorestrike', 'Edit')"
-							@click="$emit('edit', item.roomTask)">
-							<Icon name="Edit" :size="16" />
-						</button>
-						<button
-							class="action-btn"
-							:title="t('chorestrike', 'Show details')"
-							@click="toggleExpand(item)">
-							<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
-						</button>
-						<button
-							class="action-btn delete"
-							:title="t('chorestrike', 'Remove')"
-							@click="$emit('delete', item.roomTask.id)">
-							<Icon name="Trash" :size="16" />
-						</button>
-					</div>
-				</div>
-
-				<!-- Expanded Details with Checklist -->
-				<div v-if="isExpanded(item.roomTask.id)" class="task-details">
-					<!-- Assignee multi-select (multi-assign) -->
-					<div class="assignee-picker">
-						<label class="assignee-label">{{ t('chorestrike', 'Assigned members') }}</label>
-						<div class="assignee-chips">
-							<label
-								v-for="member in houseMembers"
-								:key="member.nextcloudUserId"
-								class="assignee-chip"
-								:class="{ selected: isAssignee(item.roomTask.id, member.nextcloudUserId) }">
-								<input
-									type="checkbox"
-									:checked="isAssignee(item.roomTask.id, member.nextcloudUserId)"
-									@change="toggleAssignee(item.roomTask.id, member.nextcloudUserId)">
-								<span>{{ member.displayName }}</span>
-							</label>
-							<p v-if="houseMembers.length === 0" class="field-error">
-								{{ t('chorestrike', 'No house members found') }}
+							<p v-if="item.task.description" class="task-description">
+								{{ item.task.description }}
 							</p>
+
+							<div class="task-meta">
+								<span class="meta-item energy">
+									<Icon name="Zap" :size="16" /> {{ item.task.energyCost }}
+								</span>
+								<span class="meta-item time">
+									<Icon name="Clock" :size="16" /> {{ item.task.estimatedMinutes }}m
+								</span>
+								<span class="meta-item frequency">
+									<Icon name="RotateCcw" :size="16" /> {{ frequencyLabel(item.task) }}
+								</span>
+								<span v-if="assigneeCount(item.roomTask) > 0" class="meta-item assigned">
+									<Icon name="Users" :size="16" />
+									{{ assigneeCount(item.roomTask) > 1
+										? t('chorestrike', '{count} assigned', { count: assigneeCount(item.roomTask) })
+										: t('chorestrike', 'Assigned') }}
+								</span>
+								<span v-if="assigneeCount(item.roomTask) > 1" class="meta-item teamwork-hint">
+									<Icon name="Sparkles" :size="16" />
+									{{ t('chorestrike', 'Teamwork bonus') }}
+								</span>
+							</div>
+
+							<div class="task-due" :class="dueClass(item.roomTask)">
+								{{ dueText(item.roomTask) }}
+							</div>
+
+							<!-- Flex Window Display -->
+							<FlexWindowDisplay
+								v-if="item.task.flexDays > 0"
+								:earliest="getEarliestDate(item)"
+								:ideal="getIdealDate(item)"
+								:latest="getLatestDate(item)"
+								:flex-days="item.task.flexDays"
+								:compact="true"
+								:show-status="true" />
+						</div>
+
+						<div class="task-actions">
+							<button
+								v-if="item.roomTask.isActive"
+								class="action-btn"
+								:title="t('chorestrike', 'Edit')"
+								@click="$emit('edit', item.roomTask)">
+								<Icon name="Edit" :size="16" />
+							</button>
+							<button
+								class="action-btn"
+								:title="t('chorestrike', 'Show details')"
+								@click="toggleExpand(item)">
+								<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
+							</button>
+							<button
+								class="action-btn delete"
+								:title="t('chorestrike', 'Remove')"
+								@click="$emit('delete', item.roomTask.id)">
+								<Icon name="Trash" :size="16" />
+							</button>
 						</div>
 					</div>
 
-					<TaskChecklist
-						:items="getTaskItems(item.task.id)"
-						:progress="getRoomTaskProgress(item.roomTask.id)"
-						:can-edit="false"
-						:readonly="!item.roomTask.isActive"
-						:room-task-id="item.roomTask.id"
-						@toggle="handleToggleChecklistItem" />
+					<!-- Expanded Details with Checklist -->
+					<div v-if="isExpanded(item.roomTask.id)" class="task-details">
+						<!-- Assignee multi-select (multi-assign) -->
+						<div class="assignee-picker">
+							<label class="assignee-label">{{ t('chorestrike', 'Assigned members') }}</label>
+							<div class="assignee-chips">
+								<label
+									v-for="member in houseMembers"
+									:key="member.nextcloudUserId"
+									class="assignee-chip"
+									:class="{ selected: isAssignee(item.roomTask.id, member.nextcloudUserId) }">
+									<input
+										type="checkbox"
+										:checked="isAssignee(item.roomTask.id, member.nextcloudUserId)"
+										@change="toggleAssignee(item.roomTask.id, member.nextcloudUserId)">
+									<span>{{ member.displayName }}</span>
+								</label>
+								<p v-if="houseMembers.length === 0" class="field-error">
+									{{ t('chorestrike', 'No house members found') }}
+								</p>
+							</div>
+						</div>
+
+						<TaskChecklist
+							:items="getTaskItems(item.task.id)"
+							:progress="getRoomTaskProgress(item.roomTask.id)"
+							:can-edit="userStore.isHouseOwner"
+							:readonly="!item.roomTask.isActive"
+							:room-task-id="item.roomTask.id"
+							:task-id="item.task.id"
+							@toggle="handleToggleChecklistItem"
+							@add="handleAddChecklistItem"
+							@update="handleUpdateChecklistItem"
+							@delete="handleDeleteChecklistItem"
+							@reorder="handleReorderChecklistItems" />
+					</div>
 				</div>
 			</div>
-		</div>
 
-		<OverdueClaimDialog
-			:visible="claimDialogVisible"
-			:assignee-name="claimAssigneeName"
-			@confirm="confirmClaim"
-			@cancel="claimDialogVisible = false" />
+			<OverdueClaimDialog
+				:visible="claimDialogVisible"
+				:assignee-name="claimAssigneeName"
+				@confirm="confirmClaim"
+				@cancel="claimDialogVisible = false" />
+		</div>
 	</div>
 </template>
 
 <script>
 import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
+import { showSuccess, showWarning, showError } from '@nextcloud/dialogs'
 import { Icon } from '../Common/index.js'
 import TaskChecklist from './TaskChecklist.vue'
 import FlexWindowDisplay from './FlexWindowDisplay.vue'
@@ -199,6 +244,7 @@ import OverdueClaimDialog from './OverdueClaimDialog.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 import { useUserStore } from '../../store/user.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { logger } from '../../utils/logger.js'
 
 export default {
 	name: 'TaskList',
@@ -396,6 +442,107 @@ export default {
 			await checklistStore.toggleItem(roomTaskId, itemId)
 		}
 
+		// --- Checklist editor wiring (CS-PLAN-042, UX-009) — owner-only via canEdit ---
+
+		const handleAddChecklistItem = async ({ label, taskId }) => {
+			try {
+				await checklistStore.addItem(taskId, { label })
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to add sub-task'))
+				logger.error('Failed to add checklist item', error, { component: 'TaskList', action: 'handleAddChecklistItem', taskId })
+			}
+		}
+
+		const handleUpdateChecklistItem = async ({ itemId, label }) => {
+			try {
+				await checklistStore.updateItem(itemId, label)
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to update sub-task'))
+				logger.error('Failed to update checklist item', error, { component: 'TaskList', action: 'handleUpdateChecklistItem', itemId })
+			}
+		}
+
+		const handleDeleteChecklistItem = async ({ itemId, taskId }) => {
+			try {
+				await checklistStore.deleteItem(itemId, taskId)
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to delete sub-task'))
+				logger.error('Failed to delete checklist item', error, { component: 'TaskList', action: 'handleDeleteChecklistItem', itemId })
+			}
+		}
+
+		const handleReorderChecklistItems = async ({ itemIds, taskId }) => {
+			try {
+				await checklistStore.reorderItems(taskId, itemIds)
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to reorder sub-tasks'))
+				logger.error('Failed to reorder checklist items', error, { component: 'TaskList', action: 'handleReorderChecklistItems', taskId })
+			}
+		}
+
+		// --- Bulk assignment selection (CS-PLAN-042, UX-008) ---
+
+		const selectedRoomTaskIds = ref([])
+		const bulkTargetUserId = ref('')
+		const bulkAssigning = ref(false)
+
+		const isSelected = (roomTaskId) => selectedRoomTaskIds.value.includes(roomTaskId)
+
+		const toggleSelected = async (roomTaskId) => {
+			if (isSelected(roomTaskId)) {
+				selectedRoomTaskIds.value = selectedRoomTaskIds.value.filter(id => id !== roomTaskId)
+			} else {
+				selectedRoomTaskIds.value = [...selectedRoomTaskIds.value, roomTaskId]
+				// Lazy-load house members for the target dropdown
+				if ((userStore.houseUsers || []).length === 0) {
+					try {
+						await userStore.fetchHouseUsers()
+					} catch (error) {
+						// non-fatal: dropdown will show an empty list
+					}
+				}
+			}
+		}
+
+		const clearSelection = () => {
+			selectedRoomTaskIds.value = []
+			bulkTargetUserId.value = ''
+		}
+
+		/**
+		 * One bulk call for the whole selection (CR-SVC-61). The server skips
+		 * foreign/missing ids per item; the diff between requested and
+		 * returned ids drives the partial-success toast.
+		 */
+		const handleBulkAssign = async () => {
+			const requested = [...selectedRoomTaskIds.value]
+			if (!bulkTargetUserId.value || requested.length === 0) return
+
+			bulkAssigning.value = true
+			try {
+				const assigned = await roomTasksStore.bulkAssignTasks(requested, bulkTargetUserId.value)
+				const assignedIds = new Set((assigned || []).map(rt => rt.id))
+				const skippedCount = requested.length - assignedIds.size
+
+				if (skippedCount === 0) {
+					showSuccess(t('chorestrike', '{count} task(s) assigned', { count: requested.length }))
+				} else if (assignedIds.size > 0) {
+					showWarning(t('chorestrike', '{assigned} task(s) assigned, {skipped} skipped', {
+						assigned: assignedIds.size,
+						skipped: skippedCount,
+					}))
+				} else {
+					showError(t('chorestrike', 'No tasks were assigned'))
+				}
+				clearSelection()
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to assign tasks'))
+				logger.error('Bulk assign failed', error, { component: 'TaskList', action: 'handleBulkAssign' })
+			} finally {
+				bulkAssigning.value = false
+			}
+		}
+
 		/**
 		 * Calculate earliest date for flex window
 		 * @param {object} item - Task item with roomTask and task
@@ -445,6 +592,17 @@ export default {
 			getTaskItems,
 			getRoomTaskProgress,
 			handleToggleChecklistItem,
+			handleAddChecklistItem,
+			handleUpdateChecklistItem,
+			handleDeleteChecklistItem,
+			handleReorderChecklistItems,
+			selectedRoomTaskIds,
+			bulkTargetUserId,
+			bulkAssigning,
+			isSelected,
+			toggleSelected,
+			clearSelection,
+			handleBulkAssign,
 			getEarliestDate,
 			getIdealDate,
 			getLatestDate,
@@ -457,6 +615,7 @@ export default {
 			confirmClaim,
 			claimDialogVisible,
 			claimAssigneeName,
+			userStore,
 			t,
 		}
 	},
@@ -503,6 +662,87 @@ export default {
 .empty-hint {
 	font-size: 14px;
 	opacity: 0.7;
+}
+
+.task-list-body {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.bulk-assign-bar {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.6rem 0.9rem;
+	background: var(--color-primary-light);
+	border: 1px solid var(--color-primary);
+	border-radius: 8px;
+}
+
+.bulk-selection-count {
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--color-main-text);
+}
+
+.bulk-target-select {
+	min-height: 36px;
+	padding: 0.3rem 0.5rem;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	font-size: 0.85rem;
+}
+
+.bulk-assign-button {
+	padding: 0.4rem 0.9rem;
+	border: none;
+	border-radius: 6px;
+	background: var(--color-primary);
+	color: var(--color-primary-text);
+	cursor: pointer;
+	font-size: 0.85rem;
+	font-weight: 600;
+}
+
+.bulk-assign-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.bulk-clear-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	margin-inline-start: auto;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--color-text-maxcontrast);
+	cursor: pointer;
+}
+
+.bulk-clear-button:hover {
+	background: var(--color-background-hover);
+	color: var(--color-main-text);
+}
+
+.task-select {
+	flex-shrink: 0;
+	display: flex;
+	align-items: flex-start;
+	padding-top: 0.35rem;
+}
+
+.task-select input[type='checkbox'] {
+	width: 16px;
+	height: 16px;
+	cursor: pointer;
+	accent-color: var(--color-primary);
 }
 
 .task-items {

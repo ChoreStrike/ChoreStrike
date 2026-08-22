@@ -31,14 +31,14 @@ export const useChecklistStore = defineStore('checklist', {
 		getCompletionPercent: (state) => (roomTaskId) => {
 			const progress = state.progress[roomTaskId] || []
 			if (progress.length === 0) return 0
-			const completed = progress.filter(p => p.isCompleted).length
+			const completed = progress.filter(p => p.isChecked).length
 			return Math.round((completed / progress.length) * 100)
 		},
 
 		isItemCompleted: (state) => (roomTaskId, itemId) => {
 			const progress = state.progress[roomTaskId] || []
-			const itemProgress = progress.find(p => p.itemId === itemId)
-			return itemProgress?.isCompleted || false
+			const itemProgress = progress.find(p => p.checklistItemId === itemId)
+			return itemProgress?.isChecked || false
 		},
 	},
 
@@ -66,6 +66,10 @@ export const useChecklistStore = defineStore('checklist', {
 
 		/**
 		 * Fetch progress for a room task
+		 *
+		 * The endpoint returns `{ items, stats }`; only the row list is
+		 * cached (rows carry `checklistItemId` + `isChecked`).
+		 *
 		 * @param {number} roomTaskId The room task ID
 		 */
 		async fetchRoomTaskProgress(roomTaskId) {
@@ -74,8 +78,8 @@ export const useChecklistStore = defineStore('checklist', {
 
 			try {
 				const data = await api.get(`/api/v1/checklists/progress/${roomTaskId}`)
-				this.progress[roomTaskId] = data
-				return data
+				this.progress[roomTaskId] = data.items || []
+				return this.progress[roomTaskId]
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch checklist progress', error, { store: 'checklist', action: 'fetchRoomTaskProgress', roomTaskId })
@@ -88,14 +92,24 @@ export const useChecklistStore = defineStore('checklist', {
 		/**
 		 * Add a checklist item to a task
 		 * @param {number} taskId The task ID
-		 * @param {object} itemData The item data { title, description, orderIndex }
+		 * @param {object} itemData The item data (backend contract)
+		 * @param {string} itemData.label Item label
+		 * @param {number} [itemData.sortOrder] Explicit sort position
 		 */
 		async addItem(taskId, itemData) {
+			const label = itemData?.label
+			if (!label || String(label).trim() === '') {
+				throw new Error('Checklist item label is required')
+			}
+
 			this.loading = true
 			this.error = null
 
 			try {
-				const data = await api.post(`/api/v1/checklists/task/${taskId}`, itemData)
+				const data = await api.post(`/api/v1/checklists/task/${taskId}`, {
+					label,
+					sortOrder: itemData.sortOrder,
+				})
 
 				if (!this.items[taskId]) {
 					this.items[taskId] = []
@@ -112,16 +126,20 @@ export const useChecklistStore = defineStore('checklist', {
 		},
 
 		/**
-		 * Update a checklist item
+		 * Update a checklist item label
 		 * @param {number} itemId The item ID
-		 * @param {object} updates The updates { title, description }
+		 * @param {string} label The new label
 		 */
-		async updateItem(itemId, updates) {
+		async updateItem(itemId, label) {
+			if (!label || String(label).trim() === '') {
+				throw new Error('Checklist item label is required')
+			}
+
 			this.loading = true
 			this.error = null
 
 			try {
-				const data = await api.put(`/api/v1/checklists/item/${itemId}`, updates)
+				const data = await api.put(`/api/v1/checklists/item/${itemId}`, { label })
 
 				for (const taskId in this.items) {
 					const index = this.items[taskId].findIndex(item => item.id === itemId)
@@ -166,6 +184,10 @@ export const useChecklistStore = defineStore('checklist', {
 
 		/**
 		 * Toggle a checklist item's completion status
+		 *
+		 * The endpoint returns `{ progress, stats }`; the progress row is
+		 * upserted into the cached list by its `checklistItemId`.
+		 *
 		 * @param {number} roomTaskId The room task ID
 		 * @param {number} itemId The item ID
 		 */
@@ -180,14 +202,16 @@ export const useChecklistStore = defineStore('checklist', {
 					this.progress[roomTaskId] = []
 				}
 
-				const existingIndex = this.progress[roomTaskId].findIndex(p => p.itemId === itemId)
+				const row = data?.progress || data
+				const existingIndex = this.progress[roomTaskId]
+					.findIndex(p => p.checklistItemId === row.checklistItemId)
 				if (existingIndex >= 0) {
-					this.progress[roomTaskId][existingIndex] = data
+					this.progress[roomTaskId][existingIndex] = row
 				} else {
-					this.progress[roomTaskId].push(data)
+					this.progress[roomTaskId].push(row)
 				}
 
-				return data
+				return row
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to toggle checklist item', error, { store: 'checklist', action: 'toggleItem', roomTaskId, itemId })
@@ -199,8 +223,12 @@ export const useChecklistStore = defineStore('checklist', {
 
 		/**
 		 * Reorder checklist items
+		 *
+		 * Sends the persisted order as an `itemOrders` map
+		 * (itemId → position), the shape the controller expects.
+		 *
 		 * @param {number} taskId The task ID
-		 * @param {Array} itemIds Ordered array of item IDs
+		 * @param {Array<number>} itemIds Ordered array of item IDs
 		 */
 		async reorderItems(taskId, itemIds) {
 			this.loading = true
@@ -208,8 +236,7 @@ export const useChecklistStore = defineStore('checklist', {
 
 			try {
 				await api.post('/api/v1/checklists/reorder', {
-					taskId,
-					itemIds,
+					itemOrders: Object.fromEntries(itemIds.map((id, index) => [id, index])),
 				})
 
 				if (this.items[taskId]) {
@@ -231,15 +258,23 @@ export const useChecklistStore = defineStore('checklist', {
 
 		/**
 		 * Initialize checklist progress for a room task
+		 *
+		 * The endpoint returns only `{ success, message }` (no `data`
+		 * payload), so the unwrapped result is `undefined` — the cache is
+		 * reset instead of reading a nonexistent `items` property.
+		 *
 		 * @param {number} roomTaskId The room task ID
+		 * @param {number} taskId The task definition ID (required by the route)
 		 */
-		async initializeProgress(roomTaskId) {
+		async initializeProgress(roomTaskId, taskId) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const data = await api.post(`/api/v1/checklists/initialize/${roomTaskId}`)
-				this.progress[roomTaskId] = data
+				const data = await api.post(`/api/v1/checklists/initialize/${roomTaskId}`, null, {
+					params: { taskId },
+				})
+				this.progress[roomTaskId] = data?.items || []
 				return data
 			} catch (error) {
 				this.error = error.message

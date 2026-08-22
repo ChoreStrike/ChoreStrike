@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/test-fixtures'
+import { userStatePath } from './fixtures/auth-contexts'
 import type { Browser, Page } from '@playwright/test'
 
 /**
@@ -11,6 +12,10 @@ import type { Browser, Page } from '@playwright/test'
  * CS-PLAN-015: the primary user is authenticated via storageState (no inline
  * form-login). The secondary user still form-logs in (fresh context). Nav uses
  * `getByRole('link', { name })`; fixed sleeps replaced by auto-waiting.
+ *
+ * The primary is `mom` — a seeded family-house OWNER — because structure CRUD
+ * lives behind the owner-gated Settings surface since CS-PLAN-042 (the
+ * default `admin` identity is a plain member under the family profile).
  *
  * The secondary is a `family` member (`teen`) so it exists as an NC user and
  * belongs to the family house admin builds into — `adult` is `minimal`-only
@@ -41,7 +46,7 @@ async function navigateToSettings(page: Page): Promise<void> {
 	await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
 }
 
-async function createTaskFromUi(page: Page, taskName: string, roomName: string): Promise<void> {
+async function createTaskFromUi(page: Page, taskName: string, floorName: string, roomName: string): Promise<void> {
 	await page.goto('/apps/chorestrike/#/tasks')
 	await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 30000 })
 
@@ -55,16 +60,14 @@ async function createTaskFromUi(page: Page, taskName: string, roomName: string):
 
 	// Unified creation (CS-PLAN-038): the definition form now includes the
 	// room picker; saving chains definition → room task materialization.
+	// Two-level picker (floor → rooms of that floor): select the target
+	// floor first, otherwise only the default floor's rooms are offered.
+	const floorSelect = page.getByTestId('room-picker-floor')
+	await expect(floorSelect).toBeVisible({ timeout: 15000 })
+	await floorSelect.selectOption({ label: floorName })
+
 	const roomSelect = page.getByTestId('room-picker-room')
-	await expect(roomSelect).toBeVisible({ timeout: 15000 })
-	const optionValue = await roomSelect.locator('option').evaluateAll((options, currentRoomName) => {
-		const matchingOption = options.find((option) => option.textContent?.includes(String(currentRoomName)))
-		return matchingOption?.getAttribute('value') ?? null
-	}, roomName)
-	if (optionValue === null) {
-		throw new Error(`Could not find room option for ${roomName}`)
-	}
-	await roomSelect.selectOption(optionValue)
+	await roomSelect.selectOption({ label: roomName })
 
 	const roomTaskResponsePromise = page.waitForResponse((response) => {
 		const isPostRequest = response.request().method() === 'POST'
@@ -136,6 +139,8 @@ async function verifySharedViewAsSecondaryUser(browser: Browser, taskName: strin
 }
 
 test.describe('GUI scratch flow with realistic users', () => {
+	test.use({ storageState: userStatePath('mom') })
+
 	test('can build from scratch via GUI and share with second login', async ({ page, browser }) => {
 		test.setTimeout(180000)
 		const suffix = Date.now().toString().slice(-5)
@@ -144,19 +149,14 @@ test.describe('GUI scratch flow with realistic users', () => {
 
 		// Primary user: authenticated via storageState.
 		await openApp(page)
+
+		// Structure CRUD lives in Settings since CS-PLAN-042 (the Dashboard
+		// FloorList is read-only).
 		await navigateToSettings(page)
+		await page.locator('.floor-item').first().waitFor({ state: 'attached', timeout: 15000 }).catch(() => undefined)
 
-		await page.goto('/index.php/apps/chorestrike/#/')
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
-		await expect(page.getByTestId('refresh-floors-button')).toBeVisible({ timeout: 15000 })
-		// Wait until floor sections have rendered.
-		await page.locator('.floor-section').first().waitFor({ state: 'attached', timeout: 10000 }).catch(() => undefined)
-
-		const floorSections = page.locator('.floor-section')
-		const initialFloorCount = await floorSections.count()
-		let preferredFloorSection = floorSections.first()
-
-		if (initialFloorCount === 0) {
+		const floorItems = page.locator('.floor-item')
+		if (await floorItems.count() === 0 || !(await page.getByTestId(`floor-${floorName}`).isVisible().catch(() => false))) {
 			const createFloorResponsePromise = page.waitForResponse((response) => {
 				const isPostRequest = response.request().method() === 'POST'
 				const pathname = new URL(response.url()).pathname
@@ -164,60 +164,33 @@ test.describe('GUI scratch flow with realistic users', () => {
 			})
 
 			await page.getByTestId('add-floor-button').click()
-			await page.locator('#floor-name').fill(floorName)
-			await page.getByRole('button', { name: 'Create Floor' }).click()
+			await page.locator('#new-floor-name').fill(floorName)
+			await page.getByRole('button', { name: 'Create' }).click()
 			const createFloorResponse = await createFloorResponsePromise
 			expect(createFloorResponse.ok()).toBeTruthy()
 
-			// Wait for the floor to render (auto-waiting replaces a fixed sleep).
-			await expect(floorSections.first()).toBeAttached({ timeout: 15000 })
-
-			const floorByName = page.getByTestId(`floor-${floorName}`).first()
-			preferredFloorSection = (await floorByName.count()) > 0
-				? floorByName
-				: floorSections.last()
-		} else {
-			preferredFloorSection = floorSections.first()
+			// Wait for the floor row to render (auto-waiting replaces a fixed sleep).
+			await expect(page.getByTestId(`floor-${floorName}`)).toBeVisible({ timeout: 15000 })
 		}
 
-		await expect(preferredFloorSection).toBeVisible({ timeout: 15000 })
+		const preferredFloorItem = page.getByTestId(`floor-${floorName}`).first()
+		await expect(preferredFloorItem).toBeVisible({ timeout: 15000 })
 
-		let addRoomTrigger = preferredFloorSection.locator('.add-room-button, .add-room-card').first()
-		if (await addRoomTrigger.count() === 0) {
-			const availableFloorCount = await floorSections.count()
-			for (let index = 0; index < availableFloorCount; index += 1) {
-				const floorSection = floorSections.nth(index)
-				if (!await floorSection.locator('.add-room-button, .add-room-card').first().isVisible().catch(() => false)) {
-					await floorSection.locator('.toggle-button').first().click().catch(() => undefined)
-				}
-				const candidateTrigger = floorSection.locator('.add-room-button, .add-room-card').first()
-				if (await candidateTrigger.isVisible().catch(() => false)) {
-					addRoomTrigger = candidateTrigger
-					break
-				}
-			}
-		}
-
-		await expect(addRoomTrigger).toBeVisible({ timeout: 15000 })
+		// Create the room inline on the floor row.
+		await preferredFloorItem.locator('[data-testid^="expand-floor-"]').click()
 		const createRoomResponsePromise = page.waitForResponse((response) => {
 			const isPostRequest = response.request().method() === 'POST'
 			const pathname = new URL(response.url()).pathname
 			return isPostRequest && pathname.includes('/chorestrike/api/v1/rooms')
 		})
-		const refreshResponsePromise = page.waitForResponse((response) => {
-			const pathname = new URL(response.url()).pathname
-			return pathname.includes('/chorestrike/api/v1/floors/with-rooms')
-		})
-		await addRoomTrigger.click()
-		await page.getByTestId('room-name-input').fill(roomName)
-		await page.getByTestId('create-room-button').click()
+		await preferredFloorItem.locator('[data-testid="new-room-name-input"]').fill(roomName)
+		await preferredFloorItem.locator('[data-testid="add-room-to-floor-button"]').click()
 		const createRoomResponse = await createRoomResponsePromise
 		expect(createRoomResponse.ok()).toBeTruthy()
-		await refreshResponsePromise
-		await expect(page.getByText(roomName)).toBeVisible({ timeout: 15000 })
+		await expect(preferredFloorItem.locator('.room-row-name', { hasText: roomName })).toBeVisible({ timeout: 15000 })
 
 		const taskName = `GUI Weekly Kitchen Cleanup ${suffix}`
-		await createTaskFromUi(page, taskName, roomName)
+		await createTaskFromUi(page, taskName, floorName, roomName)
 		await verifyTaskInRoomFromUi(page, taskName, roomName)
 		await verifySharedViewAsSecondaryUser(browser, taskName, roomName)
 	})

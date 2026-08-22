@@ -35,8 +35,8 @@
 				</div>
 			</section>
 
-			<!-- House Settings -->
-			<section class="settings-section">
+			<!-- House Settings (owner only: PUT /house requires the owner role) -->
+			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="house-section">
 				<h2>{{ t('chorestrike', 'House') }}</h2>
 				<div class="setting-card">
 					<div class="form-group">
@@ -70,8 +70,9 @@
 				</div>
 			</section>
 
-			<!-- Floors & Rooms Management -->
-			<section class="settings-section">
+			<!-- Floors & Rooms Management (owner only — the single structure
+			     editing surface; the Dashboard FloorList is read-only) -->
+			<section v-if="userStore.isHouseOwner" class="settings-section" data-testid="floors-section">
 				<h2>{{ t('chorestrike', 'Floors & Rooms') }}</h2>
 				<div class="setting-card">
 					<div class="floors-section">
@@ -83,7 +84,7 @@
 							</button>
 						</div>
 
-						<div v-if="roomsStore.floors.length === 0" class="empty-state" data-testid="no-floors-message">
+						<div v-if="orderedFloors.length === 0" class="empty-state" data-testid="no-floors-message">
 							<p>{{ t('chorestrike', 'No floors created yet') }}</p>
 							<button class="primary-button" data-testid="create-first-floor" @click="showAddFloorModal = true">
 								{{ t('chorestrike', 'Create First Floor') }}
@@ -92,7 +93,7 @@
 
 						<div v-else class="floors-list" data-testid="floors-list">
 							<div
-								v-for="floor in roomsStore.floors"
+								v-for="(floor, index) in orderedFloors"
 								:key="floor.id"
 								:data-testid="`floor-${floor.name}`"
 								class="floor-item">
@@ -107,6 +108,29 @@
 									<div class="floor-actions">
 										<button
 											class="icon-button"
+											:data-testid="`expand-floor-${floor.id}`"
+											:title="isFloorExpanded(floor.id) ? t('chorestrike', 'Hide rooms') : t('chorestrike', 'Show rooms')"
+											@click="toggleFloorExpanded(floor.id)">
+											<Icon :name="isFloorExpanded(floor.id) ? 'ChevronDown' : 'ChevronRight'" :size="16" />
+										</button>
+										<button
+											class="icon-button"
+											:data-testid="`move-floor-up-${floor.id}`"
+											:title="t('chorestrike', 'Move floor up')"
+											:disabled="index === 0 || roomsStore.loading"
+											@click="moveFloor(floor, -1)">
+											<Icon name="ChevronUp" :size="16" />
+										</button>
+										<button
+											class="icon-button"
+											:data-testid="`move-floor-down-${floor.id}`"
+											:title="t('chorestrike', 'Move floor down')"
+											:disabled="index === orderedFloors.length - 1 || roomsStore.loading"
+											@click="moveFloor(floor, 1)">
+											<Icon name="ChevronDown" :size="16" />
+										</button>
+										<button
+											class="icon-button"
 											:title="t('chorestrike', 'Edit floor')"
 											@click="editFloor(floor)">
 											<Icon name="Edit" :size="16" />
@@ -119,14 +143,47 @@
 										</button>
 									</div>
 								</div>
+
+								<!-- Room list of this floor (sole CRUD surface, UX-004) -->
+								<div v-if="isFloorExpanded(floor.id)" class="floor-rooms" :data-testid="`floor-rooms-${floor.id}`">
+									<div v-for="room in roomsStore.roomsByFloor[floor.id] || []" :key="room.id" class="room-row">
+										<span class="room-row-name">{{ room.name }}</span>
+										<button
+											class="icon-button danger"
+											:data-testid="`delete-room-${room.id}`"
+											:title="t('chorestrike', 'Delete room')"
+											@click="roomToDelete = room">
+											<Icon name="Trash" :size="16" />
+										</button>
+									</div>
+									<p v-if="(roomsStore.roomsByFloor[floor.id] || []).length === 0" class="no-rooms-hint">
+										{{ t('chorestrike', 'No rooms on this floor yet.') }}
+									</p>
+									<div class="add-room-inline">
+										<input
+											v-model="newRoomNames[floor.id]"
+											type="text"
+											class="text-input"
+											data-testid="new-room-name-input"
+											:placeholder="t('chorestrike', 'New room name')"
+											@keyup.enter="createRoomForFloor(floor)">
+										<button
+											class="add-button"
+											data-testid="add-room-to-floor-button"
+											:disabled="!(newRoomNames[floor.id] || '').trim() || roomsStore.loading"
+											@click="createRoomForFloor(floor)">
+											{{ t('chorestrike', 'Add Room') }}
+										</button>
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
 				</div>
 			</section>
 
-			<!-- Danger Zone -->
-			<section class="settings-section danger-zone">
+			<!-- Danger Zone (owner only) -->
+			<section v-if="userStore.isHouseOwner" class="settings-section danger-zone" data-testid="danger-zone">
 				<h2>{{ t('chorestrike', 'Danger Zone') }}</h2>
 				<div class="setting-card danger">
 					<div class="danger-item">
@@ -245,6 +302,15 @@
 			:loading="deletingFloor"
 			@confirm="confirmDeleteFloor"
 			@cancel="floorToDelete = null" />
+
+		<!-- Delete Room Confirmation (sole structure surface, UX-004) -->
+		<ConfirmDialog
+			v-if="roomToDelete !== null"
+			:title="deleteRoomTitle"
+			:description="t('chorestrike', 'All tasks in this room will be deleted.')"
+			:loading="deletingRoom"
+			@confirm="confirmDeleteRoom"
+			@cancel="roomToDelete = null" />
 	</div>
 </template>
 
@@ -296,12 +362,28 @@ export default {
 			resetConfirmation: '',
 			floorToDelete: null,
 			deletingFloor: false,
+			expandedFloorIds: [],
+			newRoomNames: {},
+			roomToDelete: null,
+			deletingRoom: false,
 		}
 	},
 
 	computed: {
 		canSaveHouseName() {
 			return this.houseName.trim() && this.houseName !== this.houseStore.houseName
+		},
+
+		/**
+		 * Floors in persisted order — the reorder buttons operate on this.
+		 */
+		orderedFloors() {
+			return [...this.roomsStore.floors].sort((a, b) => a.sortOrder - b.sortOrder)
+		},
+
+		deleteRoomTitle() {
+			if (!this.roomToDelete) return ''
+			return t('chorestrike', 'Delete "{name}"?', { name: this.roomToDelete.name })
 		},
 
 		currentTitle() {
@@ -360,6 +442,51 @@ export default {
 			return this.roomsStore.roomsByFloor[floorId]?.length || 0
 		},
 
+		isFloorExpanded(floorId) {
+			return this.expandedFloorIds.includes(floorId)
+		},
+
+		toggleFloorExpanded(floorId) {
+			this.expandedFloorIds = this.isFloorExpanded(floorId)
+				? this.expandedFloorIds.filter(id => id !== floorId)
+				: [...this.expandedFloorIds, floorId]
+		},
+
+		/**
+		 * Create a room on the given floor from the inline input (UX-004:
+		 * room creation moved here from the read-only Dashboard FloorList).
+		 *
+		 * @param {object} floor Floor receiving the new room.
+		 */
+		async createRoomForFloor(floor) {
+			const name = (this.newRoomNames[floor.id] || '').trim()
+			if (!name) return
+			try {
+				await this.roomsStore.createRoom(floor.id, name)
+				showSuccess(t('chorestrike', 'Room created'))
+				this.newRoomNames[floor.id] = ''
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to create room'))
+				logger.error('Failed to create room', error, { view: 'Settings', action: 'createRoomForFloor', floorId: floor.id })
+			}
+		},
+
+		async confirmDeleteRoom() {
+			const room = this.roomToDelete
+			if (!room) return
+			this.deletingRoom = true
+			try {
+				await this.roomsStore.deleteRoom(room.id)
+				showSuccess(t('chorestrike', 'Room deleted'))
+				this.roomToDelete = null
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to delete room'))
+				logger.error('Failed to delete room', error, { view: 'Settings', action: 'confirmDeleteRoom', roomId: room.id })
+			} finally {
+				this.deletingRoom = false
+			}
+		},
+
 		async saveHouseName() {
 			if (!this.canSaveHouseName) return
 			try {
@@ -388,6 +515,34 @@ export default {
 			this.editingFloor = floor
 			this.editingFloorName = floor.name
 			this.showEditFloorModal = true
+		},
+
+		/**
+		 * Move a floor one position up/down (CS-PLAN-042, UX-004): swaps the
+		 * floor with its neighbour and persists the full new order via
+		 * POST /floors/reorder.
+		 *
+		 * @param {object} floor Floor to move.
+		 * @param {number} direction -1 (up) or 1 (down).
+		 */
+		async moveFloor(floor, direction) {
+			const ordered = this.orderedFloors
+			const index = ordered.findIndex(f => f.id === floor.id)
+			const target = index + direction
+			if (index < 0 || target < 0 || target >= ordered.length) return
+
+			const next = [...ordered]
+			const moved = next[index]
+			next[index] = next[target]
+			next[target] = moved
+
+			try {
+				await this.roomsStore.reorderFloors(next.map(f => f.id))
+				showSuccess(t('chorestrike', 'Floor order saved'))
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to update floor'))
+				logger.error('Failed to reorder floors', error, { view: 'Settings', action: 'moveFloor', floorId: floor.id })
+			}
 		},
 
 		async updateFloor() {
@@ -624,6 +779,51 @@ export default {
 
 .floor-name {
 	font-weight: 500;
+}
+
+.floor-rooms {
+	margin-top: 0.75rem;
+	padding: 0.5rem 0.75rem 0.75rem;
+	border-top: 1px solid var(--color-border);
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+
+.room-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	padding: 0.25rem 0.25rem 0.25rem 0.5rem;
+	border-radius: 6px;
+}
+
+.room-row:hover {
+	background: var(--color-background-hover);
+}
+
+.room-row-name {
+	font-size: 0.9rem;
+	color: var(--color-main-text);
+}
+
+.no-rooms-hint {
+	margin: 0.25rem 0;
+	font-size: 0.85rem;
+	color: var(--color-text-maxcontrast);
+}
+
+.add-room-inline {
+	display: flex;
+	gap: 0.5rem;
+	margin-top: 0.4rem;
+}
+
+.add-room-inline .text-input {
+	flex: 1;
+	padding: 0.4rem 0.6rem;
+	font-size: 0.9rem;
 }
 
 .room-count {

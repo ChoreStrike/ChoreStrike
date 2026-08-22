@@ -25,7 +25,7 @@ jest.mock('@nextcloud/dialogs', () => ({
 	showError: jest.fn(),
 }))
 
-import { showSuccess } from '@nextcloud/dialogs'
+import { showSuccess, showError } from '@nextcloud/dialogs'
 
 // Mutable so individual tests can assert store interactions.
 const mockHouseState = {
@@ -43,8 +43,8 @@ jest.mock('../../../src/store/house.js', () => ({
 
 const mockRoomsState = {
 	floors: [
-		{ id: 1, name: 'Ground Floor' },
-		{ id: 2, name: 'First Floor' },
+		{ id: 1, name: 'Ground Floor', sortOrder: 0 },
+		{ id: 2, name: 'First Floor', sortOrder: 1 },
 	],
 	rooms: [
 		{ id: 1, name: 'Kitchen', floorId: 1 },
@@ -55,14 +55,35 @@ const mockRoomsState = {
 		1: [{ id: 1, name: 'Kitchen' }, { id: 2, name: 'Living Room' }],
 		2: [{ id: 3, name: 'Bedroom' }],
 	},
+	loading: false,
 	fetchFloorsWithRooms: jest.fn(),
 	createFloor: jest.fn(),
 	updateFloorName: jest.fn(),
 	deleteFloor: jest.fn().mockResolvedValue(),
+	reorderFloors: jest.fn().mockResolvedValue(),
+	createRoom: jest.fn().mockResolvedValue({ id: 9, name: 'Pantry', floorId: 1 }),
+	deleteRoom: jest.fn().mockResolvedValue(),
 }
 
 jest.mock('../../../src/store/rooms.js', () => ({
 	useRoomsStore: () => mockRoomsState,
+}))
+
+// Mutable role so tests can switch between owner and member (CS-PLAN-042
+// role gating). Defaults to owner: the owner-only sections under test.
+// `fetchHouseUsers`/`houseUsers` satisfy the MemberList child mounted in the
+// owner-visible members section (keeps the suite noise-free).
+const mockUserState = {
+	userId: 1,
+	currentUser: { id: 1, role: 'owner' },
+	isHouseOwner: true,
+	houseUsers: [],
+	initializeCurrentUser: jest.fn().mockResolvedValue(),
+	fetchHouseUsers: jest.fn().mockResolvedValue(),
+}
+
+jest.mock('../../../src/store/user.js', () => ({
+	useUserStore: () => mockUserState,
 }))
 
 // Mock child components
@@ -86,8 +107,13 @@ describe('Settings.vue', () => {
 		setActivePinia(pinia)
 		translate.mockClear()
 		showSuccess.mockClear()
+		showError.mockClear()
 		mockHouseState.updateHouseName.mockClear().mockResolvedValue()
 		mockRoomsState.deleteFloor.mockClear().mockResolvedValue()
+		mockRoomsState.reorderFloors.mockClear().mockResolvedValue()
+		mockUserState.currentUser = { id: 1, role: 'owner' }
+		mockUserState.isHouseOwner = true
+		mockUserState.initializeCurrentUser.mockClear().mockResolvedValue()
 	})
 
 	it('renders settings component', () => {
@@ -309,5 +335,150 @@ describe('Settings.vue', () => {
 		await flushPromises()
 
 		expect(mockRoomsState.deleteFloor).toHaveBeenCalledWith(1)
+	})
+
+	// --- Role gating + floor reorder (CS-PLAN-042, UX-004) ---
+
+	it('hides owner-only sections from members (no 403 paths)', async () => {
+		mockUserState.currentUser = { id: 1, role: 'member' }
+		mockUserState.isHouseOwner = false
+
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="house-section"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="floors-section"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="danger-zone"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="members-section"]').exists()).toBe(false)
+		// The personal title section stays visible for members.
+		expect(wrapper.text()).toContain('Your Title')
+	})
+
+	it('shows owner-only sections to owners', async () => {
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="house-section"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="floors-section"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="danger-zone"]').exists()).toBe(true)
+	})
+
+	it('offers up/down reorder buttons per floor as owner', async () => {
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await flushPromises()
+
+		const ups = wrapper.findAll('[data-testid^="move-floor-up-"]')
+		const downs = wrapper.findAll('[data-testid^="move-floor-down-"]')
+		expect(ups.length).toBe(2)
+		expect(downs.length).toBe(2)
+
+		// Boundary disabling: first floor cannot go up, last cannot go down.
+		expect(ups[0].attributes('disabled')).toBeDefined()
+		expect(downs[0].attributes('disabled')).toBeUndefined()
+		expect(ups[1].attributes('disabled')).toBeUndefined()
+		expect(downs[1].attributes('disabled')).toBeDefined()
+	})
+
+	it('persists the swapped order when a floor is moved down', async () => {
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await flushPromises()
+
+		await wrapper.find('[data-testid="move-floor-down-1"]').trigger('click')
+		await flushPromises()
+
+		expect(mockRoomsState.reorderFloors).toHaveBeenCalledWith([2, 1])
+		expect(showSuccess).toHaveBeenCalled()
+	})
+
+	it('toasts an error and keeps the old order when reordering fails', async () => {
+		mockRoomsState.reorderFloors.mockRejectedValueOnce(new Error('boom'))
+
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await flushPromises()
+
+		await wrapper.find('[data-testid="move-floor-down-1"]').trigger('click')
+		await flushPromises()
+
+		expect(showError).toHaveBeenCalled()
+	})
+
+	// --- Per-floor room CRUD in Settings (CS-PLAN-042, UX-004) ---
+
+	it('expands a floor to reveal its rooms and the inline add form', async () => {
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="floor-rooms-1"]').exists()).toBe(false)
+
+		await wrapper.find('[data-testid="expand-floor-1"]').trigger('click')
+
+		const rooms = wrapper.find('[data-testid="floor-rooms-1"]')
+		expect(rooms.exists()).toBe(true)
+		expect(rooms.text()).toContain('Kitchen')
+		expect(wrapper.find('[data-testid="add-room-to-floor-button"]').exists()).toBe(true)
+	})
+
+	it('creates a room on the expanded floor via the store', async () => {
+		mockRoomsState.createRoom.mockResolvedValue({ id: 9, name: 'Pantry', floorId: 1 })
+		mockRoomsState.roomsByFloor = { ...mockRoomsState.roomsByFloor }
+
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await flushPromises()
+
+		await wrapper.find('[data-testid="expand-floor-1"]').trigger('click')
+		await wrapper.find('[data-testid="new-room-name-input"]').setValue('Pantry')
+		await wrapper.find('[data-testid="add-room-to-floor-button"]').trigger('click')
+		await flushPromises()
+
+		expect(mockRoomsState.createRoom).toHaveBeenCalledWith(1, 'Pantry')
+		expect(showSuccess).toHaveBeenCalled()
+	})
+
+	it('deletes a room via the styled confirm dialog', async () => {
+		const wrapper = mount(Settings, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await flushPromises()
+
+		await wrapper.find('[data-testid="expand-floor-1"]').trigger('click')
+		await wrapper.find('[data-testid="delete-room-2"]').trigger('click')
+
+		expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true)
+		expect(wrapper.text()).toContain('Living Room')
+
+		await wrapper.find('[data-testid="confirm-dialog-confirm"]').trigger('click')
+		await flushPromises()
+
+		expect(mockRoomsState.deleteRoom).toHaveBeenCalledWith(2)
 	})
 })

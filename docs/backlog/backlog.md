@@ -342,14 +342,7 @@ incremental `AppLogger` adoption in services that swallow failures silently.
 > transactional, orphan-free delete cascades (D1=YES/D2=DELETE).
 
 ### [P3] CR-SVC-61 — `bulkAssignTasks` has no controller/route caller
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-037 (2026-08-20)
-The CS-PLAN-037 Phase-D batch pre-validation (`RoomTaskMapper::findByIdsScopedToHouse`)
-is currently exercised only by tests: no controller/route calls
-`RoomTaskService::bulkAssignTasks` — the frontend store still loops
-`assignRoomTask` per item ("API doesn't have bulk endpoint yet"), so the
-optimized write path is dead code until an endpoint is wired.
-- [ ] Add a bulk-assign endpoint (route + controller with `ensureHouseMember`
-      and `InvalidArgumentException` → 400) and switch the store to call it.
+**Status**: Resolved 2026-08-22 (CS-PLAN-042) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P2] CR-SVC-15 — Decompose God-methods / God-services
 **Status**: Open · **Effort**: L · **Source**: Review of `lib/Service` (2026-08-04)
@@ -433,12 +426,10 @@ text, not the localized view, so German queries (e.g. „Staubsaugen") miss.
 > [`archive/USABILITY_REVIEW_2026-08-20.md`](archive/USABILITY_REVIEW_2026-08-20.md).
 > **UX-001/002/003 resolved 2026-08-21 by CS-PLAN-038**; `CR-016-09` closed by
 > archiving DailyTaskList. Related existing items: `CR-016-05`/`CR-016-03`
-> (scheduling merge/split), `CR-SVC-61` (bulkAssign),
-> `CR-SVC-33` (reward-less Task-level path).
-> Implementation planned (2026-08-21, drafts in [`../plans/new/`](../plans/new/)):
-> **CS-PLAN-041** (UX-005/006/013), **CS-PLAN-042** (UX-004/008/009/011 +
-> CR-SVC-61 endpoint), **CS-PLAN-043** (UX-014), **CS-PLAN-044**
-> (UX-007/010/012).
+> (scheduling merge/split), `CR-SVC-33` (reward-less Task-level path).
+> Implementation status: **CS-PLAN-041 landed 2026-08-22** (UX-005/006/013),
+> **CS-PLAN-042 landed 2026-08-22** (UX-004/008/009/011 + CR-SVC-61 endpoint);
+> still planned: **CS-PLAN-043** (UX-014), **CS-PLAN-044** (UX-007/010/012).
 
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
 **Status**: Open · **Effort**: M · **Source**: UX-003 remainder (CS-PLAN-038)
@@ -461,16 +452,7 @@ Settings action.
 **Status**: Resolved 2026-08-21 (CS-PLAN-038) → [`archive/2026-08.md`](archive/2026-08.md); leave-house remainder → FEAT-UX-015
 
 ### [P2] UX-004 — Structure gaps: room rename/delete + floor reorder UI-less; floor mgmt duplicated
-**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
-
-`updateRoomName`/`deleteRoom` store actions have no buttons;
-`POST /floors/reorder` + `reorderFloors` exist but FloorList has no drag&drop.
-Floor management exists twice (Dashboard FloorList + Settings). Settings shows
-owner-only controls (rename/reset/floor CRUD) to all members → 403s instead of
-being role-gated in the template.
-
-- [ ] Room rename/delete in RoomDetail header; floor reorder (drag or ↑/↓);
-      keep floor CRUD in one surface; role-gate owner-only Settings controls.
+**Status**: Resolved 2026-08-22 (CS-PLAN-042) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P2] UX-005 — Dead/misleading controls
 **Status**: Resolved 2026-08-22 (CS-PLAN-041) → [`archive/2026-08.md`](archive/2026-08.md)
@@ -495,17 +477,10 @@ keyboard tab order.
       of `display:none`, or `role="checkbox"` + key handling).
 
 ### [P3] UX-008 — Assignment discoverability
-**Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
-
-Multi-assign chips only inside an expanded task row; absent from all create
-forms; no bulk-assign UI (cf. `CR-SVC-61`).
+**Status**: Resolved 2026-08-22 (CS-PLAN-042) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] UX-009 — Checklist editor implemented but permanently locked
-**Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
-
-`TaskChecklist.vue` supports add/edit/delete/reorder; the only mount passes
-`:can-edit="false"`; item CRUD endpoints unused; items only originate from
-templates. Unlock for owners (or remove the dead editor).
+**Status**: Resolved 2026-08-22 (CS-PLAN-042) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] UX-010 — Hardcoded colors bypass tokens; stale mobile.css selectors
 **Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
@@ -516,14 +491,7 @@ hardcode hex colors instead of NC vars/`--cs-*` tokens (dark-mode drift);
 `.leaderboard-entry`, `.mobile-only`) not used by current components.
 
 ### [P3] UX-011 — Setup wizard polish
-**Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
-
-"Start empty" dismissal is session-only → wizard re-opens every reload while
-the house is empty; no house-name step; per-room assignee dropdown is useless
-at first run (single member). The invite step is **done** (wizard step 4,
-shipped with CS-PLAN-038 — see UC-01 in
-[`../concepts/ui-use-cases.md`](../concepts/ui-use-cases.md)); the original
-"no invite step (see UX-003)" note is obsolete.
+**Status**: Resolved 2026-08-22 (CS-PLAN-042) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] UX-012 — Modal accessibility
 **Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20

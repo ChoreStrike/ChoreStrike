@@ -11,9 +11,27 @@
 					<Icon name="ArrowLeft" :size="20" />
 					{{ t('chorestrike', 'Back to Dashboard') }}
 				</router-link>
-				<h1 data-testid="room-name">
-					{{ room?.name || t('chorestrike', 'Room') }}
-				</h1>
+				<div class="room-name-row">
+					<h1 data-testid="room-name">
+						{{ room?.name || t('chorestrike', 'Room') }}
+					</h1>
+					<div v-if="userStore.isHouseOwner" class="room-header-actions">
+						<button
+							class="icon-action-button"
+							data-testid="rename-room-button"
+							:title="t('chorestrike', 'Rename room')"
+							@click="openRenameRoom">
+							<Icon name="Edit" :size="16" />
+						</button>
+						<button
+							class="icon-action-button danger"
+							data-testid="delete-room-button"
+							:title="t('chorestrike', 'Delete room')"
+							@click="roomToDelete = true">
+							<Icon name="Trash" :size="16" />
+						</button>
+					</div>
+				</div>
 				<p v-if="floor" class="floor-info">
 					<Icon name="Building" :size="16" class="icon" />
 					{{ floor.name }}
@@ -131,6 +149,45 @@
 			:loading="deleting"
 			@confirm="confirmDeleteTask"
 			@cancel="taskToDelete = null" />
+
+		<!-- Rename Room (owner only) -->
+		<Modal v-if="showRenameRoomModal" @close="closeRenameRoom">
+			<div class="modal-content">
+				<h3>{{ t('chorestrike', 'Rename Room') }}</h3>
+				<div class="form-group">
+					<label for="room-rename-input">{{ t('chorestrike', 'Room Name') }}</label>
+					<input
+						id="room-rename-input"
+						ref="roomRenameInput"
+						v-model="renamingRoomName"
+						type="text"
+						class="text-input"
+						data-testid="room-rename-input"
+						@keyup.enter="confirmRenameRoom">
+				</div>
+				<div class="modal-actions">
+					<button class="secondary-button" @click="closeRenameRoom">
+						{{ t('chorestrike', 'Cancel') }}
+					</button>
+					<button
+						class="primary-button"
+						data-testid="room-rename-save"
+						:disabled="!renamingRoomName.trim() || renamingRoom || renamingRoomName.trim() === room?.name"
+						@click="confirmRenameRoom">
+						{{ t('chorestrike', 'Save') }}
+					</button>
+				</div>
+			</div>
+		</Modal>
+
+		<!-- Delete Room Confirmation (owner only) -->
+		<ConfirmDialog
+			v-if="roomToDelete"
+			:title="deleteRoomTitle"
+			:description="t('chorestrike', 'All tasks in this room will be deleted.')"
+			:loading="deletingRoom"
+			@confirm="confirmDeleteRoom"
+			@cancel="roomToDelete = false" />
 	</div>
 </template>
 
@@ -189,6 +246,11 @@ export default {
 			roomStats: null,
 			taskToDelete: null,
 			deleting: false,
+			showRenameRoomModal: false,
+			renamingRoomName: '',
+			renamingRoom: false,
+			roomToDelete: false,
+			deletingRoom: false,
 		}
 	},
 
@@ -248,6 +310,11 @@ export default {
 		editingTaskDefinition() {
 			if (!this.editingTask) return null
 			return this.tasksStore.getTaskById(this.editingTask.taskId) || null
+		},
+
+		deleteRoomTitle() {
+			if (!this.roomToDelete) return ''
+			return t('chorestrike', 'Delete "{name}"?', { name: this.room?.name })
 		},
 	},
 
@@ -365,6 +432,55 @@ export default {
 		handleTemplateError(error) {
 			logger.error('Failed to create task from template', error, { view: 'RoomDetail', action: 'handleTemplateError', roomId: this.roomId })
 		},
+
+		/**
+		 * Owner-only room rename (CS-PLAN-042, UX-004) — wires the
+		 * rooms-store updateRoomName action that previously had no button.
+		 */
+		openRenameRoom() {
+			this.renamingRoomName = this.room?.name || ''
+			this.showRenameRoomModal = true
+		},
+
+		closeRenameRoom() {
+			this.showRenameRoomModal = false
+			this.renamingRoomName = ''
+		},
+
+		async confirmRenameRoom() {
+			const trimmedName = this.renamingRoomName.trim()
+			if (!trimmedName || trimmedName === this.room?.name) return
+			this.renamingRoom = true
+			try {
+				await this.roomsStore.updateRoomName(this.roomId, trimmedName)
+				showSuccess(t('chorestrike', 'Room renamed'))
+				this.closeRenameRoom()
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to rename room'))
+				logger.error('Failed to rename room', error, { view: 'RoomDetail', action: 'confirmRenameRoom', roomId: this.roomId })
+			} finally {
+				this.renamingRoom = false
+			}
+		},
+
+		/**
+		 * Owner-only room delete — deletes the room and returns to the
+		 * Dashboard (the room no longer exists to render).
+		 */
+		async confirmDeleteRoom() {
+			this.deletingRoom = true
+			try {
+				await this.roomsStore.deleteRoom(this.roomId)
+				showSuccess(t('chorestrike', 'Room deleted'))
+				this.roomToDelete = false
+				this.$router.push('/')
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to delete room'))
+				logger.error('Failed to delete room', error, { view: 'RoomDetail', action: 'confirmDeleteRoom', roomId: this.roomId })
+			} finally {
+				this.deletingRoom = false
+			}
+		},
 	},
 }
 </script>
@@ -408,6 +524,109 @@ h1 {
 	font-size: 2rem;
 	font-weight: bold;
 	margin: 0 0 0.5rem 0;
+}
+
+.room-name-row {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.room-header-actions {
+	display: flex;
+	gap: 0.25rem;
+}
+
+.icon-action-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	background: transparent;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	cursor: pointer;
+	color: var(--color-text-maxcontrast);
+	transition: all 0.2s;
+}
+
+.icon-action-button:hover {
+	background: var(--color-background-hover);
+	color: var(--color-main-text);
+}
+
+.icon-action-button.danger:hover {
+	border-color: var(--color-error);
+	color: var(--color-error);
+}
+
+.modal-content {
+	padding: 1rem;
+}
+
+.modal-content h3 {
+	margin: 0 0 1rem 0;
+	font-size: 1.2rem;
+}
+
+.form-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin-bottom: 1rem;
+}
+
+.form-group label {
+	font-size: 0.9rem;
+	font-weight: 500;
+	color: var(--color-main-text);
+}
+
+.text-input {
+	padding: 0.6rem;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	font-size: 0.95rem;
+}
+
+.text-input:focus {
+	outline: none;
+	border-color: var(--color-primary);
+}
+
+.modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.75rem;
+	margin-top: 1rem;
+}
+
+.primary-button,
+.secondary-button {
+	padding: 0.6rem 1rem;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 0.9rem;
+}
+
+.primary-button {
+	background: var(--color-primary);
+	color: var(--color-primary-text);
+	border: none;
+}
+
+.primary-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.secondary-button {
+	background: var(--color-background-dark);
+	color: var(--color-main-text);
+	border: 1px solid var(--color-border);
 }
 
 .floor-info {

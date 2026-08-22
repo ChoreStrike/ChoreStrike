@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
@@ -214,6 +215,82 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
+	}
+
+	/**
+	 * BulkAssign_ValidPayload_DelegatesToServiceWithHouseScope
+	 *
+	 * CR-SVC-61: the endpoint is a thin delegation to the batched service
+	 * write path; ids and target user pass through unmodified.
+	 */
+	public function testBulkAssign_ValidPayload_DelegatesToServiceWithHouseScope(): void {
+		$assigned = $this->createMockRoomTask(7, 1, 1);
+		$assigned->setAssignedToUserId('user456');
+
+		$this->houseService->method('getInstanceId')->willReturn('test-instance');
+		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->roomTaskService->expects($this->once())
+			->method('bulkAssignTasks')
+			->with([7, 9], 'user456', 1)
+			->willReturn([$assigned]);
+
+		$this->request->method('getParam')->willReturnCallback(
+			fn (string $key, $default = null) => ['userId' => 'user456', 'roomTaskIds' => [7, 9]][$key] ?? $default
+		);
+
+		$response = $this->controller->bulkAssign();
+
+		$this->assertEquals(200, $response->getStatus());
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertSame([7], array_map(fn ($rt) => $rt['id'], $data['data']));
+	}
+
+	/**
+	 * BulkAssign_NonMemberCaller_ReturnsForbiddenEnvelope
+	 */
+	public function testBulkAssign_NonMemberCaller_ReturnsForbiddenEnvelope(): void {
+		$this->houseService->method('getInstanceId')->willReturn('test-instance');
+		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+		$this->authService->method('ensureHouseMember')
+			->willThrowException(new ForbiddenException('Not a member of this house'));
+
+		$this->request->method('getParam')->willReturnCallback(
+			fn (string $key, $default = null) => ['userId' => 'user456', 'roomTaskIds' => [7]][$key] ?? $default
+		);
+
+		$response = $this->controller->bulkAssign();
+
+		$this->assertEquals(403, $response->getStatus());
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertSame('FORBIDDEN', $data['error']['code']);
+	}
+
+	/**
+	 * BulkAssign_ServiceValidationError_Returns400
+	 *
+	 * A non-member target user fails the whole request up front in the
+	 * service (CR-SVC-09/CS-PLAN-037) — surfaced as a 400 validation error.
+	 */
+	public function testBulkAssign_ServiceValidationError_Returns400(): void {
+		$this->houseService->method('getInstanceId')->willReturn('test-instance');
+		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
+		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->roomTaskService->method('bulkAssignTasks')
+			->willThrowException(new \InvalidArgumentException('User is not a member of this house: stranger'));
+
+		$this->request->method('getParam')->willReturnCallback(
+			fn (string $key, $default = null) => ['userId' => 'stranger', 'roomTaskIds' => [7]][$key] ?? $default
+		);
+
+		$response = $this->controller->bulkAssign();
+
+		$this->assertEquals(400, $response->getStatus());
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertSame('VALIDATION_ERROR', $data['error']['code']);
 	}
 
 	private function createMockRoom(int $id, string $name, int $floorId, int $cleanliness): \OCA\ChoreStrike\Db\Room {

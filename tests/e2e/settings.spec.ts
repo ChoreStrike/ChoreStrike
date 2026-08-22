@@ -1,12 +1,18 @@
 import { test, expect } from './fixtures/test-fixtures'
+import { userStatePath } from './fixtures/auth-contexts'
 
 /**
  * E2E test: Settings - house and floor management
  * Tests house name editing, floor management, and reset functionality
  *
- * CS-PLAN-015b: admin auth via project-level storageState (no loginAsUser).
+ * CS-PLAN-015b: auth via project-level storageState (no loginAsUser).
+ * CS-PLAN-042: house/floors/danger sections are OWNER-only, so this spec
+ * runs as `mom` (seeded family-house owner) — the default `admin` identity
+ * is a plain member under the family profile.
  */
 test.describe('Settings', () => {
+	test.use({ storageState: userStatePath('mom') })
+
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
 
@@ -46,13 +52,11 @@ test.describe('Settings', () => {
 	})
 
 	test('Floors list or empty state is displayed', async ({ page }) => {
-		const floorsList = page.locator('[data-testid="floors-list"]')
-		const noFloorsMessage = page.locator('[data-testid="no-floors-message"]')
-
-		const hasFloorsList = await floorsList.isVisible().catch(() => false)
-		const hasNoFloorsMessage = await noFloorsMessage.isVisible().catch(() => false)
-
-		expect(hasFloorsList || hasNoFloorsMessage).toBeTruthy()
+		// The floors fetch resolves asynchronously after the view mounts; wait
+		// for whichever end state applies instead of probing instantly.
+		await expect(
+			page.getByTestId('floors-list').or(page.getByTestId('no-floors-message')),
+		).toBeVisible({ timeout: 15000 })
 	})
 
 	test('User can open add floor modal', async ({ page }) => {

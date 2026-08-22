@@ -42,6 +42,12 @@ const SEED_DEPENDENT_SPECS = [
 	// CS-PLAN-040: insights-flow completes a seeded task and creates
 	// overcapacity tasks — mutates seed state, serial pool only.
 	/[/\\]insights-flow\.spec\.ts$/,
+	// CS-PLAN-042: the structure specs mutate house floors/rooms through the
+	// owner-gated Settings surface. Concurrent structural edits shift list
+	// positions and expansion state under other workers, so they run one
+	// after another here (their describes pin the owner identity `mom`).
+	/[/\\]room-management\.spec\.ts$/,
+	/[/\\]gui-scratch-flow\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a
