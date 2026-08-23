@@ -48,6 +48,11 @@ const SEED_DEPENDENT_SPECS = [
 	// after another here (their describes pin the owner identity `mom`).
 	/[/\\]room-management\.spec\.ts$/,
 	/[/\\]gui-scratch-flow\.spec\.ts$/,
+	// CS-PLAN-044: the dashboard private-filter spec creates room tasks and
+	// resolves room IDs from the seed while it holds the form open. Run
+	// concurrently with a reseed (e.g. today-view's `seededData` fixture),
+	// the room-task POST hits a replaced room ID and 404s — serial pool only.
+	/[/\\]dashboard\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

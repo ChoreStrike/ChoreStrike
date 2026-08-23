@@ -155,14 +155,14 @@
 					<label class="radio-label">
 						<input v-model="form.schedulingMode" type="radio" value="dynamic">
 						<span class="radio-text">
-							<strong>{{ t('chorestrike', 'Dynamic') }}</strong>
+							<strong>{{ t('chorestrike', 'Flexible') }}</strong>
 							<small>{{ t('chorestrike', 'Next due shifts based on when you complete the task') }}</small>
 						</span>
 					</label>
 					<label class="radio-label">
 						<input v-model="form.schedulingMode" type="radio" value="static">
 						<span class="radio-text">
-							<strong>{{ t('chorestrike', 'Static') }}</strong>
+							<strong>{{ t('chorestrike', 'Fixed schedule') }}</strong>
 							<small>{{ t('chorestrike', 'Fixed schedule (e.g., every Monday 18:00)') }}</small>
 						</span>
 					</label>
@@ -184,7 +184,11 @@
 					<label>{{ t('chorestrike', 'Days of Week') }}</label>
 					<div class="weekday-selector">
 						<label v-for="day in weekdays" :key="day.value" class="weekday-chip">
-							<input v-model="selectedWeekdays" type="checkbox" :value="day.value">
+							<input
+								v-model="selectedWeekdays"
+								type="checkbox"
+								:value="day.value"
+								class="cs-visually-hidden">
 							<span>{{ day.label }}</span>
 						</label>
 					</div>
@@ -248,7 +252,7 @@
 						{{ t('chorestrike', 'Private') }}
 					</option>
 					<option v-if="isOwner" value="admin-only">
-						{{ t('chorestrike', 'Admin-Only') }}
+						{{ t('chorestrike', 'Admins only') }}
 					</option>
 				</select>
 				<p class="visibility-hint">
@@ -636,6 +640,7 @@ export default {
 	align-items: center;
 	gap: 0.3rem;
 	padding: 0.4rem 0.6rem;
+	min-height: 44px;
 	border: 1px solid var(--color-border);
 	border-radius: 20px;
 	cursor: pointer;
@@ -647,8 +652,9 @@ export default {
 	border-color: var(--color-primary);
 }
 
-.weekday-chip input[type="checkbox"] {
-	display: none;
+.weekday-chip:focus-within {
+	outline: 2px solid var(--color-primary);
+	outline-offset: 2px;
 }
 
 .weekday-chip input:checked + span {
@@ -717,7 +723,7 @@ export default {
 
 .primary-button {
 	background: var(--color-primary);
-	color: #fff;
+	color: var(--color-primary-text);
 }
 
 .primary-button:disabled {

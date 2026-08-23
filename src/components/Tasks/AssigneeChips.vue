@@ -14,6 +14,7 @@
 				:data-testid="`assignee-chip-${member.nextcloudUserId}`">
 				<input
 					type="checkbox"
+					class="cs-visually-hidden"
 					:checked="isSelected(member.nextcloudUserId)"
 					@change="toggle(member.nextcloudUserId)">
 				<span>{{ member.displayName }}</span>
@@ -106,8 +107,9 @@ export default {
 	border-color: var(--color-primary);
 }
 
-.assignee-chip input[type="checkbox"] {
-	display: none;
+.assignee-chip:focus-within {
+	outline: 2px solid var(--color-primary);
+	outline-offset: 2px;
 }
 
 .assignee-chip.selected {

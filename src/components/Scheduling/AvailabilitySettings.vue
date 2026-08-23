@@ -90,7 +90,7 @@
 								<input
 									v-model="editForm.availability[day.key]"
 									type="checkbox"
-									class="toggle-input"
+									class="toggle-input cs-visually-hidden"
 									:data-testid="`availability-${day.key}`">
 								<span class="toggle-slider" />
 								<span class="toggle-text">{{ day.name }}</span>
@@ -553,10 +553,13 @@ onMounted(() => {
 	align-items: center;
 	gap: 0.75rem;
 	cursor: pointer;
+	padding: 0.5rem 0;
+	border-radius: 6px;
 }
 
-.toggle-input {
-	display: none;
+.toggle-label:focus-within {
+	outline: 2px solid var(--color-primary);
+	outline-offset: 2px;
 }
 
 .toggle-slider {
@@ -575,7 +578,7 @@ onMounted(() => {
 	inset-inline-start: 2px;
 	width: 20px;
 	height: 20px;
-	background: white;
+	background: var(--color-main-background);
 	border-radius: 50%;
 	transition: transform 0.2s ease;
 }
@@ -586,6 +589,12 @@ onMounted(() => {
 
 .toggle-input:checked + .toggle-slider::before {
 	transform: translateX(20px);
+}
+
+/* RTL: the knob sits at inset-inline-start; moving to the other end means
+   translating in the negative X direction (TECH-LINT-004 verification). */
+[dir='rtl'] .toggle-input:checked + .toggle-slider::before {
+	transform: translateX(-20px);
 }
 
 .toggle-text {

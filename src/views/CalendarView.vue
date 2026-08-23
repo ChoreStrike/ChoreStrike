@@ -25,11 +25,17 @@
 					</button>
 				</div>
 				<div class="calendar-nav">
-					<button data-testid="calendar-prev" @click="navigate(-1)">
+					<button
+						data-testid="calendar-prev"
+						:aria-label="t('chorestrike', 'Previous')"
+						@click="navigate(-1)">
 						&lt;
 					</button>
 					<span data-testid="calendar-range-label" class="range-label">{{ rangeLabel }}</span>
-					<button data-testid="calendar-next" @click="navigate(1)">
+					<button
+						data-testid="calendar-next"
+						:aria-label="t('chorestrike', 'Next')"
+						@click="navigate(1)">
 						&gt;
 					</button>
 				</div>
@@ -242,6 +248,7 @@ export default {
 
 .toggle-btn {
 	padding: 6px 14px;
+	min-height: 44px;
 	border: none;
 	background: var(--color-main-background, #fff);
 	cursor: pointer;
@@ -260,6 +267,8 @@ export default {
 
 .calendar-nav button {
 	padding: 4px 10px;
+	min-width: 44px;
+	min-height: 44px;
 	cursor: pointer;
 }
 

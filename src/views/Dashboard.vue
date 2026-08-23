@@ -13,6 +13,13 @@
 			<div class="skeleton skeleton-floors" />
 		</div>
 
+		<!-- Initialization failed entirely (CS-PLAN-044, FEAT-UX-031) -->
+		<ErrorState
+			v-else-if="initError"
+			data-testid="dashboard-error"
+			:message="t('chorestrike', 'Could not load your household')"
+			@retry="initializeDashboard" />
+
 		<!-- Loaded Content -->
 		<template v-else>
 			<header class="dashboard-header">
@@ -68,6 +75,7 @@ import { useRoomsStore } from '../store/rooms.js'
 import { useGameStore } from '../store/game.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
+import ErrorState from '../components/Common/ErrorState.vue'
 import HouseHealthBar from '../components/Dashboard/HouseHealthBar.vue'
 import HouseholdGoalBar from '../components/Dashboard/HouseholdGoalBar.vue'
 import QuickStats from '../components/Dashboard/QuickStats.vue'
@@ -80,6 +88,7 @@ export default {
 
 	components: {
 		Icon,
+		ErrorState,
 		HouseHealthBar,
 		HouseholdGoalBar,
 		QuickStats,
@@ -100,6 +109,7 @@ export default {
 		return {
 			showWizard: false,
 			wizardDismissed: false,
+			initError: false,
 		}
 	},
 
@@ -122,6 +132,7 @@ export default {
 	methods: {
 		t,
 		async initializeDashboard() {
+			this.initError = false
 			// Fetch house, floors, and game state in parallel — they are
 			// independent. The game state call also runs the weekly-goal
 			// computation, so overlapping it with the house/floor fetches
@@ -135,10 +146,13 @@ export default {
 
 			// Surface any non-fatal failures to the logger. The Dashboard
 			// renders whatever state the stores currently hold, so a single
-			// failed fetch doesn't break the others.
+			// failed fetch doesn't break the others — but if everything
+			// failed there is nothing to render (ErrorState + retry).
 			const labels = ['fetchHouse', 'fetchFloorsWithRooms', 'fetchGameState']
+			let failures = 0
 			results.forEach((result, index) => {
 				if (result.status === 'rejected') {
+					failures++
 					logger.error(
 						`Dashboard fetch failed: ${labels[index]}`,
 						result.reason,
@@ -146,6 +160,10 @@ export default {
 					)
 				}
 			})
+			if (failures === results.length) {
+				this.initError = true
+				return
+			}
 
 			// First-run detection (D3): a house with no floors is brand new.
 			// Open the setup wizard automatically — unless "Start empty" was
@@ -234,7 +252,7 @@ export default {
 }
 
 .house-title-icon {
-	color: #6ec8ff;
+	color: var(--color-primary-element);
 }
 
 h1 {

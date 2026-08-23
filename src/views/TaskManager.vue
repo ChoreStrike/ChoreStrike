@@ -44,13 +44,13 @@
 						{{ t('chorestrike', 'All Priorities') }}
 					</option>
 					<option value="urgent">
-						{{ t('chorestrike', 'Urgent') }}
+						{{ t('chorestrike', 'High') }}
 					</option>
 					<option value="normal">
 						{{ t('chorestrike', 'Normal') }}
 					</option>
 					<option value="low">
-						{{ t('chorestrike', 'Can Wait') }}
+						{{ t('chorestrike', 'Low') }}
 					</option>
 				</select>
 			</div>

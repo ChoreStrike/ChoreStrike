@@ -56,7 +56,7 @@ const WEEKDAY_LABELS = {
 
 const PRIORITY_LABELS = {
 	1: t('chorestrike', 'Low'),
-	2: t('chorestrike', 'Medium'),
+	2: t('chorestrike', 'Normal'),
 	3: t('chorestrike', 'High'),
 }
 

@@ -6,12 +6,17 @@
 <template>
 	<div v-if="show" class="modal-overlay" @click.self="$emit('close')">
 		<div
+			ref="container"
 			class="modal-container"
 			data-testid="modal"
+			role="dialog"
+			aria-modal="true"
+			:aria-label="ariaLabel"
+			tabindex="-1"
 			@click.stop>
 			<button class="close-button"
 				data-testid="modal-close"
-				aria-label="Close"
+				:aria-label="t('chorestrike', 'Close')"
 				@click="$emit('close')">
 				×
 			</button>
@@ -23,6 +28,25 @@
 </template>
 
 <script>
+import { translate as t } from '@nextcloud/l10n'
+
+/**
+ * Module-level stack of open modal instances. Only the top-most instance
+ * reacts to ESC / traps Tab, and the body scroll lock stays active until the
+ * last modal closed (CS-PLAN-044).
+ */
+const openModals = []
+let savedOverflow = null
+
+const FOCUSABLE_SELECTOR = [
+	'a[href]',
+	'button:not([disabled])',
+	'input:not([disabled]):not([type="hidden"])',
+	'select:not([disabled])',
+	'textarea:not([disabled])',
+	'[tabindex]:not([tabindex="-1"])',
+].join(', ')
+
 export default {
 	name: 'Modal',
 	props: {
@@ -30,8 +54,110 @@ export default {
 			type: Boolean,
 			default: true,
 		},
+		/**
+		 * Accessible name for the dialog. Callers should pass one (usually
+		 * the dialog heading); without it the dialog has no accessible name.
+		 */
+		ariaLabel: {
+			type: String,
+			default: undefined,
+		},
 	},
 	emits: ['close'],
+	watch: {
+		show(value) {
+			if (value) {
+				this.registerModal()
+			} else {
+				this.unregisterModal()
+			}
+		},
+	},
+	mounted() {
+		if (this.show) {
+			this.registerModal()
+		}
+	},
+	beforeUnmount() {
+		this.unregisterModal()
+	},
+	methods: {
+		t,
+
+		registerModal() {
+			if (openModals.includes(this)) return
+			this.previouslyFocused = document.activeElement
+			openModals.push(this)
+			document.addEventListener('keydown', this.onKeydown, true)
+			this.lockScroll()
+			this.$nextTick(() => {
+				if (this.isTopMost()) {
+					this.$refs.container?.focus()
+				}
+			})
+		},
+
+		unregisterModal() {
+			const index = openModals.indexOf(this)
+			if (index === -1) return
+			openModals.splice(index, 1)
+			document.removeEventListener('keydown', this.onKeydown, true)
+			if (openModals.length === 0) {
+				this.unlockScroll()
+			} else {
+				openModals[openModals.length - 1].$refs.container?.focus()
+			}
+			if (this.previouslyFocused?.isConnected) {
+				this.previouslyFocused.focus()
+				this.previouslyFocused = null
+			}
+		},
+
+		isTopMost() {
+			return openModals[openModals.length - 1] === this
+		},
+
+		lockScroll() {
+			if (savedOverflow !== null) return
+			savedOverflow = document.body.style.overflow
+			document.body.style.overflow = 'hidden'
+		},
+
+		unlockScroll() {
+			if (savedOverflow === null) return
+			document.body.style.overflow = savedOverflow
+			savedOverflow = null
+		},
+
+		onKeydown(event) {
+			if (!this.isTopMost()) return
+
+			if (event.key === 'Escape') {
+				event.stopPropagation()
+				this.$emit('close')
+				return
+			}
+
+			if (event.key !== 'Tab') return
+
+			const focusables = Array.from(
+				this.$refs.container?.querySelectorAll(FOCUSABLE_SELECTOR) || [],
+			)
+			if (focusables.length === 0) return
+
+			const first = focusables[0]
+			const last = focusables[focusables.length - 1]
+			const current = document.activeElement
+
+			if (event.shiftKey && (current === first || current === this.$refs.container)) {
+				event.preventDefault()
+				last.focus()
+			} else if (!event.shiftKey && current === last) {
+				event.preventDefault()
+				first.focus()
+			}
+		},
+	},
 }
 </script>
 
@@ -59,17 +185,28 @@ export default {
 	overflow: auto;
 }
 
+.modal-container:focus {
+	outline: none;
+}
+
 .close-button {
 	position: absolute;
 	top: 0.5rem;
 	inset-inline-end: 0.5rem;
-	width: 2rem;
-	height: 2rem;
+	min-width: 44px;
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	border: none;
 	background: transparent;
 	font-size: 1.5rem;
 	line-height: 1;
 	cursor: pointer;
 	color: var(--color-text-maxcontrast);
+}
+
+.close-button:hover {
+	color: var(--color-main-text);
 }
 </style>

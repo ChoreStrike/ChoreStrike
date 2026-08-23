@@ -242,4 +242,25 @@ describe('Dashboard.vue', () => {
 		// Wait for mounted hook
 		await new Promise(resolve => setTimeout(resolve, 0))
 	})
+
+	it('renders the shared error state with retry when initialization failed entirely (CS-PLAN-044)', async () => {
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await wrapper.setData({ initError: true })
+		await wrapper.vm.$nextTick()
+
+		expect(wrapper.find('[data-testid="dashboard-error"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(false)
+
+		// Retry re-runs initialization; with the store mocks resolving, the
+		// dashboard content returns.
+		await wrapper.find('[data-testid="error-retry"]').trigger('click')
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		expect(wrapper.find('[data-testid="dashboard-error"]').exists()).toBe(false)
+		expect(wrapper.find('.dashboard-header').exists()).toBe(true)
+	})
 })

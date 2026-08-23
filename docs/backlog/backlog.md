@@ -124,30 +124,7 @@ E2E page context, so `member.isCurrentUser` is never true.
 ---
 
 ### [P2] TECH-LINT-004 — Stylelint `use-logical` warnings (26, physical→logical property sweep)
-**Status**: Open · **Effort**: M · **Source**: surfaced after CS-026 fixed the stylelint config (2026-08-12)
-**Planned**: CS-PLAN-044 (file-by-file audit; no repo-wide auto-fix).
-
-Once `@nextcloud/stylelint-config@3.x` was aligned (CS-026), the previously-silent
-`stylelint-use-logical` rule started firing: **26 warnings** across `src/`
-recommending logical properties (`left`→`inset-inline-start`,
-`border-left`→`border-inline-start`, `text-align: left`→`start`, …). These are
-**RTL/i18n layout improvements, not formatting** — auto-fixing them would change
-rendering (e.g. a `left: 50%`+`translateX` centering pair becomes inconsistent
-under the logical rewrite), so CS-026 deliberately left them as warnings (gate
-still exits 0: warnings ≠ error-severity). `npm run stylelint` → 0 errors,
-26 warnings.
-
-- [ ] Audit each `use-logical` hit and convert to logical properties where the
-      full positioning/transform context is verified for both LTR and RTL (or
-      add a scoped `stylelint-disable-next-line` with a reason where physical is
-      intentional).
-- [ ] Consider adding RTL/Playwright coverage so the conversions are verifiable.
-
-> **Warning (2026-08-13, CS-027 review):** `npm run stylelint:fix` applies these
-> conversions mechanically across all 15 files (the rule is auto-fixable). A
-> review gate run did exactly that and the churn had to be reverted. Do **not**
-> run `stylelint:fix` repo-wide until this item is resolved — fix file-by-file
-> with verification instead.
+**Status**: Resolved 2026-08-23 (CS-PLAN-044) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ---
 
@@ -429,7 +406,8 @@ text, not the localized view, so German queries (e.g. „Staubsaugen") miss.
 > (scheduling merge/split), `CR-SVC-33` (reward-less Task-level path).
 > Implementation status: **CS-PLAN-041 landed 2026-08-22** (UX-005/006/013),
 > **CS-PLAN-042 landed 2026-08-22** (UX-004/008/009/011 + CR-SVC-61 endpoint);
-> still planned: **CS-PLAN-043** (UX-014), **CS-PLAN-044** (UX-007/010/012).
+> **CS-PLAN-044 landed 2026-08-23** (UX-007/010/012 + TECH-LINT-004 +
+> FEAT-UX-030/031); still planned: **CS-PLAN-043** (UX-014).
 
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
 **Status**: Open · **Effort**: M · **Source**: UX-003 remainder (CS-PLAN-038)
@@ -461,20 +439,7 @@ Settings action.
 **Status**: Resolved 2026-08-22 (CS-PLAN-041) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P2] UX-007 — Kid-sized controls & inconsistent vocabulary
-**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
-
-Complete button 28 px, claim 24 px, action icons ~16 px (mobile.css itself
-demands ≥44 px touch targets); icon-only buttons rely on `title` tooltips;
-priority labels differ per surface (Low/Medium/High vs High/Normal/Low vs
-Urgent/Normal/Can Wait); abstract terms (Admin-Only, Dynamic/Static, Scope).
-Review of CS-PLAN-038 (2026-08-21): the new chip toggles (`AssigneeChips.vue`,
-weekday chips) hide their checkbox with `display:none`, removing them from
-keyboard tab order.
-
-- [ ] ≥44 px targets + aria-labels; one priority vocabulary; friendlier labels
-      or child-mode wording.
-- [ ] Make chip toggles keyboard-accessible (visually-hidden checkbox instead
-      of `display:none`, or `role="checkbox"` + key handling).
+**Status**: Resolved 2026-08-23 (CS-PLAN-044) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] UX-008 — Assignment discoverability
 **Status**: Resolved 2026-08-22 (CS-PLAN-042) → [`archive/2026-08.md`](archive/2026-08.md)
@@ -483,21 +448,13 @@ keyboard tab order.
 **Status**: Resolved 2026-08-22 (CS-PLAN-042) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] UX-010 — Hardcoded colors bypass tokens; stale mobile.css selectors
-**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
-
-RoomDetail stat values, FloorList action buttons, TaskList badge fallbacks etc.
-hardcode hex colors instead of NC vars/`--cs-*` tokens (dark-mode drift);
-`mobile.css` still targets legacy class names (`.room-card`, `.task-item`,
-`.leaderboard-entry`, `.mobile-only`) not used by current components.
+**Status**: Resolved 2026-08-23 (CS-PLAN-044) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] UX-011 — Setup wizard polish
 **Status**: Resolved 2026-08-22 (CS-PLAN-042) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] UX-012 — Modal accessibility
-**Status**: Open · **Effort**: S · **Source**: Usability review 2026-08-20
-
-Shared `Modal.vue` has no ESC handling, focus trap/restore, `aria-modal`, or
-scroll lock; CalendarView prev/next use raw `<`/`>` glyphs without aria-labels.
+**Status**: Resolved 2026-08-23 (CS-PLAN-044) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] UX-013 — Boost prices duplicated client-side
 **Status**: Resolved 2026-08-22 (CS-PLAN-041) → [`archive/2026-08.md`](archive/2026-08.md)
@@ -518,6 +475,28 @@ second task within the ~5 s window silently replaces the first task as the undo
 target, so a misclick on the first task can no longer be reverted. Decide
 between queueing undo targets (stacked/snackbar list) or explicitly accepting
 the single-slot limitation in the design docs.
+
+### [P3] UX-016 — Remaining Modal call sites have no accessible name
+**Status**: Open · **Effort**: S · **Source**: Standard-B review of CS-PLAN-044 (2026-08-23)
+
+CS-PLAN-044 gave the shared `Modal.vue` an `ariaLabel` prop, but only
+`OverdueClaimDialog` passes one. The other ~15 call sites (TaskManager
+create/edit, Settings floor add/edit/reset, RoomDetail task add/edit + rename/
+delete, TaskChecklist item edit, TitlePicker, ArcadeSection game modals,
+AvailabilitySettings edit, ConfirmDialog) render `role="dialog"` without an
+accessible name (WCAG 4.1.2 Name, Role, Value).
+
+- [ ] Every Modal call site passes `ariaLabel` (or Modal grows an
+      `aria-labelledby` heading fallback) — screen-reader announcement verified.
+- [ ] design.md §6 *Dialogs* names the accessible-name requirement explicitly.
+
+### [P4] UX-017 — AvailabilitySettings day-item border hexes bypass tokens
+**Status**: Open · **Effort**: XS · **Source**: CS-PLAN-044 known remaining, logged by Standard-B review (2026-08-23)
+
+`AvailabilitySettings.vue` day-item borders hardcode `#4caf50`/`#f44336`
+(~lines 449/454). Outside the CS-PLAN-044 swept-component list; replace with
+`var(--color-success)`/`var(--color-error)` when a dark-mode pass touches the
+component.
 
 ---
 
@@ -633,26 +612,10 @@ deactivate/reactivate by filter (cf. CR-SVC-61 bulk-endpoint pattern).
 - [ ] Styled confirmations per cross-cutting conventions + tests.
 
 ### [P3] FEAT-UX-030 — A11y & kids-mode conventions
-**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
-
-Accessibility conventions exist piecemeal (UX-007, mobile.css targets);
-reduced-motion and screen-reader support are undocumented; simplified child
-surface is an open question.
-
-- [ ] Codify conventions in design.md (≥44 px targets, aria-labels, focus
-      states, reduced-motion) and apply to new components.
-- [ ] Fix the UX-007 chip-toggle keyboard regression as part of this.
-- [ ] Answer the open question: simplified child surface yes/no (recorded).
+**Status**: Resolved 2026-08-23 (CS-PLAN-044) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] FEAT-UX-031 — Error/empty/offline-state conventions
-**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
-
-Error/empty states are ad-hoc per component; offline behavior undefined.
-
-- [ ] Shared empty/error/offline state components with retry actions.
-- [ ] Conventions documented in design.md; applied to Dashboard, TodayView,
-      TaskList.
-- [ ] Offline detection strategy decided within NC ecosystem constraints.
+**Status**: Resolved 2026-08-23 (CS-PLAN-044) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ---
 

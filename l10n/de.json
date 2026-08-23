@@ -379,7 +379,7 @@
         "Visibility": "Sichtbarkeit",
         "Public": "Öffentlich",
         "Private": "Privat",
-        "Admin-Only": "Nur Admins",
+        "Admins only": "Nur Admins",
         "Only assigned members can see and complete this task": "Nur zugewiesene Mitglieder können diese Aufgabe sehen und abschließen",
         "Only house owners can see and complete this task": "Nur Hausbesitzer können diese Aufgabe sehen und abschließen",
         "All house members can see and complete this task": "Alle Haushaltsmitglieder können diese Aufgabe sehen und abschließen",
@@ -760,6 +760,19 @@
         "New room name": "Neuer Zimmername",
         "Room created": "Zimmer erstellt",
         "Failed to create room": "Zimmer konnte nicht erstellt werden",
-        "No rooms on this floor yet.": "Auf dieser Etage gibt es noch keine Zimmer."
+        "No rooms on this floor yet.": "Auf dieser Etage gibt es noch keine Zimmer.",
+        "Normal": "Normal",
+        "Previous": "Vorherige",
+        "Nothing here yet": "Noch nichts hier",
+        "You appear to be offline": "Du scheinst offline zu sein",
+        "Reconnect and try again": "Verbinde dich erneut und versuche es nochmal",
+        "Could not load your household": "Dein Haushalt konnte nicht geladen werden",
+        "Flexible": "Flexibel",
+        "Fixed schedule": "Fester Zeitplan",
+        "Fixed schedule (e.g., every Monday 18:00)": "Fester Zeitplan (z. B. jeden Montag 18:00)",
+        "Expand floor": "Etage ausklappen",
+        "Collapse floor": "Etage einklappen",
+        "Mark as complete": "Als erledigt markieren",
+        "Show details": "Details anzeigen"
     }
 }

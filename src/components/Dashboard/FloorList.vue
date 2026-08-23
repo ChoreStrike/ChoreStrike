@@ -67,6 +67,7 @@
 						<button
 							class="toggle-button"
 							:class="{ expanded: isFloorExpanded(floor.id) }"
+							:aria-label="isFloorExpanded(floor.id) ? t('chorestrike', 'Collapse floor') : t('chorestrike', 'Expand floor')"
 							:title="isFloorExpanded(floor.id) ? t('chorestrike', 'Collapse floor') : t('chorestrike', 'Expand floor')"
 							@click="toggleFloor(floor.id)">
 							<Icon :name="isFloorExpanded(floor.id) ? 'ChevronDown' : 'ChevronRight'" :size="16" />
@@ -275,7 +276,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--color-border);
   border-radius: 6px;
@@ -389,23 +390,23 @@ export default {
   width: 2rem;
   height: 2rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
 .floor-icon-shell.ground-floor {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(14, 165, 233, 0.26));
-  color: #7bd3ff;
+  color: var(--color-primary-element);
 }
 
 .floor-icon-shell.first-floor {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(249, 115, 22, 0.24));
-  color: #ffc973;
+  color: var(--cs-tier-gold, #d4a017);
 }
 
 .floor-icon-shell.upper-floor {
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(16, 185, 129, 0.24));
-  color: #78e7a8;
+  color: var(--color-success);
 }
 
 .floor-name {
@@ -464,11 +465,11 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--color-background-dark);
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 12px;
@@ -476,12 +477,12 @@ export default {
 }
 
 .toggle-button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-background-hover);
   transform: translateY(-1px);
 }
 
 .toggle-button {
-  color: #7bd3ff;
+  color: var(--color-primary);
 }
 
 .floor-content {

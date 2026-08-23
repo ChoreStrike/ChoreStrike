@@ -57,3 +57,84 @@ Rules:
   error instead of stale values.
 - Every new user-visible string goes through `t()` with `l10n/` artifacts
   updated in the same change.
+
+## 6. Accessibility Conventions (CS-PLAN-044)
+
+Binding rules for every interactive component. These close UX-007 / UX-012 /
+FEAT-UX-030 and are enforced in review.
+
+### Touch targets
+
+- Every interactive control (buttons, checkboxes, chips, toggle sliders,
+  selects) provides a **≥44 × 44 px** hit area (`min-width`/`min-height` or
+  equivalent padding), matching mobile.css's own `--touch-target-min`.
+  Icon glyphs inside may stay small (16–20 px); the *target* grows.
+- Icon-only buttons carry an `aria-label` via `t()` — a `title` tooltip is
+  not an accessible name. Visible-text buttons need no aria-label.
+
+### Keyboard operability
+
+- Custom-looking toggles built from native inputs (assignee chips, weekday
+  chips, availability sliders) must keep the native `<input>` **focusable**:
+  hide it with the visually-hidden clip pattern
+  (`position:absolute; width:1px; height:1px; clip-path: inset(50%); …`),
+  never `display:none`. Show a visible focus indicator via
+  `.chip:focus-within { outline: … }` so keyboard users can see and operate
+  the control (Space toggles, Tab moves on).
+
+### Dialogs
+
+- All dialogs use the shared `Modal.vue`, which owns ESC-to-close, focus
+  trap + restore (per top-most instance when stacked), `role="dialog"` +
+  `aria-modal="true"`, and body scroll lock. Do not hand-roll overlays.
+
+### Focus & motion
+
+- Interactive elements show a visible focus state (`:focus`/`:focus-within`
+  outline using `var(--color-primary)` or the browser default). Never remove
+  outlines without replacing them.
+- Respect reduced motion: transitions/animations ride on the global
+  `prefers-reduced-motion` handling of `src/styles/tokens.css`
+  (`--cs-transition-*` collapse to `0ms`) — don't introduce animations that
+  bypass it.
+
+## 7. Unified Vocabulary (CS-PLAN-044)
+
+One user-facing vocabulary across all surfaces (closes the UX-007 drift).
+Values are API contracts and do not change; only labels unify.
+
+| Concept | Value | Label (`t()` key) | Replaces |
+|---|---|---|---|
+| Priority | 3 | High | Urgent (TaskManager filter) |
+| Priority | 2 | Normal | Medium (TaskList badge), Normal |
+| Priority | 1 | Low | Can Wait (TaskManager filter) |
+| Scheduling mode | dynamic | Flexible | Dynamic |
+| Scheduling mode | static | Fixed schedule | Static |
+| Visibility | public | Public | — |
+| Visibility | private | Private | — |
+| Visibility | admin-only | Admins only | Admin-Only |
+
+**Product decision (recorded 2026-08-22):** there will be **no separate
+simplified child surface** for now — the app speaks one vocabulary for all
+ages, and kid-facing wording follows this table. Revisit only if a real
+child-cohort test demands it (would be a new backlog item).
+
+## 8. Empty / Error / Offline States (CS-PLAN-044)
+
+Shared components close FEAT-UX-031; ad-hoc per-view markup is not allowed
+for these three cases:
+
+- **Empty:** `src/components/Common/EmptyState.vue` — icon + message +
+  optional hint/action slot. Used when a list/view has zero items after a
+  successful load (not while loading, not on error).
+- **Error:** `src/components/Common/ErrorState.vue` — message + retry
+  button emitting `retry`. Shows an offline notice instead of the generic
+  error text when the browser reports no connection.
+- **Offline detection strategy:** `navigator.onLine` plus the window
+  `online`/`offline` events. This is a browser capability available inside
+  the Nextcloud page shell — no external service needed. It drives the
+  ErrorState offline variant only; actual retry success is decided by the
+  request itself.
+
+Applied at minimum to Dashboard, TodayView, and TaskList; new views reuse
+the components instead of inventing state markup.

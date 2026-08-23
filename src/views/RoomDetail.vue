@@ -19,6 +19,7 @@
 						<button
 							class="icon-action-button"
 							data-testid="rename-room-button"
+							:aria-label="t('chorestrike', 'Rename room')"
 							:title="t('chorestrike', 'Rename room')"
 							@click="openRenameRoom">
 							<Icon name="Edit" :size="16" />
@@ -26,6 +27,7 @@
 						<button
 							class="icon-action-button danger"
 							data-testid="delete-room-button"
+							:aria-label="t('chorestrike', 'Delete room')"
 							:title="t('chorestrike', 'Delete room')"
 							@click="roomToDelete = true">
 							<Icon name="Trash" :size="16" />
@@ -541,8 +543,8 @@ h1 {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 32px;
-	height: 32px;
+	width: 44px;
+	height: 44px;
 	background: transparent;
 	border: 1px solid var(--color-border);
 	border-radius: 6px;
@@ -676,11 +678,11 @@ h1 {
 }
 
 .stat-value.good {
-	color: #4caf50;
+	color: var(--color-success);
 }
 
 .stat-value.fair {
-	color: #ff9800;
+	color: var(--color-warning);
 }
 
 .stat-value.poor {
@@ -765,11 +767,11 @@ h1 {
 }
 
 .cleanliness-ring.good {
-	border-color: #4caf50;
+	border-color: var(--color-success);
 }
 
 .cleanliness-ring.fair {
-	border-color: #ff9800;
+	border-color: var(--color-warning);
 }
 
 .cleanliness-ring.poor {

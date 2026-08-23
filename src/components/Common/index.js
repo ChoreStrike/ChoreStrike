@@ -14,6 +14,8 @@
 
 export { default as Icon } from './Icon.vue'
 export { default as Emoji } from './Emoji.vue'
+export { default as EmptyState } from './EmptyState.vue'
+export { default as ErrorState } from './ErrorState.vue'
 
 // Export icons registry for programmatic access
 export { icons, getIcon, hasIcon } from '../../utils/icons.js'

@@ -187,9 +187,9 @@ test.describe('Task Scheduling Modes', () => {
 		// Modal should open
 		await expect(page.locator('[data-testid="modal"]')).toBeVisible()
 
-		// Scheduling mode options should be visible
-		await expect(page.locator('text=Dynamic')).toBeVisible()
-		await expect(page.locator('text=Static')).toBeVisible()
+		// Scheduling mode options should be visible (CS-PLAN-044 vocabulary)
+		await expect(page.locator('text=Flexible')).toBeVisible()
+		await expect(page.locator('text=Fixed schedule')).toBeVisible()
 	})
 
 	test('should show time input for static scheduling', async ({ page }) => {

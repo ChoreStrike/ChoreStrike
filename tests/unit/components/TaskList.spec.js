@@ -80,7 +80,7 @@ describe('TaskList', () => {
 
 			expect(wrapper.find('.skeleton-loading').exists()).toBe(true)
 			expect(wrapper.findAll('.skeleton-task-item')).toHaveLength(5)
-			expect(wrapper.find('.empty-state').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
 		})
 
 		it('should show empty state when no tasks and not loading', () => {
@@ -88,7 +88,7 @@ describe('TaskList', () => {
 				props: { loading: false, roomTasks: [] },
 			})
 
-			expect(wrapper.find('.empty-state').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
 			expect(wrapper.find('.empty-icon').exists()).toBe(true)
 			expect(wrapper.text()).toContain('No tasks yet')
 			expect(wrapper.text()).toContain('Add your first task to get started')
@@ -120,7 +120,7 @@ describe('TaskList', () => {
 		it('should show correct priority labels', () => {
 			const priorities = [
 				{ priority: 1, label: 'Low', class: 'low' },
-				{ priority: 2, label: 'Medium', class: 'medium' },
+				{ priority: 2, label: 'Normal', class: 'medium' },
 				{ priority: 3, label: 'High', class: 'high' },
 			]
 
@@ -320,7 +320,7 @@ describe('TaskList', () => {
 			})
 
 			// Should show empty state since roomTasks is null
-			expect(wrapper.find('.empty-state').exists()).toBe(true)
+			expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
 		})
 	})
 

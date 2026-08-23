@@ -15,6 +15,7 @@ import { useCelebration } from './composables/useCelebration.js'
 import { useToasts } from './composables/useToasts.js'
 import { unlockAudio } from './utils/sound.js'
 import './styles/tokens.css'
+import './styles/a11y.css'
 import './styles/mobile.css'
 
 // Configure axios for Nextcloud CSRF protection

@@ -31,11 +31,10 @@
 			{{ t('chorestrike', 'Loading your day…') }}
 		</div>
 
-		<div v-else-if="error" class="error-state" data-testid="today-error">
-			<p>{{ t('chorestrike', 'Could not load your tasks') }}</p>
-			<button class="primary-button" data-testid="today-retry" @click="load">
-				{{ t('chorestrike', 'Try again') }}
-			</button>
+		<div v-else-if="error" data-testid="today-error">
+			<ErrorState
+				:message="t('chorestrike', 'Could not load your tasks')"
+				@retry="load" />
 		</div>
 
 		<template v-else>
@@ -138,12 +137,14 @@ import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
+import ErrorState from '../components/Common/ErrorState.vue'
 
 export default {
 	name: 'TodayView',
 
 	components: {
 		Icon,
+		ErrorState,
 	},
 
 	setup() {
@@ -476,22 +477,10 @@ export default {
 	margin: 0;
 }
 
-.loading-state,
-.error-state {
+.loading-state {
 	text-align: center;
 	padding: 3rem 1rem;
 	color: var(--color-text-maxcontrast);
-}
-
-.error-state .primary-button {
-	margin-top: 1rem;
-	min-height: 44px;
-	padding: 0.6rem 1.2rem;
-	border: none;
-	border-radius: 8px;
-	background: var(--color-primary);
-	color: var(--color-primary-text);
-	cursor: pointer;
 }
 
 .empty-state {

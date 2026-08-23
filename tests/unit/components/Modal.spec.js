@@ -3,11 +3,13 @@ import { createPinia, setActivePinia } from 'pinia'
 import Modal from '../../../src/components/Common/Modal.vue'
 
 describe('Modal', () => {
+	const mountedWrappers = []
+
 	const createWrapper = (props = {}, slots = {}) => {
 		const pinia = createPinia()
 		setActivePinia(pinia)
-		
-		return mount(Modal, {
+
+		const wrapper = mount(Modal, {
 			props: {
 				show: true,
 				...props,
@@ -20,8 +22,20 @@ describe('Modal', () => {
 			global: {
 				plugins: [pinia],
 			},
+			// Focus management (trap/restore) requires the dialog to be in
+			// the real document tree.
+			attachTo: document.body,
 		})
+		mountedWrappers.push(wrapper)
+		return wrapper
 	}
+
+	afterEach(() => {
+		while (mountedWrappers.length > 0) {
+			mountedWrappers.pop().unmount()
+		}
+		document.body.style.overflow = ''
+	})
 
 	describe('Visibility', () => {
 		it('renders when show is true', () => {
@@ -74,17 +88,110 @@ describe('Modal', () => {
 
 		it('emits close event when clicking close button', async () => {
 			const wrapper = createWrapper()
-			const closeButton = wrapper.find('.modal-close')
-			if (closeButton.exists()) {
-				await closeButton.trigger('click')
-				expect(wrapper.emitted('close')).toBeTruthy()
-			}
+			const closeButton = wrapper.find('[data-testid="modal-close"]')
+			await closeButton.trigger('click')
+			expect(wrapper.emitted('close')).toBeTruthy()
 		})
 
 		it('does not close when clicking modal content', async () => {
 			const wrapper = createWrapper()
 			await wrapper.find('.modal-container').trigger('click')
 			expect(wrapper.emitted('close')).toBeFalsy()
+		})
+	})
+
+	describe('Accessibility (CS-PLAN-044, UX-012)', () => {
+		it('renders role="dialog" with aria-modal="true"', () => {
+			const wrapper = createWrapper()
+			const dialog = wrapper.find('[role="dialog"]')
+			expect(dialog.exists()).toBe(true)
+			expect(dialog.attributes('aria-modal')).toBe('true')
+		})
+
+		it('labels the close button for screen readers', () => {
+			const wrapper = createWrapper()
+			expect(wrapper.find('[data-testid="modal-close"]').attributes('aria-label')).toBe('Close')
+		})
+
+		it('emits close when Escape is pressed', async () => {
+			const wrapper = createWrapper()
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+			await wrapper.vm.$nextTick()
+			expect(wrapper.emitted('close')).toBeTruthy()
+		})
+
+		it('ignores unrelated keys', async () => {
+			const wrapper = createWrapper()
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+			await wrapper.vm.$nextTick()
+			expect(wrapper.emitted('close')).toBeFalsy()
+		})
+	})
+
+	describe('Focus management (CS-PLAN-044)', () => {
+		it('moves focus into the dialog on open and restores it on close', async () => {
+			const opener = document.createElement('button')
+			document.body.appendChild(opener)
+			opener.focus()
+			expect(document.activeElement).toBe(opener)
+
+			const wrapper = createWrapper({ show: true })
+			await wrapper.vm.$nextTick()
+
+			const container = wrapper.find('.modal-container')
+			expect(document.activeElement).toBe(container.element)
+
+			await wrapper.setProps({ show: false })
+			expect(document.activeElement).toBe(opener)
+
+			opener.remove()
+		})
+
+		it('wraps Tab at the last focusable element back to the first', async () => {
+			const wrapper = createWrapper({}, {
+				default: `
+					<div class="modal-content">
+						<button id="first">First</button>
+						<button id="last">Last</button>
+					</div>`,
+			})
+			await wrapper.vm.$nextTick()
+
+			// First focusable in DOM order is the modal's own close button
+			const closeButton = wrapper.find('[data-testid="modal-close"]').element
+			document.getElementById('last').focus()
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))
+
+			expect(document.activeElement).toBe(closeButton)
+		})
+
+		it('wraps Shift+Tab backwards from the first focusable element', async () => {
+			const wrapper = createWrapper({}, {
+				default: `
+					<div class="modal-content">
+						<button id="middle">Middle</button>
+						<button id="close-target">Close target</button>
+					</div>`,
+			})
+			await wrapper.vm.$nextTick()
+
+			// First focusable in DOM order is the modal's own close button
+			const closeButton = wrapper.find('[data-testid="modal-close"]').element
+			closeButton.focus()
+			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }))
+
+			expect(document.activeElement).toBe(wrapper.find('#close-target').element)
+		})
+
+		it('locks body scroll while open and restores it afterwards', async () => {
+			expect(document.body.style.overflow).not.toBe('hidden')
+
+			const wrapper = createWrapper()
+			await wrapper.vm.$nextTick()
+			expect(document.body.style.overflow).toBe('hidden')
+
+			await wrapper.setProps({ show: false })
+			expect(document.body.style.overflow).not.toBe('hidden')
 		})
 	})
 })

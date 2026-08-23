@@ -23,15 +23,11 @@
 			</div>
 		</div>
 
-		<div v-else-if="!roomTasks || roomTasks.length === 0" class="empty-state">
-			<div class="empty-icon">
-				<Icon name="List" :size="48" />
-			</div>
-			<p>{{ t('chorestrike', 'No tasks yet') }}</p>
-			<p class="empty-hint">
-				{{ t('chorestrike', 'Add your first task to get started') }}
-			</p>
-		</div>
+		<EmptyState
+			v-else-if="!roomTasks || roomTasks.length === 0"
+			icon="List"
+			:message="t('chorestrike', 'No tasks yet')"
+			:hint="t('chorestrike', 'Add your first task to get started')" />
 
 		<div v-else class="task-list-body">
 			<!-- Bulk assignment bar (CS-PLAN-042, UX-008): one API call for the
@@ -58,7 +54,11 @@
 					@click="handleBulkAssign">
 					{{ t('chorestrike', 'Assign') }}
 				</button>
-				<button class="bulk-clear-button" :title="t('chorestrike', 'Clear selection')" @click="clearSelection">
+				<button
+					class="bulk-clear-button"
+					:aria-label="t('chorestrike', 'Clear selection')"
+					:title="t('chorestrike', 'Clear selection')"
+					@click="clearSelection">
 					<Icon name="X" :size="14" />
 				</button>
 			</div>
@@ -84,6 +84,7 @@
 								v-if="item.roomTask.isActive"
 								class="complete-button"
 								data-testid="complete-task-button"
+								:aria-label="t('chorestrike', 'Mark as complete')"
 								:title="t('chorestrike', 'Mark as complete')"
 								@click="$emit('complete', item.roomTask.id)">
 								<Icon name="Circle" :size="20" />
@@ -95,6 +96,7 @@
 								v-if="canClaim(item)"
 								class="claim-button"
 								data-testid="claim-overdue-button"
+								:aria-label="t('chorestrike', 'Claim & complete')"
 								:title="t('chorestrike', 'Claim & complete')"
 								@click="openClaimDialog(item)">
 								<Icon name="UserPlus" :size="16" />
@@ -166,18 +168,21 @@
 							<button
 								v-if="item.roomTask.isActive"
 								class="action-btn"
+								:aria-label="t('chorestrike', 'Edit')"
 								:title="t('chorestrike', 'Edit')"
 								@click="$emit('edit', item.roomTask)">
 								<Icon name="Edit" :size="16" />
 							</button>
 							<button
 								class="action-btn"
+								:aria-label="t('chorestrike', 'Show details')"
 								:title="t('chorestrike', 'Show details')"
 								@click="toggleExpand(item)">
 								<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
 							</button>
 							<button
 								class="action-btn delete"
+								:aria-label="t('chorestrike', 'Remove')"
 								:title="t('chorestrike', 'Remove')"
 								@click="$emit('delete', item.roomTask.id)">
 								<Icon name="Trash" :size="16" />
@@ -198,6 +203,7 @@
 									:class="{ selected: isAssignee(item.roomTask.id, member.nextcloudUserId) }">
 									<input
 										type="checkbox"
+										class="cs-visually-hidden"
 										:checked="isAssignee(item.roomTask.id, member.nextcloudUserId)"
 										@change="toggleAssignee(item.roomTask.id, member.nextcloudUserId)">
 									<span>{{ member.displayName }}</span>
@@ -238,6 +244,7 @@ import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { showSuccess, showWarning, showError } from '@nextcloud/dialogs'
 import { Icon } from '../Common/index.js'
+import EmptyState from '../Common/EmptyState.vue'
 import TaskChecklist from './TaskChecklist.vue'
 import FlexWindowDisplay from './FlexWindowDisplay.vue'
 import OverdueClaimDialog from './OverdueClaimDialog.vue'
@@ -251,6 +258,7 @@ export default {
 
 	components: {
 		Icon,
+		EmptyState,
 		TaskChecklist,
 		FlexWindowDisplay,
 		OverdueClaimDialog,
@@ -299,7 +307,7 @@ export default {
 		}
 
 		const priorityLabel = (priority) => {
-			return { 1: t('chorestrike', 'Low'), 2: t('chorestrike', 'Medium'), 3: t('chorestrike', 'High') }[priority]
+			return { 1: t('chorestrike', 'Low'), 2: t('chorestrike', 'Normal'), 3: t('chorestrike', 'High') }[priority]
 		}
 
 		const frequencyLabel = (task) => {
@@ -648,22 +656,6 @@ export default {
 	100% { transform: rotate(360deg); }
 }
 
-.empty-state {
-	text-align: center;
-	padding: 3rem 2rem;
-	color: var(--color-text-maxcontrast);
-}
-
-.empty-icon {
-	font-size: 48px;
-	margin-bottom: 0.5rem;
-}
-
-.empty-hint {
-	font-size: 14px;
-	opacity: 0.7;
-}
-
 .task-list-body {
 	display: flex;
 	flex-direction: column;
@@ -716,8 +708,8 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 28px;
-	height: 28px;
+	min-width: 44px;
+	min-height: 44px;
 	margin-inline-start: auto;
 	border: none;
 	border-radius: 50%;
@@ -784,8 +776,8 @@ export default {
 }
 
 .complete-button {
-	width: 28px;
-	height: 28px;
+	width: 44px;
+	height: 44px;
 	border-radius: 50%;
 	border: 2px solid var(--color-primary);
 	background: transparent;
@@ -800,15 +792,15 @@ export default {
 
 .complete-button:hover {
 	background: var(--color-primary);
-	color: white;
+	color: var(--color-primary-text);
 }
 
 .completed-check {
-	width: 28px;
-	height: 28px;
+	width: 44px;
+	height: 44px;
 	border-radius: 50%;
-	background: #2ecc71;
-	color: white;
+	background: var(--color-success);
+	color: var(--color-success-text);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -926,6 +918,7 @@ export default {
 	align-items: center;
 	gap: 0.3rem;
 	padding: 0.35rem 0.7rem;
+	min-height: 44px;
 	border: 1px solid var(--color-border);
 	border-radius: 20px;
 	cursor: pointer;
@@ -938,8 +931,9 @@ export default {
 	border-color: var(--color-primary);
 }
 
-.assignee-chip input[type="checkbox"] {
-	display: none;
+.assignee-chip:focus-within {
+	outline: 2px solid var(--color-primary);
+	outline-offset: 2px;
 }
 
 .assignee-chip.selected {
@@ -956,6 +950,11 @@ export default {
 }
 
 .action-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 44px;
+	min-height: 44px;
 	padding: 0.25rem;
 	background: transparent;
 	border: none;
@@ -987,8 +986,8 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 24px;
-	height: 24px;
+	width: 44px;
+	height: 44px;
 	margin-top: 0.25rem;
 	border-radius: 50%;
 	border: 1px solid var(--color-primary);
@@ -1000,7 +999,7 @@ export default {
 
 .claim-button:hover {
 	background: var(--color-primary);
-	color: white;
+	color: var(--color-primary-text);
 }
 
 @media (max-width: 600px) {

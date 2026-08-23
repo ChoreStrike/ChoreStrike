@@ -25,6 +25,17 @@ jest.mock('@nextcloud/dialogs', () => ({
 	showError: jest.fn(),
 }))
 
+// Deliberate error-path specs (e.g. the floor-reorder failure) must not leak
+// real logger output into the noise gate (CS-PLAN-034 convention).
+jest.mock('@/utils/logger', () => ({
+	logger: {
+		error: jest.fn(),
+		warn: jest.fn(),
+		info: jest.fn(),
+		debug: jest.fn(),
+	},
+}))
+
 import { showSuccess, showError } from '@nextcloud/dialogs'
 
 // Mutable so individual tests can assert store interactions.

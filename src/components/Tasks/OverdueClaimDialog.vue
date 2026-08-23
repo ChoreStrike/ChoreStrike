@@ -4,8 +4,8 @@
 -->
 
 <template>
-	<div v-if="visible" class="overdue-claim-overlay" data-testid="overdue-claim-dialog">
-		<div class="overdue-claim-dialog">
+	<Modal :show="visible" :aria-label="t('chorestrike', 'Claim Overdue Task')" @close="$emit('cancel')">
+		<div class="overdue-claim-dialog" data-testid="overdue-claim-dialog">
 			<h3>{{ t('chorestrike', 'Claim Overdue Task') }}</h3>
 			<p>{{ t('chorestrike', 'This will be recorded as taken over from {assignee}.', { assignee: assigneeName }) }}</p>
 			<div class="dialog-actions">
@@ -17,14 +17,19 @@
 				</button>
 			</div>
 		</div>
-	</div>
+	</Modal>
 </template>
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import Modal from '../Common/Modal.vue'
 
 export default {
 	name: 'OverdueClaimDialog',
+
+	components: {
+		Modal,
+	},
 
 	props: {
 		visible: {
@@ -46,25 +51,8 @@ export default {
 </script>
 
 <style scoped>
-.overdue-claim-overlay {
-	position: fixed;
-	top: 0;
-	inset-inline: 0;
-	bottom: 0;
-	background: rgba(0, 0, 0, 0.5);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	z-index: 1000;
-}
-
 .overdue-claim-dialog {
-	background: var(--color-main-background);
-	border-radius: 12px;
 	padding: 1.5rem;
-	max-width: 400px;
-	width: 90%;
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 .overdue-claim-dialog h3 {
@@ -87,6 +75,7 @@ export default {
 
 .primary-button,
 .secondary-button {
+	min-height: 44px;
 	padding: 0.6rem 1rem;
 	border: none;
 	border-radius: 6px;
@@ -97,7 +86,7 @@ export default {
 
 .primary-button {
 	background: var(--color-primary);
-	color: #fff;
+	color: var(--color-primary-text);
 }
 
 .secondary-button {
