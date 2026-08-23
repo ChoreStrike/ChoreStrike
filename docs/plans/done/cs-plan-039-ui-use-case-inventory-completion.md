@@ -1,6 +1,6 @@
 # CS-PLAN-039: UI Use-Case Inventory — Completion & Gap Registration
 
-> **Status:** Plan (not started)
+> **Status:** Done (2026-08-21) — implemented (docs-only), verification clean, moved to `done/`
 > **Effort:** S
 > **Priority:** P2
 > **Depends on:** none — builds on the endpoint audit 2026-08-21 and the
@@ -157,19 +157,19 @@ modified: docs/backlog/ACTIVE_TASKS.md
 
 ## 8. Acceptance Criteria
 
-- [ ] All 111 routes in `appinfo/routes.php` are accounted for exactly
+- [x] All 111 routes in `appinfo/routes.php` are accounted for exactly
       once in `ui-use-cases.md` (individual row, appendix row with
       status, or explicit `page#index` exclusion note).
-- [ ] ❌/⚠️ rows annotate dead store wrappers uniformly.
-- [ ] `backlog.md` UX-011 text reflects the shipped wizard invite step.
-- [ ] Whitespace section records Group A (7) + Group B (9) with decision tags
+- [x] ❌/⚠️ rows annotate dead store wrappers uniformly.
+- [x] `backlog.md` UX-011 text reflects the shipped wizard invite step.
+- [x] Whitespace section records Group A (7) + Group B (9) with decision tags
       and concept-doc sources.
-- [ ] `backlog.md` contains the new themed section with FEAT-UX-016…031 in
+- [x] `backlog.md` contains the new themed section with FEAT-UX-016…031 in
       README item format.
-- [ ] Route coverage check + link-integrity grep clean; build gate unaffected
+- [x] Route coverage check + link-integrity grep clean; build gate unaffected
       (docs-only change).
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated.
-- [ ] Durable outcomes integrated into permanent docs (this plan's changes
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated.
+- [x] Durable outcomes integrated into permanent docs (this plan's changes
       live in `docs/concepts/` and `docs/backlog/` — plans are temporary).
 
 ## 9. Review Outcome
