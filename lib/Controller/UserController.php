@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -254,14 +255,21 @@ class UserController extends Controller {
 	/**
 	 * Update user role
 	 *
+	 * Thin endpoint (BUG-SEC-002): the owner gate runs here, the role
+	 * mutation and its self-demotion / last-owner guards live in
+	 * HouseService::updateUserRole.
+	 *
 	 * @NoAdminRequired
 	 */
 	public function updateRole(int $id, string $role): JSONResponse {
 		try {
 			$houseUser = $this->houseUserMapper->find($id);
 			$this->authService->requireHouseOwner($houseUser->getHouseId());
+			$callerUserId = $this->authService->requireCurrentUserId();
 
-			if (!in_array($role, ['owner', 'member', 'child'], true)) {
+			try {
+				$updatedUser = $this->houseService->updateUserRole($id, $role, $callerUserId);
+			} catch (\InvalidArgumentException $e) {
 				return new JSONResponse([
 					'success' => false,
 					'error' => [
@@ -269,15 +277,39 @@ class UserController extends Controller {
 						'message' => $this->l->t('Invalid role. Must be owner, member, or child')
 					]
 				], 400);
+			} catch (ForbiddenException $e) {
+				// The only ForbiddenException updateUserRole throws is its
+				// self-demotion guard — map it to the endpoint-specific 403
+				// code (mirrors the CANNOT_REMOVE_OWNER precedent).
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'CANNOT_DEMOTE_SELF',
+						'message' => $this->l->t('You cannot change your own role')
+					]
+				], 403);
+			} catch (ConflictException $e) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'CANNOT_DEMOTE_LAST_OWNER',
+						'message' => $this->l->t('Cannot demote the last house owner')
+					]
+				], 409);
 			}
-
-			$houseUser->setRole($role);
-			$this->houseUserMapper->update($houseUser);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $houseUser->jsonSerialize()
+				'data' => $updatedUser->jsonSerialize()
 			]);
+		} catch (DoesNotExistException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'USER_NOT_FOUND',
+					'message' => $this->l->t('User not found')
+				]
+			], 404);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {

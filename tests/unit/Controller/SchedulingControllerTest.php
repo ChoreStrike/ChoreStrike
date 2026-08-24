@@ -37,6 +37,16 @@ class SchedulingControllerTest extends TestCase {
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
 
+		// CR-016-15: the controller delegates the energy bounds to the
+		// service; mirror the real pure-function behavior on the mock so the
+		// section-validation tests pin the same stable message end-to-end.
+		$this->schedulingService->method('assertValidEnergyBudget')
+			->willReturnCallback(static function ($energy): void {
+				if (!is_int($energy) || $energy < SchedulingService::ENERGY_BUDGET_MIN || $energy > SchedulingService::ENERGY_BUDGET_MAX) {
+					throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
+				}
+			});
+
 		$this->controller = new SchedulingController(
 			$this->request,
 			$this->schedulingService,

@@ -315,15 +315,67 @@ class GameLogicServiceTest extends TestCase {
 	 */
 	public function testCalculateDaysEarly_FutureDueDate_ReturnsPositiveDays(): void {
 		$roomTask = new RoomTask();
-		$futureDate = new \DateTime();
-		$futureDate->add(new \DateInterval('P30D'));
-		$roomTask->setIdealDueDate($futureDate);
+		$roomTask->setIdealDueDate(new \DateTime('2026-05-15T00:00:00+02:00'));
 
-		$result = $this->service->calculateDaysEarly($roomTask);
+		$result = $this->service->calculateDaysEarly($roomTask, new \DateTime('2026-04-15T10:30:00+02:00'));
 
-		// Should be approximately 30 days
-		$this->assertGreaterThan(25, $result);
-		$this->assertLessThan(35, $result);
+		$this->assertSame(30, $result);
+	}
+
+	/**
+	 * CalculateDaysEarly_NearMidnightCompletion_CountsCalendarDays
+	 *
+	 * CR-SVC-32 regression: one minute before midnight the raw-second math
+	 * rounded the diff to 0 days; the calendar-day diff counts the boundary.
+	 */
+	public function testCalculateDaysEarly_NearMidnightCompletion_CountsCalendarDays(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setIdealDueDate(new \DateTime('2026-05-11T00:00:00+02:00'));
+
+		// 2026-05-10 23:59 → next calendar day is the due day: 1 day early.
+		$result = $this->service->calculateDaysEarly($roomTask, new \DateTime('2026-05-10T23:59:00+02:00'));
+		$this->assertSame(1, $result);
+
+		// Same calendar day as the due date: 0 days early, whatever the time.
+		$sameDay = $this->service->calculateDaysEarly($roomTask, new \DateTime('2026-05-11T23:59:00+02:00'));
+		$this->assertSame(0, $sameDay);
+	}
+
+	/**
+	 * CalculateDaysEarly_LateCompletion_ReturnsNegativeCalendarDays
+	 */
+	public function testCalculateDaysEarly_LateCompletion_ReturnsNegativeCalendarDays(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setIdealDueDate(new \DateTime('2026-05-10T00:00:00+02:00'));
+
+		$result = $this->service->calculateDaysEarly($roomTask, new \DateTime('2026-05-12T08:00:00+02:00'));
+
+		$this->assertSame(-2, $result);
+	}
+
+	/**
+	 * CalculateDaysEarly_DstTransitionWeekend_DeterministicCalendarDiff
+	 *
+	 * CR-SVC-32 regression: Europe/Berlin springs forward on 2026-03-29
+	 * (02:00 → 03:00), so that week has a 23-hour day. A completion on the
+	 * transition day itself must count 0 days early even though only 21
+	 * wall-clock hours remain until 23:00 — raw-second division rounded
+	 * that to 1.
+	 */
+	public function testCalculateDaysEarly_DstTransitionWeekend_DeterministicCalendarDiff(): void {
+		$tz = new \DateTimeZone('Europe/Berlin');
+
+		$roomTask = new RoomTask();
+		$roomTask->setIdealDueDate(new \DateTime('2026-03-29T23:00:00', $tz));
+
+		// Completion on the DST transition day: same calendar day → 0.
+		$result = $this->service->calculateDaysEarly($roomTask, new \DateTime('2026-03-29T01:00:00', $tz));
+		$this->assertSame(0, $result);
+
+		// Completion two calendar days before the due day → 2, even though
+		// only 58 wall-clock hours (one 23-hour DST day) lie in between.
+		$twoDaysBefore = $this->service->calculateDaysEarly($roomTask, new \DateTime('2026-03-27T12:00:00', $tz));
+		$this->assertSame(2, $twoDaysBefore);
 	}
 
 	/**

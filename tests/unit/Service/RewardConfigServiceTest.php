@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
@@ -556,5 +557,188 @@ class RewardConfigServiceTest extends TestCase {
 		$this->service->updateConfig([
 			'comboMultiplier' => 3.0,
 		]);
+	}
+
+	/**
+	 * SetTierMultiplier_NegativeValue_ClampsToZero (CR-SVC-19)
+	 */
+	public function testSetTierMultiplier_NegativeValue_ClampsToZero(): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', 'tier_gold_multiplier', '0');
+
+		$this->service->setTierMultiplier('gold', -2.0);
+	}
+
+	/**
+	 * SetEarlyBonusMultiplier_BelowOne_ClampsToOne (CR-SVC-19)
+	 */
+	public function testSetEarlyBonusMultiplier_BelowOne_ClampsToOne(): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', 'early_bonus_multiplier', '1');
+
+		$this->service->setEarlyBonusMultiplier(0.5);
+	}
+
+	/**
+	 * SetCoinBasePerEnergy_NegativeValue_ClampsToZero (CR-SVC-19)
+	 */
+	public function testSetCoinBasePerEnergy_NegativeValue_ClampsToZero(): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', 'coin_base_per_energy', '0');
+
+		$this->service->setCoinBasePerEnergy(-10);
+	}
+
+	/**
+	 * SetStreakFreezeCap_NegativeValue_ClampsToZero (CR-SVC-19)
+	 */
+	public function testSetStreakFreezeCap_NegativeValue_ClampsToZero(): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', 'streak_freeze_cap', '0');
+
+		$this->service->setStreakFreezeCap(-1);
+	}
+
+	/**
+	 * SetStreakFreezesPerWeek_NegativeValue_ClampsToZero (CR-SVC-19)
+	 */
+	public function testSetStreakFreezesPerWeek_NegativeValue_ClampsToZero(): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', 'streak_freezes_per_week', '0');
+
+		$this->service->setStreakFreezesPerWeek(-2);
+	}
+
+	/**
+	 * SetComboBonusFreezeThreshold_NegativeValue_ClampsToZero (CR-SVC-19)
+	 */
+	public function testSetComboBonusFreezeThreshold_NegativeValue_ClampsToZero(): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', 'combo_bonus_freeze_threshold', '0');
+
+		$this->service->setComboBonusFreezeThreshold(-3);
+	}
+
+	/**
+	 * SetEarlyBonusThresholdDays_NegativeValue_ClampsToZero (CR-SVC-19)
+	 */
+	public function testSetEarlyBonusThresholdDays_NegativeValue_ClampsToZero(): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', 'early_bonus_threshold_days', '0');
+
+		$this->service->setEarlyBonusThresholdDays(-5);
+	}
+
+	/**
+	 * SetEnergyMaxPerTask_NegativeValue_ClampsToZero (CR-SVC-19)
+	 */
+	public function testSetEnergyMaxPerTask_NegativeValue_ClampsToZero(): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', 'energy_max_per_task', '0');
+
+		$this->service->setEnergyMaxPerTask(-9);
+	}
+
+	/**
+	 * GetTierMultiplier_PersistedNegative_ClampedOnRead (CR-SVC-19 risk row 3)
+	 */
+	public function testGetTierMultiplier_PersistedNegative_ClampedOnRead(): void {
+		$this->config
+			->method('getValueString')
+			->willReturn('-1.0');
+
+		$this->assertEquals(0.0, $this->service->getTierMultiplier('gold'));
+	}
+
+	/**
+	 * GetEarlyBonusMultiplier_PersistedBelowOne_ClampedOnRead (CR-SVC-19)
+	 */
+	public function testGetEarlyBonusMultiplier_PersistedBelowOne_ClampedOnRead(): void {
+		$this->config
+			->method('getValueString')
+			->willReturn('0.5');
+
+		$this->assertEquals(1.0, $this->service->getEarlyBonusMultiplier());
+	}
+
+	/**
+	 * GetCoinBasePerEnergy_PersistedNegative_ClampedOnRead (CR-SVC-19)
+	 */
+	public function testGetCoinBasePerEnergy_PersistedNegative_ClampedOnRead(): void {
+		$this->config
+			->method('getValueString')
+			->willReturn('-10');
+
+		$this->assertEquals(0, $this->service->getCoinBasePerEnergy());
+	}
+
+	/**
+	 * GetStreakFreezeCap_PersistedNegative_ClampedOnRead (CR-SVC-19)
+	 */
+	public function testGetStreakFreezeCap_PersistedNegative_ClampedOnRead(): void {
+		$this->config
+			->method('getValueString')
+			->willReturn('-2');
+
+		$this->assertEquals(0, $this->service->getStreakFreezeCap());
+	}
+
+	/**
+	 * GetEarlyBonusThresholdDays_PersistedNegative_ClampedOnRead (CR-SVC-19)
+	 */
+	public function testGetEarlyBonusThresholdDays_PersistedNegative_ClampedOnRead(): void {
+		$this->config
+			->method('getValueString')
+			->willReturn('-3');
+
+		$this->assertEquals(0, $this->service->getEarlyBonusThresholdDays());
+	}
+
+	/**
+	 * ClampWarning_LoggedWithKeyAndClampedValue (CR-SVC-19)
+	 */
+	public function testClampWarning_LoggedWithKeyAndClampedValue(): void {
+		$appLogger = $this->createMock(AppLogger::class);
+		$appLogger->expects($this->once())
+			->method('warning')
+			->with(
+				'Reward config value clamped',
+				$this->callback(static function (array $context): bool {
+					return ($context['service'] ?? null) === 'RewardConfigService'
+						&& ($context['key'] ?? null) === 'coin_base_per_energy'
+						&& ($context['value'] ?? null) === -10
+						&& ($context['clampedTo'] ?? null) === 0;
+				})
+			);
+
+		$service = new RewardConfigService($this->config, $appLogger);
+		$service->setCoinBasePerEnergy(-10);
+	}
+
+	/**
+	 * ClampWarning_NotLoggedForInRangeValue (CR-SVC-19)
+	 */
+	public function testClampWarning_NotLoggedForInRangeValue(): void {
+		$appLogger = $this->createMock(AppLogger::class);
+		$appLogger->expects($this->never())->method('warning');
+
+		$service = new RewardConfigService($this->config, $appLogger);
+		$service->setCoinBasePerEnergy(10);
 	}
 }

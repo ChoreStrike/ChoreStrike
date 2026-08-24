@@ -294,6 +294,29 @@ class HouseUserMapper extends QBMapper {
 	}
 
 	/**
+	 * Count the owner-role members of a house.
+	 *
+	 * Backs the last-owner role guard (BUG-SEC-002): demoting an owner is only
+	 * allowed while at least one other owner remains.
+	 *
+	 * @param int $houseId The house ID
+	 */
+	public function countOwnersForHouse(int $houseId): int {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select($qb->func()->count('id'))
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('role', $qb->createNamedParameter('owner', IQueryBuilder::PARAM_STR)));
+
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		return $count;
+	}
+
+	/**
 	 * Find all house users across all houses for background-job iteration.
 	 *
 	 * Centralising this lookup in the mapper keeps StreakFreezeJob,

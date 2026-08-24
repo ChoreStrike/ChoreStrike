@@ -1,0 +1,176 @@
+<?php
+
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ */
+declare(strict_types=1);
+
+namespace OCA\ChoreStrike\Tests\Integration;
+
+use OCA\ChoreStrike\Controller\UserController;
+use OCA\ChoreStrike\Exception\ConflictException;
+use OCA\ChoreStrike\Service\HouseService;
+use OCP\DB\QueryBuilder\IQueryBuilder;
+
+/**
+ * Real-DB integration tests for the server-side role guards (BUG-SEC-002).
+ *
+ * Mirrors the CANNOT_REMOVE_OWNER pattern: seed one-owner and two-owner
+ * houses, exercise the endpoint as an owner, and assert the stable
+ * CANNOT_DEMOTE_SELF 403 / CANNOT_DEMOTE_LAST_OWNER 409 codes together
+ * with unchanged rows.
+ *
+ * Note on the 409 path: via the endpoint the last-owner conflict is
+ * unreachable — requireHouseOwner gates the caller to owners, and a house
+ * with exactly one owner makes that owner the target, so the self-demotion
+ * guard (403) fires first. The ConflictException invariant is therefore
+ * pinned at the service level, where direct (non-controller) callers are
+ * still protected.
+ */
+class RoleGuardApiTest extends IntegrationTestCase {
+	/**
+	 * UpdateRole_SelfDemotion_TwoOwnerHouse_Returns403AndKeepsRow
+	 */
+	public function testUpdateRole_SelfDemotion_TwoOwnerHouse_Returns403AndKeepsRow(): void {
+		$houseId = $this->createHouse('rg_owner_a', 'Role Guard House A');
+		$this->addHouseMember($houseId, 'rg_coowner_a', 'Co-Owner A', 'owner');
+
+		$controller = $this->getController(UserController::class, 'rg_owner_a');
+		$targetId = $this->findHouseUserId($houseId, 'rg_owner_a');
+
+		$response = $controller->updateRole($targetId, 'member');
+
+		self::assertSame(403, $response->getStatus());
+		$data = $response->getData();
+		self::assertFalse($data['success']);
+		self::assertSame('CANNOT_DEMOTE_SELF', $data['error']['code']);
+		self::assertSame('owner', $this->fetchRole($targetId), 'the role row must be unchanged');
+	}
+
+	/**
+	 * UpdateRole_SelfDemotion_OneOwnerHouse_Returns403AndKeepsRow
+	 */
+	public function testUpdateRole_SelfDemotion_OneOwnerHouse_Returns403AndKeepsRow(): void {
+		$houseId = $this->createHouse('rg_solo_owner', 'Role Guard House B');
+		$this->addHouseMember($houseId, 'rg_member_b', 'Member B', 'member');
+
+		$controller = $this->getController(UserController::class, 'rg_solo_owner');
+		$targetId = $this->findHouseUserId($houseId, 'rg_solo_owner');
+
+		$response = $controller->updateRole($targetId, 'child');
+
+		self::assertSame(403, $response->getStatus());
+		$data = $response->getData();
+		self::assertFalse($data['success']);
+		self::assertSame('CANNOT_DEMOTE_SELF', $data['error']['code']);
+		self::assertSame('owner', $this->fetchRole($targetId), 'the role row must be unchanged');
+	}
+
+	/**
+	 * UpdateRole_CoOwnerDemotion_TwoOwnerHouse_Succeeds
+	 *
+	 * Legit flow: while another owner remains, a co-owner can be demoted.
+	 */
+	public function testUpdateRole_CoOwnerDemotion_TwoOwnerHouse_Succeeds(): void {
+		$houseId = $this->createHouse('rg_owner_c', 'Role Guard House C');
+		$this->addHouseMember($houseId, 'rg_coowner_c', 'Co-Owner C', 'owner');
+
+		$controller = $this->getController(UserController::class, 'rg_owner_c');
+		$targetId = $this->findHouseUserId($houseId, 'rg_coowner_c');
+
+		$response = $controller->updateRole($targetId, 'member');
+
+		self::assertSame(200, $response->getStatus());
+		self::assertTrue($response->getData()['success']);
+		self::assertSame('member', $this->fetchRole($targetId), 'the co-owner role must be persisted');
+	}
+
+	/**
+	 * UpdateRole_PromoteMember_Succeeds
+	 */
+	public function testUpdateRole_PromoteMember_Succeeds(): void {
+		$houseId = $this->createHouse('rg_owner_d', 'Role Guard House D');
+		$this->addHouseMember($houseId, 'rg_member_d', 'Member D', 'member');
+
+		$controller = $this->getController(UserController::class, 'rg_owner_d');
+		$targetId = $this->findHouseUserId($houseId, 'rg_member_d');
+
+		$response = $controller->updateRole($targetId, 'owner');
+
+		self::assertSame(200, $response->getStatus());
+		self::assertTrue($response->getData()['success']);
+		self::assertSame('owner', $this->fetchRole($targetId), 'the promotion must be persisted');
+	}
+
+	/**
+	 * UpdateRole_InvalidRole_Returns400AndKeepsRow
+	 */
+	public function testUpdateRole_InvalidRole_Returns400AndKeepsRow(): void {
+		$houseId = $this->createHouse('rg_owner_e', 'Role Guard House E');
+		$this->addHouseMember($houseId, 'rg_member_e', 'Member E', 'member');
+
+		$controller = $this->getController(UserController::class, 'rg_owner_e');
+		$targetId = $this->findHouseUserId($houseId, 'rg_member_e');
+
+		$response = $controller->updateRole($targetId, 'superadmin');
+
+		self::assertSame(400, $response->getStatus());
+		$data = $response->getData();
+		self::assertFalse($data['success']);
+		self::assertSame('VALIDATION_ERROR', $data['error']['code']);
+		self::assertSame('member', $this->fetchRole($targetId), 'the role row must be unchanged');
+	}
+
+	/**
+	 * UpdateUserRole_LastOwnerDemotion_ThrowsConflictAndKeepsRow
+	 *
+	 * Service-level pin of the 409 invariant against the real DB: the
+	 * caller is NOT the target (bypassing the endpoint's owner gate), so
+	 * the last-owner guard is the one that fires.
+	 */
+	public function testUpdateUserRole_LastOwnerDemotion_ThrowsConflictAndKeepsRow(): void {
+		$houseId = $this->createHouse('rg_last_owner', 'Role Guard House F');
+		$this->addHouseMember($houseId, 'rg_caller_f', 'Caller F', 'member');
+
+		$this->actingAs('rg_caller_f');
+		$houseService = \OC::$server->get(HouseService::class);
+		$targetId = $this->findHouseUserId($houseId, 'rg_last_owner');
+
+		try {
+			$houseService->updateUserRole($targetId, 'member', 'rg_caller_f');
+			self::fail('demoting the last owner must be rejected');
+		} catch (ConflictException $e) {
+			self::assertStringContainsString('last house owner', $e->getMessage());
+		}
+
+		self::assertSame('owner', $this->fetchRole($targetId), 'the role row must be unchanged');
+	}
+
+	private function findHouseUserId(int $houseId, string $ncUserId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from('chorestrike_house_users')
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($ncUserId)));
+		$result = $qb->executeQuery();
+		$id = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		self::assertGreaterThan(0, $id, "house user row for {$ncUserId} must exist");
+		return $id;
+	}
+
+	private function fetchRole(int $houseUserId): string {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('role')
+			->from('chorestrike_house_users')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$role = $result->fetchOne();
+		$result->closeCursor();
+
+		self::assertNotFalse($role, "house user row {$houseUserId} must exist");
+		return (string)$role;
+	}
+}

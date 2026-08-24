@@ -37,18 +37,71 @@ class RewardConfigService {
 	public const KEY_TITLE_THRESHOLD_PREFIX = 'title_threshold';
 
 	private IAppConfig $config;
+	private ?AppLogger $appLogger;
 
-	public function __construct(IAppConfig $config) {
+	public function __construct(IAppConfig $config, ?AppLogger $appLogger = null) {
 		$this->config = $config;
+		$this->appLogger = $appLogger;
+	}
+
+	/**
+	 * Clamp an int config value into [min, max] and log when clamping fires.
+	 *
+	 * CR-SVC-19: applied on BOTH the write and the read path so previously
+	 * persisted out-of-range values are never applied raw.
+	 */
+	private function clampInt(string $key, int $value, int $min, ?int $max = null): int {
+		$clamped = max($min, $value);
+		if ($max !== null) {
+			$clamped = min($max, $clamped);
+		}
+		$this->logClamp($key, $value, $clamped);
+		return $clamped;
+	}
+
+	/**
+	 * Clamp a float config value into [min, max] and log when clamping fires.
+	 *
+	 * CR-SVC-19: applied on BOTH the write and the read path so previously
+	 * persisted out-of-range values are never applied raw.
+	 */
+	private function clampFloat(string $key, float $value, float $min, ?float $max = null): float {
+		$clamped = max($min, $value);
+		if ($max !== null) {
+			$clamped = min($max, $clamped);
+		}
+		$this->logClamp($key, $value, $clamped);
+		return $clamped;
+	}
+
+	/**
+	 * Log a clamp event once (only when the value actually changed).
+	 *
+	 * @param int|float $value The original value
+	 * @param int|float $clamped The clamped value
+	 */
+	private function logClamp(string $key, $value, $clamped): void {
+		if ($value === $clamped) {
+			return;
+		}
+
+		$this->appLogger?->warning('Reward config value clamped', [
+			'service' => 'RewardConfigService',
+			'key' => $key,
+			'value' => $value,
+			'clampedTo' => $clamped,
+		]);
 	}
 
 	/**
 	 * Get tier multiplier for a given tier
 	 *
+	 * Clamped to >= 0 (CR-SVC-19): a negative multiplier would invert rewards.
+	 *
 	 * @param string $tier The tier (bronze, silver, gold)
 	 */
 	public function getTierMultiplier(string $tier): float {
-		return match ($tier) {
+		$value = match ($tier) {
 			'bronze' => (float)$this->config->getValueString(
 				self::APP_NAME,
 				self::KEY_TIER_BRONZE_MULTIPLIER,
@@ -64,84 +117,133 @@ class RewardConfigService {
 				self::KEY_TIER_GOLD_MULTIPLIER,
 				'2.0'
 			),
-			default => 1.0,
+			default => null,
 		};
+
+		if ($value === null) {
+			return 1.0;
+		}
+
+		return $this->clampFloat('tier_' . $tier . '_multiplier', $value, 0.0);
 	}
 
 	/**
 	 * Get early completion bonus threshold in days
+	 *
+	 * Clamped to >= 0 (CR-SVC-19).
 	 */
 	public function getEarlyBonusThresholdDays(): int {
-		return (int)$this->config->getValueString(
-			self::APP_NAME,
+		return $this->clampInt(
 			self::KEY_EARLY_BONUS_THRESHOLD_DAYS,
-			'21'
+			(int)$this->config->getValueString(
+				self::APP_NAME,
+				self::KEY_EARLY_BONUS_THRESHOLD_DAYS,
+				'21'
+			),
+			0
 		);
 	}
 
 	/**
 	 * Get early completion bonus multiplier
+	 *
+	 * Clamped to >= 1.0 (CR-SVC-19): below 1.0 the "bonus" would penalize
+	 * early completion.
 	 */
 	public function getEarlyBonusMultiplier(): float {
-		return (float)$this->config->getValueString(
-			self::APP_NAME,
+		return $this->clampFloat(
 			self::KEY_EARLY_BONUS_MULTIPLIER,
-			'1.5'
+			(float)$this->config->getValueString(
+				self::APP_NAME,
+				self::KEY_EARLY_BONUS_MULTIPLIER,
+				'1.5'
+			),
+			1.0
 		);
 	}
 
 	/**
 	 * Get maximum energy per task
+	 *
+	 * Clamped to >= 0 (CR-SVC-19).
 	 */
 	public function getEnergyMaxPerTask(): int {
-		return (int)$this->config->getValueString(
-			self::APP_NAME,
+		return $this->clampInt(
 			self::KEY_ENERGY_MAX_PER_TASK,
-			'9'
+			(int)$this->config->getValueString(
+				self::APP_NAME,
+				self::KEY_ENERGY_MAX_PER_TASK,
+				'9'
+			),
+			0
 		);
 	}
 
 	/**
 	 * Get base coins per energy point
+	 *
+	 * Clamped to >= 0 (CR-SVC-19): a negative base would invert rewards.
 	 */
 	public function getCoinBasePerEnergy(): int {
-		return (int)$this->config->getValueString(
-			self::APP_NAME,
+		return $this->clampInt(
 			self::KEY_COIN_BASE_PER_ENERGY,
-			'10'
+			(int)$this->config->getValueString(
+				self::APP_NAME,
+				self::KEY_COIN_BASE_PER_ENERGY,
+				'10'
+			),
+			0
 		);
 	}
 
 	/**
 	 * Get number of streak freezes restocked per week
+	 *
+	 * Clamped to >= 0 (CR-SVC-19).
 	 */
 	public function getStreakFreezesPerWeek(): int {
-		return (int)$this->config->getValueString(
-			self::APP_NAME,
+		return $this->clampInt(
 			self::KEY_STREAK_FREEZES_PER_WEEK,
-			'1'
+			(int)$this->config->getValueString(
+				self::APP_NAME,
+				self::KEY_STREAK_FREEZES_PER_WEEK,
+				'1'
+			),
+			0
 		);
 	}
 
 	/**
 	 * Get maximum number of streak freezes a user can hold
+	 *
+	 * Clamped to >= 0 (CR-SVC-19).
 	 */
 	public function getStreakFreezeCap(): int {
-		return (int)$this->config->getValueString(
-			self::APP_NAME,
+		return $this->clampInt(
 			self::KEY_STREAK_FREEZE_CAP,
-			'2'
+			(int)$this->config->getValueString(
+				self::APP_NAME,
+				self::KEY_STREAK_FREEZE_CAP,
+				'2'
+			),
+			0
 		);
 	}
 
 	/**
 	 * Get combo count threshold for earning a bonus freeze
+	 *
+	 * Clamped to >= 0 (CR-SVC-19).
 	 */
 	public function getComboBonusFreezeThreshold(): int {
-		return (int)$this->config->getValueString(
-			self::APP_NAME,
+		return $this->clampInt(
 			self::KEY_COMBO_BONUS_FREEZE_THRESHOLD,
-			'5'
+			(int)$this->config->getValueString(
+				self::APP_NAME,
+				self::KEY_COMBO_BONUS_FREEZE_THRESHOLD,
+				'5'
+			),
+			0
 		);
 	}
 
@@ -159,7 +261,7 @@ class RewardConfigService {
 			'80'
 		);
 		// Clamp to a sane range; an admin could store anything via IAppConfig.
-		return max(1, min(100, $value));
+		return $this->clampInt(self::KEY_WEEKLY_GOAL_TARGET_PERCENT, $value, 1, 100);
 	}
 
 	/**
@@ -182,7 +284,7 @@ class RewardConfigService {
 			self::KEY_TEAMWORK_BONUS_MAX_PCT,
 			'50'
 		);
-		return max(0, min(100, $value));
+		return $this->clampInt(self::KEY_TEAMWORK_BONUS_MAX_PCT, $value, 0, 100);
 	}
 
 	/**
@@ -222,12 +324,13 @@ class RewardConfigService {
 	public function getTitleThreshold(string $packKey, int $tierIndex): int {
 		$tiers = TitleCatalog::getTiers($packKey);
 		$default = $tiers[$tierIndex]['threshold'] ?? 1;
+		$key = $this->thresholdKey($packKey, $tierIndex);
 		$value = (int)$this->config->getValueString(
 			self::APP_NAME,
-			$this->thresholdKey($packKey, $tierIndex),
+			$key,
 			(string)$default
 		);
-		return max(1, $value);
+		return $this->clampInt($key, $value, 1);
 	}
 
 	/**
@@ -238,10 +341,11 @@ class RewardConfigService {
 	 * @param int $value Threshold (clamped to >= 1)
 	 */
 	public function setTitleThreshold(string $packKey, int $tierIndex, int $value): void {
+		$key = $this->thresholdKey($packKey, $tierIndex);
 		$this->config->setValueString(
 			self::APP_NAME,
-			$this->thresholdKey($packKey, $tierIndex),
-			(string)max(1, $value)
+			$key,
+			(string)$this->clampInt($key, $value, 1)
 		);
 	}
 
@@ -254,34 +358,40 @@ class RewardConfigService {
 
 	/**
 	 * Set streak freezes per week
+	 *
+	 * @param int $count Clamped to >= 0 (CR-SVC-19)
 	 */
 	public function setStreakFreezesPerWeek(int $count): void {
 		$this->config->setValueString(
 			self::APP_NAME,
 			self::KEY_STREAK_FREEZES_PER_WEEK,
-			(string)$count
+			(string)$this->clampInt(self::KEY_STREAK_FREEZES_PER_WEEK, $count, 0)
 		);
 	}
 
 	/**
 	 * Set streak freeze cap
+	 *
+	 * @param int $cap Clamped to >= 0 (CR-SVC-19)
 	 */
 	public function setStreakFreezeCap(int $cap): void {
 		$this->config->setValueString(
 			self::APP_NAME,
 			self::KEY_STREAK_FREEZE_CAP,
-			(string)$cap
+			(string)$this->clampInt(self::KEY_STREAK_FREEZE_CAP, $cap, 0)
 		);
 	}
 
 	/**
 	 * Set combo bonus freeze threshold
+	 *
+	 * @param int $threshold Clamped to >= 0 (CR-SVC-19)
 	 */
 	public function setComboBonusFreezeThreshold(int $threshold): void {
 		$this->config->setValueString(
 			self::APP_NAME,
 			self::KEY_COMBO_BONUS_FREEZE_THRESHOLD,
-			(string)$threshold
+			(string)$this->clampInt(self::KEY_COMBO_BONUS_FREEZE_THRESHOLD, $threshold, 0)
 		);
 	}
 
@@ -297,7 +407,7 @@ class RewardConfigService {
 			self::KEY_COMBO_MULTIPLIER,
 			'2.0'
 		);
-		return max(0.0, $value);
+		return $this->clampFloat(self::KEY_COMBO_MULTIPLIER, $value, 0.0);
 	}
 
 	/**
@@ -309,7 +419,7 @@ class RewardConfigService {
 		$this->config->setValueString(
 			self::APP_NAME,
 			self::KEY_COMBO_MULTIPLIER,
-			(string)max(0.0, $multiplier)
+			(string)$this->clampFloat(self::KEY_COMBO_MULTIPLIER, $multiplier, 0.0)
 		);
 	}
 
@@ -322,7 +432,7 @@ class RewardConfigService {
 		$this->config->setValueString(
 			self::APP_NAME,
 			self::KEY_WEEKLY_GOAL_TARGET_PERCENT,
-			(string)max(1, min(100, $percent))
+			(string)$this->clampInt(self::KEY_WEEKLY_GOAL_TARGET_PERCENT, $percent, 1, 100)
 		);
 	}
 
@@ -346,7 +456,7 @@ class RewardConfigService {
 		$this->config->setValueString(
 			self::APP_NAME,
 			self::KEY_TEAMWORK_BONUS_MAX_PCT,
-			(string)max(0, min(100, $pct))
+			(string)$this->clampInt(self::KEY_TEAMWORK_BONUS_MAX_PCT, $pct, 0, 100)
 		);
 	}
 
@@ -354,7 +464,7 @@ class RewardConfigService {
 	 * Set tier multiplier
 	 *
 	 * @param string $tier The tier (bronze, silver, gold)
-	 * @param float $value The multiplier value
+	 * @param float $value The multiplier value (clamped to >= 0, CR-SVC-19)
 	 */
 	public function setTierMultiplier(string $tier, float $value): void {
 		$key = match ($tier) {
@@ -365,51 +475,59 @@ class RewardConfigService {
 		};
 
 		if ($key !== null) {
-			$this->config->setValueString(self::APP_NAME, $key, (string)$value);
+			$this->config->setValueString(self::APP_NAME, $key, (string)$this->clampFloat($key, $value, 0.0));
 		}
 	}
 
 	/**
 	 * Set early bonus threshold days
+	 *
+	 * @param int $days Clamped to >= 0 (CR-SVC-19)
 	 */
 	public function setEarlyBonusThresholdDays(int $days): void {
 		$this->config->setValueString(
 			self::APP_NAME,
 			self::KEY_EARLY_BONUS_THRESHOLD_DAYS,
-			(string)$days
+			(string)$this->clampInt(self::KEY_EARLY_BONUS_THRESHOLD_DAYS, $days, 0)
 		);
 	}
 
 	/**
 	 * Set early bonus multiplier
+	 *
+	 * @param float $multiplier Clamped to >= 1.0 (CR-SVC-19)
 	 */
 	public function setEarlyBonusMultiplier(float $multiplier): void {
 		$this->config->setValueString(
 			self::APP_NAME,
 			self::KEY_EARLY_BONUS_MULTIPLIER,
-			(string)$multiplier
+			(string)$this->clampFloat(self::KEY_EARLY_BONUS_MULTIPLIER, $multiplier, 1.0)
 		);
 	}
 
 	/**
 	 * Set max energy per task
+	 *
+	 * @param int $max Clamped to >= 0 (CR-SVC-19)
 	 */
 	public function setEnergyMaxPerTask(int $max): void {
 		$this->config->setValueString(
 			self::APP_NAME,
 			self::KEY_ENERGY_MAX_PER_TASK,
-			(string)$max
+			(string)$this->clampInt(self::KEY_ENERGY_MAX_PER_TASK, $max, 0)
 		);
 	}
 
 	/**
 	 * Set base coins per energy
+	 *
+	 * @param int $base Clamped to >= 0 (CR-SVC-19)
 	 */
 	public function setCoinBasePerEnergy(int $base): void {
 		$this->config->setValueString(
 			self::APP_NAME,
 			self::KEY_COIN_BASE_PER_ENERGY,
-			(string)$base
+			(string)$this->clampInt(self::KEY_COIN_BASE_PER_ENERGY, $base, 0)
 		);
 	}
 

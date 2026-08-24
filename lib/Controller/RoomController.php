@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomService;
+use OCA\ChoreStrike\Service\TemplateService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -20,20 +21,26 @@ use OCP\IRequest;
  * API controller for room-related endpoints
  */
 class RoomController extends Controller {
+	/** Maximum persisted roomType length (rooms.room_type column, CR-027-01). */
+	private const ROOM_TYPE_MAX_LENGTH = 50;
+
 	private RoomService $roomService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private TemplateService $templateService;
 
 	public function __construct(
 		IRequest $request,
 		RoomService $roomService,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		TemplateService $templateService,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomService = $roomService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->templateService = $templateService;
 	}
 
 	/**
@@ -208,6 +215,29 @@ class RoomController extends Controller {
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
 						'message' => 'Room name is required'
+					]
+				], 400);
+			}
+
+			// CR-027-01: never trust client roomType — reject oversized and
+			// non-catalog values instead of persisting them (a >50-char value
+			// would 500 on insert; an unknown type degrades the template picker).
+			if (strlen($resolvedRoomType) > self::ROOM_TYPE_MAX_LENGTH) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => 'Room type must be at most 50 characters'
+					]
+				], 400);
+			}
+
+			if (!$this->templateService->isValidRoomType($resolvedRoomType)) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => 'Invalid room type'
 					]
 				], 400);
 			}

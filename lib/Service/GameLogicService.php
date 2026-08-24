@@ -238,18 +238,27 @@ class GameLogicService {
 	/**
 	 * Calculate days early for task completion
 	 *
+	 * Calendar-day diff (CR-SVC-32): both sides are normalized to local
+	 * midnight before diffing, so DST transitions and near-midnight
+	 * completions cannot flip the count by ±1 day the way dividing a raw
+	 * second-difference by 86400 does. A task completed on the day it is
+	 * due counts as 0 days early regardless of the time of day.
+	 *
 	 * @param RoomTask $roomTask The room task
+	 * @param \DateTime|null $now Completion moment (defaults to the current time; injectable for tests)
 	 * @return int Days early (negative if late, 0 if no ideal due date)
 	 */
-	public function calculateDaysEarly(RoomTask $roomTask): int {
+	public function calculateDaysEarly(RoomTask $roomTask, ?\DateTime $now = null): int {
 		$idealDueDate = $roomTask->getIdealDueDate();
 		if ($idealDueDate === null) {
 			return 0;
 		}
 
-		$now = new \DateTime();
-		$diff = $idealDueDate->getTimestamp() - $now->getTimestamp();
-		return (int)round($diff / 86400); // Convert seconds to days
+		$dueDay = (clone $idealDueDate)->setTime(0, 0, 0);
+		$today = ($now !== null ? clone $now : new \DateTime())->setTime(0, 0, 0);
+
+		$diff = $today->diff($dueDay);
+		return $diff->invert === 1 ? -(int)$diff->days : (int)$diff->days;
 	}
 
 	/**

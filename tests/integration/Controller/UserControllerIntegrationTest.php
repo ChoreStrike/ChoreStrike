@@ -240,9 +240,13 @@ class UserControllerIntegrationTest extends TestCase {
 
 	/**
 	 * UpdateRole_ValidRole_ReturnsUpdatedUser
+	 *
+	 * BUG-SEC-002: the mutation is delegated to HouseService::updateUserRole;
+	 * the controller contains no setRole/update itself.
 	 */
 	public function testUpdateRole_ValidRole_ReturnsUpdatedUser(): void {
 		$houseUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'member');
+		$updatedUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'child');
 
 		$this->houseUserMapper->expects($this->once())
 			->method('find')
@@ -251,12 +255,15 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
 			->with($houseUser->getHouseId());
-		$this->houseUserMapper->expects($this->once())
-			->method('update')
-			->with($this->callback(static function (HouseUser $updatedUser): bool {
-				return $updatedUser->getRole() === 'child';
-			}))
-			->willReturnCallback(static fn (HouseUser $updatedUser): HouseUser => $updatedUser);
+		$this->authService->expects($this->once())
+			->method('requireCurrentUserId')
+			->willReturn('owner1');
+		$this->houseService->expects($this->once())
+			->method('updateUserRole')
+			->with(2, 'child', 'owner1')
+			->willReturn($updatedUser);
+		$this->houseUserMapper->expects($this->never())
+			->method('update');
 
 		$response = $this->controller->updateRole(2, 'child');
 
@@ -279,6 +286,13 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
 			->with($houseUser->getHouseId());
+		$this->authService->expects($this->once())
+			->method('requireCurrentUserId')
+			->willReturn('owner1');
+		$this->houseService->expects($this->once())
+			->method('updateUserRole')
+			->with(2, 'superadmin', 'owner1')
+			->willThrowException(new \InvalidArgumentException('Invalid role. Must be owner, member, or child'));
 		$this->houseUserMapper->expects($this->never())
 			->method('update');
 

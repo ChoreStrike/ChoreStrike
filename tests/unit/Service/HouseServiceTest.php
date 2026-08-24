@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RewardConfigService;
@@ -596,5 +597,171 @@ class HouseServiceTest extends TestCase {
 		$this->expectException(DoesNotExistException::class);
 
 		$this->service->removeHouseMember(999);
+	}
+
+	/**
+	 * Build a HouseUser for the role-guard tests (BUG-SEC-002).
+	 */
+	private function houseUserForRoleGuard(int $id, string $ncUserId, string $role): HouseUser {
+		$houseUser = new HouseUser();
+		$houseUser->setId($id);
+		$houseUser->setHouseId(3);
+		$houseUser->setNextcloudUserId($ncUserId);
+		$houseUser->setRole($role);
+		return $houseUser;
+	}
+
+	/**
+	 * UpdateUserRole_InvalidRole_ThrowsInvalidArgument
+	 *
+	 * The whitelist check moved from the controller (BUG-SEC-002); the API
+	 * maps this to its VALIDATION_ERROR 400.
+	 */
+	public function testUpdateUserRole_InvalidRole_ThrowsInvalidArgument(): void {
+		$this->houseUserMapper->expects($this->never())->method('find');
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Invalid role. Must be owner, member, or child');
+
+		$this->service->updateUserRole(11, 'superadmin', 'caller-nc');
+	}
+
+	/**
+	 * UpdateUserRole_SelfDemotion_ThrowsForbidden
+	 *
+	 * The API maps this to its CANNOT_DEMOTE_SELF 403; the service guard
+	 * keeps the invariant even for direct (non-controller) callers.
+	 */
+	public function testUpdateUserRole_SelfDemotion_ThrowsForbidden(): void {
+		$owner = $this->houseUserForRoleGuard(11, 'owner-nc', 'owner');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(11)
+			->willReturn($owner);
+
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Cannot demote yourself');
+
+		$this->service->updateUserRole(11, 'member', 'owner-nc');
+	}
+
+	/**
+	 * UpdateUserRole_LastOwnerDemotion_ThrowsConflict
+	 *
+	 * Demoting the only owner would orphan the house. The API maps this to
+	 * its CANNOT_DEMOTE_LAST_OWNER 409.
+	 */
+	public function testUpdateUserRole_LastOwnerDemotion_ThrowsConflict(): void {
+		$owner = $this->houseUserForRoleGuard(11, 'owner-nc', 'owner');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(11)
+			->willReturn($owner);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('countOwnersForHouse')
+			->with(3)
+			->willReturn(1);
+
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$this->expectException(ConflictException::class);
+		$this->expectExceptionMessage('Cannot demote the last house owner');
+
+		$this->service->updateUserRole(11, 'member', 'other-owner-nc');
+	}
+
+	/**
+	 * UpdateUserRole_CoOwnerDemotionWhileAnotherOwnerRemains_Allowed
+	 */
+	public function testUpdateUserRole_CoOwnerDemotionWhileAnotherOwnerRemains_Allowed(): void {
+		$coOwner = $this->houseUserForRoleGuard(11, 'coowner-nc', 'owner');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(11)
+			->willReturn($coOwner);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('countOwnersForHouse')
+			->with(3)
+			->willReturn(2);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('update')
+			->with($this->callback(static fn (HouseUser $u): bool => $u->getRole() === 'member'))
+			->willReturnCallback(static fn (HouseUser $u): HouseUser => $u);
+
+		$result = $this->service->updateUserRole(11, 'member', 'primary-owner-nc');
+
+		$this->assertSame('member', $result->getRole());
+	}
+
+	/**
+	 * UpdateUserRole_ValidPromotion_Allowed
+	 */
+	public function testUpdateUserRole_ValidPromotion_Allowed(): void {
+		$member = $this->houseUserForRoleGuard(12, 'member-nc', 'member');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(12)
+			->willReturn($member);
+
+		// Promotion to owner never touches the owner-count guard.
+		$this->houseUserMapper->expects($this->never())->method('countOwnersForHouse');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('update')
+			->with($this->callback(static fn (HouseUser $u): bool => $u->getRole() === 'owner'))
+			->willReturnCallback(static fn (HouseUser $u): HouseUser => $u);
+
+		$result = $this->service->updateUserRole(12, 'owner', 'owner-nc');
+
+		$this->assertSame('owner', $result->getRole());
+	}
+
+	/**
+	 * UpdateUserRole_SelfAssignedOwner_Allowed
+	 *
+	 * Assigning oneself 'owner' is a no-op promotion, not a demotion — the
+	 * self-guard must not fire.
+	 */
+	public function testUpdateUserRole_SelfAssignedOwner_Allowed(): void {
+		$member = $this->houseUserForRoleGuard(12, 'member-nc', 'member');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(12)
+			->willReturn($member);
+
+		$this->houseUserMapper->expects($this->once())
+			->method('update')
+			->willReturnCallback(static fn (HouseUser $u): HouseUser => $u);
+
+		$result = $this->service->updateUserRole(12, 'owner', 'member-nc');
+
+		$this->assertSame('owner', $result->getRole());
+	}
+
+	/**
+	 * UpdateUserRole_UnknownTarget_ThrowsDoesNotExist
+	 */
+	public function testUpdateUserRole_UnknownTarget_ThrowsDoesNotExist(): void {
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(999)
+			->willThrowException(new DoesNotExistException('not found'));
+
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$this->expectException(DoesNotExistException::class);
+
+		$this->service->updateUserRole(999, 'member', 'caller-nc');
 	}
 }

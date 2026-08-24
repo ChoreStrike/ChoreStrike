@@ -32,22 +32,7 @@ runs.
 ---
 
 ### [P3] BUG-SEC-002 — `PUT /users/{id}/role` lacks self-demotion / last-owner guard
-**Status**: Open · **Effort**: S · **Source**: CS-PLAN-038 Phase C risk register (2026-08-21)
-
-`UserController::updateRole` (via `HouseService::updateUserRole`) validates the
-role value and caller ownership but has **no guard** against (a) an owner
-demoting *themselves* or (b) demoting the **last remaining owner** of a house —
-either can orphan the house with no owner able to manage it. Contrast:
-`remove` already blocks owners (`CANNOT_REMOVE_OWNER`). The CS-038 members UI
-ships a frontend mitigation only (own role select disabled, `MemberList.vue`),
-which is trivially bypassed by a direct API call — the root cause must be fixed
-server-side.
-
-- [ ] Backend: reject self-demotion and last-owner demotion in
-      `updateUserRole` with a 400/409 error code; integration tests for both
-      cases (mirror `CANNOT_REMOVE_OWNER` pattern).
-- [ ] Frontend: surface the new error code in `MemberList.vue` role-change
-      error toast (keep the disabled own-select as UX sugar).
+**Status**: Resolved 2026-08-24 (CS-PLAN-045) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ---
 
@@ -194,8 +179,8 @@ detected as UTF-8 and write fine.
 > CR-016-11 is **resolved** (CS-018); CR-016-12 is **resolved** (CS-032);
 > CR-016-02 is **resolved** (CS-033); the open UI-side items
 > **CR-016-03/04/05/06/08/13/14** are **resolved 2026-08-24 by CS-PLAN-043**
-> (record: [`archive/2026-08.md`](archive/2026-08.md)). Remaining open:
-> CR-016-10, CR-016-15.
+> (record: [`archive/2026-08.md`](archive/2026-08.md)); **CR-016-15** is
+> **resolved 2026-08-24 by CS-PLAN-045**. Remaining open: CR-016-10.
 
 ### [P2] CR-016-10 — Regression test for `getConsumedEnergyForUserOnDate` SQL fix
 **Effort**: S — mock-based mapper test cannot catch SQL errors; needs a real-DB
@@ -206,11 +191,7 @@ integration harness first (`AvailabilityApiTest` `Class OC not found`).
 **Status**: Resolved 2026-08-21 (CS-PLAN-038, component archived) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-016-15 — Shared backend energy-bounds validation (drift risk)
-**Effort**: S — the 1–20 check + curated message now exists at three sites:
-`SchedulingController::validatePreferencesSection`, `SchedulingService::updatePreferencesByNextcloudUserId`,
-and the pre-existing `SchedulingService::applyMemberUpdates`. A bounds/message
-change must be made in all three or the self path and the owner path reject/persist
-different values for the same column. Source: Review of CS-PLAN-033 (2026-08-19).
+**Status**: Resolved 2026-08-24 (CS-PLAN-045) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ---
 
@@ -296,22 +277,22 @@ Every config key is touched in 4-5 places (const + get + set + `updateConfig` br
 - [ ] Drive get/set/update/all from a single `key => [type, default, clamp]` registry.
 
 ### [P3] CR-SVC-19 — `RewardConfigService` inconsistent clamping
-**Effort**: S — several setters/getters return raw values (tier multiplier, coin base,
-freeze cap/count, early-bonus) that can invert rewards (negative multiplier). Admin-gated.
-Clamp to `>= 0`/`>= 1` consistently.
+**Status**: Resolved 2026-08-24 (CS-PLAN-045) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-SVC-32 — `calculateDaysEarly` DST/timezone edge cases
-**Effort**: S — divides a second-difference by 86400; across DST / near midnight this can
-round to the wrong day and flip the early bonus. Use calendar-day `diff`.
+**Status**: Resolved 2026-08-24 (CS-PLAN-045) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-SVC-33 — `TaskService::completeTask` reward-less Task-level path
-**Effort**: S — sets `status='completed'` with no coins/streak/cleanliness, parallel to
-the real `RoomTaskService::completeTask`. Remove or document as admin/template-only.
+**Status**: Resolved 2026-08-24 (CS-PLAN-045, D1=delete) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-SVC-37 — Service-layer i18n: hardcoded user-facing strings
 **Effort**: S — `TaskService::validateTaskData` validation messages and
 `MinigameService::purchaseBoost` exception messages are English literals returned to
 clients. Inject `IL10N`, wrap with `t()`, update `l10n/` artifacts.
+Same pattern exists controller-side: `RoomController::createRoomResponse`
+VALIDATION_ERROR messages (`Floor ID is required`, `Room name is required`,
+room-type messages from CS-PLAN-045) are unwrapped, following the method's
+pre-existing style (Source: Review of CS-PLAN-045, 2026-08-24).
 
 ### [P3] CR-SVC-40 — `RoomService` reaches below its layer (`IDBConnection`)
 **Effort**: M — injects `IDBConnection` for `beginTransaction`/`lockForUpdate` (persistence
@@ -333,17 +314,12 @@ duplicated stat helpers; duplicated `validate*Ownership` across Floor/Room/RoomT
 ## Review Follow-ups — CS-027 (House Setup Wizard & Cleaning Templates)
 
 > From the Standard-B review of the CS-PLAN-027 implementation (2026-08-13).
-> Six smaller findings were auto-fixed inline (plan §13); these two remain
-> (CR-027-03/04 were closed by CS-PLAN-030).
+> Six smaller findings were auto-fixed inline (plan §13); CR-027-03/04 were
+> closed by CS-PLAN-030, **CR-027-01** was closed 2026-08-24 by CS-PLAN-045.
+> Remaining open: CR-027-02.
 
 ### [P3] CR-027-01 — Free room create/update persists unvalidated `roomType`
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-027 (2026-08-13)
-`RoomController` create/update accepts any client `roomType` string and persists
-it (DB column length 50 → overlong input surfaces as a 500). Only the wizard
-validates against the catalog registry. An unknown type degrades the template
-picker to house-wide templates for that room.
-- [ ] Validate `roomType` against `TemplateService::isValidRoomType()` at the
-      controller boundary (400 or 'generic' fallback — decide); reject >50 chars.
+**Status**: Resolved 2026-08-24 (CS-PLAN-045, D2=reject 400) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-027-02 — `TemplateService::searchTemplates` dead + unlocalized since D7
 **Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-027 (2026-08-13)
@@ -362,7 +338,8 @@ text, not the localized view, so German queries (e.g. „Staubsaugen") miss.
 > [`archive/USABILITY_REVIEW_2026-08-20.md`](archive/USABILITY_REVIEW_2026-08-20.md).
 > **UX-001/002/003 resolved 2026-08-21 by CS-PLAN-038**; `CR-016-09` closed by
 > archiving DailyTaskList. Related existing items: `CR-016-05`/`CR-016-03`
-> (scheduling merge/split), `CR-SVC-33` (reward-less Task-level path).
+> (scheduling merge/split), `CR-SVC-33` (reward-less Task-level path,
+> resolved 2026-08-24 by CS-PLAN-045).
 > Implementation status: **CS-PLAN-041 landed 2026-08-22** (UX-005/006/013),
 > **CS-PLAN-042 landed 2026-08-22** (UX-004/008/009/011 + CR-SVC-61 endpoint);
 > **CS-PLAN-044 landed 2026-08-23** (UX-007/010/012 + TECH-LINT-004 +

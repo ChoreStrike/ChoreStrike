@@ -12,11 +12,13 @@ use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
@@ -26,6 +28,9 @@ use OCP\IDBConnection;
  * Service for house-related business logic
  */
 class HouseService {
+	/** Roles a house user can hold (BUG-SEC-002 role-guard whitelist). */
+	public const VALID_ROLES = ['owner', 'member', 'child'];
+
 	private HouseMapper $houseMapper;
 	private FloorMapper $floorMapper;
 	private RoomMapper $roomMapper;
@@ -104,6 +109,48 @@ class HouseService {
 			$this->db->rollBack();
 			throw $e;
 		}
+	}
+
+	/**
+	 * Update a member's role with the two owner invariants (BUG-SEC-002).
+	 *
+	 * Role mutation is a house concern, so it lives here next to the sibling
+	 * removeHouseMember invariant instead of in the controller. Guards:
+	 *  - a user may not demote themselves (throws ForbiddenException so the
+	 *    API can map its CANNOT_DEMOTE_SELF 403); assigning oneself 'owner'
+	 *    is a no-op promotion and stays allowed;
+	 *  - the last remaining owner may not be demoted (throws
+	 *    ConflictException so the API can map CANNOT_DEMOTE_LAST_OWNER 409).
+	 *
+	 * The caller (controller) is responsible for the requireHouseOwner gate.
+	 *
+	 * @param int $houseUserId The house user ID of the member to change
+	 * @param string $role The new role (owner, member, child)
+	 * @param string $callerUserId Nextcloud user ID of the acting user
+	 * @throws \InvalidArgumentException if the role is not in the whitelist
+	 * @throws ForbiddenException if the caller demotes themselves
+	 * @throws ConflictException if the target is the last remaining owner
+	 * @throws DoesNotExistException if the house user does not exist
+	 */
+	public function updateUserRole(int $houseUserId, string $role, string $callerUserId): HouseUser {
+		if (!in_array($role, self::VALID_ROLES, true)) {
+			throw new \InvalidArgumentException('Invalid role. Must be owner, member, or child');
+		}
+
+		$houseUser = $this->houseUserMapper->find($houseUserId);
+
+		if ($role !== 'owner') {
+			if ($houseUser->getNextcloudUserId() === $callerUserId) {
+				throw new ForbiddenException('Cannot demote yourself');
+			}
+			if ($houseUser->isOwner()
+				&& $this->houseUserMapper->countOwnersForHouse($houseUser->getHouseId()) <= 1) {
+				throw new ConflictException('Cannot demote the last house owner');
+			}
+		}
+
+		$houseUser->setRole($role);
+		return $this->houseUserMapper->update($houseUser);
 	}
 
 	/**

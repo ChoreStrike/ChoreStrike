@@ -370,6 +370,26 @@ Settings — do not re-introduce a second editing surface.
 }
 ```
 
+### Error Code Conventions
+
+- Standard shapes go through `ControllerErrorFormatter`: `validation()`
+  (400 `VALIDATION_ERROR`, curated message surfaced verbatim),
+  `forbiddenResponse()` (403, code always `FORBIDDEN`), `safeMessage()`
+  (hides non-domain exception detail).
+- Endpoint-specific semantics get a **custom code** built inline at the
+  catch site (precedent: `CANNOT_REMOVE_OWNER` 403 on `DELETE /users/{id}`).
+  `forbiddenResponse()` cannot carry custom codes and there is no 409
+  formatter, so custom envelopes are always built inline with a
+  server-side `t()`-wrapped message.
+- Domain exceptions map to stable codes: services throw
+  `ForbiddenException` (403, e.g. self-demotion → `CANNOT_DEMOTE_SELF`),
+  `ConflictException` (409, e.g. last-owner demotion →
+  `CANNOT_DEMOTE_LAST_OWNER`), `\InvalidArgumentException` (400
+  `VALIDATION_ERROR`), `DoesNotExistException` (404 `USER_NOT_FOUND`).
+- The shared API client (`src/services/api.js`) surfaces
+  `error.message` from the envelope as the `ApiError` message, so custom
+  codes' messages reach the UI toasts end-to-end without extra handling.
+
 ## State Management (Pinia)
 
 All Pinia stores consume the shared API client (`src/services/api.js`) for HTTP
@@ -531,6 +551,14 @@ daily-notification --as-of YYYY-MM-DD` (test mode only); `--as-of` sets
 - Users can only access their house
 - Room/task ownership validation
 - Admin vs. member permissions
+- **Owner invariants** (enforced in `HouseService`, not the UI): a house
+  always keeps at least one owner and no owner can lose the role by their
+  own action. `updateUserRole` rejects self-demotion (403
+  `CANNOT_DEMOTE_SELF`) and last-owner demotion (409
+  `CANNOT_DEMOTE_LAST_OWNER`, backed by `countOwnersForHouse`);
+  `removeHouseMember` rejects owner targets (403 `CANNOT_REMOVE_OWNER`).
+  Known gap: ownership handover requires promoting a co-owner first, and
+  the former owner still cannot demote themselves afterwards (BUG-SEC-002).
 
 ### Input Validation
 - All inputs sanitized

@@ -158,6 +158,7 @@
         "Nextcloud user not found": "Nextcloud-Benutzer wurde nicht gefunden",
         "User invited to house": "Benutzer wurde zum Haus eingeladen",
         "Cannot remove house owner": "Hausbesitzer kann nicht entfernt werden",
+        "Cannot demote the last house owner": "Der letzte Hausbesitzer kann nicht degradiert werden",
         "User removed from house": "Benutzer wurde aus dem Haus entfernt",
         "Failed to retrieve user stats": "Benutzerstatistiken konnten nicht abgerufen werden",
         "No house found for current user": "Kein Haus für den aktuellen Benutzer gefunden",

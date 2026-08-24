@@ -325,4 +325,46 @@ class SchedulingServiceTest extends TestCase {
 			['energyBudget' => ['monday' => '15']]
 		);
 	}
+
+	/**
+	 * AssertValidEnergyBudget_BoundaryValues_Accepted
+	 *
+	 * CR-016-15 consistency pin: the shared helper accepts exactly the
+	 * inclusive 1-20 range every call site delegates to.
+	 */
+	public function testAssertValidEnergyBudget_BoundaryValues_Accepted(): void {
+		$this->service->assertValidEnergyBudget(1);
+		$this->service->assertValidEnergyBudget(20);
+		$this->service->assertValidEnergyBudget(10);
+
+		// No exception means the boundaries hold.
+		$this->assertTrue(true);
+	}
+
+	/**
+	 * AssertValidEnergyBudget_OutOfRangeValues_RejectedWithStableMessage
+	 *
+	 * @dataProvider outOfRangeEnergyProvider
+	 */
+	public function testAssertValidEnergyBudget_OutOfRangeValues_RejectedWithStableMessage($value): void {
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Energy budget must be between 1 and 20');
+
+		$this->service->assertValidEnergyBudget($value);
+	}
+
+	/**
+	 * @return array<string, array{mixed}>
+	 */
+	public static function outOfRangeEnergyProvider(): array {
+		return [
+			'zero' => [0],
+			'negative' => [-3],
+			'above max' => [21],
+			'numeric string' => ['15'],
+			'float' => [10.5],
+			'boolean' => [true],
+			'null' => [null],
+		];
+	}
 }

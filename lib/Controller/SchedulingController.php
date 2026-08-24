@@ -293,8 +293,9 @@ class SchedulingController extends Controller {
 				if (!is_bool($value)) {
 					throw new \InvalidArgumentException('Availability values must be booleans');
 				}
-			} elseif (!is_int($value) || $value < 1 || $value > 20) {
-				throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
+			} else {
+				// CR-016-15: bounds live in SchedulingService (single source).
+				$this->schedulingService->assertValidEnergyBudget($value);
 			}
 		}
 	}

@@ -371,31 +371,9 @@ class TaskService {
 		return $this->taskMapper->findPrivateByOwner($ownerUserId);
 	}
 
-	/**
-	 * Complete a task
-	 *
-	 * @param int $taskId The task ID
-	 * @return Task The updated task
-	 */
-	public function completeTask(int $taskId): Task {
-		$task = $this->taskMapper->find($taskId);
-		$task->setStatus('completed');
-		$task->setCompletedAt(new \DateTime());
-		return $this->taskMapper->update($task);
-	}
-
-	/**
-	 * Uncomplete a task
-	 *
-	 * @param int $taskId The task ID
-	 * @return Task The updated task
-	 */
-	public function uncompleteTask(int $taskId): Task {
-		$task = $this->taskMapper->find($taskId);
-		$task->setStatus('pending');
-		$task->setCompletedAt(null);
-		return $this->taskMapper->update($task);
-	}
+	// CR-SVC-33: the reward-less Task-level completeTask/uncompleteTask pair
+	// was deleted — completions must go through the canonical
+	// RoomTaskService::completeTask (coins/streak/cleanliness side effects).
 
 	/**
 	 * Skip a task

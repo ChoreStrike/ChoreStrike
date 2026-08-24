@@ -451,4 +451,205 @@ class UserControllerTest extends TestCase {
 		$this->assertFalse($data['success']);
 		$this->assertEquals('USER_NOT_FOUND', $data['error']['code']);
 	}
+
+	/**
+	 * Build a HouseUser for the updateRole mapping tests (BUG-SEC-002).
+	 */
+	private function houseUserForUpdateRole(int $id, string $ncUserId, string $role): HouseUser {
+		$houseUser = new HouseUser();
+		$houseUser->setId($id);
+		$houseUser->setHouseId(3);
+		$houseUser->setNextcloudUserId($ncUserId);
+		$houseUser->setDisplayName('Target User');
+		$houseUser->setRole($role);
+		$houseUser->setJoinedAt(new \DateTime('2026-03-01T08:00:00Z'));
+		return $houseUser;
+	}
+
+	/**
+	 * Test PUT /users/{id}/role delegates the mutation to HouseService
+	 * (BUG-SEC-002) — the controller contains no setRole/update itself.
+	 */
+	public function testUpdateRole_DelegatesToHouseServiceAndReturnsSuccess(): void {
+		$member = $this->houseUserForUpdateRole(7, 'member1', 'member');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($member);
+
+		$this->authService->expects($this->once())
+			->method('requireHouseOwner')
+			->with(3);
+
+		$this->authService->expects($this->once())
+			->method('requireCurrentUserId')
+			->willReturn('owner1');
+
+		$updated = $this->houseUserForUpdateRole(7, 'member1', 'child');
+		$this->houseService->expects($this->once())
+			->method('updateUserRole')
+			->with(7, 'child', 'owner1')
+			->willReturn($updated);
+
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$response = $this->controller->updateRole(7, 'child');
+
+		$this->assertEquals(200, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertEquals('child', $data['data']['role']);
+	}
+
+	/**
+	 * Test PUT /users/{id}/role maps the service's whitelist rejection to
+	 * VALIDATION_ERROR 400.
+	 */
+	public function testUpdateRole_InvalidRole_ReturnsValidationError400(): void {
+		$member = $this->houseUserForUpdateRole(7, 'member1', 'member');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($member);
+
+		$this->authService->expects($this->once())
+			->method('requireHouseOwner')
+			->with(3);
+
+		$this->authService->expects($this->once())
+			->method('requireCurrentUserId')
+			->willReturn('owner1');
+
+		$this->houseService->expects($this->once())
+			->method('updateUserRole')
+			->with(7, 'superadmin', 'owner1')
+			->willThrowException(new \InvalidArgumentException('Invalid role. Must be owner, member, or child'));
+
+		$response = $this->controller->updateRole(7, 'superadmin');
+
+		$this->assertEquals(400, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+	}
+
+	/**
+	 * Test PUT /users/{id}/role maps the service's self-demotion guard to
+	 * the endpoint-specific CANNOT_DEMOTE_SELF 403.
+	 */
+	public function testUpdateRole_SelfDemotion_ReturnsCannotDemoteSelf403(): void {
+		$owner = $this->houseUserForUpdateRole(7, 'owner1', 'owner');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($owner);
+
+		$this->authService->expects($this->once())
+			->method('requireHouseOwner')
+			->with(3);
+
+		$this->authService->expects($this->once())
+			->method('requireCurrentUserId')
+			->willReturn('owner1');
+
+		$this->houseService->expects($this->once())
+			->method('updateUserRole')
+			->with(7, 'member', 'owner1')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Cannot demote yourself'));
+
+		$response = $this->controller->updateRole(7, 'member');
+
+		$this->assertEquals(403, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('CANNOT_DEMOTE_SELF', $data['error']['code']);
+	}
+
+	/**
+	 * Test PUT /users/{id}/role maps the service's last-owner guard to the
+	 * endpoint-specific CANNOT_DEMOTE_LAST_OWNER 409.
+	 */
+	public function testUpdateRole_LastOwnerDemotion_ReturnsCannotDemoteLastOwner409(): void {
+		$owner = $this->houseUserForUpdateRole(7, 'owner1', 'owner');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($owner);
+
+		$this->authService->expects($this->once())
+			->method('requireHouseOwner')
+			->with(3);
+
+		$this->authService->expects($this->once())
+			->method('requireCurrentUserId')
+			->willReturn('owner1');
+
+		$this->houseService->expects($this->once())
+			->method('updateUserRole')
+			->with(7, 'member', 'owner1')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ConflictException('Cannot demote the last house owner'));
+
+		$response = $this->controller->updateRole(7, 'member');
+
+		$this->assertEquals(409, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('CANNOT_DEMOTE_LAST_OWNER', $data['error']['code']);
+	}
+
+	/**
+	 * Test PUT /users/{id}/role denies non-owner callers with the standard
+	 * 403 FORBIDDEN shape.
+	 */
+	public function testUpdateRole_NonOwnerCaller_ReturnsForbidden403(): void {
+		$member = $this->houseUserForUpdateRole(7, 'member1', 'member');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($member);
+
+		$this->authService->expects($this->once())
+			->method('requireHouseOwner')
+			->with(3)
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owners only'));
+
+		$this->houseService->expects($this->never())->method('updateUserRole');
+
+		$response = $this->controller->updateRole(7, 'child');
+
+		$this->assertEquals(403, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('FORBIDDEN', $data['error']['code']);
+	}
+
+	/**
+	 * Test PUT /users/{id}/role returns 404 for an unknown target.
+	 */
+	public function testUpdateRole_UnknownUser_Returns404(): void {
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(999)
+			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('not found'));
+
+		$this->houseService->expects($this->never())->method('updateUserRole');
+
+		$response = $this->controller->updateRole(999, 'child');
+
+		$this->assertEquals(404, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('USER_NOT_FOUND', $data['error']['code']);
+	}
 }

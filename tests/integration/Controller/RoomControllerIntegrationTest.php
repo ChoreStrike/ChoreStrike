@@ -8,6 +8,7 @@ use OCA\ChoreStrike\Controller\RoomController;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomService;
+use OCA\ChoreStrike\Service\TemplateService;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -19,6 +20,7 @@ class RoomControllerIntegrationTest extends TestCase {
 	private RoomService $roomService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private TemplateService $templateService;
 	private IRequest $request;
 
 	protected function setUp(): void {
@@ -28,12 +30,15 @@ class RoomControllerIntegrationTest extends TestCase {
 		$this->roomService = $this->createMock(RoomService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		$this->templateService = $this->createMock(TemplateService::class);
+		$this->templateService->method('isValidRoomType')->willReturn(true);
 
 		$this->controller = new RoomController(
 			$this->request,
 			$this->roomService,
 			$this->houseService,
-			$this->authService
+			$this->authService,
+			$this->templateService
 		);
 	}
 

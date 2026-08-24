@@ -176,6 +176,9 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
+msgid "Cannot demote the last house owner"
+msgstr ""
+
 msgid "Cannot remove house owner"
 msgstr ""
 
@@ -1593,6 +1596,9 @@ msgid "Work top to bottom, dust the shelves and decor, and wipe the nightstand a
 msgstr ""
 
 msgid "Work top to bottom, dust the shelves and furniture, and wipe the window sill."
+msgstr ""
+
+msgid "You cannot change your own role"
 msgstr ""
 
 msgid "You did not complete any tasks yesterday and have no streak freeze left. Complete a task today to keep your streak alive."

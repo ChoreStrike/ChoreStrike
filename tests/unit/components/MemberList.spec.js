@@ -138,6 +138,23 @@ describe('MemberList', () => {
 		expect(showSuccess).toHaveBeenCalled()
 	})
 
+	it('shows the server message and resets the select when a role change is rejected', async () => {
+		// BUG-SEC-002: the backend rejects e.g. last-owner demotions with a
+		// 409 CANNOT_DEMOTE_LAST_OWNER envelope; the shared API client
+		// surfaces the envelope message as the error message.
+		mockUserStore.updateUserRole.mockRejectedValue(new Error('Cannot demote the last house owner'))
+		const wrapper = await mountList()
+		const select = wrapper.find('[data-testid="member-role-select-friend"]')
+		await select.setValue('owner')
+		await flushAsync()
+
+		expect(mockUserStore.updateUserRole).toHaveBeenCalledWith(3, 'owner')
+		expect(showError).toHaveBeenCalledWith('Cannot demote the last house owner')
+		expect(showSuccess).not.toHaveBeenCalled()
+		// The select snaps back to the member's actual (persisted) role.
+		expect(wrapper.find('[data-testid="member-role-select-friend"]').element.value).toBe('member')
+	})
+
 	it('requires confirm-dialog consent before removing a member', async () => {
 		const wrapper = await mountList()
 

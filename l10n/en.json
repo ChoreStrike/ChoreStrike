@@ -158,6 +158,7 @@
         "Nextcloud user not found": "Nextcloud user not found",
         "User invited to house": "User invited to house",
         "Cannot remove house owner": "Cannot remove house owner",
+        "Cannot demote the last house owner": "Cannot demote the last house owner",
         "User removed from house": "User removed from house",
         "Failed to retrieve user stats": "Failed to retrieve user stats",
         "No house found for current user": "No house found for current user",

@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomService;
+use OCA\ChoreStrike\Service\TemplateService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
@@ -27,6 +28,7 @@ class RoomControllerTest extends TestCase {
 	private $roomService;
 	private $houseService;
 	private $authService;
+	private $templateService;
 	private $request;
 
 	protected function setUp(): void {
@@ -36,12 +38,18 @@ class RoomControllerTest extends TestCase {
 		$this->roomService = $this->createMock(RoomService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		$this->templateService = $this->createMock(TemplateService::class);
+		// CR-027-01: default stub accepts catalog types; individual tests
+		// override for rejection cases.
+		$this->templateService->method('isValidRoomType')
+			->willReturnCallback(static fn (string $roomType): bool => in_array($roomType, ['generic', 'kitchen', 'bathroom'], true));
 
 		$this->controller = new RoomController(
 			$this->request,
 			$this->roomService,
 			$this->houseService,
-			$this->authService
+			$this->authService,
+			$this->templateService
 		);
 	}
 
@@ -243,6 +251,113 @@ class RoomControllerTest extends TestCase {
 
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
+	}
+
+	/**
+	 * Test POST /rooms rejects a roomType that is not in the catalog
+	 * (CR-027-01, decision D2: 400, never a silent fallback).
+	 */
+	public function testCreate_UnknownRoomType_ReturnsValidationError(): void {
+		$response = $this->controller->create(1, 'Kitchen', null, 'spaceship');
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(400, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+		$this->assertEquals('Invalid room type', $data['error']['message']);
+	}
+
+	/**
+	 * Test POST /rooms rejects an oversized roomType before persistence
+	 * (CR-027-01: >50 chars would 500 on insert).
+	 */
+	public function testCreate_OversizedRoomType_ReturnsValidationError(): void {
+		$oversizedRoomType = str_repeat('x', 51);
+
+		$response = $this->controller->create(1, 'Kitchen', null, $oversizedRoomType);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(400, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+		$this->assertEquals('Room type must be at most 50 characters', $data['error']['message']);
+	}
+
+	/**
+	 * Test POST /rooms without a roomType defaults to 'generic' and passes
+	 * the catalog check (CR-027-01).
+	 */
+	public function testCreate_OmittedRoomType_DefaultsToGeneric(): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+
+		$room = new Room();
+		$room->setId(6);
+		$room->setFloorId(1);
+		$room->setName('Storage');
+
+		$this->roomService->expects($this->once())
+			->method('getFloor')
+			->with(1)
+			->willReturn($floor);
+
+		$this->authService->expects($this->once())
+			->method('ensureHouseMember')
+			->with(1);
+
+		$this->roomService->expects($this->once())
+			->method('createRoom')
+			->with(1, 'Storage', null, 'generic')
+			->willReturn($room);
+
+		$response = $this->controller->create(1, 'Storage');
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(200, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+	}
+
+	/**
+	 * Test POST /rooms accepts a catalog roomType (CR-027-01).
+	 */
+	public function testCreate_CatalogRoomType_Succeeds(): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+
+		$room = new Room();
+		$room->setId(7);
+		$room->setFloorId(1);
+		$room->setName('Kitchen');
+
+		$this->roomService->expects($this->once())
+			->method('getFloor')
+			->with(1)
+			->willReturn($floor);
+
+		$this->authService->expects($this->once())
+			->method('ensureHouseMember')
+			->with(1);
+
+		$this->roomService->expects($this->once())
+			->method('createRoom')
+			->with(1, 'Kitchen', null, 'kitchen')
+			->willReturn($room);
+
+		$response = $this->controller->create(1, 'Kitchen', null, 'kitchen');
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(200, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
 	}
 
 	/**

@@ -16,12 +16,34 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
  * Service for managing member scheduling preferences (availability and energy budget)
  */
 class SchedulingService {
+	/** Inclusive lower bound for a daily energy budget (CR-016-15). */
+	public const ENERGY_BUDGET_MIN = 1;
+	/** Inclusive upper bound for a daily energy budget (CR-016-15). */
+	public const ENERGY_BUDGET_MAX = 20;
+
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 
 	public function __construct(HouseUserMapper $houseUserMapper, CompletedTaskMapper $completedTaskMapper) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
+	}
+
+	/**
+	 * Assert a single energy-budget value is an integer within 1-20.
+	 *
+	 * Single source for the energy bounds (CR-016-15): the self-service
+	 * bulk save, the owner member update, and the controller section
+	 * validation all delegate here so a bounds change can never drift
+	 * between the self path and the owner path.
+	 *
+	 * @param mixed $energy The candidate value
+	 * @throws \InvalidArgumentException When the value is not an integer in 1-20
+	 */
+	public function assertValidEnergyBudget($energy): void {
+		if (!is_int($energy) || $energy < self::ENERGY_BUDGET_MIN || $energy > self::ENERGY_BUDGET_MAX) {
+			throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
+		}
 	}
 
 	/**
@@ -74,9 +96,7 @@ class SchedulingService {
 
 		if ($energyBudget !== null) {
 			foreach ($energyBudget as $energy) {
-				if (!is_int($energy) || $energy < 1 || $energy > 20) {
-					throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
-				}
+				$this->assertValidEnergyBudget($energy);
 			}
 			$preferences['energyBudget'] = $energyBudget;
 		}
@@ -170,9 +190,7 @@ class SchedulingService {
 
 		if (isset($updates['energyBudget'])) {
 			foreach ($updates['energyBudget'] as $day => $energy) {
-				if (!is_int($energy) || $energy < 1 || $energy > 20) {
-					throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
-				}
+				$this->assertValidEnergyBudget($energy);
 				$preferences['energyBudget'][$day] = $energy;
 			}
 		}
