@@ -58,18 +58,23 @@ test.describe('Flex Window Scheduling', () => {
 		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
 	})
 
-	test('schedule preview section is accessible', async ({ page }) => {
+	test('schedule planner section is accessible', async ({ page }) => {
 		await page.getByTestId('nav-scheduling').click()
 		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
 
-		await expect(page.getByTestId('schedule-preview')).toBeVisible()
+		await expect(page.getByTestId('schedule-planner')).toBeVisible()
 		await expect(page.getByTestId('generate-schedule-button')).toBeVisible()
 	})
 
-	test('scheduling suggestions section is accessible', async ({ page }) => {
+	test('scheduling suggestions are accessible after loading the planner', async ({ page }) => {
 		await page.getByTestId('nav-scheduling').click()
 		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
 
+		const responsePromise = page.waitForResponse((response) =>
+			response.request().method() === 'POST'
+			&& response.url().includes('/scheduling/suggestions'))
+		await page.getByTestId('generate-schedule-button').click()
+		await responsePromise
 		await expect(page.getByTestId('scheduling-suggestions')).toBeVisible()
 	})
 

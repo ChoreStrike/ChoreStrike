@@ -613,9 +613,12 @@ Get all member availability (house owner only).
 
 #### PUT /scheduling/members/{userId}
 Update another member's weekday availability/energy (house owner only).
-
 #### POST /scheduling/suggestions
-Get scheduling suggestions for a set of tasks.
+
+Get scheduling suggestions for the current week. The request carries only
+`{ "taskCount": <int> }` — the backend derives its recommendations from the
+member availability data plus that count (CS-PLAN-043 slimmed the contract;
+the former full task array was never used beyond `count($tasks)`).
 
 ### Users
 

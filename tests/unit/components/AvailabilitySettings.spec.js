@@ -52,7 +52,7 @@ describe('AvailabilitySettings', () => {
 	it('shows empty state when no members', () => {
 		store.memberAvailability = []
 		const wrapper = mountComponent()
-		expect(wrapper.find('.empty-state').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
 	})
 
 	it('renders member cards when members exist', () => {
@@ -169,5 +169,34 @@ describe('AvailabilitySettings', () => {
 				friday: 10, saturday: 15, sunday: 15,
 			},
 		})
+	})
+
+	it('does not fire a PUT when the edit modal is saved without changes (CR-016-14)', async () => {
+		const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0))
+		store.memberAvailability = [
+			{
+				userId: 'alice',
+				userName: 'Alice',
+				weekdayAvailability: {
+					monday: true, tuesday: true, wednesday: true, thursday: true,
+					friday: true, saturday: true, sunday: true,
+				},
+				energyBudget: { monday: 11 },
+			},
+		]
+		api.put.mockResolvedValue({})
+		api.get.mockResolvedValue([])
+
+		const wrapper = mount(AvailabilitySettings)
+		await wrapper.vm.$nextTick()
+		await wrapper.find('[data-testid="edit-availability-button"]').trigger('click')
+
+		const saveButton = wrapper.find('[data-testid="save-availability-button"]')
+		expect(saveButton.attributes('disabled')).toBeDefined()
+
+		await saveButton.trigger('click')
+		await flushPromises()
+
+		expect(api.put).not.toHaveBeenCalled()
 	})
 })

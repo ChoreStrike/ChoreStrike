@@ -215,21 +215,30 @@ class SchedulingController extends Controller {
 	/**
 	 * Get scheduling suggestions
 	 *
+	 * Accepts only the number of schedulable tasks — the backend never used
+	 * more than `count($tasks)` (CR-016-13c).
+	 *
 	 * @NoAdminRequired
 	 * @return JSONResponse
 	 */
-	public function getSuggestions(array $tasks): JSONResponse {
+	public function getSuggestions(int $taskCount): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->ensureHouseMember($house->getId());
 
-			$suggestions = $this->schedulingService->getSchedulingSuggestions($tasks, $house->getId());
+			if ($taskCount < 0) {
+				throw new \InvalidArgumentException('taskCount must not be negative');
+			}
+
+			$suggestions = $this->schedulingService->getSchedulingSuggestions($taskCount, $house->getId());
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => $suggestions
 			]);
+		} catch (\InvalidArgumentException $e) {
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {

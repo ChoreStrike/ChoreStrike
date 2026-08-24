@@ -2,10 +2,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ScheduleCalendar from '../../../src/components/Scheduling/ScheduleCalendar.vue'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
-
-jest.mock('@nextcloud/l10n', () => ({
-	translate: jest.fn((app, text) => text),
-}))
+import { getDayNames, getLocale } from '@nextcloud/l10n'
 
 jest.mock('@nextcloud/dialogs', () => ({
 	showSuccess: jest.fn(),
@@ -27,6 +24,7 @@ describe('ScheduleCalendar', () => {
 		setActivePinia(createPinia())
 		store = useSchedulingStore()
 		jest.clearAllMocks()
+		getLocale.mockReturnValue('en')
 	})
 
 	const mountComponent = () => {
@@ -49,6 +47,32 @@ describe('ScheduleCalendar', () => {
 		const wrapper = mountComponent()
 		await wrapper.vm.$nextTick()
 		expect(wrapper.findAll('.day-header').length).toBe(7)
+	})
+
+	it('uses the Nextcloud day names for the week header (CR-016-06)', async () => {
+		const wrapper = mountComponent()
+		await wrapper.vm.$nextTick()
+
+		const names = getDayNames().map((name) => name.toLowerCase())
+		for (const header of wrapper.findAll('.day-header .day-name')) {
+			expect(names).toContain(header.text().toLowerCase())
+		}
+	})
+
+	it('formats the week range locale-aware with Intl (en shape)', () => {
+		getLocale.mockReturnValue('en')
+		const wrapper = mountComponent()
+		const range = wrapper.find('[data-testid="week-range"]').text()
+		// en: "Aug 24 - Aug 30" — month before day.
+		expect(range).toMatch(/^[A-Z][a-z]{2} \d{1,2} - [A-Z][a-z]{2} \d{1,2}$/)
+	})
+
+	it('formats the week range locale-aware with Intl (de shape)', () => {
+		getLocale.mockReturnValue('de')
+		const wrapper = mountComponent()
+		const range = wrapper.find('[data-testid="week-range"]').text()
+		// de: "24. Aug. - 30. Aug." — day before month, dotted.
+		expect(range).toMatch(/^\d{1,2}\. [A-Z][a-z]{2}\.? - \d{1,2}\. [A-Z][a-z]{2}\.?$/)
 	})
 
 	it('shows empty state when no members', () => {

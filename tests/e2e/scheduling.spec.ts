@@ -19,9 +19,8 @@ test.describe('Scheduling UI', () => {
 		await expect(page.getByTestId('scheduling-view')).toBeVisible()
 		await expect(page.getByTestId('availability-settings')).toBeVisible()
 		await expect(page.getByTestId('energy-budget-settings')).toBeVisible()
-		await expect(page.getByTestId('schedule-preview')).toBeVisible()
+		await expect(page.getByTestId('schedule-planner')).toBeVisible()
 		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
-		await expect(page.getByTestId('scheduling-suggestions')).toBeVisible()
 	})
 
 	test('displays the scheduling header', async ({ page }) => {
@@ -64,12 +63,17 @@ test.describe('Scheduling UI', () => {
 		await expect(page.getByTestId('today-button')).toBeVisible()
 	})
 
-	test('shows schedule preview section', async ({ page }) => {
-		await expect(page.getByTestId('schedule-preview')).toBeVisible()
+	test('shows the merged schedule planner section', async ({ page }) => {
+		await expect(page.getByTestId('schedule-planner')).toBeVisible()
 		await expect(page.getByTestId('generate-schedule-button')).toBeVisible()
 	})
 
-	test('shows scheduling suggestions section', async ({ page }) => {
+	test('shows scheduling suggestions after loading the planner', async ({ page }) => {
+		const responsePromise = page.waitForResponse((response) =>
+			response.request().method() === 'POST'
+			&& response.url().includes('/scheduling/suggestions'))
+		await page.getByTestId('generate-schedule-button').click()
+		await responsePromise
 		await expect(page.getByTestId('scheduling-suggestions')).toBeVisible()
 	})
 })

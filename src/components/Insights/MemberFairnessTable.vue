@@ -64,6 +64,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { WEEKDAY_KEYS, resolveEnergyForDay } from '../../utils/energyBudgets.js'
 
 export default {
 	name: 'MemberFairnessTable',
@@ -90,12 +91,11 @@ export default {
 				const preferences = member.schedulingPreferences || {}
 				const budgets = preferences.energyBudget || {}
 				const availability = preferences.weekdayAvailability || {}
-				const fallbackBudget = { monday: 10, tuesday: 10, wednesday: 10, thursday: 10, friday: 10, saturday: 15, sunday: 15 }
 
 				let weeklyCapacity = 0
-				for (const day of ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']) {
+				for (const day of WEEKDAY_KEYS) {
 					if (availability[day] === false) continue
-					weeklyCapacity += budgets[day] ?? fallbackBudget[day]
+					weeklyCapacity += resolveEnergyForDay(budgets, day)
 				}
 
 				const completedEnergy = this.completedEnergyByUser[member.id] ?? 0

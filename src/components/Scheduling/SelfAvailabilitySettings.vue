@@ -62,6 +62,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { showSuccess, showError } from '@nextcloud/dialogs'
 import { useSchedulingStore } from '../../store/scheduling.js'
 import { logger } from '../../utils/logger.js'
+import { weekDays } from '../../constants/scheduling.js'
 
 const schedulingStore = useSchedulingStore()
 
@@ -79,16 +80,6 @@ function defaultAvailability() {
 		sunday: true,
 	}
 }
-
-const weekDays = [
-	{ key: 'monday', name: t('chorestrike', 'Monday') },
-	{ key: 'tuesday', name: t('chorestrike', 'Tuesday') },
-	{ key: 'wednesday', name: t('chorestrike', 'Wednesday') },
-	{ key: 'thursday', name: t('chorestrike', 'Thursday') },
-	{ key: 'friday', name: t('chorestrike', 'Friday') },
-	{ key: 'saturday', name: t('chorestrike', 'Saturday') },
-	{ key: 'sunday', name: t('chorestrike', 'Sunday') },
-]
 
 const availableDaysCount = computed(() => {
 	return weekDays.filter(day => !!localAvailability.value[day.key]).length

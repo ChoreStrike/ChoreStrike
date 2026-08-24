@@ -141,22 +141,6 @@ class SchedulingService {
 	}
 
 	/**
-	 * Update another member's availability (house owner only)
-	 *
-	 * @param int $houseId The current house ID
-	 * @param int $targetUserId The house user ID to update
-	 * @param array $updates Availability and energy updates
-	 */
-	public function updateMemberAvailability(int $houseId, int $targetUserId, array $updates): void {
-		$user = $this->houseUserMapper->find($targetUserId);
-		if ($user->getHouseId() !== $houseId) {
-			throw new \InvalidArgumentException('Target user does not belong to this house');
-		}
-
-		$this->applyMemberUpdates($user, $updates);
-	}
-
-	/**
 	 * Update a member's availability by Nextcloud user ID within a specific house.
 	 *
 	 * The lookup is scoped by houseId, so a user who is not a member of the
@@ -206,11 +190,15 @@ class SchedulingService {
 	/**
 	 * Get scheduling suggestions based on availability
 	 *
-	 * @param array $tasks Tasks to schedule
+	 * The caller only ever needed the number of schedulable tasks, so the
+	 * contract carries `taskCount` instead of a full task array
+	 * (CR-016-13c).
+	 *
+	 * @param int $taskCount Number of tasks to schedule
 	 * @param int $houseId The house ID
 	 * @return array Suggestions per day
 	 */
-	public function getSchedulingSuggestions(array $tasks, int $houseId): array {
+	public function getSchedulingSuggestions(int $taskCount, int $houseId): array {
 		$members = $this->getMemberAvailability($houseId);
 		$suggestions = [];
 
@@ -228,7 +216,7 @@ class SchedulingService {
 			$suggestions[$day] = [
 				'availableMembers' => count($availableMembers),
 				'totalEnergy' => $totalEnergy,
-				'recommendedTasks' => min(count($tasks), (int)($totalEnergy / 5)),
+				'recommendedTasks' => min($taskCount, (int)($totalEnergy / 5)),
 			];
 		}
 

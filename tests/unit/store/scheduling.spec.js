@@ -355,27 +355,37 @@ describe('Scheduling Store', () => {
 			})
 		})
 
-		describe('updateMemberAvailability', () => {
-			it('updates member availability', async () => {
-				store.memberAvailability = [{ userId: 'user1', energy: 10 }]
+		describe('updateMemberPreferences (UX-014)', () => {
+			it('PUTs the updates and merges them into the matching member', async () => {
+				store.memberAvailability = [{ userId: 'user1', energyBudget: { monday: 10 } }]
 				api.put.mockResolvedValue(undefined)
 
-				await store.updateMemberAvailability('user1', { energy: 15 })
+				await store.updateMemberPreferences('user1', { energyBudget: { monday: 15 } })
 
-				expect(store.memberAvailability[0].energy).toBe(15)
+				expect(api.put).toHaveBeenCalledTimes(1)
+				expect(api.put).toHaveBeenCalledWith('/api/v1/scheduling/members/user1', { energyBudget: { monday: 15 } })
+				expect(store.memberAvailability[0].energyBudget.monday).toBe(15)
+			})
+
+			it('propagates errors and records them in state', async () => {
+				api.put.mockRejectedValue(new Error('Forbidden'))
+
+				await expect(store.updateMemberPreferences('user1', {})).rejects.toThrow('Forbidden')
+
+				expect(store.error).toBe('Forbidden')
 			})
 		})
 
 		describe('getSchedulingSuggestions', () => {
-			it('normalizes the weekday-keyed backend payload into an array', async () => {
+			it('posts only { taskCount } and normalizes the weekday-keyed payload into an array', async () => {
 				api.post.mockResolvedValue({
 					monday: { availableMembers: 2, totalEnergy: 20, recommendedTasks: 4 },
 					saturday: { availableMembers: 1, totalEnergy: 15, recommendedTasks: 3 },
 				})
 
-				const result = await store.getSchedulingSuggestions([{ id: 1 }])
+				const result = await store.getSchedulingSuggestions(5)
 
-				expect(api.post).toHaveBeenCalledWith('/api/v1/scheduling/suggestions', { tasks: [{ id: 1 }] })
+				expect(api.post).toHaveBeenCalledWith('/api/v1/scheduling/suggestions', { taskCount: 5 })
 				expect(Array.isArray(result)).toBe(true)
 				expect(result).toHaveLength(2)
 				expect(result[0]).toMatchObject({
@@ -391,7 +401,7 @@ describe('Scheduling Store', () => {
 			it('returns an empty array for an empty payload', async () => {
 				api.post.mockResolvedValue({})
 
-				const result = await store.getSchedulingSuggestions([])
+				const result = await store.getSchedulingSuggestions(0)
 
 				expect(result).toEqual([])
 			})
@@ -399,7 +409,7 @@ describe('Scheduling Store', () => {
 			it('does not toggle the shared loading flag', async () => {
 				api.post.mockResolvedValue({})
 
-				await store.getSchedulingSuggestions([])
+				await store.getSchedulingSuggestions(0)
 
 				expect(store.loading).toBe(false)
 			})

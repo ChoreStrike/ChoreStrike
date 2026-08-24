@@ -7,6 +7,8 @@ import { defineStore } from 'pinia'
 import { translate as t } from '@nextcloud/l10n'
 import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
+import { createDefaultEnergyBudget, resolveEnergyForDay } from '../utils/energyBudgets.js'
+import { isMemberAvailable, weekDays } from '../constants/scheduling.js'
 import { useRoomTasksStore } from './roomTasks.js'
 import { useTasksStore } from './tasks.js'
 
@@ -35,15 +37,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		/** @type {number} Energy consumed by current user today */
 		todayConsumedEnergy: 0,
 		/** @type {object} Current user's energy budget per weekday */
-		energyBudget: {
-			monday: 10,
-			tuesday: 10,
-			wednesday: 10,
-			thursday: 10,
-			friday: 10,
-			saturday: 15,
-			sunday: 15,
-		},
+		energyBudget: createDefaultEnergyBudget(),
 		/** @type {object} Current user's availability per weekday */
 		weekdayAvailability: {
 			monday: true,
@@ -154,7 +148,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		getAvailableMembersForDay: (state) => (day) => {
 			const dayKey = day.toLowerCase()
 			return state.memberAvailability.filter(
-				m => m.weekdayAvailability?.[dayKey] !== false,
+				m => isMemberAvailable(m, dayKey),
 			)
 		},
 
@@ -166,10 +160,10 @@ export const useSchedulingStore = defineStore('scheduling', {
 		getTotalEnergyForDay: (state) => (day) => {
 			const dayKey = day.toLowerCase()
 			const availableMembers = state.memberAvailability.filter(
-				m => m.weekdayAvailability?.[dayKey] !== false,
+				m => isMemberAvailable(m, dayKey),
 			)
 			return availableMembers.reduce((sum, m) => {
-				return sum + (m.energyBudget?.[dayKey] ?? 10)
+				return sum + resolveEnergyForDay(m.energyBudget, dayKey)
 			}, 0)
 		},
 
@@ -177,7 +171,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 * Available energy capacity for a day (CS-PLAN-040).
 		 *
 		 * Member availability (owner-only fetch) when loaded; otherwise the
-		 * current user's own preferences with the weekend 10/15 fallback —
+		 * current user's own preferences with the canonical weekend fallback —
 		 * non-owners must still get a meaningful capacity, never 0-by-default.
 		 *
 		 * @param {object} state Store state
@@ -187,16 +181,18 @@ export const useSchedulingStore = defineStore('scheduling', {
 			const dayKey = day.toLowerCase()
 			if (state.memberAvailability.length > 0) {
 				const availableMembers = state.memberAvailability.filter(
-					m => m.weekdayAvailability?.[dayKey] !== false,
+					m => isMemberAvailable(m, dayKey),
 				)
-				return availableMembers.reduce((sum, m) => sum + (m.energyBudget?.[dayKey] ?? 10), 0)
+				return availableMembers.reduce(
+					(sum, m) => sum + resolveEnergyForDay(m.energyBudget, dayKey),
+					0,
+				)
 			}
 
 			if (state.weekdayAvailability[dayKey] === false) {
 				return 0
 			}
-			const fallbackBudget = { monday: 10, tuesday: 10, wednesday: 10, thursday: 10, friday: 10, saturday: 15, sunday: 15 }
-			return state.energyBudget[dayKey] ?? fallbackBudget[dayKey] ?? 10
+			return resolveEnergyForDay(state.energyBudget, dayKey)
 		},
 
 		/**
@@ -380,14 +376,15 @@ export const useSchedulingStore = defineStore('scheduling', {
 		},
 
 		/**
-		 * Update another member's availability (house owner only).
+		 * Update another member's scheduling preferences (house owner only,
+		 * UX-014). Sections are merged per-day by the backend.
 		 *
 		 * Does not touch `loading` — see `saveWeeklyPreferences`.
 		 *
 		 * @param {string} userId Member user ID
-		 * @param {object} updates Availability and energy updates
+		 * @param {object} updates Partial preference sections keyed by weekday
 		 */
-		async updateMemberAvailability(userId, updates) {
+		async updateMemberPreferences(userId, updates) {
 			this.error = null
 
 			try {
@@ -402,28 +399,28 @@ export const useSchedulingStore = defineStore('scheduling', {
 				}
 			} catch (error) {
 				this.error = error.message
-				logger.error('Failed to update member availability', error, { store: 'scheduling', action: 'updateMemberAvailability', userId })
+				logger.error('Failed to update member preferences', error, { store: 'scheduling', action: 'updateMemberPreferences', userId })
 				throw error
 			}
 		},
 
 		/**
-		 * Get scheduling suggestions for tasks.
+		 * Get scheduling suggestions for a number of schedulable tasks.
 		 *
-		 * The backend returns an object keyed by weekday; this action
-		 * normalizes it to an array of suggestion objects so the UI components
-		 * can iterate it directly. Does not touch `loading` — see
-		 * `saveWeeklyPreferences`.
+		 * The request carries only `taskCount` — the backend never used more
+		 * than the task array's length (CR-016-13c). The response is
+		 * normalized to an array of suggestion objects so the UI can iterate
+		 * it directly. Does not touch `loading` — see `saveWeeklyPreferences`.
 		 *
-		 * @param {Array} tasks Tasks to schedule
+		 * @param {number} taskCount Number of tasks to schedule
 		 * @return {Promise<Array>} One suggestion object per weekday
 		 */
-		async getSchedulingSuggestions(tasks) {
+		async getSchedulingSuggestions(taskCount) {
 			this.error = null
 
 			try {
 				const data = await api.post('/api/v1/scheduling/suggestions', {
-					tasks,
+					taskCount,
 				})
 
 				return this.normalizeDaySuggestions(data)
@@ -442,23 +439,13 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 * @return {Array} One suggestion object per weekday
 		 */
 		normalizeDaySuggestions(data) {
-			const dayNames = {
-				monday: t('chorestrike', 'Monday'),
-				tuesday: t('chorestrike', 'Tuesday'),
-				wednesday: t('chorestrike', 'Wednesday'),
-				thursday: t('chorestrike', 'Thursday'),
-				friday: t('chorestrike', 'Friday'),
-				saturday: t('chorestrike', 'Saturday'),
-				sunday: t('chorestrike', 'Sunday'),
-			}
-
 			return Object.entries(data ?? {}).map(([day, info]) => {
 				const members = info.availableMembers ?? 0
 				const energy = info.totalEnergy ?? 0
 				const recommended = info.recommendedTasks ?? 0
 				return {
 					day,
-					title: dayNames[day] ?? day,
+					title: weekDays.find(d => d.key === day)?.name ?? day,
 					availableMembers: members,
 					totalEnergy: energy,
 					recommendedTasks: recommended,
@@ -514,15 +501,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 			this.memberAvailability = []
 			this.todayConsumedEnergy = 0
 			this.maxDailyTasks = Infinity
-			this.energyBudget = {
-				monday: 10,
-				tuesday: 10,
-				wednesday: 10,
-				thursday: 10,
-				friday: 10,
-				saturday: 15,
-				sunday: 15,
-			}
+			this.energyBudget = createDefaultEnergyBudget()
 			this.weekdayAvailability = {
 				monday: true,
 				tuesday: true,

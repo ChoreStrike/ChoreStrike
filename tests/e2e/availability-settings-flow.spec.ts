@@ -29,7 +29,7 @@ test.describe('Availability Settings Flow', () => {
 	})
 
 	test('shows edit button for current user availability', async ({ page }) => {
-		const editButton = page.getByTestId('edit-availability-button')
+		const editButton = page.getByTestId('edit-availability-button').first()
 		if (await editButton.isVisible()) {
 			await editButton.click()
 			await expect(page.getByTestId('edit-availability-modal')).toBeVisible()
@@ -37,16 +37,14 @@ test.describe('Availability Settings Flow', () => {
 	})
 
 	test('can toggle weekday availability in edit modal', async ({ page }) => {
-		const editButton = page.getByTestId('edit-availability-button')
-		if (!(await editButton.isVisible())) {
-			test.skip()
-			return
-		}
+		const editButton = page.getByTestId('edit-availability-button').first()
+		await expect(editButton).toBeVisible()
 
 		await editButton.click()
 		await expect(page.getByTestId('edit-availability-modal')).toBeVisible()
 
-		const mondayToggle = page.getByTestId('availability-monday')
+		const mondayToggle = page.locator('label')
+			.filter({ has: page.getByTestId('availability-monday') })
 		await expect(mondayToggle).toBeVisible()
 		await mondayToggle.click()
 
@@ -54,11 +52,8 @@ test.describe('Availability Settings Flow', () => {
 	})
 
 	test('shows energy budget inputs in edit modal', async ({ page }) => {
-		const editButton = page.getByTestId('edit-availability-button')
-		if (!(await editButton.isVisible())) {
-			test.skip()
-			return
-		}
+		const editButton = page.getByTestId('edit-availability-button').first()
+		await expect(editButton).toBeVisible()
 
 		await editButton.click()
 		await expect(page.getByTestId('edit-availability-modal')).toBeVisible()
@@ -67,11 +62,8 @@ test.describe('Availability Settings Flow', () => {
 	})
 
 	test('can apply quick templates', async ({ page }) => {
-		const editButton = page.getByTestId('edit-availability-button')
-		if (!(await editButton.isVisible())) {
-			test.skip()
-			return
-		}
+		const editButton = page.getByTestId('edit-availability-button').first()
+		await expect(editButton).toBeVisible()
 
 		await editButton.click()
 		await expect(page.getByTestId('edit-availability-modal')).toBeVisible()

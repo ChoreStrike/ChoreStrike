@@ -318,21 +318,30 @@ class SchedulingControllerTest extends TestCase {
 	}
 
 	public function testGetSuggestionsReturnsSuggestions(): void {
-		$tasks = [['id' => 1, 'title' => 'Clean kitchen']];
-		$suggestions = [['day' => 'monday', 'tasks' => $tasks]];
+		$taskCount = 3;
+		$suggestions = [['day' => 'monday', 'tasks' => []]];
 
 		$this->mockHouse();
 
 		$this->schedulingService->expects($this->once())
 			->method('getSchedulingSuggestions')
-			->with($tasks, 1)
+			->with($taskCount, 1)
 			->willReturn($suggestions);
 
-		$response = $this->controller->getSuggestions($tasks);
+		$response = $this->controller->getSuggestions($taskCount);
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
 		$this->assertEquals($suggestions, $data['data']);
+	}
+
+	public function testGetSuggestionsRejectsNegativeTaskCount(): void {
+		$this->mockHouse();
+
+		$response = $this->controller->getSuggestions(-1);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertFalse($response->getData()['success']);
 	}
 }

@@ -773,6 +773,12 @@
         "Expand floor": "Expand floor",
         "Collapse floor": "Collapse floor",
         "Mark as complete": "Mark as complete",
-        "Show details": "Show details"
+        "Show details": "Show details",
+        "Apply": "Apply",
+        "Applying...": "Applying...",
+        "Suggestion applied to your week": "Suggestion applied to your week",
+        "Failed to apply the suggestion": "Failed to apply the suggestion",
+        "Sets your {day} budget to {energy} energy": "Sets your {day} budget to {energy} energy",
+        "Applying a suggestion commits your share of that day's energy to your own week.": "Applying a suggestion commits your share of that day's energy to your own week."
     }
 }

@@ -200,11 +200,13 @@ service), Owner (overview). **Entry points:** SchedulingView.
 |---|---|---|---|
 | Edit own weekday availability | `SelfAvailabilitySettings` | `GET+PUT /scheduling/preferences` | ✅ changed-days-only saves |
 | Owner availability grid (all members) | `AvailabilitySettings` | `GET /scheduling/members` | ✅ |
-| Edit another member's availability | — | `PUT /scheduling/members/{userId}` | ❌ (self-service is the current policy — keep-or-prune decision open) |
+| Edit another member's availability | `AvailabilitySettings` → shared `AvailabilityEditModal` (owner) | `PUT /scheduling/members/{userId}` | ✅ (CS-PLAN-043 wired the edit path — UX-014 keep decision resolved: endpoint stays) |
 | Edit energy budget (weekdays/weekend) | `EnergyBudgetSettings` | `GET+PUT /scheduling/preferences` | ✅ single bulk save |
-| Load preview / capacity calendar | `SchedulePreview`, `ScheduleCalendar` | client + suggestions | ✅ |
-| Generate suggestions | `SchedulingSuggestions` | `POST /scheduling/suggestions` | ⚠️ two buttons hit the same endpoint (CR-016-05) |
-| Apply a suggestion to real assignments | — | — | ⛔ text-only output (UX-014) |
+| Load preview / capacity calendar | `SchedulePlanner`, `ScheduleCalendar` | client + suggestions | ✅ |
+| Generate suggestions | `SchedulePlanner` | `POST /scheduling/suggestions` (`{ taskCount }`) | ✅ merged surface — the former Preview/Suggestions twin buttons are one component (CR-016-05) |
+| Apply a suggestion to own week | `SchedulePlanner` per-day Apply button | `PUT /scheduling/preferences` (bulk) | ✅ CS-PLAN-043 — applies personal share of the suggested day's energy; real task assignments remain a manual step |
+
+*Last verified: 2026-08-24 (CS-PLAN-043).*
 
 ## UC-11 — Progress & gamification
 
@@ -314,7 +316,7 @@ badges. Shipped with CS-PLAN-040.
 | 07 | deactivate (pause) UI |
 | 08 | — (checklist editor ✅ owner-only since CS-PLAN-042) |
 | 09 | claim target size (UX-007); bulk assign + create-form chips ✅ since CS-PLAN-042 / CS-PLAN-038 |
-| 10 | suggestion apply missing (UX-014), duplicate preview buttons (CR-016-05); overcapacity warning ✅ since CS-PLAN-040 (UC-16) |
+| 10 | — (suggestion Apply + merged planner surface + owner member-edit ✅ since CS-PLAN-043; overcapacity warning ✅ since CS-PLAN-040 (UC-16)) |
 | 11 | reward-config UI |
 | 12 | — |
 | 13 | profile edit, leave house (FEAT-UX-015), BUG-SEC-002 backend guard; per-member history ✅ since CS-PLAN-040 (UC-16) |
@@ -426,7 +428,13 @@ surface) · `needs-decision` · `post-MVP`.
 
 ---
 
-**Last verified:** 2026-08-22 — CS-PLAN-042 pass (UX-004/008/009/011 +
+**Last verified:** 2026-08-24 — CS-PLAN-043 pass (UX-014 + CR-016-03/04/05/06/08/13/14
++ TECH-DRY-001): UC-10 consolidated — SchedulePreview + SchedulingSuggestions
+merged into `SchedulePlanner` with per-day Apply (bulk self PUT), owner
+member-grid edit wired through the shared `AvailabilityEditModal`
+(`PUT /scheduling/members/{userId}` keep decision resolved), suggestions
+contract slimmed to `{ taskCount }`, calendar dates locale-aware. Earlier
+passes: 2026-08-22 — CS-PLAN-042 pass (UX-004/008/009/011 +
 CR-SVC-61): Settings is the sole owner-gated structure surface (floor CRUD +
 up/down reorder, inline room add/delete), Dashboard FloorList read-only,
 room rename/delete in the RoomDetail header, checklist editor unlocked for

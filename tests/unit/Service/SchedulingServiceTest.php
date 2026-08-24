@@ -230,26 +230,6 @@ class SchedulingServiceTest extends TestCase {
 	}
 
 	/**
-	 * UpdateMemberAvailability_TargetUserOutsideHouse_ThrowsInvalidArgumentException
-	 */
-	public function testUpdateMemberAvailability_TargetUserOutsideHouse_ThrowsInvalidArgumentException(): void {
-		$targetUser = new HouseUser();
-		$targetUser->setId(22);
-		$targetUser->setHouseId(99);
-
-		$this->houseUserMapper
-			->expects($this->once())
-			->method('find')
-			->with(22)
-			->willReturn($targetUser);
-
-		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Target user does not belong to this house');
-
-		$this->service->updateMemberAvailability(1, 22, ['weekdayAvailability' => ['monday' => true]]);
-	}
-
-	/**
 	 * UpdateMemberAvailabilityByNextcloudUserId_DelegatesToScopedLookupAndAppliesUpdates
 	 */
 	public function testUpdateMemberAvailabilityByNextcloudUserId_AppliesUpdatesViaScopedLookup(): void {

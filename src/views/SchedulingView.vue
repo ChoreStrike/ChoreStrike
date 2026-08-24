@@ -38,21 +38,18 @@
 			</section>
 
 			<section class="scheduling-section">
-				<SchedulePreview data-testid="schedule-preview" />
+				<SchedulePlanner />
 			</section>
 
 			<section class="scheduling-section">
 				<ScheduleCalendar data-testid="schedule-calendar" />
 			</section>
-
-			<section class="scheduling-section">
-				<SchedulingSuggestions data-testid="scheduling-suggestions" />
-			</section>
 		</div>
 	</div>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useSchedulingStore } from '../store/scheduling.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
@@ -62,69 +59,43 @@ import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 import AvailabilitySettings from '../components/Scheduling/AvailabilitySettings.vue'
 import EnergyBudgetSettings from '../components/Scheduling/EnergyBudgetSettings.vue'
-import SchedulePreview from '../components/Scheduling/SchedulePreview.vue'
+import SchedulePlanner from '../components/Scheduling/SchedulePlanner.vue'
 import ScheduleCalendar from '../components/Scheduling/ScheduleCalendar.vue'
-import SchedulingSuggestions from '../components/Scheduling/SchedulingSuggestions.vue'
 import SelfAvailabilitySettings from '../components/Scheduling/SelfAvailabilitySettings.vue'
 import OvercapacityWarning from '../components/Scheduling/OvercapacityWarning.vue'
 
-export default {
-	name: 'SchedulingView',
+const schedulingStore = useSchedulingStore()
+const tasksStore = useTasksStore()
+const userStore = useUserStore()
 
-	components: {
-		AvailabilitySettings,
-		EnergyBudgetSettings,
-		SchedulePreview,
-		ScheduleCalendar,
-		SchedulingSuggestions,
-		SelfAvailabilitySettings,
-		OvercapacityWarning,
-	},
+const loading = computed(() => schedulingStore.loading)
 
-	setup() {
-		const schedulingStore = useSchedulingStore()
-		const tasksStore = useTasksStore()
-		const userStore = useUserStore()
-		return { schedulingStore, tasksStore, userStore }
-	},
-
-	computed: {
-		loading() {
-			return this.schedulingStore.loading
-		},
-	},
-
-	async mounted() {
-		try {
-			await this.schedulingStore.initializeScheduling()
-		} catch (error) {
-			logger.error('Failed to initialize scheduling', error, { view: 'SchedulingView', action: 'initializeScheduling' })
-		}
-		// Best-effort: preload tasks so the preview/suggestions sections have
-		// data. Failures are non-fatal (those sections show their empty states).
-		try {
-			await this.tasksStore.fetchTasks()
-		} catch (error) {
-			logger.warn('Could not preload tasks for scheduling preview', { view: 'SchedulingView', error })
-		}
-		// Best-effort: room tasks feed the overcapacity warning. A failure
-		// must not break the scheduling view (warning simply stays empty).
-		try {
-			const roomsStore = useRoomsStore()
-			const roomTasksStore = useRoomTasksStore()
-			await roomsStore.fetchFloorsWithRooms()
-			await Promise.all(
-				roomsStore.rooms.map(room => roomTasksStore.fetchRoomTasks(room.id)),
-			)
-		} catch (error) {
-			logger.warn('Could not preload room tasks for overcapacity warning', { view: 'SchedulingView', error })
-		}
-	},
-
-	methods: {
-		t,
-	},
-}
+onMounted(async () => {
+	try {
+		await schedulingStore.initializeScheduling()
+	} catch (error) {
+		logger.error('Failed to initialize scheduling', error, { view: 'SchedulingView', action: 'initializeScheduling' })
+	}
+	// Best-effort: preload tasks so the preview/suggestions sections have
+	// data. Failures are non-fatal (those sections show their empty states).
+	try {
+		await tasksStore.fetchTasks()
+	} catch (error) {
+		logger.warn('Could not preload tasks for scheduling preview', { view: 'SchedulingView', error })
+	}
+	// Best-effort: room tasks feed the overcapacity warning. A failure
+	// must not break the scheduling view (warning simply stays empty).
+	try {
+		const roomsStore = useRoomsStore()
+		const roomTasksStore = useRoomTasksStore()
+		await roomsStore.fetchFloorsWithRooms()
+		await Promise.all(
+			roomsStore.rooms.map(room => roomTasksStore.fetchRoomTasks(room.id)),
+		)
+	} catch (error) {
+		logger.warn('Could not preload room tasks for overcapacity warning', { view: 'SchedulingView', error })
+	}
+})
 </script>
 
 <style scoped>

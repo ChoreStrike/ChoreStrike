@@ -87,10 +87,11 @@ ChoreStrike/
 │   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop, Game2048, MemoryGame
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
 │   │   ├── Profile/            # TitleBadge, TitlePicker (CS-PLAN-006)
-│   │   └── Scheduling/         # DailyTaskList, AvailabilitySettings, EnergyBudgetSettings,
-│   │                           #   SchedulePreview, ScheduleCalendar, SchedulingSuggestions
+│   │   └── Scheduling/         # SelfAvailabilitySettings, AvailabilitySettings, AvailabilityEditModal,
+│   │                           #   EnergyBudgetSettings, BudgetAnalysis, WeekBudgetGrid,
+│   │                           #   SchedulePlanner, ScheduleCalendar, OvercapacityWarning
 │   ├── composables/            # useCelebration (confetti + SFX), useToasts
-│   ├── constants/              # Shared constants (taskVisibility, titles)
+│   ├── constants/              # Shared constants (taskVisibility, titles, scheduling)
 │   ├── services/               # Shared API client (api.js — single URL prefix,
 │   │                           #   envelope unwrap, ApiError normalization)
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
@@ -98,7 +99,7 @@ ChoreStrike/
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css
 │   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard, Scheduling, Calendar, Settings
 │   └── utils/                  # currentUser, icons, roomIcons, logger, mobile, performance,
-│                               #   confetti, sound
+│                               #   confetti, sound, energyBudgets
 ├── l10n/                       # Translations
 │   ├── templates/
 │   │   └── chorestrike.pot     # Translation template

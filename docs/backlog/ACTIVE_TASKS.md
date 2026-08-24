@@ -19,6 +19,8 @@
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
+- **CS-PLAN-043** — Scheduling UI Consolidation (closed **CR-016-03/04/05/06/08/13/14** + **UX-014** + **TECH-DRY-001**): E2E baseline re-run first (scheduling-owner 28 passed / 3 skipped, post-CS-044); extracted `src/constants/scheduling.js` (translated `weekDays`, `ENERGY_MIN/MAX`, `isMemberAvailable`, `getMemberEnergy`) + `src/utils/energyBudgets.js` (canonical 10/15 fallback map — single source for `getCapacityForDay`/`getTotalEnergyForDay`/MemberFairnessTable/components, Jest-pinned); dead-code sweep (backend `updateMemberAvailability(int…)` overload + keeper test removed; store action re-created refined as `updateMemberPreferences`; suggestions contract slimmed to `{ taskCount }` both layers incl. negative-count 400); save guard via effective-week snapshot in the edit modal + unreachable per-component loading blocks deleted; SchedulePreview+SchedulingSuggestions merged into `SchedulePlanner.vue` with per-day Apply (fair-share preview inline before persisting, bulk self PUT); component splits: `AvailabilityEditModal.vue` (734→241 parent), `BudgetAnalysis.vue` + extra seam `WeekBudgetGrid.vue` (592→250 parent, manifest deviation recorded); calendar dates locale-aware (`getLocale()`+Intl range, Nextcloud `getDayNames()` headers, de/en shapes pinned); SchedulingView → `<script setup>`; UX-014 wired: every member card Edit → shared modal (self = bulk preferences PUT, others = member PUT), planner Apply persists suggested distribution; l10n de/en synced (6 new keys). E2E selector updates where DOM changed (planner testid, suggestions load-first) and the three racy edit-modal tests un-skipped → now real passes. Gate: Jest 830 / lint + stylelint 0/0 / noise clean / l10n clean / webpack build green / PHPUnit unit 795 + integration 190 [24 pre-existing skips] / Docker E2E scheduling-owner **31/31**, self-availability-member 4/4, insights-flow 3/3 (`--retries=0`). Standard-B review 2026-08-24: PASS — 3 auto-fixes (AvailabilitySettings dead `isCurrentUser`/`resolveCurrentUser` leftovers swept — closes the last trace of **BUG-E2E-002**, now archived as resolved; `normalizeDaySuggestions` sixth weekday-name map → shared `weekDays` constant; stale `hasLoaded` comment), **BUG-UI-001** logged (pre-existing display-only total garbling on empty/invalid energy input), gate re-verified (lint/stylelint/l10n/noise clean, Jest 830, webpack green, Docker PHPUnit 795/190 [24 pre-existing skips]). (2026-08-24, Done — plan file updated with implementation notes + `## Review Outcome`; `active/ → done/` move pending manual step) → plan: [`../plans/active/cs-plan-043-scheduling-ui-consolidation.md`](../plans/active/cs-plan-043-scheduling-ui-consolidation.md)
+
 > One-line entries only — full scope lives in the linked plan. Older completed
 > work → [`archive/`](archive/) (e.g. [`archive/2026-07.md`](archive/2026-07.md)).
 
@@ -96,3 +98,18 @@
 > OverdueClaimDialog added to scope/manifest, i18n/l10n gate added,
 > touch-target layout risk row added; ready for manual `new/ → active/` move
 > (soft-after CS-PLAN-043).
+
+> **CS-PLAN-043 plan review (2026-08-23)**: Standard A — **GO-WITH-CHANGES**,
+> fixes applied inline to the plan: stale line counts corrected (694/584 →
+> 734/592, re-verified post-CS-044), backend half of the `{ taskCount }`
+> suggestions slimming added to §3/§4/manifest (`SchedulingController` +
+> `SchedulingService` contract), merged Preview+Suggestions component +
+> docs files added to the manifest, E2E baseline re-run before step 1
+> (CS-044 edited scheduling components after the last scheduling E2E run),
+> step 2→7 store-action churn clarified, CS-044 a11y-contract risk row added,
+> 300-line acceptance criterion rescoped to the two split components,
+> i18n/l10n + docs-integration criteria added. Two activation-time decisions
+> noted to the user: confirm the UX-014 default (wire the owner member-grid
+> edit path, keep `PUT /scheduling/members/{userId}`) and the scope call on
+> the remaining over-guideline components (`ScheduleCalendar` 489,
+> `SelfAvailabilitySettings` 311). Ready for manual `new/ → active/` move.

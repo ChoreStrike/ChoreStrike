@@ -773,6 +773,12 @@
         "Expand floor": "Etage ausklappen",
         "Collapse floor": "Etage einklappen",
         "Mark as complete": "Als erledigt markieren",
-        "Show details": "Details anzeigen"
+        "Show details": "Details anzeigen",
+        "Apply": "Übernehmen",
+        "Applying...": "Wird übernommen…",
+        "Suggestion applied to your week": "Vorschlag auf deine Woche übernommen",
+        "Failed to apply the suggestion": "Vorschlag konnte nicht übernommen werden",
+        "Sets your {day} budget to {energy} energy": "Setzt dein {day}-Budget auf {energy} Energie",
+        "Applying a suggestion commits your share of that day's energy to your own week.": "Das Übernehmen eines Vorschlags legt deinen Anteil der Tagesenergie für deine Woche fest."
     }
 }

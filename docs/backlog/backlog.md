@@ -96,19 +96,24 @@ CS-031 change (backend-only, no floor/task-create surface touched).
 ---
 
 ### [P3] BUG-E2E-002 — Own-card Edit button never visible in E2E → owner modal tests skip vacuously
-**Status**: Open · **Effort**: S · **Source**: CS-PLAN-032 gate run (2026-08-18)
+**Status**: Resolved 2026-08-24 (CS-PLAN-043) → [`archive/2026-08.md`](archive/2026-08.md)
 
-In `tests/e2e/availability-settings-flow.spec.ts` (chromium-scheduling-owner,
-`dad`), `edit-availability-button` never becomes visible, so the three guarded
-modal tests (`can toggle weekday availability`, `shows energy budget inputs`,
-`can apply quick templates`) call `test.skip()` and `shows edit button …`
-passes vacuously. Verified **pre-existing** during the CS-032 gate: the skip
-also occurs on the unmodified tree (stash-verified). Suspect:
-`resolveCurrentUser()` (`@nextcloud/auth getCurrentUser`) returns null in the
-E2E page context, so `member.isCurrentUser` is never true.
+---
 
-- [ ] Root-cause why the own-card Edit button does not render for `dad`;
-      un-guard the three modal tests so they assert instead of skipping.
+### [P4] BUG-UI-001 — Week-total/analysis display garbled while an energy input is empty or invalid
+**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-043 (2026-08-24)
+
+`EnergyBudgetSettings` `totalWeeklyEnergy` and `BudgetAnalysis`
+(average/peak/low cards) reduce over the budget map with plain `sum + energy`.
+While a day input is cleared (`''`) or mid-typing invalid (`NaN`), the totals
+degrade to string concatenation (`"1015"`) or `NaN` in the display. Verified
+**pre-existing** (the old `v-model.number` component had identical semantics);
+save is already guarded by up-front 1–20 validation, so this is display-only
+during invalid intermediate input.
+
+- [ ] Coerce/normalize non-integer budget values before the display reduces
+      (e.g. treat them as 0 or the stored fallback) in both components; pin
+      with a Jest case for an empty day input.
 
 ---
 
@@ -137,22 +142,6 @@ E2E page context, so `member.isCurrentUser` is never true.
 `--legacy-peer-deps`. Pre-existing (not introduced by CS-026), but now documented.
 Resolving it cleanly likely needs an `eslint-plugin-n`/`eslint-config-standard`
 bump coordinated with the Nextcloud eslint config.
-
----
-
-### [P3] TECH-DRY-001 — Weekend fallback energy budget map duplicated (3 sites)
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-040 (2026-08-21)
-**Planned**: CS-PLAN-043.
-
-The weekday→energy fallback budget (`monday…friday: 10, saturday/sunday: 15`)
-now lives in three places: `getCapacityForDay` in `src/store/scheduling.js`,
-the fairness rows in `src/components/Insights/MemberFairnessTable.vue`, and the
-per-member `?? 10` default in `getTotalEnergyForDay`. Rule of three reached —
-extract one shared constant/helper (e.g. `src/utils/energyBudgets.js`) and use
-it in all three sites so a balancing change touches one place.
-
-- [ ] Extract the shared fallback-budget constant + weekday list.
-- [ ] Replace all three sites; keep Jest coverage for the 10/15 weekend values.
 
 ---
 
@@ -203,45 +192,18 @@ detected as UTF-8 and write fine.
 
 > From [`archive/CODE_REVIEW_2026-07-28.md`](archive/CODE_REVIEW_2026-07-28.md).
 > CR-016-11 is **resolved** (CS-018); CR-016-12 is **resolved** (CS-032);
-> CR-016-02 is **resolved** (CS-033); the rest are open.
-> The open UI-side items here are consolidated in draft **CS-PLAN-043**
-> ([`../plans/new/`](../plans/new/)).
+> CR-016-02 is **resolved** (CS-033); the open UI-side items
+> **CR-016-03/04/05/06/08/13/14** are **resolved 2026-08-24 by CS-PLAN-043**
+> (record: [`archive/2026-08.md`](archive/2026-08.md)). Remaining open:
+> CR-016-10, CR-016-15.
 
 ### [P2] CR-016-10 — Regression test for `getConsumedEnergyForUserOnDate` SQL fix
 **Effort**: S — mock-based mapper test cannot catch SQL errors; needs a real-DB
 mapper/integration test (0 with no completions; >0 seeded). Unblock the
 integration harness first (`AvailabilityApiTest` `Class OC not found`).
 
-### [P3] CR-016-03 — Split oversized scheduling components
-**Effort**: M — `AvailabilitySettings.vue` (694) + `EnergyBudgetSettings.vue`
-(584) exceed the 300-line guideline (>2×). Extract edit modal + budget analysis.
-
-### [P3] CR-016-04 — DRY scheduling constants & helpers
-**Effort**: S — `weekDays`, `ENERGY_MIN/MAX`, `isMemberAvailable`/`getMemberEnergy`,
-template defs duplicated across 5 components → shared
-`src/constants/scheduling.js` + helpers.
-
-### [P3] CR-016-05 — Merge SchedulePreview + SchedulingSuggestions
-**Effort**: M — near-identical suggestion-loading + display logic → one canonical
-component (or shared composable).
-
-### [P3] CR-016-06 — Locale-aware date formatting in ScheduleCalendar
-**Effort**: S — `weekRange` uses bare `toLocaleDateString()` (system-locale
-dependent). Use Nextcloud's date formatter or explicit translated names.
-
 ### [P3] CR-016-09 — `DailyTaskList.vue` tech debt (pre-existing)
 **Status**: Resolved 2026-08-21 (CS-PLAN-038, component archived) → [`archive/2026-08.md`](archive/2026-08.md)
-
-### [P3] CR-016-13 — Scheduling dead code + oversized suggestion payload
-**Effort**: S — (a) `SchedulingService::updateMemberAvailability(int…)` no longer
-called (dead, kept alive by its test); (b) store action `updateMemberAvailability`
-has no UI consumer; (c) `getSuggestions` sends the full task array though backend
-only uses `count($tasks)` → send `{ taskCount }`.
-
-### [P3] CR-016-14 — AvailabilitySettings save guard + unreachable loading states
-**Effort**: S — (a) no `hasChanges` guard (Save with no edits fires 1 bulk call);
-(b) per-component `loading` blocks are unreachable dead UI (components mount only
-inside the view's `v-else`, loading=false).
 
 ### [P3] CR-016-15 — Shared backend energy-bounds validation (drift risk)
 **Effort**: S — the 1–20 check + curated message now exists at three sites:
@@ -249,9 +211,6 @@ inside the view's `v-else`, loading=false).
 and the pre-existing `SchedulingService::applyMemberUpdates`. A bounds/message
 change must be made in all three or the self path and the owner path reject/persist
 different values for the same column. Source: Review of CS-PLAN-033 (2026-08-19).
-
-### [P4] CR-016-08 — Convert `SchedulingView` to `<script setup>`
-**Effort**: S — uses Options API while all 5 children use `<script setup>`.
 
 ---
 
@@ -407,7 +366,7 @@ text, not the localized view, so German queries (e.g. „Staubsaugen") miss.
 > Implementation status: **CS-PLAN-041 landed 2026-08-22** (UX-005/006/013),
 > **CS-PLAN-042 landed 2026-08-22** (UX-004/008/009/011 + CR-SVC-61 endpoint);
 > **CS-PLAN-044 landed 2026-08-23** (UX-007/010/012 + TECH-LINT-004 +
-> FEAT-UX-030/031); still planned: **CS-PLAN-043** (UX-014).
+> FEAT-UX-030/031); **CS-PLAN-043 landed 2026-08-24** (UX-014).
 
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
 **Status**: Open · **Effort**: M · **Source**: UX-003 remainder (CS-PLAN-038)
@@ -458,14 +417,6 @@ Settings action.
 
 ### [P3] UX-013 — Boost prices duplicated client-side
 **Status**: Resolved 2026-08-22 (CS-PLAN-041) → [`archive/2026-08.md`](archive/2026-08.md)
-
-### [P3] UX-014 — SchedulingView redundancy & suggestions without action
-**Status**: Open · **Effort**: M · **Source**: Usability review 2026-08-20
-
-Owners get two parallel editors for their own availability; owner grid is
-read-only for others while implying management (`PUT /scheduling/members/{id}`
-unused); Preview + Suggestions duplicate the same endpoint (cf. `CR-016-05`);
-suggestions have no "apply" action.
 
 ### [P3] UX-015 — Undo snackbar holds only the latest completion
 **Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-041 (2026-08-22)

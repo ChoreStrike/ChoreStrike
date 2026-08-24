@@ -34,12 +34,7 @@
 			</div>
 		</div>
 
-		<div v-if="loading" class="loading-state">
-			<div class="loading-spinner" />
-			<p>{{ t('chorestrike', 'Loading schedule calendar...') }}</p>
-		</div>
-
-		<div v-else class="calendar-content">
+		<div class="calendar-content">
 			<div class="week-view">
 				<div class="week-header">
 					<div
@@ -92,15 +87,20 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { translate as t } from '@nextcloud/l10n'
+import { translate as t, getDayNames, getLocale } from '@nextcloud/l10n'
 import { useSchedulingStore } from '../../store/scheduling.js'
+import { isMemberAvailable, getMemberEnergy } from '../../constants/scheduling.js'
 
 const schedulingStore = useSchedulingStore()
 
 const currentWeekStart = ref(new Date())
 const weekDays = ref([])
 
-const loading = computed(() => schedulingStore.loading)
+// Locale-aware calendar names (CR-016-06): day names come from the
+// Nextcloud translations (Sunday-first, indexed by Date.getDay()), the
+// week range is formatted with Intl for the user's Nextcloud locale.
+const localizedDayNames = getDayNames()
+const rangeFormatter = new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'short' })
 
 const members = computed(() => schedulingStore.memberAvailability)
 
@@ -108,7 +108,7 @@ const weekRange = computed(() => {
 	const start = new Date(currentWeekStart.value)
 	const end = new Date(start)
 	end.setDate(start.getDate() + 6)
-	return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`
+	return `${rangeFormatter.format(start)} - ${rangeFormatter.format(end)}`
 })
 
 const dayKeyFromDate = (date) => {
@@ -128,22 +128,13 @@ const localDateString = (date) => {
 const generateWeekDays = () => {
 	const start = new Date(currentWeekStart.value)
 	const days = []
-	const dayNames = [
-		t('chorestrike', 'Sunday'),
-		t('chorestrike', 'Monday'),
-		t('chorestrike', 'Tuesday'),
-		t('chorestrike', 'Wednesday'),
-		t('chorestrike', 'Thursday'),
-		t('chorestrike', 'Friday'),
-		t('chorestrike', 'Saturday'),
-	]
 
 	for (let i = 0; i < 7; i++) {
 		const date = new Date(start)
 		date.setDate(start.getDate() + i)
 		days.push({
 			date: localDateString(date),
-			name: dayNames[date.getDay()],
+			name: localizedDayNames[date.getDay()],
 			dayNumber: date.getDate(),
 			dayKey: dayKeyFromDate(date),
 		})
@@ -177,12 +168,12 @@ const overcapacityTitle = (day) => {
 }
 
 const isMemberAvailableOnDay = (member, dayKey) => {
-	return member.weekdayAvailability?.[dayKey] !== false
+	return isMemberAvailable(member, dayKey)
 }
 
 const getMemberDayEnergy = (member, dayKey) => {
 	if (!isMemberAvailableOnDay(member, dayKey)) return '—'
-	return member.energyBudget?.[dayKey] ?? 10
+	return getMemberEnergy(member, dayKey)
 }
 
 const isToday = (date) => {
@@ -302,26 +293,6 @@ watch(() => schedulingStore.memberAvailability, () => {
 
 .today-button:hover {
 	background: var(--color-background-dark);
-}
-
-.loading-state {
-	text-align: center;
-	padding: 3rem 0;
-}
-
-.loading-spinner {
-	width: 40px;
-	height: 40px;
-	border: 3px solid var(--color-border);
-	border-top: 3px solid var(--color-primary);
-	border-radius: 50%;
-	animation: spin 1s linear infinite;
-	margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-	0% { transform: rotate(0deg); }
-	100% { transform: rotate(360deg); }
 }
 
 .week-view {

@@ -23,6 +23,27 @@ export function translatePlural(app, singular, plural, count) {
 }
 
 /**
+ * Locale + calendar-name mocks. Configurable jest.fn()s so specs can pin
+ * formatter output per locale (e.g. mockReturnValueOnce('de')). Defaults
+ * mirror an English Nextcloud instance.
+ */
+export const getLocale = jest.fn(() => 'en')
+export const getLanguage = jest.fn(() => 'en')
+
+export const getDayNames = jest.fn(() => [
+	'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+])
+export const getDayNamesShort = jest.fn(() => [
+	'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat',
+])
+export const getDayNamesMin = jest.fn(() => [
+	'Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa',
+])
+export const getMonthNamesShort = jest.fn(() => [
+	'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+])
+
+/**
  * Mock for `loadTranslations`. The real implementation fetches the bundle for
  * the current language; the mock is a configurable jest.fn (defaulting to a
  * resolved empty bundle) so `i18n.spec.js` and any other importer can assert
