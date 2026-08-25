@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCP\IDBConnection;
+use OCP\IL10N;
 
 /**
  * Applies the first-run house setup wizard payload in a single transaction:
@@ -44,6 +45,7 @@ class HouseSetupService {
 	private HouseUserMapper $houseUserMapper;
 	private TemplateService $templateService;
 	private IDBConnection $db;
+	private IL10N $l10n;
 	private ?AppLogger $appLogger;
 
 	public function __construct(
@@ -54,6 +56,7 @@ class HouseSetupService {
 		HouseUserMapper $houseUserMapper,
 		TemplateService $templateService,
 		IDBConnection $db,
+		IL10N $l10n,
 		?AppLogger $appLogger = null,
 	) {
 		$this->floorMapper = $floorMapper;
@@ -63,6 +66,7 @@ class HouseSetupService {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->templateService = $templateService;
 		$this->db = $db;
+		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
 
@@ -189,7 +193,7 @@ class HouseSetupService {
 	private function validateBasics(array $payload): string {
 		$level = $payload['intensityLevel'] ?? null;
 		if (!is_string($level) || !in_array($level, TemplateService::LEVELS, true)) {
-			throw new \InvalidArgumentException('Invalid or missing intensity level');
+			throw new \InvalidArgumentException($this->l10n->t('Invalid or missing intensity level'));
 		}
 
 		return $level;
@@ -222,47 +226,47 @@ class HouseSetupService {
 	 */
 	private function validateFloors($floors, int $houseId): array {
 		if (!is_array($floors) || $floors === []) {
-			throw new \InvalidArgumentException('At least one floor is required');
+			throw new \InvalidArgumentException($this->l10n->t('At least one floor is required'));
 		}
 
 		if (count($floors) > self::MAX_FLOORS) {
-			throw new \InvalidArgumentException('A maximum of ' . self::MAX_FLOORS . ' floors is allowed');
+			throw new \InvalidArgumentException($this->l10n->t('A maximum of %1$d floors is allowed', [self::MAX_FLOORS]));
 		}
 
 		$validated = [];
 		foreach ($floors as $floor) {
 			if (!is_array($floor)) {
-				throw new \InvalidArgumentException('Invalid floor definition');
+				throw new \InvalidArgumentException($this->l10n->t('Invalid floor definition'));
 			}
 
 			$name = $this->validateName($floor['name'] ?? null, 'floor');
 			$rooms = $floor['rooms'] ?? [];
 			if (!is_array($rooms) || $rooms === []) {
-				throw new \InvalidArgumentException('At least one room is required per floor');
+				throw new \InvalidArgumentException($this->l10n->t('At least one room is required per floor'));
 			}
 			if (count($rooms) > self::MAX_ROOMS_PER_FLOOR) {
 				throw new \InvalidArgumentException(
-					'A maximum of ' . self::MAX_ROOMS_PER_FLOOR . ' rooms per floor is allowed'
+					$this->l10n->t('A maximum of %1$d rooms per floor is allowed', [self::MAX_ROOMS_PER_FLOOR])
 				);
 			}
 
 			$validatedRooms = [];
 			foreach ($rooms as $room) {
 				if (!is_array($room)) {
-					throw new \InvalidArgumentException('Invalid room definition');
+					throw new \InvalidArgumentException($this->l10n->t('Invalid room definition'));
 				}
 
 				$roomName = $this->validateName($room['name'] ?? null, 'room');
 				$roomType = $room['roomType'] ?? null;
 				if (!is_string($roomType) || !$this->templateService->isValidRoomType($roomType)) {
-					throw new \InvalidArgumentException('Invalid room type: ' . (string)$roomType);
+					throw new \InvalidArgumentException($this->l10n->t('Invalid room type: %1$s', [(string)$roomType]));
 				}
 
 				$assigneeUserId = $room['assigneeUserId'] ?? null;
 				if (is_string($assigneeUserId) && trim($assigneeUserId) !== '') {
 					if ($this->houseUserMapper->findByHouseAndUser($houseId, $assigneeUserId) === null) {
 						throw new \InvalidArgumentException(
-							'Assignee is not a member of this house: ' . $assigneeUserId
+							$this->l10n->t('Assignee is not a member of this house: %1$s', [$assigneeUserId])
 						);
 					}
 				} else {
@@ -293,12 +297,12 @@ class HouseSetupService {
 	 */
 	private function validateName($name, string $context): string {
 		if (!is_string($name) || trim($name) === '') {
-			throw new \InvalidArgumentException('A ' . $context . ' name is required');
+			throw new \InvalidArgumentException($this->l10n->t('A %1$s name is required', [$context]));
 		}
 
 		$trimmed = trim($name);
 		if (mb_strlen($trimmed) > self::MAX_NAME_LENGTH) {
-			throw new \InvalidArgumentException('A ' . $context . ' name must not exceed ' . self::MAX_NAME_LENGTH . ' characters');
+			throw new \InvalidArgumentException($this->l10n->t('A %1$s name must not exceed %2$d characters', [$context, self::MAX_NAME_LENGTH]));
 		}
 
 		return $trimmed;

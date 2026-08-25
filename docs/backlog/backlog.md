@@ -287,27 +287,8 @@ Every config key is touched in 4-5 places (const + get + set + `updateConfig` br
 VALIDATION_ERROR literals) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-SVC-62 — Remaining client-visible English literals (CR-SVC-37 remainder)
-**Status**: Open · **Effort**: M · **Source**: Review of CS-PLAN-046 (2026-08-25)
-CR-SVC-37 swept `TaskService::validateTaskData`, `MinigameService::purchaseBoost`
-and the `RoomController` VALIDATION_ERROR sites; the same i18n rule violation
-persists across the rest of the API surface:
-- Controller `'message' => '<literal>'` sites (~45): `TaskController` (~20,
-  incl. 'Validation failed', 'Task not found', admin-only/private guards, date
-  rejections), `RoomTaskController` (8, incl. 'User ID is required' ×4,
-  'Days must be between 1 and 365'), `ChecklistController` (8),
-  `FloorController` (4), `SetupController` (3), `TaskSyncController` (3),
-  `HouseController` (2), `SchedulingController` (1), `RoomController` (1:
-  'Room deleted successfully'). `TestController` excluded (test-mode only).
-- Service `InvalidArgumentException` literals surfaced via
-  `ControllerErrorFormatter::validation()`: `HouseSetupService` (9),
-  `SchedulingService`/`SchedulingController` section+weekday messages (5),
-  `RoomTaskService` (4), `RoomTaskController` 'Invalid nextDue date format'
-  (2), `TaskService::updateTask` 'Unknown or immutable field' (1),
-  `FloorService` (1), `HouseService` 'Invalid role…' (1).
-- [ ] Same pass as CR-SVC-37: inject `IL10N`, wrap with `t()` (printf-style
-      positional parameters where interpolated), audit each site against the
-      `validation()` client-safe contract, sync `l10n/` artifacts, update the
-      identity-mock assertions.
+**Status**: Resolved 2026-08-25 (CS-PLAN-047, incl. the D1 NotFound/Forbidden
+sweep and the D2 untranslated-fallback policy) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-SVC-40 — `RoomService` reaches below its layer (`IDBConnection`)
 **Effort**: M — injects `IDBConnection` for `beginTransaction`/`lockForUpdate` (persistence

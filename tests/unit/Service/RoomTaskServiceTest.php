@@ -22,6 +22,7 @@ use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -60,8 +61,15 @@ class RoomTaskServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
-			$this->db
+			$this->db,
+			$this->createIdentityL10n()
 		);
+	}
+
+	private function createIdentityL10n(): IL10N {
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		return $l10n;
 	}
 
 	/**
@@ -489,7 +497,7 @@ class RoomTaskServiceTest extends TestCase {
 		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
 
 		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('User is not a member of this house: intruder');
+		$this->expectExceptionMessage('User is not a member of this house: %1$s');
 
 		$this->service->assignTask($roomTaskId, 'intruder', $houseId);
 	}
@@ -989,7 +997,7 @@ class RoomTaskServiceTest extends TestCase {
 		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
 
 		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('User is not a member of this house: stranger');
+		$this->expectExceptionMessage('User is not a member of this house: %1$s');
 
 		$this->service->bulkAssignTasks([1, 2], $userId, $houseId);
 	}

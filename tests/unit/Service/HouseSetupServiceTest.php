@@ -50,7 +50,8 @@ class HouseSetupServiceTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->houseUserMapper,
 			$this->templateService,
-			$this->db
+			$this->db,
+			$l10n
 		);
 	}
 
@@ -310,6 +311,8 @@ class HouseSetupServiceTest extends TestCase {
 	}
 
 	private function rebuildService(): void {
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(fn ($t) => $t);
 		$this->service = new HouseSetupService(
 			$this->floorMapper,
 			$this->roomMapper,
@@ -317,7 +320,8 @@ class HouseSetupServiceTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->houseUserMapper,
 			$this->templateService,
-			$this->db
+			$this->db,
+			$l10n
 		);
 	}
 }

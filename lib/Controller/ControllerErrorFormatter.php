@@ -26,6 +26,13 @@ final class ControllerErrorFormatter {
 	 *
 	 * @param \Throwable $e The caught exception
 	 * @param string $fallback Generic message for non-domain exceptions
+	 *
+	 * i18n policy (CS-PLAN-047, decision D2): the $fallback stays
+	 * deliberately untranslated. It guards genuinely unexpected errors whose
+	 * detail is hidden and logged server-side; every intentional,
+	 * user-facing message (domain exceptions, curated validation() catches)
+	 * is wrapped in t() at its throw site. See
+	 * docs/standards/guidelines/i18n.md.
 	 */
 	public static function safeMessage(\Throwable $e, string $fallback = 'An unexpected error occurred'): string {
 		// Only NotFoundException / ForbiddenException carry intentional,

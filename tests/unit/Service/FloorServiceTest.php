@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -32,13 +33,17 @@ class FloorServiceTest extends TestCase {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->roomService = $this->createMock(RoomService::class);
 		$this->db = $this->createMock(IDBConnection::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->service = new FloorService(
 			$this->floorMapper,
 			$this->roomMapper,
 			$this->roomTaskMapper,
 			$this->roomService,
-			$this->db
+			$this->db,
+			$l10n
 		);
 	}
 

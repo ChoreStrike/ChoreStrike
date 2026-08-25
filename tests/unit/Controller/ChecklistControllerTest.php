@@ -21,6 +21,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -52,8 +53,15 @@ class ChecklistControllerTest extends TestCase {
 			$this->progressMapper,
 			$this->roomTaskService,
 			$this->houseService,
-			$this->authService
+			$this->authService,
+			$this->createIdentityL10n()
 		);
+	}
+
+	private function createIdentityL10n(): IL10N {
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		return $l10n;
 	}
 
 	/**

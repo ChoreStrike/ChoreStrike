@@ -22,6 +22,7 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
+use OCP\IL10N;
 
 /**
  * Service for room task-related business logic
@@ -37,6 +38,7 @@ class RoomTaskService {
 	private CompletedTaskMapper $completedTaskMapper;
 	private TemplateService $templateService;
 	private IDBConnection $db;
+	private IL10N $l10n;
 	private ?AppLogger $appLogger;
 
 	public function __construct(
@@ -50,6 +52,7 @@ class RoomTaskService {
 		CompletedTaskMapper $completedTaskMapper,
 		TemplateService $templateService,
 		IDBConnection $db,
+		IL10N $l10n,
 		?AppLogger $appLogger = null,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -62,6 +65,7 @@ class RoomTaskService {
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->templateService = $templateService;
 		$this->db = $db;
+		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
 
@@ -78,7 +82,7 @@ class RoomTaskService {
 			$room = $this->roomMapper->find($roomTask->getRoomId());
 			$floor = $this->floorMapper->find($room->getFloorId());
 		} catch (DoesNotExistException $e) {
-			throw new NotFoundException('Room task not found');
+			throw new NotFoundException($this->l10n->t('Room task not found'));
 		}
 
 		if ($floor->getHouseId() !== $houseId) {
@@ -88,7 +92,7 @@ class RoomTaskService {
 				'houseId' => $houseId,
 				'actualHouseId' => $floor->getHouseId(),
 			]);
-			throw new NotFoundException('Room task not found');
+			throw new NotFoundException($this->l10n->t('Room task not found'));
 		}
 	}
 
@@ -197,7 +201,7 @@ class RoomTaskService {
 			$room = $this->roomMapper->find($roomId);
 			$floor = $this->floorMapper->find($room->getFloorId());
 		} catch (DoesNotExistException $e) {
-			throw new NotFoundException('Room not found');
+			throw new NotFoundException($this->l10n->t('Room not found'));
 		}
 
 		if ($floor->getHouseId() !== $houseId) {
@@ -207,14 +211,14 @@ class RoomTaskService {
 				'houseId' => $houseId,
 				'actualHouseId' => $floor->getHouseId(),
 			]);
-			throw new NotFoundException('Room not found');
+			throw new NotFoundException($this->l10n->t('Room not found'));
 		}
 
 		// CR-SVC-01: a stamped assignee must be a member of the caller's house.
 		if ($assignedToUserId !== null && $assignedToUserId !== '') {
 			if ($this->houseUserMapper->findByHouseAndUser($houseId, $assignedToUserId) === null) {
 				throw new \InvalidArgumentException(
-					'Assigned user is not a member of this house: ' . $assignedToUserId
+					$this->l10n->t('Assigned user is not a member of this house: %1$s', [$assignedToUserId])
 				);
 			}
 		}
@@ -225,7 +229,7 @@ class RoomTaskService {
 
 		// Check if room task already exists
 		if ($this->roomTaskMapper->exists($roomId, $taskId)) {
-			throw new \InvalidArgumentException("Task {$taskId} already exists in room {$roomId}");
+			throw new \InvalidArgumentException($this->l10n->t('Task %1$d already exists in room %2$d', [$taskId, $roomId]));
 		}
 
 		// Default to tomorrow if no due date provided
@@ -355,7 +359,7 @@ class RoomTaskService {
 				continue;
 			}
 			if (!in_array($userId, $memberIds, true)) {
-				throw new \InvalidArgumentException('User is not a member of this house: ' . $userId);
+				throw new \InvalidArgumentException($this->l10n->t('User is not a member of this house: %1$s', [$userId]));
 			}
 		}
 	}
@@ -430,7 +434,7 @@ class RoomTaskService {
 		$this->assertHouseMembers([$userId], $houseId);
 
 		if ($this->taskAssigneeMapper->isAssignee($roomTaskId, $userId)) {
-			throw new \InvalidArgumentException('User is already assigned to this task');
+			throw new \InvalidArgumentException($this->l10n->t('User is already assigned to this task'));
 		}
 
 		return $this->taskAssigneeMapper->addAssignee($roomTaskId, $userId, $assignedBy);

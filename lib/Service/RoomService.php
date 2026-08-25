@@ -25,6 +25,7 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
+use OCP\IL10N;
 
 /**
  * Service for room-related business logic
@@ -43,6 +44,7 @@ class RoomService {
 	private HouseMapper $houseMapper;
 	private NotificationService $notificationService;
 	private IDBConnection $db;
+	private IL10N $l10n;
 
 	public function __construct(
 		RoomMapper $roomMapper,
@@ -58,6 +60,7 @@ class RoomService {
 		HouseMapper $houseMapper,
 		NotificationService $notificationService,
 		IDBConnection $db,
+		IL10N $l10n,
 	) {
 		$this->roomMapper = $roomMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -72,6 +75,7 @@ class RoomService {
 		$this->houseMapper = $houseMapper;
 		$this->notificationService = $notificationService;
 		$this->db = $db;
+		$this->l10n = $l10n;
 	}
 
 	/**
@@ -86,7 +90,7 @@ class RoomService {
 		$floor = $this->floorMapper->find($room->getFloorId());
 
 		if ($floor->getHouseId() !== $houseId) {
-			throw new NotFoundException('Room not found');
+			throw new NotFoundException($this->l10n->t('Room not found'));
 		}
 	}
 
@@ -316,7 +320,7 @@ class RoomService {
 		$houseId = $floor->getHouseId();
 		$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
 		if ($houseUser === null) {
-			throw new ForbiddenException('Only house members can complete tasks');
+			throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
 		}
 
 		// Captured inside the transaction if a takeover happens, dispatched
@@ -344,7 +348,7 @@ class RoomService {
 			// critical section (CR-SVC-50 targets a different query class).
 			$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
 			if ($houseUser === null) {
-				throw new ForbiddenException('Only house members can complete tasks');
+				throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
 			}
 
 			// Resolve the full set of assigned Nextcloud user IDs for this room task:
@@ -357,12 +361,12 @@ class RoomService {
 			// Private-task gate: only assigned users may complete a private task.
 			// Non-private tasks remain completable by any house member.
 			if ($task->isPrivate() && !in_array($userId, $assigneeUserIds, true)) {
-				throw new ForbiddenException('Private tasks may only be completed by assigned users');
+				throw new ForbiddenException($this->l10n->t('Private tasks may only be completed by assigned users'));
 			}
 
 			// Admin-only gate: only house owners may complete admin-only tasks.
 			if ($task->getVisibilityType() === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
-				throw new ForbiddenException('Admin-only tasks may only be completed by house owners');
+				throw new ForbiddenException($this->l10n->t('Admin-only tasks may only be completed by house owners'));
 			}
 
 			// Duplicate-completion guard: prevent the same user from earning coins
@@ -374,7 +378,7 @@ class RoomService {
 				new \DateTime()
 			);
 			if ($todayCount > 0) {
-				throw new ForbiddenException('You already completed this task today');
+				throw new ForbiddenException($this->l10n->t('You already completed this task today'));
 			}
 
 			// Overdue-takeover: only record a takeover when a NON-assignee picks

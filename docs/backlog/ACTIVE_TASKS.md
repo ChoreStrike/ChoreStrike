@@ -19,6 +19,8 @@
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
+- **CS-PLAN-047** — API i18n Completion Sweep (closed **CR-SVC-62**; D1=YES / D2=exception signed off): scripted inventory audit over `lib/` (all three exception types + `'message' =>`, classified per catching controller) froze the wrap list before edits; required non-nullable `IL10N` injected into 8 controllers + 8 services; all 62 controller `'message'` literals wrapped; curated service IAEs wrapped (`HouseSetupService` ×11 printf-converted, `SchedulingService:45`, `RoomTaskService` ×4, `MinigameService::saveScore`, audit-promoted `TemplateService::materializeTemplate` ×3); D1 sweep wrapped all 24 NotFound/Forbidden literals (`Authorization/Room/Task/RoomTask/House/Floor/Activity` services); audit reclassifications recorded in plan §2a (`TaskService:200`, `FloorService:130`, `HouseService:137`, `RoomTaskService:870` hidden by `safeMessage()` catch-alls or curated responses → unwrapped); D2 fallback policy in formatter docblock + `i18n.md` backend-error contract; l10n en/de/pot synced (pot fully regenerated from en.json, 890 msgids, 91 unsynced backend keys backfilled). Gate: Docker PHPUnit unit 834 / integration 200 [24 pre-existing skips] / Jest 831 / lint clean / cs:check 0/267 / noise + l10n:check-keys clean / E2E grep no hits. Standard-B review 2026-08-25: **PASS** — 2 auto-fixes (l10n artifacts: newly wrapped `Template "%1$s" is not available for level "%2$s"` + notifier rich-subject backfill gap `Your task "{task}" was taken over by {claimer}` added to en/de/pot → 892 keys), §2a catch-path claims all re-verified, gate re-verified (lint/l10n/noise clean, Jest 831, Docker PHPUnit 834/200 [24 pre-existing skips], cs:check 0/267, E2E grep no hits). (2026-08-25, Done — plan moved to `done/`) → [`../plans/done/cs-plan-047-api-i18n-completion-sweep.md`](../plans/done/cs-plan-047-api-i18n-completion-sweep.md)
+
 - **CS-PLAN-046** — Backend Test Integrity & i18n Quick-Wins (closed **CR-016-10** + **CR-SVC-52** + **CR-SVC-37** + **CR-027-02**; D1=delete signed off): real-DB `CompletedTaskMapperEnergyTest` (zero/sum/day-boundary/cross-user, Docker family profile) for the fixed energy SQL; dispatch-after-commit ordering assertion in `RoomServiceTest` with mutation check (red→green verified); i18n sweep wrapping all client-visible literals (`TaskService::validateTaskData` ×10, `MinigameService::purchaseBoost` incl. printf-positional insufficient-coins message, `RoomController` ×7 VALIDATION_ERROR) with injected `IL10N`; dead `TemplateService::searchTemplates` + its 4 tests deleted (grep-verified; concept doc updated); l10n en/de/pot synced (pot fully regenerated). Gate: PHPUnit unit 834 / integration 200 [24 pre-existing skips] / Jest 831 / lint + stylelint 0/0 / l10n:check-keys clean. Standard-B review 2026-08-25: **PASS** — 1 auto-fix (`RoomServiceTest` `$callOrder` explicit initialization), **CR-SVC-62** logged (remaining client-visible English literals across the rest of the API surface — CR-SVC-37 remainder), gate re-verified (lint/stylelint/l10n clean, Jest 831, Docker PHPUnit 834/200 [24 pre-existing skips], `CompletedTaskMapperEnergyTest` 4/4). (2026-08-24, Done — plan moved to `done/`) → [`../plans/done/cs-plan-046-backend-test-integrity-i18n-quick-wins.md`](../plans/done/cs-plan-046-backend-test-integrity-i18n-quick-wins.md)
 
 - **CS-PLAN-045** — Backend Hardening & Correctness Sweep (closed **BUG-SEC-002** + **CR-027-01** + **CR-016-15** + **CR-SVC-19/32/33**; D1=delete/D2=reject-400/D3=403+409 signed off): server-side role guards in `HouseService::updateUserRole` (self-demotion 403 `CANNOT_DEMOTE_SELF`, last-owner 409 `CANNOT_DEMOTE_LAST_OWNER` via new `ConflictException` + `countOwnersForHouse`; thin controller; real-DB `RoleGuardApiTest`); roomType catalog + length validation (400); single `assertValidEnergyBudget` source for all three bounds sites; reward-config clamping on read+write with `AppLogger` warnings; calendar-day `calculateDaysEarly` (fixed-date DST/midnight pins, injectable `$now`); dead reward-less `TaskService` completion pair deleted. Gate: PHPUnit unit 838 / integration 196 [24 pre-existing skips] / Jest 831 / lint + stylelint 0/0 / noise + l10n + cs:check clean / webpack green / E2E members-owner 6/6 (`--retries=0`). Standard-B review 2026-08-24: **PASS** — 0 code findings; 2 doc auto-fixes (stale plan-043 `active/`→`done/` links in ACTIVE_TASKS + archive), CR-SVC-37 scope note appended (unwrapped RoomController VALIDATION_ERROR messages, per-plan style decision); gate re-verified (lint clean, Jest 831, Docker PHPUnit 838/196 [24 pre-existing skips]). (2026-08-24, Done) → [`../plans/done/cs-plan-045-backend-hardening-correctness-sweep.md`](../plans/done/cs-plan-045-backend-hardening-correctness-sweep.md)
@@ -155,6 +157,36 @@
 > `searchTemplates`; D1 = remove vs wire flagged). All file:line refs and
 > no-caller claims verified against the tree; ready for review + manual
 > `new/ → active/` move.
+
+> **CS-PLAN-047 was activated and implemented (2026-08-25, D1=YES/D2=exception
+> signed off)** — see Recently Completed above.
+
+> **CS-PLAN-047 drafted (2026-08-25)** — API i18n Completion Sweep in
+> `docs/plans/new/`: closes **CR-SVC-62** fully — 52 controller `'message'`
+> literals across 9 controllers + the curated service `InvalidArgumentException`
+> set surfaced via `validation()` (counts re-verified against the tree;
+> backlog estimates corrected). Decisions **signed off 2026-08-25**:
+> **D1=YES** (the 24 `NotFoundException`/`ForbiddenException` literals
+> surfaced verbatim by `safeMessage()` are in scope), **D2=documented
+> exception** (the `safeMessage` generic fallback stays untranslated; policy
+> recorded in `i18n.md` + formatter docblock). Frontend untouched (error text
+> flows through toasts). Ready for review + manual `new/ → active/` move.
+> Recommended follow-ups after 047: UX-016 (Modal accessible names, S), then
+> BUG-E2E-001/003 (E2E integrity) or CR-SVC-16 (P2, RewardConfigService
+> registry).
+
+> **CS-PLAN-047 plan review (2026-08-25)**: Standard A — **GO-WITH-CHANGES**,
+> fixes applied inline to the plan: controller inventory corrected 52 → 62
+> literal sites (re-grep verified — draft missed 8 `RoomTaskController` sites:
+> 61/67 fromTemplate guards, 124 scope guard, 708/720 bulk-assign validations,
+> 867/880/935 stats range validations; and 2 `TaskSyncController` completedAt
+> validations: 93/103), §3/§6 counts updated accordingly;
+> `tests/unit/Service/MinigameServiceTest.php` added to the manifest (assertion
+> for saveScore line 85 promised by §4); sibling wrap ref corrected
+> (`MinigameService` 267 → 266). All D1 (24 NotFound/Forbidden) and curated IAE
+> counts, IL10N-injection claims, audit-dependent refs, exclusions, l10n
+> artifact paths, npm/composer gates, Jest baseline, and every other manifest
+> path verified against the tree. Ready for manual `new/ → active/` move.
 
 > **CS-PLAN-046 plan review (2026-08-24)**: Standard A — **GO-WITH-CHANGES**,
 > fixes applied inline to the plan: i18n parameter style corrected from named

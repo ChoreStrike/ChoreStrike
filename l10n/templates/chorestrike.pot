@@ -17,6 +17,9 @@ msgstr ""
 msgid "%1$s completed your overdue task so your streak is safe. Be a hero and pick up one of theirs next time!"
 msgstr ""
 
+msgid "%1$s must contain all seven weekdays (missing: %2$s)"
+msgstr ""
+
 msgid "(you)"
 msgstr ""
 
@@ -32,6 +35,24 @@ msgstr ""
 msgid "8-12 energy per day"
 msgstr ""
 
+msgid "A %1$s name is required"
+msgstr ""
+
+msgid "A %1$s name must not exceed %2$d characters"
+msgstr ""
+
+msgid "A JSON request body is required"
+msgstr ""
+
+msgid "A maximum of %1$d floors is allowed"
+msgstr ""
+
+msgid "A maximum of %1$d rooms per floor is allowed"
+msgstr ""
+
+msgid "Active"
+msgstr ""
+
 msgid "Active From"
 msgstr ""
 
@@ -41,7 +62,7 @@ msgstr ""
 msgid "Active until must be equal or after active from"
 msgstr ""
 
-msgid "Active"
+msgid "Add"
 msgstr ""
 
 msgid "Add Floor"
@@ -71,22 +92,22 @@ msgstr ""
 msgid "Add to room"
 msgstr ""
 
-msgid "Add"
-msgstr ""
-
 msgid "Adjust"
 msgstr ""
 
-msgid "Admin-Only"
+msgid "Admin-only task"
 msgstr ""
 
-msgid "Admin-only task"
+msgid "Admin-only tasks may only be completed by house owners"
 msgstr ""
 
 msgid "Admins only"
 msgstr ""
 
 msgid "Affected Tasks"
+msgstr ""
+
+msgid "All"
 msgstr ""
 
 msgid "All done — enjoy your day!"
@@ -104,9 +125,6 @@ msgstr ""
 msgid "All tiers unlocked!"
 msgstr ""
 
-msgid "All"
-msgstr ""
-
 msgid "Analyzing tasks and generating optimal schedule..."
 msgstr ""
 
@@ -119,6 +137,9 @@ msgstr ""
 msgid "Apartment"
 msgstr ""
 
+msgid "Apply"
+msgstr ""
+
 msgid "Apply bowl cleaner, let it sit, scrub with the brush, then wipe the seat and the outside from top to bottom."
 msgstr ""
 
@@ -126,9 +147,6 @@ msgid "Apply cleaner to the walls and tub, scrub the grout and tiles, descale th
 msgstr ""
 
 msgid "Apply grout cleaner, scrub the lines with a small brush, rinse, and wipe the tiles dry."
-msgstr ""
-
-msgid "Apply"
 msgstr ""
 
 msgid "Applying a suggestion commits your share of that day's energy to your own week."
@@ -146,19 +164,37 @@ msgstr ""
 msgid "Are you sure you want to reset the house?"
 msgstr ""
 
-msgid "Assign to member…"
-msgstr ""
-
 msgid "Assign"
 msgstr ""
 
-msgid "Assigned members"
+msgid "Assign to member…"
 msgstr ""
 
 msgid "Assigned"
 msgstr ""
 
+msgid "Assigned members"
+msgstr ""
+
+msgid "Assigned user is not a member of this house: %1$s"
+msgstr ""
+
+msgid "Assignee is not a member of this house: %1$s"
+msgstr ""
+
+msgid "Assignee removed successfully"
+msgstr ""
+
 msgid "At least one day must be available"
+msgstr ""
+
+msgid "At least one floor is required"
+msgstr ""
+
+msgid "At least one room is required per floor"
+msgstr ""
+
+msgid "At least one section (weekdayAvailability or energyBudget) must be provided"
 msgstr ""
 
 msgid "Availability must be boolean for {day}"
@@ -170,10 +206,13 @@ msgstr ""
 msgid "Availability updated successfully"
 msgstr ""
 
-msgid "Available Members"
+msgid "Availability values must be booleans"
 msgstr ""
 
 msgid "Available"
+msgstr ""
+
+msgid "Available Members"
 msgstr ""
 
 msgid "Avg Daily Energy"
@@ -194,13 +233,13 @@ msgstr ""
 msgid "Bedroom"
 msgstr ""
 
+msgid "Bonus"
+msgstr ""
+
 msgid "Bonus Coins"
 msgstr ""
 
 msgid "Bonus freeze earned from combo!"
-msgstr ""
-
-msgid "Bonus"
 msgstr ""
 
 msgid "Boost prices could not be loaded. Purchases are disabled."
@@ -221,7 +260,13 @@ msgstr ""
 msgid "Cannot demote the last house owner"
 msgstr ""
 
+msgid "Cannot demote yourself"
+msgstr ""
+
 msgid "Cannot remove house owner"
+msgstr ""
+
+msgid "Cannot remove the house owner"
 msgstr ""
 
 msgid "Capacity"
@@ -252,6 +297,18 @@ msgid "Check the soil moisture, water as needed, pick off dead leaves, and rotat
 msgstr ""
 
 msgid "Check the soil, water the beds and balcony plants in the cooler hours, and deadhead the flowers."
+msgstr ""
+
+msgid "Checklist item added"
+msgstr ""
+
+msgid "Checklist item deleted"
+msgstr ""
+
+msgid "Checklist item label is required"
+msgstr ""
+
+msgid "Checklist item updated"
 msgstr ""
 
 msgid "Child"
@@ -299,9 +356,6 @@ msgstr ""
 msgid "Clean shower/bathtub"
 msgstr ""
 
-msgid "Clean shower\/bathtub"
-msgstr ""
-
 msgid "Clean sink and vanity"
 msgstr ""
 
@@ -314,16 +368,16 @@ msgstr ""
 msgid "Clean toilet"
 msgstr ""
 
-msgid "Cleaning level"
-msgstr ""
-
 msgid "Cleaning"
 msgstr ""
 
-msgid "Cleanliness change must be between -100 and 100"
+msgid "Cleaning level"
 msgstr ""
 
 msgid "Cleanliness"
+msgstr ""
+
+msgid "Cleanliness change must be between -100 and 100"
 msgstr ""
 
 msgid "Clear and wipe desk"
@@ -365,10 +419,10 @@ msgstr ""
 msgid "Coin Multiplier"
 msgstr ""
 
-msgid "Coins earned!"
+msgid "Coins"
 msgstr ""
 
-msgid "Coins"
+msgid "Coins earned!"
 msgstr ""
 
 msgid "Collapse floor"
@@ -407,10 +461,10 @@ msgstr ""
 msgid "Consistent daily activity"
 msgstr ""
 
-msgid "Contribution Score"
+msgid "Contribution"
 msgstr ""
 
-msgid "Contribution"
+msgid "Contribution Score"
 msgstr ""
 
 msgid "Could not complete the task"
@@ -437,19 +491,22 @@ msgstr ""
 msgid "Current Streak"
 msgstr ""
 
-msgid "Custom task"
-msgstr ""
-
 msgid "Custom"
 msgstr ""
 
-msgid "Daily Energy Budget"
+msgid "Custom task"
 msgstr ""
 
 msgid "Daily"
 msgstr ""
 
+msgid "Daily Energy Budget"
+msgstr ""
+
 msgid "Dashboard"
+msgstr ""
+
+msgid "Days must be between 1 and 365"
 msgstr ""
 
 msgid "Deal with the paper pile."
@@ -462,6 +519,9 @@ msgid "Deep clean oven"
 msgstr ""
 
 msgid "Degrease the stovetop and knobs."
+msgstr ""
+
+msgid "Delete"
 msgstr ""
 
 msgid "Delete Floor"
@@ -482,9 +542,6 @@ msgstr ""
 msgid "Delete room"
 msgstr ""
 
-msgid "Delete"
-msgstr ""
-
 msgid "Description"
 msgstr ""
 
@@ -497,10 +554,16 @@ msgstr ""
 msgid "Display Name"
 msgstr ""
 
+msgid "Display name is required"
+msgstr ""
+
 msgid "Do laundry"
 msgstr ""
 
 msgid "Done"
+msgstr ""
+
+msgid "Due"
 msgstr ""
 
 msgid "Due Date"
@@ -516,9 +579,6 @@ msgid "Due date saved, but assigning members failed"
 msgstr ""
 
 msgid "Due today"
-msgstr ""
-
-msgid "Due"
 msgstr ""
 
 msgid "Dust all the surfaces."
@@ -575,6 +635,9 @@ msgstr ""
 msgid "Early completion bonus available!"
 msgstr ""
 
+msgid "Edit"
+msgstr ""
+
 msgid "Edit Availability"
 msgstr ""
 
@@ -590,9 +653,6 @@ msgstr ""
 msgid "Edit task"
 msgstr ""
 
-msgid "Edit"
-msgstr ""
-
 msgid "Email address"
 msgstr ""
 
@@ -600,9 +660,6 @@ msgid "Email is required"
 msgstr ""
 
 msgid "Empty dishwasher / do dishes"
-msgstr ""
-
-msgid "Empty dishwasher \/ do dishes"
 msgstr ""
 
 msgid "Empty office trash"
@@ -620,10 +677,16 @@ msgstr ""
 msgid "Empty the sink, scrub the basin and drain, and wipe the tap until it shines."
 msgstr ""
 
+msgid "Energy"
+msgstr ""
+
 msgid "Energy Budget Settings"
 msgstr ""
 
 msgid "Energy Cost"
+msgstr ""
+
+msgid "Energy budget must be between 1 and 20"
 msgstr ""
 
 msgid "Energy budget saved successfully!"
@@ -641,19 +704,16 @@ msgstr ""
 msgid "Energy values must be between 1 and 20"
 msgstr ""
 
-msgid "Energy"
-msgstr ""
-
 msgid "Error"
 msgstr ""
 
 msgid "Estimated Time"
 msgstr ""
 
-msgid "Estimated time must be between 1 and 480 minutes"
+msgid "Estimated time"
 msgstr ""
 
-msgid "Estimated time"
+msgid "Estimated time must be between 1 and 480 minutes"
 msgstr ""
 
 msgid "Even distribution"
@@ -743,6 +803,9 @@ msgstr ""
 msgid "Failed to reset house"
 msgstr ""
 
+msgid "Failed to retrieve current user"
+msgstr ""
+
 msgid "Failed to retrieve titles"
 msgstr ""
 
@@ -776,6 +839,9 @@ msgstr ""
 msgid "Failed to update task"
 msgstr ""
 
+msgid "Failed to update user"
+msgstr ""
+
 msgid "Failed to update user profile"
 msgstr ""
 
@@ -785,10 +851,10 @@ msgstr ""
 msgid "Fairness"
 msgstr ""
 
-msgid "Fixed schedule (e.g., every Monday 18:00)"
+msgid "Fixed schedule"
 msgstr ""
 
-msgid "Fixed schedule"
+msgid "Fixed schedule (e.g., every Monday 18:00)"
 msgstr ""
 
 msgid "Flex Days"
@@ -797,13 +863,16 @@ msgstr ""
 msgid "Flex Window"
 msgstr ""
 
-msgid "Flexible scheduling window in days"
-msgstr ""
-
 msgid "Flexible"
 msgstr ""
 
+msgid "Flexible scheduling window in days"
+msgstr ""
+
 msgid "Flip cards and match pairs. Train your brain!"
+msgstr ""
+
+msgid "Floor"
 msgstr ""
 
 msgid "Floor ID is required"
@@ -815,13 +884,22 @@ msgstr ""
 msgid "Floor deleted"
 msgstr ""
 
+msgid "Floor deleted successfully"
+msgstr ""
+
+msgid "Floor name is required"
+msgstr ""
+
+msgid "Floor not found"
+msgstr ""
+
+msgid "Floor order is required"
+msgstr ""
+
 msgid "Floor order saved"
 msgstr ""
 
 msgid "Floor renamed"
-msgstr ""
-
-msgid "Floor"
 msgstr ""
 
 msgid "Floors"
@@ -836,10 +914,10 @@ msgstr ""
 msgid "Freezes"
 msgstr ""
 
-msgid "Frequency value must be at least 1"
+msgid "Frequency"
 msgstr ""
 
-msgid "Frequency"
+msgid "Frequency value must be at least 1"
 msgstr ""
 
 msgid "Fri"
@@ -854,10 +932,10 @@ msgstr ""
 msgid "Frozen"
 msgstr ""
 
-msgid "Garden & Balcony"
+msgid "Garden"
 msgstr ""
 
-msgid "Garden"
+msgid "Garden & Balcony"
 msgstr ""
 
 msgid "Gather bedroom laundry"
@@ -905,16 +983,19 @@ msgstr ""
 msgid "Hide rooms"
 msgstr ""
 
+msgid "High"
+msgstr ""
+
 msgid "High energy on weekends"
 msgstr ""
 
-msgid "High"
+msgid "Home"
 msgstr ""
 
 msgid "Home type"
 msgstr ""
 
-msgid "Home"
+msgid "House"
 msgstr ""
 
 msgid "House Health"
@@ -926,19 +1007,25 @@ msgstr ""
 msgid "House Overview"
 msgstr ""
 
-msgid "House health"
+msgid "House has been reset to initial state"
 msgstr ""
 
-msgid "House name saved"
+msgid "House health"
 msgstr ""
 
 msgid "House name"
 msgstr ""
 
-msgid "House was reset"
+msgid "House name is required"
 msgstr ""
 
-msgid "House"
+msgid "House name saved"
+msgstr ""
+
+msgid "House set up successfully"
+msgstr ""
+
+msgid "House was reset"
 msgstr ""
 
 msgid "Household & Co."
@@ -953,10 +1040,10 @@ msgstr ""
 msgid "How your household is really doing"
 msgstr ""
 
-msgid "Ideal Due Date"
+msgid "Ideal"
 msgstr ""
 
-msgid "Ideal"
+msgid "Ideal Due Date"
 msgstr ""
 
 msgid "Insights"
@@ -968,13 +1055,37 @@ msgstr ""
 msgid "Intelligent task distribution based on member availability and preferences"
 msgstr ""
 
+msgid "Invalid active from date"
+msgstr ""
+
+msgid "Invalid active until date"
+msgstr ""
+
+msgid "Invalid cleaning level: %1$s"
+msgstr ""
+
 msgid "Invalid day: {day}"
+msgstr ""
+
+msgid "Invalid fixed schedule time"
+msgstr ""
+
+msgid "Invalid floor definition"
 msgstr ""
 
 msgid "Invalid frequency type"
 msgstr ""
 
+msgid "Invalid nextDue date format"
+msgstr ""
+
+msgid "Invalid or missing intensity level"
+msgstr ""
+
 msgid "Invalid recurrence mode"
+msgstr ""
+
+msgid "Invalid reschedule date"
 msgstr ""
 
 msgid "Invalid role"
@@ -983,7 +1094,13 @@ msgstr ""
 msgid "Invalid role. Must be owner, member, or child"
 msgstr ""
 
+msgid "Invalid room definition"
+msgstr ""
+
 msgid "Invalid room type"
+msgstr ""
+
+msgid "Invalid room type: %1$s"
 msgstr ""
 
 msgid "Invalid scope type"
@@ -993,6 +1110,12 @@ msgid "Invalid title pack"
 msgstr ""
 
 msgid "Invalid visibility type"
+msgstr ""
+
+msgid "Invalid weekday: %1$s"
+msgstr ""
+
+msgid "Invite"
 msgstr ""
 
 msgid "Invite Family"
@@ -1007,7 +1130,10 @@ msgstr ""
 msgid "Invite sent to {email}"
 msgstr ""
 
-msgid "Invite"
+msgid "Item orders array is required"
+msgstr ""
+
+msgid "Items reordered"
 msgstr ""
 
 msgid "Joined"
@@ -1052,6 +1178,9 @@ msgstr ""
 msgid "Living Room"
 msgstr ""
 
+msgid "Load"
+msgstr ""
+
 msgid "Load Preview"
 msgstr ""
 
@@ -1059,9 +1188,6 @@ msgid "Load Suggestions"
 msgstr ""
 
 msgid "Load a preview to see scheduling capacity and suggestions"
-msgstr ""
-
-msgid "Load"
 msgstr ""
 
 msgid "Loading activity…"
@@ -1088,6 +1214,9 @@ msgstr ""
 msgid "Longest activity streak"
 msgstr ""
 
+msgid "Low"
+msgstr ""
+
 msgid "Low Energy Days"
 msgstr ""
 
@@ -1095,9 +1224,6 @@ msgid "Low energy schedule"
 msgstr ""
 
 msgid "Low weekdays, high weekends"
-msgstr ""
-
-msgid "Low"
 msgstr ""
 
 msgid "Maintenance"
@@ -1112,6 +1238,9 @@ msgstr ""
 msgid "Mark as done"
 msgstr ""
 
+msgid "Marked as synced"
+msgstr ""
+
 msgid "Matched"
 msgstr ""
 
@@ -1121,16 +1250,19 @@ msgstr ""
 msgid "Medium"
 msgstr ""
 
-msgid "Member Availability"
-msgstr ""
-
 msgid "Member"
 msgstr ""
 
-msgid "Members Affected"
+msgid "Member Availability"
+msgstr ""
+
+msgid "Member availability updated"
 msgstr ""
 
 msgid "Members"
+msgstr ""
+
+msgid "Members Affected"
 msgstr ""
 
 msgid "Memory"
@@ -1232,6 +1364,9 @@ msgstr ""
 msgid "No Members Found"
 msgstr ""
 
+msgid "No Nextcloud user found with this email address"
+msgstr ""
+
 msgid "No Preview Available"
 msgstr ""
 
@@ -1283,6 +1418,12 @@ msgstr ""
 msgid "Normal"
 msgstr ""
 
+msgid "Not a member of this house"
+msgstr ""
+
+msgid "Not authenticated"
+msgstr ""
+
 msgid "Not in this level"
 msgstr ""
 
@@ -1310,7 +1451,31 @@ msgstr ""
 msgid "Only assigned members can see and complete this task"
 msgstr ""
 
+msgid "Only house members can complete tasks"
+msgstr ""
+
+msgid "Only house owners can change admin-only task visibility"
+msgstr ""
+
+msgid "Only house owners can create admin-only tasks"
+msgstr ""
+
 msgid "Only house owners can see and complete this task"
+msgstr ""
+
+msgid "Only house owners can set admin-only visibility"
+msgstr ""
+
+msgid "Only house owners may delete an admin-only task"
+msgstr ""
+
+msgid "Only house owners may update an admin-only task"
+msgstr ""
+
+msgid "Only the task owner may delete a private task"
+msgstr ""
+
+msgid "Only the task owner may update a private task"
 msgstr ""
 
 msgid "Organize and declutter the basement."
@@ -1332,6 +1497,9 @@ msgid "Overloaded days ahead"
 msgstr ""
 
 msgid "Owner"
+msgstr ""
+
+msgid "Owner role required"
 msgstr ""
 
 msgid "Past latest date"
@@ -1373,16 +1541,22 @@ msgstr ""
 msgid "Previous"
 msgstr ""
 
+msgid "Priority"
+msgstr ""
+
 msgid "Priority must be between 1 and 3"
 msgstr ""
 
-msgid "Priority"
+msgid "Private"
 msgstr ""
 
 msgid "Private task"
 msgstr ""
 
-msgid "Private"
+msgid "Private tasks may only be completed by assigned users"
+msgstr ""
+
+msgid "Progress initialized"
 msgstr ""
 
 msgid "Public"
@@ -1412,6 +1586,9 @@ msgstr ""
 msgid "Quick Templates"
 msgstr ""
 
+msgid "Range must not exceed 60 days"
+msgstr ""
+
 msgid "Recent Activity"
 msgstr ""
 
@@ -1433,6 +1610,9 @@ msgstr ""
 msgid "Refresh the tile grout."
 msgstr ""
 
+msgid "Remove"
+msgstr ""
+
 msgid "Remove User"
 msgstr ""
 
@@ -1451,9 +1631,6 @@ msgstr ""
 msgid "Remove {name} from the house?"
 msgstr ""
 
-msgid "Remove"
-msgstr ""
-
 msgid "Rename Room"
 msgstr ""
 
@@ -1469,10 +1646,13 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
+msgid "Role"
+msgstr ""
+
 msgid "Role updated for {name}"
 msgstr ""
 
-msgid "Role"
+msgid "Room"
 msgstr ""
 
 msgid "Room Combo!"
@@ -1496,31 +1676,40 @@ msgstr ""
 msgid "Room deleted"
 msgstr ""
 
-msgid "Room name is required"
+msgid "Room deleted successfully"
 msgstr ""
 
 msgid "Room name"
 msgstr ""
 
+msgid "Room name is required"
+msgstr ""
+
+msgid "Room not found"
+msgstr ""
+
 msgid "Room renamed"
 msgstr ""
 
-msgid "Room type must be at most 50 characters"
+msgid "Room task deleted successfully"
+msgstr ""
+
+msgid "Room task not found"
 msgstr ""
 
 msgid "Room type"
 msgstr ""
 
-msgid "Room"
+msgid "Room type must be at most 50 characters"
+msgstr ""
+
+msgid "Rooms"
 msgstr ""
 
 msgid "Rooms Needing Cleaning"
 msgstr ""
 
 msgid "Rooms per floor"
-msgstr ""
-
-msgid "Rooms"
 msgstr ""
 
 msgid "Round up the toys."
@@ -1538,13 +1727,13 @@ msgstr ""
 msgid "Saturday"
 msgstr ""
 
+msgid "Save"
+msgstr ""
+
 msgid "Save Changes"
 msgstr ""
 
 msgid "Save Energy Budget"
-msgstr ""
-
-msgid "Save"
 msgstr ""
 
 msgid "Saving..."
@@ -1559,13 +1748,16 @@ msgstr ""
 msgid "Schedule range cannot exceed 30 days"
 msgstr ""
 
-msgid "Scheduling Suggestions"
-msgstr ""
-
 msgid "Scheduling"
 msgstr ""
 
+msgid "Scheduling Suggestions"
+msgstr ""
+
 msgid "Scope"
+msgstr ""
+
+msgid "Score must be between 0 and %1$d"
 msgstr ""
 
 msgid "Scrub the bowl, seat, and outside."
@@ -1578,6 +1770,9 @@ msgid "Scrub the sink and polish the tap."
 msgstr ""
 
 msgid "Scrub tiles, tub, and fixtures."
+msgstr ""
+
+msgid "Search query is required"
 msgstr ""
 
 msgid "Select a room"
@@ -1622,19 +1817,19 @@ msgstr ""
 msgid "Silver"
 msgstr ""
 
-msgid "Skip and finish"
+msgid "Skip"
 msgstr ""
 
-msgid "Skip"
+msgid "Skip and finish"
 msgstr ""
 
 msgid "Slide and merge matching tiles to reach 2048!"
 msgstr ""
 
-msgid "Smart Scheduling Suggestions"
+msgid "Smart Scheduling"
 msgstr ""
 
-msgid "Smart Scheduling"
+msgid "Smart Scheduling Suggestions"
 msgstr ""
 
 msgid "Smooth the fitted sheet, tuck in the flat sheet, fluff the pillows, and straighten the blanket."
@@ -1679,6 +1874,9 @@ msgstr ""
 msgid "Straighten sheets and fluff pillows."
 msgstr ""
 
+msgid "Streak"
+msgstr ""
+
 msgid "Streak Combo!"
 msgstr ""
 
@@ -1694,19 +1892,19 @@ msgstr ""
 msgid "Streak protected by a freeze"
 msgstr ""
 
+msgid "Streak protected by freeze!"
+msgstr ""
+
 msgid "Streak protected by freeze! {count} freeze remaining"
 msgstr ""
 
 msgid "Streak protected by freeze! {count} freezes remaining"
 msgstr ""
 
-msgid "Streak protected by freeze!"
-msgstr ""
-
-msgid "Streak"
-msgstr ""
-
 msgid "Strip the old sheets and pillowcases, put them in the laundry, and make the bed with fresh bedding."
+msgstr ""
+
+msgid "Suggestion"
 msgstr ""
 
 msgid "Suggestion applied successfully"
@@ -1715,13 +1913,10 @@ msgstr ""
 msgid "Suggestion applied to your week"
 msgstr ""
 
-msgid "Suggestion"
+msgid "Suggestions"
 msgstr ""
 
 msgid "Suggestions Available"
-msgstr ""
-
-msgid "Suggestions"
 msgstr ""
 
 msgid "Sun"
@@ -1772,6 +1967,9 @@ msgstr ""
 msgid "Target: {target}%"
 msgstr ""
 
+msgid "Task %1$d already exists in room %2$d"
+msgstr ""
+
 msgid "Task Name"
 msgstr ""
 
@@ -1799,10 +1997,10 @@ msgstr ""
 msgid "Task can be completed {days} days before or after ideal date"
 msgstr ""
 
-msgid "Task completed!"
+msgid "Task completed"
 msgstr ""
 
-msgid "Task completed"
+msgid "Task completed!"
 msgstr ""
 
 msgid "Task created"
@@ -1811,10 +2009,19 @@ msgstr ""
 msgid "Task created, but assigning members failed. You can assign them in the task list."
 msgstr ""
 
+msgid "Task deleted successfully"
+msgstr ""
+
 msgid "Task filter"
 msgstr ""
 
 msgid "Task name is required"
+msgstr ""
+
+msgid "Task not found"
+msgstr ""
+
+msgid "Task not found or conflict resolution preferred local"
 msgstr ""
 
 msgid "Task saved, but adding it to the room failed"
@@ -1829,6 +2036,9 @@ msgstr ""
 msgid "Tasks"
 msgstr ""
 
+msgid "Tasks linked successfully"
+msgstr ""
+
 msgid "Team Anchor"
 msgstr ""
 
@@ -1838,13 +2048,19 @@ msgstr ""
 msgid "Team Player"
 msgstr ""
 
-msgid "Team Streak Milestone!"
-msgstr ""
-
 msgid "Team Streak"
 msgstr ""
 
+msgid "Team Streak Milestone!"
+msgstr ""
+
 msgid "Teamwork bonus"
+msgstr ""
+
+msgid "Template \"%1$s\" is not available for level \"%2$s\""
+msgstr ""
+
+msgid "Template not found: %1$s"
 msgstr ""
 
 msgid "The house is already set up. Use the per-room template picker instead."
@@ -1892,10 +2108,10 @@ msgstr ""
 msgid "Toss expired food and wipe the shelves."
 msgstr ""
 
-msgid "Total Tasks"
+msgid "Total"
 msgstr ""
 
-msgid "Total"
+msgid "Total Tasks"
 msgstr ""
 
 msgid "Try again"
@@ -1949,6 +2165,18 @@ msgstr ""
 msgid "User invited to house"
 msgstr ""
 
+msgid "User is already assigned to this task"
+msgstr ""
+
+msgid "User is not a member of this house"
+msgstr ""
+
+msgid "User is not a member of this house: %1$s"
+msgstr ""
+
+msgid "User not found"
+msgstr ""
+
 msgid "User not found in house"
 msgstr ""
 
@@ -1997,6 +2225,9 @@ msgstr ""
 msgid "Vacuum the room"
 msgstr ""
 
+msgid "Validation failed"
+msgstr ""
+
 msgid "Visibility"
 msgstr ""
 
@@ -2030,31 +2261,31 @@ msgstr ""
 msgid "Weekend Warrior"
 msgstr ""
 
+msgid "Weekly"
+msgstr ""
+
 msgid "Weekly Availability"
 msgstr ""
 
 msgid "Weekly Energy"
 msgstr ""
 
-msgid "Weekly Goal Achieved!"
+msgid "Weekly Goal"
 msgstr ""
 
-msgid "Weekly Goal"
+msgid "Weekly Goal Achieved!"
 msgstr ""
 
 msgid "Weekly Household Goal"
 msgstr ""
 
-msgid "Weekly goal reached! {percent}% of target {target}%"
-msgstr ""
-
 msgid "Weekly goal reached!"
 msgstr ""
 
-msgid "Weekly household goal reached!"
+msgid "Weekly goal reached! {percent}% of target {target}%"
 msgstr ""
 
-msgid "Weekly"
+msgid "Weekly household goal reached!"
 msgstr ""
 
 msgid "Welcome to ChoreStrike!"
@@ -2084,16 +2315,22 @@ msgstr ""
 msgid "Within optimal window"
 msgstr ""
 
+msgid "Work"
+msgstr ""
+
 msgid "Work top to bottom, dust the shelves and decor, and wipe the nightstand and dresser."
 msgstr ""
 
 msgid "Work top to bottom, dust the shelves and furniture, and wipe the window sill."
 msgstr ""
 
-msgid "Work"
+msgid "You already completed this task today"
 msgstr ""
 
 msgid "You appear to be offline"
+msgstr ""
+
+msgid "You are not allowed to update this user"
 msgstr ""
 
 msgid "You cannot change your own role"
@@ -2141,6 +2378,9 @@ msgstr ""
 msgid "Your task \"%1$s\" was taken over by %2$s"
 msgstr ""
 
+msgid "Your task \"{task}\" was taken over by {claimer}"
+msgstr ""
+
 msgid "Your team is on a roll! Keep up the great work!"
 msgstr ""
 
@@ -2151,6 +2391,12 @@ msgid "bonus Coins"
 msgstr ""
 
 msgid "completed"
+msgstr ""
+
+msgid "completedAt must be a valid date string"
+msgstr ""
+
+msgid "completedAt must not be in the future"
 msgstr ""
 
 msgid "days available"
@@ -2165,6 +2411,12 @@ msgstr ""
 msgid "floors"
 msgstr ""
 
+msgid "from and to must be valid Y-m-d dates"
+msgstr ""
+
+msgid "from must not be after to"
+msgstr ""
+
 msgid "in"
 msgstr ""
 
@@ -2174,7 +2426,22 @@ msgstr ""
 msgid "minutes"
 msgstr ""
 
+msgid "roomId is required"
+msgstr ""
+
+msgid "roomId or scopeId is required"
+msgstr ""
+
+msgid "roomTaskIds must be an array of positive integers"
+msgstr ""
+
+msgid "roomTaskIds must be an array of room task IDs"
+msgstr ""
+
 msgid "rooms"
+msgstr ""
+
+msgid "taskCount must not be negative"
 msgstr ""
 
 msgid "tasks"
@@ -2330,6 +2597,9 @@ msgstr ""
 msgid "template.wash_towels.desc"
 msgstr ""
 
+msgid "templateId is required"
+msgstr ""
+
 msgid "titles.cozy_home.cozy_buddy"
 msgstr ""
 
@@ -2367,9 +2637,6 @@ msgid "titles.team_energy.team_anchor"
 msgstr ""
 
 msgid "total energy/week"
-msgstr ""
-
-msgid "total energy\/week"
 msgstr ""
 
 msgid "{assigned} task(s) assigned, {skipped} skipped"
@@ -2417,8 +2684,8 @@ msgstr ""
 msgid "{name} was removed from the house"
 msgstr ""
 
-msgid "≈ {n} tasks will be created"
+msgid "≈ {n} tasks"
 msgstr ""
 
-msgid "≈ {n} tasks"
+msgid "≈ {n} tasks will be created"
 msgstr ""

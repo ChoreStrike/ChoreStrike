@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCP\IL10N;
 use OCP\IUserSession;
 
 /**
@@ -30,15 +31,18 @@ use OCP\IUserSession;
 class AuthorizationService {
 	private HouseUserMapper $houseUserMapper;
 	private IUserSession $userSession;
+	private IL10N $l10n;
 	private ?AppLogger $appLogger;
 
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
 		IUserSession $userSession,
+		IL10N $l10n,
 		?AppLogger $appLogger = null,
 	) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->userSession = $userSession;
+		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
 
@@ -70,7 +74,7 @@ class AuthorizationService {
 				'service' => 'AuthorizationService',
 				'action' => 'requireCurrentUserId',
 			]);
-			throw new ForbiddenException('Not authenticated');
+			throw new ForbiddenException($this->l10n->t('Not authenticated'));
 		}
 
 		return $userId;
@@ -120,7 +124,7 @@ class AuthorizationService {
 				'action' => 'ensureHouseMember',
 				'houseId' => $houseId,
 			]);
-			throw new ForbiddenException('Not authenticated');
+			throw new ForbiddenException($this->l10n->t('Not authenticated'));
 		}
 
 		$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
@@ -159,7 +163,7 @@ class AuthorizationService {
 				'action' => 'assertHouseMember',
 				'houseId' => $houseId,
 			]);
-			throw new ForbiddenException('Not authenticated');
+			throw new ForbiddenException($this->l10n->t('Not authenticated'));
 		}
 
 		$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
@@ -170,7 +174,7 @@ class AuthorizationService {
 				'houseId' => $houseId,
 				'userId' => $userId,
 			]);
-			throw new ForbiddenException('Not a member of this house');
+			throw new ForbiddenException($this->l10n->t('Not a member of this house'));
 		}
 
 		return $houseUser;
@@ -214,7 +218,7 @@ class AuthorizationService {
 				'houseId' => $houseId,
 				'userId' => $houseUser->getNextcloudUserId(),
 			]);
-			throw new ForbiddenException('Owner role required');
+			throw new ForbiddenException($this->l10n->t('Owner role required'));
 		}
 
 		return $houseUser;
@@ -238,7 +242,7 @@ class AuthorizationService {
 				'houseId' => $houseId,
 				'targetUserId' => $userId,
 			]);
-			throw new ForbiddenException('User is not a member of this house');
+			throw new ForbiddenException($this->l10n->t('User is not a member of this house'));
 		}
 	}
 }

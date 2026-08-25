@@ -24,6 +24,7 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCP\IDBConnection;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -105,8 +106,15 @@ class RoomServiceTest extends TestCase {
 			$this->houseService,
 			$this->houseMapper,
 			$this->notificationService,
-			$this->db
+			$this->db,
+			$this->createIdentityL10n()
 		);
+	}
+
+	private function createIdentityL10n(): IL10N {
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		return $l10n;
 	}
 
 	/**

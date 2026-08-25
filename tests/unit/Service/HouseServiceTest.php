@@ -22,6 +22,7 @@ use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 use OCP\IDBConnection;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -51,6 +52,9 @@ class HouseServiceTest extends TestCase {
 		$this->rewardConfigService = $this->createMock(RewardConfigService::class);
 		$this->config = $this->createMock(IConfig::class);
 		$this->db = $this->createMock(IDBConnection::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->service = new HouseService(
 			$this->houseMapper,
@@ -62,7 +66,8 @@ class HouseServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->rewardConfigService,
 			$this->config,
-			$this->db
+			$this->db,
+			$l10n
 		);
 	}
 

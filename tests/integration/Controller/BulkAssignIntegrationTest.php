@@ -51,11 +51,16 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 		$request->method('getParam')
 			->willReturnCallback(fn (string $key, mixed $default = null): mixed => $params[$key] ?? $default);
 
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(\OCP\IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+
 		return new RoomTaskController(
 			$request,
 			\OC::$server->get(RoomTaskService::class),
 			\OC::$server->get(HouseService::class),
 			\OC::$server->get(AuthorizationService::class),
+			$l10n,
 		);
 	}
 

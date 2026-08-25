@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCP\IL10N;
 use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
@@ -34,8 +35,11 @@ class AuthorizationServiceExceptionTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->userSession = $this->createMock(IUserSession::class);
 		$this->user = $this->createMock(IUser::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
-		$this->service = new AuthorizationService($this->houseUserMapper, $this->userSession);
+		$this->service = new AuthorizationService($this->houseUserMapper, $this->userSession, $l10n);
 	}
 
 	private function actingAs(string $uid, string $displayName = 'Tester'): void {

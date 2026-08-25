@@ -189,10 +189,10 @@ class TaskService {
 		if ($visibility === Task::VISIBILITY_PRIVATE
 			&& $task->getOwnerUserId() !== $callerUserId
 		) {
-			throw new ForbiddenException('Only the task owner may update a private task');
+			throw new ForbiddenException($this->l10n->t('Only the task owner may update a private task'));
 		}
 		if ($visibility === Task::VISIBILITY_ADMIN_ONLY && !$isOwner) {
-			throw new ForbiddenException('Only house owners may update an admin-only task');
+			throw new ForbiddenException($this->l10n->t('Only house owners may update an admin-only task'));
 		}
 
 		foreach ($updates as $field => $value) {
@@ -242,10 +242,10 @@ class TaskService {
 		if ($visibility === Task::VISIBILITY_PRIVATE
 			&& $task->getOwnerUserId() !== $callerUserId
 		) {
-			throw new ForbiddenException('Only the task owner may delete a private task');
+			throw new ForbiddenException($this->l10n->t('Only the task owner may delete a private task'));
 		}
 		if ($visibility === Task::VISIBILITY_ADMIN_ONLY && !$isOwner) {
-			throw new ForbiddenException('Only house owners may delete an admin-only task');
+			throw new ForbiddenException($this->l10n->t('Only house owners may delete an admin-only task'));
 		}
 
 		$this->taskMapper->delete($task);

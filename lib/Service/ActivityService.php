@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\IL10N;
 
 /**
  * House activity feed ("who did what when") — CS-PLAN-040 / FEAT-UX-016.
@@ -38,6 +39,7 @@ class ActivityService {
 	private TaskMapper $taskMapper;
 	private RoomMapper $roomMapper;
 	private HouseUserMapper $houseUserMapper;
+	private IL10N $l10n;
 
 	public function __construct(
 		CompletedTaskMapper $completedTaskMapper,
@@ -45,12 +47,14 @@ class ActivityService {
 		TaskMapper $taskMapper,
 		RoomMapper $roomMapper,
 		HouseUserMapper $houseUserMapper,
+		IL10N $l10n,
 	) {
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
 		$this->roomMapper = $roomMapper;
 		$this->houseUserMapper = $houseUserMapper;
+		$this->l10n = $l10n;
 	}
 
 	/**
@@ -75,7 +79,7 @@ class ActivityService {
 			try {
 				$member = $this->houseUserMapper->findByNextcloudUserId($houseId, $targetUserId);
 			} catch (DoesNotExistException $e) {
-				throw new NotFoundException('User is not a member of this house');
+				throw new NotFoundException($this->l10n->t('User is not a member of this house'));
 			}
 			$houseUserId = $member->getId();
 		}

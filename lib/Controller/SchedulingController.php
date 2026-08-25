@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -31,18 +32,21 @@ class SchedulingController extends Controller {
 	private SchedulingService $schedulingService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
 		SchedulingService $schedulingService,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		IL10N $l,
 		?AppLogger $appLogger = null,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->schedulingService = $schedulingService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->l = $l;
 		if ($appLogger !== null) {
 			$this->initializeControllerLogger($appLogger);
 		}
@@ -106,7 +110,7 @@ class SchedulingController extends Controller {
 
 			$this->authService->ensureHouseMember($house->getId());
 			if ($weekdayAvailability === null && $energyBudget === null) {
-				throw new \InvalidArgumentException('At least one section (weekdayAvailability or energyBudget) must be provided');
+				throw new \InvalidArgumentException($this->l->t('At least one section (weekdayAvailability or energyBudget) must be provided'));
 			}
 			$this->validatePreferencesSection($weekdayAvailability, 'weekdayAvailability');
 			$this->validatePreferencesSection($energyBudget, 'energyBudget');
@@ -193,7 +197,7 @@ class SchedulingController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Member availability updated'
+				'message' => $this->l->t('Member availability updated')
 			]);
 		} catch (\InvalidArgumentException $e) {
 			// Curated weekday message — safe to surface verbatim.
@@ -228,7 +232,7 @@ class SchedulingController extends Controller {
 			$this->authService->ensureHouseMember($house->getId());
 
 			if ($taskCount < 0) {
-				throw new \InvalidArgumentException('taskCount must not be negative');
+				throw new \InvalidArgumentException($this->l->t('taskCount must not be negative'));
 			}
 
 			$suggestions = $this->schedulingService->getSchedulingSuggestions($taskCount, $house->getId());
@@ -261,7 +265,7 @@ class SchedulingController extends Controller {
 	 */
 	private function validateWeekday(string $day): void {
 		if (!in_array(strtolower($day), self::VALID_WEEKDAYS, true)) {
-			throw new \InvalidArgumentException('Invalid weekday: ' . $day);
+			throw new \InvalidArgumentException($this->l->t('Invalid weekday: %1$s', [$day]));
 		}
 	}
 
@@ -281,17 +285,17 @@ class SchedulingController extends Controller {
 
 		$keys = array_map('strval', array_keys($section));
 		foreach (array_diff($keys, self::VALID_WEEKDAYS) as $unknownDay) {
-			throw new \InvalidArgumentException('Invalid weekday: ' . $unknownDay);
+			throw new \InvalidArgumentException($this->l->t('Invalid weekday: %1$s', [$unknownDay]));
 		}
 		$missingDays = array_diff(self::VALID_WEEKDAYS, $keys);
 		if (count($missingDays) > 0) {
-			throw new \InvalidArgumentException($sectionName . ' must contain all seven weekdays (missing: ' . implode(', ', $missingDays) . ')');
+			throw new \InvalidArgumentException($this->l->t('%1$s must contain all seven weekdays (missing: %2$s)', [$sectionName, implode(', ', $missingDays)]));
 		}
 
 		foreach ($section as $day => $value) {
 			if ($sectionName === 'weekdayAvailability') {
 				if (!is_bool($value)) {
-					throw new \InvalidArgumentException('Availability values must be booleans');
+					throw new \InvalidArgumentException($this->l->t('Availability values must be booleans'));
 				}
 			} else {
 				// CR-016-15: bounds live in SchedulingService (single source).

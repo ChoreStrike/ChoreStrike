@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
+use OCP\IL10N;
 
 /**
  * Service for floor-related business logic
@@ -26,6 +27,7 @@ class FloorService {
 	private RoomTaskMapper $roomTaskMapper;
 	private RoomService $roomService;
 	private IDBConnection $db;
+	private IL10N $l10n;
 
 	public function __construct(
 		FloorMapper $floorMapper,
@@ -33,12 +35,14 @@ class FloorService {
 		RoomTaskMapper $roomTaskMapper,
 		RoomService $roomService,
 		IDBConnection $db,
+		IL10N $l10n,
 	) {
 		$this->floorMapper = $floorMapper;
 		$this->roomMapper = $roomMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->roomService = $roomService;
 		$this->db = $db;
+		$this->l10n = $l10n;
 	}
 
 	/**
@@ -52,7 +56,7 @@ class FloorService {
 		$floor = $this->floorMapper->find($floorId);
 
 		if ($floor->getHouseId() !== $houseId) {
-			throw new NotFoundException('Floor not found');
+			throw new NotFoundException($this->l10n->t('Floor not found'));
 		}
 	}
 

@@ -397,7 +397,7 @@ class RoomController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Room deleted successfully'
+				'message' => $this->l->t('Room deleted successfully')
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);

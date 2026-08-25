@@ -17,6 +17,7 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -28,6 +29,7 @@ class ChecklistController extends Controller {
 	private RoomTaskService $roomTaskService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
@@ -36,6 +38,7 @@ class ChecklistController extends Controller {
 		RoomTaskService $roomTaskService,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		IL10N $l,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->checklistItemMapper = $checklistItemMapper;
@@ -43,6 +46,7 @@ class ChecklistController extends Controller {
 		$this->roomTaskService = $roomTaskService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->l = $l;
 	}
 
 	/**
@@ -87,7 +91,7 @@ class ChecklistController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Checklist item label is required'
+						'message' => $this->l->t('Checklist item label is required')
 					]
 				], 400);
 			}
@@ -107,7 +111,7 @@ class ChecklistController extends Controller {
 			return new JSONResponse([
 				'success' => true,
 				'data' => $item->jsonSerialize(),
-				'message' => 'Checklist item added'
+				'message' => $this->l->t('Checklist item added')
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -134,7 +138,7 @@ class ChecklistController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Checklist item label is required'
+						'message' => $this->l->t('Checklist item label is required')
 					]
 				], 400);
 			}
@@ -148,7 +152,7 @@ class ChecklistController extends Controller {
 			return new JSONResponse([
 				'success' => true,
 				'data' => $item->jsonSerialize(),
-				'message' => 'Checklist item updated'
+				'message' => $this->l->t('Checklist item updated')
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -179,7 +183,7 @@ class ChecklistController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Checklist item deleted'
+				'message' => $this->l->t('Checklist item deleted')
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -208,7 +212,7 @@ class ChecklistController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Item orders array is required'
+						'message' => $this->l->t('Item orders array is required')
 					]
 				], 400);
 			}
@@ -221,7 +225,7 @@ class ChecklistController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Items reordered'
+				'message' => $this->l->t('Items reordered')
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -344,7 +348,7 @@ class ChecklistController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Progress initialized'
+				'message' => $this->l->t('Progress initialized')
 			]);
 		} catch (NotFoundException $e) {
 			return new JSONResponse([

@@ -23,6 +23,7 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 use OCP\IDBConnection;
+use OCP\IL10N;
 
 /**
  * Service for house-related business logic
@@ -41,6 +42,7 @@ class HouseService {
 	private RewardConfigService $rewardConfigService;
 	private IConfig $config;
 	private IDBConnection $db;
+	private IL10N $l10n;
 	private ?AppLogger $appLogger;
 
 	public function __construct(
@@ -54,6 +56,7 @@ class HouseService {
 		RewardConfigService $rewardConfigService,
 		IConfig $config,
 		IDBConnection $db,
+		IL10N $l10n,
 		?AppLogger $appLogger = null,
 	) {
 		$this->houseMapper = $houseMapper;
@@ -66,6 +69,7 @@ class HouseService {
 		$this->rewardConfigService = $rewardConfigService;
 		$this->config = $config;
 		$this->db = $db;
+		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
 
@@ -93,7 +97,7 @@ class HouseService {
 		$houseUser = $this->houseUserMapper->find($houseUserId);
 
 		if ($houseUser->isOwner()) {
-			throw new ForbiddenException('Cannot remove the house owner');
+			throw new ForbiddenException($this->l10n->t('Cannot remove the house owner'));
 		}
 
 		$ncUserId = $houseUser->getNextcloudUserId();
@@ -141,7 +145,7 @@ class HouseService {
 
 		if ($role !== 'owner') {
 			if ($houseUser->getNextcloudUserId() === $callerUserId) {
-				throw new ForbiddenException('Cannot demote yourself');
+				throw new ForbiddenException($this->l10n->t('Cannot demote yourself'));
 			}
 			if ($houseUser->isOwner()
 				&& $this->houseUserMapper->countOwnersForHouse($houseUser->getHouseId()) <= 1) {

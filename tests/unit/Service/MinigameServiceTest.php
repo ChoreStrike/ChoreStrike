@@ -76,6 +76,7 @@ class MinigameServiceTest extends TestCase {
 		$this->db->expects($this->never())->method('beginTransaction');
 
 		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Score must be between 0 and %1$d');
 
 		$this->service->saveScore(1, 'user1', 'snake', -50);
 	}
@@ -92,6 +93,7 @@ class MinigameServiceTest extends TestCase {
 		$this->db->expects($this->never())->method('beginTransaction');
 
 		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Score must be between 0 and %1$d');
 
 		$this->service->saveScore(1, 'user1', 'snake', MinigameService::MAX_SCORE + 1);
 	}

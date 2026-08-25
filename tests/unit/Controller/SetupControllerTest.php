@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\HouseSetupService;
 use OCA\ChoreStrike\Service\TemplateService;
+use OCP\IL10N;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -34,13 +35,17 @@ class SetupControllerTest extends TestCase {
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
 		$this->request = $this->createMock(IRequest::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->controller = new SetupController(
 			$this->request,
 			$this->templateService,
 			$this->houseSetupService,
 			$this->houseService,
-			$this->authService
+			$this->authService,
+			$l10n
 		);
 	}
 

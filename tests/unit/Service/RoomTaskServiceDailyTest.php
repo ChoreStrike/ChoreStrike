@@ -20,6 +20,7 @@ use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCP\IL10N;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -54,8 +55,15 @@ class RoomTaskServiceDailyTest extends TestCase {
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
-			$this->createMock(\OCP\IDBConnection::class)
+			$this->createMock(\OCP\IDBConnection::class),
+			$this->createIdentityL10n()
 		);
+	}
+
+	private function createIdentityL10n(): IL10N {
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		return $l10n;
 	}
 
 	public function testGetDailyTasksReturnsTasks(): void {

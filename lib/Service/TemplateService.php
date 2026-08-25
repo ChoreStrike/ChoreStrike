@@ -262,17 +262,17 @@ class TemplateService {
 	public function materializeTemplate(string $templateId, string $level, array $overrides = []): array {
 		$template = $this->getTemplate($templateId);
 		if ($template === null) {
-			throw new \InvalidArgumentException('Template not found: ' . $templateId);
+			throw new \InvalidArgumentException($this->l10n->t('Template not found: %1$s', [$templateId]));
 		}
 
 		if (!in_array($level, self::LEVELS, true)) {
-			throw new \InvalidArgumentException('Invalid cleaning level: ' . $level);
+			throw new \InvalidArgumentException($this->l10n->t('Invalid cleaning level: %1$s', [$level]));
 		}
 
 		$levelData = $template['levels'][$level] ?? null;
 		if (!is_array($levelData)) {
 			throw new \InvalidArgumentException(
-				'Template "' . $templateId . '" is not available for level "' . $level . '"'
+				$this->l10n->t('Template "%1$s" is not available for level "%2$s"', [$templateId, $level])
 			);
 		}
 

@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskSyncService;
+use OCP\IL10N;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -32,12 +33,16 @@ class TaskSyncControllerTest extends TestCase {
 		$this->taskSyncService = $this->createMock(TaskSyncService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->controller = new TaskSyncController(
 			$this->request,
 			$this->taskSyncService,
 			$this->houseService,
-			$this->authService
+			$this->authService,
+			$l10n
 		);
 	}
 

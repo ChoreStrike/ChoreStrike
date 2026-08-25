@@ -83,7 +83,7 @@ class MinigameService {
 		// farming via floor(score/10)).
 		if ($score < 0 || $score > self::MAX_SCORE) {
 			throw new \InvalidArgumentException(
-				'Score must be between 0 and ' . self::MAX_SCORE
+				$this->l10n->t('Score must be between 0 and %1$d', [self::MAX_SCORE])
 			);
 		}
 

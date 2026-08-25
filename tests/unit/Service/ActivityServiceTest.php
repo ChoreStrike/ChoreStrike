@@ -21,6 +21,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -42,6 +43,9 @@ class ActivityServiceTest extends TestCase {
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->roomMapper = $this->createMock(RoomMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->service = new ActivityService(
 			$this->completedTaskMapper,
@@ -49,6 +53,7 @@ class ActivityServiceTest extends TestCase {
 			$this->taskMapper,
 			$this->roomMapper,
 			$this->houseUserMapper,
+			$l10n,
 		);
 	}
 

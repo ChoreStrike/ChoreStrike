@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TaskSyncService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -23,17 +24,20 @@ class TaskSyncController extends Controller {
 	private TaskSyncService $taskSyncService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
 		TaskSyncService $taskSyncService,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		IL10N $l,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->taskSyncService = $taskSyncService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->l = $l;
 	}
 
 	/**
@@ -90,7 +94,7 @@ class TaskSyncController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'completedAt must be a valid date string'
+						'message' => $this->l->t('completedAt must be a valid date string')
 					]
 				], 400);
 			}
@@ -100,7 +104,7 @@ class TaskSyncController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'completedAt must not be in the future'
+						'message' => $this->l->t('completedAt must not be in the future')
 					]
 				], 400);
 			}
@@ -116,7 +120,7 @@ class TaskSyncController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'TASK_NOT_FOUND',
-						'message' => 'Task not found or conflict resolution preferred local'
+						'message' => $this->l->t('Task not found or conflict resolution preferred local')
 					]
 				], 404);
 			}
@@ -214,7 +218,7 @@ class TaskSyncController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Marked as synced'
+				'message' => $this->l->t('Marked as synced')
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -244,7 +248,7 @@ class TaskSyncController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Tasks linked successfully'
+				'message' => $this->l->t('Tasks linked successfully')
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);

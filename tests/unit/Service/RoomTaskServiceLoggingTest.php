@@ -18,6 +18,7 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -76,6 +77,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$this->createMock(CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			$this->createMock(\OCP\IDBConnection::class),
+			$this->createIdentityL10n(),
 			$appLogger
 		);
 
@@ -134,11 +136,18 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$this->createMock(CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			$this->createMock(\OCP\IDBConnection::class),
+			$this->createIdentityL10n(),
 			$appLogger
 		);
 
 		$result = $service->bulkAssignTasks([20], 'target-user', 1);
 
 		$this->assertSame([], $result);
+	}
+
+	private function createIdentityL10n(): IL10N {
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		return $l10n;
 	}
 }

@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TemplateService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -25,17 +26,20 @@ class RoomTaskController extends Controller {
 	private RoomTaskService $roomTaskService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
 		RoomTaskService $roomTaskService,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		IL10N $l,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomTaskService = $roomTaskService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->l = $l;
 	}
 
 	/**
@@ -58,13 +62,13 @@ class RoomTaskController extends Controller {
 			if ($roomId <= 0) {
 				return new JSONResponse([
 					'success' => false,
-					'error' => ['code' => 'VALIDATION_ERROR', 'message' => 'roomId is required'],
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('roomId is required')],
 				], 400);
 			}
 			if (trim($templateId) === '') {
 				return new JSONResponse([
 					'success' => false,
-					'error' => ['code' => 'VALIDATION_ERROR', 'message' => 'templateId is required'],
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('templateId is required')],
 				], 400);
 			}
 
@@ -121,7 +125,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'roomId or scopeId is required'
+						'message' => $this->l->t('roomId or scopeId is required')
 					]
 				], 400);
 			}
@@ -223,7 +227,7 @@ class RoomTaskController extends Controller {
 				try {
 					$nextDueDate = new \DateTime($nextDue);
 				} catch (\Exception $e) {
-					throw new \InvalidArgumentException('Invalid nextDue date format');
+					throw new \InvalidArgumentException($this->l->t('Invalid nextDue date format'));
 				}
 			}
 
@@ -276,7 +280,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'User ID is required'
+						'message' => $this->l->t('User ID is required')
 					]
 				], 400);
 			}
@@ -427,7 +431,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'User ID is required'
+						'message' => $this->l->t('User ID is required')
 					]
 				], 400);
 			}
@@ -475,7 +479,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'User ID is required'
+						'message' => $this->l->t('User ID is required')
 					]
 				], 400);
 			}
@@ -484,7 +488,7 @@ class RoomTaskController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Assignee removed successfully'
+				'message' => $this->l->t('Assignee removed successfully')
 			]);
 		} catch (\InvalidArgumentException $e) {
 			// Service-curated message (non-member) — safe to surface verbatim.
@@ -579,7 +583,7 @@ class RoomTaskController extends Controller {
 			try {
 				$nextDueDate = new \DateTime($nextDue);
 			} catch (\Exception $e) {
-				throw new \InvalidArgumentException('Invalid nextDue date format');
+				throw new \InvalidArgumentException($this->l->t('Invalid nextDue date format'));
 			}
 
 			$roomTask = $this->roomTaskService->updateDueDate($id, $nextDueDate);
@@ -657,7 +661,7 @@ class RoomTaskController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Room task deleted successfully'
+				'message' => $this->l->t('Room task deleted successfully')
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -694,7 +698,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'User ID is required'
+						'message' => $this->l->t('User ID is required')
 					]
 				], 400);
 			}
@@ -705,7 +709,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'roomTaskIds must be an array of room task IDs'
+						'message' => $this->l->t('roomTaskIds must be an array of room task IDs')
 					]
 				], 400);
 			}
@@ -717,7 +721,7 @@ class RoomTaskController extends Controller {
 						'success' => false,
 						'error' => [
 							'code' => 'VALIDATION_ERROR',
-							'message' => 'roomTaskIds must be an array of positive integers'
+							'message' => $this->l->t('roomTaskIds must be an array of positive integers')
 						]
 					], 400);
 				}
@@ -818,7 +822,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Days must be between 1 and 365'
+						'message' => $this->l->t('Days must be between 1 and 365')
 					]
 				], 400);
 			}
@@ -864,7 +868,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'from and to must be valid Y-m-d dates'
+						'message' => $this->l->t('from and to must be valid Y-m-d dates')
 					]
 				], 400);
 			}
@@ -877,7 +881,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'from must not be after to'
+						'message' => $this->l->t('from must not be after to')
 					]
 				], 400);
 			}
@@ -888,7 +892,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Range must not exceed 60 days'
+						'message' => $this->l->t('Range must not exceed 60 days')
 					]
 				], 400);
 			}
@@ -932,7 +936,7 @@ class RoomTaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'roomId is required'
+						'message' => $this->l->t('roomId is required')
 					]
 				], 400);
 			}

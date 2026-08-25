@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCP\IL10N;
 
 /**
  * Service for managing member scheduling preferences (availability and energy budget)
@@ -23,10 +24,12 @@ class SchedulingService {
 
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private IL10N $l10n;
 
-	public function __construct(HouseUserMapper $houseUserMapper, CompletedTaskMapper $completedTaskMapper) {
+	public function __construct(HouseUserMapper $houseUserMapper, CompletedTaskMapper $completedTaskMapper, IL10N $l10n) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
+		$this->l10n = $l10n;
 	}
 
 	/**
@@ -42,7 +45,7 @@ class SchedulingService {
 	 */
 	public function assertValidEnergyBudget($energy): void {
 		if (!is_int($energy) || $energy < self::ENERGY_BUDGET_MIN || $energy > self::ENERGY_BUDGET_MAX) {
-			throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
+			throw new \InvalidArgumentException($this->l10n->t('Energy budget must be between 1 and 20'));
 		}
 	}
 

@@ -20,6 +20,7 @@ use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -32,6 +33,7 @@ class TaskController extends Controller {
 	private RoomTaskService $roomTaskService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
@@ -39,6 +41,7 @@ class TaskController extends Controller {
 		RoomTaskService $roomTaskService,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		IL10N $l,
 		?AppLogger $appLogger = null,
 	) {
 		parent::__construct('chorestrike', $request);
@@ -46,6 +49,7 @@ class TaskController extends Controller {
 		$this->roomTaskService = $roomTaskService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->l = $l;
 		if ($appLogger !== null) {
 			$this->initializeControllerLogger($appLogger);
 		}
@@ -100,13 +104,13 @@ class TaskController extends Controller {
 				&& $task->getOwnerUserId() !== $houseUser->getNextcloudUserId()) {
 				return new JSONResponse([
 					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
 				], 404);
 			}
 			if ($visibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
 				return new JSONResponse([
 					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
 				], 404);
 			}
 
@@ -174,7 +178,7 @@ class TaskController extends Controller {
 						'success' => false,
 						'error' => [
 							'code' => 'VALIDATION_ERROR',
-							'message' => 'Invalid active from date'
+							'message' => $this->l->t('Invalid active from date')
 						]
 					], 400);
 				}
@@ -188,7 +192,7 @@ class TaskController extends Controller {
 						'success' => false,
 						'error' => [
 							'code' => 'VALIDATION_ERROR',
-							'message' => 'Invalid active until date'
+							'message' => $this->l->t('Invalid active until date')
 						]
 					], 400);
 				}
@@ -204,7 +208,7 @@ class TaskController extends Controller {
 						'success' => false,
 						'error' => [
 							'code' => 'VALIDATION_ERROR',
-							'message' => 'Invalid fixed schedule time'
+							'message' => $this->l->t('Invalid fixed schedule time')
 						]
 					], 400);
 				}
@@ -220,7 +224,7 @@ class TaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Invalid visibility type'
+						'message' => $this->l->t('Invalid visibility type')
 					]
 				], 400);
 			}
@@ -231,7 +235,7 @@ class TaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'FORBIDDEN',
-						'message' => 'Only house owners can create admin-only tasks'
+						'message' => $this->l->t('Only house owners can create admin-only tasks')
 					]
 				], 403);
 			}
@@ -267,7 +271,7 @@ class TaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Validation failed',
+						'message' => $this->l->t('Validation failed'),
 						'details' => $errors
 					]
 				], 400);
@@ -351,13 +355,13 @@ class TaskController extends Controller {
 			) {
 				return new JSONResponse([
 					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
 				], 404);
 			}
 			if ($existingVisibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
 				return new JSONResponse([
 					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
 				], 404);
 			}
 
@@ -382,7 +386,7 @@ class TaskController extends Controller {
 						'success' => false,
 						'error' => [
 							'code' => 'FORBIDDEN',
-							'message' => 'Only house owners can set admin-only visibility'
+							'message' => $this->l->t('Only house owners can set admin-only visibility')
 						]
 					], 403);
 				}
@@ -393,7 +397,7 @@ class TaskController extends Controller {
 						'success' => false,
 						'error' => [
 							'code' => 'FORBIDDEN',
-							'message' => 'Only house owners can change admin-only task visibility'
+							'message' => $this->l->t('Only house owners can change admin-only task visibility')
 						]
 					], 403);
 				}
@@ -424,7 +428,7 @@ class TaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Validation failed',
+						'message' => $this->l->t('Validation failed'),
 						'details' => $errors
 					]
 				], 400);
@@ -446,7 +450,7 @@ class TaskController extends Controller {
 				// catch below.
 				return new JSONResponse([
 					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
 				], 404);
 			}
 
@@ -501,13 +505,13 @@ class TaskController extends Controller {
 				&& $task->getOwnerUserId() !== $houseUser->getNextcloudUserId()) {
 				return new JSONResponse([
 					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
 				], 404);
 			}
 			if ($visibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
 				return new JSONResponse([
 					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
 				], 404);
 			}
 
@@ -525,13 +529,13 @@ class TaskController extends Controller {
 				// handled as 403 by the outer catch below.
 				return new JSONResponse([
 					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => 'Task not found']
+					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
 				], 404);
 			}
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Task deleted successfully'
+				'message' => $this->l->t('Task deleted successfully')
 			]);
 		} catch (NotFoundException $e) {
 			return new JSONResponse([
@@ -598,7 +602,7 @@ class TaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Search query is required'
+						'message' => $this->l->t('Search query is required')
 					]
 				], 400);
 			}
@@ -752,7 +756,7 @@ class TaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'FORBIDDEN',
-						'message' => 'Admin-only tasks may only be completed by house owners'
+						'message' => $this->l->t('Admin-only tasks may only be completed by house owners')
 					]
 				], 403);
 			}
@@ -768,7 +772,7 @@ class TaskController extends Controller {
 						'success' => false,
 						'error' => [
 							'code' => 'FORBIDDEN',
-							'message' => 'Private tasks may only be completed by assigned users'
+							'message' => $this->l->t('Private tasks may only be completed by assigned users')
 						]
 					], 403);
 				}
@@ -901,7 +905,7 @@ class TaskController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Invalid reschedule date'
+						'message' => $this->l->t('Invalid reschedule date')
 					]
 				], 400);
 			}

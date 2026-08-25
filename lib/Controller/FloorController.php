@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -23,17 +24,20 @@ class FloorController extends Controller {
 	private FloorService $floorService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
 		FloorService $floorService,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		IL10N $l,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->floorService = $floorService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->l = $l;
 	}
 
 	/**
@@ -169,7 +173,7 @@ class FloorController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Floor name is required'
+						'message' => $this->l->t('Floor name is required')
 					]
 				], 400);
 			}
@@ -287,7 +291,7 @@ class FloorController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Floor name is required'
+						'message' => $this->l->t('Floor name is required')
 					]
 				], 400);
 			}
@@ -323,7 +327,7 @@ class FloorController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Floor order is required'
+						'message' => $this->l->t('Floor order is required')
 					]
 				], 400);
 			}
@@ -369,7 +373,7 @@ class FloorController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'message' => 'Floor deleted successfully'
+				'message' => $this->l->t('Floor deleted successfully')
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);

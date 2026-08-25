@@ -10,6 +10,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskService;
+use OCP\IL10N;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -27,6 +28,9 @@ class TaskControllerLoggingTest extends TestCase {
 		$houseService = $this->createMock(HouseService::class);
 		$authService = $this->createMock(AuthorizationService::class);
 		$appLogger = $this->createMock(AppLogger::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$exception = new \RuntimeException('Database failure');
 
@@ -52,6 +56,7 @@ class TaskControllerLoggingTest extends TestCase {
 			$roomTaskService,
 			$houseService,
 			$authService,
+			$l10n,
 			$appLogger
 		);
 

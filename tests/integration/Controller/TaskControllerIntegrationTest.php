@@ -9,6 +9,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskService;
+use OCP\IL10N;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -31,13 +32,17 @@ class TaskControllerIntegrationTest extends TestCase {
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->controller = new TaskController(
 			$this->request,
 			$this->taskService,
 			$this->roomTaskService,
 			$this->houseService,
-			$this->authService
+			$this->authService,
+			$l10n
 		);
 	}
 

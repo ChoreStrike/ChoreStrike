@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -27,18 +28,21 @@ class HouseController extends Controller {
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private ActivityService $activityService;
+	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
 		HouseService $houseService,
 		AuthorizationService $authService,
 		ActivityService $activityService,
+		IL10N $l,
 		?AppLogger $appLogger = null,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->activityService = $activityService;
+		$this->l = $l;
 		if ($appLogger !== null) {
 			$this->initializeControllerLogger($appLogger);
 		}
@@ -85,7 +89,7 @@ class HouseController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'House name is required'
+						'message' => $this->l->t('House name is required')
 					]
 				], 400);
 			}
@@ -265,7 +269,7 @@ class HouseController extends Controller {
 			return new JSONResponse([
 				'success' => true,
 				'data' => $updatedHouse->jsonSerialize(),
-				'message' => 'House has been reset to initial state'
+				'message' => $this->l->t('House has been reset to initial state')
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);

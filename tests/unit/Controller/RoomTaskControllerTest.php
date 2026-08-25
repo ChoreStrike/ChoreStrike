@@ -18,6 +18,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -38,12 +39,16 @@ class RoomTaskControllerTest extends TestCase {
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->controller = new RoomTaskController(
 			$this->request,
 			$this->roomTaskService,
 			$this->houseService,
-			$this->authService
+			$this->authService,
+			$l10n
 		);
 	}
 

@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -36,6 +37,9 @@ class SchedulingControllerTest extends TestCase {
 		$this->schedulingService = $this->createMock(SchedulingService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		// CR-016-15: the controller delegates the energy bounds to the
 		// service; mirror the real pure-function behavior on the mock so the
@@ -51,7 +55,8 @@ class SchedulingControllerTest extends TestCase {
 			$this->request,
 			$this->schedulingService,
 			$this->houseService,
-			$this->authService
+			$this->authService,
+			$l10n
 		);
 	}
 
@@ -204,7 +209,7 @@ class SchedulingControllerTest extends TestCase {
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertFalse($response->getData()['success']);
-		$this->assertEquals('Invalid weekday: funday', $response->getData()['error']['message']);
+		$this->assertEquals('Invalid weekday: %1$s', $response->getData()['error']['message']);
 	}
 
 	public function testUpdatePreferences_ReturnsBadRequestForNonIntegerEnergy(): void {
@@ -324,7 +329,7 @@ class SchedulingControllerTest extends TestCase {
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertFalse($response->getData()['success']);
 		// CR-SVC-49: the curated weekday message must surface verbatim.
-		$this->assertEquals('Invalid weekday: funday', $response->getData()['error']['message']);
+		$this->assertEquals('Invalid weekday: %1$s', $response->getData()['error']['message']);
 	}
 
 	public function testGetSuggestionsReturnsSuggestions(): void {

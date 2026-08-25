@@ -18,6 +18,7 @@ use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 use OCP\IDBConnection;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -76,11 +77,18 @@ class HouseServiceLoggingTest extends TestCase {
 			$rewardConfigService,
 			$config,
 			$db,
+			$this->createIdentityL10n(),
 			$appLogger
 		);
 
 		$result = $service->getOrCreateHouse('instance-1', 'Family Home');
 
 		$this->assertSame($house, $result);
+	}
+
+	private function createIdentityL10n(): IL10N {
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		return $l10n;
 	}
 }

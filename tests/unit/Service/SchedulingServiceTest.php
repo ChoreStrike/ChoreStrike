@@ -8,6 +8,7 @@ use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\SchedulingService;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -23,7 +24,10 @@ class SchedulingServiceTest extends TestCase {
 
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
-		$this->service = new SchedulingService($this->houseUserMapper, $this->completedTaskMapper);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		$this->service = new SchedulingService($this->houseUserMapper, $this->completedTaskMapper, $l10n);
 	}
 
 	/**

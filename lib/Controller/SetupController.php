@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Service\HouseSetupService;
 use OCA\ChoreStrike\Service\TemplateService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -35,6 +36,7 @@ class SetupController extends Controller {
 	private HouseSetupService $houseSetupService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
+	private IL10N $l;
 	private ?AppLogger $appLogger;
 
 	public function __construct(
@@ -43,6 +45,7 @@ class SetupController extends Controller {
 		HouseSetupService $houseSetupService,
 		HouseService $houseService,
 		AuthorizationService $authService,
+		IL10N $l,
 		?AppLogger $appLogger = null,
 	) {
 		parent::__construct('chorestrike', $request);
@@ -50,6 +53,7 @@ class SetupController extends Controller {
 		$this->houseSetupService = $houseSetupService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
+		$this->l = $l;
 		$this->appLogger = $appLogger;
 	}
 
@@ -105,7 +109,7 @@ class SetupController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'HOUSE_ALREADY_SET_UP',
-						'message' => 'The house is already set up. Use the per-room template picker instead.',
+						'message' => $this->l->t('The house is already set up. Use the per-room template picker instead.'),
 					],
 				], 409);
 			}
@@ -116,7 +120,7 @@ class SetupController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'A JSON request body is required',
+						'message' => $this->l->t('A JSON request body is required'),
 					],
 				], 400);
 			}
@@ -126,7 +130,7 @@ class SetupController extends Controller {
 			return new JSONResponse([
 				'success' => true,
 				'data' => $result,
-				'message' => 'House set up successfully',
+				'message' => $this->l->t('House set up successfully'),
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);

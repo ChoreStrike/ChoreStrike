@@ -20,6 +20,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -50,6 +51,10 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 		$this->floorMapper = $this->createMock(FloorMapper::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 
+		$l10n = $this->createMock(IL10N::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+
 		$this->service = new RoomTaskService(
 			$this->roomTaskMapper,
 			$this->taskMapper,
@@ -62,7 +67,8 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			$this->createMock(HouseUserMapper::class),
 			$this->createMock(CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
-			$this->createMock(\OCP\IDBConnection::class)
+			$this->createMock(\OCP\IDBConnection::class),
+			$l10n
 		);
 
 		// Set up test IDs
