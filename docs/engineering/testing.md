@@ -728,6 +728,29 @@ strategy:
 
 ---
 
+## Mapper-Level Real-DB Regression Tests
+
+Mock-based mapper/service tests can only pin the *query shape* — they stub
+`IDBConnection`/mappers and by construction cannot catch real SQL errors
+(wrongly quoted aggregate expressions → SQLSTATE 1054/42S22, broken joins,
+day-boundary drift across SQLite/MariaDB/PostgreSQL). Whenever a mapper query
+is fixed or its semantics are behavior-critical, add a **real-DB regression
+test** in `tests/integration/Db/` extending `IntegrationTestCase` (Docker,
+family profile):
+
+- Seed the full FK chain via the base-class helpers (`createHouse` →
+  `createFloor` → `createRoom` → `createTask` → `assignTaskToRoom` →
+  `addHouseMember`); insert auxiliary rows (e.g. completions) with an explicit
+  tracked-ID helper and clean them up in `tearDown` (the base cleanup does not
+  know them). Precedents: `BatchQueryRegressionTest`, `WriteBatchRegressionTest`,
+  `RoomTaskMapperDailyTest`, `CompletedTaskMapperEnergyTest`.
+- Pin the semantics that mocks cannot see: empty-result defaults, sums/aggregates,
+  half-open day boundaries (`[00:00, +1d)`), cross-user/cross-house isolation.
+- Extend this suite for new mapper fixes; do not re-cover a method that already
+  has a real-DB regression test.
+
+---
+
 ## Time-Travel Testing (CS-PLAN-023)
 
 Time-dependent flows — "task overdue after N days", streak-freeze

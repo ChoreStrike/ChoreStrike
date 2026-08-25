@@ -180,12 +180,13 @@ detected as UTF-8 and write fine.
 > CR-016-02 is **resolved** (CS-033); the open UI-side items
 > **CR-016-03/04/05/06/08/13/14** are **resolved 2026-08-24 by CS-PLAN-043**
 > (record: [`archive/2026-08.md`](archive/2026-08.md)); **CR-016-15** is
-> **resolved 2026-08-24 by CS-PLAN-045**. Remaining open: CR-016-10.
+> **resolved 2026-08-24 by CS-PLAN-045**. **CR-016-10** is
+> **resolved 2026-08-24 by CS-PLAN-046**
+> (record: [`archive/2026-08.md`](archive/2026-08.md)). All CS-016 review
+> items are closed.
 
 ### [P2] CR-016-10 — Regression test for `getConsumedEnergyForUserOnDate` SQL fix
-**Effort**: S — mock-based mapper test cannot catch SQL errors; needs a real-DB
-mapper/integration test (0 with no completions; >0 seeded). Unblock the
-integration harness first (`AvailabilityApiTest` `Class OC not found`).
+**Status**: Resolved 2026-08-24 (CS-PLAN-046) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-016-09 — `DailyTaskList.vue` tech debt (pre-existing)
 **Status**: Resolved 2026-08-21 (CS-PLAN-038, component archived) → [`archive/2026-08.md`](archive/2026-08.md)
@@ -217,16 +218,12 @@ integration harness first (`AvailabilityApiTest` `Class OC not found`).
 > (record: [`archive/2026-08.md`](archive/2026-08.md)).
 > **CR-SVC-50** was **resolved 2026-08-20** by
 > [CS-PLAN-036](../plans/done/cs-plan-036-query-batch-optimization.md)
-> (record: [`archive/2026-08.md`](archive/2026-08.md)); **CR-SVC-52** stays open below.
+> (record: [`archive/2026-08.md`](archive/2026-08.md)); **CR-SVC-52** was
+> **resolved 2026-08-24 by CS-PLAN-046** (record:
+> [`archive/2026-08.md`](archive/2026-08.md)).
 
 ### [P3] CR-SVC-52 — CR-SVC-12 unit test does not assert dispatch-after-commit ordering
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-025
-`RoomServiceTest::testCompleteRoomTask_NewTitleInGameResult_DispatchesTitleNotificationAfterCommit`
-asserts `notifyTitleUnlocked` is dispatched, but with the mocked `IDBConnection`
-a dispatch **before** commit would pass too — the ordering guarantee (the point
-of CR-SVC-12) is untested.
-- [ ] Record the call order (commit callback appends to a sequence log) and
-      assert `notifyTitleUnlocked` runs after the commit entry.
+**Status**: Resolved 2026-08-24 (CS-PLAN-046) → [`archive/2026-08.md`](archive/2026-08.md)
 
 > **2026-08-11 — Full Review of the 4 active plans** (CS-017/022/023/025; 4 parallel
 > `reviewer` subagents + gate re-verification; record:
@@ -286,13 +283,31 @@ Every config key is touched in 4-5 places (const + get + set + `updateConfig` br
 **Status**: Resolved 2026-08-24 (CS-PLAN-045, D1=delete) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-SVC-37 — Service-layer i18n: hardcoded user-facing strings
-**Effort**: S — `TaskService::validateTaskData` validation messages and
-`MinigameService::purchaseBoost` exception messages are English literals returned to
-clients. Inject `IL10N`, wrap with `t()`, update `l10n/` artifacts.
-Same pattern exists controller-side: `RoomController::createRoomResponse`
-VALIDATION_ERROR messages (`Floor ID is required`, `Room name is required`,
-room-type messages from CS-PLAN-045) are unwrapped, following the method's
-pre-existing style (Source: Review of CS-PLAN-045, 2026-08-24).
+**Status**: Resolved 2026-08-24 (CS-PLAN-046, incl. the RoomController
+VALIDATION_ERROR literals) → [`archive/2026-08.md`](archive/2026-08.md)
+
+### [P3] CR-SVC-62 — Remaining client-visible English literals (CR-SVC-37 remainder)
+**Status**: Open · **Effort**: M · **Source**: Review of CS-PLAN-046 (2026-08-25)
+CR-SVC-37 swept `TaskService::validateTaskData`, `MinigameService::purchaseBoost`
+and the `RoomController` VALIDATION_ERROR sites; the same i18n rule violation
+persists across the rest of the API surface:
+- Controller `'message' => '<literal>'` sites (~45): `TaskController` (~20,
+  incl. 'Validation failed', 'Task not found', admin-only/private guards, date
+  rejections), `RoomTaskController` (8, incl. 'User ID is required' ×4,
+  'Days must be between 1 and 365'), `ChecklistController` (8),
+  `FloorController` (4), `SetupController` (3), `TaskSyncController` (3),
+  `HouseController` (2), `SchedulingController` (1), `RoomController` (1:
+  'Room deleted successfully'). `TestController` excluded (test-mode only).
+- Service `InvalidArgumentException` literals surfaced via
+  `ControllerErrorFormatter::validation()`: `HouseSetupService` (9),
+  `SchedulingService`/`SchedulingController` section+weekday messages (5),
+  `RoomTaskService` (4), `RoomTaskController` 'Invalid nextDue date format'
+  (2), `TaskService::updateTask` 'Unknown or immutable field' (1),
+  `FloorService` (1), `HouseService` 'Invalid role…' (1).
+- [ ] Same pass as CR-SVC-37: inject `IL10N`, wrap with `t()` (printf-style
+      positional parameters where interpolated), audit each site against the
+      `validation()` client-safe contract, sync `l10n/` artifacts, update the
+      identity-mock assertions.
 
 ### [P3] CR-SVC-40 — `RoomService` reaches below its layer (`IDBConnection`)
 **Effort**: M — injects `IDBConnection` for `beginTransaction`/`lockForUpdate` (persistence
@@ -316,18 +331,15 @@ duplicated stat helpers; duplicated `validate*Ownership` across Floor/Room/RoomT
 > From the Standard-B review of the CS-PLAN-027 implementation (2026-08-13).
 > Six smaller findings were auto-fixed inline (plan §13); CR-027-03/04 were
 > closed by CS-PLAN-030, **CR-027-01** was closed 2026-08-24 by CS-PLAN-045.
-> Remaining open: CR-027-02.
+> **CR-027-02** was **resolved 2026-08-24 by CS-PLAN-046 (D1=delete)**
+> (record: [`archive/2026-08.md`](archive/2026-08.md)). All CS-027 review
+> items are closed.
 
 ### [P3] CR-027-01 — Free room create/update persists unvalidated `roomType`
 **Status**: Resolved 2026-08-24 (CS-PLAN-045, D2=reject 400) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-027-02 — `TemplateService::searchTemplates` dead + unlocalized since D7
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-027 (2026-08-13)
-The legacy `template#search` route was removed with `TemplateController`, leaving
-`searchTemplates()` without a caller. It also matches the raw English source
-text, not the localized view, so German queries (e.g. „Staubsaugen") miss.
-- [ ] Wire it into the template picker as a search field (localize the match),
-      or remove the method + its tests.
+**Status**: Resolved 2026-08-24 (CS-PLAN-046, D1=delete) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ---
 

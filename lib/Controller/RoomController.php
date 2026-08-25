@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\TemplateService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 
 /**
@@ -28,6 +29,7 @@ class RoomController extends Controller {
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private TemplateService $templateService;
+	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
@@ -35,12 +37,14 @@ class RoomController extends Controller {
 		HouseService $houseService,
 		AuthorizationService $authService,
 		TemplateService $templateService,
+		IL10N $l,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomService = $roomService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->templateService = $templateService;
+		$this->l = $l;
 	}
 
 	/**
@@ -90,7 +94,7 @@ class RoomController extends Controller {
 				'success' => false,
 				'error' => [
 					'code' => 'VALIDATION_ERROR',
-					'message' => 'Floor ID is required'
+					'message' => $this->l->t('Floor ID is required')
 				]
 			], 400);
 		}
@@ -204,7 +208,7 @@ class RoomController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Floor ID is required'
+						'message' => $this->l->t('Floor ID is required')
 					]
 				], 400);
 			}
@@ -214,7 +218,7 @@ class RoomController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Room name is required'
+						'message' => $this->l->t('Room name is required')
 					]
 				], 400);
 			}
@@ -227,7 +231,7 @@ class RoomController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Room type must be at most 50 characters'
+						'message' => $this->l->t('Room type must be at most 50 characters')
 					]
 				], 400);
 			}
@@ -237,7 +241,7 @@ class RoomController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Invalid room type'
+						'message' => $this->l->t('Invalid room type')
 					]
 				], 400);
 			}
@@ -353,7 +357,7 @@ class RoomController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Room name is required'
+						'message' => $this->l->t('Room name is required')
 					]
 				], 400);
 			}
@@ -425,7 +429,7 @@ class RoomController extends Controller {
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => 'Cleanliness change must be between -100 and 100'
+						'message' => $this->l->t('Cleanliness change must be between -100 and 100')
 					]
 				], 400);
 			}

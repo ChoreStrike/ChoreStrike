@@ -153,26 +153,6 @@ class TemplateServiceTest extends TestCase {
 		$this->assertSame([], $this->service->getTemplatesForRoomType('dungeon'));
 	}
 
-	public function testSearchTemplates_MatchesName(): void {
-		$result = $this->service->searchTemplates('toilet');
-
-		$this->assertSame(['bathroom_toilet'], array_column($result, 'id'));
-	}
-
-	public function testSearchTemplates_MatchesTag(): void {
-		$result = $this->service->searchTemplates('trash');
-
-		$this->assertSame(['household_trash'], array_column($result, 'id'));
-	}
-
-	public function testSearchTemplates_EmptyQuery_ReturnsAll(): void {
-		$this->assertCount(4, $this->service->searchTemplates(''));
-	}
-
-	public function testSearchTemplates_NoMatch_ReturnsEmpty(): void {
-		$this->assertSame([], $this->service->searchTemplates('zzzz'));
-	}
-
 	public function testMaterializeTemplate_Putzteufel_UsesStandardFrequency(): void {
 		$payload = $this->service->materializeTemplate('kitchen_counters', TemplateService::LEVEL_PUTZTEUFEL);
 

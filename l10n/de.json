@@ -780,6 +780,24 @@
         "Suggestion applied to your week": "Vorschlag auf deine Woche übernommen",
         "Failed to apply the suggestion": "Vorschlag konnte nicht übernommen werden",
         "Sets your {day} budget to {energy} energy": "Setzt dein {day}-Budget auf {energy} Energie",
-        "Applying a suggestion commits your share of that day's energy to your own week.": "Das Übernehmen eines Vorschlags legt deinen Anteil der Tagesenergie für deine Woche fest."
+        "Applying a suggestion commits your share of that day's energy to your own week.": "Das Übernehmen eines Vorschlags legt deinen Anteil der Tagesenergie für deine Woche fest.",
+        "Task name is required": "Aufgabenname ist erforderlich",
+        "Energy cost must be between 1 and 5": "Energiekosten müssen zwischen 1 und 5 liegen",
+        "Priority must be between 1 and 3": "Priorität muss zwischen 1 und 3 liegen",
+        "Estimated time must be between 1 and 480 minutes": "Geschätzte Zeit muss zwischen 1 und 480 Minuten liegen",
+        "Invalid frequency type": "Ungültiger Häufigkeitstyp",
+        "Frequency value must be at least 1": "Häufigkeitswert muss mindestens 1 sein",
+        "Invalid scope type": "Ungültiger Bereichstyp",
+        "Invalid recurrence mode": "Ungültiger Wiederholungsmodus",
+        "Active until must be equal or after active from": "Aktiv bis muss gleich oder nach Aktiv von sein",
+        "Invalid visibility type": "Ungültiger Sichtbarkeitstyp",
+        "Unknown boost: %1$s": "Unbekannter Boost: %1$s",
+        "User not found in house": "Benutzer nicht im Haushalt gefunden",
+        "Insufficient coins. Need %1$d, have %2$d": "Nicht genug Münzen. Benötigt %1$d, vorhanden sind %2$d",
+        "Floor ID is required": "Etagen-ID ist erforderlich",
+        "Room name is required": "Zimmername ist erforderlich",
+        "Room type must be at most 50 characters": "Zimmertyp darf höchstens 50 Zeichen lang sein",
+        "Invalid room type": "Ungültiger Zimmertyp",
+        "Cleanliness change must be between -100 and 100": "Sauberkeitsänderung muss zwischen -100 und 100 liegen"
     }
 }

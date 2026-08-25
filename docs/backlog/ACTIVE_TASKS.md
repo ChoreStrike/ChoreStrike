@@ -19,6 +19,8 @@
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
+- **CS-PLAN-046** — Backend Test Integrity & i18n Quick-Wins (closed **CR-016-10** + **CR-SVC-52** + **CR-SVC-37** + **CR-027-02**; D1=delete signed off): real-DB `CompletedTaskMapperEnergyTest` (zero/sum/day-boundary/cross-user, Docker family profile) for the fixed energy SQL; dispatch-after-commit ordering assertion in `RoomServiceTest` with mutation check (red→green verified); i18n sweep wrapping all client-visible literals (`TaskService::validateTaskData` ×10, `MinigameService::purchaseBoost` incl. printf-positional insufficient-coins message, `RoomController` ×7 VALIDATION_ERROR) with injected `IL10N`; dead `TemplateService::searchTemplates` + its 4 tests deleted (grep-verified; concept doc updated); l10n en/de/pot synced (pot fully regenerated). Gate: PHPUnit unit 834 / integration 200 [24 pre-existing skips] / Jest 831 / lint + stylelint 0/0 / l10n:check-keys clean. Standard-B review 2026-08-25: **PASS** — 1 auto-fix (`RoomServiceTest` `$callOrder` explicit initialization), **CR-SVC-62** logged (remaining client-visible English literals across the rest of the API surface — CR-SVC-37 remainder), gate re-verified (lint/stylelint/l10n clean, Jest 831, Docker PHPUnit 834/200 [24 pre-existing skips], `CompletedTaskMapperEnergyTest` 4/4). (2026-08-24, Done — plan moved to `done/`) → [`../plans/done/cs-plan-046-backend-test-integrity-i18n-quick-wins.md`](../plans/done/cs-plan-046-backend-test-integrity-i18n-quick-wins.md)
+
 - **CS-PLAN-045** — Backend Hardening & Correctness Sweep (closed **BUG-SEC-002** + **CR-027-01** + **CR-016-15** + **CR-SVC-19/32/33**; D1=delete/D2=reject-400/D3=403+409 signed off): server-side role guards in `HouseService::updateUserRole` (self-demotion 403 `CANNOT_DEMOTE_SELF`, last-owner 409 `CANNOT_DEMOTE_LAST_OWNER` via new `ConflictException` + `countOwnersForHouse`; thin controller; real-DB `RoleGuardApiTest`); roomType catalog + length validation (400); single `assertValidEnergyBudget` source for all three bounds sites; reward-config clamping on read+write with `AppLogger` warnings; calendar-day `calculateDaysEarly` (fixed-date DST/midnight pins, injectable `$now`); dead reward-less `TaskService` completion pair deleted. Gate: PHPUnit unit 838 / integration 196 [24 pre-existing skips] / Jest 831 / lint + stylelint 0/0 / noise + l10n + cs:check clean / webpack green / E2E members-owner 6/6 (`--retries=0`). Standard-B review 2026-08-24: **PASS** — 0 code findings; 2 doc auto-fixes (stale plan-043 `active/`→`done/` links in ACTIVE_TASKS + archive), CR-SVC-37 scope note appended (unwrapped RoomController VALIDATION_ERROR messages, per-plan style decision); gate re-verified (lint clean, Jest 831, Docker PHPUnit 838/196 [24 pre-existing skips]). (2026-08-24, Done) → [`../plans/done/cs-plan-045-backend-hardening-correctness-sweep.md`](../plans/done/cs-plan-045-backend-hardening-correctness-sweep.md)
 
 - **CS-PLAN-043** — Scheduling UI Consolidation (closed **CR-016-03/04/05/06/08/13/14** + **UX-014** + **TECH-DRY-001**): E2E baseline re-run first (scheduling-owner 28 passed / 3 skipped, post-CS-044); extracted `src/constants/scheduling.js` (translated `weekDays`, `ENERGY_MIN/MAX`, `isMemberAvailable`, `getMemberEnergy`) + `src/utils/energyBudgets.js` (canonical 10/15 fallback map — single source for `getCapacityForDay`/`getTotalEnergyForDay`/MemberFairnessTable/components, Jest-pinned); dead-code sweep (backend `updateMemberAvailability(int…)` overload + keeper test removed; store action re-created refined as `updateMemberPreferences`; suggestions contract slimmed to `{ taskCount }` both layers incl. negative-count 400); save guard via effective-week snapshot in the edit modal + unreachable per-component loading blocks deleted; SchedulePreview+SchedulingSuggestions merged into `SchedulePlanner.vue` with per-day Apply (fair-share preview inline before persisting, bulk self PUT); component splits: `AvailabilityEditModal.vue` (734→241 parent), `BudgetAnalysis.vue` + extra seam `WeekBudgetGrid.vue` (592→250 parent, manifest deviation recorded); calendar dates locale-aware (`getLocale()`+Intl range, Nextcloud `getDayNames()` headers, de/en shapes pinned); SchedulingView → `<script setup>`; UX-014 wired: every member card Edit → shared modal (self = bulk preferences PUT, others = member PUT), planner Apply persists suggested distribution; l10n de/en synced (6 new keys). E2E selector updates where DOM changed (planner testid, suggestions load-first) and the three racy edit-modal tests un-skipped → now real passes. Gate: Jest 830 / lint + stylelint 0/0 / noise clean / l10n clean / webpack build green / PHPUnit unit 795 + integration 190 [24 pre-existing skips] / Docker E2E scheduling-owner **31/31**, self-availability-member 4/4, insights-flow 3/3 (`--retries=0`). Standard-B review 2026-08-24: PASS — 3 auto-fixes (AvailabilitySettings dead `isCurrentUser`/`resolveCurrentUser` leftovers swept — closes the last trace of **BUG-E2E-002**, now archived as resolved; `normalizeDaySuggestions` sixth weekday-name map → shared `weekDays` constant; stale `hasLoaded` comment), **BUG-UI-001** logged (pre-existing display-only total garbling on empty/invalid energy input), gate re-verified (lint/stylelint/l10n/noise clean, Jest 830, webpack green, Docker PHPUnit 795/190 [24 pre-existing skips]). (2026-08-24, Done — plan file updated with implementation notes + `## Review Outcome`, moved to `done/`) → plan: [`../plans/done/cs-plan-043-scheduling-ui-consolidation.md`](../plans/done/cs-plan-043-scheduling-ui-consolidation.md)
@@ -123,6 +125,10 @@
 > CR-SVC-33 (dead reward-less completion path). Activation decisions D1–D3
 > flagged in the plan; ready for review + manual `new/ → active/` move.
 
+> **CS-PLAN-046 was activated and implemented (2026-08-24, D1=delete signed
+> off), Standard-B reviewed (PASS, 2026-08-25) and moved to `done/`** — see
+> Recently Completed above.
+
 > **CS-PLAN-045 plan review (2026-08-24)**: Standard A — **GO-WITH-CHANGES**,
 > fixes applied inline to the plan: l10n artifact names corrected (`l10n/en.js`
 > does not exist; artifacts are `l10n/en.json` + `l10n/de.json` + POT template),
@@ -140,3 +146,32 @@
 > note D3's 403/409 split deliberately deviates from BUG-SEC-002's "400/409"
 > wording (mirrors `CANNOT_REMOVE_OWNER` semantics). Ready for manual
 > `new/ → active/` move.
+
+> **CS-PLAN-046 drafted (2026-08-24)** — Backend Test Integrity & i18n
+> Quick-Wins in `docs/plans/new/`: bundles CR-016-10 (real-DB regression test
+> for the fixed `getConsumedEnergyForUserOnDate` SQL — harness precondition now
+> met), CR-SVC-52 (dispatch-after-commit ordering assertion), CR-SVC-37
+> (service/controller i18n wrap + l10n artifacts), CR-027-02 (dead
+> `searchTemplates`; D1 = remove vs wire flagged). All file:line refs and
+> no-caller claims verified against the tree; ready for review + manual
+> `new/ → active/` move.
+
+> **CS-PLAN-046 plan review (2026-08-24)**: Standard A — **GO-WITH-CHANGES**,
+> fixes applied inline to the plan: i18n parameter style corrected from named
+> `{placeholder}` tokens to printf-style positional (`%1$d`/`%2$s`) — verified
+> against Nextcloud stable31 `OC\L10N\L10NString` that `t()` runs parameters
+> through `vsprintf()`, so named tokens would reach clients unsubstituted
+> (`ChoreStrikeNotifier` precedent confirmed); `validateTaskData` literal count
+> corrected (~9 → 10); RoomController line refs completed (229–230 block
+> 'Room type must be at most 50 characters' was missing; 427 → 427–428);
+> manifest gained three missed ctor-update sites (`TaskServiceWhitelistTest`,
+> `RoomControllerTest`, `RoomControllerIntegrationTest`); identity-mock
+> assertion semantics clarified (source text, not substituted output). All
+> other file:line refs, no-caller claims, backlog mappings, precedents, and
+> l10n artifact paths verified against the tree. D1 remains an activation-time
+> sign-off. Noted to the user (not backlogged, per plan-review rules):
+> additional unwrapped client-visible literals exist outside CR-SVC-37's scope
+> (e.g. TaskController 'Validation failed', RoomController 'Room deleted
+> successfully', RoomTaskController 'Invalid nextDue date format' /
+> 'Assignee removed successfully', SchedulingController section messages).
+> Ready for manual `new/ → active/` move.

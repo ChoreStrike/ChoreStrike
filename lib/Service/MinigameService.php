@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCP\IDBConnection;
+use OCP\IL10N;
 
 /**
  * Service for managing minigame scores and leaderboards
@@ -42,15 +43,18 @@ class MinigameService {
 	private MinigameScoreMapper $scoreMapper;
 	private HouseUserMapper $houseUserMapper;
 	private IDBConnection $db;
+	private IL10N $l10n;
 
 	public function __construct(
 		MinigameScoreMapper $scoreMapper,
 		HouseUserMapper $houseUserMapper,
 		IDBConnection $db,
+		IL10N $l10n,
 	) {
 		$this->scoreMapper = $scoreMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->db = $db;
+		$this->l10n = $l10n;
 	}
 
 	/**
@@ -227,6 +231,12 @@ class MinigameService {
 	 * with a single-boost balance cannot both pass the check and buy two
 	 * boosts while paying once (ADR-007 lock pattern).
 	 *
+	 * The thrown messages are client-safe (surfaced verbatim by the
+	 * controller's validation() 400 envelope) and therefore localized
+	 * (CR-SVC-37); parameters use printf-style positional placeholders —
+	 * t() feeds them through vsprintf(), named {token}s would reach the
+	 * client unsubstituted.
+	 *
 	 * @param int $houseId The house ID
 	 * @param string $userId The Nextcloud user ID
 	 * @param string $boostId The boost ID to purchase
@@ -236,14 +246,14 @@ class MinigameService {
 	public function purchaseBoost(int $houseId, string $userId, string $boostId): array {
 		// Validate boost exists
 		if (!isset(self::BOOST_COSTS[$boostId])) {
-			throw new \InvalidArgumentException("Unknown boost: {$boostId}");
+			throw new \InvalidArgumentException($this->l10n->t('Unknown boost: %1$s', [$boostId]));
 		}
 
 		$cost = self::BOOST_COSTS[$boostId];
 		$user = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId);
 
 		if ($user === null) {
-			throw new \InvalidArgumentException('User not found in house');
+			throw new \InvalidArgumentException($this->l10n->t('User not found in house'));
 		}
 
 		$this->db->beginTransaction();
@@ -254,7 +264,7 @@ class MinigameService {
 			$lockedUser = $this->houseUserMapper->findForUpdate($user->getId());
 			if ($lockedUser->getCoins() < $cost) {
 				throw new \InvalidArgumentException(
-					"Insufficient coins. Need {$cost}, have {$lockedUser->getCoins()}"
+					$this->l10n->t('Insufficient coins. Need %1$d, have %2$d', [$cost, $lockedUser->getCoins()])
 				);
 			}
 

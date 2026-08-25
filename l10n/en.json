@@ -780,6 +780,24 @@
         "Suggestion applied to your week": "Suggestion applied to your week",
         "Failed to apply the suggestion": "Failed to apply the suggestion",
         "Sets your {day} budget to {energy} energy": "Sets your {day} budget to {energy} energy",
-        "Applying a suggestion commits your share of that day's energy to your own week.": "Applying a suggestion commits your share of that day's energy to your own week."
+        "Applying a suggestion commits your share of that day's energy to your own week.": "Applying a suggestion commits your share of that day's energy to your own week.",
+        "Task name is required": "Task name is required",
+        "Energy cost must be between 1 and 5": "Energy cost must be between 1 and 5",
+        "Priority must be between 1 and 3": "Priority must be between 1 and 3",
+        "Estimated time must be between 1 and 480 minutes": "Estimated time must be between 1 and 480 minutes",
+        "Invalid frequency type": "Invalid frequency type",
+        "Frequency value must be at least 1": "Frequency value must be at least 1",
+        "Invalid scope type": "Invalid scope type",
+        "Invalid recurrence mode": "Invalid recurrence mode",
+        "Active until must be equal or after active from": "Active until must be equal or after active from",
+        "Invalid visibility type": "Invalid visibility type",
+        "Unknown boost: %1$s": "Unknown boost: %1$s",
+        "User not found in house": "User not found in house",
+        "Insufficient coins. Need %1$d, have %2$d": "Insufficient coins. Need %1$d, have %2$d",
+        "Floor ID is required": "Floor ID is required",
+        "Room name is required": "Room name is required",
+        "Room type must be at most 50 characters": "Room type must be at most 50 characters",
+        "Invalid room type": "Invalid room type",
+        "Cleanliness change must be between -100 and 100": "Cleanliness change must be between -100 and 100"
     }
 }

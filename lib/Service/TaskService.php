@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\IL10N;
 
 /**
  * Service for task-related business logic
@@ -41,9 +42,11 @@ class TaskService {
 	private const DATE_FIELDS = ['activeFrom', 'activeUntil', 'fixedScheduleTime'];
 
 	private TaskMapper $taskMapper;
+	private IL10N $l10n;
 
-	public function __construct(TaskMapper $taskMapper) {
+	public function __construct(TaskMapper $taskMapper, IL10N $l10n) {
 		$this->taskMapper = $taskMapper;
+		$this->l10n = $l10n;
 	}
 
 	/**
@@ -280,6 +283,10 @@ class TaskService {
 	/**
 	 * Validate task data
 	 *
+	 * Returns localized, client-safe error messages (surfaced in the
+	 * TaskController 400 envelope `details[]`), hence every literal goes
+	 * through t() (CR-SVC-37).
+	 *
 	 * @param array $taskData The task data to validate
 	 */
 	public function validateTaskData(array $taskData): array {
@@ -287,27 +294,27 @@ class TaskService {
 
 		// Required fields
 		if (empty($taskData['name'])) {
-			$errors[] = 'Task name is required';
+			$errors[] = $this->l10n->t('Task name is required');
 		}
 
 		// Energy cost validation
 		if (isset($taskData['energyCost'])) {
 			if ($taskData['energyCost'] < 1 || $taskData['energyCost'] > 5) {
-				$errors[] = 'Energy cost must be between 1 and 5';
+				$errors[] = $this->l10n->t('Energy cost must be between 1 and 5');
 			}
 		}
 
 		// Priority validation
 		if (isset($taskData['priority'])) {
 			if ($taskData['priority'] < 1 || $taskData['priority'] > 3) {
-				$errors[] = 'Priority must be between 1 and 3';
+				$errors[] = $this->l10n->t('Priority must be between 1 and 3');
 			}
 		}
 
 		// Estimated time validation
 		if (isset($taskData['estimatedMinutes'])) {
 			if ($taskData['estimatedMinutes'] < 1 || $taskData['estimatedMinutes'] > 480) {
-				$errors[] = 'Estimated time must be between 1 and 480 minutes';
+				$errors[] = $this->l10n->t('Estimated time must be between 1 and 480 minutes');
 			}
 		}
 
@@ -315,14 +322,14 @@ class TaskService {
 		if (isset($taskData['frequencyType'])) {
 			$validTypes = ['daily', 'weekly', 'monthly', 'custom'];
 			if (!in_array($taskData['frequencyType'], $validTypes)) {
-				$errors[] = 'Invalid frequency type';
+				$errors[] = $this->l10n->t('Invalid frequency type');
 			}
 		}
 
 		// Frequency value validation
 		if (isset($taskData['frequencyValue'])) {
 			if ($taskData['frequencyValue'] < 1) {
-				$errors[] = 'Frequency value must be at least 1';
+				$errors[] = $this->l10n->t('Frequency value must be at least 1');
 			}
 		}
 
@@ -330,7 +337,7 @@ class TaskService {
 		if (isset($taskData['scopeType'])) {
 			$validScopeTypes = ['room', 'floor', 'house'];
 			if (!in_array($taskData['scopeType'], $validScopeTypes)) {
-				$errors[] = 'Invalid scope type';
+				$errors[] = $this->l10n->t('Invalid scope type');
 			}
 		}
 
@@ -338,7 +345,7 @@ class TaskService {
 		if (isset($taskData['recurrenceMode'])) {
 			$validModes = ['recurring', 'once', 'bounded'];
 			if (!in_array($taskData['recurrenceMode'], $validModes)) {
-				$errors[] = 'Invalid recurrence mode';
+				$errors[] = $this->l10n->t('Invalid recurrence mode');
 			}
 		}
 
@@ -347,14 +354,14 @@ class TaskService {
 			$from = new \DateTime($taskData['activeFrom']);
 			$until = new \DateTime($taskData['activeUntil']);
 			if ($until < $from) {
-				$errors[] = 'Active until must be equal or after active from';
+				$errors[] = $this->l10n->t('Active until must be equal or after active from');
 			}
 		}
 
 		// Visibility type validation
 		if (isset($taskData['visibilityType'])) {
 			if (!in_array($taskData['visibilityType'], \OCA\ChoreStrike\Db\Task::VISIBILITY_TYPES, true)) {
-				$errors[] = 'Invalid visibility type';
+				$errors[] = $this->l10n->t('Invalid visibility type');
 			}
 		}
 

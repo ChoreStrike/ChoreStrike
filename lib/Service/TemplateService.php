@@ -238,45 +238,6 @@ class TemplateService {
 	}
 
 	/**
-	 * Search templates by name, description, category or tags (localized view).
-	 *
-	 * @param string $query Search text (case-insensitive)
-	 * @return array<int, array>
-	 */
-	public function searchTemplates(string $query): array {
-		$lower = strtolower(trim($query));
-		if ($lower === '') {
-			return array_map(fn ($t) => $this->localizeTemplate($t), $this->loadTemplates());
-		}
-
-		$matched = array_filter(
-			$this->loadTemplates(),
-			function ($t) use ($lower): bool {
-				if (stripos((string)($t['name'] ?? ''), $lower) !== false) {
-					return true;
-				}
-				if (stripos((string)($t['description'] ?? ''), $lower) !== false) {
-					return true;
-				}
-				if (stripos((string)($t['category'] ?? ''), $lower) !== false) {
-					return true;
-				}
-				$tags = $t['tags'] ?? [];
-				if (is_array($tags)) {
-					foreach ($tags as $tag) {
-						if (stripos((string)$tag, $lower) !== false) {
-							return true;
-						}
-					}
-				}
-				return false;
-			}
-		);
-
-		return array_map(fn ($t) => $this->localizeTemplate($t), array_values($matched));
-	}
-
-	/**
 	 * Get a raw (un-localized) template by id.
 	 *
 	 * @param string $templateId The template id

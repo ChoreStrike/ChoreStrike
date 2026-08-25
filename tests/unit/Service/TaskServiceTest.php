@@ -9,6 +9,7 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\TaskService;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -20,7 +21,11 @@ class TaskServiceTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->taskMapper = $this->createMock(TaskMapper::class);
-		$this->service = new TaskService($this->taskMapper);
+		$l10n = $this->createMock(IL10N::class);
+		// Identity mock: assertions below match the wrapped source text
+		// (no parameter substitution), mirroring TemplateServiceTest.
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		$this->service = new TaskService($this->taskMapper, $l10n);
 	}
 
 	/**

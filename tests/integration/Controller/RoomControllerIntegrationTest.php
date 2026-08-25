@@ -9,6 +9,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\TemplateService;
+use OCP\IL10N;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -32,13 +33,16 @@ class RoomControllerIntegrationTest extends TestCase {
 		$this->authService = $this->createMock(AuthorizationService::class);
 		$this->templateService = $this->createMock(TemplateService::class);
 		$this->templateService->method('isValidRoomType')->willReturn(true);
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->controller = new RoomController(
 			$this->request,
 			$this->roomService,
 			$this->houseService,
 			$this->authService,
-			$this->templateService
+			$this->templateService,
+			$l10n
 		);
 	}
 

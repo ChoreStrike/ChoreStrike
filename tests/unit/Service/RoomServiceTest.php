@@ -928,11 +928,32 @@ class RoomServiceTest extends TestCase {
 			'newTitle' => $newTitle,
 		]);
 
+		$callOrder = [];
+
 		$this->notificationService->expects($this->once())
 			->method('notifyTitleUnlocked')
-			->with($userId, 'home_helpers', 'titles.home_helpers.helper', 'titles.pack.home_helpers', 0);
+			->with($userId, 'home_helpers', 'titles.home_helpers.helper', 'titles.pack.home_helpers', 0)
+			->willReturnCallback(function () use (&$callOrder): void {
+				$callOrder[] = 'notify';
+			});
+
+		// CR-SVC-52: record the shared call sequence so the dispatch-after-
+		// commit ordering becomes observable — a plain "once" expectation
+		// would also pass if the dispatch ran inside the transaction.
+		$this->db->method('commit')
+			->willReturnCallback(function () use (&$callOrder): void {
+				$callOrder[] = 'commit';
+			});
 
 		$this->service->completeRoomTask($roomTaskId, $userId);
+
+		$this->assertContains('commit', $callOrder);
+		$this->assertContains('notify', $callOrder);
+		$this->assertGreaterThan(
+			(int)array_search('commit', $callOrder, true),
+			(int)array_search('notify', $callOrder, true),
+			'The title-unlock notification must be dispatched AFTER the transaction commit'
+		);
 	}
 
 	/**

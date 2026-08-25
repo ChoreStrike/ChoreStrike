@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Service\MinigameService;
 use OCP\IDBConnection;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 class MinigameServiceTest extends TestCase {
@@ -28,7 +29,11 @@ class MinigameServiceTest extends TestCase {
 		$this->scoreMapper = $this->createMock(MinigameScoreMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->db = $this->createMock(IDBConnection::class);
-		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, $this->db);
+		$l10n = $this->createMock(IL10N::class);
+		// Identity mock: message assertions match the wrapped source text
+		// (no parameter substitution), mirroring TemplateServiceTest.
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, $this->db, $l10n);
 	}
 
 	private function makeScore(int $score, array $boostsUsed = []): MinigameScore {
@@ -444,7 +449,10 @@ class MinigameServiceTest extends TestCase {
 		$this->db->expects($this->never())->method('commit');
 
 		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Insufficient coins. Need 10, have 5');
+		// Identity l10n mock: the source string is returned verbatim (the
+		// %1$d/%2$d parameters are substituted only by the real server-side
+		// t()).
+		$this->expectExceptionMessage('Insufficient coins. Need %1$d, have %2$d');
 
 		$this->service->purchaseBoost(1, 'user1', 'slow_motion');
 	}

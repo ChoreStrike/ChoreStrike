@@ -90,7 +90,7 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
 
 - **`TemplateService`** — `getCatalog()`, `getTemplatesForRoomType()` (a
   template matches when any of its `roomTypes[]` equals the requested type),
-  `searchTemplates()`, `materializeTemplate(templateId, level, overrides)`
+  `materializeTemplate(templateId, level, overrides)`
   (returns a Task-ready payload; whitelisted overrides only). Localization via
   `t()`.
 - **`HouseSetupService`** — validates the wizard payload (1–6 floors, 1–12

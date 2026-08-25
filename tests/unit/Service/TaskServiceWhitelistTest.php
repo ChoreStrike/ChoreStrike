@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\TaskService;
+use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -26,7 +27,9 @@ class TaskServiceWhitelistTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->taskMapper = $this->createMock(TaskMapper::class);
-		$this->service = new TaskService($this->taskMapper);
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		$this->service = new TaskService($this->taskMapper, $l10n);
 	}
 
 	public function testUpdateTask_RejectsUnknownField_WithInvalidArgument(): void {
