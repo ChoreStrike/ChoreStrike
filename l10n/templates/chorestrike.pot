@@ -23,9 +23,6 @@ msgstr ""
 msgid "(you)"
 msgstr ""
 
-msgid "0"
-msgstr ""
-
 msgid "15-20 energy per day"
 msgstr ""
 
@@ -33,6 +30,9 @@ msgid "5-8 energy per day"
 msgstr ""
 
 msgid "8-12 energy per day"
+msgstr ""
+
+msgid "2048"
 msgstr ""
 
 msgid "A %1$s name is required"
@@ -66,6 +66,9 @@ msgid "Add"
 msgstr ""
 
 msgid "Add Floor"
+msgstr ""
+
+msgid "Add New Floor"
 msgstr ""
 
 msgid "Add Room"
@@ -645,6 +648,9 @@ msgid "Edit Floor"
 msgstr ""
 
 msgid "Edit Room"
+msgstr ""
+
+msgid "Edit Sub-Task"
 msgstr ""
 
 msgid "Edit Task"
@@ -1349,6 +1355,9 @@ msgstr ""
 msgid "Never"
 msgstr ""
 
+msgid "New Task"
+msgstr ""
+
 msgid "New game"
 msgstr ""
 
@@ -1643,6 +1652,9 @@ msgstr ""
 msgid "Reset House"
 msgstr ""
 
+msgid "Reset House?"
+msgstr ""
+
 msgid "Retry"
 msgstr ""
 
@@ -1833,6 +1845,9 @@ msgid "Smart Scheduling Suggestions"
 msgstr ""
 
 msgid "Smooth the fitted sheet, tuck in the flat sheet, fluff the pillows, and straighten the blanket."
+msgstr ""
+
+msgid "Snake"
 msgstr ""
 
 msgid "Something went wrong"

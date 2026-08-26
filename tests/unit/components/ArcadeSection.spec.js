@@ -25,6 +25,27 @@ jest.mock('../../../src/store/minigame.js', () => ({
 	},
 }))
 
+// Module-level mocks: the game components carry no explicit `name`, so VTU
+// `stubs:` keys cannot match them once a game modal opens.
+jest.mock('../../../src/components/Common/Modal.vue', () => ({
+	name: 'Modal',
+	props: ['show', 'ariaLabel'],
+	emits: ['close'],
+	template: '<div v-if="show !== false" class="modal-stub" :aria-label="ariaLabel"><slot /></div>',
+}))
+jest.mock('../../../src/components/Minigames/SnakeGame.vue', () => ({
+	name: 'SnakeGame',
+	template: '<div class="snake-stub" />',
+}))
+jest.mock('../../../src/components/Minigames/Game2048.vue', () => ({
+	name: 'Game2048',
+	template: '<div class="g2048-stub" />',
+}))
+jest.mock('../../../src/components/Minigames/MemoryGame.vue', () => ({
+	name: 'MemoryGame',
+	template: '<div class="memory-stub" />',
+}))
+
 import ArcadeSection from '../../../src/components/Dashboard/ArcadeSection.vue'
 
 describe('ArcadeSection.vue (Phase 5 — 2048 + Memory)', () => {
@@ -88,5 +109,20 @@ describe('ArcadeSection.vue (Phase 5 — 2048 + Memory)', () => {
 		const text = wrapper.text()
 		expect(text).toMatch(/2048/)
 		expect(text).toMatch(/Memory/)
+	})
+
+	it.each([
+		['snake', 'Snake'],
+		['2048', '2048'],
+		['memory', 'Memory'],
+	])('names the %s game dialog accessibly (UX-016)', async (game, label) => {
+		// Modal + games are covered by the module-level mocks above.
+		const wrapper = mount(ArcadeSection, {
+			global: { plugins: [pinia] },
+		})
+
+		await wrapper.find(`[data-testid="arcade-card-${game}"]`).trigger('click')
+
+		expect(wrapper.find('.modal-stub').attributes('aria-label')).toBe(label)
 	})
 })

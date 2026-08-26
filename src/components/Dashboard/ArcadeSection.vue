@@ -119,17 +119,17 @@
 		</div>
 
 		<!-- Snake Game Modal -->
-		<Modal v-if="activeGame === 'snake'" @close="closeGameModal">
+		<Modal v-if="activeGame === 'snake'" :aria-label="t('chorestrike', 'Snake')" @close="closeGameModal">
 			<SnakeGame />
 		</Modal>
 
 		<!-- 2048 Game Modal -->
-		<Modal v-if="activeGame === '2048'" @close="closeGameModal">
+		<Modal v-if="activeGame === '2048'" :aria-label="t('chorestrike', '2048')" @close="closeGameModal">
 			<Game2048 />
 		</Modal>
 
 		<!-- Memory Game Modal -->
-		<Modal v-if="activeGame === 'memory'" @close="closeGameModal">
+		<Modal v-if="activeGame === 'memory'" :aria-label="t('chorestrike', 'Memory')" @close="closeGameModal">
 			<MemoryGame />
 		</Modal>
 

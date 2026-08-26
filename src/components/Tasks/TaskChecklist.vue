@@ -100,7 +100,7 @@
 		</div>
 
 		<!-- Edit Item Modal -->
-		<Modal v-if="editingItem" @close="cancelEdit">
+		<Modal v-if="editingItem" :aria-label="t('chorestrike', 'Edit Sub-Task')" @close="cancelEdit">
 			<div class="edit-item-modal">
 				<h4>{{ t('chorestrike', 'Edit Sub-Task') }}</h4>
 				<input

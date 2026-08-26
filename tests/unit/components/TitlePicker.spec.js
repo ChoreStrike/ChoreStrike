@@ -83,6 +83,13 @@ describe('TitlePicker', () => {
 		expect(wrapper.find('[data-testid="title-pack-cozy_home"]').exists()).toBe(true)
 	})
 
+	it('names the dialog accessibly from its heading key (UX-016)', () => {
+		const wrapper = mount(TitlePicker, {
+			props: { show: true, houseUserId: 7 },
+		})
+		expect(wrapper.find('[data-testid="modal"]').attributes('aria-label')).toBe('Choose your title')
+	})
+
 	it('marks tiers as unlocked when the server lists them', () => {
 		titlesStore.unlockedTitles = [
 			{ pack: 'home_helpers', tierKey: 'helper', tierIndex: 0 },

@@ -5,7 +5,7 @@
 
 <template>
 	<Modal
-		:title="t('chorestrike', 'Edit Availability')"
+		:aria-label="t('chorestrike', 'Edit Availability')"
 		data-testid="edit-availability-modal"
 		@close="close">
 		<div class="edit-form">

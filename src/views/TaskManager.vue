@@ -132,14 +132,14 @@
 			@edit="handleEditTask"
 			@delete="handleDeleteTask" />
 
-		<Modal v-if="showAddTaskModal" @close="showAddTaskModal = false">
+		<Modal v-if="showAddTaskModal" :aria-label="t('chorestrike', 'New Task')" @close="showAddTaskModal = false">
 			<TaskEditForm
 				:loading="creating"
 				@submit="handleAddTask"
 				@cancel="showAddTaskModal = false" />
 		</Modal>
 
-		<Modal v-if="showEditTaskModal" @close="showEditTaskModal = false">
+		<Modal v-if="showEditTaskModal" :aria-label="t('chorestrike', 'Edit Task')" @close="showEditTaskModal = false">
 			<TaskEditForm
 				:task="editingTask"
 				@submit="handleUpdateTask"

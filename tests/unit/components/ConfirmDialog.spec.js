@@ -14,9 +14,9 @@ jest.mock('@/components/Common/Icon.vue', () => ({
 
 jest.mock('@/components/Common/Modal.vue', () => ({
 	name: 'Modal',
-	props: ['show'],
+	props: ['show', 'ariaLabel'],
 	emits: ['close'],
-	template: '<div v-if="show !== false" class="modal-stub"><slot /></div>',
+	template: '<div v-if="show !== false" class="modal-stub" :aria-label="ariaLabel"><slot /></div>',
 }))
 
 describe('ConfirmDialog', () => {
@@ -34,6 +34,14 @@ describe('ConfirmDialog', () => {
 		expect(wrapper.text()).toContain('All rooms and tasks will be gone.')
 		expect(wrapper.find('[data-testid="confirm-dialog-confirm"]').text()).toBe('Remove')
 		expect(wrapper.find('[data-testid="confirm-dialog-cancel"]').exists()).toBe(true)
+	})
+
+	it('forwards the title as the modal accessible name (UX-016)', () => {
+		const wrapper = mount(ConfirmDialog, {
+			props: { title: 'Delete floor?' },
+		})
+
+		expect(wrapper.find('.modal-stub').attributes('aria-label')).toBe('Delete floor?')
 	})
 
 	it('renders without a description', () => {

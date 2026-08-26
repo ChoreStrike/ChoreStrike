@@ -4,7 +4,7 @@
 -->
 
 <template>
-	<Modal :show="true" @close="handleCancel">
+	<Modal :show="true" :aria-label="title" @close="handleCancel">
 		<div class="confirm-dialog" data-testid="confirm-dialog">
 			<div class="confirm-icon">
 				<Icon name="AlertTriangle" :size="40" />

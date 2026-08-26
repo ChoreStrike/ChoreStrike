@@ -15,19 +15,7 @@
 ## Bugs
 
 ### [P3] BUG-E2E-003 — `title-selection.spec.ts` "Selecting a pack marks it active" flaky
-**Status**: Open · **Effort**: S · **Source**: CS-PLAN-038 full-suite gate run (2026-08-21)
-
-`tests/e2e/title-selection.spec.ts:39` intermittently fails (initial attempt,
-passes on retry) even standalone on the unmodified tree — **stash-verified**
-during the CS-038 gate: the `active-pack-tag` does not appear within 10 s of
-clicking `select-pack-button`. Likely a race between admin's house-membership
-bootstrap (`ensureHouseMember` on `/users/current`) and the pack-selection PUT,
-or a concurrent family re-seed wiping admin's house user mid-test in parallel
-runs.
-
-- [ ] Reproduce with tracing, identify the failing request (PUT vs membership
-      bootstrap), fix the race or harden the spec's wait; keep it out of
-      soft-skip territory.
+**Status**: Resolved 2026-08-25 (CS-PLAN-048) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ---
 
@@ -61,22 +49,7 @@ Confirm whether production shapes still need it; if not, remove it.
 ---
 
 ### [P3] BUG-E2E-001 — `3-floor-house.spec.ts`: 2 pre-existing failures in the serial pool
-**Status**: Open · **Effort**: M · **Source**: CS-PLAN-031 gate run (2026-08-18)
-
-Running the full `chromium-serial-db` project (family profile) fails 2 of 13
-tests in `tests/e2e/3-floor-house.spec.ts`:
-
-- `Navigation: Can navigate to all 3 floors from dashboard` (`:45`)
-- `Task Management: Add cleaning task to Gästebad` (`:192` — times out
-  waiting for a `Save`/`Create` button)
-
-Verified **pre-existing** during the CS-031 gate: both tests fail identically
-on the unmodified tree (stash-verified). All 16 `Release:*` specs pass; the
-plan-level gates (`Release:*`) never covered this spec. Not related to any
-CS-031 change (backend-only, no floor/task-create surface touched).
-
-- [ ] Reproduce standalone, capture the error context, and fix the spec or
-      the underlying UI flow; re-add to the blocking serial gate.
+**Status**: Resolved 2026-08-25 (CS-PLAN-048) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ---
 
@@ -86,19 +59,7 @@ CS-031 change (backend-only, no floor/task-create surface touched).
 ---
 
 ### [P4] BUG-UI-001 — Week-total/analysis display garbled while an energy input is empty or invalid
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-043 (2026-08-24)
-
-`EnergyBudgetSettings` `totalWeeklyEnergy` and `BudgetAnalysis`
-(average/peak/low cards) reduce over the budget map with plain `sum + energy`.
-While a day input is cleared (`''`) or mid-typing invalid (`NaN`), the totals
-degrade to string concatenation (`"1015"`) or `NaN` in the display. Verified
-**pre-existing** (the old `v-model.number` component had identical semantics);
-save is already guarded by up-front 1–20 validation, so this is display-only
-during invalid intermediate input.
-
-- [ ] Coerce/normalize non-integer budget values before the display reduces
-      (e.g. treat them as 0 or the stored fallback) in both components; pin
-      with a Jest case for an empty day input.
+**Status**: Resolved 2026-08-25 (CS-PLAN-048) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ---
 
@@ -398,18 +359,7 @@ between queueing undo targets (stacked/snackbar list) or explicitly accepting
 the single-slot limitation in the design docs.
 
 ### [P3] UX-016 — Remaining Modal call sites have no accessible name
-**Status**: Open · **Effort**: S · **Source**: Standard-B review of CS-PLAN-044 (2026-08-23)
-
-CS-PLAN-044 gave the shared `Modal.vue` an `ariaLabel` prop, but only
-`OverdueClaimDialog` passes one. The other ~15 call sites (TaskManager
-create/edit, Settings floor add/edit/reset, RoomDetail task add/edit + rename/
-delete, TaskChecklist item edit, TitlePicker, ArcadeSection game modals,
-AvailabilitySettings edit, ConfirmDialog) render `role="dialog"` without an
-accessible name (WCAG 4.1.2 Name, Role, Value).
-
-- [ ] Every Modal call site passes `ariaLabel` (or Modal grows an
-      `aria-labelledby` heading fallback) — screen-reader announcement verified.
-- [ ] design.md §6 *Dialogs* names the accessible-name requirement explicitly.
+**Status**: Resolved 2026-08-25 (CS-PLAN-048) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P4] UX-017 — AvailabilitySettings day-item border hexes bypass tokens
 **Status**: Open · **Effort**: XS · **Source**: CS-PLAN-044 known remaining, logged by Standard-B review (2026-08-23)

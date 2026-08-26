@@ -100,7 +100,12 @@ const energyTemplates = [
 ]
 
 const totalWeeklyEnergy = computed(() => {
-	return Object.values(localBudget.value).reduce((sum, energy) => sum + energy, 0)
+	// Day values can be transiently empty ('') or non-numeric (NaN) while a
+	// number input is being edited; coerce so the display stays numeric.
+	return Object.values(localBudget.value).reduce((sum, energy) => {
+		const value = Number(energy)
+		return sum + (Number.isFinite(value) ? value : 0)
+	}, 0)
 })
 
 const hasChanges = computed(() => {

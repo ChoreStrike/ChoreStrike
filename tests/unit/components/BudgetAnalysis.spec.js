@@ -48,4 +48,31 @@ describe('BudgetAnalysis', () => {
 		const values = wrapper.findAll('.card-value').map(node => node.text())
 		expect(values[2]).toBe('3')
 	})
+
+	it('keeps the cards numeric when a day input was cleared (BUG-UI-001)', () => {
+		const budget = {
+			monday: '', tuesday: 10, wednesday: 10, thursday: 10,
+			friday: 10, saturday: 10, sunday: 10,
+		}
+		const wrapper = mountWith(budget)
+		const values = wrapper.findAll('.card-value').map(node => node.text())
+		// Total coerces to 60 → average 9; no concatenation artifacts or NaN.
+		expect(values[0]).toBe('9')
+		expect(wrapper.text()).not.toContain('NaN')
+		expect(wrapper.text()).not.toContain('060')
+	})
+
+	it('treats non-finite day values as 0 without corrupting peak/low (BUG-UI-001)', () => {
+		const budget = {
+			monday: NaN, tuesday: 10, wednesday: 10, thursday: 10,
+			friday: 10, saturday: 20, sunday: 10,
+		}
+		const wrapper = mountWith(budget)
+		const values = wrapper.findAll('.card-value').map(node => node.text())
+		// Total coerces to 70 → average 10; peak stays Saturday; the coerced
+		// Monday counts as a low-energy day but never becomes the peak.
+		expect(values[0]).toBe('10')
+		expect(values[1]).toBe('Sat')
+		expect(values[2]).toBe('1')
+	})
 })

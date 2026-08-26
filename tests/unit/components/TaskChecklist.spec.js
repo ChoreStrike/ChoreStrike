@@ -13,8 +13,9 @@ jest.mock('../../../src/components/Common/Icon.vue', () => ({
 
 jest.mock('../../../src/components/Common/Modal.vue', () => ({
 	name: 'Modal',
+	props: ['ariaLabel'],
 	emits: ['close'],
-	template: '<div class="modal"><slot /></div>',
+	template: '<div class="modal" :aria-label="ariaLabel"><slot /></div>',
 }))
 
 describe('TaskChecklist', () => {
@@ -62,5 +63,21 @@ describe('TaskChecklist', () => {
 		expect(iconTexts).not.toContain('Trash2')
 		expect(iconTexts).not.toContain('GripVertical')
 		expect(iconTexts).not.toContain('Plus')
+	})
+
+	it('names the item-edit dialog accessibly (UX-016)', async () => {
+		const wrapper = mount(TaskChecklist, {
+			props: {
+				items: [createItem()],
+				progress: [],
+				canEdit: true,
+				readonly: false,
+				roomTaskId: 10,
+			},
+		})
+
+		await wrapper.find('.action-btn.edit').trigger('click')
+
+		expect(wrapper.find('.modal').attributes('aria-label')).toBe('Edit Sub-Task')
 	})
 })

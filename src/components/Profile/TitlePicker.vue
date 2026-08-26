@@ -4,7 +4,7 @@
 -->
 
 <template>
-	<Modal :show="show" @close="$emit('close')">
+	<Modal :show="show" :aria-label="t('chorestrike', 'Choose your title')" @close="$emit('close')">
 		<div class="title-picker" data-testid="title-picker">
 			<div class="picker-header">
 				<h3>{{ t('chorestrike', 'Choose your title') }}</h3>

@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import EnergyBudgetSettings from '../../../src/components/Scheduling/EnergyBudgetSettings.vue'
+import WeekBudgetGrid from '../../../src/components/Scheduling/WeekBudgetGrid.vue'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
 import { api } from '../../../src/services/api.js'
 
@@ -83,6 +84,28 @@ describe('EnergyBudgetSettings', () => {
 		await flushPromises()
 		expect(wrapper.text()).toContain('7')
 		expect(wrapper.text()).not.toContain('80')
+	})
+
+	it('keeps the weekly total numeric while a day input is cleared (BUG-UI-001)', async () => {
+		store.energyBudget = fullBudget()
+
+		const wrapper = mountComponent()
+		await wrapper.find('[data-testid="energy-input-monday"]').setValue('')
+		await flushPromises()
+
+		expect(wrapper.find('.total-energy').text()).toBe('60 total energy/week')
+		expect(wrapper.text()).not.toContain('NaN')
+	})
+
+	it('keeps the weekly total numeric when a day value is non-finite (BUG-UI-001)', async () => {
+		store.energyBudget = fullBudget()
+
+		const wrapper = mountComponent()
+		// The range-slider path emits valueAsNumber, which is NaN mid-edit.
+		wrapper.findComponent(WeekBudgetGrid).vm.$emit('update-day', { key: 'monday', value: NaN })
+		await wrapper.vm.$nextTick()
+
+		expect(wrapper.find('.total-energy').text()).toBe('60 total energy/week')
 	})
 
 	it('saves the whole edited week in one bulk request', async () => {

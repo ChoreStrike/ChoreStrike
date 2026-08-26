@@ -42,8 +42,20 @@ const props = defineProps({
 	},
 })
 
+/**
+ * Day/energy pairs with non-finite entries coerced to 0 — budget values can
+ * be transiently empty ('') or NaN while an input is being edited, and the
+ * display must stay numeric (BUG-UI-001).
+ */
+const dailyEnergies = computed(() => {
+	return Object.entries(props.budget).map(([day, energy]) => {
+		const value = Number(energy)
+		return [day, Number.isFinite(value) ? value : 0]
+	})
+})
+
 const totalWeeklyEnergy = computed(() => {
-	return Object.values(props.budget).reduce((sum, energy) => sum + energy, 0)
+	return dailyEnergies.value.reduce((sum, [, energy]) => sum + energy, 0)
 })
 
 const averageDailyEnergy = computed(() => {
@@ -54,7 +66,7 @@ const averageDailyEnergy = computed(() => {
 const peakDay = computed(() => {
 	let maxEnergy = 0
 	let peakDayKey = 'monday'
-	Object.entries(props.budget).forEach(([day, energy]) => {
+	dailyEnergies.value.forEach(([day, energy]) => {
 		if (energy > maxEnergy) {
 			maxEnergy = energy
 			peakDayKey = day
@@ -65,7 +77,7 @@ const peakDay = computed(() => {
 })
 
 const lowEnergyDays = computed(() => {
-	return Object.values(props.budget).filter(energy => energy <= 5).length
+	return dailyEnergies.value.filter(([, energy]) => energy <= 5).length
 })
 </script>
 

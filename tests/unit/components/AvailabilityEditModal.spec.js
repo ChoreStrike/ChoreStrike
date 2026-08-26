@@ -55,6 +55,11 @@ describe('AvailabilityEditModal', () => {
 		expect(wrapper.emitted('close')).toHaveLength(1)
 	})
 
+	it('names the dialog accessibly from its heading key (UX-016)', () => {
+		const wrapper = mount(AvailabilityEditModal, { props: { member: selfMember } })
+		expect(wrapper.find('[data-testid="modal"]').attributes('aria-label')).toBe('Edit Availability')
+	})
+
 	it('saves the current user via the bulk self preferences PUT', async () => {
 		api.put.mockResolvedValue({})
 		api.get.mockResolvedValue([])

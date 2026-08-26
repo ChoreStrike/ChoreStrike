@@ -71,8 +71,10 @@ describe('ScheduleCalendar', () => {
 		getLocale.mockReturnValue('de')
 		const wrapper = mountComponent()
 		const range = wrapper.find('[data-testid="week-range"]').text()
-		// de: "24. Aug. - 30. Aug." — day before month, dotted.
-		expect(range).toMatch(/^\d{1,2}\. [A-Z][a-z]{2}\.? - \d{1,2}\. [A-Z][a-z]{2}\.?$/)
+		// de: "24. Aug. - 30. Aug." — day before month, dotted. Month
+		// abbreviations vary between ICU builds ("Sep."/"Sept."), so accept
+		// 3-4 letters after the initial capital.
+		expect(range).toMatch(/^\d{1,2}\. [A-Z][a-z]{2,4}\.? - \d{1,2}\. [A-Z][a-z]{2,4}\.?$/)
 	})
 
 	it('shows empty state when no members', () => {

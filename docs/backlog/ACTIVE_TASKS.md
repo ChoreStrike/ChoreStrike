@@ -19,6 +19,8 @@
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
+- **CS-PLAN-048** — Modal A11y Names, Energy Display Guard & E2E Integrity Sweep (closed **UX-016** + **BUG-E2E-003** + **BUG-E2E-001** + **BUG-UI-001**; D1=per-site aria-label / D2=serial-gate green state confirmed / D3=coerce to 0): all 16 `<Modal>` call sites named via translated `aria-label` reusing heading/trigger keys (ConfirmDialog forwards its `title` — one line for all consumers; AvailabilityEditModal stray `:title` → `:aria-label`); 5 reused keys missing from l10n artifacts synced to en/de/pot (`New Task`, `Snake`, `Add New Floor`, `Reset House?`, `Edit Sub-Task`); design.md §6 records the accessible-name requirement; energy totals coerce non-finite day values to numeric 0 in EnergyBudgetSettings + BudgetAnalysis (peak/low semantics preserved) with Jest pins for both paths; BUG-E2E-003 root-caused as *not a race* — successful selection closes the picker, so the spec now asserts the durable outcome (PUT ok → picker closed → reopened picker shows Active tag) plus catalog-render wait, green 3× standalone `--retries=0`; BUG-E2E-001 not reproducible on the current tree (10/10 standalone + full blocking `chromium-serial-db` project green: 86 passed / 4 pre-existing data-state skips / 0 failed — D2 green-state sign-off met). Gate: Docker PHPUnit unit 834 / integration 200 [24 pre-existing skips] / Jest 842 / lint + stylelint 0 errors / noise clean / l10n:check-keys clean / webpack build green. Standard-B review 2026-08-25: **PASS** — 3 auto-fixes (`2048` l10n key synced + mangled `"0"` artifact key removed from en/de/pot, title-selection disabled-button skip made honest via authenticated `/users/current` probe with fail-loud transport errors, redundant inline stubs dropped from the new ArcadeSection test); gates re-verified after fixes; 1 out-of-manifest gate repair (ScheduleCalendar de-shape week-range regex was date-dependent, broke on "Sept." weeks — stash-verified pre-existing, relaxed to 3–4-letter months); Standard-B re-review 2026-08-26 clean (2 minor doc auto-fixes: UX-016 dangling checklist lines + archive indent churn; lint/Jest 842/noise/l10n re-verified green). Plan ready for manual `active/ → done/` move. (2026-08-25, Done)
+
 - **CS-PLAN-047** — API i18n Completion Sweep (closed **CR-SVC-62**; D1=YES / D2=exception signed off): scripted inventory audit over `lib/` (all three exception types + `'message' =>`, classified per catching controller) froze the wrap list before edits; required non-nullable `IL10N` injected into 8 controllers + 8 services; all 62 controller `'message'` literals wrapped; curated service IAEs wrapped (`HouseSetupService` ×11 printf-converted, `SchedulingService:45`, `RoomTaskService` ×4, `MinigameService::saveScore`, audit-promoted `TemplateService::materializeTemplate` ×3); D1 sweep wrapped all 24 NotFound/Forbidden literals (`Authorization/Room/Task/RoomTask/House/Floor/Activity` services); audit reclassifications recorded in plan §2a (`TaskService:200`, `FloorService:130`, `HouseService:137`, `RoomTaskService:870` hidden by `safeMessage()` catch-alls or curated responses → unwrapped); D2 fallback policy in formatter docblock + `i18n.md` backend-error contract; l10n en/de/pot synced (pot fully regenerated from en.json, 890 msgids, 91 unsynced backend keys backfilled). Gate: Docker PHPUnit unit 834 / integration 200 [24 pre-existing skips] / Jest 831 / lint clean / cs:check 0/267 / noise + l10n:check-keys clean / E2E grep no hits. Standard-B review 2026-08-25: **PASS** — 2 auto-fixes (l10n artifacts: newly wrapped `Template "%1$s" is not available for level "%2$s"` + notifier rich-subject backfill gap `Your task "{task}" was taken over by {claimer}` added to en/de/pot → 892 keys), §2a catch-path claims all re-verified, gate re-verified (lint/l10n/noise clean, Jest 831, Docker PHPUnit 834/200 [24 pre-existing skips], cs:check 0/267, E2E grep no hits). (2026-08-25, Done — plan moved to `done/`) → [`../plans/done/cs-plan-047-api-i18n-completion-sweep.md`](../plans/done/cs-plan-047-api-i18n-completion-sweep.md)
 
 - **CS-PLAN-046** — Backend Test Integrity & i18n Quick-Wins (closed **CR-016-10** + **CR-SVC-52** + **CR-SVC-37** + **CR-027-02**; D1=delete signed off): real-DB `CompletedTaskMapperEnergyTest` (zero/sum/day-boundary/cross-user, Docker family profile) for the fixed energy SQL; dispatch-after-commit ordering assertion in `RoomServiceTest` with mutation check (red→green verified); i18n sweep wrapping all client-visible literals (`TaskService::validateTaskData` ×10, `MinigameService::purchaseBoost` incl. printf-positional insufficient-coins message, `RoomController` ×7 VALIDATION_ERROR) with injected `IL10N`; dead `TemplateService::searchTemplates` + its 4 tests deleted (grep-verified; concept doc updated); l10n en/de/pot synced (pot fully regenerated). Gate: PHPUnit unit 834 / integration 200 [24 pre-existing skips] / Jest 831 / lint + stylelint 0/0 / l10n:check-keys clean. Standard-B review 2026-08-25: **PASS** — 1 auto-fix (`RoomServiceTest` `$callOrder` explicit initialization), **CR-SVC-62** logged (remaining client-visible English literals across the rest of the API surface — CR-SVC-37 remainder), gate re-verified (lint/stylelint/l10n clean, Jest 831, Docker PHPUnit 834/200 [24 pre-existing skips], `CompletedTaskMapperEnergyTest` 4/4). (2026-08-24, Done — plan moved to `done/`) → [`../plans/done/cs-plan-046-backend-test-integrity-i18n-quick-wins.md`](../plans/done/cs-plan-046-backend-test-integrity-i18n-quick-wins.md)
@@ -171,6 +173,18 @@
 > exception** (the `safeMessage` generic fallback stays untranslated; policy
 > recorded in `i18n.md` + formatter docblock). Frontend untouched (error text
 > flows through toasts). Ready for review + manual `new/ → active/` move.
+> **CS-PLAN-048 drafted (2026-08-25)** — Modal A11y Names, Energy Display
+> Guard & E2E Integrity Sweep in `docs/plans/new/`: closes **UX-016** (15 of 16
+> Modal call sites without accessible name; ConfirmDialog forwards its `title`
+> prop), **BUG-E2E-003** + **BUG-E2E-001** (title-selection flake +
+> 3-floor-house serial-pool failures, diagnose-first, re-add to blocking gate),
+> **BUG-UI-001** (energy-total coercion while a day input is empty/invalid).
+> All counts/file:line refs verified against the tree. Activation decisions:
+> **D1** aria-label-per-site vs heading fallback (recommendation: per-site),
+> **D2** serial-gate re-inclusion (recommendation: yes), **D3** invalid-input
+> display semantics (recommendation: coerce to 0). Ready for review + manual
+> `new/ → active/` move.
+>
 > Recommended follow-ups after 047: UX-016 (Modal accessible names, S), then
 > BUG-E2E-001/003 (E2E integrity) or CR-SVC-16 (P2, RewardConfigService
 > registry).
@@ -207,3 +221,26 @@
 > successfully', RoomTaskController 'Invalid nextDue date format' /
 > 'Assignee removed successfully', SchedulingController section messages).
 > Ready for manual `new/ → active/` move.
+
+> **CS-PLAN-048 plan review (2026-08-25)**: Standard A — **GO-WITH-CHANGES**,
+> fixes applied inline to the plan: serial-pool test count corrected 13 → 10
+> (the backlog's "13" predates the CS-PLAN-042 spec rewrite; re-counted
+> against the tree), and the "outside the blocking gate / re-inclusion"
+> premise corrected — `3-floor-house.spec.ts` is registered in
+> `SEED_DEPENDENT_SPECS` (`chromium-serial-db`) since CS-PLAN-018 and was
+> never removed (git-verified), and `release-gate.yml` runs that project
+> blocking; WP-C therefore restores the gate to green (no config change), D2
+> renamed to green-state sign-off, and the moot CI-slowdown risk row
+> rewritten. WP-A label sources switched to reuse-first: 12 of 15 sites have
+> an existing heading/trigger key (verified), "~12 new keys" → at most ~2
+> ("Edit Task"), incl. the `AvailabilityEditModal` stray `:title` →
+> `:aria-label` correction (Modal has no `title` prop). All other file:line
+> refs (16 `<Modal>` sites incl. line numbers, `EnergyBudgetSettings:102`,
+> `BudgetAnalysis:45`, `title-selection.spec.ts:39`), backlog mappings
+> (UX-016 P3/S, BUG-E2E-003 P3/S, BUG-E2E-001 P3/M, BUG-UI-001 P4/S), l10n
+> artifact paths, manifest files, and the design.md §6 *Dialogs* target
+> verified against the tree. D1–D3 remain activation-time sign-offs. Noted
+> to the user (not backlogged, per plan-review rules): `SnakeLeaderboard.vue`
+> hand-rolls an overlay without `role="dialog"`/accessible name — outside
+> WP-A's `<Modal>` scope, but a design.md §6 violation candidate. Ready for
+> manual `new/ → active/` move.

@@ -87,6 +87,13 @@ FEAT-UX-030 and are enforced in review.
 - All dialogs use the shared `Modal.vue`, which owns ESC-to-close, focus
   trap + restore (per top-most instance when stacked), `role="dialog"` +
   `aria-modal="true"`, and body scroll lock. Do not hand-roll overlays.
+- Every dialog surface must have a non-empty **accessible name**
+  (WCAG 4.1.2): pass the dialog's translated heading/trigger label as
+  `Modal`'s `aria-label` prop (reuse an existing heading or trigger key —
+  this also satisfies WCAG 2.5.3 label-in-name). `ConfirmDialog`
+  forwards its required `title` automatically; a `title` attribute on
+  `<Modal>` is not an accessible name (the component has no such prop)
+  and must not be used.
 
 ### Focus & motion
 

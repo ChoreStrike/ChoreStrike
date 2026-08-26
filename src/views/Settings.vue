@@ -203,7 +203,7 @@
 		</div>
 
 		<!-- Add Floor Modal -->
-		<Modal v-if="showAddFloorModal" @close="showAddFloorModal = false">
+		<Modal v-if="showAddFloorModal" :aria-label="t('chorestrike', 'Add New Floor')" @close="showAddFloorModal = false">
 			<div class="modal-content">
 				<h3>{{ t('chorestrike', 'Add New Floor') }}</h3>
 				<div class="form-group">
@@ -231,7 +231,7 @@
 		</Modal>
 
 		<!-- Edit Floor Modal -->
-		<Modal v-if="showEditFloorModal" @close="showEditFloorModal = false">
+		<Modal v-if="showEditFloorModal" :aria-label="t('chorestrike', 'Edit Floor')" @close="showEditFloorModal = false">
 			<div class="modal-content">
 				<h3>{{ t('chorestrike', 'Edit Floor') }}</h3>
 				<div class="form-group">
@@ -258,7 +258,7 @@
 		</Modal>
 
 		<!-- Reset Confirmation Modal -->
-		<Modal v-if="showResetModal" @close="showResetModal = false">
+		<Modal v-if="showResetModal" :aria-label="t('chorestrike', 'Reset House?')" @close="showResetModal = false">
 			<div class="modal-content danger-modal">
 				<div class="warning-icon">
 					<Icon name="AlertTriangle" :size="48" />
