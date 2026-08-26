@@ -87,9 +87,9 @@ of defence — see [`../engineering/testing.md`](../engineering/testing.md) for 
 full inventory and how to run it). Representative automated coverage (Playwright
 E2E spec basenames under `tests/e2e/`, plus PHPUnit suites):
 
-- Core CRUD / scratch flow: `gui-scratch-flow`, `smoke-tests`, `core-functionality`, `3-floor-house`
+- Core CRUD / scratch flow: `gui-scratch-flow`, `minimal-smoke-tests`, `fast-core-tests`, `core-functionality`, `3-floor-house`
 - Floors/rooms: `room-management`, `room-detail`
-- Tasks: `task-manager`, `task-completion`, `task-completion-full-flow`, `task-checklist-and-features`, `daily-tasks-flow`
+- Tasks: `task-manager`, `task-completion`, `task-completion-full-flow`, `task-checklist-and-features`, `today-view`
 - Visibility: `private-tasks`, `admin-only-tasks`
 - Gamification: `leaderboard`, `title-selection`, `teamwork-rewards`
 - Overdue/teamwork: `overdue-task-claiming`, `teamwork-rewards`, `multi-user-interactions`
@@ -173,7 +173,7 @@ Route surface: `task#*`, `room_task#*`, `checklist#*`.
 | Uncomplete task | Revert a completion | Status restored, coins adjusted consistently | `task-completion-full-flow` |
 | Skip task | Skip a task | Task skipped without an unfair penalty | `release-task-lifecycle` |
 | Reschedule task | Change the due date | Due date updates | `release-task-lifecycle` |
-| Recurrence | Complete a recurring (daily/weekly/monthly) task | A new instance is generated per frequency | `daily-tasks-flow` |
+| Recurrence | Complete a recurring (daily/weekly/monthly) task | A new instance is generated per frequency | partial `today-view` (daily recurrence: completion shifts the next due out of today; weekly/monthly still manual) |
 | Assignees | Assign / unassign members; multi-assign | Assignee set persists; multi-assign works | `task-manager` |
 | Deactivate / reactivate | Deactivate then reactivate a room-task | Task hides from active lists, then returns | `release-task-lifecycle` |
 | Checklist items | Add / toggle / reorder / delete checklist items on a task | Progress tracked; room-task checklist progress updates | `task-checklist-and-features` |
@@ -190,7 +190,7 @@ Route surface: `/calendar` view, `room_task#range/dueToday/dueWithinDays`.
 | Calendar renders | Open **Calendar** in nav | Week/rolling-30-day grid renders with member/task rows | `calendar` |
 | Week navigation | Move to next/previous week | Range label and grid update | `calendar` |
 | Recurring occurrences | View a recurring task across weeks | Future occurrences projected server-side | `calendar` |
-| Daily list | Open the daily task list | Today's due tasks shown per member | `daily-tasks-flow` |
+| Daily list | Open the daily task list | Today's due tasks shown per member | `today-view` |
 
 ---
 

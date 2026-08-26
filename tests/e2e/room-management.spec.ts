@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { createUserContext, userStatePath } from './fixtures/auth-contexts'
+import { expandUntilRoomVisible } from './fixtures/dashboard-floors'
 
 /**
  * E2E test: Room and floor management (CS-PLAN-042, UX-004)
@@ -12,32 +13,11 @@ import { createUserContext, userStatePath } from './fixtures/auth-contexts'
  * The primary actor is `mom` (a seeded family-house OWNER): the structure
  * controls under test are owner-gated, and the default `admin` identity is
  * a plain member under the family profile.
+ *
+ * CS-PLAN-050: the local floor-expansion helper moved to the shared
+ * `fixtures/dashboard-floors.ts`; the fixed sleeps before assertions were
+ * dropped (the assertions themselves auto-wait).
  */
-
-/** Expand collapsed dashboard floor sections until the room card renders. */
-async function expandUntilRoomVisible(page: Page, roomCard: ReturnType<Page['locator']>): Promise<void> {
-	if (await roomCard.isVisible().catch(() => false)) {
-		return
-	}
-	// The floor sections render asynchronously after the dashboard mounts â€”
-	// wait for them before counting, or the loop below would no-op.
-	await page.locator('.floor-section').first().waitFor({ state: 'attached', timeout: 15000 }).catch(() => undefined)
-
-	// Expand bottom-up (the top rows sit under NC toast overlays) and never
-	// swallow click errors â€” a silently dropped toggle looks identical to a
-	// missing room.
-	for (let i = 0; i < 30; i++) {
-		if (await roomCard.isVisible().catch(() => false)) {
-			return
-		}
-		const expandButtons = page.getByRole('button', { name: 'Expand floor' })
-		const remaining = await expandButtons.count()
-		if (remaining === 0) {
-			return
-		}
-		await expandButtons.nth(remaining - 1).click()
-	}
-}
 
 test.describe('Room and Floor Management', () => {
 	test.use({ storageState: userStatePath('mom') })
@@ -62,11 +42,10 @@ test.describe('Room and Floor Management', () => {
 		await page.waitForSelector('.modal-content', { timeout: 15000 })
 		await page.fill('#new-floor-name', 'Basement')
 
-		// Save floor
+		// Save floor — the visibility assertion below auto-waits for the
+		// floors list to refresh after the POST.
 		await page.click('button:has-text("Create")')
 
-		// Wait for modal to close and verify floor appears
-		await page.waitForTimeout(1000)
 		await expect(page.locator('text=Basement')).toBeVisible({ timeout: 15000 })
 	})
 
@@ -74,18 +53,11 @@ test.describe('Room and Floor Management', () => {
 		await page.getByTestId('nav-settings').click()
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 
-		// Create a floor if none exists
-		const noFloorsMessage = page.locator('[data-testid="no-floors-message"]')
-		if (await noFloorsMessage.isVisible().catch(() => false)) {
-			await page.click('[data-testid="create-first-floor"]')
-			await page.waitForSelector('.modal-content', { timeout: 15000 })
-			await page.fill('#new-floor-name', 'Test Floor')
-			await page.click('button:has-text("Create")')
-			await page.waitForTimeout(1000)
-		}
+		// The family seed guarantees at least one floor row for the owner.
+		const floorItem = page.locator('.floor-item').first()
+		await expect(floorItem).toBeVisible({ timeout: 15000 })
 
 		// Expand the first floor row and add a room inline
-		const floorItem = page.locator('.floor-item').first()
 		await floorItem.locator('[data-testid^="expand-floor-"]').click()
 		await floorItem.locator('[data-testid="new-room-name-input"]').fill('Test Room')
 		await floorItem.locator('[data-testid="add-room-to-floor-button"]').click()
@@ -108,26 +80,19 @@ test.describe('Room and Floor Management', () => {
 		await page.getByTestId('nav-settings').click()
 		await page.waitForSelector('[data-testid="settings-view"]', { timeout: 20000 })
 
-		// Ensure a room exists (create via Settings when needed)
+		// The family seed guarantees a room on the first floor — assert it
+		// instead of silently creating a fallback.
 		const floorItem = page.locator('.floor-item').first()
 		await floorItem.locator('[data-testid^="expand-floor-"]').click()
-		const existingRoom = floorItem.locator('[data-testid^="delete-room-"]').first()
-		if (!(await existingRoom.isVisible().catch(() => false))) {
-			await floorItem.locator('[data-testid="new-room-name-input"]').fill('Rename Target')
-			await floorItem.locator('[data-testid="add-room-to-floor-button"]').click()
-			await expect(floorItem.locator('.room-row-name', { hasText: 'Rename Target' })).toBeVisible({ timeout: 15000 })
-		}
+		await expect(floorItem.locator('[data-testid^="delete-room-"]').first()).toBeVisible({ timeout: 15000 })
 
-		// Open the first room from the dashboard (floors render collapsed â€”
+		// Open the first room from the dashboard (floors render collapsed —
 		// expand until a room card is visible)
 		await page.getByTestId('nav-dashboard').click()
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 		const roomCards = page.locator('[data-testid^="room-card-"]')
 		await expandUntilRoomVisible(page, roomCards.first())
-		if (await roomCards.count() === 0) {
-			test.skip()
-			return
-		}
+		test.skip(await roomCards.count() === 0, 'family seed guarantees rooms; none rendered')
 		await roomCards.first().click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="room-detail-view"]', { timeout: 20000 })
@@ -169,9 +134,7 @@ test.describe('Room and Floor Management', () => {
 		// again so the absence assertion is meaningful)
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 		const doomedCardAfterDelete = page.locator('[data-testid^="room-card-"]', { hasText: 'Doomed Room' }).first()
-		if (!(await doomedCardAfterDelete.isVisible().catch(() => false))) {
-			await expandUntilRoomVisible(page, doomedCardAfterDelete)
-		}
+		await expandUntilRoomVisible(page, doomedCardAfterDelete)
 		await expect(page.locator('[data-testid^="room-card-"]', { hasText: 'Doomed Room' })).toHaveCount(0)
 	})
 
@@ -189,7 +152,6 @@ test.describe('Room and Floor Management', () => {
 			await page.fill('#new-floor-name', name)
 			await page.click('button:has-text("Create")')
 			await page.locator(`[data-testid="floor-${name}"]`).waitFor({ state: 'visible', timeout: 15000 })
-			await page.waitForTimeout(300)
 		}
 
 		// A sits above B right after creation (creation order = sort order)
@@ -216,10 +178,7 @@ test.describe('Room and Floor Management', () => {
 
 	test('Member sees no owner-only structure controls', async ({ browser }) => {
 		// The member context requires the seeded family profile.
-		if (!existsSync(userStatePath('teen'))) {
-			test.skip()
-			return
-		}
+		test.skip(!existsSync(userStatePath('teen')), 'seeded teen auth state missing (setup project did not run)')
 
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {

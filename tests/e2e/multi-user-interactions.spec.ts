@@ -9,10 +9,14 @@
  *
  * CS-PLAN-015b: auth via per-user storageState (no loginAsUser / no logout).
  * Single-user tests use `createUserContext`; two-user tests create two contexts.
+ * CS-PLAN-050: the copy-pasted floor-expansion loops and their fixed sleeps
+ * are replaced by the shared `dashboard-floors` helpers (auto-waiting), and
+ * the leaderboard assertions are unconditional durable-outcome checks.
  */
 
 import { test, expect, DatabaseProfile } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { expandAllFloors, expandUntilRoomVisible } from './fixtures/dashboard-floors'
 
 test.describe('Multi-User Family Interactions', () => {
 	test.describe.configure({ mode: 'serial' })
@@ -39,44 +43,24 @@ test.describe('Multi-User Family Interactions', () => {
 			await page.goto('/apps/chorestrike/')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
-			await page.waitForSelector('.floor-section', { timeout: 10000 })
-
-			const floorSections = page.locator('.floor-section')
-			const floorCount = await floorSections.count()
-
-			for (let i = 0; i < floorCount; i++) {
-				const floorSection = floorSections.nth(i)
-				const toggleButton = floorSection.locator('.toggle-button')
-				const floorContent = floorSection.locator('.floor-content')
-				const isExpanded = await floorContent.isVisible().catch(() => false)
-				if (!isExpanded) {
-					await toggleButton.click()
-					await page.waitForTimeout(500)
-					await floorContent.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
-				}
-			}
+			await expandAllFloors(page)
 
 			const roomCards = page.locator('[data-testid^="room-card-"]')
-			await roomCards.first().waitFor({ state: 'visible', timeout: 10000 })
-			const count = await roomCards.count()
-
-			expect(count).toBeGreaterThanOrEqual(1)
+			await expect(roomCards.first()).toBeVisible({ timeout: 10000 })
+			expect(await roomCards.count()).toBeGreaterThanOrEqual(1)
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('teen can claim and complete a task', async ({ browser, seededData: _seededData }) => {
+	test('teen can expand floors and see room cards', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
 			await page.goto('/apps/chorestrike/')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
-			const toggleButton = page.locator('.floor-section .toggle-button').first()
-			await toggleButton.click()
-			await page.waitForTimeout(300)
-
 			const roomCards = page.locator('[data-testid^="room-card-"]')
+			await expandUntilRoomVisible(page, roomCards.first())
 			await expect(roomCards.first()).toBeVisible({ timeout: 10000 })
 		} finally {
 			await context.close()
@@ -87,24 +71,14 @@ test.describe('Multi-User Family Interactions', () => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
 			await page.goto('/apps/chorestrike/')
-			await page.waitForLoadState('networkidle')
-
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
-			await page.goto('/apps/chorestrike/#/leaderboard')
-			await page.waitForLoadState('networkidle')
+			await page.getByTestId('nav-leaderboard').click()
+			await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 30000 })
 
-			const leaderboardView = page.locator('[data-testid="leaderboard-view"]')
-			const isVisible = await leaderboardView.isVisible().catch(() => false)
-
-			if (isVisible) {
-				const entries = page.locator('[data-testid="leaderboard-entry"]')
-				const count = await entries.count()
-				expect(count).toBeGreaterThanOrEqual(1)
-			} else {
-				const quickStats = page.locator('[data-testid="quick-stats"]')
-				await expect(quickStats).toBeVisible()
-			}
+			const entries = page.locator('[data-testid="leaderboard-entry"]')
+			await expect(entries.first()).toBeVisible({ timeout: 10000 })
+			expect(await entries.count()).toBeGreaterThanOrEqual(1)
 		} finally {
 			await context.close()
 		}
@@ -115,26 +89,12 @@ test.describe('Multi-User Family Interactions', () => {
 		try {
 			await page.goto('/apps/chorestrike/')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
-			await page.waitForSelector('.floor-section', { timeout: 10000 })
 
-			const floorSections = page.locator('.floor-section')
-			const floorCount = await floorSections.count()
-			for (let i = 0; i < floorCount; i++) {
-				const floorSection = floorSections.nth(i)
-				const toggleButton = floorSection.locator('.toggle-button')
-				const floorContent = floorSection.locator('.floor-content')
-				const isExpanded = await floorContent.isVisible().catch(() => false)
-				if (!isExpanded) {
-					await toggleButton.click()
-					await page.waitForTimeout(500)
-					await floorContent.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
-				}
-			}
+			await expandAllFloors(page)
 
 			const roomCards = page.locator('[data-testid^="room-card-"]')
-			await roomCards.first().waitFor({ state: 'visible', timeout: 10000 })
-			const count = await roomCards.count()
-			expect(count).toBeGreaterThanOrEqual(1)
+			await expect(roomCards.first()).toBeVisible({ timeout: 10000 })
+			expect(await roomCards.count()).toBeGreaterThanOrEqual(1)
 		} finally {
 			await context.close()
 		}
@@ -145,26 +105,12 @@ test.describe('Multi-User Family Interactions', () => {
 		try {
 			await page.goto('/apps/chorestrike/')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
-			await page.waitForSelector('.floor-section', { timeout: 10000 })
 
-			const floorSections = page.locator('.floor-section')
-			const floorCount = await floorSections.count()
-			for (let i = 0; i < floorCount; i++) {
-				const floorSection = floorSections.nth(i)
-				const toggleButton = floorSection.locator('.toggle-button')
-				const floorContent = floorSection.locator('.floor-content')
-				const isExpanded = await floorContent.isVisible().catch(() => false)
-				if (!isExpanded) {
-					await toggleButton.click()
-					await page.waitForTimeout(500)
-					await floorContent.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
-				}
-			}
+			await expandAllFloors(page)
 
 			const roomCards = page.locator('[data-testid^="room-card-"]')
-			await roomCards.first().waitFor({ state: 'visible', timeout: 10000 })
-			const count = await roomCards.count()
-			expect(count).toBeGreaterThanOrEqual(1)
+			await expect(roomCards.first()).toBeVisible({ timeout: 10000 })
+			expect(await roomCards.count()).toBeGreaterThanOrEqual(1)
 		} finally {
 			await context.close()
 		}
@@ -181,45 +127,17 @@ test.describe('Multi-User Task Interactions', () => {
 		try {
 			await mom.page.goto('/apps/chorestrike/')
 			await mom.page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
-			await mom.page.waitForSelector('.floor-section', { timeout: 10000 })
-
-			const momFloorSections = mom.page.locator('.floor-section')
-			const momFloorCount = await momFloorSections.count()
-			for (let i = 0; i < momFloorCount; i++) {
-				const floorSection = momFloorSections.nth(i)
-				const toggleButton = floorSection.locator('.toggle-button')
-				const floorContent = floorSection.locator('.floor-content')
-				const isExpanded = await floorContent.isVisible().catch(() => false)
-				if (!isExpanded) {
-					await toggleButton.click()
-					await mom.page.waitForTimeout(500)
-					await floorContent.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
-				}
-			}
+			await expandAllFloors(mom.page)
 
 			const momRooms = mom.page.locator('[data-testid^="room-card-"]')
-			await momRooms.first().waitFor({ state: 'visible', timeout: 10000 })
+			await expect(momRooms.first()).toBeVisible({ timeout: 10000 })
 
 			await teen.page.goto('/apps/chorestrike/')
 			await teen.page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
-			await teen.page.waitForSelector('.floor-section', { timeout: 10000 })
-
-			const teenFloorSections = teen.page.locator('.floor-section')
-			const teenFloorCount = await teenFloorSections.count()
-			for (let i = 0; i < teenFloorCount; i++) {
-				const floorSection = teenFloorSections.nth(i)
-				const toggleButton = floorSection.locator('.toggle-button')
-				const floorContent = floorSection.locator('.floor-content')
-				const isExpanded = await floorContent.isVisible().catch(() => false)
-				if (!isExpanded) {
-					await toggleButton.click()
-					await teen.page.waitForTimeout(500)
-					await floorContent.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
-				}
-			}
+			await expandAllFloors(teen.page)
 
 			const teenRooms = teen.page.locator('[data-testid^="room-card-"]')
-			await teenRooms.first().waitFor({ state: 'visible', timeout: 10000 })
+			await expect(teenRooms.first()).toBeVisible({ timeout: 10000 })
 		} finally {
 			await mom.context.close()
 			await teen.context.close()
@@ -248,11 +166,13 @@ test.describe('Multi-User Task Interactions', () => {
 			await page.goto('/apps/chorestrike/')
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
-			const quickStats = page.locator('[data-testid="quick-stats"]')
-			await expect(quickStats).toBeVisible()
+			await expect(page.getByTestId('quick-stats')).toBeVisible()
 
-			await page.goto('/apps/chorestrike/#/leaderboard')
-			await page.waitForLoadState('networkidle')
+			await page.getByTestId('nav-leaderboard').click()
+			await expect(page.getByTestId('leaderboard-view')).toBeVisible({ timeout: 30000 })
+
+			const entries = page.locator('[data-testid="leaderboard-entry"]')
+			await expect(entries.first()).toBeVisible({ timeout: 10000 })
 		} finally {
 			await context.close()
 		}

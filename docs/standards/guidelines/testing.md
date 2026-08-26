@@ -47,12 +47,18 @@ Established by [CS-PLAN-034](../../plans/done/cs-plan-034-jest-axios-mock-noise.
 - **Envelope semantics:** the shared mock's default resolves `data: {}` — i.e. "request succeeded, payload empty object". Stores then hold truthy-but-empty state (`personalBest = {}`, `houseUsers = {}`). Whenever a spec asserts state *branches* (loaded vs not, empty vs populated) or consumes a **list** endpoint whose getters spread `[...state.x]`, override the envelope per endpoint (`axios.mockResolvedValue({ data: { success: true, data: [...] } })`) instead of relying on the default.
 - **Deliberate error-path tests** (`mockRejectedValue` …) keep their assertions but mock `@/utils/logger` (`{ logger: { error, warn, info, debug } }`, see `tests/unit/store/checklist.spec.js`) so the expected failure does not print. **Never** silence with `jest.spyOn(console, 'error')` — spies hide genuine unexpected failures too.
 - **Zero-noise gate:** `npm run test:noise` runs the full Jest suite and fails on any `[ChoreStrike] [error]` line in the output.
+- **Docs encoding gate (CS-PLAN-050):** `npm run docs:encoding` scans all git-tracked text files and fails on invalid UTF-8 byte sequences or known cp1252-misdetection mojibake signatures (UTF-8 punctuation or umlauts misread as cp1252, e.g. `\u00E2\u20AC…` lead bytes / `\u00C3…` umlaut class — cited as escapes here, never literal mojibake). A bare `?` in prose is never flagged. The gate runs blocking in the release gate; verify the detector with `node scripts/check-docs-encoding.js --self-test` (plants corrupted fixtures via `Buffer` writes and asserts they are flagged with file + byte offset). Related: `l10n:check-keys` is documented in [`i18n.md`](./i18n.md).
 
 ## E2E Notes
 
-- Selectors must match the current Vue components (`src/views/*`, `src/components/*`).
+- Selectors must match the current Vue components (`src/views/*`, `src/components/*`). Verify a selector exists in `src/` before writing a spec against it; specs that reference dead selectors get deleted, not padded.
 - Legacy specs that drift (e.g. `phase-3-user-management.spec.ts`) are **not** release gates until rewritten against wired views.
 - Use the DB profiles (`empty`, `minimal`, `family`) via the Playwright fixtures.
+- **Auto-waiting, assertion-bearing tests only (CS-PLAN-050):**
+  - No `page.waitForTimeout(...)` in specs — replace fixed sleeps with durable-outcome assertions (`expect(locator).toBeVisible()`, `expect.poll`/`toPass()`), which poll until the UI state is real.
+  - No vacuous conditionals: `if (count > 0) { ... }` around assertions and try/catch-swallowed failures can pass without testing anything. Either assert the durable outcome unconditionally, or `test.skip(condition, 'reason')` explicitly — a skip without a reason is a defect.
+  - Shared dashboard floor expansion lives in `tests/e2e/fixtures/dashboard-floors.ts` (`expandAllFloors`, `expandUntilRoomVisible`); the Dashboard renders floors collapsed, so specs needing room cards must expand through these helpers instead of copy-pasting toggle loops.
+  - Conditional *setup* is only acceptable when a durable assertion follows; conditional *assertions* are not. When de-vacuousing exposes a broken locator (strict-mode violations, hidden elements), fix the locator — never re-add the conditional.
 
 ## Before You Commit
 

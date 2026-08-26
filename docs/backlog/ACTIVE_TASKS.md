@@ -19,6 +19,8 @@
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
+- **CS-PLAN-050** — E2E Long-Tail Integrity Sweep & Docs-Encoding Gate (closed **P9-E2E-002b** + **TECH-DOCS-001**; D1=delete smoke-tests / D2=delete daily-tasks-flow / D3=in scope / D4=blocking CI, all signed off 2026-08-26): deleted `smoke-tests.spec.ts` + `daily-tasks-flow.spec.ts` with recorded coverage maps (fast-core + lean smoke; today-view; dead selectors Skip/Reschedule/monster-sprite never existed in `src/`); new shared fixture `tests/e2e/fixtures/dashboard-floors.ts` (`expandAllFloors`/`expandUntilRoomVisible`) replacing the 5× floor-expand loops; migrations across `multi-user-interactions` (unconditional leaderboard assertions), `room-management` (3 sleeps → auto-wait, honest skip reasons), `room-detail` (expand helper + explicit skips, real `add-task-picker` assertion), `task-checklist-and-features` (owner-actor toggle test creating a sub-task via the editor and asserting checkbox flip + `is-completed` + line-through, absorbing the wrong-selector strikethrough test); `fast-core-tests` de-vacuoused (exact-match `Flexible` fix); `minimal-smoke-tests` rewritten as the lean smoke layer (console listener before `goto`, hash deep-links). De-vacuousing exposed 2 locator defects fixed inline (`cleanliness-value` 3× strict violation; hidden checklist input → label click). New `npm run docs:encoding` gate (strict UTF-8 + cp1252-mojibake signatures, bare `?` never flagged, `--self-test` with Buffer-planted fixtures) wired blocking into `release-gate.yml`; the single live mojibake hit (room-management comments) repaired. Gate: 0 `waitForTimeout(` sites; structural specs 3× standalone green; full matrix run twice — all swept specs green in every browser; 6 remaining failures sit in untouched specs (pre-existing per diff, standalone-green, logged as **BUG-E2E-004**); Jest 842 / lint + stylelint 0/0 / webpack green / Docker PHPUnit unit 885 / integration 200 [24 pre-existing skips]. Standard-B review 2026-08-26: **PASS** — all selector/testid claims verified live in `src/`; UTF-8 validator + mojibake signatures reviewed byte-level; 3 auto-fixes (`room-detail.spec.ts` cleanliness test now asserts `room-detail-view` and scopes the locator into it — the `.first()` fix could have read a dashboard room card; 4 stale deleted-spec references in `docs/testing/release-test-plan.md` re-pointed per the coverage map, recurrence row downgraded to `partial`; `release-task-lifecycle.spec.ts` docblock recurrence pointer re-pointed to `today-view`); noted without action: the checklist toggle test still runs the default-page `beforeEach` nav (harmless overhead); gates re-verified after fixes (lint:fix clean, Jest 842, `docs:encoding` green on 659 tracked files + self-test 4/4). (2026-08-26, Done — ready for manual `active/ → done/` move)
+
 - **CS-PLAN-049** — RewardConfig Registry & Docs Quick-Wins (closed **CR-SVC-16** + **P9-DOC-005**; partial **CR-SVC-15** + **CR-SVC-41**; D1=thin delegates / D2=AppLogger required signed off): single private `REGISTRY` const in `RewardConfigService` (15 scalar keys × type/default/clamp/apiField) drives generic `readSpec`/`writeSpec`, the now-delegate typed getters/setters (public API byte-identical), and loop-based `getAllConfig`/`updateConfig` (isset skip-`null` + unknown-ignore semantics preserved; title-threshold paths untouched); ctor takes required non-nullable `AppLogger`; 689 → 538 lines. New table-driven specs (per-key default + clamp on read AND write, bool round-trips, updateConfig parity, 16-field getAllConfig shape pin incl. order); existing ~750-line behavior suite green with only ctor-arg test changes. `development.md` fictional `calculateNextDue` example → real `RoomTaskService::updateDueDate`; raw `axios.post` example → shared `api` client. Registry idiom documented in architecture.md ("Service Idiom: Config Value Registry"). Gate: Docker PHPUnit unit 885 / integration 200 [24 pre-existing skips] / Jest 842 / cs:check 0/267 / lint clean / noise clean (l10n untouched — no user-visible strings). Standard-B review 2026-08-26: **PASS** — behavior parity verified line-by-line (defaults, clamp read+write, isset skip-`null`/unknown-ignore, 16-field order, unknown-tier 1.0 fallback); 2 minor doc auto-fixes (post-refactor line count corrected 489 → 538 in plan/ACTIVE_TASKS/archive/backlog, backlog.md blank line before the CR-SVC-16 heading restored); gates re-verified (lint:fix/noise clean, Jest 842, Docker PHPUnit unit 885 / integration 200 [24 pre-existing skips], cs:check 0/267). (2026-08-26, Done — plan moved to `done/`) → [`../plans/done/cs-plan-049-reward-config-registry-docs-quickwins.md`](../plans/done/cs-plan-049-reward-config-registry-docs-quickwins.md)
 
 - **CS-PLAN-048** — Modal A11y Names, Energy Display Guard & E2E Integrity Sweep (closed **UX-016** + **BUG-E2E-003** + **BUG-E2E-001** + **BUG-UI-001**; D1=per-site aria-label / D2=serial-gate green state confirmed / D3=coerce to 0): all 16 `<Modal>` call sites named via translated `aria-label` reusing heading/trigger keys (ConfirmDialog forwards its `title` — one line for all consumers; AvailabilityEditModal stray `:title` → `:aria-label`); 5 reused keys missing from l10n artifacts synced to en/de/pot (`New Task`, `Snake`, `Add New Floor`, `Reset House?`, `Edit Sub-Task`); design.md §6 records the accessible-name requirement; energy totals coerce non-finite day values to numeric 0 in EnergyBudgetSettings + BudgetAnalysis (peak/low semantics preserved) with Jest pins for both paths; BUG-E2E-003 root-caused as *not a race* — successful selection closes the picker, so the spec now asserts the durable outcome (PUT ok → picker closed → reopened picker shows Active tag) plus catalog-render wait, green 3× standalone `--retries=0`; BUG-E2E-001 not reproducible on the current tree (10/10 standalone + full blocking `chromium-serial-db` project green: 86 passed / 4 pre-existing data-state skips / 0 failed — D2 green-state sign-off met). Gate: Docker PHPUnit unit 834 / integration 200 [24 pre-existing skips] / Jest 842 / lint + stylelint 0 errors / noise clean / l10n:check-keys clean / webpack build green. Standard-B review 2026-08-25: **PASS** — 3 auto-fixes (`2048` l10n key synced + mangled `"0"` artifact key removed from en/de/pot, title-selection disabled-button skip made honest via authenticated `/users/current` probe with fail-loud transport errors, redundant inline stubs dropped from the new ArcadeSection test); gates re-verified after fixes; 1 out-of-manifest gate repair (ScheduleCalendar de-shape week-range regex was date-dependent, broke on "Sept." weeks — stash-verified pre-existing, relaxed to 3–4-letter months); Standard-B re-review 2026-08-26 clean (2 minor doc auto-fixes: UX-016 dangling checklist lines + archive indent churn; lint/Jest 842/noise/l10n re-verified green). Plan ready for manual `active/ → done/` move. (2026-08-25, Done)
@@ -286,3 +288,45 @@
 > and the post-refactor file lands ~350–400 lines, still over the ~300-line
 > guideline (plan risk row 6 + acceptance criterion already record this).
 > D1–D2 remain activation-time sign-offs. Ready for manual `new/ → active/` move.
+
+> **CS-PLAN-050 drafted (2026-08-26)** — E2E Long-Tail Integrity Sweep &
+> Docs-Encoding Gate in `docs/plans/new/`: closes **P9-E2E-002b** (re-verified
+> 7 specs / 23 `waitForTimeout` calls + vacuous `if (count > 0)` /
+> try-catch-swallow patterns; `daily-tasks-flow` tests the archived
+> DailyTaskList) and **TECH-DOCS-001** (deterministic `npm run docs:encoding`
+> mojibake gate, wired blocking into `release-gate.yml`). Activation
+> decisions: **D1** delete `smoke-tests.spec.ts` (rec: delete; covered by
+> `fast-core-tests` + rewritten lean smoke), **D2** delete
+> `daily-tasks-flow.spec.ts` (rec: delete; superseded by `today-view.spec.ts`),
+> **D3** de-vacuous the two `fast-core-tests` try/catch tests (rec: in scope),
+> **D4** wire `docs:encoding` blocking into the release gate (rec: yes). All
+> counts/line refs/selector-liveness claims verified against the tree; ready
+> for review + manual `new/ → active/` move.
+>
+> **CS-PLAN-050 was activated and implemented (2026-08-26, D1=delete
+> smoke-tests / D2=delete daily-tasks-flow / D3=in scope / D4=blocking CI
+> signed off)** — see Recently Completed above.
+
+> Recommended follow-ups after 050: CR-SVC-59 (P3, AppLogger adoption
+> remainder) or CR-SVC-15 (P2, God-service decomposition — larger); UX-015 /
+> FEAT-UX-015 / FEAT-UX-018 need product calls first.
+
+> **CS-PLAN-050 plan review (2026-08-26)**: Standard A — **GO-WITH-CHANGES**,
+> fixes applied inline to the plan: multi-user floor-expand loop count
+> corrected 6× → 5× (the 6th sleep, line 77, is a standalone single-floor
+> toggle), §3 testid attributions corrected (`FloorList.vue:47/68/81`
+> conflated testids with CSS classes — real sites are `FloorList.vue:46`,
+> `Settings.vue:98/111`, `RoomCard.vue:10`; `TaskList.vue:178` carries no
+> testid; the dashboard floor-toggle hook is its aria-label role, recorded),
+> and the encoding gate made tree-green-achievable: scan scope pinned to all
+> git-tracked text files, the single known live hit
+> (`room-management.spec.ts:22/27/121` em-dash mojibake, found by a full-tree
+> scan) scheduled for repair in steps 3/4b, signature citations switched to
+> escape/byte-hex notation (the plan's own literal mojibake quotes fixed),
+> `testing.md` vs `i18n.md` documentation sites corrected. All 23
+> `waitForTimeout` line refs, vacuous-pattern claims, dead-UI selectors,
+> helper locality, Playwright project registrations, release-gate shape,
+> baselines (Jest 842 / PHPUnit unit 885 / integration 200 [24 skips]), and
+> backlog mappings verified against the tree. **Decisions signed off
+> 2026-08-26: D1=delete smoke-tests, D2=delete daily-tasks-flow, D3=in scope,
+> D4=blocking in CI.** Ready for manual `new/ → active/` move.

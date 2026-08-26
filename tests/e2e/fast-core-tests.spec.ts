@@ -38,41 +38,21 @@ test.describe('Fast Core Tests', () => {
 	})
 
 	test('Task Manager basic functionality', async ({ page }: { page: Page }) => {
-		try {
-			await page.getByTestId('nav-tasks').click()
-			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+		await page.getByTestId('nav-tasks').click()
+		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 
-			const addTaskButton = await BrowserAwareNavigation.waitForElementWithFallback(
-				page,
-				'[data-testid="add-task-button"]',
-				['button:has-text("Add")', 'button:has-text("New")', '.add-button'],
-			).catch(() => null)
-
-			if (addTaskButton) {
-				await expect(addTaskButton).toBeVisible()
-			}
-		} catch (error: unknown) {
-			console.log('Task Manager test failed:', error instanceof Error ? error.message : 'Unknown error')
-		}
+		await expect(page.getByTestId('add-task-button')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Settings page loads', async ({ page }: { page: Page }) => {
-		try {
-			await page.getByTestId('nav-settings').click()
-			await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
+		await page.getByTestId('nav-settings').click()
+		await expect(page.getByTestId('settings-view')).toBeVisible({ timeout: 20000 })
 
-			const houseNameInput = await BrowserAwareNavigation.waitForElementWithFallback(
-				page,
-				'[data-testid="house-name-input"]',
-				['input[name="house"]', 'input[type="text"]', '.house-name'],
-			).catch(() => null)
-
-			if (houseNameInput) {
-				await expect(houseNameInput).toBeVisible()
-			}
-		} catch (error: unknown) {
-			console.log('Settings test failed:', error instanceof Error ? error.message : 'Unknown error')
-		}
+		// The chromium project runs as the plain member `admin`: the owner
+		// house section is hidden, but the profile-title section always
+		// renders.
+		await expect(page.getByTestId('settings-title')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('change-title-button')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Dashboard shows content', async ({ page }: { page: Page }) => {

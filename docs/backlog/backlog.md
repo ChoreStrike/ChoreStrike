@@ -14,6 +14,35 @@
 
 ## Bugs
 
+### [P3] BUG-E2E-004 — Pre-existing full-matrix failures in untouched specs (firefox/webkit + insights flake)
+**Status**: Open · **Effort**: M · **Source**: CS-PLAN-050 full-matrix verification (2026-08-26)
+
+The first full-matrix `--retries=0` run after CS-PLAN-050 surfaced failures in
+specs the plan never touched (all unmodified in the CS-PLAN-050 diff — i.e.
+pre-existing; recent gates run chromium-shaped only, so firefox/webkit and
+cross-pool load interactions were not exercised):
+
+- `snake-game.spec.ts:69` "User can pause and resume game" fails under
+  full-matrix load in the non-chromium pools (webkit in run 1, firefox in
+  run 2; also failed standalone in webkit once — 14/15).
+- `admin-only-tasks.spec.ts:24` "admin-only task shows crown icon for owner"
+  fails in firefox **and** webkit under full-matrix load; passes standalone.
+- `private-tasks.spec.ts:30` "private task shows lock icon in task list"
+  fails in firefox **and** webkit under full-matrix load; passes standalone.
+- `insights-flow.spec.ts:72` "insights renders stats cards, fairness table,
+  and activity feed" fails intermittently in `chromium-serial-db` (also
+  failed in the pre-change baseline; root symptom: `fetchHouseUsers`
+  transiently fails/returns empty under load → fairness-empty hint renders;
+  the view swallows the fetch error, no retry).
+
+- [ ] Diagnose + fix each (one per commit-sized step), or pin with
+      skipped-with-reason tests where the product behavior is the bug.
+- [ ] Re-establish "full matrix green" as a verifiable state (the blocking
+      release gate stays chromium-shaped per CS-PLAN-020 D3 — decide whether
+      a periodic full-matrix CI job is worth it).
+
+---
+
 ### [P3] BUG-E2E-003 — `title-selection.spec.ts` "Selecting a pack marks it active" flaky
 **Status**: Resolved 2026-08-25 (CS-PLAN-048) → [`archive/2026-08.md`](archive/2026-08.md)
 
@@ -91,36 +120,8 @@ bump coordinated with the Nextcloud eslint config.
 
 ---
 
-### [P2] P9-E2E-002b — E2E long-tail `waitForTimeout` cleanup
-**Status**: Backlog · **Effort**: M–L · **Source**: carved out of CS-015
-
-~13 specs still carry ~27 `waitForTimeout` calls + residual text/positional
-selectors (`multi-user-interactions`, `smoke-tests`, `minimal-smoke-tests`,
-`daily-tasks-flow`, `room-management`, + 1-offs). Migrate to
-`getByTestId`/`getByRole` + auto-waiting. Prerequisite met: CS-018 proved the
-suite flake-free (3× full-matrix `--retries=0`).
-
----
-
 ### [P2] P9-DOC-005 — `development.md` example-code audit
 **Status**: Resolved 2026-08-26 (CS-PLAN-049) → [`archive/2026-08.md`](archive/2026-08.md)
-
----
-
-### [P3] TECH-DOCS-001 — Recurring `?` corruption of non-cp1252 characters in backlog docs
-**Status**: Open · **Effort**: S · **Source**: Review of CS-PLAN-035 (2026-08-19)
-
-`docs/backlog/archive/2026-08.md` repeatedly accumulated literal `?` bytes in
-place of `→` / `≤` (CS-033 and CS-034 commits carried them; the CS-035 review
-repaired all of them). Signature: characters present in Windows-1252 (`—`, `§`)
-survive, characters outside it (`→`, `≤`) become `?` — i.e. a write path that
-mis-detects the file as ANSI while its content is still cp1252-safe, then
-re-encodes on save. Files that already contain a non-cp1252 character are
-detected as UTF-8 and write fine.
-
-- [ ] After editing backlog/archive docs, byte-verify non-ASCII content
-      (e.g. scan for literal `0x3F` in prose) or write with explicit UTF-8;
-      consider a small `npm run docs:encoding` check in the doc-touching gates.
 
 ---
 

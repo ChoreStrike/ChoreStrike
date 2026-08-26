@@ -7,7 +7,8 @@
  * Covers the release-test-plan.md §5 rows that had no automated home:
  * skip, reschedule, and deactivate/reactivate. Create/complete/uncomplete
  * stay with `task-manager` / `task-completion(-full-flow)` (extend-first,
- * CS-PLAN-024 §2); recurrence stays with `daily-tasks-flow`.
+ * CS-PLAN-024 §2); recurrence stays with `today-view` (CS-PLAN-050 deleted
+ * the dead `daily-tasks-flow` spec).
  *
  * The assertions are API-driven (the deterministic data path) rather than
  * UI-driven, because these rows are mechanically repeatable state checks

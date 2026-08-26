@@ -1,8 +1,15 @@
 import { test, expect } from './fixtures/test-fixtures'
+import { expandUntilRoomVisible } from './fixtures/dashboard-floors'
 
 /**
  * E2E test: Room detail view and task management
  * Tests room info display, task CRUD operations, and cleanliness updates
+ *
+ * CS-PLAN-050: the dashboard floors render collapsed, so every test expands
+ * them through the shared helper before opening a room; the silent
+ * `if (roomCount === 0) return` early-exits became explicit skips with a
+ * reason (the family seed guarantees rooms, so they never fire). The dead
+ * `monster-sprite` test was deleted — no such element exists in `src/`.
  */
 test.describe('Room Detail', () => {
 	test.beforeEach(async ({ page }) => {
@@ -12,17 +19,13 @@ test.describe('Room Detail', () => {
 	})
 
 	test('Room detail displays room information', async ({ page }) => {
-		// Navigate to a room from dashboard
-		const roomCard = page.locator('.room-card').first()
+		// Navigate to a room from the dashboard (floors start collapsed)
+		const roomCards = page.locator('[data-testid^="room-card-"]')
+		await expandUntilRoomVisible(page, roomCards.first())
+		test.skip((await roomCards.count()) === 0, 'family seed guarantees rooms; none rendered')
 
-		// Skip if no rooms available
-		const roomCount = await roomCard.count()
-		if (roomCount === 0) {
-			return
-		}
-
-		const roomName = await roomCard.locator('.room-name').textContent()
-		await roomCard.click()
+		const roomName = await roomCards.first().locator('.room-name').textContent()
+		await roomCards.first().click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Verify room detail view
@@ -38,34 +41,12 @@ test.describe('Room Detail', () => {
 		await expect(page.locator('[data-testid="overdue-stat"]')).toBeVisible()
 	})
 
-	test('Room detail displays monster sprite based on cleanliness', async ({ page }) => {
-		// Navigate to a room
-		const roomCard = page.locator('.room-card').first()
-
-		// Skip if no rooms available
-		const roomCount = await roomCard.count()
-		if (roomCount === 0) {
-			return
-		}
-
-		await roomCard.click()
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
-
-		// Verify monster sprite is displayed
-		await expect(page.locator('[data-testid="monster-sprite"]')).toBeVisible()
-	})
-
 	test('User can navigate back to dashboard from room detail', async ({ page }) => {
-		// Navigate to a room
-		const roomCard = page.locator('.room-card').first()
+		const roomCards = page.locator('[data-testid^="room-card-"]')
+		await expandUntilRoomVisible(page, roomCards.first())
+		test.skip((await roomCards.count()) === 0, 'family seed guarantees rooms; none rendered')
 
-		// Skip if no rooms available
-		const roomCount = await roomCard.count()
-		if (roomCount === 0) {
-			return
-		}
-
-		await roomCard.click()
+		await roomCards.first().click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
 		// Click back link
@@ -77,41 +58,33 @@ test.describe('Room Detail', () => {
 	})
 
 	test('User can open add task modal', async ({ page }) => {
-		// Navigate to a room
-		const roomCard = page.locator('.room-card').first()
+		const roomCards = page.locator('[data-testid^="room-card-"]')
+		await expandUntilRoomVisible(page, roomCards.first())
+		test.skip((await roomCards.count()) === 0, 'family seed guarantees rooms; none rendered')
 
-		// Skip if no rooms available
-		const roomCount = await roomCard.count()
-		if (roomCount === 0) {
-			return
-		}
-
-		await roomCard.click()
+		await roomCards.first().click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 
-		// Click add task button
+		// Click add task button — the shared Modal opens on the template
+		// picker (addTaskMode defaults to 'template').
 		await page.click('[data-testid="add-task-button"]')
-		await page.waitForTimeout(500)
-
-		// Verify modal is opened (TaskForm should be visible)
-		await expect(page.locator('.modal-content')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByTestId('add-task-picker')).toBeVisible({ timeout: 15000 })
 	})
 
 	test('Room cleanliness value is displayed correctly', async ({ page }) => {
-		// Navigate to a room
-		const roomCard = page.locator('.room-card').first()
+		const roomCards = page.locator('[data-testid^="room-card-"]')
+		await expandUntilRoomVisible(page, roomCards.first())
+		test.skip((await roomCards.count()) === 0, 'family seed guarantees rooms; none rendered')
 
-		// Skip if no rooms available
-		const roomCount = await roomCard.count()
-		if (roomCount === 0) {
-			return
-		}
-
-		await roomCard.click()
+		await roomCards.first().click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
+		await expect(page.locator('[data-testid="room-detail-view"]')).toBeVisible()
 
-		// Get cleanliness value
-		const cleanlinessText = await page.locator('[data-testid="cleanliness-value"]').textContent()
+		// Get cleanliness value from the detail view (the dashboard room
+		// cards carry the same testid, so scope into the detail view).
+		const cleanlinessText = await page
+			.locator('[data-testid="room-detail-view"] [data-testid="cleanliness-value"]')
+			.textContent()
 
 		// Verify it's a percentage value
 		expect(cleanlinessText).toMatch(/\d+%/)

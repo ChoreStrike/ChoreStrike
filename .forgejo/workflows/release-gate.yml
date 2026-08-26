@@ -6,6 +6,7 @@
 #   - `npm run stylelint`   (Stylelint, 0 errors required — CS-026)
 #   - `npm test`            (Jest)
 #   - `npm run build`       (Webpack production build)
+#   - `npm run docs:encoding` (docs encoding gate — CS-PLAN-050, TECH-DOCS-001)
 #   - `composer validate`   (composer.json sanity)
 #   - `composer cs:check`   (PHP coding standard, 0 diff — CS-026)
 #   - PHPUnit unit          (via Docker)
@@ -59,6 +60,9 @@ jobs:
 
       - name: Stylelint (blocking, CS-026)
         run: npm run stylelint
+
+      - name: Docs encoding gate (blocking, CS-PLAN-050)
+        run: npm run docs:encoding
 
   # ---------- Composer sanity + PHP CS ----------
   composer:

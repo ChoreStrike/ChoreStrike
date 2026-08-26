@@ -4,9 +4,17 @@
  */
 
 import { test, expect } from './fixtures/test-fixtures'
+import { createUserContext } from './fixtures/auth-contexts'
 
 /**
  * E2E Tests for Task Checklist (Feature 3: Sub-Checklists)
+ *
+ * CS-PLAN-050: the toggle test now creates its own sub-task through the
+ * owner-gated editor (the seed ships no checklist items) and asserts the
+ * durable outcome — checkbox state flips to checked and the completed item
+ * title is struck through. The old conditional `if (count > 0)` toggle and
+ * strikethrough tests (which could pass without testing anything, and
+ * asserted line-through on the wrong element) were replaced by it.
  */
 test.describe('Task Checklist', () => {
 	test.beforeEach(async ({ page }) => {
@@ -23,9 +31,10 @@ test.describe('Task Checklist', () => {
 		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
-		// Find first active task
+		// Find first active task (firefox under parallel load can take
+		// longer than the 5 s assertion default to render the list).
 		const taskItem = page.locator('.task-item').first()
-		await expect(taskItem).toBeVisible()
+		await expect(taskItem).toBeVisible({ timeout: 20000 })
 
 		// Click expand button
 		await taskItem.locator('button[title="Show details"]').click()
@@ -48,32 +57,41 @@ test.describe('Task Checklist', () => {
 		await expect(progressBar).toBeVisible()
 	})
 
-	test('should toggle checklist item completion', async ({ page }) => {
-		// Navigate to task manager
-		await page.getByTestId('nav-tasks').click()
-		await page.waitForSelector('[data-testid="task-manager-view"]')
+	test('should toggle checklist item completion', async ({ browser }) => {
+		// The checklist editor (add-item form) is owner-gated, so the
+		// toggle test acts as the seeded owner `mom`.
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			await page.goto('/apps/chorestrike/')
+			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await page.getByTestId('nav-tasks').click()
+			await page.waitForSelector('[data-testid="task-manager-view"]')
 
-		// Expand first task
-		const taskItem = page.locator('.task-item').first()
-		await taskItem.locator('button[title="Show details"]').click()
+			// Expand the first task and add a sub-task through the editor
+			// (the seed ships no checklist items).
+			const taskItem = page.locator('.task-item').first()
+			await taskItem.locator('button[title="Show details"]').click()
 
-		// Find first checklist item
-		const checklistItem = page.locator('[data-testid^="checklist-item-"]').first()
+			const label = `E2E sub-task ${Date.now()}`
+			await page.locator('.add-item-trigger').click()
+			await page.getByTestId('checklist-new-item-input').fill(label)
+			await page.getByTestId('checklist-add-item-button').click()
 
-		// Check if there are checklist items
-		const count = await checklistItem.count()
-		if (count > 0) {
-			// Get checkbox
-			const checkbox = checklistItem.locator('input[type="checkbox"]')
+			const newItem = page.locator('.checklist-item', { hasText: label })
+			await expect(newItem).toBeVisible({ timeout: 15000 })
 
-			// Toggle checkbox
-			await checkbox.click()
-
-			// Wait for state change
-			await page.waitForTimeout(500)
-
-			// Verify state changed (or API call was made)
-			// Note: Actual state depends on backend response
+			// Toggle the checkbox and verify the durable outcome: the
+			// checkbox flips to checked, the item is marked completed, and
+			// the title is struck through. The raw input is visually
+			// hidden behind the custom checkmark — click the label.
+			const checkbox = newItem.locator('input[type="checkbox"]')
+			await expect(checkbox).not.toBeChecked()
+			await newItem.locator('label.item-checkbox').click()
+			await expect(checkbox).toBeChecked({ timeout: 15000 })
+			await expect(newItem.locator('.item-content')).toHaveClass(/is-completed/)
+			await expect(newItem.locator('.item-title')).toHaveCSS('text-decoration', /line-through/)
+		} finally {
+			await context.close()
 		}
 	})
 
@@ -113,25 +131,6 @@ test.describe('Task Checklist', () => {
 		const badgeText = await progressBadge.textContent()
 		expect(badgeText).toMatch(/^\d+\/\d+$/)
 	})
-
-	test('completed checklist items should have strikethrough', async ({ page }) => {
-		// Navigate to task manager
-		await page.getByTestId('nav-tasks').click()
-		await page.waitForSelector('[data-testid="task-manager-view"]')
-
-		// Expand first task
-		const taskItem = page.locator('.task-item').first()
-		await taskItem.locator('button[title="Show details"]').click()
-
-		// Find completed items (checked checkboxes)
-		const completedItems = page.locator('.checklist-item .item-checkbox.is-completed')
-
-		// If there are completed items, verify styling
-		const count = await completedItems.count()
-		if (count > 0) {
-			await expect(completedItems.first()).toHaveCSS('text-decoration', /line-through/)
-		}
-	})
 })
 
 /**
@@ -152,14 +151,11 @@ test.describe('Group Assignment', () => {
 		await page.getByTestId('nav-tasks').click()
 		await page.waitForSelector('[data-testid="task-manager-view"]')
 
-		// Check for assigned indicator in task meta
+		// The family seed guarantees assigned room tasks; the assigned
+		// indicator is rendered for every task with at least one assignee.
 		const assignedIndicators = page.locator('.meta-item.assigned')
-
-		// Either there are assigned tasks or not
-		const count = await assignedIndicators.count()
-		if (count > 0) {
-			await expect(assignedIndicators.first()).toContainText('Assigned')
-		}
+		await expect(assignedIndicators.first()).toBeVisible({ timeout: 15000 })
+		await expect(assignedIndicators.first()).toContainText(/assigned/i)
 	})
 })
 
@@ -187,9 +183,11 @@ test.describe('Task Scheduling Modes', () => {
 		// Modal should open
 		await expect(page.locator('[data-testid="modal"]')).toBeVisible()
 
-		// Scheduling mode options should be visible (CS-PLAN-044 vocabulary)
-		await expect(page.locator('text=Flexible')).toBeVisible()
-		await expect(page.locator('text=Fixed schedule')).toBeVisible()
+		// Scheduling mode options should be visible (CS-PLAN-044 vocabulary).
+		// Exact match: the form also renders a "Flexible scheduling window
+		// in days" hint that a substring locator would match twice.
+		await expect(page.getByText('Flexible', { exact: true })).toBeVisible()
+		await expect(page.getByText('Fixed schedule', { exact: true })).toBeVisible()
 	})
 
 	test('should show time input for static scheduling', async ({ page }) => {

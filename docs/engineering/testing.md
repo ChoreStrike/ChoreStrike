@@ -325,8 +325,8 @@ npx playwright test tests/e2e/ --project=chromium --headed
 
 | Test File | Coverage |
 |-----------|----------|
-| `minimal-smoke-tests.spec.ts`, `fast-core-tests.spec.ts`, `smoke-tests.spec.ts` | Fast smoke coverage for boot, routing, and key pages |
-| `validation.spec.ts`, `error-handling.spec.ts`, `daily-tasks-flow.spec.ts` | Data validation, error handling, and daily-task flows |
+| `minimal-smoke-tests.spec.ts`, `fast-core-tests.spec.ts` | Fast smoke coverage for boot, shell, hash deep-links, and key pages (lean auto-waiting smoke layer, CS-PLAN-050) |
+| `validation.spec.ts`, `error-handling.spec.ts`, `today-view.spec.ts` | Data validation, error handling, and daily-task flows (Today view) |
 | `dashboard.spec.ts`, `dashboard-navigation.spec.ts`, `core-functionality.spec.ts` | Dashboard and cross-view navigation coverage |
 | `room-management.spec.ts`, `room-detail.spec.ts`, `3-floor-house.spec.ts` | Room/floor CRUD, room-detail flows, full-house scenarios |
 | `task-manager.spec.ts`, `task-completion.spec.ts`, `task-completion-full-flow.spec.ts`, `task-checklist-and-features.spec.ts` | Task management, creation, checklist, and completion flows |
