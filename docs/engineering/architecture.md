@@ -666,6 +666,22 @@ notifications, per-item error isolation (e.g. the freeze write in
 `bulkAssignTasks` — the API promises item-granular skip behavior), and
 genuine single-entity lookups.
 
+### Service Idiom: Config Value Registry (CS-PLAN-049)
+
+When a service exposes many scalar IAppConfig-backed values, do **not**
+hand-mirror each key across const/getter/setter/`getAllConfig`/`updateConfig`
+(4–5 coordinated edits per key — a proven drift risk, CR-SVC-16). Instead,
+define every key exactly once in a private `REGISTRY` const (type, stored
+default string, clamp bounds, camelCase API field) and drive two generic
+helpers (`readSpec` = read→cast→clamp, `writeSpec` = cast→clamp→write) plus
+the `getAllConfig()`/`updateConfig()` loops from it. Typed public
+getters/setters stay as one-line delegates (stable API, zero consumer churn);
+dynamic-shaped keys (e.g. per-pack title thresholds with a catalog fallback)
+stay outside the registry. Pattern: `RewardConfigService` — pinned by
+table-driven per-key default/clamp specs and a `getAllConfig` shape pin
+(`tests/unit/Service/RewardConfigServiceTest.php`). Clamping on read *and*
+write is the CR-SVC-19 rule.
+
 ### Frontend
 - Lazy loading routes
 - Virtual scrolling for long lists

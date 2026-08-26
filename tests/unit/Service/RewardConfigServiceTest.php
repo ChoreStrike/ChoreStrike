@@ -18,7 +18,10 @@ class RewardConfigServiceTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->config = $this->createMock(IAppConfig::class);
-		$this->service = new RewardConfigService($this->config);
+		$this->service = new RewardConfigService(
+			$this->config,
+			$this->createMock(AppLogger::class)
+		);
 	}
 
 	/**
@@ -740,5 +743,290 @@ class RewardConfigServiceTest extends TestCase {
 
 		$service = new RewardConfigService($this->config, $appLogger);
 		$service->setCoinBasePerEnergy(10);
+	}
+
+	// ---------------------------------------------------------------------------
+	// Registry specs (CS-PLAN-049): every scalar registry key is pinned by a
+	// table-driven default/clamp/round-trip suite plus getAllConfig/updateConfig
+	// parity specs, so the generic readSpec/writeSpec path cannot drift from the
+	// former per-key literals.
+	// ---------------------------------------------------------------------------
+
+	/** apiField => IAppConfig key (independent of the service's REGISTRY). */
+	private const KEY_BY_FIELD = [
+		'tierBronzeMultiplier' => RewardConfigService::KEY_TIER_BRONZE_MULTIPLIER,
+		'tierSilverMultiplier' => RewardConfigService::KEY_TIER_SILVER_MULTIPLIER,
+		'tierGoldMultiplier' => RewardConfigService::KEY_TIER_GOLD_MULTIPLIER,
+		'earlyBonusThresholdDays' => RewardConfigService::KEY_EARLY_BONUS_THRESHOLD_DAYS,
+		'earlyBonusMultiplier' => RewardConfigService::KEY_EARLY_BONUS_MULTIPLIER,
+		'energyMaxPerTask' => RewardConfigService::KEY_ENERGY_MAX_PER_TASK,
+		'coinBasePerEnergy' => RewardConfigService::KEY_COIN_BASE_PER_ENERGY,
+		'streakFreezesPerWeek' => RewardConfigService::KEY_STREAK_FREEZES_PER_WEEK,
+		'streakFreezeCap' => RewardConfigService::KEY_STREAK_FREEZE_CAP,
+		'comboBonusFreezeThreshold' => RewardConfigService::KEY_COMBO_BONUS_FREEZE_THRESHOLD,
+		'comboMultiplier' => RewardConfigService::KEY_COMBO_MULTIPLIER,
+		'weeklyGoalTargetPercent' => RewardConfigService::KEY_WEEKLY_GOAL_TARGET_PERCENT,
+		'teamworkBonusEnabled' => RewardConfigService::KEY_TEAMWORK_BONUS_ENABLED,
+		'teamworkBonusMaxPct' => RewardConfigService::KEY_TEAMWORK_BONUS_MAX_PCT,
+		'titlesEnabled' => RewardConfigService::KEY_TITLES_ENABLED,
+	];
+
+	public static function registryDefaultProvider(): array {
+		return [
+			'tierBronzeMultiplier' => ['tierBronzeMultiplier', 1.0],
+			'tierSilverMultiplier' => ['tierSilverMultiplier', 1.5],
+			'tierGoldMultiplier' => ['tierGoldMultiplier', 2.0],
+			'earlyBonusThresholdDays' => ['earlyBonusThresholdDays', 21],
+			'earlyBonusMultiplier' => ['earlyBonusMultiplier', 1.5],
+			'energyMaxPerTask' => ['energyMaxPerTask', 9],
+			'coinBasePerEnergy' => ['coinBasePerEnergy', 10],
+			'streakFreezesPerWeek' => ['streakFreezesPerWeek', 1],
+			'streakFreezeCap' => ['streakFreezeCap', 2],
+			'comboBonusFreezeThreshold' => ['comboBonusFreezeThreshold', 5],
+			'comboMultiplier' => ['comboMultiplier', 2.0],
+			'weeklyGoalTargetPercent' => ['weeklyGoalTargetPercent', 80],
+			'teamworkBonusEnabled' => ['teamworkBonusEnabled', true],
+			'teamworkBonusMaxPct' => ['teamworkBonusMaxPct', 50],
+			'titlesEnabled' => ['titlesEnabled', true],
+		];
+	}
+
+	/**
+	 * RegistryKey_ReturnsDefaultWhenUnset — one row per registry key.
+	 *
+	 * @dataProvider registryDefaultProvider
+	 */
+	public function testRegistryKey_ReturnsDefaultWhenUnset(string $field, $expected): void {
+		$this->config
+			->method('getValueString')
+			->willReturnCallback(function ($app, $key, $default) {
+				return $default;
+			});
+
+		$this->assertSame($expected, $this->registryGet($field));
+	}
+
+	public static function registryReadClampProvider(): array {
+		return [
+			'tierBronzeMultiplier below min' => ['tierBronzeMultiplier', '-2.5', 0.0],
+			'tierSilverMultiplier below min' => ['tierSilverMultiplier', '-1', 0.0],
+			'tierGoldMultiplier below min' => ['tierGoldMultiplier', '-0.1', 0.0],
+			'earlyBonusThresholdDays below min' => ['earlyBonusThresholdDays', '-3', 0],
+			'earlyBonusMultiplier below min' => ['earlyBonusMultiplier', '0.5', 1.0],
+			'energyMaxPerTask below min' => ['energyMaxPerTask', '-9', 0],
+			'coinBasePerEnergy below min' => ['coinBasePerEnergy', '-10', 0],
+			'streakFreezesPerWeek below min' => ['streakFreezesPerWeek', '-2', 0],
+			'streakFreezeCap below min' => ['streakFreezeCap', '-2', 0],
+			'comboBonusFreezeThreshold below min' => ['comboBonusFreezeThreshold', '-3', 0],
+			'comboMultiplier below min' => ['comboMultiplier', '-1.5', 0.0],
+			'weeklyGoalTargetPercent below min' => ['weeklyGoalTargetPercent', '0', 1],
+			'weeklyGoalTargetPercent above max' => ['weeklyGoalTargetPercent', '150', 100],
+			'teamworkBonusMaxPct below min' => ['teamworkBonusMaxPct', '-5', 0],
+			'teamworkBonusMaxPct above max' => ['teamworkBonusMaxPct', '120', 100],
+		];
+	}
+
+	/**
+	 * RegistryKey_ClampsPersistedOutOfRange_OnRead (CR-SVC-19 parity)
+	 *
+	 * @dataProvider registryReadClampProvider
+	 */
+	public function testRegistryKey_ClampsPersistedOutOfRange_OnRead(string $field, string $storedRaw, $expected): void {
+		$this->config
+			->method('getValueString')
+			->willReturn($storedRaw);
+
+		$this->assertSame($expected, $this->registryGet($field));
+	}
+
+	public static function registryWriteClampProvider(): array {
+		return [
+			'tierBronzeMultiplier below min' => ['tierBronzeMultiplier', -2.5, '0'],
+			'tierSilverMultiplier below min' => ['tierSilverMultiplier', -1.0, '0'],
+			'tierGoldMultiplier below min' => ['tierGoldMultiplier', -0.1, '0'],
+			'earlyBonusThresholdDays below min' => ['earlyBonusThresholdDays', -3, '0'],
+			'earlyBonusMultiplier below min' => ['earlyBonusMultiplier', 0.5, '1'],
+			'energyMaxPerTask below min' => ['energyMaxPerTask', -9, '0'],
+			'coinBasePerEnergy below min' => ['coinBasePerEnergy', -10, '0'],
+			'streakFreezesPerWeek below min' => ['streakFreezesPerWeek', -2, '0'],
+			'streakFreezeCap below min' => ['streakFreezeCap', -2, '0'],
+			'comboBonusFreezeThreshold below min' => ['comboBonusFreezeThreshold', -3, '0'],
+			'comboMultiplier below min' => ['comboMultiplier', -1.5, '0'],
+			'weeklyGoalTargetPercent below min' => ['weeklyGoalTargetPercent', 0, '1'],
+			'weeklyGoalTargetPercent above max' => ['weeklyGoalTargetPercent', 150, '100'],
+			'teamworkBonusMaxPct below min' => ['teamworkBonusMaxPct', -5, '0'],
+			'teamworkBonusMaxPct above max' => ['teamworkBonusMaxPct', 120, '100'],
+		];
+	}
+
+	/**
+	 * RegistryKey_ClampsOutOfRange_OnWrite (CR-SVC-19 parity)
+	 *
+	 * @dataProvider registryWriteClampProvider
+	 */
+	public function testRegistryKey_ClampsOutOfRange_OnWrite(string $field, $input, string $expectedStored): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', self::KEY_BY_FIELD[$field], $expectedStored);
+
+		$this->registrySet($field, $input);
+	}
+
+	public static function registryBoolFieldProvider(): array {
+		return [
+			'teamworkBonusEnabled' => ['teamworkBonusEnabled', RewardConfigService::KEY_TEAMWORK_BONUS_ENABLED],
+			'titlesEnabled' => ['titlesEnabled', RewardConfigService::KEY_TITLES_ENABLED],
+		];
+	}
+
+	/**
+	 * RegistryBoolKey_RoundTripsOneAndZero
+	 *
+	 * @dataProvider registryBoolFieldProvider
+	 */
+	public function testRegistryBoolKey_RoundTripsOneAndZero(string $field, string $key): void {
+		$written = [];
+		$this->config
+			->method('setValueString')
+			->willReturnCallback(function ($app, $k, $v) use (&$written): void {
+				$written[$k] = $v;
+			});
+		$stored = '1';
+		$this->config
+			->method('getValueString')
+			->willReturnCallback(function () use (&$stored): string {
+				return $stored;
+			});
+
+		$this->registrySet($field, true);
+		$this->assertSame('1', $written[$key]);
+		$this->registrySet($field, false);
+		$this->assertSame('0', $written[$key]);
+
+		$this->assertTrue($this->registryGet($field));
+		$stored = '0';
+		$this->assertFalse($this->registryGet($field));
+	}
+
+	/**
+	 * UpdateConfig_IgnoresUnknownFields
+	 */
+	public function testUpdateConfig_IgnoresUnknownFields(): void {
+		$this->config->expects($this->never())->method('setValueString');
+
+		$this->service->updateConfig([
+			'bogusField' => 5,
+			'tierMultiplier' => 2.0,
+		]);
+	}
+
+	/**
+	 * UpdateConfig_SkipsExplicitNullValues (isset semantics)
+	 */
+	public function testUpdateConfig_SkipsExplicitNullValues(): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', RewardConfigService::KEY_TITLES_ENABLED, '0');
+
+		$this->service->updateConfig([
+			'coinBasePerEnergy' => null,
+			'titlesEnabled' => false,
+		]);
+	}
+
+	/**
+	 * UpdateConfig_AppliesPartialPayload
+	 */
+	public function testUpdateConfig_AppliesPartialPayload(): void {
+		$this->config
+			->expects($this->once())
+			->method('setValueString')
+			->with('chorestrike', RewardConfigService::KEY_ENERGY_MAX_PER_TASK, '12');
+
+		$this->service->updateConfig(['energyMaxPerTask' => 12]);
+	}
+
+	/**
+	 * GetAllConfig_ExposesExactlyTheSixteenCurrentFields — shape pin
+	 * (public API contract: field set AND order, incl. nested titleThresholds).
+	 */
+	public function testGetAllConfig_ExposesExactlyTheSixteenCurrentFields(): void {
+		$this->config
+			->method('getValueString')
+			->willReturnCallback(function ($app, $key, $default) {
+				return $default;
+			});
+
+		$result = $this->service->getAllConfig();
+
+		$this->assertSame([
+			'tierBronzeMultiplier',
+			'tierSilverMultiplier',
+			'tierGoldMultiplier',
+			'earlyBonusThresholdDays',
+			'earlyBonusMultiplier',
+			'energyMaxPerTask',
+			'coinBasePerEnergy',
+			'streakFreezesPerWeek',
+			'streakFreezeCap',
+			'comboBonusFreezeThreshold',
+			'comboMultiplier',
+			'weeklyGoalTargetPercent',
+			'teamworkBonusEnabled',
+			'teamworkBonusMaxPct',
+			'titlesEnabled',
+			'titleThresholds',
+		], array_keys($result));
+		$this->assertIsArray($result['titleThresholds']);
+	}
+
+	/**
+	 * Invoke the typed public getter for a registry apiField.
+	 */
+	private function registryGet(string $field) {
+		return match ($field) {
+			'tierBronzeMultiplier' => $this->service->getTierMultiplier('bronze'),
+			'tierSilverMultiplier' => $this->service->getTierMultiplier('silver'),
+			'tierGoldMultiplier' => $this->service->getTierMultiplier('gold'),
+			'earlyBonusThresholdDays' => $this->service->getEarlyBonusThresholdDays(),
+			'earlyBonusMultiplier' => $this->service->getEarlyBonusMultiplier(),
+			'energyMaxPerTask' => $this->service->getEnergyMaxPerTask(),
+			'coinBasePerEnergy' => $this->service->getCoinBasePerEnergy(),
+			'streakFreezesPerWeek' => $this->service->getStreakFreezesPerWeek(),
+			'streakFreezeCap' => $this->service->getStreakFreezeCap(),
+			'comboBonusFreezeThreshold' => $this->service->getComboBonusFreezeThreshold(),
+			'comboMultiplier' => $this->service->getComboMultiplier(),
+			'weeklyGoalTargetPercent' => $this->service->getWeeklyGoalTargetPercent(),
+			'teamworkBonusEnabled' => $this->service->getTeamworkBonusEnabled(),
+			'teamworkBonusMaxPct' => $this->service->getTeamworkBonusMaxPct(),
+			'titlesEnabled' => $this->service->getTitlesEnabled(),
+			default => throw new \RuntimeException('Unknown registry field: ' . $field),
+		};
+	}
+
+	/**
+	 * Invoke the typed public setter for a registry apiField.
+	 */
+	private function registrySet(string $field, $value): void {
+		match ($field) {
+			'tierBronzeMultiplier' => $this->service->setTierMultiplier('bronze', (float)$value),
+			'tierSilverMultiplier' => $this->service->setTierMultiplier('silver', (float)$value),
+			'tierGoldMultiplier' => $this->service->setTierMultiplier('gold', (float)$value),
+			'earlyBonusThresholdDays' => $this->service->setEarlyBonusThresholdDays((int)$value),
+			'earlyBonusMultiplier' => $this->service->setEarlyBonusMultiplier((float)$value),
+			'energyMaxPerTask' => $this->service->setEnergyMaxPerTask((int)$value),
+			'coinBasePerEnergy' => $this->service->setCoinBasePerEnergy((int)$value),
+			'streakFreezesPerWeek' => $this->service->setStreakFreezesPerWeek((int)$value),
+			'streakFreezeCap' => $this->service->setStreakFreezeCap((int)$value),
+			'comboBonusFreezeThreshold' => $this->service->setComboBonusFreezeThreshold((int)$value),
+			'comboMultiplier' => $this->service->setComboMultiplier((float)$value),
+			'weeklyGoalTargetPercent' => $this->service->setWeeklyGoalTargetPercent((int)$value),
+			'teamworkBonusEnabled' => $this->service->setTeamworkBonusEnabled((bool)$value),
+			'teamworkBonusMaxPct' => $this->service->setTeamworkBonusMaxPct((int)$value),
+			'titlesEnabled' => $this->service->setTitlesEnabled((bool)$value),
+			default => throw new \RuntimeException('Unknown registry field: ' . $field),
+		};
 	}
 }

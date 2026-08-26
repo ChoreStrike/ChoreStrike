@@ -19,6 +19,8 @@
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
+- **CS-PLAN-049** — RewardConfig Registry & Docs Quick-Wins (closed **CR-SVC-16** + **P9-DOC-005**; partial **CR-SVC-15** + **CR-SVC-41**; D1=thin delegates / D2=AppLogger required signed off): single private `REGISTRY` const in `RewardConfigService` (15 scalar keys × type/default/clamp/apiField) drives generic `readSpec`/`writeSpec`, the now-delegate typed getters/setters (public API byte-identical), and loop-based `getAllConfig`/`updateConfig` (isset skip-`null` + unknown-ignore semantics preserved; title-threshold paths untouched); ctor takes required non-nullable `AppLogger`; 689 → 538 lines. New table-driven specs (per-key default + clamp on read AND write, bool round-trips, updateConfig parity, 16-field getAllConfig shape pin incl. order); existing ~750-line behavior suite green with only ctor-arg test changes. `development.md` fictional `calculateNextDue` example → real `RoomTaskService::updateDueDate`; raw `axios.post` example → shared `api` client. Registry idiom documented in architecture.md ("Service Idiom: Config Value Registry"). Gate: Docker PHPUnit unit 885 / integration 200 [24 pre-existing skips] / Jest 842 / cs:check 0/267 / lint clean / noise clean (l10n untouched — no user-visible strings). Standard-B review 2026-08-26: **PASS** — behavior parity verified line-by-line (defaults, clamp read+write, isset skip-`null`/unknown-ignore, 16-field order, unknown-tier 1.0 fallback); 2 minor doc auto-fixes (post-refactor line count corrected 489 → 538 in plan/ACTIVE_TASKS/archive/backlog, backlog.md blank line before the CR-SVC-16 heading restored); gates re-verified (lint:fix/noise clean, Jest 842, Docker PHPUnit unit 885 / integration 200 [24 pre-existing skips], cs:check 0/267). (2026-08-26, Done — plan moved to `done/`) → [`../plans/done/cs-plan-049-reward-config-registry-docs-quickwins.md`](../plans/done/cs-plan-049-reward-config-registry-docs-quickwins.md)
+
 - **CS-PLAN-048** — Modal A11y Names, Energy Display Guard & E2E Integrity Sweep (closed **UX-016** + **BUG-E2E-003** + **BUG-E2E-001** + **BUG-UI-001**; D1=per-site aria-label / D2=serial-gate green state confirmed / D3=coerce to 0): all 16 `<Modal>` call sites named via translated `aria-label` reusing heading/trigger keys (ConfirmDialog forwards its `title` — one line for all consumers; AvailabilityEditModal stray `:title` → `:aria-label`); 5 reused keys missing from l10n artifacts synced to en/de/pot (`New Task`, `Snake`, `Add New Floor`, `Reset House?`, `Edit Sub-Task`); design.md §6 records the accessible-name requirement; energy totals coerce non-finite day values to numeric 0 in EnergyBudgetSettings + BudgetAnalysis (peak/low semantics preserved) with Jest pins for both paths; BUG-E2E-003 root-caused as *not a race* — successful selection closes the picker, so the spec now asserts the durable outcome (PUT ok → picker closed → reopened picker shows Active tag) plus catalog-render wait, green 3× standalone `--retries=0`; BUG-E2E-001 not reproducible on the current tree (10/10 standalone + full blocking `chromium-serial-db` project green: 86 passed / 4 pre-existing data-state skips / 0 failed — D2 green-state sign-off met). Gate: Docker PHPUnit unit 834 / integration 200 [24 pre-existing skips] / Jest 842 / lint + stylelint 0 errors / noise clean / l10n:check-keys clean / webpack build green. Standard-B review 2026-08-25: **PASS** — 3 auto-fixes (`2048` l10n key synced + mangled `"0"` artifact key removed from en/de/pot, title-selection disabled-button skip made honest via authenticated `/users/current` probe with fail-loud transport errors, redundant inline stubs dropped from the new ArcadeSection test); gates re-verified after fixes; 1 out-of-manifest gate repair (ScheduleCalendar de-shape week-range regex was date-dependent, broke on "Sept." weeks — stash-verified pre-existing, relaxed to 3–4-letter months); Standard-B re-review 2026-08-26 clean (2 minor doc auto-fixes: UX-016 dangling checklist lines + archive indent churn; lint/Jest 842/noise/l10n re-verified green). Plan ready for manual `active/ → done/` move. (2026-08-25, Done)
 
 - **CS-PLAN-047** — API i18n Completion Sweep (closed **CR-SVC-62**; D1=YES / D2=exception signed off): scripted inventory audit over `lib/` (all three exception types + `'message' =>`, classified per catching controller) froze the wrap list before edits; required non-nullable `IL10N` injected into 8 controllers + 8 services; all 62 controller `'message'` literals wrapped; curated service IAEs wrapped (`HouseSetupService` ×11 printf-converted, `SchedulingService:45`, `RoomTaskService` ×4, `MinigameService::saveScore`, audit-promoted `TemplateService::materializeTemplate` ×3); D1 sweep wrapped all 24 NotFound/Forbidden literals (`Authorization/Room/Task/RoomTask/House/Floor/Activity` services); audit reclassifications recorded in plan §2a (`TaskService:200`, `FloorService:130`, `HouseService:137`, `RoomTaskService:870` hidden by `safeMessage()` catch-alls or curated responses → unwrapped); D2 fallback policy in formatter docblock + `i18n.md` backend-error contract; l10n en/de/pot synced (pot fully regenerated from en.json, 890 msgids, 91 unsynced backend keys backfilled). Gate: Docker PHPUnit unit 834 / integration 200 [24 pre-existing skips] / Jest 831 / lint clean / cs:check 0/267 / noise + l10n:check-keys clean / E2E grep no hits. Standard-B review 2026-08-25: **PASS** — 2 auto-fixes (l10n artifacts: newly wrapped `Template "%1$s" is not available for level "%2$s"` + notifier rich-subject backfill gap `Your task "{task}" was taken over by {claimer}` added to en/de/pot → 892 keys), §2a catch-path claims all re-verified, gate re-verified (lint/l10n/noise clean, Jest 831, Docker PHPUnit 834/200 [24 pre-existing skips], cs:check 0/267, E2E grep no hits). (2026-08-25, Done — plan moved to `done/`) → [`../plans/done/cs-plan-047-api-i18n-completion-sweep.md`](../plans/done/cs-plan-047-api-i18n-completion-sweep.md)
@@ -244,3 +246,43 @@
 > hand-rolls an overlay without `role="dialog"`/accessible name — outside
 > WP-A's `<Modal>` scope, but a design.md §6 violation candidate. Ready for
 > manual `new/ → active/` move.
+
+> **CS-PLAN-049 drafted (2026-08-26)** — RewardConfig Registry & Docs
+> Quick-Wins in `docs/plans/new/`: closes **CR-SVC-16** (single
+> `key => [type, default, clamp, apiField]` registry driving
+> get/set/`getAllConfig`/`updateConfig`; public API unchanged — all 16 setter
+> call sites verified internal, no frontend consumer of the endpoints) and
+> **P9-DOC-005** (`development.md:186` fictional `calculateNextDue` +
+> `:380` raw `axios.post` → shared `api` client); partial closes of
+> **CR-SVC-15** (RewardConfigService 689 lines) and **CR-SVC-41**
+> (nullable `?AppLogger` in this service). Activation decisions:
+> **D1** keep individual setters as thin delegates (recommended) vs delete,
+> **D2** `AppLogger` non-nullable now (recommended) vs defer to a full
+> CR-SVC-41 plan. All file:line refs and no-caller claims verified against
+> the tree; ready for review + manual `new/ → active/` move.
+>
+> Recommended follow-ups after 049: P9-E2E-002b (P2, E2E `waitForTimeout`
+> long-tail) or CR-SVC-59 (P3, AppLogger adoption remainder); decision-gated
+> UX-015 (undo single-slot: queue vs accept) needs a product call.
+
+> **CS-PLAN-049 plan review (2026-08-26)**: Standard A — **GO-WITH-CHANGES**,
+> fixes applied inline to the plan: the P9-DOC-005 replacement target was
+> fictional — `TaskSchedulerService`/`SmartSchedulerService`/`lib/Service/Scheduling/`
+> do not exist; corrected to the real owners (`SchedulingService` in
+> `lib/Service/SchedulingService.php`, due-date logic in
+> `RoomTask::calculateIdealDueDate()` / `RoomTaskService::updateDueDate()`) in
+> both §1 and step 5, and the AppLogger-mock line ref corrected 723–741 →
+> 716–743. All other claims verified against the tree: 689-line file + ctor
+> line 42 + `getAllConfig()` 537–556 + `updateConfig()` 563–612, 15 `KEY_*`
+> scalar consts / 16 `getAllConfig()` fields, 16 internal setter call sites
+> (15 `updateConfig` branches + `applyTitleThresholds`), 5 getter-only
+> consumers, no frontend consumer of `/api/v1/reward-config` (routes 169–170),
+> `development.md:186`/`:380` drifts, CR-SVC-15's "607" bullet, test/integration
+> wiring claims (`RewardConfigServiceTest` 744 lines, `TeamworkRewardTest` +
+> `TitleServiceIntegrationTest` via `\OC::$server`, all other consumers use
+> `createMock` and are ctor-change-immune). Notes to the user (not backlogged,
+> per plan-review rules): CR-SVC-41's "3 services" count is stale (tree has 5
+> nullable-`?AppLogger` services + `ControllerLoggingTrait` + 6 controllers),
+> and the post-refactor file lands ~350–400 lines, still over the ~300-line
+> guideline (plan risk row 6 + acceptance criterion already record this).
+> D1–D2 remain activation-time sign-offs. Ready for manual `new/ → active/` move.

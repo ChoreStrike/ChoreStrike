@@ -167,27 +167,32 @@ See [architecture.md](architecture.md) for detailed structure.
 <?php
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\RoomTaskMapper;
 
-class TaskService {
-    private TaskMapper $mapper;
+class RoomTaskService {
+    private RoomTaskMapper $mapper;
     
-    public function __construct(TaskMapper $mapper) {
+    public function __construct(RoomTaskMapper $mapper) {
         $this->mapper = $mapper;
     }
     
     /**
-     * Calculate the next due date for a task
+     * Update the due date of a room task
      * 
-     * @param Task $task The task to calculate for
-     * @return \DateTime The next due date
+     * @param int $roomTaskId ID of the room task
+     * @param \DateTime $nextDue The new due date
+     * @return RoomTask The updated room task
      */
-    public function calculateNextDue(Task $task): \DateTime {
+    public function updateDueDate(int $roomTaskId, \DateTime $nextDue): RoomTask {
         // Implementation
     }
 }
 ```
+
+> Real method: `RoomTaskService::updateDueDate()` (`lib/Service/RoomTaskService.php`).
+> Scheduling preferences are owned by `SchedulingService`
+> (`lib/Service/SchedulingService.php`, e.g. `getSchedulingSuggestions()`).
 
 ### JavaScript/Vue
 
@@ -375,12 +380,16 @@ tail -f /path/to/nextcloud/data/nextcloud.log
 3. **Add service method** in `lib/Service/TaskService.php`
 
 4. **Add frontend API call** in `src/services/api.js`:
-   ```javascript
-   export async function myNewEndpoint(param) {
-       const response = await axios.post('/apps/ChoreStrike/api/v1/tasks/new', { param })
-       return response.data
-   }
-   ```
+    ```javascript
+    import { post } from './api'
+
+    export async function myNewEndpoint(param) {
+        // `post` prefixes the path with API_PREFIX ('/apps/chorestrike'),
+        // unwraps the { success, data, error } envelope and throws ApiError
+        // on failure — never call axios with a hand-built URL.
+        return post('/api/v1/tasks/new', { param })
+    }
+    ```
 
 ### Adding a new Vue component
 

@@ -103,17 +103,7 @@ suite flake-free (3× full-matrix `--retries=0`).
 ---
 
 ### [P2] P9-DOC-005 — `development.md` example-code audit
-**Status**: Open · **Effort**: S · **Source**: CS-014 review (2026-07-26)
-
-Two deferred example-code drifts: (1) a fictional
-`TaskService::calculateNextDue(Task): \DateTime` in the coding-standards example
-(no such method — scheduling is owned by `SchedulingService`/`TaskSchedulerService`
-/`SmartSchedulerService`/`lib/Service/Scheduling/`); (2) the "new API endpoint"
-example shows raw `axios.post('/apps/ChoreStrike/...')`, contradicting the
-canonical `src/services/api.js` client enforced by `apiContract.spec.js`.
-
-- [ ] Replace/drop the fictional `calculateNextDue` example; rewrite the endpoint
-      example to use the shared `api` client.
+**Status**: Resolved 2026-08-26 (CS-PLAN-049) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ---
 
@@ -224,15 +214,13 @@ incremental `AppLogger` adoption in services that swallow failures silently.
 Over the ~300-line/~30-line guidelines: `RoomService::completeRoomTask` (~200 lines),
 `GameLogicService` (517, 7 concerns), `handleTaskCompletion` (~113) /
 `checkAndAwardMedals` (~62, 5 near-identical award blocks), `RoomTaskService` (833),
-`RewardConfigService` (607), `TaskService::createTask` (24 positional params).
+`RewardConfigService` (689 → 538 via CS-PLAN-049 registry, 2026-08-26 — still over
+the guideline, accepted), `TaskService::createTask` (24 positional params).
 - [ ] Extract cohesive steps (overdue-takeover, post-commit notification dispatch,
       medal-rules table) and split GameLogicService along domain lines.
 
 ### [P2] CR-SVC-16 — `RewardConfigService` registry refactor (DRY)
-**Status**: Open · **Effort**: M · **Source**: Review of `lib/Service` (2026-08-04)
-Every config key is touched in 4-5 places (const + get + set + `updateConfig` branch +
-`getAllConfig` entry); `updateConfig` mirrors `getAllConfig`.
-- [ ] Drive get/set/update/all from a single `key => [type, default, clamp]` registry.
+**Status**: Resolved 2026-08-26 (CS-PLAN-049) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-SVC-19 — `RewardConfigService` inconsistent clamping
 **Status**: Resolved 2026-08-24 (CS-PLAN-045) → [`archive/2026-08.md`](archive/2026-08.md)
@@ -256,7 +244,8 @@ sweep and the D2 untranslated-fallback policy) → [`archive/2026-08.md`](archiv
 plumbing in a service). Move transaction+lock into the mapper/repository.
 
 ### [P3] CR-SVC-41 — Service DI inconsistencies
-**Effort**: M — nullable `?AppLogger` in 3 services (silent null-skip risk);
+**Effort**: M — nullable `?AppLogger` in 3 services (silent null-skip risk;
+`RewardConfigService` fixed 2026-08-26 by CS-PLAN-049, remainder open);
 `getFilteredDailyTasksForUser` takes `HouseUserMapper` as a param despite ctor injection;
 duplicated stat helpers; duplicated `validate*Ownership` across Floor/Room/RoomTask services.
 

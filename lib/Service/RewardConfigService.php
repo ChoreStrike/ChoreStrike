@@ -36,10 +36,47 @@ class RewardConfigService {
 	/** Prefix for per-tier title thresholds; full key is `{prefix}_{pack}_{tierIndex}`. */
 	public const KEY_TITLE_THRESHOLD_PREFIX = 'title_threshold';
 
-	private IAppConfig $config;
-	private ?AppLogger $appLogger;
+	/**
+	 * Single source of truth for every scalar config key (CR-SVC-16):
+	 * IAppConfig key => spec with `type` ('int'|'float'|'bool'), `default`
+	 * (stored string), `min`/`max` clamp bounds (null = unbounded), and the
+	 * camelCase `apiField` used by getAllConfig()/updateConfig().
+	 *
+	 * Insertion order is the public getAllConfig() field order.
+	 *
+	 * Per-tier title thresholds are intentionally NOT registered here — they
+	 * are dynamic per-pack/tier keys with a TitleCatalog fallback (see the
+	 * *TitleThreshold methods).
+	 */
+	private const REGISTRY = [
+		self::KEY_TIER_BRONZE_MULTIPLIER => ['type' => 'float', 'default' => '1.0', 'min' => 0.0, 'max' => null, 'apiField' => 'tierBronzeMultiplier'],
+		self::KEY_TIER_SILVER_MULTIPLIER => ['type' => 'float', 'default' => '1.5', 'min' => 0.0, 'max' => null, 'apiField' => 'tierSilverMultiplier'],
+		self::KEY_TIER_GOLD_MULTIPLIER => ['type' => 'float', 'default' => '2.0', 'min' => 0.0, 'max' => null, 'apiField' => 'tierGoldMultiplier'],
+		self::KEY_EARLY_BONUS_THRESHOLD_DAYS => ['type' => 'int', 'default' => '21', 'min' => 0, 'max' => null, 'apiField' => 'earlyBonusThresholdDays'],
+		self::KEY_EARLY_BONUS_MULTIPLIER => ['type' => 'float', 'default' => '1.5', 'min' => 1.0, 'max' => null, 'apiField' => 'earlyBonusMultiplier'],
+		self::KEY_ENERGY_MAX_PER_TASK => ['type' => 'int', 'default' => '9', 'min' => 0, 'max' => null, 'apiField' => 'energyMaxPerTask'],
+		self::KEY_COIN_BASE_PER_ENERGY => ['type' => 'int', 'default' => '10', 'min' => 0, 'max' => null, 'apiField' => 'coinBasePerEnergy'],
+		self::KEY_STREAK_FREEZES_PER_WEEK => ['type' => 'int', 'default' => '1', 'min' => 0, 'max' => null, 'apiField' => 'streakFreezesPerWeek'],
+		self::KEY_STREAK_FREEZE_CAP => ['type' => 'int', 'default' => '2', 'min' => 0, 'max' => null, 'apiField' => 'streakFreezeCap'],
+		self::KEY_COMBO_BONUS_FREEZE_THRESHOLD => ['type' => 'int', 'default' => '5', 'min' => 0, 'max' => null, 'apiField' => 'comboBonusFreezeThreshold'],
+		self::KEY_COMBO_MULTIPLIER => ['type' => 'float', 'default' => '2.0', 'min' => 0.0, 'max' => null, 'apiField' => 'comboMultiplier'],
+		self::KEY_WEEKLY_GOAL_TARGET_PERCENT => ['type' => 'int', 'default' => '80', 'min' => 1, 'max' => 100, 'apiField' => 'weeklyGoalTargetPercent'],
+		self::KEY_TEAMWORK_BONUS_ENABLED => ['type' => 'bool', 'default' => '1', 'min' => null, 'max' => null, 'apiField' => 'teamworkBonusEnabled'],
+		self::KEY_TEAMWORK_BONUS_MAX_PCT => ['type' => 'int', 'default' => '50', 'min' => 0, 'max' => 100, 'apiField' => 'teamworkBonusMaxPct'],
+		self::KEY_TITLES_ENABLED => ['type' => 'bool', 'default' => '1', 'min' => null, 'max' => null, 'apiField' => 'titlesEnabled'],
+	];
 
-	public function __construct(IAppConfig $config, ?AppLogger $appLogger = null) {
+	/** Tier name => registry key for the three tier multipliers. */
+	private const TIER_KEYS = [
+		'bronze' => self::KEY_TIER_BRONZE_MULTIPLIER,
+		'silver' => self::KEY_TIER_SILVER_MULTIPLIER,
+		'gold' => self::KEY_TIER_GOLD_MULTIPLIER,
+	];
+
+	private IAppConfig $config;
+	private AppLogger $appLogger;
+
+	public function __construct(IAppConfig $config, AppLogger $appLogger) {
 		$this->config = $config;
 		$this->appLogger = $appLogger;
 	}
@@ -85,7 +122,7 @@ class RewardConfigService {
 			return;
 		}
 
-		$this->appLogger?->warning('Reward config value clamped', [
+		$this->appLogger->warning('Reward config value clamped', [
 			'service' => 'RewardConfigService',
 			'key' => $key,
 			'value' => $value,
@@ -94,197 +131,151 @@ class RewardConfigService {
 	}
 
 	/**
-	 * Get tier multiplier for a given tier
+	 * Read a registry key: fetch the stored string (registry default when
+	 * unset), cast it to the spec type, and clamp numeric values into the
+	 * spec bounds (CR-SVC-19).
 	 *
-	 * Clamped to >= 0 (CR-SVC-19): a negative multiplier would invert rewards.
+	 * @return int|float|bool The typed and clamped value
+	 */
+	private function readSpec(string $key): int|float|bool {
+		$spec = self::REGISTRY[$key];
+		$raw = $this->config->getValueString(self::APP_NAME, $key, $spec['default']);
+		switch ($spec['type']) {
+			case 'int':
+				return $this->clampInt($key, (int)$raw, $spec['min'], $spec['max']);
+			case 'float':
+				return $this->clampFloat($key, (float)$raw, $spec['min'], $spec['max']);
+			default:
+				return $raw === '1';
+		}
+	}
+
+	/**
+	 * Write a registry key: cast the value to the spec type, clamp numeric
+	 * values into the spec bounds (CR-SVC-19), and persist as a string.
+	 *
+	 * @param mixed $value Raw input value (client payload or typed setter arg)
+	 */
+	private function writeSpec(string $key, $value): void {
+		$spec = self::REGISTRY[$key];
+		switch ($spec['type']) {
+			case 'int':
+				$this->config->setValueString(
+					self::APP_NAME,
+					$key,
+					(string)$this->clampInt($key, (int)$value, $spec['min'], $spec['max'])
+				);
+				return;
+			case 'float':
+				$this->config->setValueString(
+					self::APP_NAME,
+					$key,
+					(string)$this->clampFloat($key, (float)$value, $spec['min'], $spec['max'])
+				);
+				return;
+			default:
+				$this->config->setValueString(self::APP_NAME, $key, $value ? '1' : '0');
+				return;
+		}
+	}
+
+	/**
+	 * Get tier multiplier for a given tier (clamped to >= 0, CR-SVC-19).
+	 * Unknown tiers fall back to a neutral 1.0.
 	 *
 	 * @param string $tier The tier (bronze, silver, gold)
 	 */
 	public function getTierMultiplier(string $tier): float {
-		$value = match ($tier) {
-			'bronze' => (float)$this->config->getValueString(
-				self::APP_NAME,
-				self::KEY_TIER_BRONZE_MULTIPLIER,
-				'1.0'
-			),
-			'silver' => (float)$this->config->getValueString(
-				self::APP_NAME,
-				self::KEY_TIER_SILVER_MULTIPLIER,
-				'1.5'
-			),
-			'gold' => (float)$this->config->getValueString(
-				self::APP_NAME,
-				self::KEY_TIER_GOLD_MULTIPLIER,
-				'2.0'
-			),
-			default => null,
-		};
-
-		if ($value === null) {
+		$key = self::TIER_KEYS[$tier] ?? null;
+		if ($key === null) {
 			return 1.0;
 		}
-
-		return $this->clampFloat('tier_' . $tier . '_multiplier', $value, 0.0);
+		return (float)$this->readSpec($key);
 	}
 
 	/**
-	 * Get early completion bonus threshold in days
-	 *
-	 * Clamped to >= 0 (CR-SVC-19).
+	 * Get early completion bonus threshold in days (clamped to >= 0, CR-SVC-19).
 	 */
 	public function getEarlyBonusThresholdDays(): int {
-		return $this->clampInt(
-			self::KEY_EARLY_BONUS_THRESHOLD_DAYS,
-			(int)$this->config->getValueString(
-				self::APP_NAME,
-				self::KEY_EARLY_BONUS_THRESHOLD_DAYS,
-				'21'
-			),
-			0
-		);
+		return (int)$this->readSpec(self::KEY_EARLY_BONUS_THRESHOLD_DAYS);
 	}
 
 	/**
-	 * Get early completion bonus multiplier
-	 *
-	 * Clamped to >= 1.0 (CR-SVC-19): below 1.0 the "bonus" would penalize
-	 * early completion.
+	 * Get early completion bonus multiplier (clamped to >= 1.0, CR-SVC-19:
+	 * below 1.0 the "bonus" would penalize early completion).
 	 */
 	public function getEarlyBonusMultiplier(): float {
-		return $this->clampFloat(
-			self::KEY_EARLY_BONUS_MULTIPLIER,
-			(float)$this->config->getValueString(
-				self::APP_NAME,
-				self::KEY_EARLY_BONUS_MULTIPLIER,
-				'1.5'
-			),
-			1.0
-		);
+		return (float)$this->readSpec(self::KEY_EARLY_BONUS_MULTIPLIER);
 	}
 
 	/**
-	 * Get maximum energy per task
-	 *
-	 * Clamped to >= 0 (CR-SVC-19).
+	 * Get maximum energy per task (clamped to >= 0, CR-SVC-19).
 	 */
 	public function getEnergyMaxPerTask(): int {
-		return $this->clampInt(
-			self::KEY_ENERGY_MAX_PER_TASK,
-			(int)$this->config->getValueString(
-				self::APP_NAME,
-				self::KEY_ENERGY_MAX_PER_TASK,
-				'9'
-			),
-			0
-		);
+		return (int)$this->readSpec(self::KEY_ENERGY_MAX_PER_TASK);
 	}
 
 	/**
-	 * Get base coins per energy point
-	 *
-	 * Clamped to >= 0 (CR-SVC-19): a negative base would invert rewards.
+	 * Get base coins per energy point (clamped to >= 0, CR-SVC-19: a negative
+	 * base would invert rewards).
 	 */
 	public function getCoinBasePerEnergy(): int {
-		return $this->clampInt(
-			self::KEY_COIN_BASE_PER_ENERGY,
-			(int)$this->config->getValueString(
-				self::APP_NAME,
-				self::KEY_COIN_BASE_PER_ENERGY,
-				'10'
-			),
-			0
-		);
+		return (int)$this->readSpec(self::KEY_COIN_BASE_PER_ENERGY);
 	}
 
 	/**
-	 * Get number of streak freezes restocked per week
-	 *
-	 * Clamped to >= 0 (CR-SVC-19).
+	 * Get number of streak freezes restocked per week (clamped to >= 0, CR-SVC-19).
 	 */
 	public function getStreakFreezesPerWeek(): int {
-		return $this->clampInt(
-			self::KEY_STREAK_FREEZES_PER_WEEK,
-			(int)$this->config->getValueString(
-				self::APP_NAME,
-				self::KEY_STREAK_FREEZES_PER_WEEK,
-				'1'
-			),
-			0
-		);
+		return (int)$this->readSpec(self::KEY_STREAK_FREEZES_PER_WEEK);
 	}
 
 	/**
-	 * Get maximum number of streak freezes a user can hold
-	 *
-	 * Clamped to >= 0 (CR-SVC-19).
+	 * Get maximum number of streak freezes a user can hold (clamped to >= 0, CR-SVC-19).
 	 */
 	public function getStreakFreezeCap(): int {
-		return $this->clampInt(
-			self::KEY_STREAK_FREEZE_CAP,
-			(int)$this->config->getValueString(
-				self::APP_NAME,
-				self::KEY_STREAK_FREEZE_CAP,
-				'2'
-			),
-			0
-		);
+		return (int)$this->readSpec(self::KEY_STREAK_FREEZE_CAP);
 	}
 
 	/**
-	 * Get combo count threshold for earning a bonus freeze
-	 *
-	 * Clamped to >= 0 (CR-SVC-19).
+	 * Get combo count threshold for earning a bonus freeze (clamped to >= 0, CR-SVC-19).
 	 */
 	public function getComboBonusFreezeThreshold(): int {
-		return $this->clampInt(
-			self::KEY_COMBO_BONUS_FREEZE_THRESHOLD,
-			(int)$this->config->getValueString(
-				self::APP_NAME,
-				self::KEY_COMBO_BONUS_FREEZE_THRESHOLD,
-				'5'
-			),
-			0
-		);
+		return (int)$this->readSpec(self::KEY_COMBO_BONUS_FREEZE_THRESHOLD);
 	}
 
 	/**
-	 * Get the weekly household goal completion target as a percent (0-100).
+	 * Get the combo multiplier applied when a user has an active combo.
+	 * Default 2.0 (doubles coins); clamped to >= 0 so a negative value can
+	 * never invert combo rewards.
+	 */
+	public function getComboMultiplier(): float {
+		return (float)$this->readSpec(self::KEY_COMBO_MULTIPLIER);
+	}
+
+	/**
+	 * Get the weekly household goal completion target as a percent (1-100).
 	 *
 	 * The household "reaches" its weekly goal when the share of due tasks
 	 * completed this week is at least this percent. Default 80 (matches the
 	 * Phase 3 plan recommendation: forgiving enough for family life).
 	 */
 	public function getWeeklyGoalTargetPercent(): int {
-		$value = (int)$this->config->getValueString(
-			self::APP_NAME,
-			self::KEY_WEEKLY_GOAL_TARGET_PERCENT,
-			'80'
-		);
-		// Clamp to a sane range; an admin could store anything via IAppConfig.
-		return $this->clampInt(self::KEY_WEEKLY_GOAL_TARGET_PERCENT, $value, 1, 100);
+		return (int)$this->readSpec(self::KEY_WEEKLY_GOAL_TARGET_PERCENT);
 	}
 
 	/**
 	 * Whether the teamwork bonus is enabled.
 	 */
 	public function getTeamworkBonusEnabled(): bool {
-		return $this->config->getValueString(
-			self::APP_NAME,
-			self::KEY_TEAMWORK_BONUS_ENABLED,
-			'1'
-		) === '1';
+		return $this->readSpec(self::KEY_TEAMWORK_BONUS_ENABLED) === true;
 	}
 
 	/**
 	 * Get the teamwork bonus cap as a percentage of the base reward (0-100).
 	 */
 	public function getTeamworkBonusMaxPct(): int {
-		$value = (int)$this->config->getValueString(
-			self::APP_NAME,
-			self::KEY_TEAMWORK_BONUS_MAX_PCT,
-			'50'
-		);
-		return $this->clampInt(self::KEY_TEAMWORK_BONUS_MAX_PCT, $value, 0, 100);
+		return (int)$this->readSpec(self::KEY_TEAMWORK_BONUS_MAX_PCT);
 	}
 
 	/**
@@ -294,22 +285,104 @@ class RewardConfigService {
 	 * celebration cadence can be disabled without a redeploy. Default true.
 	 */
 	public function getTitlesEnabled(): bool {
-		return $this->config->getValueString(
-			self::APP_NAME,
-			self::KEY_TITLES_ENABLED,
-			'1'
-		) === '1';
+		return $this->readSpec(self::KEY_TITLES_ENABLED) === true;
+	}
+
+	/**
+	 * Set tier multiplier (clamped to >= 0, CR-SVC-19). Unknown tiers are ignored.
+	 *
+	 * @param string $tier The tier (bronze, silver, gold)
+	 * @param float $value The multiplier value
+	 */
+	public function setTierMultiplier(string $tier, float $value): void {
+		$key = self::TIER_KEYS[$tier] ?? null;
+		if ($key !== null) {
+			$this->writeSpec($key, $value);
+		}
+	}
+
+	/**
+	 * Set early bonus threshold days (clamped to >= 0, CR-SVC-19).
+	 */
+	public function setEarlyBonusThresholdDays(int $days): void {
+		$this->writeSpec(self::KEY_EARLY_BONUS_THRESHOLD_DAYS, $days);
+	}
+
+	/**
+	 * Set early bonus multiplier (clamped to >= 1.0, CR-SVC-19).
+	 */
+	public function setEarlyBonusMultiplier(float $multiplier): void {
+		$this->writeSpec(self::KEY_EARLY_BONUS_MULTIPLIER, $multiplier);
+	}
+
+	/**
+	 * Set max energy per task (clamped to >= 0, CR-SVC-19).
+	 */
+	public function setEnergyMaxPerTask(int $max): void {
+		$this->writeSpec(self::KEY_ENERGY_MAX_PER_TASK, $max);
+	}
+
+	/**
+	 * Set base coins per energy (clamped to >= 0, CR-SVC-19).
+	 */
+	public function setCoinBasePerEnergy(int $base): void {
+		$this->writeSpec(self::KEY_COIN_BASE_PER_ENERGY, $base);
+	}
+
+	/**
+	 * Set streak freezes per week (clamped to >= 0, CR-SVC-19).
+	 */
+	public function setStreakFreezesPerWeek(int $count): void {
+		$this->writeSpec(self::KEY_STREAK_FREEZES_PER_WEEK, $count);
+	}
+
+	/**
+	 * Set streak freeze cap (clamped to >= 0, CR-SVC-19).
+	 */
+	public function setStreakFreezeCap(int $cap): void {
+		$this->writeSpec(self::KEY_STREAK_FREEZE_CAP, $cap);
+	}
+
+	/**
+	 * Set combo bonus freeze threshold (clamped to >= 0, CR-SVC-19).
+	 */
+	public function setComboBonusFreezeThreshold(int $threshold): void {
+		$this->writeSpec(self::KEY_COMBO_BONUS_FREEZE_THRESHOLD, $threshold);
+	}
+
+	/**
+	 * Set the combo multiplier (clamped to >= 0).
+	 */
+	public function setComboMultiplier(float $multiplier): void {
+		$this->writeSpec(self::KEY_COMBO_MULTIPLIER, $multiplier);
+	}
+
+	/**
+	 * Set weekly household goal target percent (clamped to 1-100).
+	 */
+	public function setWeeklyGoalTargetPercent(int $percent): void {
+		$this->writeSpec(self::KEY_WEEKLY_GOAL_TARGET_PERCENT, $percent);
+	}
+
+	/**
+	 * Set whether the teamwork bonus is enabled.
+	 */
+	public function setTeamworkBonusEnabled(bool $enabled): void {
+		$this->writeSpec(self::KEY_TEAMWORK_BONUS_ENABLED, $enabled);
+	}
+
+	/**
+	 * Set the teamwork bonus cap as a percentage of the base reward (clamped to 0-100).
+	 */
+	public function setTeamworkBonusMaxPct(int $pct): void {
+		$this->writeSpec(self::KEY_TEAMWORK_BONUS_MAX_PCT, $pct);
 	}
 
 	/**
 	 * Set whether the role-title system is enabled.
 	 */
 	public function setTitlesEnabled(bool $enabled): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_TITLES_ENABLED,
-			$enabled ? '1' : '0'
-		);
+		$this->writeSpec(self::KEY_TITLES_ENABLED, $enabled);
 	}
 
 	/**
@@ -357,254 +430,30 @@ class RewardConfigService {
 	}
 
 	/**
-	 * Set streak freezes per week
-	 *
-	 * @param int $count Clamped to >= 0 (CR-SVC-19)
-	 */
-	public function setStreakFreezesPerWeek(int $count): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_STREAK_FREEZES_PER_WEEK,
-			(string)$this->clampInt(self::KEY_STREAK_FREEZES_PER_WEEK, $count, 0)
-		);
-	}
-
-	/**
-	 * Set streak freeze cap
-	 *
-	 * @param int $cap Clamped to >= 0 (CR-SVC-19)
-	 */
-	public function setStreakFreezeCap(int $cap): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_STREAK_FREEZE_CAP,
-			(string)$this->clampInt(self::KEY_STREAK_FREEZE_CAP, $cap, 0)
-		);
-	}
-
-	/**
-	 * Set combo bonus freeze threshold
-	 *
-	 * @param int $threshold Clamped to >= 0 (CR-SVC-19)
-	 */
-	public function setComboBonusFreezeThreshold(int $threshold): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_COMBO_BONUS_FREEZE_THRESHOLD,
-			(string)$this->clampInt(self::KEY_COMBO_BONUS_FREEZE_THRESHOLD, $threshold, 0)
-		);
-	}
-
-	/**
-	 * Get the combo multiplier applied when a user has an active combo.
-	 *
-	 * Default 2.0 (doubles coins). Clamped to >= 0 to forbid a nonsensical
-	 * negative value that would invert combo rewards.
-	 */
-	public function getComboMultiplier(): float {
-		$value = (float)$this->config->getValueString(
-			self::APP_NAME,
-			self::KEY_COMBO_MULTIPLIER,
-			'2.0'
-		);
-		return $this->clampFloat(self::KEY_COMBO_MULTIPLIER, $value, 0.0);
-	}
-
-	/**
-	 * Set the combo multiplier.
-	 *
-	 * @param float $multiplier Clamped to >= 0
-	 */
-	public function setComboMultiplier(float $multiplier): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_COMBO_MULTIPLIER,
-			(string)$this->clampFloat(self::KEY_COMBO_MULTIPLIER, $multiplier, 0.0)
-		);
-	}
-
-	/**
-	 * Set weekly household goal target percent
-	 *
-	 * @param int $percent Target percent (clamped to 1-100)
-	 */
-	public function setWeeklyGoalTargetPercent(int $percent): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_WEEKLY_GOAL_TARGET_PERCENT,
-			(string)$this->clampInt(self::KEY_WEEKLY_GOAL_TARGET_PERCENT, $percent, 1, 100)
-		);
-	}
-
-	/**
-	 * Set whether the teamwork bonus is enabled.
-	 */
-	public function setTeamworkBonusEnabled(bool $enabled): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_TEAMWORK_BONUS_ENABLED,
-			$enabled ? '1' : '0'
-		);
-	}
-
-	/**
-	 * Set the teamwork bonus cap as a percentage of the base reward.
-	 *
-	 * @param int $pct Cap percent (clamped to 0-100)
-	 */
-	public function setTeamworkBonusMaxPct(int $pct): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_TEAMWORK_BONUS_MAX_PCT,
-			(string)$this->clampInt(self::KEY_TEAMWORK_BONUS_MAX_PCT, $pct, 0, 100)
-		);
-	}
-
-	/**
-	 * Set tier multiplier
-	 *
-	 * @param string $tier The tier (bronze, silver, gold)
-	 * @param float $value The multiplier value (clamped to >= 0, CR-SVC-19)
-	 */
-	public function setTierMultiplier(string $tier, float $value): void {
-		$key = match ($tier) {
-			'bronze' => self::KEY_TIER_BRONZE_MULTIPLIER,
-			'silver' => self::KEY_TIER_SILVER_MULTIPLIER,
-			'gold' => self::KEY_TIER_GOLD_MULTIPLIER,
-			default => null,
-		};
-
-		if ($key !== null) {
-			$this->config->setValueString(self::APP_NAME, $key, (string)$this->clampFloat($key, $value, 0.0));
-		}
-	}
-
-	/**
-	 * Set early bonus threshold days
-	 *
-	 * @param int $days Clamped to >= 0 (CR-SVC-19)
-	 */
-	public function setEarlyBonusThresholdDays(int $days): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_EARLY_BONUS_THRESHOLD_DAYS,
-			(string)$this->clampInt(self::KEY_EARLY_BONUS_THRESHOLD_DAYS, $days, 0)
-		);
-	}
-
-	/**
-	 * Set early bonus multiplier
-	 *
-	 * @param float $multiplier Clamped to >= 1.0 (CR-SVC-19)
-	 */
-	public function setEarlyBonusMultiplier(float $multiplier): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_EARLY_BONUS_MULTIPLIER,
-			(string)$this->clampFloat(self::KEY_EARLY_BONUS_MULTIPLIER, $multiplier, 1.0)
-		);
-	}
-
-	/**
-	 * Set max energy per task
-	 *
-	 * @param int $max Clamped to >= 0 (CR-SVC-19)
-	 */
-	public function setEnergyMaxPerTask(int $max): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_ENERGY_MAX_PER_TASK,
-			(string)$this->clampInt(self::KEY_ENERGY_MAX_PER_TASK, $max, 0)
-		);
-	}
-
-	/**
-	 * Set base coins per energy
-	 *
-	 * @param int $base Clamped to >= 0 (CR-SVC-19)
-	 */
-	public function setCoinBasePerEnergy(int $base): void {
-		$this->config->setValueString(
-			self::APP_NAME,
-			self::KEY_COIN_BASE_PER_ENERGY,
-			(string)$this->clampInt(self::KEY_COIN_BASE_PER_ENERGY, $base, 0)
-		);
-	}
-
-	/**
-	 * Get all config values as array
+	 * Get all config values as array (registry order + nested titleThresholds).
 	 */
 	public function getAllConfig(): array {
-		return [
-			'tierBronzeMultiplier' => $this->getTierMultiplier('bronze'),
-			'tierSilverMultiplier' => $this->getTierMultiplier('silver'),
-			'tierGoldMultiplier' => $this->getTierMultiplier('gold'),
-			'earlyBonusThresholdDays' => $this->getEarlyBonusThresholdDays(),
-			'earlyBonusMultiplier' => $this->getEarlyBonusMultiplier(),
-			'energyMaxPerTask' => $this->getEnergyMaxPerTask(),
-			'coinBasePerEnergy' => $this->getCoinBasePerEnergy(),
-			'streakFreezesPerWeek' => $this->getStreakFreezesPerWeek(),
-			'streakFreezeCap' => $this->getStreakFreezeCap(),
-			'comboBonusFreezeThreshold' => $this->getComboBonusFreezeThreshold(),
-			'comboMultiplier' => $this->getComboMultiplier(),
-			'weeklyGoalTargetPercent' => $this->getWeeklyGoalTargetPercent(),
-			'teamworkBonusEnabled' => $this->getTeamworkBonusEnabled(),
-			'teamworkBonusMaxPct' => $this->getTeamworkBonusMaxPct(),
-			'titlesEnabled' => $this->getTitlesEnabled(),
-			'titleThresholds' => $this->getAllTitleThresholds(),
-		];
+		$result = [];
+		foreach (self::REGISTRY as $key => $spec) {
+			$result[$spec['apiField']] = $this->readSpec($key);
+		}
+		$result['titleThresholds'] = $this->getAllTitleThresholds();
+		return $result;
 	}
 
 	/**
-	 * Update multiple config values at once
+	 * Update multiple config values at once.
+	 *
+	 * Explicit `null` values are skipped (isset semantics) and unknown fields
+	 * are ignored; `titleThresholds` keeps its dedicated nested handling.
 	 *
 	 * @param array $values Key-value pairs to update
 	 */
 	public function updateConfig(array $values): void {
-		if (isset($values['tierBronzeMultiplier'])) {
-			$this->setTierMultiplier('bronze', (float)$values['tierBronzeMultiplier']);
-		}
-		if (isset($values['tierSilverMultiplier'])) {
-			$this->setTierMultiplier('silver', (float)$values['tierSilverMultiplier']);
-		}
-		if (isset($values['tierGoldMultiplier'])) {
-			$this->setTierMultiplier('gold', (float)$values['tierGoldMultiplier']);
-		}
-		if (isset($values['earlyBonusThresholdDays'])) {
-			$this->setEarlyBonusThresholdDays((int)$values['earlyBonusThresholdDays']);
-		}
-		if (isset($values['earlyBonusMultiplier'])) {
-			$this->setEarlyBonusMultiplier((float)$values['earlyBonusMultiplier']);
-		}
-		if (isset($values['energyMaxPerTask'])) {
-			$this->setEnergyMaxPerTask((int)$values['energyMaxPerTask']);
-		}
-		if (isset($values['coinBasePerEnergy'])) {
-			$this->setCoinBasePerEnergy((int)$values['coinBasePerEnergy']);
-		}
-		if (isset($values['streakFreezesPerWeek'])) {
-			$this->setStreakFreezesPerWeek((int)$values['streakFreezesPerWeek']);
-		}
-		if (isset($values['streakFreezeCap'])) {
-			$this->setStreakFreezeCap((int)$values['streakFreezeCap']);
-		}
-		if (isset($values['comboBonusFreezeThreshold'])) {
-			$this->setComboBonusFreezeThreshold((int)$values['comboBonusFreezeThreshold']);
-		}
-		if (isset($values['comboMultiplier'])) {
-			$this->setComboMultiplier((float)$values['comboMultiplier']);
-		}
-		if (isset($values['weeklyGoalTargetPercent'])) {
-			$this->setWeeklyGoalTargetPercent((int)$values['weeklyGoalTargetPercent']);
-		}
-		if (isset($values['teamworkBonusEnabled'])) {
-			$this->setTeamworkBonusEnabled((bool)$values['teamworkBonusEnabled']);
-		}
-		if (isset($values['teamworkBonusMaxPct'])) {
-			$this->setTeamworkBonusMaxPct((int)$values['teamworkBonusMaxPct']);
-		}
-		if (isset($values['titlesEnabled'])) {
-			$this->setTitlesEnabled((bool)$values['titlesEnabled']);
+		foreach (self::REGISTRY as $key => $spec) {
+			if (isset($values[$spec['apiField']])) {
+				$this->writeSpec($key, $values[$spec['apiField']]);
+			}
 		}
 		if (isset($values['titleThresholds']) && is_array($values['titleThresholds'])) {
 			$this->applyTitleThresholds($values['titleThresholds']);
