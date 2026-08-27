@@ -2,9 +2,15 @@ const path = require('path')
 const webpackConfig = require('@nextcloud/webpack-vue-config')
 const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
 
-const svgRule = webpackConfig.module?.rules?.find(rule => String(rule.test) === String(/\.svg$/))
-if (svgRule) {
-	svgRule.exclude = [path.resolve(__dirname, 'node_modules', '@fluentui', 'svg-icons')]
+// CS-PLAN-051: the shared RULE_ASSETS regex (png/jpe?g/gif/svg/…) matches the
+// Fluent icon SVGs too, so the inline-asset type base64-encoded the
+// svg-inline-loader's CJS output instead of letting it export the SVG string
+// — every fluent icon rendered its data-URI source as text. Exclude the
+// Fluent directory from the generic asset rule; the dedicated svg-inline
+// rule below owns those files.
+const assetRule = webpackConfig.module?.rules?.find((rule) => rule.type === 'asset/inline')
+if (assetRule) {
+	assetRule.exclude = [path.resolve(__dirname, 'node_modules', '@fluentui', 'svg-icons')]
 }
 
 // Force cache bust

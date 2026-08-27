@@ -121,6 +121,32 @@ describe('InsightsView.vue', () => {
 		await flushPromises()
 
 		expect(wrapper.find('[data-testid="insights-error"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="error-retry"]').exists()).toBe(true)
+	})
+
+	it('retries the insights fetch and renders stats once it succeeds (CS-PLAN-051)', async () => {
+		api.get.mockImplementation((path) => {
+			if (path === '/api/v1/house/stats') return Promise.reject(new Error('Offline'))
+			if (path === '/api/v1/users') return Promise.resolve(USERS)
+			if (path === '/api/v1/house/activity') return Promise.resolve({ completions: ACTIVITY, total: 2 })
+			return Promise.reject(new Error(`unexpected GET ${path}`))
+		})
+
+		const wrapper = await mountView()
+		expect(wrapper.find('[data-testid="insights-error"]').exists()).toBe(true)
+
+		api.get.mockImplementation((path) => {
+			if (path === '/api/v1/house/stats') return Promise.resolve(STATS_PAYLOAD)
+			if (path === '/api/v1/users') return Promise.resolve(USERS)
+			if (path === '/api/v1/house/activity') return Promise.resolve({ completions: ACTIVITY, total: 2 })
+			return Promise.reject(new Error(`unexpected GET ${path}`))
+		})
+
+		await wrapper.find('[data-testid="error-retry"]').trigger('click')
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="insights-error"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="house-stats-cards"]').exists()).toBe(true)
 	})
 
 	it('renders house stats cards with values', async () => {
@@ -191,5 +217,59 @@ describe('InsightsView.vue', () => {
 
 		expect(wrapper.find('[data-testid="fairness-empty"]').exists()).toBe(true)
 		expect(wrapper.find('[data-testid="activity-empty"]').exists()).toBe(true)
+	})
+
+	it('renders a retryable error state instead of the empty hint when the members fetch fails (CS-PLAN-051)', async () => {
+		api.get.mockImplementation((path) => {
+			if (path === '/api/v1/users') return Promise.reject(new Error('Members fetch failed'))
+			if (path === '/api/v1/house/activity') return Promise.resolve({ completions: ACTIVITY, total: 2 })
+			return Promise.resolve(STATS_PAYLOAD)
+		})
+
+		const wrapper = await mountView()
+
+		// A failed members fetch must never surface as "No members yet".
+		const fairnessError = wrapper.find('[data-testid="error-state"]')
+		expect(fairnessError.exists()).toBe(true)
+		expect(fairnessError.find('[data-testid="error-retry"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="fairness-empty"]').exists()).toBe(false)
+	})
+
+	it('retries the members fetch and renders the fairness table once it succeeds', async () => {
+		api.get.mockImplementation((path) => {
+			if (path === '/api/v1/users') return Promise.reject(new Error('Members fetch failed'))
+			if (path === '/api/v1/house/activity') return Promise.resolve({ completions: ACTIVITY, total: 2 })
+			return Promise.resolve(STATS_PAYLOAD)
+		})
+
+		const wrapper = await mountView()
+		expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(true)
+
+		api.get.mockImplementation((path) => {
+			if (path === '/api/v1/users') return Promise.resolve(USERS)
+			return Promise.resolve(path === '/api/v1/house/activity'
+				? { completions: ACTIVITY, total: 2 }
+				: STATS_PAYLOAD)
+		})
+
+		await wrapper.find('[data-testid="error-retry"]').trigger('click')
+		await flushPromises()
+
+		expect(wrapper.find('[data-testid="member-fairness-table"]').exists()).toBe(true)
+		expect(wrapper.findAll('[data-testid="fairness-row"]')).toHaveLength(2)
+	})
+
+	it('keeps the insights error block when both stats and members fetches fail', async () => {
+		api.get.mockImplementation((path) => {
+			if (path === '/api/v1/users') return Promise.reject(new Error('Members fetch failed'))
+			if (path === '/api/v1/house/activity') return Promise.resolve({ completions: ACTIVITY, total: 2 })
+			if (path === '/api/v1/house/stats') return Promise.reject(new Error('Stats fetch failed'))
+			return Promise.reject(new Error(`unexpected GET ${path}`))
+		})
+
+		const wrapper = await mountView()
+
+		// The house-level error branch still wins over the section bodies.
+		expect(wrapper.find('[data-testid="insights-error"]').exists()).toBe(true)
 	})
 })

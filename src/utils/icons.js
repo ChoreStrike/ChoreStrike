@@ -85,7 +85,16 @@ const createFluentSvgComponent = (name, svgMarkup) => ({
 				.replace('<svg', `<svg width="${this.computedSize}" height="${this.computedSize}" class="icon-svg-content"`)
 		},
 	},
-	template: '<span class="icon-svg" v-html="styledMarkup" v-bind="$attrs"></span>',
+	render() {
+		// A `template:` string would need the runtime compiler, which the
+		// esm-bundler build does not ship (CS-PLAN-051: fluent icons rendered
+		// as empty comment nodes in production). Render explicitly instead.
+		return h('span', {
+			class: 'icon-svg',
+			innerHTML: this.styledMarkup,
+			...this.$attrs,
+		})
+	},
 })
 
 const createIconComponent = (name, shapes, viewBox = '0 0 24 24') => ({

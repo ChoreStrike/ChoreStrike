@@ -397,6 +397,44 @@ npx playwright test tests/e2e/ --project=chromium --headed
   CS-PLAN-018 Phase 7 (2026-07-29) proved the suite flake-free: 3× full-matrix
   `--retries=0`, 0 failed.
 
+### Full-Matrix Verification (CS-PLAN-051, BUG-E2E-004)
+
+The blocking release gate stays chromium-shaped (`chromium` +
+`chromium-serial-db`, see `.forgejo/workflows/release-gate.yml`). The full
+browser matrix is verified two ways:
+
+1. **Manually (acceptance):** bring up the Docker env, reseed the family
+   profile, then run `npx playwright test --retries=0 --reporter=line` with
+   `TEST_DB_PROFILE=family` and `NEXTCLOUD_TEST_MODE=true`. Acceptance = two
+   **consecutive** green runs. A full matrix run takes ~10–13 min locally.
+2. **Scheduled CI (non-blocking):**
+   [`.forgejo/workflows/full-matrix.yml`](../../.forgejo/workflows/full-matrix.yml)
+   runs the whole matrix weekly (Mondays 04:00 UTC) and on `workflow_dispatch`
+   with `--retries=0`, uploads the Playwright report as an artifact, and never
+   blocks a release. Treat red scheduled runs as flake leads, not gate
+   failures: reproduce the failing spec standalone (3× `--retries=0` in the
+   failing browser), then under load (run it alongside fast-core + release
+   specs) before diagnosing.
+
+Full-matrix stabilization history (CS-PLAN-051, 2026-08-26):
+
+- `InsightsView.vue` renders the shared `ErrorState` with retry for **both**
+  failed fetches (stats → `insights-error`, members → fairness section); a
+  transient fetch failure never surfaces as a false "No members yet" hint.
+- `TaskList.vue` carries `data-testid="visibility-lock-icon"` on private rows
+  (mirror of the crown testid); the icon specs assert API-created fixture rows
+  (`tests/e2e/fixtures/visibility-fixtures.ts`) instead of seed-content
+  regexes, and no longer use `waitForLoadState('networkidle')`.
+- `icons.js` fluent components render via `h()` (the runtime `template:`
+  string needed the compiler the esm-bundler build does not ship), and the
+  webpack asset rule no longer double-handles the Fluent SVGs — before this
+  fix every fluent icon rendered empty under production bundling.
+- `snake-game.spec.ts` pause test starts and pauses in one renderer task
+  (`evaluate`: click + synchronous `keydown`), with a bounded retry that
+  clicks whichever start/play-again button is present.
+- `task-checklist-and-features.spec.ts` moved to `SEED_DEPENDENT_SPECS` —
+  it mutates seed state and uses seed-coupled row locators.
+
 ### Test Architecture
 
 The Playwright suite runs against the real Vue frontend inside the Docker-based Nextcloud test environment.

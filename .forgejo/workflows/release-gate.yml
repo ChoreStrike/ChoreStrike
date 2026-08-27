@@ -148,7 +148,9 @@ jobs:
   # setup) and runs the chromium-based Playwright projects, including the
   # seed-dependent `chromium-serial-db` project. Folding in the full browser
   # matrix (firefox/webkit) is a documented follow-up once a chromium-only
-  # gate proves stable in CI.
+  # gate proves stable in CI; until then, `full-matrix.yml` covers all
+  # browser projects weekly on a scheduled, non-blocking basis
+  # (CS-PLAN-051 D4).
   e2e:
     name: E2E (chromium)
     runs-on: ubuntu-latest

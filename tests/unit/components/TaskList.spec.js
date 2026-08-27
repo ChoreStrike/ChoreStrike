@@ -179,13 +179,23 @@ describe('TaskList', () => {
 			expect(wrapper.find('[data-testid="visibility-crown-icon"]').exists()).toBe(true)
 		})
 
-		it('does not render the crown testid on public tasks', () => {
+		it('renders the visibility-lock-icon testid on private tasks (CS-PLAN-051)', () => {
+			const tasks = [mockTask({ task: { visibilityType: 'private' } })]
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: tasks },
+			})
+
+			expect(wrapper.find('[data-testid="visibility-lock-icon"]').exists()).toBe(true)
+		})
+
+		it('does not render the crown or lock testid on public tasks', () => {
 			const tasks = [mockTask({ task: { visibilityType: 'public' } })]
 			const wrapper = mount(TaskList, {
 				props: { loading: false, roomTasks: tasks },
 			})
 
 			expect(wrapper.find('[data-testid="visibility-crown-icon"]').exists()).toBe(false)
+			expect(wrapper.find('[data-testid="visibility-lock-icon"]').exists()).toBe(false)
 		})
 	})
 

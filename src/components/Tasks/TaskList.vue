@@ -108,7 +108,10 @@
 								<h4 class="task-name">
 									{{ item.task.name }}
 								</h4>
-								<span v-if="item.task.visibilityType === 'private' || item.task.isPrivate" class="visibility-icon" :title="t('chorestrike', 'Private task')">
+								<span v-if="item.task.visibilityType === 'private' || item.task.isPrivate"
+									class="visibility-icon"
+									data-testid="visibility-lock-icon"
+									:title="t('chorestrike', 'Private task')">
 									<Icon name="Lock" :size="14" />
 								</span>
 								<span

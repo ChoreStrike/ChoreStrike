@@ -16,12 +16,13 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { createVisibilityFixture } from './fixtures/visibility-fixtures'
 import type { Page } from '@playwright/test'
 
+/** Open #/tasks without load-fragile networkidle waits (CS-PLAN-051). */
 async function navigateToTasks(page: Page): Promise<void> {
 	await page.goto('/apps/chorestrike/#/tasks')
-	await page.waitForLoadState('networkidle', { timeout: 30000 })
-	await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 20000 })
+	await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 }
 
 test.describe('Private Tasks', () => {
@@ -30,14 +31,20 @@ test.describe('Private Tasks', () => {
 	test('private task shows lock icon in task list', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
+			// De-vacuoused (CS-PLAN-051): assert the lock testid on an
+			// API-created fixture row instead of conditionally guarding on a
+			// regex match against seed contents.
+			const probeName = `Private Lock Probe ${Date.now()}`
+			if (!await createVisibilityFixture(page, probeName, 'private')) {
+				test.skip(true, 'Could not create private fixture task')
+				return
+			}
+
 			await navigateToTasks(page)
 
-			const privateTask = page.locator('[data-testid="task-item"]').filter({ hasText: /private|reminder/i }).first()
-
-			if (await privateTask.count() > 0) {
-				const lockIcon = privateTask.locator('[data-testid="visibility-lock-icon"], .icon-lock, svg[data-icon="lock"]')
-				await expect(lockIcon).toBeVisible({ timeout: 5000 })
-			}
+			const row = page.getByTestId('task-item').filter({ hasText: probeName }).first()
+			await expect(row).toBeVisible({ timeout: 15000 })
+			await expect(row.locator('[data-testid="visibility-lock-icon"]')).toBeVisible()
 		} finally {
 			await context.close()
 		}

@@ -70,15 +70,40 @@ test.describe('Snake Arcade Game', () => {
 		test.setTimeout(90000)
 
 		await openSnake(page)
-		await page.locator('.start-overlay .btn-primary').click()
-		await expect(page.locator('.start-overlay')).not.toBeVisible({ timeout: 5000 })
+		// CS-PLAN-051 (D3): start and pause in ONE renderer task. The snake
+		// survives only ~1.35 s from Start (9 ticks at 150 ms to the wall),
+		// and a separate Space round-trip after the click can exceed that
+		// window under load (observed in webkit and under matrix load).
+		// Dispatching the Space keydown synchronously inside the same evaluate
+		// as the start click pauses before the first tick can ever run. The
+		// game listens on `window` (SnakeGame.vue onMounted), so no board
+		// focus is required. Under heavy load the first sequence can still be
+		// disturbed (a stray state where the pause did not stick), so the
+		// sequence is retried a bounded number of times — each retry clicks
+		// whichever start/play-again button is present, making every attempt
+		// self-consistent.
+		const pauseOverlay = page.locator('.pause-overlay')
+		let paused = false
+		for (let attempt = 0; attempt < 3 && !paused; attempt++) {
+			await page.evaluate(() => {
+				const startButton = document.querySelector('.start-overlay .btn-primary')
+					|| document.querySelector('.game-over-overlay .btn-primary')
+				if (startButton) {
+					startButton.click()
+				}
+				window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }))
+			})
+			try {
+				await expect(pauseOverlay).toBeVisible({ timeout: 3000 })
+				paused = true
+			} catch {
+				// Fall through to the next bounded attempt.
+			}
+		}
+		expect(paused, 'snake should be paused via Space in the start task').toBe(true)
 
-		await page.locator('.game-board').click()
-		await page.keyboard.press('Space')
-
-		await expect(page.locator('.pause-overlay')).toBeVisible()
 		await page.locator('.pause-overlay .btn-primary').click()
-		await expect(page.locator('.pause-overlay')).not.toBeVisible()
+		await expect(pauseOverlay).not.toBeVisible({ timeout: 15000 })
 	})
 
 	test('Mobile controls are visible on touch devices', async ({ page }) => {

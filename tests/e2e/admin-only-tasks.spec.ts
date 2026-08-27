@@ -17,6 +17,7 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { createVisibilityFixture } from './fixtures/visibility-fixtures'
 
 test.describe('Admin-Only Tasks', () => {
 	test.use({ databaseProfile: 'family' })
@@ -24,18 +25,20 @@ test.describe('Admin-Only Tasks', () => {
 	test('admin-only task shows crown icon for owner', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/#/tasks')
-			await page.waitForLoadState('networkidle', { timeout: 30000 })
-			await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 20000 })
-
-			const adminTask = page.locator('[data-testid="task-item"]').filter({ hasText: /admin|audit|owner/i }).first()
-
-			if (await adminTask.count() > 0) {
-				const crownIcon = adminTask.locator('[data-testid="visibility-crown-icon"], .icon-crown, svg[data-icon="crown"]')
-				if (await crownIcon.count() > 0) {
-					await expect(crownIcon).toBeVisible({ timeout: 5000 })
-				}
+			// De-vacuoused (CS-PLAN-051): assert on an API-created fixture row,
+			// not on whatever the seed happens to contain.
+			const probeName = `Admin Crown Probe ${Date.now()}`
+			if (!await createVisibilityFixture(page, probeName, 'admin-only')) {
+				test.skip(true, 'Could not create admin-only fixture task')
+				return
 			}
+
+			await page.goto('/apps/chorestrike/#/tasks')
+			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+
+			const row = page.getByTestId('task-item').filter({ hasText: probeName }).first()
+			await expect(row).toBeVisible({ timeout: 15000 })
+			await expect(row.locator('[data-testid="visibility-crown-icon"]')).toBeVisible()
 		} finally {
 			await context.close()
 		}

@@ -88,9 +88,26 @@ test.describe('Release: Insights Flow', () => {
 
 		await page.goto('/apps/chorestrike/#/insights')
 		await expect(page.getByTestId('insights-view')).toBeVisible({ timeout: 20000 })
-		await expect(page.getByTestId('house-stats-cards')).toBeVisible()
+
+		// CS-PLAN-051: under load a fetch can transiently fail; the retryable
+		// error state is the recovery path — retry bounded times before
+		// asserting the healthy render.
+		const errorRetry = page.getByTestId('error-retry')
+		for (let attempt = 0; attempt < 3; attempt++) {
+			if (await errorRetry.isVisible().catch(() => false)) {
+				await errorRetry.click()
+			} else {
+				break
+			}
+		}
+
+		await expect(page.getByTestId('house-stats-cards')).toBeVisible({ timeout: 20000 })
 		await expect(page.getByTestId('member-fairness-table')).toBeVisible()
 		await expect(page.getByTestId('fairness-row').first()).toBeVisible()
+
+		// CS-PLAN-051: a successful load must not surface the shared
+		// retryable error state anywhere on the view.
+		await expect(page.getByTestId('error-state')).toHaveCount(0)
 
 		// Contribution and coins stay separate columns (energy-and-balancing.md).
 		await expect(page.getByTestId('header-contribution')).toBeVisible()

@@ -53,6 +53,13 @@ const SEED_DEPENDENT_SPECS = [
 	// concurrently with a reseed (e.g. today-view's `seededData` fixture),
 	// the room-task POST hits a replaced room ID and 404s — serial pool only.
 	/[/\\]dashboard\.spec\.ts$/,
+	// CS-PLAN-051: the checklist spec mutates seed state (adds checklist
+	// items + a sub-task to the first seeded task row) and resolves rows via
+	// seed-coupled `.task-item` locators. Under full-matrix load a parallel
+	// serial-pool reseed replaced the expanded row mid-test, so the item
+	// POST landed on a re-rendered list — serial pool only, like the other
+	// seed-mutating specs.
+	/[/\\]task-checklist-and-features\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

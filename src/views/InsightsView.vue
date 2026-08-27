@@ -21,7 +21,7 @@
 		</div>
 
 		<div v-else-if="houseStore.error" class="insights-error" data-testid="insights-error">
-			<p>{{ houseStore.error }}</p>
+			<ErrorState @retry="retryInsights" />
 		</div>
 
 		<template v-else>
@@ -32,7 +32,10 @@
 
 			<section class="insights-section">
 				<h2>{{ t('chorestrike', 'Fairness') }}</h2>
-				<p v-if="members.length === 0" class="empty-hint" data-testid="fairness-empty">
+				<ErrorState
+					v-if="usersError"
+					@retry="retryHouseUsers" />
+				<p v-else-if="members.length === 0" class="empty-hint" data-testid="fairness-empty">
 					{{ t('chorestrike', 'No members yet — invite your family to get started.') }}
 				</p>
 				<MemberFairnessTable
@@ -62,6 +65,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { useHouseStore } from '../store/house.js'
 import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
+import ErrorState from '../components/Common/ErrorState.vue'
 import HouseStatsCards from '../components/Insights/HouseStatsCards.vue'
 import MemberFairnessTable from '../components/Insights/MemberFairnessTable.vue'
 import ActivityFeed from '../components/Insights/ActivityFeed.vue'
@@ -70,6 +74,7 @@ export default {
 	name: 'InsightsView',
 
 	components: {
+		ErrorState,
 		HouseStatsCards,
 		MemberFairnessTable,
 		ActivityFeed,
@@ -84,6 +89,10 @@ export default {
 	data() {
 		return {
 			loading: false,
+			// Tracks a failed house-users fetch separately (CS-PLAN-051 D1):
+			// the fairness section must never render the "No members yet"
+			// hint for data it could not load.
+			usersError: false,
 		}
 	},
 
@@ -116,16 +125,21 @@ export default {
 
 	async mounted() {
 		this.loading = true
-		try {
-			await Promise.all([
-				this.houseStore.fetchInsights(),
-				this.userStore.fetchHouseUsers(),
-			])
-		} catch (error) {
-			logger.error('Failed to initialize insights', error, { view: 'InsightsView', action: 'mounted' })
-		} finally {
-			this.loading = false
+		// allSettled so a members-fetch failure stays visible in its own
+		// section instead of being swallowed by the shared catch (which
+		// left `houseUsers` empty and rendered a false empty hint).
+		const [insightsResult, usersResult] = await Promise.allSettled([
+			this.houseStore.fetchInsights(),
+			this.userStore.fetchHouseUsers(),
+		])
+		if (insightsResult.status === 'rejected') {
+			logger.error('Failed to fetch insights', insightsResult.reason, { view: 'InsightsView', action: 'mounted' })
 		}
+		if (usersResult.status === 'rejected') {
+			this.usersError = true
+			logger.error('Failed to load house members', usersResult.reason, { view: 'InsightsView', action: 'mounted' })
+		}
+		this.loading = false
 
 		// Activity loads independently so a failure cannot blank the stats.
 		try {
@@ -137,6 +151,29 @@ export default {
 
 	methods: {
 		t,
+
+		/** User-triggered retry of the failed house-users fetch. */
+		async retryHouseUsers() {
+			this.usersError = false
+			try {
+				await this.userStore.fetchHouseUsers()
+			} catch (error) {
+				this.usersError = true
+				logger.error('Failed to reload house members', error, { view: 'InsightsView', action: 'retryHouseUsers' })
+			}
+		},
+
+		/** User-triggered retry of the failed insights fetch (CS-PLAN-051). */
+		async retryInsights() {
+			this.loading = true
+			try {
+				await this.houseStore.fetchInsights()
+			} catch (error) {
+				logger.error('Failed to reload insights', error, { view: 'InsightsView', action: 'retryInsights' })
+			} finally {
+				this.loading = false
+			}
+		},
 	},
 }
 </script>
