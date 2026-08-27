@@ -12,9 +12,14 @@ use OCA\ChoreStrike\Service\AppLogger;
 
 /**
  * Shared controller logging helpers.
+ *
+ * The logger is required (CS-PLAN-052): controllers using this trait must
+ * pass an AppLogger and call {@see initializeControllerLogger()} from their
+ * constructor, so a wiring mistake can no longer degrade to permanently
+ * silent logging.
  */
 trait ControllerLoggingTrait {
-	private ?AppLogger $appLogger = null;
+	private AppLogger $appLogger;
 
 	protected function initializeControllerLogger(AppLogger $appLogger): void {
 		$this->appLogger = $appLogger;
@@ -24,10 +29,6 @@ trait ControllerLoggingTrait {
 	 * @param array<string, mixed> $context
 	 */
 	protected function logControllerException(string $action, \Throwable $exception, array $context = []): void {
-		if ($this->appLogger === null) {
-			return;
-		}
-
 		$this->appLogger->logException(
 			'Controller action failed',
 			$exception,
@@ -43,10 +44,6 @@ trait ControllerLoggingTrait {
 	 * @param array<string, mixed> $context
 	 */
 	protected function logControllerWarning(string $message, array $context = []): void {
-		if ($this->appLogger === null) {
-			return;
-		}
-
 		$this->appLogger->warning(
 			$message,
 			array_merge($context, ['controller' => static::class]),
@@ -58,10 +55,6 @@ trait ControllerLoggingTrait {
 	 * @param array<string, mixed> $context
 	 */
 	protected function logControllerInfo(string $message, array $context = []): void {
-		if ($this->appLogger === null) {
-			return;
-		}
-
 		$this->appLogger->info(
 			$message,
 			array_merge($context, ['controller' => static::class]),
@@ -73,10 +66,6 @@ trait ControllerLoggingTrait {
 	 * @param array<string, mixed> $context
 	 */
 	protected function logDebug(string $message, array $context = []): void {
-		if ($this->appLogger === null) {
-			return;
-		}
-
 		$this->appLogger->debug(
 			$message,
 			array_merge($context, ['controller' => static::class]),

@@ -32,15 +32,13 @@ class GameController extends Controller {
 		GameLogicService $gameLogicService,
 		HouseService $houseService,
 		AuthorizationService $authService,
-		?AppLogger $appLogger = null,
+		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->gameLogicService = $gameLogicService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
-		if ($appLogger !== null) {
-			$this->initializeControllerLogger($appLogger);
-		}
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**

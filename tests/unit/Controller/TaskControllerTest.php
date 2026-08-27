@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Controller\TaskController;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
@@ -51,7 +52,8 @@ class TaskControllerTest extends TestCase {
 			$this->roomTaskService,
 			$this->houseService,
 			$this->authService,
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 	}
 

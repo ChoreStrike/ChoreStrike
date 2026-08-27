@@ -19,6 +19,7 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -68,7 +69,8 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			$this->createMock(CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			$this->createMock(\OCP\IDBConnection::class),
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 
 		// Set up test IDs

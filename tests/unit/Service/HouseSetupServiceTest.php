@@ -8,6 +8,7 @@ use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\HouseSetupService;
 use OCA\ChoreStrike\Service\TemplateService;
 use OCP\IDBConnection;
@@ -51,7 +52,8 @@ class HouseSetupServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->templateService,
 			$this->db,
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 	}
 
@@ -321,7 +323,8 @@ class HouseSetupServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->templateService,
 			$this->db,
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 	}
 }

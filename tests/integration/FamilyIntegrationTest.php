@@ -39,7 +39,9 @@ class FamilyIntegrationTest extends TestCase {
 			$this->completedTaskMapper,
 			$this->medalMapper,
 			$rewardConfigService,
-			$notificationService
+			$notificationService,
+			$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
+			null
 		);
 	}
 

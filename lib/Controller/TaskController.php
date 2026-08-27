@@ -42,7 +42,7 @@ class TaskController extends Controller {
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
-		?AppLogger $appLogger = null,
+		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->taskService = $taskService;
@@ -50,9 +50,7 @@ class TaskController extends Controller {
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
-		if ($appLogger !== null) {
-			$this->initializeControllerLogger($appLogger);
-		}
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**

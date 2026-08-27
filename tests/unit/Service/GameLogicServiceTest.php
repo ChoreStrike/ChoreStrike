@@ -12,6 +12,7 @@ use OCA\ChoreStrike\Db\Medal;
 use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RewardConfigService;
@@ -29,6 +30,7 @@ class GameLogicServiceTest extends TestCase {
 	private MedalMapper $medalMapper;
 	private RewardConfigService $configService;
 	private NotificationService $notificationService;
+	private AppLogger $appLogger;
 
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
@@ -36,6 +38,7 @@ class GameLogicServiceTest extends TestCase {
 		$this->medalMapper = $this->createMock(MedalMapper::class);
 		$this->configService = $this->createMock(RewardConfigService::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 
 		$this->configService->method('getCoinBasePerEnergy')->willReturn(10);
 		$this->configService->method('getEarlyBonusThresholdDays')->willReturn(21);
@@ -49,7 +52,9 @@ class GameLogicServiceTest extends TestCase {
 			$this->completedTaskMapper,
 			$this->medalMapper,
 			$this->configService,
-			$this->notificationService
+			$this->notificationService,
+			$this->appLogger,
+			null
 		);
 	}
 
@@ -649,6 +654,22 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->notificationService->expects($this->never())->method('notifyMedalAwarded');
 
+		// CS-PLAN-052: the expected race-loser swallow must be observable —
+		// a warning with stable event + service context keys.
+		$this->appLogger->expects($this->once())
+			->method('warning')
+			->with(
+				'GameLogicService: concurrent medal award race lost',
+				$this->callback(function (array $context): bool {
+					return $context['event'] === 'medal_award_race_lost'
+						&& $context['service'] === 'GameLogicService'
+						&& $context['houseUserId'] === 7
+						&& $context['medalType'] === 'team_anchor'
+						&& is_string($context['weekStart'])
+						&& $context['weekStart'] !== '';
+				})
+			);
+
 		$result = $this->service->checkAndAwardMedals($houseId);
 
 		$this->assertCount(0, $result);
@@ -1074,7 +1095,9 @@ class GameLogicServiceTest extends TestCase {
 				$completedTaskMapper,
 				$this->medalMapper,
 				$this->configService,
-				$this->notificationService
+				$this->notificationService,
+				$this->createMock(AppLogger::class),
+				null
 			);
 
 			return $service->handleTaskCompletion($this->roomTaskEntity(1), 1, $task)['isCombo'];
@@ -1148,7 +1171,9 @@ class GameLogicServiceTest extends TestCase {
 			$this->completedTaskMapper,
 			$this->medalMapper,
 			$this->configService,
-			$this->notificationService
+			$this->notificationService,
+			$this->createMock(AppLogger::class),
+			null
 		);
 
 		$result = $service->calculateCoins($task, 1.0, true, 1.0);
@@ -1177,6 +1202,7 @@ class GameLogicServiceTest extends TestCase {
 			$this->medalMapper,
 			$this->configService,
 			$this->notificationService,
+			$this->createMock(AppLogger::class),
 			$titleService
 		);
 	}
@@ -1296,6 +1322,7 @@ class GameLogicServiceTest extends TestCase {
 			$this->medalMapper,
 			$this->configService,
 			$this->notificationService,
+			$this->createMock(AppLogger::class),
 			$titleService
 		);
 

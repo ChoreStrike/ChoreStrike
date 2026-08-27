@@ -14,35 +14,6 @@
 
 ## Bugs
 
-### [P3] BUG-E2E-004 — Pre-existing full-matrix failures in untouched specs (firefox/webkit + insights flake)
-**Status**: Open · **Effort**: M · **Source**: CS-PLAN-050 full-matrix verification (2026-08-26)
-
-The first full-matrix `--retries=0` run after CS-PLAN-050 surfaced failures in
-specs the plan never touched (all unmodified in the CS-PLAN-050 diff — i.e.
-pre-existing; recent gates run chromium-shaped only, so firefox/webkit and
-cross-pool load interactions were not exercised):
-
-- `snake-game.spec.ts:69` "User can pause and resume game" fails under
-  full-matrix load in the non-chromium pools (webkit in run 1, firefox in
-  run 2; also failed standalone in webkit once — 14/15).
-- `admin-only-tasks.spec.ts:24` "admin-only task shows crown icon for owner"
-  fails in firefox **and** webkit under full-matrix load; passes standalone.
-- `private-tasks.spec.ts:30` "private task shows lock icon in task list"
-  fails in firefox **and** webkit under full-matrix load; passes standalone.
-- `insights-flow.spec.ts:72` "insights renders stats cards, fairness table,
-  and activity feed" fails intermittently in `chromium-serial-db` (also
-  failed in the pre-change baseline; root symptom: `fetchHouseUsers`
-  transiently fails/returns empty under load → fairness-empty hint renders;
-  the view swallows the fetch error, no retry).
-
-- [ ] Diagnose + fix each (one per commit-sized step), or pin with
-      skipped-with-reason tests where the product behavior is the bug.
-- [ ] Re-establish "full matrix green" as a verifiable state (the blocking
-      release gate stays chromium-shaped per CS-PLAN-020 D3 — decide whether
-      a periodic full-matrix CI job is worth it).
-
----
-
 ### [P3] BUG-E2E-003 — `title-selection.spec.ts` "Selecting a pack marks it active" flaky
 **Status**: Resolved 2026-08-25 (CS-PLAN-048) → [`archive/2026-08.md`](archive/2026-08.md)
 
@@ -125,6 +96,11 @@ bump coordinated with the Nextcloud eslint config.
 
 ---
 
+### [P3] TECH-DOCS-002 — `docs:encoding` gate does not flag C0 control bytes
+**Status**: Resolved 2026-08-27 (CS-PLAN-052) → [`archive/2026-08.md`](archive/2026-08.md)
+
+---
+
 ## Review Follow-ups — CS-016 (Scheduling UI)
 
 > From [`archive/CODE_REVIEW_2026-07-28.md`](archive/CODE_REVIEW_2026-07-28.md).
@@ -194,12 +170,7 @@ bump coordinated with the Nextcloud eslint config.
 > **CR-SVC-60** below.
 
 ### [P3] CR-SVC-59 — Add `AppLogger` to logger-less services
-**Status**: Open · **Effort**: M · **Source**: CR-SVC-13 remainder (review of `lib/Service`, 2026-08-04; split off 2026-08-19)
-~16 services have no logger at all. The raw-`LoggerInterface` half of CR-SVC-13 is
-closed by CS-PLAN-035 (5 services migrated to `AppLogger`); this remainder tracks
-incremental `AppLogger` adoption in services that swallow failures silently.
-- [ ] Survey the logger-less services and inject `AppLogger` where failure paths
-      (catch blocks, best-effort skips) currently go unlogged.
+**Status**: Resolved 2026-08-27 (CS-PLAN-052, survey-driven) → [`archive/2026-08.md`](archive/2026-08.md)
 
 > **Resolved 2026-08-20 by
 > [CS-PLAN-037](../plans/done/cs-plan-037-bulk-write-batching.md)**
@@ -244,11 +215,11 @@ sweep and the D2 untranslated-fallback policy) → [`archive/2026-08.md`](archiv
 **Effort**: M — injects `IDBConnection` for `beginTransaction`/`lockForUpdate` (persistence
 plumbing in a service). Move transaction+lock into the mapper/repository.
 
-### [P3] CR-SVC-41 — Service DI inconsistencies
-**Effort**: M — nullable `?AppLogger` in 3 services (silent null-skip risk;
-`RewardConfigService` fixed 2026-08-26 by CS-PLAN-049, remainder open);
-`getFilteredDailyTasksForUser` takes `HouseUserMapper` as a param despite ctor injection;
+### [P3] CR-SVC-41 — Service DI inconsistencies (remainder)
+**Effort**: M — `getFilteredDailyTasksForUser` takes `HouseUserMapper` as a param despite ctor injection;
 duplicated stat helpers; duplicated `validate*Ownership` across Floor/Room/RoomTask services.
+The nullable-`?AppLogger` half (all 9 sites + trait + `RewardConfigController` wiring defect)
+was **resolved 2026-08-27 by CS-PLAN-052** (record: [`archive/2026-08.md`](archive/2026-08.md)).
 
 ### [P3] CR-SVC-44 — Minor performance cluster
 **Effort**: M — `TaskService::getAllTasks` unbounded `findAll`; `createDefaultTemplates`

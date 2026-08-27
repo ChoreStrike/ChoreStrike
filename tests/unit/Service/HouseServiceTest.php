@@ -17,6 +17,7 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -67,7 +68,8 @@ class HouseServiceTest extends TestCase {
 			$this->rewardConfigService,
 			$this->config,
 			$this->db,
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 	}
 

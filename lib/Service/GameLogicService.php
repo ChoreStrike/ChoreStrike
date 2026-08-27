@@ -34,6 +34,7 @@ class GameLogicService {
 	private RewardConfigService $configService;
 	private NotificationService $notificationService;
 	private ?TitleService $titleService;
+	private AppLogger $appLogger;
 
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
@@ -41,6 +42,7 @@ class GameLogicService {
 		MedalMapper $medalMapper,
 		RewardConfigService $configService,
 		NotificationService $notificationService,
+		AppLogger $appLogger,
 		?TitleService $titleService = null,
 	) {
 		$this->houseUserMapper = $houseUserMapper;
@@ -49,6 +51,7 @@ class GameLogicService {
 		$this->configService = $configService;
 		$this->notificationService = $notificationService;
 		$this->titleService = $titleService;
+		$this->appLogger = $appLogger;
 	}
 
 	/**
@@ -396,7 +399,7 @@ class GameLogicService {
 	 *
 	 * Race-safe: the read-then-insert window is closed by catching the
 	 * unique-constraint violation on insert (the loser of two concurrent
-	 * first-time awards re-reads the existing medal and returns null).
+	 * first-time awards returns null; the winner's medal exists).
 	 *
 	 * @param HouseUser $user The recipient house user
 	 * @param string $medalType Type of medal
@@ -423,6 +426,17 @@ class GameLogicService {
 			if ($e->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
 				throw $e;
 			}
+			// Expected race-loser case (two concurrent first-time awards for
+			// the same user+type+week): the medal exists, this invocation is
+			// a no-op. Logged so the swallow is observable without changing
+			// the idempotent outcome.
+			$this->appLogger->warning('GameLogicService: concurrent medal award race lost', [
+				'event' => 'medal_award_race_lost',
+				'service' => 'GameLogicService',
+				'houseUserId' => $user->getId(),
+				'medalType' => $medalType,
+				'weekStart' => $weekStart,
+			]);
 			return null;
 		}
 

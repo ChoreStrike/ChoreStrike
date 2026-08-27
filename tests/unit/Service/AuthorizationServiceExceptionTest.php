@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCP\IL10N;
 use OCP\IUser;
@@ -39,7 +40,7 @@ class AuthorizationServiceExceptionTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
-		$this->service = new AuthorizationService($this->houseUserMapper, $this->userSession, $l10n);
+		$this->service = new AuthorizationService($this->houseUserMapper, $this->userSession, $l10n, $this->createMock(AppLogger::class));
 	}
 
 	private function actingAs(string $uid, string $displayName = 'Tester'): void {

@@ -1,6 +1,6 @@
 # Logging Standard
 
-> **Last Updated**: 2026-08-20
+> **Last Updated**: 2026-08-27
 > **Status**: Active
 
 ---
@@ -15,9 +15,11 @@ tracking, no full request payloads.
 ## Backend Rules
 
 - Use `AppLogger` as the single logging facade; controller base classes handle shared request-boundary exception logging.
+- **`AppLogger` is a required, non-nullable constructor dependency** (CS-PLAN-052): no `?AppLogger = null` defaults, no null-guards around log calls, no `?->`. A wiring mistake must fail loudly at construction, never degrade to permanently silent logging. Controllers using `ControllerLoggingTrait` must call `initializeControllerLogger()` from their constructor.
+- Services adopt `AppLogger` when they have a real failure or best-effort-skip site (transaction rollback boundaries, expected-race swallows). Services with no failure path stay logger-free — a dead dependency is worse than none (CS-PLAN-052 survey).
 - Log levels: `debug` (dev diagnostics) · `info` (state changes, lifecycle milestones) · `warning` (recoverable problems, suspicious access, partial batch failures, security-relevant membership/ownership decisions) · `error` (failed requests, swallowed/translated exceptions, data integrity) · `critical` (app-integrity-threatening failures).
 - **Controllers:** unexpected exceptions at the boundary; authorization failures as `warning`-level security events. No full request bodies; no duplicated nested-layer exception logging.
-- **Services:** domain mutations at `info`; partial failures at `warning`; swallowed business failures at `error`; security decisions at `warning`. Log only where you add unique business context.
+- **Services:** domain mutations at `info`; partial failures at `warning`; swallowed business failures at `error`; security decisions at `warning`. Log only where you add unique business context. Transaction rollback boundaries use `logException()` before the rethrow; expected-race swallows use `warning` (idempotent outcome unchanged, but observable).
 
 ## Frontend Rules
 
@@ -41,6 +43,8 @@ Messages: short, stable, action-oriented, English. ✅ `Task controller action f
 
 - [ ] Request-boundary exceptions logged once with structured context
 - [ ] Authorization failures logged as `warning`-level security events
+- [ ] `AppLogger` wired as required (non-nullable) — no null-guards, no `?->`
+- [ ] New rollback/race-swallow failure paths log with stable `event` + `service` keys
 - [ ] No raw `console.*`, no sensitive data in logs
 - [ ] Logging changes cover at least one failure path with a regression test
 

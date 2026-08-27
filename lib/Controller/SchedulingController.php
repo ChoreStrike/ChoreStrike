@@ -40,16 +40,14 @@ class SchedulingController extends Controller {
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
-		?AppLogger $appLogger = null,
+		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->schedulingService = $schedulingService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
-		if ($appLogger !== null) {
-			$this->initializeControllerLogger($appLogger);
-		}
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**

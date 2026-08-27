@@ -18,6 +18,7 @@ use OCA\ChoreStrike\Db\TaskAssignee;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -62,7 +63,8 @@ class RoomTaskServiceTest extends TestCase {
 			$this->completedTaskMapper,
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			$this->db,
-			$this->createIdentityL10n()
+			$this->createIdentityL10n(),
+			$this->createMock(AppLogger::class)
 		);
 	}
 

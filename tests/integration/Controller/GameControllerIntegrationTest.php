@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\GameController;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -33,7 +34,8 @@ class GameControllerIntegrationTest extends TestCase {
 			$this->request,
 			$this->gameLogicService,
 			$this->houseService,
-			$this->authService
+			$this->authService,
+			$this->createMock(AppLogger::class)
 		);
 	}
 

@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\MinigameService;
 use OCP\IDBConnection;
 use OCP\IL10N;
@@ -23,17 +24,19 @@ class MinigameServiceTest extends TestCase {
 	private MinigameScoreMapper $scoreMapper;
 	private HouseUserMapper $houseUserMapper;
 	private IDBConnection $db;
+	private AppLogger $appLogger;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->scoreMapper = $this->createMock(MinigameScoreMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->db = $this->createMock(IDBConnection::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 		$l10n = $this->createMock(IL10N::class);
 		// Identity mock: message assertions match the wrapped source text
 		// (no parameter substitution), mirroring TemplateServiceTest.
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, $this->db, $l10n);
+		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, $this->db, $l10n, $this->appLogger);
 	}
 
 	private function makeScore(int $score, array $boostsUsed = []): MinigameScore {
@@ -208,6 +211,22 @@ class MinigameServiceTest extends TestCase {
 		$this->db->expects($this->once())->method('rollBack');
 		$this->db->expects($this->never())->method('commit');
 		$this->houseUserMapper->expects($this->never())->method('update');
+
+		// CS-PLAN-052: the rollback boundary must log the failure before
+		// rethrowing (stable event + service context keys).
+		$this->appLogger->expects($this->once())
+			->method('logException')
+			->with(
+				'MinigameService: score save rolled back',
+				$this->callback(fn (\Throwable $e) => $e->getMessage() === 'db down'),
+				$this->callback(function (array $context): bool {
+					return $context['event'] === 'minigame_score_rollback'
+						&& $context['service'] === 'MinigameService'
+						&& $context['houseId'] === 1
+						&& $context['userId'] === 'user1'
+						&& $context['gameId'] === 'snake';
+				})
+			);
 
 		$this->expectException(\RuntimeException::class);
 		$this->expectExceptionMessage('db down');
@@ -506,6 +525,22 @@ class MinigameServiceTest extends TestCase {
 
 		$this->db->expects($this->once())->method('rollBack');
 		$this->db->expects($this->never())->method('commit');
+
+		// CS-PLAN-052: the rollback boundary must log the failure before
+		// rethrowing (stable event + service context keys).
+		$this->appLogger->expects($this->once())
+			->method('logException')
+			->with(
+				'MinigameService: boost purchase rolled back',
+				$this->callback(fn (\Throwable $e) => $e->getMessage() === 'db down'),
+				$this->callback(function (array $context): bool {
+					return $context['event'] === 'minigame_boost_purchase_rollback'
+						&& $context['service'] === 'MinigameService'
+						&& $context['houseId'] === 1
+						&& $context['userId'] === 'user1'
+						&& $context['boostId'] === 'slow_motion';
+				})
+			);
 
 		$this->expectException(\RuntimeException::class);
 		$this->expectExceptionMessage('db down');

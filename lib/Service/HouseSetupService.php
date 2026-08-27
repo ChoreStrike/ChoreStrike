@@ -46,7 +46,7 @@ class HouseSetupService {
 	private TemplateService $templateService;
 	private IDBConnection $db;
 	private IL10N $l10n;
-	private ?AppLogger $appLogger;
+	private AppLogger $appLogger;
 
 	public function __construct(
 		FloorMapper $floorMapper,
@@ -57,7 +57,7 @@ class HouseSetupService {
 		TemplateService $templateService,
 		IDBConnection $db,
 		IL10N $l10n,
-		?AppLogger $appLogger = null,
+		AppLogger $appLogger,
 	) {
 		$this->floorMapper = $floorMapper;
 		$this->roomMapper = $roomMapper;
@@ -128,7 +128,7 @@ class HouseSetupService {
 								$materialized = $this->templateService->materializeTemplate($template['id'], $level);
 							} catch (\InvalidArgumentException $e) {
 								// BUG-TEMPLATE-001: log every skip with context, never swallow silently.
-								$this->appLogger?->warning('Setup wizard skipped template', [
+								$this->appLogger->warning('Setup wizard skipped template', [
 									'service' => 'HouseSetupService',
 									'event' => 'setup.skip-template',
 									'templateId' => $template['id'],

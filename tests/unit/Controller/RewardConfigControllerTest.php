@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\RewardConfigController;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
@@ -32,7 +33,8 @@ class RewardConfigControllerTest extends TestCase {
 		$this->controller = new RewardConfigController(
 			'chorestrike',
 			$this->request,
-			$this->configService
+			$this->configService,
+			$this->createMock(AppLogger::class)
 		);
 	}
 

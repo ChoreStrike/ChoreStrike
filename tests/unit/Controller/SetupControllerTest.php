@@ -8,6 +8,7 @@ use OCA\ChoreStrike\Controller\SetupController;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\HouseSetupService;
@@ -45,7 +46,8 @@ class SetupControllerTest extends TestCase {
 			$this->houseSetupService,
 			$this->houseService,
 			$this->authService,
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 	}
 

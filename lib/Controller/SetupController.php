@@ -37,7 +37,7 @@ class SetupController extends Controller {
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IL10N $l;
-	private ?AppLogger $appLogger;
+	private AppLogger $appLogger;
 
 	public function __construct(
 		IRequest $request,
@@ -46,7 +46,7 @@ class SetupController extends Controller {
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
-		?AppLogger $appLogger = null,
+		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->templateService = $templateService;
@@ -75,7 +75,7 @@ class SetupController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			$this->appLogger?->error('Setup catalog failed', [
+			$this->appLogger->error('Setup catalog failed', [
 				'service' => 'SetupController',
 				'event' => 'setup.catalog.error',
 				'exception' => get_class($e),
@@ -138,7 +138,7 @@ class SetupController extends Controller {
 			// Service-curated validation messages are safe to surface verbatim.
 			return ControllerErrorFormatter::validation($e);
 		} catch (\Exception $e) {
-			$this->appLogger?->error('Setup apply failed', [
+			$this->appLogger->error('Setup apply failed', [
 				'service' => 'SetupController',
 				'event' => 'setup.apply.error',
 				'exception' => get_class($e),

@@ -19,6 +19,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\NotificationService;
@@ -45,6 +46,7 @@ class RoomServiceTest extends TestCase {
 	private HouseMapper $houseMapper;
 	private NotificationService $notificationService;
 	private IDBConnection $db;
+	private AppLogger $appLogger;
 
 	/**
 	 * Per-test override for the weekly goal snapshot sequence.
@@ -72,6 +74,7 @@ class RoomServiceTest extends TestCase {
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
 		$this->db = $this->createMock(IDBConnection::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 
 		// Default weekly goal snapshot: not achieved, no activity. Tests that
 		// exercise the not-achieved → achieved transition populate
@@ -107,7 +110,8 @@ class RoomServiceTest extends TestCase {
 			$this->houseMapper,
 			$this->notificationService,
 			$this->db,
-			$this->createIdentityL10n()
+			$this->createIdentityL10n(),
+			$this->appLogger
 		);
 	}
 
@@ -304,10 +308,97 @@ class RoomServiceTest extends TestCase {
 		$this->roomMapper->expects($this->never())->method('delete');
 		$this->roomTaskMapper->expects($this->never())->method('deleteByRoomId');
 
+		// CS-PLAN-052: the rollback boundary must log the failure before
+		// rethrowing (stable event + service context keys).
+		$this->appLogger->expects($this->once())
+			->method('logException')
+			->with(
+				'RoomService: room delete rolled back',
+				$this->callback(fn (\Throwable $e) => $e->getMessage() === 'db down'),
+				$this->callback(function (array $context): bool {
+					return $context['event'] === 'room_delete_rollback'
+						&& $context['service'] === 'RoomService'
+						&& $context['roomId'] === 1;
+				})
+			);
+
 		$this->expectException(\RuntimeException::class);
 		$this->expectExceptionMessage('db down');
 
 		$this->service->deleteRoom($roomId);
+	}
+
+	/**
+	 * CompleteRoomTask_TransactionFailure_RollsBackAndLogs
+	 *
+	 * CS-PLAN-052: a failure inside the completion transaction must roll
+	 * back AND log at the rollback boundary before rethrowing.
+	 */
+	public function testCompleteRoomTask_TransactionFailure_RollsBackAndLogs(): void {
+		$roomTaskId = 1;
+		$userId = 'user123';
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setName('Test Task');
+		$task->setEnergyCost(3);
+		$task->setPriority(2);
+		$task->setFrequencyType('weekly');
+		$task->setFrequencyValue(1);
+		$task->setRecurrenceMode('recurring');
+
+		$room = new Room();
+		$room->setId(1);
+		$room->setFloorId(1);
+		$room->setCleanliness(50);
+
+		$roomTask = new RoomTask();
+		$roomTask->setId($roomTaskId);
+		$roomTask->setTaskId(1);
+		$roomTask->setRoomId(1);
+		$roomTask->setIsActive(true);
+
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+
+		$houseUser = new HouseUser();
+		$houseUser->setId(1);
+
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->roomTaskMapper->method('lockForUpdate')->willReturn($roomTask);
+		$this->taskMapper->method('find')->willReturn($task);
+		$this->roomMapper->method('find')->willReturn($room);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($houseUser);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+		$this->roomTaskMapper->method('update')
+			->willThrowException(new \RuntimeException('db down'));
+
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+
+		$this->appLogger->expects($this->once())
+			->method('logException')
+			->with(
+				'RoomService: task completion rolled back',
+				$this->callback(fn (\Throwable $e) => $e->getMessage() === 'db down'),
+				$this->callback(function (array $context): bool {
+					return $context['event'] === 'room_task_completion_rollback'
+						&& $context['service'] === 'RoomService'
+						&& $context['houseId'] === 1
+						&& $context['roomId'] === 1
+						&& $context['roomTaskId'] === 1
+						&& $context['userId'] === 'user123';
+				})
+			);
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('db down');
+
+		$this->service->completeRoomTask($roomTaskId, $userId);
 	}
 
 	/**

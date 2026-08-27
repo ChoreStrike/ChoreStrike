@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 use OCA\ChoreStrike\Controller\SchedulingController;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\SchedulingService;
@@ -56,7 +57,8 @@ class SchedulingControllerTest extends TestCase {
 			$this->schedulingService,
 			$this->houseService,
 			$this->authService,
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 	}
 

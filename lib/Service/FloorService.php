@@ -28,6 +28,7 @@ class FloorService {
 	private RoomService $roomService;
 	private IDBConnection $db;
 	private IL10N $l10n;
+	private AppLogger $appLogger;
 
 	public function __construct(
 		FloorMapper $floorMapper,
@@ -36,6 +37,7 @@ class FloorService {
 		RoomService $roomService,
 		IDBConnection $db,
 		IL10N $l10n,
+		AppLogger $appLogger,
 	) {
 		$this->floorMapper = $floorMapper;
 		$this->roomMapper = $roomMapper;
@@ -43,6 +45,7 @@ class FloorService {
 		$this->roomService = $roomService;
 		$this->db = $db;
 		$this->l10n = $l10n;
+		$this->appLogger = $appLogger;
 	}
 
 	/**
@@ -185,6 +188,11 @@ class FloorService {
 			$this->db->commit();
 		} catch (\Throwable $e) {
 			$this->db->rollBack();
+			$this->appLogger->logException('FloorService: floor cascade rolled back', $e, [
+				'event' => 'floor_delete_rollback',
+				'service' => 'FloorService',
+				'floorId' => $floorId,
+			]);
 			throw $e;
 		}
 	}

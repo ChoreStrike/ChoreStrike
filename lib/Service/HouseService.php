@@ -43,7 +43,7 @@ class HouseService {
 	private IConfig $config;
 	private IDBConnection $db;
 	private IL10N $l10n;
-	private ?AppLogger $appLogger;
+	private AppLogger $appLogger;
 
 	public function __construct(
 		HouseMapper $houseMapper,
@@ -57,7 +57,7 @@ class HouseService {
 		IConfig $config,
 		IDBConnection $db,
 		IL10N $l10n,
-		?AppLogger $appLogger = null,
+		AppLogger $appLogger,
 	) {
 		$this->houseMapper = $houseMapper;
 		$this->floorMapper = $floorMapper;
@@ -167,7 +167,7 @@ class HouseService {
 		try {
 			return $this->houseMapper->findByInstanceId($instanceId);
 		} catch (DoesNotExistException $e) {
-			$this->appLogger?->info('Creating house for instance', [
+			$this->appLogger->info('Creating house for instance', [
 				'service' => 'HouseService',
 				'instanceId' => $instanceId,
 				'houseName' => $houseName,
@@ -272,7 +272,7 @@ class HouseService {
 	 * @param int $houseId The house ID
 	 */
 	public function resetHouse(int $houseId): void {
-		$this->appLogger?->warning('Resetting house to initial state', [
+		$this->appLogger->warning('Resetting house to initial state', [
 			'service' => 'HouseService',
 			'houseId' => $houseId,
 		]);

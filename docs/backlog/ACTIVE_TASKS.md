@@ -19,6 +19,11 @@
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
+- **CS-PLAN-052** — Observability Hardening: AppLogger Adoption & Encoding-Gate C0 Signature (closed **TECH-DOCS-002** + **CR-SVC-59** + **CR-SVC-41 nullable-AppLogger half**; D1=failures-only / D2=required non-nullable / D3=TestDataService excluded / D4=non-TAB/LF/CR C0 + lone-CR signature): `scripts/check-docs-encoding.js` now flags forbidden C0 bytes (`0x00–0x08, 0x0B, 0x0C, 0x0E–0x1F`) + lone CR byte-level before UTF-8 decode (self-test 7/7 incl. BEL/VT/ESC + lone-CR flagged, TAB/CRLF clean; TAB/LF word-eating documented residual; 660 files green); all 9 nullable `?AppLogger` sites + `ControllerLoggingTrait` flipped to required non-nullable (defaults/null-guards/`?->` removed); bundled `RewardConfigController` silent-no-op defect fixed (trait used, logger never initialized — now required param + `initializeControllerLogger`); WP-C survey frozen in plan §10 before edits — adopted `Floor/Minigame/RoomService` rollback boundaries (`logException` with stable `event`+`service` keys) + `GameLogicService` race-swallow `warning` (`medal_award_race_lost`); excluded with reasons: Activity (expected-condition translation), TestData (D3), Scheduling/Task/TaskSync/Template/Title (no failure path); failure-path assertions for all 5 adopted sites incl. red→green proof; `GameLogicService` ctor reordered (`AppLogger` before optional `TitleService`) to clear a PHP implicit-optional deprecation; 31 test ctor-wiring sites updated. Conventions integrated into `logging.md` + `testing.md`. Gate: lint + stylelint 0/0 · Jest 847 · PHPUnit unit **886** (+1 rollback-logging test) / integration 200 [24 pre-existing skips] · `docs:encoding` 660 green · noise clean. CR-SVC-41 remainder stays open in `backlog.md`. (2026-08-27, Done — Standard-B review **PASS** 2026-08-27: implementation verified against plan, gates re-run green (Jest 847, unit 886/0 skips, integration 200 [24 pre-existing skips], encoding self-test 7/7 + 660 files, noise clean); 1 docblock auto-fix (`awardMedalIfNew` race-loser wording); no new findings; moved to `done/` 2026-08-27) → [`../plans/done/cs-plan-052-observability-applogger-encoding-gate.md`](../plans/done/cs-plan-052-observability-applogger-encoding-gate.md)
+
+- **CS-PLAN-051** — E2E Full-Matrix Stabilization (closed **BUG-E2E-004**; D1=ErrorState+retry / D2=API fixtures / D3=test-side determinism / D4=scheduled CI, all signed off 2026-08-26): `InsightsView.vue` renders the shared retryable `ErrorState` for **both** failed fetches (stats → `insights-error` + `retryInsights()`, members → fairness section + `retryHouseUsers()`; `Promise.allSettled` instead of the error-swallowing `Promise.all`); icon specs root cause was a **product packaging bug** — `icons.js` fluent components used a runtime `template:` string (no compiler in the esm-bundler build) and the webpack `asset/inline` rule double-handled the Fluent SVGs (base64 of the loader's CJS output) — both fixed (`h()` render + asset-rule exclude), fluent icons render again in production bundles; D2 landed on top: `visibility-lock-icon` testid in `TaskList.vue`, both icon specs de-vacuoused onto API-created fixture rows (`tests/e2e/fixtures/visibility-fixtures.ts`, `test.skip` only on non-200 creation) with `networkidle` preambles removed, Jest pins for lock testid + insights failure/retry/both-fail paths (Jest 847); snake pause fixed test-side only (start click + Space keydown dispatched in one renderer task + bounded 3-attempt self-consistent retry — no product auto-pause, D3 escalation not needed); `task-checklist-and-features.spec.ts` moved to `SEED_DEPENDENT_SPECS` after a cross-pool reseed race under matrix load; new non-blocking `.forgejo/workflows/full-matrix.yml` (weekly cron + `workflow_dispatch`, `--retries=0`, report artifact) + `release-gate.yml` pointer comment; full-matrix runbook in `testing.md`. Gate: full matrix `--retries=0` green in two consecutive runs (382 passed / 25 pre-existing skips each; runs 2/4/5 green, runs 3/4 saw two single-occurrence flakes in untouched specs — calendar firefox, scheduling-owner — solo-green, recorded in plan §9); blocking chromium-shaped gate green (184 passed / 11 pre-existing skips); lint + stylelint + noise + l10n + docs:encoding clean (1 encoding repair: plan-review note in this file carried the literal mojibake removed from the gate script in CS-PLAN-050); webpack build green; Docker PHPUnit unit 885 / integration 200 [24 pre-existing skips]. (2026-08-26, Done — Standard-B review PASS 2026-08-27; moved to `done/` 2026-08-27) → [`../plans/done/cs-plan-051-e2e-full-matrix-stabilization.md`](../plans/done/cs-plan-051-e2e-full-matrix-stabilization.md)
+  **Standard-B review 2026-08-27: PASS** — webpack exclusion verified against the shared `RULE_ASSETS` (old `/\.svg$/` finder never matched), store retry contracts and e2e strict-mode safety verified; 1 auto-fix: 8 control-byte corruptions + 1 pre-existing BEL repaired in `archive/2026-08.md` (escape-style `\r`/TAB/LF/BEL/VT ate word-initial letters); deferred **TECH-DOCS-002** (docs:encoding gate blind to C0 control bytes); gate re-verified (lint:fix clean, Jest 847, docs:encoding green; no PHP changed). Plan review record: `## Review Outcome` in the plan.
+
 - **CS-PLAN-050** — E2E Long-Tail Integrity Sweep & Docs-Encoding Gate (closed **P9-E2E-002b** + **TECH-DOCS-001**; D1=delete smoke-tests / D2=delete daily-tasks-flow / D3=in scope / D4=blocking CI, all signed off 2026-08-26): deleted `smoke-tests.spec.ts` + `daily-tasks-flow.spec.ts` with recorded coverage maps (fast-core + lean smoke; today-view; dead selectors Skip/Reschedule/monster-sprite never existed in `src/`); new shared fixture `tests/e2e/fixtures/dashboard-floors.ts` (`expandAllFloors`/`expandUntilRoomVisible`) replacing the 5× floor-expand loops; migrations across `multi-user-interactions` (unconditional leaderboard assertions), `room-management` (3 sleeps → auto-wait, honest skip reasons), `room-detail` (expand helper + explicit skips, real `add-task-picker` assertion), `task-checklist-and-features` (owner-actor toggle test creating a sub-task via the editor and asserting checkbox flip + `is-completed` + line-through, absorbing the wrong-selector strikethrough test); `fast-core-tests` de-vacuoused (exact-match `Flexible` fix); `minimal-smoke-tests` rewritten as the lean smoke layer (console listener before `goto`, hash deep-links). De-vacuousing exposed 2 locator defects fixed inline (`cleanliness-value` 3× strict violation; hidden checklist input → label click). New `npm run docs:encoding` gate (strict UTF-8 + cp1252-mojibake signatures, bare `?` never flagged, `--self-test` with Buffer-planted fixtures) wired blocking into `release-gate.yml`; the single live mojibake hit (room-management comments) repaired. Gate: 0 `waitForTimeout(` sites; structural specs 3× standalone green; full matrix run twice — all swept specs green in every browser; 6 remaining failures sit in untouched specs (pre-existing per diff, standalone-green, logged as **BUG-E2E-004**); Jest 842 / lint + stylelint 0/0 / webpack green / Docker PHPUnit unit 885 / integration 200 [24 pre-existing skips]. Standard-B review 2026-08-26: **PASS** — all selector/testid claims verified live in `src/`; UTF-8 validator + mojibake signatures reviewed byte-level; 3 auto-fixes (`room-detail.spec.ts` cleanliness test now asserts `room-detail-view` and scopes the locator into it — the `.first()` fix could have read a dashboard room card; 4 stale deleted-spec references in `docs/testing/release-test-plan.md` re-pointed per the coverage map, recurrence row downgraded to `partial`; `release-task-lifecycle.spec.ts` docblock recurrence pointer re-pointed to `today-view`); noted without action: the checklist toggle test still runs the default-page `beforeEach` nav (harmless overhead); gates re-verified after fixes (lint:fix clean, Jest 842, `docs:encoding` green on 659 tracked files + self-test 4/4). (2026-08-26, Done — plan moved to `done/`) → [`../plans/done/cs-plan-050-e2e-long-tail-integrity-encoding-gate.md`](../plans/done/cs-plan-050-e2e-long-tail-integrity-encoding-gate.md)
 
 - **CS-PLAN-049** — RewardConfig Registry & Docs Quick-Wins (closed **CR-SVC-16** + **P9-DOC-005**; partial **CR-SVC-15** + **CR-SVC-41**; D1=thin delegates / D2=AppLogger required signed off): single private `REGISTRY` const in `RewardConfigService` (15 scalar keys × type/default/clamp/apiField) drives generic `readSpec`/`writeSpec`, the now-delegate typed getters/setters (public API byte-identical), and loop-based `getAllConfig`/`updateConfig` (isset skip-`null` + unknown-ignore semantics preserved; title-threshold paths untouched); ctor takes required non-nullable `AppLogger`; 689 → 538 lines. New table-driven specs (per-key default + clamp on read AND write, bool round-trips, updateConfig parity, 16-field getAllConfig shape pin incl. order); existing ~750-line behavior suite green with only ctor-arg test changes. `development.md` fictional `calculateNextDue` example → real `RoomTaskService::updateDueDate`; raw `axios.post` example → shared `api` client. Registry idiom documented in architecture.md ("Service Idiom: Config Value Registry"). Gate: Docker PHPUnit unit 885 / integration 200 [24 pre-existing skips] / Jest 842 / cs:check 0/267 / lint clean / noise clean (l10n untouched — no user-visible strings). Standard-B review 2026-08-26: **PASS** — behavior parity verified line-by-line (defaults, clamp read+write, isset skip-`null`/unknown-ignore, 16-field order, unknown-tier 1.0 fallback); 2 minor doc auto-fixes (post-refactor line count corrected 489 → 538 in plan/ACTIVE_TASKS/archive/backlog, backlog.md blank line before the CR-SVC-16 heading restored); gates re-verified (lint:fix/noise clean, Jest 842, Docker PHPUnit unit 885 / integration 200 [24 pre-existing skips], cs:check 0/267). (2026-08-26, Done — plan moved to `done/`) → [`../plans/done/cs-plan-049-reward-config-registry-docs-quickwins.md`](../plans/done/cs-plan-049-reward-config-registry-docs-quickwins.md)
@@ -330,3 +335,81 @@
 > backlog mappings verified against the tree. **Decisions signed off
 > 2026-08-26: D1=delete smoke-tests, D2=delete daily-tasks-flow, D3=in scope,
 > D4=blocking in CI.** Ready for manual `new/ → active/` move.
+
+> **CS-PLAN-051 drafted (2026-08-26)** — E2E Full-Matrix Stabilization in
+> `docs/plans/new/`: closes **BUG-E2E-004** (all four clusters: insights
+> `fetchHouseUsers` swallow → misleading `fairness-empty` hint, verified root
+> mechanism `InsightsView.vue:117-129/35-37`; conditional/vacuous icon specs
+> with load-fragile `networkidle` preambles + missing lock-icon testid
+> `TaskList.vue:111-113`; snake pause survivable-window race ≈1.4–1.5 s,
+> `SnakeGame.vue:70/161-166`; full-matrix re-verification + optional
+> scheduled non-blocking Forgejo matrix job, gate stays chromium-shaped per
+> CS-PLAN-020 D3). All file:line refs and locator-liveness claims verified
+> against the tree. Activation decisions: **D1** ErrorState+retry for the
+> fairness section (recommended), **D2** API-created fixture rows for the two
+> icon specs (recommended), **D3** snake test-side determinism first (product
+> `document.hidden` auto-pause only as escalation), **D4** scheduled weekly
+> full-matrix workflow (recommended). Ready for review + manual
+> `new/ → active/` move.
+>
+> Selection rationale: only P2 open code item is CR-SVC-15 (L, large
+> decomposition); BUG-E2E-004 is the freshest item (logged from CS-PLAN-050's
+> own full-matrix verification) and the only blocker for a verifiable
+> "full matrix green" state, including one real product-honesty defect.
+
+> **CS-PLAN-051 was activated and implemented (2026-08-26, D1=ErrorState+retry
+> / D2=API fixtures / D3=test-side determinism / D4=scheduled CI signed
+> off)** — see Recently Completed above. Standard-B review PASS + move to
+> `done/` 2026-08-27; implementation record in plan §9.
+
+> **CS-PLAN-051 plan review (2026-08-26)**: Standard A — **GO-WITH-CHANGES**,
+> fixes applied inline to the plan: `INITIAL_SPEED` ref corrected
+> (`SnakeGame.vue:138-140,161-166` — the constant is defined at :140),
+> release-gate deferral ref corrected `:150-151` → `:149-151`, the icon-spec
+> assertion analysis tightened (crown is double-count-guarded, private's inner
+> `expect` is unconditional once a row matches — standalone vacuous-green
+> confirmed against the 12-task family seed, but a sibling-created room-linked
+> 'My Private Reminder' can hard-fail the lock assertion under matrix load
+> because `Icon.vue:85` renders `icon--lock` with no `data-icon`), and a
+> release-gate bring-up drift risk row added to §7. Out-of-plan auto-fix
+> (red-gate defect found during review): `scripts/check-docs-encoding.js:177`
+> self-test comment planted the literal em-dash mojibake (U+00E2 U+20AC U+201D)
+> and self-flagged the
+> gate (committed in `e2c39e6`) — rewritten to byte-hex/char-code notation;
+> gate green again (660 files scanned, self-test 4/4). All other file:line
+> refs (InsightsView 117-129/35-37/23-25, TaskList 68-72/111-113/114-120,
+> SnakeGame :70, snake-game :69/:74, admin-only :24/:28/:33, private-tasks
+> :23/:30/:38/:56, insights-flow :72/:92/:112-137, auth-contexts :19,
+> playwright.config :13-78 registrations, release-visibility-roles :112-121
+> precedent, ErrorState retry+offline-aware, user.js/house.js error contracts,
+> TaskList.spec :173), the BUG-E2E-004 mapping (P3/M, all four clusters + the
+> CI-job sub-item), baselines (Jest 842 / PHPUnit 885/200 [24 skips] —
+> same-day per the CS-PLAN-049/050 reviews, not re-run), and every manifest
+> path verified against the tree; `docs/plans/active/` is empty (no overlap)
+> and `full-matrix.yml` is confirmed new. D1–D4 remain activation-time
+> sign-offs. Ready for manual `new/ → active/` move.
+
+> **CS-PLAN-052 drafted (2026-08-27)** — Observability Hardening: AppLogger
+> Adoption & Encoding-Gate C0 Signature in `docs/plans/new/`: closes
+> **TECH-DOCS-002** (C0 + lone-CR signatures + self-test fixtures in
+> `check-docs-encoding.js`; TAB/LF word-eating subclass documented as an
+> undetectable residual), **CR-SVC-59** (survey-first AppLogger adoption in
+> the 11 logger-less services — pre-scan: Floor/GameLogic/Minigame/Room have
+> unlogged rollback/race-swallow sites; Scheduling/Task/TaskSync/Template/
+> Title have no failure path → stay logger-free, reason recorded), and the
+> **nullable-`?AppLogger` half of CR-SVC-41** (4 services + 5 controllers +
+> `ControllerLoggingTrait` → required non-nullable, CS-PLAN-049 precedent).
+> Bundled root-cause find: `RewardConfigController` uses
+> `ControllerLoggingTrait` but never initializes the logger — its `logDebug`
+> calls (:39/:49) are silent no-ops today. All file:line refs, catch-site
+> counts, trait users, test-file paths, and baselines verified against the
+> tree. Activation decisions D1–D4 (failures-only scope / required
+> non-nullable / TestDataService out / gate signature scope) flagged in plan
+> §9; ready for review + manual `new/ → active/` move.
+>
+> Selection rationale: freshest deferred item (TECH-DOCS-002, logged by the
+> CS-PLAN-051 review the same day) + the twice-recommended CR-SVC-59 (after
+> 049 and 050). The only higher-priority open item, CR-SVC-15 (P2/L,
+> God-service decomposition), is deliberately left for its own dedicated
+> plan; decision-gated UX-015 / FEAT-UX-015 / FEAT-UX-018 still need product
+> calls first.

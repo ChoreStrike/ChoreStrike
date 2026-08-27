@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
@@ -47,7 +48,8 @@ class HouseControllerTest extends TestCase {
 			$this->houseService,
 			$this->authService,
 			$this->activityService,
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 	}
 

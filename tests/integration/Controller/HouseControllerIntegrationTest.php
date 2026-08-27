@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\HouseController;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -36,7 +37,8 @@ class HouseControllerIntegrationTest extends TestCase {
 			$this->houseService,
 			$this->authService,
 			$this->createMock(ActivityService::class),
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 	}
 

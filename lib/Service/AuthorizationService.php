@@ -32,13 +32,13 @@ class AuthorizationService {
 	private HouseUserMapper $houseUserMapper;
 	private IUserSession $userSession;
 	private IL10N $l10n;
-	private ?AppLogger $appLogger;
+	private AppLogger $appLogger;
 
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
 		IUserSession $userSession,
 		IL10N $l10n,
-		?AppLogger $appLogger = null,
+		AppLogger $appLogger,
 	) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->userSession = $userSession;
@@ -70,7 +70,7 @@ class AuthorizationService {
 	public function requireCurrentUserId(): string {
 		$userId = $this->getCurrentUserId();
 		if ($userId === null) {
-			$this->appLogger?->warning('Authorization check failed', [
+			$this->appLogger->warning('Authorization check failed', [
 				'service' => 'AuthorizationService',
 				'action' => 'requireCurrentUserId',
 			]);
@@ -93,7 +93,7 @@ class AuthorizationService {
 			$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
 			return $houseUser !== null;
 		} catch (\Exception $e) {
-			$this->appLogger?->warning('House membership lookup failed', [
+			$this->appLogger->warning('House membership lookup failed', [
 				'service' => 'AuthorizationService',
 				'action' => 'isHouseMember',
 				'houseId' => $houseId,
@@ -119,7 +119,7 @@ class AuthorizationService {
 		$user = $this->userSession->getUser();
 		$userId = $user?->getUID();
 		if ($userId === null) {
-			$this->appLogger?->warning('House membership required for anonymous access', [
+			$this->appLogger->warning('House membership required for anonymous access', [
 				'service' => 'AuthorizationService',
 				'action' => 'ensureHouseMember',
 				'houseId' => $houseId,
@@ -135,7 +135,7 @@ class AuthorizationService {
 		$existingUsers = $this->houseUserMapper->findByHouseId($houseId);
 		$role = count($existingUsers) === 0 ? 'owner' : 'member';
 		$displayName = $user->getDisplayName() ?: $userId;
-		$this->appLogger?->info('House membership auto-created for current user', [
+		$this->appLogger->info('House membership auto-created for current user', [
 			'service' => 'AuthorizationService',
 			'action' => 'ensureHouseMember',
 			'houseId' => $houseId,
@@ -158,7 +158,7 @@ class AuthorizationService {
 	public function assertHouseMember(int $houseId): HouseUser {
 		$userId = $this->getCurrentUserId();
 		if ($userId === null) {
-			$this->appLogger?->warning('House membership asserted for anonymous access', [
+			$this->appLogger->warning('House membership asserted for anonymous access', [
 				'service' => 'AuthorizationService',
 				'action' => 'assertHouseMember',
 				'houseId' => $houseId,
@@ -168,7 +168,7 @@ class AuthorizationService {
 
 		$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
 		if ($houseUser === null) {
-			$this->appLogger?->securityWarning('House membership assertion failed', [
+			$this->appLogger->securityWarning('House membership assertion failed', [
 				'service' => 'AuthorizationService',
 				'action' => 'assertHouseMember',
 				'houseId' => $houseId,
@@ -212,7 +212,7 @@ class AuthorizationService {
 		$houseUser = $this->assertHouseMember($houseId);
 
 		if (!$houseUser->isOwner()) {
-			$this->appLogger?->warning('Owner role required', [
+			$this->appLogger->warning('Owner role required', [
 				'service' => 'AuthorizationService',
 				'action' => 'requireHouseOwner',
 				'houseId' => $houseId,
@@ -236,7 +236,7 @@ class AuthorizationService {
 	public function assertUserInHouse(int $houseId, string $userId): void {
 		$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
 		if ($houseUser === null) {
-			$this->appLogger?->securityWarning('Cross-house user access denied', [
+			$this->appLogger->securityWarning('Cross-house user access denied', [
 				'service' => 'AuthorizationService',
 				'action' => 'assertUserInHouse',
 				'houseId' => $houseId,

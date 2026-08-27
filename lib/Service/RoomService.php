@@ -45,6 +45,7 @@ class RoomService {
 	private NotificationService $notificationService;
 	private IDBConnection $db;
 	private IL10N $l10n;
+	private AppLogger $appLogger;
 
 	public function __construct(
 		RoomMapper $roomMapper,
@@ -61,6 +62,7 @@ class RoomService {
 		NotificationService $notificationService,
 		IDBConnection $db,
 		IL10N $l10n,
+		AppLogger $appLogger,
 	) {
 		$this->roomMapper = $roomMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -76,6 +78,7 @@ class RoomService {
 		$this->notificationService = $notificationService;
 		$this->db = $db;
 		$this->l10n = $l10n;
+		$this->appLogger = $appLogger;
 	}
 
 	/**
@@ -171,6 +174,11 @@ class RoomService {
 			$this->db->commit();
 		} catch (\Throwable $e) {
 			$this->db->rollBack();
+			$this->appLogger->logException('RoomService: room delete rolled back', $e, [
+				'event' => 'room_delete_rollback',
+				'service' => 'RoomService',
+				'roomId' => $roomId,
+			]);
 			throw $e;
 		}
 	}
@@ -456,6 +464,14 @@ class RoomService {
 			$this->db->commit();
 		} catch (\Throwable $e) {
 			$this->db->rollBack();
+			$this->appLogger->logException('RoomService: task completion rolled back', $e, [
+				'event' => 'room_task_completion_rollback',
+				'service' => 'RoomService',
+				'houseId' => $houseId,
+				'roomId' => $room->getId(),
+				'roomTaskId' => $roomTaskId,
+				'userId' => $userId,
+			]);
 			throw $e;
 		}
 

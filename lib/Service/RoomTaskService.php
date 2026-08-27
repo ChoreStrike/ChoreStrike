@@ -39,7 +39,7 @@ class RoomTaskService {
 	private TemplateService $templateService;
 	private IDBConnection $db;
 	private IL10N $l10n;
-	private ?AppLogger $appLogger;
+	private AppLogger $appLogger;
 
 	public function __construct(
 		RoomTaskMapper $roomTaskMapper,
@@ -53,7 +53,7 @@ class RoomTaskService {
 		TemplateService $templateService,
 		IDBConnection $db,
 		IL10N $l10n,
-		?AppLogger $appLogger = null,
+		AppLogger $appLogger,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
@@ -86,7 +86,7 @@ class RoomTaskService {
 		}
 
 		if ($floor->getHouseId() !== $houseId) {
-			$this->appLogger?->securityWarning('Room task ownership validation failed', [
+			$this->appLogger->securityWarning('Room task ownership validation failed', [
 				'service' => 'RoomTaskService',
 				'roomTaskId' => $roomTaskId,
 				'houseId' => $houseId,
@@ -205,7 +205,7 @@ class RoomTaskService {
 		}
 
 		if ($floor->getHouseId() !== $houseId) {
-			$this->appLogger?->securityWarning('Cross-house room task creation denied', [
+			$this->appLogger->securityWarning('Cross-house room task creation denied', [
 				'service' => 'RoomTaskService',
 				'roomId' => $roomId,
 				'houseId' => $houseId,
@@ -616,7 +616,7 @@ class RoomTaskService {
 		$assignedIds = [];
 		foreach ($roomTaskIds as $roomTaskId) {
 			if (!isset($scopedIds[(int)$roomTaskId])) {
-				$this->appLogger?->warning('Bulk room task assignment skipped failed item', [
+				$this->appLogger->warning('Bulk room task assignment skipped failed item', [
 					'service' => 'RoomTaskService',
 					'roomTaskId' => $roomTaskId,
 					'houseId' => $houseId,
@@ -629,7 +629,7 @@ class RoomTaskService {
 				$this->roomTaskMapper->assignToUser((int)$roomTaskId, $userId);
 				$assignedIds[] = (int)$roomTaskId;
 			} catch (\Exception $e) {
-				$this->appLogger?->warning('Bulk room task assignment skipped failed item', [
+				$this->appLogger->warning('Bulk room task assignment skipped failed item', [
 					'service' => 'RoomTaskService',
 					'roomTaskId' => $roomTaskId,
 					'houseId' => $houseId,

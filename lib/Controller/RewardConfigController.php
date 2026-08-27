@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
@@ -25,9 +26,11 @@ class RewardConfigController extends Controller {
 		string $appName,
 		IRequest $request,
 		RewardConfigService $configService,
+		AppLogger $appLogger,
 	) {
 		parent::__construct($appName, $request);
 		$this->configService = $configService;
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**

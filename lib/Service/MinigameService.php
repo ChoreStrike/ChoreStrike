@@ -44,17 +44,20 @@ class MinigameService {
 	private HouseUserMapper $houseUserMapper;
 	private IDBConnection $db;
 	private IL10N $l10n;
+	private AppLogger $appLogger;
 
 	public function __construct(
 		MinigameScoreMapper $scoreMapper,
 		HouseUserMapper $houseUserMapper,
 		IDBConnection $db,
 		IL10N $l10n,
+		AppLogger $appLogger,
 	) {
 		$this->scoreMapper = $scoreMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->db = $db;
 		$this->l10n = $l10n;
+		$this->appLogger = $appLogger;
 	}
 
 	/**
@@ -119,6 +122,13 @@ class MinigameService {
 			$this->db->commit();
 		} catch (\Throwable $e) {
 			$this->db->rollBack();
+			$this->appLogger->logException('MinigameService: score save rolled back', $e, [
+				'event' => 'minigame_score_rollback',
+				'service' => 'MinigameService',
+				'houseId' => $houseId,
+				'userId' => $userId,
+				'gameId' => $gameId,
+			]);
 			throw $e;
 		}
 
@@ -275,6 +285,13 @@ class MinigameService {
 			$this->db->commit();
 		} catch (\Throwable $e) {
 			$this->db->rollBack();
+			$this->appLogger->logException('MinigameService: boost purchase rolled back', $e, [
+				'event' => 'minigame_boost_purchase_rollback',
+				'service' => 'MinigameService',
+				'houseId' => $houseId,
+				'userId' => $userId,
+				'boostId' => $boostId,
+			]);
 			throw $e;
 		}
 

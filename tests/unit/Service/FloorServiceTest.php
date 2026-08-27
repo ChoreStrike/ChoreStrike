@@ -9,6 +9,7 @@ use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -26,6 +27,7 @@ class FloorServiceTest extends TestCase {
 	private RoomTaskMapper $roomTaskMapper;
 	private RoomService $roomService;
 	private IDBConnection $db;
+	private AppLogger $appLogger;
 
 	protected function setUp(): void {
 		$this->floorMapper = $this->createMock(FloorMapper::class);
@@ -33,6 +35,7 @@ class FloorServiceTest extends TestCase {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->roomService = $this->createMock(RoomService::class);
 		$this->db = $this->createMock(IDBConnection::class);
+		$this->appLogger = $this->createMock(AppLogger::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -43,7 +46,8 @@ class FloorServiceTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->roomService,
 			$this->db,
-			$l10n
+			$l10n,
+			$this->appLogger
 		);
 	}
 
@@ -364,6 +368,20 @@ class FloorServiceTest extends TestCase {
 		$this->db->expects($this->never())->method('commit');
 		$this->roomMapper->expects($this->never())->method('deleteByFloorId');
 		$this->floorMapper->expects($this->never())->method('delete');
+
+		// CS-PLAN-052: the rollback boundary must log the failure before
+		// rethrowing (stable event + service context keys).
+		$this->appLogger->expects($this->once())
+			->method('logException')
+			->with(
+				'FloorService: floor cascade rolled back',
+				$this->callback(fn (\Throwable $e) => $e->getMessage() === 'db down'),
+				$this->callback(function (array $context): bool {
+					return $context['event'] === 'floor_delete_rollback'
+						&& $context['service'] === 'FloorService'
+						&& $context['floorId'] === 1;
+				})
+			);
 
 		$this->expectException(\RuntimeException::class);
 		$this->expectExceptionMessage('db down');

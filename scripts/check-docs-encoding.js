@@ -1,21 +1,34 @@
 #!/usr/bin/env node
 
 /**
- * Docs encoding gate (CS-PLAN-050, TECH-DOCS-001).
+ * Docs encoding gate (CS-PLAN-050, TECH-DOCS-001; C0 hardening CS-PLAN-052,
+ * TECH-DOCS-002).
  *
- * Fails when a git-tracked text file contains invalid UTF-8 byte sequences
- * or a known cp1252-misdetection mojibake signature. This class of
- * corruption repeatedly crept into docs/backlog files when tools wrote
- * text through a cp1252 code path: non-cp1252 characters (arrows, dashes,
- * umlauts) turned into literal `?` bytes or mojibake sequences.
+ * Fails when a git-tracked text file contains invalid UTF-8 byte sequences,
+ * forbidden C0 control bytes, a lone CR, or a known cp1252-misdetection
+ * mojibake signature. This class of corruption repeatedly crept into
+ * docs/backlog files when tools wrote text through a cp1252 code path:
+ * non-cp1252 characters (arrows, dashes, umlauts) turned into literal `?`
+ * bytes or mojibake sequences.
  *
  * Detection is deterministic and narrowly scoped:
  *   - invalid UTF-8: strict structural validation, reported with the byte
  *     offset of the first offending byte;
+ *   - forbidden C0 control bytes: any byte in 0x00–0x08, 0x0B, 0x0C,
+ *     0x0E–0x1F (i.e. C0 except TAB/LF/CR; NUL also trips the binary probe
+ *     below) is invalid in text, checked byte-level before UTF-8 decode;
+ *   - lone CR: 0x0D not followed by 0x0A — CRLF or LF line endings only;
  *   - mojibake signatures: UTF-8 three-byte punctuation (E2 80/E2 82 …)
  *     misread as cp1252 yields U+00E2 followed by U+20AC/U+201A …, UTF-8
  *     two-byte umlauts (C3 xx) misread as cp1252 yields U+00C3 followed by
  *     a Latin-1 character.
+ *
+ * Known residual (accepted, CS-PLAN-052 D4): a TAB or LF byte that *ate a
+ * word-initial letter* is indistinguishable from legitimate code
+ * indentation and stays undetectable — every indented JS line is
+ * TAB-followed-by-letter, so word-adjacency heuristics would false-positive
+ * on the whole tree. Only the non-TAB/LF/CR C0 signature is deterministic.
+ *
  * A bare `?` in prose is NEVER flagged — question marks are legitimate
  * text and cannot be distinguished from lossy corruption after the fact.
  *
@@ -106,6 +119,44 @@ function firstInvalidUtf8Offset(buf) {
 }
 
 /**
+ * Return the byte offset of the first forbidden C0 control byte, or -1.
+ *
+ * Forbidden: 0x00–0x08, 0x0B, 0x0C, 0x0E–0x1F — all C0 controls except
+ * TAB (0x09), LF (0x0A), and CR (0x0D). Byte-level check, valid before
+ * UTF-8 decode since these bytes cannot appear inside multi-byte sequences.
+ * NUL never reaches here in practice: it trips the binary probe first.
+ *
+ * @param {Buffer} buf - Raw file bytes.
+ * @returns {number}
+ */
+function firstForbiddenControlByteOffset(buf) {
+	for (let i = 0; i < buf.length; i++) {
+		const b = buf[i]
+		if (b < 0x20 && b !== 0x09 && b !== 0x0A && b !== 0x0D) {
+			return i
+		}
+	}
+	return -1
+}
+
+/**
+ * Return the byte offset of the first lone CR (0x0D not followed by 0x0A),
+ * or -1. CRLF and plain LF are legitimate; a bare CR is corruption
+ * (typically an escape-sequence artifact).
+ *
+ * @param {Buffer} buf - Raw file bytes.
+ * @returns {number}
+ */
+function firstLoneCrOffset(buf) {
+	for (let i = 0; i < buf.length; i++) {
+		if (buf[i] === 0x0D && (i + 1 >= buf.length || buf[i + 1] !== 0x0A)) {
+			return i
+		}
+	}
+	return -1
+}
+
+/**
  * Scan one file for encoding corruption.
  *
  * @param {string} path - File path to scan.
@@ -125,6 +176,18 @@ function scanFile(path) {
 		return [`unreadable: ${error.message}`]
 	}
 	if (looksBinary(buf)) {
+		return findings
+	}
+
+	const controlAt = firstForbiddenControlByteOffset(buf)
+	if (controlAt !== -1) {
+		findings.push(`forbidden C0 control byte 0x${buf[controlAt].toString(16).padStart(2, '0')} at byte offset ${controlAt} (TAB/LF/CR are the only valid control bytes)`)
+		return findings
+	}
+
+	const loneCrAt = firstLoneCrOffset(buf)
+	if (loneCrAt !== -1) {
+		findings.push(`lone CR (0x0D without following LF) at byte offset ${loneCrAt}`)
 		return findings
 	}
 
@@ -174,8 +237,9 @@ function selfTest() {
 		writeFileSync(cleanQuestion, Buffer.from('Is this prose? Yes? Fine.\n', 'utf8'))
 
 		const mojibake = join(dir, 'planted-mojibake.md')
-		// "text â€" more" — the em-dash mojibake (E2 80 94 read as cp1252,
-		// re-saved as UTF-8). Built from char codes, never literal bytes.
+		// Planted em-dash mojibake: UTF-8 E2 80 94 read as cp1252 and re-saved
+		// as UTF-8 (chars U+00E2 U+20AC U+201D). Built from char codes, never
+		// literal bytes — a literal in this comment would self-flag the gate.
 		const mojibakeText = 'text ' + String.fromCharCode(0xE2, 0x20AC, 0x201D) + ' more\n'
 		writeFileSync(mojibake, Buffer.from(mojibakeText, 'utf8'))
 
@@ -183,11 +247,34 @@ function selfTest() {
 		// Valid ASCII prefix + a stray 0xE2 continuation-less lead byte.
 		writeFileSync(invalid, Buffer.concat([Buffer.from('ok ', 'utf8'), Buffer.from([0xE2])]))
 
+		const controlBytes = join(dir, 'planted-control-bytes.md')
+		// Planted forbidden C0 bytes: BEL (0x07), VT (0x0B), ESC (0x1B) —
+		// the escape-style corruption family found by the CS-PLAN-051
+		// review. Built as raw bytes, never literals.
+		writeFileSync(controlBytes, Buffer.concat([
+			Buffer.from('word', 'utf8'),
+			Buffer.from([0x07, 0x0B, 0x1B]),
+			Buffer.from('end\n', 'utf8'),
+		]))
+
+		const loneCr = join(dir, 'planted-lone-cr.md')
+		// Planted lone CR: 0x0D not followed by 0x0A.
+		writeFileSync(loneCr, Buffer.concat([
+			Buffer.from('line1\rline2\n', 'utf8'),
+		]))
+
+		const cleanTabsCrlf = join(dir, 'clean-tabs-crlf.md')
+		// Legitimate TAB indentation and CRLF line endings must stay green.
+		writeFileSync(cleanTabsCrlf, Buffer.from('\tindented line\r\n\tsecond line\r\n', 'utf8'))
+
 		cases.push(
 			{ path: cleanEmoji, expectFindings: false },
 			{ path: cleanQuestion, expectFindings: false },
+			{ path: cleanTabsCrlf, expectFindings: false },
 			{ path: mojibake, expectFindings: true },
 			{ path: invalid, expectFindings: true },
+			{ path: controlBytes, expectFindings: true },
+			{ path: loneCr, expectFindings: true },
 		)
 
 		let failed = 0
@@ -237,7 +324,7 @@ function main() {
 		process.exit(1)
 	}
 
-	console.log(`[${SCRIPT_NAME}] ${files.length} tracked file(s) scanned — no invalid UTF-8, no mojibake signatures`)
+	console.log(`[${SCRIPT_NAME}] ${files.length} tracked file(s) scanned — no invalid UTF-8, no forbidden C0 control bytes, no lone CR, no mojibake signatures`)
 }
 
 main()
