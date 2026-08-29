@@ -72,6 +72,7 @@ class RoomTaskControllerTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('ensureHouseMember');
+		$this->roomTaskService->method('validateRoomOwnership');
 
 		$this->roomTaskService->expects($this->once())
 			->method('getRoomTasks')
@@ -87,6 +88,66 @@ class RoomTaskControllerTest extends TestCase {
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
 		$this->assertCount(2, $data['data']);
+	}
+
+	/**
+	 * index must reject a roomId from another house (404) — regression for
+	 * the missing room-ownership validation (CR-053-02, same fix as
+	 * roomStats): membership alone let any member read foreign houses'
+	 * room tasks incl. assignee user ids.
+	 */
+	public function testIndex_Returns404ForForeignHouseRoom(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+		$this->roomTaskService->expects($this->once())
+			->method('validateRoomOwnership')
+			->with(9, 1)
+			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room not found'));
+
+		$this->roomTaskService->expects($this->never())->method('getRoomTasks');
+
+		$response = $this->controller->index(9);
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * index with a scopeId must use the house-scoped scope fetch
+	 * (CR-053-02): cross-house entries are filtered server-side.
+	 */
+	public function testIndex_ScopeBranch_UsesHouseScopedScopeFetch(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$roomTask = new RoomTask();
+		$roomTask->setId(7);
+		$roomTask->setRoomId(3);
+		$roomTask->setTaskId(4);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('ensureHouseMember');
+
+		$this->roomTaskService->expects($this->once())
+			->method('getScopeTasksScopedToHouse')
+			->with(5, 1, true)
+			->willReturn([$roomTask]);
+		$this->roomTaskService->expects($this->never())->method('getScopeTasks');
+
+		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([7 => ['user1']]);
+
+		$response = $this->controller->index(null, 5);
+
+		$this->assertEquals(200, $response->getStatus());
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertCount(1, $data['data']);
+		$this->assertEquals(['user1'], $data['data'][0]['assignees']);
 	}
 
 	/**

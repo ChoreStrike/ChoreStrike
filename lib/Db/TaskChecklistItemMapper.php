@@ -105,6 +105,29 @@ class TaskChecklistItemMapper extends QBMapper {
 	}
 
 	/**
+	 * Find multiple checklist items by IDs in one query (CR-053-01).
+	 *
+	 * Skip-on-missing semantics: ids that do not exist are simply absent
+	 * from the result.
+	 *
+	 * @param int[] $ids The checklist item IDs
+	 * @return TaskChecklistItem[] Found items (unordered)
+	 */
+	public function findByIds(array $ids): array {
+		$ids = array_values(array_map('intval', $ids));
+		if ($ids === []) {
+			return [];
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * Delete all checklist items for a task
 	 *
 	 * @param int $taskId

@@ -307,6 +307,38 @@ class RoomTaskService {
 	}
 
 	/**
+	 * Get room tasks for a scope, filtered to one house (CR-053-02).
+	 *
+	 * The scopeId is caller-supplied and scopes are not house-bound, so the
+	 * unscoped fetch is intersected with the house-scoped batch fetch
+	 * (skip-on-missing semantics): cross-house entries are silently absent
+	 * instead of leaking assignee user ids to another house.
+	 *
+	 * @param int $scopeId The scope ID
+	 * @param int $houseId The caller's house ID
+	 * @param bool $activeOnly Whether to return only active tasks
+	 * @return RoomTask[] Scope tasks belonging to the house (original order)
+	 */
+	public function getScopeTasksScopedToHouse(int $scopeId, int $houseId, bool $activeOnly = true): array {
+		$roomTasks = $this->roomTaskMapper->findByScopeId($scopeId, $activeOnly);
+		if ($roomTasks === []) {
+			return [];
+		}
+
+		$scoped = $this->roomTaskMapper->findByIdsScopedToHouse(
+			array_map(static fn (RoomTask $roomTask): int => $roomTask->getId(), $roomTasks),
+			$houseId
+		);
+
+		$scopedIds = array_flip(array_map(static fn (RoomTask $roomTask): int => $roomTask->getId(), $scoped));
+
+		return array_values(array_filter(
+			$roomTasks,
+			static fn (RoomTask $roomTask): bool => isset($scopedIds[$roomTask->getId()])
+		));
+	}
+
+	/**
 	 * Assign room task to user
 	 *
 	 * Authorization is enforced inside the service (CR-SVC-09): the room

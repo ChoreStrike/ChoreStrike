@@ -269,14 +269,6 @@ class RoomController extends Controller {
 		}
 	}
 
-	private function getRequestMethod(): string {
-		try {
-			return strtoupper($this->request->getMethod());
-		} catch (\Throwable $exception) {
-			return strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-		}
-	}
-
 	private function resolveNullableString(string $key): ?string {
 		$value = $this->resolveRequestValue($key);
 		if (!is_string($value)) {
@@ -391,6 +383,7 @@ class RoomController extends Controller {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->requireHouseOwner($house->getId());
 			$this->roomService->validateRoomOwnership($id, $house->getId());
 
 			$this->roomService->deleteRoom($id);

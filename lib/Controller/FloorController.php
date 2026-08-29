@@ -203,14 +203,6 @@ class FloorController extends Controller {
 		}
 	}
 
-	private function getRequestMethod(): string {
-		try {
-			return strtoupper($this->request->getMethod());
-		} catch (\Throwable $exception) {
-			return strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-		}
-	}
-
 	private function resolveNullableString(string $key): ?string {
 		$value = $this->resolveRequestValue($key);
 		if (!is_string($value)) {
@@ -367,6 +359,7 @@ class FloorController extends Controller {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->requireHouseOwner($house->getId());
 			$this->floorService->validateFloorOwnership($id, $house->getId());
 
 			$this->floorService->deleteFloor($id);

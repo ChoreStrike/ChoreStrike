@@ -117,8 +117,12 @@ class RoomTaskController extends Controller {
 			$this->authService->ensureHouseMember($house->getId());
 
 			if ($scopeId !== null) {
-				$roomTasks = $this->roomTaskService->getScopeTasks($scopeId, $activeOnly);
+				$roomTasks = $this->roomTaskService->getScopeTasksScopedToHouse($scopeId, $house->getId(), $activeOnly);
 			} elseif ($roomId !== null) {
+				// CR-053-02: the roomId is caller-supplied, so it must be
+				// validated against the caller's house (same fix as
+				// roomStats) — membership alone allowed cross-house reads.
+				$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
 				$roomTasks = $this->roomTaskService->getRoomTasks($roomId, $activeOnly);
 			} else {
 				return new JSONResponse([
@@ -140,6 +144,8 @@ class RoomTaskController extends Controller {
 					return $data;
 				}, $roomTasks)
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {

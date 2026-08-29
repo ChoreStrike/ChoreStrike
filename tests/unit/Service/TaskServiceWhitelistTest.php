@@ -74,6 +74,11 @@ class TaskServiceWhitelistTest extends TestCase {
 		$this->assertSame('2026-01-15', $result->getActiveFrom()->format('Y-m-d'));
 	}
 
+	/**
+	 * Multi-field atomicity for whitelist members only — `taskTier` left
+	 * the whitelist (CR-053-04: owner-only, handled explicitly in
+	 * updateTask), so a non-owner multi-field payload must be rejected.
+	 */
 	public function testUpdateTask_AppliesMultipleWhitelistedFieldsAtomically(): void {
 		$task = new Task();
 		$this->taskMapper->method('find')->willReturn($task);
@@ -83,12 +88,24 @@ class TaskServiceWhitelistTest extends TestCase {
 			'name' => 'Multi',
 			'energyCost' => 3,
 			'priority' => 1,
-			'taskTier' => 'gold',
 		], 'caller-user', false);
 
 		$this->assertSame('Multi', $result->getName());
 		$this->assertSame(3, $result->getEnergyCost());
-		$this->assertSame('gold', $result->getTaskTier());
+	}
+
+	/**
+	 * CR-053-04: taskTier is no longer a generic whitelist member — a
+	 * member sending it hits the explicit owner gate first (403), not the
+	 * whitelist loop.
+	 */
+	public function testUpdateTask_MemberSendingTaskTier_ThrowsForbiddenBeforeWhitelist(): void {
+		$task = new Task();
+		$this->taskMapper->method('find')->willReturn($task);
+
+		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
+		$this->expectExceptionMessage('Only house owners may change the task tier');
+		$this->service->updateTask(1, ['name' => 'Multi', 'taskTier' => 'gold'], 'caller-user', false);
 	}
 
 	public function testUpdateTask_RejectsMassAssignmentOfId(): void {

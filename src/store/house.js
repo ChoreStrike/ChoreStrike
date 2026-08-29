@@ -23,7 +23,7 @@ export const useHouseStore = defineStore('house', {
 	}),
 
 	getters: {
-		houseHealth: (state) => state.house?.houseHealth || 100,
+		houseHealth: (state) => state.house?.houseHealth ?? 100,
 		houseName: (state) => state.house?.name || 'My House',
 		hasHouse: (state) => state.house !== null,
 	},

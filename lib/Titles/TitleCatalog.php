@@ -21,9 +21,9 @@ use OCA\ChoreStrike\Db\HouseUser;
  *  - Team Energy   → longestStreak     (dependability)
  *  - Cozy Home     → coins             (household contribution)
  *
- * Thresholds here are *defaults*. `RewardConfigService` overrides them per
- * house via the `title_threshold_{pack}_{tier}` keys (one per tier, 9 total)
- * so owners can tune difficulty without a code change. The
+ * Thresholds here are *defaults*. `RewardConfigService` overrides them
+ * instance-wide via the `title_threshold_{pack}_{tier}` keys (one per tier, 9
+ * total) so admins can tune difficulty without a code change. The
  * `RewardConfigService::getTitleThreshold()` getter falls back to the
  * catalog default when no override is stored.
  *

@@ -311,7 +311,13 @@ msgstr ""
 msgid "Checklist item label is required"
 msgstr ""
 
+msgid "Checklist item not found"
+msgstr ""
+
 msgid "Checklist item updated"
+msgstr ""
+
+msgid "Checklist items must belong to a single task"
 msgstr ""
 
 msgid "Child"
@@ -1112,6 +1118,9 @@ msgstr ""
 msgid "Invalid scope type"
 msgstr ""
 
+msgid "Invalid task tier"
+msgstr ""
+
 msgid "Invalid title pack"
 msgstr ""
 
@@ -1137,6 +1146,9 @@ msgid "Invite sent to {email}"
 msgstr ""
 
 msgid "Item orders array is required"
+msgstr ""
+
+msgid "Item orders must map integer item ids to integer orders"
 msgstr ""
 
 msgid "Items reordered"
@@ -1473,6 +1485,9 @@ msgid "Only house owners can see and complete this task"
 msgstr ""
 
 msgid "Only house owners can set admin-only visibility"
+msgstr ""
+
+msgid "Only house owners may change the task tier"
 msgstr ""
 
 msgid "Only house owners may delete an admin-only task"

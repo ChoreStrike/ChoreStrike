@@ -406,6 +406,33 @@ class TaskController extends Controller {
 				unset($updates['ownerUserId']);
 			}
 
+			// CR-053-04: taskTier is owner-only (coin multiplier). Unlike
+			// visibility denials (404 anti-enumeration), this is a plain
+			// role denial → 403, checked here so it does not flow through
+			// the inner ForbiddenException→404 catch below; the service
+			// re-checks as defense-in-depth for direct callers. A value
+			// outside the closed set is a plain 400.
+			if (array_key_exists('taskTier', $updates)) {
+				if (!$houseUser->isOwner()) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => [
+							'code' => 'FORBIDDEN',
+							'message' => $this->l->t('Only house owners may change the task tier')
+						]
+					], 403);
+				}
+				if (!in_array($updates['taskTier'], \OCA\ChoreStrike\Service\TaskService::TASK_TIERS, true)) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => [
+							'code' => 'VALIDATION_ERROR',
+							'message' => $this->l->t('Invalid task tier')
+						]
+					], 400);
+				}
+			}
+
 			// Taking a task private claims ownership for the caller when no
 			// owner is set. Otherwise a member could make a public task
 			// private with a null owner, orphaning it — show()/delete() then

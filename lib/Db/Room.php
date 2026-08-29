@@ -93,7 +93,7 @@ class Room extends Entity implements JsonSerializable {
 	}
 
 	/**
-	 * Update cleanliness and monster count based on task completion
+	 * Apply a cleanliness change (clamped to 0-100) and touch lastCleaned
 	 *
 	 * @param int $cleanlinessChange The change in cleanliness (-100 to 100)
 	 */

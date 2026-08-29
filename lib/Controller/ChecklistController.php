@@ -8,13 +8,11 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
-use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\ChecklistService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
@@ -22,28 +20,27 @@ use OCP\IRequest;
 
 /**
  * API controller for checklist-related endpoints
+ *
+ * Thin controller (CR-053-01): house preamble + input validation +
+ * delegation to {@see ChecklistService}, which owns the authorization
+ * guard (house linkage + task-visibility matrix, denials map to 404).
  */
 class ChecklistController extends Controller {
-	private TaskChecklistItemMapper $checklistItemMapper;
-	private RoomTaskChecklistProgressMapper $progressMapper;
-	private RoomTaskService $roomTaskService;
+	private ChecklistService $checklistService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IL10N $l;
+	private int $houseId = 0;
 
 	public function __construct(
 		IRequest $request,
-		TaskChecklistItemMapper $checklistItemMapper,
-		RoomTaskChecklistProgressMapper $progressMapper,
-		RoomTaskService $roomTaskService,
+		ChecklistService $checklistService,
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
 	) {
 		parent::__construct('chorestrike', $request);
-		$this->checklistItemMapper = $checklistItemMapper;
-		$this->progressMapper = $progressMapper;
-		$this->roomTaskService = $roomTaskService;
+		$this->checklistService = $checklistService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
@@ -56,26 +53,20 @@ class ChecklistController extends Controller {
 	 */
 	public function getTaskItems(int $taskId): JSONResponse {
 		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->requireViewer();
 
-			$items = $this->checklistItemMapper->findByTaskId($taskId);
+			$items = $this->checklistService->getTaskItems($taskId, $this->houseId, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => array_map(fn ($item) => $item->jsonSerialize(), $items)
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'CHECKLIST_ITEMS_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'CHECKLIST_ITEMS_ERROR');
 		}
 	}
 
@@ -96,33 +87,21 @@ class ChecklistController extends Controller {
 				], 400);
 			}
 
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->requireViewer();
 
-			// If sortOrder not provided, append to end
-			if ($sortOrder === null) {
-				$existingItems = $this->checklistItemMapper->findByTaskId($taskId);
-				$sortOrder = count($existingItems);
-			}
-
-			$item = $this->checklistItemMapper->create($taskId, $label, $sortOrder);
+			$item = $this->checklistService->addTaskItem($taskId, $label, $sortOrder, $this->houseId, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => $item->jsonSerialize(),
 				'message' => $this->l->t('Checklist item added')
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'ADD_CHECKLIST_ITEM_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'ADD_CHECKLIST_ITEM_ERROR');
 		}
 	}
 
@@ -143,27 +122,21 @@ class ChecklistController extends Controller {
 				], 400);
 			}
 
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->requireViewer();
 
-			$item = $this->checklistItemMapper->updateLabel($itemId, $label);
+			$item = $this->checklistService->updateTaskItem($itemId, $label, $this->houseId, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => $item->jsonSerialize(),
 				'message' => $this->l->t('Checklist item updated')
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'UPDATE_CHECKLIST_ITEM_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'UPDATE_CHECKLIST_ITEM_ERROR');
 		}
 	}
 
@@ -174,27 +147,20 @@ class ChecklistController extends Controller {
 	 */
 	public function deleteTaskItem(int $itemId): JSONResponse {
 		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->requireViewer();
 
-			$item = $this->checklistItemMapper->find($itemId);
-			$this->checklistItemMapper->delete($item);
+			$this->checklistService->deleteTaskItem($itemId, $this->houseId, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'message' => $this->l->t('Checklist item deleted')
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'DELETE_CHECKLIST_ITEM_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'DELETE_CHECKLIST_ITEM_ERROR');
 		}
 	}
 
@@ -217,26 +183,22 @@ class ChecklistController extends Controller {
 				], 400);
 			}
 
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->requireViewer();
 
-			$this->checklistItemMapper->updateSortOrders($itemOrders);
+			$this->checklistService->reorderTaskItems($itemOrders, $this->houseId, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'message' => $this->l->t('Items reordered')
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
+		} catch (\InvalidArgumentException $e) {
+			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'REORDER_CHECKLIST_ITEMS_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'REORDER_CHECKLIST_ITEMS_ERROR');
 		}
 	}
 
@@ -247,39 +209,23 @@ class ChecklistController extends Controller {
 	 */
 	public function getRoomTaskProgress(int $roomTaskId): JSONResponse {
 		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
-			$this->roomTaskService->validateRoomTaskOwnership($roomTaskId, $house->getId());
+			$houseUser = $this->requireViewer();
 
-			$progress = $this->progressMapper->findByRoomTaskId($roomTaskId);
-			$stats = $this->progressMapper->getProgressStats($roomTaskId);
+			$result = $this->checklistService->getRoomTaskProgress($roomTaskId, $this->houseId, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => [
-					'items' => array_map(fn ($p) => $p->jsonSerialize(), $progress),
-					'stats' => $stats
+					'items' => array_map(fn ($p) => $p->jsonSerialize(), $result['items']),
+					'stats' => $result['stats']
 				]
 			]);
 		} catch (NotFoundException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'RESOURCE_NOT_FOUND',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 404);
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'CHECKLIST_PROGRESS_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'CHECKLIST_PROGRESS_ERROR');
 		}
 	}
 
@@ -290,39 +236,23 @@ class ChecklistController extends Controller {
 	 */
 	public function toggleItem(int $roomTaskId, int $itemId): JSONResponse {
 		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->ensureHouseMember($house->getId());
-			$this->roomTaskService->validateRoomTaskOwnership($roomTaskId, $house->getId());
+			$houseUser = $this->requireViewer();
 
-			$progress = $this->progressMapper->toggle($roomTaskId, $itemId, $houseUser->getId());
-			$stats = $this->progressMapper->getProgressStats($roomTaskId);
+			$result = $this->checklistService->toggleItem($roomTaskId, $itemId, $this->houseId, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => [
-					'progress' => $progress->jsonSerialize(),
-					'stats' => $stats
+					'progress' => $result['progress']->jsonSerialize(),
+					'stats' => $result['stats']
 				]
 			]);
 		} catch (NotFoundException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'RESOURCE_NOT_FOUND',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 404);
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'TOGGLE_CHECKLIST_ITEM_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'TOGGLE_CHECKLIST_ITEM_ERROR');
 		}
 	}
 
@@ -333,41 +263,20 @@ class ChecklistController extends Controller {
 	 */
 	public function initializeProgress(int $roomTaskId, int $taskId): JSONResponse {
 		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
-			$this->roomTaskService->validateRoomTaskOwnership($roomTaskId, $house->getId());
-			$roomTask = $this->roomTaskService->getRoomTask($roomTaskId);
+			$houseUser = $this->requireViewer();
 
-			// Get all checklist items for this task
-			$items = $this->checklistItemMapper->findByTaskId($roomTask->getTaskId());
-			$itemIds = array_map(fn ($item) => $item->getId(), $items);
-
-			// Initialize progress entries
-			$this->progressMapper->initializeProgress($roomTaskId, $itemIds);
+			$this->checklistService->initializeProgress($roomTaskId, $this->houseId, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'message' => $this->l->t('Progress initialized')
 			]);
 		} catch (NotFoundException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'RESOURCE_NOT_FOUND',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 404);
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'INITIALIZE_PROGRESS_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'INITIALIZE_PROGRESS_ERROR');
 		}
 	}
 
@@ -378,60 +287,30 @@ class ChecklistController extends Controller {
 	 */
 	public function getCompleteChecklist(int $roomTaskId, int $taskId): JSONResponse {
 		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
-			$this->roomTaskService->validateRoomTaskOwnership($roomTaskId, $house->getId());
-			$roomTask = $this->roomTaskService->getRoomTask($roomTaskId);
+			$houseUser = $this->requireViewer();
 
-			// Get checklist items
-			$items = $this->checklistItemMapper->findByTaskId($roomTask->getTaskId());
-
-			// Get progress
-			$progress = $this->progressMapper->findByRoomTaskId($roomTaskId);
-
-			// Create progress lookup
-			$progressByItemId = [];
-			foreach ($progress as $p) {
-				$progressByItemId[$p->getChecklistItemId()] = $p;
-			}
-
-			// Combine items with their progress
-			$checklistWithProgress = array_map(function ($item) use ($progressByItemId) {
-				$itemData = $item->jsonSerialize();
-				$itemProgress = $progressByItemId[$item->getId()] ?? null;
-				$itemData['progress'] = $itemProgress ? $itemProgress->jsonSerialize() : null;
-				$itemData['isChecked'] = $itemProgress ? $itemProgress->getIsChecked() : false;
-				return $itemData;
-			}, $items);
-
-			$stats = $this->progressMapper->getProgressStats($roomTaskId);
+			$result = $this->checklistService->getCompleteChecklist($roomTaskId, $this->houseId, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => [
-					'items' => $checklistWithProgress,
-					'stats' => $stats
-				]
+				'data' => $result
 			]);
 		} catch (NotFoundException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'RESOURCE_NOT_FOUND',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 404);
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'GET_CHECKLIST_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
+			return ControllerErrorFormatter::serverErrorResponse($e, 'GET_CHECKLIST_ERROR');
 		}
+	}
+
+	/**
+	 * Resolve the caller's house and membership (the shared preamble).
+	 */
+	private function requireViewer(): \OCA\ChoreStrike\Db\HouseUser {
+		$instanceId = $this->houseService->getInstanceId();
+		$house = $this->houseService->getOrCreateHouse($instanceId);
+		$this->houseId = $house->getId();
+		return $this->authService->ensureHouseMember($this->houseId);
 	}
 }

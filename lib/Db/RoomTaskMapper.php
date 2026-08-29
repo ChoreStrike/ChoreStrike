@@ -638,4 +638,33 @@ class RoomTaskMapper extends QBMapper {
 		$result->closeCursor();
 		return $ids;
 	}
+
+	/**
+	 * Find the (distinct) house IDs a task is linked to via the
+	 * room-task → room → floor chain (CR-053-01 guard primitive).
+	 *
+	 * An empty result means the task has no room-task linkage yet — the
+	 * caller treats that as house-linked (single-house-per-instance
+	 * today, pinned by ChecklistApiTest).
+	 *
+	 * @param int $taskId The task ID
+	 * @return int[] Distinct house IDs of the task's room tasks
+	 */
+	public function findHouseIdsForTask(int $taskId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('f.house_id')
+			->from($this->getTableName(), 'rt')
+			->innerJoin('rt', 'chorestrike_rooms', 'r', $qb->expr()->eq('rt.room_id', 'r.id'))
+			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+			->where($qb->expr()->eq('rt.task_id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)));
+
+		$result = $qb->executeQuery();
+		$houseIds = [];
+		while ($row = $result->fetch()) {
+			$houseIds[(int)$row['house_id']] = true;
+		}
+		$result->closeCursor();
+
+		return array_keys($houseIds);
+	}
 }

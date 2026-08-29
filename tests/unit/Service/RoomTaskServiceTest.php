@@ -142,6 +142,54 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	/**
+	 * GetScopeTasksScopedToHouse_FiltersCrossHouseEntries
+	 *
+	 * CR-053-02: skip-on-missing intersection — only scope tasks whose ids
+	 * survive the house-scoped batch fetch are returned, in the original
+	 * fetch order.
+	 */
+	public function testGetScopeTasksScopedToHouse_FiltersCrossHouseEntries(): void {
+		$scopeId = 5;
+		$houseId = 1;
+
+		$own = new RoomTask();
+		$own->setId(1);
+		$foreign = new RoomTask();
+		$foreign->setId(2);
+
+		$this->roomTaskMapper
+			->expects($this->once())
+			->method('findByScopeId')
+			->with($scopeId, true)
+			->willReturn([$own, $foreign]);
+
+		$this->roomTaskMapper
+			->expects($this->once())
+			->method('findByIdsScopedToHouse')
+			->with([1, 2], $houseId)
+			->willReturn([$own]);
+
+		$result = $this->service->getScopeTasksScopedToHouse($scopeId, $houseId);
+
+		$this->assertSame([$own], $result);
+	}
+
+	/**
+	 * GetScopeTasksScopedToHouse_EmptyScope_SkipsBatchFetch
+	 */
+	public function testGetScopeTasksScopedToHouse_EmptyScope_SkipsBatchFetch(): void {
+		$this->roomTaskMapper
+			->expects($this->once())
+			->method('findByScopeId')
+			->willReturn([]);
+		$this->roomTaskMapper
+			->expects($this->never())
+			->method('findByIdsScopedToHouse');
+
+		$this->assertSame([], $this->service->getScopeTasksScopedToHouse(9, 1));
+	}
+
+	/**
 	 * GetOverdueTasks_ReturnsOverdueTasks
 	 */
 	public function testGetOverdueTasks_ReturnsOverdueTasks(): void {

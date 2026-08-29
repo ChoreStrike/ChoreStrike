@@ -20,7 +20,7 @@ const WEEKDAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'f
  * @param {Date} date The date to format
  * @return {string} Local YYYY-MM-DD key
  */
-export function localDateKey(date) {
+function localDateKey(date) {
 	const y = date.getFullYear()
 	const m = String(date.getMonth() + 1).padStart(2, '0')
 	const d = String(date.getDate()).padStart(2, '0')

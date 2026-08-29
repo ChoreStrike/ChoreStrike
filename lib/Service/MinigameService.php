@@ -306,7 +306,7 @@ class MinigameService {
 	/**
 	 * Get available boosts and their costs
 	 *
-	 * @return array Map of boost ID to cost in Sparks
+	 * @return array Map of boost ID to cost in Coins
 	 */
 	public function getAvailableBoosts(): array {
 		return self::BOOST_COSTS;

@@ -480,4 +480,51 @@ class TaskControllerTest extends TestCase {
 		$this->assertEquals(404, $response->getStatus());
 		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
 	}
+
+	/**
+	 * CR-053-04: a member sending taskTier gets a plain 403 role denial —
+	 * NOT the 404 anti-enumeration mapping the inner ForbiddenException
+	 * catch applies to visibility denials (the role denial leaks no task
+	 * existence, the task is already visible to the caller).
+	 */
+	public function testUpdate_MemberTaskTier_Returns403(): void {
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+		$this->authService->method('ensureHouseMember')
+			->willReturn($this->createHouseUserMock('member', false));
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->expects($this->never())->method('updateTask');
+
+		$response = $this->controller->update(1, ['taskTier' => 'gold']);
+
+		$this->assertEquals(403, $response->getStatus());
+		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * CR-053-04: an owner sending a tier outside the closed set gets 400.
+	 */
+	public function testUpdate_OwnerInvalidTaskTier_Returns400(): void {
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+		$this->authService->method('ensureHouseMember')
+			->willReturn($this->createHouseUserMock('owner', true));
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->expects($this->never())->method('updateTask');
+
+		$response = $this->controller->update(1, ['taskTier' => 'platinum']);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
 }

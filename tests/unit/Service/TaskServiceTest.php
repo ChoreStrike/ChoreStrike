@@ -265,6 +265,60 @@ class TaskServiceTest extends TestCase {
 	}
 
 	/**
+	 * UpdateTask_MemberTaskTier_ThrowsForbidden
+	 *
+	 * CR-053-04: taskTier drives the coin multiplier — a member must not
+	 * self-serve the 2x gold tier. (The plain whitelist loop regression —
+	 * member + name → ok — is pinned by testUpdateTask_PublicTask_AnyCaller_Succeeds.)
+	 */
+	public function testUpdateTask_MemberTaskTier_ThrowsForbidden(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->taskMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Only house owners may change the task tier');
+
+		$this->service->updateTask(1, ['taskTier' => 'gold'], 'member-user', false);
+	}
+
+	/**
+	 * UpdateTask_OwnerInvalidTier_ThrowsInvalidArgument
+	 */
+	public function testUpdateTask_OwnerInvalidTier_ThrowsInvalidArgument(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->taskMapper->expects($this->never())->method('update');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Invalid task tier');
+
+		$this->service->updateTask(1, ['taskTier' => 'platinum'], 'house-owner', true);
+	}
+
+	/**
+	 * UpdateTask_OwnerValidTier_PersistsTier
+	 */
+	public function testUpdateTask_OwnerValidTier_PersistsTier(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+
+		$result = $this->service->updateTask(1, ['taskTier' => 'gold'], 'house-owner', true);
+
+		$this->assertSame('gold', $result->getTaskTier());
+	}
+
+	/**
 	 * DeleteTask_ExistingTask_DeletesTask
 	 */
 	public function testDeleteTask_ExistingTask_DeletesTask(): void {

@@ -27,6 +27,10 @@ class TaskService {
 	 * `ownerUserId` is whitelisted for transfer, but *who* may change it is
 	 * still governed by the controller authorization (CS-PLAN-005) — the
 	 * whitelist is defense-in-depth, not an authorization bypass.
+	 *
+	 * `taskTier` is NOT whitelisted: it is owner-only and value-checked
+	 * explicitly in {@see updateTask()} (CR-053-04) because it drives the
+	 * coin multiplier.
 	 */
 	private const MUTABLE_FIELDS = [
 		'name', 'description', 'energyCost', 'priority',
@@ -35,8 +39,11 @@ class TaskService {
 		'activeFrom', 'activeUntil', 'isVoluntary',
 		'schedulingMode', 'fixedScheduleTime', 'fixedScheduleDays',
 		'instructions', 'tips', 'estimatedMinutesMin', 'estimatedMinutesMax',
-		'visibilityType', 'ownerUserId', 'taskTier', 'flexDays',
+		'visibilityType', 'ownerUserId', 'flexDays',
 	];
+
+	/** Allowed taskTier values (CR-053-04 closed set). */
+	public const TASK_TIERS = ['bronze', 'silver', 'gold'];
 
 	/** Fields whose value is a date and must be parsed from string input. */
 	private const DATE_FIELDS = ['activeFrom', 'activeUntil', 'fixedScheduleTime'];
@@ -160,7 +167,8 @@ class TaskService {
 	 * Applies only the whitelisted {@see MUTABLE_FIELDS} from `$updates`;
 	 * any key not on the whitelist is rejected with
 	 * {@see \InvalidArgumentException} (translated to 400 by the controller)
-	 * to prevent mass-assignment of internal columns.
+	 * to prevent mass-assignment of internal columns. `taskTier` is handled
+	 * separately (owner-only + closed set, CR-053-04).
 	 *
 	 * Enforces the task-visibility matrix as defense-in-depth — the same
 	 * matrix as {@see deleteTask}, so a private task can no longer be
@@ -193,6 +201,21 @@ class TaskService {
 		}
 		if ($visibility === Task::VISIBILITY_ADMIN_ONLY && !$isOwner) {
 			throw new ForbiddenException($this->l10n->t('Only house owners may update an admin-only task'));
+		}
+
+		// CR-053-04: taskTier is owner-only and value-checked outside the
+		// generic whitelist loop — a member must not be able to self-serve
+		// the gold coin multiplier. Role denial is a ForbiddenException
+		// (403); a bad value is an InvalidArgumentException (400).
+		if (array_key_exists('taskTier', $updates)) {
+			if (!$isOwner) {
+				throw new ForbiddenException($this->l10n->t('Only house owners may change the task tier'));
+			}
+			if (!in_array($updates['taskTier'], self::TASK_TIERS, true)) {
+				throw new \InvalidArgumentException($this->l10n->t('Invalid task tier'));
+			}
+			$task->setTaskTier($updates['taskTier']);
+			unset($updates['taskTier']);
 		}
 
 		foreach ($updates as $field => $value) {

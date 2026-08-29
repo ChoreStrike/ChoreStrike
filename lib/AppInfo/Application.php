@@ -27,8 +27,8 @@ class Application extends App implements IBootstrap {
 	 * Register services and commands
 	 */
 	public function register(IRegistrationContext $context): void {
-		// Commands are registered via appinfo/info.xml in Nextcloud 31+
-		// (no programmatic registration needed for them).
+		// Commands are registered via appinfo/info.xml <commands> (supported
+		// by all Nextcloud versions this app targets).
 
 		// Notifiers are NOT picked up from info.xml on modern Nextcloud —
 		// they must be registered here or persisted notifications are never

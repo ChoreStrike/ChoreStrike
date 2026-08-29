@@ -77,8 +77,8 @@ final class ControllerErrorFormatter {
 	 * Build the standard 403 response for a {@see ForbiddenException}.
 	 *
 	 * Centralises the auth-denial payload so every controller returns an
-	 * identical shape (status 403, code `FORBIDDEN`, safe message) instead of
-	 * the generic 500 the catch-all would otherwise produce.
+	 * identical shape (status 403, code `FORBIDDEN`, safe message) instead
+	 * of the generic 500 the catch-all would otherwise produce.
 	 */
 	public static function forbiddenResponse(ForbiddenException $e): JSONResponse {
 		return new JSONResponse([
@@ -88,5 +88,34 @@ final class ControllerErrorFormatter {
 				'message' => self::safeMessage($e),
 			],
 		], 403);
+	}
+
+	/**
+	 * Build the standard 404 response for a {@see NotFoundException}
+	 * (anti-enumeration shape, TaskController precedent).
+	 */
+	public static function notFoundResponse(NotFoundException $e): JSONResponse {
+		return new JSONResponse([
+			'success' => false,
+			'error' => [
+				'code' => 'RESOURCE_NOT_FOUND',
+				'message' => self::safeMessage($e),
+			],
+		], 404);
+	}
+
+	/**
+	 * Build the standard 500 response for an unexpected throwable; the
+	 * original detail is hidden (see {@see safeMessage()}) and must be
+	 * logged at the call site.
+	 */
+	public static function serverErrorResponse(\Throwable $e, string $code): JSONResponse {
+		return new JSONResponse([
+			'success' => false,
+			'error' => [
+				'code' => $code,
+				'message' => self::safeMessage($e),
+			],
+		], 500);
 	}
 }

@@ -3,19 +3,6 @@
  * @license MIT
  */
 
-// SYNC: must match lib/Titles/TitleCatalog.php PACKS structure.
-// Thresholds are NOT mirrored here — they come from the server catalog view
-// (TitleService::getCatalogView()) so per-house config overrides are honoured.
-export const PACK_HOME_HELPERS = 'home_helpers'
-export const PACK_TEAM_ENERGY = 'team_energy'
-export const PACK_COZY_HOME = 'cozy_home'
-
-export const TITLE_PACKS = [
-	PACK_HOME_HELPERS,
-	PACK_TEAM_ENERGY,
-	PACK_COZY_HOME,
-]
-
 /**
  * Tier index → CSS tier class + design token. Mirrors the task-tier palette
  * (bronze/silver/gold) from src/styles/tokens.css so a title badge matches

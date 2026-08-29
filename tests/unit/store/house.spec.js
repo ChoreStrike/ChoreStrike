@@ -52,6 +52,11 @@ describe('House Store', () => {
 			expect(store.houseHealth).toBe(85)
 		})
 
+		it('houseHealth returns 0 for a critical house (nullish, not falsy fallback)', () => {
+			store.house = { houseHealth: 0 }
+			expect(store.houseHealth).toBe(0)
+		})
+
 		it('houseName returns default when no house', () => {
 			expect(store.houseName).toBe('My House')
 		})

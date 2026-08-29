@@ -9,20 +9,25 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\TemplateService;
+use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
+use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IL10N;
 use OCP\IRequest;
-use PHPUnit\Framework\TestCase;
 
 /**
  * Integration tests for RoomController API endpoints
+ *
+ * Mock-based endpoint coverage plus real-DB role-gate tests for the
+ * owner-only room deletion (CR-053-03, RoleGuardApiTest pattern).
  */
-class RoomControllerIntegrationTest extends TestCase {
+class RoomControllerIntegrationTest extends IntegrationTestCase {
 	private RoomController $controller;
 	private RoomService $roomService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private TemplateService $templateService;
 	private IRequest $request;
+	private int $instanceHouseId = 0;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -262,5 +267,83 @@ class RoomControllerIntegrationTest extends TestCase {
 	public function testNeedingCleaning_ReturnsDirtyRooms_SuccessResponse(): void {
 		// needingCleaning() method requires house authorization - skip test
 		$this->markTestSkipped('needingCleaning() method requires complex authorization setup');
+	}
+
+	// ========== Real-DB owner gate (CR-053-03) ==========
+
+	/**
+	 * Delete_MemberRole_Returns403AndKeepsRoom
+	 */
+	public function testDelete_MemberRole_Returns403AndKeepsRoom(): void {
+		$roomId = $this->createRoom(0, $this->createFloor($this->resolveInstanceHouseId(), 'Member Delete Floor'), 'Member Delete Target');
+		$this->addHouseMember($this->instanceHouseId, 'room_del_member', 'Member', 'member');
+
+		$controller = $this->getController(RoomController::class, 'room_del_member');
+		$response = $controller->delete($roomId);
+
+		self::assertSame(403, $response->getStatus());
+		$data = $response->getData();
+		self::assertFalse($data['success']);
+		self::assertSame('FORBIDDEN', $data['error']['code']);
+		self::assertTrue($this->roomExists($roomId), 'the room must remain intact');
+	}
+
+	/**
+	 * Delete_ChildRole_Returns403AndKeepsRoom
+	 */
+	public function testDelete_ChildRole_Returns403AndKeepsRoom(): void {
+		$roomId = $this->createRoom(0, $this->createFloor($this->resolveInstanceHouseId(), 'Child Delete Floor'), 'Child Delete Target');
+		$this->addHouseMember($this->instanceHouseId, 'room_del_child', 'Child', 'child');
+
+		$controller = $this->getController(RoomController::class, 'room_del_child');
+		$response = $controller->delete($roomId);
+
+		self::assertSame(403, $response->getStatus());
+		$data = $response->getData();
+		self::assertFalse($data['success']);
+		self::assertSame('FORBIDDEN', $data['error']['code']);
+		self::assertTrue($this->roomExists($roomId), 'the room must remain intact');
+	}
+
+	/**
+	 * Delete_OwnerRole_DeletesRoom
+	 */
+	public function testDelete_OwnerRole_DeletesRoom(): void {
+		$roomId = $this->createRoom(0, $this->createFloor($this->resolveInstanceHouseId(), 'Owner Delete Floor'), 'Owner Delete Target');
+		$this->addHouseMember($this->instanceHouseId, 'room_del_owner', 'Owner', 'owner');
+
+		$controller = $this->getController(RoomController::class, 'room_del_owner');
+		$response = $controller->delete($roomId);
+
+		self::assertSame(200, $response->getStatus());
+		self::assertTrue($response->getData()['success']);
+		self::assertFalse($this->roomExists($roomId), 'the room must be gone');
+	}
+
+	/**
+	 * Resolve (and cache) the shared instance house the controllers use
+	 * via getInstanceId() + getOrCreateHouse().
+	 */
+	private function resolveInstanceHouseId(): int {
+		if ($this->instanceHouseId === 0) {
+			$houseService = \OC::$server->get(HouseService::class);
+			$this->instanceHouseId = $houseService
+				->getOrCreateHouse($houseService->getInstanceId())
+				->getId();
+		}
+
+		return $this->instanceHouseId;
+	}
+
+	private function roomExists(int $roomId): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*', 'count'))
+			->from('chorestrike_rooms')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		return $count > 0;
 	}
 }
