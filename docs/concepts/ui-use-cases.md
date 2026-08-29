@@ -8,11 +8,14 @@ endpoint and its implementation status. This is the working reference for
 deciding what to build next and what stays backend-only for now.
 
 Grounded in:
-- Endpoint audit 2026-08-21: all 111 API routes in `appinfo/routes.php`
-  checked against the frontend (`page#index` excluded; 56 routes currently
-  have no live frontend consumer —
+- Endpoint audit 2026-08-21 (all 111 API routes in `appinfo/routes.php`
+  checked against the frontend; `page#index` excluded; 56 routes then had no
+  live frontend consumer) — **re-audited 2026-08-27 (CS-PLAN-053)**: route set
+  unchanged at 110; 42 routes currently have no production consumer
+  (30 none + 12 test-only; full matrix in
+  [`../backlog/CODE_REVIEW_2026-08-27.md`](../backlog/CODE_REVIEW_2026-08-27.md) L3-0) —
   status is recorded neutrally here; expose-or-prune decisions are **not** part
-  of this document).
+  of this document.
 - Usability review 2026-08-20 (findings **UX-001 … UX-014**,
   [`../backlog/archive/USABILITY_REVIEW_2026-08-20.md`](../backlog/archive/USABILITY_REVIEW_2026-08-20.md))
   re-verified after CS-PLAN-038 (Today view, unified task creation, members UI).
@@ -217,7 +220,7 @@ service), Owner (overview). **Entry points:** SchedulingView.
 |---|---|---|---|
 | Coin balance | ArcadeSection | `GET /minigames/coins` | ✅ |
 | Game/global state (streaks, goal) | Dashboard | `GET /game/state` | ✅ |
-| Leaderboard (podium, streak badges, "You") | Leaderboard | `GET /game/leaderboard` | ✅ |
+| Leaderboard (podium, streak badges, "You") | Leaderboard | `GET /users` (store `getLeaderboard`); `GET /game/leaderboard` is test-only (re-audit 2026-08-27) | ✅ |
 | Leaderboard period filter (week/month/all) | Leaderboard | — | ⛔ removed (CS-PLAN-041): `getLeaderboard` has no period parameter; a filter that changes nothing is dishonest UI |
 | Medals overview | Leaderboard medal cards | `GET /game/medals` | ✅ (store-driven, CS-PLAN-041) |
 | Medal evaluation trigger | Leaderboard mount (pre-pass) | `POST /game/check-medals` | ✅ (CS-PLAN-041) |

@@ -38,13 +38,19 @@ encrypted reporting frictionless.
 ---
 
 ### [P3] BUG-ROOM-001 — Re-evaluate the `RoomController::index` POST→GET rewrite workaround
-**Status**: Deferred (low) · **Effort**: S · **Source**: CS-020 (deferred AC)
+**Status**: Open · **Effort**: S · **Source**: CS-020 (deferred AC); updated by CS-PLAN-053 full review 2026-08-27
 
-The body-sniffing POST→GET rewrite workaround was left as harmless dead code
-after the Docker env got correct `mod_rewrite` routing (`docker/apache-nextcloud.conf`).
-Confirm whether production shapes still need it; if not, remove it.
+The "workaround" is not dead code: `RoomController::index` (:55-88) and
+`FloorController::index` (:51-71) sniff body/query params and call `create()` — a
+live `GET /api/v1/rooms?name=X` (or floor equivalent) creates structure. Nextcloud's
+CSRF middleware only guards POST/PUT/DELETE, so this is a cross-site-forgable
+state-changing GET (review finding CR-P3-08/CR-P3-12). Resolution rides on the
+CS-PLAN-053 route-disposition decision (CR-053-14): **decided 2026-08-29 — prune**;
+remove the GET-create branches when the 4 legacy alias/create routes are pruned; the 4
+alias routes themselves have zero consumers (incl. tests).
 
-- [ ] Confirm production routing; remove the workaround if no longer needed.
+- [ ] Remove the GET-create branches from both `index()` methods (keep POST create routes).
+- [ ] Prune or keep the 4 documented-dead alias routes per the route-disposition decision.
 
 ---
 
@@ -66,11 +72,15 @@ Confirm whether production shapes still need it; if not, remove it.
 ## Tech Debt / Code Quality
 
 ### [P3] SEC-AUDIT-001 — Security hardening follow-ups from P8-SECURITY-001 audit
-**Status**: Open · **Effort**: M · **Source**: security audit 2026-03-05 (record archived 2026-08-20, DOC-STD-001)
+**Status**: Open · **Effort**: M · **Source**: security audit 2026-03-05 (record archived 2026-08-20, DOC-STD-001); re-verified by CS-PLAN-053 full review 2026-08-27
 
 - [ ] Rate limiting for sensitive endpoints (user management).
 - [ ] Audit logging for owner-level operations.
-- [ ] Document security assumptions in the API documentation (`docs/api/`).
+- [x] Document security assumptions in the API documentation (`docs/api/README.md:836-838` documents "no rate limiting" explicitly; a full assumptions section is still to do — keep this bullet open at half-done).
+
+Re-verification 2026-08-27: no rate-limit or audit-log implementation exists in `lib/`;
+review findings CR-053-17 (controller logging gaps in 10/15 controllers) and CR-053-18
+are adjacent hardening items.
 
 ---
 
@@ -211,9 +221,13 @@ VALIDATION_ERROR literals) → [`archive/2026-08.md`](archive/2026-08.md)
 **Status**: Resolved 2026-08-25 (CS-PLAN-047, incl. the D1 NotFound/Forbidden
 sweep and the D2 untranslated-fallback policy) → [`archive/2026-08.md`](archive/2026-08.md)
 
-### [P3] CR-SVC-40 — `RoomService` reaches below its layer (`IDBConnection`)
+### [P3] CR-SVC-40 — Services reach below their layer (`IDBConnection` injection)
 **Effort**: M — injects `IDBConnection` for `beginTransaction`/`lockForUpdate` (persistence
 plumbing in a service). Move transaction+lock into the mapper/repository.
+**Scope updated by CS-PLAN-053 full review (2026-08-27)**: not just `RoomService` —
+**7 services** inject `IDBConnection` directly: `RoomService`, `FloorService`,
+`HouseService`, `HouseSetupService`, `MinigameService`, `RoomTaskService`,
+`TestDataService` (see review record L2-3 for line refs).
 
 ### [P3] CR-SVC-41 — Service DI inconsistencies (remainder)
 **Effort**: M — `getFilteredDailyTasksForUser` takes `HouseUserMapper` as a param despite ctor injection;
@@ -222,10 +236,14 @@ The nullable-`?AppLogger` half (all 9 sites + trait + `RewardConfigController` w
 was **resolved 2026-08-27 by CS-PLAN-052** (record: [`archive/2026-08.md`](archive/2026-08.md)).
 
 ### [P3] CR-SVC-44 — Minor performance cluster
-**Effort**: M — `TaskService::getAllTasks` unbounded `findAll`; `createDefaultTemplates`
-15 sequential inserts; `StreakFreeze`/`StreakRestock` per-user UPDATEs; `assignTask`/
-`unassignTask`/`deactivate`/`reactivate`/`updateDueDate` triple-fetch pattern;
-`extractHouseIdFromSchedule` 3 dependent queries.
+**Effort**: M — re-scoped by CS-PLAN-053 full review (2026-08-27): the
+`createDefaultTemplates` and `extractHouseIdFromSchedule`/`ScheduleOptimizer`
+sub-claims are **obsolete** (clusters deleted by CS-PLAN-027 D7 / CR-SVC-08).
+Still live: `StreakFreeze`/`StreakRestock` per-user UPDATEs (unlocked RMW —
+see CR-053-11 for the correctness half); `assignTask`/`unassignTask`/`deactivate`/
+`reactivate`/`updateDueDate` re-fetch pattern in `RoomTaskService`; `hasFloors`
+hydrates all floors for a boolean (`HouseService:303`). `TaskService::getAllTasks`
+is now **caller-less** — belongs to the CR-053-15 dead-code sweep, not perf.
 
 ---
 
@@ -448,6 +466,175 @@ deactivate/reactivate by filter (cf. CR-SVC-61 bulk-endpoint pattern).
 
 ### [P3] FEAT-UX-031 — Error/empty/offline-state conventions
 **Status**: Resolved 2026-08-23 (CS-PLAN-044) → [`archive/2026-08.md`](archive/2026-08.md)
+
+---
+
+## Review Follow-ups — CS-PLAN-053 Full Bottom-to-Top Review (2026-08-27)
+
+> From the full-tree review (persistence → services → API → frontend → docs; 6-phase
+> Full-tier with 4 reviewer subagents per layer). Full evidence tables with file:line,
+> severity, and per-finding disposition live in
+> [`CODE_REVIEW_2026-08-27.md`](CODE_REVIEW_2026-08-27.md) (CR-P1-*…CR-P5-* IDs).
+> Security items are **never** auto-fixed; they are decision points for the user.
+
+### [P2] CR-053-05 — `RewardConfigController::update` is `@AdminRequired` + no owner gate + no production consumer
+**Effort**: S · **Source**: CS-PLAN-053 (plan-mandated explicit security item; CR-P3/L2)
+Instance admins are not necessarily house owners; reward economics should be owner-gated
+(mirror `HouseController::update`) or the divergence documented. Both reward-config routes are
+currently **test-only** (E2E) — include in the route-disposition decision (CR-053-14).
+
+### [P2] CR-053-06 — Task lifecycle endpoints skip the visibility matrix (uncomplete/skip/reschedule)
+**Effort**: S · **Source**: CS-PLAN-053 (CR-P3-03)
+`complete` enforces private→assignee / admin-only→owner **in-service** (`RoomService:371-378`);
+`uncomplete`/`skip`/`reschedule` enforce neither (grep: zero visibility checks in
+`RoomTaskService`) — any member can uncomplete/skip/reschedule another member's private task.
+
+### [P2] CR-053-07 — Bootstrap races: duplicate houses per instance + two-owners race
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P2-04)
+`houses.nextcloud_instance_id` has only a non-unique index (`Version1000:39`) → concurrent
+first requests can create two houses; `ensureHouseMember` assigns `role='owner'` when
+`count==0` → two distinct users first-touching concurrently both become owner. Fix: unique
+index + race-safe owner assignment (first insert wins).
+
+### [P2] CR-053-08 — Task-sync completion replay: no idempotency, no transaction
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P2-05)
+`TaskSyncService::syncCompletionFromNextcloud:140-188` re-runs `markCompleted` + cleanliness
+on every replay with a marginally newer timestamp (next_due fast-forward, permanent 100
+cleanliness); 3 dependent writes without a transaction. Bundle with the FEAT-UX-021
+expose-or-prune decision (all 6 task-sync routes are production-unconsumed).
+
+### [P2] CR-053-09 — Recurrence vocabulary divergence: `'once'` vs `'one_time'`
+**Effort**: S · **Source**: CS-PLAN-053 (CR-P1-07)
+`RoomTask::markCompleted:255`/`projectOccurrences:609` branch on `'one_time'`;
+`TaskService:346` validates `['recurring','once','bounded']`. A validation-accepted `'once'`
+task never deactivates on completion (silent infinite recurrence). Pick one vocabulary
+(pre-release: data is disposable) and align both layers.
+
+### [P2] CR-053-10 — Entity fields without schema columns: reminderType/reminderMinutesBefore
+**Effort**: S · **Source**: CS-PLAN-053 (CR-P1-09)
+`Task.php:138-141` declares reminder fields no migration creates; `TaskSyncService:238,248`
+always reads null. Any set+flush path 500s on all engines. Decide: add columns or delete the
+fields (feature is dead today). Related schema drift: `Room::$description` phantom API field (CR-P1-20).
+
+### [P2] CR-053-11 — Streak & leaderboard correctness cluster
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P2-11/12/13/15/20)
+(a) Weekly leaderboard breaks all Sunday (`'monday this week'` → next Monday, `MinigameService:163`);
+(b) completion-path freeze consumption never stamps the covered day → one missed day can cost
+two freezes (`GameLogicService:131` + `HouseUser:294`); (c) at-risk pass vs freeze pass have
+undefined execution order → core notification suppressed; (d) weekly restock SETs
+`min(perWeek,cap)` instead of topping up — punishes earned bonus freezes (`HouseUser:308`);
+(e) leaderboard queries lack deterministic tiebreakers. Each fix is small + testable.
+
+### [P2] CR-053-12 — Calendar-day semantics run on server TZ (UTC), not the household's
+**Effort**: L (design decision first) · **Source**: CS-PLAN-053 (CR-P2-14 + CR-P1 TZ note + CR-P4-07)
+**Decision (user, 2026-08-29)**: **per-house timezone** — `houses.timezone` column,
+backend buckets day boundaries in house TZ (`DateTimeZone` injection at the call sites),
+frontend's two day-key conventions unified on house TZ.
+All day-boundary logic (streak days, freezes, at-risk, due-today, energy windows) buckets at
+server-TZ midnight; frontend has two coexisting day-key conventions (`rangeTasksByDay` UTC slice
+vs `localDateKey`). Needs a per-house timezone design decision before any code change.
+
+### [P2] CR-053-13 — l10n artifact gap: 141 t() keys used in src/ missing from en+de
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P4-13/14/15)
+German users get English fallback across TaskManager filters, Settings floor management,
+Arcade, minigames; 8 keys are case-variant mismatches; ~340 dead artifact entries (keep
+`titles.*` — server-driven). Root cause: `check-l10n-keys.js` only diffs de↔en. Fix: regenerate
+artifacts + extend the checker with a src-usage diff; document in i18n.md.
+
+### [P2] CR-053-14 — Route disposition decision (user sign-off required)
+**Effort**: M · **Source**: CS-PLAN-053 (L3-0 matrix)
+**Decision (user, 2026-08-29)**: **prune now** — delete the no-consumer + test-only
+routes (incl. task-sync ×6, reward-config ×2, the 4 dead alias routes + their
+GET-create branches = BUG-ROOM-001) together with the mirroring dead-store layer
+(CR-053-15/20); re-add surfaces only when a consumer exists. Moots CR-053-05 while
+the reward-config routes are gone.
+110 routes = 67 production / 30 no-consumer / 12 test-only. Decision matrix in the review
+record covers: 4 documented-dead alias routes (zero consumers incl. tests), REST-completeness
+reads ×6, dead room-task variants ×4, dead task/checklist/user wrappers, the unconsumed
+task-sync surface ×6, test-only reward-config + lifecycle routes. Deleting routes is
+behavior-changing → needs explicit user approval; the frontend dead-store layer (CR-053-15)
+mirrors these routes and should be decided together.
+
+### [P3] CR-053-15 — Dead-code deletion sweep (proofs recorded, ready to execute)
+**Effort**: M · **Source**: CS-PLAN-053 (L1-4/L2-4/L4-3)
+Grep-proven no-caller code: `AvailabilitySettings` entity+mapper+table cluster (+TestDataService
+injection + fixture + RESET_TABLES + Version1013); ~40 store getters/actions incl. the whole
+`store/index.js` barrel; service methods (`TaskService::{getAllTasks,skipTask,rescheduleTask}`,
+`RoomTaskService::{getTasksAssignedToUser,getUnassignedTasks}`, `RoomService::getRoom`,
+`FloorService::getFloor`, `RewardConfigService::getTierMultiplier`, `AuthorizationService::{isAuthenticated,isHouseMember}` — check tests first);
+entity helpers (`HouseUser` ×4, `CompletedTask::isRecent`, `MedalMapper` ×3 + `Medal` ×2,
+`MinigameScoreMapper::findByHouseAndGame`, `validate()` ×2); dead migration steps (1017-1020,
+backfills in 1024/1025, blocks in 1002/1003/1010/1015); orphaned tables (`task_scopes`,
+`task_parts`, `claims`). Execute as one plan with per-deletion gates.
+
+### [P3] CR-053-16 — NotFound→404 mapping cluster + unvalidated request bodies
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P3-11/12)
+Systemic: nonexistent/foreign ids return 500 instead of 404 across TaskController (×3),
+RoomTaskController (×12), Floor/Room/Checklist controllers; untyped JSON-body branches can
+raise uncaught TypeError (Floor/Room `index()`); `limit` params unclamped (Minigame/TaskSync).
+One shared pattern: wrap DoesNotExistException in service validators + per-controller catch.
+
+### [P3] CR-053-17 — Silent exception swallowing in 10/15 controllers
+**Effort**: M · **Source**: CS-PLAN-053 (L3-3)
+Generic catch-alls return 500s with zero logging in RoomTask/Checklist/Floor/Minigame/Page/
+Room/TaskSync/Test/User (+ Setup's weaker hand-rolled variant) — violates CS-PLAN-052's
+AppLogger contract. Adopt `ControllerLoggingTrait` across the remainder.
+
+### [P3] CR-053-18 — API hardening small-items cluster
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P3-04..10, CR-P2-09/10/17/18/19)
+Test-mode routes registered with `@NoCSRFRequired` (CSRF-free destructive API when
+NEXTCLOUD_TEST_MODE is set); saveScore accepts unwhitelisted gameIds with no rate cap (coin
+farming); `ensureHouseMember` (auto-join) used on read paths with target-derived ids;
+`ownerUserId` transfer without membership validation; `user#update` persists unvalidated
+schedulingPreferences; anti-enumeration 403-vs-404 inconsistency; RewardConfig bare
+DataResponse envelope; `needingCleaning` unscoped without floorId; no route `requirements`;
+weekday case-handling divergence; notifier claimer display-name-as-uid; medal-notification
+dedup collapse; reminder pass aborts on one orphaned task.
+
+### [P3] CR-053-19 — Persistence correctness minors
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P1-11..17, 19, 21, 22)
+PostgreSQL boolean-vs-integer compares (would fail on PG); inclusive week-window end bound
+(completion at next Monday 00:00 counts twice); checklist `toggle()` unlocked RMW + insert
+race; `HouseUserMapper::createOrGet` check-then-insert (500 on race, no dup rows);
+`FloorMapper::create` re-select instead of `insert()`; `getUserRank` unbounded scan;
+inverted estimatedMinutes range passes `validate()`; `findActiveByHouse` queries a column the
+final schema never had (dead + latent bug); dead `$houseId` param on `findVisibleByHouse`;
+is_private column/field/shim divergence (CR-P1-18 — fold into a migration cleanup).
+
+### [P3] CR-053-20 — Frontend correctness cluster
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P4-01..04, 06, 08, 09)
+False "Weekly goal reached!" celebration on every Dashboard mount while goal achieved;
+minigame `initialize()` leaves loading stuck on catalog failure; `completeRoomTask` leaves
+rooms/house/user caches stale (**decision needed: wire the uncalled user-store reward actions
+or delete them** — CR-P4-03 vs CR-053-15); undo/reactivate slice drift; `new Date(null)` →
+epoch counted as overdue + UTC date parsing; out-of-order range/activity fetches; invite
+duplicate row.
+
+### [P3] CR-053-21 — Docs truth-repair batch
+**Effort**: M · **Source**: CS-PLAN-053 (L5-1)
+**Decision (user, 2026-08-29)**: root `README.md` gets a **full rewrite** (accurate
+features, stack, install, v0.8.x alpha status) — not a historical banner.
+Root `README.md` rewrite (tower-defense marketing, Sparks currency, removed features, "v1.0.0 RC"
+status — decision: rewrite vs historical banner); ADR-003 scope enum contradicts code; architecture.md
+fictional examples (`fetchHouseStats`, `TaskForm`/`TemplateSelector`, console.error example, stale
+availability table, forbidden backlog-tree line); development.md `TaskItem.vue` + migration-conventions
+subsection (version-then-date order, pre/post hooks never run on fresh install); testing.md
+`TaskForm.vue`; security.md pruned-endpoint example; ui-use-cases.md header counts; energy-and-balancing/
+task-model-and-sync/gamification unimplemented-feature markers.
+
+### [P3] CR-053-22 — Test-gap closures deferred (deferral approved 2026-08-29)
+**Effort**: L · **Source**: CS-PLAN-053 §4
+**Decision (user, 2026-08-29)**: **deferral approved** with backlog tracking (risk
+accepted: Minigame/RewardConfig/TaskSync controllers ship without integration-level
+coverage until a catch-up plan). ~~The Checklist controller suite closes via
+CS-PLAN-054 WP-4.~~ (closed there 2026-08-29: `ChecklistApiTest`, 24 real-DB tests)
+Closed inline: `MinigameScoreTest` + `TaskAssigneeTest` entity suites (7 tests). Deferred with
+reason (session scope of the XL review; each is mechanical but sizeable): integration suites
+for ~~Checklist~~/Minigame/RewardConfig/TaskSync controllers (~~the Checklist one is the CR-053-01
+companion~~ — closed via CS-PLAN-054), `TestDataSeedTest`, and Jest specs for the 8 uncovered components
+(ActivityFeed, HouseStatsCards, MemberFairnessTable, WeekBudgetGrid, RoomPicker, BoostShop,
+SnakeGame, SnakeLeaderboard). Deferral risk: the 3 remaining controllers ship without
+integration-level coverage; regression protection relies on unit + E2E.
 
 ---
 

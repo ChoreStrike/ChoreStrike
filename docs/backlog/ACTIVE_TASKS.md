@@ -10,6 +10,8 @@
 
 ## In Progress
 
+<!-- (empty — CS-PLAN-053 + 054 completed and moved to docs/plans/done/) -->
+
 <!-- When you start work, add an entry here in this shape:
 ### CS-PLAN-NNN — Title
 **Status**: In Progress · **Started**: YYYY-MM-DD · **Branch**: master
@@ -18,6 +20,10 @@
 -->
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
+
+- **CS-PLAN-054** — P1 Security Quick-Closes (closed **CR-053-01/02/03/04** + **CR-053-22** Checklist remainder; D1=owner-gate+closed-set / D2=house-filter-now signed off): new `ChecklistService` owning the checklist guard (room-chain house linkage + visibility matrix, denials → 404 anti-enumeration) with `ChecklistController` thinned to preamble+delegate+envelope (437→316 lines), reorder payload validation (int ids of one accessible task → int orders, else 400) and item↔task linkage checks on toggle/update/delete; `GET /room-tasks` house scoping (`validateRoomOwnership` on the roomId branch → 404, new `getScopeTasksScopedToHouse` skip-on-missing intersection on the scopeId branch); owner-only floor/room delete via `requireHouseOwner` (403); `taskTier` out of `MUTABLE_FIELDS` into an explicit owner-gate + `['bronze','silver','gold']` closed set (member → 403 routed around the inner Forbidden→404 catch via controller pre-check, invalid → 400; service gate kept as defense-in-depth); `ControllerErrorFormatter` gained shared `notFoundResponse`/`serverErrorResponse`; mapper additions `RoomTaskMapper::findHouseIdsForTask` + `TaskChecklistItemMapper::findByIds`; l10n en/de/pot synced (5 keys); auth notes in `docs/api/README.md` (incl. new Checklists section). Gate: Jest 848 · PHPUnit unit 914 / integration 233 [24 pre-existing skips] · lint/stylelint/cs:check 0/272 · noise/l10n/encoding clean. Standard-B review 2026-08-29: **PASS** — guard placement, 404-before-403 gate ordering, reorder hardening, visibility matrix and thin-controller split verified against the code; 1 auto-fix (`index()` 404 catch → shared `ControllerErrorFormatter::notFoundResponse`); gate re-verified green; review record in plan §11. (2026-08-29, Done — plan moved to `done/`) → [`../plans/done/cs-plan-054-p1-security-quick-closes.md`](../plans/done/cs-plan-054-p1-security-quick-closes.md)
+
+- **CS-PLAN-053** — Full Bottom-to-Top Review (modules, docs, orphans, missing implementations & tests; record: [`CODE_REVIEW_2026-08-27.md`](CODE_REVIEW_2026-08-27.md)): six phases, per-layer 4 reviewer subagents + explore inventories, every block/major claim orchestrator-verified (3 reviewer claims disproven & recorded: Version1018 "install blocker" — fresh installs run `migrateSchemaOnly` so pre/post hooks never execute; completion-path visibility "block" — gates live in `RoomService:371-378`; duplicate house_users rows — `uniq_house_user` exists). Findings: 5 verified security gaps (checklist BOLA, room-task index IDOR, floor/room delete owner gap, taskTier mass-assignment, task-sync replay), once/one_time recurrence bug, 42-route disposition decision (67 prod / 30 none / 12 test-only), ~60 grep-proven dead code items (store barrel + ~40 store members, AvailabilitySettings cluster, service/mapper methods, dead migration steps), 141-key l10n artifact gap, systemic 404/500 mapping, silent swallowing in 10/15 controllers, server-TZ calendar semantics; backlog sweep 24 items → 20 KEEP / 4 UPDATE / 0 stale; 22 new backlog items **CR-053-01…22**. Inline closures (§5/§4): houseHealth `??` fix + pin, dead methods/exports, 4 docblock truth-fixes, api-README + ui-use-cases truth-repairs, `MinigameScoreTest` + `TaskAssigneeTest` (7 tests); deferred test gaps → CR-053-22 (approval pending). Gate: Jest 848 · PHPUnit unit 893 / integration 200 [24 pre-existing skips] · lint/stylelint/cs:check 0/269 · noise/l10n/encoding clean. (2026-08-27, Done — plan moved to `done/`) → [`../plans/done/cs-plan-053-full-bottom-up-review.md`](../plans/done/cs-plan-053-full-bottom-up-review.md)
 
 - **CS-PLAN-052** — Observability Hardening: AppLogger Adoption & Encoding-Gate C0 Signature (closed **TECH-DOCS-002** + **CR-SVC-59** + **CR-SVC-41 nullable-AppLogger half**; D1=failures-only / D2=required non-nullable / D3=TestDataService excluded / D4=non-TAB/LF/CR C0 + lone-CR signature): `scripts/check-docs-encoding.js` now flags forbidden C0 bytes (`0x00–0x08, 0x0B, 0x0C, 0x0E–0x1F`) + lone CR byte-level before UTF-8 decode (self-test 7/7 incl. BEL/VT/ESC + lone-CR flagged, TAB/CRLF clean; TAB/LF word-eating documented residual; 660 files green); all 9 nullable `?AppLogger` sites + `ControllerLoggingTrait` flipped to required non-nullable (defaults/null-guards/`?->` removed); bundled `RewardConfigController` silent-no-op defect fixed (trait used, logger never initialized — now required param + `initializeControllerLogger`); WP-C survey frozen in plan §10 before edits — adopted `Floor/Minigame/RoomService` rollback boundaries (`logException` with stable `event`+`service` keys) + `GameLogicService` race-swallow `warning` (`medal_award_race_lost`); excluded with reasons: Activity (expected-condition translation), TestData (D3), Scheduling/Task/TaskSync/Template/Title (no failure path); failure-path assertions for all 5 adopted sites incl. red→green proof; `GameLogicService` ctor reordered (`AppLogger` before optional `TitleService`) to clear a PHP implicit-optional deprecation; 31 test ctor-wiring sites updated. Conventions integrated into `logging.md` + `testing.md`. Gate: lint + stylelint 0/0 · Jest 847 · PHPUnit unit **886** (+1 rollback-logging test) / integration 200 [24 pre-existing skips] · `docs:encoding` 660 green · noise clean. CR-SVC-41 remainder stays open in `backlog.md`. (2026-08-27, Done — Standard-B review **PASS** 2026-08-27: implementation verified against plan, gates re-run green (Jest 847, unit 886/0 skips, integration 200 [24 pre-existing skips], encoding self-test 7/7 + 660 files, noise clean); 1 docblock auto-fix (`awardMedalIfNew` race-loser wording); no new findings; moved to `done/` 2026-08-27) → [`../plans/done/cs-plan-052-observability-applogger-encoding-gate.md`](../plans/done/cs-plan-052-observability-applogger-encoding-gate.md)
 
@@ -96,7 +102,8 @@
 > (implemented 2026-08-22), **043** Scheduling UI Consolidation
 > (CR-016-03/04/05/06/08/13/14 + UX-014 + TECH-DRY-001), ~~**044** A11y & Visual
 > Consistency (UX-007/010/012 + TECH-LINT-004 + FEAT-UX-030/031)~~
-> (implemented 2026-08-23). Recommended order remaining: 043. Decision-gated
+> (implemented 2026-08-23). ~~Recommended order remaining: 043~~ (043 landed
+> 2026-08-24). Decision-gated
 > items stay in `backlog.md` (FEAT-UX-015/018/021, FEAT-UX-023/024/028, P4
 > futures). BUG-USER-001 closed as already resolved (CS-PLAN-040 prune) →
 > `archive/2026-08.md`.
@@ -196,7 +203,7 @@
 >
 > Recommended follow-ups after 047: UX-016 (Modal accessible names, S), then
 > BUG-E2E-001/003 (E2E integrity) or CR-SVC-16 (P2, RewardConfigService
-> registry).
+> registry). ~~All three since closed by CS-PLAN-048/049.~~
 
 > **CS-PLAN-047 plan review (2026-08-25)**: Standard A — **GO-WITH-CHANGES**,
 > fixes applied inline to the plan: controller inventory corrected 52 → 62
@@ -271,6 +278,7 @@
 > Recommended follow-ups after 049: P9-E2E-002b (P2, E2E `waitForTimeout`
 > long-tail) or CR-SVC-59 (P3, AppLogger adoption remainder); decision-gated
 > UX-015 (undo single-slot: queue vs accept) needs a product call.
+> ~~Both closed since by CS-PLAN-050/052; UX-015 still decision-gated.~~
 
 > **CS-PLAN-049 plan review (2026-08-26)**: Standard A — **GO-WITH-CHANGES**,
 > fixes applied inline to the plan: the P9-DOC-005 replacement target was
@@ -312,8 +320,8 @@
 > smoke-tests / D2=delete daily-tasks-flow / D3=in scope / D4=blocking CI
 > signed off)** — see Recently Completed above.
 
-> Recommended follow-ups after 050: CR-SVC-59 (P3, AppLogger adoption
-> remainder) or CR-SVC-15 (P2, God-service decomposition — larger); UX-015 /
+> Recommended follow-ups after 050: ~~CR-SVC-59~~ (closed by CS-PLAN-052) or
+> CR-SVC-15 (P2, God-service decomposition — larger); UX-015 /
 > FEAT-UX-015 / FEAT-UX-018 need product calls first.
 
 > **CS-PLAN-050 plan review (2026-08-26)**: Standard A — **GO-WITH-CHANGES**,
@@ -413,3 +421,87 @@
 > God-service decomposition), is deliberately left for its own dedicated
 > plan; decision-gated UX-015 / FEAT-UX-015 / FEAT-UX-018 still need product
 > calls first.
+
+> **CS-PLAN-053 drafted (2026-08-27)** — Full Bottom-to-Top Review (modules,
+> docs, orphans, missing implementations & tests) in `docs/plans/new/`: six
+> phases bottom-to-top (persistence → services → API surface → frontend →
+> docs/backlog integrity → consolidation), Full-tier reviewer pattern per
+> layer, log-don't-implement discipline (only review-skill §5 auto-fixes +
+> explicit test-gap closures inline). Drafted from a fresh full-tree explore
+> inventory (frozen in plan §9): known leads include the
+> `RewardConfigController` `@AdminRequired` rule violation, effectively-dead
+> `AvailabilitySettings` entity+mapper, orphaned `src/utils/mobile.js` +
+> `performance.js`, 56 routes without frontend consumers, missing
+> integration/entity/command tests, and docs drift
+> (`phase5-smart-scheduling.md` documents deleted endpoints). Ready for
+> review + manual `new/ → active/` move.
+>
+> Selection rationale: ~20 plans landed since the last full review record
+> (2026-08-11) without a whole-tree pass; this plan produces the verified
+> findings map that prioritizes the follow-up plans (incl. the CR-SVC-15
+> decomposition decision data).
+
+> **CS-PLAN-053 plan review (2026-08-27)**: Standard A — **GO**, fixes
+> applied inline to the plan: §9 baseline drift corrected against the tree —
+> migrations 27 → 28, entities 14 → 13, controllers 17 → 15 (the 17 counted
+> `ControllerErrorFormatter` + `ControllerLoggingTrait`), routes ~111 → 110,
+> frontend >300-line files ~27 → 38 (26 backend + 38 frontend = 64 total in
+> §1), integration files 36 → 35, Playwright 43 specs/5 projects → 41
+> specs/6 projects (incl. `setup`); `RewardConfigController` annotation
+> precision (`::update` is `@AdminRequired`; `index` is `@NoAdminRequired`)
+> in §1/§6/§9; `TestController` coverage clarified (lives in
+> `tests/integration/Controller/`, not unit); mobile.js/performance.js
+> "zero imports" → "zero production imports" (own Jest specs import them);
+> "tree clean" → "tree clean except this plan's drafting notes". All other
+> claims verified against the tree: 104 PHP files / 17 controllers-dir files
+> / 22 services / 13 mappers / 95 frontend files / 13 stores / 50 components
+> / 9 views, worst-offender line counts (RoomTaskController 1053,
+> TaskController 962, RoomTaskService 945, TaskList.vue 1094, Settings.vue
+> 982), `\OC::$server` in `RoomTaskController::filteredDaily` (:1022) +
+> `Version1017` raw-SQL exception, all §9 orphan candidates exist
+> (`AvailabilitySettings` only referenced by mapper/migration/TestDataService
+> injection; `TaskSyncService::getRoomTask` no callers; `TITLE_PACKS`
+> export-only), no frontend `reward-config` consumer, the 8 spec-gap
+> components exist without specs, no Checklist/Minigame/RewardConfig/TaskSync
+> `*ApiTest.php`, all Phase-0 gate scripts exist, ADR-001…008 + ADR-005
+> superseded state, `TaskMapper.php:238` single TODO, SEC-AUDIT-001 open.
+> Notes to the user (not backlogged, per plan-review rules): the §9 baseline
+> had drifted on 8 counts — Phase 0's re-verify-and-freeze step is load-bearing;
+> the `RewardConfigController::update` authorization fix will need a product
+> call (owner-gated `@NoAdminRequired` vs keep admin-only) when its backlog
+> item is prioritized. ~~Ready for manual `new/ → active/` move.~~ (Activated
+> 2026-08-27 — see In Progress above.)
+
+> **CS-PLAN-054 drafted (2026-08-29)** — P1 Security Quick-Closes in
+> `docs/plans/new/`: bundles **all four P1 findings** from CS-PLAN-053 —
+> CR-053-02 (`GET /room-tasks` index IDOR, mirrors the roomStats fix),
+> CR-053-03 (floor/room delete `requireHouseOwner` gate), CR-053-04
+> (`taskTier` owner-gate + closed set), CR-053-01 (`ChecklistService`
+> extraction with house/visibility gates, incl. the deferred Checklist
+> integration suite = CR-053-22 partial). Scope deviates deliberately from
+> review §6.7 (which proposed CR-053-01 as a separate plan; CR-053-06 stays
+> P2 follow-up). Backend-only, no frontend changes. All file:line refs
+> verified against the tree; activation decisions **D1** (taskTier
+> owner-gate+closed-set vs full removal) + **D2** (scopeId branch
+> house-filter now vs defer to CR-053-14) flagged in plan §2. Plan §9
+> carries the **user-decision block** for CR-053-12/14/21/22 — **answered
+> 2026-08-29, all four recommendations accepted** (per-house timezone ·
+> prune routes now · README rewrite · test-gap deferral approved) and
+> mirrored into the backlog items.
+> Ready for review + manual `new/ → active/` move.
+
+> **CS-PLAN-055/056/057 drafted (2026-08-29)** — the three post-decision plans
+> from the CS-PLAN-054 user-decision block, in recommended execution order:
+> **055** Route & Dead-Code Pruning (U2-A: CR-053-14 **prune** decision ×39
+> routes + CR-053-15 dead-store/entity/migration sweep + CR-053-20 dead-action
+> half + BUG-ROOM-001 GET-create; moots CR-053-05/08/10 + FEAT-UX-021; test
+> consumers reworked first — 2 reward-config E2E specs verified load-bearing,
+> moved to seed profiles), **056** Task Lifecycle Visibility Matrix (CR-053-06,
+> S; depends on 055 — `task#uncomplete` is the surviving production endpoint of
+> the flagged trio, skip/reschedule are pruned; guard also covers
+> `updateDueDate`/`reactivate`), **057** Per-House Timezone (U1-A: CR-053-12;
+> `houses.timezone` + `CalendarService` bounds threading + one frontend
+> `dateKeys.js` convention; ADR-009; optional fold-in of the CR-P2-11 Sunday
+> leaderboard fix = D3). All file:line refs, route keep/prune lists, and
+> test-consumer claims verified against the tree; ready for review + manual
+> `new/ → active/` move.

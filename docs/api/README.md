@@ -176,7 +176,10 @@ Create a new floor.
 Update floor.
 
 #### DELETE /floors/{id}
-Delete floor (only if empty).
+Delete floor (transactionally cascades its rooms and room tasks, CS-PLAN-037).
+
+> **Authorization (CR-053-03):** owner-only — members/children get
+> `403 FORBIDDEN`; the floor (and its cascade) stays intact.
 
 ### Setup Wizard
 
@@ -277,6 +280,9 @@ Update room.
 #### DELETE /rooms/{id}
 Delete room.
 
+> **Authorization (CR-053-03):** owner-only — members/children get
+> `403 FORBIDDEN`; the room (and its cascade) stays intact.
+
 ### Tasks
 
 #### GET /tasks
@@ -337,6 +343,12 @@ Create a new task.
 #### PUT /tasks/{id}
 Update task.
 
+> **`taskTier` (CR-053-04):** owner-only and value-checked — accepted values
+> are `bronze`, `silver`, `gold` (the tier drives the completion coin
+> multiplier). A member sending `taskTier` gets `403 FORBIDDEN`; any other
+> value gets `400 VALIDATION_ERROR`. All other whitelisted fields remain
+> member-writable.
+
 #### DELETE /tasks/{id}
 Delete task.
 
@@ -370,6 +382,10 @@ List all room-task assignments.
 **Query Parameters:**
 - `room_id` (optional): Filter by room
 - `status` (optional): `due`, `overdue`, `upcoming`
+
+> **Authorization (CR-053-02):** house-scoped — a `room_id` from another
+> house is rejected with `404 RESOURCE_NOT_FOUND`, and the `scope_id`
+> branch silently filters cross-house entries (skip-on-missing).
 
 **Response:**
 ```json
@@ -423,7 +439,7 @@ Deactivate / re-activate a room-task instance.
 Remove task from room.
 
 > **Full route list:** the canonical, complete route table is
-> [`appinfo/routes.php`](../../appinfo/routes.php) (111 routes spanning `house`,
+> [`appinfo/routes.php`](../../appinfo/routes.php) (110 routes spanning `house`,
 > `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
 > `checklist`, `task_sync`, `minigame`, `reward_config`, `setup`, and `test`).
 > This document covers the core CRUD + completion
@@ -512,6 +528,40 @@ cross-house `roomId` with `404 RESOURCE_NOT_FOUND`.
 > current tasks with at least one real completion row — deactivated/skipped
 > tasks do NOT count as completed; an empty room returns `0`.
 
+### Checklists
+
+Checklist endpoints for tasks and room tasks. Business logic and
+authorization live in `ChecklistService` (CR-053-01); the guard enforces
+**house linkage** (room task → room → floor → house) plus the
+**task-visibility matrix** (public → any member; private → task owner;
+admin-only → house owner) on every endpoint. Denials return
+`404 RESOURCE_NOT_FOUND` (anti-enumeration, same contract as task
+show/update/delete).
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /checklists/task/{taskId}` | List a task's checklist items |
+| `POST /checklists/task/{taskId}` | Add an item (`label`, optional `sortOrder` — appends when absent) |
+| `PUT /checklists/item/{itemId}` | Relabel an item |
+| `DELETE /checklists/item/{itemId}` | Delete an item |
+| `POST /checklists/reorder` | Reorder items (`itemOrders`: item id → order map) |
+| `GET /checklists/progress/{roomTaskId}` | Progress entries + stats |
+| `POST /checklists/toggle/{roomTaskId}/{itemId}` | Toggle an item's progress |
+| `POST /checklists/initialize/{roomTaskId}` | Seed unchecked progress rows |
+| `GET /checklists/complete/{roomTaskId}` | Items merged with progress + stats |
+
+**Authorization notes (CR-053-01):**
+- Cross-house task/item/room-task ids → `404 RESOURCE_NOT_FOUND` on every
+  endpoint (no 403 that would confirm existence).
+- Checklist items of private/admin-only tasks follow the visibility matrix:
+  invisible to non-entitled members → `404`.
+- Item mutations resolve item → task: a foreign item id is rejected with
+  `404`; `reorder` requires all item ids to belong to **one** accessible
+  task (`400 VALIDATION_ERROR` otherwise) and the payload must map integer
+  item ids to integer orders (`400`).
+- `toggle` verifies the item belongs to the room task's task checklist
+  (`404` otherwise) — progress rows of an unrelated task cannot be flipped.
+
 ### Game
 
 #### GET /game/state
@@ -534,8 +584,9 @@ Get current game state.
 #### GET /game/leaderboard
 Get user leaderboard.
 
-**Query Parameters:**
-- `period` (optional): `week`, `month`, `all_time` (default: `week`)
+> **Status 2026-08-27:** no production consumer (the UI leaderboard is built from
+> `GET /users`); test-only. The `period` filter was removed (CS-PLAN-041) — the
+> endpoint takes no parameters.
 
 **Response:**
 ```json
