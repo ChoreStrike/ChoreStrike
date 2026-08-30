@@ -45,6 +45,8 @@ class MinigameService {
 	private IDBConnection $db;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
+	private \OCA\ChoreStrike\Db\HouseMapper $houseMapper;
+	private CalendarService $calendarService;
 
 	public function __construct(
 		MinigameScoreMapper $scoreMapper,
@@ -52,12 +54,16 @@ class MinigameService {
 		IDBConnection $db,
 		IL10N $l10n,
 		AppLogger $appLogger,
+		\OCA\ChoreStrike\Db\HouseMapper $houseMapper,
+		CalendarService $calendarService,
 	) {
 		$this->scoreMapper = $scoreMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->db = $db;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
+		$this->houseMapper = $houseMapper;
+		$this->calendarService = $calendarService;
 	}
 
 	/**
@@ -154,13 +160,19 @@ class MinigameService {
 	/**
 	 * Get weekly leaderboard for a house and game
 	 *
+	 * The week runs Monday 00:00 (house TZ, CS-PLAN-057) → now. Built on
+	 * CalendarService::weekStart, which has correct "monday this week"
+	 * semantics — the former `'monday this week'` relative format returned
+	 * the NEXT Monday when queried on a Sunday (CR-P2-11 / CR-053-11a).
+	 *
 	 * @param int $houseId The house ID
 	 * @param string $gameId The game ID
 	 * @param int $limit Maximum number of entries
 	 * @return array Array of scores with user display names
 	 */
 	public function getWeeklyLeaderboard(int $houseId, string $gameId, int $limit = 10): array {
-		$weekStart = new \DateTime('monday this week');
+		$tz = $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
+		$weekStart = $this->calendarService->weekStart(new \DateTime(), $tz);
 		$scores = $this->scoreMapper->getLeaderboardForPeriod($houseId, $gameId, $weekStart, $limit);
 		return $this->enrichScoresWithDisplayNames($houseId, $scores);
 	}

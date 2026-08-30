@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
@@ -42,6 +43,8 @@ class RoomTaskService {
 	private IDBConnection $db;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
+	private HouseMapper $houseMapper;
+	private CalendarService $calendarService;
 
 	public function __construct(
 		RoomTaskMapper $roomTaskMapper,
@@ -56,6 +59,8 @@ class RoomTaskService {
 		IDBConnection $db,
 		IL10N $l10n,
 		AppLogger $appLogger,
+		HouseMapper $houseMapper,
+		CalendarService $calendarService,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
@@ -69,6 +74,31 @@ class RoomTaskService {
 		$this->db = $db;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
+		$this->houseMapper = $houseMapper;
+		$this->calendarService = $calendarService;
+	}
+
+	/**
+	 * Resolve the house timezone for day-boundary bucketing (CS-PLAN-057).
+	 */
+	private function getTimeZoneForHouse(int $houseId): \DateTimeZone {
+		return $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
+	}
+
+	/**
+	 * Resolve the house timezone behind a room (room → floor → house).
+	 */
+	private function getTimeZoneForRoom(int $roomId): \DateTimeZone {
+		$room = $this->roomMapper->find($roomId);
+		return $this->getTimeZoneForRoomEntity($room);
+	}
+
+	/**
+	 * Resolve the house timezone behind an already-fetched room entity.
+	 */
+	private function getTimeZoneForRoomEntity(Room $room): \DateTimeZone {
+		$floor = $this->floorMapper->find($room->getFloorId());
+		return $this->getTimeZoneForHouse($floor->getHouseId());
 	}
 
 	/**
@@ -152,7 +182,9 @@ class RoomTaskService {
 	 * @return RoomTask[]
 	 */
 	public function getDueTodayTasks(int $houseId, ?int $roomId = null): array {
-		return $this->roomTaskMapper->findDueTodayByHouse($houseId, $roomId);
+		$tz = $this->getTimeZoneForHouse($houseId);
+		[$start, $end] = $this->calendarService->dayBounds(new \DateTime(), $tz);
+		return $this->roomTaskMapper->findDueTodayByHouse($houseId, $start, $end, $roomId);
 	}
 
 	/**
@@ -579,15 +611,16 @@ class RoomTaskService {
 		$roomTask = $this->roomTaskMapper->find($roomTaskId);
 		$task = $this->taskMapper->find($roomTask->getTaskId());
 		$room = $this->roomMapper->find($roomTask->getRoomId());
+		$tz = $this->getTimeZoneForRoomEntity($room);
 
 		return [
 			'roomTask' => $roomTask,
 			'task' => $task,
 			'room' => $room,
-			'status' => $roomTask->getStatus(),
+			'status' => $roomTask->getStatus($tz),
 			'isOverdue' => $roomTask->isOverdue(),
-			'isDueToday' => $roomTask->isDueToday(),
-			'daysUntilDue' => $roomTask->getDaysUntilDue()
+			'isDueToday' => $roomTask->isDueToday($tz),
+			'daysUntilDue' => $roomTask->getDaysUntilDue($tz)
 		];
 	}
 
@@ -608,9 +641,10 @@ class RoomTaskService {
 	 */
 	public function getRoomTaskStats(int $roomId): array {
 		$allTasks = $this->roomTaskMapper->findByRoomId($roomId, false);
+		$tz = $this->getTimeZoneForRoom($roomId);
 		$activeTasks = array_filter($allTasks, fn ($task) => $task->getIsActive());
 		$overdueTasks = array_filter($activeTasks, fn ($task) => $task->isOverdue());
-		$dueTodayTasks = array_filter($activeTasks, fn ($task) => $task->isDueToday());
+		$dueTodayTasks = array_filter($activeTasks, fn ($task) => $task->isDueToday($tz));
 		$dueSoonTasks = array_filter($activeTasks, fn ($task) => $task->isDueWithinDays(3));
 
 		$completedCount = $this->completedTaskMapper->countDistinctCompletedRoomTasksByRoom($roomId);
@@ -725,7 +759,9 @@ class RoomTaskService {
 	 * @return RoomTask[]
 	 */
 	public function getDailyTasks(int $houseId, \DateTime $date): array {
-		return $this->roomTaskMapper->findDailyTasks($houseId, $date);
+		$tz = $this->getTimeZoneForHouse($houseId);
+		[$start, $end] = $this->calendarService->dayBounds($date, $tz);
+		return $this->roomTaskMapper->findDailyTasks($houseId, $start, $end);
 	}
 
 	/**
@@ -793,9 +829,17 @@ class RoomTaskService {
 	 * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, flexWindow: array, occurrences: array<int, string>}>, completed: array<int, array>}
 	 */
 	public function getRangeTasks(int $houseId, \DateTime $from, \DateTime $to): array {
+		// CS-PLAN-057: reinterpret the controller's Y-m-d keys as house-local
+		// calendar bounds (UTC-normalized instants for the SQL comparison).
+		$tz = $this->getTimeZoneForHouse($houseId);
+		$fromBound = (new \DateTime($from->format('Y-m-d') . ' 00:00:00', $tz))
+			->setTimezone(new \DateTimeZone('UTC'));
+		$toBound = (new \DateTime($to->format('Y-m-d') . ' 23:59:59', $tz))
+			->setTimezone(new \DateTimeZone('UTC'));
+
 		// Base set: every active task that could recur into the window (nextDue <= to).
-		$roomTasks = $this->roomTaskMapper->findActiveDueUpToByHouse($houseId, $to);
-		$completions = $this->completedTaskMapper->findCompletionsBetweenByHouse($houseId, $from, $to);
+		$roomTasks = $this->roomTaskMapper->findActiveDueUpToByHouse($houseId, $toBound);
+		$completions = $this->completedTaskMapper->findCompletionsBetweenByHouse($houseId, $fromBound, $toBound);
 
 		$taskIds = [];
 		$roomIds = [];
@@ -817,14 +861,15 @@ class RoomTaskService {
 			}
 
 			$occurrenceDates = $rt->projectOccurrences(
-				$from,
-				$to,
+				$fromBound,
+				$toBound,
 				$task->getFrequencyType(),
 				$task->getFrequencyValue(),
 				$task->getRecurrenceMode(),
 				$task->getSchedulingMode(),
 				$task->getFixedScheduleDays(),
 				$task->getActiveUntil(),
+				$tz,
 			);
 
 			// Skip tasks that produce no occurrence inside the window.
@@ -835,7 +880,7 @@ class RoomTaskService {
 			$flexWindow = $rt->getFlexWindowBounds($task->getFlexDays());
 
 			$scheduled[] = [
-				'roomTask' => $rt->jsonSerialize(),
+				'roomTask' => $rt->jsonSerialize($tz),
 				'task' => $task->jsonSerialize(),
 				'room' => $room->jsonSerialize(),
 				'flexWindow' => [
@@ -843,8 +888,10 @@ class RoomTaskService {
 					'ideal' => $flexWindow['ideal']?->format('Y-m-d'),
 					'latest' => $flexWindow['latest']?->format('Y-m-d'),
 				],
+				// House-local Y-m-d day keys (CS-PLAN-057) — the calendar
+				// bucketing convention shared with the frontend.
 				'occurrences' => array_map(
-					fn (\DateTime $date) => $date->format('Y-m-d'),
+					fn (\DateTime $date) => \DateTime::createFromInterface($date)->setTimezone($tz)->format('Y-m-d'),
 					$occurrenceDates,
 				),
 			];
@@ -937,8 +984,9 @@ class RoomTaskService {
 		$weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
 		$maxDailyTasks = $preferences['maxDailyTasks'] ?? PHP_INT_MAX;
 
-		// Get current day name (lowercase)
-		$currentDay = strtolower($date->format('l'));
+		// Get current day name (lowercase, house TZ — CS-PLAN-057)
+		$tz = $this->getTimeZoneForHouse($houseId);
+		$currentDay = strtolower(\DateTime::createFromInterface($date)->setTimezone($tz)->format('l'));
 
 		// Check if user is available today
 		$isAvailableToday = $weekdayAvailability[$currentDay] ?? true;

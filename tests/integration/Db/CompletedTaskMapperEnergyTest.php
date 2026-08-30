@@ -91,7 +91,7 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 
 		self::assertSame(
 			0,
-			$this->mapper->getConsumedEnergyForUserOnDate($houseUserId, new \DateTimeImmutable('2026-06-15'))
+			$this->mapper->getConsumedEnergyForUserOnDate($houseUserId, new \DateTimeImmutable('2026-06-15 00:00:00'), new \DateTimeImmutable('2026-06-16 00:00:00'))
 		);
 	}
 
@@ -115,7 +115,7 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 
 		self::assertSame(
 			8,
-			$this->mapper->getConsumedEnergyForUserOnDate($houseUserId, new \DateTimeImmutable('2026-06-15'))
+			$this->mapper->getConsumedEnergyForUserOnDate($houseUserId, new \DateTimeImmutable('2026-06-15 00:00:00'), new \DateTimeImmutable('2026-06-16 00:00:00'))
 		);
 	}
 
@@ -144,7 +144,7 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 
 		self::assertSame(
 			6,
-			$this->mapper->getConsumedEnergyForUserOnDate($houseUserId, new \DateTimeImmutable('2026-06-15'))
+			$this->mapper->getConsumedEnergyForUserOnDate($houseUserId, new \DateTimeImmutable('2026-06-15 00:00:00'), new \DateTimeImmutable('2026-06-16 00:00:00'))
 		);
 	}
 
@@ -168,7 +168,7 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 		$this->insertCompletion($rtMine, $userA, '2026-06-15 09:00:00');
 		$this->insertCompletion($rtTheirs, $userB, '2026-06-15 10:00:00');
 
-		self::assertSame(3, $this->mapper->getConsumedEnergyForUserOnDate($userA, new \DateTimeImmutable('2026-06-15')));
-		self::assertSame(9, $this->mapper->getConsumedEnergyForUserOnDate($userB, new \DateTimeImmutable('2026-06-15')));
+		self::assertSame(3, $this->mapper->getConsumedEnergyForUserOnDate($userA, new \DateTimeImmutable('2026-06-15 00:00:00'), new \DateTimeImmutable('2026-06-16 00:00:00')));
+		self::assertSame(9, $this->mapper->getConsumedEnergyForUserOnDate($userB, new \DateTimeImmutable('2026-06-15 00:00:00'), new \DateTimeImmutable('2026-06-16 00:00:00')));
 	}
 }

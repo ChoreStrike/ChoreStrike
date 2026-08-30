@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\StreakFreezeService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +23,9 @@ use PHPUnit\Framework\TestCase;
  * function of that injected date — the regression that makes the
  * StreakFreezeJob refactor safe. Before the refactor these tests were not
  * possible: the job hardcoded `new \DateTime('yesterday')`.
+ *
+ * CS-PLAN-057: the pass buckets the day in the house timezone (UTC house
+ * in these pins, so the day keys match the injected date).
  */
 class StreakFreezeServiceTest extends TestCase {
 	/** Fixed injected "yesterday": a Wednesday, independent of the real clock. */
@@ -29,6 +35,7 @@ class StreakFreezeServiceTest extends TestCase {
 	private HouseUserMapper&MockObject $houseUserMapper;
 	private CompletedTaskMapper&MockObject $completedTaskMapper;
 	private AppLogger&MockObject $appLogger;
+	private HouseMapper&MockObject $houseMapper;
 	private StreakFreezeService $service;
 	private \DateTime $yesterday;
 
@@ -36,12 +43,19 @@ class StreakFreezeServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
+		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->yesterday = new \DateTime(self::YESTERDAY);
+
+		$utcHouse = new House();
+		$utcHouse->setTimezone('UTC');
+		$this->houseMapper->method('findOneForJobs')->willReturn($utcHouse);
 
 		$this->service = new StreakFreezeService(
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->appLogger,
+			$this->houseMapper,
+			new CalendarService(),
 		);
 	}
 
@@ -96,9 +110,16 @@ class StreakFreezeServiceTest extends TestCase {
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([$user]);
 		$this->completedTaskMapper->expects($this->once())
 			->method('countByUserOnDateGrouped')
-			->with($this->callback(function (\DateTimeInterface $date) {
-				return $date->format('Y-m-d') === '2026-07-29';
-			}))
+			->with(
+				$this->callback(function (\DateTimeInterface $start) {
+					return $start->format('Y-m-d') === '2026-07-29'
+						&& $start->format('H:i:s') === '00:00:00';
+				}),
+				$this->callback(function (\DateTimeInterface $end) {
+					return $end->format('Y-m-d') === '2026-07-30'
+						&& $end->format('H:i:s') === '00:00:00';
+				})
+			)
 			->willReturn([1 => 3]);
 		$this->houseUserMapper->expects($this->never())->method('update');
 

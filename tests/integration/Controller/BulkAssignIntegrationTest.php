@@ -61,6 +61,7 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 			\OC::$server->get(HouseService::class),
 			\OC::$server->get(AuthorizationService::class),
 			$l10n,
+			\OC::$server->get(\OCA\ChoreStrike\Service\CalendarService::class),
 		);
 	}
 

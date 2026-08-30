@@ -9,11 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\MinigameService;
 use OCP\IDBConnection;
 use OCP\IL10N;
@@ -25,6 +28,7 @@ class MinigameServiceTest extends TestCase {
 	private HouseUserMapper $houseUserMapper;
 	private IDBConnection $db;
 	private AppLogger $appLogger;
+	private HouseMapper $houseMapper;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -32,11 +36,16 @@ class MinigameServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
+		$this->houseMapper = $this->createMock(HouseMapper::class);
+		// CS-PLAN-057: the weekly leaderboard week resolves the house timezone.
+		$utcHouse = new House();
+		$utcHouse->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($utcHouse);
 		$l10n = $this->createMock(IL10N::class);
 		// Identity mock: message assertions match the wrapped source text
 		// (no parameter substitution), mirroring TemplateServiceTest.
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, $this->db, $l10n, $this->appLogger);
+		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, $this->db, $l10n, $this->appLogger, $this->houseMapper, new CalendarService());
 	}
 
 	private function makeScore(int $score, array $boostsUsed = []): MinigameScore {

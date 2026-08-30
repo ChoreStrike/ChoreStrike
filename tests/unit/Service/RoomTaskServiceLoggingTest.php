@@ -78,7 +78,9 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			$this->createMock(\OCP\IDBConnection::class),
 			$this->createIdentityL10n(),
-			$appLogger
+			$appLogger,
+			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
+			new \OCA\ChoreStrike\Service\CalendarService()
 		);
 
 		$this->expectException(NotFoundException::class);
@@ -137,7 +139,9 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			$this->createMock(\OCP\IDBConnection::class),
 			$this->createIdentityL10n(),
-			$appLogger
+			$appLogger,
+			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
+			new \OCA\ChoreStrike\Service\CalendarService()
 		);
 
 		$result = $service->bulkAssignTasks([20], 'target-user', 1);

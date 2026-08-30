@@ -66,6 +66,7 @@ Example: `ADR-001-use-vue3-for-frontend.md`
 6. [ADR-006: Service-Layer Authorization (Defense in Depth)](ADR-006-service-layer-authorization.md) - **Accepted** (2026-08-12)
 7. [ADR-007: Concurrency-Safe Task Completion](ADR-007-concurrency-safe-task-completion.md) - **Accepted** (2026-08-12)
 8. [ADR-008: Room-Type Template Materialization (No Floor/House Scope Columns)](ADR-008-room-type-template-materialization.md) - **Accepted** (2026-08-13)
+9. [ADR-009: Per-House Timezone for Calendar-Day Semantics](ADR-009-per-house-timezone.md) - **Accepted** (2026-08-30)
 
 ---
 

@@ -69,21 +69,32 @@ Get current user's house information.
 {
   "id": 1,
   "name": "My Home",
-  "house_health": 85,
-  "created_at": "2026-02-24T10:00:00Z"
+  "houseHealth": 85,
+  "timezone": "Europe/Berlin",
+  "createdAt": "2026-02-24T10:00:00Z"
 }
 ```
 
+`timezone` (CS-PLAN-057) is the IANA id used for all calendar-day bucketing
+(streaks, freezes, due-today, medal weeks, duplicate guard). Captured from
+the creator's Nextcloud timezone at house creation; `UTC` fallback.
+
 #### PUT /house
-Update house information.
+Update house name and (owner only) timezone.
 
 **Request:**
 ```json
 {
-  "name": "Updated Home Name"
+  "name": "Updated Home Name",
+  "timezone": "Europe/Berlin"
 }
 ```
 
+- `timezone` is optional; omitting it (or an empty string) leaves the
+  current timezone unchanged.
+- Unknown IANA identifiers are rejected with 400 `VALIDATION_ERROR`
+  ("Unknown timezone") — closed-set validation against the full IANA list.
+- Requires house ownership (403 otherwise).
 #### GET /house/stats
 House overview statistics for the Insights view (CS-PLAN-040).
 

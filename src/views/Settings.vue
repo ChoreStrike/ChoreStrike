@@ -59,6 +59,32 @@
 							</button>
 						</div>
 					</div>
+					<div class="form-group">
+						<label for="house-timezone">{{ t('chorestrike', 'Timezone') }}</label>
+						<p class="setting-hint">
+							{{ t('chorestrike', 'Calendar days, streaks and weekly goals are counted by this timezone.') }}
+						</p>
+						<div class="input-group">
+							<select
+								id="house-timezone"
+								v-model="houseTimezone"
+								class="text-input"
+								data-testid="house-timezone-select"
+								:disabled="houseStore.loading">
+								<option v-for="zone in curatedTimezones" :key="zone" :value="zone">
+									{{ zone }}
+								</option>
+							</select>
+							<button
+								class="save-button"
+								data-testid="save-house-timezone"
+								:disabled="!canSaveHouseTimezone || houseStore.loading"
+								@click="saveHouseTimezone">
+								<Icon name="Save" :size="16" />
+								{{ t('chorestrike', 'Save') }}
+							</button>
+						</div>
+					</div>
 				</div>
 			</section>
 
@@ -321,6 +347,7 @@ import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useUserStore } from '../store/user.js'
 import { useTitlesStore } from '../store/titles.js'
+import { CURATED_TIMEZONES } from '../constants/timezones.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import Modal from '../components/Common/Modal.vue'
@@ -352,6 +379,7 @@ export default {
 	data() {
 		return {
 			houseName: '',
+			houseTimezone: 'UTC',
 			showAddFloorModal: false,
 			showEditFloorModal: false,
 			showResetModal: false,
@@ -372,6 +400,14 @@ export default {
 	computed: {
 		canSaveHouseName() {
 			return this.houseName.trim() && this.houseName !== this.houseStore.houseName
+		},
+
+		canSaveHouseTimezone() {
+			return this.houseTimezone && this.houseTimezone !== this.houseStore.timezone
+		},
+
+		curatedTimezones() {
+			return CURATED_TIMEZONES
 		},
 
 		/**
@@ -413,6 +449,7 @@ export default {
 				await this.houseStore.fetchHouse()
 				await this.roomsStore.fetchFloorsWithRooms()
 				this.houseName = this.houseStore.houseName
+				this.houseTimezone = this.houseStore.timezone
 				await this.loadTitle()
 			} catch (error) {
 				logger.error('Failed to initialize settings', error, { view: 'Settings', action: 'initializeSettings' })
@@ -495,6 +532,20 @@ export default {
 			} catch (error) {
 				showError(t('chorestrike', 'Failed to save house name'))
 				logger.error('Failed to save house name', error, { view: 'Settings', action: 'saveHouseName' })
+			}
+		},
+
+		async saveHouseTimezone() {
+			if (!this.canSaveHouseTimezone) return
+			try {
+				// Name is passed unchanged so the owner-gated PUT keeps it intact.
+				await this.houseStore.updateHouseName(this.houseStore.houseName, this.houseTimezone)
+				showSuccess(t('chorestrike', 'Timezone saved'))
+			} catch (error) {
+				showError(t('chorestrike', 'Failed to save timezone'))
+				logger.error('Failed to save timezone', error, { view: 'Settings', action: 'saveHouseTimezone' })
+				// Re-sync the select with the persisted value.
+				this.houseTimezone = this.houseStore.timezone
 			}
 		},
 
@@ -671,6 +722,12 @@ export default {
 	font-size: 0.9rem;
 	font-weight: 500;
 	color: var(--color-main-text);
+}
+
+.setting-hint {
+	margin: 0;
+	font-size: 0.8rem;
+	color: var(--color-text-maxcontrast);
 }
 
 .input-group {

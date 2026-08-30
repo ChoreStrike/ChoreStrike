@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Http\JSONResponse;
@@ -48,7 +49,8 @@ class RoomTaskControllerTest extends TestCase {
 			$this->roomTaskService,
 			$this->houseService,
 			$this->authService,
-			$l10n
+			$l10n,
+			new CalendarService()
 		);
 	}
 

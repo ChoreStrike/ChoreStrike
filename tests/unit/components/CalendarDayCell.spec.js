@@ -1,11 +1,19 @@
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import CalendarDayCell from '@/components/Tasks/CalendarDayCell.vue'
+import { useHouseStore } from '../../../src/store/house.js'
+import { todayKeyInZone } from '../../../src/utils/dateKeys.js'
 
 describe('CalendarDayCell', () => {
-	// Local-date "today" (the component builds its key from local date
-	// parts); toISOString() would be UTC and diverge around local midnight.
-	const now = new Date()
-	const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+	// CS-PLAN-057: the cell compares against the house-local "today" key.
+	// These specs pin a UTC house so the key is deterministic on any host.
+	let today
+
+	beforeEach(() => {
+		setActivePinia(createPinia())
+		useHouseStore().house = { id: 1, timezone: 'UTC' }
+		today = todayKeyInZone('UTC')
+	})
 
 	it('renders day label', () => {
 		const wrapper = mount(CalendarDayCell, {

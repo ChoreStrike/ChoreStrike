@@ -41,6 +41,8 @@ class FamilyIntegrationTest extends TestCase {
 			$rewardConfigService,
 			$notificationService,
 			$this->createMock(\OCA\ChoreStrike\Service\AppLogger::class),
+			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
+			new \OCA\ChoreStrike\Service\CalendarService(),
 			null
 		);
 	}

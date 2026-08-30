@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
@@ -49,7 +50,8 @@ class HouseControllerTest extends TestCase {
 			$this->authService,
 			$this->activityService,
 			$l10n,
-			$this->createMock(AppLogger::class)
+			$this->createMock(AppLogger::class),
+			new CalendarService()
 		);
 	}
 
@@ -133,8 +135,8 @@ class HouseControllerTest extends TestCase {
 		$this->authService->method('requireHouseOwner');
 
 		$this->houseService->expects($this->once())
-			->method('updateHouseName')
-			->with(1, 'New House Name')
+			->method('updateHouse')
+			->with(1, 'New House Name', null)
 			->willReturn($house);
 
 		$response = $this->controller->update('New House Name');

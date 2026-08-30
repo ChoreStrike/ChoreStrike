@@ -24,6 +24,7 @@ use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IL10N;
+use OCP\IUserSession;
 
 /**
  * Service for house-related business logic
@@ -44,6 +45,8 @@ class HouseService {
 	private IDBConnection $db;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
+	private IUserSession $userSession;
+	private CalendarService $calendarService;
 
 	public function __construct(
 		HouseMapper $houseMapper,
@@ -58,6 +61,8 @@ class HouseService {
 		IDBConnection $db,
 		IL10N $l10n,
 		AppLogger $appLogger,
+		IUserSession $userSession,
+		CalendarService $calendarService,
 	) {
 		$this->houseMapper = $houseMapper;
 		$this->floorMapper = $floorMapper;
@@ -71,6 +76,8 @@ class HouseService {
 		$this->db = $db;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
+		$this->userSession = $userSession;
+		$this->calendarService = $calendarService;
 	}
 
 	/**
@@ -172,19 +179,44 @@ class HouseService {
 				'instanceId' => $instanceId,
 				'houseName' => $houseName,
 			]);
-			return $this->houseMapper->createForInstance($instanceId, $houseName);
+			// CS-PLAN-057 D1: capture the creator's Nextcloud timezone at
+			// house creation so day bucketing is locally correct from the
+			// first request (never a bare UTC default when avoidable).
+			return $this->houseMapper->createForInstance($instanceId, $houseName, $this->resolveCreationTimezone());
 		}
 	}
 
 	/**
-	 * Update house name
+	 * Resolve the creator's timezone for a fresh house (CS-PLAN-057 D1).
+	 *
+	 * Prefers the Nextcloud user preference (`core.timezone`, set by the
+	 * client-side detection in the personal settings); falls back to the
+	 * server default timezone, which on Nextcloud is UTC.
+	 */
+	private function resolveCreationTimezone(): string {
+		$user = $this->userSession->getUser();
+		if ($user !== null) {
+			$tz = $this->config->getUserValue($user->getUID(), 'core', 'timezone', '');
+			if (is_string($tz) && $tz !== '' && $this->calendarService->isValidTimeZone($tz)) {
+				return $tz;
+			}
+		}
+		return date_default_timezone_get();
+	}
+
+	/**
+	 * Update house name and/or timezone
 	 *
 	 * @param int $houseId The house ID
 	 * @param string $name The new name
+	 * @param string|null $timezone The new IANA timezone id (null = leave unchanged)
 	 */
-	public function updateHouseName(int $houseId, string $name): House {
+	public function updateHouse(int $houseId, string $name, ?string $timezone = null): House {
 		$house = $this->houseMapper->find($houseId);
 		$house->setName($name);
+		if ($timezone !== null) {
+			$house->setTimezone($timezone);
+		}
 		$house->touch();
 		return $this->houseMapper->update($house);
 	}
@@ -336,14 +368,18 @@ class HouseService {
 	 * The achieved-flag explicitly requires at least one due or completed task
 	 * so a brand-new empty house doesn't trigger a spurious celebration.
 	 *
-	 * Week bounds are Monday 00:00:00 → Sunday 23:59:59 in the server timezone
-	 * (consistent with GameLogicService::getWeekStart's Monday-start).
+	 * Week bounds are Monday 00:00:00 → Sunday 23:59:59 in the house
+	 * timezone (CS-PLAN-057), consistent with GameLogicService's medal week
+	 * (both via CalendarService::weekStart).
 	 *
 	 * @param int $houseId The house ID
 	 * @return array{dueCount: int, completedCount: int, percent: int, targetPercent: int, achieved: bool, weekStart: string, weekEnd: string}
 	 */
 	public function getWeeklyGoalProgress(int $houseId): array {
-		[$weekStart, $weekEnd] = $this->getWeekBounds();
+		$house = $this->houseMapper->find($houseId);
+		$tz = $this->calendarService->getTimeZone($house);
+		$weekStart = $this->calendarService->weekStart(new \DateTime(), $tz);
+		$weekEnd = (clone $weekStart)->modify('+7 days')->modify('-1 second');
 
 		$activeDueIds = $this->roomTaskMapper->findActiveDueIdsBetweenByHouse($houseId, $weekStart, $weekEnd);
 		$completedIds = $this->completedTaskMapper->findCompletedRoomTaskIdsBetweenByHouse($houseId, $weekStart, $weekEnd);
@@ -375,18 +411,5 @@ class HouseService {
 			'weekStart' => $weekStart->format('c'),
 			'weekEnd' => $weekEnd->format('c'),
 		];
-	}
-
-	/**
-	 * Get the current week's Monday 00:00:00 → Sunday 23:59:59 bounds.
-	 *
-	 * @return array{\DateTimeImmutable, \DateTimeImmutable}
-	 */
-	private function getWeekBounds(): array {
-		$today = new \DateTimeImmutable('today');
-		$dayOfWeek = (int)$today->format('N'); // 1 (Mon) .. 7 (Sun)
-		$monday = $today->modify('-' . ($dayOfWeek - 1) . ' days')->setTime(0, 0, 0);
-		$sunday = $monday->modify('+6 days')->setTime(23, 59, 59);
-		return [$monday, $sunday];
 	}
 }

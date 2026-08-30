@@ -86,57 +86,69 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { translate as t, getDayNames, getLocale } from '@nextcloud/l10n'
 import { useSchedulingStore } from '../../store/scheduling.js'
+import { useHouseStore } from '../../store/house.js'
+import { addDaysToKey, todayKeyInZone, weekdayOfKey } from '../../utils/dateKeys.js'
 import { isMemberAvailable, getMemberEnergy } from '../../constants/scheduling.js'
 
 const schedulingStore = useSchedulingStore()
+const houseStore = useHouseStore()
 
-const currentWeekStart = ref(new Date())
+// CS-PLAN-057: the calendar week is anchored on the house-local "today"
+// day key, so the week grid, today-highlight and the per-day energy keys
+// agree with the backend's day bucketing regardless of browser timezone.
+// Initialized synchronously (not onMounted) so the first render already
+// shows the week.
+const currentWeekStartKey = ref(null)
 const weekDays = ref([])
 
 // Locale-aware calendar names (CR-016-06): day names come from the
-// Nextcloud translations (Sunday-first, indexed by Date.getDay()), the
-// week range is formatted with Intl for the user's Nextcloud locale.
+// Nextcloud translations (Sunday-first, indexed by Date.getUTCDay()), the
+// week range is formatted with Intl for the user's Nextcloud locale. The
+// range label formats the (house-local) grid keys verbatim — the formatter
+// is pinned to UTC and fed the key's noon, so the displayed date parts are
+// exactly the key's.
 const localizedDayNames = getDayNames()
-const rangeFormatter = new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'short' })
+const rangeFormatter = new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'short', timeZone: 'UTC' })
 
 const members = computed(() => schedulingStore.memberAvailability)
 
-const weekRange = computed(() => {
-	const start = new Date(currentWeekStart.value)
-	const end = new Date(start)
-	end.setDate(start.getDate() + 6)
-	return `${rangeFormatter.format(start)} - ${rangeFormatter.format(end)}`
-})
-
-const dayKeyFromDate = (date) => {
-	const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-	return dayNames[date.getDay()]
+const dateAtNoonUtc = (key) => {
+	const [year, month, day] = key.split('-').map(Number)
+	return new Date(Date.UTC(year, month - 1, day, 12))
 }
 
-// Local YYYY-MM-DD (avoids the UTC drift of toISOString() near midnight, which
-// made the "today" highlight land on the wrong cell in non-UTC timezones).
-const localDateString = (date) => {
-	const y = date.getFullYear()
-	const m = String(date.getMonth() + 1).padStart(2, '0')
-	const d = String(date.getDate()).padStart(2, '0')
-	return `${y}-${m}-${d}`
+const weekRange = computed(() => {
+	if (weekDays.value.length === 0) return ''
+	const first = weekDays.value[0]
+	const last = weekDays.value[weekDays.value.length - 1]
+	return `${rangeFormatter.format(dateAtNoonUtc(first.date))} - ${rangeFormatter.format(dateAtNoonUtc(last.date))}`
+})
+
+const weekdayIndexOfKey = (key) => {
+	const [year, month, day] = key.split('-').map(Number)
+	return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+}
+
+const mondayOfWeekOfKey = (key) => {
+	const index = weekdayIndexOfKey(key)
+	// Monday-start week (matches the availability/energy data model).
+	return addDaysToKey(key, index === 0 ? -6 : 1 - index)
 }
 
 const generateWeekDays = () => {
-	const start = new Date(currentWeekStart.value)
+	if (!currentWeekStartKey.value) return
 	const days = []
 
 	for (let i = 0; i < 7; i++) {
-		const date = new Date(start)
-		date.setDate(start.getDate() + i)
+		const key = addDaysToKey(currentWeekStartKey.value, i)
 		days.push({
-			date: localDateString(date),
-			name: localizedDayNames[date.getDay()],
-			dayNumber: date.getDate(),
-			dayKey: dayKeyFromDate(date),
+			date: key,
+			name: localizedDayNames[weekdayIndexOfKey(key)],
+			dayNumber: Number(key.slice(8, 10)),
+			dayKey: weekdayOfKey(key),
 		})
 	}
 
@@ -177,43 +189,30 @@ const getMemberDayEnergy = (member, dayKey) => {
 }
 
 const isToday = (date) => {
-	return date === localDateString(new Date())
+	return date === todayKeyInZone(houseStore.timezone)
 }
 
 const isWeekend = (date) => {
-	const day = new Date(date).getDay()
-	return day === 0 || day === 6
+	const dayName = weekdayOfKey(date)
+	return dayName === 'saturday' || dayName === 'sunday'
 }
 
 const previousWeek = () => {
-	const newStart = new Date(currentWeekStart.value)
-	newStart.setDate(newStart.getDate() - 7)
-	currentWeekStart.value = newStart
+	currentWeekStartKey.value = addDaysToKey(currentWeekStartKey.value, -7)
 	generateWeekDays()
 }
 
 const nextWeek = () => {
-	const newStart = new Date(currentWeekStart.value)
-	newStart.setDate(newStart.getDate() + 7)
-	currentWeekStart.value = newStart
+	currentWeekStartKey.value = addDaysToKey(currentWeekStartKey.value, 7)
 	generateWeekDays()
 }
 
 const goToToday = () => {
-	const today = new Date()
-	// Monday-start week (matches the availability/energy data model).
-	const dayOfWeek = today.getDay()
-	const offset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-	const startOfWeek = new Date(today)
-	startOfWeek.setDate(today.getDate() + offset)
-	currentWeekStart.value = startOfWeek
+	currentWeekStartKey.value = mondayOfWeekOfKey(todayKeyInZone(houseStore.timezone))
 	generateWeekDays()
 }
 
-onMounted(() => {
-	// Open on the current week instead of today + 6 days.
-	goToToday()
-})
+goToToday()
 
 watch(() => schedulingStore.memberAvailability, () => {
 	generateWeekDays()

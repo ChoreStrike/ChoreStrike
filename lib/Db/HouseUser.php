@@ -162,10 +162,15 @@ class HouseUser extends Entity implements JsonSerializable {
 	/**
 	 * Calculate streak with respect to absence days
 	 *
+	 * CS-PLAN-057: with $timeZone supplied, the today/last-activity day keys
+	 * are computed in the house timezone (CalendarService day-key
+	 * convention); otherwise the server timezone.
+	 *
 	 * @param array $weekdayAvailability Weekday availability from scheduling preferences
+	 * @param \DateTimeZone|null $timeZone House timezone for the day keys
 	 * @return int New streak value
 	 */
-	public function calculateStreakWithAbsence(array $weekdayAvailability): int {
+	public function calculateStreakWithAbsence(array $weekdayAvailability, ?\DateTimeZone $timeZone = null): int {
 		$lastActivity = $this->getLastActivity();
 
 		// If no previous activity, start streak at 1
@@ -173,9 +178,12 @@ class HouseUser extends Entity implements JsonSerializable {
 			return 1;
 		}
 
-		$today = new \DateTime();
+		$today = new \DateTime('now', $timeZone);
 		$today->setTime(0, 0, 0);
 		$lastActivityDate = clone $lastActivity;
+		if ($timeZone !== null) {
+			$lastActivityDate->setTimezone($timeZone);
+		}
 		$lastActivityDate->setTime(0, 0, 0);
 
 		// Check if last activity was today already

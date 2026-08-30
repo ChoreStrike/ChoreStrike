@@ -8,24 +8,11 @@ import { translate as t } from '@nextcloud/l10n'
 import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 import { createDefaultEnergyBudget, resolveEnergyForDay } from '../utils/energyBudgets.js'
+import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import { isMemberAvailable, weekDays } from '../constants/scheduling.js'
+import { useHouseStore } from './house.js'
 import { useRoomTasksStore } from './roomTasks.js'
 import { useTasksStore } from './tasks.js'
-
-const WEEKDAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-
-/**
- * Local YYYY-MM-DD for a Date (no UTC drift near midnight).
- *
- * @param {Date} date The date to format
- * @return {string} Local YYYY-MM-DD key
- */
-function localDateKey(date) {
-	const y = date.getFullYear()
-	const m = String(date.getMonth() + 1).padStart(2, '0')
-	const d = String(date.getDate()).padStart(2, '0')
-	return `${y}-${m}-${d}`
-}
 
 /**
  * Store for managing member availability and scheduling preferences
@@ -98,17 +85,19 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 * Planned energy for a calendar day: Σ energyCost of active room
 		 * tasks due that day, joined via the tasks store energy map
 		 * (CS-PLAN-040 / FEAT-UX-022). The canonical planned-energy source.
+		 * Day keys are house-local (CS-PLAN-057).
 		 *
-		 * @return {(dateKey: string) => number} Function that takes a local YYYY-MM-DD key
+		 * @return {(dateKey: string) => number} Function that takes a house-local YYYY-MM-DD key
 		 */
 		plannedEnergyForDay: () => (dateKey) => {
 			const roomTasksStore = useRoomTasksStore()
 			const tasksStore = useTasksStore()
+			const houseStore = useHouseStore()
 
 			let total = 0
 			for (const roomTask of roomTasksStore.roomTasks) {
 				if (!roomTask.isActive || !roomTask.nextDue) continue
-				if (localDateKey(new Date(roomTask.nextDue)) !== dateKey) continue
+				if (dateKeyInZone(roomTask.nextDue, houseStore.timezone) !== dateKey) continue
 				const task = tasksStore.getTaskById(roomTask.taskId)
 				total += task?.energyCost ?? 0
 			}
@@ -119,7 +108,8 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 * Days (next 7, starting today) whose planned energy exceeds the
 		 * available capacity, each with the would-be-deferred tasks sorted
 		 * LOWEST priority first — the locked overcapacity policy's warning
-		 * duty (CS-PLAN-040 / FEAT-UX-022).
+		 * duty (CS-PLAN-040 / FEAT-UX-022). Day keys are house-local
+		 * (CS-PLAN-057).
 		 *
 		 * Pinia option-getters receive the store only — sibling getters are
 		 * reached via `this`.
@@ -128,13 +118,14 @@ export const useSchedulingStore = defineStore('scheduling', {
 		overcapacityDays() {
 			const roomTasksStore = useRoomTasksStore()
 			const tasksStore = useTasksStore()
+			const houseStore = useHouseStore()
 
 			const dueByDay = {}
 			for (const roomTask of roomTasksStore.roomTasks) {
 				if (!roomTask.isActive || !roomTask.nextDue) continue
 				const task = tasksStore.getTaskById(roomTask.taskId)
 				if (!task) continue
-				const dateKey = localDateKey(new Date(roomTask.nextDue))
+				const dateKey = dateKeyInZone(roomTask.nextDue, houseStore.timezone)
 				if (!dueByDay[dateKey]) {
 					dueByDay[dateKey] = []
 				}
@@ -146,18 +137,16 @@ export const useSchedulingStore = defineStore('scheduling', {
 				})
 			}
 
-			const today = new Date()
-			today.setHours(0, 0, 0, 0)
+			const todayKey = todayKeyInZone(houseStore.timezone)
 
 			const overloaded = []
 			for (let i = 0; i < 7; i++) {
-				const day = new Date(today)
-				day.setDate(today.getDate() + i)
-				const dateKey = localDateKey(day)
+				const dateKey = addDaysToKey(todayKey, i)
+				if (!dateKey) break
 				const items = dueByDay[dateKey]
 				if (!items) continue
 
-				const dayName = WEEKDAY_KEYS[day.getDay()]
+				const dayName = weekdayOfKey(dateKey)
 				const planned = items.reduce((sum, item) => sum + item.energyCost, 0)
 				const capacity = this.getCapacityForDay(dayName)
 				if (planned <= capacity) continue

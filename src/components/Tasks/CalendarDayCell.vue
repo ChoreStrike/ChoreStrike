@@ -20,6 +20,9 @@
 </template>
 
 <script>
+import { todayKeyInZone } from '../../utils/dateKeys.js'
+import { useHouseStore } from '../../store/house.js'
+
 export default {
 	name: 'CalendarDayCell',
 
@@ -48,11 +51,9 @@ export default {
 		},
 
 		isToday() {
-			const now = new Date()
-			const y = now.getFullYear()
-			const m = String(now.getMonth() + 1).padStart(2, '0')
-			const d = String(now.getDate()).padStart(2, '0')
-			return this.day === `${y}-${m}-${d}`
+			// House-local "today" (CS-PLAN-057) — the grid keys are
+			// house-local day keys.
+			return this.day === todayKeyInZone(useHouseStore().timezone)
 		},
 	},
 }

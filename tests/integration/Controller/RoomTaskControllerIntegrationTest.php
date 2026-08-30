@@ -7,6 +7,7 @@ namespace OCA\ChoreStrike\Tests\Integration\Controller;
 use OCA\ChoreStrike\Controller\RoomTaskController;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\IL10N;
@@ -39,7 +40,8 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 			$this->roomTaskService,
 			$this->houseService,
 			$this->authService,
-			$l10n
+			$l10n,
+			new CalendarService()
 		);
 	}
 

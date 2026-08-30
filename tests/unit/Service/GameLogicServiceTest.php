@@ -6,6 +6,8 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Medal;
@@ -13,6 +15,7 @@ use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RewardConfigService;
@@ -31,6 +34,7 @@ class GameLogicServiceTest extends TestCase {
 	private RewardConfigService $configService;
 	private NotificationService $notificationService;
 	private AppLogger $appLogger;
+	private HouseMapper $houseMapper;
 
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
@@ -39,6 +43,12 @@ class GameLogicServiceTest extends TestCase {
 		$this->configService = $this->createMock(RewardConfigService::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
+		$this->houseMapper = $this->createMock(HouseMapper::class);
+		// CS-PLAN-057: medal week resolves the house timezone — default to a
+		// UTC house.
+		$utcHouse = new House();
+		$utcHouse->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($utcHouse);
 
 		$this->configService->method('getCoinBasePerEnergy')->willReturn(10);
 		$this->configService->method('getEarlyBonusThresholdDays')->willReturn(21);
@@ -47,14 +57,24 @@ class GameLogicServiceTest extends TestCase {
 		$this->configService->method('getComboBonusFreezeThreshold')->willReturn(5);
 		$this->configService->method('getComboMultiplier')->willReturn(2.0);
 
-		$this->service = new GameLogicService(
+		$this->service = $this->buildService(null);
+	}
+
+	/**
+	 * CS-PLAN-057: medal/week logic resolves the house timezone via the
+	 * house mapper; UTC house in these pins unless overridden.
+	 */
+	private function buildService(?TitleService $titleService, ?HouseMapper $houseMapper = null): GameLogicService {
+		return new GameLogicService(
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->medalMapper,
 			$this->configService,
 			$this->notificationService,
 			$this->appLogger,
-			null
+			$houseMapper ?? $this->houseMapper,
+			new CalendarService(),
+			$titleService
 		);
 	}
 
@@ -994,6 +1014,8 @@ class GameLogicServiceTest extends TestCase {
 				$this->configService,
 				$this->notificationService,
 				$this->createMock(AppLogger::class),
+				$this->createMock(HouseMapper::class),
+				new CalendarService(),
 				null
 			);
 
@@ -1070,6 +1092,8 @@ class GameLogicServiceTest extends TestCase {
 			$this->configService,
 			$this->notificationService,
 			$this->createMock(AppLogger::class),
+			$this->houseMapper,
+			new CalendarService(),
 			null
 		);
 
@@ -1100,6 +1124,8 @@ class GameLogicServiceTest extends TestCase {
 			$this->configService,
 			$this->notificationService,
 			$this->createMock(AppLogger::class),
+			$this->houseMapper,
+			new CalendarService(),
 			$titleService
 		);
 	}
@@ -1220,6 +1246,8 @@ class GameLogicServiceTest extends TestCase {
 			$this->configService,
 			$this->notificationService,
 			$this->createMock(AppLogger::class),
+			$this->houseMapper,
+			new CalendarService(),
 			$titleService
 		);
 

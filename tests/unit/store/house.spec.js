@@ -74,6 +74,21 @@ describe('House Store', () => {
 			store.house = { id: 1 }
 			expect(store.hasHouse).toBe(true)
 		})
+
+		// CS-PLAN-057: the timezone getter feeds every day-key computation.
+		it('timezone returns UTC fallback when no house', () => {
+			expect(store.timezone).toBe('UTC')
+		})
+
+		it('timezone returns the house timezone when loaded', () => {
+			store.house = { id: 1, timezone: 'Europe/Berlin' }
+			expect(store.timezone).toBe('Europe/Berlin')
+		})
+
+		it('timezone falls back to UTC for a house without timezone', () => {
+			store.house = { id: 1 }
+			expect(store.timezone).toBe('UTC')
+		})
 	})
 
 	describe('Actions', () => {
@@ -127,6 +142,25 @@ describe('House Store', () => {
 			it('throws error for empty name', async () => {
 				await expect(store.updateHouseName('')).rejects.toThrow('House name is required')
 				await expect(store.updateHouseName('   ')).rejects.toThrow('House name is required')
+			})
+
+			// CS-PLAN-057: the timezone select saves through the same endpoint.
+			it('sends the timezone when provided', async () => {
+				const updatedHouse = { id: 1, name: 'Test House', timezone: 'Europe/Berlin' }
+				api.put.mockResolvedValue(updatedHouse)
+
+				await store.updateHouseName('Test House', 'Europe/Berlin')
+
+				expect(api.put).toHaveBeenCalledWith('/api/v1/house', { name: 'Test House', timezone: 'Europe/Berlin' })
+				expect(store.timezone).toBe('Europe/Berlin')
+			})
+
+			it('omits the timezone from the payload when not provided', async () => {
+				api.put.mockResolvedValue({ id: 1, name: 'New Name' })
+
+				await store.updateHouseName('New Name', null)
+
+				expect(api.put).toHaveBeenCalledWith('/api/v1/house', { name: 'New Name' })
 			})
 		})
 

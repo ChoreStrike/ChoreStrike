@@ -10,6 +10,8 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
@@ -20,6 +22,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\IL10N;
@@ -36,6 +39,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
 	private HouseUserMapper|MockObject $houseUserMapper;
 	private CompletedTaskMapper|MockObject $completedTaskMapper;
+	private HouseMapper|MockObject $houseMapper;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -46,6 +50,12 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+		$this->houseMapper = $this->createMock(HouseMapper::class);
+		// CS-PLAN-057: day windows resolve the house timezone (UTC here, so
+		// the [start, end) bounds match the injected date's UTC calendar day).
+		$utcHouse = new House();
+		$utcHouse->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($utcHouse);
 
 		$this->service = new RoomTaskService(
 			$this->roomTaskMapper,
@@ -59,7 +69,9 @@ class RoomTaskServiceDailyTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			$this->createMock(\OCP\IDBConnection::class),
 			$this->createIdentityL10n(),
-			$this->createMock(AppLogger::class)
+			$this->createMock(AppLogger::class),
+			$this->houseMapper,
+			new CalendarService()
 		);
 	}
 
@@ -78,7 +90,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 
 		$this->roomTaskMapper->expects($this->once())
 			->method('findDailyTasks')
-			->with($houseId, $date)
+			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
 			->willReturn([$roomTask]);
 
 		$result = $this->service->getDailyTasks($houseId, $date);
@@ -133,7 +145,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		// Mock daily tasks
 		$this->roomTaskMapper->expects($this->once())
 			->method('findDailyTasks')
-			->with($houseId, $date)
+			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
 			->willReturn([$roomTask1, $roomTask2]);
 
 		$this->taskMapper->expects($this->any())
@@ -187,7 +199,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		// Mock daily tasks
 		$this->roomTaskMapper->expects($this->once())
 			->method('findDailyTasks')
-			->with($houseId, $date)
+			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
 			->willReturn([$roomTask1]);
 
 		// Create real HouseUser entity (child with weekend-only availability)
@@ -250,7 +262,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		// Mock daily tasks
 		$this->roomTaskMapper->expects($this->once())
 			->method('findDailyTasks')
-			->with($houseId, $date)
+			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
 			->willReturn($roomTasks);
 
 		$this->taskMapper->expects($this->any())
@@ -322,7 +334,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		// Mock daily tasks
 		$this->roomTaskMapper->expects($this->once())
 			->method('findDailyTasks')
-			->with($houseId, $date)
+			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
 			->willReturn([$roomTask1, $roomTask2]);
 
 		$this->taskMapper->expects($this->any())

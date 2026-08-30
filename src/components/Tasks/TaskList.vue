@@ -254,6 +254,8 @@ import OverdueClaimDialog from './OverdueClaimDialog.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 import { useUserStore } from '../../store/user.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { useHouseStore } from '../../store/house.js'
+import { dateKeyInZone, todayKeyInZone } from '../../utils/dateKeys.js'
 import { logger } from '../../utils/logger.js'
 
 export default {
@@ -284,6 +286,7 @@ export default {
 		const checklistStore = useChecklistStore()
 		const userStore = useUserStore()
 		const roomTasksStore = useRoomTasksStore()
+		const houseStore = useHouseStore()
 		const expandedTaskId = ref(null)
 		// Local draft of assignee user IDs per expanded room task (optimistic)
 		const assigneeDraft = ref({})
@@ -328,11 +331,8 @@ export default {
 			const due = new Date(roomTask.nextDue)
 			const now = new Date()
 			if (due < now) return 'overdue'
-			const today = new Date()
-			today.setHours(0, 0, 0, 0)
-			const tomorrow = new Date(today)
-			tomorrow.setDate(tomorrow.getDate() + 1)
-			if (due >= today && due < tomorrow) return 'today'
+			// House-local day bucketing (CS-PLAN-057).
+			if (dateKeyInZone(roomTask.nextDue, houseStore.timezone) === todayKeyInZone(houseStore.timezone)) return 'today'
 			return 'upcoming'
 		}
 

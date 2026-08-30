@@ -29,6 +29,7 @@ class HouseController extends Controller {
 	private AuthorizationService $authService;
 	private ActivityService $activityService;
 	private IL10N $l;
+	private \OCA\ChoreStrike\Service\CalendarService $calendarService;
 
 	public function __construct(
 		IRequest $request,
@@ -37,12 +38,14 @@ class HouseController extends Controller {
 		ActivityService $activityService,
 		IL10N $l,
 		AppLogger $appLogger,
+		\OCA\ChoreStrike\Service\CalendarService $calendarService,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->activityService = $activityService;
 		$this->l = $l;
+		$this->calendarService = $calendarService;
 		$this->initializeControllerLogger($appLogger);
 	}
 
@@ -76,11 +79,11 @@ class HouseController extends Controller {
 	}
 
 	/**
-	 * Update house name
+	 * Update house name and (optionally) timezone
 	 *
 	 * @NoAdminRequired
 	 */
-	public function update(string $name): JSONResponse {
+	public function update(string $name, string $timezone = ''): JSONResponse {
 		try {
 			if (empty(trim($name))) {
 				return new JSONResponse([
@@ -88,6 +91,18 @@ class HouseController extends Controller {
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
 						'message' => $this->l->t('House name is required')
+					]
+				], 400);
+			}
+
+			// CS-PLAN-057: closed-set validation against the IANA identifier
+			// list — unknown ids are rejected, empty means "leave unchanged".
+			if ($timezone !== '' && !$this->calendarService->isValidTimeZone($timezone)) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'VALIDATION_ERROR',
+						'message' => $this->l->t('Unknown timezone')
 					]
 				], 400);
 			}
@@ -103,7 +118,11 @@ class HouseController extends Controller {
 			// Require house ownership for update
 			$this->authService->requireHouseOwner($house->getId());
 
-			$updatedHouse = $this->houseService->updateHouseName($house->getId(), $name);
+			$updatedHouse = $this->houseService->updateHouse(
+				$house->getId(),
+				$name,
+				$timezone !== '' ? $timezone : null
+			);
 
 			return new JSONResponse([
 				'success' => true,

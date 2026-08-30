@@ -161,6 +161,8 @@ import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useTasksStore } from '../store/tasks.js'
+import { useHouseStore } from '../store/house.js'
+import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
@@ -186,8 +188,9 @@ export default {
 		const roomsStore = useRoomsStore()
 		const tasksStore = useTasksStore()
 		const userStore = useUserStore()
+		const houseStore = useHouseStore()
 		const route = useRoute()
-		return { roomTasksStore, roomsStore, tasksStore, userStore, route }
+		return { roomTasksStore, roomsStore, tasksStore, userStore, houseStore, route }
 	},
 
 	data() {
@@ -236,14 +239,11 @@ export default {
 					return new Date(t.roomTask.nextDue) < new Date()
 				})
 			} else if (this.filterStatus === 'due-today') {
-				const today = new Date()
-				today.setHours(0, 0, 0, 0)
-				const tomorrow = new Date(today)
-				tomorrow.setDate(tomorrow.getDate() + 1)
+				// House-local day bucketing (CS-PLAN-057).
+				const todayKey = todayKeyInZone(this.houseStore.timezone)
 				tasks = tasks.filter(t => {
 					if (!t.roomTask.isActive || !t.roomTask.nextDue) return false
-					const dueDate = new Date(t.roomTask.nextDue)
-					return dueDate >= today && dueDate < tomorrow
+					return dateKeyInZone(t.roomTask.nextDue, this.houseStore.timezone) === todayKey
 				})
 			} else if (this.filterStatus === 'completed') {
 				tasks = tasks.filter(t => !t.roomTask.isActive)

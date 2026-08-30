@@ -44,6 +44,8 @@ import { ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { useHouseStore } from '../../store/house.js'
+import { dateKeyInZone } from '../../utils/dateKeys.js'
 import { logger } from '../../utils/logger.js'
 import AssigneeChips from './AssigneeChips.vue'
 
@@ -71,16 +73,21 @@ export default {
 
 	setup(props, { emit }) {
 		const roomTasksStore = useRoomTasksStore()
+		const houseStore = useHouseStore()
 		const saving = ref(false)
 
-		const dueDate = ref(props.roomTask.nextDue ? props.roomTask.nextDue.slice(0, 10) : '')
+		// House-local day keys (CS-PLAN-057): the picker default and the
+		// change-detection baseline bucket the stored instant in the
+		// household's timezone, matching the backend's reinterpretation of
+		// the submitted Y-m-d key.
+		const dueDate = ref(props.roomTask.nextDue ? dateKeyInZone(props.roomTask.nextDue, houseStore.timezone) : '')
 		const assigneeUserIds = ref([...(props.roomTask.assignees || [])])
 		const taskName = props.task?.name || t('chorestrike', 'Edit task')
 
 		const save = async () => {
 			saving.value = true
 			try {
-				const originalDue = props.roomTask.nextDue ? props.roomTask.nextDue.slice(0, 10) : ''
+				const originalDue = props.roomTask.nextDue ? dateKeyInZone(props.roomTask.nextDue, houseStore.timezone) : ''
 				if (dueDate.value && dueDate.value !== originalDue) {
 					await roomTasksStore.updateRoomTaskDueDate(props.roomTask.id, dueDate.value)
 				}

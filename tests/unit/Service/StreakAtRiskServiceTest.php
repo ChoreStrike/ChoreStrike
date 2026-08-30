@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\StreakAtRiskService;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -21,6 +24,9 @@ use PHPUnit\Framework\TestCase;
  * function of that injected date — the regression that makes the
  * DailyNotificationJob refactor safe. Before the refactor these tests
  * were not possible: the job hardcoded `new \DateTime('yesterday')`.
+ *
+ * CS-PLAN-057: the pass buckets the day in the house timezone (UTC house
+ * in these pins, so the day keys match the injected date).
  */
 class StreakAtRiskServiceTest extends TestCase {
 	/** Fixed injected "yesterday": a Wednesday, independent of the real clock. */
@@ -31,6 +37,7 @@ class StreakAtRiskServiceTest extends TestCase {
 	private CompletedTaskMapper&MockObject $completedTaskMapper;
 	private NotificationService&MockObject $notificationService;
 	private AppLogger&MockObject $appLogger;
+	private HouseMapper&MockObject $houseMapper;
 	private StreakAtRiskService $service;
 	private \DateTime $yesterday;
 
@@ -39,13 +46,20 @@ class StreakAtRiskServiceTest extends TestCase {
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
+		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->yesterday = new \DateTime(self::YESTERDAY);
+
+		$utcHouse = new House();
+		$utcHouse->setTimezone('UTC');
+		$this->houseMapper->method('findOneForJobs')->willReturn($utcHouse);
 
 		$this->service = new StreakAtRiskService(
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->notificationService,
 			$this->appLogger,
+			$this->houseMapper,
+			new CalendarService(),
 		);
 	}
 
@@ -80,9 +94,16 @@ class StreakAtRiskServiceTest extends TestCase {
 		$this->houseUserMapper->method('findAllForJobs')->willReturn([]);
 		$this->completedTaskMapper->expects($this->once())
 			->method('countByUserOnDateGrouped')
-			->with($this->callback(function (\DateTimeInterface $date) {
-				return $date->format('Y-m-d') === '2026-07-29';
-			}))
+			->with(
+				$this->callback(function (\DateTimeInterface $start) {
+					return $start->format('Y-m-d') === '2026-07-29'
+						&& $start->format('H:i:s') === '00:00:00';
+				}),
+				$this->callback(function (\DateTimeInterface $end) {
+					return $end->format('Y-m-d') === '2026-07-30'
+						&& $end->format('H:i:s') === '00:00:00';
+				})
+			)
 			->willReturn([]);
 
 		$this->service->process($this->yesterday);

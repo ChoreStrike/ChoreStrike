@@ -13,12 +13,14 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IL10N;
+use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -63,7 +65,7 @@ class HouseServiceLoggingTest extends TestCase {
 
 		$houseMapper->expects($this->once())
 			->method('createForInstance')
-			->with('instance-1', 'Family Home')
+			->with('instance-1', 'Family Home', $this->isType('string'))
 			->willReturn($house);
 
 		$service = new HouseService(
@@ -78,7 +80,9 @@ class HouseServiceLoggingTest extends TestCase {
 			$config,
 			$db,
 			$this->createIdentityL10n(),
-			$appLogger
+			$appLogger,
+			$this->createMock(IUserSession::class),
+			new CalendarService()
 		);
 
 		$result = $service->getOrCreateHouse('instance-1', 'Family Home');

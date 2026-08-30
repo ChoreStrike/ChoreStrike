@@ -83,6 +83,8 @@ import { translate as t } from '@nextcloud/l10n'
 import { useRouter } from 'vue-router'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
+import { useHouseStore } from '../../store/house.js'
+import { dateKeyInZone, todayKeyInZone } from '../../utils/dateKeys.js'
 import { logger } from '../../utils/logger.js'
 import Icon from '../Common/Icon.vue'
 import { resolveRoomIcon } from '../../utils/roomIcons.js'
@@ -108,6 +110,7 @@ export default {
 		const router = useRouter()
 		const roomsStore = useRoomsStore()
 		const roomTasksStore = useRoomTasksStore()
+		const houseStore = useHouseStore()
 
 		const loading = ref(false)
 
@@ -179,15 +182,12 @@ export default {
 
 		const dueTodayTasks = computed(() => {
 			const roomTasks = roomTasksStore.roomTasksByRoom[props.room.id] || []
-			const today = new Date()
-			today.setHours(0, 0, 0, 0)
-			const tomorrow = new Date(today)
-			tomorrow.setDate(tomorrow.getDate() + 1)
+			// House-local day bucketing (CS-PLAN-057).
+			const todayKey = todayKeyInZone(houseStore.timezone)
 
 			return roomTasks.filter(task => {
-				if (!task.isActive) return false
-				const dueDate = new Date(task.nextDue)
-				return dueDate >= today && dueDate < tomorrow
+				if (!task.isActive || !task.nextDue) return false
+				return dateKeyInZone(task.nextDue, houseStore.timezone) === todayKey
 			}).length
 		})
 

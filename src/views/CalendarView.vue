@@ -90,6 +90,8 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import { useRoomTasksStore } from '../store/roomTasks.js'
+import { useHouseStore } from '../store/house.js'
+import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
 import { logger } from '../utils/logger.js'
 import TaskCalendar from '../components/Tasks/TaskCalendar.vue'
 
@@ -102,13 +104,16 @@ export default {
 
 	setup() {
 		const roomTasksStore = useRoomTasksStore()
-		return { roomTasksStore }
+		const houseStore = useHouseStore()
+		return { roomTasksStore, houseStore }
 	},
 
 	data() {
 		return {
 			mode: 'week',
-			anchorDate: this.getMonday(new Date()),
+			// CS-PLAN-057: the grid is anchored on the house-local "today"
+			// key so its day keys agree with the backend's bucketing.
+			anchorDate: this.mondayOfKey(todayKeyInZone(useHouseStore().timezone)),
 			selectedDay: null,
 			loading: false,
 			error: null,
@@ -117,26 +122,22 @@ export default {
 
 	computed: {
 		todayYmd() {
-			return this.toYMD(new Date())
+			return todayKeyInZone(this.houseStore.timezone)
 		},
 
 		rangeStart() {
-			return this.toYMD(this.anchorDate)
+			return this.anchorDate
 		},
 
 		rangeEnd() {
-			const end = new Date(this.anchorDate)
-			end.setDate(end.getDate() + (this.mode === 'week' ? 6 : 29))
-			return this.toYMD(end)
+			return addDaysToKey(this.anchorDate, this.mode === 'week' ? 6 : 29)
 		},
 
 		visibleDays() {
 			const days = []
 			const count = this.mode === 'week' ? 7 : 30
 			for (let i = 0; i < count; i++) {
-				const d = new Date(this.anchorDate)
-				d.setDate(d.getDate() + i)
-				days.push(this.toYMD(d))
+				days.push(addDaysToKey(this.anchorDate, i))
 			}
 			return days
 		},
@@ -180,26 +181,15 @@ export default {
 
 		navigate(direction) {
 			const step = this.mode === 'week' ? 7 : 30
-			const d = new Date(this.anchorDate)
-			d.setDate(d.getDate() + direction * step)
-			this.anchorDate = d
+			this.anchorDate = addDaysToKey(this.anchorDate, direction * step)
 			this.selectedDay = null
 		},
 
-		getMonday(date) {
-			const d = new Date(date)
-			const day = d.getDay()
-			const diff = day === 0 ? -6 : 1 - day
-			d.setDate(d.getDate() + diff)
-			d.setHours(0, 0, 0, 0)
-			return d
-		},
-
-		toYMD(date) {
-			const y = date.getFullYear()
-			const m = String(date.getMonth() + 1).padStart(2, '0')
-			const d = String(date.getDate()).padStart(2, '0')
-			return `${y}-${m}-${d}`
+		mondayOfKey(key) {
+			const dayName = weekdayOfKey(key)
+			if (!dayName) return key
+			const index = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(dayName)
+			return addDaysToKey(key, index === 0 ? -6 : 1 - index)
 		},
 
 		formatDate(ymd) {
@@ -209,7 +199,9 @@ export default {
 		},
 
 		isOverdue(item) {
-			const due = item.dueDate || (item.roomTask?.nextDue || '').slice(0, 10)
+			// `dueDate` (occurrence key) is already house-local; a bare
+			// nextDue instant is bucketed in the house TZ.
+			const due = item.dueDate || dateKeyInZone(item.roomTask?.nextDue, this.houseStore.timezone)
 			if (!due) return false
 			return due < this.todayYmd
 		},

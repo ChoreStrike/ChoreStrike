@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Db;
 
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
@@ -22,13 +23,23 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * GET /api/v1/tasks/daily since CS-PLAN-023). A mock-based test cannot catch
  * SQL shape errors, so this spec runs against the real Docker DB and pins the
  * [start, end) range semantics including the cross-day boundaries.
+ *
+ * CS-PLAN-057: the day window is passed explicitly as `[start, end)` bounds;
+ * these pins use CalendarService day bounds for a UTC house, which equal the
+ * UTC calendar day used by the fixtures.
  */
 class RoomTaskMapperDailyTest extends IntegrationTestCase {
 	private RoomTaskMapper $mapper;
+	private CalendarService $calendar;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->mapper = \OC::$server->get(RoomTaskMapper::class);
+		$this->calendar = new CalendarService();
+	}
+
+	private function utcDayBounds(\DateTimeInterface $day): array {
+		return $this->calendar->dayBounds($day, new \DateTimeZone('UTC'));
 	}
 
 	/**
@@ -96,7 +107,8 @@ class RoomTaskMapperDailyTest extends IntegrationTestCase {
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($inactiveToday, IQueryBuilder::PARAM_INT)));
 		$qb->executeStatement();
 
-		$result = $this->mapper->findDailyTasks($houseId, new \DateTime());
+		[$dayStart, $dayEnd] = $this->utcDayBounds(new \DateTime());
+		$result = $this->mapper->findDailyTasks($houseId, $dayStart, $dayEnd);
 
 		$ids = array_map(fn ($roomTask) => $roomTask->getId(), $result);
 		sort($ids);
@@ -124,7 +136,8 @@ class RoomTaskMapperDailyTest extends IntegrationTestCase {
 		$dueYesterday = $this->assignTaskToRoom($taskId, $roomId, 'daily_owner2');
 		$this->setNextDue($dueYesterday, $yesterday->modify('09:30:00'));
 
-		$result = $this->mapper->findDailyTasks($houseId, new \DateTime('yesterday'));
+		[$yesterdayStart, $yesterdayEnd] = $this->utcDayBounds(new \DateTime('yesterday'));
+		$result = $this->mapper->findDailyTasks($houseId, $yesterdayStart, $yesterdayEnd);
 
 		self::assertCount(1, $result);
 		self::assertSame($dueYesterday, $result[0]->getId());
@@ -168,7 +181,8 @@ class RoomTaskMapperDailyTest extends IntegrationTestCase {
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($inactive, IQueryBuilder::PARAM_INT)));
 		$qb->executeStatement();
 
-		$result = $this->mapper->findDueOnDate($day);
+		[$dayStart, $dayEnd] = $this->utcDayBounds($day);
+		$result = $this->mapper->findDueOnDate($dayStart, $dayEnd);
 
 		$ids = array_map(fn ($roomTask) => $roomTask->getId(), $result);
 		sort($ids);

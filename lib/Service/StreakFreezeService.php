@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 
 /**
@@ -21,26 +22,28 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
  * For each house user: if no completions on the given day and streak > 0,
  * consume one freeze to preserve the streak. If no freezes remain, reset
  * the streak to 0.
+ *
+ * CS-PLAN-057: the pass resolves the (single) house and buckets "yesterday"
+ * in the house timezone — the idempotency key, the availability day name,
+ * and the completion-count window are all house-local.
  */
 class StreakFreezeService {
 	public function __construct(
 		private HouseUserMapper $houseUserMapper,
 		private CompletedTaskMapper $completedTaskMapper,
 		private AppLogger $appLogger,
+		private HouseMapper $houseMapper,
+		private CalendarService $calendarService,
 	) {
 	}
 
 	/**
 	 * Run the streak freeze pass for the given day.
 	 *
-	 * @param \DateTimeInterface $yesterday The day to check for completions
+	 * @param \DateTimeInterface $yesterday The instant to derive the checked day from
 	 * @return array{processed: int, frozen: int, reset: int, skippedUnavailable: int, errors: int}
 	 */
 	public function process(\DateTimeInterface $yesterday): array {
-		$yesterdayDayName = strtolower($yesterday->format('l'));
-		// CR-SVC-03: collapse to a Y-m-d key for the idempotency comparison so
-		// timezone/time skew in the formatting can't defeat the guard.
-		$yesterdayKey = $yesterday->format('Y-m-d');
 		$stats = [
 			'processed' => 0,
 			'frozen' => 0,
@@ -49,11 +52,25 @@ class StreakFreezeService {
 			'errors' => 0,
 		];
 
+		// CS-PLAN-057: resolve the house timezone for this pass. No house
+		// yet (bootstrap race) → nothing to process.
+		$house = $this->houseMapper->findOneForJobs();
+		if ($house === null) {
+			return $stats;
+		}
+		$tz = $this->calendarService->getTimeZone($house);
+		$yesterdayDayName = strtolower(\DateTime::createFromInterface($yesterday)->setTimezone($tz)->format('l'));
+		// CR-SVC-03: collapse to a Y-m-d key for the idempotency comparison so
+		// timezone/time skew in the formatting can't defeat the guard. The
+		// key is house-local (CS-PLAN-057).
+		$yesterdayKey = $this->calendarService->dayKey($yesterday, $tz);
+
 		// Single GROUP BY query for everyone's completions on the day
 		// (CR-SVC-55 / CS-PLAN-036) instead of a per-user COUNT inside the
 		// loop; users with zero completions are absent from the map
 		// (treated as 0) — same shape as StreakAtRiskService.
-		$yesterdayCounts = $this->completedTaskMapper->countByUserOnDateGrouped($yesterday);
+		[$dayStart, $dayEnd] = $this->calendarService->dayBounds($yesterday, $tz);
+		$yesterdayCounts = $this->completedTaskMapper->countByUserOnDateGrouped($dayStart, $dayEnd);
 
 		foreach ($this->houseUserMapper->findAllForJobs() as $user) {
 			try {

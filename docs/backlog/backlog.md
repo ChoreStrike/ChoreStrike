@@ -492,21 +492,16 @@ task never deactivates on completion (silent infinite recurrence). Pick one voca
 
 ### [P2] CR-053-11 — Streak & leaderboard correctness cluster
 **Effort**: M · **Source**: CS-PLAN-053 (CR-P2-11/12/13/15/20)
-(a) Weekly leaderboard breaks all Sunday (`'monday this week'` → next Monday, `MinigameService:163`);
+(a) ~~Weekly leaderboard breaks all Sunday (`'monday this week'` → next Monday, `MinigameService:163`)~~
+**Partially closed 2026-08-30** (CS-PLAN-057 D3 fold-in: the weekly
+leaderboard and medal week run through `CalendarService::weekStart`, which
+has correct Sunday semantics; pinned by `CalendarServiceTest` unit pins and
+the `TimezoneDayBucketingTest` real-DB leaderboard window pin);
 (b) completion-path freeze consumption never stamps the covered day → one missed day can cost
 two freezes (`GameLogicService:131` + `HouseUser:294`); (c) at-risk pass vs freeze pass have
 undefined execution order → core notification suppressed; (d) weekly restock SETs
 `min(perWeek,cap)` instead of topping up — punishes earned bonus freezes (`HouseUser:308`);
 (e) leaderboard queries lack deterministic tiebreakers. Each fix is small + testable.
-
-### [P2] CR-053-12 — Calendar-day semantics run on server TZ (UTC), not the household's
-**Effort**: L (design decision first) · **Source**: CS-PLAN-053 (CR-P2-14 + CR-P1 TZ note + CR-P4-07)
-**Decision (user, 2026-08-29)**: **per-house timezone** — `houses.timezone` column,
-backend buckets day boundaries in house TZ (`DateTimeZone` injection at the call sites),
-frontend's two day-key conventions unified on house TZ.
-All day-boundary logic (streak days, freezes, at-risk, due-today, energy windows) buckets at
-server-TZ midnight; frontend has two coexisting day-key conventions (`rangeTasksByDay` UTC slice
-vs `localDateKey`). Needs a per-house timezone design decision before any code change.
 
 ### [P2] CR-053-13 — l10n artifact gap: 141 t() keys used in src/ missing from en+de
 **Effort**: M · **Source**: CS-PLAN-053 (CR-P4-13/14/15)
@@ -567,9 +562,12 @@ CR-P4-03's deletion half executed)
 False "Weekly goal reached!" celebration on every Dashboard mount while goal achieved;
 minigame `initialize()` leaves loading stuck on catalog failure; `completeRoomTask` leaves
 rooms/house/user caches stale (the reward-action wire option is gone — reconcile caches on
-fetch instead); undo/reactivate slice drift; `new Date(null)` →
-epoch counted as overdue + UTC date parsing; out-of-order range/activity fetches; invite
-duplicate row.
+fetch instead); undo/reactivate slice drift; ~~`new Date(null)` →
+epoch counted as overdue + UTC date parsing~~ **partially closed 2026-08-30**
+(CS-PLAN-057 CR-P4-06 half: `totalDueTodayTasks`/`totalOverdueTasks` guard a
+missing `nextDue` and all day keys unify on the house timezone via
+`dateKeys.js` — pinned in `roomTasks.spec.js` and `dateKeys.spec.js`);
+out-of-order range/activity fetches; invite duplicate row.
 
 ### [P3] CR-053-21 — Docs truth-repair batch
 **Effort**: M · **Source**: CS-PLAN-053 (L5-1)

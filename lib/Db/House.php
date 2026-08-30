@@ -26,6 +26,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setUpdatedAt(\DateTime $updatedAt)
  * @method string|null getWeeklyGoalNotifiedWeek()
  * @method void setWeeklyGoalNotifiedWeek(?string $weeklyGoalNotifiedWeek)
+ * @method string getTimezone()
+ * @method void setTimezone(string $timezone)
  */
 class House extends Entity implements JsonSerializable {
 	/** @var string */
@@ -53,6 +55,14 @@ class House extends Entity implements JsonSerializable {
 	 */
 	protected $weeklyGoalNotifiedWeek;
 
+	/**
+	 * IANA timezone id used for all calendar-day bucketing of the household
+	 * (CS-PLAN-057). Backed by Version1028 migration.
+	 *
+	 * @var string
+	 */
+	protected $timezone = 'UTC';
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('nextcloudInstanceId', 'string');
@@ -61,6 +71,7 @@ class House extends Entity implements JsonSerializable {
 		$this->addType('createdAt', 'datetime');
 		$this->addType('updatedAt', 'datetime');
 		$this->addType('weeklyGoalNotifiedWeek', 'string');
+		$this->addType('timezone', 'string');
 	}
 
 	/**
@@ -74,6 +85,7 @@ class House extends Entity implements JsonSerializable {
 			'houseHealth' => $this->houseHealth,
 			'createdAt' => $this->createdAt?->format('c'),
 			'updatedAt' => $this->updatedAt?->format('c'),
+			'timezone' => $this->timezone,
 		];
 	}
 

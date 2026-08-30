@@ -26,6 +26,16 @@ export const useHouseStore = defineStore('house', {
 		houseHealth: (state) => state.house?.houseHealth ?? 100,
 		houseName: (state) => state.house?.name || 'My House',
 		hasHouse: (state) => state.house !== null,
+		/**
+		 * Household timezone (CS-PLAN-057). UTC fallback while the house
+		 * payload isn't loaded yet — day keys computed before the fetch
+		 * resolves stay stable for UTC households and merely differ by the
+		 * zone offset for others until the refetch.
+		 *
+		 * @param {object} state Pinia state
+		 * @return {string} IANA timezone id of the household
+		 */
+		timezone: (state) => state.house?.timezone || 'UTC',
 	},
 
 	actions: {
@@ -49,10 +59,11 @@ export const useHouseStore = defineStore('house', {
 		},
 
 		/**
-		 * Update house name
+		 * Update house name and optionally the timezone (CS-PLAN-057).
 		 * @param {string} name New house name.
+		 * @param {string|null} [timezone] New IANA timezone id (omitted/null = unchanged).
 		 */
-		async updateHouseName(name) {
+		async updateHouseName(name, timezone = null) {
 			if (!name || name.trim() === '') {
 				throw new Error('House name is required')
 			}
@@ -61,7 +72,11 @@ export const useHouseStore = defineStore('house', {
 			this.error = null
 
 			try {
-				const data = await api.put('/api/v1/house', { name })
+				const payload = { name }
+				if (timezone) {
+					payload.timezone = timezone
+				}
+				const data = await api.put('/api/v1/house', payload)
 				this.house = data
 			} catch (error) {
 				this.error = error.message

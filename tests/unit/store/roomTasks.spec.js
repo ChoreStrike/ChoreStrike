@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { setActivePinia, createPinia } from 'pinia'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
+import { useHouseStore } from '../../../src/store/house.js'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
 
 jest.mock('../../../src/services/api.js', () => ({
@@ -55,6 +56,75 @@ describe('RoomTasks Store', () => {
 			const byRoom = store.roomTasksByRoom
 			expect(byRoom[10]).toHaveLength(2)
 			expect(byRoom[20]).toHaveLength(1)
+		})
+
+		// CS-PLAN-057: due-today/overdue bucket in the house timezone (UTC
+		// while no house is loaded) and guard the missing-nextDue epoch.
+		describe('totalDueTodayTasks / totalOverdueTasks', () => {
+			let houseStore
+
+			beforeEach(() => {
+				houseStore = useHouseStore()
+				jest.useFakeTimers()
+			})
+
+			afterEach(() => {
+				jest.useRealTimers()
+			})
+
+			it('counts tasks whose house-local day key is today', () => {
+				jest.setSystemTime(Date.UTC(2026, 7, 30, 10, 0, 0))
+				houseStore.house = { id: 1, timezone: 'UTC' }
+				store.roomTasks = [
+					{ id: 1, isActive: true, nextDue: '2026-08-30T12:00:00Z' },
+					{ id: 2, isActive: true, nextDue: '2026-08-31T12:00:00Z' },
+					{ id: 3, isActive: false, nextDue: '2026-08-30T12:00:00Z' },
+				]
+
+				expect(store.totalDueTodayTasks).toBe(1)
+			})
+
+			it('honors the house timezone around local midnight', () => {
+				jest.setSystemTime(Date.UTC(2026, 6, 14, 22, 30, 0))
+				// Now is 22:30 UTC on the 14th = 00:30 on the 15th in Berlin.
+				// A task due 15th 00:30 UTC (02:30 Berlin) is due today for the
+				// Berlin house but still "tomorrow" for a UTC house.
+				store.roomTasks = [
+					{ id: 1, isActive: true, nextDue: '2026-07-15T00:30:00Z' },
+				]
+
+				houseStore.house = { id: 1, timezone: 'Europe/Berlin' }
+				expect(store.totalDueTodayTasks).toBe(1)
+
+				houseStore.house = { id: 1, timezone: 'UTC' }
+				expect(store.totalDueTodayTasks).toBe(0)
+			})
+
+			it('treats a missing nextDue as never due (epoch guard, CR-P4-06)', () => {
+				jest.setSystemTime(Date.UTC(2026, 7, 30, 10, 0, 0))
+				houseStore.house = { id: 1, timezone: 'UTC' }
+				store.roomTasks = [
+					{ id: 1, isActive: true, nextDue: null },
+					{ id: 2, isActive: true },
+					{ id: 3, isActive: true, nextDue: '2026-08-30T12:00:00Z' },
+				]
+
+				expect(store.totalDueTodayTasks).toBe(1)
+				// The null nextDue must not count as 1970-epoch overdue either.
+				expect(store.totalOverdueTasks).toBe(0)
+			})
+
+			it('counts overdue tasks by instant comparison', () => {
+				jest.setSystemTime(Date.UTC(2026, 7, 30, 10, 0, 0))
+				houseStore.house = { id: 1, timezone: 'UTC' }
+				store.roomTasks = [
+					{ id: 1, isActive: true, nextDue: '2026-08-01T12:00:00Z' },
+					{ id: 2, isActive: true, nextDue: '2026-09-01T12:00:00Z' },
+					{ id: 3, isActive: false, nextDue: '2026-08-01T12:00:00Z' },
+				]
+
+				expect(store.totalOverdueTasks).toBe(1)
+			})
 		})
 
 	})

@@ -38,7 +38,8 @@ class HouseControllerIntegrationTest extends TestCase {
 			$this->authService,
 			$this->createMock(ActivityService::class),
 			$l10n,
-			$this->createMock(AppLogger::class)
+			$this->createMock(AppLogger::class),
+			new \OCA\ChoreStrike\Service\CalendarService()
 		);
 	}
 
@@ -101,7 +102,7 @@ class HouseControllerIntegrationTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->houseService->method('updateHouseName')
+		$this->houseService->method('updateHouse')
 			->willReturn($updatedHouse);
 		$this->authService->method('requireHouseOwner')->willReturn($this->createMockHouseUser());
 
@@ -123,7 +124,7 @@ class HouseControllerIntegrationTest extends TestCase {
 	public function testUpdate_BootstrapsMembershipBeforeOwnerCheck(): void {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->houseService->method('updateHouseName')->willReturn($this->createMockHouse());
+		$this->houseService->method('updateHouse')->willReturn($this->createMockHouse());
 
 		$callOrder = [];
 		$this->authService->method('ensureHouseMember')

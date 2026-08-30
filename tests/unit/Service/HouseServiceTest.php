@@ -18,12 +18,15 @@ use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IL10N;
+use OCP\IUser;
+use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -41,6 +44,9 @@ class HouseServiceTest extends TestCase {
 	private RewardConfigService $rewardConfigService;
 	private IConfig $config;
 	private IDBConnection $db;
+	private IUserSession $userSession;
+	/** House returned by houseMapper->find (swappable per test). */
+	private House $defaultHouse;
 
 	protected function setUp(): void {
 		$this->houseMapper = $this->createMock(HouseMapper::class);
@@ -53,9 +59,16 @@ class HouseServiceTest extends TestCase {
 		$this->rewardConfigService = $this->createMock(RewardConfigService::class);
 		$this->config = $this->createMock(IConfig::class);
 		$this->db = $this->createMock(IDBConnection::class);
+		$this->userSession = $this->createMock(IUserSession::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+
+		// CS-PLAN-057: day/week lookups resolve the house timezone — default
+		// to a UTC house; timezone-specific tests swap the property value.
+		$this->defaultHouse = new House();
+		$this->defaultHouse->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturnCallback(fn (int $id) => $this->defaultHouse);
 
 		$this->service = new HouseService(
 			$this->houseMapper,
@@ -69,7 +82,9 @@ class HouseServiceTest extends TestCase {
 			$this->config,
 			$this->db,
 			$l10n,
-			$this->createMock(AppLogger::class)
+			$this->createMock(AppLogger::class),
+			$this->userSession,
+			new CalendarService()
 		);
 	}
 
@@ -115,7 +130,7 @@ class HouseServiceTest extends TestCase {
 		$this->houseMapper
 			->expects($this->once())
 			->method('createForInstance')
-			->with($instanceId, $houseName)
+			->with($instanceId, $houseName, $this->isType('string'))
 			->willReturn($house);
 
 		$result = $this->service->getOrCreateHouse($instanceId, $houseName);
@@ -125,25 +140,59 @@ class HouseServiceTest extends TestCase {
 	}
 
 	/**
-	 * UpdateHouseName_ValidName_ReturnsUpdatedHouse
+	 * GetOrCreateHouse_NewHouse_CapturesCreatorTimezone
+	 *
+	 * CS-PLAN-057 D1: a fresh house captures the creator's Nextcloud
+	 * timezone (`core.timezone` user value) instead of a bare UTC default.
 	 */
-	public function testUpdateHouseName_ValidName_ReturnsUpdatedHouse(): void {
+	public function testGetOrCreateHouse_NewHouse_CapturesCreatorTimezone(): void {
+		$instanceId = 'instance123';
+		$houseName = 'My House';
+
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('alice');
+		$this->userSession->method('getUser')->willReturn($user);
+		$this->config->method('getUserValue')
+			->with('alice', 'core', 'timezone', '')
+			->willReturn('Europe/Berlin');
+
+		$house = new House();
+		$house->setId(1);
+		$house->setName($houseName);
+
+		$this->houseMapper
+			->expects($this->once())
+			->method('findByInstanceId')
+			->willThrowException(new DoesNotExistException('House not found'));
+
+		$this->houseMapper
+			->expects($this->once())
+			->method('createForInstance')
+			->with($instanceId, $houseName, 'Europe/Berlin')
+			->willReturn($house);
+
+		$result = $this->service->getOrCreateHouse($instanceId, $houseName);
+
+		$this->assertSame($house, $result);
+	}
+
+	/**
+	 * UpdateHouse_ValidName_ReturnsUpdatedHouse
+	 */
+	public function testUpdateHouse_ValidName_ReturnsUpdatedHouse(): void {
 		$houseId = 1;
 		$newName = 'Updated House';
 
 		$house = new House();
 		$house->setId($houseId);
 		$house->setName('Old Name');
+		$house->setTimezone('UTC');
+		$this->defaultHouse = $house;
 
 		$updatedHouse = new House();
 		$updatedHouse->setId($houseId);
 		$updatedHouse->setName($newName);
-
-		$this->houseMapper
-			->expects($this->once())
-			->method('find')
-			->with($houseId)
-			->willReturn($house);
+		$updatedHouse->setTimezone('UTC');
 
 		$this->houseMapper
 			->expects($this->once())
@@ -153,9 +202,38 @@ class HouseServiceTest extends TestCase {
 			}))
 			->willReturn($updatedHouse);
 
-		$result = $this->service->updateHouseName($houseId, $newName);
+		$result = $this->service->updateHouse($houseId, $newName);
 
 		$this->assertEquals($newName, $result->getName());
+		$this->assertSame('UTC', $result->getTimezone());
+	}
+
+	/**
+	 * UpdateHouse_WithTimezone_PersistsTimezone
+	 *
+	 * CS-PLAN-057: the owner can change the house timezone through the
+	 * update path.
+	 */
+	public function testUpdateHouse_WithTimezone_PersistsTimezone(): void {
+		$houseId = 1;
+
+		$house = new House();
+		$house->setId($houseId);
+		$house->setName('My House');
+		$house->setTimezone('UTC');
+		$this->defaultHouse = $house;
+
+		$this->houseMapper
+			->expects($this->once())
+			->method('update')
+			->with($this->callback(function ($h) {
+				return $h->getTimezone() === 'Pacific/Auckland';
+			}))
+			->willReturn($house);
+
+		$result = $this->service->updateHouse($houseId, 'My House', 'Pacific/Auckland');
+
+		$this->assertSame('Pacific/Auckland', $result->getTimezone());
 	}
 
 	/**
@@ -217,6 +295,7 @@ class HouseServiceTest extends TestCase {
 		$house = new House();
 		$house->setId($houseId);
 		$house->setHouseHealth(75);
+		$this->defaultHouse = $house;
 
 		$floor = new Floor();
 		$floor->setId(1);
@@ -228,12 +307,6 @@ class HouseServiceTest extends TestCase {
 		$dirtyRoom = new Room();
 		$dirtyRoom->setId(2);
 		$dirtyRoom->setCleanliness(40);
-
-		$this->houseMapper
-			->expects($this->once())
-			->method('find')
-			->with($houseId)
-			->willReturn($house);
 
 		$this->floorMapper
 			->expects($this->once())
@@ -268,12 +341,7 @@ class HouseServiceTest extends TestCase {
 		$house = new House();
 		$house->setId($houseId);
 		$house->setHouseHealth(50);
-
-		$this->houseMapper
-			->expects($this->once())
-			->method('find')
-			->with($houseId)
-			->willReturn($house);
+		$this->defaultHouse = $house;
 
 		$this->houseMapper
 			->expects($this->once())

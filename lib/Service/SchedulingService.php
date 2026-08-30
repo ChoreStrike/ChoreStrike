@@ -25,11 +25,21 @@ class SchedulingService {
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private IL10N $l10n;
+	private \OCA\ChoreStrike\Db\HouseMapper $houseMapper;
+	private CalendarService $calendarService;
 
-	public function __construct(HouseUserMapper $houseUserMapper, CompletedTaskMapper $completedTaskMapper, IL10N $l10n) {
+	public function __construct(
+		HouseUserMapper $houseUserMapper,
+		CompletedTaskMapper $completedTaskMapper,
+		IL10N $l10n,
+		\OCA\ChoreStrike\Db\HouseMapper $houseMapper,
+		CalendarService $calendarService,
+	) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->l10n = $l10n;
+		$this->houseMapper = $houseMapper;
+		$this->calendarService = $calendarService;
 	}
 
 	/**
@@ -127,6 +137,10 @@ class SchedulingService {
 	private function buildPreferencesPayload(HouseUser $user, ?array $preferences): array {
 		$preferences = $preferences ?? [];
 
+		// CS-PLAN-057: "today" is the house-local calendar day.
+		$tz = $this->calendarService->getTimeZone($this->houseMapper->find($user->getHouseId()));
+		[$dayStart, $dayEnd] = $this->calendarService->dayBounds(new \DateTime(), $tz);
+
 		return [
 			'userId' => $user->getId(),
 			'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
@@ -134,7 +148,8 @@ class SchedulingService {
 			'maxDailyTasks' => $preferences['maxDailyTasks'] ?? PHP_INT_MAX,
 			'todayConsumedEnergy' => $this->completedTaskMapper->getConsumedEnergyForUserOnDate(
 				$user->getId(),
-				new \DateTimeImmutable()
+				$dayStart,
+				$dayEnd
 			),
 		];
 	}

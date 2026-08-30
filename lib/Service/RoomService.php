@@ -45,6 +45,7 @@ class RoomService {
 	private IDBConnection $db;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
+	private CalendarService $calendarService;
 
 	public function __construct(
 		RoomMapper $roomMapper,
@@ -62,6 +63,7 @@ class RoomService {
 		IDBConnection $db,
 		IL10N $l10n,
 		AppLogger $appLogger,
+		CalendarService $calendarService,
 	) {
 		$this->roomMapper = $roomMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -78,6 +80,7 @@ class RoomService {
 		$this->db = $db;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
+		$this->calendarService = $calendarService;
 	}
 
 	/**
@@ -239,6 +242,13 @@ class RoomService {
 		// after commit so rollbacks never leave a stale notification.
 		$takeoverNotification = null;
 
+		// CS-PLAN-057: resolve the house timezone once per request pass and
+		// thread it explicitly into every day-boundary decision below
+		// (duplicate guard, recurrence window, streak day).
+		$house = $this->houseMapper->find($houseId);
+		$timeZone = $this->calendarService->getTimeZone($house);
+		[$dayStart, $dayEnd] = $this->calendarService->dayBounds(new \DateTime(), $timeZone);
+
 		// The whole completion (lock, gate, guard, mutations, reward insert) is
 		// atomic: a failure at any step rolls back every prior write. The early
 		// room-task row lock also serializes concurrent completions of the SAME
@@ -283,11 +293,14 @@ class RoomService {
 
 			// Duplicate-completion guard: prevent the same user from earning coins
 			// twice for the same room task on the same calendar day (defense in
-			// depth against double-clicks / API re-submission).
+			// depth against double-clicks / API re-submission). The "day" is the
+			// house-local calendar day (CS-PLAN-057): a completion at 00:30
+			// Berlin is the NEXT Berlin day, not the same UTC day.
 			$todayCount = $this->completedTaskMapper->countByRoomTaskAndUserOnDate(
 				$roomTaskId,
 				$houseUser->getId(),
-				new \DateTime()
+				$dayStart,
+				$dayEnd
 			);
 			if ($todayCount > 0) {
 				throw new ForbiddenException($this->l10n->t('You already completed this task today'));
@@ -331,7 +344,8 @@ class RoomService {
 				$task->getFixedScheduleDays(),
 				$task->getFlexDays(),
 				$weekdayAvailability,
-				$energyBudget
+				$energyBudget,
+				$timeZone
 			);
 			$this->roomTaskMapper->update($roomTask);
 
@@ -341,11 +355,13 @@ class RoomService {
 
 			// Trigger game logic for task completion. The locked room task
 			// entity is threaded in (CR-SVC-50) so game logic never
-			// re-fetches it inside the house_user lock.
+			// re-fetches it inside the house_user lock. The house timezone
+			// threads the day-key decisions (CS-PLAN-057).
 			$gameResult = $this->gameLogicService->handleTaskCompletion(
 				$roomTask,
 				$houseUser->getId(),
-				$task
+				$task,
+				$timeZone
 			);
 
 			// Teamwork bonus: award additional coins when multiple assignees

@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTask;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Medal;
@@ -35,6 +36,8 @@ class GameLogicService {
 	private NotificationService $notificationService;
 	private ?TitleService $titleService;
 	private AppLogger $appLogger;
+	private HouseMapper $houseMapper;
+	private CalendarService $calendarService;
 
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
@@ -43,6 +46,8 @@ class GameLogicService {
 		RewardConfigService $configService,
 		NotificationService $notificationService,
 		AppLogger $appLogger,
+		HouseMapper $houseMapper,
+		CalendarService $calendarService,
 		?TitleService $titleService = null,
 	) {
 		$this->houseUserMapper = $houseUserMapper;
@@ -52,6 +57,8 @@ class GameLogicService {
 		$this->notificationService = $notificationService;
 		$this->titleService = $titleService;
 		$this->appLogger = $appLogger;
+		$this->houseMapper = $houseMapper;
+		$this->calendarService = $calendarService;
 	}
 
 	/**
@@ -67,6 +74,9 @@ class GameLogicService {
 	 * @param RoomTask $roomTask The locked room task entity (held by the caller)
 	 * @param int $userId The house user ID
 	 * @param Task $task The task entity
+	 * @param \DateTimeZone|null $timeZone The house timezone for day-key
+	 *                                     decisions (CS-PLAN-057: days-early compare, streak day compare);
+	 *                                     resolved by the calling service.
 	 * @return array{
 	 *     contributionScore: int, coins: int, isCombo: bool, daysEarly: int,
 	 *     earlyMultiplier: float, currentStreak: int, totalContribution: int,
@@ -75,7 +85,7 @@ class GameLogicService {
 	 * } Result payload; `newTitle` (CR-SVC-12) must be dispatched by the caller
 	 *   after commit, never inside the transaction.
 	 */
-	public function handleTaskCompletion(RoomTask $roomTask, int $userId, Task $task): array {
+	public function handleTaskCompletion(RoomTask $roomTask, int $userId, Task $task, ?\DateTimeZone $timeZone = null): array {
 		// CR-SVC-04: lock the house_user row for the duration of this read-
 		// modify-write so two concurrent same-user completions cannot clobber
 		// each other's coins/streak update. Runs inside the caller's open
@@ -96,7 +106,7 @@ class GameLogicService {
 		$isCombo = count($recentInComboWindow) >= 2;
 
 		$contributionScore = $this->calculateContributionScore($task);
-		$daysEarly = $this->calculateDaysEarly($roomTask);
+		$daysEarly = $this->calculateDaysEarly($roomTask, null, $timeZone);
 		$earlyMultiplier = $this->calculateEarlyBonus($daysEarly);
 		$coins = $this->calculateCoins($task, (float)$user->getCoinMultiplier(), $isCombo, $earlyMultiplier);
 
@@ -113,7 +123,7 @@ class GameLogicService {
 
 		$preferences = $user->getSchedulingPreferences();
 		$weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
-		$newStreak = $user->calculateStreakWithAbsence($weekdayAvailability);
+		$newStreak = $user->calculateStreakWithAbsence($weekdayAvailability, $timeZone);
 		$freezeUsed = false;
 		$cap = $this->configService->getStreakFreezeCap();
 
@@ -237,18 +247,28 @@ class GameLogicService {
 	 * second-difference by 86400 does. A task completed on the day it is
 	 * due counts as 0 days early regardless of the time of day.
 	 *
+	 * CS-PLAN-057: with $timeZone supplied, "local midnight" means the
+	 * house's midnight; otherwise the server timezone.
+	 *
 	 * @param RoomTask $roomTask The room task
 	 * @param \DateTime|null $now Completion moment (defaults to the current time; injectable for tests)
+	 * @param \DateTimeZone|null $timeZone House timezone for the day keys (CS-PLAN-057)
 	 * @return int Days early (negative if late, 0 if no ideal due date)
 	 */
-	public function calculateDaysEarly(RoomTask $roomTask, ?\DateTime $now = null): int {
+	public function calculateDaysEarly(RoomTask $roomTask, ?\DateTime $now = null, ?\DateTimeZone $timeZone = null): int {
 		$idealDueDate = $roomTask->getIdealDueDate();
 		if ($idealDueDate === null) {
 			return 0;
 		}
 
-		$dueDay = (clone $idealDueDate)->setTime(0, 0, 0);
-		$today = ($now !== null ? clone $now : new \DateTime())->setTime(0, 0, 0);
+		$dueDay = \DateTime::createFromInterface($idealDueDate);
+		$today = $now !== null ? \DateTime::createFromInterface($now) : new \DateTime();
+		if ($timeZone !== null) {
+			$dueDay->setTimezone($timeZone);
+			$today->setTimezone($timeZone);
+		}
+		$dueDay->setTime(0, 0, 0);
+		$today->setTime(0, 0, 0);
 
 		$diff = $today->diff($dueDay);
 		return $diff->invert === 1 ? -(int)$diff->days : (int)$diff->days;
@@ -296,25 +316,23 @@ class GameLogicService {
 	 * unique-constraint race handling in awardMedalIfNew and the
 	 * per-award notification are inherently per-row concerns.
 	 *
+	 * The medal week runs Monday 00:00 → Monday 00:00 in the house
+	 * timezone (CS-PLAN-057); the medal week key is the house-local
+	 * Y-m-d of the week start.
+	 *
 	 * @param int $houseId The house ID
 	 */
 	public function checkAndAwardMedals(int $houseId): array {
-		$weekStart = $this->getWeekStart();
-		$weekEnd = new \DateTime($weekStart);
-		$weekEnd->modify('+7 days');
+		$house = $this->houseMapper->find($houseId);
+		$tz = $this->calendarService->getTimeZone($house);
+		$weekStart = $this->calendarService->weekStart(new \DateTime(), $tz);
+		$weekEnd = (clone $weekStart)->modify('+7 days');
+		$weekStartKey = $this->calendarService->dayKey($weekStart, $tz);
 
 		$users = $this->houseUserMapper->findByHouseId($houseId);
 		$zeroStats = ['taskCount' => 0, 'totalCoins' => 0, 'comboCount' => 0, 'activeDays' => 0];
-		$statsByUser = $this->completedTaskMapper->getUserStatsByHouse(
-			$houseId,
-			new \DateTime($weekStart),
-			$weekEnd
-		);
-		$maxPerRoomByUser = $this->completedTaskMapper->getMaxRoomCompletionCountByHouse(
-			$houseId,
-			new \DateTime($weekStart),
-			$weekEnd
-		);
+		$statsByUser = $this->completedTaskMapper->getUserStatsByHouse($houseId, $weekStart, $weekEnd);
+		$maxPerRoomByUser = $this->completedTaskMapper->getMaxRoomCompletionCountByHouse($houseId, $weekStart, $weekEnd);
 
 		$awardedMedals = [];
 
@@ -322,14 +340,14 @@ class GameLogicService {
 			$stats = $statsByUser[$user->getId()] ?? $zeroStats;
 
 			if ($stats['taskCount'] >= self::MEDAL_TEAM_ANCHOR_MIN_TASKS) {
-				$medal = $this->awardMedalIfNew($user, 'team_anchor', $stats['taskCount'], $weekStart);
+				$medal = $this->awardMedalIfNew($user, 'team_anchor', $stats['taskCount'], $weekStartKey);
 				if ($medal !== null) {
 					$awardedMedals[] = $medal;
 				}
 			}
 
 			if ($user->getCurrentStreak() >= self::MEDAL_STREAK_KEEPER_MIN_DAYS) {
-				$medal = $this->awardMedalIfNew($user, 'streak_keeper', $user->getCurrentStreak(), $weekStart);
+				$medal = $this->awardMedalIfNew($user, 'streak_keeper', $user->getCurrentStreak(), $weekStartKey);
 				if ($medal !== null) {
 					$awardedMedals[] = $medal;
 				}
@@ -337,7 +355,7 @@ class GameLogicService {
 
 			$activeDays = $stats['activeDays'] ?? 0;
 			if ($activeDays >= self::MEDAL_FLOW_KEEPER_MIN_ACTIVE_DAYS) {
-				$medal = $this->awardMedalIfNew($user, 'flow_keeper', $activeDays, $weekStart);
+				$medal = $this->awardMedalIfNew($user, 'flow_keeper', $activeDays, $weekStartKey);
 				if ($medal !== null) {
 					$awardedMedals[] = $medal;
 				}
@@ -345,7 +363,7 @@ class GameLogicService {
 
 			$maxPerRoom = $maxPerRoomByUser[$user->getId()] ?? 0;
 			if ($maxPerRoom >= self::MEDAL_ROOM_GUARDIAN_MIN_PER_ROOM) {
-				$medal = $this->awardMedalIfNew($user, 'room_guardian', $maxPerRoom, $weekStart);
+				$medal = $this->awardMedalIfNew($user, 'room_guardian', $maxPerRoom, $weekStartKey);
 				if ($medal !== null) {
 					$awardedMedals[] = $medal;
 				}
@@ -355,7 +373,7 @@ class GameLogicService {
 			// dead isTeamCompletion/participantCount/teamSparkBonus residue.
 			$combos = $stats['comboCount'] ?? 0;
 			if ($combos >= self::MEDAL_TEAM_PLAYER_MIN_COMBOS) {
-				$medal = $this->awardMedalIfNew($user, 'team_player', $combos, $weekStart);
+				$medal = $this->awardMedalIfNew($user, 'team_player', $combos, $weekStartKey);
 				if ($medal !== null) {
 					$awardedMedals[] = $medal;
 				}
@@ -464,17 +482,6 @@ class GameLogicService {
 			return $this->titleService->enrichWithCurrentTitle($data, $user);
 		}
 		return $data;
-	}
-
-	/**
-	 * Get week start date (Monday)
-	 */
-	private function getWeekStart(): string {
-		$date = new \DateTime();
-		$day = (int)$date->format('N');
-		$diff = $day - 1;
-		$date->modify("-{$diff} days");
-		return $date->format('Y-m-d');
 	}
 
 	/**

@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -31,6 +32,9 @@ use OCA\ChoreStrike\Db\TaskMapper;
  * streak passes). Completed tasks need no explicit guard (D3): completion
  * advances next_due (recurring) or deactivates the row (one-time), so the
  * due-date range query naturally excludes them.
+ *
+ * CS-PLAN-057: the pass resolves the (single) house and derives the
+ * today/tomorrow due windows in the house timezone.
  */
 class TaskDueReminderService {
 	public function __construct(
@@ -40,6 +44,8 @@ class TaskDueReminderService {
 		private TaskMapper $taskMapper,
 		private NotificationService $notificationService,
 		private AppLogger $appLogger,
+		private HouseMapper $houseMapper,
+		private CalendarService $calendarService,
 	) {
 	}
 
@@ -63,17 +69,32 @@ class TaskDueReminderService {
 		];
 
 		try {
-			$tomorrow = (new \DateTimeImmutable($today->format('Y-m-d')))->modify('+1 day');
+			// CS-PLAN-057: resolve the house timezone for this pass. No house
+			// yet (bootstrap race) → nothing to process.
+			$house = $this->houseMapper->findOneForJobs();
+			if ($house === null) {
+				return $stats;
+			}
+			$tz = $this->calendarService->getTimeZone($house);
 
-			$dueToday = $this->roomTaskMapper->findDueOnDate($today);
-			$dueTomorrow = $this->roomTaskMapper->findDueOnDate($tomorrow);
+			// House-local today/tomorrow calendar windows, as UTC-normalized
+			// [start, end) bounds.
+			[$todayStart, $todayEnd] = $this->calendarService->dayBounds($today, $tz);
+			$localTomorrow = \DateTime::createFromInterface($today)->setTimezone($tz)->modify('+1 day');
+			[$tomorrowStart, $tomorrowEnd] = $this->calendarService->dayBounds($localTomorrow, $tz);
+
+			$dueToday = $this->roomTaskMapper->findDueOnDate($todayStart, $todayEnd);
+			$dueTomorrow = $this->roomTaskMapper->findDueOnDate($tomorrowStart, $tomorrowEnd);
 			$stats['processed'] = count($dueToday) + count($dueTomorrow);
 
 			$assigneesByTask = $this->resolveAssignees(array_merge($dueToday, $dueTomorrow));
 			$usersByNextcloudId = $this->mapUsersByNextcloudId();
 
-			$this->dispatchReminders($dueToday, $assigneesByTask, $usersByNextcloudId, $today, false, $stats);
-			$this->dispatchReminders($dueTomorrow, $assigneesByTask, $usersByNextcloudId, $tomorrow, true, $stats);
+			// Pass house-local representative instants so the notification
+			// dedup keys ("{roomTaskId}:{Y-m-d}", CS-PLAN-057) are house-local.
+			$todayLocal = \DateTime::createFromInterface($today)->setTimezone($tz);
+			$this->dispatchReminders($dueToday, $assigneesByTask, $usersByNextcloudId, $todayLocal, $tz, false, $stats);
+			$this->dispatchReminders($dueTomorrow, $assigneesByTask, $usersByNextcloudId, $localTomorrow, $tz, true, $stats);
 		} catch (\Throwable $e) {
 			$this->appLogger->logException('TaskDueReminderService failed', $e, [
 				'event' => 'task_due_reminder_pass_failed',
@@ -142,7 +163,8 @@ class TaskDueReminderService {
 	 * @param RoomTask[] $roomTasks The due set
 	 * @param array<int, string[]> $assigneesByTask Effective assignees per room task ID
 	 * @param array<string, HouseUser> $usersByNextcloudId House users indexed by Nextcloud user ID
-	 * @param \DateTimeInterface $dueDate The calendar day the tasks are due on
+	 * @param \DateTimeInterface $dueDate A representative instant of the calendar day the tasks are due on
+	 * @param \DateTimeZone $tz The house timezone (day-name resolution)
 	 * @param bool $dueTomorrow True for the tomorrow set, false for the today set
 	 * @param array{processed: int, notifiedToday: int, notifiedTomorrow: int, skippedUnavailable: int} $stats Pass stats (mutated)
 	 */
@@ -151,10 +173,11 @@ class TaskDueReminderService {
 		array $assigneesByTask,
 		array $usersByNextcloudId,
 		\DateTimeInterface $dueDate,
+		\DateTimeZone $tz,
 		bool $dueTomorrow,
 		array &$stats,
 	): void {
-		$dueDayName = strtolower($dueDate->format('l'));
+		$dueDayName = strtolower(\DateTime::createFromInterface($dueDate)->setTimezone($tz)->format('l'));
 		$taskCache = [];
 
 		foreach ($roomTasks as $roomTask) {

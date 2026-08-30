@@ -7,6 +7,8 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
@@ -20,6 +22,7 @@ use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -41,6 +44,7 @@ class RoomTaskServiceTest extends TestCase {
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private IDBConnection $db;
+	private HouseMapper $houseMapper;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -52,6 +56,11 @@ class RoomTaskServiceTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->db = $this->createMock(IDBConnection::class);
+		$this->houseMapper = $this->createMock(HouseMapper::class);
+		// CS-PLAN-057: day-window methods resolve the house timezone.
+		$utcHouse = new House();
+		$utcHouse->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($utcHouse);
 
 		$this->service = new RoomTaskService(
 			$this->roomTaskMapper,
@@ -65,7 +74,9 @@ class RoomTaskServiceTest extends TestCase {
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			$this->db,
 			$this->createIdentityL10n(),
-			$this->createMock(AppLogger::class)
+			$this->createMock(AppLogger::class),
+			$this->houseMapper,
+			new CalendarService()
 		);
 	}
 
@@ -254,7 +265,12 @@ class RoomTaskServiceTest extends TestCase {
 		$this->roomTaskMapper
 			->expects($this->once())
 			->method('findDueTodayByHouse')
-			->with($houseId, $roomId)
+			->with(
+				$houseId,
+				$this->isInstanceOf(\DateTimeInterface::class),
+				$this->isInstanceOf(\DateTimeInterface::class),
+				$roomId
+			)
 			->willReturn([$roomTask]);
 
 		$result = $this->service->getDueTodayTasks($houseId, $roomId);
@@ -925,6 +941,16 @@ class RoomTaskServiceTest extends TestCase {
 		$room = new Room();
 		$room->setId(1);
 		$room->setName('Test Room');
+		$room->setFloorId(7);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(99);
+		$this->floorMapper->method('find')->willReturn($floor);
+
+		$house = new House();
+		$house->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($house);
 
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
@@ -968,6 +994,19 @@ class RoomTaskServiceTest extends TestCase {
 	public function testGetRoomTaskStats_WithTasks_ReturnsStats(): void {
 		$roomId = 1;
 
+		// CS-PLAN-057: isDueToday resolves the room → floor → house tz chain.
+		$room = new Room();
+		$room->setId($roomId);
+		$room->setFloorId(7);
+		$this->roomMapper->method('find')->willReturn($room);
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(99);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$house = new House();
+		$house->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($house);
+
 		$activeTask = new RoomTask();
 		$activeTask->setId(1);
 		$activeTask->setIsActive(true);
@@ -1007,6 +1046,19 @@ class RoomTaskServiceTest extends TestCase {
 	public function testGetRoomTaskStats_EmptyRoom_CompletionRateIsZero(): void {
 		$roomId = 1;
 
+		// CS-PLAN-057: isDueToday resolves the room → floor → house tz chain.
+		$room = new Room();
+		$room->setId($roomId);
+		$room->setFloorId(7);
+		$this->roomMapper->method('find')->willReturn($room);
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(99);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$house = new House();
+		$house->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($house);
+
 		$this->roomTaskMapper
 			->method('findByRoomId')
 			->willReturn([]);
@@ -1029,6 +1081,19 @@ class RoomTaskServiceTest extends TestCase {
 	 */
 	public function testGetRoomTaskStats_DeactivatedTasksDoNotCountAsCompleted(): void {
 		$roomId = 1;
+
+		// CS-PLAN-057: isDueToday resolves the room → floor → house tz chain.
+		$room = new Room();
+		$room->setId($roomId);
+		$room->setFloorId(7);
+		$this->roomMapper->method('find')->willReturn($room);
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(99);
+		$this->floorMapper->method('find')->willReturn($floor);
+		$house = new House();
+		$house->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($house);
 
 		$inactiveTaskA = new RoomTask();
 		$inactiveTaskA->setId(1);

@@ -27,6 +27,7 @@ class RoomTaskController extends Controller {
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IL10N $l;
+	private \OCA\ChoreStrike\Service\CalendarService $calendarService;
 
 	public function __construct(
 		IRequest $request,
@@ -34,12 +35,21 @@ class RoomTaskController extends Controller {
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
+		\OCA\ChoreStrike\Service\CalendarService $calendarService,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomTaskService = $roomTaskService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
+		$this->calendarService = $calendarService;
+	}
+
+	/**
+	 * Resolve the house timezone for day-boundary serialization (CS-PLAN-057).
+	 */
+	private function timeZoneOf(\OCA\ChoreStrike\Db\House $house): \DateTimeZone {
+		return $this->calendarService->getTimeZone($house);
 	}
 
 	/**
@@ -86,7 +96,7 @@ class RoomTaskController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $roomTask->jsonSerialize(),
+				'data' => $roomTask->jsonSerialize($this->timeZoneOf($house)),
 			]);
 		} catch (NotFoundException $e) {
 			return new JSONResponse([
@@ -135,11 +145,12 @@ class RoomTaskController extends Controller {
 			}
 
 			$assigneesByTask = $this->roomTaskService->getAssigneeUserIdsByRoomTasks($roomTasks);
+			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(function ($roomTask) use ($assigneesByTask) {
-					$data = $roomTask->jsonSerialize();
+				'data' => array_map(function ($roomTask) use ($assigneesByTask, $tz) {
+					$data = $roomTask->jsonSerialize($tz);
 					$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
 					return $data;
 				}, $roomTasks)
@@ -189,7 +200,7 @@ class RoomTaskController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $roomTask->jsonSerialize()
+				'data' => $roomTask->jsonSerialize($this->timeZoneOf($house))
 			]);
 		} catch (NotFoundException $e) {
 			return new JSONResponse([
@@ -299,7 +310,7 @@ class RoomTaskController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $roomTask->jsonSerialize()
+				'data' => $roomTask->jsonSerialize($this->timeZoneOf($house))
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -336,7 +347,7 @@ class RoomTaskController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $roomTask->jsonSerialize()
+				'data' => $roomTask->jsonSerialize($this->timeZoneOf($house))
 			]);
 		} catch (\InvalidArgumentException $e) {
 			// Curated date-format message — safe to surface verbatim.
@@ -372,7 +383,7 @@ class RoomTaskController extends Controller {
 			return new JSONResponse([
 				'success' => true,
 				'data' => [
-					'roomTask' => $result['roomTask']->jsonSerialize(),
+					'roomTask' => $result['roomTask']->jsonSerialize($this->timeZoneOf($house)),
 					'room' => $result['room']->jsonSerialize(),
 					'task' => $result['task']->jsonSerialize(),
 					'rewards' => $result['rewards']
@@ -475,10 +486,11 @@ class RoomTaskController extends Controller {
 			}
 
 			$assignedTasks = $this->roomTaskService->bulkAssignTasks($roomTaskIds, $userId, $house->getId());
+			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(fn ($roomTask) => $roomTask->jsonSerialize(), $assignedTasks)
+				'data' => array_map(fn ($roomTask) => $roomTask->jsonSerialize($tz), $assignedTasks)
 			]);
 		} catch (\InvalidArgumentException $e) {
 			// Service-curated membership message — safe to surface verbatim.
@@ -508,10 +520,11 @@ class RoomTaskController extends Controller {
 			$this->authService->ensureHouseMember($house->getId());
 
 			$overdueTasks = $this->roomTaskService->getOverdueTasks($house->getId(), $roomId);
+			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(fn ($task) => $task->jsonSerialize(), $overdueTasks)
+				'data' => array_map(fn ($task) => $task->jsonSerialize($tz), $overdueTasks)
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -538,10 +551,11 @@ class RoomTaskController extends Controller {
 			$this->authService->ensureHouseMember($house->getId());
 
 			$dueTodayTasks = $this->roomTaskService->getDueTodayTasks($house->getId(), $roomId);
+			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(fn ($task) => $task->jsonSerialize(), $dueTodayTasks)
+				'data' => array_map(fn ($task) => $task->jsonSerialize($tz), $dueTodayTasks)
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -703,12 +717,13 @@ class RoomTaskController extends Controller {
 				new \DateTime(),
 				$houseUserMapper
 			);
+			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(function ($item) {
+				'data' => array_map(function ($item) use ($tz) {
 					return [
-						'roomTask' => $item['roomTask']->jsonSerialize(),
+						'roomTask' => $item['roomTask']->jsonSerialize($tz),
 						'task' => $item['task']->jsonSerialize(),
 						'room' => $item['room']->jsonSerialize(),
 					];

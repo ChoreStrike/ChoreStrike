@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 
 /**
@@ -26,6 +27,9 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
  *     break the streak rather than silently consume a freeze).
  *
  * Notifications are dispatched best-effort via {@see NotificationService}.
+ *
+ * CS-PLAN-057: the pass resolves the (single) house and buckets "yesterday"
+ * in the house timezone.
  */
 class StreakAtRiskService {
 	public function __construct(
@@ -33,17 +37,18 @@ class StreakAtRiskService {
 		private CompletedTaskMapper $completedTaskMapper,
 		private NotificationService $notificationService,
 		private AppLogger $appLogger,
+		private HouseMapper $houseMapper,
+		private CalendarService $calendarService,
 	) {
 	}
 
 	/**
 	 * Run the streak-at-risk notification pass for the given day.
 	 *
-	 * @param \DateTimeInterface $yesterday The day to check for completions
+	 * @param \DateTimeInterface $yesterday The instant to derive the checked day from
 	 * @return array{processed: int, notified: int, skippedUnavailable: int}
 	 */
 	public function process(\DateTimeInterface $yesterday): array {
-		$yesterdayDayName = strtolower($yesterday->format('l'));
 		$stats = [
 			'processed' => 0,
 			'notified' => 0,
@@ -51,11 +56,21 @@ class StreakAtRiskService {
 		];
 
 		try {
+			// CS-PLAN-057: resolve the house timezone for this pass. No house
+			// yet (bootstrap race) → nothing to process.
+			$house = $this->houseMapper->findOneForJobs();
+			if ($house === null) {
+				return $stats;
+			}
+			$tz = $this->calendarService->getTimeZone($house);
+			$yesterdayDayName = strtolower(\DateTime::createFromInterface($yesterday)->setTimezone($tz)->format('l'));
+
 			$allUsers = $this->houseUserMapper->findAllForJobs();
 
 			// Single GROUP BY query for everyone's completions on the day;
 			// users with zero completions are absent from the map (treated as 0).
-			$yesterdayCounts = $this->completedTaskMapper->countByUserOnDateGrouped($yesterday);
+			[$dayStart, $dayEnd] = $this->calendarService->dayBounds($yesterday, $tz);
+			$yesterdayCounts = $this->completedTaskMapper->countByUserOnDateGrouped($dayStart, $dayEnd);
 
 			foreach ($allUsers as $user) {
 				$stats['processed']++;
@@ -93,7 +108,8 @@ class StreakAtRiskService {
 				$this->notificationService->notifyStreakAtRisk(
 					$nextcloudUserId,
 					$user->getCurrentStreak(),
-					$yesterday
+					// House-local instant so the Y-m-d dedup key is house-local (CS-PLAN-057).
+					\DateTime::createFromInterface($yesterday)->setTimezone($tz)
 				);
 				$stats['notified']++;
 			}

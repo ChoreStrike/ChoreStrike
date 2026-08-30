@@ -260,6 +260,9 @@ msgstr ""
 msgid "Calendar"
 msgstr ""
 
+msgid "Calendar days, streaks and weekly goals are counted by this timezone."
+msgstr ""
+
 msgid "Cancel"
 msgstr ""
 
@@ -840,6 +843,9 @@ msgid "Failed to save energy budget"
 msgstr ""
 
 msgid "Failed to save house name"
+msgstr ""
+
+msgid "Failed to save timezone"
 msgstr ""
 
 msgid "Failed to select title"
@@ -2138,6 +2144,12 @@ msgstr ""
 msgid "Tie up the bag, take it out, and put in a new liner."
 msgstr ""
 
+msgid "Timezone"
+msgstr ""
+
+msgid "Timezone saved"
+msgstr ""
+
 msgid "Today"
 msgstr ""
 
@@ -2181,6 +2193,9 @@ msgid "Unknown member"
 msgstr ""
 
 msgid "Unknown task"
+msgstr ""
+
+msgid "Unknown timezone"
 msgstr ""
 
 msgid "Unlocked titles: {titles}"

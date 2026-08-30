@@ -137,8 +137,12 @@ class RoomTask extends Entity implements JsonSerializable {
 
 	/**
 	 * Convert room task to JSON representation
+	 *
+	 * @param \DateTimeZone|null $timeZone House timezone for the derived
+	 *                                     `status`/`daysUntilDue` fields (CS-PLAN-057); null falls back to the
+	 *                                     server timezone for json_encode-style callers.
 	 */
-	public function jsonSerialize(): array {
+	public function jsonSerialize(?\DateTimeZone $timeZone = null): array {
 		return [
 			'id' => $this->id,
 			'roomId' => $this->roomId,
@@ -159,8 +163,8 @@ class RoomTask extends Entity implements JsonSerializable {
 			'assignedAt' => $this->assignedAt?->format('c'),
 			'idealDueDate' => $this->idealDueDate?->format('c'),
 			'createdAt' => $this->createdAt?->format('c'),
-			'status' => $this->getStatus(),
-			'daysUntilDue' => $this->getDaysUntilDue(),
+			'status' => $this->getStatus($timeZone),
+			'daysUntilDue' => $this->getDaysUntilDue($timeZone),
 		];
 	}
 
@@ -176,15 +180,21 @@ class RoomTask extends Entity implements JsonSerializable {
 
 	/**
 	 * Check if task is due today
+	 *
+	 * @param \DateTimeZone|null $timeZone House timezone for the day bucket
+	 *                                     (CS-PLAN-057); null falls back to the server timezone.
 	 */
-	public function isDueToday(): bool {
+	public function isDueToday(?\DateTimeZone $timeZone = null): bool {
 		if ($this->nextDue === null) {
 			return false;
 		}
 
-		$today = new \DateTime();
+		$today = new \DateTime('now', $timeZone);
 		$today->setTime(0, 0, 0);
 		$due = clone $this->nextDue;
+		if ($timeZone !== null) {
+			$due->setTimezone($timeZone);
+		}
 		$due->setTime(0, 0, 0);
 
 		return $due->getTimestamp() === $today->getTimestamp() && $this->isActive;
@@ -206,15 +216,21 @@ class RoomTask extends Entity implements JsonSerializable {
 
 	/**
 	 * Get days until due (negative if overdue, null when no due date is set)
+	 *
+	 * @param \DateTimeZone|null $timeZone House timezone for the day bucket
+	 *                                     (CS-PLAN-057); null falls back to the server timezone.
 	 */
-	public function getDaysUntilDue(): ?int {
+	public function getDaysUntilDue(?\DateTimeZone $timeZone = null): ?int {
 		if ($this->nextDue === null) {
 			return null;
 		}
 
-		$today = new \DateTime();
+		$today = new \DateTime('now', $timeZone);
 		$today->setTime(0, 0, 0);
 		$due = clone $this->nextDue;
+		if ($timeZone !== null) {
+			$due->setTimezone($timeZone);
+		}
 		$due->setTime(0, 0, 0);
 
 		$interval = $today->diff($due);
@@ -235,6 +251,8 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * @param int $flexDays Number of flex days for flexible scheduling (0 = no flex)
 	 * @param array $weekdayAvailability User's weekday availability for flex scheduling
 	 * @param array $energyBudget User's daily energy budget for flex scheduling
+	 * @param \DateTimeZone|null $timeZone House timezone for the flex window
+	 *                                     day buckets (CS-PLAN-057); null falls back to the server timezone.
 	 */
 	public function markCompleted(
 		\DateTime $completedAt,
@@ -248,6 +266,7 @@ class RoomTask extends Entity implements JsonSerializable {
 		int $flexDays = 0,
 		array $weekdayAvailability = [],
 		array $energyBudget = [],
+		?\DateTimeZone $timeZone = null,
 	): void {
 		$this->setLastCompleted($completedAt);
 
@@ -274,7 +293,7 @@ class RoomTask extends Entity implements JsonSerializable {
 		}
 
 		// Calculate ideal due date within flex window
-		$idealDue = $this->calculateIdealDueDate($baseDue, $flexDays, $weekdayAvailability, $energyBudget);
+		$idealDue = $this->calculateIdealDueDate($baseDue, $flexDays, $weekdayAvailability, $energyBudget, $timeZone);
 
 		// Check if next due date exceeds active window
 		if ($activeUntil !== null && $idealDue > $activeUntil) {
@@ -421,8 +440,11 @@ class RoomTask extends Entity implements JsonSerializable {
 
 	/**
 	 * Get status as string
+	 *
+	 * @param \DateTimeZone|null $timeZone House timezone for the day bucket
+	 *                                     (CS-PLAN-057); null falls back to the server timezone.
 	 */
-	public function getStatus(): string {
+	public function getStatus(?\DateTimeZone $timeZone = null): string {
 		if (!$this->isActive) {
 			return 'inactive';
 		}
@@ -431,7 +453,7 @@ class RoomTask extends Entity implements JsonSerializable {
 			return 'overdue';
 		}
 
-		if ($this->isDueToday()) {
+		if ($this->isDueToday($timeZone)) {
 			return 'due_today';
 		}
 
@@ -452,6 +474,9 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * @param int $flexDays Number of flex days (0 = no flex, just use base date)
 	 * @param array $weekdayAvailability User's weekday availability (e.g., ['monday' => true, ...])
 	 * @param array $energyBudget User's daily energy budget (e.g., ['monday' => 10, ...])
+	 * @param \DateTimeZone|null $timeZone House timezone for the window's day
+	 *                                     buckets (CS-PLAN-057); null falls back to the server timezone. The
+	 *                                     returned date keeps the storage timezone of $baseDate.
 	 * @return \DateTime The ideal due date
 	 */
 	public function calculateIdealDueDate(
@@ -459,18 +484,21 @@ class RoomTask extends Entity implements JsonSerializable {
 		int $flexDays,
 		array $weekdayAvailability = [],
 		array $energyBudget = [],
+		?\DateTimeZone $timeZone = null,
 	): \DateTime {
 		// No flex window - just use base date
 		if ($flexDays <= 0) {
 			return clone $baseDate;
 		}
 
-		// Calculate flex window bounds
-		$windowStart = clone $baseDate;
+		$windowTz = $timeZone ?? new \DateTimeZone(date_default_timezone_get());
+
+		// Calculate flex window bounds in the bucketing timezone
+		$windowStart = \DateTime::createFromInterface($baseDate)->setTimezone($windowTz);
 		$windowStart->sub(new \DateInterval("P{$flexDays}D"));
 		$windowStart->setTime(0, 0, 0);
 
-		$windowEnd = clone $baseDate;
+		$windowEnd = \DateTime::createFromInterface($baseDate)->setTimezone($windowTz);
 		$windowEnd->add(new \DateInterval("P{$flexDays}D"));
 		$windowEnd->setTime(23, 59, 59);
 
@@ -485,7 +513,8 @@ class RoomTask extends Entity implements JsonSerializable {
 		// Score each available day based on energy budget and pick the best
 		$bestDay = $this->pickBestDayInWindow($availableDays, $energyBudget, $baseDate);
 
-		return $bestDay;
+		// Keep the storage timezone of $baseDate (UTC wall-clock convention)
+		return \DateTime::createFromInterface($bestDay)->setTimezone($baseDate->getTimezone());
 	}
 
 	/**
@@ -585,6 +614,9 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * @param string $schedulingMode dynamic|static
 	 * @param string|null $fixedScheduleDays JSON array of weekday names (static+weekly)
 	 * @param \DateTime|null $activeUntil Don't project past this date
+	 * @param \DateTimeZone|null $timeZone House timezone for the day buckets
+	 *                                     (CS-PLAN-057); null falls back to the server timezone. Returned
+	 *                                     occurrences are normalized to UTC (storage convention).
 	 * @return list<\DateTime> Occurrence dates within [from, to], ascending
 	 */
 	public function projectOccurrences(
@@ -596,19 +628,26 @@ class RoomTask extends Entity implements JsonSerializable {
 		string $schedulingMode = 'dynamic',
 		?string $fixedScheduleDays = null,
 		?\DateTime $activeUntil = null,
+		?\DateTimeZone $timeZone = null,
 	): array {
 		if ($this->nextDue === null) {
 			return [];
 		}
 
-		$anchor = \DateTime::createFromInterface($this->nextDue)->setTime(0, 0, 0);
-		$fromDay = \DateTime::createFromInterface($from)->setTime(0, 0, 0);
-		$toDay = \DateTime::createFromInterface($to)->setTime(23, 59, 59);
+		if ($timeZone !== null) {
+			$anchor = \DateTime::createFromInterface($this->nextDue)->setTimezone($timeZone)->setTime(0, 0, 0);
+			$fromDay = \DateTime::createFromInterface($from)->setTimezone($timeZone)->setTime(0, 0, 0);
+			$toDay = \DateTime::createFromInterface($to)->setTimezone($timeZone)->setTime(23, 59, 59);
+		} else {
+			$anchor = \DateTime::createFromInterface($this->nextDue)->setTime(0, 0, 0);
+			$fromDay = \DateTime::createFromInterface($from)->setTime(0, 0, 0);
+			$toDay = \DateTime::createFromInterface($to)->setTime(23, 59, 59);
+		}
 
 		// One-time task: a single occurrence at nextDue if it lands in the window.
 		if ($recurrenceMode === 'one_time') {
 			if ($anchor >= $fromDay && $anchor <= $toDay) {
-				return [$anchor];
+				return [$this->normalizeToStorage($anchor)];
 			}
 			return [];
 		}
@@ -625,7 +664,8 @@ class RoomTask extends Entity implements JsonSerializable {
 			}
 		}
 		if (!empty($staticWeekdays)) {
-			return $this->projectWeeklyWeekdays($anchor, $fromDay, $toDay, $value, $staticWeekdays, $activeUntil, $cap);
+			return array_map(fn (\DateTime $occ) => $this->normalizeToStorage($occ),
+				$this->projectWeeklyWeekdays($anchor, $fromDay, $toDay, $value, $staticWeekdays, $activeUntil, $cap));
 		}
 
 		// Arithmetic recurrence: daily / weekly-dynamic / monthly / custom fallback.
@@ -665,7 +705,17 @@ class RoomTask extends Entity implements JsonSerializable {
 			$current = $next;
 		}
 
-		return $occurrences;
+		return array_map(fn (\DateTime $occ) => $this->normalizeToStorage($occ), $occurrences);
+	}
+
+	/**
+	 * Normalize a projected occurrence back to the storage timezone
+	 * (UTC wall-clock convention) so callers can bind/serialize it like
+	 * any stored timestamp.
+	 */
+	private function normalizeToStorage(\DateTime $occurrence): \DateTime {
+		return \DateTime::createFromInterface($occurrence)
+			->setTimezone(new \DateTimeZone(date_default_timezone_get()));
 	}
 
 	/**

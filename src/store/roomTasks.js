@@ -7,6 +7,8 @@ import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
 import { emit } from '@nextcloud/event-bus'
 import { logger } from '../utils/logger.js'
+import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
+import { useHouseStore } from './house.js'
 import { useSchedulingStore } from './scheduling.js'
 import { useGameStore } from './game.js'
 import { useTasksStore } from './tasks.js'
@@ -35,42 +37,47 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			return tasksByRoom
 		},
 
-		// Statistics
+		// Statistics — bucketed in the house timezone (CS-PLAN-057). The
+		// `new Date(null)`-epoch guard (CR-P4-06) treats a missing nextDue
+		// as never-due instead of counting the 1970 epoch as overdue.
 		totalOverdueTasks: (state) => {
+			const now = new Date()
 			return state.roomTasks.filter(roomTask => {
-				return roomTask.isActive && new Date(roomTask.nextDue) < new Date()
+				if (!roomTask.isActive || !roomTask.nextDue) return false
+				return new Date(roomTask.nextDue) < now
 			}).length
 		},
 
 		totalDueTodayTasks: (state) => {
-			const today = new Date()
-			today.setHours(0, 0, 0, 0)
-			const tomorrow = new Date(today)
-			tomorrow.setDate(tomorrow.getDate() + 1)
+			const houseStore = useHouseStore()
+			const todayKey = todayKeyInZone(houseStore.timezone)
 
 			return state.roomTasks.filter(roomTask => {
-				if (!roomTask.isActive) return false
-				const dueDate = new Date(roomTask.nextDue)
-				return dueDate >= today && dueDate < tomorrow
+				if (!roomTask.isActive || !roomTask.nextDue) return false
+				return dateKeyInZone(roomTask.nextDue, houseStore.timezone) === todayKey
 			}).length
 		},
 
 		/**
-		 * Group rangeTasks.scheduled by YYYY-MM-DD, expanding each task
-		 * across its projected occurrences. Falls back to nextDue when
-		 * the backend omits the occurrences array.
+		 * Group rangeTasks.scheduled by the house-local YYYY-MM-DD day key
+		 * (CS-PLAN-057), expanding each task across its projected
+		 * occurrences. Backend `occurrences` entries are already house-local
+		 * day keys (service-side bucketing); fallback nextDue instants are
+		 * converted via dateKeyInZone.
 		 * @param {object} state Pinia state
 		 * @return {{[date: string]: {scheduled: Array, completed: Array}}}
 		 */
 		rangeTasksByDay: (state) => {
+			const houseStore = useHouseStore()
 			const byDay = {}
 			for (const item of state.rangeTasks.scheduled) {
 				// Recurrence projection (D2): when the backend supplies an
-				// `occurrences` list, the task appears on each of those days.
-				// Fall back to the single nextDue for items without occurrences.
+				// `occurrences` list, the task appears on each of those days
+				// (house-local keys straight from the backend). Fall back to
+				// the single nextDue instant, bucketed in the house TZ.
 				const dates = Array.isArray(item.occurrences) && item.occurrences.length
 					? item.occurrences
-					: [(item.roomTask?.nextDue || '').slice(0, 10)]
+					: [dateKeyInZone(item.roomTask?.nextDue, houseStore.timezone)]
 
 				for (const date of dates) {
 					if (!date) continue
@@ -85,7 +92,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				}
 			}
 			for (const item of state.rangeTasks.completed) {
-				const day = (item.completedAt || '').slice(0, 10)
+				const day = dateKeyInZone(item.completedAt, houseStore.timezone)
 				if (!day) continue
 				if (!byDay[day]) byDay[day] = { scheduled: [], completed: [] }
 				byDay[day].completed.push(item)

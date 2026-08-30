@@ -1,6 +1,8 @@
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import TaskCalendar from '../../../src/components/Tasks/TaskCalendar.vue'
 import CalendarDayCell from '../../../src/components/Tasks/CalendarDayCell.vue'
+import { useHouseStore } from '../../../src/store/house.js'
 
 jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, text) => text),
@@ -18,6 +20,12 @@ describe('TaskCalendar', () => {
 		},
 	}
 
+	beforeEach(() => {
+		// CalendarDayCell reads the house timezone for the today highlight.
+		setActivePinia(createPinia())
+		useHouseStore().house = { id: 1, timezone: 'UTC' }
+	})
+
 	it('renders week grid with 7 day cells', () => {
 		const wrapper = mount(TaskCalendar, { props: defaultProps })
 		expect(wrapper.find('[data-testid="task-calendar"]').exists()).toBe(true)
@@ -26,7 +34,8 @@ describe('TaskCalendar', () => {
 
 	it('renders month grid with 30 day cells', () => {
 		const days = Array.from({ length: 30 }, (_, i) => {
-			const d = new Date(2026, 6, 28 + i)
+			// UTC-anchored so the keys are host-timezone independent.
+			const d = new Date(Date.UTC(2026, 6, 28 + i))
 			return d.toISOString().slice(0, 10)
 		})
 		const wrapper = mount(TaskCalendar, { props: { ...defaultProps, mode: 'month', days } })

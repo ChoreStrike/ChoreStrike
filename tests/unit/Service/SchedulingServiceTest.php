@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -18,16 +21,22 @@ class SchedulingServiceTest extends TestCase {
 	private SchedulingService $service;
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private HouseMapper $houseMapper;
 
 	protected function setUp(): void {
 		parent::setUp();
 
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+		$this->houseMapper = $this->createMock(HouseMapper::class);
+		// CS-PLAN-057: today's-energy window resolves the house timezone.
+		$utcHouse = new House();
+		$utcHouse->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($utcHouse);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		$this->service = new SchedulingService($this->houseUserMapper, $this->completedTaskMapper, $l10n);
+		$this->service = new SchedulingService($this->houseUserMapper, $this->completedTaskMapper, $l10n, $this->houseMapper, new CalendarService());
 	}
 
 	/**
@@ -39,6 +48,7 @@ class SchedulingServiceTest extends TestCase {
 	public function testGetUserPreferences_ReturnsRealConsumedEnergy(): void {
 		$houseUser = new HouseUser();
 		$houseUser->setId(7);
+		$houseUser->setHouseId(2);
 		$houseUser->setSchedulingPreferences([]);
 
 		$this->houseUserMapper
@@ -50,7 +60,11 @@ class SchedulingServiceTest extends TestCase {
 		$this->completedTaskMapper
 			->expects($this->once())
 			->method('getConsumedEnergyForUserOnDate')
-			->with($this->equalTo(7), $this->isInstanceOf(\DateTimeInterface::class))
+			->with(
+				$this->equalTo(7),
+				$this->isInstanceOf(\DateTimeInterface::class),
+				$this->isInstanceOf(\DateTimeInterface::class)
+			)
 			->willReturn(9);
 
 		$preferences = $this->service->getUserPreferences(7);
@@ -86,7 +100,11 @@ class SchedulingServiceTest extends TestCase {
 		$this->completedTaskMapper
 			->expects($this->once())
 			->method('getConsumedEnergyForUserOnDate')
-			->with($this->equalTo(7), $this->isInstanceOf(\DateTimeInterface::class))
+			->with(
+				$this->equalTo(7),
+				$this->isInstanceOf(\DateTimeInterface::class),
+				$this->isInstanceOf(\DateTimeInterface::class)
+			)
 			->willReturn(6);
 
 		$preferences = $this->service->getUserPreferencesByNextcloudUserId(2, 'member-a');

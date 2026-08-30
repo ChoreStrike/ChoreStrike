@@ -260,6 +260,27 @@ docker compose -f docker-compose.test.yml down
 
 These tests are part of the blocking gate.
 
+### Timezone / day-boundary tests (CS-PLAN-057)
+
+Calendar-day semantics bucket in the house timezone (ADR-009), so a fresh
+schema (`down -v` + `up -d`) is required when a timezone migration is added
+— an existing test DB has no `migrations:execute` command on Nextcloud 31.
+
+- `tests/unit/Service/CalendarServiceTest.php` — pins the
+  `dayBounds`/`weekStart`/`dayKey` primitives around DST transitions in
+  UTC, Europe/Berlin and Pacific/Auckland (spring-forward 23h /
+  fall-back 25h windows, Sunday week-start semantics).
+- `tests/integration/Service/TimezoneDayBucketingTest.php` — real-DB pins:
+  a completion at 22:30 UTC (00:30 Berlin) counts for the NEXT Berlin day
+  in the duplicate guard and the streak/freeze window; the Berlin weekly
+  window differs from UTC's; the minigame weekly leaderboard follows the
+  house week (D3 fix).
+- `tests/unit/utils/dateKeys.spec.js` — frontend `dateKeyInZone` pins
+  (midnight crossings, epoch/invalid guards, DST overlap).
+
+The E2E container runs UTC; timezone behavior is covered at the
+unit/integration level above.
+
 ## E2E Tests with Playwright
 
 End-to-end tests run against a full Docker-based Nextcloud instance with the ChoreStrike app enabled.

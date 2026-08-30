@@ -57,8 +57,9 @@ class HouseMapper extends QBMapper {
 	 *
 	 * @param string $instanceId The Nextcloud instance ID
 	 * @param string $name The house name
+	 * @param string $timezone The house timezone (CS-PLAN-057 D1: creator's NC timezone)
 	 */
-	public function createForInstance(string $instanceId, string $name): House {
+	public function createForInstance(string $instanceId, string $name, string $timezone = 'UTC'): House {
 		try {
 			$house = $this->findByInstanceId($instanceId);
 			$house->setName($name);
@@ -69,10 +70,32 @@ class HouseMapper extends QBMapper {
 			$house->setNextcloudInstanceId($instanceId);
 			$house->setName($name);
 			$house->setHouseHealth(100);
+			$house->setTimezone($timezone);
 			$now = new \DateTime();
 			$house->setCreatedAt($now);
 			$house->setUpdatedAt($now);
 			return $this->insert($house);
+		}
+	}
+
+	/**
+	 * Find the single instance house for background jobs (CS-PLAN-057).
+	 *
+	 * Jobs are instance-global and the app's design invariant is one house
+	 * per instance, so the pass just resolves "the" house. Returns null when
+	 * no house exists yet (bootstrap race) — callers treat that as a no-op.
+	 */
+	public function findOneForJobs(): ?House {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->orderBy('id', 'ASC')
+			->setMaxResults(1);
+
+		try {
+			return $this->findEntity($qb);
+		} catch (DoesNotExistException $e) {
+			return null;
 		}
 	}
 

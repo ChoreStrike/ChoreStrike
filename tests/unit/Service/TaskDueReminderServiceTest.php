@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -12,6 +14,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\TaskDueReminderService;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -25,6 +28,10 @@ use PHPUnit\Framework\TestCase;
  * the behaviour as a pure function of that injected date. The is_active
  * filtering is part of RoomTaskMapper::findDueOnDate's SQL contract and is
  * covered by the real-DB regression in tests/integration/Db.
+ *
+ * CS-PLAN-057: the pass derives today/tomorrow windows in the house
+ * timezone (UTC house in these pins, so the day keys match the injected
+ * date).
  */
 class TaskDueReminderServiceTest extends TestCase {
 	/** Fixed injected "today": a Monday, independent of the real clock. */
@@ -37,6 +44,7 @@ class TaskDueReminderServiceTest extends TestCase {
 	private TaskMapper&MockObject $taskMapper;
 	private NotificationService&MockObject $notificationService;
 	private AppLogger&MockObject $appLogger;
+	private HouseMapper&MockObject $houseMapper;
 	private TaskDueReminderService $service;
 	private \DateTime $today;
 
@@ -47,7 +55,12 @@ class TaskDueReminderServiceTest extends TestCase {
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->notificationService = $this->createMock(NotificationService::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
+		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->today = new \DateTime(self::TODAY);
+
+		$utcHouse = new House();
+		$utcHouse->setTimezone('UTC');
+		$this->houseMapper->method('findOneForJobs')->willReturn($utcHouse);
 
 		$this->service = new TaskDueReminderService(
 			$this->roomTaskMapper,
@@ -56,6 +69,8 @@ class TaskDueReminderServiceTest extends TestCase {
 			$this->taskMapper,
 			$this->notificationService,
 			$this->appLogger,
+			$this->houseMapper,
+			new CalendarService(),
 		);
 	}
 

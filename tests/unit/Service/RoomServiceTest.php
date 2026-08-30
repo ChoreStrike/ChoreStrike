@@ -7,6 +7,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
@@ -20,6 +21,7 @@ use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\NotificationService;
@@ -76,6 +78,12 @@ class RoomServiceTest extends TestCase {
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
 
+		// CS-PLAN-057: the completion path resolves the house timezone —
+		// default to a UTC house (day bounds then match the classic UTC day).
+		$utcHouse = new House();
+		$utcHouse->setTimezone('UTC');
+		$this->houseMapper->method('find')->willReturn($utcHouse);
+
 		// Default weekly goal snapshot: not achieved, no activity. Tests that
 		// exercise the not-achieved → achieved transition populate
 		// $weeklyGoalSequence with two snapshots; otherwise this default is
@@ -111,7 +119,8 @@ class RoomServiceTest extends TestCase {
 			$this->notificationService,
 			$this->db,
 			$this->createIdentityL10n(),
-			$this->appLogger
+			$this->appLogger,
+			new CalendarService()
 		);
 	}
 

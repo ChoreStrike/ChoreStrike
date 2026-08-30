@@ -135,23 +135,24 @@ class RoomTaskMapper extends QBMapper {
 	/**
 	 * Get tasks due today for a specific house (joins through rooms → floors).
 	 *
+	 * CS-PLAN-057: the "today" window is supplied as explicit `[start, end)`
+	 * bounds (house-TZ day, CalendarService::dayBounds) instead of being
+	 * derived at server-TZ midnight.
+	 *
 	 * @param int $houseId The house ID
+	 * @param \DateTimeInterface $start Inclusive day start (house-TZ midnight instant)
+	 * @param \DateTimeInterface $end Exclusive next-day start
 	 * @param int|null $roomId Optional room ID to filter by
 	 * @return RoomTask[]
 	 */
-	public function findDueTodayByHouse(int $houseId, ?int $roomId = null): array {
-		$today = new \DateTime();
-		$today->setTime(0, 0, 0);
-		$tomorrow = clone $today;
-		$tomorrow->add(new \DateInterval('P1D'));
-
+	public function findDueTodayByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end, ?int $roomId = null): array {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->select('rt.*')
 			->from($this->getTableName(), 'rt');
 		$this->applyHouseScope($qb, 'rt', $houseId);
-		$qb->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($today, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($tomorrow, IQueryBuilder::PARAM_DATE)))
+		$qb->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
 
 		if ($roomId !== null) {
@@ -335,21 +336,22 @@ class RoomTaskMapper extends QBMapper {
 	 * engine (BUG-API-DAILY-001). Range pattern mirrors
 	 * CompletedTaskMapper::countByUserOnDate().
 	 *
+	 * CS-PLAN-057: the day window is supplied as explicit `[start, end)`
+	 * bounds (house-TZ day, CalendarService::dayBounds).
+	 *
 	 * @param int $houseId The house ID
-	 * @param \DateTime $date The date to find tasks for (only the calendar day is used)
+	 * @param \DateTimeInterface $start Inclusive day start
+	 * @param \DateTimeInterface $end Exclusive next-day start
 	 * @return RoomTask[]
 	 */
-	public function findDailyTasks(int $houseId, \DateTime $date): array {
-		$startOfDay = new \DateTimeImmutable($date->format('Y-m-d') . ' 00:00:00');
-		$endOfDay = $startOfDay->modify('+1 day');
-
+	public function findDailyTasks(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->select('rt.*')
 			->from($this->getTableName(), 'rt');
 		$this->applyHouseScope($qb, 'rt', $houseId);
-		$qb->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)))
+		$qb->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
 			->orderBy('rt.next_due', 'ASC')
 			->addOrderBy('rt.created_at', 'ASC');
@@ -369,19 +371,17 @@ class RoomTaskMapper extends QBMapper {
 	 * Same [start, end) range-comparison pattern as findDailyTasks (never
 	 * DATE(next_due) = :day — see BUG-API-DAILY-001).
 	 *
-	 * @param \DateTimeInterface $day The day to find tasks for (only the calendar day is used)
-	 * @return RoomTask[] Active room tasks due within [day 00:00:00, day+1)
+	 * @param \DateTimeInterface $start Inclusive day start
+	 * @param \DateTimeInterface $end Exclusive next-day start
+	 * @return RoomTask[] Active room tasks due within the day window
 	 */
-	public function findDueOnDate(\DateTimeInterface $day): array {
-		$startOfDay = new \DateTimeImmutable($day->format('Y-m-d') . ' 00:00:00');
-		$endOfDay = $startOfDay->modify('+1 day');
-
+	public function findDueOnDate(\DateTimeInterface $start, \DateTimeInterface $end): array {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->select('*')
 			->from($this->getTableName())
-			->andWhere($qb->expr()->gte('next_due', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('next_due', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->gte('next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
 			->orderBy('next_due', 'ASC')
 			->addOrderBy('created_at', 'ASC');

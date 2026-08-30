@@ -8,6 +8,8 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 import { useTasksStore } from '../../../src/store/tasks.js'
+import { useHouseStore } from '../../../src/store/house.js'
+import { addDaysToKey, todayKeyInZone, weekdayOfKey } from '../../../src/utils/dateKeys.js'
 
 jest.mock('../../../src/services/api.js', () => ({
 	api: {
@@ -60,24 +62,13 @@ describe('Scheduling Store', () => {
 	})
 
 	describe('Planned Energy & Overcapacity (CS-PLAN-040)', () => {
-		const localDateKey = (date) => {
-			const y = date.getFullYear()
-			const m = String(date.getMonth() + 1).padStart(2, '0')
-			const d = String(date.getDate()).padStart(2, '0')
-			return `${y}-${m}-${d}`
-		}
+		// CS-PLAN-057: the store buckets in the house timezone (UTC while no
+		// house is loaded, which is the deterministic default in these specs).
+		// Helpers compute keys and fixtures against the same zone so the pins
+		// are host-timezone independent.
+		const dateKeyInDays = (offset) => addDaysToKey(todayKeyInZone('UTC'), offset)
 
-		const dateKeyInDays = (offset) => {
-			const date = new Date()
-			date.setHours(0, 0, 0, 0)
-			date.setDate(date.getDate() + offset)
-			return localDateKey(date)
-		}
-
-		const weekdayNameOf = (dateKey) => {
-			const names = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-			return names[new Date(`${dateKey}T00:00:00`).getDay()]
-		}
+		const weekdayNameOf = (dateKey) => weekdayOfKey(dateKey)
 
 		const seedTaskDueOn = (roomTasksStore, tasksStore, { roomTaskId, taskId, name, energyCost, priority, offset }) => {
 			tasksStore.tasks.push({ id: taskId, name, energyCost, priority })
@@ -86,13 +77,14 @@ describe('Scheduling Store', () => {
 				taskId,
 				roomId: 1,
 				isActive: true,
-				nextDue: new Date(new Date().setHours(12, 0, 0, 0) + offset * 24 * 60 * 60 * 1000).toISOString(),
+				nextDue: `${dateKeyInDays(offset)}T12:00:00Z`,
 			})
 		}
 
 		beforeEach(() => {
 			useRoomTasksStore().$reset()
 			useTasksStore().$reset()
+			useHouseStore().$reset()
 		})
 
 		it('getCapacityForDay uses member totals when member availability is loaded', () => {

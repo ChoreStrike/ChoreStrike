@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RewardConfigService;
@@ -37,6 +39,8 @@ class GameLogicServiceTeamworkTest extends TestCase {
 			$this->configService,
 			$notificationService,
 			$this->createMock(AppLogger::class),
+			$this->createMock(HouseMapper::class),
+			new CalendarService(),
 			null
 		);
 	}

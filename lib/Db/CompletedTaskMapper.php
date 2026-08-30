@@ -103,24 +103,26 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Get total consumed energy for a user on a specific date.
+	 * Get total consumed energy for a user within a day window.
+	 *
+	 * CS-PLAN-057: the day window is supplied as explicit `[start, end)`
+	 * bounds (house-TZ day, CalendarService::dayBounds) instead of being
+	 * derived from a single date at server-TZ midnight.
 	 *
 	 * @param int $userId The house user ID
-	 * @param \DateTimeInterface $date Date used to determine day boundaries
+	 * @param \DateTimeInterface $start Inclusive window start
+	 * @param \DateTimeInterface $end Exclusive window end
 	 * @return int Total consumed energy points
 	 */
-	public function getConsumedEnergyForUserOnDate(int $userId, \DateTimeInterface $date): int {
-		$startOfDay = new \DateTimeImmutable($date->format('Y-m-d') . ' 00:00:00');
-		$endOfDay = $startOfDay->modify('+1 day');
-
+	public function getConsumedEnergyForUserOnDate(int $userId, \DateTimeInterface $start, \DateTimeInterface $end): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->selectAlias($qb->createFunction('COALESCE(SUM(t.energy_cost), 0)'), 'consumed_energy')
 			->from($this->getTableName(), 'ct')
 			->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
 			->innerJoin('rt', 'chorestrike_tasks', 't', $qb->expr()->eq('rt.task_id', 't.id'))
 			->where($qb->expr()->eq('ct.user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)));
+			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)));
 
 		$result = $qb->executeQuery();
 		$row = $result->fetch();
@@ -130,76 +132,70 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Count completions of a room task by a house user on a specific calendar day.
+	 * Count completions of a room task by a house user within a day window.
 	 *
 	 * Used by the duplicate-completion guard to prevent the same user from
 	 * earning coins twice for the same room task on the same day.
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param int $houseUserId The house user ID (internal)
-	 * @param \DateTimeInterface $date Date used to determine day boundaries
-	 * @return int Number of completions on that day
+	 * @param \DateTimeInterface $start Inclusive window start (house-TZ day start)
+	 * @param \DateTimeInterface $end Exclusive window end (house-TZ next-day start)
+	 * @return int Number of completions in the window
 	 */
-	public function countByRoomTaskAndUserOnDate(int $roomTaskId, int $houseUserId, \DateTimeInterface $date): int {
-		$startOfDay = new \DateTimeImmutable($date->format('Y-m-d') . ' 00:00:00');
-		$endOfDay = $startOfDay->modify('+1 day');
-
+	public function countByRoomTaskAndUserOnDate(int $roomTaskId, int $houseUserId, \DateTimeInterface $start, \DateTimeInterface $end): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*'))
 			->from($this->getTableName())
 			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)));
+			->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)));
 
 		$result = $qb->executeQuery();
 		return (int)$result->fetchOne();
 	}
 
 	/**
-	 * Count all completions by a house user on a specific calendar day.
+	 * Count all completions by a house user within a day window.
 	 *
 	 * @param int $houseUserId The house user ID
-	 * @param \DateTimeInterface $date Date used to determine day boundaries
-	 * @return int Number of completions on that day
+	 * @param \DateTimeInterface $start Inclusive window start
+	 * @param \DateTimeInterface $end Exclusive window end
+	 * @return int Number of completions in the window
 	 */
-	public function countByUserOnDate(int $houseUserId, \DateTimeInterface $date): int {
-		$startOfDay = new \DateTimeImmutable($date->format('Y-m-d') . ' 00:00:00');
-		$endOfDay = $startOfDay->modify('+1 day');
-
+	public function countByUserOnDate(int $houseUserId, \DateTimeInterface $start, \DateTimeInterface $end): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*'))
 			->from($this->getTableName())
 			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)));
+			->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)));
 
 		$result = $qb->executeQuery();
 		return (int)$result->fetchOne();
 	}
 
 	/**
-	 * Build a map of houseUserId → completion count for a specific day.
+	 * Build a map of houseUserId → completion count within a day window.
 	 *
 	 * Used by the DailyNotificationJob to avoid an N+1 of per-user COUNTs
 	 * (the job iterates all house users). One GROUP BY query over the
 	 * completed_tasks table returns the per-user counts for everyone who
-	 * completed at least one task on the given day; users with zero
+	 * completed at least one task in the window; users with zero
 	 * completions are absent from the map (caller treats missing keys as 0).
 	 *
-	 * @param \DateTimeInterface $date Date used to determine day boundaries
+	 * @param \DateTimeInterface $start Inclusive window start (house-TZ day start)
+	 * @param \DateTimeInterface $end Exclusive window end (house-TZ next-day start)
 	 * @return array<int, int> Map of house user ID → completion count
 	 */
-	public function countByUserOnDateGrouped(\DateTimeInterface $date): array {
-		$startOfDay = new \DateTimeImmutable($date->format('Y-m-d') . ' 00:00:00');
-		$endOfDay = $startOfDay->modify('+1 day');
-
+	public function countByUserOnDateGrouped(\DateTimeInterface $start, \DateTimeInterface $end): array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('user_id')
 			->addSelect($qb->func()->count('*', 'cnt'))
 			->from($this->getTableName())
-			->where($qb->expr()->gte('completed_at', $qb->createNamedParameter($startOfDay, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($endOfDay, IQueryBuilder::PARAM_DATE)))
+			->where($qb->expr()->gte('completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->groupBy('user_id');
 
 		$result = $qb->executeQuery();
