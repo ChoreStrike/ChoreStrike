@@ -89,5 +89,7 @@ priority first; `ScheduleCalendar` marks overloaded day headers inline.
 - Implemented reward tokens driven by energy (coins, tier/early multipliers, streak
   freezes, teamwork bonus, weekly goal) are documented in
   [`gamification-and-rewards.md`](gamification-and-rewards.md) § Implemented Reward
-  Mechanics. Energy budgets are configurable per weekday via `AvailabilitySettings`
-  (see [`../engineering/architecture.md`](../engineering/architecture.md)).
+  Mechanics. Energy budgets are configurable per weekday and persisted in the
+  `scheduling_preferences` JSON column of `house_users` (the orphan
+  `AvailabilitySettings` entity/table cluster was pruned in CS-PLAN-055; see
+  [`../engineering/architecture.md`](../engineering/architecture.md)).

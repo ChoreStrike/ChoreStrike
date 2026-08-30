@@ -145,21 +145,10 @@ completion history).
 
 ### Floors
 
-#### GET /floors
-List all floors in the house.
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "house_id": 1,
-    "name": "Ground Floor",
-    "sort_order": 0,
-    "room_count": 3
-  }
-]
-```
+> Floor reads happen through `GET /floors/with-rooms` (the only list/detail
+> surface). `GET /floors`, `GET /floors/{id}`, the `POST /floor-create` /
+> `POST /floors/create` aliases and `FloorController::index`'s GET-create
+> branch were pruned in CS-PLAN-055 (no consumer; closes BUG-ROOM-001).
 
 #### POST /floors
 Create a new floor.
@@ -220,48 +209,12 @@ per-room assignments in one transaction.
 
 ### Rooms
 
-#### GET /rooms
-List all rooms.
-
-**Query Parameters:**
-- `floor_id` (optional): Filter by floor
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "floor_id": 1,
-    "name": "Kitchen",
-    "cleanliness": 75,
-    "last_cleaned": "2026-02-23T14:30:00Z",
-    "overdue_tasks": 2,
-    "due_tasks": 1
-  }
-]
-```
-
-#### GET /rooms/{id}
-Get room details with tasks.
-
-**Response:**
-```json
-{
-  "id": 1,
-  "name": "Kitchen",
-  "cleanliness": 75,
-  "tasks": [
-    {
-      "id": 1,
-      "name": "Empty dishwasher",
-      "energyCost": 2,
-      "priority": 1,
-      "next_due": "2026-02-24T12:00:00Z",
-      "is_overdue": false
-    }
-  ]
-}
-```
+> `GET /rooms`, `GET /rooms/{id}`, `GET /rooms/needing-cleaning` and the
+> `POST /room-create` / `POST /rooms/create` aliases were pruned in
+> CS-PLAN-055 (no production consumer) — room data is delivered by
+> `GET /floors/with-rooms`, per-room tasks via `GET /room-tasks?roomId=`.
+> The phantom `description` field (no backing column) is gone from the
+> `Room` serialization as part of the same prune (pre-release, no BC).
 
 #### POST /rooms
 Create a new room.
@@ -310,15 +263,19 @@ List all tasks visible to the current user (role-based visibility filtering appl
 
 > **Visibility types:** `public` (visible to all members), `private` (visible only to `ownerUserId`), `admin-only` (visible only to house owners). Only owners can create/modify admin-only tasks.
 
+> The task-definition read/aggregate surface — `GET /tasks/{id}`,
+> `GET /tasks/my-private`, `GET /tasks/category/{category}`,
+> `GET /tasks/search`, `GET /tasks/categories`, `GET /tasks/daily`,
+> `PUT /tasks/{id}/complete|skip|reschedule` and `DELETE /tasks/{id}` — was
+> pruned in CS-PLAN-055 (no production consumer). Tasks are consumed via
+> `GET /tasks` and mounted on rooms through `GET /room-tasks`. The lifecycle
+> `PUT /tasks/{id}/uncomplete` stays (undo path, see Room Tasks).
+
 > **Catalog templates:** the DB-backed `is_template` / `GET /tasks/templates`
 > system was removed (CS-PLAN-027 D7). Task templates now come from the
-> [setup catalog](#setup-wizard) (`GET /setup/catalog`). See
+> [setup catalog](#setup-wizard) (`GET /setup/catalog`) and are materialized
+> per room via `POST /room-tasks/from-template`. See
 > [house-setup-and-templates.md](../concepts/house-setup-and-templates.md).
-
-#### GET /tasks/my-private
-List the current user's private tasks only.
-
-**Response:** Same shape as `GET /tasks`, filtered to `visibilityType='private'` owned by the current user.
 
 #### POST /tasks
 Create a new task.
@@ -348,9 +305,6 @@ Update task.
 > multiplier). A member sending `taskTier` gets `403 FORBIDDEN`; any other
 > value gets `400 VALIDATION_ERROR`. All other whitelisted fields remain
 > member-writable.
-
-#### DELETE /tasks/{id}
-Delete task.
 
 ### Room Tasks
 
@@ -408,9 +362,12 @@ List all room-task assignments.
 
 > **`assigned_to_user_id`** is the legacy single-assignee field, retained
 > alongside the multi-assignee `chorestrike_task_assignees` table (CS-PLAN-002).
-> It is still set via the POST body (`assignedToUserId`) and the assign endpoint,
-> returned as `assignedToUserId`, and merged into the assignee set by
-> `TaskAssigneeMapper`. See `architecture.md` (`chorestrike_room_tasks`).
+> It is still set via the POST body (`assignedToUserId`), returned as
+> `assignedToUserId`, and merged into the assignee set by `TaskAssigneeMapper`.
+> See `architecture.md` (`chorestrike_room_tasks`). The standalone
+> `POST /room-tasks/{id}/assign` / `…/unassign` and single-assignee
+> `POST|DELETE …/assignees` variants were pruned in CS-PLAN-055 — assignment
+> goes through `PUT …/assignees` or `POST /room-tasks/bulk-assign`.
 
 #### POST /room-tasks
 Assign task to room(s).
@@ -427,21 +384,24 @@ Assign task to room(s).
 #### PUT /room-tasks/{id}/due-date
 Update a room task's next-due date / ideal due date.
 
-#### PUT /room-tasks/{id}/assignees
-Replace the multi-assignee set for a room task (`POST`/`DELETE` on the same
-sub-path add/remove a single assignee; `GET` reads them). Assignee mutations
+#### GET /room-tasks/{id}/assignees · PUT /room-tasks/{id}/assignees
+Read / replace the multi-assignee set for a room task. Assignee mutations
 are validated for house membership server-side.
 
-#### POST /room-tasks/{id}/deactivate · POST /room-tasks/{id}/reactivate
-Deactivate / re-activate a room-task instance.
+#### POST /room-tasks/{id}/reactivate
+Re-activate a room-task instance (undo path for one-time tasks whose
+completion deactivated them; `deactivate` was pruned in CS-PLAN-055).
 
 #### DELETE /room-tasks/{id}
 Remove task from room.
 
 > **Full route list:** the canonical, complete route table is
-> [`appinfo/routes.php`](../../appinfo/routes.php) (110 routes spanning `house`,
+> [`appinfo/routes.php`](../../appinfo/routes.php) (71 routes spanning `house`,
 > `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
-> `checklist`, `task_sync`, `minigame`, `reward_config`, `setup`, and `test`).
+> `checklist`, `minigame`, `setup`, and `test`). The task-sync ×6 and
+> reward-config ×2 HTTP surfaces were pruned in CS-PLAN-055 together with
+> 31 further no-consumer/test-only routes (disposition list + guard in
+> `RouteMatrixTest`); re-adding a route requires a consumer.
 > This document covers the core CRUD + completion
 > flows; the `RouteMatrixTest` contract test guards route↔controller drift.
 
@@ -535,8 +495,8 @@ authorization live in `ChecklistService` (CR-053-01); the guard enforces
 **house linkage** (room task → room → floor → house) plus the
 **task-visibility matrix** (public → any member; private → task owner;
 admin-only → house owner) on every endpoint. Denials return
-`404 RESOURCE_NOT_FOUND` (anti-enumeration, same contract as task
-show/update/delete).
+`404 RESOURCE_NOT_FOUND` (anti-enumeration, same contract as the task
+update gate).
 
 | Endpoint | Purpose |
 |----------|---------|
@@ -546,9 +506,7 @@ show/update/delete).
 | `DELETE /checklists/item/{itemId}` | Delete an item |
 | `POST /checklists/reorder` | Reorder items (`itemOrders`: item id → order map) |
 | `GET /checklists/progress/{roomTaskId}` | Progress entries + stats |
-| `POST /checklists/toggle/{roomTaskId}/{itemId}` | Toggle an item's progress |
-| `POST /checklists/initialize/{roomTaskId}` | Seed unchecked progress rows |
-| `GET /checklists/complete/{roomTaskId}` | Items merged with progress + stats |
+| `POST /checklists/toggle/{roomTaskId}/{itemId}` | Toggle an item's progress (auto-creates the progress row — the pruned explicit `initialize`/`complete` pair is not needed) |
 
 **Authorization notes (CR-053-01):**
 - Cross-house task/item/room-task ids → `404 RESOURCE_NOT_FOUND` on every
@@ -563,6 +521,9 @@ show/update/delete).
   (`404` otherwise) — progress rows of an unrelated task cannot be flipped.
 
 ### Game
+
+> `GET /game/leaderboard` was pruned in CS-PLAN-055 (test-only never became
+> production-consumed; the UI leaderboard is built from `GET /users`).
 
 #### GET /game/state
 Get current game state.
@@ -579,27 +540,6 @@ Get current game state.
     "overdue": 2
   }
 }
-```
-
-#### GET /game/leaderboard
-Get user leaderboard.
-
-> **Status 2026-08-27:** no production consumer (the UI leaderboard is built from
-> `GET /users`); test-only. The `period` filter was removed (CS-PLAN-041) — the
-> endpoint takes no parameters.
-
-**Response:**
-```json
-[
-  {
-    "user_id": 1,
-    "display_name": "Alice",
-    "coins": 450,
-    "tasks_completed": 23,
-    "current_streak": 7,
-    "rank": 1
-  }
-]
 ```
 
 #### GET /game/medals
@@ -673,7 +613,8 @@ the former full task array was never used beyond `count($tasks)`).
 
 ### Users
 
-> **Title fields on user objects:** every user object returned by `GET /users`, the active-user endpoint, and the leaderboard is enriched with two title fields:
+> **Title fields on user objects:** every user object returned by `GET /users`
+> and `GET /users/current` is enriched with two title fields:
 > - `selectedTitlePack` (`string|null`) — the pack the user has chosen to display (null = none chosen).
 > - `currentTitle` (`object|null`) — the server-computed highest tier the user qualifies for within `selectedTitlePack` (same shape as `currentTitle` under `GET /users/{id}/titles` below), or null.
 >
@@ -719,6 +660,12 @@ Remove user from house (owner only).
 > endpoints `GET /room-tasks/user/{userId}` and
 > `GET /room-tasks/user/{userId}/stats` were pruned with it; per-member
 > history lives in `GET /house/activity`.
+>
+> **Pruned (CS-PLAN-055):** `PUT /users/{id}` (display-name /
+> scheduling-preferences profile update) — its only consumer was the dead
+> `updateUserProfile` store wrapper; member preferences go through
+> `PUT /scheduling/preferences` / `PUT /scheduling/members/{userId}`, and
+> role changes through `PUT /users/{id}/role`.
 
 #### GET /users/{id}/titles
 Get the role-title state for a user: the current title (server-computed from

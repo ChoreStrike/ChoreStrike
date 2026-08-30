@@ -83,28 +83,6 @@ class GameControllerIntegrationTest extends TestCase {
 	}
 
 	/**
-	 * Leaderboard_ReturnsRankedUsers_SuccessResponse
-	 */
-	public function testLeaderboard_ReturnsRankedUsers_SuccessResponse(): void {
-		$leaderboard = [
-			['userId' => 'user1', 'displayName' => 'Alice', 'contributionScore' => 450, 'rank' => 1],
-			['userId' => 'user2', 'displayName' => 'Bob', 'contributionScore' => 380, 'rank' => 2],
-		];
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
-		$this->gameLogicService->method('getLeaderboard')
-			->willReturn($leaderboard);
-
-		$response = $this->controller->leaderboard();
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
-
-	/**
 	 * Medals_ReturnsAllMedals_SuccessResponse
 	 */
 	public function testMedals_ReturnsAllMedals_SuccessResponse(): void {

@@ -66,18 +66,20 @@ class AuthorizationIntegrationTest extends IntegrationTestCase {
 		$authService->requireCurrentUserId();
 	}
 
-	public function testIsHouseMemberReturnsTrueForMember(): void {
+	public function testEnsureHouseMemberReturnsHouseUserForMember(): void {
 		$this->actingAs('auth_owner');
 		$authService = \OC::$server->get(AuthorizationService::class);
 
-		self::assertTrue($authService->isHouseMember($this->house1Id));
+		$houseUser = $authService->ensureHouseMember($this->house1Id);
+		self::assertSame('auth_owner', $houseUser->getNextcloudUserId());
 	}
 
-	public function testIsHouseMemberReturnsFalseForNonMember(): void {
+	public function testAssertHouseMemberThrowsForNonMember(): void {
 		$this->actingAs('auth_stranger');
 		$authService = \OC::$server->get(AuthorizationService::class);
 
-		self::assertFalse($authService->isHouseMember($this->house1Id));
+		$this->expectException(ForbiddenException::class);
+		$authService->assertHouseMember($this->house1Id);
 	}
 
 	public function testRequireHouseOwnerSucceedsForOwner(): void {

@@ -21,6 +21,11 @@ interface IConfig {
 	public function setAppValue($appName, $key, $value);
 
 	/**
+	 * @return void
+	 */
+	public function deleteAppValue($appName, $key);
+
+	/**
 	 * @return string
 	 */
 	public function getUserValue($userId, $appName, $key, $default = '');

@@ -12,7 +12,6 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\RoomService;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -49,71 +48,6 @@ class FloorServiceTest extends TestCase {
 			$l10n,
 			$this->appLogger
 		);
-	}
-
-	/**
-	 * GetFloors_ExistingHouse_ReturnsFloors
-	 */
-	public function testGetFloors_ExistingHouse_ReturnsFloors(): void {
-		$houseId = 1;
-
-		$floor1 = new Floor();
-		$floor1->setId(1);
-		$floor1->setName('Ground Floor');
-
-		$floor2 = new Floor();
-		$floor2->setId(2);
-		$floor2->setName('First Floor');
-
-		$this->floorMapper
-			->expects($this->once())
-			->method('findByHouseId')
-			->with($houseId)
-			->willReturn([$floor1, $floor2]);
-
-		$result = $this->service->getFloors($houseId);
-
-		$this->assertCount(2, $result);
-		$this->assertEquals('Ground Floor', $result[0]->getName());
-		$this->assertEquals('First Floor', $result[1]->getName());
-	}
-
-	/**
-	 * GetFloor_ExistingId_ReturnsFloor
-	 */
-	public function testGetFloor_ExistingId_ReturnsFloor(): void {
-		$floorId = 1;
-
-		$floor = new Floor();
-		$floor->setId($floorId);
-		$floor->setName('Test Floor');
-
-		$this->floorMapper
-			->expects($this->once())
-			->method('find')
-			->with($floorId)
-			->willReturn($floor);
-
-		$result = $this->service->getFloor($floorId);
-
-		$this->assertSame($floor, $result);
-	}
-
-	/**
-	 * GetFloor_NonExistingId_ThrowsException
-	 */
-	public function testGetFloor_NonExistingId_ThrowsException(): void {
-		$floorId = 999;
-
-		$this->floorMapper
-			->expects($this->once())
-			->method('find')
-			->with($floorId)
-			->willThrowException(new DoesNotExistException('Floor not found'));
-
-		$this->expectException(DoesNotExistException::class);
-
-		$this->service->getFloor($floorId);
 	}
 
 	/**
@@ -387,46 +321,6 @@ class FloorServiceTest extends TestCase {
 		$this->expectExceptionMessage('db down');
 
 		$this->service->deleteFloor($floorId);
-	}
-
-	/**
-	 * GetFloorWithRooms_ReturnsFloorWithRoomsAndStats
-	 */
-	public function testGetFloorWithRooms_ReturnsFloorWithRoomsAndStats(): void {
-		$floorId = 1;
-
-		$floor = new Floor();
-		$floor->setId($floorId);
-		$floor->setName('Test Floor');
-
-		$room1 = new Room();
-		$room1->setId(1);
-		$room1->setCleanliness(80);
-		$room1->setMonsterCount(0);
-
-		$room2 = new Room();
-		$room2->setId(2);
-		$room2->setCleanliness(40);
-		$room2->setMonsterCount(2);
-
-		$this->floorMapper
-			->expects($this->once())
-			->method('find')
-			->with($floorId)
-			->willReturn($floor);
-
-		$this->roomMapper
-			->expects($this->once())
-			->method('findByFloorId')
-			->with($floorId)
-			->willReturn([$room1, $room2]);
-
-		$result = $this->service->getFloorWithRooms($floorId);
-
-		$this->assertSame($floor, $result['floor']);
-		$this->assertCount(2, $result['rooms']);
-		$this->assertEquals(60, $result['stats']['averageCleanliness']);
-		$this->assertEquals(2, $result['stats']['totalMonsters']);
 	}
 
 	/**

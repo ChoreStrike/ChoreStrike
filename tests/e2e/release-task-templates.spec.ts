@@ -46,7 +46,17 @@ async function fetchCatalog(page: import('@playwright/test').Page): Promise<Cata
 	return body.data as Catalog
 }
 
-async function firstRoomId(page: import('@playwright/test').Page): Promise<number> {
+interface FloorRoom {
+	id: number
+	roomType?: string
+}
+
+/**
+ * The first seeded room with its catalog-relevant fields, resolved via
+ * `floors/with-rooms` (the `room#show` route was pruned in CS-PLAN-055 —
+ * the with-rooms payload carries the same `Room::jsonSerialize` shape).
+ */
+async function firstRoom(page: import('@playwright/test').Page): Promise<FloorRoom> {
 	const response = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
 		headers: { Accept: 'application/json' },
 	})
@@ -56,7 +66,7 @@ async function firstRoomId(page: import('@playwright/test').Page): Promise<numbe
 	for (const floor of floors) {
 		for (const room of floor.rooms || []) {
 			if (room.id) {
-				return room.id as number
+				return room as FloorRoom
 			}
 		}
 	}
@@ -108,12 +118,10 @@ test.describe('Release: Task Templates (v2 catalog)', () => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const catalog = await fetchCatalog(page)
-			const roomId = await firstRoomId(page)
-			const roomResponse = await page.request.get(`/apps/chorestrike/api/v1/rooms/${roomId}`, {
-				headers: { Accept: 'application/json' },
-			})
-			const room = (await roomResponse.json()).data.room
-			const template = catalog.templates.find((t) => t.roomTypes.includes(room.roomType))
+			const room = await firstRoom(page)
+			const roomId = room.id
+			const roomType = room.roomType ?? 'generic'
+			const template = catalog.templates.find((t) => t.roomTypes.includes(roomType))
 				?? catalog.templates.find((t) => t.roomTypes.includes('household'))
 				?? catalog.templates[0]
 

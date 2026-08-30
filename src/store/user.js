@@ -22,38 +22,11 @@ export const useUserStore = defineStore('user', {
 	getters: {
 		userId: (state) => state.currentUser?.id || null,
 
-		userDisplayName: (state) => state.currentUser?.displayName || t('chorestrike', 'Unknown User'),
-
 		isHouseOwner: (state) => state.currentUser?.role === 'owner',
-
-		isHouseMember: (state) => ['owner', 'member'].includes(state.currentUser?.role),
-
-		contributionScore: (state) => state.currentUser?.contributionScore || 0,
-
-		coins: (state) => state.currentUser?.coins || 0,
-
-		currentStreak: (state) => state.currentUser?.currentStreak || 0,
-
-		getUserById: (state) => (userId) => {
-			return state.houseUsers.find(user => user.nextcloudUserId === userId)
-		},
 
 		getLeaderboard: (state) => {
 			return [...state.houseUsers]
 				.sort((a, b) => b.contributionScore - a.contributionScore)
-		},
-
-		getTopContributors: (state) => {
-			return [...state.houseUsers]
-				.sort((a, b) => b.contributionScore - a.contributionScore)
-				.slice(0, 5)
-		},
-
-		activeUsers: (state) => {
-			const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-			return state.houseUsers.filter(user =>
-				new Date(user.lastActivity) > oneWeekAgo,
-			)
 		},
 	},
 
@@ -201,146 +174,6 @@ export const useUserStore = defineStore('user', {
 			} finally {
 				this.loading = false
 			}
-		},
-
-		/**
-		 * Update user profile
-		 * @param {string|number} userId Internal identifier of the user to update.
-		 * @param {object} profileData Partial profile data payload.
-		 */
-		async updateUserProfile(userId, profileData) {
-			if (!userId) {
-				throw new Error(t('chorestrike', 'User ID is required'))
-			}
-
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.put(`/api/v1/users/${userId}`, profileData)
-
-				const userIndex = this.houseUsers.findIndex(user => user.id === userId)
-				if (userIndex >= 0) {
-					this.houseUsers[userIndex] = data
-				}
-
-				if (this.currentUser && this.currentUser.id === userId) {
-					this.currentUser = data
-				}
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to update user profile', error, { store: 'user', action: 'updateUserProfile', userId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Update user statistics
-		 * @param {string|number} userId Internal identifier of the user to update.
-		 * @param {object} stats Statistic values to merge into user state.
-		 */
-		updateUserStats(userId, stats) {
-			const userIndex = this.houseUsers.findIndex(user => user.id === userId)
-			if (userIndex >= 0) {
-				this.houseUsers[userIndex] = {
-					...this.houseUsers[userIndex],
-					...stats,
-					lastActivity: new Date().toISOString(),
-				}
-			}
-
-			// Update current user if it's the same
-			if (this.currentUser && this.currentUser.id === userId) {
-				this.currentUser = {
-					...this.currentUser,
-					...stats,
-					lastActivity: new Date().toISOString(),
-				}
-			}
-		},
-
-		/**
-		 * Add contribution score
-		 * @param {string|number} userId Internal identifier of the user to update.
-		 * @param {number} score Contribution score to add.
-		 */
-		addContributionScore(userId, score) {
-			this.updateUserStats(userId, {
-				contributionScore: (this.getUserById(userId)?.contributionScore || 0) + score,
-			})
-		},
-
-		/**
-		 * Add Coins
-		 * @param {string|number} userId Internal identifier of the user to update.
-		 * @param {number} coins Coins value to add.
-		 */
-		addCoins(userId, coins) {
-			this.updateUserStats(userId, {
-				coins: (this.getUserById(userId)?.coins || 0) + coins,
-			})
-		},
-
-		/**
-		 * Update streak
-		 * @param {string|number} userId Internal identifier of the user to update.
-		 * @param {number} streak New streak value.
-		 */
-		updateStreak(userId, streak) {
-			this.updateUserStats(userId, {
-				currentStreak: streak,
-			})
-		},
-
-		/**
-		 * Get user statistics
-		 * @param {string|number} userId Internal identifier of the user to read.
-		 */
-		getUserStats(userId) {
-			const user = this.getUserById(userId)
-			if (!user) return null
-
-			return {
-				contributionScore: user.contributionScore || 0,
-				coins: user.coins || 0,
-				currentStreak: user.currentStreak || 0,
-				role: user.role,
-				joinedAt: user.joinedAt,
-				lastActivity: user.lastActivity,
-			}
-		},
-
-		/**
-		 * Check if user can perform action
-		 * @param {string|number} userId Internal identifier of the user to evaluate.
-		 * @param {string} action Action key to validate.
-		 */
-		canPerformAction(userId, action) {
-			const user = this.getUserById(userId)
-			if (!user) return false
-
-			switch (action) {
-			case 'manage_users':
-				return user.role === 'owner'
-			case 'manage_house':
-				return ['owner', 'member'].includes(user.role)
-			case 'complete_tasks':
-				return true // All users can complete tasks
-			default:
-				return false
-			}
-		},
-
-		/**
-		 * Initialize user data
-		 */
-		async initializeUsers() {
-			await Promise.all([
-				this.initializeCurrentUser(),
-				this.fetchHouseUsers(),
-			])
 		},
 
 		/**

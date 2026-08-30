@@ -49,23 +49,6 @@ describe('Scheduling Store', () => {
 	})
 
 	describe('Getters', () => {
-		it('availableWeekdays returns available days', () => {
-			store.weekdayAvailability = {
-				monday: true, tuesday: false, wednesday: true,
-			}
-			expect(store.availableWeekdays).toContain('monday')
-			expect(store.availableWeekdays).toContain('wednesday')
-			expect(store.availableWeekdays).not.toContain('tuesday')
-		})
-
-		it('unavailableWeekdays returns unavailable days', () => {
-			store.weekdayAvailability = {
-				monday: true, tuesday: false, wednesday: true,
-			}
-			expect(store.unavailableWeekdays).toContain('tuesday')
-			expect(store.unavailableWeekdays).not.toContain('monday')
-		})
-
 		it('totalWeeklyEnergy sums energy budget', () => {
 			store.energyBudget = {
 				monday: 10, tuesday: 10, wednesday: 10,
@@ -74,80 +57,6 @@ describe('Scheduling Store', () => {
 			expect(store.totalWeeklyEnergy).toBe(80)
 		})
 
-		it('isAvailableOn checks day availability', () => {
-			store.weekdayAvailability = { monday: true, tuesday: false }
-			expect(store.isAvailableOn('monday')).toBe(true)
-			expect(store.isAvailableOn('tuesday')).toBe(false)
-		})
-
-		it('getEnergyForDay returns energy for day', () => {
-			store.energyBudget = { monday: 15 }
-			expect(store.getEnergyForDay('monday')).toBe(15)
-		})
-
-		it('getMemberAvailability finds member by userId', () => {
-			store.memberAvailability = [
-				{ userId: 'user1', name: 'User 1' },
-				{ userId: 'user2', name: 'User 2' },
-			]
-			const member = store.getMemberAvailability('user2')
-			expect(member.name).toBe('User 2')
-		})
-
-		it('getAvailableMembersForDay filters by day', () => {
-			store.memberAvailability = [
-				{ userId: 'user1', weekdayAvailability: { monday: true } },
-				{ userId: 'user2', weekdayAvailability: { monday: false } },
-			]
-			const available = store.getAvailableMembersForDay('monday')
-			expect(available).toHaveLength(1)
-			expect(available[0].userId).toBe('user1')
-		})
-
-		it('todayRemainingEnergy should return full budget when no energy was consumed', () => {
-			store.energyBudget = {
-				monday: 10,
-				tuesday: 10,
-				wednesday: 10,
-				thursday: 10,
-				friday: 10,
-				saturday: 10,
-				sunday: 10,
-			}
-			store.todayConsumedEnergy = 0
-
-			expect(store.todayRemainingEnergy).toBe(10)
-		})
-
-		it('todayRemainingEnergy should subtract consumed energy from budget', () => {
-			store.energyBudget = {
-				monday: 10,
-				tuesday: 10,
-				wednesday: 10,
-				thursday: 10,
-				friday: 10,
-				saturday: 10,
-				sunday: 10,
-			}
-			store.todayConsumedEnergy = 4
-
-			expect(store.todayRemainingEnergy).toBe(6)
-		})
-
-		it('todayRemainingEnergy should clamp at zero when consumed energy exceeds budget', () => {
-			store.energyBudget = {
-				monday: 10,
-				tuesday: 10,
-				wednesday: 10,
-				thursday: 10,
-				friday: 10,
-				saturday: 10,
-				sunday: 10,
-			}
-			store.todayConsumedEnergy = 14
-
-			expect(store.todayRemainingEnergy).toBe(0)
-		})
 	})
 
 	describe('Planned Energy & Overcapacity (CS-PLAN-040)', () => {

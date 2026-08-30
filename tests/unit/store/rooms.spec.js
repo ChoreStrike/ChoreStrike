@@ -35,8 +35,6 @@ describe('Rooms Store', () => {
 		it('has correct initial state', () => {
 			expect(store.floors).toEqual([])
 			expect(store.rooms).toEqual([])
-			expect(store.currentFloor).toBeNull()
-			expect(store.currentRoom).toBeNull()
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
 		})
@@ -75,12 +73,6 @@ describe('Rooms Store', () => {
 		it('getFloorById finds floor correctly', () => {
 			const floor = store.getFloorById(1)
 			expect(floor.name).toBe('Ground Floor')
-		})
-
-		it('roomsNeedingCleaning filters correctly', () => {
-			const dirtyRooms = store.roomsNeedingCleaning
-			expect(dirtyRooms).toHaveLength(1)
-			expect(dirtyRooms[0].name).toBe('Bedroom')
 		})
 
 		it('totalRooms returns count', () => {
@@ -127,28 +119,6 @@ describe('Rooms Store', () => {
 				api.get.mockRejectedValue(new Error('Failed'))
 
 				await expect(store.fetchFloorsWithRooms()).rejects.toThrow('Failed')
-			})
-		})
-
-		describe('fetchFloors', () => {
-			it('fetches floors successfully', async () => {
-				const mockFloors = [{ id: 1, name: 'Floor 1' }]
-				api.get.mockResolvedValue(mockFloors)
-
-				await store.fetchFloors()
-
-				expect(store.floors).toEqual(mockFloors)
-			})
-		})
-
-		describe('fetchRooms', () => {
-			it('fetches rooms for floor', async () => {
-				const mockRooms = [{ id: 1, name: 'Room 1', floorId: 1 }]
-				api.get.mockResolvedValue(mockRooms)
-
-				await store.fetchRooms(1)
-
-				expect(store.rooms).toEqual(mockRooms)
 			})
 		})
 
@@ -232,8 +202,6 @@ describe('Rooms Store', () => {
 			it('resets all state', () => {
 				store.floors = [{ id: 1 }]
 				store.rooms = [{ id: 1 }]
-				store.currentFloor = 1
-				store.currentRoom = 1
 				store.loading = true
 				store.error = 'Error'
 
@@ -241,8 +209,6 @@ describe('Rooms Store', () => {
 
 				expect(store.floors).toEqual([])
 				expect(store.rooms).toEqual([])
-				expect(store.currentFloor).toBeNull()
-				expect(store.currentRoom).toBeNull()
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
 			})

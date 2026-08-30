@@ -27,19 +27,6 @@ export const useChecklistStore = defineStore('checklist', {
 		getRoomTaskProgress: (state) => (roomTaskId) => {
 			return state.progress[roomTaskId] || []
 		},
-
-		getCompletionPercent: (state) => (roomTaskId) => {
-			const progress = state.progress[roomTaskId] || []
-			if (progress.length === 0) return 0
-			const completed = progress.filter(p => p.isChecked).length
-			return Math.round((completed / progress.length) * 100)
-		},
-
-		isItemCompleted: (state) => (roomTaskId, itemId) => {
-			const progress = state.progress[roomTaskId] || []
-			const itemProgress = progress.find(p => p.checklistItemId === itemId)
-			return itemProgress?.isChecked || false
-		},
 	},
 
 	actions: {
@@ -250,35 +237,6 @@ export const useChecklistStore = defineStore('checklist', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to reorder checklist items', error, { store: 'checklist', action: 'reorderItems', taskId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Initialize checklist progress for a room task
-		 *
-		 * The endpoint returns only `{ success, message }` (no `data`
-		 * payload), so the unwrapped result is `undefined` — the cache is
-		 * reset instead of reading a nonexistent `items` property.
-		 *
-		 * @param {number} roomTaskId The room task ID
-		 * @param {number} taskId The task definition ID (required by the route)
-		 */
-		async initializeProgress(roomTaskId, taskId) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.post(`/api/v1/checklists/initialize/${roomTaskId}`, null, {
-					params: { taskId },
-				})
-				this.progress[roomTaskId] = data?.items || []
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to initialize checklist progress', error, { store: 'checklist', action: 'initializeProgress', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false

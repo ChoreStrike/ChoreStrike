@@ -62,7 +62,7 @@ class TaskControllerIntegrationTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->taskService->method('getAllTasks')
+		$this->taskService->method('getVisibleTasks')
 			->willReturn($tasks);
 
 		$response = $this->controller->index();
@@ -70,31 +70,6 @@ class TaskControllerIntegrationTest extends TestCase {
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
-	}
-
-	/**
-	 * Show_ExistingTask_ReturnsTaskDetails
-	 */
-	public function testShow_ExistingTask_ReturnsTaskDetails(): void {
-		$taskId = 1;
-		$task = $this->createMockTask($taskId, 'Vacuum floor');
-		$task->setDescription('Vacuum all floors in the room');
-		$task->setEnergyCost(2);
-		$task->setPriority(2);
-		$task->setEstimatedMinutes(20);
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->taskService->method('getTask')
-			->with($taskId)
-			->willReturn($task);
-
-		$response = $this->controller->show($taskId);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertEquals('Vacuum floor', $data['data']['name']);
 	}
 
 	/**
@@ -187,56 +162,6 @@ class TaskControllerIntegrationTest extends TestCase {
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
 		$this->assertEquals('Deep vacuum', $data['data']['name']);
-	}
-
-	/**
-	 * Delete_ExistingTask_ReturnsSuccess
-	 */
-	public function testDelete_ExistingTask_ReturnsSuccess(): void {
-		$taskId = 1;
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-
-		// TaskController::delete() resolves the actor + task for the visibility
-		// gate, then deletes with (callerUserId, isOwner).
-		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
-		$houseUser->setNextcloudUserId('owner-user');
-		$houseUser->setRole('owner');
-		$this->authService->method('ensureHouseMember')->willReturn($houseUser);
-		$this->taskService->method('getTask')->willReturn($this->createMockTask($taskId, 'Test Task'));
-		$this->taskService->expects($this->once())
-			->method('deleteTask')
-			->with($taskId, 'owner-user', true);
-
-		$response = $this->controller->delete($taskId);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
-
-	/**
-	 * Categories_ReturnsCategoryList_SuccessResponse
-	 */
-	public function testCategories_ReturnsCategoryList_SuccessResponse(): void {
-		$categories = [
-			['name' => 'cleaning', 'count' => 5],
-			['name' => 'kitchen', 'count' => 3],
-			['name' => 'bathroom', 'count' => 4],
-		];
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->taskService->method('getTaskCategories')
-			->willReturn($categories);
-
-		$response = $this->controller->categories();
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertEquals($categories, $data['data']);
 	}
 
 	private function createMockHouse(): \OCA\ChoreStrike\Db\House {

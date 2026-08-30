@@ -11,45 +11,6 @@ use PHPUnit\Framework\TestCase;
  * Unit tests for RoomTaskChecklistProgress entity logic
  */
 class RoomTaskChecklistProgressTest extends TestCase {
-	public function testWasCheckedRecently_NotChecked_ReturnsFalse(): void {
-		$progress = new RoomTaskChecklistProgress();
-		$progress->setIsChecked(false);
-
-		$this->assertFalse($progress->wasCheckedRecently());
-	}
-
-	public function testWasCheckedRecently_NullCheckedAt_ReturnsFalse(): void {
-		$progress = new RoomTaskChecklistProgress();
-		$progress->setIsChecked(true);
-
-		$this->assertFalse($progress->wasCheckedRecently());
-	}
-
-	public function testWasCheckedRecently_RecentCheck_ReturnsTrue(): void {
-		$progress = new RoomTaskChecklistProgress();
-		$progress->setIsChecked(true);
-		$progress->setCheckedAt(new \DateTime());
-
-		$this->assertTrue($progress->wasCheckedRecently());
-	}
-
-	public function testWasCheckedRecently_OldCheck_ReturnsFalse(): void {
-		$progress = new RoomTaskChecklistProgress();
-		$progress->setIsChecked(true);
-		$progress->setCheckedAt(new \DateTime('-10 minutes'));
-
-		$this->assertFalse($progress->wasCheckedRecently(5));
-	}
-
-	public function testWasCheckedRecently_CustomWindow(): void {
-		$progress = new RoomTaskChecklistProgress();
-		$progress->setIsChecked(true);
-		$progress->setCheckedAt(new \DateTime('-3 minutes'));
-
-		$this->assertTrue($progress->wasCheckedRecently(5));
-		$this->assertFalse($progress->wasCheckedRecently(2));
-	}
-
 	public function testJsonSerialize_IncludesAllFields(): void {
 		$progress = new RoomTaskChecklistProgress();
 		$progress->setId(1);

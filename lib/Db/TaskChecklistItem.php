@@ -57,20 +57,4 @@ class TaskChecklistItem extends Entity implements JsonSerializable {
 		];
 	}
 
-	/**
-	 * Validate checklist item data
-	 */
-	public function validate(): array {
-		$errors = [];
-
-		if (empty(trim($this->label))) {
-			$errors[] = 'Checklist item label is required';
-		}
-
-		if ($this->taskId < 1) {
-			$errors[] = 'Valid task ID is required';
-		}
-
-		return $errors;
-	}
 }

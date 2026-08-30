@@ -110,7 +110,19 @@ Date strings from the client are parsed at the controller boundary and bounded
 against the future (`now + 1h` clock-skew tolerance) before reaching a service —
 malformed or far-future input returns 400 `VALIDATION_ERROR` instead of a 500
 from the `DateTime` constructor or an indefinitely pushed `next_due`
-(CR-SVC-48, `TaskSyncController::syncFromNextcloud`).
+(`RoomTaskController::updateDueDate`, `TaskController::create`; the former
+`TaskSyncController::syncFromNextcloud` CR-SVC-48 example was pruned together
+with the task-sync surface in CS-PLAN-055).
+
+### No Mutations on GET (BUG-ROOM-001)
+
+State changes ride POST/PUT/DELETE routes only. The historical GET-create
+branches (`FloorController::index` / `RoomController::index` sniffing the
+query/body for create payloads to work around a POST→GET rewrite) were
+CSRF-able and died with their no-consumer index routes in CS-PLAN-055; the
+`RouteMatrixTest` CS-055 guard keeps the pruned aliases (`/floor-create`,
+`/rooms/create`, …) from being re-registered without a deliberate consumer
+decision.
 
 ---
 

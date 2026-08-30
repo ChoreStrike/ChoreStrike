@@ -21,7 +21,6 @@ class RoomTest extends TestCase {
 		$room->setName('Kitchen');
 		$room->setCleanliness(75);
 		$room->setMonsterCount(2);
-		$room->setDescription('Main kitchen area');
 		$createdAt = new \DateTime('2026-02-01 10:00:00');
 		$room->setCreatedAt($createdAt);
 		$lastCleaned = new \DateTime('2026-02-23 15:30:00');
@@ -34,7 +33,6 @@ class RoomTest extends TestCase {
 		self::assertEquals('Kitchen', $result['name']);
 		self::assertEquals(75, $result['cleanliness']);
 		self::assertEquals(2, $result['monsterCount']);
-		self::assertEquals('Main kitchen area', $result['description']);
 		self::assertEquals($createdAt->format('c'), $result['createdAt']);
 		self::assertEquals($lastCleaned->format('c'), $result['lastCleaned']);
 	}

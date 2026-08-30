@@ -158,16 +158,6 @@ export const useHouseStore = defineStore('house', {
 		},
 
 		/**
-		 * Initialize house (fetch if not exists)
-		 */
-		async initializeHouse() {
-			if (!this.house) {
-				await this.fetchHouse()
-			}
-			return this.house
-		},
-
-		/**
 		 * Clear error state
 		 */
 		clearError() {

@@ -257,54 +257,6 @@ class ChecklistController extends Controller {
 	}
 
 	/**
-	 * Initialize checklist progress for a room task
-	 *
-	 * @NoAdminRequired
-	 */
-	public function initializeProgress(int $roomTaskId, int $taskId): JSONResponse {
-		try {
-			$houseUser = $this->requireViewer();
-
-			$this->checklistService->initializeProgress($roomTaskId, $this->houseId, $houseUser);
-
-			return new JSONResponse([
-				'success' => true,
-				'message' => $this->l->t('Progress initialized')
-			]);
-		} catch (NotFoundException $e) {
-			return ControllerErrorFormatter::notFoundResponse($e);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			return ControllerErrorFormatter::serverErrorResponse($e, 'INITIALIZE_PROGRESS_ERROR');
-		}
-	}
-
-	/**
-	 * Get complete checklist with progress for a room task
-	 *
-	 * @NoAdminRequired
-	 */
-	public function getCompleteChecklist(int $roomTaskId, int $taskId): JSONResponse {
-		try {
-			$houseUser = $this->requireViewer();
-
-			$result = $this->checklistService->getCompleteChecklist($roomTaskId, $this->houseId, $houseUser);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $result
-			]);
-		} catch (NotFoundException $e) {
-			return ControllerErrorFormatter::notFoundResponse($e);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			return ControllerErrorFormatter::serverErrorResponse($e, 'GET_CHECKLIST_ERROR');
-		}
-	}
-
-	/**
 	 * Resolve the caller's house and membership (the shared preamble).
 	 */
 	private function requireViewer(): \OCA\ChoreStrike\Db\HouseUser {

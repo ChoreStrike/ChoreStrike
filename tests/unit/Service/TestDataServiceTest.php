@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\AvailabilitySettingsMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
@@ -22,6 +21,7 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\IConfig;
 use OCP\IDBConnection;
@@ -40,7 +40,6 @@ class TestDataServiceTest extends TestCase {
 	private RoomMapper&MockObject $roomMapper;
 	private TaskMapper&MockObject $taskMapper;
 	private RoomTaskMapper&MockObject $roomTaskMapper;
-	private AvailabilitySettingsMapper&MockObject $availabilityMapper;
 	private TestDataService $service;
 
 	protected function setUp(): void {
@@ -59,7 +58,6 @@ class TestDataServiceTest extends TestCase {
 		$this->roomMapper = $this->createMock(RoomMapper::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
-		$this->availabilityMapper = $this->createMock(AvailabilitySettingsMapper::class);
 
 		// Default config mock returns test instance id
 		$this->config->method('getSystemValue')->willReturn('test-instance');
@@ -72,8 +70,7 @@ class TestDataServiceTest extends TestCase {
 			$this->floorMapper,
 			$this->roomMapper,
 			$this->taskMapper,
-			$this->roomTaskMapper,
-			$this->availabilityMapper
+			$this->roomTaskMapper
 		);
 	}
 
@@ -199,6 +196,13 @@ class TestDataServiceTest extends TestCase {
 		$this->roomTaskMapper->expects($this->exactly(12))
 			->method('create')
 			->willReturn($roomTask);
+
+		// CS-PLAN-055: the family profile seeds the weekly-goal test knob so
+		// `release-notifications` stays deterministic without the pruned
+		// reward-config HTTP surface.
+		$this->config->expects($this->once())
+			->method('setAppValue')
+			->with('chorestrike', RewardConfigService::KEY_WEEKLY_GOAL_TARGET_PERCENT, '1');
 
 		$result = $this->service->seedFamily();
 

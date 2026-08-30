@@ -80,7 +80,7 @@ Set via `TEST_DB_PROFILE` environment variable (default: `minimal`):
 |---------|----------|
 | `empty` | Schema only, no seed data |
 | `minimal` | One house, one user, basic rooms |
-| `family` | Multi-user household with gamification data |
+| `family` | Multi-user household with gamification data. Side effect (CS-PLAN-055): seeds global appconfig `weekly_goal_target_percent=1` via `FAMILY_REWARD_CONFIG_OVERRIDES` so `release-notifications` stays deterministic without the pruned reward-config HTTP API; any subsequent seed/`test#reset` deletes it again (`TestDataService::reset()`). |
 
 ```powershell
 # PowerShell 5.1 (this repo's shell) — bash VAR=value syntax does NOT work here:

@@ -14,7 +14,12 @@ use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
 
 /**
- * Adds task scopes and task lifecycle fields for one-time and bounded recurrence.
+ * Adds task lifecycle fields for one-time and bounded recurrence, plus the
+ * scope columns on tasks/room_tasks.
+ *
+ * The `chorestrike_task_scopes` table originally created here was an orphan
+ * (never read or written by any mapper) — removed in CS-PLAN-055 (pre-
+ * release: the fresh-install chain is edited in place, no drop step).
  */
 class Version1001Date20260224170000 extends SimpleMigrationStep {
 	/**
@@ -25,20 +30,6 @@ class Version1001Date20260224170000 extends SimpleMigrationStep {
 	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
-
-		if (!$schema->hasTable('chorestrike_task_scopes')) {
-			$table = $schema->createTable('chorestrike_task_scopes');
-			$table->addColumn('id', 'bigint', ['autoincrement' => true, 'notnull' => true]);
-			$table->addColumn('house_id', 'bigint', ['notnull' => true]);
-			$table->addColumn('type', 'string', ['notnull' => true, 'length' => 20, 'default' => 'room']);
-			$table->addColumn('room_id', 'bigint', ['notnull' => false]);
-			$table->addColumn('name', 'string', ['notnull' => true, 'length' => 255]);
-			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
-			$table->setPrimaryKey(['id'], 'pk_task_scopes');
-			// Foreign keys removed for compatibility - see ADR
-			$table->addIndex(['house_id', 'type'], 'idx_ts_house_type');
-			$table->addIndex(['room_id'], 'idx_ts_room');
-		}
 
 		if ($schema->hasTable('chorestrike_tasks')) {
 			$table = $schema->getTable('chorestrike_tasks');

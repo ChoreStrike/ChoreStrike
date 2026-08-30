@@ -147,52 +147,6 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 	}
 
 	/**
-	 * Assign_ValidUser_ReturnsAssignedRoomTask
-	 */
-	public function testAssign_ValidUser_ReturnsAssignedRoomTask(): void {
-		$roomTaskId = 1;
-		$userId = 'user456';
-		$assignedRoomTask = $this->createMockRoomTask($roomTaskId, 1, 1);
-		$assignedRoomTask->setAssignedToUserId($userId);
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
-		$this->roomTaskService->method('validateRoomTaskOwnership');
-		$this->authService->method('assertUserInHouse');
-		// CR-SVC-09: the service signature is house-scoped.
-		$this->roomTaskService->method('assignTask')
-			->with($roomTaskId, $userId, 1)
-			->willReturn($assignedRoomTask);
-
-		$response = $this->controller->assign($roomTaskId, $userId);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
-
-	/**
-	 * Unassign_ExistingAssignment_ReturnsUnassignedRoomTask
-	 */
-	public function testUnassign_ExistingAssignment_ReturnsUnassignedRoomTask(): void {
-		$roomTaskId = 1;
-		$unassignedRoomTask = $this->createMockRoomTask($roomTaskId, 1, 1);
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
-		$this->roomTaskService->method('unassignTask')
-			->willReturn($unassignedRoomTask);
-
-		$response = $this->controller->unassign($roomTaskId);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
-
-	/**
 	 * Stats_ReturnsRoomTaskStatistics_SuccessResponse
 	 */
 	public function testStats_ReturnsRoomTaskStatistics_SuccessResponse(): void {

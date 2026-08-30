@@ -74,26 +74,6 @@ class TaskMapperVisibilityTest extends TestCase {
 		$this->assertFalse($json['isPrivate']);
 	}
 
-	public function testValidate_InvalidVisibilityType(): void {
-		$task = new Task();
-		$task->setName('Test');
-		$task->setVisibilityType('invalid');
-
-		$errors = $task->validate();
-		$this->assertContains('Invalid visibility type', $errors);
-	}
-
-	public function testValidate_ValidVisibilityTypes(): void {
-		foreach (Task::VISIBILITY_TYPES as $type) {
-			$task = new Task();
-			$task->setName('Test');
-			$task->setVisibilityType($type);
-
-			$errors = $task->validate();
-			$this->assertNotContains('Invalid visibility type', $errors, "Failed for type: {$type}");
-		}
-	}
-
 	public function testOwnerUserId_DefaultNull(): void {
 		$task = new Task();
 		$this->assertNull($task->getOwnerUserId());

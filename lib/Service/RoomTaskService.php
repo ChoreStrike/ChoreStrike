@@ -710,27 +710,6 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Get tasks assigned to user
-	 *
-	 * @param int $houseId The house ID
-	 * @param string $userId The user ID
-	 * @return RoomTask[]
-	 */
-	public function getTasksAssignedToUser(int $houseId, string $userId): array {
-		return $this->roomTaskMapper->findByHouseAndAssignedUser($houseId, $userId);
-	}
-
-	/**
-	 * Get all unassigned tasks in house
-	 *
-	 * @param int $houseId The house ID
-	 * @return RoomTask[]
-	 */
-	public function getUnassignedTasks(int $houseId): array {
-		return $this->roomTaskMapper->findUnassignedByHouse($houseId);
-	}
-
-	/**
 	 * Get today's tasks for a house
 	 *
 	 * @param int $houseId The house ID
@@ -870,18 +849,6 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Complete a room task (simple version)
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @return RoomTask The updated room task
-	 */
-	public function completeTaskSimple(int $roomTaskId): RoomTask {
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		$roomTask->setLastCompleted(new \DateTime());
-		return $this->roomTaskMapper->update($roomTask);
-	}
-
-	/**
 	 * Uncomplete a room task
 	 *
 	 * @param int $roomTaskId The room task ID
@@ -890,36 +857,6 @@ class RoomTaskService {
 	public function uncompleteTask(int $roomTaskId): RoomTask {
 		$roomTask = $this->roomTaskMapper->find($roomTaskId);
 		$roomTask->setLastCompleted(null);
-		return $this->roomTaskMapper->update($roomTask);
-	}
-
-	/**
-	 * Skip a room task
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @return RoomTask The updated room task
-	 */
-	public function skipTask(int $roomTaskId): RoomTask {
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		$nextDue = $roomTask->getNextDue();
-		if ($nextDue === null) {
-			throw new \InvalidArgumentException('Cannot skip a room task without a due date');
-		}
-		$nextDue->modify('+1 day');
-		$roomTask->setNextDue($nextDue);
-		return $this->roomTaskMapper->update($roomTask);
-	}
-
-	/**
-	 * Reschedule a room task
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param DateTime $newDate The new due date
-	 * @return RoomTask The updated room task
-	 */
-	public function rescheduleTask(int $roomTaskId, \DateTime $newDate): RoomTask {
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		$roomTask->setNextDue($newDate);
 		return $this->roomTaskMapper->update($roomTask);
 	}
 

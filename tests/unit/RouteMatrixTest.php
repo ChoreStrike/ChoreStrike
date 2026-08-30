@@ -206,6 +206,83 @@ class RouteMatrixTest extends TestCase {
 	}
 
 	/**
+	 * The 39 routes pruned in CS-PLAN-055 must stay gone: dead create
+	 * aliases, no-consumer reads/writes, dead room-task variants, the whole
+	 * task-sync and reward-config HTTP surfaces, and the test-only
+	 * lifecycle/leaderboard routes. Re-adding one requires a consumer and a
+	 * new expose decision.
+	 */
+	public function testPrunedCS055RoutesAreNotReintroduced(): void {
+		$pruned = [
+			'POST /api/v1/floor-create',
+			'POST /api/v1/room-create',
+			'POST /api/v1/floors/create',
+			'POST /api/v1/rooms/create',
+			'GET /api/v1/floors',
+			'GET /api/v1/floors/{id}',
+			'GET /api/v1/rooms',
+			'GET /api/v1/rooms/{id}',
+			'GET /api/v1/tasks/{id}',
+			'GET /api/v1/room-tasks/{id}',
+			'GET /api/v1/room-tasks/due-within-days',
+			'POST /api/v1/room-tasks/{id}/assign',
+			'POST /api/v1/room-tasks/{id}/unassign',
+			'POST /api/v1/room-tasks/{id}/assignees',
+			'DELETE /api/v1/room-tasks/{id}/assignees',
+			'GET /api/v1/room-tasks/overdue-claims',
+			'GET /api/v1/tasks/category/{category}',
+			'GET /api/v1/tasks/search',
+			'GET /api/v1/tasks/categories',
+			'GET /api/v1/tasks/my-private',
+			'DELETE /api/v1/tasks/{id}',
+			'PUT /api/v1/users/{id}',
+			'GET /api/v1/rooms/needing-cleaning',
+			'POST /api/v1/checklists/initialize/{roomTaskId}',
+			'GET /api/v1/checklists/complete/{roomTaskId}',
+			'POST /api/v1/task-sync/complete',
+			'POST /api/v1/task-sync/sync-from-nextcloud',
+			'GET /api/v1/task-sync/{roomTaskId}/reminders',
+			'GET /api/v1/task-sync/pending',
+			'POST /api/v1/task-sync/{completedTaskId}/mark-synced',
+			'POST /api/v1/task-sync/link',
+			'PUT /api/v1/tasks/{id}/complete',
+			'PUT /api/v1/tasks/{id}/skip',
+			'PUT /api/v1/tasks/{id}/reschedule',
+			'GET /api/v1/tasks/daily',
+			'POST /api/v1/room-tasks/{id}/deactivate',
+			'GET /api/v1/game/leaderboard',
+			'GET /api/v1/reward-config',
+			'PUT /api/v1/reward-config',
+		];
+		$declared = array_map(
+			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
+			$this->routes['routes']
+		);
+
+		$reintroduced = array_intersect($pruned, $declared);
+		$this->assertCount(39, $pruned, 'CS-PLAN-055 disposition list must carry exactly 39 routes');
+		$this->assertSame(
+			[],
+			array_values($reintroduced),
+			'CS-PLAN-055 pruned routes reappeared in routes.php — re-adding requires a consumer'
+		);
+	}
+
+	/**
+	 * Route count pin (CS-PLAN-055): 71 declared routes = 67 production +
+	 * 3 `/test/*` harness + `page#index`. New routes must land with a
+	 * consumer (see the prune guards above) — the count only moves when an
+	 * expose decision updates this pin deliberately.
+	 */
+	public function testRouteCountIsPinned(): void {
+		$this->assertCount(
+			71,
+			$this->routes['routes'],
+			'Route count drifted from the CS-PLAN-055 pin (71) — add only with a consumer, then update deliberately'
+		);
+	}
+
+	/**
 	 * Resolve a short controller name (e.g. `room_task`) to the fully
 	 * qualified ChoreStrike controller class name.
 	 */

@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Fixtures;
 
-use OCA\ChoreStrike\Db\AvailabilitySettings;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\Room;
@@ -27,7 +26,7 @@ class TestDataFixtures {
 	}
 
 	/**
-	 * Create a complete test house with floors, rooms, tasks, and availability
+	 * Create a complete test house with floors, rooms, and tasks
 	 */
 	public function createTestHouse(): array {
 		$house = $this->createHouse();
@@ -35,15 +34,13 @@ class TestDataFixtures {
 		$rooms = $this->createRooms($floors);
 		$tasks = $this->createTasks();
 		$roomTasks = $this->createRoomTasks($rooms, $tasks);
-		$availability = $this->createAvailabilitySettings($house->getId());
 
 		return [
 			'house' => $house,
 			'floors' => $floors,
 			'rooms' => $rooms,
 			'tasks' => $tasks,
-			'roomTasks' => $roomTasks,
-			'availability' => $availability
+			'roomTasks' => $roomTasks
 		];
 	}
 
@@ -230,69 +227,10 @@ class TestDataFixtures {
 	}
 
 	/**
-	 * Create availability settings
-	 */
-	public function createAvailabilitySettings(int $houseId): array {
-		$availabilitySettings = [];
-
-		$users = [
-			['user_id' => 'test-user', 'name' => 'Test User'],
-			['user_id' => 'other-user', 'name' => 'Other User'],
-		];
-
-		foreach ($users as $userData) {
-			$availability = new AvailabilitySettings();
-			$availability->setHouseId($houseId);
-			$availability->setUserId($userData['user_id']);
-			$availability->setWeekdayAvailability([
-				'monday' => true,
-				'tuesday' => true,
-				'wednesday' => false,
-				'thursday' => true,
-				'friday' => true,
-				'saturday' => false,
-				'sunday' => false,
-			]);
-			$availability->setEnergyBudget([
-				'monday' => 10,
-				'tuesday' => 8,
-				'wednesday' => 5,
-				'thursday' => 12,
-				'friday' => 15,
-				'saturday' => 0,
-				'sunday' => 0,
-			]);
-			$availability->setPlanningMode('auto_balance');
-			$availability->setMaxTasksPerDay(5);
-			$availability->setTimeRanges(['start' => '09:00', 'end' => '18:00']);
-
-			$qb = $this->db->getQueryBuilder();
-			$qb->insert('chorestrike_availability_settings')
-				->values([
-					'house_id' => $qb->createNamedParameter($availability->getHouseId(), IQueryBuilder::PARAM_INT),
-					'user_id' => $qb->createNamedParameter($availability->getUserId()),
-					'weekday_availability' => $qb->createNamedParameter(json_encode($availability->getWeekdayAvailability())),
-					'energy_budget' => $qb->createNamedParameter(json_encode($availability->getEnergyBudget())),
-					'planning_mode' => $qb->createNamedParameter($availability->getPlanningMode()),
-					'max_tasks_per_day' => $qb->createNamedParameter($availability->getMaxTasksPerDay(), IQueryBuilder::PARAM_INT),
-					'time_ranges' => $qb->createNamedParameter(json_encode($availability->getTimeRanges())),
-					'updated_at' => $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE),
-				]);
-
-			$qb->executeStatement();
-			$availability->setId((int)$this->db->lastInsertId());
-			$availabilitySettings[] = $availability;
-		}
-
-		return $availabilitySettings;
-	}
-
-	/**
 	 * Clean up all test data
 	 */
 	public function cleanup(): void {
 		$tables = [
-			'chorestrike_availability_settings',
 			'chorestrike_room_tasks',
 			'chorestrike_tasks',
 			'chorestrike_rooms',

@@ -11,34 +11,6 @@ use PHPUnit\Framework\TestCase;
  * Unit tests for TaskChecklistItem entity logic
  */
 class TaskChecklistItemTest extends TestCase {
-	public function testValidate_ValidItem_ReturnsEmptyArray(): void {
-		$item = new TaskChecklistItem();
-		$item->setTaskId(1);
-		$item->setLabel('Clean sink');
-
-		$this->assertEmpty($item->validate());
-	}
-
-	public function testValidate_EmptyLabel_ReturnsError(): void {
-		$item = new TaskChecklistItem();
-		$item->setTaskId(1);
-		$item->setLabel('   ');
-
-		$errors = $item->validate();
-
-		$this->assertNotEmpty($errors);
-	}
-
-	public function testValidate_InvalidTaskId_ReturnsError(): void {
-		$item = new TaskChecklistItem();
-		$item->setTaskId(0);
-		$item->setLabel('Valid label');
-
-		$errors = $item->validate();
-
-		$this->assertNotEmpty($errors);
-	}
-
 	public function testJsonSerialize_IncludesAllFields(): void {
 		$item = new TaskChecklistItem();
 		$item->setId(1);

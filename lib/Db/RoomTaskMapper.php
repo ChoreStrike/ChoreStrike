@@ -220,23 +220,6 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Find room task linked to a Nextcloud task
-	 *
-	 * @param int $nextcloudTaskId The Nextcloud task ID
-	 */
-	public function findByNextcloudTaskId(int $nextcloudTaskId): ?RoomTask {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('nextcloud_task_id', $qb->createNamedParameter($nextcloudTaskId, IQueryBuilder::PARAM_INT)))
-			->setMaxResults(1);
-
-		$entities = $this->findEntities($qb);
-		return $entities[0] ?? null;
-	}
-
-	/**
 	 * Find room tasks by scope ID
 	 *
 	 * @param int $scopeId The scope ID

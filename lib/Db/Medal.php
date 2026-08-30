@@ -79,36 +79,4 @@ class Medal extends Entity implements JsonSerializable {
 		};
 	}
 
-	/**
-	 * Get medal description
-	 */
-	public function getDescription(): string {
-		return match($this->medalType) {
-			'team_anchor' => 'Most tasks completed this week',
-			'flow_keeper' => 'Consistent daily activity',
-			'room_guardian' => 'Most room improvements',
-			'team_player' => 'Most collaborative tasks',
-			'streak_keeper' => 'Longest activity streak',
-			default => 'Special achievement'
-		};
-	}
-
-	/**
-	 * Get rarity based on medal type
-	 */
-	public function getRarity(): string {
-		return match($this->medalType) {
-			// Gamification medals
-			'team_anchor' => 'high',
-			'flow_keeper' => 'high',
-			'room_guardian' => 'medium',
-			'team_player' => 'medium',
-			'streak_keeper' => 'high',
-			// Standard medals
-			'gold' => 'high',
-			'silver' => 'medium',
-			'bronze' => 'low',
-			default => 'unknown'
-		};
-	}
 }

@@ -44,10 +44,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setActiveUntil(?\DateTime $activeUntil)
  * @method bool getIsVoluntary()
  * @method void setIsVoluntary(bool $isVoluntary)
- * @method string|null getReminderType()
- * @method void setReminderType(?string $reminderType)
- * @method int|null getReminderMinutesBefore()
- * @method void setReminderMinutesBefore(?int $reminderMinutesBefore)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
  * @method string getSchedulingMode()
@@ -134,12 +130,6 @@ class Task extends Entity implements JsonSerializable {
 	/** @var bool */
 	protected $isVoluntary = false;
 
-	/** @var string|null */
-	protected $reminderType;
-
-	/** @var int|null */
-	protected $reminderMinutesBefore;
-
 	/** @var \DateTime */
 	protected $createdAt;
 
@@ -202,8 +192,6 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('activeFrom', 'datetime');
 		$this->addType('activeUntil', 'datetime');
 		$this->addType('isVoluntary', 'boolean');
-		$this->addType('reminderType', 'string');
-		$this->addType('reminderMinutesBefore', 'integer');
 		$this->addType('createdAt', 'datetime');
 		$this->addType('schedulingMode', 'string');
 		$this->addType('fixedScheduleTime', 'datetime');
@@ -334,73 +322,4 @@ class Task extends Entity implements JsonSerializable {
 		};
 	}
 
-	/**
-	 * Validate task data
-	 */
-	public function validate(): array {
-		$errors = [];
-
-		if (empty(trim($this->name))) {
-			$errors[] = 'Task name is required';
-		}
-
-		if ($this->energyCost < 1 || $this->energyCost > 5) {
-			$errors[] = 'Energy cost must be between 1 and 5';
-		}
-
-		if ($this->priority < 1 || $this->priority > 3) {
-			$errors[] = 'Priority must be between 1 and 3';
-		}
-
-		if ($this->estimatedMinutes < 1 || $this->estimatedMinutes > 480) {
-			$errors[] = 'Estimated time must be between 1 and 480 minutes';
-		}
-
-		if (!in_array($this->frequencyType, ['daily', 'weekly', 'monthly', 'custom'])) {
-			$errors[] = 'Invalid frequency type';
-		}
-
-		if ($this->frequencyValue < 1) {
-			$errors[] = 'Frequency value must be at least 1';
-		}
-
-		// Validate scopeType
-		if (!in_array($this->scopeType, ['room', 'floor', 'house', 'user'])) {
-			$errors[] = 'Invalid scope type';
-		}
-
-		// Validate recurrenceMode
-		if (!in_array($this->recurrenceMode, ['one_time', 'recurring'])) {
-			$errors[] = 'Invalid recurrence mode';
-		}
-
-		// Validate date range
-		if ($this->activeFrom !== null && $this->activeUntil !== null) {
-			if ($this->activeUntil < $this->activeFrom) {
-				$errors[] = 'Active until must be equal or after active from';
-			}
-		}
-
-		// Validate schedulingMode
-		if (!in_array($this->schedulingMode, ['dynamic', 'static'])) {
-			$errors[] = 'Invalid scheduling mode';
-		}
-
-		// Validate visibilityType
-		if (!in_array($this->visibilityType, self::VISIBILITY_TYPES, true)) {
-			$errors[] = 'Invalid visibility type';
-		}
-
-		// Validate static scheduling requirements
-		if ($this->schedulingMode === 'static') {
-			if ($this->fixedScheduleTime === null) {
-				$errors[] = 'Fixed schedule time is required for static scheduling';
-			}
-			if ($this->frequencyType === 'weekly' && empty($this->fixedScheduleDays)) {
-				$errors[] = 'At least one weekday is required for weekly static scheduling';
-			}
-		}
-
-		return $errors;
-	}
 }

@@ -180,20 +180,6 @@ class RewardConfigService {
 	}
 
 	/**
-	 * Get tier multiplier for a given tier (clamped to >= 0, CR-SVC-19).
-	 * Unknown tiers fall back to a neutral 1.0.
-	 *
-	 * @param string $tier The tier (bronze, silver, gold)
-	 */
-	public function getTierMultiplier(string $tier): float {
-		$key = self::TIER_KEYS[$tier] ?? null;
-		if ($key === null) {
-			return 1.0;
-		}
-		return (float)$this->readSpec($key);
-	}
-
-	/**
 	 * Get early completion bonus threshold in days (clamped to >= 0, CR-SVC-19).
 	 */
 	public function getEarlyBonusThresholdDays(): int {

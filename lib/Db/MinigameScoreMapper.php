@@ -22,23 +22,6 @@ class MinigameScoreMapper extends QBMapper {
 	}
 
 	/**
-	 * Find all scores for a house and game
-	 *
-	 * @return MinigameScore[]
-	 */
-	public function findByHouseAndGame(int $houseId, string $gameId): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('game_id', $qb->createNamedParameter($gameId, IQueryBuilder::PARAM_STR)))
-			->orderBy('score', 'DESC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Get leaderboard for a house and game (top N scores)
 	 *
 	 * @return MinigameScore[]

@@ -139,23 +139,6 @@ class ChecklistApiTest extends IntegrationTestCase {
 		self::assertSame(404, $response->getStatus());
 	}
 
-	public function testInitializeProgress_CrossHouseRoomTask_Returns404(): void {
-		[$foreignTaskId, , $foreignRoomTaskId] = $this->seedForeignRoomTask();
-
-		$response = $this->makeController(self::MEMBER)->initializeProgress($foreignRoomTaskId, $foreignTaskId);
-
-		self::assertSame(404, $response->getStatus());
-	}
-
-	public function testGetCompleteChecklist_CrossHouseRoomTask_Returns404(): void {
-		[$foreignTaskId, , $foreignRoomTaskId] = $this->seedForeignRoomTask();
-
-		$response = $this->makeController(self::MEMBER)->getCompleteChecklist($foreignRoomTaskId, $foreignTaskId);
-
-		self::assertSame(404, $response->getStatus());
-		self::assertSame('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
-	}
-
 	// ========== Visibility matrix ==========
 
 	public function testGetTaskItems_PrivateTask_MemberGets404OwnerGets200(): void {
@@ -296,20 +279,23 @@ class ChecklistApiTest extends IntegrationTestCase {
 		self::assertSame($firstItemId, $sorted[1]['id']);
 	}
 
-	public function testInitializeAndGetProgress_HappyPath(): void {
+	public function testToggleAndGetProgress_HappyPath(): void {
 		$fixture = $this->seedOwnPublicTaskWithItems(2);
 
-		$initResponse = $this->makeController(self::MEMBER)
-			->initializeProgress($fixture['roomTaskId'], $fixture['taskId']);
+		// Toggle auto-creates the progress row (the pruned explicit
+		// initialize endpoint is no longer needed — CS-PLAN-055).
+		$this->makeController(self::MEMBER)
+			->toggleItem($fixture['roomTaskId'], $fixture['itemIds'][0]);
+		$this->makeController(self::MEMBER)
+			->toggleItem($fixture['roomTaskId'], $fixture['itemIds'][1]);
 		$progressResponse = $this->makeController(self::MEMBER)
 			->getRoomTaskProgress($fixture['roomTaskId']);
 
-		self::assertSame(200, $initResponse->getStatus());
 		self::assertSame(200, $progressResponse->getStatus());
 		$data = $progressResponse->getData()['data'];
 		self::assertCount(2, $data['items']);
 		self::assertSame(2, $data['stats']['total']);
-		self::assertSame(0, $data['stats']['checked']);
+		self::assertSame(2, $data['stats']['checked']);
 	}
 
 	public function testToggleItem_HappyPath_TogglesAndReportsStats(): void {
@@ -321,23 +307,6 @@ class ChecklistApiTest extends IntegrationTestCase {
 		self::assertSame(200, $response->getStatus());
 		$data = $response->getData()['data'];
 		self::assertTrue($data['progress']['isChecked']);
-		self::assertSame(1, $data['stats']['checked']);
-	}
-
-	public function testGetCompleteChecklist_HappyPath(): void {
-		$fixture = $this->seedOwnPublicTaskWithItems(2);
-
-		$this->makeController(self::MEMBER)->initializeProgress($fixture['roomTaskId'], $fixture['taskId']);
-		$this->makeController(self::MEMBER)->toggleItem($fixture['roomTaskId'], $fixture['itemIds'][0]);
-
-		$response = $this->makeController(self::MEMBER)
-			->getCompleteChecklist($fixture['roomTaskId'], $fixture['taskId']);
-
-		self::assertSame(200, $response->getStatus());
-		$data = $response->getData()['data'];
-		self::assertCount(2, $data['items']);
-		self::assertTrue($data['items'][0]['isChecked']);
-		self::assertFalse($data['items'][1]['isChecked']);
 		self::assertSame(1, $data['stats']['checked']);
 	}
 

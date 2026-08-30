@@ -66,57 +66,6 @@ class TaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Get all tasks
-	 *
-	 * @return Task[]
-	 */
-	public function findAll(): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->orderBy('task_tier', 'DESC')
-			->addOrderBy('name', 'ASC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
-	 * Get tasks by category
-	 *
-	 * @param string $category The task category
-	 * @return Task[]
-	 */
-	public function findByCategory(string $category): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('category', $qb->createNamedParameter($category)))
-			->orderBy('task_tier', 'DESC')
-			->addOrderBy('name', 'ASC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
-	 * Search tasks by name
-	 *
-	 * @param string $query The search query
-	 * @return Task[]
-	 */
-	public function searchByName(string $query): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->iLike('name', $qb->createNamedParameter('%' . $query . '%')))
-			->orderBy('name', 'ASC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Create a new task
 	 *
 	 * @param string $name The task name
@@ -190,29 +139,6 @@ class TaskMapper extends QBMapper {
 		$task->setCreatedAt(new \DateTime());
 
 		return $this->insert($task);
-	}
-
-	/**
-	 * Get all categories
-	 *
-	 * @return string[]
-	 */
-	public function getCategories(): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->selectDistinct('category')
-			->from($this->getTableName())
-			->orderBy('category', 'ASC');
-
-		$result = $qb->executeQuery();
-		$categories = [];
-
-		while ($row = $result->fetch()) {
-			$categories[] = $row['category'];
-		}
-		$result->closeCursor();
-
-		return $categories;
 	}
 
 	/**

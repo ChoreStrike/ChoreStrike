@@ -105,31 +105,6 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 	}
 
 	/**
-	 * Initialize progress entries for all checklist items of a room task
-	 *
-	 * @param int $roomTaskId
-	 * @param array $checklistItemIds
-	 */
-	public function initializeProgress(int $roomTaskId, array $checklistItemIds): void {
-		foreach ($checklistItemIds as $itemId) {
-			try {
-				// Check if already exists
-				$this->findByRoomTaskAndItem($roomTaskId, $itemId);
-			} catch (DoesNotExistException $e) {
-				// Create unchecked entry
-				$progress = new RoomTaskChecklistProgress();
-				$progress->setRoomTaskId($roomTaskId);
-				$progress->setChecklistItemId($itemId);
-				$progress->setIsChecked(false);
-				$progress->setCheckedAt(null);
-				$progress->setCheckedByUserId(null);
-
-				$this->insert($progress);
-			}
-		}
-	}
-
-	/**
 	 * Get progress statistics for a room task
 	 *
 	 * @param int $roomTaskId

@@ -57,15 +57,6 @@ class TaskService {
 	}
 
 	/**
-	 * Get all tasks
-	 *
-	 * @return Task[]
-	 */
-	public function getAllTasks(): array {
-		return $this->taskMapper->findAll();
-	}
-
-	/**
 	 * Get tasks visible to a specific house user.
 	 *
 	 * @param int $houseId The house ID
@@ -170,10 +161,9 @@ class TaskService {
 	 * to prevent mass-assignment of internal columns. `taskTier` is handled
 	 * separately (owner-only + closed set, CR-053-04).
 	 *
-	 * Enforces the task-visibility matrix as defense-in-depth — the same
-	 * matrix as {@see deleteTask}, so a private task can no longer be
-	 * silently re-assigned away from its owner by a caller that bypasses
-	 * the controller gate (CR-SVC-17):
+	 * Enforces the task-visibility matrix as defense-in-depth — a private
+	 * task can no longer be silently re-assigned away from its owner by a
+	 * caller that bypasses the controller gate (CR-SVC-17):
 	 *   - private:    only the task owner may update
 	 *   - admin-only: only a house owner may update
 	 *   - public:     any caller
@@ -237,70 +227,6 @@ class TaskService {
 		}
 
 		return $this->taskMapper->update($task);
-	}
-
-	/**
-	 * Delete task.
-	 *
-	 * Enforces the task-visibility matrix as defense-in-depth so the rule
-	 * holds even if a caller bypasses the controller gate:
-	 *   - private:    only the task owner may delete
-	 *   - admin-only: only a house owner may delete
-	 *   - public:     any caller
-	 *
-	 * Callers MUST supply authorization context ($callerUserId, $isOwner);
-	 * the parameter is non-nullable so a caller can never silently bypass
-	 * the private-task ownership check. The production path
-	 * (TaskController::delete) always supplies it.
-	 *
-	 * @param int $taskId The task ID
-	 * @param string $callerUserId The Nextcloud user ID requesting the delete
-	 * @param bool $isOwner Whether the caller is a house owner
-	 * @throws ForbiddenException if the caller lacks permission for this task
-	 */
-	public function deleteTask(int $taskId, string $callerUserId, bool $isOwner = false): void {
-		$task = $this->taskMapper->find($taskId);
-
-		$visibility = $task->getVisibilityType();
-		if ($visibility === Task::VISIBILITY_PRIVATE
-			&& $task->getOwnerUserId() !== $callerUserId
-		) {
-			throw new ForbiddenException($this->l10n->t('Only the task owner may delete a private task'));
-		}
-		if ($visibility === Task::VISIBILITY_ADMIN_ONLY && !$isOwner) {
-			throw new ForbiddenException($this->l10n->t('Only house owners may delete an admin-only task'));
-		}
-
-		$this->taskMapper->delete($task);
-	}
-
-	/**
-	 * Get tasks by category
-	 *
-	 * @param string $category The task category
-	 * @return Task[]
-	 */
-	public function getTasksByCategory(string $category): array {
-		return $this->taskMapper->findByCategory($category);
-	}
-
-	/**
-	 * Search tasks by name
-	 *
-	 * @param string $query The search query
-	 * @return Task[]
-	 */
-	public function searchTasks(string $query): array {
-		return $this->taskMapper->searchByName($query);
-	}
-
-	/**
-	 * Get all task categories
-	 *
-	 * @return string[]
-	 */
-	public function getTaskCategories(): array {
-		return $this->taskMapper->getCategories();
 	}
 
 	/**
@@ -405,29 +331,4 @@ class TaskService {
 	// was deleted — completions must go through the canonical
 	// RoomTaskService::completeTask (coins/streak/cleanliness side effects).
 
-	/**
-	 * Skip a task
-	 *
-	 * @param int $taskId The task ID
-	 * @return Task The updated task
-	 */
-	public function skipTask(int $taskId): Task {
-		$task = $this->taskMapper->find($taskId);
-		$task->setStatus('skipped');
-		return $this->taskMapper->update($task);
-	}
-
-	/**
-	 * Reschedule a task
-	 *
-	 * @param int $taskId The task ID
-	 * @param DateTime $newDate The new scheduled date
-	 * @return Task The updated task
-	 */
-	public function rescheduleTask(int $taskId, \DateTime $newDate): Task {
-		$task = $this->taskMapper->find($taskId);
-		$task->setScheduledDate($newDate);
-		$task->setStatus('pending');
-		return $this->taskMapper->update($task);
-	}
 }

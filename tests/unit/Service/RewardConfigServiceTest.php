@@ -25,45 +25,6 @@ class RewardConfigServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetTierMultiplier_Bronze_ReturnsDefault
-	 */
-	public function testGetTierMultiplier_Bronze_ReturnsDefault(): void {
-		$this->config
-			->method('getValueString')
-			->willReturn('1.0');
-
-		$result = $this->service->getTierMultiplier('bronze');
-
-		$this->assertEquals(1.0, $result);
-	}
-
-	/**
-	 * GetTierMultiplier_Silver_ReturnsDefault
-	 */
-	public function testGetTierMultiplier_Silver_ReturnsDefault(): void {
-		$this->config
-			->method('getValueString')
-			->willReturn('1.5');
-
-		$result = $this->service->getTierMultiplier('silver');
-
-		$this->assertEquals(1.5, $result);
-	}
-
-	/**
-	 * GetTierMultiplier_Gold_ReturnsDefault
-	 */
-	public function testGetTierMultiplier_Gold_ReturnsDefault(): void {
-		$this->config
-			->method('getValueString')
-			->willReturn('2.0');
-
-		$result = $this->service->getTierMultiplier('gold');
-
-		$this->assertEquals(2.0, $result);
-	}
-
-	/**
 	 * GetEarlyBonusThresholdDays_ReturnsDefault
 	 */
 	public function testGetEarlyBonusThresholdDays_ReturnsDefault(): void {
@@ -659,17 +620,6 @@ class RewardConfigServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetTierMultiplier_PersistedNegative_ClampedOnRead (CR-SVC-19 risk row 3)
-	 */
-	public function testGetTierMultiplier_PersistedNegative_ClampedOnRead(): void {
-		$this->config
-			->method('getValueString')
-			->willReturn('-1.0');
-
-		$this->assertEquals(0.0, $this->service->getTierMultiplier('gold'));
-	}
-
-	/**
 	 * GetEarlyBonusMultiplier_PersistedBelowOne_ClampedOnRead (CR-SVC-19)
 	 */
 	public function testGetEarlyBonusMultiplier_PersistedBelowOne_ClampedOnRead(): void {
@@ -983,13 +933,13 @@ class RewardConfigServiceTest extends TestCase {
 	}
 
 	/**
-	 * Invoke the typed public getter for a registry apiField.
+	 * Invoke the typed public getter for a registry apiField. The tier keys
+	 * lost their dedicated getter in CS-PLAN-055 (getTierMultiplier was
+	 * test-only) — they read through the getAllConfig registry loop.
 	 */
 	private function registryGet(string $field) {
 		return match ($field) {
-			'tierBronzeMultiplier' => $this->service->getTierMultiplier('bronze'),
-			'tierSilverMultiplier' => $this->service->getTierMultiplier('silver'),
-			'tierGoldMultiplier' => $this->service->getTierMultiplier('gold'),
+			'tierBronzeMultiplier', 'tierSilverMultiplier', 'tierGoldMultiplier' => $this->service->getAllConfig()[$field],
 			'earlyBonusThresholdDays' => $this->service->getEarlyBonusThresholdDays(),
 			'earlyBonusMultiplier' => $this->service->getEarlyBonusMultiplier(),
 			'energyMaxPerTask' => $this->service->getEnergyMaxPerTask(),

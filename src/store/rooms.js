@@ -11,8 +11,6 @@ export const useRoomsStore = defineStore('rooms', {
 	state: () => ({
 		floors: [],
 		rooms: [],
-		currentFloor: null,
-		currentRoom: null,
 		loading: false,
 		error: null,
 		expandedFloors: [],
@@ -49,10 +47,6 @@ export const useRoomsStore = defineStore('rooms', {
 			return state.expandedFloors.some(id => String(id) === String(floorId))
 		},
 
-		roomsNeedingCleaning: (state) => {
-			return state.rooms.filter(room => room.cleanliness < 60)
-		},
-
 		totalRooms: (state) => state.rooms.length,
 
 		cleanRooms: (state) => state.rooms.filter(room => room.cleanliness >= 60).length,
@@ -87,79 +81,6 @@ export const useRoomsStore = defineStore('rooms', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch floors with rooms', error, { store: 'rooms', action: 'fetchFloorsWithRooms' })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Fetch all floors
-		 */
-		async fetchFloors() {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get('/api/v1/floors')
-				this.floors = data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch floors', error, { store: 'rooms', action: 'fetchFloors' })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Fetch rooms for a specific floor
-		 * @param {number} floorId Floor identifier to load rooms for.
-		 */
-		async fetchRooms(floorId) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get('/api/v1/rooms', { params: { floorId } })
-
-				this.rooms = this.rooms.filter(room => room.floorId !== floorId)
-				this.rooms.push(...data)
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch rooms', error, { store: 'rooms', action: 'fetchRooms', floorId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Get floor with rooms and stats
-		 * @param {number} floorId Floor identifier to load with details.
-		 */
-		async fetchFloorWithRooms(floorId) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get(`/api/v1/floors/${floorId}`)
-				const floorData = data
-
-				const floorIndex = this.floors.findIndex(f => f.id === floorId)
-				if (floorIndex >= 0) {
-					this.floors[floorIndex] = floorData.floor
-				} else {
-					this.floors.push(floorData.floor)
-				}
-
-				this.rooms = this.rooms.filter(room => room.floorId !== floorId)
-				this.rooms.push(...floorData.rooms)
-
-				return floorData
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch floor with rooms', error, { store: 'rooms', action: 'fetchFloorWithRooms', floorId })
 				throw error
 			} finally {
 				this.loading = false
@@ -366,43 +287,6 @@ export const useRoomsStore = defineStore('rooms', {
 		},
 
 		/**
-		 * Get rooms needing cleaning
-		 * @param {?number} floorId Optional floor identifier for filtering.
-		 */
-		async fetchRoomsNeedingCleaning(floorId = null) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const config = floorId ? { params: { floorId } } : {}
-				const data = await api.get('/api/v1/rooms/needing-cleaning', config)
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch rooms needing cleaning', error, { store: 'rooms', action: 'fetchRoomsNeedingCleaning', floorId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Set current floor
-		 * @param {number} floorId Floor identifier to set as active.
-		 */
-		setCurrentFloor(floorId) {
-			this.currentFloor = this.getFloorById(floorId)
-		},
-
-		/**
-		 * Set current room
-		 * @param {number} roomId Room identifier to set as active.
-		 */
-		setCurrentRoom(roomId) {
-			this.currentRoom = this.getRoomById(roomId)
-		},
-
-		/**
 		 * Clear error state
 		 */
 		clearError() {
@@ -415,8 +299,6 @@ export const useRoomsStore = defineStore('rooms', {
 		reset() {
 			this.floors = []
 			this.rooms = []
-			this.currentFloor = null
-			this.currentRoom = null
 			this.loading = false
 			this.error = null
 		},

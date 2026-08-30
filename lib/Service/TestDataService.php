@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\AvailabilitySettingsMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
@@ -33,6 +32,22 @@ use OCP\IDBConnection;
  */
 class TestDataService {
 	/**
+	 * Reward-config overrides (appconfig keys) applied by the family profile.
+	 *
+	 * `release-notifications` needs a trivially-crossed weekly-goal target so
+	 * a single completion deterministically achieves it. The reward-config
+	 * HTTP surface was pruned (CS-PLAN-055), so the knob is seeded instead;
+	 * `reset()` deletes the overrides again when a non-family profile seeds,
+	 * keeping `oc_appconfig` free of leaked test state. Keys reference the
+	 * RewardConfigService registry consts (single source of truth).
+	 *
+	 * @var array<string, string>
+	 */
+	private const FAMILY_REWARD_CONFIG_OVERRIDES = [
+		RewardConfigService::KEY_WEEKLY_GOAL_TARGET_PERCENT => '1',
+	];
+
+	/**
 	 * Tables to clear during test-data reset.
 	 *
 	 * Canonical tables only, audited against the current migration chain
@@ -47,7 +62,6 @@ class TestDataService {
 	 */
 	private const RESET_TABLES = [
 		'chorestrike_task_assignees',
-		'chorestrike_availability',
 		'chorestrike_chk_progress',
 		'chorestrike_completed_tasks',
 		'chorestrike_room_tasks',
@@ -57,7 +71,6 @@ class TestDataService {
 		'chorestrike_floors',
 		'chorestrike_house_users',
 		'chorestrike_houses',
-		'chorestrike_task_scopes',
 		'chorestrike_medals',
 		'chorestrike_minigame_scores',
 	];
@@ -70,7 +83,6 @@ class TestDataService {
 	private RoomMapper $roomMapper;
 	private TaskMapper $taskMapper;
 	private RoomTaskMapper $roomTaskMapper;
-	private AvailabilitySettingsMapper $availabilityMapper;
 
 	public function __construct(
 		IDBConnection $db,
@@ -81,7 +93,6 @@ class TestDataService {
 		RoomMapper $roomMapper,
 		TaskMapper $taskMapper,
 		RoomTaskMapper $roomTaskMapper,
-		AvailabilitySettingsMapper $availabilityMapper,
 	) {
 		$this->db = $db;
 		$this->config = $config;
@@ -91,7 +102,6 @@ class TestDataService {
 		$this->roomMapper = $roomMapper;
 		$this->taskMapper = $taskMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
-		$this->availabilityMapper = $availabilityMapper;
 	}
 
 	/**
@@ -124,6 +134,10 @@ class TestDataService {
 	 */
 	public function reset(): void {
 		$this->assertTestMode();
+
+		foreach (array_keys(self::FAMILY_REWARD_CONFIG_OVERRIDES) as $key) {
+			$this->config->deleteAppValue('chorestrike', $key);
+		}
 
 		foreach (self::RESET_TABLES as $table) {
 			$qb = $this->db->getQueryBuilder();
@@ -238,6 +252,14 @@ class TestDataService {
 	public function seedFamily(): array {
 		$this->assertTestMode();
 		$this->reset();
+
+		// Family-profile reward-config knobs (CS-PLAN-055): the
+		// `release-notifications` spec completes a single task and expects the
+		// weekly goal to be reached — a trivially-crossed target keeps that
+		// deterministic without the (pruned) reward-config HTTP surface.
+		foreach (self::FAMILY_REWARD_CONFIG_OVERRIDES as $key => $value) {
+			$this->config->setAppValue('chorestrike', $key, $value);
+		}
 
 		// Create house with real instance ID
 		$instanceId = $this->getInstanceId();

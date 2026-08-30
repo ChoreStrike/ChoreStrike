@@ -96,75 +96,10 @@ class Version1009Date20260228200000 extends SimpleMigrationStep {
 			}
 		}
 
-		// Create table for tracking claim history (audit log)
-		if (!$schema->hasTable('chorestrike_claims')) {
-			$table = $schema->createTable('chorestrike_claims');
-
-			// Primary key
-			$table->addColumn('id', 'integer', [
-				'autoincrement' => true,
-				'notnull' => true,
-			]);
-
-			// Room task ID that was claimed
-			$table->addColumn('room_task_id', 'integer', [
-				'notnull' => true,
-				'comment' => 'The room task that was claimed',
-			]);
-
-			// User who claimed the task
-			$table->addColumn('claimed_by_user', 'string', [
-				'notnull' => true,
-				'length' => 64,
-				'comment' => 'User who claimed the task',
-			]);
-
-			// Original assignee (if any)
-			$table->addColumn('original_assignee', 'string', [
-				'notnull' => false,
-				'length' => 64,
-				'default' => null,
-				'comment' => 'Original user the task was assigned to',
-			]);
-
-			// When the task was claimed
-			$table->addColumn('claimed_at', 'datetime', [
-				'notnull' => true,
-			]);
-
-			// Days overdue at time of claiming
-			$table->addColumn('days_overdue', 'integer', [
-				'notnull' => true,
-				'comment' => 'Days overdue when claimed',
-			]);
-
-			// Whether the claim resulted in completion
-			$table->addColumn('was_completed', 'boolean', [
-				'notnull' => false,
-				'default' => false,
-				'comment' => 'Whether the task was completed after claiming',
-			]);
-
-			// When the task was completed (if applicable)
-			$table->addColumn('completed_at', 'datetime', [
-				'notnull' => false,
-				'default' => null,
-			]);
-
-			// Bonus sparks awarded
-			$table->addColumn('bonus_sparks', 'integer', [
-				'notnull' => true,
-				'default' => 0,
-			]);
-
-			// Primary key
-			$table->setPrimaryKey(['id'], 'pk_claims');
-
-			// Indexes
-			$table->addIndex(['room_task_id'], 'idx_claims_room_task');
-			$table->addIndex(['claimed_by_user'], 'idx_claims_claimer');
-			$table->addIndex(['claimed_at'], 'idx_claims_date');
-		}
+		// The chorestrike_claims audit table originally created here was an
+		// orphan (never read or written by any mapper — the claim state lives
+		// on room_tasks) — removed in CS-PLAN-055 (pre-release: fresh-install
+		// chain edited in place, no drop step).
 
 		return $schema;
 	}

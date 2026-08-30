@@ -243,62 +243,6 @@ class RoomTaskControllerTest extends TestCase {
 		$this->assertEquals($stats, $response->getData()['data']);
 	}
 
-	/**
-	 * assign must reject a target userId that is not a member of the caller's
-	 * house (cross-house BOLA → 403). Regression for the missing membership
-	 * check on the legacy assign() endpoint.
-	 */
-	public function testAssign_Returns403ForCrossHouseUser(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
-		$this->roomTaskService->method('validateRoomTaskOwnership');
-		$this->authService->expects($this->once())
-			->method('assertUserInHouse')
-			->with(1, 'outsider')
-			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('User is not a member of this house'));
-
-		$this->roomTaskService->expects($this->never())->method('assignTask');
-
-		$response = $this->controller->assign(7, 'outsider');
-
-		$this->assertEquals(403, $response->getStatus());
-		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
-	}
-
-	/**
-	 * assign surfaces the service's internal membership rejection
-	 * (CR-SVC-09) as a 400 VALIDATION_ERROR with the curated message —
-	 * not the generic 500 fallback.
-	 */
-	public function testAssign_Returns400WithCuratedMessageForServiceRejection(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
-		$this->roomTaskService->method('validateRoomTaskOwnership');
-		$this->authService->method('assertUserInHouse');
-
-		$this->roomTaskService->expects($this->once())
-			->method('assignTask')
-			->with(7, 'intruder', 1)
-			->willThrowException(new \InvalidArgumentException('User is not a member of this house: intruder'));
-
-		$response = $this->controller->assign(7, 'intruder');
-
-		$this->assertEquals(400, $response->getStatus());
-		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
-		$this->assertEquals(
-			'User is not a member of this house: intruder',
-			$response->getData()['error']['message']
-		);
-	}
-
 	public function testRange_ReturnsScheduledAndCompleted(): void {
 		$house = new House();
 		$house->setId(1);

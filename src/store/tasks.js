@@ -20,23 +20,6 @@ export const useTasksStore = defineStore('tasks', {
 		getTaskById: (state) => (taskId) => {
 			return state.tasks.find(task => task.id === taskId)
 		},
-
-		tasksByCategory: (state) => {
-			const tasksByCategory = {}
-			state.tasks.forEach(task => {
-				if (!tasksByCategory[task.category]) {
-					tasksByCategory[task.category] = []
-				}
-				tasksByCategory[task.category].push(task)
-			})
-			return tasksByCategory
-		},
-
-		highPriorityTasks: (state) => state.tasks.filter(task => task.priority === 3),
-
-		mediumPriorityTasks: (state) => state.tasks.filter(task => task.priority === 2),
-
-		lowPriorityTasks: (state) => state.tasks.filter(task => task.priority === 1),
 	},
 
 	actions: {
@@ -103,97 +86,6 @@ export const useTasksStore = defineStore('tasks', {
 			} finally {
 				this.loading = false
 			}
-		},
-
-		/**
-		 * Delete task
-		 * @param {number} taskId Task identifier to delete.
-		 */
-		async deleteTask(taskId) {
-			this.loading = true
-			this.error = null
-
-			try {
-				await api.delete(`/api/v1/tasks/${taskId}`)
-
-				this.tasks = this.tasks.filter(t => t.id !== taskId)
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to delete task', error, { store: 'tasks', action: 'deleteTask', taskId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Search tasks by name
-		 * @param {string} query Search text value.
-		 */
-		async searchTasks(query) {
-			if (!query || query.trim() === '') {
-				return this.tasks
-			}
-
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get('/api/v1/tasks/search', { params: { query } })
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to search tasks', error, { store: 'tasks', action: 'searchTasks', query })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Get tasks by category
-		 * @param {string} category Category key to filter by.
-		 */
-		async fetchTasksByCategory(category) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get(`/api/v1/tasks/category/${encodeURIComponent(category)}`)
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch tasks by category', error, { store: 'tasks', action: 'fetchTasksByCategory', category })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Get task categories
-		 */
-		async fetchTaskCategories() {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get('/api/v1/tasks/categories')
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch task categories', error, { store: 'tasks', action: 'fetchTaskCategories' })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Initialize tasks
-		 */
-		async initializeTasks() {
-			await this.fetchTasks()
 		},
 
 		/**

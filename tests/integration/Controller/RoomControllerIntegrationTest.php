@@ -51,34 +51,6 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 		);
 	}
 
-	/**
-	 * Index_ReturnsRoomsList_SuccessResponse
-	 */
-	public function testIndex_ReturnsRoomsList_SuccessResponse(): void {
-		$floorId = 1;
-		$rooms = [
-			$this->createMockRoom(1, 'Living Room', $floorId, 85),
-			$this->createMockRoom(2, 'Kitchen', $floorId, 90),
-		];
-		$floor = $this->createMockFloor($floorId, 'Ground Floor', 1, 1);
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
-		$this->roomService->method('getFloor')
-			->with($floorId)
-			->willReturn($floor);
-		$this->roomService->method('getRooms')
-			->with($floorId)
-			->willReturn($rooms);
-
-		$response = $this->controller->index($floorId);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
-
 	private function createMockFloor(int $id, string $name, int $sortOrder, int $houseId): \OCA\ChoreStrike\Db\Floor {
 		$floor = new \OCA\ChoreStrike\Db\Floor();
 		$floor->setId($id);
@@ -116,55 +88,6 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 		$user->setDisplayName('Test User');
 		$user->setRole('member');
 		return $user;
-	}
-
-	/**
-	 * Show_ExistingRoom_ReturnsRoomDetails
-	 */
-	public function testShow_ExistingRoom_ReturnsRoomDetails(): void {
-		$roomId = 1;
-		$room = $this->createMockRoom($roomId, 'Living Room', 1, 85);
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
-		$this->roomService->method('getRoomWithTasks')
-			->with($roomId)
-			->willReturn(['room' => $room, 'tasks' => [], 'stats' => ['totalTasks' => 0]]);
-
-		$response = $this->controller->show($roomId);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
-
-	private function createMockRoomTask(int $id, int $roomId, int $taskId): \OCA\ChoreStrike\Db\RoomTask {
-		$roomTask = new \OCA\ChoreStrike\Db\RoomTask();
-		$roomTask->setId($id);
-		$roomTask->setRoomId($roomId);
-		$roomTask->setTaskId($taskId);
-		$roomTask->setIsActive(true);
-		$roomTask->setNextDue(new \DateTime());
-		$roomTask->setCreatedAt(new \DateTime());
-		return $roomTask;
-	}
-
-	private function createMockTask(int $id, string $name, int $energyCost): \OCA\ChoreStrike\Db\Task {
-		$task = new \OCA\ChoreStrike\Db\Task();
-		$task->setId($id);
-		$task->setName($name);
-		$task->setEnergyCost($energyCost);
-		$task->setCategory('general');
-		$task->setFrequencyType('weekly');
-		$task->setFrequencyValue(1);
-		$task->setSchedulingMode('flexible');
-		$task->setScopeType('house');
-		$task->setIsVoluntary(false);
-		$task->setAllowTeamwork(false);
-		$task->setTeamSparkMultiplier(1.0);
-		$task->setCreatedAt(new \DateTime());
-		return $task;
 	}
 
 	/**
@@ -251,22 +174,6 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
-	}
-
-	/**
-	 * Tasks_ReturnsRoomTasks_SuccessResponse
-	 */
-	public function testTasks_ReturnsRoomTasks_SuccessResponse(): void {
-		// tasks() method doesn't exist in RoomController - skip test
-		$this->markTestSkipped('tasks() method not implemented in RoomController');
-	}
-
-	/**
-	 * NeedingCleaning_ReturnsDirtyRooms_SuccessResponse
-	 */
-	public function testNeedingCleaning_ReturnsDirtyRooms_SuccessResponse(): void {
-		// needingCleaning() method requires house authorization - skip test
-		$this->markTestSkipped('needingCleaning() method requires complex authorization setup');
 	}
 
 	// ========== Real-DB owner gate (CR-053-03) ==========

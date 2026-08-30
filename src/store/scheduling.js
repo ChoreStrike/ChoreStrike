@@ -58,113 +58,12 @@ export const useSchedulingStore = defineStore('scheduling', {
 
 	getters: {
 		/**
-		 * Get available weekdays for current user
-		 * @param {object} state Store state
-		 * @return {string[]} Array of available weekday names
-		 */
-		availableWeekdays: (state) => {
-			return Object.entries(state.weekdayAvailability)
-				.filter(([_, available]) => available)
-				.map(([day]) => day)
-		},
-
-		/**
-		 * Get unavailable weekdays for current user
-		 * @param {object} state Store state
-		 * @return {string[]} Array of unavailable weekday names
-		 */
-		unavailableWeekdays: (state) => {
-			return Object.entries(state.weekdayAvailability)
-				.filter(([_, available]) => !available)
-				.map(([day]) => day)
-		},
-
-		/**
 		 * Calculate total weekly energy budget
 		 * @param {object} state Store state
 		 * @return {number} Total energy points for the week
 		 */
 		totalWeeklyEnergy: (state) => {
 			return Object.values(state.energyBudget).reduce((sum, energy) => sum + energy, 0)
-		},
-
-		/**
-		 * Calculate average daily energy
-		 *
-		 * Pinia option-getters are called with the store only — other
-		 * getters must be reached via `this`, never a second parameter.
-		 * @return {number} Average energy per available day
-		 */
-		averageDailyEnergy() {
-			const availableDays = this.availableWeekdays.length
-			if (availableDays === 0) return 0
-			return Math.round(this.totalWeeklyEnergy / availableDays)
-		},
-
-		/**
-		 * Check if user is available on a specific day
-		 * @param {object} state Store state
-		 * @return {(day: string) => boolean} Function that takes day name and returns availability
-		 */
-		isAvailableOn: (state) => (day) => {
-			return state.weekdayAvailability[day.toLowerCase()] ?? true
-		},
-
-		/**
-		 * Get energy budget for a specific day
-		 * @param {object} state Store state
-		 * @return {(day: string) => number} Function that takes day name and returns energy
-		 */
-		getEnergyForDay: (state) => (day) => {
-			return state.energyBudget[day.toLowerCase()] ?? 10
-		},
-
-		/**
-		 * Get remaining energy for today
-		 * @param {object} state Store state
-		 * @param {object} getters Store getters
-		 * @return {number} Remaining energy points
-		 */
-		todayRemainingEnergy: (state, getters) => {
-			const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
-			const total = state.energyBudget[today] ?? 10
-			return Math.max(0, total - state.todayConsumedEnergy)
-		},
-
-		/**
-		 * Get member availability by user ID
-		 * @param {object} state Store state
-		 * @return {(userId: string) => object|undefined} Function that takes userId and returns availability
-		 */
-		getMemberAvailability: (state) => (userId) => {
-			return state.memberAvailability.find(m => m.userId === userId)
-		},
-
-		/**
-		 * Get all available members for a specific day
-		 * @param {object} state Store state
-		 * @return {(day: string) => object[]} Function that takes day and returns available members
-		 */
-		getAvailableMembersForDay: (state) => (day) => {
-			const dayKey = day.toLowerCase()
-			return state.memberAvailability.filter(
-				m => isMemberAvailable(m, dayKey),
-			)
-		},
-
-		/**
-		 * Calculate total available energy across all members for a day
-		 * @param {object} state Store state
-		 * @return {(day: string) => number} Function that takes day and returns total energy
-		 */
-		getTotalEnergyForDay: (state) => (day) => {
-			const dayKey = day.toLowerCase()
-			const availableMembers = state.memberAvailability.filter(
-				m => isMemberAvailable(m, dayKey),
-			)
-			return availableMembers.reduce((sum, m) => {
-				return sum + resolveEnergyForDay(m.energyBudget, dayKey)
-			}, 0)
 		},
 
 		/**

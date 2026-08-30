@@ -240,50 +240,6 @@ class ChecklistService {
 	}
 
 	/**
-	 * Initialize (unchecked) progress entries for all checklist items of
-	 * a room task's task.
-	 */
-	public function initializeProgress(int $roomTaskId, int $houseId, HouseUser $viewer): void {
-		$roomTask = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
-
-		$items = $this->checklistItemMapper->findByTaskId($roomTask->getTaskId());
-		$this->progressMapper->initializeProgress($roomTaskId, array_map(
-			static fn (TaskChecklistItem $item): int => $item->getId(),
-			$items
-		));
-	}
-
-	/**
-	 * Get the complete checklist (items + progress + stats) for a room task.
-	 *
-	 * @return array{items: array, stats: array}
-	 */
-	public function getCompleteChecklist(int $roomTaskId, int $houseId, HouseUser $viewer): array {
-		$roomTask = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
-
-		$items = $this->checklistItemMapper->findByTaskId($roomTask->getTaskId());
-		$progress = $this->progressMapper->findByRoomTaskId($roomTaskId);
-
-		$progressByItemId = [];
-		foreach ($progress as $entry) {
-			$progressByItemId[$entry->getChecklistItemId()] = $entry;
-		}
-
-		$checklistWithProgress = array_map(function (TaskChecklistItem $item) use ($progressByItemId): array {
-			$itemData = $item->jsonSerialize();
-			$itemProgress = $progressByItemId[$item->getId()] ?? null;
-			$itemData['progress'] = $itemProgress ? $itemProgress->jsonSerialize() : null;
-			$itemData['isChecked'] = $itemProgress ? $itemProgress->getIsChecked() : false;
-			return $itemData;
-		}, $items);
-
-		return [
-			'items' => $checklistWithProgress,
-			'stats' => $this->progressMapper->getProgressStats($roomTaskId),
-		];
-	}
-
-	/**
 	 * Resolve an item and guard its task; foreign ids end as 404.
 	 */
 	private function findItemWithGuard(int $itemId, int $houseId, HouseUser $viewer): TaskChecklistItem {

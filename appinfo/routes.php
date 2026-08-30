@@ -11,50 +11,28 @@ return [
         ['name' => 'house#activity', 'url' => '/api/v1/house/activity', 'verb' => 'GET'],
         ['name' => 'house#health', 'url' => '/api/v1/house/health', 'verb' => 'GET'],
         ['name' => 'house#reset', 'url' => '/api/v1/house/reset', 'verb' => 'POST'],
-        ['name' => 'floor#createAlias', 'url' => '/api/v1/floor-create', 'verb' => 'POST'],
-        ['name' => 'room#createAlias', 'url' => '/api/v1/room-create', 'verb' => 'POST'],
         
         // Floor API
         ['name' => 'floor#create', 'url' => '/api/v1/floors', 'verb' => 'POST'],
-        ['name' => 'floor#index', 'url' => '/api/v1/floors', 'verb' => 'GET'],
-        ['name' => 'floor#createExplicit', 'url' => '/api/v1/floors/create', 'verb' => 'POST'],
         ['name' => 'floor#withRooms', 'url' => '/api/v1/floors/with-rooms', 'verb' => 'GET'],
         ['name' => 'floor#reorder', 'url' => '/api/v1/floors/reorder', 'verb' => 'POST'],
         ['name' => 'floor#update', 'url' => '/api/v1/floors/{id}', 'verb' => 'PUT'],
         ['name' => 'floor#delete', 'url' => '/api/v1/floors/{id}', 'verb' => 'DELETE'],
-        ['name' => 'floor#show', 'url' => '/api/v1/floors/{id}', 'verb' => 'GET'],
         
         // Room API
-        // NOTE: needing-cleaning MUST precede room#show `{id}` (shadowing
-        // rule, CS-PLAN-023).
         ['name' => 'room#create', 'url' => '/api/v1/rooms', 'verb' => 'POST'],
-        ['name' => 'room#index', 'url' => '/api/v1/rooms', 'verb' => 'GET'],
-        ['name' => 'room#createExplicit', 'url' => '/api/v1/rooms/create', 'verb' => 'POST'],
-        ['name' => 'room#needingCleaning', 'url' => '/api/v1/rooms/needing-cleaning', 'verb' => 'GET'],
-        ['name' => 'room#show', 'url' => '/api/v1/rooms/{id}', 'verb' => 'GET'],
         ['name' => 'room#update', 'url' => '/api/v1/rooms/{id}', 'verb' => 'PUT'],
         ['name' => 'room#delete', 'url' => '/api/v1/rooms/{id}', 'verb' => 'DELETE'],
         ['name' => 'room#updateCleanliness', 'url' => '/api/v1/rooms/{id}/cleanliness', 'verb' => 'PUT'],
         
         // Task API
         // NOTE: static single-segment routes MUST precede the parameterized
-        // `{id}` routes — Nextcloud's router matches in registration order,
-        // so a later /tasks/daily would be swallowed by /tasks/{id}
-        // (shadowing bug fixed by CS-PLAN-023; guarded by RouteMatrixTest).
+        // `{id}` routes — Nextcloud's router matches in registration order
+        // (shadowing rule fixed by CS-PLAN-023; guarded by RouteMatrixTest).
         ['name' => 'task#index', 'url' => '/api/v1/tasks', 'verb' => 'GET'],
-        ['name' => 'task#byCategory', 'url' => '/api/v1/tasks/category/{category}', 'verb' => 'GET'],
-        ['name' => 'task#search', 'url' => '/api/v1/tasks/search', 'verb' => 'GET'],
-        ['name' => 'task#categories', 'url' => '/api/v1/tasks/categories', 'verb' => 'GET'],
-        ['name' => 'task#daily', 'url' => '/api/v1/tasks/daily', 'verb' => 'GET'],
-        ['name' => 'task#myPrivate', 'url' => '/api/v1/tasks/my-private', 'verb' => 'GET'],
-        ['name' => 'task#show', 'url' => '/api/v1/tasks/{id}', 'verb' => 'GET'],
         ['name' => 'task#create', 'url' => '/api/v1/tasks', 'verb' => 'POST'],
         ['name' => 'task#update', 'url' => '/api/v1/tasks/{id}', 'verb' => 'PUT'],
-        ['name' => 'task#delete', 'url' => '/api/v1/tasks/{id}', 'verb' => 'DELETE'],
-        ['name' => 'task#complete', 'url' => '/api/v1/tasks/{id}/complete', 'verb' => 'PUT'],
         ['name' => 'task#uncomplete', 'url' => '/api/v1/tasks/{id}/uncomplete', 'verb' => 'PUT'],
-        ['name' => 'task#skip', 'url' => '/api/v1/tasks/{id}/skip', 'verb' => 'PUT'],
-        ['name' => 'task#reschedule', 'url' => '/api/v1/tasks/{id}/reschedule', 'verb' => 'PUT'],
         
         // Room Task API
         // NOTE: static single-segment routes MUST precede `{id}` (same
@@ -63,23 +41,15 @@ return [
         ['name' => 'room_task#overdue', 'url' => '/api/v1/room-tasks/overdue', 'verb' => 'GET'],
         ['name' => 'room_task#dueToday', 'url' => '/api/v1/room-tasks/due-today', 'verb' => 'GET'],
         ['name' => 'room_task#fromTemplate', 'url' => '/api/v1/room-tasks/from-template', 'verb' => 'POST'],
-        ['name' => 'room_task#dueWithinDays', 'url' => '/api/v1/room-tasks/due-within-days', 'verb' => 'GET'],
         ['name' => 'room_task#range', 'url' => '/api/v1/room-tasks/range', 'verb' => 'GET'],
         ['name' => 'room_task#filteredDaily', 'url' => '/api/v1/room-tasks/filtered-daily', 'verb' => 'GET'],
-        ['name' => 'room_task#overdueClaims', 'url' => '/api/v1/room-tasks/overdue-claims', 'verb' => 'GET'],
         // Static single-segment route — must stay ahead of the `{id}` block.
         ['name' => 'room_task#bulkAssign', 'url' => '/api/v1/room-tasks/bulk-assign', 'verb' => 'POST'],
-        ['name' => 'room_task#show', 'url' => '/api/v1/room-tasks/{id}', 'verb' => 'GET'],
         ['name' => 'room_task#create', 'url' => '/api/v1/room-tasks', 'verb' => 'POST'],
         ['name' => 'room_task#delete', 'url' => '/api/v1/room-tasks/{id}', 'verb' => 'DELETE'],
         ['name' => 'room_task#complete', 'url' => '/api/v1/room-tasks/{id}/complete', 'verb' => 'POST'],
-        ['name' => 'room_task#assign', 'url' => '/api/v1/room-tasks/{id}/assign', 'verb' => 'POST'],
-        ['name' => 'room_task#unassign', 'url' => '/api/v1/room-tasks/{id}/unassign', 'verb' => 'POST'],
         ['name' => 'room_task#assignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'GET'],
         ['name' => 'room_task#setAssignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'PUT'],
-        ['name' => 'room_task#addAssignee', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'POST'],
-        ['name' => 'room_task#removeAssignee', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'DELETE'],
-        ['name' => 'room_task#deactivate', 'url' => '/api/v1/room-tasks/{id}/deactivate', 'verb' => 'POST'],
         ['name' => 'room_task#reactivate', 'url' => '/api/v1/room-tasks/{id}/reactivate', 'verb' => 'POST'],
         ['name' => 'room_task#updateDueDate', 'url' => '/api/v1/room-tasks/{id}/due-date', 'verb' => 'PUT'],
         ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET'],
@@ -89,10 +59,21 @@ return [
         // `userStats` carried the CR-SVC-31-flawed completionRate — both had
         // no consumer. `user#stats` was fully dead (every field already in
         // the GET /users serialization).
-        
+
+        // Pruned 2026-08-29 (CS-PLAN-055, 39 routes — guard in RouteMatrixTest):
+        // dead create aliases (floor/room#createAlias/#createExplicit), no-
+        // consumer reads (floor/room#index/#show, task/room_task#show, task
+        // #byCategory/#search/#categories/#myPrivate/#daily/#delete, room
+        // #needingCleaning, user#update), dead room-task variants (#assign/
+        // #unassign/#addAssignee/#removeAssignee/#dueWithinDays/#overdueClaims/
+        // #deactivate), test-only lifecycle/game routes (task#complete/#skip/
+        // #reschedule, game#leaderboard), the checklist #initializeProgress/#
+        // getCompleteChecklist pair, the whole task-sync surface and the
+        // reward-config HTTP surface. Re-add a route only when a consumer
+        // exists.
+
         // Game API
         ['name' => 'game#state', 'url' => '/api/v1/game/state', 'verb' => 'GET'],
-        ['name' => 'game#leaderboard', 'url' => '/api/v1/game/leaderboard', 'verb' => 'GET'],
         ['name' => 'game#medals', 'url' => '/api/v1/game/medals', 'verb' => 'GET'],
         ['name' => 'game#checkMedals', 'url' => '/api/v1/game/check-medals', 'verb' => 'POST'],
         
@@ -101,7 +82,6 @@ return [
         ['name' => 'user#current', 'url' => '/api/v1/users/current', 'verb' => 'GET'],
         ['name' => 'user#invite', 'url' => '/api/v1/users/invite', 'verb' => 'POST'],
         ['name' => 'user#remove', 'url' => '/api/v1/users/{id}', 'verb' => 'DELETE'],
-        ['name' => 'user#update', 'url' => '/api/v1/users/{id}', 'verb' => 'PUT'],
         ['name' => 'user#updateRole', 'url' => '/api/v1/users/{id}/role', 'verb' => 'PUT'],
         ['name' => 'user#titles', 'url' => '/api/v1/users/{id}/titles', 'verb' => 'GET'],
         ['name' => 'user#selectTitle', 'url' => '/api/v1/users/{id}/titles/select', 'verb' => 'PUT'],
@@ -134,20 +114,10 @@ return [
         ['name' => 'checklist#reorderTaskItems', 'url' => '/api/v1/checklists/reorder', 'verb' => 'POST'],
         ['name' => 'checklist#getRoomTaskProgress', 'url' => '/api/v1/checklists/progress/{roomTaskId}', 'verb' => 'GET'],
         ['name' => 'checklist#toggleItem', 'url' => '/api/v1/checklists/toggle/{roomTaskId}/{itemId}', 'verb' => 'POST'],
-        ['name' => 'checklist#initializeProgress', 'url' => '/api/v1/checklists/initialize/{roomTaskId}', 'verb' => 'POST'],
-        ['name' => 'checklist#getCompleteChecklist', 'url' => '/api/v1/checklists/complete/{roomTaskId}', 'verb' => 'GET'],
-
-        // Task Sync API
-        ['name' => 'task_sync#complete', 'url' => '/api/v1/task-sync/complete', 'verb' => 'POST'],
-        ['name' => 'task_sync#syncFromNextcloud', 'url' => '/api/v1/task-sync/sync-from-nextcloud', 'verb' => 'POST'],
-        ['name' => 'task_sync#getReminders', 'url' => '/api/v1/task-sync/{roomTaskId}/reminders', 'verb' => 'GET'],
-        ['name' => 'task_sync#getPendingSyncs', 'url' => '/api/v1/task-sync/pending', 'verb' => 'GET'],
-        ['name' => 'task_sync#markAsSynced', 'url' => '/api/v1/task-sync/{completedTaskId}/mark-synced', 'verb' => 'POST'],
-        ['name' => 'task_sync#linkTask', 'url' => '/api/v1/task-sync/link', 'verb' => 'POST'],
 
         // Claiming Overdue Tasks API (Feature 7)
-        // overdueClaims + filteredDaily live in the Room Task API block
-        // above — they must precede the `{id}` routes (shadowing rule).
+        // filteredDaily lives in the Room Task API block above — it must
+        // precede the `{id}` routes (shadowing rule).
 
         // Test Data API (only available in test mode)
         ['name' => 'test#profiles', 'url' => '/api/v1/test/profiles', 'verb' => 'GET'],
@@ -165,9 +135,10 @@ return [
         ['name' => 'minigame#purchaseBoost', 'url' => '/api/v1/minigames/boosts/{boostId}/purchase', 'verb' => 'POST'],
         ['name' => 'minigame#coins', 'url' => '/api/v1/minigames/coins', 'verb' => 'GET'],
 
-        // Reward Config API
-        ['name' => 'reward_config#index', 'url' => '/api/v1/reward-config', 'verb' => 'GET'],
-        ['name' => 'reward_config#update', 'url' => '/api/v1/reward-config', 'verb' => 'PUT'],
+        // Reward Config API — removed (CS-PLAN-055): `reward_config#index` /
+        // `reward_config#update` had no production consumer; the two E2E
+        // specs that used them were reworked onto test-seed knobs. The
+        // service itself stays (GameLogic/House/StreakRestock/Title read it).
 
         // Setup Wizard API (CS-PLAN-027) — first-run house setup
         ['name' => 'setup#catalog', 'url' => '/api/v1/setup/catalog', 'verb' => 'GET'],

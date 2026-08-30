@@ -33,34 +33,10 @@ export function iconForRoomType(roomType) {
 	return 'Home'
 }
 
-/**
- * Predefined room icon options for room configuration and defaults.
- *
- * The list intentionally contains more choices than currently needed so the UI
- * can stay flexible without requiring additional asset work for every new room.
- */
-export const ROOM_ICON_OPTIONS = [
-	{ value: 'Bed', label: 'Bedroom' },
-	{ value: 'Bath', label: 'Bathroom' },
-	{ value: 'Utensils', label: 'Kitchen' },
-	{ value: 'Sofa', label: 'Living Room' },
-	{ value: 'Shirt', label: 'Laundry' },
-	{ value: 'Briefcase', label: 'Office' },
-	{ value: 'BookOpen', label: 'Study' },
-	{ value: 'Gamepad2', label: 'Playroom' },
-	{ value: 'Dumbbell', label: 'Gym' },
-	{ value: 'Tv', label: 'Media Room' },
-	{ value: 'Package', label: 'Storage' },
-	{ value: 'Car', label: 'Garage' },
-	{ value: 'Trees', label: 'Garden' },
-	{ value: 'WashingMachine', label: 'Utility Room' },
-	{ value: 'DoorOpen', label: 'Hallway' },
-	{ value: 'Baby', label: 'Kids Room' },
-	{ value: 'Users', label: 'Family Area' },
-	{ value: 'Sparkles', label: 'Cleaning Zone' },
-	{ value: 'Home', label: 'Home' },
-	{ value: 'House', label: 'House' },
-]
+// ROOM_ICON_OPTIONS + getRoomIconOption were PRUNED in CS-PLAN-055: the
+// room picker is text-driven via resolveRoomIcon; the option list had no
+// consumers outside its own spec (see setup catalog RoomTypes for the
+// type-to-icon source).
 
 const ROOM_NAME_ICON_RULES = [
 	{ icon: 'Utensils', keywords: ['kitchen', 'küche', 'cook', 'dining', 'essen'] },
@@ -100,14 +76,4 @@ export function resolveRoomIcon(iconName, roomName = '') {
 	}
 
 	return 'Home'
-}
-
-/**
- * Find metadata for a room icon option.
- *
- * @param {string} iconName Icon registry key.
- * @return {{ value: string, label: string }|undefined} Matching icon option.
- */
-export function getRoomIconOption(iconName) {
-	return ROOM_ICON_OPTIONS.find(option => option.value === iconName)
 }

@@ -2,13 +2,20 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  *
- * Release E2E regression — Task Lifecycle (CS-PLAN-024, Phase 2).
+ * Release E2E regression — Task Lifecycle (CS-PLAN-024, Phase 2; re-scoped
+ * by CS-PLAN-055).
  *
- * Covers the release-test-plan.md §5 rows that had no automated home:
- * skip, reschedule, and deactivate/reactivate. Create/complete/uncomplete
- * stay with `task-manager` / `task-completion(-full-flow)` (extend-first,
- * CS-PLAN-024 §2); recurrence stays with `today-view` (CS-PLAN-050 deleted
- * the dead `daily-tasks-flow` spec).
+ * The task-level skip/reschedule routes and the standalone deactivate route
+ * were pruned in CS-PLAN-055 (no production consumer). This spec now pins
+ * the surviving lifecycle surface:
+ *  - due-date changes via `PUT /room-tasks/{id}/due-date` (the production
+ *    path: RoomTaskEditModal persists due dates through it),
+ *  - the completion-undo chain the UI performs: `PUT /tasks/{id}/uncomplete`
+ *    + `POST /room-tasks/{id}/reactivate` (roomTasks store
+ *    `undoRoomTaskCompletion`).
+ * UI-level complete/create coverage stays with `task-manager` /
+ * `task-completion(-full-flow)` (extend-first, CS-PLAN-024 §2); recurrence
+ * stays with `today-view`.
  *
  * The assertions are API-driven (the deterministic data path) rather than
  * UI-driven, because these rows are mechanically repeatable state checks
@@ -26,7 +33,7 @@ interface RoomTaskJson {
 	id: number
 	nextDue: string | null
 	isActive: boolean
-	assignedToUserId?: string | null
+	lastCompleted?: string | null
 }
 
 /**
@@ -76,38 +83,7 @@ function offsetDate(offsetDays: number): string {
 test.describe('Release: Task Lifecycle', () => {
 	test.use({ databaseProfile: 'family' })
 
-	test('skip advances the room-task due date by one day', async ({ browser, seededData }) => {
-		expect(seededData).not.toBeNull()
-
-		const { context, page } = await createUserContext(browser, 'mom')
-		try {
-			const target = await pickActiveRoomTask(page)
-			if (!target) {
-				test.skip(true, 'No active room task with a due date available')
-				return
-			}
-
-			const before = new Date(target.nextDue!).getTime()
-
-			const response = await page.request.put(
-				`/apps/chorestrike/api/v1/tasks/${target.id}/skip`,
-				{ headers: { Accept: 'application/json' } },
-			)
-
-			expect(response.status()).toBe(200)
-			const body = await response.json()
-			expect(body.success).toBe(true)
-
-			const after = new Date(body.data.nextDue).getTime()
-			// skipTask advances nextDue by exactly one day; allow a small
-			// tolerance for the time component the serializer carries.
-			expect(after).toBeGreaterThan(before)
-		} finally {
-			await context.close()
-		}
-	})
-
-	test('reschedule moves the due date to the requested day', async ({ browser, seededData }) => {
+	test('updating the due date persists the requested day', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
 		const { context, page } = await createUserContext(browser, 'mom')
@@ -121,8 +97,8 @@ test.describe('Release: Task Lifecycle', () => {
 			const requested = offsetDate(5)
 
 			const response = await page.request.put(
-				`/apps/chorestrike/api/v1/tasks/${target.id}/reschedule`,
-				{ data: { newDate: requested }, headers: { Accept: 'application/json' } },
+				`/apps/chorestrike/api/v1/room-tasks/${target.id}/due-date`,
+				{ data: { nextDue: requested }, headers: { Accept: 'application/json' } },
 			)
 
 			expect(response.status()).toBe(200)
@@ -135,7 +111,7 @@ test.describe('Release: Task Lifecycle', () => {
 		}
 	})
 
-	test('deactivate then reactivate toggles the active flag', async ({ browser, seededData }) => {
+	test('completing then undoing restores the room task (uncomplete + reactivate)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
 		const { context, page } = await createUserContext(browser, 'mom')
@@ -146,13 +122,25 @@ test.describe('Release: Task Lifecycle', () => {
 				return
 			}
 
-			const deactivateResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${target.id}/deactivate`,
+			const completeResponse = await page.request.post(
+				`/apps/chorestrike/api/v1/room-tasks/${target.id}/complete`,
 				{ headers: { Accept: 'application/json' } },
 			)
-			expect(deactivateResponse.status()).toBe(200)
-			expect((await deactivateResponse.json()).data.isActive).toBe(false)
+			expect(completeResponse.status()).toBe(200)
+			expect((await completeResponse.json()).data.roomTask).toBeTruthy()
 
+			// Undo primitive 1: clears lastCompleted (lives under /tasks/{id}
+			// but operates on the room task id — TaskController::uncomplete).
+			const uncompleteResponse = await page.request.put(
+				`/apps/chorestrike/api/v1/tasks/${target.id}/uncomplete`,
+				{ headers: { Accept: 'application/json' } },
+			)
+			expect(uncompleteResponse.status()).toBe(200)
+			expect((await uncompleteResponse.json()).data.lastCompleted).toBeNull()
+
+			// Undo primitive 2: reactivates one-time tasks (mirrors the
+			// conditional branch of undoRoomTaskCompletion; idempotent on an
+			// already-active recurrence task).
 			const reactivateResponse = await page.request.post(
 				`/apps/chorestrike/api/v1/room-tasks/${target.id}/reactivate`,
 				{ headers: { Accept: 'application/json' } },

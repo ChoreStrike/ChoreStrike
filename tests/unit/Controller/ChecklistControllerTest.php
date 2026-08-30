@@ -317,42 +317,4 @@ class ChecklistControllerTest extends TestCase {
 		$this->assertSame('RESOURCE_NOT_FOUND', $data['error']['code']);
 	}
 
-	/**
-	 * InitializeProgress_DelegatesWithHouseContext (server-side task id)
-	 */
-	public function testInitializeProgress_DelegatesWithHouseContext(): void {
-		$this->expectHouseMembershipContext();
-
-		$this->checklistService->expects($this->once())
-			->method('initializeProgress')
-			->with(10, 1, $this->identicalTo($this->viewer));
-
-		$response = $this->controller->initializeProgress(10, 999);
-
-		$this->assertInstanceOf(JSONResponse::class, $response);
-		$this->assertSame(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertSame('Progress initialized', $data['message']);
-	}
-
-	/**
-	 * GetCompleteChecklist_DelegatesWithHouseContext
-	 */
-	public function testGetCompleteChecklist_DelegatesWithHouseContext(): void {
-		$this->expectHouseMembershipContext();
-
-		$this->checklistService->expects($this->once())
-			->method('getCompleteChecklist')
-			->with(10, 1, $this->identicalTo($this->viewer))
-			->willReturn(['items' => [], 'stats' => ['total' => 0]]);
-
-		$response = $this->controller->getCompleteChecklist(10, 7);
-
-		$this->assertSame(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertArrayHasKey('items', $data['data']);
-		$this->assertArrayHasKey('stats', $data['data']);
-	}
 }

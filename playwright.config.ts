@@ -26,7 +26,6 @@ const SEED_DEPENDENT_SPECS = [
 	// SCHEDULING_OWNER_SPECS convention so a substring can never match twice.
 	/[/\\]release-task-lifecycle\.spec\.ts$/,
 	/[/\\]release-visibility-roles\.spec\.ts$/,
-	/[/\\]release-reward-config\.spec\.ts$/,
 	/[/\\]release-task-templates\.spec\.ts$/,
 	/[/\\]release-boost-shop\.spec\.ts$/,
 	/[/\\]release-notifications\.spec\.ts$/,

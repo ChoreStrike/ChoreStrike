@@ -123,51 +123,6 @@ class TaskMapperTest extends TestCase {
 	}
 
 	/**
-	 * ValidateTask_WithValidData_PassesValidation
-	 */
-	public function testValidateTask_WithValidData_PassesValidation(): void {
-		$task = new Task();
-		$task->setName('Valid Task');
-		$task->setEnergyCost(2);
-		$task->setPriority(2);
-		$task->setEstimatedMinutes(30);
-		$task->setFrequencyType('weekly');
-		$task->setFrequencyValue(1);
-		$task->setCategory('cleaning');
-		$task->setScopeType('room');
-		$task->setRecurrenceMode('recurring');
-
-		$errors = $task->validate();
-
-		$this->assertEmpty($errors);
-	}
-
-	/**
-	 * ValidateTask_WithInvalidEnergyCost_FailsValidation
-	 */
-	public function testValidateTask_WithInvalidEnergyCost_FailsValidation(): void {
-		$task = new Task();
-		$task->setName('Test Task');
-		$task->setEnergyCost(10);
-
-		$errors = $task->validate();
-
-		$this->assertContains('Energy cost must be between 1 and 5', $errors);
-	}
-
-	/**
-	 * ValidateTask_WithEmptyName_FailsValidation
-	 */
-	public function testValidateTask_WithEmptyName_FailsValidation(): void {
-		$task = new Task();
-		$task->setName('');
-
-		$errors = $task->validate();
-
-		$this->assertContains('Task name is required', $errors);
-	}
-
-	/**
 	 * GetPriorityLabel_ReturnsCorrectLabel
 	 */
 	public function testGetPriorityLabel_ReturnsCorrectLabel(): void {

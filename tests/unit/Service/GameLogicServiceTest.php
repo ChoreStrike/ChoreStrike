@@ -144,65 +144,6 @@ class GameLogicServiceTest extends TestCase {
 	}
 
 	/**
-	 * HandleTaskCompletion_WithNextcloudTaskId_StampsCompletionRow
-	 *
-	 * CR-SVC-46: sync completions thread the Nextcloud task id through the
-	 * canonical path so the inserted completion row carries it —
-	 * findPendingSyncs() filters on completed_tasks.nextcloud_task_id and
-	 * never saw un-stamped rows. Without the id the row stays un-stamped.
-	 */
-	public function testHandleTaskCompletion_WithNextcloudTaskId_StampsCompletionRow(): void {
-		$task = new Task();
-		$task->setId(1);
-		$task->setEnergyCost(3);
-
-		$user = new HouseUser();
-		$user->setId(1);
-		$user->setCurrentStreak(1);
-		$user->setLastActivity(new \DateTime('yesterday'));
-
-		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
-
-		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
-
-		$this->completedTaskMapper
-			->expects($this->once())
-			->method('insert')
-			->with($this->callback(function (CompletedTask $completedTask): bool {
-				return $completedTask->getNextcloudTaskId() === 4242;
-			}));
-
-		$this->service->handleTaskCompletion($this->roomTaskEntity(1), 1, $task, 4242);
-	}
-
-	/**
-	 * HandleTaskCompletion_WithoutNextcloudTaskId_LeavesCompletionRowUnstamped
-	 */
-	public function testHandleTaskCompletion_WithoutNextcloudTaskId_LeavesCompletionRowUnstamped(): void {
-		$task = new Task();
-		$task->setId(1);
-		$task->setEnergyCost(3);
-
-		$user = new HouseUser();
-		$user->setId(1);
-		$user->setCurrentStreak(1);
-		$user->setLastActivity(new \DateTime('yesterday'));
-
-		$this->houseUserMapper->method('findForUpdate')->willReturn($user);
-
-		$this->completedTaskMapper->method('findRecentByUserId')->willReturn([]);
-
-		$this->completedTaskMapper
-			->expects($this->once())
-			->method('insert')
-			->with($this->callback(function (CompletedTask $completedTask): bool {
-				return $completedTask->getNextcloudTaskId() === null;
-			}));
-
-		$this->service->handleTaskCompletion($this->roomTaskEntity(1), 1, $task);
-	}
-
-	/**
 	 * CalculateContributionScore_ReturnsEnergyCost
 	 *
 	 * CR-SVC-57: the signature carries no cleanliness param — contribution
@@ -433,50 +374,6 @@ class GameLogicServiceTest extends TestCase {
 
 		$this->assertArrayHasKey('users', $result);
 		$this->assertCount(1, $result['users']);
-	}
-
-	/**
-	 * GetLeaderboard_ReturnsSortedUsers
-	 */
-	public function testGetLeaderboard_ReturnsSortedUsers(): void {
-		$houseId = 1;
-
-		$user1 = new HouseUser();
-		$user1->setId(1);
-		$user1->setContributionScore(100);
-
-		$user2 = new HouseUser();
-		$user2->setId(2);
-		$user2->setContributionScore(50);
-
-		$this->houseUserMapper
-			->expects($this->once())
-			->method('getLeaderboard')
-			->with($houseId, 10)
-			->willReturn([$user1, $user2]);
-
-		$result = $this->service->getLeaderboard($houseId);
-
-		$this->assertCount(2, $result);
-		$this->assertEquals(100, $result[0]['contributionScore']);
-	}
-
-	/**
-	 * GetLeaderboard_WithCustomLimit_RespectsLimit
-	 */
-	public function testGetLeaderboard_WithCustomLimit_RespectsLimit(): void {
-		$houseId = 1;
-		$limit = 5;
-
-		$this->houseUserMapper
-			->expects($this->once())
-			->method('getLeaderboard')
-			->with($houseId, $limit)
-			->willReturn([]);
-
-		$result = $this->service->getLeaderboard($houseId, $limit);
-
-		$this->assertIsArray($result);
 	}
 
 	/**

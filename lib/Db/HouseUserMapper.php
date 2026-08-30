@@ -145,25 +145,6 @@ class HouseUserMapper extends QBMapper {
 	}
 
 	/**
-	 * Get leaderboard for a house
-	 *
-	 * @param int $houseId The house ID
-	 * @param int $limit Maximum number of users to return
-	 * @return HouseUser[]
-	 */
-	public function getLeaderboard(int $houseId, int $limit = 10): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->orderBy('contribution_score', 'DESC')
-			->setMaxResults($limit);
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Find house user by house ID and Nextcloud user ID
 	 * Returns null if not found (does not throw exception)
 	 *
@@ -177,73 +158,6 @@ class HouseUserMapper extends QBMapper {
 		} catch (DoesNotExistException $e) {
 			return null;
 		}
-	}
-
-	/**
-	 * Get active users (with activity in last N days)
-	 *
-	 * @param int $houseId The house ID
-	 * @param int $days Number of days to look back
-	 * @return HouseUser[]
-	 */
-	public function getActiveUsers(int $houseId, int $days = 7): array {
-		$qb = $this->db->getQueryBuilder();
-		$cutoffDate = new \DateTime("-{$days} days");
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gte('last_activity', $qb->createNamedParameter($cutoffDate, IQueryBuilder::PARAM_DATE)))
-			->orderBy('last_activity', 'DESC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
-	 * Find all users in house
-	 *
-	 * @param int $houseId The house ID
-	 * @return HouseUser[]
-	 */
-	public function findByHouse(int $houseId): array {
-		return $this->findByHouseId($houseId);
-	}
-
-	/**
-	 * Find active users in house
-	 *
-	 * @param int $houseId The house ID
-	 * @return HouseUser[]
-	 */
-	public function findActiveByHouse(int $houseId): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
-			->orderBy('contribution_score', 'DESC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
-	 * Find users by house and role
-	 *
-	 * @param int $houseId The house ID
-	 * @param string $role The user role
-	 * @return HouseUser[]
-	 */
-	public function findByHouseAndRole(int $houseId, string $role): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('role', $qb->createNamedParameter($role, IQueryBuilder::PARAM_STR)))
-			->orderBy('contribution_score', 'DESC');
-
-		return $this->findEntities($qb);
 	}
 
 	/**

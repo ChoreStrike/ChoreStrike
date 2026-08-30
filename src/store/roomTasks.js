@@ -24,45 +24,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 	}),
 
 	getters: {
-		getRoomTaskById: (state) => (roomTaskId) => {
-			return state.roomTasks.find(roomTask => roomTask.id === roomTaskId)
-		},
-
-		activeRoomTasks: (state) => state.roomTasks.filter(roomTask => roomTask.isActive),
-
-		inactiveRoomTasks: (state) => state.roomTasks.filter(roomTask => !roomTask.isActive),
-
-		overdueRoomTasks: (state) => {
-			return state.roomTasks.filter(roomTask => {
-				return roomTask.isActive && new Date(roomTask.nextDue) < new Date()
-			})
-		},
-
-		dueTodayRoomTasks: (state) => {
-			const today = new Date()
-			today.setHours(0, 0, 0, 0)
-			const tomorrow = new Date(today)
-			tomorrow.setDate(tomorrow.getDate() + 1)
-
-			return state.roomTasks.filter(roomTask => {
-				if (!roomTask.isActive) return false
-				const dueDate = new Date(roomTask.nextDue)
-				return dueDate >= today && dueDate < tomorrow
-			})
-		},
-
-		dueSoonRoomTasks: (state) => {
-			const now = new Date()
-			const future = new Date()
-			future.setDate(future.getDate() + 3)
-
-			return state.roomTasks.filter(roomTask => {
-				if (!roomTask.isActive) return false
-				const dueDate = new Date(roomTask.nextDue)
-				return dueDate >= now && dueDate <= future
-			})
-		},
-
 		roomTasksByRoom: (state) => {
 			const tasksByRoom = {}
 			state.roomTasks.forEach(roomTask => {
@@ -74,33 +35,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			return tasksByRoom
 		},
 
-		roomTasksByUser: (state) => {
-			const tasksByUser = {}
-			state.roomTasks.forEach(roomTask => {
-				const userId = roomTask.assignedToUserId || 'unassigned'
-				if (!tasksByUser[userId]) {
-					tasksByUser[userId] = []
-				}
-				tasksByUser[userId].push(roomTask)
-			})
-			return tasksByUser
-		},
-
-		unassignedRoomTasks: (state) => {
-			return state.roomTasks.filter(roomTask =>
-				roomTask.isActive && !roomTask.assignedToUserId,
-			)
-		},
-
-		assignedRoomTasks: (state) => {
-			return state.roomTasks.filter(roomTask =>
-				roomTask.isActive && roomTask.assignedToUserId,
-			)
-		},
-
 		// Statistics
-		totalActiveTasks: (state) => state.roomTasks.filter(roomTask => roomTask.isActive).length,
-
 		totalOverdueTasks: (state) => {
 			return state.roomTasks.filter(roomTask => {
 				return roomTask.isActive && new Date(roomTask.nextDue) < new Date()
@@ -184,26 +119,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Get room task with details
-		 * @param {number} roomTaskId Room task identifier to load.
-		 */
-		async fetchRoomTaskWithDetails(roomTaskId) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get(`/api/v1/room-tasks/${roomTaskId}`)
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch room task details', error, { store: 'roomTasks', action: 'fetchRoomTaskWithDetails', roomTaskId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
 		 * Create a new room task
 		 * @param {object} roomTaskData Payload used to create the room task.
 		 */
@@ -240,59 +155,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to create room task from template', error, { store: 'roomTasks', action: 'createFromTemplate', templateId: payload?.templateId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Assign room task to user
-		 * @param {number} roomTaskId Room task identifier to assign.
-		 * @param {string} userId User identifier receiving the assignment.
-		 */
-		async assignRoomTask(roomTaskId, userId) {
-			if (!userId || userId.trim() === '') {
-				throw new Error('User ID is required')
-			}
-
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/assign`, { userId })
-
-				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-				if (roomTaskIndex >= 0) {
-					this.roomTasks[roomTaskIndex] = data
-				}
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to assign room task', error, { store: 'roomTasks', action: 'assignRoomTask', roomTaskId, userId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Unassign room task from user
-		 * @param {number} roomTaskId Room task identifier to unassign.
-		 */
-		async unassignRoomTask(roomTaskId) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/unassign`)
-
-				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-				if (roomTaskIndex >= 0) {
-					this.roomTasks[roomTaskIndex] = data
-				}
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to unassign room task', error, { store: 'roomTasks', action: 'unassignRoomTask', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -390,30 +252,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			}
 
 			return { task, roomTask, roomTaskError, assignError }
-		},
-
-		/**
-		 * Deactivate room task
-		 * @param {number} roomTaskId Room task identifier to deactivate.
-		 */
-		async deactivateRoomTask(roomTaskId) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/deactivate`)
-
-				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-				if (roomTaskIndex >= 0) {
-					this.roomTasks[roomTaskIndex] = data
-				}
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to deactivate room task', error, { store: 'roomTasks', action: 'deactivateRoomTask', roomTaskId })
-				throw error
-			} finally {
-				this.loading = false
-			}
 		},
 
 		/**
@@ -675,32 +513,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Get tasks due within days
-		 * @param {number} days Number of days ahead to query.
-		 * @param {?number} roomId Optional room identifier for filtering.
-		 */
-		async fetchDueWithinDaysTasks(days, roomId = null) {
-			if (days < 1 || days > 365) {
-				throw new Error('Days must be between 1 and 365')
-			}
-
-			this.loading = true
-			this.error = null
-
-			try {
-				const config = { params: { days, ...(roomId && { roomId }) } }
-				const data = await api.get('/api/v1/room-tasks/due-within-days', config)
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch due within days tasks', error, { store: 'roomTasks', action: 'fetchDueWithinDaysTasks', days, roomId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
 		 * Get room task statistics
 		 * @param {number} roomId Room identifier to load statistics for.
 		 */
@@ -792,26 +604,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 */
 		clearError() {
 			this.error = null
-		},
-
-		/**
-		 * Fetch the current user's private tasks.
-		 * @return {Promise<Array>} Private tasks owned by the current user.
-		 */
-		async fetchMyPrivateTasks() {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.get('/api/v1/tasks/my-private')
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to fetch private tasks', error, { store: 'roomTasks', action: 'fetchMyPrivateTasks' })
-				throw error
-			} finally {
-				this.loading = false
-			}
 		},
 
 		/**

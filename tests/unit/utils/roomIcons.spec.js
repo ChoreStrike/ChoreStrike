@@ -1,4 +1,7 @@
-import { resolveRoomIcon, getRoomIconOption, ROOM_ICON_OPTIONS } from '@/utils/roomIcons'
+import { resolveRoomIcon } from '@/utils/roomIcons'
+
+// ROOM_ICON_OPTIONS / getRoomIconOption specs were removed together with the
+// pruned exports (CS-PLAN-055): resolveRoomIcon is the live room-icon API.
 
 jest.mock('@/utils/icons.js', () => ({
 	hasIcon: jest.fn((name) => ['Home', 'Bath', 'Utensils', 'Bed'].includes(name)),
@@ -7,19 +10,6 @@ jest.mock('@/utils/icons.js', () => ({
 }))
 
 describe('roomIcons', () => {
-	describe('ROOM_ICON_OPTIONS', () => {
-		it('contains value and label for each option', () => {
-			for (const opt of ROOM_ICON_OPTIONS) {
-				expect(opt).toHaveProperty('value')
-				expect(opt).toHaveProperty('label')
-			}
-		})
-
-		it('has at least 10 options', () => {
-			expect(ROOM_ICON_OPTIONS.length).toBeGreaterThanOrEqual(10)
-		})
-	})
-
 	describe('resolveRoomIcon', () => {
 		it('returns the icon name if valid', () => {
 			expect(resolveRoomIcon('Home')).toBe('Home')
@@ -39,18 +29,6 @@ describe('roomIcons', () => {
 
 		it('falls back to Home for empty room name', () => {
 			expect(resolveRoomIcon(null, '')).toBe('Home')
-		})
-	})
-
-	describe('getRoomIconOption', () => {
-		it('finds option by icon name', () => {
-			const opt = getRoomIconOption('Home')
-			expect(opt).toBeDefined()
-			expect(opt.value).toBe('Home')
-		})
-
-		it('returns undefined for unknown icon', () => {
-			expect(getRoomIconOption('NonExistent')).toBeUndefined()
 		})
 	})
 })

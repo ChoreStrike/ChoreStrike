@@ -58,34 +58,6 @@ describe('checklist store', () => {
 			expect(store.getRoomTaskProgress(999)).toEqual([])
 		})
 
-		it('getCompletionPercent calculates percentage', () => {
-			store.progress = {
-				10: [
-					{ id: 1, checklistItemId: 5, isChecked: true },
-					{ id: 2, checklistItemId: 6, isChecked: false },
-					{ id: 3, checklistItemId: 7, isChecked: true },
-				],
-			}
-			expect(store.getCompletionPercent(10)).toBe(67)
-		})
-
-		it('getCompletionPercent returns 0 for empty progress', () => {
-			expect(store.getCompletionPercent(999)).toBe(0)
-		})
-
-		it('isItemCompleted finds completed item', () => {
-			store.progress = {
-				10: [{ id: 1, checklistItemId: 5, isChecked: true }],
-			}
-			expect(store.isItemCompleted(10, 5)).toBe(true)
-		})
-
-		it('isItemCompleted returns false for incomplete item', () => {
-			store.progress = {
-				10: [{ id: 1, checklistItemId: 5, isChecked: false }],
-			}
-			expect(store.isItemCompleted(10, 5)).toBe(false)
-		})
 	})
 
 	describe('actions', () => {
@@ -192,23 +164,6 @@ describe('checklist store', () => {
 				itemOrders: { 1: 0, 2: 1 },
 			})
 			expect(store.items[5].map(item => item.id)).toEqual([1, 2])
-		})
-
-		it('initializeProgress passes the taskId param and tolerates the payload-less success response', async () => {
-			// The endpoint returns only { success, message } — the api wrapper
-			// unwraps that to `undefined`, so the cache must reset without
-			// reading a nonexistent `items` property.
-			api.post.mockResolvedValue(undefined)
-			store.progress = { 10: [{ id: 1, checklistItemId: 5, isChecked: false }] }
-
-			await store.initializeProgress(10, 7)
-
-			expect(api.post).toHaveBeenCalledWith(
-				'/api/v1/checklists/initialize/10',
-				null,
-				{ params: { taskId: 7 } },
-			)
-			expect(store.progress[10]).toEqual([])
 		})
 
 		it('reset clears all state', () => {

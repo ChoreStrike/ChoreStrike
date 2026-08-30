@@ -127,6 +127,9 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	}
 
 	// Helper methods (kept for future full rewrite)
+	// `deleteTask`/`assignRoomTaskToUser` were pruned with their
+	// (unused) target methods TaskController::delete and
+	// RoomTaskController::assign (CS-PLAN-055).
 	private function completeTask(int $roomTaskId, string $userId): \OCP\AppFramework\Http\Response {
 		$request = $this->createMock(IRequest::class);
 		$controller = $this->getController('RoomTaskController', $userId, $request);
@@ -141,24 +144,10 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 		return $controller->index();
 	}
 
-	private function deleteTask(int $taskId, string $userId): \OCP\AppFramework\Http\Response {
-		$request = $this->createMock(IRequest::class);
-		$controller = $this->getController('TaskController', $userId, $request);
-
-		return $controller->delete($taskId);
-	}
-
 	private function assignTaskToRoomAsUser(int $taskId, int $roomId, string $userId): \OCP\AppFramework\Http\Response {
 		$request = $this->createMock(IRequest::class);
 		$controller = $this->getController('RoomTaskController', $userId, $request);
 
 		return $controller->create($taskId, $roomId, null);
-	}
-
-	private function assignRoomTaskToUser(int $roomTaskId, string $assignedUserId): void {
-		$request = $this->createMock(IRequest::class);
-		$controller = $this->getController('RoomTaskController', 'user1', $request); // owner assigns
-
-		$controller->assign($roomTaskId, $assignedUserId);
 	}
 }

@@ -16,22 +16,6 @@ class Version1015Date20260304000000 extends SimpleMigrationStep {
 	/**
 	 * @param IOutput $output
 	 * @param Closure $closure
-	 * @param array $openedSchema
-	 */
-	public function preSchemaChange(IOutput $output, Closure $closure, array $openedSchema): void {
-	}
-
-	/**
-	 * @param IOutput $output
-	 * @param Closure $closure
-	 * @param array $openedSchema
-	 */
-	public function postSchemaChange(IOutput $output, Closure $closure, array $openedSchema): void {
-	}
-
-	/**
-	 * @param IOutput $output
-	 * @param Closure $closure
 	 * @param ISchemaWrapper $schema
 	 * @return ISchemaWrapper
 	 */
@@ -78,11 +62,6 @@ class Version1015Date20260304000000 extends SimpleMigrationStep {
 				$table->addIndex(['next_due', 'is_active'], 'rt_next_due_idx');
 			}
 
-			// Index for scheduled date queries - commented out until column is added
-			// if (!$table->hasIndex('rt_scheduled_idx')) {
-			//     $table->addIndex(['scheduled_for', 'is_active'], 'rt_scheduled_idx');
-			// }
-
 			// Index for scope queries
 			if (!$table->hasIndex('rt_scope_idx')) {
 				$table->addIndex(['scope_id'], 'rt_scope_idx');
@@ -125,65 +104,11 @@ class Version1015Date20260304000000 extends SimpleMigrationStep {
 		// the table was dropped from the migration chain — no live code
 		// referenced UserStatsService/UserStatsMapper.
 
-		// chorestrike_availability indexes
-		if ($schema->hasTable('chorestrike_availability')) {
-			$table = $schema->getTable('chorestrike_availability');
-
-			// Index for findByHouse queries
-			if (!$table->hasIndex('av_house_id_idx')) {
-				$table->addIndex(['house_id'], 'av_house_id_idx');
-			}
-
-			// Index for house + user lookup
-			if (!$table->hasIndex('av_house_user_idx')) {
-				$table->addIndex(['house_id', 'user_id'], 'av_house_user_idx');
-			}
-		}
-
-		// chorestrike_task_scopes indexes
-		if ($schema->hasTable('chorestrike_task_scopes')) {
-			$table = $schema->getTable('chorestrike_task_scopes');
-
-			// Index for findByHouseId queries
-			if (!$table->hasIndex('ts_house_id_idx')) {
-				$table->addIndex(['house_id'], 'ts_house_id_idx');
-			}
-
-			// Index for type queries
-			if (!$table->hasIndex('ts_house_type_idx')) {
-				$table->addIndex(['house_id', 'type'], 'ts_house_type_idx');
-			}
-		}
-
-		// chorestrike_task_claims indexes
-		if ($schema->hasTable('chorestrike_task_claims')) {
-			$table = $schema->getTable('chorestrike_task_claims');
-
-			// Index for findByRoomTask queries
-			if (!$table->hasIndex('tc_room_task_idx')) {
-				$table->addIndex(['room_task_id'], 'tc_room_task_idx');
-			}
-
-			// Index for findByClaimer queries
-			if (!$table->hasIndex('tc_claimer_idx')) {
-				$table->addIndex(['claimed_by_user'], 'tc_claimer_idx');
-			}
-		}
-
-		// chorestrike_task_participants indexes
-		if ($schema->hasTable('chorestrike_task_participants')) {
-			$table = $schema->getTable('chorestrike_task_participants');
-
-			// Index for findByCompletedTask queries
-			if (!$table->hasIndex('tp_completed_task_idx')) {
-				$table->addIndex(['completed_task_id'], 'tp_completed_task_idx');
-			}
-
-			// Index for findByUser queries
-			if (!$table->hasIndex('tp_user_idx')) {
-				$table->addIndex(['user_id'], 'tp_user_idx');
-			}
-		}
+		// chorestrike_availability, chorestrike_task_scopes,
+		// chorestrike_task_claims and chorestrike_task_participants index
+		// blocks removed (CS-PLAN-055): those tables are no longer created
+		// anywhere in the chain (orphaned — no entity/mapper/writer ever
+		// existed for them).
 
 		return $schema;
 	}

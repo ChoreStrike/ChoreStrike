@@ -127,13 +127,4 @@ class CompletedTask extends Entity implements JsonSerializable {
 		];
 	}
 
-	/**
-	 * Check if completion was recent (within last N minutes)
-	 *
-	 * @param int $minutes Number of minutes
-	 */
-	public function isRecent(int $minutes = 5): bool {
-		$cutoff = new \DateTime("-{$minutes} minutes");
-		return $this->completedAt >= $cutoff;
-	}
 }

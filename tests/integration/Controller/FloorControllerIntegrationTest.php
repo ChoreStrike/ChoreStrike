@@ -47,28 +47,6 @@ class FloorControllerIntegrationTest extends IntegrationTestCase {
 		);
 	}
 
-	/**
-	 * Index_ReturnsFloorsList_SuccessResponse
-	 */
-	public function testIndex_ReturnsFloorsList_SuccessResponse(): void {
-		$floors = [
-			$this->createMockFloor(1, 'Ground Floor', 1),
-			$this->createMockFloor(2, 'First Floor', 2),
-		];
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
-		$this->floorService->method('getFloors')
-			->willReturn($floors);
-
-		$response = $this->controller->index();
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
-
 	private function createMockFloor(int $id, string $name, int $sortOrder): \OCA\ChoreStrike\Db\Floor {
 		$floor = new \OCA\ChoreStrike\Db\Floor();
 		$floor->setId($id);

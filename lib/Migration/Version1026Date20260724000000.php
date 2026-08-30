@@ -26,9 +26,9 @@ use OCP\Migration\SimpleMigrationStep;
  * The Cozy Home title pack was repointed to `coins` (CS-PLAN-006), so no live
  * code path reads either column.
  *
- * Runs strictly after `Version1025` (version ordering), whose backfill seeded
- * the `unlocked_titles` cache from `contribution_score` / `longest_streak` /
- * `coins` — it no longer references the dropped columns (CS-PLAN-010). The
+ * Runs strictly after `Version1025` (version ordering); its former
+ * `unlocked_titles` backfill (removed in CS-PLAN-055) never referenced the
+ * dropped columns (CS-PLAN-010). The
  * `hasColumn()` guards make this idempotent: a re-run, or a fresh install that
  * never had the columns, is a no-op.
  */

@@ -60,16 +60,6 @@ describe('User Store', () => {
 			expect(store.userId).toBeNull()
 		})
 
-		it('userDisplayName returns display name', () => {
-			store.currentUser = { id: 1, displayName: 'John Doe' }
-			expect(store.userDisplayName).toBe('John Doe')
-		})
-
-		it('userDisplayName returns Unknown User when no current user', () => {
-			expect(store.userDisplayName).toBe('Unknown User')
-			expect(t).toHaveBeenCalledWith('chorestrike', 'Unknown User')
-		})
-
 		it('isHouseOwner returns true for owner role', () => {
 			store.currentUser = { id: 1, role: 'owner' }
 			expect(store.isHouseOwner).toBe(true)
@@ -78,45 +68,6 @@ describe('User Store', () => {
 		it('isHouseOwner returns false for member role', () => {
 			store.currentUser = { id: 1, role: 'member' }
 			expect(store.isHouseOwner).toBe(false)
-		})
-
-		it('isHouseMember returns true for owner', () => {
-			store.currentUser = { id: 1, role: 'owner' }
-			expect(store.isHouseMember).toBe(true)
-		})
-
-		it('isHouseMember returns true for member', () => {
-			store.currentUser = { id: 1, role: 'member' }
-			expect(store.isHouseMember).toBe(true)
-		})
-
-		it('isHouseMember returns false for other roles', () => {
-			store.currentUser = { id: 1, role: 'guest' }
-			expect(store.isHouseMember).toBe(false)
-		})
-
-		it('contributionScore returns score', () => {
-			store.currentUser = { id: 1, contributionScore: 100 }
-			expect(store.contributionScore).toBe(100)
-		})
-
-		it('coins returns coins', () => {
-			store.currentUser = { id: 1, coins: 50 }
-			expect(store.coins).toBe(50)
-		})
-
-		it('currentStreak returns streak', () => {
-			store.currentUser = { id: 1, currentStreak: 5 }
-			expect(store.currentStreak).toBe(5)
-		})
-
-		it('getUserById finds user by nextcloudUserId', () => {
-			store.houseUsers = [
-				{ id: 1, nextcloudUserId: 'user1', displayName: 'User 1' },
-				{ id: 2, nextcloudUserId: 'user2', displayName: 'User 2' },
-			]
-			const user = store.getUserById('user2')
-			expect(user.displayName).toBe('User 2')
 		})
 
 		it('getLeaderboard sorts by contribution score', () => {
@@ -131,31 +82,6 @@ describe('User Store', () => {
 			expect(leaderboard[2].id).toBe(1)
 		})
 
-		it('getTopContributors returns top 5', () => {
-			store.houseUsers = [
-				{ id: 1, contributionScore: 10 },
-				{ id: 2, contributionScore: 20 },
-				{ id: 3, contributionScore: 30 },
-				{ id: 4, contributionScore: 40 },
-				{ id: 5, contributionScore: 50 },
-				{ id: 6, contributionScore: 60 },
-			]
-			const top = store.getTopContributors
-			expect(top).toHaveLength(5)
-			expect(top[0].id).toBe(6)
-		})
-
-		it('canPerformAction validates permissions', () => {
-			store.houseUsers = [
-				{ id: 1, nextcloudUserId: 'user1', role: 'owner' },
-				{ id: 2, nextcloudUserId: 'user2', role: 'member' },
-				{ id: 3, nextcloudUserId: 'user3', role: 'child' },
-			]
-			expect(store.canPerformAction('user1', 'manage_users')).toBe(true)
-			expect(store.canPerformAction('user2', 'manage_users')).toBe(false)
-			expect(store.canPerformAction('user2', 'manage_house')).toBe(true)
-			expect(store.canPerformAction('user3', 'complete_tasks')).toBe(true)
-		})
 	})
 
 	describe('Actions', () => {
@@ -240,38 +166,6 @@ describe('User Store', () => {
 			it('throws error for invalid role', async () => {
 				await expect(store.inviteUser('test@test.com', 'invalid')).rejects.toThrow('Invalid role')
 				expect(t).toHaveBeenCalledWith('chorestrike', 'Invalid role')
-			})
-		})
-
-		describe('updateUserStats', () => {
-			it('updates user statistics', () => {
-				store.houseUsers = [{ id: 1, contributionScore: 50 }]
-				store.updateUserStats(1, { contributionScore: 75 })
-				expect(store.houseUsers[0].contributionScore).toBe(75)
-			})
-		})
-
-		describe('updateUserProfile', () => {
-			it('updates the targeted user and current user from the repaired profile endpoint', async () => {
-				store.houseUsers = [{ id: 1, displayName: 'Old Name', schedulingPreferences: {} }]
-				store.currentUser = { id: 1, displayName: 'Old Name', schedulingPreferences: {} }
-				api.put.mockResolvedValue({
-					id: 1,
-					displayName: 'New Name',
-					schedulingPreferences: { weekdays: { monday: true } },
-				})
-
-				await store.updateUserProfile(1, {
-					displayName: 'New Name',
-					schedulingPreferences: { weekdays: { monday: true } },
-				})
-
-				expect(api.put).toHaveBeenCalledWith('/api/v1/users/1', {
-					displayName: 'New Name',
-					schedulingPreferences: { weekdays: { monday: true } },
-				})
-				expect(store.houseUsers[0].displayName).toBe('New Name')
-				expect(store.currentUser.displayName).toBe('New Name')
 			})
 		})
 

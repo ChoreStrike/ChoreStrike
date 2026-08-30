@@ -29,29 +29,6 @@ class TaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetAllTasks_ReturnsAllTasks
-	 */
-	public function testGetAllTasks_ReturnsAllTasks(): void {
-		$task1 = new Task();
-		$task1->setId(1);
-		$task1->setName('Task 1');
-
-		$task2 = new Task();
-		$task2->setId(2);
-		$task2->setName('Task 2');
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('findAll')
-			->willReturn([$task1, $task2]);
-
-		$result = $this->service->getAllTasks();
-
-		$this->assertCount(2, $result);
-		$this->assertEquals('Task 1', $result[0]->getName());
-	}
-
-	/**
 	 * GetTask_ExistingId_ReturnsTask
 	 */
 	public function testGetTask_ExistingId_ReturnsTask(): void {
@@ -316,89 +293,6 @@ class TaskServiceTest extends TestCase {
 		$result = $this->service->updateTask(1, ['taskTier' => 'gold'], 'house-owner', true);
 
 		$this->assertSame('gold', $result->getTaskTier());
-	}
-
-	/**
-	 * DeleteTask_ExistingTask_DeletesTask
-	 */
-	public function testDeleteTask_ExistingTask_DeletesTask(): void {
-		$taskId = 1;
-
-		$task = new Task();
-		$task->setId($taskId);
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('find')
-			->with($taskId)
-			->willReturn($task);
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('delete')
-			->with($task);
-
-		$this->service->deleteTask($taskId, 'owner-user', false);
-
-		$this->assertTrue(true);
-	}
-
-	/**
-	 * GetTasksByCategory_ReturnsFilteredTasks
-	 */
-	public function testGetTasksByCategory_ReturnsFilteredTasks(): void {
-		$category = 'cleaning';
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setCategory($category);
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('findByCategory')
-			->with($category)
-			->willReturn([$task]);
-
-		$result = $this->service->getTasksByCategory($category);
-
-		$this->assertCount(1, $result);
-	}
-
-	/**
-	 * SearchTasks_WithQuery_ReturnsMatchingTasks
-	 */
-	public function testSearchTasks_WithQuery_ReturnsMatchingTasks(): void {
-		$query = 'vacuum';
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Vacuum floor');
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('searchByName')
-			->with($query)
-			->willReturn([$task]);
-
-		$result = $this->service->searchTasks($query);
-
-		$this->assertCount(1, $result);
-	}
-
-	/**
-	 * GetTaskCategories_ReturnsCategories
-	 */
-	public function testGetTaskCategories_ReturnsCategories(): void {
-		$categories = ['cleaning', 'kitchen', 'bathroom'];
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('getCategories')
-			->willReturn($categories);
-
-		$result = $this->service->getTaskCategories();
-
-		$this->assertEquals($categories, $result);
 	}
 
 	/**

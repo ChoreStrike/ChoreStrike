@@ -37,20 +37,14 @@ encrypted reporting frictionless.
 
 ---
 
-### [P3] BUG-ROOM-001 — Re-evaluate the `RoomController::index` POST→GET rewrite workaround
-**Status**: Open · **Effort**: S · **Source**: CS-020 (deferred AC); updated by CS-PLAN-053 full review 2026-08-27
+### [P3] BUG-ROOM-001 — `RoomController`/`FloorController::index` POST→GET rewrite workaround
+**Status**: Resolved 2026-08-29 (CS-PLAN-055 — GET-create branches + alias routes pruned) → [`archive/2026-08.md`](archive/2026-08.md)
 
-The "workaround" is not dead code: `RoomController::index` (:55-88) and
-`FloorController::index` (:51-71) sniff body/query params and call `create()` — a
-live `GET /api/v1/rooms?name=X` (or floor equivalent) creates structure. Nextcloud's
-CSRF middleware only guards POST/PUT/DELETE, so this is a cross-site-forgable
-state-changing GET (review finding CR-P3-08/CR-P3-12). Resolution rides on the
-CS-PLAN-053 route-disposition decision (CR-053-14): **decided 2026-08-29 — prune**;
-remove the GET-create branches when the 4 legacy alias/create routes are pruned; the 4
-alias routes themselves have zero consumers (incl. tests).
+---
 
-- [ ] Remove the GET-create branches from both `index()` methods (keep POST create routes).
-- [ ] Prune or keep the 4 documented-dead alias routes per the route-disposition decision.
+### [P3] BUG-E2E-003 — `insights-flow.spec.ts` overcapacity-marker test structurally fails on Sundays
+**Status**: Open · **Effort**: S · **Source**: CS-PLAN-055 Standard-B review E2E re-run 2026-08-30 (pre-existing; passed on the 08-29 Saturday run by date luck, NOT a CS-055 regression)
+The spec schedules 4 probe tasks to `tomorrow` and then expects `overcapacity-marker` inside `ScheduleCalendar`, but the calendar week starts Monday (`goToToday()`); on a Sunday "tomorrow" is the next Monday — outside the displayed week — while `overcapacity-days` (warning strip) scans today+0..6 and still shows the day. Fix: create the probes relative to the **visible** week (a due day ≥ today strictly inside the Monday-start week, e.g. Monday after Sunday), or navigate the calendar to tomorrow's week before asserting the marker. Also observed: Nextcloud stores two `weekly_goal` rows with identical (user, app, object_type, object_id) despite the documented dedup key — the per-house `claimWeeklyGoalNotification` guard is the dedup that actually holds; worth a note in `NotificationService` docs.
 
 ---
 
@@ -236,14 +230,14 @@ The nullable-`?AppLogger` half (all 9 sites + trait + `RewardConfigController` w
 was **resolved 2026-08-27 by CS-PLAN-052** (record: [`archive/2026-08.md`](archive/2026-08.md)).
 
 ### [P3] CR-SVC-44 — Minor performance cluster
-**Effort**: M — re-scoped by CS-PLAN-053 full review (2026-08-27): the
+**Effort**: M — re-scoped by CS-PLAN-053 full review (2026-08-27) and CS-PLAN-055: the
 `createDefaultTemplates` and `extractHouseIdFromSchedule`/`ScheduleOptimizer`
-sub-claims are **obsolete** (clusters deleted by CS-PLAN-027 D7 / CR-SVC-08).
+sub-claims are **obsolete** (clusters deleted by CS-PLAN-027 D7 / CR-SVC-08);
+`TaskService::getAllTasks` was deleted with the CS-PLAN-055 dead-code sweep.
 Still live: `StreakFreeze`/`StreakRestock` per-user UPDATEs (unlocked RMW —
 see CR-053-11 for the correctness half); `assignTask`/`unassignTask`/`deactivate`/
 `reactivate`/`updateDueDate` re-fetch pattern in `RoomTaskService`; `hasFloors`
-hydrates all floors for a boolean (`HouseService:303`). `TaskService::getAllTasks`
-is now **caller-less** — belongs to the CR-053-15 dead-code sweep, not perf.
+hydrates all floors for a boolean (`HouseService:303`).
 
 ---
 
@@ -383,14 +377,7 @@ explicitly future / needs decision.
 - [ ] Only after decision: concept extension + endpoint design sketch.
 
 ### [P3] FEAT-UX-021 — NC-Tasks sync surface
-**Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
-
-Six `task-sync` routes are backend-only (task-model-and-sync.md). Blocked on
-the cluster's expose-or-prune decision.
-
-- [ ] Record the expose-or-prune decision for the 6 `task-sync` routes first.
-- [ ] If exposed: link/unlink + pending/conflict list UI (RoomDetail or
-      TaskManager) + tests; if pruned: close this item referencing the ADR.
+**Status**: Closed 2026-08-29 (CS-PLAN-055 — pruned; revival needs ADR + consumer) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] FEAT-UX-023 — Onboarding & help layer
 **Status**: Open · **Effort**: M · **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
@@ -477,17 +464,16 @@ deactivate/reactivate by filter (cf. CR-SVC-61 bulk-endpoint pattern).
 > [`CODE_REVIEW_2026-08-27.md`](CODE_REVIEW_2026-08-27.md) (CR-P1-*…CR-P5-* IDs).
 > Security items are **never** auto-fixed; they are decision points for the user.
 
-### [P2] CR-053-05 — `RewardConfigController::update` is `@AdminRequired` + no owner gate + no production consumer
-**Effort**: S · **Source**: CS-PLAN-053 (plan-mandated explicit security item; CR-P3/L2)
-Instance admins are not necessarily house owners; reward economics should be owner-gated
-(mirror `HouseController::update`) or the divergence documented. Both reward-config routes are
-currently **test-only** (E2E) — include in the route-disposition decision (CR-053-14).
+### [P2] CR-053-05 — `RewardConfigController` admin-gate + no production consumer
+**Status**: Closed 2026-08-29 (CS-PLAN-055 — RewardConfig HTTP surface pruned) → [`archive/2026-08.md`](archive/2026-08.md)
 
-### [P2] CR-053-06 — Task lifecycle endpoints skip the visibility matrix (uncomplete/skip/reschedule)
-**Effort**: S · **Source**: CS-PLAN-053 (CR-P3-03)
+### [P2] CR-053-06 — Task lifecycle endpoints skip the visibility matrix (uncomplete)
+**Effort**: S · **Source**: CS-PLAN-053 (CR-P3-03); **re-scoped by CS-PLAN-055**
+(`skip`/`reschedule`/task-level `complete` routes pruned with the surface)
 `complete` enforces private→assignee / admin-only→owner **in-service** (`RoomService:371-378`);
-`uncomplete`/`skip`/`reschedule` enforce neither (grep: zero visibility checks in
-`RoomTaskService`) — any member can uncomplete/skip/reschedule another member's private task.
+the surviving undo primitive `PUT /tasks/{id}/uncomplete` enforces neither (grep: zero
+visibility checks in `RoomTaskService::uncompleteTask`) — any member can uncomplete
+another member's private task.
 
 ### [P2] CR-053-07 — Bootstrap races: duplicate houses per instance + two-owners race
 **Effort**: M · **Source**: CS-PLAN-053 (CR-P2-04)
@@ -496,12 +482,8 @@ first requests can create two houses; `ensureHouseMember` assigns `role='owner'`
 `count==0` → two distinct users first-touching concurrently both become owner. Fix: unique
 index + race-safe owner assignment (first insert wins).
 
-### [P2] CR-053-08 — Task-sync completion replay: no idempotency, no transaction
-**Effort**: M · **Source**: CS-PLAN-053 (CR-P2-05)
-`TaskSyncService::syncCompletionFromNextcloud:140-188` re-runs `markCompleted` + cleanliness
-on every replay with a marginally newer timestamp (next_due fast-forward, permanent 100
-cleanliness); 3 dependent writes without a transaction. Bundle with the FEAT-UX-021
-expose-or-prune decision (all 6 task-sync routes are production-unconsumed).
+### [P2] CR-053-08 — Task-sync completion replay (idempotency/transaction)
+**Status**: Closed 2026-08-29 (CS-PLAN-055 — task-sync surface pruned) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P2] CR-053-09 — Recurrence vocabulary divergence: `'once'` vs `'one_time'`
 **Effort**: S · **Source**: CS-PLAN-053 (CR-P1-07)
@@ -510,11 +492,8 @@ expose-or-prune decision (all 6 task-sync routes are production-unconsumed).
 task never deactivates on completion (silent infinite recurrence). Pick one vocabulary
 (pre-release: data is disposable) and align both layers.
 
-### [P2] CR-053-10 — Entity fields without schema columns: reminderType/reminderMinutesBefore
-**Effort**: S · **Source**: CS-PLAN-053 (CR-P1-09)
-`Task.php:138-141` declares reminder fields no migration creates; `TaskSyncService:238,248`
-always reads null. Any set+flush path 500s on all engines. Decide: add columns or delete the
-fields (feature is dead today). Related schema drift: `Room::$description` phantom API field (CR-P1-20).
+### [P2] CR-053-10 — Entity fields without schema columns (reminder*/description)
+**Status**: Closed 2026-08-29 (CS-PLAN-055 — fields deleted, decision "delete") → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P2] CR-053-11 — Streak & leaderboard correctness cluster
 **Effort**: M · **Source**: CS-PLAN-053 (CR-P2-11/12/13/15/20)
@@ -541,55 +520,39 @@ Arcade, minigames; 8 keys are case-variant mismatches; ~340 dead artifact entrie
 `titles.*` — server-driven). Root cause: `check-l10n-keys.js` only diffs de↔en. Fix: regenerate
 artifacts + extend the checker with a src-usage diff; document in i18n.md.
 
-### [P2] CR-053-14 — Route disposition decision (user sign-off required)
-**Effort**: M · **Source**: CS-PLAN-053 (L3-0 matrix)
-**Decision (user, 2026-08-29)**: **prune now** — delete the no-consumer + test-only
-routes (incl. task-sync ×6, reward-config ×2, the 4 dead alias routes + their
-GET-create branches = BUG-ROOM-001) together with the mirroring dead-store layer
-(CR-053-15/20); re-add surfaces only when a consumer exists. Moots CR-053-05 while
-the reward-config routes are gone.
-110 routes = 67 production / 30 no-consumer / 12 test-only. Decision matrix in the review
-record covers: 4 documented-dead alias routes (zero consumers incl. tests), REST-completeness
-reads ×6, dead room-task variants ×4, dead task/checklist/user wrappers, the unconsumed
-task-sync surface ×6, test-only reward-config + lifecycle routes. Deleting routes is
-behavior-changing → needs explicit user approval; the frontend dead-store layer (CR-053-15)
-mirrors these routes and should be decided together.
+### [P2] CR-053-14 — Route disposition decision (prune now)
+**Status**: Closed 2026-08-29 (CS-PLAN-055 — 39 routes pruned, 71 remain) → [`archive/2026-08.md`](archive/2026-08.md)
 
-### [P3] CR-053-15 — Dead-code deletion sweep (proofs recorded, ready to execute)
-**Effort**: M · **Source**: CS-PLAN-053 (L1-4/L2-4/L4-3)
-Grep-proven no-caller code: `AvailabilitySettings` entity+mapper+table cluster (+TestDataService
-injection + fixture + RESET_TABLES + Version1013); ~40 store getters/actions incl. the whole
-`store/index.js` barrel; service methods (`TaskService::{getAllTasks,skipTask,rescheduleTask}`,
-`RoomTaskService::{getTasksAssignedToUser,getUnassignedTasks}`, `RoomService::getRoom`,
-`FloorService::getFloor`, `RewardConfigService::getTierMultiplier`, `AuthorizationService::{isAuthenticated,isHouseMember}` — check tests first);
-entity helpers (`HouseUser` ×4, `CompletedTask::isRecent`, `MedalMapper` ×3 + `Medal` ×2,
-`MinigameScoreMapper::findByHouseAndGame`, `validate()` ×2); dead migration steps (1017-1020,
-backfills in 1024/1025, blocks in 1002/1003/1010/1015); orphaned tables (`task_scopes`,
-`task_parts`, `claims`). Execute as one plan with per-deletion gates.
+### [P3] CR-053-15 — Dead-code deletion sweep
+**Status**: Closed 2026-08-29 (CS-PLAN-055 — recorded + newly-orphaned items deleted) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P3] CR-053-16 — NotFound→404 mapping cluster + unvalidated request bodies
-**Effort**: M · **Source**: CS-PLAN-053 (CR-P3-11/12)
-Systemic: nonexistent/foreign ids return 500 instead of 404 across TaskController (×3),
-RoomTaskController (×12), Floor/Room/Checklist controllers; untyped JSON-body branches can
-raise uncaught TypeError (Floor/Room `index()`); `limit` params unclamped (Minigame/TaskSync).
-One shared pattern: wrap DoesNotExistException in service validators + per-controller catch.
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P3-11/12); re-scoped by CS-PLAN-055
+Systemic: nonexistent/foreign ids return 500 instead of 404 across the **remaining**
+TaskController + RoomTaskController (×12) / Floor / Room / Checklist endpoints. (The
+`Floor/Room index()` untyped JSON-body branches and the `task_sync` `limit` unclamped
+branches left with the pruned surface.) One shared pattern: wrap DoesNotExistException
+in service validators + per-controller catch.
 
-### [P3] CR-053-17 — Silent exception swallowing in 10/15 controllers
-**Effort**: M · **Source**: CS-PLAN-053 (L3-3)
+### [P3] CR-053-17 — Silent exception swallowing in remaining controllers
+**Effort**: M · **Source**: CS-PLAN-053 (L3-3); re-scoped by CS-PLAN-055
+(TaskSync + RewardConfig controllers pruned)
 Generic catch-alls return 500s with zero logging in RoomTask/Checklist/Floor/Minigame/Page/
-Room/TaskSync/Test/User (+ Setup's weaker hand-rolled variant) — violates CS-PLAN-052's
+Room/Test/User (+ Setup's weaker hand-rolled variant) — violates CS-PLAN-052's
 AppLogger contract. Adopt `ControllerLoggingTrait` across the remainder.
 
 ### [P3] CR-053-18 — API hardening small-items cluster
-**Effort**: M · **Source**: CS-PLAN-053 (CR-P3-04..10, CR-P2-09/10/17/18/19)
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P3-04..10, CR-P2-09/10/17/18/19);
+re-scoped by CS-PLAN-055
 Test-mode routes registered with `@NoCSRFRequired` (CSRF-free destructive API when
 NEXTCLOUD_TEST_MODE is set); saveScore accepts unwhitelisted gameIds with no rate cap (coin
 farming); `ensureHouseMember` (auto-join) used on read paths with target-derived ids;
-`ownerUserId` transfer without membership validation; `user#update` persists unvalidated
-schedulingPreferences; anti-enumeration 403-vs-404 inconsistency; RewardConfig bare
-DataResponse envelope; `needingCleaning` unscoped without floorId; no route `requirements`;
-weekday case-handling divergence; notifier claimer display-name-as-uid; medal-notification
-dedup collapse; reminder pass aborts on one orphaned task.
+`ownerUserId` transfer without membership validation; anti-enumeration 403-vs-404
+inconsistency; no route `requirements`; weekday case-handling divergence; notifier claimer
+display-name-as-uid; medal-notification dedup collapse; reminder pass aborts on one
+orphaned task. (Closed by the CS-PLAN-055 prune: `user#update` unvalidated
+schedulingPreferences, bare RewardConfig `DataResponse` envelope, and `needingCleaning`
+unscoped-without-floorId all removed with their routes.)
 
 ### [P3] CR-053-19 — Persistence correctness minors
 **Effort**: M · **Source**: CS-PLAN-053 (CR-P1-11..17, 19, 21, 22)
@@ -602,11 +565,14 @@ final schema never had (dead + latent bug); dead `$houseId` param on `findVisibl
 is_private column/field/shim divergence (CR-P1-18 — fold into a migration cleanup).
 
 ### [P3] CR-053-20 — Frontend correctness cluster
-**Effort**: M · **Source**: CS-PLAN-053 (CR-P4-01..04, 06, 08, 09)
+**Effort**: M · **Source**: CS-PLAN-053 (CR-P4-01..04, 06, 08, 09); re-scoped by CS-PLAN-055
+(**wire-or-delete decided: delete** — the uncalled user-store reward actions
+`addCoins`/`addContributionScore`/`updateStreak` were pruned with the dead-store layer,
+CR-P4-03's deletion half executed)
 False "Weekly goal reached!" celebration on every Dashboard mount while goal achieved;
 minigame `initialize()` leaves loading stuck on catalog failure; `completeRoomTask` leaves
-rooms/house/user caches stale (**decision needed: wire the uncalled user-store reward actions
-or delete them** — CR-P4-03 vs CR-053-15); undo/reactivate slice drift; `new Date(null)` →
+rooms/house/user caches stale (the reward-action wire option is gone — reconcile caches on
+fetch instead); undo/reactivate slice drift; `new Date(null)` →
 epoch counted as overdue + UTC date parsing; out-of-order range/activity fetches; invite
 duplicate row.
 
@@ -616,25 +582,75 @@ duplicate row.
 features, stack, install, v0.8.x alpha status) — not a historical banner.
 Root `README.md` rewrite (tower-defense marketing, Sparks currency, removed features, "v1.0.0 RC"
 status — decision: rewrite vs historical banner); ADR-003 scope enum contradicts code; architecture.md
-fictional examples (`fetchHouseStats`, `TaskForm`/`TemplateSelector`, console.error example, stale
-availability table, forbidden backlog-tree line); development.md `TaskItem.vue` + migration-conventions
+fictional examples (`fetchHouseStats`, `TaskForm`/`TemplateSelector`, console.error example, forbidden
+backlog-tree line); development.md `TaskItem.vue` + migration-conventions
 subsection (version-then-date order, pre/post hooks never run on fresh install); testing.md
-`TaskForm.vue`; security.md pruned-endpoint example; ui-use-cases.md header counts; energy-and-balancing/
-task-model-and-sync/gamification unimplemented-feature markers.
+`TaskForm.vue`; gamification unimplemented-feature markers. (Slices closed by
+CS-PLAN-055: architecture.md availability table + tree/service notes, security.md
+pruned-endpoint example + new GET-mutation rule, ui-use-cases header/appendix/matrix,
+energy-and-balancing + task-model-and-sync markers, api/README prune sections + 71-route
+count.)
 
 ### [P3] CR-053-22 — Test-gap closures deferred (deferral approved 2026-08-29)
 **Effort**: L · **Source**: CS-PLAN-053 §4
 **Decision (user, 2026-08-29)**: **deferral approved** with backlog tracking (risk
-accepted: Minigame/RewardConfig/TaskSync controllers ship without integration-level
+accepted: the Minigame controller ships without integration-level
 coverage until a catch-up plan). ~~The Checklist controller suite closes via
 CS-PLAN-054 WP-4.~~ (closed there 2026-08-29: `ChecklistApiTest`, 24 real-DB tests)
 Closed inline: `MinigameScoreTest` + `TaskAssigneeTest` entity suites (7 tests). Deferred with
 reason (session scope of the XL review; each is mechanical but sizeable): integration suites
-for ~~Checklist~~/Minigame/RewardConfig/TaskSync controllers (~~the Checklist one is the CR-053-01
-companion~~ — closed via CS-PLAN-054), `TestDataSeedTest`, and Jest specs for the 8 uncovered components
+for ~~Checklist~~/Minigame controllers (~~the Checklist one is the CR-053-01
+companion~~ — closed via CS-PLAN-054; ~~RewardConfig / TaskSync~~ mooted by the
+CS-PLAN-055 prune — both controllers deleted), `TestDataSeedTest`, and Jest specs for the 8 uncovered components
 (ActivityFeed, HouseStatsCards, MemberFairnessTable, WeekBudgetGrid, RoomPicker, BoostShop,
-SnakeGame, SnakeLeaderboard). Deferral risk: the 3 remaining controllers ship without
+SnakeGame, SnakeLeaderboard). Deferral risk: the 1 remaining controller (Minigame) ships without
 integration-level coverage; regression protection relies on unit + E2E.
+
+---
+
+## Review Follow-ups — CS-PLAN-055 Route Pruning (2026-08-29)
+
+> From the CS-PLAN-055 execution (route prune + dead-code sweep); closes
+> **CR-053-14/15**, **BUG-ROOM-001**, **CR-053-05/08/10**, **FEAT-UX-021**
+> (see [`archive/2026-08.md`](archive/2026-08.md)); re-scopes
+> CR-053-06/16/17/18/20/21 + CR-SVC-44 + CR-053-22 in place above.
+
+### [P3] CR-055-01 — scheduling store: reader-less `todayConsumedEnergy` write cluster
+**Effort**: S · **Source**: CS-PLAN-055 (record-and-delete boundary)
+After the 9 superseded scheduling getters (incl. `todayRemainingEnergy`) were
+pruned, `registerTodayEnergyConsumption` (called by `roomTasks.completeRoomTask`)
++ the `fetchUserPreferences` assignment for `todayConsumedEnergy` still write
+state that **nothing reads** (the server's preferences payload carries the
+field, so the fetch line survives). Decide: drop the client accumulation +
+payload field (server is authoritative; also trim the `SchedulingService`
+response) or surface remaining-today energy in the UI (feature decision).
+
+### [P3] CR-055-02 — l10n artifacts: dead keys from deleted surfaces
+**Effort**: S · **Source**: CS-PLAN-055
+Some strings removed with the pruned surfaces still ship in the `l10n/`
+artifacts (confirmed example: `Search query is required` — zero `t()` call
+sites in `lib/`, one en.json entry; the full inventory is derivable from the
+CR-053-13 src-usage-diff tooling). The CR-053-13 regeneration pass should drop
+them — do not hand-prune artifact entries here.
+
+### [P3] CR-055-03 — `nextcloud_task_id` remnants: writer-less columns + payload keys
+**Effort**: S · **Source**: Review of CS-PLAN-055 (Standard-B, 2026-08-30)
+With `TaskSyncService`/`GameLogicService::handleTaskCompletion` stamping gone, the
+`room_tasks.nextcloud_task_id` (Version1002) and `completed_tasks.nextcloud_task_id`
+(Version1004) columns have **no writer** anymore — rows are always NULL — while
+`RoomTask`/`CompletedTask` still carry the entity property and expose a
+`nextcloudTaskId` key in `jsonSerialize()` (API payload noise). Decide in the
+next migration-chain pass (pre-release: fold into V1002/V1004, no upgrade step):
+drop columns + entity fields + payload keys, **or** re-scope as intentional
+storage for a future Nextcloud Tasks sync revival (ADR/FEAT decision). The
+dead `RoomTaskMapper::findByNextcloudTaskId` was already deleted at review.
+
+### [P4] CR-055-04 — `FloorMapper::findAll` pre-existing dead override
+**Effort**: S · **Source**: Review of CS-PLAN-055 (Standard-B, 2026-08-30)
+`FloorMapper::findAll:62` (sort_order-ordered override of `QBMapper::findAll`)
+has zero callers in `lib/` or `tests/` — already dead at CS-PLAN-055 HEAD, so
+outside the prune diff. Fold into the next dead-code sweep (CR-053-15 follow-up
+class); delete or convert callers deliberately.
 
 ---
 

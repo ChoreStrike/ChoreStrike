@@ -77,42 +77,6 @@ export const useMinigameStore = defineStore('minigame', {
 		},
 
 		/**
-		 * Check if user can afford a boost (catalog-authoritative price).
-		 * Unknown/uncataloged boosts are never affordable.
-		 * @param {object} state Pinia store state
-		 */
-		canAffordBoost: (state) => (boostId) => {
-			const cost = state.boostCatalog?.[boostId]
-			return Number.isFinite(cost) && state.currentCoins >= cost
-		},
-
-		/**
-		 * Get total cost of selected boosts
-		 * @param {object} state Pinia store state
-		 */
-		selectedBoostsCost: (state) => {
-			if (!state.boostCatalog) return 0
-			return state.purchasedBoosts.reduce((sum, boostId) => {
-				return sum + (state.boostCatalog[boostId] || 0)
-			}, 0)
-		},
-
-		/**
-		 * Check if a boost is currently active
-		 * @param {object} state Pinia store state
-		 */
-		isBoostActive: (state) => (boostId) => {
-			return state.activeBoosts.includes(boostId)
-		},
-
-		/**
-		 * Get available boosts that user can afford
-		 */
-		affordableBoosts() {
-			return this.availableBoosts.filter(boost => this.canAffordBoost(boost.id))
-		},
-
-		/**
 		 * Check if current score is a new personal best
 		 * @param {object} state Pinia store state
 		 */
@@ -360,20 +324,6 @@ export const useMinigameStore = defineStore('minigame', {
 		 */
 		toggleBoostShop() {
 			this.showBoostShop = !this.showBoostShop
-		},
-
-		/**
-		 * Toggle leaderboard visibility
-		 */
-		toggleLeaderboard() {
-			this.showLeaderboard = !this.showLeaderboard
-		},
-
-		/**
-		 * Clear purchased boosts
-		 */
-		clearPurchasedBoosts() {
-			this.purchasedBoosts = []
 		},
 
 		/**

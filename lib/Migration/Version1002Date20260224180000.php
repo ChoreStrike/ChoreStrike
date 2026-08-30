@@ -14,7 +14,9 @@ use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
 
 /**
- * Adds Nextcloud Task Sync fields for bidirectional completion sync.
+ * Adds the Nextcloud task link column to room_tasks. The completed_tasks
+ * sync columns live in their Version1004 create instead (the original
+ * add-guard here never fired — see CS-PLAN-055).
  */
 class Version1002Date20260224180000 extends SimpleMigrationStep {
 	/**
@@ -35,18 +37,11 @@ class Version1002Date20260224180000 extends SimpleMigrationStep {
 			}
 		}
 
-		// Add sync fields to completed_tasks for tracking
-		if ($schema->hasTable('chorestrike_completed_tasks')) {
-			$table = $schema->getTable('chorestrike_completed_tasks');
-			if (!$table->hasColumn('nextcloud_task_id')) {
-				$table->addColumn('nextcloud_task_id', 'bigint', ['notnull' => false]);
-				$table->addIndex(['nextcloud_task_id'], 'idx_comp_nc_task');
-			}
-			if (!$table->hasColumn('synced_to_nextcloud')) {
-				$table->addColumn('synced_to_nextcloud', 'boolean', ['notnull' => false, 'default' => 0]);
-				$table->addIndex(['synced_to_nextcloud'], 'idx_comp_synced');
-			}
-		}
+		// The completed_tasks sync columns (nextcloud_task_id /
+		// synced_to_nextcloud) were first "added" here, but the table did not
+		// exist yet at this point in the chain — the create in
+		// Version1004Date20260228131728 carries them inline. Guard dead
+		// through every fresh install; removed in CS-PLAN-055.
 
 		return $schema;
 	}

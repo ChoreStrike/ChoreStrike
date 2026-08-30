@@ -13,9 +13,14 @@ Grounded in:
   live frontend consumer) — **re-audited 2026-08-27 (CS-PLAN-053)**: route set
   unchanged at 110; 42 routes currently have no production consumer
   (30 none + 12 test-only; full matrix in
-  [`../backlog/CODE_REVIEW_2026-08-27.md`](../backlog/CODE_REVIEW_2026-08-27.md) L3-0) —
-  status is recorded neutrally here; expose-or-prune decisions are **not** part
-  of this document.
+  [`../backlog/CODE_REVIEW_2026-08-27.md`](../backlog/CODE_REVIEW_2026-08-27.md) L3-0).
+  **Prune executed 2026-08-29 (CS-PLAN-055)**: the 39 no-consumer + test-only
+  routes were **deleted** (kept: 67 production + 3 `/test/*` E2E harness +
+  `page#index` = 71 total); the mirroring dead store-getter/action layer in
+  `src/store/*` was removed with them. The expose-or-prune decision that
+  previously left these recorded neutrally (CR-053-14) is now resolved to
+  prune; re-adding a route requires a consumer and an updated `RouteMatrixTest`
+  pin. Pruned rows below are marked ⛔ (was ❌ dead-wrapper).
 - Usability review 2026-08-20 (findings **UX-001 … UX-014**,
   [`../backlog/archive/USABILITY_REVIEW_2026-08-20.md`](../backlog/archive/USABILITY_REVIEW_2026-08-20.md))
   re-verified after CS-PLAN-038 (Today view, unified task creation, members UI).
@@ -117,7 +122,7 @@ read-only).
 | Rename room (header action) | RoomDetail | `PUT /rooms/{id}` | ✅ (CS-PLAN-042) |
 | Delete room (styled confirm) | RoomDetail header; Settings floor room list | `DELETE /rooms/{id}` | ✅ (CS-PLAN-042) |
 | Cleanliness change (+10 on task completion) | RoomCard | `PUT /rooms/{id}/cleanliness` | ✅ |
-| "Rooms needing cleaning" list | — | `GET /rooms/needing-cleaning` | ❌ (store wrapper `fetchRoomsNeedingCleaning` dead) |
+| "Rooms needing cleaning" list | — | `GET /rooms/needing-cleaning` | ⛔ pruned (CS-PLAN-055 — route + dead `fetchRoomsNeedingCleaning` wrapper gone) |
 | Open room detail | RoomCard click → RoomDetail | `GET /room-tasks?roomId=` | ✅ |
 | Task stats card (total/active/overdue/due-today/completion) | RoomDetail stats card | `GET /room-tasks/room/{roomId}/stats` | ✅ (live since CS-PLAN-040; cross-house roomId → 404) |
 
@@ -131,11 +136,11 @@ points:** TaskManager.
 | List definitions | TaskManager | `GET /tasks` | ✅ |
 | Create definition (+ materialize room task, see UC-06) | TaskManager → TaskEditForm | `POST /tasks` | ✅ (since CS-PLAN-038) |
 | Edit definition | TaskManager → TaskEditForm | `PUT /tasks/{id}` | ✅ |
-| Delete definition | — | `DELETE /tasks/{id}` | ❌ (store wrapper `deleteTask` dead) |
-| Search definitions | — | `GET /tasks/search` | ❌ (store wrapper `searchTasks` dead) |
-| Browse by category / categories | — | `GET /tasks/category/{c}`, `GET /tasks/categories` | ❌ (store wrappers `fetchTasksByCategory`/`fetchTaskCategories` dead) |
-| Private (personal) task list | Dashboard chip → TaskManager visibility filter | `GET /tasks` + client-side `?visibility=private` scope | ✅ (CS-PLAN-041; `GET /tasks/my-private` stays backend-only — definitions without room-task context) |
-| Task-level complete/uncomplete/skip/reschedule/daily | — | legacy `PUT /tasks/{id}/…`, `GET /tasks/daily` | ❌ backend-only (RoomTask equivalents are the live path) |
+| Delete definition | — | `DELETE /tasks/{id}` | ⛔ pruned (CS-PLAN-055) |
+| Search definitions | — | `GET /tasks/search` | ⛔ pruned (CS-PLAN-055) |
+| Browse by category / categories | — | `GET /tasks/category/{c}`, `GET /tasks/categories` | ⛔ pruned (CS-PLAN-055) |
+| Private (personal) task list | Dashboard chip → TaskManager visibility filter | `GET /tasks` + client-side `?visibility=private` scope | ✅ (CS-PLAN-041; `GET /tasks/my-private` was pruned in CS-PLAN-055 — the client-side filter is the only path) |
+| Task-level complete/skip/reschedule/daily | — | legacy `PUT /tasks/{id}/…`, `GET /tasks/daily` | ⛔ pruned (CS-PLAN-055; RoomTask equivalents are the live completion path; `PUT /tasks/{id}/uncomplete` stays as the undo primitive) |
 
 ## UC-06 — Task creation (materialize room tasks)
 
@@ -160,7 +165,7 @@ points:** RoomDetail (slim modal), TaskManager, TaskList.
 | Edit due date | RoomDetail → `RoomTaskEditModal` | `PUT /room-tasks/{id}/due-date` | ✅ |
 | Edit assignees | RoomTaskEditModal, TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
 | Delete room task | RoomDetail, TaskManager | `DELETE /room-tasks/{id}` | ✅ |
-| Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ❌ (store wrapper `deactivateRoomTask` dead) |
+| Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ⛔ pruned (CS-PLAN-055; `reactivate` stays for the undo path) |
 | Reactivate task | UndoSnackbar (via store) | `POST /room-tasks/{id}/reactivate` | ✅ (undo of one-time completions, CS-PLAN-041) |
 | Undo a completion (snackbar) | global `UndoSnackbar` (~5 s) | `PUT /tasks/{roomTaskId}/uncomplete` (+ reactivate for deactivated tasks) | ✅ (CS-PLAN-041; rewards/streaks are not reverted — accepted pre-release) |
 
@@ -189,10 +194,10 @@ Members. **Entry points:** TaskList expanded row; TodayView claim button.
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Multi-assign via member chips (optimistic + rollback) | TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
-| Single assign / unassign actions | — | `POST /room-tasks/{id}/assign`, `POST …/unassign` | ❌ (wrappers `assignRoomTask`/`unassignRoomTask`; set-assignees is the live single-edit path) |
+| Single assign / unassign actions | — | `POST /room-tasks/{id}/assign`, `POST …/unassign` | ⛔ pruned (CS-PLAN-055; `PUT /room-tasks/{id}/assignees` set-assignees remains the live single-edit path) |
 | Bulk assignment (selection bar → one call) | TaskList selection → member dropdown | `POST /room-tasks/bulk-assign` | ✅ (CS-PLAN-042, CR-SVC-61 closed; per-item isolation, partial-success toast) |
 | Claim overdue public task (dialog → complete) | TaskList → `OverdueClaimDialog` | `GET /room-tasks/overdue` + complete | ✅ (claim target ≤24 px, UX-007) |
-| Dedicated claimable-tasks query | — | `GET /room-tasks/overdue-claims` | ❌ (UI uses `/overdue` + client filter) |
+| Dedicated claimable-tasks query | — | `GET /room-tasks/overdue-claims` | ⛔ pruned (CS-PLAN-055; UI uses `/overdue` + client filter) |
 
 ## UC-10 — Planning: availability, energy, suggestions
 
@@ -220,13 +225,13 @@ service), Owner (overview). **Entry points:** SchedulingView.
 |---|---|---|---|
 | Coin balance | ArcadeSection | `GET /minigames/coins` | ✅ |
 | Game/global state (streaks, goal) | Dashboard | `GET /game/state` | ✅ |
-| Leaderboard (podium, streak badges, "You") | Leaderboard | `GET /users` (store `getLeaderboard`); `GET /game/leaderboard` is test-only (re-audit 2026-08-27) | ✅ |
+| Leaderboard (podium, streak badges, "You") | Leaderboard | `GET /users` (store `getLeaderboard`); `GET /game/leaderboard` pruned (CS-PLAN-055 — it was test-only) | ✅ |
 | Leaderboard period filter (week/month/all) | Leaderboard | — | ⛔ removed (CS-PLAN-041): `getLeaderboard` has no period parameter; a filter that changes nothing is dishonest UI |
 | Medals overview | Leaderboard medal cards | `GET /game/medals` | ✅ (store-driven, CS-PLAN-041) |
 | Medal evaluation trigger | Leaderboard mount (pre-pass) | `POST /game/check-medals` | ✅ (CS-PLAN-041) |
 | Unlock & select title | Settings → `TitlePicker` | `GET+PUT /users/{id}/titles(/select)` | ✅ |
 | Weekly goal progress | HouseholdGoalBar | client state | ✅ |
-| Reward rules configuration (coin/combo values) | — | `GET+PUT /reward-config` | ❌ |
+| Reward rules configuration (coin/combo values) | — | `GET+PUT /reward-config` | ⛔ HTTP surface pruned (CS-PLAN-055); `RewardConfigService` stays as the internal store (appconfig) |
 
 ## UC-12 — Minigames & boosts
 
@@ -252,7 +257,7 @@ Member (self). **Entry points:** Settings → MemberList (since CS-PLAN-038).
 | Invite member (email + role) | MemberList | `POST /users/invite` | ✅ |
 | Change role (incl. promote to owner) | MemberList | `PUT /users/{id}/role` | ⚠️ self/last-owner guard is frontend-only (BUG-SEC-002) |
 | Remove member (styled confirm) | MemberList | `DELETE /users/{id}` | ✅ server cleans up assignments |
-| Edit member profile | — | `PUT /users/{id}` | ❌ (store wrapper `updateUserProfile` dead) |
+| Edit member profile | — | `PUT /users/{id}` | ⛔ pruned (CS-PLAN-055 — route + dead `updateUserProfile` wrapper) |
 | Per-member task statistics | — | `GET /users/{id}/stats`, `GET /room-tasks/user/{id}/stats` | ⛔ pruned (CS-PLAN-040 — dead, CR-SVC-31-flawed metric); per-member history → UC-16 |
 | Leave house | — | — | ⛔ no backend (FEAT-UX-015) |
 
@@ -265,7 +270,7 @@ jobs only, no settings surface).
 |---|---|---|---|
 | Daily digest + due-today/tomorrow reminders | Nextcloud notifications (job) | background job | ✅ passive |
 | Reminder settings per task | — | — | ⛔ concept exists (`task-model-and-sync.md`), no endpoint, no UI |
-| NC-Tasks sync surface | — | `POST /task-sync/*` (6 routes) | ❌ backend-only cluster |
+| NC-Tasks sync surface | — | `POST /task-sync/*` (6 routes) | ⛔ pruned (CS-PLAN-055 — controller/service/routes deleted; design intent kept marked in [task-model-and-sync.md](task-model-and-sync.md)) |
 
 ## UC-15 — Calendar overview & planning horizon
 
@@ -315,15 +320,15 @@ badges. Shipped with CS-PLAN-040.
 | 01 | — (naming + skip persistence ✅ since CS-PLAN-042; invite step ✅ since CS-PLAN-038) |
 | 02 | UX-006 (silent save); role gating ✅ since CS-PLAN-042; insights/fairness view ✅ since CS-PLAN-040 (UC-16) |
 | 03/04 | UX-006; room rename/delete, floor reorder, single CRUD surface ✅ since CS-PLAN-042 |
-| 05 | definition delete/search/categories unused; global-search surface → FEAT-UX-028 |
-| 07 | deactivate (pause) UI |
+| 05 | ~~definition delete/search/categories~~ ⛔ routes pruned (CS-PLAN-055); global-search surface → FEAT-UX-028 |
+| 07 | — (deactivate route pruned CS-PLAN-055; a pause UI would need re-exposing it with a consumer decision) |
 | 08 | — (checklist editor ✅ owner-only since CS-PLAN-042) |
 | 09 | claim target size (UX-007); bulk assign + create-form chips ✅ since CS-PLAN-042 / CS-PLAN-038 |
 | 10 | — (suggestion Apply + merged planner surface + owner member-edit ✅ since CS-PLAN-043; overcapacity warning ✅ since CS-PLAN-040 (UC-16)) |
-| 11 | reward-config UI |
+| 11 | reward-config UI (HTTP surface pruned CS-PLAN-055 — a future config UI needs a re-expose decision) |
 | 12 | — |
-| 13 | profile edit, leave house (FEAT-UX-015), BUG-SEC-002 backend guard; per-member history ✅ since CS-PLAN-040 (UC-16) |
-| 14 | reminder-settings concept → FEAT-UX-024, task-sync surface decision → FEAT-UX-021 |
+| 13 | profile edit route pruned (CS-PLAN-055; re-needs expose), leave house (FEAT-UX-015); role guards backend-side ✅ since CS-PLAN-045; per-member history ✅ since CS-PLAN-040 (UC-16) |
+| 14 | reminder-settings concept → FEAT-UX-024; task-sync surface → ⛔ pruned (CS-PLAN-055, FEAT-UX-021 closed) |
 | 15 | complete/assign from a calendar day (W6) |
 | all | documented-but-unbuilt ideas → *Whitespace* below (FEAT-UX-016…031) |
 
@@ -346,7 +351,7 @@ surface) · `needs-decision` · `post-MVP`.
 | Task-approval workflow for children (needs-review state, owner queue) | `needs-decision` | [design.md §5](design.md) + [gamification-and-rewards.md](gamification-and-rewards.md) (open decisions) | FEAT-UX-018 |
 | Task Pass & support actions (gag mechanic) | `post-MVP` | [gamification-and-rewards.md "Task Pass"](gamification-and-rewards.md) | FEAT-UX-019 |
 | ~~Streak-freeze visibility~~ ✅ built as UC-16 (Leaderboard freeze badges; `lastFreezeDate` serialized) | `build-new` | [gamification-and-rewards.md "Streak freezes"](gamification-and-rewards.md) | FEAT-UX-020 (closed 2026-08-21) |
-| NC-Tasks sync surface (link/pending/conflict; 6 backend-only routes) | `needs-decision` | [task-model-and-sync.md](task-model-and-sync.md) | FEAT-UX-021 |
+| ~~NC-Tasks sync surface (link/pending/conflict; 6 backend-only routes)~~ ⛔ pruned (CS-PLAN-055 — closed as moot; design intent kept marked in the concept doc) | ~~`needs-decision`~~ resolved-pruned | [task-model-and-sync.md](task-model-and-sync.md) | FEAT-UX-021 (closed 2026-08-29) |
 | ~~Overcapacity warning surface~~ ✅ built as UC-16 (`OvercapacityWarning` + calendar markers) | `needs-decision` | [energy-and-balancing.md "Overcapacity Policy"](energy-and-balancing.md) | FEAT-UX-022 (closed 2026-08-21) |
 
 > CS-PLAN-040 resolved four Group A candidates (FEAT-UX-016/017/020/022) and
@@ -368,60 +373,43 @@ surface) · `needs-decision` · `post-MVP`.
 
 ---
 
-## Appendix A — Route coverage ledger (all 110 routes)
+## Appendix A — Route coverage ledger (71 routes)
 
-> Completeness ledger behind the endpoint audits' "every route mapped"
-> claim. Accounting: **92** routes are mapped individually in the UC tables
-> above, **17** routes are ledgered below, **1** is explicitly excluded
-> (`page#index` — serves the app shell): 92 + 17 + 1 = 110. Four endpoints
-> referenced by more than one use case (`PUT /house`, `POST /users/invite`,
+> Coverage accounting after **CS-PLAN-055**: routes = 71 → 67 production
+> (mapped individually in the UC tables above — routes referenced by more than
+> one use case (`PUT /house`, `POST /users/invite`,
 > `PUT /room-tasks/{id}/assignees`, `GET /room-tasks/overdue`) are counted
-> once. CS-PLAN-040 pruned three dead stats routes (`GET /users/{id}/stats`,
-> `GET /room-tasks/user/{userId}`, `GET /room-tasks/user/{userId}/stats`),
-> added `GET /house/activity` (UC-16), and moved
-> `GET /room-tasks/room/{roomId}/stats` into UC-04 after exposing it.
-> CS-PLAN-042 added `POST /room-tasks/bulk-assign` (UC-09).
-> Every status was verified against `src/`; wording stays neutral —
-> expose-or-prune decisions are out of scope. `GET /room-tasks`
-> (index) is already mapped individually (UC-04: RoomDetail, TaskManager) and
-> is not repeated here.
+> once) + the 3 test-mode harness routes below + `page#index` (app shell,
+> excluded). Earlier ledgers covered 110/111 routes before the CS-PLAN-040
+> stats prune (−3) and the CS-PLAN-055 prune (−39).
+>
+> The **authoritative disposition list** for the 39 CS-PLAN-055 deletions is
+> [`appinfo/routes.php`](../../appinfo/routes.php) (prune note) + the
+> `RouteMatrixTest::testPrunedCS055RoutesAreNotReintroduced` +
+> `testRouteCountIsPinned` guards — re-adding any route requires a consumer
+> and a deliberate update of those pins.
 
-### Create-route duplicates & aliases (4)
+### Pruned routes (39 — CS-PLAN-055, 2026-08-29)
 
-| Route | Controller | Store wrapper | Status |
-|---|---|---|---|
-| `POST /floor-create` | floor#createAlias | — | unused legacy alias of `POST /floors` |
-| `POST /room-create` | room#createAlias | — | unused legacy alias of `POST /rooms` |
-| `POST /floors/create` | floor#createExplicit | — | unused duplicate of `POST /floors` |
-| `POST /rooms/create` | room#createExplicit | — | unused duplicate of `POST /rooms` |
+| Group | Routes (verb + URL) |
+|---|---|
+| Dead create aliases ×4 (BUG-ROOM-001) | `POST /floor-create`, `POST /room-create`, `POST /floors/create`, `POST /rooms/create` |
+| No-consumer reads ×6 | `GET /floors`, `GET /floors/{id}`, `GET /rooms`, `GET /rooms/{id}`, `GET /tasks/{id}`, `GET /room-tasks/{id}` |
+| Dead room-task variants ×6 | `GET /room-tasks/due-within-days`, `POST /room-tasks/{id}/assign`, `POST …/unassign`, `POST …/assignees` (add), `DELETE …/assignees` (remove), `GET /room-tasks/overdue-claims` |
+| Dead task/user/room wrappers ×7 | `GET /tasks/category/{category}`, `GET /tasks/search`, `GET /tasks/categories`, `GET /tasks/my-private`, `DELETE /tasks/{id}`, `PUT /users/{id}`, `GET /rooms/needing-cleaning` |
+| Dead checklist ×2 | `POST /checklists/initialize/{roomTaskId}`, `GET /checklists/complete/{roomTaskId}` |
+| task-sync surface (all) | `POST /task-sync/complete`, `…/sync-from-nextcloud`, `GET …/{roomTaskId}/reminders`, `GET …/pending`, `POST …/{completedTaskId}/mark-synced`, `POST …/link` |
+| Test-only lifecycle/leaderboard/config ×8 | `PUT /tasks/{id}/complete`, `PUT …/skip`, `PUT …/reschedule`, `GET /tasks/daily`, `POST /room-tasks/{id}/deactivate`, `GET /game/leaderboard`, `GET+PUT /reward-config` |
 
-### Index/show REST-completeness reads (6)
-
-| Route | Controller | Store wrapper | Status |
-|---|---|---|---|
-| `GET /floors` | floor#index | `fetchFloors` (dead) | no component consumer |
-| `GET /floors/{id}` | floor#show | `fetchFloorWithRooms` (dead) | no component consumer |
-| `GET /rooms` | room#index | `fetchRooms` (dead) | no component consumer |
-| `GET /rooms/{id}` | room#show | — | no wrapper, no UI |
-| `GET /tasks/{id}` | task#show | — | no wrapper, no UI |
-| `GET /room-tasks/{id}` | room_task#show | `fetchRoomTaskWithDetails` (dead) | no component consumer |
-
-### Unused room-task variants (3)
-
-| Route | Controller | Store wrapper | Status |
-|---|---|---|---|
-| `GET /room-tasks/due-within-days` | room_task#dueWithinDays | `fetchDueWithinDaysTasks` (dead) | no component consumer |
-| `POST /room-tasks/{id}/assignees` | room_task#addAssignee | — | no wrapper, no UI (`PUT` set-assignees is the live path) |
-| `DELETE /room-tasks/{id}/assignees` | room_task#removeAssignee | — | no wrapper, no UI (`PUT` set-assignees is the live path) |
-
-> CS-PLAN-040 removed `GET /room-tasks/user/{userId}` (pruned route) from
-> this ledger and moved `GET /room-tasks/room/{roomId}/stats` to UC-04.
-
-### Checklist (1)
-
-| Route | Controller | Store wrapper | Status |
-|---|---|---|---|
-| `GET /checklists/complete/{roomTaskId}` | checklist#getCompleteChecklist | — | no wrapper, no UI |
+> Kept deliberately: `PUT /tasks/{id}/uncomplete` + `POST /room-tasks/{id}/reactivate`
+> (undo path, UC-07), `GET+PUT /room-tasks/{id}/assignees` (production:
+> TodayView per-row resolution + editor/bulk assignment), and the 3 test
+> harness routes below.
+>
+> CS-PLAN-040 previously removed the dead stats trio
+> (`GET /users/{id}/stats`, `GET /room-tasks/user/{userId}`,
+> `GET /room-tasks/user/{userId}/stats`) and CS-PLAN-042 added
+> `POST /room-tasks/bulk-assign` (UC-09).
 
 ### Test Data API (3 — test mode only)
 
@@ -431,7 +419,14 @@ surface) · `needs-decision` · `post-MVP`.
 
 ---
 
-**Last verified:** 2026-08-24 — CS-PLAN-043 pass (UX-014 + CR-016-03/04/05/06/08/13/14
+**Last verified:** 2026-08-29 — CS-PLAN-055 pass (route prune + dead-code sweep,
+closes CR-053-14/15 + BUG-ROOM-001): 39 no-consumer/test-only routes deleted
+(71 remain — see Appendix A ledger + `RouteMatrixTest` pins), the GET-create
+branches in `FloorController`/`RoomController::index` are gone with their
+routes, the mirroring dead store-getter/action layer in `src/store/*` was
+pruned together with the `store/index.js` barrel, and reward-config/test
+consumers were reworked onto test-seed knobs (no conditional surface).
+Earlier: 2026-08-24 — CS-PLAN-043 pass (UX-014 + CR-016-03/04/05/06/08/13/14
 + TECH-DRY-001): UC-10 consolidated — SchedulePreview + SchedulingSuggestions
 merged into `SchedulePlanner` with per-day Apply (bulk self PUT), owner
 member-grid edit wired through the shared `AvailabilityEditModal`

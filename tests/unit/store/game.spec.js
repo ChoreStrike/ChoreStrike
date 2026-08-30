@@ -17,6 +17,9 @@ jest.mock('@/utils/logger', () => ({
 
 import { api } from '../../../src/services/api.js'
 
+// The leaderboard, combos and household-aggregation members were pruned in
+// CS-PLAN-055 (no production consumers); their specs went with them.
+
 describe('Game Store', () => {
 	let store
 
@@ -29,15 +32,9 @@ describe('Game Store', () => {
 	describe('State', () => {
 		it('has correct initial state', () => {
 			expect(store.gameState).toBeNull()
-			expect(store.leaderboard).toEqual([])
 			expect(store.medals).toEqual([])
-			expect(store.combos).toEqual([])
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
-			// Cooperative features state
-			expect(store.householdProgress.totalCoins).toBe(0)
-			expect(store.householdProgress.totalContributionScore).toBe(0)
-			expect(store.householdProgress.teamStreak).toBe(0)
 			// Weekly goal snapshot starts empty (server has not been queried
 			// yet); defaults match the server payload shape.
 			expect(store.householdProgress.weeklyGoal).toEqual({
@@ -53,104 +50,8 @@ describe('Game Store', () => {
 		})
 	})
 
-	describe('Getters', () => {
-		beforeEach(() => {
-			store.medals = [
-				{ id: 1, userId: 1, medalType: 'team_anchor' },
-				{ id: 2, userId: 1, medalType: 'flow_keeper' },
-				{ id: 3, userId: 2, medalType: 'room_guardian' },
-			]
-			store.leaderboard = [
-				{ id: 1, contributionScore: 500 },
-				{ id: 2, contributionScore: 300 },
-				{ id: 3, contributionScore: 700 },
-			]
-			store.combos = [{ id: 1, type: 'speed' }]
-		})
-
-		it('userMedals filters by user id', () => {
-			const user1Medals = store.userMedals(1)
-			expect(user1Medals).toHaveLength(2)
-		})
-
-		it('topContributors sorts and limits to 10', () => {
-			const top = store.topContributors
-			expect(top[0].contributionScore).toBe(700)
-			expect(top[1].contributionScore).toBe(500)
-			expect(top[2].contributionScore).toBe(300)
-		})
-
-		it('hasActiveCombos returns true when combos exist', () => {
-			expect(store.hasActiveCombos).toBe(true)
-		})
-
-		it('hasActiveCombos returns false when no combos', () => {
-			store.combos = []
-			expect(store.hasActiveCombos).toBe(false)
-		})
-
-		// Cooperative features getters
-		it('householdTotalCoins returns total', () => {
-			store.householdProgress.totalCoins = 500
-			expect(store.householdTotalCoins).toBe(500)
-		})
-
-		it('teamStreak returns streak count', () => {
-			store.householdProgress.teamStreak = 7
-			expect(store.teamStreak).toBe(7)
-		})
-
-		it('weeklyGoalProgress returns server snapshot percent', () => {
-			store.setWeeklyGoal({
-				dueCount: 10,
-				completedCount: 5,
-				percent: 50,
-				targetPercent: 80,
-				achieved: false,
-				weekStart: null,
-				weekEnd: null,
-			})
-			expect(store.weeklyGoalProgress).toBe(50)
-		})
-
-		it('weeklyGoalProgress defaults to 0 without a snapshot', () => {
-			expect(store.weeklyGoalProgress).toBe(0)
-		})
-
-		it('isWeeklyGoalAchieved returns true when achieved flag set', () => {
-			store.setWeeklyGoal({
-				dueCount: 5,
-				completedCount: 5,
-				percent: 100,
-				targetPercent: 80,
-				achieved: true,
-				weekStart: null,
-				weekEnd: null,
-			})
-			expect(store.isWeeklyGoalAchieved).toBe(true)
-		})
-
-		it('isWeeklyGoalAchieved returns false when not achieved', () => {
-			store.setWeeklyGoal({
-				dueCount: 5,
-				completedCount: 3,
-				percent: 60,
-				targetPercent: 80,
-				achieved: false,
-				weekStart: null,
-				weekEnd: null,
-			})
-			expect(store.isWeeklyGoalAchieved).toBe(false)
-		})
-
-		it('pendingCelebrations returns undismissed celebrations', () => {
-			store.celebrations = [
-				{ id: 1, type: 'weekly_goal_achieved', dismissed: false },
-				{ id: 2, type: 'team_streak_milestone', dismissed: true },
-			]
-			expect(store.pendingCelebrations).toHaveLength(1)
-			expect(store.pendingCelebrations[0].id).toBe(1)
-		})
+	it('exposes the weekly goal snapshot via the getter', () => {
+		expect(store.weeklyGoal).toEqual(store.householdProgress.weeklyGoal)
 	})
 
 	describe('Actions', () => {
@@ -219,17 +120,6 @@ describe('Game Store', () => {
 			})
 		})
 
-		describe('fetchLeaderboard', () => {
-			it('fetches leaderboard successfully', async () => {
-				const mockLeaderboard = [{ id: 1, name: 'User 1', contributionScore: 100 }]
-				api.get.mockResolvedValue(mockLeaderboard)
-
-				await store.fetchLeaderboard()
-
-				expect(store.leaderboard).toEqual(mockLeaderboard)
-			})
-		})
-
 		describe('fetchMedals', () => {
 			it('fetches medals successfully', async () => {
 				const mockMedals = [{ id: 1, medalType: 'team_anchor' }]
@@ -259,23 +149,6 @@ describe('Game Store', () => {
 			})
 		})
 
-		describe('addCombo', () => {
-			it('adds combo to list', () => {
-				store.addCombo({ id: 1, type: 'speed', multiplier: 2 })
-				expect(store.combos).toHaveLength(1)
-				expect(store.combos[0].type).toBe('speed')
-			})
-		})
-
-		describe('removeCombo', () => {
-			it('removes combo by id', () => {
-				store.combos = [{ id: 1 }, { id: 2 }, { id: 3 }]
-				store.removeCombo(2)
-				expect(store.combos).toHaveLength(2)
-				expect(store.combos.find(c => c.id === 2)).toBeUndefined()
-			})
-		})
-
 		describe('clearError', () => {
 			it('clears error', () => {
 				store.error = 'Some error'
@@ -287,60 +160,22 @@ describe('Game Store', () => {
 		describe('reset', () => {
 			it('resets all state', () => {
 				store.gameState = { id: 1 }
-				store.leaderboard = [{ id: 1 }]
 				store.medals = [{ id: 1 }]
-				store.combos = [{ id: 1 }]
 				store.loading = true
 				store.error = 'Error'
-				store.householdProgress.totalCoins = 500
-				store.householdProgress.teamStreak = 5
+				store.householdProgress.weeklyGoal.percent = 90
+				store.householdProgress.weeklyGoal.achieved = true
 				store.celebrations = [{ id: 1 }]
 
 				store.reset()
 
 				expect(store.gameState).toBeNull()
-				expect(store.leaderboard).toEqual([])
 				expect(store.medals).toEqual([])
-				expect(store.combos).toEqual([])
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
-				expect(store.householdProgress.totalCoins).toBe(0)
-				expect(store.householdProgress.teamStreak).toBe(0)
 				expect(store.householdProgress.weeklyGoal.percent).toBe(0)
 				expect(store.householdProgress.weeklyGoal.achieved).toBe(false)
 				expect(store.celebrations).toEqual([])
-			})
-		})
-
-		// Cooperative features actions
-		describe('updateHouseholdProgress', () => {
-			it('aggregates coins and contribution from users', () => {
-				const houseUsers = [
-					{ coins: 100, contributionScore: 200 },
-					{ coins: 150, contributionScore: 300 },
-					{ coins: 50, contributionScore: 100 },
-				]
-				store.updateHouseholdProgress(houseUsers)
-				expect(store.householdProgress.totalCoins).toBe(300)
-				expect(store.householdProgress.totalContributionScore).toBe(600)
-			})
-
-			it('handles users with missing values', () => {
-				const houseUsers = [
-					{ coins: 100 },
-					{ contributionScore: 200 },
-					{},
-				]
-				store.updateHouseholdProgress(houseUsers)
-				expect(store.householdProgress.totalCoins).toBe(100)
-				expect(store.householdProgress.totalContributionScore).toBe(200)
-			})
-		})
-
-		describe('updateTeamStreak', () => {
-			it('updates team streak value', () => {
-				store.updateTeamStreak(7)
-				expect(store.householdProgress.teamStreak).toBe(7)
 			})
 		})
 
@@ -404,8 +239,8 @@ describe('Game Store', () => {
 					weekStart: null,
 					weekEnd: null,
 				})
-				// Pop and dismiss the legitimate transition celebration so
-				// the assertion below only checks the second call.
+				// Clear the legitimate transition celebration so the
+				// assertion below only checks the second call.
 				store.celebrations = []
 
 				// Subsequent update, still achieved — no new celebration.

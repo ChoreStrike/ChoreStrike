@@ -31,9 +31,9 @@ use OCP\Migration\SimpleMigrationStep;
  * the columns (upgraded or previously worked-around) and the canonical
  * source on a fresh install. The definitions mirror the originals exactly.
  *
- * @see lib/Migration/Version1018Date20260321000000.php (task_tier)
- * @see lib/Migration/Version1019Date20260321000000.php (coin_multiplier)
- * @see lib/Migration/Version1020Date20260321000000.php (flex_days, ideal_due_date)
+ * The original steps `Version1018`–`Version1020` were deleted from the chain
+ * in CS-PLAN-055 (their only lasting effect was this provenance note — on a
+ * fresh install this file is now the sole creator of all four columns).
  */
 class Version1027Date20260725000000 extends SimpleMigrationStep {
 	/**

@@ -46,32 +46,6 @@ describe('RoomTasks Store', () => {
 	})
 
 	describe('Getters', () => {
-		it('getRoomTaskById finds task by id', () => {
-			store.roomTasks = [
-				{ id: 1, name: 'Task 1' },
-				{ id: 2, name: 'Task 2' },
-			]
-			const task = store.getRoomTaskById(2)
-			expect(task.name).toBe('Task 2')
-		})
-
-		it('activeRoomTasks returns only active tasks', () => {
-			store.roomTasks = [
-				{ id: 1, isActive: true },
-				{ id: 2, isActive: false },
-				{ id: 3, isActive: true },
-			]
-			expect(store.activeRoomTasks).toHaveLength(2)
-		})
-
-		it('inactiveRoomTasks returns only inactive tasks', () => {
-			store.roomTasks = [
-				{ id: 1, isActive: true },
-				{ id: 2, isActive: false },
-			]
-			expect(store.inactiveRoomTasks).toHaveLength(1)
-		})
-
 		it('roomTasksByRoom groups by roomId', () => {
 			store.roomTasks = [
 				{ id: 1, roomId: 10 },
@@ -83,43 +57,6 @@ describe('RoomTasks Store', () => {
 			expect(byRoom[20]).toHaveLength(1)
 		})
 
-		it('roomTasksByUser groups by assigned user', () => {
-			store.roomTasks = [
-				{ id: 1, assignedToUserId: 'user1' },
-				{ id: 2, assignedToUserId: 'user2' },
-				{ id: 3 },
-			]
-			const byUser = store.roomTasksByUser
-			expect(byUser.user1).toHaveLength(1)
-			expect(byUser.unassigned).toHaveLength(1)
-		})
-
-		it('unassignedRoomTasks returns unassigned active tasks', () => {
-			store.roomTasks = [
-				{ id: 1, isActive: true, assignedToUserId: 'user1' },
-				{ id: 2, isActive: true },
-				{ id: 3, isActive: false },
-			]
-			expect(store.unassignedRoomTasks).toHaveLength(1)
-			expect(store.unassignedRoomTasks[0].id).toBe(2)
-		})
-
-		it('assignedRoomTasks returns assigned active tasks', () => {
-			store.roomTasks = [
-				{ id: 1, isActive: true, assignedToUserId: 'user1' },
-				{ id: 2, isActive: true },
-			]
-			expect(store.assignedRoomTasks).toHaveLength(1)
-		})
-
-		it('totalActiveTasks returns count', () => {
-			store.roomTasks = [
-				{ id: 1, isActive: true },
-				{ id: 2, isActive: true },
-				{ id: 3, isActive: false },
-			]
-			expect(store.totalActiveTasks).toBe(2)
-		})
 	})
 
 	describe('Actions', () => {
@@ -143,21 +80,6 @@ describe('RoomTasks Store', () => {
 
 				expect(result).toEqual(newTask)
 				expect(store.roomTasks).toContainEqual(newTask)
-			})
-		})
-
-		describe('assignRoomTask', () => {
-			it('assigns task to user', async () => {
-				store.roomTasks = [{ id: 1, assignedToUserId: null }]
-				api.post.mockResolvedValue({ id: 1, assignedToUserId: 'user1' })
-
-				await store.assignRoomTask(1, 'user1')
-
-				expect(store.roomTasks[0].assignedToUserId).toBe('user1')
-			})
-
-			it('throws error for empty userId', async () => {
-				await expect(store.assignRoomTask(1, '')).rejects.toThrow('User ID is required')
 			})
 		})
 
@@ -211,17 +133,6 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
-		describe('unassignRoomTask', () => {
-			it('unassigns task', async () => {
-				store.roomTasks = [{ id: 1, assignedToUserId: 'user1' }]
-				api.post.mockResolvedValue({ id: 1, assignedToUserId: null })
-
-				await store.unassignRoomTask(1)
-
-				expect(store.roomTasks[0].assignedToUserId).toBeNull()
-			})
-		})
-
 		describe('fetchAssignees', () => {
 			it('returns assignee user ids', async () => {
 				api.get.mockResolvedValue(['user1', 'user2'])
@@ -252,17 +163,6 @@ describe('RoomTasks Store', () => {
 				api.put.mockRejectedValue(new Error('Not a member'))
 
 				await expect(store.setAssignees(1, ['intruder'])).rejects.toThrow('Not a member')
-			})
-		})
-
-		describe('deactivateRoomTask', () => {
-			it('deactivates task', async () => {
-				store.roomTasks = [{ id: 1, isActive: true }]
-				api.post.mockResolvedValue({ id: 1, isActive: false })
-
-				await store.deactivateRoomTask(1)
-
-				expect(store.roomTasks[0].isActive).toBe(false)
 			})
 		})
 

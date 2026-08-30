@@ -47,14 +47,6 @@ class AuthorizationService {
 	}
 
 	/**
-	 * Check if the current user is authenticated.
-	 */
-	public function isAuthenticated(): bool {
-		$user = $this->userSession->getUser();
-		return $user !== null;
-	}
-
-	/**
 	 * Get the current Nextcloud user ID.
 	 */
 	public function getCurrentUserId(): ?string {
@@ -78,30 +70,6 @@ class AuthorizationService {
 		}
 
 		return $userId;
-	}
-
-	/**
-	 * Check if the current user is a member of the given house.
-	 */
-	public function isHouseMember(int $houseId): bool {
-		$userId = $this->getCurrentUserId();
-		if ($userId === null) {
-			return false;
-		}
-
-		try {
-			$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
-			return $houseUser !== null;
-		} catch (\Exception $e) {
-			$this->appLogger->warning('House membership lookup failed', [
-				'service' => 'AuthorizationService',
-				'action' => 'isHouseMember',
-				'houseId' => $houseId,
-				'userId' => $userId,
-				'exception' => get_class($e),
-			]);
-			return false;
-		}
 	}
 
 	/**

@@ -53,15 +53,6 @@ class HouseMapper extends QBMapper {
 	}
 
 	/**
-	 * Get all houses
-	 *
-	 * @return House[]
-	 */
-	public function findAll(): array {
-		return parent::findAll();
-	}
-
-	/**
 	 * Create or update house for instance
 	 *
 	 * @param string $instanceId The Nextcloud instance ID

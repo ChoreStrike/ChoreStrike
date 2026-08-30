@@ -32,27 +32,6 @@ class MinigameScoreMapperTest extends TestCase {
 		$this->mapper = new MinigameScoreMapper($this->db);
 	}
 
-	public function testFindByHouseAndGame_ReturnsScores(): void {
-		$this->qb->method('select')->willReturnSelf();
-		$this->qb->method('from')->willReturnSelf();
-		$this->qb->method('where')->willReturnSelf();
-		$this->qb->method('andWhere')->willReturnSelf();
-		$this->qb->method('orderBy')->willReturnSelf();
-
-		$result = $this->createMock(IResult::class);
-		$result->method('fetch')->willReturnOnConsecutiveCalls(
-			['id' => 1, 'house_id' => 1, 'user_id' => 'alice', 'game_id' => 'snake', 'score' => 100],
-			['id' => 2, 'house_id' => 1, 'user_id' => 'bob', 'game_id' => 'snake', 'score' => 50],
-			false
-		);
-		$this->qb->method('executeQuery')->willReturn($result);
-
-		$scores = $this->mapper->findByHouseAndGame(1, 'snake');
-
-		$this->assertCount(2, $scores);
-		$this->assertInstanceOf(MinigameScore::class, $scores[0]);
-	}
-
 	public function testGetLeaderboard_LimitsResults(): void {
 		$this->qb->method('select')->willReturnSelf();
 		$this->qb->method('from')->willReturnSelf();

@@ -50,46 +50,6 @@ class MedalTest extends TestCase {
 	}
 
 	/**
-	 * GetRarity_WithGold_ReturnsHigh
-	 */
-	public function testGetRarity_WithGold_ReturnsHigh(): void {
-		$medal = new Medal();
-		$medal->setMedalType('gold');
-
-		self::assertEquals('high', $medal->getRarity());
-	}
-
-	/**
-	 * GetRarity_WithSilver_ReturnsMedium
-	 */
-	public function testGetRarity_WithSilver_ReturnsMedium(): void {
-		$medal = new Medal();
-		$medal->setMedalType('silver');
-
-		self::assertEquals('medium', $medal->getRarity());
-	}
-
-	/**
-	 * GetRarity_WithBronze_ReturnsLow
-	 */
-	public function testGetRarity_WithBronze_ReturnsLow(): void {
-		$medal = new Medal();
-		$medal->setMedalType('bronze');
-
-		self::assertEquals('low', $medal->getRarity());
-	}
-
-	/**
-	 * GetRarity_WithUnknownType_ReturnsUnknown
-	 */
-	public function testGetRarity_WithUnknownType_ReturnsUnknown(): void {
-		$medal = new Medal();
-		$medal->setMedalType('platinum');
-
-		self::assertEquals('unknown', $medal->getRarity());
-	}
-
-	/**
 	 * GetDisplayName_WithValidType_ReturnsTranslatedName
 	 */
 	public function testGetDisplayName_WithValidType_ReturnsTranslatedName(): void {

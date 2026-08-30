@@ -74,37 +74,6 @@ class GameController extends Controller {
 	}
 
 	/**
-	 * Get leaderboard
-	 *
-	 * @NoAdminRequired
-	 */
-	public function leaderboard(): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
-
-			$leaderboard = $this->gameLogicService->getLeaderboard($house->getId());
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $leaderboard
-			]);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('leaderboard', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'LEADERBOARD_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
 	 * Get medals
 	 *
 	 * @NoAdminRequired

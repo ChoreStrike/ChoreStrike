@@ -12,18 +12,27 @@
  * Weekly-goal-reached notifications fire *synchronously on task completion*
  * (RoomService, post-commit) when the household crosses its weekly target —
  * no `trigger-jobs` needed (CS-PLAN-024 §2.3 trigger split). The target is
- * global config (`weekly_goal_target_percent`, default 80); reaching 80 %
- * deterministically is day-of-week dependent, so this spec lowers the target
- * to a trivially-crossed value for the duration of the assertion and restores
- * it afterwards.
+ * global config (`weekly_goal_target_percent`, default 80). Reaching 80 %
+ * deterministically is day-of-week dependent, so the `family` seed profile
+ * lowers it to a trivially-crossed value (TestDataService
+ * `FAMILY_REWARD_CONFIG_OVERRIDES`, CS-PLAN-055 — the reward-config HTTP
+ * surface was pruned, so the knob cannot be mutated over the API anymore).
  *
  * Verified:
  *  - Completing a task with the weekly goal achieved reports
  *    `rewards.weeklyGoal.achieved === true`.
- *  - A `weekly_goal` notification is delivered to the member's Nextcloud bell.
+ *  - After dismissing stale bell rows, a `weekly_goal` notification is newly
+ *    delivered to the member's Nextcloud bell. Dismissal is required because
+ *    the family seed's global 1 % target lets every family-seeded spec fire
+ *    the same notification type, and reset()/re-seed never purges
+ *    `oc_notifications` — a plain "exists" check would pass vacuously on a
+ *    leftover row from an earlier spec or CI run. (The notification's objectId
+ *    is the bare ISO weekStart with no house discriminator — harmless while
+ *    the instance is bootstrap-single-house, but it means stale-type rows are
+ *    the norm in the test matrix.) CS-PLAN-055 review finding.
  *
- * Seed-mutating (mutates `oc_appconfig` + completes a task): registered in
- * `SEED_DEPENDENT_SPECS` (chromium-serial-db).
+ * Seed-mutating (completes a task): registered in `SEED_DEPENDENT_SPECS`
+ * (chromium-serial-db).
  * Requires: Docker test environment with the `family` database profile.
  */
 
@@ -38,27 +47,10 @@ interface RoomTaskJson {
 }
 
 interface OcsNotification {
+	notification_id: number
 	app: string
 	object_type: string
 	subject: string
-}
-
-/** GET the current weekly-goal target percent (global config). */
-async function fetchWeeklyTarget(page: Page): Promise<number> {
-	const response = await page.request.get('/apps/chorestrike/api/v1/reward-config', {
-		headers: { Accept: 'application/json' },
-	})
-	expect(response.status()).toBe(200)
-	return (await response.json()).weeklyGoalTargetPercent as number
-}
-
-/** Set the weekly-goal target percent (global config). */
-async function setWeeklyTarget(page: Page, percent: number): Promise<void> {
-	const response = await page.request.put('/apps/chorestrike/api/v1/reward-config', {
-		data: { values: { weeklyGoalTargetPercent: percent } },
-		headers: { Accept: 'application/json' },
-	})
-	expect(response.status()).toBe(200)
 }
 
 /** First active room task the owner may complete.
@@ -105,27 +97,45 @@ async function fetchChoreStrikeNotifications(page: Page): Promise<OcsNotificatio
 	return all.filter((n) => n.app === 'chorestrike')
 }
 
+/**
+ * Dismiss the user's existing weekly_goal bell rows so the post-completion
+ * assertion can only be satisfied by THIS run's dispatch (see file header).
+ */
+async function dismissWeeklyGoalNotifications(page: Page): Promise<void> {
+	const stale = (await fetchChoreStrikeNotifications(page)).filter(
+		(n) => n.object_type === 'weekly_goal',
+	)
+	for (const notification of stale) {
+		const response = await page.request.delete(
+			`/ocs/v2.php/apps/notifications/api/v2/notifications/${notification.notification_id}`,
+			{ headers: { 'OCS-APIRequest': 'true' } },
+		)
+		expect(response.status()).toBe(200)
+	}
+}
+
 test.describe('Release: Notifications — weekly goal', () => {
 	test.use({ databaseProfile: 'family' })
 
 	test('reaching the weekly goal delivers a de-duped bell notification', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
-		const admin = await createUserContext(browser, 'admin')
-		const mom = await createUserContext(browser, 'mom')
-		let originalTarget: number | undefined
+		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			// Lower the target so a single completion crosses it deterministically.
-			originalTarget = await fetchWeeklyTarget(admin.page)
-			await setWeeklyTarget(admin.page, 1)
-
-			const target = await pickCompletableRoomTask(mom.page)
+			// The family seed lowers the weekly target to a trivially-crossed
+			// value, so one completion on the fresh house achieves it.
+			const target = await pickCompletableRoomTask(page)
 			if (!target) {
 				test.skip(true, 'No active room task available to complete')
 				return
 			}
 
-			const completeResponse = await mom.page.request.post(
+			// Dismiss stale weekly-goal rows (other family-seeded specs and
+			// earlier CI runs leave them; reset() never purges the bell — see
+			// header) so only THIS completion's dispatch can satisfy the check.
+			await dismissWeeklyGoalNotifications(page)
+
+			const completeResponse = await page.request.post(
 				`/apps/chorestrike/api/v1/room-tasks/${target.id}/complete`,
 				{ headers: { Accept: 'application/json' } },
 			)
@@ -134,17 +144,14 @@ test.describe('Release: Notifications — weekly goal', () => {
 			expect(body.success).toBe(true)
 			expect(body.data?.rewards?.weeklyGoal?.achieved).toBe(true)
 
-			// The weekly-goal notification must be in mom's Nextcloud bell
-			// (language-independent contract: app + object type).
-			const notifications = await fetchChoreStrikeNotifications(mom.page)
-			const weeklyGoal = notifications.find((n) => n.object_type === 'weekly_goal')
-			expect(weeklyGoal).toBeDefined()
+			// A weekly-goal notification must have reached mom's Nextcloud
+			// bell (language-independent contract: app + object type; stale
+			// rows were dismissed above, so this is THIS run's dispatch).
+			const notifications = await fetchChoreStrikeNotifications(page)
+			const weeklyGoal = notifications.filter((n) => n.object_type === 'weekly_goal')
+			expect(weeklyGoal).toHaveLength(1)
 		} finally {
-			if (originalTarget !== undefined) {
-				await setWeeklyTarget(admin.page, originalTarget).catch(() => undefined)
-			}
-			await admin.context.close()
-			await mom.context.close()
+			await context.close()
 		}
 	})
 })

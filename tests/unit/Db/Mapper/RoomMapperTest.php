@@ -123,42 +123,6 @@ class RoomMapperTest extends TestCase {
 	}
 
 	/**
-	 * FindNeedingCleaning_WithDirtyRooms_ReturnsDirtyRooms
-	 */
-	public function testFindNeedingCleaning_WithDirtyRooms_ReturnsDirtyRooms(): void {
-		$this->qb->expects($this->once())
-			->method('select')
-			->with('*')
-			->willReturn($this->qb);
-		$this->qb->expects($this->once())
-			->method('from')
-			->with('chorestrike_rooms')
-			->willReturn($this->qb);
-		$this->qb->expects($this->once())
-			->method('where')
-			->willReturn($this->qb);
-
-		$mockResult = $this->createMock(IResult::class);
-		$mockResult->method('fetch')
-			->willReturnOnConsecutiveCalls([
-				'id' => 1,
-				'floor_id' => 1,
-				'name' => 'Dirty Room',
-				'cleanliness' => 40,
-				'monster_count' => 2
-			], false);
-
-		$this->qb->expects($this->once())
-			->method('executeQuery')
-			->willReturn($mockResult);
-
-		$results = $this->mapper->findNeedingCleaning();
-
-		$this->assertCount(1, $results);
-		$this->assertLessThan(60, $results[0]->getCleanliness());
-	}
-
-	/**
 	 * ResetByHouseId_BuildsSubqueryUpdateAndReturnsAffectedRows
 	 *
 	 * CS-PLAN-037: one UPDATE scoped by a floors-of-house subquery; the

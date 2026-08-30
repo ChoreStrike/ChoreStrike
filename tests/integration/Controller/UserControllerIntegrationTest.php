@@ -304,46 +304,6 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
 	}
 
-	/**
-	 * Update_SelfProfileUpdate_ReturnsUpdatedUser
-	 */
-	public function testUpdate_SelfProfileUpdate_ReturnsUpdatedUser(): void {
-		$house = $this->createHouse();
-		$houseUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'member');
-		$currentUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'member');
-
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(2)
-			->willReturn($houseUser);
-		$this->houseService->expects($this->once())
-			->method('getInstanceId')
-			->willReturn('instance-123');
-		$this->houseService->expects($this->once())
-			->method('getOrCreateHouse')
-			->with('instance-123')
-			->willReturn($house);
-		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
-			->with($houseUser->getHouseId())
-			->willReturn($currentUser);
-		$this->houseUserMapper->expects($this->once())
-			->method('update')
-			->with($this->callback(static function (HouseUser $updatedUser): bool {
-				return $updatedUser->getDisplayName() === 'Bobby'
-					&& $updatedUser->getSchedulingPreferences() === ['weekdays' => ['monday' => true]];
-			}))
-			->willReturnCallback(static fn (HouseUser $updatedUser): HouseUser => $updatedUser);
-
-		$response = $this->controller->update(2, 'Bobby', ['weekdays' => ['monday' => true]]);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertEquals('Bobby', $data['data']['displayName']);
-		$this->assertEquals(['weekdays' => ['monday' => true]], $data['data']['schedulingPreferences']);
-	}
-
 	private function createHouse(int $id = 1): House {
 		$house = new House();
 		$house->setId($id);

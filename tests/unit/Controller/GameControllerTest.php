@@ -88,35 +88,4 @@ class GameControllerTest extends TestCase {
 		$this->assertEquals(85, $data['data']['houseHealth']);
 		$this->assertSame($weeklyGoal, $data['data']['weeklyGoal']);
 	}
-
-	/**
-	 * Test GET /game/leaderboard returns leaderboard
-	 */
-	public function testLeaderboard_ReturnsLeaderboard(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$leaderboard = [
-			['userId' => 'user1', 'score' => 100],
-			['userId' => 'user2', 'score' => 75],
-		];
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
-
-		$this->gameLogicService->expects($this->once())
-			->method('getLeaderboard')
-			->with(1)
-			->willReturn($leaderboard);
-
-		$response = $this->controller->leaderboard();
-
-		$this->assertInstanceOf(JSONResponse::class, $response);
-		$this->assertEquals(200, $response->getStatus());
-
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertCount(2, $data['data']);
-	}
 }

@@ -224,27 +224,6 @@ describe('House Store', () => {
 			})
 		})
 
-		describe('initializeHouse', () => {
-			it('fetches house if not exists', async () => {
-				const mockHouse = { id: 1 }
-				api.get.mockResolvedValue(mockHouse)
-
-				const result = await store.initializeHouse()
-
-				expect(result).toEqual(mockHouse)
-				expect(api.get).toHaveBeenCalled()
-			})
-
-			it('returns existing house without fetching', async () => {
-				store.house = { id: 1, name: 'Existing' }
-
-				const result = await store.initializeHouse()
-
-				expect(result).toEqual(store.house)
-				expect(api.get).not.toHaveBeenCalled()
-			})
-		})
-
 		describe('clearError', () => {
 			it('clears error state', () => {
 				store.error = 'Some error'

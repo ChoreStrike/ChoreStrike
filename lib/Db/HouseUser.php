@@ -212,15 +212,6 @@ class HouseUser extends Entity implements JsonSerializable {
 	}
 
 	/**
-	 * Update streak respecting absence days
-	 *
-	 * @param array $weekdayAvailability Weekday availability from scheduling preferences
-	 */
-	public function updateStreakWithAbsence(array $weekdayAvailability): void {
-		$this->setCurrentStreak($this->calculateStreakWithAbsence($weekdayAvailability));
-	}
-
-	/**
 	 * Reset streak
 	 */
 	public function resetStreak(): void {
@@ -246,46 +237,6 @@ class HouseUser extends Entity implements JsonSerializable {
 	 */
 	public function isChild(): bool {
 		return $this->role === 'child';
-	}
-
-	/**
-	 * Get role label (English only - i18n should be handled in frontend)
-	 */
-	public function getRoleLabel(): string {
-		return match($this->role) {
-			'owner' => 'Owner',
-			'member' => 'Member',
-			'child' => 'Child',
-			default => 'Member'
-		};
-	}
-
-	/**
-	 * Get rank based on contribution score (English only - i18n should be handled in frontend)
-	 */
-	public function getRank(): string {
-		$score = $this->contributionScore;
-
-		return match(true) {
-			$score >= 5000 => 'Legend',
-			$score >= 2500 => 'Champion',
-			$score >= 1000 => 'Guardian',
-			$score >= 500 => 'Keeper',
-			$score >= 200 => 'Helper',
-			$score >= 50 => 'Beginner',
-			default => 'Novice'
-		};
-	}
-
-	/**
-	 * Increment streak
-	 */
-	public function incrementStreak(): void {
-		$newStreak = $this->currentStreak + 1;
-		$this->setCurrentStreak($newStreak);
-		if ($newStreak > $this->longestStreak) {
-			$this->setLongestStreak($newStreak);
-		}
 	}
 
 	/**

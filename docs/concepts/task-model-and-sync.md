@@ -15,7 +15,10 @@ Each task includes:
 - due date or next due date
 - priority
 - energy cost (1-5)
-- reminder settings
+- reminder settings (**planned — never implemented**: the column-less
+  `reminderType`/`reminderMinutesBefore` entity fields and the whole
+  `task_sync` HTTP surface were pruned in CS-PLAN-055; see *Reminder
+  Configuration* below)
 - assignment (optional)
 
 ## Creation Model (CS-PLAN-038)
@@ -53,16 +56,25 @@ Celebration feedback (confetti, sounds, toasts) fires globally via the
 
 ## Reminder Configuration
 
+> **Status (verified 2026-08-29, CS-PLAN-055):** not implemented. What existed
+> was an API-only stub: the `task_sync` routes ×6 + `TaskSyncController`/
+> `TaskSyncService` (completion mirror, reminder read endpoint, pending-sync
+> queue, mark-synced, link) had no UI consumer and were **pruned**. The
+> `Task` entity carried `reminderType`/`reminderMinutesBefore` without any
+> backing columns (the only reader was `TaskSyncService`) — deleted, too.
+> Re-introducing this surface needs a real CalDAV/Task interaction design and
+> a consumer (FEAT-UX-021 closed as moot by the prune).
+
 Reminder behavior must be configurable per task.
 
-### Minimum reminder settings
+### Minimum reminder settings (design intent — unimplemented)
 
 - no reminder
 - at due time
 - before due time (for example 10m, 30m, 1h, 1d)
 - repeated reminder while overdue (optional)
 
-### Sync rule
+### Sync rule (design intent — unimplemented)
 
 Reminder fields in ChoreStrike must stay synchronized with Nextcloud Tasks-compatible reminder fields so reminders are visible on mobile task clients.
 
@@ -71,15 +83,17 @@ Reminder fields in ChoreStrike must stay synchronized with Nextcloud Tasks-compa
 A task instance can be completed from:
 
 1. ChoreStrike UI (dashboard, room detail, task list)
-2. Connected task clients through Nextcloud task completion status
+2. *(planned)* Connected task clients through Nextcloud task completion
+   status — see the prune note above; there is no external-completion path
+   today.
 
-### Completion synchronization
+### Completion synchronization (design intent — unimplemented)
 
 - Completing in ChoreStrike marks the linked task as completed in Nextcloud tasks.
 - Completing in a synced task client marks the task as completed in ChoreStrike.
 - Completion timestamps should be normalized to server time and stored with timezone-aware values.
 
-## Conflict Handling
+## Conflict Handling (design intent — unimplemented)
 
 If two clients update the same task close in time:
 
@@ -87,7 +101,7 @@ If two clients update the same task close in time:
 - keep an event log entry for audit/debug purposes
 - do not silently drop completion state changes
 
-## Mobile Behavior
+## Mobile Behavior (design intent — unimplemented)
 
 - Reminder and completion status must work in standard mobile task workflows.
 - ChoreStrike-specific visuals are optional on mobile clients; task state consistency is mandatory.
@@ -96,3 +110,6 @@ If two clients update the same task close in time:
 
 - Exact mapping strategy to Nextcloud Tasks fields where multiple reminder formats exist.
 - Whether recurring completion is generated immediately on completion or by scheduler job.
+- Whether the pruned Nextcloud-sync surface is revived at all, and with which
+  transport (the removal recorded in `docs/api/README.md` and the
+  `RouteMatrixTest` CS-055 guard stands until a consumer exists).

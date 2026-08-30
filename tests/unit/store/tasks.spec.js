@@ -58,26 +58,6 @@ describe('Tasks Store', () => {
 			expect(task.name).toBe('Dust Living Room')
 		})
 
-		it('tasksByCategory groups correctly', () => {
-			const byCat = store.tasksByCategory
-			expect(byCat['cleaning']).toHaveLength(2)
-			expect(byCat['maintenance']).toHaveLength(1)
-		})
-
-		it('highPriorityTasks filters priority 3', () => {
-			expect(store.highPriorityTasks).toHaveLength(1)
-			expect(store.highPriorityTasks[0].name).toBe('Clean Kitchen')
-		})
-
-		it('mediumPriorityTasks filters priority 2', () => {
-			expect(store.mediumPriorityTasks).toHaveLength(1)
-			expect(store.mediumPriorityTasks[0].name).toBe('Dust Living Room')
-		})
-
-		it('lowPriorityTasks filters priority 1', () => {
-			expect(store.lowPriorityTasks).toHaveLength(1)
-			expect(store.lowPriorityTasks[0].name).toBe('Weekly Template')
-		})
 	})
 
 	describe('Actions', () => {

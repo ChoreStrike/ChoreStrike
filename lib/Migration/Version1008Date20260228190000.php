@@ -14,65 +14,18 @@ use OCP\Migration\SimpleMigrationStep;
  *
  * Adds support for collaborative task completion:
  * - Multiple users can work on the same task
- * - Team sparks for collaborative completion
- * - Task participants tracking
+ * - Team completion metadata on completed_tasks
+ * (the original chorestrike_task_parts audit table was orphaned and is
+ * removed from the chain — CS-PLAN-055)
  */
 class Version1008Date20260228190000 extends SimpleMigrationStep {
 	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
 
-		// Create table for tracking task participants (multi-user teamwork)
-		if (!$schema->hasTable('chorestrike_task_parts')) {
-			$table = $schema->createTable('chorestrike_task_parts');
-
-			// Primary key
-			$table->addColumn('id', 'integer', [
-				'autoincrement' => true,
-				'notnull' => true,
-			]);
-
-			// Reference to the completed task record
-			$table->addColumn('completed_task_id', 'integer', [
-				'notnull' => true,
-				'comment' => 'Reference to chorestrike_completed_tasks',
-			]);
-
-			// Participant user ID
-			$table->addColumn('user_id', 'string', [
-				'notnull' => true,
-				'length' => 64,
-				'comment' => 'User who participated in this task',
-			]);
-
-			// Sparks earned by this participant
-			$table->addColumn('sparks_earned', 'integer', [
-				'notnull' => true,
-				'default' => 0,
-				'comment' => 'Sparks earned for participation',
-			]);
-
-			// Participation type: 'primary' (claimer) or 'helper'
-			$table->addColumn('participation_type', 'string', [
-				'notnull' => true,
-				'length' => 10,
-				'default' => 'helper',
-				'comment' => 'primary or helper',
-			]);
-
-			// When they joined the task
-			$table->addColumn('joined_at', 'datetime', [
-				'notnull' => true,
-			]);
-
-			// Primary key
-			$table->setPrimaryKey(['id'], 'pk_task_parts');
-
-			// Indexes
-			$table->addIndex(['completed_task_id'], 'idx_parts_completed');
-			$table->addIndex(['user_id'], 'idx_parts_user');
-			$table->addUniqueIndex(['completed_task_id', 'user_id'], 'uniq_parts');
-		}
+		// The chorestrike_task_parts table originally created here was an
+		// orphan (never read or written by any mapper) — removed in
+		// CS-PLAN-055 (pre-release: fresh-install chain edited in place).
 
 		// Add team-related fields to chorestrike_completed_tasks
 		if ($schema->hasTable('chorestrike_completed_tasks')) {

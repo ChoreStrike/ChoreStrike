@@ -273,66 +273,6 @@ class UserControllerTest extends TestCase {
 	}
 
 	/**
-	 * Test PUT /users/{id} allows the same user to update profile fields.
-	 */
-	public function testUpdate_AllowsSelfServiceProfileUpdate(): void {
-		$house = new House();
-		$house->setId(2);
-
-		$targetUser = new HouseUser();
-		$targetUser->setId(4);
-		$targetUser->setHouseId(2);
-		$targetUser->setNextcloudUserId('member1');
-		$targetUser->setDisplayName('Old Name');
-		$targetUser->setRole('member');
-		$targetUser->setJoinedAt(new \DateTime('2026-03-01T08:00:00Z'));
-
-		$currentHouseUser = new HouseUser();
-		$currentHouseUser->setId(4);
-		$currentHouseUser->setHouseId(2);
-		$currentHouseUser->setNextcloudUserId('member1');
-		$currentHouseUser->setDisplayName('Old Name');
-		$currentHouseUser->setRole('member');
-		$currentHouseUser->setJoinedAt(new \DateTime('2026-03-01T08:00:00Z'));
-
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(4)
-			->willReturn($targetUser);
-
-		$this->houseService->expects($this->once())
-			->method('getInstanceId')
-			->willReturn('instance-update');
-
-		$this->houseService->expects($this->once())
-			->method('getOrCreateHouse')
-			->with('instance-update')
-			->willReturn($house);
-
-		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
-			->with(2)
-			->willReturn($currentHouseUser);
-
-		$this->houseUserMapper->expects($this->once())
-			->method('update')
-			->with($this->callback(static function (HouseUser $updatedUser): bool {
-				return $updatedUser->getDisplayName() === 'New Name'
-					&& $updatedUser->getSchedulingPreferences() === ['monday' => ['available' => true]];
-			}))
-			->willReturnCallback(static fn (HouseUser $updatedUser): HouseUser => $updatedUser);
-
-		$response = $this->controller->update(4, 'New Name', ['monday' => ['available' => true]]);
-
-		$this->assertInstanceOf(JSONResponse::class, $response);
-		$this->assertEquals(200, $response->getStatus());
-
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertEquals('New Name', $data['data']['displayName']);
-	}
-
-	/**
 	 * Test DELETE /users/{id} delegates the aggregate removal to the
 	 * service (CR-SVC-26) — the controller contains no mapper deletes.
 	 */

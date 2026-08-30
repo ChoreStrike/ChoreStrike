@@ -21,7 +21,10 @@ class Version1015Date20260304000000Test extends TestCase {
 		$output = $this->createMock(IOutput::class);
 		$schema = $this->createMock(ISchemaWrapper::class);
 
-		$schema->expects($this->exactly(8))
+		// CS-PLAN-055: four table guards remain after the orphan-table index
+		// blocks (availability / task_scopes / task_claims / task_participants)
+		// were removed from the migration.
+		$schema->expects($this->exactly(4))
 			->method('hasTable')
 			->willReturn(false);
 

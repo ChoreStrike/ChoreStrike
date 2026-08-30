@@ -38,23 +38,6 @@ class MedalMapper extends QBMapper {
 	}
 
 	/**
-	 * Find all medals for a user
-	 *
-	 * @param int $userId The house user ID
-	 * @return Medal[]
-	 */
-	public function findByUserId(int $userId): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
-			->orderBy('awarded_at', 'DESC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Find all medals for multiple users in one query (CS-PLAN-036).
 	 *
 	 * IN-clause batch lookup grouped in PHP into a map user_id → Medal[]
@@ -86,42 +69,6 @@ class MedalMapper extends QBMapper {
 	}
 
 	/**
-	 * Find medals for a specific week
-	 *
-	 * @param string $weekStart Week start date (YYYY-MM-DD)
-	 * @return Medal[]
-	 */
-	public function findByWeek(string $weekStart): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('week_start', $qb->createNamedParameter($weekStart, IQueryBuilder::PARAM_STR)))
-			->orderBy('awarded_at', 'DESC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
-	 * Find medals for a user in a specific week
-	 *
-	 * @param int $userId The house user ID
-	 * @param string $weekStart Week start date (YYYY-MM-DD)
-	 * @return Medal[]
-	 */
-	public function findByUserAndWeek(int $userId, string $weekStart): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('week_start', $qb->createNamedParameter($weekStart, IQueryBuilder::PARAM_STR)))
-			->orderBy('awarded_at', 'DESC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Find specific medal type for user in week
 	 *
 	 * @param int $userId The house user ID
@@ -141,28 +88,4 @@ class MedalMapper extends QBMapper {
 		return $this->findEntity($qb);
 	}
 
-	/**
-	 * Get medal count by type for a user
-	 *
-	 * @param int $userId The house user ID
-	 */
-	public function getMedalCountsByType(int $userId): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('medal_type')
-			->addSelect('COUNT(*) as count')
-			->from($this->getTableName())
-			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
-			->groupBy('medal_type');
-
-		$result = $qb->executeQuery();
-		$counts = [];
-
-		while ($row = $result->fetch()) {
-			$counts[$row['medal_type']] = (int)$row['count'];
-		}
-
-		$result->closeCursor();
-		return $counts;
-	}
 }

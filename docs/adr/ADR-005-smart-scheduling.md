@@ -15,6 +15,14 @@
 > `SchedulingController` + `SchedulingService` (preferences, energy, availability,
 > suggestions). This ADR is retained for historical context only; do not revive
 > the deleted classes without re-establishing `AuthorizationService` gating.
+>
+> **Follow-up truth (CS-PLAN-055, 2026-08-29):** the `AvailabilitySettings`
+> entity/mapper and its `chorestrike_availability` table (Version1013) were the
+> last orphans of this era — deleted with their dead migration steps; member
+> availability/energy live solely in `house_users.scheduling_preferences`
+> (JSON). The task-level mutation routes listed under *API Endpoints*
+> (`tasks/daily`, `tasks/{id}/complete|skip|reschedule`) were pruned too
+> (only `uncomplete` survives, as the room-task undo path).
 
 ## Context
 

@@ -42,9 +42,12 @@ ChoreStrike/
 │   │                           #   guarded job trigger with --as-of, CS-PLAN-023)
 │   ├── Controller/             # Thin API controllers (House, Floor, Room, Task,
 │   │                           #   RoomTask, Checklist, Scheduling,
-│   │                           #   Minigame, RewardConfig, User, Template, TaskSync,
-│   │                           #   Game, Page, Test) + ControllerLoggingTrait +
+│   │                           #   Minigame, User, Game, Page, Test) +
+│   │                           #   ControllerLoggingTrait +
 │   │                           #   ControllerErrorFormatter (sanitized error messages)
+│   │                           #   (RewardConfigController and TaskSyncController were
+│   │                           #   pruned in CS-PLAN-055 — no consumer; re-add with an
+│   │                           #   AuthorizationService gate + RouteMatrixTest pin if revived)
 │   │                           # D1 (CS-016): the UI consumes `scheduling#*` via the
 │   │                           #   scheduling Pinia store as the canonical surface. The
 │   │                           #   `smart-schedule#*` routes were REMOVED (CS-016 review,
@@ -53,19 +56,21 @@ ChoreStrike/
 │   │                           #   deleted in CS-PLAN-025 — re-add with auth gating if revived.
 │   ├── Db/                     # Entities & mappers (House, Floor, Room, Task, RoomTask,
 │   │                           #   CompletedTask, HouseUser, Medal, MinigameScore,
-│   │                           #   TaskChecklistItem, TaskAssignee, RoomTaskChecklistProgress,
-│   │                           #   AvailabilitySettings)
+│   │                           #   TaskChecklistItem, TaskAssignee, RoomTaskChecklistProgress)
+│   │                           #   (AvailabilitySettings entity/mapper pruned in CS-PLAN-055)
 │   ├── Exception/              # App exceptions (NotFoundException, ForbiddenException) —
 │   │                           #   domain-typed (NC 31 dropped the framework equivalents)
-│   ├── Migration/              # Schema migrations (Version1000 … Version1027,
-│   │                           #   non-contiguous — Version1014 absent)
+│   ├── Migration/              # Schema migrations (Version1000 … Version1027, non-
+│   │                           #   contiguous — 1014/1017–1020 absent; dead no-op steps
+│   │                           #   1003/1010/1013/1017/1018/1019/1020 pruned CS-PLAN-055,
+│   │                           #   pre-release fresh-install edit — no back-compat)
 │   ├── Notification/           # ChoreStrikeNotifier (renders localized notifications;
 │   │                           #   registered via Application::registerNotifierService —
 │   │                           #   the legacy info.xml <notifications> tag is not wired
 │   │                           #   on modern Nextcloud, CS-PLAN-023)
 │   ├── Service/                # Business logic (House, Floor, Room, RoomTask,
 │   │                           #   Task, GameLogic, Scheduling,
-│   │                           #   Minigame, RewardConfig, Template, TaskSync,
+│   │                           #   Minigame, RewardConfig, Template,
 │   │                           #   TestData, Authorization, AppLogger, Title,
 │   │                           #   Notification, StreakAtRisk, StreakFreeze,
 │   │                           #   StreakRestock, TaskDueReminder). The daily
@@ -298,7 +303,11 @@ summary below covers the core tables. Column types map to the entity PHP type
 | `chorestrike_chk_items` | Task checklist template items (Version1005 name) | `TaskChecklistItem` |
 | `chorestrike_chk_progress` | Per-room-task checklist progress (Version1005 name) | `RoomTaskChecklistProgress` |
 | `chorestrike_task_assignees` | Multi-assignee join table (room-task ↔ user) (CS-PLAN-002) | `TaskAssignee` |
-| `chorestrike_availability` | Per-user availability: weekday presence, time ranges, energy budget | `AvailabilitySettings` |
+
+> `chorestrike_availability` (orphan `AvailabilitySettings` entity/mapper) and
+> the never-referenced `chorestrike_task_scopes` / `chorestrike_task_parts` /
+> `chorestrike_claims` tables were removed from the fresh-install chain in
+> CS-PLAN-055 (pre-release, no drop steps).
 
 ### Indexes
 
@@ -615,7 +624,6 @@ daily-notification --as-of YYYY-MM-DD` (test mode only); `--as-of` sets
    `house_id`, scope through the ownership chain in one query instead of
    per-row ownership checks.
    Pattern: `CompletedTaskMapper::findCompletionsBetweenByHouse`,
-   `findPendingSyncsForHouse` (consumed by `TaskSyncService::getPendingSyncsForHouse`),
    `RoomMapper::findByHouseId`.
 
 **Write-path idioms (CS-PLAN-037)** — the same conversion for loops that

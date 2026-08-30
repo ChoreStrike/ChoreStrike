@@ -67,10 +67,6 @@ class GameLogicService {
 	 * @param RoomTask $roomTask The locked room task entity (held by the caller)
 	 * @param int $userId The house user ID
 	 * @param Task $task The task entity
-	 * @param int|null $nextcloudTaskId Optional Nextcloud task id stamped on the
-	 *                                  completion row (CR-SVC-46): sync completions pass the linked id so
-	 *                                  {@see \OCA\ChoreStrike\Db\CompletedTaskMapper::findPendingSyncs()}
-	 *                                  picks the row up for ChoreStrike → Nextcloud sync-out.
 	 * @return array{
 	 *     contributionScore: int, coins: int, isCombo: bool, daysEarly: int,
 	 *     earlyMultiplier: float, currentStreak: int, totalContribution: int,
@@ -79,7 +75,7 @@ class GameLogicService {
 	 * } Result payload; `newTitle` (CR-SVC-12) must be dispatched by the caller
 	 *   after commit, never inside the transaction.
 	 */
-	public function handleTaskCompletion(RoomTask $roomTask, int $userId, Task $task, ?int $nextcloudTaskId = null): array {
+	public function handleTaskCompletion(RoomTask $roomTask, int $userId, Task $task): array {
 		// CR-SVC-04: lock the house_user row for the duration of this read-
 		// modify-write so two concurrent same-user completions cannot clobber
 		// each other's coins/streak update. Runs inside the caller's open
@@ -110,12 +106,6 @@ class GameLogicService {
 		$completedTask->setCompletedAt(new \DateTime());
 		$completedTask->setCoinsEarned($coins);
 		$completedTask->setWasCombo($isCombo);
-		if ($nextcloudTaskId !== null) {
-			// CR-SVC-46: stamp the linked Nextcloud task id inside the
-			// canonical transaction so findPendingSyncs() (which filters on
-			// completed_tasks.nextcloud_task_id) sees sync completions.
-			$completedTask->setNextcloudTaskId($nextcloudTaskId);
-		}
 		$this->completedTaskMapper->insert($completedTask);
 
 		$user->addContributionScore($contributionScore);
@@ -294,19 +284,6 @@ class GameLogicService {
 		return [
 			'users' => array_map(fn ($user) => $this->serializeUser($user), $users),
 		];
-	}
-
-	/**
-	 * Get leaderboard for a house
-	 *
-	 * @param int $houseId The house ID
-	 * @param int $limit Maximum number of users
-	 */
-	public function getLeaderboard(int $houseId, int $limit = 10): array {
-		return array_map(
-			fn ($user) => $this->serializeUser($user),
-			$this->houseUserMapper->getLeaderboard($houseId, $limit)
-		);
 	}
 
 	/**

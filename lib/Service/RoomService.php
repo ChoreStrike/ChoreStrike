@@ -15,7 +15,6 @@ use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
-use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
@@ -95,26 +94,6 @@ class RoomService {
 		if ($floor->getHouseId() !== $houseId) {
 			throw new NotFoundException($this->l10n->t('Room not found'));
 		}
-	}
-
-	/**
-	 * Get all rooms for a floor
-	 *
-	 * @param int $floorId The floor ID
-	 * @return Room[]
-	 */
-	public function getRooms(int $floorId): array {
-		return $this->roomMapper->findByFloorId($floorId);
-	}
-
-	/**
-	 * Get room by ID
-	 *
-	 * @param int $roomId The room ID
-	 * @throws DoesNotExistException if not found
-	 */
-	public function getRoom(int $roomId): Room {
-		return $this->roomMapper->find($roomId);
 	}
 
 	/**
@@ -217,78 +196,6 @@ class RoomService {
 	}
 
 	/**
-	 * Get room with tasks
-	 *
-	 * Task details come from one findByIds batch fetch (CS-PLAN-036) instead
-	 * of a per-room-task lookup; a room task whose task definition is missing
-	 * is skipped (map absence = skip, same semantics as the old try/catch).
-	 *
-	 * @param int $roomId The room ID
-	 */
-	public function getRoomWithTasks(int $roomId): array {
-		$room = $this->roomMapper->find($roomId);
-		$roomTasks = $this->roomTaskMapper->findByRoomId($roomId);
-
-		$tasksById = $this->taskMapper->findByIds(array_map(
-			static fn (RoomTask $roomTask) => $roomTask->getTaskId(),
-			$roomTasks
-		));
-
-		// Load task details for each room task
-		$tasksWithDetails = [];
-		foreach ($roomTasks as $roomTask) {
-			$task = $tasksById[$roomTask->getTaskId()] ?? null;
-			if ($task === null) {
-				// Task doesn't exist, skip this room task
-				continue;
-			}
-			$tasksWithDetails[] = [
-				'roomTask' => $roomTask,
-				'task' => $task
-			];
-		}
-
-		return [
-			'room' => $room,
-			'tasks' => $tasksWithDetails,
-			'stats' => $this->calculateRoomStats($room, $tasksWithDetails)
-		];
-	}
-
-	/**
-	 * Calculate room statistics
-	 *
-	 * @param Room $room The room
-	 * @param array $tasksWithDetails Array of tasks with details
-	 */
-	private function calculateRoomStats(Room $room, array $tasksWithDetails): array {
-		$activeTasks = array_filter($tasksWithDetails, fn ($item) => $item['roomTask']->getIsActive());
-		$overdueTasks = array_filter($activeTasks, fn ($item) => $item['roomTask']->isOverdue());
-		$dueTodayTasks = array_filter($activeTasks, fn ($item) => $item['roomTask']->isDueToday());
-
-		return [
-			'cleanliness' => $room->getCleanliness(),
-			'monsterCount' => $room->getMonsterCount(),
-			'status' => $room->getStatus(),
-			'needsCleaning' => $room->needsCleaning(),
-			'activeTasks' => count($activeTasks),
-			'overdueTasks' => count($overdueTasks),
-			'dueTodayTasks' => count($dueTodayTasks),
-			'lastCleaned' => $room->getLastCleaned()?->format('c')
-		];
-	}
-
-	/**
-	 * Get rooms that need cleaning
-	 *
-	 * @param int|null $floorId Optional floor ID to filter by
-	 * @return Room[]
-	 */
-	public function getRoomsNeedingCleaning(?int $floorId = null): array {
-		return $this->roomMapper->findNeedingCleaning($floorId);
-	}
-
-	/**
 	 * Get room task by ID
 	 *
 	 * @param int $roomTaskId The room task ID
@@ -310,11 +217,8 @@ class RoomService {
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param string $userId The Nextcloud user ID who completed the task
-	 * @param int|null $nextcloudTaskId Optional Nextcloud task id stamped on
-	 *                                  the completion row for sync completions (CR-SVC-46), so the
-	 *                                  ChoreStrike → Nextcloud sync-out picks the completion up.
 	 */
-	public function completeRoomTask(int $roomTaskId, string $userId, ?int $nextcloudTaskId = null): array {
+	public function completeRoomTask(int $roomTaskId, string $userId): array {
 		$roomTaskData = $this->getRoomTask($roomTaskId);
 		$roomTask = $roomTaskData['roomTask'];
 		$task = $roomTaskData['task'];
@@ -441,8 +345,7 @@ class RoomService {
 			$gameResult = $this->gameLogicService->handleTaskCompletion(
 				$roomTask,
 				$houseUser->getId(),
-				$task,
-				$nextcloudTaskId
+				$task
 			);
 
 			// Teamwork bonus: award additional coins when multiple assignees

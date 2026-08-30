@@ -25,7 +25,7 @@ import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { runOcc, containerDate } from './fixtures/occ-runner'
 
-interface LeaderboardEntry {
+interface HouseUserJson {
 	id: number
 	nextcloudUserId: string
 	displayName: string
@@ -43,16 +43,18 @@ interface OcsNotification {
 }
 
 /**
- * Fetch mom's leaderboard entry (carries currentStreak + streakFreezes).
+ * Fetch mom's house-user row (carries currentStreak + streakFreezes) via
+ * `GET /users` — the leaderboard route was pruned in CS-PLAN-055 and the
+ * users serialization the `houseUsers` store consumes carries the same fields.
  */
-async function fetchMomEntry(page: import('@playwright/test').Page): Promise<LeaderboardEntry> {
-	const response = await page.request.get('/apps/chorestrike/api/v1/game/leaderboard')
+async function fetchMomEntry(page: import('@playwright/test').Page): Promise<HouseUserJson> {
+	const response = await page.request.get('/apps/chorestrike/api/v1/users')
 	expect(response.status()).toBe(200)
 
 	const body = await response.json()
 	expect(body.success).toBe(true)
 
-	const entries: LeaderboardEntry[] = body.data || []
+	const entries: HouseUserJson[] = body.data || []
 	const mom = entries.find(entry => entry.nextcloudUserId === 'mom')
 	expect(mom).toBeDefined()
 	return mom!

@@ -119,38 +119,6 @@ describe('Minigame Store', () => {
 			store.personalBest = { score: 100 }
 		})
 
-		it('canAffordBoost returns true when sparks sufficient', () => {
-			expect(store.canAffordBoost('slow_motion')).toBe(true) // costs 10
-		})
-
-		it('canAffordBoost returns false when coins insufficient', () => {
-			store.currentCoins = 5
-			expect(store.canAffordBoost('ghost_mode')).toBe(false) // costs 20
-		})
-
-		it('selectedBoostsCost calculates total cost', () => {
-			store.purchasedBoosts = ['slow_motion', 'ghost_mode']
-			expect(store.selectedBoostsCost).toBe(30) // 10 + 20
-		})
-
-		it('isBoostActive returns true for active boost', () => {
-			expect(store.isBoostActive('slow_motion')).toBe(true)
-		})
-
-		it('isBoostActive returns false for inactive boost', () => {
-			expect(store.isBoostActive('magnet')).toBe(false)
-		})
-
-		it('affordableBoosts returns boosts within budget', () => {
-			store.currentCoins = 25
-			const affordable = store.affordableBoosts
-			expect(affordable.some(b => b.id === 'slow_motion')).toBe(true) // 10
-			expect(affordable.some(b => b.id === 'shrink')).toBe(true) // 15
-			expect(affordable.some(b => b.id === 'ghost_mode')).toBe(true) // 20
-			expect(affordable.some(b => b.id === 'no_obstacles')).toBe(true) // 25
-			expect(affordable.some(b => b.id === 'magnet')).toBe(false) // 30
-		})
-
 		it('isNewPersonalBest returns true when score exceeds best', () => {
 			store.score = 150
 			expect(store.isNewPersonalBest).toBe(true)
@@ -358,22 +326,6 @@ describe('Minigame Store', () => {
 				expect(store.showBoostShop).toBe(true)
 				store.toggleBoostShop()
 				expect(store.showBoostShop).toBe(false)
-			})
-		})
-
-		describe('toggleLeaderboard', () => {
-			it('toggles leaderboard visibility', () => {
-				store.showLeaderboard = false
-				store.toggleLeaderboard()
-				expect(store.showLeaderboard).toBe(true)
-			})
-		})
-
-		describe('clearPurchasedBoosts', () => {
-			it('clears purchased boosts', () => {
-				store.purchasedBoosts = ['slow_motion', 'ghost_mode']
-				store.clearPurchasedBoosts()
-				expect(store.purchasedBoosts).toEqual([])
 			})
 		})
 

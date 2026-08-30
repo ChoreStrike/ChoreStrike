@@ -51,42 +51,6 @@ class FloorControllerTest extends TestCase {
 	}
 
 	/**
-	 * Test GET /floors returns list successfully
-	 */
-	public function testIndex_ReturnsFloorsSuccessfully(): void {
-		$house = new House();
-		$house->setId(1);
-
-		$floor1 = new Floor();
-		$floor1->setId(1);
-		$floor1->setName('Ground Floor');
-		$floor1->setHouseId(1);
-
-		$floor2 = new Floor();
-		$floor2->setId(2);
-		$floor2->setName('First Floor');
-		$floor2->setHouseId(1);
-
-		$this->houseService->method('getInstanceId')->willReturn('instance-123');
-		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
-
-		$this->floorService->expects($this->once())
-			->method('getFloors')
-			->with(1)
-			->willReturn([$floor1, $floor2]);
-
-		$response = $this->controller->index();
-
-		$this->assertInstanceOf(JSONResponse::class, $response);
-		$this->assertEquals(200, $response->getStatus());
-
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertCount(2, $data['data']);
-	}
-
-	/**
 	 * Test POST /floors validates empty name
 	 */
 	public function testCreate_ValidatesEmptyName(): void {

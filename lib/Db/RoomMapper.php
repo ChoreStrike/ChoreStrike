@@ -98,35 +98,6 @@ class RoomMapper extends QBMapper {
 	}
 
 	/**
-	 * Get all rooms that need cleaning
-	 *
-	 * @param int|null $floorId Optional floor ID to filter by
-	 * @return Room[]
-	 */
-	public function findNeedingCleaning(?int $floorId = null): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->where($qb->expr()->lt('cleanliness', $qb->createNamedParameter(60, IQueryBuilder::PARAM_INT)));
-
-		if ($floorId !== null) {
-			$qb->andWhere($qb->expr()->eq('floor_id', $qb->createNamedParameter($floorId, IQueryBuilder::PARAM_INT)));
-		}
-
-		return $this->findEntities($qb);
-	}
-
-	/**
-	 * Get all rooms
-	 *
-	 * @return Room[]
-	 */
-	public function findAll(): array {
-		return parent::findAll();
-	}
-
-	/**
 	 * Create a new room
 	 *
 	 * @param int $floorId The floor ID

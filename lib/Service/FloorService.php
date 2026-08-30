@@ -14,7 +14,6 @@ use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
 use OCP\IL10N;
 
@@ -61,26 +60,6 @@ class FloorService {
 		if ($floor->getHouseId() !== $houseId) {
 			throw new NotFoundException($this->l10n->t('Floor not found'));
 		}
-	}
-
-	/**
-	 * Get all floors for a house
-	 *
-	 * @param int $houseId The house ID
-	 * @return Floor[]
-	 */
-	public function getFloors(int $houseId): array {
-		return $this->floorMapper->findByHouseId($houseId);
-	}
-
-	/**
-	 * Get floor by ID
-	 *
-	 * @param int $floorId The floor ID
-	 * @throws DoesNotExistException if not found
-	 */
-	public function getFloor(int $floorId): Floor {
-		return $this->floorMapper->find($floorId);
 	}
 
 	/**
@@ -195,22 +174,6 @@ class FloorService {
 			]);
 			throw $e;
 		}
-	}
-
-	/**
-	 * Get floor with rooms
-	 *
-	 * @param int $floorId The floor ID
-	 */
-	public function getFloorWithRooms(int $floorId): array {
-		$floor = $this->floorMapper->find($floorId);
-		$rooms = $this->roomMapper->findByFloorId($floorId);
-
-		return [
-			'floor' => $floor,
-			'rooms' => $rooms,
-			'stats' => $this->calculateFloorStats($rooms)
-		];
 	}
 
 	/**

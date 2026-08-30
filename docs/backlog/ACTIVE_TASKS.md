@@ -10,7 +10,8 @@
 
 ## In Progress
 
-<!-- (empty — CS-PLAN-053 + 054 completed and moved to docs/plans/done/) -->
+<!-- (empty — CS-PLAN-055 implemented 2026-08-29, Standard-B reviewed PASS
+     2026-08-30 + /review-uncommitted second pass; plan moved to done/) -->
 
 <!-- When you start work, add an entry here in this shape:
 ### CS-PLAN-NNN — Title
@@ -20,6 +21,8 @@
 -->
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
+
+- **CS-PLAN-055** — Route Pruning & Dead-Code Sweep U2-A: 39 no-consumer/test-only routes pruned (110→**71**; `RouteMatrixTest` count pin + CS-055 reintro guard), GET-create branches + alias routes gone (**BUG-ROOM-001**, CSRF class closed), `TaskSyncController/Service` + `RewardConfigController` surfaces deleted (**CR-053-05/08/14/21-slices**), full backend cascade (13 controller classes thinned, ~25 service methods, entity/mapper clusters A–D incl. `AvailabilitySettings` + orphan tables, reminder/`Room::description` schema-drift fields **CR-053-10**, 7 dead migration steps + dead guard blocks, chain 28→21), frontend dead-store layer (~40 members across 9 stores, barrel + `utils/{mobile,performance}.js`, `roomIcons` option pair — **CR-053-15/20** dead half, CR-P4-03 decided: delete), test consumers reworked first (reward-config knob → family-seed `FAMILY_REWARD_CONFIG_OVERRIDES`, leaderboard→`GET /users`, release-task-lifecycle re-scoped onto surviving routes). Durable truth integrated into `docs/api` + `ui-use-cases` (prune ledger) + `task-model-and-sync`/`energy-and-balancing`/`architecture`/`security`/ADR-005. Gate: Jest **754** · PHPUnit unit **757** / integration **198** [21 pre-existing skips] · lint/stylelint/cs:check 0 · noise · webpack build · fresh-install migration replay (`down -v`+`up -d`, 21 steps, no orphan tables) · blocking E2E 177 passed/5 flaky-recovered/11 skipped. Found en route: `TestDataService` used `IConfig` for app-value writes that only exist on the mock (fixed via app-value API + mock `deleteAppValue`), `getAllTasks` mock left wired in an integration test, `MedalMapper::findByUserId`/leaderboard query chain newly-orphaned (recorded inline). Standard-B review 2026-08-30: **PASS** — 39-route disposition + 71-pin verified mechanically against HEAD, GET-mutation authz class closed, full no-caller census of deleted symbols clean, seed knob on the real registry key with symmetric reset; 3 inline auto-fixes for newly-orphaned leftovers the WP-D gates missed (`RoomTaskMapper::findByNextcloudTaskId`, `RoomService::calculateRoomStats`, `RoomService::getRoomsNeedingCleaning` + `RoomMapper::findNeedingCleaning` + 2 self-tests; re-gate unit **755**/Jest 754/integration 198 green); deferrals **CR-055-03/04** logged; no standalone route-disposition ADR (rationale in plan §8). `/review uncommitted` second pass 2026-08-30: 6 findings all fixed — weekly-goal bell check made stale-row-proof via dismiss-first (`notification_id`), seed knob now references the registry const, 4th newly-orphaned leftover deleted (`CompletedTaskMapper::findLatestByRoomTask`), Version1024 dead `$changed` + Version1027/1026 stale `@see`/comments repaired; re-gate unit 755 / integration 198 [21 skips] / Jest 754 / E2E serial 92 pass (1 fail = pre-existing Sunday date-boundary → **BUG-E2E-003**, 4 skips). (2026-08-29, Done + reviewed 2026-08-30; plan moved to `done/`) → [`../plans/done/cs-plan-055-route-dead-code-pruning.md`](../plans/done/cs-plan-055-route-dead-code-pruning.md)
 
 - **CS-PLAN-054** — P1 Security Quick-Closes (closed **CR-053-01/02/03/04** + **CR-053-22** Checklist remainder; D1=owner-gate+closed-set / D2=house-filter-now signed off): new `ChecklistService` owning the checklist guard (room-chain house linkage + visibility matrix, denials → 404 anti-enumeration) with `ChecklistController` thinned to preamble+delegate+envelope (437→316 lines), reorder payload validation (int ids of one accessible task → int orders, else 400) and item↔task linkage checks on toggle/update/delete; `GET /room-tasks` house scoping (`validateRoomOwnership` on the roomId branch → 404, new `getScopeTasksScopedToHouse` skip-on-missing intersection on the scopeId branch); owner-only floor/room delete via `requireHouseOwner` (403); `taskTier` out of `MUTABLE_FIELDS` into an explicit owner-gate + `['bronze','silver','gold']` closed set (member → 403 routed around the inner Forbidden→404 catch via controller pre-check, invalid → 400; service gate kept as defense-in-depth); `ControllerErrorFormatter` gained shared `notFoundResponse`/`serverErrorResponse`; mapper additions `RoomTaskMapper::findHouseIdsForTask` + `TaskChecklistItemMapper::findByIds`; l10n en/de/pot synced (5 keys); auth notes in `docs/api/README.md` (incl. new Checklists section). Gate: Jest 848 · PHPUnit unit 914 / integration 233 [24 pre-existing skips] · lint/stylelint/cs:check 0/272 · noise/l10n/encoding clean. Standard-B review 2026-08-29: **PASS** — guard placement, 404-before-403 gate ordering, reorder hardening, visibility matrix and thin-controller split verified against the code; 1 auto-fix (`index()` 404 catch → shared `ControllerErrorFormatter::notFoundResponse`); gate re-verified green; review record in plan §11. (2026-08-29, Done — plan moved to `done/`) → [`../plans/done/cs-plan-054-p1-security-quick-closes.md`](../plans/done/cs-plan-054-p1-security-quick-closes.md)
 
@@ -505,3 +508,36 @@
 > leaderboard fix = D3). All file:line refs, route keep/prune lists, and
 > test-consumer claims verified against the tree; ready for review + manual
 > `new/ → active/` move.
+
+> **CS-PLAN-055 plan review (2026-08-29)**: Standard A — **GO-WITH-CHANGES**,
+> fixes applied inline to the plan: phantom `user#show` (never existed in
+> `routes.php`/`UserController`, git-verified) corrected to the real
+> no-consumer wrapper route **`user#update`** (PUT `/users/{id}`, sole consumer
+> = dead `updateUserProfile` action) in §3.1/§3.2/§8 — 39/71 arithmetic now
+> closes; §3.4/§4 corrected — `RouteMatrixTest` has no count/expected-set
+> assertion today, the plan now *adds* the 71-pin + pruned-names guard; CS-054
+> cascade gap closed (`ChecklistService::{initializeProgress,getCompleteChecklist}`
+> → `RoomTaskChecklistProgressMapper::initializeProgress` become caller-less with
+> the route and join §3.2); manifest path/spec-name repairs (`src/utils/roomIcons.js`
+> not `constants/`, `storeBarrel.spec.js` not `store/index.spec.js`, added
+> sole-importer specs `utils/{mobile,performance}.spec.js` + TaskSync/Availability
+> unit-suite deletions + surviving-suite trim list); ENV-003 parenthetical
+> corrected (exactly one Version1013 file, which creates `chorestrike_availability`
+> at :17-68; the record's "twice" claim was Version1004 ×2 / 1010↔1013 same-date
+> confusion; V1015's availability-index block added to the edit list). Verified
+> against the tree: 110-route recount, all other 38 prune names exist, GET-create
+> refs (FloorController:51-71, RoomController:55-88), keep-list lines
+> (roomTasks.js:554/:584), every §3.4 test-consumer ref incl.
+> release-notifications:48/57 and time-travel:49, no e2e/integration consumer of
+> `game/leaderboard` besides the named spec, `TaskSyncService` lib-caller = its
+> controller only, `$nextcloudTaskId` pass-through = TaskSync only,
+> `getTierMultiplier`/`isAuthenticated`/`isHouseMember` test-only (integration
+> caller named), `RewardConfigService` service consumers + retention correct,
+> orphan-table creation sites V1001/1008/1009, migration count 28, baselines
+> (Jest 848, integration 233/24 skips), CR-053/CR-P4-03/FEAT-UX-021/BUG-ROOM-001
+> mappings, and CS-PLAN-056's reciprocal dependency. Open WP-C grep-gate notes
+> (recorded in the plan's `## Review Outcome`, not blockers): `room_task#assignees`
+> GET/PUT "production" label lacks an `src/` call site, and the review record's
+> L3-0 per-bucket labels inherited the same phantom — totals are only
+> re-derivable from the new RouteMatrix guard. Ready for manual
+> `new/ → active/` move (055 before 056/057 as drafted).

@@ -64,15 +64,4 @@ class RoomTaskChecklistProgress extends Entity implements JsonSerializable {
 		];
 	}
 
-	/**
-	 * Check if this progress item was checked recently
-	 */
-	public function wasCheckedRecently(int $minutes = 5): bool {
-		if (!$this->isChecked || $this->checkedAt === null) {
-			return false;
-		}
-
-		$cutoff = new \DateTime("-{$minutes} minutes");
-		return $this->checkedAt >= $cutoff;
-	}
 }
