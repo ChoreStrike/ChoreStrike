@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
@@ -95,7 +96,14 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
 
 		$this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
-		$this->service->uncompleteTask($roomTaskId);
+		$this->service->uncompleteTask($roomTaskId, $this->createHouseUser(), 'user123');
+	}
+
+	private function createHouseUser(string $userId = 'user123', string $role = 'member'): HouseUser {
+		$houseUser = new HouseUser();
+		$houseUser->setNextcloudUserId($userId);
+		$houseUser->setRole($role);
+		return $houseUser;
 	}
 
 	public function testGetFilteredDailyTasksForUserReturnsAllTasksForNonChildUser(): void {

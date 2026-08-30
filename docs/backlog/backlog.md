@@ -468,12 +468,7 @@ deactivate/reactivate by filter (cf. CR-SVC-61 bulk-endpoint pattern).
 **Status**: Closed 2026-08-29 (CS-PLAN-055 — RewardConfig HTTP surface pruned) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P2] CR-053-06 — Task lifecycle endpoints skip the visibility matrix (uncomplete)
-**Effort**: S · **Source**: CS-PLAN-053 (CR-P3-03); **re-scoped by CS-PLAN-055**
-(`skip`/`reschedule`/task-level `complete` routes pruned with the surface)
-`complete` enforces private→assignee / admin-only→owner **in-service** (`RoomService:371-378`);
-the surviving undo primitive `PUT /tasks/{id}/uncomplete` enforces neither (grep: zero
-visibility checks in `RoomTaskService::uncompleteTask`) — any member can uncomplete
-another member's private task.
+**Status**: Closed 2026-08-30 (CS-PLAN-056 — `assertLifecycleVisibility` guard wired into the surviving lifecycle mutations) → [`archive/2026-08.md`](archive/2026-08.md)
 
 ### [P2] CR-053-07 — Bootstrap races: duplicate houses per instance + two-owners race
 **Effort**: M · **Source**: CS-PLAN-053 (CR-P2-04)

@@ -395,6 +395,14 @@ completion deactivated them; `deactivate` was pruned in CS-PLAN-055).
 #### DELETE /room-tasks/{id}
 Remove task from room.
 
+> **Lifecycle authorization (CS-PLAN-056, CR-053-06):** the surviving
+> lifecycle mutations — `PUT /tasks/{id}/uncomplete`,
+> `PUT /room-tasks/{id}/due-date`, and `POST /room-tasks/{id}/reactivate` —
+> enforce the same task-visibility matrix as `POST /room-tasks/{id}/complete`
+> (public → any member; private → assigned users; admin-only → house owner).
+> Denials return `403 FORBIDDEN` with the same translated-message family as
+> the completion gate.
+
 > **Full route list:** the canonical, complete route table is
 > [`appinfo/routes.php`](../../appinfo/routes.php) (71 routes spanning `house`,
 > `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,

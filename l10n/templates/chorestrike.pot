@@ -104,6 +104,9 @@ msgstr ""
 msgid "Admin-only tasks may only be completed by house owners"
 msgstr ""
 
+msgid "Admin-only tasks may only be modified by house owners"
+msgstr ""
+
 msgid "Admins only"
 msgstr ""
 
@@ -1578,6 +1581,9 @@ msgid "Private task"
 msgstr ""
 
 msgid "Private tasks may only be completed by assigned users"
+msgstr ""
+
+msgid "Private tasks may only be modified by assigned users"
 msgstr ""
 
 msgid "Progress initialized"

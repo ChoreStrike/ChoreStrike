@@ -292,10 +292,10 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->ensureHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
-			$roomTask = $this->roomTaskService->reactivateTask($id);
+			$roomTask = $this->roomTaskService->reactivateTask($id, $houseUser, $houseUser->getNextcloudUserId());
 
 			return new JSONResponse([
 				'success' => true,
@@ -323,7 +323,7 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->ensureHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
 			try {
@@ -332,7 +332,7 @@ class RoomTaskController extends Controller {
 				throw new \InvalidArgumentException($this->l->t('Invalid nextDue date format'));
 			}
 
-			$roomTask = $this->roomTaskService->updateDueDate($id, $nextDueDate);
+			$roomTask = $this->roomTaskService->updateDueDate($id, $nextDueDate, $houseUser, $houseUser->getNextcloudUserId());
 
 			return new JSONResponse([
 				'success' => true,

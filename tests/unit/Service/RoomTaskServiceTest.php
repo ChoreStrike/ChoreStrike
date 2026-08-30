@@ -17,6 +17,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssignee;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\RoomService;
@@ -72,6 +73,34 @@ class RoomTaskServiceTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 		return $l10n;
+	}
+
+	/**
+	 * HouseUser actor for lifecycle-visibility wiring (CS-PLAN-056).
+	 */
+	private function createHouseUser(string $userId = 'user123', string $role = 'member'): HouseUser {
+		$houseUser = new HouseUser();
+		$houseUser->setNextcloudUserId($userId);
+		$houseUser->setRole($role);
+		return $houseUser;
+	}
+
+	/**
+	 * Public task definition — passes the lifecycle gate for any member.
+	 */
+	private function createTask(string $visibilityType = Task::VISIBILITY_PUBLIC): Task {
+		$task = new Task();
+		$task->setVisibilityType($visibilityType);
+		return $task;
+	}
+
+	/**
+	 * Stub the task lookup behind the lifecycle guard.
+	 */
+	private function stubTaskDefinition(Task $task): void {
+		$this->taskMapper
+			->method('find')
+			->willReturn($task);
 	}
 
 	/**
@@ -646,8 +675,10 @@ class RoomTaskServiceTest extends TestCase {
 
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
+		$roomTask->setTaskId(1);
 		$roomTask->setIsActive(true);
 
+		$this->stubTaskDefinition($this->createTask());
 		$this->roomTaskMapper
 			->expects($this->exactly(2))
 			->method('find')
@@ -659,7 +690,7 @@ class RoomTaskServiceTest extends TestCase {
 			->method('reactivate')
 			->with($roomTaskId);
 
-		$result = $this->service->reactivateTask($roomTaskId);
+		$result = $this->service->reactivateTask($roomTaskId, $this->createHouseUser(), 'user123');
 
 		$this->assertTrue($result->getIsActive());
 	}
@@ -673,8 +704,10 @@ class RoomTaskServiceTest extends TestCase {
 
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
+		$roomTask->setTaskId(1);
 		$roomTask->setNextDue($newDue);
 
+		$this->stubTaskDefinition($this->createTask());
 		$this->roomTaskMapper
 			->expects($this->exactly(2))
 			->method('find')
@@ -686,9 +719,114 @@ class RoomTaskServiceTest extends TestCase {
 			->method('updateNextDue')
 			->with($roomTaskId, $newDue);
 
-		$result = $this->service->updateDueDate($roomTaskId, $newDue);
+		$result = $this->service->updateDueDate($roomTaskId, $newDue, $this->createHouseUser(), 'user123');
 
 		$this->assertSame($roomTask, $result);
+	}
+
+	// CS-PLAN-056 (CR-053-06): lifecycle mutations enforce the same visibility
+	// matrix as the completion path. Wired through uncompleteTask /
+	// updateDueDate / reactivateTask so the guard cannot be bypassed.
+
+	/**
+	 * UncompleteTask_PrivateTask_NonAssigneeMember_Forbidden
+	 */
+	public function testUncompleteTask_PrivateTask_NonAssigneeMember_Forbidden(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setTaskId(1);
+		$roomTask->setAssignedToUserId('ownerUser');
+
+		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_PRIVATE));
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+
+		$this->expectException(ForbiddenException::class);
+		$this->service->uncompleteTask(1, $this->createHouseUser('memberUser'), 'memberUser');
+	}
+
+	/**
+	 * UncompleteTask_PrivateTask_Assignee_Succeeds
+	 */
+	public function testUncompleteTask_PrivateTask_Assignee_Succeeds(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setTaskId(1);
+		$roomTask->setAssignedToUserId('assigneeUser');
+
+		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_PRIVATE));
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn(['assigneeUser']);
+
+		$updatedRoomTask = new RoomTask();
+		$updatedRoomTask->setId(1);
+		$updatedRoomTask->setTaskId(1);
+		$updatedRoomTask->setAssignedToUserId('assigneeUser');
+		$updatedRoomTask->setLastCompleted(null);
+		$this->roomTaskMapper->method('update')->willReturn($updatedRoomTask);
+
+		$result = $this->service->uncompleteTask(1, $this->createHouseUser('assigneeUser'), 'assigneeUser');
+
+		$this->assertNull($result->getLastCompleted());
+	}
+
+	/**
+	 * UncompleteTask_PublicTask_AnyMember_Succeeds
+	 */
+	public function testUncompleteTask_PublicTask_AnyMember_Succeeds(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setTaskId(1);
+
+		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_PUBLIC));
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+
+		$updatedRoomTask = new RoomTask();
+		$updatedRoomTask->setId(1);
+		$updatedRoomTask->setTaskId(1);
+		$updatedRoomTask->setLastCompleted(null);
+		$this->roomTaskMapper->method('update')->willReturn($updatedRoomTask);
+
+		$result = $this->service->uncompleteTask(1, $this->createHouseUser('anyMember'), 'anyMember');
+
+		$this->assertNull($result->getLastCompleted());
+	}
+
+	/**
+	 * UpdateDueDate_AdminOnlyTask_NonOwnerMember_Forbidden
+	 */
+	public function testUpdateDueDate_AdminOnlyTask_NonOwnerMember_Forbidden(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setTaskId(1);
+
+		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_ADMIN_ONLY));
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+
+		$this->expectException(ForbiddenException::class);
+		$this->service->updateDueDate(1, new \DateTime('+1 day'), $this->createHouseUser('memberUser'), 'memberUser');
+	}
+
+	/**
+	 * ReactivateTask_AdminOnlyTask_Owner_Succeeds
+	 */
+	public function testReactivateTask_AdminOnlyTask_Owner_Succeeds(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setTaskId(1);
+		$roomTask->setIsActive(true);
+
+		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_ADMIN_ONLY));
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+
+		$this->roomTaskMapper->expects($this->once())->method('reactivate');
+
+		$result = $this->service->reactivateTask(1, $this->createHouseUser('ownerUser', 'owner'), 'ownerUser');
+
+		$this->assertTrue($result->getIsActive());
 	}
 
 	/**

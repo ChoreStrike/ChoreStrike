@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
@@ -19,6 +20,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssignee;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
@@ -506,9 +508,12 @@ class RoomTaskService {
 	 * Reactivate room task
 	 *
 	 * @param int $roomTaskId The room task ID
+	 * @param HouseUser $houseUser The acting user's house membership
+	 * @param string $userId The acting user's Nextcloud user ID
 	 */
-	public function reactivateTask(int $roomTaskId): RoomTask {
-		$this->roomTaskMapper->find($roomTaskId);
+	public function reactivateTask(int $roomTaskId, HouseUser $houseUser, string $userId): RoomTask {
+		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		$this->assertLifecycleVisibility($roomTask, $this->taskMapper->find($roomTask->getTaskId()), $houseUser, $userId);
 		$this->roomTaskMapper->reactivate($roomTaskId);
 
 		// Return updated room task
@@ -520,9 +525,12 @@ class RoomTaskService {
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param \DateTime $nextDue The new due date
+	 * @param HouseUser $houseUser The acting user's house membership
+	 * @param string $userId The acting user's Nextcloud user ID
 	 */
-	public function updateDueDate(int $roomTaskId, \DateTime $nextDue): RoomTask {
+	public function updateDueDate(int $roomTaskId, \DateTime $nextDue, HouseUser $houseUser, string $userId): RoomTask {
 		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		$this->assertLifecycleVisibility($roomTask, $this->taskMapper->find($roomTask->getTaskId()), $houseUser, $userId);
 		$this->roomTaskMapper->updateNextDue($roomTaskId, $nextDue);
 
 		// Return updated room task
@@ -849,13 +857,45 @@ class RoomTaskService {
 	}
 
 	/**
+	 * Enforce the task visibility matrix for lifecycle mutations (CS-PLAN-056, CR-053-06).
+	 *
+	 * Mirrors the completion gate in RoomService::completeRoomTask:
+	 * - private tasks: only assigned users (join table + legacy assignee column)
+	 * - admin-only tasks: only house owners
+	 * - public tasks: any house member
+	 *
+	 * @param RoomTask $roomTask The room task being mutated
+	 * @param Task $task The task definition (visibility source)
+	 * @param HouseUser $houseUser The acting user's house membership
+	 * @param string $userId The acting user's Nextcloud user ID
+	 * @throws ForbiddenException if the matrix forbids the mutation
+	 */
+	public function assertLifecycleVisibility(RoomTask $roomTask, Task $task, HouseUser $houseUser, string $userId): void {
+		$assigneeUserIds = TaskAssigneeMapper::mergeLegacyAssignee(
+			$this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId()),
+			$roomTask->getAssignedToUserId()
+		);
+
+		if ($task->isPrivate() && !in_array($userId, $assigneeUserIds, true)) {
+			throw new ForbiddenException($this->l10n->t('Private tasks may only be modified by assigned users'));
+		}
+
+		if ($task->getVisibilityType() === Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
+			throw new ForbiddenException($this->l10n->t('Admin-only tasks may only be modified by house owners'));
+		}
+	}
+
+	/**
 	 * Uncomplete a room task
 	 *
 	 * @param int $roomTaskId The room task ID
+	 * @param HouseUser $houseUser The acting user's house membership
+	 * @param string $userId The acting user's Nextcloud user ID
 	 * @return RoomTask The updated room task
 	 */
-	public function uncompleteTask(int $roomTaskId): RoomTask {
+	public function uncompleteTask(int $roomTaskId, HouseUser $houseUser, string $userId): RoomTask {
 		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		$this->assertLifecycleVisibility($roomTask, $this->taskMapper->find($roomTask->getTaskId()), $houseUser, $userId);
 		$roomTask->setLastCompleted(null);
 		return $this->roomTaskMapper->update($roomTask);
 	}

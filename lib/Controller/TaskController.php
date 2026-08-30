@@ -456,10 +456,10 @@ class TaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->ensureHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
-			$task = $this->roomTaskService->uncompleteTask($id);
+			$task = $this->roomTaskService->uncompleteTask($id, $houseUser, $houseUser->getNextcloudUserId());
 
 			return new JSONResponse([
 				'success' => true,
