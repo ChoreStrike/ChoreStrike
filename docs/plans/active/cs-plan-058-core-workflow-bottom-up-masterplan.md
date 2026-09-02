@@ -545,6 +545,7 @@ npm run test:noise
 npm run build
 npm run l10n:check-keys
 npm run docs:encoding
+npm run backlog:check
 docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.unit.xml
 docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.integration.xml
 docker exec chorestrike-test composer cs:check
@@ -696,7 +697,7 @@ to a separate reviewed plan.
 
 | Work package | Status | Review | Gate | Backlog disposition |
 |--------------|--------|--------|------|---------------------|
-| WP0 Backlog/baseline | Not started | Pending | Pending | Pending |
+| WP0 Backlog/baseline | Done (2026-09-02) | Standard B PASS-WITH-FIXES (2026-09-02) | Applicable docs gate green | TECH-DOCS-003 + CR-053-21 metadata slice closed; CR-055-02 folded into CR-053-13; BUG-E2E-003 open item renumbered BUG-E2E-005; five-section restructure + metadata + `backlog:check` landed |
 | WP1 Persistence invariants | Not started | Pending | Pending | Pending |
 | WP2 Authorization boundaries | Not started | Pending | Pending | Pending |
 | WP3 Atomic setup | Not started | Pending | Pending | Pending |
@@ -707,9 +708,9 @@ to a separate reviewed plan.
 | WP8 Performance/architecture | Not started | Pending | Pending | Pending |
 | WP9 Coverage/release closure | Not started | Pending | Pending | Pending |
 
-The first required lifecycle action is a Standard A plan review. Until it passes,
-this file remains in `docs/plans/new/`, implementation does not begin, and no
-work package may be marked In Progress.
+The Standard A plan review passed on 2026-09-02 and this plan is active in
+`docs/plans/active/`; work packages execute in the order above, one `In
+Progress` package at a time.
 
 ## 10. Plan Review Decision Register
 

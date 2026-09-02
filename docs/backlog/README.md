@@ -65,16 +65,48 @@ eligible plan transitions, and make one scoped commit. **Open** findings →
 
 ## Item format (`backlog.md`)
 
+Since CS-PLAN-059 WP0 (2026-09-02), `backlog.md` is organized into the five
+dependency-oriented sections fixed by
+[`CS-PLAN-058 §2.2`](../plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md):
+
+| Section | Contents |
+|---|---|
+| **Core Workflow Program** | CR-WF-01..08 umbrellas and their explicitly owned findings (`Owning: CS-PLAN-058 WPx`) |
+| **Core Hardening** | Standalone correctness, API, persistence, i18n, and security remainders — each states which work package it blocks |
+| **Deferred Add-ons** | Optional UX/features outside the core critical path |
+| **Infrastructure and Documentation** | Backlog hygiene, lint/dependency, docs truth, operational security |
+| **Release** | RELEASE-002/003 with their exact blocking work packages and gates |
+
+Every open entry carries the standardized nine-field metadata block (`—` is the
+explicit empty value):
+
 ```markdown
-### [P0–P4] ID — Title
-**Status**: [Planned | In Progress | Blocked | Backlog | Deferred]
-**Effort**: [XS | S | M | L | XL] · **Source**: [where this came from]
+### [P1] CR-WF-01 — Enforce approved workflow authorization boundaries
+**Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: authorization
+**Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: CR-WF-03..08 · **Folded-in**: —
+**Source**: Full Review of the core task workflow (2026-09-02)
 
 Short description.
 
 - [ ] Acceptance criterion 1
 - [ ] Acceptance criterion 2
 ```
+
+Field rules:
+
+- `Owning` is a work package (`CS-PLAN-058 WPx`, combinable with `+`), a plan ID
+  (`CS-PLAN-NNN`), or `unassigned`. Core Hardening / Deferred Add-ons entries
+  that block nothing stay `unassigned` with a `Blocks: —` line.
+- `Depends on` / `Blocks` / `Folded-in` reference open backlog IDs, work
+  packages, or plan IDs. `Folded-in` may also point at an archived ID's monthly
+  record. ID ranges (`CR-WF-03..08`, `WP1..WP9`) are allowed.
+- Historical provenance stays in `Source` and the review records — never as
+  duplicate open bodies.
+
+`npm run backlog:check` (scripts/check-backlog.js) machine-verifies:
+open-only entries, unique IDs, the nine metadata fields, resolvable dependency
+references, and relative tracked links in `docs/backlog/*.md` +
+`docs/plans/**/*.md`. Run it after every backlog edit.
 
 ## Priority levels
 
@@ -88,4 +120,4 @@ Short description.
 
 The app is in the **staged release effort**: `v0.8.x` alpha → `v0.9.x` private
 beta → `v1.0.0` stable manual-install. See the
-[roadmap](../release/roadmap.md) and [`backlog.md`](backlog.md) → *Release / Rollout*.
+[roadmap](../release/roadmap.md) and [`backlog.md`](backlog.md) → *Release*.

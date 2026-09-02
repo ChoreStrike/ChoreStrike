@@ -1,6 +1,6 @@
 # CS-PLAN-059: WP0 — Backlog Structure and Executable Baseline
 
-> **Status:** Plan (Standard A review passed 2026-09-02; activation pending)
+> **Status:** Done 2026-09-02 (Standard A GO-WITH-CHANGES; Standard B PASS-WITH-FIXES)
 > **Effort:** M
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP0 and may not start before a passing Standard A review of this plan)
@@ -217,35 +217,35 @@ modified: docs/plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md
 
 ## 8. Acceptance Criteria
 
-- [ ] `backlog.md` contains only genuinely open items, structured into the five
+- [x] `backlog.md` contains only genuinely open items, structured into the five
       CS-PLAN-058 §2.2 sections; every resolved stub's history is confirmed in
       the monthly archive before deletion.
-- [ ] No duplicate open IDs; the insights-flow item is renumbered BUG-E2E-004.
-- [ ] Every open entry carries the standardized metadata block (all nine
+- [x] No duplicate open IDs; the insights-flow item is renumbered BUG-E2E-004.
+- [x] Every open entry carries the standardized metadata block (all nine
       fields, `—` for empty); CR-SVC-40/41/44 gain explicit Status lines.
-- [ ] CR-WF-01..08 are the sole core umbrellas with `Owned by`/`Folded-in`
+- [x] CR-WF-01..08 are the sole core umbrellas with `Owned by`/`Folded-in`
       annotations instead of duplicated acceptance criteria; CR-WF-03 documents
       its WP3+WP4 split; RELEASE-002 lists its exact blocking work packages and
       gates.
-- [ ] `npm run backlog:check` is green, its `--self-test` passes, and the
+- [x] `npm run backlog:check` is green, its `--self-test` passes, and the
       command is part of the CS-PLAN-058 §4.5 quality gate.
-- [ ] All relative Markdown links in `docs/backlog/*.md` and
+- [x] All relative Markdown links in `docs/backlog/*.md` and
       `docs/plans/**/*.md` resolve; the stale `done/`-plan and 058-`new/`
       references are repaired.
-- [ ] Dated baseline recorded: route count (api/README), migration chain
+- [x] Dated baseline recorded: route count (api/README), migration chain
       (development.md), unit/integration skip inventory, E2E project split, and
       core journey specs (testing.md).
-- [ ] TECH-DOCS-003 archived as completed; CR-053-21 metadata portion closed
+- [x] TECH-DOCS-003 archived as completed; CR-053-21 metadata portion closed
       with its remainder kept open under Infrastructure and Documentation.
-- [ ] CS-PLAN-058 §9 progress table and `ACTIVE_TASKS.md` updated in the same
+- [x] CS-PLAN-058 §9 progress table and `ACTIVE_TASKS.md` updated in the same
       package.
-- [ ] Applicable gate green (`npm run lint`, `npm test`, `npm run
+- [x] Applicable gate green (`npm run lint`, `npm test`, `npm run
       docs:encoding`, `npm run backlog:check`, `git diff --check`) with no new
       or unapproved test skips.
-- [ ] All implementation decisions and review questions resolved and recorded.
-- [ ] Durable outcomes integrated into permanent docs (backlog README format
+- [x] All implementation decisions and review questions resolved and recorded.
+- [x] Durable outcomes integrated into permanent docs (backlog README format
       convention, engineering baselines) — plans are temporary.
-- [ ] Final Standard B review is `PASS` or `PASS-WITH-FIXES`.
+- [x] Final Standard B review is `PASS` or `PASS-WITH-FIXES`.
 
 ## 9. Plan Review Decision Register
 
@@ -283,4 +283,73 @@ inline; no open findings).**
   modified → new; §1 Status-line-gap wording and §3.3 check-5 scoping wording
   clarified.
 - No open findings. Recommended next state: `active/`; the move remains a
-  manual user action per project-rules §7.
+   manual user action per project-rules §7.
+
+**Standard B code review — 2026-09-02: PASS-WITH-FIXES (one minor inline fix;
+no open findings).**
+
+- Scope: the full uncommitted WP0 package — `scripts/check-backlog.js`,
+  `package.json`, `docs/backlog/{backlog,README,ACTIVE_TASKS}.md`,
+  `docs/backlog/archive/2026-09.md`,
+  `docs/engineering/{development,testing}.md`, CS-PLAN-058 §4.5/§9, and this
+  plan (`new/` → `active/` move). Runtime architecture/auth/security checks
+  are n/a — `lib/` and `src/` are untouched.
+- Verified against the shared checklist: five sections with 44 open entries
+  (46 before, minus folded CR-055-02 and archived TECH-DOCS-003); every §3.1
+  mapping-table placement honored; CR-WF-03 `WP3+WP4` split documented;
+  RELEASE-002 exact blocking gates; the BUG-E2E-005 renumber consistent
+  across backlog, archive, and testing.md; links in the still-untracked new
+  files manually resolved (the checker sees tracked files only); the
+  `collectArchiveIds` worktree fallback correctly covers the untracked
+  `archive/2026-09.md` for the CR-055-02 `Folded-in` resolution.
+- Finding (minor, fixed inline): unused `basename` import in
+  `scripts/check-backlog.js:42` — not lint-caught because `scripts/` is
+  outside the eslint scope; removed and the checker re-verified green.
+- Gate re-run green: `npm run backlog:check` + `--self-test` (7/7),
+  `npm run docs:encoding`, `npm run lint:fix`, `npm test` (80/80 suites,
+  780 tests), `git diff --check`; Docker backend tests n/a (no PHP changed,
+  §4).
+- Lifecycle: all §8 acceptance criteria satisfied; plan moved
+  `active/` → `done/`; `archive/2026-09.md` and `ACTIVE_TASKS.md` plan
+  references updated to the `done/` path; CS-PLAN-058 §9 WP0 review column
+  set to Standard B PASS-WITH-FIXES.
+
+## 11. Implementation Record (WP0, 2026-09-02)
+
+**Inventory (before):** `backlog.md` at 821 lines — 46 resolved/closed stubs
+(every one confirmed present, unchanged, in `archive/2026-08.md` before
+deletion; none needed verbatim backfill), 46 open entries including the
+duplicated `BUG-E2E-003` (resolved title-selection stub + open insights-flow
+item), 6 broken `../plans/done/cs-plan-025/029/036/037-*.md` link occurrences
+in the `lib/Service` section's preamble/resolution blockquotes, and missing
+`Status` lines on CR-SVC-40/41/44 and the open CR-053/CR-055 entries. Live
+facts verified: 71 routes in `appinfo/routes.php` matching
+`docs/api/README.md` (no drift — file untouched); 22-file migration chain
+`Version1000`→`Version1028` with Version1004 present twice and 1003/1010/1013/
+1014/1017–1020 absent; 17 PHPUnit `markTestSkipped` call sites (unit suite:
+none); Playwright projects `setup`/`chromium`/`firefox`/`webkit`/
+`chromium-serial-db`/`chromium-scheduling-owner`.
+
+**Decision amendment (user, 2026-09-02):** D1's renumber target
+`BUG-E2E-004` was already consumed by archived history (`archive/2026-08.md`
+CS-PLAN-050/051 full-matrix item) and `docs/engineering/testing.md` — using it
+would re-create the exact collision D1's rationale ("IDs must be unique across
+open and archived history") prohibits. The open insights-flow item was
+renumbered to **BUG-E2E-005** (next free ID) with the user's approval.
+
+**Executed per §6:** resolved stubs deleted after archive confirmation;
+CR-055-02 folded into CR-053-13 (`Folded-in` + completion entry in
+`archive/2026-09.md`); five-section restructure with the nine-field metadata
+block on every open entry (CR-SVC-40/41/44 gained explicit `Status` lines;
+CR-WF-03 carries `Owning: CS-PLAN-058 WP3+WP4`); RELEASE-002 lists its exact
+blocking gates; the six stale links left with their stubs (completion records
+live in the archive); `scripts/check-backlog.js` added with
+`--self-test` (7/7 green) and wired as `npm run backlog:check` into the
+CS-PLAN-058 §4.5 gate; dated baselines recorded in `development.md` and
+`testing.md` (`docs/api/README.md` verified, no correction needed);
+`docs/backlog/README.md` documents the new item-format convention;
+ACTIVE_TASKS.md and §9 updated in the same package.
+
+**Gate results:** `npm run lint`, `npm test`, `npm run docs:encoding`,
+`npm run backlog:check`, and `git diff --check` green; no runtime tests added
+or changed (`lib/`, `src/` untouched per §4).

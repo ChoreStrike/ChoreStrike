@@ -917,6 +917,61 @@ tests are measured; loading all `lib/` files fails on unmocked OCP dependencies)
 
 ---
 
+## Program Baseline (CS-PLAN-059 WP0, 2026-09)
+
+Point-in-time inventory recorded as the CS-PLAN-058 program baseline. It is
+date-stamped, not self-updating: later work packages refresh their rows as
+part of their own documentation integration.
+
+### PHPUnit skip inventory
+
+The unit suite has no skip call sites. The integration suite has **17
+`markTestSkipped` call sites** across 5 files:
+
+| File | Skips | Reason class |
+|---|---|---|
+| `tests/integration/Controller/TaskAuthorizationTest.php` | 10 | Unconditionally skipped controller-level live-authorization scenarios pending a full rewrite for the current house-resolution API (service-level coverage lives in `AuthorizationIntegrationTest`). To be replaced by CS-PLAN-058 WP2 / CR-WF-05. |
+| `tests/integration/Controller/GameControllerIntegrationTest.php` | 2 | Stale controller-surface expectations (medal entity shape; `handleTaskCompletion` not implemented in the controller). |
+| `tests/integration/Controller/RoomTaskControllerIntegrationTest.php` | 1 | `stats()` method not implemented in the controller (stale test). |
+| `tests/integration/Service/ConcurrentCompletionTest.php` | 2 | Conditional environment skips: two-connection race scenarios require MySQL/MariaDB — they run green inside the Docker gate. |
+| `tests/integration/Service/MinigameConcurrencyTest.php` | 2 | Same conditional two-connection environment skips. |
+
+Approved deferrals (CR-053-22, user decision 2026-08-29, tracked in
+[`backlog.md`](../backlog/backlog.md)): Minigame controller integration suite,
+`TestDataSeedTest`, and Jest specs for 8 uncovered components (ActivityFeed,
+HouseStatsCards, MemberFairnessTable, WeekBudgetGrid, RoomPicker, BoostShop,
+SnakeGame, SnakeLeaderboard). The release gate requires zero newly skipped
+core-workflow tests (CR-WF-05).
+
+### Playwright project split
+
+`playwright.config.ts` defines six projects:
+
+| Project | testMatch | testIgnore | Notes |
+|---|---|---|---|
+| `setup` | `*.setup.ts` | — | Auth bootstrap: logs in every `family` role once and saves per-user storageState. |
+| `chromium` | all specs | seed-dependent + scheduling-owner spec lists | Default parallel pool, admin storageState; part of the blocking release gate. |
+| `firefox` / `webkit` | all specs | seed-dependent + scheduling-owner + self-availability spec lists | Full browser matrix (advisory; weekly full-matrix run). |
+| `chromium-serial-db` | seed-dependent spec list | — | `fullyParallel: false`, `workers: 1`; the only pool that may touch the seed/reset endpoints; blocking gate. |
+| `chromium-scheduling-owner` | scheduling-owner spec list | — | `workers: 1`, runs as `dad` (owner storageState); part of the CS-PLAN-058 §4.5 program gate. |
+
+Seed-mutating specs must stay in the `chromium-serial-db` list so database
+resets can never invalidate parallel sessions.
+
+### Core-journey E2E specs (WP9 replaces `gui-scratch-flow`)
+
+`gui-scratch-flow.spec.ts` is the current scratch-quality end-to-end household
+journey (runs in `chromium-serial-db`); CS-PLAN-058 WP9 replaces it with one
+deterministic serial household journey. Core-journey specs at baseline:
+setup wizard (`release-setup-wizard`), task creation/assignment
+(`task-manager`, `room-detail`), scheduling (`scheduling`,
+`flex-window-scheduling`, `availability-settings-flow` in
+`chromium-scheduling-owner`), My Day (`today-view`), completion/undo
+(`task-completion`, `task-completion-full-flow`), lifecycle
+(`release-task-lifecycle`), members/roles (`members-owner`,
+`release-visibility-roles`), insights (`insights-flow` — known Sunday flake,
+BUG-E2E-005), checklist (`task-checklist-and-features`).
+
 ## Remaining Coverage Gaps
 
 The biggest remaining gaps are no longer basic component or store tests. Those areas now have meaningful automated coverage. The highest-value remaining work is here:

@@ -17,7 +17,8 @@
     "test:coverage": "cross-env NODE_OPTIONS=\"--require ./tests/jest.setup.deprecations.js\" jest --coverage",
     "test:noise": "node scripts/check-test-noise.js",
     "l10n:check-keys": "node scripts/check-l10n-keys.js",
-    "docs:encoding": "node scripts/check-docs-encoding.js"
+    "docs:encoding": "node scripts/check-docs-encoding.js",
+    "backlog:check": "node scripts/check-backlog.js"
   },
   "dependencies": {
     "@fluentui/svg-icons": "^1.1.320",

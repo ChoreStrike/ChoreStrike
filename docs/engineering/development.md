@@ -145,6 +145,27 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 }
 ```
 
+### Migration chain inventory (baseline 2026-09, CS-PLAN-059 WP0)
+
+`lib/Migration/` holds **22 files spanning `Version1000` → `Version1028`**
+(version numbers are non-contiguous):
+
+> Version1000, 1001, 1002, 1004 (×2 — `20260228131728` and `20260228150000`),
+> 1005, 1006, 1007, 1008, 1009, 1011, 1012, 1015, 1016, 1021, 1022, 1023, 1024,
+> 1025, 1026, 1027, 1028.
+
+- **Version1004 appears twice** (two same-version steps with different date
+  suffixes); both are part of the chain.
+- **Absent versions:** 1003, 1010, 1013, 1014, and 1017–1020. The dead no-op
+  steps 1003/1010/1013/1017/1018/1019/1020 were pruned in CS-PLAN-055 as a
+  pre-release fresh-install chain edit (no upgrade path, no backfills);
+  1017–1020 had added their columns in `preSchemaChange()` (never persisted on
+  a fresh install) and were canonically re-created by Version1027, which
+  carries their provenance note. Guarded by `FreshInstallMigrationSmokeTest`.
+- Per the pre-release policy, schema fixes **fold into this existing chain**;
+  the disposable test database is recreated (`docker compose -f
+  docker-compose.test.yml down -v && up -d`) instead of writing upgrade steps.
+
 ## Project Structure
 
 See [architecture.md](architecture.md) for detailed structure.
