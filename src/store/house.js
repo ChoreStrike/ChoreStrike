@@ -4,6 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
+import { translate as t } from '@nextcloud/l10n'
 import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 
@@ -24,7 +25,7 @@ export const useHouseStore = defineStore('house', {
 
 	getters: {
 		houseHealth: (state) => state.house?.houseHealth ?? 100,
-		houseName: (state) => state.house?.name || 'My House',
+		houseName: (state) => state.house?.name || t('chorestrike', 'My House'),
 		hasHouse: (state) => state.house !== null,
 		/**
 		 * Household timezone (CS-PLAN-057). UTC fallback while the house

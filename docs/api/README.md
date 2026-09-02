@@ -425,23 +425,29 @@ Remove task from room.
 > flows; the `RouteMatrixTest` contract test guards route↔controller drift.
 
 #### POST /room-tasks/{id}/complete
-Mark task as completed.
-
-**Request:**
-```json
-{
-  "completed_at": "2026-02-24T15:30:00Z"
-}
-```
+Complete the current room-task occurrence. The completion timestamp is resolved
+server-side; the request has no body.
 
 **Response:**
 ```json
 {
-  "coins_earned": 45,
-  "was_combo": true,
-  "combo_with_user": "John",
-  "new_cleanliness": 85,
-  "next_due": "2026-02-25T15:30:00Z"
+  "success": true,
+  "data": {
+    "roomTask": { "id": 12, "nextDue": "2026-02-25T15:30:00Z", "isActive": true },
+    "room": { "id": 3, "cleanliness": 85 },
+    "task": { "id": 7, "energyCost": 3, "priority": 2 },
+    "rewards": {
+      "cleanlinessChange": 30,
+      "energyCost": 3,
+      "priority": 2,
+      "contributionScore": 3,
+      "coins": 45,
+      "isCombo": true,
+      "currentStreak": 4,
+      "teamworkBonus": 0,
+      "weeklyGoal": { "percent": 72, "achieved": false }
+    }
+  }
 }
 ```
 

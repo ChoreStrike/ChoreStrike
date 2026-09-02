@@ -143,6 +143,9 @@ msgstr ""
 msgid "Apartment"
 msgstr ""
 
+msgid "App failed to load. Check logs."
+msgstr ""
+
 msgid "Apply"
 msgstr ""
 

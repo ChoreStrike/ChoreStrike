@@ -140,6 +140,57 @@ class HouseServiceTest extends TestCase {
 	}
 
 	/**
+	 * GetOrCreateHouse_NewHouseWithoutName_UsesLocalizedDefault
+	 */
+	public function testGetOrCreateHouse_NewHouseWithoutName_UsesLocalizedDefault(): void {
+		$instanceId = 'instance123';
+		$localizedName = 'Mein Zuhause';
+		$house = new House();
+		$house->setId(1);
+		$house->setName($localizedName);
+
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->expects($this->once())
+			->method('t')
+			->with('My House')
+			->willReturn($localizedName);
+
+		$this->houseMapper
+			->expects($this->once())
+			->method('findByInstanceId')
+			->with($instanceId)
+			->willThrowException(new DoesNotExistException('House not found'));
+
+		$this->houseMapper
+			->expects($this->once())
+			->method('createForInstance')
+			->with($instanceId, $localizedName, $this->isType('string'))
+			->willReturn($house);
+
+		$service = new HouseService(
+			$this->houseMapper,
+			$this->floorMapper,
+			$this->roomMapper,
+			$this->roomTaskMapper,
+			$this->completedTaskMapper,
+			$this->houseUserMapper,
+			$this->taskAssigneeMapper,
+			$this->rewardConfigService,
+			$this->config,
+			$this->db,
+			$l10n,
+			$this->createMock(AppLogger::class),
+			$this->userSession,
+			new CalendarService()
+		);
+
+		$result = $service->getOrCreateHouse($instanceId);
+
+		$this->assertSame($house, $result);
+		$this->assertSame($localizedName, $result->getName());
+	}
+
+	/**
 	 * GetOrCreateHouse_NewHouse_CapturesCreatorTimezone
 	 *
 	 * CS-PLAN-057 D1: a fresh house captures the creator's Nextcloud

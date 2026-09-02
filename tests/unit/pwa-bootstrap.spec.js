@@ -31,6 +31,13 @@ describe('Phase 5 — design tokens + PWA scaffolding', () => {
 		expect(main).toMatch(/styles\/mobile\.css/)
 	})
 
+	it('localizes the startup fallback without injecting HTML', () => {
+		const main = readFileSync(mainJsPath, 'utf8')
+		expect(main).toContain("t('chorestrike', 'App failed to load. Check logs.')")
+		expect(main).toContain('message.textContent')
+		expect(main).not.toContain('appRoot.innerHTML')
+	})
+
 	it('ships a PWA manifest with the ChoreStrike brand colour', () => {
 		expect(existsSync(manifestPath)).toBe(true)
 		const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))

@@ -78,7 +78,7 @@ without a dedicated endpoint call.
 | Room list editing (rename, type, person per room, add/remove) | SetupWizard step 2 | client state | ✅ |
 | Preview (floors/rooms/≈tasks) + apply | SetupWizard step 3 | `POST /setup/apply` | ✅ |
 | "Start empty" skip | SetupWizard | localStorage flag (per house) | ✅ (persistent since CS-PLAN-042; manual entry point stays) |
-| House naming step | SetupWizard step 1 → apply | `POST /setup/apply` + `PUT /house` | ✅ (CS-PLAN-042) |
+| House naming step | SetupWizard step 1 → apply | `POST /setup/apply` + `PUT /house` | ⚠️ two-step save; a failed name update is logged but setup still reports success (workflow review 2026-09-02) |
 | Per-room assignee dropdown | SetupWizard step 2 | client state | ✅ (hidden while the house has a single member, CS-PLAN-042) |
 | "Invite your family" final step (step 4, after apply) | SetupWizard | `POST /users/invite` | ✅ (since CS-PLAN-038) |
 
@@ -152,7 +152,7 @@ points:** TaskManager.
 | Create from cleaning template (level pills, adjust name/frequency/minutes/energy/priority) | RoomDetail → `TaskTemplatePicker` | `POST /room-tasks/from-template` | ✅ |
 | Custom task with cascading room picker | TaskEditForm → `RoomPicker` | `POST /tasks` → `POST /room-tasks` | ✅ unified chain (`createTaskWithRoomTask`) |
 | Assignees at creation (member chips) | TaskEditForm → `AssigneeChips` | `PUT /room-tasks/{id}/assignees` | ✅ |
-| Due date at creation | TaskEditForm | `POST /room-tasks` (`nextDue`) | ✅ |
+| Due date at creation | TaskEditForm | `POST /room-tasks` (`nextDue`) | ⚠️ backend field exists, but TaskEditForm does not expose or send it (workflow review 2026-09-02) |
 | Partial-success feedback on chained creation | toasts | — | ✅ |
 
 ## UC-07 — Task lifecycle maintenance
@@ -167,7 +167,7 @@ points:** RoomDetail (slim modal), TaskManager, TaskList.
 | Delete room task | RoomDetail, TaskManager | `DELETE /room-tasks/{id}` | ✅ |
 | Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ⛔ pruned (CS-PLAN-055; `reactivate` stays for the undo path) |
 | Reactivate task | UndoSnackbar (via store) | `POST /room-tasks/{id}/reactivate` | ✅ (undo of one-time completions, CS-PLAN-041) |
-| Undo a completion (snackbar) | global `UndoSnackbar` (~5 s) | `PUT /tasks/{roomTaskId}/uncomplete` (+ reactivate for deactivated tasks) | ✅ (CS-PLAN-041; rewards/streaks are not reverted — accepted pre-release) |
+| Undo a completion (snackbar) | global `UndoSnackbar` (~5 s) | `PUT /tasks/{roomTaskId}/uncomplete` (+ reactivate for deactivated tasks) | ⚠️ partial state-only restore; full transactional inverse selected for CR-WF-02 (2026-09-02) |
 
 ## UC-08 — Daily execution ("My Day")
 
@@ -180,7 +180,7 @@ Member/child. **Entry points:** `/today` route; Dashboard stat cards link in.
 | My tasks ↔ Everyone filter | TodayView | client-side | ✅ (default: My tasks) |
 | Overdue section | TodayView | `GET /room-tasks/overdue` | ✅ |
 | Complete task (celebration: confetti/sound/toast, combo, streak) | TodayView, TaskList, RoomDetail, TaskManager | `POST /room-tasks/{id}/complete` | ✅ |
-| Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ✅ (Overdue links `?scope=all`) |
+| Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ⚠️ deep links work; counters read a shared slice the refresh calls do not populate (workflow review 2026-09-02) |
 | Per-row assignee resolution | TodayView | `GET /room-tasks/{id}/assignees` | ✅ |
 | Checklist toggle while completing | TaskList → `TaskChecklist` | `POST /checklists/toggle/{rt}/{item}`, `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}` | ✅ |
 | Checklist editor (add/edit/delete/reorder items) | TaskList → `TaskChecklist` (owner-only `can-edit`) | `POST /checklists/task/{id}`, `PUT+DELETE /checklists/item/{id}`, `POST /checklists/reorder` | ✅ (unlocked for owners since CS-PLAN-042; store speaks the backend contract: `label`/`sortOrder`, `itemOrders` map, `{items, stats}` progress envelope) |

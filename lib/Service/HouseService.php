@@ -168,12 +168,13 @@ class HouseService {
 	 * Get or create house for current Nextcloud instance
 	 *
 	 * @param string $instanceId The Nextcloud instance ID
-	 * @param string $houseName Optional house name
+	 * @param string|null $houseName Optional house name
 	 */
-	public function getOrCreateHouse(string $instanceId, string $houseName = 'My House'): House {
+	public function getOrCreateHouse(string $instanceId, ?string $houseName = null): House {
 		try {
 			return $this->houseMapper->findByInstanceId($instanceId);
 		} catch (DoesNotExistException $e) {
+			$houseName ??= $this->l10n->t('My House');
 			$this->appLogger->info('Creating house for instance', [
 				'service' => 'HouseService',
 				'instanceId' => $instanceId,

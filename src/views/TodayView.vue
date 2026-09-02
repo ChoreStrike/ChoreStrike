@@ -132,10 +132,12 @@ import { translate as t } from '@nextcloud/l10n'
 import { showError } from '@nextcloud/dialogs'
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { useRoomTasksStore } from '../store/roomTasks.js'
+import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useTasksStore } from '../store/tasks.js'
 import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
+import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
 import Icon from '../components/Common/Icon.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
 
@@ -149,10 +151,11 @@ export default {
 
 	setup() {
 		const roomTasksStore = useRoomTasksStore()
+		const houseStore = useHouseStore()
 		const roomsStore = useRoomsStore()
 		const tasksStore = useTasksStore()
 		const userStore = useUserStore()
-		return { roomTasksStore, roomsStore, tasksStore, userStore }
+		return { roomTasksStore, houseStore, roomsStore, tasksStore, userStore }
 	},
 
 	data() {
@@ -311,7 +314,8 @@ export default {
 
 		isDueToday(roomTask) {
 			if (!roomTask?.nextDue) return false
-			return new Date(roomTask.nextDue).toDateString() === new Date().toDateString()
+			return dateKeyInZone(roomTask.nextDue, this.houseStore.timezone)
+				=== todayKeyInZone(this.houseStore.timezone)
 		},
 	},
 }

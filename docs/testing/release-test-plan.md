@@ -170,12 +170,11 @@ Route surface: `task#*`, `room_task#*`, `checklist#*`.
 |---|---|---|---|
 | Create task | Add a task (set energy, priority, tier, frequency) | Task appears in the task list / room | `task-manager` |
 | Complete task | Mark a room-task complete | Status changes, coins awarded, celebration fires | `task-completion` |
-| Uncomplete task | Revert a completion | Status restored, coins adjusted consistently | `task-completion-full-flow` |
-| Skip task | Skip a task | Task skipped without an unfair penalty | `release-task-lifecycle` |
+| Undo completion | Use the snackbar undo action after completion | Task state, recurrence, completion ledger, rewards/streak, and cleanliness are restored atomically | required; current partial coverage in `release-task-lifecycle` (CR-WF-02) |
 | Reschedule task | Change the due date | Due date updates | `release-task-lifecycle` |
 | Recurrence | Complete a recurring (daily/weekly/monthly) task | A new instance is generated per frequency | partial `today-view` (daily recurrence: completion shifts the next due out of today; weekly/monthly still manual) |
 | Assignees | Assign / unassign members; multi-assign | Assignee set persists; multi-assign works | `task-manager` |
-| Deactivate / reactivate | Deactivate then reactivate a room-task | Task hides from active lists, then returns | `release-task-lifecycle` |
+| Reactivate on undo | Undo a completion that deactivated a one-time room-task | The task is reactivated after its completion marker is cleared | `release-task-lifecycle` |
 | Checklist items | Add / toggle / reorder / delete checklist items on a task | Progress tracked; room-task checklist progress updates | `task-checklist-and-features` |
 | Task templates (per-room picker) | Open a room's add-task flow, pick a template (filtered by room type + house-wide), adjust overrides, add | A room task is created from the template; custom-task path still works | `release-task-templates`, `TaskTemplatePicker` Jest spec |
 

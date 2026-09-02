@@ -42,12 +42,17 @@ const overdueFixture = () => ([
 ])
 
 let mockRoomTasksStore
+let mockHouseStore
 let mockTasksStore
 let mockRoomsStore
 let mockUserStore
 
 jest.mock('@/store/roomTasks.js', () => ({
 	useRoomTasksStore: () => mockRoomTasksStore,
+}))
+
+jest.mock('@/store/house.js', () => ({
+	useHouseStore: () => mockHouseStore,
 }))
 
 jest.mock('@/store/tasks.js', () => ({
@@ -79,6 +84,7 @@ describe('TodayView', () => {
 				rewards: { coins: 10 },
 			}),
 		}
+		mockHouseStore = { timezone: 'UTC' }
 		mockTasksStore = {
 			tasks: [{ id: 4, name: 'Take out trash', energyCost: 2 }],
 			fetchTasks: jest.fn().mockResolvedValue([]),
@@ -189,6 +195,19 @@ describe('TodayView', () => {
 		// …and the row re-rendered as an active Today row (not dropped).
 		expect(wrapper.text()).toContain('Take out trash')
 		expect(wrapper.find('[data-testid="today-complete-button-30"]').exists()).toBe(true)
+	})
+
+	it('uses the house timezone when deciding whether the next occurrence is today', async () => {
+		const wrapper = await mountView()
+		jest.useFakeTimers()
+		try {
+			jest.setSystemTime(new Date('2026-08-22T06:30:00Z'))
+			mockHouseStore.timezone = 'America/Los_Angeles'
+
+			expect(wrapper.vm.isDueToday({ nextDue: '2026-08-21T20:00:00Z' })).toBe(true)
+		} finally {
+			jest.useRealTimers()
+		}
 	})
 
 	it('renders a friendly empty state when nothing is due', async () => {

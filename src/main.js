@@ -6,6 +6,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import axios from '@nextcloud/axios'
+import { translate as t } from '@nextcloud/l10n'
 import App from './App.vue'
 import router from './router.js'
 import { initI18n } from './i18n.js'
@@ -53,7 +54,11 @@ async function bootstrap() {
 		logger.error('ChoreStrike app failed to start', error, { module: 'main' })
 		const appRoot = document.getElementById('app-chorestrike-vue')
 		if (appRoot) {
-			appRoot.innerHTML = '<div style="padding: 20px; color: red;">App failed to load. Check logs.</div>'
+			const message = document.createElement('div')
+			message.style.padding = '20px'
+			message.style.color = 'var(--color-error)'
+			message.textContent = t('chorestrike', 'App failed to load. Check logs.')
+			appRoot.replaceChildren(message)
 		}
 	}
 }

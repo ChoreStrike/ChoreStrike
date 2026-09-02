@@ -412,9 +412,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * Undo a completion (CS-PLAN-041): clears lastCompleted and — for
 		 * one-time tasks, whose completion deactivates them — reactivates.
 		 *
-		 * Known limitation (accepted pre-release): server-side rewards,
-		 * streaks and recurrence advances from the completion are not
-		 * reverted; this restores the task itself for a misclick.
+		 * Known limitation (CR-WF-02): server-side rewards, streaks,
+		 * cleanliness, and recurrence advances are not yet reverted. The
+		 * approved target is one full transactional inverse operation.
 		 *
 		 * Emits `chorestrike:task-uncompleted` with the final room task so
 		 * open views can restore their local rows.

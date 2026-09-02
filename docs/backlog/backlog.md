@@ -560,6 +560,10 @@ orphaned task. (Closed by the CS-PLAN-055 prune: `user#update` unvalidated
 schedulingPreferences, bare RewardConfig `DataResponse` envelope, and `needingCleaning`
 unscoped-without-floorId all removed with their routes.)
 
+**Decisions (user, 2026-09-02):** after the first-owner bootstrap, membership is
+invite-only; private-task access belongs to the creator plus explicit assignees.
+The remaining cross-workflow enforcement is owned by **CR-WF-01** below.
+
 ### [P3] CR-053-19 — Persistence correctness minors
 **Effort**: M · **Source**: CS-PLAN-053 (CR-P1-11..17, 19, 21, 22)
 PostgreSQL boolean-vs-integer compares (would fail on PG); inclusive week-window end bound
@@ -584,6 +588,10 @@ epoch counted as overdue + UTC date parsing~~ **partially closed 2026-08-30**
 missing `nextDue` and all day keys unify on the house timezone via
 `dateKeys.js` — pinned in `roomTasks.spec.js` and `dateKeys.spec.js`);
 out-of-order range/activity fetches; invite duplicate row.
+
+**Decision (user, 2026-09-02):** the former task-state-only undo limitation is
+revoked. Undo must be one full inverse transaction; implementation and coverage
+are owned by **CR-WF-02** below.
 
 ### [P3] CR-053-21 — Docs truth-repair batch
 **Effort**: M · **Source**: CS-PLAN-053 (L5-1)
@@ -660,6 +668,130 @@ dead `RoomTaskMapper::findByNextcloudTaskId` was already deleted at review.
 has zero callers in `lib/` or `tests/` — already dead at CS-PLAN-055 HEAD, so
 outside the prune diff. Fold into the next dead-code sweep (CR-053-15 follow-up
 class); delete or convert callers deliberately.
+
+---
+
+## Review Follow-ups — Core Task Workflow Full Review (2026-09-02)
+
+> End-to-end Full review from first authenticated start through setup, task
+> creation/assignment, daily execution, completion, and undo. Public security
+> entries below are intentionally sanitized; sensitive technical evidence is
+> excluded from the public repository. Review record:
+> [`archive/CODE_REVIEW_2026-09-02.md`](archive/CODE_REVIEW_2026-09-02.md).
+> Owning master plan: [`CS-PLAN-058`](../plans/new/cs-plan-058-core-workflow-bottom-up-masterplan.md).
+
+### [P1] CR-WF-01 — Enforce approved workflow authorization boundaries
+**Status**: Backlog
+**Effort**: L · **Source**: Full Review of the core task workflow (2026-09-02)
+
+Membership, role, task-visibility, mutation, and privacy boundaries are not
+consistently enforced across the reviewed workflow. Detailed evidence is kept
+out of the public repository under the security-disclosure policy.
+
+- [ ] Bootstrap only the first owner; require an invitation thereafter and make removal durable.
+- [ ] Enforce creator-plus-assignees access for private tasks across reads, assignment, checklists, and lifecycle actions.
+- [ ] Enforce the documented owner-only structure and checklist-definition mutations at controller and service boundaries.
+- [ ] Remove user-authored values and raw response payloads from workflow logs.
+- [ ] Add real controller/service authorization regression coverage for every affected boundary.
+
+### [P1] CR-WF-02 — Make completion and undo transactionally complete
+**Status**: Backlog
+**Effort**: XL · **Source**: Full Review of the core task workflow (2026-09-02)
+
+The completion aggregate has state, concurrency, and post-commit ambiguity gaps;
+the current split undo restores only part of the completed occurrence. The user
+selected full transactional undo on 2026-09-02.
+
+- [ ] Validate and lock the current active occurrence and all reward-driving inputs before mutation.
+- [ ] Preserve concurrent room-state updates and reset occurrence-scoped checklist progress.
+- [ ] Keep fallible post-commit effects from changing an already-committed success into an ambiguous failure.
+- [ ] Undo room-task recurrence, completion ledger, rewards/streak, cleanliness, and derived state in one inverse transaction.
+- [ ] Add real-DB concurrency, retry, inactive-occurrence, and full-undo regressions.
+
+### [P1] CR-WF-03 — Make setup, creation, and assignment atomic and canonical
+**Status**: Backlog
+**Effort**: L · **Source**: Full Review of the core task workflow (2026-09-02)
+
+Setup and both task-creation paths span validation and persistence boundaries;
+assignment is split between two persisted representations with divergent write
+semantics.
+
+- [ ] Lock and recheck the first-run setup invariant inside the setup transaction, including the requested house name.
+- [ ] Create a task definition, room link, and initial assignees as one rollback-safe aggregate.
+- [ ] Use one authoritative assignee representation for setup, single replacement, bulk assignment, reads, and completion.
+- [ ] Persist every supported scheduling field, including flex windows and an explicit creation due date.
+- [ ] Cover rollback, replacement, bulk, and setup-assignment behavior with integration tests.
+
+### [P2] CR-WF-04 — Reconcile daily workflow payloads and client state
+**Status**: Backlog
+**Effort**: L · **Source**: Full Review of the core task workflow (2026-09-02)
+
+Several live workflow responses and Pinia consumers disagree about authoritative
+state, causing incorrect limits/counts, stale completion feedback, and lost UI
+events.
+
+- [ ] Apply viewer eligibility before child daily limits and use house-local parsing for date-only due dates.
+- [ ] Define canonical enriched payloads for daily tasks, assignees, completion rewards, titles, and invitations.
+- [ ] Reconcile room, house, user, game, and task caches after completion and undo.
+- [ ] Populate Dashboard due/overdue counters from the slices their fetch actions actually update.
+- [ ] Add contract tests for each backend response, store mutation, and visible result.
+
+### [P1] CR-WF-05 — Replace weak or skipped core-workflow coverage
+**Status**: Backlog
+**Effort**: L · **Source**: Full Review of the core task workflow (2026-09-02)
+
+Core authorization scenarios remain unconditionally skipped, some completion E2E
+assertions are tautological or data-dependent, and the first-run wizard happy
+path has no deterministic browser profile.
+
+- [ ] Replace skipped live authorization cases with current controller/API tests; delete only obsolete-route cases.
+- [ ] Make completion/reward assertions deterministic and remove swallowed assertions and fixture-dependent skips.
+- [ ] Add an empty-house user profile that exercises the complete first-run wizard in Playwright.
+- [ ] Keep seed-mutating and non-seed project groups isolated so database resets cannot invalidate active sessions.
+- [ ] Require zero newly skipped core-workflow tests in the release gate.
+
+### [P2] CR-WF-06 — Batch workflow reads and reduce orchestration hotspots
+**Status**: Backlog
+**Effort**: L · **Source**: Full Review of the core task workflow (2026-09-02)
+
+TaskManager and Today perform request-per-room/task fan-out, while the main task
+list and completion aggregate remain oversized orchestration hotspots. This item
+extends, rather than duplicates, **CR-SVC-15**, **CR-SVC-40**, **CR-SVC-41**, and
+**CR-SVC-44**.
+
+- [ ] Return house-scoped room tasks and batched assignees without frontend N+1 requests.
+- [ ] Split `TaskList` into focused row, assignment, bulk, checklist, and due-date units.
+- [ ] Decompose completion into cohesive phases without weakening its single transaction boundary.
+- [ ] Remove the global service-locator lookup and preserve one-way store dependencies.
+- [ ] Add query/request-count regression bounds for the reviewed journey.
+
+### [P1] CR-WF-07 — Make scheduling produce an actionable household plan
+**Status**: Planned
+**Effort**: L · **Source**: CS-PLAN-058 core workflow masterplan (2026-09-02)
+
+The existing scheduling surface can preview capacity, but the core journey needs
+an explicit, owner-confirmed bridge from suggestions to real room-task assignees
+and due dates consumed by Calendar and My Day.
+
+- [ ] Return a versioned preview tied to current room-task IDs, proposed assignees, house-local due dates, capacity, and warnings.
+- [ ] Apply an accepted preview transactionally after revalidating membership, visibility, activity, and current task versions.
+- [ ] Never mutate scheduling state implicitly; stale previews are rejected with recoverable feedback.
+- [ ] Make applied changes immediately authoritative for Calendar and filtered-daily/My Day.
+- [ ] Cover owner apply plus member/child read-only results with integration and E2E tests.
+
+### [P1] CR-WF-08 — Deliver a family-friendly core journey
+**Status**: Planned
+**Effort**: L · **Source**: CS-PLAN-058 core workflow masterplan (2026-09-02)
+
+The complete setup-to-execution flow must be comfortable for owners and
+understandable for members and children without requiring knowledge of rewards or
+scheduling internals.
+
+- [ ] Keep setup and task creation progressive, recoverable, localized, and usable on desktop/mobile with keyboard and screen readers.
+- [ ] Match visible controls to owner/member/child permissions; do not expose actions that predictably fail.
+- [ ] Make My Day the clear child execution surface with room, optional checklist, large Done action, and reversible feedback.
+- [ ] Use short, neutral, encouraging language and explicit loading, empty, error, and recovery states.
+- [ ] Prove the owner/member/child journeys at desktop and mobile viewports without conditional skips.
 
 ---
 
