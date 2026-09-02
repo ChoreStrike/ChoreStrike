@@ -678,7 +678,7 @@ class); delete or convert callers deliberately.
 > entries below are intentionally sanitized; sensitive technical evidence is
 > excluded from the public repository. Review record:
 > [`archive/CODE_REVIEW_2026-09-02.md`](archive/CODE_REVIEW_2026-09-02.md).
-> Owning master plan: [`CS-PLAN-058`](../plans/new/cs-plan-058-core-workflow-bottom-up-masterplan.md).
+> Owning master plan: [`CS-PLAN-058`](../plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md).
 
 ### [P1] CR-WF-01 — Enforce approved workflow authorization boundaries
 **Status**: Backlog
