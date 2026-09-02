@@ -1,8 +1,8 @@
 # Project Backlog
 
-Tracks outstanding and recently-completed work for ChoreStrike. Shipped phase
-plans live in [`../plans/done/`](../plans/README.md); this directory holds only
-what is **open or live**.
+Tracks outstanding and recently-completed work for ChoreStrike. Retained shipped
+plans live in [`../plans/done/`](../plans/done/); this directory holds only what
+is **open or live** plus tracked completion/review evidence.
 
 ## Structure
 
@@ -32,14 +32,14 @@ backlog/
 | A code-review **open** follow-up | `backlog.md` (cite the review record) |
 | A **completed** plan / bug / debt item | `archive/YYYY-MM.md` |
 | A raw **review record** (evidence) | `archive/CODE_REVIEW_YYYY-MM-DD.md` |
-| A **plan draft** (not started) | `../plans/new/` (registered in `ACTIVE_TASKS.md` → *Planned*) |
+| A **plan draft** (not started) | `../plans/new/` (and `backlog.md` when it represents an open item) |
 
 ## Workflow
 
 ### For coding agents
 1. **Before starting:** check `ACTIVE_TASKS.md` for conflicts.
-2. **When starting:** add the task under *In Progress* (move a `backlog.md`
-   entry to *In Progress*, or link the plan).
+2. **When starting:** add a link under *In Progress*. Keep the open source item
+   in `backlog.md`; `ACTIVE_TASKS.md` is coordination, not ownership.
 3. **During work:** keep `ACTIVE_TASKS.md` current.
 4. **On completion:** add a one-line entry under *Recently Completed*, and
    **move the item out of `backlog.md` into `archive/YYYY-MM.md`** (the month
@@ -56,10 +56,11 @@ backlog/
   / `phase-*.md` splits; add a themed section to `backlog.md` instead.
 
 ### For review agents
-See `AGENTS.md` → "Agent Roster & Slash Commands" and
+See `AGENTS.md` → "Review Commands & Subagents" and
 [`../engineering/review-playbook.md`](../engineering/review-playbook.md). The
 slash commands `/review-chorestrike`, `/review-chorestrike-full`, and
-`/plan-review` load the canonical review process. **Open** findings →
+`/plan-review` load the canonical review process, batch questions, perform
+eligible plan transitions, and make one scoped commit. **Open** findings →
 `backlog.md`; the review record → `archive/`.
 
 ## Item format (`backlog.md`)

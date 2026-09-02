@@ -15,8 +15,11 @@ fix-email.bat
 # Composer dependencies (installed via `composer install`; lock file stays tracked)
 /vendor/
 
-# Local AI tooling state (tool-specific, never committed)
-.kilo/
+# Local AI tooling state; only thin command adapters are tracked
+/.kilo/*
+!/.kilo/command/
+/.kilo/command/*
+!/.kilo/command/*.md
 
 # Node modules
 node_modules/

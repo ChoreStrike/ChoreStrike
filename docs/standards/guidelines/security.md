@@ -1,6 +1,6 @@
 # Security Standards
 
-> **Last Updated**: 2026-08-20
+> **Last Updated**: 2026-09-02
 > **Last Audit**: 2026-03-05 (P8-SECURITY-001, passed — record in `archive/`; open recommendations tracked in the backlog)
 
 ---
@@ -29,8 +29,8 @@ All API endpoints use `@NoAdminRequired` annotation (requires authenticated user
 ### House Membership Checks
 
 Every controller method validates house membership before data access. Two
-primitives exist in `AuthorizationService` (both throw `ForbiddenException`,
-caught by every controller → **403**, never 500):
+primitives exist in `AuthorizationService` (both throw `ForbiddenException`;
+the normal response is **403**, never an unexpected 500):
 
 - `ensureHouseMember()` — auto-creates the membership on first access (the
   `getOrCreateHouse` bootstrap/join flow). This is what the standard controller
@@ -43,7 +43,13 @@ $this->authService->ensureHouseMember($house->getId());
 - `assertHouseMember()` — a pure, read-only gate (no mutation). Use it for
   ordinary authorization checks where auto-join is not intended, e.g.
   `assertUserInHouse($houseId, $targetUserId)` to reject cross-house access on
-  endpoints that accept an arbitrary userId (`userTasks`/`userStats`).
+  endpoints that accept an arbitrary target user ID.
+
+For selected resource lookups, controllers deliberately map a foreign/missing
+resource to the same 404 `RESOURCE_NOT_FOUND` envelope via
+`ControllerErrorFormatter::notFoundResponse()` to prevent ID enumeration. Use
+403 for ordinary permission denial and the documented 404 shape only when the
+endpoint's anti-enumeration contract requires it.
 
 > **Defense in depth (ADR-006):** authorization for a mutation is enforced
 > **inside the service**, not only in the controller preamble. House-scoped
@@ -169,19 +175,22 @@ Nextcloud's `SecurityMiddleware` automatically validates CSRF tokens for POST/PU
 
 ### Exception Catching
 
-All controller methods wrap logic in try-catch:
+Unexpected failures are logged through `AppLogger` and translated through the
+shared safe formatter; never return the original exception message:
 
 ```php
 try {
-    // Business logic
-} catch (\Exception $e) {
-    return new JSONResponse([
-        'success' => false,
-        'error' => [
-            'code' => 'ERROR_CODE',
-            'message' => $e->getMessage()
-        ]
-    ], 500);
+    // Validate, delegate, shape the response.
+} catch (ForbiddenException $e) {
+    return ControllerErrorFormatter::forbiddenResponse($e);
+} catch (NotFoundException $e) {
+    return ControllerErrorFormatter::notFoundResponse($e);
+} catch (\InvalidArgumentException $e) {
+    // Use only when this endpoint's validation messages are audited as safe.
+    return ControllerErrorFormatter::validation($e);
+} catch (\Throwable $e) {
+    $this->logControllerException('update', $e);
+    return ControllerErrorFormatter::serverErrorResponse($e, 'UPDATE_FAILED');
 }
 ```
 
@@ -216,4 +225,6 @@ Error responses contain only error codes and messages, not stack traces.
 
 ## Reporting Security Issues
 
-If you discover a security vulnerability, please report it privately via GitHub Security Advisories rather than opening a public issue.
+If you discover a security vulnerability, follow the private Codeberg/maintainer
+channel in [`SECURITY.md`](../../../SECURITY.md). Never open a public issue with
+sensitive details.

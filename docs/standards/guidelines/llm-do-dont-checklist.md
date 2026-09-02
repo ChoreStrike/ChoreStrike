@@ -16,7 +16,7 @@
 7. **Tests:** Feature/fix includes a test (unit/integration/E2E as appropriate)?
 8. **Minimal diff:** No unrelated renames, reordering, or formatting churn?
 9. **No leftovers:** No committed secrets, private content, build artifacts, or dead debug code?
-10. **Backlog:** `docs/backlog/ACTIVE_TASKS.md` updated? Ambiguities logged, not guessed?
+10. **Backlog/questions:** `docs/backlog/ACTIVE_TASKS.md` updated? Review questions batched with recommended options, answered, and recorded rather than guessed?
 11. **Green build:** `npm test` + lint + backend tests pass (or Docker run is green)?
 
 ## Don't
@@ -25,4 +25,4 @@
 - Don't trust client input or client-sent localization.
 - Don't log full request bodies, tokens, passwords, or private notes.
 - Don't suppress warnings or swallow exceptions without structured handling.
-- Don't commit to `main`/`master` directly — use a branch and a reviewable change.
+- Don't create or switch branches unless the user explicitly requests it. Review commands make one scoped commit on the current branch; all other commits still require an explicit request.

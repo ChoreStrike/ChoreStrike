@@ -36,7 +36,9 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 ## Schema & Migrations
 
 - Schema changes ship as a migration in `lib/Migration/`.
-- Keep migrations forward-only and idempotent where possible.
+- Until productive-use compatibility is explicitly enabled, optimize the
+  existing migration chain for fresh installs only. Edit or remove obsolete
+  steps instead of adding upgrade paths, backfills, or compatibility shims.
 
 ## Before a Structural Change
 

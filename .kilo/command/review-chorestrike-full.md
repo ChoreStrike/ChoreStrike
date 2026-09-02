@@ -1,0 +1,7 @@
+---
+description: Full module review with parallel reviewers and automatic commit
+---
+
+Load the canonical `review`, `plan-management`, and `git-workflow` skills. Parse an optional `--no-commit` flag as the canonical read-only override, then perform a **Full Review** of the remaining `$ARGUMENTS`. If empty, use the structured `question` tool to identify the module/domain; do not guess.
+
+The skills are authoritative. Complete all four reviewer tracks, batch decisions with the recommendation first, resolve any owning plan, and run the canonical finalization pipeline. Unless `--no-commit` is present, the pipeline performs every eligible transition and outcome-specific scoped commit; the override remains findings-only. Security/auth findings are never auto-fixed.

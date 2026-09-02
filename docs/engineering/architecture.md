@@ -41,7 +41,7 @@ ChoreStrike/
 │   ├── Command/                # occ commands (TestDataSeed, TriggerJobs — test-mode-
 │   │                           #   guarded job trigger with --as-of, CS-PLAN-023)
 │   ├── Controller/             # Thin API controllers (House, Floor, Room, Task,
-│   │                           #   RoomTask, Checklist, Scheduling,
+│   │                           #   RoomTask, Checklist, Scheduling, Setup,
 │   │                           #   Minigame, User, Game, Page, Test) +
 │   │                           #   ControllerLoggingTrait +
 │   │                           #   ControllerErrorFormatter (sanitized error messages)
@@ -60,7 +60,7 @@ ChoreStrike/
 │   │                           #   (AvailabilitySettings entity/mapper pruned in CS-PLAN-055)
 │   ├── Exception/              # App exceptions (NotFoundException, ForbiddenException) —
 │   │                           #   domain-typed (NC 31 dropped the framework equivalents)
-│   ├── Migration/              # Schema migrations (Version1000 … Version1027, non-
+│   ├── Migration/              # Schema migrations (Version1000 … Version1028, non-
 │   │                           #   contiguous — 1014/1017–1020 absent; dead no-op steps
 │   │                           #   1003/1010/1013/1017/1018/1019/1020 pruned CS-PLAN-055,
 │   │                           #   pre-release fresh-install edit — no back-compat)
@@ -100,10 +100,12 @@ ChoreStrike/
 │   ├── services/               # Shared API client (api.js — single URL prefix,
 │   │                           #   envelope unwrap, ApiError normalization)
 │   ├── store/                  # Pinia stores (house, rooms, roomTasks, tasks, game,
-│   │                           #   user, scheduling, checklist, minigame, titles)
+│   │                           #   user, scheduling, checklist, minigame, titles,
+│   │                           #   setup) + userAutoInit bootstrap plugin
 │   ├── styles/                 # tokens.css (theme/motion CSS vars), mobile.css
-│   ├── views/                  # Dashboard, RoomDetail, TaskManager, Leaderboard, Scheduling, Calendar, Settings
-│   └── utils/                  # currentUser, icons, roomIcons, logger, mobile, performance,
+│   ├── views/                  # Dashboard, Today, Insights, RoomDetail, TaskManager,
+│   │                           #   Leaderboard, Scheduling, Calendar, Settings
+│   └── utils/                  # currentUser, dateKeys, icons, roomIcons, logger,
 │                               #   confetti, sound, energyBudgets
 ├── l10n/                       # Translations
 │   ├── templates/
@@ -127,7 +129,7 @@ ChoreStrike/
 │   ├── concepts/               # Product vision & design concepts
 │   ├── standards/              # ai/ (rules, skills) + guidelines/
 │   ├── adr/                    # Architecture decision records
-│   ├── backlog/                # Task tracking (ACTIVE_TASKS.md, phase-*.md, bugs.md)
+│   ├── backlog/                # Task tracking (ACTIVE_TASKS.md, backlog.md, archive/)
 │   └── plans/                  # Implementation plans (new/active/onhold/done)
 ├── .github/                    # Issue & PR templates (Forgejo-compatible)
 │   ├── ISSUE_TEMPLATE/
@@ -805,7 +807,8 @@ composer install --no-dev --optimize-autoloader
 
 ### Nextcloud Logging
 ```php
-$this->logger->info('Task completed', [
+$this->appLogger->info('Task completed', [
+    'event' => 'task_completed',
     'taskId' => $task->getId(),
     'userId' => $user->getId()
 ]);
@@ -813,9 +816,12 @@ $this->logger->info('Task completed', [
 
 ### Frontend Error Tracking
 ```javascript
+import { logger } from '@/utils/logger'
+
 window.addEventListener('error', (event) => {
-    // Log to Nextcloud
-    console.error('[ChoreStrike]', event.error)
+    logger.error('Unhandled frontend error', event.error, {
+        event: 'window_error',
+    })
 })
 ```
 

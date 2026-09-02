@@ -13,7 +13,7 @@ Grounded in:
   live frontend consumer) — **re-audited 2026-08-27 (CS-PLAN-053)**: route set
   unchanged at 110; 42 routes currently have no production consumer
   (30 none + 12 test-only; full matrix in
-  [`../backlog/CODE_REVIEW_2026-08-27.md`](../backlog/CODE_REVIEW_2026-08-27.md) L3-0).
+  [`../backlog/archive/CODE_REVIEW_2026-08-27.md`](../backlog/archive/CODE_REVIEW_2026-08-27.md) L3-0).
   **Prune executed 2026-08-29 (CS-PLAN-055)**: the 39 no-consumer + test-only
   routes were **deleted** (kept: 67 production + 3 `/test/*` E2E harness +
   `page#index` = 71 total); the mirroring dead store-getter/action layer in

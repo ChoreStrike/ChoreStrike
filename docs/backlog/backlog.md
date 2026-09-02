@@ -105,6 +105,22 @@ bump coordinated with the Nextcloud eslint config.
 
 ---
 
+### [P2] TECH-DOCS-003 — Backlog/archive link and status normalization
+**Status**: Backlog · **Effort**: M · **Source**: Full review of agent standards and skills (2026-09-02)
+
+`backlog.md` still contains many resolved/closed entries that already exist in
+`archive/2026-08.md`, and historical local plan archival left tracked links to
+removed `docs/plans/done/*` files. This broad historical cleanup exceeds the
+review-workflow standards package; until fixed, the open-work inventory is noisy
+and some historical plan links are not portable to another clone.
+
+- [ ] Remove every resolved/closed item from `backlog.md` after confirming its unchanged history in the monthly archive.
+- [ ] Replace links to locally archived plans with tracked monthly/review evidence before removing the stale links.
+- [ ] Add a repeatable Markdown-link check for tracked documentation.
+- [ ] Verify `backlog.md` contains open items only and all tracked relative links resolve.
+
+---
+
 ## Review Follow-ups — CS-016 (Scheduling UI)
 
 > From [`archive/CODE_REVIEW_2026-07-28.md`](archive/CODE_REVIEW_2026-07-28.md).
@@ -159,7 +175,7 @@ bump coordinated with the Nextcloud eslint config.
 
 > **2026-08-11 — Full Review of the 4 active plans** (CS-017/022/023/025; 4 parallel
 > `reviewer` subagents + gate re-verification; record:
-> [`CODE_REVIEW_2026-08-11.md`](CODE_REVIEW_2026-08-11.md)). Gate re-verified green on
+> [`CODE_REVIEW_2026-08-11.md`](archive/CODE_REVIEW_2026-08-11.md)). Gate re-verified green on
 > the uncommitted CS-025 reopened-items tree + 1 auto-fix (`TaskSyncService::setSparksEarned`
 > dead line → `setCoinsEarned`): PHPUnit unit 690 / integration 150 (24 pre-existing
 > skips) / Jest 677 / ConcurrentCompletionTest 2/2 (incl. the 2.1 s real-lock proof) /
@@ -461,7 +477,7 @@ deactivate/reactivate by filter (cf. CR-SVC-61 bulk-endpoint pattern).
 > From the full-tree review (persistence → services → API → frontend → docs; 6-phase
 > Full-tier with 4 reviewer subagents per layer). Full evidence tables with file:line,
 > severity, and per-finding disposition live in
-> [`CODE_REVIEW_2026-08-27.md`](CODE_REVIEW_2026-08-27.md) (CR-P1-*…CR-P5-* IDs).
+> [`CODE_REVIEW_2026-08-27.md`](archive/CODE_REVIEW_2026-08-27.md) (CR-P1-*…CR-P5-* IDs).
 > Security items are **never** auto-fixed; they are decision points for the user.
 
 ### [P2] CR-053-05 — `RewardConfigController` admin-gate + no production consumer

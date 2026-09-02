@@ -27,14 +27,18 @@ Use this document for:
 - Fix clear, local issues immediately.
 - Add or update regression tests for every bug fix.
 - Do not derail the session with major refactors.
-- Batch unclear questions and design decisions.
+- Batch unclear questions and design decisions, offer recommended options, and wait for answers before finalization.
 - Update `docs/backlog/ACTIVE_TASKS.md` at start, during progress, and on completion.
 - Update the related backlog document when review findings change task status.
-- Commit after each logical review package.
+- Commit exactly once after the review's question, gate, tracking, and lifecycle steps are finalized.
 
 ---
 
 ## Recommended Review Modes
+
+These time-box profiles are orthogonal to the canonical review tiers: Standard A
+(plan), Standard B (code), and Full. A tier selects coverage/orchestration; a mode
+only controls review depth and time.
 
 | Mode | Duration | Use When | Output |
 |------|----------|----------|--------|
@@ -86,7 +90,7 @@ Reserve deep reasoning for ambiguity, security, architecture, and cross-module b
 |---------------|-------------|--------------------------|
 | `AGENTS.md` | workflow compliance | Are current review steps aligned with agent rules? |
 | `docs/backlog/ACTIVE_TASKS.md` | task coordination | Is the task status current and conflict-free? |
-| `docs/backlog/phase-*.md` and `bugs.md` | backlog accuracy | Are findings reflected as tasks with correct priority? |
+| `docs/backlog/backlog.md` | backlog accuracy | Are all open findings represented exactly once with the correct priority? |
 | `docs/engineering/architecture.md` | architecture truth | Does the implementation still match the documented boundaries? |
 | `docs/api/README.md` and `docs/api/*` | contract truth | Do endpoints, payloads, and error semantics match reality? |
 | `docs/engineering/testing.md` | test truth | Does it describe the current active suites and realistic coverage? |
@@ -227,7 +231,7 @@ Prioritize these because they have repeatedly produced drift or review value in 
 - local-only asset policy and removal of remote runtime dependencies
 - structured logging usage instead of raw production `console.*`
 - i18n completeness through `t()` and synchronized l10n files
-- migration compatibility and Docker-based integration environment drift
+- fresh-install migration correctness (until compatibility is enabled) and Docker-based integration environment drift
 
 ---
 
@@ -308,7 +312,7 @@ Goal:
 Actions:
 - update `ACTIVE_TASKS.md`
 - update the related backlog file
-- create or update `docs/backlog/CODE_REVIEW_YYYY-MM-DD.md` when the review is substantial
+- create or update `docs/backlog/archive/CODE_REVIEW_YYYY-MM-DD.md` when the review is substantial
 - correct stale documentation in the same package when the fix is obvious
 
 ### Package 5: Final Triage and Handoff
@@ -319,9 +323,10 @@ Goal:
 Actions:
 - mark fixed issues clearly
 - separate deferred items from completed fixes
-- batch unresolved questions
-- provide the next recommended review package
-- commit the package
+- ask all unresolved questions together with 2–3 options and one recommendation
+- record the answers and rerun affected checks
+- apply any eligible plan transition
+- make the single scoped review commit
 
 ---
 
@@ -394,21 +399,19 @@ Use for:
 Fix immediately when all of the following are true:
 - the root cause is clear
 - the change is local and low-risk
+- the change is behavior-neutral
 - expected behavior is already defined by existing code, tests, or standards
 - a targeted test can confirm the fix
 
-Examples:
-- syntax errors
-- wrong import or deprecated API replacement
-- missing route prefix
-- obvious stale test expectation
-- missing authorization guard with known project pattern
-- outdated docs that clearly contradict current implementation
+Fix eligibility and examples are owned exclusively by the canonical
+[`review` skill](../standards/ai/skills/review/SKILL.md) §6. Do not infer a
+broader auto-fix category from this execution playbook.
 
 Do not fix immediately when one of these is true:
 - the correct UX is unclear
 - the architecture choice is ambiguous
 - the change would trigger a broad refactor
+- the issue affects security, authorization, validation, or data integrity
 - a security fix changes semantics that need approval
 - the issue may belong to intentionally unwired legacy scope
 
@@ -422,22 +425,27 @@ In those cases:
 ## Question Batching Policy
 
 Do not interrupt the review for every uncertainty.
-Accumulate questions and ask them together at the end.
+Accumulate questions and ask them together near the end through the available
+structured question mechanism (`question` in Kilo). A review cannot finalize,
+move a plan, or commit while an answer is pending.
 
 Use this format:
 
 1. What is the current intended status of `X`?
-   - Option A: active and should be fixed now
+   - Option A (Recommended): active and should be fixed now — [reason]
    - Option B: legacy and should be removed or marked
    - Option C: staged for future work and should stay isolated
 
 2. Which behavior is expected for `Y`?
-   - Option A: preserve current behavior
+   - Option A (Recommended): preserve current behavior — [reason]
    - Option B: align with documented behavior
    - Option C: create follow-up backlog task
 
-Prefer 2-3 options per question.
-Do not guess when the design intent is unclear.
+Use 2–3 mutually exclusive options per question. Put the recommendation first
+and explain its trade-off, but never treat it as consent. Ask behavior-changing,
+architectural, migration, and security authorizations explicitly rather than
+embedding them in a classification question. Record all answers in the owning
+plan or review record before continuing.
 
 ---
 
@@ -484,9 +492,9 @@ Every review package should leave behind the following artifacts.
 
 ### Required for Substantial Reviews
 
-- `docs/backlog/CODE_REVIEW_YYYY-MM-DD.md` or updated existing review document
-- backlog update in the relevant `phase-*.md` or `bugs.md`
-- commit for the logical package
+- `docs/backlog/archive/CODE_REVIEW_YYYY-MM-DD.md` or updated existing review document
+- open-finding update in `docs/backlog/backlog.md`
+- one scoped commit after finalization, unless the outcome is `BLOCKED` or there are no eligible changes
 
 ### Optional
 
@@ -546,8 +554,8 @@ Run each package with a short output block.
   - [test command/result]
 - Deferred items:
   - [backlog item or reason]
-- Questions added to batch:
-  - [question id]
+- Questions and answers:
+  - [question id → recorded answer]
 ```
 
 ### Step 3: End Block
@@ -555,7 +563,7 @@ Run each package with a short output block.
 ```markdown
 ## Review Session End
 
-- Status: [Done | Review Ready | Blocked]
+- Outcome: [PASS | PASS-WITH-FIXES | NEEDS-FOLLOW-UP | BLOCKED]
 - Clear fixes completed:
   - [fix]
   - [fix]
@@ -567,8 +575,10 @@ Run each package with a short output block.
   - [doc]
 - Backlog updated:
   - [file/task]
+- Plan transition:
+  - [move or reason for staying]
 - Commit:
-  - [sha] [message]
+  - [sha + message | no changes | blocker]
 - Next recommended package:
   - [package or task]
 ```
@@ -584,7 +594,7 @@ Use a consistent finding shape to keep reviews comparable.
 ```markdown
 ### [Finding ID] [Title]
 
-- Severity: [Critical | High | Medium | Low]
+- Severity: [block | major | minor | nit]
 - Category: [Functionality | Style | Orphaned | Architecture | Security | Inter-Module | Tests | Documentation | Release]
 - Confidence: [High | Medium | Low]
 - Scope: [file, module, or flow]
@@ -602,22 +612,13 @@ Use a consistent finding shape to keep reviews comparable.
 
 ### Severity Rules
 
-- `Critical`
-  - security vulnerability with active exposure
-  - broken migration or data-loss risk
-  - app-breaking syntax or boot failure
-- `High`
-  - missing authorization on active mutation path
-  - broken primary user flow
-  - contract mismatch likely to ship regressions
-- `Medium`
-  - incomplete active feature
-  - outdated docs causing wrong review or dev decisions
-  - dead button or drift in realistic coverage
-- `Low`
-  - style cleanup
-  - legacy cleanup with no active impact
-  - minor wording or formatting drift
+- `block` — must not ship: active vulnerability, data-loss/migration break,
+  boot failure, missing required review track, or failed required gate.
+- `major` — should be fixed before a plan can be done: missing authorization,
+  broken primary flow, or likely contract regression.
+- `minor` — bounded defect or documentation drift that may be fixed safely or
+  recorded as follow-up.
+- `nit` — non-blocking style or preference note.
 
 ---
 
@@ -626,7 +627,7 @@ Use a consistent finding shape to keep reviews comparable.
 | Situation | Action |
 |-----------|--------|
 | Root cause clear, local fix, easy validation | Fix now |
-| Security issue with known project pattern | Fix now |
+| Security/auth issue, even with a known pattern | Ask explicitly and log; never auto-fix |
 | Obvious doc contradiction with current implementation | Fix now |
 | Legacy/unwired item with unclear product intent | Backlog or question batch |
 | UX behavior ambiguous | Batch question |
@@ -666,13 +667,16 @@ Use this structure for the final review response or report.
 
 ## Findings By Severity
 
-### High
+### Block
 - [finding]
 
-### Medium
+### Major
 - [finding]
 
-### Low
+### Minor
+- [finding]
+
+### Nit
 - [finding]
 
 ## Tests and Validation
@@ -685,12 +689,13 @@ Use this structure for the final review response or report.
 - [update]
 - [update]
 
-## Batched Questions
+## Questions and Decisions
 
 1. [question]
-   - Option A: ...
+   - Option A (Recommended): ...
    - Option B: ...
    - Option C: ...
+   - Answer: ...
 
 ## Next Recommended Actions
 
@@ -703,7 +708,7 @@ Use this structure for the final review response or report.
 
 ## Copyable Review Report Template
 
-Copy this into `docs/backlog/CODE_REVIEW_YYYY-MM-DD.md` and fill it out.
+Copy this into `docs/backlog/archive/CODE_REVIEW_YYYY-MM-DD.md` and fill it out.
 
 ```markdown
 # Code Review: [Scope]
@@ -720,7 +725,7 @@ Copy this into `docs/backlog/CODE_REVIEW_YYYY-MM-DD.md` and fill it out.
 ## Executive Summary
 
 ### Outcome
-- [Approved | Approve with minor fixes | Needs follow-up | Blocked]
+- [PASS | PASS-WITH-FIXES | NEEDS-FOLLOW-UP | BLOCKED]
 
 ### What Was Reviewed
 - [module or area]
@@ -781,7 +786,9 @@ Copy this into `docs/backlog/CODE_REVIEW_YYYY-MM-DD.md` and fill it out.
 ### Package 5: Final Triage and Handoff
 - Final recommendation:
 - Deferred items:
-- Questions batched:
+- Questions answered:
+- Plan transition:
+- Scoped commit:
 
 ---
 
@@ -818,13 +825,16 @@ Copy this into `docs/backlog/CODE_REVIEW_YYYY-MM-DD.md` and fill it out.
 
 ## Findings By Severity
 
-### High
+### Block
 - [finding]
 
-### Medium
+### Major
 - [finding]
 
-### Low
+### Minor
+- [finding]
+
+### Nit
 - [finding]
 
 ---
@@ -845,18 +855,21 @@ Copy this into `docs/backlog/CODE_REVIEW_YYYY-MM-DD.md` and fill it out.
 
 ---
 
-## Batched Questions
+## Questions and Decisions
 
 1. [question]
-   - Option A: [option]
+   - Option A (Recommended): [option + reason]
    - Option B: [option]
    - Option C: [option]
+   - Answer: [recorded answer]
 
 ---
 
 ## Recommendation
 
-- Final status: [Approved | Approve with minor fixes | Needs follow-up | Blocked]
+- Final outcome: [PASS | PASS-WITH-FIXES | NEEDS-FOLLOW-UP | BLOCKED]
+- Plan transition: [move or reason for staying]
+- Commit: [sha + message | no changes | blocker]
 - Next recommended package:
 - Suggested owner:
 
@@ -931,8 +944,9 @@ Copy this section into a review document when needed.
 
 - [ ] Clear issues fixed
 - [ ] Deferred issues moved to backlog
-- [ ] Questions batched
-- [ ] Logical package committed
+- [ ] Questions batched with a recommendation, answered, and recorded
+- [ ] Eligible plan transition applied (or reason for staying recorded)
+- [ ] Exactly one scoped review commit made (or outcome is `BLOCKED` / no changes)
 
 ---
 
@@ -946,6 +960,6 @@ For a balanced review that does not take hours, use this default sequence:
 4. Fix obvious issues immediately.
 5. Rerun only the smallest relevant test set.
 6. Update task tracking and backlog.
-7. End with batched questions and the next recommended package.
+7. Ask and record batched questions, apply any eligible plan transition, then make the single scoped commit.
 
 This gives the best trade-off between speed, coverage, and repeatability for the current project.

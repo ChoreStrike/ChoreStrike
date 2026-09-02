@@ -4,7 +4,7 @@
 > **Effort:** [XS / S / M / L / XL]
 > **Priority:** P[1-3]
 > **Depends on:** [prerequisites / none]
-> **Related issue:** #[number]
+> **Related backlog items:** [IDs created in `docs/backlog/backlog.md`]
 
 ## 1. Problem Summary
 
@@ -54,5 +54,9 @@ Ordered, reviewable steps.
 - [ ] Criterion 1
 - [ ] Criterion 2
 - [ ] Build gate green (`npm test` + lint + backend tests)
+- [ ] Required tests ran without new or unapproved skips
+- [ ] All implementation decisions and review questions resolved and recorded
+- [ ] Owning backlog items updated or archived according to their actual completion state
 - [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
+- [ ] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`
 - [ ] `docs/backlog/ACTIVE_TASKS.md` updated

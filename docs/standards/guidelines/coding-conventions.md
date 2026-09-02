@@ -41,7 +41,7 @@ public function create(int $floorId, string $name): JSONResponse {
 - Add **JSDoc** to non-trivial composables and helpers.
 - **No `v-html`** with user-provided content (XSS).
 - Keep components small and composable; colocate scoped styles.
-- Route all network access through the Pinia stores (`src/store/*.js`) using `@nextcloud/axios`.
+- Route application network access through Pinia stores (`src/store/*.js`) and the shared `src/services/api.js` client, which owns the `@nextcloud/axios` integration and response normalization.
 
 ## CSS
 

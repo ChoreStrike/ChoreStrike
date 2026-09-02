@@ -9,7 +9,6 @@ description: Docker test environment setup, container workflow, and debugging fo
 
 **Canonical references:**
 - [`testing.md`](../../../../engineering/testing.md) — full environment setup guide
-- [`testing`](../testing/SKILL.md) — test writing conventions & coverage rules
 
 ---
 
@@ -87,9 +86,12 @@ Set via `TEST_DB_PROFILE` environment variable (default: `minimal`):
 $env:TEST_DB_PROFILE='family'; docker compose -f docker-compose.test.yml up -d
 ```
 
-## Docker MCP Gateway
+## Interactive Browser Automation
 
-The Kilo project config (`.kilo/kilo.jsonc`) connects to the Docker MCP gateway which provides a containerized Playwright browser. Use `MCP_DOCKER_browser_*` tools for interactive E2E verification against the running test environment (port 8080).
+If the active agent environment provides a Docker-backed browser, it may be used
+for interactive E2E verification against the running test environment on port
+8080. Do not make project standards depend on a machine-specific MCP name or
+configuration path.
 
 ## Troubleshooting
 

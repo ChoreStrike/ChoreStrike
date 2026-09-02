@@ -20,16 +20,16 @@ description: Writing and reviewing ChoreStrike PHP backend code (controllers, se
 Controller (thin) → Service (logic) → Mapper/Entity (persistence)
 ```
 
-- **Controllers** (`lib/Controller`): validate input → call one service → return `JSONResponse`. No SQL, no domain rules.
+- **Controllers** (`lib/Controller`): validate input → call the owning domain service → return `JSONResponse`. Thin bootstrap/authorization support calls are allowed; no SQL or domain rules.
 - **Services** (`lib/Service`): business logic and authorization decisions. The only place mutations are coordinated.
 - **Mappers/Entities** (`lib/Db`): persistence. Entities map table rows; mappers run queries.
 
 ## Must-Haves for Any Change
 
 - `@NoAdminRequired` annotation (never `@PublicPage`).
-- Authorization — two membership primitives in `AuthorizationService`, both throwing `ForbiddenException` (caught by every controller → **403**, never 500):
-  - `assertHouseMember($houseId)` — pure read-only gate; use this on ordinary reads/mutations.
-  - `ensureHouseMember($houseId)` — **auto-creates** a membership on first access (the `getOrCreateHouse` bootstrap/join flow); use only where auto-join is intended.
+- Authorization — two membership primitives in `AuthorizationService`, both throwing `ForbiddenException`:
+  - `ensureHouseMember($houseId)` — **auto-creates** membership only after the canonical `getOrCreateHouse` instance bootstrap; this is the standard controller preamble.
+  - `assertHouseMember($houseId)` — pure read-only gate for target-derived/existing house IDs where auto-join is not intended and for owner checks inside `AuthorizationService`.
   - `requireHouseOwner($houseId)` for owner-only ops; `assertUserInHouse($houseId, $userId)` to guard endpoints that take an arbitrary target userId.
 - Input validation at the controller boundary → return `{ success: false, error: { code, message } }` with a stable code and HTTP status.
 - DB access via `IQueryBuilder` with `createNamedParameter()`. **Never** string-concatenate SQL.

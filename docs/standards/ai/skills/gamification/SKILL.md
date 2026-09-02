@@ -50,7 +50,7 @@ Coins (`coin_base_per_energy` 10), tier multipliers (bronze/silver/gold 1.0/1.5/
 | Service | Responsibility |
 |---------|---------------|
 | `GameLogicService` | Core reward calculation on task completion, combo detection, and weekly medal evaluation (`awardMedalIfNew`, race-safe via unique-constraint handling) |
-| `RewardConfigService` | Configurable reward formulas per house |
+| `RewardConfigService` | Instance-global reward configuration stored in Nextcloud app config |
 | `SchedulingService` | Live scheduling API (preferences, energy, availability, suggestions) |
 
 > Removed as dead code (CS-PLAN-025): `ComboService`, `UserStatsService`, `HouseUserService` (service), `SmartSchedulerService`, `TaskSchedulerService` — `GameLogicService` inlines the combo logic.
@@ -62,7 +62,6 @@ Coins (`coin_base_per_energy` 10), tier multipliers (bronze/silver/gold 1.0/1.5/
 | `HouseUser` / `HouseUserMapper` | Coins, streak, streak-freeze, title state |
 | `Medal` / `MedalMapper` | Awarded medals (user, type, week) |
 | `CompletedTask` / `CompletedTaskMapper` | Completion history for scoring |
-| `AvailabilitySettings` / `AvailabilitySettingsMapper` | Presence days, energy budgets |
 
 ## Design Rules
 

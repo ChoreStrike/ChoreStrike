@@ -1,6 +1,6 @@
 ---
 name: review
-description: ChoreStrike review process — Standard (plan/code) and Full (module/domain, 4 parallel reviewer subagents) tiers, checklist, auto-fix rules, follow-up. Load for any review, self-review, or /review-* / /plan-review command.
+description: ChoreStrike review process — Standard (plan/code) and Full tiers, findings, questions, lifecycle transitions, and automatic review commits
 ---
 
 # Review — Standard & Full Review Process
@@ -18,14 +18,20 @@ description: ChoreStrike review process — Standard (plan/code) and Full (modul
 ## 2. Choose the tier
 
 - **Standard A (Plan)** — before `new/` → `active/`, one plan file. `/plan-review`.
-- **Standard B (Code)** — after a round / partial impl / docs, changed files only. `/review-chorestrike`.
+- **Standard B (Code)** — changed files for an interim or final implementation review. `/review-chorestrike`.
 - **Full** — whole module/domain, or anything touching authorization, data integrity, migrations, or routing. 4 parallel subagents. `/review-chorestrike-full`.
 - **Unsure** → Full if >1 domain touched, security/auth-relevant, or >5 files changed; else Standard B.
 
-## 3. Standard Review (Type A: Plan, Type B: Code)
+Tier and lifecycle state are separate: a passing Standard B can be interim. Only a
+review that verifies the **whole owning plan** may move it to `done/`.
 
-Scope: only the changed files / the plan / the docs. No subagents. Run the shared
-checklist; for **Type A (plan)** add the *Plan-only* checks.
+## 3. Standard Review (Standard A: Plan, Standard B: Code)
+
+Scope: the target plan for Standard A; the captured changed-file set for Standard B.
+No subagents. A final Standard B additionally reviews the owning plan's full file
+manifest, acceptance criteria, required test evidence, durable-doc integration, and
+relevant implementation history. An empty or narrow working-tree diff alone can
+never prove plan completion.
 
 ### Shared checklist (ChoreStrike)
 
@@ -33,11 +39,11 @@ checklist; for **Type A (plan)** add the *Plan-only* checks.
 - **Authorization** — `@NoAdminRequired` only (never `@PublicPage`)? Every mutation validates **house membership**; owner-only ops use `requireHouseOwner()`? Client input never trusted (IDs/fields resolved server-side)?
 - **Security** — Input validated at the controller boundary? No `v-html` with user content? No secrets/PII/tokens/cookies logged? No stack traces in error responses?
 - **Duplication / KISS** — reuse-first followed; no cloned behavior an existing module covers; minimal diff (no unrelated renames/formatting churn); ~30 lines/method, ~300 lines/file.
-- **Workarounds** — every `// HACK:` has a root cause + removal condition **and** a follow-up in [`docs/plans/new/`](../../../../plans/) or `backlog.md`. No stacked workarounds; no suppressed warnings or silently swallowed exceptions.
+- **Workarounds** — every `// HACK:` has a root cause + removal condition **and** an open follow-up in `backlog.md`; a linked plan is optional, never a substitute. No stacked workarounds; no suppressed warnings or silently swallowed exceptions.
 - **Logging** — `AppLogger` (backend) / `src/utils/logger.js` (frontend); no raw `console.*`; stable structured keys; nothing sensitive logged.
 - **i18n** — every user-visible string uses `t()`; `l10n/` artifacts updated in the same change (`npm run l10n:check-keys`).
 - **Validation** — test scope matches risk (unit/integration/E2E); every bug fix has a regression test; failure paths covered.
-- **Docs/Plan** — public API / workflow / rules changed? → docs updated. Active plan owns this work? → its checklist + a `## Review Outcome` note updated.
+- **Docs/Plan** — public API / workflow / rules changed? → docs updated. An owning plan exists? → its checklist and `## Review Outcome` note are updated.
 
 ### Plan-only (Type A) extra checks
 
@@ -48,19 +54,17 @@ checklist; for **Type A (plan)** add the *Plan-only* checks.
 
 ## 4. Full Review (subagent strategy)
 
-The main agent loads context and orchestrates; **four `reviewer` subagents run in
-parallel** (via the `task` tool with `subagent_type: "reviewer"`). This named
-agent is defined **globally** inline in `~/.config/kilo/kilo.jsonc` under
-`agent.reviewer`: read-only by contract (`edit`/`write` denied), pinned to a
-**mid** model (I/O-bound find-and-flag work — a frontier model is wasted).
-Project-specific criteria come from this skill (§3/§4), not from the agent prompt.
-The main agent owns all fixes (§5) and the follow-up (§6).
+The main agent loads context and orchestrates; **four read-only `reviewer`
+subagents run in parallel** through the available task mechanism. Project-specific
+criteria come from this skill, not from a machine-specific agent prompt. The main
+agent owns all synthesis, fixes, questions, transitions, and commits.
 
 Flow: delegate the **prep lookups** ("where is X", inventories) to the cheap
 **`explore`** subagent first (see
 [`agent-spawning.md`](../../../guidelines/agent-spawning.md) §2) → set scope →
-spawn the 4 reviewers in parallel → consolidate + deduplicate findings →
-auto-fix/backlog (§5) → follow-up (§6). Escalate any genuinely complex slice
+spawn the 4 reviewers in parallel → validate all four deliverables → consolidate +
+deduplicate findings → auto-fix/question/follow-up. A failed, missing, or malformed
+reviewer result blocks a Full-review verdict; never silently omit a track. Escalate any genuinely complex slice
 (authorization trace, cross-service invariant) to the main agent instead of a
 `reviewer`.
 
@@ -96,45 +100,98 @@ Return ONLY findings as a fenced JSON array, one object per issue:
 - Do not propose workarounds. Do not restate code that is already correct.
 ```
 
-## 5. Auto-fix rule — what "fix small bugs inline" means
+## 5. Outcomes, Questions, and Plan Ownership
+
+Use exactly these outcomes:
+
+| Outcome | Meaning | Automatic action |
+|---------|---------|------------------|
+| `PASS` | No findings remain | Eligible plan transition; commit reviewed package |
+| `PASS-WITH-FIXES` | All findings were safely fixed and gates rerun | Eligible plan transition; commit reviewed package |
+| `NEEDS-FOLLOW-UP` | Questions are answered and gates are green, but findings remain | Keep plan in place; commit only review evidence, backlog updates, and verified safe fixes |
+| `BLOCKED` | Scope/plan is ambiguous, a question is unanswered, a required track/gate is missing or failing, or concurrent changes invalidate the review | No transition and no automatic commit |
+
+### Owning plan
+
+- Standard A accepts exactly one regular, non-symlink `*.md` plan in
+  `docs/plans/new/`, whether tracked or untracked; dotfiles such as `.gitkeep`
+  are never candidates. The destination must not already exist.
+- For code/full reviews, an explicit plan path wins. Otherwise resolve ownership
+  from `docs/plans/active/` and the reviewed scope. Zero matching plans is valid
+  (`plan: N/A`); more than one plausible plan is a blocking question.
+- A matching plan stays active after an interim review. Move it to `done/` only
+  when every plan item, acceptance criterion, required test, durable-doc update,
+  and final-review requirement is complete.
+
+### Batched questions
+
+- Collect uncertainties during review and ask them together near the end through
+  the agent's structured question mechanism (`question` in Kilo).
+- Give 2–3 concrete, mutually exclusive options. Put the recommended option first,
+  mark it **Recommended**, and explain the trade-off; never treat the recommendation
+  as the user's consent.
+- Ask behavior-changing, architectural, migration, and security authorizations
+  explicitly. Do not hide them inside a general classification question.
+- Record every answer in the owning plan or review record, apply it, rerun affected
+  checks, and then resume finalization. No outcome, plan move, or commit while an
+  answer is pending.
+- An explicit read-only or `--no-commit` request runs a findings-only review: do
+  not edit tracking/plans, perform lifecycle moves, stage, or commit.
+
+## 6. Auto-fix Rule
 
 Apply fixes **directly** in the review for items in the left column. For items in
-the right column, log a backlog item (see [`backlog/README.md`](../../../../backlog/README.md))
-and/or a `docs/plans/new/` follow-up instead of fixing inline.
+the right column, ask when a decision is needed and put every open follow-up in
+`backlog.md` (see [`backlog/README.md`](../../../../backlog/README.md)); a linked
+plan is optional and never replaces the backlog entry.
 
-| Auto-fix inline | Log only (→ backlog / plan) |
+| Auto-fix inline | Discuss or log only |
 | --------------- | --------------------------- |
-| Typos, off-by-one, wrong comparison | Architecture changes, new abstractions |
-| Missing/wrong PHPDoc/JSDoc | Security/auth-relevant logic (always discuss) |
-| `console.*` → `AppLogger`/`logger.js` | Performance refactor with behavior risk |
-| Hardcoded UI string → `t()` (+ `l10n/`) | New behavior / new public API / migration |
-| Missing validation when the pattern is clear and local | Workarounds (keep marked + follow-up) |
-| Coding-standard violations (format, naming) | Cross-domain refactors |
+| Typos, broken links, objectively stale documentation | Any security/auth or validation logic |
+| Missing/wrong PHPDoc/JSDoc | Logic changes (comparisons, boundaries, algorithms) |
+| Behavior-neutral logger API replacement | Architecture changes or new abstractions |
+| Hardcoded UI string → `t()` (+ `l10n/`) | New behavior, public API, or migration |
+| Behavior-neutral format/naming violations | Performance or cross-domain refactors |
+| Clearly orphaned imports/comments | Workarounds and deferred required tests |
 
-After each fix cluster, run the **quality gate**: `npm run lint:fix`,
-`npm run stylelint:fix` (if styles touched), then `npm test`; run the **backend**
-tests in Docker when PHP changed (see the `docker-dev` skill). If a gate goes red,
-fix the fix or roll back — never leave the tree broken. Security/auth findings are
-**never** auto-fixed: they become a backlog item and are surfaced explicitly to the user.
+After each fix cluster, run the checks required by the changed files, reviewed risk,
+and owning plan. Run write-capable fixers only against captured review files; if a
+repository-wide fixer could touch unrelated dirty files, use its scoped executable
+or check-only command and block before broad rewrites. Run `npm test`, backend
+unit/integration tests in Docker when PHP changed, and applicable E2E/build/docs
+gates. A timeout, missing required suite, or newly skipped required test is not
+green. Security/auth findings are **never** auto-fixed. Potentially exploitable,
+unremediated details force `BLOCKED`: keep details in `/private/` and never
+auto-commit them to tracked review/backlog files. A sanitized public placeholder
+requires explicit disclosure approval.
 
-## 6. Follow-up pipeline (docs → plan → backlog → commit)
+## 7. Finalization Pipeline
 
-1. **Quality gate** green (lint:fix + test, backend in Docker if PHP changed) — otherwise fix/roll back first.
-2. **Docs:** update only where the public API, workflow, or rules actually changed. No drive-by doc edits.
-3. **Plan:** if an active plan owns this work, tick its checklist and append a short `## Review Outcome` note (what was reviewed, fixed, deferred). This is the review record — no separate review file.
-4. **Backlog:** any non-trivial leftover becomes a backlog item with `Source: Review of <module>` (format in [`backlog/README.md`](../../../../backlog/README.md)); update `ACTIVE_TASKS.md`. For substantial reviews, also create/update `docs/backlog/CODE_REVIEW_YYYY-MM-DD.md` (template in `review-playbook.md`).
-5. **Commit:** ask the user (or honor a `--commit` flag). Conventional-commit format, green gate only. Never commit secrets.
+1. **Capture:** record scope, HEAD, current branch, index state, complete reviewed-scope fingerprint, and owning-plan candidate before review. Include staged/unstaged binary diffs plus sorted untracked paths and per-file content hashes. Preserve unrelated user/agent changes.
+2. **Review/fix:** complete every required track, consolidate findings, apply only safe fixes, and run all required gates.
+3. **Questions:** ask one batched structured request, record the answers, apply them, and rerun affected checks.
+4. **Docs:** update only where public API, workflow, rules, or durable plan outcomes changed.
+5. **Plan:** append a concise `## Review Outcome` (scope, base HEAD/diff fingerprint, outcome, fixes, findings, decisions, gates). On eligible Standard A, update status and owning backlog items, then move `new/ → active/`. On an eligible final Standard B/Full review, update status, archive completed owning backlog items, and move `active/ → done/`. Interim or `NEEDS-FOLLOW-UP` reviews leave the plan in place.
+6. **Backlog/record:** put every non-sensitive open follow-up in `backlog.md` with `Source: Review of <scope>`; update `ACTIVE_TASKS.md`. A plan-owned review always updates the plan; a substantial review additionally creates/updates `docs/backlog/archive/CODE_REVIEW_YYYY-MM-DD.md` from the playbook template. Any `NEEDS-FOLLOW-UP` evidence-only commit without an owning plan also requires that tracked review record, even when the review is otherwise small.
+7. **Commit:** the review request authorizes one scoped conventional commit on the current branch. Stage only reviewed files and review-owned follow-up/transition files; inspect status and staged diff; never include unrelated changes, secrets, private content, or artifacts. Do not create an empty commit. Do not create/switch branches, amend, push, or open a PR. If unrelated paths are already staged or concurrent edits changed the reviewed scope, use `BLOCKED` instead of altering them.
 
-## 7. Output to the user
+For `NEEDS-FOLLOW-UP`, commit only the owning plan's evidence-only Review Outcome,
+the review record, backlog updates, and verified safe fixes; leave affected
+implementation files and every plan move out. Record the base HEAD, exact reviewed
+path manifest, and a cryptographic fingerprint of the uncommitted reviewed diff so
+the evidence identifies its source state. For `BLOCKED`, make no automatic commit.
+
+## 8. Output to the User
 
 End the review with a compact, skimmable report:
 
-1. **Scope** reviewed (files / module / plan). 2. **Tier** used and why.
-3. **Findings** table: severity, file:line, issue, status (fixed / deferred).
-4. **Auto-fixes** applied + quality-gate result. 5. **Backlog items** added.
-6. **Docs/Plan** updated. 7. **Commit** made (hash) or "not committed — awaiting approval".
+1. **Scope** and owning plan (`N/A` when none). 2. **Tier** and outcome.
+3. **Findings** table: severity, file:line, issue, status (fixed / open).
+4. **Safe fixes** and gate results. 5. **Questions/decisions** recorded.
+6. **Backlog/review record** updates. 7. **Plan transition** (or why it stayed).
+8. **Commit** hash/message, `no changes to commit`, or the exact blocker.
 
-## 8. Related documents
+## 9. Related Documents
 
 - [`review-playbook.md`](../../../../engineering/review-playbook.md) — deep modes, packages, report templates.
 - [`security.md`](../../../guidelines/security.md) · [`llm-do-dont-checklist.md`](../../../guidelines/llm-do-dont-checklist.md) · [`agent-spawning.md`](../../../guidelines/agent-spawning.md).

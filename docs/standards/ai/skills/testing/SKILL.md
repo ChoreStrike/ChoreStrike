@@ -10,7 +10,8 @@ description: Writing and reviewing tests across PHPUnit, Jest, and Playwright
 **Canonical references:**
 - [`testing.md`](../../../guidelines/testing.md)
 - [`testing.md`](../../../../engineering/testing.md) — environment setup & command reference
-- [`docker-dev`](../docker-dev/SKILL.md) — Docker test environment workflow
+
+Load [`docker-dev`](../docker-dev/SKILL.md) for Docker environment commands and troubleshooting.
 
 ---
 
@@ -26,7 +27,7 @@ description: Writing and reviewing tests across PHPUnit, Jest, and Playwright
 | Backend unit | PHPUnit | `tests/unit/` |
 | Backend integration | PHPUnit (Docker) | `tests/integration/` |
 | Frontend unit | Jest + @vue/test-utils | `tests/unit/` |
-| E2E | Playwright (Docker MCP) | `tests/e2e/` |
+| E2E | Playwright (local runner; Docker test environment) | `tests/e2e/` |
 
 Backend tests needing `OCP\*` run **only** inside the Docker test env (`docker-compose.test.yml`).
 
@@ -50,18 +51,17 @@ When payload shapes change, refresh **both** unit and E2E coverage in the same c
 npm test
 npm run lint
 
-# Backend unit tests (Docker — env must be up; always exec, never `compose run`)
-docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.unit.xml
-
-# Backend integration tests (Docker)
-docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.integration.xml
-
 # E2E via Playwright (local, against running Docker test env)
 npx playwright test tests/e2e/ --project=chromium
 ```
 
-## E2E with Docker MCP
+Backend unit/integration commands and environment recovery live only in the
+`docker-dev` skill to avoid drifting command copies.
 
-The project uses the **Docker MCP gateway** (`MCP_DOCKER`) for browser-based E2E testing. The gateway provides a containerized Playwright instance — use `MCP_DOCKER_browser_*` tools for interactive E2E verification during development. The test environment must be running (`docker compose -f docker-compose.test.yml up -d`) before E2E tests.
+## Interactive E2E
+
+When the active tool exposes browser automation, it may be used for interactive
+verification against the running Docker test environment. The checked-in
+Playwright suites remain the canonical E2E gate.
 
 Use DB profiles (`empty` / `minimal` / `family`) via the Playwright fixtures for E2E seeding.

@@ -1,8 +1,8 @@
 # External Asset Licensing Policy
 
 How third-party visual assets (icons, illustrations, fonts, textures, any visual
-files committed or shipped) may be used in ChoreStrike. Full decision-log details
-(including license excerpts) are in `docs/licenses/` and the 2026-02-25 review record.
+files committed or shipped) may be used in ChoreStrike. The decision log below
+and the exact license texts in `docs/licenses/` are the tracked evidence.
 
 ## Go/No-Go Checks
 
@@ -29,7 +29,7 @@ README/CREDITS where attribution is required.
 | Asset | License | Decision | Date | Notes |
 |---|---|---|---|---|
 | Vector Icon Pack (itch.io, RhosGFX) | RhosGFX CULA | ❌ **REJECTED** | 2026-02-25 | CULA §1.iii forbids any redistribution/adaptation; icons "easily extractable" from app packages (§2) — incompatible with the public repo and App Store. |
-| [Lucide Icons](https://lucide.dev) | MIT | ✅ **APPROVED** | 2026-02-25 | Replacement icon set. Attribution: keep `docs/licenses/lucide-LICENSE.txt`; npm package `lucide-vue-next`. |
+| [Lucide Icons](https://lucide.dev) | ISC | ✅ **APPROVED** | 2026-02-25 | Replacement icon set. Re-verified 2026-09-02 by the standards review against `lucide-vue-next@0.474.0` in `package-lock.json` and its bundled `LICENSE`; tracked evidence `docs/licenses/lucide-LICENSE.txt`, SHA-256 `1e7290b35280a048667bbf0ebabac1c7fd52a75300e8b2946ac165715997f2bc`. |
 | [Microsoft Fluent UI Emoji](https://github.com/microsoft/fluentui-emoji) | MIT | ✅ **APPROVED** | 2026-02-25 | Avatars/room/task/gamification graphics. Attribution: keep `docs/licenses/fluentui-emoji-LICENSE.txt`. |
 
 ## Fallback Strategy

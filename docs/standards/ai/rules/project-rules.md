@@ -12,6 +12,9 @@
 - Stay within the **Nextcloud app ecosystem**. Don't introduce external services unless explicitly approved.
 - Store personal/secret material only in `/private/` (gitignored). Never commit private content.
 
+### Public Project Language
+- Code, comments, documentation, and commit messages are **English only**. Chat with the user may use their language.
+
 ### Architecture (never violate)
 ```
 Controllers (thin) → Services (business logic) → Mappers/Entities (persistence)
@@ -59,12 +62,12 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 - See [`../../guidelines/logging.md`](../../guidelines/logging.md).
 
 ### Internationalization
-- Every user-visible string uses `t()`. Update `l10n/` artifacts in the same change.
+- Every user-visible domain/UI string uses `t()`. Update `l10n/` artifacts in the same change. The sanitized generic `ControllerErrorFormatter::safeMessage()` fallback is the sole documented exception (see `i18n.md` D2); do not introduce additional exceptions.
 - See [`../../guidelines/i18n.md`](../../guidelines/i18n.md).
 
 ### Testing
 - Every feature → test. Every bug fix → regression test.
-- **No completion without tests:** a task or plan must never be marked done while tests required by the plan, the backlog item, or these rules are missing, skipped, or failing. Deferring a required test is only acceptable with an explicit backlog entry (reason + remaining risk) and user approval.
+- **No completion without tests:** a task or plan must never be marked done while tests required by the plan, the backlog item, or these rules are missing, newly/unapproved skipped, or failing. A deferral may pause or explicitly rescope a plan with user approval, but a still-required deferred test always blocks `done/`.
 - PHPUnit (unit/integration), Jest (frontend), Playwright (E2E). BDD-style naming.
 - See [`../../guidelines/testing.md`](../../guidelines/testing.md) and [`testing.md`](../../../engineering/testing.md).
 
@@ -76,7 +79,7 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 ## 3. Error & Quality Management
 
 - **Build gate:** a non-building tree must not be considered done. `npm test` + lint + backend tests green.
-- **Lint/format before commit** (`npm run lint:fix`). Never ignore lint output.
+- **Lint/format before commit:** run `npm run lint:fix` only when its write scope contains no unrelated dirty source files; otherwise use scoped fixers and repository-wide check-only lint. Never ignore lint output.
 - **No silent workarounds.** A temporary workaround is acceptable only when: (a) a backlog item exists with a deferral reason, (b) an inline `// HACK: [reason]` comment is present, (c) the root cause stays traceable.
 - **Parameter validation** at all public boundaries.
 - **No stack traces or internal details** in production error responses — only error codes and messages.
@@ -105,6 +108,7 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 
 ### Backlog Rules (enforced)
 - Non-trivial follow-ups, deferred fixes, and improvement ideas → a themed section in `backlog.md` (never a new loose file).
+- Potentially exploitable, unremediated security details stay in `/private/` and are never automatically written or committed to public review/backlog files. Add only a sanitized public placeholder after explicit disclosure approval.
 - On **completion**, move the item from `backlog.md` to `archive/YYYY-MM.md` (the month it was resolved) **immediately**.
 - `ACTIVE_TASKS.md` is rolling: entries older than **~2 weeks** or beyond the **~10-entry cap** move to `archive/`; *Recently Completed* entries are **one line**. Update it when starting, pausing, and finishing implementation or review work.
 - A code-review's **open** findings go to `backlog.md`; the **review record** goes to `archive/`.
@@ -139,26 +143,32 @@ docs/plans/
 └── done/      # Completed plans kept for reference (tracked in Git)
 ```
 
-### Lifecycle & Manual Moves
-- Plans are created in `docs/plans/new/`. All folder moves are **manual** by the user — the AI must **not** auto-move unless explicitly instructed.
+### Lifecycle & Review-Driven Moves
+- Plans are created in `docs/plans/new/`. Successful lifecycle reviews own the normal forward transitions; unrelated transitions remain explicit user actions.
 
 | Move | When |
 |------|------|
-| `new/ → active/` | User starts the work |
-| `active/ → done/` | Fully implemented and reviewed |
-| `active/ → onhold/` | Paused (e.g. blocked by a missing dependency) |
-| `done/ → archive/YYYY-MM/` (untracked) | No longer serves as living documentation |
+| `new/ → active/` | A Standard A plan review is `PASS` or `PASS-WITH-FIXES`; the agent updates status/tracking, moves the plan, and commits the review package |
+| `active/ → done/` | A final Standard B or Full review passes **and** the whole plan, required tests, acceptance criteria, and durable-doc integration are complete; the agent moves and commits it |
+| `active/ → onhold/` | The user explicitly pauses blocked work |
+| `done/ → archive/YYYY-MM/` (untracked) | The user explicitly retires a historical plan that no longer needs to remain public; repair tracked links first |
+
+- A passing **interim** code review commits its reviewed package but leaves an incomplete plan in `active/`.
+- A Standard A review with open findings leaves the plan in `new/`. A code/full review with open findings commits only its review evidence, backlog updates, and verified safe fixes; an affected plan stays `active/`.
+- Any unresolved non-sensitive finding yields `NEEDS-FOLLOW-UP` and blocks a plan transition. An unanswered question, ambiguous owning plan, failed/missing required gate, newly skipped required test, or potentially exploitable unremediated security detail yields `BLOCKED` and stops review finalization/commit. Unresolved `block`, `major`, and security findings must remain explicit; only sanitized review evidence may commit under the `NEEDS-FOLLOW-UP` rules. Ask all review questions together through the available structured question mechanism, provide 2–3 concrete options with one recommendation, record the answers, then resume finalization.
+- Requesting a plan/code review authorizes exactly one scoped conventional commit on the currently checked-out branch. An explicit read-only or no-commit instruction overrides this authorization and disables lifecycle moves. Do not create or switch branches, amend, push, or open a PR unless the user separately requests it. Never create an empty commit or include unrelated working-tree/index changes.
 
 - Environment-specific worktree tools (e.g. Kilo Agent Manager) operate **independently** of `docs/plans/` — the plan Markdown files here are the canonical, tool-agnostic source of truth.
 
 ### Plan Review
 - After plan creation, the AI **proposes a review** (mandatory for complex/multi-phase plans, optional for trivial fixes).
 - The review checks: feasibility, risk coverage, acceptance criteria completeness, test-plan adequacy.
+- A passing review records its outcome and resolved decisions in the plan before the automatic `new/ → active/` transition and commit.
 - See the [`plan-management`](../skills/plan-management/SKILL.md) skill and the plan [`template.md`](../../../plans/template.md).
 
 ### Plans Are Temporary — Knowledge Integration
 - Plans are **temporary working documents**: they coordinate implementation and are **not living documentation**. A plan must never remain the only place where a concept, decision, or behavior is described.
-- On completion (before recommending the `active/ → done/` move), integrate everything durable into the permanent docs:
+- On completion (before the final review may perform the `active/ → done/` move), integrate everything durable into the permanent docs:
   - Concepts, product & design intent → [`docs/concepts/`](../../../concepts/)
   - Architecture decisions → [`docs/adr/`](../../../adr/) (one ADR per decision)
   - System / layer behavior → [`docs/engineering/`](../../../engineering/)

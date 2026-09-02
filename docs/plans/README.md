@@ -12,16 +12,23 @@ docs/plans/
 └── done/      # Completed, kept for reference
 ```
 
-## Lifecycle (manual moves)
+## Lifecycle
 
-Plan transitions between folders (`new/ → active/ → done/`, etc.) are **manual** — the AI must not auto-move plans unless explicitly instructed.
+Successful lifecycle reviews perform the normal forward transitions automatically:
+
+- A passing plan review records its outcome, moves `new/ → active/`, updates `ACTIVE_TASKS.md`, and commits the package.
+- A passing final code/full review moves `active/ → done/` only after the whole plan, required tests, acceptance criteria, and durable documentation are complete.
+- Passing interim reviews commit their reviewed package while the plan remains in `active/`.
+- Only `PASS` and `PASS-WITH-FIXES` are transition-eligible. `NEEDS-FOLLOW-UP` and `BLOCKED` leave the plan in place; the review batches questions with options and a recommendation before it finalizes.
+
+Moves to `onhold/` or the later local `archive/` remain explicit user decisions.
 
 ➡️ See [`project-rules.md`](../standards/ai/rules/project-rules.md) §7 for the full lifecycle/move table and the archive policy.
 
 ## Creating a Plan
 
 1. Copy [`template.md`](./template.md) into `new/<descriptive-name>.md`.
-2. Fill in the required sections.
-3. For complex/multi-phase work, the AI proposes a review before you move it to `active/`.
+2. Create/link the owning `backlog.md` items and fill in all required sections.
+3. For complex/multi-phase work, run a review; a passing review activates and commits the plan automatically.
 
 See the [`plan-management`](../standards/ai/skills/plan-management/SKILL.md) skill and [`project-rules.md`](../standards/ai/rules/project-rules.md) §7 for the full workflow.

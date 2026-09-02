@@ -11,11 +11,9 @@
 
 ## 1. Models are a setting, not a doc
 
-Model names are **volatile** and **global** (shared across projects) — this
-document deliberately names none. Assign per agent in `~/.config/kilo/kilo.jsonc`
-(override `model` + `variant` under `agent.<name>`; custom agents like `reviewer`
-are defined inline there). Switch at runtime via `/agents` + `/models`, or per
-Agent Manager task.
+Model names are **volatile** and user/tool-specific — this document deliberately
+names none. Configure model/variant choices in the active tool's user settings,
+not in tracked project standards.
 
 Durable routing principle — **escalate, don't start high** (a cheap redo costs
 less than one frontier run):
@@ -49,7 +47,7 @@ plain retrieval.
 | `explore` | built-in | Read-only codebase search ("where is X / who calls Y") |
 | `general` | built-in | General-purpose research / multi-step tasks |
 | `orchestrator` | built-in | Coordinates spawned work (hidden) |
-| `reviewer` | custom (inline `agent.reviewer` in `~/.config/kilo/kilo.jsonc`) | Read-only reviewer; returns structured findings, never edits |
+| `reviewer` | available read-only role | Returns structured findings, never edits |
 
 ## 4. When to spawn at all
 
@@ -68,7 +66,7 @@ Do **not** spawn to "use more agents" — each subagent is its own prompt stream
 | Mechanism | Tool | Visibility | Isolation | Best for |
 | --------- | ---- | ---------- | --------- | -------- |
 | **Internal subagent** | `task` tool (`subagent_type`) | Hidden (result only) | Same tree | Read-only review, exploration, finding work |
-| **Named (custom) agent** | inline `agent.<name>` in `~/.config/kilo/kilo.jsonc`, or `~/.config/kilo/agent/*.md`; project-local `.kilo/agent/*.md` | Selectable via Task tool / `@` menu | Same tree | Reusable roles with a pinned prompt (e.g. `reviewer`) |
+| **Named (custom) agent** | tool/user configuration | Selectable through the active agent runtime | Same tree | Reusable roles with a pinned prompt (e.g. `reviewer`) |
 | **Agent Manager worktree** | `agent_manager` tool (mode `worktree`) | Visible card in VS Code | Separate git worktree/branch | Parallel independent implementations, each potentially its own PR |
 
 Subagents and named agents share the working tree — they *help* the main agent.
