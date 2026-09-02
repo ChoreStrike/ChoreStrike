@@ -4,7 +4,7 @@
 > **Effort:** XL (program; implemented as sequential reviewable work packages)
 > **Priority:** P1
 > **Depends on:** Core Task Workflow Full Review (2026-09-02) and its recorded user decisions
-> **Related backlog items:** CR-WF-01..08; CR-053-07/09/16/17/18/19/20/21; CR-055-01/03/04; CR-SVC-15/40/41/44; TECH-DOCS-003; UX-015; FEAT-UX-015 (owner-transfer semantics only)
+> **Related backlog items:** CR-WF-01..08; CR-053-07/09/13/16/17/18/19/20/21; CR-055-01/03/04; CR-SVC-15/40/41/44; TECH-DOCS-003; UX-015; FEAT-UX-015 (owner-transfer semantics only); RELEASE-002/003
 
 ## 1. Problem Summary
 
@@ -550,6 +550,7 @@ docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.integrat
 docker exec chorestrike-test composer cs:check
 npx playwright test --project=chromium
 npx playwright test --project=chromium-serial-db --workers=1
+npx playwright test --project=chromium-scheduling-owner --workers=1
 git diff --check
 ```
 
@@ -570,8 +571,8 @@ modified: docs/plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md (n
 modified: docs/{concepts,engineering,api,testing,standards}/**/*.md as durable outcomes require
 modified: appinfo/routes.php only for reviewed aggregate contract changes
 modified: lib/Migration/Version*.php (fold fresh-install schema; no compatibility migrations)
-modified: lib/Db/{House,HouseMapper,HouseUser,HouseUserMapper,Task,TaskMapper,RoomTask,RoomTaskMapper,TaskAssignee,TaskAssigneeMapper,CompletedTask,CompletedTaskMapper,RoomTaskChecklistProgressMapper}.php
-modified: lib/Service/{AuthorizationService,HouseService,HouseSetupService,FloorService,RoomService,TaskService,RoomTaskService,ChecklistService,SchedulingService,GameLogicService,NotificationService}.php
+modified: lib/Db/{House,HouseMapper,HouseUser,HouseUserMapper,Task,TaskMapper,RoomTask,RoomTaskMapper,TaskAssignee,TaskAssigneeMapper,TaskChecklistItem,TaskChecklistItemMapper,CompletedTask,CompletedTaskMapper,RoomTaskChecklistProgress,RoomTaskChecklistProgressMapper}.php
+modified: lib/Service/{AuthorizationService,HouseService,HouseSetupService,FloorService,RoomService,TaskService,RoomTaskService,ChecklistService,TemplateService,CalendarService,SchedulingService,GameLogicService,NotificationService}.php
 modified: lib/Controller/{HouseController,SetupController,FloorController,RoomController,TaskController,RoomTaskController,ChecklistController,UserController,SchedulingController}.php
 modified: src/services/api.js | src/utils/{dateKeys,logger}.js
 modified: src/store/{house,user,setup,rooms,tasks,roomTasks,checklist,scheduling,game}.js
@@ -743,3 +744,17 @@ review can pass.
   manifest path to `active/`.
 - No open findings. Recommended next state: `active/`; the move remains a
   manual user action per project-rules §7.
+
+**Standard A verification pass — 2026-09-02: PASS (GO) confirmed.**
+
+- Independent re-review re-verified every referenced backlog ID, review record,
+  ADR number, manifest path, quality-gate command, Playwright project, and
+  Docker invocation against the live tree; D1-D5 remain ratified.
+- Additional inline fixes: added CR-053-13 and RELEASE-002/003 to the
+  related-items header; added the `chromium-scheduling-owner` project to the
+  4.5 quality gate (the three scheduling specs are ignored by the `chromium`
+  project, so the gate previously never ran them); completed the section 5
+  manifest with the checklist entities and the TemplateService/CalendarService
+  implied by WP3/WP4/WP6.
+- No open findings. Recommended next state remains `active/`; the move remains
+  a manual user action per project-rules §7.
