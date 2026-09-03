@@ -10,6 +10,11 @@
 
 ## In Progress
 
+### CS-PLAN-060 / WP1 — Schema, Entity, and Mapper Invariants
+**Status**: Standard A passed (GO-WITH-CHANGES applied), activation pending · **Started**: 2026-09-02 · **Branch**: master
+**Plan**: docs/plans/new/cs-plan-060-wp1-schema-entity-mapper-invariants.md · **Blockers**: none
+**Scope**: WP1 plan drafted from CS-PLAN-058 §3/WP1 plus verified live-tree persistence facts; Standard A review verified all references and ratified D1–D11 (remnant-column fold D9, frontend contract-key deviation D10, unlinked-visible scoping D11).
+
 <!-- When you start work, add an entry here in this shape:
 ### CS-PLAN-NNN — Title
 **Status**: In Progress · **Started**: YYYY-MM-DD · **Branch**: master
