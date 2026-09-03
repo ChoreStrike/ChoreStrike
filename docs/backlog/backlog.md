@@ -26,7 +26,7 @@
 > public repository under the security-disclosure policy.
 
 ### [P1] CR-WF-01 — Enforce approved workflow authorization boundaries
-**Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: authorization
+**Status**: In Progress (CS-PLAN-061) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: authorization
 **Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: CR-WF-03..08 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
 
@@ -246,7 +246,7 @@ hydrates all floors for a boolean (`HouseService:303`).
 ---
 
 ### [P3] CR-053-16 — NotFound→404 mapping cluster + unvalidated request bodies
-**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: authorization
+**Status**: In Progress (CS-PLAN-061) · **Effort**: M · **Layer**: backend · **Journey stage**: authorization
 **Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-053 full review (CR-P3-11/12, 2026-08-27); re-scoped by CS-PLAN-055
 
@@ -259,7 +259,7 @@ in service validators + per-controller catch.
 ---
 
 ### [P3] CR-053-17 — Silent exception swallowing in remaining controllers
-**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: authorization
+**Status**: In Progress (CS-PLAN-061) · **Effort**: M · **Layer**: backend · **Journey stage**: authorization
 **Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-053 full review (L3-3, 2026-08-27); re-scoped by CS-PLAN-055
 
@@ -271,7 +271,7 @@ AppLogger contract. Adopt `ControllerLoggingTrait` across the remainder.
 ---
 
 ### [P3] CR-053-18 — API hardening small-items cluster
-**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: authorization
+**Status**: In Progress (CS-PLAN-061) · **Effort**: M · **Layer**: backend · **Journey stage**: authorization
 **Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-053 full review (CR-P3-04..10, CR-P2-09/10/17/18/19, 2026-08-27); re-scoped by CS-PLAN-055
 
@@ -292,7 +292,7 @@ The remaining cross-workflow enforcement is owned by **CR-WF-01** above.
 ---
 
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
-**Status**: Backlog · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
+**Status**: In Progress (CS-PLAN-061, semantics slice) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
 **Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: UX-003 remainder (CS-PLAN-038); WP2 owns the owner-transfer/last-owner semantics only
 

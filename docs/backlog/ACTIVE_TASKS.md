@@ -10,6 +10,11 @@
 
 ## In Progress
 
+### CS-PLAN-061 — WP2: Membership, Role, Visibility, and Privacy Boundaries
+**Status**: Active (Standard A review PASS 2026-09-03; implementation next) · **Started**: 2026-09-03 · **Branch**: master
+**Plan**: docs/plans/active/cs-plan-061-wp2-membership-visibility-privacy.md · **Blockers**: none
+**Scope**: invite-only membership, unified private-task visibility matrix, service-level actor/owner gates, 403/404 standardization, CR-053-16/17/18 core remainders, ADR-010.
+
 <!-- When you start work, add an entry here in this shape:
 ### CS-PLAN-NNN — Title
 **Status**: In Progress · **Started**: YYYY-MM-DD · **Branch**: master
