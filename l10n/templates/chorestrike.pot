@@ -737,6 +737,9 @@ msgstr ""
 msgid "Estimated time must be between 1 and 480 minutes"
 msgstr ""
 
+msgid "Estimated time minimum must not be greater than the maximum"
+msgstr ""
+
 msgid "Even distribution"
 msgstr ""
 

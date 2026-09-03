@@ -78,13 +78,16 @@ class CompletedTaskMapper extends QBMapper {
 		$qb->select('ct.user_id')
 			->addSelect($qb->createFunction('COUNT(*) AS task_count'))
 			->addSelect($qb->createFunction('SUM(ct.coins_earned) AS total_coins'))
-			->addSelect($qb->createFunction('SUM(CASE WHEN ct.was_combo = 1 THEN 1 ELSE 0 END) AS combo_count'))
+			->addSelect($qb->createFunction('SUM(CASE WHEN ct.was_combo THEN 1 ELSE 0 END) AS combo_count'))
 			->addSelect($qb->createFunction('COUNT(DISTINCT DATE(ct.completed_at)) AS active_days'))
 			->from($this->getTableName(), 'ct')
 			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
 			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($startDate, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($endDate, IQueryBuilder::PARAM_DATE)))
+			// Half-open window [start, end) (CS-PLAN-060 §3.6): callers pass
+			// the exclusive upper bound, so a completion exactly at the next
+			// window start counts in exactly one window.
+			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($endDate, IQueryBuilder::PARAM_DATE)))
 			->groupBy('ct.user_id');
 
 		$result = $qb->executeQuery();
@@ -219,7 +222,7 @@ class CompletedTaskMapper extends QBMapper {
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTime $start Inclusive range start
-	 * @param \DateTime $end Inclusive range end
+	 * @param \DateTime $end Exclusive range end
 	 * @return array<int, int> Map of house user ID → highest per-room completion count
 	 */
 	public function getMaxRoomCompletionCountByHouse(int $houseId, \DateTime $start, \DateTime $end): array {
@@ -232,7 +235,7 @@ class CompletedTaskMapper extends QBMapper {
 			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
 			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->groupBy('ct.user_id')
 			->addGroupBy('rt.room_id');
 
@@ -266,7 +269,7 @@ class CompletedTaskMapper extends QBMapper {
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTimeInterface $start Inclusive range start
-	 * @param \DateTimeInterface $end Inclusive range end
+	 * @param \DateTimeInterface $end Exclusive range end
 	 * @return int[] Distinct room task IDs with a completion in the range
 	 */
 	public function findCompletedRoomTaskIdsBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
@@ -278,7 +281,7 @@ class CompletedTaskMapper extends QBMapper {
 			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
 			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->groupBy('ct.room_task_id');
 
 		$result = $qb->executeQuery();
@@ -348,7 +351,7 @@ class CompletedTaskMapper extends QBMapper {
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTimeInterface $start Inclusive range start
-	 * @param \DateTimeInterface $end Inclusive range end
+	 * @param \DateTimeInterface $end Exclusive range end
 	 * @return array<int, array{roomTaskId: int, taskId: int, taskName: string, roomId: int, roomName: string, completedAt: string, completedByUserId: int}>
 	 */
 	public function findCompletionsBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
@@ -361,7 +364,7 @@ class CompletedTaskMapper extends QBMapper {
 			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
 			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->orderBy('ct.completed_at', 'ASC');
 
 		$result = $qb->executeQuery();
@@ -391,7 +394,7 @@ class CompletedTaskMapper extends QBMapper {
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTimeInterface $start Inclusive range start
-	 * @param \DateTimeInterface $end Inclusive range end
+	 * @param \DateTimeInterface $end Exclusive range end
 	 * @param int $limit Maximum number of rows
 	 * @param int|null $houseUserId Optional house-user filter (internal id)
 	 * @return CompletedTask[] Completions, completed_at DESC
@@ -417,7 +420,7 @@ class CompletedTaskMapper extends QBMapper {
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTimeInterface $start Inclusive range start
-	 * @param \DateTimeInterface $end Inclusive range end
+	 * @param \DateTimeInterface $end Exclusive range end
 	 * @param int|null $houseUserId Optional house-user filter (internal id)
 	 * @return int Number of completions in the period
 	 */
@@ -439,6 +442,7 @@ class CompletedTaskMapper extends QBMapper {
 
 	/**
 	 * Shared FROM/WHERE of the two activity queries (list + count).
+	 * Half-open window [start, end) (CS-PLAN-060 §3.6).
 	 */
 	private function buildActivityQuery(
 		int $houseId,
@@ -452,7 +456,7 @@ class CompletedTaskMapper extends QBMapper {
 			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
 			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lte('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->orderBy('ct.completed_at', 'DESC');
 
 		if ($houseUserId !== null) {

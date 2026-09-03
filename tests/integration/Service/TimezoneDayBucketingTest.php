@@ -91,7 +91,6 @@ class TimezoneDayBucketingTest extends IntegrationTestCase {
 				'completed_at' => $qb->createNamedParameter($completedAtUtc, IQueryBuilder::PARAM_STR),
 				'coins_earned' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
 				'was_combo' => $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL),
-				'synced_to_nextcloud' => $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL),
 			]);
 		$qb->executeStatement();
 	}

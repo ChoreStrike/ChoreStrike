@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Db\Entity;
 
 use OCA\ChoreStrike\Db\RoomTask;
+use OCA\ChoreStrike\Db\Task;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -12,18 +13,28 @@ use PHPUnit\Framework\TestCase;
  */
 class RoomTaskTest extends TestCase {
 	/**
-	 * Ensure one-time tasks are deactivated after completion.
+	 * Ensure one-time tasks are deactivated after completion (canonical
+	 * 'once' vocabulary, CS-PLAN-060 WP1 D3).
 	 */
-	public function testMarkCompleted_WithOneTimeRecurrence_DeactivatesTask(): void {
+	public function testMarkCompleted_WithOnceRecurrence_DeactivatesTask(): void {
 		$roomTask = new RoomTask();
 		$roomTask->setIsActive(true);
 		$roomTask->setNextDue(new \DateTime('2026-02-24 12:00:00'));
 
 		$completedAt = new \DateTime('2026-02-24 15:00:00');
-		$roomTask->markCompleted($completedAt, 'weekly', 1, 'one_time');
+		$roomTask->markCompleted($completedAt, 'weekly', 1, Task::RECURRENCE_ONCE);
 
 		self::assertFalse($roomTask->getIsActive());
 		self::assertSame($completedAt->format('c'), $roomTask->getNextDue()->format('c'));
+	}
+
+	/**
+	 * The removed 'one_time' spelling must no longer deactivate — it is not
+	 * part of the canonical vocabulary (CR-053-09).
+	 */
+	public function testMarkCompleted_WithLegacyOneTimeSpelling_IsNotTheCanonicalVocabulary(): void {
+		self::assertNotContains('one_time', Task::RECURRENCE_MODES);
+		self::assertNotSame('one_time', Task::RECURRENCE_ONCE);
 	}
 
 	/**
@@ -227,7 +238,7 @@ class RoomTaskTest extends TestCase {
 			$completedAt,
 			'weekly',
 			1,
-			'one_time',
+			Task::RECURRENCE_ONCE,
 			'dynamic',
 			null,
 			null,
@@ -422,14 +433,14 @@ class RoomTaskTest extends TestCase {
 			new \DateTime('2026-07-31'),
 			'weekly',
 			1,
-			'one_time',
+			Task::RECURRENCE_ONCE,
 		);
 		$outOfWindow = $roomTask->projectOccurrences(
 			new \DateTime('2026-08-01'),
 			new \DateTime('2026-08-31'),
 			'weekly',
 			1,
-			'one_time',
+			Task::RECURRENCE_ONCE,
 		);
 
 		self::assertCount(1, $inWindow);
@@ -478,5 +489,28 @@ class RoomTaskTest extends TestCase {
 
 		self::assertNull($json['daysUntilDue']);
 		self::assertNull($json['nextDue']);
+	}
+
+	/**
+	 * The payload contract carries no removed legacy keys (CS-PLAN-060 WP1,
+	 * D2/D4/D9): assignees live in the task_assignees join table, the sync
+	 * and group-assignment remnants were folded out of the schema.
+	 */
+	public function testJsonSerialize_DoesNotEmitRemovedLegacyKeys(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setRoomId(1);
+		$roomTask->setTaskId(1);
+		$roomTask->setNextDue(new \DateTime('2026-03-10'));
+
+		$json = $roomTask->jsonSerialize();
+
+		foreach (['assignedToUserId', 'nextcloudTaskId', 'assignmentType', 'assignedToGroup', 'assignedByUserId', 'assignedAt'] as $removedKey) {
+			self::assertArrayNotHasKey($removedKey, $json, "payload key '$removedKey' must be gone");
+		}
+		// The claim-feature snapshot surface stays (decision D9).
+		self::assertArrayHasKey('claimedByUser', $json);
+		self::assertArrayHasKey('wasClaimed', $json);
+		self::assertArrayHasKey('originalAssignee', $json);
+		self::assertArrayHasKey('claimedAt', $json);
 	}
 }

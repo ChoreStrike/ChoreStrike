@@ -82,8 +82,8 @@ test.describe('Task Assignment Validation', () => {
 		const userIds = new Set(users.map(u => u.nextcloudUserId))
 
 		roomTasks.forEach(rt => {
-			if (rt.assignedToUserId) {
-				expect(userIds.has(rt.assignedToUserId) || true).toBe(true)
+			if ((rt.assignees ?? []).length > 0) {
+				rt.assignees!.forEach(a => expect(userIds.has(a) || true).toBe(true))
 			}
 		})
 	})
@@ -92,7 +92,7 @@ test.describe('Task Assignment Validation', () => {
 		expect(seededData).not.toBeNull()
 		const roomTasks = seededData!.data.roomTasks!
 
-		const unassigned = roomTasks.filter(rt => !rt.assignedToUserId)
+		const unassigned = roomTasks.filter(rt => (rt.assignees ?? []).length === 0)
 		expect(unassigned.length).toBeGreaterThanOrEqual(0)
 	})
 })

@@ -67,7 +67,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
-			$this->createMock(\OCP\IDBConnection::class),
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$this->createIdentityL10n(),
 			$this->createMock(AppLogger::class),
 			$this->houseMapper,

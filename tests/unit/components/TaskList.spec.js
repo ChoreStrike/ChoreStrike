@@ -61,7 +61,7 @@ describe('TaskList', () => {
 			taskId: 1,
 			isActive: true,
 			nextDue: new Date(Date.now() + 86400000).toISOString(), // tomorrow
-			assignedToUserId: null,
+			assignees: [],
 			...overrides.roomTask,
 		},
 	})
@@ -148,7 +148,7 @@ describe('TaskList', () => {
 		})
 
 		it('should show assigned indicator when task is assigned', () => {
-			const tasks = [mockTask({ roomTask: { assignedToUserId: 5 } })]
+			const tasks = [mockTask({ roomTask: { assignees: ['user-5'] } })]
 			const wrapper = mount(TaskList, {
 				props: { loading: false, roomTasks: tasks },
 			})

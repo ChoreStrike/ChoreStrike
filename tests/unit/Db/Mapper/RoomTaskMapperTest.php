@@ -6,6 +6,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Db\Mapper;
 
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\Task;
 use OCP\DB\IResult;
 use OCP\DB\QueryBuilder\IExpressionBuilder;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -334,15 +335,15 @@ class RoomTaskMapperTest extends TestCase {
 	}
 
 	/**
-	 * MarkCompleted_WithOneTimeRecurrence_DeactivatesTask
+	 * MarkCompleted_WithOnceRecurrence_DeactivatesTask
 	 */
-	public function testMarkCompleted_WithOneTimeRecurrence_DeactivatesTask(): void {
+	public function testMarkCompleted_WithOnceRecurrence_DeactivatesTask(): void {
 		$roomTask = new RoomTask();
 		$roomTask->setIsActive(true);
 		$roomTask->setNextDue(new \DateTime('2026-02-24 12:00:00'));
 
 		$completedAt = new \DateTime('2026-02-24 15:00:00');
-		$roomTask->markCompleted($completedAt, 'weekly', 1, 'one_time');
+		$roomTask->markCompleted($completedAt, 'weekly', 1, Task::RECURRENCE_ONCE);
 
 		$this->assertFalse($roomTask->getIsActive());
 		$this->assertSame($completedAt->format('c'), $roomTask->getNextDue()->format('c'));

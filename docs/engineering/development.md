@@ -145,26 +145,55 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 }
 ```
 
-### Migration chain inventory (baseline 2026-09, CS-PLAN-059 WP0)
+### Migration chain inventory (baseline 2026-09, updated by CS-PLAN-060 WP1)
 
-`lib/Migration/` holds **22 files spanning `Version1000` → `Version1028`**
+`lib/Migration/` holds **21 files spanning `Version1000` → `Version1028`**
 (version numbers are non-contiguous):
 
-> Version1000, 1001, 1002, 1004 (×2 — `20260228131728` and `20260228150000`),
-> 1005, 1006, 1007, 1008, 1009, 1011, 1012, 1015, 1016, 1021, 1022, 1023, 1024,
-> 1025, 1026, 1027, 1028.
+> Version1000, 1001, 1004 (×2 — `20260228131728` and `20260228150000`),
+> 1005, 1006, 1007, 1008, 1009, 1011, 1012, 1015, 1016, 1021, 1022, 1023,
+> 1024, 1025, 1026, 1027, 1028.
 
 - **Version1004 appears twice** (two same-version steps with different date
-  suffixes); both are part of the chain.
-- **Absent versions:** 1003, 1010, 1013, 1014, and 1017–1020. The dead no-op
-  steps 1003/1010/1013/1017/1018/1019/1020 were pruned in CS-PLAN-055 as a
-  pre-release fresh-install chain edit (no upgrade path, no backfills);
-  1017–1020 had added their columns in `preSchemaChange()` (never persisted on
-  a fresh install) and were canonically re-created by Version1027, which
-  carries their provenance note. Guarded by `FreshInstallMigrationSmokeTest`.
+  suffixes); both are part of the chain (order-independent — decision D8,
+  CS-PLAN-060 WP1).
+- **Absent versions:** 1002, 1003, 1010, 1013, 1014, and 1017–1020. The dead
+  no-op steps 1003/1010/1013/1017/1018/1019/1020 were pruned in CS-PLAN-055,
+  and Version1002 (`room_tasks.nextcloud_task_id` sync remnant) was folded
+  out in CS-PLAN-060 WP1 — all as pre-release fresh-install chain edits (no
+  upgrade path, no backfills). Guarded by `FreshInstallMigrationSmokeTest`,
+  which also asserts the folded canonical schema (unique instance index, no
+  `is_private`/`assigned_to_user_id`/sync-remnant columns).
 - Per the pre-release policy, schema fixes **fold into this existing chain**;
   the disposable test database is recreated (`docker compose -f
   docker-compose.test.yml down -v && up -d`) instead of writing upgrade steps.
+
+### Locking and transactions (CS-PLAN-060 WP1)
+
+`lib/Db/TransactionExecutor` is the **single owner** of
+`IDBConnection::beginTransaction()/commit()/rollBack()`. Services scope an
+aggregate of mapper calls with `TransactionExecutor::run(callable)` (begin →
+callable → commit, roll back on any Throwable); they never inject
+`IDBConnection` themselves. Mappers keep their own SQLite-tolerant lock
+primitives (`HouseMapper::findForUpdate`,
+`HouseUserMapper::findForUpdate`, `RoomTaskMapper::lockForUpdate`,
+`RoomTaskChecklistProgressMapper::findForUpdate`) — each must be called
+inside an open transaction.
+
+**Deterministic lock order — always acquire in this order, never reverse:**
+
+```
+house → room_task → task/assignee/reward rows
+```
+
+Example: `AuthorizationService::ensureHouseMember` locks the house row before
+counting members (first-owner bootstrap, CR-053-07);
+`RoomService::completeRoomTask` locks the room-task row before its
+completion-side writes. The completion-effect lookup/inversion primitives
+built on this order arrive with WP5 / ADR-011, which will reference the
+completion ordering in
+[ADR-007](../adr/ADR-007-concurrency-safe-task-completion.md) rather than
+duplicating it.
 
 ## Project Structure
 

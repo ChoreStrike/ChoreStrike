@@ -91,7 +91,6 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 				'completed_at' => $qb->createNamedParameter($completedAt),
 				'coins_earned' => $qb->createNamedParameter($coins, IQueryBuilder::PARAM_INT),
 				'was_combo' => $qb->createNamedParameter(0),
-				'synced_to_nextcloud' => $qb->createNamedParameter(0),
 			]);
 		$qb->executeStatement();
 

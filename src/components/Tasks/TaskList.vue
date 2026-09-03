@@ -108,7 +108,7 @@
 								<h4 class="task-name">
 									{{ item.task.name }}
 								</h4>
-								<span v-if="item.task.visibilityType === 'private' || item.task.isPrivate"
+								<span v-if="item.task.visibilityType === 'private'"
 									class="visibility-icon"
 									data-testid="visibility-lock-icon"
 									:title="t('chorestrike', 'Private task')">
@@ -399,8 +399,7 @@ export default {
 		}
 
 		const assigneeCount = (roomTask) => {
-			const ids = roomTask.assignees || (roomTask.assignedToUserId ? [roomTask.assignedToUserId] : [])
-			return ids.length
+			return (roomTask.assignees || []).length
 		}
 
 		const claimDialogVisible = ref(false)
@@ -412,19 +411,15 @@ export default {
 		const canClaim = (item) => {
 			if (!item.roomTask.isActive) return false
 			if (!isOverdue(item.roomTask)) return false
-			const visibility = item.task.visibilityType || (item.task.isPrivate ? 'private' : 'public')
-			if (visibility !== 'public') return false
-			const mergedAssignees = [...(item.roomTask.assignees || [])]
-			if (item.roomTask.assignedToUserId && !mergedAssignees.includes(item.roomTask.assignedToUserId)) {
-				mergedAssignees.push(item.roomTask.assignedToUserId)
-			}
-			if (mergedAssignees.length === 0) return false
-			return !mergedAssignees.includes(currentUserId.value)
+			if ((item.task.visibilityType || 'public') !== 'public') return false
+			const assignees = item.roomTask.assignees || []
+			if (assignees.length === 0) return false
+			return !assignees.includes(currentUserId.value)
 		}
 
 		const openClaimDialog = (item) => {
 			claimRoomTaskId.value = item.roomTask.id
-			const assigneeId = item.roomTask.assignedToUserId
+			const assigneeId = (item.roomTask.assignees || [])[0]
 			const member = (userStore.houseUsers || []).find(u => u.nextcloudUserId === assigneeId)
 			claimAssigneeName.value = member?.displayName || assigneeId || t('chorestrike', 'another member')
 			claimDialogVisible.value = true

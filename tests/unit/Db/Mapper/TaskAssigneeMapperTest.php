@@ -6,6 +6,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Db\Mapper;
 
 use OCA\ChoreStrike\Db\TaskAssignee;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCP\DB\IResult;
 use OCP\DB\QueryBuilder\IExpressionBuilder;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -29,7 +30,7 @@ class TaskAssigneeMapperTest extends TestCase {
 		$this->db->method('getQueryBuilder')->willReturn($this->qb);
 		$this->qb->method('expr')->willReturn($this->expr);
 
-		$this->mapper = new TaskAssigneeMapper($this->db);
+		$this->mapper = new TaskAssigneeMapper($this->db, new TransactionExecutor($this->db));
 	}
 
 	public function testFindByRoomTask_ReturnsAssignees(): void {
@@ -76,30 +77,6 @@ class TaskAssigneeMapperTest extends TestCase {
 		$result = $this->mapper->findUserIdsByRoomTasks([]);
 
 		$this->assertEquals([], $result);
-	}
-
-	public function testMergeLegacyAssignee_AppendsNonDuplicate(): void {
-		$result = TaskAssigneeMapper::mergeLegacyAssignee(['alice'], 'bob');
-
-		$this->assertEquals(['alice', 'bob'], $result);
-	}
-
-	public function testMergeLegacyAssignee_SkipsDuplicate(): void {
-		$result = TaskAssigneeMapper::mergeLegacyAssignee(['alice'], 'alice');
-
-		$this->assertEquals(['alice'], $result);
-	}
-
-	public function testMergeLegacyAssignee_SkipsNull(): void {
-		$result = TaskAssigneeMapper::mergeLegacyAssignee(['alice'], null);
-
-		$this->assertEquals(['alice'], $result);
-	}
-
-	public function testMergeLegacyAssignee_SkipsEmpty(): void {
-		$result = TaskAssigneeMapper::mergeLegacyAssignee(['alice'], '');
-
-		$this->assertEquals(['alice'], $result);
 	}
 
 	public function testIsAssignee_ReturnsTrueWhenFound(): void {

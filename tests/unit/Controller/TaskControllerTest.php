@@ -216,12 +216,11 @@ class TaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * The legacy `isPrivate` shim must be normalized into the canonical
-	 * `visibilityType` (and stripped) so it can't clobber an admin-only
-	 * value or bypass the transition gate. Going private must also claim
-	 * ownership so the task isn't orphaned (private + null owner).
+	 * A stale client still sending the removed `isPrivate` key has it
+	 * dropped (CS-PLAN-060 WP1 D1); the canonical `visibilityType` stays
+	 * the sole source of truth.
 	 */
-	public function testUpdate_NormalizesIsPrivateAndClaimsOwnershipWhenGoingPrivate(): void {
+	public function testUpdate_DropsLegacyIsPrivateKey(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
 		$this->authService->method('ensureHouseMember')
@@ -245,9 +244,8 @@ class TaskControllerTest extends TestCase {
 		$response = $this->controller->update(1, ['isPrivate' => true]);
 
 		$this->assertEquals(200, $response->getStatus());
-		$this->assertSame(Task::VISIBILITY_PRIVATE, $captured['visibilityType']);
 		$this->assertArrayNotHasKey('isPrivate', $captured);
-		$this->assertSame('member', $captured['ownerUserId']);
+		$this->assertArrayNotHasKey('visibilityType', $captured);
 	}
 
 	/**

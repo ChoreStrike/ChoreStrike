@@ -60,13 +60,10 @@ class Version1004Date20260228131728 extends SimpleMigrationStep {
 			$table->addColumn('coins_earned', 'integer', ['notnull' => true, 'default' => 0]);
 			$table->addColumn('was_combo', 'boolean', ['notnull' => false, 'default' => 0]);
 			$table->addColumn('combo_with_user_id', 'bigint', ['notnull' => false]);
-			$table->addColumn('nextcloud_task_id', 'bigint', ['notnull' => false]);
-			$table->addColumn('synced_to_nextcloud', 'boolean', ['notnull' => false, 'default' => 0]);
 			$table->setPrimaryKey(['id'], 'pk_completed_tasks');
 			$table->addIndex(['room_task_id'], 'idx_ct_rt');
 			$table->addIndex(['user_id'], 'idx_ct_user');
 			$table->addIndex(['completed_at'], 'idx_ct_date');
-			$table->addIndex(['synced_to_nextcloud'], 'idx_ct_sync');
 		}
 
 		// Create chorestrike_medals table

@@ -125,6 +125,11 @@ class HouseUserMapper extends QBMapper {
 	/**
 	 * Create or get house user
 	 *
+	 * Race-tolerant (CR-053-07): the uniq_house_user constraint rejects a
+	 * concurrent duplicate insert; the loser re-fetches and receives the
+	 * existing row instead of an unhandled 500. No duplicate rows, first
+	 * insert wins.
+	 *
 	 * @param int $houseId The house ID
 	 * @param string $nextcloudUserId The Nextcloud user ID
 	 * @param string $displayName The display name
@@ -140,7 +145,17 @@ class HouseUserMapper extends QBMapper {
 			$houseUser->setDisplayName($displayName);
 			$houseUser->setRole($role);
 			$houseUser->setJoinedAt(new \DateTime());
-			return $this->insert($houseUser);
+			try {
+				return $this->insert($houseUser);
+			} catch (\OCP\DB\Exception $insertException) {
+				// Expected race-loser case (two concurrent createOrGet calls
+				// for the same house+user): re-fetch the winner's row. Any
+				// other DB error must propagate.
+				if ($insertException->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
+					throw $insertException;
+				}
+				return $this->findByNextcloudUserId($houseId, $nextcloudUserId);
+			}
 		}
 	}
 

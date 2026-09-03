@@ -217,8 +217,8 @@ test.describe('Family Profile Data Validation', () => {
 
 		expect(roomTasks).toHaveLength(12)
 
-		const assigned = roomTasks.filter(rt => rt.assignedToUserId)
-		const unassigned = roomTasks.filter(rt => !rt.assignedToUserId)
+		const assigned = roomTasks.filter(rt => (rt.assignees ?? []).length > 0)
+		const unassigned = roomTasks.filter(rt => (rt.assignees ?? []).length === 0)
 
 		expect(assigned.length).toBeGreaterThan(0)
 		expect(unassigned.length).toBeGreaterThan(0)

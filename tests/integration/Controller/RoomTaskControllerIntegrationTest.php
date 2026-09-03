@@ -186,7 +186,6 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 	 */
 	public function testBulkAssign_ValidPayload_DelegatesToServiceWithHouseScope(): void {
 		$assigned = $this->createMockRoomTask(7, 1, 1);
-		$assigned->setAssignedToUserId('user456');
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());

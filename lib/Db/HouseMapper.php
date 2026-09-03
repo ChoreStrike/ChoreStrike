@@ -55,6 +55,11 @@ class HouseMapper extends QBMapper {
 	/**
 	 * Create or update house for instance
 	 *
+	 * Race-safe bootstrap (CR-053-07): the unique index on
+	 * nextcloud_instance_id makes the concurrent first-request race a
+	 * constraint violation; the loser re-fetches the winner's row — first
+	 * insert wins, no retry loops, never two houses per instance.
+	 *
 	 * @param string $instanceId The Nextcloud instance ID
 	 * @param string $name The house name
 	 * @param string $timezone The house timezone (CS-PLAN-057 D1: creator's NC timezone)
@@ -74,8 +79,63 @@ class HouseMapper extends QBMapper {
 			$now = new \DateTime();
 			$house->setCreatedAt($now);
 			$house->setUpdatedAt($now);
-			return $this->insert($house);
+			try {
+				return $this->insert($house);
+			} catch (\OCP\DB\Exception $insertException) {
+				// Expected race-loser case (two concurrent first requests for
+				// the same instance): the unique index rejected the duplicate
+				// insert — re-fetch the winner's house. Any other DB error
+				// must propagate.
+				if ($insertException->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
+					throw $insertException;
+				}
+				return $this->findByInstanceId($instanceId);
+			}
 		}
+	}
+
+	/**
+	 * Find a house by ID and acquire an exclusive row lock.
+	 *
+	 * Mirrors HouseUserMapper::findForUpdate (ADR-007 pattern): the lock AND
+	 * the freshest committed entity come back together. Serializes the
+	 * first-owner role assignment — the concurrent first-toucher must count
+	 * the winner's membership row before computing its own role (CR-053-07).
+	 *
+	 * - MySQL/MariaDB/PostgreSQL: a true locking read (SELECT … FOR UPDATE)
+	 *   acquires the exclusive row lock and returns the latest committed
+	 *   state in one statement.
+	 * - SQLite: no FOR UPDATE support. A no-op self-assignment UPDATE
+	 *   (writes the column's own current value — never pre-read data)
+	 *   acquires the database-wide write lock and serializes writers; the
+	 *   re-read afterwards sees the latest committed state.
+	 *
+	 * Must be called inside an open transaction.
+	 *
+	 * @param int $id The house ID
+	 * @throws DoesNotExistException if the row does not exist
+	 */
+	public function findForUpdate(int $id): House {
+		if ($this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->update($this->getTableName())
+				->set('house_health', $qb->createFunction('house_health'))
+				->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+			$qb->executeStatement();
+
+			return $this->find($id);
+		}
+
+		$sql = 'SELECT * FROM *PREFIX*' . $this->getTableName() . ' WHERE id = :id FOR UPDATE';
+		$result = $this->db->executeQuery($sql, ['id' => $id], ['id' => IQueryBuilder::PARAM_INT]);
+		$row = $result->fetch();
+		$result->closeCursor();
+
+		if ($row === false) {
+			throw new DoesNotExistException('House with id ' . $id . ' does not exist');
+		}
+
+		return $this->mapRowToEntity($row);
 	}
 
 	/**

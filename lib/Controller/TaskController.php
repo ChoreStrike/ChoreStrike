@@ -104,7 +104,6 @@ class TaskController extends Controller {
 		string $schedulingMode = 'dynamic',
 		?string $fixedScheduleTime = null,
 		?string $fixedScheduleDays = null,
-		bool $isPrivate = false,
 		string $visibilityType = 'public',
 	): JSONResponse {
 		try {
@@ -187,12 +186,6 @@ class TaskController extends Controller {
 				$ownerUserId = $houseUser->getNextcloudUserId();
 			}
 
-			// Backwards compat: isPrivate=true implies visibilityType=private
-			if ($isPrivate && $visibilityType === 'public') {
-				$visibilityType = \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE;
-				$ownerUserId = $houseUser->getNextcloudUserId();
-			}
-
 			// Validate input
 			$errors = $this->taskService->validateTaskData([
 				'name' => $name,
@@ -240,7 +233,6 @@ class TaskController extends Controller {
 				null,
 				null,
 				null,
-				$isPrivate,
 				$visibilityType,
 				$ownerUserId
 			);
@@ -305,17 +297,9 @@ class TaskController extends Controller {
 				], 404);
 			}
 
-			// Normalize the legacy `isPrivate` shim into the canonical
-			// `visibilityType`. The frontend sends both; applying `isPrivate`
-			// separately would (a) let setIsPrivate() clobber an admin-only
-			// value — it only maps to public/private — and (b) bypass the
-			// visibility-transition gate below, which keys on `visibilityType`.
-			// `visibilityType` is therefore the sole source of truth.
-			if (isset($updates['isPrivate']) && !isset($updates['visibilityType'])) {
-				$updates['visibilityType'] = $updates['isPrivate']
-					? \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE
-					: \OCA\ChoreStrike\Db\Task::VISIBILITY_PUBLIC;
-			}
+			// The canonical `visibilityType` is the sole visibility source of
+			// truth; any legacy `isPrivate` key still sent by a stale client
+			// is dropped (CS-PLAN-060 WP1 D1).
 			unset($updates['isPrivate']);
 
 			// Admin-only visibility requires owner role (both setting and unsetting)

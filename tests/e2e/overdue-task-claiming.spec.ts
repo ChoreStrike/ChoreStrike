@@ -75,8 +75,8 @@ test.describe('Overdue Task Claiming', () => {
 			const roomTasks = tasksData.data || []
 
 			const overdueTask = roomTasks.find(
-				(rt: { isOverdue?: boolean; assignedToUserId?: string }) =>
-					rt.isOverdue && rt.assignedToUserId && rt.assignedToUserId !== 'mom',
+				(rt: { isOverdue?: boolean; assignees?: string[] }) =>
+					rt.isOverdue && (rt.assignees?.length ?? 0) > 0 && !rt.assignees!.includes('mom'),
 			)
 
 			if (!overdueTask) {
@@ -109,11 +109,11 @@ test.describe('Overdue Task Claiming', () => {
 			const roomTasks = tasksData.data || []
 
 			const overduePublic = roomTasks.find(
-				(rt: { isOverdue?: boolean; visibilityType?: string; assignedToUserId?: string }) =>
+				(rt: { isOverdue?: boolean; visibilityType?: string; assignees?: string[] }) =>
 					rt.isOverdue
 					&& (rt.visibilityType === 'public' || !rt.visibilityType)
-					&& rt.assignedToUserId
-					&& rt.assignedToUserId !== 'teen',
+					&& (rt.assignees?.length ?? 0) > 0
+					&& !rt.assignees!.includes('teen'),
 			)
 
 			if (!overduePublic) {
@@ -144,8 +144,8 @@ test.describe('Overdue Task Claiming', () => {
 			const roomTasks = tasksData.data || []
 
 			const overduePrivate = roomTasks.find(
-				(rt: { isOverdue?: boolean; visibilityType?: string; isPrivate?: boolean }) =>
-					rt.isOverdue && (rt.visibilityType === 'private' || rt.isPrivate),
+				(rt: { isOverdue?: boolean; visibilityType?: string }) =>
+					rt.isOverdue && rt.visibilityType === 'private',
 			)
 
 			if (!overduePrivate) {

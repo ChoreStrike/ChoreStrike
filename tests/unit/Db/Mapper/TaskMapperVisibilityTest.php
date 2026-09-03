@@ -8,41 +8,26 @@ use OCA\ChoreStrike\Db\Task;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for Task visibility type logic (CS-PLAN-005).
+ * Unit tests for Task visibility type logic (CS-PLAN-005) and the canonical
+ * recurrence vocabulary (CS-PLAN-060 WP1 D3).
  * The findVisibleByHouse() query is covered by integration tests.
  */
 class TaskMapperVisibilityTest extends TestCase {
 	public function testDefaultVisibilityIsPublic(): void {
 		$task = new Task();
 		$this->assertSame(Task::VISIBILITY_PUBLIC, $task->getVisibilityType());
-		$this->assertFalse($task->isPrivate());
 	}
 
-	public function testSetIsPrivateTrue_SetsVisibilityPrivate(): void {
-		$task = new Task();
-		$task->setIsPrivate(true);
-		$this->assertSame(Task::VISIBILITY_PRIVATE, $task->getVisibilityType());
-		$this->assertTrue($task->isPrivate());
-	}
-
-	public function testSetIsPrivateFalse_SetsVisibilityPublic(): void {
-		$task = new Task();
-		$task->setIsPrivate(true);
-		$task->setIsPrivate(false);
-		$this->assertSame(Task::VISIBILITY_PUBLIC, $task->getVisibilityType());
-		$this->assertFalse($task->isPrivate());
-	}
-
-	public function testSetVisibilityPrivate_IsPrivateReturnsTrue(): void {
+	public function testSetVisibilityPrivate_IsStored(): void {
 		$task = new Task();
 		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
-		$this->assertTrue($task->isPrivate());
+		$this->assertSame(Task::VISIBILITY_PRIVATE, $task->getVisibilityType());
 	}
 
-	public function testSetVisibilityAdminOnly_IsPrivateReturnsFalse(): void {
+	public function testSetVisibilityAdminOnly_IsStored(): void {
 		$task = new Task();
 		$task->setVisibilityType(Task::VISIBILITY_ADMIN_ONLY);
-		$this->assertFalse($task->isPrivate());
+		$this->assertSame(Task::VISIBILITY_ADMIN_ONLY, $task->getVisibilityType());
 	}
 
 	public function testVisibilityConstants(): void {
@@ -50,6 +35,18 @@ class TaskMapperVisibilityTest extends TestCase {
 		$this->assertSame('private', Task::VISIBILITY_PRIVATE);
 		$this->assertSame('admin-only', Task::VISIBILITY_ADMIN_ONLY);
 		$this->assertCount(3, Task::VISIBILITY_TYPES);
+	}
+
+	/**
+	 * Canonical recurrence vocabulary (CS-PLAN-060 WP1, D3): the entity
+	 * constants are the single vocabulary; validation and the scheduler
+	 * branch on them.
+	 */
+	public function testRecurrenceConstants(): void {
+		$this->assertSame('recurring', Task::RECURRENCE_RECURRING);
+		$this->assertSame('once', Task::RECURRENCE_ONCE);
+		$this->assertSame('bounded', Task::RECURRENCE_BOUNDED);
+		$this->assertSame(['recurring', 'once', 'bounded'], Task::RECURRENCE_MODES);
 	}
 
 	public function testJsonSerialize_IncludesVisibilityFields(): void {
@@ -61,7 +58,6 @@ class TaskMapperVisibilityTest extends TestCase {
 		$json = $task->jsonSerialize();
 		$this->assertSame(Task::VISIBILITY_PRIVATE, $json['visibilityType']);
 		$this->assertSame('user1', $json['ownerUserId']);
-		$this->assertTrue($json['isPrivate']);
 	}
 
 	public function testJsonSerialize_PublicTask(): void {
@@ -71,7 +67,16 @@ class TaskMapperVisibilityTest extends TestCase {
 		$json = $task->jsonSerialize();
 		$this->assertSame(Task::VISIBILITY_PUBLIC, $json['visibilityType']);
 		$this->assertNull($json['ownerUserId']);
-		$this->assertFalse($json['isPrivate']);
+	}
+
+	/**
+	 * The legacy isPrivate shim is gone (CS-PLAN-060 WP1, D1): the payload
+	 * carries visibilityType only.
+	 */
+	public function testJsonSerialize_DoesNotEmitLegacyIsPrivateKey(): void {
+		$task = new Task();
+		$json = $task->jsonSerialize();
+		$this->assertArrayNotHasKey('isPrivate', $json);
 	}
 
 	public function testOwnerUserId_DefaultNull(): void {

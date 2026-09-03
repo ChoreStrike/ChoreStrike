@@ -164,24 +164,22 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 
 	// ========== Task Entity ==========
 
-	public function testTaskIsPrivateDerivedFromVisibilityType(): void {
+	public function testTaskVisibilityTypeIsCanonical(): void {
 		$this->actingAs('priv_owner');
 		$taskMapper = \OC::$server->get(TaskMapper::class);
 
 		$task = $taskMapper->find($this->privateTaskId);
 
-		self::assertTrue($task->isPrivate());
 		self::assertSame(Task::VISIBILITY_PRIVATE, $task->getVisibilityType());
 		self::assertSame('priv_owner', $task->getOwnerUserId());
 	}
 
-	public function testPublicTaskIsNotPrivate(): void {
+	public function testPublicTaskVisibilityType(): void {
 		$this->actingAs('priv_owner');
 		$taskMapper = \OC::$server->get(TaskMapper::class);
 
 		$task = $taskMapper->find($this->publicTaskId);
 
-		self::assertFalse($task->isPrivate());
 		self::assertSame(Task::VISIBILITY_PUBLIC, $task->getVisibilityType());
 	}
 

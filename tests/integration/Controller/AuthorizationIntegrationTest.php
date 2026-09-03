@@ -221,7 +221,7 @@ class AuthorizationIntegrationTest extends IntegrationTestCase {
 	private function setTaskPrivate(int $taskId): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update('chorestrike_tasks')
-			->set('is_private', $qb->createNamedParameter(1))
+			->set('visibility_type', $qb->createNamedParameter('private'))
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId)));
 		$qb->executeStatement();
 	}

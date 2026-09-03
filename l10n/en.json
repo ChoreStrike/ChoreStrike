@@ -241,6 +241,7 @@
         "Estimated Time": "Estimated Time",
         "Estimated time": "Estimated time",
         "Estimated time must be between 1 and 480 minutes": "Estimated time must be between 1 and 480 minutes",
+        "Estimated time minimum must not be greater than the maximum": "Estimated time minimum must not be greater than the maximum",
         "Even distribution": "Even distribution",
         "Every week": "Every week",
         "Every {n} weeks": "Every {n} weeks",

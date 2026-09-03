@@ -18,6 +18,7 @@ use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCP\IConfig;
 use OCP\IDBConnection;
@@ -83,6 +84,13 @@ class TestDataService {
 	private RoomMapper $roomMapper;
 	private TaskMapper $taskMapper;
 	private RoomTaskMapper $roomTaskMapper;
+	private TaskAssigneeMapper $taskAssigneeMapper;
+
+	// CR-SVC-40 / CS-PLAN-060 WP1, decision D6 documented exemption: this
+	// service is NON-PRODUCTION test tooling (every entry point is guarded by
+	// assertTestMode()). It keeps its IDBConnection injection purely for
+	// query-builder access in reset()/seeding — it never opens transactions
+	// or runs raw SQL, and a mapper-based QB access does not exist.
 
 	public function __construct(
 		IDBConnection $db,
@@ -93,6 +101,7 @@ class TestDataService {
 		RoomMapper $roomMapper,
 		TaskMapper $taskMapper,
 		RoomTaskMapper $roomTaskMapper,
+		TaskAssigneeMapper $taskAssigneeMapper,
 	) {
 		$this->db = $db;
 		$this->config = $config;
@@ -102,6 +111,7 @@ class TestDataService {
 		$this->roomMapper = $roomMapper;
 		$this->taskMapper = $taskMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
+		$this->taskAssigneeMapper = $taskAssigneeMapper;
 	}
 
 	/**
@@ -394,6 +404,7 @@ class TestDataService {
 
 		// Create room tasks with assignments
 		$roomTasks = [];
+		$seedAssignees = [];
 		$today = new \DateTime();
 		$tomorrow = (clone $today)->modify('+1 day');
 		// Time-travel overdue seed (CS-PLAN-023): a due-date already in the
@@ -420,10 +431,17 @@ class TestDataService {
 			$roomTask = $this->roomTaskMapper->create(
 				$rooms[$data['room']]->getId(),
 				$tasks[$data['task']]->getId(),
-				$data['due'],
-				$data['assignedTo']
+				$data['due']
 			);
+			if ($data['assignedTo'] !== null) {
+				$this->taskAssigneeMapper->addAssignee($roomTask->getId(), $data['assignedTo']);
+			}
 			$roomTasks[] = $roomTask;
+			// Canonical assignee key for seed consumers (E2E specs); the
+			// plain entity payload carries no assignee information.
+			$seedAssignees[$roomTask->getId()] = $data['assignedTo'] !== null
+				? [$data['assignedTo']]
+				: [];
 		}
 
 		return [
@@ -434,7 +452,10 @@ class TestDataService {
 				'rooms' => array_values(array_map(fn ($r) => $r->jsonSerialize(), $rooms)),
 				'users' => array_values(array_map(fn ($u) => $u->jsonSerialize(), $users)),
 				'tasks' => array_values(array_map(fn ($t) => $t->jsonSerialize(), $tasks)),
-				'roomTasks' => array_values(array_map(fn ($rt) => $rt->jsonSerialize(), $roomTasks)),
+				'roomTasks' => array_values(array_map(
+					fn ($rt) => $rt->jsonSerialize() + ['assignees' => $seedAssignees[$rt->getId()] ?? []],
+					$roomTasks
+				)),
 			],
 		];
 	}

@@ -241,6 +241,7 @@
         "Estimated Time": "Geschätzte Zeit",
         "Estimated time": "Dauer",
         "Estimated time must be between 1 and 480 minutes": "Geschätzte Zeit muss zwischen 1 und 480 Minuten liegen",
+        "Estimated time minimum must not be greater than the maximum": "Die Untergrenze der geschätzten Zeit darf nicht größer als die Obergrenze sein",
         "Even distribution": "Gleichmäßige Verteilung",
         "Every week": "Wöchentlich",
         "Every {n} weeks": "Alle {n} Wochen",

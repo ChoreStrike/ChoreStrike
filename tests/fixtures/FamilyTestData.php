@@ -170,61 +170,60 @@ class FamilyTestData {
 
 		// === Completed Tasks (History) - realistic household snapshot ===
 		// Mom completed dishes yesterday
-		$roomTasks[] = self::createRoomTask(1, 1, 1, $yesterday, false, 'mom');
+		$roomTasks[] = self::createRoomTask(1, 1, 1, $yesterday, false);
 
 		// Teen completed make bed this morning (same day but completed)
-		$roomTasks[] = self::createRoomTask(2, 7, 4, $today, false, 'teen');
+		$roomTasks[] = self::createRoomTask(2, 7, 4, $today, false);
 
 		// Dad completed trash 2 days ago
-		$roomTasks[] = self::createRoomTask(3, 3, 1, $twoDaysAgo, false, 'dad');
+		$roomTasks[] = self::createRoomTask(3, 3, 1, $twoDaysAgo, false);
 
 		// === Overdue Tasks (Critical - claimable by others) ===
 		// Dishes overdue (assigned to mom but not done today) - dad could claim this
-		$roomTasks[] = self::createRoomTask(4, 1, 1, $yesterday, true, 'mom');
+		$roomTasks[] = self::createRoomTask(4, 1, 1, $yesterday, true);
 
 		// Kids bedroom cleaning overdue (assigned to kid, 2 days overdue)
-		$roomTasks[] = self::createRoomTask(5, 8, 4, $twoDaysAgo, true, 'kid');
+		$roomTasks[] = self::createRoomTask(5, 8, 4, $twoDaysAgo, true);
 
 		// === Active Today (Assigned) ===
 		// Wipe counters assigned to teen (due today)
-		$roomTasks[] = self::createRoomTask(6, 2, 1, $today, true, 'teen');
+		$roomTasks[] = self::createRoomTask(6, 2, 1, $today, true);
 
 		// Tidy toys assigned to kid (due today)
-		$roomTasks[] = self::createRoomTask(7, 6, 2, $today, true, 'kid');
+		$roomTasks[] = self::createRoomTask(7, 6, 2, $today, true);
 
 		// Clean sink assigned to grandma (due today)
-		$roomTasks[] = self::createRoomTask(8, 11, 6, $today, true, 'grandma');
+		$roomTasks[] = self::createRoomTask(8, 11, 6, $today, true);
 
 		// Make bed assigned to kid (due today)
-		$roomTasks[] = self::createRoomTask(9, 7, 3, $today, true, 'kid');
+		$roomTasks[] = self::createRoomTask(9, 7, 3, $today, true);
 
 		// === Active Today (Unassigned - available to claim) ===
 		// Vacuum living room (no one assigned yet, anyone can claim)
-		$roomTasks[] = self::createRoomTask(10, 4, 2, $today, true, null);
+		$roomTasks[] = self::createRoomTask(10, 4, 2, $today, true);
 
 		// Dust furniture (unassigned, claimable)
-		$roomTasks[] = self::createRoomTask(11, 5, 2, $today, true, null);
+		$roomTasks[] = self::createRoomTask(11, 5, 2, $today, true);
 
 		// === Future Tasks ===
 		// Laundry scheduled for tomorrow (assigned to mom)
-		$roomTasks[] = self::createRoomTask(12, 9, 3, $tomorrow, true, 'mom');
+		$roomTasks[] = self::createRoomTask(12, 9, 3, $tomorrow, true);
 
 		// Clean toilet scheduled for tomorrow (unassigned)
-		$roomTasks[] = self::createRoomTask(13, 10, 6, $tomorrow, true, null);
+		$roomTasks[] = self::createRoomTask(13, 10, 6, $tomorrow, true);
 
 		// Restock supplies (future, assigned to dad)
-		$roomTasks[] = self::createRoomTask(14, 12, 6, $tomorrow, true, 'dad');
+		$roomTasks[] = self::createRoomTask(14, 12, 6, $tomorrow, true);
 
 		return $roomTasks;
 	}
 
-	private static function createRoomTask(int $id, int $taskId, int $roomId, \DateTime $nextDue, bool $isActive, ?string $assignedToUserId): RoomTask {
+	private static function createRoomTask(int $id, int $taskId, int $roomId, \DateTime $nextDue, bool $isActive): RoomTask {
 		$roomTask = new RoomTask();
 		$roomTask->setId($id);
 		$roomTask->setTaskId($taskId);
 		$roomTask->setRoomId($roomId);
 		$roomTask->setNextDue($nextDue);
-		$roomTask->setAssignedToUserId($assignedToUserId);
 		$roomTask->setIsActive($isActive);
 		$roomTask->setCreatedAt(new \DateTime('2024-01-01'));
 		return $roomTask;

@@ -698,7 +698,7 @@ to a separate reviewed plan.
 | Work package | Status | Review | Gate | Backlog disposition |
 |--------------|--------|--------|------|---------------------|
 | WP0 Backlog/baseline | Done (2026-09-02) | Standard B PASS-WITH-FIXES (2026-09-02) | Applicable docs gate green | TECH-DOCS-003 + CR-053-21 metadata slice closed; CR-055-02 folded into CR-053-13; BUG-E2E-003 open item renumbered BUG-E2E-005; five-section restructure + metadata + `backlog:check` landed |
-| WP1 Persistence invariants | Not started | Pending | Pending | Pending |
+| WP1 Persistence invariants | Done (2026-09-03) | Standard B PASS-WITH-FIXES (2026-09-03) | Full gate green (unit 781, integration 229, Jest 780, Playwright chromium+serial-db 181, `cs:check`, clean-volume install; rerun by review) | CR-053-07, CR-053-09, CR-055-03, CR-055-04 archived; CR-053-19 re-scoped to its service-level remainder; CR-SVC-40 re-scoped to WP5+WP8 portions. Note: WP1's frontend line was superseded for mechanical contract-key removals (ratified decision D10 of CS-PLAN-060) — payload-key removals in `TaskEditForm`/`TaskList`/`TaskManager`/`TodayView` were in scope |
 | WP2 Authorization boundaries | Not started | Pending | Pending | Pending |
 | WP3 Atomic setup | Not started | Pending | Pending | Pending |
 | WP4 Atomic tasks/assignment | Not started | Pending | Pending | Pending |

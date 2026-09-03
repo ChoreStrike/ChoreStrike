@@ -22,7 +22,6 @@ import { createUserContext } from './fixtures/auth-contexts'
 
 interface OverdueRoomTask {
 	id: number
-	assignedToUserId?: string
 	daysUntilDue?: number | null
 	status?: string
 	isActive?: boolean
@@ -33,6 +32,12 @@ test.describe('Time-Travel: overdue via seeded past due-date', () => {
 
 	test('overdue endpoint returns the seeded overdue task', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
+
+		// The family seed's overdue task is assigned to dad (canonical
+		// `assignees` key on the seed payload — CS-PLAN-060 WP1 D2).
+		const dadTaskIds = (seededData!.data.roomTasks ?? [])
+			.filter(rt => (rt.assignees ?? []).includes('dad'))
+			.map(rt => rt.id)
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
@@ -45,8 +50,7 @@ test.describe('Time-Travel: overdue via seeded past due-date', () => {
 			const overdueTasks: OverdueRoomTask[] = body.data || []
 			expect(overdueTasks.length).toBeGreaterThan(0)
 
-			// The family seed's overdue task is assigned to dad.
-			const seededOverdue = overdueTasks.find(task => task.assignedToUserId === 'dad')
+			const seededOverdue = overdueTasks.find(task => dadTaskIds.includes(task.id))
 			expect(seededOverdue).toBeDefined()
 		} finally {
 			await context.close()
@@ -56,6 +60,10 @@ test.describe('Time-Travel: overdue via seeded past due-date', () => {
 	test('seeded overdue task carries overdue semantics against the real clock', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
+		const dadTaskIds = (seededData!.data.roomTasks ?? [])
+			.filter(rt => (rt.assignees ?? []).includes('dad'))
+			.map(rt => rt.id)
+
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
 			const response = await page.request.get('/apps/chorestrike/api/v1/room-tasks/overdue')
@@ -64,7 +72,7 @@ test.describe('Time-Travel: overdue via seeded past due-date', () => {
 			const body = await response.json()
 			const overdueTasks: OverdueRoomTask[] = body.data || []
 
-			const seededOverdue = overdueTasks.find(task => task.assignedToUserId === 'dad')
+			const seededOverdue = overdueTasks.find(task => dadTaskIds.includes(task.id))
 			expect(seededOverdue).toBeDefined()
 
 			// Seeded three days ago → strictly past, still active.

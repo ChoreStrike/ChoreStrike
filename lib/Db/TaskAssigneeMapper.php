@@ -13,10 +13,15 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
 /**
+ * Mapper for the canonical assignee store (CS-PLAN-060 WP1, D2).
+ *
  * @template-extends QBMapper<TaskAssignee>
  */
 class TaskAssigneeMapper extends QBMapper {
-	public function __construct(IDBConnection $db) {
+	public function __construct(
+		IDBConnection $db,
+		private TransactionExecutor $transactions,
+	) {
 		parent::__construct($db, 'chorestrike_task_assignees', TaskAssignee::class);
 	}
 
@@ -85,25 +90,6 @@ class TaskAssigneeMapper extends QBMapper {
 		$res->closeCursor();
 
 		return $result;
-	}
-
-	/**
-	 * Merge the legacy single assignee (room_tasks.assigned_to_user_id) into a
-	 * list of join-table assignee user IDs.
-	 *
-	 * Centralized so the completion gate, the detail payload, and the list
-	 * payload compute the same effective assignee set and cannot drift.
-	 *
-	 * @param string[] $userIds Join-table assignee user IDs
-	 * @param string|null $legacyAssignee Legacy room_tasks.assigned_to_user_id
-	 * @return string[] Unique merged user IDs
-	 */
-	public static function mergeLegacyAssignee(array $userIds, ?string $legacyAssignee): array {
-		if ($legacyAssignee !== null && $legacyAssignee !== '' && !in_array($legacyAssignee, $userIds, true)) {
-			$userIds[] = $legacyAssignee;
-		}
-
-		return $userIds;
 	}
 
 	/**
@@ -230,7 +216,10 @@ class TaskAssigneeMapper extends QBMapper {
 	 *
 	 * Removes existing assignees and inserts the provided list. Duplicate user
 	 * IDs in the input are collapsed. The unique DB constraint also protects
-	 * against duplicates.
+	 * against duplicates. Atomic delete-then-insert via the
+	 * {@see TransactionExecutor} (the single transaction owner, CR-SVC-40):
+	 * a failure mid-replace must not leave the task with a partial assignee
+	 * set and the previous assignees removed.
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param string[] $userIds List of Nextcloud user IDs to assign
@@ -239,18 +228,11 @@ class TaskAssigneeMapper extends QBMapper {
 	public function replaceAssignees(int $roomTaskId, array $userIds, ?string $assignedBy = null): void {
 		$uniqueIds = array_values(array_unique(array_filter($userIds, fn ($id) => is_string($id) && trim($id) !== '')));
 
-		// Atomic delete-then-insert: a failure mid-replace must not leave the
-		// task with a partial assignee set and the previous assignees removed.
-		$this->db->beginTransaction();
-		try {
+		$this->transactions->run(function () use ($roomTaskId, $uniqueIds, $assignedBy) {
 			$this->deleteByRoomTask($roomTaskId);
 			foreach ($uniqueIds as $userId) {
 				$this->addAssignee($roomTaskId, $userId, $assignedBy);
 			}
-			$this->db->commit();
-		} catch (\Throwable $e) {
-			$this->db->rollBack();
-			throw $e;
-		}
+		});
 	}
 }

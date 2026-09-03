@@ -8,8 +8,10 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\IL10N;
 use OCP\IUserSession;
@@ -30,17 +32,23 @@ use OCP\IUserSession;
  */
 class AuthorizationService {
 	private HouseUserMapper $houseUserMapper;
+	private HouseMapper $houseMapper;
+	private TransactionExecutor $transactions;
 	private IUserSession $userSession;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
+		HouseMapper $houseMapper,
+		TransactionExecutor $transactions,
 		IUserSession $userSession,
 		IL10N $l10n,
 		AppLogger $appLogger,
 	) {
 		$this->houseUserMapper = $houseUserMapper;
+		$this->houseMapper = $houseMapper;
+		$this->transactions = $transactions;
 		$this->userSession = $userSession;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
@@ -100,18 +108,30 @@ class AuthorizationService {
 			return $houseUser;
 		}
 
-		$existingUsers = $this->houseUserMapper->findByHouseId($houseId);
-		$role = count($existingUsers) === 0 ? 'owner' : 'member';
+		// Auto-join is the rare bootstrap path: lock the house row and compute
+		// the role inside one transaction (CR-053-07). The lock serializes
+		// concurrent first-touchers — the second counts the winner's committed
+		// membership row and becomes `member`, so exactly one owner exists.
+		// Lock order: house → house_users (docs/engineering/development.md).
 		$displayName = $user->getDisplayName() ?: $userId;
-		$this->appLogger->info('House membership auto-created for current user', [
-			'service' => 'AuthorizationService',
-			'action' => 'ensureHouseMember',
-			'houseId' => $houseId,
-			'userId' => $userId,
-			'role' => $role,
-		]);
+		$houseUser = $this->transactions->run(function () use ($houseId, $userId, $displayName) {
+			$this->houseMapper->findForUpdate($houseId);
 
-		return $this->houseUserMapper->createOrGet($houseId, $userId, $displayName, $role);
+			$existingUsers = $this->houseUserMapper->findByHouseId($houseId);
+			$role = count($existingUsers) === 0 ? 'owner' : 'member';
+
+			$this->appLogger->info('House membership auto-created for current user', [
+				'service' => 'AuthorizationService',
+				'action' => 'ensureHouseMember',
+				'houseId' => $houseId,
+				'userId' => $userId,
+				'role' => $role,
+			]);
+
+			return $this->houseUserMapper->createOrGet($houseId, $userId, $displayName, $role);
+		});
+
+		return $houseUser;
 	}
 
 	/**

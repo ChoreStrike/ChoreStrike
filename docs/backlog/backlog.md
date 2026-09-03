@@ -164,73 +164,18 @@ scheduling internals.
 
 ---
 
-### [P2] CR-053-07 — Bootstrap races: duplicate houses per instance + two-owners race
-**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: setup/creation
-**Owning**: CS-PLAN-058 WP1 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-053 full review (CR-P2-04, 2026-08-27)
-
-`houses.nextcloud_instance_id` has only a non-unique index (`Version1000:39`) → concurrent
-first requests can create two houses; `ensureHouseMember` assigns `role='owner'` when
-`count==0` → two distinct users first-touching concurrently both become owner. Fix: unique
-index + race-safe owner assignment (first insert wins).
-
----
-
-### [P2] CR-053-09 — Recurrence vocabulary divergence: `'once'` vs `'one_time'`
-**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: completion/undo
-**Owning**: CS-PLAN-058 WP1 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-053 full review (CR-P1-07, 2026-08-27)
-
-`RoomTask::markCompleted:255`/`projectOccurrences:609` branch on `'one_time'`;
-`TaskService:346` validates `['recurring','once','bounded']`. A validation-accepted `'once'`
-task never deactivates on completion (silent infinite recurrence). Pick one vocabulary
-(pre-release: data is disposable) and align both layers.
-
----
-
-### [P3] CR-053-19 — Persistence correctness minors
+### [P3] CR-053-19 — Persistence correctness minors (service-level remainder)
 **Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
-**Owning**: CS-PLAN-058 WP1 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-053 full review (CR-P1-11..17, 19, 21, 22, 2026-08-27)
 
-WP1 owns the persistence/schema parts of this cluster; the service-level RMW
-remainders follow the work packages that touch their workflows.
-PostgreSQL boolean-vs-integer compares (would fail on PG); inclusive week-window end bound
-(completion at next Monday 00:00 counts twice); checklist `toggle()` unlocked RMW + insert
-race; `HouseUserMapper::createOrGet` check-then-insert (500 on race, no dup rows);
-`FloorMapper::create` re-select instead of `insert()`; `getUserRank` unbounded scan;
-inverted estimatedMinutes range passes `validate()`; `findActiveByHouse` queries a column the
-final schema never had (dead + latent bug); dead `$houseId` param on `findVisibleByHouse`;
-is_private column/field/shim divergence (CR-P1-18 — fold into a migration cleanup).
-
----
-
-### [P3] CR-055-03 — `nextcloud_task_id` remnants: writer-less columns + payload keys
-**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: persistence
-**Owning**: CS-PLAN-058 WP1 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-055 (Standard-B, 2026-08-30)
-
-With `TaskSyncService`/`GameLogicService::handleTaskCompletion` stamping gone, the
-`room_tasks.nextcloud_task_id` (Version1002) and `completed_tasks.nextcloud_task_id`
-(Version1004) columns have **no writer** anymore — rows are always NULL — while
-`RoomTask`/`CompletedTask` still carry the entity property and expose a
-`nextcloudTaskId` key in `jsonSerialize()` (API payload noise). Decide in the
-next migration-chain pass (pre-release: fold into V1002/V1004, no upgrade step):
-drop columns + entity fields + payload keys, **or** re-scope as intentional
-storage for a future Nextcloud Tasks sync revival (ADR/FEAT decision). The
-dead `RoomTaskMapper::findByNextcloudTaskId` was already deleted at review.
-
----
-
-### [P4] CR-055-04 — `FloorMapper::findAll` pre-existing dead override
-**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: persistence
-**Owning**: CS-PLAN-058 WP1 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-055 (Standard-B, 2026-08-30)
-
-`FloorMapper::findAll:62` (sort_order-ordered override of `QBMapper::findAll`)
-has zero callers in `lib/` or `tests/` — already dead at CS-PLAN-055 HEAD, so
-outside the prune diff. Fold into the next dead-code sweep (CR-053-15 follow-up
-class); delete or convert callers deliberately.
+The persistence/schema parts (PostgreSQL boolean compares, inclusive week-window
+end bound, checklist `toggle()` unlocked RMW, `createOrGet` check-then-insert,
+`FloorMapper::create` re-select, `getUserRank` unbounded scan, inverted
+estimatedMinutes range, dead `findActiveByHouse`, dead `$houseId` on
+`findVisibleByHouse`, is_private divergence) were closed by CS-PLAN-060 WP1 —
+see [`archive/2026-09.md`](archive/2026-09.md). Remainder: the service-level
+read-modify-write races follow the work packages that touch their workflows.
 
 ---
 
@@ -254,18 +199,19 @@ the guideline, accepted), `TaskService::createTask` (24 positional params).
 
 ### [P3] CR-SVC-40 — Services reach below their layer (`IDBConnection` injection)
 **Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
-**Owning**: CS-PLAN-058 WP1+WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of `lib/Service` (2026-08-04); scope updated by CS-PLAN-053 full review (2026-08-27)
 
-Injects `IDBConnection` for `beginTransaction`/`lockForUpdate` (persistence
-plumbing in a service). Move transaction+lock into the mapper/repository.
-Owned in portions: WP1 owns the transaction-plumbing foundation (one owner for
-transaction/lock primitives), WP5 the completion-path constraints, WP8 the
-remaining structural moves.
-Scope (CS-PLAN-053 full review): not just `RoomService` —
-**7 services** inject `IDBConnection` directly: `RoomService`, `FloorService`,
-`HouseService`, `HouseSetupService`, `MinigameService`, `RoomTaskService`,
-`TestDataService` (see review record L2-3 for line refs).
+The WP1 foundation portion landed (CS-PLAN-060 WP1, see
+[`archive/2026-09.md`](archive/2026-09.md)): `lib/Db/TransactionExecutor` is
+the single transaction owner, the six transactional services route through it
+and no longer inject `IDBConnection`, and the deterministic lock order
+(house → room_task → dependents) is documented in
+[`../engineering/development.md`](../engineering/development.md).
+Remainder: WP5 owns the completion-path lock/constraint enforcement while
+decomposing completion; WP8 owns the remaining structural moves.
+`TestDataService` keeps its documented D6 exemption (non-production test
+tooling, query-builder only).
 
 ---
 
@@ -646,7 +592,11 @@ ADR-003 scope enum contradicts code; architecture.md fictional examples
 (`fetchHouseStats`, `TaskForm`/`TemplateSelector`, console.error example,
 forbidden backlog-tree line); development.md `TaskItem.vue` +
 migration-conventions subsection (version-then-date order, pre/post hooks never
-run on fresh install); gamification unimplemented-feature markers.
+run on fresh install); gamification unimplemented-feature markers;
+`docs/api/README.md` room-tasks example block still shows pre-CS-PLAN-057
+snake_case payload keys (`room_id`, `task_name`, `next_due`, …) instead of the
+actual camelCase entity serialization (Source: Review of CS-PLAN-060 WP1,
+2026-09-03 — assignee lines were corrected there, the key-style drift predates it).
 Closed slices: the metadata/normalization slice was executed by
 CS-PLAN-059 WP0 (2026-09-02 — [`archive/2026-09.md`](archive/2026-09.md));
 the testing.md truth slice is owned by **CS-PLAN-058 WP9**; the

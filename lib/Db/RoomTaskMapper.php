@@ -199,19 +199,21 @@ class RoomTaskMapper extends QBMapper {
 	/**
 	 * Create a new room task
 	 *
+	 * Assignees are NOT stored here — the canonical assignee store is the
+	 * `chorestrike_task_assignees` join table (CS-PLAN-060 WP1, D2); the
+	 * owning service writes join rows after insert.
+	 *
 	 * @param int $roomId The room ID
 	 * @param int $taskId The task ID
 	 * @param \DateTime $nextDue The next due date
-	 * @param string|null $assignedToUserId Optional assigned user ID
 	 * @param int|null $scopeId Optional scope ID
 	 * @param \DateTime|null $idealDueDate Optional ideal due date for flex scheduling
 	 */
-	public function create(int $roomId, int $taskId, \DateTime $nextDue, ?string $assignedToUserId = null, ?int $scopeId = null, ?\DateTime $idealDueDate = null): RoomTask {
+	public function create(int $roomId, int $taskId, \DateTime $nextDue, ?int $scopeId = null, ?\DateTime $idealDueDate = null): RoomTask {
 		$roomTask = new RoomTask();
 		$roomTask->setRoomId($roomId);
 		$roomTask->setTaskId($taskId);
 		$roomTask->setNextDue($nextDue);
-		$roomTask->setAssignedToUserId($assignedToUserId);
 		$roomTask->setScopeId($scopeId);
 		$roomTask->setIdealDueDate($idealDueDate);
 		$roomTask->setIsActive(true);
@@ -241,25 +243,6 @@ class RoomTaskMapper extends QBMapper {
 		$qb->orderBy('next_due', 'ASC');
 
 		return $this->findEntities($qb);
-	}
-
-	/**
-	 * Assign task to user
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param string $userId The user ID
-	 */
-	public function assignToUser(int $roomTaskId, string $userId): void {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->update($this->getTableName())
-			->set('assigned_to_user_id', $qb->createNamedParameter($userId))
-			->set('assignment_type', $qb->createNamedParameter('user'))
-			->set('assigned_to_group', $qb->createNamedParameter(null))
-			->set('claimed_by_user', $qb->createNamedParameter(null))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-
-		$qb->executeStatement();
 	}
 
 	/**
@@ -387,41 +370,6 @@ class RoomTaskMapper extends QBMapper {
 			->addOrderBy('created_at', 'ASC');
 
 		return $this->findEntities($qb);
-	}
-
-	/**
-	 * Clear the legacy single-assignee reference of a removed member,
-	 * scoped to one house (CR-SVC-26).
-	 *
-	 * `UPDATE room_tasks SET assigned_to_user_id = NULL WHERE
-	 * assigned_to_user_id = :user AND room_id IN (house-scoped rooms →
-	 * floors subquery)` — built with the query-builder subquery pattern
-	 * (the house parameter is bound on the OUTER builder and its
-	 * placeholder embedded into the subquery SQL, so the parameter is
-	 * bound exactly once where execution happens). No raw SQL.
-	 *
-	 * Called transactionally by HouseService::removeHouseMember so a
-	 * member removal leaves no orphaned assignee references behind.
-	 *
-	 * @param string $ncUserId The Nextcloud user ID of the removed member
-	 * @param int $houseId The house ID scope
-	 */
-	public function clearAssignedUserForHouse(string $ncUserId, int $houseId): void {
-		$qb = $this->db->getQueryBuilder();
-		$houseIdParam = $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT);
-
-		$roomsInHouse = $this->db->getQueryBuilder();
-		$roomsInHouse->select('r.id')
-			->from('chorestrike_rooms', 'r')
-			->innerJoin('r', 'chorestrike_floors', 'f', $roomsInHouse->expr()->eq('r.floor_id', 'f.id'))
-			->where($roomsInHouse->expr()->eq('f.house_id', $houseIdParam));
-
-		$qb->update($this->getTableName())
-			->set('assigned_to_user_id', $qb->createNamedParameter(null))
-			->where($qb->expr()->eq('assigned_to_user_id', $qb->createNamedParameter($ncUserId)))
-			->andWhere($qb->expr()->in('room_id', $qb->createFunction($roomsInHouse->getSQL())));
-
-		$qb->executeStatement();
 	}
 
 	/**
@@ -601,7 +549,7 @@ class RoomTaskMapper extends QBMapper {
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTimeInterface $start Inclusive range start
-	 * @param \DateTimeInterface $end Inclusive range end
+	 * @param \DateTimeInterface $end Exclusive range end
 	 * @return int[] List of room task IDs
 	 */
 	public function findActiveDueIdsBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
@@ -611,7 +559,7 @@ class RoomTaskMapper extends QBMapper {
 		$this->applyHouseScope($qb, 'rt', $houseId);
 		$qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
 			->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lte('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)));
+			->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)));
 
 		$result = $qb->executeQuery();
 		$ids = [];

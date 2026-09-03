@@ -40,7 +40,14 @@ class AuthorizationServiceExceptionTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
-		$this->service = new AuthorizationService($this->houseUserMapper, $this->userSession, $l10n, $this->createMock(AppLogger::class));
+		$this->service = new AuthorizationService(
+			$this->houseUserMapper,
+			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
+			$this->userSession,
+			$l10n,
+			$this->createMock(AppLogger::class)
+		);
 	}
 
 	private function actingAs(string $uid, string $displayName = 'Tester'): void {

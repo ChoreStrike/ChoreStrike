@@ -13,8 +13,8 @@ use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\NotFoundException;
-use OCP\IDBConnection;
 use OCP\IL10N;
 
 /**
@@ -25,7 +25,7 @@ class FloorService {
 	private RoomMapper $roomMapper;
 	private RoomTaskMapper $roomTaskMapper;
 	private RoomService $roomService;
-	private IDBConnection $db;
+	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 
@@ -34,7 +34,7 @@ class FloorService {
 		RoomMapper $roomMapper,
 		RoomTaskMapper $roomTaskMapper,
 		RoomService $roomService,
-		IDBConnection $db,
+		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
 	) {
@@ -42,7 +42,7 @@ class FloorService {
 		$this->roomMapper = $roomMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->roomService = $roomService;
-		$this->db = $db;
+		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
@@ -156,17 +156,16 @@ class FloorService {
 			$roomIds[] = $room->getId();
 		}
 
-		$this->db->beginTransaction();
 		try {
-			$this->roomService->deleteRoomTaskDependents(
-				$this->roomTaskMapper->findIdsByRoomIds($roomIds)
-			);
-			$this->roomTaskMapper->deleteByRoomIds($roomIds);
-			$this->roomMapper->deleteByFloorId($floorId);
-			$this->floorMapper->delete($floor);
-			$this->db->commit();
+			$this->transactions->run(function () use ($floorId, $roomIds, $floor) {
+				$this->roomService->deleteRoomTaskDependents(
+					$this->roomTaskMapper->findIdsByRoomIds($roomIds)
+				);
+				$this->roomTaskMapper->deleteByRoomIds($roomIds);
+				$this->roomMapper->deleteByFloorId($floorId);
+				$this->floorMapper->delete($floor);
+			});
 		} catch (\Throwable $e) {
-			$this->db->rollBack();
 			$this->appLogger->logException('FloorService: floor cascade rolled back', $e, [
 				'event' => 'floor_delete_rollback',
 				'service' => 'FloorService',

@@ -225,8 +225,7 @@ export default {
 			// Unknown user (store not resolved yet): show everything rather
 			// than an empty list.
 			if (!this.myUserId) return true
-			const assignees = item.roomTask.assignees
-				?? (item.roomTask.assignedToUserId ? [item.roomTask.assignedToUserId] : [])
+			const assignees = item.roomTask.assignees ?? []
 			return assignees.length === 0 || assignees.includes(this.myUserId)
 		},
 

@@ -383,7 +383,7 @@ export default {
 			form.schedulingMode = template.schedulingMode || 'dynamic'
 			form.fixedScheduleTime = template.fixedScheduleTime || ''
 			form.flexDays = template.flexDays || 0
-			form.visibilityType = template.visibilityType || (template.isPrivate ? VISIBILITY_PRIVATE : VISIBILITY_PUBLIC)
+			form.visibilityType = template.visibilityType || VISIBILITY_PUBLIC
 			if (template.fixedScheduleDays) {
 				selectedWeekdays.value = JSON.parse(template.fixedScheduleDays)
 			}
@@ -407,7 +407,7 @@ export default {
 				form.schedulingMode = newTask.schedulingMode || 'dynamic'
 				form.fixedScheduleTime = newTask.fixedScheduleTime || ''
 				form.flexDays = newTask.flexDays || 0
-				form.visibilityType = newTask.visibilityType || (newTask.isPrivate ? VISIBILITY_PRIVATE : VISIBILITY_PUBLIC)
+				form.visibilityType = newTask.visibilityType || VISIBILITY_PUBLIC
 				selectedWeekdays.value = parseWeekdays(newTask.fixedScheduleDays)
 			}
 		}, { immediate: true })
@@ -443,7 +443,6 @@ export default {
 		const submit = () => {
 			const data = {
 				...form,
-				isPrivate: form.visibilityType === VISIBILITY_PRIVATE,
 				fixedScheduleDays: form.schedulingMode === 'static' && form.frequencyType === 'weekly'
 					? JSON.stringify(selectedWeekdays.value)
 					: null,

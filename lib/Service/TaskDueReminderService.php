@@ -25,13 +25,12 @@ use OCA\ChoreStrike\Db\TaskMapper;
  * best-effort notifications through {@see NotificationService}.
  *
  * Recipients are assignees only (D1): users assigned via the
- * task_assignees join table OR the legacy room_tasks.assigned_to_user_id
- * column. Unassigned tasks send nothing (they are visible in the daily
- * dashboard list; broadcasting house-wide would be spammy). Users marked
- * unavailable on the due weekday are skipped (D2, consistent with the
- * streak passes). Completed tasks need no explicit guard (D3): completion
- * advances next_due (recurring) or deactivates the row (one-time), so the
- * due-date range query naturally excludes them.
+ * task_assignees join table. Unassigned tasks send nothing (they are
+ * visible in the daily dashboard list; broadcasting house-wide would be
+ * spammy). Users marked unavailable on the due weekday are skipped (D2,
+ * consistent with the streak passes). Completed tasks need no explicit
+ * guard (D3): completion advances next_due (recurring) or deactivates the
+ * row (once), so the due-date range query naturally excludes them.
  *
  * CS-PLAN-057: the pass resolves the (single) house and derives the
  * today/tomorrow due windows in the house timezone.
@@ -112,26 +111,15 @@ class TaskDueReminderService {
 	}
 
 	/**
-	 * Batch-resolve the effective assignee user IDs for the given room tasks:
-	 * the join-table rows (one query) merged with each task's legacy single
-	 * assignee column, deduplicated.
+	 * Batch-resolve the assignee user IDs for the given room tasks from the
+	 * canonical join table (one query, CS-PLAN-060 WP1 D2).
 	 *
 	 * @param RoomTask[] $roomTasks Room tasks from both due sets
 	 * @return array<int, string[]> Map of room task ID => unique Nextcloud user IDs
 	 */
 	private function resolveAssignees(array $roomTasks): array {
 		$roomTaskIds = array_map(fn ($roomTask) => $roomTask->getId(), $roomTasks);
-		$byTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds);
-
-		foreach ($roomTasks as $roomTask) {
-			$ids = $byTask[$roomTask->getId()] ?? [];
-			$byTask[$roomTask->getId()] = TaskAssigneeMapper::mergeLegacyAssignee(
-				$ids,
-				$roomTask->getAssignedToUserId()
-			);
-		}
-
-		return $byTask;
+		return $this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds);
 	}
 
 	/**

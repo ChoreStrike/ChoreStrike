@@ -107,6 +107,74 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 	}
 
 	/**
+	 * Folded-schema invariant (CS-PLAN-060 WP1 §3.1): after a fresh chain the
+	 * canonical representations are in place — unique instance index, no
+	 * legacy/writer-less columns — and the claim-feature surface stays.
+	 */
+	public function testFreshChainProducesFoldedCanonicalSchema(): void {
+		$schema = new RecordingSchema();
+		$output = $this->createMock(IOutput::class);
+
+		foreach ($this->orderedMigrationClasses() as $class) {
+			$migration = $this->instantiateMigration($class);
+			if (!method_exists($migration, 'changeSchema')) {
+				continue;
+			}
+			$migration->changeSchema($output, fn (): ISchemaWrapper => $schema, []);
+		}
+
+		// Bootstrap race safety (CR-053-07): one house per instance.
+		$this->assertTrue(
+			$schema->getTable('chorestrike_houses')->hasUniqueIndex('idx_house_inst'),
+			'houses.nextcloud_instance_id must carry a UNIQUE index'
+		);
+
+		// Dropped legacy/writer-less columns must be gone.
+		$absentColumns = [
+			['chorestrike_tasks', 'is_private'],
+			['chorestrike_room_tasks', 'assigned_to_user_id'],
+			['chorestrike_room_tasks', 'nextcloud_task_id'],
+			['chorestrike_room_tasks', 'assignment_type'],
+			['chorestrike_room_tasks', 'assigned_to_group'],
+			['chorestrike_room_tasks', 'assigned_by_user_id'],
+			['chorestrike_room_tasks', 'assigned_at'],
+			['chorestrike_completed_tasks', 'nextcloud_task_id'],
+			['chorestrike_completed_tasks', 'synced_to_nextcloud'],
+		];
+		foreach ($absentColumns as [$table, $column]) {
+			$this->assertFalse(
+				$schema->hasColumn($table, $column),
+				"$table.$column must be folded out of the fresh-install schema"
+			);
+		}
+
+		// Canonical representations and the live claim feature stay intact.
+		$this->assertTrue($schema->hasTable('chorestrike_task_assignees'), 'assignee join table missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_tasks', 'visibility_type'));
+		$this->assertTrue($schema->hasColumn('chorestrike_tasks', 'owner_user_id'));
+		$this->assertTrue($schema->hasColumn('chorestrike_room_tasks', 'claimed_by_user'));
+		$this->assertTrue($schema->hasColumn('chorestrike_room_tasks', 'original_assignee'));
+
+		// No index on a dropped column survives.
+		$this->assertFalse(
+			$schema->getTable('chorestrike_room_tasks')->hasIndex('idx_room_tasks_assigned'),
+			'idx_room_tasks_assigned indexed the dropped assigned_to_user_id column'
+		);
+		$this->assertFalse(
+			$schema->getTable('chorestrike_room_tasks')->hasIndex('rt_user_id_idx'),
+			'rt_user_id_idx indexed the dropped assigned_to_user_id column'
+		);
+		$this->assertFalse(
+			$schema->getTable('chorestrike_completed_tasks')->hasIndex('idx_ct_sync'),
+			'idx_ct_sync indexed the dropped synced_to_nextcloud column'
+		);
+		$this->assertFalse(
+			$schema->getTable('chorestrike_room_tasks')->hasIndex('idx_room_tasks_group'),
+			'idx_room_tasks_group indexed the dropped assigned_to_group column'
+		);
+	}
+
+	/**
 	 * @return list<class-string>
 	 */
 	private function orderedMigrationClasses(): array {
@@ -205,6 +273,9 @@ class RecordingTable {
 	/** @var array<string, bool> */
 	private array $columns = [];
 
+	/** @var array<string, array{name: string, unique: bool}> Indexed by index name */
+	private array $indexes = [];
+
 	public function __construct(
 		private string $name,
 	) {
@@ -258,6 +329,30 @@ class RecordingTable {
 
 	public function setIndex(array $columnNames, ?string $indexName = null): self {
 		return $this;
+	}
+
+	public function addIndex(array $columnNames, ?string $indexName = null): self {
+		$this->indexes[$indexName ?? implode('_', $columnNames)] = [
+			'name' => $indexName ?? implode('_', $columnNames),
+			'unique' => false,
+		];
+		return $this;
+	}
+
+	public function addUniqueIndex(array $columnNames, ?string $indexName = null): self {
+		$this->indexes[$indexName ?? implode('_', $columnNames)] = [
+			'name' => $indexName ?? implode('_', $columnNames),
+			'unique' => true,
+		];
+		return $this;
+	}
+
+	public function hasIndex(string $name): bool {
+		return isset($this->indexes[$name]);
+	}
+
+	public function hasUniqueIndex(string $name): bool {
+		return isset($this->indexes[$name]) && $this->indexes[$name]['unique'];
 	}
 
 	/**

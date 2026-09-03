@@ -63,8 +63,6 @@ class BatchQueryRegressionTest extends IntegrationTestCase {
 		string $completedAt,
 		int $coinsEarned = 10,
 		bool $wasCombo = false,
-		?int $nextcloudTaskId = null,
-		bool $syncedToNextcloud = false,
 	): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('chorestrike_completed_tasks')
@@ -74,8 +72,6 @@ class BatchQueryRegressionTest extends IntegrationTestCase {
 				'completed_at' => $qb->createNamedParameter($completedAt, IQueryBuilder::PARAM_STR),
 				'coins_earned' => $qb->createNamedParameter($coinsEarned, IQueryBuilder::PARAM_INT),
 				'was_combo' => $qb->createNamedParameter($wasCombo, IQueryBuilder::PARAM_BOOL),
-				'nextcloud_task_id' => $qb->createNamedParameter($nextcloudTaskId, IQueryBuilder::PARAM_INT),
-				'synced_to_nextcloud' => $qb->createNamedParameter($syncedToNextcloud, IQueryBuilder::PARAM_BOOL),
 			]);
 		$qb->executeStatement();
 

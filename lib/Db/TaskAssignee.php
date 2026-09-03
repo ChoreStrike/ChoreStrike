@@ -14,8 +14,9 @@ use OCP\AppFramework\Db\Entity;
 /**
  * TaskAssignee - a user assigned to a room task (multi-assign join table).
  *
- * Stores the Nextcloud user ID (consistent with room_tasks.assigned_to_user_id)
- * so completion authorization can compare against the authenticated session user.
+ * The canonical assignee representation (CS-PLAN-060 WP1, D2): stores the
+ * Nextcloud user ID so completion authorization can compare against the
+ * authenticated session user.
  *
  * @method int getId()
  * @method void setId(int $id)

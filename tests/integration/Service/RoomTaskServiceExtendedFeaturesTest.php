@@ -68,7 +68,7 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			$this->createMock(HouseUserMapper::class),
 			$this->createMock(CompletedTaskMapper::class),
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
-			$this->createMock(\OCP\IDBConnection::class),
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$l10n,
 			$this->createMock(AppLogger::class),
 			$this->houseMapper,
@@ -92,20 +92,17 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 
 		$overdueTask1 = new RoomTask();
 		$overdueTask1->setId(1);
-		$overdueTask1->setAssignedToUserId('user-1');
 		$overdueTask1->setNextDue(new \DateTime('-2 days'));
 		$overdueTask1->setIsActive(true);
 
 		$overdueTask2 = new RoomTask();
 		$overdueTask2->setId(2);
-		$overdueTask2->setAssignedToUserId('user-2');
 		$overdueTask2->setNextDue(new \DateTime('-5 days'));
 		$overdueTask2->setIsActive(true);
 
 		// Unassigned task should be filtered out
 		$unassignedTask = new RoomTask();
 		$unassignedTask->setId(3);
-		$unassignedTask->setAssignedToUserId(null);
 		$unassignedTask->setNextDue(new \DateTime('-1 day'));
 		$unassignedTask->setIsActive(true);
 
@@ -117,7 +114,38 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			->with($houseId)
 			->willReturn($allOverdueTasks);
 
-		$result = $this->service->getClaimableOverdueTasks($houseId);
+		// Assignees live in the canonical join table (CS-PLAN-060 WP1, D2):
+		// tasks 1 and 2 have assignees, task 3 has none.
+		$taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
+		$taskAssigneeMapper->method('findUserIdsByRoomTasks')->willReturn([
+			1 => ['user-1'],
+			2 => ['user-2'],
+			3 => [],
+		]);
+
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+
+		$service = new RoomTaskService(
+			$this->roomTaskMapper,
+			$this->taskMapper,
+			$this->roomMapper,
+			$this->floorMapper,
+			$this->getMockBuilder(\OCA\ChoreStrike\Service\RoomService::class)
+				->disableOriginalConstructor()
+				->getMock(),
+			$taskAssigneeMapper,
+			$this->createMock(HouseUserMapper::class),
+			$this->createMock(CompletedTaskMapper::class),
+			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
+			$l10n,
+			$this->createMock(AppLogger::class),
+			$this->houseMapper,
+			new \OCA\ChoreStrike\Service\CalendarService()
+		);
+
+		$result = $service->getClaimableOverdueTasks($houseId);
 
 		$this->assertCount(2, $result); // Unassigned task filtered out
 		$this->assertEquals(1, $result[0]->getId());

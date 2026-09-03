@@ -117,7 +117,7 @@ class RoomServiceTest extends TestCase {
 			$this->houseService,
 			$this->houseMapper,
 			$this->notificationService,
-			$this->db,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$this->createIdentityL10n(),
 			$this->appLogger,
 			new CalendarService()
@@ -571,7 +571,6 @@ class RoomServiceTest extends TestCase {
 		$roomTask->setTaskId(1);
 		$roomTask->setRoomId(1);
 		$roomTask->setIsActive(true);
-		$roomTask->setAssignedToUserId($originalAssignee);
 		$roomTask->setNextDue(new \DateTime('yesterday')); // overdue
 
 		$floor = new Floor();
@@ -604,7 +603,8 @@ class RoomServiceTest extends TestCase {
 			'currentStreak' => 1,
 		]);
 
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+		// The original assignee comes from the canonical join table (D2).
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([$originalAssignee]);
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
 
 		$this->service->completeRoomTask($roomTaskId, $claimer);
@@ -650,7 +650,6 @@ class RoomServiceTest extends TestCase {
 		$staleRoomTask->setTaskId(1);
 		$staleRoomTask->setRoomId(1);
 		$staleRoomTask->setIsActive(true);
-		$staleRoomTask->setAssignedToUserId($originalAssignee);
 		$staleRoomTask->setNextDue(new \DateTime('yesterday'));
 
 		// Fresh post-lock entity: the concurrent winner's completion
@@ -660,7 +659,6 @@ class RoomServiceTest extends TestCase {
 		$freshRoomTask->setTaskId(1);
 		$freshRoomTask->setRoomId(1);
 		$freshRoomTask->setIsActive(true);
-		$freshRoomTask->setAssignedToUserId($originalAssignee);
 		$freshRoomTask->setNextDue(new \DateTime('tomorrow'));
 
 		$floor = new Floor();
@@ -707,13 +705,11 @@ class RoomServiceTest extends TestCase {
 	/**
 	 * CompleteRoomTask_CoAssigneeOverdue_DoesNotMarkTakeover
 	 *
-	 * A co-assignee (present only in the join table) completing an overdue task
-	 * that also has a legacy assignee must NOT be recorded as a takeover — they
-	 * are themselves an assignee of the shared task.
+	 * A co-assignee completing an overdue shared task must NOT be recorded
+	 * as a takeover — they are themselves an assignee of the task.
 	 */
 	public function testCompleteRoomTask_CoAssigneeOverdue_DoesNotMarkTakeover(): void {
 		$roomTaskId = 1;
-		$legacyAssignee = 'legacy-user';
 		$coAssignee = 'co-user';
 
 		$task = new Task();
@@ -733,7 +729,6 @@ class RoomServiceTest extends TestCase {
 		$roomTask->setTaskId(1);
 		$roomTask->setRoomId(1);
 		$roomTask->setIsActive(true);
-		$roomTask->setAssignedToUserId($legacyAssignee);
 		$roomTask->setNextDue(new \DateTime('yesterday')); // overdue
 
 		$floor = new Floor();
@@ -952,7 +947,6 @@ class RoomServiceTest extends TestCase {
 		$roomTask->setTaskId(1);
 		$roomTask->setRoomId(1);
 		$roomTask->setIsActive(true);
-		$roomTask->setAssignedToUserId($userId);
 		$roomTask->setNextDue(new \DateTime('yesterday'));
 
 		$floor = new Floor();
@@ -981,7 +975,8 @@ class RoomServiceTest extends TestCase {
 			'currentStreak' => 1,
 		]);
 
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+		// The completer IS an assignee (canonical join table).
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([$userId]);
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
 
 		$this->service->completeRoomTask($roomTaskId, $userId);
@@ -1002,7 +997,7 @@ class RoomServiceTest extends TestCase {
 
 		$task = new Task();
 		$task->setId(1);
-		$task->setIsPrivate(true);
+		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
 
 		$room = new Room();
 		$room->setId(1);
@@ -1049,7 +1044,7 @@ class RoomServiceTest extends TestCase {
 		$task->setFrequencyType('weekly');
 		$task->setFrequencyValue(1);
 		$task->setRecurrenceMode('recurring');
-		$task->setIsPrivate(true);
+		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
 
 		$room = new Room();
 		$room->setId(1);
@@ -1168,7 +1163,6 @@ class RoomServiceTest extends TestCase {
 		$roomTask->setTaskId(1);
 		$roomTask->setRoomId(1);
 		$roomTask->setIsActive(true);
-		$roomTask->setAssignedToUserId($originalAssignee);
 		$roomTask->setNextDue(new \DateTime('yesterday')); // overdue
 
 		$floor = new Floor();
@@ -1198,7 +1192,7 @@ class RoomServiceTest extends TestCase {
 			'currentStreak' => 1,
 		]);
 
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([$originalAssignee]);
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
 
 		// Completer resolution, the in-transaction re-check, and the
@@ -1221,8 +1215,8 @@ class RoomServiceTest extends TestCase {
 	 * CompleteRoomTask_OverdueTakeover_FormerMemberSkipsDispatch
 	 *
 	 * If the original assignee has been removed from the house (house_users
-	 * row deleted) but their legacy assigned_to_user_id is still on the room
-	 * task, the takeover notification must NOT be dispatched to them.
+	 * row deleted) but their assignee row is still on the room task, the
+	 * takeover notification must NOT be dispatched to them.
 	 */
 	public function testCompleteRoomTask_OverdueTakeover_FormerMemberSkipsDispatch(): void {
 		$roomTaskId = 1;
@@ -1247,7 +1241,6 @@ class RoomServiceTest extends TestCase {
 		$roomTask->setTaskId(1);
 		$roomTask->setRoomId(1);
 		$roomTask->setIsActive(true);
-		$roomTask->setAssignedToUserId($originalAssignee);
 		$roomTask->setNextDue(new \DateTime('yesterday'));
 
 		$floor = new Floor();
@@ -1281,7 +1274,7 @@ class RoomServiceTest extends TestCase {
 			'currentStreak' => 1,
 		]);
 
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([$originalAssignee]);
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
 
 		// No takeover notification dispatched.
@@ -1322,7 +1315,6 @@ class RoomServiceTest extends TestCase {
 		$roomTask->setTaskId(1);
 		$roomTask->setRoomId(1);
 		$roomTask->setIsActive(true);
-		$roomTask->setAssignedToUserId($userId);
 		$roomTask->setNextDue((new \DateTime('tomorrow'))->setTime(12, 0)); // not overdue
 
 		$floor = new Floor();
@@ -1351,7 +1343,7 @@ class RoomServiceTest extends TestCase {
 			'currentStreak' => 1,
 		]);
 
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([$userId]);
 		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
 
 		$this->notificationService->expects($this->never())->method('notifyOverdueTakenOver');

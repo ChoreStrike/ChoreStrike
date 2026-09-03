@@ -250,9 +250,8 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `frequency_type` (daily/weekly/monthly/custom), `frequency_value` (int)
 - `estimated_minutes` (int)
 - `category` (string) — the DB-backed `is_template` column was removed (CS-PLAN-027 D7); catalog templates now live in `lib/Templates/`
-- `visibility_type` (string, default `public`) — `public` | `private` | `admin-only` (CS-PLAN-005)
+- `visibility_type` (string, default `public`) — `public` | `private` | `admin-only` (CS-PLAN-005); the sole visibility representation — the former `is_private` shim column was folded out (CS-PLAN-060 WP1 D1)
 - `owner_user_id` (string, nullable) — creator of private/admin-only tasks (Nextcloud UID)
-- `is_private` (boolean) — **back-compat shim** derived from `visibility_type` (`private`); `visibility_type` is the source of truth
 - `flex_days` (int), scheduling/recurrence fields, `created_at` (datetime)
 - Index `idx_tasks_visibility` on `(visibility_type, owner_user_id)`
 
@@ -262,9 +261,8 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `id` (bigint, PK)
 - `room_id` (bigint, FK), `task_id` (bigint, FK)
 - `next_due` (datetime), `last_completed` (datetime, nullable)
-- `assigned_to_user_id` (string, nullable) — legacy single assignee
 - `is_active` (boolean), `created_at` (datetime)
-- assignment/claim fields (`assignment_type`, `assigned_to_group`, `claimed_by_user`, `was_claimed`, …) — **retained columns** of the legacy group-assignment feature, which was archived in CS-PLAN-011 (routes/controller/service/mapper removed; columns kept harmlessly to avoid data loss on existing installs)
+- claim fields (`claimed_by_user`, `was_claimed`, `original_assignee`, `claimed_at`) — the live overdue-takeover/claim feature; the legacy single-assignee column (`assigned_to_user_id`) and the abandoned group-assignment remnants (`assignment_type`, `assigned_to_group`, `assigned_by_user_id`, `assigned_at`) were folded out — `chorestrike_task_assignees` is the canonical assignee store (CS-PLAN-060 WP1 D2/D9)
 - `ideal_due_date` (datetime, nullable) — drives the early-completion bonus
 
 #### `chorestrike_house_users` (membership + gamification state)
@@ -304,7 +302,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 | `chorestrike_minigame_scores` | Minigame scores (game, score, boosts used) | `MinigameScore` |
 | `chorestrike_chk_items` | Task checklist template items (Version1005 name) | `TaskChecklistItem` |
 | `chorestrike_chk_progress` | Per-room-task checklist progress (Version1005 name) | `RoomTaskChecklistProgress` |
-| `chorestrike_task_assignees` | Multi-assignee join table (room-task ↔ user) (CS-PLAN-002) | `TaskAssignee` |
+| `chorestrike_task_assignees` | Canonical multi-assignee join table (room-task ↔ Nextcloud user) (CS-PLAN-002; sole assignee store since CS-PLAN-060 WP1 D2) | `TaskAssignee` |
 
 > `chorestrike_availability` (orphan `AvailabilitySettings` entity/mapper) and
 > the never-referenced `chorestrike_task_scopes` / `chorestrike_task_parts` /

@@ -120,7 +120,6 @@ class TaskService {
 		?string $tips = null,
 		?int $estimatedMinutesMin = null,
 		?int $estimatedMinutesMax = null,
-		bool $isPrivate = false,
 		string $visibilityType = 'public',
 		?string $ownerUserId = null,
 	): Task {
@@ -146,7 +145,6 @@ class TaskService {
 			$tips,
 			$estimatedMinutesMin,
 			$estimatedMinutesMax,
-			$isPrivate,
 			$visibilityType,
 			$ownerUserId
 		);
@@ -267,6 +265,13 @@ class TaskService {
 			}
 		}
 
+		// Estimated-time range cross-check (CS-PLAN-060 §3.6): an inverted
+		// min/max pair would render "30-10 min" and never match a real span.
+		if (isset($taskData['estimatedMinutesMin'], $taskData['estimatedMinutesMax'])
+			&& $taskData['estimatedMinutesMin'] > $taskData['estimatedMinutesMax']) {
+			$errors[] = $this->l10n->t('Estimated time minimum must not be greater than the maximum');
+		}
+
 		// Frequency type validation
 		if (isset($taskData['frequencyType'])) {
 			$validTypes = ['daily', 'weekly', 'monthly', 'custom'];
@@ -290,10 +295,9 @@ class TaskService {
 			}
 		}
 
-		// Recurrence mode validation
+		// Recurrence mode validation (canonical Task::RECURRENCE_* vocabulary)
 		if (isset($taskData['recurrenceMode'])) {
-			$validModes = ['recurring', 'once', 'bounded'];
-			if (!in_array($taskData['recurrenceMode'], $validModes)) {
+			if (!in_array($taskData['recurrenceMode'], Task::RECURRENCE_MODES, true)) {
 				$errors[] = $this->l10n->t('Invalid recurrence mode');
 			}
 		}

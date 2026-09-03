@@ -68,7 +68,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setTeamSparkMultiplier(float $teamSparkMultiplier)
  * @method int getFlexDays()
  * @method void setFlexDays(int $flexDays)
- * @method bool getIsPrivate()
  * @method string getVisibilityType()
  * @method void setVisibilityType(string $visibilityType)
  * @method string|null getOwnerUserId()
@@ -83,6 +82,20 @@ class Task extends Entity implements JsonSerializable {
 		self::VISIBILITY_PUBLIC,
 		self::VISIBILITY_PRIVATE,
 		self::VISIBILITY_ADMIN_ONLY,
+	];
+
+	/**
+	 * Canonical recurrence vocabulary (CS-PLAN-060 WP1, D3) — the same set
+	 * TaskService::validateTaskData accepts and the scheduler branches on.
+	 */
+	public const RECURRENCE_RECURRING = 'recurring';
+	public const RECURRENCE_ONCE = 'once';
+	public const RECURRENCE_BOUNDED = 'bounded';
+
+	public const RECURRENCE_MODES = [
+		self::RECURRENCE_RECURRING,
+		self::RECURRENCE_ONCE,
+		self::RECURRENCE_BOUNDED,
 	];
 
 	/** @var string */
@@ -166,9 +179,6 @@ class Task extends Entity implements JsonSerializable {
 	/** @var int */
 	protected $flexDays = 0;
 
-	/** @var bool */
-	protected $isPrivate = false;
-
 	/** @var string */
 	protected $visibilityType = self::VISIBILITY_PUBLIC;
 
@@ -204,7 +214,6 @@ class Task extends Entity implements JsonSerializable {
 		$this->addType('maxParticipants', 'integer');
 		$this->addType('teamSparkMultiplier', 'decimal');
 		$this->addType('flexDays', 'integer');
-		$this->addType('isPrivate', 'boolean');
 		$this->addType('visibilityType', 'string');
 		$this->addType('ownerUserId', 'string');
 	}
@@ -241,7 +250,6 @@ class Task extends Entity implements JsonSerializable {
 			'maxParticipants' => $this->maxParticipants,
 			'teamSparkMultiplier' => $this->teamSparkMultiplier,
 			'flexDays' => $this->flexDays,
-			'isPrivate' => $this->isPrivate(),
 			'visibilityType' => $this->visibilityType,
 			'ownerUserId' => $this->ownerUserId,
 			'createdAt' => $this->createdAt?->format('c'),
@@ -280,21 +288,6 @@ class Task extends Entity implements JsonSerializable {
 			'gold' => 2.0,
 			default => 1.5
 		};
-	}
-
-	/**
-	 * Whether this task is private (only assignees may complete it).
-	 * Derived from visibilityType for backwards compatibility.
-	 */
-	public function isPrivate(): bool {
-		return $this->visibilityType === self::VISIBILITY_PRIVATE;
-	}
-
-	/**
-	 * Backwards-compat shim: delegates to setVisibilityType().
-	 */
-	public function setIsPrivate(bool $isPrivate): void {
-		$this->setVisibilityType($isPrivate ? self::VISIBILITY_PRIVATE : self::VISIBILITY_PUBLIC);
 	}
 
 	/**

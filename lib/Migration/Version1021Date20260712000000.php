@@ -14,9 +14,13 @@ use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
 
 /**
- * Migration for Phase 1 multi-assign:
- *  - creates the `chorestrike_task_assignees` join table (multiple assignees per room task)
- *  - adds `is_private` flag to `chorestrike_tasks` for the private-task completion gate
+ * Migration for Phase 1 multi-assign: creates the `chorestrike_task_assignees`
+ * join table (multiple assignees per room task) — the canonical assignee
+ * store (CS-PLAN-060 WP1, D2).
+ *
+ * The legacy `is_private` flag add was folded out of the chain: visibility
+ * is carried by the canonical `visibility_type` + `owner_user_id` columns
+ * (Version1024).
  */
 class Version1021Date20260712000000 extends SimpleMigrationStep {
 	/**
@@ -57,17 +61,6 @@ class Version1021Date20260712000000 extends SimpleMigrationStep {
 			$table->addUniqueIndex(['room_task_id', 'user_id'], 'cs_task_assignees_unique');
 			$table->addIndex(['user_id'], 'cs_task_assignees_user');
 			$table->addIndex(['room_task_id'], 'cs_task_assignees_task');
-		}
-
-		// Add is_private flag to tasks table
-		if ($schema->hasTable('chorestrike_tasks')) {
-			$table = $schema->getTable('chorestrike_tasks');
-			if (!$table->hasColumn('is_private')) {
-				$table->addColumn('is_private', 'boolean', [
-					'notnull' => false,
-					'default' => false,
-				]);
-			}
 		}
 
 		// The runner persists schema diffs produced by changeSchema(), so the

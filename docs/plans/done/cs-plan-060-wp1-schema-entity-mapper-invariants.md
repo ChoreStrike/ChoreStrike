@@ -1,6 +1,6 @@
 # CS-PLAN-060: WP1 — Schema, Entity, and Mapper Invariants
 
-> **Status:** Plan (Standard A review passed 2026-09-02; activation pending)
+> **Status:** Done (2026-09-03) — final Standard B review PASS-WITH-FIXES
 > **Effort:** L
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP1 — WP0 is Done), WP0 baseline (2026-09-02)
@@ -375,40 +375,40 @@ removal only; artifacts update in the same change (`npm run l10n:check-keys`).
 
 ## 8. Acceptance Criteria
 
-- [ ] Clean-volume Docker install produces the folded final schema; the
+- [x] Clean-volume Docker install produces the folded final schema; the
       migration smoke test asserts the unique instance index and the absence
       of `is_private`, `assigned_to_user_id`, `nextcloud_task_id`,
       `synced_to_nextcloud`, `assignment_type`, `assigned_to_group`,
       `assigned_by_user_id`, and `assigned_at`, while `claimed_by_user` and
       `original_assignee` remain.
-- [ ] Concurrent first-request bootstrap yields exactly one house and exactly
+- [x] Concurrent first-request bootstrap yields exactly one house and exactly
       one owner (two-connection MySQL test); `createOrGet` races return the
       existing row without a 500.
-- [ ] Exactly one persisted representation per concept: visibility via
+- [x] Exactly one persisted representation per concept: visibility via
       `visibility_type`/`owner_user_id`, assignees via the join table,
       recurrence via the `Task::RECURRENCE_*` vocabulary; no core read merges
       legacy and canonical representations (contract grep + integration
       assertions).
-- [ ] A validation-accepted `'once'` task deactivates on completion; the
+- [x] A validation-accepted `'once'` task deactivates on completion; the
       `'one_time'` literal no longer exists in `lib/`.
-- [ ] `findVisibleByHouse` scopes task definitions by the real house chain;
+- [x] `findVisibleByHouse` scopes task definitions by the real house chain;
       a two-house fixture proves no cross-house leakage.
-- [ ] Only `TransactionExecutor` calls `IDBConnection` transaction methods;
+- [x] Only `TransactionExecutor` calls `IDBConnection` transaction methods;
       the deterministic lock order is documented in engineering docs.
-- [ ] Mapper minors fixed and regression-tested (portable `was_combo` compare,
+- [x] Mapper minors fixed and regression-tested (portable `was_combo` compare,
       half-open week windows, locked toggle, `insert()`-based floor create,
       deleted dead `findAll`, bounded `getUserRank`, minute-range
       cross-check).
-- [ ] Build gate green (`npm test` + lint + stylelint + Docker unit +
+- [x] Build gate green (`npm test` + lint + stylelint + Docker unit +
       integration + `cs:check` + applicable Playwright projects +
       `backlog:check`), with no new or unapproved skips.
-- [ ] Owning backlog items (CR-053-07, CR-053-09, CR-055-03, CR-055-04,
+- [x] Owning backlog items (CR-053-07, CR-053-09, CR-055-03, CR-055-04,
       CR-053-19 persistence parts, CR-SVC-40 foundation portion) archived or
       re-scoped to their exact remainder; CS-PLAN-058 §9 updated.
-- [ ] Durable outcomes integrated into permanent docs (lock order,
+- [x] Durable outcomes integrated into permanent docs (lock order,
       migration-chain baseline) — plans are temporary.
-- [ ] All implementation decisions and review questions resolved and recorded.
-- [ ] Final Standard B review is `PASS` or `PASS-WITH-FIXES`;
+- [x] All implementation decisions and review questions resolved and recorded.
+- [x] Final Standard B review is `PASS` or `PASS-WITH-FIXES`;
       `ACTIVE_TASKS.md` updated.
 
 ## 9. Plan Review Decision Register
@@ -451,3 +451,96 @@ removal only; artifacts update in the same change (`npm run l10n:check-keys`).
   manual user action per project-rules §7. No backlog items added (plan
   review); the only noted follow-up is the CS-PLAN-058 §9/WP1 frontend-line
   supersession record due in implementation step 10.
+
+## 11. Implementation Record (2026-09-03)
+
+Implemented per §6 order. Full §4.5 gate green from a clean Docker volume
+(`down -v` + `up -d`): PHPUnit unit 781 OK, PHPUnit integration 229
+(21 pre-existing skips, no new skips), Jest 780 OK, ESLint + stylelint +
+`composer lint` + `cs:check` clean, `l10n:check-keys` / `backlog:check` /
+`docs:encoding` green, Playwright `chromium` project 92 passed / 7 skipped.
+
+Notes beyond the letter of §3 (recorded for the Standard B review):
+
+- `TransactionExecutor` also owns the mapper-level transaction in
+  `TaskAssigneeMapper::replaceAssignees` and the new locked
+  `RoomTaskChecklistProgressMapper::toggle` (acceptance criterion "only
+  TransactionExecutor calls IDBConnection transaction methods"); both
+  mappers inject it via constructor DI.
+- New SQLite-tolerant lock primitive
+  `RoomTaskChecklistProgressMapper::findForUpdate` backs the locked RMW
+  toggle (§3.6); `HouseMapper::findForUpdate` (§3.2) completes the house-row
+  lock. Lock order documented in `docs/engineering/development.md`
+  ("Locking and transactions").
+- Initial-assignment writers beyond `RoomTaskService::createRoomTask` were
+  migrated to the join table as part of D2: `HouseSetupService` (wizard
+  rooms) and `TestDataService` (family seed).
+- The claim snapshot source in `RoomService::completeRoomTask` takes the
+  first canonical assignee (`$assigneeUserIds[0]`); `claimed_by_user`,
+  `was_claimed`, `original_assignee`, `claimed_at` stay (D9).
+- `TaskService::assignTask`/`unassignTask` preserve the former
+  single-assignee-write semantics (assignee-set replacement + stale
+  `claimed_by_user` reset) via `replaceSingleAssignee`.
+- §3.4 `findVisibleByHouse` uses two correlated EXISTS subqueries
+  (linked-to-viewer-house OR completely unlinked) with the house parameter
+  bound on the outer builder (TaskAssigneeMapper subquery pattern); existing
+  indexes proved sufficient, no new index needed.
+- `RoomTaskService::getRangeTasks` keeps the inclusive end-of-day bound for
+  the recurrence-projection base set and passes the exclusive next-day-midnight
+  bound only to `findCompletionsBetweenByHouse` (half-open convention).
+- One new l10n string: "Estimated time minimum must not be greater than the
+  maximum" (en/de/templates updated in the same change).
+- Migration-chain baseline updated in `docs/engineering/development.md`
+  (21 files; Version1002 folded out); CS-PLAN-058 §9 WP1 row updated
+  including the D10 frontend-line supersession note; backlog dispositions
+  archived to `docs/backlog/archive/2026-09.md`.
+
+**Standard B final code review — 2026-09-03: PASS-WITH-FIXES.**
+
+- **Scope:** the full uncommitted WP1 package — 77 tracked modified/deleted
+  files + 9 untracked files (this plan, `lib/Db/TransactionExecutor.php`,
+  7 new integration tests). Base: `master` @ `49be3fed5dba86ed8b3b030c6397ebc366837f67`,
+  nothing staged; unstaged diff SHA-1 `874d90dd0f0a959072e1acb74983b6811dd45bc8`,
+  untracked content hashes recorded per file in the review record
+  ([`../../backlog/archive/CODE_REVIEW_2026-09-03.md`](../../backlog/archive/CODE_REVIEW_2026-09-03.md)).
+- **Checks:** review skill §3 shared checklist against every changed file;
+  acceptance contract greps (`one_time` in `lib/` = 0 hits;
+  `beginTransaction` outside `TransactionExecutor` = 0 hits; removed payload
+  keys across `src/` = 0 hits); all migrations, mappers, services,
+  controllers, frontend edits, and the 7 new integration tests read in full.
+- **Findings (all fixed in-review, no open findings):**
+  1. **major** — stale E2E consumers of removed payload keys:
+     `overdue-task-claiming.spec.ts` filters silently degraded the claim /
+     private-task gating tests to skips in the `chromium` project, and
+     `time-travel-overdue.spec.ts` / `multi-user-interactions.spec.ts` would
+     outright fail in `chromium-serial-db` (not part of the implementation
+     gate run). Fixed mechanically to the canonical `assignees` contract;
+     `TestDataService` family seed now returns room tasks enriched with the
+     canonical `assignees` key (test tooling, D6 scope). `release-task-lifecycle`
+     and `error-handling` filters updated for contract hygiene.
+  2. **major** — durable docs contradicted the implemented contract:
+     `docs/api/README.md` still documented the `isPrivate` compat behavior
+     and the legacy `assigned_to_user_id` merge; `docs/engineering/architecture.md`
+     schema inventory still listed the folded columns. Both corrected.
+  3. **minor** — `lib/Db/Task.php` formatting glitch (`*/` and method
+     declaration collapsed onto one line) — fixed.
+  4. **minor** — stale Jest fixture keys (`assignedToUserId` in
+     `TodayView.spec.js`, `roomTasks.spec.js`) against the §4
+     assignees-only contract — removed.
+  5. **nit** — pre-existing `docs/api/README.md` room-tasks example uses
+     snake_case keys that predate WP1 — logged into CR-053-21 (backlog),
+     not fixed here (out of scope).
+- **Gates rerun after fixes (all green):** Jest 780/780; ESLint + stylelint
+  clean; PHPUnit unit (Docker) 781 OK; PHPUnit integration (Docker,
+  clean-volume install) 229 OK with the same 21 pre-existing skips;
+  `php-cs-fixer` 0 findings (scoped `php -l` on changed files clean);
+  `l10n:check-keys`, `backlog:check`, `docs:encoding` green; Playwright
+  `chromium` + `chromium-serial-db` 181 passed, 0 failed (the previously
+  skipping claim-gating tests now actively run). One environment retry: the
+  first Playwright run failed in setup because the review brought the stack
+  up without `TEST_DB_PROFILE=family` (user provisioning gap) — re-created
+  clean per docker-dev; not a code defect.
+- **Questions:** none — no behavior, architecture, migration, or security
+  decision required user arbitration; decisions D1–D11 stand as ratified.
+- **Outcome:** `PASS-WITH-FIXES`; every acceptance criterion verified;
+  plan moves `active/ → done/`.

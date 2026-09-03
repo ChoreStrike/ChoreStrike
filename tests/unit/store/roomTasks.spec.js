@@ -156,11 +156,11 @@ describe('RoomTasks Store', () => {
 		describe('bulkAssignTasks (CS-PLAN-042, CR-SVC-61)', () => {
 			it('posts one bulk call and merges the assignment into cached tasks', async () => {
 				store.roomTasks = [
-					{ id: 1, assignedToUserId: null, assignees: [] },
-					{ id: 2, assignedToUserId: null, assignees: [] },
+					{ id: 1, assignees: [] },
+					{ id: 2, assignees: [] },
 				]
 				api.post.mockResolvedValue([
-					{ id: 1, assignedToUserId: 'user1', assignees: [] },
+					{ id: 1, assignees: [] },
 				])
 
 				const assigned = await store.bulkAssignTasks([1, 2], 'user1')
@@ -169,7 +169,7 @@ describe('RoomTasks Store', () => {
 					roomTaskIds: [1, 2],
 					userId: 'user1',
 				})
-				expect(assigned).toEqual([{ id: 1, assignedToUserId: 'user1', assignees: [] }])
+				expect(assigned).toEqual([{ id: 1, assignees: [] }])
 				// The assigned task's chip state gains the target member.
 				expect(store.roomTasks[0].assignees).toEqual(['user1'])
 				// The skipped task stays untouched.

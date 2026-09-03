@@ -26,10 +26,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setWasCombo(bool $wasCombo)
  * @method int|null getComboWithUserId()
  * @method void setComboWithUserId(?int $comboWithUserId)
- * @method int|null getNextcloudTaskId()
- * @method void setNextcloudTaskId(?int $nextcloudTaskId)
- * @method bool getSyncedToNextcloud()
- * @method void setSyncedToNextcloud(bool $syncedToNextcloud)
  * @method bool getIsTeamCompletion()
  * @method void setIsTeamCompletion(bool $isTeamCompletion)
  * @method int getParticipantCount()
@@ -62,12 +58,6 @@ class CompletedTask extends Entity implements JsonSerializable {
 	/** @var int|null */
 	protected $comboWithUserId;
 
-	/** @var int|null */
-	protected $nextcloudTaskId;
-
-	/** @var bool */
-	protected $syncedToNextcloud = false;
-
 	/** @var bool */
 	protected $isTeamCompletion = false;
 
@@ -94,8 +84,6 @@ class CompletedTask extends Entity implements JsonSerializable {
 		$this->addType('coinsEarned', 'integer');
 		$this->addType('wasCombo', 'boolean');
 		$this->addType('comboWithUserId', 'integer');
-		$this->addType('nextcloudTaskId', 'integer');
-		$this->addType('syncedToNextcloud', 'boolean');
 		$this->addType('isTeamCompletion', 'boolean');
 		$this->addType('participantCount', 'integer');
 		$this->addType('teamSparkBonus', 'integer');
@@ -116,8 +104,6 @@ class CompletedTask extends Entity implements JsonSerializable {
 			'coinsEarned' => $this->coinsEarned,
 			'wasCombo' => $this->wasCombo,
 			'comboWithUserId' => $this->comboWithUserId,
-			'nextcloudTaskId' => $this->nextcloudTaskId,
-			'syncedToNextcloud' => $this->syncedToNextcloud,
 			'isTeamCompletion' => $this->isTeamCompletion,
 			'participantCount' => $this->participantCount,
 			'teamSparkBonus' => $this->teamSparkBonus,

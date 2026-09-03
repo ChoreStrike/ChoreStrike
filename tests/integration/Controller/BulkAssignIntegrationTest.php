@@ -84,12 +84,12 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 
 	private function persistedAssignee(int $roomTaskId): ?string {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('assigned_to_user_id')
-			->from('chorestrike_room_tasks')
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+		$qb->select('user_id')
+			->from('chorestrike_task_assignees')
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
 		$row = $qb->executeQuery()->fetch();
 
-		return $row === false ? null : $row['assigned_to_user_id'];
+		return $row === false ? null : $row['user_id'];
 	}
 
 	/**
@@ -119,7 +119,7 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 			'both own tasks come back in input order'
 		);
 		foreach ($data['data'] as $rt) {
-			self::assertSame(self::MEMBER, $rt['assignedToUserId']);
+			self::assertArrayNotHasKey('assignedToUserId', $rt, 'the legacy payload key must be gone');
 		}
 		self::assertSame(self::MEMBER, $this->persistedAssignee($rtA));
 		self::assertSame(self::MEMBER, $this->persistedAssignee($rtB));

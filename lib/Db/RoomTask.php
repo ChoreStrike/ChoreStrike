@@ -22,20 +22,12 @@ use OCP\AppFramework\Db\Entity;
  * @method void setNextDue(\DateTime $nextDue)
  * @method \DateTime|null getLastCompleted()
  * @method void setLastCompleted(?\DateTime $lastCompleted)
- * @method string|null getAssignedToUserId()
- * @method void setAssignedToUserId(?string $assignedToUserId)
  * @method bool getIsActive()
  * @method void setIsActive(bool $isActive)
  * @method int|null getScopeId()
  * @method void setScopeId(?int $scopeId)
- * @method int|null getNextcloudTaskId()
- * @method void setNextcloudTaskId(?int $nextcloudTaskId)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
- * @method string|null getAssignedToGroup()
- * @method void setAssignedToGroup(?string $assignedToGroup)
- * @method string getAssignmentType()
- * @method void setAssignmentType(string $assignmentType)
  * @method string|null getClaimedByUser()
  * @method void setClaimedByUser(?string $claimedByUser)
  * @method bool getWasClaimed()
@@ -44,10 +36,6 @@ use OCP\AppFramework\Db\Entity;
  * @method void setOriginalAssignee(?string $originalAssignee)
  * @method \DateTime|null getClaimedAt()
  * @method void setClaimedAt(?\DateTime $claimedAt)
- * @method string|null getAssignedByUserId()
- * @method void setAssignedByUserId(?string $assignedByUserId)
- * @method \DateTime|null getAssignedAt()
- * @method void setAssignedAt(?\DateTime $assignedAt)
  * @method \DateTime|null getIdealDueDate()
  * @method void setIdealDueDate(?\DateTime $idealDueDate)
  */
@@ -71,26 +59,14 @@ class RoomTask extends Entity implements JsonSerializable {
 	/** @var \DateTime|null */
 	protected $lastCompleted;
 
-	/** @var string|null */
-	protected $assignedToUserId;
-
 	/** @var bool */
 	protected $isActive = true;
 
 	/** @var int|null */
 	protected $scopeId;
 
-	/** @var int|null */
-	protected $nextcloudTaskId;
-
 	/** @var \DateTime */
 	protected $createdAt;
-
-	/** @var string|null */
-	protected $assignedToGroup;
-
-	/** @var string */
-	protected $assignmentType = 'user';
 
 	/** @var string|null */
 	protected $claimedByUser;
@@ -104,12 +80,6 @@ class RoomTask extends Entity implements JsonSerializable {
 	/** @var \DateTime|null */
 	protected $claimedAt;
 
-	/** @var string|null */
-	protected $assignedByUserId;
-
-	/** @var \DateTime|null */
-	protected $assignedAt;
-
 	/** @var \DateTime|null */
 	protected $idealDueDate;
 
@@ -119,19 +89,13 @@ class RoomTask extends Entity implements JsonSerializable {
 		$this->addType('taskId', 'integer');
 		$this->addType('nextDue', 'datetime');
 		$this->addType('lastCompleted', 'datetime');
-		$this->addType('assignedToUserId', 'string');
 		$this->addType('isActive', 'boolean');
 		$this->addType('scopeId', 'integer');
-		$this->addType('nextcloudTaskId', 'integer');
 		$this->addType('createdAt', 'datetime');
-		$this->addType('assignedToGroup', 'string');
-		$this->addType('assignmentType', 'string');
 		$this->addType('claimedByUser', 'string');
 		$this->addType('wasClaimed', 'boolean');
 		$this->addType('originalAssignee', 'string');
 		$this->addType('claimedAt', 'datetime');
-		$this->addType('assignedByUserId', 'string');
-		$this->addType('assignedAt', 'datetime');
 		$this->addType('idealDueDate', 'datetime');
 	}
 
@@ -149,18 +113,12 @@ class RoomTask extends Entity implements JsonSerializable {
 			'taskId' => $this->taskId,
 			'nextDue' => $this->nextDue?->format('c'),
 			'lastCompleted' => $this->lastCompleted?->format('c'),
-			'assignedToUserId' => $this->assignedToUserId,
-			'assignedToGroup' => $this->assignedToGroup,
-			'assignmentType' => $this->assignmentType,
 			'isActive' => $this->isActive,
 			'scopeId' => $this->scopeId,
-			'nextcloudTaskId' => $this->nextcloudTaskId,
 			'claimedByUser' => $this->claimedByUser,
 			'wasClaimed' => $this->wasClaimed,
 			'originalAssignee' => $this->originalAssignee,
 			'claimedAt' => $this->claimedAt?->format('c'),
-			'assignedByUserId' => $this->assignedByUserId,
-			'assignedAt' => $this->assignedAt?->format('c'),
 			'idealDueDate' => $this->idealDueDate?->format('c'),
 			'createdAt' => $this->createdAt?->format('c'),
 			'status' => $this->getStatus($timeZone),
@@ -243,7 +201,7 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * @param \DateTime $completedAt The completion time
 	 * @param string $frequencyType The frequency type
 	 * @param int $frequencyValue The frequency value
-	 * @param string $recurrenceMode The recurrence mode ('one_time' or 'recurring')
+	 * @param string $recurrenceMode The recurrence mode (Task::RECURRENCE_ONCE or Task::RECURRENCE_RECURRING)
 	 * @param string $schedulingMode The scheduling mode ('dynamic' or 'static')
 	 * @param \DateTime|null $activeUntil The active until date for recurring tasks
 	 * @param \DateTime|null $fixedScheduleTime The fixed schedule time (for static mode)
@@ -271,7 +229,7 @@ class RoomTask extends Entity implements JsonSerializable {
 		$this->setLastCompleted($completedAt);
 
 		// Handle one-time tasks - deactivate after completion
-		if ($recurrenceMode === 'one_time') {
+		if ($recurrenceMode === Task::RECURRENCE_ONCE) {
 			$this->setIsActive(false);
 			$this->setNextDue($completedAt);
 			$this->setIdealDueDate(null);
@@ -610,7 +568,7 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * @param \DateTimeInterface $to Inclusive window end (day boundary)
 	 * @param string $frequencyType daily|weekly|monthly|custom
 	 * @param int $frequencyValue Recurrence interval in the frequency unit
-	 * @param string $recurrenceMode one_time|recurring
+	 * @param string $recurrenceMode Task::RECURRENCE_ONCE|RECURRENCE_RECURRING|RECURRENCE_BOUNDED
 	 * @param string $schedulingMode dynamic|static
 	 * @param string|null $fixedScheduleDays JSON array of weekday names (static+weekly)
 	 * @param \DateTime|null $activeUntil Don't project past this date
@@ -645,7 +603,7 @@ class RoomTask extends Entity implements JsonSerializable {
 		}
 
 		// One-time task: a single occurrence at nextDue if it lands in the window.
-		if ($recurrenceMode === 'one_time') {
+		if ($recurrenceMode === Task::RECURRENCE_ONCE) {
 			if ($anchor >= $fromDay && $anchor <= $toDay) {
 				return [$this->normalizeToStorage($anchor)];
 			}

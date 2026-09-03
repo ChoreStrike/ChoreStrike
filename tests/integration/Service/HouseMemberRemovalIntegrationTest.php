@@ -18,10 +18,10 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * Integration tests for transactional house-member removal (CR-SVC-26).
  *
  * Removing a member must clean up every task reference scoped to that
- * house — the legacy `room_tasks.assigned_to_user_id` column AND the
- * `task_assignees` join rows — together with the `house_users` row, in
- * one transaction. Another house's assignments for the same Nextcloud
- * user must remain untouched.
+ * house — the `task_assignees` join rows (the canonical assignee store,
+ * CS-PLAN-060 WP1 D2) — together with the `house_users` row, in one
+ * transaction. Another house's assignments for the same Nextcloud user
+ * must remain untouched.
  */
 class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 	private int $houseAId = 0;
@@ -72,12 +72,10 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 		// Membership row gone.
 		self::assertSame(0, $this->countHouseUsers($fixture['houseAId'], 'rmr_member'), 'the house_users row must be deleted');
 
-		// House A: legacy assignee column nulled, join rows deleted.
-		self::assertNull($this->fetchAssignedUser($fixture['roomTaskAId']), 'assigned_to_user_id must be NULL in house A');
+		// House A: join-table assignee rows deleted.
 		self::assertSame(0, $this->countAssignees($fixture['roomTaskAId'], 'rmr_member'), 'task_assignees rows must be deleted in house A');
 
 		// House B (control): the same Nextcloud user's references survive.
-		self::assertSame('rmr_member', $this->fetchAssignedUser($fixture['roomTaskBId']), 'another house\'s assignment must be untouched');
 		self::assertSame(1, $this->countAssignees($fixture['roomTaskBId'], 'rmr_member'), 'another house\'s assignee rows must be untouched');
 		self::assertSame(1, $this->countHouseUsers($fixture['houseBId'], 'rmr_member'), 'another house\'s membership must be untouched');
 	}
@@ -101,13 +99,12 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 		// Nothing was removed: owner membership and all references survive.
 		self::assertSame(1, $this->countHouseUsers($fixture['houseAId'], 'rmr_owner_a'));
 		self::assertSame(1, $this->countHouseUsers($fixture['houseAId'], 'rmr_member'));
-		self::assertSame('rmr_member', $this->fetchAssignedUser($fixture['roomTaskAId']));
 		self::assertSame(1, $this->countAssignees($fixture['roomTaskAId'], 'rmr_member'));
 	}
 
 	/**
-	 * Seed two houses, both with a room task assigned (legacy column +
-	 * join table) to the same Nextcloud user 'rmr_member'.
+	 * Seed two houses, both with a room task assigned (join table) to the
+	 * same Nextcloud user 'rmr_member'.
 	 *
 	 * @return array{houseAId: int, houseBId: int, memberHouseUserIdA: int, ownerHouseUserIdA: int, roomTaskAId: int, roomTaskBId: int}
 	 */
@@ -119,7 +116,6 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 		$roomIdA = $this->createRoom($houseAId, $floorAId, 'Kitchen');
 		$taskIdA = $this->createTask($houseAId, 'Dishes', 'Do the dishes', 5, 3);
 		$roomTaskAId = $this->assignTaskToRoom($taskIdA, $roomIdA, 'rmr_member');
-		$this->addAssignee($roomTaskAId, 'rmr_member');
 
 		// House B (control): same Nextcloud user, own membership + assignment.
 		$houseBId = $this->createHouse('rmr_owner_b', 'Removal House B');
@@ -128,7 +124,6 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 		$roomIdB = $this->createRoom($houseBId, $floorBId, 'Bathroom');
 		$taskIdB = $this->createTask($houseBId, 'Tiles', 'Scrub the tiles', 5, 3);
 		$roomTaskBId = $this->assignTaskToRoom($taskIdB, $roomIdB, 'rmr_member');
-		$this->addAssignee($roomTaskBId, 'rmr_member');
 
 		$this->houseAId = $houseAId;
 		$this->houseBId = $houseBId;
@@ -141,18 +136,6 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 			'roomTaskAId' => $roomTaskAId,
 			'roomTaskBId' => $roomTaskBId,
 		];
-	}
-
-	private function addAssignee(int $roomTaskId, string $ncUserId): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->insert('chorestrike_task_assignees')
-			->values([
-				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
-				'user_id' => $qb->createNamedParameter($ncUserId),
-				'assigned_by' => $qb->createNamedParameter(null),
-				'assigned_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
-			]);
-		$qb->executeStatement();
 	}
 
 	private function findHouseUserId(int $houseId, string $ncUserId): int {
@@ -180,18 +163,6 @@ class HouseMemberRemovalIntegrationTest extends IntegrationTestCase {
 		$result->closeCursor();
 
 		return $count;
-	}
-
-	private function fetchAssignedUser(int $roomTaskId): ?string {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('assigned_to_user_id')
-			->from('chorestrike_room_tasks')
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-		$result = $qb->executeQuery();
-		$value = $result->fetchOne();
-		$result->closeCursor();
-
-		return $value === false || $value === null ? null : (string)$value;
 	}
 
 	private function countAssignees(int $roomTaskId, string $ncUserId): int {

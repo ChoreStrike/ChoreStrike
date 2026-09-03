@@ -264,7 +264,7 @@ export default {
 			// current user's private task definitions — the destination of the
 			// Dashboard QuickStats "My Private Tasks" chip.
 			if (this.filterVisibility === 'private') {
-				tasks = tasks.filter(t => t.task.visibilityType === 'private' || t.task.isPrivate)
+				tasks = tasks.filter(t => t.task.visibilityType === 'private')
 			}
 
 			// Search filter

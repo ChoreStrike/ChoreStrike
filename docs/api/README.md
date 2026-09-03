@@ -266,7 +266,6 @@ List all tasks visible to the current user (role-based visibility filtering appl
     "estimated_minutes": 30,
     "category": "cleaning",
     "visibilityType": "public",
-    "isPrivate": false,
     "ownerUserId": null
   }
 ]
@@ -306,7 +305,7 @@ Create a new task.
 }
 ```
 
-> **visibilityType** (optional, default `public`): One of `public`, `private`, `admin-only`. `admin-only` requires house-owner role. Private tasks automatically record the creator as `ownerUserId`. The legacy `isPrivate` boolean is still accepted for backwards compatibility (`isPrivate=true` with `visibilityType='public'` resolves to `private`).
+> **visibilityType** (optional, default `public`): One of `public`, `private`, `admin-only`. `admin-only` requires house-owner role. Private tasks automatically record the creator as `ownerUserId`. `visibilityType` is the sole visibility source of truth — a stale client's legacy `isPrivate` key is dropped, not interpreted (CS-PLAN-060 WP1 D1).
 
 #### PUT /tasks/{id}
 Update task.
@@ -364,17 +363,19 @@ List all room-task assignments.
     "priority": 2,
     "next_due": "2026-02-25T10:00:00Z",
     "last_completed": "2026-02-18T10:00:00Z",
-    "assigned_to_user_id": null,
+    "assignees": [],
     "is_overdue": false,
     "days_until_due": 1
   }
 ]
 ```
 
-> **`assigned_to_user_id`** is the legacy single-assignee field, retained
-> alongside the multi-assignee `chorestrike_task_assignees` table (CS-PLAN-002).
-> It is still set via the POST body (`assignedToUserId`), returned as
-> `assignedToUserId`, and merged into the assignee set by `TaskAssigneeMapper`.
+> **`assignees`** is the canonical single assignee representation
+> (CS-PLAN-060 WP1 D2): the `chorestrike_task_assignees` join table keyed by
+> Nextcloud user IDs. The legacy `room_tasks.assigned_to_user_id` scalar
+> column and its payload key were folded out — reads never merge legacy and
+> canonical state. Initial single-assignee assignment stays available via
+> the `POST /room-tasks` body (`assignedToUserId`, written as a join row).
 > See `architecture.md` (`chorestrike_room_tasks`). The standalone
 > `POST /room-tasks/{id}/assign` / `…/unassign` and single-assignee
 > `POST|DELETE …/assignees` variants were pruned in CS-PLAN-055 — assignment
@@ -388,7 +389,7 @@ Assign task to room(s).
 {
   "task_id": 1,
   "room_ids": [1, 2, 3],
-  "assigned_to_user_id": null
+  "assignedToUserId": null
 }
 ```
 

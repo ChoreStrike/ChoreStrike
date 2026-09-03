@@ -6,6 +6,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Db\Mapper;
 
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgress;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCP\DB\IResult;
 use OCP\DB\QueryBuilder\IExpressionBuilder;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -29,7 +30,7 @@ class RoomTaskChecklistProgressMapperTest extends TestCase {
 		$this->db->method('getQueryBuilder')->willReturn($this->qb);
 		$this->qb->method('expr')->willReturn($this->expr);
 
-		$this->mapper = new RoomTaskChecklistProgressMapper($this->db);
+		$this->mapper = new RoomTaskChecklistProgressMapper($this->db, new TransactionExecutor($this->db));
 	}
 
 	public function testFindByRoomTaskId_ReturnsProgress(): void {

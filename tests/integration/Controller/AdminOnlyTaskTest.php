@@ -144,7 +144,6 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 		$task = $taskMapper->find($this->adminOnlyTaskId);
 
 		self::assertSame(Task::VISIBILITY_ADMIN_ONLY, $task->getVisibilityType());
-		self::assertFalse($task->isPrivate());
 	}
 
 	// ========== Helpers ==========

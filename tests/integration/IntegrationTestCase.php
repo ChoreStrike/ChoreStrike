@@ -197,6 +197,10 @@ abstract class IntegrationTestCase extends TestCase {
 	/**
 	 * Assign a task to a room (creates a RoomTask).
 	 *
+	 * The optional assignee is written to the canonical task_assignees join
+	 * table (CS-PLAN-060 WP1, D2) — the legacy assigned_to_user_id column no
+	 * longer exists.
+	 *
 	 * @return int The room task ID
 	 */
 	protected function assignTaskToRoom(int $taskId, int $roomId, ?string $assignedToUserId = null): int {
@@ -207,8 +211,6 @@ abstract class IntegrationTestCase extends TestCase {
 				'task_id' => $qb->createNamedParameter($taskId),
 				'next_due' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
 				'is_active' => $qb->createNamedParameter(1),
-				'assigned_to_user_id' => $qb->createNamedParameter($assignedToUserId),
-				'assignment_type' => $qb->createNamedParameter('user'),
 				'was_claimed' => $qb->createNamedParameter(0),
 				'created_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
 			]);
@@ -216,6 +218,18 @@ abstract class IntegrationTestCase extends TestCase {
 
 		$roomTaskId = (int)$this->db->lastInsertId('chorestrike_room_tasks');
 		$this->createdRoomTaskIds[] = $roomTaskId;
+
+		if ($assignedToUserId !== null) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->insert('chorestrike_task_assignees')
+				->values([
+					'room_task_id' => $qb->createNamedParameter($roomTaskId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT),
+					'user_id' => $qb->createNamedParameter($assignedToUserId),
+					'assigned_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
+				]);
+			$qb->executeStatement();
+		}
+
 		return $roomTaskId;
 	}
 
@@ -249,6 +263,7 @@ abstract class IntegrationTestCase extends TestCase {
 	 * Remove all records created during the test.
 	 */
 	private function cleanupCreatedRecords(): void {
+		$this->deleteAssigneesByRoomTaskIds($this->createdRoomTaskIds);
 		$this->deleteByIds('chorestrike_room_tasks', $this->createdRoomTaskIds);
 		$this->deleteByIds('chorestrike_tasks', $this->createdTaskIds);
 		$this->deleteByIds('chorestrike_rooms', $this->createdRoomIds);
@@ -276,6 +291,24 @@ abstract class IntegrationTestCase extends TestCase {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete($tableName)
 			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
+		$qb->executeStatement();
+	}
+
+	/**
+	 * Remove task_assignees rows that reference the given room tasks — the
+	 * schema has no FK cascade, so a lingering join row would survive the
+	 * room-task delete.
+	 *
+	 * @param array<int> $ids
+	 */
+	private function deleteAssigneesByRoomTaskIds(array $ids): void {
+		if (empty($ids)) {
+			return;
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_task_assignees')
+			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($ids, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
 		$qb->executeStatement();
 	}
 

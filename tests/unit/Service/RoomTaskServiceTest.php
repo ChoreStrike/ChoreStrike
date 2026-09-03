@@ -19,6 +19,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssignee;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
@@ -72,7 +73,7 @@ class RoomTaskServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
 			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
-			$this->db,
+			new TransactionExecutor($this->db),
 			$this->createIdentityL10n(),
 			$this->createMock(AppLogger::class),
 			$this->houseMapper,
@@ -549,10 +550,10 @@ class RoomTaskServiceTest extends TestCase {
 		$this->floorMapper->method('find')->with($floorId)->willReturn($floor);
 		$this->houseUserMapper->method('findByHouseId')->with($houseId)->willReturn([$member]);
 
-		$this->roomTaskMapper
+		$this->taskAssigneeMapper
 			->expects($this->once())
-			->method('assignToUser')
-			->with($roomTaskId, $userId);
+			->method('replaceAssignees')
+			->with($roomTaskId, [$userId]);
 
 		$result = $this->service->assignTask($roomTaskId, $userId, $houseId);
 
@@ -589,7 +590,7 @@ class RoomTaskServiceTest extends TestCase {
 		$this->floorMapper->method('find')->with(7)->willReturn($floor);
 		$this->houseUserMapper->method('findByHouseId')->with($houseId)->willReturn([$member]);
 
-		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
+		$this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('User is not a member of this house: %1$s');
@@ -623,7 +624,7 @@ class RoomTaskServiceTest extends TestCase {
 		$this->floorMapper->method('find')->with(7)->willReturn($floor);
 
 		$this->houseUserMapper->expects($this->never())->method('findByHouseId');
-		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
+		$this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
 
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Room task not found');
@@ -639,22 +640,18 @@ class RoomTaskServiceTest extends TestCase {
 
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
-		$roomTask->setAssignedToUserId(null);
 
 		$this->roomTaskMapper
-			->expects($this->exactly(2))
 			->method('find')
 			->with($roomTaskId)
 			->willReturn($roomTask);
 
-		$this->roomTaskMapper
+		$this->taskAssigneeMapper
 			->expects($this->once())
-			->method('assignToUser')
-			->with($roomTaskId, '');
+			->method('replaceAssignees')
+			->with($roomTaskId, []);
 
-		$result = $this->service->unassignTask($roomTaskId);
-
-		$this->assertNull($result->getAssignedToUserId());
+		$this->service->unassignTask($roomTaskId);
 	}
 
 	/**
@@ -1141,15 +1138,12 @@ class RoomTaskServiceTest extends TestCase {
 
 		$freshTask1 = new RoomTask();
 		$freshTask1->setId(1);
-		$freshTask1->setAssignedToUserId($userId);
 
 		$freshTask2 = new RoomTask();
 		$freshTask2->setId(2);
-		$freshTask2->setAssignedToUserId($userId);
 
 		$freshTask3 = new RoomTask();
 		$freshTask3->setId(3);
-		$freshTask3->setAssignedToUserId($userId);
 
 		$member = new HouseUser();
 		$member->setNextcloudUserId($userId);
@@ -1170,8 +1164,12 @@ class RoomTaskServiceTest extends TestCase {
 			->willReturn([$member]);
 
 		$this->roomTaskMapper
+			->method('find')
+			->willReturnCallback(static fn (int $id) => new RoomTask());
+
+		$this->taskAssigneeMapper
 			->expects($this->exactly(3))
-			->method('assignToUser');
+			->method('replaceAssignees');
 
 		// The bulk path never runs the per-item ownership chain.
 		$this->roomMapper->expects($this->never())->method('find');
@@ -1199,7 +1197,6 @@ class RoomTaskServiceTest extends TestCase {
 
 		$freshOwned = new RoomTask();
 		$freshOwned->setId(2);
-		$freshOwned->setAssignedToUserId($userId);
 
 		$member = new HouseUser();
 		$member->setNextcloudUserId($userId);
@@ -1217,9 +1214,13 @@ class RoomTaskServiceTest extends TestCase {
 			->willReturn([$member]);
 
 		$this->roomTaskMapper
+			->method('find')
+			->willReturnCallback(static fn (int $id) => new RoomTask());
+
+		$this->taskAssigneeMapper
 			->expects($this->once())
-			->method('assignToUser')
-			->with(2, $userId);
+			->method('replaceAssignees')
+			->with(2, [$userId]);
 
 		$result = $this->service->bulkAssignTasks([1, 2, 99], $userId, $houseId);
 
@@ -1247,7 +1248,7 @@ class RoomTaskServiceTest extends TestCase {
 			->willReturn([$member]);
 
 		$this->roomTaskMapper->expects($this->never())->method('findByIdsScopedToHouse');
-		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
+		$this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('User is not a member of this house: %1$s');
@@ -1258,7 +1259,7 @@ class RoomTaskServiceTest extends TestCase {
 	/**
 	 * BulkAssignTasks_WriteFailureSkipped_DoesNotAbortBatch
 	 *
-	 * A failing assignToUser write is isolated per item: the batch
+	 * A failing assignment write is isolated per item: the batch
 	 * continues and the failed id is absent from the payload.
 	 */
 	public function testBulkAssignTasks_WriteFailureSkipped_DoesNotAbortBatch(): void {
@@ -1273,7 +1274,6 @@ class RoomTaskServiceTest extends TestCase {
 
 		$fresh2 = new RoomTask();
 		$fresh2->setId(2);
-		$fresh2->setAssignedToUserId($userId);
 
 		$member = new HouseUser();
 		$member->setNextcloudUserId($userId);
@@ -1289,7 +1289,11 @@ class RoomTaskServiceTest extends TestCase {
 			->willReturn([$member]);
 
 		$this->roomTaskMapper
-			->method('assignToUser')
+			->method('find')
+			->willReturnCallback(static fn (int $id) => new RoomTask());
+
+		$this->taskAssigneeMapper
+			->method('replaceAssignees')
 			->willReturnCallback(function (int $roomTaskId) {
 				if ($roomTaskId === 1) {
 					throw new \RuntimeException('write failed');
@@ -1323,7 +1327,7 @@ class RoomTaskServiceTest extends TestCase {
 			->method('findByIdsScopedToHouse')
 			->with([], $houseId)
 			->willReturn([]);
-		$this->roomTaskMapper->expects($this->never())->method('assignToUser');
+		$this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
 
 		$this->assertSame([], $this->service->bulkAssignTasks([], $userId, $houseId));
 	}
@@ -1440,21 +1444,16 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetAssigneeUserIds_MergesLegacyAssignee
+	 * GetAssigneeUserIds_ReadsCanonicalJoinTable
 	 *
-	 * The effective assignee set is the join-table rows plus the legacy single
-	 * assignee column, deduplicated.
+	 * The assignee set is the join-table rows only — no legacy column exists
+	 * anymore (CS-PLAN-060 WP1, D2).
 	 */
-	public function testGetAssigneeUserIds_MergesLegacyAssignee(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setAssignedToUserId('legacy-user');
-
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+	public function testGetAssigneeUserIds_ReadsCanonicalJoinTable(): void {
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn(['join-user']);
 
 		$result = $this->service->getAssigneeUserIds(1);
 
-		$this->assertEqualsCanonicalizing(['join-user', 'legacy-user'], $result);
+		$this->assertSame(['join-user'], $result);
 	}
 }

@@ -43,7 +43,7 @@ export interface SeededData {
 		rooms?: Array<{ id: number; name: string; cleanliness: number; floorId?: number }>
 		users?: Array<{ id: number; nextcloudUserId: string; displayName: string; role: string; maxDailyTasks?: number }>
 		tasks?: Array<{ id: number; name: string; category: string; energyCost?: number }>
-		roomTasks?: Array<{ id: number; roomId: number; taskId: number; assignedToUserId?: string; assignedTo?: string }>
+		roomTasks?: Array<{ id: number; roomId: number; taskId: number; assignees?: string[] }>
 	}
 }
 

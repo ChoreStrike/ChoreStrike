@@ -21,10 +21,10 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssignee;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
-use OCP\IDBConnection;
 use OCP\IL10N;
 
 /**
@@ -40,7 +40,7 @@ class RoomTaskService {
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private TemplateService $templateService;
-	private IDBConnection $db;
+	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 	private HouseMapper $houseMapper;
@@ -56,7 +56,7 @@ class RoomTaskService {
 		HouseUserMapper $houseUserMapper,
 		CompletedTaskMapper $completedTaskMapper,
 		TemplateService $templateService,
-		IDBConnection $db,
+		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
 		HouseMapper $houseMapper,
@@ -71,7 +71,7 @@ class RoomTaskService {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->templateService = $templateService;
-		$this->db = $db;
+		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 		$this->houseMapper = $houseMapper;
@@ -279,7 +279,16 @@ class RoomTaskService {
 			$idealDueDate = $roomTask->calculateIdealDueDate($nextDue, $flexDays, $weekdayAvailability, $energyBudget);
 		}
 
-		return $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $assignedToUserId, $scopeId, $idealDueDate);
+		// Initial assignment writes the canonical join-table rows after
+		// insert (D2). Sequential calls preserve today's atomicity level;
+		// wrapping creation+assignment into one aggregate transaction is
+		// WP4 scope.
+		$roomTask = $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $scopeId, $idealDueDate);
+		if ($assignedToUserId !== null && $assignedToUserId !== '') {
+			$this->taskAssigneeMapper->addAssignee($roomTask->getId(), $assignedToUserId);
+		}
+
+		return $roomTask;
 	}
 
 	/**
@@ -373,12 +382,17 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Assign room task to user
+	 * Assign room task to a single user (mechanical successor of the legacy
+	 * single-assignee column write, CS-PLAN-060 WP1 D2).
 	 *
 	 * Authorization is enforced inside the service (CR-SVC-09): the room
 	 * task must belong to `$houseId` (floor-chain ownership) and the target
 	 * user must be a member of that house — no caller can bypass the
 	 * checks by forgetting a controller preamble.
+	 *
+	 * The assignee set is replaced atomically (join table) and any stale
+	 * overdue-claim marker is cleared, preserving the previous
+	 * single-assignee write semantics.
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param string $userId The user ID (must be a house member)
@@ -390,7 +404,8 @@ class RoomTaskService {
 		$this->validateRoomTaskOwnership($roomTaskId, $houseId);
 		$this->assertHouseMembers([$userId], $houseId);
 		$this->roomTaskMapper->find($roomTaskId);
-		$this->roomTaskMapper->assignToUser($roomTaskId, $userId);
+
+		$this->replaceSingleAssignee($roomTaskId, $userId);
 
 		// Return updated room task
 		return $this->roomTaskMapper->find($roomTaskId);
@@ -403,10 +418,30 @@ class RoomTaskService {
 	 */
 	public function unassignTask(int $roomTaskId): RoomTask {
 		$this->roomTaskMapper->find($roomTaskId);
-		$this->roomTaskMapper->assignToUser($roomTaskId, '');
+
+		$this->replaceSingleAssignee($roomTaskId, '');
 
 		// Return updated room task
 		return $this->roomTaskMapper->find($roomTaskId);
+	}
+
+	/**
+	 * Write the canonical single-assignee state: the assignee set becomes
+	 * exactly [$userId] (empty string = unassign) and a stale claim marker
+	 * is cleared — the same effect the former legacy-column UPDATE had.
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param string $userId The assignee (empty = clear)
+	 */
+	private function replaceSingleAssignee(int $roomTaskId, string $userId): void {
+		$userIds = $userId === '' ? [] : [$userId];
+		$this->taskAssigneeMapper->replaceAssignees($roomTaskId, $userIds);
+
+		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+		if ($roomTask->getClaimedByUser() !== null) {
+			$roomTask->setClaimedByUser(null);
+			$this->roomTaskMapper->update($roomTask);
+		}
 	}
 
 	/**
@@ -431,39 +466,25 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Get the Nextcloud user IDs assigned to a room task, including the legacy
-	 * single assignee column.
+	 * Get the Nextcloud user IDs assigned to a room task (canonical join
+	 * table, CS-PLAN-060 WP1 D2).
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @return string[] Unique Nextcloud user IDs
 	 */
 	public function getAssigneeUserIds(int $roomTaskId): array {
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		$userIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
-
-		return TaskAssigneeMapper::mergeLegacyAssignee($userIds, $roomTask->getAssignedToUserId());
+		return $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
 	}
 
 	/**
-	 * Get the Nextcloud user IDs assigned to multiple room tasks (one query),
-	 * each merged with the legacy single assignee column.
+	 * Get the Nextcloud user IDs assigned to multiple room tasks (one query).
 	 *
 	 * @param RoomTask[] $roomTasks The room tasks
 	 * @return array<int, string[]> Map of room task ID => unique Nextcloud user IDs
 	 */
 	public function getAssigneeUserIdsByRoomTasks(array $roomTasks): array {
 		$roomTaskIds = array_map(fn ($rt) => $rt->getId(), $roomTasks);
-		$byTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds);
-
-		foreach ($roomTasks as $roomTask) {
-			$ids = $byTask[$roomTask->getId()] ?? [];
-			$byTask[$roomTask->getId()] = TaskAssigneeMapper::mergeLegacyAssignee(
-				$ids,
-				$roomTask->getAssignedToUserId()
-			);
-		}
-
-		return $byTask;
+		return $this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds);
 	}
 
 	/**
@@ -591,15 +612,10 @@ class RoomTaskService {
 	public function deleteRoomTask(int $roomTaskId): void {
 		$roomTask = $this->roomTaskMapper->find($roomTaskId);
 
-		$this->db->beginTransaction();
-		try {
+		$this->transactions->run(function () use ($roomTaskId, $roomTask) {
 			$this->roomService->deleteRoomTaskDependents([$roomTaskId]);
 			$this->roomTaskMapper->delete($roomTask);
-			$this->db->commit();
-		} catch (\Throwable $e) {
-			$this->db->rollBack();
-			throw $e;
-		}
+		});
 	}
 
 	/**
@@ -672,7 +688,7 @@ class RoomTaskService {
 	 * the whole call up front; per-ITEM isolation is preserved — ids
 	 * that are missing or belong to another house are skipped and logged
 	 * without the raw target userId (privacy), and a failing
-	 * assignToUser write never aborts the batch.
+	 * assignment write never aborts the batch.
 	 *
 	 * @param array $roomTaskIds Array of room task IDs
 	 * @param string $userId The user ID (must be a house member)
@@ -700,7 +716,7 @@ class RoomTaskService {
 			}
 
 			try {
-				$this->roomTaskMapper->assignToUser((int)$roomTaskId, $userId);
+				$this->replaceSingleAssignee((int)$roomTaskId, $userId);
 				$assignedIds[] = (int)$roomTaskId;
 			} catch (\Exception $e) {
 				$this->appLogger->warning('Bulk room task assignment skipped failed item', [
@@ -735,18 +751,26 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Get overdue tasks that can be claimed
+	 * Get overdue tasks that can be claimed (overdue + assigned to at least
+	 * one member via the canonical join table).
 	 *
 	 * @param int $houseId The house ID
 	 * @return RoomTask[]
 	 */
 	public function getClaimableOverdueTasks(int $houseId): array {
 		$overdueTasks = $this->roomTaskMapper->findOverdueByHouse($houseId);
+		if ($overdueTasks === []) {
+			return [];
+		}
 
-		$claimableTasks = array_filter($overdueTasks, function ($task) {
-			return $task->getAssignedToUserId() !== null
-				   && $task->getAssignedToUserId() !== '';
-		});
+		$assigneesByTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
+			array_map(static fn (RoomTask $task) => $task->getId(), $overdueTasks)
+		);
+
+		$claimableTasks = array_filter(
+			$overdueTasks,
+			static fn (RoomTask $task) => ($assigneesByTask[$task->getId()] ?? []) !== []
+		);
 
 		return array_values($claimableTasks);
 	}
@@ -831,15 +855,22 @@ class RoomTaskService {
 	public function getRangeTasks(int $houseId, \DateTime $from, \DateTime $to): array {
 		// CS-PLAN-057: reinterpret the controller's Y-m-d keys as house-local
 		// calendar bounds (UTC-normalized instants for the SQL comparison).
+		// CS-PLAN-060 §3.6: the completion window is half-open [start, end)
+		// — the end bound is the NEXT day's 00:00:00 (exclusive), matching
+		// the window-query convention. The projection base-set bound keeps
+		// its inclusive end-of-day semantics.
 		$tz = $this->getTimeZoneForHouse($houseId);
 		$fromBound = (new \DateTime($from->format('Y-m-d') . ' 00:00:00', $tz))
 			->setTimezone(new \DateTimeZone('UTC'));
-		$toBound = (new \DateTime($to->format('Y-m-d') . ' 23:59:59', $tz))
+		$toBoundInclusive = (new \DateTime($to->format('Y-m-d') . ' 23:59:59', $tz))
+			->setTimezone(new \DateTimeZone('UTC'));
+		$toBoundExclusive = (new \DateTime($to->format('Y-m-d') . ' 00:00:00', $tz))
+			->modify('+1 day')
 			->setTimezone(new \DateTimeZone('UTC'));
 
 		// Base set: every active task that could recur into the window (nextDue <= to).
-		$roomTasks = $this->roomTaskMapper->findActiveDueUpToByHouse($houseId, $toBound);
-		$completions = $this->completedTaskMapper->findCompletionsBetweenByHouse($houseId, $fromBound, $toBound);
+		$roomTasks = $this->roomTaskMapper->findActiveDueUpToByHouse($houseId, $toBoundInclusive);
+		$completions = $this->completedTaskMapper->findCompletionsBetweenByHouse($houseId, $fromBound, $toBoundExclusive);
 
 		$taskIds = [];
 		$roomIds = [];
@@ -862,7 +893,7 @@ class RoomTaskService {
 
 			$occurrenceDates = $rt->projectOccurrences(
 				$fromBound,
-				$toBound,
+				$toBoundInclusive,
 				$task->getFrequencyType(),
 				$task->getFrequencyValue(),
 				$task->getRecurrenceMode(),
@@ -907,7 +938,7 @@ class RoomTaskService {
 	 * Enforce the task visibility matrix for lifecycle mutations (CS-PLAN-056, CR-053-06).
 	 *
 	 * Mirrors the completion gate in RoomService::completeRoomTask:
-	 * - private tasks: only assigned users (join table + legacy assignee column)
+	 * - private tasks: only assigned users (canonical join table)
 	 * - admin-only tasks: only house owners
 	 * - public tasks: any house member
 	 *
@@ -918,12 +949,9 @@ class RoomTaskService {
 	 * @throws ForbiddenException if the matrix forbids the mutation
 	 */
 	public function assertLifecycleVisibility(RoomTask $roomTask, Task $task, HouseUser $houseUser, string $userId): void {
-		$assigneeUserIds = TaskAssigneeMapper::mergeLegacyAssignee(
-			$this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId()),
-			$roomTask->getAssignedToUserId()
-		);
+		$assigneeUserIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId());
 
-		if ($task->isPrivate() && !in_array($userId, $assigneeUserIds, true)) {
+		if ($task->getVisibilityType() === Task::VISIBILITY_PRIVATE && !in_array($userId, $assigneeUserIds, true)) {
 			throw new ForbiddenException($this->l10n->t('Private tasks may only be modified by assigned users'));
 		}
 

@@ -78,7 +78,7 @@ class HouseServiceLoggingTest extends TestCase {
 			$taskAssigneeMapper,
 			$rewardConfigService,
 			$config,
-			$db,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($db),
 			$this->createIdentityL10n(),
 			$appLogger,
 			$this->createMock(IUserSession::class),

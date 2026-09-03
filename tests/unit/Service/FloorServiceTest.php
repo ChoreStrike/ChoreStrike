@@ -44,7 +44,7 @@ class FloorServiceTest extends TestCase {
 			$this->roomMapper,
 			$this->roomTaskMapper,
 			$this->roomService,
-			$this->db,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
 			$this->appLogger
 		);

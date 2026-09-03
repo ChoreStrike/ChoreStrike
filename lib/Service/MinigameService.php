@@ -12,7 +12,7 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MinigameScore;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
-use OCP\IDBConnection;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCP\IL10N;
 
 /**
@@ -42,7 +42,7 @@ class MinigameService {
 
 	private MinigameScoreMapper $scoreMapper;
 	private HouseUserMapper $houseUserMapper;
-	private IDBConnection $db;
+	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 	private \OCA\ChoreStrike\Db\HouseMapper $houseMapper;
@@ -51,7 +51,7 @@ class MinigameService {
 	public function __construct(
 		MinigameScoreMapper $scoreMapper,
 		HouseUserMapper $houseUserMapper,
-		IDBConnection $db,
+		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
 		\OCA\ChoreStrike\Db\HouseMapper $houseMapper,
@@ -59,7 +59,7 @@ class MinigameService {
 	) {
 		$this->scoreMapper = $scoreMapper;
 		$this->houseUserMapper = $houseUserMapper;
-		$this->db = $db;
+		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 		$this->houseMapper = $houseMapper;
@@ -113,7 +113,7 @@ class MinigameService {
 			: null;
 		$awardedCoins = 0;
 
-		$this->db->beginTransaction();
+		$this->transactions->begin();
 		try {
 			$savedScore = $this->scoreMapper->insert($scoreEntity);
 
@@ -125,9 +125,9 @@ class MinigameService {
 				$awardedCoins = $coinsEarned;
 			}
 
-			$this->db->commit();
+			$this->transactions->commit();
 		} catch (\Throwable $e) {
-			$this->db->rollBack();
+			$this->transactions->rollBack();
 			$this->appLogger->logException('MinigameService: score save rolled back', $e, [
 				'event' => 'minigame_score_rollback',
 				'service' => 'MinigameService',
@@ -278,7 +278,7 @@ class MinigameService {
 			throw new \InvalidArgumentException($this->l10n->t('User not found in house'));
 		}
 
-		$this->db->beginTransaction();
+		$this->transactions->begin();
 		try {
 			// Check sufficiency on the LOCKED row — the authoritative
 			// balance. No max(0, …) mask on the deduction: the locked check
@@ -294,9 +294,9 @@ class MinigameService {
 			$lockedUser->touch();
 			$this->houseUserMapper->update($lockedUser);
 
-			$this->db->commit();
+			$this->transactions->commit();
 		} catch (\Throwable $e) {
-			$this->db->rollBack();
+			$this->transactions->rollBack();
 			$this->appLogger->logException('MinigameService: boost purchase rolled back', $e, [
 				'event' => 'minigame_boost_purchase_rollback',
 				'service' => 'MinigameService',

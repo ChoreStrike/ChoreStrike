@@ -24,6 +24,7 @@ class HouseSetupServiceTest extends TestCase {
 	private $roomMapper;
 	private $taskMapper;
 	private $roomTaskMapper;
+	private $taskAssigneeMapper;
 	private $houseUserMapper;
 	private TemplateService $templateService;
 	private $db;
@@ -36,6 +37,7 @@ class HouseSetupServiceTest extends TestCase {
 		$this->roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
 		$this->taskMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskMapper::class);
 		$this->roomTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
+		$this->taskAssigneeMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskAssigneeMapper::class);
 		$this->houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
 		$this->db = $this->createMock(IDBConnection::class);
 
@@ -49,9 +51,10 @@ class HouseSetupServiceTest extends TestCase {
 			$this->roomMapper,
 			$this->taskMapper,
 			$this->roomTaskMapper,
+			$this->taskAssigneeMapper,
 			$this->houseUserMapper,
 			$this->templateService,
-			$this->db,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
 			$this->createMock(AppLogger::class)
 		);
@@ -320,9 +323,10 @@ class HouseSetupServiceTest extends TestCase {
 			$this->roomMapper,
 			$this->taskMapper,
 			$this->roomTaskMapper,
+			$this->taskAssigneeMapper,
 			$this->houseUserMapper,
 			$this->templateService,
-			$this->db,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
 			$this->createMock(AppLogger::class)
 		);

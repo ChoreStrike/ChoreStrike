@@ -20,6 +20,7 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Service\TestDataService;
@@ -40,6 +41,7 @@ class TestDataServiceTest extends TestCase {
 	private RoomMapper&MockObject $roomMapper;
 	private TaskMapper&MockObject $taskMapper;
 	private RoomTaskMapper&MockObject $roomTaskMapper;
+	private TaskAssigneeMapper&MockObject $taskAssigneeMapper;
 	private TestDataService $service;
 
 	protected function setUp(): void {
@@ -58,6 +60,7 @@ class TestDataServiceTest extends TestCase {
 		$this->roomMapper = $this->createMock(RoomMapper::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
+		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 
 		// Default config mock returns test instance id
 		$this->config->method('getSystemValue')->willReturn('test-instance');
@@ -70,7 +73,8 @@ class TestDataServiceTest extends TestCase {
 			$this->floorMapper,
 			$this->roomMapper,
 			$this->taskMapper,
-			$this->roomTaskMapper
+			$this->roomTaskMapper,
+			$this->taskAssigneeMapper
 		);
 	}
 

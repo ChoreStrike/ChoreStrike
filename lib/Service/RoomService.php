@@ -20,10 +20,10 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
-use OCP\IDBConnection;
 use OCP\IL10N;
 
 /**
@@ -42,7 +42,7 @@ class RoomService {
 	private HouseService $houseService;
 	private HouseMapper $houseMapper;
 	private NotificationService $notificationService;
-	private IDBConnection $db;
+	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 	private CalendarService $calendarService;
@@ -60,7 +60,7 @@ class RoomService {
 		HouseService $houseService,
 		HouseMapper $houseMapper,
 		NotificationService $notificationService,
-		IDBConnection $db,
+		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
 		CalendarService $calendarService,
@@ -77,7 +77,7 @@ class RoomService {
 		$this->houseService = $houseService;
 		$this->houseMapper = $houseMapper;
 		$this->notificationService = $notificationService;
-		$this->db = $db;
+		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 		$this->calendarService = $calendarService;
@@ -148,14 +148,13 @@ class RoomService {
 	public function deleteRoom(int $roomId): void {
 		$room = $this->roomMapper->find($roomId);
 
-		$this->db->beginTransaction();
 		try {
-			$this->deleteRoomTaskDependents($this->roomTaskMapper->findIdsByRoomId($roomId));
-			$this->roomTaskMapper->deleteByRoomId($roomId);
-			$this->roomMapper->delete($room);
-			$this->db->commit();
+			$this->transactions->run(function () use ($roomId, $room) {
+				$this->deleteRoomTaskDependents($this->roomTaskMapper->findIdsByRoomId($roomId));
+				$this->roomTaskMapper->deleteByRoomId($roomId);
+				$this->roomMapper->delete($room);
+			});
 		} catch (\Throwable $e) {
-			$this->db->rollBack();
 			$this->appLogger->logException('RoomService: room delete rolled back', $e, [
 				'event' => 'room_delete_rollback',
 				'service' => 'RoomService',
@@ -253,7 +252,7 @@ class RoomService {
 		// atomic: a failure at any step rolls back every prior write. The early
 		// room-task row lock also serializes concurrent completions of the SAME
 		// task so the duplicate-completion guard cannot be raced past (TOCTOU).
-		$this->db->beginTransaction();
+		$this->transactions->begin();
 		try {
 			// CR-SVC-53: replace the pre-lock entity with the freshly locked
 			// one so every post-lock decision (overdue takeover, claim state,
@@ -273,16 +272,13 @@ class RoomService {
 				throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
 			}
 
-			// Resolve the full set of assigned Nextcloud user IDs for this room task:
-			// the multi-assign join table plus the legacy single assignee column.
-			$assigneeUserIds = TaskAssigneeMapper::mergeLegacyAssignee(
-				$this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId),
-				$roomTask->getAssignedToUserId()
-			);
+			// Resolve the set of assigned Nextcloud user IDs for this room
+			// task from the canonical join table (CS-PLAN-060 WP1, D2).
+			$assigneeUserIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
 
 			// Private-task gate: only assigned users may complete a private task.
 			// Non-private tasks remain completable by any house member.
-			if ($task->isPrivate() && !in_array($userId, $assigneeUserIds, true)) {
+			if ($task->getVisibilityType() === Task::VISIBILITY_PRIVATE && !in_array($userId, $assigneeUserIds, true)) {
 				throw new ForbiddenException($this->l10n->t('Private tasks may only be completed by assigned users'));
 			}
 
@@ -307,11 +303,13 @@ class RoomService {
 			}
 
 			// Overdue-takeover: only record a takeover when a NON-assignee picks
-			// up an overdue task. A co-assignee (join table or legacy) completing
-			// their own shared task is NOT a takeover. The original assignee's
-			// streak is unaffected because game logic only updates the completer.
+			// up an overdue task. A co-assignee completing their own shared
+			// task is NOT a takeover. The original assignee's streak is
+			// unaffected because game logic only updates the completer. The
+			// claim snapshot takes the first canonical assignee (D2 — the
+			// join table is the assignee store).
 			if ($roomTask->isOverdue() && !in_array($userId, $assigneeUserIds, true)) {
-				$originalAssignee = $roomTask->getAssignedToUserId();
+				$originalAssignee = $assigneeUserIds[0] ?? null;
 				if ($originalAssignee !== null && $originalAssignee !== '') {
 					$roomTask->markClaimed($originalAssignee, $userId);
 					// Defer the actual notification dispatch until after commit
@@ -380,9 +378,9 @@ class RoomService {
 				}
 			}
 
-			$this->db->commit();
+			$this->transactions->commit();
 		} catch (\Throwable $e) {
-			$this->db->rollBack();
+			$this->transactions->rollBack();
 			$this->appLogger->logException('RoomService: task completion rolled back', $e, [
 				'event' => 'room_task_completion_rollback',
 				'service' => 'RoomService',
@@ -411,11 +409,10 @@ class RoomService {
 		//     polite + matches the plan's "you got bailed out" message.
 		//     Membership re-check at dispatch time is documented
 		//     defense-in-depth: the root cause (house_users row deleted
-		//     while the legacy assigned_to_user_id column stayed set) is
-		//     fixed transactionally by HouseService::removeHouseMember
-		//     (CR-SVC-26), but a removed member must never receive task
-		//     details even if a future path reintroduces a stale
-		//     reference.
+		//     while assignee rows stayed set) is fixed transactionally by
+		//     HouseService::removeHouseMember (CR-SVC-26), but a removed
+		//     member must never receive task details even if a future path
+		//     reintroduces a stale reference.
 		if ($takeoverNotification !== null) {
 			$stillMember = $this->houseUserMapper->findByHouseAndUser(
 				$floor->getHouseId(),

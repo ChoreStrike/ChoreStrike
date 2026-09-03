@@ -52,11 +52,6 @@ class Version1015Date20260304000000 extends SimpleMigrationStep {
 				$table->addIndex(['room_id'], 'rt_room_id_idx');
 			}
 
-			// Index for findByUserId queries
-			if (!$table->hasIndex('rt_user_id_idx')) {
-				$table->addIndex(['assigned_to_user_id'], 'rt_user_id_idx');
-			}
-
 			// Index for due date queries
 			if (!$table->hasIndex('rt_next_due_idx')) {
 				$table->addIndex(['next_due', 'is_active'], 'rt_next_due_idx');

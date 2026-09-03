@@ -78,7 +78,7 @@ class TaskMapper extends QBMapper {
 	 * @param string $category The task category
 	 * @param string $scopeType The scope type (room, floor, house)
 	 * @param string|null $scopeLabel Optional scope label
-	 * @param string $recurrenceMode Recurrence mode (recurring, once, bounded)
+	 * @param string $recurrenceMode Recurrence mode (Task::RECURRENCE_*)
 	 * @param \DateTime|null $activeFrom Optional start date
 	 * @param \DateTime|null $activeUntil Optional end date
 	 * @param bool $isVoluntary Whether task is voluntary
@@ -108,7 +108,6 @@ class TaskMapper extends QBMapper {
 		?string $tips = null,
 		?int $estimatedMinutesMin = null,
 		?int $estimatedMinutesMax = null,
-		bool $isPrivate = false,
 		string $visibilityType = 'public',
 		?string $ownerUserId = null,
 	): Task {
@@ -149,44 +148,77 @@ class TaskMapper extends QBMapper {
 	 *   - private: visible only to the owner (ownerUserId matches viewer)
 	 *   - admin-only: visible only to house owners
 	 *
-	 * @param int $houseId The house ID (reserved for future house-scoped tasks)
+	 * House scoping (CS-PLAN-060 §3.4): the $houseId parameter is
+	 * authoritative. A task definition counts as belonging to the house when
+	 * at least one room task of that house links it (EXISTS over
+	 * room_tasks → rooms → floors → houses). Unlinked definitions stay
+	 * visible — the CR-053-01 convention (unlinked = linked to the
+	 * instance's house) keeps the create-then-link flow working; only
+	 * linked tasks of OTHER houses are rejected (D11).
+	 *
+	 * @param int $houseId The house ID
 	 * @param HouseUser $viewer The viewing house user
 	 * @return Task[]
 	 */
 	public function findVisibleByHouse(int $houseId, HouseUser $viewer): array {
 		$qb = $this->db->getQueryBuilder();
+		$houseIdParam = $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT);
 
-		$qb->select('*')
-			->from($this->getTableName());
+		// Correlated EXISTS: the task is linked to the viewer's house through
+		// room_tasks → rooms → floors. Built with the query-builder subquery
+		// pattern (the house parameter is bound on the OUTER builder and its
+		// placeholder embedded into the subquery SQL — the parameter is bound
+		// exactly once where execution happens). No raw SQL.
+		$linkedToViewerHouse = $this->db->getQueryBuilder();
+		$linkedToViewerHouse->select($linkedToViewerHouse->expr()->literal(1))
+			->from('chorestrike_room_tasks', 'rt')
+			->innerJoin('rt', 'chorestrike_rooms', 'r', $linkedToViewerHouse->expr()->eq('rt.room_id', 'r.id'))
+			->innerJoin('r', 'chorestrike_floors', 'f', $linkedToViewerHouse->expr()->eq('r.floor_id', 'f.id'))
+			->where(
+				$linkedToViewerHouse->expr()->andX(
+					$linkedToViewerHouse->expr()->eq('rt.task_id', 't.id'),
+					$linkedToViewerHouse->expr()->eq('f.house_id', $houseIdParam)
+				)
+			);
+
+		$anyLink = $this->db->getQueryBuilder();
+		$anyLink->select($anyLink->expr()->literal(1))
+			->from('chorestrike_room_tasks', 'rt2')
+			->where($anyLink->expr()->eq('rt2.task_id', 't.id'));
+
+		$visibilityRules = [
+			// Public definitions are visible everywhere.
+			$qb->expr()->eq('t.visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PUBLIC)),
+			// Private definitions only for their owner (any role).
+			$qb->expr()->andX(
+				$qb->expr()->eq('t.visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PRIVATE)),
+				$qb->expr()->eq('t.owner_user_id', $qb->createNamedParameter($viewer->getNextcloudUserId()))
+			),
+		];
 
 		if ($viewer->isOwner()) {
-			// Owners see public + admin-only + their own private
+			// Owners additionally see admin-only definitions
 			// TODO: flip to see ALL private tasks if admin oversight is desired (CS-PLAN-005 §7)
-			$qb->where(
-				$qb->expr()->orX(
-					$qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PUBLIC)),
-					$qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_ADMIN_ONLY)),
-					$qb->expr()->andX(
-						$qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PRIVATE)),
-						$qb->expr()->eq('owner_user_id', $qb->createNamedParameter($viewer->getNextcloudUserId()))
-					)
-				)
-			);
-		} else {
-			// Members and children see public + their own private only
-			$qb->where(
-				$qb->expr()->orX(
-					$qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PUBLIC)),
-					$qb->expr()->andX(
-						$qb->expr()->eq('visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PRIVATE)),
-						$qb->expr()->eq('owner_user_id', $qb->createNamedParameter($viewer->getNextcloudUserId()))
-					)
-				)
-			);
+			$visibilityRules[] = $qb->expr()->eq('t.visibility_type', $qb->createNamedParameter(Task::VISIBILITY_ADMIN_ONLY));
 		}
 
-		$qb->orderBy('task_tier', 'DESC')
-			->addOrderBy('name', 'ASC');
+		$qb->select('t.*')
+			->from($this->getTableName(), 't')
+			->where(
+				$qb->expr()->andX(
+					$qb->expr()->orX(...$visibilityRules),
+					// House scope: linked to the viewer's house, or completely
+					// unlinked (D11 — unlinked = linked to the instance's
+					// house, keeps the create-then-link flow visible).
+					$qb->expr()->orX(
+						$qb->expr()->eq($qb->createFunction('EXISTS (' . $linkedToViewerHouse->getSQL() . ')'), $qb->createFunction('1')),
+						$qb->expr()->eq($qb->createFunction('EXISTS (' . $anyLink->getSQL() . ')'), $qb->createFunction('0'))
+					)
+				)
+			);
+
+		$qb->orderBy('t.task_tier', 'DESC')
+			->addOrderBy('t.name', 'ASC');
 
 		return $this->findEntities($qb);
 	}

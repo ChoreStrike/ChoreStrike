@@ -55,21 +55,6 @@ class FloorMapper extends QBMapper {
 	}
 
 	/**
-	 * Get all floors
-	 *
-	 * @return Floor[]
-	 */
-	public function findAll(): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('*')
-			->from($this->getTableName())
-			->orderBy('sort_order', 'ASC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Create a new floor
 	 *
 	 * @param int $houseId The house ID
@@ -77,29 +62,13 @@ class FloorMapper extends QBMapper {
 	 * @param int $sortOrder The sort order
 	 */
 	public function create(int $houseId, string $name, int $sortOrder = 0): Floor {
-		$createdAt = new \DateTime();
+		$floor = new Floor();
+		$floor->setHouseId($houseId);
+		$floor->setName($name);
+		$floor->setSortOrder($sortOrder);
+		$floor->setCreatedAt(new \DateTime());
 
-		$insertQb = $this->db->getQueryBuilder();
-		$insertQb->insert($this->getTableName())
-			->values([
-				'house_id' => $insertQb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT),
-				'name' => $insertQb->createNamedParameter($name),
-				'sort_order' => $insertQb->createNamedParameter($sortOrder, IQueryBuilder::PARAM_INT),
-				'created_at' => $insertQb->createNamedParameter($createdAt, IQueryBuilder::PARAM_DATE),
-			]);
-
-		$insertQb->executeStatement();
-
-		$selectQb = $this->db->getQueryBuilder();
-		$selectQb->select('*')
-			->from($this->getTableName())
-			->where($selectQb->expr()->eq('house_id', $selectQb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($selectQb->expr()->eq('name', $selectQb->createNamedParameter($name)))
-			->andWhere($selectQb->expr()->eq('sort_order', $selectQb->createNamedParameter($sortOrder, IQueryBuilder::PARAM_INT)))
-			->orderBy('id', 'DESC')
-			->setMaxResults(1);
-
-		return $this->findEntity($selectQb);
+		return $this->insert($floor);
 	}
 
 	/**

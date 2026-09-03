@@ -12,8 +12,9 @@ use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
-use OCP\IDBConnection;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCP\IL10N;
 
 /**
@@ -42,9 +43,10 @@ class HouseSetupService {
 	private RoomMapper $roomMapper;
 	private TaskMapper $taskMapper;
 	private RoomTaskMapper $roomTaskMapper;
+	private TaskAssigneeMapper $taskAssigneeMapper;
 	private HouseUserMapper $houseUserMapper;
 	private TemplateService $templateService;
-	private IDBConnection $db;
+	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 
@@ -53,9 +55,10 @@ class HouseSetupService {
 		RoomMapper $roomMapper,
 		TaskMapper $taskMapper,
 		RoomTaskMapper $roomTaskMapper,
+		TaskAssigneeMapper $taskAssigneeMapper,
 		HouseUserMapper $houseUserMapper,
 		TemplateService $templateService,
-		IDBConnection $db,
+		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
 	) {
@@ -63,9 +66,10 @@ class HouseSetupService {
 		$this->roomMapper = $roomMapper;
 		$this->taskMapper = $taskMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
+		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->templateService = $templateService;
-		$this->db = $db;
+		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
@@ -96,7 +100,7 @@ class HouseSetupService {
 		$nextDue = new \DateTime();
 		$nextDue->add(new \DateInterval('P1D'));
 
-		$this->db->beginTransaction();
+		$this->transactions->begin();
 		try {
 			foreach ($floors as $floorIndex => $floor) {
 				$floorEntity = $this->floorMapper->create($houseId, $floor['name'], $floorIndex);
@@ -157,20 +161,25 @@ class HouseSetupService {
 							$taskCount++;
 						}
 
-						$this->roomTaskMapper->create(
+						$roomTask = $this->roomTaskMapper->create(
 							$roomEntity->getId(),
 							$taskId,
-							$nextDue,
-							$room['assigneeUserId'] ?? null
+							$nextDue
 						);
+						if (!empty($room['assigneeUserId'])) {
+							$this->taskAssigneeMapper->addAssignee(
+								$roomTask->getId(),
+								$room['assigneeUserId']
+							);
+						}
 						$roomTaskCount++;
 					}
 				}
 			}
 
-			$this->db->commit();
+			$this->transactions->commit();
 		} catch (\Throwable $e) {
-			$this->db->rollBack();
+			$this->transactions->rollBack();
 			throw $e;
 		}
 

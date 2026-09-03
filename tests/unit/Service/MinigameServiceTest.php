@@ -45,7 +45,7 @@ class MinigameServiceTest extends TestCase {
 		// Identity mock: message assertions match the wrapped source text
 		// (no parameter substitution), mirroring TemplateServiceTest.
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, $this->db, $l10n, $this->appLogger, $this->houseMapper, new CalendarService());
+		$this->service = new MinigameService($this->scoreMapper, $this->houseUserMapper, new \OCA\ChoreStrike\Db\TransactionExecutor($this->db), $l10n, $this->appLogger, $this->houseMapper, new CalendarService());
 	}
 
 	private function makeScore(int $score, array $boostsUsed = []): MinigameScore {

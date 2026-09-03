@@ -34,7 +34,7 @@ interface RoomTaskJson {
 	nextDue: string | null
 	isActive: boolean
 	lastCompleted?: string | null
-	assignedToUserId?: string | null
+	assignees?: string[]
 }
 
 /**
@@ -42,12 +42,10 @@ interface RoomTaskJson {
  *
  * `room_task#index` requires a `roomId` query param (it 400s without one),
  * so a roomId is resolved first via `floors/with-rooms` (the same pattern
- * `admin-only-tasks.spec.ts` uses). The pick is restricted to tasks without
- * a legacy assignee (or assigned to the acting owner herself): since
+ * `admin-only-tasks.spec.ts` uses). The pick is restricted to unassigned
+ * tasks (or tasks assigned to the acting owner herself): since
  * CS-PLAN-056 the lifecycle mutations enforce the visibility matrix, so a
- * private task assigned to another member would 403 for the owner (the
- * multi-assign join table is not visible in this payload; the seed data
- * assigns private tasks only via the legacy column).
+ * private task assigned to another member would 403 for the owner.
  *
  * @returns The chosen room task, or `null` when none is suitable.
  */
@@ -71,7 +69,7 @@ async function pickActiveRoomTask(page: Page): Promise<RoomTaskJson | null> {
 		}
 		const tasks = ((await response.json()).data || []) as RoomTaskJson[]
 		const found = tasks.find(
-			(rt) => rt.isActive && rt.nextDue && (rt.assignedToUserId == null || rt.assignedToUserId === 'mom'),
+			(rt) => rt.isActive && rt.nextDue && ((rt.assignees ?? []).length === 0 || rt.assignees!.includes('mom')),
 		)
 		if (found) {
 			return found

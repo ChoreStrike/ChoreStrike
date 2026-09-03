@@ -21,24 +21,24 @@ jest.mock('@/utils/logger', () => ({
 
 const todayFixture = () => ([
 	{
-		roomTask: { id: 11, taskId: 1, roomId: 1, isActive: true, nextDue: '2026-08-21T08:00:00+00:00', assignedToUserId: 'mom' },
+		roomTask: { id: 11, taskId: 1, roomId: 1, isActive: true, nextDue: '2026-08-21T08:00:00+00:00' },
 		task: { id: 1, name: 'Do the dishes', energyCost: 3 },
 		room: { id: 1, name: 'Kitchen' },
 	},
 	{
-		roomTask: { id: 12, taskId: 2, roomId: 1, isActive: true, nextDue: '2026-08-21T09:00:00+00:00', assignedToUserId: null },
+		roomTask: { id: 12, taskId: 2, roomId: 1, isActive: true, nextDue: '2026-08-21T09:00:00+00:00' },
 		task: { id: 2, name: 'Wipe kitchen counters', energyCost: 2 },
 		room: { id: 1, name: 'Kitchen' },
 	},
 	{
-		roomTask: { id: 13, taskId: 3, roomId: 2, isActive: true, nextDue: '2026-08-21T10:00:00+00:00', assignedToUserId: 'teen' },
+		roomTask: { id: 13, taskId: 3, roomId: 2, isActive: true, nextDue: '2026-08-21T10:00:00+00:00' },
 		task: { id: 3, name: 'Tidy up toys', energyCost: 1 },
 		room: { id: 2, name: 'Living Room' },
 	},
 ])
 
 const overdueFixture = () => ([
-	{ id: 30, taskId: 4, roomId: 2, isActive: true, nextDue: '2026-08-18T08:00:00+00:00', assignedToUserId: 'dad' },
+	{ id: 30, taskId: 4, roomId: 2, isActive: true, nextDue: '2026-08-18T08:00:00+00:00' },
 ])
 
 let mockRoomTasksStore
@@ -167,7 +167,7 @@ describe('TodayView', () => {
 		const tomorrow = new Date()
 		tomorrow.setDate(tomorrow.getDate() + 1)
 		mockRoomTasksStore.completeRoomTask.mockResolvedValue({
-			roomTask: { id: 11, taskId: 1, roomId: 1, isActive: true, nextDue: tomorrow.toISOString(), assignedToUserId: 'mom' },
+			roomTask: { id: 11, taskId: 1, roomId: 1, isActive: true, nextDue: tomorrow.toISOString() },
 			rewards: {},
 		})
 		const wrapper = await mountView()
@@ -181,7 +181,7 @@ describe('TodayView', () => {
 	it('completing a recurring overdue task moves it to Today when its next occurrence is today', async () => {
 		const today = new Date()
 		mockRoomTasksStore.completeRoomTask.mockResolvedValue({
-			roomTask: { id: 30, taskId: 4, roomId: 2, isActive: true, nextDue: today.toISOString(), assignedToUserId: 'dad' },
+			roomTask: { id: 30, taskId: 4, roomId: 2, isActive: true, nextDue: today.toISOString() },
 			rewards: {},
 		})
 		const wrapper = await mountView()

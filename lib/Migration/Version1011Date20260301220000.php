@@ -9,30 +9,20 @@ use OCP\DB\ISchemaWrapper;
 use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
 
+/**
+ * Adds the index for overdue-claim lookups on room_tasks.
+ *
+ * The writer-less assignment-tracking columns (assigned_by_user_id /
+ * assigned_at) and the index on the dropped assigned_to_user_id column were
+ * folded out of the chain (CS-PLAN-060 WP1, decision D9) — the join table's
+ * assigned_by/assigned_at are canonical.
+ */
 class Version1011Date20260301220000 extends SimpleMigrationStep {
 	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		$schema = $schemaClosure();
 
-		// Add assignment tracking columns to room_tasks if not exists
 		if ($schema->hasTable('chorestrike_room_tasks')) {
 			$table = $schema->getTable('chorestrike_room_tasks');
-
-			if (!$table->hasColumn('assigned_by_user_id')) {
-				$table->addColumn('assigned_by_user_id', 'string', [
-					'notnull' => false,
-					'length' => 255,
-				]);
-			}
-
-			if (!$table->hasColumn('assigned_at')) {
-				$table->addColumn('assigned_at', 'datetime', [
-					'notnull' => false,
-				]);
-			}
-
-			if (!$table->hasIndex('idx_room_tasks_assigned')) {
-				$table->addIndex(['assigned_to_user_id'], 'idx_room_tasks_assigned');
-			}
 
 			if (!$table->hasIndex('idx_room_tasks_claimed')) {
 				$table->addIndex(['claimed_by_user'], 'idx_room_tasks_claimed');

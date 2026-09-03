@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
@@ -35,6 +36,7 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 	private FloorMapper $floorMapper;
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private TaskAssigneeMapper $taskAssigneeMapper;
 	private RoomService $roomService;
 	private RoomTaskService $roomTaskService;
 	private FloorService $floorService;
@@ -49,6 +51,7 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		$this->floorMapper = \OC::$server->get(FloorMapper::class);
 		$this->houseUserMapper = \OC::$server->get(HouseUserMapper::class);
 		$this->completedTaskMapper = \OC::$server->get(CompletedTaskMapper::class);
+		$this->taskAssigneeMapper = \OC::$server->get(TaskAssigneeMapper::class);
 		$this->roomService = \OC::$server->get(RoomService::class);
 		$this->roomTaskService = \OC::$server->get(RoomTaskService::class);
 		$this->floorService = \OC::$server->get(FloorService::class);
@@ -357,13 +360,16 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 			'only the caller\'s own tasks come back, in input order'
 		);
 		self::assertSame(
-			'wbatch_bulk_member',
-			$result[0]->getAssignedToUserId(),
-			'the returned payload carries the persisted assignment'
+			['wbatch_bulk_member'],
+			$this->taskAssigneeMapper->findUserIdsByRoomTask($rtA1),
+			'the persisted assignment lives in the canonical join table'
 		);
 
 		// The foreign task was never written.
-		$foreignTask = $this->roomTaskMapper->find($rtB1);
-		self::assertNotSame('wbatch_bulk_member', $foreignTask->getAssignedToUserId());
+		self::assertSame(
+			[],
+			$this->taskAssigneeMapper->findUserIdsByRoomTask($rtB1),
+			'the foreign task stays unassigned'
+		);
 	}
 }

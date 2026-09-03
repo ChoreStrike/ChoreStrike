@@ -105,31 +105,42 @@ class MinigameScoreMapper extends QBMapper {
 
 	/**
 	 * Get user's rank in leaderboard for a specific game
+	 *
+	 * Rank = number of users whose BEST score in this house/game beats the
+	 * user's best, plus 1 (0 when the user has no score). Bounded: two
+	 * aggregate queries replace the former unbounded PHP scan over the whole
+	 * house+game result set (CS-PLAN-060 §3.6).
 	 */
 	public function getUserRank(int $houseId, string $userId, string $gameId): int {
-		// Get all scores for this house/game ordered by score DESC
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('user_id', 'score')
+		// The user's best score in this house/game.
+		$bestQb = $this->db->getQueryBuilder();
+		$bestQb->select($bestQb->func()->max('score'))
 			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('game_id', $qb->createNamedParameter($gameId, IQueryBuilder::PARAM_STR)))
-			->orderBy('score', 'DESC');
+			->where($bestQb->expr()->eq('house_id', $bestQb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($bestQb->expr()->eq('user_id', $bestQb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)))
+			->andWhere($bestQb->expr()->eq('game_id', $bestQb->createNamedParameter($gameId, IQueryBuilder::PARAM_STR)));
 
-		$result = $qb->executeQuery();
-		$rank = 1;
-		$found = false;
-
-		while ($row = $result->fetch()) {
-			if ($row['user_id'] === $userId) {
-				$found = true;
-				break;
-			}
-			$rank++;
-		}
-
+		$result = $bestQb->executeQuery();
+		$bestScore = $result->fetchOne();
 		$result->closeCursor();
 
-		return $found ? $rank : 0;
+		if ($bestScore === null || $bestScore === false) {
+			return 0;
+		}
+
+		// Count DISTINCT users whose best beats ours (their top row's score
+		// is their best, so matching on top rows is exact), rank = count + 1.
+		$rankQb = $this->db->getQueryBuilder();
+		$rankQb->select($rankQb->createFunction('COUNT(DISTINCT user_id)'))
+			->from($this->getTableName())
+			->where($rankQb->expr()->eq('house_id', $rankQb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($rankQb->expr()->eq('game_id', $rankQb->createNamedParameter($gameId, IQueryBuilder::PARAM_STR)))
+			->andWhere($rankQb->expr()->gt('score', $rankQb->createNamedParameter($bestScore, IQueryBuilder::PARAM_INT)));
+
+		$result = $rankQb->executeQuery();
+		$betterUsers = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		return $betterUsers + 1;
 	}
 }

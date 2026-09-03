@@ -36,7 +36,10 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
 			$table->addColumn('updated_at', 'datetime', ['notnull' => true]);
 			$table->setPrimaryKey(['id'], 'pk_houses');
-			$table->addIndex(['nextcloud_instance_id'], 'idx_house_inst');
+			// Unique: one house per instance — concurrent bootstrap requests
+			// race on this constraint; the loser re-fetches the winner's row
+			// (CR-053-07).
+			$table->addUniqueIndex(['nextcloud_instance_id'], 'idx_house_inst');
 		}
 
 		if (!$schema->hasTable('chorestrike_floors')) {
@@ -90,7 +93,6 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('task_id', 'bigint', ['notnull' => true]);
 			$table->addColumn('next_due', 'datetime', ['notnull' => true]);
 			$table->addColumn('last_completed', 'datetime', ['notnull' => false]);
-			$table->addColumn('assigned_to_user_id', 'string', ['notnull' => false, 'length' => 64]);
 			$table->addColumn('is_active', 'boolean', ['notnull' => false, 'default' => 1]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
 			$table->setPrimaryKey(['id'], 'pk_room_tasks');

@@ -18,11 +18,11 @@ use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
-use OCP\IDBConnection;
 use OCP\IL10N;
 use OCP\IUserSession;
 
@@ -42,7 +42,7 @@ class HouseService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private RewardConfigService $rewardConfigService;
 	private IConfig $config;
-	private IDBConnection $db;
+	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 	private IUserSession $userSession;
@@ -58,7 +58,7 @@ class HouseService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		RewardConfigService $rewardConfigService,
 		IConfig $config,
-		IDBConnection $db,
+		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
 		IUserSession $userSession,
@@ -73,7 +73,7 @@ class HouseService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->rewardConfigService = $rewardConfigService;
 		$this->config = $config;
-		$this->db = $db;
+		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 		$this->userSession = $userSession;
@@ -85,9 +85,9 @@ class HouseService {
 	 * transactionally (CR-SVC-26).
 	 *
 	 * House membership is a house concern, so the whole removal runs as one
-	 * aggregate operation: null `room_tasks.assigned_to_user_id`, delete
-	 * `task_assignees` rows, and delete the `house_users` row — all scoped
-	 * to the member's house (another house's assignments are untouched).
+	 * aggregate operation: delete the member's `task_assignees` rows (the
+	 * canonical assignee store, scoped to this house — another house's
+	 * assignments are untouched) and delete the `house_users` row.
 	 * Before the fix the controller deleted only the house_users row and
 	 * left orphaned assignee references to a former member behind.
 	 *
@@ -110,16 +110,10 @@ class HouseService {
 		$ncUserId = $houseUser->getNextcloudUserId();
 		$houseId = $houseUser->getHouseId();
 
-		$this->db->beginTransaction();
-		try {
-			$this->roomTaskMapper->clearAssignedUserForHouse($ncUserId, $houseId);
+		$this->transactions->run(function () use ($houseUser, $ncUserId, $houseId) {
 			$this->taskAssigneeMapper->deleteByUserForHouse($ncUserId, $houseId);
 			$this->houseUserMapper->delete($houseUser);
-			$this->db->commit();
-		} catch (\Throwable $e) {
-			$this->db->rollBack();
-			throw $e;
-		}
+		});
 	}
 
 	/**
@@ -369,9 +363,10 @@ class HouseService {
 	 * The achieved-flag explicitly requires at least one due or completed task
 	 * so a brand-new empty house doesn't trigger a spurious celebration.
 	 *
-	 * Week bounds are Monday 00:00:00 → Sunday 23:59:59 in the house
-	 * timezone (CS-PLAN-057), consistent with GameLogicService's medal week
-	 * (both via CalendarService::weekStart).
+	 * Week bounds are the half-open window Monday 00:00:00 → next Monday
+	 * 00:00:00 in the house timezone (CS-PLAN-057, CS-PLAN-060 §3.6),
+	 * consistent with GameLogicService's medal week (both via
+	 * CalendarService::weekStart).
 	 *
 	 * @param int $houseId The house ID
 	 * @return array{dueCount: int, completedCount: int, percent: int, targetPercent: int, achieved: bool, weekStart: string, weekEnd: string}
@@ -380,7 +375,10 @@ class HouseService {
 		$house = $this->houseMapper->find($houseId);
 		$tz = $this->calendarService->getTimeZone($house);
 		$weekStart = $this->calendarService->weekStart(new \DateTime(), $tz);
-		$weekEnd = (clone $weekStart)->modify('+7 days')->modify('-1 second');
+		// Half-open week window [weekStart, weekStart+7d) (CS-PLAN-060 §3.6):
+		// callers use gte/lt, so a completion at next Monday 00:00 belongs to
+		// exactly one window. The former `-1 second` clamp is gone.
+		$weekEnd = (clone $weekStart)->modify('+7 days');
 
 		$activeDueIds = $this->roomTaskMapper->findActiveDueIdsBetweenByHouse($houseId, $weekStart, $weekEnd);
 		$completedIds = $this->completedTaskMapper->findCompletedRoomTaskIdsBetweenByHouse($houseId, $weekStart, $weekEnd);

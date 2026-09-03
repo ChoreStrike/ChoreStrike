@@ -80,7 +80,7 @@ class HouseServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->rewardConfigService,
 			$this->config,
-			$this->db,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
 			$this->createMock(AppLogger::class),
 			$this->userSession,
@@ -177,7 +177,7 @@ class HouseServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->rewardConfigService,
 			$this->config,
-			$this->db,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
 			$this->createMock(AppLogger::class),
 			$this->userSession,
@@ -608,18 +608,19 @@ class HouseServiceTest extends TestCase {
 		// weekStart must be a Monday (format 'N' = 1).
 		$monday = new \DateTimeImmutable($result['weekStart']);
 		$this->assertSame(1, (int)$monday->format('N'));
-		// weekEnd must be a Sunday (format 'N' = 7) and 6 days after Monday.
-		$sunday = new \DateTimeImmutable($result['weekEnd']);
-		$this->assertSame(7, (int)$sunday->format('N'));
-		$this->assertSame(6, (int)$monday->diff($sunday)->days);
+		// Half-open week window (CS-PLAN-060 §3.6): weekEnd is the NEXT
+		// Monday 00:00:00 (exclusive bound), 7 days after weekStart.
+		$nextMonday = new \DateTimeImmutable($result['weekEnd']);
+		$this->assertSame(1, (int)$nextMonday->format('N'));
+		$this->assertSame(7, (int)$monday->diff($nextMonday)->days);
 	}
 
 	/**
 	 * RemoveHouseMember_CleansUpAssignmentsAndDeletesRow_InOneTransaction
 	 *
-	 * CR-SVC-26: the removal is an aggregate transaction — clear the legacy
-	 * assignee column, delete join-table assignee rows (both scoped to the
-	 * member's house), then delete the house_users row.
+	 * CR-SVC-26: the removal is an aggregate transaction — delete the
+	 * member's join-table assignee rows (scoped to the member's house,
+	 * CS-PLAN-060 WP1 D2), then delete the house_users row.
 	 */
 	public function testRemoveHouseMember_CleansUpAssignmentsAndDeletesRow_InOneTransaction(): void {
 		$member = new HouseUser();
@@ -632,10 +633,6 @@ class HouseServiceTest extends TestCase {
 			->method('find')
 			->with(11)
 			->willReturn($member);
-
-		$this->roomTaskMapper->expects($this->once())
-			->method('clearAssignedUserForHouse')
-			->with('member-nc', 3);
 
 		$this->taskAssigneeMapper->expects($this->once())
 			->method('deleteByUserForHouse')
@@ -672,7 +669,6 @@ class HouseServiceTest extends TestCase {
 
 		$this->db->expects($this->never())->method('beginTransaction');
 		$this->houseUserMapper->expects($this->never())->method('delete');
-		$this->roomTaskMapper->expects($this->never())->method('clearAssignedUserForHouse');
 		$this->taskAssigneeMapper->expects($this->never())->method('deleteByUserForHouse');
 
 		$this->expectException(ForbiddenException::class);
@@ -695,7 +691,7 @@ class HouseServiceTest extends TestCase {
 		$member->setRole('member');
 
 		$this->houseUserMapper->method('find')->willReturn($member);
-		$this->roomTaskMapper->method('clearAssignedUserForHouse')
+		$this->taskAssigneeMapper->method('deleteByUserForHouse')
 			->willThrowException(new \RuntimeException('db down'));
 
 		$this->db->expects($this->once())->method('beginTransaction');
