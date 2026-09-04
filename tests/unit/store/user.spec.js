@@ -47,6 +47,7 @@ describe('User Store', () => {
 			expect(store.houseUsers).toEqual([])
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
+			expect(store.membership).toBe('unknown')
 		})
 	})
 
@@ -68,6 +69,33 @@ describe('User Store', () => {
 		it('isHouseOwner returns false for member role', () => {
 			store.currentUser = { id: 1, role: 'member' }
 			expect(store.isHouseOwner).toBe(false)
+		})
+
+		it('role returns the raw role', () => {
+			store.currentUser = { id: 1, role: 'child' }
+			expect(store.role).toBe('child')
+			store.currentUser = null
+			expect(store.role).toBeNull()
+		})
+
+		it('isChild is true only for the child role (CS-PLAN-061 §3.9)', () => {
+			store.currentUser = { id: 1, role: 'child' }
+			expect(store.isChild).toBe(true)
+			store.currentUser = { id: 1, role: 'member' }
+			expect(store.isChild).toBe(false)
+			store.currentUser = { id: 1, role: 'owner' }
+			expect(store.isChild).toBe(false)
+		})
+
+		it('canManageTasks is true for owner and member, false for child (decision D5)', () => {
+			store.currentUser = { id: 1, role: 'owner' }
+			expect(store.canManageTasks).toBe(true)
+			store.currentUser = { id: 1, role: 'member' }
+			expect(store.canManageTasks).toBe(true)
+			store.currentUser = { id: 1, role: 'child' }
+			expect(store.canManageTasks).toBe(false)
+			store.currentUser = null
+			expect(store.canManageTasks).toBe(false)
 		})
 
 		it('getLeaderboard sorts by contribution score', () => {
@@ -140,6 +168,51 @@ describe('User Store', () => {
 				await expect(store.initializeCurrentUser()).resolves.toEqual(mockUser)
 				expect(store.currentUser).toEqual(mockUser)
 			})
+
+			it('sets membership to member after a successful resolution', async () => {
+				api.get.mockResolvedValue({ id: 1, role: 'owner' })
+
+				await store.initializeCurrentUser()
+
+				expect(store.membership).toBe('member')
+			})
+
+			it('sets membership to denied on 403/FORBIDDEN (invite-only, ADR-010)', async () => {
+				const error = new Error('Not a member of this house')
+				error.name = 'ApiError'
+				error.status = 403
+				error.code = 'FORBIDDEN'
+				api.get.mockRejectedValue(error)
+
+				await expect(store.initializeCurrentUser()).rejects.toThrow()
+
+				expect(store.membership).toBe('denied')
+				expect(store.currentUser).toBeNull()
+			})
+
+			it('sets membership to denied on code FORBIDDEN even with a different status', async () => {
+				const error = new Error('denied')
+				error.name = 'ApiError'
+				error.status = 500
+				error.code = 'FORBIDDEN'
+				api.get.mockRejectedValue(error)
+
+				await expect(store.initializeCurrentUser()).rejects.toThrow()
+
+				expect(store.membership).toBe('denied')
+			})
+
+			it('keeps membership unknown on non-403 failures', async () => {
+				const error = new Error('boom')
+				error.name = 'ApiError'
+				error.status = 500
+				error.code = 'CURRENT_USER_ERROR'
+				api.get.mockRejectedValue(error)
+
+				await expect(store.initializeCurrentUser()).rejects.toThrow()
+
+				expect(store.membership).toBe('unknown')
+			})
 		})
 
 		describe('fetchHouseUsers', () => {
@@ -183,6 +256,7 @@ describe('User Store', () => {
 				store.houseUsers = [{ id: 1 }]
 				store.loading = true
 				store.error = 'Error'
+				store.membership = 'denied'
 
 				store.reset()
 
@@ -190,6 +264,7 @@ describe('User Store', () => {
 				expect(store.houseUsers).toEqual([])
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
+				expect(store.membership).toBe('unknown')
 			})
 		})
 	})

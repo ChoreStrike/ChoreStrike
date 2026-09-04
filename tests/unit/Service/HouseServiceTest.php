@@ -18,6 +18,7 @@ use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RewardConfigService;
@@ -45,6 +46,7 @@ class HouseServiceTest extends TestCase {
 	private IConfig $config;
 	private IDBConnection $db;
 	private IUserSession $userSession;
+	private AuthorizationService $authorization;
 	/** House returned by houseMapper->find (swappable per test). */
 	private House $defaultHouse;
 
@@ -60,6 +62,7 @@ class HouseServiceTest extends TestCase {
 		$this->config = $this->createMock(IConfig::class);
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->userSession = $this->createMock(IUserSession::class);
+		$this->authorization = $this->createMock(AuthorizationService::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -84,7 +87,8 @@ class HouseServiceTest extends TestCase {
 			$l10n,
 			$this->createMock(AppLogger::class),
 			$this->userSession,
-			new CalendarService()
+			new CalendarService(),
+			$this->authorization
 		);
 	}
 
@@ -181,7 +185,8 @@ class HouseServiceTest extends TestCase {
 			$l10n,
 			$this->createMock(AppLogger::class),
 			$this->userSession,
-			new CalendarService()
+			new CalendarService(),
+			$this->authorization
 		);
 
 		$result = $service->getOrCreateHouse($instanceId);
@@ -285,6 +290,27 @@ class HouseServiceTest extends TestCase {
 		$result = $this->service->updateHouse($houseId, 'My House', 'Pacific/Auckland');
 
 		$this->assertSame('Pacific/Auckland', $result->getTimezone());
+	}
+
+	/**
+	 * UpdateHouse_NonOwner_ThrowsForbiddenWithoutFinding
+	 *
+	 * CS-PLAN-061: updateHouse is owner-only in the service; the
+	 * authorization gate runs before any house fetch or write.
+	 */
+	public function testUpdateHouse_NonOwner_ThrowsForbiddenWithoutFinding(): void {
+		$this->authorization->expects($this->once())
+			->method('requireHouseOwner')
+			->with(1)
+			->willThrowException(new ForbiddenException('Owner role required'));
+
+		$this->houseMapper->expects($this->never())->method('find');
+		$this->houseMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Owner role required');
+
+		$this->service->updateHouse(1, 'New Name');
 	}
 
 	/**

@@ -18,9 +18,11 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
+use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
@@ -33,6 +35,8 @@ class ActivityServiceTest extends TestCase {
 	private TaskMapper $taskMapper;
 	private RoomMapper $roomMapper;
 	private HouseUserMapper $houseUserMapper;
+	private TaskAssigneeMapper $taskAssigneeMapper;
+	private TaskAccessPolicy $taskAccessPolicy;
 	private ActivityService $service;
 
 	protected function setUp(): void {
@@ -43,6 +47,8 @@ class ActivityServiceTest extends TestCase {
 		$this->taskMapper = $this->createMock(TaskMapper::class);
 		$this->roomMapper = $this->createMock(RoomMapper::class);
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
+		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
+		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -53,8 +59,17 @@ class ActivityServiceTest extends TestCase {
 			$this->taskMapper,
 			$this->roomMapper,
 			$this->houseUserMapper,
+			$this->taskAssigneeMapper,
+			$this->taskAccessPolicy,
 			$l10n,
 		);
+	}
+
+	private function makeViewer(): HouseUser {
+		$viewer = new HouseUser();
+		$viewer->setNextcloudUserId('viewer');
+		$viewer->setRole('member');
+		return $viewer;
 	}
 
 	private function makeCompletion(int $id, int $userId, int $roomTaskId): CompletedTask {
@@ -123,8 +138,9 @@ class ActivityServiceTest extends TestCase {
 		$this->taskMapper->method('findByIds')->willReturn([5 => $task5, 6 => $task6]);
 		$this->roomMapper->method('findByIds')->willReturn([3 => $room3, 4 => $room4]);
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user7, $user8]);
+		$this->taskAccessPolicy->method('canView')->willReturn(true);
 
-		$result = $this->service->getActivity(1);
+		$result = $this->service->getActivity(1, ActivityService::DEFAULT_DAYS, ActivityService::DEFAULT_LIMIT, null, $this->makeViewer());
 
 		self::assertSame(2, $result['total']);
 		self::assertCount(2, $result['completions']);
@@ -163,7 +179,7 @@ class ActivityServiceTest extends TestCase {
 		$user7->setDisplayName('Alice');
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$user7]);
 
-		$result = $this->service->getActivity(1);
+		$result = $this->service->getActivity(1, ActivityService::DEFAULT_DAYS, ActivityService::DEFAULT_LIMIT, null, $this->makeViewer());
 
 		self::assertCount(1, $result['completions']);
 		$item = $result['completions'][0];
@@ -182,7 +198,7 @@ class ActivityServiceTest extends TestCase {
 		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn([]);
 		$this->completedTaskMapper->method('countActivityByHouse')->willReturn(0);
 
-		$result = $this->service->getActivity(1);
+		$result = $this->service->getActivity(1, ActivityService::DEFAULT_DAYS, ActivityService::DEFAULT_LIMIT, null, $this->makeViewer());
 
 		self::assertSame([], $result['completions']);
 		self::assertSame(0, $result['total']);
@@ -215,7 +231,7 @@ class ActivityServiceTest extends TestCase {
 			->willReturn([]);
 		$this->completedTaskMapper->method('countActivityByHouse')->willReturn(0);
 
-		$result = $this->service->getActivity(1, 500, 1000);
+		$result = $this->service->getActivity(1, 500, 1000, null, $this->makeViewer());
 
 		self::assertSame(ActivityService::MAX_LIMIT, $capturedLimit);
 		self::assertSame([], $result['completions']);
@@ -253,7 +269,7 @@ class ActivityServiceTest extends TestCase {
 			->willReturn([]);
 		$this->completedTaskMapper->method('countActivityByHouse')->willReturn(0);
 
-		$this->service->getActivity(1, 30, 50, 'alice');
+		$this->service->getActivity(1, 30, 50, 'alice', $this->makeViewer());
 
 		self::assertSame(42, $capturedFilter);
 	}
@@ -269,6 +285,49 @@ class ActivityServiceTest extends TestCase {
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('User is not a member of this house');
 
-		$this->service->getActivity(1, 30, 50, 'outsider');
+		$this->service->getActivity(1, 30, 50, 'outsider', $this->makeViewer());
+	}
+
+	/**
+	 * GetActivity_InvisibleTaskContent_RedactedToNull
+	 *
+	 * CS-PLAN-061 review fix: rows stay house-scoped (D9), but the title
+	 * and energy of a task the viewer cannot see are redacted — the feed
+	 * must not leak private task names to non-viewers.
+	 */
+	public function testGetActivity_InvisibleTaskContent_RedactedToNull(): void {
+		$completion = $this->makeCompletion(301, 7, 31);
+		$roomTask = $this->makeRoomTask(31, 9, 3);
+
+		$privateTask = new Task();
+		$privateTask->setId(9);
+		$privateTask->setName('Secret project');
+		$privateTask->setEnergyCost(4);
+		$privateTask->setVisibilityType(Task::VISIBILITY_PRIVATE);
+
+		$room = new Room();
+		$room->setId(3);
+		$room->setName('Kitchen');
+
+		$user7 = new HouseUser();
+		$user7->setId(7);
+		$user7->setDisplayName('Alice');
+
+		$this->completedTaskMapper->method('findActivityBetweenByHouse')->willReturn([$completion]);
+		$this->completedTaskMapper->method('countActivityByHouse')->willReturn(1);
+		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$roomTask]);
+		$this->taskMapper->method('findByIds')->willReturn([9 => $privateTask]);
+		$this->roomMapper->method('findByIds')->willReturn([3 => $room]);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$user7]);
+		$this->taskAccessPolicy->method('canView')->willReturn(false);
+
+		$result = $this->service->getActivity(1, ActivityService::DEFAULT_DAYS, ActivityService::DEFAULT_LIMIT, null, $this->makeViewer());
+
+		$item = $result['completions'][0];
+		self::assertSame('Alice', $item['displayName'], 'the aggregate row itself stays');
+		self::assertSame(9, $item['taskId']);
+		self::assertNull($item['taskTitle'], 'invisible task names are redacted');
+		self::assertNull($item['energyCost'], 'invisible task energy is redacted');
+		self::assertSame('Kitchen', $item['roomName'], 'rooms are structural and stay visible');
 	}
 }

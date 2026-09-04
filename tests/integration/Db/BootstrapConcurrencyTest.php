@@ -124,12 +124,13 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 
 	/**
 	 * Two distinct users first-touching concurrently: exactly one owner, the
-	 * loser becomes member. T1 (helper) wins the house-row lock and commits
-	 * the owner membership; T2 (this process) calls ensureHouseMember, which
-	 * must block on the house lock and count T1's committed membership before
-	 * computing its role.
+	 * loser is DENIED (invite-only, ADR-010 / CS-PLAN-061 D1) and no second
+	 * membership row is created. T1 (helper) wins the house-row lock and
+	 * commits the owner membership; T2 (this process) calls ensureHouseMember,
+	 * which must block on the house lock, count T1's committed membership, and
+	 * throw ForbiddenException instead of auto-joining.
 	 */
-	public function testConcurrentEnsureHouseMember_ExactlyOneOwner_LoserIsMember(): void {
+	public function testConcurrentEnsureHouseMember_ExactlyOneOwner_LoserDenied(): void {
 		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
 			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
 		}
@@ -159,13 +160,72 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			}
 
 			// T2: ensureHouseMember blocks on the house lock, then sees T1's
-			// committed owner membership and must derive role 'member'.
+			// committed owner membership and must be denied (invite-only):
+			// no membership row, ForbiddenException.
 			$this->actingAs('race-member-b');
 			$authService = \OC::$server->get(AuthorizationService::class);
-			$houseUser = $authService->ensureHouseMember($houseId);
 
-			self::assertSame('race-member-b', $houseUser->getNextcloudUserId());
-			self::assertSame('member', $houseUser->getRole(), 'the second concurrent first-toucher must become member');
+			$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
+			$authService->ensureHouseMember($houseId);
+		} finally {
+			$status = proc_get_status($process);
+			if ($status !== false && $status['running']) {
+				proc_terminate($process);
+			}
+			foreach ([1, 2] as $pipe) {
+				if (isset($pipes[$pipe]) && is_resource($pipes[$pipe])) {
+					fclose($pipes[$pipe]);
+				}
+			}
+			proc_close($process);
+			@unlink($signalFile);
+			@unlink($helperScript);
+		}
+	}
+
+	/**
+	 * Exactly one owner in the house after the concurrent first-touch race.
+	 *
+	 * Split from the denial assertion above: expectException() aborts the
+	 * test method at the throw, so the post-race invariants are verified in
+	 * their own test on the same fixture pattern.
+	 */
+	public function testConcurrentEnsureHouseMember_ExactlyOneMembershipAfterRace(): void {
+		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
+			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
+		}
+
+		$houseId = $this->createBareHouse('Owner Race House 2');
+		$this->raceHouseIds[] = $houseId;
+
+		$signalFile = sys_get_temp_dir() . '/cs-owner-race-' . uniqid();
+		$helperScript = sys_get_temp_dir() . '/cs-owner-race-holder-' . uniqid() . '.php';
+		file_put_contents($helperScript, $this->buildOwnerInsertHolderScript());
+
+		$process = proc_open(
+			[PHP_BINARY, $helperScript, (string)$houseId, $signalFile, 'race-owner-a2'],
+			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+			$pipes
+		);
+		self::assertIsResource($process, 'failed to start the owner-insert holder process');
+
+		try {
+			$deadline = microtime(true) + 30.0;
+			while (!file_exists($signalFile)) {
+				if (microtime(true) > $deadline) {
+					self::fail('The owner-insert holder did not acquire the house lock in time');
+				}
+				usleep(50000);
+			}
+
+			$this->actingAs('race-member-b2');
+			$authService = \OC::$server->get(AuthorizationService::class);
+			try {
+				$authService->ensureHouseMember($houseId);
+				self::fail('the second concurrent first-toucher must be denied (invite-only)');
+			} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
+				// Expected: invite-only after the first owner.
+			}
 		} finally {
 			$status = proc_get_status($process);
 			if ($status !== false && $status['running']) {
@@ -181,7 +241,7 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 			@unlink($helperScript);
 		}
 
-		// Exactly one owner in the house.
+		// Exactly one owner in the house — the loser's denial left no row.
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('id'))
 			->from('chorestrike_house_users')
@@ -192,7 +252,7 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 		$result->closeCursor();
 		self::assertSame(1, $ownerCount, 'exactly one owner may exist after the concurrent first-touch');
 
-		// Total memberships: T1's owner + T2's member.
+		// Total memberships: T1's owner only — the loser was not auto-joined.
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('id'))
 			->from('chorestrike_house_users')
@@ -200,7 +260,7 @@ class BootstrapConcurrencyTest extends IntegrationTestCase {
 		$result = $qb->executeQuery();
 		$total = (int)$result->fetchOne();
 		$result->closeCursor();
-		self::assertSame(2, $total);
+		self::assertSame(1, $total);
 	}
 
 	/**

@@ -3,7 +3,7 @@
 return [
     'routes' => [
         ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
-        
+
         // House API
         ['name' => 'house#get', 'url' => '/api/v1/house', 'verb' => 'GET'],
         ['name' => 'house#update', 'url' => '/api/v1/house', 'verb' => 'PUT'],
@@ -11,29 +11,29 @@ return [
         ['name' => 'house#activity', 'url' => '/api/v1/house/activity', 'verb' => 'GET'],
         ['name' => 'house#health', 'url' => '/api/v1/house/health', 'verb' => 'GET'],
         ['name' => 'house#reset', 'url' => '/api/v1/house/reset', 'verb' => 'POST'],
-        
+
         // Floor API
         ['name' => 'floor#create', 'url' => '/api/v1/floors', 'verb' => 'POST'],
         ['name' => 'floor#withRooms', 'url' => '/api/v1/floors/with-rooms', 'verb' => 'GET'],
         ['name' => 'floor#reorder', 'url' => '/api/v1/floors/reorder', 'verb' => 'POST'],
-        ['name' => 'floor#update', 'url' => '/api/v1/floors/{id}', 'verb' => 'PUT'],
-        ['name' => 'floor#delete', 'url' => '/api/v1/floors/{id}', 'verb' => 'DELETE'],
-        
+        ['name' => 'floor#update', 'url' => '/api/v1/floors/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        ['name' => 'floor#delete', 'url' => '/api/v1/floors/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
+
         // Room API
         ['name' => 'room#create', 'url' => '/api/v1/rooms', 'verb' => 'POST'],
-        ['name' => 'room#update', 'url' => '/api/v1/rooms/{id}', 'verb' => 'PUT'],
-        ['name' => 'room#delete', 'url' => '/api/v1/rooms/{id}', 'verb' => 'DELETE'],
-        ['name' => 'room#updateCleanliness', 'url' => '/api/v1/rooms/{id}/cleanliness', 'verb' => 'PUT'],
-        
+        ['name' => 'room#update', 'url' => '/api/v1/rooms/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        ['name' => 'room#delete', 'url' => '/api/v1/rooms/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
+        ['name' => 'room#updateCleanliness', 'url' => '/api/v1/rooms/{id}/cleanliness', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+
         // Task API
         // NOTE: static single-segment routes MUST precede the parameterized
         // `{id}` routes — Nextcloud's router matches in registration order
         // (shadowing rule fixed by CS-PLAN-023; guarded by RouteMatrixTest).
         ['name' => 'task#index', 'url' => '/api/v1/tasks', 'verb' => 'GET'],
         ['name' => 'task#create', 'url' => '/api/v1/tasks', 'verb' => 'POST'],
-        ['name' => 'task#update', 'url' => '/api/v1/tasks/{id}', 'verb' => 'PUT'],
-        ['name' => 'task#uncomplete', 'url' => '/api/v1/tasks/{id}/uncomplete', 'verb' => 'PUT'],
-        
+        ['name' => 'task#update', 'url' => '/api/v1/tasks/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        ['name' => 'task#uncomplete', 'url' => '/api/v1/tasks/{id}/uncomplete', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+
         // Room Task API
         // NOTE: static single-segment routes MUST precede `{id}` (same
         // shadowing rule as the Task API above; fixed by CS-PLAN-023).
@@ -46,13 +46,13 @@ return [
         // Static single-segment route — must stay ahead of the `{id}` block.
         ['name' => 'room_task#bulkAssign', 'url' => '/api/v1/room-tasks/bulk-assign', 'verb' => 'POST'],
         ['name' => 'room_task#create', 'url' => '/api/v1/room-tasks', 'verb' => 'POST'],
-        ['name' => 'room_task#delete', 'url' => '/api/v1/room-tasks/{id}', 'verb' => 'DELETE'],
-        ['name' => 'room_task#complete', 'url' => '/api/v1/room-tasks/{id}/complete', 'verb' => 'POST'],
-        ['name' => 'room_task#assignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'GET'],
-        ['name' => 'room_task#setAssignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'PUT'],
-        ['name' => 'room_task#reactivate', 'url' => '/api/v1/room-tasks/{id}/reactivate', 'verb' => 'POST'],
-        ['name' => 'room_task#updateDueDate', 'url' => '/api/v1/room-tasks/{id}/due-date', 'verb' => 'PUT'],
-        ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET'],
+        ['name' => 'room_task#delete', 'url' => '/api/v1/room-tasks/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
+        ['name' => 'room_task#complete', 'url' => '/api/v1/room-tasks/{id}/complete', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        ['name' => 'room_task#assignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
+        ['name' => 'room_task#setAssignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        ['name' => 'room_task#reactivate', 'url' => '/api/v1/room-tasks/{id}/reactivate', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        ['name' => 'room_task#updateDueDate', 'url' => '/api/v1/room-tasks/{id}/due-date', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET', 'requirements' => ['roomId' => '\d+']],
 
         // Pruned 2026-08-21 (CS-PLAN-040): `userTasks` read only the legacy
         // single-assignee column (misleading since multi-assignee) and
@@ -76,21 +76,21 @@ return [
         ['name' => 'game#state', 'url' => '/api/v1/game/state', 'verb' => 'GET'],
         ['name' => 'game#medals', 'url' => '/api/v1/game/medals', 'verb' => 'GET'],
         ['name' => 'game#checkMedals', 'url' => '/api/v1/game/check-medals', 'verb' => 'POST'],
-        
+
         // User API
         ['name' => 'user#index', 'url' => '/api/v1/users', 'verb' => 'GET'],
         ['name' => 'user#current', 'url' => '/api/v1/users/current', 'verb' => 'GET'],
         ['name' => 'user#invite', 'url' => '/api/v1/users/invite', 'verb' => 'POST'],
-        ['name' => 'user#remove', 'url' => '/api/v1/users/{id}', 'verb' => 'DELETE'],
-        ['name' => 'user#updateRole', 'url' => '/api/v1/users/{id}/role', 'verb' => 'PUT'],
-        ['name' => 'user#titles', 'url' => '/api/v1/users/{id}/titles', 'verb' => 'GET'],
-        ['name' => 'user#selectTitle', 'url' => '/api/v1/users/{id}/titles/select', 'verb' => 'PUT'],
+        ['name' => 'user#remove', 'url' => '/api/v1/users/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
+        ['name' => 'user#updateRole', 'url' => '/api/v1/users/{id}/role', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        ['name' => 'user#titles', 'url' => '/api/v1/users/{id}/titles', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
+        ['name' => 'user#selectTitle', 'url' => '/api/v1/users/{id}/titles/select', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
 
         // Scheduling API
         ['name' => 'scheduling#getPreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'GET'],
         ['name' => 'scheduling#updatePreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'PUT'],
         ['name' => 'scheduling#getMemberAvailability', 'url' => '/api/v1/scheduling/members', 'verb' => 'GET'],
-        ['name' => 'scheduling#updateMemberAvailability', 'url' => '/api/v1/scheduling/members/{userId}', 'verb' => 'PUT'],
+        ['name' => 'scheduling#updateMemberAvailability', 'url' => '/api/v1/scheduling/members/{userId}', 'verb' => 'PUT', 'requirements' => ['userId' => '[a-zA-Z0-9_.@-]+']],
         ['name' => 'scheduling#getSuggestions', 'url' => '/api/v1/scheduling/suggestions', 'verb' => 'POST'],
 
         // Smart Scheduler API — removed 2026-07-28 (CS-016 review: the
@@ -107,32 +107,34 @@ return [
         // (room_task#fromTemplate). The v2 catalog lives in TemplateService.
 
         // Checklist API
-        ['name' => 'checklist#getTaskItems', 'url' => '/api/v1/checklists/task/{taskId}', 'verb' => 'GET'],
-        ['name' => 'checklist#addTaskItem', 'url' => '/api/v1/checklists/task/{taskId}', 'verb' => 'POST'],
-        ['name' => 'checklist#updateTaskItem', 'url' => '/api/v1/checklists/item/{itemId}', 'verb' => 'PUT'],
-        ['name' => 'checklist#deleteTaskItem', 'url' => '/api/v1/checklists/item/{itemId}', 'verb' => 'DELETE'],
+        ['name' => 'checklist#getTaskItems', 'url' => '/api/v1/checklists/task/{taskId}', 'verb' => 'GET', 'requirements' => ['taskId' => '\d+']],
+        ['name' => 'checklist#addTaskItem', 'url' => '/api/v1/checklists/task/{taskId}', 'verb' => 'POST', 'requirements' => ['taskId' => '\d+']],
+        ['name' => 'checklist#updateTaskItem', 'url' => '/api/v1/checklists/item/{itemId}', 'verb' => 'PUT', 'requirements' => ['itemId' => '\d+']],
+        ['name' => 'checklist#deleteTaskItem', 'url' => '/api/v1/checklists/item/{itemId}', 'verb' => 'DELETE', 'requirements' => ['itemId' => '\d+']],
         ['name' => 'checklist#reorderTaskItems', 'url' => '/api/v1/checklists/reorder', 'verb' => 'POST'],
-        ['name' => 'checklist#getRoomTaskProgress', 'url' => '/api/v1/checklists/progress/{roomTaskId}', 'verb' => 'GET'],
-        ['name' => 'checklist#toggleItem', 'url' => '/api/v1/checklists/toggle/{roomTaskId}/{itemId}', 'verb' => 'POST'],
+        ['name' => 'checklist#getRoomTaskProgress', 'url' => '/api/v1/checklists/progress/{roomTaskId}', 'verb' => 'GET', 'requirements' => ['roomTaskId' => '\d+']],
+        ['name' => 'checklist#toggleItem', 'url' => '/api/v1/checklists/toggle/{roomTaskId}/{itemId}', 'verb' => 'POST', 'requirements' => ['roomTaskId' => '\d+', 'itemId' => '\d+']],
 
         // Claiming Overdue Tasks API (Feature 7)
         // filteredDaily lives in the Room Task API block above — it must
         // precede the `{id}` routes (shadowing rule).
 
-        // Test Data API (only available in test mode)
+        // Test Data API (only available in test mode — see
+        // docs/standards/guidelines/security.md for the test-only contract;
+        // never set NEXTCLOUD_TEST_MODE in production).
         ['name' => 'test#profiles', 'url' => '/api/v1/test/profiles', 'verb' => 'GET'],
-        ['name' => 'test#seed', 'url' => '/api/v1/test/seed/{profile}', 'verb' => 'POST'],
+        ['name' => 'test#seed', 'url' => '/api/v1/test/seed/{profile}', 'verb' => 'POST', 'requirements' => ['profile' => '[a-z0-9-]+']],
         ['name' => 'test#reset', 'url' => '/api/v1/test/reset', 'verb' => 'POST'],
 
         // Minigame API
-        ['name' => 'minigame#leaderboard', 'url' => '/api/v1/minigames/{gameId}/leaderboard', 'verb' => 'GET'],
-        ['name' => 'minigame#weeklyLeaderboard', 'url' => '/api/v1/minigames/{gameId}/leaderboard/weekly', 'verb' => 'GET'],
-        ['name' => 'minigame#saveScore', 'url' => '/api/v1/minigames/{gameId}/scores', 'verb' => 'POST'],
-        ['name' => 'minigame#personalBest', 'url' => '/api/v1/minigames/{gameId}/personal-best', 'verb' => 'GET'],
-        ['name' => 'minigame#userRank', 'url' => '/api/v1/minigames/{gameId}/rank', 'verb' => 'GET'],
-        ['name' => 'minigame#recentScores', 'url' => '/api/v1/minigames/{gameId}/recent', 'verb' => 'GET'],
+        ['name' => 'minigame#leaderboard', 'url' => '/api/v1/minigames/{gameId}/leaderboard', 'verb' => 'GET', 'requirements' => ['gameId' => '[a-z0-9-]+']],
+        ['name' => 'minigame#weeklyLeaderboard', 'url' => '/api/v1/minigames/{gameId}/leaderboard/weekly', 'verb' => 'GET', 'requirements' => ['gameId' => '[a-z0-9-]+']],
+        ['name' => 'minigame#saveScore', 'url' => '/api/v1/minigames/{gameId}/scores', 'verb' => 'POST', 'requirements' => ['gameId' => '[a-z0-9-]+']],
+        ['name' => 'minigame#personalBest', 'url' => '/api/v1/minigames/{gameId}/personal-best', 'verb' => 'GET', 'requirements' => ['gameId' => '[a-z0-9-]+']],
+        ['name' => 'minigame#userRank', 'url' => '/api/v1/minigames/{gameId}/rank', 'verb' => 'GET', 'requirements' => ['gameId' => '[a-z0-9-]+']],
+        ['name' => 'minigame#recentScores', 'url' => '/api/v1/minigames/{gameId}/recent', 'verb' => 'GET', 'requirements' => ['gameId' => '[a-z0-9-]+']],
         ['name' => 'minigame#boosts', 'url' => '/api/v1/minigames/boosts', 'verb' => 'GET'],
-        ['name' => 'minigame#purchaseBoost', 'url' => '/api/v1/minigames/boosts/{boostId}/purchase', 'verb' => 'POST'],
+        ['name' => 'minigame#purchaseBoost', 'url' => '/api/v1/minigames/boosts/{boostId}/purchase', 'verb' => 'POST', 'requirements' => ['boostId' => '[a-z0-9_]+']],
         ['name' => 'minigame#coins', 'url' => '/api/v1/minigames/coins', 'verb' => 'GET'],
 
         // Reward Config API — removed (CS-PLAN-055): `reward_config#index` /

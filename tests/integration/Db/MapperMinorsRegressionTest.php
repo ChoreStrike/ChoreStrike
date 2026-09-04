@@ -92,7 +92,9 @@ class MapperMinorsRegressionTest extends IntegrationTestCase {
 
 		$this->actingAs('tx_owner');
 		$roomTaskService = \OC::$server->get(RoomTaskService::class);
-		$roomTaskService->deleteRoomTask($roomTaskId);
+		$actor = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class)
+			->findByNextcloudUserId($houseId, 'tx_owner');
+		$roomTaskService->deleteRoomTask($roomTaskId, $actor);
 
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('id'))

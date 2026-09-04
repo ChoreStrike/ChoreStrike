@@ -140,7 +140,10 @@ test.describe('Admin-Only Tasks', () => {
 				{ headers: { Accept: 'application/json' } },
 			)
 
-			expect(completeResponse.status()).toBe(403)
+			// ADR-010 decision D3: an invisible task "does not exist" for the
+			// non-owner — 404 anti-enumeration, never a 403 that would
+			// confirm the room-task id exists.
+			expect(completeResponse.status()).toBe(404)
 		} finally {
 			await mom.context.close()
 			await teen.context.close()

@@ -50,7 +50,7 @@ class GameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$gameState = $this->gameLogicService->getGameState($house->getId());
 			$gameState['weeklyGoal'] = $this->houseService->getWeeklyGoalProgress($house->getId());
@@ -82,7 +82,7 @@ class GameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$medals = $this->gameLogicService->getMedals($house->getId());
 
@@ -113,7 +113,7 @@ class GameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$awardedMedals = $this->gameLogicService->checkAndAwardMedals($house->getId());
 

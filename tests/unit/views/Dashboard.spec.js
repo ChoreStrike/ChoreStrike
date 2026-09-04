@@ -184,6 +184,11 @@ describe('Dashboard.vue', () => {
 	it('shows the manual setup entry point while the house has no floors', async () => {
 		mockRoomsState.floors = []
 
+		// The setup wizard is owner-gated (CS-PLAN-061 §3.9): a member of an
+		// empty house cannot run it (apply would 403).
+		const { useUserStore } = require('../../../src/store/user.js')
+		useUserStore().currentUser = { id: 1, role: 'owner' }
+
 		const wrapper = mount(Dashboard, {
 			global: {
 				plugins: [pinia],
@@ -194,9 +199,28 @@ describe('Dashboard.vue', () => {
 		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(true)
 	})
 
+	it('hides the manual setup entry point for non-owners of an empty house (CS-PLAN-061 §3.9)', async () => {
+		mockRoomsState.floors = []
+
+		const { useUserStore } = require('../../../src/store/user.js')
+		useUserStore().currentUser = { id: 2, role: 'member' }
+
+		const wrapper = mount(Dashboard, {
+			global: {
+				plugins: [pinia],
+			},
+		})
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		expect(wrapper.find('[data-testid="open-setup-wizard"]').exists()).toBe(false)
+	})
+
 	it('does not auto-open the wizard when "Start empty" was dismissed for this house (UX-011)', async () => {
 		mockRoomsState.floors = []
 		mockWizardState.dismissed = true
+
+		const { useUserStore } = require('../../../src/store/user.js')
+		useUserStore().currentUser = { id: 1, role: 'owner' }
 
 		const wrapper = mount(Dashboard, {
 			global: {

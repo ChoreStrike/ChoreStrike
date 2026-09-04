@@ -4,6 +4,7 @@
  * @copyright Copyright (c) 2026 ChoreStrike Contributors
  * @license MIT
  */
+
 declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration;
@@ -17,9 +18,14 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * Real-DB integration tests for the server-side role guards (BUG-SEC-002).
  *
  * Mirrors the CANNOT_REMOVE_OWNER pattern: seed one-owner and two-owner
- * houses, exercise the endpoint as an owner, and assert the stable
+ * setups, exercise the endpoint as an owner, and assert the stable
  * CANNOT_DEMOTE_SELF 403 / CANNOT_DEMOTE_LAST_OWNER 409 codes together
  * with unchanged rows.
+ *
+ * ADR-010: membership is invite-only, so the fixtures seed their
+ * memberships explicitly in the shared instance house — the endpoint
+ * resolves and scopes every lookup to that house (CS-PLAN-061 §3.1),
+ * and a non-member caller is denied before any role logic runs.
  *
  * Note on the 409 path: via the endpoint the last-owner conflict is
  * unreachable — requireHouseOwner gates the caller to owners, and a house
@@ -29,12 +35,34 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * still protected.
  */
 class RoleGuardApiTest extends IntegrationTestCase {
+	private function sharedHouseId(): int {
+		$houseService = \OC::$server->get(HouseService::class);
+		$house = $houseService->getOrCreateHouse($houseService->getInstanceId());
+
+		return $house->getId();
+	}
+
+	/**
+	 * Seed an explicit membership in the shared instance house (purging any
+	 * leftover row from an earlier run first) — invite-only model.
+	 */
+	private function seedMembership(int $houseId, string $userId, string $role): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_house_users')
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($userId)));
+		$qb->executeStatement();
+
+		$this->addHouseMember($houseId, $userId, $userId, $role);
+	}
+
 	/**
 	 * UpdateRole_SelfDemotion_TwoOwnerHouse_Returns403AndKeepsRow
 	 */
 	public function testUpdateRole_SelfDemotion_TwoOwnerHouse_Returns403AndKeepsRow(): void {
-		$houseId = $this->createHouse('rg_owner_a', 'Role Guard House A');
-		$this->addHouseMember($houseId, 'rg_coowner_a', 'Co-Owner A', 'owner');
+		$houseId = $this->sharedHouseId();
+		$this->seedMembership($houseId, 'rg_owner_a', 'owner');
+		$this->seedMembership($houseId, 'rg_coowner_a', 'owner');
 
 		$controller = $this->getController(UserController::class, 'rg_owner_a');
 		$targetId = $this->findHouseUserId($houseId, 'rg_owner_a');
@@ -52,8 +80,9 @@ class RoleGuardApiTest extends IntegrationTestCase {
 	 * UpdateRole_SelfDemotion_OneOwnerHouse_Returns403AndKeepsRow
 	 */
 	public function testUpdateRole_SelfDemotion_OneOwnerHouse_Returns403AndKeepsRow(): void {
-		$houseId = $this->createHouse('rg_solo_owner', 'Role Guard House B');
-		$this->addHouseMember($houseId, 'rg_member_b', 'Member B', 'member');
+		$houseId = $this->sharedHouseId();
+		$this->seedMembership($houseId, 'rg_solo_owner', 'owner');
+		$this->seedMembership($houseId, 'rg_member_b', 'member');
 
 		$controller = $this->getController(UserController::class, 'rg_solo_owner');
 		$targetId = $this->findHouseUserId($houseId, 'rg_solo_owner');
@@ -73,8 +102,9 @@ class RoleGuardApiTest extends IntegrationTestCase {
 	 * Legit flow: while another owner remains, a co-owner can be demoted.
 	 */
 	public function testUpdateRole_CoOwnerDemotion_TwoOwnerHouse_Succeeds(): void {
-		$houseId = $this->createHouse('rg_owner_c', 'Role Guard House C');
-		$this->addHouseMember($houseId, 'rg_coowner_c', 'Co-Owner C', 'owner');
+		$houseId = $this->sharedHouseId();
+		$this->seedMembership($houseId, 'rg_owner_c', 'owner');
+		$this->seedMembership($houseId, 'rg_coowner_c', 'owner');
 
 		$controller = $this->getController(UserController::class, 'rg_owner_c');
 		$targetId = $this->findHouseUserId($houseId, 'rg_coowner_c');
@@ -90,8 +120,9 @@ class RoleGuardApiTest extends IntegrationTestCase {
 	 * UpdateRole_PromoteMember_Succeeds
 	 */
 	public function testUpdateRole_PromoteMember_Succeeds(): void {
-		$houseId = $this->createHouse('rg_owner_d', 'Role Guard House D');
-		$this->addHouseMember($houseId, 'rg_member_d', 'Member D', 'member');
+		$houseId = $this->sharedHouseId();
+		$this->seedMembership($houseId, 'rg_owner_d', 'owner');
+		$this->seedMembership($houseId, 'rg_member_d', 'member');
 
 		$controller = $this->getController(UserController::class, 'rg_owner_d');
 		$targetId = $this->findHouseUserId($houseId, 'rg_member_d');
@@ -107,8 +138,9 @@ class RoleGuardApiTest extends IntegrationTestCase {
 	 * UpdateRole_InvalidRole_Returns400AndKeepsRow
 	 */
 	public function testUpdateRole_InvalidRole_Returns400AndKeepsRow(): void {
-		$houseId = $this->createHouse('rg_owner_e', 'Role Guard House E');
-		$this->addHouseMember($houseId, 'rg_member_e', 'Member E', 'member');
+		$houseId = $this->sharedHouseId();
+		$this->seedMembership($houseId, 'rg_owner_e', 'owner');
+		$this->seedMembership($houseId, 'rg_member_e', 'member');
 
 		$controller = $this->getController(UserController::class, 'rg_owner_e');
 		$targetId = $this->findHouseUserId($houseId, 'rg_member_e');

@@ -60,12 +60,15 @@ class NotificationService {
 	 *
 	 * @param string $recipientNextcloudUserId Original assignee's Nextcloud user ID
 	 * @param string $taskName Display name of the task (for the message body)
+	 * @param string $claimerUserId Nextcloud user ID of the member who took it over
+	 *                              (the rich `user` param's `id` MUST be a uid)
 	 * @param string $claimerDisplayName Display name of the member who took it over
 	 * @param int $roomTaskId Room task ID (used as the notification object ID + rich param)
 	 */
 	public function notifyOverdueTakenOver(
 		string $recipientNextcloudUserId,
 		string $taskName,
+		string $claimerUserId,
 		string $claimerDisplayName,
 		int $roomTaskId,
 	): void {
@@ -77,7 +80,8 @@ class NotificationService {
 			[
 				'task' => $taskName,
 				'taskId' => $roomTaskId,
-				'claimer' => $claimerDisplayName,
+				'claimer' => $claimerUserId,
+				'claimerName' => $claimerDisplayName,
 			]
 		);
 	}
@@ -85,10 +89,16 @@ class NotificationService {
 	/**
 	 * Notify a member that they earned a medal this week.
 	 *
+	 * The objectId is week+medal qualified (`{weekStart}:{medalType}`,
+	 * CS-PLAN-061 §3.7): Nextcloud dedups on (app, user, objectType,
+	 * objectId), so a bare weekStart made two different medals in the same
+	 * week collapse into one bell entry. Keying on both keeps one entry per
+	 * medal while a re-run of the same award still dedups.
+	 *
 	 * @param string $recipientNextcloudUserId The medal winner's Nextcloud user ID
 	 * @param string $medalType Medal type identifier (e.g. 'team_anchor')
 	 * @param int $value The medal's value (task count or streak length)
-	 * @param string $weekStart Week start (Y-m-d) — kept for de-duplication context
+	 * @param string $weekStart Week start (Y-m-d)
 	 */
 	public function notifyMedalAwarded(
 		string $recipientNextcloudUserId,
@@ -100,7 +110,7 @@ class NotificationService {
 			$recipientNextcloudUserId,
 			self::SUBJECT_MEDAL_AWARDED,
 			'medal',
-			$weekStart,
+			$weekStart . ':' . $medalType,
 			[
 				'medalType' => $medalType,
 				'value' => $value,

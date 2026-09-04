@@ -28,28 +28,55 @@ All API endpoints use `@NoAdminRequired` annotation (requires authenticated user
 
 ### House Membership Checks
 
-Every controller method validates house membership before data access. Two
-primitives exist in `AuthorizationService` (both throw `ForbiddenException`;
+House membership is **invite-only after the first owner** (ADR-010). Three
+primitives exist in `AuthorizationService` (denials throw `ForbiddenException`;
 the normal response is **403**, never an unexpected 500):
 
-- `ensureHouseMember()` — auto-creates the membership on first access (the
-  `getOrCreateHouse` bootstrap/join flow). This is what the standard controller
-  preamble uses:
+- `ensureHouseMember()` — **bootstrap-only** (ADR-010, decision D1): creates a
+  membership ONLY while the house has zero members (that user becomes the
+  owner). Once members exist, a miss is a denial (`'Not a member of this
+  house'`) and NO row is created. Only the five designated bootstrap endpoints
+  may call it: `user#current`, `house#get`, `user#invite`, `setup#catalog`,
+  `setup#apply`:
 ```php
 $instanceId = $this->houseService->getInstanceId();
 $house = $this->houseService->getOrCreateHouse($instanceId);
+// Designated bootstrap endpoint only (ADR-010, D1):
 $this->authService->ensureHouseMember($house->getId());
 ```
-- `assertHouseMember()` — a pure, read-only gate (no mutation). Use it for
-  ordinary authorization checks where auto-join is not intended, e.g.
-  `assertUserInHouse($houseId, $targetUserId)` to reject cross-house access on
+- `assertHouseMember()` — the pure, read-only gate for every ordinary
+  authorization check (no mutation, no auto-join). This is the standard
+  controller preamble since CS-PLAN-061:
+```php
+$instanceId = $this->houseService->getInstanceId();
+$house = $this->houseService->getOrCreateHouse($instanceId);
+$houseUser = $this->authService->assertHouseMember($house->getId());
+```
+- `assertUserInHouse($houseId, $targetUserId)` — rejects cross-house access on
   endpoints that accept an arbitrary target user ID.
 
-For selected resource lookups, controllers deliberately map a foreign/missing
-resource to the same 404 `RESOURCE_NOT_FOUND` envelope via
-`ControllerErrorFormatter::notFoundResponse()` to prevent ID enumeration. Use
-403 for ordinary permission denial and the documented 404 shape only when the
-endpoint's anti-enumeration contract requires it.
+Because membership is invite-only, **removal is durable**: no ordinary read can
+recreate a removed member's row; they see the not-authorized state until
+re-invited.
+
+### Denial Standard (403 vs 404)
+
+Decision D3 (ADR-010) fixes one standard for every endpoint:
+
+- **Visibility denials → 404**: a foreign, nonexistent, or not-visible id is
+  answered with the same 404 `RESOURCE_NOT_FOUND` envelope via
+  `ControllerErrorFormatter::notFoundResponse()` — anti-enumeration. This
+  includes task-visibility denials from `TaskAccessPolicy` on read AND
+  lifecycle/assignment paths (a private task you cannot see "does not exist").
+- **Role denials → 403**: an otherwise visible resource the caller may not
+  mutate (child attempting management, non-owner structure change) is a 403
+  `FORBIDDEN`.
+
+For **task visibility** the single matrix lives in
+`OCA\Service\TaskAccessPolicy` (ADR-010, decision D2): `public` → all members;
+`private` → creator ∪ explicit assignees (definition lists at definition
+granularity, room-task lists per room task, owners get no blanket access);
+`admin-only` → house owners. Never re-implement the matrix inline — delegate.
 
 > **Defense in depth (ADR-006):** authorization for a mutation is enforced
 > **inside the service**, not only in the controller preamble. House-scoped
@@ -57,20 +84,28 @@ endpoint's anti-enumeration contract requires it.
 > assignee membership internally, so a caller that forgets the preamble cannot
 > bypass the check. Read-only checks (`requireHouseOwner` / `isHouseOwner`) use
 > `assertHouseMember()` and never mutate. See
-> [ADR-006](../../adr/ADR-006-service-layer-authorization.md).
+> [ADR-006](../../adr/ADR-006-service-layer-authorization.md) and
+> [ADR-010](../../adr/ADR-010-invite-only-membership-visibility-matrix.md).
 
 ### Role-Based Access Control
 
 | Role | Permissions |
 |------|-------------|
-| `owner` | Full house management, user management, task management |
-| `member` | Task management, viewing house data |
-| `child` | Task completion, limited management |
+| `owner` | Full house management, user management, task management, checklist item editing, structure (floors/rooms/house) |
+| `member` | Task-domain management (create/edit/delete/assign) within the visibility matrix, viewing house data |
+| `child` | Execution surface only: complete/reactivate/due-date/checklist progress, own scheduling preferences, minigames |
+
+The child/actor boundary (decision D5, ADR-010) is enforced in the service
+layer via `AuthorizationService::assertCanManageTasks($houseUser)` — every
+task-domain mutation (create/update/delete/assign) calls it; children get a
+403.
 
 **Owner-only operations** use `requireHouseOwner()`:
 - Adding/removing house users
 - Changing user roles
-- Deleting floors/rooms
+- Creating/updating/deleting floors and rooms
+- Updating house settings, applying the setup wizard
+- Checklist definition mutations (item add/update/delete/reorder)
 
 ---
 

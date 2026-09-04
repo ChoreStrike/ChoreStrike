@@ -8,7 +8,9 @@ use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseSetupService;
 use OCA\ChoreStrike\Service\TemplateService;
 use OCP\IDBConnection;
@@ -20,6 +22,7 @@ use PHPUnit\Framework\TestCase;
  */
 class HouseSetupServiceTest extends TestCase {
 	private HouseSetupService $service;
+	private AuthorizationService $authorization;
 	private $floorMapper;
 	private $roomMapper;
 	private $taskMapper;
@@ -40,6 +43,7 @@ class HouseSetupServiceTest extends TestCase {
 		$this->taskAssigneeMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskAssigneeMapper::class);
 		$this->houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
 		$this->db = $this->createMock(IDBConnection::class);
+		$this->authorization = $this->createMock(AuthorizationService::class);
 
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(fn ($t) => $t);
@@ -56,7 +60,8 @@ class HouseSetupServiceTest extends TestCase {
 			$this->templateService,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
-			$this->createMock(AppLogger::class)
+			$this->createMock(AppLogger::class),
+			$this->authorization
 		);
 	}
 
@@ -304,6 +309,18 @@ class HouseSetupServiceTest extends TestCase {
 		$this->service->applySetup(1, $payload);
 	}
 
+	public function testApplySetup_NonOwner_ThrowsForbiddenBeforeValidation(): void {
+		$this->authorization->expects($this->once())
+			->method('requireHouseOwner')
+			->with(1)
+			->willThrowException(new ForbiddenException('Owner role required'));
+
+		$this->expectException(ForbiddenException::class);
+		// Even an invalid payload must fail with the 403 first — the owner
+		// gate runs before validateBasics (CS-PLAN-061 §3.4).
+		$this->service->applySetup(1, ['intensityLevel' => 'gammypuss']);
+	}
+
 	public function testApplySetup_RollsBackOnPersistenceFailure(): void {
 		$this->db->expects($this->once())->method('beginTransaction');
 		$this->db->expects($this->once())->method('rollBack');
@@ -328,7 +345,8 @@ class HouseSetupServiceTest extends TestCase {
 			$this->templateService,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
-			$this->createMock(AppLogger::class)
+			$this->createMock(AppLogger::class),
+			$this->authorization
 		);
 	}
 }

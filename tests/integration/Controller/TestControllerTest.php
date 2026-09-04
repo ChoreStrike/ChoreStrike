@@ -30,7 +30,8 @@ class TestControllerTest extends TestCase {
 
 		$this->controller = new TestController(
 			$request,
-			$this->testDataService
+			$this->testDataService,
+			\OC::$server->get(\OCA\ChoreStrike\Service\AppLogger::class)
 		);
 	}
 

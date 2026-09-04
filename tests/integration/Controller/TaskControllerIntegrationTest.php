@@ -148,12 +148,12 @@ class TaskControllerIntegrationTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($houseUser);
-		$this->taskService->method('getTask')->willReturn($this->createMockTask($taskId, 'Vacuum'));
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
+		$this->taskService->method('getVisibleTask')->willReturn($this->createMockTask($taskId, 'Vacuum'));
 		$this->taskService->method('validateTaskData')->willReturn([]);
-		// CR-SVC-17: updateTask receives the authorization context.
+		// CS-PLAN-061: updateTask receives the HouseUser actor.
 		$this->taskService->method('updateTask')
-			->with($taskId, $updates, 'owner-user', true)
+			->with($taskId, $updates, $this->identicalTo($houseUser))
 			->willReturn($updatedTask);
 
 		$response = $this->controller->update($taskId, $updates);

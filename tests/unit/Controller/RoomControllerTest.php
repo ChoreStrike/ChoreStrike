@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 use OCA\ChoreStrike\Controller\RoomController;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\Room;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomService;
@@ -54,8 +55,24 @@ class RoomControllerTest extends TestCase {
 			$this->houseService,
 			$this->authService,
 			$this->templateService,
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
+	}
+
+	/**
+	 * Stub the caller-scoped house preamble (CS-PLAN-061 §3.1): create()
+	 * resolves the caller's instance house and asserts membership BEFORE the
+	 * floor is loaded.
+	 */
+	private function expectInstanceHouse(int $houseId = 1): void {
+		$house = new \OCA\ChoreStrike\Db\House();
+		$house->setId($houseId);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')
+			->with($houseId)
+			->willReturn(new \OCA\ChoreStrike\Db\HouseUser());
 	}
 
 	/**
@@ -91,13 +108,11 @@ class RoomControllerTest extends TestCase {
 			->with(1)
 			->willReturn($floor);
 
-		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
-			->with(1);
+		$this->expectInstanceHouse(1);
 
 		$this->roomService->expects($this->once())
 			->method('createRoom')
-			->with(1, 'Bathroom', 'Bath')
+			->with(1, 'Bathroom', 'Bath', 'generic')
 			->willReturn($room);
 
 		$response = $this->controller->create(1, 'Bathroom', 'Bath');
@@ -163,9 +178,7 @@ class RoomControllerTest extends TestCase {
 			->with(1)
 			->willReturn($floor);
 
-		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
-			->with(1);
+		$this->expectInstanceHouse(1);
 
 		$this->roomService->expects($this->once())
 			->method('createRoom')
@@ -199,9 +212,7 @@ class RoomControllerTest extends TestCase {
 			->with(1)
 			->willReturn($floor);
 
-		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
-			->with(1);
+		$this->expectInstanceHouse(1);
 
 		$this->roomService->expects($this->once())
 			->method('createRoom')
@@ -215,6 +226,52 @@ class RoomControllerTest extends TestCase {
 
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
+	}
+
+	/**
+	 * CS-PLAN-061 §3.1: a floor from a foreign house maps to the same 404
+	 * as a nonexistent one (anti-enumeration) — create() must never
+	 * auto-join the floor's house.
+	 */
+	public function testCreate_ForeignHouseFloor_Returns404(): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(99);
+
+		$this->expectInstanceHouse(1);
+
+		$this->roomService->expects($this->once())
+			->method('getFloor')
+			->with(1)
+			->willReturn($floor);
+
+		$this->roomService->expects($this->never())->method('createRoom');
+
+		$response = $this->controller->create(1, 'Kitchen', null, 'kitchen');
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+		$this->assertEquals('Floor not found', $response->getData()['error']['message']);
+	}
+
+	/**
+	 * CS-PLAN-061 §3.1: a nonexistent floor (app NotFoundException from
+	 * getFloor) maps to a clean 404.
+	 */
+	public function testCreate_UnknownFloor_Returns404(): void {
+		$this->expectInstanceHouse(1);
+
+		$this->roomService->expects($this->once())
+			->method('getFloor')
+			->with(1)
+			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Floor not found'));
+
+		$this->roomService->expects($this->never())->method('createRoom');
+
+		$response = $this->controller->create(1, 'Kitchen', null, 'kitchen');
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
 	}
 
 	/**

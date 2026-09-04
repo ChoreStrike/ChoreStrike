@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\TestDataService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -20,14 +21,18 @@ use OCP\IRequest;
  * authenticated Nextcloud session. Never annotate with @PublicPage.
  */
 class TestController extends Controller {
+	use ControllerLoggingTrait;
+
 	private TestDataService $testDataService;
 
 	public function __construct(
 		IRequest $request,
 		TestDataService $testDataService,
+		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->testDataService = $testDataService;
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**
@@ -68,6 +73,7 @@ class TestController extends Controller {
 				'data' => $result
 			]);
 		} catch (\Exception $e) {
+			$this->logControllerException('seed', $e, ['profile' => $profile]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -99,6 +105,7 @@ class TestController extends Controller {
 				'data' => $result
 			]);
 		} catch (\Exception $e) {
+			$this->logControllerException('reset', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [

@@ -1,9 +1,9 @@
 # CS-PLAN-061: WP2 — Membership, Role, Visibility, and Privacy Boundaries
 
-> **Status:** Active (Standard A review passed 2026-09-03; implementation not started)
+> **Status:** Done (final Standard B review PASS-WITH-FIXES, 2026-09-04)
 > **Effort:** L
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](../../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP2 — WP0 and WP1 are Done), WP1 persistence baseline (2026-09-03)
+> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP2 — WP0 and WP1 are Done), WP1 persistence baseline (2026-09-03)
 > **Related backlog items:** CR-WF-01 (owned), CR-053-16 (owned), CR-053-17 (owned), CR-053-18 core remainders (owned), FEAT-UX-015 owner-transfer/last-owner semantics only (owned)
 
 ## 1. Problem Summary
@@ -271,8 +271,12 @@ SQL-level push-down is explicitly deferred to WP8 (contract freeze first).
 Role/actor matrix (decision D5): owner — everything; member — task-domain
 mutations within the visibility matrix; child — execution only (complete,
 checklist progress toggle, own preferences/minigames); no task create/
-update/delete/assign/due-date/reactivate, no structure, no checklist
-definitions.
+update/delete/assign, no structure, no checklist definitions.
+Clarified at the Standard B review (2026-09-04, user decision): the
+lifecycle executions reactivate/due-date/uncomplete are visibility-gated
+EXECUTION surface (not actor-gated) — the ungated UndoSnackbar undo flow
+requires them for every viewer; `assertCanManageTasks` guards the
+management surface (create/update/delete/assign).
 
 - **Assignment**: `setAssignees` and `bulkAssignTasks` first
   `assertCanView` (404 for invisible tasks), then validate the acting user
@@ -478,6 +482,16 @@ modified: docs/plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md (�
 modified: docs/plans/new/cs-plan-061-wp2-membership-visibility-privacy.md (this plan; moves to active/ on review pass)
 ```
 
+**As-built reconciliation (Standard B review, 2026-09-04):** the ADR landed as
+`docs/adr/ADR-010-invite-only-membership-visibility-matrix.md` (broader title —
+it records the visibility matrix too); `lib/Exception/RateLimitException.php`
+(new, the 429 carrier) and `tests/unit/components/NotAuthorizedState.spec.js`
+join the new-file list; the bootstrap-semantics unit matrix was consolidated
+into the existing `tests/unit/Service/AuthorizationServiceExceptionTest.php`
+instead of a separate `AuthorizationServiceBootstrapTest`; `src/views/Settings.vue`
+needed no change (its owner gating already matched); `src/components/Common/index.js`
+gained the `NotAuthorizedState` barrel export during the review.
+
 ## 6. Implementation Order
 
 1. Write failing tests first: invite-only membership matrix, rewritten
@@ -512,48 +526,69 @@ modified: docs/plans/new/cs-plan-061-wp2-membership-visibility-privacy.md (this 
 
 ## 8. Acceptance Criteria
 
-- [ ] After the first owner, no authenticated user gains membership without
+- [x] After the first owner, no authenticated user gains membership without
       an owner invitation: second user on `user#current` gets 403 and no
       membership row (integration test); all designated-bootstrap greps hold.
-- [ ] Removed members stay removed: 403 on reload and direct API calls;
+      — `InviteOnlyMembershipTest`, `AuthorizationServiceExceptionTest`
+- [x] Removed members stay removed: 403 on reload and direct API calls;
       no auto-join path remains on ordinary reads/mutations.
-- [ ] Exactly one private-task matrix: creator ∪ explicit assignees (admin-
+      — `InviteOnlyMembershipTest::testRemovedMember_StaysRemoved_*`
+- [x] Exactly one private-task matrix: creator ∪ explicit assignees (admin-
       only: owners) across definition lists, room-task reads
       (index/overdue/dueToday/range/filteredDaily), checklists, lifecycle,
       completion, and update — proven by positive/negative integration
       tests for owner, member, child, creator, assignee, and non-viewer.
-- [ ] Actor policy enforced in services: child cannot create/update/delete/
-      assign/reactivate tasks or edit structure/checklist definitions (403);
+      — `PrivateTaskAuthorizationTest`, `TaskLifecycleVisibilityApiTest`,
+      `ChecklistApiTest`, `TaskAccessPolicyTest`
+- [x] Actor policy enforced in services: child cannot create/update/delete/
+      assign tasks or edit structure/checklist definitions (403); lifecycle
+      executions (reactivate/due-date/uncomplete) stay visibility-gated
+      execution surface (ratified at the Standard B review 2026-09-04);
       members cannot mutate structure, house settings, or checklist
       definitions (403); assignment of invisible tasks yields 404.
-- [ ] 403/404 standard holds: foreign/nonexistent ids and visibility
+      — `TaskAuthorizationTest`, `BulkAssignIntegrationTest`,
+      `ChecklistApiTest`, `RoleGuardApiTest`,
+      `TaskLifecycleVisibilityApiTest`
+- [x] 403/404 standard holds: foreign/nonexistent ids and visibility
       denials → 404; role denials → 403; no 500 from uncaught
       DoesNotExist/NotFoundException on the mapped endpoints
       (RoomTask ×6, Floor ×2, Room ×4, User remove/updateRole).
-- [ ] Every controller generic catch logs via `ControllerLoggingTrait`;
+- [x] Every controller generic catch logs via `ControllerLoggingTrait`;
       no user-authored names/emails or raw response payloads in backend or
       frontend logs (audited).
-- [ ] CR-053-18 cluster closed: saveScore whitelist + daily cap, route
+- [x] CR-053-18 cluster closed: saveScore whitelist + daily cap, route
       requirements, weekday normalization, notifier uid, medal dedup,
-      reminder pass isolation, test-mode contract documented.
-- [ ] Frontend: `denied` membership state renders the explicit
+      reminder pass isolation, test-mode contract documented (the
+      `@NoCSRFRequired` test-mode route item is re-scoped to the WP9
+      release-hardening checklist — recorded in `backlog.md`).
+- [x] Frontend: `denied` membership state renders the explicit
       NotAuthorizedState app-wide; owner/child controls match the backend
       matrix; visibility hints state the real rules; `ApiError` exposes
       status/code; logger redacts.
-- [ ] `TaskAuthorizationTest` rewritten with zero skips; the authorization
+      — Jest: `App.spec`, `NotAuthorizedState.spec`, `user.spec`,
+      `api.spec`, `logger.spec`, `TaskList.spec`, `TaskEditForm.spec`,
+      `Dashboard.spec`
+- [x] `TaskAuthorizationTest` rewritten with zero skips; the authorization
       matrix (owner, member, child, invited, removed, non-member) has
       positive and negative controller/service coverage — the WP2 exit gate.
-- [ ] Build gate green (CS-PLAN-058 §4.5) with no new or unapproved skips.
-- [ ] Owning backlog items archived (CR-WF-01, CR-053-16, CR-053-17,
-      CR-053-18) or re-scoped to an exact remainder; FEAT-UX-015 re-scoped
-      to the leave endpoint/UI with the recorded semantics; CS-PLAN-058 §9
-      updated.
-- [ ] ADR-010 recorded, ADR-006 annotated, security/API docs updated —
+- [x] Build gate green (CS-PLAN-058 §4.5) with no new or unapproved skips.
+      (2026-09-03: unit 810 OK; integration 254 OK + 10 documented
+      pre-existing skips; Jest 803 passed; ESLint clean; `cs:check` clean;
+      Playwright chromium 92 passed/7 skipped, chromium-serial-db 93
+      passed/4 skipped, chromium-scheduling-owner 31 passed.)
+- [x] Owning backlog items dispositioned (CR-WF-01, CR-053-16, CR-053-17,
+      CR-053-18 implemented + noted pending review ratification; CR-053-18's
+      test-mode CSRF remainder re-scoped to WP9; FEAT-UX-015 unchanged on
+      its owner-transfer decision); CS-PLAN-058 §9 updated. Final archive
+      moves are owned by the Standard B review.
+- [x] ADR-010 recorded, ADR-006 annotated, security/API docs updated —
       plans are temporary.
-- [ ] All implementation decisions and review questions resolved and
-      recorded.
-- [ ] Final Standard B review is `PASS` or `PASS-WITH-FIXES`;
-      `ACTIVE_TASKS.md` updated.
+- [x] All implementation decisions and review questions resolved and
+      recorded. (Standard B review 2026-09-04: three batched decisions —
+      lifecycle-actor semantics ratified, completion-history content
+      redaction, four residual authorization gaps fixed; see §10.)
+- [x] Final Standard B review is `PASS` or `PASS-WITH-FIXES`;
+      `ACTIVE_TASKS.md` updated. (PASS-WITH-FIXES, 2026-09-04; §10.)
 
 ## 9. Plan Review Decision Register
 
@@ -566,7 +601,7 @@ activating the plan:
 | D2 | One visibility matrix everywhere: private = creator ∪ explicit assignees; admin-only = house owner; owners do not implicitly see private tasks | Recorded user decision 2026-09-02; today's three divergent matrices are the defect | Ratified by user 2026-09-02 (recorded program decision); reconfirmed by review 2026-09-03 |
 | D3 | 403/404 standard: foreign/nonexistent ids and visibility denials on id-addressed resources → 404 anti-enumeration; role/actor denials on visible house resources → 403 | Extends the established TaskController precedent to all boundaries; closes the complete/uncomplete 403 enumeration oracle | Ratified 2026-09-03 |
 | D4 | Checklist-definition mutations (item add/update/delete/reorder) become owner-only in the service | Matches the existing frontend gating (`TaskList.vue:223`) and CS-PLAN-058 WP2 text; alternative (creator-or-owner) rejected as KISS — WP4 may revisit for member-created tasks | Ratified by user 2026-09-03 |
-| D5 | Actor matrix: owner = all; member = task-domain mutations within visibility; child = execution only (complete, checklist progress, own preferences/minigames) | Matches CS-PLAN-058 WP4/WP7 ("children receive a read/execute view"); backend enforcement belongs to WP2's "validate the acting user" scope | Ratified by user 2026-09-03 |
+| D5 | Actor matrix: owner = all; member = task-domain mutations within visibility; child = execution only (complete, checklist progress, own preferences/minigames) | Matches CS-PLAN-058 WP4/WP7 ("children receive a read/execute view"); backend enforcement belongs to WP2's "validate the acting user" scope | Ratified by user 2026-09-03; clarified at the Standard B review 2026-09-04 (user decision): lifecycle executions reactivate/due-date/uncomplete are visibility-gated execution surface, not actor-gated management — required by the child undo flow |
 | D6 | FEAT-UX-015 semantics: the last owner cannot leave; ownership must be transferred first (leave endpoint/UI stay open in FEAT-UX-015) | Consistent with `CANNOT_REMOVE_OWNER`/`CANNOT_DEMOTE_LAST_OWNER`; an ownerless house would allow stranger re-bootstrap | Ratified by user 2026-09-03 |
 | D7 | saveScore hardening: `VALID_GAMES` whitelist + per-user 100/day cap (429 `MINIGAME_RATE_LIMITED`) | Closes coin farming with nextcloud-internal means only; values as constants | Ratified by user 2026-09-03 |
 | D8 | Test-mode routes keep `@NoCSRFRequired` + runtime `NEXTCLOUD_TEST_MODE` gate; contract documented as test-only | E2E infrastructure depends on plain API seeding; the env gate is the real boundary; CSRF tokens in test tooling add churn without a production threat | Ratified by user 2026-09-03 |
@@ -621,3 +656,66 @@ review can pass.
   deferral to WP8 is a scoped contract-freeze decision, not a shim).
 - No open findings. Recommended next state: `active/`; owned backlog items
   marked `In Progress`.
+
+**Final Standard B code review — 2026-09-04: PASS-WITH-FIXES.**
+
+- **Scope:** the complete WP2 implementation — 104 modified + 7 new files
+  (backend services/controllers/mappers, frontend auth state, tests, l10n,
+  durable docs). Base: `master` @ `6cf6a3e6b30104ef7e3538badb506a1c74509035`,
+  empty index; reviewed diff fingerprint SHA256
+  `D7BFCB250BE3D7D5AD9150552E8422AAF55EBACD860C11186342348F12FF4E66`
+  (unstaged, 625,538 bytes) + 7 untracked file hashes recorded at capture.
+- **Verification:** full file manifest, all acceptance criteria, the decision
+  register, durable-doc integration (ADR-010 new, ADR-006 annotated,
+  security.md + api/README.md updated), and the implementation history
+  reviewed against the shared checklist. Grep audits: `ensureHouseMember`
+  remains only in the five designated bootstrap endpoints; no `@PublicPage`;
+  no raw `console.*` outside `logger.js`; no `v-html`; no `HACK` markers;
+  prepared statements throughout.
+- **Fixes applied in review (all rerun through the gate):**
+  1. Repaired 14 UTF-8 mojibake comment sites (`—`/`→`) the package had
+     introduced across 8 controllers.
+  2. Log hygiene (§3.6): removed user-authored `taskName` / `houseName`
+     from the TaskController/HouseController exception-log contexts.
+  3. Closed four residual authorization gaps (user decision, batched question
+     3): `roomTask#assignees` read gains the visibility gate (404 for
+     invisible tasks); `roomTask#roomStats` counts are visibility-filtered
+     (new `CompletedTaskMapper::countDistinctCompletedRoomTasksInSet`);
+     `user#selectTitle` resolves membership before the target lookup
+     (scoped 404, closing the find-before-gate oracle); `user#invite`
+     runs the owner gate before the email lookup (closing the
+     email-existence oracle). Regression tests added in
+     `TaskAuthorizationTest` and `UserControllerIntegrationTest`.
+  4. Completion-history content redaction (user decision, batched question
+     2): `range` completions and `house#activity` keep house-scoped rows
+     (D9) but redact task name/energy of tasks invisible to the viewer
+     (`RoomTaskService::redactInvisibleCompletionRows`,
+     `ActivityService` viewer threading); CalendarView renders the shared
+     "Unknown task" fallback. Tests in `PrivateTaskAuthorizationTest`,
+     `HouseActivityIntegrationTest`, `ActivityServiceTest`.
+  5. Barrel export for `NotAuthorizedState` in `Common/index.js`; repaired
+     the plan's broken CS-PLAN-058 relative link.
+- **Decisions recorded (user, 2026-09-04, one batched question round):**
+  1. Lifecycle actor semantics ratified as implemented: reactivate /
+     due-date / uncomplete are visibility-gated EXECUTION surface (not
+     actor-gated management) — required by the ungated child undo flow;
+     `assertCanManageTasks` guards create/update/delete/assign. §3.4/§8/D5
+     and ADR-010 wording updated accordingly.
+  2. Completion-history content redacted for invisible tasks (rows stay,
+     D9 aggregates preserved).
+  3. All four residual gaps fixed now (none deferred).
+- **Findings:** every finding was fixed in review or resolved by a recorded
+  decision; none remain open. Pre-existing observations outside the package
+  (not findings): `RoomTaskService::getRoomTaskWithDetails` has no
+  production caller (dead-code sweep candidate for a later work package).
+- **Gate (rerun by this review, fresh disposable Docker env):** PHPUnit unit
+  813 OK; PHPUnit integration 263 OK + 10 documented pre-existing skips;
+  Jest 803 passed; ESLint clean; `composer cs:check` clean (0 of 269);
+  `l10n:check-keys` synchronized; `docs:encoding` clean; Playwright
+  chromium + chromium-serial-db + chromium-scheduling-owner 210 passed +
+  11 documented skips (0 failures).
+- **Dispositions:** CR-WF-01, CR-053-16, CR-053-17, CR-053-18 archived to
+  `docs/backlog/archive/2026-09.md`; the CR-053-18 test-mode CSRF remainder
+  lives on as the `CR-053-18-WP9` stub (WP9 release hardening);
+  FEAT-UX-015 keeps its open endpoint/UI scope (semantics decided by D6);
+  CS-PLAN-058 §9 WP2 row set to Done. Plan moved `active/ → done/`.

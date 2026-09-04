@@ -8,8 +8,11 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Service\TaskService;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -24,12 +27,30 @@ use PHPUnit\Framework\TestCase;
 class TaskServiceWhitelistTest extends TestCase {
 	private TaskService $service;
 	private TaskMapper $taskMapper;
+	private AuthorizationService $authorization;
+	private TaskAccessPolicy $taskAccessPolicy;
 
 	protected function setUp(): void {
 		$this->taskMapper = $this->createMock(TaskMapper::class);
+		$this->authorization = $this->createMock(AuthorizationService::class);
+		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
+		// updateTask denies non-viewers before the whitelist loop — the
+		// visibility matrix is exercised in TaskServiceTest; admit everyone
+		// here so the whitelist behavior stays isolated.
+		$this->taskAccessPolicy->method('canViewTask')->willReturn(true);
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		$this->service = new TaskService($this->taskMapper, $l10n);
+		$this->service = new TaskService($this->taskMapper, $l10n, $this->authorization, $this->taskAccessPolicy);
+	}
+
+	/**
+	 * Member actor — the default for the whitelist loop tests.
+	 */
+	private function createHouseUser(string $userId = 'caller-user', string $role = 'member'): HouseUser {
+		$houseUser = new HouseUser();
+		$houseUser->setNextcloudUserId($userId);
+		$houseUser->setRole($role);
+		return $houseUser;
 	}
 
 	public function testUpdateTask_RejectsUnknownField_WithInvalidArgument(): void {
@@ -38,7 +59,7 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: bogusColumn');
-		$this->service->updateTask(1, ['bogusColumn' => 'evil'], 'caller-user', false);
+		$this->service->updateTask(1, ['bogusColumn' => 'evil'], $this->createHouseUser());
 	}
 
 	public function testUpdateTask_RejectsImmutableInternalColumn_WithInvalidArgument(): void {
@@ -50,7 +71,7 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: isTemplate');
-		$this->service->updateTask(1, ['isTemplate' => true], 'caller-user', false);
+		$this->service->updateTask(1, ['isTemplate' => true], $this->createHouseUser());
 	}
 
 	public function testUpdateTask_AppliesWhitelistedField(): void {
@@ -58,7 +79,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 
-		$result = $this->service->updateTask(1, ['name' => 'Shiny New Name'], 'caller-user', false);
+		$result = $this->service->updateTask(1, ['name' => 'Shiny New Name'], $this->createHouseUser());
 
 		$this->assertSame('Shiny New Name', $result->getName());
 	}
@@ -68,7 +89,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$this->taskMapper->method('find')->willReturn($task);
 		$this->taskMapper->method('update')->willReturnArgument(0);
 
-		$result = $this->service->updateTask(1, ['activeFrom' => '2026-01-15'], 'caller-user', false);
+		$result = $this->service->updateTask(1, ['activeFrom' => '2026-01-15'], $this->createHouseUser());
 
 		$this->assertInstanceOf(\DateTime::class, $result->getActiveFrom());
 		$this->assertSame('2026-01-15', $result->getActiveFrom()->format('Y-m-d'));
@@ -88,7 +109,7 @@ class TaskServiceWhitelistTest extends TestCase {
 			'name' => 'Multi',
 			'energyCost' => 3,
 			'priority' => 1,
-		], 'caller-user', false);
+		], $this->createHouseUser());
 
 		$this->assertSame('Multi', $result->getName());
 		$this->assertSame(3, $result->getEnergyCost());
@@ -105,7 +126,7 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
 		$this->expectExceptionMessage('Only house owners may change the task tier');
-		$this->service->updateTask(1, ['name' => 'Multi', 'taskTier' => 'gold'], 'caller-user', false);
+		$this->service->updateTask(1, ['name' => 'Multi', 'taskTier' => 'gold'], $this->createHouseUser());
 	}
 
 	public function testUpdateTask_RejectsMassAssignmentOfId(): void {
@@ -115,7 +136,7 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: id');
-		$this->service->updateTask(42, ['id' => 999], 'caller-user', false);
+		$this->service->updateTask(42, ['id' => 999], $this->createHouseUser());
 	}
 
 	/**
@@ -132,6 +153,6 @@ class TaskServiceWhitelistTest extends TestCase {
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Unknown or immutable field: isPrivate');
-		$this->service->updateTask(1, ['isPrivate' => true], 'caller-user', false);
+		$this->service->updateTask(1, ['isPrivate' => true], $this->createHouseUser());
 	}
 }

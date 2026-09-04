@@ -76,20 +76,23 @@ class ChoreStrikeNotifier implements INotifier {
 			case NotificationService::SUBJECT_OVERDUE_TAKEN_OVER:
 				$params = $this->params($notification);
 				$task = (string)($params['task'] ?? '');
-				$claimer = (string)($params['claimer'] ?? '');
+				// The rich `user` param's `id` must be a Nextcloud UID; the
+				// display name rides as `name` (CS-PLAN-061 §3.7).
+				$claimerId = (string)($params['claimer'] ?? '');
+				$claimerName = (string)($params['claimerName'] ?? $claimerId);
 				// Rich subject: parameters are escaped per-surface by Nextcloud.
 				$notification->setRichSubject(
 					$l->t('Your task "{task}" was taken over by {claimer}'),
 					[
 						'task' => ['type' => 'highlight', 'id' => (string)($params['taskId'] ?? '0'), 'name' => $task],
-						'claimer' => ['type' => 'user', 'id' => $claimer, 'name' => $claimer],
+						'claimer' => ['type' => 'user', 'id' => $claimerId, 'name' => $claimerName],
 					]
 				);
 				$notification->setParsedSubject(
-					$l->t('Your task "%1$s" was taken over by %2$s', [$task, $claimer])
+					$l->t('Your task "%1$s" was taken over by %2$s', [$task, $claimerName])
 				);
 				$notification->setParsedMessage(
-					$l->t('%1$s completed your overdue task so your streak is safe. Be a hero and pick up one of theirs next time!', [$claimer])
+					$l->t('%1$s completed your overdue task so your streak is safe. Be a hero and pick up one of theirs next time!', [$claimerName])
 				);
 				break;
 

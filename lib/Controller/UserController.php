@@ -62,6 +62,23 @@ class UserController extends Controller {
 	}
 
 	/**
+	 * Look a house-user id up scoped to the caller's house.
+	 *
+	 * A nonexistent id and a foreign-house id both yield null (→ 404), so
+	 * the endpoint cannot be used to enumerate which global house_user ids
+	 * exist (CS-PLAN-061 §3.1).
+	 */
+	private function findHouseUserScopedToHouse(int $id, int $houseId): ?HouseUser {
+		try {
+			$houseUser = $this->houseUserMapper->find($id);
+		} catch (DoesNotExistException $e) {
+			return null;
+		}
+
+		return $houseUser->getHouseId() === $houseId ? $houseUser : null;
+	}
+
+	/**
 	 * Get all users in the house
 	 *
 	 * @NoAdminRequired
@@ -70,7 +87,7 @@ class UserController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$users = $this->houseUserMapper->findByHouseId($house->getId());
 
@@ -100,6 +117,9 @@ class UserController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			// Designated bootstrap endpoint (ADR-010, D1): the frontend boots
+			// through this call, so the very first user of a fresh instance
+			// becomes the owner here. Afterwards membership is invite-only.
 			$houseUser = $this->authService->ensureHouseMember($house->getId());
 
 			return new JSONResponse([
@@ -149,7 +169,17 @@ class UserController extends Controller {
 				], 400);
 			}
 
-			// Find Nextcloud user by email (returns array of users)
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			// Designated bootstrap endpoint (ADR-010, D1): keeps the CR-SVC-47
+			// preamble so the first user on a fresh instance becomes the owner
+			// before the owner gate below.
+			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->requireHouseOwner($house->getId());
+
+			// Authorization gates run BEFORE the email lookup (CS-PLAN-061
+			// review fix): a non-owner must not be able to probe which
+			// Nextcloud accounts exist for a given email (404 vs 403 oracle).
 			$ncUsers = $this->userManager->getByEmail($trimmedEmail);
 			if (empty($ncUsers)) {
 				return new JSONResponse([
@@ -164,13 +194,6 @@ class UserController extends Controller {
 			// Use the first matching user if multiple accounts share the same email
 			$ncUser = $ncUsers[0];
 			$nextcloudUserId = $ncUser->getUID();
-
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			// CR-SVC-47: bootstrap membership before the owner check so the
-			// first user on a fresh instance becomes the owner.
-			$this->authService->ensureHouseMember($house->getId());
-			$this->authService->requireHouseOwner($house->getId());
 
 			$houseUser = $this->houseUserMapper->createOrGet(
 				$house->getId(),
@@ -208,8 +231,22 @@ class UserController extends Controller {
 	 */
 	public function remove(int $id): JSONResponse {
 		try {
-			$houseUser = $this->houseUserMapper->find($id);
-			$this->authService->requireHouseOwner($houseUser->getHouseId());
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->assertHouseMember($house->getId());
+
+			$houseUser = $this->findHouseUserScopedToHouse($id, $house->getId());
+			if ($houseUser === null) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'USER_NOT_FOUND',
+						'message' => $this->l->t('User not found')
+					]
+				], 404);
+			}
+
+			$this->authService->requireHouseOwner($house->getId());
 
 			try {
 				$this->houseService->removeHouseMember($houseUser->getId());
@@ -231,14 +268,6 @@ class UserController extends Controller {
 				'success' => true,
 				'message' => $this->l->t('User removed from house')
 			]);
-		} catch (DoesNotExistException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'USER_NOT_FOUND',
-					'message' => $this->l->t('User not found')
-				]
-			], 404);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -263,8 +292,22 @@ class UserController extends Controller {
 	 */
 	public function updateRole(int $id, string $role): JSONResponse {
 		try {
-			$houseUser = $this->houseUserMapper->find($id);
-			$this->authService->requireHouseOwner($houseUser->getHouseId());
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->assertHouseMember($house->getId());
+
+			$houseUser = $this->findHouseUserScopedToHouse($id, $house->getId());
+			if ($houseUser === null) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'USER_NOT_FOUND',
+						'message' => $this->l->t('User not found')
+					]
+				], 404);
+			}
+
+			$this->authService->requireHouseOwner($house->getId());
 			$callerUserId = $this->authService->requireCurrentUserId();
 
 			try {
@@ -302,14 +345,6 @@ class UserController extends Controller {
 				'success' => true,
 				'data' => $updatedUser->jsonSerialize()
 			]);
-		} catch (DoesNotExistException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'USER_NOT_FOUND',
-					'message' => $this->l->t('User not found')
-				]
-			], 404);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -331,8 +366,20 @@ class UserController extends Controller {
 	 */
 	public function titles(int $id): JSONResponse {
 		try {
-			$houseUser = $this->houseUserMapper->find($id);
-			$this->authService->ensureHouseMember($houseUser->getHouseId());
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->assertHouseMember($house->getId());
+
+			$houseUser = $this->findHouseUserScopedToHouse($id, $house->getId());
+			if ($houseUser === null) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'USER_NOT_FOUND',
+						'message' => $this->l->t('User not found')
+					]
+				], 404);
+			}
 
 			return new JSONResponse([
 				'success' => true,
@@ -343,14 +390,6 @@ class UserController extends Controller {
 					'catalog' => $this->titleService->getCatalogView(),
 				],
 			]);
-		} catch (DoesNotExistException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'USER_NOT_FOUND',
-					'message' => $this->l->t('User not found')
-				]
-			], 404);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
@@ -376,12 +415,18 @@ class UserController extends Controller {
 	 */
 	public function selectTitle(int $id, string $pack): JSONResponse {
 		try {
-			$houseUser = $this->houseUserMapper->find($id);
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$currentHouseUser = $this->authService->ensureHouseMember($house->getId());
+			$currentHouseUser = $this->authService->assertHouseMember($house->getId());
 
-			if ($houseUser->getHouseId() !== $house->getId()) {
+			// Caller-scoped lookup (CS-PLAN-061 review fix): the membership
+			// gate runs BEFORE the target lookup, and a nonexistent and a
+			// foreign-house id both map to the same 404 — the old
+			// find-before-gate order leaked which global house_user ids
+			// exist to non-members (the selectTitle twin of the
+			// remove/updateRole oracle closed in §3.1).
+			$houseUser = $this->findHouseUserScopedToHouse($id, $house->getId());
+			if ($houseUser === null) {
 				return new JSONResponse([
 					'success' => false,
 					'error' => [
@@ -412,14 +457,6 @@ class UserController extends Controller {
 					'currentTitle' => $this->titleService->getCurrentTitle($houseUser),
 				],
 			]);
-		} catch (DoesNotExistException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'USER_NOT_FOUND',
-					'message' => $this->l->t('User not found')
-				]
-			], 404);
 		} catch (\InvalidArgumentException $e) {
 			return new JSONResponse([
 				'success' => false,

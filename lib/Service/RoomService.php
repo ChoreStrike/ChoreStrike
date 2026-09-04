@@ -46,6 +46,8 @@ class RoomService {
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 	private CalendarService $calendarService;
+	private AuthorizationService $authorization;
+	private TaskAccessPolicy $taskAccessPolicy;
 
 	public function __construct(
 		RoomMapper $roomMapper,
@@ -64,6 +66,8 @@ class RoomService {
 		IL10N $l10n,
 		AppLogger $appLogger,
 		CalendarService $calendarService,
+		AuthorizationService $authorization,
+		TaskAccessPolicy $taskAccessPolicy,
 	) {
 		$this->roomMapper = $roomMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -81,6 +85,8 @@ class RoomService {
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 		$this->calendarService = $calendarService;
+		$this->authorization = $authorization;
+		$this->taskAccessPolicy = $taskAccessPolicy;
 	}
 
 	/**
@@ -88,11 +94,15 @@ class RoomService {
 	 *
 	 * @param int $roomId The room ID
 	 * @param int $houseId The house ID to validate against
-	 * @throws NotFoundException if room doesn't belong to house
+	 * @throws NotFoundException if room doesn't exist or belong to house
 	 */
 	public function validateRoomOwnership(int $roomId, int $houseId): void {
-		$room = $this->roomMapper->find($roomId);
-		$floor = $this->floorMapper->find($room->getFloorId());
+		try {
+			$room = $this->roomMapper->find($roomId);
+			$floor = $this->floorMapper->find($room->getFloorId());
+		} catch (DoesNotExistException $e) {
+			throw new NotFoundException($this->l10n->t('Room not found'));
+		}
 
 		if ($floor->getHouseId() !== $houseId) {
 			throw new NotFoundException($this->l10n->t('Room not found'));
@@ -103,32 +113,50 @@ class RoomService {
 	 * Get floor by ID.
 	 *
 	 * @param int $floorId The floor ID
-	 * @throws DoesNotExistException if not found
+	 * @throws NotFoundException if not found
 	 */
 	public function getFloor(int $floorId): Floor {
-		return $this->floorMapper->find($floorId);
+		try {
+			return $this->floorMapper->find($floorId);
+		} catch (DoesNotExistException $e) {
+			throw new NotFoundException($this->l10n->t('Floor not found'));
+		}
 	}
 
 	/**
-	 * Create a new room
+	 * Create a new room (owner-only, CS-PLAN-061 §3.4 / ADR-006).
+	 *
+	 * The floor is resolved here (a nonexistent floor id maps to 404) and
+	 * the caller must own the floor's house — controller checks stay as
+	 * defense in depth only.
 	 *
 	 * @param int $floorId The floor ID
 	 * @param string $name The room name
 	 * @param ?string $icon The configured room icon
 	 * @param string $roomType The room type (defaults to 'generic')
+	 * @throws NotFoundException if the floor does not exist
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
 	public function createRoom(int $floorId, string $name, ?string $icon = null, string $roomType = 'generic'): Room {
+		$floor = $this->getFloor($floorId);
+		$this->authorization->requireHouseOwner($floor->getHouseId());
+
 		return $this->roomMapper->create($floorId, $name, $icon, $roomType);
 	}
 
 	/**
-	 * Update room name
+	 * Update room name (owner-only, CS-PLAN-061 §3.4 / ADR-006).
 	 *
 	 * @param int $roomId The room ID
 	 * @param string $name The new name
+	 * @throws NotFoundException if the room does not exist
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
 	public function updateRoomName(int $roomId, string $name): Room {
 		$room = $this->roomMapper->find($roomId);
+		$floor = $this->floorMapper->find($room->getFloorId());
+		$this->authorization->requireHouseOwner($floor->getHouseId());
+
 		$room->setName($name);
 		return $this->roomMapper->update($room);
 	}
@@ -147,6 +175,9 @@ class RoomService {
 	 */
 	public function deleteRoom(int $roomId): void {
 		$room = $this->roomMapper->find($roomId);
+		$floor = $this->floorMapper->find($room->getFloorId());
+		// Structure mutation → owner-only in the service (CS-PLAN-061 §3.4).
+		$this->authorization->requireHouseOwner($floor->getHouseId());
 
 		try {
 			$this->transactions->run(function () use ($roomId, $room) {
@@ -201,11 +232,16 @@ class RoomService {
 	 * Get room task by ID
 	 *
 	 * @param int $roomTaskId The room task ID
+	 * @throws NotFoundException if not found
 	 */
 	public function getRoomTask(int $roomTaskId): array {
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		$task = $this->taskMapper->find($roomTask->getTaskId());
-		$room = $this->roomMapper->find($roomTask->getRoomId());
+		try {
+			$roomTask = $this->roomTaskMapper->find($roomTaskId);
+			$task = $this->taskMapper->find($roomTask->getTaskId());
+			$room = $this->roomMapper->find($roomTask->getRoomId());
+		} catch (DoesNotExistException $e) {
+			throw new NotFoundException($this->l10n->t('Room task not found'));
+		}
 
 		return [
 			'roomTask' => $roomTask,
@@ -276,16 +312,11 @@ class RoomService {
 			// task from the canonical join table (CS-PLAN-060 WP1, D2).
 			$assigneeUserIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
 
-			// Private-task gate: only assigned users may complete a private task.
-			// Non-private tasks remain completable by any house member.
-			if ($task->getVisibilityType() === Task::VISIBILITY_PRIVATE && !in_array($userId, $assigneeUserIds, true)) {
-				throw new ForbiddenException($this->l10n->t('Private tasks may only be completed by assigned users'));
-			}
-
-			// Admin-only gate: only house owners may complete admin-only tasks.
-			if ($task->getVisibilityType() === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
-				throw new ForbiddenException($this->l10n->t('Admin-only tasks may only be completed by house owners'));
-			}
+			// One visibility matrix for completion too (CS-PLAN-061 §3.2, D2):
+			// private tasks → creator ∪ assignees, admin-only → owners. A
+			// non-viewer gets the 404 anti-enumeration denial — completion
+			// must not confirm that an invisible room-task id exists.
+			$this->taskAccessPolicy->assertCanView($task, $houseUser, $assigneeUserIds);
 
 			// Duplicate-completion guard: prevent the same user from earning coins
 			// twice for the same room task on the same calendar day (defense in
@@ -315,10 +346,13 @@ class RoomService {
 					// Defer the actual notification dispatch until after commit
 					// (below) so a rollback never leaves a stale "taken over"
 					// notification in the bell. Capture the context here while
-					// it's in scope.
+					// it's in scope. The claimer travels as uid + display name —
+					// the notifier's rich `user` param requires the uid as `id`
+					// (CS-PLAN-061 §3.7).
 					$takeoverNotification = [
 						'recipient' => $originalAssignee,
 						'taskName' => $task->getName(),
+						'claimerUserId' => $userId,
 						'claimerDisplayName' => $houseUser->getDisplayName(),
 						'roomTaskId' => $roomTaskId,
 					];
@@ -422,6 +456,7 @@ class RoomService {
 				$this->notificationService->notifyOverdueTakenOver(
 					$takeoverNotification['recipient'],
 					$takeoverNotification['taskName'],
+					$takeoverNotification['claimerUserId'],
 					$takeoverNotification['claimerDisplayName'],
 					$takeoverNotification['roomTaskId']
 				);

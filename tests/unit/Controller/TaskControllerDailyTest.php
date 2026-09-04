@@ -58,7 +58,7 @@ class TaskControllerDailyTest extends TestCase {
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
 		$houseUser->setNextcloudUserId('user123');
-		$this->authService->expects($this->once())->method('ensureHouseMember')->with(1)->willReturn($houseUser);
+		$this->authService->expects($this->once())->method('assertHouseMember')->with(1)->willReturn($houseUser);
 		$this->roomTaskService->expects($this->once())->method('validateRoomTaskOwnership')->with(1, 1);
 
 		$roomTask = $this->createMock(RoomTask::class);
@@ -66,7 +66,7 @@ class TaskControllerDailyTest extends TestCase {
 
 		$this->roomTaskService->expects($this->once())
 			->method('uncompleteTask')
-			->with(1, $houseUser, 'user123')
+			->with(1, $houseUser)
 			->willReturn($roomTask);
 
 		$response = $this->controller->uncomplete(1);

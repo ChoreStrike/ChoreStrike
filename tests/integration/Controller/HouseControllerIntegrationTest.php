@@ -114,22 +114,21 @@ class HouseControllerIntegrationTest extends TestCase {
 	}
 
 	/**
-	 * Update_BootstrapsMembershipBeforeOwnerCheck
+	 * Update_AssertsMembershipBeforeOwnerCheck
 	 *
-	 * CR-SVC-47: house.update runs getOrCreateHouse (no membership side
-	 * effect) and must explicitly bootstrap membership BEFORE the owner check
-	 * so the first user on a fresh instance becomes the owner instead of a
-	 * 403. requireHouseOwner itself stays read-only (CR-SVC-06).
+	 * ADR-010/CS-PLAN-061: house.update is NOT a bootstrap endpoint — it runs
+	 * the pure membership assertion BEFORE the owner check, so a non-member
+	 * is denied with 403 and no membership row is ever created.
 	 */
-	public function testUpdate_BootstrapsMembershipBeforeOwnerCheck(): void {
+	public function testUpdate_AssertsMembershipBeforeOwnerCheck(): void {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
 		$this->houseService->method('updateHouse')->willReturn($this->createMockHouse());
 
 		$callOrder = [];
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willReturnCallback(function () use (&$callOrder) {
-				$callOrder[] = 'ensureHouseMember';
+				$callOrder[] = 'assertHouseMember';
 				return $this->createMockHouseUser();
 			});
 		$this->authService->method('requireHouseOwner')
@@ -141,22 +140,23 @@ class HouseControllerIntegrationTest extends TestCase {
 		$response = $this->controller->update('New Name');
 
 		$this->assertEquals(200, $response->getStatus());
-		$this->assertSame(['ensureHouseMember', 'requireHouseOwner'], $callOrder);
+		$this->assertSame(['assertHouseMember', 'requireHouseOwner'], $callOrder);
 	}
 
 	/**
-	 * Reset_BootstrapsMembershipBeforeOwnerCheck
+	 * Reset_AssertsMembershipBeforeOwnerCheck
 	 *
-	 * CR-SVC-47: same bootstrap-before-owner-check contract for house.reset.
+	 * ADR-010/CS-PLAN-061: same pure-gate contract for house.reset — no
+	 * bootstrap, membership assertion before the owner check.
 	 */
-	public function testReset_BootstrapsMembershipBeforeOwnerCheck(): void {
+	public function testReset_AssertsMembershipBeforeOwnerCheck(): void {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
 
 		$callOrder = [];
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willReturnCallback(function () use (&$callOrder) {
-				$callOrder[] = 'ensureHouseMember';
+				$callOrder[] = 'assertHouseMember';
 				return $this->createMockHouseUser();
 			});
 		$this->authService->method('requireHouseOwner')
@@ -168,7 +168,7 @@ class HouseControllerIntegrationTest extends TestCase {
 		$response = $this->controller->reset();
 
 		$this->assertEquals(200, $response->getStatus());
-		$this->assertSame(['ensureHouseMember', 'requireHouseOwner'], $callOrder);
+		$this->assertSame(['assertHouseMember', 'requireHouseOwner'], $callOrder);
 	}
 
 	/**
@@ -211,7 +211,7 @@ class HouseControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
 		$this->houseService->method('getHouseStats')
 			->willReturn(['house' => $this->createMockHouse(), 'stats' => $stats]);
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 
 		$response = $this->controller->stats();
 
@@ -228,7 +228,7 @@ class HouseControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
 		$this->houseService->method('calculateHouseHealth')
 			->willReturn(82);
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 
 		$response = $this->controller->health();
 

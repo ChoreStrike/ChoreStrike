@@ -7,7 +7,7 @@ namespace OCA\ChoreStrike\Tests\Integration\Controller;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
@@ -17,7 +17,8 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * Verifies the CS-PLAN-005 contract:
  * - Admin-only tasks are visible only to house owners
  * - Members and children cannot see admin-only tasks
- * - Only owners can complete admin-only tasks (403 for non-owners)
+ * - Only owners can complete admin-only tasks (404 anti-enumeration
+ *   for non-owners: NotFoundException 'Task not found')
  * - Admin-only tasks DO grant rewards (unlike private tasks)
  *
  * @see docs/plans/active/cs-plan-005-task-visibility-teamwork-overdue.md Phase 2
@@ -104,8 +105,8 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 		$this->actingAs('admin_member');
 		$roomService = \OC::$server->get(RoomService::class);
 
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('Admin-only tasks may only be completed by house owners');
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Task not found');
 		$roomService->completeRoomTask($this->adminOnlyRoomTaskId, 'admin_member');
 	}
 
@@ -113,8 +114,8 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 		$this->actingAs('admin_child');
 		$roomService = \OC::$server->get(RoomService::class);
 
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('Admin-only tasks may only be completed by house owners');
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Task not found');
 		$roomService->completeRoomTask($this->adminOnlyRoomTaskId, 'admin_child');
 	}
 

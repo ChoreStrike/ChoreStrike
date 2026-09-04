@@ -19,13 +19,12 @@ use OCP\IUserSession;
 /**
  * Service for authorization checks across the application.
  *
- * Two membership primitives:
- *  - {@see ensureHouseMember()} MUTATES: it auto-creates a membership on first
- *    access (the bootstrap / join flow behind getOrCreateHouse). Use it only
- *    where auto-join is the intended behaviour.
- *  - {@see assertHouseMember()} is a pure, read-only check that throws
- *    {@see ForbiddenException} on a miss without side effects. Use it for
- *    ordinary authorization gates.
+ * Membership model (ADR-010): the house is invite-only after the first
+ * owner. {@see ensureHouseMember()} is the ONE-TIME bootstrap primitive —
+ * it auto-creates a membership only while the house has zero members
+ * (first owner); once members exist, a miss is a denial.
+ * {@see assertHouseMember()} is the pure, read-only gate for every
+ * ordinary access check.
  *
  * All "require*" / "assert*" methods throw {@see ForbiddenException} so the
  * controllers can translate a denial into a 403 instead of a 500.
@@ -81,15 +80,23 @@ class AuthorizationService {
 	}
 
 	/**
-	 * Ensure the current user is a member of the given house, auto-creating
-	 * the membership on first access (bootstrap / join flow).
+	 * Ensure the current user is a member of the given house — bootstrap-only
+	 * (ADR-010, decision D1).
 	 *
-	 * This MUTATES state on a miss: the first authenticated user to reach a
-	 * house becomes its owner, subsequent users become members. It must only
-	 * be used where auto-join is intended (the getOrCreateHouse flows). For a
-	 * pure authorization gate use {@see assertHouseMember()} instead.
+	 * Auto-create fires ONLY when the house has zero members: the first
+	 * authenticated user to reach a designated bootstrap endpoint becomes its
+	 * owner. Once members exist, a non-member is denied with
+	 * {@see ForbiddenException} (same message as {@see assertHouseMember()},
+	 * so no new enumeration vector opens up) and NO membership row is
+	 * created — house membership is invite-only after the first owner, and
+	 * member removal is durable.
 	 *
-	 * @throws ForbiddenException if there is no authenticated user
+	 * Only the designated bootstrap endpoints (user#current, house#get,
+	 * user#invite, setup#catalog, setup#apply) may call this. For every
+	 * ordinary authorization gate use {@see assertHouseMember()}.
+	 *
+	 * @throws ForbiddenException if there is no authenticated user or the
+	 *                            house already has members not including the caller
 	 */
 	public function ensureHouseMember(int $houseId): HouseUser {
 		$user = $this->userSession->getUser();
@@ -108,27 +115,35 @@ class AuthorizationService {
 			return $houseUser;
 		}
 
-		// Auto-join is the rare bootstrap path: lock the house row and compute
+		// One-time bootstrap path (ADR-010): lock the house row and compute
 		// the role inside one transaction (CR-053-07). The lock serializes
-		// concurrent first-touchers — the second counts the winner's committed
-		// membership row and becomes `member`, so exactly one owner exists.
-		// Lock order: house → house_users (docs/engineering/development.md).
-		$displayName = $user->getDisplayName() ?: $userId;
-		$houseUser = $this->transactions->run(function () use ($houseId, $userId, $displayName) {
+		// concurrent first-touchers — the second counts the winner's
+		// committed membership row, sees members exist, and is denied.
+		// Exactly one owner exists; everyone after needs an invitation.
+		$houseUser = $this->transactions->run(function () use ($houseId, $userId) {
 			$this->houseMapper->findForUpdate($houseId);
 
 			$existingUsers = $this->houseUserMapper->findByHouseId($houseId);
-			$role = count($existingUsers) === 0 ? 'owner' : 'member';
+			if ($existingUsers !== []) {
+				$this->appLogger->securityWarning('Bootstrap denied: house already has members', [
+					'service' => 'AuthorizationService',
+					'action' => 'ensureHouseMember',
+					'houseId' => $houseId,
+					'userId' => $userId,
+				]);
+				throw new ForbiddenException($this->l10n->t('Not a member of this house'));
+			}
 
-			$this->appLogger->info('House membership auto-created for current user', [
+			$this->appLogger->info('First-owner bootstrap membership created', [
 				'service' => 'AuthorizationService',
 				'action' => 'ensureHouseMember',
 				'houseId' => $houseId,
 				'userId' => $userId,
-				'role' => $role,
+				'role' => 'owner',
 			]);
 
-			return $this->houseUserMapper->createOrGet($houseId, $userId, $displayName, $role);
+			$displayName = $this->userSession->getUser()?->getDisplayName() ?: $userId;
+			return $this->houseUserMapper->createOrGet($houseId, $userId, $displayName, 'owner');
 		});
 
 		return $houseUser;
@@ -231,6 +246,26 @@ class AuthorizationService {
 				'targetUserId' => $userId,
 			]);
 			throw new ForbiddenException($this->l10n->t('User is not a member of this house'));
+		}
+	}
+
+	/**
+	 * Assert the acting user may manage the task domain (CS-PLAN-061 §3.4,
+	 * decision D5): owners and members may create/update/delete/assign tasks;
+	 * children have the execution surface only (complete, checklist progress,
+	 * own preferences/minigames).
+	 *
+	 * @param HouseUser $houseUser The acting user's house membership
+	 * @throws ForbiddenException if the actor has the child role
+	 */
+	public function assertCanManageTasks(HouseUser $houseUser): void {
+		if ($houseUser->isChild()) {
+			$this->appLogger->warning('Task management denied for child role', [
+				'service' => 'AuthorizationService',
+				'action' => 'assertCanManageTasks',
+				'userId' => $houseUser->getNextcloudUserId(),
+			]);
+			throw new ForbiddenException($this->l10n->t('Children may view and complete tasks, but not manage them'));
 		}
 	}
 }

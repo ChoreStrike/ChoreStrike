@@ -31,8 +31,9 @@
 
 		<div v-else class="task-list-body">
 			<!-- Bulk assignment bar (CS-PLAN-042, UX-008): one API call for the
-			     whole selection instead of a per-item loop -->
-			<div v-if="selectedRoomTaskIds.length > 0" class="bulk-assign-bar" data-testid="bulk-assign-bar">
+			     whole selection instead of a per-item loop. Owners and members
+			     only — children cannot assign (CS-PLAN-061 §3.4, D5). -->
+			<div v-if="userStore.canManageTasks && selectedRoomTaskIds.length > 0" class="bulk-assign-bar" data-testid="bulk-assign-bar">
 				<span class="bulk-selection-count">
 					{{ t('chorestrike', '{count} selected', { count: selectedRoomTaskIds.length }) }}
 				</span>
@@ -169,7 +170,7 @@
 
 						<div class="task-actions">
 							<button
-								v-if="item.roomTask.isActive"
+								v-if="item.roomTask.isActive && userStore.canManageTasks"
 								class="action-btn"
 								:aria-label="t('chorestrike', 'Edit')"
 								:title="t('chorestrike', 'Edit')"
@@ -184,6 +185,7 @@
 								<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
 							</button>
 							<button
+								v-if="userStore.canManageTasks"
 								class="action-btn delete"
 								:aria-label="t('chorestrike', 'Remove')"
 								:title="t('chorestrike', 'Remove')"
@@ -195,8 +197,9 @@
 
 					<!-- Expanded Details with Checklist -->
 					<div v-if="isExpanded(item.roomTask.id)" class="task-details">
-						<!-- Assignee multi-select (multi-assign) -->
-						<div class="assignee-picker">
+						<!-- Assignee multi-select (multi-assign) — owners and
+						     members only; children have the execution surface -->
+						<div v-if="userStore.canManageTasks" class="assignee-picker">
 							<label class="assignee-label">{{ t('chorestrike', 'Assigned members') }}</label>
 							<div class="assignee-chips">
 								<label

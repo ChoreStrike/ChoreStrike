@@ -89,11 +89,14 @@ class NotificationServiceTest extends TestCase {
 		$this->wireRecordingNotification();
 		$this->manager->expects($this->once())->method('notify');
 
-		$this->service->notifyOverdueTakenOver('alice', 'Dishes', 'Bob', 42);
+		$this->service->notifyOverdueTakenOver('alice', 'Dishes', 'bob', 'Bob', 42);
 
 		$this->assertSame('alice', $this->lastUser);
 		$this->assertSame('overdue_taken_over', $this->lastSubjectName);
-		$this->assertSame(['task' => 'Dishes', 'taskId' => 42, 'claimer' => 'Bob'], $this->lastSubject);
+		$this->assertSame(
+			['task' => 'Dishes', 'taskId' => 42, 'claimer' => 'bob', 'claimerName' => 'Bob'],
+			$this->lastSubject
+		);
 		$this->assertSame('room_task', $this->lastObjectType);
 		$this->assertSame('42', $this->lastObjectId);
 	}
@@ -109,6 +112,9 @@ class NotificationServiceTest extends TestCase {
 		$this->assertSame('medal_awarded', $this->lastSubjectName);
 		$this->assertSame(['medalType' => 'team_anchor', 'value' => 12], $this->lastSubject);
 		$this->assertSame('medal', $this->lastObjectType);
+		// CS-PLAN-061 §3.7: week+medal-qualified objectId keeps different
+		// medals in the same week from collapsing on the dedup key.
+		$this->assertSame('2026-07-14:team_anchor', $this->lastObjectId);
 	}
 
 	/**
@@ -235,7 +241,7 @@ class NotificationServiceTest extends TestCase {
 		$this->manager->expects($this->never())->method('createNotification');
 		$this->manager->expects($this->never())->method('notify');
 
-		$this->service->notifyOverdueTakenOver('', 'Dishes', 'Bob', 42);
+		$this->service->notifyOverdueTakenOver('', 'Dishes', 'bob', 'Bob', 42);
 	}
 
 	/**
@@ -249,6 +255,6 @@ class NotificationServiceTest extends TestCase {
 		$this->appLogger->expects($this->once())->method('logException');
 
 		// Must not propagate the exception.
-		$this->service->notifyOverdueTakenOver('alice', 'Dishes', 'Bob', 42);
+		$this->service->notifyOverdueTakenOver('alice', 'Dishes', 'bob', 'Bob', 42);
 	}
 }

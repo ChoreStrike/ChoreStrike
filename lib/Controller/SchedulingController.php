@@ -60,12 +60,11 @@ class SchedulingController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$userId = $this->authService->getCurrentUserId();
-			if ($userId === null) {
-				throw new \Exception('Not authenticated');
-			}
+			// 403, not 500 (CS-PLAN-061 §3.5): requireCurrentUserId throws the
+			// ForbiddenException the catch below maps to a clean denial.
+			$userId = $this->authService->requireCurrentUserId();
 
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 			$preferences = $this->schedulingService->getUserPreferencesByNextcloudUserId($house->getId(), $userId);
 
 			return new JSONResponse([
@@ -101,12 +100,11 @@ class SchedulingController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$userId = $this->authService->getCurrentUserId();
-			if ($userId === null) {
-				throw new \Exception('Not authenticated');
-			}
+			// 403, not 500 (CS-PLAN-061 §3.5): requireCurrentUserId throws the
+			// ForbiddenException the catch below maps to a clean denial.
+			$userId = $this->authService->requireCurrentUserId();
 
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 			if ($weekdayAvailability === null && $energyBudget === null) {
 				throw new \InvalidArgumentException($this->l->t('At least one section (weekdayAvailability or energyBudget) must be provided'));
 			}
@@ -150,9 +148,9 @@ class SchedulingController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			// CR-SVC-47: bootstrap membership before the owner check so the
-			// first user on a fresh instance becomes the owner.
-			$this->authService->ensureHouseMember($house->getId());
+			// Pure membership gate + owner requirement (ADR-010: bootstrap
+			// happens on the designated endpoints only).
+			$this->authService->assertHouseMember($house->getId());
 			$this->authService->requireHouseOwner($house->getId());
 
 			$availability = $this->schedulingService->getMemberAvailability($house->getId());
@@ -185,9 +183,9 @@ class SchedulingController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			// CR-SVC-47: bootstrap membership before the owner check so the
-			// first user on a fresh instance becomes the owner.
-			$this->authService->ensureHouseMember($house->getId());
+			// Pure membership gate + owner requirement (ADR-010: bootstrap
+			// happens on the designated endpoints only).
+			$this->authService->assertHouseMember($house->getId());
 			$this->authService->requireHouseOwner($house->getId());
 
 			$this->validateMemberUpdates($updates);
@@ -227,7 +225,7 @@ class SchedulingController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			if ($taskCount < 0) {
 				throw new \InvalidArgumentException($this->l->t('taskCount must not be negative'));
@@ -281,7 +279,10 @@ class SchedulingController extends Controller {
 			return;
 		}
 
-		$keys = array_map('strval', array_keys($section));
+		// Case-insensitive (CS-PLAN-061 §3.7): the writer path lowercases
+		// weekday keys before persisting, so validation must accept 'Monday'
+		// exactly like 'monday' — otherwise the two paths diverge again.
+		$keys = array_map(static fn ($key) => strtolower((string)$key), array_keys($section));
 		foreach (array_diff($keys, self::VALID_WEEKDAYS) as $unknownDay) {
 			throw new \InvalidArgumentException($this->l->t('Invalid weekday: %1$s', [$unknownDay]));
 		}

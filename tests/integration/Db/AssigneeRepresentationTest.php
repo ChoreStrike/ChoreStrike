@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Integration\Db;
 
+use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -31,6 +33,14 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 	}
 
 	/**
+	 * Resolve the acting user's house membership row (CS-PLAN-061: services
+	 * take an explicit HouseUser actor).
+	 */
+	private function actor(int $houseId, string $userId): \OCA\ChoreStrike\Db\HouseUser {
+		return \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, $userId);
+	}
+
+	/**
 	 * CreateRoomTask_WithAssignee_WritesJoinTableRows
 	 *
 	 * Initial assignment writes join rows; the schema no longer carries the
@@ -47,6 +57,7 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 			$houseId,
 			$roomId,
 			$taskId,
+			$this->actor($houseId, 'asg_owner'),
 			null,
 			null,
 			'asg_member'
@@ -74,19 +85,21 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'Trash');
 
-		$roomTask = $this->roomTaskService->createRoomTask($houseId, $roomId, $taskId);
-
 		$this->actingAs('asg_owner2');
-		$this->roomTaskService->assignTask($roomTask->getId(), 'asg_member2', $houseId);
+		$roomTask = $this->roomTaskService->createRoomTask($houseId, $roomId, $taskId, $this->actor($houseId, 'asg_owner2'));
+		$owner = $this->actor($houseId, 'asg_owner2');
+
+		$this->roomTaskService->setAssignees($roomTask->getId(), ['asg_member2'], $houseId, $owner);
 		self::assertSame(['asg_member2'], $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId()));
 
-		$this->roomTaskService->unassignTask($roomTask->getId());
+		$this->roomTaskService->setAssignees($roomTask->getId(), [], $houseId, $owner);
 		self::assertSame([], $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId()), 'unassign must clear the join rows');
 	}
 
 	/**
 	 * Completion reads the join-table assignees: a private task is
-	 * completable by a join-table assignee and rejected for anyone else.
+	 * completable by a join-table assignee and a 404 anti-enumeration
+	 * denial (NotFoundException, CS-PLAN-061 D3) for anyone else.
 	 */
 	public function testPrivateTaskCompletion_ReadsJoinTableAssignees(): void {
 		$houseId = $this->createHouse('asg_owner3', 'Assignee House 3');
@@ -99,12 +112,12 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 		$this->setTaskVisibility($taskId, 'private', 'asg_owner3');
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'asg_member3');
 
-		// Non-assignee member is rejected.
+		// Non-assignee member is rejected with the 404 contract.
 		try {
 			\OC::$server->get(\OCA\ChoreStrike\Service\RoomService::class)->completeRoomTask($roomTaskId, 'asg_other');
 			self::fail('a non-assignee must not complete a private task');
-		} catch (\OCA\ChoreStrike\Exception\ForbiddenException $e) {
-			self::assertStringContainsString('assigned users', $e->getMessage());
+		} catch (NotFoundException $e) {
+			self::assertSame('Task not found', $e->getMessage());
 		}
 
 		// The join-table assignee completes successfully.

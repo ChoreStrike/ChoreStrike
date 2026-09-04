@@ -204,5 +204,45 @@ describe('api.js', () => {
 			expect(err.status).toBe(400)
 			expect(err.data).toEqual({ detail: 'bad' })
 		})
+
+		it('exposes the backend error code as a first-class field (CS-PLAN-061 §3.9)', async () => {
+			const axiosError = new Error('Request failed with status code 403')
+			axiosError.response = {
+				status: 403,
+				data: {
+					success: false,
+					error: { code: 'CANNOT_REMOVE_OWNER', message: 'Cannot remove house owner' },
+				},
+			}
+			axios.mockRejectedValue(axiosError)
+
+			try {
+				await del('/api/v1/users/42')
+				throw new Error('Expected del() to throw ApiError')
+			} catch (error) {
+				expect(error).toBeInstanceOf(ApiError)
+				expect(error.code).toBe('CANNOT_REMOVE_OWNER')
+				expect(error.status).toBe(403)
+			}
+		})
+
+		it('exposes the error code from non-2xx-in-envelope failures too', async () => {
+			axios.mockResolvedValue({
+				data: { success: false, error: { code: 'MINIGAME_RATE_LIMITED', message: 'Slow down' } },
+			})
+
+			try {
+				await post('/api/v1/minigames/snake/scores', { score: 10 })
+				throw new Error('Expected post() to throw ApiError')
+			} catch (error) {
+				expect(error).toBeInstanceOf(ApiError)
+				expect(error.code).toBe('MINIGAME_RATE_LIMITED')
+			}
+		})
+
+		it('defaults code to null when the backend sends none', () => {
+			const err = new ApiError('test', 500)
+			expect(err.code).toBeNull()
+		})
 	})
 })

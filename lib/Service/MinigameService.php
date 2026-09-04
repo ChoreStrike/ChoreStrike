@@ -40,6 +40,21 @@ class MinigameService {
 	 */
 	public const MAX_SCORE = 100000;
 
+	/**
+	 * Whitelist of game ids the API accepts (CS-PLAN-061 §3.7, decision D7):
+	 * an unknown gameId used to mint coins like any other — now it is a 400.
+	 * Keep in sync with the frontend game catalog (currently only snake).
+	 */
+	public const VALID_GAMES = ['snake'];
+
+	/**
+	 * Per-user daily saveScore cap (CS-PLAN-061 §3.7, decision D7): at most
+	 * this many score submissions per house-local day earn coins; further
+	 * submissions are rejected with 429 MINIGAME_RATE_LIMITED. Far above
+	 * legitimate play; bounds replay farming.
+	 */
+	public const DAILY_SCORE_SAVE_LIMIT = 100;
+
 	private MinigameScoreMapper $scoreMapper;
 	private HouseUserMapper $houseUserMapper;
 	private TransactionExecutor $transactions;
@@ -84,7 +99,8 @@ class MinigameService {
 	 * @param int $score The achieved score
 	 * @param array $boostsUsed List of boost IDs used during the game
 	 * @return array{score: MinigameScore, coinsEarned: int} The persisted score entity and the Coins actually awarded
-	 * @throws \InvalidArgumentException if the score is out of bounds (CR-SVC-05)
+	 * @throws \InvalidArgumentException if the score is out of bounds (CR-SVC-05) or the gameId is unknown (D7)
+	 * @throws \OCA\ChoreStrike\Exception\RateLimitException when the per-user daily save cap is reached (D7)
 	 */
 	public function saveScore(int $houseId, string $userId, string $gameId, int $score, array $boostsUsed = []): array {
 		// CR-SVC-05: bound the client-supplied score before any insert or coin
@@ -93,6 +109,29 @@ class MinigameService {
 		if ($score < 0 || $score > self::MAX_SCORE) {
 			throw new \InvalidArgumentException(
 				$this->l10n->t('Score must be between 0 and %1$d', [self::MAX_SCORE])
+			);
+		}
+
+		// D7: unknown gameIds are rejected outright — only whitelisted games
+		// may mint coins.
+		if (!in_array($gameId, self::VALID_GAMES, true)) {
+			throw new \InvalidArgumentException($this->l10n->t('Unknown game'));
+		}
+
+		// D7: per-user daily save cap. The window is the house-local calendar
+		// day (CS-PLAN-057 convention), resolved before the write transaction.
+		$tz = $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
+		[$dayStart, ] = $this->calendarService->dayBounds(new \DateTime(), $tz);
+		if ($this->scoreMapper->countByUserSince($houseId, $userId, $dayStart) >= self::DAILY_SCORE_SAVE_LIMIT) {
+			$this->appLogger->warning('Minigame score save rejected: daily cap reached', [
+				'event' => 'minigame_rate_limited',
+				'service' => 'MinigameService',
+				'houseId' => $houseId,
+				'userId' => $userId,
+				'gameId' => $gameId,
+			]);
+			throw new \OCA\ChoreStrike\Exception\RateLimitException(
+				$this->l10n->t('Too many score submissions today. Try again tomorrow.')
 			);
 		}
 

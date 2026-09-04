@@ -26,18 +26,20 @@ use OCP\IRequest;
  *  - GET  /api/v1/setup/catalog  room types + leveled templates (wizard + picker)
  *  - POST /api/v1/setup/apply    create floors/rooms/tasks in one transaction
  *
- * Authorization (decision D8): both endpoints require house membership
- * (ensureHouseMember), consistent with floor/room/room-task creation. The
- * first-run gate (the house must have no floors yet, D3) bounds the blast
- * radius of `apply`.
+ * Authorization (ADR-010, decision D1): both endpoints are designated
+ * bootstrap endpoints (ensureHouseMember); apply additionally requires the
+ * owner role in HouseSetupService (CS-PLAN-061 §3.4). The first-run gate
+ * (the house must have no floors yet, D3) bounds the blast radius of
+ * `apply`.
  */
 class SetupController extends Controller {
+	use ControllerLoggingTrait;
+
 	private TemplateService $templateService;
 	private HouseSetupService $houseSetupService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IL10N $l;
-	private AppLogger $appLogger;
 
 	public function __construct(
 		IRequest $request,
@@ -54,7 +56,7 @@ class SetupController extends Controller {
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
-		$this->appLogger = $appLogger;
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**
@@ -75,11 +77,7 @@ class SetupController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			$this->appLogger->error('Setup catalog failed', [
-				'service' => 'SetupController',
-				'event' => 'setup.catalog.error',
-				'exception' => get_class($e),
-			]);
+			$this->logControllerException('catalog', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -138,11 +136,7 @@ class SetupController extends Controller {
 			// Service-curated validation messages are safe to surface verbatim.
 			return ControllerErrorFormatter::validation($e);
 		} catch (\Exception $e) {
-			$this->appLogger->error('Setup apply failed', [
-				'service' => 'SetupController',
-				'event' => 'setup.apply.error',
-				'exception' => get_class($e),
-			]);
+			$this->logControllerException('apply', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [

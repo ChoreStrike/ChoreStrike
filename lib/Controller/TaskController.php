@@ -59,7 +59,7 @@ class TaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			$tasks = $this->taskService->getVisibleTasks($house->getId(), $houseUser);
 
@@ -156,7 +156,7 @@ class TaskController extends Controller {
 
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			// Validate visibilityType
 			if (!in_array($visibilityType, \OCA\ChoreStrike\Db\Task::VISIBILITY_TYPES, true)) {
@@ -212,6 +212,7 @@ class TaskController extends Controller {
 			}
 
 			$task = $this->taskService->createTask(
+				$houseUser,
 				$name,
 				$description,
 				$energyCost,
@@ -252,7 +253,9 @@ class TaskController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			$this->logControllerException('create', $e, ['taskName' => $name]);
+			// Log hygiene (CS-PLAN-061 §3.6): the task name is user-authored
+			// content — only stable context keys belong in the log.
+			$this->logControllerException('create', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -272,30 +275,12 @@ class TaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			// Load existing task to guard visibility transitions
-			$existingTask = $this->taskService->getTask($id);
-
-			// Visibility access gate: a non-owner may not even touch a
-			// private task, and only an owner may touch an admin-only task.
-			// Denied with 404 (anti-enumeration) so the endpoint cannot be
-			// used to enumerate which task IDs exist.
-			$existingVisibility = $existingTask->getVisibilityType();
-			if ($existingVisibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE
-				&& $existingTask->getOwnerUserId() !== $houseUser->getNextcloudUserId()
-			) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
-				], 404);
-			}
-			if ($existingVisibility === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
-				], 404);
-			}
+			// Load existing task through the visibility policy (defense in
+			// depth, CS-PLAN-061 §3.2): an invisible task is a 404 before any
+			// update logic runs.
+			$existingTask = $this->taskService->getVisibleTask($id, $houseUser);
 
 			// The canonical `visibilityType` is the sole visibility source of
 			// truth; any legacy `isPrivate` key still sent by a stale client
@@ -386,19 +371,11 @@ class TaskController extends Controller {
 			}
 
 			try {
-				$task = $this->taskService->updateTask(
-					$id,
-					$updates,
-					$houseUser->getNextcloudUserId(),
-					$houseUser->isOwner()
-				);
-			} catch (ForbiddenException $e) {
+				$task = $this->taskService->updateTask($id, $updates, $houseUser);
+			} catch (NotFoundException $e) {
 				// Defense-in-depth visibility denial from the service
-				// (CR-SVC-17) must preserve the 404 anti-enumeration
-				// contract (same as the gates above),
-				// never a 403 that confirms the task exists. House-access
-				// ForbiddenExceptions are still handled as 403 by the outer
-				// catch below.
+				// (CS-PLAN-061 §3.2) must preserve the 404 anti-enumeration
+				// contract — never a 403 that confirms the task exists.
 				return new JSONResponse([
 					'success' => false,
 					'error' => ['code' => 'RESOURCE_NOT_FOUND', 'message' => $this->l->t('Task not found')]
@@ -440,10 +417,10 @@ class TaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
-			$task = $this->roomTaskService->uncompleteTask($id, $houseUser, $houseUser->getNextcloudUserId());
+			$task = $this->roomTaskService->uncompleteTask($id, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,

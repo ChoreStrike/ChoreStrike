@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\FloorController;
+use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -43,7 +45,8 @@ class FloorControllerIntegrationTest extends IntegrationTestCase {
 			$this->floorService,
 			$this->houseService,
 			$this->authService,
-			$l10n
+			$l10n,
+			\OC::$server->get(AppLogger::class)
 		);
 	}
 
@@ -85,7 +88,7 @@ class FloorControllerIntegrationTest extends IntegrationTestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->floorService->method('createFloor')
 			->willReturn($floor);
 
@@ -118,7 +121,7 @@ class FloorControllerIntegrationTest extends IntegrationTestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->floorService->method('updateFloorName')
 			->willReturn($floor);
 
@@ -137,7 +140,7 @@ class FloorControllerIntegrationTest extends IntegrationTestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->floorService->method('deleteFloor')
 			->with($floorId);
 
@@ -156,16 +159,18 @@ class FloorControllerIntegrationTest extends IntegrationTestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
+		// CS-PLAN-061 §3.5: foreign/missing ids surface as NotFoundException
+		// → 404 with RESOURCE_NOT_FOUND (never 500, never 403).
 		$this->floorService->method('validateFloorOwnership')
-			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Floor not found'));
+			->willThrowException(new NotFoundException('Floor not found'));
 
 		$response = $this->controller->delete($floorId);
 
-		// Controller catches exception and returns 500 with error
-		$this->assertEquals(500, $response->getStatus());
+		$this->assertEquals(404, $response->getStatus());
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
+		$this->assertSame('RESOURCE_NOT_FOUND', $data['error']['code']);
 	}
 
 	/**
@@ -181,7 +186,7 @@ class FloorControllerIntegrationTest extends IntegrationTestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->floorService->method('reorderFloors')
 			->willReturn($floors);
 

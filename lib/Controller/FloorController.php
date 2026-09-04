@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -21,6 +23,8 @@ use OCP\IRequest;
  * API controller for floor-related endpoints
  */
 class FloorController extends Controller {
+	use ControllerLoggingTrait;
+
 	private FloorService $floorService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
@@ -32,12 +36,14 @@ class FloorController extends Controller {
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
+		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->floorService = $floorService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**
@@ -71,7 +77,7 @@ class FloorController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 
 			// Require house membership for creation
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$floor = $this->floorService->createFloor($house->getId(), $resolvedName, $resolvedSortOrder);
 
@@ -82,6 +88,7 @@ class FloorController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('floor', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -164,7 +171,7 @@ class FloorController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 			$this->floorService->validateFloorOwnership($id, $house->getId());
 
 			if (empty(trim($name))) {
@@ -183,9 +190,12 @@ class FloorController extends Controller {
 				'success' => true,
 				'data' => $floor->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('floor', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -217,7 +227,7 @@ class FloorController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 
 			// Require house membership
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$updatedFloors = $this->floorService->reorderFloors($house->getId(), $floorOrder);
 
@@ -228,6 +238,7 @@ class FloorController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('floor', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -247,7 +258,7 @@ class FloorController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 			$this->authService->requireHouseOwner($house->getId());
 			$this->floorService->validateFloorOwnership($id, $house->getId());
 
@@ -257,9 +268,12 @@ class FloorController extends Controller {
 				'success' => true,
 				'message' => $this->l->t('Floor deleted successfully')
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('floor', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -281,7 +295,7 @@ class FloorController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 
 			// Require house membership
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$floorsWithRooms = $this->floorService->getFloorsWithRooms($house->getId());
 
@@ -301,6 +315,7 @@ class FloorController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('floor', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [

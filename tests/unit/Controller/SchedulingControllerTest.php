@@ -79,7 +79,7 @@ class SchedulingControllerTest extends TestCase {
 		];
 
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 
 		$this->schedulingService->expects($this->once())
 			->method('getUserPreferencesByNextcloudUserId')
@@ -97,9 +97,26 @@ class SchedulingControllerTest extends TestCase {
 
 	public function testGetPreferencesReturnsForbiddenForNonMember(): void {
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
+		$this->authService->method('assertHouseMember')
 			->willThrowException(new ForbiddenException('Not a house member'));
+
+		$response = $this->controller->getPreferences();
+
+		$this->assertEquals(403, $response->getStatus());
+	}
+
+	/**
+	 * CS-PLAN-061 §3.5: an anonymous caller (requireCurrentUserId throws)
+	 * gets a clean 403 — not a 500.
+	 */
+	public function testGetPreferencesReturnsForbiddenForAnonymousUser(): void {
+		$this->mockHouse();
+		$this->authService->method('requireCurrentUserId')
+			->willThrowException(new ForbiddenException('Not authenticated'));
+
+		$this->schedulingService->expects($this->never())
+			->method('getUserPreferencesByNextcloudUserId');
 
 		$response = $this->controller->getPreferences();
 
@@ -124,7 +141,7 @@ class SchedulingControllerTest extends TestCase {
 		$energyBudget = $this->fullWeek(fn (string $day) => $day === 'saturday' ? 15 : 10);
 
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 
 		$this->schedulingService->expects($this->once())
 			->method('updatePreferencesByNextcloudUserId')
@@ -144,7 +161,7 @@ class SchedulingControllerTest extends TestCase {
 		$energyBudget = $this->fullWeek(fn () => 12);
 
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 
 		$this->schedulingService->expects($this->once())
 			->method('updatePreferencesByNextcloudUserId')
@@ -160,7 +177,7 @@ class SchedulingControllerTest extends TestCase {
 		$weekdayAvailability = $this->fullWeek(fn () => false);
 
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 
 		$this->schedulingService->expects($this->once())
 			->method('updatePreferencesByNextcloudUserId')
@@ -174,7 +191,7 @@ class SchedulingControllerTest extends TestCase {
 
 	public function testUpdatePreferences_ReturnsBadRequestWhenNeitherSectionProvided(): void {
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 
 		$this->schedulingService->expects($this->never())
 			->method('updatePreferencesByNextcloudUserId');
@@ -191,7 +208,7 @@ class SchedulingControllerTest extends TestCase {
 		unset($weekdayAvailability['friday']);
 
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 
 		$response = $this->controller->updatePreferences($weekdayAvailability, null);
 
@@ -205,7 +222,7 @@ class SchedulingControllerTest extends TestCase {
 		$energyBudget['funday'] = 10;
 
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 
 		$response = $this->controller->updatePreferences(null, $energyBudget);
 
@@ -219,7 +236,7 @@ class SchedulingControllerTest extends TestCase {
 		$energyBudget['monday'] = '15';
 
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 
 		$response = $this->controller->updatePreferences(null, $energyBudget);
 
@@ -233,7 +250,7 @@ class SchedulingControllerTest extends TestCase {
 		$energyBudget = $this->fullWeek(fn () => 25);
 
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 
 		$response = $this->controller->updatePreferences(null, $energyBudget);
 
@@ -247,7 +264,7 @@ class SchedulingControllerTest extends TestCase {
 		$weekdayAvailability['monday'] = 'yes';
 
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
 
 		$response = $this->controller->updatePreferences($weekdayAvailability, null);
 
@@ -256,10 +273,33 @@ class SchedulingControllerTest extends TestCase {
 		$this->assertEquals('Availability values must be booleans', $response->getData()['error']['message']);
 	}
 
+	/**
+	 * CS-PLAN-061 §3.7: weekday keys are validated case-insensitively
+	 * ('Monday' must be accepted exactly like 'monday').
+	 */
+	public function testUpdatePreferences_AcceptsUpperCaseDayKeys(): void {
+		$weekdayAvailability = array_combine(
+			array_map('ucfirst', array_keys($this->fullWeek(fn () => true))),
+			array_fill(0, 7, true)
+		);
+
+		$this->mockHouse();
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
+
+		$this->schedulingService->expects($this->once())
+			->method('updatePreferencesByNextcloudUserId')
+			->with(1, 'user1', $weekdayAvailability, null);
+
+		$response = $this->controller->updatePreferences($weekdayAvailability, null);
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertTrue($response->getData()['success']);
+	}
+
 	public function testUpdatePreferences_ReturnsForbiddenForNonMember(): void {
 		$this->mockHouse();
-		$this->authService->method('getCurrentUserId')->willReturn('user1');
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
+		$this->authService->method('assertHouseMember')
 			->willThrowException(new ForbiddenException('Not a house member'));
 
 		$response = $this->controller->updatePreferences($this->fullWeek(fn () => true), null);

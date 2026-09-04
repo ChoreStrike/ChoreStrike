@@ -16,8 +16,10 @@ use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
@@ -80,7 +82,9 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$this->createIdentityL10n(),
 			$appLogger,
 			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
-			new \OCA\ChoreStrike\Service\CalendarService()
+			new \OCA\ChoreStrike\Service\CalendarService(),
+			$this->createMock(TaskAccessPolicy::class),
+			$this->createMock(AuthorizationService::class)
 		);
 
 		$this->expectException(NotFoundException::class);
@@ -141,12 +145,24 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$this->createIdentityL10n(),
 			$appLogger,
 			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
-			new \OCA\ChoreStrike\Service\CalendarService()
+			new \OCA\ChoreStrike\Service\CalendarService(),
+			$this->createMock(TaskAccessPolicy::class),
+			$this->createMock(AuthorizationService::class)
 		);
 
-		$result = $service->bulkAssignTasks([20], 'target-user', 1);
+		$result = $service->bulkAssignTasks([20], 'target-user', 1, $this->createHouseUser());
 
 		$this->assertSame([], $result);
+	}
+
+	/**
+	 * HouseUser actor for the bulk-assign actor policy gate (CS-PLAN-061 §3.4).
+	 */
+	private function createHouseUser(string $userId = 'assigner', string $role = 'owner'): \OCA\ChoreStrike\Db\HouseUser {
+		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
+		$houseUser->setNextcloudUserId($userId);
+		$houseUser->setRole($role);
+		return $houseUser;
 	}
 
 	private function createIdentityL10n(): IL10N {

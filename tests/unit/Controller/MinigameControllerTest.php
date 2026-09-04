@@ -12,10 +12,13 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 use OCA\ChoreStrike\Controller\MinigameController;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\MinigameScore;
+use OCA\ChoreStrike\Exception\RateLimitException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\MinigameService;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -36,12 +39,17 @@ class MinigameControllerTest extends TestCase {
 		$this->minigameService = $this->createMock(MinigameService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
+		// Identity mock: message assertions match the wrapped source text.
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
 		$this->controller = new MinigameController(
 			$this->request,
 			$this->houseService,
 			$this->minigameService,
-			$this->authService
+			$this->authService,
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 	}
 
@@ -55,7 +63,7 @@ class MinigameControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember');
 		$this->authService->method('getCurrentUserId')->willReturn('user1');
 		$this->minigameService->method('purchaseBoost')
 			->willThrowException(new \InvalidArgumentException('Unknown boost: mystery-box'));
@@ -84,7 +92,7 @@ class MinigameControllerTest extends TestCase {
 			->with('instance-123')
 			->willReturn($house);
 		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
+			->method('assertHouseMember')
 			->with(1);
 		$this->authService->expects($this->once())
 			->method('getCurrentUserId')
@@ -126,7 +134,7 @@ class MinigameControllerTest extends TestCase {
 			->with('instance-123')
 			->willReturn($house);
 		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
+			->method('assertHouseMember')
 			->with(1);
 		$this->authService->expects($this->once())
 			->method('getCurrentUserId')
@@ -168,7 +176,7 @@ class MinigameControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember');
 		$this->authService->method('getCurrentUserId')->willReturn('user1');
 		// Divergence case: score 120 would floor to 12 coins, but the
 		// service actually awarded 0.
@@ -182,5 +190,53 @@ class MinigameControllerTest extends TestCase {
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
 		$this->assertSame(0, $data['data']['coinsEarned']);
+	}
+
+	/**
+	 * D7: the service's per-user daily save cap (RateLimitException) maps
+	 * to a clean 429 MINIGAME_RATE_LIMITED — not a 500.
+	 */
+	public function testSaveScore_RateLimited_Returns429(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->minigameService->method('saveScore')
+			->willThrowException(new RateLimitException('Daily score limit reached'));
+
+		$response = $this->controller->saveScore('snake', 120, []);
+
+		$this->assertEquals(429, $response->getStatus());
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('MINIGAME_RATE_LIMITED', $data['error']['code']);
+		$this->assertEquals('Too many score submissions today. Try again tomorrow.', $data['error']['message']);
+	}
+
+	/**
+	 * An unknown gameId is rejected by the service with
+	 * InvalidArgumentException and surfaces as a 400 validation envelope.
+	 */
+	public function testSaveScore_UnknownGameId_Returns400(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->authService->method('getCurrentUserId')->willReturn('user1');
+		$this->minigameService->method('saveScore')
+			->willThrowException(new \InvalidArgumentException('Unknown game: tetris'));
+
+		$response = $this->controller->saveScore('tetris', 10, []);
+
+		$this->assertEquals(400, $response->getStatus());
+		$data = $response->getData();
+		$this->assertFalse($data['success']);
+		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
+		$this->assertEquals('Unknown game: tetris', $data['error']['message']);
 	}
 }

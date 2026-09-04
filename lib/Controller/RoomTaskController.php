@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
@@ -23,6 +24,8 @@ use OCP\IRequest;
  * API controller for room task-related endpoints
  */
 class RoomTaskController extends Controller {
+	use ControllerLoggingTrait;
+
 	private RoomTaskService $roomTaskService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
@@ -36,6 +39,7 @@ class RoomTaskController extends Controller {
 		AuthorizationService $authService,
 		IL10N $l,
 		\OCA\ChoreStrike\Service\CalendarService $calendarService,
+		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomTaskService = $roomTaskService;
@@ -43,6 +47,7 @@ class RoomTaskController extends Controller {
 		$this->authService = $authService;
 		$this->l = $l;
 		$this->calendarService = $calendarService;
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**
@@ -61,7 +66,7 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			$roomId = (int)$this->request->getParam('roomId');
 			$templateId = (string)($this->request->getParam('templateId') ?? '');
@@ -91,7 +96,8 @@ class RoomTaskController extends Controller {
 				$templateId,
 				$level,
 				is_array($overrides) ? $overrides : [],
-				is_string($assigneeUserId) && trim($assigneeUserId) !== '' ? $assigneeUserId : null
+				is_string($assigneeUserId) && trim($assigneeUserId) !== '' ? $assigneeUserId : null,
+				$houseUser
 			);
 
 			return new JSONResponse([
@@ -108,6 +114,7 @@ class RoomTaskController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('fromTemplate', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => ['code' => 'FROM_TEMPLATE_ERROR', 'message' => ControllerErrorFormatter::safeMessage($e)],
@@ -124,16 +131,16 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			if ($scopeId !== null) {
-				$roomTasks = $this->roomTaskService->getScopeTasksScopedToHouse($scopeId, $house->getId(), $activeOnly);
+				$roomTasks = $this->roomTaskService->getScopeTasksScopedToHouse($scopeId, $house->getId(), $houseUser, $activeOnly);
 			} elseif ($roomId !== null) {
 				// CR-053-02: the roomId is caller-supplied, so it must be
 				// validated against the caller's house (same fix as
 				// roomStats) — membership alone allowed cross-house reads.
 				$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
-				$roomTasks = $this->roomTaskService->getRoomTasks($roomId, $activeOnly);
+				$roomTasks = $this->roomTaskService->getRoomTasks($roomId, $houseUser, $activeOnly);
 			} else {
 				return new JSONResponse([
 					'success' => false,
@@ -160,6 +167,7 @@ class RoomTaskController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('index', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -185,7 +193,7 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			$nextDueDate = null;
 			if ($nextDue !== null) {
@@ -196,7 +204,7 @@ class RoomTaskController extends Controller {
 				}
 			}
 
-			$roomTask = $this->roomTaskService->createRoomTask($house->getId(), $roomId, $taskId, $nextDueDate, $scopeId, $assignedToUserId);
+			$roomTask = $this->roomTaskService->createRoomTask($house->getId(), $roomId, $taskId, $houseUser, $nextDueDate, $scopeId, $assignedToUserId);
 
 			return new JSONResponse([
 				'success' => true,
@@ -218,6 +226,7 @@ class RoomTaskController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('create', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -237,16 +246,19 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $this->roomTaskService->getAssigneeUserIds($id)
+				'data' => $this->roomTaskService->getAssigneeUserIds($id, $houseUser)
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('assignees', $e, ['roomTaskId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -268,22 +280,24 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
-			$assignedBy = $this->authService->requireCurrentUserId();
-			$assignees = $this->roomTaskService->setAssignees($id, $userIds, $house->getId(), $assignedBy);
+			$assignees = $this->roomTaskService->setAssignees($id, $userIds, $house->getId(), $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => array_map(fn ($a) => $a->jsonSerialize(), $assignees)
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (\InvalidArgumentException $e) {
 			// Service-curated membership message — safe to surface verbatim.
 			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('setAssignees', $e, ['roomTaskId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -303,18 +317,21 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
-			$roomTask = $this->roomTaskService->reactivateTask($id, $houseUser, $houseUser->getNextcloudUserId());
+			$roomTask = $this->roomTaskService->reactivateTask($id, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => $roomTask->jsonSerialize($this->timeZoneOf($house))
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('reactivate', $e, ['roomTaskId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -334,7 +351,7 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
 			try {
@@ -343,18 +360,21 @@ class RoomTaskController extends Controller {
 				throw new \InvalidArgumentException($this->l->t('Invalid nextDue date format'));
 			}
 
-			$roomTask = $this->roomTaskService->updateDueDate($id, $nextDueDate, $houseUser, $houseUser->getNextcloudUserId());
+			$roomTask = $this->roomTaskService->updateDueDate($id, $nextDueDate, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => $roomTask->jsonSerialize($this->timeZoneOf($house))
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (\InvalidArgumentException $e) {
 			// Curated date-format message — safe to surface verbatim.
 			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('updateDueDate', $e, ['roomTaskId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -374,7 +394,7 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
 			$currentUserId = $this->authService->requireCurrentUserId();
@@ -389,9 +409,12 @@ class RoomTaskController extends Controller {
 					'rewards' => $result['rewards']
 				]
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('complete', $e, ['roomTaskId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -411,18 +434,21 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
-			$this->roomTaskService->deleteRoomTask($id);
+			$this->roomTaskService->deleteRoomTask($id, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
 				'message' => $this->l->t('Room task deleted successfully')
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('delete', $e, ['roomTaskId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -447,7 +473,7 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			$userId = (string)($this->request->getParam('userId') ?? '');
 			if (empty(trim($userId))) {
@@ -485,19 +511,22 @@ class RoomTaskController extends Controller {
 				$roomTaskIds[] = (int)$rawId;
 			}
 
-			$assignedTasks = $this->roomTaskService->bulkAssignTasks($roomTaskIds, $userId, $house->getId());
+			$assignedTasks = $this->roomTaskService->bulkAssignTasks($roomTaskIds, $userId, $house->getId(), $houseUser);
 			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => array_map(fn ($roomTask) => $roomTask->jsonSerialize($tz), $assignedTasks)
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (\InvalidArgumentException $e) {
 			// Service-curated membership message — safe to surface verbatim.
 			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('bulkAssign', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -517,9 +546,9 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$overdueTasks = $this->roomTaskService->getOverdueTasks($house->getId(), $roomId);
+			$overdueTasks = $this->roomTaskService->getOverdueTasks($house->getId(), $houseUser, $roomId);
 			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
@@ -529,6 +558,7 @@ class RoomTaskController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('overdue', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -548,9 +578,9 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$dueTodayTasks = $this->roomTaskService->getDueTodayTasks($house->getId(), $roomId);
+			$dueTodayTasks = $this->roomTaskService->getDueTodayTasks($house->getId(), $houseUser, $roomId);
 			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
@@ -560,6 +590,7 @@ class RoomTaskController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('dueToday', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -619,9 +650,9 @@ class RoomTaskController extends Controller {
 
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$data = $this->roomTaskService->getRangeTasks($house->getId(), $fromDate, $toDate);
+			$data = $this->roomTaskService->getRangeTasks($house->getId(), $fromDate, $toDate, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
@@ -630,6 +661,7 @@ class RoomTaskController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('range', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -649,7 +681,7 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			if ($roomId <= 0) {
 				return new JSONResponse([
@@ -666,7 +698,7 @@ class RoomTaskController extends Controller {
 			// endpoint — membership alone did not stop cross-house reads.
 			$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
 
-			$stats = $this->roomTaskService->getRoomTaskStats($roomId);
+			$stats = $this->roomTaskService->getRoomTaskStats($roomId, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
@@ -683,6 +715,7 @@ class RoomTaskController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('roomStats', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -706,16 +739,12 @@ class RoomTaskController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
-
-			$currentUserId = $this->authService->requireCurrentUserId();
-			$houseUserMapper = \OC::$server->get(\OCA\ChoreStrike\Db\HouseUserMapper::class);
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			$filteredTasks = $this->roomTaskService->getFilteredDailyTasksForUser(
 				$house->getId(),
-				$currentUserId,
-				new \DateTime(),
-				$houseUserMapper
+				$houseUser,
+				new \DateTime()
 			);
 			$tz = $this->timeZoneOf($house);
 
@@ -732,6 +761,7 @@ class RoomTaskController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('filteredDaily', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [

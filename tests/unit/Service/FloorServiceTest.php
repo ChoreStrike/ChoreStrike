@@ -9,9 +9,13 @@ use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\RoomService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -27,6 +31,7 @@ class FloorServiceTest extends TestCase {
 	private RoomService $roomService;
 	private IDBConnection $db;
 	private AppLogger $appLogger;
+	private AuthorizationService $authorization;
 
 	protected function setUp(): void {
 		$this->floorMapper = $this->createMock(FloorMapper::class);
@@ -35,6 +40,7 @@ class FloorServiceTest extends TestCase {
 		$this->roomService = $this->createMock(RoomService::class);
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
+		$this->authorization = $this->createMock(AuthorizationService::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -46,7 +52,8 @@ class FloorServiceTest extends TestCase {
 			$this->roomService,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
-			$this->appLogger
+			$this->appLogger,
+			$this->authorization
 		);
 	}
 
@@ -105,6 +112,25 @@ class FloorServiceTest extends TestCase {
 	}
 
 	/**
+	 * CreateFloor_NonOwner_ThrowsForbiddenWithoutCreating
+	 *
+	 * CS-PLAN-061 §3.4: structure mutation is owner-only in the service;
+	 * the gate runs before any floor lookup or write.
+	 */
+	public function testCreateFloor_NonOwner_ThrowsForbiddenWithoutCreating(): void {
+		$this->authorization->expects($this->once())
+			->method('requireHouseOwner')
+			->with(1)
+			->willThrowException(new ForbiddenException('Owner role required'));
+
+		$this->floorMapper->expects($this->never())->method('findByHouseId');
+		$this->floorMapper->expects($this->never())->method('create');
+
+		$this->expectException(ForbiddenException::class);
+		$this->service->createFloor(1, 'New Floor');
+	}
+
+	/**
 	 * UpdateFloorName_ValidName_ReturnsUpdatedFloor
 	 */
 	public function testUpdateFloorName_ValidName_ReturnsUpdatedFloor(): void {
@@ -113,6 +139,7 @@ class FloorServiceTest extends TestCase {
 
 		$floor = new Floor();
 		$floor->setId($floorId);
+		$floor->setHouseId(1);
 		$floor->setName('Old Name');
 
 		$updatedFloor = new Floor();
@@ -136,6 +163,34 @@ class FloorServiceTest extends TestCase {
 		$result = $this->service->updateFloorName($floorId, $newName);
 
 		$this->assertEquals($newName, $result->getName());
+	}
+
+	/**
+	 * ValidateFloorOwnership_UnknownFloor_ThrowsNotFound
+	 *
+	 * CS-PLAN-061: the mapper's DoesNotExistException is wrapped into the
+	 * domain NotFoundException('Floor not found') instead of leaking.
+	 */
+	public function testValidateFloorOwnership_UnknownFloor_ThrowsNotFound(): void {
+		$this->floorMapper->method('find')->willThrowException(new DoesNotExistException('not found'));
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Floor not found');
+		$this->service->validateFloorOwnership(99, 1);
+	}
+
+	/**
+	 * ValidateFloorOwnership_FloorOfOtherHouse_ThrowsNotFound
+	 */
+	public function testValidateFloorOwnership_FloorOfOtherHouse_ThrowsNotFound(): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(2);
+		$this->floorMapper->method('find')->willReturn($floor);
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Floor not found');
+		$this->service->validateFloorOwnership(1, 1);
 	}
 
 	/**
@@ -222,6 +277,7 @@ class FloorServiceTest extends TestCase {
 
 		$floor = new Floor();
 		$floor->setId($floorId);
+		$floor->setHouseId(1);
 
 		$room1 = new Room();
 		$room1->setId(5);
@@ -286,6 +342,7 @@ class FloorServiceTest extends TestCase {
 
 		$floor = new Floor();
 		$floor->setId($floorId);
+		$floor->setHouseId(1);
 
 		$room = new Room();
 		$room->setId(5);

@@ -217,7 +217,18 @@ export default {
 				await this.userStore.updateUserRole(member.id, role)
 				showSuccess(t('chorestrike', 'Role updated for {name}', { name: member.displayName }))
 			} catch (error) {
-				showError(error?.message || t('chorestrike', 'Failed to change role'))
+				// Stable backend codes are first-class on ApiError
+				// (CS-PLAN-061 §3.9) — branch for specific, localized copy.
+				switch (error?.code) {
+				case 'CANNOT_DEMOTE_SELF':
+					showError(t('chorestrike', 'You cannot change your own role'))
+					break
+				case 'CANNOT_DEMOTE_LAST_OWNER':
+					showError(t('chorestrike', 'Cannot demote the last house owner'))
+					break
+				default:
+					showError(error?.message || t('chorestrike', 'Failed to change role'))
+				}
 				logger.error('Failed to update role', error, { component: 'MemberList', action: 'changeRole', role })
 				// Reset the select to the member's actual role
 				event.target.value = member.role
@@ -236,7 +247,11 @@ export default {
 				showSuccess(t('chorestrike', '{name} was removed from the house', { name: this.removingMember.displayName }))
 				this.removingMember = null
 			} catch (error) {
-				showError(error?.message || t('chorestrike', 'Failed to remove member'))
+				if (error?.code === 'CANNOT_REMOVE_OWNER') {
+					showError(t('chorestrike', 'Cannot remove house owner'))
+				} else {
+					showError(error?.message || t('chorestrike', 'Failed to remove member'))
+				}
 				logger.error('Failed to remove member', error, { component: 'MemberList', action: 'confirmRemove' })
 			} finally {
 				this.removing = false

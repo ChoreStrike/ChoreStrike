@@ -32,7 +32,11 @@ const DEPRECATED_PREFIX_RE = /^\/index\.php\/apps\/chorestrike/i
 
 function parsePhpRoutesArray(content) {
 	const routes = []
-	const routeRegex = /\[\s*'name'\s*=>\s*'([^']+)'\s*,\s*'url'\s*=>\s*'([^']+)'\s*,\s*'verb'\s*=>\s*'([^']+)'\s*\]/g
+	// name/url/verb in order, optionally followed by a 'requirements' map
+	// (added by CS-PLAN-061 §3.7: `\d+` id constraints etc.). Requirement
+	// values may themselves contain bracket expressions like `[a-z0-9-]+`,
+	// so the map body is matched with one level of bracket nesting.
+	const routeRegex = /\[\s*'name'\s*=>\s*'([^']+)'\s*,\s*'url'\s*=>\s*'([^']+)'\s*,\s*'verb'\s*=>\s*'([^']+)'(?:,\s*'requirements'\s*=>\s*\[(?:[^\[\]]|\[[^\[\]]*\])*\])?\s*\]/g
 	let m
 	while ((m = routeRegex.exec(content)) !== null) {
 		routes.push({ name: m[1], url: m[2], verb: m[3] })

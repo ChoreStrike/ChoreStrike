@@ -11,9 +11,11 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
 use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -50,8 +52,17 @@ class RoomTaskControllerTest extends TestCase {
 			$this->houseService,
 			$this->authService,
 			$l10n,
-			new CalendarService()
+			new CalendarService(),
+			$this->createMock(AppLogger::class)
 		);
+	}
+
+	private function createHouseUser(): HouseUser {
+		// HouseUser accessors are magic (Entity __call), so use a real entity.
+		$houseUser = new HouseUser();
+		$houseUser->setNextcloudUserId('caller');
+		$houseUser->setRole('member');
+		return $houseUser;
 	}
 
 	/**
@@ -73,11 +84,13 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$houseUser = $this->createHouseUser();
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 		$this->roomTaskService->method('validateRoomOwnership');
 
 		$this->roomTaskService->expects($this->once())
 			->method('getRoomTasks')
+			->with(1, $this->identicalTo($houseUser), true)
 			->willReturn([$roomTask1, $roomTask2]);
 
 		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([]);
@@ -104,7 +117,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember');
 		$this->roomTaskService->expects($this->once())
 			->method('validateRoomOwnership')
 			->with(9, 1)
@@ -133,13 +146,13 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$houseUser = $this->createHouseUser();
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 
 		$this->roomTaskService->expects($this->once())
 			->method('getScopeTasksScopedToHouse')
-			->with(5, 1, true)
+			->with(5, 1, $this->identicalTo($houseUser), true)
 			->willReturn([$roomTask]);
-		$this->roomTaskService->expects($this->never())->method('getScopeTasks');
 
 		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([7 => ['user1']]);
 
@@ -165,7 +178,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember');
 		$this->roomTaskService->method('validateRoomTaskOwnership');
 		$this->authService->expects($this->once())
 			->method('requireCurrentUserId')
@@ -206,7 +219,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember');
 		$this->roomTaskService->expects($this->once())
 			->method('validateRoomOwnership')
 			->with(9, 1)
@@ -229,13 +242,14 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$houseUser = $this->createHouseUser();
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 		$this->roomTaskService->method('validateRoomOwnership');
 
 		$stats = ['totalTasks' => 2, 'completionRate' => 50];
 		$this->roomTaskService->expects($this->once())
 			->method('getRoomTaskStats')
-			->with(3)
+			->with(3, $this->identicalTo($houseUser))
 			->willReturn($stats);
 
 		$response = $this->controller->roomStats(3);
@@ -251,7 +265,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember')->willReturn($this->createHouseUser());
 
 		$mockData = [
 			'scheduled' => [['roomTask' => ['id' => 1], 'task' => ['name' => 'T'], 'room' => ['name' => 'R'], 'flexWindow' => []]],
@@ -297,7 +311,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Not a member'));
 
 		$response = $this->controller->range('2026-07-28', '2026-08-03');
@@ -319,13 +333,16 @@ class RoomTaskControllerTest extends TestCase {
 		$roomTask = new RoomTask();
 		$roomTask->setId(9);
 
+		$houseUser = $this->createHouseUser();
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 
+		// CS-PLAN-061: the authenticated HouseUser is the 4th createRoomTask
+		// argument (the service derives the acting user from the actor).
 		$this->roomTaskService->expects($this->once())
 			->method('createRoomTask')
-			->with(42, 1, 5, null, null, null)
+			->with(42, 1, 5, $this->identicalTo($houseUser), null, null, null)
 			->willReturn($roomTask);
 
 		$response = $this->controller->create(1, 5);
@@ -346,7 +363,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember');
 
 		$this->roomTaskService->method('createRoomTask')
 			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room not found'));
@@ -369,7 +386,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember');
 
 		$this->roomTaskService->method('createRoomTask')
 			->willThrowException(new \InvalidArgumentException('not a member'));

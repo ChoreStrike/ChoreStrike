@@ -104,6 +104,26 @@ class MinigameScoreMapper extends QBMapper {
 	}
 
 	/**
+	 * Count the scores a user saved since the given instant in one house —
+	 * the primitive behind the saveScore daily cap (CS-PLAN-061 §3.7, D7).
+	 */
+	public function countByUserSince(int $houseId, string $userId, \DateTime $since): int {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select($qb->func()->count('id'))
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_DATE)));
+
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		return $count;
+	}
+
+	/**
 	 * Get user's rank in leaderboard for a specific game
 	 *
 	 * Rank = number of users whose BEST score in this house/game beats the

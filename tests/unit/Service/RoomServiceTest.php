@@ -20,12 +20,15 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RoomService;
+use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -49,6 +52,8 @@ class RoomServiceTest extends TestCase {
 	private NotificationService $notificationService;
 	private IDBConnection $db;
 	private AppLogger $appLogger;
+	private AuthorizationService $authorization;
+	private TaskAccessPolicy $taskAccessPolicy;
 
 	/**
 	 * Per-test override for the weekly goal snapshot sequence.
@@ -77,6 +82,8 @@ class RoomServiceTest extends TestCase {
 		$this->notificationService = $this->createMock(NotificationService::class);
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
+		$this->authorization = $this->createMock(AuthorizationService::class);
+		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 
 		// CS-PLAN-057: the completion path resolves the house timezone —
 		// default to a UTC house (day bounds then match the classic UTC day).
@@ -120,7 +127,9 @@ class RoomServiceTest extends TestCase {
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$this->createIdentityL10n(),
 			$this->appLogger,
-			new CalendarService()
+			new CalendarService(),
+			$this->authorization,
+			$this->taskAccessPolicy
 		);
 	}
 
@@ -138,15 +147,32 @@ class RoomServiceTest extends TestCase {
 		$name = 'New Room';
 		$icon = 'Bath';
 
+		$floor = new Floor();
+		$floor->setId($floorId);
+		$floor->setHouseId(1);
+
 		$room = new Room();
 		$room->setId(1);
 		$room->setName($name);
 		$room->setIcon($icon);
 
+		// CS-PLAN-061 §3.4: the floor is resolved here and the caller must
+		// own the floor's house.
+		$this->floorMapper
+			->expects($this->once())
+			->method('find')
+			->with($floorId)
+			->willReturn($floor);
+
+		$this->authorization
+			->expects($this->once())
+			->method('requireHouseOwner')
+			->with(1);
+
 		$this->roomMapper
 			->expects($this->once())
 			->method('create')
-			->with($floorId, $name, $icon)
+			->with($floorId, $name, $icon, 'generic')
 			->willReturn($room);
 
 		$result = $this->service->createRoom($floorId, $name, $icon);
@@ -164,7 +190,12 @@ class RoomServiceTest extends TestCase {
 
 		$room = new Room();
 		$room->setId($roomId);
+		$room->setFloorId(7);
 		$room->setName('Old Name');
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(1);
 
 		$updatedRoom = new Room();
 		$updatedRoom->setId($roomId);
@@ -175,6 +206,18 @@ class RoomServiceTest extends TestCase {
 			->method('find')
 			->with($roomId)
 			->willReturn($room);
+
+		$this->floorMapper
+			->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($floor);
+
+		// CS-PLAN-061 §3.4: structure mutation is owner-only in the service.
+		$this->authorization
+			->expects($this->once())
+			->method('requireHouseOwner')
+			->with(1);
 
 		$this->roomMapper
 			->expects($this->once())
@@ -202,12 +245,28 @@ class RoomServiceTest extends TestCase {
 
 		$room = new Room();
 		$room->setId($roomId);
+		$room->setFloorId(7);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(1);
 
 		$this->roomMapper
 			->expects($this->once())
 			->method('find')
 			->with($roomId)
 			->willReturn($room);
+
+		$this->floorMapper
+			->expects($this->once())
+			->method('find')
+			->with(7)
+			->willReturn($floor);
+
+		$this->authorization
+			->expects($this->once())
+			->method('requireHouseOwner')
+			->with(1);
 
 		$this->roomTaskMapper
 			->expects($this->once())
@@ -258,8 +317,14 @@ class RoomServiceTest extends TestCase {
 
 		$room = new Room();
 		$room->setId($roomId);
+		$room->setFloorId(7);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(1);
 
 		$this->roomMapper->method('find')->willReturn($room);
+		$this->floorMapper->method('find')->willReturn($floor);
 		$this->roomTaskMapper->method('findIdsByRoomId')->willReturn([10]);
 		$this->taskAssigneeMapper->method('deleteByRoomTasks')
 			->willThrowException(new \RuntimeException('db down'));
@@ -986,12 +1051,13 @@ class RoomServiceTest extends TestCase {
 	}
 
 	/**
-	 * CompleteRoomTask_PrivateTask_NonAssigneeRejected
+	 * CompleteRoomTask_InvisibleTask_NonViewerRejected
 	 *
-	 * A private task may only be completed by an assigned user. A non-assignee
-	 * must be rejected with a ForbiddenException (mapped to 403 by the controller).
+	 * The visibility matrix is enforced via TaskAccessPolicy: a user who
+	 * cannot see the task gets the 404 anti-enumeration denial (NotFoundException),
+	 * not a ForbiddenException.
 	 */
-	public function testCompleteRoomTask_PrivateTask_NonAssigneeRejected(): void {
+	public function testCompleteRoomTask_InvisibleTask_NonViewerRejected(): void {
 		$roomTaskId = 1;
 		$completer = 'completer-user';
 
@@ -1025,14 +1091,21 @@ class RoomServiceTest extends TestCase {
 		// Completer is NOT among the assignees
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn(['someone-else']);
 
-		$this->expectException(ForbiddenException::class);
+		// The policy denies the non-assignee on a private task → 404.
+		$this->taskAccessPolicy->expects($this->once())
+			->method('assertCanView')
+			->with($task, $houseUser, ['someone-else'])
+			->willThrowException(new NotFoundException('Task not found'));
+
+		$this->expectException(NotFoundException::class);
 		$this->service->completeRoomTask($roomTaskId, $completer);
 	}
 
 	/**
 	 * CompleteRoomTask_PrivateTask_AssigneeAllowed
 	 *
-	 * An assigned user may complete a private task (no exception, completion proceeds).
+	 * An assigned user may complete a private task (the policy's assertCanView
+	 * passes — no exception, completion proceeds).
 	 */
 	public function testCompleteRoomTask_PrivateTask_AssigneeAllowed(): void {
 		$roomTaskId = 1;
@@ -1076,6 +1149,8 @@ class RoomServiceTest extends TestCase {
 		$this->houseUserMapper->method('findByHouseAndUser')->with(1, $completer)->willReturn($houseUser);
 		// Completer IS an assignee
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([$completer]);
+		// The policy admits the assignee — assertCanView must not throw.
+		$this->taskAccessPolicy->expects($this->once())->method('assertCanView');
 		$this->roomTaskMapper->expects($this->once())->method('update')->with($roomTask);
 		$this->roomMapper->method('update')->willReturn($updatedRoom);
 		$this->gameLogicService->method('handleTaskCompletion')->willReturn([
@@ -1200,10 +1275,11 @@ class RoomServiceTest extends TestCase {
 		// both the claimer and the original assignee are members here.
 		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($houseUser);
 
-		// Takeover notification dispatched post-commit.
+		// Takeover notification dispatched post-commit — the claimer travels
+		// as uid + display name (CS-PLAN-061 §3.7).
 		$this->notificationService->expects($this->once())
 			->method('notifyOverdueTakenOver')
-			->with($originalAssignee, 'Dishes', 'Claimer Name', $roomTaskId);
+			->with($originalAssignee, 'Dishes', $claimer, 'Claimer Name', $roomTaskId);
 
 		// No goal transition (default mock → not achieved), so no goal notify.
 		$this->notificationService->expects($this->never())->method('notifyWeeklyGoalReachedForHouse');

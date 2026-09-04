@@ -17,12 +17,33 @@ export const useUserStore = defineStore('user', {
 		houseUsers: [],
 		loading: false,
 		error: null,
+		/**
+		 * Authorization state driven by user#current (CS-PLAN-061 §3.9):
+		 * 'unknown' before the first resolution, 'member' once the current
+		 * user resolved, 'denied' when the backend answered 403/FORBIDDEN —
+		 * removed and never-invited are deliberately indistinguishable
+		 * (anti-enumeration).
+		 */
+		membership: 'unknown',
 	}),
 
 	getters: {
 		userId: (state) => state.currentUser?.id || null,
 
 		isHouseOwner: (state) => state.currentUser?.role === 'owner',
+
+		role: (state) => state.currentUser?.role ?? null,
+
+		isChild: (state) => state.currentUser?.role === 'child',
+
+		/**
+		 * Task-domain management surface (decision D5): owners and members
+		 * may create/edit/delete/assign tasks; children execute only.
+		 *
+		 * @param {object} state Pinia state.
+		 * @return {boolean} True when the current role may manage tasks.
+		 */
+		canManageTasks: (state) => ['owner', 'member'].includes(state.currentUser?.role),
 
 		getLeaderboard: (state) => {
 			return [...state.houseUsers]
@@ -48,9 +69,17 @@ export const useUserStore = defineStore('user', {
 				currentUserRequest = api.get('/api/v1/users/current')
 					.then((data) => {
 						this.currentUser = data
+						this.membership = 'member'
 						return data
 					})
 					.catch((error) => {
+						// Invite-only membership (ADR-010): a 403 FORBIDDEN from
+						// user#current means this authenticated user is not a
+						// member of the house — removed or never invited. The
+						// app renders the explicit NotAuthorizedState for it.
+						if (error?.status === 403 || error?.code === 'FORBIDDEN') {
+							this.membership = 'denied'
+						}
 						this.error = error.message
 						logger.error('Failed to initialize current user', error, { store: 'user', action: 'initializeCurrentUser' })
 						throw error
@@ -191,6 +220,7 @@ export const useUserStore = defineStore('user', {
 			this.houseUsers = []
 			this.loading = false
 			this.error = null
+			this.membership = 'unknown'
 		},
 	},
 })

@@ -57,6 +57,26 @@ Same error (English locale):
 }
 ```
 
+### Authorization & Status Semantics (ADR-010)
+
+- **Membership is invite-only after the first owner.** The five bootstrap
+  endpoints (`GET /users/current`, `GET /house`, `POST /users/invite`,
+  `GET /setup/catalog`, `POST /setup/apply`) bootstrap the first owner of a
+  fresh instance; every other endpoint requires an existing membership
+  (`403 FORBIDDEN` for non-members). Removed members stay removed — no read
+  re-creates their membership.
+- **Denial standard:** visibility denials (nonexistent id, foreign-house id,
+  or a task the caller cannot see per the visibility matrix) return
+  **`404 RESOURCE_NOT_FOUND`** — anti-enumeration. Role denials on otherwise
+  visible resources (child attempting management, non-owner structure change)
+  return **`403 FORBIDDEN`**.
+- **Task visibility matrix:** `public` → all members; `private` → creator ∪
+  explicit assignees; `admin-only` → house owners. Enforced by a single
+  service (`TaskAccessPolicy`) across reads, assignment, completion,
+  lifecycle, and checklists.
+- Rate-limited minigame score saves answer `429 MINIGAME_RATE_LIMITED`
+  (>100 submissions per house-local day).
+
 ## Endpoints
 
 ### House
@@ -407,13 +427,16 @@ completion deactivated them; `deactivate` was pruned in CS-PLAN-055).
 #### DELETE /room-tasks/{id}
 Remove task from room.
 
-> **Lifecycle authorization (CS-PLAN-056, CR-053-06):** the surviving
-> lifecycle mutations — `PUT /tasks/{id}/uncomplete`,
-> `PUT /room-tasks/{id}/due-date`, and `POST /room-tasks/{id}/reactivate` —
-> enforce the same task-visibility matrix as `POST /room-tasks/{id}/complete`
-> (public → any member; private → assigned users; admin-only → house owner).
-> Denials return `403 FORBIDDEN` with the same translated-message family as
-> the completion gate.
+> **Lifecycle authorization (CS-PLAN-056, CR-053-06; unified in ADR-010 /
+> CS-PLAN-061):** the surviving lifecycle mutations —
+> `PUT /tasks/{id}/uncomplete`, `PUT /room-tasks/{id}/due-date`, and
+> `POST /room-tasks/{id}/reactivate` — enforce the ONE task-visibility matrix
+> via `TaskAccessPolicy`, the same as `POST /room-tasks/{id}/complete`
+> (public → any member; private → creator ∪ that room task's explicit
+> assignees; admin-only → house owner). **Visibility denials return `404
+> RESOURCE_NOT_FOUND`** (anti-enumeration, decision D3) — never a 403 that
+> would confirm the id exists; role denials (a child actor) stay
+> `403 FORBIDDEN`.
 
 > **Full route list:** the canonical, complete route table is
 > [`appinfo/routes.php`](../../appinfo/routes.php) (71 routes spanning `house`,

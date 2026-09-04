@@ -93,6 +93,39 @@ class TaskAssigneeMapper extends QBMapper {
 	}
 
 	/**
+	 * Get the Nextcloud user IDs assigned to the given task definitions in
+	 * one query — the batch assignee primitive behind TaskAccessPolicy
+	 * (CS-PLAN-061 §3.2). Assignees attach to room tasks, so the join runs
+	 * through chorestrike_room_tasks.
+	 *
+	 * @param int[] $taskIds The task definition IDs
+	 * @return array<int, string[]> Map of task ID => unique list of Nextcloud user IDs
+	 */
+	public function findUserIdsByTaskIds(array $taskIds): array {
+		$result = array_fill_keys($taskIds, []);
+		if (empty($taskIds)) {
+			return $result;
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('rt.task_id', 'ta.user_id')
+			->from($this->getTableName(), 'ta')
+			->innerJoin('ta', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ta.room_task_id', 'rt.id'))
+			->where($qb->expr()->in('rt.task_id', $qb->createNamedParameter($taskIds, IQueryBuilder::PARAM_INT_ARRAY)));
+
+		$res = $qb->executeQuery();
+		while ($row = $res->fetch()) {
+			$taskId = (int)$row['task_id'];
+			if (!in_array($row['user_id'], $result[$taskId], true)) {
+				$result[$taskId][] = (string)$row['user_id'];
+			}
+		}
+		$res->closeCursor();
+
+		return $result;
+	}
+
+	/**
 	 * Check if a user is assigned to a room task
 	 *
 	 * @param int $roomTaskId The room task ID

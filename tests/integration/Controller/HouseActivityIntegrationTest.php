@@ -13,7 +13,6 @@ use OCA\ChoreStrike\Controller\HouseController;
 use OCA\ChoreStrike\Controller\RoomTaskController;
 use OCA\ChoreStrike\Controller\UserController;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\StreakFreezeService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
@@ -64,9 +63,19 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		$this->completedTaskIds = [];
 	}
 
-	private function bootstrapMembership(int $houseId, string $userId): void {
-		$this->actingAs($userId);
-		\OC::$server->get(AuthorizationService::class)->ensureHouseMember($houseId);
+	/**
+	 * Invite-only membership (ADR-010): the shared instance house has no
+	 * bootstrap auto-join once members exist, so tests seed memberships
+	 * explicitly (purging leftovers from earlier runs first).
+	 */
+	private function seedMembership(int $houseId, string $userId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_house_users')
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($userId)));
+		$qb->executeStatement();
+
+		$this->addHouseMember($houseId, $userId, $userId, 'member');
 	}
 
 	private function sharedHouseId(): int {
@@ -114,7 +123,7 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 	 */
 	public function testActivity_HappyPath_ReturnsEnrichedCompletions(): void {
 		$houseId = $this->sharedHouseId();
-		$this->bootstrapMembership($houseId, self::MEMBER_A);
+		$this->seedMembership($houseId, self::MEMBER_A);
 		$memberAId = $this->houseUserId($houseId, self::MEMBER_A);
 
 		$roomTaskId = $this->seedRoomTaskFixture($houseId, 'Vacuum Activity Room');
@@ -148,8 +157,8 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 	 */
 	public function testActivity_PerUserFilter_OnlyReturnsThatMembersCompletions(): void {
 		$houseId = $this->sharedHouseId();
-		$this->bootstrapMembership($houseId, self::MEMBER_A);
-		$this->bootstrapMembership($houseId, self::MEMBER_B);
+		$this->seedMembership($houseId, self::MEMBER_A);
+		$this->seedMembership($houseId, self::MEMBER_B);
 		$memberAId = $this->houseUserId($houseId, self::MEMBER_A);
 		$memberBId = $this->houseUserId($houseId, self::MEMBER_B);
 
@@ -170,6 +179,62 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 		));
 		self::assertCount(1, $completions);
 		self::assertSame($memberAId, $completions[0]['houseUserId']);
+	}
+
+	/**
+	 * Visibility redaction (CS-PLAN-061 review fix): the feed keeps rows
+	 * for every house member (D9), but the task CONTENT of a private task
+	 * is redacted for non-viewers — the creator sees the title, another
+	 * member sees the null fallback.
+	 */
+	public function testActivity_InvisiblePrivateTaskContent_Redacted(): void {
+		$houseId = $this->sharedHouseId();
+		$this->seedMembership($houseId, self::MEMBER_A);
+		$this->seedMembership($houseId, self::MEMBER_B);
+		$memberAId = $this->houseUserId($houseId, self::MEMBER_A);
+
+		$floorId = $this->createFloor($houseId, 'Privacy Floor');
+		$roomId = $this->createRoom($houseId, $floorId, 'Privacy Room');
+		$taskId = $this->createTask($houseId, 'Secret Project', '', 5, 7);
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_tasks')
+			->set('visibility_type', $qb->createNamedParameter('private'))
+			->set('owner_user_id', $qb->createNamedParameter(self::MEMBER_A))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+
+		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, self::MEMBER_A);
+		$this->seedCompletion($roomTaskId, $memberAId, date('Y-m-d H:i:s', time() - 600), 12);
+
+		// MEMBER_B is neither creator nor assignee: content redacted, row kept.
+		/** @var HouseController $viewerController */
+		$viewerController = $this->getController(HouseController::class, self::MEMBER_B);
+		$viewerResponse = $viewerController->activity();
+		self::assertSame(200, $viewerResponse->getStatus());
+
+		$viewerRows = array_values(array_filter(
+			$viewerResponse->getData()['data']['completions'],
+			fn (array $item): bool => $item['taskId'] === $taskId,
+		));
+		self::assertCount(1, $viewerRows, 'the aggregate row stays visible (D9)');
+		self::assertNull($viewerRows[0]['taskTitle'], 'invisible task names are redacted');
+		self::assertNull($viewerRows[0]['energyCost'], 'invisible task energy is redacted');
+		self::assertSame(self::MEMBER_A, $viewerRows[0]['displayName']);
+
+		// The creator sees the content.
+		/** @var HouseController $creatorController */
+		$creatorController = $this->getController(HouseController::class, self::MEMBER_A);
+		$creatorResponse = $creatorController->activity();
+		self::assertSame(200, $creatorResponse->getStatus());
+
+		$creatorRows = array_values(array_filter(
+			$creatorResponse->getData()['data']['completions'],
+			fn (array $item): bool => $item['taskId'] === $taskId,
+		));
+		self::assertCount(1, $creatorRows);
+		self::assertSame('Secret Project', $creatorRows[0]['taskTitle']);
+		self::assertSame(7, $creatorRows[0]['energyCost']);
 	}
 
 	/**
@@ -216,6 +281,9 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 	 * different house — membership alone used to leak foreign room counts.
 	 */
 	public function testRoomStats_RejectsForeignHouseRoom(): void {
+		$houseId = $this->sharedHouseId();
+		$this->seedMembership($houseId, self::MEMBER_A);
+
 		$foreignHouse = $this->createHouse('activity_iso_foreign', 'Foreign House');
 		$floorId = $this->createFloor($foreignHouse, 'Foreign Floor');
 		$roomId = $this->createRoom($foreignHouse, $floorId, 'Foreign Room');
@@ -236,7 +304,7 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 	 */
 	public function testFreezeConsumption_SurfacesLastFreezeDateInUsers(): void {
 		$houseId = $this->sharedHouseId();
-		$this->bootstrapMembership($houseId, self::MEMBER_A);
+		$this->seedMembership($houseId, self::MEMBER_A);
 		$mapper = \OC::$server->get(HouseUserMapper::class);
 
 		$user = $mapper->findByNextcloudUserId($houseId, self::MEMBER_A);

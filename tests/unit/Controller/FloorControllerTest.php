@@ -12,6 +12,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 use OCA\ChoreStrike\Controller\FloorController;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\FloorService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -46,7 +47,8 @@ class FloorControllerTest extends TestCase {
 			$this->floorService,
 			$this->houseService,
 			$this->authService,
-			$l10n
+			$l10n,
+			$this->createMock(AppLogger::class)
 		);
 	}
 
@@ -87,7 +89,7 @@ class FloorControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember');
 		$this->floorService->expects($this->once())
 			->method('createFloor')
 			->with(1, 'Basement', null)
@@ -112,6 +114,7 @@ class FloorControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
 		$this->authService->method('requireHouseOwner');
 
 		$this->floorService->expects($this->once())
@@ -125,5 +128,27 @@ class FloorControllerTest extends TestCase {
 
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
+	}
+
+	/**
+	 * A nonexistent floor (app NotFoundException from the ownership check)
+	 * maps to a clean 404 (CS-PLAN-061 WP2) — not a 500.
+	 */
+	public function testUpdate_UnknownFloor_Returns404(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->floorService->method('validateFloorOwnership')
+			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Floor not found'));
+
+		$this->floorService->expects($this->never())->method('updateFloorName');
+
+		$response = $this->controller->update(999, 'Renamed');
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
 	}
 }

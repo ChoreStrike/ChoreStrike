@@ -551,7 +551,11 @@ export default {
 			}
 			if (failed.length > 0) {
 				showError(t('chorestrike', '{count} invite(s) failed', { count: failed.length }))
-				logger.error('Wizard invites failed', failed.map(result => result.reason), { component: 'SetupWizard', action: 'sendInvites' })
+				// Log hygiene (CS-PLAN-061 §3.6): only the failure count goes
+				// to the log — the reasons can carry invite emails and API
+				// response bodies; the redacting logger would strip bodies
+				// but the emails never belonged here in the first place.
+				logger.error('Wizard invites failed', { count: failed.length }, { component: 'SetupWizard', action: 'sendInvites' })
 				this.inviteFeedback = t('chorestrike', '{count} invite(s) failed', { count: failed.length })
 				this.sendingInvites = false
 				return

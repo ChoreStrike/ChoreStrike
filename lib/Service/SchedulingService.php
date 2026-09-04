@@ -111,17 +111,33 @@ class SchedulingService {
 			foreach ($energyBudget as $energy) {
 				$this->assertValidEnergyBudget($energy);
 			}
-			$preferences['energyBudget'] = $energyBudget;
+			$preferences['energyBudget'] = self::normalizeWeekdayKeys($energyBudget);
 		}
 
 		if ($weekdayAvailability !== null) {
-			$preferences['weekdayAvailability'] = $weekdayAvailability;
+			$preferences['weekdayAvailability'] = self::normalizeWeekdayKeys($weekdayAvailability);
 		}
 
 		$user->setSchedulingPreferences($preferences);
 		$this->houseUserMapper->update($user);
 
 		return $this->buildPreferencesPayload($user, $user->getSchedulingPreferences());
+	}
+
+	/**
+	 * Normalize weekday keys to lowercase before persisting (CS-PLAN-061
+	 * §3.7): every reader looks up lowercase day keys, so a 'Monday' write
+	 * must not silently disable the availability filter.
+	 *
+	 * @param array $section Section keyed by weekday
+	 * @return array Section keyed by lowercase weekday
+	 */
+	public static function normalizeWeekdayKeys(array $section): array {
+		$normalized = [];
+		foreach ($section as $day => $value) {
+			$normalized[strtolower((string)$day)] = $value;
+		}
+		return $normalized;
 	}
 
 	/**
@@ -209,13 +225,13 @@ class SchedulingService {
 		if (isset($updates['energyBudget'])) {
 			foreach ($updates['energyBudget'] as $day => $energy) {
 				$this->assertValidEnergyBudget($energy);
-				$preferences['energyBudget'][$day] = $energy;
+				$preferences['energyBudget'][strtolower((string)$day)] = $energy;
 			}
 		}
 
 		if (isset($updates['weekdayAvailability'])) {
 			foreach ($updates['weekdayAvailability'] as $day => $available) {
-				$preferences['weekdayAvailability'][$day] = (bool)$available;
+				$preferences['weekdayAvailability'][strtolower((string)$day)] = (bool)$available;
 			}
 		}
 

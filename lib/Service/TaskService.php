@@ -8,9 +8,11 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
 
@@ -50,10 +52,19 @@ class TaskService {
 
 	private TaskMapper $taskMapper;
 	private IL10N $l10n;
+	private AuthorizationService $authorization;
+	private TaskAccessPolicy $taskAccessPolicy;
 
-	public function __construct(TaskMapper $taskMapper, IL10N $l10n) {
+	public function __construct(
+		TaskMapper $taskMapper,
+		IL10N $l10n,
+		AuthorizationService $authorization,
+		TaskAccessPolicy $taskAccessPolicy,
+	) {
 		$this->taskMapper = $taskMapper;
 		$this->l10n = $l10n;
+		$this->authorization = $authorization;
+		$this->taskAccessPolicy = $taskAccessPolicy;
 	}
 
 	/**
@@ -71,15 +82,36 @@ class TaskService {
 	 * Get task by ID
 	 *
 	 * @param int $taskId The task ID
-	 * @throws DoesNotExistException if not found
+	 * @throws NotFoundException if not found
 	 */
 	public function getTask(int $taskId): Task {
-		return $this->taskMapper->find($taskId);
+		try {
+			return $this->taskMapper->find($taskId);
+		} catch (DoesNotExistException $e) {
+			throw new NotFoundException($this->l10n->t('Task not found'));
+		}
 	}
 
 	/**
-	 * Create a new task
+	 * Assert the task is visible to the actor and return it (CS-PLAN-061
+	 * §3.2) — the shared gate for controller preambles (defense in depth).
 	 *
+	 * @throws NotFoundException if the task does not exist or is invisible to the actor
+	 */
+	public function getVisibleTask(int $taskId, HouseUser $actor): Task {
+		$task = $this->getTask($taskId);
+		if (!$this->taskAccessPolicy->canViewTask($task, $actor)) {
+			throw new NotFoundException($this->l10n->t('Task not found'));
+		}
+		return $task;
+	}
+
+	/**
+	 * Create a new task (CS-PLAN-061 §3.4: children may not create task
+	 * definitions; the acting HouseUser is mandatory so the actor policy can
+	 * never be bypassed by forgetting the preamble).
+	 *
+	 * @param HouseUser $actor The acting user's house membership
 	 * @param string $name The task name
 	 * @param string|null $description The task description
 	 * @param int $energyCost The energy cost (1-5)
@@ -97,8 +129,10 @@ class TaskService {
 	 * @param string $schedulingMode Scheduling mode (dynamic, fixed)
 	 * @param \DateTime|null $fixedScheduleTime Fixed schedule time
 	 * @param string|null $fixedScheduleDays Fixed schedule days
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the actor is a child
 	 */
 	public function createTask(
+		HouseUser $actor,
 		string $name,
 		?string $description,
 		int $energyCost,
@@ -123,6 +157,9 @@ class TaskService {
 		string $visibilityType = 'public',
 		?string $ownerUserId = null,
 	): Task {
+		// Actor policy (D5): children execute tasks, they do not create them.
+		$this->authorization->assertCanManageTasks($actor);
+
 		return $this->taskMapper->create(
 			$name,
 			$description,
@@ -159,37 +196,38 @@ class TaskService {
 	 * to prevent mass-assignment of internal columns. `taskTier` is handled
 	 * separately (owner-only + closed set, CR-053-04).
 	 *
-	 * Enforces the task-visibility matrix as defense-in-depth — a private
-	 * task can no longer be silently re-assigned away from its owner by a
-	 * caller that bypasses the controller gate (CR-SVC-17):
-	 *   - private:    only the task owner may update
-	 *   - admin-only: only a house owner may update
-	 *   - public:     any caller
+	 * Enforces the ONE visibility matrix via {@see TaskAccessPolicy}
+	 * (CS-PLAN-061 §3.2, D2): a caller that cannot even see the task is
+	 * denied with the app NotFoundException (404 anti-enumeration, decision
+	 * D3). A changed `ownerUserId` target is validated as a house member via
+	 * {@see AuthorizationService::assertUserInHouse} (closes the unvalidated
+	 * transfer, §3.4).
 	 *
-	 * Callers MUST supply authorization context ($callerUserId, $isOwner);
-	 * the parameter is non-nullable so a caller can never silently bypass
-	 * the private-task ownership check. The production path
-	 * (TaskController::update) always supplies it.
+	 * Callers MUST supply the acting house user; the parameter is
+	 * non-nullable so the policy can never be silently bypassed. The
+	 * production path (TaskController::update) always supplies it.
 	 *
 	 * @param int $taskId The task ID
 	 * @param array $updates The updates to apply (only whitelisted keys)
-	 * @param string $callerUserId The Nextcloud user ID requesting the update
-	 * @param bool $isOwner Whether the caller is a house owner
+	 * @param HouseUser $actor The acting user's house membership
+	 * @return Task The updated task
 	 * @throws \InvalidArgumentException if an update key is not whitelisted
-	 * @throws ForbiddenException if the caller lacks permission for this task
+	 * @throws NotFoundException if the task does not exist or is invisible to the actor
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the actor is a child or the ownerUserId target is not a member
 	 */
-	public function updateTask(int $taskId, array $updates, string $callerUserId, bool $isOwner = false): Task {
-		$task = $this->taskMapper->find($taskId);
+	public function updateTask(int $taskId, array $updates, HouseUser $actor): Task {
+		$task = $this->getTask($taskId);
 
-		$visibility = $task->getVisibilityType();
-		if ($visibility === Task::VISIBILITY_PRIVATE
-			&& $task->getOwnerUserId() !== $callerUserId
-		) {
-			throw new ForbiddenException($this->l10n->t('Only the task owner may update a private task'));
+		// One visibility matrix everywhere (D2/D3): non-viewers get the 404
+		// anti-enumeration denial, same as task#get and the definition list.
+		if (!$this->taskAccessPolicy->canViewTask($task, $actor)) {
+			throw new NotFoundException($this->l10n->t('Task not found'));
 		}
-		if ($visibility === Task::VISIBILITY_ADMIN_ONLY && !$isOwner) {
-			throw new ForbiddenException($this->l10n->t('Only house owners may update an admin-only task'));
-		}
+
+		// Actor policy (D5): children execute tasks, they do not edit them.
+		$this->authorization->assertCanManageTasks($actor);
+
+		$isOwner = $actor->isOwner();
 
 		// CR-053-04: taskTier is owner-only and value-checked outside the
 		// generic whitelist loop — a member must not be able to self-serve
@@ -204,6 +242,17 @@ class TaskService {
 			}
 			$task->setTaskTier($updates['taskTier']);
 			unset($updates['taskTier']);
+		}
+
+		// Validate an ownership transfer target: the new owner must be a
+		// member of the actor's house (CS-PLAN-061 §3.4).
+		if (isset($updates['ownerUserId'])
+			&& $updates['ownerUserId'] !== $task->getOwnerUserId()
+			&& is_string($updates['ownerUserId'])
+			&& $updates['ownerUserId'] !== ''
+			&& $updates['ownerUserId'] !== null
+		) {
+			$this->authorization->assertUserInHouse($actor->getHouseId(), $updates['ownerUserId']);
 		}
 
 		foreach ($updates as $field => $value) {

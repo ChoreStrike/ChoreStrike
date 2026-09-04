@@ -256,6 +256,8 @@ describe('TaskList', () => {
 		})
 
 		it('should emit edit event when edit button clicked', async () => {
+			const userStore = useUserStore()
+			userStore.currentUser = { id: 1, role: 'owner', nextcloudUserId: 'u1' }
 			const roomTask = { id: 42, isActive: true }
 			const tasks = [mockTask({ roomTask })]
 			const wrapper = mount(TaskList, {
@@ -269,6 +271,8 @@ describe('TaskList', () => {
 		})
 
 		it('should emit delete event when delete button clicked', async () => {
+			const userStore = useUserStore()
+			userStore.currentUser = { id: 1, role: 'owner', nextcloudUserId: 'u1' }
 			const tasks = [mockTask({ roomTask: { id: 42 } })]
 			const wrapper = mount(TaskList, {
 				props: { loading: false, roomTasks: tasks },
@@ -335,17 +339,20 @@ describe('TaskList', () => {
 	})
 
 	describe('bulk assignment + checklist editor gating (CS-PLAN-042)', () => {
-		const seedMembers = () => {
+		const seedMembers = (role = null) => {
 			const userStore = useUserStore()
 			userStore.houseUsers = [
 				{ nextcloudUserId: 'u1', displayName: 'Alice' },
 				{ nextcloudUserId: 'u2', displayName: 'Bob' },
 			]
+			if (role !== null) {
+				userStore.currentUser = { id: 1, role, nextcloudUserId: 'u1' }
+			}
 			return userStore
 		}
 
 		it('hides the bulk bar until a task is selected', () => {
-			seedMembers()
+			seedMembers('owner')
 			const wrapper = mount(TaskList, {
 				props: { loading: false, roomTasks: [mockTask()] },
 			})
@@ -354,7 +361,7 @@ describe('TaskList', () => {
 		})
 
 		it('shows the bulk bar when a task row is selected', async () => {
-			seedMembers()
+			seedMembers('owner')
 			const tasks = [
 				mockTask({ roomTask: { id: 1 } }),
 				mockTask({ task: { id: 2 }, roomTask: { id: 2 } }),
@@ -374,7 +381,7 @@ describe('TaskList', () => {
 		})
 
 		it('issues one bulk call for the selection and clears it on success', async () => {
-			seedMembers()
+			seedMembers('owner')
 			const tasks = [mockTask({ roomTask: { id: 1 } }), mockTask({ task: { id: 2 }, roomTask: { id: 2 } })]
 			const wrapper = mount(TaskList, {
 				props: { loading: false, roomTasks: tasks },
@@ -391,6 +398,35 @@ describe('TaskList', () => {
 			expect(roomTasksStore.bulkAssignTasks).toHaveBeenCalledTimes(1)
 			expect(roomTasksStore.bulkAssignTasks).toHaveBeenCalledWith([1, 2], 'u1')
 			expect(wrapper.find('[data-testid="bulk-assign-bar"]').exists()).toBe(false)
+		})
+
+		it('hides the bulk bar, edit and delete controls for children (CS-PLAN-061 §3.9, D5)', async () => {
+			seedMembers('child')
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: [mockTask()] },
+			})
+
+			await wrapper.find('[data-testid="select-task-1"]').setValue(true)
+
+			// Child role: no management surface at all.
+			expect(wrapper.find('[data-testid="bulk-assign-bar"]').exists()).toBe(false)
+
+			const labels = wrapper.findAll('.task-actions .action-btn').map(btn => btn.attributes('title'))
+			expect(labels).not.toContain('Edit')
+			expect(labels).not.toContain('Remove')
+			// Execution surface stays: complete + details toggle.
+			expect(wrapper.find('[data-testid="complete-task-button"]').exists()).toBe(true)
+		})
+
+		it('keeps edit and delete controls for members (CS-PLAN-061 §3.9, D5)', () => {
+			seedMembers('member')
+			const wrapper = mount(TaskList, {
+				props: { loading: false, roomTasks: [mockTask()] },
+			})
+
+			const labels = wrapper.findAll('.task-actions .action-btn').map(btn => btn.attributes('title'))
+			expect(labels).toContain('Edit')
+			expect(labels).toContain('Remove')
 		})
 
 		it('enables the checklist editor for owners', async () => {

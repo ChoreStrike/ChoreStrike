@@ -314,24 +314,31 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Count distinct room tasks of one room with at least one completion.
+	 * Count distinct room tasks with at least one completion, restricted to
+	 * a caller-supplied room-task id set.
 	 *
 	 * Numerator for the CR-SVC-31 root fix (CS-PLAN-040): the room-stats
 	 * completionRate counts REAL completions — the share of the room's
 	 * tasks with a completion row — instead of `(total − active)/total`,
-	 * which counted deactivated/skipped tasks as completed. The room-task
-	 * JOIN also excludes dangling completion rows (single-task deletion
-	 * does not cascade its history), so they can never inflate the count.
+	 * which counted deactivated/skipped tasks as completed. The id-set
+	 * restriction is the visibility-aware successor of the old room-scoped
+	 * variant (CS-PLAN-061 review fix): the stats caller passes only the
+	 * room tasks visible to the viewer, so completions of invisible tasks
+	 * can neither inflate the numerator nor confirm hidden tasks exist.
 	 *
-	 * @param int $roomId The room ID
-	 * @return int Number of distinct completed room tasks in the room
+	 * @param int[] $roomTaskIds The room task IDs to count completions in
+	 * @return int Number of distinct completed room tasks in the set
 	 */
-	public function countDistinctCompletedRoomTasksByRoom(int $roomId): int {
+	public function countDistinctCompletedRoomTasksInSet(array $roomTaskIds): int {
+		$roomTaskIds = array_values(array_map('intval', $roomTaskIds));
+		if ($roomTaskIds === []) {
+			return 0;
+		}
+
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->createFunction('COUNT(DISTINCT ct.room_task_id) AS completed_count'))
 			->from($this->getTableName(), 'ct')
-			->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
-			->where($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->in('ct.room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)));
 
 		$result = $qb->executeQuery();
 		$row = $result->fetch();

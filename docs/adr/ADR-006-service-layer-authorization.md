@@ -1,9 +1,21 @@
 # ADR-006: Service-Layer Authorization (Defense in Depth)
 
-**Status**: Accepted  
+**Status**: Accepted (bootstrap-preamble semantics superseded by [ADR-010](ADR-010-invite-only-membership-visibility-matrix.md), 2026-09-03)  
 **Date**: 2026-08-12  
 **Deciders**: Development Team  
 **Source**: [Full Review of `lib/Service`](../backlog/archive/CODE_REVIEW_2026-08-04.md) (CR-SVC-01, CR-SVC-06) · landed by [CS-PLAN-025](../plans/done/cs-plan-025-service-security-concurrency-cleanup.md)
+
+> **Update (2026-09-03, ADR-010):** the auto-join semantics of
+> `ensureHouseMember()` described below were superseded — membership is
+> **invite-only after the first owner**. `ensureHouseMember()` is now the
+> bootstrap-only primitive (auto-creates ONLY while the house has zero
+> members), and exactly five designated bootstrap endpoints
+> (`user#current`, `house#get`, `user#invite`, `setup#catalog`, `setup#apply`)
+> call it; every other endpoint uses the pure `assertHouseMember()`. The
+> defense-in-depth principle of this ADR — authorization enforced inside the
+> service — is unchanged and was extended by the unified task-visibility
+> policy (`TaskAccessPolicy`) and the actor policy
+> (`assertCanManageTasks`). See ADR-010 for the current model.
 
 ## Context
 

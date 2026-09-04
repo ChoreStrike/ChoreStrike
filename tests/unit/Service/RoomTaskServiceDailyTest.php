@@ -22,9 +22,11 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\IL10N;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -40,6 +42,8 @@ class RoomTaskServiceDailyTest extends TestCase {
 	private HouseUserMapper|MockObject $houseUserMapper;
 	private CompletedTaskMapper|MockObject $completedTaskMapper;
 	private HouseMapper|MockObject $houseMapper;
+	private TaskAccessPolicy|MockObject $taskAccessPolicy;
+	private AuthorizationService|MockObject $authorization;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -51,11 +55,18 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
+		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
+		$this->authorization = $this->createMock(AuthorizationService::class);
 		// CS-PLAN-057: day windows resolve the house timezone (UTC here, so
 		// the [start, end) bounds match the injected date's UTC calendar day).
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
 		$this->houseMapper->method('find')->willReturn($utcHouse);
+
+		// Daily read paths filter through the visibility matrix — default to
+		// "everything visible" here; denials are covered in RoomTaskServiceTest.
+		$this->taskAccessPolicy->method('filterVisibleRoomTasks')
+			->willReturnCallback(static fn (array $roomTasks): array => $roomTasks);
 
 		$this->service = new RoomTaskService(
 			$this->roomTaskMapper,
@@ -71,7 +82,9 @@ class RoomTaskServiceDailyTest extends TestCase {
 			$this->createIdentityL10n(),
 			$this->createMock(AppLogger::class),
 			$this->houseMapper,
-			new CalendarService()
+			new CalendarService(),
+			$this->taskAccessPolicy,
+			$this->authorization
 		);
 	}
 
@@ -107,8 +120,11 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->with($roomTaskId)
 			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
 
-		$this->expectException(\OCP\AppFramework\Db\DoesNotExistException::class);
-		$this->service->uncompleteTask($roomTaskId, $this->createHouseUser(), 'user123');
+		// CS-PLAN-061 §3.5: the mapper miss is wrapped into the app
+		// NotFoundException — a raw DoesNotExistException would surface as 500.
+		$this->expectException(\OCA\ChoreStrike\Exception\NotFoundException::class);
+		$this->expectExceptionMessage('Room task not found');
+		$this->service->uncompleteTask($roomTaskId, $this->createHouseUser());
 	}
 
 	private function createHouseUser(string $userId = 'user123', string $role = 'member'): HouseUser {
@@ -120,7 +136,6 @@ class RoomTaskServiceDailyTest extends TestCase {
 
 	public function testGetFilteredDailyTasksForUserReturnsAllTasksForNonChildUser(): void {
 		$houseId = 1;
-		$nextcloudUserId = 'parent';
 		$date = new \DateTime('2026-03-07'); // Saturday
 
 		// Create room tasks
@@ -156,30 +171,20 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->method('findByIds')
 			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
 
-		// Create real HouseUser entity (non-child)
-		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
-		$houseUser->setId(1);
-		$houseUser->setRole('owner');
+		// Real HouseUser entity (non-child) — passed directly as the viewer
+		// since CS-PLAN-061; the HouseUserMapper param was removed.
+		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
+		$viewer->setId(1);
+		$viewer->setNextcloudUserId('parent');
+		$viewer->setRole('owner');
 
-		$houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
-		$houseUserMapper->expects($this->once())
-			->method('findByNextcloudUserId')
-			->with($houseId, $nextcloudUserId)
-			->willReturn($houseUser);
-
-		$result = $this->service->getFilteredDailyTasksForUser(
-			$houseId,
-			$nextcloudUserId,
-			$date,
-			$houseUserMapper
-		);
+		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
 
 		$this->assertCount(2, $result);
 	}
 
 	public function testGetFilteredDailyTasksForUserFiltersByWeekdayAvailabilityForChild(): void {
 		$houseId = 1;
-		$nextcloudUserId = 'teen';
 		$date = new \DateTime('2026-03-06'); // Friday (weekday)
 
 		// Create room tasks
@@ -202,11 +207,12 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
 			->willReturn([$roomTask1]);
 
-		// Create real HouseUser entity (child with weekend-only availability)
-		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
-		$houseUser->setId(2);
-		$houseUser->setRole('child');
-		$houseUser->setSchedulingPreferences([
+		// Real HouseUser entity (child with weekend-only availability)
+		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
+		$viewer->setId(2);
+		$viewer->setNextcloudUserId('teen');
+		$viewer->setRole('child');
+		$viewer->setSchedulingPreferences([
 			'weekdayAvailability' => [
 				'monday' => false,
 				'tuesday' => false,
@@ -219,18 +225,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 			'maxDailyTasks' => 3,
 		]);
 
-		$houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
-		$houseUserMapper->expects($this->once())
-			->method('findByNextcloudUserId')
-			->with($houseId, $nextcloudUserId)
-			->willReturn($houseUser);
-
-		$result = $this->service->getFilteredDailyTasksForUser(
-			$houseId,
-			$nextcloudUserId,
-			$date,
-			$houseUserMapper
-		);
+		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
 
 		// Friday is not available, so result should be empty
 		$this->assertCount(0, $result);
@@ -238,7 +233,6 @@ class RoomTaskServiceDailyTest extends TestCase {
 
 	public function testGetFilteredDailyTasksForUserLimitsByMaxDailyTasksForChild(): void {
 		$houseId = 1;
-		$nextcloudUserId = 'kid';
 		$date = new \DateTime('2026-03-07'); // Saturday (available day)
 
 		// Create 5 room tasks
@@ -273,11 +267,12 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->method('findByIds')
 			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
 
-		// Create real HouseUser entity (child with maxDailyTasks=2)
-		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
-		$houseUser->setId(3);
-		$houseUser->setRole('child');
-		$houseUser->setSchedulingPreferences([
+		// Real HouseUser entity (child with maxDailyTasks=2)
+		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
+		$viewer->setId(3);
+		$viewer->setNextcloudUserId('kid');
+		$viewer->setRole('child');
+		$viewer->setSchedulingPreferences([
 			'weekdayAvailability' => [
 				'monday' => false,
 				'tuesday' => false,
@@ -290,18 +285,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 			'maxDailyTasks' => 2,
 		]);
 
-		$houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
-		$houseUserMapper->expects($this->once())
-			->method('findByNextcloudUserId')
-			->with($houseId, $nextcloudUserId)
-			->willReturn($houseUser);
-
-		$result = $this->service->getFilteredDailyTasksForUser(
-			$houseId,
-			$nextcloudUserId,
-			$date,
-			$houseUserMapper
-		);
+		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
 
 		// Saturday is available, but maxDailyTasks=2 limits to 2 tasks
 		$this->assertCount(2, $result);
@@ -309,7 +293,6 @@ class RoomTaskServiceDailyTest extends TestCase {
 
 	public function testGetFilteredDailyTasksForChildReturnsTasksOnAvailableDay(): void {
 		$houseId = 1;
-		$nextcloudUserId = 'teen';
 		$date = new \DateTime('2026-03-07'); // Saturday (available day)
 
 		// Create room tasks
@@ -345,11 +328,12 @@ class RoomTaskServiceDailyTest extends TestCase {
 			->method('findByIds')
 			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
 
-		// Create real HouseUser entity (child with weekend-only availability and maxDailyTasks=3)
-		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
-		$houseUser->setId(4);
-		$houseUser->setRole('child');
-		$houseUser->setSchedulingPreferences([
+		// Real HouseUser entity (child with weekend-only availability and maxDailyTasks=3)
+		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
+		$viewer->setId(4);
+		$viewer->setNextcloudUserId('teen');
+		$viewer->setRole('child');
+		$viewer->setSchedulingPreferences([
 			'weekdayAvailability' => [
 				'monday' => false,
 				'tuesday' => false,
@@ -362,18 +346,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 			'maxDailyTasks' => 3,
 		]);
 
-		$houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
-		$houseUserMapper->expects($this->once())
-			->method('findByNextcloudUserId')
-			->with($houseId, $nextcloudUserId)
-			->willReturn($houseUser);
-
-		$result = $this->service->getFilteredDailyTasksForUser(
-			$houseId,
-			$nextcloudUserId,
-			$date,
-			$houseUserMapper
-		);
+		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
 
 		// Saturday is available and maxDailyTasks=3 allows all 2 tasks
 		$this->assertCount(2, $result);

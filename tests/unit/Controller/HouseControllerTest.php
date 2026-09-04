@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\HouseController;
 use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\ActivityService;
@@ -171,6 +172,16 @@ class HouseControllerTest extends TestCase {
 	}
 
 	/**
+	 * HouseUser viewer for the activity visibility redaction wiring.
+	 */
+	private function createHouseUser(): HouseUser {
+		$houseUser = new HouseUser();
+		$houseUser->setNextcloudUserId('caller');
+		$houseUser->setRole('member');
+		return $houseUser;
+	}
+
+	/**
 	 * GET /house/activity returns the activity payload (CS-PLAN-040).
 	 */
 	public function testActivity_ReturnsActivitySuccessfully(): void {
@@ -179,12 +190,13 @@ class HouseControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$houseUser = $this->createHouseUser();
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 
 		$payload = ['completions' => [['id' => 5, 'taskTitle' => 'Vacuum']], 'total' => 1];
 		$this->activityService->expects($this->once())
 			->method('getActivity')
-			->with(1, ActivityService::DEFAULT_DAYS, ActivityService::DEFAULT_LIMIT, null)
+			->with(1, ActivityService::DEFAULT_DAYS, ActivityService::DEFAULT_LIMIT, null, $this->identicalTo($houseUser))
 			->willReturn($payload);
 
 		$response = $this->controller->activity();
@@ -204,11 +216,12 @@ class HouseControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$houseUser = $this->createHouseUser();
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 
 		$this->activityService->expects($this->once())
 			->method('getActivity')
-			->with(2, 7, 25, 'alice')
+			->with(2, 7, 25, 'alice', $this->identicalTo($houseUser))
 			->willReturn(['completions' => [], 'total' => 0]);
 
 		$response = $this->controller->activity(7, 25, 'alice');
@@ -225,7 +238,7 @@ class HouseControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willThrowException(new ForbiddenException('Not a member'));
 
 		$response = $this->controller->activity();
@@ -244,7 +257,7 @@ class HouseControllerTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
-		$this->authService->method('ensureHouseMember');
+		$this->authService->method('assertHouseMember');
 		$this->activityService->method('getActivity')
 			->willThrowException(new NotFoundException('User is not a member of this house'));
 

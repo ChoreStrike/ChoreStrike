@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
 
 /**
@@ -28,6 +29,7 @@ class FloorService {
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
+	private AuthorizationService $authorization;
 
 	public function __construct(
 		FloorMapper $floorMapper,
@@ -37,6 +39,7 @@ class FloorService {
 		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
+		AuthorizationService $authorization,
 	) {
 		$this->floorMapper = $floorMapper;
 		$this->roomMapper = $roomMapper;
@@ -45,6 +48,7 @@ class FloorService {
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
+		$this->authorization = $authorization;
 	}
 
 	/**
@@ -52,10 +56,14 @@ class FloorService {
 	 *
 	 * @param int $floorId The floor ID
 	 * @param int $houseId The house ID to validate against
-	 * @throws NotFoundException if floor doesn't belong to house
+	 * @throws NotFoundException if floor doesn't exist or belong to house
 	 */
 	public function validateFloorOwnership(int $floorId, int $houseId): void {
-		$floor = $this->floorMapper->find($floorId);
+		try {
+			$floor = $this->floorMapper->find($floorId);
+		} catch (DoesNotExistException $e) {
+			throw new NotFoundException($this->l10n->t('Floor not found'));
+		}
 
 		if ($floor->getHouseId() !== $houseId) {
 			throw new NotFoundException($this->l10n->t('Floor not found'));
@@ -63,13 +71,18 @@ class FloorService {
 	}
 
 	/**
-	 * Create a new floor
+	 * Create a new floor (owner-only, CS-PLAN-061 §3.4 / ADR-006).
 	 *
 	 * @param int $houseId The house ID
 	 * @param string $name The floor name
 	 * @param int|null $sortOrder Optional sort order (auto-calculated if null)
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
 	public function createFloor(int $houseId, string $name, ?int $sortOrder = null): Floor {
+		// Structure mutation → owner-only in the service (controller checks
+		// remain as defense in depth).
+		$this->authorization->requireHouseOwner($houseId);
+
 		// Auto-calculate sort order if not provided
 		if ($sortOrder === null) {
 			$existingFloors = $this->floorMapper->findByHouseId($houseId);
@@ -80,13 +93,17 @@ class FloorService {
 	}
 
 	/**
-	 * Update floor name
+	 * Update floor name (owner-only, CS-PLAN-061 §3.4 / ADR-006).
 	 *
 	 * @param int $floorId The floor ID
 	 * @param string $name The new name
+	 * @throws NotFoundException if the floor does not exist
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
 	public function updateFloorName(int $floorId, string $name): Floor {
 		$floor = $this->floorMapper->find($floorId);
+		$this->authorization->requireHouseOwner($floor->getHouseId());
+
 		$floor->setName($name);
 		return $this->floorMapper->update($floor);
 	}
@@ -103,6 +120,9 @@ class FloorService {
 	 * @param array $floorOrder Array of floor IDs in desired order
 	 */
 	public function reorderFloors(int $houseId, array $floorOrder): array {
+		// Structure mutation → owner-only in the service (CS-PLAN-061 §3.4).
+		$this->authorization->requireHouseOwner($houseId);
+
 		$floors = $this->floorMapper->findByHouseId($houseId);
 
 		$floorsById = [];
@@ -150,6 +170,8 @@ class FloorService {
 	 */
 	public function deleteFloor(int $floorId): void {
 		$floor = $this->floorMapper->find($floorId);
+		// Structure mutation → owner-only in the service (CS-PLAN-061 §3.4).
+		$this->authorization->requireHouseOwner($floor->getHouseId());
 
 		$roomIds = [];
 		foreach ($this->roomMapper->findByFloorId($floorId) as $room) {

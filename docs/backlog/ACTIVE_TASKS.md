@@ -10,11 +10,6 @@
 
 ## In Progress
 
-### CS-PLAN-061 — WP2: Membership, Role, Visibility, and Privacy Boundaries
-**Status**: Active (Standard A review PASS 2026-09-03; implementation next) · **Started**: 2026-09-03 · **Branch**: master
-**Plan**: docs/plans/active/cs-plan-061-wp2-membership-visibility-privacy.md · **Blockers**: none
-**Scope**: invite-only membership, unified private-task visibility matrix, service-level actor/owner gates, 403/404 standardization, CR-053-16/17/18 core remainders, ADR-010.
-
 <!-- When you start work, add an entry here in this shape:
 ### CS-PLAN-NNN — Title
 **Status**: In Progress · **Started**: YYYY-MM-DD · **Branch**: master
@@ -24,6 +19,7 @@
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
+- **CS-PLAN-061 / WP2 — Membership, Role, Visibility, and Privacy Boundaries** — Invite-only membership (ADR-010), one `TaskAccessPolicy` visibility matrix, service-level actor/owner gates, 403/404 standard, CR-053-16/17/18 closed, frontend auth state + logger redaction; final Standard B `PASS-WITH-FIXES` (mojibake + log hygiene fixed; residual-surface gaps closed and lifecycle-actor/completion-redaction decisions ratified with the user), full gate green, CR-WF-01/CR-053-16/17/18 archived, plan moved to `done/`. (2026-09-04) → [`../plans/done/cs-plan-061-wp2-membership-visibility-privacy.md`](../plans/done/cs-plan-061-wp2-membership-visibility-privacy.md)
 - **CS-PLAN-060 / WP1 — Schema, Entity, and Mapper Invariants** — Implemented and reviewed: schema fold, bootstrap race safety, `TransactionExecutor`, canonical visibility/assignee/recurrence, house-scoped `findVisibleByHouse`, mapper minors; Standard B `PASS-WITH-FIXES` (stale E2E consumers + durable docs fixed in review), full gate rerun green, plan moved to `done/`. (2026-09-03) → [`../plans/done/cs-plan-060-wp1-schema-entity-mapper-invariants.md`](../plans/done/cs-plan-060-wp1-schema-entity-mapper-invariants.md)
 
 - **CS-PLAN-059 / WP0** — Backlog restructured into the five CS-PLAN-058 §2.2 sections with nine-field metadata, 46 resolved stubs archived, `backlog:check` gate added, program baseline recorded; Standard B `PASS-WITH-FIXES`, plan moved to `done/`. (2026-09-02) → [`../plans/done/cs-plan-059-wp0-backlog-baseline.md`](../plans/done/cs-plan-059-wp0-backlog-baseline.md)
@@ -34,8 +30,6 @@
 - **CS-PLAN-056** — Task Lifecycle Visibility Matrix; Standard B `PASS`, full gate green, plan moved to `done/`. (2026-08-30) → [`../plans/done/cs-plan-056-task-lifecycle-visibility.md`](../plans/done/cs-plan-056-task-lifecycle-visibility.md)
 - **CS-PLAN-055** — Route Pruning & Dead-Code Sweep U2-A; implementation and Standard B review completed. (2026-08-29) → [`archive/2026-08.md`](archive/2026-08.md)
 - **CS-PLAN-054** — P1 Security Quick-Closes; implementation and Standard B review completed. (2026-08-29) → [`archive/2026-08.md`](archive/2026-08.md)
-- **CS-PLAN-053** — Full Bottom-to-Top Review; six review phases completed and follow-ups recorded. (2026-08-27) → [`archive/CODE_REVIEW_2026-08-27.md`](archive/CODE_REVIEW_2026-08-27.md)
-- **CS-PLAN-052** — Observability Hardening & Encoding Gate; implementation and Standard B review completed. (2026-08-27) → [`archive/2026-08.md`](archive/2026-08.md)
 
 > One-line entries only. Older completed work lives in the tracked
 > [`archive/`](archive/).

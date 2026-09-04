@@ -121,4 +121,22 @@ describe('TaskEditForm', () => {
 		expect(wrapper.find('#scopeType').exists()).toBe(false)
 		expect(wrapper.text()).not.toContain('Single Room')
 	})
+
+	it('states the real private-task matrix in the visibility hint (CS-PLAN-061 §3.9, D2)', async () => {
+		const wrapper = mountForm()
+
+		await wrapper.find('[data-testid="task-visibility-select"]').setValue('private')
+
+		expect(wrapper.find('.visibility-hint').text())
+			.toBe('Only you and the assigned members can see and complete this task. Assigned members can also edit it.')
+	})
+
+	it('keeps the admin-only hint owner-worded', async () => {
+		const wrapper = mountForm()
+
+		await wrapper.find('[data-testid="task-visibility-select"]').setValue('admin-only')
+
+		expect(wrapper.find('.visibility-hint').text())
+			.toBe('Only house owners can see and complete this task')
+	})
 })

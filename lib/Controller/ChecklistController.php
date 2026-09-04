@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\ChecklistService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -26,6 +27,8 @@ use OCP\IRequest;
  * guard (house linkage + task-visibility matrix, denials map to 404).
  */
 class ChecklistController extends Controller {
+	use ControllerLoggingTrait;
+
 	private ChecklistService $checklistService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
@@ -38,12 +41,14 @@ class ChecklistController extends Controller {
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
+		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->checklistService = $checklistService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**
@@ -66,6 +71,7 @@ class ChecklistController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('checklist', $e);
 			return ControllerErrorFormatter::serverErrorResponse($e, 'CHECKLIST_ITEMS_ERROR');
 		}
 	}
@@ -101,6 +107,7 @@ class ChecklistController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('checklist', $e);
 			return ControllerErrorFormatter::serverErrorResponse($e, 'ADD_CHECKLIST_ITEM_ERROR');
 		}
 	}
@@ -136,6 +143,7 @@ class ChecklistController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('checklist', $e);
 			return ControllerErrorFormatter::serverErrorResponse($e, 'UPDATE_CHECKLIST_ITEM_ERROR');
 		}
 	}
@@ -160,6 +168,7 @@ class ChecklistController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('checklist', $e);
 			return ControllerErrorFormatter::serverErrorResponse($e, 'DELETE_CHECKLIST_ITEM_ERROR');
 		}
 	}
@@ -198,6 +207,7 @@ class ChecklistController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('checklist', $e);
 			return ControllerErrorFormatter::serverErrorResponse($e, 'REORDER_CHECKLIST_ITEMS_ERROR');
 		}
 	}
@@ -225,6 +235,7 @@ class ChecklistController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('checklist', $e);
 			return ControllerErrorFormatter::serverErrorResponse($e, 'CHECKLIST_PROGRESS_ERROR');
 		}
 	}
@@ -252,6 +263,7 @@ class ChecklistController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('checklist', $e);
 			return ControllerErrorFormatter::serverErrorResponse($e, 'TOGGLE_CHECKLIST_ITEM_ERROR');
 		}
 	}
@@ -263,6 +275,6 @@ class ChecklistController extends Controller {
 		$instanceId = $this->houseService->getInstanceId();
 		$house = $this->houseService->getOrCreateHouse($instanceId);
 		$this->houseId = $house->getId();
-		return $this->authService->ensureHouseMember($this->houseId);
+		return $this->authService->assertHouseMember($this->houseId);
 	}
 }

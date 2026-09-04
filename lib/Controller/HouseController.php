@@ -58,6 +58,9 @@ class HouseController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
+			// Designated bootstrap endpoint (ADR-010, D1): reading the house
+			// is a first-journey entry point, so a fresh instance bootstraps
+			// its first owner here. Afterwards membership is invite-only.
 			$this->authService->ensureHouseMember($house->getId());
 
 			return new JSONResponse([
@@ -110,10 +113,9 @@ class HouseController extends Controller {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 
-			// CR-SVC-47: bootstrap membership before the owner check so the
-			// first user on a fresh instance becomes the owner (pre-CS-025
-			// behaviour). requireHouseOwner itself stays read-only (CR-SVC-06).
-			$this->authService->ensureHouseMember($house->getId());
+			// Pure membership gate (ADR-010: bootstrap happens on the
+			// designated endpoints); the owner check below denies everyone else.
+			$this->authService->assertHouseMember($house->getId());
 
 			// Require house ownership for update
 			$this->authService->requireHouseOwner($house->getId());
@@ -131,7 +133,9 @@ class HouseController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
-			$this->logControllerException('update', $e, ['houseName' => $name]);
+			// Log hygiene (CS-PLAN-061 §3.6): the house name is user-authored
+			// content — only stable context keys belong in the log.
+			$this->logControllerException('update', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -153,7 +157,7 @@ class HouseController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 
 			// Require house membership
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$stats = $this->houseService->getHouseStats($house->getId());
 
@@ -191,13 +195,14 @@ class HouseController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 
 			// Require house membership
-			$this->authService->ensureHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			$data = $this->activityService->getActivity(
 				$house->getId(),
 				$days ?? ActivityService::DEFAULT_DAYS,
 				$limit ?? ActivityService::DEFAULT_LIMIT,
 				$userId,
+				$houseUser,
 			);
 
 			return new JSONResponse([
@@ -237,7 +242,7 @@ class HouseController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 
 			// Require house membership
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$health = $this->houseService->calculateHouseHealth($house->getId());
 
@@ -271,9 +276,9 @@ class HouseController extends Controller {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 
-			// CR-SVC-47: bootstrap membership before the owner check so the
-			// first user on a fresh instance becomes the owner.
-			$this->authService->ensureHouseMember($house->getId());
+			// Pure membership gate + owner requirement (ADR-010: bootstrap
+			// happens on the designated endpoints only).
+			$this->authService->assertHouseMember($house->getId());
 
 			// Require house ownership for reset
 			$this->authService->requireHouseOwner($house->getId());

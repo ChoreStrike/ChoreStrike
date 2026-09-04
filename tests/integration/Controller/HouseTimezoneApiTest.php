@@ -38,6 +38,8 @@ class HouseTimezoneApiTest extends IntegrationTestCase {
 	private HouseService $houseService;
 	private ?HouseController $controller = null;
 	private string $originalTimezone = 'UTC';
+	private const OWNER = 'tzapi_owner';
+	private const MEMBER = 'tzapi_member';
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -47,6 +49,20 @@ class HouseTimezoneApiTest extends IntegrationTestCase {
 		// Snapshot the shared instance house so tearDown can restore it.
 		$house = $this->houseService->getOrCreateHouse($this->houseService->getInstanceId());
 		$this->originalTimezone = $house->getTimezone() ?: 'UTC';
+
+		// HouseService::updateHouse enforces ownership in the service now
+		// (CS-PLAN-061 D4) via the real AuthorizationService, so the acting
+		// user must be a seeded owner member of the shared instance house.
+		$houseId = $house->getId();
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_house_users')
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->in(
+				'nextcloud_user_id',
+				$qb->createNamedParameter([self::OWNER, self::MEMBER], \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR_ARRAY)
+			));
+		$qb->executeStatement();
+		$this->addHouseMember($houseId, self::OWNER, 'TZ Owner', 'owner');
 	}
 
 	protected function tearDown(): void {

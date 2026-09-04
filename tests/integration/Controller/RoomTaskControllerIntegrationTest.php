@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -41,7 +43,8 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 			$this->houseService,
 			$this->authService,
 			$l10n,
-			new CalendarService()
+			new CalendarService(),
+			\OC::$server->get(AppLogger::class)
 		);
 	}
 
@@ -57,9 +60,9 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->roomTaskService->method('getRoomTasks')
-			->with($roomId, true)
+			->with($roomId, $this->isInstanceOf(HouseUser::class), true)
 			->willReturn($roomTasks);
 		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([]);
 
@@ -149,12 +152,8 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 	}
 
 	/**
-	 * Stats_ReturnsRoomTaskStatistics_SuccessResponse
+	 * Stats endpoint removed — no coverage existed to migrate.
 	 */
-	public function testStats_ReturnsRoomTaskStatistics_SuccessResponse(): void {
-		// stats() method doesn't exist in RoomTaskController - skip test
-		$this->markTestSkipped('stats() method not implemented in RoomTaskController');
-	}
 
 	/**
 	 * Overdue_ReturnsOverdueTasks_SuccessResponse
@@ -167,8 +166,9 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->roomTaskService->method('getOverdueTasks')
+			->with(1, $this->isInstanceOf(HouseUser::class), null)
 			->willReturn($overdueTasks);
 
 		$response = $this->controller->overdue();
@@ -189,10 +189,10 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->roomTaskService->expects($this->once())
 			->method('bulkAssignTasks')
-			->with([7, 9], 'user456', 1)
+			->with([7, 9], 'user456', 1, $this->isInstanceOf(HouseUser::class))
 			->willReturn([$assigned]);
 
 		$this->request->method('getParam')->willReturnCallback(
@@ -213,7 +213,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 	public function testBulkAssign_NonMemberCaller_ReturnsForbiddenEnvelope(): void {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willThrowException(new ForbiddenException('Not a member of this house'));
 
 		$this->request->method('getParam')->willReturnCallback(
@@ -237,7 +237,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 	public function testBulkAssign_ServiceValidationError_Returns400(): void {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->roomTaskService->method('bulkAssignTasks')
 			->willThrowException(new \InvalidArgumentException('User is not a member of this house: stranger'));
 

@@ -10,7 +10,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
-use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
@@ -22,7 +23,8 @@ use OCP\IRequest;
  * CR-SVC-61): the controller delegates to
  * {@see RoomTaskService::bulkAssignTasks}, whose house-scoped pre-validation
  * skips foreign/missing ids per item while a non-member target user fails
- * the whole request up front.
+ * the whole request up front. CS-PLAN-061 adds the actor policy (child →
+ * 403) and the visibility matrix (in-house-but-invisible id → 404).
  *
  * The controller resolves the shared instance house, so controller-level
  * tests run against it (HouseActivityIntegrationTest pattern); strict
@@ -32,6 +34,8 @@ use OCP\IRequest;
  */
 class BulkAssignIntegrationTest extends IntegrationTestCase {
 	private const MEMBER = 'bulkassign_member';
+	private const CHILD = 'bulkassign_child';
+	private const OTHER_MEMBER = 'bulkassign_other_member';
 
 	private function sharedHouseId(): int {
 		$houseService = \OC::$server->get(HouseService::class);
@@ -40,9 +44,22 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 		return $house->getId();
 	}
 
-	private function bootstrapMembership(int $houseId, string $userId): void {
-		$this->actingAs($userId);
-		\OC::$server->get(AuthorizationService::class)->ensureHouseMember($houseId);
+	/**
+	 * Invite-only membership (ADR-010): the shared instance house has no
+	 * bootstrap auto-join once members exist, so tests seed memberships
+	 * explicitly (purging leftovers from earlier runs first).
+	 */
+	private function seedMembership(int $houseId, string $userId, string $role = 'member'): void {
+		$this->purgeMembership($houseId, $userId);
+		$this->addHouseMember($houseId, $userId, $userId, $role);
+	}
+
+	private function purgeMembership(int $houseId, string $userId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_house_users')
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($userId)));
+		$qb->executeStatement();
 	}
 
 	private function buildController(string $userId, array $params): RoomTaskController {
@@ -59,9 +76,10 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 			$request,
 			\OC::$server->get(RoomTaskService::class),
 			\OC::$server->get(HouseService::class),
-			\OC::$server->get(AuthorizationService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\AuthorizationService::class),
 			$l10n,
 			\OC::$server->get(\OCA\ChoreStrike\Service\CalendarService::class),
+			\OC::$server->get(AppLogger::class),
 		);
 	}
 
@@ -92,6 +110,15 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 		return $row === false ? null : $row['user_id'];
 	}
 
+	private function setTaskVisibilityAndOwner(int $taskId, string $visibilityType, string $ownerUserId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_tasks')
+			->set('visibility_type', $qb->createNamedParameter($visibilityType))
+			->set('owner_user_id', $qb->createNamedParameter($ownerUserId))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId)));
+		$qb->executeStatement();
+	}
+
 	/**
 	 * BulkAssign_OwnTasks_AssignedInInputOrder
 	 *
@@ -100,7 +127,7 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 	 */
 	public function testBulkAssign_OwnTasks_AssignedInInputOrder(): void {
 		$houseId = $this->sharedHouseId();
-		$this->bootstrapMembership($houseId, self::MEMBER);
+		$this->seedMembership($houseId, self::MEMBER);
 		['roomTaskIds' => $roomTaskIds] = $this->seedRoomTasks($houseId, ['Dishes', 'Laundry']);
 		[$rtA, $rtB] = $roomTaskIds;
 
@@ -134,7 +161,7 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 	 */
 	public function testBulkAssign_ForeignOrMissingIds_Skipped_OwnTasksStillAssigned(): void {
 		$houseId = $this->sharedHouseId();
-		$this->bootstrapMembership($houseId, self::MEMBER);
+		$this->seedMembership($houseId, self::MEMBER);
 		['roomTaskIds' => $ownIds] = $this->seedRoomTasks($houseId, ['Dishes', 'Laundry']);
 
 		// Isolated fixture house whose task id must never be written.
@@ -170,7 +197,7 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 	 */
 	public function testBulkAssign_NonMemberTarget_Returns400WithoutWrites(): void {
 		$houseId = $this->sharedHouseId();
-		$this->bootstrapMembership($houseId, self::MEMBER);
+		$this->seedMembership($houseId, self::MEMBER);
 		['roomTaskIds' => $ownIds] = $this->seedRoomTasks($houseId, ['Dishes']);
 
 		$controller = $this->buildController(self::MEMBER, [
@@ -193,7 +220,7 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 	 */
 	public function testBulkAssign_InvalidPayloads_Returns400(array $params): void {
 		$houseId = $this->sharedHouseId();
-		$this->bootstrapMembership($houseId, self::MEMBER);
+		$this->seedMembership($houseId, self::MEMBER);
 		['roomTaskIds' => $ownIds] = $this->seedRoomTasks($houseId, ['Dishes']);
 
 		$controller = $this->buildController(self::MEMBER, $params);
@@ -214,5 +241,65 @@ class BulkAssignIntegrationTest extends IntegrationTestCase {
 			'non-numeric element' => [['userId' => 'bulkassign_member', 'roomTaskIds' => ['abc']]],
 			'non-positive element' => [['userId' => 'bulkassign_member', 'roomTaskIds' => [0]]],
 		];
+	}
+
+	/**
+	 * BulkAssign_ChildActor_Returns403Forbidden
+	 *
+	 * CS-PLAN-061 D5: children have the execution surface only — bulk
+	 * assignment is task management and fails the actor policy before any
+	 * validation of the target user or ids (403 envelope).
+	 */
+	public function testBulkAssign_ChildActor_Returns403(): void {
+		$houseId = $this->sharedHouseId();
+		$this->seedMembership($houseId, self::MEMBER);
+		$this->seedMembership($houseId, self::CHILD, 'child');
+		['roomTaskIds' => $ownIds] = $this->seedRoomTasks($houseId, ['Dishes']);
+
+		$controller = $this->buildController(self::CHILD, [
+			'userId' => self::MEMBER,
+			'roomTaskIds' => [$ownIds[0]],
+		]);
+		$response = $controller->bulkAssign();
+
+		self::assertSame(403, $response->getStatus());
+		$data = $response->getData();
+		self::assertFalse($data['success']);
+		self::assertSame('FORBIDDEN', $data['error']['code']);
+		self::assertNull($this->persistedAssignee($ownIds[0]), 'no write may happen for a denied actor');
+	}
+
+	/**
+	 * BulkAssign_HouseScopedButInvisibleTask_Returns404
+	 *
+	 * CS-PLAN-061 D2/D3: an id that IS scoped to the house but invisible to
+	 * the actor (private task of another member) fails the whole request up
+	 * front with 404 (anti-enumeration) — even co-requested visible ids are
+	 * not written (fail-fast, not per-item skip).
+	 */
+	public function testBulkAssign_HouseScopedButInvisibleTask_Returns404(): void {
+		$houseId = $this->sharedHouseId();
+		$this->seedMembership($houseId, self::MEMBER);
+		$this->seedMembership($houseId, self::OTHER_MEMBER, 'member');
+		['floorId' => $floorId, 'roomTaskIds' => $ownIds] = $this->seedRoomTasks($houseId, ['Dishes']);
+
+		// Private task owned by another member, assigned to its creator —
+		// invisible to MEMBER (not creator, not assignee).
+		$privateTaskId = $this->createTask($houseId, 'Private Laundry', 'hidden');
+		$this->setTaskVisibilityAndOwner($privateTaskId, Task::VISIBILITY_PRIVATE, self::OTHER_MEMBER);
+		$privateRoomTaskId = $this->assignTaskToRoom($privateTaskId, $this->createRoom($houseId, $floorId, 'Private Room'), self::OTHER_MEMBER);
+
+		$controller = $this->buildController(self::MEMBER, [
+			'userId' => self::MEMBER,
+			'roomTaskIds' => [$ownIds[0], $privateRoomTaskId],
+		]);
+		$response = $controller->bulkAssign();
+
+		self::assertSame(404, $response->getStatus());
+		$data = $response->getData();
+		self::assertFalse($data['success']);
+		self::assertSame('RESOURCE_NOT_FOUND', $data['error']['code']);
+		self::assertSame(self::OTHER_MEMBER, $this->persistedAssignee($privateRoomTaskId), 'the invisible task must stay untouched');
+		self::assertNull($this->persistedAssignee($ownIds[0]), 'the visible co-requested task must not be written either');
 	}
 }

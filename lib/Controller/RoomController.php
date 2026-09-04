@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomService;
@@ -22,6 +24,8 @@ use OCP\IRequest;
  * API controller for room-related endpoints
  */
 class RoomController extends Controller {
+	use ControllerLoggingTrait;
+
 	/** Maximum persisted roomType length (rooms.room_type column, CR-027-01). */
 	private const ROOM_TYPE_MAX_LENGTH = 50;
 
@@ -38,6 +42,7 @@ class RoomController extends Controller {
 		AuthorizationService $authService,
 		TemplateService $templateService,
 		IL10N $l,
+		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomService = $roomService;
@@ -45,6 +50,7 @@ class RoomController extends Controller {
 		$this->authService = $authService;
 		$this->templateService = $templateService;
 		$this->l = $l;
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**
@@ -109,9 +115,25 @@ class RoomController extends Controller {
 				], 400);
 			}
 
-			// Verify house membership via floor
+			// Caller-scoped house resolution (CS-PLAN-061 §3.1): the caller's
+			// instance house is authoritative — never the floor-derived id,
+			// which would have auto-joined a foreign house (ADR-010).
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$this->authService->assertHouseMember($house->getId());
+
+			// The target floor must belong to the caller's house; a foreign
+			// or nonexistent floor id maps to the same 404 (anti-enumeration).
 			$floor = $this->roomService->getFloor($resolvedFloorId);
-			$this->authService->ensureHouseMember($floor->getHouseId());
+			if ($floor->getHouseId() !== $house->getId()) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => [
+						'code' => 'RESOURCE_NOT_FOUND',
+						'message' => $this->l->t('Floor not found')
+					]
+				], 404);
+			}
 
 			$room = $this->roomService->createRoom($resolvedFloorId, $resolvedName, $resolvedIcon, $resolvedRoomType);
 
@@ -121,7 +143,16 @@ class RoomController extends Controller {
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'RESOURCE_NOT_FOUND',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 404);
 		} catch (\Exception $e) {
+			$this->logControllerException('create', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -204,7 +235,7 @@ class RoomController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 			$this->roomService->validateRoomOwnership($id, $house->getId());
 
 			if (empty(trim($name))) {
@@ -223,9 +254,12 @@ class RoomController extends Controller {
 				'success' => true,
 				'data' => $room->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('update', $e, ['roomId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -245,7 +279,7 @@ class RoomController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 			$this->authService->requireHouseOwner($house->getId());
 			$this->roomService->validateRoomOwnership($id, $house->getId());
 
@@ -255,9 +289,12 @@ class RoomController extends Controller {
 				'success' => true,
 				'message' => $this->l->t('Room deleted successfully')
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('delete', $e, ['roomId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -277,7 +314,7 @@ class RoomController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 			$this->roomService->validateRoomOwnership($id, $house->getId());
 
 			if ($cleanlinessChange < -100 || $cleanlinessChange > 100) {
@@ -296,9 +333,12 @@ class RoomController extends Controller {
 				'success' => true,
 				'data' => $room->jsonSerialize()
 			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('updateCleanliness', $e, ['roomId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [

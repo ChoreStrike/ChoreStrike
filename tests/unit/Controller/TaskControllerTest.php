@@ -10,8 +10,9 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\TaskController;
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -63,16 +64,16 @@ class TaskControllerTest extends TestCase {
 		return $house;
 	}
 
-	private function createHouseUserMock(string $userId = 'caller', bool $isOwner = false): object {
+	private function createHouseUserMock(string $userId = 'caller', bool $isOwner = false): HouseUser {
 		// HouseUser accessors are magic (Entity __call), so use a real entity.
 		// isOwner() is a real method reading $this->role.
-		$houseUser = new \OCA\ChoreStrike\Db\HouseUser();
+		$houseUser = new HouseUser();
 		$houseUser->setNextcloudUserId($userId);
 		$houseUser->setRole($isOwner ? 'owner' : 'member');
 		return $houseUser;
 	}
 
-	private function expectHouseMembershipContext(int $houseId = 1): void {
+	private function expectHouseMembershipContext(int $houseId = 1): HouseUser {
 		$this->houseService->expects($this->once())
 			->method('getInstanceId')
 			->willReturn('instance-123');
@@ -81,10 +82,12 @@ class TaskControllerTest extends TestCase {
 			->method('getOrCreateHouse')
 			->willReturn($this->createHouseMock($houseId));
 
+		$houseUser = $this->createHouseUserMock();
 		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
+			->method('assertHouseMember')
 			->with($houseId)
-			->willReturn($this->createHouseUserMock());
+			->willReturn($houseUser);
+		return $houseUser;
 	}
 
 	/**
@@ -99,10 +102,11 @@ class TaskControllerTest extends TestCase {
 		$task2->setId(2);
 		$task2->setName('Vacuum Living Room');
 
-		$this->expectHouseMembershipContext();
+		$houseUser = $this->expectHouseMembershipContext();
 
 		$this->taskService->expects($this->once())
 			->method('getVisibleTasks')
+			->with(1, $this->identicalTo($houseUser))
 			->willReturn([$task1, $task2]);
 
 		$response = $this->controller->index();
@@ -148,14 +152,42 @@ class TaskControllerTest extends TestCase {
 		$task->setId(1);
 		$task->setName('Clean Kitchen');
 
-		$this->expectHouseMembershipContext();
+		$houseUser = $this->expectHouseMembershipContext();
 
 		$this->taskService->expects($this->once())
 			->method('validateTaskData')
 			->willReturn([]);
 
+		// CS-PLAN-061: the authenticated HouseUser is the first createTask
+		// argument (the service derives scoping/ownership from the actor).
 		$this->taskService->expects($this->once())
 			->method('createTask')
+			->with(
+				$this->identicalTo($houseUser),
+				'Clean Kitchen',
+				null,
+				1,
+				2,
+				'weekly',
+				1,
+				15,
+				'cleaning',
+				'room',
+				null,
+				'recurring',
+				null,
+				null,
+				false,
+				'dynamic',
+				null,
+				null,
+				null,
+				null,
+				null,
+				null,
+				'public',
+				null
+			)
 			->willReturn($task);
 
 		$response = $this->controller->create('Clean Kitchen');
@@ -170,21 +202,21 @@ class TaskControllerTest extends TestCase {
 
 	/**
 	 * A non-owner may not update another member's private task. The update
-	 * gate mirrors show()/delete() and returns 404 (anti-enumeration) before
-	 * any mutation. Regression for the missing visibility gate on update().
+	 * gate loads the task through the visibility policy (getVisibleTask),
+	 * which denies invisible tasks with the app NotFoundException → 404
+	 * (anti-enumeration) before any mutation. Regression for the missing
+	 * visibility gate on update().
 	 */
 	public function testUpdate_Returns404WhenNonOwnerUpdatesPrivateTask(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willReturn($this->createHouseUserMock('member', false));
 
-		$task = new Task();
-		$task->setId(1);
-		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
-		$task->setOwnerUserId('someone-else');
-
-		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->expects($this->once())
+			->method('getVisibleTask')
+			->with(1, $this->isInstanceOf(HouseUser::class))
+			->willThrowException(new NotFoundException('Task not found'));
 		$this->taskService->expects($this->never())->method('updateTask');
 
 		$response = $this->controller->update(1, ['name' => 'Hijacked']);
@@ -194,19 +226,18 @@ class TaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * A non-owner may not update an admin-only task → 404.
+	 * A non-owner may not update an admin-only task → 404 (the service's
+	 * visibility policy denies the invisible task up front).
 	 */
 	public function testUpdate_Returns404WhenNonOwnerUpdatesAdminOnlyTask(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willReturn($this->createHouseUserMock('member', false));
 
-		$task = new Task();
-		$task->setId(1);
-		$task->setVisibilityType(Task::VISIBILITY_ADMIN_ONLY);
-
-		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->expects($this->once())
+			->method('getVisibleTask')
+			->willThrowException(new NotFoundException('Task not found'));
 		$this->taskService->expects($this->never())->method('updateTask');
 
 		$response = $this->controller->update(1, ['name' => 'Hijacked']);
@@ -223,20 +254,20 @@ class TaskControllerTest extends TestCase {
 	public function testUpdate_DropsLegacyIsPrivateKey(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willReturn($this->createHouseUserMock('member', false));
 
 		$task = new Task();
 		$task->setId(1);
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
-		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
 		$this->taskService->method('validateTaskData')->willReturn([]);
 
 		$captured = null;
 		$this->taskService->expects($this->once())
 			->method('updateTask')
-			->willReturnCallback(function (int $id, array $updates, string $callerUserId, bool $isOwner) use ($task, &$captured) {
+			->willReturnCallback(function (int $id, array $updates, HouseUser $actor) use ($task, &$captured) {
 				$captured = $updates;
 				return $task;
 			});
@@ -249,25 +280,26 @@ class TaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * CR-SVC-17: the controller must pass non-nullable authorization context
-	 * (caller user id + owner flag) into the service's visibility matrix.
+	 * CR-SVC-17 (CS-PLAN-061 WP2): the controller must pass the
+	 * authenticated HouseUser actor into the service's visibility matrix.
 	 */
 	public function testUpdate_PassesAuthorizationContextToService(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
-		$this->authService->method('ensureHouseMember')
-			->willReturn($this->createHouseUserMock('owner', true));
+		$houseUser = $this->createHouseUserMock('owner', true);
+		$this->authService->method('assertHouseMember')
+			->willReturn($houseUser);
 
 		$task = new Task();
 		$task->setId(1);
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
-		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
 		$this->taskService->method('validateTaskData')->willReturn([]);
 
 		$this->taskService->expects($this->once())
 			->method('updateTask')
-			->with(1, ['name' => 'Renamed'], 'owner', true)
+			->with(1, ['name' => 'Renamed'], $this->identicalTo($houseUser))
 			->willReturn($task);
 
 		$response = $this->controller->update(1, ['name' => 'Renamed']);
@@ -276,48 +308,50 @@ class TaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * CR-SVC-17 defense-in-depth: a ForbiddenException from the service's
-	 * updateTask matrix must surface as 404 (anti-enumeration), mirroring
-	 * delete() — never a 403 that confirms the task exists.
+	 * CR-SVC-17 defense-in-depth: a visibility denial from the service's
+	 * updateTask matrix (app NotFoundException, CS-PLAN-061 §3.2) must
+	 * surface as 404 (anti-enumeration) — never a 403 that confirms the
+	 * task exists.
 	 */
 	public function testUpdate_ServiceVisibilityDenial_Returns404(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willReturn($this->createHouseUserMock('member', false));
 
 		$task = new Task();
 		$task->setId(1);
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
-		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
 		$this->taskService->method('validateTaskData')->willReturn([]);
 		$this->taskService->method('updateTask')
-			->willThrowException(new ForbiddenException('Only the task owner may update a private task'));
+			->willThrowException(new NotFoundException('Task not found'));
 
 		$response = $this->controller->update(1, ['ownerUserId' => 'attacker']);
 
 		$this->assertEquals(404, $response->getStatus());
 		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+		$this->assertEquals('Task not found', $response->getData()['error']['message']);
 	}
 
 	/**
 	 * CR-053-04: a member sending taskTier gets a plain 403 role denial —
-	 * NOT the 404 anti-enumeration mapping the inner ForbiddenException
+	 * NOT the 404 anti-enumeration mapping the inner NotFoundException
 	 * catch applies to visibility denials (the role denial leaks no task
 	 * existence, the task is already visible to the caller).
 	 */
 	public function testUpdate_MemberTaskTier_Returns403(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willReturn($this->createHouseUserMock('member', false));
 
 		$task = new Task();
 		$task->setId(1);
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
-		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
 		$this->taskService->expects($this->never())->method('updateTask');
 
 		$response = $this->controller->update(1, ['taskTier' => 'gold']);
@@ -332,14 +366,14 @@ class TaskControllerTest extends TestCase {
 	public function testUpdate_OwnerInvalidTaskTier_Returns400(): void {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
-		$this->authService->method('ensureHouseMember')
+		$this->authService->method('assertHouseMember')
 			->willReturn($this->createHouseUserMock('owner', true));
 
 		$task = new Task();
 		$task->setId(1);
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
-		$this->taskService->expects($this->once())->method('getTask')->willReturn($task);
+		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
 		$this->taskService->expects($this->never())->method('updateTask');
 
 		$response = $this->controller->update(1, ['taskTier' => 'platinum']);

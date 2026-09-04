@@ -5,6 +5,26 @@ const APP_PREFIX = '[ChoreStrike]'
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
 /**
+ * Redact ApiError objects before they reach a log sink (CS-PLAN-061 §3.6):
+ * only status, stable error code, and the backend message survive — the
+ * raw response body (member display names, invite emails, …) is stripped.
+ *
+ * @param {unknown} value Candidate value.
+ * @return {unknown} The redacted value or the original.
+ */
+function redact(value) {
+	if (value && typeof value === 'object' && value.name === 'ApiError') {
+		return {
+			name: 'ApiError',
+			status: value.status,
+			code: value.code,
+			message: value.message,
+		}
+	}
+	return value
+}
+
+/**
  * Build a stable log prefix.
  *
  * @param {string} level Log level name.
@@ -40,7 +60,7 @@ function debug(message, context) {
 		return
 	}
 
-	console.debug(formatMessage('debug', message), ...normalizeContext(context))
+	console.debug(formatMessage('debug', message), ...normalizeContext(redact(context)))
 }
 
 /**
@@ -54,7 +74,7 @@ function info(message, context) {
 		return
 	}
 
-	console.info(formatMessage('info', message), ...normalizeContext(context))
+	console.info(formatMessage('info', message), ...normalizeContext(redact(context)))
 }
 
 /**
@@ -64,11 +84,12 @@ function info(message, context) {
  * @param {unknown} [context] Optional diagnostic context.
  */
 function warn(message, context) {
-	console.warn(formatMessage('warn', message), ...normalizeContext(context))
+	console.warn(formatMessage('warn', message), ...normalizeContext(redact(context)))
 }
 
 /**
- * Write an error log.
+ * Write an error log. ApiError objects are redacted to
+ * {name, status, code, message} — no response bodies.
  *
  * @param {string} message Message to log.
  * @param {unknown} [error] Optional error object.
@@ -78,11 +99,11 @@ function error(message, error, context) {
 	const payload = []
 
 	if (error !== undefined) {
-		payload.push(error)
+		payload.push(redact(error))
 	}
 
 	if (context !== undefined) {
-		payload.push(context)
+		payload.push(redact(context))
 	}
 
 	console.error(formatMessage('error', message), ...payload)

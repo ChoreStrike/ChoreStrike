@@ -25,23 +25,6 @@
 > are intentionally sanitized; sensitive technical evidence is excluded from the
 > public repository under the security-disclosure policy.
 
-### [P1] CR-WF-01 — Enforce approved workflow authorization boundaries
-**Status**: In Progress (CS-PLAN-061) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: authorization
-**Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: CR-WF-03..08 · **Folded-in**: —
-**Source**: Full Review of the core task workflow (2026-09-02)
-
-Membership, role, task-visibility, mutation, and privacy boundaries are not
-consistently enforced across the reviewed workflow. Detailed evidence is kept
-out of the public repository under the security-disclosure policy.
-
-- [ ] Bootstrap only the first owner; require an invitation thereafter and make removal durable.
-- [ ] Enforce creator-plus-assignees access for private tasks across reads, assignment, checklists, and lifecycle actions.
-- [ ] Enforce the documented owner-only structure and checklist-definition mutations at controller and service boundaries.
-- [ ] Remove user-authored values and raw response payloads from workflow logs.
-- [ ] Add real controller/service authorization regression coverage for every affected boundary.
-
----
-
 ### [P1] CR-WF-02 — Make completion and undo transactionally complete
 **Status**: Backlog · **Effort**: XL · **Layer**: backend+frontend · **Journey stage**: completion/undo
 **Owning**: CS-PLAN-058 WP5 · **Depends on**: — · **Blocks**: CR-WF-07 · **Folded-in**: —
@@ -239,70 +222,42 @@ Re-scoped: the `createDefaultTemplates` and
 (clusters deleted by CS-PLAN-027 D7 / CR-SVC-08);
 `TaskService::getAllTasks` was deleted with the CS-PLAN-055 dead-code sweep.
 Still live: `StreakFreeze`/`StreakRestock` per-user UPDATEs (unlocked RMW —
-see CR-053-11 for the correctness half); `assignTask`/`unassignTask`/`deactivate`/
-`reactivate`/`updateDueDate` re-fetch pattern in `RoomTaskService`; `hasFloors`
-hydrates all floors for a boolean (`HouseService:303`).
+see CR-053-11 for the correctness half); ~~`assignTask`/`unassignTask`/`deactivate`/
+`reactivate`/`updateDueDate` re-fetch pattern in `RoomTaskService`~~ (the
+`assignTask`/`unassignTask`/`deactivateTask` mutators were deleted outright by
+CS-PLAN-061 §3.4 — 2026-09-03 — removing three of the five re-fetch sites);
+`hasFloors` hydrates all floors for a boolean (`HouseService:303`).
 
 ---
 
-### [P3] CR-053-16 — NotFound→404 mapping cluster + unvalidated request bodies
-**Status**: In Progress (CS-PLAN-061) · **Effort**: M · **Layer**: backend · **Journey stage**: authorization
-**Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-053 full review (CR-P3-11/12, 2026-08-27); re-scoped by CS-PLAN-055
+### [P3] CR-053-18-WP9 — Test-mode routes keep `@NoCSRFRequired` (release-hardening remainder)
+**Status**: Open · **Effort**: S · **Layer**: backend · **Journey stage**: release
+**Owning**: CS-PLAN-058 WP9 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CR-053-18 remainder, re-scoped by CS-PLAN-061 decision D8 (user-ratified 2026-09-03)
 
-Systemic: nonexistent/foreign ids return 500 instead of 404 across the **remaining**
-TaskController + RoomTaskController (×12) / Floor / Room / Checklist endpoints. (The
-`Floor/Room index()` untyped JSON-body branches and the `task_sync` `limit` unclamped
-branches left with the pruned surface.) One shared pattern: wrap DoesNotExistException
-in service validators + per-controller catch.
-
----
-
-### [P3] CR-053-17 — Silent exception swallowing in remaining controllers
-**Status**: In Progress (CS-PLAN-061) · **Effort**: M · **Layer**: backend · **Journey stage**: authorization
-**Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-053 full review (L3-3, 2026-08-27); re-scoped by CS-PLAN-055
-
-(TaskSync + RewardConfig controllers pruned.)
-Generic catch-alls return 500s with zero logging in RoomTask/Checklist/Floor/Minigame/Page/
-Room/Test/User (+ Setup's weaker hand-rolled variant) — violates CS-PLAN-052's
-AppLogger contract. Adopt `ControllerLoggingTrait` across the remainder.
-
----
-
-### [P3] CR-053-18 — API hardening small-items cluster
-**Status**: In Progress (CS-PLAN-061) · **Effort**: M · **Layer**: backend · **Journey stage**: authorization
-**Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-053 full review (CR-P3-04..10, CR-P2-09/10/17/18/19, 2026-08-27); re-scoped by CS-PLAN-055
-
-Test-mode routes registered with `@NoCSRFRequired` (CSRF-free destructive API when
-NEXTCLOUD_TEST_MODE is set); saveScore accepts unwhitelisted gameIds with no rate cap (coin
-farming); `ensureHouseMember` (auto-join) used on read paths with target-derived ids;
-`ownerUserId` transfer without membership validation; anti-enumeration 403-vs-404
-inconsistency; no route `requirements`; weekday case-handling divergence; notifier claimer
-display-name-as-uid; medal-notification dedup collapse; reminder pass aborts on one
-orphaned task. (Closed by the CS-PLAN-055 prune: `user#update` unvalidated
-schedulingPreferences, bare RewardConfig `DataResponse` envelope, and `needingCleaning`
-unscoped-without-floorId all removed with their routes.)
-
-**Decisions (user, 2026-09-02):** after the first-owner bootstrap, membership is
-invite-only; private-task access belongs to the creator plus explicit assignees.
-The remaining cross-workflow enforcement is owned by **CR-WF-01** above.
+The test-mode routes (`test#profiles`, `test#seed`, `test#reset`) keep
+`@NoCSRFRequired` + the runtime `NEXTCLOUD_TEST_MODE` gate (D8): the E2E
+infrastructure depends on plain API seeding, and CSRF tokens in test tooling
+add churn without a production threat. The boundary is the env gate; the
+"never set `NEXTCLOUD_TEST_MODE` in production" rule is documented in
+`docs/standards/guidelines/security.md`. WP9 decides whether the release
+build strips the routes entirely (build-time exclusion) or keeps the
+documented contract.
 
 ---
 
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
-**Status**: In Progress (CS-PLAN-061, semantics slice) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
-**Owning**: CS-PLAN-058 WP2 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: UX-003 remainder (CS-PLAN-038); WP2 owns the owner-transfer/last-owner semantics only
+**Status**: Open (semantics decided, endpoint/UI open) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: UX-003 remainder (CS-PLAN-038); owner-transfer/last-owner semantics decided by CS-PLAN-061 D6 (ADR-010, user-ratified 2026-09-03)
 
-Members cannot leave a house on their own; removal is owner-only. Needs a
-product decision on owner-transfer semantics when the *last* owner leaves
-(interplay with the BUG-SEC-002 last-owner guard, resolved 2026-08-24 —
-[`archive/2026-08.md`](archive/2026-08.md)), then a backend endpoint +
-Settings action.
+Members cannot leave a house on their own; removal is owner-only. The
+owner-transfer semantics are decided (D6): the **last owner cannot leave** —
+ownership must be transferred first (consistent with `CANNOT_REMOVE_OWNER` /
+`CANNOT_DEMOTE_LAST_OWNER`; an ownerless house would allow stranger
+re-bootstrap). Remaining: the backend leave endpoint + Settings action.
 
-- [ ] Decide owner-transfer/last-owner semantics for leaving.
+- [x] Decide owner-transfer/last-owner semantics for leaving. (D6, ADR-010, 2026-09-03)
 - [ ] Backend leave endpoint (+ guards) + Settings Leave button + tests.
 
 ---

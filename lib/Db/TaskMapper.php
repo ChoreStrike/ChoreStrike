@@ -143,9 +143,10 @@ class TaskMapper extends QBMapper {
 	/**
 	 * Find tasks visible to a viewer based on the visibility matrix.
 	 *
-	 * Visibility rules:
+	 * Visibility rules (D2, CS-PLAN-061 §3.2):
 	 *   - public: visible to all roles
-	 *   - private: visible only to the owner (ownerUserId matches viewer)
+	 *   - private: visible to the creator (ownerUserId) UNION the explicit
+	 *     assignees of its room tasks
 	 *   - admin-only: visible only to house owners
 	 *
 	 * House scoping (CS-PLAN-060 §3.4): the $houseId parameter is
@@ -186,13 +187,36 @@ class TaskMapper extends QBMapper {
 			->from('chorestrike_room_tasks', 'rt2')
 			->where($anyLink->expr()->eq('rt2.task_id', 't.id'));
 
+		// Private visibility (D2, CS-PLAN-061 §3.2): the creator OR any
+		// explicit assignee. The assignee branch is an EXISTS over the
+		// canonical join table reached through the task's room tasks —
+		// built with the same query-builder subquery pattern as above.
+		$assigneeLink = $this->db->getQueryBuilder();
+		$assigneeLink->select($assigneeLink->expr()->literal(1))
+			->from('chorestrike_room_tasks', 'rt3')
+			->innerJoin(
+				'rt3',
+				'chorestrike_task_assignees',
+				'ta',
+				$assigneeLink->expr()->eq('ta.room_task_id', 'rt3.id')
+			)
+			->where(
+				$assigneeLink->expr()->andX(
+					$assigneeLink->expr()->eq('rt3.task_id', 't.id'),
+					$assigneeLink->expr()->eq('ta.user_id', $qb->createNamedParameter($viewer->getNextcloudUserId()))
+				)
+			);
+
 		$visibilityRules = [
 			// Public definitions are visible everywhere.
 			$qb->expr()->eq('t.visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PUBLIC)),
-			// Private definitions only for their owner (any role).
+			// Private definitions for their creator ∪ explicit assignees (D2).
 			$qb->expr()->andX(
 				$qb->expr()->eq('t.visibility_type', $qb->createNamedParameter(Task::VISIBILITY_PRIVATE)),
-				$qb->expr()->eq('t.owner_user_id', $qb->createNamedParameter($viewer->getNextcloudUserId()))
+				$qb->expr()->orX(
+					$qb->expr()->eq('t.owner_user_id', $qb->createNamedParameter($viewer->getNextcloudUserId())),
+					$qb->expr()->eq($qb->createFunction('EXISTS (' . $assigneeLink->getSQL() . ')'), $qb->createFunction('1'))
+				)
 			),
 		];
 

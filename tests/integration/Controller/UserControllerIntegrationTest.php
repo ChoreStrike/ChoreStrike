@@ -77,8 +77,10 @@ class UserControllerIntegrationTest extends TestCase {
 			->method('getOrCreateHouse')
 			->with('instance-123')
 			->willReturn($house);
+		// ADR-010/CS-PLAN-061: index is an ordinary endpoint — pure
+		// membership assertion, no bootstrap auto-join.
 		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
+			->method('assertHouseMember')
 			->with($house->getId());
 		$this->houseUserMapper->expects($this->once())
 			->method('findByHouseId')
@@ -168,6 +170,10 @@ class UserControllerIntegrationTest extends TestCase {
 	 * Invite_NonExistingNextcloudUser_ReturnsNotFound
 	 */
 	public function testInvite_NonExistingNextcloudUser_ReturnsNotFound(): void {
+		$house = $this->createHouse();
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
+
 		$this->userManager->expects($this->once())
 			->method('getByEmail')
 			->with('missing-user@example.com')
@@ -182,11 +188,110 @@ class UserControllerIntegrationTest extends TestCase {
 	}
 
 	/**
+	 * Invite_NonOwner_DeniedBeforeEmailLookup
+	 *
+	 * CS-PLAN-061 review fix: the owner gate runs BEFORE the email lookup —
+	 * a non-owner must not be able to probe which Nextcloud accounts exist
+	 * for a given email (the old order answered USER_NOT_FOUND vs FORBIDDEN
+	 * depending on the email, an existence oracle).
+	 */
+	public function testInvite_NonOwner_DeniedBeforeEmailLookup(): void {
+		$house = $this->createHouse();
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
+		$this->authService->method('ensureHouseMember')->with($house->getId());
+		$this->authService->expects($this->once())
+			->method('requireHouseOwner')
+			->with($house->getId())
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required'));
+
+		$this->userManager->expects($this->never())->method('getByEmail');
+
+		$response = $this->controller->invite('probe@example.com', 'member');
+
+		$this->assertEquals(403, $response->getStatus());
+		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * SelectTitle_NonMemberProbe_DeniedBeforeTargetLookup
+	 *
+	 * CS-PLAN-061 review fix: the membership gate runs BEFORE the target
+	 * lookup — a non-member probing global house_user ids gets a uniform
+	 * 403, never a 403/404 split that confirms which ids exist.
+	 */
+	public function testSelectTitle_NonMemberProbe_DeniedBeforeTargetLookup(): void {
+		$house = $this->createHouse();
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
+		$this->authService->expects($this->once())
+			->method('assertHouseMember')
+			->with($house->getId())
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Not a member of this house'));
+
+		$this->houseUserMapper->expects($this->never())->method('find');
+
+		$response = $this->controller->selectTitle(42, 'some_pack');
+
+		$this->assertEquals(403, $response->getStatus());
+		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * SelectTitle_MemberNonexistentTarget_Returns404
+	 *
+	 * For a member, a nonexistent and a foreign-house id both map to the
+	 * same 404 USER_NOT_FOUND (scoped lookup, D3 anti-enumeration).
+	 */
+	public function testSelectTitle_MemberNonexistentTarget_Returns404(): void {
+		$house = $this->createHouse();
+		$member = $this->createHouseUser(5, $house->getId(), 'member1', 'Member', 'member');
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
+		$this->authService->method('assertHouseMember')->with($house->getId())->willReturn($member);
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(999)
+			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('no row'));
+
+		$response = $this->controller->selectTitle(999, 'some_pack');
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertEquals('USER_NOT_FOUND', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * SelectTitle_MemberOwnPack_ReturnsSuccess
+	 */
+	public function testSelectTitle_MemberOwnPack_ReturnsSuccess(): void {
+		$house = $this->createHouse();
+		$member = $this->createHouseUser(5, $house->getId(), 'member1', 'Member', 'member');
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
+		$this->authService->method('assertHouseMember')->with($house->getId())->willReturn($member);
+		$this->houseUserMapper->method('find')->with(5)->willReturn($member);
+		$this->titleService->expects($this->once())
+			->method('selectPack')
+			->with($this->identicalTo($member), 'some_pack');
+
+		$response = $this->controller->selectTitle(5, 'some_pack');
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertTrue($response->getData()['success']);
+	}
+
+	/**
 	 * Remove_ExistingMember_ReturnsSuccess
 	 */
 	public function testRemove_ExistingMember_ReturnsSuccess(): void {
-		$houseUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'member');
+		$house = $this->createHouse();
+		$houseUser = $this->createHouseUser(2, $house->getId(), 'user2', 'Bob', 'member');
 
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
+		$this->authService->method('assertHouseMember')->with($house->getId());
 		$this->houseUserMapper->expects($this->once())
 			->method('find')
 			->with(2)
@@ -214,8 +319,12 @@ class UserControllerIntegrationTest extends TestCase {
 	 * Remove_Owner_ReturnsForbidden
 	 */
 	public function testRemove_Owner_ReturnsForbidden(): void {
-		$owner = $this->createHouseUser(1, 1, 'owner', 'Alice', 'owner');
+		$house = $this->createHouse();
+		$owner = $this->createHouseUser(1, $house->getId(), 'owner', 'Alice', 'owner');
 
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
+		$this->authService->method('assertHouseMember')->with($house->getId());
 		$this->houseUserMapper->expects($this->once())
 			->method('find')
 			->with(1)
@@ -245,9 +354,13 @@ class UserControllerIntegrationTest extends TestCase {
 	 * the controller contains no setRole/update itself.
 	 */
 	public function testUpdateRole_ValidRole_ReturnsUpdatedUser(): void {
-		$houseUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'member');
-		$updatedUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'child');
+		$house = $this->createHouse();
+		$houseUser = $this->createHouseUser(2, $house->getId(), 'user2', 'Bob', 'member');
+		$updatedUser = $this->createHouseUser(2, $house->getId(), 'user2', 'Bob', 'child');
 
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
+		$this->authService->method('assertHouseMember')->with($house->getId());
 		$this->houseUserMapper->expects($this->once())
 			->method('find')
 			->with(2)
@@ -277,8 +390,12 @@ class UserControllerIntegrationTest extends TestCase {
 	 * UpdateRole_InvalidRole_ReturnsValidationError
 	 */
 	public function testUpdateRole_InvalidRole_ReturnsValidationError(): void {
-		$houseUser = $this->createHouseUser(2, 1, 'user2', 'Bob', 'member');
+		$house = $this->createHouse();
+		$houseUser = $this->createHouseUser(2, $house->getId(), 'user2', 'Bob', 'member');
 
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
+		$this->authService->method('assertHouseMember')->with($house->getId());
 		$this->houseUserMapper->expects($this->once())
 			->method('find')
 			->with(2)

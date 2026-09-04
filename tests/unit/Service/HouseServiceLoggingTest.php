@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Service\AppLogger;
+use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RewardConfigService;
@@ -57,9 +58,11 @@ class HouseServiceLoggingTest extends TestCase {
 			->with(
 				'Creating house for instance',
 				$this->callback(function (array $context): bool {
+					// Log hygiene (CS-PLAN-061 §3.6): the user-authored house
+					// name no longer enters the log context — stable ids only.
 					return $context['service'] === 'HouseService'
 						&& $context['instanceId'] === 'instance-1'
-						&& $context['houseName'] === 'Family Home';
+						&& !array_key_exists('houseName', $context);
 				})
 			);
 
@@ -82,7 +85,8 @@ class HouseServiceLoggingTest extends TestCase {
 			$this->createIdentityL10n(),
 			$appLogger,
 			$this->createMock(IUserSession::class),
-			new CalendarService()
+			new CalendarService(),
+			$this->createMock(AuthorizationService::class)
 		);
 
 		$result = $service->getOrCreateHouse('instance-1', 'Family Home');

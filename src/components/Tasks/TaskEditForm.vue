@@ -431,8 +431,10 @@ export default {
 
 		const visibilityHint = computed(() => {
 			switch (form.visibilityType) {
+			// Real matrix (CS-PLAN-061 §3.2, D2): private tasks are visible
+			// to their creator AND the explicitly assigned members.
 			case VISIBILITY_PRIVATE:
-				return t('chorestrike', 'Only assigned members can see and complete this task')
+				return t('chorestrike', 'Only you and the assigned members can see and complete this task. Assigned members can also edit it.')
 			case VISIBILITY_ADMIN_ONLY:
 				return t('chorestrike', 'Only house owners can see and complete this task')
 			default:

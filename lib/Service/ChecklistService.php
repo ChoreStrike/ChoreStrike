@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskChecklistItem;
 use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -28,9 +29,14 @@ use OCP\IL10N;
  * {@see assertTaskAccessible()} — house linkage via the room-chain
  * (room_tasks → rooms → floors → house, mirroring
  * RoomTaskService::validateRoomTaskOwnership) plus the task-visibility
- * matrix (public → any member; private → owner match; admin-only → house
- * owner, same rules as TaskMapper::findVisibleByHouse). Denials surface
- * as NotFoundException (404, anti-enumeration — TaskController precedent).
+ * matrix, delegated to {@see TaskAccessPolicy} (public → any member;
+ * private → creator ∪ assignees; admin-only → house owner, CS-PLAN-061
+ * §3.2 D2). Denials surface as NotFoundException (404, anti-enumeration —
+ * TaskController precedent).
+ *
+ * Definition mutations (item add/update/delete/reorder) are owner-only in
+ * the service (decision D4); progress read/toggle stays on the visibility
+ * matrix (execution surface).
  */
 class ChecklistService {
 	private TaskChecklistItemMapper $checklistItemMapper;
@@ -40,6 +46,8 @@ class ChecklistService {
 	private RoomTaskService $roomTaskService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
+	private AuthorizationService $authorization;
+	private TaskAccessPolicy $taskAccessPolicy;
 
 	public function __construct(
 		TaskChecklistItemMapper $checklistItemMapper,
@@ -49,6 +57,8 @@ class ChecklistService {
 		RoomTaskService $roomTaskService,
 		IL10N $l10n,
 		AppLogger $appLogger,
+		AuthorizationService $authorization,
+		TaskAccessPolicy $taskAccessPolicy,
 	) {
 		$this->checklistItemMapper = $checklistItemMapper;
 		$this->progressMapper = $progressMapper;
@@ -57,6 +67,8 @@ class ChecklistService {
 		$this->roomTaskService = $roomTaskService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
+		$this->authorization = $authorization;
+		$this->taskAccessPolicy = $taskAccessPolicy;
 	}
 
 	/**
@@ -84,22 +96,35 @@ class ChecklistService {
 			throw new NotFoundException($this->l10n->t('Task not found'));
 		}
 
-		$visibility = $task->getVisibilityType();
-		$denied = ($visibility === Task::VISIBILITY_PRIVATE
-				&& $task->getOwnerUserId() !== $viewer->getNextcloudUserId())
-			|| ($visibility === Task::VISIBILITY_ADMIN_ONLY && !$viewer->isOwner());
-		if ($denied) {
+		if (!$this->taskAccessPolicy->canViewTask($task, $viewer)) {
 			$this->appLogger->securityWarning('Checklist access denied: visibility matrix', [
 				'service' => 'ChecklistService',
 				'action' => 'assertTaskAccessible',
 				'taskId' => $taskId,
 				'houseId' => $houseId,
-				'visibilityType' => $visibility,
+				'visibilityType' => $task->getVisibilityType(),
 			]);
 			throw new NotFoundException($this->l10n->t('Task not found'));
 		}
 
 		return $task;
+	}
+
+	/**
+	 * Definition mutations are owner-only in the service (CS-PLAN-061 §3.4,
+	 * decision D4) — matches the frontend gating and CS-PLAN-058 WP2 text.
+	 *
+	 * @throws ForbiddenException if the viewer is not a house owner
+	 */
+	private function assertDefinitionManager(HouseUser $viewer): void {
+		if (!$viewer->isOwner()) {
+			$this->appLogger->warning('Checklist definition mutation denied for non-owner', [
+				'service' => 'ChecklistService',
+				'action' => 'assertDefinitionManager',
+				'userId' => $viewer->getNextcloudUserId(),
+			]);
+			throw new ForbiddenException($this->l10n->t('Only house owners may edit checklists'));
+		}
 	}
 
 	/**
@@ -128,9 +153,11 @@ class ChecklistService {
 
 	/**
 	 * Add a checklist item to a task (appends when no sortOrder is given).
+	 * Owner-only (decision D4).
 	 */
 	public function addTaskItem(int $taskId, string $label, ?int $sortOrder, int $houseId, HouseUser $viewer): TaskChecklistItem {
 		$this->assertTaskAccessible($taskId, $houseId, $viewer);
+		$this->assertDefinitionManager($viewer);
 
 		if ($sortOrder === null) {
 			$sortOrder = count($this->checklistItemMapper->findByTaskId($taskId));
@@ -150,17 +177,21 @@ class ChecklistService {
 
 	/**
 	 * Relabel a checklist item; a foreign item id is rejected with 404.
+	 * Owner-only (decision D4).
 	 */
 	public function updateTaskItem(int $itemId, string $label, int $houseId, HouseUser $viewer): TaskChecklistItem {
 		$item = $this->findItemWithGuard($itemId, $houseId, $viewer);
+		$this->assertDefinitionManager($viewer);
 		return $this->checklistItemMapper->updateLabel($item->getId(), $label);
 	}
 
 	/**
 	 * Delete a checklist item; a foreign item id is rejected with 404.
+	 * Owner-only (decision D4).
 	 */
 	public function deleteTaskItem(int $itemId, int $houseId, HouseUser $viewer): void {
 		$item = $this->findItemWithGuard($itemId, $houseId, $viewer);
+		$this->assertDefinitionManager($viewer);
 		$this->checklistItemMapper->delete($item);
 
 		$this->appLogger->info('Checklist item deleted', [
@@ -173,7 +204,7 @@ class ChecklistService {
 	}
 
 	/**
-	 * Reorder checklist items.
+	 * Reorder checklist items. Owner-only (decision D4).
 	 *
 	 * The raw client map (item id => order) is validated before it reaches
 	 * the mapper: ids must resolve to items of exactly one task accessible
@@ -182,6 +213,7 @@ class ChecklistService {
 	 *
 	 * @param array $itemOrders Map of itemId => sortOrder
 	 * @throws NotFoundException if an item does not exist or is foreign
+	 * @throws ForbiddenException if the viewer is not a house owner
 	 * @throws \InvalidArgumentException if the payload shape is invalid
 	 */
 	public function reorderTaskItems(array $itemOrders, int $houseId, HouseUser $viewer): void {
@@ -204,6 +236,7 @@ class ChecklistService {
 		}
 
 		$this->assertTaskAccessible($taskIds[0], $houseId, $viewer);
+		$this->assertDefinitionManager($viewer);
 		$this->checklistItemMapper->updateSortOrders($sanitized);
 	}
 

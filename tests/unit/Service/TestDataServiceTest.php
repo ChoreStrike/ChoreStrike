@@ -180,10 +180,11 @@ class TestDataServiceTest extends TestCase {
 			->method('insert')
 			->willReturn($room);
 
-		// Mock users (6)
+		// Mock users (6 family members + the invited admin membership,
+		// CS-PLAN-061 ADR-010 E2E determinism)
 		$houseUser = new HouseUser();
 		$houseUser->setId(1);
-		$this->houseUserMapper->expects($this->exactly(6))
+		$this->houseUserMapper->expects($this->exactly(7))
 			->method('insert')
 			->willReturn($houseUser);
 

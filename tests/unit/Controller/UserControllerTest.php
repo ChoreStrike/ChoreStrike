@@ -16,6 +16,7 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TitleService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -67,6 +68,22 @@ class UserControllerTest extends TestCase {
 	}
 
 	/**
+	 * Stub the instance-house preamble (getInstanceId + getOrCreateHouse +
+	 * assertHouseMember) every non-bootstrap endpoint now runs first
+	 * (CS-PLAN-061 §3.1).
+	 */
+	private function expectInstanceHouse(int $houseId = 3): void {
+		$house = new House();
+		$house->setId($houseId);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')
+			->with($houseId)
+			->willReturn(new HouseUser());
+	}
+
+	/**
 	 * Test GET /users returns list successfully
 	 */
 	public function testIndex_ReturnsUsersSuccessfully(): void {
@@ -91,7 +108,7 @@ class UserControllerTest extends TestCase {
 			->willReturn($house);
 
 		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
+			->method('assertHouseMember')
 			->with(1);
 
 		$this->houseUserMapper->expects($this->once())
@@ -200,6 +217,11 @@ class UserControllerTest extends TestCase {
 	 * Test INVITE validates non-existent user by email
 	 */
 	public function testInvite_ValidatesNonExistentUser(): void {
+		$house = new House();
+		$house->setId(1);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+
 		$this->userManager->expects($this->once())
 			->method('getByEmail')
 			->with('nonexistent@example.com')
@@ -277,6 +299,8 @@ class UserControllerTest extends TestCase {
 	 * service (CR-SVC-26) — the controller contains no mapper deletes.
 	 */
 	public function testRemove_DelegatesToHouseServiceAndReturnsSuccess(): void {
+		$this->expectInstanceHouse(3);
+
 		$member = new HouseUser();
 		$member->setId(7);
 		$member->setHouseId(3);
@@ -312,6 +336,8 @@ class UserControllerTest extends TestCase {
 	 * endpoint-specific CANNOT_REMOVE_OWNER 403 (response contract unchanged).
 	 */
 	public function testRemove_OwnerTarget_ReturnsCannotRemoveOwner403(): void {
+		$this->expectInstanceHouse(3);
+
 		$owner = new HouseUser();
 		$owner->setId(7);
 		$owner->setHouseId(3);
@@ -347,6 +373,8 @@ class UserControllerTest extends TestCase {
 	 * 403 FORBIDDEN shape.
 	 */
 	public function testRemove_NonOwnerCaller_ReturnsForbidden403(): void {
+		$this->expectInstanceHouse(3);
+
 		$member = new HouseUser();
 		$member->setId(7);
 		$member->setHouseId(3);
@@ -375,13 +403,17 @@ class UserControllerTest extends TestCase {
 
 	/**
 	 * Test DELETE /users/{id} returns 404 for an unknown target (same
-	 * shape as update()/titles()).
+	 * shape as update()/titles()). The scoped lookup catches the mapper's
+	 * DoesNotExistException itself (CS-PLAN-061 §3.1) and maps it — and a
+	 * foreign-house id — to the USER_NOT_FOUND envelope.
 	 */
 	public function testRemove_UnknownUser_Returns404(): void {
+		$this->expectInstanceHouse(3);
+
 		$this->houseUserMapper->expects($this->once())
 			->method('find')
 			->with(999)
-			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('not found'));
+			->willThrowException(new DoesNotExistException('not found'));
 
 		$response = $this->controller->remove(999);
 
@@ -390,6 +422,33 @@ class UserControllerTest extends TestCase {
 		$data = $response->getData();
 		$this->assertFalse($data['success']);
 		$this->assertEquals('USER_NOT_FOUND', $data['error']['code']);
+	}
+
+	/**
+	 * Test DELETE /users/{id} returns 404 (not 403/500) for a target that
+	 * belongs to a foreign house: the scoped lookup never lets the request
+	 * reach the owner gate, so ids cannot be probed across houses.
+	 */
+	public function testRemove_ForeignHouseUser_Returns404(): void {
+		$this->expectInstanceHouse(3);
+
+		$foreigner = new HouseUser();
+		$foreigner->setId(8);
+		$foreigner->setHouseId(99);
+		$foreigner->setNextcloudUserId('outsider');
+
+		$this->houseUserMapper->expects($this->once())
+			->method('find')
+			->with(8)
+			->willReturn($foreigner);
+
+		$this->authService->expects($this->never())->method('requireHouseOwner');
+		$this->houseService->expects($this->never())->method('removeHouseMember');
+
+		$response = $this->controller->remove(8);
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertEquals('USER_NOT_FOUND', $response->getData()['error']['code']);
 	}
 
 	/**
@@ -411,6 +470,8 @@ class UserControllerTest extends TestCase {
 	 * (BUG-SEC-002) — the controller contains no setRole/update itself.
 	 */
 	public function testUpdateRole_DelegatesToHouseServiceAndReturnsSuccess(): void {
+		$this->expectInstanceHouse(3);
+
 		$member = $this->houseUserForUpdateRole(7, 'member1', 'member');
 
 		$this->houseUserMapper->expects($this->once())
@@ -448,6 +509,8 @@ class UserControllerTest extends TestCase {
 	 * VALIDATION_ERROR 400.
 	 */
 	public function testUpdateRole_InvalidRole_ReturnsValidationError400(): void {
+		$this->expectInstanceHouse(3);
+
 		$member = $this->houseUserForUpdateRole(7, 'member1', 'member');
 
 		$this->houseUserMapper->expects($this->once())
@@ -482,6 +545,8 @@ class UserControllerTest extends TestCase {
 	 * the endpoint-specific CANNOT_DEMOTE_SELF 403.
 	 */
 	public function testUpdateRole_SelfDemotion_ReturnsCannotDemoteSelf403(): void {
+		$this->expectInstanceHouse(3);
+
 		$owner = $this->houseUserForUpdateRole(7, 'owner1', 'owner');
 
 		$this->houseUserMapper->expects($this->once())
@@ -516,6 +581,8 @@ class UserControllerTest extends TestCase {
 	 * endpoint-specific CANNOT_DEMOTE_LAST_OWNER 409.
 	 */
 	public function testUpdateRole_LastOwnerDemotion_ReturnsCannotDemoteLastOwner409(): void {
+		$this->expectInstanceHouse(3);
+
 		$owner = $this->houseUserForUpdateRole(7, 'owner1', 'owner');
 
 		$this->houseUserMapper->expects($this->once())
@@ -550,6 +617,8 @@ class UserControllerTest extends TestCase {
 	 * 403 FORBIDDEN shape.
 	 */
 	public function testUpdateRole_NonOwnerCaller_ReturnsForbidden403(): void {
+		$this->expectInstanceHouse(3);
+
 		$member = $this->houseUserForUpdateRole(7, 'member1', 'member');
 
 		$this->houseUserMapper->expects($this->once())
@@ -577,10 +646,12 @@ class UserControllerTest extends TestCase {
 	 * Test PUT /users/{id}/role returns 404 for an unknown target.
 	 */
 	public function testUpdateRole_UnknownUser_Returns404(): void {
+		$this->expectInstanceHouse(3);
+
 		$this->houseUserMapper->expects($this->once())
 			->method('find')
 			->with(999)
-			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('not found'));
+			->willThrowException(new DoesNotExistException('not found'));
 
 		$this->houseService->expects($this->never())->method('updateUserRole');
 

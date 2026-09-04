@@ -49,6 +49,7 @@ class HouseSetupService {
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
+	private AuthorizationService $authorization;
 
 	public function __construct(
 		FloorMapper $floorMapper,
@@ -61,6 +62,7 @@ class HouseSetupService {
 		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
+		AuthorizationService $authorization,
 	) {
 		$this->floorMapper = $floorMapper;
 		$this->roomMapper = $roomMapper;
@@ -72,18 +74,25 @@ class HouseSetupService {
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
+		$this->authorization = $authorization;
 	}
 
 	/**
-	 * Validate and transactionally apply a wizard payload.
+	 * Validate and transactionally apply a wizard payload (owner-only,
+	 * CS-PLAN-061 §3.4 — the ensureHouseMember bootstrap preamble stays in
+	 * the designated bootstrap endpoint setup#apply, the owner gate runs
+	 * here).
 	 *
 	 * @param int $houseId The caller's house ID
 	 * @param array $payload {intensityLevel: string, options: {createHouseholdRoom?: bool, createHallways?: bool}, floors: [{name: string, rooms: [{name: string, roomType: string, icon?: string, assigneeUserId?: string}]}]}
 	 * @return array{floors: int, rooms: int, tasks: int, roomTasks: int, skipped: array<int, string>}
 	 *
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 * @throws \InvalidArgumentException on any validation failure
 	 */
 	public function applySetup(int $houseId, array $payload): array {
+		$this->authorization->requireHouseOwner($houseId);
+
 		$level = $this->validateBasics($payload);
 		$options = $this->validateOptions($payload['options'] ?? []);
 		$floors = $this->validateFloors($payload['floors'] ?? [], $houseId);

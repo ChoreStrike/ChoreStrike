@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
+use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Service\TaskService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -18,14 +22,35 @@ use PHPUnit\Framework\TestCase;
 class TaskServiceTest extends TestCase {
 	private TaskService $service;
 	private TaskMapper $taskMapper;
+	private AuthorizationService $authorization;
+	private TaskAccessPolicy $taskAccessPolicy;
 
 	protected function setUp(): void {
 		$this->taskMapper = $this->createMock(TaskMapper::class);
+		$this->authorization = $this->createMock(AuthorizationService::class);
+		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
 		$l10n = $this->createMock(IL10N::class);
 		// Identity mock: assertions below match the wrapped source text
 		// (no parameter substitution), mirroring TemplateServiceTest.
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		$this->service = new TaskService($this->taskMapper, $l10n);
+		$this->service = new TaskService($this->taskMapper, $l10n, $this->authorization, $this->taskAccessPolicy);
+	}
+
+	/**
+	 * HouseUser actor for the actor-policy gates (CS-PLAN-061 §3.4).
+	 */
+	private function createHouseUser(string $userId = 'user123', string $role = 'member'): HouseUser {
+		$houseUser = new HouseUser();
+		$houseUser->setNextcloudUserId($userId);
+		$houseUser->setRole($role);
+		return $houseUser;
+	}
+
+	/**
+	 * Stub the visibility matrix for updateTask's read gate.
+	 */
+	private function stubTaskVisible(bool $visible = true): void {
+		$this->taskAccessPolicy->method('canViewTask')->willReturn($visible);
 	}
 
 	/**
@@ -50,9 +75,12 @@ class TaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetTask_NonExistingId_ThrowsException
+	 * GetTask_NonExistingId_ThrowsNotFound
+	 *
+	 * CS-PLAN-061 §3.5: the mapper's DoesNotExistException is wrapped into
+	 * the app NotFoundException — a raw framework exception would 500.
 	 */
-	public function testGetTask_NonExistingId_ThrowsException(): void {
+	public function testGetTask_NonExistingId_ThrowsNotFound(): void {
 		$taskId = 999;
 
 		$this->taskMapper
@@ -61,18 +89,46 @@ class TaskServiceTest extends TestCase {
 			->with($taskId)
 			->willThrowException(new DoesNotExistException('Task not found'));
 
-		$this->expectException(DoesNotExistException::class);
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Task not found');
 
 		$this->service->getTask($taskId);
+	}
+
+	/**
+	 * GetVisibleTask_InvisibleTask_ThrowsNotFound
+	 *
+	 * CS-PLAN-061 §3.2: the shared controller-preamble gate denies a caller
+	 * who cannot see the task with the 404 anti-enumeration NotFoundException.
+	 */
+	public function testGetVisibleTask_InvisibleTask_ThrowsNotFound(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
+		$task->setOwnerUserId('someone-else');
+
+		$this->taskMapper->method('find')->willReturn($task);
+		$this->stubTaskVisible(false);
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Task not found');
+
+		$this->service->getVisibleTask(1, $this->createHouseUser());
 	}
 
 	/**
 	 * CreateTask_ValidData_ReturnsCreatedTask
 	 */
 	public function testCreateTask_ValidData_ReturnsCreatedTask(): void {
+		$actor = $this->createHouseUser('creator', 'owner');
+
 		$task = new Task();
 		$task->setId(1);
 		$task->setName('New Task');
+
+		$this->authorization->expects($this->once())
+			->method('assertCanManageTasks')
+			->with($actor);
 
 		$this->taskMapper
 			->expects($this->once())
@@ -80,6 +136,7 @@ class TaskServiceTest extends TestCase {
 			->willReturn($task);
 
 		$result = $this->service->createTask(
+			$actor,
 			'New Task',
 			'Description',
 			2,
@@ -94,11 +151,39 @@ class TaskServiceTest extends TestCase {
 	}
 
 	/**
+	 * CreateTask_ChildActor_ThrowsForbidden
+	 *
+	 * CS-PLAN-061 §3.4 (D5): children execute tasks, they do not create
+	 * task definitions.
+	 */
+	public function testCreateTask_ChildActor_ThrowsForbidden(): void {
+		$this->authorization->method('assertCanManageTasks')
+			->willThrowException(new ForbiddenException('Children may view and complete tasks, but not manage them'));
+
+		$this->taskMapper->expects($this->never())->method('create');
+
+		$this->expectException(ForbiddenException::class);
+
+		$this->service->createTask(
+			$this->createHouseUser('kid', 'child'),
+			'New Task',
+			'Description',
+			2,
+			1,
+			'weekly',
+			1,
+			30,
+			'cleaning'
+		);
+	}
+
+	/**
 	 * UpdateTask_ValidUpdates_ReturnsUpdatedTask
 	 */
 	public function testUpdateTask_ValidUpdates_ReturnsUpdatedTask(): void {
 		$taskId = 1;
 		$updates = ['name' => 'Updated Name', 'energyCost' => 4];
+		$actor = $this->createHouseUser();
 
 		$task = new Task();
 		$task->setId($taskId);
@@ -116,12 +201,17 @@ class TaskServiceTest extends TestCase {
 			->with($taskId)
 			->willReturn($task);
 
+		$this->stubTaskVisible();
+		$this->authorization->expects($this->once())
+			->method('assertCanManageTasks')
+			->with($actor);
+
 		$this->taskMapper
 			->expects($this->once())
 			->method('update')
 			->willReturn($updatedTask);
 
-		$result = $this->service->updateTask($taskId, $updates, 'caller-user', false);
+		$result = $this->service->updateTask($taskId, $updates, $actor);
 
 		$this->assertEquals('Updated Name', $result->getName());
 		$this->assertEquals(4, $result->getEnergyCost());
@@ -143,36 +233,41 @@ class TaskServiceTest extends TestCase {
 			->with($taskId)
 			->willReturn($task);
 
+		$this->stubTaskVisible();
+
 		$this->taskMapper
 			->expects($this->once())
 			->method('update')
 			->willReturn($task);
 
-		$result = $this->service->updateTask($taskId, $updates, 'caller-user', false);
+		$result = $this->service->updateTask($taskId, $updates, $this->createHouseUser());
 
 		$this->assertSame($task, $result);
 	}
 
 	/**
-	 * UpdateTask_PrivateTask_NonOwnerCaller_ThrowsForbidden
+	 * UpdateTask_InvisibleTask_NonViewer_ThrowsNotFound
 	 *
-	 * CR-SVC-17: a private task must not be silently updated — and via the
-	 * whitelisted ownerUserId field, re-assigned away from its owner — by
-	 * a caller who is not the task owner.
+	 * CS-PLAN-061 §3.2 (D2/D3): one visibility matrix everywhere — a caller
+	 * who cannot see the task (e.g. a non-assignee on a private task) gets
+	 * the 404 anti-enumeration denial, and the old
+	 * "Only the task owner may update a private task" 403 strings are gone
+	 * (policy drives it).
 	 */
-	public function testUpdateTask_PrivateTask_NonOwnerCaller_ThrowsForbidden(): void {
+	public function testUpdateTask_InvisibleTask_NonViewer_ThrowsNotFound(): void {
 		$task = new Task();
 		$task->setId(1);
 		$task->setVisibilityType(Task::VISIBILITY_PRIVATE);
 		$task->setOwnerUserId('task-owner');
 
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible(false);
 		$this->taskMapper->expects($this->never())->method('update');
 
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('Only the task owner may update a private task');
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Task not found');
 
-		$this->service->updateTask(1, ['ownerUserId' => 'attacker'], 'some-other-user', false);
+		$this->service->updateTask(1, ['ownerUserId' => 'attacker'], $this->createHouseUser('some-other-user'));
 	}
 
 	/**
@@ -185,28 +280,30 @@ class TaskServiceTest extends TestCase {
 		$task->setOwnerUserId('task-owner');
 
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 
-		$result = $this->service->updateTask(1, ['name' => 'Renamed'], 'task-owner', false);
+		$result = $this->service->updateTask(1, ['name' => 'Renamed'], $this->createHouseUser('task-owner'));
 
 		$this->assertSame('Renamed', $result->getName());
 	}
 
 	/**
-	 * UpdateTask_AdminOnlyTask_MemberCaller_ThrowsForbidden
+	 * UpdateTask_AdminOnlyTask_MemberCaller_ThrowsNotFound
 	 */
-	public function testUpdateTask_AdminOnlyTask_MemberCaller_ThrowsForbidden(): void {
+	public function testUpdateTask_AdminOnlyTask_MemberCaller_ThrowsNotFound(): void {
 		$task = new Task();
 		$task->setId(1);
 		$task->setVisibilityType(Task::VISIBILITY_ADMIN_ONLY);
 
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible(false);
 		$this->taskMapper->expects($this->never())->method('update');
 
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('Only house owners may update an admin-only task');
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Task not found');
 
-		$this->service->updateTask(1, ['name' => 'Nope'], 'member-user', false);
+		$this->service->updateTask(1, ['name' => 'Nope'], $this->createHouseUser('member-user'));
 	}
 
 	/**
@@ -218,9 +315,10 @@ class TaskServiceTest extends TestCase {
 		$task->setVisibilityType(Task::VISIBILITY_ADMIN_ONLY);
 
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 
-		$result = $this->service->updateTask(1, ['name' => 'Renamed'], 'house-owner', true);
+		$result = $this->service->updateTask(1, ['name' => 'Renamed'], $this->createHouseUser('house-owner', 'owner'));
 
 		$this->assertSame('Renamed', $result->getName());
 	}
@@ -234,9 +332,10 @@ class TaskServiceTest extends TestCase {
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 
-		$result = $this->service->updateTask(1, ['name' => 'Renamed'], 'any-member', false);
+		$result = $this->service->updateTask(1, ['name' => 'Renamed'], $this->createHouseUser('any-member'));
 
 		$this->assertSame('Renamed', $result->getName());
 	}
@@ -254,12 +353,13 @@ class TaskServiceTest extends TestCase {
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->never())->method('update');
 
 		$this->expectException(ForbiddenException::class);
 		$this->expectExceptionMessage('Only house owners may change the task tier');
 
-		$this->service->updateTask(1, ['taskTier' => 'gold'], 'member-user', false);
+		$this->service->updateTask(1, ['taskTier' => 'gold'], $this->createHouseUser('member-user'));
 	}
 
 	/**
@@ -271,12 +371,13 @@ class TaskServiceTest extends TestCase {
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->never())->method('update');
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('Invalid task tier');
 
-		$this->service->updateTask(1, ['taskTier' => 'platinum'], 'house-owner', true);
+		$this->service->updateTask(1, ['taskTier' => 'platinum'], $this->createHouseUser('house-owner', 'owner'));
 	}
 
 	/**
@@ -288,11 +389,62 @@ class TaskServiceTest extends TestCase {
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
 
-		$result = $this->service->updateTask(1, ['taskTier' => 'gold'], 'house-owner', true);
+		$result = $this->service->updateTask(1, ['taskTier' => 'gold'], $this->createHouseUser('house-owner', 'owner'));
 
 		$this->assertSame('gold', $result->getTaskTier());
+	}
+
+	/**
+	 * UpdateTask_OwnerTransferToNonMember_ThrowsForbidden
+	 *
+	 * CS-PLAN-061 §3.4: a changed ownerUserId target is validated as a
+	 * house member via AuthorizationService::assertUserInHouse — the
+	 * previously unvalidated transfer is closed (closes CR-SVC-17's
+	 * re-assignment-by-whitelist gap on the membership side).
+	 */
+	public function testUpdateTask_OwnerTransferToNonMember_ThrowsForbidden(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setOwnerUserId('old-owner');
+
+		$actor = $this->createHouseUser('house-owner', 'owner');
+		$actor->setHouseId(1);
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
+		$this->authorization->method('assertUserInHouse')
+			->willThrowException(new ForbiddenException('User is not a member of this house'));
+		$this->taskMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+
+		$this->service->updateTask(1, ['ownerUserId' => 'outsider'], $actor);
+	}
+
+	/**
+	 * UpdateTask_OwnerTransferToMember_Succeeds
+	 */
+	public function testUpdateTask_OwnerTransferToMember_Succeeds(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setOwnerUserId('old-owner');
+
+		$actor = $this->createHouseUser('house-owner', 'owner');
+		$actor->setHouseId(1);
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
+		$this->authorization->expects($this->once())
+			->method('assertUserInHouse')
+			->with(1, 'new-owner');
+		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+
+		$result = $this->service->updateTask(1, ['ownerUserId' => 'new-owner'], $actor);
+
+		$this->assertSame('new-owner', $result->getOwnerUserId());
 	}
 
 	/**

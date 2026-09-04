@@ -16,11 +16,13 @@ export class ApiError extends Error {
 	 * @param {string} message Error message from backend or generic fallback
 	 * @param {number} [status] HTTP status code if available
 	 * @param {object} [data] Full response data for diagnostics
+	 * @param {string|null} [code] Stable backend error code (error.code) if available
 	 */
-	constructor(message, status, data) {
+	constructor(message, status, data, code = null) {
 		super(message)
 		this.name = 'ApiError'
 		this.status = status
+		this.code = code
 		this.data = data
 	}
 
@@ -46,7 +48,12 @@ async function request(method, path, config = {}) {
 	} catch (error) {
 		const backendMessage = error.response?.data?.error?.message
 		const status = error.response?.status
-		throw new ApiError(backendMessage || GENERIC_ERROR(), status, error.response?.data)
+		throw new ApiError(
+			backendMessage || GENERIC_ERROR(),
+			status,
+			error.response?.data,
+			error.response?.data?.error?.code ?? null,
+		)
 	}
 
 	if (response.data?.success) {
@@ -54,7 +61,12 @@ async function request(method, path, config = {}) {
 	}
 
 	const backendMessage = response.data?.error?.message
-	throw new ApiError(backendMessage || GENERIC_ERROR(), response.status, response.data)
+	throw new ApiError(
+		backendMessage || GENERIC_ERROR(),
+		response.status,
+		response.data,
+		response.data?.error?.code ?? null,
+	)
 }
 
 /**

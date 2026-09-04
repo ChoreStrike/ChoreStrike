@@ -10,24 +10,35 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\RateLimitException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\MinigameService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\IL10N;
 use OCP\IRequest;
 
 /**
  * API controller for minigame scores and leaderboards
  */
 class MinigameController extends Controller {
+	use ControllerLoggingTrait;
+
+	private IL10N $l;
+
 	public function __construct(
 		IRequest $request,
 		private HouseService $houseService,
 		private MinigameService $minigameService,
 		private AuthorizationService $authService,
+		IL10N $l,
+		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
+		$this->l = $l;
+		$this->initializeControllerLogger($appLogger);
 	}
 
 	/**
@@ -41,7 +52,7 @@ class MinigameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$leaderboard = $this->minigameService->getLeaderboard($house->getId(), $gameId, $limit);
 
@@ -52,6 +63,7 @@ class MinigameController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('leaderboard', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -73,7 +85,7 @@ class MinigameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$leaderboard = $this->minigameService->getWeeklyLeaderboard($house->getId(), $gameId, $limit);
 
@@ -84,6 +96,7 @@ class MinigameController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('leaderboard', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -106,7 +119,7 @@ class MinigameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$userId = $this->authService->getCurrentUserId();
 			$result = $this->minigameService->saveScore(
@@ -136,12 +149,23 @@ class MinigameController extends Controller {
 				]
 			]);
 		} catch (\InvalidArgumentException $e) {
-			// Service-curated message (score bounds) — safe to surface verbatim;
-			// safeMessage() would replace it with the generic fallback.
+			// Service-curated messages (score bounds, unknown game) — safe to
+			// surface verbatim; safeMessage() would replace them with the
+			// generic fallback.
 			return ControllerErrorFormatter::validation($e);
+		} catch (RateLimitException) {
+			// D7: per-user daily save cap → 429 MINIGAME_RATE_LIMITED.
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'MINIGAME_RATE_LIMITED',
+					'message' => $this->l->t('Too many score submissions today. Try again tomorrow.'),
+				],
+			], 429);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('saveScore', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -161,7 +185,7 @@ class MinigameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$userId = $this->authService->getCurrentUserId();
 			$coins = $this->minigameService->getUserCoins($house->getId(), $userId);
@@ -175,6 +199,7 @@ class MinigameController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('coins', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -195,7 +220,7 @@ class MinigameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$userId = $this->authService->getCurrentUserId();
 			$personalBest = $this->minigameService->getPersonalBest($house->getId(), $userId, $gameId);
@@ -207,6 +232,7 @@ class MinigameController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('personalBest', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -227,7 +253,7 @@ class MinigameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$userId = $this->authService->getCurrentUserId();
 			$rank = $this->minigameService->getUserRank($house->getId(), $userId, $gameId);
@@ -242,6 +268,7 @@ class MinigameController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('userRank', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -266,6 +293,7 @@ class MinigameController extends Controller {
 				'data' => $boosts
 			]);
 		} catch (\Exception $e) {
+			$this->logControllerException('boosts', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -286,7 +314,7 @@ class MinigameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$userId = $this->authService->getCurrentUserId();
 			$result = $this->minigameService->purchaseBoost($house->getId(), $userId, $boostId);
@@ -302,6 +330,7 @@ class MinigameController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('purchaseBoost', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -323,7 +352,7 @@ class MinigameController extends Controller {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->ensureHouseMember($house->getId());
+			$this->authService->assertHouseMember($house->getId());
 
 			$userId = $this->authService->getCurrentUserId();
 			$scores = $this->minigameService->getRecentScores($house->getId(), $userId, $gameId, $limit);
@@ -335,6 +364,7 @@ class MinigameController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('recentScores', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [

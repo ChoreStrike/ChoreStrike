@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\RoomController;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomService;
@@ -47,7 +48,8 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 			$this->houseService,
 			$this->authService,
 			$this->templateService,
-			$l10n
+			$l10n,
+			\OC::$server->get(AppLogger::class)
 		);
 	}
 
@@ -101,7 +103,7 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->roomService->method('getFloor')
 			->with($floorId)
 			->willReturn($floor);
@@ -125,7 +127,7 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->roomService->method('updateRoomName')
 			->willReturn($room);
 
@@ -144,7 +146,7 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->roomService->method('deleteRoom')
 			->with($roomId);
 
@@ -165,7 +167,7 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
+		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->roomService->method('updateRoomCleanliness')
 			->willReturn($room);
 

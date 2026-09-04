@@ -7,7 +7,7 @@ namespace OCA\ChoreStrike\Tests\Integration\Controller;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
@@ -15,14 +15,15 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 /**
  * Integration tests for private-task visibility and completion gates.
  *
- * Verifies the CS-PLAN-005 contract:
- * - Private tasks are visible only to their creator (owner_user_id)
+ * Verifies the ONE visibility matrix (CS-PLAN-061 §3.2, decision D2):
+ * - Private tasks are visible to their creator (owner_user_id) UNION the
+ *   explicit assignees (canonical join table)
  * - Other members/children cannot see or complete private tasks
  * - Owners see only their OWN private tasks (strict privacy default)
- * - GET /tasks/my-private returns only the caller's private tasks
- * - Completion of a private task is restricted to assigned users
+ * - Completion of a private task is restricted to creator ∪ assignees
+ * - Visibility denials are 404s (anti-enumeration), never 403s
  *
- * @see docs/plans/active/cs-plan-005-task-visibility-teamwork-overdue.md Phase 2
+ * @see docs/plans/active/cs-plan-061-wp2-membership-visibility-privacy.md §3.2/§3.3
  */
 class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 	private int $houseId;
@@ -31,7 +32,9 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 	private int $publicTaskId;
 	private int $privateTaskId;
 	private int $otherPrivateTaskId;
+	private int $publicRoomTaskId;
 	private int $privateRoomTaskId;
+	private int $assigneeRoomTaskId;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -50,7 +53,13 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		$this->setTaskVisibility($this->privateTaskId, Task::VISIBILITY_PRIVATE, 'priv_owner');
 		$this->setTaskVisibility($this->otherPrivateTaskId, Task::VISIBILITY_PRIVATE, 'priv_member');
 
+		$this->publicRoomTaskId = $this->assignTaskToRoom($this->publicTaskId, $this->roomId, null);
 		$this->privateRoomTaskId = $this->assignTaskToRoom($this->privateTaskId, $this->roomId, 'priv_owner');
+		// A second room task of the SAME private definition, in a second room
+		// ((task_id, room_id) is unique), assigned to the member — the
+		// assignee branch of the matrix (D2).
+		$secondRoomId = $this->createRoom($this->houseId, $this->floorId, 'Bathroom');
+		$this->assigneeRoomTaskId = $this->assignTaskToRoom($this->privateTaskId, $secondRoomId, 'priv_member');
 	}
 
 	// ========== Visibility Matrix ==========
@@ -80,10 +89,24 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 
 		self::assertContains($this->publicTaskId, $visibleIds);
 		self::assertContains($this->otherPrivateTaskId, $visibleIds);
-		self::assertNotContains($this->privateTaskId, $visibleIds);
 	}
 
-	public function testChildSeesPublicAndOwnPrivateOnly(): void {
+	public function testAssigneeSeesPrivateDefinitionOfAssignedRoomTask(): void {
+		// D2: private = creator ∪ explicit assignees. priv_member is not the
+		// creator of $this->privateTaskId but is assigned to one of its
+		// room tasks — the definition list must include it.
+		$this->actingAs('priv_member');
+		$taskMapper = \OC::$server->get(TaskMapper::class);
+		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
+		$viewer = $houseUserMapper->findByNextcloudUserId($this->houseId, 'priv_member');
+
+		$visible = $taskMapper->findVisibleByHouse($this->houseId, $viewer);
+		$visibleIds = array_map(fn (Task $t) => $t->getId(), $visible);
+
+		self::assertContains($this->privateTaskId, $visibleIds);
+	}
+
+	public function testChildSeesNeitherPrivateDefinition(): void {
 		$this->actingAs('priv_child');
 		$taskMapper = \OC::$server->get(TaskMapper::class);
 		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
@@ -107,6 +130,129 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		$visibleIds = array_map(fn (Task $t) => $t->getId(), $visible);
 
 		self::assertNotContains($this->otherPrivateTaskId, $visibleIds);
+	}
+
+	// ========== Room-Task Read Filtering (CS-PLAN-061 §3.3) ==========
+
+	private function visibleRoomTaskIds(string $userId, string $method, array $args = []): array {
+		$this->actingAs($userId);
+		$service = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class);
+		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
+		$viewer = $houseUserMapper->findByNextcloudUserId($this->houseId, $userId);
+
+		$roomTasks = $service->{$method}(...array_merge([$this->houseId, $viewer], $args));
+		return array_map(fn ($rt) => $rt->getId(), $roomTasks);
+	}
+
+	public function testOverdueReadHidesPrivateTasksFromNonViewers(): void {
+		// Make the private room tasks overdue.
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_room_tasks')
+			->set('next_due', $qb->createNamedParameter('2020-01-01 00:00:00'))
+			->where($qb->expr()->in('id', $qb->createNamedParameter([$this->privateRoomTaskId, $this->assigneeRoomTaskId], \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
+		$qb->executeStatement();
+
+		// The child is not creator/assignee: neither private room task leaks.
+		$childIds = $this->visibleRoomTaskIds('priv_child', 'getOverdueTasks');
+		self::assertNotContains($this->privateRoomTaskId, $childIds);
+		self::assertNotContains($this->assigneeRoomTaskId, $childIds);
+
+		// Room-task reads use per-room-task assignee scoping: the creator
+		// sees both room tasks of their definition; the assignee sees
+		// exactly their own assignment, not another member's chore
+		// instance (D2 — the assignee branch is keyed on the room task's
+		// own join-table rows).
+		$ownerIds = $this->visibleRoomTaskIds('priv_owner', 'getOverdueTasks');
+		self::assertContains($this->privateRoomTaskId, $ownerIds);
+		self::assertContains($this->assigneeRoomTaskId, $ownerIds);
+
+		$memberIds = $this->visibleRoomTaskIds('priv_member', 'getOverdueTasks');
+		self::assertContains($this->assigneeRoomTaskId, $memberIds);
+		self::assertNotContains($this->privateRoomTaskId, $memberIds);
+	}
+
+	public function testDueTodayReadHidesPrivateTasksFromNonViewers(): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_room_tasks')
+			->set('next_due', $qb->createNamedParameter(date('Y-m-d 12:00:00')))
+			->where($qb->expr()->in('id', $qb->createNamedParameter([$this->privateRoomTaskId, $this->assigneeRoomTaskId], \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
+		$qb->executeStatement();
+
+		$childIds = $this->visibleRoomTaskIds('priv_child', 'getDueTodayTasks');
+		self::assertNotContains($this->privateRoomTaskId, $childIds);
+		self::assertNotContains($this->assigneeRoomTaskId, $childIds);
+
+		$memberIds = $this->visibleRoomTaskIds('priv_member', 'getDueTodayTasks');
+		self::assertContains($this->assigneeRoomTaskId, $memberIds);
+	}
+
+	public function testRangeReadHidesPrivateDefinitionsFromNonViewers(): void {
+		$service = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class);
+		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
+
+		$this->actingAs('priv_child');
+		$childViewer = $houseUserMapper->findByNextcloudUserId($this->houseId, 'priv_child');
+		$from = new \DateTime('-1 day');
+		$to = new \DateTime('+2 days');
+		$childData = $service->getRangeTasks($this->houseId, $from, $to, $childViewer);
+		$childTaskIds = array_map(
+			static fn (array $item) => $item['roomTask']['taskId'] ?? $item['task']['id'] ?? 0,
+			$childData['scheduled'],
+		);
+		self::assertNotContains($this->privateTaskId, $childTaskIds);
+
+		$this->actingAs('priv_member');
+		$memberViewer = $houseUserMapper->findByNextcloudUserId($this->houseId, 'priv_member');
+		$memberData = $service->getRangeTasks($this->houseId, $from, $to, $memberViewer);
+		$memberTaskIds = array_map(
+			static fn (array $item) => $item['task']['id'],
+			$memberData['scheduled'],
+		);
+		// The definition is visible to the member (assignee branch) — the
+		// FULL definition may appear, but only for the assignee's own room
+		// task, never the creator's.
+		foreach ($memberData['scheduled'] as $item) {
+			if ($item['task']['id'] === $this->privateTaskId) {
+				self::assertSame($this->assigneeRoomTaskId, $item['roomTask']['id']);
+			}
+		}
+		self::assertContains($this->privateTaskId, $memberTaskIds);
+	}
+
+	// ========== Residual Surface Visibility (CS-PLAN-061 review fixes) ==========
+	// (Controller-level assignees/roomStats coverage lives in
+	// TaskAuthorizationTest — controllers resolve the instance house.)
+
+	public function testRangeCompletions_RedactInvisibleTaskNames(): void {
+		// Owner completes the private task, the child completes the public
+		// one — both rows appear in the child's calendar range, but the
+		// private task's name is redacted (D9: rows stay house-scoped).
+		$this->actingAs('priv_owner');
+		$roomService = \OC::$server->get(RoomService::class);
+		$roomService->completeRoomTask($this->privateRoomTaskId, 'priv_owner');
+		$roomService->completeRoomTask($this->publicRoomTaskId, 'priv_child');
+
+		$service = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class);
+		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
+		$this->actingAs('priv_child');
+		$viewer = $houseUserMapper->findByNextcloudUserId($this->houseId, 'priv_child');
+
+		$data = $service->getRangeTasks(
+			$this->houseId,
+			new \DateTime('-1 day'),
+			new \DateTime('+1 day'),
+			$viewer
+		);
+
+		$rowsByTaskId = [];
+		foreach ($data['completed'] as $row) {
+			$rowsByTaskId[(int)$row['taskId']] = $row;
+		}
+
+		self::assertArrayHasKey($this->privateTaskId, $rowsByTaskId, 'the completion row itself stays (D9)');
+		self::assertNull($rowsByTaskId[$this->privateTaskId]['taskName'], 'invisible task names are redacted');
+		self::assertArrayHasKey($this->publicTaskId, $rowsByTaskId);
+		self::assertSame('Public Dishes', $rowsByTaskId[$this->publicTaskId]['taskName']);
 	}
 
 	// ========== My-Private Endpoint ==========
@@ -145,21 +291,36 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 	}
 
 	public function testNonAssigneeCannotCompletePrivateTask(): void {
-		$this->actingAs('priv_member');
-		$roomService = \OC::$server->get(RoomService::class);
-
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('Private tasks may only be completed by assigned users');
-		$roomService->completeRoomTask($this->privateRoomTaskId, 'priv_member');
-	}
-
-	public function testChildCannotCompletePrivateTaskAssignedToOwner(): void {
+		// 404 anti-enumeration (decision D3): a non-viewer gets the same
+		// denial as a nonexistent id, never a 403 enumeration oracle.
 		$this->actingAs('priv_child');
 		$roomService = \OC::$server->get(RoomService::class);
 
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('Private tasks may only be completed by assigned users');
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Task not found');
 		$roomService->completeRoomTask($this->privateRoomTaskId, 'priv_child');
+	}
+
+	public function testAssigneeCanCompleteSomeoneElsesPrivateRoomTask(): void {
+		// D2: the explicit assignee of a room task completes it even though
+		// the definition belongs to someone else.
+		$this->actingAs('priv_member');
+		$roomService = \OC::$server->get(RoomService::class);
+
+		$result = $roomService->completeRoomTask($this->assigneeRoomTaskId, 'priv_member');
+
+		self::assertArrayHasKey('rewards', $result);
+	}
+
+	public function testCreatorCanCompleteTheirOwnSecondRoomTask(): void {
+		// The creator (priv_owner) is not assigned to $assigneeRoomTaskId but
+		// IS the definition owner: creator ∪ assignees includes them.
+		$this->actingAs('priv_owner');
+		$roomService = \OC::$server->get(RoomService::class);
+
+		$result = $roomService->completeRoomTask($this->assigneeRoomTaskId, 'priv_owner');
+
+		self::assertArrayHasKey('rewards', $result);
 	}
 
 	// ========== Task Entity ==========

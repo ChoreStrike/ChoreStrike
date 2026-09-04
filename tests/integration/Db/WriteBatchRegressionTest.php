@@ -211,6 +211,9 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		self::assertSame(1, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtA1]));
 		self::assertSame(2, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtA1]));
 
+		// Owner-only service gate (CS-PLAN-061 D4): bind the owner's session
+		// right before the call (lesson (b): the session is process-global).
+		$this->actingAs('wbatch_del_a');
 		$this->roomService->deleteRoom($roomA);
 
 		// All five tables are empty for house A's ids.
@@ -244,7 +247,11 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		$this->insertAssignee($rtDeleted, 'wbatch_deltask');
 		$this->insertChecklistProgress($rtDeleted, 1);
 
-		$this->roomTaskService->deleteRoomTask($rtDeleted);
+		// Re-bind the owner's session (lesson (b)) and pass the explicit
+		// HouseUser actor the service now requires.
+		$this->actingAs('wbatch_deltask');
+		$actor = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, 'wbatch_deltask');
+		$this->roomTaskService->deleteRoomTask($rtDeleted, $actor);
 
 		self::assertSame(0, $this->countRows('chorestrike_room_tasks', 'id', [$rtDeleted]));
 		self::assertSame(0, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtDeleted]));
@@ -306,6 +313,9 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		$houseOther = $this->createHouse('wbatch_reorder2', 'Other House');
 		$floorOther = $this->createFloor($houseOther, 'X', 0);
 
+		// Owner-only service gate (CS-PLAN-061 D4): bind the owner's session
+		// right before the call (lesson (b)).
+		$this->actingAs('wbatch_reorder');
 		// New order: C, A, B.
 		$updated = $this->floorService->reorderFloors($houseId, [$floorC, $floorA, $floorB]);
 
@@ -348,10 +358,13 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		$roomB = $this->createRoom($houseB, $floorB, 'Kitchen B');
 		$rtB1 = $this->trackRoomTaskId($this->assignTaskToRoom($this->createTask($houseB, 'Dishes B'), $roomB));
 
+		$this->actingAs('wbatch_bulk_a');
+		$actor = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseA, 'wbatch_bulk_a');
 		$result = $this->roomTaskService->bulkAssignTasks(
 			[$rtA1, $rtB1, 999999999, $rtA2],
 			'wbatch_bulk_member',
-			$houseA
+			$houseA,
+			$actor
 		);
 
 		self::assertSame(

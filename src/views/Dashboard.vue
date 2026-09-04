@@ -35,7 +35,7 @@
 					<p class="tagline">
 						{{ t('chorestrike', 'Defend your Home Base. Together.') }}
 					</p>
-					<button v-if="roomsStore.floors.length === 0"
+					<button v-if="roomsStore.floors.length === 0 && userStore.isHouseOwner"
 						class="primary-button setup-entry-button"
 						data-testid="open-setup-wizard"
 						@click="showWizard = true">
@@ -73,6 +73,7 @@ import { useRouter } from 'vue-router'
 import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useGameStore } from '../store/game.js'
+import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
@@ -101,8 +102,9 @@ export default {
 		const houseStore = useHouseStore()
 		const roomsStore = useRoomsStore()
 		const gameStore = useGameStore()
+		const userStore = useUserStore()
 		const router = useRouter()
-		return { houseStore, roomsStore, gameStore, router }
+		return { houseStore, roomsStore, gameStore, userStore, router }
 	},
 
 	data() {
@@ -166,11 +168,14 @@ export default {
 			}
 
 			// First-run detection (D3): a house with no floors is brand new.
-			// Open the setup wizard automatically — unless "Start empty" was
-			// dismissed for this house in any previous session (UX-011) or
-			// this session. The manual entry point (header button) stays
-			// available while the house is empty.
-			if (!this.wizardDismissed
+			// Open the setup wizard automatically — only for the OWNER
+			// (CS-PLAN-061 §3.9: a non-owner member of an empty house cannot
+			// run the wizard; it would hit 403s on apply) — unless "Start
+			// empty" was dismissed for this house in any previous session
+			// (UX-011) or this session. The manual entry point (header
+			// button) stays available for owners while the house is empty.
+			if (this.userStore.isHouseOwner
+				&& !this.wizardDismissed
 				&& !isWizardDismissedForHouse(this.houseStore.house?.id ?? null)
 				&& this.roomsStore.floors.length === 0) {
 				this.showWizard = true

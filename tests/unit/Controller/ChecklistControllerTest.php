@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Controller\ChecklistController;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgress;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\ChecklistService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -57,7 +58,8 @@ class ChecklistControllerTest extends TestCase {
 			$this->checklistService,
 			$this->houseService,
 			$this->authService,
-			$this->createIdentityL10n()
+			$this->createIdentityL10n(),
+			$this->createMock(AppLogger::class)
 		);
 	}
 
@@ -87,7 +89,7 @@ class ChecklistControllerTest extends TestCase {
 			->willReturn($this->createHouseMock($houseId));
 
 		$this->authService->expects($this->once())
-			->method('ensureHouseMember')
+			->method('assertHouseMember')
 			->with($houseId)
 			->willReturn($this->viewer);
 	}

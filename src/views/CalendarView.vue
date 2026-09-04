@@ -76,7 +76,9 @@
 					v-for="(item, idx) in dayDetail.completed"
 					:key="'c-' + idx"
 					class="task-item completed">
-					<span class="task-name">{{ item.taskName }}</span>
+					<!-- Redacted rows (tasks invisible to the viewer) carry a
+					     null taskName and render the shared fallback. -->
+					<span class="task-name">{{ item.taskName || t('chorestrike', 'Unknown task') }}</span>
 					<span class="task-room">{{ item.roomName }}</span>
 				</li>
 			</ul>

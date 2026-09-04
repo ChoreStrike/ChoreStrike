@@ -21,10 +21,10 @@ use PHPUnit\Framework\TestCase;
 /**
  * Unit tests for the AuthorizationService exception model (CS-PLAN-011 S6/S7).
  *
- * Verifies the split between the auto-joining {@see AuthorizationService::ensureHouseMember()}
- * and the pure {@see AuthorizationService::assertHouseMember()}, and that every
- * "require"/"assert" method throws {@see ForbiddenException} (→ 403) rather
- * than a bare \RuntimeException (→ 500).
+ * Verifies the split between the bootstrap-only {@see AuthorizationService::ensureHouseMember()}
+ * (ADR-010) and the pure {@see AuthorizationService::assertHouseMember()}, the
+ * task-management child-role guard, and that every "require"/"assert" method
+ * throws {@see ForbiddenException} (→ 403) rather than a bare \RuntimeException (→ 500).
  */
 class AuthorizationServiceExceptionTest extends TestCase {
 	private HouseUserMapper $houseUserMapper;
@@ -115,20 +115,23 @@ class AuthorizationServiceExceptionTest extends TestCase {
 		$this->assertSame('owner', $result->getRole());
 	}
 
-	public function testEnsureHouseMember_WhenSubsequentUser_AutoCreatesMember(): void {
+	/**
+	 * EnsureHouseMember_WhenSubsequentUser_DeniedWithoutCreating
+	 *
+	 * ADR-010 bootstrap-only semantics: once the house has any members, a
+	 * non-member miss is a denial — the transaction rolls back and NO
+	 * membership row is created.
+	 */
+	public function testEnsureHouseMember_WhenSubsequentUser_DeniedWithoutCreating(): void {
 		$this->actingAs('bob');
-		$created = $this->makeHouseUser('member', 'bob');
 
 		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
 		$this->houseUserMapper->expects($this->once())->method('findByHouseId')->willReturn([$this->makeHouseUser('owner', 'alice')]);
-		$this->houseUserMapper
-			->expects($this->once())
-			->method('createOrGet')
-			->with(1, 'bob', $this->anything(), 'member')
-			->willReturn($created);
+		$this->houseUserMapper->expects($this->never())->method('createOrGet');
 
-		$result = $this->service->ensureHouseMember(1);
-		$this->assertSame('member', $result->getRole());
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Not a member of this house');
+		$this->service->ensureHouseMember(1);
 	}
 
 	public function testEnsureHouseMember_WhenAnonymous_ThrowsForbidden(): void {
@@ -252,5 +255,23 @@ class AuthorizationServiceExceptionTest extends TestCase {
 		$this->expectException(ForbiddenException::class);
 		$this->expectExceptionMessage('User is not a member of this house');
 		$this->service->assertUserInHouse(1, 'outsider');
+	}
+
+	// ---------- assertCanManageTasks (child role guard, CS-PLAN-061 D5) ----------
+
+	public function testAssertCanManageTasks_WhenChild_ThrowsForbidden(): void {
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Children may view and complete tasks, but not manage them');
+		$this->service->assertCanManageTasks($this->makeHouseUser('child', 'kid'));
+	}
+
+	public function testAssertCanManageTasks_WhenMember_DoesNotThrow(): void {
+		$this->service->assertCanManageTasks($this->makeHouseUser('member', 'alice'));
+		$this->assertTrue(true);
+	}
+
+	public function testAssertCanManageTasks_WhenOwner_DoesNotThrow(): void {
+		$this->service->assertCanManageTasks($this->makeHouseUser('owner', 'alice'));
+		$this->assertTrue(true);
 	}
 }

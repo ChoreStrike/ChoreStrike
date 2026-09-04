@@ -177,7 +177,21 @@ class TaskDueReminderService {
 
 			$taskId = $roomTask->getTaskId();
 			if (!isset($taskCache[$taskId])) {
-				$taskCache[$taskId] = $this->taskMapper->find($taskId);
+				try {
+					$taskCache[$taskId] = $this->taskMapper->find($taskId);
+				} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
+					// Orphaned room task (definition deleted mid-pass): skip
+					// THIS task and let the pass continue — a single orphaned
+					// row must not kill the whole reminder run via the
+					// pass-level Throwable handler (CS-PLAN-061 §3.7).
+					$this->appLogger->warning('Due reminder skipped orphaned room task', [
+						'event' => 'task_due_reminder_orphaned_task',
+						'service' => 'TaskDueReminderService',
+						'taskId' => $taskId,
+						'roomTaskId' => $roomTask->getId(),
+					]);
+					continue;
+				}
 			}
 			$taskName = $taskCache[$taskId]->getName();
 

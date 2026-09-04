@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Tests\Integration\Controller;
 use OCA\ChoreStrike\Controller\ChecklistController;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\ChecklistService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -23,15 +24,16 @@ use OCP\IRequest;
  * Real-DB integration tests for the checklist endpoints (CR-053-01 /
  * CR-053-22 partial): the ChecklistService guard must reject cross-house
  * task/item access and visibility-matrix denials with 404 on every
- * endpoint, reject foreign items in toggle/reorder, and keep the happy
- * paths working.
+ * endpoint, reject foreign items in toggle/reorder, keep the happy paths
+ * working, and enforce owner-only definition mutations (CS-PLAN-061 D4:
+ * members get 403 on item add/update/delete/reorder).
  *
  * The controller resolves the shared instance house, so the tests run
  * against it (BulkAssignIntegrationTest pattern: controlled IRequest
  * mock, real service/DB stack below); strict cross-house isolation is
  * proven with an isolated foreign fixture house. Cross-house assertions
  * verify persisted rows directly — never via a foreign-owner controller
- * call, which would auto-join the foreign user into the instance house.
+ * call, which would be denied by the invite-only membership model.
  */
 class ChecklistApiTest extends IntegrationTestCase {
 	private const OWNER = 'chk_owner';
@@ -51,8 +53,22 @@ class ChecklistApiTest extends IntegrationTestCase {
 		$this->instanceHouseId = $houseService
 			->getOrCreateHouse($houseService->getInstanceId())
 			->getId();
-		$this->addHouseMember($this->instanceHouseId, self::OWNER, 'Chk Owner', 'owner');
-		$this->addHouseMember($this->instanceHouseId, self::MEMBER, 'Chk Member', 'member');
+		$this->seedMembership($this->instanceHouseId, self::OWNER, 'Chk Owner', 'owner');
+		$this->seedMembership($this->instanceHouseId, self::MEMBER, 'Chk Member', 'member');
+	}
+
+	/**
+	 * Invite-only membership (ADR-010): seed explicitly after purging any
+	 * leftover rows from earlier runs.
+	 */
+	private function seedMembership(int $houseId, string $userId, string $displayName, string $role): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_house_users')
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($userId)));
+		$qb->executeStatement();
+
+		$this->addHouseMember($houseId, $userId, $displayName, $role);
 	}
 
 	protected function tearDown(): void {
@@ -169,8 +185,53 @@ class ChecklistApiTest extends IntegrationTestCase {
 
 		$response = $this->makeController(self::MEMBER)->addTaskItem($privateTaskId, 'Nope');
 
-		self::assertSame(404, $response->getStatus());
+		self::assertSame(404, $response->getStatus(), 'visibility (404) wins over the owner gate (403)');
 		self::assertSame(1, $this->countItems($privateTaskId));
+	}
+
+	// ========== Owner-only definition mutations (CS-PLAN-061 D4) ==========
+
+	public function testAddTaskItem_Member_Returns403(): void {
+		['taskId' => $taskId] = $this->seedOwnPublicTaskWithItems(1);
+
+		$response = $this->makeController(self::MEMBER)->addTaskItem($taskId, 'Nope');
+
+		self::assertSame(403, $response->getStatus());
+		self::assertSame('FORBIDDEN', $response->getData()['error']['code']);
+		self::assertSame(1, $this->countItems($taskId), 'no item may be created by a member');
+	}
+
+	public function testUpdateTaskItem_Member_Returns403(): void {
+		['itemIds' => [$itemId]] = $this->seedOwnPublicTaskWithItems(1);
+
+		$response = $this->makeController(self::MEMBER)->updateTaskItem($itemId, 'Hijacked');
+
+		self::assertSame(403, $response->getStatus());
+		self::assertSame('FORBIDDEN', $response->getData()['error']['code']);
+		self::assertSame('Item 0', $this->fetchItemColumn($itemId, 'label'), 'the label must be unchanged');
+	}
+
+	public function testDeleteTaskItem_Member_Returns403(): void {
+		['taskId' => $taskId, 'itemIds' => [$itemId]] = $this->seedOwnPublicTaskWithItems(1);
+
+		$response = $this->makeController(self::MEMBER)->deleteTaskItem($itemId);
+
+		self::assertSame(403, $response->getStatus());
+		self::assertSame('FORBIDDEN', $response->getData()['error']['code']);
+		self::assertSame(1, $this->countItems($taskId), 'the item must remain');
+	}
+
+	public function testReorderTaskItems_Member_Returns403(): void {
+		['itemIds' => $itemIds] = $this->seedOwnPublicTaskWithItems(2);
+
+		$response = $this->makeController(self::MEMBER, ['itemOrders' => [
+			(string)$itemIds[0] => 1,
+			(string)$itemIds[1] => 0,
+		]])->reorderTaskItems();
+
+		self::assertSame(403, $response->getStatus());
+		self::assertSame('FORBIDDEN', $response->getData()['error']['code']);
+		self::assertSame('0', (string)$this->fetchItemColumn($itemIds[0], 'sort_order'), 'the order must be unchanged');
 	}
 
 	// ========== Item <-> task linkage ==========
@@ -237,9 +298,9 @@ class ChecklistApiTest extends IntegrationTestCase {
 	public function testAddTaskItem_HappyPath_AppendsSortOrder(): void {
 		['taskId' => $taskId] = $this->seedOwnPublicTaskWithItems(2);
 
-		$response = $this->makeController(self::MEMBER)->addTaskItem($taskId, 'Third');
+		$response = $this->makeController(self::OWNER)->addTaskItem($taskId, 'Third');
 
-		self::assertSame(200, $response->getStatus());
+		self::assertSame(200, $response->getStatus(), 'owner item edits stay allowed');
 		$data = $response->getData();
 		self::assertTrue($data['success']);
 		self::assertSame(2, $data['data']['sortOrder'], 'a missing sortOrder appends after the existing items');
@@ -248,7 +309,7 @@ class ChecklistApiTest extends IntegrationTestCase {
 	public function testUpdateTaskItem_HappyPath(): void {
 		['itemIds' => [$itemId]] = $this->seedOwnPublicTaskWithItems(1);
 
-		$response = $this->makeController(self::MEMBER)->updateTaskItem($itemId, 'Relabeled');
+		$response = $this->makeController(self::OWNER)->updateTaskItem($itemId, 'Relabeled');
 
 		self::assertSame(200, $response->getStatus());
 		self::assertSame('Relabeled', $this->fetchItemColumn($itemId, 'label'));
@@ -257,7 +318,7 @@ class ChecklistApiTest extends IntegrationTestCase {
 	public function testDeleteTaskItem_HappyPath(): void {
 		['taskId' => $taskId, 'itemIds' => [$itemId]] = $this->seedOwnPublicTaskWithItems(1);
 
-		$response = $this->makeController(self::MEMBER)->deleteTaskItem($itemId);
+		$response = $this->makeController(self::OWNER)->deleteTaskItem($itemId);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertSame(0, $this->countItems($taskId));
@@ -268,7 +329,7 @@ class ChecklistApiTest extends IntegrationTestCase {
 		$items = \OC::$server->get(TaskChecklistItemMapper::class)->findByTaskId($taskId);
 		[$firstItemId, $secondItemId] = array_map(static fn ($item): int => $item->getId(), $items);
 
-		$response = $this->makeController(self::MEMBER, ['itemOrders' => [
+		$response = $this->makeController(self::OWNER, ['itemOrders' => [
 			(string)$firstItemId => 1,
 			(string)$secondItemId => 0,
 		]])->reorderTaskItems();
@@ -436,6 +497,7 @@ class ChecklistApiTest extends IntegrationTestCase {
 			\OC::$server->get(HouseService::class),
 			\OC::$server->get(AuthorizationService::class),
 			$l10n,
+			\OC::$server->get(AppLogger::class),
 		);
 	}
 }

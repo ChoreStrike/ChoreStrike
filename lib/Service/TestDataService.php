@@ -177,6 +177,36 @@ class TestDataService {
 	}
 
 	/**
+	 * Seed the Nextcloud admin account as a plain household member of the
+	 * given house (test-mode only, ADR-010 invite membership). The admin
+	 * session is the default E2E session; the seeded membership makes its
+	 * authorization state deterministic instead of racing the first-owner
+	 * bootstrap after every reset. Idempotent via createOrGet semantics of a
+	 * plain insert guarded by a lookup.
+	 */
+	private function seedAdminMembership(int $houseId): void {
+		if ($this->houseUserMapper->findByHouseAndUser($houseId, 'admin') !== null) {
+			return;
+		}
+
+		$admin = new HouseUser();
+		$admin->setHouseId($houseId);
+		$admin->setNextcloudUserId('admin');
+		$admin->setDisplayName('Admin');
+		$admin->setRole('member');
+		$admin->setJoinedAt(new \DateTime());
+		try {
+			$this->houseUserMapper->insert($admin);
+		} catch (\OCP\DB\Exception $e) {
+			// A unique-constraint race (two seeds in parallel) is benign:
+			// the winner's row satisfies the same purpose.
+			if ($e->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
+				throw $e;
+			}
+		}
+	}
+
+	/**
 	 * Seed empty profile (just reset)
 	 *
 	 * @return array Empty result
@@ -235,6 +265,14 @@ class TestDataService {
 			$houseUser = $this->houseUserMapper->insert($houseUser);
 			$users[$data['userId']] = $houseUser;
 		}
+
+		// Seed the NC admin account as an invited household member
+		// (ADR-010: membership is invite-only after the first owner). The
+		// admin session is the DEFAULT E2E session, so without an explicit
+		// membership every default-session spec would non-deterministically
+		// race the first-owner bootstrap after a reset. Excluded from the
+		// returned payload — specs pin the seeded family member count.
+		$this->seedAdminMembership($house->getId());
 
 		return [
 			'profile' => 'minimal',
@@ -370,6 +408,14 @@ class TestDataService {
 			$houseUser = $this->houseUserMapper->insert($houseUser);
 			$users[$data['userId']] = $houseUser;
 		}
+
+		// Seed the NC admin account as an invited household member
+		// (ADR-010: membership is invite-only after the first owner). The
+		// admin session is the DEFAULT E2E session, so without an explicit
+		// membership every default-session spec would non-deterministically
+		// race the first-owner bootstrap after a reset. Excluded from the
+		// returned payload — specs pin the seeded family member count.
+		$this->seedAdminMembership($house->getId());
 
 		// Create tasks
 		$tasks = [];

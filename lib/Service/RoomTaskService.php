@@ -22,7 +22,6 @@ use OCA\ChoreStrike\Db\TaskAssignee;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
-use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -45,6 +44,8 @@ class RoomTaskService {
 	private AppLogger $appLogger;
 	private HouseMapper $houseMapper;
 	private CalendarService $calendarService;
+	private TaskAccessPolicy $taskAccessPolicy;
+	private AuthorizationService $authorization;
 
 	public function __construct(
 		RoomTaskMapper $roomTaskMapper,
@@ -61,6 +62,8 @@ class RoomTaskService {
 		AppLogger $appLogger,
 		HouseMapper $houseMapper,
 		CalendarService $calendarService,
+		TaskAccessPolicy $taskAccessPolicy,
+		AuthorizationService $authorization,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
@@ -76,6 +79,8 @@ class RoomTaskService {
 		$this->appLogger = $appLogger;
 		$this->houseMapper = $houseMapper;
 		$this->calendarService = $calendarService;
+		$this->taskAccessPolicy = $taskAccessPolicy;
+		$this->authorization = $authorization;
 	}
 
 	/**
@@ -146,88 +151,137 @@ class RoomTaskService {
 	 * Get room task by ID
 	 *
 	 * @param int $roomTaskId The room task ID
-	 * @throws DoesNotExistException if not found
+	 * @throws NotFoundException if not found
 	 */
 	public function getRoomTask(int $roomTaskId): RoomTask {
-		return $this->roomTaskMapper->find($roomTaskId);
+		return $this->findRoomTaskOrNotFound($roomTaskId);
 	}
 
 	/**
-	 * Get all room tasks for a room
+	 * Fetch a room task or translate the mapper's DoesNotExistException into
+	 * the app NotFoundException (404, CS-PLAN-061 §3.5) — a raw framework
+	 * exception would surface as a 500.
+	 *
+	 * @throws NotFoundException if not found
+	 */
+	private function findRoomTaskOrNotFound(int $roomTaskId): RoomTask {
+		try {
+			return $this->roomTaskMapper->find($roomTaskId);
+		} catch (DoesNotExistException $e) {
+			throw new NotFoundException($this->l10n->t('Room task not found'));
+		}
+	}
+
+	/**
+	 * Fetch task definitions for a batch of room tasks in one query.
+	 *
+	 * @param RoomTask[] $roomTasks
+	 * @return array<int, Task> Map of task ID → Task
+	 */
+	private function tasksByIdForRoomTasks(array $roomTasks): array {
+		$taskIds = [];
+		foreach ($roomTasks as $roomTask) {
+			$taskIds[$roomTask->getTaskId()] = true;
+		}
+		return $this->taskMapper->findByIds(array_keys($taskIds));
+	}
+
+	/**
+	 * Get the room tasks of one room the viewer may see (visibility matrix,
+	 * CS-PLAN-061 §3.3).
 	 *
 	 * @param int $roomId The room ID
+	 * @param HouseUser $viewer The acting user's house membership
 	 * @param bool $activeOnly Whether to return only active tasks
 	 * @return RoomTask[]
 	 */
-	public function getRoomTasks(int $roomId, bool $activeOnly = true): array {
-		return $this->roomTaskMapper->findByRoomId($roomId, $activeOnly);
+	public function getRoomTasks(int $roomId, HouseUser $viewer, bool $activeOnly = true): array {
+		$roomTasks = $this->roomTaskMapper->findByRoomId($roomId, $activeOnly);
+		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $this->tasksByIdForRoomTasks($roomTasks), $viewer);
 	}
 
 	/**
-	 * Get overdue tasks for a house
+	 * Get overdue tasks for a house, filtered to the viewer's visibility.
 	 *
 	 * @param int $houseId The house ID (scopes the query to one house)
+	 * @param HouseUser $viewer The acting user's house membership
 	 * @param int|null $roomId Optional room ID to filter by
 	 * @return RoomTask[]
 	 */
-	public function getOverdueTasks(int $houseId, ?int $roomId = null): array {
-		return $this->roomTaskMapper->findOverdueByHouse($houseId, $roomId);
+	public function getOverdueTasks(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
+		$roomTasks = $this->roomTaskMapper->findOverdueByHouse($houseId, $roomId);
+		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $this->tasksByIdForRoomTasks($roomTasks), $viewer);
 	}
 
 	/**
-	 * Get tasks due today for a house
+	 * Get tasks due today for a house, filtered to the viewer's visibility.
 	 *
 	 * @param int $houseId The house ID (scopes the query to one house)
+	 * @param HouseUser $viewer The acting user's house membership
 	 * @param int|null $roomId Optional room ID to filter by
 	 * @return RoomTask[]
 	 */
-	public function getDueTodayTasks(int $houseId, ?int $roomId = null): array {
+	public function getDueTodayTasks(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
 		$tz = $this->getTimeZoneForHouse($houseId);
 		[$start, $end] = $this->calendarService->dayBounds(new \DateTime(), $tz);
-		return $this->roomTaskMapper->findDueTodayByHouse($houseId, $start, $end, $roomId);
+		$roomTasks = $this->roomTaskMapper->findDueTodayByHouse($houseId, $start, $end, $roomId);
+		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $this->tasksByIdForRoomTasks($roomTasks), $viewer);
 	}
 
 	/**
-	 * Get tasks due within the next N days for a house
+	 * Get tasks due within the next N days for a house, filtered to the
+	 * viewer's visibility.
 	 *
 	 * @param int $houseId The house ID (scopes the query to one house)
 	 * @param int $days Number of days
+	 * @param HouseUser $viewer The acting user's house membership
 	 * @param int|null $roomId Optional room ID to filter by
 	 * @return RoomTask[]
 	 */
-	public function getDueWithinDaysTasks(int $houseId, int $days, ?int $roomId = null): array {
-		return $this->roomTaskMapper->findDueWithinDaysByHouse($houseId, $days, $roomId);
+	public function getDueWithinDaysTasks(int $houseId, int $days, HouseUser $viewer, ?int $roomId = null): array {
+		$roomTasks = $this->roomTaskMapper->findDueWithinDaysByHouse($houseId, $days, $roomId);
+		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $this->tasksByIdForRoomTasks($roomTasks), $viewer);
 	}
 
 	/**
 	 * Create a new room task
 	 *
-	 * Authorization is enforced inside the service (CR-SVC-01): the target
-	 * room is resolved through the floor chain (room → floor → house) and must
-	 * belong to the caller's `$houseId`, and any `$assignedToUserId` must be a
-	 * member of that house. No caller can bypass this preamble.
+	 * Authorization is enforced inside the service (CR-SVC-01, CS-PLAN-061
+	 * §3.4): the target room is resolved through the floor chain
+	 * (room → floor → house) and must belong to the caller's `$houseId`, the
+	 * acting user must be owner or member (children execute only), the task
+	 * definition must be visible to the actor (a private/admin-only
+	 * definition cannot be materialized from an id the actor cannot see),
+	 * and any `$assignedToUserId` must be a member of that house. No caller
+	 * can bypass this preamble.
 	 *
 	 * @param int $houseId The caller's house ID (scopes the target room)
 	 * @param int $roomId The room ID
 	 * @param int $taskId The task ID
+	 * @param HouseUser $actor The acting user's house membership
 	 * @param \DateTime|null $nextDue Optional next due date (defaults to tomorrow)
 	 * @param int|null $scopeId Optional scope ID
 	 * @param string|null $assignedToUserId Optional assigned user ID (must be a house member)
 	 * @param array $weekdayAvailability Optional weekday availability for flex scheduling
 	 * @param array $energyBudget Optional energy budget for flex scheduling
-	 * @throws NotFoundException if the room does not exist or belongs to another house
+	 * @throws NotFoundException if the room/task does not exist or belongs to another house
+	 * @throws ForbiddenException if the actor is a child or cannot see the task definition
 	 * @throws \InvalidArgumentException if the assignee is not a member of the house
 	 */
 	public function createRoomTask(
 		int $houseId,
 		int $roomId,
 		int $taskId,
+		HouseUser $actor,
 		?\DateTime $nextDue = null,
 		?int $scopeId = null,
 		?string $assignedToUserId = null,
 		array $weekdayAvailability = [],
 		array $energyBudget = [],
 	): RoomTask {
+		// Actor policy (D5): children execute tasks, they do not create them.
+		$this->authorization->assertCanManageTasks($actor);
+
 		// CR-SVC-01: resolve the room's house via the floor chain and reject a
 		// cross-house write before any persistence. A miss returns
 		// NotFoundException so the existence/house boundary is not leaked.
@@ -257,8 +311,18 @@ class RoomTaskService {
 			}
 		}
 
-		// Verify task exists and get flexDays
-		$task = $this->taskMapper->find($taskId);
+		// Verify task exists and get flexDays.
+		try {
+			$task = $this->taskMapper->find($taskId);
+		} catch (DoesNotExistException $e) {
+			throw new NotFoundException($this->l10n->t('Task not found'));
+		}
+
+		// Visibility gate (D2/D3): the definition must be visible to the
+		// actor — an invisible private/admin-only id is a 404, not a hint
+		// that the definition exists.
+		$this->taskAccessPolicy->assertCanViewTask($task, $actor);
+
 		$flexDays = $task->getFlexDays();
 
 		// Check if room task already exists
@@ -297,8 +361,8 @@ class RoomTaskService {
 	 * Materializes the template at the given cleaning level (default
 	 * putzteufel), applies whitelisted overrides, creates the Task, and links
 	 * it to the room with an optional assignee. Authorization (room belongs to
-	 * the caller's house, assignee is a member) is enforced by
-	 * {@see createRoomTask()}.
+	 * the caller's house, assignee is a member, actor may manage tasks) is
+	 * enforced by {@see createRoomTask()}.
 	 *
 	 * @param int $houseId The caller's house ID (scopes the target room)
 	 * @param int $roomId The room ID (resolved + validated server-side)
@@ -306,9 +370,11 @@ class RoomTaskService {
 	 * @param string $level One of TemplateService::LEVELS (default putzteufel)
 	 * @param array $overrides Optional materialization overrides
 	 * @param string|null $assignedToUserId Optional assignee (must be a house member)
+	 * @param HouseUser $actor The acting user's house membership
 	 * @return RoomTask The created room task
 	 *
 	 * @throws NotFoundException if the room does not exist or belongs to another house
+	 * @throws ForbiddenException if the actor is a child
 	 * @throws \InvalidArgumentException if the template/level is invalid or the assignee is not a member
 	 */
 	public function createFromTemplate(
@@ -318,7 +384,11 @@ class RoomTaskService {
 		string $level = TemplateService::LEVEL_PUTZTEUFEL,
 		array $overrides = [],
 		?string $assignedToUserId = null,
+		?HouseUser $actor = null,
 	): RoomTask {
+		if ($actor === null) {
+			throw new \InvalidArgumentException('Acting house user is required');
+		}
 		$materialized = $this->templateService->materializeTemplate($templateId, $level, $overrides);
 
 		$task = $this->taskMapper->create(
@@ -335,22 +405,12 @@ class RoomTaskService {
 			instructions: $materialized['instructions'],
 		);
 
-		return $this->createRoomTask($houseId, $roomId, $task->getId(), null, null, $assignedToUserId);
+		return $this->createRoomTask($houseId, $roomId, $task->getId(), $actor, null, null, $assignedToUserId);
 	}
 
 	/**
-	 * Get room tasks for a scope
-	 *
-	 * @param int $scopeId The scope ID
-	 * @param bool $activeOnly Whether to return only active tasks
-	 * @return RoomTask[]
-	 */
-	public function getScopeTasks(int $scopeId, bool $activeOnly = true): array {
-		return $this->roomTaskMapper->findByScopeId($scopeId, $activeOnly);
-	}
-
-	/**
-	 * Get room tasks for a scope, filtered to one house (CR-053-02).
+	 * Get room tasks for a scope, filtered to one house and the viewer's
+	 * visibility (CR-053-02, CS-PLAN-061 §3.3).
 	 *
 	 * The scopeId is caller-supplied and scopes are not house-bound, so the
 	 * unscoped fetch is intersected with the house-scoped batch fetch
@@ -359,10 +419,11 @@ class RoomTaskService {
 	 *
 	 * @param int $scopeId The scope ID
 	 * @param int $houseId The caller's house ID
+	 * @param HouseUser $viewer The acting user's house membership
 	 * @param bool $activeOnly Whether to return only active tasks
-	 * @return RoomTask[] Scope tasks belonging to the house (original order)
+	 * @return RoomTask[] Scope tasks belonging to the house and visible to the viewer (original order)
 	 */
-	public function getScopeTasksScopedToHouse(int $scopeId, int $houseId, bool $activeOnly = true): array {
+	public function getScopeTasksScopedToHouse(int $scopeId, int $houseId, HouseUser $viewer, bool $activeOnly = true): array {
 		$roomTasks = $this->roomTaskMapper->findByScopeId($scopeId, $activeOnly);
 		if ($roomTasks === []) {
 			return [];
@@ -375,54 +436,12 @@ class RoomTaskService {
 
 		$scopedIds = array_flip(array_map(static fn (RoomTask $roomTask): int => $roomTask->getId(), $scoped));
 
-		return array_values(array_filter(
+		$inHouse = array_values(array_filter(
 			$roomTasks,
 			static fn (RoomTask $roomTask): bool => isset($scopedIds[$roomTask->getId()])
 		));
-	}
 
-	/**
-	 * Assign room task to a single user (mechanical successor of the legacy
-	 * single-assignee column write, CS-PLAN-060 WP1 D2).
-	 *
-	 * Authorization is enforced inside the service (CR-SVC-09): the room
-	 * task must belong to `$houseId` (floor-chain ownership) and the target
-	 * user must be a member of that house — no caller can bypass the
-	 * checks by forgetting a controller preamble.
-	 *
-	 * The assignee set is replaced atomically (join table) and any stale
-	 * overdue-claim marker is cleared, preserving the previous
-	 * single-assignee write semantics.
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param string $userId The user ID (must be a house member)
-	 * @param int $houseId The caller's house ID (scopes the room task)
-	 * @throws NotFoundException if the room task does not exist or belongs to another house
-	 * @throws \InvalidArgumentException if the user is not a member of the house
-	 */
-	public function assignTask(int $roomTaskId, string $userId, int $houseId): RoomTask {
-		$this->validateRoomTaskOwnership($roomTaskId, $houseId);
-		$this->assertHouseMembers([$userId], $houseId);
-		$this->roomTaskMapper->find($roomTaskId);
-
-		$this->replaceSingleAssignee($roomTaskId, $userId);
-
-		// Return updated room task
-		return $this->roomTaskMapper->find($roomTaskId);
-	}
-
-	/**
-	 * Unassign room task from user
-	 *
-	 * @param int $roomTaskId The room task ID
-	 */
-	public function unassignTask(int $roomTaskId): RoomTask {
-		$this->roomTaskMapper->find($roomTaskId);
-
-		$this->replaceSingleAssignee($roomTaskId, '');
-
-		// Return updated room task
-		return $this->roomTaskMapper->find($roomTaskId);
+		return $this->taskAccessPolicy->filterVisibleRoomTasks($inHouse, $this->tasksByIdForRoomTasks($inHouse), $viewer);
 	}
 
 	/**
@@ -469,10 +488,17 @@ class RoomTaskService {
 	 * Get the Nextcloud user IDs assigned to a room task (canonical join
 	 * table, CS-PLAN-060 WP1 D2).
 	 *
+	 * Visibility-gated (CS-PLAN-061 review fix): the assignee list of a task
+	 * the actor cannot see is a 404 — reading the assignees of an invisible
+	 * private task would leak its assignment graph.
+	 *
 	 * @param int $roomTaskId The room task ID
+	 * @param HouseUser $actor The acting user's house membership
 	 * @return string[] Unique Nextcloud user IDs
+	 * @throws NotFoundException if the room task or its definition is invisible to the actor
 	 */
-	public function getAssigneeUserIds(int $roomTaskId): array {
+	public function getAssigneeUserIds(int $roomTaskId, HouseUser $actor): array {
+		$this->assertRoomTaskVisible($roomTaskId, $actor);
 		return $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
 	}
 
@@ -490,71 +516,56 @@ class RoomTaskService {
 	/**
 	 * Replace the full set of assignees for a room task.
 	 *
-	 * Every user ID must belong to the given house (membership is validated
-	 * server-side; client input is never trusted).
+	 * Service-level gates (ADR-006, CS-PLAN-061 §3.4): the room task must
+	 * belong to the caller's house (floor-chain ownership, defense-in-depth
+	 * against a forgotten controller preamble), be visible to the acting
+	 * user (404 anti-enumeration for invisible tasks), and the actor must be
+	 * owner or member (children → 403). Every target user ID must belong to
+	 * the given house (membership is validated server-side; client input is
+	 * never trusted).
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param string[] $userIds Nextcloud user IDs to assign
 	 * @param int $houseId The house ID for membership validation
-	 * @param string $assignedBy The Nextcloud user ID performing the assignment
+	 * @param HouseUser $actor The acting user's house membership
 	 * @return TaskAssignee[] The resulting assignee list
+	 * @throws NotFoundException if the room task does not exist, is foreign, or is invisible to the actor
+	 * @throws ForbiddenException if the actor is a child
 	 */
-	public function setAssignees(int $roomTaskId, array $userIds, int $houseId, string $assignedBy): array {
-		$this->roomTaskMapper->find($roomTaskId);
+	public function setAssignees(int $roomTaskId, array $userIds, int $houseId, HouseUser $actor): array {
+		$this->validateRoomTaskOwnership($roomTaskId, $houseId);
+		$this->assertRoomTaskVisible($roomTaskId, $actor);
+		$this->authorization->assertCanManageTasks($actor);
 		$this->assertHouseMembers($userIds, $houseId);
 
-		$this->taskAssigneeMapper->replaceAssignees($roomTaskId, $userIds, $assignedBy);
+		$this->taskAssigneeMapper->replaceAssignees($roomTaskId, $userIds, $actor->getNextcloudUserId());
 		return $this->taskAssigneeMapper->findByRoomTask($roomTaskId);
 	}
 
 	/**
-	 * Add a single assignee to a room task
+	 * Assert the room task's underlying definition is visible to the actor
+	 * (404 anti-enumeration, decision D3).
 	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param string $userId The Nextcloud user ID to assign
-	 * @param int $houseId The house ID for membership validation
-	 * @param string $assignedBy The Nextcloud user ID performing the assignment
-	 * @throws \InvalidArgumentException if the user is already an assignee or not a member
+	 * @throws NotFoundException when the matrix denies the actor
 	 */
-	public function addAssignee(int $roomTaskId, string $userId, int $houseId, string $assignedBy): TaskAssignee {
-		$this->roomTaskMapper->find($roomTaskId);
-		$this->assertHouseMembers([$userId], $houseId);
+	private function assertRoomTaskVisible(int $roomTaskId, HouseUser $actor): void {
+		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
+		$task = $this->findTaskOrNotFound($roomTask->getTaskId());
+		$this->taskAccessPolicy->assertCanView($task, $actor, $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId));
+	}
 
-		if ($this->taskAssigneeMapper->isAssignee($roomTaskId, $userId)) {
-			throw new \InvalidArgumentException($this->l10n->t('User is already assigned to this task'));
+	/**
+	 * Fetch a task definition or translate the mapper's DoesNotExistException
+	 * into the app NotFoundException (404, CS-PLAN-061 §3.5).
+	 *
+	 * @throws NotFoundException if not found
+	 */
+	private function findTaskOrNotFound(int $taskId): Task {
+		try {
+			return $this->taskMapper->find($taskId);
+		} catch (DoesNotExistException $e) {
+			throw new NotFoundException($this->l10n->t('Task not found'));
 		}
-
-		return $this->taskAssigneeMapper->addAssignee($roomTaskId, $userId, $assignedBy);
-	}
-
-	/**
-	 * Remove an assignee from a room task
-	 *
-	 * Mirrors addAssignee's guard (CR-SVC-22): the target user must be a
-	 * member of the house — client-supplied user IDs are never trusted.
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param string $userId The Nextcloud user ID to remove
-	 * @param int $houseId The house ID for membership validation
-	 * @throws \InvalidArgumentException if the user is not a house member
-	 */
-	public function removeAssignee(int $roomTaskId, string $userId, int $houseId): void {
-		$this->roomTaskMapper->find($roomTaskId);
-		$this->assertHouseMembers([$userId], $houseId);
-		$this->taskAssigneeMapper->removeAssignee($roomTaskId, $userId);
-	}
-
-	/**
-	 * Deactivate room task
-	 *
-	 * @param int $roomTaskId The room task ID
-	 */
-	public function deactivateTask(int $roomTaskId): RoomTask {
-		$this->roomTaskMapper->find($roomTaskId);
-		$this->roomTaskMapper->deactivate($roomTaskId);
-
-		// Return updated room task
-		return $this->roomTaskMapper->find($roomTaskId);
 	}
 
 	/**
@@ -562,11 +573,10 @@ class RoomTaskService {
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param HouseUser $houseUser The acting user's house membership
-	 * @param string $userId The acting user's Nextcloud user ID
 	 */
-	public function reactivateTask(int $roomTaskId, HouseUser $houseUser, string $userId): RoomTask {
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		$this->assertLifecycleVisibility($roomTask, $this->taskMapper->find($roomTask->getTaskId()), $houseUser, $userId);
+	public function reactivateTask(int $roomTaskId, HouseUser $houseUser): RoomTask {
+		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
+		$this->assertLifecycleVisibility($roomTask, $this->findTaskOrNotFound($roomTask->getTaskId()), $houseUser);
 		$this->roomTaskMapper->reactivate($roomTaskId);
 
 		// Return updated room task
@@ -579,11 +589,10 @@ class RoomTaskService {
 	 * @param int $roomTaskId The room task ID
 	 * @param \DateTime $nextDue The new due date
 	 * @param HouseUser $houseUser The acting user's house membership
-	 * @param string $userId The acting user's Nextcloud user ID
 	 */
-	public function updateDueDate(int $roomTaskId, \DateTime $nextDue, HouseUser $houseUser, string $userId): RoomTask {
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		$this->assertLifecycleVisibility($roomTask, $this->taskMapper->find($roomTask->getTaskId()), $houseUser, $userId);
+	public function updateDueDate(int $roomTaskId, \DateTime $nextDue, HouseUser $houseUser): RoomTask {
+		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
+		$this->assertLifecycleVisibility($roomTask, $this->findTaskOrNotFound($roomTask->getTaskId()), $houseUser);
 		$this->roomTaskMapper->updateNextDue($roomTaskId, $nextDue);
 
 		// Return updated room task
@@ -607,10 +616,19 @@ class RoomTaskService {
 	 * row's completions, assignees, and checklist progress were left
 	 * orphaned (no FK constraints in the schema).
 	 *
+	 * Service-level gates (CS-PLAN-061 §3.4): the acting user must be able
+	 * to see the room task's definition (404 for invisible tasks) and may
+	 * not be a child (403).
+	 *
 	 * @param int $roomTaskId The room task ID
+	 * @param HouseUser $actor The acting user's house membership
+	 * @throws NotFoundException if the room task or its definition is invisible to the actor
+	 * @throws ForbiddenException if the actor is a child
 	 */
-	public function deleteRoomTask(int $roomTaskId): void {
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
+	public function deleteRoomTask(int $roomTaskId, HouseUser $actor): void {
+		$this->assertRoomTaskVisible($roomTaskId, $actor);
+		$this->authorization->assertCanManageTasks($actor);
+		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
 
 		$this->transactions->run(function () use ($roomTaskId, $roomTask) {
 			$this->roomService->deleteRoomTaskDependents([$roomTaskId]);
@@ -624,8 +642,8 @@ class RoomTaskService {
 	 * @param int $roomTaskId The room task ID
 	 */
 	public function getRoomTaskWithDetails(int $roomTaskId): array {
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		$task = $this->taskMapper->find($roomTask->getTaskId());
+		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
+		$task = $this->findTaskOrNotFound($roomTask->getTaskId());
 		$room = $this->roomMapper->find($roomTask->getRoomId());
 		$tz = $this->getTimeZoneForRoomEntity($room);
 
@@ -641,7 +659,10 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Get task statistics for a room
+	 * Get task statistics for a room, restricted to the viewer's visibility
+	 * (CS-PLAN-061 review fix): counts are computed over the visibility-
+	 * filtered room-task set, so the stats of a room with invisible private
+	 * tasks neither include them nor confirm that they exist.
 	 *
 	 * CR-SVC-31 root fix (CS-PLAN-040): completionRate counts REAL
 	 * completions — the share of the room's current tasks with at least
@@ -649,30 +670,33 @@ class RoomTaskService {
 	 * counted deactivated/skipped tasks as completed. An empty room
 	 * returns 0 (not 100).
 	 *
-	 * Dangling completion rows (single-task deletion does not cascade) are
-	 * excluded by the mapper's room-scoped JOIN, so they can never inflate
-	 * the numerator.
-	 *
 	 * @param int $roomId The room ID
+	 * @param HouseUser $viewer The acting user's house membership
 	 */
-	public function getRoomTaskStats(int $roomId): array {
+	public function getRoomTaskStats(int $roomId, HouseUser $viewer): array {
 		$allTasks = $this->roomTaskMapper->findByRoomId($roomId, false);
+		$visibleTasks = $this->taskAccessPolicy->filterVisibleRoomTasks(
+			$allTasks,
+			$this->tasksByIdForRoomTasks($allTasks),
+			$viewer
+		);
 		$tz = $this->getTimeZoneForRoom($roomId);
-		$activeTasks = array_filter($allTasks, fn ($task) => $task->getIsActive());
+		$activeTasks = array_filter($visibleTasks, fn ($task) => $task->getIsActive());
 		$overdueTasks = array_filter($activeTasks, fn ($task) => $task->isOverdue());
 		$dueTodayTasks = array_filter($activeTasks, fn ($task) => $task->isDueToday($tz));
 		$dueSoonTasks = array_filter($activeTasks, fn ($task) => $task->isDueWithinDays(3));
 
-		$completedCount = $this->completedTaskMapper->countDistinctCompletedRoomTasksByRoom($roomId);
+		$visibleIds = array_map(static fn (RoomTask $roomTask): int => $roomTask->getId(), $visibleTasks);
+		$completedCount = $this->completedTaskMapper->countDistinctCompletedRoomTasksInSet($visibleIds);
 
 		return [
-			'totalTasks' => count($allTasks),
+			'totalTasks' => count($visibleTasks),
 			'activeTasks' => count($activeTasks),
 			'overdueTasks' => count($overdueTasks),
 			'dueTodayTasks' => count($dueTodayTasks),
 			'dueSoonTasks' => count($dueSoonTasks),
-			'completionRate' => count($allTasks) > 0
-				? round(min($completedCount, count($allTasks)) / count($allTasks) * 100, 2)
+			'completionRate' => count($visibleTasks) > 0
+				? round(min($completedCount, count($visibleTasks)) / count($visibleTasks) * 100, 2)
 				: 0
 		];
 	}
@@ -690,18 +714,44 @@ class RoomTaskService {
 	 * without the raw target userId (privacy), and a failing
 	 * assignment write never aborts the batch.
 	 *
+	 * Actor policy + visibility (CS-PLAN-061 §3.4): the acting user must be
+	 * owner or member (child → 403), and every requested id that IS scoped
+	 * to the house but invisible to the actor fails the whole request up
+	 * front with a 404 (anti-enumeration — "first assertCanView"). Items
+	 * missing from the house keep their skip isolation.
+	 *
 	 * @param array $roomTaskIds Array of room task IDs
 	 * @param string $userId The user ID (must be a house member)
 	 * @param int $houseId The caller's house ID (scopes the room tasks)
+	 * @param HouseUser $actor The acting user's house membership
 	 * @return RoomTask[] The successfully assigned room tasks, in input order
+	 * @throws NotFoundException if a house-scoped id is invisible to the actor
+	 * @throws ForbiddenException if the actor is a child
 	 */
-	public function bulkAssignTasks(array $roomTaskIds, string $userId, int $houseId): array {
+	public function bulkAssignTasks(array $roomTaskIds, string $userId, int $houseId, HouseUser $actor): array {
+		$this->authorization->assertCanManageTasks($actor);
 		$this->assertHouseMembers([$userId], $houseId);
 
-		$scopedIds = [];
+		$scopedById = [];
 		foreach ($this->roomTaskMapper->findByIdsScopedToHouse($roomTaskIds, $houseId) as $scopedRoomTask) {
-			$scopedIds[$scopedRoomTask->getId()] = true;
+			$scopedById[$scopedRoomTask->getId()] = $scopedRoomTask;
 		}
+
+		// Visibility pre-check for everything that IS in the house: one
+		// batched assignee fetch (no N+1), 404 on the first invisible task.
+		if ($scopedById !== []) {
+			$tasksById = $this->tasksByIdForRoomTasks(array_values($scopedById));
+			$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(array_keys($scopedById));
+			foreach ($scopedById as $scopedId => $scopedRoomTask) {
+				$task = $tasksById[$scopedRoomTask->getTaskId()] ?? null;
+				if ($task === null
+					|| !$this->taskAccessPolicy->canView($task, $actor, $assigneesByRoomTask[$scopedId] ?? [])) {
+					throw new NotFoundException($this->l10n->t('Room task not found'));
+				}
+			}
+		}
+
+		$scopedIds = array_fill_keys(array_keys($scopedById), true);
 
 		$assignedIds = [];
 		foreach ($roomTaskIds as $roomTaskId) {
@@ -752,12 +802,14 @@ class RoomTaskService {
 
 	/**
 	 * Get overdue tasks that can be claimed (overdue + assigned to at least
-	 * one member via the canonical join table).
+	 * one member via the canonical join table), filtered to the viewer's
+	 * visibility.
 	 *
 	 * @param int $houseId The house ID
+	 * @param HouseUser $viewer The acting user's house membership
 	 * @return RoomTask[]
 	 */
-	public function getClaimableOverdueTasks(int $houseId): array {
+	public function getClaimableOverdueTasks(int $houseId, HouseUser $viewer): array {
 		$overdueTasks = $this->roomTaskMapper->findOverdueByHouse($houseId);
 		if ($overdueTasks === []) {
 			return [];
@@ -772,7 +824,8 @@ class RoomTaskService {
 			static fn (RoomTask $task) => ($assigneesByTask[$task->getId()] ?? []) !== []
 		);
 
-		return array_values($claimableTasks);
+		$claimable = array_values($claimableTasks);
+		return $this->taskAccessPolicy->filterVisibleRoomTasks($claimable, $this->tasksByIdForRoomTasks($claimable), $viewer);
 	}
 
 	/**
@@ -789,7 +842,8 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Get today's tasks for a house including task and room details.
+	 * Get today's tasks for a house including task and room details, filtered
+	 * to the viewer's visibility (CS-PLAN-061 §3.3).
 	 *
 	 * Task and room entities are fetched in two batch queries
 	 * (TaskMapper/RoomMapper::findByIds, CS-PLAN-036) instead of per-id
@@ -798,9 +852,10 @@ class RoomTaskService {
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTime $date The date to get tasks for
+	 * @param HouseUser $viewer The acting user's house membership
 	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
 	 */
-	public function getDailyTasksWithDetails(int $houseId, \DateTime $date): array {
+	public function getDailyTasksWithDetails(int $houseId, \DateTime $date, HouseUser $viewer): array {
 		$dailyTasks = $this->getDailyTasks($houseId, $date);
 
 		$taskIds = [];
@@ -813,8 +868,10 @@ class RoomTaskService {
 		$tasksById = $this->taskMapper->findByIds(array_keys($taskIds));
 		$roomsById = $this->roomMapper->findByIds(array_keys($roomIds));
 
+		$visibleTasks = $this->taskAccessPolicy->filterVisibleRoomTasks($dailyTasks, $tasksById, $viewer);
+
 		$details = [];
-		foreach ($dailyTasks as $roomTask) {
+		foreach ($visibleTasks as $roomTask) {
 			$task = $tasksById[$roomTask->getTaskId()] ?? null;
 			$room = $roomsById[$roomTask->getRoomId()] ?? null;
 			if ($task === null || $room === null) {
@@ -850,9 +907,10 @@ class RoomTaskService {
 	 * @param int $houseId The house ID
 	 * @param \DateTime $from Inclusive range start
 	 * @param \DateTime $to Inclusive range end
+	 * @param HouseUser $viewer The acting user's house membership
 	 * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, flexWindow: array, occurrences: array<int, string>}>, completed: array<int, array>}
 	 */
-	public function getRangeTasks(int $houseId, \DateTime $from, \DateTime $to): array {
+	public function getRangeTasks(int $houseId, \DateTime $from, \DateTime $to, HouseUser $viewer): array {
 		// CS-PLAN-057: reinterpret the controller's Y-m-d keys as house-local
 		// calendar bounds (UTC-normalized instants for the SQL comparison).
 		// CS-PLAN-060 §3.6: the completion window is half-open [start, end)
@@ -871,6 +929,7 @@ class RoomTaskService {
 		// Base set: every active task that could recur into the window (nextDue <= to).
 		$roomTasks = $this->roomTaskMapper->findActiveDueUpToByHouse($houseId, $toBoundInclusive);
 		$completions = $this->completedTaskMapper->findCompletionsBetweenByHouse($houseId, $fromBound, $toBoundExclusive);
+		$completions = $this->redactInvisibleCompletionRows($completions, $viewer);
 
 		$taskIds = [];
 		$roomIds = [];
@@ -881,6 +940,11 @@ class RoomTaskService {
 
 		$tasksById = $this->taskMapper->findByIds(array_keys($taskIds));
 		$roomsById = $this->roomMapper->findByIds(array_keys($roomIds));
+
+		// Visibility filter (CS-PLAN-061 §3.3): private/admin-only base rows
+		// must not reach the projection — their full task definition is
+		// serialized into the response.
+		$roomTasks = $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $tasksById, $viewer);
 
 		$scheduled = [];
 		foreach ($roomTasks as $rt) {
@@ -935,29 +999,66 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Enforce the task visibility matrix for lifecycle mutations (CS-PLAN-056, CR-053-06).
+	 * Redact the task content of completion-history rows the viewer may not
+	 * see (CS-PLAN-061 review fix): rows stay house-scoped (decision D9 —
+	 * aggregate calendar history), but the task NAME of an invisible
+	 * private/admin-only task is nulled instead of leaking into the
+	 * response. One batched task fetch + one batched assignee fetch (no
+	 * N+1).
 	 *
-	 * Mirrors the completion gate in RoomService::completeRoomTask:
-	 * - private tasks: only assigned users (canonical join table)
-	 * - admin-only tasks: only house owners
+	 * @param array<int, array<string, mixed>> $completions Flat completion rows
+	 * @param HouseUser $viewer The acting user's house membership
+	 * @return array<int, array<string, mixed>> Rows with redacted task names
+	 */
+	private function redactInvisibleCompletionRows(array $completions, HouseUser $viewer): array {
+		if ($completions === []) {
+			return [];
+		}
+
+		$taskIdSet = [];
+		foreach ($completions as $row) {
+			$taskIdSet[(int)$row['taskId']] = true;
+		}
+		$taskIds = array_keys($taskIdSet);
+
+		$tasksById = $this->taskMapper->findByIds($taskIds);
+		$assigneesByTask = $this->taskAssigneeMapper->findUserIdsByTaskIds($taskIds);
+
+		foreach ($completions as &$row) {
+			$taskId = (int)$row['taskId'];
+			$task = $tasksById[$taskId] ?? null;
+			$visible = $task !== null
+				&& $this->taskAccessPolicy->canView($task, $viewer, $assigneesByTask[$taskId] ?? []);
+			if (!$visible) {
+				$row['taskName'] = null;
+			}
+		}
+		unset($row);
+
+		return $completions;
+	}
+
+	/**
+	 * Enforce the task visibility matrix for lifecycle mutations (CS-PLAN-056,
+	 * CR-053-06; unified via {@see TaskAccessPolicy}, CS-PLAN-061 §3.2).
+	 *
+	 * One matrix everywhere (decision D2):
 	 * - public tasks: any house member
+	 * - private tasks: creator ∪ explicit assignees (canonical join table)
+	 * - admin-only tasks: house owners
+	 *
+	 * A non-viewer is denied with the app NotFoundException — the 404
+	 * anti-enumeration standard (decision D3): the lifecycle surface must not
+	 * confirm that an invisible room-task id exists.
 	 *
 	 * @param RoomTask $roomTask The room task being mutated
 	 * @param Task $task The task definition (visibility source)
 	 * @param HouseUser $houseUser The acting user's house membership
-	 * @param string $userId The acting user's Nextcloud user ID
-	 * @throws ForbiddenException if the matrix forbids the mutation
+	 * @throws NotFoundException if the matrix denies the actor
 	 */
-	public function assertLifecycleVisibility(RoomTask $roomTask, Task $task, HouseUser $houseUser, string $userId): void {
+	public function assertLifecycleVisibility(RoomTask $roomTask, Task $task, HouseUser $houseUser): void {
 		$assigneeUserIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId());
-
-		if ($task->getVisibilityType() === Task::VISIBILITY_PRIVATE && !in_array($userId, $assigneeUserIds, true)) {
-			throw new ForbiddenException($this->l10n->t('Private tasks may only be modified by assigned users'));
-		}
-
-		if ($task->getVisibilityType() === Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
-			throw new ForbiddenException($this->l10n->t('Admin-only tasks may only be modified by house owners'));
-		}
+		$this->taskAccessPolicy->assertCanView($task, $houseUser, $assigneeUserIds);
 	}
 
 	/**
@@ -965,50 +1066,45 @@ class RoomTaskService {
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param HouseUser $houseUser The acting user's house membership
-	 * @param string $userId The acting user's Nextcloud user ID
 	 * @return RoomTask The updated room task
 	 */
-	public function uncompleteTask(int $roomTaskId, HouseUser $houseUser, string $userId): RoomTask {
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		$this->assertLifecycleVisibility($roomTask, $this->taskMapper->find($roomTask->getTaskId()), $houseUser, $userId);
+	public function uncompleteTask(int $roomTaskId, HouseUser $houseUser): RoomTask {
+		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
+		$this->assertLifecycleVisibility($roomTask, $this->findTaskOrNotFound($roomTask->getTaskId()), $houseUser);
 		$roomTask->setLastCompleted(null);
 		return $this->roomTaskMapper->update($roomTask);
 	}
 
 	/**
-	 * Get filtered daily tasks for a user based on their role and scheduling preferences.
+	 * Get filtered daily tasks for a user based on their role and scheduling
+	 * preferences, restricted to the viewer's visibility matrix.
 	 *
 	 * For child users, this filters tasks based on:
 	 * - weekdayAvailability: Only shows tasks due on days the user is available
 	 * - maxDailyTasks: Limits the number of tasks shown
 	 *
-	 * Non-child users receive all daily tasks without filtering.
+	 * Non-child users receive all daily tasks (still visibility-filtered).
 	 *
 	 * @param int $houseId The house ID
-	 * @param string $nextcloudUserId The Nextcloud user ID
+	 * @param HouseUser $viewer The acting user's house membership (role + preferences source)
 	 * @param \DateTime $date The date to get tasks for
-	 * @param HouseUserMapper $houseUserMapper Mapper to get user preferences
 	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}> Filtered tasks with details
 	 */
 	public function getFilteredDailyTasksForUser(
 		int $houseId,
-		string $nextcloudUserId,
+		HouseUser $viewer,
 		\DateTime $date,
-		\OCA\ChoreStrike\Db\HouseUserMapper $houseUserMapper,
 	): array {
-		// Get all daily tasks for the house
-		$allTasks = $this->getDailyTasksWithDetails($houseId, $date);
+		// Daily tasks, already filtered through the visibility matrix.
+		$allTasks = $this->getDailyTasksWithDetails($houseId, $date, $viewer);
 
-		// Get user to check role and preferences
-		$user = $houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
-
-		// Non-child users see all tasks
-		if (!$user->isChild()) {
+		// Non-child users see all (visible) tasks
+		if (!$viewer->isChild()) {
 			return $allTasks;
 		}
 
 		// Get user's scheduling preferences
-		$preferences = $user->getSchedulingPreferences();
+		$preferences = $viewer->getSchedulingPreferences();
 		$weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
 		$maxDailyTasks = $preferences['maxDailyTasks'] ?? PHP_INT_MAX;
 

@@ -47,6 +47,7 @@ class HouseService {
 	private AppLogger $appLogger;
 	private IUserSession $userSession;
 	private CalendarService $calendarService;
+	private AuthorizationService $authorization;
 
 	public function __construct(
 		HouseMapper $houseMapper,
@@ -63,6 +64,7 @@ class HouseService {
 		AppLogger $appLogger,
 		IUserSession $userSession,
 		CalendarService $calendarService,
+		AuthorizationService $authorization,
 	) {
 		$this->houseMapper = $houseMapper;
 		$this->floorMapper = $floorMapper;
@@ -78,6 +80,7 @@ class HouseService {
 		$this->appLogger = $appLogger;
 		$this->userSession = $userSession;
 		$this->calendarService = $calendarService;
+		$this->authorization = $authorization;
 	}
 
 	/**
@@ -169,10 +172,11 @@ class HouseService {
 			return $this->houseMapper->findByInstanceId($instanceId);
 		} catch (DoesNotExistException $e) {
 			$houseName ??= $this->l10n->t('My House');
+			// Log hygiene (CS-PLAN-061 §3.6): the house name is user-authored
+			// content — only stable ids go into the log context.
 			$this->appLogger->info('Creating house for instance', [
 				'service' => 'HouseService',
 				'instanceId' => $instanceId,
-				'houseName' => $houseName,
 			]);
 			// CS-PLAN-057 D1: capture the creator's Nextcloud timezone at
 			// house creation so day bucketing is locally correct from the
@@ -200,13 +204,17 @@ class HouseService {
 	}
 
 	/**
-	 * Update house name and/or timezone
+	 * Update house name and/or timezone (owner-only, CS-PLAN-061 §3.4 /
+	 * ADR-006 — controller checks remain as defense in depth).
 	 *
 	 * @param int $houseId The house ID
 	 * @param string $name The new name
 	 * @param string|null $timezone The new IANA timezone id (null = leave unchanged)
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
 	public function updateHouse(int $houseId, string $name, ?string $timezone = null): House {
+		$this->authorization->requireHouseOwner($houseId);
+
 		$house = $this->houseMapper->find($houseId);
 		$house->setName($name);
 		if ($timezone !== null) {
