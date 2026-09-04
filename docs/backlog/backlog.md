@@ -43,7 +43,7 @@ selected full transactional undo on 2026-09-02.
 ---
 
 ### [P1] CR-WF-03 — Make setup, creation, and assignment atomic and canonical
-**Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: setup/creation
+**Status**: In Progress (CS-PLAN-062 — setup/structure half; task-creation half stays WP4) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: setup/creation
 **Owning**: CS-PLAN-058 WP3+WP4 · **Depends on**: — · **Blocks**: CR-WF-02 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
 
