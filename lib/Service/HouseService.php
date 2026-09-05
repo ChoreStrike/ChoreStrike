@@ -330,12 +330,14 @@ class HouseService {
 	 * Whether the house has any floors yet.
 	 *
 	 * Used by the first-run setup gate (the wizard is only available while the
-	 * house is structurally empty — decision D3).
+	 * house is structurally empty — decision D3). Delegates to the COUNT
+	 * primitive (CS-PLAN-062 §3.1) instead of materializing every floor
+	 * entity for a boolean.
 	 *
 	 * @param int $houseId The house ID
 	 */
 	public function hasFloors(int $houseId): bool {
-		return $this->floorMapper->findByHouseId($houseId) !== [];
+		return $this->floorMapper->countByHouseId($houseId) > 0;
 	}
 
 	/**

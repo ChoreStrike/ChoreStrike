@@ -7,6 +7,7 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 use OCA\ChoreStrike\Controller\SetupController;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
@@ -94,12 +95,14 @@ class SetupControllerTest extends TestCase {
 
 	public function testApply_FirstRun_AppliesAndReturnsCounts(): void {
 		$this->stubHouse();
-		$this->houseService->expects($this->once())->method('hasFloors')->willReturn(false);
+		// CS-PLAN-062 §3.1: the first-run gate moved into the service
+		// transaction — the controller performs no pre-check of its own.
+		$this->houseService->expects($this->never())->method('hasFloors');
 
 		$payload = ['intensityLevel' => 'putzteufel', 'floors' => [['name' => 'GF', 'rooms' => []]]];
 		$this->request->method('getParams')->willReturn($payload);
 
-		$result = ['floors' => 1, 'rooms' => 2, 'tasks' => 5, 'roomTasks' => 5, 'skipped' => []];
+		$result = ['floors' => 1, 'rooms' => 2, 'tasks' => 5, 'roomTasks' => 5, 'skipped' => [], 'houseName' => 'My House'];
 		$this->houseSetupService->expects($this->once())
 			->method('applySetup')
 			->with(1, $payload)
@@ -113,19 +116,47 @@ class SetupControllerTest extends TestCase {
 		$this->assertSame($result, $body['data']);
 	}
 
-	public function testApply_HouseAlreadySetUp_Returns409(): void {
+	public function testApply_HouseName_PassesThroughToService(): void {
 		$this->stubHouse();
-		$this->houseService->expects($this->once())->method('hasFloors')->willReturn(true);
+
+		$payload = [
+			'houseName' => 'Family Home',
+			'intensityLevel' => 'putzteufel',
+			'floors' => [['name' => 'GF', 'rooms' => [['name' => 'Kitchen', 'roomType' => 'kitchen']]]],
+		];
+		$this->request->method('getParams')->willReturn($payload);
+
+		$this->houseSetupService->expects($this->once())
+			->method('applySetup')
+			->with(1, $payload)
+			->willReturn(['floors' => 1, 'rooms' => 1, 'tasks' => 2, 'roomTasks' => 2, 'skipped' => [], 'houseName' => 'Family Home']);
+
+		$response = $this->controller->apply();
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertSame('Family Home', $response->getData()['data']['houseName']);
+	}
+
+	public function testApply_HouseAlreadySetUpConflictFromService_Returns409(): void {
+		$this->stubHouse();
+		// The gate fires inside the service transaction (CS-PLAN-062 §3.1):
+		// the controller maps the ConflictException to the unchanged 409
+		// HOUSE_ALREADY_SET_UP envelope.
+		$this->houseSetupService->method('applySetup')
+			->willThrowException(new ConflictException('The house is already set up. Use the per-room template picker instead.'));
+		$this->request->method('getParams')->willReturn(['intensityLevel' => 'putzteufel', 'floors' => [['name' => 'GF', 'rooms' => [['name' => 'Kitchen', 'roomType' => 'kitchen']]]]]);
 
 		$response = $this->controller->apply();
 
 		$this->assertEquals(409, $response->getStatus());
-		$this->assertSame('HOUSE_ALREADY_SET_UP', $response->getData()['error']['code']);
+		$body = $response->getData();
+		$this->assertFalse($body['success']);
+		$this->assertSame('HOUSE_ALREADY_SET_UP', $body['error']['code']);
+		$this->assertSame('The house is already set up. Use the per-room template picker instead.', $body['error']['message']);
 	}
 
 	public function testApply_InvalidPayload_Returns400(): void {
 		$this->stubHouse();
-		$this->houseService->method('hasFloors')->willReturn(false);
 
 		$this->houseSetupService->method('applySetup')
 			->willThrowException(new \InvalidArgumentException('Invalid intensity level'));
@@ -144,7 +175,6 @@ class SetupControllerTest extends TestCase {
 
 	public function testApply_NoJsonBody_Returns400(): void {
 		$this->stubHouse();
-		$this->houseService->method('hasFloors')->willReturn(false);
 		$this->request->method('getParams')->willReturn([]);
 
 		$response = $this->controller->apply();

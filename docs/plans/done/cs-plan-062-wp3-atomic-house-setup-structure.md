@@ -1,10 +1,41 @@
 # CS-PLAN-062: WP3 — Atomic House Setup and Structure
 
-> **Status:** Active (Standard A review passed 2026-09-04; implementation not started)
+> **Status:** Done (final Standard B review PASS-WITH-FIXES 2026-09-05; all §8
+> acceptance criteria verified, gates rerun green by the review; see §10)
 > **Effort:** M
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP3 — WP0, WP1, WP2 are Done), WP2 authorization baseline (2026-09-04, ADR-010)
 > **Related backlog items:** CR-WF-03 setup/structure half (owned); delivers CR-WF-05's empty-house-profile criterion as the WP3 exit-gate artifact (annotated, CR-WF-05 umbrella stays WP9); CR-WF-08 wizard-usability line served for the setup surface only (umbrella stays WP7)
+>
+> **Implementation note (2026-09-04):** payload validation runs before the
+> in-transaction gate (per §3.1's numbered order), so the synthetic
+> invalid-payload 409 probe in `release-setup-wizard.spec.ts` was updated to a
+> fully valid payload — the 409 envelope/contract itself is unchanged and still
+> pinned by that spec. With the rename folded into the setup command, the
+> wizard no longer refreshes the house store via a separate PUT, so
+> `Dashboard.handleWizardApplied` additionally refetches the house payload
+> (one added line beyond the §5 manifest); the invite step no longer
+> auto-finishes on a fully successful batch so the per-recipient joined
+> statuses stay visible (explicit Finish button, label switches from
+> "Skip and finish" to "Finish" when nothing is pending). `MemberList` and its
+> spec already consumed the house-user payload directly, and
+> `src/store/setup.js` needed no change (the shared API client already
+> surfaces `ApiError.status`/`code` for the 409 recovery) — both manifest
+> entries verified as no-ops.
+>
+> **Gate record (2026-09-04/05):** unit (host) 635 OK; Docker unit 822 OK;
+> Docker integration 270 OK (+10 pre-existing documented skips, no new skips);
+> Jest 813 OK; ESLint + `cs:check` + `l10n:check-keys` + `docs:encoding` +
+> `backlog:check` + `test:noise` + `git diff --check` clean. Playwright
+> `chromium` + `chromium-serial-db` + `chromium-scheduling-owner`: the WP3
+> surfaces (setup-wizard-journey ×2, release-setup-wizard ×2) pass in every
+> run; the remaining matrix shows pre-existing serial-pool flakes —
+> `insights-flow.spec.ts:121` fails deterministically **on a clean `master`
+> tree too** (stash-verified; date-sensitive, tracked + annotated as
+> BUG-E2E-005), and `dashboard.spec.ts:49` / `error-handling.spec.ts:78` /
+> `room-management.spec.ts:179` fail only sporadically under full-matrix load
+> and pass in isolation (27/27 verified). Final ruling on the gate belongs to
+> the Standard B review.
 
 ## 1. Problem Summary
 
@@ -328,6 +359,9 @@ modified: lib/Service/HouseService.php (hasFloors delegates to count primitive)
 modified: lib/Db/FloorMapper.php (countByHouseId)
 modified: lib/Service/TestDataService.php (emptyhouse profile + profiles list)
 modified: lib/Controller/TestController.php (profile listing if enumerated there)
+modified: lib/Db/TransactionExecutor.php (lock-order docblock setup usage — implied by §3.7)
+modified: src/views/Dashboard.vue (house refetch after apply — implementation note)
+modified: tests/integration/Controller/TestControllerTest.php (emptyhouse profile assertions)
 modified: src/components/Setup/SetupWizard.vue (payload, result panel, per-recipient invites, recovery, a11y)
 modified: src/store/setup.js · src/store/user.js (invite contract)
 modified: tests/e2e/fixtures/database-fixtures.ts (emptyhouse profile + PROFILE_USERS)
@@ -380,50 +414,50 @@ modified: docs/plans/new/cs-plan-062-wp3-atomic-house-setup-structure.md (this p
 
 ## 8. Acceptance Criteria
 
-- [ ] The first-run gate is enforced inside the setup transaction: the
+- [x] The first-run gate is enforced inside the setup transaction: the
       house row is locked (`findForUpdate`) before the floor-existence
       recheck; the controller pre-check is gone (single gate owner); a
       two-connection concurrent apply yields exactly one structure and one
       409 (`SetupApplyConcurrencyTest`, documented SQLite skip only).
-- [ ] `houseName` is part of the setup command: validated, persisted
+- [x] `houseName` is part of the setup command: validated, persisted
       atomically with the structure, returned in the response; the wizard
       performs no separate rename request during setup.
-- [ ] Assignee memberships are revalidated under the transaction boundary;
+- [x] Assignee memberships are revalidated under the transaction boundary;
       an assignee removed before the write yields 400 and zero persisted
       floors/rooms/tasks/assignees (integration).
-- [ ] No setup failure path leaves partial structure: unit sabotage
+- [x] No setup failure path leaves partial structure: unit sabotage
       rollback, integration zero-write cases, and the E2E forced-failure
       step all pass (decision D7).
-- [ ] The wizard shows exactly what was created (house name, counts,
+- [x] The wizard shows exactly what was created (house name, counts,
       skipped templates) and per-recipient invitation outcomes; invite
       failures never read as structural failures; input survives
       recoverable validation errors; a raced 409 renders a recoverable
       "already set up" state.
-- [ ] Invite store contract matches the backend payload (no dead `exists`
+- [x] Invite store contract matches the backend payload (no dead `exists`
       branch); per-recipient success can name the joined user; MemberList
       updated to the same contract.
-- [ ] Wizard a11y: every interactive element ≥ 44 px, icon buttons carry
+- [x] Wizard a11y: every interactive element ≥ 44 px, icon buttons carry
       accessible names, modal focus trap + Esc, `aria-current` on steps —
       asserted in Jest.
-- [ ] The `emptyhouse` E2E profile exists and the new journey spec
+- [x] The `emptyhouse` E2E profile exists and the new journey spec
       completes the wizard entirely through the UI (bootstrap → owner →
       structure → invite → member view) in the serial pool with no
       conditional skips — the WP3 exit gate.
-- [ ] All setup strings localized (errors included), standard API envelope
+- [x] All setup strings localized (errors included), standard API envelope
       everywhere; `l10n:check-keys` green.
-- [ ] Build gate green (CS-PLAN-058 §4.5) with no new or unapproved skips
+- [x] Build gate green (CS-PLAN-058 §4.5) with no new or unapproved skips
       (the two-connection race skip follows the existing documented
       MySQL-only inventory).
-- [ ] Owning backlog items dispositioned: CR-WF-03 setup-half criteria
+- [x] Owning backlog items dispositioned: CR-WF-03 setup-half criteria
       checked/annotated (task-creation half stays WP4), CR-WF-05
       empty-house criterion annotated as delivered by WP3's exit gate;
       CS-PLAN-058 §9 WP3 row updated. Final archive moves are owned by the
       Standard B review.
-- [ ] Durable docs updated (API README, setup concept, locking note) —
+- [x] Durable docs updated (API README, setup concept, locking note) —
       plans are temporary.
-- [ ] All implementation decisions and review questions resolved and
+- [x] All implementation decisions and review questions resolved and
       recorded.
-- [ ] Final Standard B review is `PASS` or `PASS-WITH-FIXES`;
+- [x] Final Standard B review is `PASS` or `PASS-WITH-FIXES`;
       `ACTIVE_TASKS.md` updated.
 
 ## 9. Plan Review Decision Register
@@ -488,3 +522,50 @@ review can pass.
   due; factual verification stands in for the plan-review gate.
 - **Transition:** `new/ → active/` with this commit; CR-WF-03 marked
   In Progress for the setup/structure half; `ACTIVE_TASKS.md` updated.
+
+**Final Standard B code review — PASS-WITH-FIXES (2026-09-05).**
+
+- **Scope:** the whole WP3 package in the working tree of branch `master`
+  (base HEAD `861b3963c3cdbf7ab1a74180660ea67662da0cde`, index empty;
+  unstaged-diff SHA-256 `F689746C88A34D495589215C780DD5AE3434A85B825A60D5B089FB664C3B870D`
+  pre-fix) + untracked `tests/e2e/setup-wizard-journey.spec.ts` and
+  `tests/integration/Setup/SetupApplyConcurrencyTest.php`, all 29
+  §5-manifest paths (§5 entries verified; `TransactionExecutor.php`,
+  `Dashboard.vue`, and `TestControllerTest.php` were modified per §3.7/the
+  implementation note/§3.6 and added to the manifest), plus the full plan:
+  all 14 §8 acceptance criteria, §4 test evidence, durable-doc integration,
+  D1–D8 compliance.
+- **Verification highlights:** gate order lock → floor recheck → membership
+  revalidation → house-name write → materialization confirmed in
+  `HouseSetupService::applySetup` (single gate owner; controller maps
+  `ConflictException` to the unchanged 409 envelope); `houseName` validated
+  pre-transaction (fail ⇒ zero writes), trimmed and echoed; D5 contract
+  truthful in store/wizard/backend docs; D8 modal (focus trap, Esc, no
+  backdrop discard, `aria-current`, 44 px + accessible names); `emptyhouse`
+  profile + serial-pool journey without conditional skips; no SQL
+  concatenation, no `console.*`, all new strings in `l10n/`.
+- **Findings:** F1 minor-docs (manifest omissions — fixed inline);
+  F2 minor-behavior (store `error` stayed set on the recoverable 409 so the
+  red `wizard-error` line duplicated the recovery panel — fixed inline with
+  a Jest assertion, user-ratified); F3 nit (`validateHouseName` treats a
+  non-string `houseName` as absent — logged as CR-062-01 for WP4);
+  F4 pre-existing (stylelint `use-logical` warning in `NotAuthorizedState.vue`
+  — logged as TECH-LINT-007). Security/auth tracks: none.
+- **Gate rulings (review re-runs on a fresh disposable env):** Jest 813;
+  Docker unit 822; Docker integration 270 OK with the 10 pre-existing
+  documented skips and no new skips (MySQL race tests included); ESLint,
+  `cs:check` (0/270), `l10n:check-keys`, `docs:encoding`, `backlog:check`,
+  `test:noise`, `git diff --check`, and webpack build green; Playwright
+  `chromium` 92 passed (7 documented skips); `chromium-serial-db` 94
+  passed with the WP3 surfaces 7/7 (twice, incl. after the F2 fix);
+  sole residual `room-management.spec.ts:179` is the documented pre-existing
+  load flake (10/10 in isolation, tracked under BUG-E2E-005/CR-WF-05),
+  and `insights-flow:121` passed on this run. The plan's §Gate-record
+  rulings are hereby accepted.
+- **Decisions:** D1–D8 all confirmed implemented as ratified. Review
+  questions resolved 2026-09-05: F2 inline fix, F3 backlog nit (user-ratified).
+- **Transition:** `active/ → done/` with this commit; CR-WF-03 stays
+  partially open (task-creation half ⇒ WP4), CR-WF-05/CR-WF-08 umbrellas
+  remain (criteria already annotated as delivered); no fully completed
+  backlog item to archive; review record:
+  [`../../backlog/archive/CODE_REVIEW_2026-09-05.md`](../../backlog/archive/CODE_REVIEW_2026-09-05.md).

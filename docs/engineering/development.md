@@ -188,6 +188,9 @@ house → room_task → task/assignee/reward rows
 
 Example: `AuthorizationService::ensureHouseMember` locks the house row before
 counting members (first-owner bootstrap, CR-053-07);
+`HouseSetupService::applySetup` locks the house row before the first-run gate
+recheck, the assignee-membership revalidation, and the house-name write
+(atomic setup, CS-PLAN-062 §3.1–§3.3);
 `RoomService::completeRoomTask` locks the room-task row before its
 completion-side writes. The completion-effect lookup/inversion primitives
 built on this order arrive with WP5 / ADR-011, which will reference the

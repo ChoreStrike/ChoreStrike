@@ -227,13 +227,25 @@ describe('User Store', () => {
 		})
 
 		describe('inviteUser', () => {
-			it('invites user successfully', async () => {
-				const result = { exists: false }
-				api.post.mockResolvedValue(result)
+			it('posts the invite and returns the house-user payload (CS-PLAN-062 D5)', async () => {
+				const houseUser = { id: 9, nextcloudUserId: 'bob', displayName: 'Bob', role: 'member' }
+				api.post.mockResolvedValue(houseUser)
 
-				await store.inviteUser('test@test.com', 'member')
+				const result = await store.inviteUser('test@test.com', 'member')
 
 				expect(api.post).toHaveBeenCalledWith('/api/v1/users/invite', { email: 'test@test.com', role: 'member' })
+				// The backend payload IS the house-user object — no exists/user
+				// envelope (the dead branch is gone).
+				expect(result).toBe(houseUser)
+			})
+
+			it('does not mutate the member list on invite (callers refetch)', async () => {
+				api.post.mockResolvedValue({ id: 9, displayName: 'Bob' })
+				store.houseUsers = [{ id: 1, displayName: 'Mom' }]
+
+				await store.inviteUser('bob@test.com', 'member')
+
+				expect(store.houseUsers).toHaveLength(1)
 			})
 
 			it('throws error for invalid role', async () => {

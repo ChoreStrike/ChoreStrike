@@ -26,8 +26,10 @@ use OCP\IDBConnection;
 /**
  * Service for managing test data profiles
  *
- * Provides three profiles:
+ * Provides four profiles:
  * - empty: Clean database (no data)
+ * - emptyhouse: Clean ChoreStrike tables, reusing the seeded family Nextcloud
+ *   accounts (CS-PLAN-062 §3.6 — the first-run setup wizard E2E journey)
  * - minimal: 1 House, 1 Floor, 1 Room, 2 Users
  * - family: Complete family (6 Users, 3 Floors, 6 Rooms, 12 Tasks)
  */
@@ -215,6 +217,24 @@ class TestDataService {
 		$this->assertTestMode();
 		$this->reset();
 		return ['profile' => 'empty', 'data' => []];
+	}
+
+	/**
+	 * Seed the empty-house wizard profile (CS-PLAN-062 §3.6, decision D6).
+	 *
+	 * Reset only: no ChoreStrike rows, no memberships — the first-run setup
+	 * wizard journey (setup-wizard-journey.spec.ts) starts from a structurally
+	 * empty house. The Nextcloud accounts (mom, dad, …) already exist via the
+	 * auth-setup family seed and survive `reset()` (only `chorestrike_*`
+	 * tables are truncated), so the journey authenticates real users whose
+	 * first request bootstraps them to owner.
+	 *
+	 * @return array Empty result
+	 */
+	public function seedEmptyhouse(): array {
+		$this->assertTestMode();
+		$this->reset();
+		return ['profile' => 'emptyhouse', 'data' => []];
 	}
 
 	/**
@@ -509,7 +529,7 @@ class TestDataService {
 	/**
 	 * Seed by profile name
 	 *
-	 * @param string $profile Profile name (empty, minimal, family)
+	 * @param string $profile Profile name (empty, emptyhouse, minimal, family)
 	 * @return array Seeded data
 	 */
 	public function seed(string $profile): array {
@@ -517,9 +537,10 @@ class TestDataService {
 
 		return match ($profile) {
 			'empty' => $this->seedEmpty(),
+			'emptyhouse' => $this->seedEmptyhouse(),
 			'minimal' => $this->seedMinimal(),
 			'family' => $this->seedFamily(),
-			default => throw new \InvalidArgumentException("Unknown profile: {$profile}. Valid profiles: empty, minimal, family"),
+			default => throw new \InvalidArgumentException("Unknown profile: {$profile}. Valid profiles: empty, emptyhouse, minimal, family"),
 		};
 	}
 

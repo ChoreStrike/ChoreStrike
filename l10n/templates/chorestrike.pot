@@ -32,12 +32,6 @@ msgstr ""
 msgid "{count} freezes remaining"
 msgstr ""
 
-msgid "{count} invite(s) failed"
-msgstr ""
-
-msgid "{count} invite(s) sent"
-msgstr ""
-
 msgid "{count} selected"
 msgstr ""
 
@@ -45,6 +39,9 @@ msgid "{count} task(s) assigned"
 msgstr ""
 
 msgid "{days} d ago"
+msgstr ""
+
+msgid "{floors} floors, {rooms} rooms and {tasks} tasks were created"
 msgstr ""
 
 msgid "{hours} h ago"
@@ -549,6 +546,9 @@ msgstr ""
 msgid "Configure when each member is available for tasks"
 msgstr ""
 
+msgid "Continue to the app"
+msgstr ""
+
 msgid "Consistent daily activity"
 msgstr ""
 
@@ -981,6 +981,9 @@ msgstr ""
 msgid "Flip cards and match pairs. Train your brain!"
 msgstr ""
 
+msgid "Finish"
+msgstr ""
+
 msgid "Floor"
 msgstr ""
 
@@ -1135,6 +1138,9 @@ msgid "House name is required"
 msgstr ""
 
 msgid "House name saved"
+msgstr ""
+
+msgid "House name: {name}"
 msgstr ""
 
 msgid "House Overview"
@@ -1989,6 +1995,9 @@ msgstr ""
 msgid "Skip and finish"
 msgstr ""
 
+msgid "Skipped at this level: {templates}"
+msgstr ""
+
 msgid "Slide and merge matching tiles to reach 2048!"
 msgstr ""
 
@@ -2400,6 +2409,9 @@ msgstr ""
 msgid "They will lose access to all house tasks and progress."
 msgstr ""
 
+msgid "This house has already been set up."
+msgstr ""
+
 msgid "This room"
 msgstr ""
 
@@ -2746,7 +2758,7 @@ msgstr ""
 msgid "Your %1$d-day streak is at risk — complete a task today!"
 msgstr ""
 
-msgid "Your home is set up! Invite your family so everyone can join the fun."
+msgid "Your home is set up!"
 msgstr ""
 
 msgid "Your household completed the weekly goal together!"

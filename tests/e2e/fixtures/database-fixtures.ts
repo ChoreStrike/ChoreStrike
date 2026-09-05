@@ -3,8 +3,12 @@ import { test as baseTest, expect } from '@playwright/test'
 /**
  * Database fixtures for ChoreStrike E2E tests
  *
- * Supports three profiles:
+ * Supports four profiles:
  * - empty: Clean database (no data)
+ * - emptyhouse: Clean ChoreStrike tables — reuses the family Nextcloud
+ *   accounts (mom/dad, …) for the first-run setup wizard journey
+ *   (CS-PLAN-062 §3.6); no memberships, so the first login bootstraps
+ *   to owner
  * - minimal: 1 House, 1 Floor, 1 Room, 2 Users (adult, kid)
  * - family: Complete family (6 Users, 3 Floors, 6 Rooms, 12 Tasks)
  *
@@ -15,11 +19,18 @@ import { test as baseTest, expect } from '@playwright/test'
  */
 
 // Profile types
-export type DatabaseProfile = 'empty' | 'minimal' | 'family'
+export type DatabaseProfile = 'empty' | 'emptyhouse' | 'minimal' | 'family'
 
 // User credentials for each profile
 export const PROFILE_USERS: Record<DatabaseProfile, Array<{ userId: string; password: string; displayName: string }>> = {
 	empty: [],
+	// The emptyhouse profile seeds no rows — the NC accounts come from the
+	// auth-setup family seed and survive resets; the journey spec logs in
+	// mom (bootstraps to owner) and dad (invitee).
+	emptyhouse: [
+		{ userId: 'mom', password: 'Mom123!', displayName: 'Mom' },
+		{ userId: 'dad', password: 'Dad123!', displayName: 'Dad' },
+	],
 	minimal: [
 		{ userId: 'adult', password: 'Adult123!', displayName: 'Adult User' },
 		{ userId: 'kid', password: 'Kid123!', displayName: 'Kid User' },

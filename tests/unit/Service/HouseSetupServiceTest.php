@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\Floor;
+use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
@@ -24,6 +26,7 @@ class HouseSetupServiceTest extends TestCase {
 	private HouseSetupService $service;
 	private AuthorizationService $authorization;
 	private $floorMapper;
+	private $houseMapper;
 	private $roomMapper;
 	private $taskMapper;
 	private $roomTaskMapper;
@@ -37,6 +40,7 @@ class HouseSetupServiceTest extends TestCase {
 		parent::setUp();
 
 		$this->floorMapper = $this->createMock(\OCA\ChoreStrike\Db\FloorMapper::class);
+		$this->houseMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class);
 		$this->roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
 		$this->taskMapper = $this->createMock(\OCA\ChoreStrike\Db\TaskMapper::class);
 		$this->roomTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
@@ -52,6 +56,7 @@ class HouseSetupServiceTest extends TestCase {
 
 		$this->service = new HouseSetupService(
 			$this->floorMapper,
+			$this->houseMapper,
 			$this->roomMapper,
 			$this->taskMapper,
 			$this->roomTaskMapper,
@@ -163,6 +168,16 @@ class HouseSetupServiceTest extends TestCase {
 		$this->roomTaskMapper->method('create')->willReturnCallback(function () {
 			return $this->createMock(RoomTask::class);
 		});
+		// Fresh house: the transactional first-run gate passes and the house
+		// row is lockable (CS-PLAN-062 §3.1).
+		$this->floorMapper->method('countByHouseId')->willReturn(0);
+		$this->houseMapper->method('findForUpdate')->willReturnCallback(function () {
+			$house = new House();
+			$this->setEntityId($house, 1);
+			$house->setName('My House');
+			return $house;
+		});
+		$this->houseMapper->method('update')->willReturnArgument(0);
 	}
 
 	private function freshId(): int {
@@ -332,11 +347,150 @@ class HouseSetupServiceTest extends TestCase {
 		$this->service->applySetup(1, $this->basePayload());
 	}
 
+	// --- CS-PLAN-062 §3.1: transactional first-run gate + house lock ---
+
+	public function testApplySetup_LocksHouseBeforeFloorCount(): void {
+		$this->stubPersistence();
+		$calls = [];
+		$this->houseMapper->method('findForUpdate')->willReturnCallback(function () use (&$calls) {
+			$calls[] = 'lock';
+			$house = new House();
+			$this->setEntityId($house, 1);
+			$house->setName('My House');
+			return $house;
+		});
+		$this->floorMapper->method('countByHouseId')->willReturnCallback(function () use (&$calls) {
+			$calls[] = 'count';
+			return 0;
+		});
+
+		$this->service->applySetup(1, $this->basePayload());
+
+		// The house row lock (first of the documented lock order) must be
+		// acquired before the floor-existence recheck inside the transaction.
+		$this->assertSame(['lock', 'count'], $calls);
+	}
+
+	public function testApplySetup_HouseHasFloors_ThrowsConflictAndRollsBack(): void {
+		$this->stubPersistence();
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+
+		// Swap in a floor mapper whose in-transaction count sees floors —
+		// a fresh mock so the gate stub is the only configuration (PHPUnit
+		// applies the first matching stub).
+		$this->floorMapper = $this->createMock(\OCA\ChoreStrike\Db\FloorMapper::class);
+		$this->floorMapper->expects($this->never())->method('create');
+		$this->floorMapper->method('countByHouseId')->willReturn(2);
+		$this->rebuildService();
+
+		$this->expectException(ConflictException::class);
+		$this->expectExceptionMessage('already set up');
+		$this->service->applySetup(1, $this->basePayload());
+	}
+
+	// --- CS-PLAN-062 §3.2: house name in the setup command ---
+
+	public function testApplySetup_BlankHouseName_KeepsCurrentName(): void {
+		$this->stubPersistence();
+		$this->houseMapper->expects($this->never())->method('update');
+
+		$payload = $this->basePayload();
+		$payload['houseName'] = '   ';
+
+		$result = $this->service->applySetup(1, $payload);
+
+		$this->assertSame('My House', $result['houseName']);
+	}
+
+	public function testApplySetup_MissingHouseName_KeepsCurrentName(): void {
+		$this->stubPersistence();
+		$this->houseMapper->expects($this->never())->method('update');
+
+		$result = $this->service->applySetup(1, $this->basePayload());
+
+		$this->assertSame('My House', $result['houseName']);
+	}
+
+	public function testApplySetup_TooLongHouseName_ThrowsBeforeAnyWrite(): void {
+		$this->stubPersistence();
+		$this->db->expects($this->never())->method('beginTransaction');
+		$this->houseMapper->expects($this->never())->method('update');
+
+		$payload = $this->basePayload();
+		$payload['houseName'] = str_repeat('x', HouseSetupService::MAX_NAME_LENGTH + 1);
+
+		$this->expectException(\InvalidArgumentException::class);
+		// The identity l10n mock keeps the raw placeholder string.
+		$this->expectExceptionMessage('name must not exceed');
+		$this->service->applySetup(1, $payload);
+	}
+
+	public function testApplySetup_HouseName_TrimmedAndPersistedInsideTransaction(): void {
+		$this->stubPersistence();
+		$this->db->expects($this->once())->method('commit');
+
+		$updated = null;
+		$this->houseMapper->method('update')->willReturnCallback(function ($house) use (&$updated) {
+			$updated = $house;
+			return $house;
+		});
+
+		$payload = $this->basePayload();
+		$payload['houseName'] = '  Family Home  ';
+
+		$result = $this->service->applySetup(1, $payload);
+
+		$this->assertNotNull($updated);
+		$this->assertSame('Family Home', $updated->getName());
+		$this->assertSame('Family Home', $result['houseName']);
+	}
+
+	// --- CS-PLAN-062 §3.3: membership revalidation under the transaction ---
+
+	public function testApplySetup_AssigneeRemovedUnderTransaction_ThrowsAndRollsBack(): void {
+		$this->stubPersistence();
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+		$this->floorMapper->expects($this->never())->method('create');
+
+		$membership = $this->createMock(\OCA\ChoreStrike\Db\HouseUser::class);
+		// First lookup = pre-transaction fast-fail check (member present),
+		// second lookup = revalidation under the lock (membership is gone).
+		$this->houseUserMapper->expects($this->exactly(2))
+			->method('findByHouseAndUser')
+			->willReturnOnConsecutiveCalls($membership, null);
+
+		$payload = $this->basePayload();
+		$payload['floors'][0]['rooms'][0]['assigneeUserId'] = 'u1';
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Assignee is not a member');
+		$this->service->applySetup(1, $payload);
+	}
+
+	// --- CS-PLAN-062 D7: forced mid-transaction failure proof ---
+
+	public function testApplySetup_MidTransactionFailureAfterRoomCreate_RollsBackNeverCommits(): void {
+		$this->stubPersistence();
+		$this->db->expects($this->once())->method('beginTransaction');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+
+		// Sabotage AFTER the floor and room creates: floor/room mappers run,
+		// then the task materialization explodes — every write must roll back.
+		$this->taskMapper->method('create')->willThrowException(new \RuntimeException('boom'));
+
+		$this->expectException(\RuntimeException::class);
+		$this->service->applySetup(1, $this->basePayload());
+	}
+
 	private function rebuildService(): void {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(fn ($t) => $t);
 		$this->service = new HouseSetupService(
 			$this->floorMapper,
+			$this->houseMapper,
 			$this->roomMapper,
 			$this->taskMapper,
 			$this->roomTaskMapper,

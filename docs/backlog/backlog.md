@@ -53,8 +53,8 @@ semantics. CR-WF-03 is the only umbrella implemented by two sequential
 packages: the setup/structure half is owned by **WP3**, the task-creation and
 canonical-assignment half by **WP4**.
 
-- [ ] Lock and recheck the first-run setup invariant inside the setup transaction, including the requested house name.
-- [ ] Create a task definition, room link, and initial assignees as one rollback-safe aggregate.
+- [x] Lock and recheck the first-run setup invariant inside the setup transaction, including the requested house name. *(Delivered 2026-09-04 by CS-PLAN-062/WP3: house lock + in-transaction floor recheck, optional `houseName` in the setup command, membership revalidation under the lock, zero-write rollback proofs, `emptyhouse` E2E journey.)*
+- [ ] Create a task definition, room link, and initial assignees as one rollback-safe aggregate. *(WP4)*
 - [ ] Use one authoritative assignee representation for setup, single replacement, bulk assignment, reads, and completion.
 - [ ] Persist every supported scheduling field, including flex windows and an explicit creation due date.
 - [ ] Cover rollback, replacement, bulk, and setup-assignment behavior with integration tests.
@@ -89,7 +89,7 @@ path has no deterministic browser profile.
 
 - [ ] Replace skipped live authorization cases with current controller/API tests; delete only obsolete-route cases.
 - [ ] Make completion/reward assertions deterministic and remove swallowed assertions and fixture-dependent skips.
-- [ ] Add an empty-house user profile that exercises the complete first-run wizard in Playwright.
+- [x] Add an empty-house user profile that exercises the complete first-run wizard in Playwright. *(Delivered 2026-09-04 by CS-PLAN-062/WP3 as the WP3 exit-gate artifact: `emptyhouse` profile + `setup-wizard-journey.spec.ts` in the serial pool, no conditional skips.)*
 - [ ] Keep seed-mutating and non-seed project groups isolated so database resets cannot invalidate active sessions.
 - [ ] Require zero newly skipped core-workflow tests in the release gate.
 
@@ -226,7 +226,9 @@ see CR-053-11 for the correctness half); ~~`assignTask`/`unassignTask`/`deactiva
 `reactivate`/`updateDueDate` re-fetch pattern in `RoomTaskService`~~ (the
 `assignTask`/`unassignTask`/`deactivateTask` mutators were deleted outright by
 CS-PLAN-061 §3.4 — 2026-09-03 — removing three of the five re-fetch sites);
-`hasFloors` hydrates all floors for a boolean (`HouseService:303`).
+~~`hasFloors` hydrates all floors for a boolean (`HouseService:303`)~~ (resolved
+2026-09-04 by CS-PLAN-062 §3.1: `hasFloors` delegates to the prepared
+`FloorMapper::countByHouseId` COUNT primitive).
 
 ---
 
@@ -318,6 +320,20 @@ response) or surface remaining-today energy in the UI (feature decision).
 
 ---
 
+### [P3] CR-062-01 — `setup#apply` coerces a non-string `houseName` to "absent"
+**Status**: Backlog · **Effort**: XS · **Layer**: backend · **Journey stage**: setup/creation
+**Owning**: CS-PLAN-058 WP4 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-062 WP3 final Standard B (2026-09-05)
+
+`HouseSetupService::validateHouseName` keeps null for any non-string
+`houseName` (e.g. a numeric/array value), so such a payload answers 200 and
+keeps the current name instead of the 400 every other malformed payload field
+yields ("present → validate" in decision D1). No security impact (nothing is
+written; the wizard always sends a string). Align type strictness with the
+WP4 task-creation validation-boundary hardening.
+
+---
+
 ## Core Hardening
 
 > Standalone correctness, API, persistence, i18n, and security remainders. Each
@@ -363,6 +379,19 @@ required`) drop out in the same regeneration pass — do not hand-prune entries.
 **Source**: CS-PLAN-055 Standard-B review E2E re-run 2026-08-30 (pre-existing; passed on the 08-29 Saturday run by date luck, NOT a CS-055 regression). Renumbered from BUG-E2E-003 by CS-PLAN-059 WP0 (BUG-E2E-004 was already consumed by the CS-PLAN-050/051 archive history).
 
 The spec schedules 4 probe tasks to `tomorrow` and then expects `overcapacity-marker` inside `ScheduleCalendar`, but the calendar week starts Monday (`goToToday()`); on a Sunday "tomorrow" is the next Monday — outside the displayed week — while `overcapacity-days` (warning strip) scans today+0..6 and still shows the day. Fix: create the probes relative to the **visible** week (a due day ≥ today strictly inside the Monday-start week, e.g. Monday after Sunday), or navigate the calendar to tomorrow's week before asserting the marker. Also observed: Nextcloud stores two `weekly_goal` rows with identical (user, app, object_type, object_id) despite the documented dedup key — the per-house `claimWeeklyGoalNotification` guard is the dedup that actually holds; worth a note in `NotificationService` docs.
+
+**Update 2026-09-05 (CS-PLAN-062 WP3 gate run):** the sibling assertion
+`overcapacity-day` `toHaveCount(1)` now also fails on a **Saturday** run
+(expected 1 day, received 2) — the probe-day capacity arithmetic is
+date-dependent in the same way (seeded member availability differs per
+weekday). Verified pre-existing: fails identically on a clean `master`
+working tree (WP3 changes stashed). The same gate runs also saw one-off
+full-matrix-load flakes in `dashboard.spec.ts:49`, `error-handling.spec.ts:78`,
+and `room-management.spec.ts:179` — each passes in isolation; the 2026-09-05
+Standard B full-pool re-run on a fresh disposable env reproduced only the
+`room-management:179` one (10/10 green in isolation) while the insights-flow
+assertion passed. All are pre-existing WP9/CR-WF-05 dispositions, not WP3
+regressions.
 
 ---
 
@@ -571,6 +600,18 @@ with CS-PLAN-055 (record: [`archive/2026-08.md`](archive/2026-08.md)).
 `--legacy-peer-deps`. Pre-existing (not introduced by CS-026), but now documented.
 Resolving it cleanly likely needs an `eslint-plugin-n`/`eslint-config-standard`
 bump coordinated with the Nextcloud eslint config.
+
+---
+
+### [P4] TECH-LINT-007 — stylelint `use-logical` warning in NotAuthorizedState.vue
+**Status**: Backlog · **Effort**: XS · **Layer**: frontend · **Journey stage**: code quality
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-062 WP3 final Standard B (2026-09-05)
+
+`npm run stylelint` reports a pre-existing warning (0 errors, exit 0):
+`src/components/Common/NotAuthorizedState.vue:73` uses `margin-left` where the
+`csstools/use-logical` rule wants `margin-inline`. Outside the CS-PLAN-062
+reviewed scope; fix risk-free the next time the component is touched.
 
 ---
 

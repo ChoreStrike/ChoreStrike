@@ -59,6 +59,10 @@ const SEED_DEPENDENT_SPECS = [
 	// POST landed on a re-rendered list — serial pool only, like the other
 	// seed-mutating specs.
 	/[/\\]task-checklist-and-features\.spec\.ts$/,
+	// CS-PLAN-062: the setup-wizard journey reseeds with the `emptyhouse`
+	// profile (reset only) and bootstraps a fresh owner — any parallel spec
+	// seeing that wiped state would lose its seed — serial pool only.
+	/[/\\]setup-wizard-journey\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

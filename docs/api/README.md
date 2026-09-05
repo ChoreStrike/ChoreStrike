@@ -203,9 +203,12 @@ Delete floor (transactionally cascades its rooms and room tasks, CS-PLAN-037).
 
 ### Setup Wizard
 
-First-run house setup (CS-PLAN-027). Both endpoints require house membership.
-The wizard is gated to a house with **no floors** (first run); `apply` on an
-already-set-up house returns `409 HOUSE_ALREADY_SET_UP`.
+First-run house setup (CS-PLAN-027). Both endpoints require house membership;
+`apply` additionally requires the owner role (CS-PLAN-061 §3.4). The wizard is
+gated to a house with **no floors**; since CS-PLAN-062 that gate is enforced
+**inside the setup transaction** (house row lock via `findForUpdate`, then a
+floor-count recheck), so a raced second apply is guaranteed `409
+HOUSE_ALREADY_SET_UP` with exactly one structure committed.
 
 #### GET /setup/catalog
 Localized room types + leveled templates for the wizard and the per-room picker.
@@ -221,11 +224,14 @@ Localized room types + leveled templates for the wizard and the per-room picker.
 
 #### POST /setup/apply
 Create floors, rooms (with `roomType`), tasks from the leveled catalog, and
-per-room assignments in one transaction.
+per-room assignments — plus the optional house rename — in one transaction
+(CS-PLAN-062). Any failure (validation, gate, revalidation, persistence) rolls
+back every write of the run.
 
 **Request:**
 ```json
 {
+  "houseName": "Family Home",
   "intensityLevel": "putzteufel",
   "options": { "createHouseholdRoom": true, "createHallways": true },
   "floors": [
@@ -234,7 +240,14 @@ per-room assignments in one transaction.
 }
 ```
 
-**Response:** `{ "floors": 1, "rooms": 4, "tasks": 12, "roomTasks": 12, "skipped": [] }`.
+`houseName` is optional (D1): absent or blank keeps the current name; a
+present value is trimmed and length-validated like any other name (invalid →
+`400 VALIDATION_ERROR` before any write). Assignee memberships are revalidated
+under the house lock at the transaction boundary — an assignee removed after
+the pre-check fails the whole apply with `400` and zero persisted rows.
+
+**Response:** `{ "floors": 1, "rooms": 4, "tasks": 12, "roomTasks": 12, "skipped": [], "houseName": "Family Home" }` —
+`houseName` echoes the **effective** name so the wizard can confirm it.
 
 > See [house-setup-and-templates.md](../concepts/house-setup-and-templates.md).
 
@@ -688,7 +701,8 @@ List all users in the house.
 ```
 
 #### POST /users/invite
-Invite a Nextcloud user to the house.
+Invite a Nextcloud user to the house (owner only; the authorization gates run
+before the email lookup — a non-owner cannot probe which accounts exist).
 
 **Request:**
 ```json
@@ -697,6 +711,11 @@ Invite a Nextcloud user to the house.
   "role": "member"
 }
 ```
+
+**Response `data`:** the (created or existing) house-user object of the
+invited account — one truthful contract (CS-PLAN-062 D5), so per-recipient
+invite feedback can name the joined user. Unknown email → `404
+USER_NOT_FOUND`.
 
 #### DELETE /users/{id}
 Remove user from house (owner only).
@@ -804,6 +823,13 @@ Get available test data profiles.
       {
         "name": "empty",
         "description": "Clean database (no data)",
+        "users": 0,
+        "rooms": 0,
+        "tasks": 0
+      },
+      {
+        "name": "emptyhouse",
+        "description": "Empty house for the first-run wizard journey (family NC accounts, no ChoreStrike rows)",
         "users": 0,
         "rooms": 0,
         "tasks": 0

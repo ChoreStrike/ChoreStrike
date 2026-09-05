@@ -127,11 +127,12 @@ class TestControllerTest extends TestCase {
 		$this->assertInstanceOf(JSONResponse::class, $response);
 		$data = json_decode(json_encode($response->getData()), true);
 		$this->assertTrue($data['success']);
-		$this->assertCount(3, $data['data']['profiles']);
+		$this->assertCount(4, $data['data']['profiles']);
 		$this->assertArrayNotHasKey('testMode', $data['data']);
 
 		$profileNames = array_column($data['data']['profiles'], 'name');
 		$this->assertContains('empty', $profileNames);
+		$this->assertContains('emptyhouse', $profileNames);
 		$this->assertContains('minimal', $profileNames);
 		$this->assertContains('family', $profileNames);
 	}
@@ -174,7 +175,7 @@ class TestControllerTest extends TestCase {
 	public function testAllValidProfilesCanBeSeeded(): void {
 		$this->testDataService->method('isTestMode')->willReturn(true);
 
-		$profiles = ['empty', 'minimal', 'family'];
+		$profiles = ['empty', 'emptyhouse', 'minimal', 'family'];
 
 		foreach ($profiles as $profile) {
 			$this->testDataService->method('seed')

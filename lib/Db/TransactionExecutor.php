@@ -26,6 +26,11 @@ use Throwable;
  *
  *   house → room_task → task/assignee/reward rows
  *
+ * Setup usage (CS-PLAN-062): HouseSetupService::applySetup acquires the house
+ * lock (HouseMapper::findForUpdate) first, then rechecks the first-run gate,
+ * revalidates assignee memberships, writes the house name, and materializes
+ * the structure — all inside one transaction on this order.
+ *
  * See docs/engineering/development.md ("Locking and transactions") and
  * ADR-007's completion ordering; the completion-ledger lookup/inversion
  * primitives built on this order arrive with WP5 / ADR-011.

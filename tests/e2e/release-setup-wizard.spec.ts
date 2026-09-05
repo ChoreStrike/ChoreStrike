@@ -4,14 +4,14 @@
  *
  * Release E2E regression — Setup Wizard (CS-PLAN-027).
  *
- * The first-run gate (decision D3) bounds the wizard to a structurally
- * empty house. On the `family` profile the house already has floors, so the
- * apply endpoint must reject with 409 HOUSE_ALREADY_SET_UP. The catalog
- * endpoint stays available regardless. The full happy-path wizard
- * (empty house → populated) is covered by HouseSetupIntegrationTest (PHPUnit,
- * fresh instance) and the SetupWizard Jest component spec; an E2E
- * happy path needs a user-bearing empty profile which the test fixtures do
- * not provide.
+ * The first-run gate bounds the wizard to a structurally empty house; since
+ * CS-PLAN-062 §3.1 the gate is enforced inside the setup transaction (house
+ * lock + floor recheck) and maps to the unchanged 409 envelope. On the
+ * `family` profile the house already has floors, so the apply endpoint must
+ * reject with 409 HOUSE_ALREADY_SET_UP. The catalog endpoint stays available
+ * regardless. The full happy-path wizard journey (empty house → populated →
+ * invited member view) lives in setup-wizard-journey.spec.ts against the
+ * `emptyhouse` profile (CS-PLAN-062 §3.6).
  *
  * Verified:
  *  - GET /setup/catalog is reachable and non-empty.
@@ -49,8 +49,14 @@ test.describe('Release: Setup Wizard', () => {
 
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
+			// A fully valid payload: since CS-PLAN-062 §3.1 the payload is
+			// validated before the in-transaction gate, so the 409 must come
+			// from the gate itself, not from validation.
 			const response = await page.request.post('/apps/chorestrike/api/v1/setup/apply', {
-				data: { intensityLevel: 'putzteufel', floors: [{ name: 'GF', rooms: [] }] },
+				data: {
+					intensityLevel: 'putzteufel',
+					floors: [{ name: 'GF', rooms: [{ name: 'Kitchen', roomType: 'kitchen' }] }],
+				},
 				headers: { Accept: 'application/json' },
 			})
 			expect(response.status()).toBe(409)

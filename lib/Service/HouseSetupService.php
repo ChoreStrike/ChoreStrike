@@ -9,18 +9,27 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCP\IL10N;
 
 /**
  * Applies the first-run house setup wizard payload in a single transaction:
  * floors → rooms (with roomType) → tasks from the leveled catalog → room-task
  * links with per-room assignees.
+ *
+ * The whole operation is one atomic owner command (CS-PLAN-062): the
+ * transaction locks the house row first (documented lock order: house →
+ * room_task → task/assignee/reward rows), rechecks the first-run gate under
+ * the lock (closing the former controller pre-check TOCTOU), revalidates
+ * assignee memberships at the transaction boundary, and folds the optional
+ * house rename into the same commit — any failure rolls back every write.
  *
  * Floor/house-wide chores need no new scope machinery (decision D2): floor-wide
  * tasks live in one `hallway` room per floor, house-wide tasks in one
@@ -36,10 +45,11 @@ class HouseSetupService {
 	public const MAX_FLOORS = 6;
 	/** Hard cap on rooms per floor in a wizard payload. */
 	public const MAX_ROOMS_PER_FLOOR = 12;
-	/** Max length for a room or floor name. */
+	/** Max length for a room, floor, or house name. */
 	public const MAX_NAME_LENGTH = 255;
 
 	private FloorMapper $floorMapper;
+	private HouseMapper $houseMapper;
 	private RoomMapper $roomMapper;
 	private TaskMapper $taskMapper;
 	private RoomTaskMapper $roomTaskMapper;
@@ -53,6 +63,7 @@ class HouseSetupService {
 
 	public function __construct(
 		FloorMapper $floorMapper,
+		HouseMapper $houseMapper,
 		RoomMapper $roomMapper,
 		TaskMapper $taskMapper,
 		RoomTaskMapper $roomTaskMapper,
@@ -65,6 +76,7 @@ class HouseSetupService {
 		AuthorizationService $authorization,
 	) {
 		$this->floorMapper = $floorMapper;
+		$this->houseMapper = $houseMapper;
 		$this->roomMapper = $roomMapper;
 		$this->taskMapper = $taskMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -84,10 +96,11 @@ class HouseSetupService {
 	 * here).
 	 *
 	 * @param int $houseId The caller's house ID
-	 * @param array $payload {intensityLevel: string, options: {createHouseholdRoom?: bool, createHallways?: bool}, floors: [{name: string, rooms: [{name: string, roomType: string, icon?: string, assigneeUserId?: string}]}]}
-	 * @return array{floors: int, rooms: int, tasks: int, roomTasks: int, skipped: array<int, string>}
+	 * @param array $payload {houseName?: string, intensityLevel: string, options: {createHouseholdRoom?: bool, createHallways?: bool}, floors: [{name: string, rooms: [{name: string, roomType: string, icon?: string, assigneeUserId?: string}]}]}
+	 * @return array{floors: int, rooms: int, tasks: int, roomTasks: int, skipped: array<int, string>, houseName: string}
 	 *
 	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
+	 * @throws \OCA\ChoreStrike\Exception\ConflictException if the house is already set up (rechecked under the house lock)
 	 * @throws \InvalidArgumentException on any validation failure
 	 */
 	public function applySetup(int $houseId, array $payload): array {
@@ -96,6 +109,7 @@ class HouseSetupService {
 		$level = $this->validateBasics($payload);
 		$options = $this->validateOptions($payload['options'] ?? []);
 		$floors = $this->validateFloors($payload['floors'] ?? [], $houseId);
+		$houseName = $this->validateHouseName($payload['houseName'] ?? null);
 
 		// Pre-resolve the auto rooms so they participate in the same room
 		// list / task-materialization pass as the user-defined rooms.
@@ -111,6 +125,34 @@ class HouseSetupService {
 
 		$this->transactions->begin();
 		try {
+			// First lock of the documented order (house → room_task →
+			// task/assignee/reward): serialize concurrent applies on the
+			// house row before the first-run gate recheck (CS-PLAN-062 §3.1).
+			$house = $this->houseMapper->findForUpdate($houseId);
+
+			// First-run gate, enforced INSIDE the transaction (CR-WF-03):
+			// under the lock the count cannot race a concurrent apply, so
+			// exactly one apply may ever pass this gate.
+			if ($this->floorMapper->countByHouseId($houseId) > 0) {
+				throw new ConflictException(
+					$this->l10n->t('The house is already set up. Use the per-room template picker instead.')
+				);
+			}
+
+			// Membership revalidation at the transaction boundary (CR-WF-03):
+			// a membership removed after the pre-transaction check must not
+			// leave assignee rows for a former member.
+			$this->revalidateAssignees($floors, $houseId);
+
+			// The house name is part of the setup command (CS-PLAN-062 §3.2):
+			// written to the locked house row inside the same transaction, so
+			// a failed apply can no longer leave a renamed/defaulted house.
+			if ($houseName !== null) {
+				$house->setName($houseName);
+				$house->touch();
+				$this->houseMapper->update($house);
+			}
+
 			foreach ($floors as $floorIndex => $floor) {
 				$floorEntity = $this->floorMapper->create($houseId, $floor['name'], $floorIndex);
 
@@ -198,6 +240,9 @@ class HouseSetupService {
 			'tasks' => $taskCount,
 			'roomTasks' => $roomTaskCount,
 			'skipped' => $skipped,
+			// The effective name (a provided houseName is echoed so the wizard
+			// can confirm it; otherwise the existing name).
+			'houseName' => $house->getName(),
 		];
 	}
 
@@ -303,6 +348,53 @@ class HouseSetupService {
 		}
 
 		return $validated;
+	}
+
+	/**
+	 * Validate the optional house name (CS-PLAN-062 §3.2, decision D1):
+	 * absent or blank keeps the current name; a present value is trimmed and
+	 * length-validated like any other name. Invalid names fail before any
+	 * write (400 VALIDATION_ERROR path).
+	 *
+	 * @param mixed $houseName
+	 * @return string|null The validated name, or null to keep the current one
+	 * @throws \InvalidArgumentException
+	 */
+	private function validateHouseName($houseName): ?string {
+		if ($houseName === null || !is_string($houseName) || trim($houseName) === '') {
+			return null;
+		}
+
+		return $this->validateName($houseName, 'house');
+	}
+
+	/**
+	 * Re-run the assignee membership checks inside the transaction boundary
+	 * (CS-PLAN-062 §3.3, decision D3): every distinct assignee must still be
+	 * a member under the lock, before any assignee write happens.
+	 *
+	 * @param array $floors Validated floors with resolved room assignees
+	 * @param int $houseId
+	 * @return void
+	 * @throws \InvalidArgumentException
+	 */
+	private function revalidateAssignees(array $floors, int $houseId): void {
+		$checked = [];
+		foreach ($floors as $floor) {
+			foreach ($floor['rooms'] as $room) {
+				$assigneeUserId = $room['assigneeUserId'];
+				if ($assigneeUserId === null || isset($checked[$assigneeUserId])) {
+					continue;
+				}
+				$checked[$assigneeUserId] = true;
+
+				if ($this->houseUserMapper->findByHouseAndUser($houseId, $assigneeUserId) === null) {
+					throw new \InvalidArgumentException(
+						$this->l10n->t('Assignee is not a member of this house: %1$s', [$assigneeUserId])
+					);
+				}
+			}
+		}
 	}
 
 	/**

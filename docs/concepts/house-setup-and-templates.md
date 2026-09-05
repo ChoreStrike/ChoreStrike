@@ -93,17 +93,30 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
   `materializeTemplate(templateId, level, overrides)`
   (returns a Task-ready payload; whitelisted overrides only). Localization via
   `t()`.
-- **`HouseSetupService`** — validates the wizard payload (1–6 floors, 1–12
-  rooms/floor, valid room types, assignees must be members) and creates floors →
-  rooms (with `room_type`) → tasks (one Task per template, memoized so a shared
-  template is created once) → `RoomTask` links with per-room assignees, all in a
-  single DB transaction. Auto-creates the toggleable `household` and per-floor
-  `hallway` rooms. Bulk materialization never swallows failures (BUG-TEMPLATE-001):
-  every skipped template is logged with its id and reported in the result.
+- **`HouseSetupService`** — validates the wizard payload (house name,
+  1–6 floors, 1–12 rooms/floor, valid room types, assignees must be members)
+  and creates floors → rooms (with `room_type`) → tasks (one Task per
+  template, memoized so a shared template is created once) → `RoomTask` links
+  with per-room assignees, all in a single DB transaction. Auto-creates the
+  toggleable `household` and per-floor `hallway` rooms. Bulk materialization
+  never swallows failures (BUG-TEMPLATE-001): every skipped template is logged
+  with its id and reported in the result.
+  **Atomic setup contract (CS-PLAN-062):** inside the transaction the service
+  first locks the house row (`HouseMapper::findForUpdate` — first lock of the
+  documented order), rechecks the first-run gate via
+  `FloorMapper::countByHouseId` (a raced second apply gets
+  `ConflictException` → `409 HOUSE_ALREADY_SET_UP`), revalidates every
+  distinct assignee membership at the transaction boundary (a membership
+  removed after the pre-check fails the apply with 400 and zero writes), and
+  writes the optional `houseName` (trimmed, length-validated; absent/blank
+  keeps the current name) to the locked house row. Any failure rolls back
+  every write of the run; the response echoes the effective `houseName`.
 - **`SetupController`** — `GET /api/v1/setup/catalog` and
-  `POST /api/v1/setup/apply` (`@NoAdminRequired`, `ensureHouseMember`). The
-  first-run gate (the house must have no floors) bounds the blast radius of
-  `apply`; an already-set-up house gets `409 HOUSE_ALREADY_SET_UP`.
+  `POST /api/v1/setup/apply` (`@NoAdminRequired`, `ensureHouseMember`,
+  owner gate in the service since WP2). The controller performs no first-run
+  pre-check of its own — the gate lives inside the service transaction
+  (single gate owner); it only maps `ConflictException` to the unchanged
+  `409 HOUSE_ALREADY_SET_UP` envelope.
 - **Per-room picker** — `POST /api/v1/room-tasks/from-template`
   `{ roomId, templateId, level?, overrides?, assigneeUserId? }`. The `roomId` is
   resolved server-side and validated against the caller’s house; `assigneeUserId`
@@ -112,13 +125,31 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
 ## 6. Frontend
 
 - **Setup wizard** (`src/components/Setup/SetupWizard.vue`, `src/store/setup.js`):
-  4 steps — *Quick Start* (home type, floors, basement, rooms/floor, level) →
-  *Room List* (editable name, room type, person; household/hallway toggles) →
-  *Preview* → apply → **Invite Family** (CS-PLAN-038): optional email list
-  (add/remove rows) inviting existing Nextcloud accounts as members; skippable
-  and non-blocking. The Dashboard opens the wizard automatically on a
-  first-run house (no floors); „Leer starten" skips it. A manual entry point
-  (Dashboard header button) stays available while the house has no floors.
+  4 steps — *Quick Start* (house name, home type, floors, basement,
+  rooms/floor, level) → *Room List* (editable name, room type, person;
+  household/hallway toggles) → *Preview* → apply → **Invite Family**
+  (CS-PLAN-038): optional email list (add/remove rows) inviting existing
+  Nextcloud accounts as members; skippable and non-blocking. The Dashboard
+  opens the wizard automatically on a first-run house (no floors) for the
+  owner; "Start empty" skips it. A manual entry point (Dashboard header
+  button) stays available while the house has no floors.
+  CS-PLAN-062 behavior: the house name travels in the apply payload (no
+  separate rename request); step 4 renders the apply result (confirmed house
+  name, created floors/rooms/tasks, skipped templates with catalog labels);
+  invitations report a per-recipient status row (`{name} joined the house` /
+  the localized failure reason) instead of a count toast — the step stays
+  open so statuses stay visible and failing rows remain editable for retry;
+  a raced `409` renders a recoverable "already set up — continue to the app"
+  state, validation 400s keep the user on the preview step with all input
+  preserved. The overlay is a labeled modal dialog (`role="dialog"`,
+  `aria-modal`) with a focus trap, Esc closes (the backdrop no longer
+  discards input), `aria-current` on the step list, and ≥ 44 px touch
+  targets with accessible names on all controls.
+  **Empty-house E2E profile (WP3 exit gate):** the `emptyhouse` test profile
+  (reset only, family NC accounts reused) drives
+  `tests/e2e/setup-wizard-journey.spec.ts` — bootstrap → owner → wizard
+  through the UI → persisted structure → invite → invited member view, plus
+  a raced-409/invalid-assignee zero-write proof (serial DB pool).
 - **Per-room template picker** (`src/components/Tasks/TaskTemplatePicker.vue`):
   the room add-task flow defaults to the picker (templates filtered by the
   room’s type + house-wide), with a level toggle, an „Anpassen" override form,
@@ -128,9 +159,9 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
 
 ## 7. Authorization
 
-- Wizard `apply` and `catalog` require house membership (`ensureHouseMember`),
-  consistent with floor/room/room-task creation. No owner-only gate is added in
-  v1 — the first-run gate bounds the blast radius.
+- Wizard `apply` and `catalog` require house membership (`ensureHouseMember`,
+  designated bootstrap endpoints, ADR-010); `apply` is additionally
+  owner-gated in `HouseSetupService` (`requireHouseOwner`, WP2 §3.4).
 - The from-template endpoint validates room ownership server-side and rejects a
   cross-house `roomId` before creating any task, and rejects a non-member
   assignee.

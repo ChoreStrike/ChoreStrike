@@ -184,11 +184,14 @@ export default {
 		handleWizardApplied() {
 			this.showWizard = false
 			this.wizardDismissed = true
-			// The wizard created floors/rooms/tasks server-side; reload the
-			// structural view and the game state so the Dashboard reflects it.
+			// The wizard created floors/rooms/tasks server-side and set the
+			// house name inside the setup transaction (CS-PLAN-062 §3.2);
+			// reload the structural view, the game state, and the house
+			// payload so the Dashboard reflects all of it.
 			Promise.allSettled([
 				this.roomsStore.fetchFloorsWithRooms(),
 				this.gameStore.fetchGameState(),
+				this.houseStore.fetchHouse(),
 			]).then(results => {
 				results.forEach((result, index) => {
 					if (result.status === 'rejected') {

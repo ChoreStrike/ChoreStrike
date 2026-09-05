@@ -55,6 +55,29 @@ class FloorMapper extends QBMapper {
 	}
 
 	/**
+	 * Count the floors of a house (CS-PLAN-062 §3.1).
+	 *
+	 * The in-transaction first-run gate needs an existence check that does
+	 * not materialize entities — a single prepared COUNT instead of the
+	 * former find-by-house hydration for a boolean.
+	 *
+	 * @param int $houseId The house ID
+	 */
+	public function countByHouseId(int $houseId): int {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select($qb->func()->count('id'))
+			->from($this->getTableName())
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+
+		return $count;
+	}
+
+	/**
 	 * Create a new floor
 	 *
 	 * @param int $houseId The house ID

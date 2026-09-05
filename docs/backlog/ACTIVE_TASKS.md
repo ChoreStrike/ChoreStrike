@@ -17,12 +17,9 @@
 **Scope**: one line on what this turn is doing.
 -->
 
-### CS-PLAN-062 — WP3: Atomic House Setup and Structure
-**Status**: Active (Standard A PASS 2026-09-04, D1–D8 ratified; implementation not started) · **Started**: 2026-09-04 · **Branch**: master
-**Plan**: docs/plans/active/cs-plan-062-wp3-atomic-house-setup-structure.md · **Blockers**: none
-**Scope**: WP3 child plan of CS-PLAN-058 — transactional first-run gate + house lock, house name in the setup command, membership revalidation, truthful wizard/invite feedback, a11y pass, empty-house E2E profile; CR-WF-03 setup/structure half In Progress.
-
 ## Recently Completed (rolling — last ~2 weeks / max 10)
+
+- **CS-PLAN-062 / WP3 — Atomic House Setup and Structure** — Implemented and final-reviewed: first-run gate inside the setup transaction behind the house-row lock, `houseName` folded into the setup command, under-lock membership revalidation, truthful wizard result panel + per-recipient invite contract (D5), a11y modal pass, `emptyhouse` E2E journey (WP3 exit gate); Standard B `PASS-WITH-FIXES` (409 recovery error duplication fixed inline; CR-062-01 + TECH-LINT-007 logged), whole gate rerun green (incl. MySQL apply-race test), CR-WF-03 setup-half/CR-WF-05 exit-gate criteria closed, plan moved to `done/`. (2026-09-05) → [`../plans/done/cs-plan-062-wp3-atomic-house-setup-structure.md`](../plans/done/cs-plan-062-wp3-atomic-house-setup-structure.md)
 
 - **CS-PLAN-061 / WP2 — Membership, Role, Visibility, and Privacy Boundaries** — Invite-only membership (ADR-010), one `TaskAccessPolicy` visibility matrix, service-level actor/owner gates, 403/404 standard, CR-053-16/17/18 closed, frontend auth state + logger redaction; final Standard B `PASS-WITH-FIXES` (mojibake + log hygiene fixed; residual-surface gaps closed and lifecycle-actor/completion-redaction decisions ratified with the user), full gate green, CR-WF-01/CR-053-16/17/18 archived, plan moved to `done/`. (2026-09-04) → [`../plans/done/cs-plan-061-wp2-membership-visibility-privacy.md`](../plans/done/cs-plan-061-wp2-membership-visibility-privacy.md)
 - **CS-PLAN-060 / WP1 — Schema, Entity, and Mapper Invariants** — Implemented and reviewed: schema fold, bootstrap race safety, `TransactionExecutor`, canonical visibility/assignee/recurrence, house-scoped `findVisibleByHouse`, mapper minors; Standard B `PASS-WITH-FIXES` (stale E2E consumers + durable docs fixed in review), full gate rerun green, plan moved to `done/`. (2026-09-03) → [`../plans/done/cs-plan-060-wp1-schema-entity-mapper-invariants.md`](../plans/done/cs-plan-060-wp1-schema-entity-mapper-invariants.md)

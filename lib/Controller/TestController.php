@@ -54,7 +54,7 @@ class TestController extends Controller {
 			$profile = $queryProfile;
 		}
 
-		$validProfiles = ['empty', 'minimal', 'family'];
+		$validProfiles = ['empty', 'emptyhouse', 'minimal', 'family'];
 		if (!in_array($profile, $validProfiles)) {
 			return new JSONResponse([
 				'success' => false,
@@ -135,6 +135,13 @@ class TestController extends Controller {
 					[
 						'name' => 'empty',
 						'description' => 'Clean database (no data)',
+						'users' => 0,
+						'rooms' => 0,
+						'tasks' => 0,
+					],
+					[
+						'name' => 'emptyhouse',
+						'description' => 'Empty house for the first-run wizard journey (family NC accounts, no ChoreStrike rows)',
 						'users' => 0,
 						'rooms' => 0,
 						'tasks' => 0,

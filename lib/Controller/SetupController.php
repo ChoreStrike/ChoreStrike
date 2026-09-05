@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
@@ -28,9 +29,10 @@ use OCP\IRequest;
  *
  * Authorization (ADR-010, decision D1): both endpoints are designated
  * bootstrap endpoints (ensureHouseMember); apply additionally requires the
- * owner role in HouseSetupService (CS-PLAN-061 §3.4). The first-run gate
- * (the house must have no floors yet, D3) bounds the blast radius of
- * `apply`.
+ * owner role in HouseSetupService (CS-PLAN-061 §3.4). The first-run gate is
+ * enforced INSIDE the service transaction under the house lock (CS-PLAN-062
+ * §3.1) — a raced second apply gets 409 HOUSE_ALREADY_SET_UP, this endpoint
+ * has no pre-check of its own (single gate owner).
  */
 class SetupController extends Controller {
 	use ControllerLoggingTrait;
@@ -99,19 +101,6 @@ class SetupController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->ensureHouseMember($house->getId());
 
-			// First-run gate (D3): the wizard only runs while the house is
-			// structurally empty. Once floors exist, the per-room template
-			// picker is the path.
-			if ($this->houseService->hasFloors($house->getId())) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'HOUSE_ALREADY_SET_UP',
-						'message' => $this->l->t('The house is already set up. Use the per-room template picker instead.'),
-					],
-				], 409);
-			}
-
 			$payload = $this->readJsonBody();
 			if (!is_array($payload)) {
 				return new JSONResponse([
@@ -132,6 +121,17 @@ class SetupController extends Controller {
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			// The first-run gate fires inside the setup transaction
+			// (CS-PLAN-062 §3.1) — the envelope (code + localized message)
+			// is unchanged from the former controller pre-check.
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'HOUSE_ALREADY_SET_UP',
+					'message' => $e->getMessage(),
+				],
+			], 409);
 		} catch (\InvalidArgumentException $e) {
 			// Service-curated validation messages are safe to surface verbatim.
 			return ControllerErrorFormatter::validation($e);

@@ -112,9 +112,12 @@ export const useUserStore = defineStore('user', {
 		},
 
 		/**
-		 * Invite user to house
+		 * Invite user to house.
+		 * The backend returns the (created or existing) house-user object —
+		 * the caller can name the joined user from it (CS-PLAN-062 §3.4, D5).
 		 * @param {string} email Email address of the user to invite.
 		 * @param {string} role Role to assign to the invited user.
+		 * @return {Promise<object>} The house-user object of the invited user.
 		 */
 		async inviteUser(email, role = 'member') {
 			if (!email || email.trim() === '') {
@@ -129,12 +132,7 @@ export const useUserStore = defineStore('user', {
 			this.error = null
 
 			try {
-				const data = await api.post('/api/v1/users/invite', { email, role })
-
-				if (data.exists) {
-					this.houseUsers.push(data.user)
-				}
-				return data
+				return await api.post('/api/v1/users/invite', { email, role })
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to invite user', error, { store: 'user', action: 'inviteUser', role })
