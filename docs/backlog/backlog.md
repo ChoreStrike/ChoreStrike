@@ -43,7 +43,7 @@ selected full transactional undo on 2026-09-02.
 ---
 
 ### [P1] CR-WF-03 — Make setup, creation, and assignment atomic and canonical
-**Status**: In Progress (CS-PLAN-062 — setup/structure half; task-creation half stays WP4) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: setup/creation
+**Status**: In Progress (setup/structure half delivered by CS-PLAN-062; task-creation half in progress via CS-PLAN-063/WP4, activated 2026-09-05) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: setup/creation
 **Owning**: CS-PLAN-058 WP3+WP4 · **Depends on**: — · **Blocks**: CR-WF-02 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
 
@@ -199,7 +199,7 @@ tooling, query-builder only).
 ---
 
 ### [P3] CR-SVC-41 — Service DI inconsistencies (remainder)
-**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
+**Status**: In Progress (WP4 slice — ownership-validation dedup — via CS-PLAN-063, activated 2026-09-05; structural remainder stays WP8) · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
 **Owning**: CS-PLAN-058 WP4+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of `lib/Service` (2026-08-04)
 
@@ -321,7 +321,7 @@ response) or surface remaining-today energy in the UI (feature decision).
 ---
 
 ### [P3] CR-062-01 — `setup#apply` coerces a non-string `houseName` to "absent"
-**Status**: Backlog · **Effort**: XS · **Layer**: backend · **Journey stage**: setup/creation
+**Status**: In Progress (folded into CS-PLAN-063 §3.1, activated 2026-09-05) · **Effort**: XS · **Layer**: backend · **Journey stage**: setup/creation
 **Owning**: CS-PLAN-058 WP4 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-062 WP3 final Standard B (2026-09-05)
 

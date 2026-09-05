@@ -10,6 +10,11 @@
 
 ## In Progress
 
+### CS-PLAN-063 / WP4 — Atomic Task Creation and Canonical Assignment
+**Status**: In Progress (activated; implementation not started) · **Started**: 2026-09-05 · **Branch**: master
+**Plan**: docs/plans/active/cs-plan-063-wp4-atomic-task-creation-assignment.md · **Blockers**: none
+**Scope**: WP4 creation aggregate + canonical assignment; owns CR-WF-03 task/assignment half, CR-SVC-41 WP4 slice, CR-062-01. Standard A `PASS-WITH-FIXES` 2026-09-05: D1–D9 ratified (flexDays bound [0,7] + form max alignment), `POST /tasks` E2E consumer inventory completed (insights-flow, release-visibility-roles, teamwork-rewards added), plan moved to `active/`.
+
 <!-- When you start work, add an entry here in this shape:
 ### CS-PLAN-NNN — Title
 **Status**: In Progress · **Started**: YYYY-MM-DD · **Branch**: master
