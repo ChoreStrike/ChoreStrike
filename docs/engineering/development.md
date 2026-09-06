@@ -191,6 +191,11 @@ counting members (first-owner bootstrap, CR-053-07);
 `HouseSetupService::applySetup` locks the house row before the first-run gate
 recheck, the assignee-membership revalidation, and the house-name write
 (atomic setup, CS-PLAN-062 §3.1–§3.3);
+`TaskCreationService::create` (CS-PLAN-063) likewise locks the house row
+first and then performs only fresh inserts (definition, room task, assignee
+rows) — the assignment side (`RoomTaskService::setAssignees` and each
+ascending-id bulk item) takes the `room_task` row lock as its first and only
+lock, revalidating the target membership under it;
 `RoomService::completeRoomTask` locks the room-task row before its
 completion-side writes. The completion-effect lookup/inversion primitives
 built on this order arrive with WP5 / ADR-011, which will reference the

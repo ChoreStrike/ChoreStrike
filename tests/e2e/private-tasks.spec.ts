@@ -68,16 +68,17 @@ test.describe('Private Tasks', () => {
 			}
 
 			// Unified creation (CS-PLAN-038): a room is required — pick the
-			// first available room so the save button enables and the
-			// definition POST fires as part of the create chain.
+			// first available room so the save button enables.
 			const roomSelect = page.getByTestId('room-picker-room')
 			const roomOption = await roomSelect.locator('option').nth(1).getAttribute('value')
 			if (roomOption) {
 				await roomSelect.selectOption(roomOption)
 			}
 
+			// CS-PLAN-063: the UI fires ONE atomic aggregate POST —
+			// `/api/v1/tasks` (definition-only create) was pruned.
 			const createResponse = page.waitForResponse(
-				(response) => response.request().method() === 'POST' && response.url().includes('/api/v1/tasks'),
+				(response) => response.request().method() === 'POST' && response.url().includes('/api/v1/room-tasks'),
 				{ timeout: 15000 },
 			)
 
@@ -87,7 +88,8 @@ test.describe('Private Tasks', () => {
 
 			const body = await response.json()
 			expect(body.success).toBe(true)
-			expect(body.data.visibilityType).toBe('private')
+			expect(body.data.task.visibilityType).toBe('private')
+			expect(body.data.roomTask.taskId).toBe(body.data.task.id)
 		} finally {
 			await context.close()
 		}

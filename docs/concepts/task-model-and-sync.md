@@ -21,16 +21,31 @@ Each task includes:
   Configuration* below)
 - assignment (optional)
 
-## Creation Model (CS-PLAN-038)
+## Creation Model (CS-PLAN-038, atomic since CS-PLAN-063)
 
 Every user-facing task creation path materializes a **room task** — a task
-definition alone is never user-visible output. The unified flow is:
+definition alone is never user-visible output. Since CS-PLAN-063 the whole
+aggregate (definition, room task, initial assignees) commits or rolls back
+together in **exactly one request** — `POST /room-tasks` (atomic
+`TaskCreationService` transaction; no orphan definitions on failure):
 
-1. definition (`POST /tasks`) — includes a **required room** (cascading
-   floor→room picker; locked when created from a room's context) and optional
-   member-chip assignees,
-2. room task (`POST /room-tasks` with `{roomId, taskId}`),
-3. assignees (`PUT /room-tasks/{id}/assignees`).
+1. the definition form (cascading floor→room picker — required, locked when
+   created from a room's context; member-chip assignees; optional first due
+   date; flex window; optional instructions; concise preview) submits
+   `{roomId, task, assigneeUserIds, nextDue}` once,
+2. template creation via the per-room picker (`POST
+   /room-tasks/from-template`) runs the same atomic body and returns the
+   same `{task, roomTask, assignees}` aggregate shape,
+3. mounting an existing definition (`{roomId, taskId}`) is the third variant
+   of the same endpoint.
+
+Success means everything persisted; failure means nothing did and the form
+stays open with the input preserved (no partial-success toasts). Both create
+paths share one closed validation authority (service-owned), children are
+gated out of the creation surface (`canManageTasks`), and catalog-template
+prefill fills the form from `GET /setup/catalog` filtered by the selected
+room's type. The former definition-only `POST /tasks` and the three-request
+create chain were pruned (CS-PLAN-063; guarded by `RouteMatrixTest`).
 
 Scope model: **custom tasks are always room-scoped** (the old room/floor/house
 scope selector was removed — decision D1). Whole-floor/house materialization is

@@ -83,7 +83,6 @@ class RoomTaskServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->houseUserMapper,
 			$this->completedTaskMapper,
-			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			new TransactionExecutor($this->db),
 			$this->createIdentityL10n(),
 			$this->createMock(AppLogger::class),
@@ -373,239 +372,6 @@ class RoomTaskServiceTest extends TestCase {
 		$result = $this->service->getDueWithinDaysTasks($houseId, $days, $this->createHouseUser(), $roomId);
 
 		$this->assertCount(1, $result);
-	}
-
-	/**
-	 * CreateRoomTask_NewTask_CreatesRoomTask
-	 *
-	 * The room resolves through the floor chain to the caller's house, so a
-	 * same-house create succeeds.
-	 */
-	public function testCreateRoomTask_NewTask_CreatesRoomTask(): void {
-		$houseId = 10;
-		$roomId = 1;
-		$taskId = 1;
-		$floorId = 7;
-
-		$room = new Room();
-		$room->setId($roomId);
-		$room->setFloorId($floorId);
-
-		$floor = new Floor();
-		$floor->setId($floorId);
-		$floor->setHouseId($houseId);
-
-		$task = new Task();
-		$task->setId($taskId);
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-
-		$this->roomMapper
-			->expects($this->once())
-			->method('find')
-			->with($roomId)
-			->willReturn($room);
-
-		$this->floorMapper
-			->expects($this->once())
-			->method('find')
-			->with($floorId)
-			->willReturn($floor);
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('find')
-			->with($taskId)
-			->willReturn($task);
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('exists')
-			->with($roomId, $taskId)
-			->willReturn(false);
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('create')
-			->willReturn($roomTask);
-
-		$result = $this->service->createRoomTask($houseId, $roomId, $taskId, $this->createHouseUser('creator', 'owner'));
-
-		$this->assertSame($roomTask, $result);
-	}
-
-	/**
-	 * CreateRoomTask_DuplicateTask_ThrowsException
-	 */
-	public function testCreateRoomTask_DuplicateTask_ThrowsException(): void {
-		$houseId = 10;
-		$roomId = 1;
-		$taskId = 1;
-		$floorId = 7;
-
-		$room = new Room();
-		$room->setId($roomId);
-		$room->setFloorId($floorId);
-
-		$floor = new Floor();
-		$floor->setId($floorId);
-		$floor->setHouseId($houseId);
-
-		$task = new Task();
-		$task->setId($taskId);
-
-		$this->roomMapper->method('find')->willReturn($room);
-		$this->floorMapper->method('find')->willReturn($floor);
-		$this->taskMapper->method('find')->willReturn($task);
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('exists')
-			->willReturn(true);
-
-		$this->expectException(\InvalidArgumentException::class);
-
-		$this->service->createRoomTask($houseId, $roomId, $taskId, $this->createHouseUser('creator', 'owner'));
-	}
-
-	/**
-	 * CreateRoomTask_CrossHouseRoom_ThrowsNotFound
-	 *
-	 * CR-SVC-01 regression: a room that resolves to another house must be
-	 * rejected (NotFoundException) before any persistence. The room/floor
-	 * existence boundary must not be leaked.
-	 */
-	public function testCreateRoomTask_CrossHouseRoom_ThrowsNotFound(): void {
-		$houseId = 10;
-		$roomId = 1;
-		$floorId = 7;
-
-		$room = new Room();
-		$room->setId($roomId);
-		$room->setFloorId($floorId);
-
-		$floor = new Floor();
-		$floor->setId($floorId);
-		$floor->setHouseId(99); // a different house
-
-		$this->roomMapper->method('find')->with($roomId)->willReturn($room);
-		$this->floorMapper->method('find')->with($floorId)->willReturn($floor);
-		$this->taskMapper->expects($this->never())->method('find');
-		$this->roomTaskMapper->expects($this->never())->method('create');
-
-		$this->expectException(NotFoundException::class);
-
-		$this->service->createRoomTask($houseId, $roomId, 1, $this->createHouseUser('creator', 'owner'));
-	}
-
-	/**
-	 * CreateRoomTask_RoomNotFound_ThrowsNotFound
-	 *
-	 * A missing room (or floor) maps to NotFoundException, not a raw
-	 * DoesNotExistException leak.
-	 */
-	public function testCreateRoomTask_RoomNotFound_ThrowsNotFound(): void {
-		$this->roomMapper->method('find')
-			->willThrowException(new DoesNotExistException('room gone'));
-
-		$this->taskMapper->expects($this->never())->method('find');
-		$this->roomTaskMapper->expects($this->never())->method('create');
-
-		$this->expectException(NotFoundException::class);
-
-		$this->service->createRoomTask(10, 1, 1, $this->createHouseUser('creator', 'owner'));
-	}
-
-	/**
-	 * CreateRoomTask_ChildActor_ThrowsForbidden
-	 *
-	 * CS-PLAN-061 §3.4 (D5): children execute tasks, they do not create
-	 * them — the actor policy gate runs before any persistence.
-	 */
-	public function testCreateRoomTask_ChildActor_ThrowsForbidden(): void {
-		$this->authorization->method('assertCanManageTasks')
-			->willThrowException(new ForbiddenException('Children may view and complete tasks, but not manage them'));
-
-		$this->roomMapper->expects($this->never())->method('find');
-		$this->roomTaskMapper->expects($this->never())->method('create');
-
-		$this->expectException(ForbiddenException::class);
-
-		$this->service->createRoomTask(10, 1, 1, $this->createHouseUser('kid', 'child'));
-	}
-
-	/**
-	 * CreateRoomTask_NonMemberAssignee_Throws
-	 *
-	 * CR-SVC-01 regression: an assignee stamped by the client who is not a
-	 * member of the caller's house must be rejected before persistence.
-	 */
-	public function testCreateRoomTask_NonMemberAssignee_Throws(): void {
-		$houseId = 10;
-		$roomId = 1;
-		$floorId = 7;
-
-		$room = new Room();
-		$room->setId($roomId);
-		$room->setFloorId($floorId);
-
-		$floor = new Floor();
-		$floor->setId($floorId);
-		$floor->setHouseId($houseId);
-
-		$this->roomMapper->method('find')->willReturn($room);
-		$this->floorMapper->method('find')->willReturn($floor);
-		$this->houseUserMapper->expects($this->once())
-			->method('findByHouseAndUser')
-			->with($houseId, 'intruder')
-			->willReturn(null);
-		$this->taskMapper->expects($this->never())->method('find');
-		$this->roomTaskMapper->expects($this->never())->method('create');
-
-		$this->expectException(\InvalidArgumentException::class);
-
-		$this->service->createRoomTask($houseId, $roomId, 1, $this->createHouseUser('creator', 'owner'), null, null, 'intruder');
-	}
-
-	/**
-	 * CreateRoomTask_ValidMemberAssignee_CreatesRoomTask
-	 *
-	 * CR-SVC-01 happy path: an assignee who IS a house member is accepted.
-	 */
-	public function testCreateRoomTask_ValidMemberAssignee_CreatesRoomTask(): void {
-		$houseId = 10;
-		$roomId = 1;
-		$taskId = 1;
-		$floorId = 7;
-
-		$room = new Room();
-		$room->setId($roomId);
-		$room->setFloorId($floorId);
-
-		$floor = new Floor();
-		$floor->setId($floorId);
-		$floor->setHouseId($houseId);
-
-		$task = new Task();
-		$task->setId($taskId);
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-
-		$this->roomMapper->method('find')->willReturn($room);
-		$this->floorMapper->method('find')->willReturn($floor);
-		$this->taskMapper->method('find')->willReturn($task);
-		$this->houseUserMapper->expects($this->once())
-			->method('findByHouseAndUser')
-			->with($houseId, 'member-user')
-			->willReturn(new HouseUser());
-		$this->roomTaskMapper->method('exists')->willReturn(false);
-		$this->roomTaskMapper->expects($this->once())->method('create')->willReturn($roomTask);
-
-		$result = $this->service->createRoomTask($houseId, $roomId, $taskId, $this->createHouseUser('creator', 'owner'), null, null, 'member-user');
-
-		$this->assertSame($roomTask, $result);
 	}
 
 	/**
@@ -1247,7 +1013,26 @@ class RoomTaskServiceTest extends TestCase {
 
 		$this->taskAssigneeMapper
 			->expects($this->exactly(3))
-			->method('replaceAssignees');
+			->method('deleteByRoomTask');
+
+		$this->taskAssigneeMapper
+			->expects($this->exactly(3))
+			->method('addAssignee')
+			->willReturnCallback(static fn (int $roomTaskId) => new TaskAssignee());
+
+		$this->roomTaskMapper
+			->method('lockForUpdate')
+			->willReturnCallback(static function (int $id): RoomTask {
+				$rt = new RoomTask();
+				$rt->setId($id);
+				return $rt;
+			});
+
+		$this->houseUserMapper
+			->method('findByHouseAndUser')
+			->willReturn($member);
+
+		$this->taskAssigneeMapper->method('findByRoomTask')->willReturn([]);
 
 		// The bulk path never runs the per-item ownership chain.
 		$this->roomMapper->expects($this->never())->method('find');
@@ -1302,10 +1087,28 @@ class RoomTaskServiceTest extends TestCase {
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')->willReturn([]);
 		$this->taskAccessPolicy->method('canView')->willReturn(true);
 
+		$this->roomTaskMapper
+			->method('lockForUpdate')
+			->willReturnCallback(static function (int $id): RoomTask {
+				$rt = new RoomTask();
+				$rt->setId($id);
+				return $rt;
+			});
+
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($member);
+
 		$this->taskAssigneeMapper
 			->expects($this->once())
-			->method('replaceAssignees')
-			->with(2, [$userId]);
+			->method('deleteByRoomTask')
+			->with(2);
+
+		$this->taskAssigneeMapper
+			->expects($this->once())
+			->method('addAssignee')
+			->with(2, $userId, 'assigner')
+			->willReturn(new TaskAssignee());
+
+		$this->taskAssigneeMapper->method('findByRoomTask')->willReturn([]);
 
 		$result = $this->service->bulkAssignTasks([1, 2, 99], $userId, $houseId, $this->createHouseUser('assigner', 'owner'));
 
@@ -1333,7 +1136,7 @@ class RoomTaskServiceTest extends TestCase {
 			->willReturn([$member]);
 
 		$this->roomTaskMapper->expects($this->never())->method('findByIdsScopedToHouse');
-		$this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
+		$this->taskAssigneeMapper->expects($this->never())->method('deleteByRoomTask');
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->expectExceptionMessage('User is not a member of this house: %1$s');
@@ -1385,13 +1188,26 @@ class RoomTaskServiceTest extends TestCase {
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')->willReturn([]);
 		$this->taskAccessPolicy->method('canView')->willReturn(true);
 
+		$this->roomTaskMapper
+			->method('lockForUpdate')
+			->willReturnCallback(static function (int $id): RoomTask {
+				$rt = new RoomTask();
+				$rt->setId($id);
+				return $rt;
+			});
+
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn($member);
+
 		$this->taskAssigneeMapper
-			->method('replaceAssignees')
+			->method('deleteByRoomTask')
 			->willReturnCallback(function (int $roomTaskId) {
 				if ($roomTaskId === 1) {
 					throw new \RuntimeException('write failed');
 				}
 			});
+
+		$this->taskAssigneeMapper->method('addAssignee')->willReturn(new TaskAssignee());
+		$this->taskAssigneeMapper->method('findByRoomTask')->willReturn([]);
 
 		$result = $this->service->bulkAssignTasks([1, 2], $userId, $houseId, $this->createHouseUser('assigner', 'owner'));
 
@@ -1425,7 +1241,7 @@ class RoomTaskServiceTest extends TestCase {
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTasks')->willReturn([]);
 		$this->taskAccessPolicy->method('canView')->willReturn(false);
 
-		$this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
+		$this->taskAssigneeMapper->expects($this->never())->method('deleteByRoomTask');
 
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Room task not found');
@@ -1454,7 +1270,7 @@ class RoomTaskServiceTest extends TestCase {
 			->method('findByIdsScopedToHouse')
 			->with([], $houseId)
 			->willReturn([]);
-		$this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
+		$this->taskAssigneeMapper->expects($this->never())->method('deleteByRoomTask');
 
 		$this->assertSame([], $this->service->bulkAssignTasks([], $userId, $houseId, $this->createHouseUser('assigner', 'owner')));
 	}
@@ -1463,29 +1279,20 @@ class RoomTaskServiceTest extends TestCase {
 	 * SetAssignees_ValidMembers_ReplacesAssignees
 	 *
 	 * The 4th parameter is the acting HouseUser: the gates run in order
-	 * (ownership → visibility → actor policy → membership) and the write is
-	 * attributed to the actor's Nextcloud user id.
+	 * (ownership → visibility → actor policy → membership) and the write
+	 * runs under the room-task row lock (CS-PLAN-063 §3.4), attributed to
+	 * the actor's Nextcloud user id.
 	 */
 	public function testSetAssignees_ValidMembers_ReplacesAssignees(): void {
 		$roomTaskId = 1;
 		$houseId = 1;
-		$roomId = 5;
-		$floorId = 7;
 		$taskId = 9;
 		$actor = $this->createHouseUser('assigner');
 
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
-		$roomTask->setRoomId($roomId);
+		$roomTask->setRoomId(5);
 		$roomTask->setTaskId($taskId);
-
-		$room = new Room();
-		$room->setId($roomId);
-		$room->setFloorId($floorId);
-
-		$floor = new Floor();
-		$floor->setId($floorId);
-		$floor->setHouseId($houseId);
 
 		$member1 = new HouseUser();
 		$member1->setNextcloudUserId('user-a');
@@ -1497,19 +1304,72 @@ class RoomTaskServiceTest extends TestCase {
 		$assignee->setUserId('user-a');
 
 		$this->roomTaskMapper->method('find')->with($roomTaskId)->willReturn($roomTask);
-		$this->roomMapper->method('find')->with($roomId)->willReturn($room);
-		$this->floorMapper->method('find')->with($floorId)->willReturn($floor);
 		$this->stubTaskDefinition($this->createTask());
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
 		$this->authorization->expects($this->once())->method('assertCanManageTasks')->with($actor);
 		$this->houseUserMapper->method('findByHouseId')->with($houseId)->willReturn([$member1, $member2]);
-		$this->taskAssigneeMapper->expects($this->once())->method('replaceAssignees')->with($roomTaskId, ['user-a', 'user-b'], 'assigner');
+
+		// Locked write path (CS-PLAN-063 §3.4): lock → under-lock membership
+		// revalidation → atomic delete-then-insert.
+		$this->roomTaskMapper
+			->expects($this->once())
+			->method('lockForUpdate')
+			->with($roomTaskId)
+			->willReturn($roomTask);
+		$this->houseUserMapper
+			->expects($this->exactly(2))
+			->method('findByHouseAndUser')
+			->willReturnCallback(static fn (int $houseId, string $userId): HouseUser => ($userId === 'user-a' ? $member1 : $member2));
+		$this->taskAssigneeMapper->expects($this->once())->method('deleteByRoomTask')->with($roomTaskId);
+		$this->taskAssigneeMapper
+			->expects($this->exactly(2))
+			->method('addAssignee')
+			->willReturnCallback(static function (int $id, string $userId): TaskAssignee {
+				$assignee = new TaskAssignee();
+				$assignee->setUserId($userId);
+				return $assignee;
+			});
 		$this->taskAssigneeMapper->method('findByRoomTask')->with($roomTaskId)->willReturn([$assignee]);
 
 		$result = $this->service->setAssignees($roomTaskId, ['user-a', 'user-b'], $houseId, $actor);
 
 		$this->assertCount(1, $result);
 		$this->assertSame('user-a', $result[0]->getUserId());
+	}
+
+	/**
+	 * SetAssignees_UnderLockMembershipMiss_ThrowsWithZeroWrites
+	 *
+	 * CS-PLAN-063 §3.4: a membership removed between the pre-check and the
+	 * locked write revalidates under the room-task row lock — the miss
+	 * throws (→ 400) before any assignee write happens.
+	 */
+	public function testSetAssignees_UnderLockMembershipMiss_ThrowsWithZeroWrites(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setRoomId(5);
+		$roomTask->setTaskId(9);
+
+		$member = new HouseUser();
+		$member->setNextcloudUserId('user-a');
+
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->stubTaskDefinition($this->createTask());
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$member]);
+		$this->roomTaskMapper->method('lockForUpdate')->willReturn($roomTask);
+
+		// The target was a member at pre-check time but the under-lock
+		// revalidation no longer finds the membership.
+		$this->houseUserMapper->method('findByHouseAndUser')->willReturn(null);
+
+		$this->taskAssigneeMapper->expects($this->never())->method('deleteByRoomTask');
+		$this->taskAssigneeMapper->expects($this->never())->method('addAssignee');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('User is not a member of this house: %1$s');
+
+		$this->service->setAssignees(1, ['user-a'], 1, $this->createHouseUser('assigner'));
 	}
 
 	/**
@@ -1541,7 +1401,7 @@ class RoomTaskServiceTest extends TestCase {
 		$this->stubTaskDefinition($this->createTask());
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
 		$this->houseUserMapper->method('findByHouseId')->willReturn([$member]);
-		$this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
+		$this->taskAssigneeMapper->expects($this->never())->method('deleteByRoomTask');
 
 		$this->expectException(\InvalidArgumentException::class);
 		$this->service->setAssignees(1, ['user-a', 'intruder'], 1, $this->createHouseUser('assigner'));
@@ -1576,7 +1436,8 @@ class RoomTaskServiceTest extends TestCase {
 		$this->authorization->method('assertCanManageTasks')
 			->willThrowException(new ForbiddenException('Children may view and complete tasks, but not manage them'));
 		$this->houseUserMapper->expects($this->never())->method('findByHouseId');
-		$this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
+		$this->roomTaskMapper->expects($this->never())->method('lockForUpdate');
+		$this->taskAssigneeMapper->expects($this->never())->method('deleteByRoomTask');
 
 		$this->expectException(ForbiddenException::class);
 		$this->service->setAssignees(1, ['user-a'], 1, $this->createHouseUser('kid', 'child'));
@@ -1595,20 +1456,15 @@ class RoomTaskServiceTest extends TestCase {
 		$roomTask->setRoomId(5);
 		$roomTask->setTaskId(9);
 
-		$room = new Room();
-		$room->setId(5);
-		$room->setFloorId(7);
-
-		$floor = new Floor();
-		$floor->setId(7);
-		$floor->setHouseId(99); // different house
-
 		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-		$this->roomMapper->method('find')->willReturn($room);
-		$this->floorMapper->method('find')->willReturn($floor);
+
+		// CS-PLAN-063 §3.4: the room→floor→house walk is owned by
+		// RoomService; the wrapper translates its miss into the room-task 404.
+		$this->roomService->method('validateRoomOwnership')
+			->willThrowException(new NotFoundException('Room not found'));
 
 		$this->authorization->expects($this->never())->method('assertCanManageTasks');
-		$this->taskAssigneeMapper->expects($this->never())->method('replaceAssignees');
+		$this->taskAssigneeMapper->expects($this->never())->method('deleteByRoomTask');
 
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Room task not found');

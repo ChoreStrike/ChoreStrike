@@ -42,26 +42,9 @@ export const useTasksStore = defineStore('tasks', {
 			}
 		},
 
-		/**
-		 * Create a new task
-		 * @param {object} taskData Payload used to create the task.
-		 */
-		async createTask(taskData) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.post('/api/v1/tasks', taskData)
-				this.tasks.push(data)
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to create task', error, { store: 'tasks', action: 'createTask' })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
+		// CS-PLAN-063: the former createTask action was pruned with the
+		// definition-only POST /tasks endpoint — creation runs through the
+		// atomic aggregate (roomTasksStore.createTaskAggregate).
 
 		/**
 		 * Update task

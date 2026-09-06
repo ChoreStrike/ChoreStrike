@@ -136,18 +136,14 @@ test.describe('Release: Insights Flow', () => {
 
 			const tomorrow = offsetDate(1)
 			for (let i = 0; i < 4; i++) {
-				// One max-energy definition per room task — the room-task create
-				// endpoint rejects duplicate task/room pairs.
-				const createTask = await api.post('/apps/chorestrike/api/v1/tasks', {
-					data: { name: `Overcapacity Probe ${i}`, description: '', energyCost: 5, priority: 2, frequencyType: 'daily', frequencyValue: 1 },
-					headers: { Accept: 'application/json' },
-				})
-				const createdTaskBody = await createTask.json()
-				expect(createTask.status(), JSON.stringify(createdTaskBody)).toBe(200)
-				const taskId = (createdTaskBody.data as { id: number }).id
-
+				// CS-PLAN-063: one atomic aggregate create per room task —
+				// the mount-duplicate guard still rejects duplicate pairs.
 				const created = await api.post('/apps/chorestrike/api/v1/room-tasks', {
-					data: { taskId, roomId, nextDue: tomorrow },
+					data: {
+						roomId,
+						nextDue: tomorrow,
+						task: { name: `Overcapacity Probe ${i}`, description: '', energyCost: 5, priority: 2, frequencyType: 'daily', frequencyValue: 1 },
+					},
 					headers: { Accept: 'application/json' },
 				})
 				const createdBody = await created.json()

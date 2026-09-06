@@ -38,12 +38,16 @@ test.describe('Teamwork Rewards', () => {
 	})
 
 	test('completing multi-assign task returns teamwork bonus via API', async ({ page }) => {
-		const createResponse = await page.request.post('/apps/chorestrike/api/v1/tasks', {
+		// CS-PLAN-063: one atomic aggregate create (definition + room task).
+		const createResponse = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 			data: {
-				name: 'Team Clean Test',
-				energyCost: 10,
-				frequencyType: 'weekly',
-				frequencyValue: 1,
+				roomId: 1,
+				task: {
+					name: 'Team Clean Test',
+					energyCost: 10,
+					frequencyType: 'weekly',
+					frequencyValue: 1,
+				},
 			},
 		})
 
@@ -52,20 +56,8 @@ test.describe('Teamwork Rewards', () => {
 			return
 		}
 
-		const taskData = await createResponse.json()
-		const taskId = taskData.data.id
-
-		const assignResponse = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
-			data: { taskId, roomId: 1 },
-		})
-
-		if (assignResponse.status() !== 200) {
-			test.skip(true, 'Could not assign task to room')
-			return
-		}
-
-		const assignData = await assignResponse.json()
-		const roomTaskId = assignData.data?.id
+		const createData = await createResponse.json()
+		const roomTaskId = createData.data?.roomTask?.id
 
 		if (!roomTaskId) {
 			test.skip(true, 'No room task ID returned')
@@ -87,12 +79,17 @@ test.describe('Teamwork Rewards', () => {
 	})
 
 	test('single-assign task has no teamwork bonus', async ({ page }) => {
-		const createResponse = await page.request.post('/apps/chorestrike/api/v1/tasks', {
+		// CS-PLAN-063: one atomic aggregate create, initial assignee included.
+		const createResponse = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 			data: {
-				name: 'Solo Task Test',
-				energyCost: 5,
-				frequencyType: 'weekly',
-				frequencyValue: 1,
+				roomId: 1,
+				assigneeUserIds: ['mom'],
+				task: {
+					name: 'Solo Task Test',
+					energyCost: 5,
+					frequencyType: 'weekly',
+					frequencyValue: 1,
+				},
 			},
 		})
 
@@ -101,20 +98,8 @@ test.describe('Teamwork Rewards', () => {
 			return
 		}
 
-		const taskData = await createResponse.json()
-		const taskId = taskData.data.id
-
-		const assignResponse = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
-			data: { taskId, roomId: 1, assignedToUserId: 'mom' },
-		})
-
-		if (assignResponse.status() !== 200) {
-			test.skip(true, 'Could not assign task to room')
-			return
-		}
-
-		const assignData = await assignResponse.json()
-		const roomTaskId = assignData.data?.id
+		const createData = await createResponse.json()
+		const roomTaskId = createData.data?.roomTask?.id
 
 		if (!roomTaskId) {
 			test.skip(true, 'No room task ID returned')

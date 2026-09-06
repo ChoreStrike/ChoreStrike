@@ -22,6 +22,7 @@ use PHPUnit\Framework\TestCase;
 class RoomTaskControllerIntegrationTest extends TestCase {
 	private RoomTaskController $controller;
 	private RoomTaskService $roomTaskService;
+	private \OCA\ChoreStrike\Service\TaskCreationService|PHPUnit\Framework\MockObject\MockObject $taskCreationService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IRequest $request;
@@ -31,6 +32,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
+		$this->taskCreationService = $this->createMock(\OCA\ChoreStrike\Service\TaskCreationService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
 		// Identity mock: message assertions match the wrapped source text.
@@ -40,6 +42,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->controller = new RoomTaskController(
 			$this->request,
 			$this->roomTaskService,
+			$this->taskCreationService,
 			$this->houseService,
 			$this->authService,
 			$l10n,
@@ -103,24 +106,36 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 	}
 
 	/**
-	 * Create_ValidData_ReturnsCreatedRoomTask
+	 * Create_ValidData_ReturnsAggregateShape
+	 *
+	 * CS-PLAN-063 §3.3: the creation endpoint routes through the atomic
+	 * TaskCreationService and returns the unified aggregate shape.
 	 */
-	public function testCreate_ValidData_ReturnsCreatedRoomTask(): void {
+	public function testCreate_ValidData_ReturnsAggregateShape(): void {
 		$roomId = 1;
 		$taskId = 5;
-		$createdRoomTask = $this->createMockRoomTask(3, $taskId, $roomId);
 
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key) => ['roomId' => $roomId, 'taskId' => $taskId][$key] ?? null
+		);
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
 		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
-		$this->roomTaskService->method('createRoomTask')
-			->willReturn($createdRoomTask);
+		$this->taskCreationService->method('create')
+			->willReturn([
+				'task' => $this->createMockTask($taskId, 'Test Task'),
+				'roomTask' => $this->createMockRoomTask(3, $taskId, $roomId),
+				'assignees' => [],
+			]);
 
-		$response = $this->controller->create($roomId, $taskId, '2026-03-15T10:00:00Z');
+		$response = $this->controller->create();
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
+		$this->assertArrayHasKey('task', $data['data']);
+		$this->assertArrayHasKey('roomTask', $data['data']);
+		$this->assertArrayHasKey('assignees', $data['data']);
 	}
 
 	/**

@@ -3,12 +3,35 @@ import { createPinia, setActivePinia } from 'pinia'
 import TaskEditForm from '@/components/Tasks/TaskEditForm.vue'
 
 jest.mock('@nextcloud/l10n', () => ({
-	translate: jest.fn((app, text) => text),
+	translate: jest.fn((app, text, params) => {
+		let result = text
+		if (params) {
+			for (const [key, value] of Object.entries(params)) {
+				result = result.split(`{${key}}`).join(String(value))
+			}
+		}
+		return result
+	}),
 }))
 
 jest.mock('@/store/user', () => ({
 	useUserStore: jest.fn(() => ({
 		isHouseOwner: true,
+	})),
+}))
+
+jest.mock('@/store/rooms', () => ({
+	useRoomsStore: jest.fn(() => ({
+		getRoomById: (roomId) => (roomId === 12 ? { id: 12, name: 'Kitchen', floorId: 3, roomType: 'kitchen' } : null),
+		getFloorById: (floorId) => (floorId === 3 ? { id: 3, name: 'Ground Floor' } : null),
+	})),
+}))
+
+jest.mock('@/store/setup', () => ({
+	useSetupStore: jest.fn(() => ({
+		hasCatalog: true,
+		templates: [],
+		fetchCatalog: jest.fn(),
 	})),
 }))
 
@@ -127,7 +150,7 @@ describe('TaskEditForm', () => {
 
 		await wrapper.find('[data-testid="task-visibility-select"]').setValue('private')
 
-		expect(wrapper.find('.visibility-hint').text())
+		expect(wrapper.find('[data-testid="task-visibility-hint"]').text())
 			.toBe('Only you and the assigned members can see and complete this task. Assigned members can also edit it.')
 	})
 
@@ -136,7 +159,72 @@ describe('TaskEditForm', () => {
 
 		await wrapper.find('[data-testid="task-visibility-select"]').setValue('admin-only')
 
-		expect(wrapper.find('.visibility-hint').text())
+		expect(wrapper.find('[data-testid="task-visibility-hint"]').text())
 			.toBe('Only house owners can see and complete this task')
+	})
+
+	it('submits nextDue and persists flexDays within the ratified 0-7 bound (CS-PLAN-063 §3.5)', async () => {
+		const wrapper = mountForm()
+		await fillRequiredCreateFields(wrapper)
+
+		const flexInput = wrapper.find('[data-testid="task-flex-days-input"]')
+		expect(flexInput.attributes('max')).toBe('7')
+
+		await flexInput.setValue('5')
+		await wrapper.find('[data-testid="task-next-due-input"]').setValue('2030-05-10')
+		await wrapper.find('[data-testid="task-instructions-input"]').setValue('Step 1: sweep')
+		await wrapper.find('form').trigger('submit')
+
+		const payload = wrapper.emitted('submit')[0][0]
+		expect(payload.nextDue).toBe('2030-05-10')
+		expect(payload.flexDays).toBe(5)
+		expect(payload.instructions).toBe('Step 1: sweep')
+	})
+
+	it('submits nextDue null when the due date is left empty', async () => {
+		const wrapper = mountForm()
+		await fillRequiredCreateFields(wrapper)
+		await wrapper.find('form').trigger('submit')
+
+		const payload = wrapper.emitted('submit')[0][0]
+		expect(payload.nextDue).toBeNull()
+	})
+
+	it('renders the concise preview with room path, recurrence, due window, assignees, visibility', async () => {
+		const wrapper = mountForm()
+		await fillRequiredCreateFields(wrapper)
+		await wrapper.find('[data-testid="assignee-chips-stub"]').trigger('click')
+		await wrapper.find('[data-testid="task-flex-days-input"]').setValue('3')
+
+		const preview = wrapper.find('[data-testid="task-preview"]')
+		expect(preview.exists()).toBe(true)
+		expect(preview.text()).toContain('Ground Floor → Kitchen')
+		expect(preview.text()).toContain('Weekly')
+		expect(preview.text()).toContain('tomorrow')
+		expect(preview.text()).toContain('±3 days')
+		expect(preview.text()).toContain('mom, kid')
+
+		// The preview disappears in edit mode.
+		const editWrapper = mountForm({ task: { id: 1, name: 'Test Task' } })
+		expect(editWrapper.find('[data-testid="task-preview"]').exists()).toBe(false)
+	})
+
+	it('applies a recurrence preset by its own shape only (CS-PLAN-063 D4)', async () => {
+		const wrapper = mountForm()
+
+		const selector = wrapper.findComponent({ name: 'RecurrencePresetSelector' })
+		selector.vm.$emit('select', { id: 'weekly', name: 'Weekly', icon: 'CalendarDays', recurrence: 'weekly' })
+		await wrapper.vm.$nextTick()
+		await wrapper.find('form').trigger('submit')
+
+		const payload = wrapper.emitted('submit')[0][0]
+		expect(payload.frequencyType).toBe('weekly')
+		expect(payload.recurrenceMode).toBe('recurring')
+
+		// One-time preset maps to the once recurrence.
+		selector.vm.$emit('select', { id: 'one-time', name: 'One-time', icon: 'CheckCircle', recurrence: null })
+		await wrapper.vm.$nextTick()
+		await wrapper.find('form').trigger('submit')
+		expect(wrapper.emitted('submit')[1][0].recurrenceMode).toBe('once')
 	})
 })

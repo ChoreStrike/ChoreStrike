@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
@@ -24,11 +25,13 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  */
 class AssigneeRepresentationTest extends IntegrationTestCase {
 	private RoomTaskService $roomTaskService;
+	private TaskCreationService $taskCreationService;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->roomTaskService = \OC::$server->get(RoomTaskService::class);
+		$this->taskCreationService = \OC::$server->get(TaskCreationService::class);
 		$this->taskAssigneeMapper = \OC::$server->get(TaskAssigneeMapper::class);
 	}
 
@@ -43,8 +46,9 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 	/**
 	 * CreateRoomTask_WithAssignee_WritesJoinTableRows
 	 *
-	 * Initial assignment writes join rows; the schema no longer carries the
-	 * legacy column and the payload no longer exposes it.
+	 * Initial assignment writes join rows through the creation aggregate
+	 * (CS-PLAN-063); the schema no longer carries the legacy column and the
+	 * payload no longer exposes it.
 	 */
 	public function testCreateRoomTask_WithAssignee_WritesJoinTableRows(): void {
 		$houseId = $this->createHouse('asg_owner', 'Assignee House');
@@ -53,15 +57,12 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$taskId = $this->createTask($houseId, 'Dishes');
 
-		$roomTask = $this->roomTaskService->createRoomTask(
-			$houseId,
-			$roomId,
-			$taskId,
-			$this->actor($houseId, 'asg_owner'),
-			null,
-			null,
-			'asg_member'
-		);
+		$aggregate = $this->taskCreationService->create($houseId, $this->actor($houseId, 'asg_owner'), [
+			'roomId' => $roomId,
+			'taskId' => $taskId,
+			'assigneeUserIds' => ['asg_member'],
+		]);
+		$roomTask = $aggregate['roomTask'];
 
 		self::assertSame(
 			['asg_member'],
@@ -86,7 +87,11 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 		$taskId = $this->createTask($houseId, 'Trash');
 
 		$this->actingAs('asg_owner2');
-		$roomTask = $this->roomTaskService->createRoomTask($houseId, $roomId, $taskId, $this->actor($houseId, 'asg_owner2'));
+		$aggregate = $this->taskCreationService->create($houseId, $this->actor($houseId, 'asg_owner2'), [
+			'roomId' => $roomId,
+			'taskId' => $taskId,
+		]);
+		$roomTask = $aggregate['roomTask'];
 		$owner = $this->actor($houseId, 'asg_owner2');
 
 		$this->roomTaskService->setAssignees($roomTask->getId(), ['asg_member2'], $houseId, $owner);

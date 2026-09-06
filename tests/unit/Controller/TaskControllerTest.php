@@ -119,86 +119,10 @@ class TaskControllerTest extends TestCase {
 		$this->assertCount(2, $data['data']);
 	}
 
-	/**
-	 * Test POST /tasks validates empty name
-	 */
-	public function testCreate_ValidatesEmptyName(): void {
-		$this->expectHouseMembershipContext();
-
-		$this->taskService->expects($this->once())
-			->method('validateTaskData')
-			->willReturn(['Task name is required']);
-
-		$this->taskService->expects($this->never())
-			->method('createTask');
-
-		$response = $this->controller->create('');
-
-		$this->assertInstanceOf(JSONResponse::class, $response);
-		$this->assertEquals(400, $response->getStatus());
-
-		$data = $response->getData();
-		$this->assertFalse($data['success']);
-		$this->assertEquals('VALIDATION_ERROR', $data['error']['code']);
-		$this->assertEquals('Validation failed', $data['error']['message']);
-		$this->assertEquals(['Task name is required'], $data['error']['details']);
-	}
-
-	/**
-	 * Test POST /tasks creates successfully
-	 */
-	public function testCreate_CreatesSuccessfully(): void {
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Clean Kitchen');
-
-		$houseUser = $this->expectHouseMembershipContext();
-
-		$this->taskService->expects($this->once())
-			->method('validateTaskData')
-			->willReturn([]);
-
-		// CS-PLAN-061: the authenticated HouseUser is the first createTask
-		// argument (the service derives scoping/ownership from the actor).
-		$this->taskService->expects($this->once())
-			->method('createTask')
-			->with(
-				$this->identicalTo($houseUser),
-				'Clean Kitchen',
-				null,
-				1,
-				2,
-				'weekly',
-				1,
-				15,
-				'cleaning',
-				'room',
-				null,
-				'recurring',
-				null,
-				null,
-				false,
-				'dynamic',
-				null,
-				null,
-				null,
-				null,
-				null,
-				null,
-				'public',
-				null
-			)
-			->willReturn($task);
-
-		$response = $this->controller->create('Clean Kitchen');
-
-		$this->assertInstanceOf(JSONResponse::class, $response);
-		$this->assertEquals(200, $response->getStatus());
-
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-		$this->assertEquals('Clean Kitchen', $data['data']['name']);
-	}
+	// CS-PLAN-063: the former POST /tasks create tests were pruned with the
+	// endpoint — creation runs through the atomic aggregate on
+	// POST /room-tasks (covered by RoomTaskControllerTest and the
+	// TaskCreationService tests).
 
 	/**
 	 * A non-owner may not update another member's private task. The update
@@ -262,7 +186,6 @@ class TaskControllerTest extends TestCase {
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
 		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
-		$this->taskService->method('validateTaskData')->willReturn([]);
 
 		$captured = null;
 		$this->taskService->expects($this->once())
@@ -295,7 +218,6 @@ class TaskControllerTest extends TestCase {
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
 		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
-		$this->taskService->method('validateTaskData')->willReturn([]);
 
 		$this->taskService->expects($this->once())
 			->method('updateTask')
@@ -324,7 +246,6 @@ class TaskControllerTest extends TestCase {
 		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
 
 		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
-		$this->taskService->method('validateTaskData')->willReturn([]);
 		$this->taskService->method('updateTask')
 			->willThrowException(new NotFoundException('Task not found'));
 

@@ -126,20 +126,37 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Create a new room task
-		 * @param {object} roomTaskData Payload used to create the room task.
+		 * Create a room task — the one atomic aggregate request (CS-PLAN-063
+		 * §3.5, CR-WF-03): definition, room-task materialization, and initial
+		 * assignees commit or roll back together on the backend, so there is
+		 * no partial-success reporting anymore. The aggregate response
+		 * `{task, roomTask, assignees}` updates both stores and is returned
+		 * to the caller.
+		 * @param {object} payload { roomId, task|taskId, assigneeUserIds?, nextDue? }
+		 * @return {Promise<object>} The creation aggregate
 		 */
-		async createRoomTask(roomTaskData) {
+		async createTaskAggregate(payload) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const data = await api.post('/api/v1/room-tasks', roomTaskData)
-				this.roomTasks.push(data)
-				return data
+				const aggregate = await api.post('/api/v1/room-tasks', payload)
+
+				const roomTask = {
+					...aggregate.roomTask,
+					assignees: (aggregate.assignees || []).map(a => a.userId),
+				}
+				this.roomTasks.push(roomTask)
+
+				const tasksStore = useTasksStore()
+				if (aggregate.task && !tasksStore.getTaskById(aggregate.task.id)) {
+					tasksStore.tasks.push(aggregate.task)
+				}
+
+				return aggregate
 			} catch (error) {
 				this.error = error.message
-				logger.error('Failed to create room task', error, { store: 'roomTasks', action: 'createRoomTask' })
+				logger.error('Failed to create task aggregate', error, { store: 'roomTasks', action: 'createTaskAggregate' })
 				throw error
 			} finally {
 				this.loading = false
@@ -148,17 +165,32 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Create a room task from a catalog template (per-room picker).
+		 * The response is the aggregate shape `{task, roomTask, assignees}`
+		 * (CS-PLAN-063 D1); the materialized room task joins the store.
 		 * @param {object} payload { roomId, templateId, level?, overrides?, assigneeUserId? }
-		 * @return {Promise<object>} Created room task
+		 * @return {Promise<object>} The creation aggregate
 		 */
 		async createFromTemplate(payload) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const data = await api.post('/api/v1/room-tasks/from-template', payload)
-				this.roomTasks.push(data)
-				return data
+				const aggregate = await api.post('/api/v1/room-tasks/from-template', payload)
+
+				const roomTask = {
+					...aggregate.roomTask,
+					assignees: (aggregate.assignees || []).map(a => a.userId),
+				}
+				this.roomTasks.push(roomTask)
+
+				// Same aggregate-shape handling as createTaskAggregate (D1):
+				// cache the materialized definition for TaskList rendering.
+				const tasksStore = useTasksStore()
+				if (aggregate.task && !tasksStore.getTaskById(aggregate.task.id)) {
+					tasksStore.tasks.push(aggregate.task)
+				}
+
+				return aggregate
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to create room task from template', error, { store: 'roomTasks', action: 'createFromTemplate', templateId: payload?.templateId })
@@ -221,44 +253,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			} finally {
 				this.loading = false
 			}
-		},
-
-		/**
-		 * Create a task definition and materialize it as a room task,
-		 * optionally assigning members (unified creation chain, UX-001).
-		 *
-		 * The definition stays created when a later stage fails — the result
-		 * reports which stage failed so the caller can toast partial success
-		 * instead of silently dropping the user's work.
-		 *
-		 * @param {object} taskData Task definition payload (POST /tasks).
-		 * @param {number} roomId Room the task is materialized in.
-		 * @param {Array<string>} assigneeUserIds Nextcloud user IDs to assign.
-		 * @return {Promise<{task: object, roomTask: ?object, roomTaskError: ?Error, assignError: ?Error}>}
-		 */
-		async createTaskWithRoomTask(taskData, roomId, assigneeUserIds = []) {
-			const tasksStore = useTasksStore()
-			const task = await tasksStore.createTask(taskData)
-
-			let roomTask = null
-			let roomTaskError = null
-			try {
-				roomTask = await this.createRoomTask({ roomId, taskId: task.id, nextDue: null })
-			} catch (error) {
-				roomTaskError = error
-				return { task, roomTask, roomTaskError, assignError: null }
-			}
-
-			let assignError = null
-			if (assigneeUserIds.length > 0) {
-				try {
-					await this.setAssignees(roomTask.id, assigneeUserIds)
-				} catch (error) {
-					assignError = error
-				}
-			}
-
-			return { task, roomTask, roomTaskError, assignError }
 		},
 
 		/**

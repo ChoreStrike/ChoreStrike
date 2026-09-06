@@ -98,6 +98,18 @@ class Task extends Entity implements JsonSerializable {
 		self::RECURRENCE_BOUNDED,
 	];
 
+	/**
+	 * Canonical scheduling vocabulary (CS-PLAN-063 §3.1) — the closed set
+	 * TaskService::validateTaskData accepts and the scheduler branches on.
+	 */
+	public const SCHEDULING_DYNAMIC = 'dynamic';
+	public const SCHEDULING_STATIC = 'static';
+
+	public const SCHEDULING_MODES = [
+		self::SCHEDULING_DYNAMIC,
+		self::SCHEDULING_STATIC,
+	];
+
 	/** @var string */
 	protected $name;
 

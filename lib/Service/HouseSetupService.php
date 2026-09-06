@@ -356,12 +356,24 @@ class HouseSetupService {
 	 * length-validated like any other name. Invalid names fail before any
 	 * write (400 VALIDATION_ERROR path).
 	 *
+	 * CR-062-01 (CS-PLAN-063 §3.1): a present but non-string houseName is a
+	 * hard 400 — never silently treated as absent (which answered 200 and
+	 * kept the old name).
+	 *
 	 * @param mixed $houseName
 	 * @return string|null The validated name, or null to keep the current one
 	 * @throws \InvalidArgumentException
 	 */
 	private function validateHouseName($houseName): ?string {
-		if ($houseName === null || !is_string($houseName) || trim($houseName) === '') {
+		if ($houseName === null) {
+			return null;
+		}
+
+		if (!is_string($houseName)) {
+			throw new \InvalidArgumentException($this->l10n->t('A house name must be a string'));
+		}
+
+		if (trim($houseName) === '') {
 			return null;
 		}
 

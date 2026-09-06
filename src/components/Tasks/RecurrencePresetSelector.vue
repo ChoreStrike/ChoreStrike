@@ -5,7 +5,7 @@
 
 <template>
 	<div class="template-selector">
-		<label class="selector-label">{{ t('chorestrike', 'Task Template') }}</label>
+		<label class="selector-label">{{ t('chorestrike', 'Repeat') }}</label>
 		<div class="template-grid">
 			<button
 				v-for="template in templates"
@@ -21,7 +21,6 @@
 </template>
 
 <script>
-import { ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common/index.js'
 
@@ -32,11 +31,21 @@ export default {
 		Icon,
 	},
 
+	/**
+	 * The selected preset id (honest wiring, CS-PLAN-063 D4): the parent
+	 * owns the selection; the selector highlights it and emits its own
+	 * shape `{id, name, icon, recurrence}` — nothing more is promised.
+	 */
+	props: {
+		selectedTemplate: {
+			type: String,
+			default: null,
+		},
+	},
+
 	emits: ['select'],
 
 	setup(props, { emit }) {
-		const selectedTemplate = ref(null)
-
 		const templates = [
 			{
 				id: 'daily',
@@ -65,14 +74,12 @@ export default {
 		]
 
 		const selectTemplate = (template) => {
-			selectedTemplate.value = template.id
 			emit('select', template)
 		}
 
 		return {
 			t,
 			templates,
-			selectedTemplate,
 			selectTemplate,
 		}
 	},

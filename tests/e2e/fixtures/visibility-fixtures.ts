@@ -21,15 +21,6 @@ export async function createVisibilityFixture(
 ): Promise<boolean> {
 	const api = page.request
 
-	const create = await api.post('/apps/chorestrike/api/v1/tasks', {
-		data: { name, energyCost: 5, visibilityType },
-		headers: { Accept: 'application/json' },
-	})
-	if (create.status() !== 200) {
-		return false
-	}
-	const taskId = ((await create.json()).data as { id: number }).id
-
 	// /rooms requires a floorId; floors/with-rooms yields any room directly.
 	const floors = await api.get('/apps/chorestrike/api/v1/floors/with-rooms', {
 		headers: { Accept: 'application/json' },
@@ -43,9 +34,10 @@ export async function createVisibilityFixture(
 		return false
 	}
 
-	const link = await api.post('/apps/chorestrike/api/v1/room-tasks', {
-		data: { taskId, roomId },
+	// CS-PLAN-063: one atomic aggregate request (definition + room-task link).
+	const aggregate = await api.post('/apps/chorestrike/api/v1/room-tasks', {
+		data: { roomId, task: { name, energyCost: 5, visibilityType } },
 		headers: { Accept: 'application/json' },
 	})
-	return link.status() === 200
+	return aggregate.status() === 200
 }

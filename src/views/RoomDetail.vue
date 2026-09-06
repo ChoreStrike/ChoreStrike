@@ -105,7 +105,11 @@
 			<div class="tasks-section">
 				<div class="section-header">
 					<h2>{{ t('chorestrike', 'Tasks') }}</h2>
-					<button class="primary-button" data-testid="add-task-button" @click="openAddTask">
+					<button
+						v-if="canManageTasks"
+						class="primary-button"
+						data-testid="add-task-button"
+						@click="openAddTask">
 						<Icon name="Plus" :size="16" class="icon" />
 						{{ t('chorestrike', 'Add Task') }}
 					</button>
@@ -195,7 +199,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import { useRoomsStore } from '../store/rooms.js'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useTasksStore } from '../store/tasks.js'
@@ -267,6 +271,10 @@ export default {
 
 		roomType() {
 			return this.room?.roomType || 'generic'
+		},
+
+		canManageTasks() {
+			return this.userStore.canManageTasks
 		},
 
 		floor() {
@@ -393,29 +401,29 @@ export default {
 			}
 		},
 
+		/**
+		 * The atomic creation aggregate (CS-PLAN-063 §3.5): exactly one
+		 * request — on failure the modal stays open with the input preserved
+		 * (no partial success toasts, no orphan definition).
+		 * @param {object} taskData Form payload: definition + roomId + assigneeUserIds + nextDue.
+		 */
 		async handleAddTask(taskData) {
-			const { roomId, assigneeUserIds, ...definition } = taskData
+			const { roomId: _roomId, assigneeUserIds, nextDue, ...definition } = taskData
 			this.creating = true
 			try {
-				const result = await this.roomTasksStore.createTaskWithRoomTask(
-					definition,
-					this.roomId,
-					assigneeUserIds || [],
-				)
-				if (result.roomTaskError) {
-					showError(t('chorestrike', 'Task saved, but adding it to the room failed'))
-				} else {
-					if (result.assignError) {
-						showWarning(t('chorestrike', 'Task created, but assigning members failed. You can assign them in the task list.'))
-					} else {
-						showSuccess(t('chorestrike', 'Task created'))
-					}
-					this.showAddTaskModal = false
-					this.addTaskMode = 'template'
-					await this.roomTasksStore.fetchRoomTasks(this.roomId)
-					await this.tasksStore.fetchTasks()
-				}
+				await this.roomTasksStore.createTaskAggregate({
+					roomId: this.roomId,
+					task: definition,
+					assigneeUserIds: assigneeUserIds || [],
+					nextDue: nextDue || null,
+				})
+				showSuccess(t('chorestrike', 'Task created'))
+				this.showAddTaskModal = false
+				this.addTaskMode = 'template'
+				await this.roomTasksStore.fetchRoomTasks(this.roomId)
+				await this.tasksStore.fetchTasks()
 			} catch (error) {
+				// Recoverable failure: keep the modal open and the input intact.
 				showError(t('chorestrike', 'Failed to create task'))
 				logger.error('Failed to create task', error, { view: 'RoomDetail', action: 'handleAddTask', roomId: this.roomId })
 			} finally {

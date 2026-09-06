@@ -114,9 +114,14 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	}
 
 	public function testUserCannotCreateRoomTaskInForeignRoom(): void {
-		$controller = $this->getController(RoomTaskController::class, 'ta_member');
+		// CS-PLAN-063: creation runs through the atomic aggregate; the
+		// request-style controller build carries the new payload shape.
+		$controller = $this->getBulkController('ta_member', [
+			'roomId' => $this->foreignRoomId,
+			'taskId' => $this->foreignTaskId,
+		]);
 
-		$response = $controller->create($this->foreignRoomId, $this->foreignTaskId);
+		$response = $controller->create();
 
 		self::assertSame(404, $response->getStatus());
 		$data = $response->getData();
@@ -205,9 +210,14 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	}
 
 	public function testChildCannotCreateRoomTask(): void {
-		$controller = $this->getController(RoomTaskController::class, 'ta_child');
+		// CS-PLAN-063: creation runs through the atomic aggregate; children
+		// are denied by the actor policy (403) before any mapper call.
+		$controller = $this->getBulkController('ta_child', [
+			'roomId' => $this->roomId,
+			'taskId' => $this->taskId,
+		]);
 
-		$response = $controller->create($this->roomId, $this->taskId);
+		$response = $controller->create();
 
 		self::assertSame(403, $response->getStatus());
 		self::assertSame(1, $this->countRoomTasksForTask($this->taskId), 'no second room task may be created');
@@ -327,6 +337,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 		return new RoomTaskController(
 			$request,
 			\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\TaskCreationService::class),
 			\OC::$server->get(\OCA\ChoreStrike\Service\HouseService::class),
 			\OC::$server->get(\OCA\ChoreStrike\Service\AuthorizationService::class),
 			$l10n,

@@ -34,9 +34,7 @@ jest.mock('@/store/roomTasks.js', () => ({
 }))
 
 jest.mock('@/store/user.js', () => ({
-	useUserStore: () => ({
-		isHouseOwner: true,
-	}),
+	useUserStore: () => mockUserStore,
 }))
 
 jest.mock('@/components/Tasks/TaskList.vue', () => ({
@@ -81,11 +79,17 @@ const mockTasksStore = {
 const mockRoomTasksStore = {
 	roomTasks: [],
 	fetchRoomTasks: jest.fn().mockResolvedValue([]),
-	createTaskWithRoomTask: jest.fn(),
+	createTaskAggregate: jest.fn(),
 	completeRoomTask: jest.fn().mockResolvedValue({}),
 	deleteRoomTask: jest.fn().mockResolvedValue(),
 	totalOverdueTasks: 0,
 	totalDueTodayTasks: 0,
+}
+
+const mockUserStore = {
+	isHouseOwner: true,
+	role: 'owner',
+	canManageTasks: true,
 }
 
 describe('TaskManager', () => {
@@ -121,12 +125,11 @@ describe('TaskManager', () => {
 		expect(wrapper.find('[data-testid="task-manager-view"]').exists()).toBe(true)
 	})
 
-	it('chains definition, room task and assignees on create and refreshes the room list', async () => {
-		roomTasksStore.createTaskWithRoomTask.mockResolvedValue({
-			task: { id: 7 },
+	it('sends ONE aggregate request on create and refreshes the room list (CS-PLAN-063 §3.5)', async () => {
+		roomTasksStore.createTaskAggregate.mockResolvedValue({
+			task: { id: 7, name: 'Dishes' },
 			roomTask: { id: 42, roomId: 12 },
-			roomTaskError: null,
-			assignError: null,
+			assignees: [{ userId: 'mom' }],
 		})
 		const wrapper = await mountView()
 		const form = await openCreateModal(wrapper)
@@ -136,39 +139,26 @@ describe('TaskManager', () => {
 			roomId: 12,
 			assigneeUserIds: ['mom'],
 			energyCost: 2,
+			nextDue: '2030-05-10',
 		})
 		await wrapper.vm.$nextTick()
 		await wrapper.vm.$nextTick()
 
-		expect(roomTasksStore.createTaskWithRoomTask).toHaveBeenCalledWith(
-			{ name: 'Dishes', energyCost: 2 },
-			12,
-			['mom'],
-		)
+		// Exactly one request — no definition POST, no assignee PUT.
+		expect(roomTasksStore.createTaskAggregate).toHaveBeenCalledTimes(1)
+		expect(roomTasksStore.createTaskAggregate).toHaveBeenCalledWith({
+			roomId: 12,
+			task: { name: 'Dishes', energyCost: 2 },
+			assigneeUserIds: ['mom'],
+			nextDue: '2030-05-10',
+		})
 		expect(showSuccess).toHaveBeenCalled()
 		expect(wrapper.vm.showAddTaskModal).toBe(false)
 		expect(roomTasksStore.fetchRoomTasks).toHaveBeenCalledWith(12)
 	})
 
-	it('toasts an error and keeps the modal open when the definition creation fails', async () => {
-		roomTasksStore.createTaskWithRoomTask.mockRejectedValue(new Error('boom'))
-		const wrapper = await mountView()
-		const form = await openCreateModal(wrapper)
-
-		await form.vm.$emit('submit', { name: 'Dishes', roomId: 12, assigneeUserIds: [] })
-		await wrapper.vm.$nextTick()
-
-		expect(showError).toHaveBeenCalled()
-		expect(wrapper.vm.showAddTaskModal).toBe(true)
-	})
-
-	it('toasts an error and keeps the modal open when the room task materialization fails', async () => {
-		roomTasksStore.createTaskWithRoomTask.mockResolvedValue({
-			task: { id: 7 },
-			roomTask: null,
-			roomTaskError: new Error('no room task'),
-			assignError: null,
-		})
+	it('toasts an error and keeps the modal open when the aggregate request fails', async () => {
+		roomTasksStore.createTaskAggregate.mockRejectedValue(new Error('boom'))
 		const wrapper = await mountView()
 		const form = await openCreateModal(wrapper)
 		const refreshCallsBefore = roomTasksStore.fetchRoomTasks.mock.calls.length
@@ -178,26 +168,17 @@ describe('TaskManager', () => {
 
 		expect(showError).toHaveBeenCalled()
 		expect(showSuccess).not.toHaveBeenCalled()
+		// The modal stays open with the input preserved (no orphan definition).
 		expect(wrapper.vm.showAddTaskModal).toBe(true)
-		// No refresh beyond the initial mount load
 		expect(roomTasksStore.fetchRoomTasks.mock.calls.length).toBe(refreshCallsBefore)
 	})
 
-	it('closes the modal with a warning toast when only the assignment fails (partial success)', async () => {
-		roomTasksStore.createTaskWithRoomTask.mockResolvedValue({
-			task: { id: 7 },
-			roomTask: { id: 42, roomId: 12 },
-			roomTaskError: null,
-			assignError: new Error('assign boom'),
-		})
+	it('hides the add-task entry point for children (CS-PLAN-061 D5 surface)', async () => {
+		mockUserStore.canManageTasks = false
 		const wrapper = await mountView()
-		const form = await openCreateModal(wrapper)
 
-		await form.vm.$emit('submit', { name: 'Dishes', roomId: 12, assigneeUserIds: ['mom'] })
-		await wrapper.vm.$nextTick()
-
-		expect(showWarning).toHaveBeenCalled()
-		expect(wrapper.vm.showAddTaskModal).toBe(false)
+		expect(wrapper.find('[data-testid="add-task-button"]').exists()).toBe(false)
+		mockUserStore.canManageTasks = true
 	})
 
 	it('pre-filters to private tasks when routed with ?visibility=private (CS-PLAN-041)', async () => {

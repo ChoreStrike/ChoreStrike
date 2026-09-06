@@ -2172,9 +2172,6 @@ msgstr ""
 msgid "Task created"
 msgstr ""
 
-msgid "Task created, but assigning members failed. You can assign them in the task list."
-msgstr ""
-
 msgid "Task deleted successfully"
 msgstr ""
 
@@ -2191,12 +2188,6 @@ msgid "Task not found"
 msgstr ""
 
 msgid "Task not found or conflict resolution preferred local"
-msgstr ""
-
-msgid "Task saved, but adding it to the room failed"
-msgstr ""
-
-msgid "Task saved, but adding it to the room failed. Try again from the room page."
 msgstr ""
 
 msgid "Task Stats"
@@ -2780,4 +2771,79 @@ msgid "Your team is on a roll! Keep up the great work!"
 msgstr ""
 
 msgid "Your Title"
+msgstr ""
+
+msgid "%1$s must not exceed %2$d characters"
+msgstr ""
+
+msgid "A house name must be a string"
+msgstr ""
+
+msgid "Every {n} days"
+msgstr ""
+
+msgid "Every {n} months"
+msgstr ""
+
+msgid "Exactly one of task or taskId is required"
+msgstr ""
+
+msgid "First due"
+msgstr ""
+
+msgid "First due date"
+msgstr ""
+
+msgid "Flex days must be between %1$d and %2$d"
+msgstr ""
+
+msgid "Instructions"
+msgstr ""
+
+msgid "Invalid fixed schedule days"
+msgstr ""
+
+msgid "Invalid scheduling mode"
+msgstr ""
+
+msgid "Invalid value type for field: %1$s"
+msgstr ""
+
+msgid "Leave empty to start tomorrow"
+msgstr ""
+
+msgid "No prefill"
+msgstr ""
+
+msgid "No room selected"
+msgstr ""
+
+msgid "One-time task"
+msgstr ""
+
+msgid "Optional step-by-step instructions..."
+msgstr ""
+
+msgid "Prefill from catalog"
+msgstr ""
+
+msgid "Repeat"
+msgstr ""
+
+msgid "Suggestions for the selected room type — everything stays editable"
+msgstr ""
+
+msgid "Unassigned"
+msgstr ""
+
+msgid "{due} (±{days} days)"
+msgstr ""
+
+msgid "assigneeUserIds must be an array of user IDs"
+msgstr ""
+
+msgid "taskId must be a positive integer"
+msgstr ""
+
+msgid "task must be an object"
 msgstr ""

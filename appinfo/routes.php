@@ -29,8 +29,11 @@ return [
         // NOTE: static single-segment routes MUST precede the parameterized
         // `{id}` routes — Nextcloud's router matches in registration order
         // (shadowing rule fixed by CS-PLAN-023; guarded by RouteMatrixTest).
+        // Pruned 2026-09-05 (CS-PLAN-063): `task#create` (POST /tasks) lost
+        // its last consumer to the atomic creation aggregate — creation now
+        // runs exclusively through POST /room-tasks (custom/mount) and
+        // POST /room-tasks/from-template.
         ['name' => 'task#index', 'url' => '/api/v1/tasks', 'verb' => 'GET'],
-        ['name' => 'task#create', 'url' => '/api/v1/tasks', 'verb' => 'POST'],
         ['name' => 'task#update', 'url' => '/api/v1/tasks/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
         ['name' => 'task#uncomplete', 'url' => '/api/v1/tasks/{id}/uncomplete', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
 

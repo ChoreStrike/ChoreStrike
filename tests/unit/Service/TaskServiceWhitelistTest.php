@@ -39,7 +39,10 @@ class TaskServiceWhitelistTest extends TestCase {
 		// here so the whitelist behavior stays isolated.
 		$this->taskAccessPolicy->method('canViewTask')->willReturn(true);
 		$l10n = $this->createMock(IL10N::class);
-		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		$l10n->method('t')->willReturnCallback(static function (string $text, array $parameters = []) {
+			$pattern = preg_replace('/%[0-9]+\$[ds]/', '%s', $text);
+			return $parameters === [] ? $pattern : vsprintf($pattern, array_map('strval', array_values($parameters)));
+		});
 		$this->service = new TaskService($this->taskMapper, $l10n, $this->authorization, $this->taskAccessPolicy);
 	}
 
@@ -82,6 +85,27 @@ class TaskServiceWhitelistTest extends TestCase {
 		$result = $this->service->updateTask(1, ['name' => 'Shiny New Name'], $this->createHouseUser());
 
 		$this->assertSame('Shiny New Name', $result->getName());
+	}
+
+	/**
+	 * UpdateTask_NullName_RejectedAsValidation400
+	 *
+	 * CS-PLAN-063 Standard B finding F1: a present-but-null `name` is a
+	 * validation error (the pre-aggregate controller contract), not a
+	 * setter call that would hit the NOT NULL column and answer 500.
+	 * Key presence counts — `?? null` cannot distinguish absent from null.
+	 */
+	public function testUpdateTask_NullName_RejectedAsValidation400(): void {
+		$task = new Task();
+		$this->taskMapper->method('find')->willReturn($task);
+		$this->taskMapper->expects($this->never())->method('update');
+
+		try {
+			$this->service->updateTask(1, ['name' => null, 'energyCost' => 3], $this->createHouseUser());
+			$this->fail('A null name must be rejected by validation');
+		} catch (\OCA\ChoreStrike\Exception\ValidationException $e) {
+			$this->assertSame(['Task name is required'], $e->getErrors());
+		}
 	}
 
 	public function testUpdateTask_ParsesDateFieldFromString(): void {

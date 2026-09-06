@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Exception\ValidationException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
 
@@ -49,6 +50,18 @@ class TaskService {
 
 	/** Fields whose value is a date and must be parsed from string input. */
 	private const DATE_FIELDS = ['activeFrom', 'activeUntil', 'fixedScheduleTime'];
+
+	/** Hard length cap for free-text instruction/tip fields (CS-PLAN-063 §3.1). */
+	public const MAX_TEXT_LENGTH = 2000;
+
+	/** Valid flex-window bounds (CS-PLAN-063 D3, ratified [0, 7]). */
+	public const FLEX_DAYS_MIN = 0;
+	public const FLEX_DAYS_MAX = 7;
+
+	/** Canonical weekday names accepted in fixedScheduleDays. */
+	public const WEEKDAYS = [
+		'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+	];
 
 	private TaskMapper $taskMapper;
 	private IL10N $l10n;
@@ -104,87 +117,6 @@ class TaskService {
 			throw new NotFoundException($this->l10n->t('Task not found'));
 		}
 		return $task;
-	}
-
-	/**
-	 * Create a new task (CS-PLAN-061 §3.4: children may not create task
-	 * definitions; the acting HouseUser is mandatory so the actor policy can
-	 * never be bypassed by forgetting the preamble).
-	 *
-	 * @param HouseUser $actor The acting user's house membership
-	 * @param string $name The task name
-	 * @param string|null $description The task description
-	 * @param int $energyCost The energy cost (1-5)
-	 * @param int $priority The priority (1-3)
-	 * @param string $frequencyType The frequency type
-	 * @param int $frequencyValue The frequency value
-	 * @param int $estimatedMinutes Estimated time in minutes
-	 * @param string $category The task category
-	 * @param string $scopeType The scope type (room, floor, house)
-	 * @param string|null $scopeLabel Optional scope label
-	 * @param string $recurrenceMode Recurrence mode (recurring, once, bounded)
-	 * @param \DateTime|null $activeFrom Optional start date
-	 * @param \DateTime|null $activeUntil Optional end date
-	 * @param bool $isVoluntary Whether task is voluntary
-	 * @param string $schedulingMode Scheduling mode (dynamic, fixed)
-	 * @param \DateTime|null $fixedScheduleTime Fixed schedule time
-	 * @param string|null $fixedScheduleDays Fixed schedule days
-	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the actor is a child
-	 */
-	public function createTask(
-		HouseUser $actor,
-		string $name,
-		?string $description,
-		int $energyCost,
-		int $priority,
-		string $frequencyType,
-		int $frequencyValue,
-		int $estimatedMinutes,
-		string $category,
-		string $scopeType = 'room',
-		?string $scopeLabel = null,
-		string $recurrenceMode = 'recurring',
-		?\DateTime $activeFrom = null,
-		?\DateTime $activeUntil = null,
-		bool $isVoluntary = false,
-		string $schedulingMode = 'dynamic',
-		?\DateTime $fixedScheduleTime = null,
-		?string $fixedScheduleDays = null,
-		?string $instructions = null,
-		?string $tips = null,
-		?int $estimatedMinutesMin = null,
-		?int $estimatedMinutesMax = null,
-		string $visibilityType = 'public',
-		?string $ownerUserId = null,
-	): Task {
-		// Actor policy (D5): children execute tasks, they do not create them.
-		$this->authorization->assertCanManageTasks($actor);
-
-		return $this->taskMapper->create(
-			$name,
-			$description,
-			$energyCost,
-			$priority,
-			$frequencyType,
-			$frequencyValue,
-			$estimatedMinutes,
-			$category,
-			$scopeType,
-			$scopeLabel,
-			$recurrenceMode,
-			$activeFrom,
-			$activeUntil,
-			$isVoluntary,
-			$schedulingMode,
-			$fixedScheduleTime,
-			$fixedScheduleDays,
-			$instructions,
-			$tips,
-			$estimatedMinutesMin,
-			$estimatedMinutesMax,
-			$visibilityType,
-			$ownerUserId
-		);
 	}
 
 	/**
@@ -255,19 +187,41 @@ class TaskService {
 			$this->authorization->assertUserInHouse($actor->getHouseId(), $updates['ownerUserId']);
 		}
 
+		// Whitelist first (mass-assignment defense, unchanged semantics):
+		// an unknown or immutable key is rejected before any value check.
 		foreach ($updates as $field => $value) {
 			if (!in_array($field, self::MUTABLE_FIELDS, true)) {
-				throw new \InvalidArgumentException('Unknown or immutable field: ' . $field);
+				throw new \InvalidArgumentException($this->l10n->t('Unknown or immutable field: %1$s', [$field]));
 			}
+		}
 
+		// Validate the whitelisted values through the one closed constraint
+		// set (CS-PLAN-063 §3.1): validation is service-owned, the controller
+		// no longer pre-checks. Updates are partial, so the name is only
+		// validated when present. A malformed value → ValidationException (400).
+		$whitelisted = array_intersect_key($updates, array_flip(self::MUTABLE_FIELDS));
+		$errors = $this->validateTaskData($whitelisted, requireName: false);
+		if ($errors !== []) {
+			throw new ValidationException($errors[0], $errors);
+		}
+
+		foreach ($updates as $field => $value) {
 			// Task extends Nextcloud's Entity, whose accessors are magic
 			// (@method/__call), so method_exists() returns false for them and
 			// cannot be used as a gate. The MUTABLE_FIELDS whitelist above is
 			// the authoritative guard; the Entity setter applies the value.
 			$method = 'set' . ucfirst($field);
 
-			if (in_array($field, self::DATE_FIELDS, true) && is_string($value)) {
-				$value = new \DateTime($value);
+			if (in_array($field, self::DATE_FIELDS, true)) {
+				// An empty string clears the field (client blanks); a filled
+				// string parses (validation already guaranteed parseability).
+				$value = ($value === '') ? null : (is_string($value) ? new \DateTime($value) : $value);
+			}
+
+			// fixedScheduleDays accepts the PHP weekday-list form from
+			// clients and persists its canonical JSON encoding.
+			if ($field === 'fixedScheduleDays' && is_array($value)) {
+				$value = json_encode(array_values($value));
 			}
 
 			$task->$method($value);
@@ -277,41 +231,57 @@ class TaskService {
 	}
 
 	/**
-	 * Validate task data
+	 * Validate task data — the single creation/update constraint authority
+	 * (CS-PLAN-063 §3.1). Invoked by services (TaskService::updateTask,
+	 * TaskCreationService), never by controllers.
 	 *
-	 * Returns localized, client-safe error messages (surfaced in the
-	 * TaskController 400 envelope `details[]`), hence every literal goes
-	 * through t() (CR-SVC-37).
+	 * The constraint set is closed: every accepted field is range/type
+	 * checked, malformed or non-scalar values are reported as errors (→ 400)
+	 * and never coerced. `$requireName` is true on the creation path (name
+	 * mandatory) and false on the partial-update path (absent name is fine,
+	 * a present blank/non-string name is still rejected). Returns localized,
+	 * client-safe error messages (surfaced in the 400 envelope `details[]`),
+	 * hence every literal goes through t() (CR-SVC-37).
 	 *
 	 * @param array $taskData The task data to validate
+	 * @param bool $requireName Whether the name is mandatory (create path)
 	 */
-	public function validateTaskData(array $taskData): array {
+	public function validateTaskData(array $taskData, bool $requireName = true): array {
 		$errors = [];
 
-		// Required fields
-		if (empty($taskData['name'])) {
-			$errors[] = $this->l10n->t('Task name is required');
-		}
-
-		// Energy cost validation
-		if (isset($taskData['energyCost'])) {
-			if ($taskData['energyCost'] < 1 || $taskData['energyCost'] > 5) {
-				$errors[] = $this->l10n->t('Energy cost must be between 1 and 5');
+		// Name: strictly a string, non-blank when required (no coercion). A
+		// present-but-null name is invalid on every path (key presence, not
+		// value truthiness — `?? null` cannot distinguish the two).
+		$hasName = array_key_exists('name', $taskData);
+		$name = $taskData['name'] ?? null;
+		if ($name !== null && !is_string($name)) {
+			$errors[] = $this->typeError('name');
+		} elseif ($requireName || $hasName) {
+			if (!is_string($name) || trim($name) === '') {
+				$errors[] = $this->l10n->t('Task name is required');
 			}
 		}
 
-		// Priority validation
-		if (isset($taskData['priority'])) {
-			if ($taskData['priority'] < 1 || $taskData['priority'] > 3) {
-				$errors[] = $this->l10n->t('Priority must be between 1 and 3');
+		// Integer-ranged fields (strict int, no coercion).
+		foreach (['energyCost', 'priority', 'estimatedMinutes', 'frequencyValue'] as $field) {
+			if (isset($taskData[$field]) && !is_int($taskData[$field])) {
+				$errors[] = $this->typeError($field);
 			}
 		}
 
-		// Estimated time validation
-		if (isset($taskData['estimatedMinutes'])) {
-			if ($taskData['estimatedMinutes'] < 1 || $taskData['estimatedMinutes'] > 480) {
-				$errors[] = $this->l10n->t('Estimated time must be between 1 and 480 minutes');
-			}
+		if (isset($taskData['energyCost']) && is_int($taskData['energyCost'])
+			&& ($taskData['energyCost'] < 1 || $taskData['energyCost'] > 5)) {
+			$errors[] = $this->l10n->t('Energy cost must be between 1 and 5');
+		}
+
+		if (isset($taskData['priority']) && is_int($taskData['priority'])
+			&& ($taskData['priority'] < 1 || $taskData['priority'] > 3)) {
+			$errors[] = $this->l10n->t('Priority must be between 1 and 3');
+		}
+
+		if (isset($taskData['estimatedMinutes']) && is_int($taskData['estimatedMinutes'])
+			&& ($taskData['estimatedMinutes'] < 1 || $taskData['estimatedMinutes'] > 480)) {
+			$errors[] = $this->l10n->t('Estimated time must be between 1 and 480 minutes');
 		}
 
 		// Estimated-time range cross-check (CS-PLAN-060 §3.6): an inverted
@@ -324,22 +294,20 @@ class TaskService {
 		// Frequency type validation
 		if (isset($taskData['frequencyType'])) {
 			$validTypes = ['daily', 'weekly', 'monthly', 'custom'];
-			if (!in_array($taskData['frequencyType'], $validTypes)) {
+			if (!in_array($taskData['frequencyType'], $validTypes, true)) {
 				$errors[] = $this->l10n->t('Invalid frequency type');
 			}
 		}
 
 		// Frequency value validation
-		if (isset($taskData['frequencyValue'])) {
-			if ($taskData['frequencyValue'] < 1) {
-				$errors[] = $this->l10n->t('Frequency value must be at least 1');
-			}
+		if (isset($taskData['frequencyValue']) && is_int($taskData['frequencyValue']) && $taskData['frequencyValue'] < 1) {
+			$errors[] = $this->l10n->t('Frequency value must be at least 1');
 		}
 
 		// Scope type validation
 		if (isset($taskData['scopeType'])) {
 			$validScopeTypes = ['room', 'floor', 'house'];
-			if (!in_array($taskData['scopeType'], $validScopeTypes)) {
+			if (!in_array($taskData['scopeType'], $validScopeTypes, true)) {
 				$errors[] = $this->l10n->t('Invalid scope type');
 			}
 		}
@@ -351,23 +319,146 @@ class TaskService {
 			}
 		}
 
-		// Date range validation
-		if (isset($taskData['activeFrom']) && isset($taskData['activeUntil'])) {
-			$from = new \DateTime($taskData['activeFrom']);
-			$until = new \DateTime($taskData['activeUntil']);
-			if ($until < $from) {
-				$errors[] = $this->l10n->t('Active until must be equal or after active from');
+		// Scheduling mode validation (canonical Task::SCHEDULING_MODES set,
+		// CS-PLAN-063 §3.1 — previously unchecked on every create path).
+		if (isset($taskData['schedulingMode'])) {
+			if (!in_array($taskData['schedulingMode'], Task::SCHEDULING_MODES, true)) {
+				$errors[] = $this->l10n->t('Invalid scheduling mode');
 			}
 		}
 
+		$this->validateDateFields($taskData, $errors);
+		$this->validateFixedScheduleFields($taskData, $errors);
+		$this->validateFlexAndTextFields($taskData, $errors);
+
 		// Visibility type validation
 		if (isset($taskData['visibilityType'])) {
-			if (!in_array($taskData['visibilityType'], \OCA\ChoreStrike\Db\Task::VISIBILITY_TYPES, true)) {
+			if (!in_array($taskData['visibilityType'], Task::VISIBILITY_TYPES, true)) {
 				$errors[] = $this->l10n->t('Invalid visibility type');
 			}
 		}
 
 		return $errors;
+	}
+
+	/**
+	 * Date-field validation: activeFrom/activeUntil must be parseable date
+	 * strings (never coerced from non-strings), and the range must not be
+	 * inverted.
+	 *
+	 * @param array $taskData The task data to validate
+	 * @param string[] $errors Error accumulator
+	 */
+	private function validateDateFields(array $taskData, array &$errors): void {
+		$parsed = [];
+		foreach (['activeFrom' => 'Invalid active from date', 'activeUntil' => 'Invalid active until date'] as $field => $message) {
+			$value = $taskData[$field] ?? null;
+			// Empty strings mean "not set" (the client form sends blanks).
+			if ($value === null || $value === '') {
+				continue;
+			}
+			if (!is_string($value)) {
+				$errors[] = $this->typeError($field);
+				continue;
+			}
+			try {
+				$parsed[$field] = new \DateTime($value);
+			} catch (\Exception $e) {
+				$errors[] = $this->l10n->t($message);
+			}
+		}
+
+		if (isset($parsed['activeFrom'], $parsed['activeUntil']) && $parsed['activeUntil'] < $parsed['activeFrom']) {
+			$errors[] = $this->l10n->t('Active until must be equal or after active from');
+		}
+	}
+
+	/**
+	 * Fixed-schedule validation: fixedScheduleTime must be a parseable time
+	 * string; fixedScheduleDays must be a weekday list (PHP array or its
+	 * canonical JSON string form) over the closed {@see WEEKDAYS} set.
+	 *
+	 * @param array $taskData The task data to validate
+	 * @param string[] $errors Error accumulator
+	 */
+	private function validateFixedScheduleFields(array $taskData, array &$errors): void {
+		$fixedTime = $taskData['fixedScheduleTime'] ?? null;
+		if ($fixedTime !== null && $fixedTime !== '') {
+			if (!is_string($fixedTime)) {
+				$errors[] = $this->typeError('fixedScheduleTime');
+			} else {
+				try {
+					new \DateTime($fixedTime);
+				} catch (\Exception $e) {
+					$errors[] = $this->l10n->t('Invalid fixed schedule time');
+				}
+			}
+		}
+
+		$fixedDays = $taskData['fixedScheduleDays'] ?? null;
+		if ($fixedDays === null || $fixedDays === '') {
+			return;
+		}
+
+		$decoded = $fixedDays;
+		if (is_string($fixedDays)) {
+			$decoded = json_decode($fixedDays, true);
+			if (!is_array($decoded)) {
+				$errors[] = $this->l10n->t('Invalid fixed schedule days');
+				return;
+			}
+		}
+
+		if (!is_array($decoded)) {
+			$errors[] = $this->typeError('fixedScheduleDays');
+			return;
+		}
+
+		foreach ($decoded as $day) {
+			if (!is_string($day) || !in_array(strtolower($day), self::WEEKDAYS, true)) {
+				$errors[] = $this->l10n->t('Invalid fixed schedule days');
+				return;
+			}
+		}
+	}
+
+	/**
+	 * Flex-window and free-text validation: flexDays is an integer within
+	 * the ratified [0, 7] bound (CS-PLAN-063 D3); instructions/tips are
+	 * length-capped strings.
+	 *
+	 * @param array $taskData The task data to validate
+	 * @param string[] $errors Error accumulator
+	 */
+	private function validateFlexAndTextFields(array $taskData, array &$errors): void {
+		$flexDays = $taskData['flexDays'] ?? null;
+		if ($flexDays !== null) {
+			if (!is_int($flexDays)) {
+				$errors[] = $this->typeError('flexDays');
+			} elseif ($flexDays < self::FLEX_DAYS_MIN || $flexDays > self::FLEX_DAYS_MAX) {
+				$errors[] = $this->l10n->t('Flex days must be between %1$d and %2$d', [self::FLEX_DAYS_MIN, self::FLEX_DAYS_MAX]);
+			}
+		}
+
+		foreach (['instructions' => 'Instructions', 'tips' => 'Tips'] as $field => $label) {
+			$value = $taskData[$field] ?? null;
+			if ($value === null) {
+				continue;
+			}
+			if (!is_string($value)) {
+				$errors[] = $this->typeError($field);
+			} elseif (mb_strlen($value) > self::MAX_TEXT_LENGTH) {
+				$errors[] = $this->l10n->t('%1$s must not exceed %2$d characters', [$label, self::MAX_TEXT_LENGTH]);
+			}
+		}
+	}
+
+	/**
+	 * Localized "wrong value type" message for one field (strict 400s, no
+	 * coercion — CS-PLAN-063 §3.1).
+	 */
+	private function typeError(string $field): string {
+		return $this->l10n->t('Invalid value type for field: %1$s', [$field]);
 	}
 
 	/**

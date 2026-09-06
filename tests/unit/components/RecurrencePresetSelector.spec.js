@@ -20,11 +20,19 @@ describe('RecurrencePresetSelector', () => {
 		expect(emitted).toHaveProperty('recurrence')
 	})
 
-	it('highlights selected template', async () => {
-		const wrapper = mount(RecurrencePresetSelector)
+	it('highlights the preset id passed via the prop (CS-PLAN-063 D4)', async () => {
+		const wrapper = mount(RecurrencePresetSelector, {
+			props: { selectedTemplate: 'weekly' },
+		})
 		const buttons = wrapper.findAll('button')
-		await buttons[0].trigger('click')
 
-		expect(buttons[0].classes()).toContain('active')
+		// The 'weekly' preset is the second button.
+		expect(buttons[1].classes()).toContain('active')
+		expect(buttons[0].classes()).not.toContain('active')
+
+		// Clicking does NOT select locally — the parent owns the state.
+		await buttons[0].trigger('click')
+		expect(wrapper.emitted('select')[0][0].id).toBe('daily')
+		expect(buttons[0].classes()).not.toContain('active')
 	})
 })

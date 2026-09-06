@@ -72,61 +72,9 @@ class TaskControllerIntegrationTest extends TestCase {
 		$this->assertTrue($data['success']);
 	}
 
-	/**
-	 * Create_ValidData_ReturnsCreatedTask
-	 */
-	public function testCreate_ValidData_ReturnsCreatedTask(): void {
-		$createdTask = $this->createMockTask(3, 'Mop floor');
-		$createdTask->setDescription('Mop hard floors');
-		$createdTask->setEnergyCost(2);
-		$createdTask->setPriority(2);
-		$createdTask->setEstimatedMinutes(25);
-
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->taskService->method('createTask')
-			->willReturn($createdTask);
-
-		$response = $this->controller->create(
-			'Mop floor',
-			'Mop hard floors',
-			2,
-			2,
-			'weekly',
-			1,
-			25,
-			'cleaning'
-		);
-
-		$this->assertEquals(200, $response->getStatus());
-		$data = $response->getData();
-		$this->assertTrue($data['success']);
-	}
-
-	/**
-	 * Create_InvalidData_ReturnsValidationError
-	 */
-	public function testCreate_InvalidData_ReturnsValidationError(): void {
-		$this->houseService->method('getInstanceId')->willReturn('test-instance');
-		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
-		$this->taskService->method('validateTaskData')
-			->willReturn(['Task name is required']);
-
-		$response = $this->controller->create(
-			'', // Empty name
-			null,
-			6, // Invalid energy cost
-			2,
-			'weekly',
-			1,
-			25,
-			'cleaning'
-		);
-
-		$this->assertEquals(400, $response->getStatus());
-		$data = $response->getData();
-		$this->assertFalse($data['success']);
-	}
+	// CS-PLAN-063: the former POST /tasks create tests were pruned with the
+	// endpoint — creation runs through the atomic aggregate on
+	// POST /room-tasks (TaskCreationAggregateTest covers the real-DB path).
 
 	/**
 	 * Update_ValidData_ReturnsUpdatedTask

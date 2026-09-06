@@ -8,6 +8,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 import { useHouseStore } from '../../../src/store/house.js'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
+import { useTasksStore } from '../../../src/store/tasks.js'
 
 jest.mock('../../../src/services/api.js', () => ({
 	api: {
@@ -141,17 +142,8 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
-		describe('createRoomTask', () => {
-			it('creates room task', async () => {
-				const newTask = { id: 1, name: 'New Task' }
-				api.post.mockResolvedValue(newTask)
-
-				const result = await store.createRoomTask({ name: 'New Task' })
-
-				expect(result).toEqual(newTask)
-				expect(store.roomTasks).toContainEqual(newTask)
-			})
-		})
+		// CS-PLAN-063: the former createRoomTask action was folded into
+		// createTaskAggregate (covered above).
 
 		describe('bulkAssignTasks (CS-PLAN-042, CR-SVC-61)', () => {
 			it('posts one bulk call and merges the assignment into cached tasks', async () => {
@@ -416,71 +408,79 @@ describe('RoomTasks Store', () => {
 		})
 	})
 
-	describe('createTaskWithRoomTask', () => {
-		it('chains definition, room task and assignees', async () => {
-			api.post.mockImplementation((url) => {
-				if (url === '/api/v1/tasks') {
-					return Promise.resolve({ id: 7, name: 'Dishes' })
-				}
-				if (url === '/api/v1/room-tasks') {
-					return Promise.resolve({ id: 42, roomId: 3, taskId: 7 })
-				}
-				return Promise.resolve([{ userId: 'mom' }, { userId: 'dad' }])
+	describe('createTaskAggregate (CS-PLAN-063 §3.5)', () => {
+		it('posts ONE aggregate request, updates both stores, and returns the aggregate', async () => {
+			api.post.mockResolvedValue({
+				task: { id: 7, name: 'Dishes' },
+				roomTask: { id: 42, roomId: 3, taskId: 7 },
+				assignees: [{ userId: 'mom' }, { userId: 'dad' }],
 			})
-			api.put.mockResolvedValue([{ userId: 'mom' }, { userId: 'dad' }])
 			store.roomTasks = []
 
-			const result = await store.createTaskWithRoomTask({ name: 'Dishes' }, 3, ['mom', 'dad'])
+			const tasksStore = useTasksStore()
+			const result = await store.createTaskAggregate({ roomId: 3, task: { name: 'Dishes' }, assigneeUserIds: ['mom', 'dad'] })
+
+			// One request, no follow-up PUT (the chain is gone).
+			expect(api.post).toHaveBeenCalledTimes(1)
+			expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks', { roomId: 3, task: { name: 'Dishes' }, assigneeUserIds: ['mom', 'dad'] })
+			expect(api.put).not.toHaveBeenCalled()
 
 			expect(result.task.id).toBe(7)
 			expect(result.roomTask.id).toBe(42)
-			expect(result.roomTaskError).toBeNull()
-			expect(result.assignError).toBeNull()
-			expect(api.post).toHaveBeenCalledWith('/api/v1/tasks', { name: 'Dishes' })
-			expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks', { roomId: 3, taskId: 7, nextDue: null })
-			expect(api.put).toHaveBeenCalledWith('/api/v1/room-tasks/42/assignees', { userIds: ['mom', 'dad'] })
+			expect(store.roomTasks).toHaveLength(1)
+			expect(store.roomTasks[0].id).toBe(42)
+			expect(store.roomTasks[0].assignees).toEqual(['mom', 'dad'])
+			expect(tasksStore.getTaskById(7)).toBeTruthy()
 		})
 
-		it('keeps the definition when the room task creation fails', async () => {
-			api.post.mockImplementation((url) => {
-				if (url === '/api/v1/tasks') {
-					return Promise.resolve({ id: 7, name: 'Dishes' })
-				}
-				return Promise.reject(new Error('Room task failed'))
+		it('does not duplicate an already-cached definition', async () => {
+			api.post.mockResolvedValue({
+				task: { id: 7, name: 'Dishes' },
+				roomTask: { id: 42, roomId: 3, taskId: 7 },
+				assignees: [],
 			})
-			store.roomTasks = []
 
-			const result = await store.createTaskWithRoomTask({ name: 'Dishes' }, 3, [])
+			const tasksStore = useTasksStore()
+			tasksStore.tasks.push({ id: 7, name: 'Dishes' })
 
-			expect(result.task.id).toBe(7)
-			expect(result.roomTask).toBeNull()
-			expect(result.roomTaskError.message).toBe('Room task failed')
+			await store.createTaskAggregate({ roomId: 3, task: { name: 'Dishes' }, assigneeUserIds: [] })
+
+			expect(tasksStore.getTaskById(7)).toBeTruthy()
+			expect(tasksStore.tasks.filter(t => t.id === 7)).toHaveLength(1)
 		})
 
-		it('keeps the room task when the assignment fails (partial success)', async () => {
-			api.post.mockImplementation((url) => {
-				if (url === '/api/v1/tasks') {
-					return Promise.resolve({ id: 7, name: 'Dishes' })
-				}
-				return Promise.resolve({ id: 42, roomId: 3, taskId: 7 })
-			})
-			api.put.mockRejectedValue(new Error('Assign failed'))
-			store.roomTasks = []
+		it('propagates failures (nothing persisted server-side on error)', async () => {
+			api.post.mockRejectedValue(new Error('Validation failed'))
 
-			const result = await store.createTaskWithRoomTask({ name: 'Dishes' }, 3, ['mom'])
-
-			expect(result.roomTask.id).toBe(42)
-			expect(result.assignError.message).toBe('Assign failed')
-		})
-
-		it('propagates a definition creation failure', async () => {
-			api.post.mockRejectedValue(new Error('Task failed'))
-
-			await expect(store.createTaskWithRoomTask({ name: 'Dishes' }, 3, [])).rejects.toThrow('Task failed')
+			await expect(store.createTaskAggregate({ roomId: 3, task: { name: '' } })).rejects.toThrow('Validation failed')
+			expect(store.roomTasks).toHaveLength(0)
 		})
 	})
 
-		describe('fetchRangeTasks', () => {
+		describe('createFromTemplate (CS-PLAN-063 D1 aggregate shape)', () => {
+		it('joins the room task, maps assignees, and caches the definition', async () => {
+			api.post.mockResolvedValue({
+				task: { id: 9, name: 'Bathroom blitz' },
+				roomTask: { id: 43, roomId: 3, taskId: 9 },
+				assignees: [{ userId: 'mom' }],
+			})
+			store.roomTasks = []
+
+			const tasksStore = useTasksStore()
+
+			const result = await store.createFromTemplate({ roomId: 3, templateId: 'bathroom-blitz' })
+
+			expect(api.post).toHaveBeenCalledTimes(1)
+			expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/from-template', { roomId: 3, templateId: 'bathroom-blitz' })
+			expect(result.task.id).toBe(9)
+			expect(store.roomTasks).toHaveLength(1)
+			expect(store.roomTasks[0].id).toBe(43)
+			expect(store.roomTasks[0].assignees).toEqual(['mom'])
+			expect(tasksStore.getTaskById(9)).toBeTruthy()
+		})
+	})
+
+	describe('fetchRangeTasks', () => {
 			it('calls the range endpoint and stores result', async () => {
 				const mockData = {
 					scheduled: [{ roomTask: { id: 1, nextDue: '2026-07-28' }, task: { name: 'T' }, room: { name: 'R' }, flexWindow: {} }],

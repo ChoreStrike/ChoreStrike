@@ -29,6 +29,10 @@ use PHPUnit\Framework\TestCase;
 class RoomTaskServiceLoggingTest extends TestCase {
 	/**
 	 * ValidateRoomTaskOwnership_ForeignHouse_LogsSecurityWarning.
+	 *
+	 * CS-PLAN-063 §3.4: the room→floor→house walk is delegated to
+	 * RoomService; the wrapper logs the boundary violation (without the
+	 * foreign house id) and translates the miss into the room-task 404.
 	 */
 	public function testValidateRoomTaskOwnership_ForeignHouse_LogsSecurityWarning(): void {
 		$roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -44,17 +48,9 @@ class RoomTaskServiceLoggingTest extends TestCase {
 		$roomTask->setId(10);
 		$roomTask->setRoomId(5);
 
-		$room = new Room();
-		$room->setId(5);
-		$room->setFloorId(7);
-
-		$floor = new Floor();
-		$floor->setId(7);
-		$floor->setHouseId(99);
-
 		$roomTaskMapper->method('find')->with(10)->willReturn($roomTask);
-		$roomMapper->method('find')->with(5)->willReturn($room);
-		$floorMapper->method('find')->with(7)->willReturn($floor);
+		$roomService->method('validateRoomOwnership')
+			->willThrowException(new NotFoundException('Room not found'));
 
 		$appLogger->expects($this->once())
 			->method('securityWarning')
@@ -63,8 +59,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 				$this->callback(function (array $context): bool {
 					return $context['service'] === 'RoomTaskService'
 						&& $context['roomTaskId'] === 10
-						&& $context['houseId'] === 1
-						&& $context['actualHouseId'] === 99;
+						&& $context['houseId'] === 1;
 				})
 			);
 
@@ -77,7 +72,6 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$taskAssigneeMapper,
 			$houseUserMapper,
 			$this->createMock(CompletedTaskMapper::class),
-			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$this->createIdentityL10n(),
 			$appLogger,
@@ -140,7 +134,6 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$taskAssigneeMapper,
 			$houseUserMapper,
 			$this->createMock(CompletedTaskMapper::class),
-			$this->createMock(\OCA\ChoreStrike\Service\TemplateService::class),
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$this->createIdentityL10n(),
 			$appLogger,

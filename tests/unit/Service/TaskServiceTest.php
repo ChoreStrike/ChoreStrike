@@ -116,66 +116,9 @@ class TaskServiceTest extends TestCase {
 		$this->service->getVisibleTask(1, $this->createHouseUser());
 	}
 
-	/**
-	 * CreateTask_ValidData_ReturnsCreatedTask
-	 */
-	public function testCreateTask_ValidData_ReturnsCreatedTask(): void {
-		$actor = $this->createHouseUser('creator', 'owner');
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('New Task');
-
-		$this->authorization->expects($this->once())
-			->method('assertCanManageTasks')
-			->with($actor);
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('create')
-			->willReturn($task);
-
-		$result = $this->service->createTask(
-			$actor,
-			'New Task',
-			'Description',
-			2,
-			1,
-			'weekly',
-			1,
-			30,
-			'cleaning'
-		);
-
-		$this->assertSame($task, $result);
-	}
-
-	/**
-	 * CreateTask_ChildActor_ThrowsForbidden
-	 *
-	 * CS-PLAN-061 §3.4 (D5): children execute tasks, they do not create
-	 * task definitions.
-	 */
-	public function testCreateTask_ChildActor_ThrowsForbidden(): void {
-		$this->authorization->method('assertCanManageTasks')
-			->willThrowException(new ForbiddenException('Children may view and complete tasks, but not manage them'));
-
-		$this->taskMapper->expects($this->never())->method('create');
-
-		$this->expectException(ForbiddenException::class);
-
-		$this->service->createTask(
-			$this->createHouseUser('kid', 'child'),
-			'New Task',
-			'Description',
-			2,
-			1,
-			'weekly',
-			1,
-			30,
-			'cleaning'
-		);
-	}
+	// CS-PLAN-063: the former createTask tests moved to
+	// TaskCreationServiceTest — definition creation runs through the atomic
+	// TaskCreationService aggregate, never through TaskService directly.
 
 	/**
 	 * UpdateTask_ValidUpdates_ReturnsUpdatedTask

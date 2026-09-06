@@ -85,6 +85,9 @@ class TaskMapper extends QBMapper {
 	 * @param string $schedulingMode Scheduling mode (dynamic, fixed)
 	 * @param \DateTime|null $fixedScheduleTime Optional fixed schedule time
 	 * @param string|null $fixedScheduleDays Optional fixed schedule days
+	 * @param string $visibilityType The visibility type
+	 * @param string|null $ownerUserId The owner for private definitions
+	 * @param int $flexDays Flex-window size in days (0-7, CS-PLAN-063 §3.3)
 	 */
 	public function create(
 		string $name,
@@ -110,6 +113,7 @@ class TaskMapper extends QBMapper {
 		?int $estimatedMinutesMax = null,
 		string $visibilityType = 'public',
 		?string $ownerUserId = null,
+		int $flexDays = 0,
 	): Task {
 		$task = new Task();
 		$task->setName($name);
@@ -135,6 +139,7 @@ class TaskMapper extends QBMapper {
 		$task->setEstimatedMinutesMax($estimatedMinutesMax);
 		$task->setVisibilityType($visibilityType);
 		$task->setOwnerUserId($ownerUserId);
+		$task->setFlexDays($flexDays);
 		$task->setCreatedAt(new \DateTime());
 
 		return $this->insert($task);

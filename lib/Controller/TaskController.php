@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Exception\ValidationException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
@@ -82,192 +83,12 @@ class TaskController extends Controller {
 	}
 
 	/**
-	 * Create a new task
-	 *
-	 * @NoAdminRequired
-	 */
-	public function create(
-		string $name,
-		?string $description = null,
-		int $energyCost = 1,
-		int $priority = 2,
-		string $frequencyType = 'weekly',
-		int $frequencyValue = 1,
-		int $estimatedMinutes = 15,
-		string $category = 'cleaning',
-		string $scopeType = 'room',
-		?string $scopeLabel = null,
-		string $recurrenceMode = 'recurring',
-		?string $activeFrom = null,
-		?string $activeUntil = null,
-		bool $isVoluntary = false,
-		string $schedulingMode = 'dynamic',
-		?string $fixedScheduleTime = null,
-		?string $fixedScheduleDays = null,
-		string $visibilityType = 'public',
-	): JSONResponse {
-		try {
-			$activeFromDate = null;
-			$activeUntilDate = null;
-
-			if ($activeFrom !== null) {
-				try {
-					$activeFromDate = new \DateTime($activeFrom);
-				} catch (\Exception $exception) {
-					return new JSONResponse([
-						'success' => false,
-						'error' => [
-							'code' => 'VALIDATION_ERROR',
-							'message' => $this->l->t('Invalid active from date')
-						]
-					], 400);
-				}
-			}
-
-			if ($activeUntil !== null) {
-				try {
-					$activeUntilDate = new \DateTime($activeUntil);
-				} catch (\Exception $exception) {
-					return new JSONResponse([
-						'success' => false,
-						'error' => [
-							'code' => 'VALIDATION_ERROR',
-							'message' => $this->l->t('Invalid active until date')
-						]
-					], 400);
-				}
-			}
-
-			$fixedScheduleTimeDate = null;
-
-			if ($fixedScheduleTime !== null) {
-				try {
-					$fixedScheduleTimeDate = new \DateTime($fixedScheduleTime);
-				} catch (\Exception $exception) {
-					return new JSONResponse([
-						'success' => false,
-						'error' => [
-							'code' => 'VALIDATION_ERROR',
-							'message' => $this->l->t('Invalid fixed schedule time')
-						]
-					], 400);
-				}
-			}
-
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
-
-			// Validate visibilityType
-			if (!in_array($visibilityType, \OCA\ChoreStrike\Db\Task::VISIBILITY_TYPES, true)) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'VALIDATION_ERROR',
-						'message' => $this->l->t('Invalid visibility type')
-					]
-				], 400);
-			}
-
-			// Admin-only tasks require owner role
-			if ($visibilityType === \OCA\ChoreStrike\Db\Task::VISIBILITY_ADMIN_ONLY && !$houseUser->isOwner()) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'FORBIDDEN',
-						'message' => $this->l->t('Only house owners can create admin-only tasks')
-					]
-				], 403);
-			}
-
-			// Private tasks track the creator as owner
-			$ownerUserId = null;
-			if ($visibilityType === \OCA\ChoreStrike\Db\Task::VISIBILITY_PRIVATE) {
-				$ownerUserId = $houseUser->getNextcloudUserId();
-			}
-
-			// Validate input
-			$errors = $this->taskService->validateTaskData([
-				'name' => $name,
-				'energyCost' => $energyCost,
-				'priority' => $priority,
-				'frequencyType' => $frequencyType,
-				'frequencyValue' => $frequencyValue,
-				'estimatedMinutes' => $estimatedMinutes,
-				'scopeType' => $scopeType,
-				'recurrenceMode' => $recurrenceMode,
-				'activeFrom' => $activeFrom,
-				'activeUntil' => $activeUntil,
-			]);
-
-			if (!empty($errors)) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'VALIDATION_ERROR',
-						'message' => $this->l->t('Validation failed'),
-						'details' => $errors
-					]
-				], 400);
-			}
-
-			$task = $this->taskService->createTask(
-				$houseUser,
-				$name,
-				$description,
-				$energyCost,
-				$priority,
-				$frequencyType,
-				$frequencyValue,
-				$estimatedMinutes,
-				$category,
-				$scopeType,
-				$scopeLabel,
-				$recurrenceMode,
-				$activeFromDate,
-				$activeUntilDate,
-				$isVoluntary,
-				$schedulingMode,
-				$fixedScheduleTimeDate,
-				$fixedScheduleDays,
-				null,
-				null,
-				null,
-				null,
-				$visibilityType,
-				$ownerUserId
-			);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $task->jsonSerialize()
-			]);
-		} catch (NotFoundException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'RESOURCE_NOT_FOUND',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 404);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			// Log hygiene (CS-PLAN-061 §3.6): the task name is user-authored
-			// content — only stable context keys belong in the log.
-			$this->logControllerException('create', $e);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'TASK_CREATE_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
 	 * Update task
+	 *
+	 * Envelope shaping and owner-gate mapping only — value validation is
+	 * service-owned (TaskService::updateTask → validateTaskData, CS-PLAN-063
+	 * §3.1). The definition-only create endpoint was pruned by the WP4
+	 * aggregate (POST /room-tasks).
 	 *
 	 * @NoAdminRequired
 	 */
@@ -357,21 +178,19 @@ class TaskController extends Controller {
 				$updates['ownerUserId'] = $houseUser->getNextcloudUserId();
 			}
 
-			// Validate updates
-			$errors = $this->taskService->validateTaskData($updates);
-			if (!empty($errors)) {
+			try {
+				$task = $this->taskService->updateTask($id, $updates, $houseUser);
+			} catch (ValidationException $e) {
+				// Service-owned value validation (CS-PLAN-063 §3.1) keeps
+				// the 400 envelope with the localized details[] list.
 				return new JSONResponse([
 					'success' => false,
 					'error' => [
 						'code' => 'VALIDATION_ERROR',
-						'message' => $this->l->t('Validation failed'),
-						'details' => $errors
+						'message' => $e->getMessage(),
+						'details' => $e->getErrors(),
 					]
 				], 400);
-			}
-
-			try {
-				$task = $this->taskService->updateTask($id, $updates, $houseUser);
 			} catch (NotFoundException $e) {
 				// Defense-in-depth visibility denial from the service
 				// (CS-PLAN-061 §3.2) must preserve the 404 anti-enumeration

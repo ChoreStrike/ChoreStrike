@@ -33,12 +33,19 @@ jest.mock('../../../src/store/roomTasks.js', () => ({
 			dueTodayTasks: 2,
 			completionRate: 40,
 		}),
-		createRoomTask: jest.fn(),
-		createTaskWithRoomTask: jest.fn(),
+		createTaskAggregate: jest.fn(),
 		updateRoomTaskDueDate: jest.fn(),
 		setAssignees: jest.fn(),
 		completeRoomTask: jest.fn(),
 		deleteRoomTask: jest.fn(),
+	}),
+}))
+
+jest.mock('../../../src/store/user.js', () => ({
+	useUserStore: () => ({
+		isHouseOwner: true,
+		role: 'owner',
+		canManageTasks: true,
 	}),
 }))
 

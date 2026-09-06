@@ -38,7 +38,6 @@ class RoomTaskService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private HouseUserMapper $houseUserMapper;
 	private CompletedTaskMapper $completedTaskMapper;
-	private TemplateService $templateService;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
@@ -56,7 +55,6 @@ class RoomTaskService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		HouseUserMapper $houseUserMapper,
 		CompletedTaskMapper $completedTaskMapper,
-		TemplateService $templateService,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
@@ -73,7 +71,6 @@ class RoomTaskService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
-		$this->templateService = $templateService;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
@@ -109,6 +106,11 @@ class RoomTaskService {
 	/**
 	 * Validate that a room task belongs to the specified house
 	 *
+	 * The room→floor→house walk is owned by {@see RoomService::validateRoomOwnership()}
+	 * (one canonical implementation, CS-PLAN-063 §3.4 — CR-SVC-41 dedup);
+	 * this wrapper resolves the room task's room and translates any miss
+	 * back into the room-task 404 so callers keep one denial shape.
+	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param int $houseId The house ID to validate against
 	 * @throws NotFoundException if room task doesn't belong to house
@@ -116,18 +118,17 @@ class RoomTaskService {
 	public function validateRoomTaskOwnership(int $roomTaskId, int $houseId): void {
 		try {
 			$roomTask = $this->roomTaskMapper->find($roomTaskId);
-			$room = $this->roomMapper->find($roomTask->getRoomId());
-			$floor = $this->floorMapper->find($room->getFloorId());
 		} catch (DoesNotExistException $e) {
 			throw new NotFoundException($this->l10n->t('Room task not found'));
 		}
 
-		if ($floor->getHouseId() !== $houseId) {
+		try {
+			$this->roomService->validateRoomOwnership($roomTask->getRoomId(), $houseId);
+		} catch (NotFoundException $e) {
 			$this->appLogger->securityWarning('Room task ownership validation failed', [
 				'service' => 'RoomTaskService',
 				'roomTaskId' => $roomTaskId,
 				'houseId' => $houseId,
-				'actualHouseId' => $floor->getHouseId(),
 			]);
 			throw new NotFoundException($this->l10n->t('Room task not found'));
 		}
@@ -243,170 +244,11 @@ class RoomTaskService {
 		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $this->tasksByIdForRoomTasks($roomTasks), $viewer);
 	}
 
-	/**
-	 * Create a new room task
-	 *
-	 * Authorization is enforced inside the service (CR-SVC-01, CS-PLAN-061
-	 * §3.4): the target room is resolved through the floor chain
-	 * (room → floor → house) and must belong to the caller's `$houseId`, the
-	 * acting user must be owner or member (children execute only), the task
-	 * definition must be visible to the actor (a private/admin-only
-	 * definition cannot be materialized from an id the actor cannot see),
-	 * and any `$assignedToUserId` must be a member of that house. No caller
-	 * can bypass this preamble.
-	 *
-	 * @param int $houseId The caller's house ID (scopes the target room)
-	 * @param int $roomId The room ID
-	 * @param int $taskId The task ID
-	 * @param HouseUser $actor The acting user's house membership
-	 * @param \DateTime|null $nextDue Optional next due date (defaults to tomorrow)
-	 * @param int|null $scopeId Optional scope ID
-	 * @param string|null $assignedToUserId Optional assigned user ID (must be a house member)
-	 * @param array $weekdayAvailability Optional weekday availability for flex scheduling
-	 * @param array $energyBudget Optional energy budget for flex scheduling
-	 * @throws NotFoundException if the room/task does not exist or belongs to another house
-	 * @throws ForbiddenException if the actor is a child or cannot see the task definition
-	 * @throws \InvalidArgumentException if the assignee is not a member of the house
-	 */
-	public function createRoomTask(
-		int $houseId,
-		int $roomId,
-		int $taskId,
-		HouseUser $actor,
-		?\DateTime $nextDue = null,
-		?int $scopeId = null,
-		?string $assignedToUserId = null,
-		array $weekdayAvailability = [],
-		array $energyBudget = [],
-	): RoomTask {
-		// Actor policy (D5): children execute tasks, they do not create them.
-		$this->authorization->assertCanManageTasks($actor);
-
-		// CR-SVC-01: resolve the room's house via the floor chain and reject a
-		// cross-house write before any persistence. A miss returns
-		// NotFoundException so the existence/house boundary is not leaked.
-		try {
-			$room = $this->roomMapper->find($roomId);
-			$floor = $this->floorMapper->find($room->getFloorId());
-		} catch (DoesNotExistException $e) {
-			throw new NotFoundException($this->l10n->t('Room not found'));
-		}
-
-		if ($floor->getHouseId() !== $houseId) {
-			$this->appLogger->securityWarning('Cross-house room task creation denied', [
-				'service' => 'RoomTaskService',
-				'roomId' => $roomId,
-				'houseId' => $houseId,
-				'actualHouseId' => $floor->getHouseId(),
-			]);
-			throw new NotFoundException($this->l10n->t('Room not found'));
-		}
-
-		// CR-SVC-01: a stamped assignee must be a member of the caller's house.
-		if ($assignedToUserId !== null && $assignedToUserId !== '') {
-			if ($this->houseUserMapper->findByHouseAndUser($houseId, $assignedToUserId) === null) {
-				throw new \InvalidArgumentException(
-					$this->l10n->t('Assigned user is not a member of this house: %1$s', [$assignedToUserId])
-				);
-			}
-		}
-
-		// Verify task exists and get flexDays.
-		try {
-			$task = $this->taskMapper->find($taskId);
-		} catch (DoesNotExistException $e) {
-			throw new NotFoundException($this->l10n->t('Task not found'));
-		}
-
-		// Visibility gate (D2/D3): the definition must be visible to the
-		// actor — an invisible private/admin-only id is a 404, not a hint
-		// that the definition exists.
-		$this->taskAccessPolicy->assertCanViewTask($task, $actor);
-
-		$flexDays = $task->getFlexDays();
-
-		// Check if room task already exists
-		if ($this->roomTaskMapper->exists($roomId, $taskId)) {
-			throw new \InvalidArgumentException($this->l10n->t('Task %1$d already exists in room %2$d', [$taskId, $roomId]));
-		}
-
-		// Default to tomorrow if no due date provided
-		if ($nextDue === null) {
-			$nextDue = new \DateTime();
-			$nextDue->add(new \DateInterval('P1D'));
-		}
-
-		// Calculate ideal due date within flex window
-		$idealDueDate = null;
-		if ($flexDays > 0) {
-			$roomTask = new RoomTask(); // Temporary instance for calculation
-			$idealDueDate = $roomTask->calculateIdealDueDate($nextDue, $flexDays, $weekdayAvailability, $energyBudget);
-		}
-
-		// Initial assignment writes the canonical join-table rows after
-		// insert (D2). Sequential calls preserve today's atomicity level;
-		// wrapping creation+assignment into one aggregate transaction is
-		// WP4 scope.
-		$roomTask = $this->roomTaskMapper->create($roomId, $taskId, $nextDue, $scopeId, $idealDueDate);
-		if ($assignedToUserId !== null && $assignedToUserId !== '') {
-			$this->taskAssigneeMapper->addAssignee($roomTask->getId(), $assignedToUserId);
-		}
-
-		return $roomTask;
-	}
-
-	/**
-	 * Create a room task from a catalog template.
-	 *
-	 * Materializes the template at the given cleaning level (default
-	 * putzteufel), applies whitelisted overrides, creates the Task, and links
-	 * it to the room with an optional assignee. Authorization (room belongs to
-	 * the caller's house, assignee is a member, actor may manage tasks) is
-	 * enforced by {@see createRoomTask()}.
-	 *
-	 * @param int $houseId The caller's house ID (scopes the target room)
-	 * @param int $roomId The room ID (resolved + validated server-side)
-	 * @param string $templateId The catalog template ID
-	 * @param string $level One of TemplateService::LEVELS (default putzteufel)
-	 * @param array $overrides Optional materialization overrides
-	 * @param string|null $assignedToUserId Optional assignee (must be a house member)
-	 * @param HouseUser $actor The acting user's house membership
-	 * @return RoomTask The created room task
-	 *
-	 * @throws NotFoundException if the room does not exist or belongs to another house
-	 * @throws ForbiddenException if the actor is a child
-	 * @throws \InvalidArgumentException if the template/level is invalid or the assignee is not a member
-	 */
-	public function createFromTemplate(
-		int $houseId,
-		int $roomId,
-		string $templateId,
-		string $level = TemplateService::LEVEL_PUTZTEUFEL,
-		array $overrides = [],
-		?string $assignedToUserId = null,
-		?HouseUser $actor = null,
-	): RoomTask {
-		if ($actor === null) {
-			throw new \InvalidArgumentException('Acting house user is required');
-		}
-		$materialized = $this->templateService->materializeTemplate($templateId, $level, $overrides);
-
-		$task = $this->taskMapper->create(
-			name: $materialized['name'],
-			description: $materialized['description'],
-			energyCost: $materialized['energyCost'],
-			priority: $materialized['priority'],
-			frequencyType: $materialized['frequencyType'],
-			frequencyValue: $materialized['frequencyValue'],
-			estimatedMinutes: $materialized['estimatedMinutes'],
-			category: $materialized['category'],
-			scopeType: $materialized['scopeType'],
-			schedulingMode: $materialized['schedulingMode'],
-			instructions: $materialized['instructions'],
-		);
-
-		return $this->createRoomTask($houseId, $roomId, $task->getId(), $actor, null, null, $assignedToUserId);
-	}
+	// CS-PLAN-063 (CR-WF-03): the former createRoomTask/createFromTemplate
+	// pair — sequential auto-commit writes that could strand an orphan task
+	// definition — was replaced by the atomic TaskCreationService aggregate
+	// (lib/Service/TaskCreationService.php). Both create routes route through
+	// it; setup keeps its own internal aggregate (CS-PLAN-063 D9).
 
 	/**
 	 * Get room tasks for a scope, filtered to one house and the viewer's
@@ -445,6 +287,52 @@ class RoomTaskService {
 	}
 
 	/**
+	 * Replace the assignee set inside one transaction under the room-task
+	 * row lock (CS-PLAN-063 §3.4): the lock is acquired in the documented
+	 * order (house → room_task → dependents), every target membership is
+	 * revalidated under the lock, then the atomic delete-then-insert runs.
+	 * A membership miss rolls back with zero writes (→ 400).
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param string[] $uniqueIds Deduplicated, non-empty user IDs
+	 * @param int $houseId The house ID for membership validation
+	 * @param string $assignedBy The Nextcloud user ID who assigned
+	 * @param bool $clearClaimMarker Whether a stale claim marker is cleared
+	 *                               (the single-assignee path clears it; the multi-assign path does not)
+	 * @return TaskAssignee[] The resulting assignee list
+	 * @throws \InvalidArgumentException if a target user is not a house member
+	 */
+	private function replaceAssigneesUnderLock(
+		int $roomTaskId,
+		array $uniqueIds,
+		int $houseId,
+		string $assignedBy,
+		bool $clearClaimMarker,
+	): array {
+		return $this->transactions->run(function () use ($roomTaskId, $uniqueIds, $houseId, $assignedBy, $clearClaimMarker) {
+			$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
+
+			foreach (array_unique($uniqueIds) as $userId) {
+				if ($this->houseUserMapper->findByHouseAndUser($houseId, $userId) === null) {
+					throw new \InvalidArgumentException($this->l10n->t('User is not a member of this house: %1$s', [$userId]));
+				}
+			}
+
+			$this->taskAssigneeMapper->deleteByRoomTask($roomTaskId);
+			foreach ($uniqueIds as $userId) {
+				$this->taskAssigneeMapper->addAssignee($roomTaskId, $userId, $assignedBy);
+			}
+
+			if ($clearClaimMarker && $roomTask->getClaimedByUser() !== null) {
+				$roomTask->setClaimedByUser(null);
+				$this->roomTaskMapper->update($roomTask);
+			}
+
+			return $this->taskAssigneeMapper->findByRoomTask($roomTaskId);
+		});
+	}
+
+	/**
 	 * Write the canonical single-assignee state: the assignee set becomes
 	 * exactly [$userId] (empty string = unassign) and a stale claim marker
 	 * is cleared — the same effect the former legacy-column UPDATE had.
@@ -452,15 +340,9 @@ class RoomTaskService {
 	 * @param int $roomTaskId The room task ID
 	 * @param string $userId The assignee (empty = clear)
 	 */
-	private function replaceSingleAssignee(int $roomTaskId, string $userId): void {
+	private function replaceSingleAssignee(int $roomTaskId, string $userId, int $houseId, string $assignedBy): void {
 		$userIds = $userId === '' ? [] : [$userId];
-		$this->taskAssigneeMapper->replaceAssignees($roomTaskId, $userIds);
-
-		$roomTask = $this->roomTaskMapper->find($roomTaskId);
-		if ($roomTask->getClaimedByUser() !== null) {
-			$roomTask->setClaimedByUser(null);
-			$this->roomTaskMapper->update($roomTask);
-		}
+		$this->replaceAssigneesUnderLock($roomTaskId, $userIds, $houseId, $assignedBy, true);
 	}
 
 	/**
@@ -521,8 +403,9 @@ class RoomTaskService {
 	 * against a forgotten controller preamble), be visible to the acting
 	 * user (404 anti-enumeration for invisible tasks), and the actor must be
 	 * owner or member (children → 403). Every target user ID must belong to
-	 * the given house (membership is validated server-side; client input is
-	 * never trusted).
+	 * the given house — checked before the write and revalidated under the
+	 * room-task row lock (CS-PLAN-063 §3.4); a miss rolls back with zero
+	 * writes (→ 400).
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param string[] $userIds Nextcloud user IDs to assign
@@ -538,8 +421,12 @@ class RoomTaskService {
 		$this->authorization->assertCanManageTasks($actor);
 		$this->assertHouseMembers($userIds, $houseId);
 
-		$this->taskAssigneeMapper->replaceAssignees($roomTaskId, $userIds, $actor->getNextcloudUserId());
-		return $this->taskAssigneeMapper->findByRoomTask($roomTaskId);
+		$uniqueIds = array_values(array_unique(array_filter(
+			$userIds,
+			fn ($id) => is_string($id) && trim($id) !== ''
+		)));
+
+		return $this->replaceAssigneesUnderLock($roomTaskId, $uniqueIds, $houseId, $actor->getNextcloudUserId(), false);
 	}
 
 	/**
@@ -709,16 +596,23 @@ class RoomTaskService {
 	 * per-item 3-query ownership chain, and one assertHouseMembers call
 	 * replaces the per-item membership fetch (≈7N → 3 + N queries). The
 	 * target user is a request-level parameter, so a non-member fails
-	 * the whole call up front; per-ITEM isolation is preserved — ids
-	 * that are missing or belong to another house are skipped and logged
-	 * without the raw target userId (privacy), and a failing
-	 * assignment write never aborts the batch.
+	 * the whole call up front (→ 400, zero writes); per-ITEM isolation is
+	 * preserved — ids that are missing or belong to another house are
+	 * skipped and logged without the raw target userId (privacy), and a
+	 * failing assignment write never aborts the batch.
 	 *
 	 * Actor policy + visibility (CS-PLAN-061 §3.4): the acting user must be
 	 * owner or member (child → 403), and every requested id that IS scoped
 	 * to the house but invisible to the actor fails the whole request up
 	 * front with a 404 (anti-enumeration — "first assertCanView"). Items
 	 * missing from the house keep their skip isolation.
+	 *
+	 * Lock discipline (CS-PLAN-063 §3.4, D5): each item write runs in its
+	 * own transaction with the room_task lock acquired in ascending-id
+	 * order across the batch (deadlock-free), and the target membership is
+	 * revalidated under the first lock — an under-lock miss (membership
+	 * removed mid-batch) rolls that item back with zero writes and fails
+	 * the request with 400 instead of being swallowed as an item skip.
 	 *
 	 * @param array $roomTaskIds Array of room task IDs
 	 * @param string $userId The user ID (must be a house member)
@@ -727,6 +621,7 @@ class RoomTaskService {
 	 * @return RoomTask[] The successfully assigned room tasks, in input order
 	 * @throws NotFoundException if a house-scoped id is invisible to the actor
 	 * @throws ForbiddenException if the actor is a child
+	 * @throws \InvalidArgumentException if the target user is not a member (pre-check or under-lock)
 	 */
 	public function bulkAssignTasks(array $roomTaskIds, string $userId, int $houseId, HouseUser $actor): array {
 		$this->authorization->assertCanManageTasks($actor);
@@ -753,9 +648,14 @@ class RoomTaskService {
 
 		$scopedIds = array_fill_keys(array_keys($scopedById), true);
 
+		// Ascending-id write order (deadlock-free batch, CS-PLAN-063 §3.4);
+		// the response stays in input order.
+		$writeOrder = array_values(array_unique(array_map('intval', $roomTaskIds)));
+		sort($writeOrder);
+
 		$assignedIds = [];
-		foreach ($roomTaskIds as $roomTaskId) {
-			if (!isset($scopedIds[(int)$roomTaskId])) {
+		foreach ($writeOrder as $roomTaskId) {
+			if (!isset($scopedIds[$roomTaskId])) {
 				$this->appLogger->warning('Bulk room task assignment skipped failed item', [
 					'service' => 'RoomTaskService',
 					'roomTaskId' => $roomTaskId,
@@ -766,8 +666,13 @@ class RoomTaskService {
 			}
 
 			try {
-				$this->replaceSingleAssignee((int)$roomTaskId, $userId);
-				$assignedIds[] = (int)$roomTaskId;
+				$this->replaceSingleAssignee($roomTaskId, $userId, $houseId, $actor->getNextcloudUserId());
+				$assignedIds[] = $roomTaskId;
+			} catch (\InvalidArgumentException $e) {
+				// Under-lock membership miss (or an equivalent curated 400):
+				// the item transaction rolled back with zero writes and the
+				// request fails fast instead of silently skipping (D5).
+				throw $e;
 			} catch (\Exception $e) {
 				$this->appLogger->warning('Bulk room task assignment skipped failed item', [
 					'service' => 'RoomTaskService',
@@ -791,9 +696,10 @@ class RoomTaskService {
 		}
 
 		$assignedTasks = [];
-		foreach ($assignedIds as $assignedId) {
-			if (isset($freshById[$assignedId])) {
-				$assignedTasks[] = $freshById[$assignedId];
+		foreach ($roomTaskIds as $roomTaskId) {
+			$roomTaskId = (int)$roomTaskId;
+			if (isset($freshById[$roomTaskId])) {
+				$assignedTasks[] = $freshById[$roomTaskId];
 			}
 		}
 

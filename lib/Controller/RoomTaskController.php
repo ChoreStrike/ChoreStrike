@@ -14,6 +14,7 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Service\TemplateService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -27,6 +28,7 @@ class RoomTaskController extends Controller {
 	use ControllerLoggingTrait;
 
 	private RoomTaskService $roomTaskService;
+	private TaskCreationService $taskCreationService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IL10N $l;
@@ -35,6 +37,7 @@ class RoomTaskController extends Controller {
 	public function __construct(
 		IRequest $request,
 		RoomTaskService $roomTaskService,
+		TaskCreationService $taskCreationService,
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
@@ -43,6 +46,7 @@ class RoomTaskController extends Controller {
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomTaskService = $roomTaskService;
+		$this->taskCreationService = $taskCreationService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
@@ -59,6 +63,9 @@ class RoomTaskController extends Controller {
 
 	/**
 	 * Create a room task from a catalog template (per-room picker).
+	 *
+	 * Delegates to the atomic creation aggregate and returns the aggregate
+	 * shape `{task, roomTask, assignees}` (CS-PLAN-063 §3.3, D1).
 	 *
 	 * @NoAdminRequired
 	 */
@@ -87,22 +94,19 @@ class RoomTaskController extends Controller {
 				], 400);
 			}
 
-			// Resolve the room server-side and validate it belongs to the caller's house.
-			$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
-
-			$roomTask = $this->roomTaskService->createFromTemplate(
+			$aggregate = $this->taskCreationService->createFromTemplate(
 				$house->getId(),
+				$houseUser,
 				$roomId,
 				$templateId,
 				$level,
 				is_array($overrides) ? $overrides : [],
 				is_string($assigneeUserId) && trim($assigneeUserId) !== '' ? $assigneeUserId : null,
-				$houseUser
 			);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $roomTask->jsonSerialize($this->timeZoneOf($house)),
+				'data' => $this->serializeAggregate($aggregate, $house),
 			]);
 		} catch (NotFoundException $e) {
 			return new JSONResponse([
@@ -179,36 +183,94 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
-	 * Create a new room task
+	 * Create a new room task — the one atomic creation endpoint
+	 * (CS-PLAN-063 §3.3, CR-WF-03).
+	 *
+	 * Payload variants (mutually exclusive):
+	 *  - custom create: `{ task: {definition...}, roomId, assigneeUserIds?, nextDue? }`
+	 *  - mount existing: `{ taskId, roomId, assigneeUserIds?, nextDue? }`
+	 *
+	 * The whole aggregate (definition, room-task materialization, initial
+	 * assignees) commits or rolls back together; the response carries the
+	 * aggregate shape `{task, roomTask, assignees}` (D1).
 	 *
 	 * @NoAdminRequired
 	 */
-	public function create(
-		int $roomId,
-		int $taskId,
-		?string $nextDue = null,
-		?int $scopeId = null,
-		?string $assignedToUserId = null,
-	): JSONResponse {
+	public function create(): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$nextDueDate = null;
-			if ($nextDue !== null) {
-				try {
-					$nextDueDate = new \DateTime($nextDue);
-				} catch (\Exception $e) {
-					throw new \InvalidArgumentException($this->l->t('Invalid nextDue date format'));
-				}
+			$roomId = (int)$this->request->getParam('roomId');
+			if ($roomId <= 0) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('roomId is required')],
+				], 400);
 			}
 
-			$roomTask = $this->roomTaskService->createRoomTask($house->getId(), $roomId, $taskId, $houseUser, $nextDueDate, $scopeId, $assignedToUserId);
+			$payload = ['roomId' => $roomId];
+
+			$task = $this->request->getParam('task');
+			$taskId = $this->request->getParam('taskId');
+			if ($task !== null && $taskId !== null) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('Exactly one of task or taskId is required')],
+				], 400);
+			}
+			if ($task === null && $taskId === null) {
+				return new JSONResponse([
+					'success' => false,
+					'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('Exactly one of task or taskId is required')],
+				], 400);
+			}
+			if ($task !== null) {
+				if (!is_array($task)) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('task must be an object')],
+					], 400);
+				}
+				$payload['task'] = $task;
+			} else {
+				if (!is_numeric($taskId) || (int)$taskId < 1) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('taskId must be a positive integer')],
+					], 400);
+				}
+				$payload['taskId'] = (int)$taskId;
+			}
+
+			$assigneeUserIds = $this->request->getParam('assigneeUserIds');
+			if ($assigneeUserIds !== null) {
+				if (!is_array($assigneeUserIds)) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('assigneeUserIds must be an array of user IDs')],
+					], 400);
+				}
+				$payload['assigneeUserIds'] = $assigneeUserIds;
+			}
+
+			$nextDue = $this->request->getParam('nextDue');
+			if ($nextDue !== null && $nextDue !== '') {
+				if (!is_string($nextDue)) {
+					return new JSONResponse([
+						'success' => false,
+						'error' => ['code' => 'VALIDATION_ERROR', 'message' => $this->l->t('Invalid nextDue date format')],
+					], 400);
+				}
+				$payload['nextDue'] = $nextDue;
+			}
+
+			$aggregate = $this->taskCreationService->create($house->getId(), $houseUser, $payload);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $roomTask->jsonSerialize($this->timeZoneOf($house))
+				'data' => $this->serializeAggregate($aggregate, $house),
 			]);
 		} catch (NotFoundException $e) {
 			return new JSONResponse([
@@ -219,9 +281,10 @@ class RoomTaskController extends Controller {
 				]
 			], 404);
 		} catch (\InvalidArgumentException $e) {
-			// Service-curated messages (non-member assignee, invalid nextDue,
-			// duplicate task) — safe to surface verbatim; safeMessage() would
-			// replace them with the generic fallback.
+			// Service-curated messages (bad payload variant, non-member
+			// assignee, invalid nextDue, duplicate mount) — safe to surface
+			// verbatim; safeMessage() would replace them with the generic
+			// fallback.
 			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -235,6 +298,19 @@ class RoomTaskController extends Controller {
 				]
 			], 500);
 		}
+	}
+
+	/**
+	 * Serialize the creation aggregate into the one response shape shared by
+	 * both create paths (D1).
+	 */
+	private function serializeAggregate(array $aggregate, \OCA\ChoreStrike\Db\House $house): array {
+		$tz = $this->timeZoneOf($house);
+		return [
+			'task' => $aggregate['task']->jsonSerialize(),
+			'roomTask' => $aggregate['roomTask']->jsonSerialize($tz),
+			'assignees' => array_map(static fn ($assignee) => $assignee->jsonSerialize(), $aggregate['assignees']),
+		];
 	}
 
 	/**

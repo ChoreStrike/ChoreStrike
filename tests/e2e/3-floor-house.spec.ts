@@ -132,6 +132,92 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 15000 })
 	})
 
+	test('Atomic Journey: create-with-assignee renders the assignee from ONE request (CS-PLAN-063)', async ({ page }) => {
+		await setupTestHouse(page)
+		await createRoomViaSettings(page, 'Erdgeschoss', 'Gästebad')
+
+		await page.goto('/apps/chorestrike/#/tasks')
+		await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 10000 })
+		await page.getByTestId('add-task-button').click()
+		await expect(page.getByTestId('task-name-input')).toBeVisible({ timeout: 15000 })
+
+		await page.getByTestId('task-name-input').fill('Atomic Journey Task')
+		await page.getByTestId('task-energy-select').selectOption('2')
+		await page.getByTestId('room-picker-floor').selectOption({ label: 'Erdgeschoss' })
+		await page.getByTestId('room-picker-room').selectOption({ label: 'Gästebad' })
+
+		// Pick one assignee chip (any house member).
+		const chip = page.locator('[data-testid^="assignee-chip-"]').first()
+		if (await chip.count() === 0) {
+			test.skip(true, 'No assignee chips rendered in the form')
+			return
+		}
+		await chip.click()
+
+		let createPosts = 0
+		let assigneePuts = 0
+		page.on('request', (request) => {
+			if (request.method() === 'POST' && request.url().includes('/api/v1/room-tasks')) createPosts++
+			if (request.method() === 'PUT' && request.url().includes('/assignees')) assigneePuts++
+		})
+
+		const aggregatePromise = page.waitForResponse((response) => {
+			const isPostRequest = response.request().method() === 'POST'
+			const pathname = new URL(response.url()).pathname
+			return isPostRequest && pathname.endsWith('/apps/chorestrike/api/v1/room-tasks')
+		})
+		await page.getByTestId('save-task-button').click()
+
+		const aggregateResponse = await aggregatePromise
+		expect(aggregateResponse.ok()).toBeTruthy()
+		const body = await aggregateResponse.json()
+		expect(body.data.task.name).toBe('Atomic Journey Task')
+		expect(body.data.assignees).toHaveLength(1)
+
+		// The modal closes and the row renders with the assignee badge
+		// immediately — driven by the aggregate response, not a second PUT.
+		await expect(page.getByTestId('task-name-input')).toHaveCount(0, { timeout: 15000 })
+		const row = page.locator('[data-testid="task-item"]').filter({ hasText: 'Atomic Journey Task' }).first()
+		await expect(row).toBeVisible({ timeout: 15000 })
+		await expect(row.locator('.meta-item.assigned')).toBeVisible()
+
+		// Exactly one creation request, zero follow-up assignment requests.
+		expect(createPosts).toBe(1)
+		expect(assigneePuts).toBe(0)
+	})
+
+	test('Creation failure leaves no orphan definition (CS-PLAN-063)', async ({ page }) => {
+		await setupTestHouse(page)
+
+		// A valid room for the failed attempt.
+		const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
+			headers: { Accept: 'application/json' },
+		})
+		const roomId = ((await floorsResponse.json()).data ?? [])
+			.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
+		if (!roomId) {
+			test.skip(true, 'No rooms available')
+			return
+		}
+
+		// flexDays 8 violates the ratified [0, 7] bound → 400, zero writes.
+		const failed = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+			data: {
+				roomId,
+				task: { name: 'Orphan Probe', energyCost: 2, flexDays: 8 },
+			},
+			headers: { Accept: 'application/json' },
+		})
+		expect(failed.status()).toBe(400)
+
+		// The task list must not contain the rejected definition.
+		await page.goto('/apps/chorestrike/#/tasks')
+		await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 20000 })
+		await expect(
+			page.locator('[data-testid="task-item"]').filter({ hasText: 'Orphan Probe' }),
+		).toHaveCount(0)
+	})
+
 	test('Settings: Verify all floors listed in settings', async ({ page }) => {
 		// Setup house
 		await setupTestHouse(page)

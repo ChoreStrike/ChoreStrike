@@ -20,6 +20,7 @@ use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
+use OCA\ChoreStrike\Service\TaskCreationService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -31,6 +32,7 @@ use PHPUnit\Framework\TestCase;
 class RoomTaskControllerTest extends TestCase {
 	private RoomTaskController $controller;
 	private $roomTaskService;
+	private $taskCreationService;
 	private $houseService;
 	private $authService;
 	private $request;
@@ -40,6 +42,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
+		$this->taskCreationService = $this->createMock(TaskCreationService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
 		// Identity mock: message assertions match the wrapped source text.
@@ -49,11 +52,21 @@ class RoomTaskControllerTest extends TestCase {
 		$this->controller = new RoomTaskController(
 			$this->request,
 			$this->roomTaskService,
+			$this->taskCreationService,
 			$this->houseService,
 			$this->authService,
 			$l10n,
 			new CalendarService(),
 			$this->createMock(AppLogger::class)
+		);
+	}
+
+	/**
+	 * Stub the request params read by the creation endpoint.
+	 */
+	private function stubCreateParams(array $params): void {
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key) => $params[$key] ?? null
 		);
 	}
 
@@ -321,34 +334,40 @@ class RoomTaskControllerTest extends TestCase {
 	}
 
 	/**
-	 * Create_PassesHouseIdToService
+	 * Create_MountVariant_ForwardsAggregatePayload
 	 *
-	 * CR-SVC-01: the controller must forward the caller's house id as the
-	 * first argument so the service can scope the target room itself.
+	 * CS-PLAN-063 §3.3: the creation endpoint routes through the atomic
+	 * TaskCreationService with the caller's house id and the acting
+	 * HouseUser, and returns the unified aggregate shape.
 	 */
-	public function testCreate_PassesHouseIdToService(): void {
+	public function testCreate_MountVariant_ForwardsAggregatePayload(): void {
 		$house = new House();
 		$house->setId(42);
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(9);
-
 		$houseUser = $this->createHouseUser();
+
+		$this->stubCreateParams(['roomId' => 1, 'taskId' => 5]);
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 
-		// CS-PLAN-061: the authenticated HouseUser is the 4th createRoomTask
-		// argument (the service derives the acting user from the actor).
-		$this->roomTaskService->expects($this->once())
-			->method('createRoomTask')
-			->with(42, 1, 5, $this->identicalTo($houseUser), null, null, null)
-			->willReturn($roomTask);
+		$this->taskCreationService->expects($this->once())
+			->method('create')
+			->with(42, $this->identicalTo($houseUser), $this->callback(
+				fn (array $payload) => $payload === ['roomId' => 1, 'taskId' => 5]
+			))
+			->willReturn([
+				'task' => new Task(),
+				'roomTask' => new RoomTask(),
+				'assignees' => [],
+			]);
 
-		$response = $this->controller->create(1, 5);
+		$response = $this->controller->create();
 
 		$this->assertEquals(200, $response->getStatus());
 		$this->assertTrue($response->getData()['success']);
+		$this->assertArrayHasKey('task', $response->getData()['data']);
+		$this->assertArrayHasKey('roomTask', $response->getData()['data']);
+		$this->assertArrayHasKey('assignees', $response->getData()['data']);
 	}
 
 	/**
@@ -361,14 +380,15 @@ class RoomTaskControllerTest extends TestCase {
 		$house = new House();
 		$house->setId(42);
 
+		$this->stubCreateParams(['roomId' => 1, 'taskId' => 5]);
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('assertHouseMember');
 
-		$this->roomTaskService->method('createRoomTask')
+		$this->taskCreationService->method('create')
 			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room not found'));
 
-		$response = $this->controller->create(1, 5);
+		$response = $this->controller->create();
 
 		$this->assertEquals(404, $response->getStatus());
 		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
@@ -384,14 +404,59 @@ class RoomTaskControllerTest extends TestCase {
 		$house = new House();
 		$house->setId(42);
 
+		$this->stubCreateParams(['roomId' => 1, 'taskId' => 5, 'assigneeUserIds' => ['intruder']]);
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('assertHouseMember');
 
-		$this->roomTaskService->method('createRoomTask')
+		$this->taskCreationService->method('create')
 			->willThrowException(new \InvalidArgumentException('not a member'));
 
-		$response = $this->controller->create(1, 5, null, null, 'intruder');
+		$response = $this->controller->create();
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * Create_Returns400WithoutTaskOrTaskId
+	 *
+	 * CS-PLAN-063 §3.3: exactly one of `task` / `taskId` is required.
+	 */
+	public function testCreate_Returns400WithoutTaskOrTaskId(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$this->stubCreateParams(['roomId' => 1]);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+
+		$this->taskCreationService->expects($this->never())->method('create');
+
+		$response = $this->controller->create();
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * Create_Returns400WithBothTaskAndTaskId
+	 *
+	 * The payload variants are mutually exclusive.
+	 */
+	public function testCreate_Returns400WithBothTaskAndTaskId(): void {
+		$house = new House();
+		$house->setId(42);
+
+		$this->stubCreateParams(['roomId' => 1, 'taskId' => 5, 'task' => ['name' => 'X']]);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+
+		$this->taskCreationService->expects($this->never())->method('create');
+
+		$response = $this->controller->create();
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);

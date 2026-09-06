@@ -18,10 +18,7 @@ use OCP\IDBConnection;
  * @template-extends QBMapper<TaskAssignee>
  */
 class TaskAssigneeMapper extends QBMapper {
-	public function __construct(
-		IDBConnection $db,
-		private TransactionExecutor $transactions,
-	) {
+	public function __construct(IDBConnection $db) {
 		parent::__construct($db, 'chorestrike_task_assignees', TaskAssignee::class);
 	}
 
@@ -244,28 +241,8 @@ class TaskAssigneeMapper extends QBMapper {
 		$qb->executeStatement();
 	}
 
-	/**
-	 * Replace the full set of assignees for a room task
-	 *
-	 * Removes existing assignees and inserts the provided list. Duplicate user
-	 * IDs in the input are collapsed. The unique DB constraint also protects
-	 * against duplicates. Atomic delete-then-insert via the
-	 * {@see TransactionExecutor} (the single transaction owner, CR-SVC-40):
-	 * a failure mid-replace must not leave the task with a partial assignee
-	 * set and the previous assignees removed.
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param string[] $userIds List of Nextcloud user IDs to assign
-	 * @param string|null $assignedBy The Nextcloud user ID who assigned (or null)
-	 */
-	public function replaceAssignees(int $roomTaskId, array $userIds, ?string $assignedBy = null): void {
-		$uniqueIds = array_values(array_unique(array_filter($userIds, fn ($id) => is_string($id) && trim($id) !== '')));
-
-		$this->transactions->run(function () use ($roomTaskId, $uniqueIds, $assignedBy) {
-			$this->deleteByRoomTask($roomTaskId);
-			foreach ($uniqueIds as $userId) {
-				$this->addAssignee($roomTaskId, $userId, $assignedBy);
-			}
-		});
-	}
+	// CS-PLAN-063: the former self-transactional replaceAssignees() was
+	// removed — assignee replacement now runs under the owning service's
+	// room_task lock (RoomTaskService::replaceAssigneesUnderLock / the
+	// TaskCreationService aggregate), never in a nested mapper transaction.
 }

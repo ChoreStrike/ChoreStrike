@@ -31,6 +31,15 @@ use Throwable;
  * revalidates assignee memberships, writes the house name, and materializes
  * the structure — all inside one transaction on this order.
  *
+ * Creation usage (CS-PLAN-063): TaskCreationService::runAggregate likewise
+ * takes the house lock first and then only performs fresh inserts (task
+ * definition, room task, assignee rows) — no room_task lock is needed, so
+ * creation never contends with completion (WP5), which locks room_task
+ * directly. Assignment usage (same plan): set/bulk assign take the
+ * room_task row lock (RoomTaskMapper::lockForUpdate) as their first and
+ * only lock; bulk iterates its per-item transactions in ascending-id
+ * order to keep the batch deadlock-free.
+ *
  * See docs/engineering/development.md ("Locking and transactions") and
  * ADR-007's completion ordering; the completion-ledger lookup/inversion
  * primitives built on this order arrive with WP5 / ADR-011.

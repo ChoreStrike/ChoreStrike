@@ -65,11 +65,27 @@ test.describe('Admin-Only Tasks', () => {
 	test('non-owner cannot create admin-only task', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
-			const response = await page.request.post('/apps/chorestrike/api/v1/tasks', {
+			// CS-PLAN-063: creation runs through the atomic aggregate; the
+			// admin-only gate needs a valid room (the room-ownership check
+			// precedes the visibility gate — 404 would fire first).
+			const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
+				headers: { Accept: 'application/json' },
+			})
+			const roomId = ((await floorsResponse.json()).data ?? [])
+				.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
+			if (!roomId) {
+				test.skip(true, 'No rooms available to attempt creation in')
+				return
+			}
+
+			const response = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 				data: {
-					name: 'Teen Admin Task',
-					energyCost: 5,
-					visibilityType: 'admin-only',
+					roomId,
+					task: {
+						name: 'Teen Admin Task',
+						energyCost: 5,
+						visibilityType: 'admin-only',
+					},
 				},
 				headers: { Accept: 'application/json' },
 			})
@@ -85,24 +101,6 @@ test.describe('Admin-Only Tasks', () => {
 		const teen = await createUserContext(browser, 'teen')
 
 		try {
-			const createResponse = await mom.page.request.post('/apps/chorestrike/api/v1/tasks', {
-				data: {
-					name: 'Owner Only Audit',
-					energyCost: 5,
-					visibilityType: 'admin-only',
-				},
-				headers: { Accept: 'application/json' },
-			})
-
-			if (createResponse.status() !== 200) {
-				test.skip(true, 'Could not create admin-only task')
-				return
-			}
-
-			const taskData = await createResponse.json()
-			const taskId = taskData.data.id
-
-			// /rooms requires a floorId; floors/with-rooms yields any room directly.
 			const floorsResponse = await mom.page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
 				headers: { Accept: 'application/json' },
 			})
@@ -117,18 +115,25 @@ test.describe('Admin-Only Tasks', () => {
 				return
 			}
 
-			const assignResponse = await mom.page.request.post(
-				'/apps/chorestrike/api/v1/room-tasks',
-				{ data: { taskId, roomId }, headers: { Accept: 'application/json' } },
-			)
+			// CS-PLAN-063: one aggregate request creates definition + room task.
+			const createResponse = await mom.page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+				data: {
+					roomId,
+					task: {
+						name: 'Owner Only Audit',
+						energyCost: 5,
+						visibilityType: 'admin-only',
+					},
+				},
+				headers: { Accept: 'application/json' },
+			})
 
-			if (assignResponse.status() !== 200) {
-				test.skip(true, 'Could not assign task to room')
+			if (createResponse.status() !== 200) {
+				test.skip(true, 'Could not create admin-only task')
 				return
 			}
 
-			const assignData = await assignResponse.json()
-			const roomTaskId = assignData.data?.id
+			const roomTaskId = (await createResponse.json()).data?.roomTask?.id
 
 			if (!roomTaskId) {
 				test.skip(true, 'No room task ID returned')
@@ -153,18 +158,32 @@ test.describe('Admin-Only Tasks', () => {
 	test('owner can create admin-only task', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			const response = await page.request.post('/apps/chorestrike/api/v1/tasks', {
+			const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
+				headers: { Accept: 'application/json' },
+			})
+			const roomId = ((await floorsResponse.json()).data ?? [])
+				.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
+			if (!roomId) {
+				test.skip(true, 'No rooms available')
+				return
+			}
+
+			const response = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 				data: {
-					name: 'Owner Audit Task',
-					energyCost: 5,
-					visibilityType: 'admin-only',
+					roomId,
+					task: {
+						name: 'Owner Audit Task',
+						energyCost: 5,
+						visibilityType: 'admin-only',
+					},
 				},
 			})
 
 			expect(response.status()).toBe(200)
 			const body = await response.json()
 			expect(body.success).toBe(true)
-			expect(body.data.visibilityType).toBe('admin-only')
+			expect(body.data.task.visibilityType).toBe('admin-only')
+			expect(body.data.roomTask.taskId).toBe(body.data.task.id)
 		} finally {
 			await context.close()
 		}

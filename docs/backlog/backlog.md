@@ -42,28 +42,9 @@ selected full transactional undo on 2026-09-02.
 
 ---
 
-### [P1] CR-WF-03 — Make setup, creation, and assignment atomic and canonical
-**Status**: In Progress (setup/structure half delivered by CS-PLAN-062; task-creation half in progress via CS-PLAN-063/WP4, activated 2026-09-05) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: setup/creation
-**Owning**: CS-PLAN-058 WP3+WP4 · **Depends on**: — · **Blocks**: CR-WF-02 · **Folded-in**: —
-**Source**: Full Review of the core task workflow (2026-09-02)
-
-Setup and both task-creation paths span validation and persistence boundaries;
-assignment is split between two persisted representations with divergent write
-semantics. CR-WF-03 is the only umbrella implemented by two sequential
-packages: the setup/structure half is owned by **WP3**, the task-creation and
-canonical-assignment half by **WP4**.
-
-- [x] Lock and recheck the first-run setup invariant inside the setup transaction, including the requested house name. *(Delivered 2026-09-04 by CS-PLAN-062/WP3: house lock + in-transaction floor recheck, optional `houseName` in the setup command, membership revalidation under the lock, zero-write rollback proofs, `emptyhouse` E2E journey.)*
-- [ ] Create a task definition, room link, and initial assignees as one rollback-safe aggregate. *(WP4)*
-- [ ] Use one authoritative assignee representation for setup, single replacement, bulk assignment, reads, and completion.
-- [ ] Persist every supported scheduling field, including flex windows and an explicit creation due date.
-- [ ] Cover rollback, replacement, bulk, and setup-assignment behavior with integration tests.
-
----
-
 ### [P2] CR-WF-04 — Reconcile daily workflow payloads and client state
 **Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily workflow
-**Owning**: CS-PLAN-058 WP7 · **Depends on**: CR-WF-03, CR-WF-07 · **Blocks**: CR-WF-06 · **Folded-in**: —
+**Owning**: CS-PLAN-058 WP7 · **Depends on**: CR-WF-07 · **Blocks**: CR-WF-06 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
 
 Several live workflow responses and Pinia consumers disagree about authoritative
@@ -132,7 +113,7 @@ and due dates consumed by Calendar and My Day.
 
 ### [P1] CR-WF-08 — Deliver a family-friendly core journey
 **Status**: Planned · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: family UX
-**Owning**: CS-PLAN-058 WP7 · **Depends on**: CR-WF-03 · **Blocks**: CR-WF-05 · **Folded-in**: —
+**Owning**: CS-PLAN-058 WP7 · **Depends on**: — · **Blocks**: CR-WF-05 · **Folded-in**: —
 **Source**: CS-PLAN-058 core workflow masterplan (2026-09-02)
 
 The complete setup-to-execution flow must be comfortable for owners and
@@ -199,14 +180,17 @@ tooling, query-builder only).
 ---
 
 ### [P3] CR-SVC-41 — Service DI inconsistencies (remainder)
-**Status**: In Progress (WP4 slice — ownership-validation dedup — via CS-PLAN-063, activated 2026-09-05; structural remainder stays WP8) · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
+**Status**: In Progress (WP4 slice handled on 2026-09-05 by CS-PLAN-063 — see body; structural remainder stays WP8) · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
 **Owning**: CS-PLAN-058 WP4+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of `lib/Service` (2026-08-04)
 
 Owned in portions: WP4 owns the ownership-validation/DI remainder relevant to
 canonical assignment; WP8 the structural remainder after the contract freeze.
 `getFilteredDailyTasksForUser` takes `HouseUserMapper` as a param despite ctor injection;
-duplicated stat helpers; duplicated `validate*Ownership` across Floor/Room/RoomTask services.
+duplicated stat helpers; ~~duplicated `validate*Ownership` across Floor/Room/RoomTask services~~
+*(the RoomTask half was deduplicated on 2026-09-05 by CS-PLAN-063/WP4 — `RoomService` is the
+canonical walk and Floor/Room keep their own; WP8 re-checks the remainder against the
+post-freeze tree)*.
 The nullable-`?AppLogger` half (all 9 sites + trait + `RewardConfigController` wiring defect)
 was **resolved 2026-08-27 by CS-PLAN-052** (record: [`archive/2026-08.md`](archive/2026-08.md)).
 
@@ -317,20 +301,6 @@ state that **nothing reads** (the server's preferences payload carries the
 field, so the fetch line survives). Decide: drop the client accumulation +
 payload field (server is authoritative; also trim the `SchedulingService`
 response) or surface remaining-today energy in the UI (feature decision).
-
----
-
-### [P3] CR-062-01 — `setup#apply` coerces a non-string `houseName` to "absent"
-**Status**: In Progress (folded into CS-PLAN-063 §3.1, activated 2026-09-05) · **Effort**: XS · **Layer**: backend · **Journey stage**: setup/creation
-**Owning**: CS-PLAN-058 WP4 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-062 WP3 final Standard B (2026-09-05)
-
-`HouseSetupService::validateHouseName` keeps null for any non-string
-`houseName` (e.g. a numeric/array value), so such a payload answers 200 and
-keeps the current name instead of the 400 every other malformed payload field
-yields ("present → validate" in decision D1). No security impact (nothing is
-written; the wizard always sends a string). Align type strictness with the
-WP4 task-creation validation-boundary hardening.
 
 ---
 

@@ -10,11 +10,6 @@
 
 ## In Progress
 
-### CS-PLAN-063 / WP4 — Atomic Task Creation and Canonical Assignment
-**Status**: In Progress (activated; implementation not started) · **Started**: 2026-09-05 · **Branch**: master
-**Plan**: docs/plans/active/cs-plan-063-wp4-atomic-task-creation-assignment.md · **Blockers**: none
-**Scope**: WP4 creation aggregate + canonical assignment; owns CR-WF-03 task/assignment half, CR-SVC-41 WP4 slice, CR-062-01. Standard A `PASS-WITH-FIXES` 2026-09-05: D1–D9 ratified (flexDays bound [0,7] + form max alignment), `POST /tasks` E2E consumer inventory completed (insights-flow, release-visibility-roles, teamwork-rewards added), plan moved to `active/`.
-
 <!-- When you start work, add an entry here in this shape:
 ### CS-PLAN-NNN — Title
 **Status**: In Progress · **Started**: YYYY-MM-DD · **Branch**: master
@@ -24,6 +19,7 @@
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
+- **CS-PLAN-063 / WP4 — Atomic Task Creation and Canonical Assignment** — Implemented and final-reviewed: atomic `TaskCreationService` (custom/mount/from-template → one `{task, roomTask, assignees}` response, house-lock-first with under-lock membership revalidation and mount-duplicate guard), closed service-owned validation set (+ CR-062-01), `room_task`-lock single/bulk assignment with pinned partial-success semantics, ownership-walk dedup, `POST /tasks` + create-chain pruned, one-request UI (preview, catalog/preset prefill, `canManageTasks` gating), real-DB zero-write + `proc_open` race proofs; Standard B `PASS-WITH-FIXES` (null-name 400 regression fixed with user authorization; i18n + security-log + dead-mock + store-consistency minors fixed inline), whole gate rerun green, CR-WF-03 closed and archived (both halves done), CR-SVC-41 WP4 slice annotated, plan moved to `done/`. (2026-09-06) → [`../plans/done/cs-plan-063-wp4-atomic-task-creation-assignment.md`](../plans/done/cs-plan-063-wp4-atomic-task-creation-assignment.md)
 - **CS-PLAN-062 / WP3 — Atomic House Setup and Structure** — Implemented and final-reviewed: first-run gate inside the setup transaction behind the house-row lock, `houseName` folded into the setup command, under-lock membership revalidation, truthful wizard result panel + per-recipient invite contract (D5), a11y modal pass, `emptyhouse` E2E journey (WP3 exit gate); Standard B `PASS-WITH-FIXES` (409 recovery error duplication fixed inline; CR-062-01 + TECH-LINT-007 logged), whole gate rerun green (incl. MySQL apply-race test), CR-WF-03 setup-half/CR-WF-05 exit-gate criteria closed, plan moved to `done/`. (2026-09-05) → [`../plans/done/cs-plan-062-wp3-atomic-house-setup-structure.md`](../plans/done/cs-plan-062-wp3-atomic-house-setup-structure.md)
 
 - **CS-PLAN-061 / WP2 — Membership, Role, Visibility, and Privacy Boundaries** — Invite-only membership (ADR-010), one `TaskAccessPolicy` visibility matrix, service-level actor/owner gates, 403/404 standard, CR-053-16/17/18 closed, frontend auth state + logger redaction; final Standard B `PASS-WITH-FIXES` (mojibake + log hygiene fixed; residual-surface gaps closed and lifecycle-actor/completion-redaction decisions ratified with the user), full gate green, CR-WF-01/CR-053-16/17/18 archived, plan moved to `done/`. (2026-09-04) → [`../plans/done/cs-plan-061-wp2-membership-visibility-privacy.md`](../plans/done/cs-plan-061-wp2-membership-visibility-privacy.md)

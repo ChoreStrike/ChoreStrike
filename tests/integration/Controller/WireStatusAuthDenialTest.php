@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
-use OCA\ChoreStrike\Controller\TaskController;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -54,14 +53,48 @@ class WireStatusAuthDenialTest extends IntegrationTestCase {
 	/**
 	 * A non-owner member creating an admin-only task must be denied with 403
 	 * (not 500, and on the wire not a 200 OCS envelope).
+	 *
+	 * CS-PLAN-063: creation routes through the atomic aggregate on
+	 * POST /room-tasks (POST /tasks was pruned); the admin-only gate lives
+	 * in TaskCreationService::resolveCreationVisibility.
 	 */
 	public function testMemberCreatingAdminOnlyTaskReturns403(): void {
-		$controller = $this->getController(TaskController::class, self::MEMBER);
+		// The admin-only gate fires after room ownership, so the denial needs
+		// a real room (CS-PLAN-063 §3.2 gate order).
+		$instanceId = \OC::$server->get(\OCA\ChoreStrike\Service\HouseService::class)->getInstanceId();
+		$house = \OC::$server->get(\OCA\ChoreStrike\Service\HouseService::class)->getOrCreateHouse($instanceId);
+		$floorId = $this->createFloor($house->getId(), 'Wire Status Floor');
+		$roomId = $this->createRoom($house->getId(), $floorId, 'Wire Status Room');
 
-		$response = $controller->create(
-			'Wire Status Test Task',
-			visibilityType: Task::VISIBILITY_ADMIN_ONLY
+		$this->actingAs(self::MEMBER);
+		$request = $this->createMock(\OCP\IRequest::class);
+		$request->method('getParam')->willReturnCallback(
+			static fn (string $key) => ['roomId' => $roomId, 'task' => [
+				'name' => 'Wire Status Test Task',
+				'energyCost' => 3,
+				'priority' => 2,
+				'frequencyType' => 'weekly',
+				'frequencyValue' => 1,
+				'estimatedMinutes' => 15,
+				'category' => 'cleaning',
+				'visibilityType' => Task::VISIBILITY_ADMIN_ONLY,
+			]][$key] ?? null
 		);
+		$l10n = $this->createMock(\OCP\IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+
+		$controller = new RoomTaskController(
+			$request,
+			\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\TaskCreationService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\HouseService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\AuthorizationService::class),
+			$l10n,
+			\OC::$server->get(\OCA\ChoreStrike\Service\CalendarService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\AppLogger::class),
+		);
+
+		$response = $controller->create();
 
 		self::assertSame(403, $response->getStatus());
 		$data = $response->getData();

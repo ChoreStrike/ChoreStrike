@@ -109,16 +109,27 @@ test.describe('Release: Visibility & Roles', () => {
 			const teen = await findHouseUser(owner.page, 'teen')
 			expect(teen).not.toBeNull()
 
-			// Owner creates an admin-only (owner-only) task.
-			const createResponse = await owner.page.request.post('/apps/chorestrike/api/v1/tasks', {
-				data: { name: 'Promotion Visibility Probe', energyCost: 5, visibilityType: 'admin-only' },
+			// Owner creates an admin-only (owner-only) task via the atomic
+			// aggregate (CS-PLAN-063).
+			const floorsResponse = await owner.page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
+				headers: { Accept: 'application/json' },
+			})
+			const roomId = ((await floorsResponse.json()).data ?? [])
+				.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
+			if (!roomId) {
+				test.skip(true, 'No rooms available')
+				return
+			}
+
+			const createResponse = await owner.page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+				data: { roomId, task: { name: 'Promotion Visibility Probe', energyCost: 5, visibilityType: 'admin-only' } },
 				headers: { Accept: 'application/json' },
 			})
 			if (createResponse.status() !== 200) {
 				test.skip(true, 'Could not create admin-only task')
 				return
 			}
-			const createdTask = (await createResponse.json()).data as TaskJson
+			const createdTask = ((await createResponse.json()).data as { task: TaskJson }).task
 
 			// As a child, teen cannot see the admin-only task.
 			const visibleAsChild = await fetchVisibleTasks(teenCtx.page)

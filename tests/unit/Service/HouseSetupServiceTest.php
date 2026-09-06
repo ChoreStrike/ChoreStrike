@@ -426,6 +426,24 @@ class HouseSetupServiceTest extends TestCase {
 		$this->service->applySetup(1, $payload);
 	}
 
+	/**
+	 * CR-062-01 (CS-PLAN-063 §3.1): a present but non-string houseName is a
+	 * hard 400 — never silently treated as absent (which answered 200 and
+	 * kept the old name).
+	 */
+	public function testApplySetup_NonStringHouseName_ThrowsBeforeAnyWrite(): void {
+		$this->stubPersistence();
+		$this->db->expects($this->never())->method('beginTransaction');
+		$this->houseMapper->expects($this->never())->method('update');
+
+		$payload = $this->basePayload();
+		$payload['houseName'] = ['Family Home'];
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('A house name must be a string');
+		$this->service->applySetup(1, $payload);
+	}
+
 	public function testApplySetup_HouseName_TrimmedAndPersistedInsideTransaction(): void {
 		$this->stubPersistence();
 		$this->db->expects($this->once())->method('commit');

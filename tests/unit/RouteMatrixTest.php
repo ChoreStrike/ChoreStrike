@@ -270,15 +270,35 @@ class RouteMatrixTest extends TestCase {
 
 	/**
 	 * Route count pin (CS-PLAN-055): 71 declared routes = 67 production +
-	 * 3 `/test/*` harness + `page#index`. New routes must land with a
-	 * consumer (see the prune guards above) — the count only moves when an
-	 * expose decision updates this pin deliberately.
+	 * 3 `/test/*` harness + `page#index`. CS-PLAN-063 pruned `POST /tasks`
+	 * (task#create) → 70. New routes must land with a consumer (see the
+	 * prune guards above) — the count only moves when an expose decision
+	 * updates this pin deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			71,
+			70,
 			$this->routes['routes'],
-			'Route count drifted from the CS-PLAN-055 pin (71) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (70 after CS-PLAN-063) — add only with a consumer, then update deliberately'
+		);
+	}
+
+	/**
+	 * The definition-only create endpoint pruned by CS-PLAN-063 must stay
+	 * gone: creation runs exclusively through POST /room-tasks (custom /
+	 * mount variants) and POST /room-tasks/from-template. Re-adding it
+	 * requires a consumer and a new expose decision.
+	 */
+	public function testPrunedDefinitionCreateRouteIsNotReintroduced(): void {
+		$declared = array_map(
+			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
+			$this->routes['routes']
+		);
+
+		$this->assertNotContains(
+			'POST /api/v1/tasks',
+			$declared,
+			'CS-PLAN-063 pruned POST /tasks (task#create) — use POST /room-tasks (creation aggregate)'
 		);
 	}
 

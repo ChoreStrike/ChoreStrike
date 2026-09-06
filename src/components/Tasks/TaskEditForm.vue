@@ -5,13 +5,32 @@
 
 <template>
 	<form class="task-edit-form" @submit.prevent="submit">
-		<!-- Template Selection (only when creating) -->
+		<!-- Template Selection (only when creating): recurrence presets under
+		     an honest "Repeat" label (CS-PLAN-063 D4) + catalog prefill -->
 		<div v-if="!isEditing" class="form-section">
 			<h3>{{ t('chorestrike', 'Start from Template') }}</h3>
 			<RecurrencePresetSelector
 				:selected-template="selectedTemplate"
 				@select="applyTemplate"
 				@clear="clearTemplate" />
+
+			<div v-if="catalogTemplates.length > 0" class="form-group">
+				<label for="catalog-prefill">{{ t('chorestrike', 'Prefill from catalog') }}</label>
+				<select id="catalog-prefill"
+					v-model="appliedCatalogTemplateId"
+					class="form-input"
+					data-testid="task-catalog-prefill">
+					<option :value="null">
+						{{ t('chorestrike', 'No prefill') }}
+					</option>
+					<option v-for="tpl in catalogTemplates" :key="tpl.id" :value="tpl.id">
+						{{ tpl.name }}
+					</option>
+				</select>
+				<p class="visibility-hint">
+					{{ t('chorestrike', 'Suggestions for the selected room type — everything stays editable') }}
+				</p>
+			</div>
 		</div>
 
 		<div class="form-section">
@@ -36,6 +55,17 @@
 					data-testid="task-description-input"
 					rows="2"
 					:placeholder="t('chorestrike', 'Optional description...')" />
+			</div>
+
+			<div class="form-group">
+				<label for="instructions">{{ t('chorestrike', 'Instructions') }}</label>
+				<textarea id="instructions"
+					v-model.trim="form.instructions"
+					class="form-input"
+					data-testid="task-instructions-input"
+					rows="3"
+					maxlength="2000"
+					:placeholder="t('chorestrike', 'Optional step-by-step instructions...')" />
 			</div>
 		</div>
 
@@ -113,6 +143,20 @@
 
 		<div class="form-section">
 			<h3>{{ t('chorestrike', 'Schedule & Recurrence') }}</h3>
+
+			<!-- Creation due date (CS-PLAN-063 §3.5): the explicit first due
+			     date, house-local calendar day. Empty = tomorrow default. -->
+			<div v-if="!isEditing" class="form-group">
+				<label for="nextDue">{{ t('chorestrike', 'First due date') }}</label>
+				<input id="nextDue"
+					v-model="nextDue"
+					type="date"
+					class="form-input"
+					data-testid="task-next-due-input">
+				<p class="visibility-hint">
+					{{ t('chorestrike', 'Leave empty to start tomorrow') }}
+				</p>
+			</div>
 
 			<div class="form-row">
 				<div class="form-group half">
@@ -207,7 +251,7 @@
 						type="number"
 						class="form-input"
 						min="0"
-						max="14"
+						max="7"
 						data-testid="task-flex-days-input">
 					<span class="flex-days-hint">
 						{{ t('chorestrike', 'Flexible scheduling window in days') }}
@@ -255,10 +299,37 @@
 						{{ t('chorestrike', 'Admins only') }}
 					</option>
 				</select>
-				<p class="visibility-hint">
+				<p class="visibility-hint" data-testid="task-visibility-hint">
 					{{ visibilityHint }}
 				</p>
 			</div>
+		</div>
+
+		<!-- Concise creation preview (CS-PLAN-063 §3.5) -->
+		<div v-if="!isEditing" class="form-section preview-section" data-testid="task-preview">
+			<h3>{{ t('chorestrike', 'Preview') }}</h3>
+			<ul class="preview-list">
+				<li>
+					<span class="preview-label">{{ t('chorestrike', 'Room') }}</span>
+					<span>{{ previewRoomPath }}</span>
+				</li>
+				<li>
+					<span class="preview-label">{{ t('chorestrike', 'Repeat') }}</span>
+					<span>{{ previewRecurrence }}</span>
+				</li>
+				<li>
+					<span class="preview-label">{{ t('chorestrike', 'First due') }}</span>
+					<span>{{ previewDueWindow }}</span>
+				</li>
+				<li>
+					<span class="preview-label">{{ t('chorestrike', 'Assigned') }}</span>
+					<span>{{ previewAssignees }}</span>
+				</li>
+				<li>
+					<span class="preview-label">{{ t('chorestrike', 'Visibility') }}</span>
+					<span>{{ form.visibilityType === 'private' ? t('chorestrike', 'Private') : form.visibilityType === 'admin-only' ? t('chorestrike', 'Admins only') : t('chorestrike', 'Public') }}</span>
+				</li>
+			</ul>
 		</div>
 
 		<div class="form-actions">
@@ -285,6 +356,9 @@ import RecurrencePresetSelector from './RecurrencePresetSelector.vue'
 import RoomPicker from './RoomPicker.vue'
 import AssigneeChips from './AssigneeChips.vue'
 import { useUserStore } from '../../store/user.js'
+import { useRoomsStore } from '../../store/rooms.js'
+import { useSetupStore } from '../../store/setup.js'
+import { logger } from '../../utils/logger.js'
 import { VISIBILITY_PUBLIC, VISIBILITY_PRIVATE, VISIBILITY_ADMIN_ONLY } from '../../constants/taskVisibility.js'
 
 export default {
@@ -318,6 +392,8 @@ export default {
 	setup(props, { emit }) {
 		const isEditing = computed(() => !!props.task)
 		const userStore = useUserStore()
+		const roomsStore = useRoomsStore()
+		const setupStore = useSetupStore()
 		const isOwner = computed(() => userStore.isHouseOwner)
 
 		const energyLabels = {
@@ -342,50 +418,83 @@ export default {
 		const parseWeekdays = (daysJson) => {
 			if (!daysJson) return []
 			try {
-				return JSON.parse(daysJson)
+				const parsed = typeof daysJson === 'string' ? JSON.parse(daysJson) : daysJson
+				return Array.isArray(parsed) ? parsed : []
 			} catch {
 				return []
 			}
 		}
 
+		// The selected recurrence preset id (honest wiring, CS-PLAN-063 D4).
 		const selectedTemplate = ref(null)
 
 		const form = reactive({
 			name: '',
 			description: '',
+			instructions: '',
 			energyCost: 2,
 			priority: 2,
 			estimatedMinutes: 15,
 			category: 'cleaning',
 			frequencyType: 'weekly',
 			frequencyValue: 1,
+			recurrenceMode: 'recurring',
 			schedulingMode: 'dynamic',
 			fixedScheduleTime: '',
 			flexDays: 0,
 			visibilityType: VISIBILITY_PUBLIC,
 		})
 
+		// Creation-only due date (kept out of the editable-definition form
+		// payload — it is a room-task property, CS-PLAN-063 §3.5).
+		const nextDue = ref('')
+
 		const selectedWeekdays = ref([])
 		const selectedRoomId = ref(props.presetRoomId)
 		const assigneeUserIds = ref([])
 
-		// Apply template data to form
-		const applyTemplate = (template) => {
-			selectedTemplate.value = template
-			form.name = template.name || ''
-			form.description = template.description || ''
-			form.energyCost = template.energyCost || 2
-			form.priority = template.priority || 2
-			form.estimatedMinutes = template.estimatedMinutes || 15
-			form.category = template.category || 'cleaning'
-			form.frequencyType = template.frequencyType || 'weekly'
-			form.frequencyValue = template.frequencyValue || 1
-			form.schedulingMode = template.schedulingMode || 'dynamic'
-			form.fixedScheduleTime = template.fixedScheduleTime || ''
-			form.flexDays = template.flexDays || 0
-			form.visibilityType = template.visibilityType || VISIBILITY_PUBLIC
-			if (template.fixedScheduleDays) {
-				selectedWeekdays.value = JSON.parse(template.fixedScheduleDays)
+		// Catalog prefill (CS-PLAN-063 D4): templates for the selected
+		// room's type, from the same GET /setup/catalog surface the
+		// TaskTemplatePicker consumes.
+		const appliedCatalogTemplateId = ref(null)
+		const catalogTemplates = ref([])
+
+		const loadCatalogForRoom = async (roomId) => {
+			catalogTemplates.value = []
+			appliedCatalogTemplateId.value = null
+			const room = roomsStore.getRoomById(roomId)
+			if (!room) return
+			try {
+				if (!setupStore.hasCatalog) {
+					await setupStore.fetchCatalog()
+				}
+				const roomType = room.roomType || 'generic'
+				catalogTemplates.value = (setupStore.templates || []).filter(tpl => {
+					const types = tpl.roomTypes || []
+					return types.includes(roomType)
+				})
+			} catch (error) {
+				logger.error('Catalog prefill load failed', error, { component: 'TaskEditForm', action: 'loadCatalogForRoom', roomId })
+			}
+		}
+
+		watch(selectedRoomId, (roomId) => {
+			if (!isEditing.value) {
+				loadCatalogForRoom(roomId)
+			}
+		}, { immediate: true })
+
+		// Apply the recurrence preset's OWN shape only (CS-PLAN-063 D4):
+		// frequency from the preset, one-time maps to the `once` recurrence.
+		const applyTemplate = (preset) => {
+			selectedTemplate.value = preset?.id ?? null
+			if (preset?.recurrence) {
+				form.frequencyType = preset.recurrence
+				form.frequencyValue = 1
+				form.recurrenceMode = 'recurring'
+				form.schedulingMode = 'dynamic'
+			} else {
+				form.recurrenceMode = 'once'
 			}
 		}
 
@@ -393,17 +502,44 @@ export default {
 			selectedTemplate.value = null
 		}
 
+		// Catalog prefill fills supported definition fields (D4) — the level
+		// key matches the TaskTemplatePicker default (putzteufel).
+		const applyCatalogTemplate = (templateId) => {
+			const tpl = catalogTemplates.value.find(t => t.id === templateId)
+			if (!tpl) return
+			form.name = tpl.name || form.name
+			form.category = tpl.category || form.category
+			form.energyCost = tpl.energyCost || form.energyCost
+			form.priority = tpl.priority || form.priority
+			const level = (tpl.levels || {}).putzteufel || Object.values(tpl.levels || {})[0]
+			if (level) {
+				form.frequencyType = level.frequencyType || form.frequencyType
+				form.frequencyValue = level.frequencyValue || form.frequencyValue
+				form.estimatedMinutes = level.estimatedMinutes || form.estimatedMinutes
+			}
+			form.instructions = tpl.instructions || form.instructions
+			selectedTemplate.value = null
+		}
+
+		watch(appliedCatalogTemplateId, (templateId) => {
+			if (templateId) {
+				applyCatalogTemplate(templateId)
+			}
+		})
+
 		// Initialize form from task prop when editing
 		watch(() => props.task, (newTask) => {
 			if (newTask) {
 				form.name = newTask.name || ''
 				form.description = newTask.description || ''
+				form.instructions = newTask.instructions || ''
 				form.energyCost = newTask.energyCost || 2
 				form.priority = newTask.priority || 2
 				form.estimatedMinutes = newTask.estimatedMinutes || 15
 				form.category = newTask.category || 'cleaning'
 				form.frequencyType = newTask.frequencyType || 'weekly'
 				form.frequencyValue = newTask.frequencyValue || 1
+				form.recurrenceMode = newTask.recurrenceMode || 'recurring'
 				form.schedulingMode = newTask.schedulingMode || 'dynamic'
 				form.fixedScheduleTime = newTask.fixedScheduleTime || ''
 				form.flexDays = newTask.flexDays || 0
@@ -442,6 +578,51 @@ export default {
 			}
 		})
 
+		// Concise preview (CS-PLAN-063 §3.5): room path, recurrence summary,
+		// due/flex window, assignees — read-only reflections of the form.
+		const previewRoomPath = computed(() => {
+			const room = roomsStore.getRoomById(selectedRoomId.value)
+			if (!room) return t('chorestrike', 'No room selected')
+			const floor = roomsStore.getFloorById(room.floorId)
+			return floor ? `${floor.name} → ${room.name}` : room.name
+		})
+
+		const previewRecurrence = computed(() => {
+			if (form.recurrenceMode === 'once') {
+				return t('chorestrike', 'One-time task')
+			}
+			const frequencyLabel = form.frequencyType === 'daily' ? 'Daily' : form.frequencyType === 'weekly' ? 'Weekly' : 'Monthly'
+			// Plural phrases reuse the established per-type vocabulary
+			// ('Every {n} weeks' &c.) so translations stay natural.
+			const everyKey = form.frequencyType === 'daily'
+				? 'Every {n} days'
+				: form.frequencyType === 'monthly' ? 'Every {n} months' : 'Every {n} weeks'
+			const frequency = form.frequencyValue === 1
+				? t('chorestrike', frequencyLabel)
+				: t('chorestrike', everyKey, { n: form.frequencyValue })
+			if (form.schedulingMode === 'static') {
+				const days = selectedWeekdays.value.length > 0 ? ` (${selectedWeekdays.value.join(', ')})` : ''
+				const time = form.fixedScheduleTime ? ` ${form.fixedScheduleTime}` : ''
+				return `${frequency}${time}${days}`
+			}
+			return frequency
+		})
+
+		const previewDueWindow = computed(() => {
+			const due = nextDue.value || t('chorestrike', 'tomorrow')
+			if (form.flexDays > 0) {
+				return t('chorestrike', '{due} (±{days} days)', { due, days: form.flexDays })
+			}
+			return due
+		})
+
+		const previewAssignees = computed(() => {
+			if (assigneeUserIds.value.length === 0) {
+				return t('chorestrike', 'Unassigned')
+			}
+			return assigneeUserIds.value.join(', ')
+		})
+
 		const submit = () => {
 			const data = {
 				...form,
@@ -452,12 +633,14 @@ export default {
 			if (!isEditing.value) {
 				data.roomId = selectedRoomId.value
 				data.assigneeUserIds = [...assigneeUserIds.value]
+				data.nextDue = nextDue.value || null
 			}
 			emit('submit', data)
 		}
 
 		return {
 			form,
+			nextDue,
 			isEditing,
 			isOwner,
 			selectedTemplate,
@@ -469,6 +652,12 @@ export default {
 			frequencySuffix,
 			isValid,
 			visibilityHint,
+			catalogTemplates,
+			appliedCatalogTemplateId,
+			previewRoomPath,
+			previewRecurrence,
+			previewDueWindow,
+			previewAssignees,
 			submit,
 			applyTemplate,
 			clearTemplate,
@@ -697,6 +886,35 @@ export default {
 	margin-top: 0.5rem;
 	color: var(--color-primary);
 	font-size: 0.85rem;
+}
+
+/* Preview block (CS-PLAN-063 §3.5) */
+.preview-section {
+	background: var(--color-background-dark);
+	border-radius: 8px;
+	padding: 1rem;
+	margin-bottom: 1.5rem;
+}
+
+.preview-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+
+.preview-list li {
+	display: flex;
+	gap: 0.75rem;
+	font-size: 0.9rem;
+}
+
+.preview-label {
+	flex: 0 0 90px;
+	font-weight: 600;
+	color: var(--color-text-maxcontrast);
 }
 
 /* Form Actions */

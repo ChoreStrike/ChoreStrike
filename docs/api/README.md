@@ -320,28 +320,19 @@ List all tasks visible to the current user (role-based visibility filtering appl
 > per room via `POST /room-tasks/from-template`. See
 > [house-setup-and-templates.md](../concepts/house-setup-and-templates.md).
 
-#### POST /tasks
-Create a new task.
+#### POST /tasks (pruned, CS-PLAN-063)
 
-**Request:**
-```json
-{
-  "name": "Clean windows",
-  "description": "Clean all windows",
-  "energyCost": 4,
-  "priority": 3,
-  "frequency_type": "monthly",
-  "frequency_value": 1,
-  "estimated_minutes": 60,
-  "category": "cleaning",
-  "visibilityType": "public"
-}
-```
-
-> **visibilityType** (optional, default `public`): One of `public`, `private`, `admin-only`. `admin-only` requires house-owner role. Private tasks automatically record the creator as `ownerUserId`. `visibilityType` is the sole visibility source of truth — a stale client's legacy `isPrivate` key is dropped, not interpreted (CS-PLAN-060 WP1 D1).
+The definition-only create endpoint was pruned in CS-PLAN-063 (CR-WF-03): its
+last consumer moved to the atomic creation aggregate. Creation runs
+exclusively through `POST /room-tasks` (custom definition or `taskId` mount)
+and `POST /room-tasks/from-template`. Re-adding it requires a consumer and a
+new expose decision (CS-PLAN-055 route-consumer rule; guarded by
+`RouteMatrixTest`).
 
 #### PUT /tasks/{id}
-Update task.
+Update task. Value validation is service-owned (`TaskService::validateTaskData`,
+CS-PLAN-063 §3.1) — the controller only shapes the envelope and maps the
+owner gate. A 400 carries the localized `details[]` error list.
 
 > **`taskTier` (CR-053-04):** owner-only and value-checked — accepted values
 > are `bronze`, `silver`, `gold` (the tier drives the completion coin
@@ -349,12 +340,55 @@ Update task.
 > value gets `400 VALIDATION_ERROR`. All other whitelisted fields remain
 > member-writable.
 
+> **Closed constraint set (CS-PLAN-063 §3.1):** every accepted update field
+> is range/type-checked — `schedulingMode` ∈ `dynamic|static`, parseable
+> `fixedScheduleTime` / `activeFrom` / `activeUntil`, `fixedScheduleDays` as a
+> weekday list over `monday`…`sunday` (canonical JSON persisted),
+> `flexDays` ∈ [0, 7], `instructions`/`tips` ≤ 2000 chars, and strict types
+> (non-strings/floats are rejected with 400, never coerced). Empty strings
+> clear a date field.
+
 ### Room Tasks
+
+#### POST /room-tasks (creation aggregate, CS-PLAN-063)
+Create a visible, valid room task — or nothing at all. Exactly one request
+commits the whole aggregate (task definition, room-task materialization,
+initial assignee rows) in one service-owned transaction
+(`TaskCreationService`); any failure rolls back everything (no orphan
+definitions).
+
+Two mutually exclusive payload variants:
+- **custom:** `{ roomId, task: {definition…}, assigneeUserIds?, nextDue? }`
+  with an inline definition (`name`, `description`, `energyCost`, `priority`,
+  `frequencyType`, `frequencyValue`, `estimatedMinutes`, `category`,
+  `recurrenceMode`, `activeFrom`, `activeUntil`, `schedulingMode`,
+  `fixedScheduleTime`, `fixedScheduleDays`, `flexDays`, `instructions`,
+  `visibilityType` — the same closed constraint set as `PUT /tasks/{id}`)
+- **mount:** `{ roomId, taskId, assigneeUserIds?, nextDue? }` — reuses an
+  existing, actor-visible definition (duplicate mount → 400)
+
+`nextDue` (house-local date) defaults to tomorrow; `flexDays > 0`
+materializes an `idealDueDate`. The response is the unified aggregate shape:
+
+```json
+{ "task": {…}, "roomTask": {…}, "assignees": [ {…} ] }
+```
+
+Gate order: children → `403`; cross-house room → `404` (anti-enumeration);
+invisible definition → `404`; `admin-only` creation by a non-owner → `403`;
+`private` creation stamps the creator as `ownerUserId`. Inside the
+transaction the house row is locked first (documented order house →
+room_task → dependents), every assignee membership is revalidated under the
+lock (a removed member → 400 and zero writes), and the mount-duplicate guard
+is re-checked under the lock.
 
 #### POST /room-tasks/from-template
 Create a room task from a catalog template (per-room picker). The `roomId` is
 resolved server-side and validated against the caller's house; an
-`assigneeUserId` (if set) is checked for membership.
+`assigneeUserId` (if set) is checked for membership. Materialized templates
+run through the same validation authority, atomic body, and gates as the
+custom path (a whitelisted override outside the closed set rejects with 400
+before any write).
 
 **Request:**
 ```json
@@ -371,7 +405,8 @@ resolved server-side and validated against the caller's house; an
 > restricted to `name`, `frequencyType`, `frequencyValue`, `estimatedMinutes`,
 > `energyCost`, `priority`.
 
-**Response:** the created room task (existing room-task payload shape).
+**Response:** the unified aggregate shape `{task, roomTask, assignees}`
+(CS-PLAN-063 D1).
 
 #### GET /room-tasks
 List all room-task assignments.
