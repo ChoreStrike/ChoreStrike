@@ -10,12 +10,10 @@
 
 ## In Progress
 
-<!-- When you start work, add an entry here in this shape:
-### CS-PLAN-NNN — Title
-**Status**: In Progress · **Started**: YYYY-MM-DD · **Branch**: master
-**Plan**: docs/plans/active/cs-plan-NNN-….md · **Blockers**: none
-**Scope**: one line on what this turn is doing.
--->
+### CS-PLAN-064 / WP5 — Completion Ledger and Full Transactional Undo
+**Status**: In Progress (activated; implementation not started) · **Started**: 2026-09-06 · **Branch**: master
+**Plan**: docs/plans/active/cs-plan-064-wp5-completion-ledger-full-undo.md · **Blockers**: none
+**Scope**: WP5 completion/undo critical path; owns CR-WF-02 (umbrella), UX-015, CR-053-20 WP5 undo/cache slice, CR-SVC-15/40 WP5 completion-path slices. Standard A `PASS-WITH-FIXES` 2026-09-06: D1–D10 ratified, D11 (undone rows excluded from day-duplicate/combo/weekly-goal reads) and D12 (task-definition no-lock, ADR-011 rationale) added and ratified, manifest test paths fixed, manual-cleanliness race deferred as CR-SVC-63, plan moved to `active/`.
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 

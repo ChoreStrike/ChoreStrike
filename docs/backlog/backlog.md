@@ -26,7 +26,7 @@
 > public repository under the security-disclosure policy.
 
 ### [P1] CR-WF-02 — Make completion and undo transactionally complete
-**Status**: Backlog · **Effort**: XL · **Layer**: backend+frontend · **Journey stage**: completion/undo
+**Status**: In Progress (owned umbrella — via CS-PLAN-064/WP5, activated 2026-09-06) · **Effort**: XL · **Layer**: backend+frontend · **Journey stage**: completion/undo
 **Owning**: CS-PLAN-058 WP5 · **Depends on**: — · **Blocks**: CR-WF-07 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
 
@@ -144,7 +144,7 @@ read-modify-write races follow the work packages that touch their workflows.
 ---
 
 ### [P2] CR-SVC-15 — Decompose God-methods / God-services
-**Status**: Backlog · **Effort**: L · **Layer**: backend · **Journey stage**: performance
+**Status**: In Progress (WP5 completion-path extraction slice via CS-PLAN-064, activated 2026-09-06; structural remainder stays WP8) · **Effort**: L · **Layer**: backend · **Journey stage**: performance
 **Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of `lib/Service` (2026-08-04)
 
@@ -162,7 +162,7 @@ the guideline, accepted), `TaskService::createTask` (24 positional params).
 ---
 
 ### [P3] CR-SVC-40 — Services reach below their layer (`IDBConnection` injection)
-**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
+**Status**: In Progress (WP5 completion-path slice via CS-PLAN-064, activated 2026-09-06; structural remainder stays WP8) · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
 **Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of `lib/Service` (2026-08-04); scope updated by CS-PLAN-053 full review (2026-08-27)
 
@@ -216,6 +216,23 @@ CS-PLAN-061 §3.4 — 2026-09-03 — removing three of the five re-fetch sites);
 
 ---
 
+### [P3] CR-SVC-63 — Manual cleanliness adjust stays an unlocked RMW against the WP5 room-row lock
+**Status**: Backlog · **Effort**: XS · **Layer**: backend · **Journey stage**: completion/undo
+**Owning**: — (unscheduled; candidate for WP7/WP8 or a small standalone fix) · **Depends on**: CS-PLAN-064 (creates `RoomMapper::lockForUpdate`) · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-064 (Standard A, 2026-09-06)
+
+After WP5, completions/undos write room cleanliness on a locked room row
+(`room_task → room → house_user` order), but the manual adjust endpoint
+(`RoomController.php:330` → `RoomService::updateRoomCleanliness`,
+find → `updateCleanliness` → update) remains an unlocked read-modify-write:
+a concurrent manual adjust can still lose (or clobber) a completion's
+cleanliness delta. Deferred by user decision to keep the WP5 scope guard
+(completion/undo critical path only). Fix: route the manual adjust through
+the new `RoomMapper::lockForUpdate` primitive inside a `TransactionExecutor`
+run; add a two-connection adjust-vs-completion race regression.
+
+---
+
 ### [P3] CR-053-18-WP9 — Test-mode routes keep `@NoCSRFRequired` (release-hardening remainder)
 **Status**: Open · **Effort**: S · **Layer**: backend · **Journey stage**: release
 **Owning**: CS-PLAN-058 WP9 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -249,7 +266,7 @@ re-bootstrap). Remaining: the backend leave endpoint + Settings action.
 ---
 
 ### [P3] CR-053-20 — Frontend correctness cluster
-**Status**: Backlog · **Effort**: M · **Layer**: frontend · **Journey stage**: daily workflow
+**Status**: In Progress (WP5 undo/cache-reconciliation slice via CS-PLAN-064, activated 2026-09-06; WP7 remainder stays) · **Effort**: M · **Layer**: frontend · **Journey stage**: daily workflow
 **Owning**: CS-PLAN-058 WP5+WP7 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-053 full review (CR-P4-01..04, 06, 08, 09, 2026-08-27); re-scoped by CS-PLAN-055
 
@@ -275,7 +292,7 @@ are owned by **CR-WF-02** above.
 ---
 
 ### [P3] UX-015 — Undo snackbar holds only the latest completion
-**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: completion/undo
+**Status**: In Progress (owned — queued undo entries via CS-PLAN-064 §3.5, activated 2026-09-06) · **Effort**: S · **Layer**: frontend · **Journey stage**: completion/undo
 **Owning**: CS-PLAN-058 WP5 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-041 (2026-08-22)
 
