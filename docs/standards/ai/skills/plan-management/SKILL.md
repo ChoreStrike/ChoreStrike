@@ -44,7 +44,25 @@ See [`template.md`](../../../../plans/template.md):
 6. Implementation Order
 7. Risks & Mitigations
 8. Acceptance Criteria
+9. Review Findings (plan-owned)
 ```
+
+## Plan-Owned Findings (scope-first routing)
+
+Findings from implementation rounds or reviews that lie **within the plan's
+scope/domain** are tracked in the plan's `## 9. Review Findings` checklist
+instead of creating new backlog items (canonical rule:
+[`project-rules.md`](../../rules/project-rules.md) §4 "Finding Routing"):
+
+- Prefer fixing directly in the current round; park only what cannot be fixed safely now.
+- One line per entry: severity · file/area · issue · resolution state.
+- Resolve entries in the current or next round of the same plan.
+- A plan may **not** move to `done/` while any entry is unresolved. Rescoping an
+  entry to `backlog.md` requires explicit user approval; the new backlog item
+  cites the plan as `Source` and the plan notes the rescoping.
+- Findings **outside** the plan's scope (other modules/domains, cross-cutting
+  work) go straight to `backlog.md` — or fold into an existing open item — never
+  into the plan. `// HACK:` follow-ups always go to `backlog.md`.
 
 ## Plan Review (after creation)
 
@@ -63,6 +81,8 @@ Plans are **temporary working documents** — they coordinate implementation, th
 ## Completion Gate
 
 A plan/task is **not done** while tests required by its `4. Tests` section, its acceptance criteria, or project-rules §2 are missing, newly/unapproved skipped, or failing ("No completion without tests"). A still-required deferred test keeps the plan in `active/` or `onhold/`; user-approved rescoping must update the plan, acceptance criteria, and backlog before a later final review.
+
+A plan is also **not done** while any entry of its `## 9. Review Findings` checklist is unresolved and not user-rescoped to `backlog.md` (see "Plan-Owned Findings" above).
 
 A plan is also **not fully done** while its durable concepts/decisions exist only in the plan file — missing knowledge integration is treated like missing docs.
 

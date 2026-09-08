@@ -43,7 +43,7 @@ never prove plan completion.
 - **Logging** — `AppLogger` (backend) / `src/utils/logger.js` (frontend); no raw `console.*`; stable structured keys; nothing sensitive logged.
 - **i18n** — every user-visible string uses `t()`; `l10n/` artifacts updated in the same change (`npm run l10n:check-keys`).
 - **Validation** — test scope matches risk (unit/integration/E2E); every bug fix has a regression test; failure paths covered.
-- **Docs/Plan** — public API / workflow / rules changed? → docs updated. An owning plan exists? → its checklist and `## Review Outcome` note are updated.
+- **Docs/Plan** — public API / workflow / rules changed? → docs updated. An owning plan exists? → its checklist, `## Review Findings` (scope-first routing per §6), and `## Review Outcome` note are updated.
 
 ### Plan-only (Type A) extra checks
 
@@ -121,7 +121,8 @@ Use exactly these outcomes:
   (`plan: N/A`); more than one plausible plan is a blocking question.
 - A matching plan stays active after an interim review. Move it to `done/` only
   when every plan item, acceptance criterion, required test, durable-doc update,
-  and final-review requirement is complete.
+  final-review requirement, and every `## Review Findings` entry (resolved or
+  user-rescoped to the backlog) is complete.
 
 ### Batched questions
 
@@ -141,9 +142,21 @@ Use exactly these outcomes:
 ## 6. Auto-fix Rule
 
 Apply fixes **directly** in the review for items in the left column. For items in
-the right column, ask when a decision is needed and put every open follow-up in
-`backlog.md` (see [`backlog/README.md`](../../../../backlog/README.md)); a linked
-plan is optional and never replaces the backlog entry.
+the right column, ask when a decision is needed, then route every remaining
+open finding **scope-first** (project-rules §4 "Finding Routing"):
+
+1. **In the owning plan's scope/domain** → record it in the plan's
+   `## Review Findings` checklist (or fix it in the same round when feasible).
+   It blocks the plan's `done/` move; **no new backlog item**. Rescoping it to
+   the backlog requires explicit user approval.
+2. **Duplicating/extending an existing open backlog item** → fold it into that
+   item (`Folded-in` field); never create a parallel entry.
+3. **Outside the owning plan's scope** (other modules/domains, cross-cutting
+   work) or **no owning plan** (`plan: N/A`) → `backlog.md` with
+   `Source: Review of <scope>` (see [`backlog/README.md`](../../../../backlog/README.md)).
+
+`// HACK:` workarounds are the exception: they always get a `backlog.md`
+follow-up because the debt must outlive the plan.
 
 | Auto-fix inline | Discuss or log only |
 | --------------- | --------------------------- |
@@ -172,11 +185,11 @@ requires explicit disclosure approval.
 3. **Questions:** ask one batched structured request, record the answers, apply them, and rerun affected checks.
 4. **Docs:** update only where public API, workflow, rules, or durable plan outcomes changed.
 5. **Plan:** append a concise `## Review Outcome` (scope, base HEAD/diff fingerprint, outcome, fixes, findings, decisions, gates). On eligible Standard A, update status and owning backlog items, then move `new/ → active/`. On an eligible final Standard B/Full review, update status, archive completed owning backlog items, and move `active/ → done/`. Interim or `NEEDS-FOLLOW-UP` reviews leave the plan in place.
-6. **Backlog/record:** put every non-sensitive open follow-up in `backlog.md` with `Source: Review of <scope>`; update `ACTIVE_TASKS.md`. A plan-owned review always updates the plan; a substantial review additionally creates/updates `docs/backlog/archive/CODE_REVIEW_YYYY-MM-DD.md` from the playbook template. Any `NEEDS-FOLLOW-UP` evidence-only commit without an owning plan also requires that tracked review record, even when the review is otherwise small.
+6. **Findings routing/record:** route every non-sensitive open finding per §6 scope-first: plan-scope findings into the owning plan's `## Review Findings` checklist, duplicates/extensions into the existing backlog item (`Folded-in`), and only out-of-scope findings (or `plan: N/A`) as new `backlog.md` entries with `Source: Review of <scope>`; update `ACTIVE_TASKS.md`. A plan-owned review always updates the plan; a substantial review additionally creates/updates `docs/backlog/archive/CODE_REVIEW_YYYY-MM-DD.md` from the playbook template. Any `NEEDS-FOLLOW-UP` evidence-only commit without an owning plan also requires that tracked review record, even when the review is otherwise small.
 7. **Commit:** the review request authorizes one scoped conventional commit on the current branch. Stage only reviewed files and review-owned follow-up/transition files; inspect status and staged diff; never include unrelated changes, secrets, private content, or artifacts. Do not create an empty commit. Do not create/switch branches, amend, push, or open a PR. If unrelated paths are already staged or concurrent edits changed the reviewed scope, use `BLOCKED` instead of altering them.
 
-For `NEEDS-FOLLOW-UP`, commit only the owning plan's evidence-only Review Outcome,
-the review record, backlog updates, and verified safe fixes; leave affected
+For `NEEDS-FOLLOW-UP`, commit only the owning plan's evidence-only Review Outcome
+and Review Findings updates, the review record, backlog updates, and verified safe fixes; leave affected
 implementation files and every plan move out. Record the base HEAD, exact reviewed
 path manifest, and a cryptographic fingerprint of the uncommitted reviewed diff so
 the evidence identifies its source state. For `BLOCKED`, make no automatic commit.

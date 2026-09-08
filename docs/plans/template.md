@@ -56,7 +56,17 @@ Ordered, reviewable steps.
 - [ ] Build gate green (`npm test` + lint + backend tests)
 - [ ] Required tests ran without new or unapproved skips
 - [ ] All implementation decisions and review questions resolved and recorded
+- [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`
 - [ ] Owning backlog items updated or archived according to their actual completion state
 - [ ] Durable concepts/decisions integrated into the permanent docs (`docs/concepts/`, `docs/adr/`, `docs/engineering/`, `docs/api/`, `docs/standards/`) — plans are temporary
 - [ ] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`
 - [ ] `docs/backlog/ACTIVE_TASKS.md` updated
+
+## 9. Review Findings (plan-owned)
+
+Findings **within this plan's scope** from implementation rounds or reviews
+(scope-first routing per `project-rules.md` §4). Resolve before `done/`;
+rescoping to `backlog.md` needs explicit user approval. Out-of-scope findings
+go directly to `backlog.md` (or fold into an existing item) instead.
+
+- [ ] (none yet)

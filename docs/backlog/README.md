@@ -10,7 +10,7 @@ is **open or live** plus tracked completion/review evidence.
 backlog/
 ├── README.md          ← this file (workflow + rules)
 ├── ACTIVE_TASKS.md    ← LIVE coordination: in-progress + rolling "Recently Completed"
-├── backlog.md         ← single source of truth for ALL open items
+├── backlog.md         ← single source of truth for ALL open items not owned by an active plan
 └── archive/           ← completed history, TRACKED in Git (one file per month)
     ├── README.md      ← archive convention
     ├── 2026-03.md
@@ -28,8 +28,10 @@ backlog/
 | Content | Location |
 |---|---|
 | Work **in progress right now** | `ACTIVE_TASKS.md` → *In Progress* |
-| A bug / feature / tech-debt item that is **not done** | `backlog.md` |
-| A code-review **open** follow-up | `backlog.md` (cite the review record) |
+| A bug / feature / tech-debt item that is **not done** and **not owned by an active plan** | `backlog.md` |
+| A finding **inside an owning plan's scope** (implementation or review) | the plan's `## Review Findings` checklist — **not** `backlog.md` (scope-first routing, `project-rules.md` §4) |
+| A code-review **open** follow-up **outside** any plan's scope | `backlog.md` (cite the review record) |
+| A finding that **extends an existing open item** | fold into that item (`Folded-in` field) — never a parallel entry |
 | A **completed** plan / bug / debt item | `archive/YYYY-MM.md` |
 | A raw **review record** (evidence) | `archive/CODE_REVIEW_YYYY-MM-DD.md` |
 | A **plan draft** (not started) | `../plans/new/` (and `backlog.md` when it represents an open item) |
@@ -44,7 +46,10 @@ backlog/
 4. **On completion:** add a one-line entry under *Recently Completed*, and
    **move the item out of `backlog.md` into `archive/YYYY-MM.md`** (the month
    it was completed).
-5. **Track follow-ups:** log new bugs/debt/findings in `backlog.md`.
+5. **Track follow-ups (scope-first):** route new bugs/debt/findings per
+   `project-rules.md` §4 "Finding Routing" — fix now → owning plan's
+   `## Review Findings` → fold into an existing item → only out-of-scope
+   findings as new `backlog.md` entries.
 
 ### Housekeeping (enforced)
 - `ACTIVE_TASKS.md` is **not a history log**. An entry older than **~2 weeks**
@@ -60,8 +65,9 @@ See `AGENTS.md` → "Review Commands & Subagents" and
 [`../engineering/review-playbook.md`](../engineering/review-playbook.md). The
 slash commands `/review-chorestrike`, `/review-chorestrike-full`, and
 `/plan-review` load the canonical review process, batch questions, perform
-eligible plan transitions, and make one scoped commit. **Open** findings →
-`backlog.md`; the review record → `archive/`.
+eligible plan transitions, and make one scoped commit. **Open** findings are
+routed scope-first (plan-owned `## Review Findings` / fold-in / `backlog.md`);
+the review record → `archive/`.
 
 ## Item format (`backlog.md`)
 

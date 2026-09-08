@@ -97,21 +97,48 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 `docs/backlog/` has a fixed layout — do **not** re-introduce ad-hoc splits like
 `bugs.md` / `features.md` / `phase-*.md`. See [`docs/backlog/README.md`](../../../backlog/README.md).
 
-- **`backlog.md`** — the **single source of truth for everything open**: bugs,
-  features, tech-debt, and review follow-ups (themed sections). An item that is
-  not done lives here and **only** here.
+- **`backlog.md`** — the **single source of truth for everything open that is
+  not owned by an active plan**: bugs, features, tech-debt, and review
+  follow-ups (themed sections). An open item lives here and **only** here —
+  except plan-owned findings, which live in their owning plan's
+  `## Review Findings` checklist until resolved (see Finding Routing below).
 - **`ACTIVE_TASKS.md`** — **live coordination only**: work *in progress right
   now* + a rolling *Recently Completed* window. It is **not** a history log.
 - **`archive/YYYY-MM.md`** — **tracked-in-Git** completion history, one file per
   month of resolution. (Distinct from the repo-root gitignored `archive/`.)
 - **`archive/CODE_REVIEW_YYYY-MM-DD.md`** — review records kept verbatim.
 
+### Finding Routing (scope-first, enforced)
+
+Every finding from an implementation round or a review is routed in this order —
+**before** any new backlog item is created:
+
+1. **Fix now** — safely fixable in the current round (review skill §6 auto-fix
+   rules) → fix directly; no item anywhere.
+2. **Plan-owned** — the finding lies **within the scope/domain of the owning
+   plan** (or the current implementation task) but cannot be fixed safely right
+   now → record it in the plan's `## Review Findings` checklist and resolve it
+   in the current or next round of that plan. It blocks the plan's `done/`
+   move; moving it to the backlog instead requires explicit user rescoping.
+   **No new backlog item.**
+3. **Fold-in** — the finding duplicates or extends an **existing open backlog
+   item** → update that item (record the merge in its `Folded-in` field);
+   never create a parallel item.
+4. **Backlog** — only findings **outside** the owning plan's scope (other
+   modules/domains, cross-cutting work needing its own effort) or findings
+   without an owning plan → a themed section in `backlog.md`.
+
+Goal: plans and their findings converge and close; `backlog.md` grows only from
+genuinely out-of-scope discoveries, not from the plan's own working surface.
+Exception: `// HACK:` workarounds always need a `backlog.md` follow-up (durable
+debt that must outlive the plan).
+
 ### Backlog Rules (enforced)
-- Non-trivial follow-ups, deferred fixes, and improvement ideas → a themed section in `backlog.md` (never a new loose file).
+- Non-trivial follow-ups, deferred fixes, and improvement ideas → routed per Finding Routing above; anything that reaches step 4 goes to a themed section in `backlog.md` (never a new loose file).
 - Potentially exploitable, unremediated security details stay in `/private/` and are never automatically written or committed to public review/backlog files. Add only a sanitized public placeholder after explicit disclosure approval.
 - On **completion**, move the item from `backlog.md` to `archive/YYYY-MM.md` (the month it was resolved) **immediately**.
 - `ACTIVE_TASKS.md` is rolling: entries older than **~2 weeks** or beyond the **~10-entry cap** move to `archive/`; *Recently Completed* entries are **one line**. Update it when starting, pausing, and finishing implementation or review work.
-- A code-review's **open** findings go to `backlog.md`; the **review record** goes to `archive/`.
+- A code-review's **open** findings are routed per Finding Routing (plan-owned / fold-in / `backlog.md`); the **review record** goes to `archive/`.
 - Ambiguities → log them and ask; **don't guess** on irreversible decisions. Don't declare work done while blockers or open questions remain.
 
 ## 5. Archive Policy (`archive/`)
@@ -149,12 +176,12 @@ docs/plans/
 | Move | When |
 |------|------|
 | `new/ → active/` | A Standard A plan review is `PASS` or `PASS-WITH-FIXES`; the agent updates status/tracking, moves the plan, and commits the review package |
-| `active/ → done/` | A final Standard B or Full review passes **and** the whole plan, required tests, acceptance criteria, and durable-doc integration are complete; the agent moves and commits it |
+| `active/ → done/` | A final Standard B or Full review passes **and** the whole plan, required tests, acceptance criteria, plan-owned `## Review Findings`, and durable-doc integration are complete; the agent moves and commits it |
 | `active/ → onhold/` | The user explicitly pauses blocked work |
 | `done/ → archive/YYYY-MM/` (untracked) | The user explicitly retires a historical plan that no longer needs to remain public; repair tracked links first |
 
 - A passing **interim** code review commits its reviewed package but leaves an incomplete plan in `active/`.
-- A Standard A review with open findings leaves the plan in `new/`. A code/full review with open findings commits only its review evidence, backlog updates, and verified safe fixes; an affected plan stays `active/`.
+- A Standard A review with open findings leaves the plan in `new/`. A code/full review with open findings commits only its review evidence, plan finding (`## Review Findings`) and backlog updates, and verified safe fixes; an affected plan stays `active/`.
 - Any unresolved non-sensitive finding yields `NEEDS-FOLLOW-UP` and blocks a plan transition. An unanswered question, ambiguous owning plan, failed/missing required gate, newly skipped required test, or potentially exploitable unremediated security detail yields `BLOCKED` and stops review finalization/commit. Unresolved `block`, `major`, and security findings must remain explicit; only sanitized review evidence may commit under the `NEEDS-FOLLOW-UP` rules. Ask all review questions together through the available structured question mechanism, provide 2–3 concrete options with one recommendation, record the answers, then resume finalization.
 - Requesting a plan/code review authorizes exactly one scoped conventional commit on the currently checked-out branch. An explicit read-only or no-commit instruction overrides this authorization and disables lifecycle moves. Do not create or switch branches, amend, push, or open a PR unless the user separately requests it. Never create an empty commit or include unrelated working-tree/index changes.
 

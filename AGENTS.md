@@ -22,7 +22,7 @@
 8. **Pre-release:** no backward compatibility until the user declares productive use (~V0.9) — fresh installs only, no upgrade paths/shims.
 9. **KISS & DRY:** simple, readable, minimal diffs; ~30 lines/method, ~300 lines/file; extract after the rule of three.
 10. **No completion without tests:** every feature/bug fix has a test; never done while required tests are missing, newly/unapproved skipped, or red.
-11. **Backlog discipline:** open items live only in [`docs/backlog/backlog.md`](docs/backlog/backlog.md); live coordination in [`docs/backlog/ACTIVE_TASKS.md`](docs/backlog/ACTIVE_TASKS.md); done items move to `docs/backlog/archive/YYYY-MM.md` immediately.
+11. **Backlog discipline:** route findings scope-first — in-plan-scope findings live in the owning plan's `## Review Findings` until resolved; only out-of-scope open items live in [`docs/backlog/backlog.md`](docs/backlog/backlog.md); live coordination in [`docs/backlog/ACTIVE_TASKS.md`](docs/backlog/ACTIVE_TASKS.md); done items move to `docs/backlog/archive/YYYY-MM.md` immediately.
 
 ## Workflow
 
@@ -30,7 +30,7 @@
 2. Implement + test + docs in one logical unit. Self-review against [`docs/standards/guidelines/llm-do-dont-checklist.md`](docs/standards/guidelines/llm-do-dont-checklist.md).
 3. **Build gate:** `npm test` + `npm run lint` + backend tests (Docker) must be green. Docker Desktop **is installed** — if a `docker` probe fails, diagnose per project-rules §2; never conclude Docker is absent.
 4. `npm run lint:fix` before committing when its write scope contains no unrelated dirty source files; otherwise use scoped fixers/check-only lint. Conventional commits — **only when the user asks**, except that requesting a plan/code review authorizes its one scoped automatic review commit on the current branch. An explicit read-only/no-commit request overrides that authorization.
-5. Update `ACTIVE_TASKS.md`; move completed backlog items to the archive. Batch open review questions with recommended options and resolve them before a plan transition. Don't declare done while blockers or open questions remain.
+5. Update `ACTIVE_TASKS.md`; move completed backlog items to the archive. Route new findings scope-first (fix now → owning plan's `## Review Findings` → fold into existing item → `backlog.md` only if out of scope). Batch open review questions with recommended options and resolve them before a plan transition. Don't declare done while blockers or open questions remain.
 
 ## Skill Routing (`docs/standards/ai/skills/`)
 

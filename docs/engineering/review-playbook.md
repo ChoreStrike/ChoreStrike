@@ -90,7 +90,7 @@ Reserve deep reasoning for ambiguity, security, architecture, and cross-module b
 |---------------|-------------|--------------------------|
 | `AGENTS.md` | workflow compliance | Are current review steps aligned with agent rules? |
 | `docs/backlog/ACTIVE_TASKS.md` | task coordination | Is the task status current and conflict-free? |
-| `docs/backlog/backlog.md` | backlog accuracy | Are all open findings represented exactly once with the correct priority? |
+| `docs/backlog/backlog.md` | backlog accuracy | Are all out-of-scope open findings represented exactly once with the correct priority (plan-owned findings in their plan's `## Review Findings`)? |
 | `docs/engineering/architecture.md` | architecture truth | Does the implementation still match the documented boundaries? |
 | `docs/api/README.md` and `docs/api/*` | contract truth | Do endpoints, payloads, and error semantics match reality? |
 | `docs/engineering/testing.md` | test truth | Does it describe the current active suites and realistic coverage? |
@@ -416,8 +416,9 @@ Do not fix immediately when one of these is true:
 - the issue may belong to intentionally unwired legacy scope
 
 In those cases:
-- log the finding
-- add or update the backlog task
+- log the finding where it belongs (scope-first routing, see below):
+  inside the owning plan's scope → the plan's `## Review Findings` checklist;
+  extending an existing open item → fold into that item; otherwise → `backlog.md`
 - batch the question for the end of the session
 
 ---
@@ -493,7 +494,7 @@ Every review package should leave behind the following artifacts.
 ### Required for Substantial Reviews
 
 - `docs/backlog/archive/CODE_REVIEW_YYYY-MM-DD.md` or updated existing review document
-- open-finding update in `docs/backlog/backlog.md`
+- open-finding updates routed per Finding Routing (owning plan's `## Review Findings` and/or `docs/backlog/backlog.md`)
 - one scoped commit after finalization, unless the outcome is `BLOCKED` or there are no eligible changes
 
 ### Optional
@@ -634,15 +635,29 @@ Use a consistent finding shape to keep reviews comparable.
 | Fix would trigger broad refactor | Backlog |
 | Test is stale but active behavior unclear | Batch question first |
 
-### Backlog Trigger Rules
+"Backlog" actions route through the Finding Routing rules below: a finding
+inside the owning plan's scope goes to the plan's `## Review Findings`
+checklist, not to a new backlog item.
 
-Move to backlog when:
+### Finding Routing and Backlog Trigger Rules
+
+Before creating any backlog item, route the finding scope-first
+(canonical rule: `project-rules.md` §4 "Finding Routing"):
+
+1. Inside the owning plan's scope/domain → the plan's `## Review Findings`
+   checklist (no backlog item; blocks the plan's `done/` move).
+2. Duplicating/extending an existing open backlog item → fold into that item
+   (`Folded-in`), never a parallel entry.
+3. Only outside the owning plan's scope (or without an owning plan) → a new
+   `backlog.md` entry.
+
+Route to backlog (step 3) or the plan findings (step 1) when:
 - the fix exceeds the current review package
 - architecture or UX intent needs approval
 - multiple modules would need coordinated changes
 - there is no safe regression test you can add immediately
 
-When moving something to backlog, always record:
+When recording a deferred finding (plan or backlog), always state:
 - the root problem
 - why it was not fixed now
 - the suggested next owner or next package
