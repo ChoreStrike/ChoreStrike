@@ -3,16 +3,17 @@
  * @license MIT
  *
  * Release E2E regression — Task Lifecycle (CS-PLAN-024, Phase 2; re-scoped
- * by CS-PLAN-055).
+ * by CS-PLAN-055; re-pinned by CS-PLAN-064).
  *
  * The task-level skip/reschedule routes and the standalone deactivate route
  * were pruned in CS-PLAN-055 (no production consumer). This spec now pins
  * the surviving lifecycle surface:
  *  - due-date changes via `PUT /room-tasks/{id}/due-date` (the production
  *    path: RoomTaskEditModal persists due dates through it),
- *  - the completion-undo chain the UI performs: `PUT /tasks/{id}/uncomplete`
- *    + `POST /room-tasks/{id}/reactivate` (roomTasks store
- *    `undoRoomTaskCompletion`).
+ *  - the completion-undo aggregate the UI performs: ONE
+ *    `POST /room-tasks/{id}/undo` (roomTasks store
+ *    `undoRoomTaskCompletion`; the former split `uncomplete` + `reactivate`
+ *    chain was pruned by CS-PLAN-064, decision D5).
  * UI-level complete/create coverage stays with `task-manager` /
  * `task-completion(-full-flow)` (extend-first, CS-PLAN-024 §2); recurrence
  * stays with `today-view`.
@@ -116,7 +117,7 @@ test.describe('Release: Task Lifecycle', () => {
 		}
 	})
 
-	test('completing then undoing restores the room task (uncomplete + reactivate)', async ({ browser, seededData }) => {
+	test('completing then undoing restores the room task (one undo aggregate)', async ({ browser, seededData }) => {
 		expect(seededData).not.toBeNull()
 
 		const { context, page } = await createUserContext(browser, 'mom')
@@ -132,26 +133,36 @@ test.describe('Release: Task Lifecycle', () => {
 				{ headers: { Accept: 'application/json' } },
 			)
 			expect(completeResponse.status()).toBe(200)
-			expect((await completeResponse.json()).data.roomTask).toBeTruthy()
+			const completed = (await completeResponse.json()).data
+			expect(completed.roomTask).toBeTruthy()
+			expect(completed.rewards).toBeTruthy()
+			// Effect record (decision D10): the response carries the
+			// completer's authoritative totals for owning-store reconcile.
+			expect(Number.isFinite(completed.rewards.totalCoins)).toBe(true)
 
-			// Undo primitive 1: clears lastCompleted (lives under /tasks/{id}
-			// but operates on the room task id — TaskController::uncomplete).
-			const uncompleteResponse = await page.request.put(
-				`/apps/chorestrike/api/v1/tasks/${target.id}/uncomplete`,
+			// Undo is the ONE idempotent aggregate (CS-PLAN-064 D3/D5): it
+			// restores the recorded before-state instead of only clearing
+			// lastCompleted (the former split uncomplete+reactivate chain).
+			const undoResponse = await page.request.post(
+				`/apps/chorestrike/api/v1/room-tasks/${target.id}/undo`,
 				{ headers: { Accept: 'application/json' } },
 			)
-			expect(uncompleteResponse.status()).toBe(200)
-			expect((await uncompleteResponse.json()).data.lastCompleted).toBeNull()
+			expect(undoResponse.status()).toBe(200)
+			const undone = (await undoResponse.json()).data
+			expect(undone.undone).toBe(true)
+			expect(undone.roomTask.lastCompleted).toBeNull()
+			expect(undone.roomTask.isActive).toBe(target.isActive)
+			// Exact recurrence inverse: the pre-completion nextDue is back.
+			expect(undone.roomTask.nextDue).toBe(target.nextDue)
 
-			// Undo primitive 2: reactivates one-time tasks (mirrors the
-			// conditional branch of undoRoomTaskCompletion; idempotent on an
-			// already-active recurrence task).
-			const reactivateResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${target.id}/reactivate`,
+			// Second undo: nothing revertible anymore → 200 no-op
+			// (decision D3, zero writes).
+			const noopResponse = await page.request.post(
+				`/apps/chorestrike/api/v1/room-tasks/${target.id}/undo`,
 				{ headers: { Accept: 'application/json' } },
 			)
-			expect(reactivateResponse.status()).toBe(200)
-			expect((await reactivateResponse.json()).data.isActive).toBe(true)
+			expect(noopResponse.status()).toBe(200)
+			expect((await noopResponse.json()).data.undone).toBe(false)
 		} finally {
 			await context.close()
 		}

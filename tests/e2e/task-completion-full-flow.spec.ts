@@ -194,4 +194,104 @@ test.describe('Task Completion Full Flow', () => {
 			await context.close()
 		}
 	})
+
+	test('complete → undo restores the exact state, stable across reload (CS-PLAN-064)', async ({ browser, seededData: _seededData }) => {
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			// Resolve the Kitchen room at runtime — the DELETE-based test
+			// reset never restarts AUTO_INCREMENT, so room ids grow.
+			const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
+			const floorsBody = await floorsResponse.json()
+			const kitchen = floorsBody.data
+				.flatMap((floor: { rooms: Array<{ id: number; name: string }> }) => floor.rooms)
+				.find((room: { name: string }) => room.name === 'Kitchen')
+			if (!kitchen) {
+				test.skip(true, 'No Kitchen room in the seeded house')
+				return
+			}
+
+			// A dedicated ONE-TIME task: its completion deactivates the row
+			// and claims rewards/cleanliness — the undo aggregate must
+			// restore the full recorded before-state (exact inverse).
+			const createResponse = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+				data: {
+					roomId: kitchen.id,
+					assigneeUserIds: ['mom'],
+					task: {
+						name: 'WP5 Undo Proof',
+						energyCost: 2,
+						frequencyType: 'weekly',
+						frequencyValue: 1,
+						recurrenceMode: 'once',
+					},
+				},
+			})
+			expect(createResponse.status()).toBe(200)
+			const created = (await createResponse.json()).data.roomTask
+
+			const initialCoins = await (await page.request.get('/apps/chorestrike/api/v1/minigames/coins')).json()
+
+			await page.goto('/apps/chorestrike/')
+			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+			await expandFloors(page)
+			await page.getByTestId('room-card-Kitchen').first().click()
+			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+
+			const taskRow = page.locator('[data-testid="task-item"]').filter({ hasText: 'WP5 Undo Proof' }).first()
+			await expect(taskRow).toBeVisible({ timeout: 15000 })
+
+			const completeResponsePromise = page.waitForResponse((response) => {
+				const pathname = new URL(response.url()).pathname
+				return response.request().method() === 'POST' && pathname === `/apps/chorestrike/api/v1/room-tasks/${created.id}/complete`
+			})
+			await taskRow.locator('[data-testid="complete-task-button"]').click()
+			const completeBody = await (await completeResponsePromise).json()
+			expect(completeBody.success).toBe(true)
+
+			// Exact UI state right after the one aggregate response: the row
+			// is completed (one-time deactivation) and the cleanliness stat
+			// shows the reconciled server value — no re-fetch.
+			await expect(taskRow).toHaveClass(/completed/)
+			await expect(page.getByTestId('cleanliness-value')).toHaveText(`${completeBody.data.room.cleanliness}%`)
+
+			// Undo through the snackbar → one POST /room-tasks/{id}/undo.
+			await expect(page.getByTestId('undo-snackbar')).toBeVisible()
+			const undoResponsePromise = page.waitForResponse((response) => {
+				const pathname = new URL(response.url()).pathname
+				return response.request().method() === 'POST' && pathname === `/apps/chorestrike/api/v1/room-tasks/${created.id}/undo`
+			})
+			await page.locator(`[data-testid="undo-snackbar-undo-button-${created.id}"]`).click()
+			const undoBody = await (await undoResponsePromise).json()
+			expect(undoBody.data.undone).toBe(true)
+
+			// Live revert: the row is active again with its complete button.
+			await expect(taskRow).not.toHaveClass(/completed/)
+			await expect(taskRow.locator('[data-testid="complete-task-button"]')).toBeVisible()
+			await expect(page.getByTestId('cleanliness-value')).toHaveText(`${kitchen.cleanliness}%`)
+
+			// No stale caches: after a reload the ROOM VIEW carries the
+			// original persisted state again.
+			await page.reload()
+			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+			await expect(taskRow).not.toHaveClass(/completed/)
+			await expect(page.getByTestId('cleanliness-value')).toHaveText(`${kitchen.cleanliness}%`)
+
+			// …the coin wallet shows the PRE-COMPLETION balance again…
+			await page.goto('/apps/chorestrike/')
+			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+			await expect(page.getByTestId('coins-value')).toHaveText(String(initialCoins.data.currentCoins))
+
+			// …and the persisted room task row equals its pre-completion
+			// state (recurrence inverse via the API ground truth).
+			const roomTasksResponse = await page.request.get(`/apps/chorestrike/api/v1/room-tasks?roomId=${kitchen.id}`)
+			const restored = ((await roomTasksResponse.json()).data as Array<{ id: number }>)
+				.find(roomTask => roomTask.id === created.id)
+			expect(restored).toBeTruthy()
+			expect(restored!.lastCompleted).toBeNull()
+			expect(restored!.isActive).toBe(true)
+			expect(restored!.nextDue).toBe(created.nextDue)
+		} finally {
+			await context.close()
+		}
+	})
 })

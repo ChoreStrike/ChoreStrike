@@ -46,7 +46,7 @@ follows one of these three patterns. No native confirm(), no silent saves.
 |---|---|---|
 | Destructive action (task/floor delete, member remove) | Styled confirmation dialog | shared src/components/Common/ConfirmDialog.vue (data-testid="confirm-dialog", danger styling, loading state) |
 | Async mutation (saves, renames, deletes) | Success/error toast | showSuccess/showError from @nextcloud/dialogs; error toasts on every failure path, never raw logger-only |
-| Completion of a task | Undo snackbar (~5 s) | global src/components/Common/UndoSnackbar.vue — *Undo* reverts via the uncomplete/reactivate endpoints, dismiss/timeout hides without effect |
+| Completion of a task | Undo snackbar (~5 s) | global src/components/Common/UndoSnackbar.vue — *Undo* reverts via the one `POST /room-tasks/{id}/undo` aggregate (CS-PLAN-064), dismiss/timeout hides without effect; entries are queued so a second completion never destroys the first undo (UX-015) |
 
 Rules:
 

@@ -5,25 +5,31 @@
 
 <template>
 	<div
-		v-if="visible"
-		class="undo-snackbar"
-		data-testid="undo-snackbar"
-		role="status">
-		<span class="snackbar-message">{{ t('chorestrike', 'Task completed') }}</span>
-		<button
-			class="snackbar-undo"
-			data-testid="undo-snackbar-undo-button"
-			:disabled="undoing"
-			@click="handleUndo">
-			{{ t('chorestrike', 'Undo') }}
-		</button>
-		<button
-			class="snackbar-dismiss"
-			data-testid="undo-snackbar-dismiss-button"
-			:aria-label="t('chorestrike', 'Dismiss')"
-			@click="hide">
-			×
-		</button>
+		v-if="entries.length"
+		class="undo-queue"
+		data-testid="undo-snackbar">
+		<div
+			v-for="entry in entries"
+			:key="entry.key"
+			class="undo-snackbar"
+			:data-testid="`undo-snackbar-entry-${entry.roomTaskId}`"
+			role="status"
+			aria-live="polite">
+			<span class="snackbar-message">{{ t('chorestrike', 'Task completed') }}</span>
+			<button
+				class="snackbar-undo"
+				:data-testid="`undo-snackbar-undo-button-${entry.roomTaskId}`"
+				@click="handleUndo(entry)">
+				{{ t('chorestrike', 'Undo') }}
+			</button>
+			<button
+				class="snackbar-dismiss"
+				:data-testid="`undo-snackbar-dismiss-button-${entry.roomTaskId}`"
+				:aria-label="t('chorestrike', 'Dismiss')"
+				@click="dismiss(entry.key)">
+				×
+			</button>
+		</div>
 	</div>
 </template>
 
@@ -35,82 +41,80 @@ import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { logger } from '../../utils/logger.js'
 
 const SNACKBAR_TIMEOUT_MS = 5000
+const MAX_QUEUE_ENTRIES = 3
+
+let entryCounter = 0
 
 /**
- * Global "Task completed" snackbar with an Undo action (CS-PLAN-041).
+ * Global "Task completed" snackbar queue with per-entry Undo actions
+ * (CS-PLAN-041, UX-015 resolved by CS-PLAN-064 §3.5).
  *
  * Listens for successful completions on the event bus and offers a ~5 s
- * undo window backed by the uncomplete/reactivate endpoints. Undo hides the
- * bar immediately (perceived instant revert) and restores the task via the
- * roomTasks store; a failed undo surfaces an error toast and leaves the
- * server-truth (completed) state in place. Dismissal or timeout hides the
- * bar without side effects.
+ * undo window per completion — every entry keeps its own countdown and is
+ * individually undoable/dismissible, so a second completion no longer
+ * destroys the first undo action. Undoing calls the one idempotent undo
+ * aggregate (`POST /room-tasks/{id}/undo`) through the store; the entry
+ * drops out immediately (perceived instant revert) and a failed undo
+ * surfaces an error toast while the server truth (completed) stays. When
+ * the queue exceeds MAX_QUEUE_ENTRIES the oldest entry is evicted. No
+ * reward internals are shown — the copy stays "Task completed / Undo".
  */
 export default {
 	name: 'UndoSnackbar',
 
 	data() {
 		return {
-			roomTaskId: null,
-			visible: false,
-			undoing: false,
-			timerId: null,
+			entries: [],
 		}
 	},
 
 	mounted() {
+		this.timers = new Map()
 		this.handler = ({ roomTaskId }) => this.show(roomTaskId)
 		subscribe('chorestrike:task-completed', this.handler)
 	},
 
 	unmounted() {
 		unsubscribe('chorestrike:task-completed', this.handler)
-		this.clearTimer()
+		this.timers.forEach(timerId => clearTimeout(timerId))
+		this.timers.clear()
 	},
 
 	methods: {
 		t,
 
 		show(roomTaskId) {
-			this.roomTaskId = roomTaskId
-			this.visible = true
-			this.restartTimer()
+			const key = `undo-${++entryCounter}`
+			this.entries.push({ key, roomTaskId })
+			while (this.entries.length > MAX_QUEUE_ENTRIES) {
+				this.dismiss(this.entries[0].key)
+			}
+
+			this.timers.set(
+				key,
+				setTimeout(() => this.dismiss(key), SNACKBAR_TIMEOUT_MS),
+			)
 		},
 
-		hide() {
-			this.visible = false
-			this.roomTaskId = null
-			this.clearTimer()
-		},
-
-		restartTimer() {
-			this.clearTimer()
-			this.timerId = setTimeout(this.hide, SNACKBAR_TIMEOUT_MS)
-		},
-
-		clearTimer() {
-			if (this.timerId !== null) {
-				clearTimeout(this.timerId)
-				this.timerId = null
+		dismiss(key) {
+			this.entries = this.entries.filter(entry => entry.key !== key)
+			if (this.timers.has(key)) {
+				clearTimeout(this.timers.get(key))
+				this.timers.delete(key)
 			}
 		},
 
-		async handleUndo() {
+		async handleUndo(entry) {
 			const roomTasksStore = useRoomTasksStore()
-			const roomTaskId = this.roomTaskId
 
-			// Perceived instant revert: drop the bar before the call.
-			this.hide()
-			if (roomTaskId === null) return
+			// Perceived instant revert: drop the entry before the call.
+			this.dismiss(entry.key)
 
-			this.undoing = true
 			try {
-				await roomTasksStore.undoRoomTaskCompletion(roomTaskId)
+				await roomTasksStore.undoRoomTaskCompletion(entry.roomTaskId)
 			} catch (error) {
 				showError(t('chorestrike', 'Could not undo the completion'))
-				logger.error('Failed to undo task completion', error, { component: 'UndoSnackbar', action: 'handleUndo', roomTaskId })
-			} finally {
-				this.undoing = false
+				logger.error('Failed to undo task completion', error, { component: 'UndoSnackbar', action: 'handleUndo', roomTaskId: entry.roomTaskId })
 			}
 		},
 	},
@@ -118,12 +122,20 @@ export default {
 </script>
 
 <style scoped>
-.undo-snackbar {
+.undo-queue {
 	position: fixed;
 	bottom: 1.5rem;
 	inset-inline-start: 50%;
 	transform: translateX(-50%);
 	z-index: 2000;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+	max-width: min(480px, calc(100vw - 2rem));
+}
+
+.undo-snackbar {
 	display: flex;
 	align-items: center;
 	gap: 0.75rem;

@@ -529,9 +529,11 @@ class CompletionService {
 		// Post-commit weekly-goal refresh in the same log-and-degrade
 		// boundary (D7); the weekly-goal claim itself is a non-retraction (D8).
 		$weeklyGoal = null;
+		$postUndoDegraded = false;
 		try {
 			$weeklyGoal = $this->houseService->getWeeklyGoalProgress($houseId);
 		} catch (\Throwable $e) {
+			$postUndoDegraded = true;
 			$this->appLogger->warning('CompletionService: post-undo effects degraded', [
 				'event' => 'undo_post_commit_degraded',
 				'service' => 'CompletionService',
@@ -542,22 +544,36 @@ class CompletionService {
 			]);
 		}
 
+		$rewards = $this->revertedRewards($current, $beforeState, $task, $completer, $weeklyGoal);
+		if ($postUndoDegraded) {
+			$rewards['degraded'] = true;
+		}
+
 		return [
 			'roomTask' => $roomTask,
 			'room' => $room,
 			'task' => $task,
-			'rewards' => $this->revertedRewards($current, $beforeState, $task),
+			'rewards' => $rewards,
 			'undone' => $undone,
 		];
 	}
 
 	/**
 	 * Build the reverted-delta rewards payload from the effect record — the
-	 * same reconciliation inputs the completion response carries (D10).
+	 * same reconciliation inputs the completion response carries (D10),
+	 * including `completerUserId` so the client knows whose user state the
+	 * totals describe (the undo actor may be a house owner).
 	 *
 	 * @param array<string, mixed> $beforeState
+	 * @param array<string, mixed>|null $weeklyGoal Post-undo weekly-goal read (degraded → null)
 	 */
-	private function revertedRewards(CompletedTask $ledgerRow, array $beforeState, Task $task): array {
+	private function revertedRewards(
+		CompletedTask $ledgerRow,
+		array $beforeState,
+		Task $task,
+		HouseUser $completer,
+		?array $weeklyGoal,
+	): array {
 		$deltas = $ledgerRow->getDeltas();
 		$beforeUser = $beforeState['houseUser'];
 
@@ -573,10 +589,11 @@ class CompletionService {
 			'streakFreezesRemaining' => (int)($beforeUser['streakFreezes'] ?? 0),
 			'comboBonusFreeze' => false,
 			'teamworkBonus' => -(int)($deltas['teamworkBonus'] ?? 0),
-			'weeklyGoal' => null,
+			'weeklyGoal' => $weeklyGoal,
 			'totalCoins' => (int)($beforeUser['coins'] ?? 0),
 			'totalContribution' => (int)($beforeUser['contributionScore'] ?? 0),
 			'longestStreak' => (int)($beforeUser['longestStreak'] ?? 0),
+			'completerUserId' => $completer->getNextcloudUserId(),
 			'revertedCoinsEarned' => (int)($deltas['coinsAwarded'] ?? 0),
 			'ledgerRowId' => $ledgerRow->getId(),
 		];

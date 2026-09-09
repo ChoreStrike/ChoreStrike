@@ -165,9 +165,8 @@ points:** RoomDetail (slim modal), TaskManager, TaskList.
 | Edit due date | RoomDetail → `RoomTaskEditModal` | `PUT /room-tasks/{id}/due-date` | ✅ |
 | Edit assignees | RoomTaskEditModal, TaskList expanded row | `PUT /room-tasks/{id}/assignees` | ✅ |
 | Delete room task | RoomDetail, TaskManager | `DELETE /room-tasks/{id}` | ✅ |
-| Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ⛔ pruned (CS-PLAN-055; `reactivate` stays for the undo path) |
-| Reactivate task | UndoSnackbar (via store) | `POST /room-tasks/{id}/reactivate` | ✅ (undo of one-time completions, CS-PLAN-041) |
-| Undo a completion (snackbar) | global `UndoSnackbar` (~5 s) | `PUT /tasks/{roomTaskId}/uncomplete` (+ reactivate for deactivated tasks) | ⚠️ partial state-only restore; full transactional inverse selected for CR-WF-02 (2026-09-02) |
+| Deactivate (pause) task | — | `POST /room-tasks/{id}/deactivate` | ⛔ pruned (CS-PLAN-055; `reactivate`/`uncomplete` followed by CS-PLAN-064) |
+| Undo a completion (snackbar) | global `UndoSnackbar` queued list (~5 s per entry, UX-015) | `POST /room-tasks/{id}/undo` — ONE inverse aggregate | ✅ exact server-side restore: recurrence, ledger, rewards/streak, cleanliness, checklist (CS-PLAN-064/ADR-011; the CS-PLAN-041 `uncomplete`+conditional-`reactivate` chain was pruned, D5) |
 
 ## UC-08 — Daily execution ("My Day")
 
@@ -401,8 +400,8 @@ surface) · `needs-decision` · `post-MVP`.
 | task-sync surface (all) | `POST /task-sync/complete`, `…/sync-from-nextcloud`, `GET …/{roomTaskId}/reminders`, `GET …/pending`, `POST …/{completedTaskId}/mark-synced`, `POST …/link` |
 | Test-only lifecycle/leaderboard/config ×8 | `PUT /tasks/{id}/complete`, `PUT …/skip`, `PUT …/reschedule`, `GET /tasks/daily`, `POST /room-tasks/{id}/deactivate`, `GET /game/leaderboard`, `GET+PUT /reward-config` |
 
-> Kept deliberately: `PUT /tasks/{id}/uncomplete` + `POST /room-tasks/{id}/reactivate`
-> (undo path, UC-07), `GET+PUT /room-tasks/{id}/assignees` (production:
+> Kept deliberately (UC-07 undo re-scoped by CS-PLAN-064 to the ONE aggregate
+> `POST /room-tasks/{id}/undo`; the split uncomplete/reactivate pair was pruned), `GET+PUT /room-tasks/{id}/assignees` (production:
 > TodayView per-row resolution + editor/bulk assignment), and the 3 test
 > harness routes below.
 >
@@ -443,7 +442,8 @@ assignee guard. Earlier passes: 2026-08-22 — CS-PLAN-041 (UX-005/006/013):
 medals overview + `check-medals` pre-pass ✅ on the Leaderboard mount,
 period filter ⛔ removed (no backend parameter), Dashboard private chip →
 TaskManager `?visibility=private` scope ✅, completion undo snackbar
-(`uncomplete` + conditional `reactivate`) ✅, boost catalog ✅
+(`uncomplete` + conditional `reactivate`; a single undo aggregate since
+CS-PLAN-064, UC-07) ✅, boost catalog ✅
 server-authoritative (`BOOST_COSTS` deleted), styled confirms replace native
 `confirm()`. 2026-08-21 — CS-PLAN-040 added UC-16 and flipped the stats
 routes; CS-PLAN-039 added the route coverage appendix (uniform

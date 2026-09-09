@@ -15,7 +15,7 @@ export const useGameStore = defineStore('game', {
 		loading: false,
 		error: null,
 		// The weekly household goal snapshot returned by
-		// GameController#state and RoomService::completeRoomTask. It mirrors
+		// GameController#state and CompletionService::complete. It mirrors
 		// the HouseService::getWeeklyGoalProgress payload shape so the store
 		// is populated directly from API responses without any client-side
 		// arithmetic. The dead household-aggregation state (totalCoins /
@@ -141,8 +141,8 @@ export const useGameStore = defineStore('game', {
 		 * Replace the weekly goal snapshot from a server payload.
 		 *
 		 * Source: GameController#state (`gameState.weeklyGoal`) or
-		 * RoomService::completeRoomTask rewards (`rewards.weeklyGoal`). On the
-		 * not-achieved → achieved transition the store emits
+		 * CompletionService complete/undo rewards (`rewards.weeklyGoal`). On
+		 * the not-achieved → achieved transition the store emits
 		 * `chorestrike:weekly-goal-reached` so the celebration composable can
 		 * fire confetti + sound. Detecting the transition here (rather than in
 		 * the backend) keeps the server stateless about who has already seen

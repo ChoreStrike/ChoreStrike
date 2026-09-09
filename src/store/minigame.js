@@ -101,6 +101,19 @@ export const useMinigameStore = defineStore('minigame', {
 		},
 
 		/**
+		 * Reconcile the coin wallet from the authoritative `totalCoins`
+		 * balance a completion/undo response carries (CS-PLAN-064 §3.5,
+		 * decision D10) — same HouseUser.coins field as fetchCoins(),
+		 * applied without an extra request or client-side arithmetic.
+		 * @param {number} totalCoins Post-transition wallet balance
+		 */
+		reconcileCoins(totalCoins) {
+			if (Number.isFinite(totalCoins)) {
+				this.currentCoins = totalCoins
+			}
+		},
+
+		/**
 		 * Fetch leaderboard for a game
 		 * @param {string} gameId Game identifier (e.g. 'snake')
 		 * @param {number} limit Maximum number of entries to return

@@ -224,6 +224,23 @@ export const useRoomsStore = defineStore('rooms', {
 		},
 
 		/**
+		 * Reconcile a cached room from an authoritative completion/undo
+		 * payload (CS-PLAN-064 §3.5, decision D10): the aggregate response
+		 * carries the LOCKED, post-mutation room row — cleanliness and
+		 * lastCleaned included — so the cached entry is replaced as-is.
+		 * Unknown rooms stay absent; their views own a separate source.
+		 * @param {object} room Serialized room from `{roomTask, room, task, rewards}`.
+		 */
+		reconcileRoom(room) {
+			if (!room?.id) return
+
+			const index = this.rooms.findIndex(r => r.id === room.id)
+			if (index >= 0) {
+				this.rooms[index] = room
+			}
+		},
+
+		/**
 		 * Delete floor
 		 * @param {number} floorId Floor identifier to delete.
 		 */

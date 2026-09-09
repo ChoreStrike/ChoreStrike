@@ -312,7 +312,9 @@ List all tasks visible to the current user (role-based visibility filtering appl
 > `PUT /tasks/{id}/complete|skip|reschedule` and `DELETE /tasks/{id}` — was
 > pruned in CS-PLAN-055 (no production consumer). Tasks are consumed via
 > `GET /tasks` and mounted on rooms through `GET /room-tasks`. The lifecycle
-> `PUT /tasks/{id}/uncomplete` stays (undo path, see Room Tasks).
+> `PUT /tasks/{id}/uncomplete` was likewise pruned in CS-PLAN-064 (decision
+> D5) — undo runs exclusively through `POST /room-tasks/{id}/undo` (see Room
+> Tasks).
 
 > **Catalog templates:** the DB-backed `is_template` / `GET /tasks/templates`
 > system was removed (CS-PLAN-027 D7). Task templates now come from the
@@ -468,37 +470,87 @@ Update a room task's next-due date / ideal due date.
 Read / replace the multi-assignee set for a room task. Assignee mutations
 are validated for house membership server-side.
 
-#### POST /room-tasks/{id}/reactivate
-Re-activate a room-task instance (undo path for one-time tasks whose
-completion deactivated them; `deactivate` was pruned in CS-PLAN-055).
+#### POST /room-tasks/{id}/undo (CS-PLAN-064 WP5)
+The one idempotent undo aggregate (replaces the pruned split
+`PUT /tasks/{id}/uncomplete` + `POST /room-tasks/{id}/reactivate` chain,
+decision D5). Restores the newest revertible completion of this room task
+exactly from its recorded effect (see [ADR-011](../adr/ADR-011-transactional-completion-and-undo.md)).
+
+**Response (reverted):**
+```json
+{
+  "success": true,
+  "data": {
+    "roomTask": { "id": 12, "nextDue": "2026-02-24T15:30:00Z", "isActive": true, "lastCompleted": null },
+    "room": { "id": 3, "cleanliness": 55 },
+    "task": { "id": 7, "energyCost": 3, "priority": 2 },
+    "rewards": {
+      "coins": -45,
+      "contributionScore": -3,
+      "teamworkBonus": 0,
+      "currentStreak": 3,
+      "weeklyGoal": { "percent": 61, "achieved": false },
+      "totalCoins": 150,
+      "totalContribution": 320,
+      "longestStreak": 4,
+      "completerUserId": "mom",
+      "revertedCoinsEarned": 45,
+      "ledgerRowId": 88
+    },
+    "undone": true
+  }
+}
+```
+
+- **Actor gate:** the recorded completer or a house owner (masterplan decision
+  D3); otherwise `403 FORBIDDEN`. A completer who left the house gets a clean
+  403 ("The completer is no longer a member of this house").
+- **No revertible occurrence:** `200` with `undone: false`, `rewards: null`
+  and **zero writes** — undo is idempotent, and the current state is echoed
+  back for client reconciliation.
+- **Non-retractions (ADR-011, D8):** medals already awarded, the weekly-goal
+  notification claim, and dispatched notifications survive an undo.
 
 #### DELETE /room-tasks/{id}
 Remove task from room.
 
 > **Lifecycle authorization (CS-PLAN-056, CR-053-06; unified in ADR-010 /
 > CS-PLAN-061):** the surviving lifecycle mutations —
-> `PUT /tasks/{id}/uncomplete`, `PUT /room-tasks/{id}/due-date`, and
-> `POST /room-tasks/{id}/reactivate` — enforce the ONE task-visibility matrix
-> via `TaskAccessPolicy`, the same as `POST /room-tasks/{id}/complete`
-> (public → any member; private → creator ∪ that room task's explicit
-> assignees; admin-only → house owner). **Visibility denials return `404
-> RESOURCE_NOT_FOUND`** (anti-enumeration, decision D3) — never a 403 that
-> would confirm the id exists; role denials (a child actor) stay
-> `403 FORBIDDEN`.
+> `PUT /room-tasks/{id}/due-date`, `POST /room-tasks/{id}/complete`, and
+> `POST /room-tasks/{id}/undo` — enforce the ONE task-visibility matrix
+> via `TaskAccessPolicy` (public → any member; private → creator ∪ that room
+> task's explicit assignees; admin-only → house owner). **Visibility denials
+> return `404 RESOURCE_NOT_FOUND`** (anti-enumeration, decision D3) — never a
+> 403 that would confirm the id exists; role denials (a child actor) stay
+> `403 FORBIDDEN`. Completion additionally answers `409 CONFLICT` for inactive
+> occurrences and `403 FORBIDDEN` for the same-user day duplicate
+> (CS-PLAN-064, ADR-011).
 
 > **Full route list:** the canonical, complete route table is
-> [`appinfo/routes.php`](../../appinfo/routes.php) (71 routes spanning `house`,
+> [`appinfo/routes.php`](../../appinfo/routes.php) (69 routes spanning `house`,
 > `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
 > `checklist`, `minigame`, `setup`, and `test`). The task-sync ×6 and
 > reward-config ×2 HTTP surfaces were pruned in CS-PLAN-055 together with
 > 31 further no-consumer/test-only routes (disposition list + guard in
-> `RouteMatrixTest`); re-adding a route requires a consumer.
+> `RouteMatrixTest`); CS-PLAN-063 pruned `POST /tasks` and CS-PLAN-064 pruned
+> `PUT /tasks/{id}/uncomplete` + `POST /room-tasks/{id}/reactivate` while
+> adding the undo aggregate. Re-adding a route requires a consumer.
 > This document covers the core CRUD + completion
 > flows; the `RouteMatrixTest` contract test guards route↔controller drift.
 
 #### POST /room-tasks/{id}/complete
-Complete the current room-task occurrence. The completion timestamp is resolved
-server-side; the request has no body.
+Complete the current room-task occurrence — one transactional aggregate
+(CS-PLAN-064 WP5, [ADR-011](../adr/ADR-011-transactional-completion-and-undo.md)).
+The completion timestamp is resolved server-side; the request has no body. The
+transaction writes ONE immutable ledger effect record (`occurrence_due` +
+`before_state` + `deltas`) that `POST …/undo` later restores exactly.
+Occurrence gates run before any write: inactive occurrence → `409 CONFLICT`
+("Task is not active"), same-user day duplicate (non-undone rows only) →
+`403 FORBIDDEN`, visibility → `404`/`403` per the standard above. Post-commit
+effects (weekly-goal read, notification dispatches) are failure-isolated: the
+endpoint still answers `200` with `rewards.degraded = true` and
+`rewards.weeklyGoal = null` — a committed completion is never an ambiguous
+failure.
 
 **Response:**
 ```json
@@ -516,12 +568,23 @@ server-side; the request has no body.
       "coins": 45,
       "isCombo": true,
       "currentStreak": 4,
+      "streakFreezeUsed": false,
+      "streakFreezesRemaining": 1,
+      "comboBonusFreeze": false,
       "teamworkBonus": 0,
-      "weeklyGoal": { "percent": 72, "achieved": false }
+      "weeklyGoal": { "percent": 72, "achieved": false },
+      "totalCoins": 195,
+      "totalContribution": 323,
+      "longestStreak": 4
     }
   }
 }
 ```
+
+> `totalCoins`, `totalContribution`, and `longestStreak` are the completer's
+> authoritative post-completion balances (decision D10) so the owning client
+> stores reconcile from this one response without arithmetic; `degraded: true`
+> appears only when a post-commit effect failed.
 
 #### GET /room-tasks/range?from=&to=
 Get scheduled and completed tasks within a date range (calendar view). Max span: 60 days.

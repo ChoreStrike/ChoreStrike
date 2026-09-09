@@ -183,7 +183,8 @@ inside an open transaction.
 **Deterministic lock order — always acquire in this order, never reverse:**
 
 ```
-house → room_task → task/assignee/reward rows
+house → room_task → task/assignee/reward rows          (setup/creation family)
+room_task → room → house_user                          (completion/undo family)
 ```
 
 Example: `AuthorizationService::ensureHouseMember` locks the house row before
@@ -195,13 +196,21 @@ recheck, the assignee-membership revalidation, and the house-name write
 first and then performs only fresh inserts (definition, room task, assignee
 rows) — the assignment side (`RoomTaskService::setAssignees` and each
 ascending-id bulk item) takes the `room_task` row lock as its first and only
-lock, revalidating the target membership under it;
-`RoomService::completeRoomTask` locks the room-task row before its
-completion-side writes. The completion-effect lookup/inversion primitives
-built on this order arrive with WP5 / ADR-011, which will reference the
-completion ordering in
-[ADR-007](../adr/ADR-007-concurrency-safe-task-completion.md) rather than
-duplicating it.
+lock, revalidating the target membership under it.
+
+**Completion/undo usage (CS-PLAN-064 WP5, ADR-011):** `CompletionService` owns
+both aggregates on the order `room_task → room → house_user`. Completion locks
+the room task first (fresh entity, ADR-007 #3), then the room row
+(`RoomMapper::lockForUpdate` — concurrent same-room completions serialize
+there, so the cleanliness write cannot clobber), then the completer's
+`house_user` row (the same row the reward phase locks). Undo follows the
+identical order and locks the **completer's** `house_user` (the actor may be a
+house owner). The task definition is deliberately not locked (ratified
+deviation, ADR-011 §2 / decision D12). The families never mix: completion/undo
+never take the house row lock, so no cycle against setup/creation exists —
+proven by the two-connection race suites
+(`tests/integration/Service/CompletionConcurrencyTest.php`,
+`ConcurrentCompletionTest.php`).
 
 ## Project Structure
 

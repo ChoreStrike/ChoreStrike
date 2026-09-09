@@ -282,7 +282,13 @@ export default {
 			this.completingIds = new Set(this.completingIds).add(roomTaskId)
 			try {
 				const data = await this.roomTasksStore.completeRoomTask(roomTaskId)
-				const updated = data?.roomTask || { ...item.roomTask, isActive: false }
+				// The store reconciled every owning store from this payload
+				// already (D10); the aggregate's room task carries no
+				// assignee relation, so keep the row's cached membership
+				// for the mine-filter.
+				const updated = data?.roomTask
+					? { ...data.roomTask, assignees: item.roomTask.assignees ?? data.roomTask.assignees ?? [] }
+					: { ...item.roomTask, isActive: false }
 				if (updated.isActive && this.isDueToday(updated)) {
 					// Recurring task with another occurrence still due today
 					item.roomTask = updated

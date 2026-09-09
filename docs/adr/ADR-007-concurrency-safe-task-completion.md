@@ -5,6 +5,15 @@
 **Deciders**: Development Team  
 **Source**: [Full Review of `lib/Service`](../backlog/archive/CODE_REVIEW_2026-08-04.md) (CR-SVC-04, CR-SVC-12) · landed by [CS-PLAN-025](../plans/done/cs-plan-025-service-security-concurrency-cleanup.md)
 
+> **Annotation (2026-09-06, CS-PLAN-064 WP5):** this doctrine stands — the locked
+> read-modify-write on `house_user`, fresh-locked entities, and post-commit
+> notification deferral are still the base of the completion path. WP5
+> **refines, not replaces**, it: completion/undo now form single aggregates on
+> the deterministic order `room_task → room → house_user`, and the ledger
+> becomes an immutable effect record (`before_state`/`deltas`/`undone_at`) that
+> one idempotent undo restores exactly. See
+> [ADR-011](ADR-011-transactional-completion-and-undo.md).
+
 ## Context
 
 Task completion is the hot path of the app and the place where currency (coins) and

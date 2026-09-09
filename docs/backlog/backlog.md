@@ -25,23 +25,6 @@
 > are intentionally sanitized; sensitive technical evidence is excluded from the
 > public repository under the security-disclosure policy.
 
-### [P1] CR-WF-02 — Make completion and undo transactionally complete
-**Status**: In Progress (owned umbrella — via CS-PLAN-064/WP5, activated 2026-09-06) · **Effort**: XL · **Layer**: backend+frontend · **Journey stage**: completion/undo
-**Owning**: CS-PLAN-058 WP5 · **Depends on**: — · **Blocks**: CR-WF-07 · **Folded-in**: —
-**Source**: Full Review of the core task workflow (2026-09-02)
-
-The completion aggregate has state, concurrency, and post-commit ambiguity gaps;
-the current split undo restores only part of the completed occurrence. The user
-selected full transactional undo on 2026-09-02.
-
-- [ ] Validate and lock the current active occurrence and all reward-driving inputs before mutation.
-- [ ] Preserve concurrent room-state updates and reset occurrence-scoped checklist progress.
-- [ ] Keep fallible post-commit effects from changing an already-committed success into an ambiguous failure.
-- [ ] Undo room-task recurrence, completion ledger, rewards/streak, cleanliness, and derived state in one inverse transaction.
-- [ ] Add real-DB concurrency, retry, inactive-occurrence, and full-undo regressions.
-
----
-
 ### [P2] CR-WF-04 — Reconcile daily workflow payloads and client state
 **Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily workflow
 **Owning**: CS-PLAN-058 WP7 · **Depends on**: CR-WF-07 · **Blocks**: CR-WF-06 · **Folded-in**: —
@@ -52,8 +35,8 @@ state, causing incorrect limits/counts, stale completion feedback, and lost UI
 events.
 
 - [ ] Apply viewer eligibility before child daily limits and use house-local parsing for date-only due dates.
-- [ ] Define canonical enriched payloads for daily tasks, assignees, completion rewards, titles, and invitations.
-- [ ] Reconcile room, house, user, game, and task caches after completion and undo.
+- [ ] Define canonical enriched payloads for daily tasks, assignees, completion rewards, titles, and invitations. *(Finding folded in from CS-PLAN-064 2026-09-09: the `chorestrike:title-unlocked` client event is dead production — `complete()` never returned the reward engine's computed `newTitle` in its response (pre-existing; preserved unchanged by the plan's contract-freeze scope guard). WP7 payload design must close it.)*
+- [ ] Reconcile room, house, user, game, and task caches after completion and undo. *(Partial — the completion/undo-owned slices (roomTasks/dailyTasks, room cleanliness, game weekly goal, user progression, coin wallet) were reconciled from the one authoritative response by CS-PLAN-064 §3.5 in 2026-09-09; house-health and remaining task-list caches stay WP7.)*
 - [ ] Populate Dashboard due/overdue counters from the slices their fetch actions actually update.
 - [ ] Add contract tests for each backend response, store mutation, and visible result.
 
@@ -96,7 +79,7 @@ extends, rather than duplicates, **CR-SVC-15**, **CR-SVC-40**, **CR-SVC-41**, an
 
 ### [P1] CR-WF-07 — Make scheduling produce an actionable household plan
 **Status**: Planned · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
-**Owning**: CS-PLAN-058 WP6 · **Depends on**: CR-WF-02 · **Blocks**: CR-WF-04 · **Folded-in**: —
+**Owning**: CS-PLAN-058 WP6 · **Depends on**: — (the old completion/undo dependency was delivered 2026-09-09 by CS-PLAN-064; see the monthly archive) · **Blocks**: CR-WF-04 · **Folded-in**: —
 **Source**: CS-PLAN-058 core workflow masterplan (2026-09-02)
 
 The existing scheduling surface can preview capacity, but the core journey needs
@@ -144,25 +127,30 @@ read-modify-write races follow the work packages that touch their workflows.
 ---
 
 ### [P2] CR-SVC-15 — Decompose God-methods / God-services
-**Status**: In Progress (WP5 completion-path extraction slice via CS-PLAN-064, activated 2026-09-06; structural remainder stays WP8) · **Effort**: L · **Layer**: backend · **Journey stage**: performance
+**Status**: In Progress (WP5 completion-path extraction slice **delivered 2026-09-09 by CS-PLAN-064**: `RoomService::completeRoomTask` (~200 lines) is gone — the whole completion/undo path lives in `CompletionService`; structural remainder stays WP8) · **Effort**: L · **Layer**: backend · **Journey stage**: performance
 **Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of `lib/Service` (2026-08-04)
 
-Owned in portions: WP5 enforces the completion-path constraints while
-decomposing completion; WP8 executes the remaining structural decomposition
-after the contract freeze. Over the ~300-line/~30-line guidelines:
-`RoomService::completeRoomTask` (~200 lines),
+Owned in portions: WP5 enforced the completion-path constraints while
+decomposing completion (delivered — `CompletionService`; overdue-takeover and
+post-commit dispatch extraction done); WP8 executes the remaining structural
+decomposition after the contract freeze. Over the ~300-line/~30-line
+guidelines: ~~`RoomService::completeRoomTask` (~200 lines)~~ (moved into
+`CompletionService` by CS-PLAN-064; that service's size itself is WP8
+decomposition input),
 `GameLogicService` (517, 7 concerns), `handleTaskCompletion` (~113) /
 `checkAndAwardMedals` (~62, 5 near-identical award blocks), `RoomTaskService` (833),
 `RewardConfigService` (689 → 538 via CS-PLAN-049 registry, 2026-08-26 — still over
 the guideline, accepted), `TaskService::createTask` (24 positional params).
-- [ ] Extract cohesive steps (overdue-takeover, post-commit notification dispatch,
-      medal-rules table) and split GameLogicService along domain lines.
+- [ ] Extract cohesive steps (medal-rules table) and split GameLogicService
+      along domain lines; revisit the `CompletionService` shape (the WP5
+      aggregate owner is 772 lines incl. docblocks — phase-split candidate
+      for WP8 without weakening its single-transaction boundary).
 
 ---
 
 ### [P3] CR-SVC-40 — Services reach below their layer (`IDBConnection` injection)
-**Status**: In Progress (WP5 completion-path slice via CS-PLAN-064, activated 2026-09-06; structural remainder stays WP8) · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
+**Status**: In Progress (WP5 completion-path slice **delivered 2026-09-09 by CS-PLAN-064**; structural remainder stays WP8) · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
 **Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of `lib/Service` (2026-08-04); scope updated by CS-PLAN-053 full review (2026-08-27)
 
@@ -172,8 +160,12 @@ the single transaction owner, the six transactional services route through it
 and no longer inject `IDBConnection`, and the deterministic lock order
 (house → room_task → dependents) is documented in
 [`../engineering/development.md`](../engineering/development.md).
-Remainder: WP5 owns the completion-path lock/constraint enforcement while
-decomposing completion; WP8 owns the remaining structural moves.
+The WP5 portion delivered: `CompletionService` runs both completion and undo
+through `TransactionExecutor` on the extended documented order
+`room_task → room → house_user` ([ADR-011](../adr/ADR-011-transactional-completion-and-undo.md)),
+closing the unlocked cleanliness/teamwork read-modify-write seams; the only
+remaining unlocked cleanliness writer is the manual adjust endpoint (tracked
+separately, see CR-SVC-63). WP8 owns the remaining structural moves.
 `TestDataService` keeps its documented D6 exemption (non-production test
 tooling, query-builder only).
 
@@ -266,19 +258,23 @@ re-bootstrap). Remaining: the backend leave endpoint + Settings action.
 ---
 
 ### [P3] CR-053-20 — Frontend correctness cluster
-**Status**: In Progress (WP5 undo/cache-reconciliation slice via CS-PLAN-064, activated 2026-09-06; WP7 remainder stays) · **Effort**: M · **Layer**: frontend · **Journey stage**: daily workflow
+**Status**: In Progress (WP5 undo/cache-reconciliation slice **delivered 2026-09-09 by CS-PLAN-064 §3.5**; WP7 remainder stays) · **Effort**: M · **Layer**: frontend · **Journey stage**: daily workflow
 **Owning**: CS-PLAN-058 WP5+WP7 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-053 full review (CR-P4-01..04, 06, 08, 09, 2026-08-27); re-scoped by CS-PLAN-055
 
-Owned in portions: WP5 owns the undo/cache-reconciliation slices, WP7 the
-remaining canonical client-state parts.
+Owned in portions: WP5 owns the undo/cache-reconciliation slices (delivered),
+WP7 the remaining canonical client-state parts.
 (**wire-or-delete decided: delete** — the uncalled user-store reward actions
 `addCoins`/`addContributionScore`/`updateStreak` were pruned with the dead-store layer,
 CR-P4-03's deletion half executed)
 False "Weekly goal reached!" celebration on every Dashboard mount while goal achieved;
-minigame `initialize()` leaves loading stuck on catalog failure; `completeRoomTask` leaves
+minigame `initialize()` leaves loading stuck on catalog failure; ~~`completeRoomTask` leaves
 rooms/house/user caches stale (the reward-action wire option is gone — reconcile caches on
-fetch instead); undo/reactivate slice drift; ~~`new Date(null)` →
+fetch instead); undo/reactivate slice drift~~ — **closed 2026-09-09 by CS-PLAN-064 §3.5**:
+the one completion/undo response now reconciles roomTasks/dailyTasks, the rooms store,
+the game store, the user store and the coin wallet **before** any event fires, and the
+split undo chain is replaced by the single `POST /room-tasks/{id}/undo` aggregate;
+~~`new Date(null)` →
 epoch counted as overdue + UTC date parsing~~ **partially closed 2026-08-30**
 (CS-PLAN-057 CR-P4-06 half: `totalDueTodayTasks`/`totalOverdueTasks` guard a
 missing `nextDue` and all day keys unify on the house timezone via
@@ -287,22 +283,8 @@ out-of-order range/activity fetches; invite duplicate row.
 
 **Decision (user, 2026-09-02):** the former task-state-only undo limitation is
 revoked. Undo must be one full inverse transaction; implementation and coverage
-are owned by **CR-WF-02** above.
-
----
-
-### [P3] UX-015 — Undo snackbar holds only the latest completion
-**Status**: In Progress (owned — queued undo entries via CS-PLAN-064 §3.5, activated 2026-09-06) · **Effort**: S · **Layer**: frontend · **Journey stage**: completion/undo
-**Owning**: CS-PLAN-058 WP5 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-041 (2026-08-22)
-
-The global `UndoSnackbar` (CS-PLAN-041) keeps a single undo slot: completing a
-second task within the ~5 s window silently replaces the first task as the undo
-target, so a misclick on the first task can no longer be reverted. Decide
-between queueing undo targets (stacked/snackbar list) or explicitly accepting
-the single-slot limitation in the design docs. Superseded in intent by the
-2026-09-02 full-transactional-undo decision (CR-WF-02): the undo entry model is
-owned with that umbrella.
+were owned by the CR-WF-02 umbrella — **delivered 2026-09-09** (see the monthly
+archive entry).
 
 ---
 
@@ -379,6 +361,18 @@ Standard B full-pool re-run on a fresh disposable env reproduced only the
 `room-management:179` one (10/10 green in isolation) while the insights-flow
 assertion passed. All are pre-existing WP9/CR-WF-05 dispositions, not WP3
 regressions.
+
+**Update 2026-09-09 (CS-PLAN-064 steps 7-10 gate):** the `room-management.spec.ts:179`
+member-visibility flake became deterministic in full-pool serial runs (earlier specs'
+role/structure mutations leak into it; green in isolation) and was root-cured in the
+WP5 gate round: the member test now opts into the `seededData` fixture (reset+reseed,
+family profile) so the actor is provably a plain member. The same round fixed two
+adjacent pre-existing serial-pool reds: `release-task-templates.spec.ts` re-pinned to
+the CS-PLAN-063 creation-aggregate response (`data.roomTask.id`) and
+`fixtures/test-house.ts` `createRoomViaSettings` made create-if-missing (accumulated
+duplicate room names broke its strict assertion). Full pool afterwards: 98 passed /
+5 pre-existing documented skips / 0 failed. Still open in this item: the Sunday/Saturday
+date-dependent insights-flow assertions; the weekly_goal duplicate-row docs note.
 
 ---
 

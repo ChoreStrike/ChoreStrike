@@ -204,6 +204,46 @@ export const useUserStore = defineStore('user', {
 		},
 
 		/**
+		 * Reconcile the current user's progression fields from an
+		 * authoritative completion/undo rewards payload (CS-PLAN-064
+		 * §3.5, decision D10). Only ever applied when the payload's
+		 * totals describe the CURRENT user (the completer) — caller
+		 * guards the completer-identity check; the undo actor may be a
+		 * house owner restoring someone else's state.
+		 * @param {object} rewards Completion/undo `rewards` object.
+		 */
+		applyRewardTotals(rewards) {
+			if (!rewards) return
+
+			const patch = {}
+			if (Number.isFinite(rewards.totalCoins)) {
+				patch.coins = rewards.totalCoins
+			}
+			if (Number.isFinite(rewards.totalContribution)) {
+				patch.contributionScore = rewards.totalContribution
+			}
+			if (Number.isFinite(rewards.currentStreak)) {
+				patch.currentStreak = rewards.currentStreak
+			}
+			if (Number.isFinite(rewards.longestStreak)) {
+				patch.longestStreak = rewards.longestStreak
+			}
+			if (Number.isFinite(rewards.streakFreezesRemaining)) {
+				patch.streakFreezes = rewards.streakFreezesRemaining
+			}
+			if (Object.keys(patch).length === 0 || !this.currentUser) return
+
+			this.currentUser = { ...this.currentUser, ...patch }
+			// The leaderboard slice shows the same HouseUser rows — keep it
+			// consistent whenever the entry is loaded.
+			this.houseUsers = this.houseUsers.map(user => (
+				user.nextcloudUserId === this.currentUser.nextcloudUserId
+					? { ...user, ...patch }
+					: user
+			))
+		},
+
+		/**
 		 * Clear error state
 		 */
 		clearError() {

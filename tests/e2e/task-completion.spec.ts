@@ -166,14 +166,20 @@ test.describe('Task Creation and Completion', () => {
 		const snackbar = page.getByTestId('undo-snackbar')
 		await expect(snackbar).toBeVisible({ timeout: 15000 })
 
-		// …and Undo reverts the row to its active state.
-		const uncompleteResponsePromise = page.waitForResponse((response) => {
+		// …and Undo reverts the row through the one undo aggregate
+		// (CS-PLAN-064 D5: POST /room-tasks/{id}/undo replaced the
+		// pruned uncomplete+reactivate chain). Queue entries carry the
+		// room task id in their testid.
+		const undoButton = page.locator('[data-testid^="undo-snackbar-undo-button-"]')
+		const undoResponsePromise = page.waitForResponse((response) => {
 			const method = response.request().method()
 			const pathname = new URL(response.url()).pathname
-			return method === 'PUT' && /\/api\/v1\/tasks\/\d+\/uncomplete$/.test(pathname)
+			return method === 'POST' && /\/api\/v1\/room-tasks\/\d+\/undo$/.test(pathname)
 		})
-		await page.getByTestId('undo-snackbar-undo-button').click()
-		expect((await uncompleteResponsePromise).ok()).toBeTruthy()
+		await undoButton.first().click()
+		const undoResponse = await undoResponsePromise
+		expect(undoResponse.ok()).toBeTruthy()
+		expect((await undoResponse.json()).data.undone).toBe(true)
 
 		await expect(taskRow).not.toHaveClass(/completed/, { timeout: 15000 })
 		await expect(taskRow.locator('[data-testid="complete-task-button"]')).toBeVisible()

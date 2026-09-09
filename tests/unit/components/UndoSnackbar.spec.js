@@ -35,7 +35,7 @@ const getCompletedHandler = () => {
 	return call ? call[1] : null
 }
 
-describe('UndoSnackbar', () => {
+describe('UndoSnackbar (queued list, UX-015)', () => {
 	let pinia
 	let store
 
@@ -50,6 +50,7 @@ describe('UndoSnackbar', () => {
 	})
 
 	afterEach(() => {
+		jest.runOnlyPendingTimers()
 		jest.useRealTimers()
 	})
 
@@ -62,6 +63,10 @@ describe('UndoSnackbar', () => {
 		await wrapper.vm.$nextTick()
 	}
 
+	const entryTestId = id => `[data-testid="undo-snackbar-entry-${id}"]`
+	const undoTestId = id => `[data-testid="undo-snackbar-undo-button-${id}"]`
+	const dismissTestId = id => `[data-testid="undo-snackbar-dismiss-button-${id}"]`
+
 	it('is hidden by default and subscribes to completions on mount', () => {
 		const wrapper = mountSnackbar()
 
@@ -69,29 +74,75 @@ describe('UndoSnackbar', () => {
 		expect(subscribe).toHaveBeenCalledWith('chorestrike:task-completed', expect.any(Function))
 	})
 
-	it('shows for ~5 s after a completion and auto-hides', async () => {
+	it('shows for ~5 s after a completion and auto-hides that entry only', async () => {
 		const wrapper = mountSnackbar()
 
 		await completeTask(wrapper, 42)
 		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(true)
 
-		wrapper.vm.show(43)
+		// Two seconds later a second completion arrives — each entry owns
+		// its countdown.
+		jest.advanceTimersByTime(2000)
 		await wrapper.vm.$nextTick()
+		await completeTask(wrapper, 43)
 
-		jest.advanceTimersByTime(4999)
+		jest.advanceTimersByTime(2999)
 		await wrapper.vm.$nextTick()
-		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(true)
+		expect(wrapper.find(entryTestId(42)).exists()).toBe(true)
 
 		jest.advanceTimersByTime(1)
+		await wrapper.vm.$nextTick()
+		// 42's 5 s window has passed; 43 still has ~3 s left.
+		expect(wrapper.find(entryTestId(42)).exists()).toBe(false)
+		expect(wrapper.find(entryTestId(43)).exists()).toBe(true)
+
+		jest.advanceTimersByTime(3000)
 		await wrapper.vm.$nextTick()
 		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(false)
 	})
 
-	it('undoes via the store action and hides instantly', async () => {
+	it('keeps BOTH undo entries after two completions — the first undo action is not destroyed (UX-015)', async () => {
+		const wrapper = mountSnackbar()
+
+		await completeTask(wrapper, 7)
+		await completeTask(wrapper, 8)
+
+		expect(wrapper.findAll('[data-testid^="undo-snackbar-entry-"]')).toHaveLength(2)
+
+		await wrapper.find(undoTestId(7)).trigger('click')
+		await flushMicrotasks()
+
+		expect(store.undoRoomTaskCompletion).toHaveBeenCalledTimes(1)
+		expect(store.undoRoomTaskCompletion).toHaveBeenCalledWith(7)
+		// The second entry survives and stays independently undoable.
+		expect(wrapper.find(entryTestId(7)).exists()).toBe(false)
+		expect(wrapper.find(entryTestId(8)).exists()).toBe(true)
+
+		await wrapper.find(undoTestId(8)).trigger('click')
+		await flushMicrotasks()
+
+		expect(store.undoRoomTaskCompletion).toHaveBeenLastCalledWith(8)
+		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(false)
+	})
+
+	it('evicts the oldest entry beyond the small visible cap', async () => {
+		const wrapper = mountSnackbar()
+
+		await completeTask(wrapper, 1)
+		await completeTask(wrapper, 2)
+		await completeTask(wrapper, 3)
+		await completeTask(wrapper, 4)
+
+		expect(wrapper.findAll('[data-testid^="undo-snackbar-entry-"]')).toHaveLength(3)
+		expect(wrapper.find(entryTestId(1)).exists()).toBe(false)
+		expect(wrapper.find(entryTestId(4)).exists()).toBe(true)
+	})
+
+	it('undoes via the one-request store action and drops the entry instantly', async () => {
 		const wrapper = mountSnackbar()
 		await completeTask(wrapper, 7)
 
-		await wrapper.find('[data-testid="undo-snackbar-undo-button"]').trigger('click')
+		await wrapper.find(undoTestId(7)).trigger('click')
 		await flushMicrotasks()
 
 		expect(store.undoRoomTaskCompletion).toHaveBeenCalledWith(7)
@@ -104,23 +155,52 @@ describe('UndoSnackbar', () => {
 		const wrapper = mountSnackbar()
 		await completeTask(wrapper, 9)
 
-		await wrapper.find('[data-testid="undo-snackbar-undo-button"]').trigger('click')
+		await wrapper.find(undoTestId(9)).trigger('click')
 		await flushMicrotasks()
 
 		expect(store.undoRoomTaskCompletion).toHaveBeenCalledWith(9)
 		expect(showError).toHaveBeenCalled()
-		// The bar stays hidden — server truth (completed) remains visible.
+		// The entry stays dismissed — server truth (completed) remains visible.
 		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(false)
 	})
 
-	it('hides without side effects when dismissed', async () => {
+	it('dismisses a single entry without side effects', async () => {
 		const wrapper = mountSnackbar()
 		await completeTask(wrapper, 11)
+		await completeTask(wrapper, 12)
 
-		await wrapper.find('[data-testid="undo-snackbar-dismiss-button"]').trigger('click')
+		await wrapper.find(dismissTestId(11)).trigger('click')
 
-		expect(wrapper.find('[data-testid="undo-snackbar"]').exists()).toBe(false)
+		expect(wrapper.find(entryTestId(11)).exists()).toBe(false)
+		expect(wrapper.find(entryTestId(12)).exists()).toBe(true)
 		expect(store.undoRoomTaskCompletion).not.toHaveBeenCalled()
+	})
+
+	it('exposes accessible entries: status role, localized labels, 44 px touch targets', async () => {
+		const wrapper = mountSnackbar()
+		await completeTask(wrapper, 5)
+
+		const entry = wrapper.find(entryTestId(5))
+		expect(entry.exists()).toBe(true)
+		expect(entry.attributes('role')).toBe('status')
+		expect(entry.attributes('aria-live')).toBe('polite')
+
+		const undoButton = wrapper.find(undoTestId(5))
+		expect(undoButton.text()).toBe('Undo')
+		// 44 px minimum target via the shared snackbar-undo style class.
+		expect(undoButton.classes()).toContain('snackbar-undo')
+
+		const dismissButton = wrapper.find(dismissTestId(5))
+		expect(dismissButton.attributes('aria-label')).toBe('Dismiss')
+	})
+
+	it('shows no reward internals — the copy stays "Task completed / Undo"', async () => {
+		const wrapper = mountSnackbar()
+		await completeTask(wrapper, 6)
+
+		const text = wrapper.find(entryTestId(6)).text()
+		expect(text).toContain('Task completed')
+		expect(text).not.toMatch(/🪙|coins/i)
 	})
 })
 

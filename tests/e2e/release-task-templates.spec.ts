@@ -135,7 +135,10 @@ test.describe('Release: Task Templates (v2 catalog)', () => {
 			expect(createResponse.status()).toBe(200)
 			const body = await createResponse.json()
 			expect(body.success).toBe(true)
-			expect(body.data.id).toBeTruthy()
+			// CS-PLAN-063 re-pinned: from-template answers with the creation
+			// aggregate `{task, roomTask, assignees}` — the room task row id
+			// confirms the materialization.
+			expect(body.data.roomTask.id).toBeTruthy()
 		} finally {
 			await context.close()
 		}

@@ -8,6 +8,9 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 import { useHouseStore } from '../../../src/store/house.js'
 import { useSchedulingStore } from '../../../src/store/scheduling.js'
+import { useRoomsStore } from '../../../src/store/rooms.js'
+import { useUserStore } from '../../../src/store/user.js'
+import { useMinigameStore } from '../../../src/store/minigame.js'
 import { useTasksStore } from '../../../src/store/tasks.js'
 
 jest.mock('../../../src/services/api.js', () => ({
@@ -29,6 +32,41 @@ jest.mock('@/utils/logger', () => ({
 }))
 
 import { api } from '../../../src/services/api.js'
+
+// CS-PLAN-064 §3.5 aggregate shapes: completion totals describe the
+// current user; completion undo with completerUserId describes the
+// completer (the two differ on an owner undo of a child's completion).
+const completionFixture = () => ({
+	roomTask: { id: 1, roomId: 10, isActive: true, lastCompleted: '2026-09-06T10:00:00+00:00' },
+	room: { id: 10, cleanliness: 100 },
+	task: { id: 5 },
+	rewards: {
+		coins: 54,
+		totalCoins: 64,
+		totalContribution: 43,
+		currentStreak: 2,
+		longestStreak: 5,
+		streakFreezesRemaining: 1,
+		contributionScore: 3,
+		energyCost: 3,
+	},
+})
+
+const undoFixture = (completerUserId, roomTaskId = 7) => ({
+	roomTask: { id: roomTaskId, roomId: 10, isActive: true, lastCompleted: null },
+	room: { id: 10, cleanliness: 70 },
+	task: { id: 5 },
+	rewards: {
+		coins: -54,
+		totalCoins: 10,
+		totalContribution: 40,
+		currentStreak: 1,
+		longestStreak: 4,
+		streakFreezesRemaining: 1,
+		completerUserId,
+	},
+	undone: true,
+})
 
 describe('RoomTasks Store', () => {
 	let store
@@ -228,61 +266,10 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
-		describe('reactivateRoomTask', () => {
-			it('reactivates task', async () => {
-				store.roomTasks = [{ id: 1, isActive: false }]
-				api.post.mockResolvedValue({ id: 1, isActive: true })
-
-				const result = await store.reactivateRoomTask(1)
-
-				expect(store.roomTasks[0].isActive).toBe(true)
-				expect(result.isActive).toBe(true)
-			})
-		})
-
-		describe('uncompleteRoomTask (CS-PLAN-041)', () => {
-			it('calls the room-task uncomplete endpoint and updates the slices', async () => {
-				store.roomTasks = [{ id: 1, isActive: false, lastCompleted: '2026-08-22T10:00:00Z' }]
-				store.dailyTasks = [{ roomTask: { id: 1, isActive: false }, task: { id: 5 }, room: null }]
-				api.put.mockResolvedValue({ id: 1, isActive: false, lastCompleted: null })
-
-				const result = await store.uncompleteRoomTask(1)
-
-				expect(api.put).toHaveBeenCalledWith('/api/v1/tasks/1/uncomplete')
-				expect(result.lastCompleted).toBeNull()
-				expect(store.roomTasks[0].lastCompleted).toBeNull()
-				expect(store.dailyTasks[0].roomTask.lastCompleted).toBeNull()
-			})
-
-			it('propagates failures', async () => {
-				api.put.mockRejectedValue(new Error('Offline'))
-
-				await expect(store.uncompleteRoomTask(1)).rejects.toThrow('Offline')
-				expect(store.error).toBe('Offline')
-			})
-		})
-
-		describe('undoRoomTaskCompletion (CS-PLAN-041)', () => {
-			it('restores an inactive one-time task via uncomplete + reactivate', async () => {
-				store.roomTasks = [{ id: 7, isActive: false, lastCompleted: '2026-08-22T10:00:00Z' }]
-				api.put.mockResolvedValue({ id: 7, isActive: false, lastCompleted: null })
-				api.post.mockResolvedValue({ id: 7, isActive: true, lastCompleted: null })
-
-				const result = await store.undoRoomTaskCompletion(7)
-
-				expect(api.put).toHaveBeenCalledWith('/api/v1/tasks/7/uncomplete')
-				expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/7/reactivate')
-				expect(result.isActive).toBe(true)
-				expect(store.roomTasks[0].isActive).toBe(true)
-			})
-
-			it('skips reactivation when the task is still active after uncomplete', async () => {
-				store.roomTasks = [{ id: 8, isActive: true }]
-				api.put.mockResolvedValue({ id: 8, isActive: true, lastCompleted: null })
-
-				await store.undoRoomTaskCompletion(8)
-
-				expect(api.post).not.toHaveBeenCalled()
+		describe('pruned split-undo seam (CS-PLAN-064 D5)', () => {
+			it('no longer exposes uncompleteRoomTask or reactivateRoomTask', () => {
+				expect(store.uncompleteRoomTask).toBeUndefined()
+				expect(store.reactivateRoomTask).toBeUndefined()
 			})
 		})
 
@@ -296,49 +283,180 @@ describe('RoomTasks Store', () => {
 				expect(result.roomTask.isActive).toBe(false)
 			})
 
-		it('registers consumed energy in scheduling store when rewards include energyCost', async () => {
-			const schedulingStore = useSchedulingStore()
-			schedulingStore.todayConsumedEnergy = 2
-			store.roomTasks = [{ id: 1, isActive: true }]
-			api.post.mockResolvedValue({
-				roomTask: { id: 1, isActive: false },
-				rewards: { energyCost: 3 },
+			it('reconciles every owning store BEFORE emitting task-completed (D10)', async () => {
+				const { emit } = await import('@nextcloud/event-bus')
+				const roomsStore = useRoomsStore()
+				const userStore = useUserStore()
+				const minigameStore = useMinigameStore()
+
+				store.roomTasks = [{ id: 1, roomId: 10, isActive: true, assignees: ['mom'] }]
+				roomsStore.rooms = [{ id: 10, cleanliness: 70 }]
+				userStore.currentUser = { nextcloudUserId: 'mom', coins: 10, contributionScore: 40, currentStreak: 1, longestStreak: 4, streakFreezes: 1 }
+				minigameStore.currentCoins = 10
+
+				const stateAtEmit = {}
+				emit.mockImplementation((event) => {
+					if (event === 'chorestrike:task-completed') {
+						stateAtEmit.roomTask = store.roomTasks[0]
+						stateAtEmit.cleanliness = roomsStore.rooms[0].cleanliness
+						stateAtEmit.coins = userStore.currentUser.coins
+						stateAtEmit.wallet = minigameStore.currentCoins
+					}
+				})
+				api.post.mockResolvedValue(completionFixture())
+
+				await store.completeRoomTask(1)
+
+				// At the moment the celebration event fires, every owning
+				// store already carries the authoritative response values —
+				// celebrations can no longer run on stale caches.
+				expect(Object.keys(stateAtEmit)).toHaveLength(4)
+				expect(stateAtEmit.roomTask.isActive).toBe(true)
+				expect(stateAtEmit.cleanliness).toBe(100)
+				expect(stateAtEmit.coins).toBe(64)
+				expect(stateAtEmit.wallet).toBe(64)
+				// The aggregate payload omits the assignee relation; the
+				// cached membership must survive the reconcile.
+				expect(stateAtEmit.roomTask.assignees).toEqual(['mom'])
+				emit.mockReset()
 			})
 
-			await store.completeRoomTask(1)
+			it('reconciles the dailyTasks slice and gates user side effects on completer identity', async () => {
+				const userStore = useUserStore()
+				const minigameStore = useMinigameStore()
+				userStore.currentUser = { nextcloudUserId: 'mom', coins: 10 }
+				minigameStore.currentCoins = 10
+				store.roomTasks = [{ id: 1, assignees: ['mom'] }]
+				store.dailyTasks = [{ roomTask: { id: 1, isActive: true }, task: { id: 5 }, room: null }]
+				api.post.mockResolvedValue(completionFixture())
 
-			expect(schedulingStore.todayConsumedEnergy).toBe(5)
-		})
+				await store.completeRoomTask(1)
 
-		it('propagates server weekly goal snapshot to the game store', async () => {
-			const { useGameStore } = await import('../../../src/store/game.js')
-			const gameStore = useGameStore()
+				// A completion's totals always describe the current user.
+				expect(store.dailyTasks[0].roomTask.lastCompleted).toBe('2026-09-06T10:00:00+00:00')
+				expect(userStore.currentUser.coins).toBe(64)
+				expect(minigameStore.currentCoins).toBe(64)
 
-			store.roomTasks = [{ id: 1, isActive: true }]
-			api.post.mockResolvedValue({
-				roomTask: { id: 1, isActive: false },
-				rewards: {
-					energyCost: 3,
-					weeklyGoal: {
-						dueCount: 5,
-						completedCount: 4,
-						percent: 80,
-						targetPercent: 80,
-						achieved: true,
-						weekStart: '2026-07-13T00:00:00+00:00',
-						weekEnd: '2026-07-19T23:59:59+00:00',
+				// An owner undoing a CHILD's completion restores the child's
+				// state — the actor's own wallet and user row stay untouched.
+				api.post.mockResolvedValue(undoFixture('teen', 1))
+
+				await store.undoRoomTaskCompletion(1)
+
+				expect(userStore.currentUser.coins).toBe(64)
+				expect(minigameStore.currentCoins).toBe(64)
+			})
+
+			it('registers consumed energy in scheduling store when rewards include energyCost', async () => {
+				const schedulingStore = useSchedulingStore()
+				schedulingStore.todayConsumedEnergy = 2
+				store.roomTasks = [{ id: 1, isActive: true }]
+				api.post.mockResolvedValue({
+					roomTask: { id: 1, isActive: false },
+					rewards: { energyCost: 3 },
+				})
+
+				await store.completeRoomTask(1)
+
+				expect(schedulingStore.todayConsumedEnergy).toBe(5)
+			})
+
+			it('propagates server weekly goal snapshot to the game store', async () => {
+				const { useGameStore } = await import('../../../src/store/game.js')
+				const gameStore = useGameStore()
+
+				store.roomTasks = [{ id: 1, isActive: true }]
+				api.post.mockResolvedValue({
+					roomTask: { id: 1, isActive: false },
+					rewards: {
+						energyCost: 3,
+						weeklyGoal: {
+							dueCount: 5,
+							completedCount: 4,
+							percent: 80,
+							targetPercent: 80,
+							achieved: true,
+							weekStart: '2026-07-13T00:00:00+00:00',
+							weekEnd: '2026-07-19T23:59:59+00:00',
+						},
 					},
-				},
+				})
+
+				await store.completeRoomTask(1)
+
+				expect(gameStore.householdProgress.weeklyGoal.dueCount).toBe(5)
+				expect(gameStore.householdProgress.weeklyGoal.completedCount).toBe(4)
+				expect(gameStore.householdProgress.weeklyGoal.percent).toBe(80)
+				expect(gameStore.householdProgress.weeklyGoal.achieved).toBe(true)
+			})
+		})
+
+		describe('undoRoomTaskCompletion (CS-PLAN-064: one undo aggregate)', () => {
+			it('posts ONE undo request, applies the authoritative payload, and emits task-uncompleted', async () => {
+				const { emit } = await import('@nextcloud/event-bus')
+				const roomsStore = useRoomsStore()
+				const userStore = useUserStore()
+				const minigameStore = useMinigameStore()
+
+				store.roomTasks = [{ id: 7, roomId: 10, isActive: false, lastCompleted: '2026-09-06T10:00:00+00:00', assignees: ['mom'] }]
+				store.dailyTasks = [{ roomTask: { id: 7, isActive: false }, task: { id: 5 }, room: null }]
+				roomsStore.rooms = [{ id: 10, cleanliness: 100 }]
+				userStore.currentUser = { nextcloudUserId: 'mom', coins: 64, contributionScore: 43, currentStreak: 2, longestStreak: 5, streakFreezes: 1 }
+				minigameStore.currentCoins = 64
+				api.post.mockResolvedValue(undoFixture('mom'))
+
+				const result = await store.undoRoomTaskCompletion(7)
+
+				// One request — the split uncomplete+reactivate chain is gone.
+				expect(api.post).toHaveBeenCalledTimes(1)
+				expect(api.post).toHaveBeenCalledWith('/api/v1/room-tasks/7/undo')
+				expect(api.put).not.toHaveBeenCalled()
+
+				// The restored server state reconciles every owning store…
+				expect(store.roomTasks[0].isActive).toBe(true)
+				expect(store.roomTasks[0].lastCompleted).toBeNull()
+				expect(store.roomTasks[0].assignees).toEqual(['mom'])
+				expect(store.dailyTasks[0].roomTask.isActive).toBe(true)
+				expect(roomsStore.rooms[0].cleanliness).toBe(70)
+				expect(userStore.currentUser.coins).toBe(10)
+				expect(minigameStore.currentCoins).toBe(10)
+
+				// …and the TodayView restore contract carries the final row.
+				const uncompleted = emit.mock.calls.find(([event]) => event === 'chorestrike:task-uncompleted')
+				expect(uncompleted).toBeDefined()
+				expect(uncompleted[1].roomTaskId).toBe(7)
+				expect(uncompleted[1].roomTask.isActive).toBe(true)
+				expect(result.isActive).toBe(true)
 			})
 
-			await store.completeRoomTask(1)
+			it('treats the no-op undo (undone: false, rewards null) as a zero side-effect success', async () => {
+				const roomsStore = useRoomsStore()
+				const userStore = useUserStore()
+				userStore.currentUser = { nextcloudUserId: 'mom', coins: 64 }
+				store.roomTasks = [{ id: 8, roomId: 10, isActive: true }]
+				roomsStore.rooms = [{ id: 10, cleanliness: 70 }]
+				api.post.mockResolvedValue({
+					roomTask: { id: 8, isActive: true, lastCompleted: null },
+					room: { id: 10, cleanliness: 70 },
+					task: { id: 5 },
+					rewards: null,
+					undone: false,
+				})
 
-			expect(gameStore.householdProgress.weeklyGoal.dueCount).toBe(5)
-			expect(gameStore.householdProgress.weeklyGoal.completedCount).toBe(4)
-			expect(gameStore.householdProgress.weeklyGoal.percent).toBe(80)
-			expect(gameStore.householdProgress.weeklyGoal.achieved).toBe(true)
+				const result = await store.undoRoomTaskCompletion(8)
+
+				expect(result.id).toBe(8)
+				expect(roomsStore.rooms[0].cleanliness).toBe(70)
+				expect(userStore.currentUser.coins).toBe(64)
+			})
+
+			it('propagates failures', async () => {
+				api.post.mockRejectedValue(new Error('Offline'))
+
+				await expect(store.undoRoomTaskCompletion(1)).rejects.toThrow('Offline')
+				expect(store.error).toBe('Offline')
+			})
 		})
-	})
 
 		describe('deleteRoomTask', () => {
 			it('deletes task', async () => {

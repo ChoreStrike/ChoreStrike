@@ -1,9 +1,9 @@
 # CS-PLAN-064: WP5 — Completion Ledger and Full Transactional Undo
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-09-06; backend slice steps 1–5 implemented; interim Standard B `PASS-WITH-FIXES` 2026-09-09; step 6 real-DB suites + RF-05 implemented, step-6 round interim Standard B `PASS` 2026-09-09 — steps 7–10 open, see §11 Review Findings)
+> **Status:** Done (all steps 1–10 implemented 2026-09-09; Standard A `PASS-WITH-FIXES` 2026-09-06; interim Standard B `PASS-WITH-FIXES` backend slice + `PASS` step-6 round, both 2026-09-09; final Standard B `PASS-WITH-FIXES` 2026-09-09 — every gate rerun green by the review, RF-01..RF-12 resolved, CR-WF-02 + UX-015 delivered and archived; moved to `done/`)
 > **Effort:** L
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP5 — WP0..WP4 are Done), ADR-007 completion doctrine, ADR-010 visibility/404 standard, WP4 creation aggregate precedent (`TaskCreationService`, 2026-09-06)
+> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP5 — WP0..WP4 are Done), ADR-007 completion doctrine, ADR-010 visibility/404 standard, WP4 creation aggregate precedent (`TaskCreationService`, 2026-09-06)
 > **Related backlog items:** CR-WF-02 (owned umbrella); UX-015 (owned); CR-053-20 WP5 undo/cache slice; CR-SVC-15/40 WP5 completion-path slices
 >
 > **Scope guard:** this plan owns the completion/undo critical path only:
@@ -508,6 +508,18 @@ modified: docs/plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md (�
 modified: docs/plans/active/cs-plan-064-wp5-completion-ledger-full-undo.md (this plan; moved by the Standard A review)
 ```
 
+> **Manifest amendment (2026-09-09, steps 7–10 round):** `src/store/user.js`
+> and `src/store/minigame.js` joined the reconcile-hook set ("game/user
+> coin/streak state", D10 — they own the only live user-progress/coin-wallet
+> UI state); the undo `rewards` payload gained `completerUserId` and the
+> post-undo `weeklyGoal` (D10 inputs so the client can tell whose state
+> totals describe); `docs/testing/release-test-plan.md` rows and the stale
+> `game.js` docblocks updated; incidentally-fixed pre-existing WP4-era E2E
+> debt: `tests/e2e/release-task-templates.spec.ts`,
+> `tests/e2e/fixtures/test-house.ts`, `tests/e2e/room-management.spec.ts`
+> (see RF-03). `teamwork-rewards.spec.ts` stayed untouched — its
+> assertions passed unchanged (formula-freeze proof).
+
 ## 6. Implementation Order
 
 1. Failing tests first: occurrence-gate, snapshot/ledger, actor-gate, and
@@ -551,55 +563,55 @@ modified: docs/plans/active/cs-plan-064-wp5-completion-ledger-full-undo.md (this
 
 ## 8. Acceptance Criteria
 
-- [ ] A completion writes one immutable ledger row carrying `occurrence_due`,
+- [x] A completion writes one immutable ledger row carrying `occurrence_due`,
       the full `before_state`, and every applied `delta`; the never-written
       legacy columns are gone from the fresh schema.
-- [ ] Completion validates and locks one active occurrence and every
+- [x] Completion validates and locks one active occurrence and every
       reward-driving input before mutation, in the documented order
       `room_task → room → house_user`; inactive occurrences answer 409 and
       day duplicates 403 with zero writes; concurrent same-room completions
       cannot lose room state (two-connection proof).
-- [ ] Recurrence advance and occurrence-scoped checklist reset happen inside
+- [x] Recurrence advance and occurrence-scoped checklist reset happen inside
       the same transaction (`resetProgress` gains its first caller and test).
-- [ ] Undone ledger rows are excluded from the day-duplicate guard, the
+- [x] Undone ledger rows are excluded from the day-duplicate guard, the
       combo window, and the weekly-goal count (decision D11): undo →
       same-day re-complete succeeds with a fresh ledger row; each filter is
       pinned by a test.
-- [ ] Completion success remains unambiguous when post-commit effects fail:
+- [x] Completion success remains unambiguous when post-commit effects fail:
       the API answers 200 with `rewards.degraded = true` and a logged
       warning; a retried completion hits the day-duplicate 403 with no
       second ledger row.
-- [ ] One idempotent undo operation restores recurrence, ledger marking,
+- [x] One idempotent undo operation restores recurrence, ledger marking,
       rewards/streak/freezes/titles, cleanliness, and checklist progress
       from the recorded effect — proven by exact before/after state equality
       across all persisted domain fields for the recurrence permutation
       matrix; completer-or-owner actor policy enforced; a no-op undo makes
       zero writes.
-- [ ] Existing reward formulas, event names (`chorestrike:task-completed`
+- [x] Existing reward formulas, event names (`chorestrike:task-completed`
       et al.), title/medal/notification contracts, minigames, and
       celebration behavior remain regression-green.
-- [ ] The frontend consumes one completion/undo payload, reconciles every
+- [x] The frontend consumes one completion/undo payload, reconciles every
       owning store before emitting celebration events, and the undo
       snackbar queues multiple entries (UX-015) — both pinned in Jest and
       E2E including a reload-based state-equality assertion.
-- [ ] `PUT /tasks/{id}/uncomplete`, `POST /room-tasks/{id}/reactivate`,
+- [x] `PUT /tasks/{id}/uncomplete`, `POST /room-tasks/{id}/reactivate`,
       and their service/store seams are gone; `RouteMatrixTest` and
       `apiContract.spec.js` reflect the new contract.
-- [ ] WP5 exit gate met: real two-connection tests cover same-task and
+- [x] WP5 exit gate met: real two-connection tests cover same-task and
       same-room concurrency, retry after post-commit failure, inactive
       occurrence rejection, and complete completion → undo state equality.
-- [ ] All new/changed strings localized; standard API envelope everywhere;
+- [x] All new/changed strings localized; standard API envelope everywhere;
       `l10n:check-keys` green.
-- [ ] Build gate green (CS-PLAN-058 §4.5) with no new or unapproved skips.
-- [ ] Owning backlog items dispositioned: CR-WF-02 criteria checked and the
+- [x] Build gate green (CS-PLAN-058 §4.5) with no new or unapproved skips.
+- [x] Owning backlog items dispositioned: CR-WF-02 criteria checked and the
       item archived when fully delivered; UX-015 archived; CR-053-20 WP5
       slice annotated (WP7 remainder stays); CR-SVC-15/40 WP5 slices
       annotated (WP8 remainder stays); CS-PLAN-058 §9 WP5 row updated.
-- [ ] Durable docs updated (ADR-011, ADR-007 annotation, locking/api/concept
+- [x] Durable docs updated (ADR-011, ADR-007 annotation, locking/api/concept
       docs) — plans are temporary.
-- [ ] All implementation decisions and review questions resolved and
-      recorded.
-- [ ] Final Standard B review is `PASS` or `PASS-WITH-FIXES`;
+- [x] All implementation decisions and review questions resolved and
+       recorded.
+- [x] Final Standard B review is `PASS` or `PASS-WITH-FIXES`;
       `ACTIVE_TASKS.md` updated.
 
 ## 9. Plan Review Decision Register
@@ -754,17 +766,86 @@ plan stays `active/`).**
   in `active/`. One scoped review commit on `master`; review evidence
   appended to `docs/backlog/archive/CODE_REVIEW_2026-09-09.md`.
 
+---
+
+**Final Standard B code review (steps 7–10 round) — 2026-09-09 —
+`PASS-WITH-FIXES` (one stale plan-text reference fixed; plan complete;
+moved to `done/`).**
+
+- **Scope:** the uncommitted steps 7–10 round plus whole-plan completion
+  verification: frontend reconciliation + one-request undo + queued
+  `UndoSnackbar` (RF-01), E2E re-pins and the new full-flow/today-view
+  journeys (RF-03), ADR-011 + durable-doc integration and backlog
+  dispositions (RF-04), and the `revertedRewards` `completerUserId` +
+  post-undo `weeklyGoal` amendment — 33 modified tracked files
+  (+1111/−390) and 1 untracked new file. **Base:** `master` @ `2393686`;
+  index clean at capture; pre-review unstaged binary-diff git-hash
+  `ae64724f5707a2df7966622477a713786132d371`; untracked ADR-011 SHA256
+  `64AC9F7D…1128`. No unrelated dirty files.
+- **Verification:** full §4.5 gate rerun by the review (see Gates); every
+  §8 acceptance criterion re-checked against the tree (effect record,
+  lock order, occurrence gates, D11 filters, degradation boundary, exact
+  inverse with state-equality proofs, frozen formulas/events, one-payload
+  reconciliation before events, pruned routes gone from
+  `RouteMatrixTest`/`apiContract`, l10n, gate, dispositions, durable
+  docs); RF-01..RF-12 all resolved; manifest + amendment reconciled with
+  the working tree; every `plans/active/cs-plan-064` link repaired for
+  the `done/` move.
+- **Findings & fixes:** one **minor** (fixed in review): the RF-04
+  resolution text cited a "CR-SVC-64" backlog item that was never
+  created — the title-celebration dead-event finding was actually folded
+  into CR-WF-04 (correct routing); the plan text is corrected in place.
+  One **nit (no action):** the sole stylelint warning
+  (`NotAuthorizedState.vue` `margin-left`) is pre-existing in an
+  unmodified file and already tracked as TECH-LINT-007.
+- **Decisions:** none required — no security/auth, behavior-changing, or
+  architectural question arose; all twelve register decisions stand
+  ratified and implemented.
+- **Gates (rerun by the review, final state):** Jest **820/820** (81
+  suites) · PHPUnit unit (Docker) **847 green**, 2523 assertions ·
+  PHPUnit integration (Docker) **290 green**, 10 pre-existing documented
+  skips · `composer cs:check` **0/280** · ESLint green · stylelint 0
+  errors (1 pre-existing TECH-LINT-007 warning) · `l10n:check-keys` ·
+  `docs:encoding` (670 files) · `backlog:check` · `test:noise` ·
+  webpack production build · `git diff --check` all green · Playwright
+  full pool **twice**: 385 passed / 0 failed / 26 skips — all 26
+  verified as the pre-existing data-conditional guard inventory
+  ("No active tasks", "No overdue …", "No Kitchen room", etc.); every
+  new CS-PLAN-064 journey (lifecycle one-aggregate + idempotent no-op,
+  full-flow reload equality, today-view UX-015 queue) passed in both
+  runs.
+- **Transition:** plan moved `active/ → done/`; CS-PLAN-058 §9 WP5 row
+  closed; CR-WF-02 + UX-015 archived (2026-09.md); CR-053-20 /
+  CR-SVC-15 / CR-SVC-40 WP5 slices annotated (remainders stay WP7/WP8);
+  `ACTIVE_TASKS.md` moved to Recently Completed; ADR-011 +
+  archive/2026-09 links repaired to the `done/` path; one scoped review
+  commit on `master`; review evidence appended to
+  `docs/backlog/archive/CODE_REVIEW_2026-09-09.md`.
+
 ## 11. Review Findings (plan-owned)
 
 Scope-first routing (project-rules §4): every open finding below lies inside
 this plan's scope and blocks the `done/` move until resolved. Resolved
 entries stay listed for traceability.
 
-- [ ] **RF-01** major · `src/store/roomTasks.js`, `UndoSnackbar.vue`, views,
+- [x] **RF-01** major · `src/store/roomTasks.js`, `UndoSnackbar.vue`, views,
       Jest specs · §3.5 frontend round (step 7) not started: the store still
       calls the pruned `uncomplete`/`reactivate` routes — Jest
       `apiContract.spec.js` red until the one-request undo + reconciliation
-      + undo-queue land and the specs are re-pinned. **Open.**
+      + undo-queue land and the specs are re-pinned. **Resolved
+      2026-09-09** (implementation round): `completeRoomTask` reconciles
+      roomTasks+dailyTasks (assignees preserved), the rooms store
+      (`reconcileRoom`), the game store (weekly goal), the user store
+      (`applyRewardTotals`) and the minigame wallet (`reconcileCoins`) from
+      the one payload **before** emitting (ordering pinned in
+      `roomTasks.spec.js`); `undoRoomTaskCompletion` is one
+      `POST /room-tasks/{id}/undo` applying the authoritative payload;
+      `uncompleteRoomTask`/`reactivateRoomTask` deleted; `UndoSnackbar` is a
+      queued list (per-entry countdown/dismissal, cap 3 + oldest-eviction,
+      `aria-live`, 44 px, Jest re-pinned incl. UX-015 two-entry proof);
+      the undo `rewards` payload gained `completerUserId` + post-undo
+      `weeklyGoal` so the completer-vs-actor distinction reconciles safely
+      (D10 inputs). `apiContract.spec.js` green; Jest 820 green.
 - [x] **RF-02** major · `tests/integration/Service/` · step 6 real-DB suites
       missing: `CompletionUndoStateEqualityTest` (WP5 exit gate),
       `CompletionConcurrencyTest` (same-room race, post-commit retry,
@@ -779,17 +860,46 @@ entries stay listed for traceability.
       no-op loser) + a true two-process same-room race extension; inactive
       409 zero-write case; unit roundtrip case. Full integration suite 290
       green (10 pre-existing documented skips).
-- [ ] **RF-03** major · `tests/e2e/` · step 8 re-pins pending:
+- [x] **RF-03** major · `tests/e2e/` · step 8 re-pins pending:
       `release-task-lifecycle.spec.ts` and `task-completion.spec.ts` still
       drive/intercept the pruned split chain; full-flow reload-equality and
-      undo-queue journeys missing. **Open.**
-- [ ] **RF-04** major · durable docs & dispositions · step 10 pending:
+      undo-queue journeys missing. **Resolved 2026-09-09** (implementation
+      round): lifecycle spec drives the one undo aggregate (complete →
+      undo → exact `nextDue`/`lastCompleted`/`isActive` inverse → idempotent
+      second undo no-op); interception spec matches `POST
+      /room-tasks/{id}/undo` on the queue entry; new full-flow journey
+      `complete → undo → reload` asserts exact room/coin/recurrence equality
+      from a runtime-resolved Kitchen id; new `today-view` queue journey
+      proves UX-015 (two entries, independent undos, rows restored after
+      reload, no stale cache). Incidental pre-existing reds blocking the
+      gate were fixed in-round: `release-task-templates` re-pinned to the
+      CS-PLAN-063 aggregate shape (`body.data.roomTask.id`),
+      `createRoomViaSettings` made create-if-missing (duplicate-name strict
+      assertion), and `room-management`'s member test opted into
+      `seededData` so upstream role mutations cannot leak (cures the
+      documented room-management:179 flake).
+- [x] **RF-04** major · durable docs & dispositions · step 10 pending:
       ADR-011 (already referenced by `TransactionExecutor`/`CompletedTask`/
       `CompletionService` docblocks — must land), ADR-007 annotation,
       `development.md` locking section, `docs/api/README.md`,
       `task-model-and-sync.md`, backlog dispositions (CR-WF-02, UX-015,
       CR-053-20 WP5 slice, CR-SVC-15/40 WP5 slices), CS-PLAN-058 §9 WP5
-      row. **Open.**
+      row. **Resolved 2026-09-09** (implementation round): ADR-011 written
+      (effect-record JSON contract incl. the RF-12 `lastCleaned`/
+      `lastActivity` keys, lock order + deadlock argument, D4 gates, D11
+      read semantics, D7 degradation boundary, D3/D8 undo policy, D12
+      no-lock deviation, frozen formulas); ADR-007 annotated; ADR index
+      updated; `development.md` lock section replaced; api/README complete/
+      undo contracts + prune notes; `task-model-and-sync.md` completion/
+      undo model; release-test-plan undo/reactivate rows updated;
+      game.js` corrected; backlog dispositions + CS-PLAN-058 §9 WP5 row executed;
+      three out-of-scope findings routed per the fold-in rule: CR-WF-04 notes
+      (the `newTitle`/`title-unlocked` dead-event finding folded into its
+      payload-design criterion), BUG-E2E-005 fold-in (room-management flake
+      root-cure), CR-SVC-63 cross-referenced from ADR-011 (manual cleanliness
+      RMW). *(Review correction 2026-09-09: an earlier draft of this entry
+      named a "CR-SVC-64" backlog item that was never created — the
+      title-celebration finding lives in the CR-WF-04 fold-in above.)*
 - [x] **RF-05** minor · `lib/Service/CompletionService.php:409,621-627` ·
       undo edge: if the completer's membership row was deleted after
       completion, the actor-gate `houseUserMapper->find()` throws

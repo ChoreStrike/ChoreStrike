@@ -11,6 +11,9 @@ import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
 import { useHouseStore } from './house.js'
 import { useSchedulingStore } from './scheduling.js'
 import { useGameStore } from './game.js'
+import { useRoomsStore } from './rooms.js'
+import { useUserStore } from './user.js'
+import { useMinigameStore } from './minigame.js'
 import { useTasksStore } from './tasks.js'
 
 export const useRoomTasksStore = defineStore('roomTasks', {
@@ -256,33 +259,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Reactivate room task
-		 * @param {number} roomTaskId Room task identifier to reactivate.
-		 * @return {Promise<object>} Updated room task.
-		 */
-		async reactivateRoomTask(roomTaskId) {
-			this.loading = true
-			this.error = null
-
-			try {
-				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/reactivate`)
-
-				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-				if (roomTaskIndex >= 0) {
-					this.roomTasks[roomTaskIndex] = data
-				}
-
-				return data
-			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to reactivate room task', error, { store: 'roomTasks', action: 'reactivateRoomTask', roomTaskId })
-				throw error
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
 		 * Update room task due date
 		 * @param {number} roomTaskId Room task identifier to update.
 		 * @param {string} nextDue ISO date string for the next due date.
@@ -312,8 +288,13 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Complete room task
+		 * Complete room task — the one transactional aggregate request
+		 * (CS-PLAN-064 WP5). The effect record (before-state + deltas) is
+		 * written server-side; the response reconciles every owning store
+		 * BEFORE any celebration event is emitted (decision D10), so event
+		 * consumers never observe stale caches.
 		 * @param {number} roomTaskId Room task identifier to complete.
+		 * @return {Promise<object>} The completion aggregate
 		 */
 		async completeRoomTask(roomTaskId) {
 			this.loading = true
@@ -322,21 +303,12 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			try {
 				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/complete`)
 
-				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
-				if (roomTaskIndex >= 0) {
-					this.roomTasks[roomTaskIndex] = data.roomTask
-				}
+				this.reconcileCompletionPayload(roomTaskId, data)
 
 				const energyCost = data.rewards?.energyCost
 				if (Number.isFinite(energyCost) && energyCost > 0) {
 					const schedulingStore = useSchedulingStore()
 					schedulingStore.registerTodayEnergyConsumption(energyCost)
-				}
-
-				const gameStore = useGameStore()
-				const weeklyGoal = data.rewards?.weeklyGoal
-				if (weeklyGoal) {
-					gameStore.setWeeklyGoal(weeklyGoal)
 				}
 
 				const rewards = data.rewards
@@ -376,26 +348,32 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Uncomplete a room task (undo primitive, CS-PLAN-041).
-		 *
-		 * The uncomplete endpoint lives under /tasks/{id}/uncomplete but
-		 * operates on the room task id (TaskController::uncomplete →
-		 * RoomTaskService::uncompleteTask) and only clears `lastCompleted`.
-		 *
-		 * @param {number} roomTaskId Room task identifier to uncomplete.
-		 * @return {Promise<object>} Updated room task.
+		 * Undo the newest revertible completion of a room task — one
+		 * aggregate request (CS-PLAN-064 §3.5, decision D5):
+		 * `POST /room-tasks/{id}/undo` restores recurrence, ledger marking,
+		 * rewards/streak/freezes/titles, cleanliness, and checklist
+		 * progress server-side from the recorded effect. The response
+		 * reconciles the owning stores before
+		 * `chorestrike:task-uncompleted` restores open views (TodayView's
+		 * contract is preserved). No revertible occurrence → server-side
+		 * zero-write no-op with the current state echoed back.
+		 * @param {number} roomTaskId Room task identifier to restore.
+		 * @return {Promise<object>} Final room task state.
 		 */
-		async uncompleteRoomTask(roomTaskId) {
+		async undoRoomTaskCompletion(roomTaskId) {
 			this.loading = true
 			this.error = null
 
 			try {
-				const data = await api.put(`/api/v1/tasks/${roomTaskId}/uncomplete`)
-				this.replaceRoomTaskInState(roomTaskId, data)
-				return data
+				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/undo`)
+
+				const roomTask = this.reconcileCompletionPayload(roomTaskId, data)
+				emit('chorestrike:task-uncompleted', { roomTaskId, roomTask })
+
+				return roomTask
 			} catch (error) {
 				this.error = error.message
-				logger.error('Failed to uncomplete room task', error, { store: 'roomTasks', action: 'uncompleteRoomTask', roomTaskId })
+				logger.error('Failed to undo room task completion', error, { store: 'roomTasks', action: 'undoRoomTaskCompletion', roomTaskId })
 				throw error
 			} finally {
 				this.loading = false
@@ -403,29 +381,54 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Undo a completion (CS-PLAN-041): clears lastCompleted and — for
-		 * one-time tasks, whose completion deactivates them — reactivates.
-		 *
-		 * Known limitation (CR-WF-02): server-side rewards, streaks,
-		 * cleanliness, and recurrence advances are not yet reverted. The
-		 * approved target is one full transactional inverse operation.
-		 *
-		 * Emits `chorestrike:task-uncompleted` with the final room task so
-		 * open views can restore their local rows.
-		 *
-		 * @param {number} roomTaskId Room task identifier to restore.
-		 * @return {Promise<object>} Final room task state.
+		 * Reconcile every owning store from ONE authoritative
+		 * completion/undo payload (decision D10) before any event fires:
+		 * roomTasks + dailyTasks slices, the rooms store (cleanliness),
+		 * the game store (weekly goal), and — when the payload's totals
+		 * describe the current user — the user progression state and the
+		 * shared coin wallet.
+		 * @param {number} roomTaskId Room task the payload belongs to.
+		 * @param {object} data `{ roomTask, room, task, rewards, undone? }`
+		 * @return {?object} Reconciled room task (assignees preserved).
 		 */
-		async undoRoomTaskCompletion(roomTaskId) {
-			let roomTask = await this.uncompleteRoomTask(roomTaskId)
-
-			if (!roomTask.isActive) {
-				roomTask = await this.reactivateRoomTask(roomTaskId)
+		reconcileCompletionPayload(roomTaskId, data) {
+			let reconciled = null
+			if (data.roomTask) {
+				const cached = this.roomTasks.find(rt => rt.id === roomTaskId)
+					?? this.dailyTasks.find(item => item.roomTask?.id === roomTaskId)?.roomTask
+				// The aggregate's serialized room task carries no assignee
+				// relation — preserve the cached membership so assignee
+				// chips and the Today "mine" filter survive the reconcile.
+				reconciled = {
+					...data.roomTask,
+					assignees: cached?.assignees ?? data.roomTask.assignees ?? [],
+				}
+				this.replaceRoomTaskInState(roomTaskId, reconciled)
 			}
 
-			emit('chorestrike:task-uncompleted', { roomTaskId, roomTask })
+			if (data.room) {
+				useRoomsStore().reconcileRoom(data.room)
+			}
 
-			return roomTask
+			const rewards = data.rewards
+			if (rewards) {
+				if (rewards.weeklyGoal) {
+					useGameStore().setWeeklyGoal(rewards.weeklyGoal)
+				}
+
+				// The totals describe the COMPLETER (ADR-011); a completion's
+				// completer is always the current user, an undo's actor may
+				// be a house owner restoring someone else's state — the
+				// completerUserId marker gates the user-side reconciliation.
+				const userStore = useUserStore()
+				const completerUid = rewards.completerUserId ?? userStore.currentUser?.nextcloudUserId
+				if (completerUid && completerUid === userStore.currentUser?.nextcloudUserId) {
+					userStore.applyRewardTotals(rewards)
+					useMinigameStore().reconcileCoins(rewards.totalCoins)
+				}
+			}
+
+			return reconciled
 		},
 
 		/**

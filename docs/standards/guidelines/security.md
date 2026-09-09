@@ -93,7 +93,7 @@ granularity, room-task lists per room task, owners get no blanket access);
 |------|-------------|
 | `owner` | Full house management, user management, task management, checklist item editing, structure (floors/rooms/house) |
 | `member` | Task-domain management (create/edit/delete/assign) within the visibility matrix, viewing house data |
-| `child` | Execution surface only: complete/reactivate/due-date/checklist progress, own scheduling preferences, minigames |
+| `child` | Execution surface only: complete/undo/due-date/checklist progress, own scheduling preferences, minigames |
 
 The child/actor boundary (decision D5, ADR-010) is enforced in the service
 layer via `AuthorizationService::assertCanManageTasks($houseUser)` — every

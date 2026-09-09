@@ -74,7 +74,8 @@ Owners do **not** implicitly see private tasks. Granularity:
   instance; the creator sees all of theirs.
 - **Checklists**: definition-level via `TaskAccessPolicy::canViewTask`.
 
-Completion, lifecycle (reactivate/uncomplete/due-date), assignment, and
+Completion, lifecycle (due-date; the former reactivate/uncomplete pair was
+folded into the one undo aggregate by CS-PLAN-064/ADR-011), assignment, and
 definition mutation all delegate to the same policy — the "creator can't
 reactivate their own private task" divergence is gone.
 
@@ -94,8 +95,8 @@ reactivate their own private task" divergence is gone.
 - **Member**: task-domain management (create/edit/delete/assign) within the
   visibility matrix; execution surface.
 - **Child**: execution surface only — complete, the lifecycle executions
-  (reactivate/due-date/uncomplete, visibility-gated like every lifecycle
-  mutation), checklist progress, own preferences and minigames. The
+  (due-date/undo (CS-PLAN-064 replaced the reactivate+uncomplete pair with the
+  single undo aggregate), visibility-gated like every lifecycle mutation), checklist progress, own preferences and minigames. The
   management surface (create/update/delete/assign) is enforced by
   `AuthorizationService::assertCanManageTasks()` in every task-domain
   mutation (child → 403).

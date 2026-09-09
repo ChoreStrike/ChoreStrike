@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
-import { test, expect } from '@playwright/test'
+import { expect } from '@playwright/test'
+import { test } from './fixtures/database-fixtures'
 import { createUserContext, userStatePath } from './fixtures/auth-contexts'
 import { expandUntilRoomVisible } from './fixtures/dashboard-floors'
 
@@ -21,6 +22,7 @@ import { expandUntilRoomVisible } from './fixtures/dashboard-floors'
 
 test.describe('Room and Floor Management', () => {
 	test.use({ storageState: userStatePath('mom') })
+	test.use({ databaseProfile: 'family' })
 
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(60000)
@@ -176,8 +178,12 @@ test.describe('Room and Floor Management', () => {
 		}).toPass({ timeout: 20000 })
 	})
 
-	test('Member sees no owner-only structure controls', async ({ browser }) => {
-		// The member context requires the seeded family profile.
+	test('Member sees no owner-only structure controls', async ({ browser, seededData }) => {
+		// The member context requires the seeded family profile. Upstream
+		// serial specs legitimately mutate roles/structure, so this test
+		// opts into the `seededData` fixture: reset+reseed guarantees the
+		// teen really is a plain MEMBER regardless of prior specs.
+		expect(seededData).not.toBeNull()
 		test.skip(!existsSync(userStatePath('teen')), 'seeded teen auth state missing (setup project did not run)')
 
 		const { context, page } = await createUserContext(browser, 'teen')

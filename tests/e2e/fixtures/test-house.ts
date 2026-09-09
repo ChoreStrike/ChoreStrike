@@ -125,10 +125,24 @@ export async function createRoomViaSettings(page: Page, floorName: string, roomN
 	}
 
 	await floorItem.locator('[data-testid^="expand-floor-"]').click()
+
+	// Create-if-missing, mirroring `createFloor`'s bounded existence guard:
+	// the backend allows duplicate room names and this spec's tests share
+	// the serial DB, so an unconditional create can produce a second row
+	// and break the (strict) name assertion below.
+	const roomRow = floorItem.locator('.room-row-name', { hasText: roomName }).first()
+	const roomExists = await roomRow.waitFor({ state: 'visible', timeout: 3000 })
+		.then(() => true)
+		.catch(() => false)
+	if (roomExists) {
+		console.log(`Room "${roomName}" already exists on floor "${floorName}"`)
+		return
+	}
+
 	await floorItem.locator('[data-testid="new-room-name-input"]').fill(roomName)
 	await floorItem.locator('[data-testid="add-room-to-floor-button"]').click()
 
-	await expect(floorItem.locator('.room-row-name', { hasText: roomName })).toBeVisible({ timeout: 10000 })
+	await expect(roomRow).toBeVisible({ timeout: 10000 })
 }
 
 /**

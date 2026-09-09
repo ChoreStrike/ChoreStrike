@@ -102,6 +102,44 @@ A task instance can be completed from:
    status — see the prune note above; there is no external-completion path
    today.
 
+### Completion and undo model (CS-PLAN-064 WP5)
+
+Completion and undo are exact, idempotent inverse transitions on one
+authoritative record — the canonical description lives in
+[ADR-011](../adr/ADR-011-transactional-completion-and-undo.md); this section
+records the domain model.
+
+- **One occurrence = one ledger row.** `POST /room-tasks/{id}/complete`
+  validates the occurrence *before* any mutation (inactive → 409, same-user
+  day duplicate → 403, visibility → 404/403) and writes one immutable effect
+  record: the house-local `occurrence_due` plus the full pre-mutation
+  `before_state` (room task, room cleanliness, completer rewards, checklist
+  progress) and every applied `delta` (coins, contribution, streak, freezes,
+  titles, cleanliness, takeover). The occurrence-scoped checklist progress is
+  reset in the same transaction, so checked items never leak into the next
+  occurrence.
+- **Undo restores, never recalculates.** `POST /room-tasks/{id}/undo` reverts
+  the *newest revertible* occurrence of that room task by assigning the
+  recorded before-state values back — recurrence dates, active flag, claim
+  fields, room cleanliness, completer coins/contribution/streaks/freezes, and
+  the snapshotted checklist rows. Only titles unlocked by the undone
+  completion (and not re-earned later) are removed; medals, the weekly-goal
+  notification claim, and dispatched notifications are documented
+  non-retractions. The actor must be the completer or a house owner; with no
+  revertible occurrence undo is a zero-write no-op (`undone: false`).
+- **An undone occurrence is not a completion anywhere.** Undone ledger rows
+  are excluded from the day-duplicate guard, the combo window, and the
+  weekly-goal count — undo-then-re-complete the same day is the supported
+  misclick-recovery flow.
+- **The client reconciles from the one response.** The completion/undo payload
+  carries authoritative totals (`totalCoins`, `totalContribution`,
+  `longestStreak`, room state; undo adds `completerUserId`); every owning
+  frontend store (room tasks, daily list, rooms, game, user, coin wallet) is
+  updated from that payload **before** the first celebration event fires —
+  celebration effects cannot run against stale caches. The global undo
+  snackbar is a queued list: each completion gets its own entry and countdown
+  (UX-015), so a second completion never destroys the first undo action.
+
 ### Completion synchronization (design intent — unimplemented)
 
 - Completing in ChoreStrike marks the linked task as completed in Nextcloud tasks.

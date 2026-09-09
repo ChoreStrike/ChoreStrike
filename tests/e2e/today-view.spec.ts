@@ -73,4 +73,77 @@ test.describe('Release: Today view', () => {
 			await context.close()
 		}
 	})
+
+	test('undo queue keeps two completions independently undoable (UX-015, CS-PLAN-064)', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+
+		const taskIdsByName = (name: string) => seededData.data.tasks.find(task => task.name === name)
+		const roomTaskIdFor = (name: string) => {
+			const task = taskIdsByName(name)
+			const roomTask = seededData.data.roomTasks.find(rt => rt.taskId === task.id)
+			return roomTask.id
+		}
+		const dishesId = roomTaskIdFor('Do the dishes')
+		const countersId = roomTaskIdFor('Wipe kitchen counters')
+
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			await page.goto('/apps/chorestrike/')
+			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+
+			await page.getByTestId('nav-today').click()
+			await page.getByTestId('today-view').waitFor({ state: 'visible' })
+
+			// Both kitchen daily tasks under the everyone filter (counters
+			// is teen's; the owner may complete it).
+			await page.getByTestId('today-filter-all').click()
+
+			await page.getByTestId(`today-complete-button-${dishesId}`).click()
+			await page.getByTestId(`today-complete-button-${countersId}`).click()
+
+			// UX-015: the second completion must NOT destroy the first
+			// undo action — both queue entries are visible side by side.
+			const firstEntry = page.getByTestId(`undo-snackbar-entry-${dishesId}`)
+			const secondEntry = page.getByTestId(`undo-snackbar-entry-${countersId}`)
+			await expect(firstEntry).toBeVisible()
+			await expect(secondEntry).toBeVisible()
+
+			// Undo the FIRST entry: it disappears, the second stays
+			// undoable until after its own click.
+			const firstUndo = page.waitForResponse((response) => {
+				const pathname = new URL(response.url()).pathname
+				return response.request().method() === 'POST'
+					&& pathname === `/apps/chorestrike/api/v1/room-tasks/${dishesId}/undo`
+			})
+			await page.getByTestId(`undo-snackbar-undo-button-${dishesId}`).click()
+			const firstUndoResponse = await firstUndo
+			expect((await firstUndoResponse.json()).data.undone).toBe(true)
+
+			await expect(firstEntry).toHaveCount(0)
+			await expect(secondEntry).toBeVisible()
+
+			const secondUndo = page.waitForResponse((response) => {
+				const pathname = new URL(response.url()).pathname
+				return response.request().method() === 'POST'
+					&& pathname === `/apps/chorestrike/api/v1/room-tasks/${countersId}/undo`
+			})
+			await page.getByTestId(`undo-snackbar-undo-button-${countersId}`).click()
+			const secondUndoResponse = await secondUndo
+			expect((await secondUndoResponse.json()).data.undone).toBe(true)
+
+			await expect(page.getByTestId('undo-snackbar')).toHaveCount(0)
+
+			// Both occurrences are restored — after a reload the view keeps
+			// its #/today route, and both rows are due today again (server
+			// truth, no stale caches).
+			await page.reload()
+			await page.getByTestId('today-view').waitFor({ state: 'visible', timeout: 30000 })
+			await page.getByTestId('today-filter-all').click()
+
+			await expect(page.getByTestId(`today-complete-button-${dishesId}`)).toBeVisible()
+			await expect(page.getByTestId(`today-complete-button-${countersId}`)).toBeVisible()
+		} finally {
+			await context.close()
+		}
+	})
 })

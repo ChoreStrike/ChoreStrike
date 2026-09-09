@@ -170,11 +170,11 @@ Route surface: `task#*`, `room_task#*`, `checklist#*`.
 |---|---|---|---|
 | Create task | Add a task (set energy, priority, tier, frequency) | Task appears in the task list / room | `task-manager` |
 | Complete task | Mark a room-task complete | Status changes, coins awarded, celebration fires | `task-completion` |
-| Undo completion | Use the snackbar undo action after completion | Task state, recurrence, completion ledger, rewards/streak, and cleanliness are restored atomically | required; current partial coverage in `release-task-lifecycle` (CR-WF-02) |
+| Undo completion | Use the snackbar undo action after completion | Task state, recurrence, completion ledger, rewards/streak, and cleanliness are restored atomically by the one undo aggregate (CS-PLAN-064 / ADR-011); a second completion keeps the first entry's undo (UX-015 queue) | `release-task-lifecycle`, `task-completion`, `task-completion-full-flow`, `today-view` |
 | Reschedule task | Change the due date | Due date updates | `release-task-lifecycle` |
 | Recurrence | Complete a recurring (daily/weekly/monthly) task | A new instance is generated per frequency | partial `today-view` (daily recurrence: completion shifts the next due out of today; weekly/monthly still manual) |
 | Assignees | Assign / unassign members; multi-assign | Assignee set persists; multi-assign works | `task-manager` |
-| Reactivate on undo | Undo a completion that deactivated a one-time room-task | The task is reactivated after its completion marker is cleared | `release-task-lifecycle` |
+| Reactivate on undo | Undo a completion that deactivated a one-time room-task | The undo aggregate restores the recorded `isActive` before-state (no separate reactivate step; `release-task-lifecycle` posts the once-restoration via the undo response) | `release-task-lifecycle`, `task-completion-full-flow` |
 | Checklist items | Add / toggle / reorder / delete checklist items on a task | Progress tracked; room-task checklist progress updates | `task-checklist-and-features` |
 | Task templates (per-room picker) | Open a room's add-task flow, pick a template (filtered by room type + house-wide), adjust overrides, add | A room task is created from the template; custom-task path still works | `release-task-templates`, `TaskTemplatePicker` Jest spec |
 
