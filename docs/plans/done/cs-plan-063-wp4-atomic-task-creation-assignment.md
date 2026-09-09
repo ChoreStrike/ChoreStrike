@@ -1,22 +1,22 @@
-﻿# CS-PLAN-063: WP4 â€” Atomic Task Creation and Canonical Assignment
+﻿# CS-PLAN-063: WP4 — Atomic Task Creation and Canonical Assignment
 
-> **Status:** Done (implementation 2026-09-05; final Standard B `PASS-WITH-FIXES` 2026-09-06 â€” moved to `done/`)
+> **Status:** Done (implementation 2026-09-05; final Standard B `PASS-WITH-FIXES` 2026-09-06 — moved to `done/`)
 > **Effort:** L
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP4 â€” WP0..WP3 are Done), WP2 authorization baseline (ADR-010), WP3 setup aggregate precedent (`HouseSetupService`, 2026-09-05)
-> **Related backlog items:** CR-WF-03 task/assignment half (owned); CR-SVC-41 WP4 remainder (ownership-validation dedup; the `getFilteredDailyTasksForUser` sub-item is stale â€” see Â§1.5); CR-062-01 (folded into Â§3.3)
+> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP4 — WP0..WP3 are Done), WP2 authorization baseline (ADR-010), WP3 setup aggregate precedent (`HouseSetupService`, 2026-09-05)
+> **Related backlog items:** CR-WF-03 task/assignment half (owned); CR-SVC-41 WP4 remainder (ownership-validation dedup; the `getFilteredDailyTasksForUser` sub-item is stale — see §1.5); CR-062-01 (folded into §3.3)
 >
 > **Scope guard:** the CR-WF-03 setup/structure half was closed by
 > [CS-PLAN-062](../done/cs-plan-062-wp3-atomic-house-setup-structure.md).
 > This plan owns the remaining task-creation half only: no completion/undo
 > changes (WP5), no scheduling preview/apply (WP6), no payload/store
 > reconciliation beyond the creation surface (WP7), no structural service
-> decomposition (WP8 â€” `RoomTaskService` at 1126 lines stays over the size
+> decomposition (WP8 — `RoomTaskService` at 1126 lines stays over the size
 > guideline until then), no E2E-harness redesign (WP9).
 
 ## 1. Problem Summary
 
-CS-PLAN-058 Â§3/WP4 requires that "every user-facing create path produces one
+CS-PLAN-058 §3/WP4 requires that "every user-facing create path produces one
 visible, valid room task or no persisted task at all", backed by one
 service-owned transaction for task definition, room-task materialization, and
 initial assignees, reused for the custom and template paths, with canonical
@@ -29,9 +29,9 @@ against `master` @ `ab660cd`.
 
 - The frontend orchestrates creation across three sequential HTTP requests:
   `createTaskWithRoomTask` in `src/store/roomTasks.js:239-262` performs
-  `POST /tasks` (`:241`) â†’ `POST /room-tasks` with `nextDue: null` (`:246`) â†’
+  `POST /tasks` (`:241`) → `POST /room-tasks` with `nextDue: null` (`:246`) →
   `PUT /room-tasks/{id}/assignees` (`:255`). Its own docblock documents the
-  defect as design: "The definition stays created when a later stage fails â€”
+  defect as design: "The definition stays created when a later stage fails —
   the result reports which stage failed so the caller can toast partial
   success" (`roomTasks.js:230-232`, feature "UX-001").
 - Consequences pinned by the UI: a room-task failure leaves an **orphan task
@@ -50,7 +50,7 @@ against `master` @ `ab660cd`.
   aggregate transaction is WP4 scope" (`:346-349`).
 - `RoomTaskService::createFromTemplate` (`:380-409`) materializes the catalog
   template, inserts the task definition (`taskMapper->create`, `:394-406`),
-  and delegates to `createRoomTask` (`:408`) â€” two to three independent
+  and delegates to `createRoomTask` (`:408`) — two to three independent
   auto-commit writes; a mid-path failure strands the definition.
 - The aggregate pattern to reuse exists and is proven:
   `HouseSetupService::applySetup` (`lib/Service/HouseSetupService.php:126-235`)
@@ -68,7 +68,7 @@ against `master` @ `ab660cd`.
   anywhere on the create path, and `fixedScheduleTime`, `fixedScheduleDays`,
   `flexDays`, `instructions`, and `tips` are not validated at all
   (`TaskService.php:288-371`).
-- The template path **bypasses `validateTaskData` entirely** â€”
+- The template path **bypasses `validateTaskData` entirely** —
   `createFromTemplate` applies only the 6-field override whitelist
   (`TemplateService.php:45-52`) and hard-codes `schedulingMode: 'dynamic'`,
   `scopeType: 'room'` (`:289-290`); catalog materialization and custom
@@ -82,7 +82,7 @@ against `master` @ `ab660cd`.
 
 - `flexDays` is exposed in the creation form (`TaskEditForm.vue:205-211`) and
   submitted, but `TaskController::create` has no such parameter
-  (`lib/Controller/TaskController.php:89-108`) â€” the field is **dead at
+  (`lib/Controller/TaskController.php:89-108`) — the field is **dead at
   creation** (always persisted as the entity default 0, `lib/Db/Task.php:180`);
   `TaskList` then renders flex windows that are always empty for new tasks.
 - There is **no explicit creation due date**: the store sends
@@ -104,10 +104,10 @@ against `master` @ `ab660cd`.
 - But `setAssignees` (`RoomTaskService.php:535-543`) and
   `bulkAssignTasks` (`:731-801`) acquire **no room-task row lock** before
   replacing assignees, and bulk runs per-item transactions with no documented
-  lock order â€” the masterplan's "same â€¦ lock order" requirement for
+  lock order — the masterplan's "same … lock order" requirement for
   set/bulk/setup assignment is unmet (the documented order in
-  `lib/Db/TransactionExecutor.php:24-32` is `house â†’ room_task â†’ dependents`).
-- The `validate*Ownership` roomâ†’floorâ†’house walk is duplicated three times:
+  `lib/Db/TransactionExecutor.php:24-32` is `house → room_task → dependents`).
+- The `validate*Ownership` room→floor→house walk is duplicated three times:
   `RoomTaskService::validateRoomTaskOwnership` (`:116-134`),
   `RoomService::validateRoomOwnership` (`lib/Service/RoomService.php:99-110`),
   `FloorService::validateFloorOwnership` (`lib/Service/FloorService.php:61-71`).
@@ -123,12 +123,12 @@ against `master` @ `ab660cd`.
 - The "New Task" button (`TaskManager.vue:12`) and "Add Task" button
   (`RoomDetail.vue:108`) are **not role-gated**: a child can open and submit
   the full form and receives the backend 403 (`TaskService.php:160-162`)
-  only after click â€” the exact "hidden editing controls that fail after click"
+  only after click — the exact "hidden editing controls that fail after click"
   anti-pattern the masterplan forbids.
 - Template prefill is **broken**: `RecurrencePresetSelector` emits only
   `{id, name, icon, recurrence}` presets (`:40-65`, no props declared) while
     `TaskEditForm.applyTemplate` (`:373-390`) reads
-    `name/description/energyCost/â€¦/flexDays/visibilityType` â€” only the `name`
+    `name/description/energyCost/…/flexDays/visibilityType` — only the `name`
     branch picks anything up (the preset's own label, e.g. "Daily", lands in
     the task-name field), every other branch falls through to defaults, and
     the preset's actual `recurrence` payload is never consumed; the passed
@@ -136,7 +136,7 @@ against `master` @ `ab660cd`.
 - The form has **no concise preview**, no due-date control, and no
   instructions field; the dead `fetchAssignees` store action
   (`roomTasks.js:176-190`) has no consumer.
-- What already holds and stays: the cascading floorâ†’room picker with locked
+- What already holds and stays: the cascading floor→room picker with locked
   preset mode (`RoomPicker.vue`), multi-select assignee chips
   (`AssigneeChips.vue`), the in-form visibility explanation with owner-gated
   `admin-only` option (`TaskEditForm.vue:244-257`, `:432-443`), TaskList's D5
@@ -151,14 +151,14 @@ against `master` @ `ab660cd`.
   test at all**, and no create test asserts the `addAssignee` write.
 - The two controller "integration" suites mock the services
   (`TaskControllerIntegrationTest.php:31-35`,
-  `RoomTaskControllerIntegrationTest.php:32-35`) â€” there is **no real-DB
+  `RoomTaskControllerIntegrationTest.php:32-35`) — there is **no real-DB
   test of the creation endpoints**; visibility creation (private owner
   stamping, admin-only 403) is covered only by E2E API calls.
 - Jest **pins the orphan contract as desired behavior**
   (`roomTasks.spec.js:444` "keeps the definition when the room task creation
-  fails", `:460`; `TaskManager.spec.js:186` partial-success close) â€” these
+  fails", `:460`; `TaskManager.spec.js:186` partial-success close) — these
   must be re-pinned to the aggregate contract (no-compat rule, project-rules
-  Â§1).
+  §1).
 - No creation/assignment race test exists; the proven `proc_open`
   two-connection pattern (`BootstrapConcurrencyTest.php:58-110`, refined by
   `SetupApplyConcurrencyTest` incl. zero-write proofs `:138-208`) is ready to
@@ -171,14 +171,14 @@ against `master` @ `ab660cd`.
 Introduce one service-owned creation aggregate and route every user-facing
 create path through it; canonicalize assignment lock discipline; then rework
 the creation form to the new single-request contract. Each step starts from a
-failing or missing test (CS-PLAN-058 Â§2.3):
+failing or missing test (CS-PLAN-058 §2.3):
 
 1. **Consolidate validation** into one closed constraint set inside the
    service layer, shared by custom and template paths, with strict type
    rejection (folds CR-062-01's alignment) and newly creatable
    `flexDays`/`instructions` (decision D3).
 2. **Add `TaskCreationService`** owning the aggregate: one
-   `TransactionExecutor` transaction â€” house lock first, under-lock
+   `TransactionExecutor` transaction — house lock first, under-lock
    membership revalidation, duplicate recheck, then definition insert,
    room-task materialization (explicit `nextDue`, flex-aware
    `idealDueDate`), and initial assignee join rows (decisions D1/D2).
@@ -211,15 +211,15 @@ failing or missing test (CS-PLAN-058 Â§2.3):
 
 - `TaskService::validateTaskData` becomes the **single** creation/update
   constraint authority and is called by services, not controllers:
-  - existing checks unchanged (name required, energyCost 1â€“5, priority 1â€“3,
-    estimatedMinutes 1â€“480 + minâ‰¤max, frequencyType closed set,
-    frequencyValue â‰¥ 1, scopeType closed set, recurrenceMode closed set,
-    activeFrom â‰¤ activeUntil, visibilityType closed set);
-  - new checks: `schedulingMode` âˆˆ new `Task::SCHEDULING_MODES`
+  - existing checks unchanged (name required, energyCost 1–5, priority 1–3,
+    estimatedMinutes 1–480 + min≤max, frequencyType closed set,
+    frequencyValue ≥ 1, scopeType closed set, recurrenceMode closed set,
+    activeFrom ≤ activeUntil, visibilityType closed set);
+  - new checks: `schedulingMode` ∈ new `Task::SCHEDULING_MODES`
     (`dynamic|static`) closed set; `fixedScheduleTime` parseable time;
     `fixedScheduleDays` a JSON array of canonical weekday names;
-    `flexDays` an integer in `[0, 7]` (decision D3 â€” bound ratified by
-    review); `instructions`/`tips` length â‰¤ 2000; non-scalar payloads and
+    `flexDays` an integer in `[0, 7]` (decision D3 — bound ratified by
+    review); `instructions`/`tips` length ≤ 2000; non-scalar payloads and
     non-string names/dates are **rejected with 400**, never coerced.
 - `HouseSetupService::validateHouseName` aligned: a present but non-string
   `houseName` yields `400 VALIDATION_ERROR` instead of a silent 200
@@ -228,7 +228,7 @@ failing or missing test (CS-PLAN-058 Â§2.3):
   set) collapse into the service; `TaskController::update` keeps only
   envelope shaping and the owner-gate mapping it already owns.
 
-### 3.2 `TaskCreationService` â€” the aggregate owner (CR-WF-03)
+### 3.2 `TaskCreationService` — the aggregate owner (CR-WF-03)
 
 - New `lib/Service/TaskCreationService.php` (~200 lines), injected with
   `TransactionExecutor`, `TaskMapper`, `RoomTaskMapper`, `TaskAssigneeMapper`,
@@ -238,25 +238,25 @@ failing or missing test (CS-PLAN-058 Â§2.3):
 - `create(int $houseId, HouseUser $actor, array $payload): array` where the
   payload carries either an inline `task` definition (custom path) or a
   `taskId` (mount-existing path), plus `roomId`, `assigneeUserIds[]`, and an
-  optional `nextDue` (house-local date, ADR-009 semantics â€” parsed like
+  optional `nextDue` (house-local date, ADR-009 semantics — parsed like
   `RoomTaskController::updateDueDate`):
   1. Pre-transaction fast-fail: `assertCanManageTasks($actor)` (children
      cannot create), full `validateTaskData` on the materialized payload
      (custom: client payload; template: `TemplateService::materializeTemplate`
-     output + overrides; mount: existing definition re-read), roomâ†’floorâ†’house
+     output + overrides; mount: existing definition re-read), room→floor→house
      ownership, task visibility (`TaskAccessPolicy`), admin-only creation
      owner gate, private creation `ownerUserId` stamping.
   2. `transactions->run(...)`: `houseMapper->findForUpdate($houseId)` (house
-     is the documented first lock â€” WP3 precedent), **revalidate every
+     is the documented first lock — WP3 precedent), **revalidate every
      distinct assignee membership under the lock**
-     (`HouseUserMapper::findByHouseAndUser`; miss â†’ 400, rollback), recheck
+     (`HouseUserMapper::findByHouseAndUser`; miss → 400, rollback), recheck
      the duplicate guard `roomTaskMapper->exists($roomId, $taskId)` (mount
-     variant; â†’ 400), then write definition (`taskMapper->create`, named
-     args â€” replaces the 24-positional-param seam), room task
+     variant; → 400), then write definition (`taskMapper->create`, named
+     args — replaces the 24-positional-param seam), room task
      (`roomTaskMapper->create` with explicit `nextDue` or the existing
      tomorrow default, flex-aware `idealDueDate` via
      `RoomTask::calculateIdealDueDate`), and initial assignee join rows.
-  3. Returns `{task, roomTask, assignees}` â€” one response shape for both
+  3. Returns `{task, roomTask, assignees}` — one response shape for both
      paths (decision D1).
 - `createFromTemplate(int $houseId, HouseUser $actor, int $roomId, string
   $templateId, ?string $level, array $overrides, ?string $assigneeUserId)`
@@ -268,11 +268,11 @@ failing or missing test (CS-PLAN-058 Â§2.3):
   `TaskCreationService`. `TaskService::createTask` loses its last caller and
   is deleted together with the pruned endpoint (decision D1). Setup keeps its
   internal aggregate (it already writes the same canonical rows under the
-  same lock inside its own transaction â€” Â§1.2; no double-locking via a call
+  same lock inside its own transaction — §1.2; no double-locking via a call
   out).
 - `TransactionExecutor`'s lock-order docblock gains the creation usage note
   (creation takes only the house lock and fresh inserts; assignment takes
-  `room_task` locks â€” no cycle, per the documented order).
+  `room_task` locks — no cycle, per the documented order).
 
 ### 3.3 Aggregate API contract (CR-WF-03)
 
@@ -284,18 +284,18 @@ failing or missing test (CS-PLAN-058 Â§2.3):
     visibilityType? }, roomId, assigneeUserIds?: string[], nextDue?: "YYYY-MM-DD" }`
   - mount existing: `{ taskId, roomId, assigneeUserIds?: string[], nextDue? }`
     (the legacy scalar `assignedToUserId` and `scopeId` body keys are folded
-    out â€” no consumer sends them; the store sends `nextDue: null` today and
-    is updated in Â§3.5).
+    out — no consumer sends them; the store sends `nextDue: null` today and
+    is updated in §3.5).
 - `POST /room-tasks/from-template` keeps `{roomId, templateId, level?,
   overrides?, assigneeUserId?}` and now returns the aggregate shape
   `{task, roomTask, assignees}`.
 - `POST /tasks` (definition-only) and the `task#create` route are **pruned**
-  with `tasksStore.createTask` â€” after Â§3.5 nothing consumes them; the
+  with `tasksStore.createTask` — after §3.5 nothing consumes them; the
   no-consumer route policy (CS-PLAN-055) applies, `RouteMatrixTest` and the
   Jest `apiContract.spec.js` route map are updated in the same change
   (decision D1). `PUT /tasks/{id}` (definition edit) is unchanged.
 - Error semantics unchanged: 400 validation, 403 role denials (child actor,
-  memberâ†’admin-only), 404 anti-enumeration for cross-house/unknown rooms and
+  member→admin-only), 404 anti-enumeration for cross-house/unknown rooms and
   invisible definitions (ADR-010 standard).
 
 ### 3.4 Canonical assignment locks and seams (CR-SVC-41 slice / CR-WF-03)
@@ -311,20 +311,20 @@ failing or missing test (CS-PLAN-058 Â§2.3):
   lock acquired in ascending-id order across the batch, and the single target
   user's membership is revalidated under the first lock (decision D5).
 - Deduplicate the ownership walk: `RoomTaskService::validateRoomTaskOwnership`
-  resolves roomTaskâ†’roomId and delegates to `RoomService::validateRoomOwnership`
-  (the one canonical roomâ†’floorâ†’house implementation);
+  resolves roomTask→roomId and delegates to `RoomService::validateRoomOwnership`
+  (the one canonical room→floor→house implementation);
   `FloorService::validateFloorOwnership` stays (different entry point).
 - CR-SVC-41 backlog annotation: the `getFilteredDailyTasksForUser` param
-  sub-item is recorded as already resolved (Â§1.5); "duplicated stat helpers"
+  sub-item is recorded as already resolved (§1.5); "duplicated stat helpers"
   stay WP8 (out of the creation/assignment path).
 
 ### 3.5 Creation form and entry points (CR-WF-03 / CR-WF-08 creation line)
 
 - `roomTasks.js`: `createTaskWithRoomTask` is replaced by
-  `createTaskAggregate(payload)` â†’ one `POST /room-tasks`; the orphan/partial
+  `createTaskAggregate(payload)` → one `POST /room-tasks`; the orphan/partial
   branches are deleted; the dead `fetchAssignees` action is deleted;
   `tasks.js::createTask` is deleted with the endpoint.
-- `TaskManager.vue` / `RoomDetail.vue`: single-call handlers â€” failure keeps
+- `TaskManager.vue` / `RoomDetail.vue`: single-call handlers — failure keeps
   the modal open with input preserved and a localized error; success closes
   the modal, refreshes the room-task list, and adds the definition to the
   tasks store from the aggregate response. The "New Task"/"Add Task" buttons
@@ -332,7 +332,7 @@ failing or missing test (CS-PLAN-058 Â§2.3):
   children keep the read/execute TaskList surface unchanged (decision D6).
 - `TaskEditForm.vue`:
    - submit payload gains `nextDue` (date picker, house-local) and persists
-     `flexDays` â€” the flex input's `max` attribute is aligned from 14 to the
+     `flexDays` — the flex input's `max` attribute is aligned from 14 to the
      ratified bound 7 (decision D3, Standard A finding F4); an optional
      `instructions` textarea is added; `description` and all existing fields
      unchanged;
@@ -346,12 +346,12 @@ failing or missing test (CS-PLAN-058 Â§2.3):
     surface the `TaskTemplatePicker` already consumes;
   - `admin-only` stays owner-gated with the existing visibility explanation.
 - `RoomTaskEditModal` (due date + assignees) stays a two-field-level edit
-  surface â€” only its `setAssignees` error path benefits from Â§3.4; folding it
+  surface — only its `setAssignees` error path benefits from §3.4; folding it
   into an aggregate is explicitly out of scope (decision D7).
 - All new/changed strings through `t()`; `l10n/` artifacts updated in the
   same change.
 
-### 3.6 Checklist at creation â€” explicitly out of scope
+### 3.6 Checklist at creation — explicitly out of scope
 
 The aggregate does not accept `checklistItems` and the form gets no checklist
 editor (decision D8): the masterplan WP4 form list omits a checklist control,
@@ -362,7 +362,7 @@ unchanged).
 
 ### 3.7 Durable docs
 
-- `docs/api/README.md`: rewrite the Tasks/Room Tasks creation sections â€”
+- `docs/api/README.md`: rewrite the Tasks/Room Tasks creation sections —
   aggregate contract (both variants + from-template), pruned `POST /tasks`,
   unified response shape, lock/validation semantics.
 - `docs/concepts/task-model-and-sync.md`: replace the three-step "Creation
@@ -376,88 +376,88 @@ unchanged).
 
 ## 4. Tests
 
-- **Unit (PHPUnit) â€” new `TaskCreationServiceTest`; updated
+- **Unit (PHPUnit) — new `TaskCreationServiceTest`; updated
   `TaskServiceTest`, `RoomTaskServiceTest`, `TaskControllerTest`,
   `RoomTaskControllerTest`, `HouseSetupServiceTest`:**
   - Both paths invoke the closed validation set (template payload with an
-    out-of-range override now fails 400 â€” closes the bypass); `flexDays`
-    bounds, `schedulingMode` closed set, weekday-JSON, non-string â†’ 400
-    matrix; CR-062-01: non-string `houseName` â†’ 400.
+    out-of-range override now fails 400 — closes the bypass); `flexDays`
+    bounds, `schedulingMode` closed set, weekday-JSON, non-string → 400
+    matrix; CR-062-01: non-string `houseName` → 400.
   - Gate order: child actor 403 before any mapper call; private creation
-    stamps `ownerUserId` = creator; member + `admin-only` â†’ 403; cross-house
-    room â†’ 404; mount-duplicate recheck under lock â†’ 400 with no second
+    stamps `ownerUserId` = creator; member + `admin-only` → 403; cross-house
+    room → 404; mount-duplicate recheck under lock → 400 with no second
     insert.
-  - Rollback sabotage: a mapper mock throwing after the definition insert â†’
+  - Rollback sabotage: a mapper mock throwing after the definition insert →
     `rollBack()` called, `commit()` never, zero assignee writes (mock-level;
     real-DB proof below).
   - `setAssignees`/`bulkAssignTasks`: `lockForUpdate` precedes
-    `replaceAssignees` (sorted ids for bulk); under-lock membership miss â†’
+    `replaceAssignees` (sorted ids for bulk); under-lock membership miss →
     400 and zero writes; bulk partial-success semantics re-pinned
     (skipped foreign/invisible, non-member fast-fail).
   - Controller: new payload variants map to the service; envelope/status
     unchanged; `POST /tasks` gone from `RouteMatrixTest`.
-- **Integration (Docker, real DB) â€” new `TaskCreationAggregateTest`,
+- **Integration (Docker, real DB) — new `TaskCreationAggregateTest`,
   new `TaskCreationConcurrencyTest`; extended `AssigneeRepresentationTest`,
   `BulkAssignIntegrationTest`:**
   - Custom create persists definition + room task + assignees + explicit
     `nextDue` + `flexDays`/`idealDueDate` in the aggregate shape; template
     create identical; mount-existing variant reuses the definition.
   - Zero-write proofs: assignee membership removed between pre-validation
-    and apply â†’ 400 with **zero** `chorestrike_tasks`, `room_tasks`, and
-    `task_assignees` rows (orphan-definition proof); duplicate mount â†’ 400
+    and apply → 400 with **zero** `chorestrike_tasks`, `room_tasks`, and
+    `task_assignees` rows (orphan-definition proof); duplicate mount → 400
     with no second row.
   - Visibility creation matrix: private (owner stamp), admin-only (member
-    403, owner 200), public default â€” real-DB via `actingAs` +
+    403, owner 200), public default — real-DB via `actingAs` +
     real-services controller build (`BulkAssignIntegrationTest::buildController`
     precedent), replacing the mock-service "integration" holes for creation.
   - Date/recurrence permutations: `once`/`bounded`/`recurring`,
     `activeFrom/Until`, `dynamic`/`static` + fixed time/weekdays, `flexDays`
-    0..7 â†’ persisted and round-tripped.
+    0..7 → persisted and round-tripped.
   - `TaskCreationConcurrencyTest` (proc_open pattern copied from
     `SetupApplyConcurrencyTest`, MySQL-only documented skip in the exact
-    established wording): (a) two concurrent mounts of the same definition â†’
+    established wording): (a) two concurrent mounts of the same definition →
     exactly one row, one 400; (b) membership removed while the creator waits
-    on the house lock â†’ 400 and zero writes.
-- **Jest â€” `roomTasks.spec.js`, `TaskManager.spec.js`, `TaskEditForm.spec.js`,
+    on the house lock → 400 and zero writes.
+- **Jest — `roomTasks.spec.js`, `TaskManager.spec.js`, `TaskEditForm.spec.js`,
   `tasks.spec.js`, `RoomTaskEditModal.spec.js`, `TaskTemplatePicker.spec.js`,
   `apiContract.spec.js`:**
   - Store: `createTaskAggregate` performs exactly one `POST /room-tasks`
     with the aggregate payload; the three-request chain, orphan retention,
     `fetchAssignees`, and `tasksStore.createTask` are gone (specs re-pinned,
     not shimmed).
-  - Views: failure â†’ modal open, input preserved, error toast, no success;
-    success â†’ close + refresh + definition added; child sees no "New
+  - Views: failure → modal open, input preserved, error toast, no success;
+    success → close + refresh + definition added; child sees no "New
     Task"/"Add Task" (button and form gated).
   - Form: payload includes `nextDue`/`flexDays`/`instructions`; preview
     renders room/recurrence/due-flex/assignees/visibility; preset wiring
     applies recurrence fields; catalog prefill fills supported fields;
     `admin-only` remains owner-only.
-- **E2E (Playwright) â€” extended `task-manager.spec.ts` (parallel pool),
+- **E2E (Playwright) — extended `task-manager.spec.ts` (parallel pool),
   updated `admin-only-tasks.spec.ts`, `release-task-templates.spec.ts`,
   `private-tasks.spec.ts`, `insights-flow.spec.ts`,
   `release-visibility-roles.spec.ts`, `teamwork-rewards.spec.ts`
-  (endpoint/payload migration â€” the full `POST /tasks` consumer inventory,
+  (endpoint/payload migration — the full `POST /tasks` consumer inventory,
   re-grepped at Standard A review: `insights-flow.spec.ts:141`,
   `release-visibility-roles.spec.ts:113`, `teamwork-rewards.spec.ts:41,90`
   were missing from the draft list):**
-  1. Owner creates a custom task through the form â€” room picker, recurrence,
-     due date, flex, assignee chips, visibility â€” asserts the visible row,
+  1. Owner creates a custom task through the form — room picker, recurrence,
+     due date, flex, assignee chips, visibility — asserts the visible row,
      its assignees, and the due/flex display; a private variant asserts
      visibility filtering.
   2. Owner assigns via row chips (multi) and applies the bulk toolbar to two
-     rows â€” the first GUI bulk-assignment coverage; partial-success toast on
+     rows — the first GUI bulk-assignment coverage; partial-success toast on
      a mixed selection stays assertable at store level (Jest).
   3. Template creation via RoomDetail's picker returns the aggregate shape
      and the row appears.
   4. Forced failure: Playwright request interception aborts the aggregate
-     POST â†’ modal stays open, input preserved, no success toast, no new row
+     POST → modal stays open, input preserved, no success toast, no new row
      (GUI rollback-adjacent proof; DB-level rollback is the integration
      proof above).
-  5. Date probes are anchored to today/tomorrow labels â€” never weekday-
+  5. Date probes are anchored to today/tomorrow labels — never weekday-
      dependent calendar positions (BUG-E2E-005 lesson).
   - `task-manager.spec.ts` stays in the parallel `chromium` pool (family
     profile, no seed mutation).
-- **Gate (CS-PLAN-058 Â§4.5):** full gate including Docker unit +
+- **Gate (CS-PLAN-058 §4.5):** full gate including Docker unit +
   integration, `composer cs:check`, all applicable Playwright projects; no
   new documented skips beyond the established MySQL-only race-guard
   inventory.
@@ -481,21 +481,21 @@ modified: lib/Db/TransactionExecutor.php (lock-order docblock creation/assignmen
 modified: appinfo/routes.php (POST /tasks pruned)
 modified: src/store/roomTasks.js (createTaskAggregate; chain + fetchAssignees deleted)
 modified: src/store/tasks.js (createTask deleted)
-modified: src/views/TaskManager.vue Â· src/views/RoomDetail.vue (single-call handlers, entry-point gating)
+modified: src/views/TaskManager.vue · src/views/RoomDetail.vue (single-call handlers, entry-point gating)
 modified: src/components/Tasks/TaskEditForm.vue (due/flex/instructions, preview, prefill repair, gating)
 modified: src/components/Tasks/RecurrencePresetSelector.vue (props/emit/preset wiring; label)
 modified: src/components/Tasks/TaskTemplatePicker.vue (aggregate response shape only, if consumed)
 modified: tests/unit/Service/{TaskServiceTest,RoomTaskServiceTest,HouseSetupServiceTest}.php
 modified: tests/unit/Controller/{TaskControllerTest,RoomTaskControllerTest}.php
-modified: tests/unit/RouteMatrixTest.php (routeâ†”controller guard for the pruned route)
-modified: tests/integration/Db/AssigneeRepresentationTest.php Â· tests/integration/Controller/BulkAssignIntegrationTest.php
-modified: tests/unit/store/{roomTasks,tasks}.spec.js Â· tests/unit/views/TaskManager.spec.js
-modified: tests/unit/components/{TaskEditForm,RoomTaskEditModal,TaskTemplatePicker}.spec.js Â· tests/unit/store/apiContract.spec.js
-modified: tests/e2e/task-manager.spec.ts Â· tests/e2e/admin-only-tasks.spec.ts Â· tests/e2e/release-task-templates.spec.ts Â· tests/e2e/private-tasks.spec.ts Â· tests/e2e/insights-flow.spec.ts Â· tests/e2e/release-visibility-roles.spec.ts Â· tests/e2e/teamwork-rewards.spec.ts
-modified: docs/api/README.md Â· docs/concepts/task-model-and-sync.md Â· docs/engineering/development.md
+modified: tests/unit/RouteMatrixTest.php (route↔controller guard for the pruned route)
+modified: tests/integration/Db/AssigneeRepresentationTest.php · tests/integration/Controller/BulkAssignIntegrationTest.php
+modified: tests/unit/store/{roomTasks,tasks}.spec.js · tests/unit/views/TaskManager.spec.js
+modified: tests/unit/components/{TaskEditForm,RoomTaskEditModal,TaskTemplatePicker}.spec.js · tests/unit/store/apiContract.spec.js
+modified: tests/e2e/task-manager.spec.ts · tests/e2e/admin-only-tasks.spec.ts · tests/e2e/release-task-templates.spec.ts · tests/e2e/private-tasks.spec.ts · tests/e2e/insights-flow.spec.ts · tests/e2e/release-visibility-roles.spec.ts · tests/e2e/teamwork-rewards.spec.ts
+modified: docs/api/README.md · docs/concepts/task-model-and-sync.md · docs/engineering/development.md
 modified: l10n/{en.json,de.json,templates/chorestrike.pot}
-modified: docs/backlog/{backlog.md,ACTIVE_TASKS.md} (+ archive/2026-09.md completion entries â€” owned by the Standard B review)
-modified: docs/plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md (Â§9 progress row WP4)
+modified: docs/backlog/{backlog.md,ACTIVE_TASKS.md} (+ archive/2026-09.md completion entries — owned by the Standard B review)
+modified: docs/plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md (§9 progress row WP4)
 modified: docs/plans/active/cs-plan-063-wp4-atomic-task-creation-assignment.md (this plan; moved to active/ by the Standard A review 2026-09-05)
 ```
 
@@ -504,35 +504,35 @@ modified: docs/plans/active/cs-plan-063-wp4-atomic-task-creation-assignment.md (
 1. Failing tests first: closed-validation unit cases (incl. template-path
    bypass + CR-062-01), aggregate gate/rollback unit cases, store/form Jest
    cases re-pinned to the one-request contract (red).
-2. Â§3.1 validation consolidation (+ CR-062-01); unit green.
-3. Â§3.2 `TaskCreationService` + Â§3.3 endpoint routing and prune; unit +
+2. §3.1 validation consolidation (+ CR-062-01); unit green.
+3. §3.2 `TaskCreationService` + §3.3 endpoint routing and prune; unit +
    controller tests green; `RouteMatrixTest`/`apiContract` updated.
-4. Â§3.4 assignment locks + ownership dedup; unit green.
+4. §3.4 assignment locks + ownership dedup; unit green.
 5. Real-DB integration: aggregate, zero-write, visibility, date/recurrence
-   permutations; `TaskCreationConcurrencyTest` (proc_open) â€” Docker green.
-6. Â§3.5 frontend: store action, views, form controls, preview, prefill
+   permutations; `TaskCreationConcurrencyTest` (proc_open) — Docker green.
+6. §3.5 frontend: store action, views, form controls, preview, prefill
    repair, gating; Jest green.
 7. E2E: task-manager journey extension, endpoint migrations in the affected
    specs, forced-failure recovery step; `chromium`, `chromium-serial-db`,
    `chromium-scheduling-owner` green.
-8. Full Â§4.5 gate; scoped `npm run lint:fix` beforehand.
-9. Â§3.7 durable docs; backlog dispositions (CR-WF-03 task-half criteria,
+8. Full §4.5 gate; scoped `npm run lint:fix` beforehand.
+9. §3.7 durable docs; backlog dispositions (CR-WF-03 task-half criteria,
    CR-SVC-41 WP4 slice + stale sub-item annotation, CR-062-01 archive),
-   CS-PLAN-058 Â§9 WP4 row, `ACTIVE_TASKS.md`; request Standard B review.
+   CS-PLAN-058 §9 WP4 row, `ACTIVE_TASKS.md`; request Standard B review.
 
 ## 7. Risks & Mitigations
 
 | Risk | Likelihood | Mitigation |
 |------|------------|------------|
-| House lock on every creation serializes write throughput | Low | Household-scale creation rates; lock held for a short critical section (no external calls, ADR-007 doctrine); completion (WP5) locks `room_task` only â€” no cross contention |
+| House lock on every creation serializes write throughput | Low | Household-scale creation rates; lock held for a short critical section (no external calls, ADR-007 doctrine); completion (WP5) locks `room_task` only — no cross contention |
 | Pruning `POST /tasks` breaks hidden consumers | Medium | Grep-verified consumer inventory (store + E2E specs) migrated in the same change; `RouteMatrixTest` + `apiContract.spec.js` guard drift; pre-release no-compat policy |
-| Template-path validation tightening rejects catalog payloads | Medium | Catalog fixture test: every template Ã— level must pass the closed set before the check goes live; overrides stay whitelist-bounded |
-| Jest/E2E re-pins churn the suite in one step | Medium | Re-pins land with the contract change in implementation step 1+6 pairs (redâ†’green per layer), never after the fact |
+| Template-path validation tightening rejects catalog payloads | Medium | Catalog fixture test: every template × level must pass the closed set before the check goes live; overrides stay whitelist-bounded |
+| Jest/E2E re-pins churn the suite in one step | Medium | Re-pins land with the contract change in implementation step 1+6 pairs (red→green per layer), never after the fact |
 | Concurrent bulk item transactions deadlock | Low | Ascending-id lock order within a batch; per-item transactions match the existing `replaceAssignees` usage; two-connection race test covers the replace path |
-| `flexDays` bound (0â€“7) rejects existing PUT-edited rows | Low | Pre-release fresh-install policy; integration permutation test pins 0 and 7 as valid, 8 as 400 |
+| `flexDays` bound (0–7) rejects existing PUT-edited rows | Low | Pre-release fresh-install policy; integration permutation test pins 0 and 7 as valid, 8 as 400 |
 | Prefill/cascading-picker rework shifts E2E locators | Low | Stable `data-testid`s (RoomPicker already exposes them); journey uses the same controls |
-| Forced-failure E2E via route interception is new territory | Medium | Abort-and-assert pattern is scoped to one test; if flaky, the DB-level zero-write integration proof remains the mandatory atomicity evidence and the GUI case degrades to a logged deferral â€” never a silent skip |
-| Scope creep into WP5 completion or WP8 decomposition | Medium | Â§Scope guard + manifest freeze: `RoomTaskService` shrinks only by deletion/delegation; no completion-path edits |
+| Forced-failure E2E via route interception is new territory | Medium | Abort-and-assert pattern is scoped to one test; if flaky, the DB-level zero-write integration proof remains the mandatory atomicity evidence and the GUI case degrades to a logged deferral — never a silent skip |
+| Scope creep into WP5 completion or WP8 decomposition | Medium | §Scope guard + manifest freeze: `RoomTaskService` shrinks only by deletion/delegation; no completion-path edits |
 | Date-dependent E2E flakiness (BUG-E2E-005 class) | Medium | Due-date assertions anchored to stored `nextDue` and row labels, never calendar-weekday geometry |
 
 ## 8. Acceptance Criteria
@@ -541,16 +541,16 @@ modified: docs/plans/active/cs-plan-063-wp4-atomic-task-creation-assignment.md (
       service-owned transaction (`TaskCreationService`): definition insert,
       room-task materialization (explicit `nextDue`, flex-aware
       `idealDueDate`), and initial assignee join rows commit or roll back
-      together â€” proven by mock-sabotage unit tests and real-DB zero-write
+      together — proven by mock-sabotage unit tests and real-DB zero-write
       integration tests (no orphan task definitions in any failure path).
 - [x] Both HTTP create paths share one validation authority
       (`validateTaskData`, service-invoked) with a closed constraint set
       including `schedulingMode`, `fixedScheduleTime/Days`, `flexDays`
-      (0â€“7), and instructions/tips; non-string/malformed values yield 400;
+      (0–7), and instructions/tips; non-string/malformed values yield 400;
       the template path no longer bypasses validation; CR-062-01 closed
-      (non-string `houseName` â†’ 400).
+      (non-string `houseName` → 400).
 - [x] `flexDays`, an explicit creation due date, and `instructions`
-      round-trip from form â†’ API â†’ persistence â†’ store/UI; the previously
+      round-trip from form → API → persistence → store/UI; the previously
       dead creation `flexDays` field is consumed.
 - [x] Assignment is canonical across surfaces: `setAssignees` and each bulk
       item acquire the `room_task` lock (ascending ids) before replacement,
@@ -567,7 +567,7 @@ modified: docs/plans/active/cs-plan-063-wp4-atomic-task-creation-assignment.md (
 - [x] `POST /tasks`, `createTaskWithRoomTask`, `tasksStore.createTask`, and
       `fetchAssignees` are gone; `RouteMatrixTest` and `apiContract.spec.js`
       reflect the pruned/changed contract.
-- [x] Tests from Â§4 exist and pass: unit (gates, validation, rollback,
+- [x] Tests from §4 exist and pass: unit (gates, validation, rollback,
       locks), real-DB integration (atomicity, zero-writes, visibility,
       date/recurrence permutations), `proc_open` concurrency (duplicate
       mount, membership removal; MySQL-only documented skip in the
@@ -579,11 +579,11 @@ modified: docs/plans/active/cs-plan-063-wp4-atomic-task-creation-assignment.md (
       definitions.
 - [x] All new/changed strings localized; standard API envelope everywhere;
       `l10n:check-keys` green.
-- [x] Build gate green (CS-PLAN-058 Â§4.5) with no new or unapproved skips.
+- [x] Build gate green (CS-PLAN-058 §4.5) with no new or unapproved skips.
 - [x] Owning backlog items dispositioned: CR-WF-03 task-half criteria
       checked (umbrella closes when both halves are done), CR-SVC-41 WP4
-      slice annotated, CR-062-01 archived; CS-PLAN-058 Â§9 WP4 row updated.
-- [x] Durable docs updated (API README, task-model concept, locking note) â€”
+      slice annotated, CR-062-01 archived; CS-PLAN-058 §9 WP4 row updated.
+- [x] Durable docs updated (API README, task-model concept, locking note) —
       plans are temporary.
 - [x] All implementation decisions and review questions resolved and
       recorded.
@@ -599,11 +599,11 @@ activating the plan:
 |----|-------------------|-----------|--------|
 | D1 | One aggregate contract: `POST /room-tasks` accepts an inline `task` definition or `taskId` plus `assigneeUserIds[]` and optional `nextDue`; `from-template` delegates to the same service and returns the same `{task, roomTask, assignees}` shape; the definition-only `POST /tasks` and its store action are pruned (no consumer) | The room task is the user-visible unit (masterplan WP4 goal); one endpoint per concept; no-compat pre-release policy and the CS-PLAN-055 route-consumer rule | Ratified (user pre-ratification confirmed by Standard A 2026-09-05) |
 | D2 | A new `TaskCreationService` owns the aggregate; `RoomTaskService::createRoomTask`/`createFromTemplate` and `TaskService::createTask` are deleted (callers rerouted) | Keeps the 1126-line `RoomTaskService` from growing (its structural split is WP8); mirrors the `HouseSetupService` aggregate precedent; removes the 24-positional-param seam | Ratified by Standard A 2026-09-05 |
-| D3 | Validation is consolidated in `TaskService::validateTaskData` (service-invoked, both paths) with a closed set incl. `flexDays` âˆˆ [0,7], `SCHEDULING_MODES`, weekday-JSON, and strict non-string 400s; `flexDays` and `instructions` become creatable | Masterplan's "one closed set of task constraints"; the 0â€“7 bound keeps flex windows within the scheduling horizon; strictness folds CR-062-01 | Ratified by Standard A 2026-09-05 (bound [0,7]; form `max` aligned 14â†’7, Â§3.5) |
+| D3 | Validation is consolidated in `TaskService::validateTaskData` (service-invoked, both paths) with a closed set incl. `flexDays` ∈ [0,7], `SCHEDULING_MODES`, weekday-JSON, and strict non-string 400s; `flexDays` and `instructions` become creatable | Masterplan's "one closed set of task constraints"; the 0–7 bound keeps flex windows within the scheduling horizon; strictness folds CR-062-01 | Ratified by Standard A 2026-09-05 (bound [0,7]; form `max` aligned 14→7, §3.5) |
 | D4 | Prefill = repaired recurrence presets (honest "Repeat" wiring) **plus** catalog-template prefill filtered by the selected room's type, reusing `GET /setup/catalog` | Masterplan WP4 lists "optional template prefill"; the catalog already exists and filters by room type in `TaskTemplatePicker` | Ratified (user pre-ratification confirmed by Standard A 2026-09-05) |
 | D5 | Bulk assignment keeps per-item transactions and the pinned partial-success contract; adds ascending-id `room_task` locks and under-lock membership revalidation; `setAssignees` locks the row likewise | Preserves UI-tested semantics while meeting the lock-order mandate; one batch-wide transaction would change pinned skip-not-abort behavior | Ratified by Standard A 2026-09-05 |
 | D6 | Creation entry points ("New Task", "Add Task", the form) are gated on `canManageTasks`; children keep read/execute | Masterplan WP4: "children receive a read/execute view, not hidden editing controls that fail after click" | Ratified by Standard A 2026-09-05 |
-| D7 | The RoomDetail edit modal (due date + assignees) stays a two-field-level surface â€” not folded into the aggregate | Field-level edits are independent and independently recoverable; the masterplan's aggregate mandate targets creation; avoids contract churn beyond the gate | Ratified by Standard A 2026-09-05 |
+| D7 | The RoomDetail edit modal (due date + assignees) stays a two-field-level surface — not folded into the aggregate | Field-level edits are independent and independently recoverable; the masterplan's aggregate mandate targets creation; avoids contract churn beyond the gate | Ratified by Standard A 2026-09-05 |
 | D8 | No `checklistItems` in the aggregate and no checklist editor in the form | Masterplan WP4's form list omits a checklist control; checklist-definition management is owner-only by WP2 decision D4; WP7 consumes checklists read-only | Ratified (user pre-ratification confirmed by Standard A 2026-09-05) |
 | D9 | Setup (`HouseSetupService`) keeps its internal aggregate writes rather than calling `TaskCreationService` | It already writes the same canonical rows under the same house lock inside its own transaction (WP1 D2 + WP3); routing it through a second house-lock acquisition adds a seam without changing behavior | Ratified by Standard A 2026-09-05 |
 
@@ -613,38 +613,38 @@ review can pass.
 
 ## 10. Review Outcome
 
-- **Tier / date:** Standard A (plan review) Â· 2026-09-05
+- **Tier / date:** Standard A (plan review) · 2026-09-05
 - **Scope:** this plan file only (untracked draft, blob
   `51fe828f6fece5d361b080bce13ffeff3c5c2e29`) + its `ACTIVE_TASKS.md` draft
   entry; base `master` @ `ab660cd`, index clean, no other reviewed-scope drift.
-- **Outcome:** `PASS-WITH-FIXES` â†’ plan moved `new/ â†’ active/`.
-- **Verification:** ~25 factual pins (Â§1.1â€“Â§1.7 line references, mapper
+- **Outcome:** `PASS-WITH-FIXES` → plan moved `new/ → active/`.
+- **Verification:** ~25 factual pins (§1.1–§1.7 line references, mapper
   primitives `findForUpdate`/`lockForUpdate`/`exists`, `TransactionExecutor`
   lock order, backlog item texts, masterplan WP4 mandate, Jest/E2E pins)
-  re-checked against the live tree â€” all accurate except F2. No overlap with
-  other active plans (CS-PLAN-058 Â§9 WP4 row: "Not started"). Every work item
+  re-checked against the live tree — all accurate except F2. No overlap with
+  other active plans (CS-PLAN-058 §9 WP4 row: "Not started"). Every work item
   has an owning backlog ID (CR-WF-03 task half, CR-SVC-41 WP4 slice,
   CR-062-01).
 - **Findings & fixes (all fixed in-plan, safe fixes):**
-  - **F1 (major):** `POST /tasks` E2E consumer inventory incomplete â€”
+  - **F1 (major):** `POST /tasks` E2E consumer inventory incomplete —
     `insights-flow.spec.ts:141`, `release-visibility-roles.spec.ts:113`,
     `teamwork-rewards.spec.ts:41,90` also consume the pruned endpoint. Fixed:
-    added to Â§4 migration list and Â§5 manifest.
-  - **F2 (minor):** Â§1.6 "prefill is a no-op" imprecise â€” `applyTemplate`
+    added to §4 migration list and §5 manifest.
+  - **F2 (minor):** §1.6 "prefill is a no-op" imprecise — `applyTemplate`
     consumes `template.name`, so preset labels land in the task-name field.
     Wording corrected.
-  - **F3 (minor):** Â§5 route-guard manifest line under-specified; pinned to
+  - **F3 (minor):** §5 route-guard manifest line under-specified; pinned to
     `tests/unit/RouteMatrixTest.php`.
   - **F4 (minor):** D3 bound [0,7] vs form control `max="14`
-    (`TaskEditForm.vue:210`); Â§3.5 amended to align the control (per ratified
+    (`TaskEditForm.vue:210`); §3.5 amended to align the control (per ratified
     D3 answer).
 - **Decisions:** D2, D3 (bound [0,7] + form alignment), D5, D6, D7, D9
-  ratified as proposed; D1, D4, D8 user pre-ratifications confirmed â€” all via
-  one batched structured question (answers recorded in Â§9). D8 interpretation
+  ratified as proposed; D1, D4, D8 user pre-ratifications confirmed — all via
+  one batched structured question (answers recorded in §9). D8 interpretation
   recorded: the masterplan's "checklist definition" persistence bullet is
   satisfied by `ChecklistService` remaining the sole owner-managed checklist
-  surface (WP2 D4; WP7 consumes read-only) â€” no checklist scope in WP4.
-- **Gates:** docs-only change set â€” `npm run docs:encoding`,
+  surface (WP2 D4; WP7 consumes read-only) — no checklist scope in WP4.
+- **Gates:** docs-only change set — `npm run docs:encoding`,
   `npm run backlog:check` green (no PHP/JS touched; build/test gates not
   applicable to a plan activation).
 
@@ -716,7 +716,7 @@ review can pass.
 
 ## 11. Implementation Record (2026-09-05)
 
-All Â§6 steps executed; Â§8 acceptance criteria verifiably met (Standard B
+All §6 steps executed; §8 acceptance criteria verifiably met (Standard B
 review to confirm). Full gate green: PHPUnit unit 843 OK, integration 278 OK
 (10 pre-existing documented skips), `composer cs:check` clean, Jest 814 OK,
 Playwright chromium 92 passed / 7 pre-existing skips (incl. the two
@@ -726,32 +726,32 @@ Playwright chromium 92 passed / 7 pre-existing skips (incl. the two
 Implementation deviations and discoveries, recorded for the Standard B
 review:
 
-- **F5 (plan pin wrong): Â§1.6 claimed `fetchAssignees` has no consumer.**
+- **F5 (plan pin wrong): §1.6 claimed `fetchAssignees` has no consumer.**
   `TodayView.vue:270` actively consumes it (N+1 per-item assignee fetch for
   the My-tasks filter). The action was **kept**; only the dead
   `createTaskWithRoomTask` chain and `tasksStore.createTask` were deleted.
   The `fetchAssignees` removal moves to the WP7 payload-reconciliation scope
   (the N+1 itself is CR-WF-04 territory).
 - **F6 (found by E2E): `TaskMapper::create` never persisted `flexDays`.**
-  The creation contract requires it (Â§3.3); the mapper gained an optional
+  The creation contract requires it (§3.3); the mapper gained an optional
   `int $flexDays = 0` parameter and the aggregate passes it (fresh-install
   safe; integration permutation test pins the round-trip).
 - **F7 (found by E2E): the form's `nextDue` leaked into the `task`
-  definition payload** ("Unknown or immutable field: nextDue") â€” the view
+  definition payload** ("Unknown or immutable field: nextDue") — the view
   destructuring now separates `nextDue` from the definition. Pinned by the
   TaskManager Jest re-pin.
 - **Journey placement:** the atomic-creation GUI journey (create-with-
-  assignee â†’ one POST â†’ immediate assignee render; API-forced failure â†’ no
-  orphan) lives in `3-floor-house.spec.ts` (serial, seed-mutating pool) â€”
+  assignee → one POST → immediate assignee render; API-forced failure → no
+  orphan) lives in `3-floor-house.spec.ts` (serial, seed-mutating pool) —
   the plan's suggested `task-manager.spec.ts` is in the parallel
   no-seed-mutation pool, which forbids exactly these writes.
-- **Validation nuance:** `validateTaskData` grew a `requireName` flag â€”
+- **Validation nuance:** `validateTaskData` grew a `requireName` flag —
   creation requires the name, partial updates only validate it when present;
   empty strings clear date fields (client blanks), all strict-400 otherwise.
 - **Test construction updates** (pure contract churn, no behavior): the
   dropped `TemplateService` ctor param (`RoomTaskService`), the added
   `TaskCreationService` param (`RoomTaskController`), and the removed
-  `TransactionExecutor` param (`TaskAssigneeMapper` â€” its last
+  `TransactionExecutor` param (`TaskAssigneeMapper` — its last
   self-transactional method was deleted).
 - **l10n:** new strings added to `l10n/{en,de}.json` (backend validation
   messages, creation endpoint payloads, form/preview labels); the two
