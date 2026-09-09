@@ -818,6 +818,7 @@
         "template.wash_towels": "Handtücher waschen",
         "template.wash_towels.desc": "Gebrauchte Handtücher sammeln und waschen",
         "templateId is required": "templateId ist erforderlich",
+        "The completer is no longer a member of this house": "Der Erledigende ist nicht mehr Mitglied dieses Haushalts",
         "The house is already set up. Use the per-room template picker instead.": "Das Haus ist schon eingerichtet. Nutze stattdessen die Vorlagen-Auswahl pro Raum.",
         "The person needs an existing Nextcloud account with this email address.": "Die Person benötigt ein bestehendes Nextcloud-Konto mit dieser E-Mail-Adresse.",
         "They will lose access to all house tasks and progress.": "Die Person verliert den Zugriff auf alle Aufgaben und Fortschritte im Haus.",

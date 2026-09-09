@@ -29,6 +29,7 @@ use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -469,9 +470,9 @@ class CompletionServiceTest extends TestCase {
 			['nextDue', 'idealDueDate', 'isActive', 'lastCompleted', 'wasClaimed', 'originalAssignee', 'claimedByUser', 'claimedAt'],
 			array_keys($beforeState['roomTask'])
 		);
-		self::assertEqualsCanonicalizing(['cleanliness'], array_keys($beforeState['room']));
+		self::assertEqualsCanonicalizing(['cleanliness', 'lastCleaned'], array_keys($beforeState['room']));
 		self::assertEqualsCanonicalizing(
-			['coins', 'contributionScore', 'currentStreak', 'longestStreak', 'streakFreezes', 'lastFreezeDate', 'unlockedTitles'],
+			['coins', 'contributionScore', 'currentStreak', 'longestStreak', 'streakFreezes', 'lastFreezeDate', 'unlockedTitles', 'lastActivity'],
 			array_keys($beforeState['houseUser'])
 		);
 		self::assertSame(42, $beforeState['room']['cleanliness']);
@@ -617,7 +618,10 @@ class CompletionServiceTest extends TestCase {
 				'claimedByUser' => null,
 				'claimedAt' => null,
 			],
-			'room' => ['cleanliness' => 40],
+			'room' => [
+				'cleanliness' => 40,
+				'lastCleaned' => '2026-09-04T18:00:00+00:00',
+			],
 			'houseUser' => [
 				'coins' => 10,
 				'contributionScore' => 4,
@@ -626,6 +630,7 @@ class CompletionServiceTest extends TestCase {
 				'streakFreezes' => 2,
 				'lastFreezeDate' => null,
 				'unlockedTitles' => ['pack.a'],
+				'lastActivity' => '2026-09-05T07:30:00+00:00',
 			],
 			'checklist' => [
 				['checklistItemId' => 5, 'userId' => 2, 'checked' => true, 'checkedAt' => '2026-09-05T09:00:00+00:00'],
@@ -842,6 +847,11 @@ class CompletionServiceTest extends TestCase {
 
 		// Cleanliness restored to the pre-completion value.
 		self::assertSame(40, $room->getCleanliness());
+		self::assertEquals(
+			new \DateTime('2026-09-04T18:00:00+00:00'),
+			$room->getLastCleaned(),
+			'lastCleaned (drives the room display) must be rewinded too'
+		);
 
 		// Reward fields restored to the recorded before-state.
 		self::assertSame(10, $completer->getCoins());
@@ -849,6 +859,11 @@ class CompletionServiceTest extends TestCase {
 		self::assertSame(3, $completer->getCurrentStreak());
 		self::assertSame(8, $completer->getLongestStreak());
 		self::assertSame(2, $completer->getStreakFreezes());
+		self::assertEquals(
+			new \DateTime('2026-09-05T07:30:00+00:00'),
+			$completer->getLastActivity(),
+			'lastActivity drives the streak-absence calculation and must be rewinded'
+		);
 		// titlesAdded removal only for keys still present: pack.b (unlocked
 		// by a LATER completion) survives; pack.a (the before-state) stays.
 		self::assertSame(['pack.a'], $completer->getUnlockedTitles());
@@ -915,5 +930,141 @@ class CompletionServiceTest extends TestCase {
 
 		$this->expectException(\RuntimeException::class);
 		$this->service->undo(1, $actor, 1);
+	}
+
+	/**
+	 * Undo_CompleterMembershipDeleted_CleanForbidden
+	 *
+	 * RF-05: the ledger row records an internal house_user id; when that
+	 * membership was deleted after the completion, the actor-gate resolution
+	 * must answer a clean undo-worded 403 — never a DoesNotExistException 500.
+	 */
+	public function testUndo_CompleterMembershipDeleted_CleanForbidden(): void {
+		$roomTask = $this->buildRoomTask();
+		$room = $this->buildRoom();
+		$actor = $this->buildHouseUser(2, 'owner-user');
+		$actor->setRole('owner');
+		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
+
+		$this->houseUserMapper->method('find')
+			->willThrowException(new DoesNotExistException('completer gone'));
+		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')
+			->willReturn($this->buildLedgerRow($this->buildBeforeState(), []));
+
+		// No transaction may open, and nothing may be restored.
+		$this->db->expects($this->never())->method('beginTransaction');
+		$this->roomTaskMapper->expects($this->never())->method('update');
+		$this->roomMapper->expects($this->never())->method('update');
+		$this->houseUserMapper->expects($this->never())->method('update');
+		$this->completedTaskMapper->expects($this->never())->method('markUndone');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('The completer is no longer a member of this house');
+
+		$this->service->undo(1, $actor, 1);
+	}
+
+	/**
+	 * Undo_CompleterRowVanishesUnderLock_AnswersUndoWording
+	 *
+	 * RF-05: when the completer's row vanishes between the actor gate and
+	 * the third lock, the undo context must not reuse the completion-worded
+	 * 403 ("Only house members can complete tasks").
+	 */
+	public function testUndo_CompleterRowVanishesUnderLock_AnswersUndoWording(): void {
+		$roomTask = $this->buildRoomTask();
+		$room = $this->buildRoom();
+		$actor = $this->buildHouseUser(1, 'alice');
+		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
+
+		$completer = $this->buildHouseUser(1, 'alice');
+		$this->houseUserMapper->method('find')->willReturn($completer);
+		$this->houseUserMapper->method('findForUpdate')
+			->willThrowException(new DoesNotExistException('completer gone mid-undo'));
+
+		$ledger = $this->buildLedgerRow($this->buildBeforeState(), []);
+		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
+
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+		$this->completedTaskMapper->expects($this->never())->method('markUndone');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('The completer is no longer a member of this house');
+
+		$this->service->undo(1, $actor, 1);
+	}
+
+	/**
+	 * UndoThenSameDayRecomplete_Succeeds_WithFreshLedgerRow
+	 *
+	 * The service-level roundtrip (§4, D11): complete → undo → complete
+	 * again on the same day must succeed and insert a SECOND, distinct
+	 * ledger row — no service-side state (e.g. the reused entity) blocks
+	 * the re-completion; the undone row stays out of the duplicate guard.
+	 */
+	public function testUndoThenSameDayRecomplete_Succeeds_WithFreshLedgerRow(): void {
+		$roomTask = $this->buildRoomTask();
+		$room = $this->buildRoom();
+		$task = $this->buildTask();
+		$houseUser = $this->buildHouseUser();
+		$this->stubCompleteLookups($roomTask, $room, $task, $houseUser);
+
+		$insertedRows = [];
+		$this->completedTaskMapper->expects($this->exactly(2))
+			->method('insert')
+			->willReturnCallback(function (CompletedTask $row) use (&$insertedRows) {
+				$row->setId(100 + count($insertedRows));
+				$insertedRows[] = $row;
+				return $row;
+			});
+		// The mocked reward phase must fill the ledger row's identity fields
+		// exactly like the real GameLogicService contract does — the undo
+		// actor gate resolves the completer through them.
+		$this->houseUserMapper->method('find')->willReturn($houseUser);
+		$this->gameLogicService->method('handleTaskCompletion')->willReturnCallback(
+			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
+				$row->setRoomTaskId($rt->getId());
+				$row->setUserId($userId);
+				$row->setCompletedAt(new \DateTime());
+				$row->setCoinsEarned(50);
+				$row->setWasCombo(false);
+				return [
+					'contributionScore' => 3, 'coins' => 50, 'teamworkBonus' => 0, 'isCombo' => false,
+					'currentStreak' => 1, 'longestStreak' => 1, 'totalContribution' => 3, 'totalCoins' => 50,
+					'streakFreezeUsed' => false, 'streakFreezesRemaining' => 1, 'comboBonusFreeze' => false,
+					'titlesAdded' => [], 'newTitle' => null,
+				];
+			}
+		);
+		// The mapper's D11 filter is what keeps the undone row out of the
+		// duplicate guard — the count reads 0 for the second completion.
+		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+
+		// The revertible lookup: the first completion's row once inserted,
+		// NULL after the undo marked it (the re-complete then starts clean).
+		$undoneRowIds = [];
+		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')
+			->willReturnCallback(function (int $roomTaskId) use (&$insertedRows, &$undoneRowIds) {
+				foreach ($insertedRows as $row) {
+					if (!in_array($row->getId(), $undoneRowIds, true)) {
+						return $row;
+					}
+				}
+				return null;
+			});
+		$this->completedTaskMapper->method('markUndone')
+			->willReturnCallback(function (int $id) use (&$undoneRowIds) {
+				$undoneRowIds[] = $id;
+			});
+
+		$first = $this->service->complete(1, 'user123', 1);
+		$undone = $this->service->undo(1, $houseUser, 1);
+		$second = $this->service->complete(1, 'user123', 1);
+
+		self::assertTrue($undone['undone']);
+		self::assertCount(2, $insertedRows, 'the re-completion must write its own fresh ledger row');
+		self::assertNotSame($insertedRows[0], $insertedRows[1]);
+		self::assertSame($first['rewards']['totalCoins'], $second['rewards']['totalCoins']);
 	}
 }

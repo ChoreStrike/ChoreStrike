@@ -818,6 +818,7 @@
         "template.wash_towels": "Wash towels",
         "template.wash_towels.desc": "Collect and wash used towels",
         "templateId is required": "templateId is required",
+        "The completer is no longer a member of this house": "The completer is no longer a member of this house",
         "The house is already set up. Use the per-room template picker instead.": "The house is already set up. Use the per-room template picker instead.",
         "The person needs an existing Nextcloud account with this email address.": "The person needs an existing Nextcloud account with this email address.",
         "They will lose access to all house tasks and progress.": "They will lose access to all house tasks and progress.",

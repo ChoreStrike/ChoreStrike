@@ -2397,6 +2397,9 @@ msgstr ""
 msgid "templateId is required"
 msgstr ""
 
+msgid "The completer is no longer a member of this house"
+msgstr ""
+
 msgid "The house is already set up. Use the per-room template picker instead."
 msgstr ""
 

@@ -1,6 +1,6 @@
 # CS-PLAN-064: WP5 — Completion Ledger and Full Transactional Undo
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-09-06; backend slice steps 1–5 implemented; interim Standard B `PASS-WITH-FIXES` 2026-09-09 — steps 6–10 open, see §11 Review Findings)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-09-06; backend slice steps 1–5 implemented; interim Standard B `PASS-WITH-FIXES` 2026-09-09; step 6 real-DB suites + RF-05 implemented, step-6 round interim Standard B `PASS` 2026-09-09 — steps 7–10 open, see §11 Review Findings)
 > **Effort:** L
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP5 — WP0..WP4 are Done), ADR-007 completion doctrine, ADR-010 visibility/404 standard, WP4 creation aggregate precedent (`TaskCreationService`, 2026-09-06)
@@ -721,6 +721,39 @@ plan stays `active/`).**
   `master`; `ACTIVE_TASKS.md` updated; review record
   `docs/backlog/archive/CODE_REVIEW_2026-09-09.md`.
 
+---
+
+**Interim Standard B code review (step-6 round) — 2026-09-09 — `PASS`
+(interim; plan stays `active/`).**
+
+- **Scope:** the uncommitted step-6 round — RF-02 real-DB suites
+  (`CompletionUndoStateEqualityTest`, `CompletionConcurrencyTest`,
+  `ConcurrentCompletionTest` two-process same-room race), the RF-05 undo
+  deleted-completer edge, and the RF-12 `lastCleaned`/`lastActivity`
+  snapshot/restore: 8 modified tracked files + 2 untracked new suites.
+  **Base:** `master` @ `61c3280`; index clean at capture; pre-review
+  unstaged-diff SHA256
+  `008E502B81DEC6E10319D627EA0E02FC62574E218116B5BE12713EE7EED752D5`;
+  untracked hashes: `CompletionConcurrencyTest.php` `67B1A3BB…5BEA0`,
+  `CompletionUndoStateEqualityTest.php` `79D28A97…C785E4`. The unrelated
+  dirty `docs/plans/done/cs-plan-063` mojibake repair was preserved from
+  the review set and committed separately on explicit user request.
+- **Verification:** RF-02/RF-05/RF-12 resolutions verified against the §4
+  test plan — exit-gate exact-state matrix (once/dynamic/static/flex,
+  takeover, D11 roundtrip, title LIFO), deterministic + true two-process
+  race proofs, inactive-409 zero-write, unit roundtrip and RF-05 pins;
+  **no new findings**. Steps 7–10 (RF-01 frontend, RF-03 E2E, RF-04
+  durable docs) remain open — interim, no completion claim.
+- **Gates:** PHPUnit unit **847 green** · PHPUnit integration **290 green**
+  (10 skips = pre-existing documented inventory; the MySQL-only race tests
+  ran) · `composer cs:check` green · ESLint green · Jest **814/815** —
+  `apiContract.spec.js` red by design (RF-01, unchanged mid-implementation
+  state, no new skips) · `l10n:check-keys` + `backlog:check` green ·
+  Playwright not run (E2E re-pins are step 8).
+- **Transition:** none — interim review; RF-01/RF-03/RF-04 keep the plan
+  in `active/`. One scoped review commit on `master`; review evidence
+  appended to `docs/backlog/archive/CODE_REVIEW_2026-09-09.md`.
+
 ## 11. Review Findings (plan-owned)
 
 Scope-first routing (project-rules §4): every open finding below lies inside
@@ -732,12 +765,20 @@ entries stay listed for traceability.
       calls the pruned `uncomplete`/`reactivate` routes — Jest
       `apiContract.spec.js` red until the one-request undo + reconciliation
       + undo-queue land and the specs are re-pinned. **Open.**
-- [ ] **RF-02** major · `tests/integration/Service/` · step 6 real-DB suites
+- [x] **RF-02** major · `tests/integration/Service/` · step 6 real-DB suites
       missing: `CompletionUndoStateEqualityTest` (WP5 exit gate),
       `CompletionConcurrencyTest` (same-room race, post-commit retry,
       concurrent undo), `ConcurrentCompletionTest` extension,
       inactive-occurrence 409 integration case, and the §4 unit-level
-      "undo → same-day re-complete → 200" service case. **Open.**
+      "undo → same-day re-complete → 200" service case. **Resolved
+      2026-09-09** (implementation round): state-equality matrix over
+      once/recurring-dynamic/static/flex permutations + takeover + D11
+      roundtrip + title-LIFO (real DB, exact row equality incl. checklist
+      reset/restore); deterministic two-connection races (same-room room-lock
+      freshness, post-commit degraded-retry day-duplicate, concurrent-undo
+      no-op loser) + a true two-process same-room race extension; inactive
+      409 zero-write case; unit roundtrip case. Full integration suite 290
+      green (10 pre-existing documented skips).
 - [ ] **RF-03** major · `tests/e2e/` · step 8 re-pins pending:
       `release-task-lifecycle.spec.ts` and `task-completion.spec.ts` still
       drive/intercept the pruned split chain; full-flow reload-equality and
@@ -749,14 +790,20 @@ entries stay listed for traceability.
       `task-model-and-sync.md`, backlog dispositions (CR-WF-02, UX-015,
       CR-053-20 WP5 slice, CR-SVC-15/40 WP5 slices), CS-PLAN-058 §9 WP5
       row. **Open.**
-- [ ] **RF-05** minor · `lib/Service/CompletionService.php:409,621-627` ·
+- [x] **RF-05** minor · `lib/Service/CompletionService.php:409,621-627` ·
       undo edge: if the completer's membership row was deleted after
       completion, the actor-gate `houseUserMapper->find()` throws
       `DoesNotExistException` → unhandled 500 instead of a clean 4xx; and
       `lockCompleterOrForbidden` reuses the completion-worded 403 message
       ("Only house members can complete tasks") in the undo context.
-      Auth-adjacent → not auto-fixed (review skill §6). **Open** (next
-      round).
+      Auth-adjacent → not auto-fixed (review skill §6). **Resolved
+      2026-09-09** (implementation round, user-visible): actor-gate
+      resolution is null-safe → `ForbiddenException` with the new
+      undo-worded string "The completer is no longer a member of this
+      house"; `lockCompleterOrForbidden` takes the context message so the
+      undo path never answers with the completion wording (incl. the
+      under-lock race); l10n artifacts updated (en/de/pot); two unit cases
+      pin both edges.
 - [x] **RF-06** block · `lib/Migration/Version1029Date20260906000000.php` ·
       dead-column drops missed the dependent indexes `idx_team_complete`
       (Version1008, on `is_team_completion`) and `idx_claimed_complete`
@@ -792,3 +839,13 @@ entries stay listed for traceability.
 - [x] **RF-11** nit · stale docblocks referencing the deleted
       `RoomService::completeRoomTask` (`GameLogicService.php:113`,
       `RoomTask.php:271`). **Resolved in review.**
+- [x] **RF-12** minor · `lib/Service/CompletionService.php` (before_state
+      contract) · discovered in the step-6 round: the §3.1 JSON contract
+      lacked the room's `last_cleaned` and the house user's `last_activity`,
+      both of which the completion mutates — exact before/after state
+      equality (the WP5 exit gate) is impossible without recording and
+      restoring them (`last_activity` also drives the streak-absence
+      calculation). **Resolved 2026-09-09** (implementation round): both
+      fields added to `snapshotBeforeState` + the undo restore; the
+      serialization-contract unit test re-pinned; ADR-011 (RF-04) must
+      document the two extra keys.

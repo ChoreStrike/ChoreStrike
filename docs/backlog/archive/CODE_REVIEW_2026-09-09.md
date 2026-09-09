@@ -97,3 +97,73 @@ Batched structured request, both answered with the recommended option:
 One scoped conventional commit on `master` (interim reviewed package):
 backend implementation slice + review fixes + plan/tracking evidence.
 Excluded: the unrelated `cs-plan-063` mojibake repair (left dirty).
+
+---
+
+# Code Review 2026-09-09 (2nd) — CS-PLAN-064 WP5 Step-6 Round (Interim Standard B)
+
+> **Tier:** Standard B (code), interim · **Outcome:** `PASS`
+> **Owning plan:** [`docs/plans/active/cs-plan-064-wp5-completion-ledger-full-undo.md`](../../plans/active/cs-plan-064-wp5-completion-ledger-full-undo.md) (stays `active/`)
+> **Reviewer:** Kilo (review skill, no subagents)
+
+## Scope & Base
+
+- The uncommitted step-6 round of CS-PLAN-064: RF-02 real-DB suites, the
+  RF-05 undo deleted-completer edge, the RF-12 `lastCleaned`/
+  `lastActivity` snapshot/restore — 8 modified tracked files
+  (+538/-151 incl. docs) and 2 untracked new suites
+  (`CompletionConcurrencyTest.php`, `CompletionUndoStateEqualityTest.php`).
+- Base: `master` @ `61c328027937aed9d121cbd9106535bb61138ee7`; index clean
+  at capture; pre-review unstaged-diff SHA256
+  `008E502B81DEC6E10319D627EA0E02FC62574E218116B5BE12713EE7EED752D5`;
+  untracked content hashes `67B1A3BB…5BEA0` / `79D28A97…C785E4`.
+- Preserved and excluded from the review commit (committed separately on
+  explicit user request): `docs/plans/done/cs-plan-063-…md` mojibake
+  repair (pure UTF-8 fix, 133/133 lines, no content change).
+- Steps 7–10 (frontend reconciliation/undo queue, E2E re-pins, durable
+  docs/dispositions) verified not started — interim, no completion claim.
+
+## Verified Against the Plan
+
+- RF-02 (resolved): exit-gate exact-persisted-state equality over
+  once/recurring-dynamic/static/flex permutations + overdue takeover
+  (claim fields, owner actor) + D11 same-day re-complete roundtrip (two
+  ledger rows, one revertible at a time, final state = initial snapshot)
+  + title LIFO (only the own occurrence's unlocks removed); deterministic
+  two-connection races (same-room room-lock freshness, degraded-retry
+  day-duplicate, concurrent-undo no-op loser) + a true two-process
+  same-room race; inactive-409 zero-write; unit-level roundtrip case.
+- RF-05 (resolved): actor gate null-safe (`DoesNotExistException` ?
+  clean 403 "The completer is no longer a member of this house");
+  `lockCompleterOrForbidden` context-worded for undo; l10n en/de/pot;
+  two unit pins (deleted completer, under-lock vanish).
+- RF-12 (resolved): `lastCleaned`/`lastActivity` in `before_state` +
+  restore (streak-absence correctness); serialization contract re-pinned.
+- `IntegrationTestCase` raw house-user seeds now match production shape
+  (`unlocked_titles` JSON `[]`, not NULL).
+
+## Findings
+
+None new. Plan-owned open items unchanged: RF-01 (frontend, Jest
+`apiContract` red by design), RF-03 (E2E re-pins), RF-04 (durable docs &
+dispositions) — all step 7–10 scope, all blocking `done/`.
+
+## Gates (final state)
+
+| Gate | Result |
+|------|--------|
+| PHPUnit unit (Docker) | Green — 847 tests, 2523 assertions |
+| PHPUnit integration (Docker) | Green — 290 tests, 1041 assertions, 10 skips (pre-existing documented inventory; MySQL-only race tests ran) |
+| `composer cs:check` | Green (0 of 280 files) |
+| ESLint (`npm run lint`) | Green |
+| Jest (`npm test`) | 814/815 — `apiContract.spec.js` red (RF-01, plan-owned; no new skips) |
+| `l10n:check-keys` | Green |
+| `backlog:check` | Green |
+| Playwright | Not run — E2E re-pins are step 8 (RF-03) |
+
+## Commit
+
+One scoped conventional review commit on `master`: step-6 implementation +
+tests + l10n + plan/tracking/review evidence. Separately (explicit user
+request, outside the review authorization): the `cs-plan-063` mojibake
+repair as its own docs commit.

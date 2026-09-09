@@ -329,6 +329,187 @@ PHP;
 	}
 
 	/**
+	 * WP5 (CS-PLAN-064): two DIFFERENT users completing two DIFFERENT tasks
+	 * in the SAME room truly concurrently (two real Nextcloud processes,
+	 * both running the real CompletionService). The room-row lock serializes
+	 * the cleanliness read-modify-write, so the final cleanliness is the sum
+	 * of both deltas and both ledger rows land — the same-room interleaving
+	 * that lost room state under the old unlocked RMW.
+	 */
+	public function testTwoUsersSameRoomConcurrentCompletions_SumOfBothDeltasLand(): void {
+		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
+			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
+		}
+
+		$houseId = $this->createHouse('cc_owner', 'Concurrent Room House');
+		$this->addHouseMember($houseId, 'cc_member', 'Member', 'member');
+		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
+		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
+		$taskA = $this->createTask($houseId, 'CC dishes', '', 5, 3);
+		$taskB = $this->createTask($houseId, 'CC trash', '', 5, 3);
+		$roomTaskA = $this->assignTaskToRoom($taskA, $roomId, 'cc_owner');
+		$roomTaskB = $this->assignTaskToRoom($taskB, $roomId, 'cc_member');
+		$this->completedRoomTaskIds = [$roomTaskA, $roomTaskB];
+
+		// Start low: updateCleanliness clamps at 100 — the sum assertion must
+		// stay below the clamp to be meaningful.
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_rooms')
+			->set('cleanliness', $qb->createNamedParameter(10, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		$initialCleanliness = 10;
+
+		$bootedFile = sys_get_temp_dir() . '/cs-cc-booted-' . uniqid();
+		$goFile = sys_get_temp_dir() . '/cs-cc-go-' . uniqid();
+		$doneFile = sys_get_temp_dir() . '/cs-cc-done-' . uniqid();
+		$helperScript = sys_get_temp_dir() . '/cs-cc-completer-' . uniqid() . '.php';
+		file_put_contents($helperScript, $this->buildConcurrentCompleterScript());
+
+		$process = proc_open(
+			[PHP_BINARY, $helperScript, (string)$houseId, (string)$roomTaskA, 'cc_owner', $bootedFile, $goFile, $doneFile],
+			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+			$pipes
+		);
+		self::assertIsResource($process, 'failed to start the concurrent completer process');
+
+		try {
+			$this->waitForFile($bootedFile, 'the helper process did not boot Nextcloud in time');
+			file_put_contents($goFile, 'go');
+
+			// Both completions now race; whoever takes the room lock second
+			// must build on the first one's committed cleanliness.
+			$completionService = \OC::$server->get(CompletionService::class);
+			$parentResult = $completionService->complete($houseId, 'cc_member', $roomTaskB);
+
+			$this->waitForFile($doneFile, 'the helper completion did not finish in time');
+			$helperResult = json_decode((string)file_get_contents($doneFile), true, 512, JSON_THROW_ON_ERROR);
+		} finally {
+			$this->terminateHelper($process, $pipes);
+			foreach ([$bootedFile, $goFile, $doneFile, $helperScript] as $tmp) {
+				@unlink($tmp);
+			}
+		}
+
+		$row = $this->fetchRoomRow($roomId);
+		self::assertSame(
+			$initialCleanliness + (int)$helperResult['cleanlinessChange'] + $parentResult['rewards']['cleanlinessChange'],
+			(int)$row['cleanliness'],
+			'the room must end at the exact sum of both concurrent deltas'
+		);
+
+		// Both completions landed with their own ledger row.
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('id'))
+			->from('chorestrike_completed_tasks')
+			->where($qb->expr()->in(
+				'room_task_id',
+				$qb->createNamedParameter([$roomTaskA, $roomTaskB], IQueryBuilder::PARAM_INT_ARRAY)
+			));
+		$result = $qb->executeQuery();
+		$ledgerCount = (int)$result->fetchOne();
+		$result->closeCursor();
+		self::assertSame(2, $ledgerCount, 'both concurrent completions must write their own ledger row');
+
+		// Both users earned their own rewards (no clobber on either row).
+		$mapper = \OC::$server->get(HouseUserMapper::class);
+		$owner = $mapper->findByNextcloudUserId($houseId, 'cc_owner');
+		$member = $mapper->findByNextcloudUserId($houseId, 'cc_member');
+		self::assertGreaterThan(0, $owner->getCoins(), 'the helper user\'s coins must have landed');
+		self::assertGreaterThan(0, $member->getCoins(), 'the parent user\'s coins must have landed');
+	}
+
+	/**
+	 * Fetch a room row as a raw array for state assertions.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function fetchRoomRow(int $roomId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('cleanliness')
+			->from('chorestrike_rooms')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+
+		self::assertIsArray($row, 'room row must exist');
+		return $row;
+	}
+
+	/**
+	 * Wait for a signal file to appear (bounded).
+	 */
+	private function waitForFile(string $file, string $failureMessage): void {
+		$deadline = microtime(true) + 30.0;
+		while (!file_exists($file)) {
+			if (microtime(true) > $deadline) {
+				self::fail($failureMessage);
+			}
+			usleep(50000);
+		}
+	}
+
+	/**
+	 * Terminate a helper process and close its pipes (shared with the
+	 * `proc_open` tests above).
+	 */
+	private function terminateHelper($process, array $pipes): void {
+		$status = proc_get_status($process);
+		if ($status !== false && $status['running']) {
+			proc_terminate($process);
+		}
+		foreach ([1, 2] as $pipe) {
+			if (isset($pipes[$pipe]) && is_resource($pipes[$pipe])) {
+				fclose($pipes[$pipe]);
+			}
+		}
+		proc_close($process);
+	}
+
+	/**
+	 * The T1 helper: boots Nextcloud, signals readiness, waits for the
+	 * parent's go signal, then runs the REAL CompletionService for its room
+	 * task and reports the applied cleanliness delta.
+	 */
+	private function buildConcurrentCompleterScript(): string {
+		return <<<'PHP'
+<?php
+require '/var/www/html/lib/base.php';
+
+$houseId = (int)$argv[1];
+$roomTaskId = (int)$argv[2];
+$userId = $argv[3];
+$bootedFile = $argv[4];
+$goFile = $argv[5];
+$doneFile = $argv[6];
+
+file_put_contents($bootedFile, 'booted');
+
+$deadline = microtime(true) + 30.0;
+while (!file_exists($goFile)) {
+    if (microtime(true) > $deadline) {
+        fwrite(STDERR, 'go signal never arrived');
+        exit(1);
+    }
+    usleep(20000);
+}
+
+try {
+    $service = \OC::$server->get(\OCA\ChoreStrike\Service\CompletionService::class);
+    $result = $service->complete($houseId, $userId, $roomTaskId);
+    file_put_contents($doneFile, json_encode([
+        'cleanlinessChange' => $result['rewards']['cleanlinessChange'],
+    ]));
+} catch (Throwable $e) {
+    file_put_contents($doneFile, json_encode(['error' => $e->getMessage()]));
+    fwrite(STDERR, $e->getMessage());
+    exit(1);
+}
+PHP;
+	}
+
+	/**
 	 * The T1 helper for the room-task race: boots Nextcloud in a separate
 	 * process, locks the room task row, signals the parent, holds the lock
 	 * briefly, then commits a concurrent winner's completion effect — the

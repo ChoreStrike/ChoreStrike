@@ -251,6 +251,10 @@ abstract class IntegrationTestCase extends TestCase {
 				'current_streak' => $qb->createNamedParameter(0),
 				'longest_streak' => $qb->createNamedParameter(0),
 				'streak_freezes' => $qb->createNamedParameter(1),
+				// Production memberships (HouseUserMapper::createOrGet) persist
+				// the json columns from the entity defaults — a raw NULL row is
+				// a state no real member ever has.
+				'unlocked_titles' => $qb->createNamedParameter('[]'),
 				'joined_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
 			]);
 		$qb->executeStatement();

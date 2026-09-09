@@ -190,7 +190,10 @@ class CompletionService {
 
 			// THIRD lock: the completer's reward row (same row the reward
 			// phase locks — the snapshot below must read locked state).
-			$completer = $this->lockCompleterOrForbidden($houseUser->getId());
+			$completer = $this->lockCompleterOrForbidden(
+				$houseUser->getId(),
+				$this->l10n->t('Only house members can complete tasks')
+			);
 
 			// Snapshot the authoritative before-state BEFORE any mutation
 			// (decision D1 — the exact undo inverse).
@@ -403,7 +406,13 @@ class CompletionService {
 		}
 
 		// Actor gate: completer-or-owner (child-friendly self-recovery only).
-		$completerUid = $this->houseUserMapper->find($ledgerRow->getUserId())->getNextcloudUserId();
+		// RF-05: a completer whose membership was deleted after the
+		// completion must yield a clean 403, not a DoesNotExistException 500.
+		try {
+			$completerUid = $this->houseUserMapper->find($ledgerRow->getUserId())->getNextcloudUserId();
+		} catch (DoesNotExistException $e) {
+			throw new ForbiddenException($this->l10n->t('The completer is no longer a member of this house'));
+		}
 		if ($actor->getNextcloudUserId() !== $completerUid && !$actor->isOwner()) {
 			throw new ForbiddenException($this->l10n->t('Only the completer or a house owner can undo a completion'));
 		}
@@ -442,7 +451,10 @@ class CompletionService {
 			// SECOND lock: the room row; THIRD lock: the COMPLETER's reward
 			// row (the actor may differ from the completer).
 			$room = $this->roomMapper->lockForUpdate($roomTask->getRoomId());
-			$completer = $this->lockCompleterOrForbidden($current->getUserId());
+			$completer = $this->lockCompleterOrForbidden(
+				$current->getUserId(),
+				$this->l10n->t('The completer is no longer a member of this house')
+			);
 
 			$beforeState = $current->getBeforeState();
 			$deltas = $current->getDeltas();
@@ -462,6 +474,7 @@ class CompletionService {
 
 			$beforeRoom = $beforeState['room'];
 			$room->setCleanliness((int)($beforeRoom['cleanliness'] ?? $room->getCleanliness()));
+			$room->setLastCleaned($this->dateOrNull($beforeRoom['lastCleaned'] ?? null));
 			$room = $this->roomMapper->update($room);
 
 			$beforeUser = $beforeState['houseUser'];
@@ -471,6 +484,11 @@ class CompletionService {
 			$completer->setLongestStreak((int)($beforeUser['longestStreak'] ?? $completer->getLongestStreak()));
 			$completer->setStreakFreezes((int)($beforeUser['streakFreezes'] ?? $completer->getStreakFreezes()));
 			$completer->setLastFreezeDate($this->dateOrNull($beforeUser['lastFreezeDate'] ?? null));
+			// lastActivity drives the streak-absence calculation, so the
+			// restore must rewind it too — a stale completion timestamp would
+			// otherwise bridge the undone occurrence's gap (exact state
+			// equality, WP5 exit gate).
+			$completer->setLastActivity($this->dateOrNull($beforeUser['lastActivity'] ?? null));
 
 			// Titles: remove exactly the deltas.titlesAdded ids STILL
 			// present — titles unlocked by later completions survive (D8/LIFO).
@@ -613,13 +631,15 @@ class CompletionService {
 
 	/**
 	 * Lock the completer's house_user row, mapping a vanishing membership to
-	 * the clean 403 (a completer removed mid-transaction must not 500).
+	 * the clean 403 with the caller's context wording (a completer removed
+	 * mid-transaction must not 500 — RF-05: the undo context never answers
+	 * with the completion-worded message).
 	 */
-	private function lockCompleterOrForbidden(int $houseUserId): HouseUser {
+	private function lockCompleterOrForbidden(int $houseUserId, string $forbiddenMessage): HouseUser {
 		try {
 			return $this->houseUserMapper->findForUpdate($houseUserId);
 		} catch (DoesNotExistException $e) {
-			throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
+			throw new ForbiddenException($forbiddenMessage);
 		}
 	}
 
@@ -655,6 +675,7 @@ class CompletionService {
 			],
 			'room' => [
 				'cleanliness' => $room->getCleanliness(),
+				'lastCleaned' => $room->getLastCleaned()?->format('c'),
 			],
 			'houseUser' => [
 				'coins' => $completer->getCoins(),
@@ -664,6 +685,7 @@ class CompletionService {
 				'streakFreezes' => $completer->getStreakFreezes(),
 				'lastFreezeDate' => $completer->getLastFreezeDate()?->format('c'),
 				'unlockedTitles' => $completer->getUnlockedTitles(),
+				'lastActivity' => $completer->getLastActivity()?->format('c'),
 			],
 			'checklist' => $progress,
 		];
