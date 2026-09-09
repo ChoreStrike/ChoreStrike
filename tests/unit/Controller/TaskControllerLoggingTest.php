@@ -8,7 +8,6 @@ use OCA\ChoreStrike\Controller\TaskController;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -24,7 +23,6 @@ class TaskControllerLoggingTest extends TestCase {
 	public function testIndex_ServiceFailure_DelegatesToAppLogger(): void {
 		$request = $this->createMock(IRequest::class);
 		$taskService = $this->createMock(TaskService::class);
-		$roomTaskService = $this->createMock(RoomTaskService::class);
 		$houseService = $this->createMock(HouseService::class);
 		$authService = $this->createMock(AuthorizationService::class);
 		$appLogger = $this->createMock(AppLogger::class);
@@ -53,7 +51,6 @@ class TaskControllerLoggingTest extends TestCase {
 		$controller = new TaskController(
 			$request,
 			$taskService,
-			$roomTaskService,
 			$houseService,
 			$authService,
 			$l10n,

@@ -111,21 +111,6 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->assertSame($roomTask, $result[0]);
 	}
 
-	public function testUncompleteTaskThrowsExceptionWhenTaskNotFound(): void {
-		$roomTaskId = 999;
-
-		$this->roomTaskMapper->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('Task not found'));
-
-		// CS-PLAN-061 §3.5: the mapper miss is wrapped into the app
-		// NotFoundException — a raw DoesNotExistException would surface as 500.
-		$this->expectException(\OCA\ChoreStrike\Exception\NotFoundException::class);
-		$this->expectExceptionMessage('Room task not found');
-		$this->service->uncompleteTask($roomTaskId, $this->createHouseUser());
-	}
-
 	private function createHouseUser(string $userId = 'user123', string $role = 'member'): HouseUser {
 		$houseUser = new HouseUser();
 		$houseUser->setNextcloudUserId($userId);

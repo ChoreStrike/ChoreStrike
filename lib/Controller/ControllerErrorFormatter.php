@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Http\JSONResponse;
@@ -44,6 +45,7 @@ final class ControllerErrorFormatter {
 		// must catch it explicitly and return a curated 400 response.
 		if ($e instanceof NotFoundException
 			|| $e instanceof ForbiddenException
+			|| $e instanceof ConflictException
 		) {
 			return $e->getMessage();
 		}
@@ -102,6 +104,21 @@ final class ControllerErrorFormatter {
 				'message' => self::safeMessage($e),
 			],
 		], 404);
+	}
+
+	/**
+	 * Build the standard 409 response for a {@see ConflictException}
+	 * (state-conflict shape, CS-PLAN-064 decision D4: an inactive occurrence
+	 * answers 409, distinct from the 403 "forbidden").
+	 */
+	public static function conflictResponse(ConflictException $e): JSONResponse {
+		return new JSONResponse([
+			'success' => false,
+			'error' => [
+				'code' => 'CONFLICT',
+				'message' => self::safeMessage($e),
+			],
+		], 409);
 	}
 
 	/**

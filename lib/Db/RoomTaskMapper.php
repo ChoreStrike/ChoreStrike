@@ -261,21 +261,6 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Reactivate task
-	 *
-	 * @param int $roomTaskId The room task ID
-	 */
-	public function reactivate(int $roomTaskId): void {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->update($this->getTableName())
-			->set('is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-
-		$qb->executeStatement();
-	}
-
-	/**
 	 * Update next due date
 	 *
 	 * @param int $roomTaskId The room task ID

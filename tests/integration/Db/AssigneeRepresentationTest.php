@@ -119,14 +119,14 @@ class AssigneeRepresentationTest extends IntegrationTestCase {
 
 		// Non-assignee member is rejected with the 404 contract.
 		try {
-			\OC::$server->get(\OCA\ChoreStrike\Service\RoomService::class)->completeRoomTask($roomTaskId, 'asg_other');
+			\OC::$server->get(\OCA\ChoreStrike\Service\CompletionService::class)->complete($houseId, 'asg_other', $roomTaskId);
 			self::fail('a non-assignee must not complete a private task');
 		} catch (NotFoundException $e) {
 			self::assertSame('Task not found', $e->getMessage());
 		}
 
 		// The join-table assignee completes successfully.
-		$result = \OC::$server->get(\OCA\ChoreStrike\Service\RoomService::class)->completeRoomTask($roomTaskId, 'asg_member3');
+		$result = \OC::$server->get(\OCA\ChoreStrike\Service\CompletionService::class)->complete($houseId, 'asg_member3', $roomTaskId);
 		self::assertGreaterThan(0, $result['rewards']['coins']);
 	}
 

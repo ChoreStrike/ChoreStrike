@@ -35,7 +35,10 @@ return [
         // POST /room-tasks/from-template.
         ['name' => 'task#index', 'url' => '/api/v1/tasks', 'verb' => 'GET'],
         ['name' => 'task#update', 'url' => '/api/v1/tasks/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
-        ['name' => 'task#uncomplete', 'url' => '/api/v1/tasks/{id}/uncomplete', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
+        // Pruned 2026-09-06 (CS-PLAN-064, decision D5): `task#uncomplete`
+        // (PUT /tasks/{id}/uncomplete) lost its last consumer to the undo
+        // aggregate — undo now runs exclusively through POST
+        // /room-tasks/{id}/undo.
 
         // Room Task API
         // NOTE: static single-segment routes MUST precede `{id}` (same
@@ -53,7 +56,10 @@ return [
         ['name' => 'room_task#complete', 'url' => '/api/v1/room-tasks/{id}/complete', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task#assignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task#setAssignees', 'url' => '/api/v1/room-tasks/{id}/assignees', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
-        ['name' => 'room_task#reactivate', 'url' => '/api/v1/room-tasks/{id}/reactivate', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
+        // CS-PLAN-064 WP5: the one idempotent undo aggregate (decision D5)
+        // — replaces the pruned task#uncomplete + room_task#reactivate
+        // split chain.
+        ['name' => 'room_task#undo', 'url' => '/api/v1/room-tasks/{id}/undo', 'verb' => 'POST', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task#updateDueDate', 'url' => '/api/v1/room-tasks/{id}/due-date', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
         ['name' => 'room_task#roomStats', 'url' => '/api/v1/room-tasks/room/{roomId}/stats', 'verb' => 'GET', 'requirements' => ['roomId' => '\d+']],
 

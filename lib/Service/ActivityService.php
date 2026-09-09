@@ -198,14 +198,10 @@ class ActivityService {
 			'id' => $completion->getId(),
 			'completedAt' => $completion->getCompletedAt()?->format('c'),
 			'wasCombo' => $completion->getWasCombo(),
-			// Reward fields from CompletedTask (sync bookkeeping excluded).
+			// Reward fields from CompletedTask (the never-written legacy
+			// sync-bookkeeping columns were dropped with the WP5 effect
+			// record, CS-PLAN-064).
 			'coinsEarned' => $completion->getCoinsEarned(),
-			'comboWithUserId' => $completion->getComboWithUserId(),
-			'isTeamCompletion' => $completion->getIsTeamCompletion(),
-			'participantCount' => $completion->getParticipantCount(),
-			'teamSparkBonus' => $completion->getTeamSparkBonus(),
-			'wasClaimedCompletion' => $completion->getWasClaimedCompletion(),
-			'claimBonusSparks' => $completion->getClaimBonusSparks(),
 			'houseUserId' => $completion->getUserId(),
 			'displayName' => $member?->getDisplayName(),
 			'taskId' => $task?->getId(),

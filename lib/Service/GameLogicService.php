@@ -65,11 +65,19 @@ class GameLogicService {
 	 * Handle task completion with game logic
 	 *
 	 * CR-SVC-50 / CS-PLAN-036: the locked RoomTask entity is threaded in
-	 * by the caller (RoomService::completeRoomTask holds it since its
+	 * by the caller (CompletionService::complete holds it since its
 	 * lockForUpdate) — no re-fetch inside the house_user lock. The two
 	 * completion-window queries are merged into ONE pre-insert 10-minute
 	 * fetch; the 5-minute combo window is derived in PHP by timestamp
 	 * filtering (the argument is a minute window, not a row limit).
+	 *
+	 * CS-PLAN-064 WP5 (decision D9): the teamwork bonus is folded into this
+	 * single locked house-user write — the caller passes the canonical
+	 * assignee id set and this method awards base coins + teamwork bonus in
+	 * one update. The bonus formula ({@see calculateTeamworkBonus}) and its
+	 * amount are unchanged; only the write site moved (the former second
+	 * unlocked read-modify-write in RoomService is gone), which also makes
+	 * the bonus effect-record-visible for the undo ledger.
 	 *
 	 * @param RoomTask $roomTask The locked room task entity (held by the caller)
 	 * @param int $userId The house user ID
@@ -77,19 +85,32 @@ class GameLogicService {
 	 * @param \DateTimeZone|null $timeZone The house timezone for day-key
 	 *                                     decisions (CS-PLAN-057: days-early compare, streak day compare);
 	 *                                     resolved by the calling service.
+	 * @param array $assigneeUserIds Canonical assignee Nextcloud user ids —
+	 *                               teamwork bonus input (D9); empty = no bonus.
+	 * @param CompletedTask|null $ledgerRow CS-PLAN-064 WP5: caller-owned
+	 *                                      ledger entity (carrying `occurrence_due`,
+	 *                                      `before_state`, `deltas`). When supplied,
+	 *                                      this method fills the reward outputs
+	 *                                      (roomTaskId/userId/completedAt/coinsEarned/
+	 *                                      wasCombo) but does NOT insert — the caller
+	 *                                      inserts it with the completed effect record
+	 *                                      after the reward phase. NULL keeps the
+	 *                                      legacy self-inserting behavior.
 	 * @return array{
-	 *     contributionScore: int, coins: int, isCombo: bool, daysEarly: int,
-	 *     earlyMultiplier: float, currentStreak: int, totalContribution: int,
-	 *     totalCoins: int, streakFreezeUsed: bool, streakFreezesRemaining: int,
-	 *     comboBonusFreeze: bool, newTitle: array<string, mixed>|null
+	 *     contributionScore: int, coins: int, teamworkBonus: int, isCombo: bool,
+	 *     daysEarly: int, earlyMultiplier: float, currentStreak: int,
+	 *     longestStreak: int, totalContribution: int, totalCoins: int,
+	 *     streakFreezeUsed: bool, streakFreezesRemaining: int,
+	 *     comboBonusFreeze: bool, titlesAdded: list<string>,
+	 *     newTitle: array<string, mixed>|null
 	 * } Result payload; `newTitle` (CR-SVC-12) must be dispatched by the caller
 	 *   after commit, never inside the transaction.
 	 */
-	public function handleTaskCompletion(RoomTask $roomTask, int $userId, Task $task, ?\DateTimeZone $timeZone = null): array {
+	public function handleTaskCompletion(RoomTask $roomTask, int $userId, Task $task, ?\DateTimeZone $timeZone = null, array $assigneeUserIds = [], ?CompletedTask $ledgerRow = null): array {
 		// CR-SVC-04: lock the house_user row for the duration of this read-
 		// modify-write so two concurrent same-user completions cannot clobber
 		// each other's coins/streak update. Runs inside the caller's open
-		// transaction (RoomService::completeRoomTask).
+		// transaction (CompletionService::complete).
 		$user = $this->houseUserMapper->findForUpdate($userId);
 		$roomTaskId = $roomTask->getId();
 
@@ -110,16 +131,35 @@ class GameLogicService {
 		$earlyMultiplier = $this->calculateEarlyBonus($daysEarly);
 		$coins = $this->calculateCoins($task, (float)$user->getCoinMultiplier(), $isCombo, $earlyMultiplier);
 
-		$completedTask = new CompletedTask();
+		// Teamwork bonus (decision D9): additive on top of the base reward,
+		// folded into the SAME locked write as the base coins. Re-fetching
+		// and re-updating the house user after handleTaskCompletion (the old
+		// RoomService seam) would be an unlocked read-modify-write — the
+		// bonus now never leaves this critical section.
+		$teamworkBonus = $this->calculateTeamworkBonus($task, $assigneeUserIds);
+
+		$completedTask = $ledgerRow ?? new CompletedTask();
 		$completedTask->setRoomTaskId($roomTaskId);
 		$completedTask->setUserId($userId);
 		$completedTask->setCompletedAt(new \DateTime());
 		$completedTask->setCoinsEarned($coins);
 		$completedTask->setWasCombo($isCombo);
-		$this->completedTaskMapper->insert($completedTask);
+		if ($ledgerRow === null) {
+			// Legacy self-inserting path (caller-owned ledger rows are
+			// inserted by the CompletionService with the full effect record).
+			// The effect-record columns are NOT NULL (CS-PLAN-064): a row
+			// without a caller snapshot carries empty JSON. Production
+			// completions always thread a caller-owned row.
+			$completedTask->setBeforeState([]);
+			$completedTask->setDeltas([]);
+			$this->completedTaskMapper->insert($completedTask);
+		}
 
 		$user->addContributionScore($contributionScore);
 		$user->addCoins($coins);
+		if ($teamworkBonus > 0) {
+			$user->addCoins($teamworkBonus);
+		}
 
 		$preferences = $user->getSchedulingPreferences();
 		$weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
@@ -167,9 +207,17 @@ class GameLogicService {
 		// the titlesEnabled feature flag so an aggressive celebration cadence
 		// can be disabled without a redeploy.
 		$newTitle = null;
+		$titlesAdded = [];
 		if ($this->titleService !== null && $this->configService->getTitlesEnabled()) {
 			$unlocked = $this->titleService->detectUnlock($user);
 			if (!empty($unlocked)) {
+				// Canonical `{pack}.{tierKey}` ids (TitleCatalog::tierId) so
+				// the undo aggregate can remove exactly these keys from the
+				// unlocked-titles cache (CS-PLAN-064 effect record).
+				$titlesAdded = array_map(
+					static fn (array $tier) => $tier['pack'] . '.' . $tier['tierKey'],
+					$unlocked
+				);
 				// Prefer a new title in the user's selected pack for the
 				// celebration; otherwise fall back to the first new unlock.
 				$selectedPack = $user->getSelectedTitlePack();
@@ -186,21 +234,24 @@ class GameLogicService {
 		$this->houseUserMapper->update($user);
 
 		// CR-SVC-12: the title-unlock notification is NOT dispatched here.
-		// Returning the payload lets RoomService::completeRoomTask dispatch it
+		// Returning the payload lets CompletionService::complete dispatch it
 		// AFTER commit() so a rolled-back completion never raises a stale
 		// title notification (mirrors the takeover/weekly-goal deferral).
 		return [
 			'contributionScore' => $contributionScore,
 			'coins' => $coins,
+			'teamworkBonus' => $teamworkBonus,
 			'isCombo' => $isCombo,
 			'daysEarly' => $daysEarly,
 			'earlyMultiplier' => $earlyMultiplier,
 			'currentStreak' => $user->getCurrentStreak(),
+			'longestStreak' => $user->getLongestStreak(),
 			'totalContribution' => $user->getContributionScore(),
 			'totalCoins' => $user->getCoins(),
 			'streakFreezeUsed' => $freezeUsed,
 			'streakFreezesRemaining' => $user->getStreakFreezes(),
 			'comboBonusFreeze' => $comboBonusFreeze,
+			'titlesAdded' => $titlesAdded,
 			'newTitle' => $newTitle,
 		];
 	}

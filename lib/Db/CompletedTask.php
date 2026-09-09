@@ -12,6 +12,16 @@ use JsonSerializable;
 use OCP\AppFramework\Db\Entity;
 
 /**
+ * Completion-ledger row = one completion occurrence = one undo unit
+ * (CS-PLAN-064 WP5, decision D1 / ADR-011).
+ *
+ * Beyond the reward outputs the row carries the immutable effect record:
+ * `occurrenceDue` (the house-local due date of the completed occurrence),
+ * `beforeState` (authoritative pre-mutation snapshot) and `deltas` (every
+ * applied domain delta). `undoneAt` is NULL while the occurrence is
+ * revertible; an undone row is not a completion anywhere in the domain
+ * (decision D11).
+ *
  * @method int getId()
  * @method void setId(int $id)
  * @method int getRoomTaskId()
@@ -24,20 +34,14 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCoinsEarned(int $coinsEarned)
  * @method bool getWasCombo()
  * @method void setWasCombo(bool $wasCombo)
- * @method int|null getComboWithUserId()
- * @method void setComboWithUserId(?int $comboWithUserId)
- * @method bool getIsTeamCompletion()
- * @method void setIsTeamCompletion(bool $isTeamCompletion)
- * @method int getParticipantCount()
- * @method void setParticipantCount(int $participantCount)
- * @method int getTeamSparkBonus()
- * @method void setTeamSparkBonus(int $teamSparkBonus)
- * @method bool getWasClaimedCompletion()
- * @method void setWasClaimedCompletion(bool $wasClaimedCompletion)
- * @method int getClaimBonusSparks()
- * @method void setClaimBonusSparks(int $claimBonusSparks)
- * @method int|null getDaysOverdueWhenClaimed()
- * @method void setDaysOverdueWhenClaimed(?int $daysOverdueWhenClaimed)
+ * @method \DateTime|null getOccurrenceDue()
+ * @method void setOccurrenceDue(?\DateTime $occurrenceDue)
+ * @method array getBeforeState()
+ * @method void setBeforeState(array $beforeState)
+ * @method array getDeltas()
+ * @method void setDeltas(array $deltas)
+ * @method \DateTime|null getUndoneAt()
+ * @method void setUndoneAt(?\DateTime $undoneAt)
  */
 class CompletedTask extends Entity implements JsonSerializable {
 	/** @var int */
@@ -55,26 +59,17 @@ class CompletedTask extends Entity implements JsonSerializable {
 	/** @var bool */
 	protected $wasCombo = false;
 
-	/** @var int|null */
-	protected $comboWithUserId;
+	/** @var \DateTime|null House-local due date of the completed occurrence (ADR-009). */
+	protected $occurrenceDue;
 
-	/** @var bool */
-	protected $isTeamCompletion = false;
+	/** @var array Authoritative pre-mutation snapshot (JSON). */
+	protected $beforeState = [];
 
-	/** @var int */
-	protected $participantCount = 1;
+	/** @var array Every applied domain delta (JSON). */
+	protected $deltas = [];
 
-	/** @var int */
-	protected $teamSparkBonus = 0;
-
-	/** @var bool */
-	protected $wasClaimedCompletion = false;
-
-	/** @var int */
-	protected $claimBonusSparks = 0;
-
-	/** @var int|null */
-	protected $daysOverdueWhenClaimed;
+	/** @var \DateTime|null NULL = revertible occurrence. */
+	protected $undoneAt;
 
 	public function __construct() {
 		$this->addType('id', 'integer');
@@ -83,13 +78,10 @@ class CompletedTask extends Entity implements JsonSerializable {
 		$this->addType('completedAt', 'datetime');
 		$this->addType('coinsEarned', 'integer');
 		$this->addType('wasCombo', 'boolean');
-		$this->addType('comboWithUserId', 'integer');
-		$this->addType('isTeamCompletion', 'boolean');
-		$this->addType('participantCount', 'integer');
-		$this->addType('teamSparkBonus', 'integer');
-		$this->addType('wasClaimedCompletion', 'boolean');
-		$this->addType('claimBonusSparks', 'integer');
-		$this->addType('daysOverdueWhenClaimed', 'integer');
+		$this->addType('occurrenceDue', 'datetime');
+		$this->addType('beforeState', 'json');
+		$this->addType('deltas', 'json');
+		$this->addType('undoneAt', 'datetime');
 	}
 
 	/**
@@ -103,13 +95,8 @@ class CompletedTask extends Entity implements JsonSerializable {
 			'completedAt' => $this->completedAt?->format('c'),
 			'coinsEarned' => $this->coinsEarned,
 			'wasCombo' => $this->wasCombo,
-			'comboWithUserId' => $this->comboWithUserId,
-			'isTeamCompletion' => $this->isTeamCompletion,
-			'participantCount' => $this->participantCount,
-			'teamSparkBonus' => $this->teamSparkBonus,
-			'wasClaimedCompletion' => $this->wasClaimedCompletion,
-			'claimBonusSparks' => $this->claimBonusSparks,
-			'daysOverdueWhenClaimed' => $this->daysOverdueWhenClaimed,
+			'occurrenceDue' => $this->occurrenceDue?->format('c'),
+			'undoneAt' => $this->undoneAt?->format('c'),
 		];
 	}
 

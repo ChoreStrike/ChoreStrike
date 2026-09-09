@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Service;
 
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Service\RoomService;
+use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
@@ -71,10 +71,10 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 		$contributionBefore = $user->getContributionScore();
 
 		$this->actingAs('seq_owner');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
-		$first = $roomService->completeRoomTask($roomTaskA, 'seq_owner');
-		$second = $roomService->completeRoomTask($roomTaskB, 'seq_owner');
+		$first = $completionService->complete($houseId, 'seq_owner', $roomTaskA);
+		$second = $completionService->complete($houseId, 'seq_owner', $roomTaskB);
 
 		$user = $mapper->findByNextcloudUserId($houseId, 'seq_owner');
 		self::assertSame(
@@ -279,8 +279,8 @@ PHP;
 			// pre-lock fetch sees the overdue committed state; the locked
 			// entity must reflect T1's committed advance instead.
 			$this->actingAs('rt_helper');
-			$roomService = \OC::$server->get(RoomService::class);
-			$roomService->completeRoomTask($roomTaskId, 'rt_helper');
+			$completionService = \OC::$server->get(CompletionService::class);
+			$completionService->complete($houseId, 'rt_helper', $roomTaskId);
 
 			$row = $this->fetchRoomTaskRow($roomTaskId);
 			self::assertSame(

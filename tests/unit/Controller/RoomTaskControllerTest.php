@@ -18,6 +18,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
+use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskCreationService;
@@ -32,6 +33,7 @@ use PHPUnit\Framework\TestCase;
 class RoomTaskControllerTest extends TestCase {
 	private RoomTaskController $controller;
 	private $roomTaskService;
+	private $completionService;
 	private $taskCreationService;
 	private $houseService;
 	private $authService;
@@ -42,6 +44,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
+		$this->completionService = $this->createMock(CompletionService::class);
 		$this->taskCreationService = $this->createMock(TaskCreationService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
@@ -52,6 +55,7 @@ class RoomTaskControllerTest extends TestCase {
 		$this->controller = new RoomTaskController(
 			$this->request,
 			$this->roomTaskService,
+			$this->completionService,
 			$this->taskCreationService,
 			$this->houseService,
 			$this->authService,
@@ -181,8 +185,8 @@ class RoomTaskControllerTest extends TestCase {
 	/**
 	 * Test POST /room-tasks/{id}/complete completes successfully.
 	 *
-	 * The current RoomTaskController::complete() resolves the actor via
-	 * requireCurrentUserId() and delegates to RoomTaskService::completeTask(),
+	 * The controller resolves the actor via requireCurrentUserId() and
+	 * delegates to the CompletionService aggregate (CS-PLAN-064, D2),
 	 * returning the {roomTask, room, task, rewards} payload.
 	 */
 	public function testComplete_CompletesSuccessfully(): void {
@@ -202,9 +206,9 @@ class RoomTaskControllerTest extends TestCase {
 		$room = new Room();
 		$task = new Task();
 
-		$this->roomTaskService->expects($this->once())
-			->method('completeTask')
-			->with(1, 'user1')
+		$this->completionService->expects($this->once())
+			->method('complete')
+			->with(1, 'user1', 1)
 			->willReturn([
 				'roomTask' => $roomTask,
 				'room' => $room,
@@ -219,6 +223,88 @@ class RoomTaskControllerTest extends TestCase {
 
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
+	}
+
+	/**
+	 * Test POST /room-tasks/{id}/undo (CS-PLAN-064 WP5, decision D5): the
+	 * single undo operation delegates to the CompletionService undo
+	 * aggregate and carries the `undone` flag in the response.
+	 */
+	public function testUndo_DelegatesToCompletionService(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')
+			->willReturn($this->createHouseUser());
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+
+		$this->completionService->expects($this->once())
+			->method('undo')
+			->with(1, $this->isInstanceOf(HouseUser::class), 1)
+			->willReturn([
+				'roomTask' => new RoomTask(),
+				'room' => new Room(),
+				'task' => new Task(),
+				'rewards' => ['coins' => -50],
+				'undone' => true,
+			]);
+
+		$response = $this->controller->undo(1);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(200, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertTrue($data['data']['undone']);
+		$this->assertSame(-50, $data['data']['rewards']['coins']);
+	}
+
+	/**
+	 * The undo endpoint maps the 404 anti-enumeration denial from the
+	 * service to the standard envelope.
+	 */
+	public function testUndo_Returns404ForUnknownRoomTask(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')
+			->willReturn($this->createHouseUser());
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+
+		$this->completionService->method('undo')
+			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room task not found'));
+
+		$response = $this->controller->undo(99);
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * The undo endpoint maps the actor-gate denial to 403.
+	 */
+	public function testUndo_Returns403ForActorGateDenial(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')
+			->willReturn($this->createHouseUser());
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+
+		$this->completionService->method('undo')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Only the completer or a house owner can undo a completion'));
+
+		$response = $this->controller->undo(1);
+
+		$this->assertEquals(403, $response->getStatus());
+		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
 	}
 
 	/**

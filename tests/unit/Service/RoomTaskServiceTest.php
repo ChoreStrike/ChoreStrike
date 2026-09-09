@@ -375,60 +375,6 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * ReactivateTask_ExistingTask_Reactivates
-	 */
-	public function testReactivateTask_ExistingTask_Reactivates(): void {
-		$roomTaskId = 1;
-
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setTaskId(1);
-		$roomTask->setIsActive(true);
-
-		$this->stubTaskDefinition($this->createTask());
-		$this->roomTaskMapper
-			->expects($this->exactly(2))
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('reactivate')
-			->with($roomTaskId);
-
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-
-		$result = $this->service->reactivateTask($roomTaskId, $this->createHouseUser());
-
-		$this->assertTrue($result->getIsActive());
-	}
-
-	/**
-	 * ReactivateTask_NonViewerTask_ThrowsNotFound
-	 *
-	 * CS-PLAN-061 (D2/D3): the lifecycle visibility matrix denies a
-	 * non-viewer with the app NotFoundException (404 anti-enumeration) —
-	 * previously this was a ForbiddenException.
-	 */
-	public function testReactivateTask_NonViewerTask_ThrowsNotFound(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-
-		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_PRIVATE));
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-		$this->taskAccessPolicy->method('assertCanView')
-			->willThrowException(new NotFoundException('Task not found'));
-
-		$this->roomTaskMapper->expects($this->never())->method('reactivate');
-
-		$this->expectException(NotFoundException::class);
-		$this->service->reactivateTask(1, $this->createHouseUser('memberUser'));
-	}
-
-	/**
 	 * UpdateDueDate_ExistingTask_UpdatesDueDate
 	 */
 	public function testUpdateDueDate_ExistingTask_UpdatesDueDate(): void {
@@ -460,79 +406,11 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	// CS-PLAN-056 (CR-053-06): lifecycle mutations enforce the same visibility
-	// matrix as the completion path. Wired through uncompleteTask /
-	// updateDueDate / reactivateTask so the guard cannot be bypassed. Since
-	// CS-PLAN-061 the matrix runs through TaskAccessPolicy and a denial is
-	// the 404 anti-enumeration NotFoundException (D2/D3).
-
-	/**
-	 * UncompleteTask_PrivateTask_NonAssigneeMember_ThrowsNotFound
-	 */
-	public function testUncompleteTask_PrivateTask_NonAssigneeMember_ThrowsNotFound(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setAssignedToUserId('ownerUser');
-
-		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_PRIVATE));
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-		$this->taskAccessPolicy->method('assertCanView')
-			->willThrowException(new NotFoundException('Task not found'));
-
-		$this->roomTaskMapper->expects($this->never())->method('update');
-
-		$this->expectException(NotFoundException::class);
-		$this->service->uncompleteTask(1, $this->createHouseUser('memberUser'));
-	}
-
-	/**
-	 * UncompleteTask_PrivateTask_Assignee_Succeeds
-	 */
-	public function testUncompleteTask_PrivateTask_Assignee_Succeeds(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setAssignedToUserId('assigneeUser');
-
-		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_PRIVATE));
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn(['assigneeUser']);
-
-		$updatedRoomTask = new RoomTask();
-		$updatedRoomTask->setId(1);
-		$updatedRoomTask->setTaskId(1);
-		$updatedRoomTask->setAssignedToUserId('assigneeUser');
-		$updatedRoomTask->setLastCompleted(null);
-		$this->roomTaskMapper->method('update')->willReturn($updatedRoomTask);
-
-		$result = $this->service->uncompleteTask(1, $this->createHouseUser('assigneeUser'));
-
-		$this->assertNull($result->getLastCompleted());
-	}
-
-	/**
-	 * UncompleteTask_PublicTask_AnyMember_Succeeds
-	 */
-	public function testUncompleteTask_PublicTask_AnyMember_Succeeds(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-
-		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_PUBLIC));
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-
-		$updatedRoomTask = new RoomTask();
-		$updatedRoomTask->setId(1);
-		$updatedRoomTask->setTaskId(1);
-		$updatedRoomTask->setLastCompleted(null);
-		$this->roomTaskMapper->method('update')->willReturn($updatedRoomTask);
-
-		$result = $this->service->uncompleteTask(1, $this->createHouseUser('anyMember'));
-
-		$this->assertNull($result->getLastCompleted());
-	}
+	// matrix as the completion path (updateDueDate since CS-PLAN-064 WP5 —
+	// uncompleteTask/reactivateTask/completeTask moved to the
+	// CompletionService undo/complete aggregates). Since CS-PLAN-061 the
+	// matrix runs through TaskAccessPolicy and a denial is the 404
+	// anti-enumeration NotFoundException (D2/D3).
 
 	/**
 	 * UpdateDueDate_AdminOnlyTask_NonOwnerMember_ThrowsNotFound
@@ -552,51 +430,6 @@ class RoomTaskServiceTest extends TestCase {
 
 		$this->expectException(NotFoundException::class);
 		$this->service->updateDueDate(1, new \DateTime('+1 day'), $this->createHouseUser('memberUser'));
-	}
-
-	/**
-	 * ReactivateTask_AdminOnlyTask_Owner_Succeeds
-	 */
-	public function testReactivateTask_AdminOnlyTask_Owner_Succeeds(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setIsActive(true);
-
-		$this->stubTaskDefinition($this->createTask(Task::VISIBILITY_ADMIN_ONLY));
-		$this->roomTaskMapper->method('find')->willReturn($roomTask);
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-
-		$this->roomTaskMapper->expects($this->once())->method('reactivate');
-
-		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-
-		$result = $this->service->reactivateTask(1, $this->createHouseUser('ownerUser', 'owner'));
-
-		$this->assertTrue($result->getIsActive());
-	}
-
-	/**
-	 * CompleteTask_DelegatesToRoomService
-	 */
-	public function testCompleteTask_DelegatesToRoomService(): void {
-		$roomTaskId = 1;
-		$userId = 'user123';
-
-		$completionData = [
-			'roomTask' => new RoomTask(),
-			'rewards' => ['cleanlinessChange' => 20]
-		];
-
-		$this->roomService
-			->expects($this->once())
-			->method('completeRoomTask')
-			->with($roomTaskId, $userId)
-			->willReturn($completionData);
-
-		$result = $this->service->completeTask($roomTaskId, $userId);
-
-		$this->assertSame($completionData, $result);
 	}
 
 	/**

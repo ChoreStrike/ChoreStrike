@@ -10,6 +10,7 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
+use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCP\IL10N;
@@ -22,6 +23,7 @@ use PHPUnit\Framework\TestCase;
 class RoomTaskControllerIntegrationTest extends TestCase {
 	private RoomTaskController $controller;
 	private RoomTaskService $roomTaskService;
+	private CompletionService|PHPUnit\Framework\MockObject\MockObject $completionService;
 	private \OCA\ChoreStrike\Service\TaskCreationService|PHPUnit\Framework\MockObject\MockObject $taskCreationService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
@@ -32,6 +34,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
+		$this->completionService = $this->createMock(CompletionService::class);
 		$this->taskCreationService = $this->createMock(\OCA\ChoreStrike\Service\TaskCreationService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
@@ -42,6 +45,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->controller = new RoomTaskController(
 			$this->request,
 			$this->roomTaskService,
+			$this->completionService,
 			$this->taskCreationService,
 			$this->houseService,
 			$this->authService,
@@ -143,7 +147,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 	 */
 	public function testComplete_ExistingRoomTask_ReturnsSuccessWithCompletion(): void {
 		$roomTaskId = 1;
-		// completeTask returns array with roomTask, room, task, rewards
+		// CompletionService::complete returns array with roomTask, room, task, rewards
 		$completedData = [
 			'roomTask' => $this->createMockRoomTask($roomTaskId, 1, 1),
 			'room' => $this->createMockRoom(1, 'Living Room', 1, 85),
@@ -156,7 +160,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
 		$this->authService->method('requireCurrentUserId')->willReturn('test-user');
 		$this->roomTaskService->method('validateRoomTaskOwnership');
-		$this->roomTaskService->method('completeTask')
+		$this->completionService->method('complete')
 			->willReturn($completedData);
 
 		$response = $this->controller->complete($roomTaskId);

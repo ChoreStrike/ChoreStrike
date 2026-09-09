@@ -11,9 +11,9 @@
 ## In Progress
 
 ### CS-PLAN-064 / WP5 — Completion Ledger and Full Transactional Undo
-**Status**: In Progress (activated; implementation not started) · **Started**: 2026-09-06 · **Branch**: master
-**Plan**: docs/plans/active/cs-plan-064-wp5-completion-ledger-full-undo.md · **Blockers**: none
-**Scope**: WP5 completion/undo critical path; owns CR-WF-02 (umbrella), UX-015, CR-053-20 WP5 undo/cache slice, CR-SVC-15/40 WP5 completion-path slices. Standard A `PASS-WITH-FIXES` 2026-09-06: D1–D10 ratified, D11 (undone rows excluded from day-duplicate/combo/weekly-goal reads) and D12 (task-definition no-lock, ADR-011 rationale) added and ratified, manifest test paths fixed, manual-cleanliness race deferred as CR-SVC-63, plan moved to `active/`.
+**Status**: In Progress (backend slice steps 1–5 implemented + committed; interim Standard B `PASS-WITH-FIXES` 2026-09-09; steps 6–10 open) · **Started**: 2026-09-06 · **Branch**: master
+**Plan**: docs/plans/active/cs-plan-064-wp5-completion-ledger-full-undo.md · **Blockers**: none (open plan-owned findings RF-01…RF-05 in plan §11 gate the `done/` move)
+**Scope**: WP5 completion/undo critical path; owns CR-WF-02 (umbrella), UX-015, CR-053-20 WP5 undo/cache slice, CR-SVC-15/40 WP5 completion-path slices. Backend slice landed: `CompletionService` complete/undo aggregates (effect-record ledger, lock order `room_task → room → house_user`, occurrence gates 409/403/404, checklist reset/restore, teamwork fold, post-commit degrade boundary), `POST /room-tasks/{id}/undo` added, `uncomplete`/`reactivate` pruned backend-wide, migration `Version1029`. Interim review fixed a block migration defect (index drops), l10n artifacts, integration-test rewiring (44 errors → green), lifecycle API spec re-pinned to undo; backend gates green, Jest `apiContract` red until the frontend round (RF-01). Remaining: real-DB integration suites (RF-02), frontend reconciliation + undo queue (RF-01), E2E re-pins (RF-03), ADR-011/durable docs/dispositions (RF-04), undo deleted-completer edge (RF-05).
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 

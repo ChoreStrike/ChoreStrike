@@ -37,6 +37,51 @@ class RoomMapper extends QBMapper {
 	}
 
 	/**
+	 * Find a room by ID and acquire an exclusive lock on its row
+	 * (CS-PLAN-064 WP5, second lock in the completion/undo order
+	 * `room_task → room → house_user`).
+	 *
+	 * Mirrors RoomTaskMapper::lockForUpdate: the lock AND the freshest
+	 * committed entity come back together, so the cleanliness write after
+	 * the lock can never clobber a concurrent same-room completion.
+	 *
+	 * - MySQL/MariaDB/PostgreSQL: a true locking read (SELECT … FOR UPDATE)
+	 *   acquires the exclusive row lock and returns the latest committed
+	 *   state in one statement.
+	 * - SQLite: no FOR UPDATE support. A no-op self-assignment UPDATE
+	 *   (writes cleanliness's own current value — never pre-read data)
+	 *   acquires the database-wide write lock and serializes writers; the
+	 *   re-read afterwards sees the latest committed state.
+	 *
+	 * Must be called inside an open transaction.
+	 *
+	 * @param int $roomId The room ID to lock
+	 * @throws DoesNotExistException if the row does not exist
+	 */
+	public function lockForUpdate(int $roomId): Room {
+		if ($this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->update($this->getTableName())
+				->set('cleanliness', $qb->createFunction('cleanliness'))
+				->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+			$qb->executeStatement();
+
+			return $this->find($roomId);
+		}
+
+		$sql = 'SELECT * FROM *PREFIX*' . $this->getTableName() . ' WHERE id = :id FOR UPDATE';
+		$result = $this->db->executeQuery($sql, ['id' => $roomId], ['id' => IQueryBuilder::PARAM_INT]);
+		$row = $result->fetch();
+		$result->closeCursor();
+
+		if ($row === false) {
+			throw new DoesNotExistException('Room with id ' . $roomId . ' does not exist');
+		}
+
+		return $this->mapRowToEntity($row);
+	}
+
+	/**
 	 * Find multiple rooms by IDs in one query (CS-PLAN-036).
 	 *
 	 * IN-clause batch lookup returning a map id → Room. Missing ids are

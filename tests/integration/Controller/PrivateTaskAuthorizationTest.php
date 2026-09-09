@@ -8,7 +8,7 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
-use OCA\ChoreStrike\Service\RoomService;
+use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
@@ -228,9 +228,9 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		// one — both rows appear in the child's calendar range, but the
 		// private task's name is redacted (D9: rows stay house-scoped).
 		$this->actingAs('priv_owner');
-		$roomService = \OC::$server->get(RoomService::class);
-		$roomService->completeRoomTask($this->privateRoomTaskId, 'priv_owner');
-		$roomService->completeRoomTask($this->publicRoomTaskId, 'priv_child');
+		$completionService = \OC::$server->get(CompletionService::class);
+		$completionService->complete($this->houseId, 'priv_owner', $this->privateRoomTaskId);
+		$completionService->complete($this->houseId, 'priv_child', $this->publicRoomTaskId);
 
 		$service = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class);
 		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
@@ -282,9 +282,9 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 
 	public function testAssignedUserCanCompletePrivateTask(): void {
 		$this->actingAs('priv_owner');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $roomService->completeRoomTask($this->privateRoomTaskId, 'priv_owner');
+		$result = $completionService->complete($this->houseId, 'priv_owner', $this->privateRoomTaskId);
 
 		self::assertArrayHasKey('rewards', $result);
 		self::assertArrayHasKey('coins', $result['rewards']);
@@ -294,20 +294,20 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		// 404 anti-enumeration (decision D3): a non-viewer gets the same
 		// denial as a nonexistent id, never a 403 enumeration oracle.
 		$this->actingAs('priv_child');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Task not found');
-		$roomService->completeRoomTask($this->privateRoomTaskId, 'priv_child');
+		$completionService->complete($this->houseId, 'priv_child', $this->privateRoomTaskId);
 	}
 
 	public function testAssigneeCanCompleteSomeoneElsesPrivateRoomTask(): void {
 		// D2: the explicit assignee of a room task completes it even though
 		// the definition belongs to someone else.
 		$this->actingAs('priv_member');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $roomService->completeRoomTask($this->assigneeRoomTaskId, 'priv_member');
+		$result = $completionService->complete($this->houseId, 'priv_member', $this->assigneeRoomTaskId);
 
 		self::assertArrayHasKey('rewards', $result);
 	}
@@ -316,9 +316,9 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		// The creator (priv_owner) is not assigned to $assigneeRoomTaskId but
 		// IS the definition owner: creator ∪ assignees includes them.
 		$this->actingAs('priv_owner');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $roomService->completeRoomTask($this->assigneeRoomTaskId, 'priv_owner');
+		$result = $completionService->complete($this->houseId, 'priv_owner', $this->assigneeRoomTaskId);
 
 		self::assertArrayHasKey('rewards', $result);
 	}

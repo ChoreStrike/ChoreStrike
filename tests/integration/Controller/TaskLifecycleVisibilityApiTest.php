@@ -8,8 +8,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Controller;
 
 use OCA\ChoreStrike\Controller\RoomTaskController;
-use OCA\ChoreStrike\Controller\TaskController;
 use OCA\ChoreStrike\Db\Task;
+use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
@@ -17,8 +17,8 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * Integration tests for the task lifecycle visibility matrix (CS-PLAN-056,
  * CR-053-06; unified via TaskAccessPolicy in CS-PLAN-061 §3.2).
  *
- * The lifecycle mutations (uncomplete, updateDueDate, reactivate) enforce
- * the ONE visibility matrix (decision D2):
+ * The lifecycle mutations (undo, updateDueDate) enforce the ONE visibility
+ * matrix (decision D2):
  * - private tasks: creator ∪ explicit assignees may mutate
  * - admin-only tasks: only house owners may mutate
  * - public tasks: any house member may mutate
@@ -26,6 +26,10 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
  * Non-viewers are denied with the 404 anti-enumeration shape (decision D3):
  * envelope code `RESOURCE_NOT_FOUND`, never a 403 that would confirm the id
  * exists.
+ *
+ * CS-PLAN-064 (decision D5): the former `uncomplete`/`reactivate` surface is
+ * pruned; the one idempotent undo aggregate `POST /room-tasks/{id}/undo`
+ * inherits its visibility matrix (plus the completer-or-owner actor gate).
  */
 class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 	private int $houseId;
@@ -40,6 +44,9 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 
 	/** Admin-only room task (no assignee) */
 	private int $adminOnlyRoomTaskId;
+
+	/** Definition behind the private room tasks (visibility: private) */
+	private int $privateTaskId;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -58,34 +65,33 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 		$this->floorId = $this->createFloor($this->houseId, 'Ground Floor', 1);
 		$this->roomId = $this->createRoom($this->houseId, $this->floorId, 'Kitchen');
 
-		$privateTaskId = $this->createTask($this->houseId, 'Private Lifecycle', 'Creator + assignee', 3, 5);
-		$this->setTaskVisibility($privateTaskId, Task::VISIBILITY_PRIVATE, 'lcv_creator');
-		$this->privateRoomTaskId = $this->assignTaskToRoom($privateTaskId, $this->roomId, 'lcv_assignee');
+		$this->privateTaskId = $this->createTask($this->houseId, 'Private Lifecycle', 'Creator + assignee', 3, 5);
+		$this->setTaskVisibility($this->privateTaskId, Task::VISIBILITY_PRIVATE, 'lcv_creator');
+		$this->privateRoomTaskId = $this->assignTaskToRoom($this->privateTaskId, $this->roomId, 'lcv_assignee');
 		// (task_id, room_id) is unique — the creator's room task lives in a
 		// second room.
 		$secondRoomId = $this->createRoom($this->houseId, $this->floorId, 'Bathroom');
-		$this->creatorOnlyRoomTaskId = $this->assignTaskToRoom($privateTaskId, $secondRoomId, null);
+		$this->creatorOnlyRoomTaskId = $this->assignTaskToRoom($this->privateTaskId, $secondRoomId, null);
 
 		$adminOnlyTaskId = $this->createTask($this->houseId, 'Admin Only Lifecycle', 'Owner only', 3, 5);
 		$this->setTaskVisibility($adminOnlyTaskId, Task::VISIBILITY_ADMIN_ONLY, 'lcv_owner');
 		$this->adminOnlyRoomTaskId = $this->assignTaskToRoom($adminOnlyTaskId, $this->roomId, null);
-
-		// Seed a completion marker so the denied uncomplete can be asserted as a no-op.
-		$this->setLastCompleted($this->privateRoomTaskId, date('Y-m-d H:i:s'));
 	}
 
-	// ========== Uncomplete ==========
+	// ========== Undo (CS-PLAN-064: replaces uncomplete/reactivate) ==========
 
 	/**
-	 * Uncomplete_PrivateTask_ByNonAssigneeMember_Returns404
+	 * Undo_PrivateTask_ByNonAssigneeMember_Returns404
 	 *
 	 * Decision D3: a non-viewer gets the 404 anti-enumeration denial — the
-	 * lifecycle surface must not confirm that an invisible id exists.
+	 * undo surface must not confirm that an invisible id exists, and the
+	 * denied undo leaves the completed row untouched.
 	 */
-	public function testUncomplete_PrivateTask_ByNonAssigneeMember_Returns404(): void {
-		$controller = $this->getController(TaskController::class, 'lcv_member');
+	public function testUndo_PrivateTask_ByNonAssigneeMember_Returns404(): void {
+		$this->completeAs('lcv_assignee', $this->privateRoomTaskId);
+		$controller = $this->getController(RoomTaskController::class, 'lcv_member');
 
-		$response = $controller->uncomplete($this->privateRoomTaskId);
+		$response = $controller->undo($this->privateRoomTaskId);
 
 		self::assertSame(404, $response->getStatus());
 		$data = $response->getData();
@@ -96,31 +102,35 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * Uncomplete_PrivateTask_ByAssignee_Returns200 — assignees may execute.
+	 * Undo_PrivateTask_ByAssignee_Returns200 — the completer may undo their
+	 * own completion (actor gate D3) and assignees may execute (matrix D2).
 	 */
-	public function testUncomplete_PrivateTask_ByAssignee_Returns200(): void {
-		$controller = $this->getController(TaskController::class, 'lcv_assignee');
+	public function testUndo_PrivateTask_ByAssignee_Returns200(): void {
+		$this->completeAs('lcv_assignee', $this->privateRoomTaskId);
+		$controller = $this->getController(RoomTaskController::class, 'lcv_assignee');
 
-		$response = $controller->uncomplete($this->privateRoomTaskId);
+		$response = $controller->undo($this->privateRoomTaskId);
 
 		self::assertSame(200, $response->getStatus());
-		self::assertTrue($response->getData()['success']);
+		$data = $response->getData();
+		self::assertTrue($data['success']);
+		self::assertTrue($data['data']['undone']);
 		self::assertNull($this->fetchLastCompleted($this->privateRoomTaskId));
 	}
 
 	/**
-	 * Uncomplete_PrivateTask_ByCreatorWithoutAssignment_Returns200 — the
-	 * creator is part of the matrix even when the room task is unassigned
-	 * (D2: creator ∪ assignees).
+	 * Undo_PrivateTask_ByCreatorWithoutAssignment_Returns200 — the creator
+	 * is part of the matrix even when the room task is unassigned (D2:
+	 * creator ∪ assignees) and may undo their own completion.
 	 */
-	public function testUncomplete_PrivateTask_ByCreatorWithoutAssignment_Returns200(): void {
-		$this->setLastCompleted($this->creatorOnlyRoomTaskId, date('Y-m-d H:i:s'));
-		$controller = $this->getController(TaskController::class, 'lcv_creator');
+	public function testUndo_PrivateTask_ByCreatorWithoutAssignment_Returns200(): void {
+		$this->completeAs('lcv_creator', $this->creatorOnlyRoomTaskId);
+		$controller = $this->getController(RoomTaskController::class, 'lcv_creator');
 
-		$response = $controller->uncomplete($this->creatorOnlyRoomTaskId);
+		$response = $controller->undo($this->creatorOnlyRoomTaskId);
 
 		self::assertSame(200, $response->getStatus());
-		self::assertTrue($response->getData()['success']);
+		self::assertTrue($response->getData()['data']['undone']);
 		self::assertNull($this->fetchLastCompleted($this->creatorOnlyRoomTaskId));
 	}
 
@@ -170,50 +180,56 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 		self::assertTrue($response->getData()['success']);
 	}
 
-	// ========== Reactivate ==========
+	// ========== Undo of admin-only + once tasks (reactivate replacement) ==========
 
 	/**
-	 * Reactivate_AdminOnlyTask_ByNonOwnerMember_Returns404
+	 * Undo_AdminOnlyTask_ByNonOwnerMember_Returns404
 	 */
-	public function testReactivate_AdminOnlyTask_ByNonOwnerMember_Returns404(): void {
-		$this->deactivateRoomTask($this->adminOnlyRoomTaskId);
+	public function testUndo_AdminOnlyTask_ByNonOwnerMember_Returns404(): void {
+		$this->completeAs('lcv_owner', $this->adminOnlyRoomTaskId);
 		$controller = $this->getController(RoomTaskController::class, 'lcv_member');
 
-		$response = $controller->reactivate($this->adminOnlyRoomTaskId);
+		$response = $controller->undo($this->adminOnlyRoomTaskId);
 
 		self::assertSame(404, $response->getStatus());
 		$data = $response->getData();
 		self::assertFalse($data['success']);
 		self::assertSame('RESOURCE_NOT_FOUND', $data['error']['code']);
-		self::assertSame(0, $this->fetchIsActive($this->adminOnlyRoomTaskId), 'the row must be unchanged');
+		self::assertNotNull($this->fetchLastCompleted($this->adminOnlyRoomTaskId), 'the row must be unchanged');
 	}
 
 	/**
-	 * Reactivate_AdminOnlyTask_ByOwner_Returns200
+	 * Undo_AdminOnlyTask_ByOwner_Returns200 — the owner completed it, so the
+	 * actor gate (completer-or-owner) and the matrix (owner-only) both pass.
 	 */
-	public function testReactivate_AdminOnlyTask_ByOwner_Returns200(): void {
-		$this->deactivateRoomTask($this->adminOnlyRoomTaskId);
+	public function testUndo_AdminOnlyTask_ByOwner_Returns200(): void {
+		$this->completeAs('lcv_owner', $this->adminOnlyRoomTaskId);
 		$controller = $this->getController(RoomTaskController::class, 'lcv_owner');
 
-		$response = $controller->reactivate($this->adminOnlyRoomTaskId);
+		$response = $controller->undo($this->adminOnlyRoomTaskId);
 
 		self::assertSame(200, $response->getStatus());
-		self::assertTrue($response->getData()['success']);
-		self::assertSame(1, $this->fetchIsActive($this->adminOnlyRoomTaskId));
+		self::assertTrue($response->getData()['data']['undone']);
+		self::assertNull($this->fetchLastCompleted($this->adminOnlyRoomTaskId));
 	}
 
 	/**
-	 * Reactivate_PrivateTask_ByAssigneeChild_Returns200 — children keep the
-	 * execution surface (reactivate is execution, not management).
+	 * Undo_OnceTask_ByAssigneeChild_RestoresIsActive — children keep the
+	 * execution surface (undoing one's OWN completion is child-friendly
+	 * self-recovery, masterplan D3). The `once` completion deactivates the
+	 * row; the undo restores `is_active` from the recorded before-state —
+	 * the reactivate endpoint's job is now the undo aggregate's.
 	 */
-	public function testReactivate_PrivateTask_ByAssigneeChild_Returns200(): void {
-		$this->deactivateRoomTask($this->privateRoomTaskId);
-		$controller = $this->getController(RoomTaskController::class, 'lcv_assignee');
+	public function testUndo_OnceTask_ByAssigneeChild_RestoresIsActive(): void {
+		$this->setRecurrenceOnce($this->privateTaskId);
+		$this->completeAs('lcv_assignee', $this->privateRoomTaskId);
+		self::assertSame(0, $this->fetchIsActive($this->privateRoomTaskId), 'the once completion deactivates the row');
 
-		$response = $controller->reactivate($this->privateRoomTaskId);
+		$controller = $this->getController(RoomTaskController::class, 'lcv_assignee');
+		$response = $controller->undo($this->privateRoomTaskId);
 
 		self::assertSame(200, $response->getStatus());
-		self::assertTrue($response->getData()['success']);
+		self::assertTrue($response->getData()['data']['undone']);
 		self::assertSame(1, $this->fetchIsActive($this->privateRoomTaskId));
 	}
 
@@ -242,19 +258,20 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 		$qb->executeStatement();
 	}
 
-	private function deactivateRoomTask(int $roomTaskId): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_room_tasks')
-			->set('is_active', $qb->createNamedParameter(0))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId)));
-		$qb->executeStatement();
+	/**
+	 * Complete a room task through the real aggregate (CS-PLAN-064) so the
+	 * undo surface operates on a genuine effect record.
+	 */
+	private function completeAs(string $userId, int $roomTaskId): void {
+		\OC::$server->get(CompletionService::class)
+			->complete($this->houseId, $userId, $roomTaskId);
 	}
 
-	private function setLastCompleted(int $roomTaskId, string $lastCompleted): void {
+	private function setRecurrenceOnce(int $taskId): void {
 		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_room_tasks')
-			->set('last_completed', $qb->createNamedParameter($lastCompleted))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId)));
+		$qb->update('chorestrike_tasks')
+			->set('recurrence_mode', $qb->createNamedParameter('once'))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId)));
 		$qb->executeStatement();
 	}
 

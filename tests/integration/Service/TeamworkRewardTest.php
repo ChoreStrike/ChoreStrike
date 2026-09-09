@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration\Service;
 
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\GameLogicService;
-use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
 /**
@@ -44,9 +44,9 @@ class TeamworkRewardTest extends IntegrationTestCase {
 		$roomTaskId = $this->assignTaskToRoom($taskId, $this->roomId, 'team_owner');
 
 		$this->actingAs('team_owner');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $roomService->completeRoomTask($roomTaskId, 'team_owner');
+		$result = $completionService->complete($this->houseId, 'team_owner', $roomTaskId);
 
 		self::assertSame(0, $result['rewards']['teamworkBonus']);
 	}
@@ -59,9 +59,9 @@ class TeamworkRewardTest extends IntegrationTestCase {
 		$this->addAssignee($roomTaskId, 'team_member_a');
 
 		$this->actingAs('team_owner');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $roomService->completeRoomTask($roomTaskId, 'team_owner');
+		$result = $completionService->complete($this->houseId, 'team_owner', $roomTaskId);
 
 		self::assertGreaterThan(0, $result['rewards']['teamworkBonus']);
 	}
@@ -72,13 +72,13 @@ class TeamworkRewardTest extends IntegrationTestCase {
 		$this->addAssignee($roomTaskId, 'team_member_a');
 
 		$this->actingAs('team_owner');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
 
 		$before = $houseUserMapper->findByNextcloudUserId($this->houseId, 'team_owner');
 		$coinsBefore = $before->getCoins();
 
-		$result = $roomService->completeRoomTask($roomTaskId, 'team_owner');
+		$result = $completionService->complete($this->houseId, 'team_owner', $roomTaskId);
 
 		$after = $houseUserMapper->findByNextcloudUserId($this->houseId, 'team_owner');
 		$totalEarned = $after->getCoins() - $coinsBefore;
@@ -97,9 +97,9 @@ class TeamworkRewardTest extends IntegrationTestCase {
 		$this->addAssignee($roomTaskId, 'team_member_b');
 
 		$this->actingAs('team_owner');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $roomService->completeRoomTask($roomTaskId, 'team_owner');
+		$result = $completionService->complete($this->houseId, 'team_owner', $roomTaskId);
 
 		self::assertGreaterThan(0, $result['rewards']['teamworkBonus']);
 	}

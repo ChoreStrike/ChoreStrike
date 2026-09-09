@@ -14,7 +14,6 @@ use OCA\ChoreStrike\Exception\ValidationException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -28,7 +27,6 @@ class TaskController extends Controller {
 	use ControllerLoggingTrait;
 
 	private TaskService $taskService;
-	private RoomTaskService $roomTaskService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IL10N $l;
@@ -36,7 +34,6 @@ class TaskController extends Controller {
 	public function __construct(
 		IRequest $request,
 		TaskService $taskService,
-		RoomTaskService $roomTaskService,
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
@@ -44,7 +41,6 @@ class TaskController extends Controller {
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->taskService = $taskService;
-		$this->roomTaskService = $roomTaskService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
@@ -227,44 +223,7 @@ class TaskController extends Controller {
 		}
 	}
 
-	/**
-	 * Uncomplete a task
-	 *
-	 * @NoAdminRequired
-	 */
-	public function uncomplete(int $id): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
-			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
-
-			$task = $this->roomTaskService->uncompleteTask($id, $houseUser);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $task->jsonSerialize()
-			]);
-		} catch (NotFoundException $e) {
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'RESOURCE_NOT_FOUND',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 404);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('uncomplete', $e, ['roomTaskId' => $id]);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'UNCOMPLETE_TASK_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
+	// `uncomplete` was pruned 2026-09-06 (CS-PLAN-064, decision D5): the
+	// one idempotent undo operation is POST /room-tasks/{id}/undo.
 
 }

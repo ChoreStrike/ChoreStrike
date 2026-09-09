@@ -1,6 +1,6 @@
 # CS-PLAN-064: WP5 — Completion Ledger and Full Transactional Undo
 
-> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-09-06; implementation not started)
+> **Status:** Active (Standard A `PASS-WITH-FIXES` 2026-09-06; backend slice steps 1–5 implemented; interim Standard B `PASS-WITH-FIXES` 2026-09-09 — steps 6–10 open, see §11 Review Findings)
 > **Effort:** L
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP5 — WP0..WP4 are Done), ADR-007 completion doctrine, ADR-010 visibility/404 standard, WP4 creation aggregate precedent (`TaskCreationService`, 2026-09-06)
@@ -673,3 +673,122 @@ review can pass.
 - **Transition:** plan moved `new/ → active/`; owning backlog items marked
   In Progress; `ACTIVE_TASKS.md` updated; one scoped review commit on
   `master`.
+
+---
+
+**Interim Standard B code review — 2026-09-09 — `PASS-WITH-FIXES` (interim;
+plan stays `active/`).**
+
+- **Scope:** the uncommitted working-tree backend slice — implementation
+  order steps 1–5 (schema/entity/mapper, `CompletionService` complete+undo,
+  route migration, post-commit guard) plus the unit-test round: 30 modified
+  tracked files (+805/−2280) and 3 untracked new files. **Base:** `master` @
+  `ad3e1fb`; pre-fix unstaged-diff SHA256
+  `1222C2CA70ABD2E8167A982FAED009969EAEE3F46D3C62142BD457B8411C65D1`;
+  untracked hashes: migration `36859095…D76D7`, `CompletionService.php`
+  `C2D24156…13B20`, `CompletionServiceTest.php` `4399C0FF…F8AC`. The
+  unrelated dirty `docs/plans/done/cs-plan-063` mojibake repair was
+  preserved unstaged and excluded from the review commit. Steps 6–10
+  (real-DB integration suites, frontend, E2E, durable docs, backlog
+  dispositions) were verified **not started** — this review is interim and
+  proves nothing about plan completion.
+- **Findings & fixes:** see `## 11. Review Findings`. Headline: one **block**
+  migration defect (dead-column drops without their dependent index drops →
+  MariaDB 1072, fresh install dead, all Docker gates unrunnable) fixed with
+  user authorization; l10n artifacts for the two new strings added; unused
+  `AuthorizationService` injection removed; six raw ledger-seed fixtures
+  missing the new NOT NULL columns repaired; six stale controller
+  construction sites rewired; `TaskLifecycleVisibilityApiTest` re-pinned
+  from the pruned `uncomplete`/`reactivate` surface to the undo aggregate
+  (D5, re-pin not shim); `GameLogicService` legacy self-insert made
+  schema-safe; stale docblocks corrected.
+- **Decisions (batched structured questions, both answered with the
+  recommended option, 2026-09-08/09):** (1) fix the block migration defect
+  now in `Version1029` (drop `idx_team_complete`/`idx_claimed_complete`
+  before the columns); (2) interim reviewed-package commit — commit the
+  verified backend slice + review evidence with the red Jest `apiContract`
+  guard recorded as a plan-owned finding (frontend round pending), plan
+  stays `active/`.
+- **Gates:** ESLint green · PHPUnit unit **844 green** · PHPUnit integration
+  **278 green** (10 skips = pre-existing documented inventory, unchanged) ·
+  `composer cs:check` green (after a scoped fix of 4 reviewed files: PHPDoc
+  alignment + CRLF normalization) · `l10n:check-keys` green · Docker fresh
+  install + migration green after the F1 fix · Jest **814/815** —
+  `apiContract.spec.js` red by design mid-implementation (store still calls
+  the pruned routes until §3.5 lands; plan-owned finding RF-01) · Playwright
+  not run (E2E re-pins are step 8, pending).
+- **Transition:** none — interim review. One scoped review commit on
+  `master`; `ACTIVE_TASKS.md` updated; review record
+  `docs/backlog/archive/CODE_REVIEW_2026-09-09.md`.
+
+## 11. Review Findings (plan-owned)
+
+Scope-first routing (project-rules §4): every open finding below lies inside
+this plan's scope and blocks the `done/` move until resolved. Resolved
+entries stay listed for traceability.
+
+- [ ] **RF-01** major · `src/store/roomTasks.js`, `UndoSnackbar.vue`, views,
+      Jest specs · §3.5 frontend round (step 7) not started: the store still
+      calls the pruned `uncomplete`/`reactivate` routes — Jest
+      `apiContract.spec.js` red until the one-request undo + reconciliation
+      + undo-queue land and the specs are re-pinned. **Open.**
+- [ ] **RF-02** major · `tests/integration/Service/` · step 6 real-DB suites
+      missing: `CompletionUndoStateEqualityTest` (WP5 exit gate),
+      `CompletionConcurrencyTest` (same-room race, post-commit retry,
+      concurrent undo), `ConcurrentCompletionTest` extension,
+      inactive-occurrence 409 integration case, and the §4 unit-level
+      "undo → same-day re-complete → 200" service case. **Open.**
+- [ ] **RF-03** major · `tests/e2e/` · step 8 re-pins pending:
+      `release-task-lifecycle.spec.ts` and `task-completion.spec.ts` still
+      drive/intercept the pruned split chain; full-flow reload-equality and
+      undo-queue journeys missing. **Open.**
+- [ ] **RF-04** major · durable docs & dispositions · step 10 pending:
+      ADR-011 (already referenced by `TransactionExecutor`/`CompletedTask`/
+      `CompletionService` docblocks — must land), ADR-007 annotation,
+      `development.md` locking section, `docs/api/README.md`,
+      `task-model-and-sync.md`, backlog dispositions (CR-WF-02, UX-015,
+      CR-053-20 WP5 slice, CR-SVC-15/40 WP5 slices), CS-PLAN-058 §9 WP5
+      row. **Open.**
+- [ ] **RF-05** minor · `lib/Service/CompletionService.php:409,621-627` ·
+      undo edge: if the completer's membership row was deleted after
+      completion, the actor-gate `houseUserMapper->find()` throws
+      `DoesNotExistException` → unhandled 500 instead of a clean 4xx; and
+      `lockCompleterOrForbidden` reuses the completion-worded 403 message
+      ("Only house members can complete tasks") in the undo context.
+      Auth-adjacent → not auto-fixed (review skill §6). **Open** (next
+      round).
+- [x] **RF-06** block · `lib/Migration/Version1029Date20260906000000.php` ·
+      dead-column drops missed the dependent indexes `idx_team_complete`
+      (Version1008, on `is_team_completion`) and `idx_claimed_complete`
+      (Version1009, on `was_claimed_completion`) → MariaDB error 1072 on
+      fresh install; app activation failed, Docker env dead, all backend
+      gates unrunnable. **Resolved in review 2026-09-09** (user-authorized
+      migration fix: guarded `dropIndex` before the column drops; fresh
+      install verified green).
+- [x] **RF-07** major · `l10n/{en,de}.json`, `templates/chorestrike.pot` ·
+      the two new strings ("Task is not active", "Only the completer or a
+      house owner can undo a completion") were missing from the artifacts
+      (rule 6: same-change). **Resolved in review** (added en/de/pot;
+      `l10n:check-keys` green).
+- [x] **RF-08** minor · `lib/Service/CompletionService.php` · unused
+      `AuthorizationService` injection (the D3 actor gate uses
+      `HouseUser::isOwner()` — functionally equivalent to the plan's
+      wording). **Resolved in review** (dependency removed, test updated).
+- [x] **RF-09** major · integration-test wiring for the new schema/
+      signatures · six raw `chorestrike_completed_tasks` seed fixtures
+      missing the NOT NULL `before_state`/`deltas` columns (SQLSTATE 1364);
+      six `RoomTaskController`/`TaskController` construction sites on the
+      old signatures; `TaskLifecycleVisibilityApiTest` calling the pruned
+      `uncomplete()`/`reactivate()` endpoints (44 integration errors).
+      **Resolved in review** (fixtures seeded with empty effect JSON;
+      constructors rewired; lifecycle spec re-pinned to the undo aggregate
+      incl. a once-task `is_active` restore case replacing the reactivate
+      coverage; suite green).
+- [x] **RF-10** minor · `lib/Service/GameLogicService.php` legacy
+      self-insert path (frozen-test compatibility, `$ledgerRow === null`)
+      inserted without the NOT NULL effect-record columns → would fail on a
+      real DB. **Resolved in review** (empty-JSON defaults set before the
+      legacy insert; production always threads the caller-owned row).
+- [x] **RF-11** nit · stale docblocks referencing the deleted
+      `RoomService::completeRoomTask` (`GameLogicService.php:113`,
+      `RoomTask.php:271`). **Resolved in review.**

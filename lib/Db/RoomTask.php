@@ -268,7 +268,7 @@ class RoomTask extends Entity implements JsonSerializable {
 	 * Mark this task as claimed/taken over by another user.
 	 *
 	 * Centralizes the claim state transition for the overdue-takeover
-	 * (RoomService::completeRoomTask records a takeover when a non-assignee
+	 * (CompletionService::complete records a takeover when a non-assignee
 	 * completes another member's overdue task).
 	 *
 	 * @param string $originalAssignee The user the task was assigned to before the claim

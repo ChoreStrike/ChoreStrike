@@ -237,6 +237,45 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 	}
 
 	/**
+	 * Restore snapshotted progress rows after an undo (CS-PLAN-064 WP5).
+	 *
+	 * Re-inserts the recorded (checklistItemId, userId, checked, checkedAt)
+	 * rows captured before the completion reset. Rows are plain re-inserts
+	 * inside the caller's transaction — the undo aggregate holds the room
+	 * task lock, so no concurrent toggle can interleave.
+	 *
+	 * @param int $roomTaskId The room task ID
+	 * @param array<int, array{checklistItemId: int, userId: int|null, checked: bool, checkedAt?: string|null}> $rows
+	 */
+	public function restoreProgress(int $roomTaskId, array $rows): void {
+		foreach ($rows as $row) {
+			$progress = new RoomTaskChecklistProgress();
+			$progress->setRoomTaskId($roomTaskId);
+			$progress->setChecklistItemId((int)$row['checklistItemId']);
+			$progress->setIsChecked((bool)($row['checked'] ?? false));
+			$checkedAt = $row['checkedAt'] ?? null;
+			$progress->setCheckedAt($checkedAt !== null && $checkedAt !== '' ? new \DateTime($checkedAt) : null);
+			$progress->setCheckedByUserId($row['userId'] ?? null);
+
+			try {
+				$this->insert($progress);
+			} catch (\OCP\DB\Exception $e) {
+				if ($e->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
+					throw $e;
+				}
+				// Row re-created between the aggregate's delete and this
+				// insert (defensive; impossible under the room-task lock):
+				// the row exists, keep the snapshotted state authoritative.
+				$existing = $this->findByRoomTaskAndItem($roomTaskId, (int)$row['checklistItemId']);
+				$existing->setIsChecked((bool)($row['checked'] ?? false));
+				$existing->setCheckedAt($checkedAt !== null && $checkedAt !== '' ? new \DateTime($checkedAt) : null);
+				$existing->setCheckedByUserId($row['userId'] ?? null);
+				$this->update($existing);
+			}
+		}
+	}
+
+	/**
 	 * Delete all progress entries of the given room tasks in one statement
 	 * (CS-PLAN-037 cascade; plural sibling of deleteByRoomTaskId).
 	 *

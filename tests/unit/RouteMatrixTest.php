@@ -271,15 +271,41 @@ class RouteMatrixTest extends TestCase {
 	/**
 	 * Route count pin (CS-PLAN-055): 71 declared routes = 67 production +
 	 * 3 `/test/*` harness + `page#index`. CS-PLAN-063 pruned `POST /tasks`
-	 * (task#create) → 70. New routes must land with a consumer (see the
-	 * prune guards above) — the count only moves when an expose decision
-	 * updates this pin deliberately.
+	 * (task#create) → 70. CS-PLAN-064 pruned `PUT /tasks/{id}/uncomplete`
+	 * and `POST /room-tasks/{id}/reactivate`, added the undo aggregate
+	 * `POST /room-tasks/{id}/undo` → 69. New routes must land with a
+	 * consumer (see the prune guards above) — the count only moves when an
+	 * expose decision updates this pin deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			70,
+			69,
 			$this->routes['routes'],
-			'Route count drifted from the pin (70 after CS-PLAN-063) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (69 after CS-PLAN-064) — add only with a consumer, then update deliberately'
+		);
+	}
+
+	/**
+	 * The split-undo chain pruned by CS-PLAN-064 (decision D5) must stay
+	 * gone: the one idempotent undo operation is POST /room-tasks/{id}/undo.
+	 * Re-adding either legacy route requires a new expose decision.
+	 */
+	public function testPrunedUndoChainRoutesAreNotReintroduced(): void {
+		$declared = array_map(
+			static fn (array $route): string => $route['verb'] . ' ' . $route['url'],
+			$this->routes['routes']
+		);
+
+		$this->assertContains('POST /api/v1/room-tasks/{id}/undo', $declared, 'The undo aggregate route must exist');
+		$this->assertNotContains(
+			'PUT /api/v1/tasks/{id}/uncomplete',
+			$declared,
+			'CS-PLAN-064 pruned PUT /tasks/{id}/uncomplete — use POST /room-tasks/{id}/undo'
+		);
+		$this->assertNotContains(
+			'POST /api/v1/room-tasks/{id}/reactivate',
+			$declared,
+			'CS-PLAN-064 pruned POST /room-tasks/{id}/reactivate — use POST /room-tasks/{id}/undo'
 		);
 	}
 

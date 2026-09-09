@@ -8,7 +8,7 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Exception\NotFoundException;
-use OCA\ChoreStrike\Service\RoomService;
+use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
 /**
@@ -93,9 +93,9 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 
 	public function testOwnerCanCompleteAdminOnlyTask(): void {
 		$this->actingAs('admin_owner');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $roomService->completeRoomTask($this->adminOnlyRoomTaskId, 'admin_owner');
+		$result = $completionService->complete($this->houseId, 'admin_owner', $this->adminOnlyRoomTaskId);
 
 		self::assertArrayHasKey('rewards', $result);
 		self::assertGreaterThan(0, $result['rewards']['coins']);
@@ -103,33 +103,33 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 
 	public function testMemberCannotCompleteAdminOnlyTask(): void {
 		$this->actingAs('admin_member');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Task not found');
-		$roomService->completeRoomTask($this->adminOnlyRoomTaskId, 'admin_member');
+		$completionService->complete($this->houseId, 'admin_member', $this->adminOnlyRoomTaskId);
 	}
 
 	public function testChildCannotCompleteAdminOnlyTask(): void {
 		$this->actingAs('admin_child');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Task not found');
-		$roomService->completeRoomTask($this->adminOnlyRoomTaskId, 'admin_child');
+		$completionService->complete($this->houseId, 'admin_child', $this->adminOnlyRoomTaskId);
 	}
 
 	// ========== Admin-Only Tasks Grant Rewards ==========
 
 	public function testAdminOnlyTaskCompletionAwardsCoins(): void {
 		$this->actingAs('admin_owner');
-		$roomService = \OC::$server->get(RoomService::class);
+		$completionService = \OC::$server->get(CompletionService::class);
 		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
 
 		$before = $houseUserMapper->findByNextcloudUserId($this->houseId, 'admin_owner');
 		$coinsBefore = $before->getCoins();
 
-		$result = $roomService->completeRoomTask($this->adminOnlyRoomTaskId, 'admin_owner');
+		$result = $completionService->complete($this->houseId, 'admin_owner', $this->adminOnlyRoomTaskId);
 
 		$after = $houseUserMapper->findByNextcloudUserId($this->houseId, 'admin_owner');
 		self::assertGreaterThan($coinsBefore, $after->getCoins());

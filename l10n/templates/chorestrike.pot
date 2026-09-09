@@ -1620,6 +1620,9 @@ msgstr ""
 msgid "Only house owners may update an admin-only task"
 msgstr ""
 
+msgid "Only the completer or a house owner can undo a completion"
+msgstr ""
+
 msgid "Only the task owner may delete a private task"
 msgstr ""
 
@@ -2176,6 +2179,9 @@ msgid "Task deleted successfully"
 msgstr ""
 
 msgid "Task filter"
+msgstr ""
+
+msgid "Task is not active"
 msgstr ""
 
 msgid "Task Name"

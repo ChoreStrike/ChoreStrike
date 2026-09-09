@@ -100,6 +100,10 @@ class HouseActivityIntegrationTest extends IntegrationTestCase {
 				'completed_at' => $qb->createNamedParameter($completedAt),
 				'coins_earned' => $qb->createNamedParameter($coins, IQueryBuilder::PARAM_INT),
 				'was_combo' => $qb->createNamedParameter(0),
+				// WP5 effect-record columns are NOT NULL (CS-PLAN-064); the
+				// activity fixtures carry no undo semantics → empty JSON.
+				'before_state' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
+				'deltas' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
 			]);
 		$qb->executeStatement();
 

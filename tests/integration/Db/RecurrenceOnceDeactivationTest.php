@@ -13,7 +13,7 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Service\RoomService;
+use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 
 /**
@@ -43,8 +43,8 @@ class RecurrenceOnceDeactivationTest extends IntegrationTestCase {
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'once_owner');
 
 		$this->actingAs('once_owner');
-		$roomService = \OC::$server->get(RoomService::class);
-		$result = $roomService->completeRoomTask($roomTaskId, 'once_owner');
+		$completionService = \OC::$server->get(CompletionService::class);
+		$result = $completionService->complete($houseId, 'once_owner', $roomTaskId);
 
 		/** @var RoomTask $completed */
 		$completed = $result['roomTask'];
@@ -64,8 +64,8 @@ class RecurrenceOnceDeactivationTest extends IntegrationTestCase {
 		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'rec_owner');
 
 		$this->actingAs('rec_owner');
-		$roomService = \OC::$server->get(RoomService::class);
-		$result = $roomService->completeRoomTask($roomTaskId, 'rec_owner');
+		$completionService = \OC::$server->get(CompletionService::class);
+		$result = $completionService->complete($houseId, 'rec_owner', $roomTaskId);
 
 		/** @var RoomTask $completed */
 		$completed = $result['roomTask'];

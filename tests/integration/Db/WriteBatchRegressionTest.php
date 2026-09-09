@@ -101,6 +101,10 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 				'completed_at' => $qb->createNamedParameter('2026-08-20 10:00:00', IQueryBuilder::PARAM_STR),
 				'coins_earned' => $qb->createNamedParameter(10, IQueryBuilder::PARAM_INT),
 				'was_combo' => $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL),
+				// WP5 effect-record columns are NOT NULL (CS-PLAN-064); the
+				// cascade fixtures carry no undo semantics → empty JSON.
+				'before_state' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
+				'deltas' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
 			]);
 		$qb->executeStatement();
 	}

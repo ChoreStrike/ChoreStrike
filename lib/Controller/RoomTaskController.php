@@ -8,10 +8,12 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskCreationService;
@@ -28,6 +30,7 @@ class RoomTaskController extends Controller {
 	use ControllerLoggingTrait;
 
 	private RoomTaskService $roomTaskService;
+	private CompletionService $completionService;
 	private TaskCreationService $taskCreationService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
@@ -37,6 +40,7 @@ class RoomTaskController extends Controller {
 	public function __construct(
 		IRequest $request,
 		RoomTaskService $roomTaskService,
+		CompletionService $completionService,
 		TaskCreationService $taskCreationService,
 		HouseService $houseService,
 		AuthorizationService $authService,
@@ -46,6 +50,7 @@ class RoomTaskController extends Controller {
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomTaskService = $roomTaskService;
+		$this->completionService = $completionService;
 		$this->taskCreationService = $taskCreationService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
@@ -385,40 +390,6 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
-	 * Reactivate room task
-	 *
-	 * @NoAdminRequired
-	 */
-	public function reactivate(int $id): JSONResponse {
-		try {
-			$instanceId = $this->houseService->getInstanceId();
-			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$houseUser = $this->authService->assertHouseMember($house->getId());
-			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
-
-			$roomTask = $this->roomTaskService->reactivateTask($id, $houseUser);
-
-			return new JSONResponse([
-				'success' => true,
-				'data' => $roomTask->jsonSerialize($this->timeZoneOf($house))
-			]);
-		} catch (NotFoundException $e) {
-			return ControllerErrorFormatter::notFoundResponse($e);
-		} catch (ForbiddenException $e) {
-			return ControllerErrorFormatter::forbiddenResponse($e);
-		} catch (\Exception $e) {
-			$this->logControllerException('reactivate', $e, ['roomTaskId' => $id]);
-			return new JSONResponse([
-				'success' => false,
-				'error' => [
-					'code' => 'REACTIVATE_TASK_ERROR',
-					'message' => ControllerErrorFormatter::safeMessage($e)
-				]
-			], 500);
-		}
-	}
-
-	/**
 	 * Update room task due date
 	 *
 	 * @NoAdminRequired
@@ -464,6 +435,9 @@ class RoomTaskController extends Controller {
 	/**
 	 * Complete room task
 	 *
+	 * Calls the CompletionService aggregate directly (CS-PLAN-064, decision
+	 * D2 — the RoomTaskService::completeTask passthrough is gone).
+	 *
 	 * @NoAdminRequired
 	 */
 	public function complete(int $id): JSONResponse {
@@ -474,7 +448,7 @@ class RoomTaskController extends Controller {
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
 			$currentUserId = $this->authService->requireCurrentUserId();
-			$result = $this->roomTaskService->completeTask($id, $currentUserId);
+			$result = $this->completionService->complete($house->getId(), $currentUserId, $id);
 
 			return new JSONResponse([
 				'success' => true,
@@ -489,12 +463,63 @@ class RoomTaskController extends Controller {
 			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
 			$this->logControllerException('complete', $e, ['roomTaskId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
 					'code' => 'COMPLETE_TASK_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Undo the newest revertible completion of a room task (CS-PLAN-064 WP5).
+	 *
+	 * One idempotent aggregate: restores recurrence, ledger marking,
+	 * rewards/streak/freezes/titles, cleanliness, and checklist progress
+	 * from the recorded effect. Nothing revertible → 200 with
+	 * `undone: false` (zero writes).
+	 *
+	 * @NoAdminRequired
+	 */
+	public function undo(int $id): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$houseUser = $this->authService->assertHouseMember($house->getId());
+			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
+
+			$result = $this->completionService->undo($house->getId(), $houseUser, $id);
+
+			$data = [
+				'roomTask' => $result['roomTask']->jsonSerialize($this->timeZoneOf($house)),
+				'room' => $result['room']->jsonSerialize(),
+				'task' => $result['task']->jsonSerialize(),
+				'rewards' => $result['rewards'],
+				'undone' => $result['undone'],
+			];
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $data
+			]);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			return ControllerErrorFormatter::conflictResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('undo', $e, ['roomTaskId' => $id]);
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'UNDO_TASK_ERROR',
 					'message' => ControllerErrorFormatter::safeMessage($e)
 				]
 			], 500);

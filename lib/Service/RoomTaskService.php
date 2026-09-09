@@ -456,21 +456,6 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Reactivate room task
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param HouseUser $houseUser The acting user's house membership
-	 */
-	public function reactivateTask(int $roomTaskId, HouseUser $houseUser): RoomTask {
-		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
-		$this->assertLifecycleVisibility($roomTask, $this->findTaskOrNotFound($roomTask->getTaskId()), $houseUser);
-		$this->roomTaskMapper->reactivate($roomTaskId);
-
-		// Return updated room task
-		return $this->roomTaskMapper->find($roomTaskId);
-	}
-
-	/**
 	 * Update room task due date
 	 *
 	 * @param int $roomTaskId The room task ID
@@ -484,16 +469,6 @@ class RoomTaskService {
 
 		// Return updated room task
 		return $this->roomTaskMapper->find($roomTaskId);
-	}
-
-	/**
-	 * Complete room task
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param string $userId The user who completed the task
-	 */
-	public function completeTask(int $roomTaskId, string $userId): array {
-		return $this->roomService->completeRoomTask($roomTaskId, $userId);
 	}
 
 	/**
@@ -965,20 +940,6 @@ class RoomTaskService {
 	public function assertLifecycleVisibility(RoomTask $roomTask, Task $task, HouseUser $houseUser): void {
 		$assigneeUserIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId());
 		$this->taskAccessPolicy->assertCanView($task, $houseUser, $assigneeUserIds);
-	}
-
-	/**
-	 * Uncomplete a room task
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param HouseUser $houseUser The acting user's house membership
-	 * @return RoomTask The updated room task
-	 */
-	public function uncompleteTask(int $roomTaskId, HouseUser $houseUser): RoomTask {
-		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
-		$this->assertLifecycleVisibility($roomTask, $this->findTaskOrNotFound($roomTask->getTaskId()), $houseUser);
-		$roomTask->setLastCompleted(null);
-		return $this->roomTaskMapper->update($roomTask);
 	}
 
 	/**

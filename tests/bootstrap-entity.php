@@ -22,6 +22,7 @@ require_once __DIR__ . '/__mocks__/OCP/IDBConnection.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/IResult.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/Exception.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IQueryBuilder.php';
+require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IFunctionBuilder.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpression.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/QueryBuilder/IExpressionBuilder.php';
 require_once __DIR__ . '/__mocks__/OCP/DB/ISchemaWrapper.php';

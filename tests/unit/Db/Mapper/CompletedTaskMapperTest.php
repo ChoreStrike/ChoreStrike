@@ -176,4 +176,167 @@ class CompletedTaskMapperTest extends TestCase {
 		$this->assertSame([10, 11], $capturedParams[0]['value']);
 		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[0]['type']);
 	}
+
+	/**
+	 * D11 query pin (CS-PLAN-064): the day-duplicate guard excludes undone
+	 * rows — the query must carry `undone_at IS NULL`.
+	 */
+	public function testCountByRoomTaskAndUserOnDate_ExcludesUndoneRows(): void {
+		$isNullColumns = [];
+		$this->expr->method('isNull')->willReturnCallback(
+			function (string $column) use (&$isNullColumns) {
+				$isNullColumns[] = $column;
+				return 'UNDONE_NULL_PREDICATE';
+			}
+		);
+		$this->expr->method('eq')->willReturn('EQ');
+		$this->expr->method('gte')->willReturn('GTE');
+		$this->expr->method('lt')->willReturn('LT');
+		$this->qb->method('select')->willReturn($this->qb);
+		$this->qb->method('from')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
+		$func = $this->createMock(\OCP\DB\QueryBuilder\IFunctionBuilder::class);
+		$func->method('count')->willReturn('COUNT');
+		$this->qb->method('func')->willReturn($func);
+
+		$predicates = [];
+		$this->qb->method('andWhere')->willReturnCallback(
+			function ($predicate) use (&$predicates) {
+				$predicates[] = $predicate;
+				return $this->qb;
+			}
+		);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetchOne')->willReturn(0);
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$this->mapper->countByRoomTaskAndUserOnDate(1, 2, new \DateTime(), new \DateTime());
+
+		$this->assertContains('undone_at', $isNullColumns, 'day-duplicate guard must filter undone rows');
+	}
+
+	/**
+	 * D11 query pin (CS-PLAN-064): the combo window excludes undone rows —
+	 * an undone completion neither keeps nor starts a combo.
+	 */
+	public function testFindRecentByUserId_ExcludesUndoneRows(): void {
+		$isNullColumns = [];
+		$this->expr->method('isNull')->willReturnCallback(
+			function (string $column) use (&$isNullColumns) {
+				$isNullColumns[] = $column;
+				return 'UNDONE_NULL_PREDICATE';
+			}
+		);
+		$this->expr->method('eq')->willReturn('EQ');
+		$this->expr->method('gte')->willReturn('GTE');
+		$this->qb->method('select')->willReturn($this->qb);
+		$this->qb->method('from')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
+		$this->qb->method('orderBy')->willReturn($this->qb);
+
+		$predicates = [];
+		$this->qb->method('andWhere')->willReturnCallback(
+			function ($predicate) use (&$predicates) {
+				$predicates[] = $predicate;
+				return $this->qb;
+			}
+		);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturn(false);
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$this->assertSame([], $this->mapper->findRecentByUserId(2, 5));
+
+		$this->assertContains('undone_at', $isNullColumns, 'combo window must filter undone rows');
+	}
+
+	/**
+	 * D11 query pin (CS-PLAN-064): the weekly-goal count excludes undone
+	 * rows — undo deflates the weekly goal.
+	 */
+	public function testFindCompletedRoomTaskIdsBetweenByHouse_ExcludesUndoneRows(): void {
+		$isNullColumns = [];
+		$this->expr->method('isNull')->willReturnCallback(
+			function (string $column) use (&$isNullColumns) {
+				$isNullColumns[] = $column;
+				return 'UNDONE_NULL_PREDICATE';
+			}
+		);
+		$this->expr->method('eq')->willReturn('EQ');
+		$this->expr->method('gte')->willReturn('GTE');
+		$this->expr->method('lt')->willReturn('LT');
+		$this->qb->method('select')->willReturn($this->qb);
+		$this->qb->method('from')->willReturn($this->qb);
+		$this->qb->method('innerJoin')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
+		$this->qb->method('groupBy')->willReturn($this->qb);
+
+		$predicates = [];
+		$this->qb->method('andWhere')->willReturnCallback(
+			function ($predicate) use (&$predicates) {
+				$predicates[] = $predicate;
+				return $this->qb;
+			}
+		);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturn(false);
+		$mockResult->method('closeCursor');
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$this->assertSame([], $this->mapper->findCompletedRoomTaskIdsBetweenByHouse(
+			1,
+			new \DateTime('2026-09-01'),
+			new \DateTime('2026-09-08')
+		));
+
+		$this->assertContains('ct.undone_at', $isNullColumns, 'weekly-goal count must filter undone rows');
+	}
+
+	/**
+	 * findNewestRevertibleByRoomTask: no revertible row → NULL (the undo
+	 * aggregate's idempotent no-op trigger), not an exception.
+	 */
+	public function testFindNewestRevertibleByRoomTask_NoRow_ReturnsNull(): void {
+		$this->expr->method('eq')->willReturn('EQ');
+		$this->expr->method('isNull')->willReturn('NULL');
+		$this->qb->method('select')->willReturn($this->qb);
+		$this->qb->method('from')->willReturn($this->qb);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
+		$this->qb->method('orderBy')->willReturn($this->qb);
+		$this->qb->method('setMaxResults')->willReturn($this->qb);
+
+		$mockResult = $this->createMock(IResult::class);
+		$mockResult->method('fetch')->willReturn(false);
+		$this->qb->method('executeQuery')->willReturn($mockResult);
+
+		$this->assertNull($this->mapper->findNewestRevertibleByRoomTask(1));
+	}
+
+	/**
+	 * markUndone stamps `undone_at` (PARAM_DATE) on the given ledger row.
+	 */
+	public function testMarkUndone_SetsUndoneAtOnRow(): void {
+		$capturedSets = [];
+		$this->qb->method('update')->willReturn($this->qb);
+		$this->qb->method('set')->willReturnCallback(
+			function ($column, $value) use (&$capturedSets) {
+				$capturedSets[$column] = $value;
+				return $this->qb;
+			}
+		);
+		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->expects($this->once())->method('executeStatement');
+
+		$at = new \DateTime('2026-09-06T12:00:00');
+		$this->mapper->markUndone(42, $at);
+
+		$this->assertArrayHasKey('undone_at', $capturedSets, 'markUndone must write the undone_at column');
+	}
 }

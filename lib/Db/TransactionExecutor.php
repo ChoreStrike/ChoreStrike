@@ -40,9 +40,23 @@ use Throwable;
  * only lock; bulk iterates its per-item transactions in ascending-id
  * order to keep the batch deadlock-free.
  *
- * See docs/engineering/development.md ("Locking and transactions") and
- * ADR-007's completion ordering; the completion-ledger lookup/inversion
- * primitives built on this order arrive with WP5 / ADR-011.
+ * Completion/undo usage (CS-PLAN-064 WP5 / ADR-011): CompletionService owns
+ * both aggregates on the documented order
+ *
+ *   room_task → room → house_user
+ *
+ * Completion locks the room task first (fresh entity, ADR-007 #3), then the
+ * room row (RoomMapper::lockForUpdate) — two same-room completions serialize
+ * on it so cleanliness cannot clobber — then the completer's house_user row
+ * (the same row GameLogicService locks for the reward write). Undo follows
+ * the identical order, locking the COMPLETER's house_user (the actor may
+ * differ). The task definition is deliberately not locked (stable read-only
+ * input; ratified deviation, decision D12). The order never mixes with the
+ * setup/creation house-first order: completion/undo never take the house
+ * row lock, so no cycle exists.
+ *
+ * See docs/engineering/development.md ("Locking and transactions"),
+ * ADR-007's completion ordering, and ADR-011 for the effect record.
  */
 class TransactionExecutor {
 	private IDBConnection $db;

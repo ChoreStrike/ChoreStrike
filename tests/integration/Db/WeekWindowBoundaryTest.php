@@ -116,6 +116,10 @@ class WeekWindowBoundaryTest extends IntegrationTestCase {
 				'completed_at' => $qb->createNamedParameter($completedAt, IQueryBuilder::PARAM_STR),
 				'coins_earned' => $qb->createNamedParameter(10, IQueryBuilder::PARAM_INT),
 				'was_combo' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_BOOL),
+				// WP5 effect-record columns are NOT NULL (CS-PLAN-064); the
+				// week-window fixtures carry no undo semantics → empty JSON.
+				'before_state' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
+				'deltas' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
 			]);
 		$qb->executeStatement();
 

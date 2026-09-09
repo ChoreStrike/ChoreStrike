@@ -8,7 +8,6 @@ use OCA\ChoreStrike\Controller\TaskController;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskService;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -20,7 +19,6 @@ use PHPUnit\Framework\TestCase;
 class TaskControllerIntegrationTest extends TestCase {
 	private TaskController $controller;
 	private TaskService $taskService;
-	private RoomTaskService $roomTaskService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IRequest $request;
@@ -30,7 +28,6 @@ class TaskControllerIntegrationTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->taskService = $this->createMock(TaskService::class);
-		$this->roomTaskService = $this->createMock(RoomTaskService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
 		// Identity mock: message assertions match the wrapped source text.
@@ -40,7 +37,6 @@ class TaskControllerIntegrationTest extends TestCase {
 		$this->controller = new TaskController(
 			$this->request,
 			$this->taskService,
-			$this->roomTaskService,
 			$this->houseService,
 			$this->authService,
 			$l10n,

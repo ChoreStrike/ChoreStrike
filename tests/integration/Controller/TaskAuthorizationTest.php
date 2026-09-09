@@ -337,6 +337,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 		return new RoomTaskController(
 			$request,
 			\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class),
+			\OC::$server->get(\OCA\ChoreStrike\Service\CompletionService::class),
 			\OC::$server->get(\OCA\ChoreStrike\Service\TaskCreationService::class),
 			\OC::$server->get(\OCA\ChoreStrike\Service\HouseService::class),
 			\OC::$server->get(\OCA\ChoreStrike\Service\AuthorizationService::class),

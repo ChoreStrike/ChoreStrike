@@ -40,6 +40,9 @@ class CompletedTaskMapper extends QBMapper {
 	/**
 	 * Find recent completions (within last N minutes)
 	 *
+	 * Combo-window read (decision D11): undone rows are excluded — an
+	 * undone completion neither keeps nor starts a combo.
+	 *
 	 * @param int $userId The house user ID
 	 * @param int $minutes Number of minutes to look back
 	 * @return CompletedTask[]
@@ -52,6 +55,7 @@ class CompletedTaskMapper extends QBMapper {
 			->from($this->getTableName())
 			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($cutoffDate, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->isNull('undone_at'))
 			->orderBy('completed_at', 'DESC');
 
 		return $this->findEntities($qb);
@@ -139,6 +143,8 @@ class CompletedTaskMapper extends QBMapper {
 	 *
 	 * Used by the duplicate-completion guard to prevent the same user from
 	 * earning coins twice for the same room task on the same day.
+	 * Decision D11: undone rows are excluded — undo → same-day re-completion
+	 * is a legal, non-duplicate occurrence.
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param int $houseUserId The house user ID (internal)
@@ -153,7 +159,8 @@ class CompletedTaskMapper extends QBMapper {
 			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)));
+			->andWhere($qb->expr()->lt('completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->isNull('undone_at'));
 
 		$result = $qb->executeQuery();
 		return (int)$result->fetchOne();
@@ -267,6 +274,8 @@ class CompletedTaskMapper extends QBMapper {
 	 * three times this week contributes 1 unit, matching the "this task was
 	 * done this week" intuition rather than "we did N chores".
 	 *
+	 * Decision D11: undone rows are excluded — undo deflates the weekly goal.
+	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTimeInterface $start Inclusive range start
 	 * @param \DateTimeInterface $end Exclusive range end
@@ -282,6 +291,7 @@ class CompletedTaskMapper extends QBMapper {
 			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
 			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->isNull('ct.undone_at'))
 			->groupBy('ct.room_task_id');
 
 		$result = $qb->executeQuery();
@@ -445,6 +455,44 @@ class CompletedTaskMapper extends QBMapper {
 		$result->closeCursor();
 
 		return (int)($row['cnt'] ?? 0);
+	}
+
+	/**
+	 * Find the newest still-revertible completion of a room task (WP5, D3).
+	 *
+	 * `undone_at IS NULL` + newest `completed_at`: the LIFO undo unit for
+	 * the room task. NULL when nothing is revertible — the undo aggregate
+	 * treats a miss as the idempotent zero-write no-op.
+	 *
+	 * Callers re-check revertibility under the room-task lock; this lookup
+	 * is a plain read and must not be the final gate for a mutating path.
+	 */
+	public function findNewestRevertibleByRoomTask(int $roomTaskId): ?CompletedTask {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('undone_at'))
+			->orderBy('completed_at', 'DESC')
+			->setMaxResults(1);
+
+		try {
+			return $this->findEntity($qb);
+		} catch (DoesNotExistException $e) {
+			return null;
+		}
+	}
+
+	/**
+	 * Mark a ledger row undone (WP5): stamps `undone_at` so the occurrence
+	 * stops being revertible and drops out of every D11-filtered read.
+	 */
+	public function markUndone(int $id, \DateTime $at): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update($this->getTableName())
+			->set('undone_at', $qb->createNamedParameter($at, IQueryBuilder::PARAM_DATE))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
 	}
 
 	/**
