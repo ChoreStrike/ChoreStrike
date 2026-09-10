@@ -78,9 +78,11 @@ extends, rather than duplicates, **CR-SVC-15**, **CR-SVC-40**, **CR-SVC-41**, an
 ---
 
 ### [P1] CR-WF-07 — Make scheduling produce an actionable household plan
-**Status**: Planned · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
-**Owning**: CS-PLAN-058 WP6 · **Depends on**: — (the old completion/undo dependency was delivered 2026-09-09 by CS-PLAN-064; see the monthly archive) · **Blocks**: CR-WF-04 · **Folded-in**: —
+**Status**: In Progress · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
+**Owning**: CS-PLAN-065 (CS-PLAN-058 WP6) · **Depends on**: — (the old completion/undo dependency was delivered 2026-09-09 by CS-PLAN-064; see the monthly archive) · **Blocks**: CR-WF-04 · **Folded-in**: —
 **Source**: CS-PLAN-058 core workflow masterplan (2026-09-02)
+
+**Plan**: [CS-PLAN-065](../plans/active/cs-plan-065-wp6-actionable-scheduling.md) (Standard A `PASS` 2026-09-10, activated; implementation not started).
 
 The existing scheduling surface can preview capacity, but the core journey needs
 an explicit, owner-confirmed bridge from suggestions to real room-task assignees
@@ -289,9 +291,11 @@ archive entry).
 ---
 
 ### [P3] CR-055-01 — scheduling store: reader-less `todayConsumedEnergy` write cluster
-**Status**: Backlog · **Effort**: S · **Layer**: frontend · **Journey stage**: scheduling
-**Owning**: CS-PLAN-058 WP6 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: scheduling
+**Owning**: CS-PLAN-065 (CS-PLAN-058 WP6) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-055 (record-and-delete boundary)
+
+**Plan**: [CS-PLAN-065](../plans/active/cs-plan-065-wp6-actionable-scheduling.md), decision D7 ratified 2026-09-10 (remove the cluster).
 
 After the 9 superseded scheduling getters (incl. `todayRemainingEnergy`) were
 pruned, `registerTodayEnergyConsumption` (called by `roomTasks.completeRoomTask`)
