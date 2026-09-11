@@ -10,7 +10,7 @@
 
 ## In Progress
 
-_Nothing in progress right now._
+- **CS-PLAN-065 / WP6 — Actionable Scheduling Through My Day** — Final Standard B 2026-09-11: `NEEDS-FOLLOW-UP`. Implementation package verified green by the review (full masterplan gate incl. Docker unit 908 / integration 315 / cs:check / all three Playwright pools; review fixed a red stylelint `clip` error, two cs:check violations, and the §3.1-r7 Apply input-edit gating with Jest regressions). Open plan-owned findings for the next round: **RF-065-01** E2E exit-journey shortfalls (UI task creation, owner-set child limit, child-session verification, role-cannot-apply, keyboard/mobile) and **RF-065-02** component-test gaps (limit UI, planner owner-gating, Calendar refetch, keyboard/mobile). RF-065-04 concurrency lock-class coverage accepted by user decision. Plan stays `active/`; CR-WF-07/CR-055-01 open until the passing final review. → [`../plans/active/cs-plan-065-wp6-actionable-scheduling.md`](../plans/active/cs-plan-065-wp6-actionable-scheduling.md)
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 

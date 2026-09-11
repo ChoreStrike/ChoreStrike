@@ -357,7 +357,8 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
 | `time-travel-overdue.spec.ts`, `time-travel-streak-notification.spec.ts` | Time-travel flows (CS-PLAN-023): overdue via seeded past due-date, streak-freeze + at-risk notification via `trigger-jobs --as-of` |
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage |
-| `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Smart Scheduling UI — availability grid, energy budget, calendar, suggestions (revived by CS-PLAN-016) |
+| `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Smart Scheduling UI — availability grid, energy budget, capacity calendar, owner-plan preview gating (revived by CS-PLAN-016; plan preview/apply contract by CS-PLAN-065) |
+| `scheduling-apply-flow.spec.ts` | Owner plan exit journey (CS-PLAN-065): preview → adjust → apply over real seeded tasks, applied-assignment verification in My Day + calendar, stale-preview 409, unplaced overdue zero-flex row, retired taskCount contract rejection |
 | `self-availability-member.spec.ts` | Non-owner scheduling surface: "My Availability" self-service toggles, hidden owner grid, persist/reload round-trip (CS-PLAN-032; runs in default `chromium` as `admin`, ignored by firefox/webkit) |
 
 > **Archived (CS-PLAN-015, 2026-07-26):** `phase-3-user-management.spec.ts`

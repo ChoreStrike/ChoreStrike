@@ -11,10 +11,14 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 
 use OCA\ChoreStrike\Controller\SchedulingController;
 use OCA\ChoreStrike\Db\House;
+use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\SchedulePlanService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
@@ -27,6 +31,7 @@ use PHPUnit\Framework\TestCase;
 class SchedulingControllerTest extends TestCase {
 	private SchedulingController $controller;
 	private $schedulingService;
+	private $schedulePlanService;
 	private $houseService;
 	private $authService;
 	private $request;
@@ -36,6 +41,7 @@ class SchedulingControllerTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->schedulingService = $this->createMock(SchedulingService::class);
+		$this->schedulePlanService = $this->createMock(SchedulePlanService::class);
 		$this->houseService = $this->createMock(HouseService::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
 		// Identity mock: message assertions match the wrapped source text.
@@ -51,10 +57,18 @@ class SchedulingControllerTest extends TestCase {
 					throw new \InvalidArgumentException('Energy budget must be between 1 and 20');
 				}
 			});
+		// Decision D5: the limit bounds live in the services; mirror them.
+		$this->schedulingService->method('assertValidMaxDailyTasks')
+			->willReturnCallback(static function ($limit): void {
+				if (!is_int($limit) || $limit < 1 || $limit > 100) {
+					throw new \InvalidArgumentException('Max daily tasks must be an integer between 1 and 100');
+				}
+			});
 
 		$this->controller = new SchedulingController(
 			$this->request,
 			$this->schedulingService,
+			$this->schedulePlanService,
 			$this->houseService,
 			$this->authService,
 			$l10n,
@@ -374,31 +388,236 @@ class SchedulingControllerTest extends TestCase {
 		$this->assertEquals('Invalid weekday: %1$s', $response->getData()['error']['message']);
 	}
 
-	public function testGetSuggestionsReturnsSuggestions(): void {
-		$taskCount = 3;
-		$suggestions = [['day' => 'monday', 'tasks' => []]];
-
+	/**
+	 * Decision D5: the owner member endpoint persists the child limit.
+	 */
+	public function testUpdateMemberAvailability_AcceptsChildLimit(): void {
 		$this->mockHouse();
+		$updates = ['maxDailyTasks' => 4];
 
 		$this->schedulingService->expects($this->once())
-			->method('getSchedulingSuggestions')
-			->with($taskCount, 1)
-			->willReturn($suggestions);
+			->method('updateMemberAvailabilityByNextcloudUserId')
+			->with(1, 'kid', $updates);
 
-		$response = $this->controller->getSuggestions($taskCount);
+		$response = $this->controller->updateMemberAvailability('kid', $updates);
+
+		$this->assertEquals(200, $response->getStatus());
+	}
+
+	/**
+	 * Decision D5: `0` is a validation error, not "unlimited".
+	 */
+	public function testUpdateMemberAvailability_RejectsZeroLimit(): void {
+		$this->mockHouse();
+
+		$response = $this->controller->updateMemberAvailability('kid', ['maxDailyTasks' => 0]);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('Max daily tasks must be an integer between 1 and 100', $response->getData()['error']['message']);
+	}
+
+	/**
+	 * Decision D5: the update payload is a closed set.
+	 */
+	public function testUpdateMemberAvailability_RejectsUnknownField(): void {
+		$this->mockHouse();
+
+		$response = $this->controller->updateMemberAvailability('kid', ['maxDailyTasksX' => 4]);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * Decision D5: the personal endpoint can never change the child limit.
+	 */
+	public function testUpdatePreferences_RejectsPersonalMaxDailyTasks(): void {
+		$this->mockHouse();
+		$this->authService->method('requireCurrentUserId')->willReturn('user1');
+		$this->request->method('getParam')->willReturnCallback(static fn (string $key) => match ($key) {
+			'maxDailyTasks' => 4,
+			default => null,
+		});
+
+		$this->schedulingService->expects($this->never())
+			->method('updatePreferencesByNextcloudUserId');
+
+		$response = $this->controller->updatePreferences($this->fullWeek(fn () => true), null);
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertEquals('maxDailyTasks can only be changed by a house owner', $response->getData()['error']['message']);
+	}
+
+	public function testGetSuggestionsReturnsSuggestions(): void {
+		$plan = [
+			'previewVersion' => 'abc123',
+			'startDate' => '2026-09-10',
+			'endDateExclusive' => '2026-09-17',
+			'timezone' => 'UTC',
+			'changes' => [],
+			'unchanged' => [],
+			'unplaced' => [],
+			'capacity' => [],
+			'warnings' => [],
+		];
+
+		$this->mockHouse();
+		$this->authService->method('assertHouseMember')->willReturn(new HouseUser());
+		$this->request->method('getParam')->willReturnCallback(static fn (string $key) => match ($key) {
+			'startDate' => '2026-09-10',
+			'roomTaskIds' => [11, 12],
+			'overrides' => null,
+			default => null,
+		});
+
+		$this->schedulePlanService->expects($this->once())
+			->method('preview')
+			->with(1, $this->isInstanceOf(HouseUser::class), '2026-09-10', [11, 12], [])
+			->willReturn($plan);
+
+		$response = $this->controller->preview();
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
-		$this->assertEquals($suggestions, $data['data']);
+		$this->assertSame('abc123', $data['data']['previewVersion']);
 	}
 
-	public function testGetSuggestionsRejectsNegativeTaskCount(): void {
+	/**
+	 * The retired taskCount-only advice contract is rejected with a clean
+	 * 400 (CS-PLAN-065: no compatibility fallback).
+	 */
+	public function testPreview_RejectsLegacyTaskCountPayload(): void {
 		$this->mockHouse();
+		$this->authService->method('assertHouseMember')->willReturn(new HouseUser());
+		$this->request->method('getParam')->willReturnCallback(static fn (string $key) => match ($key) {
+			'taskCount' => 3,
+			default => null,
+		});
 
-		$response = $this->controller->getSuggestions(-1);
+		$this->schedulePlanService->expects($this->never())->method('preview');
+
+		$response = $this->controller->preview();
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertFalse($response->getData()['success']);
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	public function testPreview_MapsNotFoundTo404(): void {
+		$this->mockHouse();
+		$this->authService->method('assertHouseMember')->willReturn(new HouseUser());
+		$this->request->method('getParam')->willReturnCallback(static fn (string $key) => match ($key) {
+			'startDate' => '2026-09-10',
+			'roomTaskIds' => [99],
+			'overrides' => null,
+			default => null,
+		});
+
+		$this->schedulePlanService->method('preview')
+			->willThrowException(new NotFoundException('Room task not found'));
+
+		$response = $this->controller->preview();
+
+		$this->assertEquals(404, $response->getStatus());
+		$this->assertSame('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
+	}
+
+	public function testPreview_MapsInactiveTaskTo409(): void {
+		$this->mockHouse();
+		$this->authService->method('assertHouseMember')->willReturn(new HouseUser());
+		$this->request->method('getParam')->willReturnCallback(static fn (string $key) => match ($key) {
+			'startDate' => '2026-09-10',
+			'roomTaskIds' => [11],
+			'overrides' => null,
+			default => null,
+		});
+
+		$this->schedulePlanService->method('preview')
+			->willThrowException(new ConflictException('Task is not active'));
+
+		$response = $this->controller->preview();
+
+		$this->assertEquals(409, $response->getStatus());
+		$this->assertSame('CONFLICT', $response->getData()['error']['code']);
+	}
+
+	public function testPreview_MapsNonMemberTo403(): void {
+		$this->mockHouse();
+		$this->authService->method('assertHouseMember')
+			->willThrowException(new ForbiddenException('Not a member of this house'));
+
+		$response = $this->controller->preview();
+
+		$this->assertEquals(403, $response->getStatus());
+	}
+
+	public function testApply_DelegatesToPlanService(): void {
+		$result = [
+			'appliedCount' => 1,
+			'windowStart' => '2026-09-10',
+			'windowEndExclusive' => '2026-09-17',
+			'roomTasks' => [['id' => 11]],
+		];
+
+		$this->mockHouse();
+		$this->authService->method('assertHouseMember')->willReturn(new HouseUser());
+		$this->request->method('getParam')->willReturnCallback(static fn (string $key) => match ($key) {
+			'startDate' => '2026-09-10',
+			'roomTaskIds' => [11],
+			'overrides' => null,
+			'previewVersion' => 'abc123',
+			default => null,
+		});
+
+		$this->schedulePlanService->expects($this->once())
+			->method('apply')
+			->with(1, $this->isInstanceOf(HouseUser::class), '2026-09-10', [11], [], 'abc123')
+			->willReturn($result);
+
+		$response = $this->controller->apply();
+
+		$this->assertEquals(200, $response->getStatus());
+		$data = $response->getData();
+		$this->assertTrue($data['success']);
+		$this->assertSame(1, $data['data']['appliedCount']);
+	}
+
+	public function testApply_MapsStalePreviewTo409(): void {
+		$this->mockHouse();
+		$this->authService->method('assertHouseMember')->willReturn(new HouseUser());
+		$this->request->method('getParam')->willReturnCallback(static fn (string $key) => match ($key) {
+			'startDate' => '2026-09-10',
+			'roomTaskIds' => [11],
+			'overrides' => null,
+			'previewVersion' => 'stale',
+			default => null,
+		});
+
+		$this->schedulePlanService->method('apply')
+			->willThrowException(new ConflictException('The schedule preview is no longer current. Generate a new preview.'));
+
+		$response = $this->controller->apply();
+
+		$this->assertEquals(409, $response->getStatus());
+		$this->assertSame('CONFLICT', $response->getData()['error']['code']);
+	}
+
+	public function testApply_RejectsMissingPreviewVersion(): void {
+		$this->mockHouse();
+		$this->authService->method('assertHouseMember')->willReturn(new HouseUser());
+		$this->request->method('getParam')->willReturnCallback(static fn (string $key) => match ($key) {
+			'startDate' => '2026-09-10',
+			'roomTaskIds' => [11],
+			'overrides' => null,
+			default => null,
+		});
+
+		$this->schedulePlanService->expects($this->never())->method('apply');
+
+		$response = $this->controller->apply();
+
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
 	}
 }

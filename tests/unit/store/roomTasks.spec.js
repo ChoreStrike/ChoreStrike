@@ -347,19 +347,21 @@ describe('RoomTasks Store', () => {
 				expect(minigameStore.currentCoins).toBe(64)
 			})
 
-			it('registers consumed energy in scheduling store when rewards include energyCost', async () => {
-				const schedulingStore = useSchedulingStore()
-				schedulingStore.todayConsumedEnergy = 2
-				store.roomTasks = [{ id: 1, isActive: true }]
-				api.post.mockResolvedValue({
-					roomTask: { id: 1, isActive: false },
-					rewards: { energyCost: 3 },
-				})
-
-				await store.completeRoomTask(1)
-
-				expect(schedulingStore.todayConsumedEnergy).toBe(5)
+		it('does not touch the removed scheduling energy counter (D7)', async () => {
+			const schedulingStore = useSchedulingStore()
+			store.roomTasks = [{ id: 1, isActive: true }]
+			api.post.mockResolvedValue({
+				roomTask: { id: 1, isActive: false },
+				rewards: { energyCost: 3 },
 			})
+
+			await store.completeRoomTask(1)
+
+			// CS-PLAN-065 (decision D7): the writer-only todayConsumedEnergy
+			// cluster is gone — completion capacity is derived server-side.
+			expect(schedulingStore).not.toHaveProperty('todayConsumedEnergy')
+			expect(schedulingStore).not.toHaveProperty('registerTodayEnergyConsumption')
+		})
 
 			it('propagates server weekly goal snapshot to the game store', async () => {
 				const { useGameStore } = await import('../../../src/store/game.js')
@@ -524,6 +526,30 @@ describe('RoomTasks Store', () => {
 
 			await expect(store.fetchFilteredDailyTasks()).rejects.toThrow('API error')
 		})
+
+		it('a superseded older daily response never overwrites the newer result (§3.4)', async () => {
+			let resolveFirst
+			api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+			api.get.mockResolvedValueOnce([{ roomTask: { id: 2 } }])
+
+			const first = store.fetchFilteredDailyTasks()
+			await store.fetchFilteredDailyTasks()
+			resolveFirst([{ roomTask: { id: 1 } }])
+			await first
+
+			expect(store.dailyTasks).toEqual([{ roomTask: { id: 2 } }])
+		})
+
+		it('embedded assignees ride the payload (D4: My Day keeps canonical sets)', async () => {
+			const mockTasks = [
+				{ roomTask: { id: 1 }, task: { id: 1 }, room: { id: 10 }, assignees: ['dad'] },
+			]
+			api.get.mockResolvedValue(mockTasks)
+
+			await store.fetchFilteredDailyTasks()
+
+			expect(store.dailyTasks[0].assignees).toEqual(['dad'])
+		})
 	})
 
 	describe('createTaskAggregate (CS-PLAN-063 §3.5)', () => {
@@ -621,6 +647,19 @@ describe('RoomTasks Store', () => {
 
 				await expect(store.fetchRangeTasks('2026-07-28', '2026-08-03')).rejects.toThrow('Network')
 				expect(store.error).toBe('Network')
+			})
+
+			it('a superseded older range response never overwrites the newer result (§3.4)', async () => {
+				let resolveFirst
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+				api.get.mockResolvedValueOnce({ scheduled: [{ roomTask: { id: 9 } }], completed: [] })
+
+				const first = store.fetchRangeTasks('2026-07-28', '2026-08-03')
+				await store.fetchRangeTasks('2026-07-28', '2026-08-03')
+				resolveFirst({ scheduled: [{ roomTask: { id: 1 } }], completed: [] })
+				await first
+
+				expect(store.rangeTasks.scheduled).toEqual([{ roomTask: { id: 9 } }])
 			})
 		})
 

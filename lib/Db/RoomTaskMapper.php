@@ -322,7 +322,12 @@ class RoomTaskMapper extends QBMapper {
 			->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
 			->orderBy('rt.next_due', 'ASC')
-			->addOrderBy('rt.created_at', 'ASC');
+			// CS-PLAN-065 §3.3: the deterministic daily-read order is
+			// `nextDue, createdAt, id` — the id closes the tie so two rows
+			// created in the same second keep a stable relative order across
+			// engines (the child-limit slicing depends on it).
+			->addOrderBy('rt.created_at', 'ASC')
+			->addOrderBy('rt.id', 'ASC');
 
 		return $this->findEntities($qb);
 	}

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
@@ -20,14 +19,12 @@ use PHPUnit\Framework\TestCase;
 class SchedulingServiceTest extends TestCase {
 	private SchedulingService $service;
 	private HouseUserMapper $houseUserMapper;
-	private CompletedTaskMapper $completedTaskMapper;
 	private HouseMapper $houseMapper;
 
 	protected function setUp(): void {
 		parent::setUp();
 
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		// CS-PLAN-057: today's-energy window resolves the house timezone.
 		$utcHouse = new House();
@@ -36,40 +33,9 @@ class SchedulingServiceTest extends TestCase {
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		$this->service = new SchedulingService($this->houseUserMapper, $this->completedTaskMapper, $l10n, $this->houseMapper, new CalendarService());
-	}
-
-	/**
-	 * GetUserPreferences_ReturnsRealConsumedEnergy
-	 *
-	 * CR-SVC-28 regression: the variant without a Nextcloud user ID reports
-	 * the real consumed energy, not a hardcoded 0.
-	 */
-	public function testGetUserPreferences_ReturnsRealConsumedEnergy(): void {
-		$houseUser = new HouseUser();
-		$houseUser->setId(7);
-		$houseUser->setHouseId(2);
-		$houseUser->setSchedulingPreferences([]);
-
-		$this->houseUserMapper
-			->expects($this->once())
-			->method('find')
-			->with(7)
-			->willReturn($houseUser);
-
-		$this->completedTaskMapper
-			->expects($this->once())
-			->method('getConsumedEnergyForUserOnDate')
-			->with(
-				$this->equalTo(7),
-				$this->isInstanceOf(\DateTimeInterface::class),
-				$this->isInstanceOf(\DateTimeInterface::class)
-			)
-			->willReturn(9);
-
-		$preferences = $this->service->getUserPreferences(7);
-
-		$this->assertSame(9, $preferences['todayConsumedEnergy']);
+		// CS-PLAN-065 (D7): the reader-less consumed-energy cluster is gone —
+		// the service no longer depends on CompletedTaskMapper at all.
+		$this->service = new SchedulingService($this->houseUserMapper, $l10n, $this->houseMapper, new CalendarService());
 	}
 
 	/**
@@ -97,22 +63,31 @@ class SchedulingServiceTest extends TestCase {
 			->with(7)
 			->willReturn($houseUser);
 
-		$this->completedTaskMapper
-			->expects($this->once())
-			->method('getConsumedEnergyForUserOnDate')
-			->with(
-				$this->equalTo(7),
-				$this->isInstanceOf(\DateTimeInterface::class),
-				$this->isInstanceOf(\DateTimeInterface::class)
-			)
-			->willReturn(6);
-
 		$preferences = $this->service->getUserPreferencesByNextcloudUserId(2, 'member-a');
 
 		$this->assertSame(7, $preferences['userId']);
 		$this->assertSame(12, $preferences['energyBudget']['monday']);
 		$this->assertFalse($preferences['weekdayAvailability']['monday']);
-		$this->assertSame(6, $preferences['todayConsumedEnergy']);
+		// Decision D5: a missing limit serializes as null (unlimited).
+		$this->assertNull($preferences['maxDailyTasks']);
+		// Decision D7: the reader-less consumed-energy field is gone.
+		$this->assertArrayNotHasKey('todayConsumedEnergy', $preferences);
+	}
+
+	/**
+	 * GetUserPreferences_FiniteStoredLimit_ReturnsTheLimit (decision D5).
+	 */
+	public function testGetUserPreferences_FiniteStoredLimit_ReturnsTheLimit(): void {
+		$houseUser = new HouseUser();
+		$houseUser->setId(9);
+		$houseUser->setHouseId(2);
+		$houseUser->setSchedulingPreferences(['maxDailyTasks' => 5]);
+
+		$this->houseUserMapper->method('find')->willReturn($houseUser);
+
+		$preferences = $this->service->getUserPreferences(9);
+
+		$this->assertSame(5, $preferences['maxDailyTasks']);
 	}
 
 	/**
@@ -249,6 +224,26 @@ class SchedulingServiceTest extends TestCase {
 		$this->assertSame('member-z', $availability[0]['userId']);
 		$this->assertSame(42, $availability[0]['houseUserId']);
 		$this->assertSame('Member Z', $availability[0]['userName']);
+		// Decision D5: the owner payload carries the member limit.
+		$this->assertNull($availability[0]['maxDailyTasks']);
+	}
+
+	/**
+	 * GetMemberAvailability_FiniteLimit_ReturnsTheLimit (decision D5).
+	 */
+	public function testGetMemberAvailability_FiniteLimit_ReturnsTheLimit(): void {
+		$houseUser = new HouseUser();
+		$houseUser->setId(43);
+		$houseUser->setHouseId(5);
+		$houseUser->setNextcloudUserId('child-c');
+		$houseUser->setDisplayName('Child C');
+		$houseUser->setSchedulingPreferences(['maxDailyTasks' => 3]);
+
+		$this->houseUserMapper->method('findByHouseId')->willReturn([$houseUser]);
+
+		$availability = $this->service->getMemberAvailability(5);
+
+		$this->assertSame(3, $availability[0]['maxDailyTasks']);
 	}
 
 	/**
@@ -388,5 +383,142 @@ class SchedulingServiceTest extends TestCase {
 			'boolean' => [true],
 			'null' => [null],
 		];
+	}
+
+	/**
+	 * UpdateMemberAvailabilityByNextcloudUserId_FiniteLimit_PersistsTheBound
+	 * (decision D5).
+	 */
+	public function testUpdateMemberAvailabilityByNextcloudUserId_FiniteLimit_PersistsTheBound(): void {
+		$targetUser = new HouseUser();
+		$targetUser->setId(31);
+		$targetUser->setHouseId(1);
+		$targetUser->setSchedulingPreferences([]);
+
+		$this->houseUserMapper
+			->method('findByNextcloudUserId')
+			->with(1, 'kid')
+			->willReturn($targetUser);
+
+		$this->houseUserMapper
+			->expects($this->once())
+			->method('update')
+			->with($targetUser);
+
+		$this->service->updateMemberAvailabilityByNextcloudUserId(1, 'kid', ['maxDailyTasks' => 4]);
+
+		$preferences = $targetUser->getSchedulingPreferences();
+		$this->assertSame(4, $preferences['maxDailyTasks']);
+	}
+
+	/**
+	 * UpdateMemberAvailabilityByNextcloudUserId_NullLimit_ClearsTheBound
+	 * (decision D5: explicit null means unlimited).
+	 */
+	public function testUpdateMemberAvailabilityByNextcloudUserId_NullLimit_ClearsTheBound(): void {
+		$targetUser = new HouseUser();
+		$targetUser->setId(31);
+		$houseId = 1;
+		$targetUser->setHouseId($houseId);
+		$targetUser->setSchedulingPreferences(['maxDailyTasks' => 4]);
+
+		$this->houseUserMapper
+			->method('findByNextcloudUserId')
+			->with($houseId, 'kid')
+			->willReturn($targetUser);
+
+		$this->service->updateMemberAvailabilityByNextcloudUserId($houseId, 'kid', ['maxDailyTasks' => null]);
+
+		$preferences = $targetUser->getSchedulingPreferences();
+		$this->assertArrayNotHasKey('maxDailyTasks', $preferences);
+	}
+
+	/**
+	 * UpdateMemberAvailabilityByNextcloudUserId_OmittedLimit_LeavesBoundUnchanged
+	 * (decision D5).
+	 */
+	public function testUpdateMemberAvailabilityByNextcloudUserId_OmittedLimit_LeavesBoundUnchanged(): void {
+		$targetUser = new HouseUser();
+		$targetUser->setId(31);
+		$houseId = 1;
+		$targetUser->setHouseId($houseId);
+		$targetUser->setSchedulingPreferences([
+			'maxDailyTasks' => 4,
+			'energyBudget' => ['monday' => 10],
+		]);
+
+		$this->houseUserMapper
+			->method('findByNextcloudUserId')
+			->with($houseId, 'kid')
+			->willReturn($targetUser);
+
+		$this->service->updateMemberAvailabilityByNextcloudUserId($houseId, 'kid', ['energyBudget' => ['monday' => 12]]);
+
+		$preferences = $targetUser->getSchedulingPreferences();
+		$this->assertSame(4, $preferences['maxDailyTasks']);
+		$this->assertSame(12, $preferences['energyBudget']['monday']);
+	}
+
+	/**
+	 * UpdateMemberAvailabilityByNextcloudUserId_RejectsOutOfBoundsLimit
+	 * (decision D5: 0 is a validation error — unavailable weekdays already
+	 * express a day off).
+	 *
+	 * @dataProvider outOfBoundsLimitProvider
+	 */
+	public function testUpdateMemberAvailabilityByNextcloudUserId_RejectsOutOfBoundsLimit($limit): void {
+		$targetUser = new HouseUser();
+		$targetUser->setId(31);
+		$houseId = 1;
+		$targetUser->setHouseId($houseId);
+		$targetUser->setSchedulingPreferences([]);
+
+		$this->houseUserMapper
+			->method('findByNextcloudUserId')
+			->with($houseId, 'kid')
+			->willReturn($targetUser);
+
+		$this->houseUserMapper
+			->expects($this->never())
+			->method('update');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Max daily tasks must be an integer between 1 and 100');
+
+		$this->service->updateMemberAvailabilityByNextcloudUserId($houseId, 'kid', ['maxDailyTasks' => $limit]);
+	}
+
+	/**
+	 * @return array<string, array{mixed}>
+	 */
+	public static function outOfBoundsLimitProvider(): array {
+		return [
+			'zero' => [0],
+			'above max' => [101],
+			'numeric string' => ['5'],
+			'float' => [4.5],
+			'boolean' => [true],
+		];
+	}
+
+	/**
+	 * AssertValidMaxDailyTasks_BoundaryValues_Accepted (decision D5).
+	 */
+	public function testAssertValidMaxDailyTasks_BoundaryValues_Accepted(): void {
+		$this->service->assertValidMaxDailyTasks(1);
+		$this->service->assertValidMaxDailyTasks(100);
+		$this->service->assertValidMaxDailyTasks(50);
+
+		$this->assertTrue(true);
+	}
+
+	/**
+	 * AssertValidMaxDailyTasks_OutOfBounds_RejectedWithStableMessage.
+	 */
+	public function testAssertValidMaxDailyTasks_OutOfBounds_RejectedWithStableMessage(): void {
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Max daily tasks must be an integer between 1 and 100');
+
+		$this->service->assertValidMaxDailyTasks(0);
 	}
 }

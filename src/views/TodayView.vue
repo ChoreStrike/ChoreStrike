@@ -209,12 +209,21 @@ export default {
 			apply(this.overdueItems)
 		}
 		subscribe('chorestrike:task-uncompleted', this.uncompletedHandler)
+		// CS-PLAN-065 §3.4: a committed owner plan may have moved today's or
+		// overdue rows — refresh from the reconciled stores.
+		this.scheduleAppliedHandler = () => {
+			this.load()
+		}
+		subscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
 		await this.load()
 	},
 
 	beforeUnmount() {
 		if (this.uncompletedHandler) {
 			unsubscribe('chorestrike:task-uncompleted', this.uncompletedHandler)
+		}
+		if (this.scheduleAppliedHandler) {
+			unsubscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
 		}
 	},
 
@@ -248,7 +257,13 @@ export default {
 				const todayIds = new Set(daily.map(item => item.roomTask.id))
 				this.todayItems = daily
 					.filter(item => item.roomTask.isActive)
-					.map(item => ({ ...item }))
+					// CS-PLAN-065 (decision D4): filtered-daily rows embed their
+					// canonical assignee sets, so My Day never re-interprets an
+					// unknown set as unassigned after the child limit.
+					.map(item => ({
+						...item,
+						roomTask: { ...item.roomTask, assignees: item.assignees ?? item.roomTask.assignees ?? [] },
+					}))
 				this.overdueItems = overdue
 					.filter(roomTask => roomTask.isActive && !todayIds.has(roomTask.id))
 					.map(roomTask => ({
@@ -261,12 +276,10 @@ export default {
 						room: this.roomsStore.getRoomById(roomTask.roomId) || null,
 					}))
 
-				// Per-item assignee lists make the "My tasks" filter
-				// multi-assign-aware (the list endpoints don't embed them).
-				// Bounded by the due-today/overdue count; failures fall back
-				// to the legacy single assignee.
-				const all = [...this.todayItems, ...this.overdueItems]
-				await Promise.allSettled(all.map(async (item) => {
+				// The overdue endpoint does not embed assignees — fetch them
+				// per item (bounded by the overdue count; failures fall back
+				// to the legacy single assignee).
+				await Promise.allSettled(this.overdueItems.map(async (item) => {
 					item.roomTask.assignees = await this.roomTasksStore.fetchAssignees(item.roomTask.id)
 				}))
 			} catch (error) {

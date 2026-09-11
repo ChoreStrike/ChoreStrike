@@ -90,7 +90,67 @@ class SchedulingPreferencesIntegrationTest extends IntegrationTestCase {
 		$this->assertSame(15, $preferences['energyBudget']['sunday']);
 		$this->assertTrue($preferences['weekdayAvailability']['monday']);
 		$this->assertTrue($preferences['weekdayAvailability']['sunday']);
-		$this->assertSame(PHP_INT_MAX, $preferences['maxDailyTasks']);
+		// CS-PLAN-065 (decision D5): a missing limit serializes as null.
+		$this->assertNull($preferences['maxDailyTasks']);
+		// CS-PLAN-065 (decision D7): the reader-less energy field is gone.
+		$this->assertArrayNotHasKey('todayConsumedEnergy', $preferences);
+	}
+
+	/**
+	 * CS-PLAN-065 (decision D5): the owner member path persists a finite
+	 * child limit and a later explicit null clears it again.
+	 */
+	public function testMemberAvailability_MaxDailyTasks_SetAndCleared(): void {
+		[$houseId, $userId] = $this->houseWithMember();
+
+		$this->schedulingService->updateMemberAvailabilityByNextcloudUserId(
+			$houseId,
+			$userId,
+			['maxDailyTasks' => 4]
+		);
+
+		$preferences = $this->schedulingService->getUserPreferencesByNextcloudUserId($houseId, $userId);
+		$this->assertSame(4, $preferences['maxDailyTasks']);
+
+		// Omitted key leaves the bound untouched.
+		$this->schedulingService->updateMemberAvailabilityByNextcloudUserId(
+			$houseId,
+			$userId,
+			['energyBudget' => $this->fullEnergy]
+		);
+		$preferences = $this->schedulingService->getUserPreferencesByNextcloudUserId($houseId, $userId);
+		$this->assertSame(4, $preferences['maxDailyTasks']);
+
+		// Explicit null clears the bound (unlimited).
+		$this->schedulingService->updateMemberAvailabilityByNextcloudUserId(
+			$houseId,
+			$userId,
+			['maxDailyTasks' => null]
+		);
+		$preferences = $this->schedulingService->getUserPreferencesByNextcloudUserId($houseId, $userId);
+		$this->assertNull($preferences['maxDailyTasks']);
+	}
+
+	/**
+	 * CS-PLAN-065 (decision D5): the owner member payload carries the limit.
+	 */
+	public function testGetMemberAvailability_CarriesMaxDailyTasks(): void {
+		[$houseId, $userId] = $this->houseWithMember();
+
+		$this->schedulingService->updateMemberAvailabilityByNextcloudUserId(
+			$houseId,
+			$userId,
+			['maxDailyTasks' => 2]
+		);
+
+		$availability = $this->schedulingService->getMemberAvailability($houseId);
+		$member = array_values(array_filter(
+			$availability,
+			static fn (array $entry): bool => $entry['userId'] === $userId
+		))[0] ?? null;
+
+		$this->assertNotNull($member);
+		$this->assertSame(2, $member['maxDailyTasks']);
 	}
 
 	public function testEnergyOnlySave_LeavesAvailabilityUntouched(): void {

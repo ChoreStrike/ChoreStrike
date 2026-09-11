@@ -100,7 +100,11 @@ return [
         ['name' => 'scheduling#updatePreferences', 'url' => '/api/v1/scheduling/preferences', 'verb' => 'PUT'],
         ['name' => 'scheduling#getMemberAvailability', 'url' => '/api/v1/scheduling/members', 'verb' => 'GET'],
         ['name' => 'scheduling#updateMemberAvailability', 'url' => '/api/v1/scheduling/members/{userId}', 'verb' => 'PUT', 'requirements' => ['userId' => '[a-zA-Z0-9_.@-]+']],
-        ['name' => 'scheduling#getSuggestions', 'url' => '/api/v1/scheduling/suggestions', 'verb' => 'POST'],
+        // CS-PLAN-065 (ADR-012): the taskCount-only advice contract was
+        // replaced on the same URL by the real-task owner preview; apply is
+        // the one atomic confirmation. No legacy fallback.
+        ['name' => 'scheduling#preview', 'url' => '/api/v1/scheduling/suggestions', 'verb' => 'POST'],
+        ['name' => 'scheduling#apply', 'url' => '/api/v1/scheduling/apply', 'verb' => 'POST'],
 
         // Smart Scheduler API — removed 2026-07-28 (CS-016 review: the
         // SmartSchedulerController had no AuthorizationService, so all 7

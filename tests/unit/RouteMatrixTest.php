@@ -273,15 +273,17 @@ class RouteMatrixTest extends TestCase {
 	 * 3 `/test/*` harness + `page#index`. CS-PLAN-063 pruned `POST /tasks`
 	 * (task#create) → 70. CS-PLAN-064 pruned `PUT /tasks/{id}/uncomplete`
 	 * and `POST /room-tasks/{id}/reactivate`, added the undo aggregate
-	 * `POST /room-tasks/{id}/undo` → 69. New routes must land with a
+	 * `POST /room-tasks/{id}/undo` → 69. CS-PLAN-065 replaced the advice
+	 * contract on `POST /scheduling/suggestions` (preview) and added the
+	 * atomic `POST /scheduling/apply` → 70. New routes must land with a
 	 * consumer (see the prune guards above) — the count only moves when an
 	 * expose decision updates this pin deliberately.
 	 */
 	public function testRouteCountIsPinned(): void {
 		$this->assertCount(
-			69,
+			70,
 			$this->routes['routes'],
-			'Route count drifted from the pin (69 after CS-PLAN-064) — add only with a consumer, then update deliberately'
+			'Route count drifted from the pin (70 after CS-PLAN-065) — add only with a consumer, then update deliberately'
 		);
 	}
 

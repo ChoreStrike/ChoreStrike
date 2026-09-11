@@ -1,6 +1,6 @@
 # CS-PLAN-065: WP6 - Actionable Scheduling Through My Day
 
-> **Status:** Active (drafted 2026-09-10; Standard A `PASS` 2026-09-10, D1-D8 ratified; implementation not started)
+> **Status:** Active (drafted 2026-09-10; Standard A `PASS` 2026-09-10, D1-D8 ratified; implementation delivered 2026-09-10; final Standard B `NEEDS-FOLLOW-UP` 2026-09-11 — implementation verified green, test-matrix findings RF-065-01/02 open for the next round)
 > **Effort:** L
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP5 complete; [CS-PLAN-064](../done/cs-plan-064-wp5-completion-ledger-full-undo.md) final review passed; ADR-009 house-local dates, ADR-010 visibility, ADR-011 completion/undo
@@ -435,6 +435,71 @@ but cannot close this plan before steps 1-9 and all acceptance criteria finish.
 
 ## 9. Review Findings (plan-owned)
 
+### Implementation record (2026-09-10)
+
+Steps 2-8 delivered in one round; step 9 (final Standard B) is the remaining
+gate. Delivered scope, mapped to the implementation order:
+
+- **Step 2 (baseline regressions):** writer inventory completed — apply needed
+  only its own aggregate locks; every existing writer (creation/setup
+  house-first, completion/undo `rt → room → hu`, due-date edits, assignment
+  replacements, definition/membership/preference writers) blocks on row locks
+  apply holds, so no conditional service seam (`TaskService`,
+  `TaskCreationService`, `HouseService`, `CompletionService`) required code
+  changes. `RoomTaskService::updateDueDate` was still wrapped in a
+  transaction + room-task row lock (same first-lock class as completion) as
+  the one documented seam hardening.
+- **Step 3 (contract/persistence):** ADR-012 written; `TaskMapper::
+  lockForUpdate` added (same FOR UPDATE / SQLite self-assignment shape);
+  `RoomTaskMapper::findDailyTasks` gained the `id` tie-break;
+  `CompletedTaskMapper`: removed `getConsumedEnergyForUserOnDate` (D7), added
+  `findEnergyUsageBetweenByHouse` (non-undone per completer/day, D11) and
+  `findUndoStateByRoomTasks` (fingerprint undo-state input).
+- **Step 4 (aggregate):** `SchedulePlanService` preview/apply exactly per
+  contract; routes replaced/added (`scheduling#preview`, `scheduling#apply`,
+  70-route pin updated); controller with closed-shape parsing and 400/403/404/
+  409 mapping. One design refinement found by tests: an unassigned task
+  proposes **one** eligible person (D3), not the whole eligible set.
+- **Step 5 (child limits + capacity inputs):** `maxDailyTasks` owner-only
+  member setting (omitted/null/int 1-100; personal endpoint rejects the key);
+  `filtered-daily` eligibility-before-limit + embedded `assignees`; the
+  `todayConsumedEnergy` cluster removed end to end (D7).
+- **Step 6 (UI):** `SchedulePlanner` rewritten (select → preview → adjust →
+  apply; states incl. stale/applying/applied/refreshFailed; owner-only in
+  `SchedulingView`); scheduling store plan actions with request sequencing;
+  room-task store request-order protection on filtered-daily/range; store
+  reconciliation + `chorestrike:schedule-applied` reloads for TodayView/
+  CalendarView; `AvailabilityEditModal`/`AvailabilitySettings` limit UI;
+  l10n en/de/pot updated.
+- **Step 7 (E2E):** `scheduling-apply-flow.spec.ts` (preview → adjust →
+  apply → My Day/calendar verification; stale 409; unplaced zero-flex;
+  legacy-contract rejection); scheduling/flex-window specs updated to the
+  new planner contract; `SCHEDULING_OWNER_SPECS` pool extended.
+- **Step 8 (docs/gates):** durable docs integrated (ADR-012 + README,
+  api/README scheduling + room-task sections, concepts energy/ui-use-cases,
+  engineering architecture/development/testing); gates all green:
+  `npm test` (830), `npm run lint`, `phpunit.unit.xml` (908),
+  `phpunit.integration.xml` (315, 10 pre-existing skips), Playwright
+  chromium (92) / chromium-serial-db (98) / chromium-scheduling-owner
+  (scheduling suites), `npm run backlog:check`, `npm run docs:encoding`,
+  `git diff --check`.
+
+No open findings from this implementation round beyond the deliberate
+deferred items already owned elsewhere (D2 long-form hash documentation is
+in ADR-012; WP7 owns enriched payloads/dashboard counters/cross-view race
+folds; WP8 service decomposition; WP9 skip inventory).
+
+### Review findings — final Standard B (2026-09-11)
+
+| ID | Severity | Area | Issue | Resolution state |
+|----|----------|------|-------|------------------|
+| RF-065-01 | major | §4.1 Playwright row | Exit journey uses seeded tasks (plan requires "task creation and scheduling in the exit journey must use the UI"), verifies the applied plan via member `mom` instead of a child session, never sets availability/child limit through the owner UI, and lacks the role-cannot-apply and keyboard/mobile journeys. | OPEN — user decision 2026-09-11: fix in the next round of this plan. Blocks `done/`. |
+| RF-065-02 | major | §4.1 Jest components row | Component matrix undelivered: no spec for the D5 limit UI (`AvailabilityEditModal`), the owner-only planner gating (`SchedulingView`), `CalendarView`'s `schedule-applied` refetch, or keyboard/mobile control behavior. | OPEN — user decision 2026-09-11: fix in the next round of this plan. Blocks `done/`. |
+| RF-065-03 | major | `SchedulePlanner.vue` §3.1 rule 7 | Input edits (task selection, start date) after a preview left Apply enabled; only per-row override edits marked the preview stale. | FIXED in review (user-authorized): selection/`startDate` watchers call `markPlanStale()`; Jest regression tests added. |
+| RF-065-04 | minor | §4.1 Real-concurrency row | Enumerated two-process races (apply vs completion/undo, preference/membership, capacity-affecting creation) delivered as the two distinct lock-class representative races (apply/apply in opposite order, apply vs room_task-writer) plus sequential stale-rejection proofs for every dependency class. | RESOLVED by user decision 2026-09-11: accept lock-class coverage — every remaining writer serializes on a lock class proven by a delivered two-process race (ADR-012 lock order). |
+
+Additional review-fixed items (no open residue): stylelint `property-no-deprecated` error (`.sr-only` `clip` → global `cs-visually-hidden` utility) and `padding-left` → `padding-inline-start` in `SchedulePlanner.vue`; two `composer cs:check` violations (unused `AppLogger` import in `SchedulePlanAggregateTest.php`, operator alignment in `SchedulePlanService.php`); "actional" → "actionable" typo in ADR-012; PHPDoc array-shape corrections (`capacityWarnings`/`placeRow`). Considered and accepted nits: weekend-15/weekday-10 default budget duplicated between `SchedulingService::getDefaultEnergyBudget()` and `SchedulePlanService::energyBudgetFor()` (fold into WP8 service decomposition); controller `is_numeric` ID parsing truncates forged float ids ("1.5" → 1) — service-level strict `is_int` is pinned by unit tests and the UI always sends integers.
+
 Standard A review (2026-09-10): **no findings** — every section-1 baseline claim
 was verified against the codebase and all references/manifest paths checked; see
 `## Review Outcome`. Record in-scope implementation/review findings here using
@@ -489,3 +554,59 @@ not implementation evidence.
   marked In Progress; masterplan WP6 row, plans README, ACTIVE_TASKS entry, and
   backlog links updated to the active path; one scoped review commit authorized
   by the review request.
+
+**Final Standard B (code review) — 2026-09-11 — outcome `NEEDS-FOLLOW-UP`**
+
+- **Scope / owning plan:** the complete WP6 implementation package — 45 modified
+  + 6 new files matching the §5 manifest boundary, captured as the uncommitted
+  working tree (staged: empty). This plan is the explicit owning plan.
+- **Base state:** branch `master`, HEAD `768a75758fcbb9310b331e2fdda8074cd6a27434`
+  (Standard A activation commit). Scope fingerprint: staged binary diff
+  `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391` (empty), unstaged binary diff
+  `58846467026b5572aa7efe43206201378b8b9b55`; untracked blobs —
+  `docs/adr/ADR-012-actionable-household-scheduling.md` `d87f3d5af81bfd87bb46ea2606497b90bf2dc398`,
+  `lib/Service/SchedulePlanService.php` `a9d37321ed851f445f223df5b9eed6fe55867047`,
+  `tests/e2e/scheduling-apply-flow.spec.ts` `64896f7274f4443540402d0ca9da2ec40427f6d2`,
+  `tests/integration/Service/SchedulePlanAggregateTest.php` `b35256961f5fa6c9b11651498c482fef1200f00e`,
+  `tests/integration/Service/SchedulePlanConcurrencyTest.php` `a182e5d8c0d897bd0a4a7786f69f1a9579fb22fb`,
+  `tests/unit/Service/SchedulePlanServiceTest.php` `919f390bdab57dc46429fdc644c56ab2236a7491`.
+- **Verification:** shared review checklist over the full backend (thin
+  controllers → `SchedulePlanService` aggregate → mapper primitives; owner-only
+  authorization with under-lock revalidation; closed-shape validation; SHA-1
+  content fingerprint with `hash_equals` stale gate; ADR-012 lock order
+  `house → room_task → task → house_user`), the frontend rewrite (plan state
+  machine, request sequencing, reconciliation/applied-vs-refresh-failed
+  distinction, a11y and `t()` coverage with en/de/POT in sync), the §4.1
+  required-test matrix, durable-doc integration, and the complete §4.2 quality
+  gate. `nextDue` UTC-midnight storage verified consistent with the existing
+  `TaskCreationService`/due-date-edit seams and ADR-009.
+- **Findings:** RF-065-01 (E2E matrix shortfall) and RF-065-02 (component-test
+  shortfall) OPEN — user decision: fix in the next round of this plan; they
+  block `done/` (rule 10). RF-065-03 (input-edit staleness, §3.1 rule 7) FIXED
+  in review with Jest regressions. RF-065-04 (race enumeration) RESOLVED by
+  accepted lock-class rationale. Full table in §9.
+- **Safe fixes applied:** stylelint error + warning in `SchedulePlanner.vue`
+  (deprecated `clip` → global `cs-visually-hidden`, `padding-inline-start`);
+  two `composer cs:check` violations (`SchedulePlanAggregateTest.php` unused
+  import, `SchedulePlanService.php` operator alignment); ADR-012 typo;
+  PHPDoc array-shape corrections; the RF-065-03 gating fix + 2 new Jest specs.
+- **Decisions (one batched structured request; all ratified as recommended):**
+  fix the E2E gaps in the next round; fix the component-test gaps in the next
+  round; fix the Apply input-edit gating now with a regression test; accept
+  the concurrency lock-class coverage and document the rationale.
+- **Gates (all green after the fix cluster):** Jest 832 (830 + 2 new);
+  eslint; stylelint 0 errors (1 pre-existing out-of-scope warning in
+  `NotAuthorizedState.vue`); `test:noise`; build; `l10n:check-keys`;
+  `docs:encoding`; `backlog:check`; PHPUnit unit 908 / integration 315 (10
+  documented pre-existing GameLogic/RoomTask scenario skips; both two-process
+  scheduling races ran on MariaDB); `composer cs:check`; Playwright chromium
+  (91 passed, 1 flaky-on-retry, 7 pool-excluded skips), chromium-serial-db
+  (98 passed, 5 skipped), chromium-scheduling-owner (35 passed) — the affected
+  gates rerun after the fix cluster. Note: the implementation record's gate
+  list had omitted stylelint and `composer cs:check` — both were red on first
+  run of this review and were fixed as safe review fixes.
+- **Transition:** plan stays in `active/` (RF-065-01/02 block `done/`);
+  CR-WF-07/CR-055-01 remain open; the scoped review commit includes the
+  verified implementation package, review fixes, this evidence, the review
+  record (`docs/backlog/archive/CODE_REVIEW_2026-09-11.md`), and tracking
+  updates.

@@ -195,4 +195,35 @@ class RoomTaskMapperDailyTest extends IntegrationTestCase {
 			'findDueOnDate must return the active rows of the requested day across all houses'
 		);
 	}
+
+	/**
+	 * CS-PLAN-065 §3.3: the daily read order is the deterministic
+	 * `nextDue, createdAt, id` — two rows created in the same second with
+	 * the same due day keep ascending-id order across every engine, so the
+	 * child-limit slicing cannot flip depending on the database.
+	 */
+	public function testFindDailyTasks_SameDayAndCreatedAt_OrdersAscendingByRoomTaskId(): void {
+		$houseId = $this->createHouse('tie_owner', 'Tie House');
+		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
+		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
+
+		$noon = (new \DateTimeImmutable('today'))->modify('12:00:00');
+		$first = $this->assignTaskToRoom($this->createTask($houseId, 'First'), $roomId, 'tie_owner');
+		$second = $this->assignTaskToRoom($this->createTask($houseId, 'Second'), $roomId, 'tie_owner');
+		$this->setNextDue($first, $noon);
+		$this->setNextDue($second, $noon);
+
+		[$dayStart, $dayEnd] = $this->utcDayBounds(new \DateTime());
+		$result = $this->mapper->findDailyTasks($houseId, $dayStart, $dayEnd);
+
+		$ids = array_map(static fn ($roomTask) => $roomTask->getId(), $result);
+		$expected = [$first, $second];
+		sort($expected);
+
+		self::assertSame(
+			$expected,
+			$ids,
+			'findDailyTasks must break nextDue/createdAt ties by ascending room-task id'
+		);
+	}
 }

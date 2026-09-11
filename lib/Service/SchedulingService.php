@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCP\IL10N;
@@ -21,22 +20,23 @@ class SchedulingService {
 	public const ENERGY_BUDGET_MIN = 1;
 	/** Inclusive upper bound for a daily energy budget (CR-016-15). */
 	public const ENERGY_BUDGET_MAX = 20;
+	/** Inclusive lower bound for the owner-set child daily-task limit (decision D5). */
+	public const MAX_DAILY_TASKS_MIN = 1;
+	/** Inclusive upper bound for the owner-set child daily-task limit (decision D5). */
+	public const MAX_DAILY_TASKS_MAX = 100;
 
 	private HouseUserMapper $houseUserMapper;
-	private CompletedTaskMapper $completedTaskMapper;
 	private IL10N $l10n;
 	private \OCA\ChoreStrike\Db\HouseMapper $houseMapper;
 	private CalendarService $calendarService;
 
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
-		CompletedTaskMapper $completedTaskMapper,
 		IL10N $l10n,
 		\OCA\ChoreStrike\Db\HouseMapper $houseMapper,
 		CalendarService $calendarService,
 	) {
 		$this->houseUserMapper = $houseUserMapper;
-		$this->completedTaskMapper = $completedTaskMapper;
 		$this->l10n = $l10n;
 		$this->houseMapper = $houseMapper;
 		$this->calendarService = $calendarService;
@@ -60,10 +60,21 @@ class SchedulingService {
 	}
 
 	/**
-	 * Get scheduling preferences for a user
+	 * Assert a single maxDailyTasks value is an integer within 1-100
+	 * (decision D5). `0` is rejected: an unavailable weekday already
+	 * expresses a day off.
 	 *
-	 * CR-SVC-28: reports the real consumed energy for today instead of a
-	 * hardcoded 0, so both this and the ByNextcloudUserId variant agree.
+	 * @param mixed $limit The candidate value
+	 * @throws \InvalidArgumentException When the value is not an integer in 1-100
+	 */
+	public function assertValidMaxDailyTasks($limit): void {
+		if (!is_int($limit) || $limit < self::MAX_DAILY_TASKS_MIN || $limit > self::MAX_DAILY_TASKS_MAX) {
+			throw new \InvalidArgumentException($this->l10n->t('Max daily tasks must be an integer between 1 and 100'));
+		}
+	}
+
+	/**
+	 * Get scheduling preferences for a user
 	 *
 	 * @param int $userId The house user ID
 	 * @return array Scheduling preferences
@@ -95,6 +106,9 @@ class SchedulingService {
 	 * sections and sibling keys (e.g. `maxDailyTasks`) are preserved. The
 	 * lookup is scoped by houseId, so a user who is not a member of the
 	 * house is not found (membership enforced at the persistence layer).
+	 *
+	 * The personal path can never change the child daily-task limit
+	 * (decision D5) — it only reaches this method, which knows no such key.
 	 *
 	 * @param int $houseId The current house ID
 	 * @param string $nextcloudUserId The Nextcloud user ID
@@ -143,8 +157,9 @@ class SchedulingService {
 	/**
 	 * Build the public preferences payload for a house user.
 	 *
-	 * CR-SVC-28: reports the real consumed energy for today instead of a
-	 * hardcoded 0, so both this and the ByNextcloudUserId variant agree.
+	 * CS-PLAN-065 (decision D7): the reader-less `todayConsumedEnergy`
+	 * field is gone. `maxDailyTasks` is `null` when unset (unlimited) and
+	 * a finite integer when the owner set a child limit (decision D5).
 	 *
 	 * @param HouseUser $user The house user (already loaded)
 	 * @param array|null $preferences The user's scheduling preferences (null for rows without stored preferences)
@@ -153,25 +168,21 @@ class SchedulingService {
 	private function buildPreferencesPayload(HouseUser $user, ?array $preferences): array {
 		$preferences = $preferences ?? [];
 
-		// CS-PLAN-057: "today" is the house-local calendar day.
-		$tz = $this->calendarService->getTimeZone($this->houseMapper->find($user->getHouseId()));
-		[$dayStart, $dayEnd] = $this->calendarService->dayBounds(new \DateTime(), $tz);
-
 		return [
 			'userId' => $user->getId(),
 			'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
 			'weekdayAvailability' => $preferences['weekdayAvailability'] ?? $this->getDefaultAvailability(),
-			'maxDailyTasks' => $preferences['maxDailyTasks'] ?? PHP_INT_MAX,
-			'todayConsumedEnergy' => $this->completedTaskMapper->getConsumedEnergyForUserOnDate(
-				$user->getId(),
-				$dayStart,
-				$dayEnd
-			),
+			'maxDailyTasks' => isset($preferences['maxDailyTasks']) && is_int($preferences['maxDailyTasks'])
+				? $preferences['maxDailyTasks']
+				: null,
 		];
 	}
 
 	/**
 	 * Get all member availability for a house
+	 *
+	 * The owner-facing payload carries the member's `maxDailyTasks` child
+	 * limit (decision D5): `null` = unlimited, integer = finite bound.
 	 *
 	 * @param int $houseId The house ID
 	 * @return array Member availability data
@@ -188,6 +199,9 @@ class SchedulingService {
 				'userName' => $user->getDisplayName(),
 				'energyBudget' => $preferences['energyBudget'] ?? $this->getDefaultEnergyBudget(),
 				'weekdayAvailability' => $preferences['weekdayAvailability'] ?? $this->getDefaultAvailability(),
+				'maxDailyTasks' => isset($preferences['maxDailyTasks']) && is_int($preferences['maxDailyTasks'])
+					? $preferences['maxDailyTasks']
+					: null,
 			];
 		}
 
@@ -197,12 +211,17 @@ class SchedulingService {
 	/**
 	 * Update a member's availability by Nextcloud user ID within a specific house.
 	 *
+	 * Owner-only path (decision D5): the update payload may carry the
+	 * member's `maxDailyTasks` child limit — omitted leaves it unchanged,
+	 * explicit `null` clears it (unlimited), an integer must be within
+	 * 1-100. The personal preference endpoints never reach this method.
+	 *
 	 * The lookup is scoped by houseId, so a user who is not a member of the
 	 * house is not found (membership enforced at the persistence layer).
 	 *
 	 * @param int $houseId The current house ID
 	 * @param string $nextcloudUserId The Nextcloud user ID to update
-	 * @param array $updates Availability and energy updates
+	 * @param array $updates Availability, energy and child-limit updates
 	 */
 	public function updateMemberAvailabilityByNextcloudUserId(int $houseId, string $nextcloudUserId, array $updates): void {
 		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
@@ -210,14 +229,16 @@ class SchedulingService {
 	}
 
 	/**
-	 * Apply availability and energy-budget updates to a house user's preferences.
+	 * Apply availability, energy-budget and child-limit updates to a house
+	 * user's preferences.
 	 *
-	 * Rejects out-of-range energy values instead of silently dropping them,
-	 * so the caller never receives a success response for unpersisted data.
+	 * Rejects out-of-range energy/limit values instead of silently dropping
+	 * them, so the caller never receives a success response for unpersisted
+	 * data.
 	 *
 	 * @param HouseUser $user The house user to update
-	 * @param array $updates Availability and energy updates keyed by weekday
-	 * @throws \InvalidArgumentException When an energy value is not an integer in 1-20
+	 * @param array $updates Availability, energy and limit updates keyed by weekday
+	 * @throws \InvalidArgumentException When an energy value is not an integer in 1-20 or the limit is not null/1-100
 	 */
 	private function applyMemberUpdates(HouseUser $user, array $updates): void {
 		$preferences = $user->getSchedulingPreferences();
@@ -235,44 +256,19 @@ class SchedulingService {
 			}
 		}
 
-		$user->setSchedulingPreferences($preferences);
-		$this->houseUserMapper->update($user);
-	}
-
-	/**
-	 * Get scheduling suggestions based on availability
-	 *
-	 * The caller only ever needed the number of schedulable tasks, so the
-	 * contract carries `taskCount` instead of a full task array
-	 * (CR-016-13c).
-	 *
-	 * @param int $taskCount Number of tasks to schedule
-	 * @param int $houseId The house ID
-	 * @return array Suggestions per day
-	 */
-	public function getSchedulingSuggestions(int $taskCount, int $houseId): array {
-		$members = $this->getMemberAvailability($houseId);
-		$suggestions = [];
-
-		$weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-		foreach ($weekdays as $day) {
-			$availableMembers = array_filter($members, function ($m) use ($day) {
-				return $m['weekdayAvailability'][$day] ?? true;
-			});
-
-			$totalEnergy = array_reduce($availableMembers, function ($sum, $m) use ($day) {
-				return $sum + ($m['energyBudget'][$day] ?? 10);
-			}, 0);
-
-			$suggestions[$day] = [
-				'availableMembers' => count($availableMembers),
-				'totalEnergy' => $totalEnergy,
-				'recommendedTasks' => min($taskCount, (int)($totalEnergy / 5)),
-			];
+		if (array_key_exists('maxDailyTasks', $updates)) {
+			$limit = $updates['maxDailyTasks'];
+			if ($limit === null) {
+				// Explicit null clears the bound (unlimited).
+				unset($preferences['maxDailyTasks']);
+			} else {
+				$this->assertValidMaxDailyTasks($limit);
+				$preferences['maxDailyTasks'] = $limit;
+			}
 		}
 
-		return $suggestions;
+		$user->setSchedulingPreferences($preferences);
+		$this->houseUserMapper->update($user);
 	}
 
 	/**

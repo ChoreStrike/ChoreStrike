@@ -15,16 +15,16 @@ use OCA\ChoreStrike\Tests\Integration\IntegrationTestCase;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
- * Real-DB regression test for CompletedTaskMapper::getConsumedEnergyForUserOnDate
- * (CR-016-10).
+ * Real-DB regression test for CompletedTaskMapper::findEnergyUsageBetweenByHouse
+ * (CS-PLAN-065 §3.3, decision D11).
  *
- * The method originally shipped with a mangled select('COALESCE(SUM(...)) AS …')
- * that failed at runtime with SQLSTATE[1054] — the raw aggregate string was
- * quoted as a column name instead of going through createFunction()/selectAlias().
- * The only coverage was mock-based (SchedulingServiceTest stubs the mapper), which
- * by construction cannot catch SQL shape errors — the exact defect class of the
- * original bug. This spec runs against the real Docker DB and pins the
- * [00:00, +1d) day-boundary semantics plus per-user isolation.
+ * The batched query is the preview's authoritative completed-effort input:
+ * non-undone completions only, house-scoped, carrying the completer and the
+ * task's energy_cost per row. The former per-user day query
+ * (getConsumedEnergyForUserOnDate) was removed with the reader-less client
+ * energy counter (decision D7); its boundary semantics survive here in the
+ * window shape. A mock-based test cannot catch SQL shape errors, so this
+ * spec runs against the real Docker DB.
  */
 class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 	private CompletedTaskMapper $mapper;
@@ -58,7 +58,7 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 	/**
 	 * Insert a completed_tasks row with an explicit completed_at timestamp.
 	 */
-	private function insertCompletion(int $roomTaskId, int $houseUserId, string $completedAt): int {
+	private function insertCompletion(int $roomTaskId, int $houseUserId, string $completedAt, bool $undone = false): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('chorestrike_completed_tasks')
 			->values([
@@ -71,6 +71,9 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 				// energy fixtures carry no undo semantics → empty JSON.
 				'before_state' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
 				'deltas' => $qb->createNamedParameter('{}', IQueryBuilder::PARAM_STR),
+				'undone_at' => $undone
+					? $qb->createNamedParameter('2026-06-16 08:00:00', IQueryBuilder::PARAM_STR)
+					: $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL),
 			]);
 		$qb->executeStatement();
 
@@ -80,31 +83,36 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * GetConsumedEnergy_NoCompletions_ReturnsZero
-	 *
-	 * A user without any completions on the requested date yields 0 (the
-	 * COALESCE guard), not null/false.
+	 * @return array<int, array{houseUserId: int, energy: int}> Rows reduced to the asserted fields.
 	 */
-	public function testGetConsumedEnergy_NoCompletions_ReturnsZero(): void {
+	private function usageFor(int $houseId): array {
+		$rows = $this->mapper->findEnergyUsageBetweenByHouse(
+			$houseId,
+			new \DateTimeImmutable('2026-06-15 00:00:00'),
+			new \DateTimeImmutable('2026-06-16 00:00:00')
+		);
+		return array_map(static fn (array $row): array => [
+			'houseUserId' => $row['houseUserId'],
+			'energy' => $row['energy'],
+		], $rows);
+	}
+
+	/**
+	 * FindEnergyUsage_NoCompletions_ReturnsEmpty
+	 */
+	public function testFindEnergyUsage_NoCompletions_ReturnsEmpty(): void {
 		$houseId = $this->createHouse('energy_owner', 'Energy House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
 		$this->assignTaskToRoom($this->createTask($houseId, 'Dishes', '', 5, 3), $roomId);
-		$houseUserId = $this->houseUserId($houseId, 'energy_owner');
 
-		self::assertSame(
-			0,
-			$this->mapper->getConsumedEnergyForUserOnDate($houseUserId, new \DateTimeImmutable('2026-06-15 00:00:00'), new \DateTimeImmutable('2026-06-16 00:00:00'))
-		);
+		self::assertSame([], $this->usageFor($houseId));
 	}
 
 	/**
-	 * GetConsumedEnergy_MultipleCompletions_SumsEnergyCost
-	 *
-	 * Completions of different room tasks on one date are summed by their
-	 * task's energy_cost.
+	 * FindEnergyUsage_MultipleCompletions_SumsPerRowEnergyCost
 	 */
-	public function testGetConsumedEnergy_MultipleCompletions_SumsEnergyCost(): void {
+	public function testFindEnergyUsage_MultipleCompletions_SumsPerRowEnergyCost(): void {
 		$houseId = $this->createHouse('energy_sum_owner', 'Energy Sum House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
@@ -117,19 +125,37 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 		$this->insertCompletion($rtLaundry, $houseUserId, '2026-06-15 19:45:00');
 
 		self::assertSame(
-			8,
-			$this->mapper->getConsumedEnergyForUserOnDate($houseUserId, new \DateTimeImmutable('2026-06-15 00:00:00'), new \DateTimeImmutable('2026-06-16 00:00:00'))
+			[3, 5],
+			array_map(static fn (array $row): int => $row['energy'], $this->usageFor($houseId))
 		);
 	}
 
 	/**
-	 * GetConsumedEnergy_DayBoundary_UsesHalfOpenInterval
-	 *
-	 * The day is [00:00:00, next-day 00:00:00): midnight-start is counted,
-	 * the second before midnight is counted, both neighboring midnights are
-	 * excluded.
+	 * FindEnergyUsage_UndoneCompletions_Excluded (decision D11): an undone
+	 * row is no longer planned work and must not feed the preview capacity.
 	 */
-	public function testGetConsumedEnergy_DayBoundary_UsesHalfOpenInterval(): void {
+	public function testFindEnergyUsage_UndoneCompletions_Excluded(): void {
+		$houseId = $this->createHouse('energy_undo_owner', 'Energy Undo House');
+		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
+		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
+
+		$rtKept = $this->assignTaskToRoom($this->createTask($houseId, 'Dishes', '', 5, 3), $roomId);
+		$rtUndone = $this->assignTaskToRoom($this->createTask($houseId, 'Laundry', '', 5, 9), $roomId);
+
+		$houseUserId = $this->houseUserId($houseId, 'energy_undo_owner');
+		$this->insertCompletion($rtKept, $houseUserId, '2026-06-15 09:00:00');
+		$this->insertCompletion($rtUndone, $houseUserId, '2026-06-15 10:00:00', true);
+
+		$rows = $this->usageFor($houseId);
+
+		self::assertCount(1, $rows);
+		self::assertSame(3, $rows[0]['energy']);
+	}
+
+	/**
+	 * FindEnergyUsage_DayBoundary_UsesHalfOpenInterval
+	 */
+	public function testFindEnergyUsage_DayBoundary_UsesHalfOpenInterval(): void {
 		$houseId = $this->createHouse('energy_edge_owner', 'Energy Edge House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
@@ -146,18 +172,15 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 		$this->insertCompletion($rtNextDay, $houseUserId, '2026-06-16 00:00:00');     // exclusive end
 
 		self::assertSame(
-			6,
-			$this->mapper->getConsumedEnergyForUserOnDate($houseUserId, new \DateTimeImmutable('2026-06-15 00:00:00'), new \DateTimeImmutable('2026-06-16 00:00:00'))
+			[2, 4],
+			array_map(static fn (array $row): int => $row['energy'], $this->usageFor($houseId))
 		);
 	}
 
 	/**
-	 * GetConsumedEnergy_OtherUsersCompletions_Ignored
-	 *
-	 * Another member's completions on the same date do not leak into the
-	 * queried user's consumed energy (cross-user isolation).
+	 * FindEnergyUsage_CrossHouseAndUser_Isolation
 	 */
-	public function testGetConsumedEnergy_OtherUsersCompletions_Ignored(): void {
+	public function testFindEnergyUsage_CrossHouseAndUser_Isolation(): void {
 		$houseId = $this->createHouse('energy_iso_a', 'Energy Isolation House');
 		$this->addHouseMember($houseId, 'energy_iso_b', 'Member B');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
@@ -171,7 +194,14 @@ class CompletedTaskMapperEnergyTest extends IntegrationTestCase {
 		$this->insertCompletion($rtMine, $userA, '2026-06-15 09:00:00');
 		$this->insertCompletion($rtTheirs, $userB, '2026-06-15 10:00:00');
 
-		self::assertSame(3, $this->mapper->getConsumedEnergyForUserOnDate($userA, new \DateTimeImmutable('2026-06-15 00:00:00'), new \DateTimeImmutable('2026-06-16 00:00:00')));
-		self::assertSame(9, $this->mapper->getConsumedEnergyForUserOnDate($userB, new \DateTimeImmutable('2026-06-15 00:00:00'), new \DateTimeImmutable('2026-06-16 00:00:00')));
+		$rows = $this->usageFor($houseId);
+
+		// Both house members' rows are returned in one query, tagged with
+		// their completer; another house's rows never appear.
+		self::assertCount(2, $rows);
+		self::assertSame(
+			[$userA, $userB],
+			array_map(static fn (array $row): int => $row['houseUserId'], $rows)
+		);
 	}
 }

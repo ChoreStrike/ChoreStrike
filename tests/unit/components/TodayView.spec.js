@@ -24,16 +24,21 @@ const todayFixture = () => ([
 		roomTask: { id: 11, taskId: 1, roomId: 1, isActive: true, nextDue: '2026-08-21T08:00:00+00:00' },
 		task: { id: 1, name: 'Do the dishes', energyCost: 3 },
 		room: { id: 1, name: 'Kitchen' },
+		// CS-PLAN-065 (D4): filtered-daily rows embed their canonical
+		// assignee sets — no per-item fetch for today items anymore.
+		assignees: [],
 	},
 	{
 		roomTask: { id: 12, taskId: 2, roomId: 1, isActive: true, nextDue: '2026-08-21T09:00:00+00:00' },
 		task: { id: 2, name: 'Wipe kitchen counters', energyCost: 2 },
 		room: { id: 1, name: 'Kitchen' },
+		assignees: ['mom'],
 	},
 	{
 		roomTask: { id: 13, taskId: 3, roomId: 2, isActive: true, nextDue: '2026-08-21T10:00:00+00:00' },
 		task: { id: 3, name: 'Tidy up toys', energyCost: 1 },
 		room: { id: 2, name: 'Living Room' },
+		assignees: ['teen'],
 	},
 ])
 

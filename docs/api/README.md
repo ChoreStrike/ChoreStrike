@@ -527,7 +527,7 @@ Remove task from room.
 > (CS-PLAN-064, ADR-011).
 
 > **Full route list:** the canonical, complete route table is
-> [`appinfo/routes.php`](../../appinfo/routes.php) (69 routes spanning `house`,
+> [`appinfo/routes.php`](../../appinfo/routes.php) (70 routes spanning `house`,
 > `floor`, `room`, `task`, `room_task`, `game`, `user`, `scheduling`,
 > `checklist`, `minigame`, `setup`, and `test`). The task-sync ×6 and
 > reward-config ×2 HTTP surfaces were pruned in CS-PLAN-055 together with
@@ -627,6 +627,21 @@ daily task appears on every day it recurs. One-time tasks emit a single occurren
 ```
 
 **Errors:** `400 VALIDATION_ERROR` (unparseable date, `from > to`, span > 60 days), `403 FORBIDDEN` (non-member).
+
+> CS-PLAN-065 §3.4: the client keeps request-order protection on the range
+> reader — a scheduling apply refetches the cached window and a stale
+> in-flight response can never overwrite the refreshed results.
+
+#### GET /room-tasks/filtered-daily
+The My Day payload for the current user (CS-PLAN-057/061), now with two
+CS-PLAN-065 changes (decision D4): the deterministic read order is
+`nextDue, createdAt, id` (engine-stable child-limit slicing), and every row
+embeds its canonical `assignees` list so the client never re-interprets an
+unknown set as unassigned after a child limit truncated the list. For child
+users the assignment eligibility (assigned to the viewer OR unassigned) is
+evaluated **before** the availability gate and the daily limit.
+
+**Response `data`:** list of `{ roomTask, task, room, assignees }` objects.
 
 #### GET /room-tasks/room/{roomId}/stats
 Room task statistics for the RoomDetail stats card (CS-PLAN-040). Rejects a
@@ -729,10 +744,14 @@ Get the current user's scheduling preferences (member-gated).
   "userId": 7,
   "energyBudget": { "monday": 10, "tuesday": 10, "wednesday": 10, "thursday": 10, "friday": 10, "saturday": 15, "sunday": 15 },
   "weekdayAvailability": { "monday": true, "tuesday": true, "wednesday": true, "thursday": true, "friday": true, "saturday": true, "sunday": true },
-  "maxDailyTasks": null,
-  "todayConsumedEnergy": 3
+  "maxDailyTasks": null
 }
 ```
+
+> CS-PLAN-065 (decision D7): the reader-less `todayConsumedEnergy` field is
+> gone — capacity is derived server-side. `maxDailyTasks` is `null` when
+> unset (unlimited) and a finite integer (1-100) when the owner set a child
+> daily-task limit (decision D5).
 
 #### PUT /scheduling/preferences
 Save the current user's weekly preferences in **one** bulk request
@@ -760,16 +779,109 @@ unknown weekday key, non-bool availability, energy outside 1-20), `403 FORBIDDEN
 `house_user` JSON column — inherently atomic, no multi-statement transaction.
 
 #### GET /scheduling/members
-Get all member availability (house owner only).
+Get all member availability (house owner only). Each entry carries the
+member's `maxDailyTasks` child limit (`null` = unlimited, integer = finite
+bound, decision D5).
 
 #### PUT /scheduling/members/{userId}
 Update another member's weekday availability/energy (house owner only).
-#### POST /scheduling/suggestions
+The closed payload also accepts the child limit (decision D5):
+`maxDailyTasks` omitted = unchanged, explicit `null` = unlimited,
+integer 1-100 = finite bound (`0` is a validation error — an unavailable
+weekday already expresses a day off). Errors: `400 VALIDATION_ERROR`
+(unknown field, invalid weekday, limit outside 1-100), `403 FORBIDDEN`
+(non-member/non-owner).
 
-Get scheduling suggestions for the current week. The request carries only
-`{ "taskCount": <int> }` — the backend derives its recommendations from the
-member availability data plus that count (CS-PLAN-043 slimmed the contract;
-the former full task array was never used beyond `count($tasks)`).
+#### POST /scheduling/suggestions
+**Owner plan preview** (CS-PLAN-065, ADR-012) over real active room tasks —
+read-only, deterministic, zero writes. The retired taskCount-only advice
+contract was replaced on this URL without a compatibility fallback: a
+legacy `{ "taskCount": … }` payload fails the closed shape validation with
+`400 VALIDATION_ERROR`.
+
+**Request:**
+```json
+{
+  "startDate": "2026-09-10",
+  "roomTaskIds": [11, 12],
+  "overrides": { "11": { "assigneeUserIds": ["mom"], "date": "2026-09-11" } }
+}
+```
+`startDate` is a strict house-local `Y-m-d` (today or later), the window is
+the seven consecutive days from `startDate`; `roomTaskIds` is a non-empty
+list of unique positive ids bounded at 100; `overrides` (optional) is keyed
+by selected room task id and may set a complete `assigneeUserIds` list
+and/or a `date` inside the window. Override values that violate the closed
+shape (unknown fields, duplicate assignees, malformed dates, non-member or
+ineligible assignees) are `400`; a syntactically valid override that
+violates the task's legal recurrence slots produces an `unplaced` row with
+reason `ILLEGAL_OVERRIDE`, not a 400.
+
+**Response `data`:**
+```json
+{
+  "previewVersion": "sha1-content-fingerprint",
+  "startDate": "2026-09-10",
+  "endDateExclusive": "2026-09-17",
+  "timezone": "Europe/Berlin",
+  "changes": [
+    {
+      "roomTaskId": 11, "taskId": 3, "taskName": "…", "roomName": "…",
+      "energyCost": 2, "priority": 2, "flexDays": 3,
+      "legalDates": ["2026-09-11", "2026-09-12"],
+      "before":  { "assignees": [], "dueDate": "2026-09-08" },
+      "proposed": { "assignees": ["mom"], "dueDate": "2026-09-11" },
+      "warnings": ["DATE_MOVED", "ASSIGNEES_CHANGED"]
+    }
+  ],
+  "unchanged": [ { "roomTaskId": 5, "reason": "UP_TO_DATE", "warnings": [] } ],
+  "unplaced":  [ { "roomTaskId": 7, "reason": "NO_CAPACITY", "warnings": [] } ],
+  "capacity":  [ { "date": "2026-09-10", "members": { "mom": { "houseUserId": 2, "available": true, "budget": 10, "planned": 3, "remaining": 7, "taskCount": 1 } } } ],
+  "warnings": ["EXISTING_OVERLOAD"]
+}
+```
+Reason/warning codes: `UP_TO_DATE`, `CLAIMED`, `NO_LEGAL_SLOT`,
+`NO_ELIGIBLE_MEMBER`, `NO_CAPACITY`, `ILLEGAL_OVERRIDE`; `DATE_MOVED`,
+`ASSIGNEES_CHANGED`, `EXISTING_OVERLOAD`.
+
+**Errors:** `400 VALIDATION_ERROR`, `403 FORBIDDEN` (non-member or
+non-owner actor), `404 RESOURCE_NOT_FOUND` (unknown, cross-house or
+invisible task), `409 CONFLICT` (inactive row).
+
+#### POST /scheduling/apply
+Apply the confirmed plan as one all-or-nothing aggregate (owner only,
+ADR-012). The request is the **exact normalized preview input** plus its
+`previewVersion`:
+
+```json
+{
+  "startDate": "2026-09-10",
+  "roomTaskIds": [11, 12],
+  "overrides": {},
+  "previewVersion": "sha1-content-fingerprint"
+}
+```
+
+The plan is recomputed under the documented lock order (house → room_task →
+task definition → house_user, ascending ids, then assignee writes) and any
+drift — assignment, date, definition, membership, role, preference,
+timezone, completion or undo state — rejects the batch with
+`409 CONFLICT` and zero writes. A confirmed no-change plan performs zero
+writes and answers `appliedCount: 0`. Claimed rows are never rescheduled;
+`idealDueDate` is not rewritten by an applied move.
+
+**Response `data`:**
+```json
+{
+  "appliedCount": 1,
+  "windowStart": "2026-09-10",
+  "windowEndExclusive": "2026-09-17",
+  "roomTasks": [ { "id": 11, "…": "full room-task payload", "assignees": ["mom"] } ]
+}
+```
+
+**Errors:** like preview, plus `409 CONFLICT` for a stale/mismatched
+`previewVersion` (retry requires a fresh preview).
 
 ### Users
 

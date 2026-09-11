@@ -2856,3 +2856,225 @@ msgstr ""
 
 msgid "task must be an object"
 msgstr ""
+
+msgid "{from} → {to}"
+msgstr ""
+
+msgid "{people}, {date}"
+msgstr ""
+
+msgid "{remaining}/{budget} left"
+msgstr ""
+
+msgid "A plan may contain at most %1$s tasks"
+msgstr ""
+
+msgid "Already as planned"
+msgstr ""
+
+msgid "already scheduled as proposed"
+msgstr ""
+
+msgid "Apply plan"
+msgstr ""
+
+msgid "Applying the plan…"
+msgstr ""
+
+msgid "Applying…"
+msgstr ""
+
+msgid "As proposed"
+msgstr ""
+
+msgid "assigneeUserIds must be a non-empty array of user IDs"
+msgstr ""
+
+msgid "assigneeUserIds must not contain duplicates"
+msgstr ""
+
+msgid "Away"
+msgstr ""
+
+msgid "Building the plan from your tasks…"
+msgstr ""
+
+msgid "Capacity per day"
+msgstr ""
+
+msgid "claimed by someone — resolve the claim first"
+msgstr ""
+
+msgid "Confirming is disabled until you prepare a fresh plan."
+msgstr ""
+
+msgid "Daily Task Limit"
+msgstr ""
+
+msgid "Daily tasks: max {limit}"
+msgstr ""
+
+msgid "Daily tasks: unlimited"
+msgstr ""
+
+msgid "Day"
+msgstr ""
+
+msgid "Due {date}"
+msgstr ""
+
+msgid "Each override must be an object"
+msgstr ""
+
+msgid "Each override must set assigneeUserIds or date"
+msgstr ""
+
+msgid "Limit daily tasks"
+msgstr ""
+
+msgid "Limit how many tasks this member sees per day in My Day (1-100)"
+msgstr ""
+
+msgid "Max daily tasks must be an integer between 1 and 100"
+msgstr ""
+
+msgid "maxDailyTasks can only be changed by a house owner"
+msgstr ""
+
+msgid "No active tasks to schedule yet. Create tasks first."
+msgstr ""
+
+msgid "no date"
+msgstr ""
+
+msgid "No due date"
+msgstr ""
+
+msgid "no eligible person available"
+msgstr ""
+
+msgid "no free capacity on any legal day"
+msgstr ""
+
+msgid "no legal day in this window (fixed weekday or no flexibility)"
+msgstr ""
+
+msgid "Not schedulable right now"
+msgstr ""
+
+msgid "Nothing to change — the selected tasks are already scheduled as proposed."
+msgstr ""
+
+msgid "Override date must be a valid Y-m-d date"
+msgstr ""
+
+msgid "overrides must be an object keyed by room task ID"
+msgstr ""
+
+msgid "Overrides must reference a selected room task"
+msgstr ""
+
+msgid "Pick real tasks, preview who does what on which day, then confirm once — nothing changes until you apply."
+msgstr ""
+
+msgid "Plan the week"
+msgstr ""
+
+msgid "Preparing preview…"
+msgstr ""
+
+msgid "Preview plan"
+msgstr ""
+
+msgid "previewVersion is required"
+msgstr ""
+
+msgid "Proposed changes"
+msgstr ""
+
+msgid "roomTaskIds must contain positive integers"
+msgstr ""
+
+msgid "roomTaskIds must not be empty"
+msgstr ""
+
+msgid "roomTaskIds must not contain duplicates"
+msgstr ""
+
+msgid "Select at least one task to preview a plan."
+msgstr ""
+
+msgid "Some days are already over capacity — existing overload is reported, not silently moved."
+msgstr ""
+
+msgid "Start planning on"
+msgstr ""
+
+msgid "startDate must be a valid Y-m-d date"
+msgstr ""
+
+msgid "startDate must be today or later"
+msgstr ""
+
+msgid "Task"
+msgstr ""
+
+msgid "tasks/day"
+msgstr ""
+
+msgid "The assigned people change."
+msgstr ""
+
+msgid "the chosen day is not allowed for this task"
+msgstr ""
+
+msgid "The daily task limit must be between 1 and 100"
+msgstr ""
+
+msgid "The due day moves."
+msgstr ""
+
+msgid "The plan could not be applied."
+msgstr ""
+
+msgid "The plan could not be prepared. Please try again."
+msgstr ""
+
+msgid "The plan failed."
+msgstr ""
+
+msgid "The plan was applied, but refreshing the views failed."
+msgstr ""
+
+msgid "The plan was applied, but refreshing the views failed. Reload the page to see the result."
+msgstr ""
+
+msgid "The plan was applied."
+msgstr ""
+
+msgid "The plan was applied. Calendar and My Day are up to date."
+msgstr ""
+
+msgid "The preview is stale."
+msgstr ""
+
+msgid "The schedule preview is no longer current. Generate a new preview."
+msgstr ""
+
+msgid "This preview is no longer current. Check your selection and prepare the plan again."
+msgstr ""
+
+msgid "This preview is no longer current. Prepare the plan again."
+msgstr ""
+
+msgid "unassigned"
+msgstr ""
+
+msgid "Unknown override field: %1$s"
+msgstr ""
+
+msgid "Unknown update field: %1$s"
+msgstr ""
+
+msgid "User is not eligible for this task: %1$s"
+msgstr ""

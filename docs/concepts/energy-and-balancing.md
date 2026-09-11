@@ -80,6 +80,34 @@ fallback for non-owners). `SchedulingView` renders `OvercapacityWarning`
 listing each overloaded day with its would-be-deferred tasks sorted lowest
 priority first; `ScheduleCalendar` marks overloaded day headers inline.
 
+## Plan Capacity (CS-PLAN-065, ADR-012)
+
+The owner plan preview derives per-person/day capacity from three
+authoritative server-side sources — never from client-side counters:
+
+1. **Preferences** — canonical `energyBudget` / `weekdayAvailability`
+   (fallbacks: 10 weekday / 15 weekend; a missing weekday flag means
+   available).
+2. **Planned occurrences** — projected occurrences of every active house
+   task inside the seven-day planning window, including tasks outside the
+   selection. Full task effort is counted **per assignee**, not an invented
+   teamwork split; a selected row's current in-window occurrence is
+   replaced, not added again.
+3. **Completion effort** — the Σ `energyCost` of non-undone completions on
+   that day. `undone_at` rows are excluded (decision D11): an undone
+   completion is no longer planned work.
+
+Availability, energy capacity and the owner-set child daily-task limit
+(`maxDailyTasks`, 1-100, decision D5) are **hard placement constraints**:
+the plan never creates a new overload, an unavailable assignment or a
+child-limit violation. Existing unavoidable overload is reported
+(`EXISTING_OVERLOAD` on unchanged/unplaced rows), never silently fixed.
+
+The former `todayConsumedEnergy` client counter (incremented per completion,
+read by nobody) was removed with CS-PLAN-065 (decision D7, closes
+CR-055-01); the E2E daily/range projections in this document remain the
+canonical display sources.
+
 ## Open Decisions
 
 - Whether energy costs can be personalized per member based on age/ability.

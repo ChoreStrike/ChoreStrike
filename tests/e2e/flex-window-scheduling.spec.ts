@@ -63,19 +63,16 @@ test.describe('Flex Window Scheduling', () => {
 		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
 
 		await expect(page.getByTestId('schedule-planner')).toBeVisible()
-		await expect(page.getByTestId('generate-schedule-button')).toBeVisible()
+		// CS-PLAN-065: the owner plan preview is opt-in per selection.
+		await expect(page.getByTestId('preview-plan-button')).toBeVisible()
 	})
 
-	test('scheduling suggestions are accessible after loading the planner', async ({ page }) => {
+	test('the plan preview requires an explicit task selection', async ({ page }) => {
 		await page.getByTestId('nav-scheduling').click()
 		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
 
-		const responsePromise = page.waitForResponse((response) =>
-			response.request().method() === 'POST'
-			&& response.url().includes('/scheduling/suggestions'))
-		await page.getByTestId('generate-schedule-button').click()
-		await responsePromise
-		await expect(page.getByTestId('scheduling-suggestions')).toBeVisible()
+		await expect(page.getByTestId('preview-plan-button')).toBeDisabled()
+		await expect(page.getByTestId('planner-task-list')).toBeVisible()
 	})
 
 	test('energy budget settings persist slider changes', async ({ page }) => {

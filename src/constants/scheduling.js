@@ -13,6 +13,14 @@ export const ENERGY_MIN = 1
 export const ENERGY_MAX = 20
 
 /**
+ * Owner-set child daily-task limit bounds (CS-PLAN-065 decision D5).
+ * `0` is deliberately rejected — an unavailable weekday already expresses
+ * a day off. `null` (and any unset value) means unlimited.
+ */
+export const MAX_DAILY_TASKS_MIN = 1
+export const MAX_DAILY_TASKS_MAX = 100
+
+/**
  * Translated weekday display metadata (UI order, Monday-first).
  */
 export const weekDays = Object.freeze([

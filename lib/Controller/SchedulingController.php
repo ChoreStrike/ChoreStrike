@@ -8,10 +8,13 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\SchedulePlanService;
 use OCA\ChoreStrike\Service\SchedulingService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -19,7 +22,10 @@ use OCP\IL10N;
 use OCP\IRequest;
 
 /**
- * API controller for scheduling preferences
+ * API controller for scheduling preferences and the owner plan aggregate
+ * (CS-PLAN-065, ADR-012): personal/member preference surface plus the
+ * owner-only preview (`POST /scheduling/suggestions`) and apply
+ * (`POST /scheduling/apply`) operations.
  */
 class SchedulingController extends Controller {
 	use ControllerLoggingTrait;
@@ -30,6 +36,7 @@ class SchedulingController extends Controller {
 	];
 
 	private SchedulingService $schedulingService;
+	private SchedulePlanService $schedulePlanService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 	private IL10N $l;
@@ -37,6 +44,7 @@ class SchedulingController extends Controller {
 	public function __construct(
 		IRequest $request,
 		SchedulingService $schedulingService,
+		SchedulePlanService $schedulePlanService,
 		HouseService $houseService,
 		AuthorizationService $authService,
 		IL10N $l,
@@ -44,6 +52,7 @@ class SchedulingController extends Controller {
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->schedulingService = $schedulingService;
+		$this->schedulePlanService = $schedulePlanService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->l = $l;
@@ -91,6 +100,9 @@ class SchedulingController extends Controller {
 	 * Each provided section must be a complete week (exact 7-day key set);
 	 * absent sections are left unchanged. At least one section is required.
 	 *
+	 * The personal endpoint can never change the child daily-task limit
+	 * (decision D5) — a `maxDailyTasks` key is rejected outright.
+	 *
 	 * @NoAdminRequired
 	 * @param array|null $weekdayAvailability Full week of availability flags
 	 * @param array|null $energyBudget Full week of energy budgets (1-20)
@@ -105,6 +117,9 @@ class SchedulingController extends Controller {
 			$userId = $this->authService->requireCurrentUserId();
 
 			$this->authService->assertHouseMember($house->getId());
+			if ($this->request->getParam('maxDailyTasks') !== null) {
+				throw new \InvalidArgumentException($this->l->t('maxDailyTasks can only be changed by a house owner'));
+			}
 			if ($weekdayAvailability === null && $energyBudget === null) {
 				throw new \InvalidArgumentException($this->l->t('At least one section (weekdayAvailability or energyBudget) must be provided'));
 			}
@@ -176,6 +191,10 @@ class SchedulingController extends Controller {
 	/**
 	 * Update member availability (house owner only)
 	 *
+	 * The payload may carry the member's `maxDailyTasks` child limit
+	 * (decision D5): omitted = unchanged, `null` = unlimited, integer 1-100
+	 * = finite limit.
+	 *
 	 * @NoAdminRequired
 	 * @return JSONResponse
 	 */
@@ -196,7 +215,7 @@ class SchedulingController extends Controller {
 				'message' => $this->l->t('Member availability updated')
 			]);
 		} catch (\InvalidArgumentException $e) {
-			// Curated weekday message — safe to surface verbatim.
+			// Curated weekday/limit messages — safe to surface verbatim.
 			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -213,44 +232,164 @@ class SchedulingController extends Controller {
 	}
 
 	/**
-	 * Get scheduling suggestions
+	 * Preview the deterministic plan over the selected real room tasks
+	 * (owner only, CS-PLAN-065 / ADR-012).
 	 *
-	 * Accepts only the number of schedulable tasks — the backend never used
-	 * more than `count($tasks)` (CR-016-13c).
+	 * The retired taskCount-only advice contract is gone: a legacy payload
+	 * without `startDate`/`roomTaskIds` fails the closed shape validation
+	 * with a 400 — no compatibility fallback.
 	 *
 	 * @NoAdminRequired
 	 * @return JSONResponse
 	 */
-	public function getSuggestions(int $taskCount): JSONResponse {
+	public function preview(): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
-			$this->authService->assertHouseMember($house->getId());
+			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			if ($taskCount < 0) {
-				throw new \InvalidArgumentException($this->l->t('taskCount must not be negative'));
-			}
+			[$startDate, $roomTaskIds, $overrides] = $this->parsePlanRequest();
 
-			$suggestions = $this->schedulingService->getSchedulingSuggestions($taskCount, $house->getId());
+			$plan = $this->schedulePlanService->preview(
+				$house->getId(),
+				$houseUser,
+				$startDate,
+				$roomTaskIds,
+				$overrides
+			);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $suggestions
+				'data' => $plan
 			]);
 		} catch (\InvalidArgumentException $e) {
 			return ControllerErrorFormatter::validation($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
+		} catch (ConflictException $e) {
+			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
-			$this->logControllerException('getSuggestions', $e);
+			$this->logControllerException('preview', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
-					'code' => 'SUGGESTIONS_ERROR',
+					'code' => 'PLAN_PREVIEW_ERROR',
 					'message' => ControllerErrorFormatter::safeMessage($e)
 				]
 			], 500);
 		}
+	}
+
+	/**
+	 * Apply the confirmed plan as one all-or-nothing aggregate (owner only).
+	 *
+	 * Request: the exact normalized preview input plus its
+	 * `previewVersion`. A stale confirmation is a 409; a confirmed no-change
+	 * plan performs zero writes.
+	 *
+	 * @NoAdminRequired
+	 * @return JSONResponse
+	 */
+	public function apply(): JSONResponse {
+		try {
+			$instanceId = $this->houseService->getInstanceId();
+			$house = $this->houseService->getOrCreateHouse($instanceId);
+			$houseUser = $this->authService->assertHouseMember($house->getId());
+
+			[$startDate, $roomTaskIds, $overrides] = $this->parsePlanRequest();
+			$previewVersion = $this->request->getParam('previewVersion');
+			if (!is_string($previewVersion) || $previewVersion === '') {
+				throw new \InvalidArgumentException($this->l->t('previewVersion is required'));
+			}
+
+			$result = $this->schedulePlanService->apply(
+				$house->getId(),
+				$houseUser,
+				$startDate,
+				$roomTaskIds,
+				$overrides,
+				$previewVersion
+			);
+
+			return new JSONResponse([
+				'success' => true,
+				'data' => $result
+			]);
+		} catch (\InvalidArgumentException $e) {
+			return ControllerErrorFormatter::validation($e);
+		} catch (ForbiddenException $e) {
+			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (NotFoundException $e) {
+			return ControllerErrorFormatter::notFoundResponse($e);
+		} catch (ConflictException $e) {
+			return ControllerErrorFormatter::conflictResponse($e);
+		} catch (\Exception $e) {
+			$this->logControllerException('apply', $e);
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'PLAN_APPLY_ERROR',
+					'message' => ControllerErrorFormatter::safeMessage($e)
+				]
+			], 500);
+		}
+	}
+
+	/**
+	 * Parse the shared preview/apply request shape: `startDate`,
+	 * unique positive `roomTaskIds` (bounded), optional per-row `overrides`
+	 * and (apply only) `previewVersion`.
+	 *
+	 * @return array{0: string, 1: list<int>, 2: array<int, array{assigneeUserIds?: list<string>, date?: string}>}
+	 */
+	private function parsePlanRequest(): array {
+		$startDate = $this->request->getParam('startDate');
+		if (!is_string($startDate)) {
+			throw new \InvalidArgumentException($this->l->t('startDate must be a valid Y-m-d date'));
+		}
+
+		$rawIds = $this->request->getParam('roomTaskIds');
+		if (!is_array($rawIds)) {
+			throw new \InvalidArgumentException($this->l->t('roomTaskIds must be an array of room task IDs'));
+		}
+		$roomTaskIds = [];
+		foreach ($rawIds as $rawId) {
+			if (!is_numeric($rawId) || (int)$rawId < 1) {
+				throw new \InvalidArgumentException($this->l->t('roomTaskIds must contain positive integers'));
+			}
+			$roomTaskIds[] = (int)$rawId;
+		}
+
+		$rawOverrides = $this->request->getParam('overrides');
+		$overrides = [];
+		if ($rawOverrides !== null) {
+			if (!is_array($rawOverrides)) {
+				throw new \InvalidArgumentException($this->l->t('overrides must be an object keyed by room task ID'));
+			}
+			foreach ($rawOverrides as $overrideId => $override) {
+				if (!is_numeric($overrideId) || (int)$overrideId < 1) {
+					throw new \InvalidArgumentException($this->l->t('Overrides must reference a selected room task'));
+				}
+				if (!is_array($override)) {
+					throw new \InvalidArgumentException($this->l->t('Each override must be an object'));
+				}
+				$clean = [];
+				if (array_key_exists('assigneeUserIds', $override)) {
+					if (!is_array($override['assigneeUserIds'])) {
+						throw new \InvalidArgumentException($this->l->t('assigneeUserIds must be a non-empty array of user IDs'));
+					}
+					$clean['assigneeUserIds'] = $override['assigneeUserIds'];
+				}
+				if (array_key_exists('date', $override)) {
+					$clean['date'] = $override['date'];
+				}
+				$overrides[(int)$overrideId] = $clean;
+			}
+		}
+
+		return [$startDate, $roomTaskIds, $overrides];
 	}
 
 	/**
@@ -304,10 +443,12 @@ class SchedulingController extends Controller {
 	}
 
 	/**
-	 * Validate the keys of a member-availability update payload.
+	 * Validate the keys of a member-availability update payload: weekday
+	 * names inside the availability/energy sections plus the optional
+	 * `maxDailyTasks` child limit (decision D5).
 	 *
-	 * @param array $updates Availability/energy updates keyed by weekday
-	 * @throws \InvalidArgumentException When any key is not a valid weekday
+	 * @param array $updates Availability/energy/limit updates
+	 * @throws \InvalidArgumentException When any key or value is invalid
 	 */
 	private function validateMemberUpdates(array $updates): void {
 		foreach (['weekdayAvailability', 'energyBudget'] as $section) {
@@ -315,6 +456,17 @@ class SchedulingController extends Controller {
 				foreach (array_keys($updates[$section]) as $day) {
 					$this->validateWeekday((string)$day);
 				}
+			}
+		}
+
+		if (array_key_exists('maxDailyTasks', $updates) && $updates['maxDailyTasks'] !== null) {
+			$this->schedulingService->assertValidMaxDailyTasks($updates['maxDailyTasks']);
+		}
+
+		$allowedKeys = ['weekdayAvailability', 'energyBudget', 'maxDailyTasks'];
+		foreach (array_keys($updates) as $key) {
+			if (!in_array($key, $allowedKeys, true)) {
+				throw new \InvalidArgumentException($this->l->t('Unknown update field: %1$s', [(string)$key]));
 			}
 		}
 	}

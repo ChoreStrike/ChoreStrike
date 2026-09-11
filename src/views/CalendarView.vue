@@ -91,6 +91,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useHouseStore } from '../store/house.js'
 import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
@@ -163,6 +164,22 @@ export default {
 				this.fetchData()
 			},
 		},
+	},
+
+	mounted() {
+		// CS-PLAN-065 §3.4: a committed owner plan may have moved
+		// occurrences inside the currently visible window — refetch exactly
+		// that window (the store's sequence guard drops stale responses).
+		this.scheduleAppliedHandler = () => {
+			this.fetchData()
+		}
+		subscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
+	},
+
+	beforeUnmount() {
+		if (this.scheduleAppliedHandler) {
+			unsubscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
+		}
 	},
 
 	methods: {

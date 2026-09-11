@@ -110,32 +110,83 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Get total consumed energy for a user within a day window.
+	 * Occurrence/undo ledger state for the given room tasks within a
+	 * window (CS-PLAN-065, ADR-012 fingerprint input): total completion
+	 * rows and how many of them carry an `undone_at` mark. Counts — not
+	 * row identity — so the value is stable across identical states.
 	 *
-	 * CS-PLAN-057: the day window is supplied as explicit `[start, end)`
-	 * bounds (house-TZ day, CalendarService::dayBounds) instead of being
-	 * derived from a single date at server-TZ midnight.
-	 *
-	 * @param int $userId The house user ID
+	 * @param array<int> $roomTaskIds The room task IDs
 	 * @param \DateTimeInterface $start Inclusive window start
 	 * @param \DateTimeInterface $end Exclusive window end
-	 * @return int Total consumed energy points
+	 * @return array<int, array{total: int, undone: int}>
 	 */
-	public function getConsumedEnergyForUserOnDate(int $userId, \DateTimeInterface $start, \DateTimeInterface $end): int {
+	public function findUndoStateByRoomTasks(array $roomTaskIds, \DateTimeInterface $start, \DateTimeInterface $end): array {
+		if (empty($roomTaskIds)) {
+			return [];
+		}
+
 		$qb = $this->db->getQueryBuilder();
-		$qb->selectAlias($qb->createFunction('COALESCE(SUM(t.energy_cost), 0)'), 'consumed_energy')
+		$qb->select('ct.room_task_id')
+			->selectAlias($qb->createFunction('COUNT(*)'), 'total')
+			->selectAlias($qb->createFunction('COUNT(ct.undone_at)'), 'undone')
+			->from($this->getTableName(), 'ct')
+			->where($qb->expr()->in('ct.room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->groupBy('ct.room_task_id');
+
+		$result = $qb->executeQuery();
+		$state = [];
+		while ($row = $result->fetch()) {
+			$state[(int)$row['room_task_id']] = [
+				'total' => (int)$row['total'],
+				'undone' => (int)$row['undone'],
+			];
+		}
+		$result->closeCursor();
+
+		return $state;
+	}
+
+	/**
+	 * Find the non-undone completion effort of one house within a window,
+	 * bucketed per completer and house-local calendar day (CS-PLAN-065
+	 * §3.1 preview capacity input).
+	 *
+	 * Decision D11: `undone_at` rows are excluded — an undone completion is
+	 * no longer planned work. The rows carry the raw `completed_at` instant
+	 * and the task's `energy_cost`; the caller buckets the instants into
+	 * house-local day keys (CalendarService) so the SQL stays portable.
+	 *
+	 * @param int $houseId The house ID
+	 * @param \DateTimeInterface $start Inclusive window start
+	 * @param \DateTimeInterface $end Exclusive window end
+	 * @return array<int, array{houseUserId: int, completedAt: \DateTime, energy: int}>
+	 */
+	public function findEnergyUsageBetweenByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('ct.user_id', 'ct.completed_at', 't.energy_cost')
 			->from($this->getTableName(), 'ct')
 			->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
 			->innerJoin('rt', 'chorestrike_tasks', 't', $qb->expr()->eq('rt.task_id', 't.id'))
-			->where($qb->expr()->eq('ct.user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_INT)))
+			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
+			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)));
+			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
+			->andWhere($qb->expr()->isNull('ct.undone_at'));
 
 		$result = $qb->executeQuery();
-		$row = $result->fetch();
+		$rows = [];
+		while ($row = $result->fetch()) {
+			$rows[] = [
+				'houseUserId' => (int)$row['user_id'],
+				'completedAt' => new \DateTime((string)$row['completed_at']),
+				'energy' => (int)$row['energy_cost'],
+			];
+		}
 		$result->closeCursor();
 
-		return (int)($row['consumed_energy'] ?? 0);
+		return $rows;
 	}
 
 	/**

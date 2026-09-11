@@ -57,7 +57,7 @@ without a dedicated endpoint call.
 | 07 | Task lifecycle maintenance | RoomDetail, TaskManager, TaskList |
 | 08 | Daily execution ("My Day") | TodayView, TaskList |
 | 09 | Assignment & teamwork | TaskList, TodayView |
-| 10 | Planning: availability, energy, suggestions | SchedulingView |
+| 10 | Planning: availability, energy, task plans | SchedulingView |
 | 11 | Progress & gamification | Dashboard, Leaderboard, Settings |
 | 12 | Minigames & boosts | ArcadeSection (Dashboard) |
 | 13 | Members, roles & household changes | Settings → MemberList |
@@ -175,12 +175,12 @@ Member/child. **Entry points:** `/today` route; Dashboard stat cards link in.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Personalized daily list (child-aware limits) | TodayView | `GET /room-tasks/filtered-daily` | ✅ |
+| Personalized daily list (child-aware limits) | TodayView | `GET /room-tasks/filtered-daily` | ✅ CS-PLAN-065 (D4): child eligibility (own-or-unassigned) runs before the availability gate and the child limit; the read order is `nextDue, createdAt, id` and rows embed their canonical `assignees` |
 | My tasks ↔ Everyone filter | TodayView | client-side | ✅ (default: My tasks) |
 | Overdue section | TodayView | `GET /room-tasks/overdue` | ✅ |
-| Complete task (celebration: confetti/sound/toast, combo, streak) | TodayView, TaskList, RoomDetail, TaskManager | `POST /room-tasks/{id}/complete` | ✅ |
-| Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ⚠️ deep links work; counters read a shared slice the refresh calls do not populate (workflow review 2026-09-02) |
-| Per-row assignee resolution | TodayView | `GET /room-tasks/{id}/assignees` | ✅ |
+| Complete task (celebration: confetti/sound/toast, combo, streak) | TodayView, TaskList, RoomDetail, TaskManager | `POST /room-tasks/{id}/complete` | ✅ (CS-PLAN-065 D7 removed the dead per-completion energy-counter store write) |
+| Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ⚠️ deep links work; counters read a shared slice the refresh calls do not populate (workflow review 2026-09-02; fold-in target CR-WF-04/08, WP7) |
+| Per-row assignee resolution | TodayView | due-today rows embed `assignees`; overdue rows via `GET /room-tasks/{id}/assignees` | ✅ |
 | Checklist toggle while completing | TaskList → `TaskChecklist` | `POST /checklists/toggle/{rt}/{item}`, `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}` | ✅ |
 | Checklist editor (add/edit/delete/reorder items) | TaskList → `TaskChecklist` (owner-only `can-edit`) | `POST /checklists/task/{id}`, `PUT+DELETE /checklists/item/{id}`, `POST /checklists/reorder` | ✅ (unlocked for owners since CS-PLAN-042; store speaks the backend contract: `label`/`sortOrder`, `itemOrders` map, `{items, stats}` progress envelope) |
 | Complete/assign from calendar day | CalendarView | — | ❌ read-only (review W6) |
@@ -198,10 +198,11 @@ Members. **Entry points:** TaskList expanded row; TodayView claim button.
 | Claim overdue public task (dialog → complete) | TaskList → `OverdueClaimDialog` | `GET /room-tasks/overdue` + complete | ✅ (claim target ≤24 px, UX-007) |
 | Dedicated claimable-tasks query | — | `GET /room-tasks/overdue-claims` | ⛔ pruned (CS-PLAN-055; UI uses `/overdue` + client filter) |
 
-## UC-10 — Planning: availability, energy, suggestions
+## UC-10 — Planning: availability, energy, task plans
 
-**Goal:** balance workload by capacity and energy. **Personas:** all (self
-service), Owner (overview). **Entry points:** SchedulingView.
+**Goal:** balance workload by capacity and energy, and let the owner confirm
+a real household schedule. **Personas:** all (self service), Owner (plan
+preview/apply). **Entry points:** SchedulingView.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
@@ -209,11 +210,13 @@ service), Owner (overview). **Entry points:** SchedulingView.
 | Owner availability grid (all members) | `AvailabilitySettings` | `GET /scheduling/members` | ✅ |
 | Edit another member's availability | `AvailabilitySettings` → shared `AvailabilityEditModal` (owner) | `PUT /scheduling/members/{userId}` | ✅ (CS-PLAN-043 wired the edit path — UX-014 keep decision resolved: endpoint stays) |
 | Edit energy budget (weekdays/weekend) | `EnergyBudgetSettings` | `GET+PUT /scheduling/preferences` | ✅ single bulk save |
-| Load preview / capacity calendar | `SchedulePlanner`, `ScheduleCalendar` | client + suggestions | ✅ |
-| Generate suggestions | `SchedulePlanner` | `POST /scheduling/suggestions` (`{ taskCount }`) | ✅ merged surface — the former Preview/Suggestions twin buttons are one component (CR-016-05) |
-| Apply a suggestion to own week | `SchedulePlanner` per-day Apply button | `PUT /scheduling/preferences` (bulk) | ✅ CS-PLAN-043 — applies personal share of the suggested day's energy; real task assignments remain a manual step |
+| Set a child's daily-task limit | `AvailabilityEditModal` (owner, non-self only) | `PUT /scheduling/members/{userId}` (`maxDailyTasks`) | ✅ CS-PLAN-065 (decision D5): omitted = unchanged, `null` = unlimited, 1-100 = finite bound; the personal endpoints reject the key |
+| Capacity calendar (members × days) | `ScheduleCalendar` | `GET /scheduling/members` + client getters | ✅ |
+| Preview a real-task plan | `SchedulePlanner` (owner only) | `POST /scheduling/suggestions` (`startDate` + selected `roomTaskIds` + optional `overrides`) | ✅ CS-PLAN-065 — deterministic proposal over real room tasks with per-row before/proposed, warnings and capacity report; the retired `{ taskCount }` advice contract is rejected |
+| Adjust a proposal | `SchedulePlanner` per-row person/day selects (from the preview's `legalDates`) | edit marks the preview stale → re-preview | ✅ CS-PLAN-065 — confirmation of an edited/stale preview is disabled |
+| Apply the confirmed plan | `SchedulePlanner` Apply button (owner only) | `POST /scheduling/apply` (exact input + `previewVersion`) | ✅ CS-PLAN-065 — one atomic batch; a stale confirmation is a clean 409; Calendar and My Day refresh from the reconciled stores |
 
-*Last verified: 2026-08-24 (CS-PLAN-043).*
+*Last verified: 2026-09-10 (CS-PLAN-065).*
 
 ## UC-11 — Progress & gamification
 

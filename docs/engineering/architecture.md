@@ -506,6 +506,54 @@ one concern. The canonical store boundaries (post-CS-PLAN-008):
 }
 ```
 
+#### `useSchedulingStore`
+```javascript
+{
+  state: {
+    memberAvailability: [],   // owner-only member preference list (with maxDailyTasks)
+    energyBudget: {},         // current user's weekly budgets
+    weekdayAvailability: {},  // current user's weekly availability
+    maxDailyTasks: Infinity,  // null (unset) from the API → Infinity (unlimited, D5)
+    loading: false,
+    error: null,
+    planStatus: 'idle',       // idle|loading|ready|applying|applied|refreshFailed|stale|error
+    planPreview: null,        // last preview payload (changes/unchanged/unplaced/capacity/warnings)
+    planInput: null           // the exact normalized input the preview was computed from
+  },
+  getters: {
+    totalWeeklyEnergy(),
+    getCapacityForDay(),
+    plannedEnergyForDay(),
+    overcapacityDays()
+  },
+  actions: {
+    fetchUserPreferences(),
+    saveWeeklyPreferences(),       // personal bulk PUT — cannot change maxDailyTasks (D5)
+    fetchMemberAvailability(),
+    updateMemberPreferences(),     // owner member PUT (optionally maxDailyTasks)
+    previewPlan(),                 // POST /scheduling/suggestions (read-only, sequenced)
+    markPlanStale(),
+    applyPlan(),                   // POST /scheduling/apply + reconciliation + refresh
+    refreshAfterApply(),
+    resetPlan(),
+    initializeScheduling(),
+    clearError(),
+    reset()
+  }
+}
+```
+
+> Plan-failure state is deliberately scoped: `previewPlan`/`applyPlan` never
+> set the shared view-wide `error` (SchedulingView replaces its whole content
+> on that field) — the planner component carries its own status banner and
+> toasts (CS-PLAN-065 §3.4). After a committed apply, the store reconciles
+> the returned room tasks into `useRoomTasksStore` caches, refetches the
+> filtered-daily/overdue slices and the cached range window, then emits
+> `chorestrike:schedule-applied` for TodayView/CalendarView local reloads.
+> The room-task store keeps per-resource request sequences on the
+> filtered-daily and range readers so a pre-apply response can never
+> overwrite post-apply refreshed results.
+
 ## Notifications (Nextcloud bell + mobile push)
 
 All ChoreStrike notifications are dispatched through
@@ -700,6 +748,35 @@ All calendar-day semantics (streaks, freezes, at-risk, due-today, energy windows
 - Background jobs resolve the single instance house (HouseMapper::findOneForJobs()) per pass; no house yet → the pass is a no-op. Multi-house is a documented future (per-house passes), not built.
 - Frontend mirror: src/utils/dateKeys.js (dateKeyInZone, todayKeyInZone, addDaysToKey, weekdayOfKey) is the single day-key convention; the house store exposes timezone (UTC fallback while the house payload is loading). Never slice ISO strings (slice(0, 10)) or build browser-local keys for day bucketing.
 - Grep gate: no bare new \DateTime('…') day-math outside CalendarService callers; no UTC-slice or browser-local day keys in src/ (outside dateKeys.js).
+
+### Aggregate Idiom: Scheduling Preview/Apply (CS-PLAN-065, ADR-012)
+
+`SchedulePlanService` owns the owner-only plan aggregate: a deterministic,
+write-free **preview** (`POST /scheduling/suggestions`) whose content
+fingerprint (`previewVersion`, SHA-1 over canonically sorted request + row
+state + member roles/preferences + timezone + capacity rows + proposal) is
+confirmed by **apply** (`POST /scheduling/apply`).
+
+- **Lock order (refines, never inverts ADR-011):** `house → room_task
+  (ascending ids) → task definition (ascending ids) → house_user (ascending
+  ids) → assignee writes`. Creation/setup writers take the house lock first
+  and serialize; completion/undo (`room_task → room → house_user`) and all
+  other writers block on row locks apply already holds — no ordering cycle.
+- **Never apply against drifted state:** apply recomputes the identical plan
+  from freshly locked rows; any fingerprint mismatch is a `409 CONFLICT`
+  with zero writes. Two applies of one preview serialize into one commit and
+  one clean conflict.
+- **Planning rules** (contract detail in [ADR-012](../adr/ADR-012-actionable-household-scheduling.md)
+  and [`docs/api/README.md`](../api/README.md)): legal recurrence/flex slots
+  first, eligibility before capacity, availability/energy/child limits as
+  hard constraints, full effort per assignee, replace-not-add accounting,
+  claimed rows untouched.
+- **Mapper lock primitives:** `RoomTaskMapper::lockForUpdate` /
+  `HouseUserMapper::findForUpdate` / `HouseMapper::findForUpdate` exist as
+  the MySQL/PostgreSQL `FOR UPDATE` + SQLite self-assignment pattern;
+  `TaskMapper::lockForUpdate` follows the same shape. Any new writer that
+  targets rows these aggregates lock must be audited against the order
+  above before it ships.
 
 ### Frontend
 - Lazy loading routes

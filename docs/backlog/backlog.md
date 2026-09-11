@@ -82,7 +82,7 @@ extends, rather than duplicates, **CR-SVC-15**, **CR-SVC-40**, **CR-SVC-41**, an
 **Owning**: CS-PLAN-065 (CS-PLAN-058 WP6) · **Depends on**: — (the old completion/undo dependency was delivered 2026-09-09 by CS-PLAN-064; see the monthly archive) · **Blocks**: CR-WF-04 · **Folded-in**: —
 **Source**: CS-PLAN-058 core workflow masterplan (2026-09-02)
 
-**Plan**: [CS-PLAN-065](../plans/active/cs-plan-065-wp6-actionable-scheduling.md) (Standard A `PASS` 2026-09-10, activated; implementation not started).
+**Plan**: [CS-PLAN-065](../plans/active/cs-plan-065-wp6-actionable-scheduling.md) (Standard A `PASS` 2026-09-10; final Standard B `NEEDS-FOLLOW-UP` 2026-09-11 — implementation verified green and committed, test-matrix findings RF-065-01/02 open for the next round).
 
 The existing scheduling surface can preview capacity, but the core journey needs
 an explicit, owner-confirmed bridge from suggestions to real room-task assignees
@@ -304,6 +304,12 @@ state that **nothing reads** (the server's preferences payload carries the
 field, so the fetch line survives). Decide: drop the client accumulation +
 payload field (server is authoritative; also trim the `SchedulingService`
 response) or surface remaining-today energy in the UI (feature decision).
+
+*Delivery note (2026-09-10): the remove-the-cluster decision (D7) is
+implemented — store state/action, the completion-side increment, the
+preferences payload field and the mapper query it fed are gone (see
+CS-PLAN-065 §9 implementation record); the item archives with the plan's
+passing final review.*
 
 ---
 

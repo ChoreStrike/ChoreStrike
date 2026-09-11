@@ -55,6 +55,36 @@
 				</div>
 			</div>
 
+			<!-- Decision D5: the child daily-task limit is owner-only and only
+		     editable for OTHER members — the personal endpoints reject it. -->
+			<div v-if="!isSelf" class="form-section">
+				<h4>{{ t('chorestrike', 'Daily Task Limit') }}</h4>
+				<p class="section-description">
+					{{ t('chorestrike', 'Limit how many tasks this member sees per day in My Day (1-100)') }}
+				</p>
+				<div class="limit-row">
+					<label class="toggle-label">
+						<input
+							v-model="limitEnabled"
+							type="checkbox"
+							class="toggle-input cs-visually-hidden"
+							data-testid="limit-enabled-toggle">
+						<span class="toggle-slider" />
+						<span class="toggle-text">{{ t('chorestrike', 'Limit daily tasks') }}</span>
+					</label>
+					<div v-if="limitEnabled" class="input-group limit-input-group">
+						<input
+							v-model.number="limitValue"
+							type="number"
+							:min="LIMIT_MIN"
+							:max="LIMIT_MAX"
+							class="number-input"
+							data-testid="limit-value-input">
+						<span class="input-suffix">{{ t('chorestrike', 'tasks/day') }}</span>
+					</div>
+				</div>
+			</div>
+
 			<div class="form-section">
 				<h4>{{ t('chorestrike', 'Quick Templates') }}</h4>
 				<div class="template-buttons">
@@ -113,7 +143,7 @@ import { showSuccess, showError } from '@nextcloud/dialogs'
 import { useSchedulingStore } from '../../store/scheduling.js'
 import { resolveCurrentUser } from '../../utils/currentUser.js'
 import { logger } from '../../utils/logger.js'
-import { weekDays, ENERGY_MIN, ENERGY_MAX } from '../../constants/scheduling.js'
+import { weekDays, ENERGY_MIN, ENERGY_MAX, MAX_DAILY_TASKS_MIN, MAX_DAILY_TASKS_MAX } from '../../constants/scheduling.js'
 import { createDefaultEnergyBudget } from '../../utils/energyBudgets.js'
 import Modal from '../Common/Modal.vue'
 
@@ -139,11 +169,27 @@ try {
 }
 const isSelf = computed(() => props.member.userId === currentUserId)
 
+const LIMIT_MIN = MAX_DAILY_TASKS_MIN
+const LIMIT_MAX = MAX_DAILY_TASKS_MAX
+
 const saving = ref(false)
 const editForm = ref({
 	availability: { ...props.member.weekdayAvailability },
 	energyBudget: { ...props.member.energyBudget },
 })
+// Decision D5: the stored limit is `null` (unlimited) or a finite int.
+// Disabled toggle + previously finite stored limit → explicit null is sent;
+// otherwise the key is omitted and the stored value stays untouched.
+const limitEnabled = ref(Number.isFinite(props.member.maxDailyTasks))
+const limitValue = ref(limitEnabled.value ? props.member.maxDailyTasks : '')
+
+const storedLimit = () => (Number.isFinite(props.member.maxDailyTasks) ? props.member.maxDailyTasks : null)
+
+// The limit value the save would persist: null when the toggle is off,
+// the edited integer when on (validated before the request fires).
+const nextLimit = () => (limitEnabled.value && Number.isInteger(limitValue.value) ? limitValue.value : null)
+
+const limitHasChanges = computed(() => nextLimit() !== storedLimit())
 
 // Effective full week the save would persist (CR-016-14): availability from
 // the form, energy from the edited values with unset days defaulting to the
@@ -164,11 +210,13 @@ const buildWeeklyPayload = () => {
 }
 
 // Snapshot comparison against the edited member's stored week so Save is a
-// no-op unless something actually changed.
+// no-op unless something actually changed. The child limit participates
+// only for other members (D5: the self path cannot change it).
 const editHasChanges = computed(() => {
 	const storedAvailability = props.member.weekdayAvailability ?? {}
 	const storedBudget = props.member.energyBudget ?? {}
 	const defaultBudget = createDefaultEnergyBudget()
+	if (!isSelf.value && limitHasChanges.value) return true
 	return weekDays.some((day) => {
 		if (!!editForm.value.availability[day.key] !== !!storedAvailability[day.key]) return true
 		const formEnergy = editForm.value.energyBudget[day.key]
@@ -203,14 +251,26 @@ const saveAvailability = async () => {
 		return
 	}
 
+	// Decision D5: validate the limit before firing — an out-of-range value
+	// aborts instead of being silently dropped behind a success toast.
+	const payload = buildWeeklyPayload()
+	const updates = { ...payload }
+	if (!isSelf.value && limitHasChanges.value) {
+		if (limitEnabled.value) {
+			if (!Number.isInteger(limitValue.value) || limitValue.value < LIMIT_MIN || limitValue.value > LIMIT_MAX) {
+				showError(t('chorestrike', 'The daily task limit must be between 1 and 100'))
+				return
+			}
+		}
+		updates.maxDailyTasks = nextLimit()
+	}
+
 	saving.value = true
 	try {
-		const payload = buildWeeklyPayload()
-
 		if (isSelf.value) {
 			await schedulingStore.saveWeeklyPreferences(payload)
 		} else {
-			await schedulingStore.updateMemberPreferences(props.member.userId, payload)
+			await schedulingStore.updateMemberPreferences(props.member.userId, updates)
 		}
 
 		showSuccess(t('chorestrike', 'Availability settings saved successfully'))
@@ -370,6 +430,17 @@ const applyTemplate = (templateType) => {
 	font-size: 0.8rem;
 	color: var(--color-text-maxcontrast);
 	background: var(--color-background-dark);
+}
+
+.limit-row {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	flex-wrap: wrap;
+}
+
+.limit-input-group {
+	width: 160px;
 }
 
 .template-buttons {

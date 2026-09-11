@@ -259,7 +259,9 @@ class RoomTaskService {
 
 > Real method: `RoomTaskService::updateDueDate()` (`lib/Service/RoomTaskService.php`).
 > Scheduling preferences are owned by `SchedulingService`
-> (`lib/Service/SchedulingService.php`, e.g. `getSchedulingSuggestions()`).
+> (`lib/Service/SchedulingService.php`); the owner plan preview/apply
+> aggregate is `SchedulePlanService` (`lib/Service/SchedulePlanService.php`,
+> CS-PLAN-065 / ADR-012).
 
 ### JavaScript/Vue
 

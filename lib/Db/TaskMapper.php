@@ -37,6 +37,47 @@ class TaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Find a task definition by ID and acquire an exclusive lock on its row.
+	 *
+	 * Scheduling-apply lock primitive (ADR-012): the apply aggregate locks
+	 * capacity-relevant task definitions (ascending IDs, after the
+	 * room-task locks) so a concurrent definition edit (energy, priority,
+	 * recurrence, flex, active bounds) serializes against the applied plan
+	 * instead of committing between the fingerprint read and the writes.
+	 * Mirrors RoomTaskMapper::lockForUpdate — MySQL/PostgreSQL take a true
+	 * `SELECT … FOR UPDATE`; SQLite uses the no-op self-assignment UPDATE
+	 * that writes the column's own current value (never pre-read data) to
+	 * acquire the database-wide write lock.
+	 *
+	 * Must be called inside an open transaction.
+	 *
+	 * @param int $taskId The task ID to lock
+	 * @throws DoesNotExistException if the row does not exist
+	 */
+	public function lockForUpdate(int $taskId): Task {
+		if ($this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->update($this->getTableName())
+				->set('energy_cost', $qb->createFunction('energy_cost'))
+				->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)));
+			$qb->executeStatement();
+
+			return $this->find($taskId);
+		}
+
+		$sql = 'SELECT * FROM *PREFIX*' . $this->getTableName() . ' WHERE id = :id FOR UPDATE';
+		$result = $this->db->executeQuery($sql, ['id' => $taskId], ['id' => IQueryBuilder::PARAM_INT]);
+		$row = $result->fetch();
+		$result->closeCursor();
+
+		if ($row === false) {
+			throw new DoesNotExistException('Task with id ' . $taskId . ' does not exist');
+		}
+
+		return $this->mapRowToEntity($row);
+	}
+
+	/**
 	 * Find multiple tasks by IDs in one query (CS-PLAN-036).
 	 *
 	 * IN-clause batch lookup returning a map id → Task. Missing ids are

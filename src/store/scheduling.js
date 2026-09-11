@@ -4,25 +4,34 @@
  */
 
 import { defineStore } from 'pinia'
-import { translate as t } from '@nextcloud/l10n'
+import { emit } from '@nextcloud/event-bus'
 import { api } from '../services/api.js'
 import { logger } from '../utils/logger.js'
 import { createDefaultEnergyBudget, resolveEnergyForDay } from '../utils/energyBudgets.js'
 import { addDaysToKey, dateKeyInZone, todayKeyInZone, weekdayOfKey } from '../utils/dateKeys.js'
-import { isMemberAvailable, weekDays } from '../constants/scheduling.js'
+import { isMemberAvailable } from '../constants/scheduling.js'
 import { useHouseStore } from './house.js'
 import { useRoomTasksStore } from './roomTasks.js'
 import { useTasksStore } from './tasks.js'
 
 /**
- * Store for managing member availability and scheduling preferences
+ * Null or finite number → the internal limit representation (Infinity = unlimited).
+ *
+ * @param {number|null} value The API limit value
+ * @return {number} The finite limit or Infinity
+ */
+function normalizeMaxDailyTasks(value) {
+	return Number.isFinite(value) ? value : Infinity
+}
+
+/**
+ * Store for managing member availability, scheduling preferences and the
+ * owner plan aggregate (CS-PLAN-065): preview -> review/adjust -> apply.
  */
 export const useSchedulingStore = defineStore('scheduling', {
 	state: () => ({
 		/** @type {Array} Member availability settings per weekday */
 		memberAvailability: [],
-		/** @type {number} Energy consumed by current user today */
-		todayConsumedEnergy: 0,
 		/** @type {object} Current user's energy budget per weekday */
 		energyBudget: createDefaultEnergyBudget(),
 		/** @type {object} Current user's availability per weekday */
@@ -41,6 +50,18 @@ export const useSchedulingStore = defineStore('scheduling', {
 		loading: false,
 		/** @type {string|null} Error message */
 		error: null,
+
+		// Plan aggregate state (CS-PLAN-065 §3.4): idle → loading → ready |
+		// empty | error; ready → applying → applied | refreshFailed; a 409
+		// or an edited input marks the preview stale.
+		/** @type {'idle'|'loading'|'ready'|'applying'|'applied'|'refreshFailed'|'stale'|'error'} */
+		planStatus: 'idle',
+		/** @type {object|null} The last preview payload (changes/unchanged/unplaced/capacity/warnings…) */
+		planPreview: null,
+		/** @type {object|null} The exact normalized input the preview was computed from */
+		planInput: null,
+		/** Monotonic request token — an older preview can never replace newer input */
+		planRequestId: 0,
 	}),
 
 	getters: {
@@ -189,12 +210,8 @@ export const useSchedulingStore = defineStore('scheduling', {
 
 				this.energyBudget = data.energyBudget || this.energyBudget
 				this.weekdayAvailability = data.weekdayAvailability || this.weekdayAvailability
-				this.maxDailyTasks = Number.isFinite(data.maxDailyTasks)
-					? data.maxDailyTasks
-					: Infinity
-				this.todayConsumedEnergy = Number.isFinite(data.todayConsumedEnergy)
-					? data.todayConsumedEnergy
-					: 0
+				// Decision D5: null (unset) means unlimited.
+				this.maxDailyTasks = normalizeMaxDailyTasks(data.maxDailyTasks)
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch scheduling preferences', error, { store: 'scheduling', action: 'fetchUserPreferences' })
@@ -203,22 +220,12 @@ export const useSchedulingStore = defineStore('scheduling', {
 		},
 
 		/**
-		 * Register consumed energy for today after a completed task.
-		 * @param {number} energyCost Energy points consumed by the completed task.
-		 */
-		registerTodayEnergyConsumption(energyCost) {
-			if (!Number.isFinite(energyCost) || energyCost <= 0) {
-				return
-			}
-
-			this.todayConsumedEnergy += energyCost
-		},
-
-		/**
 		 * Save the current user's weekly preferences in one bulk request.
 		 *
 		 * Sections are optional (energy-only / availability-only saves are
-		 * valid); each provided section must be a full week.
+		 * valid); each provided section must be a full week. The child
+		 * daily-task limit is owner-only and never part of this payload
+		 * (decision D5).
 		 *
 		 * Does not touch `loading` (callers manage their own saving state).
 		 *
@@ -265,7 +272,10 @@ export const useSchedulingStore = defineStore('scheduling', {
 
 		/**
 		 * Update another member's scheduling preferences (house owner only,
-		 * UX-014). Sections are merged per-day by the backend.
+		 * UX-014). Sections are merged per-day by the backend; the optional
+		 * `maxDailyTasks` child limit rides the same owner-only endpoint
+		 * (decision D5): omitted = unchanged, `null` = unlimited, 1-100 =
+		 * finite bound.
 		 *
 		 * Does not touch `loading` — see `saveWeeklyPreferences`.
 		 *
@@ -293,57 +303,154 @@ export const useSchedulingStore = defineStore('scheduling', {
 		},
 
 		/**
-		 * Get scheduling suggestions for a number of schedulable tasks.
+		 * Request a plan preview over the selected real room tasks
+		 * (CS-PLAN-065 §3.1). Read-only on the server; the response carries
+		 * the opaque `previewVersion` needed for the one apply call.
 		 *
-		 * The request carries only `taskCount` — the backend never used more
-		 * than the task array's length (CR-016-13c). The response is
-		 * normalized to an array of suggestion objects so the UI can iterate
-		 * it directly. Does not touch `loading` — see `saveWeeklyPreferences`.
+		 * Request sequencing (§3.4): an older in-flight preview can never
+		 * replace the result of a newer input — only the latest request id
+		 * may land.
 		 *
-		 * @param {number} taskCount Number of tasks to schedule
-		 * @return {Promise<Array>} One suggestion object per weekday
+		 * @param {object} input { startDate, roomTaskIds, overrides }
+		 * @return {Promise<object|null>} The preview payload, or null when a newer request superseded this one
 		 */
-		async getSchedulingSuggestions(taskCount) {
+		async previewPlan(input) {
+			const requestId = ++this.planRequestId
+			this.planStatus = 'loading'
 			this.error = null
 
 			try {
 				const data = await api.post('/api/v1/scheduling/suggestions', {
-					taskCount,
+					startDate: input.startDate,
+					roomTaskIds: input.roomTaskIds,
+					...(input.overrides ? { overrides: input.overrides } : {}),
 				})
 
-				return this.normalizeDaySuggestions(data)
+				if (requestId !== this.planRequestId) {
+					// A newer request superseded this response.
+					return null
+				}
+
+				this.planPreview = data
+				this.planInput = {
+					startDate: input.startDate,
+					roomTaskIds: [...input.roomTaskIds],
+					overrides: input.overrides ? JSON.parse(JSON.stringify(input.overrides)) : {},
+				}
+				this.planStatus = 'ready'
+				return data
 			} catch (error) {
-				this.error = error.message
-				logger.error('Failed to get scheduling suggestions', error, { store: 'scheduling', action: 'getSchedulingSuggestions' })
+				if (requestId !== this.planRequestId) {
+					return null
+				}
+				// Deliberately NOT the shared `error`: a plan failure must not
+				// blank the whole scheduling view (SchedulingView renders its
+				// error branch instead of the sections). The planner surface
+				// carries its own status banner.
+				this.planStatus = 'error'
+				logger.error('Failed to preview the plan', error, { store: 'scheduling', action: 'previewPlan' })
 				throw error
 			}
 		},
 
 		/**
-		 * Normalize the backend's weekday-keyed suggestions payload into an
-		 * array of display-ready suggestion objects.
-		 *
-		 * @param {object} data Backend payload keyed by weekday name
-		 * @return {Array} One suggestion object per weekday
+		 * Mark the current preview stale (an input edit or an external
+		 * state change) — Apply is blocked until a fresh preview exists.
 		 */
-		normalizeDaySuggestions(data) {
-			return Object.entries(data ?? {}).map(([day, info]) => {
-				const members = info.availableMembers ?? 0
-				const energy = info.totalEnergy ?? 0
-				const recommended = info.recommendedTasks ?? 0
-				return {
-					day,
-					title: weekDays.find(d => d.key === day)?.name ?? day,
-					availableMembers: members,
-					totalEnergy: energy,
-					recommendedTasks: recommended,
-					description: t('chorestrike', '{members} members available, {energy} energy, up to {tasks} tasks', {
-						members,
-						energy,
-						tasks: recommended,
-					}),
+		markPlanStale() {
+			if (this.planStatus === 'ready') {
+				this.planStatus = 'stale'
+			}
+		},
+
+		/**
+		 * Apply the confirmed preview as one atomic batch and reconcile the
+		 * owning stores from the authoritative response (§3.4): returned
+		 * room tasks merge into the caches, then the active daily/overdue
+		 * reads and the cached calendar range refetch BEFORE success is
+		 * reported. A failed refresh is reported as "applied, refresh
+		 * failed" — never as an unsuccessful transaction.
+		 *
+		 * @return {Promise<boolean>} Whether the apply succeeded (regardless of refresh outcome)
+		 */
+		async applyPlan() {
+			if (!this.planPreview || !this.planInput || this.planStatus === 'applying') {
+				return false
+			}
+
+			this.planStatus = 'applying'
+			this.error = null
+
+			try {
+				const data = await api.post('/api/v1/scheduling/apply', {
+					startDate: this.planInput.startDate,
+					roomTaskIds: this.planInput.roomTaskIds,
+					overrides: this.planInput.overrides,
+					previewVersion: this.planPreview.previewVersion,
+				})
+
+				// Reconcile the returned room tasks into every cache slice.
+				const roomTasksStore = useRoomTasksStore()
+				for (const roomTask of data.roomTasks ?? []) {
+					roomTasksStore.replaceRoomTaskInState(roomTask.id, roomTask)
 				}
-			})
+
+				const refreshed = await this.refreshAfterApply()
+				this.planStatus = refreshed ? 'applied' : 'refreshFailed'
+				if (!refreshed) {
+					logger.warn('Plan applied but the schedule views could not be refreshed', { store: 'scheduling', action: 'applyPlan' })
+				}
+				emit('chorestrike:schedule-applied', {
+					appliedCount: data.appliedCount,
+					refreshFailed: !refreshed,
+				})
+				return true
+			} catch (error) {
+				if (error?.status === 409 || error?.response?.status === 409) {
+					this.planStatus = 'stale'
+				} else {
+					this.planStatus = 'error'
+				}
+				logger.error('Failed to apply the plan', error, { store: 'scheduling', action: 'applyPlan' })
+				throw error
+			}
+		},
+
+		/**
+		 * Refetch the scheduling-owned readers after a committed apply:
+		 * filtered daily (My Day), overdue, and the cached calendar range
+		 * window. The room-task store's request-order protection keeps a
+		 * pre-apply response from overwriting the refreshed results.
+		 *
+		 * @return {Promise<boolean>} Whether every refetch succeeded
+		 */
+		async refreshAfterApply() {
+			const roomTasksStore = useRoomTasksStore()
+			try {
+				const jobs = [
+					roomTasksStore.fetchFilteredDailyTasks(),
+					roomTasksStore.fetchOverdueTasks(),
+				]
+				const { from, to } = roomTasksStore.rangeTasks
+				if (from && to) {
+					jobs.push(roomTasksStore.fetchRangeTasks(from, to))
+				}
+				await Promise.all(jobs)
+				return true
+			} catch (error) {
+				logger.error('Post-apply refresh failed', error, { store: 'scheduling', action: 'refreshAfterApply' })
+				return false
+			}
+		},
+
+		/**
+		 * Reset the plan state (house/user change or explicit discard).
+		 */
+		resetPlan() {
+			this.planRequestId++
+			this.planStatus = 'idle'
+			this.planPreview = null
+			this.planInput = null
 		},
 
 		/**
@@ -387,7 +494,6 @@ export const useSchedulingStore = defineStore('scheduling', {
 		 */
 		reset() {
 			this.memberAvailability = []
-			this.todayConsumedEnergy = 0
 			this.maxDailyTasks = Infinity
 			this.energyBudget = createDefaultEnergyBudget()
 			this.weekdayAvailability = {
@@ -401,6 +507,7 @@ export const useSchedulingStore = defineStore('scheduling', {
 			}
 			this.loading = false
 			this.error = null
+			this.resetPlan()
 		},
 	},
 })

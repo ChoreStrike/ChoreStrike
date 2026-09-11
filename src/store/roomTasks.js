@@ -9,7 +9,6 @@ import { emit } from '@nextcloud/event-bus'
 import { logger } from '../utils/logger.js'
 import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
 import { useHouseStore } from './house.js'
-import { useSchedulingStore } from './scheduling.js'
 import { useGameStore } from './game.js'
 import { useRoomsStore } from './rooms.js'
 import { useUserStore } from './user.js'
@@ -26,6 +25,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// separate so Today items never bleed into the shared flat list
 		// consumed by TaskManager/RoomDetail.
 		dailyTasks: [],
+		// CS-PLAN-065 §3.4: request-order protection scoped to the
+		// scheduling mutations and their readers — a pre-apply response
+		// must never overwrite post-apply refreshed results.
+		dailyRequestSeq: 0,
+		rangeRequestSeq: 0,
 	}),
 
 	getters: {
@@ -305,12 +309,6 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 				this.reconcileCompletionPayload(roomTaskId, data)
 
-				const energyCost = data.rewards?.energyCost
-				if (Number.isFinite(energyCost) && energyCost > 0) {
-					const schedulingStore = useSchedulingStore()
-					schedulingStore.registerTodayEnergyConsumption(energyCost)
-				}
-
 				const rewards = data.rewards
 				emit('chorestrike:task-completed', {
 					roomTaskId,
@@ -579,15 +577,25 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 		/**
 		 * Fetch filtered daily tasks for the current user.
-		 * Child users receive a filtered view based on weekdayAvailability and maxDailyTasks.
+		 * Child users receive a filtered view based on assignment
+		 * eligibility (D4), weekdayAvailability and maxDailyTasks.
 		 * @return {Promise<Array>} Filtered daily tasks with task and room details.
 		 */
 		async fetchFilteredDailyTasks() {
 			this.loading = true
 			this.error = null
 
+			// CS-PLAN-065 §3.4: only the latest request may land — a stale
+			// in-flight response must not overwrite post-apply state.
+			const seq = ++this.dailyRequestSeq
+
 			try {
 				const data = await api.get('/api/v1/room-tasks/filtered-daily')
+
+				if (seq !== this.dailyRequestSeq) {
+					logger.debug('Dropping superseded daily read', { store: 'roomTasks', action: 'fetchFilteredDailyTasks' })
+					return this.dailyTasks
+				}
 
 				// Dedicated slice: the shared `roomTasks` list must stay
 				// scoped to room fetches, or Today items bleed into the
@@ -618,8 +626,18 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		async fetchRangeTasks(from, to) {
 			this.error = null
 
+			// CS-PLAN-065 §3.4: a pre-apply range response must not overwrite
+			// the post-apply refreshed window.
+			const seq = ++this.rangeRequestSeq
+
 			try {
 				const data = await api.get('/api/v1/room-tasks/range', { params: { from, to } })
+
+				if (seq !== this.rangeRequestSeq) {
+					logger.debug('Dropping superseded range read', { store: 'roomTasks', action: 'fetchRangeTasks' })
+					return this.rangeTasks
+				}
+
 				this.rangeTasks = { scheduled: data.scheduled, completed: data.completed, from, to }
 				return data
 			} catch (error) {
@@ -638,6 +656,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 			this.rangeTasks = { scheduled: [], completed: [], from: null, to: null }
 			this.dailyTasks = []
+			// Invalidate in-flight reads so a stale response cannot land
+			// after the reset (house/user change).
+			this.dailyRequestSeq++
+			this.rangeRequestSeq++
 		},
 	},
 })

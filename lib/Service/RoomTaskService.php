@@ -458,6 +458,12 @@ class RoomTaskService {
 	/**
 	 * Update room task due date
 	 *
+	 * Writer seam (CS-PLAN-065 §3.2, ADR-012): the write runs in one
+	 * transaction under the room-task row lock — the same first-lock class
+	 * as completion/undo — so a concurrent scheduling apply (which locks
+	 * room_task after the house lock) serializes instead of interleaving
+	 * with the raw read-modify-write.
+	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param \DateTime $nextDue The new due date
 	 * @param HouseUser $houseUser The acting user's house membership
@@ -465,7 +471,11 @@ class RoomTaskService {
 	public function updateDueDate(int $roomTaskId, \DateTime $nextDue, HouseUser $houseUser): RoomTask {
 		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
 		$this->assertLifecycleVisibility($roomTask, $this->findTaskOrNotFound($roomTask->getTaskId()), $houseUser);
-		$this->roomTaskMapper->updateNextDue($roomTaskId, $nextDue);
+
+		$this->transactions->run(function () use ($roomTaskId, $nextDue) {
+			$this->roomTaskMapper->lockForUpdate($roomTaskId);
+			$this->roomTaskMapper->updateNextDue($roomTaskId, $nextDue);
+		});
 
 		// Return updated room task
 		return $this->roomTaskMapper->find($roomTaskId);
@@ -946,11 +956,12 @@ class RoomTaskService {
 	 * Get filtered daily tasks for a user based on their role and scheduling
 	 * preferences, restricted to the viewer's visibility matrix.
 	 *
-	 * For child users, this filters tasks based on:
-	 * - weekdayAvailability: Only shows tasks due on days the user is available
-	 * - maxDailyTasks: Limits the number of tasks shown
-	 *
-	 * Non-child users receive all daily tasks (still visibility-filtered).
+	 * CS-PLAN-065 (decision D4): for child users the assignment eligibility
+	 * (assigned to the viewer OR unassigned — the canonical My Day "mine"
+	 * semantics) is evaluated BEFORE the availability gate and the daily
+	 * limit, so an ineligible task can never consume one of the child's
+	 * slots. Ordering is the canonical `nextDue, createdAt, id` (mapper
+	 * guarantee), and non-child users receive all visible daily tasks.
 	 *
 	 * @param int $houseId The house ID
 	 * @param HouseUser $viewer The acting user's house membership (role + preferences source)
@@ -962,32 +973,49 @@ class RoomTaskService {
 		HouseUser $viewer,
 		\DateTime $date,
 	): array {
-		// Daily tasks, already filtered through the visibility matrix.
+		// Daily tasks, already filtered through the visibility matrix and in
+		// the deterministic `nextDue, createdAt, id` order.
 		$allTasks = $this->getDailyTasksWithDetails($houseId, $date, $viewer);
 
-		// Non-child users see all (visible) tasks
+		// Non-child users see all (visible) tasks.
 		if (!$viewer->isChild()) {
 			return $allTasks;
 		}
 
+		// Eligibility first (D4): assigned to the viewer OR unassigned.
+		// One batched assignee read for the whole daily set (no N+1).
+		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
+			array_map(static fn (array $item): int => $item['roomTask']->getId(), $allTasks)
+		);
+		$eligible = array_values(array_filter(
+			$allTasks,
+			function (array $item) use ($assigneesByRoomTask, $viewer): bool {
+				$assignees = $assigneesByRoomTask[$item['roomTask']->getId()] ?? [];
+				return $assignees === [] || in_array($viewer->getNextcloudUserId(), $assignees, true);
+			}
+		));
+
 		// Get user's scheduling preferences
 		$preferences = $viewer->getSchedulingPreferences();
 		$weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
-		$maxDailyTasks = $preferences['maxDailyTasks'] ?? PHP_INT_MAX;
+		$maxDailyTasks = $preferences['maxDailyTasks'] ?? null;
 
 		// Get current day name (lowercase, house TZ — CS-PLAN-057)
 		$tz = $this->getTimeZoneForHouse($houseId);
 		$currentDay = strtolower(\DateTime::createFromInterface($date)->setTimezone($tz)->format('l'));
 
-		// Check if user is available today
-		$isAvailableToday = $weekdayAvailability[$currentDay] ?? true;
-
 		// If not available today, return empty array
+		$isAvailableToday = $weekdayAvailability[$currentDay] ?? true;
 		if (!$isAvailableToday) {
 			return [];
 		}
 
-		// Limit tasks to maxDailyTasks
-		return array_slice($allTasks, 0, (int)$maxDailyTasks);
+		// A finite owner-set limit truncates AFTER eligibility (decision
+		// D5); a missing or non-finite value means unlimited.
+		if (!is_int($maxDailyTasks)) {
+			return $eligible;
+		}
+
+		return array_slice($eligible, 0, $maxDailyTasks);
 	}
 }

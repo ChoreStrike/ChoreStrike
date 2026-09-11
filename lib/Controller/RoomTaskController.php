@@ -849,13 +849,20 @@ class RoomTaskController extends Controller {
 			);
 			$tz = $this->timeZoneOf($house);
 
+			// CS-PLAN-065 (decision D4): the rows carry their canonical
+			// assignee sets so My Day never re-interprets an unknown set as
+			// unassigned after the child limit truncated the list.
+			$roomTasks = array_map(static fn (array $item) => $item['roomTask'], $filteredTasks);
+			$assigneesByTask = $this->roomTaskService->getAssigneeUserIdsByRoomTasks($roomTasks);
+
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(function ($item) use ($tz) {
+				'data' => array_map(function ($item) use ($tz, $assigneesByTask) {
 					return [
 						'roomTask' => $item['roomTask']->jsonSerialize($tz),
 						'task' => $item['task']->jsonSerialize(),
 						'room' => $item['room']->jsonSerialize(),
+						'assignees' => $assigneesByTask[$item['roomTask']->getId()] ?? [],
 					];
 				}, $filteredTasks)
 			]);

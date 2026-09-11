@@ -59,6 +59,13 @@
 						</div>
 					</div>
 				</div>
+
+				<!-- Decision D5: the member's child daily-task limit (null = unlimited). -->
+				<p class="member-limit" data-testid="member-task-limit">
+					{{ member.maxDailyTasks === null || member.maxDailyTasks === undefined
+						? t('chorestrike', 'Daily tasks: unlimited')
+						: t('chorestrike', 'Daily tasks: max {limit}', { limit: member.maxDailyTasks }) }}
+				</p>
 			</div>
 		</div>
 
@@ -249,6 +256,12 @@ const closeEditModal = () => {
 .energy-value {
 	font-weight: 600;
 	color: var(--color-main-text);
+}
+
+.member-limit {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9rem;
+	margin: 0.75rem 0 0 0;
 }
 
 @media (max-width: 768px) {

@@ -335,4 +335,194 @@ class RoomTaskServiceDailyTest extends TestCase {
 		// Saturday is available and maxDailyTasks=3 allows all 2 tasks
 		$this->assertCount(2, $result);
 	}
+
+	/**
+	 * CS-PLAN-065 (decision D4): a task assigned to ANOTHER member is
+	 * ineligible for the child's My Day and must not consume a limit slot —
+	 * even when it sorts earlier than the child's own tasks.
+	 */
+	public function testGetFilteredDailyTasksForChild_AssignedToOtherEarlier_SkippedBeforeLimit(): void {
+		$houseId = 1;
+		$date = new \DateTime('2026-03-07'); // Saturday (available day)
+
+		// id 1 sorts first but belongs to another member; ids 2-3 are the
+		// child's own; id 4 is unassigned.
+		$roomTasks = [];
+		for ($i = 1; $i <= 4; $i++) {
+			$roomTask = new RoomTask();
+			$roomTask->setId($i);
+			$roomTask->setTaskId($i);
+			$roomTask->setRoomId(1);
+			$roomTasks[] = $roomTask;
+		}
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setName('Test Task');
+
+		$room = new Room();
+		$room->setId(1);
+		$room->setName('Kitchen');
+
+		$this->roomTaskMapper->expects($this->once())
+			->method('findDailyTasks')
+			->willReturn($roomTasks);
+
+		$this->taskMapper->expects($this->any())
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
+
+		$this->roomMapper->expects($this->any())
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
+
+		$this->taskAssigneeMapper->expects($this->once())
+			->method('findUserIdsByRoomTasks')
+			->with([1, 2, 3, 4])
+			->willReturn([1 => ['teen-sibling'], 2 => ['teen'], 3 => ['teen'], 4 => []]);
+
+		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
+		$viewer->setId(9);
+		$viewer->setNextcloudUserId('teen');
+		$viewer->setRole('child');
+		$viewer->setSchedulingPreferences([
+			'weekdayAvailability' => [
+				'monday' => true,
+				'tuesday' => true,
+				'wednesday' => true,
+				'thursday' => true,
+				'friday' => true,
+				'saturday' => true,
+				'sunday' => true,
+			],
+			'maxDailyTasks' => 2,
+		]);
+
+		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
+
+		// The ineligible id 1 must not eat one of the two slots.
+		$this->assertSame([2, 3], array_map(static fn (array $item): int => $item['roomTask']->getId(), $result));
+	}
+
+	/**
+	 * CS-PLAN-065 (decision D4): unassigned tasks keep the "mine" semantics
+	 * — they pass child eligibility and consume limit slots like own tasks.
+	 */
+	public function testGetFilteredDailyTasksForChild_UnassignedTasks_AreEligible(): void {
+		$houseId = 1;
+		$date = new \DateTime('2026-03-07');
+
+		$roomTask1 = new RoomTask();
+		$roomTask1->setId(1);
+		$roomTask1->setTaskId(1);
+		$roomTask1->setRoomId(1);
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setName('Unassigned Task');
+
+		$room = new Room();
+		$room->setId(1);
+		$room->setName('Kitchen');
+
+		$this->roomTaskMapper->expects($this->once())
+			->method('findDailyTasks')
+			->willReturn([$roomTask1]);
+
+		$this->taskMapper->expects($this->any())
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
+
+		$this->roomMapper->expects($this->any())
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
+
+		$this->taskAssigneeMapper->expects($this->once())
+			->method('findUserIdsByRoomTasks')
+			->willReturn([1 => []]);
+
+		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
+		$viewer->setId(10);
+		$viewer->setNextcloudUserId('teen');
+		$viewer->setRole('child');
+		$viewer->setSchedulingPreferences([
+			'weekdayAvailability' => [
+				'monday' => true,
+				'tuesday' => true,
+				'wednesday' => true,
+				'thursday' => true,
+				'friday' => true,
+				'saturday' => true,
+				'sunday' => true,
+			],
+			'maxDailyTasks' => 1,
+		]);
+
+		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
+
+		$this->assertCount(1, $result);
+	}
+
+	/**
+	 * CS-PLAN-065 (decision D5): a non-finite stored limit (e.g. a stale
+	 * PHP_INT_MAX from before D5) means unlimited, not zero.
+	 */
+	public function testGetFilteredDailyTasksForChild_StaleIntMaxLimit_IsUnlimited(): void {
+		$houseId = 1;
+		$date = new \DateTime('2026-03-07');
+
+		$roomTasks = [];
+		for ($i = 1; $i <= 3; $i++) {
+			$roomTask = new RoomTask();
+			$roomTask->setId($i);
+			$roomTask->setTaskId($i);
+			$roomTask->setRoomId(1);
+			$roomTasks[] = $roomTask;
+		}
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setName('Test Task');
+
+		$room = new Room();
+		$room->setId(1);
+		$room->setName('Kitchen');
+
+		$this->roomTaskMapper->expects($this->once())
+			->method('findDailyTasks')
+			->willReturn($roomTasks);
+
+		$this->taskMapper->expects($this->any())
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $task));
+
+		$this->roomMapper->expects($this->any())
+			->method('findByIds')
+			->willReturnCallback(fn (array $ids) => array_fill_keys($ids, $room));
+
+		$this->taskAssigneeMapper->expects($this->any())
+			->method('findUserIdsByRoomTasks')
+			->willReturn([]);
+
+		$viewer = new \OCA\ChoreStrike\Db\HouseUser();
+		$viewer->setId(11);
+		$viewer->setNextcloudUserId('teen');
+		$viewer->setRole('child');
+		$viewer->setSchedulingPreferences([
+			'weekdayAvailability' => [
+				'monday' => true,
+				'tuesday' => true,
+				'wednesday' => true,
+				'thursday' => true,
+				'friday' => true,
+				'saturday' => true,
+				'sunday' => true,
+			],
+			'maxDailyTasks' => PHP_INT_MAX,
+		]);
+
+		$result = $this->service->getFilteredDailyTasksForUser($houseId, $viewer, $date);
+
+		$this->assertCount(3, $result);
+	}
 }

@@ -42,11 +42,16 @@ describe('Scheduling Store', () => {
 	describe('Initial State', () => {
 		it('has correct initial state', () => {
 			expect(store.memberAvailability).toEqual([])
-			expect(store.todayConsumedEnergy).toBe(0)
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
 			expect(store.energyBudget.monday).toBe(10)
 			expect(store.weekdayAvailability.monday).toBe(true)
+			// CS-PLAN-065: the reader-less energy counter is gone (D7); the
+			// plan aggregate starts idle (D2).
+			expect(store).not.toHaveProperty('todayConsumedEnergy')
+			expect(store.planStatus).toBe('idle')
+			expect(store.planPreview).toBeNull()
+			expect(store.maxDailyTasks).toBe(Infinity)
 		})
 	})
 
@@ -159,11 +164,11 @@ describe('Scheduling Store', () => {
 
 	describe('Actions', () => {
 		describe('fetchUserPreferences', () => {
-			it('fetches preferences successfully', async () => {
+			it('fetches preferences successfully (D7: no consumed-energy field)', async () => {
 				const prefs = {
 					energyBudget: { monday: 20 },
 					weekdayAvailability: { monday: false },
-					todayConsumedEnergy: 3,
+					maxDailyTasks: null,
 				}
 				api.get.mockResolvedValue(prefs)
 
@@ -171,27 +176,16 @@ describe('Scheduling Store', () => {
 
 				expect(store.energyBudget.monday).toBe(20)
 				expect(store.weekdayAvailability.monday).toBe(false)
-				expect(store.todayConsumedEnergy).toBe(3)
-			})
-		})
-
-		describe('registerTodayEnergyConsumption', () => {
-			it('should increase todayConsumedEnergy for valid positive costs', () => {
-				store.todayConsumedEnergy = 2
-
-				store.registerTodayEnergyConsumption(3)
-
-				expect(store.todayConsumedEnergy).toBe(5)
+				// Decision D5: null (unset) means unlimited.
+				expect(store.maxDailyTasks).toBe(Infinity)
 			})
 
-			it('should ignore invalid or non-positive costs', () => {
-				store.todayConsumedEnergy = 2
+			it('maps a finite maxDailyTasks to the finite limit (D5)', async () => {
+				api.get.mockResolvedValue({ maxDailyTasks: 4 })
 
-				store.registerTodayEnergyConsumption(0)
-				store.registerTodayEnergyConsumption(-1)
-				store.registerTodayEnergyConsumption('3')
+				await store.fetchUserPreferences()
 
-				expect(store.todayConsumedEnergy).toBe(2)
+				expect(store.maxDailyTasks).toBe(4)
 			})
 		})
 
@@ -277,42 +271,145 @@ describe('Scheduling Store', () => {
 			})
 		})
 
-		describe('getSchedulingSuggestions', () => {
-			it('posts only { taskCount } and normalizes the weekday-keyed payload into an array', async () => {
-				api.post.mockResolvedValue({
-					monday: { availableMembers: 2, totalEnergy: 20, recommendedTasks: 4 },
-					saturday: { availableMembers: 1, totalEnergy: 15, recommendedTasks: 3 },
-				})
+		describe('previewPlan (CS-PLAN-065)', () => {
+			const input = { startDate: '2026-09-10', roomTaskIds: [11, 12] }
 
-				const result = await store.getSchedulingSuggestions(5)
+			it('POSTs the exact normalized input and stores the preview payload', async () => {
+				const payload = {
+					previewVersion: 'abc',
+					startDate: '2026-09-10',
+					endDateExclusive: '2026-09-17',
+					timezone: 'UTC',
+					changes: [],
+					unchanged: [],
+					unplaced: [],
+					capacity: [],
+					warnings: [],
+				}
+				api.post.mockResolvedValue(payload)
 
-				expect(api.post).toHaveBeenCalledWith('/api/v1/scheduling/suggestions', { taskCount: 5 })
-				expect(Array.isArray(result)).toBe(true)
-				expect(result).toHaveLength(2)
-				expect(result[0]).toMatchObject({
-					day: 'monday',
-					availableMembers: 2,
-					totalEnergy: 20,
-					recommendedTasks: 4,
+				const result = await store.previewPlan({ ...input })
+
+				expect(api.post).toHaveBeenCalledWith('/api/v1/scheduling/suggestions', {
+					startDate: '2026-09-10',
+					roomTaskIds: [11, 12],
 				})
-				expect(result[0].title).toBeTruthy()
-				expect(result[0].description).toBeTruthy()
+				expect(result).toEqual(payload)
+				expect(store.planPreview).toEqual(payload)
+				expect(store.planInput).toEqual({ startDate: '2026-09-10', roomTaskIds: [11, 12], overrides: {} })
+				expect(store.planStatus).toBe('ready')
 			})
 
-			it('returns an empty array for an empty payload', async () => {
-				api.post.mockResolvedValue({})
+			it('does not touch the shared loading flag nor the view-wide error (plan failures stay scoped)', async () => {
+				api.post.mockRejectedValue(new Error('Bad request'))
 
-				const result = await store.getSchedulingSuggestions(0)
-
-				expect(result).toEqual([])
-			})
-
-			it('does not toggle the shared loading flag', async () => {
-				api.post.mockResolvedValue({})
-
-				await store.getSchedulingSuggestions(0)
+				await expect(store.previewPlan({ ...input })).rejects.toThrow('Bad request')
 
 				expect(store.loading).toBe(false)
+				expect(store.planStatus).toBe('error')
+				expect(store.error).toBeNull()
+			})
+
+			it('a superseded older response never replaces newer input', async () => {
+				let resolveFirst
+				api.post.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+				api.post.mockResolvedValueOnce({ previewVersion: 'newer' })
+
+				const first = store.previewPlan({ ...input })
+				await store.previewPlan({ ...input, roomTaskIds: [99] })
+				resolveFirst({ previewVersion: 'older' })
+				const olderResult = await first
+
+				expect(olderResult).toBeNull()
+				expect(store.planPreview).toEqual({ previewVersion: 'newer' })
+				expect(store.planInput.roomTaskIds).toEqual([99])
+			})
+		})
+
+		describe('applyPlan (CS-PLAN-065)', () => {
+			const setupReady = () => {
+				store.planPreview = { previewVersion: 'abc', changes: [{ roomTaskId: 11 }] }
+				store.planInput = { startDate: '2026-09-10', roomTaskIds: [11], overrides: {} }
+				store.planStatus = 'ready'
+			}
+
+			it('sends input + previewVersion, reconciles rows, refreshes readers and reports applied', async () => {
+				setupReady()
+				api.post.mockImplementation(async (path) => {
+					if (path === '/api/v1/scheduling/apply') {
+						return { appliedCount: 1, windowStart: '2026-09-10', windowEndExclusive: '2026-09-17', roomTasks: [] }
+					}
+					return {}
+				})
+
+				const ok = await store.applyPlan()
+
+				expect(ok).toBe(true)
+				expect(api.post).toHaveBeenCalledWith('/api/v1/scheduling/apply', {
+					startDate: '2026-09-10',
+					roomTaskIds: [11],
+					overrides: {},
+					previewVersion: 'abc',
+				})
+				expect(store.planStatus).toBe('applied')
+			})
+
+			it('maps a 409 to the stale state so Apply stays disabled', async () => {
+				setupReady()
+				const conflict = new Error('Conflict')
+				conflict.status = 409
+				api.post.mockRejectedValue(conflict)
+
+				await expect(store.applyPlan()).rejects.toThrow('Conflict')
+
+				expect(store.planStatus).toBe('stale')
+			})
+
+			it('reports a committed apply with a failed refresh as refreshFailed', async () => {
+				setupReady()
+				api.post.mockImplementation(async (path) => {
+					if (path === '/api/v1/scheduling/apply') {
+						return { appliedCount: 1, roomTasks: [] }
+					}
+					return Promise.reject(new Error('post failure'))
+				})
+				api.get.mockRejectedValue(new Error('refetch failed'))
+
+				const ok = await store.applyPlan()
+
+				expect(ok).toBe(true)
+				expect(store.planStatus).toBe('refreshFailed')
+			})
+
+			it('is a no-op without a confirmed preview', async () => {
+				const ok = await store.applyPlan()
+
+				expect(ok).toBe(false)
+				expect(api.post).not.toHaveBeenCalled()
+			})
+		})
+
+		describe('markPlanStale / resetPlan', () => {
+			it('markPlanStale only downgrades a ready preview', () => {
+				store.planStatus = 'ready'
+				store.markPlanStale()
+				expect(store.planStatus).toBe('stale')
+
+				store.planStatus = 'applying'
+				store.markPlanStale()
+				expect(store.planStatus).toBe('applying')
+			})
+
+			it('resetPlan clears preview state and invalidates in-flight requests', async () => {
+				store.planPreview = { previewVersion: 'x' }
+				store.planInput = { startDate: '2026-09-10', roomTaskIds: [] }
+				store.planStatus = 'ready'
+
+				store.resetPlan()
+
+				expect(store.planPreview).toBeNull()
+				expect(store.planInput).toBeNull()
+				expect(store.planStatus).toBe('idle')
 			})
 		})
 
@@ -356,20 +453,22 @@ describe('Scheduling Store', () => {
 		describe('reset', () => {
 			it('resets state to defaults', () => {
 				store.memberAvailability = [{ userId: 'user1' }]
-				store.todayConsumedEnergy = 9
 				store.energyBudget.monday = 20
 				store.weekdayAvailability.monday = false
 				store.loading = true
 				store.error = 'Error'
+				store.planPreview = { previewVersion: 'x' }
+				store.planStatus = 'ready'
 
 				store.reset()
 
 				expect(store.memberAvailability).toEqual([])
-				expect(store.todayConsumedEnergy).toBe(0)
 				expect(store.energyBudget.monday).toBe(10)
 				expect(store.weekdayAvailability.monday).toBe(true)
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
+				expect(store.planPreview).toBeNull()
+				expect(store.planStatus).toBe('idle')
 			})
 		})
 	})

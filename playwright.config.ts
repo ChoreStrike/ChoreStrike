@@ -70,12 +70,13 @@ const SEED_DEPENDENT_SPECS = [
 // Playwright matches the regex against the full file path, so the patterns
 // anchor on a preceding path separator + end-of-string. A bare
 // `/scheduling\.spec\.ts/` also matched flex-window-scheduling.spec.ts; the
-// separator anchor excludes it unless listed explicitly. All three scheduling
-// specs run here.
+// separator anchor excludes it unless listed explicitly. All four scheduling
+// specs run here — CS-PLAN-065 adds the apply-flow exit journey.
 const SCHEDULING_OWNER_SPECS = [
 	/[/\\]scheduling\.spec\.ts$/,
 	/[/\\]flex-window-scheduling\.spec\.ts$/,
 	/[/\\]availability-settings-flow\.spec\.ts$/,
+	/[/\\]scheduling-apply-flow\.spec\.ts$/,
 ]
 
 // CS-PLAN-032: the member self-availability spec mutates the admin user's own

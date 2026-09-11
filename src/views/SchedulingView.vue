@@ -37,8 +37,10 @@
 				<EnergyBudgetSettings data-testid="energy-budget-settings" />
 			</section>
 
-			<section class="scheduling-section">
-				<SchedulePlanner />
+			<!-- CS-PLAN-065: the task-plan preview/apply is owner-only —
+			     members and children keep the personal settings surfaces. -->
+			<section v-if="userStore.isHouseOwner" class="scheduling-section">
+				<SchedulePlanner data-testid="schedule-planner" />
 			</section>
 
 			<section class="scheduling-section">
