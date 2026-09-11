@@ -84,6 +84,20 @@ class SchedulingControllerTest extends TestCase {
 		return $house;
 	}
 
+	/**
+	 * RF-065-05: the member endpoint reads its closed payload from the
+	 * request parameters (top-level JSON body keys merged over the route
+	 * internals), so the unit tests mock exactly that dispatcher source.
+	 *
+	 * @param array<string, mixed> $updates Top-level body keys
+	 */
+	private function mockMemberRequest(array $updates, string $userId = 'alice'): void {
+		$this->request->method('getParams')->willReturn(array_merge(
+			['userId' => $userId, '_route' => 'chorestrike.scheduling.updatememberavailability'],
+			$updates
+		));
+	}
+
 	public function testGetPreferencesReturnsPreferences(): void {
 		$preferences = [
 			'userId' => 'user1',
@@ -355,12 +369,13 @@ class SchedulingControllerTest extends TestCase {
 	public function testUpdateMemberAvailabilityUpdatesForOwner(): void {
 		$this->mockHouse();
 		$updates = ['weekdayAvailability' => ['monday' => false]];
+		$this->mockMemberRequest($updates);
 
 		$this->schedulingService->expects($this->once())
 			->method('updateMemberAvailabilityByNextcloudUserId')
 			->with(1, 'alice', $updates);
 
-		$response = $this->controller->updateMemberAvailability('alice', $updates);
+		$response = $this->controller->updateMemberAvailability('alice');
 
 		$this->assertEquals(200, $response->getStatus());
 		$this->assertTrue($response->getData()['success']);
@@ -371,16 +386,16 @@ class SchedulingControllerTest extends TestCase {
 		$this->authService->method('requireHouseOwner')
 			->willThrowException(new ForbiddenException('Not the house owner'));
 
-		$response = $this->controller->updateMemberAvailability('alice', []);
+		$response = $this->controller->updateMemberAvailability('alice');
 
 		$this->assertEquals(403, $response->getStatus());
 	}
 
 	public function testUpdateMemberAvailabilityReturnsBadRequestForInvalidWeekday(): void {
 		$this->mockHouse();
-		$updates = ['weekdayAvailability' => ['funday' => true]];
+		$this->mockMemberRequest(['weekdayAvailability' => ['funday' => true]]);
 
-		$response = $this->controller->updateMemberAvailability('alice', $updates);
+		$response = $this->controller->updateMemberAvailability('alice');
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertFalse($response->getData()['success']);
@@ -394,12 +409,13 @@ class SchedulingControllerTest extends TestCase {
 	public function testUpdateMemberAvailability_AcceptsChildLimit(): void {
 		$this->mockHouse();
 		$updates = ['maxDailyTasks' => 4];
+		$this->mockMemberRequest($updates, 'kid');
 
 		$this->schedulingService->expects($this->once())
 			->method('updateMemberAvailabilityByNextcloudUserId')
 			->with(1, 'kid', $updates);
 
-		$response = $this->controller->updateMemberAvailability('kid', $updates);
+		$response = $this->controller->updateMemberAvailability('kid');
 
 		$this->assertEquals(200, $response->getStatus());
 	}
@@ -409,8 +425,9 @@ class SchedulingControllerTest extends TestCase {
 	 */
 	public function testUpdateMemberAvailability_RejectsZeroLimit(): void {
 		$this->mockHouse();
+		$this->mockMemberRequest(['maxDailyTasks' => 0], 'kid');
 
-		$response = $this->controller->updateMemberAvailability('kid', ['maxDailyTasks' => 0]);
+		$response = $this->controller->updateMemberAvailability('kid');
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertEquals('Max daily tasks must be an integer between 1 and 100', $response->getData()['error']['message']);
@@ -421,11 +438,30 @@ class SchedulingControllerTest extends TestCase {
 	 */
 	public function testUpdateMemberAvailability_RejectsUnknownField(): void {
 		$this->mockHouse();
+		$this->mockMemberRequest(['maxDailyTasksX' => 4], 'kid');
 
-		$response = $this->controller->updateMemberAvailability('kid', ['maxDailyTasksX' => 4]);
+		$response = $this->controller->updateMemberAvailability('kid');
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * RF-065-05 regression: the route internals (`userId`, `_route`) never
+	 * leak into the update payload, and an explicit `maxDailyTasks: null`
+	 * (D5 "unlimited") survives as a present key.
+	 */
+	public function testUpdateMemberAvailability_StripsRouteInternalsFromPayload(): void {
+		$this->mockHouse();
+		$this->mockMemberRequest(['maxDailyTasks' => null], 'kid');
+
+		$this->schedulingService->expects($this->once())
+			->method('updateMemberAvailabilityByNextcloudUserId')
+			->with(1, 'kid', ['maxDailyTasks' => null]);
+
+		$response = $this->controller->updateMemberAvailability('kid');
+
+		$this->assertEquals(200, $response->getStatus());
 	}
 
 	/**

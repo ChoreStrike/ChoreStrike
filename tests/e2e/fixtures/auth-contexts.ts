@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, type Page } from '@playwright/test'
+import { type Browser, type BrowserContext, type BrowserContextOptions, type Page } from '@playwright/test'
 
 export const AUTH_DIR = '.playwright/.auth'
 
@@ -53,14 +53,19 @@ export function userStatePath(userId: string): string {
  *
  * @param browser - Playwright browser to create the context on.
  * @param userId - Profile user id whose storageState should be loaded.
+ * @param contextOptions - Extra context options (e.g. a mobile viewport with
+ *   `hasTouch` for the CS-PLAN-065 mobile journey); merged over the default
+ *   storageState-only options.
  * @returns The owned `{ context, page }`; close `context` when done.
  */
 export async function createUserContext(
 	browser: Browser,
 	userId: string,
+	contextOptions: BrowserContextOptions = {},
 ): Promise<{ context: BrowserContext; page: Page }> {
 	const context = await browser.newContext({
 		storageState: userStatePath(userId),
+		...contextOptions,
 	})
 	let page: Page
 	try {

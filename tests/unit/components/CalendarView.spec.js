@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import CalendarView from '../../../src/views/CalendarView.vue'
 import { useRoomTasksStore } from '../../../src/store/roomTasks.js'
 
@@ -20,6 +21,7 @@ jest.mock('../../../src/utils/logger.js', () => ({
 describe('CalendarView', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
+		jest.clearAllMocks()
 	})
 
 	it('renders the calendar view with testids', () => {
@@ -96,5 +98,52 @@ describe('CalendarView', () => {
 
 		expect(wrapper.find('[data-testid="calendar-day-list"]').exists()).toBe(true)
 		expect(wrapper.find('.task-repeat').exists()).toBe(true)
+	})
+
+	// CS-PLAN-065 §3.4 (RF-065-02): a committed owner plan may have moved
+	// occurrences inside the visible window — the mounted calendar must
+	// refetch exactly that window on the `schedule-applied` event.
+	describe('schedule-applied reconciliation', () => {
+		const appliedHandler = () => {
+			const call = subscribe.mock.calls.find(
+				([event]) => event === 'chorestrike:schedule-applied',
+			)
+			expect(call).toBeDefined()
+			return call[1]
+		}
+
+		it('subscribes on mount and refetches the visible range on the event', async () => {
+			const store = useRoomTasksStore()
+			const fetchSpy = jest.spyOn(store, 'fetchRangeTasks').mockResolvedValue(undefined)
+
+			const wrapper = mount(CalendarView, {
+				global: { stubs: { TaskCalendar: true } },
+			})
+			await wrapper.vm.$nextTick()
+
+			// The immediate range watcher already fetched once on mount.
+			expect(fetchSpy).toHaveBeenCalledTimes(1)
+			const [from, to] = fetchSpy.mock.calls[0]
+			expect(from).toBe(wrapper.vm.rangeStart)
+			expect(to).toBe(wrapper.vm.rangeEnd)
+
+			fetchSpy.mockClear()
+			await appliedHandler()({})
+			expect(fetchSpy).toHaveBeenCalledTimes(1)
+			expect(fetchSpy).toHaveBeenCalledWith(from, to)
+		})
+
+		it('unsubscribes the handler on unmount', async () => {
+			const store = useRoomTasksStore()
+			jest.spyOn(store, 'fetchRangeTasks').mockResolvedValue(undefined)
+
+			const wrapper = mount(CalendarView, {
+				global: { stubs: { TaskCalendar: true } },
+			})
+			const handler = appliedHandler()
+
+			wrapper.unmount()
+			expect(unsubscribe).toHaveBeenCalledWith('chorestrike:schedule-applied', handler)
+		})
 	})
 })

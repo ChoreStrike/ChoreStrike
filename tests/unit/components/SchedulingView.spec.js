@@ -97,6 +97,33 @@ describe('SchedulingView', () => {
 		expect(wrapper.findComponent({ name: 'AvailabilitySettings' }).exists()).toBe(false)
 	})
 
+	// CS-PLAN-065 §3.4 (RF-065-02): the task-plan preview/apply surface is
+	// owner-only — members and children keep the personal settings sections.
+	it('renders the owner-only plan planner for owners', async () => {
+		const userStore = useUserStore()
+		userStore.currentUser = { id: 1, role: 'owner' }
+
+		const wrapper = mount(SchedulingView, { global: { stubs } })
+		await flushPromises()
+		await flushPromises()
+
+		expect(wrapper.findComponent({ name: 'SchedulePlanner' }).exists()).toBe(true)
+	})
+
+	it.each(['member', 'child'])('hides the plan planner for the %s role', async (role) => {
+		const userStore = useUserStore()
+		userStore.currentUser = { id: 2, role }
+
+		const wrapper = mount(SchedulingView, { global: { stubs } })
+		await flushPromises()
+		await flushPromises()
+
+		expect(wrapper.findComponent({ name: 'SchedulePlanner' }).exists()).toBe(false)
+		// The personal surfaces stay available for every role.
+		expect(wrapper.findComponent({ name: 'SelfAvailabilitySettings' }).exists()).toBe(true)
+		expect(wrapper.findComponent({ name: 'EnergyBudgetSettings' }).exists()).toBe(true)
+	})
+
 	it('initializes the scheduling store on mount', async () => {
 		const store = useSchedulingStore()
 		const spy = jest.spyOn(store, 'initializeScheduling')

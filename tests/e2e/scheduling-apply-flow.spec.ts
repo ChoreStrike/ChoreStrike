@@ -3,17 +3,26 @@
  * @license MIT
  *
  * WP6 exit journey — actionable scheduling through the owner plan
- * (CS-PLAN-065 §4.1): preview over real tasks → review the before/after →
- * adjust → apply once → verify the applied assignment end-to-end, plus the
- * stale-preview path answering cleanly.
+ * (CS-PLAN-065 §4.1): the owner creates a real task THROUGH THE UI, sets the
+ * child's availability and daily-task limit through the owner UI, previews →
+ * adjusts → applies one batch, and a CHILD session verifies the exact
+ * persisted result in My Day and the Calendar — all without a page reload.
+ * Plus the role-cannot-apply matrix (member + child), the keyboard-operable
+ * preview→apply cycle, the mobile touch journey and the stale-preview
+ * recovery.
  *
- * Runs as `dad` (owner) against the `family` profile; the cross-user My Day
- * check spins up a fresh context for `mom`. Requires the Docker test
- * environment with the `family` database profile.
+ * Runs as `dad` (owner) against the `family` profile; cross-role checks spin
+ * up fresh contexts (`kid`, `grandma`). Requires the Docker test environment
+ * with the `family` database profile.
  */
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import type { Page } from '@playwright/test'
+
+/** House-local day key — the Docker test environment runs the house on UTC. */
+const utcDayKey = (offsetDays = 0): string =>
+	new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
 test.describe('Scheduling apply flow (owner plan)', () => {
 	test.use({ databaseProfile: 'family' })
@@ -31,53 +40,153 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		return seeded.data.roomTasks.find(roomTask => roomTask.taskId === task.id)!
 	}
 
-	const goToScheduling = async (page: import('@playwright/test').Page) => {
+	const goToScheduling = async (page: Page) => {
 		await page.goto('/apps/chorestrike/')
 		await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
 		await page.getByTestId('nav-scheduling').click()
 		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
 	}
 
-	test('preview → adjust → apply assigns the unassigned task to the chosen person', async ({ browser, seededData }) => {
+	const activeTestId = (page: Page) =>
+		page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? '')
+
+	/** Press Tab until the focus lands on the control with `testid`. */
+	const tabUntil = async (page: Page, testid: string, maxTabs = 40) => {
+		for (let i = 0; i <= maxTabs; i++) {
+			if ((await activeTestId(page)) === testid) {
+				return
+			}
+			await page.keyboard.press('Tab')
+		}
+		throw new Error(`Keyboard focus never reached [data-testid="${testid}"]`)
+	}
+
+	/**
+	 * Create a real room task through the owner UI (task-manager creation
+	 * form, CS-PLAN-063 aggregate) and return the new room-task id from the
+	 * authoritative `{task, roomTask, assignees}` response.
+	 */
+	const createTaskViaUi = async (
+		page: Page,
+		name: string,
+		dueKey: string,
+		floorName: string,
+		roomName: string,
+	): Promise<number> => {
+		await page.goto('/apps/chorestrike/#/tasks')
+		await page.getByTestId('task-manager-view').waitFor({ state: 'visible' })
+		await page.getByTestId('add-task-button').click()
+		await page.getByTestId('task-name-input').waitFor({ state: 'visible' })
+		await page.getByTestId('task-name-input').fill(name)
+		await page.getByTestId('task-energy-select').selectOption('2')
+		await page.getByTestId('task-priority-select').selectOption('2')
+		await page.getByTestId('task-next-due-input').fill(dueKey)
+		// Dynamic scheduling with flex 0 (form defaults) → the preview's only
+		// legal day is the explicit first due date: fully deterministic.
+		// Two-level picker (floor → rooms of that floor), as in gui-scratch-flow.
+		const floorSelect = page.getByTestId('room-picker-floor')
+		await expect(floorSelect).toBeVisible({ timeout: 15000 })
+		await floorSelect.selectOption({ label: floorName })
+		await page.getByTestId('room-picker-room').selectOption({ label: roomName })
+
+		const createResponse = page.waitForResponse((response) => {
+			const isPost = response.request().method() === 'POST'
+			return isPost && new URL(response.url()).pathname.endsWith('/apps/chorestrike/api/v1/room-tasks')
+		})
+		await page.getByTestId('save-task-button').click()
+		const created = await createResponse
+		expect(created.ok()).toBeTruthy()
+		const body = await created.json()
+		const roomTaskId = body.data.roomTask.id as number
+		expect(roomTaskId).toBeGreaterThan(0)
+		await expect(page.getByTestId('task-name-input')).toHaveCount(0)
+		return roomTaskId
+	}
+
+	test('exit journey: owner creates a task, sets the child limit, applies the plan, and the child session sees exactly the persisted result', async ({ browser, seededData }) => {
+		test.setTimeout(150000)
 		expect(seededData).not.toBeNull()
-		// Seeded unassigned rows: "Vacuum living room" and "Clean toilet".
-		// "Clean toilet" (energy 3) fits Mom's remaining capacity on the
-		// seeded projection, so the override below produces a proposal.
-		const toilet = roomTaskByName(seededData!, 'Clean toilet')
-		expect(toilet).toBeDefined()
+		const todayKey = utcDayKey(0)
+		const taskName = 'Water the plants'
 
 		const { context, page } = await createUserContext(browser, 'dad')
+
+		// 1. The owner creates a REAL task through the UI — due today, in the
+		//    Kitchen, unassigned (the plan §4.1 forbids seeding this row).
+		const roomTaskId = await createTaskViaUi(page, taskName, todayKey, 'Ground Floor', 'Kitchen')
+
 		await goToScheduling(page)
 
-		// 1. Preview over the real unassigned task.
+		// 2. Owner UI: make the child available every day and raise the daily
+		//    task limit from the seeded 2 to 3 — without both, the planner
+		//    may not place a third today-task on the child (D5/D6) and the
+		//    child's My Day would stay empty on weekdays.
+		const kidCard = page.getByTestId('availability-settings')
+			.locator('.member-card')
+			.filter({ hasText: 'Kid' })
+		await expect(kidCard).toHaveCount(1)
+		await kidCard.getByTestId('edit-availability-button').click()
+		await expect(page.getByTestId('edit-availability-modal')).toBeVisible()
+		for (const day of ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']) {
+			const toggle = page.getByTestId(`availability-${day}`)
+			if (!(await toggle.isChecked())) {
+				await page.locator('label').filter({ has: toggle }).click()
+			}
+			await expect(toggle).toBeChecked()
+		}
+		await expect(page.getByTestId('limit-enabled-toggle')).toBeChecked()
+		await expect(page.getByTestId('limit-value-input')).toHaveValue('2')
+		await page.getByTestId('limit-value-input').fill('3')
+
+		const limitPut = page.waitForResponse((response) =>
+			response.request().method() === 'PUT'
+			&& response.url().includes('/scheduling/members/kid'))
+		await page.getByTestId('save-availability-button').click()
+		const limitResponse = await limitPut
+		expect(limitResponse.status()).toBe(200)
+		const limitBody = JSON.parse(limitResponse.request().postData() ?? '{}')
+		expect(limitBody.maxDailyTasks).toBe(3)
+		expect(limitBody.weekdayAvailability).toEqual({
+			monday: true,
+			tuesday: true,
+			wednesday: true,
+			thursday: true,
+			friday: true,
+			saturday: true,
+			sunday: true,
+		})
+		await expect(page.getByTestId('edit-availability-modal')).toHaveCount(0)
+		await expect(kidCard.getByTestId('member-task-limit')).toContainText('max 3')
+
+		// 3. Preview over the freshly created real task.
 		const previewResponse = page.waitForResponse((response) =>
 			response.request().method() === 'POST'
 			&& response.url().includes('/scheduling/suggestions')
 			&& response.status() === 200)
-		await page.getByTestId(`planner-task-checkbox-${toilet.id}`).check()
+		await page.getByTestId(`planner-task-checkbox-${roomTaskId}`).check()
 		await page.getByTestId('preview-plan-button').click()
-		const preview = await previewResponse
-		const previewBody = await preview.json()
+		const previewBody = await (await previewResponse).json()
 		expect(previewBody.data.changes).toHaveLength(1)
-		expect(previewBody.data.changes[0].roomTaskId).toBe(toilet.id)
-		// The proposal names exactly one eligible person and a concrete day.
-		expect(previewBody.data.changes[0].proposed.assignees).toHaveLength(1)
-		await expect(page.getByTestId(`plan-change-${toilet.id}`)).toBeVisible()
+		expect(previewBody.data.changes[0].roomTaskId).toBe(roomTaskId)
+		expect(previewBody.data.changes[0].before.assignees).toEqual([])
+		expect(previewBody.data.changes[0].proposed.dueDate).toBe(todayKey)
+		await expect(page.getByTestId(`plan-change-${roomTaskId}`)).toBeVisible()
 
-		// 2. Adjust: override the proposed person to Mom — this invalidates
-		//    the confirmation until a fresh preview exists.
-		await page.getByTestId(`planner-assignee-${toilet.id}`).selectOption('mom')
+		// 4. Adjust: override the proposed person to the child — this
+		//    invalidates the confirmation until a fresh preview exists.
+		await page.getByTestId(`planner-assignee-${roomTaskId}`).selectOption('kid')
 		await expect(page.getByTestId('plan-stale')).toBeVisible()
 		await expect(page.getByTestId('apply-plan-button')).toBeDisabled()
 
-		// 3. Re-preview with the override, then confirm exactly once.
+		// 5. Re-preview with the override, then confirm exactly once.
 		const preview2 = page.waitForResponse((response) =>
 			response.request().method() === 'POST'
 			&& response.url().includes('/scheduling/suggestions')
 			&& response.status() === 200)
 		await page.getByTestId('preview-plan-button').click()
 		const preview2Body = await (await preview2).json()
-		expect(preview2Body.data.changes[0].proposed.assignees).toEqual(['mom'])
+		expect(preview2Body.data.changes[0].proposed.assignees).toEqual(['kid'])
+		expect(preview2Body.data.changes[0].proposed.dueDate).toBe(todayKey)
 		await expect(page.getByTestId('plan-stale')).toHaveCount(0)
 
 		const applyResponse = page.waitForResponse((response) =>
@@ -88,44 +197,189 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		expect(apply.status()).toBe(200)
 		const applyBody = await apply.json()
 		expect(applyBody.data.appliedCount).toBe(1)
-		// The authoritative response carries the canonical assignee set.
-		expect(applyBody.data.roomTasks[0].assignees).toEqual(['mom'])
+		expect(applyBody.data.roomTasks[0].id).toBe(roomTaskId)
+		expect(applyBody.data.roomTasks[0].assignees).toEqual(['kid'])
 		await expect(page.getByTestId('plan-applied')).toBeVisible()
+		// The planner's task list reconciled from the authoritative response.
+		await expect(page.getByTestId(`planner-task-row-${roomTaskId}`)).toContainText('Kid')
 
-		// 4. The planner's task list reconciled: the row now shows Mom as
-		//    the assignee (previously "Unassigned").
-		await expect(page.getByTestId(`planner-task-row-${toilet.id}`)).toContainText('Mom')
-
-		// 5. The household calendar shows the row exactly once (no double
-		//    booking from the replace-not-add accounting): the task is due
-		//    tomorrow inside the current week; select that day and read the
-		//    day panel.
+		// 6. The owner's household calendar shows the persisted occurrence
+		//    exactly once — SPA navigation only, no page reload.
 		await page.getByTestId('nav-calendar').click()
 		await page.getByTestId('calendar-view').waitFor({ state: 'visible' })
-		const tomorrowKey = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-		await page.getByTestId(`calendar-day-${tomorrowKey}`).click()
+		await page.getByTestId(`calendar-day-${todayKey}`).click()
 		await expect(
-			page.getByTestId('calendar-day-list').getByText('Vacuum living room'),
+			page.getByTestId('calendar-day-list').getByText(taskName),
 		).toHaveCount(1)
 
-		// 6. My Day reflects embedded assignees across users: mom sees her
-		//    seeded due-today row under the default mine filter; teen does
-		//    not (the assignee sets are the canonical ones, decision D4).
-		const { context: momContext, page: momPage } = await createUserContext(browser, 'mom')
+		// 7. The CHILD session sees exactly the expected assigned due tasks
+		//    in My Day: the applied task plus the two seeded kid rows, and
+		//    nothing else (limit 3 set through the owner UI above; the
+		//    seeded limit of 2 would have truncated this set).
+		const { context: kidContext, page: kidPage } = await createUserContext(browser, 'kid')
 		try {
-			await momPage.goto('/apps/chorestrike/')
-			await momPage.getByTestId('dashboard-view').waitFor({ state: 'visible' })
-			await momPage.getByTestId('nav-today').click()
-			await momPage.getByTestId('today-view').waitFor({ state: 'visible' })
+			await kidPage.goto('/apps/chorestrike/')
+			await kidPage.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			await kidPage.getByTestId('nav-today').click()
+			await kidPage.getByTestId('today-view').waitFor({ state: 'visible' })
+
+			const todaySection = kidPage.locator('section.today-section')
+				.filter({ has: kidPage.getByTestId('today-section-today') })
+			const items = todaySection.getByTestId('today-task-item')
+			await expect(items).toHaveCount(3)
+			await expect(items.filter({ hasText: taskName })).toHaveCount(1)
+			await expect(items.filter({ hasText: 'Tidy up toys' })).toHaveCount(1)
+			await expect(items.filter({ hasText: 'Make bed' })).toHaveCount(1)
+
+			// The child's calendar shows the applied occurrence exactly once.
+			await kidPage.getByTestId('nav-calendar').click()
+			await kidPage.getByTestId('calendar-view').waitFor({ state: 'visible' })
+			await kidPage.getByTestId(`calendar-day-${todayKey}`).click()
 			await expect(
-				momPage.getByTestId('today-task-item').filter({ hasText: 'Do the dishes' }),
-			).toBeVisible()
-			await expect(
-				momPage.getByTestId('today-task-item').filter({ hasText: 'Tidy up toys' }),
-			).toHaveCount(0)
+				kidPage.getByTestId('calendar-day-list').getByText(taskName),
+			).toHaveCount(1)
 		} finally {
-			await momContext.close()
+			await kidContext.close()
 		}
+
+		await context.close()
+	})
+
+	test('member and child roles see no planner and are rejected by both plan endpoints', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const toilet = roomTaskByName(seededData!, 'Clean toilet')
+		const todayKey = utcDayKey(0)
+
+		// grandma = member, kid = child: neither may plan for the household.
+		for (const userId of ['grandma', 'kid']) {
+			const { context, page } = await createUserContext(browser, userId)
+			try {
+				await goToScheduling(page)
+				// The owner-only planner section never renders (§3.4).
+				await expect(page.getByTestId('schedule-planner')).toHaveCount(0)
+				// Personal settings remain available.
+				await expect(page.getByTestId('self-availability-settings')).toBeVisible()
+
+				// Direct API calls with well-formed bodies are forbidden —
+				// the owner gate runs before any plan computation.
+				const statuses = await page.evaluate(
+					async ({ todayKey, roomTaskId }: { todayKey: string; roomTaskId: number }) => {
+						const token = document.head.querySelector('meta[name="requesttoken"]')?.content
+						const post = async (url: string, body: object) => {
+							const response = await fetch(url, {
+								method: 'POST',
+								headers: {
+									'Content-Type': 'application/json',
+									requesttoken: String(token ?? ''),
+								},
+								body: JSON.stringify(body),
+							})
+							return response.status
+						}
+						const preview = await post('/apps/chorestrike/api/v1/scheduling/suggestions', {
+							startDate: todayKey,
+							roomTaskIds: [roomTaskId],
+							overrides: {},
+						})
+						const apply = await post('/apps/chorestrike/api/v1/scheduling/apply', {
+							startDate: todayKey,
+							roomTaskIds: [roomTaskId],
+							overrides: {},
+							previewVersion: 'forged-version',
+						})
+						return { preview, apply }
+					},
+					{ todayKey, roomTaskId: toilet.id },
+				)
+				expect(statuses.preview).toBe(403)
+				expect(statuses.apply).toBe(403)
+			} finally {
+				await context.close()
+			}
+		}
+	})
+
+	test('the preview → apply cycle is fully keyboard-operable with visible focus', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		// Seeded unassigned row: "Clean toilet" (energy 3, due tomorrow,
+		// flex 0) — the preview always proposes exactly one change for it.
+		const toilet = roomTaskByName(seededData!, 'Clean toilet')
+
+		const { context, page } = await createUserContext(browser, 'dad')
+		await goToScheduling(page)
+
+		// Focus the task checkbox and prove the visible focus ring appears
+		// on its wrapping label (:focus-within outline, §3.4).
+		const checkbox = page.getByTestId(`planner-task-checkbox-${toilet.id}`)
+		await checkbox.focus()
+		expect(await activeTestId(page)).toBe(`planner-task-checkbox-${toilet.id}`)
+		const outline = await page.evaluate((roomTaskId: number) => {
+			const input = document.querySelector(`[data-testid="planner-task-checkbox-${roomTaskId}"]`)
+			const label = input?.closest('label')
+			if (!label) return null
+			const style = getComputedStyle(label)
+			return { width: style.outlineWidth, style: style.outlineStyle }
+		}, toilet.id)
+		expect(outline).toEqual({ width: '2px', style: 'solid' })
+
+		// Space selects the task — no mouse anywhere in this journey.
+		await page.keyboard.press('Space')
+		await expect(checkbox).toBeChecked()
+
+		await tabUntil(page, 'preview-plan-button')
+		await page.keyboard.press('Enter')
+		await expect(page.getByTestId(`plan-change-${toilet.id}`)).toBeVisible()
+
+		await tabUntil(page, 'apply-plan-button')
+		const applyResponse = page.waitForResponse((response) =>
+			response.request().method() === 'POST'
+			&& response.url().includes('/scheduling/apply'))
+		await page.keyboard.press('Enter')
+		expect((await applyResponse).status()).toBe(200)
+		await expect(page.getByTestId('plan-applied')).toBeVisible()
+
+		await context.close()
+	})
+
+	test('the preview → apply cycle works on a mobile touch viewport with 44px targets', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		const toilet = roomTaskByName(seededData!, 'Clean toilet')
+
+		const { context, page } = await createUserContext(browser, 'dad', {
+			viewport: { width: 390, height: 844 },
+			hasTouch: true,
+		})
+		// Direct hash navigation: the app navigation collapses behind the
+		// mobile header at this width.
+		await page.goto('/apps/chorestrike/#/scheduling')
+		await page.getByTestId('schedule-planner').waitFor({ state: 'visible' })
+
+		// Touch targets are at least 44px tall at the mobile width (§3.4).
+		const taskRow = page.getByTestId(`planner-task-row-${toilet.id}`)
+		const taskLabel = taskRow.locator('label')
+		await expect(taskLabel).toBeVisible()
+		expect((await taskLabel.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+		const previewButton = page.getByTestId('preview-plan-button')
+		expect((await previewButton.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+
+		// Tap-driven cycle: select → preview → apply.
+		await taskLabel.tap()
+		await expect(page.getByTestId(`planner-task-checkbox-${toilet.id}`)).toBeChecked()
+		await previewButton.tap()
+		await expect(page.getByTestId(`plan-change-${toilet.id}`)).toBeVisible()
+
+		const assigneeSelect = page.getByTestId(`planner-assignee-${toilet.id}`)
+		expect((await assigneeSelect.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+		const applyButton = page.getByTestId('apply-plan-button')
+		await expect(applyButton).toBeEnabled()
+		expect((await applyButton.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+
+		const applyResponse = page.waitForResponse((response) =>
+			response.request().method() === 'POST'
+			&& response.url().includes('/scheduling/apply'))
+		await applyButton.tap()
+		expect((await applyResponse).status()).toBe(200)
+		await expect(page.getByTestId('plan-applied')).toBeVisible()
 
 		await context.close()
 	})
@@ -138,7 +392,6 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		await goToScheduling(page)
 
-		await page.getByTestId(`planner-task-checkbox-${toilet.id}`).check()
 		await page.getByTestId(`planner-task-checkbox-${toilet.id}`).check()
 		await page.getByTestId('preview-plan-button').click()
 		await expect(page.getByTestId(`plan-change-${toilet.id}`)).toBeVisible()

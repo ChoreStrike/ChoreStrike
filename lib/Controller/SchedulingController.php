@@ -195,10 +195,16 @@ class SchedulingController extends Controller {
 	 * (decision D5): omitted = unchanged, `null` = unlimited, integer 1-100
 	 * = finite limit.
 	 *
+	 * The closed top-level payload is read from the request parameters
+	 * (RF-065-05): a dispatcher-resolved `array $updates` argument is bound
+	 * to a body key literally named `updates`, which the documented
+	 * top-level section contract never sends — every real HTTP call died on
+	 * a TypeError (500) before the controller body ran.
+	 *
 	 * @NoAdminRequired
 	 * @return JSONResponse
 	 */
-	public function updateMemberAvailability(string $userId, array $updates): JSONResponse {
+	public function updateMemberAvailability(string $userId): JSONResponse {
 		try {
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
@@ -207,6 +213,7 @@ class SchedulingController extends Controller {
 			$this->authService->assertHouseMember($house->getId());
 			$this->authService->requireHouseOwner($house->getId());
 
+			$updates = $this->memberUpdatesPayload();
 			$this->validateMemberUpdates($updates);
 			$this->schedulingService->updateMemberAvailabilityByNextcloudUserId($house->getId(), $userId, $updates);
 
@@ -440,6 +447,21 @@ class SchedulingController extends Controller {
 				$this->schedulingService->assertValidEnergyBudget($value);
 			}
 		}
+	}
+
+	/**
+	 * The closed member-update payload (RF-065-05): every top-level request
+	 * key except the route internals (`userId`, `_route`). Unknown keys stay
+	 * in the array so validateMemberUpdates rejects them (closed shape, D5);
+	 * an explicit `maxDailyTasks: null` survives as a present key, an omitted
+	 * one stays absent.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function memberUpdatesPayload(): array {
+		$params = $this->request->getParams();
+		unset($params['userId'], $params['_route']);
+		return $params;
 	}
 
 	/**

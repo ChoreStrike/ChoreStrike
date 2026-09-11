@@ -239,3 +239,100 @@ describe('SchedulePlanner (owner plan: preview → adjust → apply, CS-PLAN-065
 		expect(wrapper.find('[data-testid="plan-error"]').exists()).toBe(true)
 	})
 })
+
+// CS-PLAN-065 §3.4 (RF-065-02): keyboard/mobile control contract at the
+// component level — every control is a native keyboard-operable element with
+// an accessible name, and status changes are announced through the aria-live
+// region. Real tab-order navigation, the focus ring and the 44px touch
+// targets are layout behavior proven by the E2E keyboard/mobile journeys
+// (tests/e2e/scheduling-apply-flow.spec.ts); jsdom computes no layout.
+describe('SchedulePlanner — keyboard/mobile control contract', () => {
+	let schedulingStore
+
+	beforeEach(() => {
+		setActivePinia(createPinia())
+		jest.clearAllMocks()
+
+		schedulingStore = useSchedulingStore()
+		const roomTasksStore = useRoomTasksStore()
+		const tasksStore = useTasksStore()
+		const roomsStore = useRoomsStore()
+
+		schedulingStore.memberAvailability = [
+			{ userId: 'dad', userName: 'Dad', weekdayAvailability: {}, energyBudget: {} },
+		]
+		tasksStore.tasks.push({ id: 1, name: 'Dishes', energyCost: 2 })
+		roomsStore.rooms.push({ id: 5, name: 'Kitchen' })
+		roomTasksStore.roomTasks.push({
+			id: 11,
+			taskId: 1,
+			roomId: 5,
+			isActive: true,
+			nextDue: `${todayKeyInZone('UTC')}T08:00:00Z`,
+			assignees: [],
+		})
+		api.get.mockResolvedValue([])
+	})
+
+	const mountComponent = () => mount(SchedulePlanner)
+
+	const previewReady = async (wrapper) => {
+		api.post.mockResolvedValueOnce(previewPayload())
+		await wrapper.find('[data-testid="planner-task-checkbox-11"]').setValue(true)
+		await wrapper.find('[data-testid="preview-plan-button"]').trigger('click')
+		await flushPromises()
+		return wrapper
+	}
+
+	it('renders every interactive control as a native keyboard-operable element', async () => {
+		const wrapper = await previewReady(mountComponent())
+
+		const checkbox = wrapper.find('[data-testid="planner-task-checkbox-11"]')
+		expect(checkbox.element.tagName).toBe('INPUT')
+		expect(checkbox.attributes('type')).toBe('checkbox')
+
+		expect(wrapper.find('[data-testid="preview-plan-button"]').element.tagName).toBe('BUTTON')
+		expect(wrapper.find('[data-testid="apply-plan-button"]').element.tagName).toBe('BUTTON')
+
+		expect(wrapper.find('[data-testid="planner-assignee-11"]').element.tagName).toBe('SELECT')
+		expect(wrapper.find('[data-testid="planner-date-11"]').element.tagName).toBe('SELECT')
+
+		const dateInput = wrapper.find('[data-testid="planner-start-date"]')
+		expect(dateInput.element.tagName).toBe('INPUT')
+		expect(dateInput.attributes('type')).toBe('date')
+		// Past windows are invalid (§3.1 rule 1): the picker bounds at today.
+		expect(dateInput.attributes('min')).toBe(dateInput.element.value)
+	})
+
+	it('associates an accessible name with every form control', async () => {
+		const wrapper = await previewReady(mountComponent())
+
+		expect(wrapper.find('label[for="planner-start-date"]').exists()).toBe(true)
+		// The task checkbox is wrapped in its (clickable) label.
+		const checkbox = wrapper.find('[data-testid="planner-task-checkbox-11"]')
+		expect(checkbox.element.closest('label')).not.toBeNull()
+		// Both override selects are named by an explicit label[for].
+		expect(wrapper.find('label[for="assignee-11"]').exists()).toBe(true)
+		expect(wrapper.find('label[for="date-11"]').exists()).toBe(true)
+	})
+
+	it('announces every plan status change through the aria-live region', async () => {
+		const wrapper = mountComponent()
+		const announcer = wrapper.find('[data-testid="plan-status-announcer"]')
+		expect(announcer.attributes('aria-live')).toBe('polite')
+		expect(announcer.text()).toBe('')
+
+		const announcements = [
+			['loading', 'Building the plan from your tasks…'],
+			['applying', 'Applying the plan…'],
+			['applied', 'The plan was applied.'],
+			['stale', 'The preview is stale.'],
+			['error', 'The plan failed.'],
+		]
+		for (const [status, expected] of announcements) {
+			schedulingStore.planStatus = status
+			await wrapper.vm.$nextTick()
+			expect(announcer.text()).toBe(expected)
+		}
+	})
+})

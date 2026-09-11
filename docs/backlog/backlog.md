@@ -27,7 +27,7 @@
 
 ### [P2] CR-WF-04 — Reconcile daily workflow payloads and client state
 **Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily workflow
-**Owning**: CS-PLAN-058 WP7 · **Depends on**: CR-WF-07 · **Blocks**: CR-WF-06 · **Folded-in**: —
+**Owning**: CS-PLAN-058 WP7 · **Depends on**: — (the actionable-scheduling prerequisite was delivered 2026-09-11 by CS-PLAN-065/WP6; see the monthly archive) · **Blocks**: CR-WF-06 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
 
 Several live workflow responses and Pinia consumers disagree about authoritative
@@ -74,25 +74,6 @@ extends, rather than duplicates, **CR-SVC-15**, **CR-SVC-40**, **CR-SVC-41**, an
 - [ ] Decompose completion into cohesive phases without weakening its single transaction boundary.
 - [ ] Remove the global service-locator lookup and preserve one-way store dependencies.
 - [ ] Add query/request-count regression bounds for the reviewed journey.
-
----
-
-### [P1] CR-WF-07 — Make scheduling produce an actionable household plan
-**Status**: In Progress · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: scheduling
-**Owning**: CS-PLAN-065 (CS-PLAN-058 WP6) · **Depends on**: — (the old completion/undo dependency was delivered 2026-09-09 by CS-PLAN-064; see the monthly archive) · **Blocks**: CR-WF-04 · **Folded-in**: —
-**Source**: CS-PLAN-058 core workflow masterplan (2026-09-02)
-
-**Plan**: [CS-PLAN-065](../plans/active/cs-plan-065-wp6-actionable-scheduling.md) (Standard A `PASS` 2026-09-10; final Standard B `NEEDS-FOLLOW-UP` 2026-09-11 — implementation verified green and committed, test-matrix findings RF-065-01/02 open for the next round).
-
-The existing scheduling surface can preview capacity, but the core journey needs
-an explicit, owner-confirmed bridge from suggestions to real room-task assignees
-and due dates consumed by Calendar and My Day.
-
-- [ ] Return a versioned preview tied to current room-task IDs, proposed assignees, house-local due dates, capacity, and warnings.
-- [ ] Apply an accepted preview transactionally after revalidating membership, visibility, activity, and current task versions.
-- [ ] Never mutate scheduling state implicitly; stale previews are rejected with recoverable feedback.
-- [ ] Make applied changes immediately authoritative for Calendar and filtered-daily/My Day.
-- [ ] Cover owner apply plus member/child read-only results with integration and E2E tests.
 
 ---
 
@@ -290,27 +271,6 @@ archive entry).
 
 ---
 
-### [P3] CR-055-01 — scheduling store: reader-less `todayConsumedEnergy` write cluster
-**Status**: In Progress · **Effort**: S · **Layer**: frontend · **Journey stage**: scheduling
-**Owning**: CS-PLAN-065 (CS-PLAN-058 WP6) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-055 (record-and-delete boundary)
-
-**Plan**: [CS-PLAN-065](../plans/active/cs-plan-065-wp6-actionable-scheduling.md), decision D7 ratified 2026-09-10 (remove the cluster).
-
-After the 9 superseded scheduling getters (incl. `todayRemainingEnergy`) were
-pruned, `registerTodayEnergyConsumption` (called by `roomTasks.completeRoomTask`)
-+ the `fetchUserPreferences` assignment for `todayConsumedEnergy` still write
-state that **nothing reads** (the server's preferences payload carries the
-field, so the fetch line survives). Decide: drop the client accumulation +
-payload field (server is authoritative; also trim the `SchedulingService`
-response) or surface remaining-today energy in the UI (feature decision).
-
-*Delivery note (2026-09-10): the remove-the-cluster decision (D7) is
-implemented — store state/action, the completion-side increment, the
-preferences payload field and the mapper query it fed are gone (see
-CS-PLAN-065 §9 implementation record); the item archives with the plan's
-passing final review.*
-
 ---
 
 ## Core Hardening
@@ -349,6 +309,30 @@ artifacts + extend the checker with a src-usage diff; document in i18n.md.
 **Folded-in CR-055-02** (archived 2026-09 — [`archive/2026-09.md`](archive/2026-09.md)):
 dead artifact keys from the CS-PLAN-055-pruned surfaces (e.g. `Search query is
 required`) drop out in the same regeneration pass — do not hand-prune entries.
+
+---
+
+### [P1] BUG-API-001 — `PUT /tasks/{id}` (definition edit) 500s: dispatcher cannot resolve the `array $updates` argument
+**Status**: Backlog · **Effort**: S · **Layer**: backend+tests · **Journey stage**: task management
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-065 RF-065-01 E2E round (2026-09-11) — the identical pattern in `SchedulingController::updateMemberAvailability` was found and fixed there (RF-065-05); this is the remaining out-of-scope sibling.
+
+`TaskController::update(int $id, array $updates)` relies on the Nextcloud
+dispatcher resolving `$updates` from a request parameter literally named
+`updates`, but the only client (`tasks.js::updateTask` via
+`TaskManager.vue::handleUpdateTask`) sends the edited definition fields as the
+top-level JSON body — so `getParam('updates')` returns `null` and every real
+HTTP call dies on a `TypeError` (500) before the controller body runs. Task
+definition editing through the TaskManager UI is broken end to end; no E2E
+covers `PUT /tasks/{id}`, and the PHP unit tests call the method directly,
+bypassing the dispatcher (the same blind spot that hid the scheduling sibling).
+Fix: read the closed payload from `$this->request->getParams()` minus the route
+internals (`id`, `_route`) as in `SchedulingController::memberUpdatesPayload()`
+(RF-065-05), adapt `TaskControllerTest`, and add an E2E or integration
+regression that exercises the real HTTP boundary. Audit the remaining typed
+controller arguments for the same name-mismatch pattern (`FloorController::
+reorder` and `RoomTaskController::setAssignees` were verified safe: their
+clients send matching top-level keys).
 
 ---
 

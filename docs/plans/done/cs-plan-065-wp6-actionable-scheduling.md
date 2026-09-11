@@ -1,6 +1,6 @@
 # CS-PLAN-065: WP6 - Actionable Scheduling Through My Day
 
-> **Status:** Active (drafted 2026-09-10; Standard A `PASS` 2026-09-10, D1-D8 ratified; implementation delivered 2026-09-10; final Standard B `NEEDS-FOLLOW-UP` 2026-09-11 — implementation verified green, test-matrix findings RF-065-01/02 open for the next round)
+> **Status:** Done (drafted 2026-09-10; Standard A `PASS` 2026-09-10, D1-D8 ratified; implementation delivered 2026-09-10; final Standard B `NEEDS-FOLLOW-UP` 2026-09-11; round 2 delivered 2026-09-11 — RF-065-01/02/05 fixed; final Standard B re-review `PASS` 2026-09-11 — moved to `done/`)
 > **Effort:** L
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP5 complete; [CS-PLAN-064](../done/cs-plan-064-wp5-completion-ledger-full-undo.md) final review passed; ADR-009 house-local dates, ADR-010 visibility, ADR-011 completion/undo
@@ -332,6 +332,7 @@ modified: tests/integration/Db/RoomTaskMapperDailyTest.php
 modified: tests/unit/store/{scheduling,roomTasks,apiContract}.spec.js
 modified: tests/unit/components/{SchedulePlanner,SchedulingView,ScheduleCalendar,AvailabilityEditModal,AvailabilitySettings,TodayView,CalendarView}.spec.js
 modified: tests/e2e/{scheduling,flex-window-scheduling,availability-settings-flow,today-view,self-availability-member}.spec.ts
+modified: tests/e2e/fixtures/auth-contexts.ts (round 2: optional context-options parameter for the mobile journey)
 modified: playwright.config.ts
 modified: l10n/{en.json,de.json,templates/chorestrike.pot}
 
@@ -402,36 +403,58 @@ but cannot close this plan before steps 1-9 and all acceptance criteria finish.
 ## 8. Acceptance Criteria
 
 - [x] D1-D8 and all review questions are resolved and recorded; Standard A passed. (`PASS` 2026-09-10 — see `## Review Outcome`.)
-- [ ] Preview references real active house-scoped room tasks and returns exact
+- [x] Preview references real active house-scoped room tasks and returns exact
       assignment/date changes, capacity and warnings without any domain writes.
-- [ ] Deterministic ordering, legal recurrence/flex windows and eligibility are
+      (`SchedulePlanServiceTest` determinism/version matrix; real-DB zero-write
+      proof in `SchedulePlanAggregateTest`; verified by the 2026-09-11 reviews.)
+- [x] Deterministic ordering, legal recurrence/flex windows and eligibility are
       enforced; unavailable/ineligible members and unsupported slots are not used.
-- [ ] Owner confirmation performs one all-or-nothing aggregate; assignment/date
+      (Round-1 review; static/zero-flex/dynamic/flex paths pinned.)
+- [x] Owner confirmation performs one all-or-nothing aggregate; assignment/date
       writes cannot leave partial state, or mutate rewards/ledger/checklist data.
-- [ ] Current-state version and lock/writer boundaries cover relevant dependencies;
+      (`SchedulePlanAggregateTest` fault-after-first-write zero-partial proof.)
+- [x] Current-state version and lock/writer boundaries cover relevant dependencies;
       stale previews, concurrent mutation and retries have exact tested outcomes.
-- [ ] Direct-service and API owner/member/child/removed/non-member and visibility
-      matrices pass without leaking inaccessible task content.
-- [ ] Child limits are configurable through the regular owner UI; assignment
+      (ADR-012 lock order; two-process races; RF-065-04 lock-class acceptance
+      decision 2026-09-11.)
+- [x] Direct-service and API owner/member/child/removed/non-member and visibility
+      matrices pass without leaking inaccessible task content. (Round-1 unit
+      matrices + round-2 role-cannot-apply E2E journeys.)
+- [x] Child limits are configurable through the regular owner UI; assignment
       eligibility precedes availability/limits and mine/all semantics are explicit.
-- [ ] Applied state appears in Calendar and My Day without page reload; local
+      (`AvailabilityEditModal` D5 specs; exit journey sets the limit 2→3 through
+      the owner UI; eligibility-before-limit server tests.)
+- [x] Applied state appears in Calendar and My Day without page reload; local
       copies and active ranges are refreshed, with stale requests unable to win.
-- [ ] Completion/undo retains ADR-011 behavior and reconciles scheduling views;
+      (Exit journey SPA navigation owner + child sessions; store sequencing and
+      request-order protection specs.)
+- [x] Completion/undo retains ADR-011 behavior and reconciles scheduling views;
       all three apply/completion/undo orderings in section 3.2 are covered.
-- [ ] The reader-less client energy counter and preferences payload field are
-      gone; any server capacity read uses authoritative non-undone work.
-- [ ] Owner creates tasks and applies a plan via UI; child sees exactly the
+      (Round-1 `CompletionUndoStateEqualityTest` + scheduling interaction tests.)
+- [x] The reader-less client energy counter and preferences payload field are
+      gone; any server capacity read uses authoritative non-undone work. (D7
+      delivered; `findEnergyUsageBetweenByHouse` excludes `undone_at`.)
+- [x] Owner creates tasks and applies a plan via UI; child sees exactly the
       expected assigned due tasks in My Day and the correct Calendar occurrences.
-- [ ] Planner states, keyboard/mobile/44 px controls and en/de localization pass
+      (Round-2 exit journey — exact 3-row child Due-Today set incl. the
+      limit-3 proof, calendar occurrence exactly once.)
+- [x] Planner states, keyboard/mobile/44 px controls and en/de localization pass
       component/E2E coverage; members/children cannot invoke household Apply.
-- [ ] Section 4's required tests and full gate pass without new/unapproved skips;
+      (Round-2 component matrix + keyboard and 390×844 touch journeys;
+      l10n:check-keys green.)
+- [x] Section 4's required tests and full gate pass without new/unapproved skips;
       no required test or concurrency proof is deferred while marking WP6 done.
-- [ ] ADR-012 and permanent API/concept/engineering docs contain all durable
-      contracts; no behavior is documented only in this temporary plan.
-- [ ] Every section-9 finding is resolved or explicitly user-rescoped; CR-WF-07
+      (Full §4.5 masterplan gate rerun green by the final re-review 2026-09-11.)
+- [x] ADR-012 and permanent API/concept/engineering docs contain all durable
+      contracts; no behavior is documented only in this temporary plan. (Round-1
+      verification; spot-checked by the re-review.)
+- [x] Every section-9 finding is resolved or explicitly user-rescoped; CR-WF-07
       and CR-055-01 are archived only when actually complete, WP7 remains open.
-- [ ] Final Standard B is PASS or PASS-WITH-FIXES; masterplan WP6 and
-      `ACTIVE_TASKS.md` reflect the actual outcome and lifecycle state.
+      (All findings closed; both items archived by the passing re-review
+      2026-09-11; BUG-API-001 routed out-of-scope.)
+- [x] Final Standard B is PASS or PASS-WITH-FIXES; masterplan WP6 and
+      `ACTIVE_TASKS.md` reflect the actual outcome and lifecycle state. (Final
+      re-review `PASS` 2026-09-11; tracking updated by the review.)
 
 ## 9. Review Findings (plan-owned)
 
@@ -493,12 +516,83 @@ folds; WP8 service decomposition; WP9 skip inventory).
 
 | ID | Severity | Area | Issue | Resolution state |
 |----|----------|------|-------|------------------|
-| RF-065-01 | major | §4.1 Playwright row | Exit journey uses seeded tasks (plan requires "task creation and scheduling in the exit journey must use the UI"), verifies the applied plan via member `mom` instead of a child session, never sets availability/child limit through the owner UI, and lacks the role-cannot-apply and keyboard/mobile journeys. | OPEN — user decision 2026-09-11: fix in the next round of this plan. Blocks `done/`. |
-| RF-065-02 | major | §4.1 Jest components row | Component matrix undelivered: no spec for the D5 limit UI (`AvailabilityEditModal`), the owner-only planner gating (`SchedulingView`), `CalendarView`'s `schedule-applied` refetch, or keyboard/mobile control behavior. | OPEN — user decision 2026-09-11: fix in the next round of this plan. Blocks `done/`. |
+| RF-065-01 | major | §4.1 Playwright row | Exit journey uses seeded tasks (plan requires "task creation and scheduling in the exit journey must use the UI"), verifies the applied plan via member `mom` instead of a child session, never sets availability/child limit through the owner UI, and lacks the role-cannot-apply and keyboard/mobile journeys. | FIXED in round 2 (2026-09-11) — see the round-2 implementation record; pool green. |
+| RF-065-02 | major | §4.1 Jest components row | Component matrix undelivered: no spec for the D5 limit UI (`AvailabilityEditModal`), the owner-only planner gating (`SchedulingView`), `CalendarView`'s `schedule-applied` refetch, or keyboard/mobile control behavior. | FIXED in round 2 (2026-09-11) — see the round-2 implementation record; Jest green. |
 | RF-065-03 | major | `SchedulePlanner.vue` §3.1 rule 7 | Input edits (task selection, start date) after a preview left Apply enabled; only per-row override edits marked the preview stale. | FIXED in review (user-authorized): selection/`startDate` watchers call `markPlanStale()`; Jest regression tests added. |
 | RF-065-04 | minor | §4.1 Real-concurrency row | Enumerated two-process races (apply vs completion/undo, preference/membership, capacity-affecting creation) delivered as the two distinct lock-class representative races (apply/apply in opposite order, apply vs room_task-writer) plus sequential stale-rejection proofs for every dependency class. | RESOLVED by user decision 2026-09-11: accept lock-class coverage — every remaining writer serializes on a lock class proven by a delivered two-process race (ADR-012 lock order). |
+| RF-065-05 | major | `SchedulingController::updateMemberAvailability` HTTP boundary | Found by the round-2 exit journey: the dispatcher-resolved `array $updates` argument binds to a body key literally named `updates`, which the documented top-level section contract never sends — every real `PUT /scheduling/members/{userId}` died on a TypeError (500) before the controller body ran. PHP tests call the method directly and no E2E saved member preferences, so the defect was invisible until the owner-UI journey exercised it. | FIXED in round 2 (2026-09-11): closed payload read from `getParams()` minus route internals; unit tests adapted + route-internals regression added; the E2E exit journey pins the real HTTP path. Out-of-scope sibling `TaskController::update` routed to backlog **BUG-API-001**. |
 
 Additional review-fixed items (no open residue): stylelint `property-no-deprecated` error (`.sr-only` `clip` → global `cs-visually-hidden` utility) and `padding-left` → `padding-inline-start` in `SchedulePlanner.vue`; two `composer cs:check` violations (unused `AppLogger` import in `SchedulePlanAggregateTest.php`, operator alignment in `SchedulePlanService.php`); "actional" → "actionable" typo in ADR-012; PHPDoc array-shape corrections (`capacityWarnings`/`placeRow`). Considered and accepted nits: weekend-15/weekday-10 default budget duplicated between `SchedulingService::getDefaultEnergyBudget()` and `SchedulePlanService::energyBudgetFor()` (fold into WP8 service decomposition); controller `is_numeric` ID parsing truncates forged float ids ("1.5" → 1) — service-level strict `is_int` is pinned by unit tests and the UI always sends integers.
+
+### Implementation record — round 2 (2026-09-11)
+
+RF-065-01/02 resolved in this round; RF-065-05 was discovered by the new exit
+journey and fixed in the same round.
+
+- **RF-065-01 (E2E matrix):** `scheduling-apply-flow.spec.ts` rewritten per
+  §4.1. The exit journey now creates the task **through the UI** (task-manager
+  creation form; the room-task id is pinned from the authoritative
+  `{task, roomTask, assignees}` response), sets the child's full-week
+  availability and raises `maxDailyTasks` 2→3 **through the owner UI**
+  (`AvailabilityEditModal`; the member PUT body is pinned), previews →
+  overrides the assignee to `kid` → re-previews → applies once, verifies the
+  owner Calendar occurrence through SPA navigation **without reload**, and
+  then verifies in a fresh **child (`kid`) session** that My Day's Due-Today
+  section holds **exactly** the 3 expected rows (the applied task plus the two
+  seeded kid rows — the seeded limit of 2 would have truncated the set) and
+  the Calendar shows the occurrence exactly once. One seed before the journey,
+  no reset between owner apply and child verification. New journeys:
+  role-cannot-apply (`grandma` member + `kid` child: no planner section,
+  personal settings intact, well-formed direct `POST
+  /scheduling/suggestions|apply` → 403), a fully keyboard-operable
+  preview→apply cycle (Space selects, Tab traverses, Enter activates; the
+  `:focus-within` 2px solid outline is pinned), and a mobile touch journey
+  (390×844 `hasTouch` context, tap-driven cycle, ≥44px target heights pinned
+  on the task row, preview, override select and apply). The stale-409
+  recovery, unplaced zero-flex and legacy-contract rejection tests are
+  retained. `createUserContext` gained an optional context-options parameter
+  (viewport/touch) for the mobile journey.
+- **RF-065-02 (component matrix):** `AvailabilityEditModal.spec.js` +8 D5
+  limit specs (section hidden for self; toggle/bounds rendering; null→int
+  send; int→null on disable; key omitted when unchanged; limit-only change
+  enables Save; 0/101 rejected before any request; 1/100 boundaries
+  accepted). `SchedulingView.spec.js` + owner/member/child planner gating
+  (personal sections stay for every role). `CalendarView.spec.js` +
+  `schedule-applied` handler refetches exactly the visible range and
+  unsubscribes on unmount. `SchedulePlanner.spec.js` + the keyboard/mobile
+  control contract (every interactive control is a native
+  button/input/select, label associations, the date input's `min` bound, and
+  the aria-live announcer across loading/applying/applied/stale/error).
+  Layout-dependent proofs (focus ring, 44px boxes, real tab order) live in
+  the E2E journeys — jsdom computes no layout.
+- **RF-065-05 (HTTP boundary bug, found + fixed this round):**
+  `SchedulingController::updateMemberAvailability(string $userId, array
+  $updates)` relied on the dispatcher resolving `$updates` from a body key
+  literally named `updates`; the documented top-level section contract never
+  sends one, so every real `PUT /scheduling/members/{userId}` died on a
+  TypeError (500) before the controller body ran — the owner-UI child limit
+  and member availability saves were broken end to end. PHP tests called the
+  method directly and no E2E saved member preferences, hiding the defect.
+  Fix: the closed payload is read from `getParams()` minus the route
+  internals (`memberUpdatesPayload()`), preserving the closed-shape
+  validation and the D5 omitted/null/int semantics; the 6 affected unit
+  tests now mock the dispatcher source and a new regression pins that route
+  internals never leak into the service payload and that an explicit
+  `maxDailyTasks: null` survives as a present key. The exit journey pins the
+  real HTTP path. The out-of-scope sibling `TaskController::update` (same
+  pattern, task-definition module) was routed to backlog **BUG-API-001**;
+  `FloorController::reorder` and `RoomTaskController::setAssignees` were
+  verified safe (their clients send body keys matching the parameter names).
+
+Round-2 gates: Jest 849 (832 + 17 new) + `test:noise` clean; eslint clean
+(no style surface touched); PHPUnit unit 909 (908 + 1 new regression);
+PHPUnit integration 315 with the 10 documented pre-existing skips;
+`composer cs:check` clean; Playwright `chromium-scheduling-owner` pool green
+(38 tests: apply-flow 7/7 including the new journeys, plus the
+scheduling/flex-window/availability suites); `backlog:check`,
+`docs:encoding`, `git diff --check` green. The full masterplan gate (all
+three pools, stylelint, build, l10n, noise/diff checks) remains the final
+Standard B re-review's job.
 
 Standard A review (2026-09-10): **no findings** — every section-1 baseline claim
 was verified against the codebase and all references/manifest paths checked; see
@@ -610,3 +704,50 @@ not implementation evidence.
   verified implementation package, review fixes, this evidence, the review
   record (`docs/backlog/archive/CODE_REVIEW_2026-09-11.md`), and tracking
   updates.
+
+**Final Standard B re-review (round 2 verification) — 2026-09-11 — outcome `PASS`**
+
+- **Scope / owning plan:** the uncommitted round-2 package — 11 modified files
+  (`lib/Controller/SchedulingController.php`,
+  `tests/e2e/{scheduling-apply-flow.spec.ts,fixtures/auth-contexts.ts}`,
+  `tests/unit/Controller/SchedulingControllerTest.php`,
+  `tests/unit/components/{AvailabilityEditModal,CalendarView,SchedulePlanner,SchedulingView}.spec.js`,
+  `docs/backlog/{ACTIVE_TASKS,backlog}.md`, this plan) — plus the whole-plan
+  final-Standard-B surface: §5 manifest, §8 acceptance criteria, §4.1 test
+  matrix, durable-doc integration, and implementation history. This plan is
+  the explicit owning plan.
+- **Base state:** branch `master`, HEAD `9cf3875` (round-1 NEEDS-FOLLOW-UP
+  commit); index untouched (nothing staged); unstaged diff fingerprint
+  `7b4642c286e4c8f5bc73d6df32836f4cd2a92f27`; no untracked files;
+  `git diff --check` clean.
+- **Verification:** round-2 diff review confirmed RF-065-01 (exit journey now
+  creates the task through the UI, sets availability + child limit 2→3 through
+  the owner UI with the pinned PUT body, verifies the exact 3-row child My Day
+  set and calendar occurrence in a fresh child session without reload, plus
+  role-cannot-apply 403, keyboard, and mobile 390×844 journeys), RF-065-02
+  (D5 limit, planner gating, `schedule-applied` refetch, keyboard/mobile
+  component contracts) and RF-065-05 (`updateMemberAvailability` reads its
+  closed payload from `getParams()` minus route internals; no stale two-arg
+  callers; route-internals and `maxDailyTasks: null` regressions pinned;
+  out-of-scope sibling `TaskController::update` correctly in backlog
+  BUG-API-001). All §9 findings resolved (RF-065-01/02/05 fixed round 2,
+  RF-065-03 fixed round 1, RF-065-04 user-resolved). Manifest, durable docs
+  (ADR-012/api/concepts/engineering), and §4.1 matrix verified complete.
+- **Full §4.5 masterplan gate rerun green by this review:** eslint 0 errors
+  (1 pre-existing documented `NotAuthorizedState.vue` warning); stylelint 0
+  errors (same single pre-existing warning); Jest 849; `test:noise`; build;
+  `l10n:check-keys`; `docs:encoding`; `backlog:check`; Docker PHPUnit unit
+  909 OK / integration 315 (+10 documented pre-existing GameLogic/RoomTask
+  scenario skips); `composer cs:check` clean; Playwright chromium 92 passed
+  (+7 pool-excluded skips), chromium-serial-db 98 passed / 5 skipped / 0
+  flaky on a clean re-run (first run showed 3 transient retry-flakes under
+  load; static list 103 unchanged, re-run deterministic),
+  chromium-scheduling-owner 38 passed; `git diff --check` clean.
+- **Findings:** none. **Safe fixes applied:** none required.
+- **Decisions:** none needed — every decision was ratified in earlier rounds
+  (D1-D8 Standard A; round-1 batch; RF-065-04 lock-class acceptance).
+- **Transition:** eligible `active/ → done/` move performed; CR-WF-07 +
+  CR-055-01 archived to `archive/2026-09.md`; masterplan WP6 row and section
+  status updated; ACTIVE_TASKS entry completed; review record appended to
+  `docs/backlog/archive/CODE_REVIEW_2026-09-11.md`; one scoped review commit
+  authorized by the review request.
