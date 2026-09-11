@@ -10,9 +10,11 @@
 
 ## In Progress
 
-- _Nothing in progress — WP6 closed 2026-09-11; the next package is CS-PLAN-058 WP7 (not started)._
+- **CS-PLAN-066 / WP7 — Canonical Client State and Family-Friendly Core UX** — Activated 2026-09-11 (Standard A `PASS-WITH-FIXES`, D1-D7 ratified as recommended); implementation not started. → [`../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md`](../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md)
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
+
+- **CS-PLAN-066 / WP7 — draft + Standard A** - Drafted (canonical payloads/projections, request ordering, family UX, role/viewport test matrix) and reviewed the same day: Standard A `PASS-WITH-FIXES`, D1-D7 ratified as recommended, activated into `active/`; CR-WF-04/08 In Progress, BUG-API-001 adopted as D6 prerequisite, CR-053-13 WP7 core slice per D7; draft gates green, implementation not started. (2026-09-11) See [plan](../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md).
 
 - **CS-PLAN-065 / WP6 — Actionable Scheduling Through My Day** — Implemented and final-reviewed: `SchedulePlanService` preview/apply aggregate (content-fingerprint previewVersion, ADR-012 lock order, stale-409 recovery), owner-only UI plan surface with child `maxDailyTasks` limits, eligibility-before-limit daily reads, Calendar/My Day reconciliation without reload, D7 energy-cluster removal; round 2 closed RF-065-01/02 (E2E + component matrices) and found+fixed RF-065-05 (member PUT dispatcher TypeError); final Standard B re-review `PASS` with zero findings, full §4.5 gate rerun green (unit 909, integration 315, Jest 849, all three Playwright pools); CR-WF-07 + CR-055-01 archived, BUG-API-001 routed to backlog, plan moved to `done/`, masterplan WP6 updated. (2026-09-11) → [`../plans/done/cs-plan-065-wp6-actionable-scheduling.md`](../plans/done/cs-plan-065-wp6-actionable-scheduling.md)
 
@@ -26,8 +28,6 @@
 - **CS-PLAN-060 / WP1 — Schema, Entity, and Mapper Invariants** — Implemented and reviewed: schema fold, bootstrap race safety, `TransactionExecutor`, canonical visibility/assignee/recurrence, house-scoped `findVisibleByHouse`, mapper minors; Standard B `PASS-WITH-FIXES` (stale E2E consumers + durable docs fixed in review), full gate rerun green, plan moved to `done/`. (2026-09-03) → [`../plans/done/cs-plan-060-wp1-schema-entity-mapper-invariants.md`](../plans/done/cs-plan-060-wp1-schema-entity-mapper-invariants.md)
 
 - **CS-PLAN-059 / WP0** — Backlog restructured into the five CS-PLAN-058 §2.2 sections with nine-field metadata, 46 resolved stubs archived, `backlog:check` gate added, program baseline recorded; Standard B `PASS-WITH-FIXES`, plan moved to `done/`. (2026-09-02) → [`../plans/done/cs-plan-059-wp0-backlog-baseline.md`](../plans/done/cs-plan-059-wp0-backlog-baseline.md)
-- **CS-PLAN-058 Draft** — Bottom-up core-workflow masterplan created from the open backlog and Full Review, covering persistence through actionable scheduling, child-friendly execution, and deterministic E2E gates; Standard A review passed (GO), activated into `active/`. (2026-09-02) → [`../plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md`](../plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md)
-- **Core Task Workflow Full Review** — End-to-end review completed with outcome `BLOCKED` by unresolved security/auth findings; safe timezone/i18n/docs fixes gated and CR-WF-01..06 recorded, but no commit was made. (2026-09-02) → [`archive/CODE_REVIEW_2026-09-02.md`](archive/CODE_REVIEW_2026-09-02.md)
 
 > One-line entries only. Older completed work lives in the tracked
 > [`archive/`](archive/).

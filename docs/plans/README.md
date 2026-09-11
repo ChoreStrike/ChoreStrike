@@ -14,6 +14,10 @@ docs/plans/
 
 ## Lifecycle
 
+Current WP7 plan: [CS-PLAN-066 - Canonical Client State and Family-Friendly Core UX](active/cs-plan-066-wp7-canonical-client-state-family-ux.md),
+child of [CS-PLAN-058](active/cs-plan-058-core-workflow-bottom-up-masterplan.md).
+Standard A `PASS-WITH-FIXES` 2026-09-11 (D1-D7 ratified); implementation has not started.
+
 Successful lifecycle reviews perform the normal forward transitions automatically:
 
 - A passing plan review records its outcome, moves `new/ → active/`, updates `ACTIVE_TASKS.md`, and commits the package.

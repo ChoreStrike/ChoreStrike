@@ -26,9 +26,14 @@
 > public repository under the security-disclosure policy.
 
 ### [P2] CR-WF-04 — Reconcile daily workflow payloads and client state
-**Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily workflow
+**Status**: In Progress (CS-PLAN-066 activated 2026-09-11; implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily workflow
 **Owning**: CS-PLAN-058 WP7 · **Depends on**: — (the actionable-scheduling prerequisite was delivered 2026-09-11 by CS-PLAN-065/WP6; see the monthly archive) · **Blocks**: CR-WF-06 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
+
+**WP7 child plan:** [CS-PLAN-066](../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md)
+defines the payload/projection contract, race/recovery matrix and WP5/WP6 handoff.
+Standard A `PASS-WITH-FIXES` 2026-09-11 (D1-D7 ratified as recommended); no
+acceptance criterion is closed before implementation.
 
 Several live workflow responses and Pinia consumers disagree about authoritative
 state, causing incorrect limits/counts, stale completion feedback, and lost UI
@@ -78,9 +83,14 @@ extends, rather than duplicates, **CR-SVC-15**, **CR-SVC-40**, **CR-SVC-41**, an
 ---
 
 ### [P1] CR-WF-08 — Deliver a family-friendly core journey
-**Status**: Planned · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: family UX
+**Status**: In Progress (CS-PLAN-066 activated 2026-09-11; implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: family UX
 **Owning**: CS-PLAN-058 WP7 · **Depends on**: — · **Blocks**: CR-WF-05 · **Folded-in**: —
 **Source**: CS-PLAN-058 core workflow masterplan (2026-09-02)
+
+**WP7 child plan:** [CS-PLAN-066](../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md)
+defines shared child My Day, role-aligned controls and desktop/mobile acceptance;
+Standard A `PASS-WITH-FIXES` 2026-09-11, prerequisite scope decisions ratified
+(BUG-API-001 per D6, CR-053-13 core slice per D7).
 
 The complete setup-to-execution flow must be comfortable for owners and
 understandable for members and children without requiring knowledge of rewards or
@@ -247,6 +257,10 @@ re-bootstrap). Remaining: the backend leave endpoint + Settings action.
 
 Owned in portions: WP5 owns the undo/cache-reconciliation slices (delivered),
 WP7 the remaining canonical client-state parts.
+The remainder is detailed in [CS-PLAN-066](../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md)
+(activated 2026-09-11), including weekly-goal hydration, request ordering, invite
+regression evidence and the bounded minigame initialization/loading fix; WP7
+implementation is not started.
 (**wire-or-delete decided: delete** — the uncalled user-store reward actions
 `addCoins`/`addContributionScore`/`updateStreak` were pruned with the dead-store layer,
 CR-P4-03's deletion half executed)
@@ -298,9 +312,15 @@ undefined execution order → core notification suppressed; (d) weekly restock S
 ---
 
 ### [P2] CR-053-13 — l10n artifact gap: 141 t() keys used in src/ missing from en+de
-**Status**: Backlog · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: i18n
-**Owning**: CS-PLAN-058 WP9 · **Depends on**: — · **Blocks**: CS-PLAN-058 WP7 · **Folded-in**: CR-055-02
+**Status**: In Progress (WP7 core-surface slice ratified into CS-PLAN-066 per D7, 2026-09-11; global remainder stays WP9) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: i18n
+**Owning**: CS-PLAN-058 WP9 (global remainder) + WP7/CS-PLAN-066 (core-surface slice) · **Depends on**: — · **Blocks**: CS-PLAN-058 WP7 (resolved for the core slice by the D7 ratification 2026-09-11) · **Folded-in**: CR-055-02
 **Source**: CS-PLAN-053 full review (CR-P4-13/14/15, 2026-08-27)
+
+**D7 split (ratified 2026-09-11):** [CS-PLAN-066](../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md)
+owns the WP7 core-surface translation slice — all reachable WP7 copy (not just
+newly added keys) verified in DE/EN/POT; global extraction/checker strengthening
+and unrelated catalog cleanup remain WP9. No untranslated core string may be
+deferred to WP9.
 
 German users get English fallback across TaskManager filters, Settings floor management,
 Arcade, minigames; 8 keys are case-variant mismatches; ~340 dead artifact entries (keep
@@ -313,8 +333,8 @@ required`) drop out in the same regeneration pass — do not hand-prune entries.
 ---
 
 ### [P1] BUG-API-001 — `PUT /tasks/{id}` (definition edit) 500s: dispatcher cannot resolve the `array $updates` argument
-**Status**: Backlog · **Effort**: S · **Layer**: backend+tests · **Journey stage**: task management
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: Planned (adopted as an early CS-PLAN-066/WP7 prerequisite per D6, ratified 2026-09-11; archive when verified) · **Effort**: S · **Layer**: backend+tests · **Journey stage**: task management
+**Owning**: CS-PLAN-058 WP7 (CS-PLAN-066 D6 prerequisite slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-065 RF-065-01 E2E round (2026-09-11) — the identical pattern in `SchedulingController::updateMemberAvailability` was found and fixed there (RF-065-05); this is the remaining out-of-scope sibling.
 
 `TaskController::update(int $id, array $updates)` relies on the Nextcloud

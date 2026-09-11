@@ -398,6 +398,12 @@ and the child sees exactly the assigned due tasks in My Day and Calendar.
 
 ### WP7 - Canonical client state and family-friendly core UX
 
+**Child plan:** [CS-PLAN-066](cs-plan-066-wp7-canonical-client-state-family-ux.md)
+(drafted 2026-09-11; Standard A `PASS-WITH-FIXES` 2026-09-11, D1-D7 ratified as
+recommended; implementation not started). The plan consumes WP5/WP6 contracts and
+ratifies the BUG-API-001 task-edit (D6) and CR-053-13 core-localization (D7)
+prerequisite slices.
+
 **Goal:** make the complete journey comfortable, understandable, accessible, and
 consistent across owner, member, and child roles.
 
@@ -709,7 +715,7 @@ to a separate reviewed plan.
 | WP4 Atomic tasks/assignment | Done (2026-09-06) | Final Standard B PASS-WITH-FIXES (2026-09-06) — null-name 400 regression fixed with user authorization; i18n/security-log/dead-mock/store-consistency minors fixed inline | Full gate rerun by the review (env reset to `TEST_DB_PROFILE=family`): unit 845 OK (+2 review tests), integration 278 OK (+10 pre-existing documented skips), `cs:check` 0, Jest 815 (+1 review spec), lint/l10n/docs/backlog/build green, Playwright chromium 92/7, chromium-serial-db 92/5 (post-fix), chromium-scheduling-owner 31/0 | CR-WF-03 closed + archived (both halves done); CR-SVC-41 WP4 slice annotated (WP8 remainder stays); CR-062-01 archived; plan moved to `done/` |
 | WP5 Completion/full undo | Done (2026-09-09, CS-PLAN-064 steps 1–10; final Standard B `PASS-WITH-FIXES` — one stale plan-text reference fixed) | Interim Standard B `PASS-WITH-FIXES` (backend slice) + interim `PASS` (step-6 round) + final `PASS-WITH-FIXES`, all 2026-09-09 | Full §4.5 gate green 2026-09-09 and rerun green by the final review: unit 847, integration 290 (+10 pre-existing documented skips), `cs:check` 0, Jest 820, lint/stylelint/l10n/docs/backlog/`test:noise`/build/`git diff --check` clean, Playwright full pool twice 385 passed / 0 failed / 26 pre-existing conditional skips | CR-WF-02 criteria all checked + archived; UX-015 archived; CR-053-20/CR-SVC-15/CR-SVC-40 WP5 slices annotated (remainders stay WP7/WP8); ADR-011 landed; CS-PLAN-064 moved to `done/` |
 | WP6 Actionable scheduling | Done (2026-09-11, CS-PLAN-065; implementation 2026-09-10, round 2 2026-09-11) | Final Standard B `NEEDS-FOLLOW-UP` 2026-09-11 (RF-065-01/02 open), then final re-review `PASS` 2026-09-11 — [CS-PLAN-065](../done/cs-plan-065-wp6-actionable-scheduling.md) moved to `done/` | Full §4.5 gate rerun green by the final re-review 2026-09-11: unit 909, integration 315 (+10 documented pre-existing skips), Jest 849, `cs:check`/lint/stylelint/l10n/docs/backlog/build/noise clean, Playwright chromium 92 (+7 pool-excluded), chromium-serial-db 98/5 skipped (0 flaky on re-run), chromium-scheduling-owner 38 | CR-WF-07 + CR-055-01 archived (2026-09); BUG-API-001 (`PUT /tasks/{id}` dispatcher TypeError) routed to backlog out-of-scope; WP7 consumes the applied-schedule contract |
-| WP7 Family UX/client state | Not started | Pending | Pending | Pending |
+| WP7 Family UX/client state | Child plan active (2026-09-11); implementation not started | Standard A `PASS-WITH-FIXES` (2026-09-11) - [CS-PLAN-066](cs-plan-066-wp7-canonical-client-state-family-ux.md) | Pending | CR-WF-04/08 In Progress + CR-053-20 remainder mapped; BUG-API-001 (D6) / CR-053-13 core slice (D7) ratified |
 | WP8 Performance/architecture | Not started | Pending | Pending | Pending |
 | WP9 Coverage/release closure | Not started | Pending | Pending | Pending |
 
