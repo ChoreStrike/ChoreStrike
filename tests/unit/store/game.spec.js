@@ -105,12 +105,11 @@ describe('Game Store', () => {
 
 				await store.fetchGameState()
 
-				// The transition celebration is suppressed (dismissed) so the
-				// user is not greeted by a stale toast for a goal that was
-				// already achieved in a previous session.
+				// CS-PLAN-066 (D5): hydration is SILENT — no local celebration
+				// entry is manufactured for a goal already achieved before
+				// this session, and nothing needs dismissing afterwards.
 				const weeklyCelebration = store.celebrations.find(c => c.type === 'weekly_goal_achieved')
-				expect(weeklyCelebration).toBeDefined()
-				expect(weeklyCelebration.dismissed).toBe(true)
+				expect(weeklyCelebration).toBeUndefined()
 			})
 
 			it('handles error', async () => {
@@ -200,29 +199,84 @@ describe('Game Store', () => {
 				expect(store.householdProgress.weeklyGoal.weekEnd).toBe('2026-07-19T23:59:59+00:00')
 			})
 
-			it('triggers celebration on the not-achieved → achieved transition', () => {
+			it('triggers celebration only on a confirmed same-week completion transition (D5)', () => {
+				const weekStart = '2026-07-13T00:00:00+00:00'
+				// Hydrate the week first (Dashboard game state).
 				store.setWeeklyGoal({
 					dueCount: 5,
 					completedCount: 3,
 					percent: 60,
 					targetPercent: 80,
 					achieved: false,
-					weekStart: null,
-					weekEnd: null,
+					weekStart,
+					weekEnd: '2026-07-19T23:59:59+00:00',
 				})
 
+				// The completion response is a CONFIRMED transition.
 				store.setWeeklyGoal({
 					dueCount: 5,
 					completedCount: 4,
 					percent: 80,
 					targetPercent: 80,
 					achieved: true,
-					weekStart: null,
-					weekEnd: null,
-				})
+					weekStart,
+					weekEnd: '2026-07-19T23:59:59+00:00',
+				}, { celebrateOnTransition: true })
 
 				expect(store.celebrations).toHaveLength(1)
 				expect(store.celebrations[0].type).toBe('weekly_goal_achieved')
+			})
+
+			it('hydration never celebrates even on a false→true flip (D5)', () => {
+				store.setWeeklyGoal({
+					dueCount: 5,
+					completedCount: 3,
+					percent: 60,
+					targetPercent: 80,
+					achieved: false,
+					weekStart: '2026-07-13T00:00:00+00:00',
+					weekEnd: '2026-07-19T23:59:59+00:00',
+				})
+
+				// A plain fetch/hydration landing on achieved=true — no
+				// confirmed completion behind it.
+				store.setWeeklyGoal({
+					dueCount: 5,
+					completedCount: 4,
+					percent: 80,
+					targetPercent: 80,
+					achieved: true,
+					weekStart: '2026-07-13T00:00:00+00:00',
+					weekEnd: '2026-07-19T23:59:59+00:00',
+				})
+
+				expect(store.celebrations).toEqual([])
+			})
+
+			it('week rollover re-arms silently and needs a new hydration (D5)', () => {
+				store.setWeeklyGoal({
+					dueCount: 5,
+					completedCount: 5,
+					percent: 100,
+					targetPercent: 80,
+					achieved: true,
+					weekStart: '2026-07-13T00:00:00+00:00',
+					weekEnd: '2026-07-19T23:59:59+00:00',
+				}, { celebrateOnTransition: true })
+
+				// New week arrives through a hydration — silent, no
+				// celebration for the previous week's identity.
+				store.setWeeklyGoal({
+					dueCount: 4,
+					completedCount: 4,
+					percent: 100,
+					targetPercent: 80,
+					achieved: true,
+					weekStart: '2026-07-20T00:00:00+00:00',
+					weekEnd: '2026-07-26T23:59:59+00:00',
+				}, { celebrateOnTransition: true })
+
+				expect(store.celebrations).toEqual([])
 			})
 
 			it('does not trigger celebration when already achieved', () => {

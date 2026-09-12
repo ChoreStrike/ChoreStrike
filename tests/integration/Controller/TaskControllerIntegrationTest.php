@@ -100,7 +100,13 @@ class TaskControllerIntegrationTest extends TestCase {
 			->with($taskId, $updates, $this->identicalTo($houseUser))
 			->willReturn($updatedTask);
 
-		$response = $this->controller->update($taskId, $updates);
+		// BUG-API-001 (D6): the endpoint reads its closed payload from the
+		// request parameters (top-level body keys over the route internals).
+		$this->request->method('getParams')->willReturn(array_merge(
+			['id' => (string)$taskId, '_route' => 'chorestrike.tasks.update'],
+			$updates
+		));
+		$response = $this->controller->update($taskId);
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();

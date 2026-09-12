@@ -14,9 +14,8 @@ docs/plans/
 
 ## Lifecycle
 
-Current WP7 plan: [CS-PLAN-066 - Canonical Client State and Family-Friendly Core UX](active/cs-plan-066-wp7-canonical-client-state-family-ux.md),
-child of [CS-PLAN-058](active/cs-plan-058-core-workflow-bottom-up-masterplan.md).
-Standard A `PASS-WITH-FIXES` 2026-09-11 (D1-D7 ratified); implementation has not started.
+Current active plan: [CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](active/cs-plan-058-core-workflow-bottom-up-masterplan.md)
+(WP7 done 2026-09-12: [CS-PLAN-066](done/cs-plan-066-wp7-canonical-client-state-family-ux.md), final Standard B `PASS-WITH-FIXES`; WP8 is next, not started).
 
 Successful lifecycle reviews perform the normal forward transitions automatically:
 

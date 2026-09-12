@@ -38,41 +38,78 @@
 		</div>
 
 		<template v-else>
-			<section v-if="filteredOverdueItems.length > 0" class="today-section overdue">
+			<!-- Partial derived refresh (CS-PLAN-066 D3): a committed action
+			     stays successful; stale projections surface a read-only
+			     retry — never a write replay. -->
+			<div
+				v-if="roomTasksStore.refreshFailed"
+				class="refresh-banner"
+				data-testid="today-refresh-failed"
+				role="status">
+				<span>{{ t('chorestrike', 'Some views could not be refreshed') }}</span>
+				<button
+					class="refresh-retry"
+					:disabled="roomTasksStore.countsRefreshing"
+					@click="retryDerivedRefresh">
+					{{ t('chorestrike', 'Refresh') }}
+				</button>
+			</div>
+
+			<section v-if="visibleOverdueItems.length > 0" class="today-section overdue">
 				<h2 data-testid="today-section-overdue">
 					<Icon name="AlertCircle" :size="18" class="section-icon" />
 					{{ t('chorestrike', 'Overdue') }}
 				</h2>
 				<div class="task-rows">
-					<div
-						v-for="item in filteredOverdueItems"
-						:key="item.roomTask.id"
-						class="task-row overdue"
-						:class="{ completed: !item.roomTask.isActive }"
-						data-testid="today-task-item">
-						<button
-							v-if="item.roomTask.isActive"
-							class="complete-button"
-							:data-testid="`today-complete-button-${item.roomTask.id}`"
-							:disabled="completingIds.has(item.roomTask.id)"
-							:title="t('chorestrike', 'Mark as done')"
-							@click="complete(item)">
-							<Icon name="CheckCircle" :size="22" />
-							<span>{{ t('chorestrike', 'Done') }}</span>
-						</button>
-						<span v-else class="completed-check" :data-testid="`today-completed-check-${item.roomTask.id}`">
-							<Icon name="CheckCircle" :size="22" />
-						</span>
+					<div v-for="item in visibleOverdueItems" :key="item.roomTask.id" class="today-row-group">
+						<div
+							class="task-row overdue"
+							:class="{ completed: !item.roomTask.isActive }"
+							data-testid="today-task-item">
+							<button
+								v-if="item.roomTask.isActive"
+								class="complete-button"
+								:data-testid="`today-complete-button-${item.roomTask.id}`"
+								:disabled="completingIds.has(item.roomTask.id)"
+								:title="t('chorestrike', 'Mark as done')"
+								@click="complete(item)">
+								<Icon name="CheckCircle" :size="22" />
+								<span>{{ t('chorestrike', 'Done') }}</span>
+							</button>
+							<span v-else class="completed-check" :data-testid="`today-completed-check-${item.roomTask.id}`">
+								<Icon name="CheckCircle" :size="22" />
+							</span>
 
-						<div class="task-info">
-							<span class="task-name">{{ item.task.name }}</span>
-							<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
+							<div class="task-info">
+								<span class="task-name">{{ item.task.name }}</span>
+								<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
+								<p v-if="taskInstructions(item)" class="task-instructions">
+									{{ taskInstructions(item) }}
+								</p>
+							</div>
+
+							<button
+								v-if="!hasDiscoveredEmptyChecklist(item.task.id)"
+								class="checklist-toggle"
+								:aria-expanded="isExpanded(item.roomTask.id)"
+								:data-testid="`today-checklist-toggle-${item.roomTask.id}`"
+								@click="toggleExpand(item)">
+								<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
+								<span>{{ checklistSummary(item) }}</span>
+							</button>
 						</div>
 
-						<span class="task-energy">
-							<Icon name="Zap" :size="16" />
-							{{ item.task.energyCost ?? '?' }}
-						</span>
+						<TaskChecklist
+							v-if="isExpanded(item.roomTask.id)"
+							:key="`checklist-${item.roomTask.id}`"
+							class="today-checklist"
+							:items="checklistStore.getTaskItems(item.task.id)"
+							:progress="checklistStore.getRoomTaskProgress(item.roomTask.id)"
+							:can-edit="false"
+							:readonly="!item.roomTask.isActive"
+							:room-task-id="item.roomTask.id"
+							:task-id="item.task.id"
+							@toggle="handleToggleChecklistItem" />
 					</div>
 				</div>
 			</section>
@@ -82,36 +119,56 @@
 					<Icon name="Sun" :size="18" class="section-icon" />
 					{{ t('chorestrike', 'Due Today') }}
 				</h2>
-				<div v-if="filteredTodayItems.length > 0" class="task-rows">
-					<div
-						v-for="item in filteredTodayItems"
-						:key="item.roomTask.id"
-						class="task-row"
-						:class="{ completed: !item.roomTask.isActive }"
-						data-testid="today-task-item">
-						<button
-							v-if="item.roomTask.isActive"
-							class="complete-button"
-							:data-testid="`today-complete-button-${item.roomTask.id}`"
-							:disabled="completingIds.has(item.roomTask.id)"
-							:title="t('chorestrike', 'Mark as done')"
-							@click="complete(item)">
-							<Icon name="CheckCircle" :size="22" />
-							<span>{{ t('chorestrike', 'Done') }}</span>
-						</button>
-						<span v-else class="completed-check" :data-testid="`today-completed-check-${item.roomTask.id}`">
-							<Icon name="CheckCircle" :size="22" />
-						</span>
+				<div v-if="visibleTodayItems.length > 0" class="task-rows">
+					<div v-for="item in visibleTodayItems" :key="item.roomTask.id" class="today-row-group">
+						<div
+							class="task-row"
+							:class="{ completed: !item.roomTask.isActive }"
+							data-testid="today-task-item">
+							<button
+								v-if="item.roomTask.isActive"
+								class="complete-button"
+								:data-testid="`today-complete-button-${item.roomTask.id}`"
+								:disabled="completingIds.has(item.roomTask.id)"
+								:title="t('chorestrike', 'Mark as done')"
+								@click="complete(item)">
+								<Icon name="CheckCircle" :size="22" />
+								<span>{{ t('chorestrike', 'Done') }}</span>
+							</button>
+							<span v-else class="completed-check" :data-testid="`today-completed-check-${item.roomTask.id}`">
+								<Icon name="CheckCircle" :size="22" />
+							</span>
 
-						<div class="task-info">
-							<span class="task-name">{{ item.task.name }}</span>
-							<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
+							<div class="task-info">
+								<span class="task-name">{{ item.task.name }}</span>
+								<span class="task-room">{{ item.room?.name || t('chorestrike', 'Room') }}</span>
+								<p v-if="taskInstructions(item)" class="task-instructions">
+									{{ taskInstructions(item) }}
+								</p>
+							</div>
+
+							<button
+								v-if="!hasDiscoveredEmptyChecklist(item.task.id)"
+								class="checklist-toggle"
+								:aria-expanded="isExpanded(item.roomTask.id)"
+								:data-testid="`today-checklist-toggle-${item.roomTask.id}`"
+								@click="toggleExpand(item)">
+								<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
+								<span>{{ checklistSummary(item) }}</span>
+							</button>
 						</div>
 
-						<span class="task-energy">
-							<Icon name="Zap" :size="16" />
-							{{ item.task.energyCost ?? '?' }}
-						</span>
+						<TaskChecklist
+							v-if="isExpanded(item.roomTask.id)"
+							:key="`checklist-${item.roomTask.id}`"
+							class="today-checklist"
+							:items="checklistStore.getTaskItems(item.task.id)"
+							:progress="checklistStore.getRoomTaskProgress(item.roomTask.id)"
+							:can-edit="false"
+							:readonly="!item.roomTask.isActive"
+							:room-task-id="item.roomTask.id"
+							:task-id="item.task.id"
+							@toggle="handleToggleChecklistItem" />
 					</div>
 				</div>
 				<p v-else class="section-empty">
@@ -133,13 +190,13 @@ import { showError } from '@nextcloud/dialogs'
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { useRoomTasksStore } from '../store/roomTasks.js'
 import { useHouseStore } from '../store/house.js'
-import { useRoomsStore } from '../store/rooms.js'
-import { useTasksStore } from '../store/tasks.js'
+import { useChecklistStore } from '../store/checklist.js'
 import { useUserStore } from '../store/user.js'
 import { logger } from '../utils/logger.js'
 import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
 import Icon from '../components/Common/Icon.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
+import TaskChecklist from '../components/Tasks/TaskChecklist.vue'
 
 export default {
 	name: 'TodayView',
@@ -147,15 +204,15 @@ export default {
 	components: {
 		Icon,
 		ErrorState,
+		TaskChecklist,
 	},
 
 	setup() {
 		const roomTasksStore = useRoomTasksStore()
 		const houseStore = useHouseStore()
-		const roomsStore = useRoomsStore()
-		const tasksStore = useTasksStore()
+		const checklistStore = useChecklistStore()
 		const userStore = useUserStore()
-		return { roomTasksStore, houseStore, roomsStore, tasksStore, userStore }
+		return { roomTasksStore, houseStore, checklistStore, userStore }
 	},
 
 	data() {
@@ -163,9 +220,13 @@ export default {
 			loading: false,
 			error: false,
 			filter: 'mine',
-			todayItems: [],
-			overdueItems: [],
 			completingIds: new Set(),
+			expandedIds: [],
+			// Definitions whose checklist was discovered to be EMPTY: the
+			// toggle is hidden for them after the one-shot discovery so a
+			// checklist-less row never offers a dead control (manual a11y
+			// pass 2026-09-12).
+			emptyChecklistTaskIds: [],
 			uncompletedHandler: null,
 		}
 	},
@@ -175,18 +236,43 @@ export default {
 			return this.userStore.currentUser?.nextcloudUserId || null
 		},
 
-		isEmpty() {
-			return this.filteredTodayItems.length === 0 && this.filteredOverdueItems.length === 0
+		// CS-PLAN-066 §3.3: the rows are SELECTORS of their owning store
+		// slices — no view-local copies that a stale read could overwrite.
+		// Rows are the enriched `{roomTask, task, room, assignees}` payloads
+		// (D1), so no per-row store lookups remain. The WP6 meaning of My
+		// Day is preserved: server visibility/eligibility/child limits stay
+		// authoritative — this view only applies the house-local day filter
+		// and the local mine/everyone preference.
+		todayIds() {
+			return new Set(this.roomTasksStore.dailyTasks
+				.filter(item => item.roomTask.isActive && this.isDueToday(item.roomTask))
+				.map(item => item.roomTask.id))
 		},
 
-		filteredTodayItems() {
+		todayItems() {
+			// Completed rows stay visible (queued undo), a recurring task
+			// whose next occurrence moved past today leaves the list.
+			return this.roomTasksStore.dailyTasks
+				.filter(item => !item.roomTask.isActive || this.isDueToday(item.roomTask))
+		},
+
+		overdueItems() {
+			return this.roomTasksStore.overdueTasks
+				.filter(item => item.roomTask.isActive && !this.todayIds.has(item.roomTask.id))
+		},
+
+		visibleTodayItems() {
 			if (this.filter === 'all') return this.todayItems
 			return this.todayItems.filter(item => this.isMine(item))
 		},
 
-		filteredOverdueItems() {
+		visibleOverdueItems() {
 			if (this.filter === 'all') return this.overdueItems
 			return this.overdueItems.filter(item => this.isMine(item))
+		},
+
+		isEmpty() {
+			return this.visibleTodayItems.length === 0 && this.visibleOverdueItems.length === 0
 		},
 	},
 
@@ -196,19 +282,6 @@ export default {
 		if (this.$route?.query?.scope === 'all') {
 			this.filter = 'all'
 		}
-		// Undo snackbar (CS-PLAN-041): restore local rows of undone tasks.
-		// Rows already removed from the list (recurring task whose next
-		// occurrence is in the future) stay removed — the server keeps the
-		// advanced nextDue, so re-adding would show a not-due task.
-		this.uncompletedHandler = ({ roomTask }) => {
-			if (!roomTask?.id) return
-			const apply = list => list.forEach(item => {
-				if (item.roomTask.id === roomTask.id) item.roomTask = { ...roomTask }
-			})
-			apply(this.todayItems)
-			apply(this.overdueItems)
-		}
-		subscribe('chorestrike:task-uncompleted', this.uncompletedHandler)
 		// CS-PLAN-065 §3.4: a committed owner plan may have moved today's or
 		// overdue rows — refresh from the reconciled stores.
 		this.scheduleAppliedHandler = () => {
@@ -219,9 +292,6 @@ export default {
 	},
 
 	beforeUnmount() {
-		if (this.uncompletedHandler) {
-			unsubscribe('chorestrike:task-uncompleted', this.uncompletedHandler)
-		}
 		if (this.scheduleAppliedHandler) {
 			unsubscribe('chorestrike:schedule-applied', this.scheduleAppliedHandler)
 		}
@@ -232,9 +302,10 @@ export default {
 
 		isMine(item) {
 			// Unknown user (store not resolved yet): show everything rather
-			// than an empty list.
+			// than an empty list. Canonical assignees ride the enriched row
+			// (D1) — top-level on the payload.
 			if (!this.myUserId) return true
-			const assignees = item.roomTask.assignees ?? []
+			const assignees = item.assignees ?? item.roomTask.assignees ?? []
 			return assignees.length === 0 || assignees.includes(this.myUserId)
 		},
 
@@ -242,46 +313,16 @@ export default {
 			this.loading = true
 			this.error = false
 			try {
-				const [daily, overdue] = await Promise.all([
+				// Rows are enriched server-side (CS-PLAN-066 D1) — the daily
+				// and overdue reads carry task, room and canonical assignees.
+				await Promise.all([
 					this.roomTasksStore.fetchFilteredDailyTasks(),
 					this.roomTasksStore.fetchOverdueTasks(),
 				])
-
-				if (this.tasksStore.tasks.length === 0) {
-					await this.tasksStore.fetchTasks()
-				}
-				if (this.roomsStore.rooms.length === 0) {
-					await this.roomsStore.fetchFloorsWithRooms()
-				}
-
-				const todayIds = new Set(daily.map(item => item.roomTask.id))
-				this.todayItems = daily
-					.filter(item => item.roomTask.isActive)
-					// CS-PLAN-065 (decision D4): filtered-daily rows embed their
-					// canonical assignee sets, so My Day never re-interprets an
-					// unknown set as unassigned after the child limit.
-					.map(item => ({
-						...item,
-						roomTask: { ...item.roomTask, assignees: item.assignees ?? item.roomTask.assignees ?? [] },
-					}))
-				this.overdueItems = overdue
-					.filter(roomTask => roomTask.isActive && !todayIds.has(roomTask.id))
-					.map(roomTask => ({
-						roomTask: { ...roomTask },
-						task: this.tasksStore.getTaskById(roomTask.taskId) || {
-							id: roomTask.taskId,
-							name: this.t('chorestrike', 'Unknown Task'),
-							energyCost: 0,
-						},
-						room: this.roomsStore.getRoomById(roomTask.roomId) || null,
-					}))
-
-				// The overdue endpoint does not embed assignees — fetch them
-				// per item (bounded by the overdue count; failures fall back
-				// to the legacy single assignee).
-				await Promise.allSettled(this.overdueItems.map(async (item) => {
-					item.roomTask.assignees = await this.roomTasksStore.fetchAssignees(item.roomTask.id)
-				}))
+				this.roomTasksStore.fetchDueTodayTasks().catch(() => {
+					// Count projections refresh opportunistically; the view
+					// rows do not depend on them.
+				})
 			} catch (error) {
 				this.error = true
 				logger.error('Failed to load today view', error, { view: 'TodayView', action: 'load' })
@@ -290,35 +331,30 @@ export default {
 			}
 		},
 
+		async retryDerivedRefresh() {
+			// Read-only retry (D3): refetch the stale projections, never
+			// replay any committed write.
+			try {
+				await this.roomTasksStore.refreshDerivedProjections()
+			} catch (error) {
+				logger.error('Failed to refresh derived projections', error, { view: 'TodayView', action: 'retryDerivedRefresh' })
+			}
+		},
+
 		async complete(item) {
 			const roomTaskId = item.roomTask.id
 			this.completingIds = new Set(this.completingIds).add(roomTaskId)
 			try {
-				const data = await this.roomTasksStore.completeRoomTask(roomTaskId)
-				// The store reconciled every owning store from this payload
-				// already (D10); the aggregate's room task carries no
-				// assignee relation, so keep the row's cached membership
-				// for the mine-filter.
-				const updated = data?.roomTask
-					? { ...data.roomTask, assignees: item.roomTask.assignees ?? data.roomTask.assignees ?? [] }
-					: { ...item.roomTask, isActive: false }
-				if (updated.isActive && this.isDueToday(updated)) {
-					// Recurring task with another occurrence still due today
-					item.roomTask = updated
-					// An overdue task whose next occurrence is today now
-					// belongs to the Today section, not the overdue one.
-					if (this.overdueItems.includes(item)) {
-						this.overdueItems = this.overdueItems.filter(listItem => listItem !== item)
-						this.todayItems = [...this.todayItems, item]
-					}
-				} else if (!updated.isActive) {
-					// One-time task: keep the row with its completed state
-					item.roomTask = updated
-				} else {
-					// Recurring task: the next due date moved into the
-					// future — the task is done for today and leaves the list.
-					this.todayItems = this.todayItems.filter(listItem => listItem.roomTask.id !== roomTaskId)
-					this.overdueItems = this.overdueItems.filter(listItem => listItem.roomTask.id !== roomTaskId)
+				await this.roomTasksStore.completeRoomTask(roomTaskId)
+				// The store reconciled every owning slice from this payload
+				// (D10) and refreshed the count projections (D3); this view's
+				// computed selectors re-derive their rows reactively.
+				if (this.isExpanded(roomTaskId)) {
+					// Occurrence-scoped server reset (CS-PLAN-064 D6): refresh
+					// the checklist progress after the completion.
+					this.checklistStore.fetchRoomTaskProgress(roomTaskId).catch(() => {
+						// Optional read — the next expand re-fetches anyway.
+					})
 				}
 			} catch (error) {
 				showError(t('chorestrike', 'Could not complete the task'))
@@ -327,6 +363,73 @@ export default {
 				const next = new Set(this.completingIds)
 				next.delete(roomTaskId)
 				this.completingIds = next
+			}
+		},
+
+		/**
+		 * Short, plain household instructions for the row (CS-PLAN-066
+		 * §3.5): the definition's instructions, falling back to the
+		 * description. Rendered as escaped text — never v-html.
+		 * @param {object} item Enriched daily/overdue row.
+		 * @return {string} The instruction text (may be empty).
+		 */
+		taskInstructions(item) {
+			return item.task.instructions || item.task.description || ''
+		},
+
+		checklistSummary(item) {
+			const items = this.checklistStore.getTaskItems(item.task.id)
+			if (items.length === 0) {
+				return this.t('chorestrike', 'Checklist')
+			}
+			const progress = this.checklistStore.getRoomTaskProgress(item.roomTask.id)
+			const done = progress.filter(p => p.isChecked).length
+			return this.t('chorestrike', 'Checklist ({done}/{total})', { done, total: items.length })
+		},
+
+		async toggleExpand(item) {
+			const id = item.roomTask.id
+			if (this.isExpanded(id)) {
+				this.expandedIds = this.expandedIds.filter(expandedId => expandedId !== id)
+				return
+			}
+			this.expandedIds = [...this.expandedIds, id]
+			try {
+				await Promise.all([
+					this.checklistStore.fetchTaskItems(item.task.id),
+					this.checklistStore.fetchRoomTaskProgress(id),
+				])
+				// Tasks without a checklist collapse again instead of showing
+				// an empty sub-task box — and the toggle disappears for that
+				// definition (one-shot discovery, manual a11y pass
+				// 2026-09-12): a checklist-less row must not keep offering a
+				// dead clickable control.
+				if (this.checklistStore.getTaskItems(item.task.id).length === 0) {
+					this.expandedIds = this.expandedIds.filter(expandedId => expandedId !== id)
+					if (!this.hasDiscoveredEmptyChecklist(item.task.id)) {
+						this.emptyChecklistTaskIds = [...this.emptyChecklistTaskIds, item.task.id]
+					}
+				}
+			} catch (error) {
+				showError(t('chorestrike', 'Could not load the checklist'))
+				logger.error('Failed to load checklist', error, { view: 'TodayView', action: 'toggleExpand', roomTaskId: id })
+			}
+		},
+
+		isExpanded(roomTaskId) {
+			return this.expandedIds.includes(roomTaskId)
+		},
+
+		hasDiscoveredEmptyChecklist(taskId) {
+			return this.emptyChecklistTaskIds.includes(taskId)
+		},
+
+		async handleToggleChecklistItem({ itemId, roomTaskId }) {
+			try {
+				await this.checklistStore.toggleItem(roomTaskId, itemId)
+			} catch (error) {
+				showError(t('chorestrike', 'Could not update the checklist'))
+				logger.error('Failed to toggle checklist item', error, { view: 'TodayView', action: 'handleToggleChecklistItem', roomTaskId, itemId })
 			}
 		},
 
@@ -385,6 +488,28 @@ export default {
 .filter-button.active {
 	background: var(--color-primary);
 	color: var(--color-primary-text);
+}
+
+.refresh-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 0.6rem 1rem;
+	margin-bottom: 1rem;
+	border: 1px solid var(--color-warning);
+	border-radius: 8px;
+	background: var(--color-background-dark);
+}
+
+.refresh-retry {
+	min-height: 44px;
+	padding: 0.4rem 1rem;
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	background: transparent;
+	cursor: pointer;
+	font-weight: 600;
 }
 
 .today-section {
@@ -467,6 +592,21 @@ export default {
 	color: var(--color-success);
 }
 
+.checklist-toggle {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	min-height: 44px;
+	padding: 0.4rem 0.8rem;
+	border: 1px solid var(--color-border);
+	border-radius: 10px;
+	background: transparent;
+	color: var(--color-text-maxcontrast);
+	cursor: pointer;
+	font-size: 0.85rem;
+	font-weight: 500;
+}
+
 .task-info {
 	flex: 1;
 	display: flex;
@@ -486,12 +626,17 @@ export default {
 	color: var(--color-text-maxcontrast);
 }
 
-.task-energy {
-	display: flex;
-	align-items: center;
-	gap: 0.3rem;
-	color: var(--color-text-maxcontrast);
-	font-weight: 500;
+/* Plain escaped user content — short instructions for the whole family. */
+.task-instructions {
+	margin: 0.25rem 0 0 0;
+	font-size: 0.9rem;
+	line-height: 1.4;
+	color: var(--color-main-text);
+	white-space: pre-line;
+}
+
+.today-checklist {
+	margin-top: -0.25rem;
 }
 
 .section-empty {

@@ -71,7 +71,11 @@
 					class="task-item"
 					data-testid="task-item"
 					:class="{ overdue: isOverdue(item.roomTask), completed: !item.roomTask.isActive }">
-					<div class="task-select">
+					<!-- Row selection exists only for the bulk-assign flow
+					     (CS-PLAN-042). Children have no available bulk action,
+					     so the non-actionable checkbox is hidden entirely
+					     (CS-PLAN-066 §3.5 role controls). -->
+					<div v-if="userStore.canManageTasks" class="task-select">
 						<input
 							type="checkbox"
 							:data-testid="`select-task-${item.roomTask.id}`"

@@ -57,6 +57,10 @@ test.describe('Multi-User Family Interactions', () => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
 			await page.goto('/apps/chorestrike/')
+			// CS-PLAN-066 (D4): the child lands on My Day; the Dashboard
+			// stays reachable through explicit navigation.
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
+			await page.getByTestId('nav-dashboard').click()
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
 			const roomCards = page.locator('[data-testid^="room-card-"]')
@@ -88,6 +92,10 @@ test.describe('Multi-User Family Interactions', () => {
 		const { context, page } = await createUserContext(browser, 'kid')
 		try {
 			await page.goto('/apps/chorestrike/')
+			// CS-PLAN-066 (D4): the child lands on My Day; the Dashboard
+			// stays reachable through explicit navigation.
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
+			await page.getByTestId('nav-dashboard').click()
 			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 
 			await expandAllFloors(page)
@@ -133,6 +141,10 @@ test.describe('Multi-User Task Interactions', () => {
 			await expect(momRooms.first()).toBeVisible({ timeout: 10000 })
 
 			await teen.page.goto('/apps/chorestrike/')
+			// CS-PLAN-066 (D4): the child lands on My Day; the Dashboard
+			// stays reachable through explicit navigation.
+			await teen.page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
+			await teen.page.getByTestId('nav-dashboard').click()
 			await teen.page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
 			await expandAllFloors(teen.page)
 

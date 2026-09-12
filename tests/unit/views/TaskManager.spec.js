@@ -79,6 +79,8 @@ const mockTasksStore = {
 const mockRoomTasksStore = {
 	roomTasks: [],
 	fetchRoomTasks: jest.fn().mockResolvedValue([]),
+	fetchDueTodayTasks: jest.fn().mockResolvedValue([]),
+	fetchOverdueTasks: jest.fn().mockResolvedValue([]),
 	createTaskAggregate: jest.fn(),
 	completeRoomTask: jest.fn().mockResolvedValue({}),
 	deleteRoomTask: jest.fn().mockResolvedValue(),
@@ -231,5 +233,33 @@ describe('TaskManager', () => {
 
 		expect(showError).toHaveBeenCalled()
 		expect(wrapper.find('[data-testid="confirm-dialog"]').exists()).toBe(true)
+	})
+
+	// CS-PLAN-066 §3.5: explicit loading/empty/error/retry states.
+	it('shows the localized error + retry state when initialization fails', async () => {
+		mockRoomsStore.fetchFloorsWithRooms.mockRejectedValue(new Error('offline'))
+
+		const wrapper = mountView()
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		expect(wrapper.find('[data-testid="task-manager-error"]').exists()).toBe(true)
+
+		mockRoomsStore.fetchFloorsWithRooms.mockResolvedValue([])
+		await wrapper.find('[data-testid="task-manager-error"] button').trigger('click')
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		expect(wrapper.find('[data-testid="task-manager-error"]').exists()).toBe(false)
+	})
+
+	it('surfaces a visible error toast when a completion fails (never logger-only)', async () => {
+		mockRoomTasksStore.completeRoomTask.mockRejectedValue(new Error('boom'))
+		mockRoomTasksStore.roomTasks = [{ id: 9, taskId: 101, isActive: true }]
+		mockTasksStore.getTaskById.mockReturnValue({ id: 101, name: 'Chore', visibilityType: 'public' })
+
+		const wrapper = await mountView()
+		wrapper.vm.handleCompleteTask(9)
+		await new Promise(resolve => setTimeout(resolve, 0))
+
+		expect(showError).toHaveBeenCalledWith('Could not complete the task')
 	})
 })

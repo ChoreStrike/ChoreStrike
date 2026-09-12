@@ -239,13 +239,20 @@ describe('User Store', () => {
 				expect(result).toBe(houseUser)
 			})
 
-			it('does not mutate the member list on invite (callers refetch)', async () => {
-				api.post.mockResolvedValue({ id: 9, displayName: 'Bob' })
-				store.houseUsers = [{ id: 1, displayName: 'Mom' }]
+			it('upserts the joined member by stable identity — never duplicates (CS-PLAN-066 §3.2)', async () => {
+				api.post.mockResolvedValue({ id: 9, nextcloudUserId: 'bob', displayName: 'Bob' })
+				store.houseUsers = [{ id: 1, nextcloudUserId: 'mom', displayName: 'Mom' }]
 
 				await store.inviteUser('bob@test.com', 'member')
 
-				expect(store.houseUsers).toHaveLength(1)
+				// The joined row joins the cached list exactly once.
+				expect(store.houseUsers).toHaveLength(2)
+				expect(store.houseUsers.filter(user => user.id === 9)).toHaveLength(1)
+
+				// A repeated refresh of the SAME membership never duplicates
+				// the row (CR-053-20 invite-uniqueness slice).
+				store.houseUsers = store.upsertMembersByStableIdentity([...store.houseUsers, { id: 9, nextcloudUserId: 'bob', displayName: 'Bob' }])
+				expect(store.houseUsers).toHaveLength(2)
 			})
 
 			it('throws error for invalid role', async () => {
@@ -277,6 +284,80 @@ describe('User Store', () => {
 				expect(store.loading).toBe(false)
 				expect(store.error).toBeNull()
 				expect(store.membership).toBe('unknown')
+			})
+		})
+
+		// CS-PLAN-066 §3.3: the shared current-user in-flight promise lives
+		// in the store behind a generation — reset/identity changes discard
+		// it, and an older request can never clear a newer one.
+		describe('shared current-user request generations (CS-PLAN-066)', () => {
+			it('shares one in-flight request across concurrent callers', async () => {
+				let resolveRequest
+				api.get.mockImplementation(() => new Promise((resolve) => { resolveRequest = resolve }))
+
+				const first = store.initializeCurrentUser()
+				const second = store.initializeCurrentUser()
+				resolveRequest({ id: 1, nextcloudUserId: 'mom', role: 'owner' })
+
+				expect(await first).toEqual({ id: 1, nextcloudUserId: 'mom', role: 'owner' })
+				expect(await second).toEqual({ id: 1, nextcloudUserId: 'mom', role: 'owner' })
+				expect(api.get).toHaveBeenCalledTimes(1)
+				// The shared promise is released once it settles.
+				expect(store.currentUserRequest).toBeNull()
+			})
+
+			it('reset during the in-flight request discards the late identity', async () => {
+				let resolveRequest
+				api.get.mockImplementation(() => new Promise((resolve) => { resolveRequest = resolve }))
+
+				const pending = store.initializeCurrentUser()
+				store.reset()
+				resolveRequest({ id: 1, nextcloudUserId: 'old-user', role: 'owner' })
+				await pending.catch(() => {})
+
+				// The pre-reset resolution never repopulates old-user data.
+				expect(store.currentUser).toBeNull()
+				expect(store.membership).toBe('unknown')
+
+				// A fresh initialization after the reset issues a NEW request.
+				api.get.mockResolvedValue({ id: 2, nextcloudUserId: 'new-user', role: 'child' })
+				await store.initializeCurrentUser()
+				expect(api.get).toHaveBeenCalledTimes(2)
+				expect(store.currentUser.nextcloudUserId).toBe('new-user')
+			})
+
+			it('an older in-flight release never clears a newer shared request', async () => {
+				let resolveFirst
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+
+				const first = store.initializeCurrentUser()
+				store.reset()
+
+				// A retry after the reset starts the NEWER shared request.
+				api.get.mockResolvedValue({ id: 2, nextcloudUserId: 'new-user', role: 'child' })
+				const second = store.initializeCurrentUser()
+				await second
+
+				// The older request settling afterwards must not clear or
+				// overwrite the newer shared state.
+				resolveFirst({ id: 1, nextcloudUserId: 'stale-user', role: 'owner' })
+				await first.catch(() => {})
+
+				expect(store.currentUser.nextcloudUserId).toBe('new-user')
+				expect(store.currentUserRequest).toBeNull()
+			})
+
+			it('a superseded member-list read never overwrites the newer result', async () => {
+				let resolveFirst
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+				api.get.mockResolvedValueOnce([{ id: 2, displayName: 'Newer' }])
+
+				const first = store.fetchHouseUsers()
+				await store.fetchHouseUsers()
+				resolveFirst([{ id: 1, displayName: 'Older' }])
+				await first
+
+				expect(store.houseUsers).toEqual([{ id: 2, displayName: 'Newer' }])
 			})
 		})
 	})

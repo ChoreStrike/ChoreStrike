@@ -55,40 +55,26 @@ describe('QuickStats', () => {
 		
 		roomsStore.rooms = mockRooms
 		
-		// Set up room tasks store with mock roomTasks array
+		// Set up the room tasks store's DEDICATED count projections
+		// (CS-PLAN-066 D2): the counters read the due-today/overdue endpoint
+		// slices — enriched rows — never the per-room flat list.
 		const mockRoomTasks = []
 		const totalDueTodayTasks = roomTasksData.totalDueTodayTasks !== undefined ? roomTasksData.totalDueTodayTasks : 3
 		const totalOverdueTasks = roomTasksData.totalOverdueTasks !== undefined ? roomTasksData.totalOverdueTasks : 1
-		
-		// Create mock room tasks
-		const today = new Date()
-		today.setHours(0, 0, 0, 0)
-		const tomorrow = new Date(today)
-		tomorrow.setDate(tomorrow.getDate() + 1)
-		const yesterday = new Date(today)
-		yesterday.setDate(yesterday.getDate() - 1)
-		
-		// Add due today tasks
-		for (let i = 0; i < totalDueTodayTasks; i++) {
-			mockRoomTasks.push({
-				id: i + 1,
-				name: `Task ${i + 1}`,
-				isActive: true,
-				nextDue: tomorrow.toISOString(),
-			})
-		}
-		
-		// Add overdue tasks
-		for (let i = 0; i < totalOverdueTasks; i++) {
-			mockRoomTasks.push({
-				id: totalDueTodayTasks + i + 1,
-				name: `Overdue Task ${i + 1}`,
-				isActive: true,
-				nextDue: yesterday.toISOString(),
-			})
-		}
-		
+
 		roomTasksStore.roomTasks = mockRoomTasks
+		roomTasksStore.dueTodayTasks = Array.from({ length: totalDueTodayTasks }, (_, i) => ({
+			roomTask: { id: i + 1, isActive: true },
+			task: { id: i + 1, name: `Task ${i + 1}` },
+			room: { id: 1, name: 'Kitchen' },
+			assignees: [],
+		}))
+		roomTasksStore.overdueTasks = Array.from({ length: totalOverdueTasks }, (_, i) => ({
+			roomTask: { id: 100 + i, isActive: true },
+			task: { id: 100 + i, name: `Overdue Task ${i + 1}` },
+			room: { id: 1, name: 'Kitchen' },
+			assignees: [],
+		}))
 		
 		return mount(QuickStats, {
 			props: {

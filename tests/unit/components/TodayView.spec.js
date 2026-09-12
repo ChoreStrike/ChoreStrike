@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { reactive } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import TodayView from '@/views/TodayView.vue'
 
@@ -19,23 +20,32 @@ jest.mock('@/utils/logger', () => ({
 	},
 }))
 
+// Deterministic "today in the house timezone (UTC)" fixtures: the view
+// filters daily rows by house-local day key, so the fixtures must pin
+// rows to the CURRENT UTC day independent of the wall-clock date.
+const utcTodayIso = (hour) => {
+	const now = new Date()
+	return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour)).toISOString()
+}
+
+// CS-PLAN-066 (D1): today and overdue rows are the enriched canonical
+// execution-row shape `{roomTask, task, room, assignees}` from the
+// dedicated endpoints.
 const todayFixture = () => ([
 	{
-		roomTask: { id: 11, taskId: 1, roomId: 1, isActive: true, nextDue: '2026-08-21T08:00:00+00:00' },
-		task: { id: 1, name: 'Do the dishes', energyCost: 3 },
+		roomTask: { id: 11, taskId: 1, roomId: 1, isActive: true, nextDue: utcTodayIso(8) },
+		task: { id: 1, name: 'Do the dishes', energyCost: 3, instructions: 'Rinse first, then load the dishwasher.' },
 		room: { id: 1, name: 'Kitchen' },
-		// CS-PLAN-065 (D4): filtered-daily rows embed their canonical
-		// assignee sets — no per-item fetch for today items anymore.
 		assignees: [],
 	},
 	{
-		roomTask: { id: 12, taskId: 2, roomId: 1, isActive: true, nextDue: '2026-08-21T09:00:00+00:00' },
+		roomTask: { id: 12, taskId: 2, roomId: 1, isActive: true, nextDue: utcTodayIso(9) },
 		task: { id: 2, name: 'Wipe kitchen counters', energyCost: 2 },
 		room: { id: 1, name: 'Kitchen' },
 		assignees: ['mom'],
 	},
 	{
-		roomTask: { id: 13, taskId: 3, roomId: 2, isActive: true, nextDue: '2026-08-21T10:00:00+00:00' },
+		roomTask: { id: 13, taskId: 3, roomId: 2, isActive: true, nextDue: utcTodayIso(10) },
 		task: { id: 3, name: 'Tidy up toys', energyCost: 1 },
 		room: { id: 2, name: 'Living Room' },
 		assignees: ['teen'],
@@ -43,13 +53,17 @@ const todayFixture = () => ([
 ])
 
 const overdueFixture = () => ([
-	{ id: 30, taskId: 4, roomId: 2, isActive: true, nextDue: '2026-08-18T08:00:00+00:00' },
+	{
+		roomTask: { id: 30, taskId: 4, roomId: 2, isActive: true, nextDue: '2026-08-18T08:00:00+00:00' },
+		task: { id: 4, name: 'Take out trash', energyCost: 2 },
+		room: { id: 2, name: 'Living Room' },
+		assignees: ['dad'],
+	},
 ])
 
 let mockRoomTasksStore
 let mockHouseStore
-let mockTasksStore
-let mockRoomsStore
+let mockChecklistStore
 let mockUserStore
 
 jest.mock('@/store/roomTasks.js', () => ({
@@ -60,12 +74,8 @@ jest.mock('@/store/house.js', () => ({
 	useHouseStore: () => mockHouseStore,
 }))
 
-jest.mock('@/store/tasks.js', () => ({
-	useTasksStore: () => mockTasksStore,
-}))
-
-jest.mock('@/store/rooms.js', () => ({
-	useRoomsStore: () => mockRoomsStore,
+jest.mock('@/store/checklist.js', () => ({
+	useChecklistStore: () => mockChecklistStore,
 }))
 
 jest.mock('@/store/user.js', () => ({
@@ -76,30 +86,51 @@ describe('TodayView', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		jest.clearAllMocks()
-		mockRoomTasksStore = {
+		// Reactive mock: the view's row selectors read the store slices, so
+		// reconcile-driven mutations must be tracked by Vue's reactivity.
+		mockRoomTasksStore = reactive({
+			// Selector sources (CS-PLAN-066 §3.3): the view derives its rows
+			// from the owning store slices.
+			dailyTasks: todayFixture(),
+			overdueTasks: overdueFixture(),
+			refreshFailed: false,
+			countsRefreshing: false,
 			fetchFilteredDailyTasks: jest.fn().mockResolvedValue(todayFixture()),
 			fetchOverdueTasks: jest.fn().mockResolvedValue(overdueFixture()),
-			fetchAssignees: jest.fn().mockImplementation(async (roomTaskId) => {
-				if (roomTaskId === 13) return ['teen']
-				if (roomTaskId === 30) return ['dad']
-				return []
+			fetchDueTodayTasks: jest.fn().mockResolvedValue([]),
+			refreshDerivedProjections: jest.fn().mockResolvedValue(true),
+			completeRoomTask: jest.fn().mockImplementation(async (roomTaskId) => {
+				// Mimic the store reconcile (D10): the owning slice is
+				// replaced with the response-owned room task.
+				const markCompleted = (slice, id, patch) => {
+					const index = slice.findIndex(item => item.roomTask.id === id)
+					if (index >= 0) {
+						slice[index] = { ...slice[index], roomTask: { ...slice[index].roomTask, ...patch } }
+					}
+				}
+				if (roomTaskId === 11) {
+					markCompleted(mockRoomTasksStore.dailyTasks, 11, { isActive: false })
+					return { roomTask: { id: 11, taskId: 1, roomId: 1, isActive: false }, rewards: { coins: 10 } }
+				}
+				if (roomTaskId === 30) {
+					const row = mockRoomTasksStore.overdueTasks.find(item => item.roomTask.id === 30)
+					mockRoomTasksStore.overdueTasks = mockRoomTasksStore.overdueTasks.filter(item => item.roomTask.id !== 30)
+					const moved = { ...row, roomTask: { ...row.roomTask, nextDue: new Date().toISOString() } }
+					mockRoomTasksStore.dailyTasks = [...mockRoomTasksStore.dailyTasks, moved]
+					return { roomTask: moved.roomTask, rewards: {} }
+				}
+				return { roomTask: { id: roomTaskId, isActive: false }, rewards: {} }
 			}),
-			completeRoomTask: jest.fn().mockResolvedValue({
-				roomTask: { id: 11, taskId: 1, roomId: 1, isActive: false },
-				rewards: { coins: 10 },
-			}),
-		}
+		})
 		mockHouseStore = { timezone: 'UTC' }
-		mockTasksStore = {
-			tasks: [{ id: 4, name: 'Take out trash', energyCost: 2 }],
-			fetchTasks: jest.fn().mockResolvedValue([]),
-			getTaskById: jest.fn(id => mockTasksStore.tasks.find(task => task.id === id) || null),
-		}
-		mockRoomsStore = {
-			rooms: [{ id: 2, name: 'Living Room' }],
-			floors: [],
-			fetchFloorsWithRooms: jest.fn().mockResolvedValue([]),
-			getRoomById: jest.fn(id => mockRoomsStore.rooms.find(room => room.id === id) || null),
+		mockChecklistStore = {
+			items: {},
+			progress: {},
+			getTaskItems: jest.fn(taskId => mockChecklistStore.items[taskId] || []),
+			getRoomTaskProgress: jest.fn(roomTaskId => mockChecklistStore.progress[roomTaskId] || []),
+			fetchTaskItems: jest.fn().mockResolvedValue([]),
+			fetchRoomTaskProgress: jest.fn().mockResolvedValue([]),
+			toggleItem: jest.fn().mockResolvedValue({}),
 		}
 		mockUserStore = {
 			currentUser: { id: 1, nextcloudUserId: 'mom', role: 'owner' },
@@ -134,6 +165,14 @@ describe('TodayView', () => {
 		// A due-today task must not be duplicated into the overdue section
 		const overdueSection = wrapper.find('[data-testid="today-section-overdue"]')
 		expect(overdueSection.text()).not.toContain('Do the dishes')
+	})
+
+	it('renders the short plain instructions of a row (CS-PLAN-066 §3.5)', async () => {
+		const wrapper = await mountView()
+
+		expect(wrapper.text()).toContain('Rinse first, then load the dishwasher.')
+		// Plain escaped text — no v-html surface.
+		expect(wrapper.html()).not.toContain('v-html')
 	})
 
 	it('shows assigned-to-me and unassigned tasks under the mine filter (default)', async () => {
@@ -171,9 +210,13 @@ describe('TodayView', () => {
 	it('completing a recurring task removes it from the list once its next due moves away', async () => {
 		const tomorrow = new Date()
 		tomorrow.setDate(tomorrow.getDate() + 1)
-		mockRoomTasksStore.completeRoomTask.mockResolvedValue({
-			roomTask: { id: 11, taskId: 1, roomId: 1, isActive: true, nextDue: tomorrow.toISOString() },
-			rewards: {},
+		mockRoomTasksStore.completeRoomTask.mockImplementation(async (roomTaskId) => {
+			const index = mockRoomTasksStore.dailyTasks.findIndex(item => item.roomTask.id === roomTaskId)
+			mockRoomTasksStore.dailyTasks[index] = {
+				...mockRoomTasksStore.dailyTasks[index],
+				roomTask: { ...mockRoomTasksStore.dailyTasks[index].roomTask, nextDue: tomorrow.toISOString() },
+			}
+			return { roomTask: mockRoomTasksStore.dailyTasks[index].roomTask, rewards: {} }
 		})
 		const wrapper = await mountView()
 
@@ -184,11 +227,6 @@ describe('TodayView', () => {
 	})
 
 	it('completing a recurring overdue task moves it to Today when its next occurrence is today', async () => {
-		const today = new Date()
-		mockRoomTasksStore.completeRoomTask.mockResolvedValue({
-			roomTask: { id: 30, taskId: 4, roomId: 2, isActive: true, nextDue: today.toISOString() },
-			rewards: {},
-		})
 		const wrapper = await mountView()
 		await wrapper.find('[data-testid="today-filter-all"]').trigger('click')
 
@@ -216,8 +254,8 @@ describe('TodayView', () => {
 	})
 
 	it('renders a friendly empty state when nothing is due', async () => {
-		mockRoomTasksStore.fetchFilteredDailyTasks.mockResolvedValue([])
-		mockRoomTasksStore.fetchOverdueTasks.mockResolvedValue([])
+		mockRoomTasksStore.dailyTasks = []
+		mockRoomTasksStore.overdueTasks = []
 
 		const wrapper = await mountView()
 		await wrapper.vm.$nextTick()
@@ -234,6 +272,18 @@ describe('TodayView', () => {
 		expect(wrapper.find('[data-testid="today-error"]').exists()).toBe(true)
 	})
 
+	it('surfaces a partial-refresh failure with a read-only retry (D3)', async () => {
+		mockRoomTasksStore.refreshFailed = true
+		const wrapper = await mountView()
+		await wrapper.vm.$nextTick()
+
+		const banner = wrapper.find('[data-testid="today-refresh-failed"]')
+		expect(banner.exists()).toBe(true)
+
+		await banner.find('button').trigger('click')
+		expect(mockRoomTasksStore.refreshDerivedProjections).toHaveBeenCalled()
+	})
+
 	it('completing a failed task shows an error toast and keeps the row active', async () => {
 		mockRoomTasksStore.completeRoomTask.mockRejectedValue(new Error('nope'))
 		const { showError } = jest.requireMock('@nextcloud/dialogs')
@@ -245,5 +295,44 @@ describe('TodayView', () => {
 
 		expect(showError).toHaveBeenCalled()
 		expect(wrapper.find('[data-testid="today-complete-button-11"]').exists()).toBe(true)
+	})
+
+	it('expands the execute-only checklist and toggles an item (CS-PLAN-066 §3.5)', async () => {
+		mockChecklistStore.items[1] = [{ id: 77, label: 'Rinse plates', sortOrder: 1 }]
+		mockChecklistStore.progress[11] = []
+		const wrapper = await mountView()
+		await wrapper.vm.$nextTick()
+
+		await wrapper.find('[data-testid="today-checklist-toggle-11"]').trigger('click')
+		await flushAsync()
+
+		expect(mockChecklistStore.fetchTaskItems).toHaveBeenCalledWith(1)
+		expect(mockChecklistStore.fetchRoomTaskProgress).toHaveBeenCalledWith(11)
+		expect(wrapper.find('[data-testid="task-checklist"]').exists()).toBe(true)
+		// Execution-only: the add/edit affordances are absent.
+		expect(wrapper.find('[data-testid="checklist-add-item-button"]').exists()).toBe(false)
+
+		await wrapper.find('[data-testid="checklist-item-77"] input').setValue(true)
+		expect(mockChecklistStore.toggleItem).toHaveBeenCalledWith(11, 77)
+	})
+
+	it('hides the checklist toggle for a checklist-less row after the one-shot discovery (manual a11y pass 2026-09-12)', async () => {
+		const wrapper = await mountView()
+		await wrapper.vm.$nextTick()
+
+		// Row 12's definition (task 2) has no checklist items.
+		const toggle = wrapper.find('[data-testid="today-checklist-toggle-12"]')
+		expect(toggle.exists()).toBe(true)
+
+		await toggle.trigger('click')
+		await flushAsync()
+
+		// Collapsed again (no empty sub-task box) AND the dead control is
+		// gone for that definition — a checklist-less row must not keep
+		// offering a clickable toggle that flashes and disappears.
+		expect(wrapper.find('[data-testid="task-checklist"]').exists()).toBe(false)
+		expect(wrapper.find('[data-testid="today-checklist-toggle-12"]').exists()).toBe(false)
+		// Sibling rows keep their toggle until their own discovery.
+		expect(wrapper.find('[data-testid="today-checklist-toggle-11"]').exists()).toBe(true)
 	})
 })

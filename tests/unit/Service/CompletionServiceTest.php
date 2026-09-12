@@ -410,6 +410,69 @@ class CompletionServiceTest extends TestCase {
 		self::assertSame(3, $result['rewards']['totalContribution']);
 		self::assertSame(5, $result['rewards']['longestStreak']);
 		self::assertArrayNotHasKey('degraded', $result['rewards']);
+		// CS-PLAN-066 §3.4: newTitle is explicit and nullable — a null
+		// unlock still rides the response shape.
+		self::assertNull($result['rewards']['newTitle']);
+	}
+
+	/**
+	 * Complete_ComputedNewTitle_TravelsInRewards
+	 *
+	 * CS-PLAN-066 §3.4: the completion aggregate carries the computed
+	 * unlock to the client so the title event fires exactly once per
+	 * successful completion response — independent of any post-commit
+	 * notification failure (the notification runs AFTER the payload is
+	 * built and cannot erase the unlock).
+	 */
+	public function testComplete_ComputedNewTitle_TravelsInRewards(): void {
+		$roomTask = $this->buildRoomTask();
+		$room = $this->buildRoom(1, 50);
+		$task = $this->buildTask();
+		$houseUser = $this->buildHouseUser();
+
+		$this->stubCompleteLookups(
+			$roomTask,
+			$room,
+			$task,
+			$houseUser,
+			[],
+			0,
+			[],
+			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
+				$row->setCoinsEarned(50);
+				$row->setWasCombo(false);
+				return [
+					'contributionScore' => 3,
+					'coins' => 50,
+					'teamworkBonus' => 0,
+					'isCombo' => false,
+					'currentStreak' => 1,
+					'longestStreak' => 1,
+					'totalContribution' => 3,
+					'totalCoins' => 50,
+					'streakFreezeUsed' => false,
+					'streakFreezesRemaining' => 1,
+					'comboBonusFreeze' => false,
+					'titlesAdded' => [],
+					'newTitle' => [
+						'pack' => 'sparkling',
+						'labelKey' => 'titles.sparkling.bronze',
+						'tierIndex' => 0,
+					],
+				];
+			}
+		);
+
+		$this->completedTaskMapper->method('insert')->willReturnArgument(0);
+		$this->db->method('beginTransaction');
+		$this->db->method('commit');
+
+		$result = $this->service->complete(1, 'user123', 1);
+
+		self::assertSame(
+			['pack' => 'sparkling', 'labelKey' => 'titles.sparkling.bronze', 'tierIndex' => 0],
+			$result['rewards']['newTitle']
+		);
 	}
 
 	/**
@@ -873,6 +936,9 @@ class CompletionServiceTest extends TestCase {
 		self::assertSame(-3, $result['rewards']['contributionScore']);
 		self::assertSame(-30, $result['rewards']['cleanlinessChange']);
 		self::assertSame(10, $result['rewards']['totalCoins']);
+		// CS-PLAN-066 §3.4: undo rewards never carry a newTitle (ADR-011
+		// title policy — undo emits no unlock event).
+		self::assertArrayNotHasKey('newTitle', $result['rewards']);
 	}
 
 	/**

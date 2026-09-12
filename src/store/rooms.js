@@ -14,6 +14,10 @@ export const useRoomsStore = defineStore('rooms', {
 		loading: false,
 		error: null,
 		expandedFloors: [],
+		// CS-PLAN-066 §3.3: structure reads are generation-guarded; accepted
+		// structure mutations invalidate pre-mutation reads and reset()
+		// discards in-flight results.
+		requestSeq: 0,
 	}),
 
 	getters: {
@@ -65,11 +69,17 @@ export const useRoomsStore = defineStore('rooms', {
 		 * Fetch all floors with their rooms
 		 */
 		async fetchFloorsWithRooms() {
+			const seq = ++this.requestSeq
 			this.loading = true
 			this.error = null
 
 			try {
 				const data = await api.get('/api/v1/floors/with-rooms')
+
+				if (seq !== this.requestSeq) {
+					logger.debug('Dropping superseded structure read', { store: 'rooms', action: 'fetchFloorsWithRooms' })
+					return this.rooms
+				}
 
 				this.floors = []
 				this.rooms = []
@@ -78,8 +88,11 @@ export const useRoomsStore = defineStore('rooms', {
 					this.floors.push(floorData.floor)
 					this.rooms.push(...floorData.rooms)
 				})
+				return data
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.requestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch floors with rooms', error, { store: 'rooms', action: 'fetchFloorsWithRooms' })
 				throw error
 			} finally {
@@ -101,6 +114,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
+				this.requestSeq++
 				const data = await api.post('/api/v1/floors', { name, sortOrder })
 				this.floors = [...this.floors, data]
 				return data
@@ -128,6 +142,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
+				this.requestSeq++
 				const data = await api.post('/api/v1/rooms', { floorId, name, icon })
 				this.rooms = [...this.rooms, data]
 				return data
@@ -154,6 +169,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
+				this.requestSeq++
 				const data = await api.put(`/api/v1/floors/${floorId}`, { name })
 
 				const floorIndex = this.floors.findIndex(f => f.id === floorId)
@@ -183,6 +199,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
+				this.requestSeq++
 				const data = await api.put(`/api/v1/rooms/${roomId}`, { name })
 
 				const roomIndex = this.rooms.findIndex(r => r.id === roomId)
@@ -208,6 +225,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
+				this.requestSeq++
 				const data = await api.put(`/api/v1/rooms/${roomId}/cleanliness`, { cleanlinessChange })
 
 				const roomIndex = this.rooms.findIndex(r => r.id === roomId)
@@ -249,6 +267,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
+				this.requestSeq++
 				await api.delete(`/api/v1/floors/${floorId}`)
 
 				this.floors = this.floors.filter(f => f.id !== floorId)
@@ -271,6 +290,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
+				this.requestSeq++
 				await api.delete(`/api/v1/rooms/${roomId}`)
 
 				this.rooms = this.rooms.filter(r => r.id !== roomId)
@@ -292,6 +312,7 @@ export const useRoomsStore = defineStore('rooms', {
 			this.error = null
 
 			try {
+				this.requestSeq++
 				const data = await api.post('/api/v1/floors/reorder', { floorOrder })
 				this.floors = data
 			} catch (error) {
@@ -314,6 +335,7 @@ export const useRoomsStore = defineStore('rooms', {
 		 * Reset store state
 		 */
 		reset() {
+			this.requestSeq++
 			this.floors = []
 			this.rooms = []
 			this.loading = false

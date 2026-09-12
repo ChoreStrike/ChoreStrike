@@ -85,11 +85,12 @@ test.describe('User Access Validation', () => {
 		}
 	})
 
-	test('kid can access dashboard', async ({ browser }) => {
+	test('kid can access the app (child lands on My Day, CS-PLAN-066 D4)', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'kid')
 		try {
 			await page.goto('/apps/chorestrike/')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			// CS-PLAN-066 (D4): a child's bare-root visit lands on My Day.
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 		} finally {
 			await context.close()
 		}

@@ -307,14 +307,19 @@ class RoomTaskController extends Controller {
 
 	/**
 	 * Serialize the creation aggregate into the one response shape shared by
-	 * both create paths (D1).
+	 * both create paths (D1). Canonical `assignees` are unique,
+	 * deterministically ordered Nextcloud user-ID arrays (CS-PLAN-066 D1) —
+	 * the assigned_at row order of the fresh assignee set.
 	 */
 	private function serializeAggregate(array $aggregate, \OCA\ChoreStrike\Db\House $house): array {
 		$tz = $this->timeZoneOf($house);
 		return [
 			'task' => $aggregate['task']->jsonSerialize(),
 			'roomTask' => $aggregate['roomTask']->jsonSerialize($tz),
-			'assignees' => array_map(static fn ($assignee) => $assignee->jsonSerialize(), $aggregate['assignees']),
+			'assignees' => array_map(
+				static fn ($assignee) => $assignee->getUserId(),
+				$aggregate['assignees']
+			),
 		];
 	}
 
@@ -366,9 +371,11 @@ class RoomTaskController extends Controller {
 
 			$assignees = $this->roomTaskService->setAssignees($id, $userIds, $house->getId(), $houseUser);
 
+			// Canonical user-ID array (CS-PLAN-066 D1) — the same shape the
+			// read/create/aggregate responses carry.
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(fn ($a) => $a->jsonSerialize(), $assignees)
+				'data' => array_map(static fn ($a) => $a->getUserId(), $assignees)
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -615,9 +622,18 @@ class RoomTaskController extends Controller {
 			$assignedTasks = $this->roomTaskService->bulkAssignTasks($roomTaskIds, $userId, $house->getId(), $houseUser);
 			$tz = $this->timeZoneOf($house);
 
+			// CS-PLAN-066 (D1): the returned successes carry their canonical
+			// assignee sets — the client reconciles exactly what the server
+			// persisted, never the requested set.
+			$assigneesByTask = $this->roomTaskService->getAssigneeUserIdsByRoomTasks($assignedTasks);
+
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(fn ($roomTask) => $roomTask->jsonSerialize($tz), $assignedTasks)
+				'data' => array_map(function ($roomTask) use ($tz, $assigneesByTask) {
+					$data = $roomTask->jsonSerialize($tz);
+					$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
+					return $data;
+				}, $assignedTasks)
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -641,6 +657,11 @@ class RoomTaskController extends Controller {
 	/**
 	 * Get overdue tasks
 	 *
+	 * Enriched execution rows (CS-PLAN-066 §3.1 D1): the canonical
+	 * `{roomTask, task, room, assignees}` shape the filtered daily endpoint
+	 * returns — same visibility/eligibility/ordering, enrichment without
+	 * broadened access.
+	 *
 	 * @NoAdminRequired
 	 */
 	public function overdue(?int $roomId = null): JSONResponse {
@@ -649,12 +670,12 @@ class RoomTaskController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$overdueTasks = $this->roomTaskService->getOverdueTasks($house->getId(), $houseUser, $roomId);
+			$rows = $this->roomTaskService->getOverdueTaskRows($house->getId(), $houseUser, $roomId);
 			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(fn ($task) => $task->jsonSerialize($tz), $overdueTasks)
+				'data' => $this->serializeExecutionRows($rows, $tz),
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -673,6 +694,8 @@ class RoomTaskController extends Controller {
 	/**
 	 * Get tasks due today
 	 *
+	 * Enriched execution rows (CS-PLAN-066 §3.1 D1) — see overdue().
+	 *
 	 * @NoAdminRequired
 	 */
 	public function dueToday(?int $roomId = null): JSONResponse {
@@ -681,12 +704,12 @@ class RoomTaskController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$dueTodayTasks = $this->roomTaskService->getDueTodayTasks($house->getId(), $houseUser, $roomId);
+			$rows = $this->roomTaskService->getDueTodayTaskRows($house->getId(), $houseUser, $roomId);
 			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(fn ($task) => $task->jsonSerialize($tz), $dueTodayTasks)
+				'data' => $this->serializeExecutionRows($rows, $tz),
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
@@ -700,6 +723,30 @@ class RoomTaskController extends Controller {
 				]
 			], 500);
 		}
+	}
+
+	/**
+	 * Serialize `{roomTask, task, room}` service rows into the canonical
+	 * enriched execution-row shape `{roomTask, task, room, assignees}`
+	 * (CS-PLAN-066 D1). One batched assignee read for the whole set — the
+	 * arrays are unique, deterministically ordered Nextcloud user IDs.
+	 *
+	 * @param array<int, array{roomTask: \OCA\ChoreStrike\Db\RoomTask, task: \OCA\ChoreStrike\Db\Task, room: \OCA\ChoreStrike\Db\Room}> $rows
+	 * @param \DateTimeZone $tz House timezone for day-boundary serialization
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function serializeExecutionRows(array $rows, \DateTimeZone $tz): array {
+		$roomTasks = array_map(static fn (array $row) => $row['roomTask'], $rows);
+		$assigneesByTask = $this->roomTaskService->getAssigneeUserIdsByRoomTasks($roomTasks);
+
+		return array_map(static function (array $row) use ($tz, $assigneesByTask) {
+			return [
+				'roomTask' => $row['roomTask']->jsonSerialize($tz),
+				'task' => $row['task']->jsonSerialize(),
+				'room' => $row['room']->jsonSerialize(),
+				'assignees' => $assigneesByTask[$row['roomTask']->getId()] ?? [],
+			];
+		}, $rows);
 	}
 
 	/**

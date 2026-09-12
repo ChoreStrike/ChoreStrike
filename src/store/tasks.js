@@ -12,6 +12,10 @@ export const useTasksStore = defineStore('tasks', {
 		tasks: [],
 		loading: false,
 		error: null,
+		// CS-PLAN-066 §3.3: definition reads are generation-guarded; every
+		// accepted definition mutation invalidates pre-mutation reads and
+		// reset() discards in-flight results.
+		requestSeq: 0,
 	}),
 
 	getters: {
@@ -27,14 +31,22 @@ export const useTasksStore = defineStore('tasks', {
 		 * Fetch all tasks
 		 */
 		async fetchTasks() {
+			const seq = ++this.requestSeq
 			this.loading = true
 			this.error = null
 
 			try {
 				const data = await api.get('/api/v1/tasks')
+				if (seq !== this.requestSeq) {
+					logger.debug('Dropping superseded definition read', { store: 'tasks', action: 'fetchTasks' })
+					return this.tasks
+				}
 				this.tasks = data
+				return data
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.requestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch tasks', error, { store: 'tasks', action: 'fetchTasks' })
 				throw error
 			} finally {
@@ -58,10 +70,14 @@ export const useTasksStore = defineStore('tasks', {
 			try {
 				const data = await api.put(`/api/v1/tasks/${taskId}`, updates)
 
+				// Accepted mutation invalidates pre-mutation definition reads
+				// (CS-PLAN-066 §3.3) — the authoritative row lands here.
+				this.requestSeq++
 				const taskIndex = this.tasks.findIndex(t => t.id === taskId)
 				if (taskIndex >= 0) {
 					this.tasks[taskIndex] = data
 				}
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to update task', error, { store: 'tasks', action: 'updateTask', taskId })
@@ -82,6 +98,7 @@ export const useTasksStore = defineStore('tasks', {
 		 * Reset store state
 		 */
 		reset() {
+			this.requestSeq++
 			this.tasks = []
 			this.loading = false
 			this.error = null

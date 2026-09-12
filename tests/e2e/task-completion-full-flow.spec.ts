@@ -121,6 +121,10 @@ test.describe('Task Completion Full Flow', () => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
 			await page.goto('/apps/chorestrike/')
+			// CS-PLAN-066 (D4): a child's bare-root visit lands on My Day;
+			// the Dashboard stays reachable through explicit navigation.
+			await expect(page.getByTestId('today-view')).toBeVisible({ timeout: 30000 })
+			await page.getByTestId('nav-dashboard').click()
 			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 
 			await expandFloors(page)

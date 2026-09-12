@@ -60,68 +60,78 @@
 		</header>
 
 		<main class="room-content">
-			<div class="room-overview" data-testid="room-overview">
-				<div class="cleanliness-ring" :class="cleanlinessClass">
-					<span class="cleanliness-ring-value">{{ cleanliness }}%</span>
-					<span class="cleanliness-ring-label">{{ t('chorestrike', 'Cleanliness') }}</span>
-				</div>
-				<div v-if="roomStats" class="room-stats-card" data-testid="room-stats-card">
-					<h3>{{ t('chorestrike', 'Task Stats') }}</h3>
-					<dl class="stats-grid">
-						<div class="stats-entry">
-							<dt>{{ t('chorestrike', 'Total') }}</dt>
-							<dd data-testid="room-stats-total">
-								{{ roomStats.totalTasks }}
-							</dd>
-						</div>
-						<div class="stats-entry">
-							<dt>{{ t('chorestrike', 'Active') }}</dt>
-							<dd data-testid="room-stats-active">
-								{{ roomStats.activeTasks }}
-							</dd>
-						</div>
-						<div class="stats-entry">
-							<dt>{{ t('chorestrike', 'Overdue') }}</dt>
-							<dd :class="{ warning: roomStats.overdueTasks > 0 }" data-testid="room-stats-overdue">
-								{{ roomStats.overdueTasks }}
-							</dd>
-						</div>
-						<div class="stats-entry">
-							<dt>{{ t('chorestrike', 'Due today') }}</dt>
-							<dd data-testid="room-stats-due-today">
-								{{ roomStats.dueTodayTasks }}
-							</dd>
-						</div>
-						<div class="stats-entry">
-							<dt>{{ t('chorestrike', 'Completion') }}</dt>
-							<dd data-testid="room-stats-completion-rate">
-								{{ roomStats.completionRate }}%
-							</dd>
-						</div>
-					</dl>
-				</div>
-			</div>
+			<!-- Initialization failed (CS-PLAN-066 §3.5): explicit localized
+			     retry state instead of a silently empty room. -->
+			<ErrorState
+				v-if="initError"
+				data-testid="room-detail-error"
+				:message="t('chorestrike', 'Could not load this room')"
+				@retry="initializeRoom" />
 
-			<div class="tasks-section">
-				<div class="section-header">
-					<h2>{{ t('chorestrike', 'Tasks') }}</h2>
-					<button
-						v-if="canManageTasks"
-						class="primary-button"
-						data-testid="add-task-button"
-						@click="openAddTask">
-						<Icon name="Plus" :size="16" class="icon" />
-						{{ t('chorestrike', 'Add Task') }}
-					</button>
+			<template v-else>
+				<div class="room-overview" data-testid="room-overview">
+					<div class="cleanliness-ring" :class="cleanlinessClass">
+						<span class="cleanliness-ring-value">{{ cleanliness }}%</span>
+						<span class="cleanliness-ring-label">{{ t('chorestrike', 'Cleanliness') }}</span>
+					</div>
+					<div v-if="roomStats" class="room-stats-card" data-testid="room-stats-card">
+						<h3>{{ t('chorestrike', 'Task Stats') }}</h3>
+						<dl class="stats-grid">
+							<div class="stats-entry">
+								<dt>{{ t('chorestrike', 'Total') }}</dt>
+								<dd data-testid="room-stats-total">
+									{{ roomStats.totalTasks }}
+								</dd>
+							</div>
+							<div class="stats-entry">
+								<dt>{{ t('chorestrike', 'Active') }}</dt>
+								<dd data-testid="room-stats-active">
+									{{ roomStats.activeTasks }}
+								</dd>
+							</div>
+							<div class="stats-entry">
+								<dt>{{ t('chorestrike', 'Overdue') }}</dt>
+								<dd :class="{ warning: roomStats.overdueTasks > 0 }" data-testid="room-stats-overdue">
+									{{ roomStats.overdueTasks }}
+								</dd>
+							</div>
+							<div class="stats-entry">
+								<dt>{{ t('chorestrike', 'Due today') }}</dt>
+								<dd data-testid="room-stats-due-today">
+									{{ roomStats.dueTodayTasks }}
+								</dd>
+							</div>
+							<div class="stats-entry">
+								<dt>{{ t('chorestrike', 'Completion') }}</dt>
+								<dd data-testid="room-stats-completion-rate">
+									{{ roomStats.completionRate }}%
+								</dd>
+							</div>
+						</dl>
+					</div>
 				</div>
 
-				<TaskList
-					:room-tasks="tasks"
-					:loading="loading"
-					@complete="handleCompleteTask"
-					@edit="handleEditTask"
-					@delete="handleDeleteTask" />
-			</div>
+				<div class="tasks-section">
+					<div class="section-header">
+						<h2>{{ t('chorestrike', 'Tasks') }}</h2>
+						<button
+							v-if="canManageTasks"
+							class="primary-button"
+							data-testid="add-task-button"
+							@click="openAddTask">
+							<Icon name="Plus" :size="16" class="icon" />
+							{{ t('chorestrike', 'Add Task') }}
+						</button>
+					</div>
+
+					<TaskList
+						:room-tasks="tasks"
+						:loading="loading"
+						@complete="handleCompleteTask"
+						@edit="handleEditTask"
+						@delete="handleDeleteTask" />
+				</div>
+			</template>
 		</main>
 
 		<Modal v-if="showAddTaskModal" :aria-label="t('chorestrike', 'Add Task')" @close="showAddTaskModal = false">
@@ -212,6 +222,7 @@ import RoomTaskEditModal from '../components/Tasks/RoomTaskEditModal.vue'
 import TaskTemplatePicker from '../components/Tasks/TaskTemplatePicker.vue'
 import Modal from '../components/Common/Modal.vue'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
+import ErrorState from '../components/Common/ErrorState.vue'
 
 export default {
 	name: 'RoomDetail',
@@ -224,6 +235,7 @@ export default {
 		TaskTemplatePicker,
 		Modal,
 		ConfirmDialog,
+		ErrorState,
 	},
 
 	props: {
@@ -245,6 +257,7 @@ export default {
 		return {
 			loading: false,
 			creating: false,
+			initError: false,
 			showAddTaskModal: false,
 			addTaskMode: 'template',
 			showEditTaskModal: false,
@@ -340,6 +353,7 @@ export default {
 		},
 		async initializeRoom() {
 			this.loading = true
+			this.initError = false
 			try {
 				await this.roomsStore.fetchFloorsWithRooms()
 				await this.tasksStore.fetchTasks()
@@ -347,6 +361,9 @@ export default {
 				// Best-effort: the stats card must not block the room view.
 				this.roomStats = await this.roomTasksStore.fetchRoomTaskStats(this.roomId)
 			} catch (error) {
+				// CS-PLAN-066 §3.5: an initialization failure is an explicit
+				// localized error + retry state, never a silent empty room.
+				this.initError = true
 				logger.error('Failed to initialize room', error, { view: 'RoomDetail', action: 'initializeRoom', roomId: this.roomId })
 			} finally {
 				this.loading = false
@@ -357,10 +374,25 @@ export default {
 			this.roomTasksStore.completeRoomTask(roomTaskId)
 				.then(() => {
 					this.$emit('task-completed', roomTaskId)
+					// The room's own stats card is a view-local projection —
+					// refresh it after the committed completion (CS-PLAN-066
+					// §3.2).
+					this.refreshRoomStats()
 				})
 				.catch(error => {
+					// CS-PLAN-066 §3.5: mutation failures are visible toasts,
+					// not logger-only lines.
+					showError(t('chorestrike', 'Could not complete the task'))
 					logger.error('Failed to complete task', error, { view: 'RoomDetail', action: 'handleCompleteTask', roomTaskId })
 				})
+		},
+
+		async refreshRoomStats() {
+			try {
+				this.roomStats = await this.roomTasksStore.fetchRoomTaskStats(this.roomId)
+			} catch (error) {
+				logger.error('Failed to refresh room stats', error, { view: 'RoomDetail', action: 'refreshRoomStats', roomId: this.roomId })
+			}
 		},
 
 		handleEditTask(roomTask) {
@@ -440,6 +472,9 @@ export default {
 		},
 
 		handleTemplateError(error) {
+			// Visible recovery (CS-PLAN-066 §3.5): the picker surfaces its
+			// own failure state; this toast backs it up for the modal owner.
+			showError(t('chorestrike', 'Failed to create task'))
 			logger.error('Failed to create task from template', error, { view: 'RoomDetail', action: 'handleTemplateError', roomId: this.roomId })
 		},
 

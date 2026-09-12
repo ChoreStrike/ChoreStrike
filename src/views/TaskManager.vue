@@ -19,122 +19,132 @@
 			</button>
 		</header>
 
-		<div class="filters-section">
-			<div class="filter-group">
-				<label>{{ t('chorestrike', 'Status') }}</label>
-				<select v-model="filterStatus" class="filter-select" data-testid="status-filter">
-					<option value="all">
-						{{ t('chorestrike', 'All Tasks') }}
-					</option>
-					<option value="active">
-						{{ t('chorestrike', 'Active') }}
-					</option>
-					<option value="overdue">
-						{{ t('chorestrike', 'Overdue') }}
-					</option>
-					<option value="due-today">
-						{{ t('chorestrike', 'Due Today') }}
-					</option>
-					<option value="completed">
-						{{ t('chorestrike', 'Completed') }}
-					</option>
-				</select>
-			</div>
+		<!-- Initialization failed (CS-PLAN-066 §3.5): an explicit localized
+		     retry state instead of a silent empty list. -->
+		<ErrorState
+			v-if="initError"
+			data-testid="task-manager-error"
+			:message="t('chorestrike', 'Could not load your tasks')"
+			@retry="initializeTasks" />
 
-			<div class="filter-group">
-				<label>{{ t('chorestrike', 'Priority') }}</label>
-				<select v-model="filterPriority" class="filter-select" data-testid="priority-filter">
-					<option value="all">
-						{{ t('chorestrike', 'All Priorities') }}
-					</option>
-					<option value="urgent">
-						{{ t('chorestrike', 'High') }}
-					</option>
-					<option value="normal">
-						{{ t('chorestrike', 'Normal') }}
-					</option>
-					<option value="low">
-						{{ t('chorestrike', 'Low') }}
-					</option>
-				</select>
-			</div>
+		<template v-else>
+			<div class="filters-section">
+				<div class="filter-group">
+					<label>{{ t('chorestrike', 'Status') }}</label>
+					<select v-model="filterStatus" class="filter-select" data-testid="status-filter">
+						<option value="all">
+							{{ t('chorestrike', 'All Tasks') }}
+						</option>
+						<option value="active">
+							{{ t('chorestrike', 'Active') }}
+						</option>
+						<option value="overdue">
+							{{ t('chorestrike', 'Overdue') }}
+						</option>
+						<option value="due-today">
+							{{ t('chorestrike', 'Due Today') }}
+						</option>
+						<option value="completed">
+							{{ t('chorestrike', 'Completed') }}
+						</option>
+					</select>
+				</div>
 
-			<div class="filter-group">
-				<label>{{ t('chorestrike', 'Difficulty') }}</label>
-				<select v-model="filterDifficulty" class="filter-select" data-testid="difficulty-filter">
-					<option value="all">
-						{{ t('chorestrike', 'All Difficulties') }}
-					</option>
-					<option value="1">
-						{{ t('chorestrike', 'Level 1 (Quick)') }}
-					</option>
-					<option value="2">
-						{{ t('chorestrike', 'Level 2 (Easy)') }}
-					</option>
-					<option value="3">
-						{{ t('chorestrike', 'Level 3 (Medium)') }}
-					</option>
-					<option value="4">
-						{{ t('chorestrike', 'Level 4 (Hard)') }}
-					</option>
-					<option value="5">
-						{{ t('chorestrike', 'Level 5 (Major)') }}
-					</option>
-				</select>
-			</div>
+				<div class="filter-group">
+					<label>{{ t('chorestrike', 'Priority') }}</label>
+					<select v-model="filterPriority" class="filter-select" data-testid="priority-filter">
+						<option value="all">
+							{{ t('chorestrike', 'All Priorities') }}
+						</option>
+						<option value="urgent">
+							{{ t('chorestrike', 'High') }}
+						</option>
+						<option value="normal">
+							{{ t('chorestrike', 'Normal') }}
+						</option>
+						<option value="low">
+							{{ t('chorestrike', 'Low') }}
+						</option>
+					</select>
+				</div>
 
-			<div class="filter-group">
-				<label>{{ t('chorestrike', 'Visibility') }}</label>
-				<select v-model="filterVisibility" class="filter-select" data-testid="visibility-filter">
-					<option value="all">
-						{{ t('chorestrike', 'All') }}
-					</option>
-					<option value="private">
-						{{ t('chorestrike', 'Private') }}
-					</option>
-				</select>
-			</div>
+				<div class="filter-group">
+					<label>{{ t('chorestrike', 'Difficulty') }}</label>
+					<select v-model="filterDifficulty" class="filter-select" data-testid="difficulty-filter">
+						<option value="all">
+							{{ t('chorestrike', 'All Difficulties') }}
+						</option>
+						<option value="1">
+							{{ t('chorestrike', 'Level 1 (Quick)') }}
+						</option>
+						<option value="2">
+							{{ t('chorestrike', 'Level 2 (Easy)') }}
+						</option>
+						<option value="3">
+							{{ t('chorestrike', 'Level 3 (Medium)') }}
+						</option>
+						<option value="4">
+							{{ t('chorestrike', 'Level 4 (Hard)') }}
+						</option>
+						<option value="5">
+							{{ t('chorestrike', 'Level 5 (Major)') }}
+						</option>
+					</select>
+				</div>
 
-			<div class="filter-group search-group">
-				<label>{{ t('chorestrike', 'Search') }}</label>
-				<div class="search-input-wrapper">
-					<Icon name="Search" :size="16" class="search-icon" />
-					<input
-						v-model="searchQuery"
-						type="text"
-						class="search-input"
-						data-testid="search-input"
-						:placeholder="t('chorestrike', 'Search tasks...')">
+				<div class="filter-group">
+					<label>{{ t('chorestrike', 'Visibility') }}</label>
+					<select v-model="filterVisibility" class="filter-select" data-testid="visibility-filter">
+						<option value="all">
+							{{ t('chorestrike', 'All') }}
+						</option>
+						<option value="private">
+							{{ t('chorestrike', 'Private') }}
+						</option>
+					</select>
+				</div>
+
+				<div class="filter-group search-group">
+					<label>{{ t('chorestrike', 'Search') }}</label>
+					<div class="search-input-wrapper">
+						<Icon name="Search" :size="16" class="search-icon" />
+						<input
+							v-model="searchQuery"
+							type="text"
+							class="search-input"
+							data-testid="search-input"
+							:placeholder="t('chorestrike', 'Search tasks...')">
+					</div>
 				</div>
 			</div>
-		</div>
 
-		<div class="stats-bar">
-			<div class="stat" data-testid="total-tasks-stat">
-				<span class="stat-number" data-testid="total-tasks-count">{{ totalTasks }}</span>
-				<span class="stat-label">{{ t('chorestrike', 'Total') }}</span>
+			<div class="stats-bar">
+				<div class="stat" data-testid="total-tasks-stat">
+					<span class="stat-number" data-testid="total-tasks-count">{{ totalTasks }}</span>
+					<span class="stat-label">{{ t('chorestrike', 'Total') }}</span>
+				</div>
+				<div class="stat" data-testid="overdue-tasks-stat">
+					<span class="stat-number warning" data-testid="overdue-count">{{ overdueTasks }}</span>
+					<span class="stat-label">{{ t('chorestrike', 'Overdue') }}</span>
+				</div>
+				<div class="stat" data-testid="due-today-stat">
+					<span class="stat-number success" data-testid="due-today-count">{{ dueTodayTasks }}</span>
+					<span class="stat-label">{{ t('chorestrike', 'Due Today') }}</span>
+				</div>
+				<div class="stat">
+					<span class="stat-number">{{ filteredTasks.length }}</span>
+					<span class="stat-label">{{ t('chorestrike', 'Shown') }}</span>
+				</div>
 			</div>
-			<div class="stat" data-testid="overdue-tasks-stat">
-				<span class="stat-number warning" data-testid="overdue-count">{{ overdueTasks }}</span>
-				<span class="stat-label">{{ t('chorestrike', 'Overdue') }}</span>
-			</div>
-			<div class="stat" data-testid="due-today-stat">
-				<span class="stat-number success" data-testid="due-today-count">{{ dueTodayTasks }}</span>
-				<span class="stat-label">{{ t('chorestrike', 'Due Today') }}</span>
-			</div>
-			<div class="stat">
-				<span class="stat-number">{{ filteredTasks.length }}</span>
-				<span class="stat-label">{{ t('chorestrike', 'Shown') }}</span>
-			</div>
-		</div>
 
-		<TaskList
-			:room-tasks="filteredTasks"
-			:loading="loading"
-			:show-room="true"
-			@complete="handleCompleteTask"
-			@edit="handleEditTask"
-			@delete="handleDeleteTask" />
+			<TaskList
+				:room-tasks="filteredTasks"
+				:loading="loading"
+				:show-room="true"
+				@complete="handleCompleteTask"
+				@edit="handleEditTask"
+				@delete="handleDeleteTask" />
+		</template>
 
 		<Modal v-if="showAddTaskModal" :aria-label="t('chorestrike', 'New Task')" @close="showAddTaskModal = false">
 			<TaskEditForm
@@ -172,6 +182,7 @@ import Icon from '../components/Common/Icon.vue'
 import TaskList from '../components/Tasks/TaskList.vue'
 import TaskEditForm from '../components/Tasks/TaskEditForm.vue'
 import ConfirmDialog from '../components/Common/ConfirmDialog.vue'
+import ErrorState from '../components/Common/ErrorState.vue'
 import { useUserStore } from '../store/user.js'
 import Modal from '../components/Common/Modal.vue'
 import { useRoute } from 'vue-router'
@@ -185,6 +196,7 @@ export default {
 		TaskEditForm,
 		Modal,
 		ConfirmDialog,
+		ErrorState,
 	},
 
 	setup() {
@@ -201,6 +213,7 @@ export default {
 		return {
 			loading: false,
 			creating: false,
+			initError: false,
 			filterStatus: 'all',
 			filterPriority: 'all',
 			filterDifficulty: 'all',
@@ -311,11 +324,22 @@ export default {
 
 		async initializeTasks() {
 			this.loading = true
+			this.initError = false
 			try {
 				await this.roomsStore.fetchFloorsWithRooms()
 				await this.tasksStore.fetchTasks()
-				await Promise.all(this.roomsStore.rooms.map(room => this.roomTasksStore.fetchRoomTasks(room.id)))
+				await Promise.all([
+					// CS-PLAN-066 (D2): the stats bar reads the dedicated
+					// count projections — complete viewer-visible endpoint
+					// results, not the per-room flat list.
+					this.roomTasksStore.fetchDueTodayTasks(),
+					this.roomTasksStore.fetchOverdueTasks(),
+					...this.roomsStore.rooms.map(room => this.roomTasksStore.fetchRoomTasks(room.id)),
+				])
 			} catch (error) {
+				// CS-PLAN-066 §3.5: an initialization failure is an explicit
+				// localized error + retry state, never a silent empty list.
+				this.initError = true
 				logger.error('Failed to initialize tasks', error, { view: 'TaskManager', action: 'initializeTasks' })
 			} finally {
 				this.loading = false
@@ -328,6 +352,9 @@ export default {
 					this.$emit('task-completed', roomTaskId)
 				})
 				.catch(error => {
+					// CS-PLAN-066 §3.5: mutation failures are visible toasts,
+					// not logger-only lines.
+					showError(t('chorestrike', 'Could not complete the task'))
 					logger.error('Failed to complete task', error, { view: 'TaskManager', action: 'handleCompleteTask', roomTaskId })
 				})
 		},
@@ -401,6 +428,9 @@ export default {
 					this.editingTask = null
 				})
 				.catch(error => {
+					// Recoverable failure (CS-PLAN-066 §3.5): the modal stays
+					// open with the input intact and a visible error toast.
+					showError(t('chorestrike', 'Could not save the task'))
 					logger.error('Failed to update task', error, { view: 'TaskManager', action: 'handleUpdateTask', taskId: this.editingTask?.id })
 				})
 		},

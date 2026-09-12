@@ -171,16 +171,22 @@ points:** RoomDetail (slim modal), TaskManager, TaskList.
 ## UC-08 — Daily execution ("My Day")
 
 **Goal:** one surface answering "what do I do today?" — the core loop for
-Member/child. **Entry points:** `/today` route; Dashboard stat cards link in.
+Member/child. **Entry points:** `/today` route; Dashboard stat cards link in;
+**role-based landing (CS-PLAN-066 D4): a child's initial bare-root visit opens
+My Day automatically** (explicit deep links and later Dashboard visits stay
+usable; owners/members keep the Dashboard default).
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
 | Personalized daily list (child-aware limits) | TodayView | `GET /room-tasks/filtered-daily` | ✅ CS-PLAN-065 (D4): child eligibility (own-or-unassigned) runs before the availability gate and the child limit; the read order is `nextDue, createdAt, id` and rows embed their canonical `assignees` |
 | My tasks ↔ Everyone filter | TodayView | client-side | ✅ (default: My tasks) |
 | Overdue section | TodayView | `GET /room-tasks/overdue` | ✅ |
-| Complete task (celebration: confetti/sound/toast, combo, streak) | TodayView, TaskList, RoomDetail, TaskManager | `POST /room-tasks/{id}/complete` | ✅ (CS-PLAN-065 D7 removed the dead per-completion energy-counter store write) |
-| Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ⚠️ deep links work; counters read a shared slice the refresh calls do not populate (workflow review 2026-09-02; fold-in target CR-WF-04/08, WP7) |
-| Per-row assignee resolution | TodayView | due-today rows embed `assignees`; overdue rows via `GET /room-tasks/{id}/assignees` | ✅ |
+| Short household instructions per row | TodayView | definition `instructions` (falls back to `description`) | ✅ CS-PLAN-066 §3.5 (plain escaped text, never v-html) |
+| Optional expandable checklist in My Day | TodayView → `TaskChecklist` (execute-only: `can-edit=false`, frozen when completed) | `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}`, `POST /checklists/toggle/{rt}/{item}` | ✅ CS-PLAN-066 §3.5 (progress refreshes after the server-side occurrence reset on completion; checklist-less rows hide the toggle after the one-shot empty discovery — final-review a11y fix 2026-09-12) |
+| Complete task (celebration: confetti/sound/toast, combo, streak) | TodayView, TaskList, RoomDetail, TaskManager | `POST /room-tasks/{id}/complete` | ✅ (CS-PLAN-065 D7 removed the dead per-completion energy-counter store write; CS-PLAN-066 reconciles every owning store before the events and re-syncs the titles store before the title-unlocked event fires once per response) |
+| Stat-card counts + deep links (Due Today / Overdue) | QuickStats | `GET /room-tasks/due-today`, `GET /room-tasks/overdue` | ✅ CS-PLAN-066 (D2): the counters read dedicated endpoint-backed projections loaded on the cold Dashboard; a scoped room load or the child-limited daily list can never overwrite them; the coordinated derived refresh (D3) keeps them truthful after mutations |
+| Per-row assignee resolution | TodayView | daily AND overdue rows embed canonical `assignees` (D1) | ✅ CS-PLAN-066 (no per-row re-fetch remains) |
+| Partial derived-refresh failure | TodayView | read-only retry of the loaded projections | ✅ CS-PLAN-066 (D3): a committed action stays successful; stale slices offer a refresh-only retry |
 | Checklist toggle while completing | TaskList → `TaskChecklist` | `POST /checklists/toggle/{rt}/{item}`, `GET /checklists/task/{id}`, `GET /checklists/progress/{rt}` | ✅ |
 | Checklist editor (add/edit/delete/reorder items) | TaskList → `TaskChecklist` (owner-only `can-edit`) | `POST /checklists/task/{id}`, `PUT+DELETE /checklists/item/{id}`, `POST /checklists/reorder` | ✅ (unlocked for owners since CS-PLAN-042; store speaks the backend contract: `label`/`sortOrder`, `itemOrders` map, `{items, stats}` progress envelope) |
 | Complete/assign from calendar day | CalendarView | — | ❌ read-only (review W6) |

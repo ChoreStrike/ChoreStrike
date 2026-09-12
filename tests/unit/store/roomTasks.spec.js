@@ -12,6 +12,7 @@ import { useRoomsStore } from '../../../src/store/rooms.js'
 import { useUserStore } from '../../../src/store/user.js'
 import { useMinigameStore } from '../../../src/store/minigame.js'
 import { useTasksStore } from '../../../src/store/tasks.js'
+import { useTitlesStore } from '../../../src/store/titles.js'
 
 jest.mock('../../../src/services/api.js', () => ({
 	api: {
@@ -97,72 +98,57 @@ describe('RoomTasks Store', () => {
 			expect(byRoom[20]).toHaveLength(1)
 		})
 
-		// CS-PLAN-057: due-today/overdue bucket in the house timezone (UTC
-		// while no house is loaded) and guard the missing-nextDue epoch.
-		describe('totalDueTodayTasks / totalOverdueTasks', () => {
-			let houseStore
-
-			beforeEach(() => {
-				houseStore = useHouseStore()
-				jest.useFakeTimers()
-			})
-
-			afterEach(() => {
-				jest.useRealTimers()
-			})
-
-			it('counts tasks whose house-local day key is today', () => {
-				jest.setSystemTime(Date.UTC(2026, 7, 30, 10, 0, 0))
-				houseStore.house = { id: 1, timezone: 'UTC' }
+		// CS-PLAN-066 (D2): the counters read the DEDICATED due-today/overdue
+		// projections — complete viewer-visible endpoint results (enriched
+		// rows). Day bucketing/eligibility is server-owned; the store only
+		// filters defensively on isActive.
+		describe('totalDueTodayTasks / totalOverdueTasks (D2 count projections)', () => {
+			it('counts the dedicated projection slices, not the room list', () => {
 				store.roomTasks = [
-					{ id: 1, isActive: true, nextDue: '2026-08-30T12:00:00Z' },
-					{ id: 2, isActive: true, nextDue: '2026-08-31T12:00:00Z' },
-					{ id: 3, isActive: false, nextDue: '2026-08-30T12:00:00Z' },
+					{ id: 1, roomId: 10, isActive: true, nextDue: '2026-08-30T12:00:00Z' },
+					{ id: 2, roomId: 20, isActive: true, nextDue: '2026-08-30T12:00:00Z' },
+				]
+				store.dueTodayTasks = [
+					{ roomTask: { id: 1, isActive: true } },
+					{ roomTask: { id: 3, isActive: true } },
+				]
+				store.overdueTasks = [
+					{ roomTask: { id: 2, isActive: true } },
 				]
 
-				expect(store.totalDueTodayTasks).toBe(1)
-			})
-
-			it('honors the house timezone around local midnight', () => {
-				jest.setSystemTime(Date.UTC(2026, 6, 14, 22, 30, 0))
-				// Now is 22:30 UTC on the 14th = 00:30 on the 15th in Berlin.
-				// A task due 15th 00:30 UTC (02:30 Berlin) is due today for the
-				// Berlin house but still "tomorrow" for a UTC house.
-				store.roomTasks = [
-					{ id: 1, isActive: true, nextDue: '2026-07-15T00:30:00Z' },
-				]
-
-				houseStore.house = { id: 1, timezone: 'Europe/Berlin' }
-				expect(store.totalDueTodayTasks).toBe(1)
-
-				houseStore.house = { id: 1, timezone: 'UTC' }
-				expect(store.totalDueTodayTasks).toBe(0)
-			})
-
-			it('treats a missing nextDue as never due (epoch guard, CR-P4-06)', () => {
-				jest.setSystemTime(Date.UTC(2026, 7, 30, 10, 0, 0))
-				houseStore.house = { id: 1, timezone: 'UTC' }
-				store.roomTasks = [
-					{ id: 1, isActive: true, nextDue: null },
-					{ id: 2, isActive: true },
-					{ id: 3, isActive: true, nextDue: '2026-08-30T12:00:00Z' },
-				]
-
-				expect(store.totalDueTodayTasks).toBe(1)
-				// The null nextDue must not count as 1970-epoch overdue either.
-				expect(store.totalOverdueTasks).toBe(0)
-			})
-
-			it('counts overdue tasks by instant comparison', () => {
-				jest.setSystemTime(Date.UTC(2026, 7, 30, 10, 0, 0))
-				houseStore.house = { id: 1, timezone: 'UTC' }
-				store.roomTasks = [
-					{ id: 1, isActive: true, nextDue: '2026-08-01T12:00:00Z' },
-					{ id: 2, isActive: true, nextDue: '2026-09-01T12:00:00Z' },
-					{ id: 3, isActive: false, nextDue: '2026-08-01T12:00:00Z' },
-				]
-
+				expect(store.totalDueTodayTasks).toBe(2)
 				expect(store.totalOverdueTasks).toBe(1)
+			})
+
+			it('a scoped room load can never masquerade as a count source', async () => {
+				store.dueTodayTasks = [{ roomTask: { id: 1, isActive: true } }]
+				api.get.mockResolvedValue([{ id: 9, roomId: 10, isActive: true, nextDue: '2026-08-30T12:00:00Z' }])
+
+				await store.fetchRoomTasks(10)
+
+				expect(store.totalDueTodayTasks).toBe(1)
+			})
+
+			it('the child-limited daily list can never overwrite count sources', async () => {
+				store.dueTodayTasks = [{ roomTask: { id: 1, isActive: true } }]
+				store.overdueTasks = [{ roomTask: { id: 2, isActive: true } }]
+				api.get.mockResolvedValue([{ roomTask: { id: 1, isActive: true } }])
+
+				await store.fetchFilteredDailyTasks()
+
+				expect(store.totalDueTodayTasks).toBe(1)
+				expect(store.totalOverdueTasks).toBe(1)
+			})
+
+			it('inactive rows are not counted between refreshes', () => {
+				store.dueTodayTasks = [
+					{ roomTask: { id: 1, isActive: false } },
+					{ roomTask: { id: 3, isActive: true } },
+				]
+				store.overdueTasks = [{ roomTask: { id: 2, isActive: false } }]
+
+				expect(store.totalDueTodayTasks).toBe(1)
+				expect(store.totalOverdueTasks).toBe(0)
 			})
 		})
 
@@ -183,14 +169,16 @@ describe('RoomTasks Store', () => {
 		// CS-PLAN-063: the former createRoomTask action was folded into
 		// createTaskAggregate (covered above).
 
-		describe('bulkAssignTasks (CS-PLAN-042, CR-SVC-61)', () => {
-			it('posts one bulk call and merges the assignment into cached tasks', async () => {
+		describe('bulkAssignTasks (CS-PLAN-042, CR-SVC-61, CS-PLAN-066 D1)', () => {
+			it('posts one bulk call and reconciles the returned successes only', async () => {
 				store.roomTasks = [
 					{ id: 1, assignees: [] },
 					{ id: 2, assignees: [] },
 				]
+				// Canonical D1 shape: returned successes carry their PERSISTED
+				// assignee set (user-ID array) — never the requested set.
 				api.post.mockResolvedValue([
-					{ id: 1, assignees: [] },
+					{ id: 1, assignees: ['user1'] },
 				])
 
 				const assigned = await store.bulkAssignTasks([1, 2], 'user1')
@@ -199,14 +187,14 @@ describe('RoomTasks Store', () => {
 					roomTaskIds: [1, 2],
 					userId: 'user1',
 				})
-				expect(assigned).toEqual([{ id: 1, assignees: [] }])
-				// The assigned task's chip state gains the target member.
+				expect(assigned).toEqual([{ id: 1, assignees: ['user1'] }])
+				// The returned success reconciles the cached chip state.
 				expect(store.roomTasks[0].assignees).toEqual(['user1'])
-				// The skipped task stays untouched.
+				// The skipped task stays untouched — no client-assumed success.
 				expect(store.roomTasks[1].assignees).toEqual([])
 			})
 
-			it('does not duplicate an existing assignee', async () => {
+			it('reconciles only the server-persisted assignee set (no local union)', async () => {
 				store.roomTasks = [{ id: 1, assignees: ['user1'] }]
 				api.post.mockResolvedValue([{ id: 1, assignees: ['user1'] }])
 
@@ -245,9 +233,10 @@ describe('RoomTasks Store', () => {
 		})
 
 		describe('setAssignees', () => {
-			it('replaces assignees and updates state', async () => {
+			it('replaces assignees from the canonical user-ID response (D1)', async () => {
 				store.roomTasks = [{ id: 1, assignees: [] }]
-				api.put.mockResolvedValue([{ userId: 'user1' }, { userId: 'user2' }])
+				// CS-PLAN-066 D1: the PUT response IS the persisted user-ID set.
+				api.put.mockResolvedValue(['user1', 'user2'])
 
 				const result = await store.setAssignees(1, ['user1', 'user2'])
 
@@ -552,12 +541,13 @@ describe('RoomTasks Store', () => {
 		})
 	})
 
-	describe('createTaskAggregate (CS-PLAN-063 §3.5)', () => {
+	describe('createTaskAggregate (CS-PLAN-063 §3.5, CS-PLAN-066 D1)', () => {
 		it('posts ONE aggregate request, updates both stores, and returns the aggregate', async () => {
 			api.post.mockResolvedValue({
 				task: { id: 7, name: 'Dishes' },
 				roomTask: { id: 42, roomId: 3, taskId: 7 },
-				assignees: [{ userId: 'mom' }, { userId: 'dad' }],
+				// CS-PLAN-066 D1: canonical unique, ordered user-ID array.
+				assignees: ['mom', 'dad'],
 			})
 			store.roomTasks = []
 
@@ -601,12 +591,12 @@ describe('RoomTasks Store', () => {
 		})
 	})
 
-		describe('createFromTemplate (CS-PLAN-063 D1 aggregate shape)', () => {
-		it('joins the room task, maps assignees, and caches the definition', async () => {
+		describe('createFromTemplate (CS-PLAN-063 D1 aggregate shape, CS-PLAN-066 D1 assignees)', () => {
+		it('joins the room task, stores the canonical assignee set, and caches the definition', async () => {
 			api.post.mockResolvedValue({
 				task: { id: 9, name: 'Bathroom blitz' },
 				roomTask: { id: 43, roomId: 3, taskId: 9 },
-				assignees: [{ userId: 'mom' }],
+				assignees: ['mom'],
 			})
 			store.roomTasks = []
 
@@ -733,6 +723,239 @@ describe('RoomTasks Store', () => {
 				store.rangeTasks = { scheduled: [{ id: 1 }], completed: [{ id: 2 }], from: '2026-01-01', to: '2026-01-07' }
 				store.reset()
 				expect(store.rangeTasks).toEqual({ scheduled: [], completed: [], from: null, to: null })
+			})
+		})
+	})
+
+	// CS-PLAN-066: canonical payloads, D2 count projections, D3 coordinated
+	// reconciliation, D5 title event, and §3.3 request generations.
+	describe('WP7 — canonical state (CS-PLAN-066)', () => {
+		describe('count projections (D2)', () => {
+			it('fetchDueTodayTasks stores the complete viewer-visible enriched result', async () => {
+				const rows = [
+					{ roomTask: { id: 1, isActive: true }, task: { id: 1 }, room: { id: 10 }, assignees: ['mom'] },
+				]
+				api.get.mockResolvedValue(rows)
+
+				const result = await store.fetchDueTodayTasks()
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/due-today', {})
+				expect(result).toEqual(rows)
+				expect(store.dueTodayTasks).toEqual(rows)
+				expect(store.dueTodayLoaded).toBe(true)
+				expect(store.dueTodayStale).toBe(false)
+			})
+
+			it('fetchOverdueTasks stores the complete viewer-visible enriched result', async () => {
+				const rows = [
+					{ roomTask: { id: 2, isActive: true }, task: { id: 2 }, room: { id: 10 }, assignees: [] },
+				]
+				api.get.mockResolvedValue(rows)
+
+				await store.fetchOverdueTasks()
+
+				expect(store.overdueTasks).toEqual(rows)
+				expect(store.overdueLoaded).toBe(true)
+			})
+
+			it('a superseded older count response never overwrites the newer one', async () => {
+				let resolveFirst
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+				api.get.mockResolvedValueOnce([{ roomTask: { id: 2, isActive: true } }])
+
+				const first = store.fetchDueTodayTasks()
+				await store.fetchDueTodayTasks()
+				resolveFirst([{ roomTask: { id: 1, isActive: true } }])
+				await first
+
+				expect(store.dueTodayTasks).toEqual([{ roomTask: { id: 2, isActive: true } }])
+			})
+		})
+
+		describe('per-room request generations (§3.3)', () => {
+			it('valid parallel sibling room loads both land', async () => {
+				api.get.mockImplementation((_url, config) => {
+					const roomId = config.params.roomId
+					return Promise.resolve([{ id: roomId * 100, roomId, isActive: true }])
+				})
+
+				await Promise.all([store.fetchRoomTasks(1), store.fetchRoomTasks(2)])
+
+				expect(store.roomTasks.map(rt => rt.id).sort()).toEqual([100, 200])
+			})
+
+			it('a superseded same-room response never overwrites the newer one', async () => {
+				let resolveFirst
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+				api.get.mockResolvedValueOnce([{ id: 2, roomId: 10 }])
+
+				const first = store.fetchRoomTasks(10)
+				await store.fetchRoomTasks(10)
+				resolveFirst([{ id: 1, roomId: 10 }])
+				await first
+
+				expect(store.roomTasks.map(rt => rt.id)).toEqual([2])
+			})
+
+			it('reset during an in-flight read discards the late result', async () => {
+				let resolveFetch
+				api.get.mockImplementation(() => new Promise((resolve) => { resolveFetch = resolve }))
+
+				const pending = store.fetchRoomTasks(10)
+				store.reset()
+				resolveFetch([{ id: 1, roomId: 10 }])
+				await pending
+
+				expect(store.roomTasks).toEqual([])
+			})
+
+			it('a finishing read only clears loading when it is the last in-flight one', async () => {
+				let resolveSecond
+				api.get.mockResolvedValueOnce([{ id: 1, roomId: 1 }])
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve }))
+
+				const first = store.fetchRoomTasks(1)
+				const second = store.fetchRoomTasks(2)
+
+				await first
+				// The second read is still in flight — loading must stay on.
+				expect(store.loading).toBe(true)
+
+				resolveSecond([{ id: 2, roomId: 2 }])
+				await second
+				expect(store.loading).toBe(false)
+			})
+		})
+
+		describe('completion title handoff (§3.4)', () => {
+			it('passes the computed newTitle to the existing event exactly once after the titles store re-sync', async () => {
+				const { emit } = await import('@nextcloud/event-bus')
+				const titlesStore = useTitlesStore()
+				titlesStore.lastHouseUserId = 5
+				const invalidateSpy = jest.spyOn(titlesStore, 'invalidate').mockResolvedValue(undefined)
+
+				const eventOrder = []
+				emit.mockImplementation((event) => {
+					if (event === 'chorestrike:title-unlocked') {
+						eventOrder.push('title-unlocked')
+					}
+				})
+				invalidateSpy.mockImplementation(async () => {
+					eventOrder.push('invalidate')
+				})
+
+				store.roomTasks = [{ id: 1, isActive: true }]
+				api.post.mockResolvedValue({
+					roomTask: { id: 1, isActive: false },
+					rewards: { coins: 5, newTitle: { pack: 'sparkling', labelKey: 'titles.sparkling.bronze', tierIndex: 0 } },
+				})
+
+				await store.completeRoomTask(1)
+
+				expect(invalidateSpy).toHaveBeenCalledTimes(1)
+				const titleEvents = emit.mock.calls.filter(([event]) => event === 'chorestrike:title-unlocked')
+				expect(titleEvents).toHaveLength(1)
+				expect(titleEvents[0][1]).toEqual({
+					pack: 'sparkling',
+					labelKey: 'titles.sparkling.bronze',
+					tierIndex: 0,
+				})
+				// Titles store re-sync lands BEFORE consumers read it.
+				expect(eventOrder).toEqual(['invalidate', 'title-unlocked'])
+				emit.mockReset()
+			})
+
+			it('a titles re-sync failure never fails the committed completion (D3)', async () => {
+				const titlesStore = useTitlesStore()
+				titlesStore.lastHouseUserId = 5
+				jest.spyOn(titlesStore, 'invalidate').mockRejectedValue(new Error('offline'))
+
+				store.roomTasks = [{ id: 1, isActive: true }]
+				api.post.mockResolvedValue({
+					roomTask: { id: 1, isActive: false },
+					rewards: { coins: 5, newTitle: { pack: 'p', labelKey: 'k', tierIndex: 1 } },
+				})
+
+				const data = await store.completeRoomTask(1)
+				expect(data.roomTask.isActive).toBe(false)
+			})
+
+			it('a null newTitle emits no unlock event', async () => {
+				const { emit } = await import('@nextcloud/event-bus')
+				store.roomTasks = [{ id: 1, isActive: true }]
+				api.post.mockResolvedValue({
+					roomTask: { id: 1, isActive: false },
+					rewards: { coins: 5, newTitle: null },
+				})
+
+				await store.completeRoomTask(1)
+
+				expect(emit.mock.calls.filter(([event]) => event === 'chorestrike:title-unlocked')).toHaveLength(0)
+				emit.mockReset()
+			})
+		})
+
+		describe('definition reconciliation (§3.2)', () => {
+			it('the returned definition merges into the definitions store by its separate ID', async () => {
+				const tasksStore = useTasksStore()
+				tasksStore.tasks = [{ id: 5, name: 'Old name' }]
+				store.roomTasks = [{ id: 1, taskId: 5, isActive: true }]
+				api.post.mockResolvedValue(completionFixture())
+
+				await store.completeRoomTask(1)
+
+				expect(tasksStore.tasks).toHaveLength(1)
+				expect(tasksStore.getTaskById(5)).toEqual({ id: 5 })
+			})
+		})
+
+		describe('coordinated derived refresh (D3)', () => {
+			it('refreshes only the LOADED projections and reports the result', async () => {
+				store.dueTodayLoaded = true
+				store.overdueLoaded = false
+				api.get.mockResolvedValue([])
+
+				const ok = await store.refreshDerivedProjections()
+
+				expect(ok).toBe(true)
+				expect(api.get).toHaveBeenCalledTimes(1)
+				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/due-today', {})
+			})
+
+			it('a refresh failure keeps the committed action, marks projections stale, and offers a refresh-only retry', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, assignees: ['mom'] }]
+				store.dueTodayLoaded = true
+				store.overdueLoaded = true
+				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: false }, rewards: { coins: 5 } })
+				api.get.mockRejectedValueOnce(new Error('offline'))
+				api.get.mockResolvedValueOnce([])
+
+				const ok = await store.completeRoomTask(1).then(() => true, () => false)
+
+				// The committed completion stays successful…
+				expect(ok).toBe(true)
+				expect(store.roomTasks[0].isActive).toBe(false)
+				// …the failed projection is marked stale…
+				expect(store.dueTodayStale).toBe(true)
+				// …and the retry is a read-only re-run (no write replay).
+				api.get.mockResolvedValue([])
+				const retried = await store.refreshDerivedProjections()
+				expect(retried).toBe(true)
+				expect(store.refreshFailed).toBe(false)
+				expect(api.post).toHaveBeenCalledTimes(1)
+			})
+
+			it('an instance mutation invalidates loaded counts and refreshes them', async () => {
+				store.dueTodayLoaded = true
+				store.dueTodayTasks = [{ roomTask: { id: 1, isActive: true } }]
+				store.overdueLoaded = false
+				api.delete.mockResolvedValue(undefined)
+				api.get.mockResolvedValue([])
+
+				await store.deleteRoomTask(1)
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/due-today', {})
+				expect(store.refreshFailed).toBe(false)
 			})
 		})
 	})

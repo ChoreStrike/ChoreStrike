@@ -115,11 +115,15 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Fetch leaderboard for a game
+		 *
+		 * CS-PLAN-066 §3.4: child fetches own their slice states and never
+		 * touch the AGGREGATE `loading` flag — a parallel child fetch
+		 * settling early must not clear the initialization owner's loading
+		 * state.
 		 * @param {string} gameId Game identifier (e.g. 'snake')
 		 * @param {number} limit Maximum number of entries to return
 		 */
 		async fetchLeaderboard(gameId = 'snake', limit = 10) {
-			this.loading = true
 			this.error = null
 
 			try {
@@ -130,8 +134,6 @@ export const useMinigameStore = defineStore('minigame', {
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch leaderboard', error, { store: 'minigame', action: 'fetchLeaderboard' })
-			} finally {
-				this.loading = false
 			}
 		},
 
@@ -352,20 +354,37 @@ export const useMinigameStore = defineStore('minigame', {
 
 		/**
 		 * Initialize minigame data
+		 *
+		 * CS-PLAN-066 §3.4: the aggregate owns `loading` behind a
+		 * try/finally, so a rejected child fetch can never leave the store
+		 * stuck in a loading state, and the failure is propagated
+		 * recoverably to the caller for its error/retry UI. Child fetches
+		 * keep their own soft-fail behavior (partial data beats a blank
+		 * arcade); a rejection of ANY child (typically the boost catalog,
+		 * which rethrows) surfaces through the aggregate error.
 		 * @param {string} gameId Game identifier (e.g. 'snake')
+		 * @throws {Error} When a child fetch fails (recoverable — retry by
+		 *   calling initialize again).
 		 */
 		async initialize(gameId = 'snake') {
 			this.loading = true
+			this.error = null
 
-			await Promise.all([
-				this.fetchCoins(),
-				this.fetchBoostCatalog(),
-				this.fetchLeaderboard(gameId),
-				this.fetchPersonalBest(gameId),
-				this.fetchUserRank(gameId),
-			])
-
-			this.loading = false
+			try {
+				await Promise.all([
+					this.fetchCoins(),
+					this.fetchBoostCatalog(),
+					this.fetchLeaderboard(gameId),
+					this.fetchPersonalBest(gameId),
+					this.fetchUserRank(gameId),
+				])
+			} catch (error) {
+				this.error = error.message
+				logger.error('Failed to initialize minigame data', error, { store: 'minigame', action: 'initialize', gameId })
+				throw error
+			} finally {
+				this.loading = false
+			}
 		},
 
 		/**

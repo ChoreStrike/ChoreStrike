@@ -336,6 +336,14 @@ Update task. Value validation is service-owned (`TaskService::validateTaskData`,
 CS-PLAN-063 §3.1) — the controller only shapes the envelope and maps the
 owner gate. A 400 carries the localized `details[]` error list.
 
+**Request body shape (CS-PLAN-066 D6 / BUG-API-001):** the edited definition
+fields travel as the TOP-LEVEL JSON body — the client calls
+`api.put('/tasks/{id}', updates)` with e.g. `{ "name": "…", "energyCost": 3 }`.
+The controller reads its closed payload from the request parameters minus the
+route internals (`id`, `_route`); a dispatcher-resolved `array $updates`
+argument can never bind from that shape and would 500 on every real HTTP call
+(the SchedulingController `memberUpdatesPayload` fix pattern, RF-065-05).
+
 > **`taskTier` (CR-053-04):** owner-only and value-checked — accepted values
 > are `bronze`, `silver`, `gold` (the tier drives the completion coin
 > multiplier). A member sending `taskTier` gets `403 FORBIDDEN`; any other
@@ -373,8 +381,37 @@ Two mutually exclusive payload variants:
 materializes an `idealDueDate`. The response is the unified aggregate shape:
 
 ```json
-{ "task": {…}, "roomTask": {…}, "assignees": [ {…} ] }
+{ "task": {…}, "roomTask": {…}, "assignees": ["mom", "dad"] }
 ```
+
+> **Canonical `assignees` (CS-PLAN-066 D1):** every public `assignees` field —
+> read (`GET /room-tasks`), create aggregate, single `PUT …/assignees`, bulk
+> assign and the enriched execution rows below — is a unique, deterministically
+> ordered Nextcloud **user-ID string array** (ordered by `room_task_id, user_id`).
+> The bulk-assign response embeds each returned success's persisted set, so
+> clients reconcile exactly the server result, never the requested set.
+
+#### GET /room-tasks/overdue · GET /room-tasks/due-today (CS-PLAN-066 §3.1)
+Complete viewer-visible overdue / due-today execution rows. Visibility,
+eligibility and ordering are unchanged; the rows are enriched into the same
+canonical shape the filtered daily endpoint returns — one contract for every
+execution-row consumer (no client-side assignee re-fetch):
+
+```json
+[
+  {
+    "roomTask": { "id": 11, "isActive": true, "nextDue": "…", "status": "overdue", "daysUntilDue": -2 },
+    "task": { "id": 4, "name": "Take out kitchen trash", "instructions": "…" },
+    "room": { "id": 2, "name": "Living Room" },
+    "assignees": ["dad"]
+  }
+]
+```
+
+These endpoints are the authoritative count projections for the Dashboard
+counters (`totalOverdueTasks` / `totalDueTodayTasks` read the complete
+endpoint results — a scoped room load or the child-limited daily list can
+never masquerade as a count source, CS-PLAN-066 D2).
 
 Gate order: children → `403`; cross-house room → `404` (anti-enumeration);
 invisible definition → `404`; `admin-only` creation by a non-owner → `403`;
@@ -573,6 +610,7 @@ failure.
       "comboBonusFreeze": false,
       "teamworkBonus": 0,
       "weeklyGoal": { "percent": 72, "achieved": false },
+      "newTitle": { "pack": "sparkling", "labelKey": "titles.sparkling.bronze", "tierIndex": 0 },
       "totalCoins": 195,
       "totalContribution": 323,
       "longestStreak": 4
@@ -584,7 +622,12 @@ failure.
 > `totalCoins`, `totalContribution`, and `longestStreak` are the completer's
 > authoritative post-completion balances (decision D10) so the owning client
 > stores reconcile from this one response without arithmetic; `degraded: true`
-> appears only when a post-commit effect failed.
+> appears only when a post-commit effect failed. `newTitle` (CS-PLAN-066 §3.4)
+> is explicit and nullable: the computed unlock travels with the successful
+> completion response — independent of any post-commit notification failure —
+> and the client fires the title-unlocked event exactly once per response
+> after re-syncing its titles store. Undo rewards never carry `newTitle`
+> (ADR-011: undo emits no unlock).
 
 #### GET /room-tasks/range?from=&to=
 Get scheduled and completed tasks within a date range (calendar view). Max span: 60 days.

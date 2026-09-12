@@ -390,7 +390,12 @@ class SchedulePlanServiceTest extends TestCase {
 	}
 
 	public function testPreview_StaticWeeklyTask_MovesOnlyOntoConfiguredWeekday(): void {
-		$saturdayKey = (new \DateTime($this->todayKey))->modify('next saturday')->format('Y-m-d');
+		// Date-independent expectation: when today IS the configured weekday,
+		// today is the legal slot; otherwise the next occurrence of it.
+		$isSaturdayToday = (int)(new \DateTime($this->todayKey))->format('w') === 6;
+		$saturdayKey = $isSaturdayToday
+			? $this->todayKey
+			: (new \DateTime($this->todayKey))->modify('next saturday')->format('Y-m-d');
 		$row = $this->roomTask(5, 10, $this->dayOffset(0));
 		$task = $this->definition(10, [
 			'schedulingMode' => Task::SCHEDULING_STATIC,

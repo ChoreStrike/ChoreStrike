@@ -93,4 +93,91 @@ describe('App', () => {
 			expect(initSpy).toHaveBeenCalledTimes(1)
 		})
 	})
+
+	// CS-PLAN-066 (D4): after membership resolves, only the initial
+	// unqualified root visit of a child redirects to My Day.
+	describe('Child landing redirect (CS-PLAN-066 D4)', () => {
+		const mountWithRouter = (route, setupStore) => {
+			const pinia = createPinia()
+			setActivePinia(pinia)
+			const store = useUserStore()
+			if (setupStore) {
+				setupStore(store)
+			}
+			const routerReplace = jest.fn()
+			const wrapper = mount(App, {
+				global: {
+					plugins: [pinia],
+					mocks: {
+						$route: route,
+						$router: { replace: routerReplace },
+					},
+					stubs: {
+						'router-view': true,
+						'router-link': true,
+					},
+				},
+			})
+			return { wrapper, routerReplace }
+		}
+
+		it('redirects the initial bare root visit of a resolved child to My Day', async () => {
+			const { wrapper, routerReplace } = mountWithRouter(
+				{ path: '/', name: 'dashboard', query: {} },
+				store => {
+					store.currentUser = { nextcloudUserId: 'teen', role: 'child' }
+					store.membership = 'member'
+				},
+			)
+			await wrapper.vm.$nextTick()
+
+			expect(routerReplace).toHaveBeenCalledWith({ name: 'today' })
+		})
+
+		it('keeps owner and member on the Dashboard', async () => {
+			const { wrapper, routerReplace } = mountWithRouter(
+				{ path: '/', name: 'dashboard', query: {} },
+				store => {
+					store.currentUser = { nextcloudUserId: 'mom', role: 'owner' }
+					store.membership = 'member'
+				},
+			)
+			await wrapper.vm.$nextTick()
+
+			expect(routerReplace).not.toHaveBeenCalled()
+		})
+
+		it('keeps explicit deep links usable for children', async () => {
+			const { wrapper, routerReplace } = mountWithRouter(
+				{ path: '/tasks', name: 'tasks', query: {} },
+				store => {
+					store.currentUser = { nextcloudUserId: 'teen', role: 'child' }
+					store.membership = 'member'
+				},
+			)
+			await wrapper.vm.$nextTick()
+
+			expect(routerReplace).not.toHaveBeenCalled()
+		})
+
+		it('applies the landing decision at most once (later Dashboard visits stay)', async () => {
+			const { wrapper, routerReplace } = mountWithRouter(
+				{ path: '/', name: 'dashboard', query: {} },
+				store => {
+					store.currentUser = { nextcloudUserId: 'teen', role: 'child' }
+					store.membership = 'member'
+				},
+			)
+			await wrapper.vm.$nextTick()
+
+			// A second membership reactivity tick must not re-trigger.
+			const store = useUserStore()
+			store.membership = 'unknown'
+			await wrapper.vm.$nextTick()
+			store.membership = 'member'
+			await wrapper.vm.$nextTick()
+
+			expect(routerReplace).toHaveBeenCalledTimes(1)
+		})
+	})
 })

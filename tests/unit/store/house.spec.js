@@ -245,6 +245,61 @@ describe('House Store', () => {
 
 				expect(result).toBe(60)
 			})
+
+			// CS-PLAN-066 §3.2/§3.3: the health refresh and the full house
+			// read share one generation — the newer request wins, and a
+			// health refresh patches ONLY houseHealth onto the loaded house.
+			it('patches only houseHealth, never clobbering fresher name/timezone fields', async () => {
+				store.house = { id: 1, name: 'Old', timezone: 'UTC', houseHealth: 50 }
+				api.get.mockResolvedValue({ houseHealth: 88 })
+
+				await store.calculateHouseHealth()
+
+				expect(store.house.houseHealth).toBe(88)
+				expect(store.house.name).toBe('Old')
+				expect(store.house.timezone).toBe('UTC')
+			})
+
+			it('a stale house fetch cannot overwrite a newer health refresh', async () => {
+				let resolveFetch
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFetch = resolve }))
+				api.get.mockResolvedValueOnce({ houseHealth: 88 })
+
+				const houseFetch = store.fetchHouse()
+				await store.calculateHouseHealth()
+				store.house = { id: 1, name: 'Fresh', houseHealth: 88 }
+				resolveFetch({ id: 1, name: 'Stale', houseHealth: 10 })
+				await houseFetch
+
+				// The superseded pre-refresh fetch result is dropped.
+				expect(store.house.name).toBe('Fresh')
+				expect(store.house.houseHealth).toBe(88)
+			})
+
+			it('an accepted house mutation invalidates pre-mutation reads', async () => {
+				let resolveFetch
+				api.get.mockImplementationOnce(() => new Promise((resolve) => { resolveFetch = resolve }))
+				api.put.mockResolvedValue({ id: 1, name: 'Renamed' })
+
+				const houseFetch = store.fetchHouse()
+				await store.updateHouseName('Renamed')
+				resolveFetch({ id: 1, name: 'Stale' })
+				await houseFetch
+
+				expect(store.house.name).toBe('Renamed')
+			})
+
+			it('reset during an in-flight read discards the late result', async () => {
+				let resolveFetch
+				api.get.mockImplementation(() => new Promise((resolve) => { resolveFetch = resolve }))
+
+				const pending = store.fetchHouse()
+				store.reset()
+				resolveFetch({ id: 1, name: 'Late' })
+				await pending
+
+				expect(store.house).toBeNull()
+			})
 		})
 
 		describe('resetHouse', () => {

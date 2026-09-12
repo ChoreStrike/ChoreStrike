@@ -230,6 +230,73 @@ class RoomTaskService {
 	}
 
 	/**
+	 * Due-today execution rows with task/room details (CS-PLAN-066 §3.1 D1):
+	 * the same viewer-visible set as {@see getDueTodayTasks()}, assembled
+	 * into the canonical `{roomTask, task, room}` row shape the enriched
+	 * daily endpoint already returns — one contract for every execution row
+	 * consumer.
+	 *
+	 * @param int $houseId The house ID (scopes the query to one house)
+	 * @param HouseUser $viewer The acting user's house membership
+	 * @param int|null $roomId Optional room ID to filter by
+	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
+	 */
+	public function getDueTodayTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
+		return $this->rowsForRoomTasks($this->getDueTodayTasks($houseId, $viewer, $roomId));
+	}
+
+	/**
+	 * Overdue execution rows with task/room details (CS-PLAN-066 §3.1 D1):
+	 * the same viewer-visible set as {@see getOverdueTasks()}, assembled
+	 * into the canonical `{roomTask, task, room}` row shape.
+	 *
+	 * @param int $houseId The house ID (scopes the query to one house)
+	 * @param HouseUser $viewer The acting user's house membership
+	 * @param int|null $roomId Optional room ID to filter by
+	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
+	 */
+	public function getOverdueTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
+		return $this->rowsForRoomTasks($this->getOverdueTasks($houseId, $viewer, $roomId));
+	}
+
+	/**
+	 * Assemble visible room tasks into `{roomTask, task, room}` rows with
+	 * two batch queries (TaskMapper/RoomMapper::findByIds, CS-PLAN-036).
+	 * A missing task or room row (map absence) skips the room task.
+	 *
+	 * @param RoomTask[] $roomTasks Viewer-visible room tasks
+	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
+	 */
+	private function rowsForRoomTasks(array $roomTasks): array {
+		$taskIds = [];
+		$roomIds = [];
+		foreach ($roomTasks as $roomTask) {
+			$taskIds[$roomTask->getTaskId()] = true;
+			$roomIds[$roomTask->getRoomId()] = true;
+		}
+
+		$tasksById = $this->taskMapper->findByIds(array_keys($taskIds));
+		$roomsById = $this->roomMapper->findByIds(array_keys($roomIds));
+
+		$rows = [];
+		foreach ($roomTasks as $roomTask) {
+			$task = $tasksById[$roomTask->getTaskId()] ?? null;
+			$room = $roomsById[$roomTask->getRoomId()] ?? null;
+			if ($task === null || $room === null) {
+				continue;
+			}
+
+			$rows[] = [
+				'roomTask' => $roomTask,
+				'task' => $task,
+				'room' => $room,
+			];
+		}
+
+		return $rows;
+	}
+
+	/**
 	 * Get tasks due within the next N days for a house, filtered to the
 	 * viewer's visibility.
 	 *

@@ -100,11 +100,13 @@ test.describe('Task Assignment Validation', () => {
 test.describe('Dashboard Access', () => {
 	test.use({ databaseProfile: 'family' as DatabaseProfile })
 
-	test('teen can access dashboard', async ({ browser }) => {
+	test('teen can access the app (child lands on My Day, CS-PLAN-066 D4)', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
 			await page.goto('/apps/chorestrike/')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			// CS-PLAN-066 (D4): a child's bare-root visit lands on My Day —
+			// access works, only the default surface differs from owners.
+			await page.waitForSelector('[data-testid="today-view"]', { timeout: 30000 })
 		} finally {
 			await context.close()
 		}

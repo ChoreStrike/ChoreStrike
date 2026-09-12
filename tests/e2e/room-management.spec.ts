@@ -189,7 +189,12 @@ test.describe('Room and Floor Management', () => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
 			await page.goto('/apps/chorestrike/')
-			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			// CS-PLAN-066 (D4): a child lands on My Day, a member on the
+			// Dashboard — the non-owner surface contract is the same.
+			await page.getByTestId('dashboard-view')
+				.or(page.getByTestId('today-view'))
+				.first()
+				.waitFor({ state: 'visible' })
 
 			// Dashboard FloorList: read-only for everyone
 			await expect(page.locator('.floor-list .add-button')).toHaveCount(0)

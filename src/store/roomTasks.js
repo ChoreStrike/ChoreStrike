@@ -7,13 +7,14 @@ import { defineStore } from 'pinia'
 import { api } from '../services/api.js'
 import { emit } from '@nextcloud/event-bus'
 import { logger } from '../utils/logger.js'
-import { dateKeyInZone, todayKeyInZone } from '../utils/dateKeys.js'
+import { dateKeyInZone } from '../utils/dateKeys.js'
 import { useHouseStore } from './house.js'
 import { useGameStore } from './game.js'
 import { useRoomsStore } from './rooms.js'
+import { useTasksStore } from './tasks.js'
 import { useUserStore } from './user.js'
 import { useMinigameStore } from './minigame.js'
-import { useTasksStore } from './tasks.js'
+import { useTitlesStore } from './titles.js'
 
 export const useRoomTasksStore = defineStore('roomTasks', {
 	state: () => ({
@@ -25,11 +26,36 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// separate so Today items never bleed into the shared flat list
 		// consumed by TaskManager/RoomDetail.
 		dailyTasks: [],
-		// CS-PLAN-065 §3.4: request-order protection scoped to the
-		// scheduling mutations and their readers — a pre-apply response
-		// must never overwrite post-apply refreshed results.
+		// CS-PLAN-066 (D2): dedicated due-today/overdue count projections.
+		// They hold complete viewer-visible ENDPOINT results (enriched rows
+		// `{roomTask, task, room, assignees}`) so counters stay truthful on
+		// a cold Dashboard — a scoped room load or the child-limited daily
+		// list can never masquerade as a count source.
+		dueTodayTasks: [],
+		overdueTasks: [],
+		dueTodayLoaded: false,
+		overdueLoaded: false,
+		dueTodayStale: false,
+		overdueStale: false,
+		// D3 coordinated derived refresh: a committed action stays
+		// successful even when an optional projection refetch fails — the
+		// affected projections are marked stale and `refreshFailed` offers a
+		// refresh-only retry (no write replay, no undo loss).
+		refreshFailed: false,
+		countsRefreshing: false,
+		// CS-PLAN-065 §3.4 / CS-PLAN-066 §3.3: request-order protection.
+		// Generations are scoped per resource/query so a stale sibling load
+		// can never discard or overwrite a newer result.
 		dailyRequestSeq: 0,
 		rangeRequestSeq: 0,
+		dueTodayRequestSeq: 0,
+		overdueRequestSeq: 0,
+		assigneesRequestSeq: 0,
+		roomRequestSeqs: {},
+		// Shared in-flight read counter backing `loading` (CS-PLAN-066
+		// §3.3): a finishing request may only clear the shared loading state
+		// when it is the LAST in-flight one.
+		pendingReads: 0,
 	}),
 
 	getters: {
@@ -44,25 +70,15 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			return tasksByRoom
 		},
 
-		// Statistics — bucketed in the house timezone (CS-PLAN-057). The
-		// `new Date(null)`-epoch guard (CR-P4-06) treats a missing nextDue
-		// as never-due instead of counting the 1970 epoch as overdue.
+		// CS-PLAN-066 (D2): the counters read the dedicated endpoint-backed
+		// projections. Inactive rows are filtered defensively so a projection
+		// never counts a completed occurrence between refreshes.
 		totalOverdueTasks: (state) => {
-			const now = new Date()
-			return state.roomTasks.filter(roomTask => {
-				if (!roomTask.isActive || !roomTask.nextDue) return false
-				return new Date(roomTask.nextDue) < now
-			}).length
+			return state.overdueTasks.filter(item => item.roomTask?.isActive).length
 		},
 
 		totalDueTodayTasks: (state) => {
-			const houseStore = useHouseStore()
-			const todayKey = todayKeyInZone(houseStore.timezone)
-
-			return state.roomTasks.filter(roomTask => {
-				if (!roomTask.isActive || !roomTask.nextDue) return false
-				return dateKeyInZone(roomTask.nextDue, houseStore.timezone) === todayKey
-			}).length
+			return state.dueTodayTasks.filter(item => item.roomTask?.isActive).length
 		},
 
 		/**
@@ -109,26 +125,52 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 	},
 
 	actions: {
+		/** Begin a shared in-flight read (loading = at least one request). */
+		_beginRead() {
+			this.pendingReads++
+			this.loading = true
+		},
+
+		/** End a shared in-flight read; only the last one clears loading. */
+		_endRead() {
+			this.pendingReads = Math.max(0, this.pendingReads - 1)
+			if (this.pendingReads === 0) {
+				this.loading = false
+			}
+		},
+
 		/**
 		 * Fetch room tasks for a room
 		 * @param {number} roomId Room identifier to load tasks for.
 		 * @param {boolean} activeOnly Whether to limit results to active tasks.
 		 */
 		async fetchRoomTasks(roomId, activeOnly = true) {
-			this.loading = true
+			// CS-PLAN-066 §3.3: the generation is scoped PER ROOM so two
+			// valid parallel room loads can never discard each other.
+			const seq = (this.roomRequestSeqs[roomId] ?? 0) + 1
+			this.roomRequestSeqs = { ...this.roomRequestSeqs, [roomId]: seq }
+			this._beginRead()
 			this.error = null
 
 			try {
 				const data = await api.get('/api/v1/room-tasks', { params: { roomId, activeOnly } })
 
+				if (seq !== this.roomRequestSeqs[roomId]) {
+					logger.debug('Dropping superseded room-task read', { store: 'roomTasks', action: 'fetchRoomTasks', roomId })
+					return this.roomTasks.filter(roomTask => roomTask.roomId === roomId)
+				}
+
 				this.roomTasks = this.roomTasks.filter(roomTask => roomTask.roomId !== roomId)
 				this.roomTasks.push(...data)
+				return data
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.roomRequestSeqs[roomId]) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch room tasks', error, { store: 'roomTasks', action: 'fetchRoomTasks', roomId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
@@ -143,17 +185,20 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @return {Promise<object>} The creation aggregate
 		 */
 		async createTaskAggregate(payload) {
-			this.loading = true
+			this._beginRead()
 			this.error = null
 
 			try {
 				const aggregate = await api.post('/api/v1/room-tasks', payload)
 
+				// Canonical assignee shape (CS-PLAN-066 D1): the aggregate
+				// carries a Nextcloud user-ID array already.
 				const roomTask = {
 					...aggregate.roomTask,
-					assignees: (aggregate.assignees || []).map(a => a.userId),
+					assignees: aggregate.assignees || [],
 				}
 				this.roomTasks.push(roomTask)
+				this.onInstanceMutated()
 
 				const tasksStore = useTasksStore()
 				if (aggregate.task && !tasksStore.getTaskById(aggregate.task.id)) {
@@ -166,7 +211,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				logger.error('Failed to create task aggregate', error, { store: 'roomTasks', action: 'createTaskAggregate' })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
@@ -178,17 +223,19 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @return {Promise<object>} The creation aggregate
 		 */
 		async createFromTemplate(payload) {
-			this.loading = true
+			this._beginRead()
 			this.error = null
 
 			try {
 				const aggregate = await api.post('/api/v1/room-tasks/from-template', payload)
 
+				// Canonical assignee shape (CS-PLAN-066 D1).
 				const roomTask = {
 					...aggregate.roomTask,
-					assignees: (aggregate.assignees || []).map(a => a.userId),
+					assignees: aggregate.assignees || [],
 				}
 				this.roomTasks.push(roomTask)
+				this.onInstanceMutated()
 
 				// Same aggregate-shape handling as createTaskAggregate (D1):
 				// cache the materialized definition for TaskList rendering.
@@ -203,7 +250,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				logger.error('Failed to create room task from template', error, { store: 'roomTasks', action: 'createFromTemplate', templateId: payload?.templateId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
@@ -213,18 +260,23 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @return {Promise<Array<string>>} Nextcloud user IDs assigned to the task.
 		 */
 		async fetchAssignees(roomTaskId) {
-			this.loading = true
+			// CS-PLAN-066 §3.3: assignee reads are generation-guarded so a
+			// late response cannot overwrite a newer assignment's result.
+			const seq = ++this.assigneesRequestSeq
+			this._beginRead()
 			this.error = null
 
 			try {
 				const data = await api.get(`/api/v1/room-tasks/${roomTaskId}/assignees`)
 				return data
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.assigneesRequestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch assignees', error, { store: 'roomTasks', action: 'fetchAssignees', roomTaskId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
@@ -235,7 +287,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @return {Promise<Array<string>>} The resulting assignee user IDs.
 		 */
 		async setAssignees(roomTaskId, userIds) {
-			this.loading = true
+			this._beginRead()
 			this.error = null
 
 			try {
@@ -244,7 +296,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					{ userIds },
 				)
 
-				const assigneeIds = (data || []).map(a => a.userId)
+				// Canonical user-ID array (CS-PLAN-066 D1): the response IS
+				// the persisted set — no client-side union.
+				const assigneeIds = data || []
 				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
 				if (roomTaskIndex >= 0) {
 					this.roomTasks[roomTaskIndex] = {
@@ -252,13 +306,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 						assignees: assigneeIds,
 					}
 				}
+				this.onInstanceMutated()
 				return assigneeIds
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to set assignees', error, { store: 'roomTasks', action: 'setAssignees', roomTaskId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
@@ -272,7 +327,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				throw new Error('Next due date is required')
 			}
 
-			this.loading = true
+			this._beginRead()
 			this.error = null
 
 			try {
@@ -282,12 +337,13 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				if (roomTaskIndex >= 0) {
 					this.roomTasks[roomTaskIndex] = data
 				}
+				this.onInstanceMutated()
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to update room task due date', error, { store: 'roomTasks', action: 'updateRoomTaskDueDate', roomTaskId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
@@ -296,12 +352,15 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * (CS-PLAN-064 WP5). The effect record (before-state + deltas) is
 		 * written server-side; the response reconciles every owning store
 		 * BEFORE any celebration event is emitted (decision D10), so event
-		 * consumers never observe stale caches.
+		 * consumers never observe stale caches. Derived projections are
+		 * refreshed through the coordinated D3 owner afterwards — a refresh
+		 * failure leaves the committed completion successful, marks the
+		 * affected projections stale and offers a refresh-only retry.
 		 * @param {number} roomTaskId Room task identifier to complete.
 		 * @return {Promise<object>} The completion aggregate
 		 */
 		async completeRoomTask(roomTaskId) {
-			this.loading = true
+			this._beginRead()
 			this.error = null
 
 			try {
@@ -327,7 +386,20 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					})
 				}
 
+				// CS-PLAN-066 §3.4: the computed unlock reaches the existing
+				// event exactly once per successful completion response —
+				// after the titles store was invalidated so consumers never
+				// read a stale unlock set, and independent of any post-commit
+				// notification failure server-side (rewards.newTitle is
+				// explicit and nullable). A failed titles re-sync is a stale
+				// optional read, never a completion failure (D3): the event
+				// still fires, the titles store reconciles on its next fetch.
 				if (rewards?.newTitle) {
+					try {
+						await useTitlesStore().invalidate()
+					} catch (titlesError) {
+						logger.warn('Titles re-sync after unlock failed; store stays stale until next fetch', titlesError, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
+					}
 					emit('chorestrike:title-unlocked', {
 						pack: rewards.newTitle.pack,
 						labelKey: rewards.newTitle.labelKey,
@@ -335,13 +407,15 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					})
 				}
 
+				this.refreshDerivedProjections()
+
 				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to complete room task', error, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
@@ -359,7 +433,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @return {Promise<object>} Final room task state.
 		 */
 		async undoRoomTaskCompletion(roomTaskId) {
-			this.loading = true
+			this._beginRead()
 			this.error = null
 
 			try {
@@ -368,23 +442,25 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				const roomTask = this.reconcileCompletionPayload(roomTaskId, data)
 				emit('chorestrike:task-uncompleted', { roomTaskId, roomTask })
 
+				this.refreshDerivedProjections()
+
 				return roomTask
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to undo room task completion', error, { store: 'roomTasks', action: 'undoRoomTaskCompletion', roomTaskId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
 		/**
 		 * Reconcile every owning store from ONE authoritative
 		 * completion/undo payload (decision D10) before any event fires:
-		 * roomTasks + dailyTasks slices, the rooms store (cleanliness),
-		 * the game store (weekly goal), and — when the payload's totals
-		 * describe the current user — the user progression state and the
-		 * shared coin wallet.
+		 * roomTasks + dailyTasks/due/overdue slices, the rooms store
+		 * (cleanliness), the returned definition, the game store (weekly
+		 * goal), and — when the payload's totals describe the current user —
+		 * the user progression state and the shared coin wallet.
 		 * @param {number} roomTaskId Room task the payload belongs to.
 		 * @param {object} data `{ roomTask, room, task, rewards, undone? }`
 		 * @return {?object} Reconciled room task (assignees preserved).
@@ -394,6 +470,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			if (data.roomTask) {
 				const cached = this.roomTasks.find(rt => rt.id === roomTaskId)
 					?? this.dailyTasks.find(item => item.roomTask?.id === roomTaskId)?.roomTask
+					?? this.dueTodayTasks.find(item => item.roomTask?.id === roomTaskId)?.roomTask
+					?? this.overdueTasks.find(item => item.roomTask?.id === roomTaskId)?.roomTask
 				// The aggregate's serialized room task carries no assignee
 				// relation — preserve the cached membership so assignee
 				// chips and the Today "mine" filter survive the reconcile.
@@ -404,6 +482,19 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				this.replaceRoomTaskInState(roomTaskId, reconciled)
 			}
 
+			// CS-PLAN-066 §3.2: the returned definition belongs to the
+			// definitions store — merged by its separate ID, never left
+			// stale in useTasksStore.
+			if (data.task?.id) {
+				const tasksStore = useTasksStore()
+				const taskIndex = tasksStore.tasks.findIndex(t => t.id === data.task.id)
+				if (taskIndex >= 0) {
+					tasksStore.tasks[taskIndex] = data.task
+				} else {
+					tasksStore.tasks.push(data.task)
+				}
+			}
+
 			if (data.room) {
 				useRoomsStore().reconcileRoom(data.room)
 			}
@@ -411,7 +502,11 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			const rewards = data.rewards
 			if (rewards) {
 				if (rewards.weeklyGoal) {
-					useGameStore().setWeeklyGoal(rewards.weeklyGoal)
+					// CS-PLAN-066 (D5): a completion response is a confirmed
+					// transition — it may celebrate, but only a same-week
+					// false→true flip after hydration (the game store tracks
+					// week identity).
+					useGameStore().setWeeklyGoal(rewards.weeklyGoal, { celebrateOnTransition: true })
 				}
 
 				// The totals describe the COMPLETER (ADR-011); a completion's
@@ -449,6 +544,16 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					roomTask,
 				}
 			}
+
+			for (const slice of ['dueTodayTasks', 'overdueTasks']) {
+				const sliceIndex = this[slice].findIndex(item => item.roomTask?.id === roomTaskId)
+				if (sliceIndex >= 0) {
+					this[slice][sliceIndex] = {
+						...this[slice][sliceIndex],
+						roomTask,
+					}
+				}
+			}
 		},
 
 		/**
@@ -456,61 +561,159 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @param {number} roomTaskId Room task identifier to delete.
 		 */
 		async deleteRoomTask(roomTaskId) {
-			this.loading = true
+			this._beginRead()
 			this.error = null
 
 			try {
 				await api.delete(`/api/v1/room-tasks/${roomTaskId}`)
 
 				this.roomTasks = this.roomTasks.filter(rt => rt.id !== roomTaskId)
+				this.dailyTasks = this.dailyTasks.filter(item => item.roomTask?.id !== roomTaskId)
+				this.dueTodayTasks = this.dueTodayTasks.filter(item => item.roomTask?.id !== roomTaskId)
+				this.overdueTasks = this.overdueTasks.filter(item => item.roomTask?.id !== roomTaskId)
+				this.onInstanceMutated()
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to delete room task', error, { store: 'roomTasks', action: 'deleteRoomTask', roomTaskId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
 		/**
-		 * Get overdue tasks
+		 * Get overdue tasks (complete viewer-visible projection, CS-PLAN-066
+		 * D2). Rows are enriched `{roomTask, task, room, assignees}` and the
+		 * result is STORED — counters and Today rows read this slice.
 		 * @param {?number} roomId Optional room identifier for filtering.
 		 */
 		async fetchOverdueTasks(roomId = null) {
-			this.loading = true
+			const seq = ++this.overdueRequestSeq
+			this._beginRead()
 			this.error = null
 
 			try {
 				const config = roomId ? { params: { roomId } } : {}
 				const data = await api.get('/api/v1/room-tasks/overdue', config)
+
+				if (seq !== this.overdueRequestSeq) {
+					logger.debug('Dropping superseded overdue read', { store: 'roomTasks', action: 'fetchOverdueTasks', roomId })
+					return this.overdueTasks
+				}
+
+				this.overdueTasks = data
+				this.overdueLoaded = true
+				this.overdueStale = false
 				return data
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.overdueRequestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch overdue tasks', error, { store: 'roomTasks', action: 'fetchOverdueTasks', roomId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
 		/**
-		 * Get tasks due today
+		 * Get tasks due today (complete viewer-visible projection, D2).
 		 * @param {?number} roomId Optional room identifier for filtering.
 		 */
 		async fetchDueTodayTasks(roomId = null) {
-			this.loading = true
+			const seq = ++this.dueTodayRequestSeq
+			this._beginRead()
 			this.error = null
 
 			try {
 				const config = roomId ? { params: { roomId } } : {}
 				const data = await api.get('/api/v1/room-tasks/due-today', config)
+
+				if (seq !== this.dueTodayRequestSeq) {
+					logger.debug('Dropping superseded due-today read', { store: 'roomTasks', action: 'fetchDueTodayTasks', roomId })
+					return this.dueTodayTasks
+				}
+
+				this.dueTodayTasks = data
+				this.dueTodayLoaded = true
+				this.dueTodayStale = false
 				return data
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.dueTodayRequestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch due today tasks', error, { store: 'roomTasks', action: 'fetchDueTodayTasks', roomId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
+			}
+		},
+
+		/**
+		 * CS-PLAN-066 §3.2: an accepted instance mutation invalidates every
+		 * loaded derived projection that depends on instance state (counts,
+		 * daily list, range window). Loaded consumers are refreshed by the
+		 * coordinated owner; unloaded ones stay unloaded.
+		 */
+		onInstanceMutated() {
+			if (this.dueTodayLoaded) {
+				this.dueTodayStale = true
+			}
+			if (this.overdueLoaded) {
+				this.overdueStale = true
+			}
+			this.refreshDerivedProjections()
+		},
+
+		/**
+		 * The D3 coordinated derived-refresh owner. Refetches ONLY the
+		 * projections that are currently loaded, exactly once per transition
+		 * (no duplicated event-listener refetches). A failed refresh never
+		 * rejects the already committed mutation: the affected projections
+		 * stay marked stale, `refreshFailed` turns true, and the retry is a
+		 * read-only re-run of this method.
+		 * @return {Promise<boolean>} True when every attempted refresh succeeded.
+		 */
+		async refreshDerivedProjections() {
+			if (this.countsRefreshing) {
+				// A refresh is already in flight for this transition — one
+				// owner per mutation, no duplicate refetches.
+				return true
+			}
+
+			const attempts = []
+			if (this.dueTodayLoaded) {
+				attempts.push(() => this.fetchDueTodayTasks())
+			}
+			if (this.overdueLoaded) {
+				attempts.push(() => this.fetchOverdueTasks())
+			}
+			if (attempts.length === 0) {
+				return true
+			}
+
+			this.countsRefreshing = true
+			try {
+				// Mark the loaded projections stale up front — the fetches
+				// clear their own flag on success, so a FAILED slice stays
+				// stale while succeeded ones turn fresh again.
+				if (this.dueTodayLoaded) {
+					this.dueTodayStale = true
+				}
+				if (this.overdueLoaded) {
+					this.overdueStale = true
+				}
+
+				const results = await Promise.all(attempts.map(attempt => attempt().then(
+					() => true,
+					() => false,
+				)))
+
+				const failed = results.some(success => !success)
+				this.refreshFailed = failed
+				return !failed
+			} finally {
+				this.countsRefreshing = false
 			}
 		},
 
@@ -519,7 +722,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @param {number} roomId Room identifier to load statistics for.
 		 */
 		async fetchRoomTaskStats(roomId) {
-			this.loading = true
+			this._beginRead()
 			this.error = null
 
 			try {
@@ -530,14 +733,16 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				logger.error('Failed to fetch room task stats', error, { store: 'roomTasks', action: 'fetchRoomTaskStats', roomId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
 		/**
 		 * Bulk assign tasks to one house member in a single call
 		 * (CR-SVC-61). Foreign/missing ids are skipped server-side; the
-		 * response carries only the successfully assigned room tasks.
+		 * response carries only the successfully assigned room tasks WITH
+		 * their canonical persisted assignee sets (CS-PLAN-066 D1) — the
+		 * client reconciles returned successes, never the requested set.
 		 * @param {Array<number>} roomTaskIds Room task identifiers to assign.
 		 * @param {string} userId User identifier receiving assignments.
 		 * @return {Promise<Array<object>>} The assigned room tasks (input order).
@@ -550,7 +755,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				throw new Error('Room task IDs must be an array')
 			}
 
-			this.loading = true
+			this._beginRead()
 			this.error = null
 
 			try {
@@ -561,9 +766,10 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				for (const roomTask of assigned || []) {
 					this.replaceRoomTaskInState(roomTask.id, {
 						...roomTask,
-						assignees: [...new Set([...(roomTask.assignees || []), userId])],
+						assignees: roomTask.assignees || [],
 					})
 				}
+				this.onInstanceMutated()
 
 				return assigned || []
 			} catch (error) {
@@ -571,7 +777,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				logger.error('Failed to bulk assign tasks', error, { store: 'roomTasks', action: 'bulkAssignTasks', userId })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
@@ -582,7 +788,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * @return {Promise<Array>} Filtered daily tasks with task and room details.
 		 */
 		async fetchFilteredDailyTasks() {
-			this.loading = true
+			this._beginRead()
 			this.error = null
 
 			// CS-PLAN-065 §3.4: only the latest request may land — a stale
@@ -603,11 +809,13 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				this.dailyTasks = data
 				return data
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.dailyRequestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch filtered daily tasks', error, { store: 'roomTasks', action: 'fetchFilteredDailyTasks' })
 				throw error
 			} finally {
-				this.loading = false
+				this._endRead()
 			}
 		},
 
@@ -641,7 +849,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				this.rangeTasks = { scheduled: data.scheduled, completed: data.completed, from, to }
 				return data
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.rangeRequestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch range tasks', error, { store: 'roomTasks', action: 'fetchRangeTasks' })
 				throw error
 			}
@@ -653,13 +863,26 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		reset() {
 			this.roomTasks = []
 			this.loading = false
+			this.pendingReads = 0
 			this.error = null
 			this.rangeTasks = { scheduled: [], completed: [], from: null, to: null }
 			this.dailyTasks = []
+			this.dueTodayTasks = []
+			this.overdueTasks = []
+			this.dueTodayLoaded = false
+			this.overdueLoaded = false
+			this.dueTodayStale = false
+			this.overdueStale = false
+			this.refreshFailed = false
+			this.countsRefreshing = false
+			this.roomRequestSeqs = {}
 			// Invalidate in-flight reads so a stale response cannot land
 			// after the reset (house/user change).
 			this.dailyRequestSeq++
 			this.rangeRequestSeq++
+			this.dueTodayRequestSeq++
+			this.overdueRequestSeq++
+			this.assigneesRequestSeq++
 		},
 	},
 })

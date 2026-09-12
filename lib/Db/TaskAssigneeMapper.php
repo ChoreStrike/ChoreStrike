@@ -50,7 +50,10 @@ class TaskAssigneeMapper extends QBMapper {
 
 		$qb->select('user_id')
 			->from($this->getTableName())
-			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			// CS-PLAN-066 (D1): the public assignee arrays are deterministically
+			// ordered — same ids in the same order on every response.
+			->orderBy('user_id', 'ASC');
 
 		$result = $qb->executeQuery();
 		$userIds = [];
@@ -77,7 +80,11 @@ class TaskAssigneeMapper extends QBMapper {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('room_task_id', 'user_id')
 			->from($this->getTableName())
-			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)));
+			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			// CS-PLAN-066 (D1): deterministic per-task ordering — the
+			// canonical row order `room_task_id, user_id` on every read.
+			->orderBy('room_task_id', 'ASC')
+			->addOrderBy('user_id', 'ASC');
 
 		$res = $qb->executeQuery();
 		while ($row = $res->fetch()) {

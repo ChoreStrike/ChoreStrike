@@ -410,6 +410,42 @@ one concern. The canonical store boundaries (post-CS-PLAN-008):
 - **`useRoomTasksStore`** — the sole owner of room-task state, derived getters,
   and all room-task mutations (assign, complete, deactivate, …).
 
+### Client-State Contract (CS-PLAN-066 §3.2/§3.3)
+
+Every read/mutation in the core stores follows one canonical pattern so a
+stale response can never win and a committed write is never misreported:
+
+- **Request generations, scoped per resource/query.** Each fetch increments a
+  generation (`requestSeq`, or a per-room map for room-scoped loads) and only
+  the result of the CURRENT generation may land. A global counter is never
+  shared across sibling resources (two parallel room loads must both succeed).
+  `reset()` bumps every generation BEFORE clearing, so an in-flight response
+  cannot repopulate identity/state after a house or user change.
+- **Shared loading is refcounted.** `pendingReads` backs the shared `loading`
+  flag; only the LAST in-flight read clears it (a stale finally can never
+  clear a newer request's loading state).
+- **Accepted mutations invalidate pre-mutation reads** of their slice
+  (bump the generation) and land the authoritative response.
+- **Count projections are endpoint-backed.** Dashboard counters read dedicated
+  `dueTodayTasks` / `overdueTasks` slices holding complete viewer-visible
+  endpoint results (D2) — scoped room loads and the child-limited daily list
+  can never masquerade as count sources.
+- **Coordinated derived refresh (D3).** After an accepted instance mutation,
+  the owning store refreshes ONLY the loaded derived projections, exactly once
+  per transition. A refresh failure never fails the committed action: failed
+  slices stay marked stale, `refreshFailed` turns on, and the retry is a
+  read-only re-run (no write replay). Views may surface a refresh-only retry
+  banner (TodayView) — never a write replay.
+- **Reconcile-before-events (D10).** Completion/undo reconcile every owning
+  store (instances, definitions, rooms, game/user/wallet) from the one
+  authoritative payload BEFORE any celebration event fires; the title unlock
+  re-syncs the titles store before the event and fires at most once per
+  response (`rewards.newTitle`, explicit and nullable).
+- **Weekly-goal celebration suppression (D5).** The game store tracks the
+  hydrated week identity; celebrations fire only for a same-week false→true
+  transition on a CONFIRMED completion response — first load, remount,
+  unchanged refetch, week rollover and undo hydrate silently.
+
 ### Store Structure
 
 #### `useHouseStore`

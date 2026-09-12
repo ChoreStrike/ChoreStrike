@@ -849,11 +849,13 @@ export default {
 
 .wizard-footer { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
-.primary-button { background: var(--color-primary); color: white; border: none; border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; }
+/* §3.4 touch targets: primary/secondary actions stay ≥44px tall at every
+   viewport, including the mobile wizard journey. */
+.primary-button { background: var(--color-primary); color: white; border: none; border-radius: 8px; padding: 0.5rem 1rem; min-height: 44px; cursor: pointer; }
 
 .primary-button:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.secondary-button { background: transparent; border: 1px solid var(--color-border); border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; }
+.secondary-button { background: transparent; border: 1px solid var(--color-border); border-radius: 8px; padding: 0.5rem 1rem; min-height: 44px; cursor: pointer; }
 
 .invite-hint { color: var(--color-text-maxcontrast); font-size: 0.85rem; margin: 0; }
 

@@ -342,6 +342,12 @@ class CompletionService {
 			'comboBonusFreeze' => $gameResult['comboBonusFreeze'] ?? false,
 			'teamworkBonus' => $gameResult['teamworkBonus'] ?? 0,
 			'weeklyGoal' => $weeklyGoal,
+			// CS-PLAN-066 §3.4: the computed unlock travels with the
+			// successful completion response — explicit nullable so a
+			// post-commit notification failure can never erase an already
+			// computed unlock (decision D7 degrade boundary). Undo carries
+			// no newTitle (ADR-011 title policy: undo emits no unlock).
+			'newTitle' => $gameResult['newTitle'] ?? null,
 			// Decision D10: authoritative totals so owning stores reconcile
 			// without client-side arithmetic.
 			'totalCoins' => $gameResult['totalCoins'],

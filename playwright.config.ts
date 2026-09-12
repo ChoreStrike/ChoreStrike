@@ -63,6 +63,11 @@ const SEED_DEPENDENT_SPECS = [
 	// profile (reset only) and bootstraps a fresh owner — any parallel spec
 	// seeing that wiped state would lose its seed — serial pool only.
 	/[/\\]setup-wizard-journey\.spec\.ts$/,
+	// CS-PLAN-066: both WP7 exit specs complete seeded tasks and (family-
+	// core-ux) create/edit tasks through the real HTTP boundary — they also
+	// assert derived projections that any parallel reseed would corrupt.
+	/[/\\]family-core-ux\.spec\.ts$/,
+	/[/\\]workflow-state-reconciliation\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

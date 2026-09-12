@@ -207,4 +207,52 @@ test.describe('Setup wizard journey (empty house)', () => {
 			await context.close()
 		}
 	})
+
+	test('the wizard completes on a mobile touch viewport with keyboard-reachable controls (CS-PLAN-066 §3.5)', async ({ browser, seededData }) => {
+		// The seededData fixture reset the DB again — a fresh empty house.
+		expect(seededData).not.toBeNull()
+
+		const { context, page } = await createUserContext(browser, 'mom', {
+			viewport: { width: 390, height: 844 },
+			hasTouch: true,
+		})
+		try {
+			await page.goto('/apps/chorestrike/')
+			await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+			const wizard = page.getByTestId('setup-wizard')
+			await expect(wizard).toBeVisible()
+
+			// Step 1 via touch: the primary controls stay ≥44px tall on
+			// mobile (§3.4 touch targets).
+			await page.getByTestId('wizard-house-name').fill('Mobile Home')
+			await page.getByTestId('wizard-floor-count').fill('1')
+			await page.getByTestId('wizard-rooms-per-floor').fill('1')
+			const nextButton = page.getByTestId('wizard-next')
+			const box = await nextButton.boundingBox()
+			expect(box).not.toBeNull()
+			expect(box!.height).toBeGreaterThanOrEqual(44)
+			await nextButton.tap()
+
+			// Step 2 → preview: keyboard-operable next (Enter on focused
+			// button fires it — the wizard has no drag-only affordances).
+			await page.getByTestId('wizard-step-rooms').waitFor({ state: 'visible' })
+			await nextButton.focus()
+			await page.keyboard.press('Enter')
+			await page.getByTestId('wizard-step-preview').waitFor({ state: 'visible' })
+
+			// Apply + finish via touch.
+			await page.getByTestId('wizard-apply').tap()
+			await page.getByTestId('wizard-step-invite').waitFor({ state: 'visible' })
+			await page.getByTestId('wizard-finish').tap()
+
+			await expect(wizard).toHaveCount(0)
+			await expect(page.getByTestId('floor-list')).toBeVisible()
+
+			const houseResponse = await page.request.get('/apps/chorestrike/api/v1/house')
+			const houseBody = await houseResponse.json()
+			expect(houseBody.data.name).toBe('Mobile Home')
+		} finally {
+			await context.close()
+		}
+	})
 })

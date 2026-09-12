@@ -1,6 +1,6 @@
 # CS-PLAN-066: WP7 - Canonical Client State and Family-Friendly Core UX
 
-> **Status:** Active (drafted 2026-09-11; Standard A `PASS-WITH-FIXES` 2026-09-11, D1-D7 ratified as recommended; implementation not started)
+> **Status:** Done (drafted 2026-09-11; Standard A `PASS-WITH-FIXES` 2026-09-11, D1-D7 ratified as recommended; implemented 2026-09-12 steps 2-8; final Standard B `PASS-WITH-FIXES` 2026-09-12 — all findings fixed in round, full §4.4 gate rerun green, plan moved to `done/`)
 > **Effort:** XL (one sequential package with reviewable implementation slices)
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP6 complete; [CS-PLAN-065](../done/cs-plan-065-wp6-actionable-scheduling.md) final Standard B `PASS`; scope decisions D6/D7 ratified 2026-09-11
@@ -296,45 +296,37 @@ claimed execution evidence.
 ## 5. File Manifest
 
 Expected implementation surface below; brace groups enumerate files, not a license
-to edit whole directories. Prefer extending existing tests. Before implementation,
-confirm the producer/consumer inventory and narrow optional entries; any additional
-file requires a plan update. No files are archived or production code changed by
-draft creation.
+to edit whole directories. Prefer extending existing tests. The draft surface
+was narrowed to the ACTUAL final surface during implementation (2026-09-12
+final-review update): optional entries that stayed untouched were dropped and
+every additional file the implementation touched was added, so this manifest
+now matches the reviewed diff exactly.
 
 ```text
-new:      docs/plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md
 new:      tests/e2e/{family-core-ux,workflow-state-reconciliation}.spec.ts
-new:      tests/unit/services/coreWorkflowLocalization.spec.js
-modified: lib/Controller/RoomTaskController.php
-modified: lib/Service/{RoomTaskService,CompletionService,SchedulePlanService}.php
-modified: lib/Controller/TaskController.php (D6 only)
-modified: src/{App.vue,router.js,router.spec.js}
-modified: src/store/{house,user,userAutoInit,rooms,tasks,roomTasks,checklist,scheduling,game,titles,minigame,setup}.js
-modified: src/views/{Dashboard,TaskManager,RoomDetail,TodayView,CalendarView,SchedulingView,Settings}.vue
-modified: src/components/Dashboard/{QuickStats,HouseHealthBar}.vue
-modified: src/components/Tasks/{TaskList,TaskEditForm,TaskChecklist}.vue
-modified: src/components/Setup/SetupWizard.vue
-modified: src/components/Members/MemberList.vue
-modified: src/components/Common/UndoSnackbar.vue (only if focus/status integration needs changes)
-modified: src/components/Scheduling/{SchedulePlanner,AvailabilityEditModal}.vue (only core copy/recovery/a11y gaps)
-modified: src/services/api.js (only if transport changes are required by the pinned contract)
-modified: tests/unit/Controller/{RoomTaskControllerTest,UserControllerTest,HouseControllerTest,SchedulingControllerTest,TaskControllerTest}.php
-modified: tests/unit/Service/{RoomTaskServiceTest,CompletionServiceTest,SchedulePlanServiceTest}.php
-modified: tests/integration/Controller/{RoomTaskControllerIntegrationTest,UserControllerIntegrationTest,HouseControllerIntegrationTest}.php
-modified: tests/integration/Service/{CompletionUndoStateEqualityTest,SchedulePlanAggregateTest}.php
-modified: tests/unit/store/{apiContract,house,user,rooms,tasks,roomTasks,checklist,scheduling,game,titles,minigame,setup}.spec.js
-modified: tests/unit/components/{App,QuickStats,HouseHealthBar,TodayView,TaskList,TaskEditForm,TaskChecklist,SetupWizard,MemberList,CalendarView,SchedulingView,UndoSnackbar}.spec.js
-modified: tests/unit/views/{Dashboard,TaskManager,RoomDetail,Settings}.spec.js
-modified: tests/unit/services/api.spec.js
-modified: tests/unit/composables/useCelebration.spec.js
-modified: tests/e2e/{setup-wizard-journey,3-floor-house,scheduling-apply-flow,today-view,task-completion-full-flow}.spec.ts
+new:      tests/unit/{router.spec.js,services/coreWorkflowLocalization.spec.js}
+modified: lib/Controller/{RoomTaskController,TaskController}.php (TaskController: D6 only)
+modified: lib/Db/TaskAssigneeMapper.php (D1 deterministic ordering)
+modified: lib/Service/{RoomTaskService,CompletionService}.php (SchedulePlanService narrowed out)
+modified: src/{App.vue,router.js}
+modified: src/store/{house,user,rooms,tasks,roomTasks,titles,game,minigame}.js
+modified: src/views/{Dashboard,TaskManager,RoomDetail,TodayView}.vue
+modified: src/components/{Minigames/SnakeGame,Setup/SetupWizard,Tasks/TaskList}.vue
 modified: playwright.config.ts
+modified: tests/e2e/{setup-wizard-journey,scheduling-apply-flow,task-completion-full-flow,error-handling,validation,multi-user-interactions,room-management,time-travel-overdue}.spec.ts
+modified: tests/unit/Controller/{RoomTaskControllerTest,TaskControllerTest}.php
+modified: tests/unit/Service/{CompletionServiceTest,SchedulePlanServiceTest}.php (SchedulePlanServiceTest: WP6 date-bomb gate fix)
+modified: tests/integration/Controller/TaskControllerIntegrationTest.php (D6 binding)
+modified: tests/unit/{setup.js,__mocks__/nextcloud-router.js} (router factory mocks for D4)
+modified: tests/unit/store/{roomTasks,user,house,game,minigame}.spec.js
+modified: tests/unit/components/{App,QuickStats,TaskList,TodayView}.spec.js
+modified: tests/unit/views/TaskManager.spec.js
 modified: l10n/{en.json,de.json,templates/chorestrike.pot}
 modified: docs/api/README.md
-modified: docs/engineering/{architecture,testing}.md
+modified: docs/engineering/architecture.md
 modified: docs/concepts/ui-use-cases.md
-modified: docs/standards/guidelines/design.md
-modified: docs/plans/{README.md,active/cs-plan-058-core-workflow-bottom-up-masterplan.md}
+modified: docs/plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md
+modified: docs/plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md
 modified: docs/backlog/{backlog.md,ACTIVE_TASKS.md,archive/2026-09.md}
 ```
 
@@ -387,25 +379,32 @@ architecture decision requires an explicit ADR/manifest addition before closure.
 ## 8. Acceptance Criteria
 
 - [x] D1-D7 answered and recorded; BUG-API-001 and CR-053-13 prerequisite ownership resolved without duplicate backlog items or a circular WP7/WP9 dependency. (Ratified in the Standard A review 2026-09-11: D6 adopts BUG-API-001 under its existing ID; D7 ratifies the WP7 core-surface slice of CR-053-13 with the global remainder in WP9.)
-- [ ] Every changed response has one documented shape; definitions/instances, membership IDs and Nextcloud user IDs remain distinct; all requests use `api.js`.
-- [ ] Due/overdue counts are correct on a cold Dashboard and after every relevant mutation; limited daily and scoped-room lists cannot overwrite complete count sources.
-- [ ] Complete/undo/apply reconcile response-owned state before events and refresh/invalidate all affected loaded projections without reload; refresh failure never replays or misreports a committed write.
-- [ ] Old successes, errors and finalizers cannot overwrite newer navigation/mutation/reset/identity state; valid parallel scoped loads still succeed.
-- [ ] Title unlock reaches the existing event without equipping a title or changing undo policy; hydration/remount/undo does not invent weekly-goal achievements.
-- [ ] Invitation retries/refetches cannot duplicate member rows; minigame initialization settles loading and supports recovery on failure; historical range fixes are regression-proven.
-- [ ] Owner/member/child controls match service permissions; initial child root opens shared My Day while explicit permitted links remain usable.
-- [ ] My Day provides room, instructions, optional executable checklist, clear Done and reversible feedback; server visibility/availability/child limits remain authoritative.
-- [ ] Core setup/create/edit/schedule/execution is usable without understanding reward formulas, with preserved form input and explicit loading/empty/error/offline/recovery states.
-- [ ] Core actions meet keyboard, accessible-name, visible-focus, focus-restoration, 44 x 44 px target, mobile overflow and reduced-motion requirements; manual copy/screen-reader checks recorded.
-- [ ] WP7 reachable copy and accessible labels are localized in EN/DE with matching POT/JSON keys/placeholders; the unresolved global CR-053-13 remainder does not hide a core gap.
-- [ ] Section 4 backend/Jest/real-HTTP/E2E matrix passes, including all role/viewport cases, with zero newly skipped or deferred required tests; full quality gate green after final changes.
-- [ ] Durable API, architecture, use-case/design and testing documentation integrated outside this temporary plan.
-- [ ] CR-WF-04/08 and CR-053-20 remaining criteria resolved with evidence; completed items archived immediately, partial CR-053-13 remainder retained with exact ownership.
-- [ ] All plan-owned findings resolved or explicitly user-rescoped; final Standard B `PASS` or `PASS-WITH-FIXES`, tracking updated, only then WP7 complete and WP8 eligible.
+- [x] Every changed response has one documented shape; definitions/instances, membership IDs and Nextcloud user IDs remain distinct; all requests use `api.js`. (Enriched due/overdue rows, user-ID assignee arrays, explicit `rewards.newTitle`, bulk-assign embedded sets — documented in `docs/api/README.md`.)
+- [x] Due/overdue counts are correct on a cold Dashboard and after every relevant mutation; limited daily and scoped-room lists cannot overwrite complete count sources. (D2 dedicated projections + per-room generation guards; pinned in `roomTasks.spec.js`, `QuickStats.spec.js`, `family-core-ux.spec.ts`.)
+- [x] Complete/undo/apply reconcile response-owned state before events and refresh/invalidate all affected loaded projections without reload; refresh failure never replays or misreports a committed write. (D10 reconcile-before-events + D3 coordinated derived refresh; pinned by `roomTasks.spec.js` D3 block and `workflow-state-reconciliation.spec.ts`.)
+- [x] Old successes, errors and finalizers cannot overwrite newer navigation/mutation/reset/identity state; valid parallel scoped loads still succeed. (Scoped request generations + reset invalidation + refcounted shared loading across house/user/tasks/rooms/roomTasks; sibling-load and reset-during-fetch tests.)
+- [x] Title unlock reaches the existing event without equipping a title or changing undo policy; hydration/remount/undo does not invent weekly-goal achievements. (`rewards.newTitle` passthrough + titles-store re-sync before the once-per-response event; D5 week-identity celebration suppression.)
+- [x] Invitation retries/refetches cannot duplicate member rows; minigame initialization settles loading and supports recovery on failure; historical range fixes are regression-proven. (Stable-id member upserts; aggregate try/finally initialize; daily/range/counts generation tests carried forward from WP6.)
+- [x] Owner/member/child controls match service permissions; initial child root opens shared My Day while explicit permitted links remain usable. (TaskList child checkboxes hidden; `landingRouteForRole` + App.vue one-shot redirect; deep-link and owner/member-default tests.)
+- [x] My Day provides room, instructions, optional executable checklist, clear Done and reversible feedback; server visibility/availability/child limits remain authoritative. (TodayView selector rework; instructions fallback chain; execute-only checklist; queued undo.)
+- [x] Core setup/create/edit/schedule/execution is usable without understanding reward formulas, with preserved form input and explicit loading/empty/error/offline/recovery states. (TaskManager/RoomDetail error+retry states, visible mutation-failure toasts, edit-modal input retention; `docs/concepts/ui-use-cases.md` UC-08 updated.)
+- [x] Core actions meet keyboard, accessible-name, visible-focus, focus-restoration, 44 x 44 px target, mobile overflow and reduced-motion requirements; manual copy/screen-reader checks recorded. *(Reduced-motion/labels/focus largely delivered by WP5/WP6 and re-verified by the existing specs; the mobile/44px gaps found in WP7 surfaces (wizard buttons) were fixed and the My Day checklist/tap journeys pinned. Manual child-persona copy/screen-reader pass performed and recorded in the final Standard B review round 2026-09-12 — user report verbatim: "Funktioniert, was auffällt: 'Checklist' hat 0/0, lässt sich aber anklicken (und verschwindet gleich wieder). Der Button sollte inaktiv sein." — the one finding was fixed in that review round.)*
+- [x] WP7 reachable copy and accessible labels are localized in EN/DE with matching POT/JSON keys/placeholders; the unresolved global CR-053-13 remainder does not hide a core gap. (99-key core slice added to en/de/POT; `coreWorkflowLocalization.spec.js` source-coverage guard; CR-053-13 remainder owned by WP9.)
+- [x] Section 4 backend/Jest/real-HTTP/E2E matrix passes, including all role/viewport cases, with zero newly skipped or deferred required tests; full quality gate green after final changes. (PHPUnit unit 916 green + integration green; Jest 895+ green; eslint/stylelint/build/l10n checks green; chromium-serial-db 108 passed + chromium-scheduling-owner 10 passed; the 5 skips are the pre-existing conditional GameController-integration skips.)
+- [x] Durable API, architecture, use-case/design and testing documentation integrated outside this temporary plan. (`docs/api/README.md` payload matrix + D6 body shape; `docs/engineering/architecture.md` client-state contract; `docs/concepts/ui-use-cases.md` UC-08.)
+- [x] CR-WF-04/08 and CR-053-20 remaining criteria resolved with evidence; completed items archived immediately, partial CR-053-13 remainder retained with exact ownership. (All three backlog entries updated with per-criterion evidence; CR-053-13 remainder explicitly WP9-owned; archive moves land with the WP7 review transition.)
+- [x] All plan-owned findings resolved or explicitly user-rescoped; final Standard B `PASS` or `PASS-WITH-FIXES`, tracking updated, only then WP7 complete and WP8 eligible. *(Final Standard B `PASS-WITH-FIXES` 2026-09-12: four review findings fixed in round, one resolved observation, full §4.4 gate rerun green — see `## Review Outcome`.)*
 
 ## 9. Review Findings (plan-owned)
 
 - [x] nit · §5 File Manifest · manifest self-path referenced `docs/plans/new/` and would go stale on the `new/ → active/` move · **fixed in Standard A review 2026-09-11** (path updated to `docs/plans/active/`).
+- [x] minor · `SchedulePlanServiceTest::testPreview_StaticWeeklyTask_MovesOnlyOntoConfiguredWeekday` · date-bomb: expected "next saturday" hardcoded, failing on any Saturday run (found in the 2026-09-12 gate run; pre-existing, scheduling domain = WP6 scope but blocks the shared build gate) · **fixed in this round**: the expectation now resolves to today when today IS Saturday (date-independent, same legal-slot intent); scope-first fix-now per Finding Routing step 1.
+- [x] minor · `tests/e2e/task-completion-full-flow.spec.ts` + `error-handling/validation/multi-user-interactions/room-management/scheduling-apply-flow` specs · child bare-root visits asserted `dashboard-view` · **updated in this round**: D4 landing made the redirect the expected behavior; specs now assert today-view first (explicit Dashboard navigation preserved where room cards are needed).
+- [x] minor · `src/views/TodayView.vue` · the WP7 edit dropped the `@license MIT` line from the copyright header · **fixed in final review 2026-09-12** (line restored).
+- [x] minor · `tests/unit/Controller/TaskControllerTest.php` · 62 mixed CRLF line endings on the added lines made `composer cs:check` red (1 of 284 files) · **fixed in final review 2026-09-12** (LF normalized; `cs:check` + unit suite rerun green).
+- [x] minor · plan §5 File Manifest · drifted from the actual surface: 10 additional changed files unlisted (`TaskAssigneeMapper.php`, `SnakeGame.vue`, 5 D4-affected e2e specs, `TaskControllerIntegrationTest.php`, `nextcloud-router.js` mock, `tests/unit/setup.js`), `router.spec.js` path wrong, optional entries not narrowed · **fixed in final review 2026-09-12** (manifest rewritten to the reviewed diff).
+- [x] minor · TodayView checklist toggle (manual a11y pass, user 2026-09-12) · on checklist-less rows the toggle was clickable, flashed open, and collapsed again — "Der Button sollte inaktiv sein" · **fixed in final review 2026-09-12**: the toggle is hidden after the one-shot empty discovery (a disabled state would need a server-side presence flag the frozen payloads do not carry); regression test added (`TodayView.spec.js`, Jest now 896).
+- [x] minor (observation, resolved) · `tests/e2e/room-management.spec.ts` in the extended `chromium-serial-db` pool · two different tests flaked-and-passed-on-retry across two full runs (owner room-delete, member structure controls); isolated re-runs green; full-pool re-run 108 passed / 0 flaky · **load-sensitive timing, no deterministic defect identified; no code change** — evidence recorded in the Review Outcome.
 
 Findings discovered during implementation/review belong here when in WP7 scope;
 out-of-scope issues fold into an existing backlog item or receive their own item
@@ -421,3 +420,28 @@ under the scope-first rule.
 - **Decisions:** D1-D7 batched in one structured request and ratified as recommended (user answers 2026-09-11): D1 user-ID arrays; D2 store projections; D3 retain WP5 + coordinated refresh; D4 redirect initial child root only; D5 confirmed transitions only; D6 adopt BUG-API-001 as WP7 prerequisite; D7 ratify WP7 core-surface translation slice of CR-053-13.
 - **Fixes:** one nit — manifest self-path updated for the `active/` location (§9). Status/header, §2.2 ratification, and the first acceptance criterion updated accordingly.
 - **Transition:** `new/ → active/`; CR-WF-04/CR-WF-08 marked In Progress; BUG-API-001 owning updated to the WP7 prerequisite; CR-053-13 annotated with the ratified WP7 core slice; tracking links repointed to `active/`.
+
+## Implementation Record
+
+**2026-09-12 — steps 2-8 implemented (main agent, single session; final review pending):**
+
+- **Step 2 (D6/D7 prerequisites):** `TaskController::update(int $id)` reads the closed payload from `getParams()` minus `id`/`_route` (unit + integration tests adapted; route-internals exclusion pinned); D7 core-slice inventory audited (99 keys) and closed (see step 5).
+- **Step 3 (canonical payloads):** `rewards.newTitle` explicit+nullable in `CompletionService::complete`; due/overdue endpoints return enriched `{roomTask, task, room, assignees}` rows (`RoomTaskService::getDueTodayTaskRows`/`getOverdueTaskRows`, batched enrichment); all public `assignees` fields are unique ordered user-ID arrays (aggregate, set-assignees, bulk-assign embedded sets); `TaskAssigneeMapper` reads carry deterministic `ORDER BY`.
+- **Step 4 (projections/ordering):** dedicated `dueTodayTasks`/`overdueTasks` store projections (D2) with `totalDueTodayTasks`/`totalOverdueTasks` getters; scoped request generations (per-room map), refcounted shared loading, reset invalidation across house/user/tasks/rooms/roomTasks/titles; coordinated derived refresh (D3) with stale flags + read-only retry; definition reconciliation into `useTasksStore`; member-list stable-id upserts.
+- **Step 5 (events/init):** weekly-goal week-identity celebration suppression (D5, hydration silent); title-unlocked event once per response with titles-store re-sync (failure-tolerant); minigame aggregate try/finally initialize with recoverable error propagation; SnakeGame mount guards the failure.
+- **Step 6 (family UX):** child landing via `landingRouteForRole` (router.js) + one-shot App.vue redirect (D4); TodayView rebuilt as store selectors with instructions + execute-only checklist; TaskManager/RoomDetail explicit error/retry states + visible mutation-failure toasts; child row-selection checkboxes hidden; QuickStats counters read the projections; Dashboard loads them on cold mount; wizard buttons ≥44px.
+- **Step 7 (E2E):** new `family-core-ux.spec.ts` (cold Dashboard counts, real-HTTP PUT /tasks/{id} D6 roundtrip, complete→undo reconcile without reload, child landing/deep links, child checklist execution, member mobile 44px) and `workflow-state-reconciliation.spec.ts` (navigation races, superseded slow read, refresh-failure → read-only retry without write replay) registered in the serial pool; scheduling-apply-flow/mobile, wizard mobile journey and the affected role-matrix specs updated for the D4 landing.
+- **Step 8 (docs/gates):** API payload matrix + D6 body shape + newTitle documented; architecture client-state contract section; UC-08 refreshed; backlog CR-WF-04/08 + CR-053-20 resolved with evidence, BUG-API-001 resolved, CR-053-13 slice delivered (remainder WP9); l10n artifacts +99 keys (en/de/POT) with `coreWorkflowLocalization.spec.js` guard.
+- **Gate (2026-09-12):** PHPUnit unit 916 green, integration 315 green (10 pre-existing conditional skips); Jest 895+ green; eslint/stylelint clean (one pre-existing stylelint warning in `NotAuthorizedState.vue`); webpack build green; `l10n:check-keys`, `docs:encoding` green; Playwright chromium-serial-db 108 passed + chromium-scheduling-owner 10 passed (5 pre-existing conditional skips).
+
+## Review Outcome (final)
+
+**Standard B (final code review) — `PASS-WITH-FIXES` — 2026-09-12**
+
+- **Scope:** the complete WP7 implementation package — 59 modified + 4 new files, captured as the uncommitted working tree on `master` at base HEAD `bd085bc` (the Standard A activation commit). Scope fingerprint at capture: empty index (staged diff SHA-256 `E3B0C442…B855`), unstaged binary diff SHA-256 `766AF3CDBEF768A54D593125551028DF4610FA7C2E1B0EC75F422EB5EED55DF8`, untracked files `tests/e2e/family-core-ux.spec.ts` (`47AC05B6…B976`), `tests/e2e/workflow-state-reconciliation.spec.ts` (`51C48861…DAA0F`… full hashes in the review record), `tests/unit/router.spec.js` (`B24B1C2F…6984`), `tests/unit/services/coreWorkflowLocalization.spec.js` (`D35A28A6…D66B`). Owning plan: this file (explicit; unambiguous).
+- **Checks (final Standard B depth):** full §5 manifest ↔ diff reconciliation; acceptance criteria 1-16 verified against code and tests; shared checklist review of backend (D6 request binding, enriched-row enrichment without access broadening, batched reads, D1 deterministic ordering, `rewards.newTitle`), stores (scoped generations, refcounted loading, reset invalidation, D3 refresh owner, D5 week identity, D10 reconcile-before-events, titles invalidate-before-event), views/components (D4 landing one-shot, §3.5 role controls, error/retry states, escaped instructions), l10n artifacts + source-coverage guard, durable docs (api/README payload matrix, architecture client-state contract, UC-08), backlog routing (CR-WF-04/08/CR-053-20 archived with evidence, BUG-API-001 resolved, CR-053-13 partial with WP9 remainder), implementation history (§ Implementation Record) vs the actual diff.
+- **Gates (rerun by this review, after its fixes):** eslint clean; stylelint 0 errors (1 pre-existing documented warning, `NotAuthorizedState.vue`); Jest **896/896** (83 suites; +1 review regression test); `test:noise` green; webpack build green; `l10n:check-keys`, `docs:encoding` (680 files), `backlog:check` (19 files), `git diff --check` green; Docker PHPUnit unit **916 OK / 2715 assertions**, integration **315 OK / 10 pre-existing skips** (baseline unchanged — no new skips); `composer cs:check` **0** (after the review's LF fix); Playwright `chromium` **92 passed / 7 pool-excluded**, `chromium-serial-db --workers=1` **108 passed / 5 pre-existing conditional skips / 0 flaky on the full re-run** (one passing flake observed in `room-management.spec.ts` on the first run — different tests across two runs, all retries green, isolated re-runs green; recorded as a resolved observation in §9), `chromium-scheduling-owner --workers=1` **38 passed**.
+- **Fixes (all in round):** ① `TodayView.vue` `@license MIT` header restored; ② `TaskControllerTest.php` line endings normalized to LF (unblocked `cs:check`); ③ §5 manifest realigned to the actual reviewed surface; ④ manual-a11y finding fixed — the My Day checklist toggle is hidden after the one-shot empty discovery (+ regression test, Jest 896).
+- **Findings:** four minors fixed in round + one resolved observation (serial-pool flake, no deterministic defect) — all recorded resolved in §9; no `block`/`major`/security findings; no workarounds, no suppressed warnings, no newly skipped required tests.
+- **Decisions:** one batched question — the §4.3/criterion-11 manual child-persona copy/screen-reader pass. User chose to perform it now (2026-09-12); report recorded verbatim in criterion 11; its single finding was fixed in round (④). No rescoping was needed.
+- **Transition:** `active/ → done/`; masterplan WP7 marked complete (final review evidence); CR-WF-04/CR-WF-08/CR-053-20/BUG-API-001 archive entries finalized (review-pending notes removed); `ACTIVE_TASKS.md` updated; review record at `docs/backlog/archive/CODE_REVIEW_2026-09-12.md`. WP8 is the next masterplan work package (not started).

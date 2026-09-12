@@ -74,6 +74,7 @@ import { useHouseStore } from '../store/house.js'
 import { useRoomsStore } from '../store/rooms.js'
 import { useGameStore } from '../store/game.js'
 import { useUserStore } from '../store/user.js'
+import { useRoomTasksStore } from '../store/roomTasks.js'
 import { logger } from '../utils/logger.js'
 import Icon from '../components/Common/Icon.vue'
 import ErrorState from '../components/Common/ErrorState.vue'
@@ -103,8 +104,9 @@ export default {
 		const roomsStore = useRoomsStore()
 		const gameStore = useGameStore()
 		const userStore = useUserStore()
+		const roomTasksStore = useRoomTasksStore()
 		const router = useRouter()
-		return { houseStore, roomsStore, gameStore, userStore, router }
+		return { houseStore, roomsStore, gameStore, userStore, roomTasksStore, router }
 	},
 
 	data() {
@@ -135,22 +137,29 @@ export default {
 		t,
 		async initializeDashboard() {
 			this.initError = false
-			// Fetch house, floors, and game state in parallel — they are
-			// independent. The game state call also runs the weekly-goal
-			// computation, so overlapping it with the house/floor fetches
-			// keeps Dashboard mount latency at the slowest call rather than
-			// the sum.
+			// Fetch house, floors, game state, and the due/overdue count
+			// projections in parallel — they are independent. The game state
+			// call also runs the weekly-goal computation, so overlapping it
+			// with the house/floor fetches keeps Dashboard mount latency at
+			// the slowest call rather than the sum.
+			// CS-PLAN-066 (D2): the count projections load on the cold
+			// Dashboard from their own endpoints, so QuickStats counters are
+			// correct without any room visit and a scoped room load or the
+			// child-limited daily list can never masquerade as a count
+			// source.
 			const results = await Promise.allSettled([
 				this.houseStore.fetchHouse(),
 				this.roomsStore.fetchFloorsWithRooms(),
 				this.gameStore.fetchGameState(),
+				this.roomTasksStore.fetchDueTodayTasks(),
+				this.roomTasksStore.fetchOverdueTasks(),
 			])
 
 			// Surface any non-fatal failures to the logger. The Dashboard
 			// renders whatever state the stores currently hold, so a single
 			// failed fetch doesn't break the others — but if everything
 			// failed there is nothing to render (ErrorState + retry).
-			const labels = ['fetchHouse', 'fetchFloorsWithRooms', 'fetchGameState']
+			const labels = ['fetchHouse', 'fetchFloorsWithRooms', 'fetchGameState', 'fetchDueTodayTasks', 'fetchOverdueTasks']
 			let failures = 0
 			results.forEach((result, index) => {
 				if (result.status === 'rejected') {

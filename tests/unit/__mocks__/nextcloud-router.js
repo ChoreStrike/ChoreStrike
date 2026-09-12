@@ -1,3 +1,6 @@
+
+export const generateUrl = jest.fn((path) => '/index.php' + path)
+
 export default {
   currentRoute: {
     name: '',

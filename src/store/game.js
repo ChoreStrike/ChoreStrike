@@ -32,6 +32,12 @@ export const useGameStore = defineStore('game', {
 				weekEnd: null,
 			},
 		},
+		// CS-PLAN-066 (D5): week identity of the last hydrated weekly-goal
+		// snapshot. A celebration is only allowed for a SAME-WEEK
+		// false→true transition on a confirmed completion response — first
+		// load, remount, unchanged refetch and week rollover hydrate
+		// silently because the week is new or unchanged-but-already-known.
+		weeklyGoalWeek: null,
 		celebrations: [],
 	}),
 
@@ -59,16 +65,11 @@ export const useGameStore = defineStore('game', {
 
 				this.gameState = data
 
+				// CS-PLAN-066 (D5): hydration — silent. First load, Dashboard
+				// remount, unchanged refetch and week rollover store the
+				// snapshot without manufacturing an achievement.
 				if (data?.weeklyGoal) {
-					const previousAchieved = this.householdProgress.weeklyGoal?.achieved === true
 					this.setWeeklyGoal(data.weeklyGoal)
-
-					if (!previousAchieved && this.householdProgress.weeklyGoal.achieved) {
-						const last = this.celebrations[this.celebrations.length - 1]
-						if (last && last.type === 'weekly_goal_achieved') {
-							last.dismissed = true
-						}
-					}
 				}
 			} catch (error) {
 				this.error = error.message
@@ -140,23 +141,32 @@ export const useGameStore = defineStore('game', {
 		/**
 		 * Replace the weekly goal snapshot from a server payload.
 		 *
-		 * Source: GameController#state (`gameState.weeklyGoal`) or
-		 * CompletionService complete/undo rewards (`rewards.weeklyGoal`). On
-		 * the not-achieved → achieved transition the store emits
-		 * `chorestrike:weekly-goal-reached` so the celebration composable can
-		 * fire confetti + sound. Detecting the transition here (rather than in
-		 * the backend) keeps the server stateless about who has already seen
-		 * the celebration.
+		 * Source: GameController#state (`gameState.weeklyGoal`, hydration —
+		 * silent) or CompletionService complete rewards
+		 * (`rewards.weeklyGoal`, a confirmed transition — may celebrate).
+		 *
+		 * CS-PLAN-066 (D5): a celebration (`chorestrike:weekly-goal-reached`
+		 * + local celebration entry) is emitted ONLY when the caller marks
+		 * the payload as a confirmed completion transition AND a snapshot
+		 * for the SAME week was already hydrated AND it flips achieved
+		 * false→true. Hydration, remount, unchanged refetch, week rollover
+		 * and undo never manufacture an achievement. No new persisted
+		 * reward policy — week identity is client-side initialization state.
 		 *
 		 * @param {object} weeklyGoal Server payload shape:
 		 *   `{ dueCount, completedCount, percent, targetPercent, achieved, weekStart, weekEnd }`
+		 * @param {object} [options] Behavior switches for the caller type.
+		 * @param {boolean} [options.celebrateOnTransition] True only for a
+		 *   confirmed completion response (never a fetch/hydration).
 		 */
-		setWeeklyGoal(weeklyGoal) {
+		setWeeklyGoal(weeklyGoal, { celebrateOnTransition = false } = {}) {
 			if (!weeklyGoal || typeof weeklyGoal !== 'object') {
 				return
 			}
 
 			const previous = this.householdProgress.weeklyGoal
+			const sameWeek = this.weeklyGoalWeek !== null
+				&& this.weeklyGoalWeek === (weeklyGoal.weekStart ?? null)
 			const wasAchieved = previous?.achieved === true
 			const nowAchieved = weeklyGoal.achieved === true
 
@@ -169,8 +179,9 @@ export const useGameStore = defineStore('game', {
 				weekStart: weeklyGoal.weekStart ?? null,
 				weekEnd: weeklyGoal.weekEnd ?? null,
 			}
+			this.weeklyGoalWeek = weeklyGoal.weekStart ?? null
 
-			if (!wasAchieved && nowAchieved) {
+			if (celebrateOnTransition && sameWeek && !wasAchieved && nowAchieved) {
 				this.triggerCelebration('weekly_goal_achieved')
 				emit('chorestrike:weekly-goal-reached', {
 					targetPercent: this.householdProgress.weeklyGoal.targetPercent,
@@ -244,6 +255,7 @@ export const useGameStore = defineStore('game', {
 				},
 			}
 			this.celebrations = []
+			this.weeklyGoalWeek = null
 		},
 	},
 })

@@ -27,6 +27,17 @@ interface OverdueRoomTask {
 	isActive?: boolean
 }
 
+/** CS-PLAN-066 (D1): overdue rows are the enriched `{roomTask, …}` shape. */
+const asRoomTask = (row: Record<string, unknown>): OverdueRoomTask => {
+	const roomTask = (row.roomTask ?? row) as OverdueRoomTask
+	return {
+		id: roomTask.id,
+		daysUntilDue: roomTask.daysUntilDue,
+		status: roomTask.status,
+		isActive: roomTask.isActive,
+	}
+}
+
 test.describe('Time-Travel: overdue via seeded past due-date', () => {
 	test.use({ databaseProfile: 'family' })
 
@@ -47,7 +58,7 @@ test.describe('Time-Travel: overdue via seeded past due-date', () => {
 			const body = await response.json()
 			expect(body.success).toBe(true)
 
-			const overdueTasks: OverdueRoomTask[] = body.data || []
+			const overdueTasks: OverdueRoomTask[] = (body.data || []).map(asRoomTask)
 			expect(overdueTasks.length).toBeGreaterThan(0)
 
 			const seededOverdue = overdueTasks.find(task => dadTaskIds.includes(task.id))
@@ -70,7 +81,7 @@ test.describe('Time-Travel: overdue via seeded past due-date', () => {
 			expect(response.status()).toBe(200)
 
 			const body = await response.json()
-			const overdueTasks: OverdueRoomTask[] = body.data || []
+			const overdueTasks: OverdueRoomTask[] = (body.data || []).map(asRoomTask)
 
 			const seededOverdue = overdueTasks.find(task => dadTaskIds.includes(task.id))
 			expect(seededOverdue).toBeDefined()

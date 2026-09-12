@@ -21,6 +21,12 @@ export const useHouseStore = defineStore('house', {
 		activityLoading: false,
 		/** @type {string|null} Error message of the activity fetch */
 		activityError: null,
+		// CS-PLAN-066 §3.3: request generations scoped per resource — a
+		// stale house read can never overwrite newer navigation, mutation,
+		// or health-refresh results, and reset() discards in-flight ones.
+		houseRequestSeq: 0,
+		insightsRequestSeq: 0,
+		activityRequestSeq: 0,
 	}),
 
 	getters: {
@@ -44,14 +50,22 @@ export const useHouseStore = defineStore('house', {
 		 * Fetch current house
 		 */
 		async fetchHouse() {
+			const seq = ++this.houseRequestSeq
 			this.loading = true
 			this.error = null
 
 			try {
 				const data = await api.get('/api/v1/house')
+				if (seq !== this.houseRequestSeq) {
+					logger.debug('Dropping superseded house read', { store: 'house', action: 'fetchHouse' })
+					return this.house
+				}
 				this.house = data
+				return data
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.houseRequestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch house', error, { store: 'house', action: 'fetchHouse' })
 				throw error
 			} finally {
@@ -78,6 +92,9 @@ export const useHouseStore = defineStore('house', {
 					payload.timezone = timezone
 				}
 				const data = await api.put('/api/v1/house', payload)
+				// Accepted mutation invalidates pre-mutation house reads
+				// (CS-PLAN-066 §3.3) — the authoritative response lands.
+				this.houseRequestSeq++
 				this.house = data
 			} catch (error) {
 				this.error = error.message
@@ -93,15 +110,22 @@ export const useHouseStore = defineStore('house', {
 		 * Replaces the never-consumed `fetchHouseStats` wrapper (CS-PLAN-040).
 		 */
 		async fetchInsights() {
+			const seq = ++this.insightsRequestSeq
 			this.loading = true
 			this.error = null
 
 			try {
 				const data = await api.get('/api/v1/house/stats')
+				if (seq !== this.insightsRequestSeq) {
+					logger.debug('Dropping superseded insights read', { store: 'house', action: 'fetchInsights' })
+					return this.insights
+				}
 				this.insights = data
 				return data
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.insightsRequestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to fetch house stats', error, { store: 'house', action: 'fetchInsights' })
 				throw error
 			} finally {
@@ -115,15 +139,22 @@ export const useHouseStore = defineStore('house', {
 		 * @param {number} limit Maximum completions (1-200, default 50).
 		 */
 		async fetchActivity(days = 30, limit = 50) {
+			const seq = ++this.activityRequestSeq
 			this.activityLoading = true
 			this.activityError = null
 
 			try {
 				const data = await api.get('/api/v1/house/activity', { params: { days, limit } })
+				if (seq !== this.activityRequestSeq) {
+					logger.debug('Dropping superseded activity read', { store: 'house', action: 'fetchActivity', days, limit })
+					return data
+				}
 				this.activity = data.completions || []
 				return data
 			} catch (error) {
-				this.activityError = error.message
+				if (seq === this.activityRequestSeq) {
+					this.activityError = error.message
+				}
 				logger.error('Failed to fetch house activity', error, { store: 'house', action: 'fetchActivity', days, limit })
 				throw error
 			} finally {
@@ -132,21 +163,36 @@ export const useHouseStore = defineStore('house', {
 		},
 
 		/**
-		 * Calculate and update house health
+		 * Refresh the server-calculated house health (CS-PLAN-066 §3.2).
+		 *
+		 * The health value is authoritative from the server — never a
+		 * client average of loaded rooms. The refresh shares the house
+		 * generation: a newer full house read (or mutation) discards this
+		 * result, and this refresh can never clobber fresher
+		 * name/timezone fields — it patches ONLY `houseHealth` onto the
+		 * currently loaded house payload.
 		 */
 		async calculateHouseHealth() {
+			const seq = ++this.houseRequestSeq
 			this.loading = true
 			this.error = null
 
 			try {
 				const data = await api.get('/api/v1/house/health')
 
+				if (seq !== this.houseRequestSeq) {
+					logger.debug('Dropping superseded house-health refresh', { store: 'house', action: 'calculateHouseHealth' })
+					return this.house?.houseHealth ?? null
+				}
+
 				if (this.house) {
-					this.house.houseHealth = data.houseHealth
+					this.house = { ...this.house, houseHealth: data.houseHealth }
 				}
 				return data.houseHealth
 			} catch (error) {
-				this.error = error.message
+				if (seq === this.houseRequestSeq) {
+					this.error = error.message
+				}
 				logger.error('Failed to calculate house health', error, { store: 'house', action: 'calculateHouseHealth' })
 				throw error
 			} finally {
@@ -184,6 +230,11 @@ export const useHouseStore = defineStore('house', {
 		 * Reset store state
 		 */
 		reset() {
+			// Invalidate every in-flight read before clearing (CS-PLAN-066
+			// §3.3) — a late success can never land after the reset.
+			this.houseRequestSeq++
+			this.insightsRequestSeq++
+			this.activityRequestSeq++
 			this.house = null
 			this.loading = false
 			this.error = null

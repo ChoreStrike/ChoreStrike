@@ -25,31 +25,20 @@
 > are intentionally sanitized; sensitive technical evidence is excluded from the
 > public repository under the security-disclosure policy.
 
-### [P2] CR-WF-04 — Reconcile daily workflow payloads and client state
-**Status**: In Progress (CS-PLAN-066 activated 2026-09-11; implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: daily workflow
-**Owning**: CS-PLAN-058 WP7 · **Depends on**: — (the actionable-scheduling prerequisite was delivered 2026-09-11 by CS-PLAN-065/WP6; see the monthly archive) · **Blocks**: CR-WF-06 · **Folded-in**: —
-**Source**: Full Review of the core task workflow (2026-09-02)
+### CR-WF-04 / CR-WF-08 (WP7) — Resolved 2026-09-12, archived
 
-**WP7 child plan:** [CS-PLAN-066](../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md)
-defines the payload/projection contract, race/recovery matrix and WP5/WP6 handoff.
-Standard A `PASS-WITH-FIXES` 2026-09-11 (D1-D7 ratified as recommended); no
-acceptance criterion is closed before implementation.
-
-Several live workflow responses and Pinia consumers disagree about authoritative
-state, causing incorrect limits/counts, stale completion feedback, and lost UI
-events.
-
-- [ ] Apply viewer eligibility before child daily limits and use house-local parsing for date-only due dates.
-- [ ] Define canonical enriched payloads for daily tasks, assignees, completion rewards, titles, and invitations. *(Finding folded in from CS-PLAN-064 2026-09-09: the `chorestrike:title-unlocked` client event is dead production — `complete()` never returned the reward engine's computed `newTitle` in its response (pre-existing; preserved unchanged by the plan's contract-freeze scope guard). WP7 payload design must close it.)*
-- [ ] Reconcile room, house, user, game, and task caches after completion and undo. *(Partial — the completion/undo-owned slices (roomTasks/dailyTasks, room cleanliness, game weekly goal, user progression, coin wallet) were reconciled from the one authoritative response by CS-PLAN-064 §3.5 in 2026-09-09; house-health and remaining task-list caches stay WP7.)*
-- [ ] Populate Dashboard due/overdue counters from the slices their fetch actions actually update.
-- [ ] Add contract tests for each backend response, store mutation, and visible result.
+Both WP7 umbrella items (canonical daily workflow payloads/client state;
+family-friendly core journey) were delivered by
+[CS-PLAN-066](../plans/done/cs-plan-066-wp7-canonical-client-state-family-ux.md)
+and moved to [`archive/2026-09.md`](archive/2026-09.md) with their per-criterion
+evidence. The remainders they used to block (CR-WF-06 batching, CR-WF-05
+coverage) stay open below.
 
 ---
 
 ### [P1] CR-WF-05 — Replace weak or skipped core-workflow coverage
 **Status**: Backlog · **Effort**: L · **Layer**: tests · **Journey stage**: test coverage
-**Owning**: CS-PLAN-058 WP9 · **Depends on**: CR-WF-06, CR-WF-08 · **Blocks**: RELEASE-002 · **Folded-in**: —
+**Owning**: CS-PLAN-058 WP9 · **Depends on**: CR-WF-06 · **Blocks**: RELEASE-002 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
 
 Core authorization scenarios remain unconditionally skipped, some completion E2E
@@ -66,7 +55,7 @@ path has no deterministic browser profile.
 
 ### [P2] CR-WF-06 — Batch workflow reads and reduce orchestration hotspots
 **Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: performance
-**Owning**: CS-PLAN-058 WP8 · **Depends on**: CR-WF-04 · **Blocks**: CR-WF-05 · **Folded-in**: —
+**Owning**: CS-PLAN-058 WP8 · **Depends on**: — (the WP7 payload/projection contracts are delivered and frozen — consumable since 2026-09-12) · **Blocks**: CR-WF-05 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
 
 TaskManager and Today perform request-per-room/task fan-out, while the main task
@@ -79,28 +68,6 @@ extends, rather than duplicates, **CR-SVC-15**, **CR-SVC-40**, **CR-SVC-41**, an
 - [ ] Decompose completion into cohesive phases without weakening its single transaction boundary.
 - [ ] Remove the global service-locator lookup and preserve one-way store dependencies.
 - [ ] Add query/request-count regression bounds for the reviewed journey.
-
----
-
-### [P1] CR-WF-08 — Deliver a family-friendly core journey
-**Status**: In Progress (CS-PLAN-066 activated 2026-09-11; implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: family UX
-**Owning**: CS-PLAN-058 WP7 · **Depends on**: — · **Blocks**: CR-WF-05 · **Folded-in**: —
-**Source**: CS-PLAN-058 core workflow masterplan (2026-09-02)
-
-**WP7 child plan:** [CS-PLAN-066](../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md)
-defines shared child My Day, role-aligned controls and desktop/mobile acceptance;
-Standard A `PASS-WITH-FIXES` 2026-09-11, prerequisite scope decisions ratified
-(BUG-API-001 per D6, CR-053-13 core slice per D7).
-
-The complete setup-to-execution flow must be comfortable for owners and
-understandable for members and children without requiring knowledge of rewards or
-scheduling internals.
-
-- [ ] Keep setup and task creation progressive, recoverable, localized, and usable on desktop/mobile with keyboard and screen readers.
-- [ ] Match visible controls to owner/member/child permissions; do not expose actions that predictably fail.
-- [ ] Make My Day the clear child execution surface with room, optional checklist, large Done action, and reversible feedback.
-- [ ] Use short, neutral, encouraging language and explicit loading, empty, error, and recovery states.
-- [ ] Prove the owner/member/child journeys at desktop and mobile viewports without conditional skips.
 
 ---
 
@@ -250,43 +217,6 @@ re-bootstrap). Remaining: the backend leave endpoint + Settings action.
 
 ---
 
-### [P3] CR-053-20 — Frontend correctness cluster
-**Status**: In Progress (WP5 undo/cache-reconciliation slice **delivered 2026-09-09 by CS-PLAN-064 §3.5**; WP7 remainder stays) · **Effort**: M · **Layer**: frontend · **Journey stage**: daily workflow
-**Owning**: CS-PLAN-058 WP5+WP7 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-053 full review (CR-P4-01..04, 06, 08, 09, 2026-08-27); re-scoped by CS-PLAN-055
-
-Owned in portions: WP5 owns the undo/cache-reconciliation slices (delivered),
-WP7 the remaining canonical client-state parts.
-The remainder is detailed in [CS-PLAN-066](../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md)
-(activated 2026-09-11), including weekly-goal hydration, request ordering, invite
-regression evidence and the bounded minigame initialization/loading fix; WP7
-implementation is not started.
-(**wire-or-delete decided: delete** — the uncalled user-store reward actions
-`addCoins`/`addContributionScore`/`updateStreak` were pruned with the dead-store layer,
-CR-P4-03's deletion half executed)
-False "Weekly goal reached!" celebration on every Dashboard mount while goal achieved;
-minigame `initialize()` leaves loading stuck on catalog failure; ~~`completeRoomTask` leaves
-rooms/house/user caches stale (the reward-action wire option is gone — reconcile caches on
-fetch instead); undo/reactivate slice drift~~ — **closed 2026-09-09 by CS-PLAN-064 §3.5**:
-the one completion/undo response now reconciles roomTasks/dailyTasks, the rooms store,
-the game store, the user store and the coin wallet **before** any event fires, and the
-split undo chain is replaced by the single `POST /room-tasks/{id}/undo` aggregate;
-~~`new Date(null)` →
-epoch counted as overdue + UTC date parsing~~ **partially closed 2026-08-30**
-(CS-PLAN-057 CR-P4-06 half: `totalDueTodayTasks`/`totalOverdueTasks` guard a
-missing `nextDue` and all day keys unify on the house timezone via
-`dateKeys.js` — pinned in `roomTasks.spec.js` and `dateKeys.spec.js`);
-out-of-order range/activity fetches; invite duplicate row.
-
-**Decision (user, 2026-09-02):** the former task-state-only undo limitation is
-revoked. Undo must be one full inverse transaction; implementation and coverage
-were owned by the CR-WF-02 umbrella — **delivered 2026-09-09** (see the monthly
-archive entry).
-
----
-
----
-
 ## Core Hardening
 
 > Standalone correctness, API, persistence, i18n, and security remainders. Each
@@ -312,15 +242,23 @@ undefined execution order → core notification suppressed; (d) weekly restock S
 ---
 
 ### [P2] CR-053-13 — l10n artifact gap: 141 t() keys used in src/ missing from en+de
-**Status**: In Progress (WP7 core-surface slice ratified into CS-PLAN-066 per D7, 2026-09-11; global remainder stays WP9) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: i18n
-**Owning**: CS-PLAN-058 WP9 (global remainder) + WP7/CS-PLAN-066 (core-surface slice) · **Depends on**: — · **Blocks**: CS-PLAN-058 WP7 (resolved for the core slice by the D7 ratification 2026-09-11) · **Folded-in**: CR-055-02
+**Status**: In Progress (WP7 core-surface slice **delivered 2026-09-12**: all 99 keys reachable from the WP7 core surfaces added to en+de+POT, with `coreWorkflowLocalization.spec.js` pinning source coverage + de/en placeholder parity; global remainder stays WP9) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: i18n
+**Owning**: CS-PLAN-058 WP9 (global remainder) + WP7/CS-PLAN-066 (core-surface slice) · **Depends on**: — · **Blocks**: CS-PLAN-058 WP9 · **Folded-in**: CR-055-02
 **Source**: CS-PLAN-053 full review (CR-P4-13/14/15, 2026-08-27)
 
-**D7 split (ratified 2026-09-11):** [CS-PLAN-066](../plans/active/cs-plan-066-wp7-canonical-client-state-family-ux.md)
+**D7 split (ratified 2026-09-11):** [CS-PLAN-066](../plans/done/cs-plan-066-wp7-canonical-client-state-family-ux.md)
 owns the WP7 core-surface translation slice — all reachable WP7 copy (not just
 newly added keys) verified in DE/EN/POT; global extraction/checker strengthening
 and unrelated catalog cleanup remain WP9. No untranslated core string may be
-deferred to WP9.
+deferred to WP9. **Slice delivered 2026-09-12:** TaskManager filters, Settings
+floor management, FloorList, QuickStats, HouseHealthBar, ArcadeSection, TaskList,
+TaskEditForm, TaskChecklist and the WP7 My Day additions are now covered
+(incl. real German copy); the case-variant mismatches among them are resolved by
+the canonical artifact entries. Remaining for WP9: global extraction for surfaces
+outside the WP7 core journey, checker strengthening (`check-l10n-keys.js` still
+only diffs de↔en — the new Jest spec closes the src-usage diff for the core
+surfaces only), and the ~340 dead artifact entries (`titles.*` stays —
+server-driven).
 
 German users get English fallback across TaskManager filters, Settings floor management,
 Arcade, minigames; 8 keys are case-variant mismatches; ~340 dead artifact entries (keep
@@ -329,30 +267,6 @@ artifacts + extend the checker with a src-usage diff; document in i18n.md.
 **Folded-in CR-055-02** (archived 2026-09 — [`archive/2026-09.md`](archive/2026-09.md)):
 dead artifact keys from the CS-PLAN-055-pruned surfaces (e.g. `Search query is
 required`) drop out in the same regeneration pass — do not hand-prune entries.
-
----
-
-### [P1] BUG-API-001 — `PUT /tasks/{id}` (definition edit) 500s: dispatcher cannot resolve the `array $updates` argument
-**Status**: Planned (adopted as an early CS-PLAN-066/WP7 prerequisite per D6, ratified 2026-09-11; archive when verified) · **Effort**: S · **Layer**: backend+tests · **Journey stage**: task management
-**Owning**: CS-PLAN-058 WP7 (CS-PLAN-066 D6 prerequisite slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-065 RF-065-01 E2E round (2026-09-11) — the identical pattern in `SchedulingController::updateMemberAvailability` was found and fixed there (RF-065-05); this is the remaining out-of-scope sibling.
-
-`TaskController::update(int $id, array $updates)` relies on the Nextcloud
-dispatcher resolving `$updates` from a request parameter literally named
-`updates`, but the only client (`tasks.js::updateTask` via
-`TaskManager.vue::handleUpdateTask`) sends the edited definition fields as the
-top-level JSON body — so `getParam('updates')` returns `null` and every real
-HTTP call dies on a `TypeError` (500) before the controller body runs. Task
-definition editing through the TaskManager UI is broken end to end; no E2E
-covers `PUT /tasks/{id}`, and the PHP unit tests call the method directly,
-bypassing the dispatcher (the same blind spot that hid the scheduling sibling).
-Fix: read the closed payload from `$this->request->getParams()` minus the route
-internals (`id`, `_route`) as in `SchedulingController::memberUpdatesPayload()`
-(RF-065-05), adapt `TaskControllerTest`, and add an E2E or integration
-regression that exercises the real HTTP boundary. Audit the remaining typed
-controller arguments for the same name-mismatch pattern (`FloorController::
-reorder` and `RoomTaskController::setAssignees` were verified safe: their
-clients send matching top-level keys).
 
 ---
 

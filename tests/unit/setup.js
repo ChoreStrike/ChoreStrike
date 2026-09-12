@@ -26,12 +26,22 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
 jest.mock('vue-router', () => ({
 	useRouter: jest.fn(() => ({
 		push: jest.fn(),
+		replace: jest.fn(),
 		resolve: jest.fn(),
 	})),
 	useRoute: jest.fn(() => ({
 		params: {},
 		query: {},
 	})),
+	// Factory-level exports for modules that build the router at import
+	// time (src/router.js — imported by App.vue for the CS-PLAN-066 D4
+	// landing helper); tests only ever exercise the pure helpers.
+	createRouter: jest.fn(() => ({
+		push: jest.fn(),
+		replace: jest.fn(),
+		resolve: jest.fn(() => ({ href: '' })),
+	})),
+	createWebHashHistory: jest.fn(() => ({})),
 }))
 
 // Configure Vue Test Utils

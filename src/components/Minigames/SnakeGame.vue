@@ -453,7 +453,13 @@ const closeLeaderboard = () => {
 
 // Lifecycle
 onMounted(async () => {
-	await minigameStore.initialize('snake')
+	try {
+		await minigameStore.initialize('snake')
+	} catch (error) {
+		// Recoverable (CS-PLAN-066 §3.4): the store holds loading=false and
+		// the error state; the boost shop disables purchases without the
+		// catalog and the arcade surfaces the failure. Play stays available.
+	}
 	boardRef.value?.focus()
 
 	// Add keyboard listener

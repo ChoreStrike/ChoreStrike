@@ -353,6 +353,48 @@ describe('Minigame Store', () => {
 				expect(store.boostCatalog).toEqual({ currentCoins: 100 })
 				expect(store.loading).toBe(false)
 			})
+
+			// CS-PLAN-066 §3.4: the aggregate try/finally owner — a rejected
+			// child fetch settles loading and propagates recoverably.
+			it('settles loading and propagates a recoverable error on rejection', async () => {
+				api.get.mockRejectedValue(new Error('catalog offline'))
+
+				await expect(store.initialize('snake')).rejects.toThrow('catalog offline')
+
+				expect(store.loading).toBe(false)
+				expect(store.error).toBe('catalog offline')
+			})
+
+			it('a retry after failure succeeds and keeps loading settled', async () => {
+				// The boost catalog rethrows into the aggregate; sibling
+				// fetches stay soft-fail.
+				api.get.mockImplementation((url) => {
+					if (String(url).includes('/boosts')) {
+						return Promise.reject(new Error('offline'))
+					}
+					return Promise.resolve({ currentCoins: 30 })
+				})
+
+				await expect(store.initialize('snake')).rejects.toThrow('offline')
+
+				api.get.mockImplementation((url) => (
+					String(url).includes('/boosts')
+						? Promise.resolve({ magnet: 10 })
+						: Promise.resolve({ currentCoins: 30 })
+				))
+				await store.initialize('snake')
+
+				expect(store.loading).toBe(false)
+				expect(store.error).toBeNull()
+				expect(store.boostCatalog).toEqual({ magnet: 10 })
+			})
+
+			it('child fetches never touch the aggregate loading state', async () => {
+				// Direct child call — no aggregate owner running.
+				await store.fetchLeaderboard('snake')
+
+				expect(store.loading).toBe(false)
+			})
 		})
 
 		describe('reset', () => {

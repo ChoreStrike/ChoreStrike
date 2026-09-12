@@ -547,4 +547,189 @@ class RoomTaskControllerTest extends TestCase {
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
 	}
+
+	/**
+	 * Overdue_ReturnsCanonicalEnrichedRows
+	 *
+	 * CS-PLAN-066 §3.1 (D1): overdue and due-today return the canonical
+	 * `{roomTask, task, room, assignees}` execution-row shape with the same
+	 * visibility/ordering as before — enrichment without broadened access.
+	 */
+	public function testOverdue_ReturnsCanonicalEnrichedRows(): void {
+		$house = new House();
+		$house->setId(1);
+		$houseUser = $this->createHouseUser();
+
+		$roomTask = new RoomTask();
+		$roomTask->setId(11);
+		$roomTask->setRoomId(3);
+		$roomTask->setTaskId(4);
+		$task = new Task();
+		$task->setId(4);
+		$room = new Room();
+		$room->setId(3);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
+
+		$this->roomTaskService->expects($this->once())
+			->method('getOverdueTaskRows')
+			->with(1, $this->identicalTo($houseUser), null)
+			->willReturn([['roomTask' => $roomTask, 'task' => $task, 'room' => $room]]);
+		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')
+			->willReturn([11 => ['alice', 'bob']]);
+
+		$response = $this->controller->overdue();
+
+		$this->assertEquals(200, $response->getStatus());
+		$row = $response->getData()['data'][0];
+		$this->assertArrayHasKey('roomTask', $row);
+		$this->assertArrayHasKey('task', $row);
+		$this->assertArrayHasKey('room', $row);
+		// Canonical user-ID array (D1): unique, deterministically ordered.
+		$this->assertSame(['alice', 'bob'], $row['assignees']);
+	}
+
+	/**
+	 * DueToday_ReturnsCanonicalEnrichedRows
+	 *
+	 * CS-PLAN-066 §3.1 (D1): due-today mirrors the enriched overdue rows.
+	 */
+	public function testDueToday_ReturnsCanonicalEnrichedRows(): void {
+		$house = new House();
+		$house->setId(1);
+		$houseUser = $this->createHouseUser();
+
+		$roomTask = new RoomTask();
+		$roomTask->setId(12);
+		$roomTask->setRoomId(3);
+		$roomTask->setTaskId(4);
+		$task = new Task();
+		$task->setId(4);
+		$room = new Room();
+		$room->setId(3);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
+
+		$this->roomTaskService->expects($this->once())
+			->method('getDueTodayTaskRows')
+			->with(1, $this->identicalTo($houseUser), 3)
+			->willReturn([['roomTask' => $roomTask, 'task' => $task, 'room' => $room]]);
+		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')
+			->willReturn([12 => []]);
+
+		$response = $this->controller->dueToday(3);
+
+		$this->assertEquals(200, $response->getStatus());
+		$row = $response->getData()['data'][0];
+		$this->assertArrayHasKey('roomTask', $row);
+		$this->assertArrayHasKey('task', $row);
+		$this->assertArrayHasKey('room', $row);
+		$this->assertSame([], $row['assignees']);
+	}
+
+	/**
+	 * Create_ReturnsCanonicalUserIdAssignees
+	 *
+	 * CS-PLAN-066 (D1): the aggregate's `assignees` are a user-ID string
+	 * array (unique, deterministically ordered), not relation objects.
+	 */
+	public function testCreate_ReturnsCanonicalUserIdAssignees(): void {
+		$house = new House();
+		$house->setId(42);
+		$houseUser = $this->createHouseUser();
+
+		$assigneeA = new \OCA\ChoreStrike\Db\TaskAssignee();
+		$assigneeA->setUserId('mom');
+		$assigneeB = new \OCA\ChoreStrike\Db\TaskAssignee();
+		$assigneeB->setUserId('dad');
+
+		$this->stubCreateParams(['roomId' => 1, 'taskId' => 5]);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
+
+		$this->taskCreationService->method('create')->willReturn([
+			'task' => new Task(),
+			'roomTask' => new RoomTask(),
+			'assignees' => [$assigneeA, $assigneeB],
+		]);
+
+		$response = $this->controller->create();
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertSame(['mom', 'dad'], $response->getData()['data']['assignees']);
+	}
+
+	/**
+	 * SetAssignees_ReturnsCanonicalUserIdArray
+	 *
+	 * CS-PLAN-066 (D1): the PUT assignees response IS the persisted
+	 * user-ID set — no client-side union on relation objects.
+	 */
+	public function testSetAssignees_ReturnsCanonicalUserIdArray(): void {
+		$house = new House();
+		$house->setId(1);
+		$houseUser = $this->createHouseUser();
+
+		$assignee = new \OCA\ChoreStrike\Db\TaskAssignee();
+		$assignee->setUserId('mom');
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+
+		$this->roomTaskService->expects($this->once())
+			->method('setAssignees')
+			->with(7, ['mom'], 1, $this->identicalTo($houseUser))
+			->willReturn([$assignee]);
+
+		$response = $this->controller->setAssignees(7, ['mom']);
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertSame(['mom'], $response->getData()['data']);
+	}
+
+	/**
+	 * BulkAssign_CarriesCanonicalAssigneeSetsOnReturnedSuccesses
+	 *
+	 * CS-PLAN-066 (D1): the bulk response embeds each returned success's
+	 * persisted assignee set — the client reconciles exactly the server
+	 * result, never the requested set.
+	 */
+	public function testBulkAssign_CarriesCanonicalAssigneeSetsOnReturnedSuccesses(): void {
+		$house = new House();
+		$house->setId(1);
+		$houseUser = $this->createHouseUser();
+
+		$roomTask = new RoomTask();
+		$roomTask->setId(3);
+		$roomTask->setRoomId(1);
+		$roomTask->setTaskId(2);
+
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key) => ['roomTaskIds' => [3, 4], 'userId' => 'mom'][$key] ?? null
+		);
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember')->willReturn($houseUser);
+
+		$this->roomTaskService->expects($this->once())
+			->method('bulkAssignTasks')
+			->with([3, 4], 'mom', 1, $this->identicalTo($houseUser))
+			->willReturn([$roomTask]);
+		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')
+			->willReturn([3 => ['mom']]);
+
+		$response = $this->controller->bulkAssign();
+
+		$this->assertEquals(200, $response->getStatus());
+		$data = $response->getData()['data'];
+		$this->assertCount(1, $data);
+		$this->assertSame(['mom'], $data[0]['assignees']);
+	}
 }

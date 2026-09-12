@@ -87,6 +87,22 @@ class TaskControllerTest extends TestCase {
 	}
 
 	/**
+	 * BUG-API-001 (D6): the update endpoint reads its closed payload from
+	 * the request parameters (top-level JSON body keys merged over the
+	 * route internals), so the unit tests mock exactly that dispatcher
+	 * source instead of invoking a two-argument method the real dispatcher
+	 * can never bind.
+	 *
+	 * @param array<string, mixed> $updates Top-level body keys
+	 */
+	private function mockUpdateRequest(array $updates, int $taskId = 1): void {
+		$this->request->method('getParams')->willReturn(array_merge(
+			['id' => (string)$taskId, '_route' => 'chorestrike.tasks.update'],
+			$updates
+		));
+	}
+
+	/**
 	 * Test GET /tasks returns list successfully
 	 */
 	public function testIndex_ReturnsTasksSuccessfully(): void {
@@ -139,7 +155,8 @@ class TaskControllerTest extends TestCase {
 			->willThrowException(new NotFoundException('Task not found'));
 		$this->taskService->expects($this->never())->method('updateTask');
 
-		$response = $this->controller->update(1, ['name' => 'Hijacked']);
+		$this->mockUpdateRequest(['name' => 'Hijacked']);
+		$response = $this->controller->update(1);
 
 		$this->assertEquals(404, $response->getStatus());
 		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
@@ -160,7 +177,8 @@ class TaskControllerTest extends TestCase {
 			->willThrowException(new NotFoundException('Task not found'));
 		$this->taskService->expects($this->never())->method('updateTask');
 
-		$response = $this->controller->update(1, ['name' => 'Hijacked']);
+		$this->mockUpdateRequest(['name' => 'Hijacked']);
+		$response = $this->controller->update(1);
 
 		$this->assertEquals(404, $response->getStatus());
 		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
@@ -191,7 +209,8 @@ class TaskControllerTest extends TestCase {
 				return $task;
 			});
 
-		$response = $this->controller->update(1, ['isPrivate' => true]);
+		$this->mockUpdateRequest(['isPrivate' => true]);
+		$response = $this->controller->update(1);
 
 		$this->assertEquals(200, $response->getStatus());
 		$this->assertArrayNotHasKey('isPrivate', $captured);
@@ -220,7 +239,8 @@ class TaskControllerTest extends TestCase {
 			->with(1, ['name' => 'Renamed'], $this->identicalTo($houseUser))
 			->willReturn($task);
 
-		$response = $this->controller->update(1, ['name' => 'Renamed']);
+		$this->mockUpdateRequest(['name' => 'Renamed']);
+		$response = $this->controller->update(1);
 
 		$this->assertEquals(200, $response->getStatus());
 	}
@@ -245,7 +265,8 @@ class TaskControllerTest extends TestCase {
 		$this->taskService->method('updateTask')
 			->willThrowException(new NotFoundException('Task not found'));
 
-		$response = $this->controller->update(1, ['ownerUserId' => 'attacker']);
+		$this->mockUpdateRequest(['ownerUserId' => 'attacker']);
+		$response = $this->controller->update(1);
 
 		$this->assertEquals(404, $response->getStatus());
 		$this->assertEquals('RESOURCE_NOT_FOUND', $response->getData()['error']['code']);
@@ -271,7 +292,8 @@ class TaskControllerTest extends TestCase {
 		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
 		$this->taskService->expects($this->never())->method('updateTask');
 
-		$response = $this->controller->update(1, ['taskTier' => 'gold']);
+		$this->mockUpdateRequest(['taskTier' => 'gold']);
+		$response = $this->controller->update(1);
 
 		$this->assertEquals(403, $response->getStatus());
 		$this->assertEquals('FORBIDDEN', $response->getData()['error']['code']);
@@ -293,9 +315,60 @@ class TaskControllerTest extends TestCase {
 		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
 		$this->taskService->expects($this->never())->method('updateTask');
 
-		$response = $this->controller->update(1, ['taskTier' => 'platinum']);
+		$this->mockUpdateRequest(['taskTier' => 'platinum']);
+		$response = $this->controller->update(1);
 
 		$this->assertEquals(400, $response->getStatus());
 		$this->assertEquals('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * BUG-API-001 (D6) dispatcher regression: the controller serves the
+	 * real HTTP boundary, where the top-level body keys are merged over
+	 * the route internals (`id`, `_route`) — the production client shape
+	 * sends definition fields top-level, and the dispatcher can never bind
+	 * an `updates` parameter from it. Route internals must never leak into
+	 * the service payload, and the real top-level shape must reach
+	 * updateTask verbatim.
+	 */
+	public function testUpdate_RealHttpBodyShape_ReachesServiceWithoutRouteInternals(): void {
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($this->createHouseMock());
+		$this->authService->method('assertHouseMember')
+			->willReturn($this->createHouseUserMock('owner', true));
+
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskService->expects($this->once())->method('getVisibleTask')->willReturn($task);
+
+		$captured = null;
+		$this->taskService->expects($this->once())
+			->method('updateTask')
+			->willReturnCallback(function (int $id, array $updates, HouseUser $actor) use ($task, &$captured) {
+				$captured = $updates;
+				return $task;
+			});
+
+		// The production client shape (tasks.js::updateTask): edited
+		// definition fields as the top-level JSON body — no `updates` key.
+		$this->mockUpdateRequest([
+			'name' => 'Renamed',
+			'description' => 'New description',
+			'energyCost' => 3,
+		]);
+		$response = $this->controller->update(1);
+
+		$this->assertEquals(200, $response->getStatus());
+		$this->assertNotNull($captured);
+		$this->assertEquals([
+			'name' => 'Renamed',
+			'description' => 'New description',
+			'energyCost' => 3,
+		], $captured);
+		$this->assertArrayNotHasKey('id', $captured);
+		$this->assertArrayNotHasKey('_route', $captured);
+		$this->assertArrayNotHasKey('updates', $captured);
 	}
 }

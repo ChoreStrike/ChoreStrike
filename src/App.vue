@@ -77,6 +77,7 @@ import { mapStores } from 'pinia'
 import UndoSnackbar from './components/Common/UndoSnackbar.vue'
 import NotAuthorizedState from './components/Common/NotAuthorizedState.vue'
 import { useUserStore } from './store/user.js'
+import { landingRouteForRole } from './router.js'
 
 export default {
 	name: 'App',
@@ -90,11 +91,32 @@ export default {
 		NotAuthorizedState,
 	},
 
+	data() {
+		return {
+			// CS-PLAN-066 (D4): the child landing redirect is a ONE-SHOT for
+			// the initial unqualified root visit — later explicit navigation
+			// back to the Dashboard stays allowed.
+			childLandingApplied: false,
+		}
+	},
+
 	computed: {
 		...mapStores(useUserStore),
 		membershipDenied() {
 			return this.userStore.membership === 'denied'
 		},
+	},
+
+	watch: {
+		// Membership resolution is async (userAutoInit fires the request);
+		// apply the landing decision as soon as the role is known.
+		'userStore.membership'() {
+			this.applyChildLanding()
+		},
+	},
+
+	mounted() {
+		this.applyChildLanding()
 	},
 
 	methods: {
@@ -105,6 +127,25 @@ export default {
 				// State stays 'denied' on another 403; single transient
 				// failures recover through the in-flight dedup retry.
 			})
+		},
+		/**
+		 * D4: after membership resolves, redirect ONLY the initial
+		 * unqualified root visit of a child to the shared My Day surface.
+		 * Deep links and permitted shared screens remain usable; owner and
+		 * member keep the Dashboard default.
+		 */
+		applyChildLanding() {
+			if (this.childLandingApplied) {
+				return
+			}
+			if (this.userStore.membership !== 'member') {
+				return
+			}
+			this.childLandingApplied = true
+			const target = landingRouteForRole(this.userStore.role, this.$route)
+			if (target) {
+				this.$router.replace(target)
+			}
 		},
 	},
 }

@@ -15,6 +15,10 @@ export const useTitlesStore = defineStore('titles', {
 		catalog: {},
 		loading: false,
 		error: null,
+		// CS-PLAN-066 §3.4: the member id of the last successful fetch, so a
+		// completion unlock can re-sync this store without its callers
+		// knowing routing or membership details.
+		lastHouseUserId: null,
 	}),
 
 	actions: {
@@ -30,10 +34,12 @@ export const useTitlesStore = defineStore('titles', {
 			this.error = null
 			try {
 				const data = await api.get(`/api/v1/users/${houseUserId}/titles`)
+				this.lastHouseUserId = houseUserId
 				this.currentTitle = data.currentTitle
 				this.unlockedTitles = data.unlockedTitles || []
 				this.selectedTitlePack = data.selectedTitlePack
 				this.catalog = data.catalog || {}
+				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to fetch titles', error, { store: 'titles', action: 'fetchTitles', houseUserId })
@@ -41,6 +47,23 @@ export const useTitlesStore = defineStore('titles', {
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * Invalidate the cached title state by re-reading the server truth
+		 * for the last fetched member (CS-PLAN-066 §3.4). Called from the
+		 * completion path BEFORE the title-unlocked event fires, so event
+		 * consumers and title surfaces never read a stale unlock set.
+		 * Unlocking a title never equips it — this refresh only reconciles
+		 * the unlocked set/catalog. No-op (resolved) when no member context
+		 * exists yet; a failure is propagated to the caller.
+		 * @return {Promise<void>}
+		 */
+		async invalidate() {
+			if (!this.lastHouseUserId) {
+				return
+			}
+			await this.fetchTitles(this.lastHouseUserId)
 		},
 
 		/**
@@ -87,6 +110,7 @@ export const useTitlesStore = defineStore('titles', {
 			this.catalog = {}
 			this.loading = false
 			this.error = null
+			this.lastHouseUserId = null
 		},
 	},
 })

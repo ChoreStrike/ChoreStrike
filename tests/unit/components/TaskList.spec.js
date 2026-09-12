@@ -400,13 +400,15 @@ describe('TaskList', () => {
 			expect(wrapper.find('[data-testid="bulk-assign-bar"]').exists()).toBe(false)
 		})
 
-		it('hides the bulk bar, edit and delete controls for children (CS-PLAN-061 §3.9, D5)', async () => {
+		it('hides row-selection checkboxes, the bulk bar, edit and delete controls for children (CS-PLAN-061 §3.9, D5; CS-PLAN-066 §3.5)', async () => {
 			seedMembers('child')
 			const wrapper = mount(TaskList, {
 				props: { loading: false, roomTasks: [mockTask()] },
 			})
 
-			await wrapper.find('[data-testid="select-task-1"]').setValue(true)
+			// CS-PLAN-066 §3.5: the child has no available bulk action, so the
+			// non-actionable row-selection checkbox is hidden entirely.
+			expect(wrapper.find('[data-testid="select-task-1"]').exists()).toBe(false)
 
 			// Child role: no management surface at all.
 			expect(wrapper.find('[data-testid="bulk-assign-bar"]').exists()).toBe(false)

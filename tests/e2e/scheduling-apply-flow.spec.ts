@@ -42,7 +42,12 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 
 	const goToScheduling = async (page: Page) => {
 		await page.goto('/apps/chorestrike/')
-		await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
+		// CS-PLAN-066 (D4): a child's bare-root visit lands on My Day,
+		// owners/members on the Dashboard — both are valid entry points.
+		await page.getByTestId('dashboard-view')
+			.or(page.getByTestId('today-view'))
+			.first()
+			.waitFor({ state: 'visible' })
 		await page.getByTestId('nav-scheduling').click()
 		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
 	}
@@ -219,8 +224,7 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 		const { context: kidContext, page: kidPage } = await createUserContext(browser, 'kid')
 		try {
 			await kidPage.goto('/apps/chorestrike/')
-			await kidPage.getByTestId('dashboard-view').waitFor({ state: 'visible' })
-			await kidPage.getByTestId('nav-today').click()
+			// CS-PLAN-066 (D4): the child lands directly on My Day.
 			await kidPage.getByTestId('today-view').waitFor({ state: 'visible' })
 
 			const todaySection = kidPage.locator('section.today-section')

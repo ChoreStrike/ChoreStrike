@@ -86,10 +86,18 @@ class TaskController extends Controller {
 	 * §3.1). The definition-only create endpoint was pruned by the WP4
 	 * aggregate (POST /room-tasks).
 	 *
+	 * The closed top-level payload is read from the request parameters
+	 * (BUG-API-001 / D6): a dispatcher-resolved `array $updates` argument is
+	 * bound to a body key literally named `updates`, which the client's
+	 * top-level definition body never sends — every real HTTP call died on
+	 * a TypeError (500) before the controller body ran. Same fix pattern as
+	 * SchedulingController::memberUpdatesPayload (RF-065-05).
+	 *
 	 * @NoAdminRequired
 	 */
-	public function update(int $id, array $updates): JSONResponse {
+	public function update(int $id): JSONResponse {
 		try {
+			$updates = $this->updatePayload();
 			$instanceId = $this->houseService->getInstanceId();
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
@@ -226,4 +234,17 @@ class TaskController extends Controller {
 	// `uncomplete` was pruned 2026-09-06 (CS-PLAN-064, decision D5): the
 	// one idempotent undo operation is POST /room-tasks/{id}/undo.
 
+	/**
+	 * The closed task-update payload (BUG-API-001 / D6): every top-level
+	 * request key except the route internals (`id`, `_route`). Unknown keys
+	 * stay in the array so TaskService::validateTaskData rejects them
+	 * (closed shape); route parameters are never editable fields.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function updatePayload(): array {
+		$params = $this->request->getParams();
+		unset($params['id'], $params['_route']);
+		return $params;
+	}
 }
