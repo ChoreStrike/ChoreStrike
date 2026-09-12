@@ -67,3 +67,36 @@
 ## Verdict
 
 `PASS-WITH-FIXES` — all findings fixed or resolved in round, no open plan-owned findings, full quality gate green, manual acceptance evidence recorded. Plan moved to `done/`; masterplan WP7 complete; WP8 eligible (not started).
+
+---
+
+# Plan Review: CS-PLAN-067 WP8 — Batching, Decomposition, and Performance Hardening (Standard A)
+
+- **Review Date**: 2026-09-12
+- **Reviewer**: Kilo agent (Standard A plan review)
+- **Mode**: Standard A (plan review before `new/ → active/`)
+- **Scope**: `docs/plans/new/cs-plan-067-wp8-batching-decomposition-performance.md` (sole regular `*.md` in `new/`, untracked) plus its draft maintenance package (6 modified tracked files, unstaged)
+- **Base Commit**: `1dc06a5e07280c911525c5328ba6f5ff3fccdd22` (WP7 final review) — empty index; the working tree contained only the draft package
+**Owning Plan**: the reviewed plan itself (parent: CS-PLAN-058 WP8; the only other active plan)
+
+## Outcome
+
+`PASS` — no findings; D1-D6 ratified as recommended by the user through one batched structured question.
+
+## Verification Performed
+
+- Target validation: sole candidate in `new/` (dotfiles excluded), destination `active/cs-plan-067-…` absent, no overlapping active plan besides the parent masterplan (established child-plan pattern WP0-WP7).
+- Code-grounded inventory spot-checks (all passed): `RoomTaskController::index` requires `roomId`/`scopeId` with 400 otherwise (`lib/Controller/RoomTaskController.php:139`); TaskManager per-room fan-out (`src/views/TaskManager.vue:337`) and SchedulingView (`src/views/SchedulingView.vue:95`); `roomTasks.fetchAssignees` has no production consumer (`src/store/roomTasks.js:262`); no `RoomTaskMapper::findByHouse` exists yet; five `awardMedalIfNew` blocks (`lib/Service/GameLogicService.php:394-427`); legacy self-inserting ledger branch (`GameLogicService.php:141-154`); duplicated enrichment clusters (`RoomTaskService::rowsForRoomTasks`/`getDailyTasksWithDetails`); `updateDueDate` transaction shape (`RoomTaskService.php:538`); store DAG exactly as claimed (`roomTasks` → house/game/rooms/tasks/user/minigame/titles, `scheduling` → house/roomTasks/tasks, no back-edges); all named unit/integration/E2E anchors exist (incl. `tests/integration/Setup/SetupApplyConcurrencyTest.php`, `tests/integration/FamilyIntegrationTest.php`); ADR-009..012 present; every §4.4 gate script exists in `package.json`; every cited backlog ID (CR-WF-06, CR-SVC-15/40/41/44, CR-053-19, CR-053-11, CR-SVC-63, RELEASE-002, TECH-LINT-007) resolves in `backlog.md`.
+- Plan-quality checks: per-step ownership stable and backlog-mapped, slices individually validatable, acceptance criteria complete and testable, risk table adequate, no workaround-stacking, no compatibility shims proposed, non-goals explicit.
+
+## Decisions (batched question, answers recorded 2026-09-12)
+
+D1 extend `GET /room-tasks` with a house-wide mode · D2 extract cohesive collaborators around the preserved `CompletionService` aggregate · D3 preserve the store DAG and `roomTasks` reconciliation owner · D4 deterministic request + executed-query count budgets with frozen literal ceilings · D5 rescope cron freeze/restock batching into CR-053-11 (CR-053-19 stays remainder-classification-only) · D6 cohesive extraction plus a named exception inventory — all as recommended.
+
+## Gates
+
+Draft-applicable per plan §4.4: `npm run docs:encoding`, `npm run backlog:check`, `git diff --check` — rerun green after the activation edits (including the moved plan at its `active/` path). Application test/build gates remain implementation requirements, not claimed as executed.
+
+## Transition
+
+`new/ → active/` performed with this review's scoped commit; CR-WF-06 and CR-SVC-44 set In Progress (CR-SVC-15/40/41 already were); D5 rescoping note added to CR-053-11; masterplan WP8 row, `docs/plans/README.md`, `ACTIVE_TASKS.md` and backlog plan links repointed.

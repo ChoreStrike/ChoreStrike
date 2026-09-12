@@ -54,14 +54,27 @@ path has no deterministic browser profile.
 ---
 
 ### [P2] CR-WF-06 — Batch workflow reads and reduce orchestration hotspots
-**Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: performance
+**Status**: In Progress (activated 2026-09-12: CS-PLAN-067 Standard A `PASS`, D1-D6 ratified as recommended; implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: performance
 **Owning**: CS-PLAN-058 WP8 · **Depends on**: — (the WP7 payload/projection contracts are delivered and frozen — consumable since 2026-09-12) · **Blocks**: CR-WF-05 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
 
-TaskManager and Today perform request-per-room/task fan-out, while the main task
-list and completion aggregate remain oversized orchestration hotspots. This item
+TaskManager and SchedulingView perform request-per-room fan-out, while the main
+task list and completion aggregate remain oversized orchestration hotspots. Today
+already consumes WP7 enriched assignees; WP8 must pin that absence of per-task
+requests rather than repeat the historical fix. This item
 extends, rather than duplicates, **CR-SVC-15**, **CR-SVC-40**, **CR-SVC-41**, and
 **CR-SVC-44**.
+
+**Detail plan:** [CS-PLAN-067](../plans/active/cs-plan-067-wp8-batching-decomposition-performance.md)
+(2026-09-12; Standard A `PASS` 2026-09-12, D1-D6 ratified as recommended;
+implementation not started). The plan defines batch contracts, extraction
+boundaries, count-based gates and the ratified remainder dispositions (D5:
+cron freeze/restock batching rescoped to CR-053-11) without closing or
+reassigning any item.
+
+The draft's live-code inventory also finds an already acyclic store graph and
+no remaining global service-locator lookup. Those historical claims need a
+verified disposition and regression protection, not a new coordination layer.
 
 - [ ] Return house-scoped room tasks and batched assignees without frontend N+1 requests.
 - [ ] Split `TaskList` into focused row, assignment, bulk, checklist, and due-date units.
@@ -149,7 +162,7 @@ was **resolved 2026-08-27 by CS-PLAN-052** (record: [`archive/2026-08.md`](archi
 ---
 
 ### [P3] CR-SVC-44 — Minor performance cluster
-**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: performance
+**Status**: In Progress (activated 2026-09-12 by CS-PLAN-067/WP8 Standard A; per-user streak UPDATE batching disposition owned by D5 → CR-053-11) · **Effort**: M · **Layer**: backend · **Journey stage**: performance
 **Owning**: CS-PLAN-058 WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of `lib/Service` (2026-08-04); re-scoped by CS-PLAN-053 full review (2026-08-27) and CS-PLAN-055
 
@@ -238,6 +251,12 @@ two freezes (`GameLogicService:131` + `HouseUser:294`); (c) at-risk pass vs free
 undefined execution order → core notification suppressed; (d) weekly restock SETs
 `min(perWeek,cap)` instead of topping up — punishes earned bonus freezes (`HouseUser:308`);
 (e) leaderboard queries lack deterministic tiebreakers. Each fix is small + testable.
+
+**D5 rescoping (ratified 2026-09-12, CS-PLAN-067 Standard A):** cron
+freeze/restock *batching* (performance only, preserving per-user failure
+isolation) is owned here rather than in WP8; WP8 retains only the
+remainder-classification inventory. The correctness halves above are unchanged
+and remain independently schedulable.
 
 ---
 

@@ -15,7 +15,10 @@ docs/plans/
 ## Lifecycle
 
 Current active plan: [CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](active/cs-plan-058-core-workflow-bottom-up-masterplan.md)
-(WP7 done 2026-09-12: [CS-PLAN-066](done/cs-plan-066-wp7-canonical-client-state-family-ux.md), final Standard B `PASS-WITH-FIXES`; WP8 is next, not started).
+(WP7 done 2026-09-12: [CS-PLAN-066](done/cs-plan-066-wp7-canonical-client-state-family-ux.md), final Standard B `PASS-WITH-FIXES`).
+
+Active child plan: [CS-PLAN-067 - WP8 Batching, Decomposition, and Performance Hardening](active/cs-plan-067-wp8-batching-decomposition-performance.md)
+(2026-09-12; Standard A `PASS` 2026-09-12, D1-D6 ratified as recommended; implementation not started).
 
 Successful lifecycle reviews perform the normal forward transitions automatically:
 

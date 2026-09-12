@@ -3,7 +3,7 @@
 > **Status:** Done (drafted 2026-09-11; Standard A `PASS-WITH-FIXES` 2026-09-11, D1-D7 ratified as recommended; implemented 2026-09-12 steps 2-8; final Standard B `PASS-WITH-FIXES` 2026-09-12 — all findings fixed in round, full §4.4 gate rerun green, plan moved to `done/`)
 > **Effort:** XL (one sequential package with reviewable implementation slices)
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP6 complete; [CS-PLAN-065](../done/cs-plan-065-wp6-actionable-scheduling.md) final Standard B `PASS`; scope decisions D6/D7 ratified 2026-09-11
+> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP6 complete; [CS-PLAN-065](../done/cs-plan-065-wp6-actionable-scheduling.md) final Standard B `PASS`; scope decisions D6/D7 ratified 2026-09-11
 > **Related backlog items:** CR-WF-04, CR-WF-08 (owned umbrellas); CR-053-20 (remaining client-state slice); BUG-API-001 and CR-053-13 (ratified prerequisite slices per D6/D7)
 > **Parent:** CS-PLAN-058 WP7; WP8 consumes the frozen payloads and behavior.
 
