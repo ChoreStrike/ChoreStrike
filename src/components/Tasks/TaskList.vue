@@ -30,214 +30,30 @@
 			:hint="t('chorestrike', 'Add your first task to get started')" />
 
 		<div v-else class="task-list-body">
-			<!-- Bulk assignment bar (CS-PLAN-042, UX-008): one API call for the
-			     whole selection instead of a per-item loop. Owners and members
-			     only — children cannot assign (CS-PLAN-061 §3.4, D5). -->
-			<div v-if="userStore.canManageTasks && selectedRoomTaskIds.length > 0" class="bulk-assign-bar" data-testid="bulk-assign-bar">
-				<span class="bulk-selection-count">
-					{{ t('chorestrike', '{count} selected', { count: selectedRoomTaskIds.length }) }}
-				</span>
-				<select
-					v-model="bulkTargetUserId"
-					class="bulk-target-select"
-					data-testid="bulk-assign-target">
-					<option value="" disabled>
-						{{ t('chorestrike', 'Assign to member…') }}
-					</option>
-					<option v-for="member in houseMembers" :key="member.nextcloudUserId" :value="member.nextcloudUserId">
-						{{ member.displayName }}
-					</option>
-				</select>
-				<button
-					class="bulk-assign-button"
-					data-testid="bulk-assign-button"
-					:disabled="!bulkTargetUserId || bulkAssigning"
-					@click="handleBulkAssign">
-					{{ t('chorestrike', 'Assign') }}
-				</button>
-				<button
-					class="bulk-clear-button"
-					:aria-label="t('chorestrike', 'Clear selection')"
-					:title="t('chorestrike', 'Clear selection')"
-					@click="clearSelection">
-					<Icon name="X" :size="14" />
-				</button>
-			</div>
+			<TaskListBulkBar
+				v-if="userStore.canManageTasks && selectedRoomTaskIds.length > 0"
+				:selected-count="selectedRoomTaskIds.length"
+				:members="houseMembers"
+				:assigning="bulkAssigning"
+				:clear-signal="bulkClearSignal"
+				@assign="handleBulkAssign"
+				@clear="clearSelection" />
 
 			<div class="task-items">
-				<div
+				<TaskListItem
 					v-for="item in sortedTasks"
 					:key="item.roomTask.id"
-					class="task-item"
-					data-testid="task-item"
-					:class="{ overdue: isOverdue(item.roomTask), completed: !item.roomTask.isActive }">
-					<!-- Row selection exists only for the bulk-assign flow
-					     (CS-PLAN-042). Children have no available bulk action,
-					     so the non-actionable checkbox is hidden entirely
-					     (CS-PLAN-066 §3.5 role controls). -->
-					<div v-if="userStore.canManageTasks" class="task-select">
-						<input
-							type="checkbox"
-							:data-testid="`select-task-${item.roomTask.id}`"
-							:checked="isSelected(item.roomTask.id)"
-							:aria-label="t('chorestrike', 'Select task')"
-							@change="toggleSelected(item.roomTask.id)">
-					</div>
-					<div class="task-main">
-						<div class="task-status">
-							<button
-								v-if="item.roomTask.isActive"
-								class="complete-button"
-								data-testid="complete-task-button"
-								:aria-label="t('chorestrike', 'Mark as complete')"
-								:title="t('chorestrike', 'Mark as complete')"
-								@click="$emit('complete', item.roomTask.id)">
-								<Icon name="Circle" :size="20" />
-							</button>
-							<span v-else class="completed-check">
-								<Icon name="CheckCircle" :size="20" />
-							</span>
-							<button
-								v-if="canClaim(item)"
-								class="claim-button"
-								data-testid="claim-overdue-button"
-								:aria-label="t('chorestrike', 'Claim & complete')"
-								:title="t('chorestrike', 'Claim & complete')"
-								@click="openClaimDialog(item)">
-								<Icon name="UserPlus" :size="16" />
-							</button>
-						</div>
-
-						<div class="task-content">
-							<div class="task-header">
-								<h4 class="task-name">
-									{{ item.task.name }}
-								</h4>
-								<span v-if="item.task.visibilityType === 'private'"
-									class="visibility-icon"
-									data-testid="visibility-lock-icon"
-									:title="t('chorestrike', 'Private task')">
-									<Icon name="Lock" :size="14" />
-								</span>
-								<span
-									v-if="item.task.visibilityType === 'admin-only'"
-									class="visibility-icon admin-only"
-									data-testid="visibility-crown-icon"
-									:title="t('chorestrike', 'Admin-only task')">
-									<Icon name="Crown" :size="14" />
-								</span>
-								<span class="priority-badge" :class="priorityClass(item.task.priority)">
-									{{ priorityLabel(item.task.priority) }}
-								</span>
-							</div>
-
-							<p v-if="item.task.description" class="task-description">
-								{{ item.task.description }}
-							</p>
-
-							<div class="task-meta">
-								<span class="meta-item energy">
-									<Icon name="Zap" :size="16" /> {{ item.task.energyCost }}
-								</span>
-								<span class="meta-item time">
-									<Icon name="Clock" :size="16" /> {{ item.task.estimatedMinutes }}m
-								</span>
-								<span class="meta-item frequency">
-									<Icon name="RotateCcw" :size="16" /> {{ frequencyLabel(item.task) }}
-								</span>
-								<span v-if="assigneeCount(item.roomTask) > 0" class="meta-item assigned">
-									<Icon name="Users" :size="16" />
-									{{ assigneeCount(item.roomTask) > 1
-										? t('chorestrike', '{count} assigned', { count: assigneeCount(item.roomTask) })
-										: t('chorestrike', 'Assigned') }}
-								</span>
-								<span v-if="assigneeCount(item.roomTask) > 1" class="meta-item teamwork-hint">
-									<Icon name="Sparkles" :size="16" />
-									{{ t('chorestrike', 'Teamwork bonus') }}
-								</span>
-							</div>
-
-							<div class="task-due" :class="dueClass(item.roomTask)">
-								{{ dueText(item.roomTask) }}
-							</div>
-
-							<!-- Flex Window Display -->
-							<FlexWindowDisplay
-								v-if="item.task.flexDays > 0"
-								:earliest="getEarliestDate(item)"
-								:ideal="getIdealDate(item)"
-								:latest="getLatestDate(item)"
-								:flex-days="item.task.flexDays"
-								:compact="true"
-								:show-status="true" />
-						</div>
-
-						<div class="task-actions">
-							<button
-								v-if="item.roomTask.isActive && userStore.canManageTasks"
-								class="action-btn"
-								:aria-label="t('chorestrike', 'Edit')"
-								:title="t('chorestrike', 'Edit')"
-								@click="$emit('edit', item.roomTask)">
-								<Icon name="Edit" :size="16" />
-							</button>
-							<button
-								class="action-btn"
-								:aria-label="t('chorestrike', 'Show details')"
-								:title="t('chorestrike', 'Show details')"
-								@click="toggleExpand(item)">
-								<Icon :name="isExpanded(item.roomTask.id) ? 'ChevronUp' : 'ChevronDown'" :size="16" />
-							</button>
-							<button
-								v-if="userStore.canManageTasks"
-								class="action-btn delete"
-								:aria-label="t('chorestrike', 'Remove')"
-								:title="t('chorestrike', 'Remove')"
-								@click="$emit('delete', item.roomTask.id)">
-								<Icon name="Trash" :size="16" />
-							</button>
-						</div>
-					</div>
-
-					<!-- Expanded Details with Checklist -->
-					<div v-if="isExpanded(item.roomTask.id)" class="task-details">
-						<!-- Assignee multi-select (multi-assign) — owners and
-						     members only; children have the execution surface -->
-						<div v-if="userStore.canManageTasks" class="assignee-picker">
-							<label class="assignee-label">{{ t('chorestrike', 'Assigned members') }}</label>
-							<div class="assignee-chips">
-								<label
-									v-for="member in houseMembers"
-									:key="member.nextcloudUserId"
-									class="assignee-chip"
-									:class="{ selected: isAssignee(item.roomTask.id, member.nextcloudUserId) }">
-									<input
-										type="checkbox"
-										class="cs-visually-hidden"
-										:checked="isAssignee(item.roomTask.id, member.nextcloudUserId)"
-										@change="toggleAssignee(item.roomTask.id, member.nextcloudUserId)">
-									<span>{{ member.displayName }}</span>
-								</label>
-								<p v-if="houseMembers.length === 0" class="field-error">
-									{{ t('chorestrike', 'No house members found') }}
-								</p>
-							</div>
-						</div>
-
-						<TaskChecklist
-							:items="getTaskItems(item.task.id)"
-							:progress="getRoomTaskProgress(item.roomTask.id)"
-							:can-edit="userStore.isHouseOwner"
-							:readonly="!item.roomTask.isActive"
-							:room-task-id="item.roomTask.id"
-							:task-id="item.task.id"
-							@toggle="handleToggleChecklistItem"
-							@add="handleAddChecklistItem"
-							@update="handleUpdateChecklistItem"
-							@delete="handleDeleteChecklistItem"
-							@reorder="handleReorderChecklistItems" />
-					</div>
-				</div>
+					:item="item"
+					:selected="isSelected(item.roomTask.id)"
+					:expanded="isExpanded(item.roomTask.id)"
+					:assignee-draft="assigneeDraft[item.roomTask.id] || []"
+					@complete="$emit('complete', $event)"
+					@edit="$emit('edit', $event)"
+					@delete="$emit('delete', $event)"
+					@toggle-expand="toggleExpand"
+					@toggle-select="toggleSelected"
+					@claim="openClaimDialog"
+					@toggle-assignee="toggleAssignee" />
 			</div>
 
 			<OverdueClaimDialog
@@ -253,26 +69,31 @@
 import { computed, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { showSuccess, showWarning, showError } from '@nextcloud/dialogs'
-import { Icon } from '../Common/index.js'
 import EmptyState from '../Common/EmptyState.vue'
-import TaskChecklist from './TaskChecklist.vue'
-import FlexWindowDisplay from './FlexWindowDisplay.vue'
+import TaskListItem from './TaskListItem.vue'
+import TaskListBulkBar from './TaskListBulkBar.vue'
 import OverdueClaimDialog from './OverdueClaimDialog.vue'
 import { useChecklistStore } from '../../store/checklist.js'
 import { useUserStore } from '../../store/user.js'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
-import { useHouseStore } from '../../store/house.js'
-import { dateKeyInZone, todayKeyInZone } from '../../utils/dateKeys.js'
 import { logger } from '../../utils/logger.js'
+import { isOverdue } from '../../utils/taskDisplay.js'
 
+/**
+ * TaskList orchestrator (CS-PLAN-067 §3.4): sorting, the bulk-assign state
+ * machine, the optimistic assignee drafts (CS-PLAN-065 §3.5), the claim
+ * dialog and the lazy expansion (assignee draft seeding, member pre-fetch
+ * and checklist loading). Row presentation lives in TaskListItem, the
+ * bulk bar in TaskListBulkBar, expanded details in TaskListDetails, and
+ * the shared display helpers in utils/taskDisplay.js.
+ */
 export default {
 	name: 'TaskList',
 
 	components: {
-		Icon,
 		EmptyState,
-		TaskChecklist,
-		FlexWindowDisplay,
+		TaskListItem,
+		TaskListBulkBar,
 		OverdueClaimDialog,
 	},
 
@@ -293,7 +114,6 @@ export default {
 		const checklistStore = useChecklistStore()
 		const userStore = useUserStore()
 		const roomTasksStore = useRoomTasksStore()
-		const houseStore = useHouseStore()
 		const expandedTaskId = ref(null)
 		// Local draft of assignee user IDs per expanded room task (optimistic)
 		const assigneeDraft = ref({})
@@ -309,50 +129,6 @@ export default {
 				return b.task.priority - a.task.priority
 			})
 		})
-
-		const isOverdue = (roomTask) => {
-			if (!roomTask.isActive) return false
-			return new Date(roomTask.nextDue) < new Date()
-		}
-
-		const priorityClass = (priority) => {
-			return { 1: 'low', 2: 'medium', 3: 'high' }[priority] || 'medium'
-		}
-
-		const priorityLabel = (priority) => {
-			return { 1: t('chorestrike', 'Low'), 2: t('chorestrike', 'Normal'), 3: t('chorestrike', 'High') }[priority]
-		}
-
-		const frequencyLabel = (task) => {
-			const labels = {
-				daily: t('chorestrike', 'Daily'),
-				weekly: task.frequencyValue === 1 ? t('chorestrike', 'Weekly') : t('chorestrike', 'Every {n} weeks', { n: task.frequencyValue }),
-				monthly: task.frequencyValue === 1 ? t('chorestrike', 'Monthly') : t('chorestrike', 'Every {n} months', { n: task.frequencyValue }),
-				custom: t('chorestrike', 'Custom'),
-			}
-			return labels[task.frequencyType] || task.frequencyType
-		}
-
-		const dueClass = (roomTask) => {
-			if (!roomTask.isActive) return 'completed'
-			const due = new Date(roomTask.nextDue)
-			const now = new Date()
-			if (due < now) return 'overdue'
-			// House-local day bucketing (CS-PLAN-057).
-			if (dateKeyInZone(roomTask.nextDue, houseStore.timezone) === todayKeyInZone(houseStore.timezone)) return 'today'
-			return 'upcoming'
-		}
-
-		const dueText = (roomTask) => {
-			if (!roomTask.isActive) return t('chorestrike', 'Completed')
-			const due = new Date(roomTask.nextDue)
-			const now = new Date()
-			const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24))
-			if (diffDays < 0) return t('chorestrike', 'Overdue by {days} days', { days: Math.abs(diffDays) })
-			if (diffDays === 0) return t('chorestrike', 'Due today')
-			if (diffDays === 1) return t('chorestrike', 'Due tomorrow')
-			return t('chorestrike', 'Due in {days} days', { days: diffDays })
-		}
 
 		const toggleExpand = async (item) => {
 			if (expandedTaskId.value === item.roomTask.id) {
@@ -378,12 +154,11 @@ export default {
 			}
 		}
 
-		const houseMembers = computed(() => userStore.houseUsers || [])
-
-		const isAssignee = (roomTaskId, userId) => {
-			const draft = assigneeDraft.value[roomTaskId] || []
-			return draft.includes(userId)
+		const isExpanded = (roomTaskId) => {
+			return expandedTaskId.value === roomTaskId
 		}
+
+		const houseMembers = computed(() => userStore.houseUsers || [])
 
 		const toggleAssignee = async (roomTaskId, userId) => {
 			const current = new Set(assigneeDraft.value[roomTaskId] || [])
@@ -405,9 +180,7 @@ export default {
 			}
 		}
 
-		const assigneeCount = (roomTask) => {
-			return (roomTask.assignees || []).length
-		}
+		// --- Overdue claim dialog (CS-PLAN-060 §3.4) ---
 
 		const claimDialogVisible = ref(false)
 		const claimAssigneeName = ref('')
@@ -415,7 +188,7 @@ export default {
 
 		const currentUserId = computed(() => userStore.currentUser?.nextcloudUserId || userStore.userId)
 
-		const canClaim = (item) => {
+		const canClaimFromItem = (item) => {
 			if (!item.roomTask.isActive) return false
 			if (!isOverdue(item.roomTask)) return false
 			if ((item.task.visibilityType || 'public') !== 'public') return false
@@ -425,6 +198,7 @@ export default {
 		}
 
 		const openClaimDialog = (item) => {
+			if (!canClaimFromItem(item)) return
 			claimRoomTaskId.value = item.roomTask.id
 			const assigneeId = (item.roomTask.assignees || [])[0]
 			const member = (userStore.houseUsers || []).find(u => u.nextcloudUserId === assigneeId)
@@ -439,65 +213,13 @@ export default {
 			}
 		}
 
-		const isExpanded = (roomTaskId) => {
-			return expandedTaskId.value === roomTaskId
-		}
-
-		const getTaskItems = (taskId) => {
-			return checklistStore.getTaskItems(taskId)
-		}
-
-		const getRoomTaskProgress = (roomTaskId) => {
-			return checklistStore.getRoomTaskProgress(roomTaskId)
-		}
-
-		const handleToggleChecklistItem = async ({ itemId, roomTaskId }) => {
-			await checklistStore.toggleItem(roomTaskId, itemId)
-		}
-
-		// --- Checklist editor wiring (CS-PLAN-042, UX-009) — owner-only via canEdit ---
-
-		const handleAddChecklistItem = async ({ label, taskId }) => {
-			try {
-				await checklistStore.addItem(taskId, { label })
-			} catch (error) {
-				showError(t('chorestrike', 'Failed to add sub-task'))
-				logger.error('Failed to add checklist item', error, { component: 'TaskList', action: 'handleAddChecklistItem', taskId })
-			}
-		}
-
-		const handleUpdateChecklistItem = async ({ itemId, label }) => {
-			try {
-				await checklistStore.updateItem(itemId, label)
-			} catch (error) {
-				showError(t('chorestrike', 'Failed to update sub-task'))
-				logger.error('Failed to update checklist item', error, { component: 'TaskList', action: 'handleUpdateChecklistItem', itemId })
-			}
-		}
-
-		const handleDeleteChecklistItem = async ({ itemId, taskId }) => {
-			try {
-				await checklistStore.deleteItem(itemId, taskId)
-			} catch (error) {
-				showError(t('chorestrike', 'Failed to delete sub-task'))
-				logger.error('Failed to delete checklist item', error, { component: 'TaskList', action: 'handleDeleteChecklistItem', itemId })
-			}
-		}
-
-		const handleReorderChecklistItems = async ({ itemIds, taskId }) => {
-			try {
-				await checklistStore.reorderItems(taskId, itemIds)
-			} catch (error) {
-				showError(t('chorestrike', 'Failed to reorder sub-tasks'))
-				logger.error('Failed to reorder checklist items', error, { component: 'TaskList', action: 'handleReorderChecklistItems', taskId })
-			}
-		}
-
 		// --- Bulk assignment selection (CS-PLAN-042, UX-008) ---
 
 		const selectedRoomTaskIds = ref([])
-		const bulkTargetUserId = ref('')
 		const bulkAssigning = ref(false)
+		// Bump signal: resets the bulk bar's local target draft when the
+		// selection clears (the bar owns only that input's state).
+		const bulkClearSignal = ref(0)
 
 		const isSelected = (roomTaskId) => selectedRoomTaskIds.value.includes(roomTaskId)
 
@@ -519,21 +241,23 @@ export default {
 
 		const clearSelection = () => {
 			selectedRoomTaskIds.value = []
-			bulkTargetUserId.value = ''
+			bulkClearSignal.value++
 		}
 
 		/**
 		 * One bulk call for the whole selection (CR-SVC-61). The server skips
 		 * foreign/missing ids per item; the diff between requested and
 		 * returned ids drives the partial-success toast.
+		 *
+		 * @param {string} targetUserId The picked target member's user ID.
 		 */
-		const handleBulkAssign = async () => {
+		const handleBulkAssign = async (targetUserId) => {
 			const requested = [...selectedRoomTaskIds.value]
-			if (!bulkTargetUserId.value || requested.length === 0) return
+			if (!targetUserId || requested.length === 0) return
 
 			bulkAssigning.value = true
 			try {
-				const assigned = await roomTasksStore.bulkAssignTasks(requested, bulkTargetUserId.value)
+				const assigned = await roomTasksStore.bulkAssignTasks(requested, targetUserId)
 				const assignedIds = new Set((assigned || []).map(rt => rt.id))
 				const skippedCount = requested.length - assignedIds.size
 
@@ -556,74 +280,21 @@ export default {
 			}
 		}
 
-		/**
-		 * Calculate earliest date for flex window
-		 * @param {object} item - Task item with roomTask and task
-		 * @return {string|null} ISO date string or null
-		 */
-		const getEarliestDate = (item) => {
-			const ideal = item.roomTask.idealDueDate || item.roomTask.nextDue
-			if (!ideal || item.task.flexDays <= 0) return null
-			const date = new Date(ideal)
-			date.setDate(date.getDate() - item.task.flexDays)
-			return date.toISOString()
-		}
-
-		/**
-		 * Get ideal due date for flex window
-		 * @param {object} item - Task item with roomTask and task
-		 * @return {string|null} ISO date string or null
-		 */
-		const getIdealDate = (item) => {
-			return item.roomTask.idealDueDate || item.roomTask.nextDue
-		}
-
-		/**
-		 * Calculate latest date for flex window
-		 * @param {object} item - Task item with roomTask and task
-		 * @return {string|null} ISO date string or null
-		 */
-		const getLatestDate = (item) => {
-			const ideal = item.roomTask.idealDueDate || item.roomTask.nextDue
-			if (!ideal || item.task.flexDays <= 0) return null
-			const date = new Date(ideal)
-			date.setDate(date.getDate() + item.task.flexDays)
-			return date.toISOString()
-		}
-
 		return {
 			sortedTasks,
 			expandedTaskId,
-			isOverdue,
-			priorityClass,
-			priorityLabel,
-			frequencyLabel,
-			dueClass,
-			dueText,
 			toggleExpand,
 			isExpanded,
-			getTaskItems,
-			getRoomTaskProgress,
-			handleToggleChecklistItem,
-			handleAddChecklistItem,
-			handleUpdateChecklistItem,
-			handleDeleteChecklistItem,
-			handleReorderChecklistItems,
+			houseMembers,
+			assigneeDraft,
+			toggleAssignee,
 			selectedRoomTaskIds,
-			bulkTargetUserId,
 			bulkAssigning,
+			bulkClearSignal,
 			isSelected,
 			toggleSelected,
 			clearSelection,
 			handleBulkAssign,
-			getEarliestDate,
-			getIdealDate,
-			getLatestDate,
-			houseMembers,
-			isAssignee,
-			toggleAssignee,
-			assigneeCount,
-			canClaim,
 			openClaimDialog,
 			confirmClaim,
 			claimDialogVisible,
@@ -640,382 +311,16 @@ export default {
 	width: 100%;
 }
 
-.loading-state {
-	text-align: center;
-	padding: 2rem;
-	color: var(--color-text-maxcontrast);
-}
-
-.loading-spinner {
-	width: 32px;
-	height: 32px;
-	border: 3px solid var(--color-border);
-	border-top: 3px solid var(--color-primary);
-	border-radius: 50%;
-	animation: spin 1s linear infinite;
-	margin: 0 auto 0.5rem;
-}
-
-@keyframes spin {
-	0% { transform: rotate(0deg); }
-	100% { transform: rotate(360deg); }
-}
-
 .task-list-body {
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
 }
 
-.bulk-assign-bar {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	padding: 0.6rem 0.9rem;
-	background: var(--color-primary-light);
-	border: 1px solid var(--color-primary);
-	border-radius: 8px;
-}
-
-.bulk-selection-count {
-	font-size: 0.85rem;
-	font-weight: 600;
-	color: var(--color-main-text);
-}
-
-.bulk-target-select {
-	min-height: 36px;
-	padding: 0.3rem 0.5rem;
-	border: 1px solid var(--color-border);
-	border-radius: 6px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
-	font-size: 0.85rem;
-}
-
-.bulk-assign-button {
-	padding: 0.4rem 0.9rem;
-	border: none;
-	border-radius: 6px;
-	background: var(--color-primary);
-	color: var(--color-primary-text);
-	cursor: pointer;
-	font-size: 0.85rem;
-	font-weight: 600;
-}
-
-.bulk-assign-button:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-}
-
-.bulk-clear-button {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 44px;
-	min-height: 44px;
-	margin-inline-start: auto;
-	border: none;
-	border-radius: 50%;
-	background: transparent;
-	color: var(--color-text-maxcontrast);
-	cursor: pointer;
-}
-
-.bulk-clear-button:hover {
-	background: var(--color-background-hover);
-	color: var(--color-main-text);
-}
-
-.task-select {
-	flex-shrink: 0;
-	display: flex;
-	align-items: flex-start;
-	padding-top: 0.35rem;
-}
-
-.task-select input[type='checkbox'] {
-	width: 16px;
-	height: 16px;
-	cursor: pointer;
-	accent-color: var(--color-primary);
-}
-
 .task-items {
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
-}
-
-.task-item {
-	background: var(--color-background-hover);
-	border-radius: 8px;
-	padding: 1rem;
-	border: 2px solid transparent;
-	transition: all 0.2s ease;
-}
-
-.task-item:hover {
-	border-color: var(--color-border);
-}
-
-.task-item.overdue {
-	border-color: var(--color-error, #e74c3c);
-	background: var(--color-error-hover, #fdf2f2);
-}
-
-.task-item.completed {
-	opacity: 0.6;
-	background: var(--color-background-dark);
-}
-
-.task-main {
-	display: flex;
-	gap: 1rem;
-	align-items: flex-start;
-}
-
-.task-status {
-	flex-shrink: 0;
-}
-
-.complete-button {
-	width: 44px;
-	height: 44px;
-	border-radius: 50%;
-	border: 2px solid var(--color-primary);
-	background: transparent;
-	color: var(--color-primary);
-	cursor: pointer;
-	font-size: 14px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	transition: all 0.2s ease;
-}
-
-.complete-button:hover {
-	background: var(--color-primary);
-	color: var(--color-primary-text);
-}
-
-.completed-check {
-	width: 44px;
-	height: 44px;
-	border-radius: 50%;
-	background: var(--color-success);
-	color: var(--color-success-text);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 14px;
-}
-
-.task-content {
-	flex: 1;
-	min-width: 0;
-}
-
-.task-header {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	margin-bottom: 0.25rem;
-}
-
-.task-name {
-	margin: 0;
-	font-size: 16px;
-	font-weight: 600;
-	color: var(--color-main-text);
-}
-
-.priority-badge {
-	padding: 2px 8px;
-	border-radius: 12px;
-	font-size: 11px;
-	font-weight: 500;
-	text-transform: uppercase;
-}
-
-.priority-badge.low {
-	background: var(--color-success-hover, #d5f4e6);
-	color: var(--color-success, #27ae60);
-}
-
-.priority-badge.medium {
-	background: var(--color-warning-hover, #fef9e7);
-	color: var(--color-warning, #f39c12);
-}
-
-.priority-badge.high {
-	background: var(--color-error-hover, #fdedec);
-	color: var(--color-error, #e74c3c);
-}
-
-.task-description {
-	margin: 0.25rem 0;
-	font-size: 14px;
-	color: var(--color-text-maxcontrast);
-	line-height: 1.4;
-}
-
-.task-meta {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.75rem;
-	margin-top: 0.5rem;
-	font-size: 12px;
-	color: var(--color-text-maxcontrast);
-}
-
-.task-due {
-	margin-top: 0.5rem;
-	font-size: 13px;
-	font-weight: 500;
-}
-
-.task-due.overdue {
-	color: var(--color-error, #e74c3c);
-}
-
-.task-due.today {
-	color: var(--color-warning, #f39c12);
-}
-
-.task-due.completed {
-	color: var(--color-success, #27ae60);
-}
-
-.task-actions {
-	display: flex;
-	gap: 0.25rem;
-	flex-shrink: 0;
-}
-
-.task-details {
-	margin-top: 1rem;
-	padding-top: 1rem;
-	border-top: 1px solid var(--color-border);
-}
-
-.assignee-picker {
-	margin-bottom: 1rem;
-}
-
-.assignee-label {
-	display: block;
-	margin-bottom: 0.4rem;
-	font-size: 0.85rem;
-	font-weight: 600;
-	color: var(--color-main-text);
-}
-
-.assignee-chips {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-}
-
-.assignee-chip {
-	display: flex;
-	align-items: center;
-	gap: 0.3rem;
-	padding: 0.35rem 0.7rem;
-	min-height: 44px;
-	border: 1px solid var(--color-border);
-	border-radius: 20px;
-	cursor: pointer;
-	background: var(--color-main-background);
-	font-size: 0.85rem;
-	transition: all 0.2s;
-}
-
-.assignee-chip:hover {
-	border-color: var(--color-primary);
-}
-
-.assignee-chip:focus-within {
-	outline: 2px solid var(--color-primary);
-	outline-offset: 2px;
-}
-
-.assignee-chip.selected {
-	background: var(--color-primary-light);
-	border-color: var(--color-primary);
-	color: var(--color-primary);
-	font-weight: 600;
-}
-
-.field-error {
-	color: var(--color-error);
-	font-size: 0.85rem;
-	margin: 0.5rem 0 0 0;
-}
-
-.action-btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 44px;
-	min-height: 44px;
-	padding: 0.25rem;
-	background: transparent;
-	border: none;
-	cursor: pointer;
-	opacity: 0.6;
-	transition: opacity 0.2s ease;
-}
-
-.action-btn:hover {
-	opacity: 1;
-}
-
-.visibility-icon {
-	display: inline-flex;
-	align-items: center;
-	color: var(--color-text-maxcontrast);
-}
-
-.visibility-icon.admin-only {
-	color: var(--cs-tier-gold, #f0a500);
-}
-
-.teamwork-hint {
-	color: var(--color-primary);
-	font-weight: 500;
-}
-
-.claim-button {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 44px;
-	height: 44px;
-	margin-top: 0.25rem;
-	border-radius: 50%;
-	border: 1px solid var(--color-primary);
-	background: transparent;
-	color: var(--color-primary);
-	cursor: pointer;
-	transition: all 0.2s ease;
-}
-
-.claim-button:hover {
-	background: var(--color-primary);
-	color: var(--color-primary-text);
-}
-
-@media (max-width: 600px) {
-	.task-main {
-		flex-wrap: wrap;
-	}
-
-	.task-actions {
-		width: 100%;
-		justify-content: flex-end;
-	}
 }
 
 /* Skeleton Loading Styles */

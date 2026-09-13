@@ -33,6 +33,7 @@ class GameControllerIntegrationTest extends TestCase {
 		$this->controller = new GameController(
 			$this->request,
 			$this->gameLogicService,
+			$this->createMock(\OCA\ChoreStrike\Service\MedalService::class),
 			$this->houseService,
 			$this->authService,
 			$this->createMock(AppLogger::class)
@@ -84,20 +85,31 @@ class GameControllerIntegrationTest extends TestCase {
 
 	/**
 	 * Medals_ReturnsAllMedals_SuccessResponse
+	 *
+	 * CS-PLAN-067 §3.2: the medal listing is served by MedalService.
 	 */
 	public function testMedals_ReturnsAllMedals_SuccessResponse(): void {
 		$medals = [
 			['id' => 1, 'userId' => 'user1', 'medalType' => 'team_anchor', 'value' => 12],
 			['id' => 2, 'userId' => 'user1', 'medalType' => 'flow_keeper', 'value' => 5],
 		];
+		$medalService = $this->createMock(\OCA\ChoreStrike\Service\MedalService::class);
+		$medalService->method('getMedals')->willReturn($medals);
 
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
 		$this->authService->method('ensureHouseMember')->willReturn($this->createMockHouseUser());
-		$this->gameLogicService->method('getMedals')
-			->willReturn($medals);
 
-		$response = $this->controller->medals();
+		$controller = new GameController(
+			$this->request,
+			$this->gameLogicService,
+			$medalService,
+			$this->houseService,
+			$this->authService,
+			$this->createMock(AppLogger::class)
+		);
+
+		$response = $controller->medals();
 
 		$this->assertEquals(200, $response->getStatus());
 		$data = $response->getData();

@@ -15,6 +15,7 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskCreationService;
 use OCA\ChoreStrike\Service\TemplateService;
@@ -30,6 +31,7 @@ class RoomTaskController extends Controller {
 	use ControllerLoggingTrait;
 
 	private RoomTaskService $roomTaskService;
+	private RoomTaskReadService $roomTaskReadService;
 	private CompletionService $completionService;
 	private TaskCreationService $taskCreationService;
 	private HouseService $houseService;
@@ -40,6 +42,7 @@ class RoomTaskController extends Controller {
 	public function __construct(
 		IRequest $request,
 		RoomTaskService $roomTaskService,
+		RoomTaskReadService $roomTaskReadService,
 		CompletionService $completionService,
 		TaskCreationService $taskCreationService,
 		HouseService $houseService,
@@ -50,6 +53,7 @@ class RoomTaskController extends Controller {
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->roomTaskService = $roomTaskService;
+		$this->roomTaskReadService = $roomTaskReadService;
 		$this->completionService = $completionService;
 		$this->taskCreationService = $taskCreationService;
 		$this->houseService = $houseService;
@@ -132,7 +136,17 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
-	 * Get room tasks for a room
+	 * Get room tasks
+	 *
+	 * Selector modes (CS-PLAN-067 D1), evaluated in this precedence — a
+	 * supplied selector never falls back to the broader house mode:
+	 * - `scopeId` present: the scope's rows intersected with the current
+	 *   house and the viewer's visibility (cross-house entries are silently
+	 *   absent → 200 with the local subset, possibly empty).
+	 * - `roomId` present: one room's visible tasks; a foreign roomId is a
+	 *   404.
+	 * - neither: the whole CURRENT house (server-side resolved — never a
+	 *   browser-supplied house ID), flat rows plus batched assignee arrays.
 	 *
 	 * @NoAdminRequired
 	 */
@@ -143,33 +157,20 @@ class RoomTaskController extends Controller {
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
 			if ($scopeId !== null) {
-				$roomTasks = $this->roomTaskService->getScopeTasksScopedToHouse($scopeId, $house->getId(), $houseUser, $activeOnly);
+				$roomTasks = $this->roomTaskReadService->getScopeTasksScopedToHouse($scopeId, $house->getId(), $houseUser, $activeOnly);
 			} elseif ($roomId !== null) {
 				// CR-053-02: the roomId is caller-supplied, so it must be
 				// validated against the caller's house (same fix as
 				// roomStats) — membership alone allowed cross-house reads.
 				$this->roomTaskService->validateRoomOwnership($roomId, $house->getId());
-				$roomTasks = $this->roomTaskService->getRoomTasks($roomId, $houseUser, $activeOnly);
+				$roomTasks = $this->roomTaskReadService->getRoomTasks($roomId, $houseUser, $activeOnly);
 			} else {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'VALIDATION_ERROR',
-						'message' => $this->l->t('roomId or scopeId is required')
-					]
-				], 400);
+				$roomTasks = $this->roomTaskReadService->getHouseRoomTasks($house->getId(), $houseUser, $activeOnly);
 			}
-
-			$assigneesByTask = $this->roomTaskService->getAssigneeUserIdsByRoomTasks($roomTasks);
-			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(function ($roomTask) use ($assigneesByTask, $tz) {
-					$data = $roomTask->jsonSerialize($tz);
-					$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
-					return $data;
-				}, $roomTasks)
+				'data' => $this->serializeFlatRoomTasks($roomTasks, $this->timeZoneOf($house)),
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -185,6 +186,26 @@ class RoomTaskController extends Controller {
 				]
 			], 500);
 		}
+	}
+
+	/**
+	 * Serialize room tasks into the flat list shape (CS-PLAN-067 D1): the
+	 * existing `RoomTask::jsonSerialize(timezone)` fields plus a canonical
+	 * `assignees` user-ID array — one batched assignee read for the whole
+	 * set, never a per-row lookup.
+	 *
+	 * @param \OCA\ChoreStrike\Db\RoomTask[] $roomTasks
+	 * @param \DateTimeZone $tz House timezone for day-boundary serialization
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function serializeFlatRoomTasks(array $roomTasks, \DateTimeZone $tz): array {
+		$assigneesByTask = $this->roomTaskReadService->assigneesByRoomTasks($roomTasks);
+
+		return array_map(static function ($roomTask) use ($assigneesByTask, $tz) {
+			$data = $roomTask->jsonSerialize($tz);
+			$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
+			return $data;
+		}, $roomTasks);
 	}
 
 	/**
@@ -625,15 +646,9 @@ class RoomTaskController extends Controller {
 			// CS-PLAN-066 (D1): the returned successes carry their canonical
 			// assignee sets — the client reconciles exactly what the server
 			// persisted, never the requested set.
-			$assigneesByTask = $this->roomTaskService->getAssigneeUserIdsByRoomTasks($assignedTasks);
-
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(function ($roomTask) use ($tz, $assigneesByTask) {
-					$data = $roomTask->jsonSerialize($tz);
-					$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
-					return $data;
-				}, $assignedTasks)
+				'data' => $this->serializeFlatRoomTasks($assignedTasks, $tz),
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -670,7 +685,7 @@ class RoomTaskController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$rows = $this->roomTaskService->getOverdueTaskRows($house->getId(), $houseUser, $roomId);
+			$rows = $this->roomTaskReadService->getOverdueTaskRows($house->getId(), $houseUser, $roomId);
 			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
@@ -704,7 +719,7 @@ class RoomTaskController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$rows = $this->roomTaskService->getDueTodayTaskRows($house->getId(), $houseUser, $roomId);
+			$rows = $this->roomTaskReadService->getDueTodayTaskRows($house->getId(), $houseUser, $roomId);
 			$tz = $this->timeZoneOf($house);
 
 			return new JSONResponse([
@@ -737,7 +752,7 @@ class RoomTaskController extends Controller {
 	 */
 	private function serializeExecutionRows(array $rows, \DateTimeZone $tz): array {
 		$roomTasks = array_map(static fn (array $row) => $row['roomTask'], $rows);
-		$assigneesByTask = $this->roomTaskService->getAssigneeUserIdsByRoomTasks($roomTasks);
+		$assigneesByTask = $this->roomTaskReadService->assigneesByRoomTasks($roomTasks);
 
 		return array_map(static function (array $row) use ($tz, $assigneesByTask) {
 			return [
@@ -889,7 +904,7 @@ class RoomTaskController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 
-			$filteredTasks = $this->roomTaskService->getFilteredDailyTasksForUser(
+			$filteredTasks = $this->roomTaskReadService->getFilteredDailyTasksForUser(
 				$house->getId(),
 				$houseUser,
 				new \DateTime()
@@ -900,7 +915,7 @@ class RoomTaskController extends Controller {
 			// assignee sets so My Day never re-interprets an unknown set as
 			// unassigned after the child limit truncated the list.
 			$roomTasks = array_map(static fn (array $item) => $item['roomTask'], $filteredTasks);
-			$assigneesByTask = $this->roomTaskService->getAssigneeUserIdsByRoomTasks($roomTasks);
+			$assigneesByTask = $this->roomTaskReadService->assigneesByRoomTasks($roomTasks);
 
 			return new JSONResponse([
 				'success' => true,

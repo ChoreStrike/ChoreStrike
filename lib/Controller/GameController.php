@@ -13,6 +13,7 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
+use OCA\ChoreStrike\Service\MedalService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -24,18 +25,21 @@ class GameController extends Controller {
 	use ControllerLoggingTrait;
 
 	private GameLogicService $gameLogicService;
+	private MedalService $medalService;
 	private HouseService $houseService;
 	private AuthorizationService $authService;
 
 	public function __construct(
 		IRequest $request,
 		GameLogicService $gameLogicService,
+		MedalService $medalService,
 		HouseService $houseService,
 		AuthorizationService $authService,
 		AppLogger $appLogger,
 	) {
 		parent::__construct('chorestrike', $request);
 		$this->gameLogicService = $gameLogicService;
+		$this->medalService = $medalService;
 		$this->houseService = $houseService;
 		$this->authService = $authService;
 		$this->initializeControllerLogger($appLogger);
@@ -84,7 +88,7 @@ class GameController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->assertHouseMember($house->getId());
 
-			$medals = $this->gameLogicService->getMedals($house->getId());
+			$medals = $this->medalService->getMedals($house->getId());
 
 			return new JSONResponse([
 				'success' => true,
@@ -115,7 +119,7 @@ class GameController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->assertHouseMember($house->getId());
 
-			$awardedMedals = $this->gameLogicService->checkAndAwardMedals($house->getId());
+			$awardedMedals = $this->medalService->checkAndAwardMedals($house->getId());
 
 			return new JSONResponse([
 				'success' => true,

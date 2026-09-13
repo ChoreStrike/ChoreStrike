@@ -27,6 +27,12 @@ const CORE_SURFACES = [
 	'src/components/Dashboard/FloorList.vue',
 	'src/components/Dashboard/ArcadeSection.vue',
 	'src/components/Tasks/TaskList.vue',
+	// CS-PLAN-067 §3.4: the TaskList decomposition moved the row-surface
+	// t() calls into these units — coverage must follow moved calls.
+	'src/components/Tasks/TaskListItem.vue',
+	'src/components/Tasks/TaskListBulkBar.vue',
+	'src/components/Tasks/TaskListDetails.vue',
+	'src/utils/taskDisplay.js',
 	'src/components/Tasks/TaskEditForm.vue',
 	'src/components/Tasks/TaskChecklist.vue',
 	'src/components/Setup/SetupWizard.vue',

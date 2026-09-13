@@ -448,17 +448,25 @@ before any write).
 (CS-PLAN-063 D1).
 
 #### GET /room-tasks
-List all room-task assignments.
+List room-task assignments (CS-PLAN-067 D1 selector contract).
 
-**Query Parameters:**
-- `room_id` (optional): Filter by room
-- `status` (optional): `due`, `overdue`, `upcoming`
+**Selector modes** (precedence; a supplied selector never falls back to a
+broader mode):
+- `scopeId` (optional): the scope's rows intersected with the current house
+  and the viewer's visibility (CR-053-02, skip-on-missing).
+- `roomId` (optional): one room's visible tasks; a foreign roomId is a
+  `404 RESOURCE_NOT_FOUND`.
+- neither: **house-wide** — every visible instance of the CURRENT house
+  (server-side resolved, never a browser-supplied house ID) in ONE request.
+  This is the batched read TaskManager and SchedulingView load instead of
+  the former per-room request loop.
+- `activeOnly` (optional, default `true`): limit to active instances.
 
-> **Authorization (CR-053-02):** house-scoped — a `room_id` from another
-> house is rejected with `404 RESOURCE_NOT_FOUND`, and the `scope_id`
+> **Authorization (CR-053-02):** house-scoped — a `roomId` from another
+> house is rejected with `404 RESOURCE_NOT_FOUND`, and the `scopeId`
 > branch silently filters cross-house entries (skip-on-missing).
 
-**Response:**
+**Response** (flat rows; identical shape in every selector mode):
 ```json
 [
   {
@@ -470,7 +478,7 @@ List all room-task assignments.
     "priority": 2,
     "next_due": "2026-02-25T10:00:00Z",
     "last_completed": "2026-02-18T10:00:00Z",
-    "assignees": [],
+    "assignees": ["mom"],
     "is_overdue": false,
     "days_until_due": 1
   }
@@ -505,7 +513,9 @@ Update a room task's next-due date / ideal due date.
 
 #### GET /room-tasks/{id}/assignees · PUT /room-tasks/{id}/assignees
 Read / replace the multi-assignee set for a room task. Assignee mutations
-are validated for house membership server-side.
+are validated for house membership server-side. (Since CS-PLAN-067 §3.4 the
+GET route has no frontend consumer — list rows already carry their canonical
+`assignees` arrays — but it stays available for API consumers.)
 
 #### POST /room-tasks/{id}/undo (CS-PLAN-064 WP5)
 The one idempotent undo aggregate (replaces the pruned split

@@ -809,6 +809,47 @@ family profile):
 - Extend this suite for new mapper fixes; do not re-cover a method that already
   has a real-DB regression test.
 
+## Workflow Query Budgets & Executed-Query Counting (CS-PLAN-067 §4.1)
+
+Performance budgets are enforced as **literal, frozen statement counts** in
+`tests/integration/Db/WorkflowQueryBudgetTest.php`, measured with
+`tests/integration/Support/QueryCounter.php` against the real MySQL/MariaDB
+profile of the canonical Docker stack.
+
+**Counting seam (slice-1 verification):** the bundled DBAL 3.10.4 marks
+`Configuration::setSQLLogger()` deprecated in favor of connection-time
+middleware — but middleware cannot be retrofitted onto the already-constructed
+Nextcloud connection, while the logger IS still consulted at call time by
+`Connection::executeQuery()/executeStatement()` and `Statement::execute()`
+(DBAL 3.10.4 source lines 1089/1197/1384/1496/1546/1625, Statement:183).
+`QueryCounter::attach()` installs that logger (no deprecation is emitted —
+doctrine/deprecations is inert unless explicitly enabled) and `detach()` in a
+`finally` MUST follow every install so a later test is never observed.
+`doctrine/dbal` internals were not patched and no debug endpoint was added.
+
+**Observed-statement accounting:** the counter logs transaction control too
+(`"START TRANSACTION"` / `"COMMIT"`), so budgets include them. Frozen budgets
+(reasoning documented per test):
+
+| Workflow | Budget | Composition |
+|---|---|---|
+| House-wide instance read | 3 | house-scoped fetch + batched task definitions + batched assignees; CONSTANT in row count (Q(100) = Q(10)) |
+| Empty house read | 1 | mapper fetch only — no enrichment |
+| `updateDueDate` | 8 | 3 gate reads + BEGIN + FOR UPDATE + UPDATE + locked fresh read + COMMIT; statement-order proof that nothing runs after COMMIT |
+| `complete()` | 27 | gates + ADR-011 locks (room_task → room → house_user) + reward-phase `findForUpdate` + checklist + single ledger INSERT + post-commit weekly-goal cluster |
+| `undo()` | 32 | same structure + effect-record restore; 3 locks |
+
+**Rules:** every budget test also asserts exact result IDs or state (a lower
+count must never be bought with wrong data); budgets are re-measured on the
+canonical Docker stack before any change; a regression fails CI, an
+improvement should tighten the number.
+
+Frontend counterpart: `tests/unit/views/requestCounts.spec.js` (real Pinia
+stores, mocked API boundary — exactly one house-wide list request in the
+TaskManager init set) and `tests/e2e/workflow-request-budgets.spec.ts`
+(real HTTP boundary — the TaskManager/Scheduling load issues exactly ONE
+`GET /api/v1/room-tasks` without a `roomId` param).
+
 ---
 
 ## Time-Travel Testing (CS-PLAN-023)

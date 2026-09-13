@@ -1,31 +1,22 @@
 import { mount } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
 import AssigneeChips from '../../../src/components/Tasks/AssigneeChips.vue'
-import { useUserStore } from '../../../src/store/user.js'
 
 jest.mock('@nextcloud/l10n', () => ({
 	translate: jest.fn((app, text) => text),
 }))
 
 describe('AssigneeChips', () => {
-	const seedMembers = (userStore) => {
-		userStore.houseUsers = [
-			{ nextcloudUserId: 'u1', displayName: 'Alice' },
-			{ nextcloudUserId: 'u2', displayName: 'Bob' },
-		]
-	}
+	const members = [
+		{ nextcloudUserId: 'u1', displayName: 'Alice' },
+		{ nextcloudUserId: 'u2', displayName: 'Bob' },
+	]
 
-	const mountChips = (modelValue = []) => {
-		const pinia = createPinia()
-		setActivePinia(pinia)
-		const userStore = useUserStore()
-		seedMembers(userStore)
-
-		return mount(AssigneeChips, {
-			props: { modelValue },
-			global: { plugins: [pinia] },
-		})
-	}
+	// CS-PLAN-067 §3.4: the component is fully controlled — members arrive
+	// via the `members` prop; it performs no store access and no eager
+	// member fetch of its own.
+	const mountChips = (modelValue = []) => mount(AssigneeChips, {
+		props: { modelValue, members },
+	})
 
 	it('renders one chip per house member', () => {
 		const wrapper = mountChips(['u1'])

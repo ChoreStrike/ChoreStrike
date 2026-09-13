@@ -9,11 +9,8 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\FloorMapper;
-use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
@@ -27,13 +24,17 @@ use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
 
 /**
- * Service for room task-related business logic
+ * Service for room task business logic: ownership validation, lifecycle
+ * mutations and the room-scoped aggregates (stats, calendar range). The
+ * batched READ/enrichment cluster lives in {@see RoomTaskReadService}
+ * (CS-PLAN-067 §3.1); this service delegates to it instead of duplicating
+ * the assembly.
  */
 class RoomTaskService {
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
 	private RoomMapper $roomMapper;
-	private FloorMapper $floorMapper;
+	private RoomTaskReadService $readService;
 	private RoomService $roomService;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private HouseUserMapper $houseUserMapper;
@@ -41,8 +42,6 @@ class RoomTaskService {
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
-	private HouseMapper $houseMapper;
-	private CalendarService $calendarService;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private AuthorizationService $authorization;
 
@@ -50,7 +49,7 @@ class RoomTaskService {
 		RoomTaskMapper $roomTaskMapper,
 		TaskMapper $taskMapper,
 		RoomMapper $roomMapper,
-		FloorMapper $floorMapper,
+		RoomTaskReadService $readService,
 		RoomService $roomService,
 		TaskAssigneeMapper $taskAssigneeMapper,
 		HouseUserMapper $houseUserMapper,
@@ -58,15 +57,13 @@ class RoomTaskService {
 		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
-		HouseMapper $houseMapper,
-		CalendarService $calendarService,
 		TaskAccessPolicy $taskAccessPolicy,
 		AuthorizationService $authorization,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
 		$this->roomMapper = $roomMapper;
-		$this->floorMapper = $floorMapper;
+		$this->readService = $readService;
 		$this->roomService = $roomService;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->houseUserMapper = $houseUserMapper;
@@ -74,33 +71,8 @@ class RoomTaskService {
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
-		$this->houseMapper = $houseMapper;
-		$this->calendarService = $calendarService;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->authorization = $authorization;
-	}
-
-	/**
-	 * Resolve the house timezone for day-boundary bucketing (CS-PLAN-057).
-	 */
-	private function getTimeZoneForHouse(int $houseId): \DateTimeZone {
-		return $this->calendarService->getTimeZone($this->houseMapper->find($houseId));
-	}
-
-	/**
-	 * Resolve the house timezone behind a room (room → floor → house).
-	 */
-	private function getTimeZoneForRoom(int $roomId): \DateTimeZone {
-		$room = $this->roomMapper->find($roomId);
-		return $this->getTimeZoneForRoomEntity($room);
-	}
-
-	/**
-	 * Resolve the house timezone behind an already-fetched room entity.
-	 */
-	private function getTimeZoneForRoomEntity(Room $room): \DateTimeZone {
-		$floor = $this->floorMapper->find($room->getFloorId());
-		return $this->getTimeZoneForHouse($floor->getHouseId());
 	}
 
 	/**
@@ -173,185 +145,18 @@ class RoomTaskService {
 		}
 	}
 
-	/**
-	 * Fetch task definitions for a batch of room tasks in one query.
-	 *
-	 * @param RoomTask[] $roomTasks
-	 * @return array<int, Task> Map of task ID → Task
-	 */
-	private function tasksByIdForRoomTasks(array $roomTasks): array {
-		$taskIds = [];
-		foreach ($roomTasks as $roomTask) {
-			$taskIds[$roomTask->getTaskId()] = true;
-		}
-		return $this->taskMapper->findByIds(array_keys($taskIds));
-	}
-
-	/**
-	 * Get the room tasks of one room the viewer may see (visibility matrix,
-	 * CS-PLAN-061 §3.3).
-	 *
-	 * @param int $roomId The room ID
-	 * @param HouseUser $viewer The acting user's house membership
-	 * @param bool $activeOnly Whether to return only active tasks
-	 * @return RoomTask[]
-	 */
-	public function getRoomTasks(int $roomId, HouseUser $viewer, bool $activeOnly = true): array {
-		$roomTasks = $this->roomTaskMapper->findByRoomId($roomId, $activeOnly);
-		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $this->tasksByIdForRoomTasks($roomTasks), $viewer);
-	}
-
-	/**
-	 * Get overdue tasks for a house, filtered to the viewer's visibility.
-	 *
-	 * @param int $houseId The house ID (scopes the query to one house)
-	 * @param HouseUser $viewer The acting user's house membership
-	 * @param int|null $roomId Optional room ID to filter by
-	 * @return RoomTask[]
-	 */
-	public function getOverdueTasks(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		$roomTasks = $this->roomTaskMapper->findOverdueByHouse($houseId, $roomId);
-		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $this->tasksByIdForRoomTasks($roomTasks), $viewer);
-	}
-
-	/**
-	 * Get tasks due today for a house, filtered to the viewer's visibility.
-	 *
-	 * @param int $houseId The house ID (scopes the query to one house)
-	 * @param HouseUser $viewer The acting user's house membership
-	 * @param int|null $roomId Optional room ID to filter by
-	 * @return RoomTask[]
-	 */
-	public function getDueTodayTasks(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		$tz = $this->getTimeZoneForHouse($houseId);
-		[$start, $end] = $this->calendarService->dayBounds(new \DateTime(), $tz);
-		$roomTasks = $this->roomTaskMapper->findDueTodayByHouse($houseId, $start, $end, $roomId);
-		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $this->tasksByIdForRoomTasks($roomTasks), $viewer);
-	}
-
-	/**
-	 * Due-today execution rows with task/room details (CS-PLAN-066 §3.1 D1):
-	 * the same viewer-visible set as {@see getDueTodayTasks()}, assembled
-	 * into the canonical `{roomTask, task, room}` row shape the enriched
-	 * daily endpoint already returns — one contract for every execution row
-	 * consumer.
-	 *
-	 * @param int $houseId The house ID (scopes the query to one house)
-	 * @param HouseUser $viewer The acting user's house membership
-	 * @param int|null $roomId Optional room ID to filter by
-	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
-	 */
-	public function getDueTodayTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		return $this->rowsForRoomTasks($this->getDueTodayTasks($houseId, $viewer, $roomId));
-	}
-
-	/**
-	 * Overdue execution rows with task/room details (CS-PLAN-066 §3.1 D1):
-	 * the same viewer-visible set as {@see getOverdueTasks()}, assembled
-	 * into the canonical `{roomTask, task, room}` row shape.
-	 *
-	 * @param int $houseId The house ID (scopes the query to one house)
-	 * @param HouseUser $viewer The acting user's house membership
-	 * @param int|null $roomId Optional room ID to filter by
-	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
-	 */
-	public function getOverdueTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		return $this->rowsForRoomTasks($this->getOverdueTasks($houseId, $viewer, $roomId));
-	}
-
-	/**
-	 * Assemble visible room tasks into `{roomTask, task, room}` rows with
-	 * two batch queries (TaskMapper/RoomMapper::findByIds, CS-PLAN-036).
-	 * A missing task or room row (map absence) skips the room task.
-	 *
-	 * @param RoomTask[] $roomTasks Viewer-visible room tasks
-	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
-	 */
-	private function rowsForRoomTasks(array $roomTasks): array {
-		$taskIds = [];
-		$roomIds = [];
-		foreach ($roomTasks as $roomTask) {
-			$taskIds[$roomTask->getTaskId()] = true;
-			$roomIds[$roomTask->getRoomId()] = true;
-		}
-
-		$tasksById = $this->taskMapper->findByIds(array_keys($taskIds));
-		$roomsById = $this->roomMapper->findByIds(array_keys($roomIds));
-
-		$rows = [];
-		foreach ($roomTasks as $roomTask) {
-			$task = $tasksById[$roomTask->getTaskId()] ?? null;
-			$room = $roomsById[$roomTask->getRoomId()] ?? null;
-			if ($task === null || $room === null) {
-				continue;
-			}
-
-			$rows[] = [
-				'roomTask' => $roomTask,
-				'task' => $task,
-				'room' => $room,
-			];
-		}
-
-		return $rows;
-	}
-
-	/**
-	 * Get tasks due within the next N days for a house, filtered to the
-	 * viewer's visibility.
-	 *
-	 * @param int $houseId The house ID (scopes the query to one house)
-	 * @param int $days Number of days
-	 * @param HouseUser $viewer The acting user's house membership
-	 * @param int|null $roomId Optional room ID to filter by
-	 * @return RoomTask[]
-	 */
-	public function getDueWithinDaysTasks(int $houseId, int $days, HouseUser $viewer, ?int $roomId = null): array {
-		$roomTasks = $this->roomTaskMapper->findDueWithinDaysByHouse($houseId, $days, $roomId);
-		return $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $this->tasksByIdForRoomTasks($roomTasks), $viewer);
-	}
+	// CS-PLAN-067 §3.1: the batched READ cluster (house/room/scope/daily
+	// fetches, visibility filtering, task/room enrichment, filtered-daily
+	// assembly, claimable/due-within reads, execution-row aggregation) lives
+	// in RoomTaskReadService — callers consume it directly, this service
+	// keeps only the writer/mutation aggregate and the room-scoped stats and
+	// calendar projections.
 
 	// CS-PLAN-063 (CR-WF-03): the former createRoomTask/createFromTemplate
 	// pair — sequential auto-commit writes that could strand an orphan task
 	// definition — was replaced by the atomic TaskCreationService aggregate
 	// (lib/Service/TaskCreationService.php). Both create routes route through
 	// it; setup keeps its own internal aggregate (CS-PLAN-063 D9).
-
-	/**
-	 * Get room tasks for a scope, filtered to one house and the viewer's
-	 * visibility (CR-053-02, CS-PLAN-061 §3.3).
-	 *
-	 * The scopeId is caller-supplied and scopes are not house-bound, so the
-	 * unscoped fetch is intersected with the house-scoped batch fetch
-	 * (skip-on-missing semantics): cross-house entries are silently absent
-	 * instead of leaking assignee user ids to another house.
-	 *
-	 * @param int $scopeId The scope ID
-	 * @param int $houseId The caller's house ID
-	 * @param HouseUser $viewer The acting user's house membership
-	 * @param bool $activeOnly Whether to return only active tasks
-	 * @return RoomTask[] Scope tasks belonging to the house and visible to the viewer (original order)
-	 */
-	public function getScopeTasksScopedToHouse(int $scopeId, int $houseId, HouseUser $viewer, bool $activeOnly = true): array {
-		$roomTasks = $this->roomTaskMapper->findByScopeId($scopeId, $activeOnly);
-		if ($roomTasks === []) {
-			return [];
-		}
-
-		$scoped = $this->roomTaskMapper->findByIdsScopedToHouse(
-			array_map(static fn (RoomTask $roomTask): int => $roomTask->getId(), $roomTasks),
-			$houseId
-		);
-
-		$scopedIds = array_flip(array_map(static fn (RoomTask $roomTask): int => $roomTask->getId(), $scoped));
-
-		$inHouse = array_values(array_filter(
-			$roomTasks,
-			static fn (RoomTask $roomTask): bool => isset($scopedIds[$roomTask->getId()])
-		));
-
-		return $this->taskAccessPolicy->filterVisibleRoomTasks($inHouse, $this->tasksByIdForRoomTasks($inHouse), $viewer);
-	}
 
 	/**
 	 * Replace the assignee set inside one transaction under the room-task
@@ -452,17 +257,6 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Get the Nextcloud user IDs assigned to multiple room tasks (one query).
-	 *
-	 * @param RoomTask[] $roomTasks The room tasks
-	 * @return array<int, string[]> Map of room task ID => unique Nextcloud user IDs
-	 */
-	public function getAssigneeUserIdsByRoomTasks(array $roomTasks): array {
-		$roomTaskIds = array_map(fn ($rt) => $rt->getId(), $roomTasks);
-		return $this->taskAssigneeMapper->findUserIdsByRoomTasks($roomTaskIds);
-	}
-
-	/**
 	 * Replace the full set of assignees for a room task.
 	 *
 	 * Service-level gates (ADR-006, CS-PLAN-061 §3.4): the room task must
@@ -531,6 +325,11 @@ class RoomTaskService {
 	 * room_task after the house lock) serializes instead of interleaving
 	 * with the raw read-modify-write.
 	 *
+	 * CS-PLAN-067 §3.3: the entity produced INSIDE the transaction is the
+	 * authoritative response — the row is locked and re-read under the lock,
+	 * so the after-commit re-fetch the former shape used was a redundant
+	 * read (removed; response equality pinned by tests).
+	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param \DateTime $nextDue The new due date
 	 * @param HouseUser $houseUser The acting user's house membership
@@ -539,13 +338,11 @@ class RoomTaskService {
 		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
 		$this->assertLifecycleVisibility($roomTask, $this->findTaskOrNotFound($roomTask->getTaskId()), $houseUser);
 
-		$this->transactions->run(function () use ($roomTaskId, $nextDue) {
+		return $this->transactions->run(function () use ($roomTaskId, $nextDue): RoomTask {
 			$this->roomTaskMapper->lockForUpdate($roomTaskId);
 			$this->roomTaskMapper->updateNextDue($roomTaskId, $nextDue);
+			return $this->roomTaskMapper->find($roomTaskId);
 		});
-
-		// Return updated room task
-		return $this->roomTaskMapper->find($roomTaskId);
 	}
 
 	/**
@@ -576,28 +373,6 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Get room task with full details
-	 *
-	 * @param int $roomTaskId The room task ID
-	 */
-	public function getRoomTaskWithDetails(int $roomTaskId): array {
-		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
-		$task = $this->findTaskOrNotFound($roomTask->getTaskId());
-		$room = $this->roomMapper->find($roomTask->getRoomId());
-		$tz = $this->getTimeZoneForRoomEntity($room);
-
-		return [
-			'roomTask' => $roomTask,
-			'task' => $task,
-			'room' => $room,
-			'status' => $roomTask->getStatus($tz),
-			'isOverdue' => $roomTask->isOverdue(),
-			'isDueToday' => $roomTask->isDueToday($tz),
-			'daysUntilDue' => $roomTask->getDaysUntilDue($tz)
-		];
-	}
-
-	/**
 	 * Get task statistics for a room, restricted to the viewer's visibility
 	 * (CS-PLAN-061 review fix): counts are computed over the visibility-
 	 * filtered room-task set, so the stats of a room with invisible private
@@ -614,12 +389,8 @@ class RoomTaskService {
 	 */
 	public function getRoomTaskStats(int $roomId, HouseUser $viewer): array {
 		$allTasks = $this->roomTaskMapper->findByRoomId($roomId, false);
-		$visibleTasks = $this->taskAccessPolicy->filterVisibleRoomTasks(
-			$allTasks,
-			$this->tasksByIdForRoomTasks($allTasks),
-			$viewer
-		);
-		$tz = $this->getTimeZoneForRoom($roomId);
+		$visibleTasks = $this->readService->visibleRoomTasks($allTasks, $viewer);
+		$tz = $this->readService->timeZoneForRoom($roomId);
 		$activeTasks = array_filter($visibleTasks, fn ($task) => $task->getIsActive());
 		$overdueTasks = array_filter($activeTasks, fn ($task) => $task->isOverdue());
 		$dueTodayTasks = array_filter($activeTasks, fn ($task) => $task->isDueToday($tz));
@@ -687,7 +458,7 @@ class RoomTaskService {
 		// Visibility pre-check for everything that IS in the house: one
 		// batched assignee fetch (no N+1), 404 on the first invisible task.
 		if ($scopedById !== []) {
-			$tasksById = $this->tasksByIdForRoomTasks(array_values($scopedById));
+			$tasksById = $this->readService->tasksByIdForRoomTasks(array_values($scopedById));
 			$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(array_keys($scopedById));
 			foreach ($scopedById as $scopedId => $scopedRoomTask) {
 				$task = $tasksById[$scopedRoomTask->getTaskId()] ?? null;
@@ -759,94 +530,6 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Get overdue tasks that can be claimed (overdue + assigned to at least
-	 * one member via the canonical join table), filtered to the viewer's
-	 * visibility.
-	 *
-	 * @param int $houseId The house ID
-	 * @param HouseUser $viewer The acting user's house membership
-	 * @return RoomTask[]
-	 */
-	public function getClaimableOverdueTasks(int $houseId, HouseUser $viewer): array {
-		$overdueTasks = $this->roomTaskMapper->findOverdueByHouse($houseId);
-		if ($overdueTasks === []) {
-			return [];
-		}
-
-		$assigneesByTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
-			array_map(static fn (RoomTask $task) => $task->getId(), $overdueTasks)
-		);
-
-		$claimableTasks = array_filter(
-			$overdueTasks,
-			static fn (RoomTask $task) => ($assigneesByTask[$task->getId()] ?? []) !== []
-		);
-
-		$claimable = array_values($claimableTasks);
-		return $this->taskAccessPolicy->filterVisibleRoomTasks($claimable, $this->tasksByIdForRoomTasks($claimable), $viewer);
-	}
-
-	/**
-	 * Get today's tasks for a house
-	 *
-	 * @param int $houseId The house ID
-	 * @param DateTime $date The date to get tasks for
-	 * @return RoomTask[]
-	 */
-	public function getDailyTasks(int $houseId, \DateTime $date): array {
-		$tz = $this->getTimeZoneForHouse($houseId);
-		[$start, $end] = $this->calendarService->dayBounds($date, $tz);
-		return $this->roomTaskMapper->findDailyTasks($houseId, $start, $end);
-	}
-
-	/**
-	 * Get today's tasks for a house including task and room details, filtered
-	 * to the viewer's visibility (CS-PLAN-061 §3.3).
-	 *
-	 * Task and room entities are fetched in two batch queries
-	 * (TaskMapper/RoomMapper::findByIds, CS-PLAN-036) instead of per-id
-	 * lookups — superseding the old per-request id cache. A missing task
-	 * or room row (map absence) skips the room task.
-	 *
-	 * @param int $houseId The house ID
-	 * @param \DateTime $date The date to get tasks for
-	 * @param HouseUser $viewer The acting user's house membership
-	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
-	 */
-	public function getDailyTasksWithDetails(int $houseId, \DateTime $date, HouseUser $viewer): array {
-		$dailyTasks = $this->getDailyTasks($houseId, $date);
-
-		$taskIds = [];
-		$roomIds = [];
-		foreach ($dailyTasks as $roomTask) {
-			$taskIds[$roomTask->getTaskId()] = true;
-			$roomIds[$roomTask->getRoomId()] = true;
-		}
-
-		$tasksById = $this->taskMapper->findByIds(array_keys($taskIds));
-		$roomsById = $this->roomMapper->findByIds(array_keys($roomIds));
-
-		$visibleTasks = $this->taskAccessPolicy->filterVisibleRoomTasks($dailyTasks, $tasksById, $viewer);
-
-		$details = [];
-		foreach ($visibleTasks as $roomTask) {
-			$task = $tasksById[$roomTask->getTaskId()] ?? null;
-			$room = $roomsById[$roomTask->getRoomId()] ?? null;
-			if ($task === null || $room === null) {
-				continue;
-			}
-
-			$details[] = [
-				'roomTask' => $roomTask,
-				'task' => $task,
-				'room' => $room,
-			];
-		}
-
-		return $details;
-	}
-
-	/**
 	 * Get scheduled and completed tasks for a house within a date range.
 	 *
 	 * Batch-fetches task and room entities by unique-ID sets to avoid N+1
@@ -875,7 +558,7 @@ class RoomTaskService {
 		// — the end bound is the NEXT day's 00:00:00 (exclusive), matching
 		// the window-query convention. The projection base-set bound keeps
 		// its inclusive end-of-day semantics.
-		$tz = $this->getTimeZoneForHouse($houseId);
+		$tz = $this->readService->timeZoneForHouse($houseId);
 		$fromBound = (new \DateTime($from->format('Y-m-d') . ' 00:00:00', $tz))
 			->setTimezone(new \DateTimeZone('UTC'));
 		$toBoundInclusive = (new \DateTime($to->format('Y-m-d') . ' 23:59:59', $tz))
@@ -1017,72 +700,5 @@ class RoomTaskService {
 	public function assertLifecycleVisibility(RoomTask $roomTask, Task $task, HouseUser $houseUser): void {
 		$assigneeUserIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId());
 		$this->taskAccessPolicy->assertCanView($task, $houseUser, $assigneeUserIds);
-	}
-
-	/**
-	 * Get filtered daily tasks for a user based on their role and scheduling
-	 * preferences, restricted to the viewer's visibility matrix.
-	 *
-	 * CS-PLAN-065 (decision D4): for child users the assignment eligibility
-	 * (assigned to the viewer OR unassigned — the canonical My Day "mine"
-	 * semantics) is evaluated BEFORE the availability gate and the daily
-	 * limit, so an ineligible task can never consume one of the child's
-	 * slots. Ordering is the canonical `nextDue, createdAt, id` (mapper
-	 * guarantee), and non-child users receive all visible daily tasks.
-	 *
-	 * @param int $houseId The house ID
-	 * @param HouseUser $viewer The acting user's house membership (role + preferences source)
-	 * @param \DateTime $date The date to get tasks for
-	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}> Filtered tasks with details
-	 */
-	public function getFilteredDailyTasksForUser(
-		int $houseId,
-		HouseUser $viewer,
-		\DateTime $date,
-	): array {
-		// Daily tasks, already filtered through the visibility matrix and in
-		// the deterministic `nextDue, createdAt, id` order.
-		$allTasks = $this->getDailyTasksWithDetails($houseId, $date, $viewer);
-
-		// Non-child users see all (visible) tasks.
-		if (!$viewer->isChild()) {
-			return $allTasks;
-		}
-
-		// Eligibility first (D4): assigned to the viewer OR unassigned.
-		// One batched assignee read for the whole daily set (no N+1).
-		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
-			array_map(static fn (array $item): int => $item['roomTask']->getId(), $allTasks)
-		);
-		$eligible = array_values(array_filter(
-			$allTasks,
-			function (array $item) use ($assigneesByRoomTask, $viewer): bool {
-				$assignees = $assigneesByRoomTask[$item['roomTask']->getId()] ?? [];
-				return $assignees === [] || in_array($viewer->getNextcloudUserId(), $assignees, true);
-			}
-		));
-
-		// Get user's scheduling preferences
-		$preferences = $viewer->getSchedulingPreferences();
-		$weekdayAvailability = $preferences['weekdayAvailability'] ?? [];
-		$maxDailyTasks = $preferences['maxDailyTasks'] ?? null;
-
-		// Get current day name (lowercase, house TZ — CS-PLAN-057)
-		$tz = $this->getTimeZoneForHouse($houseId);
-		$currentDay = strtolower(\DateTime::createFromInterface($date)->setTimezone($tz)->format('l'));
-
-		// If not available today, return empty array
-		$isAvailableToday = $weekdayAvailability[$currentDay] ?? true;
-		if (!$isAvailableToday) {
-			return [];
-		}
-
-		// A finite owner-set limit truncates AFTER eligibility (decision
-		// D5); a missing or non-finite value means unlimited.
-		if (!is_int($maxDailyTasks)) {
-			return $eligible;
-		}
-
-		return array_slice($eligible, 0, $maxDailyTasks);
 	}
 }

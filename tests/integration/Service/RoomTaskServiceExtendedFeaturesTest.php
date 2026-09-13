@@ -22,6 +22,7 @@ use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\IL10N;
@@ -31,9 +32,11 @@ use PHPUnit\Framework\TestCase;
  * Integration tests for RoomTaskService with Group Assignment, Teamwork, and Claiming
  *
  * @covers \OCA\ChoreStrike\Service\RoomTaskService
+ * @covers \OCA\ChoreStrike\Service\RoomTaskReadService
  */
 class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 	private RoomTaskService $service;
+	private RoomTaskReadService $readService;
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
 	private RoomMapper $roomMapper;
@@ -44,16 +47,30 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 	private int $testRoomId;
 	private int $testTaskId;
 
-	private function buildService(TaskAssigneeMapper $taskAssigneeMapper): RoomTaskService {
+	private function buildServices(TaskAssigneeMapper $taskAssigneeMapper): void {
 		$l10n = $this->createMock(IL10N::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
-		return new RoomTaskService(
+		// CS-PLAN-067 §3.1: the claimable-overdue read lives in the
+		// RoomTaskReadService read cluster.
+		$this->readService = new RoomTaskReadService(
 			$this->roomTaskMapper,
 			$this->taskMapper,
 			$this->roomMapper,
 			$this->floorMapper,
+			$this->houseMapper,
+			$taskAssigneeMapper,
+			new TaskAccessPolicy($taskAssigneeMapper, $l10n),
+			new \OCA\ChoreStrike\Service\CalendarService(),
+			$l10n
+		);
+
+		$this->service = new RoomTaskService(
+			$this->roomTaskMapper,
+			$this->taskMapper,
+			$this->roomMapper,
+			$this->readService,
 			$this->getMockBuilder(\OCA\ChoreStrike\Service\RoomService::class)
 				->disableOriginalConstructor()
 				->getMock(),
@@ -63,8 +80,6 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$l10n,
 			$this->createMock(AppLogger::class),
-			$this->houseMapper,
-			new \OCA\ChoreStrike\Service\CalendarService(),
 			new TaskAccessPolicy($taskAssigneeMapper, $l10n),
 			$this->createMock(AuthorizationService::class)
 		);
@@ -98,7 +113,7 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 		$this->floorMapper = $this->createMock(FloorMapper::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 
-		$this->service = $this->buildService($this->createMock(TaskAssigneeMapper::class));
+		$this->buildServices($this->createMock(TaskAssigneeMapper::class));
 
 		// Set up test IDs
 		$this->testHouseId = 1;
@@ -158,9 +173,9 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			12 => $this->publicTask(12),
 		]);
 
-		$service = $this->buildService($taskAssigneeMapper);
+		$this->buildServices($taskAssigneeMapper);
 
-		$result = $service->getClaimableOverdueTasks($houseId, $this->ownerViewer());
+		$result = $this->readService->getClaimableOverdueTasks($houseId, $this->ownerViewer());
 
 		$this->assertCount(2, $result); // Unassigned task filtered out
 		$this->assertEquals(1, $result[0]->getId());

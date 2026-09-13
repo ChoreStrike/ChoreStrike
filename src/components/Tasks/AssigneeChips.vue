@@ -30,11 +30,15 @@
 </template>
 
 <script>
-import { computed, onMounted } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
-import { useUserStore } from '../../store/user.js'
-import { logger } from '../../utils/logger.js'
 
+/**
+ * Controlled chip multi-select for assignee user IDs (CS-PLAN-067 §3.4).
+ * Fully reusable: members come in via the `members` prop — the component
+ * performs NO eager member fetch of its own (a fetch per expanded row was
+ * the flagged anti-pattern; the caller owns loading). Emits the full next
+ * array per toggle; state ownership stays with the caller.
+ */
 export default {
 	name: 'AssigneeChips',
 
@@ -43,15 +47,16 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+		/** Preloaded house members: [{ nextcloudUserId, displayName }, …]. */
+		members: {
+			type: Array,
+			default: () => [],
+		},
 	},
 
 	emits: ['update:modelValue'],
 
 	setup(props, { emit }) {
-		const userStore = useUserStore()
-
-		const members = computed(() => userStore.houseUsers || [])
-
 		const isSelected = (userId) => props.modelValue.includes(userId)
 
 		const toggle = (userId) => {
@@ -61,19 +66,7 @@ export default {
 			emit('update:modelValue', next)
 		}
 
-		onMounted(async () => {
-			if (members.value.length === 0) {
-				try {
-					await userStore.fetchHouseUsers()
-				} catch (error) {
-					// non-fatal: the picker shows an empty hint
-					logger.error('Failed to load house members', error, { component: 'AssigneeChips', action: 'mounted' })
-				}
-			}
-		})
-
 		return {
-			members,
 			isSelected,
 			toggle,
 			t,

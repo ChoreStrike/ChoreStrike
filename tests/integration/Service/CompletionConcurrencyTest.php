@@ -327,11 +327,19 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			$s->get(TaskAssigneeMapper::class),
 			$s->get(CompletedTaskMapper::class),
 			$s->get(RoomTaskChecklistProgressMapper::class),
+			$s->get(\OCA\ChoreStrike\Service\CompletionEffectService::class),
+			// CS-PLAN-067 §3.2: the sabotaged HouseService is threaded into
+			// the post-commit participant — the D7 degrade boundary subject.
+			new \OCA\ChoreStrike\Service\CompletionPostCommitService(
+				$houseService,
+				$s->get(HouseMapper::class),
+				$s->get(HouseUserMapper::class),
+				$s->get(NotificationService::class),
+				$s->get(AppLogger::class),
+			),
 			$s->get(\OCA\ChoreStrike\Service\GameLogicService::class),
-			$houseService,
 			$s->get(CalendarService::class),
 			$s->get(TaskAccessPolicy::class),
-			$s->get(NotificationService::class),
 			$s->get(\OCP\L10N\IFactory::class)->get('chorestrike'),
 			$s->get(AppLogger::class),
 		);

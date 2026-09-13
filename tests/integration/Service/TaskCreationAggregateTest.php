@@ -374,6 +374,7 @@ class TaskCreationAggregateTest extends IntegrationTestCase {
 			$controller = new RoomTaskController(
 				$request,
 				\OC::$server->get(RoomTaskService::class),
+				\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class),
 				\OC::$server->get(\OCA\ChoreStrike\Service\CompletionService::class),
 				$this->service,
 				$houseService,

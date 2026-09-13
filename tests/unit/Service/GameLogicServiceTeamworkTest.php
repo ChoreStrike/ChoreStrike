@@ -5,14 +5,9 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
-use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Service\AppLogger;
-use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\GameLogicService;
-use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use PHPUnit\Framework\TestCase;
 
@@ -26,21 +21,14 @@ class GameLogicServiceTeamworkTest extends TestCase {
 	protected function setUp(): void {
 		$houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
-		$medalMapper = $this->createMock(MedalMapper::class);
 		$this->configService = $this->createMock(RewardConfigService::class);
-		$notificationService = $this->createMock(NotificationService::class);
 
 		$this->configService->method('getCoinBasePerEnergy')->willReturn(10);
 
 		$this->service = new GameLogicService(
 			$houseUserMapper,
 			$completedTaskMapper,
-			$medalMapper,
 			$this->configService,
-			$notificationService,
-			$this->createMock(AppLogger::class),
-			$this->createMock(HouseMapper::class),
-			new CalendarService(),
 			null
 		);
 	}

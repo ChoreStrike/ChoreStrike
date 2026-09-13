@@ -407,11 +407,9 @@ export default {
 
 		async handleTaskSaved() {
 			this.closeEditModal()
-			try {
-				await this.roomTasksStore.fetchRoomTasks(this.roomId)
-			} catch (error) {
-				logger.error('Failed to reload room tasks after edit', error, { view: 'RoomDetail', action: 'handleTaskSaved', roomId: this.roomId })
-			}
+			// CS-PLAN-067 §3.4: no re-fetch — the edit modal reconciles the
+			// due date/assignees through the owning store mutations, so the
+			// room list is already authoritative here.
 		},
 
 		handleDeleteTask(roomTaskId) {
@@ -436,7 +434,10 @@ export default {
 		/**
 		 * The atomic creation aggregate (CS-PLAN-063 §3.5): exactly one
 		 * request — on failure the modal stays open with the input preserved
-		 * (no partial success toasts, no orphan definition).
+		 * (no partial success toasts, no orphan definition). The aggregate
+		 * response already reconciles the instance and definition stores, so
+		 * no post-create re-fetch is needed (CS-PLAN-067 §3.4; field
+		 * equivalence pinned by unit tests).
 		 * @param {object} taskData Form payload: definition + roomId + assigneeUserIds + nextDue.
 		 */
 		async handleAddTask(taskData) {
@@ -452,8 +453,6 @@ export default {
 				showSuccess(t('chorestrike', 'Task created'))
 				this.showAddTaskModal = false
 				this.addTaskMode = 'template'
-				await this.roomTasksStore.fetchRoomTasks(this.roomId)
-				await this.tasksStore.fetchTasks()
 			} catch (error) {
 				// Recoverable failure: keep the modal open and the input intact.
 				showError(t('chorestrike', 'Failed to create task'))
@@ -465,10 +464,8 @@ export default {
 
 		handleTemplateCreated() {
 			this.showAddTaskModal = false
-			this.roomTasksStore.fetchRoomTasks(this.roomId)
-				.catch(error => {
-					logger.error('Failed to reload room tasks after template creation', error, { view: 'RoomDetail', action: 'handleTemplateCreated', roomId: this.roomId })
-				})
+			// CS-PLAN-067 §3.4: the from-template aggregate already joined
+			// the store — no room re-fetch.
 		},
 
 		handleTemplateError(error) {

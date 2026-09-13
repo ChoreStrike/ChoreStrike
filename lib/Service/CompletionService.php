@@ -17,7 +17,6 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgress;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
@@ -31,12 +30,19 @@ use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
 
 /**
- * Owner of the completion/undo aggregates (CS-PLAN-064 WP5, decision D2).
+ * Owner of the completion/undo aggregates (CS-PLAN-064 WP5, decision D2;
+ * CS-PLAN-067 §3.2 decomposition).
  *
  * Every completion writes one immutable effect record — the ledger row with
  * `occurrence_due`, the authoritative `before_state` snapshot and every
  * applied `delta` (decision D1 / ADR-011) — and every undo restores exactly
  * that record ("restore, never recalculate", masterplan D2).
+ *
+ * This service stays the visible aggregate owner: the transaction boundary,
+ * the lock order and the occurrence/actor gates live HERE. Cohesive
+ * responsibilities are extracted:
+ * - {@see CompletionEffectService}: effect-record snapshot/restore
+ * - {@see CompletionPostCommitService}: the guarded post-commit phase
  *
  * Lock order (ADR-011, deterministic, deadlock-free against setup/creation/
  * assignment usage):
@@ -60,11 +66,11 @@ class CompletionService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private CompletedTaskMapper $completedTaskMapper;
 	private RoomTaskChecklistProgressMapper $checklistProgressMapper;
+	private CompletionEffectService $effectService;
+	private CompletionPostCommitService $postCommitService;
 	private GameLogicService $gameLogicService;
-	private HouseService $houseService;
 	private CalendarService $calendarService;
 	private TaskAccessPolicy $taskAccessPolicy;
-	private NotificationService $notificationService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 
@@ -78,11 +84,11 @@ class CompletionService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		CompletedTaskMapper $completedTaskMapper,
 		RoomTaskChecklistProgressMapper $checklistProgressMapper,
+		CompletionEffectService $effectService,
+		CompletionPostCommitService $postCommitService,
 		GameLogicService $gameLogicService,
-		HouseService $houseService,
 		CalendarService $calendarService,
 		TaskAccessPolicy $taskAccessPolicy,
-		NotificationService $notificationService,
 		IL10N $l10n,
 		AppLogger $appLogger,
 	) {
@@ -95,11 +101,11 @@ class CompletionService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->checklistProgressMapper = $checklistProgressMapper;
+		$this->effectService = $effectService;
+		$this->postCommitService = $postCommitService;
 		$this->gameLogicService = $gameLogicService;
-		$this->houseService = $houseService;
 		$this->calendarService = $calendarService;
 		$this->taskAccessPolicy = $taskAccessPolicy;
-		$this->notificationService = $notificationService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
@@ -197,7 +203,7 @@ class CompletionService {
 
 			// Snapshot the authoritative before-state BEFORE any mutation
 			// (decision D1 — the exact undo inverse).
-			$beforeState = $this->snapshotBeforeState($roomTask, $room, $completer);
+			$beforeState = $this->effectService->snapshot($roomTask, $room, $completer);
 			$ledgerRow->setBeforeState($beforeState);
 			$ledgerRow->setOccurrenceDue($this->occurrenceDay($roomTask, $timeZone));
 
@@ -295,39 +301,15 @@ class CompletionService {
 		// notification claims, and the dispatches are failure-isolated — a
 		// committed completion always answers success, with
 		// `rewards.degraded = true` if any post-commit effect failed.
-		$degraded = false;
-		$weeklyGoal = null;
-		try {
-			$weeklyGoal = $this->houseService->getWeeklyGoalProgress($houseId);
-
-			$this->dispatchTakeoverNotification($takeoverNotification, $houseId);
-
-			if ($weeklyGoal !== null && $weeklyGoal['achieved']) {
-				$this->claimAndDispatchWeeklyGoal($houseId, $weeklyGoal);
-			}
-
-			$newTitle = $gameResult['newTitle'] ?? null;
-			if ($newTitle !== null && $userId !== '') {
-				$this->notificationService->notifyTitleUnlocked(
-					$userId,
-					$newTitle['pack'],
-					$newTitle['labelKey'],
-					$newTitle['packLabelKey'],
-					$newTitle['tierIndex']
-				);
-			}
-		} catch (\Throwable $e) {
-			$degraded = true;
-			$weeklyGoal = null;
-			$this->appLogger->warning('CompletionService: post-commit effects degraded', [
-				'event' => 'completion_post_commit_degraded',
-				'service' => 'CompletionService',
-				'houseId' => $houseId,
-				'roomTaskId' => $roomTaskId,
-				'userId' => $userId,
-				'exception' => get_class($e),
-			]);
-		}
+		$post = $this->postCommitService->runForCompletion(
+			$houseId,
+			$roomTaskId,
+			$userId,
+			$gameResult,
+			$takeoverNotification
+		);
+		$weeklyGoal = $post['weeklyGoal'];
+		$degraded = $post['degraded'];
 
 		$rewards = [
 			'cleanlinessChange' => $cleanlinessChange,
@@ -466,54 +448,9 @@ class CompletionService {
 			$deltas = $current->getDeltas();
 
 			// Restore, never recalculate (masterplan D2): assign every
-			// recorded before-state value.
-			$beforeRoomTask = $beforeState['roomTask'];
-			$roomTask->setNextDue($this->dateOrNull($beforeRoomTask['nextDue'] ?? null));
-			$roomTask->setIdealDueDate($this->dateOrNull($beforeRoomTask['idealDueDate'] ?? null));
-			$roomTask->setIsActive((bool)($beforeRoomTask['isActive'] ?? true));
-			$roomTask->setLastCompleted($this->dateOrNull($beforeRoomTask['lastCompleted'] ?? null));
-			$roomTask->setWasClaimed((bool)($beforeRoomTask['wasClaimed'] ?? false));
-			$roomTask->setOriginalAssignee($beforeRoomTask['originalAssignee'] ?? null);
-			$roomTask->setClaimedByUser($beforeRoomTask['claimedByUser'] ?? null);
-			$roomTask->setClaimedAt($this->dateOrNull($beforeRoomTask['claimedAt'] ?? null));
-			$this->roomTaskMapper->update($roomTask);
-
-			$beforeRoom = $beforeState['room'];
-			$room->setCleanliness((int)($beforeRoom['cleanliness'] ?? $room->getCleanliness()));
-			$room->setLastCleaned($this->dateOrNull($beforeRoom['lastCleaned'] ?? null));
-			$room = $this->roomMapper->update($room);
-
-			$beforeUser = $beforeState['houseUser'];
-			$completer->setCoins((int)($beforeUser['coins'] ?? $completer->getCoins()));
-			$completer->setContributionScore((int)($beforeUser['contributionScore'] ?? $completer->getContributionScore()));
-			$completer->setCurrentStreak((int)($beforeUser['currentStreak'] ?? $completer->getCurrentStreak()));
-			$completer->setLongestStreak((int)($beforeUser['longestStreak'] ?? $completer->getLongestStreak()));
-			$completer->setStreakFreezes((int)($beforeUser['streakFreezes'] ?? $completer->getStreakFreezes()));
-			$completer->setLastFreezeDate($this->dateOrNull($beforeUser['lastFreezeDate'] ?? null));
-			// lastActivity drives the streak-absence calculation, so the
-			// restore must rewind it too — a stale completion timestamp would
-			// otherwise bridge the undone occurrence's gap (exact state
-			// equality, WP5 exit gate).
-			$completer->setLastActivity($this->dateOrNull($beforeUser['lastActivity'] ?? null));
-
-			// Titles: remove exactly the deltas.titlesAdded ids STILL
-			// present — titles unlocked by later completions survive (D8/LIFO).
-			$tiersAdded = $deltas['titlesAdded'] ?? [];
-			if (is_array($tiersAdded) && $tiersAdded !== []) {
-				$completer->setUnlockedTitles(array_values(array_filter(
-					$completer->getUnlockedTitles(),
-					static fn (string $tierId): bool => !in_array($tierId, $tiersAdded, true)
-				)));
-			}
-			$this->houseUserMapper->update($completer);
-
-			// Checklist restore: clear whatever accumulated since, then
-			// re-insert the snapshotted rows.
-			$this->checklistProgressMapper->deleteByRoomTaskId($roomTaskId);
-			$this->checklistProgressMapper->restoreProgress(
-				$roomTaskId,
-				is_array($beforeState['checklist'] ?? null) ? $beforeState['checklist'] : []
-			);
+			// recorded before-state value — including the LIFO title
+			// removal, the checklist rewrite and the entity persistence.
+			$this->effectService->restore($roomTask, $room, $completer, $beforeState, $deltas);
 
 			$this->completedTaskMapper->markUndone($current->getId(), new \DateTime());
 
@@ -534,21 +471,9 @@ class CompletionService {
 
 		// Post-commit weekly-goal refresh in the same log-and-degrade
 		// boundary (D7); the weekly-goal claim itself is a non-retraction (D8).
-		$weeklyGoal = null;
-		$postUndoDegraded = false;
-		try {
-			$weeklyGoal = $this->houseService->getWeeklyGoalProgress($houseId);
-		} catch (\Throwable $e) {
-			$postUndoDegraded = true;
-			$this->appLogger->warning('CompletionService: post-undo effects degraded', [
-				'event' => 'undo_post_commit_degraded',
-				'service' => 'CompletionService',
-				'houseId' => $houseId,
-				'roomTaskId' => $roomTaskId,
-				'userId' => $actor->getNextcloudUserId(),
-				'exception' => get_class($e),
-			]);
-		}
+		$post = $this->postCommitService->runForUndo($houseId, $roomTaskId, $actor->getNextcloudUserId());
+		$weeklyGoal = $post['weeklyGoal'];
+		$postUndoDegraded = $post['degraded'];
 
 		$rewards = $this->revertedRewards($current, $beforeState, $task, $completer, $weeklyGoal);
 		if ($postUndoDegraded) {
@@ -606,53 +531,6 @@ class CompletionService {
 	}
 
 	/**
-	 * Dispatch the deferred overdue-takeover notification with the
-	 * membership re-check at dispatch time (documented defense-in-depth).
-	 *
-	 * @param array<string, mixed>|null $takeoverNotification
-	 */
-	private function dispatchTakeoverNotification(?array $takeoverNotification, int $houseId): void {
-		if ($takeoverNotification === null) {
-			return;
-		}
-
-		$stillMember = $this->houseUserMapper->findByHouseAndUser(
-			$houseId,
-			(string)$takeoverNotification['recipient']
-		);
-		if ($stillMember === null) {
-			return;
-		}
-
-		$this->notificationService->notifyOverdueTakenOver(
-			(string)$takeoverNotification['recipient'],
-			(string)$takeoverNotification['taskName'],
-			(string)$takeoverNotification['claimerUserId'],
-			(string)$takeoverNotification['claimerDisplayName'],
-			(int)$takeoverNotification['roomTaskId']
-		);
-	}
-
-	/**
-	 * Claim the weekly-goal notification dispatch atomically (one bell per
-	 * house per achievement week) and dispatch on the win.
-	 *
-	 * @param array<string, mixed> $weeklyGoal
-	 */
-	private function claimAndDispatchWeeklyGoal(int $houseId, array $weeklyGoal): void {
-		$weekKey = substr((string)$weeklyGoal['weekStart'], 0, 10);
-		$claimed = $this->houseMapper->claimWeeklyGoalNotification($houseId, $weekKey);
-		if ($claimed) {
-			$this->notificationService->notifyWeeklyGoalReachedForHouse(
-				$houseId,
-				(int)$weeklyGoal['percent'],
-				(int)$weeklyGoal['targetPercent'],
-				(string)$weeklyGoal['weekStart']
-			);
-		}
-	}
-
-	/**
 	 * Lock the completer's house_user row, mapping a vanishing membership to
 	 * the clean 403 with the caller's context wording (a completer removed
 	 * mid-transaction must not 500 — RF-05: the undo context never answers
@@ -664,54 +542,6 @@ class CompletionService {
 		} catch (DoesNotExistException $e) {
 			throw new ForbiddenException($forbiddenMessage);
 		}
-	}
-
-	/**
-	 * Snapshot the authoritative before-state (decision D1 / ADR-011 JSON
-	 * contract): room task fields, room cleanliness, completer reward
-	 * fields, and the room task's checklist progress rows.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function snapshotBeforeState(RoomTask $roomTask, Room $room, HouseUser $completer): array {
-		$progress = [];
-		foreach ($this->checklistProgressMapper->findByRoomTaskId($roomTask->getId()) as $row) {
-			/** @var RoomTaskChecklistProgress $row */
-			$progress[] = [
-				'checklistItemId' => $row->getChecklistItemId(),
-				'userId' => $row->getCheckedByUserId(),
-				'checked' => $row->getIsChecked(),
-				'checkedAt' => $row->getCheckedAt()?->format('c'),
-			];
-		}
-
-		return [
-			'roomTask' => [
-				'nextDue' => $roomTask->getNextDue()?->format('c'),
-				'idealDueDate' => $roomTask->getIdealDueDate()?->format('c'),
-				'isActive' => $roomTask->getIsActive(),
-				'lastCompleted' => $roomTask->getLastCompleted()?->format('c'),
-				'wasClaimed' => $roomTask->getWasClaimed(),
-				'originalAssignee' => $roomTask->getOriginalAssignee(),
-				'claimedByUser' => $roomTask->getClaimedByUser(),
-				'claimedAt' => $roomTask->getClaimedAt()?->format('c'),
-			],
-			'room' => [
-				'cleanliness' => $room->getCleanliness(),
-				'lastCleaned' => $room->getLastCleaned()?->format('c'),
-			],
-			'houseUser' => [
-				'coins' => $completer->getCoins(),
-				'contributionScore' => $completer->getContributionScore(),
-				'currentStreak' => $completer->getCurrentStreak(),
-				'longestStreak' => $completer->getLongestStreak(),
-				'streakFreezes' => $completer->getStreakFreezes(),
-				'lastFreezeDate' => $completer->getLastFreezeDate()?->format('c'),
-				'unlockedTitles' => $completer->getUnlockedTitles(),
-				'lastActivity' => $completer->getLastActivity()?->format('c'),
-			],
-			'checklist' => $progress,
-		];
 	}
 
 	/**
@@ -727,17 +557,6 @@ class CompletionService {
 		return \DateTime::createFromInterface($nextDue)
 			->setTimezone($timeZone)
 			->setTime(0, 0, 0);
-	}
-
-	/**
-	 * Parse a recorded ISO datetime string (nullable) back into a DateTime.
-	 */
-	private function dateOrNull(?string $value): ?\DateTime {
-		if ($value === null || $value === '') {
-			return null;
-		}
-
-		return new \DateTime($value);
 	}
 
 	/**

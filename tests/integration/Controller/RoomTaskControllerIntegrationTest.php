@@ -23,6 +23,7 @@ use PHPUnit\Framework\TestCase;
 class RoomTaskControllerIntegrationTest extends TestCase {
 	private RoomTaskController $controller;
 	private RoomTaskService $roomTaskService;
+	private \OCA\ChoreStrike\Service\RoomTaskReadService|PHPUnit\Framework\MockObject\MockObject $roomTaskReadService;
 	private CompletionService|PHPUnit\Framework\MockObject\MockObject $completionService;
 	private \OCA\ChoreStrike\Service\TaskCreationService|PHPUnit\Framework\MockObject\MockObject $taskCreationService;
 	private HouseService $houseService;
@@ -34,6 +35,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
+		$this->roomTaskReadService = $this->createMock(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
 		$this->completionService = $this->createMock(CompletionService::class);
 		$this->taskCreationService = $this->createMock(\OCA\ChoreStrike\Service\TaskCreationService::class);
 		$this->houseService = $this->createMock(HouseService::class);
@@ -45,6 +47,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->controller = new RoomTaskController(
 			$this->request,
 			$this->roomTaskService,
+			$this->roomTaskReadService,
 			$this->completionService,
 			$this->taskCreationService,
 			$this->houseService,
@@ -68,10 +71,10 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
 		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
-		$this->roomTaskService->method('getRoomTasks')
+		$this->roomTaskReadService->method('getRoomTasks')
 			->with($roomId, $this->isInstanceOf(HouseUser::class), true)
 			->willReturn($roomTasks);
-		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([]);
+		$this->roomTaskReadService->method('assigneesByRoomTasks')->willReturn([]);
 
 		$response = $this->controller->index($roomId);
 
@@ -186,9 +189,13 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('test-instance');
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
 		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
-		$this->roomTaskService->method('getOverdueTasks')
+		$this->roomTaskReadService->method('getOverdueTaskRows')
 			->with(1, $this->isInstanceOf(HouseUser::class), null)
-			->willReturn($overdueTasks);
+			->willReturn([
+				['roomTask' => $overdueTasks[0], 'task' => $this->createMockTask(1, 'A'), 'room' => $this->createMockHouse()],
+				['roomTask' => $overdueTasks[1], 'task' => $this->createMockTask(2, 'B'), 'room' => $this->createMockHouse()],
+			]);
+		$this->roomTaskReadService->method('assigneesByRoomTasks')->willReturn([]);
 
 		$response = $this->controller->overdue();
 
@@ -213,6 +220,7 @@ class RoomTaskControllerIntegrationTest extends TestCase {
 			->method('bulkAssignTasks')
 			->with([7, 9], 'user456', 1, $this->isInstanceOf(HouseUser::class))
 			->willReturn([$assigned]);
+		$this->roomTaskReadService->method('assigneesByRoomTasks')->willReturn([7 => []]);
 
 		$this->request->method('getParam')->willReturnCallback(
 			fn (string $key, $default = null) => ['userId' => 'user456', 'roomTaskIds' => [7, 9]][$key] ?? $default

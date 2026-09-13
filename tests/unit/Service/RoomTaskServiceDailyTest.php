@@ -8,12 +8,9 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Tests\Unit\Service;
 
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
-use OCA\ChoreStrike\Db\FloorMapper;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
@@ -21,42 +18,34 @@ use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
-use OCA\ChoreStrike\Service\AppLogger;
-use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
-use OCA\ChoreStrike\Service\RoomService;
-use OCA\ChoreStrike\Service\RoomTaskService;
+use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\IL10N;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Daily/filtered-daily read behavior of RoomTaskReadService (CS-PLAN-067
+ * §3.1: the read cluster moved here from RoomTaskService; the tests follow
+ * the moved code, CS-PLAN-066 §3.1 D1 semantics unchanged).
+ */
 class RoomTaskServiceDailyTest extends TestCase {
-	private RoomTaskService $service;
+	private RoomTaskReadService $service;
 	private RoomTaskMapper|MockObject $roomTaskMapper;
 	private TaskMapper|MockObject $taskMapper;
 	private RoomMapper|MockObject $roomMapper;
-	private FloorMapper|MockObject $floorMapper;
-	private RoomService|MockObject $roomService;
-	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
-	private HouseUserMapper|MockObject $houseUserMapper;
-	private CompletedTaskMapper|MockObject $completedTaskMapper;
 	private HouseMapper|MockObject $houseMapper;
+	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
-	private AuthorizationService|MockObject $authorization;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->taskMapper = $this->createMock(TaskMapper::class);
-		$this->roomMapper = $this->createMock(RoomMapper::class);
-		$this->floorMapper = $this->createMock(FloorMapper::class);
-		$this->roomService = $this->createMock(RoomService::class);
-		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
-		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
-		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
+		$this->roomMapper = $this->createMock(\OCA\ChoreStrike\Db\RoomMapper::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
+		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
-		$this->authorization = $this->createMock(AuthorizationService::class);
 		// CS-PLAN-057: day windows resolve the house timezone (UTC here, so
 		// the [start, end) bounds match the injected date's UTC calendar day).
 		$utcHouse = new House();
@@ -68,22 +57,16 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->taskAccessPolicy->method('filterVisibleRoomTasks')
 			->willReturnCallback(static fn (array $roomTasks): array => $roomTasks);
 
-		$this->service = new RoomTaskService(
+		$this->service = new RoomTaskReadService(
 			$this->roomTaskMapper,
 			$this->taskMapper,
 			$this->roomMapper,
-			$this->floorMapper,
-			$this->roomService,
-			$this->taskAssigneeMapper,
-			$this->houseUserMapper,
-			$this->completedTaskMapper,
-			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
-			$this->createIdentityL10n(),
-			$this->createMock(AppLogger::class),
+			$this->createMock(\OCA\ChoreStrike\Db\FloorMapper::class),
 			$this->houseMapper,
-			new CalendarService(),
+			$this->taskAssigneeMapper,
 			$this->taskAccessPolicy,
-			$this->authorization
+			new CalendarService(),
+			$this->createIdentityL10n()
 		);
 	}
 

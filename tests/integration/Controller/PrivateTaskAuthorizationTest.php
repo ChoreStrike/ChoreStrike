@@ -136,7 +136,9 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 
 	private function visibleRoomTaskIds(string $userId, string $method, array $args = []): array {
 		$this->actingAs($userId);
-		$service = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class);
+		// CS-PLAN-067 §3.1: the room-task read cluster lives in
+		// RoomTaskReadService.
+		$service = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
 		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
 		$viewer = $houseUserMapper->findByNextcloudUserId($this->houseId, $userId);
 

@@ -37,8 +37,8 @@ function declarationsForSelector(css, selector) {
 }
 
 describe('BUG-UI-001 — Dark-Mode-safe colors in overdue/priority styles', () => {
-	describe('TaskList.vue', () => {
-		const css = readComponent('components/Tasks/TaskList.vue')
+	describe('TaskListItem.vue (row styles since CS-PLAN-067 §3.4)', () => {
+		const css = readComponent('components/Tasks/TaskListItem.vue')
 
 		it('uses a theme variable for the overdue task background', () => {
 			const block = declarationsForSelector(css, '.task-item.overdue')

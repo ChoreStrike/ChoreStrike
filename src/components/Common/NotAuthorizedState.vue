@@ -70,8 +70,7 @@ export default {
 	font-size: 0.9rem;
 	opacity: 0.75;
 	max-width: 32rem;
-	margin-left: auto;
-	margin-right: auto;
+	margin-inline: auto;
 }
 
 .retry-button {

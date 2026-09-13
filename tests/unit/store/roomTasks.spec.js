@@ -155,6 +155,47 @@ describe('RoomTasks Store', () => {
 	})
 
 	describe('Actions', () => {
+		describe('fetchHouseRoomTasks (CS-PLAN-067 D1)', () => {
+			it('requests the house-wide list without a roomId and REPLACES the instance set', async () => {
+				store.roomTasks = [{ id: 1, roomId: 10 }]
+				const houseTasks = [{ id: 1, roomId: 10 }, { id: 2, roomId: 20 }]
+				api.get.mockResolvedValue(houseTasks)
+
+				const result = await store.fetchHouseRoomTasks()
+
+				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks', { params: { activeOnly: true } })
+				expect(store.roomTasks).toEqual(houseTasks)
+				expect(result).toEqual(houseTasks)
+				expect(store.houseLoaded).toBe(true)
+				expect(store.houseStale).toBe(false)
+			})
+
+			it('drops a superseded house read without touching the set', async () => {
+				// First read hangs; second read resolves with newer data.
+				let releaseFirst
+				api.get.mockImplementationOnce(() => new Promise(resolve => { releaseFirst = resolve }))
+				api.get.mockResolvedValueOnce([{ id: 2 }])
+				const first = store.fetchHouseRoomTasks()
+				const second = store.fetchHouseRoomTasks()
+				await second
+
+				releaseFirst([{ id: 1 }])
+				await first
+
+				// The stale first response must not overwrite the accepted result.
+				expect(store.roomTasks).toEqual([{ id: 2 }])
+			})
+
+			it('marks the house projection stale on an instance mutation', async () => {
+				store.houseLoaded = true
+				store.houseStale = false
+
+				store.onInstanceMutated()
+
+				expect(store.houseStale).toBe(true)
+			})
+		})
+
 		describe('fetchRoomTasks', () => {
 			it('fetches room tasks', async () => {
 				const mockTasks = [{ id: 1, roomId: 10 }]
@@ -221,16 +262,9 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
-		describe('fetchAssignees', () => {
-			it('returns assignee user ids', async () => {
-				api.get.mockResolvedValue(['user1', 'user2'])
-
-				const result = await store.fetchAssignees(1)
-
-				expect(api.get).toHaveBeenCalledWith('/api/v1/room-tasks/1/assignees')
-				expect(result).toEqual(['user1', 'user2'])
-			})
-		})
+		// CS-PLAN-067 §3.4: the unused fetchAssignees action was removed —
+		// rows already carry their canonical assignee arrays (CS-PLAN-066
+		// D1); no production consumer needed the per-task endpoint read.
 
 		describe('setAssignees', () => {
 			it('replaces assignees from the canonical user-ID response (D1)', async () => {

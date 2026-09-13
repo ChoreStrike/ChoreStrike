@@ -22,8 +22,6 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\GameLogicService;
-use OCA\ChoreStrike\Service\HouseService;
-use OCA\ChoreStrike\Service\NotificationService;
 use OCA\ChoreStrike\Service\RewardConfigService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Service\TitleService;
@@ -385,21 +383,16 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 			$s->get(TaskAssigneeMapper::class),
 			$s->get(CompletedTaskMapper::class),
 			$s->get(RoomTaskChecklistProgressMapper::class),
+			$s->get(\OCA\ChoreStrike\Service\CompletionEffectService::class),
+			$s->get(\OCA\ChoreStrike\Service\CompletionPostCommitService::class),
 			new GameLogicService(
 				$s->get(HouseUserMapper::class),
 				$s->get(CompletedTaskMapper::class),
-				$s->get(\OCA\ChoreStrike\Db\MedalMapper::class),
 				$s->get(RewardConfigService::class),
-				$s->get(NotificationService::class),
-				$s->get(AppLogger::class),
-				$s->get(HouseMapper::class),
-				$s->get(CalendarService::class),
 				$s->get(TitleService::class),
 			),
-			$s->get(HouseService::class),
 			$s->get(CalendarService::class),
 			$s->get(TaskAccessPolicy::class),
-			$s->get(NotificationService::class),
 			$s->get(\OCP\L10N\IFactory::class)->get('chorestrike'),
 			$s->get(AppLogger::class),
 		);

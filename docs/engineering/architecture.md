@@ -196,11 +196,11 @@ generic message. All Pinia stores import `api` instead of calling
 2. **Component dispatches store action** → `useRoomTasksStore.completeRoomTask(roomTaskId)`
 3. **API request** → `POST /apps/chorestrike/api/v1/room-tasks/{id}/complete`
 4. **Controller** → `RoomTaskController::complete()`
-5. **Service logic** → `RoomService::completeRoomTask()` (transactional) → `GameLogicService::handleTaskCompletion()`
+5. **Service logic** → `CompletionService::complete()` (transaction aggregate, CS-PLAN-064/067) → `GameLogicService::handleTaskCompletion()` (reward phase) → post-commit effects via `CompletionPostCommitService`
    - Calculate coins (energy × base rate × tier × personal × early multiplier; ×2 on combo)
    - Check for combos (`checkForCombo`) and combo bonus freeze
    - Update room cleanliness
-   - Award medals if applicable (`checkAndAwardMedals`)
+   - Write the single ledger row with the complete effect record (medals are NOT awarded here — they stay read-triggered via `MedalService::checkAndAwardMedals`)
    - Consume a streak freeze if the streak would otherwise reset
 6. **Database update** → Multiple mappers (atomic within the transaction)
 7. **Response** → Updated task, coins, streak-freeze/medal/title events, game state
@@ -293,7 +293,7 @@ summary below covers the core tables. Column types map to the entity PHP type
 - `medal_type` (string) — gamification: `team_anchor`/`flow_keeper`/`room_guardian`/`team_player`/`streak_keeper`; standard: `gold`/`silver`/`bronze`
 - `week_start` (date), `value` (int), `awarded_at` (datetime)
 
-> **Award reality (CS-PLAN-012):** all five gamification medal types are awarded in the live `GameLogicService::checkAndAwardMedals()` flow: `team_anchor` (10+ tasks/week), `streak_keeper` (7+ day streak), `flow_keeper` (4+ distinct active days), `room_guardian` (5+ completions in one room), `team_player` (3+ combo bonuses). `gold`/`silver`/`bronze` are legacy. Note: `lib/Service/MedalService.php` is dead code (archived in CS-PLAN-010) — the live path is `GameLogicService::awardMedalIfNew()`.
+> **Award reality (CS-PLAN-012, updated CS-PLAN-067 §3.2):** all five gamification medal types are awarded in the live `MedalService::checkAndAwardMedals()` flow (extracted from `GameLogicService`, award timing unchanged — read-triggered): `team_anchor` (10+ tasks/week), `streak_keeper` (7+ day streak), `flow_keeper` (4+ distinct active days), `room_guardian` (5+ completions in one room), `team_player` (3+ combo bonuses). `gold`/`silver`/`bronze` are legacy. `MedalService` also owns the house medal listing (`getMedals`).
 
 ### Supporting Tables
 
@@ -604,7 +604,7 @@ a subject without a matching notifier case fails at render time.
 | Subject | Trigger point | objectType / objectId |
 |---------|--------------|----------------------|
 | `overdue_taken_over` | `RoomService` (overdue takeover) | `room_task` / roomTaskId |
-| `medal_awarded` | `GameLogicService::awardMedalIfNew` | `medal` / weekStart |
+| `medal_awarded` | `MedalService::awardMedalIfNew` (CS-PLAN-067 §3.2) | `medal` / weekStart |
 | `weekly_goal_reached` | `HouseService` (per house-week, deduped) | `weekly_goal` / weekStart |
 | `title_unlocked` | `RoomService` post-commit (CR-SVC-12) | `title` / pack-qualified tier id |
 | `streak_at_risk` | `StreakAtRiskService` (daily job) | `streak` / `{pass-day Y-m-d}:{streak}` |
@@ -752,7 +752,7 @@ UPDATE/DELETE per row:
      statement.
 
 **What stays per-row on purpose:** medal existence checks + inserts (unique-
-constraint race handling in `GameLogicService::awardMedalIfNew`), per-award
+constraint race handling in `MedalService::awardMedalIfNew`), per-award
 notifications, per-item error isolation (e.g. the freeze write in
 `StreakFreezeService::process`, the per-item `assignToUser` writes in
 `bulkAssignTasks` — the API promises item-granular skip behavior), and
@@ -813,6 +813,137 @@ confirmed by **apply** (`POST /scheduling/apply`).
   `TaskMapper::lockForUpdate` follows the same shape. Any new writer that
   targets rows these aggregates lock must be audited against the order
   above before it ships.
+
+### Aggregate Idiom: Completion/Undo & Read Decomposition (CS-PLAN-064/067)
+
+The completion/undo aggregate (`CompletionService`) and the room-task read
+cluster (`RoomTaskReadService`) decompose into focused service owners while
+keeping one transaction boundary, one lock order and one ledger contract
+(decision D2). Extracted participants share the caller's connection and never
+open, commit or roll back their own transaction:
+
+- **`RoomTaskReadService`** — the batched read/enrichment cluster: house-/
+  room-/scope-wide instance fetches, the visibility matrix (`TaskAccessPolicy`,
+  batched task + assignee reads), `{roomTask, task, room}` row assembly
+  (`rowsForRoomTasks` — the single owner of the formerly duplicated daily
+  enrichment), filtered-daily ("My Day") assembly, due-today/overdue rows and
+  the house timezone resolution. `RoomTaskController::index()` serves the
+  house-wide selector from it (D1); `RoomTaskService` keeps mutations, the
+  ownership seams, room stats and the calendar-range projection.
+- **`CompletionEffectService`** — effect-record snapshot/restore (ADR-011
+  JSON contract): `snapshot()` before any mutation, `restore()` on undo
+  (including LIFO title removal and the checklist rewrite). "Restore, never
+  recalculate."
+- **`CompletionPostCommitService`** — the guarded post-commit boundary (D7):
+  weekly-goal read, overdue-takeover dispatch with membership re-check,
+  weekly-goal claim+dispatch, title-unlock notification; failures log
+  (`completion_post_commit_degraded` / `undo_post_commit_degraded`) and set
+  `rewards.degraded`, never fail a committed aggregate.
+- **`MedalService`** — the weekly medal cluster (evaluation predicates,
+  race-safe `awardMedalIfNew`, `createMedal`) plus the house medal listing
+  (`getMedals`); award timing unchanged (read-triggered, never inside the
+  completion transaction).
+- **`handleTaskCompletion` ledger contract (§3.2):** the caller-owned
+  `CompletedTask` row is REQUIRED — `GameLogicService` fills the reward
+  outputs but never inserts; `CompletionService::complete()` inserts exactly
+  one ledger row with `occurrence_due` + `before_state` + `deltas`. The
+  former test-only self-inserting branch was deleted.
+
+Frontend counterpart (§3.4): the TaskList surface decomposes into
+`TaskListItem` (row), `TaskListBulkBar` (selection bar), `TaskListDetails`
+(assignee picker + checklist wiring) and `utils/taskDisplay.js` (pure
+display helpers); TaskList stays the orchestrator owning sorting, the bulk
+selection state machine, the optimistic assignee drafts (CS-PLAN-065 §3.5)
+and expansion. `AssigneeChips` is a fully controlled component (members via
+prop, no eager fetch — the per-row member fetch was the flagged anti-pattern).
+
+### Size Guideline Exception Inventory (CS-PLAN-067 D6, 2026-09-13)
+
+The production size guideline is **~300 lines per file / ~30 lines per
+method** (project-rules §1, KISS). It is applied through cohesive extraction
+plus this **named exception inventory** — never a repository-wide
+line-count rewrite, and never a blanket "pre-existing" exemption. Every
+production file in `lib/` and `src/` above the guideline is listed here
+with its cohesive responsibility and disposition. Physical lines include
+docblocks, templates and scoped CSS; measured 2026-09-13 at `master`
+post-WP8. WP8 already reduced its named hotspots (`TaskList.vue`
+~1,160 → 357, `GameLogicService` 517 → 349, `RoomTaskService` 833 → 643,
+`CompletionService` 772 → 546 via extracted collaborators).
+
+Dispositions: **accepted** (cohesive unit or static/data surface — splitting
+would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
+**remainder** (open decomposition candidate, owning backlog item cited).
+
+#### Backend (`lib/`)
+
+| File | Lines | Cohesive responsibility | Disposition |
+|------|-------|--------------------------|-------------|
+| `Controller/RoomTaskController.php` | 868 | Room-task route surface (selector modes, lifecycle, stats, range); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
+| `Controller/SchedulingController.php` | 456 | Scheduling route surface (preferences, preview, apply); thin methods | accepted (endpoint breadth, no logic depth) |
+| `Controller/UserController.php` | 442 | Member/profile route surface; thin methods | accepted (endpoint breadth) |
+| `Controller/MinigameController.php` | 343 | Minigame route surface; thin methods | accepted (endpoint breadth) |
+| `Controller/RoomController.php` | 309 | Room route surface; thin methods | accepted (endpoint breadth) |
+| `Service/SchedulePlanService.php` | 1031 | WP6 preview/apply aggregate: fingerprint revalidation, capacity check, lock order, member-day writes | **named** (CS-PLAN-067 §3.5: cohesive fingerprint/capacity aggregate; budgets only, no optimizer rewrite) |
+| `Service/CompletionService.php` | 546 | Completion/undo aggregate owner: transaction boundary, lock order, occurrence/actor gates (effects/post-commit extracted to collaborators) | accepted (D2: the visible ordered aggregate with a specific documented size exception; further splitting would hide the transaction) |
+| `Service/RoomTaskService.php` | 643 | Room-task mutations, bulk-assign partial-success semantics, room stats, calendar-range projection | **remainder** (CR-SVC-15: range/stats projection extraction candidate) |
+| `Service/RoomTaskReadService.php` | 396 | Batched read/enrichment cluster (house/room/scope/daily/due/claimable + timezone); WP8 product | accepted (read-surface breadth, one owner per D1) |
+| `Service/GameLogicService.php` | 349 | Completion-reward orchestration (coins/combo/streak/freezes/teamwork/titles); medal cluster extracted to `MedalService` | accepted (cohesive reward cluster) |
+| `Service/TaskCreationService.php` | 421 | WP4 atomic creation aggregate (custom/mount/template, one transaction) | accepted (transaction aggregate) |
+| `Service/HouseSetupService.php` | 439 | WP3 first-run setup transaction aggregate (first-run gate, structure, invites) | accepted (transaction aggregate) |
+| `Service/TaskService.php` | 423 | Task-definition CRUD + validation set | **remainder** (CR-SVC-15: `createTask` 24 positional params → param object) |
+| `Service/HouseService.php` | 385 | House aggregate: membership, weekly-goal progress, house stats | accepted (cohesive aggregate) |
+| `Service/MinigameService.php` | 361 | Minigame domain logic (boosts, scores, energy spend) | accepted (cohesive domain) |
+| `Service/NotificationService.php` | 308 | Notifier dispatch cases per notification subject | accepted (dispatch-table breadth) |
+| `Service/TemplateService.php` | 311 | Task catalog templates + level presets | accepted (catalog surface) |
+| `Service/RewardConfigService.php` | 476 | Static reward configuration registry | **named** (CS-PLAN-067 §3.5 / CS-PLAN-049: static data table — not split to meet a physical target) |
+| `Service/TestDataService.php` | 512 | Test-only seeding tooling (documented exemption, WP1 D6) | accepted (test tooling, explicitly classified) |
+| `Db/RoomTask.php` | 684 | Central entity: domain accessors, status computation, JSON serialization | accepted (entity surface; data-driven) |
+| `Db/RoomTaskMapper.php` | 540 | SQL primitives for the central instance table (house/room/scope/daily/locks) | accepted (SQL primitive collection) |
+| `Db/CompletedTaskMapper.php` | 523 | Ledger SQL: stats aggregates, occurrence lookups, weekly windows | accepted (SQL primitive collection) |
+
+#### Frontend (`src/`)
+
+| File | Lines | Cohesive responsibility | Disposition |
+|------|-------|--------------------------|-------------|
+| `views/Settings.vue` | 928 | Settings composition (house/floors/rooms/members/roles/energy sections) | accepted (section-per-concern template breadth; each section is independent UI) |
+| `components/Setup/SetupWizard.vue` | 816 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
+| `views/RoomDetail.vue` | 786 | Room composition root (stats, scoped list, dialogs) — rows carried by shared TaskList units | accepted (composition root) |
+| `views/TodayView.vue` | 602 | My Day surface (WP7 exit: instructions, execution rows, undo) | accepted (composition root) |
+| `components/Tasks/TaskEditForm.vue` | 855 | Unified create/edit form contract (UX-001): field validation surface | accepted (one form contract; field breadth) |
+| `components/Tasks/TaskChecklist.vue` | 521 | Checklist surface: lazy discovery, toggles, sub-tasks | accepted (cohesive checklist domain) |
+| `components/Tasks/TaskListItem.vue` | 420 | WP8 row unit: status/content/controls/a11y incl. scoped CSS | accepted (row surface) |
+| `components/Tasks/TaskList.vue` | 357 | WP8 orchestrator: sorting, bulk selection, expansion (was ~1,160) | accepted (orchestrator, extracted units carry the rest) |
+| `components/Tasks/FlexWindowDisplay.vue` | 334 | Flex-window bounds presentation | accepted (presentational) |
+| `components/Scheduling/SchedulePlanner.vue` | 676 | WP6 planning surface (member grids, preview/apply, dialogs) | accepted (planning composition root) |
+| `components/Scheduling/AvailabilityEditModal.vue` | 469 | Owner availability grid editor | accepted (grid editor surface) |
+| `components/Scheduling/ScheduleCalendar.vue` | 391 | Week grid + capacity/overcapacity display | accepted (presentational grid) |
+| `components/Members/MemberList.vue` | 412 | Member management surface | accepted (template+CSS dominant) |
+| `components/Profile/TitlePicker.vue` | 380 | Title pack/tier picker | accepted (presentational) |
+| `components/Dashboard/FloorList.vue` | 462 | Floor/room dashboard list | accepted (presentational) |
+| `components/Dashboard/RoomCard.vue` | 445 | Room status card | accepted (presentational) |
+| `components/Dashboard/QuickStats.vue` | 372 | Stat cards | accepted (presentational) |
+| `components/Dashboard/ArcadeSection.vue` | 409 | Minigame catalog entry | accepted (presentational) |
+| `components/Minigames/SnakeGame.vue` | 612 | Complete Snake game (loop, rendering, scoring) | accepted (self-contained game domain) |
+| `components/Minigames/Game2048.vue` | 416 | Complete 2048 game | accepted (self-contained game domain) |
+| `components/Minigames/BoostShop.vue` | 355 | Boost shop surface | accepted (presentational) |
+| `components/Minigames/SnakeLeaderboard.vue` | 344 | Snake leaderboard | accepted (presentational) |
+| `components/Minigames/MemoryGame.vue` | 306 | Memory game | accepted (self-contained game domain) |
+| `views/Leaderboard.vue` | 512 | Ranking surface with medal display | accepted (presentational) |
+| `views/TaskManager.vue` | 530 | Task manager composition root (filters, stats bar, modals) | accepted (composition root) |
+| `views/Dashboard.vue` | 327 | Dashboard composition | accepted (composition root) |
+| `views/CalendarView.vue` | 301 | Calendar composition | accepted (composition root) |
+| `store/roomTasks.js` | 827 | Canonical instance store: projections, generations, reconciliation (CS-PLAN-066 D3 one-owner rule) | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
+| `store/scheduling.js` | 467 | Scheduling state: preferences, capacity/overcapacity getters | accepted (cohesive store) |
+| `store/minigame.js` | 379 | Minigame state | accepted (cohesive store) |
+| `store/rooms.js` | 335 | Floor/room state | accepted (cohesive store) |
+| `store/user.js` | 311 | Member/role state | accepted (cohesive store) |
+| `utils/icons.js` | 571 | Static icon registry | accepted (static data table — not split to meet a physical target) |
+
+Maintenance rule: a file newly crossing the guideline must either be
+extracted along a cohesive seam in the change that grows it, or receive an
+individual entry here in the same change. The two **remainder** rows are
+owned by CR-SVC-15; no other open decomposition debt is implied by this
+inventory.
 
 ### Frontend
 - Lazy loading routes

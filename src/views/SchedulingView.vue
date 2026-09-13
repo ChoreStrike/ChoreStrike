@@ -69,6 +69,8 @@ import OvercapacityWarning from '../components/Scheduling/OvercapacityWarning.vu
 const schedulingStore = useSchedulingStore()
 const tasksStore = useTasksStore()
 const userStore = useUserStore()
+const roomsStore = useRoomsStore()
+const roomTasksStore = useRoomTasksStore()
 
 const loading = computed(() => schedulingStore.loading)
 
@@ -87,13 +89,11 @@ onMounted(async () => {
 	}
 	// Best-effort: room tasks feed the overcapacity warning. A failure
 	// must not break the scheduling view (warning simply stays empty).
+	// CS-PLAN-067 (D1): the planning candidates load as ONE house-wide
+	// batch instead of a per-room request loop.
 	try {
-		const roomsStore = useRoomsStore()
-		const roomTasksStore = useRoomTasksStore()
 		await roomsStore.fetchFloorsWithRooms()
-		await Promise.all(
-			roomsStore.rooms.map(room => roomTasksStore.fetchRoomTasks(room.id)),
-		)
+		await roomTasksStore.fetchHouseRoomTasks()
 	} catch (error) {
 		logger.warn('Could not preload room tasks for overcapacity warning', { view: 'SchedulingView', error })
 	}

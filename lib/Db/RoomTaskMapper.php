@@ -108,6 +108,34 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Find all room tasks of a house (joins through rooms → floors),
+	 * ordered by the deterministic `next_due, created_at, id` read order
+	 * (CS-PLAN-067 D1) — the one batched house-wide fetch that replaces the
+	 * per-room request loop of TaskManager and SchedulingView.
+	 *
+	 * @param int $houseId The house ID
+	 * @param bool $activeOnly Whether to return only active tasks
+	 * @return RoomTask[]
+	 */
+	public function findByHouse(int $houseId, bool $activeOnly = true): array {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('rt.*')
+			->from($this->getTableName(), 'rt');
+		$this->applyHouseScope($qb, 'rt', $houseId);
+
+		if ($activeOnly) {
+			$qb->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+		}
+
+		$qb->orderBy('rt.next_due', 'ASC')
+			->addOrderBy('rt.created_at', 'ASC')
+			->addOrderBy('rt.id', 'ASC');
+
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * Get overdue tasks for a specific house (joins through rooms → floors).
 	 *
 	 * @param int $houseId The house ID

@@ -33,6 +33,7 @@ use PHPUnit\Framework\TestCase;
 class RoomTaskControllerTest extends TestCase {
 	private RoomTaskController $controller;
 	private $roomTaskService;
+	private $roomTaskReadService;
 	private $completionService;
 	private $taskCreationService;
 	private $houseService;
@@ -44,6 +45,7 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->request = $this->createMock(IRequest::class);
 		$this->roomTaskService = $this->createMock(RoomTaskService::class);
+		$this->roomTaskReadService = $this->createMock(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
 		$this->completionService = $this->createMock(CompletionService::class);
 		$this->taskCreationService = $this->createMock(TaskCreationService::class);
 		$this->houseService = $this->createMock(HouseService::class);
@@ -55,6 +57,7 @@ class RoomTaskControllerTest extends TestCase {
 		$this->controller = new RoomTaskController(
 			$this->request,
 			$this->roomTaskService,
+			$this->roomTaskReadService,
 			$this->completionService,
 			$this->taskCreationService,
 			$this->houseService,
@@ -105,12 +108,12 @@ class RoomTaskControllerTest extends TestCase {
 		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 		$this->roomTaskService->method('validateRoomOwnership');
 
-		$this->roomTaskService->expects($this->once())
+		$this->roomTaskReadService->expects($this->once())
 			->method('getRoomTasks')
 			->with(1, $this->identicalTo($houseUser), true)
 			->willReturn([$roomTask1, $roomTask2]);
 
-		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([]);
+		$this->roomTaskReadService->method('assigneesByRoomTasks')->willReturn([]);
 
 		$response = $this->controller->index(1);
 
@@ -140,7 +143,7 @@ class RoomTaskControllerTest extends TestCase {
 			->with(9, 1)
 			->willThrowException(new \OCA\ChoreStrike\Exception\NotFoundException('Room not found'));
 
-		$this->roomTaskService->expects($this->never())->method('getRoomTasks');
+		$this->roomTaskReadService->expects($this->never())->method('getRoomTasks');
 
 		$response = $this->controller->index(9);
 
@@ -166,12 +169,12 @@ class RoomTaskControllerTest extends TestCase {
 		$houseUser = $this->createHouseUser();
 		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 
-		$this->roomTaskService->expects($this->once())
+		$this->roomTaskReadService->expects($this->once())
 			->method('getScopeTasksScopedToHouse')
 			->with(5, 1, $this->identicalTo($houseUser), true)
 			->willReturn([$roomTask]);
 
-		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')->willReturn([7 => ['user1']]);
+		$this->roomTaskReadService->method('assigneesByRoomTasks')->willReturn([7 => ['user1']]);
 
 		$response = $this->controller->index(null, 5);
 
@@ -573,11 +576,11 @@ class RoomTaskControllerTest extends TestCase {
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 
-		$this->roomTaskService->expects($this->once())
+		$this->roomTaskReadService->expects($this->once())
 			->method('getOverdueTaskRows')
 			->with(1, $this->identicalTo($houseUser), null)
 			->willReturn([['roomTask' => $roomTask, 'task' => $task, 'room' => $room]]);
-		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')
+		$this->roomTaskReadService->method('assigneesByRoomTasks')
 			->willReturn([11 => ['alice', 'bob']]);
 
 		$response = $this->controller->overdue();
@@ -614,11 +617,11 @@ class RoomTaskControllerTest extends TestCase {
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 		$this->authService->method('assertHouseMember')->willReturn($houseUser);
 
-		$this->roomTaskService->expects($this->once())
+		$this->roomTaskReadService->expects($this->once())
 			->method('getDueTodayTaskRows')
 			->with(1, $this->identicalTo($houseUser), 3)
 			->willReturn([['roomTask' => $roomTask, 'task' => $task, 'room' => $room]]);
-		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')
+		$this->roomTaskReadService->method('assigneesByRoomTasks')
 			->willReturn([12 => []]);
 
 		$response = $this->controller->dueToday(3);
@@ -722,7 +725,7 @@ class RoomTaskControllerTest extends TestCase {
 			->method('bulkAssignTasks')
 			->with([3, 4], 'mom', 1, $this->identicalTo($houseUser))
 			->willReturn([$roomTask]);
-		$this->roomTaskService->method('getAssigneeUserIdsByRoomTasks')
+		$this->roomTaskReadService->method('assigneesByRoomTasks')
 			->willReturn([3 => ['mom']]);
 
 		$response = $this->controller->bulkAssign();

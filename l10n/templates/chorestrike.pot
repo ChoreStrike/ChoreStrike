@@ -3051,9 +3051,6 @@ msgstr ""
 msgid "roomId is required"
 msgstr ""
 
-msgid "roomId or scopeId is required"
-msgstr ""
-
 msgid "roomTaskIds must be an array of positive integers"
 msgstr ""
 

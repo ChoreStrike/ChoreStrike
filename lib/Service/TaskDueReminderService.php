@@ -144,7 +144,7 @@ class TaskDueReminderService {
 	 * Dispatch reminders for one due set (today or tomorrow).
 	 *
 	 * Task names are enriched through a per-request cache (pattern:
-	 * RoomTaskService::getDailyTasksWithDetails). Assignees not found in the
+	 * RoomTaskReadService::getDailyTasksWithDetails). Assignees not found in the
 	 * house-user map (e.g. membership removed after assignment) are skipped —
 	 * reminders are a member benefit, not a retention tool.
 	 *

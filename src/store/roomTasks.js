@@ -50,8 +50,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		rangeRequestSeq: 0,
 		dueTodayRequestSeq: 0,
 		overdueRequestSeq: 0,
-		assigneesRequestSeq: 0,
+		houseRequestSeq: 0,
 		roomRequestSeqs: {},
+		// CS-PLAN-067 (D1/D3): house-wide instance projection state —
+		// `fetchHouseRoomTasks` loads the whole house in ONE request and
+		// replaces the instance set; loaded/stale metadata lets mutations
+		// invalidate it without an extra fetch.
+		houseLoaded: false,
+		houseStale: false,
 		// Shared in-flight read counter backing `loading` (CS-PLAN-066
 		// §3.3): a finishing request may only clear the shared loading state
 		// when it is the LAST in-flight one.
@@ -255,25 +261,47 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Fetch the assignee user IDs for a room task
-		 * @param {number} roomTaskId Room task identifier to load assignees for.
-		 * @return {Promise<Array<string>>} Nextcloud user IDs assigned to the task.
+		 * Fetch the whole house's room tasks in ONE request (CS-PLAN-067
+		 * D1) — the batched read that replaces TaskManager's and
+		 * SchedulingView's per-room loops. A full-house result REPLACES the
+		 * instance set; a room-scoped result still updates only its room.
+		 * The read is generation-guarded: a stale house response never
+		 * lands, and it is also dropped when a room-scoped read started
+		 * after it (the room response is the newer scoped truth and must
+		 * not be undone by the overlapping house read).
+		 * @param {boolean} activeOnly Whether to limit results to active tasks.
+		 * @return {Promise<Array>} The complete viewer-visible house instance list.
 		 */
-		async fetchAssignees(roomTaskId) {
-			// CS-PLAN-066 §3.3: assignee reads are generation-guarded so a
-			// late response cannot overwrite a newer assignment's result.
-			const seq = ++this.assigneesRequestSeq
+		async fetchHouseRoomTasks(activeOnly = true) {
+			const seq = ++this.houseRequestSeq
+			const roomSeqsAtStart = { ...this.roomRequestSeqs }
 			this._beginRead()
 			this.error = null
 
 			try {
-				const data = await api.get(`/api/v1/room-tasks/${roomTaskId}/assignees`)
+				const data = await api.get('/api/v1/room-tasks', { params: { activeOnly } })
+
+				if (seq !== this.houseRequestSeq) {
+					logger.debug('Dropping superseded house-task read', { store: 'roomTasks', action: 'fetchHouseRoomTasks' })
+					return this.roomTasks
+				}
+
+				const roomReadsRaced = Object.keys(roomSeqsAtStart)
+					.some(roomId => (this.roomRequestSeqs[roomId] ?? 0) !== roomSeqsAtStart[roomId])
+				if (roomReadsRaced) {
+					logger.debug('Dropping house-task read superseded by a newer room read', { store: 'roomTasks', action: 'fetchHouseRoomTasks' })
+					return this.roomTasks
+				}
+
+				this.roomTasks = data
+				this.houseLoaded = true
+				this.houseStale = false
 				return data
 			} catch (error) {
-				if (seq === this.assigneesRequestSeq) {
+				if (seq === this.houseRequestSeq) {
 					this.error = error.message
 				}
-				logger.error('Failed to fetch assignees', error, { store: 'roomTasks', action: 'fetchAssignees', roomTaskId })
+				logger.error('Failed to fetch house room tasks', error, { store: 'roomTasks', action: 'fetchHouseRoomTasks' })
 				throw error
 			} finally {
 				this._endRead()
@@ -656,6 +684,9 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		 * coordinated owner; unloaded ones stay unloaded.
 		 */
 		onInstanceMutated() {
+			if (this.houseLoaded) {
+				this.houseStale = true
+			}
 			if (this.dueTodayLoaded) {
 				this.dueTodayStale = true
 			}
@@ -873,6 +904,8 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.overdueLoaded = false
 			this.dueTodayStale = false
 			this.overdueStale = false
+			this.houseLoaded = false
+			this.houseStale = false
 			this.refreshFailed = false
 			this.countsRefreshing = false
 			this.roomRequestSeqs = {}
@@ -882,7 +915,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.rangeRequestSeq++
 			this.dueTodayRequestSeq++
 			this.overdueRequestSeq++
-			this.assigneesRequestSeq++
+			this.houseRequestSeq++
 		},
 	},
 })

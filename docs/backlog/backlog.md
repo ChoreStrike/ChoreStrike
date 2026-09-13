@@ -38,8 +38,11 @@ coverage) stay open below.
 
 ### [P1] CR-WF-05 — Replace weak or skipped core-workflow coverage
 **Status**: Backlog · **Effort**: L · **Layer**: tests · **Journey stage**: test coverage
-**Owning**: CS-PLAN-058 WP9 · **Depends on**: CR-WF-06 · **Blocks**: RELEASE-002 · **Folded-in**: —
+**Owning**: CS-PLAN-058 WP9 · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
+
+> Formerly depended on the WP8 batching umbrella; that dependency was
+> delivered 2026-09-13 (see [`archive/2026-09.md`](archive/2026-09.md)).
 
 Core authorization scenarios remain unconditionally skipped, some completion E2E
 assertions are tautological or data-dependent, and the first-run wizard happy
@@ -50,37 +53,6 @@ path has no deterministic browser profile.
 - [x] Add an empty-house user profile that exercises the complete first-run wizard in Playwright. *(Delivered 2026-09-04 by CS-PLAN-062/WP3 as the WP3 exit-gate artifact: `emptyhouse` profile + `setup-wizard-journey.spec.ts` in the serial pool, no conditional skips.)*
 - [ ] Keep seed-mutating and non-seed project groups isolated so database resets cannot invalidate active sessions.
 - [ ] Require zero newly skipped core-workflow tests in the release gate.
-
----
-
-### [P2] CR-WF-06 — Batch workflow reads and reduce orchestration hotspots
-**Status**: In Progress (activated 2026-09-12: CS-PLAN-067 Standard A `PASS`, D1-D6 ratified as recommended; implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: performance
-**Owning**: CS-PLAN-058 WP8 · **Depends on**: — (the WP7 payload/projection contracts are delivered and frozen — consumable since 2026-09-12) · **Blocks**: CR-WF-05 · **Folded-in**: —
-**Source**: Full Review of the core task workflow (2026-09-02)
-
-TaskManager and SchedulingView perform request-per-room fan-out, while the main
-task list and completion aggregate remain oversized orchestration hotspots. Today
-already consumes WP7 enriched assignees; WP8 must pin that absence of per-task
-requests rather than repeat the historical fix. This item
-extends, rather than duplicates, **CR-SVC-15**, **CR-SVC-40**, **CR-SVC-41**, and
-**CR-SVC-44**.
-
-**Detail plan:** [CS-PLAN-067](../plans/active/cs-plan-067-wp8-batching-decomposition-performance.md)
-(2026-09-12; Standard A `PASS` 2026-09-12, D1-D6 ratified as recommended;
-implementation not started). The plan defines batch contracts, extraction
-boundaries, count-based gates and the ratified remainder dispositions (D5:
-cron freeze/restock batching rescoped to CR-053-11) without closing or
-reassigning any item.
-
-The draft's live-code inventory also finds an already acyclic store graph and
-no remaining global service-locator lookup. Those historical claims need a
-verified disposition and regression protection, not a new coordination layer.
-
-- [ ] Return house-scoped room tasks and batched assignees without frontend N+1 requests.
-- [ ] Split `TaskList` into focused row, assignment, bulk, checklist, and due-date units.
-- [ ] Decompose completion into cohesive phases without weakening its single transaction boundary.
-- [ ] Remove the global service-locator lookup and preserve one-way store dependencies.
-- [ ] Add query/request-count regression bounds for the reviewed journey.
 
 ---
 
@@ -100,7 +72,7 @@ read-modify-write races follow the work packages that touch their workflows.
 ---
 
 ### [P2] CR-SVC-15 — Decompose God-methods / God-services
-**Status**: In Progress (WP5 completion-path extraction slice **delivered 2026-09-09 by CS-PLAN-064**: `RoomService::completeRoomTask` (~200 lines) is gone — the whole completion/undo path lives in `CompletionService`; structural remainder stays WP8) · **Effort**: L · **Layer**: backend · **Journey stage**: performance
+**Status**: In Progress (WP5 slice delivered 2026-09-09; **WP8 slice delivered 2026-09-13 by CS-PLAN-067**: `GameLogicService` 517 → 349 with the medal cluster extracted to `MedalService`, `CompletionService` 772 → 546 via `CompletionEffectService`/`CompletionPostCommitService`, `RoomTaskService` 833 → 643 via `RoomTaskReadService`; remaining structural candidates are inventoried in `docs/engineering/architecture.md` "Size Guideline Exception Inventory") · **Effort**: L · **Layer**: backend · **Journey stage**: performance
 **Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of `lib/Service` (2026-08-04)
 
@@ -122,47 +94,8 @@ the guideline, accepted), `TaskService::createTask` (24 positional params).
 
 ---
 
-### [P3] CR-SVC-40 — Services reach below their layer (`IDBConnection` injection)
-**Status**: In Progress (WP5 completion-path slice **delivered 2026-09-09 by CS-PLAN-064**; structural remainder stays WP8) · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
-**Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of `lib/Service` (2026-08-04); scope updated by CS-PLAN-053 full review (2026-08-27)
-
-The WP1 foundation portion landed (CS-PLAN-060 WP1, see
-[`archive/2026-09.md`](archive/2026-09.md)): `lib/Db/TransactionExecutor` is
-the single transaction owner, the six transactional services route through it
-and no longer inject `IDBConnection`, and the deterministic lock order
-(house → room_task → dependents) is documented in
-[`../engineering/development.md`](../engineering/development.md).
-The WP5 portion delivered: `CompletionService` runs both completion and undo
-through `TransactionExecutor` on the extended documented order
-`room_task → room → house_user` ([ADR-011](../adr/ADR-011-transactional-completion-and-undo.md)),
-closing the unlocked cleanliness/teamwork read-modify-write seams; the only
-remaining unlocked cleanliness writer is the manual adjust endpoint (tracked
-separately, see CR-SVC-63). WP8 owns the remaining structural moves.
-`TestDataService` keeps its documented D6 exemption (non-production test
-tooling, query-builder only).
-
----
-
-### [P3] CR-SVC-41 — Service DI inconsistencies (remainder)
-**Status**: In Progress (WP4 slice handled on 2026-09-05 by CS-PLAN-063 — see body; structural remainder stays WP8) · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
-**Owning**: CS-PLAN-058 WP4+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of `lib/Service` (2026-08-04)
-
-Owned in portions: WP4 owns the ownership-validation/DI remainder relevant to
-canonical assignment; WP8 the structural remainder after the contract freeze.
-`getFilteredDailyTasksForUser` takes `HouseUserMapper` as a param despite ctor injection;
-duplicated stat helpers; ~~duplicated `validate*Ownership` across Floor/Room/RoomTask services~~
-*(the RoomTask half was deduplicated on 2026-09-05 by CS-PLAN-063/WP4 — `RoomService` is the
-canonical walk and Floor/Room keep their own; WP8 re-checks the remainder against the
-post-freeze tree)*.
-The nullable-`?AppLogger` half (all 9 sites + trait + `RewardConfigController` wiring defect)
-was **resolved 2026-08-27 by CS-PLAN-052** (record: [`archive/2026-08.md`](archive/2026-08.md)).
-
----
-
 ### [P3] CR-SVC-44 — Minor performance cluster
-**Status**: In Progress (activated 2026-09-12 by CS-PLAN-067/WP8 Standard A; per-user streak UPDATE batching disposition owned by D5 → CR-053-11) · **Effort**: M · **Layer**: backend · **Journey stage**: performance
+**Status**: In Progress (activated 2026-09-12 by CS-PLAN-067/WP8 Standard A; per-user streak UPDATE batching disposition owned by D5 → CR-053-11; **WP8 slice delivered 2026-09-13**: the `updateDueDate` after-commit re-fetch is gone — the in-transaction entity is the authoritative response, pinned by `WorkflowQueryBudgetTest` statement-order proof; no redundant workflow re-fetch remains in the WP8 manifest surfaces) · **Effort**: M · **Layer**: backend · **Journey stage**: performance
 **Owning**: CS-PLAN-058 WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of `lib/Service` (2026-08-04); re-scoped by CS-PLAN-053 full review (2026-08-27) and CS-PLAN-055
 
@@ -320,6 +253,32 @@ the CS-PLAN-063 creation-aggregate response (`data.roomTask.id`) and
 duplicate room names broke its strict assertion). Full pool afterwards: 98 passed /
 5 pre-existing documented skips / 0 failed. Still open in this item: the Sunday/Saturday
 date-dependent insights-flow assertions; the weekly_goal duplicate-row docs note.
+
+**Update 2026-09-13 (CS-PLAN-067 final Standard B):** reproduced on the
+Sunday full-pool gate run (`overcapacity-marker` not visible; the warning
+strip and both new `workflow-request-budgets` assertions passed), consistent
+with the Monday-anchored-grid diagnosis above. Statically attributed
+WP8-independent — WP8 changed neither `ScheduleCalendar` nor
+`plannedEnergyForDay`, and the WP7 pools were green on Saturday 09-12.
+**Folded-in:** the duplicate review observation first recorded as
+"BUG-E2E-007" during the same review (deduplicated per finding routing).
+
+---
+
+### [P3] BUG-E2E-006 — `SchedulePlanAggregateTest::testApply_StaleTimezoneInput` is date-of-day dependent
+**Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: test coverage
+**Owning**: CS-PLAN-065 WP9 (scheduling test domain) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: CS-PLAN-067 implementation gate run 2026-09-13 (pre-existing; verified to fail identically on a clean `master` working tree with the WP8 changes stashed — NOT a CS-PLAN-067 regression).
+
+The test seeds `todayKey` as the **UTC** date and exercises a non-UTC house
+timezone; `SchedulePlanService::validateStartDate` ("startDate must be today
+or later") compares against the server-UTC today. When the suite runs late in
+the UTC day (local date of a west-of-UTC house timezone is still "yesterday"
+vs UTC), the fixture's own `apply()` call throws
+`InvalidArgumentException` inside setup — the conflict path under test never
+reaches its assertion. Fix direction: derive the fixture start key from the
+**house timezone** (the same bucketing the service uses, CS-PLAN-057) or
+freeze the test clock via `ITimeFactory` instead of wall-clock `new DateTime`.
 
 ---
 

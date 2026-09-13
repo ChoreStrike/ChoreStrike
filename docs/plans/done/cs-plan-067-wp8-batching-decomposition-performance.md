@@ -1,6 +1,6 @@
 # CS-PLAN-067: WP8 - Batching, Decomposition, and Performance Hardening
 
-> **Status:** Active (drafted 2026-09-12; Standard A `PASS` 2026-09-12, D1-D6 ratified as recommended; implementation not started)
+> **Status:** Done (implementation round 1 executed 2026-09-13; final Standard B `PASS-WITH-FIXES` 2026-09-13 — WP8 complete)
 > **Effort:** XL (one sequential package with reviewable slices)
 > **Priority:** P2
 > **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP7 complete; [CS-PLAN-066](../done/cs-plan-066-wp7-canonical-client-state-family-ux.md) final Standard B `PASS-WITH-FIXES`
@@ -427,12 +427,19 @@ Required existing E2E anchors are `family-core-ux.spec.ts`,
 and request-counter patterns rather than replacing them with a second long
 household journey; WP9 still owns that journey's consolidation.
 
-The seed-owning request-budget spec runs in `chromium-serial-db`; exclude it from
-the regular pool. Keep scheduling-owner tests in their existing owner pool and
-run all three pools sequentially against the shared database. Missing fixtures
-fail, never conditionally skip. Preserve the WP7 manual accessibility record and
-repeat a focused child-persona keyboard/screen-reader smoke for extracted task
-controls; record actual evidence rather than inferring it from DOM attributes.
+The request-budget spec is read-only (own user contexts, no seed mutation)
+and therefore stays in the DEFAULT Playwright pool — a deliberate deviation
+from the original draft expectation of a seed-owning serial-pool spec,
+ratified by the final Standard B review (2026-09-13): no
+`playwright.config.ts` change is needed and the spec passed in the default
+pool. Missing fixtures fail, never conditionally skip. Preserve the WP7
+manual accessibility record and repeat a focused child-persona
+keyboard/screen-reader smoke for extracted task controls; record actual
+evidence rather than inferring it from DOM attributes. *(Rescope recorded
+2026-09-13: the user accepted the automated accessibility evidence — aria
+labels on every extracted row control, keyboard-reachability specs, E2E
+role/viewport matrix — as satisfying this requirement in lieu of a manual
+assistive-tech pass.)*
 
 ### 4.4 Quality gate
 
@@ -479,7 +486,7 @@ listed in section 4 also run when no source edit is needed in them.
 
 ```text
 new:      lib/Service/{RoomTaskReadService,CompletionEffectService,CompletionPostCommitService,MedalService}.php
-new:      tests/unit/Service/{RoomTaskReadServiceTest,CompletionEffectServiceTest,CompletionPostCommitServiceTest,MedalServiceTest}.php
+new:      tests/unit/Service/{RoomTaskReadServiceTest,MedalServiceTest}.php
 new:      tests/integration/Db/WorkflowQueryBudgetTest.php
 new:      tests/integration/Support/QueryCounter.php
 new:      tests/e2e/workflow-request-budgets.spec.ts
@@ -489,33 +496,49 @@ new:      tests/unit/components/{TaskListItem,TaskListBulkBar,TaskListDetails}.s
 new:      tests/unit/utils/taskDisplay.spec.js
 new:      tests/unit/views/requestCounts.spec.js
 new:      tests/unit/store/dependencies.spec.js
-new:      docs/plans/active/cs-plan-067-wp8-batching-decomposition-performance.md (this plan, activated 2026-09-12; path follows review lifecycle)
+new:      docs/plans/done/cs-plan-067-wp8-batching-decomposition-performance.md (this plan; path follows review lifecycle)
 modified: lib/Controller/{RoomTaskController,GameController}.php
 modified: lib/Db/RoomTaskMapper.php
-modified: lib/Service/{RoomTaskService,CompletionService,GameLogicService,TaskAccessPolicy}.php
+modified: lib/Service/{RoomTaskService,CompletionService,GameLogicService,TaskDueReminderService}.php
 modified: tests/unit/Controller/{RoomTaskControllerTest,GameControllerTest}.php
-modified: tests/unit/Service/{RoomTaskServiceTest,RoomTaskServiceDailyTest,RoomTaskServiceLoggingTest,CompletionServiceTest,GameLogicServiceTest,GameLogicServiceTeamworkTest,TaskAccessPolicyTest}.php
-modified: tests/integration/Db/BatchQueryRegressionTest.php
-modified: tests/integration/Controller/{RoomTaskControllerIntegrationTest,RoomTaskIndexAuthorizationTest,GameControllerIntegrationTest,BulkAssignIntegrationTest,TaskAuthorizationTest,WireStatusAuthDenialTest}.php
-modified: tests/integration/Service/{CompletionUndoStateEqualityTest,CompletionConcurrencyTest,ConcurrentCompletionTest,TaskCreationAggregateTest,RoomTaskServiceExtendedFeaturesTest,SchedulePlanAggregateTest,SchedulePlanConcurrencyTest}.php
+modified: tests/unit/Service/{RoomTaskServiceTest,RoomTaskServiceDailyTest,RoomTaskServiceLoggingTest,CompletionServiceTest,GameLogicServiceTest,GameLogicServiceTeamworkTest}.php
+modified: tests/integration/Controller/{RoomTaskControllerIntegrationTest,GameControllerIntegrationTest,BulkAssignIntegrationTest,TaskAuthorizationTest,PrivateTaskAuthorizationTest,WireStatusAuthDenialTest}.php
+modified: tests/integration/Service/{CompletionUndoStateEqualityTest,CompletionConcurrencyTest,TaskCreationAggregateTest,RoomTaskServiceExtendedFeaturesTest}.php
 modified: tests/integration/FamilyIntegrationTest.php
 modified: src/components/Tasks/{TaskList,AssigneeChips}.vue
 modified: src/views/{TaskManager,SchedulingView,RoomDetail}.vue
 modified: src/store/roomTasks.js
 modified: tests/unit/store/roomTasks.spec.js
-modified: tests/unit/views/{TaskManager,RoomDetail}.spec.js
-modified: tests/unit/components/{TaskList,AssigneeChips,SchedulingView,TodayView}.spec.js
+modified: tests/unit/views/TaskManager.spec.js
+modified: tests/unit/components/AssigneeChips.spec.js
+modified: tests/unit/css/theme-consistency.spec.js
 modified: tests/unit/services/coreWorkflowLocalization.spec.js
-modified: tests/e2e/{family-core-ux,workflow-state-reconciliation,scheduling-apply-flow}.spec.ts
-conditional: src/store/checklist.js and tests/unit/store/checklist.spec.js (only scoped invalidation proven missing by extraction lifecycle tests)
-conditional: l10n/{en.json,de.json,templates/chorestrike.pot} (changed keys/placeholders/source references only; no copy redesign)
-modified: playwright.config.ts (register the new seed-owning spec in the serial pool)
+modified: l10n/{en.json,de.json,templates/chorestrike.pot}
 modified: docs/api/README.md
-modified: docs/engineering/{architecture,development,testing}.md
-modified: docs/plans/README.md
+modified: docs/engineering/{architecture,testing}.md
 modified: docs/plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md
 modified: docs/backlog/{backlog.md,ACTIVE_TASKS.md,archive/2026-09.md}
 ```
+
+Final-review reconciliation (2026-09-13) against the Standard A proposal:
+`CompletionEffectServiceTest`/`CompletionPostCommitServiceTest` were not
+needed as dedicated units — the effect-record and post-commit contracts stay
+pinned through the modified `CompletionServiceTest` aggregate suite and the
+real-DB anchors; `TaskAccessPolicy`/`BatchQueryRegressionTest`/
+`RoomTaskIndexAuthorizationTest`/`ConcurrentCompletionTest`/
+`SchedulePlan{Aggregate,Concurrency}Test`/`RoomDetail.spec.js`/
+`TaskList.spec.js`/`SchedulingView.spec.js`/`TodayView.spec.js`/
+`coreWorkflowLocalization.spec.js`/the three WP7 E2E specs and
+`playwright.config.ts` from the proposal needed no source edit (the budget
+spec stayed read-only in the default pool — see §4.3);
+`TaskDueReminderService.php` (docblock pointer to the moved read cluster),
+`PrivateTaskAuthorizationTest.php`, `theme-consistency.spec.js` (row-style
+owner moved to `TaskListItem.vue`), `coreWorkflowLocalization.spec.js`
+(followed the moved `t()` calls — review fix), `chorestrike.pot` (dead key
+removed — review fix) and `src/components/Common/NotAuthorizedState.vue`
+(pre-existing stylelint logical-property fix — review fix) joined the
+manifest; `docs/engineering/development.md` and `docs/plans/README.md`
+needed no edit.
 
 Constructor changes must update all manually constructed controller/service
 fixtures in the listed suites as well as container-resolved paths. Query counting
@@ -577,39 +600,39 @@ reopened and no application code changes in this drafting round.
 
 ## 8. Acceptance Criteria
 
-- [ ] D1-D6 and all subsequent implementation/review questions are resolved and
+- [x] D1-D6 and all subsequent implementation/review questions are resolved and
   recorded; every work item has exactly one backlog owner.
-- [ ] TaskManager uses one house-scoped instance read with canonical assignees;
+- [x] TaskManager uses one house-scoped instance read with canonical assignees;
   My Day and task rows issue no eager per-instance assignee requests.
-- [ ] House/room/daily projections preserve exact visibility, ordering, role,
+- [x] House/room/daily projections preserve exact visibility, ordering, role,
   date and child-limit behavior, including empty and mixed-private fixtures.
-- [ ] Request and real executed-query ceilings exist for setup, TaskManager,
+- [x] Request and real executed-query ceilings exist for setup, TaskManager,
   My Day, preview/apply, completion and undo; scaled workload tests pass with
   literal, documented thresholds and no result loss.
-- [ ] TaskList has cohesive row/assignment/bulk/checklist/due-date boundaries
+- [x] TaskList has cohesive row/assignment/bulk/checklist/due-date boundaries
   without copied domain logic or accessibility/localization regressions.
-- [ ] Complete/undo retain one transaction and ADR-011 lock order, exact recorded
+- [x] Complete/undo retain one transaction and ADR-011 lock order, exact recorded
   inverse, idempotency and post-commit success/degradation semantics.
-- [ ] Reward/medal outputs and event vocabulary/timing are unchanged and pinned.
-- [ ] Historical service-locator/DI claims have verified dispositions and live
+- [x] Reward/medal outputs and event vocabulary/timing are unchanged and pinned.
+- [x] Historical service-locator/DI claims have verified dispositions and live
   redundant refetches are removed; the store DAG remains acyclic, generations
   remain reset-safe, and each loaded derived projection refreshes at most once
   per transition.
-- [ ] No production file exceeds the size guideline without a specific documented
+- [x] No production file exceeds the size guideline without a specific documented
   reason; named hotspot extractions and all approved exception dispositions are
   complete, with no blanket pre-existing exception.
-- [ ] D5 remainder routing is actually applied; CR-SVC-44/CR-053-19 are not marked
+- [x] D5 remainder routing is actually applied; CR-SVC-44/CR-053-19 are not marked
   closed from partial or historical evidence. Required in-scope work is not
   merely deferred to allow this plan to move to `done/`.
-- [ ] All required unit, integration, concurrency, component, budget and role/
+- [x] All required unit, integration, concurrency, component, budget and role/
   viewport E2E tests run green without missing, new or unapproved skipped cases;
   focused manual accessibility evidence is recorded.
-- [ ] Full section 4.4 gate is green after the final change.
-- [ ] Durable API, architecture, locking and testing docs describe the delivered
+- [x] Full section 4.4 gate is green after the final change.
+- [x] Durable API, architecture, locking and testing docs describe the delivered
   behavior and budgets outside this temporary plan.
-- [ ] Plan-owned findings in section 9 are resolved or explicitly user-rescoped;
+- [x] Plan-owned findings in section 9 are resolved or explicitly user-rescoped;
   completed backlog items are archived and parent/tracking references are current.
-- [ ] Final Standard B is `PASS` or `PASS-WITH-FIXES`; WP8 is marked complete only
+- [x] Final Standard B is `PASS` or `PASS-WITH-FIXES`; WP8 is marked complete only
   by that review, with WP9 and release ownership unchanged.
 
 ## 9. Review Findings (plan-owned)
@@ -620,7 +643,145 @@ severity, file/area, issue and resolution state; unresolved findings block
 completion. Out-of-scope findings follow the canonical fix-now / fold-in /
 backlog routing.
 
-## 10. Draft Verification and Review Handoff
+Implementation round 1 (2026-09-13) findings:
+
+- **[minor][resolved] `tests/unit/components/AssigneeChips.spec.js`** — the
+  controlled-component conversion (members via prop, eager store fetch
+  removed per §3.4) invalidated the spec's store-seeded members. Resolution:
+  spec updated to the controlled contract; interaction/keyboard-reachability
+  pins preserved.
+- **[minor][resolved] `tests/unit/css/theme-consistency.spec.js`** — the
+  row-style extraction moved `.task-item.overdue`/`.priority-badge.*` styles
+  from `TaskList.vue` to `TaskListItem.vue`; the static-analysis spec now
+  reads the owning file (theme-variable pins unchanged).
+- **[minor][resolved] `RoomTaskReadService::getRoomTaskWithDetails`** —
+  initial draft fetched the room entity twice (once for the row, once via
+  `timeZoneForRoom`). Resolution: private `timeZoneForRoomEntity(Room)`
+  reuses the fetched row; mock-pinned.
+
+Out-of-scope finding routed to backlog: **BUG-E2E-006** —
+`SchedulePlanAggregateTest::testApply_StaleTimezoneInput_RejectsWithoutWrites`
+is date-of-day dependent (fails late in the UTC day; verified pre-existing on
+a clean tree, WP8-independent).
+
+Final Standard B review round (2026-09-13) findings — all resolved in round:
+
+- **[major][resolved] `tests/unit/services/coreWorkflowLocalization.spec.js`** —
+  the TaskList decomposition moved the row-surface `t()` calls into
+  `TaskListItem`/`TaskListBulkBar`/`TaskListDetails`/`taskDisplay.js`, but
+  the source-coverage spec's hardcoded surface list was not extended, so
+  moved keys silently escaped en/de/POT coverage verification (§4.3
+  requirement). Resolution: the four units joined `CORE_SURFACES`; spec
+  green (all moved keys were already present in the artifacts).
+- **[minor][resolved] `l10n/templates/chorestrike.pot`** — the dead key
+  `roomId or scopeId is required` removed from en/de in round 1 survived in
+  the POT (the parity checker covers de↔en only). Resolution: stale msgid
+  block removed; `l10n:check-keys` and the POT-coverage spec green.
+- **[major][resolved] `composer cs:check`** — 4 reviewed files
+  (`CompletionEffectService`, `WorkflowQueryBudgetTest`,
+  `CompletionUndoStateEqualityTest`, `RoomTaskServiceDailyTest`) carried
+  php-cs-fixer violations despite the round-1 green claim. Resolution:
+  project fixer applied (exactly those 4 files changed), cs:check green,
+  both PHP suites re-run green.
+- **[minor][resolved] `src/components/Common/NotAuthorizedState.vue`** —
+  pre-existing stylelint `use-logical` warnings (margin-left/right pair)
+  outside WP8 scope. Resolution: collapsed to `margin-inline: auto;` —
+  verified safe fix, stylelint fully green.
+- **[major][resolved] D6 size-exception inventory** — the durable inventory
+  justifying every production file above the ~300-line guideline was missing
+  (blocking the WP8 exit gate). Resolution: authored by the review into
+  `docs/engineering/architecture.md` "Size Guideline Exception Inventory"
+  (55 files: named/accepted/remainder dispositions; two remainders owned by
+  CR-SVC-15) per the user's ratified decision.
+- **[nit][accepted] `GameLogicService::handleTaskCompletion` signature** —
+  keeps `?CompletedTask $ledgerRow = null` with an explicit runtime guard
+  instead of a non-optional parameter; accepted because tests pin the guard
+  contract and changing the signature would swap the exception type.
+
+Out-of-scope observations routed per §6: the Sunday-run
+`insights-flow.spec.ts` overcapacity-marker failure was folded into the
+existing **BUG-E2E-005** (duplicate first recorded as "BUG-E2E-007", then
+deduplicated); the manual-a11y rescope and the budget-spec pool design were
+ratified by the user (§4.3, §12 decisions D8-D9).
+
+## 10. Implementation Status (round 1, 2026-09-13)
+
+Executed in plan order (§6 steps 3–7 of this round):
+
+- **Baseline/instrumentation (§4.1):** slice-1 verification of the counting
+  seam inside the canonical container — bundled DBAL 3.10.4 deprecates
+  `setSQLLogger` (inert by default) but it is the only runtime hook for the
+  live connection and IS consulted by `executeQuery`/`executeStatement`/
+  `Statement` (verified at source lines 1089–1625, Statement:183); a
+  throwaway probe proved the counter observes both query-builder and raw
+  statements before any budget was written. Frozen budgets live in
+  `tests/integration/Db/WorkflowQueryBudgetTest.php` (house read 3, empty 1,
+  updateDueDate 8 with statement-order proof, complete 27, undo 32; literal
+  integers with per-test reasoning).
+- **Backend (§3.1–§3.3):** `RoomTaskMapper::findByHouse`, new
+  `RoomTaskReadService` (house/room/scope/daily/claimable/due-within reads,
+  batched visibility + enrichment, tz resolution; empty sets short-circuit),
+  controller house-wide selector mode with one shared flat serializer,
+  `RoomTaskService` slimmed to mutations + stats + range + ownership seams
+  (no forwarding shims), `updateDueDate` returns the in-transaction entity
+  (after-commit re-fetch removed).
+- **Completion/game decomposition (§3.2):** `CompletionEffectService`
+  (snapshot/restore incl. LIFO titles + checklist rewrite),
+  `CompletionPostCommitService` (D7 boundary, both phases),
+  `MedalService` (cluster + `getMedals`; GameController/GameLogicService
+  callers updated), `handleTaskCompletion` ledger REQUIRED (self-inserting
+  branch deleted; unit tests pin "never inserts").
+- **Frontend (§3.4):** `roomTasks.fetchHouseRoomTasks` (house generation +
+  race guards vs. sibling room reads, house loaded/stale metadata),
+  TaskManager/SchedulingView one-request init, TaskManager `refreshAfterCreate`
+  and RoomDetail add/template/save re-fetches removed (aggregate/modal
+  reconciliation characterized first; §3.4 field-equality pinned by the
+  existing aggregate tests + updated Jest expectations), unused
+  `fetchAssignees` store action removed (backend GET route retained),
+  TaskList decomposition into `TaskListItem`/`TaskListBulkBar`/
+  `TaskListDetails` + `utils/taskDisplay.js`, controlled `AssigneeChips`
+  (eager per-row member fetch anti-pattern removed at the root), store DAG
+  acyclicity pinned (`tests/unit/store/dependencies.spec.js`).
+- **Tests/docs:** `WorkflowQueryBudgetTest`, `requestCounts.spec.js`,
+  `workflow-request-budgets.spec.ts` (E2E), `taskDisplay.spec.js`,
+  `TaskListItem.spec.js`, `TaskListBulkBar.spec.js`, `MedalServiceTest`,
+  `RoomTaskReadServiceTest`; API/architecture/testing docs updated (house
+  selector contract, decomposition idiom, budget policy); l10n dead key
+  removed; backlog BUG-E2E-006 recorded.
+
+Gate at end of round 1: Jest 938 tests green (incl. log-noise check), PHP unit
+920 green, PHP integration 319/320 green (10 documented skips; the single
+error is the pre-existing BUG-E2E-006, verified on a clean tree), ESLint
+clean, `check-l10n-keys`, `check-backlog`, `check-docs-encoding`,
+`git diff --check` green. E2E evidence this round: the new
+`workflow-request-budgets.spec.ts` (both views exactly ONE house-wide
+request), plus task-manager, overdue-claiming, checklist, smoke, fast-core,
+family-core-ux, task-completion-full-flow, flex-window-scheduling,
+scheduling, today-view, core-functionality, task-completion,
+admin-only-tasks, private-tasks, calendar — all green (the full-pool serial
+re-run remains the final Standard B review's gate). One budget-hardening fix
+during the gate: the completion/undo budget tests pin the house's
+`weekly_goal_notified_week` to the current week so the order-dependent
+notification INSERT of the weekly-goal claim branch stays out of the
+measured workload (full-suite runs leaked a global appconfig override into
+that branch).
+
+Final Standard B review round (2026-09-13): review fixes applied
+(localization-surface list, POT dead key, scoped php-cs-fixer run on 4 files,
+stylelint logical-property fix, D6 size-exception inventory authored) and the
+complete §4.4 gate re-run on the fixed state — ESLint 0 problems, stylelint
+clean, Jest 939/939 (incl. log-noise check), build green,
+`l10n:check-keys`/`docs:encoding`/`backlog:check`/`git diff --check` green,
+PHP unit 920/920, PHP integration 320 (10 documented pre-existing skips, 0
+failures; BUG-E2E-006 passes at morning-UTC hours), `composer cs:check`
+green, Playwright chromium 94 passed / 7 pool-excluded skips,
+chromium-serial-db 106 passed (one first-run flake in
+`release-notifications` did not reproduce across two full runs; the sole
+failure is the pre-existing Sunday-dependent BUG-E2E-005 overcapacity-marker
+assertion, statically attributed WP8-independent and folded there),
+chromium-scheduling-owner 38/38.
+
+## 11. Draft Verification and Review Handoff
 
 Standard A was required before activation; it was performed 2026-09-12 with
 outcome `PASS` and D1-D6 ratified (§11). No implementation, lifecycle move or
@@ -675,3 +836,54 @@ recommended and recorded in §2.1/§2.2).
   CR-SVC-44 set In Progress (CR-SVC-15/40/41 already were); tracking links
   repointed; review record appended to
   `docs/backlog/archive/CODE_REVIEW_2026-09-12.md`.
+
+## 12. Review Outcome (Final Standard B, 2026-09-13)
+
+**Outcome: `PASS-WITH-FIXES`** — every plan item, acceptance criterion,
+required test, durable-doc update and §9 finding is complete; WP8 is marked
+complete by this review and the plan moves `active/ -> done/`.
+
+- **Scope:** the whole owning plan (this file) plus its full implementation
+  manifest (63 changed files: 44 modified tracked + 19 new) and the review's
+  own fixes; reviewed against the plan's §3 contract, §4 test matrix and §8
+  acceptance criteria.
+- **Base state:** branch `master`, HEAD `0cc51dae46e23e1c6050b18ce70d107dbeb58ac6`,
+  empty index; unstaged diff fingerprint (binary) `0b47b7fc98e5d3bf56622c80c259057e7c4afe4f`,
+  19 untracked files SHA-256-fingerprinted before review (captured in the
+  review record). No unrelated changes present; no concurrent edits observed.
+- **Verification:** D1 selector precedence + house resolution + per-instance
+  ADR-010 visibility verified in controller/read-service/mapper code and the
+  integration matrix; D2 decomposition verified as verbatim cohesive moves
+  (aggregate owner keeps transaction/locks/gates; collaborators share the
+  caller's connection; ledger REQUIRED guard pins exactly one insert); D3
+  store DAG pinned by `dependencies.spec.js`; D4 budgets frozen as literal
+  ceilings with exact-ID assertions, statement-order proofs and lock counts;
+  D5 routing applied (CR-SVC-44/CR-053-19 NOT closed; streak batching stays
+  with CR-053-11); D6 inventory integrated (55 files). Full §4.4 gate re-run
+  green on the fixed state (§10). No security, authorization, architecture
+  or i18n finding remains open.
+- **Fixes (applied in round):** localization coverage follows moved `t()`
+  calls; POT dead key removed; scoped php-cs-fixer on 4 files; stylelint
+  logical-property fix; D6 size-exception inventory authored.
+- **Decisions (user, batched structured question 2026-09-13):**
+  D8 — review authors the D6 inventory (executed);
+  D9 — automated accessibility evidence accepted for AC-11 in lieu of a
+  manual child-persona screen-reader pass (recorded rescope);
+  D10 — BUG-E2E-005 fold-in with static attribution (duplicate
+  "BUG-E2E-007" deduplicated);
+  D11 — read-only budget spec stays in the default Playwright pool (plan
+  §4.3/§5 reconciled; no playwright.config.ts change);
+  D12 — complete this round (`active/ -> done/`).
+- **Backlog dispositions:** CR-WF-06, CR-SVC-40, CR-SVC-41 archived to
+  `archive/2026-09.md`; CR-SVC-15 stays open with the WP8 slice recorded and
+  the two inventoried remainders; CR-SVC-44 stays open per D5 (remainder =
+  streak batching under CR-053-11); CR-053-19 unchanged
+  (remainder-classification-only); BUG-E2E-006 (pre-existing) and the
+  BUG-E2E-005 fold-in recorded.
+- **Gates (final state):** see §10 review-round record — all green; sole
+  E2E exception is the pre-existing Sunday-dependent BUG-E2E-005 assertion
+  (out of scope, statically attributed).
+- **Transition:** `active/ -> done/` performed by this review; masterplan
+  WP8 row marked complete (WP9 eligible, not implemented; RELEASE-002 stays
+  blocked by WP9); review record appended to
+  `docs/backlog/archive/CODE_REVIEW_2026-09-13.md`.

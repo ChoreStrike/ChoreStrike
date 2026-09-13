@@ -28,6 +28,47 @@ use PHPUnit\Framework\TestCase;
  */
 class RoomTaskServiceLoggingTest extends TestCase {
 	/**
+	 * Build RoomTaskService with the CS-PLAN-067 constructor (the read
+	 * cluster is a real RoomTaskReadService sharing the same mocks).
+	 */
+	private function createService(
+		RoomTaskMapper $roomTaskMapper,
+		TaskMapper $taskMapper,
+		RoomMapper $roomMapper,
+		FloorMapper $floorMapper,
+		RoomService $roomService,
+		TaskAssigneeMapper $taskAssigneeMapper,
+		HouseUserMapper $houseUserMapper,
+		AppLogger $appLogger,
+	): RoomTaskService {
+		return new RoomTaskService(
+			$roomTaskMapper,
+			$taskMapper,
+			$roomMapper,
+			new \OCA\ChoreStrike\Service\RoomTaskReadService(
+				$roomTaskMapper,
+				$taskMapper,
+				$roomMapper,
+				$floorMapper,
+				$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
+				$taskAssigneeMapper,
+				$this->createMock(TaskAccessPolicy::class),
+				new \OCA\ChoreStrike\Service\CalendarService(),
+				$this->createIdentityL10n()
+			),
+			$roomService,
+			$taskAssigneeMapper,
+			$houseUserMapper,
+			$this->createMock(CompletedTaskMapper::class),
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
+			$this->createIdentityL10n(),
+			$appLogger,
+			$this->createMock(TaskAccessPolicy::class),
+			$this->createMock(AuthorizationService::class)
+		);
+	}
+
+	/**
 	 * ValidateRoomTaskOwnership_ForeignHouse_LogsSecurityWarning.
 	 *
 	 * CS-PLAN-063 §3.4: the room→floor→house walk is delegated to
@@ -63,7 +104,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 				})
 			);
 
-		$service = new RoomTaskService(
+		$service = $this->createService(
 			$roomTaskMapper,
 			$taskMapper,
 			$roomMapper,
@@ -71,14 +112,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$roomService,
 			$taskAssigneeMapper,
 			$houseUserMapper,
-			$this->createMock(CompletedTaskMapper::class),
-			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
-			$this->createIdentityL10n(),
-			$appLogger,
-			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
-			new \OCA\ChoreStrike\Service\CalendarService(),
-			$this->createMock(TaskAccessPolicy::class),
-			$this->createMock(AuthorizationService::class)
+			$appLogger
 		);
 
 		$this->expectException(NotFoundException::class);
@@ -125,7 +159,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 				})
 			);
 
-		$service = new RoomTaskService(
+		$service = $this->createService(
 			$roomTaskMapper,
 			$taskMapper,
 			$roomMapper,
@@ -133,14 +167,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$roomService,
 			$taskAssigneeMapper,
 			$houseUserMapper,
-			$this->createMock(CompletedTaskMapper::class),
-			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
-			$this->createIdentityL10n(),
-			$appLogger,
-			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
-			new \OCA\ChoreStrike\Service\CalendarService(),
-			$this->createMock(TaskAccessPolicy::class),
-			$this->createMock(AuthorizationService::class)
+			$appLogger
 		);
 
 		$result = $service->bulkAssignTasks([20], 'target-user', 1, $this->createHouseUser());

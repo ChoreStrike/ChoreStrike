@@ -26,6 +26,7 @@ use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\RoomService;
+use OCA\ChoreStrike\Service\RoomTaskReadService;
 use OCA\ChoreStrike\Service\RoomTaskService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -78,7 +79,20 @@ class RoomTaskServiceTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->taskMapper,
 			$this->roomMapper,
-			$this->floorMapper,
+			// CS-PLAN-067 §3.1: the read cluster lives in RoomTaskReadService;
+			// the real instance shares this test's mapper/policy mocks so the
+			// delegated enrichment (stats/bulk visibility/tz) stays observable.
+			new RoomTaskReadService(
+				$this->roomTaskMapper,
+				$this->taskMapper,
+				$this->roomMapper,
+				$this->floorMapper,
+				$this->houseMapper,
+				$this->taskAssigneeMapper,
+				$this->taskAccessPolicy,
+				new CalendarService(),
+				$this->createIdentityL10n()
+			),
 			$this->roomService,
 			$this->taskAssigneeMapper,
 			$this->houseUserMapper,
@@ -86,8 +100,6 @@ class RoomTaskServiceTest extends TestCase {
 			new TransactionExecutor($this->db),
 			$this->createIdentityL10n(),
 			$this->createMock(AppLogger::class),
-			$this->houseMapper,
-			new CalendarService(),
 			$this->taskAccessPolicy,
 			$this->authorization
 		);
@@ -174,204 +186,6 @@ class RoomTaskServiceTest extends TestCase {
 		$this->expectExceptionMessage('Room task not found');
 
 		$this->service->getRoomTask(999);
-	}
-
-	/**
-	 * GetRoomTasks_WithActiveFilter_ReturnsActiveTasks
-	 */
-	public function testGetRoomTasks_WithActiveFilter_ReturnsActiveTasks(): void {
-		$roomId = 1;
-
-		$roomTask1 = new RoomTask();
-		$roomTask1->setId(1);
-		$roomTask1->setTaskId(1);
-		$roomTask1->setIsActive(true);
-
-		$roomTask2 = new RoomTask();
-		$roomTask2->setId(2);
-		$roomTask2->setTaskId(1);
-		$roomTask2->setIsActive(false);
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByRoomId')
-			->with($roomId, true)
-			->willReturn([$roomTask1]);
-
-		$this->taskMapper->method('findByIds')->willReturn([]);
-		$this->stubPolicyPassthrough();
-
-		$result = $this->service->getRoomTasks($roomId, $this->createHouseUser(), true);
-
-		$this->assertCount(1, $result);
-		$this->assertTrue($result[0]->getIsActive());
-	}
-
-	/**
-	 * GetRoomTasks_AppliesVisibilityMatrix
-	 *
-	 * CS-PLAN-061 §3.3: the room-task read path filters through
-	 * TaskAccessPolicy::filterVisibleRoomTasks — an invisible room task is
-	 * absent from the result.
-	 */
-	public function testGetRoomTasks_AppliesVisibilityMatrix(): void {
-		$roomId = 1;
-
-		$visible = new RoomTask();
-		$visible->setId(1);
-		$visible->setTaskId(1);
-		$visible->setIsActive(true);
-
-		$invisible = new RoomTask();
-		$invisible->setId(2);
-		$invisible->setTaskId(2);
-		$invisible->setIsActive(true);
-
-		$this->roomTaskMapper->method('findByRoomId')->willReturn([$visible, $invisible]);
-		$this->taskMapper->method('findByIds')->willReturn([]);
-
-		$this->taskAccessPolicy->method('filterVisibleRoomTasks')->willReturn([$visible]);
-
-		$result = $this->service->getRoomTasks($roomId, $this->createHouseUser());
-
-		$this->assertSame([$visible], $result);
-	}
-
-	/**
-	 * GetScopeTasksScopedToHouse_FiltersCrossHouseEntries
-	 *
-	 * CR-053-02: skip-on-missing intersection — only scope tasks whose ids
-	 * survive the house-scoped batch fetch are returned, in the original
-	 * fetch order.
-	 */
-	public function testGetScopeTasksScopedToHouse_FiltersCrossHouseEntries(): void {
-		$scopeId = 5;
-		$houseId = 1;
-
-		$own = new RoomTask();
-		$own->setId(1);
-		$own->setTaskId(1);
-		$foreign = new RoomTask();
-		$foreign->setId(2);
-		$foreign->setTaskId(1);
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByScopeId')
-			->with($scopeId, true)
-			->willReturn([$own, $foreign]);
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByIdsScopedToHouse')
-			->with([1, 2], $houseId)
-			->willReturn([$own]);
-
-		$this->taskMapper->method('findByIds')->willReturn([]);
-		$this->stubPolicyPassthrough();
-
-		$result = $this->service->getScopeTasksScopedToHouse($scopeId, $houseId, $this->createHouseUser());
-
-		$this->assertSame([$own], $result);
-	}
-
-	/**
-	 * GetScopeTasksScopedToHouse_EmptyScope_SkipsBatchFetch
-	 */
-	public function testGetScopeTasksScopedToHouse_EmptyScope_SkipsBatchFetch(): void {
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findByScopeId')
-			->willReturn([]);
-		$this->roomTaskMapper
-			->expects($this->never())
-			->method('findByIdsScopedToHouse');
-
-		$this->assertSame([], $this->service->getScopeTasksScopedToHouse(9, 1, $this->createHouseUser()));
-	}
-
-	/**
-	 * GetOverdueTasks_ReturnsOverdueTasks
-	 */
-	public function testGetOverdueTasks_ReturnsOverdueTasks(): void {
-		$houseId = 1;
-		$roomId = 2;
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setNextDue(new \DateTime('-1 day'));
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findOverdueByHouse')
-			->with($houseId, $roomId)
-			->willReturn([$roomTask]);
-
-		$this->taskMapper->method('findByIds')->willReturn([]);
-		$this->stubPolicyPassthrough();
-
-		$result = $this->service->getOverdueTasks($houseId, $this->createHouseUser(), $roomId);
-
-		$this->assertCount(1, $result);
-	}
-
-	/**
-	 * GetDueTodayTasks_ReturnsDueTodayTasks
-	 */
-	public function testGetDueTodayTasks_ReturnsDueTodayTasks(): void {
-		$houseId = 1;
-		$roomId = 2;
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setNextDue(new \DateTime());
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findDueTodayByHouse')
-			->with(
-				$houseId,
-				$this->isInstanceOf(\DateTimeInterface::class),
-				$this->isInstanceOf(\DateTimeInterface::class),
-				$roomId
-			)
-			->willReturn([$roomTask]);
-
-		$this->taskMapper->method('findByIds')->willReturn([]);
-		$this->stubPolicyPassthrough();
-
-		$result = $this->service->getDueTodayTasks($houseId, $this->createHouseUser(), $roomId);
-
-		$this->assertCount(1, $result);
-	}
-
-	/**
-	 * GetDueWithinDaysTasks_ReturnsTasksWithinRange
-	 */
-	public function testGetDueWithinDaysTasks_ReturnsTasksWithinRange(): void {
-		$houseId = 1;
-		$days = 7;
-		$roomId = 2;
-
-		$roomTask = new RoomTask();
-		$roomTask->setId(1);
-		$roomTask->setTaskId(1);
-		$roomTask->setNextDue(new \DateTime('+3 days'));
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('findDueWithinDaysByHouse')
-			->with($houseId, $days, $roomId)
-			->willReturn([$roomTask]);
-
-		$this->taskMapper->method('findByIds')->willReturn([]);
-		$this->stubPolicyPassthrough();
-
-		$result = $this->service->getDueWithinDaysTasks($houseId, $days, $this->createHouseUser(), $roomId);
-
-		$this->assertCount(1, $result);
 	}
 
 	/**
@@ -524,62 +338,6 @@ class RoomTaskServiceTest extends TestCase {
 		$this->expectExceptionMessage('db down');
 
 		$this->service->deleteRoomTask($roomTaskId, $this->createHouseUser('deleter', 'owner'));
-	}
-
-	/**
-	 * GetRoomTaskWithDetails_WithData_ReturnsCompleteDetails
-	 */
-	public function testGetRoomTaskWithDetails_WithData_ReturnsCompleteDetails(): void {
-		$roomTaskId = 1;
-
-		$task = new Task();
-		$task->setId(1);
-		$task->setName('Test Task');
-
-		$room = new Room();
-		$room->setId(1);
-		$room->setName('Test Room');
-		$room->setFloorId(7);
-
-		$floor = new Floor();
-		$floor->setId(7);
-		$floor->setHouseId(99);
-		$this->floorMapper->method('find')->willReturn($floor);
-
-		$house = new House();
-		$house->setTimezone('UTC');
-		$this->houseMapper->method('find')->willReturn($house);
-
-		$roomTask = new RoomTask();
-		$roomTask->setId($roomTaskId);
-		$roomTask->setTaskId(1);
-		$roomTask->setRoomId(1);
-		$roomTask->setNextDue(new \DateTime('+1 day'));
-
-		$this->roomTaskMapper
-			->expects($this->once())
-			->method('find')
-			->with($roomTaskId)
-			->willReturn($roomTask);
-
-		$this->taskMapper
-			->expects($this->once())
-			->method('find')
-			->with(1)
-			->willReturn($task);
-
-		$this->roomMapper
-			->expects($this->once())
-			->method('find')
-			->with(1)
-			->willReturn($room);
-
-		$result = $this->service->getRoomTaskWithDetails($roomTaskId);
-
-		$this->assertSame($roomTask, $result['roomTask']);
-		$this->assertSame($task, $result['task']);
-		$this->assertSame($room, $result['room']);
-		$this->assertEquals('due_soon', $result['status']);
 	}
 
 	/**

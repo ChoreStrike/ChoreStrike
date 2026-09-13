@@ -40,6 +40,7 @@ class GameControllerTest extends TestCase {
 		$this->controller = new GameController(
 			$this->request,
 			$this->gameLogicService,
+			$this->createMock(\OCA\ChoreStrike\Service\MedalService::class),
 			$this->houseService,
 			$this->authService,
 			$this->createMock(AppLogger::class)

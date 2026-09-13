@@ -328,13 +328,13 @@ export default {
 			try {
 				await this.roomsStore.fetchFloorsWithRooms()
 				await this.tasksStore.fetchTasks()
+				// CS-PLAN-067 (D1): ONE house-wide instance request replaces
+				// the per-room fetch loop; the stats bar reads the dedicated
+				// count projections (CS-PLAN-066 D2).
 				await Promise.all([
-					// CS-PLAN-066 (D2): the stats bar reads the dedicated
-					// count projections — complete viewer-visible endpoint
-					// results, not the per-room flat list.
 					this.roomTasksStore.fetchDueTodayTasks(),
 					this.roomTasksStore.fetchOverdueTasks(),
-					...this.roomsStore.rooms.map(room => this.roomTasksStore.fetchRoomTasks(room.id)),
+					this.roomTasksStore.fetchHouseRoomTasks(),
 				])
 			} catch (error) {
 				// CS-PLAN-066 §3.5: an initialization failure is an explicit
@@ -386,7 +386,10 @@ export default {
 		/**
 		 * The atomic creation aggregate (CS-PLAN-063 §3.5): exactly one
 		 * request — on failure the modal stays open with the input preserved
-		 * (no partial success toasts, no orphan definition).
+		 * (no partial success toasts, no orphan definition). The store
+		 * reconciles the aggregate response into the instance and definition
+		 * stores, so no post-create re-fetch is needed (CS-PLAN-067 §3.4:
+		 * aggregate vs. list field equality is pinned by unit tests).
 		 * @param {object} taskData Form payload: definition + roomId + assigneeUserIds + nextDue.
 		 */
 		async handleAddTask(taskData) {
@@ -401,22 +404,12 @@ export default {
 				})
 				showSuccess(t('chorestrike', 'Task created'))
 				this.showAddTaskModal = false
-				await this.refreshAfterCreate(roomId)
 			} catch (error) {
 				// Recoverable failure: keep the modal open and the input intact.
 				showError(t('chorestrike', 'Failed to create task'))
 				logger.error('Failed to create task', error, { view: 'TaskManager', action: 'handleAddTask', roomId })
 			} finally {
 				this.creating = false
-			}
-		},
-
-		async refreshAfterCreate(roomId) {
-			try {
-				await this.roomTasksStore.fetchRoomTasks(roomId)
-				await this.tasksStore.fetchTasks()
-			} catch (error) {
-				logger.error('Failed to refresh tasks after creation', error, { view: 'TaskManager', action: 'refreshAfterCreate', roomId })
 			}
 		},
 

@@ -79,6 +79,7 @@ const mockTasksStore = {
 const mockRoomTasksStore = {
 	roomTasks: [],
 	fetchRoomTasks: jest.fn().mockResolvedValue([]),
+	fetchHouseRoomTasks: jest.fn().mockResolvedValue([]),
 	fetchDueTodayTasks: jest.fn().mockResolvedValue([]),
 	fetchOverdueTasks: jest.fn().mockResolvedValue([]),
 	createTaskAggregate: jest.fn(),
@@ -127,7 +128,7 @@ describe('TaskManager', () => {
 		expect(wrapper.find('[data-testid="task-manager-view"]').exists()).toBe(true)
 	})
 
-	it('sends ONE aggregate request on create and refreshes the room list (CS-PLAN-063 §3.5)', async () => {
+	it('sends ONE aggregate request on create with no redundant re-fetch (CS-PLAN-063 §3.5, CS-PLAN-067 §3.4)', async () => {
 		roomTasksStore.createTaskAggregate.mockResolvedValue({
 			task: { id: 7, name: 'Dishes' },
 			roomTask: { id: 42, roomId: 12 },
@@ -135,6 +136,8 @@ describe('TaskManager', () => {
 		})
 		const wrapper = await mountView()
 		const form = await openCreateModal(wrapper)
+		const houseFetchesBefore = roomTasksStore.fetchHouseRoomTasks.mock.calls.length
+		const definitionFetchesBefore = tasksStore.fetchTasks.mock.calls.length
 
 		await form.vm.$emit('submit', {
 			name: 'Dishes',
@@ -156,7 +159,11 @@ describe('TaskManager', () => {
 		})
 		expect(showSuccess).toHaveBeenCalled()
 		expect(wrapper.vm.showAddTaskModal).toBe(false)
-		expect(roomTasksStore.fetchRoomTasks).toHaveBeenCalledWith(12)
+		// CS-PLAN-067 §3.4: the aggregate response already reconciled the
+		// instance and definition stores — no redundant refetch follows.
+		expect(roomTasksStore.fetchRoomTasks).not.toHaveBeenCalled()
+		expect(roomTasksStore.fetchHouseRoomTasks.mock.calls.length).toBe(houseFetchesBefore)
+		expect(tasksStore.fetchTasks.mock.calls.length).toBe(definitionFetchesBefore)
 	})
 
 	it('toasts an error and keeps the modal open when the aggregate request fails', async () => {

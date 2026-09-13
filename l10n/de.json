@@ -1016,7 +1016,6 @@
         "overrides must be an object keyed by room task ID": "overrides muss ein Objekt mit Raumaufgaben-IDs als Schlüssel sein",
         "previewVersion is required": "previewVersion ist erforderlich",
         "roomId is required": "roomId ist erforderlich",
-        "roomId or scopeId is required": "roomId oder scopeId ist erforderlich",
         "roomTaskIds must be an array of positive integers": "roomTaskIds muss ein Array positiver Ganzzahlen sein",
         "roomTaskIds must be an array of room task IDs": "roomTaskIds muss ein Array von Raumaufgaben-IDs sein",
         "roomTaskIds must contain positive integers": "roomTaskIds muss positive ganze Zahlen enthalten",

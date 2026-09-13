@@ -97,11 +97,25 @@ class CompletionServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->completedTaskMapper,
 			$this->checklistProgressMapper,
+			// CS-PLAN-067 §3.2: the extracted participants run REAL against
+			// the same mocks, so the degrade/snapshot contracts stay
+			// observable end-to-end.
+			new \OCA\ChoreStrike\Service\CompletionEffectService(
+				$this->roomTaskMapper,
+				$this->roomMapper,
+				$this->houseUserMapper,
+				$this->checklistProgressMapper
+			),
+			new \OCA\ChoreStrike\Service\CompletionPostCommitService(
+				$this->houseService,
+				$this->houseMapper,
+				$this->houseUserMapper,
+				$this->notificationService,
+				$this->appLogger
+			),
 			$this->gameLogicService,
-			$this->houseService,
 			new CalendarService(),
 			$this->taskAccessPolicy,
-			$this->notificationService,
 			$this->createIdentityL10n(),
 			$this->appLogger
 		);
