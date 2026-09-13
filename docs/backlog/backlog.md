@@ -37,16 +37,25 @@ coverage) stay open below.
 ---
 
 ### [P1] CR-WF-05 — Replace weak or skipped core-workflow coverage
-**Status**: Backlog · **Effort**: L · **Layer**: tests · **Journey stage**: test coverage
-**Owning**: CS-PLAN-058 WP9 · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
+**Status**: In Progress (activated 2026-09-13 by CS-PLAN-068/WP9 Standard A `PASS-WITH-FIXES`; implementation not started) · **Effort**: L · **Layer**: tests · **Journey stage**: test coverage
+**Owning**: CS-PLAN-068 WP9 · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
 **Source**: Full Review of the core task workflow (2026-09-02)
 
 > Formerly depended on the WP8 batching umbrella; that dependency was
 > delivered 2026-09-13 (see [`archive/2026-09.md`](archive/2026-09.md)).
 
-Core authorization scenarios remain unconditionally skipped, some completion E2E
-assertions are tautological or data-dependent, and the first-run wizard happy
-path has no deterministic browser profile.
+**WP9 plan active (2026-09-13):** [CS-PLAN-068](../plans/active/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
+details the post-WP8 test inventory, isolated browser gate, canonical household
+journey, localization/docs remainders and program closure. Standard A passed
+(`PASS-WITH-FIXES`, D1-D7 ratified as recommended); implementation has not
+started. The existing WP3 empty-house delivery below remains credited, not
+duplicated.
+
+The original review found skipped authorization scenarios, weak completion E2E
+assertions and no deterministic first-run profile. WP2 delivered the live
+authorization rewrite and WP3 delivered the empty-house journey. WP9 now owns
+the remaining stale-scenario disposition, assertion hardening, project/profile
+isolation and integrated household journey; the draft records the current tree.
 
 - [ ] Replace skipped live authorization cases with current controller/API tests; delete only obsolete-route cases.
 - [ ] Make completion/reward assertions deterministic and remove swallowed assertions and fixture-dependent skips.
@@ -132,8 +141,8 @@ run; add a two-connection adjust-vs-completion race regression.
 ---
 
 ### [P3] CR-053-18-WP9 — Test-mode routes keep `@NoCSRFRequired` (release-hardening remainder)
-**Status**: Open · **Effort**: S · **Layer**: backend · **Journey stage**: release
-**Owning**: CS-PLAN-058 WP9 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (activated 2026-09-13 by CS-PLAN-068/WP9 Standard A; ratified D5 retains the runtime-gated contract with enabled/disabled-mode regression proof, `Controller/TestModeApiTest.php`, and accurate release instructions) · **Effort**: S · **Layer**: backend · **Journey stage**: release
+**Owning**: CS-PLAN-068 WP9 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CR-053-18 remainder, re-scoped by CS-PLAN-061 decision D8 (user-ratified 2026-09-03)
 
 The test-mode routes (`test#profiles`, `test#seed`, `test#reset`) keep
@@ -194,7 +203,7 @@ and remain independently schedulable.
 ---
 
 ### [P2] CR-053-13 — l10n artifact gap: 141 t() keys used in src/ missing from en+de
-**Status**: In Progress (WP7 core-surface slice **delivered 2026-09-12**: all 99 keys reachable from the WP7 core surfaces added to en+de+POT, with `coreWorkflowLocalization.spec.js` pinning source coverage + de/en placeholder parity; global remainder stays WP9) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: i18n
+**Status**: In Progress (WP7 core-surface slice **delivered 2026-09-12**: all 99 keys reachable from the WP7 core surfaces added to en+de+POT, with `coreWorkflowLocalization.spec.js` pinning source coverage + de/en placeholder parity; global remainder activated 2026-09-13 under CS-PLAN-068/WP9 Standard A, ratified D4: in-place checker extension, finite dynamic-key ownership, opt-in regeneration, dead keys hard-gated after inventory) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: i18n
 **Owning**: CS-PLAN-058 WP9 (global remainder) + WP7/CS-PLAN-066 (core-surface slice) · **Depends on**: — · **Blocks**: CS-PLAN-058 WP9 · **Folded-in**: CR-055-02
 **Source**: CS-PLAN-053 full review (CR-P4-13/14/15, 2026-08-27)
 
@@ -223,8 +232,8 @@ required`) drop out in the same regeneration pass — do not hand-prune entries.
 ---
 
 ### [P3] BUG-E2E-005 — `insights-flow.spec.ts` overcapacity-marker test structurally fails on Sundays
-**Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: test coverage
-**Owning**: CS-PLAN-058 WP9 · **Depends on**: — · **Blocks**: CS-PLAN-058 WP9 · **Folded-in**: —
+**Status**: In Progress (activated 2026-09-13 by CS-PLAN-068/WP9 Standard A) · **Effort**: S · **Layer**: tests · **Journey stage**: test coverage
+**Owning**: CS-PLAN-068 WP9 · **Depends on**: — · **Blocks**: CS-PLAN-058 WP9 · **Folded-in**: —
 **Source**: CS-PLAN-055 Standard-B review E2E re-run 2026-08-30 (pre-existing; passed on the 08-29 Saturday run by date luck, NOT a CS-055 regression). Renumbered from BUG-E2E-003 by CS-PLAN-059 WP0 (BUG-E2E-004 was already consumed by the CS-PLAN-050/051 archive history).
 
 The spec schedules 4 probe tasks to `tomorrow` and then expects `overcapacity-marker` inside `ScheduleCalendar`, but the calendar week starts Monday (`goToToday()`); on a Sunday "tomorrow" is the next Monday — outside the displayed week — while `overcapacity-days` (warning strip) scans today+0..6 and still shows the day. Fix: create the probes relative to the **visible** week (a due day ≥ today strictly inside the Monday-start week, e.g. Monday after Sunday), or navigate the calendar to tomorrow's week before asserting the marker. Also observed: Nextcloud stores two `weekly_goal` rows with identical (user, app, object_type, object_id) despite the documented dedup key — the per-house `claimWeeklyGoalNotification` guard is the dedup that actually holds; worth a note in `NotificationService` docs.
@@ -266,8 +275,8 @@ WP8-independent — WP8 changed neither `ScheduleCalendar` nor
 ---
 
 ### [P3] BUG-E2E-006 — `SchedulePlanAggregateTest::testApply_StaleTimezoneInput` is date-of-day dependent
-**Status**: Backlog · **Effort**: S · **Layer**: tests · **Journey stage**: test coverage
-**Owning**: CS-PLAN-065 WP9 (scheduling test domain) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (activated 2026-09-13 by CS-PLAN-068/WP9 Standard A) · **Effort**: S · **Layer**: tests · **Journey stage**: test coverage
+**Owning**: CS-PLAN-068 WP9 (owning corrected from "CS-PLAN-065 WP9" on CS-PLAN-068 activation 2026-09-13, retaining the scheduling-test-domain provenance; the west-of-UTC/setup-error description is corrected in the implementation slice per the plan §3.4) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-067 implementation gate run 2026-09-13 (pre-existing; verified to fail identically on a clean `master` working tree with the WP8 changes stashed — NOT a CS-PLAN-067 regression).
 
 The test seeds `todayKey` as the **UTC** date and exercises a non-UTC house
@@ -283,8 +292,8 @@ freeze the test clock via `ITimeFactory` instead of wall-clock `new DateTime`.
 ---
 
 ### [P3] CR-053-22 — Test-gap closures deferred (deferral approved 2026-08-29)
-**Status**: Backlog · **Effort**: L · **Layer**: tests · **Journey stage**: test coverage
-**Owning**: CS-PLAN-058 WP9 · **Depends on**: — · **Blocks**: CS-PLAN-058 WP9 · **Folded-in**: —
+**Status**: In Progress (activated 2026-09-13 by CS-PLAN-068/WP9 Standard A; ratified D3 closes the complete still-live remainder — Minigame controller integration suite, `TestDataSeedTest`, and the 8 component suites — without changing product rules) · **Effort**: L · **Layer**: tests · **Journey stage**: test coverage
+**Owning**: CS-PLAN-068 WP9 · **Depends on**: — · **Blocks**: CS-PLAN-058 WP9 · **Folded-in**: —
 **Source**: CS-PLAN-053 §4 (deferral approved by user 2026-08-29; risk accepted)
 
 **Decision (user, 2026-08-29)**: **deferral approved** with backlog tracking (risk
@@ -451,8 +460,8 @@ component.
 > Independently schedulable unless a gate depends on it (CS-PLAN-058 §2.2).
 
 ### [P3] CR-053-21 — Docs truth-repair batch (remainder)
-**Status**: Backlog · **Effort**: M · **Layer**: docs · **Journey stage**: documentation
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress (D6 core/testing truth slice + README rewrite activated 2026-09-13 by CS-PLAN-068/WP9 Standard A; unrelated remainders stay open) · **Effort**: M · **Layer**: docs · **Journey stage**: documentation
+**Owning**: CS-PLAN-068 WP9 (ratified D6 core/testing truth slice + README rewrite; historical-decision annotation handled inside the plan) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: CS-PLAN-053 full review (L5-1, 2026-08-27)
 
 **Decision (user, 2026-08-29)**: root `README.md` gets a **full rewrite** (accurate

@@ -17,6 +17,9 @@ docs/plans/
 Current active plan: [CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](active/cs-plan-058-core-workflow-bottom-up-masterplan.md)
 (WP8 done 2026-09-13: [CS-PLAN-067](done/cs-plan-067-wp8-batching-decomposition-performance.md), final Standard B `PASS-WITH-FIXES`; WP9 is the next eligible work package).
 
+Current active child plan: [CS-PLAN-068 - WP9: Deterministic Coverage and Release-Quality Closure](active/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
+(Standard A `PASS-WITH-FIXES` 2026-09-13, D1-D7 ratified as recommended; implementation not started).
+
 Successful lifecycle reviews perform the normal forward transitions automatically:
 
 - A passing plan review records its outcome, moves `new/ → active/`, updates `ACTIVE_TASKS.md`, and commits the package.
