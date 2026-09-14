@@ -7,14 +7,13 @@ namespace OCA\ChoreStrike\Tests\Integration\Controller;
 use OCA\ChoreStrike\Controller\UserController;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TitleService;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUser;
-use OCP\IUserManager;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -23,8 +22,6 @@ use PHPUnit\Framework\TestCase;
 class UserControllerIntegrationTest extends TestCase {
 	private UserController $controller;
 	private HouseService $houseService;
-	private HouseUserMapper $houseUserMapper;
-	private IUserManager $userManager;
 	private AuthorizationService $authService;
 	private IRequest $request;
 	private TitleService $titleService;
@@ -34,9 +31,7 @@ class UserControllerIntegrationTest extends TestCase {
 		parent::setUp();
 
 		$this->request = $this->createMock(IRequest::class);
-		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->houseService = $this->createMock(HouseService::class);
-		$this->userManager = $this->createMock(IUserManager::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
 		$this->titleService = $this->createMock(TitleService::class);
 		$this->titleService->method('getCurrentTitle')->willReturn(null);
@@ -49,13 +44,14 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->l10n->method('t')
 			->willReturnCallback(static fn (string $text): string => $text);
 
+		// RF-058-04: the controller owns no mapper/user-manager access —
+		// membership persistence and scoped lookups live in HouseService.
 		$this->controller = new UserController(
 			$this->request,
-			$this->houseUserMapper,
 			$this->houseService,
-			$this->userManager,
 			$this->authService,
 			$this->titleService,
+			$this->createMock(AppLogger::class),
 			$this->l10n
 		);
 	}
@@ -82,8 +78,8 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->authService->expects($this->once())
 			->method('assertHouseMember')
 			->with($house->getId());
-		$this->houseUserMapper->expects($this->once())
-			->method('findByHouseId')
+		$this->houseService->expects($this->once())
+			->method('getHouseMembers')
 			->with($house->getId())
 			->willReturn($users);
 
@@ -131,16 +127,9 @@ class UserControllerIntegrationTest extends TestCase {
 	 */
 	public function testInvite_ValidNextcloudUser_ReturnsInvitedUser(): void {
 		$house = $this->createHouse();
-		$nextcloudUser = $this->createMock(IUser::class);
-		$nextcloudUser->method('getUID')->willReturn('newuser');
-		$nextcloudUser->method('getDisplayName')->willReturn('New User');
 		$role = 'member';
 		$houseUser = $this->createHouseUser(3, $house->getId(), 'newuser', 'New User', $role);
 
-		$this->userManager->expects($this->once())
-			->method('getByEmail')
-			->with('newuser@example.com')
-			->willReturn([$nextcloudUser]);
 		$this->houseService->expects($this->once())
 			->method('getInstanceId')
 			->willReturn('instance-123');
@@ -151,9 +140,9 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
 			->with($house->getId());
-		$this->houseUserMapper->expects($this->once())
-			->method('createOrGet')
-			->with($house->getId(), 'newuser', 'New User', $role)
+		$this->houseService->expects($this->once())
+			->method('inviteMember')
+			->with($house->getId(), 'newuser@example.com', $role)
 			->willReturn($houseUser);
 
 		$response = $this->controller->invite('newuser@example.com', $role);
@@ -174,10 +163,10 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
 
-		$this->userManager->expects($this->once())
-			->method('getByEmail')
-			->with('missing-user@example.com')
-			->willReturn([]);
+		$this->houseService->expects($this->once())
+			->method('inviteMember')
+			->with($house->getId(), 'missing-user@example.com', 'member')
+			->willThrowException(new NotFoundException('No Nextcloud user found with this email address'));
 
 		$response = $this->controller->invite('missing-user@example.com', 'member');
 
@@ -205,7 +194,7 @@ class UserControllerIntegrationTest extends TestCase {
 			->with($house->getId())
 			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required'));
 
-		$this->userManager->expects($this->never())->method('getByEmail');
+		$this->houseService->expects($this->never())->method('inviteMember');
 
 		$response = $this->controller->invite('probe@example.com', 'member');
 
@@ -229,7 +218,7 @@ class UserControllerIntegrationTest extends TestCase {
 			->with($house->getId())
 			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Not a member of this house'));
 
-		$this->houseUserMapper->expects($this->never())->method('find');
+		$this->houseService->expects($this->never())->method('findHouseUserScopedToHouse');
 
 		$response = $this->controller->selectTitle(42, 'some_pack');
 
@@ -250,10 +239,10 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
 		$this->authService->method('assertHouseMember')->with($house->getId())->willReturn($member);
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(999)
-			->willThrowException(new \OCP\AppFramework\Db\DoesNotExistException('no row'));
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(999, $house->getId())
+			->willReturn(null);
 
 		$response = $this->controller->selectTitle(999, 'some_pack');
 
@@ -271,10 +260,10 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
 		$this->authService->method('assertHouseMember')->with($house->getId())->willReturn($member);
-		$this->houseUserMapper->method('find')->with(5)->willReturn($member);
+		$this->houseService->method('findHouseUserScopedToHouse')->with(5, $house->getId())->willReturn($member);
 		$this->titleService->expects($this->once())
 			->method('selectPack')
-			->with($this->identicalTo($member), 'some_pack');
+			->with($this->identicalTo($member), $this->identicalTo($member), 'some_pack');
 
 		$response = $this->controller->selectTitle(5, 'some_pack');
 
@@ -292,9 +281,9 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
 		$this->authService->method('assertHouseMember')->with($house->getId());
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(2)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(2, $house->getId())
 			->willReturn($houseUser);
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
@@ -304,8 +293,6 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->houseService->expects($this->once())
 			->method('removeHouseMember')
 			->with(2);
-		$this->houseUserMapper->expects($this->never())
-			->method('delete');
 
 		$response = $this->controller->remove(2);
 
@@ -325,9 +312,9 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
 		$this->authService->method('assertHouseMember')->with($house->getId());
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(1)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(1, $house->getId())
 			->willReturn($owner);
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
@@ -361,9 +348,9 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
 		$this->authService->method('assertHouseMember')->with($house->getId());
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(2)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(2, $house->getId())
 			->willReturn($houseUser);
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
@@ -375,8 +362,6 @@ class UserControllerIntegrationTest extends TestCase {
 			->method('updateUserRole')
 			->with(2, 'child', 'owner1')
 			->willReturn($updatedUser);
-		$this->houseUserMapper->expects($this->never())
-			->method('update');
 
 		$response = $this->controller->updateRole(2, 'child');
 
@@ -396,9 +381,9 @@ class UserControllerIntegrationTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->with('instance-123')->willReturn($house);
 		$this->authService->method('assertHouseMember')->with($house->getId());
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(2)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(2, $house->getId())
 			->willReturn($houseUser);
 		$this->authService->expects($this->once())
 			->method('requireHouseOwner')
@@ -410,8 +395,6 @@ class UserControllerIntegrationTest extends TestCase {
 			->method('updateUserRole')
 			->with(2, 'superadmin', 'owner1')
 			->willThrowException(new \InvalidArgumentException('Invalid role. Must be owner, member, or child'));
-		$this->houseUserMapper->expects($this->never())
-			->method('update');
 
 		$response = $this->controller->updateRole(2, 'superadmin');
 

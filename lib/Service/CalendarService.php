@@ -104,4 +104,35 @@ class CalendarService {
 	public function dayKey(\DateTimeInterface $now, \DateTimeZone $timeZone): string {
 		return \DateTime::createFromInterface($now)->setTimezone($timeZone)->format('Y-m-d');
 	}
+
+	/**
+	 * Whether the value is a bare `Y-m-d` day-key label (no time/offset).
+	 *
+	 * Day-key labels denote house-local dates (ADR-009): writers that
+	 * accept one must resolve it through {@see dayStartInstant()} instead
+	 * of tagging it at 00:00 UTC/server-TZ, which would land one local
+	 * day early for houses west of UTC (RF-058-01).
+	 */
+	public function isDayKey(string $value): bool {
+		return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1;
+	}
+
+	/**
+	 * The UTC-normalized instant of house-local midnight for a `Y-m-d` day
+	 * key — the write-side inverse of {@see dayKey()}.
+	 *
+	 * Instant-based readers (dayBounds range comparisons, occurrence
+	 * projection) then bucket the persisted value on the intended local
+	 * day for every house timezone, including negative UTC offsets.
+	 *
+	 * @param string $dayKey House-local `Y-m-d` label
+	 * @throws \InvalidArgumentException When $dayKey is not a valid `Y-m-d` date
+	 */
+	public function dayStartInstant(string $dayKey, \DateTimeZone $timeZone): \DateTime {
+		$local = \DateTime::createFromFormat('!Y-m-d', $dayKey, $timeZone);
+		if ($local === false || $local->format('Y-m-d') !== $dayKey) {
+			throw new \InvalidArgumentException('Invalid day key: ' . $dayKey . ' (expected Y-m-d)');
+		}
+		return $local->setTimezone(new \DateTimeZone(self::DEFAULT_TIMEZONE));
+	}
 }

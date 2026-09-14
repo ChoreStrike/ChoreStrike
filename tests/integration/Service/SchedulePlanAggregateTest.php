@@ -364,6 +364,9 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 
 	public function testApply_StalePreferenceInput_RejectsWithoutWrites(): void {
 		$f = $this->previewWithMemberBudget();
+		// RF-058-05: the member-availability owner path gates service-side —
+		// act as the house owner ('dad' owns the plan house).
+		$this->actingAs('dad');
 		$scheduling = \OC::$server->get(\OCA\ChoreStrike\Service\SchedulingService::class);
 		$scheduling->updateMemberAvailabilityByNextcloudUserId($f['houseId'], 'mom', [
 			'energyBudget' => ['monday' => 3, 'tuesday' => 3, 'wednesday' => 3, 'thursday' => 3, 'friday' => 3, 'saturday' => 3, 'sunday' => 3],

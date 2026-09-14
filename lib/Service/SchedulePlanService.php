@@ -219,11 +219,15 @@ class SchedulePlanService {
 			if ($changedIds !== []) {
 				// Persist due dates first (ascending), then the assignee
 				// replacements — the documented assignee-writes tail.
+				$tz = $this->timeZoneOf($houseId);
 				sort($changedIds);
 				foreach ($changedIds as $roomTaskId) {
 					$change = $this->findRowById($plan['response']['changes'], $roomTaskId);
 					$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
-					$roomTask->setNextDue(new \DateTime($change['proposed']['dueDate'] . ' 00:00:00', new \DateTimeZone('UTC')));
+					// House-local day label → its true UTC midnight instant
+					// (RF-058-01): tagging the label at 00:00 UTC would land
+					// one local day early for houses west of UTC.
+					$roomTask->setNextDue($this->calendarService->dayStartInstant($change['proposed']['dueDate'], $tz));
 					// idealDueDate stays the recurrence's own ideal; the
 					// scheduled move lives within its legal window (ADR-012).
 					$this->roomTaskMapper->update($roomTask);
@@ -241,7 +245,6 @@ class SchedulePlanService {
 			// assignees) for the client reconciliation.
 			$roomTasks = [];
 			if ($changedIds !== []) {
-				$tz = $this->timeZoneOf($houseId);
 				$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks($changedIds);
 				foreach ($this->roomTaskMapper->findByIdsScopedToHouse($changedIds, $houseId) as $row) {
 					$data = $row->jsonSerialize($tz);

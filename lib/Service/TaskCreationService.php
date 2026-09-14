@@ -69,6 +69,7 @@ class TaskCreationService {
 	private TemplateService $templateService;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private AuthorizationService $authorization;
+	private CalendarService $calendarService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 
@@ -84,6 +85,7 @@ class TaskCreationService {
 		TemplateService $templateService,
 		TaskAccessPolicy $taskAccessPolicy,
 		AuthorizationService $authorization,
+		CalendarService $calendarService,
 		IL10N $l10n,
 		AppLogger $appLogger,
 	) {
@@ -98,6 +100,7 @@ class TaskCreationService {
 		$this->templateService = $templateService;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->authorization = $authorization;
+		$this->calendarService = $calendarService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
@@ -117,7 +120,10 @@ class TaskCreationService {
 	 * @throws \InvalidArgumentException on a bad payload variant, non-member assignee, invalid nextDue, or duplicate mount (400)
 	 */
 	public function create(int $houseId, HouseUser $actor, array $payload): array {
-		[$roomId, $assigneeUserIds, $nextDue] = $this->validatePayloadEnvelope($payload);
+		[$roomId, $assigneeUserIds, $nextDue] = $this->validatePayloadEnvelope(
+			$payload,
+			fn (): \DateTimeZone => $this->calendarService->getTimeZone($this->houseMapper->find($houseId)),
+		);
 
 		// Actor policy (CS-PLAN-061 D5): children execute tasks, they do not
 		// create them (frontend entry-point gating is CS-PLAN-063 D6).
@@ -192,9 +198,10 @@ class TaskCreationService {
 	/**
 	 * Validate the shared envelope: room id, assignee list, and nextDue.
 	 *
+	 * @param \Closure():\DateTimeZone $houseTzResolver Resolves the house timezone (day-key labels only)
 	 * @return array{0: int, 1: string[], 2: \DateTime|null}
 	 */
-	private function validatePayloadEnvelope(array $payload): array {
+	private function validatePayloadEnvelope(array $payload, \Closure $houseTzResolver): array {
 		$roomId = $payload['roomId'] ?? null;
 		if (!is_int($roomId) || $roomId < 1) {
 			throw new \InvalidArgumentException($this->l10n->t('roomId is required'));
@@ -220,14 +227,21 @@ class TaskCreationService {
 			fn ($id) => is_string($id) && trim($id) !== ''
 		)));
 
-		return [$roomId, $assigneeUserIds, $this->parseNextDue($payload['nextDue'] ?? null)];
+		return [$roomId, $assigneeUserIds, $this->parseNextDue($payload['nextDue'] ?? null, $houseTzResolver)];
 	}
 
 	/**
 	 * Parse the optional creation due date (house-local date, ADR-009
 	 * semantics) — parseable strings only, never coerced (→ 400).
+	 *
+	 * A bare `Y-m-d` label denotes house-local midnight (RF-058-01:
+	 * tagging it at server-TZ midnight would land one local day early for
+	 * houses west of UTC); any other parseable datetime is an instant. The
+	 * house timezone is resolved lazily, only for day-key labels.
+	 *
+	 * @param \Closure():\DateTimeZone $houseTzResolver Resolves the owning house's timezone
 	 */
-	private function parseNextDue($nextDue): ?\DateTime {
+	private function parseNextDue($nextDue, \Closure $houseTzResolver): ?\DateTime {
 		if ($nextDue === null || $nextDue === '') {
 			return null;
 		}
@@ -235,6 +249,9 @@ class TaskCreationService {
 			throw new \InvalidArgumentException($this->l10n->t('Invalid value type for field: %1$s', ['nextDue']));
 		}
 		try {
+			if ($this->calendarService->isDayKey($nextDue)) {
+				return $this->calendarService->dayStartInstant($nextDue, $houseTzResolver());
+			}
 			return new \DateTime($nextDue);
 		} catch (\Exception $e) {
 			throw new \InvalidArgumentException($this->l10n->t('Invalid nextDue date format'));

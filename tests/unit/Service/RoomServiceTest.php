@@ -299,26 +299,59 @@ class RoomServiceTest extends TestCase {
 
 		$room = new Room();
 		$room->setId($roomId);
+		$room->setFloorId(7);
 		$room->setCleanliness(50);
+
+		$floor = new Floor();
+		$floor->setId(7);
+		$floor->setHouseId(1);
 
 		$updatedRoom = new Room();
 		$updatedRoom->setId($roomId);
 		$updatedRoom->setCleanliness(70);
 
+		// RF-058-06: the service re-validates the room→floor→house chain
+		// before the write.
 		$this->roomMapper
-			->expects($this->once())
+			->expects($this->exactly(2))
 			->method('find')
 			->with($roomId)
 			->willReturn($room);
+
+		$this->floorMapper
+			->method('find')
+			->with(7)
+			->willReturn($floor);
 
 		$this->roomMapper
 			->expects($this->once())
 			->method('update')
 			->willReturn($updatedRoom);
 
-		$result = $this->service->updateRoomCleanliness($roomId, $cleanlinessChange);
+		$result = $this->service->updateRoomCleanliness($roomId, 1, $cleanlinessChange);
 
 		$this->assertSame($updatedRoom, $result);
+	}
+
+	/**
+	 * UpdateRoomCleanliness_ForeignHouseRoom_ThrowsNotFoundWithoutWrite (RF-058-06)
+	 */
+	public function testUpdateRoomCleanliness_ForeignHouseRoom_ThrowsNotFoundWithoutWrite(): void {
+		$room = new Room();
+		$room->setId(1);
+		$room->setFloorId(7);
+
+		$foreignFloor = new Floor();
+		$foreignFloor->setId(7);
+		$foreignFloor->setHouseId(2);
+
+		$this->roomMapper->method('find')->with(1)->willReturn($room);
+		$this->floorMapper->method('find')->with(7)->willReturn($foreignFloor);
+
+		$this->roomMapper->expects($this->never())->method('update');
+
+		$this->expectException(\OCA\ChoreStrike\Exception\NotFoundException::class);
+		$this->service->updateRoomCleanliness(1, 1, 20);
 	}
 
 	/**

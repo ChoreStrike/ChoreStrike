@@ -38,7 +38,7 @@
 							:title="user.currentTitle"
 							compact />
 						<p class="podium-score">
-							{{ formatScore(user.contributionScore) }} pts
+							{{ formatScore(user.contributionScore) }} {{ t('chorestrike', 'pts') }}
 						</p>
 					</div>
 					<div class="podium-bar" :style="{ height: `${getPodiumHeight(user.rank)}px` }" />

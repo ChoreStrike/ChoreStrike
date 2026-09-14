@@ -363,7 +363,17 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 
 				const roomTaskIndex = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
 				if (roomTaskIndex >= 0) {
-					this.roomTasks[roomTaskIndex] = data
+				// The due-date response carries the serialized entity only —
+				// keep the cached canonical assignees when the payload omits
+				// them, so assignee chips and My Day "mine" filtering stay
+				// intact until the next enriched read (RF-058-09).
+					this.roomTasks[roomTaskIndex] = {
+						...this.roomTasks[roomTaskIndex],
+						...data,
+						...(data.assignees === undefined
+							? { assignees: this.roomTasks[roomTaskIndex].assignees }
+							: {}),
+					}
 				}
 				this.onInstanceMutated()
 			} catch (error) {

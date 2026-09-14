@@ -36,7 +36,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 	})
 
 	test('Setup: Create all 3 floors (Keller, EG, 1.OG)', async ({ page }) => {
-		const house = await setupTestHouse(page)
+		await setupTestHouse(page)
 
 		// We're already on settings view from setupTestHouse, verify floors exist
 		// Check Keller exists
@@ -47,8 +47,6 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 
 		// Check 1. Obergeschoss exists
 		await expect(page.locator('[data-testid="floor-1. Obergeschoss"]')).toBeVisible()
-
-		console.log('House setup complete:', house)
 	})
 
 	test('Navigation: Can navigate to all 3 floors from dashboard', async ({ page }) => {
@@ -250,7 +248,7 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 
 	test('Complete Workflow: Setup house with all rooms and verify', async ({ page }) => {
 		// Full setup
-		const house = await setupTestHouse(page)
+		await setupTestHouse(page)
 
 		// Navigate through all views
 		// 1. Dashboard
@@ -277,7 +275,5 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await expect(page.locator('text=Keller').first()).toBeVisible()
 		await expect(page.locator('text=Erdgeschoss').first()).toBeVisible()
 		await expect(page.locator('text=1. Obergeschoss').first()).toBeVisible()
-
-		console.log('Complete workflow test passed for house:', house)
 	})
 })

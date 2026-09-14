@@ -267,8 +267,11 @@ class TaskMapper extends QBMapper {
 		];
 
 		if ($viewer->isOwner()) {
-			// Owners additionally see admin-only definitions
-			// TODO: flip to see ALL private tasks if admin oversight is desired (CS-PLAN-005 §7)
+			// Owners additionally see admin-only definitions. Owners do
+			// NOT see other members' private definitions: private access
+			// is exactly creator ∪ explicit assignees (ADR-010 D2 — the
+			// ratified visibility matrix; an owner-oversight mode for
+			// private tasks was considered and rejected there).
 			$visibilityRules[] = $qb->expr()->eq('t.visibility_type', $qb->createNamedParameter(Task::VISIBILITY_ADMIN_ONLY));
 		}
 

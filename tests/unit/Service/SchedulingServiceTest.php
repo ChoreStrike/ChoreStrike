@@ -20,12 +20,16 @@ class SchedulingServiceTest extends TestCase {
 	private SchedulingService $service;
 	private HouseUserMapper $houseUserMapper;
 	private HouseMapper $houseMapper;
+	private \OCA\ChoreStrike\Service\AuthorizationService $authorization;
 
 	protected function setUp(): void {
 		parent::setUp();
 
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->houseMapper = $this->createMock(HouseMapper::class);
+		// RF-058-05: owner-only paths gate service-side; default mock lets
+		// the gate pass, denial tests override it.
+		$this->authorization = $this->createMock(\OCA\ChoreStrike\Service\AuthorizationService::class);
 		// CS-PLAN-057: today's-energy window resolves the house timezone.
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
@@ -35,7 +39,13 @@ class SchedulingServiceTest extends TestCase {
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 		// CS-PLAN-065 (D7): the reader-less consumed-energy cluster is gone —
 		// the service no longer depends on CompletedTaskMapper at all.
-		$this->service = new SchedulingService($this->houseUserMapper, $l10n, $this->houseMapper, new CalendarService());
+		$this->service = new SchedulingService(
+			$this->houseUserMapper,
+			$l10n,
+			$this->houseMapper,
+			new CalendarService(),
+			$this->authorization
+		);
 	}
 
 	/**
@@ -244,6 +254,35 @@ class SchedulingServiceTest extends TestCase {
 		$availability = $this->service->getMemberAvailability(5);
 
 		$this->assertSame(3, $availability[0]['maxDailyTasks']);
+	}
+
+	/**
+	 * GetMemberAvailability_NonOwner_ThrowsForbiddenWithoutRead (RF-058-05)
+	 */
+	public function testGetMemberAvailability_NonOwner_ThrowsForbiddenWithoutRead(): void {
+		$this->authorization->method('requireHouseOwner')
+			->with(5)
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required'));
+
+		$this->houseUserMapper->expects($this->never())->method('findByHouseId');
+
+		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
+		$this->service->getMemberAvailability(5);
+	}
+
+	/**
+	 * UpdateMemberAvailability_NonOwner_ThrowsForbiddenWithoutWrite (RF-058-05)
+	 */
+	public function testUpdateMemberAvailability_NonOwner_ThrowsForbiddenWithoutWrite(): void {
+		$this->authorization->method('requireHouseOwner')
+			->with(5)
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required'));
+
+		$this->houseUserMapper->expects($this->never())->method('findByNextcloudUserId');
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
+		$this->service->updateMemberAvailabilityByNextcloudUserId(5, 'kid', ['maxDailyTasks' => 3]);
 	}
 
 	/**

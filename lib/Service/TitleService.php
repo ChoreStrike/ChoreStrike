@@ -10,7 +10,9 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Titles\TitleCatalog;
+use OCP\IL10N;
 
 /**
  * Server-authoritative role-title logic (CS-PLAN-006 Phase 2).
@@ -34,13 +36,16 @@ use OCA\ChoreStrike\Titles\TitleCatalog;
 class TitleService {
 	private HouseUserMapper $houseUserMapper;
 	private RewardConfigService $rewardConfig;
+	private IL10N $l10n;
 
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
 		RewardConfigService $rewardConfig,
+		IL10N $l10n,
 	) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->rewardConfig = $rewardConfig;
+		$this->l10n = $l10n;
 	}
 
 	/**
@@ -85,14 +90,25 @@ class TitleService {
 	/**
 	 * Select the pack the user displays. Validates the pack key and persists.
 	 *
+	 * Titles are identity, not admin: the actor must be the target user
+	 * or a house owner — enforced service-side (RF-058-07); the controller
+	 * check stays as defense in depth.
+	 *
+	 * @param HouseUser $target The user whose pack changes
+	 * @param HouseUser $actor The acting user's house membership
+	 * @param string $packKey Pack key to display
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the actor is neither the target nor an owner
 	 * @throws \InvalidArgumentException When the pack key is unknown.
 	 */
-	public function selectPack(HouseUser $user, string $packKey): void {
+	public function selectPack(HouseUser $target, HouseUser $actor, string $packKey): void {
+		if (!$actor->isOwner() && $actor->getNextcloudUserId() !== $target->getNextcloudUserId()) {
+			throw new ForbiddenException($this->l10n->t('You are not allowed to update this user'));
+		}
 		if (!TitleCatalog::isValidPack($packKey)) {
 			throw new \InvalidArgumentException('Unknown title pack: ' . $packKey);
 		}
-		$user->setSelectedTitlePack($packKey);
-		$this->houseUserMapper->update($user);
+		$target->setSelectedTitlePack($packKey);
+		$this->houseUserMapper->update($target);
 	}
 
 	/**

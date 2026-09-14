@@ -81,7 +81,8 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			$l10n,
 			$this->createMock(AppLogger::class),
 			new TaskAccessPolicy($taskAssigneeMapper, $l10n),
-			$this->createMock(AuthorizationService::class)
+			$this->createMock(AuthorizationService::class),
+			new \OCA\ChoreStrike\Service\CalendarService()
 		);
 	}
 

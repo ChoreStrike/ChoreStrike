@@ -176,6 +176,22 @@ class TaskService {
 			unset($updates['taskTier']);
 		}
 
+		// Admin-only visibility is owner-only (ADR-010 matrix, RF-058-03):
+		// setting AND unsetting is a role denial (403) for non-owners. The
+		// controller gate is defense in depth; this service-side mirror
+		// (creation already gates in TaskCreationService) closes the
+		// direct-caller bypass, taskTier-style.
+		if (array_key_exists('visibilityType', $updates)) {
+			$newVisibility = $updates['visibilityType'];
+			$isAdminOnly = static fn ($v): bool => $v === Task::VISIBILITY_ADMIN_ONLY;
+			if ($isAdminOnly($newVisibility) && !$isOwner) {
+				throw new ForbiddenException($this->l10n->t('Only house owners can set admin-only visibility'));
+			}
+			if ($isAdminOnly($task->getVisibilityType()) && !$isAdminOnly($newVisibility) && !$isOwner) {
+				throw new ForbiddenException($this->l10n->t('Only house owners can change admin-only task visibility'));
+			}
+		}
+
 		// Validate an ownership transfer target: the new owner must be a
 		// member of the actor's house (CS-PLAN-061 §3.4).
 		if (isset($updates['ownerUserId'])

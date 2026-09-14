@@ -19,6 +19,7 @@ use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Exception\ValidationException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
+use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\RoomService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCA\ChoreStrike\Service\TaskCreationService;
@@ -100,6 +101,7 @@ class TaskCreationServiceTest extends TestCase {
 			$this->templateService,
 			$this->taskAccessPolicy,
 			$this->authorization,
+			new CalendarService(),
 			$l10n,
 			$this->createMock(AppLogger::class),
 		);
@@ -144,6 +146,9 @@ class TaskCreationServiceTest extends TestCase {
 	private function stubAggregateHappyPath(): void {
 		$house = new House();
 		$this->houseMapper->method('findForUpdate')->willReturn($house);
+		// RF-058-01: creation resolves the house timezone for `Y-m-d`
+		// nextDue labels; default to a UTC house.
+		$this->houseMapper->method('find')->willReturn($house);
 
 		$member = new HouseUser();
 		$member->setNextcloudUserId('member-user');

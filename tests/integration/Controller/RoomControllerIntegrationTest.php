@@ -169,6 +169,7 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 		$this->houseService->method('getOrCreateHouse')->willReturn($this->createMockHouse());
 		$this->authService->method('assertHouseMember')->willReturn($this->createMockHouseUser());
 		$this->roomService->method('updateRoomCleanliness')
+			->with($this->identicalTo($roomId), $this->identicalTo(1), $this->identicalTo($change))
 			->willReturn($room);
 
 		$response = $this->controller->updateCleanliness($roomId, $change);

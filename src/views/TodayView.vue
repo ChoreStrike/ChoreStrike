@@ -227,7 +227,6 @@ export default {
 			// checklist-less row never offers a dead control (manual a11y
 			// pass 2026-09-12).
 			emptyChecklistTaskIds: [],
-			uncompletedHandler: null,
 		}
 	},
 

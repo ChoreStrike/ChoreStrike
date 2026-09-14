@@ -267,6 +267,65 @@ class TaskServiceTest extends TestCase {
 	}
 
 	/**
+	 * UpdateTask_MemberSetsAdminOnlyVisibility_ThrowsForbidden
+	 *
+	 * RF-058-03: the admin-only visibility owner gate is enforced
+	 * service-side (mirroring TaskCreationService), not only in the
+	 * controller — a direct service caller cannot bypass it.
+	 */
+	public function testUpdateTask_MemberSetsAdminOnlyVisibility_ThrowsForbidden(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
+		$this->taskMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Only house owners can set admin-only visibility');
+
+		$this->service->updateTask(1, ['visibilityType' => Task::VISIBILITY_ADMIN_ONLY], $this->createHouseUser('member-user'));
+	}
+
+	/**
+	 * UpdateTask_MemberUnsetsAdminOnlyVisibility_ThrowsForbidden (RF-058-03)
+	 */
+	public function testUpdateTask_MemberUnsetsAdminOnlyVisibility_ThrowsForbidden(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_ADMIN_ONLY);
+
+		// The member can VIEW their own admin-only task only if they are
+		// the creator/assignee — stub visible for the gate-under-test.
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
+		$this->taskMapper->expects($this->never())->method('update');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('Only house owners can change admin-only task visibility');
+
+		$this->service->updateTask(1, ['visibilityType' => Task::VISIBILITY_PUBLIC], $this->createHouseUser('member-user'));
+	}
+
+	/**
+	 * UpdateTask_OwnerSetsAdminOnlyVisibility_Succeeds (RF-058-03)
+	 */
+	public function testUpdateTask_OwnerSetsAdminOnlyVisibility_Succeeds(): void {
+		$task = new Task();
+		$task->setId(1);
+		$task->setVisibilityType(Task::VISIBILITY_PUBLIC);
+
+		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
+		$this->stubTaskVisible();
+		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+
+		$result = $this->service->updateTask(1, ['visibilityType' => Task::VISIBILITY_ADMIN_ONLY], $this->createHouseUser('house-owner', 'owner'));
+
+		$this->assertSame(Task::VISIBILITY_ADMIN_ONLY, $result->getVisibilityType());
+	}
+
+	/**
 	 * UpdateTask_PublicTask_AnyCaller_Succeeds
 	 */
 	public function testUpdateTask_PublicTask_AnyCaller_Succeeds(): void {

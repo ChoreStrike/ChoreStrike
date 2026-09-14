@@ -51,6 +51,8 @@ class RoomTaskServiceTest extends TestCase {
 	private HouseMapper $houseMapper;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private AuthorizationService $authorization;
+	/** House returned by houseMapper->find (tz-resolution, swappable per test). */
+	private House $houseForTz;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -73,7 +75,8 @@ class RoomTaskServiceTest extends TestCase {
 		// CS-PLAN-057: day-window methods resolve the house timezone.
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
-		$this->houseMapper->method('find')->willReturn($utcHouse);
+		$this->houseForTz = $utcHouse;
+		$this->houseMapper->method('find')->willReturnCallback(fn (): House => $this->houseForTz);
 
 		$this->service = new RoomTaskService(
 			$this->roomTaskMapper,
@@ -101,7 +104,8 @@ class RoomTaskServiceTest extends TestCase {
 			$this->createIdentityL10n(),
 			$this->createMock(AppLogger::class),
 			$this->taskAccessPolicy,
-			$this->authorization
+			$this->authorization,
+			new CalendarService()
 		);
 	}
 
@@ -210,13 +214,84 @@ class RoomTaskServiceTest extends TestCase {
 		$this->roomTaskMapper
 			->expects($this->once())
 			->method('updateNextDue')
-			->with($roomTaskId, $newDue);
+			->with(
+				$this->identicalTo($roomTaskId),
+				$this->callback(function (\DateTime $due) use ($newDue): bool {
+					// RF-058-01: a relative datetime parses to the same
+					// instant regardless of the house timezone.
+					return $due->getTimestamp() === $newDue->getTimestamp();
+				})
+			);
 
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
 
-		$result = $this->service->updateDueDate($roomTaskId, $newDue, $this->createHouseUser());
+		$result = $this->service->updateDueDate($roomTaskId, '+3 days', $this->createHouseUser());
 
 		$this->assertSame($roomTask, $result);
+	}
+
+	/**
+	 * UpdateDueDate_DayKeyLabel_ResolvesHouseLocalMidnight (RF-058-01)
+	 *
+	 * A bare `Y-m-d` label denotes house-local midnight (ADR-009): for a
+	 * UTC house '2030-05-10' persists as 2030-05-10T00:00:00Z; tagging the
+	 * label at server-TZ midnight would land one local day early for
+	 * houses west of UTC.
+	 */
+	public function testUpdateDueDate_DayKeyLabel_ResolvesHouseLocalMidnight(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setTaskId(1);
+		$roomTask->setRoomId(5);
+
+		$this->stubTaskDefinition($this->createTask());
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+
+		// Room 5 belongs to a Pacific/Honolulu (UTC-10) house: house-local
+		// midnight of 2030-05-10 is 2030-05-10T10:00:00Z — NOT 00:00Z.
+		$honoluluHouse = new House();
+		$honoluluHouse->setTimezone('Pacific/Honolulu');
+		$this->houseForTz = $honoluluHouse;
+		$honoluluRoom = new \OCA\ChoreStrike\Db\Room();
+		$honoluluRoom->setId(5);
+		$honoluluRoom->setFloorId(9);
+		$honoluluFloor = new \OCA\ChoreStrike\Db\Floor();
+		$honoluluFloor->setId(9);
+		$honoluluFloor->setHouseId(3);
+		$this->roomMapper->method('find')->with(5)->willReturn($honoluluRoom);
+		$this->floorMapper->method('find')->with(9)->willReturn($honoluluFloor);
+
+		$captured = null;
+		$this->roomTaskMapper
+			->expects($this->once())
+			->method('updateNextDue')
+			->willReturnCallback(static function (int $id, \DateTime $due) use (&$captured): void {
+				$captured = $due;
+			});
+
+		$this->service->updateDueDate(1, '2030-05-10', $this->createHouseUser());
+
+		$this->assertSame('2030-05-10T10:00:00+00:00', $captured->format('Y-m-d\TH:i:sP'));
+	}
+
+	/**
+	 * UpdateDueDate_UnparseableInput_ThrowsValidation (RF-058-01)
+	 */
+	public function testUpdateDueDate_UnparseableInput_ThrowsValidation(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setTaskId(1);
+
+		$this->stubTaskDefinition($this->createTask());
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+
+		$this->roomTaskMapper->expects($this->never())->method('updateNextDue');
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Invalid nextDue date format');
+		$this->service->updateDueDate(1, 'not-a-date', $this->createHouseUser());
 	}
 
 	// CS-PLAN-056 (CR-053-06): lifecycle mutations enforce the same visibility
@@ -243,7 +318,7 @@ class RoomTaskServiceTest extends TestCase {
 		$this->roomTaskMapper->expects($this->never())->method('updateNextDue');
 
 		$this->expectException(NotFoundException::class);
-		$this->service->updateDueDate(1, new \DateTime('+1 day'), $this->createHouseUser('memberUser'));
+		$this->service->updateDueDate(1, '+1 day', $this->createHouseUser('memberUser'));
 	}
 
 	/**

@@ -21,9 +21,11 @@ use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 use OCP\IL10N;
+use OCP\IUserManager;
 use OCP\IUserSession;
 
 /**
@@ -48,6 +50,7 @@ class HouseService {
 	private IUserSession $userSession;
 	private CalendarService $calendarService;
 	private AuthorizationService $authorization;
+	private IUserManager $userManager;
 
 	public function __construct(
 		HouseMapper $houseMapper,
@@ -65,6 +68,7 @@ class HouseService {
 		IUserSession $userSession,
 		CalendarService $calendarService,
 		AuthorizationService $authorization,
+		IUserManager $userManager,
 	) {
 		$this->houseMapper = $houseMapper;
 		$this->floorMapper = $floorMapper;
@@ -81,6 +85,68 @@ class HouseService {
 		$this->userSession = $userSession;
 		$this->calendarService = $calendarService;
 		$this->authorization = $authorization;
+		$this->userManager = $userManager;
+	}
+
+	/**
+	 * Invite a Nextcloud account into the house by email address
+	 * (RF-058-04: the membership write moved here from UserController —
+	 * controllers must not persist through mappers directly; same
+	 * ownership contract as removeHouseMember/updateUserRole).
+	 *
+	 * The caller's authorization gates (bootstrap preamble, then
+	 * requireHouseOwner) run BEFORE this method, so a non-owner cannot
+	 * probe which Nextcloud accounts exist (404 vs 403 oracle,
+	 * CS-PLAN-061). This method resolves the account and performs the
+	 * idempotent membership write.
+	 *
+	 * @param int $houseId The house ID
+	 * @param string $email Trimmed email address of the account to invite
+	 * @param string $role One of VALID_ROLES
+	 * @return HouseUser The invited (or already-member) house user
+	 * @throws NotFoundException when no Nextcloud account matches the email
+	 */
+	public function inviteMember(int $houseId, string $email, string $role): HouseUser {
+		$ncUsers = $this->userManager->getByEmail($email);
+		if (empty($ncUsers)) {
+			throw new NotFoundException($this->l10n->t('No Nextcloud user found with this email address'));
+		}
+
+		// Use the first matching user if multiple accounts share the same email.
+		$ncUser = $ncUsers[0];
+		return $this->houseUserMapper->createOrGet(
+			$houseId,
+			$ncUser->getUID(),
+			$ncUser->getDisplayName(),
+			$role
+		);
+	}
+
+	/**
+	 * Look a house-user id up scoped to the given house (RF-058-04: moved
+	 * from UserController — persistence reads belong to services).
+	 *
+	 * A nonexistent id and a foreign-house id both yield null (→ 404), so
+	 * callers cannot enumerate which global house_user ids exist
+	 * (CS-PLAN-061 §3.1 anti-enumeration).
+	 */
+	public function findHouseUserScopedToHouse(int $id, int $houseId): ?HouseUser {
+		try {
+			$houseUser = $this->houseUserMapper->find($id);
+		} catch (DoesNotExistException $e) {
+			return null;
+		}
+
+		return $houseUser->getHouseId() === $houseId ? $houseUser : null;
+	}
+
+	/**
+	 * All members of the house (RF-058-04: moved from UserController).
+	 *
+	 * @return HouseUser[]
+	 */
+	public function getHouseMembers(int $houseId): array {
+		return $this->houseUserMapper->findByHouseId($houseId);
 	}
 
 	/**
@@ -300,13 +366,20 @@ class HouseService {
 	/**
 	 * Reset house to initial state
 	 *
+	 * Owner-only (ADR-006 service-side enforcement, RF-058-02): the
+	 * controller check stays as defense in depth, mirroring
+	 * {@see updateHouse()} — the most destructive house operation must not
+	 * depend on a single controller gate.
+	 *
 	 * All rooms reset via one house-scoped subquery UPDATE
 	 * (CS-PLAN-037, CR-SVC-60) instead of the floors → rooms double
 	 * loop (3 + N_floors + N_rooms → 3 queries).
 	 *
 	 * @param int $houseId The house ID
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
 	public function resetHouse(int $houseId): void {
+		$this->authorization->requireHouseOwner($houseId);
 		$this->appLogger->warning('Resetting house to initial state', [
 			'service' => 'HouseService',
 			'houseId' => $houseId,

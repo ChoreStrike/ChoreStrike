@@ -377,7 +377,8 @@ Two mutually exclusive payload variants:
 - **mount:** `{ roomId, taskId, assigneeUserIds?, nextDue? }` — reuses an
   existing, actor-visible definition (duplicate mount → 400)
 
-`nextDue` (house-local date) defaults to tomorrow; `flexDays > 0`
+`nextDue` (house-local `Y-m-d` label; resolved to house-local midnight,
+RF-058-01) defaults to tomorrow; `flexDays > 0`
 materializes an `idealDueDate`. The response is the unified aggregate shape:
 
 ```json
@@ -497,7 +498,12 @@ Mounting an existing definition uses `{ "roomId": 1, "taskId": 1,
 documented above. There is no snake_case multi-room create body.
 
 #### PUT /room-tasks/{id}/due-date
-Update a room task's next-due date / ideal due date.
+Update a room task's next-due date / ideal due date. Payload: `{ "nextDue": … }`.
+A bare `Y-m-d` label denotes the **house-local day** (ADR-009): the server
+persists its house-local midnight as the UTC instant (RF-058-01 — never the
+label tagged at 00:00 UTC, which would land one local day early for houses
+west of UTC). Any other parseable datetime is persisted as that instant;
+unparseable input → `400 VALIDATION_ERROR`.
 
 #### GET /room-tasks/{id}/assignees · PUT /room-tasks/{id}/assignees
 Read / replace the multi-assignee set for a room task. Assignee mutations

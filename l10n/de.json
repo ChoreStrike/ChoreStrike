@@ -884,6 +884,7 @@
         "no legal day in this window (fixed weekday or no flexibility)": "kein zulässiger Tag in diesem Zeitraum (fester Wochentag oder keine Flexibilität)",
         "overrides must be an object keyed by room task ID": "overrides muss ein Objekt mit Raumaufgaben-IDs als Schlüssel sein",
         "previewVersion is required": "previewVersion ist erforderlich",
+        "pts": "Pkt.",
         "roomId is required": "roomId ist erforderlich",
         "roomTaskIds must be an array of positive integers": "roomTaskIds muss ein Array positiver Ganzzahlen sein",
         "roomTaskIds must be an array of room task IDs": "roomTaskIds muss ein Array von Raumaufgaben-IDs sein",

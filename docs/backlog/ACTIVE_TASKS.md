@@ -10,9 +10,16 @@
 
 ## In Progress
 
-No active implementation or review. WP9 verification is complete and its
-exclusive Docker test-environment reservation is released. CS-PLAN-058's
-separate final Full review remains pending, not automatically started.
+**CS-PLAN-058 — final Full review closing** (2026-09-14 evening, Kilo main
+agent). Verdict `PASS-WITH-FIXES` (non-visual): all 4 majors + approved minors
+fixed with regression tests (unit 941 / integration 361 / Jest 1056 / lint /
+cs:check / l10n 941 / docs / backlog gates green); 4 nits user-rescoped to
+backlog; program backlog disposition D-FR-03 executed (Core Workflow Program
+section empty). **Outstanding:** delegated browser-gate pair
+(`npm run test:e2e:gate` ×2) on the fixed state by a separate LLM session —
+after it passes, a follow-up session moves the plan `active/ → done/` (D-FR-04)
+and releases the Docker reservation. No other session may reset seeds or run
+browser profiles until then.
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 

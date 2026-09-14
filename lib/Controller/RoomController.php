@@ -327,7 +327,7 @@ class RoomController extends Controller {
 				], 400);
 			}
 
-			$room = $this->roomService->updateRoomCleanliness($id, $cleanlinessChange);
+			$room = $this->roomService->updateRoomCleanliness($id, $house->getId(), $cleanlinessChange);
 
 			return new JSONResponse([
 				'success' => true,

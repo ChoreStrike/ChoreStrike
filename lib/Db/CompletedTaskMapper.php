@@ -512,8 +512,11 @@ class CompletedTaskMapper extends QBMapper {
 	 * Find the newest still-revertible completion of a room task (WP5, D3).
 	 *
 	 * `undone_at IS NULL` + newest `completed_at`: the LIFO undo unit for
-	 * the room task. NULL when nothing is revertible — the undo aggregate
-	 * treats a miss as the idempotent zero-write no-op.
+	 * the room task. `id DESC` closes same-second ties deterministically
+	 * (the mapper-wide read-order convention, RF-058-13) — two
+	 * revertible rows with identical `completed_at` resolve to the
+	 * actually-newer insert. NULL when nothing is revertible — the undo
+	 * aggregate treats a miss as the idempotent zero-write no-op.
 	 *
 	 * Callers re-check revertibility under the room-task lock; this lookup
 	 * is a plain read and must not be the final gate for a mutating path.
@@ -525,6 +528,7 @@ class CompletedTaskMapper extends QBMapper {
 			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->isNull('undone_at'))
 			->orderBy('completed_at', 'DESC')
+			->addOrderBy('id', 'DESC')
 			->setMaxResults(1);
 
 		try {

@@ -29,17 +29,20 @@ class SchedulingService {
 	private IL10N $l10n;
 	private \OCA\ChoreStrike\Db\HouseMapper $houseMapper;
 	private CalendarService $calendarService;
+	private AuthorizationService $authorization;
 
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
 		IL10N $l10n,
 		\OCA\ChoreStrike\Db\HouseMapper $houseMapper,
 		CalendarService $calendarService,
+		AuthorizationService $authorization,
 	) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->l10n = $l10n;
 		$this->houseMapper = $houseMapper;
 		$this->calendarService = $calendarService;
+		$this->authorization = $authorization;
 	}
 
 	/**
@@ -181,13 +184,17 @@ class SchedulingService {
 	/**
 	 * Get all member availability for a house
 	 *
-	 * The owner-facing payload carries the member's `maxDailyTasks` child
+	 * Owner-only read (decision D5): service-side requireHouseOwner gate
+	 * (RF-058-05) — the controller check stays as defense in depth. The
+	 * owner-facing payload carries the member's `maxDailyTasks` child
 	 * limit (decision D5): `null` = unlimited, integer = finite bound.
 	 *
 	 * @param int $houseId The house ID
 	 * @return array Member availability data
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
 	public function getMemberAvailability(int $houseId): array {
+		$this->authorization->requireHouseOwner($houseId);
 		$users = $this->houseUserMapper->findByHouseId($houseId);
 		$availability = [];
 
@@ -216,14 +223,18 @@ class SchedulingService {
 	 * explicit `null` clears it (unlimited), an integer must be within
 	 * 1-100. The personal preference endpoints never reach this method.
 	 *
-	 * The lookup is scoped by houseId, so a user who is not a member of the
-	 * house is not found (membership enforced at the persistence layer).
+	 * Service-side requireHouseOwner gate (RF-058-05); the controller
+	 * check stays as defense in depth. The lookup is scoped by houseId, so
+	 * a user who is not a member of the house is not found (membership
+	 * enforced at the persistence layer).
 	 *
 	 * @param int $houseId The current house ID
 	 * @param string $nextcloudUserId The Nextcloud user ID to update
 	 * @param array $updates Availability, energy and child-limit updates
+	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
 	 */
 	public function updateMemberAvailabilityByNextcloudUserId(int $houseId, string $nextcloudUserId, array $updates): void {
+		$this->authorization->requireHouseOwner($houseId);
 		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
 		$this->applyMemberUpdates($user, $updates);
 	}

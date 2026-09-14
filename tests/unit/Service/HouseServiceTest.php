@@ -47,6 +47,7 @@ class HouseServiceTest extends TestCase {
 	private IDBConnection $db;
 	private IUserSession $userSession;
 	private AuthorizationService $authorization;
+	private \OCP\IUserManager $userManager;
 	/** House returned by houseMapper->find (swappable per test). */
 	private House $defaultHouse;
 
@@ -63,6 +64,7 @@ class HouseServiceTest extends TestCase {
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->userSession = $this->createMock(IUserSession::class);
 		$this->authorization = $this->createMock(AuthorizationService::class);
+		$this->userManager = $this->createMock(\OCP\IUserManager::class);
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
@@ -88,7 +90,8 @@ class HouseServiceTest extends TestCase {
 			$this->createMock(AppLogger::class),
 			$this->userSession,
 			new CalendarService(),
-			$this->authorization
+			$this->authorization,
+			$this->userManager
 		);
 	}
 
@@ -186,7 +189,8 @@ class HouseServiceTest extends TestCase {
 			$this->createMock(AppLogger::class),
 			$this->userSession,
 			new CalendarService(),
-			$this->authorization
+			$this->authorization,
+			$this->userManager
 		);
 
 		$result = $service->getOrCreateHouse($instanceId);
@@ -420,6 +424,12 @@ class HouseServiceTest extends TestCase {
 		$house->setHouseHealth(50);
 		$this->defaultHouse = $house;
 
+		// RF-058-02: the owner gate runs service-side before any write.
+		$this->authorization
+			->expects($this->once())
+			->method('requireHouseOwner')
+			->with($houseId);
+
 		$this->houseMapper
 			->expects($this->once())
 			->method('update')
@@ -437,6 +447,22 @@ class HouseServiceTest extends TestCase {
 		$this->roomMapper->expects($this->never())->method('findByFloorId');
 		$this->roomMapper->expects($this->never())->method('update');
 
+		$this->service->resetHouse($houseId);
+	}
+
+	/**
+	 * ResetHouse_NonOwner_ThrowsForbiddenWithoutAnyWrite (RF-058-02)
+	 */
+	public function testResetHouse_NonOwner_ThrowsForbiddenWithoutAnyWrite(): void {
+		$houseId = 1;
+		$this->authorization
+			->method('requireHouseOwner')
+			->willThrowException(new \OCA\ChoreStrike\Exception\ForbiddenException('Owner role required'));
+
+		$this->houseMapper->expects($this->never())->method('update');
+		$this->roomMapper->expects($this->never())->method('resetByHouseId');
+
+		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
 		$this->service->resetHouse($houseId);
 	}
 
@@ -911,5 +937,62 @@ class HouseServiceTest extends TestCase {
 		$this->expectException(DoesNotExistException::class);
 
 		$this->service->updateUserRole(999, 'member', 'caller-nc');
+	}
+
+	/**
+	 * InviteMember_NoAccount_ThrowsNotFoundWithoutWrite (RF-058-04)
+	 */
+	public function testInviteMember_NoAccount_ThrowsNotFoundWithoutWrite(): void {
+		$this->userManager->method('getByEmail')->with('ghost@example.com')->willReturn([]);
+
+		$this->houseUserMapper->expects($this->never())->method('createOrGet');
+
+		$this->expectException(\OCA\ChoreStrike\Exception\NotFoundException::class);
+		$this->service->inviteMember(1, 'ghost@example.com', 'member');
+	}
+
+	/**
+	 * InviteMember_AccountFound_CreatesMembershipWithResolvedAccount (RF-058-04)
+	 */
+	public function testInviteMember_AccountFound_CreatesMembershipWithResolvedAccount(): void {
+		$ncUser = $this->createMock(\OCP\IUser::class);
+		$ncUser->method('getUID')->willReturn('invited-nc');
+		$ncUser->method('getDisplayName')->willReturn('Invited Member');
+		$this->userManager->method('getByEmail')->with('invited@example.com')->willReturn([$ncUser]);
+
+		$houseUser = new HouseUser();
+		$houseUser->setNextcloudUserId('invited-nc');
+		$this->houseUserMapper->expects($this->once())
+			->method('createOrGet')
+			->with(1, 'invited-nc', 'Invited Member', 'member')
+			->willReturn($houseUser);
+
+		$result = $this->service->inviteMember(1, 'invited@example.com', 'member');
+
+		$this->assertSame('invited-nc', $result->getNextcloudUserId());
+	}
+
+	/**
+	 * FindHouseUserScopedToHouse_ForeignHouseYieldsNull (RF-058-04)
+	 */
+	public function testFindHouseUserScopedToHouse_ForeignHouseYieldsNull(): void {
+		$foreign = new HouseUser();
+		$foreign->setId(7);
+		$foreign->setHouseId(2);
+		$this->houseUserMapper->method('find')->with(7)->willReturn($foreign);
+
+		$this->assertNull($this->service->findHouseUserScopedToHouse(7, 1));
+	}
+
+	/**
+	 * FindHouseUserScopedToHouse_SameHouseYieldsRow (RF-058-04)
+	 */
+	public function testFindHouseUserScopedToHouse_SameHouseYieldsRow(): void {
+		$member = new HouseUser();
+		$member->setId(7);
+		$member->setHouseId(1);
+		$this->houseUserMapper->method('find')->with(7)->willReturn($member);
+
+		$this->assertSame($member, $this->service->findHouseUserScopedToHouse(7, 1));
 	}
 }

@@ -2654,6 +2654,9 @@ msgstr ""
 msgid "previewVersion is required"
 msgstr ""
 
+msgid "pts"
+msgstr ""
+
 msgid "roomId is required"
 msgstr ""
 

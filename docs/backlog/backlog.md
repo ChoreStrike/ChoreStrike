@@ -17,102 +17,19 @@
 
 ## Core Workflow Program
 
-> The CR-WF umbrellas own the core-journey acceptance criteria
+> The CR-WF umbrellas owned the core-journey acceptance criteria
 > ([CS-PLAN-058](../plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md);
 > review record: [`archive/CODE_REVIEW_2026-09-02.md`](archive/CODE_REVIEW_2026-09-02.md)).
-> Older findings below are annotated `Owning: CS-PLAN-058 WPx` (portions) or
-> `Folded-in` instead of duplicating umbrella criteria. Public security entries
-> are intentionally sanitized; sensitive technical evidence is excluded from the
-> public repository under the security-disclosure policy.
+> **Program closure 2026-09-14:** CR-WF-01..08 and every plan-owned item are
+> archived; the final Full review (`PASS-WITH-FIXES`, D-FR-03 disposition)
+> folded the remaining service-level pointers into their concrete owners
+> (CR-053-11, CR-053-19) and re-sectioned the non-blocking remainders. This
+> section is intentionally empty — no open item blocks or extends the core
+> program.
 
-### [P3] CR-053-19 — Persistence correctness minors (service-level remainder)
-**Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
-**Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-053 full review (CR-P1-11..17, 19, 21, 22, 2026-08-27)
-
-The persistence/schema parts (PostgreSQL boolean compares, inclusive week-window
-end bound, checklist `toggle()` unlocked RMW, `createOrGet` check-then-insert,
-`FloorMapper::create` re-select, `getUserRank` unbounded scan, inverted
-estimatedMinutes range, dead `findActiveByHouse`, dead `$houseId` on
-`findVisibleByHouse`, is_private divergence) were closed by CS-PLAN-060 WP1 —
-see [`archive/2026-09.md`](archive/2026-09.md). Remainder: the service-level
-read-modify-write races follow the work packages that touch their workflows.
-
----
-
-### [P2] CR-SVC-15 — Decompose God-methods / God-services
-**Status**: In Progress (WP5 slice delivered 2026-09-09; **WP8 slice delivered 2026-09-13 by CS-PLAN-067**: `GameLogicService` 517 → 349 with the medal cluster extracted to `MedalService`, `CompletionService` 772 → 546 via `CompletionEffectService`/`CompletionPostCommitService`, `RoomTaskService` 833 → 643 via `RoomTaskReadService`; remaining structural candidates are inventoried in `docs/engineering/architecture.md` "Size Guideline Exception Inventory") · **Effort**: L · **Layer**: backend · **Journey stage**: performance
-**Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of `lib/Service` (2026-08-04)
-
-Owned in portions: WP5 enforced the completion-path constraints while
-decomposing completion (delivered — `CompletionService`; overdue-takeover and
-post-commit dispatch extraction done); WP8 executes the remaining structural
-decomposition after the contract freeze. Over the ~300-line/~30-line
-guidelines: ~~`RoomService::completeRoomTask` (~200 lines)~~ (moved into
-`CompletionService` by CS-PLAN-064; that service's size itself is WP8
-decomposition input),
-`GameLogicService` (517, 7 concerns), `handleTaskCompletion` (~113) /
-`checkAndAwardMedals` (~62, 5 near-identical award blocks), `RoomTaskService` (833),
-`RewardConfigService` (689 → 538 via CS-PLAN-049 registry, 2026-08-26 — still over
-the guideline, accepted), `TaskService::createTask` (24 positional params).
-- [ ] Extract cohesive steps (medal-rules table) and split GameLogicService
-      along domain lines; revisit the `CompletionService` shape (the WP5
-      aggregate owner is 772 lines incl. docblocks — phase-split candidate
-      for WP8 without weakening its single-transaction boundary).
-
----
-
-### [P3] CR-SVC-44 — Minor performance cluster
-**Status**: In Progress (activated 2026-09-12 by CS-PLAN-067/WP8 Standard A; per-user streak UPDATE batching disposition owned by D5 → CR-053-11; **WP8 slice delivered 2026-09-13**: the `updateDueDate` after-commit re-fetch is gone — the in-transaction entity is the authoritative response, pinned by `WorkflowQueryBudgetTest` statement-order proof; no redundant workflow re-fetch remains in the WP8 manifest surfaces) · **Effort**: M · **Layer**: backend · **Journey stage**: performance
-**Owning**: CS-PLAN-058 WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of `lib/Service` (2026-08-04); re-scoped by CS-PLAN-053 full review (2026-08-27) and CS-PLAN-055
-
-Re-scoped: the `createDefaultTemplates` and
-`extractHouseIdFromSchedule`/`ScheduleOptimizer` sub-claims are **obsolete**
-(clusters deleted by CS-PLAN-027 D7 / CR-SVC-08);
-`TaskService::getAllTasks` was deleted with the CS-PLAN-055 dead-code sweep.
-Still live: `StreakFreeze`/`StreakRestock` per-user UPDATEs (unlocked RMW —
-see CR-053-11 for the correctness half); ~~`assignTask`/`unassignTask`/`deactivate`/
-`reactivate`/`updateDueDate` re-fetch pattern in `RoomTaskService`~~ (the
-`assignTask`/`unassignTask`/`deactivateTask` mutators were deleted outright by
-CS-PLAN-061 §3.4 — 2026-09-03 — removing three of the five re-fetch sites);
-~~`hasFloors` hydrates all floors for a boolean (`HouseService:303`)~~ (resolved
-2026-09-04 by CS-PLAN-062 §3.1: `hasFloors` delegates to the prepared
-`FloorMapper::countByHouseId` COUNT primitive).
-
----
-
-### [P3] CR-SVC-63 — Manual cleanliness adjust stays an unlocked RMW against the WP5 room-row lock
-**Status**: Backlog · **Effort**: XS · **Layer**: backend · **Journey stage**: completion/undo
-**Owning**: — (unscheduled; candidate for WP7/WP8 or a small standalone fix) · **Depends on**: CS-PLAN-064 (creates `RoomMapper::lockForUpdate`) · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-064 (Standard A, 2026-09-06)
-
-After WP5, completions/undos write room cleanliness on a locked room row
-(`room_task → room → house_user` order), but the manual adjust endpoint
-(`RoomController.php:330` → `RoomService::updateRoomCleanliness`,
-find → `updateCleanliness` → update) remains an unlocked read-modify-write:
-a concurrent manual adjust can still lose (or clobber) a completion's
-cleanliness delta. Deferred by user decision to keep the WP5 scope guard
-(completion/undo critical path only). Fix: route the manual adjust through
-the new `RoomMapper::lockForUpdate` primitive inside a `TransactionExecutor`
-run; add a two-connection adjust-vs-completion race regression.
-
----
-
-### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
-**Status**: Open (semantics decided, endpoint/UI open) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: UX-003 remainder (CS-PLAN-038); owner-transfer/last-owner semantics decided by CS-PLAN-061 D6 (ADR-010, user-ratified 2026-09-03)
-
-Members cannot leave a house on their own; removal is owner-only. The
-owner-transfer semantics are decided (D6): the **last owner cannot leave** —
-ownership must be transferred first (consistent with `CANNOT_REMOVE_OWNER` /
-`CANNOT_DEMOTE_LAST_OWNER`; an ownerless house would allow stranger
-re-bootstrap). Remaining: the backend leave endpoint + Settings action.
-
-- [x] Decide owner-transfer/last-owner semantics for leaving. (D6, ADR-010, 2026-09-03)
-- [ ] Backend leave endpoint (+ guards) + Settings Leave button + tests.
+*(No open items — the program's acceptance lives in CS-PLAN-058 §8; follow-up
+findings of the final review are routed to Core Hardening / Deferred Add-ons
+below.)*
 
 ---
 
@@ -146,10 +63,100 @@ and remain independently schedulable.
 
 ---
 
+### [P3] CR-SVC-63 — Manual cleanliness adjust stays an unlocked RMW against the WP5 room-row lock
+**Status**: Backlog (re-sectioned from the Core Workflow Program section 2026-09-14, D-FR-03) · **Effort**: XS · **Layer**: backend · **Journey stage**: completion/undo
+**Owning**: — (unscheduled standalone fix) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-064 (Standard A, 2026-09-06)
+
+After WP5, completions/undos write room cleanliness on a locked room row
+(`room_task → room → house_user` order), but the manual adjust endpoint
+(`RoomController#updateCleanliness` → `RoomService::updateRoomCleanliness`,
+find → `updateCleanliness` → update) remains an unlocked read-modify-write:
+a concurrent manual adjust can still lose (or clobber) a completion's
+cleanliness delta. Deferred by user decision to keep the WP5 scope guard
+(completion/undo critical path only). The authz defense-in-depth half was
+closed by the CS-PLAN-058 final Full review (RF-058-06: service-side
+room→floor→house chain validation). Fix: route the manual adjust through
+`RoomMapper::lockForUpdate` inside a `TransactionExecutor` run; add a
+two-connection adjust-vs-completion race regression.
+
+---
+
+### [P3] CR-SVC-64 — Midnight-crossing schedule apply answers 400 instead of 409 stale-preview
+**Status**: Backlog · **Effort**: XS · **Layer**: backend · **Journey stage**: scheduling
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-17)
+
+When a preview is generated just before house-local midnight and applied just
+after, the apply's `startDate >= today` validation fires first and answers
+`400 VALIDATION_ERROR` ("startDate must be today or later") instead of the
+stale-preview `409 CONFLICT` — the fingerprint revalidation would reject the
+same request one code later. UX nit at the day boundary; fix: validate the
+fingerprint/staleness ordering before the startDate window check, or map a
+midnight-crossed startDate to the stale-preview conflict.
+
+---
+
+### [P4] CR-SEC-05 — Caller-gates-owner contract on removeHouseMember/updateUserRole
+**Status**: Backlog · **Effort**: S · **Layer**: backend · **Journey stage**: authorization
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-15)
+
+`HouseService::removeHouseMember`/`updateUserRole` rely on a documented
+"caller is responsible for requireHouseOwner" contract (controller-only gate,
+tested), while sibling mutations (updateHouse, resetHouse since RF-058-02,
+invite paths, structure services) enforce owner-only service-side per
+ADR-006's defense-in-depth standard. Documented and not exploitable through
+current callers; align the two methods with the service-side pattern when
+next touched.
+
+---
+
+### [P4] CR-PERF-01 — SchedulePlanService apply O(n²) row scans
+**Status**: Backlog · **Effort**: XS · **Layer**: backend · **Journey stage**: scheduling
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-14)
+
+`SchedulePlanService::apply` calls `findRowById` (linear scan of
+`plan['response']['changes']`) inside the loop over changed room-task ids for
+both the due-date and assignee phases — O(n²) scans, though in-memory only and
+bounded by ≤100 changed rows (no queries, no frozen-budget impact). Fix: key
+the changes array by roomTaskId once before the loops.
+
+---
+
 ## Deferred Add-ons
 
 > Explicitly outside the core critical path (CS-PLAN-058 §1.3). These cannot
 > enter the critical path without a plan update.
+
+### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
+**Status**: Open (semantics decided, endpoint/UI open; re-sectioned from the Core Workflow Program section 2026-09-14, D-FR-03) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: UX-003 remainder (CS-PLAN-038); owner-transfer/last-owner semantics decided by CS-PLAN-061 D6 (ADR-010, user-ratified 2026-09-03)
+
+Members cannot leave a house on their own; removal is owner-only. The
+owner-transfer semantics are decided (D6): the **last owner cannot leave** —
+ownership must be transferred first (consistent with `CANNOT_REMOVE_OWNER` /
+`CANNOT_DEMOTE_LAST_OWNER`; an ownerless house would allow stranger
+re-bootstrap). Remaining: the backend leave endpoint + Settings action.
+
+- [x] Decide owner-transfer/last-owner semantics for leaving. (D6, ADR-010, 2026-09-03)
+- [ ] Backend leave endpoint (+ guards) + Settings Leave button + tests.
+
+---
+
+### [P4] FEAT-UX-032 — SetupWizard silently drops the basement at the floor cap
+**Status**: Backlog · **Effort**: XS · **Layer**: frontend · **Journey stage**: setup
+**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-16)
+
+`SetupWizard` clamps `floorTotal = min(6, floorCount)` and appends the basement
+only when `floors.length < 6`: with `floorCount = 6` and the basement checkbox
+checked, the basement is silently NOT added and the checkbox stays checked
+without effect. Cap edge only. Fix options: clamp floorCount to 5 when a
+basement is requested, or show an inline hint that the basement replaces the
+sixth floor.
 
 ### [P3] FEAT-UX-018 — Task-approval workflow for children
 **Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task approval

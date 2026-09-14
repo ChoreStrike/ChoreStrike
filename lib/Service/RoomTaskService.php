@@ -44,6 +44,7 @@ class RoomTaskService {
 	private AppLogger $appLogger;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private AuthorizationService $authorization;
+	private CalendarService $calendarService;
 
 	public function __construct(
 		RoomTaskMapper $roomTaskMapper,
@@ -59,6 +60,7 @@ class RoomTaskService {
 		AppLogger $appLogger,
 		TaskAccessPolicy $taskAccessPolicy,
 		AuthorizationService $authorization,
+		CalendarService $calendarService,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
@@ -73,6 +75,7 @@ class RoomTaskService {
 		$this->appLogger = $appLogger;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->authorization = $authorization;
+		$this->calendarService = $calendarService;
 	}
 
 	/**
@@ -331,18 +334,45 @@ class RoomTaskService {
 	 * read (removed; response equality pinned by tests).
 	 *
 	 * @param int $roomTaskId The room task ID
-	 * @param \DateTime $nextDue The new due date
+	 * @param string $nextDue The new due date: a house-local `Y-m-d` label
+	 *                        (resolved to house-local midnight, ADR-009) or any
+	 *                        other parseable datetime interpreted as an instant
 	 * @param HouseUser $houseUser The acting user's house membership
 	 */
-	public function updateDueDate(int $roomTaskId, \DateTime $nextDue, HouseUser $houseUser): RoomTask {
+	public function updateDueDate(int $roomTaskId, string $nextDue, HouseUser $houseUser): RoomTask {
 		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
 		$this->assertLifecycleVisibility($roomTask, $this->findTaskOrNotFound($roomTask->getTaskId()), $houseUser);
+		$nextDueDate = $this->parseDueDate(
+			$nextDue,
+			fn (): \DateTimeZone => $this->readService->timeZoneForRoom($roomTask->getRoomId())
+		);
 
-		return $this->transactions->run(function () use ($roomTaskId, $nextDue): RoomTask {
+		return $this->transactions->run(function () use ($roomTaskId, $nextDueDate): RoomTask {
 			$this->roomTaskMapper->lockForUpdate($roomTaskId);
-			$this->roomTaskMapper->updateNextDue($roomTaskId, $nextDue);
+			$this->roomTaskMapper->updateNextDue($roomTaskId, $nextDueDate);
 			return $this->roomTaskMapper->find($roomTaskId);
 		});
+	}
+
+	/**
+	 * Parse a due-date input into the persisted instant (RF-058-01): a bare
+	 * house-local `Y-m-d` label denotes house-local midnight (ADR-009 —
+	 * tagging it at 00:00 UTC/server-TZ would land one local day early for
+	 * houses west of UTC); any other parseable datetime is an absolute or
+	 * relative instant interpreted as-is. The house timezone is resolved
+	 * lazily, only for day-key labels. Unparseable input → 400.
+	 *
+	 * @param \Closure():\DateTimeZone $houseTzResolver Resolves the owning house's timezone
+	 */
+	private function parseDueDate(string $nextDue, \Closure $houseTzResolver): \DateTime {
+		try {
+			if ($this->calendarService->isDayKey($nextDue)) {
+				return $this->calendarService->dayStartInstant($nextDue, $houseTzResolver());
+			}
+			return new \DateTime($nextDue);
+		} catch (\Exception $e) {
+			throw new \InvalidArgumentException($this->l10n->t('Invalid nextDue date format'));
+		}
 	}
 
 	/**

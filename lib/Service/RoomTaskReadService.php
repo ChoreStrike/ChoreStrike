@@ -139,20 +139,62 @@ class RoomTaskReadService {
 			return [];
 		}
 
-		$taskIds = [];
-		$roomIds = [];
-		foreach ($roomTasks as $roomTask) {
-			$taskIds[$roomTask->getTaskId()] = true;
-			$roomIds[$roomTask->getRoomId()] = true;
+		$tasksById = $this->taskMapper->findByIds(array_keys($this->taskIdsOf($roomTasks)));
+		$visibleTasks = $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $tasksById, $viewer);
+		return $this->assembleRows($visibleTasks, $tasksById, $this->roomsByIdOf($roomTasks));
+	}
+
+	/**
+	 * Assemble an ALREADY visibility-filtered room-task set into rows
+	 * (RF-058-10): the due-today/overdue row paths pre-filter through
+	 * {@see visibleRoomTasks()}, so re-running the policy (plus its
+	 * definition/assignee enrichment) would duplicate the batch reads.
+	 *
+	 * @param RoomTask[] $visibleRoomTasks Viewer-visible room tasks
+	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
+	 */
+	private function rowsForVisibleRoomTasks(array $visibleRoomTasks): array {
+		if ($visibleRoomTasks === []) {
+			return [];
 		}
 
-		$tasksById = $this->taskMapper->findByIds(array_keys($taskIds));
-		$roomsById = $this->roomMapper->findByIds(array_keys($roomIds));
+		$tasksById = $this->taskMapper->findByIds(array_keys($this->taskIdsOf($visibleRoomTasks)));
+		return $this->assembleRows($visibleRoomTasks, $tasksById, $this->roomsByIdOf($visibleRoomTasks));
+	}
 
-		$visibleTasks = $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $tasksById, $viewer);
+	/**
+	 * @param RoomTask[] $roomTasks
+	 * @return array<int, bool>
+	 */
+	private function taskIdsOf(array $roomTasks): array {
+		$taskIds = [];
+		foreach ($roomTasks as $roomTask) {
+			$taskIds[$roomTask->getTaskId()] = true;
+		}
+		return $taskIds;
+	}
 
+	/**
+	 * @param RoomTask[] $roomTasks
+	 * @return array<int, Room>
+	 */
+	private function roomsByIdOf(array $roomTasks): array {
+		$roomIds = [];
+		foreach ($roomTasks as $roomTask) {
+			$roomIds[$roomTask->getRoomId()] = true;
+		}
+		return $this->roomMapper->findByIds(array_keys($roomIds));
+	}
+
+	/**
+	 * @param RoomTask[] $roomTasks
+	 * @param array<int, Task> $tasksById
+	 * @param array<int, Room> $roomsById
+	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
+	 */
+	private function assembleRows(array $roomTasks, array $tasksById, array $roomsById): array {
 		$rows = [];
-		foreach ($visibleTasks as $roomTask) {
+		foreach ($roomTasks as $roomTask) {
 			$task = $tasksById[$roomTask->getTaskId()] ?? null;
 			$room = $roomsById[$roomTask->getRoomId()] ?? null;
 			if ($task === null || $room === null) {
@@ -267,7 +309,7 @@ class RoomTaskReadService {
 	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
 	 */
 	public function getDueTodayTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		return $this->rowsForRoomTasks($this->getDueTodayTasks($houseId, $viewer, $roomId), $viewer);
+		return $this->rowsForVisibleRoomTasks($this->getDueTodayTasks($houseId, $viewer, $roomId));
 	}
 
 	/**
@@ -278,7 +320,7 @@ class RoomTaskReadService {
 	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
 	 */
 	public function getOverdueTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		return $this->rowsForRoomTasks($this->getOverdueTasks($houseId, $viewer, $roomId), $viewer);
+		return $this->rowsForVisibleRoomTasks($this->getOverdueTasks($houseId, $viewer, $roomId));
 	}
 
 	/**
@@ -353,7 +395,11 @@ class RoomTaskReadService {
 	 * slots. Ordering is the canonical `nextDue, createdAt, id` (mapper
 	 * guarantee), and non-child users receive all visible daily tasks.
 	 *
-	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}> Filtered tasks with details
+	 * RF-058-11: every returned row carries its canonical `assignees` set
+	 * from ONE batched read (shared with the child eligibility filter), so
+	 * the consuming endpoint never issues a second assignee query.
+	 *
+	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room, assignees: string[]}> Filtered tasks with details
 	 */
 	public function getFilteredDailyTasksForUser(
 		int $houseId,
@@ -366,11 +412,12 @@ class RoomTaskReadService {
 
 		// Non-child users see all (visible) tasks.
 		if (!$viewer->isChild()) {
-			return $allTasks;
+			return $this->withAssignees($allTasks);
 		}
 
 		// Eligibility first (D4): assigned to the viewer OR unassigned.
-		// One batched assignee read for the whole daily set (no N+1).
+		// The single batched assignee read serves eligibility AND the
+		// returned rows (RF-058-11 — no duplicate assignee query).
 		$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
 			array_map(static fn (array $item): int => $item['roomTask']->getId(), $allTasks)
 		);
@@ -399,11 +446,34 @@ class RoomTaskReadService {
 
 		// A finite owner-set limit truncates AFTER eligibility (decision
 		// D5); a missing or non-finite value means unlimited.
-		if (!is_int($maxDailyTasks)) {
-			return $eligible;
+		if (is_int($maxDailyTasks)) {
+			$eligible = array_slice($eligible, 0, $maxDailyTasks);
 		}
 
-		return array_slice($eligible, 0, $maxDailyTasks);
+		return $this->withAssignees($eligible, $assigneesByRoomTask);
+	}
+
+	/**
+	 * Decorate execution rows with their canonical assignee sets (one
+	 * batched read when no map is supplied — RF-058-11).
+	 *
+	 * @param array<int, array{roomTask: RoomTask, task: Task, room: Room}> $rows
+	 * @param array<int, string[]>|null $assigneesByRoomTask Pre-fetched map (reuse without a second query)
+	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room, assignees: string[]}>
+	 */
+	private function withAssignees(array $rows, ?array $assigneesByRoomTask = null): array {
+		if ($rows === []) {
+			return [];
+		}
+		if ($assigneesByRoomTask === null) {
+			$assigneesByRoomTask = $this->taskAssigneeMapper->findUserIdsByRoomTasks(
+				array_map(static fn (array $item): int => $item['roomTask']->getId(), $rows)
+			);
+		}
+		foreach ($rows as $index => $item) {
+			$rows[$index]['assignees'] = $assigneesByRoomTask[$item['roomTask']->getId()] ?? [];
+		}
+		return $rows;
 	}
 
 	/**

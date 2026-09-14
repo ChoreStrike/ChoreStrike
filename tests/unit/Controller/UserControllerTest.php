@@ -12,16 +12,14 @@ namespace OCA\ChoreStrike\Tests\Unit\Controller;
 use OCA\ChoreStrike\Controller\UserController;
 use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TitleService;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUser;
-use OCP\IUserManager;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -29,9 +27,7 @@ use PHPUnit\Framework\TestCase;
  */
 class UserControllerTest extends TestCase {
 	private UserController $controller;
-	private $houseUserMapper;
 	private $houseService;
-	private $userManager;
 	private $authService;
 	private $request;
 	private $titleService;
@@ -41,9 +37,7 @@ class UserControllerTest extends TestCase {
 		parent::setUp();
 
 		$this->request = $this->createMock(IRequest::class);
-		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
 		$this->houseService = $this->createMock(HouseService::class);
-		$this->userManager = $this->createMock(IUserManager::class);
 		$this->authService = $this->createMock(AuthorizationService::class);
 		$this->titleService = $this->createMock(TitleService::class);
 		$this->titleService->method('getCurrentTitle')->willReturn(null);
@@ -56,13 +50,14 @@ class UserControllerTest extends TestCase {
 		$this->l10n->method('t')
 			->willReturnCallback(static fn (string $text): string => $text);
 
+		// RF-058-04: the controller owns no mapper access — membership
+		// persistence and scoped lookups live in HouseService.
 		$this->controller = new UserController(
 			$this->request,
-			$this->houseUserMapper,
 			$this->houseService,
-			$this->userManager,
 			$this->authService,
 			$this->titleService,
+			$this->createMock(AppLogger::class),
 			$this->l10n
 		);
 	}
@@ -111,8 +106,8 @@ class UserControllerTest extends TestCase {
 			->method('assertHouseMember')
 			->with(1);
 
-		$this->houseUserMapper->expects($this->once())
-			->method('findByHouseId')
+		$this->houseService->expects($this->once())
+			->method('getHouseMembers')
 			->with(1)
 			->willReturn([$user1, $user2]);
 
@@ -222,10 +217,11 @@ class UserControllerTest extends TestCase {
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
 
-		$this->userManager->expects($this->once())
-			->method('getByEmail')
-			->with('nonexistent@example.com')
-			->willReturn([]);
+		// RF-058-04: the email lookup + membership write live in the service.
+		$this->houseService->expects($this->once())
+			->method('inviteMember')
+			->with(1, 'nonexistent@example.com', 'member')
+			->willThrowException(new NotFoundException('No Nextcloud user found with this email address'));
 
 		$response = $this->controller->invite('nonexistent@example.com');
 
@@ -244,14 +240,6 @@ class UserControllerTest extends TestCase {
 		$house = new House();
 		$house->setId(1);
 
-		$ncUser = $this->createMock(IUser::class);
-		$ncUser->expects($this->once())
-			->method('getUID')
-			->willReturn('user1');
-		$ncUser->expects($this->once())
-			->method('getDisplayName')
-			->willReturn('Test User');
-
 		$houseUser = new HouseUser();
 		$houseUser->setId(1);
 		$houseUser->setHouseId(1);
@@ -259,11 +247,6 @@ class UserControllerTest extends TestCase {
 		$houseUser->setDisplayName('Test User');
 		$houseUser->setRole('member');
 		$houseUser->setJoinedAt(new \DateTime('2026-03-01T08:00:00Z'));
-
-		$this->userManager->expects($this->once())
-			->method('getByEmail')
-			->with('test@example.com')
-			->willReturn([$ncUser]);
 
 		$this->houseService->expects($this->once())
 			->method('getInstanceId')
@@ -278,9 +261,9 @@ class UserControllerTest extends TestCase {
 			->method('requireHouseOwner')
 			->with(1);
 
-		$this->houseUserMapper->expects($this->once())
-			->method('createOrGet')
-			->with(1, 'user1', 'Test User', 'member')
+		$this->houseService->expects($this->once())
+			->method('inviteMember')
+			->with(1, 'test@example.com', 'member')
 			->willReturn($houseUser);
 
 		$response = $this->controller->invite('test@example.com', 'member');
@@ -307,9 +290,9 @@ class UserControllerTest extends TestCase {
 		$member->setNextcloudUserId('member1');
 		$member->setRole('member');
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(7)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(7, 3)
 			->willReturn($member);
 
 		$this->authService->expects($this->once())
@@ -319,8 +302,6 @@ class UserControllerTest extends TestCase {
 		$this->houseService->expects($this->once())
 			->method('removeHouseMember')
 			->with(7);
-
-		$this->houseUserMapper->expects($this->never())->method('delete');
 
 		$response = $this->controller->remove(7);
 
@@ -344,9 +325,9 @@ class UserControllerTest extends TestCase {
 		$owner->setNextcloudUserId('owner1');
 		$owner->setRole('owner');
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(7)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(7, 3)
 			->willReturn($owner);
 
 		$this->authService->expects($this->once())
@@ -380,9 +361,9 @@ class UserControllerTest extends TestCase {
 		$member->setHouseId(3);
 		$member->setRole('member');
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(7)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(7, 3)
 			->willReturn($member);
 
 		$this->authService->expects($this->once())
@@ -403,17 +384,19 @@ class UserControllerTest extends TestCase {
 
 	/**
 	 * Test DELETE /users/{id} returns 404 for an unknown target (same
-	 * shape as update()/titles()). The scoped lookup catches the mapper's
-	 * DoesNotExistException itself (CS-PLAN-061 §3.1) and maps it — and a
-	 * foreign-house id — to the USER_NOT_FOUND envelope.
+	 * shape as update()/titles()). The service-scoped lookup
+	 * (RF-058-04) maps both a nonexistent and a foreign-house id to the
+	 * USER_NOT_FOUND envelope.
 	 */
 	public function testRemove_UnknownUser_Returns404(): void {
 		$this->expectInstanceHouse(3);
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(999)
-			->willThrowException(new DoesNotExistException('not found'));
+		// The scoped lookup lives in the service (RF-058-04): a miss is
+		// simply null.
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(999, 3)
+			->willReturn(null);
 
 		$response = $this->controller->remove(999);
 
@@ -437,10 +420,12 @@ class UserControllerTest extends TestCase {
 		$foreigner->setHouseId(99);
 		$foreigner->setNextcloudUserId('outsider');
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(8)
-			->willReturn($foreigner);
+		// Foreign-house ids resolve to null inside the service-scoped
+		// lookup (RF-058-04) — the owner gate is never reached.
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(8, 3)
+			->willReturn(null);
 
 		$this->authService->expects($this->never())->method('requireHouseOwner');
 		$this->houseService->expects($this->never())->method('removeHouseMember');
@@ -474,9 +459,9 @@ class UserControllerTest extends TestCase {
 
 		$member = $this->houseUserForUpdateRole(7, 'member1', 'member');
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(7)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(7, 3)
 			->willReturn($member);
 
 		$this->authService->expects($this->once())
@@ -492,8 +477,6 @@ class UserControllerTest extends TestCase {
 			->method('updateUserRole')
 			->with(7, 'child', 'owner1')
 			->willReturn($updated);
-
-		$this->houseUserMapper->expects($this->never())->method('update');
 
 		$response = $this->controller->updateRole(7, 'child');
 
@@ -513,9 +496,9 @@ class UserControllerTest extends TestCase {
 
 		$member = $this->houseUserForUpdateRole(7, 'member1', 'member');
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(7)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(7, 3)
 			->willReturn($member);
 
 		$this->authService->expects($this->once())
@@ -549,9 +532,9 @@ class UserControllerTest extends TestCase {
 
 		$owner = $this->houseUserForUpdateRole(7, 'owner1', 'owner');
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(7)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(7, 3)
 			->willReturn($owner);
 
 		$this->authService->expects($this->once())
@@ -585,9 +568,9 @@ class UserControllerTest extends TestCase {
 
 		$owner = $this->houseUserForUpdateRole(7, 'owner1', 'owner');
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(7)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(7, 3)
 			->willReturn($owner);
 
 		$this->authService->expects($this->once())
@@ -621,9 +604,9 @@ class UserControllerTest extends TestCase {
 
 		$member = $this->houseUserForUpdateRole(7, 'member1', 'member');
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(7)
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(7, 3)
 			->willReturn($member);
 
 		$this->authService->expects($this->once())
@@ -648,10 +631,10 @@ class UserControllerTest extends TestCase {
 	public function testUpdateRole_UnknownUser_Returns404(): void {
 		$this->expectInstanceHouse(3);
 
-		$this->houseUserMapper->expects($this->once())
-			->method('find')
-			->with(999)
-			->willThrowException(new DoesNotExistException('not found'));
+		$this->houseService->expects($this->once())
+			->method('findHouseUserScopedToHouse')
+			->with(999, 3)
+			->willReturn(null);
 
 		$this->houseService->expects($this->never())->method('updateUserRole');
 

@@ -52,7 +52,7 @@ class TitleServiceIntegrationTest extends IntegrationTestCase {
 	public function testSelectPack_PersistsAndGetCurrentTitleReadsLiveStats(): void {
 		$user = $this->memberWithStats(1500, 1, 0);
 
-		$this->titleService->selectPack($user, 'home_helpers');
+		$this->titleService->selectPack($user, $user, 'home_helpers');
 
 		$reloaded = $this->houseUserMapper->find($user->getId());
 		$this->assertSame('home_helpers', $reloaded->getSelectedTitlePack());

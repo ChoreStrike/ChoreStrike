@@ -255,4 +255,48 @@ class CalendarServiceTest extends TestCase {
 		self::assertSame('2026-08-23 12:00:00', $weekStart->format('Y-m-d H:i:s'));
 		self::assertSame('2026-08-24', $this->service->dayKey($weekStart, $tz));
 	}
+
+	public function testIsDayKey_AcceptsOnlyBareLabels(): void {
+		self::assertTrue($this->service->isDayKey('2026-09-14'));
+		self::assertTrue($this->service->isDayKey('2030-01-01'));
+		self::assertFalse($this->service->isDayKey('2026-09-14T00:00:00Z'));
+		self::assertFalse($this->service->isDayKey('2026-09-14 00:00:00'));
+		self::assertFalse($this->service->isDayKey('+3 days'));
+		self::assertFalse($this->service->isDayKey(''));
+		self::assertFalse($this->service->isDayKey('2026-9-14'));
+	}
+
+	public function testDayStartInstant_UTC_IsLabelMidnight(): void {
+		$instant = $this->service->dayStartInstant('2030-05-10', new \DateTimeZone('UTC'));
+		self::assertSame('2030-05-10 00:00:00', $instant->format('Y-m-d H:i:s'));
+		self::assertSame('UTC', $instant->getTimezone()->getName());
+	}
+
+	public function testDayStartInstant_EastOfUTC_ResolvesLocalMidnightAsEarlierUTCInstant(): void {
+		// Berlin summer (CEST, UTC+2): local midnight of 2030-05-10 is
+		// 2030-05-09 22:00 UTC.
+		$instant = $this->service->dayStartInstant('2030-05-10', new \DateTimeZone('Europe/Berlin'));
+		self::assertSame('2030-05-09 22:00:00', $instant->format('Y-m-d H:i:s'));
+	}
+
+	public function testDayStartInstant_WestOfUTC_ResolvesLocalMidnightAsLaterUTCInstant(): void {
+		// RF-058-01: Pacific/Honolulu (UTC-10, no DST): local midnight of
+		// 2030-05-10 is 2030-05-10 10:00 UTC — tagging the label at 00:00
+		// UTC would land it on the previous local day.
+		$instant = $this->service->dayStartInstant('2030-05-10', new \DateTimeZone('Pacific/Honolulu'));
+		self::assertSame('2030-05-10 10:00:00', $instant->format('Y-m-d H:i:s'));
+		self::assertSame('2030-05-10', $this->service->dayKey($instant, new \DateTimeZone('Pacific/Honolulu')));
+	}
+
+	public function testDayStartInstant_DSTBoundary_ResolvesCorrectLocalMidnight(): void {
+		// Berlin mid-summer (CEST, UTC+2): local midnight of 2030-07-15 is
+		// 2030-07-14 22:00 UTC — the DST offset, not standard time.
+		$instant = $this->service->dayStartInstant('2030-07-15', new \DateTimeZone('Europe/Berlin'));
+		self::assertSame('2030-07-14 22:00:00', $instant->format('Y-m-d H:i:s'));
+	}
+
+	public function testDayStartInstant_InvalidLabel_Throws(): void {
+		$this->expectException(\InvalidArgumentException::class);
+		$this->service->dayStartInstant('2030-02-30', new \DateTimeZone('UTC'));
+	}
 }

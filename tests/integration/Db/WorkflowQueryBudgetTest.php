@@ -152,7 +152,7 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		$viewer = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, $ownerId);
 
 		$service = \OC::$server->get(RoomTaskService::class);
-		$newDue = new \DateTime('+3 days');
+		$newDue = '+3 days';
 
 		$counter = QueryCounter::attach($this->db);
 		try {
@@ -165,8 +165,9 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		}
 
 		// Response state equality: the returned entity carries the new date.
+		$expectedDue = (new \DateTime('+3 days'))->format('Y-m-d H:i:s');
 		self::assertSame(
-			$newDue->format('Y-m-d H:i:s'),
+			$expectedDue,
 			$response->getNextDue()?->format('Y-m-d H:i:s'),
 			'the in-transaction response must carry the new due date'
 		);

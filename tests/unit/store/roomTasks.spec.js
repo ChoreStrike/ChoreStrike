@@ -296,6 +296,37 @@ describe('RoomTasks Store', () => {
 			})
 		})
 
+		describe('updateRoomTaskDueDate (RF-058-09)', () => {
+			it('preserves cached assignees when the response omits them', async () => {
+				store.roomTasks = [{
+					id: 7,
+					nextDue: '2030-05-09T00:00:00Z',
+					assignees: ['user1', 'user2'],
+				}]
+				// The due-date response is the serialized entity only — no
+				// `assignees` key.
+				api.put.mockResolvedValue({ id: 7, nextDue: '2030-05-10T00:00:00Z' })
+
+				await store.updateRoomTaskDueDate(7, '2030-05-10')
+
+				expect(api.put).toHaveBeenCalledWith(
+					'/api/v1/room-tasks/7/due-date',
+					{ nextDue: '2030-05-10' },
+				)
+				expect(store.roomTasks[0].nextDue).toBe('2030-05-10T00:00:00Z')
+				expect(store.roomTasks[0].assignees).toEqual(['user1', 'user2'])
+			})
+
+			it('adopts response assignees when the payload carries them', async () => {
+				store.roomTasks = [{ id: 7, assignees: ['user1'] }]
+				api.put.mockResolvedValue({ id: 7, assignees: ['user2'] })
+
+				await store.updateRoomTaskDueDate(7, '2030-05-10')
+
+				expect(store.roomTasks[0].assignees).toEqual(['user2'])
+			})
+		})
+
 		describe('completeRoomTask', () => {
 			it('completes task', async () => {
 				store.roomTasks = [{ id: 1, isActive: true }]

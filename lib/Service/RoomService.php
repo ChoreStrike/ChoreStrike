@@ -204,10 +204,17 @@ class RoomService {
 	 * aggregate (CS-PLAN-064 WP5). This unlocked read-modify-write remains
 	 * only for the manual endpoint (CR-SVC-63 tracks its race surface).
 	 *
+	 * House-scoping is validated service-side (RF-058-06): the caller
+	 * supplies the acting house id and the room→floor→house chain is
+	 * re-checked here, so a direct service caller cannot mutate a foreign
+	 * house's room.
+	 *
 	 * @param int $roomId The room ID
+	 * @param int $houseId The acting user's house ID
 	 * @param int $cleanlinessChange The change in cleanliness (-100 to 100)
 	 */
-	public function updateRoomCleanliness(int $roomId, int $cleanlinessChange): Room {
+	public function updateRoomCleanliness(int $roomId, int $houseId, int $cleanlinessChange): Room {
+		$this->validateRoomOwnership($roomId, $houseId);
 		$room = $this->roomMapper->find($roomId);
 		$room->updateCleanliness($cleanlinessChange);
 		return $this->roomMapper->update($room);

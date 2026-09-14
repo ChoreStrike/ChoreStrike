@@ -9,45 +9,47 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Controller;
 
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Exception\NotFoundException;
+use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\AuthorizationService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\TitleService;
 use OCP\AppFramework\Controller;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserManager;
 
 /**
  * API controller for user management
+ *
+ * Thin endpoint (RF-058-04): all membership persistence (invite write,
+ * scoped member lookups, member list) lives in HouseService — the
+ * controller validates input, runs the authorization gates and shapes
+ * responses.
  */
 class UserController extends Controller {
-	private HouseUserMapper $houseUserMapper;
+	use ControllerLoggingTrait;
+
 	private HouseService $houseService;
-	private IUserManager $userManager;
 	private AuthorizationService $authService;
 	private TitleService $titleService;
 	private IL10N $l;
 
 	public function __construct(
 		IRequest $request,
-		HouseUserMapper $houseUserMapper,
 		HouseService $houseService,
-		IUserManager $userManager,
 		AuthorizationService $authService,
 		TitleService $titleService,
+		AppLogger $appLogger,
 		IL10N $l,
 	) {
 		parent::__construct('chorestrike', $request);
-		$this->houseUserMapper = $houseUserMapper;
 		$this->houseService = $houseService;
-		$this->userManager = $userManager;
 		$this->authService = $authService;
 		$this->titleService = $titleService;
+		$this->initializeControllerLogger($appLogger);
 		$this->l = $l;
 	}
 
@@ -62,23 +64,6 @@ class UserController extends Controller {
 	}
 
 	/**
-	 * Look a house-user id up scoped to the caller's house.
-	 *
-	 * A nonexistent id and a foreign-house id both yield null (→ 404), so
-	 * the endpoint cannot be used to enumerate which global house_user ids
-	 * exist (CS-PLAN-061 §3.1).
-	 */
-	private function findHouseUserScopedToHouse(int $id, int $houseId): ?HouseUser {
-		try {
-			$houseUser = $this->houseUserMapper->find($id);
-		} catch (DoesNotExistException $e) {
-			return null;
-		}
-
-		return $houseUser->getHouseId() === $houseId ? $houseUser : null;
-	}
-
-	/**
 	 * Get all users in the house
 	 *
 	 * @NoAdminRequired
@@ -89,7 +74,7 @@ class UserController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->assertHouseMember($house->getId());
 
-			$users = $this->houseUserMapper->findByHouseId($house->getId());
+			$users = $this->houseService->getHouseMembers($house->getId());
 
 			return new JSONResponse([
 				'success' => true,
@@ -98,6 +83,7 @@ class UserController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('index', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -129,6 +115,7 @@ class UserController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('current', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -141,6 +128,9 @@ class UserController extends Controller {
 
 	/**
 	 * Invite a user to the house by email address.
+	 *
+	 * Thin endpoint (RF-058-04): the gates run here, the email lookup and
+	 * membership write live in HouseService::inviteMember.
 	 *
 	 * @NoAdminRequired
 	 * @param string $email Email address of the user to invite.
@@ -180,36 +170,25 @@ class UserController extends Controller {
 			// Authorization gates run BEFORE the email lookup (CS-PLAN-061
 			// review fix): a non-owner must not be able to probe which
 			// Nextcloud accounts exist for a given email (404 vs 403 oracle).
-			$ncUsers = $this->userManager->getByEmail($trimmedEmail);
-			if (empty($ncUsers)) {
-				return new JSONResponse([
-					'success' => false,
-					'error' => [
-						'code' => 'USER_NOT_FOUND',
-						'message' => $this->l->t('No Nextcloud user found with this email address')
-					]
-				], 404);
-			}
-
-			// Use the first matching user if multiple accounts share the same email
-			$ncUser = $ncUsers[0];
-			$nextcloudUserId = $ncUser->getUID();
-
-			$houseUser = $this->houseUserMapper->createOrGet(
-				$house->getId(),
-				$nextcloudUserId,
-				$ncUser->getDisplayName(),
-				$role
-			);
+			$houseUser = $this->houseService->inviteMember($house->getId(), $trimmedEmail, $role);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => $houseUser->jsonSerialize(),
 				'message' => $this->l->t('User invited to house')
 			]);
+		} catch (NotFoundException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => [
+					'code' => 'USER_NOT_FOUND',
+					'message' => $e->getMessage()
+				]
+			], 404);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('invite', $e);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -235,7 +214,7 @@ class UserController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->assertHouseMember($house->getId());
 
-			$houseUser = $this->findHouseUserScopedToHouse($id, $house->getId());
+			$houseUser = $this->houseService->findHouseUserScopedToHouse($id, $house->getId());
 			if ($houseUser === null) {
 				return new JSONResponse([
 					'success' => false,
@@ -271,6 +250,7 @@ class UserController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('remove', $e, ['userId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -296,7 +276,7 @@ class UserController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->assertHouseMember($house->getId());
 
-			$houseUser = $this->findHouseUserScopedToHouse($id, $house->getId());
+			$houseUser = $this->houseService->findHouseUserScopedToHouse($id, $house->getId());
 			if ($houseUser === null) {
 				return new JSONResponse([
 					'success' => false,
@@ -348,6 +328,7 @@ class UserController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('updateRole', $e, ['userId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -370,7 +351,7 @@ class UserController extends Controller {
 			$house = $this->houseService->getOrCreateHouse($instanceId);
 			$this->authService->assertHouseMember($house->getId());
 
-			$houseUser = $this->findHouseUserScopedToHouse($id, $house->getId());
+			$houseUser = $this->houseService->findHouseUserScopedToHouse($id, $house->getId());
 			if ($houseUser === null) {
 				return new JSONResponse([
 					'success' => false,
@@ -393,6 +374,7 @@ class UserController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('titles', $e, ['userId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [
@@ -425,7 +407,7 @@ class UserController extends Controller {
 			// find-before-gate order leaked which global house_user ids
 			// exist to non-members (the selectTitle twin of the
 			// remove/updateRole oracle closed in §3.1).
-			$houseUser = $this->findHouseUserScopedToHouse($id, $house->getId());
+			$houseUser = $this->houseService->findHouseUserScopedToHouse($id, $house->getId());
 			if ($houseUser === null) {
 				return new JSONResponse([
 					'success' => false,
@@ -448,7 +430,7 @@ class UserController extends Controller {
 				], 403);
 			}
 
-			$this->titleService->selectPack($houseUser, $pack);
+			$this->titleService->selectPack($houseUser, $currentHouseUser, $pack);
 
 			return new JSONResponse([
 				'success' => true,
@@ -468,6 +450,7 @@ class UserController extends Controller {
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (\Exception $e) {
+			$this->logControllerException('selectTitle', $e, ['userId' => $id]);
 			return new JSONResponse([
 				'success' => false,
 				'error' => [

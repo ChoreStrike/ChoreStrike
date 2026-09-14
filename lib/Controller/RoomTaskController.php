@@ -429,13 +429,7 @@ class RoomTaskController extends Controller {
 			$houseUser = $this->authService->assertHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
-			try {
-				$nextDueDate = new \DateTime($nextDue);
-			} catch (\Exception $e) {
-				throw new \InvalidArgumentException($this->l->t('Invalid nextDue date format'));
-			}
-
-			$roomTask = $this->roomTaskService->updateDueDate($id, $nextDueDate, $houseUser);
+			$roomTask = $this->roomTaskService->updateDueDate($id, $nextDue, $houseUser);
 
 			return new JSONResponse([
 				'success' => true,
@@ -912,21 +906,17 @@ class RoomTaskController extends Controller {
 			$tz = $this->timeZoneOf($house);
 
 			// CS-PLAN-065 (decision D4): the rows carry their canonical
-			// assignee sets so My Day never re-interprets an unknown set as
-			// unassigned after the child limit truncated the list.
-			$roomTasks = array_map(static fn (array $item) => $item['roomTask'], $filteredTasks);
-			$assigneesByTask = $this->roomTaskReadService->assigneesByRoomTasks($roomTasks);
-
+			// assignee sets (service-side batched read, RF-058-11) so My Day
+			// never re-interprets an unknown set as unassigned after the
+			// child limit truncated the list.
 			return new JSONResponse([
 				'success' => true,
-				'data' => array_map(function ($item) use ($tz, $assigneesByTask) {
-					return [
-						'roomTask' => $item['roomTask']->jsonSerialize($tz),
-						'task' => $item['task']->jsonSerialize(),
-						'room' => $item['room']->jsonSerialize(),
-						'assignees' => $assigneesByTask[$item['roomTask']->getId()] ?? [],
-					];
-				}, $filteredTasks)
+				'data' => array_map(static fn (array $item): array => [
+					'roomTask' => $item['roomTask']->jsonSerialize($tz),
+					'task' => $item['task']->jsonSerialize(),
+					'room' => $item['room']->jsonSerialize(),
+					'assignees' => $item['assignees'],
+				], $filteredTasks)
 			]);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);

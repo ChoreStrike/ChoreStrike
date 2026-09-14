@@ -1,6 +1,6 @@
 # CS-PLAN-058: Core Workflow Bottom-Up Masterplan
 
-> **Status:** Active (Standard A review passed 2026-09-02; WP0-WP8 complete; WP9 child plan active — Standard A `PASS-WITH-FIXES` 2026-09-13, implementation round delivered, final gate runs + Standard B pending)
+> **Status:** Active (WP0-WP9 complete; WP9 final Standard B `PASS-WITH-FIXES` 2026-09-14; separate final program Full review pending, execution checklist in section 12)
 > **Effort:** XL (program; implemented as sequential reviewable work packages)
 > **Priority:** P1
 > **Depends on:** Core Task Workflow Full Review (2026-09-02) and its recorded user decisions
@@ -480,8 +480,9 @@ without a documented reason.
 
 **Child plan:** [CS-PLAN-068](../done/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
 (Standard A `PASS-WITH-FIXES` 2026-09-13, D1-D7 ratified as recommended;
-implementation round 1 delivered 2026-09-13 — see the plan's §6.1
-Implementation Log; final quality-gate verification and Standard B pending).
+final quality gates and Standard B `PASS-WITH-FIXES` completed 2026-09-14;
+all WP9 findings resolved, child plan in `done/`). The separate final program
+Full review remains pending; see section 12 for its execution checklist.
 The plan credits the existing WP3 empty-house
 profile and WP2-WP8 proofs, and makes the remaining
 test/localization/docs work and final program review explicit.
@@ -589,7 +590,7 @@ This is the expected program manifest. Each work package must narrow it to an
 exact reviewed list before implementation; additions require a plan update.
 
 ```text
-new:      docs/adr/ADR-010-invite-only-house-membership.md
+new:      docs/adr/ADR-010-invite-only-membership-visibility-matrix.md
 new:      docs/adr/ADR-011-transactional-completion-and-undo.md
 new:      docs/adr/ADR-012-actionable-household-scheduling.md
 new:      tests/e2e/core-household-journey.spec.ts (replace/rename gui-scratch-flow.spec.ts)
@@ -808,3 +809,179 @@ review can pass.
   implied by WP3/WP4/WP6.
 - No open findings. Recommended next state remains `active/`; the move remains
   a manual user action per project-rules §7.
+
+**Final Full review — 2026-09-14: PASS-WITH-FIXES (non-visual scope); `done/`
+move deferred solely to the delegated browser-gate pair (D-FR-04).**
+
+- **Baseline:** `master` @ `f270e8e` (tree `7efb993`); only review-owned docs
+  dirty at capture (ACTIVE_TASKS reservation + section 12 preparation). Scope:
+  the whole core workflow domain (15 controllers, 31 services, 25 Db files,
+  26 migrations, 70 routes, 12 stores, 9 views, 54 components, tests, l10n,
+  ADRs 009-012, engineering/API docs).
+- **Process:** FR-01 baseline + Docker reservation; FR-02 evidence expansion
+  (all 34 named evidence anchors verified present, l10n 940/940/940 parity,
+  CR-WF-01..08 all archived, RELEASE-002 conditions mapped); FR-03 four
+  parallel reviewer tracks (all delivered findings; step-limit remainders —
+  reset-test verification, OCC commands, MinigameService whitelist, error
+  formatter, owner-UI gating, store architecture, route consumers, i18n
+  attribute sweep, mapper bounds — closed by the main agent); FR-04
+  cross-package synthesis incl. the RF-058-01 timezone seam traced across
+  backend writers/readers, frontend `dateKeyInZone`, and the night-UTC
+  `journeyClock()` HST window.
+- **User decisions (ratified 2026-09-14):**
+  - **D-FR-01** — fix all 4 major findings in-round with regression tests
+    (incl. western-timezone providers).
+  - **D-FR-02** — fix minors a-f incl. auto-fixes; 4 nits (RF-058-14/15/16/17)
+    explicitly rescoped to the backlog.
+  - **D-FR-03** — archive CR-053-19 (fold-in), CR-SVC-15 (delivered, remainder
+    = documented size-exception inventory), CR-SVC-44 (streak remainder lives
+    in CR-053-11 per D5); move CR-SVC-63 + FEAT-UX-015 out of the program
+    section — the "Core Workflow Program" section closes empty.
+  - **D-FR-04** — this review closes with `PASS-WITH-FIXES`; the plan stays
+    in `active/` until a separate LLM session delivers two consecutive
+    complete retry-free browser-gate passes on the fixed state; a follow-up
+    session then performs the `done/` move (all-gates rule preserved).
+- **Fixes:** RF-058-01..13, 18..22 (see §13) — 18 findings fixed with
+  regression tests; PHP: CalendarService (+2 helpers), SchedulePlanService,
+  RoomTaskService (+parseDueDate), RoomTaskController, TaskCreationService,
+  HouseService (resetHouse gate + 3 membership methods), TaskService,
+  UserController (rewritten thin), SchedulingService, RoomService, TitleService,
+  CompletedTaskMapper, RoomTaskReadService; frontend: roomTasks.js,
+  Leaderboard.vue, TodayView.vue, l10n (941 keys); tests: 21 new PHPUnit +
+  2 new Jest; docs: API README due-date semantics, architecture.md inventory
+  convention + refreshed counts.
+- **Gates (fixed state, non-visual):** PHPUnit unit **941 OK** / integration
+  **361 OK, zero skips, `--fail-on-skipped`**; Jest **1056 OK**; `test:noise`
+  clean; `lint`/`stylelint` clean (scoped fix, no unrelated writes);
+  `build` green; `cs:check` 0 findings; `l10n:check-keys` 941 keys exact
+  EN/DE/POT; `docs:encoding` 725 files clean; `backlog:check` green;
+  `node scripts/run-e2e-gate.js --self-test` green; `git diff --check` clean.
+  **Delegated:** `npm run test:e2e:gate` ×2 (browser pair) on the fixed state
+  by a separate LLM session per user instruction — the only outstanding gate.
+- **Outcome:** all §8 acceptance criteria hold on the fixed tree; no open
+  in-scope findings remain; the rescope set is user-approved and documented.
+  Verdict `PASS-WITH-FIXES` for every non-visual gate; the `active/ → done/`
+  move awaits the delegated browser pair exactly per D-FR-04.
+
+## 12. Final Full Review Execution
+
+**Status:** Executed 2026-09-14 — checklist complete; see §11 for the outcome.
+The browser-gate pair on the fixed state is delegated to a separate session
+(D-FR-04); the `done/` move follows that evidence.
+
+Follow the canonical [review skill](../../standards/ai/skills/review/SKILL.md)
+and [review playbook](../../engineering/review-playbook.md). Earlier child-plan
+reviews and section 8's WP9 evidence map are starting evidence, not substitutes
+for examining the complete current implementation and its cross-package seams.
+
+### 12.1 Execution Checklist
+
+- [x] FR-01 - Capture the review baseline: current branch/HEAD, index state,
+      staged/unstaged changes, exact scope manifest and content fingerprint,
+      including relevant untracked files. Reconcile section 5 with child-plan
+      manifests and implementation history; review the whole core domain, not
+      only the current diff. Check `ACTIVE_TASKS.md` and record review ownership.
+- [x] FR-02 - Expand the section 8 evidence map to cover every individual
+      acceptance checkbox with implementation paths, behavior-bearing tests,
+      durable documentation, evidence source state and any missing proof.
+      Preserve existing approved scope exclusions; do not check criteria merely
+      because a child review passed.
+- [x] FR-03 - Complete all four read-only reviewer tracks below in parallel
+      after preparatory inventory lookups. Give each reviewer the same baseline,
+      explicit file scope, acceptance mapping and canonical findings format.
+      Validate all four deliverables; a missing or failed track blocks a verdict.
+- [x] FR-04 - Perform main-agent cross-package synthesis and journey tracing:
+      fresh owner/setup -> invitations/roles -> custom/template task creation
+      and assignment -> schedule preview/apply -> Calendar/child My Day ->
+      completion -> full undo/reload. Check rollback, removal/role changes,
+      private/admin visibility, stale requests, retries/concurrency, house-local
+      dates, post-commit failure and client reconciliation at the seams. Retain
+      desktop/mobile, keyboard/screen-reader and EN/DE acceptance evidence;
+      the long journey does not replace focused negative-path tests.
+- [x] FR-05 - Consolidate and deduplicate findings into section 13; verify them
+      against the captured source. Apply only canonical safe fixes directly.
+      Batch required behavior/security/architecture decisions for explicit user
+      approval, record answers, and add regression tests for approved bug fixes.
+      Resolve in-scope findings before closure; route only genuinely out-of-scope
+      work to existing/new backlog owners under the scope-first rules.
+- [x] FR-06 - Run the full final quality gate after the last implementation fix
+      (non-visual scope; the browser pair is delegated per D-FR-04 — see §11
+      for exact results and the reconciliation with WP9 §4.3).
+- [x] FR-07 - Verify durable-doc integration and every section 8 criterion;
+      resolve all findings/questions and record the final Full review outcome
+      in section 11 and the dated review record. The `active/ → done/` move is
+      deferred to the delegated browser-gate evidence exactly per D-FR-04.
+
+### 12.2 Parallel Review Tracks
+
+| Track | Program-specific focus |
+|-------|------------------------|
+| Correctness & Functionality | Aggregate atomicity, completion/undo state equality, recurrence/calendar boundaries, client state, role-specific UX and meaningful test assertions |
+| Architecture & Ownership | Controller/service/mapper boundaries, transaction and lock ownership, canonical representations, store dependencies, reuse and documented size exceptions |
+| Security, Auth & Data-Flow | First-owner/invite-only model, membership removal, owner/private/admin policies, input validation, identity flow, safe errors/logging and test-mode boundary |
+| Performance & Code Quality | Frozen query/request budgets, N+1/fan-out regressions, standards, logging/i18n coverage and maintainability |
+
+Reviewers do not edit files, reset databases or run seed-mutating suites.
+The main agent owns synthesis, all writes, decisions and gate execution.
+Reserve the disposable Docker environment in `ACTIVE_TASKS.md` before using it;
+run resets, database-mutating suites and browser profiles sequentially through
+one owner. Do not allow another session's seed/reset to invalidate a live run.
+
+### 12.3 Checkpoints and Closure Boundaries
+
+- At each checkpoint or session handoff, record the baseline fingerprint,
+  completed checklist steps/tracks and reviewed paths, evidence/report locations,
+  open finding IDs and decisions, next action and test-environment reservation
+  in the dated review record; keep `ACTIVE_TASKS.md` concise and current.
+- On resume, compare the current source with the recorded baseline. Explicitly
+  reconcile changes and repeat affected review tracks/tests; do not silently
+  combine evidence from incompatible source states. Concurrent changes that
+  invalidate the review block finalization until reconciled.
+- Keep exploitable unremediated security details only in `/private/` under the
+  canonical disclosure rules; they block finalization and must not enter public
+  plan/review records without the required sanitized disclosure approval.
+- Program closure satisfies only RELEASE-002's program prerequisite. Independent
+  security/release obligations, deployment, tagging and stable artifacts remain
+  separate. Do not reopen explicitly deferred add-ons as implicit program work.
+
+## 13. Review Findings
+
+Final Full review 2026-09-14 (baseline `master` @ `f270e8e`, tree `7efb993`).
+All four reviewer tracks delivered; the main agent closed their step-limit
+remainders and verified every finding against source before acting. Decisions
+D-FR-01..D-FR-04 were ratified by the user before fixing (see §11).
+
+| ID | Sev | Area | Issue | Status |
+|----|-----|------|-------|--------|
+| RF-058-01 | major | Correctness | House-local day-label vs instant seam: three writers tagged `Y-m-d` labels at 00:00 UTC/server-TZ (`SchedulePlanService:226` apply, `RoomTaskController:433` due-date, `TaskCreationService:238` create) while all readers bucket by house-TZ instants — due dates land one local day early for houses west of UTC (journeyClock picks Pacific/Honolulu for night-UTC runs) | **Fixed** — `CalendarService::dayStartInstant()/isDayKey()` added; all three writers resolve labels to house-local midnight (lazy tz resolver, dual-parse keeps relative/ISO inputs); regression tests (CalendarServiceTest UTC/east/west/DST, RoomTaskServiceTest HST label, budget/aggregate suites); API docs updated |
+| RF-058-02 | major | Security | `HouseService::resetHouse()` had no service-side `requireHouseOwner` (controller-only gate; `updateHouse` enforces it in-service) | **Fixed** — service-side gate + HouseServiceTest negative/positive regression |
+| RF-058-03 | major | Security | `TaskService::updateTask()` admin-only `visibilityType` owner gate only in the controller (creation gates in-service) | **Fixed** — service-side set/unset gates (403, taskTier-style) + 3 unit regressions |
+| RF-058-04 | major | Architecture | `UserController::invite()` persisted through `HouseUserMapper` directly; hand-rolled scoped lookup; mapper reads in controller | **Fixed** — `HouseService::inviteMember()/findHouseUserScopedToHouse()/getHouseMembers()`; controller is thin (gates + delegation), USER_NOT_FOUND/403/404 contracts pinned by tests |
+| RF-058-05 | minor | Security | `SchedulingService` owner-only paths (`getMemberAvailability`, `updateMemberAvailabilityByNextcloudUserId`) gated controller-only | **Fixed** — service-side `requireHouseOwner` + unit/integration regressions |
+| RF-058-06 | minor | Security | `RoomService::updateRoomCleanliness()` no service-side room→floor→house chain validation | **Fixed** — chain re-validated in-service (`validateRoomOwnership`) + positive/negative unit regressions |
+| RF-058-07 | minor | Security | `TitleService::selectPack()` no actor gate (controller-only owner-or-self) | **Fixed** — `selectPack($target, $actor, $pack)` owner-or-self in-service + 4 unit regressions |
+| RF-058-08 | minor | Architecture | `UserController` had no `ControllerLoggingTrait` — catch-alls returned silent unlogged 500s | **Fixed** — trait adopted; every catch-all logs via `logControllerException` |
+| RF-058-09 | minor | Frontend | `updateRoomTaskDueDate` store action replaced the cached instance wholesale; response lacks `assignees` → chips/My Day "mine" filtering degrade until refetch | **Fixed** — cache merge preserves assignees when the response omits them + 2 Jest regressions |
+| RF-058-10 | minor | Performance | Due-today/overdue row paths ran the visibility filter twice (duplicate definition+assignee batches) | **Fixed** — `rowsForVisibleRoomTasks()` assemble-only path for pre-filtered inputs |
+| RF-058-11 | minor | Performance | `filteredDaily` issued the identical batched assignee query twice (service eligibility + controller serialization) | **Fixed** — rows carry canonical `assignees` from one shared batched read; controller consumes them |
+| RF-058-12 | minor | i18n | Hardcoded user-visible unit `pts` in Leaderboard.vue | **Fixed** — `t('chorestrike', 'pts')` + l10n artifacts (941 keys, EN/DE/POT parity, real DE copy "Pkt.") |
+| RF-058-13 | nit | Correctness | `findNewestRevertibleByRoomTask` had no `id DESC` same-second tie-break (nondeterministic undo pick) | **Fixed** — tie-break added (mapper read-order convention) |
+| RF-058-14 | nit | Performance | `SchedulePlanService::apply` O(n²) `findRowById` scans (≤100 items, no queries) | **Rescoped to backlog** (user, D-FR-02) — `CR-PERF-01` |
+| RF-058-15 | nit | Security | `removeHouseMember`/`updateUserRole` rely on documented caller-gates-owner contract (pattern divergence) | **Rescoped to backlog** (user, D-FR-02) — `CR-SEC-05` |
+| RF-058-16 | nit | UX | SetupWizard silently drops the basement when `floorCount=6` (cap edge; checkbox stays checked, no effect) | **Rescoped to backlog** (user, D-FR-02) — `FEAT-UX-030` |
+| RF-058-17 | nit | Correctness | Midnight-crossing preview→apply answers 400 "startDate must be today or later" instead of 409 stale-preview | **Rescoped to backlog** (user, D-FR-02) — `CR-SVC-64` |
+| RF-058-18 | nit | Code hygiene | Stale `TODO` (pre-ADR-010 design speculation) on TaskMapper private-visibility branch | **Fixed** — rewritten as ADR-010 D2 rationale (decision recorded, oversight mode rejected) |
+| RF-058-19 | nit | Frontend | Dead `uncompletedHandler` data property in TodayView.vue | **Fixed** — removed (behavior-neutral) |
+| RF-058-20 | nit | E2E hygiene | Debug `console.log` leftovers in 3-floor-house.spec.ts (failure-path diagnostics in fast-core-tests/fixtures deliberately kept) | **Fixed** — removed incl. orphaned variables |
+| RF-058-21 | minor | Docs | Size-exception inventory labeled its counts "physical lines" but measured non-blank lines (8 files would lack entries under true physical counting) | **Fixed** — convention stated explicitly (non-blank), counts re-measured for all files changed by this review |
+| RF-058-22 | nit | Docs | Section 5 manifest referenced ADR-010 under a stale filename | **Fixed** — corrected to `ADR-010-invite-only-membership-visibility-matrix.md` |
+
+No `block` findings. All major findings fixed in-round with regression tests;
+the four nits rescoped to the backlog were explicitly user-approved (D-FR-02)
+and live in `docs/backlog/backlog.md` with `Source: Review of CS-PLAN-058
+(final Full review)`. Verified clean (no findings): annotations/CSRF scope,
+bootstrap, TaskAccessPolicy matrix, completion/undo aggregates and lock orders
+(ADR-011/012), canonical representations, migration chain, frozen WP8 budgets,
+SQL safety, test-mode double gating, identity flow, OCC commands, frontend
+role-gating via authoritative `currentUser`, error formatter, notification
+paths, i18n attribute sweep, deep watchers, v-for keys (lint-enforced).

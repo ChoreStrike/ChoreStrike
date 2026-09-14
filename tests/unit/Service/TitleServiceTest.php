@@ -30,7 +30,13 @@ class TitleServiceTest extends TestCase {
 				return TitleCatalog::getTiers($packKey)[$tierIndex]['threshold'];
 			});
 
-		$this->service = new TitleService($this->houseUserMapper, $this->rewardConfig);
+		$this->service = new TitleService($this->houseUserMapper, $this->rewardConfig, $this->createIdentityL10n());
+	}
+
+	private function createIdentityL10n(): \OCP\IL10N {
+		$l10n = $this->createMock(\OCP\IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		return $l10n;
 	}
 
 	private function userWithStats(int $contribution, int $longestStreak, int $totalSparks): HouseUser {
@@ -116,19 +122,53 @@ class TitleServiceTest extends TestCase {
 
 	public function testSelectPack_KnownPack_PersistsSelection(): void {
 		$user = $this->userWithStats(60, 8, 0);
+		$user->setNextcloudUserId('self-nc');
+		$actor = new HouseUser();
+		$actor->setNextcloudUserId('self-nc');
+		$actor->setRole('member');
 		$this->houseUserMapper->expects($this->once())->method('update')->with($user);
 
-		$this->service->selectPack($user, 'team_energy');
+		// Self-selection (RF-058-07): the actor is the target user.
+		$this->service->selectPack($user, $actor, 'team_energy');
 
 		$this->assertSame('team_energy', $user->getSelectedTitlePack());
 	}
 
+	public function testSelectPack_OwnerActor_PersistsSelectionForAnyTarget(): void {
+		$user = $this->userWithStats(60, 8, 0);
+		$user->setNextcloudUserId('member-nc');
+		$owner = new HouseUser();
+		$owner->setNextcloudUserId('owner-nc');
+		$owner->setRole('owner');
+		$this->houseUserMapper->expects($this->once())->method('update')->with($user);
+
+		$this->service->selectPack($user, $owner, 'team_energy');
+
+		$this->assertSame('team_energy', $user->getSelectedTitlePack());
+	}
+
+	public function testSelectPack_NonOwnerOtherTarget_ThrowsForbidden(): void {
+		$user = $this->userWithStats(60, 8, 0);
+		$user->setNextcloudUserId('member-nc');
+		$other = new HouseUser();
+		$other->setNextcloudUserId('other-nc');
+		$other->setRole('member');
+		$this->houseUserMapper->expects($this->never())->method('update');
+
+		$this->expectException(\OCA\ChoreStrike\Exception\ForbiddenException::class);
+		$this->service->selectPack($user, $other, 'team_energy');
+	}
+
 	public function testSelectPack_UnknownPack_Throws(): void {
 		$user = $this->userWithStats(60, 8, 0);
+		$user->setNextcloudUserId('self-nc');
+		$actor = new HouseUser();
+		$actor->setNextcloudUserId('self-nc');
+		$actor->setRole('member');
 		$this->houseUserMapper->expects($this->never())->method('update');
 
 		$this->expectException(\InvalidArgumentException::class);
-		$this->service->selectPack($user, 'nope');
+		$this->service->selectPack($user, $actor, 'nope');
 	}
 
 	public function testDetectUnlock_FirstCross_ReturnsNewTitlesAndMutatesCache(): void {
@@ -173,7 +213,7 @@ class TitleServiceTest extends TestCase {
 			['cozy_home', 1, 2500],
 			['cozy_home', 2, 10000],
 		]);
-		$service = new TitleService($this->houseUserMapper, $this->rewardConfig);
+		$service = new TitleService($this->houseUserMapper, $this->rewardConfig, $this->createIdentityL10n());
 
 		$user = $this->userWithStats(60, 1, 1);
 

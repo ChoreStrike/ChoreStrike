@@ -310,6 +310,7 @@ class CompletedTaskMapperTest extends TestCase {
 		$this->qb->method('where')->willReturn($this->qb);
 		$this->qb->method('andWhere')->willReturn($this->qb);
 		$this->qb->method('orderBy')->willReturn($this->qb);
+		$this->qb->method('addOrderBy')->willReturn($this->qb);
 		$this->qb->method('setMaxResults')->willReturn($this->qb);
 
 		$mockResult = $this->createMock(IResult::class);

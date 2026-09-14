@@ -884,6 +884,7 @@
         "no legal day in this window (fixed weekday or no flexibility)": "no legal day in this window (fixed weekday or no flexibility)",
         "overrides must be an object keyed by room task ID": "overrides must be an object keyed by room task ID",
         "previewVersion is required": "previewVersion is required",
+        "pts": "pts",
         "roomId is required": "roomId is required",
         "roomTaskIds must be an array of positive integers": "roomTaskIds must be an array of positive integers",
         "roomTaskIds must be an array of room task IDs": "roomTaskIds must be an array of room task IDs",

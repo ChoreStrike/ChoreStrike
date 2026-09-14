@@ -248,3 +248,100 @@ tests/unit/scripts/localizationGate.spec.js
 tests/unit/store/minigame.spec.js
 tests/unit/utils/taskDisplay.spec.js
 ```
+
+---
+
+# Final Full Review — CS-PLAN-058 Core Workflow Bottom-Up Masterplan (2026-09-14, evening)
+
+Tier: **Full** (4 parallel read-only reviewer tracks + main-agent synthesis).
+Owning plan: `docs/plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md`.
+Outcome: **PASS-WITH-FIXES (non-visual scope)** — the `active/ → done/` move is
+deferred solely to the delegated browser-gate pair on the fixed state (D-FR-04).
+
+## Baseline
+
+- `master` @ `f270e8e370c44e196d093d4bfe62f3e98960d9d0` (tree `7efb993`), 29 ahead
+  of origin; index clean, no untracked files; only review-owned docs dirty at
+  capture (ACTIVE_TASKS reservation + masterplan §12 preparation, both from the
+  WP9 closure session earlier that day).
+- Scope: whole core workflow domain — 15 controllers, 31 services, 25 Db files,
+  26 migrations, 70 routes (appinfo/routes.php), 12 stores, 9 views, 54
+  components, tests (unit/integration/e2e), l10n, ADR-009..012, engineering and
+  API docs. Docker test environment exclusively reserved in ACTIVE_TASKS.md.
+
+## Process (masterplan §12 checklist)
+
+- FR-01 baseline + reservation; FR-02 evidence expansion: all 34 named evidence
+  anchors verified present, l10n 940/940/940 parity, CR-WF-01..08 archived,
+  RELEASE-002 blockers mapped; FR-03 four reviewer tracks ran in parallel and
+  all delivered findings (each hit its step limit; the main agent closed the
+  remainders: house-reset gate test verification, OCC command gates, error
+  formatter audit, MinigameService whitelist/daily-cap, owner-only UI gating,
+  store network/service-locator sweep, route-consumer spot checks, i18n
+  attribute sweep, mapper bounds, deep-watcher/v-for audit); FR-04 main-agent
+  journey tracing across the seams (incl. the timezone seam below).
+
+## Findings (RF-058-01..22) and fixes
+
+See masterplan §13 for the full table. Summary: 0 block, 4 major, 8 minor,
+10 nit; 18 fixed in-round with regression tests, 4 nits user-rescoped to the
+backlog (CR-PERF-01, CR-SEC-05, CR-SVC-64, FEAT-UX-032). Headline finding
+RF-058-01 (major): three due-date writers tagged house-local `Y-m-d` labels at
+00:00 UTC/server-TZ while all readers bucket by house-TZ instants — for houses
+west of UTC (incl. the night-UTC `journeyClock()` Pacific/Honolulu window)
+schedule-apply/due-date/create dates landed one local day early (overdue
+instead of due-today). Fixed via `CalendarService::dayStartInstant()/isDayKey()`
+with lazy tz resolution; relative/ISO inputs keep instant semantics.
+
+## Decisions (user-ratified 2026-09-14)
+
+- D-FR-01: fix all 4 majors in-round with regression tests (incl. western-tz
+  providers).
+- D-FR-02: fix the listed minors + auto-fixes; RF-058-14/15/16/17 rescoped to
+  the backlog.
+- D-FR-03: archive CR-053-19/CR-SVC-15/CR-SVC-44 (fold-in pointers recorded);
+  re-section CR-SVC-63 → Core Hardening and FEAT-UX-015 → Deferred Add-ons;
+  the Core Workflow Program section closes empty.
+- D-FR-04: verdict PASS-WITH-FIXES for the non-visual gates; plan stays in
+  `active/` until a separate LLM session delivers two consecutive complete
+  retry-free browser-gate passes on the fixed state; a follow-up session then
+  moves it to `done/` (all-gates rule preserved).
+
+## Gates (fixed state, non-visual — all green)
+
+PHPUnit unit **941 OK** (+21 new); integration **361 OK, zero skips,
+`--fail-on-skipped`**; Jest **1056 OK** (+2 new, incl. full suite via
+`test:noise` clean); ESLint/stylelint clean (scoped `--fix`, no unrelated
+writes); webpack `build` green; `composer cs:check` 0 findings;
+`l10n:check-keys` 941 keys EN/DE/POT exact (new key `pts` with real DE copy);
+`docs:encoding` 725 files; `backlog:check` green; `node
+scripts/run-e2e-gate.js --self-test` green; `git diff --check` clean.
+**Delegated (pending):** `npm run test:e2e:gate` ×2 — browser pair on the fixed
+state, executed by a separate LLM session per user instruction; it is the only
+outstanding gate and the sole blocker for the plan's `done/` move.
+
+## Changed files (review-owned, committed with the review)
+
+Backend: `lib/Service/CalendarService.php`, `SchedulePlanService.php`,
+`RoomTaskService.php`, `TaskCreationService.php`, `HouseService.php`,
+`TaskService.php`, `SchedulingService.php`, `RoomService.php`,
+`TitleService.php`, `RoomTaskReadService.php`;
+`lib/Controller/RoomTaskController.php`, `UserController.php` (rewritten thin);
+`lib/Db/CompletedTaskMapper.php`, `TaskMapper.php` (comment rationale).
+Frontend: `src/store/roomTasks.js`, `src/views/Leaderboard.vue`,
+`src/views/TodayView.vue`; `l10n/en.json`, `l10n/de.json`,
+`l10n/templates/chorestrike.pot`.
+Tests: `tests/unit/Service/{CalendarServiceTest,HouseServiceTest,RoomServiceTest,RoomTaskServiceTest,SchedulingServiceTest,TaskServiceTest,TaskCreationServiceTest,TitleServiceTest,HouseServiceLoggingTest,RoomTaskServiceLoggingTest}.php`,
+`tests/unit/Controller/UserControllerTest.php`,
+`tests/unit/Db/Mapper/CompletedTaskMapperTest.php`,
+`tests/unit/store/roomTasks.spec.js`,
+`tests/integration/Controller/{UserControllerIntegrationTest,RoomControllerIntegrationTest}.php`,
+`tests/integration/Service/{TitleServiceIntegrationTest,SchedulingPreferencesIntegrationTest,SchedulePlanAggregateTest,RoomTaskServiceExtendedFeaturesTest}.php`,
+`tests/integration/Db/WorkflowQueryBudgetTest.php`,
+`tests/e2e/3-floor-house.spec.ts`.
+Docs: `docs/api/README.md`, `docs/engineering/architecture.md`,
+`docs/plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md`
+(§5 filename fix, §11 outcome, §12 checklist, §13 findings),
+`docs/backlog/backlog.md`, `docs/backlog/archive/2026-09.md`,
+`docs/backlog/archive/CODE_REVIEW_2026-09-14.md` (this record),
+`docs/backlog/ACTIVE_TASKS.md`.

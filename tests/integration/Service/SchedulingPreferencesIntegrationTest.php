@@ -50,16 +50,17 @@ class SchedulingPreferencesIntegrationTest extends IntegrationTestCase {
 
 	/**
 	 * Create a fresh house with one member and return
-	 * [houseId, nextcloudUserId].
+	 * [houseId, nextcloudUserId, ownerUserId].
 	 *
-	 * @return array{0: int, 1: string}
+	 * @return array{0: int, 1: string, 2: string}
 	 */
 	private function houseWithMember(): array {
-		$houseId = $this->createHouse('sched-owner-' . uniqid());
+		$ownerId = 'sched-owner-' . uniqid();
+		$houseId = $this->createHouse($ownerId);
 		$userId = 'sched-member-' . uniqid();
 		$this->addHouseMember($houseId, $userId, 'Sched Member', 'member');
 
-		return [$houseId, $userId];
+		return [$houseId, $userId, $ownerId];
 	}
 
 	public function testBulkSave_PersistsFullWeek_AndRereadsExactValues(): void {
@@ -101,8 +102,11 @@ class SchedulingPreferencesIntegrationTest extends IntegrationTestCase {
 	 * child limit and a later explicit null clears it again.
 	 */
 	public function testMemberAvailability_MaxDailyTasks_SetAndCleared(): void {
-		[$houseId, $userId] = $this->houseWithMember();
+		[$houseId, $userId, $ownerId] = $this->houseWithMember();
 
+		// RF-058-05: the member-availability owner path gates service-side —
+		// act as the house owner.
+		$this->actingAs($ownerId);
 		$this->schedulingService->updateMemberAvailabilityByNextcloudUserId(
 			$houseId,
 			$userId,
@@ -135,8 +139,10 @@ class SchedulingPreferencesIntegrationTest extends IntegrationTestCase {
 	 * CS-PLAN-065 (decision D5): the owner member payload carries the limit.
 	 */
 	public function testGetMemberAvailability_CarriesMaxDailyTasks(): void {
-		[$houseId, $userId] = $this->houseWithMember();
+		[$houseId, $userId, $ownerId] = $this->houseWithMember();
 
+		// RF-058-05: owner-only read — act as the house owner.
+		$this->actingAs($ownerId);
 		$this->schedulingService->updateMemberAvailabilityByNextcloudUserId(
 			$houseId,
 			$userId,
