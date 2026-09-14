@@ -19,9 +19,26 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { runOcc } from './fixtures/occ-runner'
 
 test.describe('Family core UX (CS-PLAN-066)', () => {
 	test.use({ databaseProfile: 'family' })
+
+	test('real Nextcloud DE and EN core rendering uses the shipped translations', async ({ browser, seededData }) => {
+		expect(seededData).not.toBeNull()
+		try {
+			for (const [language, myDay, tasks] of [['de', 'Mein Tag', 'Aufgabenverwaltung'], ['en', 'My Day', 'Task Manager']]) {
+				runOcc(`user:setting mom core lang ${language}`)
+				const session = await createUserContext(browser, 'mom', { locale: language })
+				try {
+					await session.page.goto('/apps/chorestrike/')
+					await expect(session.page.getByTestId('nav-today')).toContainText(myDay)
+					await session.page.getByTestId('nav-tasks').click()
+					await expect(session.page.getByTestId('task-manager-view').getByRole('heading', { level: 1 })).toHaveText(tasks)
+				} finally { await session.context.close() }
+			}
+		} finally { runOcc('user:setting mom core lang en') }
+	})
 
 	/** House-local day key — the Docker test environment runs the house on UTC. */
 	const utcDayKey = (offsetDays = 0): string =>

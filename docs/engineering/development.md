@@ -145,14 +145,14 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 }
 ```
 
-### Migration chain inventory (baseline 2026-09, updated by CS-PLAN-060 WP1)
+### Migration chain inventory (updated 2026-09-13, includes the CS-PLAN-064 WP5 `Version1029` change)
 
-`lib/Migration/` holds **21 files spanning `Version1000` → `Version1028`**
+`lib/Migration/` holds **22 files spanning `Version1000` → `Version1029`**
 (version numbers are non-contiguous):
 
 > Version1000, 1001, 1004 (×2 — `20260228131728` and `20260228150000`),
 > 1005, 1006, 1007, 1008, 1009, 1011, 1012, 1015, 1016, 1021, 1022, 1023,
-> 1024, 1025, 1026, 1027, 1028.
+> 1024, 1025, 1026, 1027, 1028, 1029.
 
 - **Version1004 appears twice** (two same-version steps with different date
   suffixes); both are part of the chain (order-independent — decision D8,
@@ -164,6 +164,13 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
   upgrade path, no backfills). Guarded by `FreshInstallMigrationSmokeTest`,
   which also asserts the folded canonical schema (unique instance index, no
   `is_private`/`assigned_to_user_id`/sync-remnant columns).
+- **Version1029** (`20260906000000`, CS-PLAN-064 WP5) is the current chain
+  head: it moved `completed_tasks` to the CS-PLAN-064 undo-effect schema —
+  the immutable completion receipt (before-state/deltas JSON) that the
+  transactional undo replays.
+- **Fresh-install hooks:** the migration chain only ever runs on a fresh
+  install (`php occ migrations:migrate chorestrike` during app
+  provisioning); per the pre-release policy there is NO upgrade path.
 - Per the pre-release policy, schema fixes **fold into this existing chain**;
   the disposable test database is recreated (`docker compose -f
   docker-compose.test.yml down -v && up -d`) instead of writing upgrade steps.
@@ -342,44 +349,41 @@ public function calculateCoins(
 //         (× combo multiplier when $isCombo)
 ```
 
-**Run tests:**
+**Run tests** (Docker environment up — canonical commands):
 ```bash
-vendor/bin/phpunit
+docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+  vendor/bin/phpunit --configuration phpunit.unit.xml
 ```
 
 ### Vue Component Tests
 
-Located in `tests/unit/`
+Located in `tests/unit/components/`.
 
-**Example:**
+**Example** (real, runnable — [`AssigneeChips.spec.js`](../../tests/unit/components/AssigneeChips.spec.js)
+tests [`src/components/Tasks/AssigneeChips.vue`](../../src/components/Tasks/AssigneeChips.vue)):
 ```javascript
 import { mount } from '@vue/test-utils'
-import TaskItem from '@/components/Task/TaskItem.vue'
+import AssigneeChips from '../../../src/components/Tasks/AssigneeChips.vue'
 
-describe('TaskItem.vue', () => {
-  const mockTask = {
-    id: 1,
-    name: 'Test Task',
-    difficulty: 3,
-  }
-  
-  it('renders task name', () => {
-    const wrapper = mount(TaskItem, {
-      props: { task: mockTask },
+describe('AssigneeChips.vue', () => {
+  const members = [
+    { nextcloudUserId: 'mom', displayName: 'Mom' },
+    { nextcloudUserId: 'dad', displayName: 'Dad' },
+  ]
+
+  it('renders one chip per member', () => {
+    const wrapper = mount(AssigneeChips, {
+      props: { modelValue: [], members },
     })
-    
-    expect(wrapper.text()).toContain('Test Task')
+    expect(wrapper.findAll('.assignee-chip')).toHaveLength(2)
   })
-  
-  it('emits complete event when button clicked', async () => {
-    const wrapper = mount(TaskItem, {
-      props: { task: mockTask },
+
+  it('emits the full next array when a chip is toggled', async () => {
+    const wrapper = mount(AssigneeChips, {
+      props: { modelValue: [], members },
     })
-    
-    await wrapper.find('button').trigger('click')
-    
-    expect(wrapper.emitted('complete')).toBeTruthy()
-    expect(wrapper.emitted('complete')[0]).toEqual([1])
+    await wrapper.find('[data-testid="assignee-chip-mom"] input').setValue(true)
+    expect(wrapper.emitted('update:modelValue')[0]).toEqual([['mom']])
   })
 })
 ```
@@ -397,10 +401,13 @@ npm test
 Install the Vue DevTools browser extension for debugging.
 
 **Console Logging (Development only):**
+Never use raw `console.*` in `src/` — the project logger wraps levels and
+keeps output structured:
+
 ```javascript
-if (process.env.NODE_ENV === 'development') {
-  console.log('[ChoreStrike]', debugInfo)
-}
+import { logger } from '../utils/logger.js'
+
+logger.error('Failed to complete task', error, { view: 'RoomDetail', action: 'handleComplete' })
 ```
 
 **Network Tab:**

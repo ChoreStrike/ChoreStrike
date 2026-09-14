@@ -34,6 +34,14 @@ npm run l10n:check-keys
 npm test
 ```
 
+`l10n:check-keys` checks global literals and finite catalog/map owners,
+exact POT/EN/DE key sets and source-relative named/printf placeholders.
+Unclassified dynamic keys, missing POT, dead keys and empty German fail.
+Use `node scripts/check-l10n-keys.js --write` for deterministic regeneration,
+review its diff and supply real German copy for new keys; then rerun the
+read-only gate. The canonical guideline defines the exact exclusions and
+the real-browser DE/EN proof.
+
 ## Frontend / Backend
 
 - **Frontend:** use the Nextcloud l10n helper in views, components, composables, and stores. Localize error/success messages that reach users.

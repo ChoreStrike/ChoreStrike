@@ -26,12 +26,10 @@ test.describe('Admin-Only Tasks', () => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			// De-vacuoused (CS-PLAN-051): assert on an API-created fixture row,
-			// not on whatever the seed happens to contain.
+			// not on whatever the seed happens to contain. CS-PLAN-068: the
+			// fixture THROWS on a failed precondition — the failure is loud.
 			const probeName = `Admin Crown Probe ${Date.now()}`
-			if (!await createVisibilityFixture(page, probeName, 'admin-only')) {
-				test.skip(true, 'Could not create admin-only fixture task')
-				return
-			}
+			await createVisibilityFixture(page, probeName, 'admin-only')
 
 			await page.goto('/apps/chorestrike/#/tasks')
 			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
@@ -73,10 +71,7 @@ test.describe('Admin-Only Tasks', () => {
 			})
 			const roomId = ((await floorsResponse.json()).data ?? [])
 				.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
-			if (!roomId) {
-				test.skip(true, 'No rooms available to attempt creation in')
-				return
-			}
+			expect(roomId, 'family seed must provide a room').toBeTruthy()
 
 			const response = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 				data: {
@@ -104,16 +99,10 @@ test.describe('Admin-Only Tasks', () => {
 			const floorsResponse = await mom.page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
 				headers: { Accept: 'application/json' },
 			})
-			if (floorsResponse.status() !== 200) {
-				test.skip(true, 'Could not list floors')
-				return
-			}
+			expect(floorsResponse.status()).toBe(200)
 			const roomId = ((await floorsResponse.json()).data ?? [])
 				.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
-			if (!roomId) {
-				test.skip(true, 'No rooms available to assign the task')
-				return
-			}
+			expect(roomId, 'family seed must provide a room').toBeTruthy()
 
 			// CS-PLAN-063: one aggregate request creates definition + room task.
 			const createResponse = await mom.page.request.post('/apps/chorestrike/api/v1/room-tasks', {
@@ -128,17 +117,11 @@ test.describe('Admin-Only Tasks', () => {
 				headers: { Accept: 'application/json' },
 			})
 
-			if (createResponse.status() !== 200) {
-				test.skip(true, 'Could not create admin-only task')
-				return
-			}
+			expect(createResponse.status()).toBe(200)
 
 			const roomTaskId = (await createResponse.json()).data?.roomTask?.id
 
-			if (!roomTaskId) {
-				test.skip(true, 'No room task ID returned')
-				return
-			}
+			expect(roomTaskId).toBeTruthy()
 
 			const completeResponse = await teen.page.request.post(
 				`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`,
@@ -163,10 +146,7 @@ test.describe('Admin-Only Tasks', () => {
 			})
 			const roomId = ((await floorsResponse.json()).data ?? [])
 				.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
-			if (!roomId) {
-				test.skip(true, 'No rooms available')
-				return
-			}
+			expect(roomId, 'family seed must provide a room').toBeTruthy()
 
 			const response = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 				data: {

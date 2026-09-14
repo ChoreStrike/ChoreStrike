@@ -286,19 +286,33 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 	 * @return array{houseId: int, roomTaskId: int, preview: array}
 	 */
 	private function previewWithMemberBudget(): array {
+		return $this->previewWithMemberBudgetAt($this->todayKey);
+	}
+
+	/**
+	 * Preview with exactly one unassigned-change proposal for a plan whose
+	 * window starts at $startKey — the room task is seeded due that day so
+	 * the proposal is inside the window (BUG-E2E-006 fixture variant).
+	 */
+	private function previewWithMemberBudgetAt(string $startKey): array {
 		$f = $this->familyHouse();
 		$roomTaskId = $f['makeTask']('Dishes', 2);
-		$preview = $this->service->preview($f['houseId'], $this->ownerActor($f['houseId']), $this->todayKey, [$roomTaskId], []);
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_room_tasks')
+			->set('next_due', $qb->createNamedParameter($startKey . ' 00:00:00'))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		$preview = $this->service->preview($f['houseId'], $this->ownerActor($f['houseId']), $startKey, [$roomTaskId], []);
 		self::assertCount(1, $preview['changes']);
 		return ['houseId' => $f['houseId'], 'roomTaskId' => $roomTaskId, 'preview' => $preview];
 	}
 
-	private function assertStaleApplyConflictsWithoutWrites(int $houseId, int $roomTaskId, array $preview): void {
+	private function assertStaleApplyConflictsWithoutWrites(int $houseId, int $roomTaskId, array $preview, ?string $startKey = null): void {
 		$before = $this->roomTaskRow($roomTaskId);
 		$assigneesBefore = $this->assigneeRows($roomTaskId);
 
 		try {
-			$this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [], $preview['previewVersion']);
+			$this->service->apply($houseId, $this->ownerActor($houseId), $startKey ?? $this->todayKey, [$roomTaskId], [], $preview['previewVersion']);
 			self::fail('a stale preview input must reject the batch');
 		} catch (ConflictException $e) {
 			self::assertSame('The schedule preview is no longer current. Generate a new preview.', $e->getMessage());
@@ -358,14 +372,70 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		$this->assertStaleApplyConflictsWithoutWrites($f['houseId'], $f['roomTaskId'], $f['preview']);
 	}
 
-	public function testApply_StaleTimezoneInput_RejectsWithoutWrites(): void {
-		$f = $this->previewWithMemberBudget();
+	/**
+	 * BUG-E2E-006 (CS-PLAN-068 §3.4): the stale-timezone apply must conflict
+	 * on the fingerprint — never fail earlier on house-local "today"
+	 * validation. The request start date therefore stays one UTC day ahead:
+	 * a Europe/Berlin house-local "today" is at most UTC today + 1, so the
+	 * date is legal in BOTH the pre- and post-change timezone at any wall
+	 * clock, including the late-UTC-day transition where Berlin is already
+	 * tomorrow, and in both transition directions (west-of-UTC likewise).
+	 *
+	 * @return array<string, array<int, string>>
+	 */
+	public static function timezoneTransitions(): array {
+		return [
+			// Original defect: east of UTC (late UTC day → Berlin is tomorrow).
+			'UTC to Europe/Berlin' => ['Europe/Berlin'],
+			// Opposite direction: west of UTC (house-local today falls behind).
+			'UTC to America/Los_Angeles' => ['America/Los_Angeles'],
+		];
+	}
+
+	/**
+	 * A start date that stays "today or later" under every compared
+	 * timezone around the transition: UTC tomorrow is never before any
+	 * UTC-offset house-local today (BUG-E2E-006 fixture, CS-PLAN-068 §3.4).
+	 * Computed from the UTC clock only — pinned at midnight boundaries
+	 * because the +1 day roll uses the UTC calendar day, not wall time.
+	 */
+	private static function dualTimezoneStartKey(\DateTimeImmutable $now): string {
+		return $now->setTimezone(new \DateTimeZone('UTC'))->modify('+1 day')->format('Y-m-d');
+	}
+
+	/**
+	 * @dataProvider timezoneTransitions
+	 */
+	public function testApply_StaleTimezoneInput_RejectsWithoutWrites(string $newTimezone): void {
+		$startKey = self::dualTimezoneStartKey(new \DateTimeImmutable('now'));
+		$f = $this->previewWithMemberBudgetAt($startKey);
 		// HouseService::updateHouse authorizes the SESSION user — restore
 		// the owner session (member fixtures switched it to mom).
 		$this->actingAs('dad');
-		$this->houseService->updateHouse($f['houseId'], 'Plan House', 'Europe/Berlin');
+		$this->houseService->updateHouse($f['houseId'], 'Plan House', $newTimezone);
 
-		$this->assertStaleApplyConflictsWithoutWrites($f['houseId'], $f['roomTaskId'], $f['preview']);
+		$this->assertStaleApplyConflictsWithoutWrites($f['houseId'], $f['roomTaskId'], $f['preview'], $startKey);
+	}
+
+	/** @dataProvider clockBoundaries */
+	public function testFixtureStart_MidnightAndDst_RemainsValidInBothTimezones(string $instant, string $timezone): void {
+		$now = new \DateTimeImmutable($instant);
+		$key = self::dualTimezoneStartKey($now);
+		foreach (['UTC', $timezone] as $zone) {
+			self::assertGreaterThanOrEqual($now->setTimezone(new \DateTimeZone($zone))->format('Y-m-d'), $key);
+		}
+		self::assertSame($key, self::dualTimezoneStartKey($now));
+	}
+
+	public static function clockBoundaries(): array {
+		return [
+			['2026-09-14T00:00:00Z', 'Pacific/Kiritimati'],
+			['2026-09-14T23:59:59Z', 'Pacific/Pago_Pago'],
+			['2026-03-29T00:59:59Z', 'Europe/Berlin'],
+			['2026-03-29T01:00:00Z', 'Europe/Berlin'],
+			['2026-10-25T00:59:59Z', 'Europe/Berlin'],
+			['2026-10-25T01:00:00Z', 'Europe/Berlin'],
+		];
 	}
 
 	public function testApply_StaleCompletionInput_RejectsWithoutWrites(): void {

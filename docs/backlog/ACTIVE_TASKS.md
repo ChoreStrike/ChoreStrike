@@ -10,13 +10,13 @@
 
 ## In Progress
 
-*(CS-PLAN-068 / WP9 activated 2026-09-13 — Standard A `PASS-WITH-FIXES`, D1-D7 ratified as recommended; implementation not yet started.)*
+No active implementation or review. WP9 verification is complete and its
+exclusive Docker test-environment reservation is released. CS-PLAN-058's
+separate final Full review remains pending, not automatically started.
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
-- **CS-PLAN-068 / WP9 — Standard A review** — `PASS-WITH-FIXES` 2026-09-13: D1-D7 all ratified as recommended (sequential three-project browser gate + required-result enforcement, `emptyhouse` canonical journey per parent D5, full CR-053-22 closure, in-place global l10n checker, retained runtime-gated test-tooling contract incl. CSRF exception with enabled/disabled proof, CR-053-21 truth slice + README rewrite, two-stage closure with separate parent Full review); inventory spot-verified against the post-WP8 tree; RF-068-01 fixed in round (nine registered minigame routes, not seven); plan activated into `active/`, CR-WF-05/CR-053-13/CR-053-18-WP9/CR-053-21(D6 slice)/CR-053-22/BUG-E2E-005/006 In Progress, BUG-E2E-006 owning corrected, masterplan WP9 row + tracking links repointed, review record appended; draft gates green (docs:encoding, backlog:check, `git diff --check`). (2026-09-13) See [plan](../plans/active/cs-plan-068-wp9-deterministic-coverage-release-closure.md).
-
-- **CS-PLAN-068 / WP9 - draft** - Post-WP8 plan created: current skip/fixture inventory, sequential three-project browser gate, full emptyhouse household journey, exact complete/undo proofs, date-independent tests, deferred coverage, global localization and durable-doc closure; D1-D7 proposed, Standard A pending, no implementation or commit. (2026-09-13) See [plan](../plans/active/cs-plan-068-wp9-deterministic-coverage-release-closure.md).
+- **CS-PLAN-068 / WP9 - final Standard B `PASS-WITH-FIXES` (2026-09-14):** D8/D9/D10 approved; all findings resolved, clean install, 920 unit / 361 integration (zero skips) / 1054 Jest tests, 940 localization keys and two 252-execution browser passes green; [plan moved to done](../plans/done/cs-plan-068-wp9-deterministic-coverage-release-closure.md), owning items archived, parent Full review and RELEASE-002 still pending. [Review record](archive/CODE_REVIEW_2026-09-14.md).
 
 - **CS-PLAN-067 / WP8 — final Standard B review** — `PASS-WITH-FIXES` 2026-09-13: fixes in round (localization coverage follows moved `t()` calls, POT dead key, scoped cs:fix on 4 files, stylelint logical-property fix, D6 size-exception inventory authored into architecture.md — 55 files); decisions D8-D12 ratified (automated a11y evidence accepted for AC-11, BUG-E2E-005 fold-in, budget spec stays read-only in default pool); full §4.4 gate green on fixed state (Jest 939, unit 920, integration 320/10 documented skips, cs:check clean, Playwright 94+106+38 — sole E2E exception = pre-existing Sunday-dependent BUG-E2E-005, statically attributed); plan moved to `done/`, CR-WF-06/CR-SVC-40/CR-SVC-41 archived, CR-SVC-15 WP8 slice + CR-SVC-44 D5 annotations recorded, masterplan WP8 complete (WP9 eligible; RELEASE-002 still blocked by WP9). (2026-09-13) See [plan](../plans/done/cs-plan-067-wp8-batching-decomposition-performance.md).
 

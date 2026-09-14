@@ -10,16 +10,16 @@ Each task includes:
 
 - title
 - description (optional)
-- room or room group
+- room/floor/house scope metadata; every executable instance belongs to a room
 - recurrence settings
-- due date or next due date
+- definition start date; occurrence due dates live on `RoomTask`
 - priority
-- energy cost (1-5)
+- energy cost (1-9)
 - reminder settings (**planned — never implemented**: the column-less
   `reminderType`/`reminderMinutesBefore` entity fields and the whole
   `task_sync` HTTP surface were pruned in CS-PLAN-055; see *Reminder
   Configuration* below)
-- assignment (optional)
+- multi-assignment on the room-task join rows, not a definition-owned user scalar
 
 ## Creation Model (CS-PLAN-038, atomic since CS-PLAN-063)
 

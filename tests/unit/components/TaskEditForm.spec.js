@@ -1,4 +1,6 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
+import { reactive } from 'vue'
+import { useUserStore } from '@/store/user.js'
 import { createPinia, setActivePinia } from 'pinia'
 import TaskEditForm from '@/components/Tasks/TaskEditForm.vue'
 
@@ -17,6 +19,11 @@ jest.mock('@nextcloud/l10n', () => ({
 jest.mock('@/store/user', () => ({
 	useUserStore: jest.fn(() => ({
 		isHouseOwner: true,
+		houseUsers: [
+			{ nextcloudUserId: 'mom', displayName: 'Mom' },
+			{ nextcloudUserId: 'dad', displayName: 'Dad' },
+		],
+		fetchHouseUsers: jest.fn(),
 	})),
 }))
 
@@ -70,6 +77,24 @@ describe('TaskEditForm', () => {
 	it('renders form', () => {
 		const wrapper = mountForm()
 		expect(wrapper.find('form').exists()).toBe(true)
+	})
+
+	it('contains member-load rejection and retries without losing the draft', async () => {
+		const user = reactive({ isHouseOwner: true, houseUsers: [], fetchHouseUsers: jest.fn().mockRejectedValueOnce(new Error('offline')) })
+		useUserStore.mockReturnValueOnce(user)
+		const wrapper = mountForm()
+		await wrapper.get('[data-testid="task-name-input"]').setValue('Keep this draft')
+		await flushPromises()
+		expect(wrapper.get('[data-testid="member-load-error"]').text()).toContain('Failed to load members')
+		user.fetchHouseUsers.mockImplementationOnce(async () => { user.houseUsers = [{ nextcloudUserId: 'dad' }] })
+		expect(wrapper.get('[data-testid="error-retry"]').attributes('type')).toBe('button')
+		await wrapper.get('[data-testid="error-retry"]').trigger('click')
+		await flushPromises()
+		expect(user.fetchHouseUsers).toHaveBeenCalledTimes(2)
+		expect(wrapper.find('[data-testid="member-load-error"]').exists()).toBe(false)
+		expect(wrapper.get('[data-testid="task-name-input"]').element.value).toBe('Keep this draft')
+		expect(wrapper.emitted('submit')).toBeUndefined()
+		wrapper.unmount()
 	})
 
 	it('emits cancel on cancel button', async () => {

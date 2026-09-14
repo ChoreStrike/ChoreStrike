@@ -1,0 +1,94 @@
+/**
+ * @copyright Copyright (c) 2026 ChoreStrike Contributors
+ * @license MIT
+ *
+ * ActivityFeed component suite (CR-053-22, CS-PLAN-068 §3.6).
+ */
+
+import { describe, it, expect } from '@jest/globals'
+import { mount } from '@vue/test-utils'
+
+import ActivityFeed from '../../../src/components/Insights/ActivityFeed.vue'
+
+const recentIso = (minutesAgo) => new Date(Date.now() - minutesAgo * 60000).toISOString()
+
+function mountFeed(items) {
+	return mount(ActivityFeed, {
+		props: { items },
+	})
+}
+
+describe('ActivityFeed', () => {
+	it('renders the empty state when no activity exists', () => {
+		const wrapper = mountFeed([])
+		expect(wrapper.find('[data-testid="activity-empty"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="activity-item"]').exists()).toBe(false)
+	})
+
+	it('renders one row per completed task with actor, task and room', () => {
+		const wrapper = mountFeed([
+			{ id: 1, displayName: 'Mom', taskTitle: 'Do the dishes', roomName: 'Kitchen', completedAt: recentIso(2), coinsEarned: 4, wasCombo: false },
+			{ id: 2, displayName: 'Kid', taskTitle: 'Make bed', roomName: '', completedAt: recentIso(5), coinsEarned: 0, wasCombo: false },
+		])
+		const rows = wrapper.findAll('[data-testid="activity-item"]')
+		expect(rows).toHaveLength(2)
+		expect(rows[0].text()).toContain('Mom')
+		expect(rows[0].text()).toContain('Do the dishes')
+		expect(rows[0].text()).toContain('Kitchen')
+		// Without a room the room fragment is omitted entirely.
+		expect(rows[0].find('.activity-room').exists()).toBe(true)
+		expect(rows[1].find('.activity-room').exists()).toBe(false)
+	})
+
+	it('marks combo rows and falls back for unknown actor/task', () => {
+		const wrapper = mountFeed([
+			{ id: 1, displayName: '', taskTitle: '', roomName: 'Kitchen', completedAt: recentIso(1), coinsEarned: 7, wasCombo: true },
+		])
+		const row = wrapper.find('[data-testid="activity-item"]')
+		expect(row.find('.activity-icon').classes()).toContain('combo')
+		expect(row.text()).toContain('🔥')
+		expect(row.text()).toContain('Unknown member')
+		expect(row.text()).toContain('Unknown task')
+		expect(row.text()).toContain('+7')
+	})
+
+	it('renders earned coins only when present', () => {
+		const wrapper = mountFeed([
+			{ id: 1, displayName: 'Mom', taskTitle: 'T', roomName: '', completedAt: recentIso(3), coinsEarned: 0, wasCombo: false },
+		])
+		expect(wrapper.find('.activity-coins').exists()).toBe(false)
+	})
+
+	describe('relative date buckets', () => {
+		const feed = (minutesAgo) => mountFeed([
+			{ id: 1, displayName: 'M', taskTitle: 'T', completedAt: recentIso(minutesAgo) },
+		]).find('.activity-time').text()
+
+		it('shows "just now" under a minute', () => {
+			expect(feed(0.2)).toContain('just now')
+		})
+
+		it('shows minutes under an hour', () => {
+			expect(feed(5)).toContain('min ago')
+		})
+
+		it('shows hours under a day', () => {
+			expect(feed(120)).toContain('h ago')
+		})
+
+		it('shows days under a week', () => {
+			expect(feed(3 * 24 * 60)).toContain('d ago')
+		})
+
+		it('falls back to the absolute date beyond a week', () => {
+			expect(feed(10 * 24 * 60)).not.toContain('ago')
+		})
+
+		it('renders nothing for a missing date', () => {
+			const wrapper = mountFeed([
+				{ id: 1, displayName: 'M', taskTitle: 'T', completedAt: null },
+			])
+			expect(wrapper.find('.activity-time').text()).toBe('')
+		})
+	})
+})

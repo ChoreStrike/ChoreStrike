@@ -5,232 +5,390 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Tests\Integration;
 
 use OCA\ChoreStrike\Db\HouseUser;
-use OCA\ChoreStrike\Db\Room;
-use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\Task;
-use OCA\ChoreStrike\Service\GameLogicService;
-use OCA\ChoreStrike\Tests\Fixtures\FamilyTestData;
-use PHPUnit\Framework\TestCase;
+use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Exception\ConflictException;
+use OCA\ChoreStrike\Exception\ForbiddenException;
+use OCA\ChoreStrike\Service\CompletionService;
+use OCP\DB\QueryBuilder\IQueryBuilder;
 
 /**
- * Integration tests using the standardized family test data
+ * Family-scenario integration suite (CS-PLAN-068 §3.1).
  *
- * This test suite simulates real family scenarios and tests the complete
- * workflow from task assignment to completion and gamification.
+ * The historical eight skips (mocked GameLogicService scenarios around the
+ * removed FamilyTestData dataset with pre-CS-PLAN-002 point expectations)
+ * are replaced by behavior-bearing real-DB tests through the
+ * CompletionService aggregate and real persisted rows. Reward FORMULAS stay
+ * owned by the frozen-rule unit tests
+ * (tests/unit/Service/GameLogicServiceTest.php); these scenarios pin the
+ * exact credited deltas against independently captured before/after totals,
+ * the occurrence gates, streak progression, recurrence activation/
+ * deactivation and the cleanliness impact.
+ *
+ * Two-connection race behavior (two users completing the same task type)
+ * keeps its dedicated engine-guarded owners: CompletionConcurrencyTest,
+ * ConcurrentCompletionTest and MinigameConcurrencyTest — linked, not
+ * duplicated here.
  */
-class FamilyIntegrationTest extends TestCase {
-	private GameLogicService $gameLogicService;
-	private array $testData;
-	private $houseUserMapper;
-	private $completedTaskMapper;
-	private $medalMapper;
+class FamilyIntegrationTest extends IntegrationTestCase {
+	private CompletionService $completionService;
+	/** @var array<int> Ledger rows created through the completion service. */
+	private array $ledgerRoomTaskIds = [];
 
 	protected function setUp(): void {
-		$this->testData = FamilyTestData::getCompleteDataSet();
+		parent::setUp();
+		$this->completionService = \OC::$server->get(CompletionService::class);
+	}
 
-		$this->houseUserMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseUserMapper::class);
-		$this->completedTaskMapper = $this->createMock(\OCA\ChoreStrike\Db\CompletedTaskMapper::class);
-		$this->medalMapper = $this->createMock(\OCA\ChoreStrike\Db\MedalMapper::class);
-		$rewardConfigService = $this->createMock(\OCA\ChoreStrike\Service\RewardConfigService::class);
-
-		$this->gameLogicService = new GameLogicService(
-			$this->houseUserMapper,
-			$this->completedTaskMapper,
-			$rewardConfigService,
-			null
-		);
+	protected function tearDown(): void {
+		if ($this->ledgerRoomTaskIds !== []) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete('chorestrike_completed_tasks')
+				->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($this->ledgerRoomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
+				->executeStatement();
+			$this->ledgerRoomTaskIds = [];
+		}
+		parent::tearDown();
 	}
 
 	/**
-	 * Test complete family task completion workflow
+	 * FamilyTaskCompletionWorkflow_CompletesAssignedDailyTask_WithExactCreditedDeltas
+	 *
+	 * The canonical family workflow: an assigned member completes their
+	 * daily task; the receipt and the independently captured before/after
+	 * totals must agree on every credited delta (contribution = energy cost,
+	 * CR-SVC-57; cleanliness = 10% per energy point; coins delta = receipt).
 	 */
 	public function testFamilyTaskCompletionWorkflow(): void {
-		$this->markTestSkipped(
-			'Scenario expected_points are hardcoded against the pre-CS-PLAN-002 '
-			. 'teamSparks formula. GameLogicService is covered by unit tests '
-			. '(tests/unit/Service/GameLogicServiceTest.php). Re-enable when '
-			. 'the scenario expectations are recalculated against the current '
-			. 'coins formula.'
-		);
+		$ids = $this->familyHouseFixture();
+		$before = $this->memberRow($ids['houseId'], 'fam_parent');
+
+		$result = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
+
+		$rewards = $result['rewards'];
+		$after = $this->memberRow($ids['houseId'], 'fam_parent');
+
+		self::assertSame(2, $rewards['energyCost']);
+		self::assertSame(2, $rewards['contributionScore'], 'contribution must equal the energy cost (CR-SVC-57)');
+		self::assertSame((int)$before['contribution_score'] + 2, (int)$after['contribution_score']);
+		self::assertSame((int)$before['coins'] + $rewards['coins'] + $rewards['teamworkBonus'], (int)$after['coins']);
+		self::assertGreaterThanOrEqual(1, $rewards['coins'], 'a base completion credits coins');
+		self::assertSame(20, $rewards['cleanlinessChange'], 'cleanliness delta is 10% per energy point');
+		self::assertSame(1, $rewards['currentStreak'], 'a first completion starts the streak at 1');
+		self::assertFalse($rewards['streakFreezeUsed']);
+		self::assertSame((int)$before['current_streak'] + 1, (int)$after['current_streak']);
+		self::assertSame($rewards['totalCoins'], (int)$after['coins'], 'the receipt total must match the persisted wallet');
+		self::assertSame($rewards['totalContribution'], (int)$after['contribution_score']);
 	}
 
 	/**
-	 * Test parent daily routine scenario
+	 * ParentDailyRoutine_MultipleCompletions_AccumulateTotalsAndTriggerCombo
+	 *
+	 * A parent working through the daily routine is credited per task with
+	 * exact running totals; the third completion inside the combo window is
+	 * flagged as combo without changing the per-task contribution.
 	 */
 	public function testParentDailyRoutine(): void {
-		$this->markTestSkipped(
-			'expected_points are hardcoded against the pre-CS-PLAN-002 '
-			. 'teamSparks formula. See testFamilyTaskCompletionWorkflow.'
-		);
+		$ids = $this->familyHouseFixture();
+
+		$first = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
+		$second = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['secondRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['secondRoomTaskId'];
+		$third = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['thirdRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['thirdRoomTaskId'];
+
+		self::assertFalse($first['rewards']['isCombo']);
+		self::assertFalse($second['rewards']['isCombo'], 'the second completion sees only one recent row');
+		self::assertTrue($third['rewards']['isCombo'], 'two recent rows put the third completion into the combo window');
+
+		$expectedContribution = 2 + 3 + 2;
+		$after = $this->memberRow($ids['houseId'], 'fam_parent');
+		self::assertSame($expectedContribution, (int)$after['contribution_score']);
+		// Same-day routine completions never inflate the streak: the first
+		// completion started it at 1 and the later ones keep it (the streak
+		// ADVANCE across days is proven by testDailyStreakCalculation).
+		self::assertSame(1, (int)$after['current_streak']);
+		// Cleanliness accumulates and clamps: 50 + 20 + 30 = 100, the third
+		// delta (+20) must not overshoot the cap.
+		self::assertSame(100, (int)$this->roomRow($ids['roomId'])['cleanliness']);
 	}
 
 	/**
-	 * Test teen weekend task scenario
+	 * TeenCompletesOwnAssignedTask_ChildRoleEarnsRewards_WithoutOwnerControls
+	 *
+	 * Weekend/weekday independence: a child with an explicit assignment can
+	 * complete it on ANY run day — the reward path is role-and-assignment
+	 * based, never weekday-based. The credited deltas land on the child's
+	 * own row.
 	 */
 	public function testTeenWeekendTasks(): void {
-		$this->markTestSkipped(
-			'expected_points are hardcoded against the pre-CS-PLAN-002 '
-			. 'teamSparks formula. See testFamilyTaskCompletionWorkflow.'
-		);
+		$ids = $this->familyHouseFixture();
+
+		$before = $this->memberRow($ids['houseId'], 'fam_teen');
+		$result = $this->completionService->complete($ids['houseId'], 'fam_teen', $ids['teenRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['teenRoomTaskId'];
+
+		self::assertSame(3, $result['rewards']['contributionScore']);
+		$after = $this->memberRow($ids['houseId'], 'fam_teen');
+		self::assertSame((int)$before['contribution_score'] + 3, (int)$after['contribution_score']);
+		self::assertSame(1, (int)$after['current_streak']);
+		// The parent's row is untouched by the teen's completion.
+		self::assertSame(0, (int)$this->memberRow($ids['houseId'], 'fam_parent')['contribution_score']);
 	}
 
 	/**
-	 * Test streak calculation for daily tasks
+	 * DailyStreakCalculation_ExistingStreak_AdvancesAndTracksLongest
+	 *
+	 * Completing with an existing streak of 3 advances to 4 and lifts the
+	 * all-time longest streak; no freeze is consumed while the streak is
+	 * alive (freeze handling itself is owned by StreakFreezeIdempotencyTest).
 	 */
 	public function testDailyStreakCalculation(): void {
-		$this->markTestSkipped(
-			'GameLogicService streak logic is covered by unit tests; this '
-			. 'scenario test uses mocked mappers that no longer match the '
-			. 'current handleTaskCompletion() contract.'
-		);
+		$ids = $this->familyHouseFixture();
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_house_users')
+			->set('current_streak', $qb->createNamedParameter(3, IQueryBuilder::PARAM_INT))
+			->set('longest_streak', $qb->createNamedParameter(3, IQueryBuilder::PARAM_INT))
+			->set('last_activity', $qb->createNamedParameter((new \DateTime('-1 day'))->format('Y-m-d H:i:s')))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter((int)$this->memberRow($ids['houseId'], 'fam_parent')['id'], IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+
+		$result = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
+
+		self::assertSame(4, $result['rewards']['currentStreak']);
+		self::assertSame(4, $result['rewards']['longestStreak']);
+		self::assertFalse($result['rewards']['streakFreezeUsed']);
+		$after = $this->memberRow($ids['houseId'], 'fam_parent');
+		self::assertSame(4, (int)$after['current_streak']);
+		self::assertSame(4, (int)$after['longest_streak']);
+		self::assertSame(1, (int)$after['streak_freezes'], 'no freeze consumed while the streak continues');
 	}
 
 	/**
-	 * Test concurrent task completion (two users completing same task type)
+	 * ConcurrentTaskCompletion_SecondOccurrenceIsRejected_NoDoubleReward
+	 *
+	 * In-process occurrence-gate proof: the same room task cannot be
+	 * completed twice on one day (403 day-duplicate) and a deactivated
+	 * one-time occurrence cannot be completed again (409). The real
+	 * two-connection races keep their dedicated, engine-guarded owners
+	 * (CompletionConcurrencyTest, ConcurrentCompletionTest) — this scenario
+	 * links them instead of duplicating the lock choreography.
 	 */
 	public function testConcurrentTaskCompletion(): void {
-		$this->markTestSkipped(
-			'GameLogicService is covered by unit tests; this scenario test '
-			. 'uses mocked mappers that no longer match the current '
-			. 'handleTaskCompletion() contract.'
-		);
+		$ids = $this->familyHouseFixture();
+
+		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
+
+		try {
+			$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+			self::fail('a same-day second completion must be rejected');
+		} catch (ForbiddenException $e) {
+			self::assertSame('You already completed this task today', $e->getMessage());
+		}
+
+		// The one-time occurrence is inactive after its completion → 409.
+		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['onceRoomTaskId'];
+		try {
+			$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId']);
+			self::fail('a deactivated occurrence must be rejected');
+		} catch (ConflictException $e) {
+			self::assertSame('Task is not active', $e->getMessage());
+		}
+
+		self::assertCount(2, $this->ledgerRows('revertible'), 'exactly the two fresh completions are revertible');
 	}
 
 	/**
-	 * Test recurring task activation
+	 * RecurringTaskActivation_CompletionAdvancesTheOccurrence_KeepsRowActive
+	 *
+	 * A weekly recurring task stays active after completion, records its
+	 * completion and advances the occurrence; the exact advance math is
+	 * owned by tests/unit/Db/RoomTaskTest.php (linked, not recomputed).
 	 */
 	public function testRecurringTaskActivation(): void {
-		$this->markTestSkipped(
-			'RoomTask::markCompleted() signature changed (CS-PLAN-002 added '
-			. 'flex_days/ideal_due_date parameters). Recurring activation is '
-			. 'covered by tests/unit/Db/RoomTaskTest.php.'
-		);
+		$ids = $this->familyHouseFixture();
+		$before = $this->roomTaskRow($ids['weeklyRoomTaskId']);
+
+		$result = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['weeklyRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['weeklyRoomTaskId'];
+
+		$after = $this->roomTaskRow($ids['weeklyRoomTaskId']);
+		self::assertSame(1, (int)$after['is_active'], 'a recurring occurrence re-arms after completion');
+		self::assertNotNull($after['last_completed']);
+		self::assertNull($before['last_completed']);
+		self::assertGreaterThan((string)$before['next_due'], (string)$after['next_due'], 'the recurrence must advance');
+		self::assertSame($before['room_id'], $after['room_id']);
+		self::assertSame($before['task_id'], $after['task_id']);
+		self::assertGreaterThan(0, $result['rewards']['contributionScore']);
 	}
 
 	/**
-	 * Test one-time task deactivation
+	 * OneTimeTaskDeactivation_CompletionDeactivates_WithRevertibleLedgerRow
+	 *
+	 * A once-mode completion deactivates the row (unit-owned row logic)
+	 * while the aggregate records exactly one revertible ledger row.
 	 */
 	public function testOneTimeTaskDeactivation(): void {
-		$this->markTestSkipped(
-			'RoomTask::markCompleted() signature changed (CS-PLAN-002). '
-			. 'One-time deactivation is covered by tests/unit/Db/RoomTaskTest.php.'
-		);
+		$ids = $this->familyHouseFixture();
+
+		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['onceRoomTaskId'];
+
+		$row = $this->roomTaskRow($ids['onceRoomTaskId']);
+		self::assertSame(0, (int)$row['is_active'], 'a one-time task deactivates on completion');
+		self::assertNotNull($row['last_completed']);
+
+		$ledger = $this->ledgerRows('revertible');
+		self::assertCount(1, $ledger);
+		self::assertSame($ids['onceRoomTaskId'], (int)$ledger[0]['room_task_id']);
+		self::assertJson($ledger[0]['before_state']);
+		self::assertJson($ledger[0]['deltas']);
 	}
 
 	/**
-	 * Test room cleanliness impact on points
+	 * RoomCleanlinessImpact_CompletionRaisesCleanliness_ExactlyAndCapped
+	 *
+	 * A non-saturated room gains exactly 10% per energy point; a nearly
+	 * clean room is capped at 100 instead of overshooting.
 	 */
 	public function testRoomCleanlinessImpact(): void {
-		$this->markTestSkipped(
-			'GameLogicService is covered by unit tests; this scenario test '
-			. 'uses mocked mappers that no longer match the current '
-			. 'handleTaskCompletion() contract.'
+		$ids = $this->familyHouseFixture();
+
+		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
+		self::assertSame(70, (int)$this->roomRow($ids['roomId'])['cleanliness'], '50 + 2 energy × 10% = 70');
+		self::assertMatchesRegularExpression(
+			'/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/',
+			(string)$this->roomRow($ids['roomId'])['last_cleaned']
 		);
+
+		// Exact second step and the saturation cap: +30 reaches 100 and the
+		// final +20 delta must stay at the cap.
+		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['secondRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['secondRoomTaskId'];
+		self::assertSame(100, (int)$this->roomRow($ids['roomId'])['cleanliness'], '70 + 3 energy × 10% = 100');
+
+		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['thirdRoomTaskId']);
+		$this->ledgerRoomTaskIds[] = $ids['thirdRoomTaskId'];
+		self::assertSame(100, (int)$this->roomRow($ids['roomId'])['cleanliness']);
 	}
 
-	// Helper methods
+	// -----------------------------------------------------------------
+	// Fixture and helpers
+	// -----------------------------------------------------------------
 
-	private function simulateUserScenario(string $scenarioName, array $scenario): void {
-		$user = $this->testData['users'][$scenario['user']];
+	/**
+	 * A family house (parent owner, teen child) with assigned daily/weekly/
+	 * once room tasks and one unassigned weekly task, mirroring the shape of
+	 * the historical FamilyTestData scenario set on REAL rows.
+	 *
+	 * @return array{houseId: int, roomId: int, dailyRoomTaskId: int, secondRoomTaskId: int, thirdRoomTaskId: int, teenRoomTaskId: int, weeklyRoomTaskId: int, onceRoomTaskId: int}
+	 */
+	private function familyHouseFixture(): array {
+		$houseId = $this->createHouse('fam_parent', 'Family Home');
+		$this->addHouseMember($houseId, 'fam_teen', 'Teen', 'child');
+		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
+		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
+		$this->setRoomCleanliness($roomId, 50);
 
-		$totalPoints = 0;
-		foreach ($scenario['tasks'] as $roomTaskId) {
-			$roomTask = $this->findRoomTask($roomTaskId);
-			$task = $this->findTask($roomTask->getTaskId());
+		$dailyTask = $this->createTask($houseId, 'Do the dishes', '', 5, 2);
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_tasks')
+			->set('frequency_type', $qb->createNamedParameter('daily'))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($dailyTask, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		$secondTask = $this->createTask($houseId, 'Wipe kitchen counters', '', 5, 3);
+		$thirdTask = $this->createTask($houseId, 'Take out trash', '', 5, 2);
+		$teenTask = $this->createTask($houseId, 'Tidy up toys', '', 5, 3);
+		$weeklyTask = $this->createTask($houseId, 'Do laundry', '', 5, 4);
+		$onceTask = $this->createTask($houseId, 'Assemble shelf', '', 5, 2);
 
-			$this->mockMappersForUser($user);
-
-			$result = $this->gameLogicService->handleTaskCompletion(
-				$roomTask,
-				$user->getId(),
-				$task,
-				null,
-				[],
-				new \OCA\ChoreStrike\Db\CompletedTask()
-			);
-
-			$totalPoints += $result['contributionScore'];
-		}
-
-		$this->assertEquals(
-			$scenario['expected_points'],
-			$totalPoints,
-			"Scenario '{$scenarioName}' should earn {$scenario['expected_points']} points"
-		);
+		return [
+			'houseId' => $houseId,
+			'roomId' => $roomId,
+			'dailyRoomTaskId' => $this->assignTaskToRoom($dailyTask, $roomId, 'fam_parent'),
+			'secondRoomTaskId' => $this->assignTaskToRoom($secondTask, $roomId, 'fam_parent'),
+			'thirdRoomTaskId' => $this->assignTaskToRoom($thirdTask, $roomId, 'fam_parent'),
+			'teenRoomTaskId' => $this->assignTaskToRoom($teenTask, $roomId, 'fam_teen'),
+			'weeklyRoomTaskId' => $this->assignTaskToRoom($weeklyTask, $roomId, null),
+			'onceRoomTaskId' => $this->assignOnceTaskToRoom($onceTask, $roomId, 'fam_parent'),
+		];
 	}
 
-	private function findRoomTask(int|string $id): RoomTask {
-		// If it's a string, try to find by task name
-		if (is_string($id)) {
-			// Handle special mappings
-			$mappings = [
-				'dishes_today' => 'Do the dishes',
-				'make_bed_teen' => 'Make bed',
-				'wipe_counters_today' => 'Wipe kitchen counters',
-				'laundry_weekly' => 'Do laundry',
-			];
-
-			$searchName = $mappings[$id] ?? str_replace('_', ' ', $id);
-
-			foreach ($this->testData['roomTasks'] as $roomTask) {
-				$task = $this->findTaskById($roomTask->getTaskId());
-				if ($task && $task->getName() === $searchName) {
-					return $roomTask;
-				}
-			}
-		}
-
-		// If it's an integer, find by ID
-		foreach ($this->testData['roomTasks'] as $roomTask) {
-			if ($roomTask->getId() === (int)$id) {
-				return $roomTask;
-			}
-		}
-
-		throw new \Exception("Room task '{$id}' not found");
+	private function assignOnceTaskToRoom(int $taskId, int $roomId, string $assignee): int {
+		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, $assignee);
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_tasks')
+			->set('recurrence_mode', $qb->createNamedParameter('once'))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+		return $roomTaskId;
 	}
 
-	private function findTask(int|string $id): Task {
-		if (is_string($id)) {
-			// Handle special mappings
-			$mappings = [
-				'dishes' => 'Do the dishes',
-				'make_bed' => 'Make bed',
-				'wipe_counters' => 'Wipe kitchen counters',
-				'laundry' => 'Do laundry',
-			];
-
-			$searchName = $mappings[$id] ?? str_replace('_', ' ', $id);
-
-			// Find task by name
-			foreach ($this->testData['tasks'] as $task) {
-				if ($task->getName() === $searchName) {
-					return $task;
-				}
-			}
-		}
-
-		// Find by ID
-		foreach ($this->testData['tasks'] as $task) {
-			if ($task->getId() === (int)$id) {
-				return $task;
-			}
-		}
-
-		throw new \Exception("Task '{$id}' not found");
+	private function setRoomCleanliness(int $roomId, int $cleanliness): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_rooms')
+			->set('cleanliness', $qb->createNamedParameter($cleanliness, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
 	}
 
-	private function findTaskById(int $id): ?Task {
-		foreach ($this->testData['tasks'] as $task) {
-			if ($task->getId() === $id) {
-				return $task;
-			}
-		}
-		return null;
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function memberRow(int $houseId, string $userId): array {
+		$row = \OC::$server->get(HouseUserMapper::class)->findByHouseAndUser($houseId, $userId);
+		self::assertInstanceOf(HouseUser::class, $row);
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')->from('chorestrike_house_users')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($row->getId(), IQueryBuilder::PARAM_INT)));
+		$data = $qb->executeQuery()->fetch();
+		self::assertIsArray($data);
+		return $data;
 	}
 
-	private function mockMappersForUser(HouseUser $user): void {
-		$this->houseUserMapper->method('find')->willReturn($user);
-		$this->houseUserMapper->method('update')->willReturn($user);
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function roomRow(int $roomId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')->from('chorestrike_rooms')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+		$row = $qb->executeQuery()->fetch();
+		self::assertIsArray($row);
+		return $row;
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function roomTaskRow(int $roomTaskId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')->from('chorestrike_room_tasks')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
+		$row = $qb->executeQuery()->fetch();
+		self::assertIsArray($row);
+		return $row;
+	}
+
+	/**
+	 * Ledger rows for this suite's room tasks.
+	 *
+	 * @param 'revertible' $filter
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function ledgerRows(string $filter): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')->from('chorestrike_completed_tasks')
+			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($this->ledgerRoomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)));
+		if ($filter === 'revertible') {
+			$qb->andWhere($qb->expr()->isNull('undone_at'));
+		}
+		$rows = $qb->executeQuery()->fetchAll();
+		return is_array($rows) ? $rows : [];
 	}
 }

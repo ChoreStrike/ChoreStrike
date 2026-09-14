@@ -1,6 +1,6 @@
 # CS-PLAN-058: Core Workflow Bottom-Up Masterplan
 
-> **Status:** Active (Standard A review passed 2026-09-02; WP0-WP8 complete; WP9 child plan active — Standard A `PASS-WITH-FIXES` 2026-09-13 — not implemented)
+> **Status:** Active (Standard A review passed 2026-09-02; WP0-WP8 complete; WP9 child plan active — Standard A `PASS-WITH-FIXES` 2026-09-13, implementation round delivered, final gate runs + Standard B pending)
 > **Effort:** XL (program; implemented as sequential reviewable work packages)
 > **Priority:** P1
 > **Depends on:** Core Task Workflow Full Review (2026-09-02) and its recorded user decisions
@@ -478,9 +478,11 @@ without a documented reason.
 
 ### WP9 - Deterministic coverage and release-quality closure
 
-**Child plan:** [CS-PLAN-068](../active/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
+**Child plan:** [CS-PLAN-068](../done/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
 (Standard A `PASS-WITH-FIXES` 2026-09-13, D1-D7 ratified as recommended;
-implementation not started). The plan credits the existing WP3 empty-house
+implementation round 1 delivered 2026-09-13 — see the plan's §6.1
+Implementation Log; final quality-gate verification and Standard B pending).
+The plan credits the existing WP3 empty-house
 profile and WP2-WP8 proofs, and makes the remaining
 test/localization/docs work and final program review explicit.
 
@@ -719,6 +721,27 @@ to a separate reviewed plan.
       remain outside the core program with explicit ownership.
 - [ ] Final Full Review is `PASS` or `PASS-WITH-FIXES`; `ACTIVE_TASKS.md` is current.
 
+### WP9 Acceptance Evidence Map (2026-09-14)
+
+This is concrete handoff evidence for the separately requested final **Full**
+review, not that review's verdict. The checkboxes above remain for that
+program-wide review. A child Standard B cannot clear RELEASE-002 or move
+this masterplan to `done/`.
+
+| Acceptance group above | Concrete retained proof | Durable owner |
+|---|---|---|
+| Backlog/program control | `npm run backlog:check`; WP0-WP9 progress and monthly item dispositions | Backlog README and monthly archive |
+| Fresh house/first owner | Disposable container recreation; `BootstrapConcurrencyTest`, `InviteOnlyMembershipTest`; canonical journey phase 1 | ADR-010; testing.md |
+| Membership/visibility/ownership | `HouseMemberRemovalIntegrationTest`, `WireStatusAuthDenialTest`, `TaskAuthorizationTest`, `PrivateTaskAuthorizationTest`, `TaskLifecycleVisibilityApiTest`; admin-only/private/member-role browser scenarios | ADR-010; security.md; API |
+| Atomic setup and creation | `HouseSetupIntegrationTest`, `SetupApplyConcurrencyTest`, `TaskCreationAggregateTest`, `TaskCreationConcurrencyTest`, `AssigneeRepresentationTest`; exact wizard counts and single-request creation in the canonical/3-floor journeys | ADR-008/012; API; task-model-and-sync.md |
+| Scheduling/child policy | `SchedulePlanAggregateTest`, `SchedulePlanConcurrencyTest`, `SchedulingPreferencesIntegrationTest`; controlled midnight/DST providers; `scheduling-apply-flow.spec.ts`; Saturday/Sunday/Monday `ScheduleCalendar.spec.js` | API; deterministic-gate testing docs |
+| Completion/conservation/inverse | `CompletionUndoStateEqualityTest`, `CompletionConcurrencyTest`, `ConcurrentCompletionTest`, `FamilyIntegrationTest`; exact unsaturated cleanliness/combo receipts; primary journey cap and checklist inverse after reload | ADR-011; gamification-and-rewards.md; task-model-and-sync.md |
+| Retained gamification/events | `GameControllerIntegrationTest`, `MinigameControllerIntegrationTest`, `TeamworkRewardTest`, `StreakFreezeIdempotencyTest`, `TitleServiceIntegrationTest`; Snake/shop/leaderboard components; release notification/boost/lifecycle E2E; celebration/store tests | Gamification concept; notification dedup architecture docs |
+| Family UX/client state | Canonical UI-only journey, `family-core-ux.spec.ts`, `workflow-state-reconciliation.spec.ts`; real DE/EN rendering; shared ErrorState retry; 44px desktop/mobile picker and child controls | ui-use-cases.md; design.md; i18n.md |
+| Test tooling/no false-green evidence | `TestModeApiTest`, real `TestModeHttpTest`, `TestDataSeedTest`; `browserGate.spec.js`, `databaseFixtures.spec.js`, `localizationGate.spec.js`; frozen required-scenario inventory and repeated complete browser gate | testing.md; security.md; i18n.md; release-gate.yml |
+| Performance/architecture | Frozen `WorkflowQueryBudgetTest`, `requestCounts.spec.js`, store-DAG tests, `workflow-request-budgets.spec.ts`; no raised ceilings | architecture.md size-exception/query-budget inventories |
+| Final gate/docs/lifecycle | Exact gates, source fingerprint, findings and decisions in CS-PLAN-068's final Review Outcome and dated review record; ADR-010/011/012 and current API/concepts/standards integrated | This evidence map does not waive the final Full review or any RELEASE-002 prerequisite |
+
 ## 9. Program Progress
 
 | Work package | Status | Review | Gate | Backlog disposition |
@@ -732,7 +755,7 @@ to a separate reviewed plan.
 | WP6 Actionable scheduling | Done (2026-09-11, CS-PLAN-065; implementation 2026-09-10, round 2 2026-09-11) | Final Standard B `NEEDS-FOLLOW-UP` 2026-09-11 (RF-065-01/02 open), then final re-review `PASS` 2026-09-11 — [CS-PLAN-065](../done/cs-plan-065-wp6-actionable-scheduling.md) moved to `done/` | Full §4.5 gate rerun green by the final re-review 2026-09-11: unit 909, integration 315 (+10 documented pre-existing skips), Jest 849, `cs:check`/lint/stylelint/l10n/docs/backlog/build/noise clean, Playwright chromium 92 (+7 pool-excluded), chromium-serial-db 98/5 skipped (0 flaky on re-run), chromium-scheduling-owner 38 | CR-WF-07 + CR-055-01 archived (2026-09); BUG-API-001 (`PUT /tasks/{id}` dispatcher TypeError) routed to backlog out-of-scope; WP7 consumes the applied-schedule contract |
 | WP7 Family UX/client state | Done (2026-09-12, CS-PLAN-066; implementation + final Standard B same day) | Standard A `PASS-WITH-FIXES` (2026-09-11) + final Standard B `PASS-WITH-FIXES` (2026-09-12) - [CS-PLAN-066](../done/cs-plan-066-wp7-canonical-client-state-family-ux.md) | Full §4.4 gate rerun green by the final review 2026-09-12: unit 916, integration 315 (+10 pre-existing skips), `cs:check` 0 (review LF fix), Jest 896, lint/stylelint(1 pre-existing warning)/l10n/docs/backlog/build/noise clean, Playwright chromium 92 (+7 pool-excluded), chromium-serial-db 108/5 skipped/0 flaky on re-run, scheduling-owner 38 | CR-WF-04/08 + CR-053-20 + BUG-API-001 archived (2026-09); CR-053-13 core slice delivered, WP9 remainder stays; manual a11y pass recorded; plan in `done/`; WP8 eligible |
 | WP8 Performance/architecture | Done (2026-09-13, [CS-PLAN-067](../done/cs-plan-067-wp8-batching-decomposition-performance.md); final Standard B `PASS-WITH-FIXES` 2026-09-13) | Standard A `PASS` 2026-09-12 (D1-D6 ratified as recommended; D5 rescoped cron freeze/restock batching to CR-053-11); review decisions D8-D12 recorded in the plan §12 | Full §4.4 gate green on the fixed state (Jest 939, unit 920, integration 320/10 documented skips, cs:check clean, Playwright 94+106+38; sole E2E exception = pre-existing Sunday-dependent BUG-E2E-005) | CR-WF-06/CR-SVC-40/CR-SVC-41 archived 2026-09-13; CR-SVC-15 WP8 slice recorded (two inventoried remainders); CR-SVC-44 stays open per D5 (streak batching under CR-053-11); size-exception inventory in docs/engineering/architecture.md; WP9 eligible, not implemented |
-| WP9 Coverage/release closure | Child plan active (Standard A `PASS-WITH-FIXES` 2026-09-13, [CS-PLAN-068](../active/cs-plan-068-wp9-deterministic-coverage-release-closure.md)); implementation not started | Standard A passed 2026-09-13 (D1-D7 ratified as recommended; RF-068-01 minigame-route inventory fix applied in round) | Draft documentation gates green at activation; implementation gates pending | CR-WF-05/CR-053-13/CR-053-18-WP9/CR-053-21 (D6 slice)/CR-053-22/BUG-E2E-005/006 In Progress under CS-PLAN-068; RELEASE-002 remains blocked (program prerequisite satisfied only by the separately recorded final Full review) |
+| WP9 Coverage/release closure | Complete, [CS-PLAN-068](../done/cs-plan-068-wp9-deterministic-coverage-release-closure.md) final Standard B `PASS-WITH-FIXES`, 2026-09-14 | D1-D10 recorded; false-green gates, missing proofs, frontend defects and durable-doc drift resolved; no open WP9 findings | Clean install; PHPUnit 920 unit / 361 integration / zero skips; Jest 1054; lint/stylelint/build/Composer/l10n/docs green; two consecutive browser passes, 252 executions each, zero skips/retries/flakes | Owning items archived, parent acceptance evidence map added. This masterplan stays active for its separately requested final Full review; RELEASE-002's independent blockers remain unchanged |
 
 The Standard A plan review passed on 2026-09-02 and this plan is active in
 `docs/plans/active/`; work packages execute in the order above, one `In

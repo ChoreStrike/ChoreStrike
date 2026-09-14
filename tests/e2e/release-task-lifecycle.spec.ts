@@ -95,10 +95,7 @@ test.describe('Release: Task Lifecycle', () => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const target = await pickActiveRoomTask(page)
-			if (!target) {
-				test.skip(true, 'No active room task with a due date available')
-				return
-			}
+			expect(target, 'family seed must provide an active occurrence').not.toBeNull()
 
 			const requested = offsetDate(5)
 
@@ -123,10 +120,7 @@ test.describe('Release: Task Lifecycle', () => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
 			const target = await pickActiveRoomTask(page)
-			if (!target) {
-				test.skip(true, 'No active room task with a due date available')
-				return
-			}
+			expect(target, 'family seed must provide an active occurrence').not.toBeNull()
 
 			const completeResponse = await page.request.post(
 				`/apps/chorestrike/api/v1/room-tasks/${target.id}/complete`,

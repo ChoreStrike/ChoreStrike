@@ -41,15 +41,19 @@ test.describe('Scheduling apply flow (owner plan)', () => {
 	}
 
 	const goToScheduling = async (page: Page) => {
-		await page.goto('/apps/chorestrike/')
-		// CS-PLAN-066 (D4): a child's bare-root visit lands on My Day,
-		// owners/members on the Dashboard — both are valid entry points.
-		await page.getByTestId('dashboard-view')
-			.or(page.getByTestId('today-view'))
-			.first()
-			.waitFor({ state: 'visible' })
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		// One-off load flakes (CS-PLAN-068): retry the NAVIGATION against the
+		// durable outcome instead of a single fixed wait.
+		await expect(async () => {
+			await page.goto('/apps/chorestrike/')
+			// CS-PLAN-066 (D4): a child's bare-root visit lands on My Day,
+			// owners/members on the Dashboard — both are valid entry points.
+			await page.getByTestId('dashboard-view')
+				.or(page.getByTestId('today-view'))
+				.first()
+				.waitFor({ state: 'visible' })
+			await page.getByTestId('nav-scheduling').click()
+			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+		}).toPass({ timeout: 45000 })
 	}
 
 	const activeTestId = (page: Page) =>

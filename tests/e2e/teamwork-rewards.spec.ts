@@ -10,112 +10,111 @@
  * - Single-assign tasks show no teamwork hint
  *
  * Requires: Docker test environment with the `family` database profile.
- * CS-PLAN-015b: auth via per-user storageState (no loginAsUser / no logout).
- * All tests run as mom via describe-level `test.use({ storageState })`.
- * @see docs/plans/active/cs-plan-005-task-visibility-teamwork-overdue.md Phase 3
+ * Auth via `createUserContext` (fresh login sessions — CS-PLAN-068: the
+ * saved-storageState contexts cannot call the JSON API, the container's
+ * CSRF gate answers 412; every green API spec uses fresh sessions).
+ * CS-PLAN-068 (CR-WF-05): no fixture-dependent skips — the room is resolved
+ * at runtime (the DELETE-based reset never restarts AUTO_INCREMENT) and a
+ * failed precondition is a FAILURE. Reward arithmetic stays owned by the
+ * frozen-rule unit tests; these receipts pin the teamworkBonus contract.
  */
 
 import { test, expect } from './fixtures/database-fixtures'
-import { userStatePath } from './fixtures/auth-contexts'
+import { createUserContext } from './fixtures/auth-contexts'
+import type { Page } from '@playwright/test'
 
 test.describe('Teamwork Rewards', () => {
 	test.use({ databaseProfile: 'family' })
-	test.use({ storageState: userStatePath('mom') })
 
-	test('multi-assign task shows teamwork bonus hint', async ({ page }) => {
-		await page.goto('/apps/chorestrike/#/tasks')
-		await page.waitForLoadState('networkidle', { timeout: 30000 })
-		await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 20000 })
+	async function kitchenRoom(page: Page): Promise<number> {
+		const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
+		expect(floorsResponse.status()).toBe(200)
+		const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number; name: string }> }>)
+			.flatMap((floor) => floor.rooms)
+		const kitchen = rooms.find((room) => room.name === 'Kitchen')
+		expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()
+		return kitchen!.id
+	}
 
-		const teamTask = page.locator('[data-testid="task-item"]').filter({ hasText: /team|together|shared/i }).first()
-
-		if (await teamTask.count() > 0) {
-			const bonusHint = teamTask.locator('[data-testid="teamwork-bonus-hint"], text=/teamwork|bonus/i')
-			if (await bonusHint.count() > 0) {
-				await expect(bonusHint.first()).toBeVisible({ timeout: 5000 })
-			}
-		}
-	})
-
-	test('completing multi-assign task returns teamwork bonus via API', async ({ page }) => {
-		// CS-PLAN-063: one atomic aggregate create (definition + room task).
+	async function createProbeTask(page: Page, name: string, assignees: string[]): Promise<number> {
+		const roomId = await kitchenRoom(page)
 		const createResponse = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 			data: {
-				roomId: 1,
+				roomId,
+				assigneeUserIds: assignees,
 				task: {
-					name: 'Team Clean Test',
-					energyCost: 10,
+					name,
+					energyCost: 2,
 					frequencyType: 'weekly',
 					frequencyValue: 1,
 				},
 			},
 		})
+		expect(createResponse.status(), await createResponse.text()).toBe(200)
+		const roomTaskId = (await createResponse.json()).data?.roomTask?.id
+		expect(roomTaskId, 'the aggregate create returns the linked room task').toBeTruthy()
+		return roomTaskId
+	}
 
-		if (createResponse.status() !== 200) {
-			test.skip(true, 'Could not create task')
-			return
+	test('multi-assign task shows teamwork bonus hint', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const roomTaskId = await createProbeTask(page, `Team Clean ${Date.now()}`, ['mom', 'dad'])
+
+			await page.goto('/apps/chorestrike/#/tasks')
+			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+
+			const teamTask = page.locator('[data-testid="task-item"]').filter({ hasText: 'Team Clean' }).first()
+			await expect(teamTask).toBeVisible({ timeout: 15000 })
+			await expect(teamTask.locator('.teamwork-hint')).toContainText('Teamwork bonus')
+			// The list identity is stable for the completed assertion below.
+			expect(roomTaskId).toBeGreaterThan(0)
+		} finally {
+			await context.close()
 		}
-
-		const createData = await createResponse.json()
-		const roomTaskId = createData.data?.roomTask?.id
-
-		if (!roomTaskId) {
-			test.skip(true, 'No room task ID returned')
-			return
-		}
-
-		await page.request.put(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/assignees`, {
-			data: { userIds: ['mom', 'dad'] },
-		})
-
-		const completeResponse = await page.request.post(
-			`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`,
-		)
-
-		expect(completeResponse.status()).toBe(200)
-		const body = await completeResponse.json()
-		expect(body.success).toBe(true)
-		expect(body.data?.rewards?.teamworkBonus).toBeGreaterThan(0)
 	})
 
-	test('single-assign task has no teamwork bonus', async ({ page }) => {
-		// CS-PLAN-063: one atomic aggregate create, initial assignee included.
-		const createResponse = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
-			data: {
-				roomId: 1,
-				assigneeUserIds: ['mom'],
-				task: {
-					name: 'Solo Task Test',
-					energyCost: 5,
-					frequencyType: 'weekly',
-					frequencyValue: 1,
-				},
-			},
-		})
+	test('completing multi-assign task returns teamwork bonus via API', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const roomTaskId = await createProbeTask(page, `Team Bonus ${Date.now()}`, ['mom', 'dad'])
 
-		if (createResponse.status() !== 200) {
-			test.skip(true, 'Could not create task')
-			return
-		}
+			// Explicit second assignee through the canonical assignees endpoint.
+			const assignResponse = await page.request.put(`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/assignees`, {
+				data: { userIds: ['mom', 'dad'] },
+			})
+			expect(assignResponse.status()).toBe(200)
+			expect(await assignResponse.json()).toEqual({ success: true, data: ['mom', 'dad'] })
 
-		const createData = await createResponse.json()
-		const roomTaskId = createData.data?.roomTask?.id
+			const completeResponse = await page.request.post(
+				`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`,
+			)
 
-		if (!roomTaskId) {
-			test.skip(true, 'No room task ID returned')
-			return
-		}
-
-		const completeResponse = await page.request.post(
-			`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`,
-		)
-
-		if (completeResponse.status() === 200) {
+			expect(completeResponse.status()).toBe(200)
 			const body = await completeResponse.json()
 			expect(body.success).toBe(true)
-			if (body.data?.rewards) {
-				expect(body.data.rewards.teamworkBonus).toBe(0)
-			}
+			// Two participants → a strictly positive per-participant bonus.
+			expect(body.data?.rewards?.teamworkBonus).toBeGreaterThan(0)
+		} finally {
+			await context.close()
+		}
+	})
+
+	test('single-assign task has no teamwork bonus', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			const roomTaskId = await createProbeTask(page, `Solo Task ${Date.now()}`, ['mom'])
+
+			const completeResponse = await page.request.post(
+				`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`,
+			)
+
+			expect(completeResponse.status()).toBe(200)
+			const body = await completeResponse.json()
+			expect(body.success).toBe(true)
+			expect(body.data.rewards.teamworkBonus).toBe(0)
+		} finally {
+			await context.close()
 		}
 	})
 })

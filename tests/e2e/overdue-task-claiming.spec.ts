@@ -8,55 +8,118 @@
  * - Overdue tasks assigned to another user show a "Claim & complete" button
  * - Clicking the button opens a confirmation dialog naming the original assignee
  * - Confirming the claim completes the task and records the takeover
- * - The original assignee's streak is unaffected
+ * - Public overdue tasks are completable by non-assignees; private ones are denied
  *
  * Requires: Docker test environment with the `family` database profile.
  * CS-PLAN-015b: auth via per-user storageState (no loginAsUser / no logout).
- * @see docs/plans/active/cs-plan-005-task-visibility-teamwork-overdue.md Phase 3
+ * CS-PLAN-068 (CR-WF-05): no fixture-dependent skips — the seeded overdue row
+ * (Take out trash, assigned Dad) plus dedicated API probes make every
+ * precondition deterministic, and room-task payloads are filtered by the real
+ * `status: 'overdue'` field (the former `isOverdue` field never existed, so
+ * the old finds always missed and skipped).
  */
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import type { Page } from '@playwright/test'
 
 test.describe('Overdue Task Claiming', () => {
 	test.use({ databaseProfile: 'family' })
 
+	const yesterday = (): string => {
+		const d = new Date()
+		d.setDate(d.getDate() - 1)
+		const y = d.getFullYear()
+		const m = String(d.getMonth() + 1).padStart(2, '0')
+		const day = String(d.getDate()).padStart(2, '0')
+		return `${y}-${m}-${day}`
+	}
+
+	/** Create an overdue probe task through the atomic aggregate endpoint. */
+	async function createOverdueProbe(
+		page: Page,
+		name: string,
+		options: { visibility?: string; assignees?: string[] } = {},
+	): Promise<number> {
+		const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
+		expect(floorsResponse.status()).toBe(200)
+		const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number; name: string }> }>)
+			.flatMap((floor) => floor.rooms)
+		const kitchen = rooms.find((room) => room.name === 'Kitchen')
+		expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()
+
+		const createResponse = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+			data: {
+				roomId: kitchen.id,
+				assigneeUserIds: options.assignees ?? ['dad'],
+				nextDue: yesterday(),
+				task: {
+					name,
+					energyCost: 1,
+					frequencyType: 'daily',
+					frequencyValue: 1,
+					...(options.visibility ? { visibilityType: options.visibility } : {}),
+				},
+			},
+		})
+		expect(createResponse.status(), await createResponse.text()).toBe(200)
+		const roomTaskId = (await createResponse.json()).data?.roomTask?.id
+		expect(roomTaskId, 'the aggregate create returns the linked room task').toBeTruthy()
+
+		// Confirm the probe is really overdue before the test continues.
+		const listResponse = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
+		expect(listResponse.status()).toBe(200)
+		const probe = ((await listResponse.json()).data as Array<{ id: number; status: string }>)
+			.find((row) => row.id === roomTaskId)
+		expect(probe?.status, 'a past-due probe row must serialize as overdue').toBe('overdue')
+		return roomTaskId
+	}
+
 	test('overdue task assigned to another user shows claim button', async ({ browser }) => {
-		const { context, page } = await createUserContext(browser, 'dad')
+		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			// Dedicated probe (CS-PLAN-068): parallel-pool siblings also
+			// complete seeded Kitchen rows, so the seeded "Take out trash" is
+			// not a stable claim target — the probe is owned by this file.
+			const probeName = `Claim Button ${Date.now()}`
+			await createOverdueProbe(page, probeName, { assignees: ['dad'] })
 
-			const overdueTask = page.locator('[data-testid="task-item"], .task-item').filter({ hasText: /overdue/i }).first()
+			// The claim affordance lives on the TaskManager task rows
+			// (TaskListItem), not on My Day.
+			await page.goto('/apps/chorestrike/#/tasks')
+			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 
-			if (await overdueTask.count() > 0) {
-				const claimButton = overdueTask.locator('[data-testid="claim-overdue-button"], button:has-text("Claim"), button:has-text("Übernehmen")')
-				if (await claimButton.count() > 0) {
-					await expect(claimButton.first()).toBeVisible({ timeout: 5000 })
-				}
-			}
+			const overdueRow = page.locator('[data-testid="task-item"]')
+				.filter({ hasText: probeName })
+				.first()
+			await expect(overdueRow).toBeVisible({ timeout: 15000 })
+			await expect(overdueRow.getByTestId('claim-overdue-button')).toBeVisible()
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('claim button opens confirmation dialog', async ({ browser }) => {
-		const { context, page } = await createUserContext(browser, 'dad')
+	test('claim button opens confirmation dialog naming the assignee', async ({ browser }) => {
+		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
-			await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 30000 })
+			await createOverdueProbe(page, `Claim Dialog ${Date.now()}`, { assignees: ['dad'] })
 
-			const claimButton = page.locator('[data-testid="claim-overdue-button"], button:has-text("Claim"), button:has-text("Übernehmen")').first()
+			await page.goto('/apps/chorestrike/#/tasks')
+			await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
 
-			if (await claimButton.count() > 0 && await claimButton.isVisible()) {
-				await claimButton.click()
+			const overdueRow = page.locator('[data-testid="task-item"]')
+				.filter({ hasText: 'Claim Dialog' })
+				.first()
+			await expect(overdueRow).toBeVisible({ timeout: 15000 })
+			await overdueRow.getByTestId('claim-overdue-button').click()
 
-				const dialog = page.locator('[data-testid="overdue-claim-dialog"], .modal-container, [role="dialog"]')
-				await expect(dialog).toBeVisible({ timeout: 10000 })
-
-				const dialogText = await dialog.textContent()
-				expect(dialogText).toBeTruthy()
-			}
+			const dialog = page.getByTestId('overdue-claim-dialog')
+			await expect(dialog).toBeVisible({ timeout: 10000 })
+			// The dialog names the original assignee (user id).
+			await expect(dialog).toContainText('dad')
+			// The dialog is only observed here — confirming happens in the
+			// API takeover proof below, so the probe row stays claimable.
+			await dialog.locator('.secondary-button').click()
 		} finally {
 			await context.close()
 		}
@@ -65,27 +128,35 @@ test.describe('Overdue Task Claiming', () => {
 	test('claiming overdue task via API records takeover', async ({ browser }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			const tasksResponse = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
-			if (tasksResponse.status() !== 200) {
-				test.skip(true, 'Could not fetch room tasks')
-				return
-			}
-
-			const tasksData = await tasksResponse.json()
-			const roomTasks = tasksData.data || []
-
-			const overdueTask = roomTasks.find(
-				(rt: { isOverdue?: boolean; assignees?: string[] }) =>
-					rt.isOverdue && (rt.assignees?.length ?? 0) > 0 && !rt.assignees!.includes('mom'),
-			)
-
-			if (!overdueTask) {
-				test.skip(true, 'No overdue task assigned to another user found')
-				return
-			}
+			const overdueTaskId = await createOverdueProbe(page, `Takeover ${Date.now()}`, { assignees: ['dad'] })
 
 			const completeResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${overdueTask.id}/complete`,
+				`/apps/chorestrike/api/v1/room-tasks/${overdueTaskId}/complete`,
+			)
+
+			expect(completeResponse.status()).toBe(200)
+			const body = await completeResponse.json()
+			expect(body.success).toBe(true)
+			// The takeover is recorded on the completion receipt.
+			expect(body.data.rewards.contributionScore).toBeGreaterThan(0)
+		} finally {
+			await context.close()
+		}
+	})
+
+	test('non-assignee can complete overdue public task', async ({ browser }) => {
+		const mom = await createUserContext(browser, 'mom')
+		let probeId: number
+		try {
+			probeId = await createOverdueProbe(mom.page, `Overdue Public ${Date.now()}`, { assignees: ['dad'] })
+		} finally {
+			await mom.context.close()
+		}
+
+		const { context, page } = await createUserContext(browser, 'teen')
+		try {
+			const completeResponse = await page.request.post(
+				`/apps/chorestrike/api/v1/room-tasks/${probeId}/complete`,
 			)
 
 			expect(completeResponse.status()).toBe(200)
@@ -96,68 +167,28 @@ test.describe('Overdue Task Claiming', () => {
 		}
 	})
 
-	test('non-assignee can complete overdue public task', async ({ browser }) => {
-		const { context, page } = await createUserContext(browser, 'teen')
-		try {
-			const tasksResponse = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
-			if (tasksResponse.status() !== 200) {
-				test.skip(true, 'Could not fetch room tasks')
-				return
-			}
-
-			const tasksData = await tasksResponse.json()
-			const roomTasks = tasksData.data || []
-
-			const overduePublic = roomTasks.find(
-				(rt: { isOverdue?: boolean; visibilityType?: string; assignees?: string[] }) =>
-					rt.isOverdue
-					&& (rt.visibilityType === 'public' || !rt.visibilityType)
-					&& (rt.assignees?.length ?? 0) > 0
-					&& !rt.assignees!.includes('teen'),
-			)
-
-			if (!overduePublic) {
-				test.skip(true, 'No overdue public task assigned to another user')
-				return
-			}
-
-			const completeResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${overduePublic.id}/complete`,
-			)
-
-			expect(completeResponse.status()).toBe(200)
-		} finally {
-			await context.close()
-		}
-	})
-
 	test('private overdue task cannot be claimed by non-assignee', async ({ browser }) => {
+		const mom = await createUserContext(browser, 'mom')
+		let probeId: number
+		try {
+			probeId = await createOverdueProbe(mom.page, `Overdue Private ${Date.now()}`, {
+				visibility: 'private',
+				assignees: ['mom'],
+			})
+		} finally {
+			await mom.context.close()
+		}
+
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
-			const tasksResponse = await page.request.get('/apps/chorestrike/api/v1/room-tasks')
-			if (tasksResponse.status() !== 200) {
-				test.skip(true, 'Could not fetch room tasks')
-				return
-			}
-
-			const tasksData = await tasksResponse.json()
-			const roomTasks = tasksData.data || []
-
-			const overduePrivate = roomTasks.find(
-				(rt: { isOverdue?: boolean; visibilityType?: string }) =>
-					rt.isOverdue && rt.visibilityType === 'private',
-			)
-
-			if (!overduePrivate) {
-				test.skip(true, 'No overdue private task found')
-				return
-			}
-
 			const completeResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${overduePrivate.id}/complete`,
+				`/apps/chorestrike/api/v1/room-tasks/${probeId}/complete`,
 			)
 
-			expect(completeResponse.status()).toBe(403)
+			// A private task is invisible to non-assignees: per the ADR-010
+			// 403/404 standard the takeover path answers 404 (no existence
+			// leak) rather than a 403 disclosure.
+			expect(completeResponse.status()).toBe(404)
 		} finally {
 			await context.close()
 		}

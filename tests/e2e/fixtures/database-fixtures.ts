@@ -59,11 +59,19 @@ export interface SeededData {
 }
 
 // Database manager class
-class DatabaseManager {
+export class DatabaseManager {
 	private baseURL: string
+	private project: string
 
-	constructor(baseURL: string) {
+	constructor(baseURL: string, project: string) {
 		this.baseURL = baseURL.replace(/\/$/, '')
+		this.project = project
+	}
+
+	private assertResetOwner(): void {
+		if (!RESET_OWNING_PROJECTS.has(this.project)) {
+			throw new Error(`Pool guard violation: '${this.project}' cannot seed/reset the shared database`)
+		}
 	}
 
 	/**
@@ -96,19 +104,19 @@ class DatabaseManager {
 	 * Seed database with a specific profile
 	 */
 	async seed(profile: DatabaseProfile): Promise<SeededData> {
+		this.assertResetOwner()
 		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/seed/${profile}`, {
 			method: 'POST',
 			headers: this.authHeaders(),
 		})
 
 		if (!response.ok) {
-			const error = await response.text()
-			throw new Error(`Failed to seed database with profile '${profile}': ${error}`)
+			throw new Error(`Failed to seed database with profile '${profile}': HTTP ${response.status}`)
 		}
 
 		const result = await response.json()
 		if (!result.success) {
-			throw new Error(`Seed failed: ${result.error?.message || 'Unknown error'}`)
+			throw new Error(`Seed failed for profile '${profile}'`)
 		}
 
 		return result.data
@@ -118,6 +126,7 @@ class DatabaseManager {
 	 * Reset database (equivalent to seed empty)
 	 */
 	async reset(): Promise<void> {
+		this.assertResetOwner()
 		const response = await fetch(`${this.baseURL}/apps/chorestrike/api/v1/test/reset`, {
 			method: 'POST',
 			headers: this.authHeaders(),
@@ -159,19 +168,37 @@ type DatabaseFixtures = {
 // Default profile from environment or 'minimal'
 const DEFAULT_PROFILE: DatabaseProfile = (process.env.TEST_DB_PROFILE as DatabaseProfile) || 'minimal'
 
+/**
+ * The ONLY projects that may seed/reset the shared database
+ * (CS-PLAN-068 §3.2, decision D1): the serial DB pool and the owner-scoped
+ * scheduling pool run sequentially behind the e2e gate against one
+ * disposable database. A seed attempt from any other project (e.g. the
+ * parallel `chromium` pool or an optional firefox/webkit matrix run) would
+ * wipe data under live workers — it fails loudly instead of racing.
+ */
+const RESET_OWNING_PROJECTS = new Set(['chromium-serial-db', 'chromium-scheduling-owner'])
+
 // Extended test with database fixtures
 export const test = baseTest.extend<DatabaseFixtures>({
 	// Database profile fixture (can be overridden per test)
 	databaseProfile: [DEFAULT_PROFILE, { option: true }],
 
 	// Database manager fixture
-	databaseManager: async ({ baseURL }, use) => {
-		const manager = new DatabaseManager(baseURL || process.env.NEXTCLOUD_URL || 'http://localhost:8080')
+	databaseManager: async ({ baseURL }, use, testInfo) => {
+		const manager = new DatabaseManager(baseURL || process.env.NEXTCLOUD_URL || 'http://localhost:8080', testInfo.project.name)
 		await use(manager)
 	},
 
 	// Seeded data fixture - seeds before test and provides data
 	seededData: async ({ databaseProfile, databaseManager }, use, testInfo) => {
+		if (!RESET_OWNING_PROJECTS.has(testInfo.project.name)) {
+			throw new Error(
+				`Pool guard violation: the '${databaseProfile}' seed/reset may only run in a reset-owning project`
+				+ ` (${[...RESET_OWNING_PROJECTS].join(', ')}), but '${testInfo.project.name}' requested it`
+				+ ' — move the spec into the serial pool selection or make it read-only.',
+			)
+		}
+
 		let data: SeededData | null = null
 
 		// Check if test mode is available
@@ -182,7 +209,12 @@ export const test = baseTest.extend<DatabaseFixtures>({
 			data = await databaseManager.seed(databaseProfile)
 			console.log(`[${testInfo.title}] Database seeded successfully`)
 		} else {
-			console.log(`[${testInfo.title}] Test mode not available, skipping seed`)
+			// CS-PLAN-068 §3.4: a missing test environment is a failure, not
+			// a silent null the assertions have to trip over.
+			throw new Error(
+				`Test mode unavailable: cannot seed the '${databaseProfile}' profile required by '${testInfo.title}'`
+				+ ' — the gate requires NEXTCLOUD_TEST_MODE=true on the test container.',
+			)
 		}
 
 		await use(data)

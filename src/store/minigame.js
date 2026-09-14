@@ -238,7 +238,9 @@ export const useMinigameStore = defineStore('minigame', {
 			try {
 				const data = await api.post(`/api/v1/minigames/boosts/${boostId}/purchase`)
 				this.currentCoins = data.remainingCoins
-				this.purchasedBoosts.push(boostId)
+				// The boost is ALREADY in purchasedBoosts — the shop's toggle
+				// owns the selection; a second push here duplicated the entry
+				// and doubled the displayed total (CS-PLAN-068 §3.6 fix).
 				return true
 			} catch (error) {
 				this.error = error.message

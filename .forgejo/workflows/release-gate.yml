@@ -11,7 +11,8 @@
 #   - `composer cs:check`   (PHP coding standard, 0 diff — CS-026)
 #   - PHPUnit unit          (via Docker)
 #   - PHPUnit integration   (via Docker)
-#   - Playwright E2E        (chromium, via Docker — blocking, CS-PLAN-020)
+#   - npm run test:e2e:gate (canonical sequential browser gate, via Docker —
+#     blocking, CS-PLAN-020 + CS-PLAN-068 D1)
 #
 # Stylelint emits ~26 `use-logical` *warnings* (deferred RTL sweep → backlog
 # TECH-LINT-004); warnings do not fail the gate (no `--max-warnings` set).
@@ -63,6 +64,12 @@ jobs:
 
       - name: Docs encoding gate (blocking, CS-PLAN-050)
         run: npm run docs:encoding
+
+      - name: Localization and browser-runner contracts (blocking)
+        run: |
+          npm run l10n:check-keys
+          node scripts/run-e2e-gate.js --self-test
+          npm run backlog:check
 
   # ---------- Composer sanity + PHP CS ----------
   composer:
@@ -136,25 +143,29 @@ jobs:
 
       - name: Run PHPUnit integration (blocking)
         run: |
-          docker compose -f docker-compose.test.yml up -d
-          docker compose -f docker-compose.test.yml run --rm nextcloud-test \
-            bash -c "cd /var/www/html/custom_apps/chorestrike && \
-              vendor/bin/phpunit --configuration phpunit.integration.xml"
-          docker compose -f docker-compose.test.yml down
+          TEST_DB_PROFILE=family docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 600
+          docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+            vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped
 
-  # ---------- E2E gate (chromium, blocking) ----------
-  # CS-PLAN-020 Phase 3 (D3): a red E2E run now fails a release. Starts
-  # chromium-only on the `family` seed profile (mirrors the proven test.yml
-  # setup) and runs the chromium-based Playwright projects, including the
-  # seed-dependent `chromium-serial-db` project. Folding in the full browser
-  # matrix (firefox/webkit) is a documented follow-up once a chromium-only
+      - name: Tear down integration environment
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
+  # ---------- E2E gate (canonical sequential runner, blocking) ----------
+  # CS-PLAN-068 (D1): the browser gate is the canonical sequential runner
+  # `npm run test:e2e:gate` — it verifies the required-spec manifest by
+  # discovery, then runs chromium, chromium-serial-db and
+  # chromium-scheduling-owner SEQUENTIALLY with workers=1, retries=0 and
+  # forbid-only against one disposable database, and fails on any
+  # skipped/failed/flaky required scenario. Folding the full browser
+  # matrix (firefox/webkit) is a documented follow-up once the chromium
   # gate proves stable in CI; until then, `full-matrix.yml` covers all
   # browser projects weekly on a scheduled, non-blocking basis
   # (CS-PLAN-051 D4).
   e2e:
-    name: E2E (chromium)
+    name: E2E (canonical gate)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -167,6 +178,9 @@ jobs:
 
       - name: Install JS dependencies
         run: npm ci
+
+      - name: Build application browser assets
+        run: npm run build
 
       - name: Install Playwright browser (chromium)
         run: npx playwright install --with-deps chromium
@@ -191,27 +205,30 @@ jobs:
           docker compose -f docker-compose.test.yml exec -T nextcloud-test \
             su -s /bin/bash www-data -c \
             "cd /var/www/html && php occ chorestrike:test-data:seed --profile=family"
+          # Deterministic gate: disable the AJAX job scheduler — under AJAX
+          # cron, background jobs execute INLINE with page loads and cause
+          # periodic slow windows that flake the browser pools. The gate
+          # never depends on scheduled jobs (time-travel specs trigger jobs
+          # explicitly via occ chorestrike:trigger-jobs).
+          docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+            su -s /bin/bash www-data -c \
+            "cd /var/www/html && php occ background:cron"
 
-      - name: Run Playwright (chromium projects, blocking)
-        run: |
-          npx playwright test \
-            --project=chromium \
-            --project=chromium-serial-db \
-            --reporter=list,html
+      - name: Run the canonical E2E gate (blocking)
+        run: npm run test:e2e:gate
         env:
           NEXTCLOUD_URL: http://localhost:8080
           TEST_DB_PROFILE: family
           NEXTCLOUD_TEST_MODE: "true"
           CI: "true"
 
-      - name: Upload Playwright report
+      - name: Upload sanitized Playwright results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-release-gate
           path: |
-            test-results/
-            playwright-report/
+            build/e2e-gate/run-*/summary-*.json
           retention-days: 7
           if-no-files-found: ignore
 

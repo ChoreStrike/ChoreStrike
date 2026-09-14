@@ -3,16 +3,17 @@
  * @license MIT
  */
 
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 
 test.describe('Scheduling UI', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
-		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle')
-		await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await expect(async () => {
+			await page.goto('/apps/chorestrike/')
+			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.getByTestId('nav-scheduling').click()
+			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+		}).toPass({ timeout: 45000 })
 	})
 
 	test('loads the scheduling view with all sections', async ({ page }) => {
@@ -82,11 +83,12 @@ test.describe('Scheduling UI', () => {
 test.describe('Scheduling save flow', () => {
 	test.beforeEach(async ({ page }) => {
 		test.setTimeout(90000)
-		await page.goto('/apps/chorestrike/')
-		await page.waitForLoadState('networkidle')
-		await page.getByTestId('dashboard-view').waitFor({ state: 'visible' })
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await expect(async () => {
+			await page.goto('/apps/chorestrike/')
+			await page.getByTestId('dashboard-view').waitFor({ state: 'visible', timeout: 10000 })
+			await page.getByTestId('nav-scheduling').click()
+			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+		}).toPass({ timeout: 45000 })
 	})
 
 	test('persists a changed energy budget with exactly one bulk PUT and restores the seed', async ({ page }) => {

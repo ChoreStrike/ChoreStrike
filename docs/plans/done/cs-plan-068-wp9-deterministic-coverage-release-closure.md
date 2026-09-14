@@ -1,6 +1,6 @@
 # CS-PLAN-068: WP9 - Deterministic Coverage and Release-Quality Closure
 
-> **Status:** Active (Standard A review `PASS-WITH-FIXES` 2026-09-13; implementation not started)
+> **Status:** Done (final Standard B `PASS-WITH-FIXES`, 2026-09-14; all WP9 criteria/findings resolved, clean-install gate and two consecutive retry-free browser passes verified)
 > **Effort:** XL (one sequential package with independently verifiable slices)
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP8 complete; [CS-PLAN-067](../done/cs-plan-067-wp8-batching-decomposition-performance.md) final Standard B `PASS-WITH-FIXES`
@@ -88,6 +88,40 @@ that review or its commit; the review request did.
 | D7 | Finish WP9 through Standard B, then require a separate final Full review across the whole CS-PLAN-058 journey before moving the parent to `done/`. Only the program prerequisite of RELEASE-002 is satisfied. | A combined final Full review must explicitly cover both owning plans and all parent criteria; a child-only passing review can never close the parent or execute a release. |
 
 ## 3. Backend / Frontend Changes
+
+### Standard B Decisions (2026-09-14)
+
+- **D8 - Adopt Fix Slice (Recommended):** user approved adding the five
+  production files in the implementation (`SnakeLeaderboard.vue`,
+  `TaskEditForm.vue`, `RoomTaskEditModal.vue`, `store/minigame.js`,
+  `utils/taskDisplay.js`) and their paired regressions to WP9. Existing
+  reward and authorization rules remain unchanged.
+- **D9 - Implement Fixes Now:** user explicitly authorized the identified
+  runner/checker, frontend identity/loading, fixture and CI logic fixes,
+  missing tests and durable documentation in this review. All original
+  required tests remain required; no rescoping or release is authorized.
+  Supporting test files for the runner, localization checker, fixture
+  guards, browser scenario inventory and controlled-date proofs may be
+  added where the existing owners cannot express those proofs.
+- **D10 - Fix Spacing (Recommended):** user explicitly approved the
+  `TaskTemplatePicker.vue` header spacing fix after the required ordinary
+  level-selection click proved the modal close target covered it. Add this
+  production file to the manifest; preserve template/reward behavior and
+  verify desktop/mobile and existing modal coverage without forced clicks.
+- The D9 test-runner fix also applies direct Node execution to the existing
+  `scripts/check-test-noise.js` npm lifecycle launcher. This removes the
+  observed Node 24 `DEP0190` shell warning without suppressing it or changing
+  the test command; `browserGate.spec.js` verifies launch and interruption.
+- D9 recovery uses the existing shared `ErrorState`, not per-form ad-hoc
+  markup. Its retry button explicitly has `type="button"` so an embedded
+  form retry never submits; both form regressions pin this. D10's picker
+  spacing also enforces the binding 44px hit area after the mobile probe
+  measured 34px; the canonical journey now exercises ordinary desktop and
+  390px mobile level clicks and measures the target.
+- Strict Composer validation exposed the existing CS-PLAN-026 platform
+  metadata drift (`composer.json` PHP `^8.2`, lock `^8.0`). A lock-only
+  regeneration updates that field and its content hash; no package version,
+  source reference, dependency requirement or runtime policy changes.
 
 ### 3.1 Test inventory and enforceable results
 
@@ -483,6 +517,34 @@ modified: docs/backlog/ACTIVE_TASKS.md
 modified: docs/backlog/archive/2026-09.md
 ```
 
+Final Standard B manifest reconciliation (D8-D10): the exact reviewed path
+manifest and binary-diff fingerprint are recorded in
+[`CODE_REVIEW_2026-09-14.md`](../../backlog/archive/CODE_REVIEW_2026-09-14.md).
+The retained `setup-wizard-journey.spec.ts`,
+`coreWorkflowLocalization.spec.js` and request/query-budget owners required
+no additional edits; their executable coverage remained part of the gate.
+
+```text
+new:      tests/e2e/fixtures/house-clock.js
+new:      tests/e2e/required-scenarios.json
+new:      tests/integration/Controller/TestModeHttpTest.php
+new:      tests/unit/scripts/{browserGate,databaseFixtures,localizationGate}.spec.js
+modified: src/components/Common/ErrorState.vue
+modified: src/components/Minigames/SnakeLeaderboard.vue
+modified: src/components/Tasks/{TaskEditForm,RoomTaskEditModal,TaskTemplatePicker}.vue
+modified: src/store/minigame.js
+modified: src/utils/taskDisplay.js
+modified: tests/unit/components/{TaskEditForm,RoomTaskEditModal,ScheduleCalendar}.spec.js
+modified: tests/unit/store/minigame.spec.js
+modified: tests/unit/utils/taskDisplay.spec.js
+modified: tests/unit/l10n/l10n-consistency.spec.js
+modified: tests/e2e/{family-core-ux,scheduling-apply-flow}.spec.ts
+modified: scripts/check-test-noise.js
+modified: composer.lock (platform/content-hash metadata only; no dependency upgrades)
+new:      docs/backlog/archive/CODE_REVIEW_2026-09-14.md
+moved:    this plan from active/ to done/
+```
+
 Archive the superseded scratch spec for local reference under
 `archive/2026-09/wp9-deterministic-coverage/` before removing its tracked path;
 do the same for the removed legacy fixture. Never include those ignored copies
@@ -517,6 +579,101 @@ archive convention, not a predetermined future result.
    review, with all parent criteria/tests/docs/findings complete, moves
    CS-PLAN-058 to `done/` and satisfies RELEASE-002's program prerequisite.
 
+## 6.1 Implementation Log
+
+**Round 1 (2026-09-13, historical implementation report):**
+
+These were the implementation round's claims, not the final verdict. The
+Standard B review reproduced false-green gate paths and missing proofs;
+the resolved findings and final outcome below supersede the old counts,
+completion claims and incomplete localization inventory in this history.
+
+- **Gate runner** (`scripts/run-e2e-gate.js`, `npm run test:e2e:gate`):
+  manifest discovery per project via `--list --reporter=json` (46 required
+  specs, each owned by exactly one pool; required scenario titles pinned),
+  sequential execution of chromium → chromium-serial-db →
+  chromium-scheduling-owner with `--workers=1 --retries=0 --forbid-only`,
+  JSON-result check (zero skipped/failed/flaky/interrupted in required
+  specs), `--self-test` synthetic fixture suite; wired into
+  `.forgejo/workflows/release-gate.yml`. Reports live under the gitignored
+  `build/e2e-gate/` (outside Playwright's self-wiping output dir).
+- **Fixture ownership**: no-op `fixtures/test-fixtures.ts` deleted (archived
+  under `archive/2026-09/wp9-deterministic-coverage/`), 18 importers migrated
+  to plain Playwright imports; `seededData` pool guard (reset-owning pools
+  only: `chromium-serial-db`, `chromium-scheduling-owner`); missing test mode
+  throws instead of skipping; `visibility-fixtures.ts` throws sanitized
+  diagnostics; callers de-skipped.
+- **Backend**: `FamilyIntegrationTest` rewritten (8 real-DB
+  `CompletionService` scenarios); `GameControllerIntegrationTest` rewritten
+  (real medal award + idempotence; obsolete `handleTaskCompletion` case
+  deleted with the RouteMatrix prune guard); new
+  `MinigameControllerIntegrationTest` (9 routes), `TestModeApiTest`,
+  `TestDataSeedTest`; BUG-E2E-006 fixed in `SchedulePlanAggregateTest`
+  (parameterized UTC→Berlin / UTC→Los_Angeles transitions over a
+  dual-timezone-valid start date, fixture seeded into that window).
+- **Browser**: canonical `core-household-journey.spec.ts` (one test, 8 named
+  `test.step` phases, `emptyhouse`, UI-only mutations, exact receipt/wallet/
+  cleanliness deltas, queued undo live + after reload, identity/visibility
+  re-entry); BUG-E2E-005 fixed in `insights-flow.spec.ts` (controlled 28/day
+  capacity across all 7 members, probes due today); de-skipped and hardened
+  `overdue-task-claiming` (real `status` field + dedicated probes),
+  `teamwork-rewards` (exact isCombo receipts), `core-functionality`
+  (`expandAllFloors` + receipt-based completion), `3-floor-house`;
+  `task-completion-full-flow` tests 1-4 strengthened (WP5 inverse test
+  retained); `workflow-request-budgets` and other focused specs unchanged.
+- **Jest (CR-053-22)**: 8 component suites (41 tests). Two real defects found
+  and fixed: `SnakeLeaderboard` read a nonexistent `userStore.user` field;
+  minigame store `purchaseBoost` double-pushed the selection. Related root
+  cause from the E2E de-skip: `TaskEditForm`/`RoomTaskEditModal` rendered
+  `AssigneeChips` without its required `members` prop (assignee editing could
+  never work) — both now feed `userStore.houseUsers` with a single mount-time
+  fetch.
+- **l10n (CR-053-13)**: `check-l10n-keys.js` extended to the global
+  source→en/de/POT scan (769 keys, D2 §5 exclusions); 49 missing keys
+  regenerated into en.json/de.json/POT with placeholder-validated German
+  copy; `i18n.md` + skill pointer updated.
+- **Docs (CR-053-21 slice)**: README truth rewrite (`0.1.1` pre-release,
+  shipped workflow, no tower-defense/Sparks/AI/approval claims);
+  `testing.md` (canonical gate, pool guard, skip inventory refresh);
+  `architecture.md` (live store/component examples, weekly-goal dedup note);
+  `development.md` (real component test example, logger rule, migration
+  inventory incl. Version1029); `api/README.md` (camelCase game payloads +
+  full Minigames section); ADR-003 current-scope annotation + ADR index;
+  `gamification-and-rewards.md` (medal owner + arcade coin sink);
+  `security.md` test-tooling routes; roadmap capability snapshot.
+- **Backlog reconciliation**: CR-WF-05, CR-053-13, CR-053-18-WP9, CR-053-22,
+  BUG-E2E-005, BUG-E2E-006 archived in `archive/2026-09.md` with per-criterion
+  evidence; ACTIVE_TASKS updated; `backlog:check` + `docs:encoding` green.
+- **Gate evidence (final)**: unit 920/920, integration 343/343 (all 18
+  remaining skips are conditional engine guards), Jest 987/987 (zero-noise
+  gate green), lint, stylelint, `cs:check` 0 diffs, `l10n:check-keys`
+  769/769, `backlog:check` + `docs:encoding` green, build green; browser
+  gate: **two consecutive full clean passes** on the final tree
+  (`build/e2e-gate/` reports) — discovery 46/46 owned exactly once, three
+  pools sequential with `--workers=1 --retries=0 --forbid-only`, zero
+  skipped/failed/flaky required scenarios, scheduling-owner pool fully
+  green in every completed pass. Environment stabilizations the gate
+  depends on (documented in testing.md + release-gate.yml): AJAX cron
+  disabled for the run (`occ background:cron` — background jobs executed
+  inline with page loads under the AJAX scheduler and caused periodic slow
+  windows) and the setup project timeout raised to 240s (seven sequential
+  form logins).
+- **Iteration findings fixed during gate verification** (all §3.4-class):
+  journey phase-3 wizard reopen (invite step moved into the wizard session),
+  flat room-task payload reads (`taskId`, not a nested `task` object),
+  checklist editor reopen-per-item, hidden checkbox/label interactions,
+  storageState-vs-fresh-session API rule (restored contexts get 412 CSRF —
+  API calls use `createUserContext`), dedicated probe tasks replacing
+  parallel-racy seeded-row targets (`overdue-task-claiming`,
+  `core-functionality`), strict-mode double-render in the family-core-ux
+  checklist assertion, the undone-completion snackbar's 5s window (undo now
+  happens in the completing session), the pre-existing date/time-dependent
+  `dueClass` unit test (root cause fixed in `taskDisplay.js`: the
+  house-local day bucket takes precedence over the raw instant — same
+  "Due today" semantics as `dueText` — with a date-boundary regression
+  test), and load-flake navigation retries (`toPass`) in the
+  private-tasks/room-management/scheduling-pool specs.
+
 ## 7. Risks & Mitigations
 
 | Risk | Likelihood | Mitigation |
@@ -533,22 +690,22 @@ archive convention, not a predetermined future result.
 
 ## 8. Acceptance Criteria
 
-- [ ] AC-01: D1-D7 are resolved and recorded, exact manifest/ownership ratified, and no unapproved scope adoption or unanswered implementation decision remains.
-- [ ] AC-02: Every required scenario and baseline skip/exclusion has a current executable owner and explicit disposition; no live authorization case disappears with an obsolete test.
-- [ ] AC-03: Seed/reset and non-reset project selections are disjoint and execute under one exclusive DB owner; reset side effects, role preconditions and authentication setup are regression-proven.
-- [ ] AC-04: A clean Docker install and unbootstrapped first-owner browser path pass; WP1's race-safe exactly-one-house/owner proof stays green.
-- [ ] AC-05: One replacement household journey executes setup, invitations, task creation/assignment, scheduling, child My Day, completion and undo through the real UI with unconditional assertions and no app-data progression shortcuts.
-- [ ] AC-06: Completion proves exact deltas; undo restores the ADR-011 state and client projections before/after reload, respects documented non-retractions and is idempotent; existing race/rollback proofs stay green.
-- [ ] AC-07: BUG-E2E-005/006 are fixed and regression-proven across their weekday/timezone boundaries; the dedup-documentation portion of BUG-E2E-005 is resolved before closing that item.
-- [ ] AC-08: Every still-required CR-053-22 test is implemented and passing, not silently deferred or replaced by a mount-only assertion.
-- [ ] AC-09: The ratified test-mode release contract has enabled/disabled-mode no-write protection tests, accurate docs and no open security blocker.
-- [ ] AC-10: Global source/POT/EN/DE coverage, dynamic catalogs, placeholders/plurals and deterministic artifact regeneration pass; real DE/EN core rendering stays correct.
-- [ ] AC-11: Owner/member/child desktop/mobile role, focus, label, 44 px target, checklist and recovery coverage remains green; the long desktop journey does not replace those focused proofs.
-- [ ] AC-12: Required-result enforcement rejects missing/skipped/flaky evidence; the complete sequential browser gate passes twice with retries disabled and zero skipped required scenarios.
-- [ ] AC-13: Full quality gate passes after the final change and review fixes, including all backend/Jest tests and unchanged WP8 request/query ceilings; no pre-existing required red is accepted as WP9 completion.
-- [ ] AC-14: All durable outcomes and the adopted CR-053-21 slice are integrated into permanent docs; README/API/testing claims match executable behavior rather than historical plan promises.
-- [ ] AC-15: Completed owning items/slices are archived immediately, resolved stubs removed, unrelated remainders and independent RELEASE-002 blockers preserved, and ACTIVE_TASKS/plan indexes current.
-- [ ] AC-16: All plan-owned findings are resolved or explicitly user-rescoped; final WP9 Standard B is `PASS` or `PASS-WITH-FIXES`. Parent closure still requires the separately recorded final Full review and complete parent acceptance evidence.
+- [x] AC-01: D1-D7 are resolved and recorded, exact manifest/ownership ratified, and no unapproved scope adoption or unanswered implementation decision remains.
+- [x] AC-02: Every required scenario and baseline skip/exclusion has a current executable owner and explicit disposition; no live authorization case disappears with an obsolete test.
+- [x] AC-03: Seed/reset and non-reset project selections are disjoint and execute under one exclusive DB owner; reset side effects, role preconditions and authentication setup are regression-proven.
+- [x] AC-04: A clean Docker install and unbootstrapped first-owner browser path pass; WP1's race-safe exactly-one-house/owner proof stays green.
+- [x] AC-05: One replacement household journey executes setup, invitations, task creation/assignment, scheduling, child My Day, completion and undo through the real UI with unconditional assertions and no app-data progression shortcuts.
+- [x] AC-06: Completion proves exact deltas; undo restores the ADR-011 state and client projections before/after reload, respects documented non-retractions and is idempotent; existing race/rollback proofs stay green.
+- [x] AC-07: BUG-E2E-005/006 are fixed and regression-proven across their weekday/timezone boundaries; the dedup-documentation portion of BUG-E2E-005 is resolved before closing that item.
+- [x] AC-08: Every still-required CR-053-22 test is implemented and passing, not silently deferred or replaced by a mount-only assertion.
+- [x] AC-09: The ratified test-mode release contract has enabled/disabled-mode no-write protection tests, accurate docs and no open security blocker.
+- [x] AC-10: Global source/POT/EN/DE coverage, dynamic catalogs, placeholders/plurals and deterministic artifact regeneration pass; real DE/EN core rendering stays correct.
+- [x] AC-11: Owner/member/child desktop/mobile role, focus, label, 44 px target, checklist and recovery coverage remains green; the long desktop journey does not replace those focused proofs.
+- [x] AC-12: Required-result enforcement rejects missing/skipped/flaky evidence; the complete sequential browser gate passes twice with retries disabled and zero skipped required scenarios.
+- [x] AC-13: Full quality gate passes after the final change and review fixes, including all backend/Jest tests and unchanged WP8 request/query ceilings; no pre-existing required red is accepted as WP9 completion.
+- [x] AC-14: All durable outcomes and the adopted CR-053-21 slice are integrated into permanent docs; README/API/testing claims match executable behavior rather than historical plan promises.
+- [x] AC-15: Completed owning items/slices are archived immediately, resolved stubs removed, unrelated remainders and independent RELEASE-002 blockers preserved, and ACTIVE_TASKS/plan indexes current.
+- [x] AC-16: All plan-owned findings are resolved or explicitly user-rescoped; final WP9 Standard B is `PASS` or `PASS-WITH-FIXES`. Parent closure still requires the separately recorded final Full review and complete parent acceptance evidence.
 
 ## 9. Review Findings (plan-owned)
 
@@ -564,6 +721,19 @@ plan/backlog/review records.
   `MinigameController` register **nine** (`minigame#userRank`,
   `minigame#recentScores` omitted from the enumeration) · fixed in the review
   round (enumeration corrected to nine; coverage contract now complete).
+- [x] RF-068-02 · major · browser gate false-green paths · fixed: owner-specific complete reports, exactly one passing attempt, hard subprocess failure, fresh report directories; pure and actual-main negative regressions pass.
+- [x] RF-068-03 · major · manifest/auth/fixtures/CI · fixed: frozen exact scenario inventory, failing setup, destructive-entry guards, no fixture skips, CI asset build/installed-container strict integration, local failure traces and sanitized CI summaries.
+- [x] RF-068-04 · major · localization · fixed: global literals plus finite catalogs/maps, source-relative named/printf placeholders, required POT, dead-key rejection, exported extraction/validation, idempotent regeneration and negative tests; 940 keys and real DE/EN rendering pass.
+- [x] RF-068-05 · minor · leaderboard identity · fixed: `currentUser.nextcloudUserId`, with the real API-shaped regression fixture.
+- [x] RF-068-06 · major · member-load rejection · fixed: both forms use shared ErrorState recovery, keep draft/assignments, retry without submitting and avoid unhandled rejection; form tests pass.
+- [x] RF-068-07 · major · component determinism/coverage · fixed: controlled food and real direction assertions, pause/resume/unmount timers, initialization/save failures, empty/loading/relative-time cases; all eight deferred suites pass.
+- [x] RF-068-08 · major · canonical journey proof · fixed: real UI-selected house timezone, exact setup/template behavior, preview-no-write, Calendar/My Day, reward and checklist inverse/reload assertions; desktop/mobile journey passes in both final runs.
+- [x] RF-068-09 · major · date boundaries · fixed: Saturday/Sunday/Monday component/store proofs, midnight/extreme-offset/DST providers, and one shared stale-plan start key; PHP and Jest regressions pass.
+- [x] RF-068-10 · major · test-mode/minigame proof · fixed: real HTTP anonymous/disabled-server denial, all disabled routes, enabled dispatch/invalid input, no-write seed and all nine route contracts. The static boost catalog's authenticated non-member read is preserved and documented; reward whitelist unchanged.
+- [x] RF-068-11 · major · docs/closure evidence · fixed: stale claims superseded, durable API/concept/testing/standards truth integrated, exact parent acceptance map added, clean Nextcloud install and complete gates verified; archival dates corrected to final review.
+- [x] RF-068-12 · minor · picker close overlap/touch area · fixed under D10: reserved close space, 44px targets, ordinary desktop/mobile clicks and close verified; canonical regression retained.
+- [x] RF-068-13 · minor · Composer platform drift · fixed: lock-only PHP platform/content-hash refresh, no package upgrades; strict Composer validation passes.
+- [x] RF-068-14 · minor · Node 24 noise-runner warning · fixed: direct Node/npm CLI invocation without a shell; launch/interruption regression and zero-noise gate pass.
 
 ## 10. Draft Verification and Review Handoff
 
@@ -629,3 +799,35 @@ Draft verification on 2026-09-13:
   this plan (provenance retained); inbound tracked links (ACTIVE_TASKS,
   plans/README.md, masterplan WP9 row) repointed; review record appended to
   `docs/backlog/archive/CODE_REVIEW_2026-09-13.md`.
+
+### Final Standard B (2026-09-14)
+
+- **Outcome:** `PASS-WITH-FIXES`. Complete explicit owning-plan review,
+  not an empty/narrow-diff completion claim. No open findings, deferred
+  required tests or unanswered questions; D8/D9 and later D10 were resolved
+  through structured questions before finalization.
+- **Source state:** `master` at `4d73c8827a457ef5c10a5e0c1769e0f37cb4f13e`,
+  empty index. Initial captured scope SHA-256
+  `858b115b79ffec9cac1a9cccccb51ff4de2d94757362e1dcfbff4c3837122b32`.
+  Final implementation fingerprint
+  `1758233e0474ddedfb0f98ab819466cfd883f2bff6abac72762df7ba3a2120d7`;
+  unchanged throughout the final pair (only declared review metadata changed).
+  Full manifest and individual report hashes are in the dated review record.
+- **Gates:** clean disposable install (Nextcloud 31.0.6, app 0.1.1);
+  PHPUnit unit **920**, integration **361 with zero skips**; Jest **1,054**
+  across 100 suites; `test:noise`, lint, stylelint, build, l10n (940 exact
+  source/catalog keys), Composer strict validation/CS, docs encoding,
+  backlog/link and whitespace gates green. Frozen WP8 ceilings unchanged.
+- **Final browser pair:** `run-xh6Kvg` then `run-raA3R6`; each ran
+  **100 + 114 + 38 = 252 executions** (243 scenarios plus 9 setup
+  executions), 46 required files owned exactly once; one canonical journey
+  per run. Independent JSON checks found zero invalid attempts, expected
+  failures, skips, failures, retries or flakes. Earlier implementation and
+  pre-final accessibility runs do not count toward this final pair.
+- **Disposition:** all implementation steps through step 8 complete; step 9
+  is the separately requested parent Full review, not unfinished WP9 work.
+  Move this child `active/ -> done/`, archive its completed items and the
+  verified stale TECH-LINT-007 stub, update the parent evidence/WP9 row and
+  rolling tracking, and create one scoped conventional review commit.
+  CS-PLAN-058 remains active. RELEASE-002, BUG-SEC-001, SEC-AUDIT-001 and
+  the independent hardening/decomposition prerequisites remain open.

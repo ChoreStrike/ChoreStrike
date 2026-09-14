@@ -74,26 +74,23 @@ describe('l10n Consistency', () => {
 			expect(mismatches).toEqual([])
 		})
 
-		it('preserves {day} placeholder in day-related validation messages', () => {
+		it('preserves positional PHP placeholders in live weekday validation messages', () => {
 			const enTranslations = readTranslations(enPath)
 			const deTranslations = readTranslations(dePath)
 
 			const dayPlaceholderKeys = [
-				'Invalid day: {day}',
-				'Availability must be boolean for {day}',
-				'Energy must be between 1 and 20 for {day}',
+				'Invalid weekday: %1$s',
+				'%1$s must contain all seven weekdays (missing: %2$s)',
 			]
 
 			for (const key of dayPlaceholderKeys) {
 				// Check EN has placeholder
 				expect(enTranslations[key]).toBeDefined()
-				const enPlaceholders = extractPlaceholders(enTranslations[key])
-				expect(enPlaceholders).toContain('{day}')
+				expect(enTranslations[key]).toContain('%1$s')
 
 				// Check DE has placeholder
 				expect(deTranslations[key]).toBeDefined()
-				const dePlaceholders = extractPlaceholders(deTranslations[key])
-				expect(dePlaceholders).toContain('{day}')
+				expect(deTranslations[key]).toContain('%1$s')
 			}
 		})
 	})

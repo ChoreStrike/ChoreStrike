@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 import { userStatePath } from './fixtures/auth-contexts'
 
 /**

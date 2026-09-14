@@ -1,4 +1,4 @@
-import { test as setup, type Page } from '@playwright/test'
+import { test as setup, expect, type Page } from '@playwright/test'
 import { PROFILE_USERS, type DatabaseProfile } from './fixtures/database-fixtures'
 import { userStatePath, AUTH_DIR } from './fixtures/auth-contexts'
 
@@ -59,15 +59,12 @@ async function loginAndSave(page: Page, user: string, password: string, statePat
 /** Seed a profile so its user accounts exist before specs run. */
 async function seedProfile(baseURL: string, profile: DatabaseProfile): Promise<void> {
 	const origin = baseURL.replace(/\/$/, '')
-	const ok = await fetch(`${origin}/apps/chorestrike/api/v1/test/seed/${profile}`, {
+	const response = await fetch(`${origin}/apps/chorestrike/api/v1/test/seed/${profile}`, {
 		method: 'POST',
 		headers: adminAuthHeader(),
 	})
-		.then((r) => r.ok)
-		.catch(() => false)
-	if (!ok) {
-		console.log(`[setup] Could not seed '${profile}' profile (test mode off?) — profile-user specs may skip.`)
-	}
+	expect(response.status, `required '${profile}' seed response`).toBe(200)
+	expect((await response.json()).success).toBe(true)
 }
 
 setup('authenticate as admin', async ({ page }) => {
@@ -77,14 +74,10 @@ setup('authenticate as admin', async ({ page }) => {
 setup('seed profile users', async ({ baseURL }) => {
 	const origin = baseURL || process.env.NEXTCLOUD_URL || 'http://localhost:8080'
 
-	const testMode = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`, {
+	const response = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`, {
 		headers: adminAuthHeader(),
 	})
-		.then((r) => r.ok)
-		.catch(() => false)
-	if (!testMode) {
-		return
-	}
+	expect(response.status, 'test mode must be enabled').toBe(200)
 
 	// Seed the `family` profile unconditionally: it owns the NC accounts
 	// (mom/dad/teen/kid/grandma/friend) that every spec authenticates below.
@@ -93,11 +86,7 @@ setup('seed profile users', async ({ baseURL }) => {
 	// decoupled from `TEST_DB_PROFILE` — the matrix profile only shapes the
 	// per-test seed DATA (re-seeded by the `seededData` fixture), never which
 	// users can log in.
-	try {
-		await seedProfile(origin, 'family')
-	} catch {
-		// Seeding best-effort — admin session remains the guaranteed fallback.
-	}
+	await seedProfile(origin, 'family')
 })
 
 /**
@@ -110,14 +99,10 @@ setup('seed profile users', async ({ baseURL }) => {
 setup('authenticate profile users', async ({ browser, baseURL }) => {
 	const origin = baseURL || process.env.NEXTCLOUD_URL || 'http://localhost:8080'
 
-	const testMode = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`, {
+	const response = await fetch(`${origin.replace(/\/$/, '')}/apps/chorestrike/api/v1/test/profiles`, {
 		headers: adminAuthHeader(),
 	})
-		.then((r) => r.ok)
-		.catch(() => false)
-	if (!testMode) {
-		return
-	}
+	expect(response.status, 'test mode must be enabled').toBe(200)
 
 	// Authenticate the `family` users regardless of `TEST_DB_PROFILE`. All
 	// specs request these identities via `createUserContext` /
@@ -132,8 +117,6 @@ setup('authenticate profile users', async ({ browser, baseURL }) => {
 		const page = await context.newPage()
 		try {
 			await loginAndSave(page, user.userId, user.password, userStatePath(user.userId))
-		} catch {
-			console.log(`[setup] Could not authenticate '${user.userId}' — specs using this user may skip.`)
 		} finally {
 			await context.close()
 		}

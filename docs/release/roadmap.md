@@ -1,9 +1,36 @@
-# ChoreStrike Development Roadmap
+﻿# ChoreStrike Development Roadmap
+
+## Current Capability Snapshot (2026-09, CS-PLAN-058/068 truth slice)
+
+The phases below are **historical delivery records** — several early phase
+descriptions contain ambitions that were later removed or never shipped (the
+notes in each phase mark the corrections). What the app can do **today**
+(shipped `0.1.1` pre-release, verified by the automated release gate):
+
+- **Shipped**: first-owner bootstrap with a guided setup wizard; invite-only
+  membership by email with owner/member/child roles; floors/rooms structure;
+  recurring tasks with flexible windows, instructions, checklists and
+  per-task visibility; owner weekly planning (availability + energy budgets,
+  preview → adjust → apply) with child daily-task limits; My Day execution
+  with one-tap completion and exact undo; overdue claiming with takeover
+  protection; coins/contribution/streak rewards with combo and teamwork
+  bonuses, streak freezes, weekly medals and titles; arcade minigames with
+  an authoritative-catalog boost shop; insights (activity feed, member
+  fairness, overcapacity warnings); Nextcloud notifications; EN+DE.
+- **Not implemented** (do not assume otherwise): task approval workflows,
+  external-calendar sync, Home-Assistant/webhook integrations, mobile apps,
+  AI task suggestions, App Store publication.
+- **Release posture**: `v0.8.x` internal alpha → `v0.9.x` private beta →
+  `v1.0.0` stable manual-install release. Program/plan completion is NOT a
+  deployment approval: rollout is an explicit user decision after the
+  remaining Phase-8 work below.
+
+---
 
 ## Project Phases
 
 ### Phase 0: Foundation ✅ (Complete)
-**Status**: Complete  
+**Status**: Complete
 **Timeline**: Week 1-2
 
 - [x] Project setup and structure
@@ -21,7 +48,7 @@
 ---
 
 ### Phase 1: Core Task Management (MVP) ✅ (Complete)
-**Status**: Complete  
+**Status**: Complete
 **Timeline**: Week 3-6
 
 #### Backend
@@ -78,7 +105,7 @@
 ---
 
 ### Phase 2: Basic Gamification ✅ (Complete)
-**Status**: Complete  
+**Status**: Complete
 **Timeline**: Week 7-10
 
 #### Game Mechanics
@@ -107,7 +134,7 @@
 ---
 
 ### Phase 3: Multi-User Support ✅ (Complete)
-**Status**: Complete  
+**Status**: Complete
 **Timeline**: Week 11-14 (Completed in 1 session)
 
 #### Backend
@@ -165,7 +192,7 @@
 ---
 
 ### Phase 4: Advanced Game Mechanics ✅ (Complete)
-**Status**: Complete  
+**Status**: Complete
 **Timeline**: Week 15-18 (Completed ahead of schedule)
 
 #### Features
@@ -219,7 +246,7 @@
 ---
 
 ### Phase 5: Smart Scheduling ✅ (Complete)
-**Status**: Complete  
+**Status**: Complete
 **Timeline**: Week 19-22 (Completed ahead of schedule)
 
 #### Features
@@ -279,7 +306,7 @@
 ---
 
 ### Phase 6: Internationalization (i18n) ✅ (Complete)
-**Status**: Complete  
+**Status**: Complete
 **Timeline**: Week 23-24 (Completed on schedule)
 
 #### Features
@@ -311,7 +338,7 @@
 ---
 
 ### Phase 7: Polish & Optimization ✅ (Complete)
-**Status**: Complete  
+**Status**: Complete
 **Timeline**: Week 25-28 (Completed ahead of schedule)
 
 #### Performance
@@ -339,8 +366,13 @@
 ---
 
 ### Phase 8: Release Preparation
-**Status**: Planned  
+**Status**: In Progress (partially delivered)
 **Timeline**: Week 29-32
+
+> **Correction (2026-09):** the app version is `0.1.1` — the historical
+> "v1.0.0 release candidate" claim in the old README was wrong and has been
+> removed (CS-PLAN-068 D6). Phase 8's *targets* below remain the roadmap;
+> they are not current capability.
 
 **Release Direction**:
 - `v0.8.x` is the internal alpha phase for personal real-world testing.
@@ -438,5 +470,7 @@ We welcome contributions at any phase. Check [CONTRIBUTING.md](../../CONTRIBUTIN
 
 ---
 
-**Last Updated**: 2026-07-24  
-**Current Phase**: Phase 8 (Release Preparation) — In Progress (automated release gate shipped via CS-PLAN-007; staged alpha → beta → stable rollout ongoing)
+**Last Updated**: 2026-09-13
+**Current Phase**: Phase 8 (Release Preparation) — In Progress on `v0.1.x`
+pre-release; see the Current Capability Snapshot at the top for what is
+shipped versus still open.

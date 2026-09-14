@@ -1,6 +1,6 @@
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 import { setupTestHouse, createRoomViaSettings } from './fixtures/test-house'
-import { userStatePath } from './fixtures/auth-contexts'
+import { userStatePath, createUserContext } from './fixtures/auth-contexts'
 
 /**
  * E2E Test: 3-Floor House Scenario
@@ -146,12 +146,11 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		await page.getByTestId('room-picker-floor').selectOption({ label: 'Erdgeschoss' })
 		await page.getByTestId('room-picker-room').selectOption({ label: 'Gästebad' })
 
-		// Pick one assignee chip (any house member).
+		// Pick one assignee chip (any house member). CS-PLAN-068: the chips
+		// render from the members prop the form now feeds — a missing chip
+		// is a FAILURE, not a skip.
 		const chip = page.locator('[data-testid^="assignee-chip-"]').first()
-		if (await chip.count() === 0) {
-			test.skip(true, 'No assignee chips rendered in the form')
-			return
-		}
+		await expect(chip).toBeVisible({ timeout: 15000 })
 		await chip.click()
 
 		let createPosts = 0
@@ -186,36 +185,44 @@ test.describe('3-Floor House: Keller, EG, 1.OG', () => {
 		expect(assigneePuts).toBe(0)
 	})
 
-	test('Creation failure leaves no orphan definition (CS-PLAN-063)', async ({ page }) => {
-		await setupTestHouse(page)
+	test('Creation failure leaves no orphan definition (CS-PLAN-063)', async ({ browser }) => {
+		// CS-PLAN-068: this test calls the JSON API directly — only
+		// fresh-login sessions may do that (the container's CSRF gate
+		// answers 412 to restored storageState contexts).
+		const { context, page } = await createUserContext(browser, 'mom')
+		try {
+			await setupTestHouse(page)
 
-		// A valid room for the failed attempt.
-		const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
-			headers: { Accept: 'application/json' },
-		})
-		const roomId = ((await floorsResponse.json()).data ?? [])
-			.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
-		if (!roomId) {
-			test.skip(true, 'No rooms available')
-			return
+			// A valid room for the failed attempt — the test house setup
+			// always creates at least one room (CS-PLAN-068: precondition is
+			// asserted, never skipped).
+			const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms', {
+				headers: { Accept: 'application/json' },
+			})
+			expect(floorsResponse.status()).toBe(200)
+			const roomId = ((await floorsResponse.json()).data ?? [])
+				.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
+			expect(roomId, 'the test house setup must provide a room').toBeTruthy()
+
+			// flexDays 8 violates the ratified [0, 7] bound → 400, zero writes.
+			const failed = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+				data: {
+					roomId,
+					task: { name: 'Orphan Probe', energyCost: 2, flexDays: 8 },
+				},
+				headers: { Accept: 'application/json' },
+			})
+			expect(failed.status()).toBe(400)
+
+			// The task list must not contain the rejected definition.
+			await page.goto('/apps/chorestrike/#/tasks')
+			await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 20000 })
+			await expect(
+				page.locator('[data-testid="task-item"]').filter({ hasText: 'Orphan Probe' }),
+			).toHaveCount(0)
+		} finally {
+			await context.close()
 		}
-
-		// flexDays 8 violates the ratified [0, 7] bound → 400, zero writes.
-		const failed = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
-			data: {
-				roomId,
-				task: { name: 'Orphan Probe', energyCost: 2, flexDays: 8 },
-			},
-			headers: { Accept: 'application/json' },
-		})
-		expect(failed.status()).toBe(400)
-
-		// The task list must not contain the rejected definition.
-		await page.goto('/apps/chorestrike/#/tasks')
-		await page.waitForSelector('[data-testid="task-manager-view"]', { timeout: 20000 })
-		await expect(
-			page.locator('[data-testid="task-item"]').filter({ hasText: 'Orphan Probe' }),
-		).toHaveCount(0)
 	})
 
 	test('Settings: Verify all floors listed in settings', async ({ page }) => {

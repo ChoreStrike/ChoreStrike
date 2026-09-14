@@ -1,0 +1,340 @@
+{
+  "core-household-journey.spec.ts": [
+    "core-household-journey.spec.ts > Canonical household journey > canonical household journey: first owner, setup, invitations, tasks, scheduling, child My Day, completion and undo"
+  ],
+  "setup-wizard-journey.spec.ts": [
+    "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > forced failures keep the structure and offer recovery",
+    "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > owner completes the wizard through the UI and invites dad",
+    "setup-wizard-journey.spec.ts > Setup wizard journey (empty house) > the wizard completes on a mobile touch viewport with keyboard-reachable controls (CS-PLAN-066 §3.5)"
+  ],
+  "task-completion-full-flow.spec.ts": [
+    "task-completion-full-flow.spec.ts > Task Completion Full Flow > complete task shows rewards feedback and updates the score exactly",
+    "task-completion-full-flow.spec.ts > Task Completion Full Flow > complete → undo restores the exact state, stable across reload (CS-PLAN-064)",
+    "task-completion-full-flow.spec.ts > Task Completion Full Flow > completed task shows completed checkmark instead of button",
+    "task-completion-full-flow.spec.ts > Task Completion Full Flow > completing multiple tasks triggers the combo reward",
+    "task-completion-full-flow.spec.ts > Task Completion Full Flow > task completion updates room cleanliness by the exact delta"
+  ],
+  "insights-flow.spec.ts": [
+    "insights-flow.spec.ts > Release: Insights Flow > insights renders stats cards, fairness table, and activity feed",
+    "insights-flow.spec.ts > Release: Insights Flow > navigation exposes the insights entry between leaderboard and scheduling",
+    "insights-flow.spec.ts > Release: Insights Flow > overcapacity warning appears when a day exceeds its capacity"
+  ],
+  "family-core-ux.spec.ts": [
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > child: My Day hides manage controls and executes the checklist read-only (D4)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > child: the initial bare root visit lands on My Day; deep links stay usable (D4)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > member mobile: My Day completion and checklist execution work at the mobile viewport with 44px targets",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: cold Dashboard counters are correct without any room visit (D2)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: complete from My Day reconciles counters without reload and the queued undo restores them (D3/D10)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > owner desktop: the real HTTP PUT /tasks/{id} edit roundtrip works with the production body shape (D6)",
+    "family-core-ux.spec.ts > Family core UX (CS-PLAN-066) > real Nextcloud DE and EN core rendering uses the shipped translations"
+  ],
+  "workflow-state-reconciliation.spec.ts": [
+    "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > a committed completion survives a failing derived refresh; the retry is read-only (D3)",
+    "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > a superseded slow read never overwrites the newer rendered state",
+    "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > rapid parallel navigation ends in the reconciled state — no stale overwrite"
+  ],
+  "today-view.spec.ts": [
+    "today-view.spec.ts > Release: Today view > shows seeded due-today rows and completes one with row state change",
+    "today-view.spec.ts > Release: Today view > the mine filter hides other members tasks, everyone shows them",
+    "today-view.spec.ts > Release: Today view > undo queue keeps two completions independently undoable (UX-015, CS-PLAN-064)"
+  ],
+  "members-owner.spec.ts": [
+    "members-owner.spec.ts > Release: Members (owner) > invite by email adds an existing Nextcloud account to the house",
+    "members-owner.spec.ts > Release: Members (owner) > removing a member requires the styled confirm dialog",
+    "members-owner.spec.ts > Release: Members (owner) > role change updates the member row"
+  ],
+  "room-management.spec.ts": [
+    "room-management.spec.ts > Room and Floor Management > Dashboard FloorList is read-only (no structure controls)",
+    "room-management.spec.ts > Room and Floor Management > Member sees no owner-only structure controls",
+    "room-management.spec.ts > Room and Floor Management > Owner can delete a room from the RoomDetail header",
+    "room-management.spec.ts > Room and Floor Management > Owner can rename a room from the RoomDetail header",
+    "room-management.spec.ts > Room and Floor Management > Owner can reorder floors with the up/down buttons",
+    "room-management.spec.ts > Room and Floor Management > User can add room to a floor via the Settings structure section",
+    "room-management.spec.ts > Room and Floor Management > User can create a new floor"
+  ],
+  "dashboard.spec.ts": [
+    "dashboard.spec.ts > User Login and Dashboard > Dashboard shows quick stats",
+    "dashboard.spec.ts > User Login and Dashboard > Navigation menu works correctly",
+    "dashboard.spec.ts > User Login and Dashboard > Private filter chip scopes the task list to private tasks (CS-PLAN-041)",
+    "dashboard.spec.ts > User Login and Dashboard > User can view dashboard"
+  ],
+  "task-checklist-and-features.spec.ts": [
+    "task-checklist-and-features.spec.ts > Group Assignment > should show assigned status for tasks",
+    "task-checklist-and-features.spec.ts > Task Checklist > should collapse task details",
+    "task-checklist-and-features.spec.ts > Task Checklist > should display checklist when expanding a task",
+    "task-checklist-and-features.spec.ts > Task Checklist > should show completion badge with correct count",
+    "task-checklist-and-features.spec.ts > Task Checklist > should show progress bar in checklist",
+    "task-checklist-and-features.spec.ts > Task Checklist > should toggle checklist item completion",
+    "task-checklist-and-features.spec.ts > Task Scheduling Modes > should show scheduling mode options in task edit form",
+    "task-checklist-and-features.spec.ts > Task Scheduling Modes > should show time input for static scheduling",
+    "task-checklist-and-features.spec.ts > Template Selector > should show template selector when creating task"
+  ],
+  "3-floor-house.spec.ts": [
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Atomic Journey: create-with-assignee renders the assignee from ONE request (CS-PLAN-063)",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Complete Workflow: Setup house with all rooms and verify",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Creation failure leaves no orphan definition (CS-PLAN-063)",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Navigation: Can navigate to all 3 floors from dashboard",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Room Management: Create Dusche in Keller (Settings surface)",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Room Management: Create Garten in EG (Settings surface)",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Room Management: Create Gästebad in EG (Settings surface)",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Room Management: Create WC in 1.OG (Settings surface)",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Room Management: Create WC in Keller (Settings surface)",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Settings: Verify all floors listed in settings",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Setup: Create all 3 floors (Keller, EG, 1.OG)",
+    "3-floor-house.spec.ts > 3-Floor House: Keller, EG, 1.OG > Task Management: Add cleaning task to Gästebad"
+  ],
+  "error-handling.spec.ts": [
+    "error-handling.spec.ts > Dashboard Access > friend can access dashboard",
+    "error-handling.spec.ts > Dashboard Access > teen can access the app (child lands on My Day, CS-PLAN-066 D4)",
+    "error-handling.spec.ts > Data Integrity > house has valid structure",
+    "error-handling.spec.ts > Data Integrity > no orphaned room tasks",
+    "error-handling.spec.ts > Data Integrity > no orphaned tasks in rooms",
+    "error-handling.spec.ts > Leaderboard Access > mom can view leaderboard",
+    "error-handling.spec.ts > Room Cleanliness Bounds > no room exceeds max cleanliness",
+    "error-handling.spec.ts > Room Cleanliness Bounds > no room has negative cleanliness",
+    "error-handling.spec.ts > Room Cleanliness Bounds > rooms have varying cleanliness",
+    "error-handling.spec.ts > Task Assignment Validation > assigned tasks have valid user references",
+    "error-handling.spec.ts > Task Assignment Validation > some tasks are unassigned",
+    "error-handling.spec.ts > User Role Validation > all users have valid roles",
+    "error-handling.spec.ts > User Role Validation > family has correct role distribution"
+  ],
+  "validation.spec.ts": [
+    "validation.spec.ts > Boundary Values > cleanliness values are within valid range",
+    "validation.spec.ts > Boundary Values > task categories are valid",
+    "validation.spec.ts > Data Validation - Family Profile > all room tasks have valid assignments",
+    "validation.spec.ts > Data Validation - Family Profile > all rooms have valid cleanliness",
+    "validation.spec.ts > Data Validation - Family Profile > all tasks have valid categories",
+    "validation.spec.ts > Data Validation - Family Profile > all users have valid profiles",
+    "validation.spec.ts > Data Validation - Family Profile > floors have correct structure",
+    "validation.spec.ts > Minimal Profile Validation > minimal profile has correct structure",
+    "validation.spec.ts > User Access Validation > grandma can access dashboard",
+    "validation.spec.ts > User Access Validation > kid can access the app (child lands on My Day, CS-PLAN-066 D4)",
+    "validation.spec.ts > User Access Validation > mom can access dashboard"
+  ],
+  "multi-user-interactions.spec.ts": [
+    "multi-user-interactions.spec.ts > Family Profile Data Validation > all rooms have correct cleanliness values",
+    "multi-user-interactions.spec.ts > Family Profile Data Validation > room tasks have correct assignments",
+    "multi-user-interactions.spec.ts > Family Profile Data Validation > tasks have correct categories and energy costs",
+    "multi-user-interactions.spec.ts > Multi-User Family Interactions > family profile has all 6 users seeded",
+    "multi-user-interactions.spec.ts > Multi-User Family Interactions > grandma can view but has limited tasks",
+    "multi-user-interactions.spec.ts > Multi-User Family Interactions > kid can see their simple task list",
+    "multi-user-interactions.spec.ts > Multi-User Family Interactions > leaderboard shows all family members",
+    "multi-user-interactions.spec.ts > Multi-User Family Interactions > mom can see assigned tasks on dashboard",
+    "multi-user-interactions.spec.ts > Multi-User Family Interactions > teen can expand floors and see room cards",
+    "multi-user-interactions.spec.ts > Multi-User Task Interactions > leaderboard updates after task completion",
+    "multi-user-interactions.spec.ts > Multi-User Task Interactions > task assignment persists across users",
+    "multi-user-interactions.spec.ts > Multi-User Task Interactions > task completion updates house health"
+  ],
+  "time-travel-overdue.spec.ts": [
+    "time-travel-overdue.spec.ts > Time-Travel: overdue via seeded past due-date > overdue endpoint returns the seeded overdue task",
+    "time-travel-overdue.spec.ts > Time-Travel: overdue via seeded past due-date > seeded overdue task carries overdue semantics against the real clock"
+  ],
+  "time-travel-streak-notification.spec.ts": [
+    "time-travel-streak-notification.spec.ts > Time-Travel: streak freeze + at-risk notification > seeded mom starts with a live streak and zero freezes",
+    "time-travel-streak-notification.spec.ts > Time-Travel: streak freeze + at-risk notification > trigger-jobs --as-of consumes the streak and delivers the at-risk notification"
+  ],
+  "release-task-lifecycle.spec.ts": [
+    "release-task-lifecycle.spec.ts > Release: Task Lifecycle > completing then undoing restores the room task (one undo aggregate)",
+    "release-task-lifecycle.spec.ts > Release: Task Lifecycle > updating the due date persists the requested day"
+  ],
+  "release-visibility-roles.spec.ts": [
+    "release-visibility-roles.spec.ts > Release: Visibility & Roles > owner can change a role and it persists; non-owner is denied",
+    "release-visibility-roles.spec.ts > Release: Visibility & Roles > promoting a child to owner reveals an admin-only task to them"
+  ],
+  "release-task-templates.spec.ts": [
+    "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > a room type exposes the templates that apply to it",
+    "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > creating a room task from a template succeeds",
+    "release-task-templates.spec.ts > Release: Task Templates (v2 catalog) > setup catalog returns levels, room types, and templates"
+  ],
+  "release-boost-shop.spec.ts": [
+    "release-boost-shop.spec.ts > Release: Boost Shop & Coin Ledger > boost catalogue is priced; purchase deducts coins; insufficient is rejected"
+  ],
+  "release-notifications.spec.ts": [
+    "release-notifications.spec.ts > Release: Notifications — weekly goal > reaching the weekly goal delivers a de-duped bell notification"
+  ],
+  "release-setup-wizard.spec.ts": [
+    "release-setup-wizard.spec.ts > Release: Setup Wizard > apply is rejected with 409 when the house already has floors",
+    "release-setup-wizard.spec.ts > Release: Setup Wizard > setup catalog is available on a populated house"
+  ],
+  "scheduling.spec.ts": [
+    "scheduling.spec.ts > Scheduling UI > can interact with energy slider",
+    "scheduling.spec.ts > Scheduling UI > displays the scheduling header",
+    "scheduling.spec.ts > Scheduling UI > loads the scheduling view with all sections",
+    "scheduling.spec.ts > Scheduling UI > navigates to scheduling via nav item",
+    "scheduling.spec.ts > Scheduling UI > shows availability grid with 7 day slots",
+    "scheduling.spec.ts > Scheduling UI > shows energy budget number inputs",
+    "scheduling.spec.ts > Scheduling UI > shows energy budget sliders for each day",
+    "scheduling.spec.ts > Scheduling UI > shows schedule calendar with navigation",
+    "scheduling.spec.ts > Scheduling UI > shows the owner plan planner section (CS-PLAN-065)",
+    "scheduling.spec.ts > Scheduling UI > the plan preview stays disabled until a task is selected",
+    "scheduling.spec.ts > Scheduling save flow > persists a changed energy budget with exactly one bulk PUT and restores the seed"
+  ],
+  "flex-window-scheduling.spec.ts": [
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > calendar navigates between weeks",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > calendar returns to current week with today button",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > calendar shows week navigation controls",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > energy budget settings persist slider changes",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > schedule planner section is accessible",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > scheduling nav item is visible from dashboard",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > scheduling view loads with calendar section",
+    "flex-window-scheduling.spec.ts > Flex Window Scheduling > the plan preview requires an explicit task selection"
+  ],
+  "availability-settings-flow.spec.ts": [
+    "availability-settings-flow.spec.ts > Availability Settings Flow > can adjust energy budget with number input",
+    "availability-settings-flow.spec.ts > Availability Settings Flow > can apply quick templates",
+    "availability-settings-flow.spec.ts > Availability Settings Flow > can toggle weekday availability in edit modal",
+    "availability-settings-flow.spec.ts > Availability Settings Flow > displays availability grid with weekday slots",
+    "availability-settings-flow.spec.ts > Availability Settings Flow > loads availability settings section",
+    "availability-settings-flow.spec.ts > Availability Settings Flow > shows edit button for current user availability",
+    "availability-settings-flow.spec.ts > Availability Settings Flow > shows energy budget inputs in edit modal",
+    "availability-settings-flow.spec.ts > Availability Settings Flow > shows energy budget settings with save button",
+    "availability-settings-flow.spec.ts > Availability Settings Flow > shows energy templates in budget settings"
+  ],
+  "scheduling-apply-flow.spec.ts": [
+    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > a stale preview answers 409 cleanly and leaves the planner usable",
+    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > an overdue zero-flex task is reported unplaced, never rescheduled",
+    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > exit journey: owner creates a task, sets the child limit, applies the plan, and the child session sees exactly the persisted result",
+    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > member and child roles see no planner and are rejected by both plan endpoints",
+    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > the preview → apply cycle is fully keyboard-operable with visible focus",
+    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > the preview → apply cycle works on a mobile touch viewport with 44px targets",
+    "scheduling-apply-flow.spec.ts > Scheduling apply flow (owner plan) > the retired taskCount advice contract is rejected without a fallback"
+  ],
+  "admin-only-tasks.spec.ts": [
+    "admin-only-tasks.spec.ts > Admin-Only Tasks > admin-only task shows crown icon for owner",
+    "admin-only-tasks.spec.ts > Admin-Only Tasks > non-owner cannot complete admin-only task",
+    "admin-only-tasks.spec.ts > Admin-Only Tasks > non-owner cannot create admin-only task",
+    "admin-only-tasks.spec.ts > Admin-Only Tasks > non-owner cannot see admin-only tasks via API",
+    "admin-only-tasks.spec.ts > Admin-Only Tasks > owner can create admin-only task"
+  ],
+  "calendar.spec.ts": [
+    "calendar.spec.ts > Calendar View > displays navigation controls and range label",
+    "calendar.spec.ts > Calendar View > displays week/month toggle with week active by default",
+    "calendar.spec.ts > Calendar View > navigates to calendar via nav item",
+    "calendar.spec.ts > Calendar View > prev/next changes the range label",
+    "calendar.spec.ts > Calendar View > renders the task calendar grid",
+    "calendar.spec.ts > Calendar View > switches to month mode"
+  ],
+  "core-functionality.spec.ts": [
+    "core-functionality.spec.ts > Core App Functionality > Dashboard loads and displays basic components",
+    "core-functionality.spec.ts > Core App Functionality > Filters and search work in Task Manager",
+    "core-functionality.spec.ts > Core App Functionality > Leaderboard page loads",
+    "core-functionality.spec.ts > Core App Functionality > Navigation between main views works",
+    "core-functionality.spec.ts > Core App Functionality > Room cards are clickable and navigate to room detail",
+    "core-functionality.spec.ts > Core App Functionality > Settings page controls (owner surface) > Settings page loads and displays controls",
+    "core-functionality.spec.ts > Core App Functionality > Task Manager loads and displays controls",
+    "core-functionality.spec.ts > Core App Functionality > Task completion flow works"
+  ],
+  "dashboard-navigation.spec.ts": [
+    "dashboard-navigation.spec.ts > Dashboard > Dashboard displays floor list",
+    "dashboard-navigation.spec.ts > Dashboard > Dashboard displays house name and health bar",
+    "dashboard-navigation.spec.ts > Dashboard > Dashboard displays quick stats section",
+    "dashboard-navigation.spec.ts > Dashboard > User can navigate to all main views from dashboard",
+    "dashboard-navigation.spec.ts > Dashboard > User can navigate to room detail from dashboard"
+  ],
+  "fast-core-tests.spec.ts": [
+    "fast-core-tests.spec.ts > Fast Core Tests > App loads successfully",
+    "fast-core-tests.spec.ts > Fast Core Tests > Basic navigation works",
+    "fast-core-tests.spec.ts > Fast Core Tests > Dashboard shows content",
+    "fast-core-tests.spec.ts > Fast Core Tests > No critical JavaScript errors",
+    "fast-core-tests.spec.ts > Fast Core Tests > Settings page loads",
+    "fast-core-tests.spec.ts > Fast Core Tests > Task Manager basic functionality"
+  ],
+  "leaderboard.spec.ts": [
+    "leaderboard.spec.ts > Leaderboard and Gamification > Leaderboard shows contribution scores",
+    "leaderboard.spec.ts > Leaderboard and Gamification > Leaderboard updates after task completion",
+    "leaderboard.spec.ts > Leaderboard and Gamification > No dead period filter remains (CS-PLAN-041)",
+    "leaderboard.spec.ts > Leaderboard and Gamification > User can view leaderboard with rankings",
+    "leaderboard.spec.ts > Leaderboard and Gamification > User medals are displayed on leaderboard",
+    "leaderboard.spec.ts > Leaderboard and Gamification > Weekly medals render from the game store when medals exist",
+    "leaderboard.spec.ts > Leaderboard and Gamification > Weekly stats are displayed correctly"
+  ],
+  "minimal-smoke-tests.spec.ts": [
+    "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > App loads with title and visible shell",
+    "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > Hash deep-links reach the tasks and settings views",
+    "minimal-smoke-tests.spec.ts > Minimal Smoke Tests > No critical console errors on load"
+  ],
+  "overdue-task-claiming.spec.ts": [
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > claim button opens confirmation dialog naming the assignee",
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > claiming overdue task via API records takeover",
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > non-assignee can complete overdue public task",
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > overdue task assigned to another user shows claim button",
+    "overdue-task-claiming.spec.ts > Overdue Task Claiming > private overdue task cannot be claimed by non-assignee"
+  ],
+  "private-tasks.spec.ts": [
+    "private-tasks.spec.ts > Private Tasks > my-private filter shows only own private tasks",
+    "private-tasks.spec.ts > Private Tasks > other users private tasks are not visible",
+    "private-tasks.spec.ts > Private Tasks > private task shows lock icon in task list",
+    "private-tasks.spec.ts > Private Tasks > user can create a private task via the form"
+  ],
+  "room-detail.spec.ts": [
+    "room-detail.spec.ts > Room Detail > Room cleanliness value is displayed correctly",
+    "room-detail.spec.ts > Room Detail > Room detail displays room information",
+    "room-detail.spec.ts > Room Detail > User can navigate back to dashboard from room detail",
+    "room-detail.spec.ts > Room Detail > User can open add task modal"
+  ],
+  "self-availability-member.spec.ts": [
+    "self-availability-member.spec.ts > Self Availability (member) > hides the owner-only member grid for a non-owner",
+    "self-availability-member.spec.ts > Self Availability (member) > persists a toggled weekday through the self-service save",
+    "self-availability-member.spec.ts > Self Availability (member) > restores the original weekday availability",
+    "self-availability-member.spec.ts > Self Availability (member) > shows the My Availability section with seven weekday toggles"
+  ],
+  "settings.spec.ts": [
+    "settings.spec.ts > Settings > Floors list or empty state is displayed",
+    "settings.spec.ts > Settings > Floors section is displayed with add button",
+    "settings.spec.ts > Settings > House name input is displayed and interactive",
+    "settings.spec.ts > Settings > Settings page has danger zone section",
+    "settings.spec.ts > Settings > Settings page loads correctly",
+    "settings.spec.ts > Settings > User can open add floor modal",
+    "settings.spec.ts > Settings > User can type in house name field"
+  ],
+  "snake-game.spec.ts": [
+    "snake-game.spec.ts > Snake Arcade Game > Arcade section is visible on dashboard",
+    "snake-game.spec.ts > Snake Arcade Game > Boost shop can be opened from start screen",
+    "snake-game.spec.ts > Snake Arcade Game > Coins balance is displayed in arcade header",
+    "snake-game.spec.ts > Snake Arcade Game > Game over screen shows score and sparks earned",
+    "snake-game.spec.ts > Snake Arcade Game > Leaderboard can be opened from arcade section",
+    "snake-game.spec.ts > Snake Arcade Game > Leaderboard tabs switch between all-time and weekly",
+    "snake-game.spec.ts > Snake Arcade Game > Mobile controls are visible on touch devices",
+    "snake-game.spec.ts > Snake Arcade Game > No active boosts displayed without purchase",
+    "snake-game.spec.ts > Snake Arcade Game > User can control snake with keyboard",
+    "snake-game.spec.ts > Snake Arcade Game > User can pause and resume game",
+    "snake-game.spec.ts > Snake Arcade Game > User can play again after game over",
+    "snake-game.spec.ts > Snake Arcade Game > User can start Snake game"
+  ],
+  "task-completion.spec.ts": [
+    "task-completion.spec.ts > Task Creation and Completion > Completion offers Undo which restores the task (CS-PLAN-041)",
+    "task-completion.spec.ts > Task Creation and Completion > User can complete a task and earn points",
+    "task-completion.spec.ts > Task Creation and Completion > User can create a custom task inside a room",
+    "task-completion.spec.ts > Task Creation and Completion > User can create a new task"
+  ],
+  "task-manager.spec.ts": [
+    "task-manager.spec.ts > Task Manager > Task Manager displays filter controls",
+    "task-manager.spec.ts > Task Manager > Task Manager displays search input",
+    "task-manager.spec.ts > Task Manager > Task Manager displays statistics bar",
+    "task-manager.spec.ts > Task Manager > Task Manager page loads with correct title",
+    "task-manager.spec.ts > Task Manager > User can filter tasks by difficulty",
+    "task-manager.spec.ts > Task Manager > User can filter tasks by priority",
+    "task-manager.spec.ts > Task Manager > User can filter tasks by status",
+    "task-manager.spec.ts > Task Manager > User can open add task modal from Task Manager",
+    "task-manager.spec.ts > Task Manager > User can search for tasks"
+  ],
+  "teamwork-rewards.spec.ts": [
+    "teamwork-rewards.spec.ts > Teamwork Rewards > completing multi-assign task returns teamwork bonus via API",
+    "teamwork-rewards.spec.ts > Teamwork Rewards > multi-assign task shows teamwork bonus hint",
+    "teamwork-rewards.spec.ts > Teamwork Rewards > single-assign task has no teamwork bonus"
+  ],
+  "title-selection.spec.ts": [
+    "title-selection.spec.ts > Role Title System > Opening the picker shows all three packs",
+    "title-selection.spec.ts > Role Title System > Selecting a pack marks it active",
+    "title-selection.spec.ts > Role Title System > Title section renders with a change-title button"
+  ],
+  "workflow-request-budgets.spec.ts": [
+    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > SchedulingView preloads its planning candidates with ONE house-wide request",
+    "workflow-request-budgets.spec.ts > Workflow request budgets (CS-PLAN-067) > TaskManager initialization issues ONE house-wide room-task request"
+  ],
+  "auth.setup.ts": [
+    "auth.setup.ts > authenticate as admin",
+    "auth.setup.ts > authenticate profile users",
+    "auth.setup.ts > seed profile users"
+  ]
+}

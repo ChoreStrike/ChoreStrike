@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 
 /**
  * E2E test: Role title selection (CS-PLAN-006).
@@ -40,20 +40,17 @@ test.describe('Role Title System', () => {
 		await page.click('[data-testid="change-title-button"]')
 		await page.waitForSelector('[data-testid="title-picker"]', { timeout: 10000 })
 
-		const teamCard = page.locator('[data-testid="title-pack-team_energy"]')
+		// Always choose an inactive pack, including after a preceding run.
+		const teamCard = page.locator('[data-testid^="title-pack-"]').filter({
+			has: page.getByTestId('select-pack-button'),
+		}).first()
+		await expect(teamCard).toBeVisible({ timeout: 10000 })
+		const selectedTestId = await teamCard.getAttribute('data-testid')
 		const selectButton = teamCard.locator('[data-testid="select-pack-button"]')
-		const activeTag = teamCard.locator('[data-testid="active-pack-tag"]')
 
 		// The catalog renders asynchronously behind the loading hint; wait for
 		// the card before probing its selection state.
 		await expect(teamCard).toBeVisible({ timeout: 10000 })
-
-		// Already active (selection persisted in a prior run) — the card
-		// shows the Active tag instead of a select button; nothing to exercise.
-		if (!(await selectButton.isVisible().catch(() => false))) {
-			await expect(activeTag).toBeVisible()
-			return
-		}
 
 		// Pack selection is unavailable for users without a house membership;
 		// skip only when that is genuinely the case (no house user id) so a
@@ -72,10 +69,7 @@ test.describe('Role Title System', () => {
 			const body = await response.json()
 			return body?.data?.id ?? body?.id ?? null
 		})
-		if (!currentUserId) {
-			test.skip()
-			return
-		}
+		expect(currentUserId, 'the invited admin must have a membership').toBeTruthy()
 		await expect(selectButton).toBeEnabled({ timeout: 10000 })
 
 		// Button is enabled: the click must persist the selection. A failed
@@ -96,6 +90,6 @@ test.describe('Role Title System', () => {
 		await expect(page.locator('[data-testid="title-picker"]')).toHaveCount(0, { timeout: 10000 })
 		await page.click('[data-testid="change-title-button"]')
 		await page.waitForSelector('[data-testid="title-picker"]', { timeout: 10000 })
-		await expect(activeTag).toBeVisible({ timeout: 10000 })
+		await expect(page.getByTestId(selectedTestId).getByTestId('active-pack-tag')).toBeVisible({ timeout: 10000 })
 	})
 })

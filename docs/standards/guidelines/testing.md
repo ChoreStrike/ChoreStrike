@@ -53,12 +53,51 @@ Established by CS-PLAN-034 — keep Jest output free of `[ChoreStrike] [error]` 
 
 - Selectors must match the current Vue components (`src/views/*`, `src/components/*`). Verify a selector exists in `src/` before writing a spec against it; specs that reference dead selectors get deleted, not padded.
 - A drifting spec is **not** a release gate until rewritten against a wired view; archive or delete obsolete specs instead of preserving fictional coverage.
-- Use the DB profiles (`empty`, `minimal`, `family`) via the Playwright fixtures.
+- Use the DB profiles (`empty`, `emptyhouse`, `minimal`, `family`) via the Playwright fixtures.
+- **Canonical browser gate (CS-PLAN-068 D1):** the release gate is
+  `npm run test:e2e:gate` — never a raw multi-project `playwright test`
+  invocation. The runner validates its required-file/scenario manifest by
+  discovery, runs the three Chromium pools sequentially with
+  `--workers=1 --retries=0 --forbid-only`, and fails on any
+  skipped/failed/flaky required result. New required behavior gets a manifest
+  row (file + owning pool + required scenario titles) in
+  `scripts/run-e2e-gate.js`; deleting a covered spec or scenario fails
+  discovery.
+- **Pool isolation is enforced at runtime (CS-PLAN-068 §3.2):** the
+  reset-owning pools are exactly `chromium-serial-db` and
+  `chromium-scheduling-owner` (they run sequentially behind the gate). The
+  `seededData` fixture throws a pool-guard violation anywhere else, and a
+  missing test mode is a hard error — there are **no no-op fixtures and no
+  runtime skips** for a broken environment. Failures fail; skips need an
+  engine-capability reason.
+- **Canonical journey:** cross-cutting household flows belong in
+  `core-household-journey.spec.ts` (one test, named `test.step` phases,
+  `emptyhouse` profile, UI-only mutations). Keep API-driven
+  negative/fault-injection proofs in the focused specs, not the journey.
 - **Auto-waiting, assertion-bearing tests only (CS-PLAN-050):**
   - No `page.waitForTimeout(...)` in specs — replace fixed sleeps with durable-outcome assertions (`expect(locator).toBeVisible()`, `expect.poll`/`toPass()`), which poll until the UI state is real.
-  - No vacuous conditionals: `if (count > 0) { ... }` around assertions and try/catch-swallowed failures can pass without testing anything. Either assert the durable outcome unconditionally, or `test.skip(condition, 'reason')` explicitly — a skip without a reason is a defect.
+  - No vacuous conditionals: `if (count > 0) { ... }` around assertions and try/catch-swallowed failures can pass without testing anything. Either assert the durable outcome unconditionally, or `test.skip(condition, 'reason')` explicitly — a skip without a reason is a defect. Completion receipts and before/after snapshots make reward assertions exact (never compare a value to itself; CS-PLAN-068 §3.4).
   - Shared dashboard floor expansion lives in `tests/e2e/fixtures/dashboard-floors.ts` (`expandAllFloors`, `expandUntilRoomVisible`); the Dashboard renders floors collapsed, so specs needing room cards must expand through these helpers instead of copy-pasting toggle loops.
   - Conditional *setup* is only acceptable when a durable assertion follows; conditional *assertions* are not. When de-vacuousing exposes a broken locator (strict-mode violations, hidden elements), fix the locator — never re-add the conditional.
+
+## Test-Mode Tooling Contract (CS-PLAN-068 D5)
+
+The test-tooling surface (`POST /api/v1/test/seed`, `POST …/reset`,
+`GET …/profiles`, backed by `TestController`/`TestDataService`) is **plain
+test tooling, not an app contract**:
+
+- It is gated by `NEXTCLOUD_TEST_MODE` **in the server process** — unset,
+  `false` or any non-`true` value answers `403 NOT_TEST_MODE` before any
+  mutation (refusal-before-mutation, proven in-process by
+  `TestModeApiTest` and live by the fixture probes).
+- The routes carry `@NoAdminRequired` (never `@PublicPage`): an
+  authenticated session is still required even in test mode.
+- Reset/seed clears ChoreStrike app tables only; other apps' config and
+  Nextcloud accounts survive.
+- Changing PHPUnit's process environment never changes an already-running
+  web server: the in-process proof (`TestModeApiTest`) and the live HTTP
+  probes (Playwright fixtures against the Docker container) are separate,
+  honestly labeled evidence layers.
 
 ## Before You Commit
 
@@ -72,6 +111,9 @@ npm run build
 # Backend (Docker — env must be up; always exec, never `compose run`)
 docker compose -f docker-compose.test.yml exec -T nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
 docker compose -f docker-compose.test.yml exec -T nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
+
+# Browser gate when E2E-relevant behavior changed (Docker env up)
+npm run test:e2e:gate
 ```
 
 Build must be green before considering work complete. See [`llm-do-dont-checklist.md`](./llm-do-dont-checklist.md).

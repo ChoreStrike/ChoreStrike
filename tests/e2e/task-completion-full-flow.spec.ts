@@ -7,117 +7,135 @@
  * CS-PLAN-015b: auth via per-user storageState (no loginAsUser / no logout).
  * Every `waitForTimeout` is replaced with an auto-waiting assertion and the
  * `.task-item`/text selectors use the new `task-item` testid.
+ *
+ * CS-PLAN-068 §3.4: the swallowed reward-toast expectation, the conditional
+ * `if (count > 0)` guards and the `toBeGreaterThanOrEqual(0)` combo
+ * tautology were repaired — completion receipts are captured and asserted
+ * exactly, preconditions are guaranteed by the family seed plus dedicated
+ * probe tasks, and a missing fixture FAILS instead of skipping. The WP5
+ * completion → undo exact-inverse test below is retained unchanged in
+ * intent (CS-PLAN-064).
  */
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { expandAllFloors } from './fixtures/dashboard-floors'
 import type { Page } from '@playwright/test'
 
-/** Expand collapsed floor sections so room cards become visible. Toggling an
- * already-expanded floor would collapse it, so only collapsed floors are toggled. */
-async function expandFloors(page: Page): Promise<void> {
-	await page.locator('.floor-section').first().waitFor({ state: 'attached', timeout: 15000 })
-	const floors = page.locator('.floor-section')
-	const floorCount = await floors.count()
-	for (let i = 0; i < floorCount; i++) {
-		const floor = floors.nth(i)
-		const isExpanded = await floor.locator('.floor-content').first().isVisible().catch(() => false)
-		if (!isExpanded) {
-			await floor.locator('.toggle-button').first().click().catch(() => {})
-		}
-	}
-	await page.locator('[data-testid^="room-card-"]').first().waitFor({ state: 'attached', timeout: 10000 }).catch(() => {})
+/** Resolve the Kitchen room at runtime — the DELETE-based test reset never
+ * restarts AUTO_INCREMENT, so room ids grow. */
+async function kitchenRoom(page: Page): Promise<{ id: number; cleanliness: number }> {
+	const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
+	const rooms = ((await floorsResponse.json()).data as Array<{ rooms: Array<{ id: number; name: string; cleanliness: number }> }>)
+		.flatMap((floor) => floor.rooms)
+	const kitchen = rooms.find((room) => room.name === 'Kitchen')
+	expect(kitchen, 'the family seed always provides the Kitchen room').toBeTruthy()
+	return kitchen!
+}
+
+async function openKitchenRoomDetail(page: Page): Promise<void> {
+	await page.goto('/apps/chorestrike/')
+	await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+	await expandAllFloors(page)
+	await page.getByTestId('room-card-Kitchen').first().click()
+	await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
 }
 
 test.describe('Task Completion Full Flow', () => {
 	test.use({ databaseProfile: 'family' })
 
-	test('complete task shows rewards toast and updates score', async ({ browser, seededData: _seededData }) => {
+	test('complete task shows rewards feedback and updates the score exactly', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
-			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+			// Independently captured before-state: the wallet the completion
+			// must credit exactly (never a value compared to itself).
+			const coinsBefore = await (await page.request.get('/apps/chorestrike/api/v1/minigames/coins')).json()
 
-			await expect(page.getByTestId('quick-stats')).toBeVisible({ timeout: 10000 })
+			await openKitchenRoomDetail(page)
 
-			const initialScoreElement = page.locator('[data-testid="contribution-score"], .score-value').first()
-			const initialScoreText = await initialScoreElement.textContent().catch(() => '0') ?? '0'
-			const initialScore = parseInt(initialScoreText.replace(/\D/g, '')) || 0
-
-			const initialHealthElement = page.locator('[data-testid="house-health"] .stat-value, .health-value')
-			const initialHealthText = await initialHealthElement.textContent().catch(() => '100') ?? '100'
-			const initialHealth = parseInt(initialHealthText.replace(/\D/g, '')) || 100
-
-			await expandFloors(page)
-			const kitchenRoom = page.getByTestId('room-card-Kitchen')
-			const targetRoom = (await kitchenRoom.count()) > 0 ? kitchenRoom.first() : page.locator('[data-testid^="room-card-"]').first()
-			await targetRoom.click()
-			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
-
+			// Guaranteed precondition (family seed): the Kitchen always has an
+			// active task — a missing fixture is a FAILURE, not a skip.
 			const completeButton = page.getByTestId('complete-task-button').first()
-			if (await completeButton.count() === 0) {
-				test.skip(true, 'No active tasks available to complete')
-			}
+			await expect(completeButton).toBeVisible({ timeout: 15000 })
 
-			const taskRow = page.locator('[data-testid="task-item"]:has([data-testid="complete-task-button"])').first()
-			const taskName = await taskRow.locator('.task-name').textContent() ?? ''
-
+			const completeResponsePromise = page.waitForResponse((response) => {
+				const pathname = new URL(response.url()).pathname
+				return response.request().method() === 'POST' && pathname.endsWith('/complete')
+			})
 			await completeButton.click()
+			const receipt = await (await completeResponsePromise).json()
+			expect(receipt.success).toBe(true)
 
-			const rewardsToast = page.locator('[data-testid="rewards-toast"], [data-testid="completion-toast"], .toast-notification, .nc-notification')
-			await expect(rewardsToast.first()).toBeVisible({ timeout: 5000 }).catch(() => undefined)
+			// The completion feedback (the queued-undo snackbar with the
+			// reward summary) MUST appear — no swallowed expectation.
+			await expect(page.getByTestId('undo-snackbar')).toBeVisible({ timeout: 5000 })
 
-			const completedTask = page.locator('[data-testid="task-item"]').filter({ hasText: String(taskName) }).first()
-			if (await completedTask.count() > 0) {
-				const classes = await completedTask.getAttribute('class') ?? ''
-				const hasCompletedClass = classes.includes('completed')
-				const hasNoCompleteButton = await completedTask.locator('[data-testid="complete-task-button"]').count() === 0
-				expect(hasCompletedClass || hasNoCompleteButton).toBe(true)
-			}
+			// Exact credited coins: the persisted wallet equals the
+			// pre-completion balance plus the credited delta, and the
+			// receipt's authoritative total matches it.
+			const coinsAfter = await (await page.request.get('/apps/chorestrike/api/v1/minigames/coins')).json()
+			expect(receipt.data.rewards.totalCoins)
+				.toBe(coinsBefore.data.currentCoins + receipt.data.rewards.coins + receipt.data.rewards.teamworkBonus)
+			expect(coinsAfter.data.currentCoins).toBe(receipt.data.rewards.totalCoins)
 
-			await page.goto('/apps/chorestrike/')
-			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
+			// Exact credited score: the LEADERBOARD row (the real member
+			// score surface) equals the receipt's authoritative total
+			// (decision D10), not "some larger number".
+			await page.goto('/apps/chorestrike/#/leaderboard')
+			await expect(page.getByTestId('leaderboard-list')).toBeVisible({ timeout: 20000 })
+			const momRow = page.locator('[data-testid="leaderboard-entry"]').filter({ hasText: 'Mom' }).first()
+			await expect(momRow).toBeVisible({ timeout: 15000 })
+			const newScoreText = await momRow.locator('[data-testid="contribution-score"]').textContent()
+			const newScore = parseInt((newScoreText ?? '').replace(/\D/g, '')) || 0
+			expect(newScore).toBe(receipt.data.rewards.totalContribution)
 
-			const newScoreText = await initialScoreElement.textContent().catch(() => initialScoreText) ?? initialScoreText
-			const newScore = parseInt(newScoreText.replace(/\D/g, '')) || initialScore
-			expect(newScore).toBeGreaterThanOrEqual(initialScore)
-
-			const newHealthText = await initialHealthElement.textContent().catch(() => initialHealthText) ?? initialHealthText
-			const newHealth = parseInt(newHealthText.replace(/\D/g, '')) || initialHealth
-			expect(newHealth).toBeGreaterThanOrEqual(initialHealth)
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('completing multiple tasks triggers combo indicator', async ({ browser, seededData: _seededData }) => {
+	test('completing multiple tasks triggers the combo reward', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'mom')
 		try {
-			await page.goto('/apps/chorestrike/')
-			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+			await openKitchenRoomDetail(page)
 
-			await expandFloors(page)
+			// Guarantee the combo precondition: two seeded completions within
+			// the combo window put the THIRD receipt into the combo state —
+			// the probe task provides a third always-completable row.
+			const kitchen = await kitchenRoom(page)
+			const probe = await page.request.post('/apps/chorestrike/api/v1/room-tasks', {
+				data: {
+					roomId: kitchen.id,
+					task: { name: `Combo Probe ${Date.now()}`, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 },
+				},
+			})
+			expect(probe.status()).toBe(200)
 
-			const roomWithTasks = page.locator('[data-testid^="room-card-"]').first()
-			await roomWithTasks.click()
-			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
-
-			const completeButtons = page.getByTestId('complete-task-button')
-			if (await completeButtons.count() < 2) {
-				test.skip(true, 'Need at least 2 tasks for combo test')
+			const receipts: Array<{ isCombo: boolean }> = []
+			for (let i = 0; i < 3; i++) {
+				const button = page.getByTestId('complete-task-button').first()
+				await expect(button).toBeVisible({ timeout: 15000 })
+				const completeResponsePromise = page.waitForResponse((response) => {
+					const pathname = new URL(response.url()).pathname
+					return response.request().method() === 'POST' && pathname.endsWith('/complete')
+				})
+				await button.click()
+				const receipt = await (await completeResponsePromise).json()
+				expect(receipt.success).toBe(true)
+				receipts.push(receipt.data.rewards)
 			}
 
-			await completeButtons.first().click()
-			await completeButtons.first().click()
-
-			const comboIndicator = page.locator('[data-testid="combo-notification"], [data-testid="combo-indicator"], .combo-notification')
-			expect(await comboIndicator.count()).toBeGreaterThanOrEqual(0)
+			// Exact combo semantics (frozen rules): the first two completions
+			// are no combo, the third (two recent rows in the window) is.
+			expect(receipts[0].isCombo).toBe(false)
+			expect(receipts[1].isCombo).toBe(false)
+			expect(receipts[2].isCombo).toBe(true)
 		} finally {
 			await context.close()
 		}
 	})
 
-	test('task completion updates room cleanliness', async ({ browser, seededData: _seededData }) => {
+	test('task completion updates room cleanliness by the exact delta', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
 			await page.goto('/apps/chorestrike/')
@@ -127,34 +145,36 @@ test.describe('Task Completion Full Flow', () => {
 			await page.getByTestId('nav-dashboard').click()
 			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
 
-			await expandFloors(page)
+			await expandAllFloors(page)
 
-			const roomCard = page.locator('[data-testid^="room-card-"]').first()
-			const initialCleanlinessElement = roomCard.locator('.cleanliness-value, [data-testid="cleanliness"]')
-			const initialCleanlinessText = await initialCleanlinessElement.textContent().catch(() => '0') ?? '0'
-			const initialCleanliness = parseInt(initialCleanlinessText.replace(/\D/g, '')) || 0
+			const kitchen = await kitchenRoom(page)
+			const roomCard = page.getByTestId('room-card-Kitchen').first()
+			await expect(roomCard.locator('.cleanliness-value')).toHaveText(`${kitchen.cleanliness}%`)
+			const initialCleanliness = kitchen.cleanliness
 
 			await roomCard.click()
 			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
 
-			const roomCleanliness = page.locator('[data-testid="cleanliness-value"], .stat-value')
-			const roomCleanlinessText = await roomCleanliness.textContent().catch(() => initialCleanlinessText) ?? initialCleanlinessText
-			const currentCleanliness = parseInt(roomCleanlinessText.replace(/\D/g, '')) || initialCleanliness
+			// Guaranteed precondition: an active task exists to complete.
+			const completeButton = page.getByTestId('task-item').filter({ hasText: 'Wipe kitchen counters' }).getByTestId('complete-task-button')
+			await expect(completeButton).toBeVisible({ timeout: 15000 })
 
-			const completeButton = page.getByTestId('complete-task-button').first()
-			if (await completeButton.count() === 0) {
-				test.skip(true, 'No tasks to complete')
-			}
-
+			const completeResponsePromise = page.waitForResponse((response) => {
+				const pathname = new URL(response.url()).pathname
+				return response.request().method() === 'POST' && pathname.endsWith('/complete')
+			})
 			await completeButton.click()
-			await page.waitForLoadState('networkidle')
+			const receipt = await (await completeResponsePromise).json()
+			expect(receipt.success).toBe(true)
 
 			await page.reload()
 			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
 
-			const newCleanlinessText = await roomCleanliness.textContent().catch(() => roomCleanlinessText) ?? roomCleanlinessText
-			const newCleanliness = parseInt(newCleanlinessText.replace(/\D/g, '')) || currentCleanliness
-			expect(newCleanliness).toBeGreaterThanOrEqual(currentCleanliness)
+			// Exact clamp arithmetic: initial + 10% per energy point, capped
+			// at 100 (never "greater than or equal" hand-waving).
+			expect(initialCleanliness).toBe(75)
+			expect(receipt.data.rewards.cleanlinessChange).toBe(20)
+			await expect(page.getByTestId('cleanliness-value')).toHaveText('95%', { timeout: 15000 })
 		} finally {
 			await context.close()
 		}
@@ -163,37 +183,28 @@ test.describe('Task Completion Full Flow', () => {
 	test('completed task shows completed checkmark instead of button', async ({ browser, seededData: _seededData }) => {
 		const { context, page } = await createUserContext(browser, 'dad')
 		try {
-			await page.goto('/apps/chorestrike/')
-			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
+			await openKitchenRoomDetail(page)
 
-			await expandFloors(page)
-
-			const kitchenRoom = page.getByTestId('room-card-Kitchen')
-			const targetRoom = (await kitchenRoom.count()) > 0 ? kitchenRoom.first() : page.locator('[data-testid^="room-card-"]').first()
-			await targetRoom.click()
-			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
-
+			// Guaranteed precondition — no runtime skip on a missing fixture.
 			const taskItem = page.locator('[data-testid="task-item"]:has([data-testid="complete-task-button"])').first()
-			if (await taskItem.count() === 0) {
-				test.skip(true, 'No active tasks')
-			}
-
+			await expect(taskItem).toBeVisible({ timeout: 15000 })
 			const taskName = await taskItem.locator('.task-name').textContent() ?? ''
 
-			const completeButton = taskItem.locator('[data-testid="complete-task-button"]')
-			await expect(completeButton).toBeVisible()
-			await completeButton.click()
-			await page.waitForLoadState('networkidle')
+			const completeResponsePromise = page.waitForResponse((response) => {
+				const pathname = new URL(response.url()).pathname
+				return response.request().method() === 'POST' && pathname.endsWith('/complete')
+			})
+			await taskItem.locator('[data-testid="complete-task-button"]').click()
+			const receipt = await (await completeResponsePromise).json()
+			expect(receipt.success).toBe(true)
 
 			await page.reload()
 			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
 
+			// Unconditional: the completed task no longer offers a complete
+			// button (deactivated occurrence or completed projection).
 			const completedTaskItem = page.locator('[data-testid="task-item"]').filter({ hasText: String(taskName) }).first()
-			if (await completedTaskItem.count() > 0) {
-				const hasCompletedCheck = await completedTaskItem.locator('.completed-check, [data-testid="completed-check"]').count() > 0
-				const hasCompleteButton = await completedTaskItem.locator('[data-testid="complete-task-button"]').count() > 0
-				expect(hasCompletedCheck || !hasCompleteButton).toBe(true)
-			}
+			await expect(completedTaskItem.locator('[data-testid="complete-task-button"]')).toHaveCount(0, { timeout: 15000 })
 		} finally {
 			await context.close()
 		}
@@ -204,15 +215,7 @@ test.describe('Task Completion Full Flow', () => {
 		try {
 			// Resolve the Kitchen room at runtime — the DELETE-based test
 			// reset never restarts AUTO_INCREMENT, so room ids grow.
-			const floorsResponse = await page.request.get('/apps/chorestrike/api/v1/floors/with-rooms')
-			const floorsBody = await floorsResponse.json()
-			const kitchen = floorsBody.data
-				.flatMap((floor: { rooms: Array<{ id: number; name: string }> }) => floor.rooms)
-				.find((room: { name: string }) => room.name === 'Kitchen')
-			if (!kitchen) {
-				test.skip(true, 'No Kitchen room in the seeded house')
-				return
-			}
+			const kitchen = await kitchenRoom(page)
 
 			// A dedicated ONE-TIME task: its completion deactivates the row
 			// and claims rewards/cleanliness — the undo aggregate must
@@ -235,11 +238,7 @@ test.describe('Task Completion Full Flow', () => {
 
 			const initialCoins = await (await page.request.get('/apps/chorestrike/api/v1/minigames/coins')).json()
 
-			await page.goto('/apps/chorestrike/')
-			await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 30000 })
-			await expandFloors(page)
-			await page.getByTestId('room-card-Kitchen').first().click()
-			await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
+			await openKitchenRoomDetail(page)
 
 			const taskRow = page.locator('[data-testid="task-item"]').filter({ hasText: 'WP5 Undo Proof' }).first()
 			await expect(taskRow).toBeVisible({ timeout: 15000 })

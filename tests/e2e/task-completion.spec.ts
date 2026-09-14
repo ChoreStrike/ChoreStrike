@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 
 /**
  * E2E test: Task creation and completion flow
@@ -186,35 +186,6 @@ test.describe('Task Creation and Completion', () => {
 		await expect(snackbar).toHaveCount(0)
 	})
 
-	test('Completing multiple tasks triggers combo', async ({ page }) => {
-		await page.goto('/apps/chorestrike/#/')
-		await expect(page.getByTestId('dashboard-view')).toBeVisible({ timeout: 20000 })
-
-		// Try Bedroom first, fallback to any room.
-		const bedroom = page.getByTestId('room-card-Bedroom')
-		if (await bedroom.count() > 0) {
-			await bedroom.click()
-		} else {
-			const firstRoom = page.locator('[data-testid^="room-card-"]').first()
-			if (await firstRoom.count() === 0) {
-				return // Skip if no rooms
-			}
-			await firstRoom.click()
-		}
-
-		await expect(page.getByTestId('room-detail-view')).toBeVisible({ timeout: 15000 })
-
-		const completeButtons = page.getByTestId('complete-task-button')
-		if (await completeButtons.count() < 2) {
-			return // Skip if not enough tasks
-		}
-
-		// Complete two tasks (the second click auto-waits for actionability).
-		await completeButtons.first().click()
-		await completeButtons.first().click()
-
-		// Combo notification is an optional gamification feature.
-		const comboNotification = page.getByTestId('combo-notification')
-		expect(await comboNotification.count()).toBeGreaterThanOrEqual(0)
-	})
+	// The duplicate, assertion-free combo smoke was replaced by the exact
+	// false/false/true receipt proof in task-completion-full-flow.spec.ts.
 })

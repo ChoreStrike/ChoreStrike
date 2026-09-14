@@ -26,8 +26,13 @@ function stripAnsi(text) {
 	return text.replace(/\u001B\[[0-9;]*[A-Za-z]/g, '')
 }
 
-const child = spawn('npm', ['test'], {
-	shell: true,
+// npm supplies its CLI path to lifecycle scripts; avoid Windows .cmd shells
+// and Node's DEP0190 warning while keeping the actual npm test lifecycle.
+if (!process.env.npm_execpath) {
+	console.error('[check-test-noise] run through npm run test:noise')
+	process.exit(1)
+}
+const child = spawn(process.execPath, [process.env.npm_execpath, 'test'], {
 	env: { ...process.env, FORCE_COLOR: '0' },
 })
 

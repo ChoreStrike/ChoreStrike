@@ -125,10 +125,7 @@ test.describe('Release: Notifications — weekly goal', () => {
 			// The family seed lowers the weekly target to a trivially-crossed
 			// value, so one completion on the fresh house achieves it.
 			const target = await pickCompletableRoomTask(page)
-			if (!target) {
-				test.skip(true, 'No active room task available to complete')
-				return
-			}
+			expect(target, 'family seed must provide a completable occurrence').not.toBeNull()
 
 			// Dismiss stale weekly-goal rows (other family-seeded specs and
 			// earlier CI runs leave them; reset() never purges the bell — see

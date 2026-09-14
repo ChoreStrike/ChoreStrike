@@ -1,4 +1,6 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
+import { reactive } from 'vue'
+import { useUserStore } from '@/store/user.js'
 import { createPinia, setActivePinia } from 'pinia'
 import RoomTaskEditModal from '@/components/Tasks/RoomTaskEditModal.vue'
 import { useRoomTasksStore } from '@/store/roomTasks.js'
@@ -27,6 +29,15 @@ jest.mock('@/components/Tasks/AssigneeChips.vue', () => ({
 	props: ['modelValue'],
 	emits: ['update:modelValue'],
 	template: '<button type="button" data-testid="assignee-chips-stub" @click="$emit(\'update:modelValue\', [\'dad\'])">chips</button>',
+}))
+
+// The modal feeds AssigneeChips from the user store (CS-PLAN-068) and skips
+// its mount-time fetch when members are already loaded.
+jest.mock('@/store/user', () => ({
+	useUserStore: jest.fn(() => ({
+		houseUsers: [{ nextcloudUserId: 'mom', displayName: 'Mom' }],
+		fetchHouseUsers: jest.fn(),
+	})),
 }))
 
 import { showSuccess, showError, showWarning } from '@nextcloud/dialogs'
@@ -62,6 +73,23 @@ describe('RoomTaskEditModal', () => {
 		expect(wrapper.find('[data-testid="room-task-edit-modal"]').exists()).toBe(true)
 		expect((wrapper.find('[data-testid="room-task-due-input"]').element).value).toBe('2026-08-21')
 		expect(wrapper.find('h3').text()).toBe('Do the dishes')
+	})
+
+	it('contains member-load rejection and retries without saving or clearing assignments', async () => {
+		const user = reactive({ houseUsers: [], fetchHouseUsers: jest.fn().mockRejectedValueOnce(new Error('offline')) })
+		useUserStore.mockReturnValueOnce(user)
+		const wrapper = mountModal()
+		await flushPromises()
+		expect(wrapper.get('[data-testid="member-load-error"]').text()).toContain('Failed to load members')
+		user.fetchHouseUsers.mockImplementationOnce(async () => { user.houseUsers = [{ nextcloudUserId: 'dad' }] })
+		expect(wrapper.get('[data-testid="error-retry"]').attributes('type')).toBe('button')
+		await wrapper.get('[data-testid="error-retry"]').trigger('click')
+		await flushPromises()
+		expect(user.fetchHouseUsers).toHaveBeenCalledTimes(2)
+		expect(wrapper.find('[data-testid="member-load-error"]').exists()).toBe(false)
+		expect(wrapper.vm.assigneeUserIds).toEqual(['mom'])
+		expect(roomTasksStore.setAssignees).not.toHaveBeenCalled()
+		wrapper.unmount()
 	})
 
 	it('persists a changed due date and changed assignees, then emits saved', async () => {

@@ -46,7 +46,11 @@ const SEED_DEPENDENT_SPECS = [
 	// positions and expansion state under other workers, so they run one
 	// after another here (their describes pin the owner identity `mom`).
 	/[/\\]room-management\.spec\.ts$/,
-	/[/\\]gui-scratch-flow\.spec\.ts$/,
+	// CS-PLAN-068 (parent decision D5): the canonical household journey
+	// replaces the retired gui-scratch-flow spec. It reseeds with the
+	// `emptyhouse` profile, bootstraps a fresh owner and mutates app state
+	// exclusively through the real UI — serial pool, one DB owner.
+	/[/\\]core-household-journey\.spec\.ts$/,
 	// CS-PLAN-044: the dashboard private-filter spec creates room tasks and
 	// resolves room IDs from the seed while it holds the form open. Run
 	// concurrently with a reseed (e.g. today-view's `seededData` fixture),
@@ -113,8 +117,8 @@ export default defineConfig({
 		/* Base URL to use in actions like `await page.goto('/')` */
 		baseURL: process.env.NEXTCLOUD_URL || 'http://localhost:8080',
 
-		/* Collect trace when retrying the failed test */
-		trace: 'on-first-retry',
+		/* Failure evidence must exist even when the gate disables retries. */
+		trace: 'retain-on-failure',
 
 		/* Screenshot on failure */
 		screenshot: 'only-on-failure',
@@ -131,9 +135,13 @@ export default defineConfig({
 		// Auth setup: logs in each role once and saves storageState.
 		// Browser projects depend on it so the authenticated session is
 		// ready before any spec runs. See tests/e2e/auth.setup.ts.
+		// The login loop runs up to seven sequential form logins; the global
+		// 90s test timeout is too tight for a slow Nextcloud response burst
+		// (CS-PLAN-068: one-off setup timeout killed the whole pool).
 		{
 			name: 'setup',
 			testMatch: /.*\.setup\.ts/,
+			timeout: 240000,
 		},
 		{
 			name: 'chromium',

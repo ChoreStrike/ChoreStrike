@@ -25,46 +25,6 @@
 > are intentionally sanitized; sensitive technical evidence is excluded from the
 > public repository under the security-disclosure policy.
 
-### CR-WF-04 / CR-WF-08 (WP7) — Resolved 2026-09-12, archived
-
-Both WP7 umbrella items (canonical daily workflow payloads/client state;
-family-friendly core journey) were delivered by
-[CS-PLAN-066](../plans/done/cs-plan-066-wp7-canonical-client-state-family-ux.md)
-and moved to [`archive/2026-09.md`](archive/2026-09.md) with their per-criterion
-evidence. The remainders they used to block (CR-WF-06 batching, CR-WF-05
-coverage) stay open below.
-
----
-
-### [P1] CR-WF-05 — Replace weak or skipped core-workflow coverage
-**Status**: In Progress (activated 2026-09-13 by CS-PLAN-068/WP9 Standard A `PASS-WITH-FIXES`; implementation not started) · **Effort**: L · **Layer**: tests · **Journey stage**: test coverage
-**Owning**: CS-PLAN-068 WP9 · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —
-**Source**: Full Review of the core task workflow (2026-09-02)
-
-> Formerly depended on the WP8 batching umbrella; that dependency was
-> delivered 2026-09-13 (see [`archive/2026-09.md`](archive/2026-09.md)).
-
-**WP9 plan active (2026-09-13):** [CS-PLAN-068](../plans/active/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
-details the post-WP8 test inventory, isolated browser gate, canonical household
-journey, localization/docs remainders and program closure. Standard A passed
-(`PASS-WITH-FIXES`, D1-D7 ratified as recommended); implementation has not
-started. The existing WP3 empty-house delivery below remains credited, not
-duplicated.
-
-The original review found skipped authorization scenarios, weak completion E2E
-assertions and no deterministic first-run profile. WP2 delivered the live
-authorization rewrite and WP3 delivered the empty-house journey. WP9 now owns
-the remaining stale-scenario disposition, assertion hardening, project/profile
-isolation and integrated household journey; the draft records the current tree.
-
-- [ ] Replace skipped live authorization cases with current controller/API tests; delete only obsolete-route cases.
-- [ ] Make completion/reward assertions deterministic and remove swallowed assertions and fixture-dependent skips.
-- [x] Add an empty-house user profile that exercises the complete first-run wizard in Playwright. *(Delivered 2026-09-04 by CS-PLAN-062/WP3 as the WP3 exit-gate artifact: `emptyhouse` profile + `setup-wizard-journey.spec.ts` in the serial pool, no conditional skips.)*
-- [ ] Keep seed-mutating and non-seed project groups isolated so database resets cannot invalidate active sessions.
-- [ ] Require zero newly skipped core-workflow tests in the release gate.
-
----
-
 ### [P3] CR-053-19 — Persistence correctness minors (service-level remainder)
 **Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: persistence
 **Owning**: CS-PLAN-058 WP5+WP8 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -140,22 +100,6 @@ run; add a two-connection adjust-vs-completion race regression.
 
 ---
 
-### [P3] CR-053-18-WP9 — Test-mode routes keep `@NoCSRFRequired` (release-hardening remainder)
-**Status**: In Progress (activated 2026-09-13 by CS-PLAN-068/WP9 Standard A; ratified D5 retains the runtime-gated contract with enabled/disabled-mode regression proof, `Controller/TestModeApiTest.php`, and accurate release instructions) · **Effort**: S · **Layer**: backend · **Journey stage**: release
-**Owning**: CS-PLAN-068 WP9 · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CR-053-18 remainder, re-scoped by CS-PLAN-061 decision D8 (user-ratified 2026-09-03)
-
-The test-mode routes (`test#profiles`, `test#seed`, `test#reset`) keep
-`@NoCSRFRequired` + the runtime `NEXTCLOUD_TEST_MODE` gate (D8): the E2E
-infrastructure depends on plain API seeding, and CSRF tokens in test tooling
-add churn without a production threat. The boundary is the env gate; the
-"never set `NEXTCLOUD_TEST_MODE` in production" rule is documented in
-`docs/standards/guidelines/security.md`. WP9 decides whether the release
-build strips the routes entirely (build-time exclusion) or keeps the
-documented contract.
-
----
-
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
 **Status**: Open (semantics decided, endpoint/UI open) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -199,115 +143,6 @@ freeze/restock *batching* (performance only, preserving per-user failure
 isolation) is owned here rather than in WP8; WP8 retains only the
 remainder-classification inventory. The correctness halves above are unchanged
 and remain independently schedulable.
-
----
-
-### [P2] CR-053-13 — l10n artifact gap: 141 t() keys used in src/ missing from en+de
-**Status**: In Progress (WP7 core-surface slice **delivered 2026-09-12**: all 99 keys reachable from the WP7 core surfaces added to en+de+POT, with `coreWorkflowLocalization.spec.js` pinning source coverage + de/en placeholder parity; global remainder activated 2026-09-13 under CS-PLAN-068/WP9 Standard A, ratified D4: in-place checker extension, finite dynamic-key ownership, opt-in regeneration, dead keys hard-gated after inventory) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: i18n
-**Owning**: CS-PLAN-058 WP9 (global remainder) + WP7/CS-PLAN-066 (core-surface slice) · **Depends on**: — · **Blocks**: CS-PLAN-058 WP9 · **Folded-in**: CR-055-02
-**Source**: CS-PLAN-053 full review (CR-P4-13/14/15, 2026-08-27)
-
-**D7 split (ratified 2026-09-11):** [CS-PLAN-066](../plans/done/cs-plan-066-wp7-canonical-client-state-family-ux.md)
-owns the WP7 core-surface translation slice — all reachable WP7 copy (not just
-newly added keys) verified in DE/EN/POT; global extraction/checker strengthening
-and unrelated catalog cleanup remain WP9. No untranslated core string may be
-deferred to WP9. **Slice delivered 2026-09-12:** TaskManager filters, Settings
-floor management, FloorList, QuickStats, HouseHealthBar, ArcadeSection, TaskList,
-TaskEditForm, TaskChecklist and the WP7 My Day additions are now covered
-(incl. real German copy); the case-variant mismatches among them are resolved by
-the canonical artifact entries. Remaining for WP9: global extraction for surfaces
-outside the WP7 core journey, checker strengthening (`check-l10n-keys.js` still
-only diffs de↔en — the new Jest spec closes the src-usage diff for the core
-surfaces only), and the ~340 dead artifact entries (`titles.*` stays —
-server-driven).
-
-German users get English fallback across TaskManager filters, Settings floor management,
-Arcade, minigames; 8 keys are case-variant mismatches; ~340 dead artifact entries (keep
-`titles.*` — server-driven). Root cause: `check-l10n-keys.js` only diffs de↔en. Fix: regenerate
-artifacts + extend the checker with a src-usage diff; document in i18n.md.
-**Folded-in CR-055-02** (archived 2026-09 — [`archive/2026-09.md`](archive/2026-09.md)):
-dead artifact keys from the CS-PLAN-055-pruned surfaces (e.g. `Search query is
-required`) drop out in the same regeneration pass — do not hand-prune entries.
-
----
-
-### [P3] BUG-E2E-005 — `insights-flow.spec.ts` overcapacity-marker test structurally fails on Sundays
-**Status**: In Progress (activated 2026-09-13 by CS-PLAN-068/WP9 Standard A) · **Effort**: S · **Layer**: tests · **Journey stage**: test coverage
-**Owning**: CS-PLAN-068 WP9 · **Depends on**: — · **Blocks**: CS-PLAN-058 WP9 · **Folded-in**: —
-**Source**: CS-PLAN-055 Standard-B review E2E re-run 2026-08-30 (pre-existing; passed on the 08-29 Saturday run by date luck, NOT a CS-055 regression). Renumbered from BUG-E2E-003 by CS-PLAN-059 WP0 (BUG-E2E-004 was already consumed by the CS-PLAN-050/051 archive history).
-
-The spec schedules 4 probe tasks to `tomorrow` and then expects `overcapacity-marker` inside `ScheduleCalendar`, but the calendar week starts Monday (`goToToday()`); on a Sunday "tomorrow" is the next Monday — outside the displayed week — while `overcapacity-days` (warning strip) scans today+0..6 and still shows the day. Fix: create the probes relative to the **visible** week (a due day ≥ today strictly inside the Monday-start week, e.g. Monday after Sunday), or navigate the calendar to tomorrow's week before asserting the marker. Also observed: Nextcloud stores two `weekly_goal` rows with identical (user, app, object_type, object_id) despite the documented dedup key — the per-house `claimWeeklyGoalNotification` guard is the dedup that actually holds; worth a note in `NotificationService` docs.
-
-**Update 2026-09-05 (CS-PLAN-062 WP3 gate run):** the sibling assertion
-`overcapacity-day` `toHaveCount(1)` now also fails on a **Saturday** run
-(expected 1 day, received 2) — the probe-day capacity arithmetic is
-date-dependent in the same way (seeded member availability differs per
-weekday). Verified pre-existing: fails identically on a clean `master`
-working tree (WP3 changes stashed). The same gate runs also saw one-off
-full-matrix-load flakes in `dashboard.spec.ts:49`, `error-handling.spec.ts:78`,
-and `room-management.spec.ts:179` — each passes in isolation; the 2026-09-05
-Standard B full-pool re-run on a fresh disposable env reproduced only the
-`room-management:179` one (10/10 green in isolation) while the insights-flow
-assertion passed. All are pre-existing WP9/CR-WF-05 dispositions, not WP3
-regressions.
-
-**Update 2026-09-09 (CS-PLAN-064 steps 7-10 gate):** the `room-management.spec.ts:179`
-member-visibility flake became deterministic in full-pool serial runs (earlier specs'
-role/structure mutations leak into it; green in isolation) and was root-cured in the
-WP5 gate round: the member test now opts into the `seededData` fixture (reset+reseed,
-family profile) so the actor is provably a plain member. The same round fixed two
-adjacent pre-existing serial-pool reds: `release-task-templates.spec.ts` re-pinned to
-the CS-PLAN-063 creation-aggregate response (`data.roomTask.id`) and
-`fixtures/test-house.ts` `createRoomViaSettings` made create-if-missing (accumulated
-duplicate room names broke its strict assertion). Full pool afterwards: 98 passed /
-5 pre-existing documented skips / 0 failed. Still open in this item: the Sunday/Saturday
-date-dependent insights-flow assertions; the weekly_goal duplicate-row docs note.
-
-**Update 2026-09-13 (CS-PLAN-067 final Standard B):** reproduced on the
-Sunday full-pool gate run (`overcapacity-marker` not visible; the warning
-strip and both new `workflow-request-budgets` assertions passed), consistent
-with the Monday-anchored-grid diagnosis above. Statically attributed
-WP8-independent — WP8 changed neither `ScheduleCalendar` nor
-`plannedEnergyForDay`, and the WP7 pools were green on Saturday 09-12.
-**Folded-in:** the duplicate review observation first recorded as
-"BUG-E2E-007" during the same review (deduplicated per finding routing).
-
----
-
-### [P3] BUG-E2E-006 — `SchedulePlanAggregateTest::testApply_StaleTimezoneInput` is date-of-day dependent
-**Status**: In Progress (activated 2026-09-13 by CS-PLAN-068/WP9 Standard A) · **Effort**: S · **Layer**: tests · **Journey stage**: test coverage
-**Owning**: CS-PLAN-068 WP9 (owning corrected from "CS-PLAN-065 WP9" on CS-PLAN-068 activation 2026-09-13, retaining the scheduling-test-domain provenance; the west-of-UTC/setup-error description is corrected in the implementation slice per the plan §3.4) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-067 implementation gate run 2026-09-13 (pre-existing; verified to fail identically on a clean `master` working tree with the WP8 changes stashed — NOT a CS-PLAN-067 regression).
-
-The test seeds `todayKey` as the **UTC** date and exercises a non-UTC house
-timezone; `SchedulePlanService::validateStartDate` ("startDate must be today
-or later") compares against the server-UTC today. When the suite runs late in
-the UTC day (local date of a west-of-UTC house timezone is still "yesterday"
-vs UTC), the fixture's own `apply()` call throws
-`InvalidArgumentException` inside setup — the conflict path under test never
-reaches its assertion. Fix direction: derive the fixture start key from the
-**house timezone** (the same bucketing the service uses, CS-PLAN-057) or
-freeze the test clock via `ITimeFactory` instead of wall-clock `new DateTime`.
-
----
-
-### [P3] CR-053-22 — Test-gap closures deferred (deferral approved 2026-08-29)
-**Status**: In Progress (activated 2026-09-13 by CS-PLAN-068/WP9 Standard A; ratified D3 closes the complete still-live remainder — Minigame controller integration suite, `TestDataSeedTest`, and the 8 component suites — without changing product rules) · **Effort**: L · **Layer**: tests · **Journey stage**: test coverage
-**Owning**: CS-PLAN-068 WP9 · **Depends on**: — · **Blocks**: CS-PLAN-058 WP9 · **Folded-in**: —
-**Source**: CS-PLAN-053 §4 (deferral approved by user 2026-08-29; risk accepted)
-
-**Decision (user, 2026-08-29)**: **deferral approved** with backlog tracking (risk
-accepted: the Minigame controller ships without integration-level
-coverage until a catch-up plan). ~~The Checklist controller suite closes via
-CS-PLAN-054 WP-4.~~ (closed there 2026-08-29: `ChecklistApiTest`, 24 real-DB tests)
-Closed inline: `MinigameScoreTest` + `TaskAssigneeTest` entity suites (7 tests). Deferred with
-reason (session scope of the XL review; each is mechanical but sizeable): integration suites
-for ~~Checklist~~/Minigame controllers (~~the Checklist one is the CR-053-01
-companion~~ — closed via CS-PLAN-054; ~~RewardConfig / TaskSync~~ mooted by the
-CS-PLAN-055 prune — both controllers deleted), `TestDataSeedTest`, and Jest specs for the 8 uncovered components
-(ActivityFeed, HouseStatsCards, MemberFairnessTable, WeekBudgetGrid, RoomPicker, BoostShop,
-SnakeGame, SnakeLeaderboard). Deferral risk: the 1 remaining controller (Minigame) ships without
-integration-level coverage; regression protection relies on unit + E2E.
 
 ---
 
@@ -459,32 +294,6 @@ component.
 > Backlog hygiene, lint/dependency, docs truth, and operational security.
 > Independently schedulable unless a gate depends on it (CS-PLAN-058 §2.2).
 
-### [P3] CR-053-21 — Docs truth-repair batch (remainder)
-**Status**: In Progress (D6 core/testing truth slice + README rewrite activated 2026-09-13 by CS-PLAN-068/WP9 Standard A; unrelated remainders stay open) · **Effort**: M · **Layer**: docs · **Journey stage**: documentation
-**Owning**: CS-PLAN-068 WP9 (ratified D6 core/testing truth slice + README rewrite; historical-decision annotation handled inside the plan) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: CS-PLAN-053 full review (L5-1, 2026-08-27)
-
-**Decision (user, 2026-08-29)**: root `README.md` gets a **full rewrite** (accurate
-features, stack, install, v0.8.x alpha status) — not a historical banner.
-Remainder: root `README.md` rewrite (tower-defense marketing, Sparks currency,
-removed features, "v1.0.0 RC" status — decision: rewrite vs historical banner);
-ADR-003 scope enum contradicts code; architecture.md fictional examples
-(`fetchHouseStats`, `TaskForm`/`TemplateSelector`, console.error example,
-forbidden backlog-tree line); development.md `TaskItem.vue` +
-migration-conventions subsection (version-then-date order, pre/post hooks never
-run on fresh install); gamification unimplemented-feature markers;
-`docs/api/README.md` room-tasks example block still shows pre-CS-PLAN-057
-snake_case payload keys (`room_id`, `task_name`, `next_due`, …) instead of the
-actual camelCase entity serialization (Source: Review of CS-PLAN-060 WP1,
-2026-09-03 — assignee lines were corrected there, the key-style drift predates it).
-Closed slices: the metadata/normalization slice was executed by
-CS-PLAN-059 WP0 (2026-09-02 — [`archive/2026-09.md`](archive/2026-09.md));
-the testing.md truth slice is owned by **CS-PLAN-058 WP9**; the
-architecture/security/ui-use-cases/energy/task-model/api-README slices closed
-with CS-PLAN-055 (record: [`archive/2026-08.md`](archive/2026-08.md)).
-
----
-
 ### [P3] TECH-LINT-006 — npm peer-dep ERESOLVE requires `--legacy-peer-deps`
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: dependency management
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -496,18 +305,6 @@ with CS-PLAN-055 (record: [`archive/2026-08.md`](archive/2026-08.md)).
 `--legacy-peer-deps`. Pre-existing (not introduced by CS-026), but now documented.
 Resolving it cleanly likely needs an `eslint-plugin-n`/`eslint-config-standard`
 bump coordinated with the Nextcloud eslint config.
-
----
-
-### [P4] TECH-LINT-007 — stylelint `use-logical` warning in NotAuthorizedState.vue
-**Status**: Backlog · **Effort**: XS · **Layer**: frontend · **Journey stage**: code quality
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: Review of CS-PLAN-062 WP3 final Standard B (2026-09-05)
-
-`npm run stylelint` reports a pre-existing warning (0 errors, exit 0):
-`src/components/Common/NotAuthorizedState.vue:73` uses `margin-left` where the
-`csstools/use-logical` rule wants `margin-inline`. Outside the CS-PLAN-062
-reviewed scope; fix risk-free the next time the component is touched.
 
 ---
 

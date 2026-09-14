@@ -213,7 +213,11 @@ describe('Minigame Store', () => {
 
 				expect(result).toBe(true)
 				expect(store.currentCoins).toBe(40)
-				expect(store.purchasedBoosts).toContain('slow_motion')
+				// CS-PLAN-068 §3.6: purchasedBoosts is the SHOP'S selection
+				// state — purchaseBoost only confirms with the server and
+				// reconciles the wallet; pushing here duplicated entries the
+				// shop's toggle had already added.
+				expect(store.purchasedBoosts).not.toContain('slow_motion')
 			})
 
 			it('handles insufficient coins error', async () => {

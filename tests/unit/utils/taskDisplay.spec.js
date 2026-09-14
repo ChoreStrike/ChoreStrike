@@ -78,6 +78,14 @@ describe('taskDisplay utils (CS-PLAN-067 §3.4)', () => {
 			expect(dueClass({ isActive: true, nextDue: now.toISOString() }, tz)).toBe('today')
 		})
 
+		it('stays today for a same-day due date whose 00:00 timestamp already passed (CS-PLAN-068 date-boundary regression)', () => {
+			// The UTC-midnight instant of TODAY is in the past for most of the
+			// day, but the house-local day bucket still wins.
+			const todayMidnightUtc = new Date()
+			todayMidnightUtc.setUTCHours(0, 0, 0, 0)
+			expect(dueClass({ isActive: true, nextDue: todayMidnightUtc.toISOString() }, tz)).toBe('today')
+		})
+
 		it('marks future days upcoming', () => {
 			expect(dueClass({ isActive: true, nextDue: '2999-01-01T00:00:00Z' }, tz)).toBe('upcoming')
 		})

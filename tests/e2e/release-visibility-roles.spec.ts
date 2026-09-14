@@ -116,19 +116,13 @@ test.describe('Release: Visibility & Roles', () => {
 			})
 			const roomId = ((await floorsResponse.json()).data ?? [])
 				.flatMap((entry: { rooms?: Array<{ id: number }> }) => entry.rooms ?? [])[0]?.id
-			if (!roomId) {
-				test.skip(true, 'No rooms available')
-				return
-			}
+			expect(roomId, 'family seed must provide a room').toBeTruthy()
 
 			const createResponse = await owner.page.request.post('/apps/chorestrike/api/v1/room-tasks', {
 				data: { roomId, task: { name: 'Promotion Visibility Probe', energyCost: 5, visibilityType: 'admin-only' } },
 				headers: { Accept: 'application/json' },
 			})
-			if (createResponse.status() !== 200) {
-				test.skip(true, 'Could not create admin-only task')
-				return
-			}
+			expect(createResponse.status()).toBe(200)
 			const createdTask = ((await createResponse.json()).data as { task: TaskJson }).task
 
 			// As a child, teen cannot see the admin-only task.

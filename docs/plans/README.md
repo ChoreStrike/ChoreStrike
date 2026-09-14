@@ -15,10 +15,12 @@ docs/plans/
 ## Lifecycle
 
 Current active plan: [CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](active/cs-plan-058-core-workflow-bottom-up-masterplan.md)
-(WP8 done 2026-09-13: [CS-PLAN-067](done/cs-plan-067-wp8-batching-decomposition-performance.md), final Standard B `PASS-WITH-FIXES`; WP9 is the next eligible work package).
+(WP0-WP9 delivered; the separate final program-wide Full review remains pending).
 
-Current active child plan: [CS-PLAN-068 - WP9: Deterministic Coverage and Release-Quality Closure](active/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
-(Standard A `PASS-WITH-FIXES` 2026-09-13, D1-D7 ratified as recommended; implementation not started).
+Latest completed child: [CS-PLAN-068 - WP9: Deterministic Coverage and Release-Quality Closure](done/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
+(final Standard B `PASS-WITH-FIXES` 2026-09-14; clean-install gate and two
+retry-free browser passes verified, no open WP9 findings. RELEASE-002 and
+the masterplan are not closed by this child review).
 
 Successful lifecycle reviews perform the normal forward transitions automatically:
 

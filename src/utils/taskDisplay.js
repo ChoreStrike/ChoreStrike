@@ -65,11 +65,14 @@ export const frequencyLabel = (task) => {
  */
 export const dueClass = (roomTask, timezone) => {
 	if (!roomTask.isActive) return 'completed'
+	// House-local day bucketing (CS-PLAN-057) takes precedence over the raw
+	// instant: a task due later TODAY is not overdue after its 00:00
+	// timestamp has passed — the same "Due today" semantics dueText uses
+	// (CS-PLAN-068 §3.4 date-boundary fix).
+	if (dateKeyInZone(roomTask.nextDue, timezone) === todayKeyInZone(timezone)) return 'today'
 	const due = new Date(roomTask.nextDue)
 	const now = new Date()
 	if (due < now) return 'overdue'
-	// House-local day bucketing (CS-PLAN-057).
-	if (dateKeyInZone(roomTask.nextDue, timezone) === todayKeyInZone(timezone)) return 'today'
 	return 'upcoming'
 }
 

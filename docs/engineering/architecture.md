@@ -87,8 +87,9 @@ ChoreStrike/
 │   ├── components/
 │   │   ├── Dashboard/          # HouseHealthBar, HouseholdGoalBar, FloorList, RoomCard,
 │   │   │                       #   QuickStats, ArcadeSection
-│   │   ├── Tasks/              # TaskList, TaskForm, TaskEditForm, TaskChecklist,
-│   │   │                       #   FlexWindowDisplay, TemplateSelector, OverdueClaimDialog
+│   │   ├── Tasks/              # TaskList, TaskListItem, TaskListDetails, TaskListBulkBar,
+│   │   │                       #   TaskEditForm, AssigneeChips, TaskChecklist, RoomPicker,
+│   │   │                       #   TaskTemplatePicker, FlexWindowDisplay, OverdueClaimDialog
 │   │   ├── Minigames/          # SnakeGame, SnakeLeaderboard, BoostShop, Game2048, MemoryGame
 │   │   ├── Common/             # Icon, SvgIcon, Emoji, Modal, MedalBadge
 │   │   ├── Profile/            # TitleBadge, TitlePicker (CS-PLAN-006)
@@ -452,20 +453,27 @@ stale response can never win and a committed write is never misreported:
 ```javascript
 {
   state: {
-    house: null,        // the full house object; houseHealth lives on house.houseHealth
+    house: null,          // the full house object; houseHealth lives on house.houseHealth
+    insights: null,       // /insights payload (stats, fairness rows, medals)
+    activity: [],         // activity feed rows (house store owns the feed source)
     loading: false,
-    error: null
+    activityLoading: false,
+    error: null,
+    activityError: null
   },
   getters: {
-    houseHealth()       // derived: state.house?.houseHealth || 100
+    houseHealth(),        // derived: state.house?.houseHealth ?? 100
+    houseName(),
+    hasHouse(),
+    timezone()            // house timezone with 'UTC' fallback
   },
   actions: {
     fetchHouse(),
-    updateHouseName(),
-    calculateHouseHealth(),   // GET /api/v1/house/health, persists house.houseHealth
-    fetchHouseStats(),
+    updateHouseName(name, timezone),  // PUT /house (owner-gated)
+    fetchInsights(),
+    fetchActivity(days, limit),
+    calculateHouseHealth(),           // GET /api/v1/house/health, persists house.houseHealth
     resetHouse(),
-    initializeHouse(),
     clearError(),
     reset()
   }
@@ -475,7 +483,9 @@ stale response can never win and a committed write is never misreported:
 > There is **no** standalone `health` state field or `updateHealth()` action —
 > house health is derived from `state.house.houseHealth` via the `houseHealth`
 > getter and refreshed by `calculateHouseHealth()`. Canonical definition:
-> [`src/store/house.js`](../../src/store/house.js).
+> [`src/store/house.js`](../../src/store/house.js). (The former
+> `fetchHouseStats`/`initializeHouse` examples were fictional — removed,
+> CS-PLAN-068.)
 
 #### `useRoomsStore`
 ```javascript
@@ -619,6 +629,15 @@ days' at-risk reminders collapse into one bell entry whenever the value
 repeated (CR-SVC-27). Run-date (not due-date) keying keeps the "due
 tomorrow" reminder of day D−1 and the "due today" reminder of day D as
 separate entries while same-day re-runs dedup.
+
+**Weekly-goal dedup is house-side, not notification-side (BUG-E2E-005
+docs note):** observed Nextcloud behavior can store two `weekly_goal` rows
+with an identical `(user, app, objectType, objectId)` key. The dedup that
+actually holds is `HouseMapper::claimWeeklyGoalNotification` — an atomic
+conditional `UPDATE` on `chorestrike_houses.weekly_goal_notified_week` that
+returns true for exactly one caller per house and week, so only the claiming
+request dispatches the notification. Extra bell rows are therefore bounded
+by the (rare) platform quirk and never multiply per completion.
 
 ### Daily job passes
 

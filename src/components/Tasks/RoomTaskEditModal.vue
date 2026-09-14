@@ -19,7 +19,14 @@
 
 		<div class="form-group">
 			<label>{{ t('chorestrike', 'Assigned members') }}</label>
-			<AssigneeChips v-model="assigneeUserIds" />
+			<ErrorState v-if="membersError"
+				data-testid="member-load-error"
+				:message="t('chorestrike', 'Failed to load members')"
+				@retry="loadMembers" />
+			<p v-else-if="membersLoading">
+				{{ t('chorestrike', 'Loading...') }}
+			</p>
+			<AssigneeChips v-else v-model="assigneeUserIds" :members="houseMembers" />
 		</div>
 
 		<div class="form-actions">
@@ -40,20 +47,23 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
 import { useRoomTasksStore } from '../../store/roomTasks.js'
 import { useHouseStore } from '../../store/house.js'
+import { useUserStore } from '../../store/user.js'
 import { dateKeyInZone } from '../../utils/dateKeys.js'
 import { logger } from '../../utils/logger.js'
 import AssigneeChips from './AssigneeChips.vue'
+import ErrorState from '../Common/ErrorState.vue'
 
 export default {
 	name: 'RoomTaskEditModal',
 
 	components: {
 		AssigneeChips,
+		ErrorState,
 	},
 
 	props: {
@@ -74,7 +84,31 @@ export default {
 	setup(props, { emit }) {
 		const roomTasksStore = useRoomTasksStore()
 		const houseStore = useHouseStore()
+		const userStore = useUserStore()
 		const saving = ref(false)
+		// CS-PLAN-068: the assignee chips render ONLY from the members prop
+		// (AssigneeChips performs no fetch of its own) — without this the
+		// edit modal could never change assignments.
+		const houseMembers = computed(() => userStore.houseUsers)
+		const membersError = ref(false)
+		const membersLoading = ref(false)
+		const loadMembers = async () => {
+			membersError.value = false
+			membersLoading.value = true
+			try {
+				await userStore.fetchHouseUsers()
+			} catch {
+				// The store logs the failure; the form owns visible recovery.
+				membersError.value = true
+			} finally {
+				membersLoading.value = false
+			}
+		}
+		onMounted(() => {
+			if (!userStore.houseUsers.length) {
+				loadMembers()
+			}
+		})
 
 		// House-local day keys (CS-PLAN-057): the picker default and the
 		// change-detection baseline bucket the stored instant in the
@@ -120,6 +154,10 @@ export default {
 			taskName,
 			dueDate,
 			assigneeUserIds,
+			houseMembers,
+			membersError,
+			membersLoading,
+			loadMembers,
 			saving,
 			save,
 			t,

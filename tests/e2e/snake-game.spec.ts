@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 
 /**
  * E2E test: Snake Arcade Game

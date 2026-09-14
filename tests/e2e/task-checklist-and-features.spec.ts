@@ -3,7 +3,7 @@
  * @license MIT
  */
 
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 import { createUserContext } from './fixtures/auth-contexts'
 
 /**

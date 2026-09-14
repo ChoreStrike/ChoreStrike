@@ -1,5 +1,28 @@
 # UI Use Cases & GUI Element Inventory
 
+## Current Workflow (WP9, September 2026)
+
+This matrix supersedes the August endpoint audit below for shipped core
+behavior. The older audit remains historical context, not a promise that
+its pruned routes or superseded write bodies are available.
+
+| Surface | Current behavior and authority |
+|---|---|
+| First owner and setup | First eligible bootstrap joins the owner; Settings/setup wizard writes the complete house/floor/room/template aggregate once. Later users require invitations. |
+| Invitations and roles | Owners manage membership; members manage visible tasks; children execute tasks and their own availability but do not manage definitions. |
+| Task creation | TaskManager or a room opens the floor/room/assignee form; `POST /room-tasks` atomically creates/mounts the aggregate. Room templates use `POST /room-tasks/from-template` with an explicit catalog level. |
+| Room task editing | Due date and assignees are the narrow occurrence edit; definition edits remain a separate task form. Both forms expose member-load errors and retry without discarding input. |
+| Scheduling | Owner preview is read-only, one `POST /scheduling/apply` persists the selected rows, and My Day/Calendar reconcile from canonical stores. |
+| Completion and undo | One complete receipt updates wallet/contribution/streak/room/checklist projections before events. The queued undo restores the recorded inverse, including after reload; medals and sent notifications are not revoked. |
+| Child/mobile | Bare-root child entry lands on My Day. Focused member/child mobile tests retain 44px controls, role gating and checklist execution. |
+| Localization | Real Nextcloud DE and EN rendering is tested in `family-core-ux.spec.ts`; source/catalog ownership and artifacts are enforced globally. |
+| Arcade | Snake is the accepted score/reward game. The retained 2048/Memory component prototypes do not expand the backend game whitelist. |
+
+Contracts: [API](../api/README.md), [task/undo model](task-model-and-sync.md),
+[testing and deterministic gate](../engineering/testing.md).
+
+## Historical Audit (August 2026)
+
 ## Purpose
 
 Define **which GUI elements ChoreStrike needs, when and where** — organized by
@@ -27,7 +50,9 @@ Grounded in:
 
 ## How to read
 
-**Personas:** *Owner* (adult household admin) · *Member* (e.g. child).
+**Current roles:** *Owner* (household management), *Member* (task management),
+and *Child* (execution only). Historical rows that call children "members"
+pre-date the distinct child policy; use the current matrix above.
 
 **Status per action:**
 

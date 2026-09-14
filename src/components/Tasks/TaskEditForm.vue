@@ -276,7 +276,14 @@
 
 			<div class="form-group">
 				<label>{{ t('chorestrike', 'Assigned members') }}</label>
-				<AssigneeChips v-model="assigneeUserIds" />
+				<ErrorState v-if="membersError"
+					data-testid="member-load-error"
+					:message="t('chorestrike', 'Failed to load members')"
+					@retry="loadMembers" />
+				<p v-else-if="membersLoading">
+					{{ t('chorestrike', 'Loading...') }}
+				</p>
+				<AssigneeChips v-else v-model="assigneeUserIds" :members="houseMembers" />
 			</div>
 		</div>
 
@@ -349,12 +356,13 @@
 </template>
 
 <script>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { Icon } from '../Common/index.js'
 import RecurrencePresetSelector from './RecurrencePresetSelector.vue'
 import RoomPicker from './RoomPicker.vue'
 import AssigneeChips from './AssigneeChips.vue'
+import ErrorState from '../Common/ErrorState.vue'
 import { useUserStore } from '../../store/user.js'
 import { useRoomsStore } from '../../store/rooms.js'
 import { useSetupStore } from '../../store/setup.js'
@@ -369,6 +377,7 @@ export default {
 		RecurrencePresetSelector,
 		RoomPicker,
 		AssigneeChips,
+		ErrorState,
 	},
 
 	props: {
@@ -395,6 +404,29 @@ export default {
 		const roomsStore = useRoomsStore()
 		const setupStore = useSetupStore()
 		const isOwner = computed(() => userStore.isHouseOwner)
+		// CS-PLAN-068: the assignee chips render ONLY from the members prop
+		// (AssigneeChips performs no fetch of its own) — without this the
+		// creation form could never assign anyone.
+		const houseMembers = computed(() => userStore.houseUsers)
+		const membersError = ref(false)
+		const membersLoading = ref(false)
+		const loadMembers = async () => {
+			membersError.value = false
+			membersLoading.value = true
+			try {
+				await userStore.fetchHouseUsers()
+			} catch {
+				// The store logs the failure; the form owns visible recovery.
+				membersError.value = true
+			} finally {
+				membersLoading.value = false
+			}
+		}
+		onMounted(() => {
+			if (!userStore.houseUsers.length) {
+				loadMembers()
+			}
+		})
 
 		const energyLabels = {
 			1: 'Quick',
@@ -643,6 +675,10 @@ export default {
 			nextDue,
 			isEditing,
 			isOwner,
+			houseMembers,
+			membersError,
+			membersLoading,
+			loadMembers,
 			selectedTemplate,
 			selectedRoomId,
 			assigneeUserIds,

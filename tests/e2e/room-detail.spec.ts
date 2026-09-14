@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 import { expandUntilRoomVisible } from './fixtures/dashboard-floors'
 
 /**
@@ -22,7 +22,7 @@ test.describe('Room Detail', () => {
 		// Navigate to a room from the dashboard (floors start collapsed)
 		const roomCards = page.locator('[data-testid^="room-card-"]')
 		await expandUntilRoomVisible(page, roomCards.first())
-		test.skip((await roomCards.count()) === 0, 'family seed guarantees rooms; none rendered')
+		await expect(roomCards.first()).toBeVisible()
 
 		const roomName = await roomCards.first().locator('.room-name').textContent()
 		await roomCards.first().click()
@@ -44,7 +44,7 @@ test.describe('Room Detail', () => {
 	test('User can navigate back to dashboard from room detail', async ({ page }) => {
 		const roomCards = page.locator('[data-testid^="room-card-"]')
 		await expandUntilRoomVisible(page, roomCards.first())
-		test.skip((await roomCards.count()) === 0, 'family seed guarantees rooms; none rendered')
+		await expect(roomCards.first()).toBeVisible()
 
 		await roomCards.first().click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
@@ -60,7 +60,7 @@ test.describe('Room Detail', () => {
 	test('User can open add task modal', async ({ page }) => {
 		const roomCards = page.locator('[data-testid^="room-card-"]')
 		await expandUntilRoomVisible(page, roomCards.first())
-		test.skip((await roomCards.count()) === 0, 'family seed guarantees rooms; none rendered')
+		await expect(roomCards.first()).toBeVisible()
 
 		await roomCards.first().click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
@@ -74,7 +74,7 @@ test.describe('Room Detail', () => {
 	test('Room cleanliness value is displayed correctly', async ({ page }) => {
 		const roomCards = page.locator('[data-testid^="room-card-"]')
 		await expandUntilRoomVisible(page, roomCards.first())
-		test.skip((await roomCards.count()) === 0, 'family seed guarantees rooms; none rendered')
+		await expect(roomCards.first()).toBeVisible()
 
 		await roomCards.first().click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })

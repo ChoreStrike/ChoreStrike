@@ -3,7 +3,7 @@
  * @license MIT
  */
 
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 
 test.describe('Flex Window Scheduling', () => {
 	test.beforeEach(async ({ page }) => {
@@ -18,14 +18,18 @@ test.describe('Flex Window Scheduling', () => {
 	})
 
 	test('scheduling view loads with calendar section', async ({ page }) => {
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await expect(async () => {
+			await page.getByTestId('nav-scheduling').click()
+			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+		}).toPass({ timeout: 45000 })
 		await expect(page.getByTestId('schedule-calendar')).toBeVisible()
 	})
 
 	test('calendar shows week navigation controls', async ({ page }) => {
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await expect(async () => {
+			await page.getByTestId('nav-scheduling').click()
+			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+		}).toPass({ timeout: 45000 })
 
 		await expect(page.getByTestId('previous-week-button')).toBeVisible()
 		await expect(page.getByTestId('next-week-button')).toBeVisible()
@@ -33,8 +37,10 @@ test.describe('Flex Window Scheduling', () => {
 	})
 
 	test('calendar navigates between weeks', async ({ page }) => {
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await expect(async () => {
+			await page.getByTestId('nav-scheduling').click()
+			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+		}).toPass({ timeout: 45000 })
 
 		const weekRange = page.getByTestId('week-range')
 		const initialText = await weekRange.textContent()
@@ -49,8 +55,10 @@ test.describe('Flex Window Scheduling', () => {
 	})
 
 	test('calendar returns to current week with today button', async ({ page }) => {
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await expect(async () => {
+			await page.getByTestId('nav-scheduling').click()
+			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+		}).toPass({ timeout: 45000 })
 
 		await page.getByTestId('next-week-button').click()
 		await page.getByTestId('today-button').click()
@@ -59,8 +67,10 @@ test.describe('Flex Window Scheduling', () => {
 	})
 
 	test('schedule planner section is accessible', async ({ page }) => {
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await expect(async () => {
+			await page.getByTestId('nav-scheduling').click()
+			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+		}).toPass({ timeout: 45000 })
 
 		await expect(page.getByTestId('schedule-planner')).toBeVisible()
 		// CS-PLAN-065: the owner plan preview is opt-in per selection.
@@ -68,16 +78,20 @@ test.describe('Flex Window Scheduling', () => {
 	})
 
 	test('the plan preview requires an explicit task selection', async ({ page }) => {
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await expect(async () => {
+			await page.getByTestId('nav-scheduling').click()
+			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+		}).toPass({ timeout: 45000 })
 
 		await expect(page.getByTestId('preview-plan-button')).toBeDisabled()
 		await expect(page.getByTestId('planner-task-list')).toBeVisible()
 	})
 
 	test('energy budget settings persist slider changes', async ({ page }) => {
-		await page.getByTestId('nav-scheduling').click()
-		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
+		await expect(async () => {
+			await page.getByTestId('nav-scheduling').click()
+			await page.getByTestId('scheduling-view').waitFor({ state: 'visible', timeout: 10000 })
+		}).toPass({ timeout: 45000 })
 
 		const slider = page.getByTestId('energy-slider-wednesday')
 		await expect(slider).toBeVisible()

@@ -1,4 +1,4 @@
-# Test Environment Setup
+﻿# Test Environment Setup
 
 This guide explains how to set up a Docker-based test environment for ChoreStrike that includes all Nextcloud dependencies required for PHPUnit tests.
 
@@ -190,7 +190,7 @@ It is the single source of truth for blocking gate commands.
 | `composer cs:check` | PHP coding standard (Nextcloud CS), 0 diff required — CS-026 |
 | `vendor/bin/phpunit --configuration phpunit.unit.xml` | Backend unit tests — Entity/Service/Controller/BackgroundJob/Command/Contract/Notification/Migration/l10n suites (via Docker) |
 | `vendor/bin/phpunit --configuration phpunit.integration.xml` | Backend integration tests (via Docker) |
-| `npx playwright test --project=chromium --project=chromium-serial-db` | Playwright E2E — chromium, `family` seed profile (via Docker) |
+| `npm run test:e2e:gate` | Canonical sequential browser gate (CS-PLAN-068 D1): manifest discovery check + chromium → chromium-serial-db → chromium-scheduling-owner sequentially, `workers=1 --retries=0 --forbid-only`, fails on any skipped/failed/flaky required scenario (via Docker) |
 
 ### Non-blocking (advisory)
 
@@ -215,13 +215,30 @@ It is the single source of truth for blocking gate commands.
 
 ### E2E in CI (blocking, CS-PLAN-020)
 
-E2E is a **blocking job** in `.forgejo/workflows/release-gate.yml` (chromium
-only, `family` seed profile, runs the `chromium` + `chromium-serial-db`
-projects, fails the run on red, wired into `summary.needs`). It mirrors the
-proven `test.yml` service setup (NC pinned to `31-apache`, app mounted,
-authenticated `occ` seed). The full browser matrix (firefox/webkit) stays in
+E2E is a **blocking job** in `.forgejo/workflows/release-gate.yml`. Since
+CS-PLAN-068 it runs the canonical sequential runner `npm run test:e2e:gate`
+(scripts/run-e2e-gate.js) instead of a raw `playwright test` invocation.
+The runner:
+
+1. **Discovery** — `playwright test --list --reporter=json` per project and
+   validates the required-file/scenario manifest in the script: every
+   required spec must be selected by exactly ONE project (a deleted or
+   unselected required test is a selection gap; two pools owning one
+   spec is a duplicate-ownership error).
+2. **Execution** — the three Chromium pools run SEQUENTIALLY with
+   `--workers=1 --retries=0 --forbid-only` against one disposable database
+   (`family` seed): `chromium`, then `chromium-serial-db`, then
+   `chromium-scheduling-owner`.
+3. **Result check** — zero skipped, failed, flaky or interrupted tests in
+   any required spec; a missing test environment FAILS instead of skipping
+   (no-op fixtures were removed by CS-PLAN-068 §3.2).
+
+The runner self-test (`node scripts/run-e2e-gate.js --self-test`) feeds
+synthetic discovery/report fixtures through the same checks (selection gap,
+duplicate ownership, synthetic skip/flaky/failure) without launching a
+browser. The full browser matrix (firefox/webkit) stays in
 `.forgejo/workflows/test.yml` and is a documented follow-up once the
-chromium-only gate proves stable in CI. The authorisation-denial wire contract
+chromium gate proves stable in CI. The authorisation-denial wire contract
 (plain HTTP 403, not a 200 OCS envelope) is verified by the E2E specs
 `admin-only-tasks.spec.ts` and `overdue-task-claiming.spec.ts`.
 
@@ -240,6 +257,16 @@ docker compose -f docker-compose.test.yml exec nextcloud-test \
   bash -c "cd /var/www/html/custom_apps/chorestrike && \
     vendor/bin/phpunit --configuration phpunit.unit.xml && \
     vendor/bin/phpunit --configuration phpunit.integration.xml"
+
+# Browser gate (Docker env up, canonical sequential runner)
+# Stabilization (CS-PLAN-068): disable the AJAX job scheduler first — under
+# AJAX cron, background jobs execute inline with page loads and cause
+# periodic slow windows that flake the pools (the gate never depends on
+# scheduled jobs; time-travel specs trigger jobs explicitly via
+# `occ chorestrike:trigger-jobs`).
+docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+  su -s /bin/bash www-data -c "cd /var/www/html && php occ background:cron"
+npm run test:e2e:gate
 docker compose -f docker-compose.test.yml down
 ```
 
@@ -351,7 +378,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `dashboard.spec.ts`, `dashboard-navigation.spec.ts`, `core-functionality.spec.ts` | Dashboard and cross-view navigation coverage |
 | `room-management.spec.ts`, `room-detail.spec.ts`, `3-floor-house.spec.ts` | Room/floor CRUD, room-detail flows, full-house scenarios |
 | `task-manager.spec.ts`, `task-completion.spec.ts`, `task-completion-full-flow.spec.ts`, `task-checklist-and-features.spec.ts` | Task management, creation, checklist, and completion flows |
-| `settings.spec.ts`, `gui-scratch-flow.spec.ts` | Full-house creation and realistic GUI-first flows |
+| `settings.spec.ts`, `core-household-journey.spec.ts` | Settings and the canonical empty-house UI-only setup/invite/create/plan/complete/undo journey |
 | `leaderboard.spec.ts`, `title-selection.spec.ts` | Gamification, leaderboard, role titles |
 | `private-tasks.spec.ts`, `admin-only-tasks.spec.ts`, `teamwork-rewards.spec.ts` | Visibility (private/admin-only) and teamwork-bonus rewards (CS-PLAN-005) |
 | `overdue-task-claiming.spec.ts`, `multi-user-interactions.spec.ts` | Overdue takeover and multi-user/family interactions |
@@ -389,14 +416,11 @@ npx playwright test tests/e2e/ --project=chromium --headed
     [`tests/e2e/fixtures/auth-contexts.ts`](../../tests/e2e/fixtures/auth-contexts.ts).
   - **No-logout rule:** no spec may navigate to or fetch `/logout` — it
     invalidates the shared server-side session for every parallel worker.
-- **Seed-race containment (CS-PLAN-015b Phase 2):** the 7 seed-dependent specs
-  (`error-handling`, `validation`, `multi-user-interactions`,
-  `task-completion-full-flow`, `3-floor-house`, plus the two CS-PLAN-023
-  time-travel specs `time-travel-overdue` and
-  `time-travel-streak-notification`) run in a dedicated
-  `chromium-serial-db` project (`fullyParallel: false`, `workers: 1`, chromium
-  only). The parallel pool (chromium / firefox / webkit) excludes them via
-  `testIgnore` and never touches the seed/reset endpoints concurrently.
+- **Seed-race containment:** the runner's file/project registry and frozen
+  scenario inventory below are the current ownership contract. Reset
+  consumers use the serial DB or scheduling-owner pools; no other project
+  may call either destructive fixture entry point. The original
+  CS-PLAN-015b seven-spec inventory is historical, not the current selection.
 - **Seed/test-endpoint auth (CS-PLAN-019 + CS-PLAN-023):** the test endpoints
   require an authenticated session (no `@PublicPage`). The E2E fixtures
   (`database-fixtures.ts`) and `auth.setup.ts` therefore authenticate with the
@@ -512,16 +536,39 @@ Do not treat hardcoded suite counts in this document as authoritative. The repos
 ### Playwright E2E
 
 ```bash
-# Run all E2E tests (requires Docker environment running)
+# Canonical gate: discovery check + three sequential pools (requires the
+# Docker environment running)
+npm run test:e2e:gate
+
+# Targeted single-pool run (local development only — NOT the release gate)
 npx playwright test tests/e2e/ --project=chromium
 ```
 
-Repository status:
+Repository status (CS-PLAN-068 refresh):
 
-- For the current spec count, run `git ls-files 'tests/e2e/*.spec.ts' | wc -l` (the suite grows over time).
-- Not every spec has the same maturity level.
-- The most relevant release-oriented UI coverage currently lives in the dashboard, room, task, settings, daily-task, scheduling, and GUI-scratch-flow suites.
-- `phase-3-user-management.spec.ts` should be considered **legacy** until it is rewritten against currently wired views and routes.
+- The blocking browser gate is `npm run test:e2e:gate` — see "E2E in CI"
+  above. The runner manifest (`scripts/run-e2e-gate.js`, `REQUIRED_SPECS`)
+  pins every required spec file, its owning pool and its required scenario
+  titles; a required test that disappears or a spec selected by two pools
+  fails discovery before any browser launches.
+- The canonical household journey lives in `core-household-journey.spec.ts`
+  (`chromium-serial-db`, `emptyhouse` profile): one test with named
+  `test.step` phases covering first owner bootstrap, wizard setup,
+  invitations (adult + child), custom/template task creation with
+  instructions/checklist/assignees, scheduling preview→override→apply,
+  child execution on My Day, completion receipts with exact credited
+  deltas, queued undo (live + after reload) and identity/visibility
+  authority on re-entry. The retired `gui-scratch-flow` spec is archived
+  under `archive/2026-09/wp9-deterministic-coverage/`.
+- Test-mode and DB fixtures fail loudly: `seededData` only runs in the
+  reset-owning pools (`chromium-serial-db`, `chromium-scheduling-owner`),
+  and a missing test mode is an error, not a skip. The no-op
+  `fixtures/test-fixtures.ts` shim is gone — read-only specs import
+  Playwright directly, and `visibility-fixtures.ts` throws a sanitized
+  diagnostic instead of enabling a runtime skip.
+- Localization coverage is gated by `npm run l10n:check-keys`, which now
+  scans ALL `src/**` and `lib/**` `t()` literals against en.json, de.json
+  and the POT template (exclusions per `i18n.md` D2 §5).
 
 ### Jest Frontend Tests
 
@@ -965,25 +1012,41 @@ Point-in-time inventory recorded as the CS-PLAN-058 program baseline. It is
 date-stamped, not self-updating: later work packages refresh their rows as
 part of their own documentation integration.
 
-### PHPUnit skip inventory
+### PHPUnit skip inventory (WP9 refresh, 2026-09-13)
 
-The unit suite has no skip call sites. The integration suite has **17
-`markTestSkipped` call sites** across 5 files:
+The unit suite has no skip call sites. The integration suite's remaining
+**18 `markTestSkipped` call sites** are ALL conditional engine guards in the
+two-connection concurrency suites — they run green inside the Docker gate
+(MySQL/MariaDB) and only skip on engines without the concurrency primitives:
 
 | File | Skips | Reason class |
 |---|---|---|
-| `tests/integration/Controller/TaskAuthorizationTest.php` | 10 | Unconditionally skipped controller-level live-authorization scenarios pending a full rewrite for the current house-resolution API (service-level coverage lives in `AuthorizationIntegrationTest`). To be replaced by CS-PLAN-058 WP2 / CR-WF-05. |
-| `tests/integration/Controller/GameControllerIntegrationTest.php` | 2 | Stale controller-surface expectations (medal entity shape; `handleTaskCompletion` not implemented in the controller). |
-| `tests/integration/Controller/RoomTaskControllerIntegrationTest.php` | 1 | `stats()` method not implemented in the controller (stale test). |
-| `tests/integration/Service/ConcurrentCompletionTest.php` | 2 | Conditional environment skips: two-connection race scenarios require MySQL/MariaDB — they run green inside the Docker gate. |
-| `tests/integration/Service/MinigameConcurrencyTest.php` | 2 | Same conditional two-connection environment skips. |
+| `tests/integration/Db/BootstrapConcurrencyTest.php` | 4 | Conditional MySQL two-connection guard. |
+| `tests/integration/Service/ConcurrentCompletionTest.php` | 3 | Same conditional environment guard. |
+| `tests/integration/Db/ChecklistToggleConcurrencyTest.php` | 1 | Same. |
+| `tests/integration/Service/CompletionConcurrencyTest.php` | 2 | Same. |
+| `tests/integration/Service/MinigameConcurrencyTest.php` | 2 | Same. |
+| `tests/integration/Service/SchedulePlanConcurrencyTest.php` | 2 | Same. |
+| `tests/integration/Service/TaskCreationConcurrencyTest.php` | 2 | Same. |
+| `tests/integration/Setup/SetupApplyConcurrencyTest.php` | 2 | Same. |
 
-Approved deferrals (CR-053-22, user decision 2026-08-29, tracked in
-[`backlog.md`](../backlog/backlog.md)): Minigame controller integration suite,
-`TestDataSeedTest`, and Jest specs for 8 uncovered components (ActivityFeed,
+Closed by CS-PLAN-068 (WP9): the eight unconditional
+`FamilyIntegrationTest` skips (rewritten as real-DB `CompletionService`
+scenarios), the two `GameControllerIntegrationTest` skips (`checkMedals`
+against real persisted awards; the obsolete `handleTaskCompletion` case
+deleted — the route prune is pinned by
+`RouteMatrixTest::testPrunedCS055RoutesAreNotReintroduced`). New WP9 suites:
+`MinigameControllerIntegrationTest` (all nine minigame routes),
+`TestModeApiTest` (all disabled routes/enabled dispatch), `TestModeHttpTest`
+(anonymous HTTP denial and authenticated disabled-server denial with a
+test-owned web-server environment, no process-only substitute), `TestDataSeedTest`
+(four seed profiles, idempotent reseeding).
+
+The former CR-053-22 deferrals (Minigame controller integration suite,
+`TestDataSeedTest`, and Jest specs for 8 uncovered components — ActivityFeed,
 HouseStatsCards, MemberFairnessTable, WeekBudgetGrid, RoomPicker, BoostShop,
-SnakeGame, SnakeLeaderboard). The release gate requires zero newly skipped
-core-workflow tests (CR-WF-05).
+SnakeGame, SnakeLeaderboard) are **delivered**; the release gate requires
+zero newly skipped core-workflow tests (CR-WF-05).
 
 ### Playwright project split
 
@@ -994,60 +1057,89 @@ core-workflow tests (CR-WF-05).
 | `setup` | `*.setup.ts` | — | Auth bootstrap: logs in every `family` role once and saves per-user storageState. |
 | `chromium` | all specs | seed-dependent + scheduling-owner spec lists | Default parallel pool, admin storageState; part of the blocking release gate. |
 | `firefox` / `webkit` | all specs | seed-dependent + scheduling-owner + self-availability spec lists | Full browser matrix (advisory; weekly full-matrix run). |
-| `chromium-serial-db` | seed-dependent spec list | — | `fullyParallel: false`, `workers: 1`; the only pool that may touch the seed/reset endpoints; blocking gate. |
-| `chromium-scheduling-owner` | scheduling-owner spec list | — | `workers: 1`, runs as `dad` (owner storageState); part of the CS-PLAN-058 §4.5 program gate. |
+| `chromium-serial-db` | seed-dependent spec list (incl. `core-household-journey.spec.ts`) | — | `fullyParallel: false`, `workers: 1`; reset-owning pool; blocking gate. |
+| `chromium-scheduling-owner` | scheduling-owner spec list | — | `workers: 1`, runs as `dad` (owner storageState); reset-owning pool (`scheduling-apply-flow` seeds); blocking gate. |
 
-Seed-mutating specs must stay in the `chromium-serial-db` list so database
-resets can never invalidate parallel sessions.
+Reset-owning pools are exactly `chromium-serial-db` and
+`chromium-scheduling-owner`, and they run SEQUENTIALLY behind the gate. The
+`DatabaseManager` enforces this in both `seed()` and `reset()`, including
+direct fixture calls: a mutation attempt from any other project fails
+before a request. Setup provisioning is mandatory; missing test mode, seed
+errors and login failures fail setup. Runtime guard regressions live in
+`tests/unit/scripts/databaseFixtures.spec.js`.
 
-### Core-journey E2E specs (WP9 replaces `gui-scratch-flow`)
+The runner's file/project registry and the reviewed
+`tests/e2e/required-scenarios.json` pin the exact scenario selection.
+`node scripts/run-e2e-gate.js --write-manifest` is an explicit authoring
+operation; inspect its diff when changing intended coverage. The normal
+gate never learns a new baseline. Discovery errors, missing owner reports,
+empty attempts, expected failures, skipped/interrupted/flaky results and
+retries all fail. `browserGate.spec.js` exercises the actual main pipeline
+as well as pure validators; `--self-test` remains a lightweight CLI smoke.
 
-`gui-scratch-flow.spec.ts` is the current scratch-quality end-to-end household
-journey (runs in `chromium-serial-db`); CS-PLAN-058 WP9 replaces it with one
-deterministic serial household journey. Core-journey specs at baseline:
-setup wizard (`release-setup-wizard`), task creation/assignment
-(`task-manager`, `room-detail`), scheduling (`scheduling`,
-`flex-window-scheduling`, `availability-settings-flow` in
-`chromium-scheduling-owner`), My Day (`today-view`), completion/undo
-(`task-completion`, `task-completion-full-flow`), lifecycle
-(`release-task-lifecycle`), members/roles (`members-owner`,
-`release-visibility-roles`), insights (`insights-flow` — known Sunday flake,
-BUG-E2E-005), checklist (`task-checklist-and-features`).
+Every run gets a fresh `build/e2e-gate/run-*/` directory, so stale reports
+cannot satisfy a new subprocess failure. Raw JSON and retained-on-failure
+traces are local debugging material that may contain browser/network data;
+never publish or commit them. CI uploads only sanitized `summary-*.json`
+containing file/title/status/attempt metadata. Failure traces do not depend
+on a retry (the gate always has `--retries=0`).
+
+### Core-journey E2E specs (WP9 delivered the deterministic journey)
+
+`gui-scratch-flow.spec.ts` was retired by CS-PLAN-068 §3.3 (archived under
+`archive/2026-09/wp9-deterministic-coverage/`). The canonical household
+journey is `core-household-journey.spec.ts` (`chromium-serial-db`,
+`emptyhouse` profile, ONE test with named `test.step` phases) — see the
+Playwright inventory above for its phase list. Focused specs at the WP9
+boundary: setup wizard (`release-setup-wizard`, `setup-wizard-journey`),
+task creation/assignment (`task-manager`, `room-detail`), scheduling
+(`scheduling`, `flex-window-scheduling`, `availability-settings-flow`,
+`scheduling-apply-flow` in `chromium-scheduling-owner`), My Day
+(`today-view`), completion/undo (`task-completion`,
+`task-completion-full-flow` with the strengthened exact-receipt
+assertions), lifecycle (`release-task-lifecycle`), members/roles
+(`members-owner`, `release-visibility-roles`), insights (`insights-flow`
+— controlled per-day capacity), checklist (`task-checklist-and-features`).
+`ScheduleCalendar.spec.js` fixes Saturday/Sunday/Monday clocks and uses the
+same `house-clock.js` fixture date helper and actual planned-energy store.
+`SchedulePlanAggregateTest::clockBoundaries` covers midnight, positive and
+negative extreme offsets and both Berlin DST transitions; a stale plan's
+start key is computed once and shared by preview/apply.
+
+The canonical journey selects exact wizard room types/level, compares
+preview/persisted counts, pins template materialization, proves preview
+does not write due dates/assignees, and checks Calendar/My Day re-entry.
+It chooses a curated timezone through the real Settings UI so the long
+journey is several hours from local midnight. Fresh wizard rooms exercise
+the cleanliness cap; the focused completion flow separately proves the
+unsaturated `75 -> 95` delta. Both retain exact wallet/contribution and
+recorded-inverse evidence; checklist progress is checked after undo/reload.
+`family-core-ux.spec.ts` additionally changes the real Nextcloud user
+language and verifies DE/EN rendering while restoring the test preference.
 
 ## Remaining Coverage Gaps
 
 The biggest remaining gaps are no longer basic component or store tests. Those areas now have meaningful automated coverage. The highest-value remaining work is here:
 
-### 1. E2E Pipeline & Coverage Gaps (updated 2026-07-30, CS-PLAN-022)
+### 1. Pipeline and Coverage Ownership
 
-- **E2E in CI repaired** — `test.yml` now triggers on `master`, pins
-  `nextcloud:31-apache`, mounts the app, and runs `chromium-serial-db` as a
-  separate step on the chromium matrix row only (CS-PLAN-015b D-CI). Folding
-  into `release-gate.yml` as blocking is follow-up.
-- **Jest gaps closed (CS-PLAN-022)** — `TaskEditForm`, `OverdueClaimDialog`,
-  `TemplateSelector`, `FlexWindowDisplay`, `CalendarDayCell`, `SvgIcon`
-  component specs + `checklist` store + 4 util specs added. `SnakeGame`,
-  `BoostShop`, `SnakeLeaderboard` deferred (deep `storeToRefs` integration;
-  E2E `snake-game.spec.ts` covers the integration path).
-- **Backend unit gaps closed (CS-PLAN-022)** — `TemplateService`,
-  `RewardConfigController`, `TemplateController`, `TaskSyncController`,
-  `SmartSchedulerController` behavior tests + 7 mapper tests + 5 entity tests.
-  P9-TEST-003 closed.
-- **Remaining E2E gaps** — reward configuration, task templates, notifications,
-  BoostShop purchase flow, and mobile/responsive layouts still have no E2E
-  coverage (deferred to follow-up plan).
-- **Stabilization done** — CS-PLAN-015b shipped session-safe multi-user auth +
-  seed-race containment; 3× full-matrix acceptance green (2026-07-28). CS-016
-  re-adds the 3 archived scheduling specs.
+- The blocking release workflow builds app assets in the E2E job and runs
+  all three Chromium pools sequentially. Firefox/WebKit remain the
+  separately owned advisory matrix, not an exception to this gate.
+- The old Snake/BoostShop/leaderboard and test-tooling deferrals are covered
+  by the component/HTTP/runner suites above. Missing new required evidence
+  is a plan blocker, never a reason to restore a fixture-dependent skip.
+- Pruned reward-config and task-sync routes are not missing live UI coverage.
+  Reintroducing them requires its own product/API scope and tests.
+- The assertion-free combo smoke in `task-completion.spec.ts` was replaced
+  by the exact false/false/true combo receipt sequence in
+  `task-completion-full-flow.spec.ts`; no live combo behavior was dropped.
 
-### 2. Legacy E2E Drift
+### 2. Remaining Product Work
 
-- The known dead specs were archived by CS-PLAN-015 (`archive/2026-07/e2e-legacy/`):
-  `phase-3-user-management`, the scheduling trio (revive via CS-016), and
-  `phase-4-advanced-mechanics`.
-- The ~13-spec long tail still carries ~27 `waitForTimeout` calls plus residual
-  text/positional selectors (`phase-9-code-quality.md` P9-E2E-002b, starts once
-  the CS-015/015b foundation is proven flake-free).
+Open product/security/release work lives in `docs/backlog/backlog.md`;
+in-scope review findings stay with their owning plan. Historical test
+counts and deferred-route lists are not evidence of current gaps.
 
 ### 3. Cross-Layer Contract Changes
 
@@ -1072,6 +1164,6 @@ npm test
 docker compose -f docker-compose.test.yml exec nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
 docker compose -f docker-compose.test.yml exec nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
 
-# 3. Targeted release-gate GUI smoke coverage
-npx playwright test tests/e2e/task-manager.spec.ts tests/e2e/room-detail.spec.ts tests/e2e/task-completion.spec.ts tests/e2e/gui-scratch-flow.spec.ts --project=chromium
+# 3. Canonical browser gate (all three pools sequentially)
+npm run test:e2e:gate
 ```

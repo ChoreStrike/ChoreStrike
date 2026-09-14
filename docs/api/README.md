@@ -62,7 +62,7 @@ Same error (English locale):
 - **Membership is invite-only after the first owner.** The five bootstrap
   endpoints (`GET /users/current`, `GET /house`, `POST /users/invite`,
   `GET /setup/catalog`, `POST /setup/apply`) bootstrap the first owner of a
-  fresh instance; every other endpoint requires an existing membership
+  fresh instance; other house-data endpoints require an existing membership
   (`403 FORBIDDEN` for non-members). Removed members stay removed — no read
   re-creates their membership.
 - **Denial standard:** visibility denials (nonexistent id, foreign-house id,
@@ -466,21 +466,17 @@ broader mode):
 > house is rejected with `404 RESOURCE_NOT_FOUND`, and the `scopeId`
 > branch silently filters cross-house entries (skip-on-missing).
 
-**Response** (flat rows; identical shape in every selector mode):
+**Response `data` excerpt** (camelCase rows; identical shape in every selector mode):
 ```json
 [
   {
     "id": 1,
-    "room_id": 1,
-    "task_id": 1,
-    "task_name": "Vacuum",
-    "energyCost": 3,
-    "priority": 2,
-    "next_due": "2026-02-25T10:00:00Z",
-    "last_completed": "2026-02-18T10:00:00Z",
-    "assignees": ["mom"],
-    "is_overdue": false,
-    "days_until_due": 1
+    "roomId": 1,
+    "taskId": 1,
+    "nextDue": "2026-02-25T10:00:00Z",
+    "lastCompleted": "2026-02-18T10:00:00Z",
+    "isActive": true,
+    "assignees": ["mom"]
   }
 ]
 ```
@@ -489,24 +485,16 @@ broader mode):
 > (CS-PLAN-060 WP1 D2): the `chorestrike_task_assignees` join table keyed by
 > Nextcloud user IDs. The legacy `room_tasks.assigned_to_user_id` scalar
 > column and its payload key were folded out — reads never merge legacy and
-> canonical state. Initial single-assignee assignment stays available via
-> the `POST /room-tasks` body (`assignedToUserId`, written as a join row).
+> canonical state. Initial assignment uses the atomic `POST /room-tasks`
+> body's `assigneeUserIds` array, including for a single assignee.
 > See `architecture.md` (`chorestrike_room_tasks`). The standalone
 > `POST /room-tasks/{id}/assign` / `…/unassign` and single-assignee
 > `POST|DELETE …/assignees` variants were pruned in CS-PLAN-055 — assignment
 > goes through `PUT …/assignees` or `POST /room-tasks/bulk-assign`.
 
-#### POST /room-tasks
-Assign task to room(s).
-
-**Request:**
-```json
-{
-  "task_id": 1,
-  "room_ids": [1, 2, 3],
-  "assignedToUserId": null
-}
-```
+Mounting an existing definition uses `{ "roomId": 1, "taskId": 1,
+"assigneeUserIds": [] }` on the same atomic `POST /room-tasks` contract
+documented above. There is no snake_case multi-room create body.
 
 #### PUT /room-tasks/{id}/due-date
 Update a room task's next-due date / ideal due date.
@@ -752,39 +740,118 @@ update gate).
 
 > `GET /game/leaderboard` was pruned in CS-PLAN-055 (test-only never became
 > production-consumed; the UI leaderboard is built from `GET /users`).
+> `game#handleTaskCompletion` was pruned in CS-PLAN-055 — completion runs
+> through `POST /room-tasks/{id}/complete` (the CompletionService
+> aggregate); the prune is pinned by `RouteMatrixTest`.
 
 #### GET /game/state
-Get current game state.
+Get the current game state: the serialized house members with their
+gamification fields (camelCase).
 
-**Response:**
+**Response `data`:**
 ```json
 {
-  "house_health": 85,
-  "active_combos": 1,
-  "current_streak": 7,
-  "rooms_by_status": {
-    "clean": 5,
-    "due": 3,
-    "overdue": 2
-  }
+  "users": [
+    {
+      "id": 1,
+      "nextcloudUserId": "mom",
+      "displayName": "Mom",
+      "role": "owner",
+      "contributionScore": 120,
+      "coins": 340,
+      "currentStreak": 5,
+      "longestStreak": 9,
+      "streakFreezes": 1,
+      "currentTitle": "Anchor"
+    }
+  ]
 }
 ```
 
 #### GET /game/medals
-Get medals for current week.
+Get medals for the current week (serialized `Medal` entities, camelCase).
 
-**Response:**
+**Response `data`:**
 ```json
 [
   {
-    "medal_type": "team_anchor",
-    "user_id": 1,
-    "user_name": "Alice",
+    "id": 4,
+    "userId": 1,
+    "medalType": "team_anchor",
     "value": 12,
-    "description": "Completed 12+ tasks this week"
+    "weekStart": "2026-09-07",
+    "awardedAt": "2026-09-13 10:12:00",
+    "medalLabel": "Team Anchor",
+    "userName": "Mom"
   }
 ]
 ```
+
+#### POST /game/check-medals
+Re-evaluate the weekly medal thresholds for the requesting member and
+persist new awards. Idempotent: a repeat call awards nothing new.
+
+**Response `data`:**
+```json
+{
+  "count": 1,
+  "awardedMedals": [
+    { "id": 4, "userId": 1, "medalType": "team_anchor", "value": 10, "weekStart": "2026-09-07", "awardedAt": "2026-09-13 10:12:00", "medalLabel": "Team Anchor" }
+  ]
+}
+```
+
+### Minigames
+
+House-scoped minigame reads and writes are membership gated. The global,
+read-only boost-price catalog requires authentication but no membership
+and performs no house/member writes. Game ids are whitelisted
+(`snake`); scores must satisfy `0 <= score <= 5000` (server cap) and saves
+are rate-limited to **100 per member and house-local day**
+(`429 MINIGAME_RATE_LIMITED`). Reads mint nothing: an unknown game id on a
+read answers an empty board, only writes validate the catalog.
+
+#### POST /minigames/{gameId}/scores
+Save a finished game. The awarded coins are server-computed
+(`floor(score / 10)`), never client-supplied.
+
+**Request:** `{ "score": 250, "boostsUsed": ["slow_motion"] }`
+
+**Response `data`:**
+```json
+{ "score": 250, "gameId": "snake", "boostsUsed": ["slow_motion"], "coinsEarned": 25 }
+```
+
+#### GET /minigames/coins
+**Response `data`:** `{ "currentCoins": 125 }`
+
+#### GET /minigames/{gameId}/leaderboard?limit=10
+House-wide best scores, ordered by score, enriched with `displayName`.
+
+#### GET /minigames/{gameId}/leaderboard/weekly?limit=10
+Same shape, restricted to the current house-local medal week.
+
+#### GET /minigames/{gameId}/personal-best
+**Response `data`:** `{ "score": 300 }`
+
+#### GET /minigames/{gameId}/rank
+**Response `data`:** `{ "rank": 2, "gameId": "snake" }`
+
+#### GET /minigames/{gameId}/recent?limit=5
+The requesting member's own scores, ordered by score (shipped behavior) —
+never other members' rows.
+
+#### GET /minigames/boosts
+Authenticated global boost price catalog (`{ "magnet": 30, … }`), also readable
+by a non-member; `MinigameControllerIntegrationTest` pins that no-write contract.
+The UI disables
+purchases without it — there is no client-side price fallback (UX-013).
+
+#### POST /minigames/boosts/{boostId}/purchase
+Debits the exact catalog price atomically.
+**Response `data`:** `{ "success": true, "boostId": "magnet", "cost": 30, "remainingCoins": 70 }`
+Failure envelopes: `400 PURCHASE_BOOST_ERROR` (unknown boost or
+insufficient coins, zero writes).
 
 ### Scheduling
 

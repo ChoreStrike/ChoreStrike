@@ -1,8 +1,23 @@
-# ADR-003: Task Scope System (Beyond Rooms)
+﻿# ADR-003: Task Scope System (Beyond Rooms)
 
-**Status**: Accepted  
-**Date**: 2026-02-24  
+**Status**: Accepted (historical) — see the scope annotation below
+**Date**: 2026-02-24
 **Deciders**: Development Team
+
+> **Current-scope annotation (CS-PLAN-068, 2026-09).** This decision is
+> preserved as history. The shipped system does **not** use the five-value
+> scope model: the current model is the three-level
+> **`room` → `floor` → `house`** hierarchy under the invite-only membership
+> and visibility rules of
+> [ADR-010](ADR-010-invite-only-membership-visibility-matrix.md) — every
+> task materialization is a room task (`chorestrike_room_tasks.room_id` →
+> `chorestrike_rooms` → `chorestrike_floors` → `chorestrike_houses`), and
+> `scope_id` remained a reserved column that never grew scope entities. A
+> `scope_type` column with the five values below never shipped;
+> garden/outside/work tasks are modeled as ordinary rooms on a floor today.
+> See
+> [`docs/concepts/task-model-and-sync.md`](../concepts/task-model-and-sync.md)
+> for the current contract.
 
 ## Context
 
@@ -49,7 +64,7 @@ Tasks have a `scope_type` field and an optional `scope_label` for custom naming 
 scope_type VARCHAR(20) DEFAULT 'room'
 scope_label VARCHAR(255) NULL
 
--- In chorestrike_room_tasks table  
+-- In chorestrike_room_tasks table
 scope_id BIGINT NULL  -- For future use with non-room scope entities
 ```
 
@@ -91,4 +106,6 @@ const SCOPE_TYPES = ['room', 'garden', 'home', 'outside', 'work'];
 
 - Database Migration: `lib/Migration/Version1000Date20260224000000.php`
 - Task Entity: `lib/Db/Task.php`
-- Related Concept Doc: `docs/concepts/TASK_SCOPES.md` (if created)
+- `TASK_SCOPES.md`: the planned concept companion was never created; the
+  current task model contract lives in
+  [`docs/concepts/task-model-and-sync.md`](../concepts/task-model-and-sync.md)

@@ -1,145 +1,117 @@
 # ChoreStrike
 
-**Defend your Home Base. Together.** | **Verteidigt eure Basis. Gemeinsam.**
+**The household app that keeps everyone moving.** | **Die Haushalts-App, die alle in Bewegung hält.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-ChoreStrike is a gamified household task management app for Nextcloud that transforms cleaning into a cooperative tower defense game. Keep your home clean by defending it against "The Dust" - cute but persistent creatures that invade neglected rooms.
+ChoreStrike is a gamified household task management app for Nextcloud.
+Families and flatmates organize their home in floors and rooms, plan fair
+weekly schedules, and keep each other motivated with coins, streaks, medals
+and a friendly leaderboard — all inside their own Nextcloud.
 
-## 🎮 Concept
+## Concept
 
-ChoreStrike combines practical household task management with engaging game mechanics:
+- **One shared household**: The first person who opens the app becomes the
+  owner and sets up floors and rooms with a guided wizard. Everyone else
+  joins through **email invitations** — invite-only, no self-enrollment.
+- **Fair planning, not nagging**: The owner previews a weekly plan
+  (who does what on which day) against each member's availability and daily
+  energy budget, adjusts it, and applies it once — nothing changes until
+  the plan is applied.
+- **Motivation without punishment**: Completing tasks earns coins,
+  contribution and streaks (with streak freezes as a safety net); rooms have
+  a cleanliness score and the household has a shared house-health value.
+- **Built for families**: Children get the child role with their own
+  simplified "My Day" view and an owner-set daily task limit.
 
-- **Cooperative Base Defense**: Your home is your base. Work together to keep it clean.
-- **Visual Motivation**: See rooms get invaded by cute dust monsters when tasks are overdue
-- **No Game Over**: Different levels of chaos vs. order - motivate, don't punish
-- **Family/Roommate Friendly**: Share tasks, compete on leaderboards, earn team bonuses
+## Key Features (shipped)
 
-## ✨ Key Features
+- **Household structure** — floors and rooms, room cleanliness tracking,
+  house health, per-house timezone for correct day boundaries.
+- **Tasks** — daily/weekly/monthly recurrence with flexible windows,
+  priorities, energy cost (1–5), step-by-step instructions, sub-task
+  checklists, and per-task visibility (public / private / admins only).
+- **Weekly planner** — availability and energy budgets per member,
+  preview → adjust → apply scheduling, capacity and fairness aware, with
+  child daily-task limits.
+- **Execution** — a My Day view for every member, one-tap completion with
+  an exact, reversible undo, overdue claiming with takeover protection.
+- **Gamification** — coins, contribution scores, streaks and streak
+  freezes, combo and teamwork bonuses, weekly medals, titles, and an
+  arcade with three minigames (Snake, 2048, Memory) and a boost shop.
+- **Insights** — activity feed, member fairness table, and overcapacity
+  warnings before a plan is applied.
+- **Notifications** — Nextcloud notifications for relevant household
+  events (e.g. streak-saving claims).
+- **Two languages** — English and German, fully translated.
 
-### 🏠 House & Floor Management
-- **Multi-Floor Support**: Organize your home with floors (Ground Floor, First Floor, Basement, etc.)
-- **Custom Collections**: Create custom scopes like "All Bathrooms" or "Exterior"
-- **Room Organization**: Add rooms to floors with custom names and icons
+Not (yet) implemented: task approval workflows, external-calendar sync,
+mobile apps. See the [roadmap](docs/release/roadmap.md).
 
-### 📋 Task Management
-- **Flexible Scheduling**: Tasks with customizable frequency (daily, weekly, monthly, custom intervals)
-- **Difficulty Levels**: 1-5 stars (1 = quick task, 5 = major cleaning)
-- **Priority System**: 3 levels (urgent/normal/can wait)
-- **Multi-Room Tasks**: Assign tasks to multiple rooms (e.g., "Vacuum entire floor")
-- **Checklists**: Add sub-tasks to any task for detailed tracking
-- **Task Templates**: Pre-defined templates for common household tasks
-
-### 🎯 Smart Scheduling
-- **Availability-Based**: Schedule tasks based on your available days
-- **Energy Budget**: Set daily energy limits to avoid overload
-- **AI Suggestions**: Smart scheduler suggests optimal task assignments
-- **Fair Distribution**: Balance tasks across household members
-
-### 🎮 Gamification
-- **The Dust Invasion**: Cute pixel monsters spawn in overdue rooms
-- **Sparks System**: Earn sparks for completing tasks
-- **Combo Bonuses**: Complete tasks quickly for multiplier rewards
-- **House Health Bar**: Shared progress indicator for the whole household
-- **Weekly Medals**: Recognition for different play styles (Tank, Scout, etc.)
-- **Achievements**: Unlock badges for milestones and special accomplishments
-
-### 👥 Collaboration
-- **Multi-User Support**: Share your home with family or roommates
-- **Role System**: Owner, Member, and Child roles with different permissions
-- **Leaderboards**: Friendly competition by sparks, streaks, and tasks completed
-- **Task Assignment**: Assign tasks to specific users or leave open for anyone
-- **Task Approval**: Parents can review children's completed tasks
-
-### 🌍 Multilingual
-- **English**: Full support
-- **German (Deutsch)**: Full support
-- **More languages welcome**: Contributions appreciated!
-
-## 🚀 Installation
+## Installation
 
 ### Requirements
-- Nextcloud 28 or higher
-- PHP 8.2 or higher
-- MySQL/PostgreSQL/SQLite
 
-### Install from App Store
-1. Open your Nextcloud instance
-2. Go to **Apps** → **Productivity**
-3. Search for "ChoreStrike"
-4. Click **Install**
+- Nextcloud 27–31
+- PHP 8.2 or 8.3
+- MySQL/MariaDB, PostgreSQL or SQLite (via Nextcloud's database layer)
 
-### Manual Installation
+ChoreStrike is a **pre-release app (0.1.x)**: fresh installs are supported;
+upgrade paths between versions are not provided yet.
+
+### Manual installation
+
 ```bash
-cd /var/www/nextcloud/apps
+cd /path/to/nextcloud/apps
 git clone https://github.com/ChoreStrike/ChoreStrike.git chorestrike
 cd chorestrike
-composer install
-npm install
+composer install --no-dev
+npm ci
 npm run build
 ```
 
-## 📖 User Guide
+Then enable **ChoreStrike** under **Apps** in your Nextcloud.
 
-### Getting Started
+## Getting Started
 
-1. **Open ChoreStrike** from the Nextcloud app menu
-2. Your house is automatically created on first launch
-3. **Add floors** to organize your home (e.g., Ground Floor, First Floor)
-4. **Add rooms** to each floor (e.g., Kitchen, Living Room, Bathroom)
-5. **Create tasks** for each room with frequency and difficulty
+1. **Open ChoreStrike** — the first visitor bootstraps the household and is
+   guided through the setup wizard (house name, floors and rooms, optional
+   task templates from the quick-start catalog, and invitations).
+2. **Invite your household** — owners invite members by email address and
+   assign the role (owner, member or child). Invited people see the shared
+   household the next time they open the app.
+3. **Create tasks** — owners add tasks per room (or from the template
+   catalog), set recurrence and flexibility, write short instructions and
+   checklists, and assign them to members.
+4. **Plan the week** — in *Scheduling*, select tasks, preview a fair
+   distribution across the week, adjust person/day per task, and apply.
+5. **Work through My Day** — every member sees today's and overdue tasks,
+   ticks off checklist steps, and completes with one tap (undo is available
+   right on the confirmation).
 
-### Daily Workflow
+## Technical Stack
 
-1. **Check Dashboard**: See tasks due today and overdue tasks
-2. **Claim Tasks**: Click "Claim" on tasks you want to do
-3. **Complete Tasks**: Mark tasks as done when finished
-4. **Earn Sparks**: Get rewarded with sparks and combo bonuses
-5. **Check Leaderboard**: See your ranking among household members
-
-### Managing Users
-
-**As House Owner:**
-1. Go to **Users** tab
-2. Click **Invite User**
-3. Enter their Nextcloud username
-4. Assign role (Owner/Member/Child)
-5. They'll see the shared house when they open ChoreStrike
-
-### Smart Scheduling
-
-1. Go to **Schedule** tab
-2. Set your **availability** for each weekday
-3. Set your **energy budget** per day
-4. View **AI suggestions** for task assignments
-5. Accept or modify suggestions
-
-## 🏗️ Technical Stack
-
-- **Platform**: Nextcloud App
-- **Frontend**: Vue.js 3 (Composition API) + Pinia
-- **Backend**: PHP 8.2+ (Nextcloud App API)
-- **Database**: SQLite/MySQL/PostgreSQL (via Nextcloud DB abstraction)
-- **Graphics**: Pixel art sprites with CSS animations
+- **Platform**: Nextcloud app (invite-only membership, role model, no
+  external services — all data stays in your Nextcloud)
+- **Frontend**: Vue 3 (Composition API) + Pinia
+- **Backend**: PHP 8.2+ (Nextcloud App API, service architecture)
+- **Database**: SQLite / MySQL / PostgreSQL (via Nextcloud DB abstraction)
 - **Testing**: PHPUnit (backend), Jest (frontend), Playwright (E2E)
 
-## 📋 Project Status
+## Project Status
 
-✅ **v1.0.0 Release Candidate** - Feature complete, in final testing
+**v0.1.1 — early pre-release.** The core household workflow (setup wizard,
+invitations, tasks, scheduling, My Day, completion/undo, gamification,
+insights) is implemented and covered by an automated release gate. The app
+is not yet published in the Nextcloud App Store; roadmap targets are
+described in [roadmap.md](docs/release/roadmap.md).
 
-See [roadmap.md](docs/release/roadmap.md) for detailed progress.
+## Contributing
 
-## 🤝 Contributing
+ChoreStrike is an open source project (MIT) and welcomes contributions —
+code, design, translations and ideas. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-ChoreStrike is an open source project and welcomes contributions! Whether you're a developer, designer, translator, or just have ideas - we'd love your help.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📚 Documentation
+## Documentation
 
 - [Architecture](docs/engineering/architecture.md) - System design overview
 - [API Documentation](docs/api/README.md) - REST API endpoints
@@ -147,11 +119,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [App security architecture](docs/standards/guidelines/security.md) - Authorization and validation rules
 - [Deployment](docs/engineering/deployment.md) - Installation and deployment guide
 - [Testing](docs/engineering/testing.md) - Testing strategies
+- [Roadmap](docs/release/roadmap.md) - Release planning
 - [Contributing](CONTRIBUTING.md) - How to contribute
-
-## 💡 Inspiration
-
-Inspired by apps like Sweepy and the cooperative spirit of tower defense games, combined with the charm of Studio Ghibli's dust sprites.
 
 ---
 

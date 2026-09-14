@@ -17,8 +17,9 @@ Keep the game layer fun and motivating while preserving a supportive family tone
 - Use friendly terms that fit family collaboration.
 - Use **Coins** as the reward currency (shipped). Tasks carry a tier
   (Bronze/Silver/Gold) multiplier and each member has a personal coin multiplier
-  for fairness; both are configurable via `RewardConfigService`. See
-  [`../api/`](../api/) for the reward-config surface.
+  for fairness. Global defaults are read through `RewardConfigService`;
+  member balancing uses the persisted member multiplier. The former
+  reward-config HTTP routes were pruned, not shipped as an admin API.
 
 ## Parent Contribution Balancing
 
@@ -47,35 +48,49 @@ The system should allow configurable balancing so high-load members receive redu
 | Mechanic | Behaviour | Config key (default) |
 |----------|-----------|----------------------|
 | **Coins** (renewable currency) | `energy_cost × coin_base_per_energy × tier_multiplier × personal_multiplier × early_multiplier`; **×combo_multiplier on personal combo** (`GameLogicService::calculateCoins`). | `coin_base_per_energy` (10), `tier_{bronze,silver,gold}_multiplier` (1.0/1.5/2.0), `early_bonus_multiplier` (1.5), `early_bonus_threshold_days` (21), `combo_multiplier` (2.0) |
-| **Contribution score** (permanent) | Lifetime work done (the task's `energy_cost`); never decreases; leaderboard + `home_helpers` title signal. | — |
+| **Contribution score** | Net credited work (the task's `energy_cost`); undo subtracts its recorded delta, with no passive penalty; leaderboard + `home_helpers` title signal. | — |
 | **Personal combo** | Rapid consecutive completions by the same user double coins (configurable multiplier). *Not* the cooperative ×1.5 multi-user concept from the foundational design — see Decision Point B (CS-PLAN-010). | `combo_multiplier` (2.0) |
-| **Streak freezes** | Protect a streak on a missed available day; consumed in `handleTaskCompletion` and by `StreakFreezeJob`; restocked weekly by `StreakRestockJob`. Since CS-PLAN-023 the job bodies live in `StreakFreezeService` / `StreakRestockService` (jobs are thin delegates; triggerable with an injected date via `occ chorestrike:trigger-jobs`). | `streak_freezes_per_week` (1), `streak_freeze_cap` (2) |
+| **Streak freezes** | Protect a streak on a missed available day; consumed by completion and `StreakFreezeJob`; restocked weekly by `StreakRestockJob`. Job bodies live in `StreakFreezeService` / `StreakRestockService` (thin job delegates; triggerable with an injected date via `occ chorestrike:trigger-jobs`). | `streak_freezes_per_week` (1), `streak_freeze_cap` (2) |
 | **Combo bonus freeze** | A combo reaching the threshold awards one bonus freeze (respecting the cap). | `combo_bonus_freeze_threshold` (5) |
 | **Teamwork bonus** | Multi-assignee task completion grants a shared bonus, capped as a % of the base reward; disabled per house if needed. | `teamwork_bonus_enabled` (true), `teamwork_bonus_max_pct` (50) |
 | **Weekly household goal** | Cooperative progress target; on first achievement each week the household is notified. | `weekly_goal_target_percent` (80) |
-| **Role titles** | Progression overlay (3 packs × 3 tiers); unlock thresholds tunable per house. | `titles_enabled` (true), `title_threshold_{pack}_{tier}` (catalog defaults) |
+| **Role titles** | Progression overlay (3 packs × 3 tiers); thresholds come from the server config/catalog. | `titles_enabled` (true), `title_threshold_{pack}_{tier}` (catalog defaults) |
 
 ### Weekly Medals
 
-> **Award reality (CS-PLAN-012):** the medal enum
+> **Award reality (CS-PLAN-012, updated by CS-PLAN-067 WP8):** the medal enum
 > (`lib/Db/Medal.php`) catalogues `team_anchor`, `flow_keeper`, `room_guardian`,
 > `team_player`, `streak_keeper`. **All five are awarded** in the live
-> `GameLogicService::checkAndAwardMedals()` flow via `awardMedalIfNew()`
-> (idempotent, race-safe, notifies once per user+type+week):
+> `MedalService::checkAndAwardMedals()` flow via `awardMedalIfNew()`
+> (idempotent, race-safe, notifies once per user+type+week — the cluster was
+> extracted out of `GameLogicService` in WP8):
 > - `team_anchor` — 10+ task completions in the week
 > - `streak_keeper` — 7+ day streak
 > - `flow_keeper` — 4+ distinct active days in the week
 > - `room_guardian` — 5+ completions in a single room (concentration)
 > - `team_player` — 3+ combo bonuses in the week (`comboCount` aggregation)
 >
-> The dead `lib/Service/MedalService.php` is archived; the live path is
-> `GameLogicService::awardMedalIfNew()`.
+> Integration coverage: `GameControllerIntegrationTest` pins the award from
+> real persisted completions plus the repeat-read idempotence.
 
 ## Role Title Systems (Localized)
 
 > **Status: Shipped (CS-PLAN-006).** Three title packs are live as a
 > progression-overlay on top of the existing stats. Titles react to existing
 > progression signals only — no new core loop, currency, or completion path.
+
+### Arcade Coin Sink (shipped, CS-PLAN-068 §3.6 documentation)
+
+Coins are also spent on Snake boosts in the household arcade. The retained
+2048/Memory component prototypes do not expand the server's `snake` score
+whitelist. Prices live **server-side only** (`MinigameService::BOOST_COSTS`
+via `GET /minigames/boosts`); the shop disables purchases without the
+authoritative catalog instead of guessing, the debit is an atomic
+`POST /minigames/boosts/{id}/purchase` with the exact catalog price, and
+score saves are capped (score ≤ 5000, 100 saves per member and
+house-local day). The awarded coins for a game are server-computed
+(`floor(score / 10)`), never client-supplied. See the Minigames section in
+[`../api/README.md`](../api/README.md).
 
 Role names must feel friendly and motivating.
 Use localized title packs so each household can choose a style.
@@ -96,9 +111,9 @@ Implementation (`lib/Titles/TitleCatalog.php` + `lib/Service/TitleService.php`):
   and `coins` are incremented on every task completion, and `longestStreak`
   is tracked from the effective (post-freeze) streak in
   `GameLogicService::handleTaskCompletion`.
-- Thresholds are **tunable per house** via `RewardConfigService` keys
-  (`title_threshold_{pack}_{tier}`, surfaced through the reward-config API),
-  so a household can adjust difficulty without a code change.
+- Thresholds use `RewardConfigService` keys (`title_threshold_{pack}_{tier}`).
+  There is no live reward-config HTTP API; API consumers must not rely on
+  the retired configuration routes.
 - The user picks one active pack; within that pack the highest unlocked tier
   is shown. Switching packs is free (identity, not a consumable).
 - Unlock moments reuse the celebration layer (`chorestrike:title-unlocked`

@@ -94,7 +94,7 @@ test.describe('Room and Floor Management', () => {
 		await page.waitForSelector('[data-testid="dashboard-view"]', { timeout: 20000 })
 		const roomCards = page.locator('[data-testid^="room-card-"]')
 		await expandUntilRoomVisible(page, roomCards.first())
-		test.skip(await roomCards.count() === 0, 'family seed guarantees rooms; none rendered')
+		await expect(roomCards.first()).toBeVisible()
 		await roomCards.first().click()
 		await page.waitForLoadState('networkidle', { timeout: 30000 })
 		await page.waitForSelector('[data-testid="room-detail-view"]', { timeout: 20000 })
@@ -184,7 +184,7 @@ test.describe('Room and Floor Management', () => {
 		// opts into the `seededData` fixture: reset+reseed guarantees the
 		// teen really is a plain MEMBER regardless of prior specs.
 		expect(seededData).not.toBeNull()
-		test.skip(!existsSync(userStatePath('teen')), 'seeded teen auth state missing (setup project did not run)')
+		expect(existsSync(userStatePath('teen')), 'required child session must exist').toBe(true)
 
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
@@ -199,9 +199,13 @@ test.describe('Room and Floor Management', () => {
 			// Dashboard FloorList: read-only for everyone
 			await expect(page.locator('.floor-list .add-button')).toHaveCount(0)
 
-			// Settings: owner-only sections hidden for members
-			await page.getByTestId('nav-settings').click()
-			await page.getByTestId('settings-view').waitFor({ state: 'visible' })
+			// Settings: owner-only sections hidden for members. The navigation
+			// retries against the durable outcome (one-off load-flake class,
+			// see BUG-E2E-005 history) instead of a fixed single attempt.
+			await expect(async () => {
+				await page.getByTestId('nav-settings').click()
+				await page.getByTestId('settings-view').waitFor({ state: 'visible', timeout: 10000 })
+			}).toPass({ timeout: 45000 })
 
 			await expect(page.getByTestId('house-section')).toHaveCount(0)
 			await expect(page.getByTestId('floors-section')).toHaveCount(0)

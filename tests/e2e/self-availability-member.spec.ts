@@ -3,7 +3,7 @@
  * @license MIT
  */
 
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 
 // CS-PLAN-032: admin is a plain house *member* under the unconditionally
 // seeded family profile, so this spec exercises the non-owner scheduling
@@ -24,10 +24,6 @@ const weekDays = [
 // Cached across serial tests: the original monday state the persist test
 // flips and the restore test puts back.
 let originalMonday: boolean | null = null
-
-// Cached across serial tests: the admin user's resolved house role; undefined
-// until the first probe runs, null when the role could not be resolved.
-let cachedRole: string | null | undefined
 
 // Reads the current user's role from the app's Pinia state. The app
 // auto-initializes the user store through the authenticated axios client
@@ -66,38 +62,7 @@ test.describe('Self Availability (member)', () => {
 		await page.getByTestId('nav-scheduling').click()
 		await page.getByTestId('scheduling-view').waitFor({ state: 'visible' })
 
-		if (cachedRole === undefined) {
-			// The scheduling view's setup instantiates the user store, which
-			// the auto-init plugin then fetches through the authenticated
-			// axios client. Give it a moment; an unresolved role stays null
-			// ("unknown") and skips below.
-			try {
-				await page.waitForFunction(() => {
-					const app = (window as unknown as {
-						chorestrike?: {
-							pinia?: {
-								state?: {
-									value?: {
-										user?: {
-											currentUser?: unknown
-										}
-									}
-								}
-							}
-						}
-					}).chorestrike
-					return app?.pinia?.state?.value?.user?.currentUser != null
-				}, null, { timeout: 10000 })
-			} catch {
-				// Leave cachedRole null — the guard below skips with reason.
-			}
-			cachedRole = await resolveUserRole(page)
-		}
-
-		// Skip on anything but a confirmed member (including an unknown role
-		// from a failed probe): an unexpectedly-owner admin must produce the
-		// documented skip, not misleading assertion failures.
-		test.skip(cachedRole !== 'member', `expected member role for admin, got '${cachedRole}'`)
+		await expect.poll(() => resolveUserRole(page), { timeout: 10000 }).toBe('member')
 	})
 
 	test('shows the My Availability section with seven weekday toggles', async ({ page }) => {

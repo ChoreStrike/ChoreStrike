@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures/test-fixtures'
+import { test, expect } from '@playwright/test'
 import { BrowserAwareNavigation } from './fixtures/browser-aware-navigation'
 import type { Page, TestInfo } from '@playwright/test'
 

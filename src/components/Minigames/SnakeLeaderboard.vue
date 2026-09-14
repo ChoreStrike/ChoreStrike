@@ -113,7 +113,7 @@ const {
 	loading,
 } = storeToRefs(minigameStore)
 
-const currentUserId = computed(() => userStore.user?.uid)
+const currentUserId = computed(() => userStore.currentUser?.nextcloudUserId)
 
 const activeTab = ref('allTime')
 

@@ -197,7 +197,8 @@ export default {
 <style scoped>
 .template-picker { display: flex; flex-direction: column; gap: 0.75rem; }
 
-.picker-header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+/* Reserve the modal's 44px close target without covering level controls. */
+.picker-header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; min-height: 3.5rem; padding-inline-end: 3.5rem; }
 
 .picker-tabs { display: flex; gap: 0.25rem; }
 
@@ -210,6 +211,8 @@ export default {
 .level-pill { border: 1px solid var(--color-border); border-radius: 999px; padding: 0.25rem 0.6rem; background: transparent; cursor: pointer; font-size: 0.8rem; }
 
 .level-pill.selected { background: var(--color-primary-light); border-color: var(--color-primary); }
+
+.picker-tab, .level-pill, .template-row, .adjust-toggle, .adjust-form input, .adjust-form select { min-height: 44px; min-width: 44px; }
 
 .template-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
 

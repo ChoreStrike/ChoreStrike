@@ -204,6 +204,28 @@ Vue templates automatically escape interpolated values:
 
 Nextcloud's `SecurityMiddleware` automatically validates CSRF tokens for POST/PUT/DELETE requests unless the method carries `@NoCSRFRequired`. This is annotation-based and independent of the controller base class (`Controller` vs `OCSController`). All ChoreStrike API controllers extend `Controller` (CS-PLAN-020) and rely on the middleware's default CSRF enforcement.
 
+### Test-Tooling Routes (CS-PLAN-068 D5)
+
+The three test-tooling routes (`/api/v1/test/seed`, `/api/v1/test/reset`,
+`/api/v1/test/profiles`) are the only **mutation-capable test API** surface
+carrying `@NoCSRFRequired`; `PageController::index` also has that annotation
+for the read-only page entry. These test routes intentionally support
+authenticated Basic-auth fixtures without a browser CSRF token. Browser
+contexts still prime and send request tokens on ordinary API mutations:
+
+- They keep `@NoAdminRequired` (never `@PublicPage`): an authenticated
+  session is mandatory even in test mode.
+- They are hard-gated by `NEXTCLOUD_TEST_MODE=true` **in the web server's
+  process**; unset/`false`/invalid values answer `403 NOT_TEST_MODE`
+  before any mutation, so a production deployment without the env var has
+  a closed endpoint even though the route is registered.
+- The surface clears ChoreStrike app tables only (never Nextcloud accounts
+  or other apps' data) and is plain tooling, not an app contract — it may
+  change between releases without a compatibility path (pre-release rule).
+- Evidence layers: `TestModeApiTest` (in-process refusal/enabled
+  dispatch), `RouteMatrixTest` (annotations), and the live fixture probes
+  in the Playwright setup.
+
 ---
 
 ## Error Handling

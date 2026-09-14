@@ -21,8 +21,13 @@ import type { Page } from '@playwright/test'
 
 /** Open #/tasks without load-fragile networkidle waits (CS-PLAN-051). */
 async function navigateToTasks(page: Page): Promise<void> {
-	await page.goto('/apps/chorestrike/#/tasks')
-	await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 20000 })
+	// One-off full-matrix load flakes (see BUG-E2E-005 history): a session
+	// hiccup during the prime/navigation can leave the view unmounted —
+	// retry the NAVIGATION against the durable outcome instead of sleeping.
+	await expect(async () => {
+		await page.goto('/apps/chorestrike/#/tasks')
+		await expect(page.getByTestId('task-manager-view')).toBeVisible({ timeout: 10000 })
+	}).toPass({ timeout: 45000 })
 }
 
 test.describe('Private Tasks', () => {
@@ -33,12 +38,10 @@ test.describe('Private Tasks', () => {
 		try {
 			// De-vacuoused (CS-PLAN-051): assert the lock testid on an
 			// API-created fixture row instead of conditionally guarding on a
-			// regex match against seed contents.
+			// regex match against seed contents. CS-PLAN-068: the fixture
+			// THROWS on a failed precondition — the failure is loud.
 			const probeName = `Private Lock Probe ${Date.now()}`
-			if (!await createVisibilityFixture(page, probeName, 'private')) {
-				test.skip(true, 'Could not create private fixture task')
-				return
-			}
+			await createVisibilityFixture(page, probeName, 'private')
 
 			await navigateToTasks(page)
 

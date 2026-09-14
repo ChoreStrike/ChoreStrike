@@ -14,6 +14,7 @@
 		</p>
 		<button
 			v-if="showRetry"
+			type="button"
 			class="retry-button"
 			data-testid="error-retry"
 			@click="$emit('retry')">
