@@ -10,8 +10,7 @@
 
 ## In Progress
 
-(none — no session holds the Docker test environment; CS-PLAN-058 closed
-below, no browser-reset ownership active)
+- **CS-PLAN-069 / TECH-STRUCT-001 — repo root slimming & orphan cleanup:** plan activated after Standard A `PASS-WITH-FIXES` (2026-09-16; RF-069-01..03 fixed pre-activation, decisions recorded: phpunit.xml delete, meta docs → `docs/` root, download-emojis.js archive, history verbatim, tool dotfile caches stay at root). Implementation not started — [Plan](../plans/active/cs-plan-069-repo-root-slimming-and-orphan-cleanup.md).
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
