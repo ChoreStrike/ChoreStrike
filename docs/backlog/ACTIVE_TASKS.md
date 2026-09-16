@@ -10,9 +10,11 @@
 
 ## In Progress
 
-- **CS-PLAN-069 / TECH-STRUCT-001 — repo root slimming & orphan cleanup:** plan activated after Standard A `PASS-WITH-FIXES` (2026-09-16; RF-069-01..03 fixed pre-activation, decisions recorded: phpunit.xml delete, meta docs → `docs/` root, download-emojis.js archive, history verbatim, tool dotfile caches stay at root). Implementation not started — [Plan](../plans/active/cs-plan-069-repo-root-slimming-and-orphan-cleanup.md).
+(none)
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
+
+- **CS-PLAN-069 / TECH-STRUCT-001 — repo root slimming & orphan cleanup** (implemented + final Standard B `PASS-WITH-FIXES` 2026-09-16; plan in `done/`): orphans archived+removed, `css/chorestrike-main.css` untracked (`/css/` ignored), compose → `docker/compose.test.yml` with full live-reference sweep, community docs → `docs/` root with README links (2 dead links repaired in review), Playwright artifacts → `build/` (incl. `PLAYWRIGHT_HTML_OUTPUT_DIR` for CI's `--reporter` runs), umbrella `phpunit.xml` deleted (`composer test` → `phpunit.unit.xml`); Jest excludes gitignored `.kilo/` worktrees; gates green (unit 941 / integration 361 zero-skip via new compose path, Jest 1056, lint, cs:check, doc gates, E2E smoke artifacts under `build/`, residue grep clean). [Plan](../plans/done/cs-plan-069-repo-root-slimming-and-orphan-cleanup.md) · [Review record](archive/CODE_REVIEW_2026-09-16.md).
 
 - **Backlog & ADR housekeeping** — consolidated ACTIVE_TASKS narrative into [`archive/2026-09.md`](archive/2026-09.md) (11 → 5 per-plan entries), repaired 35 dead tracked Markdown links (ADR-006/007 plan links and the monthly archives' retired cs-plan-017..047 links → completion records / plan-name code spans; stale `plans/active` pointer → `done/`; CODE_REVIEW_2026-09-11 owning-plan link de-linked verbatim-preserving), corrected stale CR-SVC-21/22/50 status claims in ADR-006/007, aligned ADR-004 README status, restored missing backlog.md entry separator, refreshed archive/README listing; backlog:check, docs:encoding, `git diff --check` green. (2026-09-16)
 

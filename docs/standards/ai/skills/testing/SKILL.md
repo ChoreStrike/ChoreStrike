@@ -29,7 +29,7 @@ Load [`docker-dev`](../docker-dev/SKILL.md) for Docker environment commands and 
 | Frontend unit | Jest + @vue/test-utils | `tests/unit/` |
 | E2E | Playwright (local runner; Docker test environment) | `tests/e2e/` |
 
-Backend tests needing `OCP\*` run **only** inside the Docker test env (`docker-compose.test.yml`).
+Backend tests needing `OCP\*` run **only** inside the Docker test env (`docker/compose.test.yml`).
 
 ## Naming
 

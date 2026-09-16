@@ -1,7 +1,7 @@
 module.exports = {
 	testEnvironment: 'jsdom',
 	moduleFileExtensions: ['js', 'json', 'vue'],
-	testPathIgnorePatterns: ['/node_modules/', '/archive/'],
+	testPathIgnorePatterns: ['/node_modules/', '/archive/', '/\\.kilo/'],
 	collectCoverageFrom: [
 		'src/**/*.{js,vue}',
 		'!src/**/*.d.ts',

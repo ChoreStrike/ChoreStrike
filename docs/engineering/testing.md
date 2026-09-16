@@ -19,10 +19,10 @@ This guide explains how to set up a Docker-based test environment for ChoreStrik
 
 ```bash
 # Build and run all tests
-docker compose -f docker-compose.test.yml up --build
+docker compose -f docker/compose.test.yml up --build
 
 # Or with legacy docker-compose:
-docker-compose -f docker-compose.test.yml up --build
+docker-compose -f docker/compose.test.yml up --build
 ```
 
 ### Using the Test Script (Linux/macOS/WSL)
@@ -50,7 +50,7 @@ cd ChoreStrike
 
 ```bash
 # Build the Docker image (first time takes ~3-4 minutes)
-docker compose -f docker-compose.test.yml build --no-cache
+docker compose -f docker/compose.test.yml build --no-cache
 ```
 
 ### 3. Run Tests
@@ -59,7 +59,7 @@ docker compose -f docker-compose.test.yml build --no-cache
 
 ```bash
 # Make sure the environment is up
-docker compose -f docker-compose.test.yml up -d
+docker compose -f docker/compose.test.yml up -d
 
 # Run all unit tests
 docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.unit.xml
@@ -103,7 +103,7 @@ vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask
    ```bash
    wsl
    cd /mnt/c/path/to/ChoreStrike
-   docker compose -f docker-compose.test.yml up --build
+   docker compose -f docker/compose.test.yml up --build
    ```
 
 #### Docker Desktop + PowerShell (Alternative)
@@ -112,7 +112,7 @@ vendor/bin/phpunit --filter testCreate_ValidData_ReturnsCreatedTask
 2. Open PowerShell
 3. Run:
    ```powershell
-   docker compose -f docker-compose.test.yml up --build
+   docker compose -f docker/compose.test.yml up --build
    ```
 
 ### Linux
@@ -126,7 +126,7 @@ sudo apt install docker.io docker-compose-plugin
 sudo usermod -aG docker $USER
 
 # Run tests
-docker compose -f docker-compose.test.yml up --build
+docker compose -f docker/compose.test.yml up --build
 ```
 
 ### macOS
@@ -136,7 +136,7 @@ docker compose -f docker-compose.test.yml up --build
 brew install --cask docker
 
 # Run tests
-docker compose -f docker-compose.test.yml up --build
+docker compose -f docker/compose.test.yml up --build
 ```
 
 ## Troubleshooting
@@ -151,14 +151,14 @@ docker compose -f docker-compose.test.yml up --build
 
 ### "Class OCP\* not found"
 
-This means the test is running outside the Docker environment or Nextcloud core is not properly loaded. Always use `docker compose -f docker-compose.test.yml` to run tests.
+This means the test is running outside the Docker environment or Nextcloud core is not properly loaded. Always use `docker compose -f docker/compose.test.yml` to run tests.
 
 ### "Failed to open stream: No such file or directory"
 
 The Nextcloud server clone might have failed. Rebuild the image:
 ```bash
-docker compose -f docker-compose.test.yml down --rmi all
-docker compose -f docker-compose.test.yml build --no-cache
+docker compose -f docker/compose.test.yml down --rmi all
+docker compose -f docker/compose.test.yml build --no-cache
 ```
 
 ### Permission Denied Errors
@@ -204,8 +204,10 @@ It is the single source of truth for blocking gate commands.
 > (`ISchemaWrapper`/`IOutput`/`SimpleMigrationStep`) were added to
 > `bootstrap-entity.php` so the Migration suite runs in the CI unit gate, and a
 > `FreshInstallMigrationSmokeTest` guards the recurring `changeSchema() return
-> null` defect class. The 4 stale `phpunit.xml` controller-test
-> excludes are resolved: `GameControllerTest`/`RoomControllerTest`/
+> null` defect class. The 4 stale controller-test excludes that once lived in
+> the former umbrella `phpunit.xml` are resolved (the umbrella config was
+> removed in CS-PLAN-069; `composer test` now runs `phpunit.unit.xml`
+> directly): `GameControllerTest`/`RoomControllerTest`/
 > `RoomTaskControllerTest` re-included after drift repair,
 > `PageControllerTest` archived (framework wiring covered by E2E).
 > CS-PLAN-023 (2026-08-04) added the **Command** suite (OCC commands;
@@ -252,8 +254,8 @@ npm test -- --ci
 npm run build
 
 # Backend (Docker)
-docker compose -f docker-compose.test.yml up -d
-docker compose -f docker-compose.test.yml exec nextcloud-test \
+docker compose -f docker/compose.test.yml up -d
+docker compose -f docker/compose.test.yml exec nextcloud-test \
   bash -c "cd /var/www/html/custom_apps/chorestrike && \
     vendor/bin/phpunit --configuration phpunit.unit.xml && \
     vendor/bin/phpunit --configuration phpunit.integration.xml"
@@ -264,10 +266,10 @@ docker compose -f docker-compose.test.yml exec nextcloud-test \
 # periodic slow windows that flake the pools (the gate never depends on
 # scheduled jobs; time-travel specs trigger jobs explicitly via
 # `occ chorestrike:trigger-jobs`).
-docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+docker compose -f docker/compose.test.yml exec -T nextcloud-test \
   su -s /bin/bash www-data -c "cd /var/www/html && php occ background:cron"
 npm run test:e2e:gate
-docker compose -f docker-compose.test.yml down
+docker compose -f docker/compose.test.yml down
 ```
 
 ### Contract tests (Phase 2 of CS-PLAN-007)
@@ -324,10 +326,10 @@ End-to-end tests run against a full Docker-based Nextcloud instance with the Cho
 
 ```bash
 # Start the test environment (Nextcloud + MariaDB)
-docker compose -f docker-compose.test.yml up -d
+docker compose -f docker/compose.test.yml up -d
 
 # Wait for services to be ready (~30 seconds)
-docker compose -f docker-compose.test.yml logs -f nextcloud-test
+docker compose -f docker/compose.test.yml logs -f nextcloud-test
 ```
 
 The test environment includes:
@@ -345,8 +347,8 @@ docker ps
 curl http://localhost:8080/apps/chorestrike/
 
 # Check logs if issues occur
-docker compose -f docker-compose.test.yml logs nextcloud-test
-docker compose -f docker-compose.test.yml logs chorestrike-db
+docker compose -f docker/compose.test.yml logs nextcloud-test
+docker compose -f docker/compose.test.yml logs chorestrike-db
 ```
 
 #### 3. Run E2E Tests
@@ -400,7 +402,8 @@ npx playwright test tests/e2e/ --project=chromium --headed
 - **Auth via per-user `storageState`:** the Playwright `setup` project
   ([`tests/e2e/auth.setup.ts`](../../tests/e2e/auth.setup.ts)) logs in the admin
   plus every **`family`** user once and saves the browser contexts to
-  `.playwright/.auth/{userId}.json` (gitignored). Auth is **decoupled from
+  `build/.playwright-auth/{userId}.json` (gitignored `build/` tree). Auth is
+  **decoupled from
   `TEST_DB_PROFILE`**: the setup always seeds + authenticates the `family`
   identities every spec consumes (mom/dad/teen/kid/grandma/friend), while
   `TEST_DB_PROFILE` only controls the per-test seed DATA (re-seeded by the
@@ -429,7 +432,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 - **Scheduling owner-context (CS-PLAN-018 Phase 3b):** `scheduling.spec.ts` and
   `availability-settings-flow.spec.ts` run in a dedicated
   `chromium-scheduling-owner` project as `dad`
-  (`storageState: '.playwright/.auth/dad.json'`, `fullyParallel: false`,
+  (`storageState: 'build/.playwright-auth/dad.json'`, `fullyParallel: false`,
   `workers: 1`). Root cause: admin is a lone `member` (house 418) with no
   owner-only availability data; owners are `dad`/`mom` (house 420). The
   parallel pool excludes these specs via `testIgnore`.
@@ -508,8 +511,8 @@ When changing task or room flows, update these layers together:
 - Verify app is enabled: `docker exec chorestrike-test occ app:list | grep chorestrike`
 
 **Database connection errors:**
-- Check MariaDB is healthy: `docker compose -f docker-compose.test.yml ps`
-- Restart environment: `docker compose -f docker-compose.test.yml restart`
+- Check MariaDB is healthy: `docker compose -f docker/compose.test.yml ps`
+- Restart environment: `docker compose -f docker/compose.test.yml restart`
 
 **Test flakiness:**
 - Increase timeouts in `playwright.config.ts`
@@ -519,10 +522,10 @@ When changing task or room flows, update these layers together:
 
 ```bash
 # Stop and remove containers
-docker compose -f docker-compose.test.yml down
+docker compose -f docker/compose.test.yml down
 
 # Stop and remove containers + volumes (clean slate)
-docker compose -f docker-compose.test.yml down -v
+docker compose -f docker/compose.test.yml down -v
 ```
 
 ---
@@ -588,17 +591,19 @@ Repository status:
 ### PHPUnit Unit and Integration Tests
 
 ```bash
-docker compose -f docker-compose.test.yml exec nextcloud-test \
+docker compose -f docker/compose.test.yml exec nextcloud-test \
   vendor/bin/phpunit --configuration phpunit.unit.xml
 
-docker compose -f docker-compose.test.yml exec nextcloud-test \
+docker compose -f docker/compose.test.yml exec nextcloud-test \
   vendor/bin/phpunit --configuration phpunit.integration.xml
 ```
 
 > `phpunit.unit.xml` runs unit tests only; `phpunit.integration.xml` runs
-> integration tests only (real Nextcloud + DB bootstrap). The umbrella
-> `phpunit.xml` is aligned with the unit suite (`bootstrap-entity.php`,
-> CS-PLAN-020) — the dedicated configs are the canonical per-suite commands.
+> integration tests only (real Nextcloud + DB bootstrap). The former umbrella
+> `phpunit.xml` was removed in CS-PLAN-069 — `composer test` runs
+> `phpunit.unit.xml` directly (including the mock-based `Db/Entity` +
+> `Db/Mapper` suites, no-DB-safe per CS-PLAN-022). The dedicated configs are
+> the canonical per-suite commands.
 > Run via `exec` against the running container: `docker compose run --rm`
 > overrides the entrypoint, so its fresh container has no installed
 > Nextcloud and the integration bootstrap fails with `Not installed`.
@@ -718,18 +723,18 @@ ChoreStrike supports three test database profiles for different testing scenario
 
 ```bash
 # Run with minimal profile (default)
-docker compose -f docker-compose.test.yml up
+docker compose -f docker/compose.test.yml up
 
 # Run with family profile
-TEST_DB_PROFILE=family docker compose -f docker-compose.test.yml up
+TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up
 
 # Run with empty profile
-TEST_DB_PROFILE=empty docker compose -f docker-compose.test.yml up
+TEST_DB_PROFILE=empty docker compose -f docker/compose.test.yml up
 ```
 
 ```powershell
 # PowerShell 5.1 equivalent (the dev machine's shell) — VAR=value prefix syntax does not work there:
-$env:TEST_DB_PROFILE='family'; docker compose -f docker-compose.test.yml up
+$env:TEST_DB_PROFILE='family'; docker compose -f docker/compose.test.yml up
 ```
 
 #### OCC Command (canonical seed path)
@@ -1161,8 +1166,8 @@ Before manual server testing or production rollout, prefer this order:
 npm test
 
 # 2. Backend unit and integration coverage in Docker
-docker compose -f docker-compose.test.yml exec nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
-docker compose -f docker-compose.test.yml exec nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
+docker compose -f docker/compose.test.yml exec nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
+docker compose -f docker/compose.test.yml exec nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
 
 # 3. Canonical browser gate (all three pools sequentially)
 npm run test:e2e:gate

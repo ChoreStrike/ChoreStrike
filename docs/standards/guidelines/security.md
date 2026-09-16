@@ -283,5 +283,5 @@ Error responses contain only error codes and messages, not stack traces.
 ## Reporting Security Issues
 
 If you discover a security vulnerability, follow the private Codeberg/maintainer
-channel in [`SECURITY.md`](../../../SECURITY.md). Never open a public issue with
+channel in [`SECURITY.md`](../../SECURITY.md). Never open a public issue with
 sensitive details.

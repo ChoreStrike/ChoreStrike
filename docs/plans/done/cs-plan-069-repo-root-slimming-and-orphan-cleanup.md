@@ -1,6 +1,6 @@
 # CS-PLAN-069: Repository root slimming & orphan cleanup
 
-> **Status:** Active (implementation not started)
+> **Status:** Done (implemented + final Standard B `PASS-WITH-FIXES` 2026-09-16)
 > **Effort:** M
 > **Priority:** P3
 > **Depends on:** none
@@ -35,8 +35,14 @@ directories that obscure the important entries. A structure review
 - **Duplication:** `phpunit.xml` exists only as the `composer test` config
   and mirrors the `phpunit.unit.xml` scope; CI always passes an explicit
   `--configuration`.
-- **Encoding defects:** mojibake (`â€”`) in `THIRD_PARTY.md` and a
-  `jest.config.js` comment; `docs:encoding` does not cover config files.
+- **Encoding defects:** suspected mojibake (the E2 80-xx-as-cp1252
+  em-dash signature) in `THIRD_PARTY.md` and a `jest.config.js` comment.
+  *Implementation note (2026-09-16): both files are valid UTF-8 — the
+  review saw display-level mojibake, not byte corruption (`docs:encoding`
+  green on both; last content commits predate the CS-PLAN-052 signature
+  detector). The literal sample once quoted here was itself real mojibake
+  pasted into this plan and tripped the gate; it is now cited by escape
+  only.* `docs:encoding` covers all git-tracked files since CS-PLAN-052.
 
 ## 2. Strategy
 
@@ -192,33 +198,72 @@ Historical records intentionally left verbatim: `docs/plans/done/*`,
 
 ## 8. Acceptance Criteria
 
-- [ ] Root contains only: README, CHANGELOG, LICENSE, AGENTS.md, manifests
+- [x] Root contains only: README, CHANGELOG, LICENSE, AGENTS.md, manifests
       (`package*.json`, `composer.json/lock`), tool configs (`webpack`,
       `babel`, `jest`, `eslint`, `stylelint`, `playwright`, `php-cs-fixer`,
       `phpunit.unit.xml`, `phpunit.integration.xml`), dotfiles
       (`.gitignore`, `.gitattributes`, `.npmrc`) — ~20 tracked files.
-- [ ] No orphaned scripts remain in `scripts/`; `tests/bootstrap.php` gone;
+- [x] No orphaned scripts remain in `scripts/`; `tests/bootstrap.php` gone;
       `css/chorestrike-main.css` untracked.
-- [ ] All Docker assets live under `docker/`; `docker compose -f
+- [x] All Docker assets live under `docker/`; `docker compose -f
       docker/compose.test.yml up -d --build` works and runs unit +
-      integration green with zero unapproved skips.
-- [ ] Community docs reachable and auto-detectable under `docs/`; README
-      links `docs/THIRD_PARTY.md`; mojibake fixed.
-- [ ] No `test-results/`, `playwright-report/`, or `.playwright/` in the
+      integration green with zero unapproved skips (unit 941 / integration
+      361, `--fail-on-skipped`).
+- [x] Community docs reachable and auto-detectable under `docs/`; README
+      links `docs/THIRD_PARTY.md`; mojibake fixed (§1 finding was a
+      display-level false positive — files were always valid UTF-8;
+      verified via `docs:encoding`).
+- [x] No `test-results/`, `playwright-report/`, or `.playwright/` in the
       root after a full Playwright cycle; artifacts land under `build/`
       (hidden tool dotfile caches `.phpunit*.result.cache` /
       `.php-cs-fixer.cache` stay at root by recorded decision).
-- [ ] §4 zero-residue grep returns no live-path hits.
-- [ ] Build gate green (`npm test` + lint + backend tests Docker).
-- [ ] Required tests ran without new or unapproved skips.
-- [ ] All implementation decisions and review questions resolved and recorded.
-- [ ] All plan-owned review findings (§9) resolved or user-rescoped to `backlog.md`.
-- [ ] Owning backlog item TECH-STRUCT-001 updated or archived according to
-      its actual completion state.
-- [ ] Durable knowledge integrated (updated layout descriptions in
-      `docs/engineering/development.md`, `docs/README.md`, docker-dev skill).
-- [ ] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`.
-- [ ] `docs/backlog/ACTIVE_TASKS.md` updated.
+- [x] §4 zero-residue grep returns no live-path hits (remaining matches are
+      this plan's own old→new move description and the archived backlog
+      item's checklist line — both non-live).
+- [x] Build gate green (`npm test` + lint + backend tests Docker; plus
+      composer cs:check, backlog:check, docs:encoding, l10n:check-keys).
+- [x] Required tests ran without new or unapproved skips (unit + integration
+      with `--fail-on-skipped`, Jest 1056, E2E smoke 9 passed).
+- [x] All implementation decisions and review questions resolved and recorded.
+- [x] All plan-owned review findings (§9) resolved or user-rescoped to
+      `backlog.md` (RF-069-01..03 were resolved pre-activation; none added).
+- [x] Owning backlog item TECH-STRUCT-001 updated or archived according to
+      its actual completion state (moved to `docs/backlog/archive/2026-09.md`).
+- [x] Durable knowledge integrated (updated layout descriptions in
+      `docs/engineering/development.md`, `docs/engineering/architecture.md`,
+      `docs/README.md`, docker-dev skill).
+- [x] Final Standard B or Full review is `PASS` or `PASS-WITH-FIXES`.
+- [x] `docs/backlog/ACTIVE_TASKS.md` updated.
+
+## 10. Implementation Outcome (2026-09-16)
+
+All six work packages implemented in one pass; gates green. Deviations and
+scope-precise extensions beyond the §5 manifest (all within the plan's
+declared strategy "sweep every live reference"):
+
+- **Extended live-reference sweep** (files not in the §5 manifest, updated for
+  the compose path): `docs/standards/ai/skills/testing/SKILL.md`,
+  `docs/standards/guidelines/testing.md`, `docs/testing/release-test-plan.md`,
+  `tests/e2e/fixtures/occ-runner.ts` (comments), `scripts/run-tests.sh`
+  (also fixed its pre-existing wrong relative compose path — it `cd`s into
+  `scripts/` but referenced a root-level file), and the `.playwright/.auth`
+  path strings in `docs/engineering/testing.md` +
+  `docs/standards/guidelines/e2e-testid-conventions.md`.
+- **Jest excludes gitignored `.kilo/` worktrees** (`jest.config.js`
+  `testPathIgnorePatterns`): a leftover Agent Manager worktree under
+  `.kilo/worktrees/` polluted test discovery (6 failing duplicate suites);
+  tracked suites all pass (100 suites / 1056 tests).
+- **`PLAYWRIGHT_HTML_OUTPUT_DIR: build/playwright-report`** added to
+  `full-matrix.yml`: the CLI `--reporter=list,html` flag overrides the
+  config's html-reporter options, so the output folder must be pinned via
+  env var (verified locally: the bare CLI flag writes to the root).
+- **Plan-file mojibake repaired**: §1 quoted the mojibake signature as
+  literal bytes, tripping `docs:encoding` on this plan itself; the sample is
+  now cited by escape only (see §1 implementation note).
+- Compose relative paths re-based per WP3 (context `..`, app volume `..`,
+  script mounts without `docker/` prefix), with an in-file comment; full
+  `up -d --build` → unit → integration → E2E smoke → `down -v` cycle ran
+  through `docker/compose.test.yml`.
 
 ## 9. Review Findings (plan-owned)
 
@@ -260,3 +305,27 @@ go directly to `backlog.md` (or fold into an existing item) instead.
 - **Decisions (user-approved 2026-09-16):** delete `phpunit.xml`; community docs → `docs/` root; `download-emojis.js` → archive; historical records stay verbatim; tool dotfile caches stay at root (RF-069-01).
 - **Gates:** `backlog:check` green (21 scoped files link-checked), `docs:encoding` green (725 files); no code gates applicable at plan stage.
 - **Transition:** `new/ → active/`; TECH-STRUCT-001 → In Progress.
+
+## Review Outcome — Final Standard B (2026-09-16)
+
+- **Tier / Scope:** Standard B (code) over the complete working-tree changeset
+  (= §5 manifest + §10 extensions; no product code). Owning plan: this plan
+  (only candidate in `active/`).
+- **Base state:** `master` @ `d76595636163dd8cd615287f991f4eba549f5695`; 45
+  changed paths, no untracked files; scope fingerprint
+  `8f4a5a6de3ef00b9d30b25441c41ecf6e9c602853e23b1921ca43cfd854c22c1`
+  (details in the review record).
+- **Outcome:** `PASS-WITH-FIXES` — three findings, all safely auto-fixed and
+  gates rerun green: two dead links to the relocated community docs
+  (`docs/release/roadmap.md:462` → `../CONTRIBUTING.md`;
+  `docs/standards/guidelines/security.md:286` → `../../SECURITY.md`) and one
+  nit (`test.yml` artifact upload `if-no-files-found: ignore`). No
+  security/auth/architecture findings.
+- **Verification:** full compose cycle through `docker/compose.test.yml`
+  (unit 941 / integration 361, zero skips), Jest 1056 (after `.kilo/`
+  exclusion), lint, cs:check 0/295, backlog:check, docs:encoding,
+  l10n:check-keys, gate self-test, E2E smoke 9 passed with artifacts under
+  `build/`, zero live-path residue, root census = 20 tracked files.
+- **Transition:** `active/ → done/`; TECH-STRUCT-001 archived
+  (`docs/backlog/archive/2026-09.md`); review record
+  `docs/backlog/archive/CODE_REVIEW_2026-09-16.md`.

@@ -151,9 +151,11 @@ jobs:
         with:
           name: playwright-results-${{ matrix.profile }}-${{ matrix.browser }}
           path: |
-            test-results/
-            playwright-report/
+            build/test-results/
+            build/playwright-report/
           retention-days: 7
+          # The list reporter writes no HTML report dir; don't warn about it.
+          if-no-files-found: ignore
 
   # Docker Build Test
   docker:

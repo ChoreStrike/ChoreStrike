@@ -18,7 +18,10 @@ services:
 
   nextcloud-test:
     build:
-      context: .
+      # Paths resolve against THIS file's directory (docker/), so the build
+      # context is the repository root and script mounts lose the docker/
+      # prefix (CS-PLAN-069: file moved from the repo root).
+      context: ..
       dockerfile: docker/Dockerfile.test
     container_name: chorestrike-test
     ports:
@@ -27,9 +30,9 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - .:/var/www/html/custom_apps/chorestrike
-      - ./docker/test-entrypoint.sh:/test-entrypoint.sh
-      - ./docker/seed-test-data.sh:/seed-test-data.sh
+      - ..:/var/www/html/custom_apps/chorestrike
+      - ./test-entrypoint.sh:/test-entrypoint.sh
+      - ./seed-test-data.sh:/seed-test-data.sh
     working_dir: /var/www/html/custom_apps/chorestrike
     environment:
       - NEXTCLOUD_TEST_ENV=true

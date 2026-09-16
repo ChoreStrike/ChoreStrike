@@ -31,6 +31,7 @@ yarn-error.log*
 /build/
 /dist/
 /js/
+/css/
 
 # IDE
 .vscode/
@@ -50,22 +51,16 @@ Thumbs.db
 *.sync-conflict-*
 
 # Testing
+# (Playwright output/report/auth artifacts live under /build/ — see
+# playwright.config.ts; CS-PLAN-069 WP4.)
 /coverage/
 /.phpunit.result.cache
 /.phpunit.integration.result.cache
 /.php-cs-fixer.cache
-/test-results/
-/playwright-report/
 /blob-report/
 /playwright/.cache/
-/.playwright/.auth/
 /.nyc_output/
 /junit.xml
-
-# Playwright test output artifacts (screenshots, videos, traces)
-/line/
-/test-results.json
-/test-results-summary.json
 
 # Logs
 *.log

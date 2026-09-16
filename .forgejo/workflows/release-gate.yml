@@ -143,13 +143,13 @@ jobs:
 
       - name: Run PHPUnit integration (blocking)
         run: |
-          TEST_DB_PROFILE=family docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 600
-          docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+          TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --wait --wait-timeout 600
+          docker compose -f docker/compose.test.yml exec -T nextcloud-test \
             vendor/bin/phpunit --configuration phpunit.integration.xml --fail-on-skipped
 
       - name: Tear down integration environment
         if: always()
-        run: docker compose -f docker-compose.test.yml down -v
+        run: docker compose -f docker/compose.test.yml down -v
 
   # ---------- E2E gate (canonical sequential runner, blocking) ----------
   # CS-PLAN-068 (D1): the browser gate is the canonical sequential runner
@@ -187,7 +187,7 @@ jobs:
 
       - name: Bring up Docker test env (NC 31 + app + family seed)
         run: |
-          TEST_DB_PROFILE=family docker compose -f docker-compose.test.yml up -d --build
+          TEST_DB_PROFILE=family docker compose -f docker/compose.test.yml up -d --build
           # Wait for Nextcloud to report installed + healthy.
           for i in $(seq 1 60); do
             if curl -fs http://localhost:8080/status.php | grep -q '"installed":true'; then
@@ -202,7 +202,7 @@ jobs:
             sleep 5
           done
           # Seed via the authenticated occ path (canonical, CS-PLAN-019).
-          docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+          docker compose -f docker/compose.test.yml exec -T nextcloud-test \
             su -s /bin/bash www-data -c \
             "cd /var/www/html && php occ chorestrike:test-data:seed --profile=family"
           # Deterministic gate: disable the AJAX job scheduler — under AJAX
@@ -210,7 +210,7 @@ jobs:
           # periodic slow windows that flake the browser pools. The gate
           # never depends on scheduled jobs (time-travel specs trigger jobs
           # explicitly via occ chorestrike:trigger-jobs).
-          docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+          docker compose -f docker/compose.test.yml exec -T nextcloud-test \
             su -s /bin/bash www-data -c \
             "cd /var/www/html && php occ background:cron"
 
@@ -234,7 +234,7 @@ jobs:
 
       - name: Tear down Docker test env
         if: always()
-        run: docker compose -f docker-compose.test.yml down
+        run: docker compose -f docker/compose.test.yml down
 
   # ---------- Coverage artifacts (non-blocking, CS-PLAN-022 Phase 1) ----------
   coverage:

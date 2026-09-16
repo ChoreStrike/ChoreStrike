@@ -5,7 +5,7 @@ description: Docker test environment setup, container workflow, and debugging fo
 
 # Skill: Docker Development Environment
 
-**Load when:** Setting up, running, or debugging the Docker-based test environment; working with `docker-compose.test.yml`; or troubleshooting container issues.
+**Load when:** Setting up, running, or debugging the Docker-based test environment; working with `docker/compose.test.yml`; or troubleshooting container issues.
 
 **Canonical references:**
 - [`testing.md`](../../../../engineering/testing.md) — full environment setup guide
@@ -15,7 +15,7 @@ description: Docker test environment setup, container workflow, and debugging fo
 ## Architecture
 
 ```
-docker-compose.test.yml
+docker/compose.test.yml
 ├── db (MariaDB 10.6)        — container: chorestrike-db
 └── nextcloud-test (custom)  — container: chorestrike-test
     ├── Dockerfile: docker/Dockerfile.test
@@ -38,13 +38,13 @@ Docker Desktop **is installed** on the development machine and the daemon is exp
 
 ```bash
 # Start environment (background)
-docker compose -f docker-compose.test.yml up -d
+docker compose -f docker/compose.test.yml up -d
 
 # Stop environment
-docker compose -f docker-compose.test.yml down
+docker compose -f docker/compose.test.yml down
 
 # Full rebuild (after Dockerfile/composer changes)
-docker compose -f docker-compose.test.yml build --no-cache
+docker compose -f docker/compose.test.yml build --no-cache
 
 # Unit tests only
 docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.unit.xml
@@ -83,7 +83,7 @@ Set via `TEST_DB_PROFILE` environment variable (default: `minimal`):
 
 ```powershell
 # PowerShell 5.1 (this repo's shell) — bash VAR=value syntax does NOT work here:
-$env:TEST_DB_PROFILE='family'; docker compose -f docker-compose.test.yml up -d
+$env:TEST_DB_PROFILE='family'; docker compose -f docker/compose.test.yml up -d
 ```
 
 ## Interactive Browser Automation
@@ -99,10 +99,10 @@ configuration path.
 |---------|-----|
 | `docker` command fails / daemon unreachable | Start Docker Desktop, wait until `docker info` succeeds — do not conclude Docker is absent |
 | First build or test run hits a tool timeout | Expected (~3–5 min): raise shell timeout ≥ 300 s or run as background process, then retry |
-| `chorestrike-db` unhealthy | `docker compose -f docker-compose.test.yml down -v` then restart |
+| `chorestrike-db` unhealthy | `docker compose -f docker/compose.test.yml down -v` then restart |
 | Tests fail with "connection refused" | Wait for DB healthcheck: `docker inspect --format='{{.State.Health.Status}}' chorestrike-db` |
-| Stale vendor/ in container | Rebuild: `docker compose -f docker-compose.test.yml build --no-cache` |
-| Port 8080 conflict | Change port mapping in `docker-compose.test.yml` or stop conflicting service |
+| Stale vendor/ in container | Rebuild: `docker compose -f docker/compose.test.yml build --no-cache` |
+| Port 8080 conflict | Change port mapping in `docker/compose.test.yml` or stop conflicting service |
 | Permission errors on mounted files | Ensure Docker Desktop file sharing includes the project directory |
 
 ## Rules

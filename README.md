@@ -109,18 +109,19 @@ described in [roadmap.md](docs/release/roadmap.md).
 ## Contributing
 
 ChoreStrike is an open source project (MIT) and welcomes contributions —
-code, design, translations and ideas. See [CONTRIBUTING.md](CONTRIBUTING.md).
+code, design, translations and ideas. See [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## Documentation
 
 - [Architecture](docs/engineering/architecture.md) - System design overview
 - [API Documentation](docs/api/README.md) - REST API endpoints
-- [Security](SECURITY.md) - Vulnerability reporting policy
+- [Security](docs/SECURITY.md) - Vulnerability reporting policy
 - [App security architecture](docs/standards/guidelines/security.md) - Authorization and validation rules
 - [Deployment](docs/engineering/deployment.md) - Installation and deployment guide
 - [Testing](docs/engineering/testing.md) - Testing strategies
 - [Roadmap](docs/release/roadmap.md) - Release planning
-- [Contributing](CONTRIBUTING.md) - How to contribute
+- [Contributing](docs/CONTRIBUTING.md) - How to contribute
+- [Third-party code & assets](docs/THIRD_PARTY.md) - Vendored libraries and licences
 
 ---
 

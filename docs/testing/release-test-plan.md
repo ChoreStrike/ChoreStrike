@@ -72,8 +72,8 @@ Docker bring-up commands live in
 family profile in the test container:
 
 ```powershell
-docker compose -f docker-compose.test.yml down -v
-$env:TEST_DB_PROFILE='family'; docker compose -f docker-compose.test.yml up --build
+docker compose -f docker/compose.test.yml down -v
+$env:TEST_DB_PROFILE='family'; docker compose -f docker/compose.test.yml up --build
 # or, against a running container:
 docker exec chorestrike-test php occ chorestrike:test-data:seed --profile=family
 ```

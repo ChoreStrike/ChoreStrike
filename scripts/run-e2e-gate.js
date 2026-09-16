@@ -39,9 +39,9 @@ const path = require('node:path')
 
 const GATE_PROJECTS = ['chromium', 'chromium-serial-db', 'chromium-scheduling-owner']
 const SETUP_PROJECT = 'setup'
-// Gitignored AND outside Playwright's `test-results/` output dir — Playwright
-// wipes its output dir at the start of every run, which would destroy the
-// previous project's JSON report before the result check reads it.
+// Gitignored AND outside Playwright's `build/test-results/` output dir —
+// Playwright wipes its output dir at the start of every run, which would
+// destroy the previous project's JSON report before the result check reads it.
 const REPORT_DIR = path.join('build', 'e2e-gate')
 const SCENARIO_FILE = path.join(__dirname, '../tests/e2e/required-scenarios.json')
 
@@ -447,7 +447,7 @@ function main() {
 		const reportPath = path.join(runDir, `report-${project}.json`)
 		const result = runProject(project, reportPath)
 		if (result.status !== 0) {
-			console.error(`[gate] project '${project}' exited with code ${result.status} (see ${reportPath} and playwright-report/ for traces).`)
+			console.error(`[gate] project '${project}' exited with code ${result.status} (see ${reportPath} and build/playwright-report/ for traces).`)
 			exitCode = exitCode || result.status
 		}
 		let report = null

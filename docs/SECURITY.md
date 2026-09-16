@@ -35,5 +35,5 @@ ChoreStrike is a Nextcloud app. Reports about authorization (house membership / 
 input validation, SQL injection, or XSS in the app are in scope. Please report Nextcloud-core
 or third-party dependency vulnerabilities upstream to their maintainers.
 
-See [`docs/standards/guidelines/security.md`](docs/standards/guidelines/security.md) for the
+See [`standards/guidelines/security.md`](standards/guidelines/security.md) for the
 app's security architecture.

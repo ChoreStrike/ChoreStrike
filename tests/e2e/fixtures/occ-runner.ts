@@ -9,8 +9,8 @@
  * Nextcloud container. This helper shells out to `docker exec` so the
  * specs stay transport-agnostic across all supported environments:
  *
- *   - local dev:            docker-compose.test.yml → `chorestrike-test`
- *   - release-gate CI:      docker-compose.test.yml → `chorestrike-test`
+ *   - local dev:            docker/compose.test.yml → `chorestrike-test`
+ *   - release-gate CI:      docker/compose.test.yml → `chorestrike-test`
  *   - test.yml CI:          service container       → `nextcloud`
  *
  * Set NEXTCLOUD_CONTAINER to override detection.

@@ -102,7 +102,7 @@ npm test
 
 ```bash
 # Start the test environment
-docker compose -f docker-compose.test.yml up -d
+docker compose -f docker/compose.test.yml up -d
 
 # Run a suite (exec into the running container — never `compose run`)
 docker exec chorestrike-test vendor/bin/phpunit --configuration phpunit.integration.xml

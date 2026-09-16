@@ -42,7 +42,7 @@ cd "$SCRIPT_DIR"
 cleanup() {
     echo ""
     echo "Cleaning up..."
-    $COMPOSE_CMD -f docker-compose.test.yml down --remove-orphans 2>/dev/null || true
+    $COMPOSE_CMD -f "$SCRIPT_DIR/../docker/compose.test.yml" down --remove-orphans 2>/dev/null || true
 }
 
 # Set trap to clean up on exit
@@ -50,12 +50,12 @@ trap cleanup EXIT
 
 # Build and run tests
 echo "Building test environment..."
-$COMPOSE_CMD -f docker-compose.test.yml build --no-cache
+$COMPOSE_CMD -f "$SCRIPT_DIR/../docker/compose.test.yml" build --no-cache
 
 echo ""
 echo "Running PHPUnit tests..."
 echo "------------------------------------------"
-$COMPOSE_CMD -f docker-compose.test.yml run --rm nextcloud-test
+$COMPOSE_CMD -f "$SCRIPT_DIR/../docker/compose.test.yml" run --rm nextcloud-test
 
 EXIT_CODE=$?
 

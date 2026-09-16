@@ -10,7 +10,8 @@ import { userStatePath, AUTH_DIR } from './fixtures/auth-contexts'
  * re-submitting the login form on every spec.
  *
  * - `admin` login is REQUIRED: it is the default session every browser project
- *   starts from (`storageState: '.playwright/.auth/admin.json'` in the config).
+ *   starts from (`storageState: 'build/.playwright-auth/admin.json'` in the
+ *   config).
  * - Profile users (mom/dad/teen/kid/grandma/friend/adult) are logged in once
  *   each; specs consume them via `test.use({ storageState })` or
  *   `createUserContext(browser, userId)`.

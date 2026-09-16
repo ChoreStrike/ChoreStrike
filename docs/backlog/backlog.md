@@ -317,29 +317,6 @@ bump coordinated with the Nextcloud eslint config.
 
 ---
 
-### [P3] TECH-STRUCT-001 — Repository root slimming & orphan cleanup
-**Status**: In Progress · **Effort**: M · **Layer**: tooling · **Journey stage**: repo hygiene
-**Owning**: cs-plan-069 ([active](../plans/active/cs-plan-069-repo-root-slimming-and-orphan-cleanup.md)) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
-**Source**: repo structure review 2026-09-16 (reference analysis via `git grep`)
-
-Root carries 26 tracked files plus local artifact clutter; Docker assets are
-split between root and `docker/`. Verified orphans to remove, compose file to
-consolidate into `docker/`, community docs to relocate to `docs/`, and test-tool
-outputs to redirect into `build/`.
-
-- [ ] Archive + delete orphaned scripts (`run-family-tests.sh`/`.bat`,
-      `setup-test-family.php`, `tests/bootstrap.php`, `run-docker-tests.sh`,
-      `download-emojis.js`) — zero inbound references.
-- [ ] Untrack stale build artifact `css/chorestrike-main.css`, ignore `/css/`.
-- [ ] Move `docker-compose.test.yml` → `docker/compose.test.yml` with full
-      reference sweep (CI, engineering docs, skills, project-rules §2).
-- [ ] Move `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
-      `THIRD_PARTY.md` → `docs/`; link from README; fix mojibake.
-- [ ] Redirect Playwright/e2e-gate/PHPUnit-cache outputs into `build/`.
-- [ ] Consolidate `phpunit.xml` into `phpunit.unit.xml` (decision pending).
-
----
-
 ### [P3] BUG-SEC-001 — Dedicated security reporting address + GPG key
 **Status**: Backlog · **Effort**: S · **Layer**: docs · **Journey stage**: security reporting
 **Owning**: unassigned · **Depends on**: — · **Blocks**: RELEASE-002 · **Folded-in**: —

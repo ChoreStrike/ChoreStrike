@@ -122,6 +122,9 @@ ChoreStrike/
 │   └── e2e/                    # Playwright end-to-end tests
 ├── docs/                       # Documentation
 │   ├── README.md               # Documentation map
+│   ├── CONTRIBUTING.md         # Community docs (with CODE_OF_CONDUCT.md,
+│   │                           #   SECURITY.md, THIRD_PARTY.md — auto-detected
+│   │                           #   here by GitHub/Forgejo, CS-PLAN-069)
 │   ├── engineering/            # architecture, development, testing, deployment, review-playbook
 │   ├── api/                    # REST API reference + feature-specific notes
 │   ├── release/                # roadmap, release-strategy
@@ -141,8 +144,6 @@ ChoreStrike/
 ├── private/                    # Local dev only (gitignored)
 ├── LICENSE
 ├── README.md
-├── SECURITY.md
-├── CONTRIBUTING.md
 ├── CHANGELOG.md
 ├── .gitignore
 ├── composer.json

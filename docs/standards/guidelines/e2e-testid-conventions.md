@@ -85,13 +85,13 @@ Every browser context starts authenticated via the `setup` project in
 [`playwright.config.ts`](../../../playwright.config.ts) (see
 [`tests/e2e/auth.setup.ts`](../../../tests/e2e/auth.setup.ts)). It logs in
 **every** account once (admin + all seeded profile users) and saves the sessions
-to `.playwright/.auth/{userId}.json` (gitignored). Accounts survive re-seeding
+to `build/.playwright-auth/{userId}.json` (gitignored `build/` tree). Accounts survive re-seeding
 (`TestDataService::reset()` touches only `chorestrike_*` tables, never `oc_users`).
 
 ### Consumption patterns
 
 1. **Admin (default):** the browser projects set
-   `storageState: '.playwright/.auth/admin.json'` — specs that operate as admin
+   `storageState: 'build/.playwright-auth/admin.json'` — specs that operate as admin
    need **no login call at all**. Just navigate to the app.
 
 2. **Single-user describe:** when every test in a `describe` runs as the same

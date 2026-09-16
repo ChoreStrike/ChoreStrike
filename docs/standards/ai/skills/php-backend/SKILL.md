@@ -46,9 +46,9 @@ Controller (thin) → Service (logic) → Mapper/Entity (persistence)
 
 ```bash
 # Unit (Docker) — services, mappers, entities
-docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+docker compose -f docker/compose.test.yml exec -T nextcloud-test \
   vendor/bin/phpunit --configuration phpunit.unit.xml
 # Integration (Docker) — controllers, API
-docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+docker compose -f docker/compose.test.yml exec -T nextcloud-test \
   vendor/bin/phpunit --configuration phpunit.integration.xml
 ```

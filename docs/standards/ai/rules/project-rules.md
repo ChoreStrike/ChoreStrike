@@ -72,7 +72,7 @@ Controllers (thin) → Services (business logic) → Mappers/Entities (persisten
 - See [`../../guidelines/testing.md`](../../guidelines/testing.md) and [`testing.md`](../../../engineering/testing.md).
 
 ### Test Environment (Docker)
-- `docker-compose.test.yml` is the canonical backend/E2E environment. Docker Desktop **is installed**; if a `docker` probe fails, diagnose (`docker info`, start Docker Desktop) — never conclude Docker is absent, never use the "Without Docker" fallback on this machine.
+- `docker/compose.test.yml` is the canonical backend/E2E environment. Docker Desktop **is installed**; if a `docker` probe fails, diagnose (`docker info`, start Docker Desktop) — never conclude Docker is absent, never use the "Without Docker" fallback on this machine.
 - First image builds take ~3–5 min — raise the shell timeout (≥ 300 s) or use a background process; a tool timeout is not a Docker failure.
 - Shell is PowerShell 5.1: `$env:TEST_DB_PROFILE='family'; docker compose ...`, not bash `VAR=value cmd`.
 

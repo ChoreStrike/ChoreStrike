@@ -99,7 +99,7 @@ const SELF_AVAILABILITY_MEMBER_SPECS = [
 
 export default defineConfig({
 	testDir: './tests/e2e',
-	outputDir: 'test-results/',
+	outputDir: 'build/test-results/',
 	/* Run tests in files in parallel */
 	fullyParallel: true,
 	/* Fail the build on CI if you accidentally left test.only in the source code */
@@ -108,8 +108,9 @@ export default defineConfig({
 	retries: 2,
 	/* Opt out of parallel tests on CI */
 	workers: process.env.CI ? 1 : undefined,
-	/* Reporter to use */
-	reporter: 'html',
+	/* Reporter to use — HTML report lands in the ignored build/ tree
+	   (CS-PLAN-069 WP4: no Playwright artifacts in the repository root). */
+	reporter: [['html', { outputFolder: 'build/playwright-report' }]],
 	/* Global timeout for each test */
 	timeout: 90000,
 	/* Shared settings for all the projects below */
@@ -149,7 +150,7 @@ export default defineConfig({
 			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS],
 			use: {
 				...devices['Desktop Chrome'],
-				storageState: '.playwright/.auth/admin.json',
+				storageState: 'build/.playwright-auth/admin.json',
 				actionTimeout: 15000,
 				navigationTimeout: 30000,
 			},
@@ -160,7 +161,7 @@ export default defineConfig({
 			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...SELF_AVAILABILITY_MEMBER_SPECS],
 			use: {
 				...devices['Desktop Firefox'],
-				storageState: '.playwright/.auth/admin.json',
+				storageState: 'build/.playwright-auth/admin.json',
 				actionTimeout: 25000,
 				navigationTimeout: 60000,
 			},
@@ -171,7 +172,7 @@ export default defineConfig({
 			testIgnore: [...SEED_DEPENDENT_SPECS, ...SCHEDULING_OWNER_SPECS, ...SELF_AVAILABILITY_MEMBER_SPECS],
 			use: {
 				...devices['Desktop Safari'],
-				storageState: '.playwright/.auth/admin.json',
+				storageState: 'build/.playwright-auth/admin.json',
 				actionTimeout: 20000,
 				navigationTimeout: 45000,
 			},
@@ -187,7 +188,7 @@ export default defineConfig({
 			workers: 1,
 			use: {
 				...devices['Desktop Chrome'],
-				storageState: '.playwright/.auth/admin.json',
+				storageState: 'build/.playwright-auth/admin.json',
 				actionTimeout: 15000,
 				navigationTimeout: 30000,
 			},
@@ -200,7 +201,7 @@ export default defineConfig({
 			workers: 1,
 			use: {
 				...devices['Desktop Chrome'],
-				storageState: '.playwright/.auth/dad.json',
+				storageState: 'build/.playwright-auth/dad.json',
 				actionTimeout: 15000,
 				navigationTimeout: 30000,
 			},

@@ -20,7 +20,7 @@ For isolated testing, use the included Docker setup:
 
 1. **Start the test environment**
    ```bash
-   docker compose -f docker-compose.test.yml up --build
+   docker compose -f docker/compose.test.yml up --build
    ```
 
 2. **Access the application**
@@ -35,7 +35,7 @@ For isolated testing, use the included Docker setup:
 
 4. **Stop the environment**
    ```bash
-   docker compose -f docker-compose.test.yml down
+   docker compose -f docker/compose.test.yml down
    ```
 
 ### Initial Setup
@@ -63,6 +63,10 @@ For isolated testing, use the included Docker setup:
    # or for production
    npm run build
    ```
+
+   > `/js/` and `/css/` are pure build outputs and **not tracked in Git**
+   > (CS-PLAN-069) — `npm run build` (or `npm run dev`) is mandatory on a
+   > fresh clone before the app can load in Nextcloud.
 
 5. **Enable the app in Nextcloud**
    ```bash
@@ -173,7 +177,7 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
   provisioning); per the pre-release policy there is NO upgrade path.
 - Per the pre-release policy, schema fixes **fold into this existing chain**;
   the disposable test database is recreated (`docker compose -f
-  docker-compose.test.yml down -v && up -d`) instead of writing upgrade steps.
+  docker/compose.test.yml down -v && up -d`) instead of writing upgrade steps.
 
 ### Locking and transactions (CS-PLAN-060 WP1)
 
@@ -351,7 +355,7 @@ public function calculateCoins(
 
 **Run tests** (Docker environment up — canonical commands):
 ```bash
-docker compose -f docker-compose.test.yml exec -T nextcloud-test \
+docker compose -f docker/compose.test.yml exec -T nextcloud-test \
   vendor/bin/phpunit --configuration phpunit.unit.xml
 ```
 

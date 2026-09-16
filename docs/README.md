@@ -10,6 +10,15 @@ Use this document to find the right ChoreStrike documentation quickly.
 - [`engineering/testing.md`](engineering/testing.md) — active suites, release-gate coverage, and test strategy
 - [`api/README.md`](api/README.md) and [`api/`](api/) — API contracts and feature-specific API notes
 
+## Community & Meta
+
+Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the root `README.md`:
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution guide
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — contributor covenant
+- [`SECURITY.md`](SECURITY.md) — vulnerability reporting policy
+- [`THIRD_PARTY.md`](THIRD_PARTY.md) — vendored third-party libraries and licences
+
 ## Standards & Guidelines
 
 - [`standards/README.md`](standards/README.md) — engineering standards index

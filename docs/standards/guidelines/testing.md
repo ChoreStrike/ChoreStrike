@@ -20,7 +20,7 @@
 | Frontend unit | Jest + @vue/test-utils | `tests/unit/` | Components, Pinia stores, views, l10n consistency |
 | End-to-end | Playwright (local runner; Docker test environment) | `tests/e2e/` | Real Nextcloud + Vue, wired user flows |
 
-Backend tests that need Nextcloud core (`OCP\*`) **must** run inside the Docker test environment (`docker-compose.test.yml`). See [`testing.md`](../../engineering/testing.md).
+Backend tests that need Nextcloud core (`OCP\*`) **must** run inside the Docker test environment (`docker/compose.test.yml`). See [`testing.md`](../../engineering/testing.md).
 
 ## Naming
 
@@ -109,8 +109,8 @@ npm run lint
 npm run build
 
 # Backend (Docker — env must be up; always exec, never `compose run`)
-docker compose -f docker-compose.test.yml exec -T nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
-docker compose -f docker-compose.test.yml exec -T nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
+docker compose -f docker/compose.test.yml exec -T nextcloud-test vendor/bin/phpunit --configuration phpunit.unit.xml
+docker compose -f docker/compose.test.yml exec -T nextcloud-test vendor/bin/phpunit --configuration phpunit.integration.xml
 
 # Browser gate when E2E-relevant behavior changed (Docker env up)
 npm run test:e2e:gate

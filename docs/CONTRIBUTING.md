@@ -19,7 +19,7 @@ Thank you for your interest in contributing to ChoreStrike! This document provid
 
 1. **Fork the repository**
 2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Follow the coding standards** — see [`AGENTS.md`](AGENTS.md) and [`docs/standards/guidelines/`](docs/standards/guidelines/) for the full conventions, security, i18n, and testing rules
+3. **Follow the coding standards** — see [`../AGENTS.md`](../AGENTS.md) and [`standards/guidelines/`](standards/guidelines/) for the full conventions, security, i18n, and testing rules
 4. **Test your changes**
 5. **Lint/format** (`npm run lint:fix`)
 6. **Commit with clear messages** (`git commit -m 'Add amazing feature'`) — conventional commits preferred
@@ -55,7 +55,7 @@ We welcome translations! To add a new language:
 4. Test the translation in the app
 5. Submit a pull request
 
-See [docs/standards/guidelines/i18n.md](docs/standards/guidelines/i18n.md) for the full localization rules.
+See [standards/guidelines/i18n.md](standards/guidelines/i18n.md) for the full localization rules.
 
 ## 🎨 Design Contributions
 
@@ -73,7 +73,7 @@ See [docs/standards/guidelines/i18n.md](docs/standards/guidelines/i18n.md) for t
 
 ## 📋 Pull Request Checklist
 
-- [ ] Code follows project style guidelines ([coding conventions](docs/standards/guidelines/coding-conventions.md))
+- [ ] Code follows project style guidelines ([coding conventions](standards/guidelines/coding-conventions.md))
 - [ ] Comments added for complex logic
 - [ ] Documentation updated if needed
 - [ ] No console errors or warnings (no raw `console.*` / `AppLogger` only)

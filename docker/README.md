@@ -11,7 +11,7 @@ Canonical recipe for running the ChoreStrike integration/E2E test stack locally.
 
 ```powershell
 # From the repository root
-docker compose -f docker-compose.test.yml up -d --build
+docker compose -f docker/compose.test.yml up -d --build
 ```
 
 Wait ~60 seconds for the entrypoint to finish (Nextcloud install + app activation + user seeding).
@@ -31,14 +31,14 @@ Expected: `"installed":true` and `chorestrike: 0.1.1` in the enabled list.
 ## Run Integration Tests
 
 ```powershell
-docker compose -f docker-compose.test.yml exec nextcloud-test bash -c \
+docker compose -f docker/compose.test.yml exec nextcloud-test bash -c \
   "cd /var/www/html/custom_apps/chorestrike && php -d memory_limit=512M vendor/bin/phpunit --configuration phpunit.integration.xml"
 ```
 
 ## Run Unit Tests (inside container)
 
 ```powershell
-docker compose -f docker-compose.test.yml exec nextcloud-test bash -c \
+docker compose -f docker/compose.test.yml exec nextcloud-test bash -c \
   "cd /var/www/html/custom_apps/chorestrike && php -d memory_limit=512M vendor/bin/phpunit --configuration phpunit.unit.xml"
 ```
 
@@ -55,7 +55,7 @@ Set via `TEST_DB_PROFILE` environment variable before `up`.
 ## Tear Down
 
 ```powershell
-docker compose -f docker-compose.test.yml down -v
+docker compose -f docker/compose.test.yml down -v
 ```
 
 The `-v` flag removes the MariaDB volume for a clean slate on next start.
