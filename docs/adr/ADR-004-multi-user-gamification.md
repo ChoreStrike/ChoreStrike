@@ -6,7 +6,8 @@
 
 > **Note (2026-07-24):** The "Team Sparks" currency described below was replaced
 > by the **Coins + task-tier multiplier + personal coin multiplier** model shipped
-> in `cs-plan-002-gamification-simplification` (see `docs/plans/done/`). The
+> in `cs-plan-002-gamification-simplification` (completion record:
+> [`docs/backlog/archive/2026-03.md`](../backlog/archive/2026-03.md)). The
 > multi-user contribution / leaderboard / streak architecture in this ADR still
 > applies; only the currency naming and reward formula changed. The body is kept
 > verbatim as a historical record.

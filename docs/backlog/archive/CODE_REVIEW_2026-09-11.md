@@ -5,7 +5,7 @@
 **Mode**: Standard Batch Review (final Standard B over the whole owning plan)  
 **Scope**: Complete WP6 implementation package — 45 modified + 6 new files matching the plan's §5 manifest boundary, captured as the uncommitted working tree on `master`  
 **Base Commit**: `768a75758fcbb9310b331e2fdda8074cd6a27434` (Standard A activation)  
-**Owning plan**: [`docs/plans/active/cs-plan-065-wp6-actionable-scheduling.md`](../../plans/active/cs-plan-065-wp6-actionable-scheduling.md)
+**Owning plan**: `docs/plans/active/cs-plan-065-wp6-actionable-scheduling.md` (at review time; now in [`done/`](../../plans/done/cs-plan-065-wp6-actionable-scheduling.md))
 
 ---
 

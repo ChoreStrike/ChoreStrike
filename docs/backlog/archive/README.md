@@ -26,9 +26,9 @@ archive/
 ├── README.md                       ← this file
 ├── 2026-03.md                      ← reward-system redesign, Phase 5/6/7, role filtering, …
 ├── 2026-07.md                      ← CS-PLAN-001..022, authorization cluster, release gate, …
-├── CODE_REVIEW_2026-07-24.md       ← project-wide review (moved)
-├── CODE_REVIEW_2026-07-28.md       ← CS-016 scheduling-UI review (moved)
-├── CODE_REVIEW_2026-08-11.md       ← active-plan full review
-├── CODE_REVIEW_2026-08-27.md       ← full bottom-to-top review
-└── CODE_REVIEW_2026-09-02.md       ← review workflow and standards audit
+├── 2026-08.md                      ← CS-PLAN-023..055, service/security/concurrency clusters, …
+├── 2026-09.md                      ← CS-PLAN-056..068, core-workflow program closure, …
+├── USABILITY_REVIEW_2026-08-20.md  ← usability review record
+└── CODE_REVIEW_2026-07-24.md … CODE_REVIEW_2026-09-14.md
+                                    ← dated review records, one file per review (kept verbatim)
 ```

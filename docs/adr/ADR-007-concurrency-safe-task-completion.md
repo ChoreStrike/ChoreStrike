@@ -3,7 +3,7 @@
 **Status**: Accepted  
 **Date**: 2026-08-12  
 **Deciders**: Development Team  
-**Source**: [Full Review of `lib/Service`](../backlog/archive/CODE_REVIEW_2026-08-04.md) (CR-SVC-04, CR-SVC-12) · landed by [CS-PLAN-025](../plans/done/cs-plan-025-service-security-concurrency-cleanup.md)
+**Source**: [Full Review of `lib/Service`](../backlog/archive/CODE_REVIEW_2026-08-04.md) (CR-SVC-04, CR-SVC-12) · landed by [CS-PLAN-025](../backlog/archive/2026-08.md)
 
 > **Annotation (2026-09-06, CS-PLAN-064 WP5):** this doctrine stands — the locked
 > read-modify-write on `house_user`, fresh-locked entities, and post-commit
@@ -70,12 +70,12 @@ external call inside the critical section.**
    entity the lock handed back, or a concurrent winner's commit between the
    pre-read and the lock grant is silently ignored (spurious takeover
    notification, recurrence from a stale `next_due`). Landed by
-   [CS-PLAN-028](../plans/done/cs-plan-028-top-priority-fixes.md) (CR-SVC-53);
+   [CS-PLAN-028](../backlog/archive/2026-08.md) (CR-SVC-53);
    proven by a two-connection integration test in
    `tests/integration/Service/ConcurrentCompletionTest.php`.
 
 4. **All coin mutations on `house_users` follow the same lock, not just task
-   completion** (extended by [CS-PLAN-031](../plans/done/cs-plan-031-concurrency-integrity-quick-wins.md),
+   completion** (extended by [CS-PLAN-031](../backlog/archive/2026-08.md),
    CR-SVC-54/23). `MinigameService::saveScore` (score insert + coin award) and
    `MinigameService::purchaseBoost` (lock-check-deduct) wrap their whole
    mutation in `beginTransaction()` → `findForUpdate()` → mutate → `commit()`
@@ -112,6 +112,6 @@ external call inside the critical section.**
 ## References
 
 - [`docs/engineering/architecture.md`](../engineering/architecture.md) — service/mapper layering.
-- [`docs/plans/done/cs-plan-028-top-priority-fixes.md`](../plans/done/cs-plan-028-top-priority-fixes.md) — CR-SVC-53 fresh-entity-after-lock fix.
-- [`docs/plans/done/cs-plan-025-service-security-concurrency-cleanup.md`](../plans/done/cs-plan-025-service-security-concurrency-cleanup.md) — implementation record (Phase 3).
-- [`docs/backlog/backlog.md`](../backlog/backlog.md) — CR-SVC-04/12/53/54/23 (resolved), CR-SVC-50 (open follow-up).
+- [`CS-PLAN-028 completion record`](../backlog/archive/2026-08.md) — CR-SVC-53 fresh-entity-after-lock fix (plan file locally archived).
+- [`CS-PLAN-025 completion record`](../backlog/archive/2026-08.md) — implementation history (Phase 3; plan file locally archived).
+- [`archive/2026-08.md`](../backlog/archive/2026-08.md) — CR-SVC-04/12/50/53/54/23 closure records.

@@ -61,7 +61,7 @@ Example: `ADR-001-use-vue3-for-frontend.md`
 1. [ADR-001: Use Vue 3 Composition API](ADR-001-vue3-composition-api.md) - **Accepted** (2026-02-24)
 2. [ADR-002: Pinia for State Management](ADR-002-pinia-state-management.md) - **Accepted** (2026-02-24)
 3. [ADR-003: Task Scope System (Beyond Rooms)](ADR-003-task-scope-system.md) - **Accepted, annotated 2026-09** (2026-02-24; the five-value scope model never shipped — the current model is the `room`/`floor`/`house` hierarchy per the in-file annotation and ADR-008)
-4. [ADR-004: Multi-User Gamification Architecture](ADR-004-multi-user-gamification.md) - **Accepted** (2026-02-24)
+4. [ADR-004: Multi-User Gamification Architecture](ADR-004-multi-user-gamification.md) - **Accepted** (2026-02-24; currency model superseded by the Coins model — see in-file note)
 5. [ADR-005: Smart Scheduling](ADR-005-smart-scheduling.md) - **Superseded** (cluster deleted in CS-PLAN-025)
 6. [ADR-006: Service-Layer Authorization (Defense in Depth)](ADR-006-service-layer-authorization.md) - **Accepted** (2026-08-12)
 7. [ADR-007: Concurrency-Safe Task Completion](ADR-007-concurrency-safe-task-completion.md) - **Accepted** (2026-08-12)

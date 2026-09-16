@@ -158,6 +158,8 @@ without effect. Cap edge only. Fix options: clamp floorCount to 5 when a
 basement is requested, or show an inline hint that the basement replaces the
 sixth floor.
 
+---
+
 ### [P3] FEAT-UX-018 — Task-approval workflow for children
 **Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task approval
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —

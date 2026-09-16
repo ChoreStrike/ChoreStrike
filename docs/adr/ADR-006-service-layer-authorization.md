@@ -3,7 +3,7 @@
 **Status**: Accepted (bootstrap-preamble semantics superseded by [ADR-010](ADR-010-invite-only-membership-visibility-matrix.md), 2026-09-03)  
 **Date**: 2026-08-12  
 **Deciders**: Development Team  
-**Source**: [Full Review of `lib/Service`](../backlog/archive/CODE_REVIEW_2026-08-04.md) (CR-SVC-01, CR-SVC-06) · landed by [CS-PLAN-025](../plans/done/cs-plan-025-service-security-concurrency-cleanup.md)
+**Source**: [Full Review of `lib/Service`](../backlog/archive/CODE_REVIEW_2026-08-04.md) (CR-SVC-01, CR-SVC-06) · landed by [CS-PLAN-025](../backlog/archive/2026-08.md)
 
 > **Update (2026-09-03, ADR-010):** the auto-join semantics of
 > `ensureHouseMember()` described below were superseded — membership is
@@ -85,13 +85,13 @@ preamble remains as the first line of defense but is no longer the sole gate.
   and validate ownership + assignee membership internally) and CR-SVC-10
   (`RoomService::completeRoomTask` resolves membership via the nullable
   `findByHouseAndUser()` and re-checks it **inside** the transaction, right
-  after `lockForUpdate`) — both landed by [CS-PLAN-029](../plans/done/cs-plan-029-service-hardening.md).
-  Remaining unscoped mutators are tracked as CR-SVC-21/22 in
-  [`backlog.md`](../backlog/backlog.md).
+   after `lockForUpdate`) — both landed by [CS-PLAN-029](../backlog/archive/2026-08.md).
+   The remaining unscoped mutators were closed as CR-SVC-21/22 (see
+   [`archive/2026-08.md`](../backlog/archive/2026-08.md)).
 
 ## References
 
 - [`docs/standards/guidelines/security.md`](../standards/guidelines/security.md) —
   authorization primitives (`ensureHouseMember` / `assertHouseMember` /
   `requireHouseOwner`).
-- [`docs/plans/done/cs-plan-025-service-security-concurrency-cleanup.md`](../plans/done/cs-plan-025-service-security-concurrency-cleanup.md) — implementation record.
+- [`CS-PLAN-025 completion record`](../backlog/archive/2026-08.md) — implementation history (plan file locally archived).
