@@ -3,7 +3,7 @@
 > **Status:** Done (implementation round 1 executed 2026-09-13; final Standard B `PASS-WITH-FIXES` 2026-09-13 — WP8 complete)
 > **Effort:** XL (one sequential package with reviewable slices)
 > **Priority:** P2
-> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP7 complete; [CS-PLAN-066](../done/cs-plan-066-wp7-canonical-client-state-family-ux.md) final Standard B `PASS-WITH-FIXES`
+> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP7 complete; [CS-PLAN-066](../done/cs-plan-066-wp7-canonical-client-state-family-ux.md) final Standard B `PASS-WITH-FIXES`
 > **Related backlog items:** CR-WF-06 (umbrella); CR-SVC-15/40/41/44 (structural remainders); CR-053-19 (remainder classification only)
 > **Parent:** CS-PLAN-058 WP8; WP9 consumes the behavior-identical, budget-pinned workflow.
 

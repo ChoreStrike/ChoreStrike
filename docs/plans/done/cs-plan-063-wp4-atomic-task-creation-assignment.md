@@ -3,7 +3,7 @@
 > **Status:** Done (implementation 2026-09-05; final Standard B `PASS-WITH-FIXES` 2026-09-06 — moved to `done/`)
 > **Effort:** L
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP4 — WP0..WP3 are Done), WP2 authorization baseline (ADR-010), WP3 setup aggregate precedent (`HouseSetupService`, 2026-09-05)
+> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP4 — WP0..WP3 are Done), WP2 authorization baseline (ADR-010), WP3 setup aggregate precedent (`HouseSetupService`, 2026-09-05)
 > **Related backlog items:** CR-WF-03 task/assignment half (owned); CR-SVC-41 WP4 remainder (ownership-validation dedup; the `getFilteredDailyTasksForUser` sub-item is stale — see §1.5); CR-062-01 (folded into §3.3)
 >
 > **Scope guard:** the CR-WF-03 setup/structure half was closed by

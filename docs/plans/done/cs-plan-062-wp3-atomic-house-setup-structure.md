@@ -4,7 +4,7 @@
 > acceptance criteria verified, gates rerun green by the review; see §10)
 > **Effort:** M
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP3 — WP0, WP1, WP2 are Done), WP2 authorization baseline (2026-09-04, ADR-010)
+> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP3 — WP0, WP1, WP2 are Done), WP2 authorization baseline (2026-09-04, ADR-010)
 > **Related backlog items:** CR-WF-03 setup/structure half (owned); delivers CR-WF-05's empty-house-profile criterion as the WP3 exit-gate artifact (annotated, CR-WF-05 umbrella stays WP9); CR-WF-08 wizard-usability line served for the setup surface only (umbrella stays WP7)
 >
 > **Implementation note (2026-09-04):** payload validation runs before the

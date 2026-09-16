@@ -3,7 +3,7 @@
 **Status**: Accepted  
 **Date**: 2026-09-06  
 **Deciders**: ChoreStrike maintainers (ratified in the CS-PLAN-064 Standard A review, decisions D1–D12)  
-**Source**: [CS-PLAN-058](../plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP5 · [CS-PLAN-064](../plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md) · refines [ADR-007](ADR-007-concurrency-safe-task-completion.md)
+**Source**: [CS-PLAN-058](../plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP5 · [CS-PLAN-064](../plans/done/cs-plan-064-wp5-completion-ledger-full-undo.md) · refines [ADR-007](ADR-007-concurrency-safe-task-completion.md)
 
 ## Context
 

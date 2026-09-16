@@ -3,7 +3,7 @@
 > **Status:** Done (all steps 1–10 implemented 2026-09-09; Standard A `PASS-WITH-FIXES` 2026-09-06; interim Standard B `PASS-WITH-FIXES` backend slice + `PASS` step-6 round, both 2026-09-09; final Standard B `PASS-WITH-FIXES` 2026-09-09 — every gate rerun green by the review, RF-01..RF-12 resolved, CR-WF-02 + UX-015 delivered and archived; moved to `done/`)
 > **Effort:** L
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP5 — WP0..WP4 are Done), ADR-007 completion doctrine, ADR-010 visibility/404 standard, WP4 creation aggregate precedent (`TaskCreationService`, 2026-09-06)
+> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP5 — WP0..WP4 are Done), ADR-007 completion doctrine, ADR-010 visibility/404 standard, WP4 creation aggregate precedent (`TaskCreationService`, 2026-09-06)
 > **Related backlog items:** CR-WF-02 (owned umbrella); UX-015 (owned); CR-053-20 WP5 undo/cache slice; CR-SVC-15/40 WP5 completion-path slices
 >
 > **Scope guard:** this plan owns the completion/undo critical path only:

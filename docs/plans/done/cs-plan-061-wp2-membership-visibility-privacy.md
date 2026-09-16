@@ -3,7 +3,7 @@
 > **Status:** Done (final Standard B review PASS-WITH-FIXES, 2026-09-04)
 > **Effort:** L
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP2 — WP0 and WP1 are Done), WP1 persistence baseline (2026-09-03)
+> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP2 — WP0 and WP1 are Done), WP1 persistence baseline (2026-09-03)
 > **Related backlog items:** CR-WF-01 (owned), CR-053-16 (owned), CR-053-17 (owned), CR-053-18 core remainders (owned), FEAT-UX-015 owner-transfer/last-owner semantics only (owned)
 
 ## 1. Problem Summary

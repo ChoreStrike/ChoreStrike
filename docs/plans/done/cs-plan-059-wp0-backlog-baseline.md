@@ -3,7 +3,7 @@
 > **Status:** Done 2026-09-02 (Standard A GO-WITH-CHANGES; Standard B PASS-WITH-FIXES)
 > **Effort:** M
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP0 and may not start before a passing Standard A review of this plan)
+> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP0 and may not start before a passing Standard A review of this plan)
 > **Related backlog items:** TECH-DOCS-003 (owned), CR-053-21 (metadata portion owned), CR-WF-01..08 + RELEASE-002/003 (restructured and annotated, not implemented here)
 
 ## 1. Problem Summary

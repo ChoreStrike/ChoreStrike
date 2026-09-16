@@ -3,7 +3,7 @@
 > **Status:** Done (final Standard B `PASS-WITH-FIXES`, 2026-09-14; all WP9 criteria/findings resolved, clean-install gate and two consecutive retry-free browser passes verified)
 > **Effort:** XL (one sequential package with independently verifiable slices)
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP8 complete; [CS-PLAN-067](../done/cs-plan-067-wp8-batching-decomposition-performance.md) final Standard B `PASS-WITH-FIXES`
+> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP8 complete; [CS-PLAN-067](../done/cs-plan-067-wp8-batching-decomposition-performance.md) final Standard B `PASS-WITH-FIXES`
 > **Related backlog items:** CR-WF-05 (umbrella); CR-053-13; CR-053-18-WP9; CR-053-21 (documentation slice); CR-053-22; BUG-E2E-005/006; RELEASE-002 (program prerequisite only)
 > **Parent:** CS-PLAN-058 WP9. No deployment, release tagging, or productive-use declaration is authorized by this plan.
 

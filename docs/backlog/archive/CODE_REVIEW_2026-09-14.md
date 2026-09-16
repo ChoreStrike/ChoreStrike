@@ -345,3 +345,68 @@ Docs: `docs/api/README.md`, `docs/engineering/architecture.md`,
 `docs/backlog/backlog.md`, `docs/backlog/archive/2026-09.md`,
 `docs/backlog/archive/CODE_REVIEW_2026-09-14.md` (this record),
 `docs/backlog/ACTIVE_TASKS.md`.
+
+# D-FR-04 Delegated Browser-Gate Pair — Execution (2026-09-14 night)
+
+Executed by the delegated separate session. Baseline: `master` @
+`285d5016` ("fix(core): CS-PLAN-058 final Full review fixes (RF-058-01..22)"),
+clean tree.
+
+## Attempt 1 (reused environment) — FAILED, root-caused
+
+The environment had been up ~4 h (family profile, test mode) from the review
+session; the reservation handoff permitted reuse. `npm run test:e2e:gate`
+(run `build/e2e-gate/run-SneDy7`, reports local-only) passed discovery,
+`chromium`, and `chromium-scheduling-owner`, but `chromium-serial-db` failed
+`release-notifications` ("reaching the weekly goal delivers a de-duped bell
+notification"): expected 1 `weekly_goal` row after dismiss + complete, got 6.
+
+Root cause (via the retained failure trace + DB census): `reset()` correctly
+never purges `oc_notifications`, and the OCS v2 bell response is capped at 25
+rows (observed: exactly 25 returned even with more present). Prior
+environment use had accumulated >25 chorestrike rows for `mom`; the spec's
+**single-pass** dismiss only cleared the 25-row window, leaving five
+`18:45`-era stale weekly rows hidden below the cap. The new completion
+dispatch bumped them back into the window, so "only THIS run's dispatch can
+satisfy the check" was violated — a genuine test-design finding on this
+program's owned spec (RF-058-23), not an application defect: the product-side
+dispatch/dedup behaved exactly per ADR contract (one new row, correct
+payload, `achieved=true`).
+
+## Fix (RF-058-23, test-only, in this delegated package)
+
+`tests/e2e/release-notifications.spec.ts`: dismiss now iterates rounds until a
+fetched window shows zero stale `weekly_goal` rows (bounded at 10 rounds,
+fails loudly on non-convergence) and documents the capped-window reasoning in
+file header + helper comment. No scenario titles changed; required-scenario
+manifest unaffected. Proved against a re-created fresh `family` env + a
+deterministically polluted bell (35 injected stale rows > the 25-row window):
+the spec passes and the pollution is fully drained (1 bell row remains).
+ESLint clean.
+
+## Environment reset + official passes
+
+After RCA: `down -v` + `up -d` with `TEST_DB_PROFILE=family` (clean install,
+`status.php` installed ✓, both containers healthy). Ran the gate twice
+consecutively on the fixed state:
+
+- Pass 1: `build/e2e-gate/run-RX1FBW` — PASSED (discovery 46/46; attempts:
+  chromium 100, chromium-serial-db 114, chromium-scheduling-owner 38; zero
+  non-passed, zero violations).
+- Pass 2: `build/e2e-gate/run-GPxhOi` — PASSED (identical 100/114/38, zero
+  non-passed, zero violations).
+
+Each pass: 252 executions, 0 skipped/failed/flaky, retries disabled;
+`workers=1` sequential pools; frozen scenario inventory verified by the
+runner at every discovery. This satisfies D-FR-04's delegated evidence.
+
+## Closure (2026-09-16)
+
+D-FR-04's condition was met by the pair above. On 2026-09-16 the follow-up
+session completed the closure transaction on user request: the spec fix
+(RF-058-23), this record, the masterplan status/§9/§11/§12/§13, plans README,
+backlog README/RELEASE-002 annotation, ADR-011 link, archive-2026-09 link and
+all child-plan `Depends on` links (repointed to `done/`) were committed, and
+the plan was moved `docs/plans/active/ → docs/plans/done/`. The Docker test
+environment remained a clean seeded `family` install; the reservation is
+released.

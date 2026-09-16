@@ -3,7 +3,7 @@
 > **Status:** Done (2026-09-03) — final Standard B review PASS-WITH-FIXES
 > **Effort:** L
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP1 — WP0 is Done), WP0 baseline (2026-09-02)
+> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) (active; this plan executes its work package WP1 — WP0 is Done), WP0 baseline (2026-09-02)
 > **Related backlog items:** CR-053-07 (owned), CR-053-09 (owned), CR-053-19 persistence/schema parts (owned), CR-055-03 (owned), CR-055-04 (owned), CR-SVC-40 foundation portion (owned); CR-P1-21 verification only (already resolved)
 
 ## 1. Problem Summary

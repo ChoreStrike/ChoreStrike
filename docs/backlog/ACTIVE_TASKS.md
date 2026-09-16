@@ -10,18 +10,12 @@
 
 ## In Progress
 
-**CS-PLAN-058 — final Full review closing** (2026-09-14 evening, Kilo main
-agent). Verdict `PASS-WITH-FIXES` (non-visual): all 4 majors + approved minors
-fixed with regression tests (unit 941 / integration 361 / Jest 1056 / lint /
-cs:check / l10n 941 / docs / backlog gates green); 4 nits user-rescoped to
-backlog; program backlog disposition D-FR-03 executed (Core Workflow Program
-section empty). **Outstanding:** delegated browser-gate pair
-(`npm run test:e2e:gate` ×2) on the fixed state by a separate LLM session —
-after it passes, a follow-up session moves the plan `active/ → done/` (D-FR-04)
-and releases the Docker reservation. No other session may reset seeds or run
-browser profiles until then.
+(none — no session holds the Docker test environment; CS-PLAN-058 closed
+below, no browser-reset ownership active)
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
+
+- **CS-PLAN-058 — program closed:** final Full review `PASS-WITH-FIXES` (2026-09-14 evening, RF-058-01..22 fixed/rescoped, unit 941 / integration 361 / Jest 1056 non-visual gates green) + delegated D-FR-04 browser-gate pair delivered the same night (RF-058-23 test-only capped-bell-window dismiss fix with 35-stale-row proof, clean-volume recreation, `run-RX1FBW` + `run-GPxhOi` — 2 consecutive passes, 252 executions each, zero skips/retries/flakes), and the masterplan moved `active/ → done/` on 2026-09-16. RELEASE-002 program prerequisite met (its independent blockers remain). [Plan](../plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md) · [Review record](archive/CODE_REVIEW_2026-09-14.md).
 
 - **CS-PLAN-068 / WP9 - final Standard B `PASS-WITH-FIXES` (2026-09-14):** D8/D9/D10 approved; all findings resolved, clean install, 920 unit / 361 integration (zero skips) / 1054 Jest tests, 940 localization keys and two 252-execution browser passes green; [plan moved to done](../plans/done/cs-plan-068-wp9-deterministic-coverage-release-closure.md), owning items archived, parent Full review and RELEASE-002 still pending. [Review record](archive/CODE_REVIEW_2026-09-14.md).
 

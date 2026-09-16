@@ -1,6 +1,6 @@
 # CS-PLAN-058: Core Workflow Bottom-Up Masterplan
 
-> **Status:** Active (WP0-WP9 complete; WP9 final Standard B `PASS-WITH-FIXES` 2026-09-14; separate final program Full review pending, execution checklist in section 12)
+> **Status:** Done (2026-09-16; WP0–WP9 complete; program final Full review `PASS-WITH-FIXES` 2026-09-14 with the delegated browser-gate pair passing twice consecutively the same night — see §11/§13 RF-058-23 and the dated review record; moved `active/ → done/` on user request, D-FR-04 condition met). Historical implementation record; canonical behavior lives in ADR-010/011/012 and the engineering/API/concept docs.
 > **Effort:** XL (program; implemented as sequential reviewable work packages)
 > **Priority:** P1
 > **Depends on:** Core Task Workflow Full Review (2026-09-02) and its recorded user decisions
@@ -756,11 +756,12 @@ this masterplan to `done/`.
 | WP6 Actionable scheduling | Done (2026-09-11, CS-PLAN-065; implementation 2026-09-10, round 2 2026-09-11) | Final Standard B `NEEDS-FOLLOW-UP` 2026-09-11 (RF-065-01/02 open), then final re-review `PASS` 2026-09-11 — [CS-PLAN-065](../done/cs-plan-065-wp6-actionable-scheduling.md) moved to `done/` | Full §4.5 gate rerun green by the final re-review 2026-09-11: unit 909, integration 315 (+10 documented pre-existing skips), Jest 849, `cs:check`/lint/stylelint/l10n/docs/backlog/build/noise clean, Playwright chromium 92 (+7 pool-excluded), chromium-serial-db 98/5 skipped (0 flaky on re-run), chromium-scheduling-owner 38 | CR-WF-07 + CR-055-01 archived (2026-09); BUG-API-001 (`PUT /tasks/{id}` dispatcher TypeError) routed to backlog out-of-scope; WP7 consumes the applied-schedule contract |
 | WP7 Family UX/client state | Done (2026-09-12, CS-PLAN-066; implementation + final Standard B same day) | Standard A `PASS-WITH-FIXES` (2026-09-11) + final Standard B `PASS-WITH-FIXES` (2026-09-12) - [CS-PLAN-066](../done/cs-plan-066-wp7-canonical-client-state-family-ux.md) | Full §4.4 gate rerun green by the final review 2026-09-12: unit 916, integration 315 (+10 pre-existing skips), `cs:check` 0 (review LF fix), Jest 896, lint/stylelint(1 pre-existing warning)/l10n/docs/backlog/build/noise clean, Playwright chromium 92 (+7 pool-excluded), chromium-serial-db 108/5 skipped/0 flaky on re-run, scheduling-owner 38 | CR-WF-04/08 + CR-053-20 + BUG-API-001 archived (2026-09); CR-053-13 core slice delivered, WP9 remainder stays; manual a11y pass recorded; plan in `done/`; WP8 eligible |
 | WP8 Performance/architecture | Done (2026-09-13, [CS-PLAN-067](../done/cs-plan-067-wp8-batching-decomposition-performance.md); final Standard B `PASS-WITH-FIXES` 2026-09-13) | Standard A `PASS` 2026-09-12 (D1-D6 ratified as recommended; D5 rescoped cron freeze/restock batching to CR-053-11); review decisions D8-D12 recorded in the plan §12 | Full §4.4 gate green on the fixed state (Jest 939, unit 920, integration 320/10 documented skips, cs:check clean, Playwright 94+106+38; sole E2E exception = pre-existing Sunday-dependent BUG-E2E-005) | CR-WF-06/CR-SVC-40/CR-SVC-41 archived 2026-09-13; CR-SVC-15 WP8 slice recorded (two inventoried remainders); CR-SVC-44 stays open per D5 (streak batching under CR-053-11); size-exception inventory in docs/engineering/architecture.md; WP9 eligible, not implemented |
-| WP9 Coverage/release closure | Complete, [CS-PLAN-068](../done/cs-plan-068-wp9-deterministic-coverage-release-closure.md) final Standard B `PASS-WITH-FIXES`, 2026-09-14 | D1-D10 recorded; false-green gates, missing proofs, frontend defects and durable-doc drift resolved; no open WP9 findings | Clean install; PHPUnit 920 unit / 361 integration / zero skips; Jest 1054; lint/stylelint/build/Composer/l10n/docs green; two consecutive browser passes, 252 executions each, zero skips/retries/flakes | Owning items archived, parent acceptance evidence map added. This masterplan stays active for its separately requested final Full review; RELEASE-002's independent blockers remain unchanged |
+| WP9 Coverage/release closure | Complete, [CS-PLAN-068](../done/cs-plan-068-wp9-deterministic-coverage-release-closure.md) final Standard B `PASS-WITH-FIXES`, 2026-09-14 | D1-D10 recorded; false-green gates, missing proofs, frontend defects and durable-doc drift resolved; no open WP9 findings | Clean install; PHPUnit 920 unit / 361 integration / zero skips; Jest 1054; lint/stylelint/build/Composer/l10n/docs green; two consecutive browser passes, 252 executions each, zero skips/retries/flakes | Owning items archived, parent acceptance evidence map added. Program Full review + delegated browser pair completed 2026-09-14 (§11/§13, RF-058-23); plan moved to `done/` 2026-09-16; RELEASE-002's independent blockers remain unchanged |
 
-The Standard A plan review passed on 2026-09-02 and this plan is active in
-`docs/plans/active/`; work packages execute in the order above, one `In
-Progress` package at a time.
+The Standard A plan review passed on 2026-09-02; work packages executed in the
+order above, one `In Progress` package at a time, and the plan moved to
+`docs/plans/done/` on 2026-09-16 after its final Full review and the D-FR-04
+browser-gate pair.
 
 ## 10. Plan Review Decision Register
 
@@ -855,19 +856,31 @@ move deferred solely to the delegated browser-gate pair (D-FR-04).**
   clean; `lint`/`stylelint` clean (scoped fix, no unrelated writes);
   `build` green; `cs:check` 0 findings; `l10n:check-keys` 941 keys exact
   EN/DE/POT; `docs:encoding` 725 files clean; `backlog:check` green;
-  `node scripts/run-e2e-gate.js --self-test` green; `git diff --check` clean.
-  **Delegated:** `npm run test:e2e:gate` ×2 (browser pair) on the fixed state
-  by a separate LLM session per user instruction — the only outstanding gate.
+   `node scripts/run-e2e-gate.js --self-test` green; `git diff --check` clean.
+  **Delegated (D-FR-04):** `npm run test:e2e:gate` ×2 (browser pair) on the
+  fixed state by a separate LLM session — the only outstanding gate.
+  **Completed 2026-09-14 night:** first attempt on the reused container failed
+  on test-tool finding RF-058-23 (single-pass capped-window bell dismiss in
+  `release-notifications`, test-only fix + regression proof in §13); the
+  environment was then recreated from a clean volume and the pair passed
+  **twice consecutively** (252 executions each, zero
+  skips/retries/flakes/violations — see the dated review record). D-FR-04's
+  evidence condition is thereby met.
 - **Outcome:** all §8 acceptance criteria hold on the fixed tree; no open
   in-scope findings remain; the rescope set is user-approved and documented.
-  Verdict `PASS-WITH-FIXES` for every non-visual gate; the `active/ → done/`
-  move awaits the delegated browser pair exactly per D-FR-04.
+  Verdict `PASS-WITH-FIXES` for every non-visual gate; the delegated browser
+  pair delivered its D-FR-04 evidence (including the test-only
+  RF-058-23 round). The `active/ → done/` move was performed 2026-09-16.
+  Program closure satisfies RELEASE-002's program prerequisite only; the
+  independent release obligations remain (RELEASE-002/003 stay open).
 
 ## 12. Final Full Review Execution
 
 **Status:** Executed 2026-09-14 — checklist complete; see §11 for the outcome.
-The browser-gate pair on the fixed state is delegated to a separate session
-(D-FR-04); the `done/` move follows that evidence.
+The delegated browser-gate pair (D-FR-04) was executed the same night by a
+separate session: initial attempt surfaced and fixed test-tool finding
+RF-058-23, then two consecutive clean-volume passes (evidence in the dated
+review record). The plan moved to `done/` on 2026-09-16.
 
 Follow the canonical [review skill](../../standards/ai/skills/review/SKILL.md)
 and [review playbook](../../engineering/review-playbook.md). Earlier child-plan
@@ -975,6 +988,7 @@ D-FR-01..D-FR-04 were ratified by the user before fixing (see §11).
 | RF-058-20 | nit | E2E hygiene | Debug `console.log` leftovers in 3-floor-house.spec.ts (failure-path diagnostics in fast-core-tests/fixtures deliberately kept) | **Fixed** — removed incl. orphaned variables |
 | RF-058-21 | minor | Docs | Size-exception inventory labeled its counts "physical lines" but measured non-blank lines (8 files would lack entries under true physical counting) | **Fixed** — convention stated explicitly (non-blank), counts re-measured for all files changed by this review |
 | RF-058-22 | nit | Docs | Section 5 manifest referenced ADR-010 under a stale filename | **Fixed** — corrected to `ADR-010-invite-only-membership-visibility-matrix.md` |
+| RF-058-23 | minor | E2E test tool (delegated gate round) | `release-notifications` single-pass bell dismiss cannot clear `weekly_goal` rows beyond the OCS v2 capped response window (observed 25); accumulated prior-run rows for the acting user survived dismissal and re-entered the checked window after the new dispatch → `toHaveLength(1)` counted 6 on a long-lived dev environment | **Fixed** — dismiss loop now converges (round-until-clean, fail-loud bound), header documents the capped window; proved with 35 injected stale rows; product notification behavior verified correct (no app change). D-FR-04 browser pair then passed twice: `run-RX1FBW` + `run-GPxhOi`, 252 executions each, zero skips/retries/violations (fresh `family` volume, HEAD `285d501`) |
 
 No `block` findings. All major findings fixed in-round with regression tests;
 the four nits rescoped to the backlog were explicitly user-approved (D-FR-02)

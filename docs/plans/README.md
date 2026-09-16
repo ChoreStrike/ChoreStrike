@@ -14,13 +14,17 @@ docs/plans/
 
 ## Lifecycle
 
-Current active plan: [CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](active/cs-plan-058-core-workflow-bottom-up-masterplan.md)
-(WP0-WP9 delivered; the separate final program-wide Full review remains pending).
+Current active plan: none.
 
-Latest completed child: [CS-PLAN-068 - WP9: Deterministic Coverage and Release-Quality Closure](done/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
+Latest completed: [CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](done/cs-plan-058-core-workflow-bottom-up-masterplan.md)
+(WP0–WP9 delivered; program final Full review `PASS-WITH-FIXES` 2026-09-14
+with the D-FR-04 delegated browser-gate pair completed the same night — two
+consecutive retry-free passes; the plan moved to `done/` 2026-09-16)
+and its child [CS-PLAN-068 — WP9: Deterministic Coverage and Release-Quality
+Closure](done/cs-plan-068-wp9-deterministic-coverage-release-closure.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-14; clean-install gate and two
-retry-free browser passes verified, no open WP9 findings. RELEASE-002 and
-the masterplan are not closed by this child review).
+retry-free browser passes verified). RELEASE-002's program prerequisite is
+met; its independent security obligations remain.
 
 Successful lifecycle reviews perform the normal forward transitions automatically:
 

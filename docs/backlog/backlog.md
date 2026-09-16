@@ -2,7 +2,7 @@
 
 > **Single source of truth for everything not yet done.** Entries are organized
 > into the five dependency-oriented sections fixed by
-> [CS-PLAN-058 §2.2](../plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md):
+> [CS-PLAN-058 §2.2](../plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md):
 > **Core Workflow Program**, **Core Hardening**, **Deferred Add-ons**,
 > **Infrastructure and Documentation**, and **Release**. Every open entry carries
 > the standardized metadata block (see [`README.md`](README.md) for the format).
@@ -18,7 +18,7 @@
 ## Core Workflow Program
 
 > The CR-WF umbrellas owned the core-journey acceptance criteria
-> ([CS-PLAN-058](../plans/active/cs-plan-058-core-workflow-bottom-up-masterplan.md);
+> ([CS-PLAN-058](../plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md);
 > review record: [`archive/CODE_REVIEW_2026-09-02.md`](archive/CODE_REVIEW_2026-09-02.md)).
 > **Program closure 2026-09-14:** CR-WF-01..08 and every plan-owned item are
 > archived; the final Full review (`PASS-WITH-FIXES`, D-FR-03 disposition)
@@ -359,10 +359,15 @@ Deploy to a personal Nextcloud instance; verify no impact on other apps;
 real-world `v0.8.x` alpha usage; (optional) private tester onboarding for
 `v0.9.x` beta with structured feedback intake.
 
-Exact blocking gates (not yet satisfied):
-- CS-PLAN-058 WP1..WP9 exit gates, each passed with its Standard B review.
-- Final Full review of the complete owner/member/child journey: `PASS` or
-  `PASS-WITH-FIXES` (CS-PLAN-058 §3 WP9).
+Exact blocking gates:
+- [x] CS-PLAN-058 WP1..WP9 exit gates, each passed with its Standard B review
+      (program closed; plan in `done/` 2026-09-16).
+- [x] Final Full review of the complete owner/member/child journey: `PASS` or
+  `PASS-WITH-FIXES` (CS-PLAN-058 §3 WP9) — Full review `PASS-WITH-FIXES`
+  2026-09-14 incl. the D-FR-04 browser-gate pair.
+
+Still blocking: the independent obligations above (BUG-SEC-001, SEC-AUDIT-001)
+and the deployment/field-usage work itself.
 
 ---
 

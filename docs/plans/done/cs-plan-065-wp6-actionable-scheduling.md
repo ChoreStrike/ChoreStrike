@@ -3,7 +3,7 @@
 > **Status:** Done (drafted 2026-09-10; Standard A `PASS` 2026-09-10, D1-D8 ratified; implementation delivered 2026-09-10; final Standard B `NEEDS-FOLLOW-UP` 2026-09-11; round 2 delivered 2026-09-11 — RF-065-01/02/05 fixed; final Standard B re-review `PASS` 2026-09-11 — moved to `done/`)
 > **Effort:** L
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-058](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP5 complete; [CS-PLAN-064](../done/cs-plan-064-wp5-completion-ledger-full-undo.md) final review passed; ADR-009 house-local dates, ADR-010 visibility, ADR-011 completion/undo
+> **Depends on:** [CS-PLAN-058](cs-plan-058-core-workflow-bottom-up-masterplan.md) WP0-WP5 complete; [CS-PLAN-064](../done/cs-plan-064-wp5-completion-ledger-full-undo.md) final review passed; ADR-009 house-local dates, ADR-010 visibility, ADR-011 completion/undo
 > **Related backlog items:** CR-WF-07 (owned umbrella), CR-055-01 (owned cleanup)
 > **Parent:** CS-PLAN-058 WP6; WP7 consumes this package's applied-schedule contract.
 
@@ -287,7 +287,7 @@ completion/undo state-equality and reward tests remain green.
 
 During implementation run targeted PHPUnit/Jest and the new scheduling journey
 after each owning slice. At completion and after review fixes run the complete
-[masterplan quality gate](../active/cs-plan-058-core-workflow-bottom-up-masterplan.md#45-quality-gate),
+[masterplan quality gate](cs-plan-058-core-workflow-bottom-up-masterplan.md#45-quality-gate),
 including all three Playwright pools sequentially, Docker unit/integration and
 `composer cs:check`, Jest, lint/stylelint, noise/build/l10n/docs/backlog and diff
 checks. Load the canonical docker-dev/testing instructions before environment
