@@ -26,10 +26,13 @@
  *    the family seed's global 1 % target lets every family-seeded spec fire
  *    the same notification type, and reset()/re-seed never purges
  *    `oc_notifications` — a plain "exists" check would pass vacuously on a
- *    leftover row from an earlier spec or CI run. (The notification's objectId
- *    is the bare ISO weekStart with no house discriminator — harmless while
- *    the instance is bootstrap-single-house, but it means stale-type rows are
- *    the norm in the test matrix.) CS-PLAN-055 review finding.
+ *    leftover row from an earlier spec or CI run. Dismissal must iterate
+ *    because the OCS bell response is server-side-capped, so a single pass
+ *    cannot prove the bell is stale-row free (CS-PLAN-058 gate round). The
+ *    notification's objectId is the bare ISO weekStart with no house
+ *    discriminator — harmless while the instance is bootstrap-single-house,
+ *    but it means stale-type rows are the norm in the test matrix.
+ *    CS-PLAN-055 review finding.
  *
  * Seed-mutating (completes a task): registered in `SEED_DEPENDENT_SPECS`
  * (chromium-serial-db).
@@ -100,18 +103,33 @@ async function fetchChoreStrikeNotifications(page: Page): Promise<OcsNotificatio
 /**
  * Dismiss the user's existing weekly_goal bell rows so the post-completion
  * assertion can only be satisfied by THIS run's dispatch (see file header).
+ *
+ * The OCS bell response is server-side-capped at a fixed number of rows
+ * (observed: exactly 25, oldest-first truncation), so one pass cannot clear
+ * a bell that accumulated more stale weekly_goal rows than the window holds
+ * (seed-mutating specs and earlier container runs leave them; reset() never
+ * purges oc_notifications). The completion's new row then pushes the hidden
+ * stale rows back into the checked window and the assertion counts them.
+ * Delete round after round until a fetched window shows no stale rows, and
+ * fail loudly if that never converges.
  */
 async function dismissWeeklyGoalNotifications(page: Page): Promise<void> {
-	const stale = (await fetchChoreStrikeNotifications(page)).filter(
-		(n) => n.object_type === 'weekly_goal',
-	)
-	for (const notification of stale) {
-		const response = await page.request.delete(
-			`/ocs/v2.php/apps/notifications/api/v2/notifications/${notification.notification_id}`,
-			{ headers: { 'OCS-APIRequest': 'true' } },
+	for (let round = 0; round < 10; round++) {
+		const stale = (await fetchChoreStrikeNotifications(page)).filter(
+			(n) => n.object_type === 'weekly_goal',
 		)
-		expect(response.status()).toBe(200)
+		if (stale.length === 0) {
+			return
+		}
+		for (const notification of stale) {
+			const response = await page.request.delete(
+				`/ocs/v2.php/apps/notifications/api/v2/notifications/${notification.notification_id}`,
+				{ headers: { 'OCS-APIRequest': 'true' } },
+			)
+			expect(response.status()).toBe(200)
+		}
 	}
+	throw new Error('dismissWeeklyGoalNotifications: bell did not converge to zero stale weekly_goal rows within 10 rounds')
 }
 
 test.describe('Release: Notifications — weekly goal', () => {
