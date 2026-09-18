@@ -40,7 +40,7 @@ below.)*
 
 ### [P2] CR-053-11 — Streak & leaderboard correctness cluster
 **Status**: Backlog · **Effort**: M · **Layer**: backend · **Journey stage**: gamification
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: CS-PLAN-053 full review (CR-P2-11/12/13/15/20, 2026-08-27)
 
 Referenced by no CS-PLAN-058 work package; independently schedulable.
@@ -61,6 +61,16 @@ isolation) is owned here rather than in WP8; WP8 retains only the
 remainder-classification inventory. The correctness halves above are unchanged
 and remain independently schedulable.
 
+**Family-rhythm review (2026-09-16):** also cover a freeze consumed by the job
+followed by completion: `HouseUser::calculateStreakWithAbsence` ignores the
+covered date, allowing another consumption/reset. The existing idempotency test
+covers repeated jobs, not this cross-path sequence. D4 in the
+[clarification plan](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md)
+now selects dated pauses instead of freezes (user decision 2026-09-17). Resolve
+the freeze/restock portion through the reviewed removal and replacement coverage,
+not new freeze mechanics. Existing code is unchanged, and the independent
+leaderboard remainder keeps its ownership here; no whole-item closure is implied.
+
 ---
 
 ### [P3] CR-SVC-63 — Manual cleanliness adjust stays an unlocked RMW against the WP5 room-row lock
@@ -79,6 +89,12 @@ closed by the CS-PLAN-058 final Full review (RF-058-06: service-side
 room→floor→house chain validation). Fix: route the manual adjust through
 `RoomMapper::lockForUpdate` inside a `TransactionExecutor` run; add a
 two-connection adjust-vs-completion race regression.
+
+**C3 dependency (2026-09-17):** CS-PLAN-070's approved isolated room correction
+requires this existing locking fix plus ordered replay evidence for manual room
+mutations. The current manual endpoint applies a delta, not an absolute set.
+Keep this item's ownership; the plan owns its broader effect-history design.
+No duplicate item, implementation or closure is implied by the product decision.
 
 ---
 
@@ -130,6 +146,10 @@ the changes array by roomTaskId once before the loops.
 > Explicitly outside the core critical path (CS-PLAN-058 §1.3). These cannot
 > enter the critical path without a plan update.
 
+The section reflects CS-PLAN-058's historical grouping. The CS-PLAN-070 draft
+now explicitly selects notification settings and dated pauses for its new core,
+followed by the optional family catalog; those choices do not activate code work.
+
 ### [P3] FEAT-UX-015 — Leave house (self-service membership exit)
 **Status**: Open (semantics decided, endpoint/UI open; re-sectioned from the Core Workflow Program section 2026-09-14, D-FR-03) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: authorization
 **Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
@@ -162,15 +182,20 @@ sixth floor.
 
 ### [P3] FEAT-UX-018 — Task-approval workflow for children
 **Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: task approval
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 design.md §5 lists "task approval workflow for children"; gamification open
 decisions touch it too. Today every completion is final immediately.
 
-- [ ] Product decision recorded: approval flow vs. current auto-complete
-      (which roles, which tasks).
-- [ ] Backend: needs-review state + owner approve/reject endpoints with
+**2026-09-17 decision (CS-PLAN-070 D8/D11):** routine chore completion remains
+immediate; child reward redemption has separate owner approval. A general chore
+approval queue is explicitly outside that delivery slice, not a prerequisite for
+the new rhythm model. This item remains a future option requiring a new decision.
+
+- [x] First-slice decision: keep immediate completion; defer general chore approval.
+- [ ] Revisit optional quality review only after a separate product decision.
+- [ ] If selected, backend: needs-review state + owner approve/reject endpoints with
       membership/owner gating + tests.
 - [ ] Owner approval queue UI + child-facing "waiting for approval" feedback.
 
@@ -178,11 +203,15 @@ decisions touch it too. Today every completion is final immediately.
 
 ### [P4] FEAT-UX-019 — Task Pass & support actions (gag mechanic)
 **Status**: Backlog · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: gamification
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 gamification-and-rewards.md sketches a post-MVP "Task Pass" gag mechanic;
 explicitly future / needs decision.
+
+CS-PLAN-070 D11 explicitly defers this feature outside the first delivery slice
+(2026-09-17). Transferring chores without agreement would conflict with the
+approved responsibility model; a future product decision is still required.
 
 - [ ] Product decision whether the gag mechanic fits the target audience.
 - [ ] Only after decision: concept extension + endpoint design sketch.
@@ -191,26 +220,43 @@ explicitly future / needs decision.
 
 ### [P3] FEAT-UX-023 — Onboarding & help layer
 **Status**: Backlog · **Effort**: M · **Layer**: frontend · **Journey stage**: onboarding
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 No tour, glossary, or contextual hints; vocabulary drift (UX-007) makes
 self-service discovery harder.
 
+Family-rhythm clarification (CS-PLAN-070 D10): explain existing Nextcloud
+accounts for children, wizard member invites versus child-role setup, shared
+device sign-in and optional work versus personal commitments. No local child
+profile or guardian-consent model should be implied by onboarding copy.
+
 - [ ] Help entry point per major view (Dashboard, TodayView, SchedulingView).
 - [ ] Glossary unifying the UX-007 vocabulary drift (priority labels,
       Admin-Only, Scope).
-- [ ] Contextual hints for gamification terms (combo, medal, streak freeze).
+- [ ] Contextual hints for the selected model (rhythm, completion window, pause,
+      contribution, Coins); do not teach removed combo/freeze mechanics as target behavior.
 
 ---
 
-### [P3] FEAT-UX-024 — Notification settings
-**Status**: Backlog · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: notifications
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+### [P1] FEAT-UX-024 — Notification settings
+**Status**: Planned (core policy approved; implementation not started) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: notifications
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 UC-14 reminders are passive server jobs with no settings surface.
 
+CS-PLAN-070 D9 was approved on 2026-09-17: reminders off by default; optional
+summary at the chosen time, at most one task reminder per person/day, only for
+relevant planned work, respecting quiet hours and free/paused days. No streak
+threats. C5 now specifies house-time/DST handling, a 60-minute same-day delivery
+window, personal quiet hours and one shared daily task/organization digest budget;
+missed-slot notices expire instead of becoming a future backlog. Opt-ins are
+personal/server-side, revocable and invalidated by departure.
+Same-day per-task dedup is not a digest or recipient budget; current jobs are
+unchanged. Priority reflects its selected role in the reliable core, not activation.
+
+- [x] C5 delivery/category/consent policy recorded (2026-09-17); technical slot/claim/API design remains open.
 - [ ] Backend: per-user notification preferences (storage + membership-gated
       endpoints).
 - [ ] Settings surface: digest toggle, quiet hours; background jobs respect
@@ -219,30 +265,40 @@ UC-14 reminders are passive server jobs with no settings surface.
 
 ---
 
-### [P4] FEAT-UX-025 — Vacation / house-pause mode
-**Status**: Backlog · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+### [P1] FEAT-UX-025 — Vacation / house-pause mode
+**Status**: Planned (core policy approved; implementation not started) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
-Future / needs decision: pause semantics undefined (streaks? due dates?
-notifications? per-member vs whole-house).
+CS-PLAN-070 D4 (2026-09-17) selects dated neutral member/house pauses instead of
+freezes. Adults manage their own pauses, children request owner approval; owners
+manage household pauses and traceable retrospective illness. No fake completions
+or reminders during pauses. Recurring weekday availability is not this feature.
 
-- [ ] Product decision on pause semantics + scope recorded.
-- [ ] Concept extension before any implementation.
+- [x] Core pause model, role boundaries and durable concept description approved.
+- [ ] Specify pause/date/urgent-work interaction and history/denominator amendments (C1/C2).
+- [ ] Implement persistence, authorization, UI/job integration and required tests after plan activation.
 
 ---
 
-### [P4] FEAT-UX-026 — Real-world reward shop
-**Status**: Backlog · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: rewards
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+### [P2] FEAT-UX-026 — Real-world reward shop
+**Status**: Planned (selected after the reliable core; implementation not started) · **Effort**: L · **Layer**: backend+frontend · **Journey stage**: rewards
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
-Future / needs decision: coins → owner-defined real-world rewards beyond the
-coin/boost model.
+The [reward options](../concepts/gamification-and-rewards.md#reward-options-for-a-family-first-app)
+record the 2026-09-17 selection: recognition first, optional family catalog with
+effort-only chore Coins, no arcade funding, retained awards. Children request with
+owner approval; adults redeem directly; owners administer the catalog. Reserve
+at request, settle at fulfillment, release on rejection/cancellation; existing
+requests keep their price. Genuine correction can create a negative balance,
+without rewriting unrelated events or reclaiming fulfilled rewards.
 
-- [ ] Product decision + gamification-doc concept extension (reward model,
-      redemption flow).
-- [ ] Implementation only after the concept lands.
+- [x] Core model/redemption decisions and concept extension recorded (D2/D7/D8/D11).
+- [x] C3 rate/share examples and aggregate-underfunding hold policy recorded (2026-09-17).
+- [x] Eight C4 actor, lifecycle, membership, visibility and refund decisions recorded (2026-09-17).
+- [ ] Map C3/C4 and approved C5 UI/delivery rules to exact APIs, financial identity, erasure integration, transactions and race tests.
+- [ ] Implement only after the reliable core and reviewed technical plan.
 
 ---
 
@@ -302,6 +358,54 @@ component.
 
 > Backlog hygiene, lint/dependency, docs truth, and operational security.
 > Independently schedulable unless a gate depends on it (CS-PLAN-058 §2.2).
+
+### [P1] CONCEPT-001 — Family-first rhythm and reward contracts
+**Status**: In Progress — CS-PLAN-070 activated via Standard A `PASS-WITH-FIXES` (2026-09-18) · **Effort**: XL implementation (clarification was M) · **Layer**: docs+backend+frontend · **Journey stage**: product definition
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: User-requested family-first concept review (2026-09-16)
+
+[CS-PLAN-070](../plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md)
+is the decision register and owning review-finding record. The user approved
+24 core choices across D1-D11 and 47 C1-C5 answers (6/11/9/8/13) on 2026-09-17;
+the technical draft added on 2026-09-18 maps schema/APIs, transactions/races,
+exact files/tests and ten work packages (48-76 engineering days before contingency,
+plus two weeks of voluntary family use). Q-070-01/02 on structural-deletion history
+and true account erasure were answered in the 2026-09-18 Standard A review
+(tombstoned minimum-history retention; account erasure/anonymization), which
+passed with `PASS-WITH-FIXES` and activated the plan; the earlier dismissed
+question batch was never counted as consent.
+Runtime findings stay in that plan, not parallel backlog entries. Existing
+add-on owners remain; notification/pause work belongs
+to the selected core and the optional catalog follows it. Chore approval/Task Pass,
+external sync, local child profiles, cosmetics and non-Snake games are outside
+this delivery slice. No implementation started or item completed by this decision.
+
+- [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
+- [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).
+- [x] Nine C3 choices recorded with accounting/replay design consequences and future scenarios (2026-09-17).
+- [x] Eight C4 choices recorded with a durable actor/state matrix and future scenarios (2026-09-17).
+- [x] Thirteen C5 choices recorded with delivery/UI/consent contracts, future scenarios and a family-test protocol (2026-09-17).
+- [x] Specify technical cross-contract draft, exact file/test manifest, work-package owners/dependencies and estimates (2026-09-18; not implementation approval).
+- [x] Resolve Q-070-01/02 explicitly and have Standard A accept the integrated design before activation (2026-09-18: tombstone retention + account erasure; Standard A `PASS-WITH-FIXES`).
+- [ ] Resolve the plan's findings or explicitly rescope to named owners before completion.
+
+---
+
+### [P3] TECH-JEST-001 — Exclude local worktree mocks from Jest discovery
+**Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: testing
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Baseline verification during family-first concept review (2026-09-16)
+
+`npm test -- --runInBand` passes all 1056 tests but reports duplicate manual
+mocks from `.kilo/worktrees/`. `jest.config.js:4` excludes worktree test paths,
+not the haste/module mock inventory. Defer the configuration change because
+this round is a concept/documentation review, not a test-discovery fix. Use a
+discovery-level exclusion and add a regression proving only the canonical mocks
+are indexed; do not delete the user's worktree, suppress the warnings or skip
+tests. The synthetic failure logs from `browserGate.spec.js` are expected test
+output and are not this warning.
+
+---
 
 ### [P3] TECH-LINT-006 — npm peer-dep ERESOLVE requires `--legacy-peer-deps`
 **Status**: Backlog · **Effort**: S · **Layer**: tooling · **Journey stage**: dependency management

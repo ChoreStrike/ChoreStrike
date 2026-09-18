@@ -8,9 +8,11 @@
 > by the **Coins + task-tier multiplier + personal coin multiplier** model shipped
 > in `cs-plan-002-gamification-simplification` (completion record:
 > [`docs/backlog/archive/2026-03.md`](../backlog/archive/2026-03.md)). The
-> multi-user contribution / leaderboard / streak architecture in this ADR still
-> applies; only the currency naming and reward formula changed. The body is kept
-> verbatim as a historical record.
+> body is retained as a historical decision record, not a current formula or
+> feature specification. Contribution is now energy-only, medals have evolved,
+> and the current streak is availability-day activity rather than planned-rhythm
+> adherence. See [current mechanics and proposed reward options](../concepts/gamification-and-rewards.md)
+> for the implementation baseline and the reopened family-first decisions.
 
 ## Context
 

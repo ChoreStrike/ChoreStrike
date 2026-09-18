@@ -21,6 +21,62 @@ its pruned routes or superseded write bodies are available.
 Contracts: [API](../api/README.md), [task/undo model](task-model-and-sync.md),
 [testing and deterministic gate](../engineering/testing.md).
 
+## Approved Calm UX and Evidence C5 (2026-09-17)
+
+Target behavior, not the shipped inventory above or the historical audit below.
+The [clarification plan](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md)
+records thirteen explicit C5 answers; exact files/APIs/l10n and evidence execution
+remain implementation work.
+
+| Surface | Approved target |
+|---|---|
+| Entry after setup | My Day for adults and children: today's personal agreements and next appointments. Keep planning, household and open requests reachable, without making arcade/catalog/rankings the primary area. |
+| Catch-up/overload | Separate catch-up without stacks of identical cards; show overload as a clarification need, not a demand to clear all accumulated work. |
+| Progress | Small confirmed personal streak/shared weekly progress line, with pending/provisional and neutral states distinguished. A free day is a neutral empty view, not an invitation to manufacture work. |
+| Completion | Short visible confirmation with undo access, no default sound/confetti or interrupting award modal. Playful effects require personal opt-in. |
+| Accessibility | OS reduced-motion overrides animation choices. Errors, status and keyboard focus remain clear without sound/motion; preserve desktop/mobile/keyboard coverage. |
+| Preferences | Server-side per person/house across devices. Each person, including children, controls notification categories, sound/motion and optional-area visibility. No owner opt-in on another person's behalf or shared-device cross-account carryover. |
+| Catalog | Household owner enablement remains necessary; personal hiding does not hide authorized management of existing requests under C4. |
+
+### Consent and Rankings
+
+- Notifications default off and share the
+  [C5 delivery contract](task-model-and-sync.md#approved-delivery-contract-c5-2026-09-17).
+  Opt-out immediately stops unsent notices; departure invalidates opt-ins and
+  rejoin starts quiet/off. Financial retention under C4 is not retained consent.
+- Rankings remain off by default. Household owner enablement only exposes the
+  option; each member must consent themselves. Children may refuse or withdraw.
+- After consent, scoring begins next Monday 00:00 in household time, never the
+  current partial week. Show pending participation without a rank until then.
+  There is no retroactive import of earlier tasks.
+- Compare current-week on-time fulfillment percentage of eligible personal
+  agreements from household-public tasks only, following C1/C2 amendments and
+  week attribution. Open windows make the result provisional. Do not expose private
+  tasks through aggregates, rank by Coins/speed, or use those as tie-breakers.
+  Equal percentages tie; zero opportunities is neutral/unranked.
+- Withdrawal removes the person from visible rankings. Withdrawal, household
+  ranking disablement or rejoin requires fresh personal consent and another
+  next-full-week start. Shared activity is separate; C4 request privacy still applies.
+
+### Family Acceptance Protocol
+
+- After working implementation, conduct a voluntary guided comprehension test
+  with at least one adult and one child, with guardian consent for minors,
+  followed by two weeks of voluntary everyday use. This specifies a future gate,
+  not authorization to contact people or collect their data during clarification.
+- Both participants should find their next agreed task, explain progress and
+  neutral days, and disable optional features without operating help. Exercise
+  pause, catch-up, handover and reward workflows with test cases where needed;
+  never provoke real misses or unnecessary chores for evidence.
+- Technical tests separately cover desktop/mobile and keyboard. Record anonymized
+  feedback on perceived pressure and organizing effort, not engagement targets.
+  No names, child-identifying data or sensitive raw notes in public evidence;
+  any necessary private material stays in the gitignored private area.
+- Missing testers or trial results leaves the required evidence open. Record
+  comprehension failures and pressure problems as findings for resolution, not
+  an assumed passing result. Do not substitute automated UI tests for the family
+  trial without explicit rescoping.
+
 ## Historical Audit (August 2026)
 
 ## Purpose
@@ -273,7 +329,8 @@ preview/apply). **Entry points:** SchedulingView.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Play Snake / Memory / 2048, save score | `SnakeGame`, `MemoryGame`, `Game2048` | `POST /minigames/{g}/scores` | ✅ (save via `endGame`) |
+| Play Snake and save score | `SnakeGame` | `POST /minigames/snake/scores` | Supported |
+| Play Memory / 2048 prototypes | `MemoryGame`, `Game2048` | shared score-save call uses unsupported game IDs | Playable prototypes; no supported score/reward persistence |
 | Personal best / rank / recent scores | ArcadeSection, `SnakeLeaderboard` | `GET /minigames/{g}/personal-best`, `/rank`, `/recent` | ✅ |
 | All-time + weekly game leaderboard | SnakeLeaderboard | `GET /minigames/{g}/leaderboard(/weekly)` | ✅ |
 | Buy boost (coins) | `BoostShop` | `POST /minigames/boosts/{id}/purchase` | ✅ |
@@ -288,7 +345,7 @@ Member (self). **Entry points:** Settings → MemberList (since CS-PLAN-038).
 |---|---|---|---|
 | Member list with roles | MemberList | `GET /users`, `GET /users/current` | ✅ |
 | Invite member (email + role) | MemberList | `POST /users/invite` | ✅ |
-| Change role (incl. promote to owner) | MemberList | `PUT /users/{id}/role` | ⚠️ self/last-owner guard is frontend-only (BUG-SEC-002) |
+| Change role (incl. promote to owner) | MemberList | `PUT /users/{id}/role` | Supported; self-role and last-owner guards enforced by `HouseService` and API tests |
 | Remove member (styled confirm) | MemberList | `DELETE /users/{id}` | ✅ server cleans up assignments |
 | Edit member profile | — | `PUT /users/{id}` | ⛔ pruned (CS-PLAN-055 — route + dead `updateUserProfile` wrapper) |
 | Per-member task statistics | — | `GET /users/{id}/stats`, `GET /room-tasks/user/{id}/stats` | ⛔ pruned (CS-PLAN-040 — dead, CR-SVC-31-flawed metric); per-member history → UC-16 |
@@ -296,12 +353,13 @@ Member (self). **Entry points:** Settings → MemberList (since CS-PLAN-038).
 
 ## UC-14 — Notifications & reminders
 
-**Goal:** pull users back at the right moment. Currently **passive** (server
-jobs only, no settings surface).
+**Goal:** give useful information about agreed chores without engagement
+pressure. Currently server jobs only, with no ChoreStrike settings surface,
+digest aggregation, quiet hours or per-recipient notification budget.
 
 | Action | Where | Endpoint | Status |
 |---|---|---|---|
-| Daily digest + due-today/tomorrow reminders | Nextcloud notifications (job) | background job | ✅ passive |
+| Individual due-today/tomorrow and streak-at-risk reminders | Nextcloud notifications (job) | background job | Implemented; same-day dedup is not a digest or a delivery-time guarantee |
 | Reminder settings per task | — | — | ⛔ concept exists (`task-model-and-sync.md`), no endpoint, no UI |
 | NC-Tasks sync surface | — | `POST /task-sync/*` (6 routes) | ⛔ pruned (CS-PLAN-055 — controller/service/routes deleted; design intent kept marked in [task-model-and-sync.md](task-model-and-sync.md)) |
 
@@ -359,7 +417,7 @@ badges. Shipped with CS-PLAN-040.
 | 09 | claim target size (UX-007); bulk assign + create-form chips ✅ since CS-PLAN-042 / CS-PLAN-038 |
 | 10 | — (suggestion Apply + merged planner surface + owner member-edit ✅ since CS-PLAN-043; overcapacity warning ✅ since CS-PLAN-040 (UC-16)) |
 | 11 | reward-config UI (HTTP surface pruned CS-PLAN-055 — a future config UI needs a re-expose decision) |
-| 12 | — |
+| 12 | Unsupported Memory/2048 score-save integration; reward/arcade disposition in CS-PLAN-070 |
 | 13 | profile edit route pruned (CS-PLAN-055; re-needs expose), leave house (FEAT-UX-015); role guards backend-side ✅ since CS-PLAN-045; per-member history ✅ since CS-PLAN-040 (UC-16) |
 | 14 | reminder-settings concept → FEAT-UX-024; task-sync surface → ⛔ pruned (CS-PLAN-055, FEAT-UX-021 closed) |
 | 15 | complete/assign from a calendar day (W6) |
@@ -375,13 +433,18 @@ No expose-or-prune decision is pre-empted here (neutrality principle of the
 endpoint audit). Decision tags: `build-new` · `expose` (endpoint exists, no
 surface) · `needs-decision` · `post-MVP`.
 
+**2026-09-17 target-scope update:** CS-PLAN-070 now selects calm notifications and
+dated pauses for the reliable core, then an optional family catalog. General
+chore approval and Task Pass remain outside that slice. These explicit product
+decisions update intent below, not the current implementation/route inventory.
+
 ### Group A — documented intent, no surface (7)
 
 | Candidate | Decision tag | Concept-doc source | Backlog |
 |---|---|---|---|
 | ~~Completed-task history & activity log ("who did what when")~~ ✅ built as UC-16 (`GET /house/activity` + `ActivityFeed`) | `build-new` | [design.md §6 "Streak & History"](design.md) | FEAT-UX-016 (closed 2026-08-21) |
 | ~~House insights & fairness view~~ ✅ built as UC-16 (`GET /house/stats` exposed, capacity-normalized fairness) | `expose` + `build-new` | [energy-and-balancing.md](energy-and-balancing.md) (fairness constraints) | FEAT-UX-017 (closed 2026-08-21) |
-| Task-approval workflow for children (needs-review state, owner queue) | `needs-decision` | [design.md §5](design.md) + [gamification-and-rewards.md](gamification-and-rewards.md) (open decisions) | FEAT-UX-018 |
+| General child task-approval queue | Deferred outside CS-PLAN-070; completion remains immediate | [Approved reward/approval distinction](gamification-and-rewards.md) | FEAT-UX-018 |
 | Task Pass & support actions (gag mechanic) | `post-MVP` | [gamification-and-rewards.md "Task Pass"](gamification-and-rewards.md) | FEAT-UX-019 |
 | ~~Streak-freeze visibility~~ ✅ built as UC-16 (Leaderboard freeze badges; `lastFreezeDate` serialized) | `build-new` | [gamification-and-rewards.md "Streak freezes"](gamification-and-rewards.md) | FEAT-UX-020 (closed 2026-08-21) |
 | ~~NC-Tasks sync surface (link/pending/conflict; 6 backend-only routes)~~ ⛔ pruned (CS-PLAN-055 — closed as moot; design intent kept marked in the concept doc) | ~~`needs-decision`~~ resolved-pruned | [task-model-and-sync.md](task-model-and-sync.md) | FEAT-UX-021 (closed 2026-08-29) |
@@ -395,13 +458,13 @@ surface) · `needs-decision` · `post-MVP`.
 | Candidate | Decision tag | Source | Backlog |
 |---|---|---|---|
 | Onboarding & help layer (tour, glossary, contextual hints) | `build-new` | Usability review 2026-08-20 (UX-007 vocabulary) | FEAT-UX-023 |
-| Notification settings (digest toggle, quiet hours) | `build-new` | UC-14 reminders are passive-only | FEAT-UX-024 |
-| Vacation / house-pause mode | `post-MVP` | Review whitespace 2026-08-21 | FEAT-UX-025 |
-| Real-world reward shop (coins → owner-defined rewards) | `post-MVP` | [gamification-and-rewards.md](gamification-and-rewards.md) (reward language policy) | FEAT-UX-026 |
+| Notification settings (opt-in summary, quiet hours) | Selected for the reliable core; not implemented | CS-PLAN-070 D9 | FEAT-UX-024 |
+| Dated member/house pauses, with child approval | Selected for the reliable core; not implemented | CS-PLAN-070 D4 | FEAT-UX-025 |
+| Optional family reward catalog | Selected after the reliable core; not implemented | [Approved target](gamification-and-rewards.md) | FEAT-UX-026 |
 | Print view (weekly plan / calendar) | `post-MVP` | Review whitespace 2026-08-21 | FEAT-UX-027 |
 | Global search across tasks | `expose` (`GET /tasks/search`, dead wrapper) | Endpoint audit 2026-08-21 | FEAT-UX-028 |
 | Bulk maintenance ops (reschedule overdue, seasonal deactivate) | `post-MVP` | Review whitespace 2026-08-21 | FEAT-UX-029 |
-| A11y & kids-mode conventions (keyboard/SR/reduced-motion, mobile-first; simplified child surface = open question) | `build-new` | Usability review 2026-08-20 (UX-007, UX-010) | FEAT-UX-030 |
+| A11y & child My Day baseline implemented; planning-first quiet defaults and opt-in ranking selected | Baseline delivered in CS-PLAN-066; new target in CS-PLAN-070 D10, not implemented | [Product vision](product-vision.md) | FEAT-UX-030 (historical); new scope owned by CONCEPT-001 |
 | Error/empty/offline-state conventions | `build-new` | Review whitespace 2026-08-21 | FEAT-UX-031 |
 
 ---

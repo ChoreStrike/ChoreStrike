@@ -11,16 +11,22 @@ description: ChoreStrike gamification domain model — coins, combos, medals, en
 - [`gamification-and-rewards.md`](../../../../concepts/gamification-and-rewards.md)
 - [`energy-and-balancing.md`](../../../../concepts/energy-and-balancing.md)
 - [ADR-004: Multi-User Gamification](../../../../adr/ADR-004-multi-user-gamification.md)
-- [ADR-005: Smart Scheduling](../../../../adr/ADR-005-smart-scheduling.md)
+- [ADR-012: Actionable Household Scheduling](../../../../adr/ADR-012-actionable-household-scheduling.md)
+
+**Current versus intended behavior:** the concept document explicitly separates
+the available-day activity model from the proposed family-rhythm/reward rules.
+Do not implement proposals as if already approved, or describe absence handling
+as proof of obligation-aware streaks. ADR-004 retains historical formulas.
 
 ---
 
 ## Core Systems
 
-### 1. Contribution Score (permanent)
-- Lifetime points reflecting actual work done.
+### 1. Contribution Score
+- Credited task energy reflecting work done, separate from spendable Coins.
 - Incremented by the task's energy cost on each completion (`GameLogicService::calculateContributionScore`).
-- Never decreases. Used for role title progression.
+- Used for role title progression. Undo restores the recorded before-state;
+  cross-event preservation is a known follow-up, not a never-decreases guarantee.
 
 ### 2. Coins (renewable currency)
 - Earned on task completion, with combo and early-completion bonuses.
@@ -29,8 +35,9 @@ description: ChoreStrike gamification domain model — coins, combos, medals, en
 
 ### 3. Weekly Medals (recognition)
 - Catalogue (`lib/Db/Medal.php`): `team_anchor`, `flow_keeper`, `room_guardian`, `team_player`, `streak_keeper`.
-- All five types are awarded weekly by `GameLogicService::checkAndAwardMedals()`: `team_anchor` (10+ tasks/week), `streak_keeper` (7+ day streak), `flow_keeper` (4+ distinct active days), `room_guardian` (5+ completions in one room), `team_player` (3+ combo bonuses). Reset weekly.
-- Live award path: `GameLogicService::awardMedalIfNew()` (race-safe via unique-constraint handling).
+- All five types are evaluated by `MedalService::checkAndAwardMedals()`;
+  thresholds and their activity-based limitations are in the canonical concept.
+- Live award path: `MedalService::awardMedalIfNew()` (race-safe via unique-constraint handling).
 
 ### 4. Combos
 - Consecutive completions by the **same user** (≥2 recent completions) double coins: `coins *= 2` in `GameLogicService::calculateCoins()`. This is a **personal** combo, not the cooperative ×1.5 multi-user concept from the foundational design.
@@ -40,7 +47,8 @@ description: ChoreStrike gamification domain model — coins, combos, medals, en
 ### 5. Energy Model
 - Each task costs 1–5 energy (~5 min per unit).
 - Members define daily energy budgets and presence days.
-- Scheduler distributes tasks against capacity; never assigns on unavailable days.
+- Owner plan placement checks capacity/availability. Recurrence advancement is
+  separate; shared-placement and override gaps are documented in the concept.
 
 ### 6. Config-driven reward tokens (defaults in `RewardConfigService`)
 Coins (`coin_base_per_energy` 10), tier multipliers (bronze/silver/gold 1.0/1.5/2.0), early bonus (`early_bonus_multiplier` 1.5, threshold 21d), streak freezes (`streak_freezes_per_week` 1, `streak_freeze_cap` 2), combo bonus freeze (`combo_bonus_freeze_threshold` 5), teamwork bonus (`teamwork_bonus_enabled`, `teamwork_bonus_max_pct` 50), weekly goal (`weekly_goal_target_percent` 80), role titles (`titles_enabled`, `title_threshold_*`). Full table: [`gamification-and-rewards.md`](../../../../concepts/gamification-and-rewards.md) § Implemented Reward Mechanics.
@@ -49,7 +57,8 @@ Coins (`coin_base_per_energy` 10), tier multipliers (bronze/silver/gold 1.0/1.5/
 
 | Service | Responsibility |
 |---------|---------------|
-| `GameLogicService` | Core reward calculation on task completion, combo detection, and weekly medal evaluation (`awardMedalIfNew`, race-safe via unique-constraint handling) |
+| `GameLogicService` | Core reward calculation and personal combo detection |
+| `MedalService` | Weekly medal evaluation and race-safe awards |
 | `RewardConfigService` | Instance-global reward configuration stored in Nextcloud app config |
 | `SchedulingService` | Live scheduling API (preferences, energy, availability, suggestions) |
 
@@ -65,9 +74,12 @@ Coins (`coin_base_per_energy` 10), tier multipliers (bronze/silver/gold 1.0/1.5/
 
 ## Design Rules
 
-- **No punishment loops.** Missing tasks never subtract coins or break streaks punitively.
-- **Absence-safe:** unavailable days never break streaks or count as missed.
-- **Cooperative > competitive:** shared progress bars, team streaks, weekly team goals.
+- **Target: no punishment loops.** Current available-day streaks can reset even
+  without due chores; this must not be advertised as the requested rhythm model.
+- **Absence handling:** unavailable gap days are excluded; dated pause and
+  obligation-based protection remain undecided.
+- **Cooperative > competitive:** shared progress is preferred; team streaks and
+  ranking opt-out are not implemented guarantees.
 - **Configurable formulas:** reward calculations are policy, not hardcoded constants.
 - **Family-friendly language:** no military/aggressive terms. Use "Coins", not "points" or "XP".
 - **Fairness normalization:** compare contribution relative to available capacity, not raw counts.

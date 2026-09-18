@@ -14,15 +14,16 @@ and a friendly leaderboard — all inside their own Nextcloud.
 - **One shared household**: The first person who opens the app becomes the
   owner and sets up floors and rooms with a guided wizard. Everyone else
   joins through **email invitations** — invite-only, no self-enrollment.
-- **Fair planning, not nagging**: The owner previews a weekly plan
+- **Fair planning**: The owner previews a weekly plan
   (who does what on which day) against each member's availability and daily
   energy budget, adjusts it, and applies it once — nothing changes until
   the plan is applied.
-- **Motivation without punishment**: Completing tasks earns coins,
-  contribution and streaks (with streak freezes as a safety net); rooms have
-  a cleanliness score and the household has a shared house-health value.
+- **Motivation as the goal**: Completing tasks earns coins and contribution;
+  current streaks measure available-day activity, not yet fulfillment of a
+  self-chosen chore rhythm. Rooms and the household show cleanliness/health.
 - **Built for families**: Children get the child role with their own
-  simplified "My Day" view and an owner-set daily task limit.
+  simplified "My Day" view and an owner-set planning/due-today limit. This
+  does not yet bound the whole overdue catch-up workload.
 
 ## Key Features (shipped)
 
@@ -35,18 +36,24 @@ and a friendly leaderboard — all inside their own Nextcloud.
   preview → adjust → apply scheduling, capacity and fairness aware, with
   child daily-task limits.
 - **Execution** — a My Day view for every member, one-tap completion with
-  an exact, reversible undo, overdue claiming with takeover protection.
+  recorded-state undo, overdue claiming with takeover protection. Cross-event
+  undo correctness remains a [review follow-up](docs/plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md).
 - **Gamification** — coins, contribution scores, streaks and streak
-  freezes, combo and teamwork bonuses, weekly medals, titles, and an
-  arcade with three minigames (Snake, 2048, Memory) and a boost shop.
+  freezes, combo and teamwork bonuses, weekly medals, titles,
+  Snake score/reward integration and a boost shop. Reachable 2048/Memory
+  prototypes do not support score persistence or rewards.
 - **Insights** — activity feed, member fairness table, and overcapacity
   warnings before a plan is applied.
 - **Notifications** — Nextcloud notifications for relevant household
   events (e.g. streak-saving claims).
 - **Two languages** — English and German, fully translated.
 
-Not (yet) implemented: task approval workflows, external-calendar sync,
-mobile apps. See the [roadmap](docs/release/roadmap.md).
+Not (yet) implemented: rhythm-based streaks, notification preferences/quiet
+hours, real-world reward redemption, task approval workflows, external-task
+sync or standalone mobile apps. The
+[product vision](docs/concepts/product-vision.md) distinguishes the family-first
+target from today's implementation. The app is free and MIT-licensed; running
+a Nextcloud instance may still have hosting costs.
 
 ## Installation
 

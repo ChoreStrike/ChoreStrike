@@ -44,6 +44,7 @@ Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the
 ## Product and Concept Context
 
 - [`concepts/product-vision.md`](concepts/product-vision.md) — product intent and positioning
+- [Family rhythm and reward clarification](plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md) - concept review, approved core choices and remaining implementation contracts (draft, not activated)
 - [`concepts/design.md`](concepts/design.md) — foundational concept & UX design document
 - [`concepts/ui-use-cases.md`](concepts/ui-use-cases.md) — use-case/workflow inventory of required GUI elements & actions (with endpoint + status mapping)
 - [`concepts/gamification-and-rewards.md`](concepts/gamification-and-rewards.md) — reward model and motivation design

@@ -14,7 +14,15 @@ docs/plans/
 
 ## Lifecycle
 
-Current active plan: none.
+Current active plan: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md).
+Core product direction was approved through 24 explicit answers on 2026-09-17.
+The same day, 47 additional C1-C5 answers (6/11/9/8/13) resolved the presented
+product questions. The technical draft added on 2026-09-18 specifies persistence,
+APIs, transactions/races, exact files/tests and ten work packages (48-76 engineering
+days before contingency, plus a two-week family observation gate). Q-070-01/02 were
+resolved (tombstoned minimum-history deletion retention; account erasure) and
+Standard A passed with `PASS-WITH-FIXES` on 2026-09-18; no runtime behavior is
+implemented yet.
 
 Latest completed: [CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](done/cs-plan-058-core-workflow-bottom-up-masterplan.md)
 (WP0–WP9 delivered; program final Full review `PASS-WITH-FIXES` 2026-09-14

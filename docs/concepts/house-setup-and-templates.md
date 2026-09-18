@@ -168,9 +168,15 @@ in [i18n-and-content-policy.md](i18n-and-content-policy.md).
 - **Member management** (CS-PLAN-038): invite/role-change/remove are
   owner-gated (`requireHouseOwner`) in the backend; the Settings Members
   section mirrors the gate via `userStore.isHouseOwner`. The wizard invite step
-  also runs post-apply for the (first-run) owner. Known gap: `updateRole` has
-  no self/last-owner guard yet (**BUG-SEC-002**); the UI disables changing
-  one's own role as mitigation.
+  also runs post-apply for the (first-run) owner. Self-role changes and last-owner
+  demotion are rejected by `HouseService`, with API regression coverage in
+  `RoleGuardApiTest`; the disabled UI control mirrors these backend guards.
+
+Family membership uses existing Nextcloud accounts, including children; the app
+does not create local child profiles or offer a shared-device profile switcher.
+The wizard's invite step creates members; a child role is selected through
+Settings member management. Account provisioning and sign-in must therefore be
+part of a family's onboarding instructions, not assumed to happen in the wizard.
 
 ## 8. Legacy removal (decision D7)
 

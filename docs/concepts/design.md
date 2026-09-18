@@ -9,6 +9,12 @@
 > reward currency became Coins). Treat the monster mockups below as historical inspiration, not
 > shipped behaviour.
 
+> **Family-first clarification (2026-09-16):** this document is historical
+> inspiration, not the current backlog or a shipped-feature checklist. Tower
+> defense, Task Pass, child approval and daily-streak ideas below are not approved
+> requirements for the new direction. Use the current product vision and
+> [reward options](gamification-and-rewards.md#reward-options-for-a-family-first-app).
+
 ## 🎯 Vision
 
 ChoreStrike transforms household chores into a cooperative game that motivates rather than punishes. Through gamification with tower defense elements, cleaning becomes a satisfying, visual experience.
@@ -41,7 +47,7 @@ ChoreStrike transforms household chores into a cooperative game that motivates r
 ### 5. Multi-User Support
 - Invite household members
 - Cooperative progress tracking
-- Task approval workflow for children
+- Task approval workflow for children (unimplemented proposal; completion is currently immediate)
 - Fair workload distribution
 
 ### 6. Streak & History
@@ -105,7 +111,7 @@ Chaos (0%)      → Monsters cover UI elements (meta-level!)
 > **Implementation reality (CS-PLAN-012):** the shipped medal enum (see `lib/Db/Medal.php`) is
 > `team_anchor` (≈ The Tank), `flow_keeper` (≈ The Scout), `room_guardian` (≈ The Specialist),
 > `team_player` (≈ The Teamplayer), `streak_keeper` (The Streak Keeper). **All five are awarded**
-> in the live `GameLogicService::checkAndAwardMedals()` flow:
+> in the live `MedalService::checkAndAwardMedals()` flow:
 > - `team_anchor` — 10+ task completions in the week
 > - `streak_keeper` — 7+ day streak
 > - `flow_keeper` — 4+ distinct active days in the week

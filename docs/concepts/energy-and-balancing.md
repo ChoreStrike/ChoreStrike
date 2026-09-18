@@ -12,6 +12,10 @@ Replace abstract difficulty stars with a practical effort model that improves fa
 
 ## Estimated Duration Table
 
+The ranges below are rough household examples, not a second exact conversion
+formula. The current stored/validated scale is 1-5; the household should agree
+what each level means rather than turn children's effort into timed competition.
+
 | Energy | Approximate effort |
 |---|---|
 | 1 | 5-10 minutes |
@@ -44,7 +48,9 @@ Balancing must exclude unavailable days from assignment calculations.
 
 ### Fairness constraints
 
-- Never assign tasks to members on unavailable days.
+- Target: do not place work on a member's unavailable days. The owner planner
+  checks availability, but recurrence advancement is separate: zero flexibility
+  or no available slot in the flex window can retain an unavailable base date.
 - Weekly fairness comparisons should normalize by each member's available energy capacity, not by raw task count.
 
 **Implemented (CS-PLAN-040):** the Insights `MemberFairnessTable` normalizes
@@ -56,7 +62,11 @@ the member's available weekdays from their serialized
 Contribution score and coins are always shown as separate columns — they are
 never merged into one metric.
 
-## Balancing Strategy (MVP)
+## Balancing Strategy (Original Intent)
+
+This is the original heuristic, not an autonomous rescheduling guarantee.
+The current confirmed-preview workflow and hard constraints are described in
+*Plan Capacity* below and [ADR-012](../adr/ADR-012-actionable-household-scheduling.md).
 
 1. Filter tasks by due window.
 2. Exclude members unavailable on each day.
@@ -98,19 +108,95 @@ authoritative server-side sources — never from client-side counters:
    completion is no longer planned work.
 
 Availability, energy capacity and the owner-set child daily-task limit
-(`maxDailyTasks`, 1-100, decision D5) are **hard placement constraints**:
-the plan never creates a new overload, an unavailable assignment or a
-child-limit violation. Existing unavoidable overload is reported
+(`maxDailyTasks`, 1-100, decision D5) are the **documented hard placement
+constraints**. Existing unavoidable overload is reported
 (`EXISTING_OVERLOAD` on unchanged/unplaced rows), never silently fixed.
+
+**Review limitations (2026-09-16):** current placement can accept an override
+outside `legalDates`, and preserved/shared assignee sets can pass after checking
+only one member. Therefore the implementation does not yet uphold these
+constraints for every override and participant. The
+[family-rhythm plan](../plans/new/cs-plan-070-family-rhythm-and-reward-clarification.md)
+tracks both correctness gaps separately from the product decisions.
 
 The former `todayConsumedEnergy` client counter (incremented per completion,
 read by nobody) was removed with CS-PLAN-065 (decision D7, closes
 CR-055-01); the E2E daily/range projections in this document remain the
 canonical display sources.
 
-## Open Decisions
+## Approved Target (2026-09-17; Not Yet Implemented)
+
+- Task energy represents the **total** effort, split visibly between participants
+  in both planning and contribution/coin credit. More names do not multiply the
+  budget or produce a second full reward. This deliberately replaces the current
+  full-effort-per-assignee model described above.
+- Normal chores have one responsible member with optional helpers. Explicit joint
+  chores require each participant's availability and their agreed share of capacity;
+  an available adult cannot make an unavailable child's assignment valid.
+- Personal streak credit requires actual participation. A pre-deadline agreed
+  handover releases the former responsible person neutrally, not as an earned
+  success. Unplanned substitution alone does not rescue their obligation.
+- Ordinary date/window amendments are agreed before the existing deadline;
+  after it expires, catching up does not rewrite the missed history. Recognized
+  retrospective illness is a separate traceable owner decision.
+
+### Approved Whole-Day Capacity C2 (2026-09-17)
+
+Target behavior only; these rules are not enforced by the current daily filter
+or all existing completion paths.
+
+- New planning, takeovers and offered optional work must account jointly for work
+  already completed and outstanding daily commitments: regular, catch-up, early
+  work and voluntary help. Use the child's own energy share and count each
+  participated occurrence once toward the task limit. Never count an occurrence
+  twice merely because it moved from planned to completed.
+- At either daily limit, add no extra commitments or offers. Owners must replan
+  within the limits instead of bypassing them with a per-item override. Existing
+  overload remains visible; silently hiding excess obligations is not recovery.
+- Actual work remains immediately recordable, with normal effort credit, even
+  if it exceeded the plan's limit. Show overload neutrally, stop offering extra
+  work and have the owner clarify remaining commitments. Do not erase reality,
+  create an extra unplanned-day streak step or repair a historical miss.
+- A recognized pause never automatically increases someone else's effort share.
+  A remaining joint-work plan needs an explicit owner-recorded agreement before
+  the deadline and must fit every participant's capacity; see the
+  [agreement contract](task-model-and-sync.md#approved-agreement-contract-c2-2026-09-17).
+
+### Approved Effort Allocation C3 (2026-09-17)
+
+Target rules only; current per-assignee accounting is not changed by this document.
+
+- Propose equal shares among planned participants unless otherwise agreed; a solo
+  responsible person starts at 100%. The authorized completer confirms/corrects
+  actual participants and shares, explicitly reviewing deviations from the plan,
+  without a new owner approval queue.
+- Each actual participant has a positive whole-percent share; shares total 100%,
+  so at most 100 actual participants are supported per completion. Split an equal
+  proposal using a stable immutable-member order for remainders, independent of
+  input order, display names and role. Show the resulting shares before confirmation.
+- For energy 1 and three equal participants, use 34/33/33%: 0.34/0.33/0.33 energy
+  and 3.4/3.3/3.3 Coins at the fixed rate of 10. Preserve total effort and total
+  Coins exactly; do not round each participant independently into a larger reward.
+- Energy and Coins support up to two decimal places. Use exact integer hundredths:
+  for integer task energy E and whole percentage P, energy hundredths = E * P and
+  Coin hundredths = 10 * E * P. No floating-point conservation errors.
+- After a real completion, correcting only attribution preserves the occurrence,
+  actual time, total effort and room effect. Correct each affected person's
+  allocation/credit and rhythm contribution, including removed participants;
+  see the [correction contract](task-model-and-sync.md#approved-correction-contract-c3-2026-09-17).
+
+## Open Details
 
 - Whether energy costs can be personalized per member based on age/ability.
+- Exact persistence/concurrency enforcement for the approved owner-recorded
+  agreements, aggregate capacity and C3 actual-share reconciliation; policy and
+  precision are approved, not an implemented database/API contract.
+- C5 local-day/UI integration of the approved pause restart and complete workload
+  model. These are not permission to
+  weaken the limits or block legitimate recording of already completed work.
+
+Availability is a capacity constraint, not a daily obligation. A rhythm streak
+must derive from agreed due occurrences, not from every weekday marked available.
 
 ## See Also
 
