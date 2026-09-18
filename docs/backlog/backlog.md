@@ -379,6 +379,9 @@ add-on owners remain; notification/pause work belongs
 to the selected core and the optional catalog follows it. Chore approval/Task Pass,
 external sync, local child profiles, cosmetics and non-Snake games are outside
 this delivery slice. No implementation started or item completed by this decision.
+WP0 (write/identity foundation) is sub-planned by the active child
+[CS-PLAN-071](../plans/active/cs-plan-071-wp0-write-identity-foundation.md)
+(Standard A `PASS-WITH-FIXES`, 2026-09-18); runtime work may start there.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

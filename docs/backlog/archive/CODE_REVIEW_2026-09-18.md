@@ -121,3 +121,117 @@ Standard A checklist (plan-only plus shared ChoreStrike criteria):
 
 **Review Completed**: 2026-09-18
 **Next Review**: final Standard B or Full review after WP0-WP9 (G3)
+
+---
+
+# Code Review: CS-PLAN-071 Standard A (Plan Activation)
+
+**Review Date**: 2026-09-18
+**Reviewer**: Main implementation agent (Kilo, skills: review / plan-management / git-workflow)
+**Tier**: Standard A — plan review before `new/ → active/`
+**Scope**: `docs/plans/new/cs-plan-071-wp0-write-identity-foundation.md` (506 lines, untracked)
+**Base Commit**: `master` @ `4d82eeade93fa8e7b91219323f96275bf8017e19`
+
+## Scope And Capture
+
+- Branch `master`, HEAD `4d82eea`, index empty (no staged changes).
+- Reviewed scope fingerprint: plan file SHA256
+  `8D1BEF36E3EB2E8C66F694D2B041968D7F6B7688B67E90FD0C230C355455CF79`;
+  it was the sole untracked path; no unstaged tracked-file diffs. The three
+  deleted `docs/plans/{new,active,onhold}/.gitkeep` are unrelated
+  pre-existing changes — preserved unstaged, as in the CS-PLAN-070 review
+  above.
+- Standard A preconditions: exactly one regular non-symlink `*.md` plan in
+  `docs/plans/new/` (the explicitly requested target); destination
+  `active/cs-plan-071-…md` did not exist.
+- Owning plan: the target itself — child of active CS-PLAN-070, scoped to
+  its §6 WP0. No overlap: it executes a parent-defined work package and
+  defers every product decision to the parent's registers.
+
+## Review Verification
+
+- Template compliance: header + §1-§9 complete, plus a §10 decision register.
+- Parent consistency: §2 quotes the parent §6 WP0 deliverable verbatim;
+  §3.4 lock order equals parent §3.5; §3.1 schema equals parent §3.2
+  (`commands`/`wallets`/`wallet_entries`, D10 slice); §4 T0 file set equals
+  the parent's Concrete Test Ownership row; §5 manifest equals the parent
+  WP0 row plus audit-justified read-path additions (D9); RF-070-16/17
+  WP0-portion ownership matches parent §9 (they close only with WP3/WP7).
+- Runtime verification at HEAD (one docs-only commit after the plan's
+  recheck revision `19461666`; runtime identical): every §1 baseline claim
+  confirmed — `TransactionExecutor.php:24-56` dual entry orders;
+  `RoomService.php:193-197` evidence-deleting cascade shared by
+  `FloorService:183`/`RoomTaskService:400`; `HouseService.php:172-186`
+  member removal deleting the wallet-bearing `house_users` row;
+  `Application.php` registers only the notifier; no wallet/command/receipt
+  code anywhere in `lib/`; migrations end at `Version1029` (`Version1030`
+  free); `uniq_rt` is (`room_id`,`task_id`) at `Version1000:103`;
+  `is_active` filters span `RoomTaskMapper.php:102-578`;
+  `TestDataService::reset:147`, `HouseService::resetHouse:381`,
+  `minigame_scores` (Version1016), `lib/Command/TriggerJobs.php`, all 40+
+  manifest `M` files, all nine regression-net concurrency/idempotency test
+  classes and all gate scripts exist. `OCP\User\Events\UserDeletedEvent`
+  rests on the parent Standard A verification (local vendor ships no OCP
+  stubs; OCP resolves in the Nextcloud Docker runtime).
+- Backlog ownership: CONCEPT-001 `In Progress`, CR-SVC-63 open — both as the
+  plan header claims; no parallel backlog items introduced.
+- Rules compliance: fresh-install chain edits only (no backfills/shims); no
+  routes/API surface change (`routes.php`/`docs/api/README.md`/
+  `RouteMatrixTest` untouched); erasure not exposed as an app API;
+  authorization unchanged; dormant-wallet firewall (D1/D2) explicitly
+  prevents a dual-authority balance.
+
+## Findings And Resolutions
+
+- **1 minor (fixed):** §3.2/§3.4 cited `HouseService::addMember`
+  (invitation acceptance) — no such method exists; membership is persisted
+  by `HouseService::inviteMember` (`HouseService.php:109`, called by
+  `UserController::invite`) with no separate acceptance step (parent §3.4
+  route table). Objectively wrong runtime reference → auto-fixed in the
+  plan (§3.2 wording, §3.4 target list).
+- Otherwise 0 block / 0 major / 0 nit.
+
+## Decisions
+
+- §10 D1-D11 ratified unchanged by this review: every entry traces to the
+  parent's authoritative decision logs and adds no new product behavior,
+  security surface or migration policy. No user decision was open (the
+  parent's Standard A had already resolved Q-070-01/02 and validated the
+  underlying technical contracts), so no batched question was required;
+  ratification is recorded here and in the plan's Review Outcome.
+
+## Tests and Validation
+
+- `npm run backlog:check` → pass (after the move-related link repair,
+  tracking updates and this record).
+- `npm run docs:encoding` → pass.
+- `git diff --check` → pass (whitespace clean).
+- Runtime suites (Jest / PHPUnit / E2E) not required: documentation-only
+  round; runtime paths and index unchanged.
+
+## Documentation and Backlog Changes
+
+- Plan fixed (inviteMember), annotated with the Standard A Review Outcome,
+  depends-on link repaired for the folder move, and moved `new/ → active/`.
+- `docs/backlog/backlog.md`: CONCEPT-001 WP0 sub-plan annotation.
+- `docs/plans/README.md`: active-plans listing extended with CS-PLAN-071.
+- `docs/backlog/ACTIVE_TASKS.md`: activation one-liner added.
+- This review record appended.
+
+## Outcome
+
+- **`PASS-WITH-FIXES`** — the single finding was fixed; documentation gates
+  green.
+- Plan transition: `new/ → active/` performed; CONCEPT-001 stays
+  `In Progress`.
+- Scoped commit: one conventional commit containing the moved plan, the
+  tracking updates and this record; unrelated pre-existing `.gitkeep`
+  deletions excluded (unstaged).
+- Next step: implement WP0 per the plan's §6 order (audit → schema →
+  identity → receipts → locking → tombstones → erasure → seed/reset →
+  gates → Standard B review).
+
+---
+
+**Review Completed**: 2026-09-18
+**Next Review**: Standard B after CS-PLAN-071 (WP0) implementation
