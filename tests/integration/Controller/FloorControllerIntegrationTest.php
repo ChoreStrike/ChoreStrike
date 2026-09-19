@@ -245,7 +245,9 @@ class FloorControllerIntegrationTest extends IntegrationTestCase {
 
 		self::assertSame(200, $response->getStatus());
 		self::assertTrue($response->getData()['success']);
-		self::assertFalse($this->floorExists($floorId), 'the floor must be gone');
+		// CS-PLAN-071 (Q-70-01): deletion tombstones — the row survives with
+		// deleted_at set and vanishes from the active-planning reads.
+		self::assertTrue($this->floorTombstoned($floorId), 'the floor must be tombstoned (deleted_at set)');
 	}
 
 	/**
@@ -263,15 +265,26 @@ class FloorControllerIntegrationTest extends IntegrationTestCase {
 		return $this->instanceHouseId;
 	}
 
+
 	private function floorExists(int $floorId): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*', 'count'))
 			->from('chorestrike_floors')
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($floorId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($floorId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)));
 		$result = $qb->executeQuery();
 		$count = (int)$result->fetchOne();
 		$result->closeCursor();
 
 		return $count > 0;
+	}	private function floorTombstoned(int $floorId): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('deleted_at')
+			->from('chorestrike_floors')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($floorId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$deletedAt = $result->fetchOne();
+		$result->closeCursor();
+
+		return $deletedAt !== false && $deletedAt !== null;
 	}
 }

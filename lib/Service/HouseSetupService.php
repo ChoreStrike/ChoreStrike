@@ -55,6 +55,7 @@ class HouseSetupService {
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private HouseUserMapper $houseUserMapper;
+	private WalletService $walletService;
 	private TemplateService $templateService;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
@@ -69,6 +70,7 @@ class HouseSetupService {
 		RoomTaskMapper $roomTaskMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
 		HouseUserMapper $houseUserMapper,
+		WalletService $walletService,
 		TemplateService $templateService,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
@@ -82,6 +84,7 @@ class HouseSetupService {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->houseUserMapper = $houseUserMapper;
+		$this->walletService = $walletService;
 		$this->templateService = $templateService;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
@@ -115,16 +118,10 @@ class HouseSetupService {
 		// list / task-materialization pass as the user-defined rooms.
 		$this->injectAutoRooms($floors, $options);
 
-		$createdTasks = [];
-		$skipped = [];
-		$taskCount = 0;
-		$roomTaskCount = 0;
-		$roomCount = 0;
 		$nextDue = new \DateTime();
 		$nextDue->add(new \DateInterval('P1D'));
 
-		$this->transactions->begin();
-		try {
+		$outcome = $this->transactions->run(function () use ($houseId, $floors, $level, $houseName, $nextDue): array {
 			// First lock of the documented order (house → room_task →
 			// task/assignee/reward): serialize concurrent applies on the
 			// house row before the first-run gate recheck (CS-PLAN-062 §3.1).
@@ -144,6 +141,13 @@ class HouseSetupService {
 			// leave assignee rows for a former member.
 			$this->revalidateAssignees($floors, $houseId);
 
+			// CS-PLAN-071 WP0: the owner and every invited member carry
+			// their persistent wallet from this transaction on (identity
+			// only — dormant balances, no API exposure, decision D1).
+			// Membership creation paths (bootstrap, invite) normally bind
+			// it already; this is the belt-and-suspenders creation point.
+			$this->ensureWallets($houseId);
+
 			// The house name is part of the setup command (CS-PLAN-062 §3.2):
 			// written to the locked house row inside the same transaction, so
 			// a failed apply can no longer leave a renamed/defaulted house.
@@ -152,6 +156,12 @@ class HouseSetupService {
 				$house->touch();
 				$this->houseMapper->update($house);
 			}
+
+			$createdTasks = [];
+			$skipped = [];
+			$taskCount = 0;
+			$roomTaskCount = 0;
+			$roomCount = 0;
 
 			foreach ($floors as $floorIndex => $floor) {
 				$floorEntity = $this->floorMapper->create($houseId, $floor['name'], $floorIndex);
@@ -228,21 +238,24 @@ class HouseSetupService {
 				}
 			}
 
-			$this->transactions->commit();
-		} catch (\Throwable $e) {
-			$this->transactions->rollBack();
-			throw $e;
-		}
+			return [
+				'house' => $house,
+				'roomCount' => $roomCount,
+				'taskCount' => $taskCount,
+				'roomTaskCount' => $roomTaskCount,
+				'skipped' => $skipped,
+			];
+		});
 
 		return [
 			'floors' => count($floors),
-			'rooms' => $roomCount,
-			'tasks' => $taskCount,
-			'roomTasks' => $roomTaskCount,
-			'skipped' => $skipped,
+			'rooms' => $outcome['roomCount'],
+			'tasks' => $outcome['taskCount'],
+			'roomTasks' => $outcome['roomTaskCount'],
+			'skipped' => $outcome['skipped'],
 			// The effective name (a provided houseName is echoed so the wizard
 			// can confirm it; otherwise the existing name).
-			'houseName' => $house->getName(),
+			'houseName' => $outcome['house']->getName(),
 		];
 	}
 
@@ -406,6 +419,23 @@ class HouseSetupService {
 					);
 				}
 			}
+		}
+	}
+
+	/**
+	 * Ensure every member (owner + invited members) carries their
+	 * persistent wallet inside the apply transaction (CS-PLAN-071 WP0,
+	 * decision D1): create the wallet when absent and bind its id on the
+	 * house_users row. Identity only — dormant zero balances, never exposed
+	 * through an API; the legacy `house_users.coins` writers stay
+	 * authoritative until WP3. At setup time the membership set IS the
+	 * owner-plus-invitees set.
+	 *
+	 * @param int $houseId The locked house ID
+	 */
+	private function ensureWallets(int $houseId): void {
+		foreach ($this->houseUserMapper->findByHouseId($houseId) as $member) {
+			$this->walletService->ensureBinding($houseId, $member);
 		}
 	}
 

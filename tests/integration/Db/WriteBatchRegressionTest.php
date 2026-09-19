@@ -89,7 +89,31 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 			->from($tableName)
 			->where($qb->expr()->in($column, $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
 
-		return (int)$qb->executeQuery()->fetchOne();
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $count;
+	}
+
+	/**
+	 * Count the given rows that are TOMBSTONED (deleted_at set — the
+	 * CS-PLAN-071 structural-deletion marker).
+	 */
+	private function countTombstoned(string $tableName, array $ids): int {
+		if ($ids === []) {
+			return 0;
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*'))
+			->from($tableName)
+			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->isNotNull('deleted_at'));
+
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $count;
 	}
 
 	private function insertCompletion(int $roomTaskId, int $houseUserId): void {
@@ -180,10 +204,11 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * The D1/D2 orphan-free proof: deleting a room removes its room
-	 * tasks AND every dependent row (checklist progress, assignees,
-	 * completions) across all five tables, while a sibling house's
-	 * identical structure survives.
+	 * The Q-70-01 tombstone contract: deleting a room TOMBSTONES the room
+	 * and its room tasks (rows survive with deleted_at, invisible to the
+	 * active-planning reads), deletes the active-planning dependents
+	 * (checklist progress, assignees) and RETAINS the completed_tasks
+	 * evidence, while a sibling house's identical structure survives.
 	 */
 	public function testDeleteRoom_CascadesAllFiveTablesOrphanFree(): void {
 		$houseA = $this->createHouse('wbatch_del_a', 'Delete House A');
@@ -220,23 +245,33 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		$this->actingAs('wbatch_del_a');
 		$this->roomService->deleteRoom($roomA);
 
-		// All five tables are empty for house A's ids.
-		self::assertSame(0, $this->countRows('chorestrike_room_tasks', 'id', [$rtA1, $rtA2]));
-		self::assertSame(0, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtA1, $rtA2]));
-		self::assertSame(0, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtA1, $rtA2]));
-		self::assertSame(0, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtA1, $rtA2]));
-		self::assertSame(0, $this->countRows('chorestrike_rooms', 'id', [$roomA]));
+		// CS-PLAN-071 (Q-70-01): the structural rows are TOMBSTONED (present
+		// with deleted_at, excluded from the active reads) — never deleted.
+		self::assertSame(2, $this->countRows('chorestrike_room_tasks', 'id', [$rtA1, $rtA2]));
+		self::assertSame(2, $this->countTombstoned('chorestrike_room_tasks', [$rtA1, $rtA2]), 'both room tasks are tombstoned');
+		self::assertSame(2, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtA1, $rtA2]), 'the completed_tasks evidence is retained');
+		self::assertSame(0, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtA1, $rtA2]), 'assignees (active-planning state) are deleted');
+		self::assertSame(0, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtA1, $rtA2]), 'checklist progress (active-planning state) is deleted');
+		self::assertSame(1, $this->countRows('chorestrike_rooms', 'id', [$roomA]), 'the room row survives as a tombstone');
+		self::assertSame(1, $this->countTombstoned('chorestrike_rooms', [$roomA]), 'the room is tombstoned');
 
-		// The sibling house is untouched.
+		// The tombstoned structure vanished from the active-planning reads.
+		$activeRoomIds = array_map(static fn ($r) => $r->getId(), $this->roomMapper->findByHouseId($houseA));
+		self::assertNotContains($roomA, $activeRoomIds);
+
+		// The sibling house is untouched (live rows, no tombstones).
 		self::assertSame(1, $this->countRows('chorestrike_room_tasks', 'id', [$rtB1]));
+		self::assertSame(0, $this->countTombstoned('chorestrike_room_tasks', [$rtB1]));
 		self::assertSame(1, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtB1]));
 		self::assertSame(1, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtB1]));
 		self::assertSame(1, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtB1]));
 	}
 
 	/**
-	 * Single-task deletion cascades the same way (deleteRoomTask) —
-	 * before CS-PLAN-037 it left the three dependent tables orphaned.
+	 * Single-task deletion tombstones the row, deletes only the
+	 * active-planning state and retains the completion evidence
+	 * (deleteRoomTask; before CS-PLAN-037 it left the three dependent
+	 * tables orphaned, before CS-PLAN-071 it deleted the evidence).
 	 */
 	public function testDeleteRoomTask_RemovesDependentsOrphanFree(): void {
 		$houseId = $this->createHouse('wbatch_deltask', 'Delete Task House');
@@ -257,19 +292,23 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 		$actor = $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, 'wbatch_deltask');
 		$this->roomTaskService->deleteRoomTask($rtDeleted, $actor);
 
-		self::assertSame(0, $this->countRows('chorestrike_room_tasks', 'id', [$rtDeleted]));
-		self::assertSame(0, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtDeleted]));
-		self::assertSame(0, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtDeleted]));
-		self::assertSame(0, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtDeleted]));
+		// CS-PLAN-071 (Q-70-01): the row survives as a tombstone, the
+		// planning state is deleted, the evidence is retained.
+		self::assertSame(1, $this->countRows('chorestrike_room_tasks', 'id', [$rtDeleted]));
+		self::assertSame(1, $this->countTombstoned('chorestrike_room_tasks', [$rtDeleted]), 'the room task is tombstoned (deleted_at + deleted_token)');
+		self::assertSame(1, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtDeleted]), 'the completed_tasks evidence is retained');
+		self::assertSame(0, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtDeleted]), 'assignees are deleted');
+		self::assertSame(0, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtDeleted]), 'checklist progress is deleted');
 
-		// The sibling task in the same room survives with its (nonexistent)
-		// dependents — no over-deletion.
+		// The sibling task in the same room survives, live.
 		self::assertSame(1, $this->countRows('chorestrike_room_tasks', 'id', [$rtKept]));
+		self::assertSame(0, $this->countTombstoned('chorestrike_room_tasks', [$rtKept]));
 	}
 
 	/**
-	 * deleteFloor cascades through rooms and room tasks: everything the
-	 * floor owned is gone, the sibling floor of the same house stays.
+	 * deleteFloor cascades tombstones through rooms and room tasks: the
+	 * floor's structure is tombstoned, the planning state deleted, the
+	 * evidence retained; the sibling floor of the same house stays live.
 	 */
 	public function testDeleteFloor_CascadesRoomsAndDependents(): void {
 		$houseId = $this->createHouse('wbatch_delfloor', 'Delete Floor House');
@@ -291,17 +330,24 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 
 		$this->floorService->deleteFloor($floorGone);
 
-		self::assertSame(0, $this->countRows('chorestrike_floors', 'id', [$floorGone]));
-		self::assertSame(0, $this->countRows('chorestrike_rooms', 'id', [$roomGone1, $roomGone2]));
-		self::assertSame(0, $this->countRows('chorestrike_room_tasks', 'id', [$rtGone]));
-		self::assertSame(0, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtGone]));
-		self::assertSame(0, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtGone]));
-		self::assertSame(0, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtGone]));
+		// CS-PLAN-071 (Q-70-01): tombstones instead of deletes.
+		self::assertSame(1, $this->countRows('chorestrike_floors', 'id', [$floorGone]));
+		self::assertSame(1, $this->countTombstoned('chorestrike_floors', [$floorGone]), 'the floor is tombstoned');
+		self::assertSame(2, $this->countRows('chorestrike_rooms', 'id', [$roomGone1, $roomGone2]));
+		self::assertSame(2, $this->countTombstoned('chorestrike_rooms', [$roomGone1, $roomGone2]), 'both rooms are tombstoned');
+		self::assertSame(1, $this->countRows('chorestrike_room_tasks', 'id', [$rtGone]));
+		self::assertSame(1, $this->countTombstoned('chorestrike_room_tasks', [$rtGone]), 'the room task is tombstoned');
+		self::assertSame(1, $this->countRows('chorestrike_completed_tasks', 'room_task_id', [$rtGone]), 'the completed_tasks evidence is retained');
+		self::assertSame(0, $this->countRows('chorestrike_task_assignees', 'room_task_id', [$rtGone]), 'assignees are deleted');
+		self::assertSame(0, $this->countRows('chorestrike_chk_progress', 'room_task_id', [$rtGone]), 'checklist progress is deleted');
 
-		// Sibling floor with its room and task survives.
+		// Sibling floor with its room and task survives, live.
 		self::assertSame(1, $this->countRows('chorestrike_floors', 'id', [$floorKept]));
+		self::assertSame(0, $this->countTombstoned('chorestrike_floors', [$floorKept]));
 		self::assertSame(1, $this->countRows('chorestrike_rooms', 'id', [$roomKept]));
+		self::assertSame(0, $this->countTombstoned('chorestrike_rooms', [$roomKept]));
 		self::assertSame(1, $this->countRows('chorestrike_room_tasks', 'id', [$rtKept]));
+		self::assertSame(0, $this->countTombstoned('chorestrike_room_tasks', [$rtKept]));
 	}
 
 	/**

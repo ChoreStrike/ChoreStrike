@@ -28,6 +28,14 @@ use OCP\AppFramework\Db\Entity;
  * @method void setWeeklyGoalNotifiedWeek(?string $weeklyGoalNotifiedWeek)
  * @method string getTimezone()
  * @method void setTimezone(string $timezone)
+ * @method int getStateVersion()
+ * @method void setStateVersion(int $stateVersion)
+ * @method int getTimezoneVersion()
+ * @method void setTimezoneVersion(int $timezoneVersion)
+ * @method bool getCatalogEnabled()
+ * @method void setCatalogEnabled(bool $catalogEnabled)
+ * @method bool getRankingEnabled()
+ * @method void setRankingEnabled(bool $rankingEnabled)
  */
 class House extends Entity implements JsonSerializable {
 	/** @var string */
@@ -63,6 +71,29 @@ class House extends Entity implements JsonSerializable {
 	 */
 	protected $timezone = 'UTC';
 
+	/**
+	 * Aggregate mutation counter (CS-PLAN-071 WP0, parent §3.2): bumped on
+	 * every plan/accounting/preference mutation (adopted by WP2-WP5;
+	 * mechanism demonstrated by T0). Frozen at 0 until those consumers land.
+	 *
+	 * @var int
+	 */
+	protected $stateVersion = 0;
+
+	/**
+	 * Timezone mutation counter (CS-PLAN-071 WP0, decision D7): bumped on
+	 * every house-timezone change; occurrence facts keep their saved zone.
+	 *
+	 * @var int
+	 */
+	protected $timezoneVersion = 0;
+
+	/** @var bool Reward-catalog flag, frozen default-false for WP7. */
+	protected $catalogEnabled = false;
+
+	/** @var bool Ranking flag, frozen default-false for WP4/WP7. */
+	protected $rankingEnabled = false;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('nextcloudInstanceId', 'string');
@@ -72,6 +103,10 @@ class House extends Entity implements JsonSerializable {
 		$this->addType('updatedAt', 'datetime');
 		$this->addType('weeklyGoalNotifiedWeek', 'string');
 		$this->addType('timezone', 'string');
+		$this->addType('stateVersion', 'integer');
+		$this->addType('timezoneVersion', 'integer');
+		$this->addType('catalogEnabled', 'boolean');
+		$this->addType('rankingEnabled', 'boolean');
 	}
 
 	/**
@@ -94,5 +129,13 @@ class House extends Entity implements JsonSerializable {
 	 */
 	public function touch(): void {
 		$this->setUpdatedAt(new \DateTime());
+	}
+
+	/**
+	 * Increment the timezone mutation counter (CS-PLAN-071 D7). Called by
+	 * the owning mutation while the house row is locked.
+	 */
+	public function bumpTimezoneVersion(): void {
+		$this->setTimezoneVersion($this->getTimezoneVersion() + 1);
 	}
 }

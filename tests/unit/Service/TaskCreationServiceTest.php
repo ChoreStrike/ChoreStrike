@@ -84,7 +84,16 @@ class TaskCreationServiceTest extends TestCase {
 
 		// The REAL TaskService validates through the closed constraint set —
 		// mocked validators would prove nothing about §3.1.
-		$this->taskService = new TaskService($this->taskMapper, $l10n, $this->authorization, $this->taskAccessPolicy);
+		$taskServiceHouseMapper = $this->createMock(HouseMapper::class);
+		$taskServiceHouseMapper->method('findForUpdate')->willReturn(new \OCA\ChoreStrike\Db\House());
+		$this->taskService = new TaskService(
+			$this->taskMapper,
+			$taskServiceHouseMapper,
+			$l10n,
+			$this->authorization,
+			$this->taskAccessPolicy,
+			new TransactionExecutor($this->createMock(IDBConnection::class)),
+		);
 
 		// The REAL TemplateService loads the file-based catalog.
 		$this->templateService = new TemplateService($l10n);

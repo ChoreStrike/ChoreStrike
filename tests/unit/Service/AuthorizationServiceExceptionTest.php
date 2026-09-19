@@ -40,9 +40,16 @@ class AuthorizationServiceExceptionTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
+		// CS-PLAN-071 WP0: the first-owner bootstrap also creates + binds the
+		// persistent wallet inside the same transaction (shared helper).
+		$walletService = $this->createMock(\OCA\ChoreStrike\Service\WalletService::class);
+		$walletService->method('ensureBinding')->willReturnCallback(static fn (int $houseId, $member) => $member);
+		$this->houseUserMapper->method('update')->willReturnCallback(static fn ($u) => $u);
+
 		$this->service = new AuthorizationService(
 			$this->houseUserMapper,
 			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
+			$walletService,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			$this->userSession,
 			$l10n,

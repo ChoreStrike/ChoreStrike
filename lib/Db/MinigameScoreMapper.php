@@ -163,4 +163,22 @@ class MinigameScoreMapper extends QBMapper {
 
 		return $betterUsers + 1;
 	}
+
+	/**
+	 * Delete every score of the given Nextcloud accounts in one statement
+	 * (CS-PLAN-071 account erasure; scores carry the raw UID).
+	 *
+	 * @param string[] $nextcloudUserIds
+	 */
+	public function deleteByUserIds(array $nextcloudUserIds): void {
+		$nextcloudUserIds = array_values(array_filter(array_map('strval', $nextcloudUserIds)));
+		if ($nextcloudUserIds === []) {
+			return;
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete($this->getTableName())
+			->where($qb->expr()->in('user_id', $qb->createNamedParameter($nextcloudUserIds, IQueryBuilder::PARAM_STR_ARRAY)))
+			->executeStatement();
+	}
 }

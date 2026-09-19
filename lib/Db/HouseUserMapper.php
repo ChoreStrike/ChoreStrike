@@ -262,4 +262,22 @@ class HouseUserMapper extends QBMapper {
 
 		return $this->findEntities($qb);
 	}
+
+	/**
+	 * Find every membership of one Nextcloud account across all houses
+	 * (account erasure; CS-PLAN-071 WP0).
+	 *
+	 * An indexed equality lookup on `nextcloud_user_id` — erasure must
+	 * not iterate the whole `house_users` table to resolve one account.
+	 *
+	 * @return HouseUser[]
+	 */
+	public function findAllByNextcloudUserId(string $nextcloudUserId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($nextcloudUserId, IQueryBuilder::PARAM_STR)));
+
+		return $this->findEntities($qb);
+	}
 }

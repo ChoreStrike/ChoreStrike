@@ -167,6 +167,9 @@ class RoomTaskMapperTest extends TestCase {
 		$this->qb->expects($this->any())
 			->method('where')
 			->willReturn($this->qb);
+		// CS-PLAN-071: exists() also filters tombstoned links (deleted_token).
+		$this->qb->method('andWhere')
+			->willReturn($this->qb);
 
 		$mockResult = $this->createMock(IResult::class);
 		$mockResult->method('fetchOne')
@@ -236,18 +239,22 @@ class RoomTaskMapperTest extends TestCase {
 	}
 
 	/**
-	 * DeleteByRoomIds_EmptyInput_SkipsStatement
+	 * TombstoneByRoomIds_EmptyInput_SkipsStatement
 	 */
-	public function testDeleteByRoomIds_EmptyInput_SkipsStatement(): void {
-		$this->qb->expects($this->never())->method('delete');
+	public function testTombstoneByRoomIds_EmptyInput_SkipsStatement(): void {
+		$this->qb->expects($this->never())->method('update');
 
-		$this->mapper->deleteByRoomIds([]);
+		$this->mapper->tombstoneByRoomIds([], new \DateTime());
 	}
 
 	/**
-	 * DeleteByRoomIds_BuildsInDeleteWithIntArray
+	 * TombstoneByRoomIds_SetsDeletedAtTokenAndInactive
+	 *
+	 * CS-PLAN-071 (Q-70-01, D4): tombstoning sets deleted_at, folds the
+	 * row's own id into deleted_token and deactivates the row — it never
+	 * deletes.
 	 */
-	public function testDeleteByRoomIds_BuildsInDeleteWithIntArray(): void {
+	public function testTombstoneByRoomIds_BuildsInUpdateWithIntArray(): void {
 		$capturedParams = [];
 		$this->qb->method('createNamedParameter')->willReturnCallback(
 			function ($value, $type) use (&$capturedParams) {
@@ -255,34 +262,43 @@ class RoomTaskMapperTest extends TestCase {
 				return 'param_' . count($capturedParams);
 			}
 		);
-		$this->qb->method('delete')->willReturn($this->qb);
+		$this->qb->method('update')->willReturn($this->qb);
+		$this->qb->method('set')->willReturn($this->qb);
 		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
+		$this->qb->method('createFunction')->willReturnCallback(static fn ($expr) => $expr);
 		$this->qb->expects($this->once())->method('executeStatement');
 
-		$this->mapper->deleteByRoomIds([5, 6]);
+		$deletedAt = new \DateTime();
+		$this->mapper->tombstoneByRoomIds([5, 6], $deletedAt);
 
-		$this->assertSame([5, 6], $capturedParams[0]['value']);
-		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[0]['type']);
+		// Param order: deleted_at, is_active, then the room-id IN array.
+		$this->assertSame($deletedAt, $capturedParams[0]['value']);
+		$this->assertSame([5, 6], $capturedParams[2]['value']);
+		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[2]['type']);
 	}
 
 	/**
-	 * DeleteByRoomId_DelegatesToPluralVariant
+	 * TombstoneByRoomIds_GuardsLiveRowsOnly
+	 *
+	 * The structural cascade must never re-stamp rows tombstoned earlier
+	 * (individual deletion): the UPDATE is qualified with
+	 * `deleted_at IS NULL`, mirroring `RoomMapper::tombstoneByFloorId`.
 	 */
-	public function testDeleteByRoomId_DelegatesToPluralVariant(): void {
-		$capturedParams = [];
-		$this->qb->method('createNamedParameter')->willReturnCallback(
-			function ($value, $type) use (&$capturedParams) {
-				$capturedParams[] = ['value' => $value, 'type' => $type];
-				return 'param_' . count($capturedParams);
-			}
-		);
-		$this->qb->method('delete')->willReturn($this->qb);
+	public function testTombstoneByRoomIds_GuardsLiveRowsOnly(): void {
+		$this->expr->expects($this->once())
+			->method('isNull')
+			->with('deleted_at');
+
+		$this->qb->method('createNamedParameter')->willReturnCallback(static fn ($value, $type = null) => 'p');
+		$this->qb->method('createFunction')->willReturnCallback(static fn ($expression) => $expression);
+		$this->qb->method('update')->willReturn($this->qb);
+		$this->qb->method('set')->willReturn($this->qb);
 		$this->qb->method('where')->willReturn($this->qb);
+		$this->qb->method('andWhere')->willReturn($this->qb);
 		$this->qb->expects($this->once())->method('executeStatement');
 
-		$this->mapper->deleteByRoomId(5);
-
-		$this->assertSame([5], $capturedParams[0]['value']);
+		$this->mapper->tombstoneByRoomIds([5], new \DateTime());
 	}
 
 	/**

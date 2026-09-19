@@ -44,6 +44,11 @@ class Version1004Date20260228131728 extends SimpleMigrationStep {
 			$table->addColumn('role', 'string', ['notnull' => true, 'length' => 20, 'default' => 'member']);
 			$table->addColumn('joined_at', 'datetime', ['notnull' => true]);
 			$table->addColumn('scheduling_preferences', 'json', ['notnull' => false]);
+			// CS-PLAN-071 WP0: binding to the persistent wallet (financial
+			// identity). Nullable by design — the binding is written by the
+			// membership creation paths; the wallets table carries the
+			// per-house uniqueness.
+			$table->addColumn('wallet_id', 'bigint', ['notnull' => false]);
 			$table->setPrimaryKey(['id'], 'pk_house_users');
 			$table->addIndex(['house_id'], 'idx_huser_house');
 			$table->addIndex(['nextcloud_user_id'], 'idx_huser_ncid');
@@ -55,7 +60,10 @@ class Version1004Date20260228131728 extends SimpleMigrationStep {
 			$table = $schema->createTable('chorestrike_completed_tasks');
 			$table->addColumn('id', 'bigint', ['autoincrement' => true, 'notnull' => true]);
 			$table->addColumn('room_task_id', 'bigint', ['notnull' => true]);
-			$table->addColumn('user_id', 'bigint', ['notnull' => true]);
+			// CS-PLAN-071 WP0 (decision D3): actor references become nullable
+			// — account erasure nulls them and retains the anonymous shared
+			// work facts (time, energy, coins-earned totals, room effects).
+			$table->addColumn('user_id', 'bigint', ['notnull' => false]);
 			$table->addColumn('completed_at', 'datetime', ['notnull' => true]);
 			$table->addColumn('coins_earned', 'integer', ['notnull' => true, 'default' => 0]);
 			$table->addColumn('was_combo', 'boolean', ['notnull' => false, 'default' => 0]);

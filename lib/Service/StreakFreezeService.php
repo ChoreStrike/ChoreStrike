@@ -11,6 +11,7 @@ namespace OCA\ChoreStrike\Service;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 
 /**
  * Daily streak freeze pass (CS-PLAN-023).
@@ -26,6 +27,12 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
  * CS-PLAN-057: the pass resolves the (single) house and buckets "yesterday"
  * in the house timezone — the idempotency key, the availability day name,
  * and the completion-count window are all house-local.
+ *
+ * CS-PLAN-071 WP0: every destructive per-user write runs in one
+ * house-first transaction (house row lock → membership row lock) and
+ * re-evaluates its guards on the FRESH locked entity, so a concurrent
+ * completion or membership removal serializes with the job instead of
+ * racing its read-modify-write.
  */
 class StreakFreezeService {
 	public function __construct(
@@ -34,6 +41,7 @@ class StreakFreezeService {
 		private AppLogger $appLogger,
 		private HouseMapper $houseMapper,
 		private CalendarService $calendarService,
+		private TransactionExecutor $transactions,
 	) {
 	}
 
@@ -105,15 +113,33 @@ class StreakFreezeService {
 					continue;
 				}
 
-				if ($user->consumeFreeze()) {
-					$stats['frozen']++;
-				} else {
-					$user->resetStreak();
-					$stats['reset']++;
-				}
+				// CS-PLAN-071 WP0: the destructive branch runs house-first
+				// and re-evaluates its guards on the FRESH locked entity
+				// (a completion committed behind the pre-read re-arms the
+				// guard; the idempotency stamp below stays exact).
+				$this->transactions->run(function () use ($house, $user, $yesterdayKey, &$stats): void {
+					$this->houseMapper->findForUpdate($house->getId());
+					$fresh = $this->houseUserMapper->findForUpdate($user->getId());
 
-				$user->setLastFreezeDate(new \DateTime($yesterdayKey));
-				$this->houseUserMapper->update($user);
+					if ($fresh->getCurrentStreak() <= 0) {
+						return;
+					}
+
+					$lastFreeze = $fresh->getLastFreezeDate();
+					if ($lastFreeze !== null && $lastFreeze->format('Y-m-d') === $yesterdayKey) {
+						return;
+					}
+
+					if ($fresh->consumeFreeze()) {
+						$stats['frozen']++;
+					} else {
+						$fresh->resetStreak();
+						$stats['reset']++;
+					}
+
+					$fresh->setLastFreezeDate(new \DateTime($yesterdayKey));
+					$this->houseUserMapper->update($fresh);
+				});
 			} catch (\Throwable $e) {
 				$stats['errors']++;
 				$this->appLogger->logException('StreakFreezeService: per-user failure', $e, [

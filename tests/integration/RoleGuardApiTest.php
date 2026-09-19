@@ -35,6 +35,19 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * still protected.
  */
 class RoleGuardApiTest extends IntegrationTestCase {
+	/** @var int[] */
+	private array $cleanupWalletIds = [];
+
+	protected function tearDown(): void {
+		foreach ($this->cleanupWalletIds as $walletId) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete('chorestrike_wallets')
+				->where($qb->expr()->eq('id', $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT)))
+				->executeStatement();
+		}
+		parent::tearDown();
+	}
+
 	private function sharedHouseId(): int {
 		$houseService = \OC::$server->get(HouseService::class);
 		$house = $houseService->getOrCreateHouse($houseService->getInstanceId());
@@ -177,6 +190,67 @@ class RoleGuardApiTest extends IntegrationTestCase {
 		}
 
 		self::assertSame('owner', $this->fetchRole($targetId), 'the role row must be unchanged');
+	}
+
+	/**
+	 * UpdateUserRole_RoleChange_PreservesWalletBinding (CS-PLAN-071)
+	 *
+	 * The financial identity is independent of the role: a role change must
+	 * leave the membership's wallet binding and the wallet row untouched.
+	 */
+	public function testUpdateUserRole_RoleChange_PreservesWalletBinding(): void {
+		$houseId = $this->createHouse('rg_wallet_owner', 'Role Guard Wallet House');
+		$this->addHouseMember($houseId, 'rg_wallet_member', 'Wallet Member', 'member');
+
+		$walletMapper = \OC::$server->get(\OCA\ChoreStrike\Db\WalletMapper::class);
+		$wallet = $walletMapper->createOrGet($houseId, 'rg_wallet_member');
+		$this->trackWalletForCleanup((int)$wallet->getId());
+
+		$targetId = $this->findHouseUserId($houseId, 'rg_wallet_member');
+		$this->bindWallet($targetId, (int)$wallet->getId());
+
+		$this->actingAs('rg_wallet_owner');
+		$houseService = \OC::$server->get(HouseService::class);
+		$houseService->updateUserRole($targetId, 'child', 'rg_wallet_owner');
+
+		self::assertSame('child', $this->fetchRole($targetId));
+		self::assertSame((int)$wallet->getId(), $this->fetchWalletId($targetId), 'the wallet binding must survive the role change');
+		self::assertSame(1, $this->countWallets($houseId, 'rg_wallet_member'), 'exactly one wallet identity exists');
+	}
+
+	private function trackWalletForCleanup(int $walletId): void {
+		$this->cleanupWalletIds[] = $walletId;
+	}
+
+	private function bindWallet(int $houseUserId, int $walletId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_house_users')
+			->set('wallet_id', $qb->createNamedParameter($walletId, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+	}
+
+	private function fetchWalletId(int $houseUserId): ?int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('wallet_id')
+			->from('chorestrike_house_users')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$walletId = $result->fetchOne();
+		$result->closeCursor();
+		return $walletId === null ? null : (int)$walletId;
+	}
+
+	private function countWallets(int $houseId, string $ncUserId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('id'))
+			->from('chorestrike_wallets')
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('nextcloud_user_id', $qb->createNamedParameter($ncUserId)));
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $count;
 	}
 
 	private function findHouseUserId(int $houseId, string $ncUserId): int {

@@ -88,4 +88,21 @@ class MedalMapper extends QBMapper {
 		return $this->findEntity($qb);
 	}
 
+	/**
+	 * Delete every medal of the given memberships in one statement
+	 * (CS-PLAN-071 account erasure; medals are personal award rows).
+	 *
+	 * @param int[] $houseUserIds The house-user IDs
+	 */
+	public function deleteByUserIds(array $houseUserIds): void {
+		$houseUserIds = array_values(array_map('intval', $houseUserIds));
+		if ($houseUserIds === []) {
+			return;
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete($this->getTableName())
+			->where($qb->expr()->in('user_id', $qb->createNamedParameter($houseUserIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->executeStatement();
+	}
 }

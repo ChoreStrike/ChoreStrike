@@ -42,6 +42,7 @@ class TestDataServiceTest extends TestCase {
 	private TaskMapper&MockObject $taskMapper;
 	private RoomTaskMapper&MockObject $roomTaskMapper;
 	private TaskAssigneeMapper&MockObject $taskAssigneeMapper;
+	private \OCA\ChoreStrike\Db\WalletMapper&MockObject $walletMapper;
 	private TestDataService $service;
 
 	protected function setUp(): void {
@@ -62,6 +63,13 @@ class TestDataServiceTest extends TestCase {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 
+		// CS-PLAN-071 WP0: seeds create the per-member wallet identity —
+		// the mock hands out a fixed wallet id for every createOrGet.
+		$this->walletMapper = $this->createMock(\OCA\ChoreStrike\Db\WalletMapper::class);
+		$seedWallet = new \OCA\ChoreStrike\Db\Wallet();
+		$seedWallet->setId(501);
+		$this->walletMapper->method('createOrGet')->willReturn($seedWallet);
+
 		// Default config mock returns test instance id
 		$this->config->method('getSystemValue')->willReturn('test-instance');
 
@@ -74,7 +82,8 @@ class TestDataServiceTest extends TestCase {
 			$this->roomMapper,
 			$this->taskMapper,
 			$this->roomTaskMapper,
-			$this->taskAssigneeMapper
+			$this->taskAssigneeMapper,
+			$this->walletMapper
 		);
 	}
 
@@ -393,6 +402,18 @@ class TestDataServiceTest extends TestCase {
 		// re-verified against the real schema by CS-PLAN-037).
 		$this->assertContains('chorestrike_chk_progress', $deletedTables);
 		$this->assertContains('chorestrike_chk_items', $deletedTables);
+
+		// CS-PLAN-071 WP0: the identity/receipt tables clear in dependency
+		// order (entries → wallets → commands) — the test-mode reset is the
+		// only path allowed to touch them.
+		$this->assertContains('chorestrike_wallet_entries', $deletedTables);
+		$this->assertContains('chorestrike_wallets', $deletedTables);
+		$this->assertContains('chorestrike_commands', $deletedTables);
+		self::assertLessThan(
+			array_search('chorestrike_wallets', $deletedTables, true),
+			array_search('chorestrike_wallet_entries', $deletedTables, true),
+			'wallet_entries must clear before wallets'
+		);
 
 		// Names that never existed in the schema are gone.
 		$this->assertNotContains('chorestrike_room_task_checklist_progress', $deletedTables);

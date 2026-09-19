@@ -83,8 +83,19 @@ class ChecklistToggleConcurrencyTest extends IntegrationTestCase {
 
 			// T2: the insert blocks on uniq_prog_item until T1 commits, then
 			// the unique violation is handled by re-reading and flipping.
+			// CS-PLAN-071: the mapper primitive participates in a caller-owned
+			// transaction (ChecklistService scopes it house-first in
+			// production; this race test only needs the row-level semantics).
 			$mapper = \OC::$server->get(RoomTaskChecklistProgressMapper::class);
-			$progress = $mapper->toggle($this->roomTaskId, $this->checklistItemId, 77);
+			$tx = \OC::$server->get(\OCA\ChoreStrike\Db\TransactionExecutor::class);
+			$tx->begin();
+			try {
+				$progress = $mapper->toggleLocked($this->roomTaskId, $this->checklistItemId, 77);
+				$tx->commit();
+			} catch (\Throwable $e) {
+				$tx->rollBack();
+				throw $e;
+			}
 
 			self::assertFalse($progress->getIsChecked(), 'the loser flips the winner\'s committed checked row');
 		} finally {
@@ -131,12 +142,18 @@ $checklistItemId = (int)$argv[2];
 $signalFile = $argv[3];
 
 $mapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper::class);
+$tx = \OC::$server->get(\OCA\ChoreStrike\Db\TransactionExecutor::class);
 
 try {
-    $mapper->toggle($roomTaskId, $checklistItemId, 55);
+    // CS-PLAN-071: the toggle primitive participates in a caller-owned
+    // transaction (hold uncommitted to create the race).
+    $tx->begin();
+    $mapper->toggleLocked($roomTaskId, $checklistItemId, 55);
     file_put_contents($signalFile, 'locked');
     usleep(2000000);
+    $tx->commit();
 } catch (Throwable $e) {
+    $tx->rollBack();
     file_put_contents($signalFile, 'locked');
     fwrite(STDERR, $e->getMessage());
     exit(1);

@@ -20,6 +20,7 @@ use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\WalletMapper;
 use OCP\IConfig;
 use OCP\IDBConnection;
 
@@ -61,6 +62,11 @@ class TestDataService {
 	 * `chorestrike_room_tasks` to keep the logical dependency order (the
 	 * schema declares indexes, not DB-level foreign keys).
 	 *
+	 * CS-PLAN-071 WP0: `wallet_entries` → `wallets` → `commands` are
+	 * included in dependency order — this test-mode reset is the ONLY
+	 * path allowed to clear the financial identity and receipt tables
+	 * (production structural deletion tombstones and preserves evidence).
+	 *
 	 * @var list<string>
 	 */
 	private const RESET_TABLES = [
@@ -72,6 +78,9 @@ class TestDataService {
 		'chorestrike_tasks',
 		'chorestrike_rooms',
 		'chorestrike_floors',
+		'chorestrike_wallet_entries',
+		'chorestrike_wallets',
+		'chorestrike_commands',
 		'chorestrike_house_users',
 		'chorestrike_houses',
 		'chorestrike_medals',
@@ -87,6 +96,7 @@ class TestDataService {
 	private TaskMapper $taskMapper;
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
+	private WalletMapper $walletMapper;
 
 	// CR-SVC-40 / CS-PLAN-060 WP1, decision D6 documented exemption: this
 	// service is NON-PRODUCTION test tooling (every entry point is guarded by
@@ -104,6 +114,7 @@ class TestDataService {
 		TaskMapper $taskMapper,
 		RoomTaskMapper $roomTaskMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
+		WalletMapper $walletMapper,
 	) {
 		$this->db = $db;
 		$this->config = $config;
@@ -114,6 +125,16 @@ class TestDataService {
 		$this->taskMapper = $taskMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
+		$this->walletMapper = $walletMapper;
+	}
+
+	/**
+	 * Create the persistent wallet for a seeded member and return its id
+	 * (CS-PLAN-071 WP0: seeds mirror the production membership paths —
+	 * every membership row carries its wallet binding).
+	 */
+	private function seedWallet(int $houseId, string $nextcloudUserId): int {
+		return $this->walletMapper->createOrGet($houseId, $nextcloudUserId)->getId();
 	}
 
 	/**
@@ -196,6 +217,7 @@ class TestDataService {
 		$admin->setNextcloudUserId('admin');
 		$admin->setDisplayName('Admin');
 		$admin->setRole('member');
+		$admin->setWalletId($this->seedWallet($houseId, 'admin'));
 		$admin->setJoinedAt(new \DateTime());
 		try {
 			$this->houseUserMapper->insert($admin);
@@ -281,6 +303,7 @@ class TestDataService {
 			$houseUser->setNextcloudUserId($data['userId']);
 			$houseUser->setDisplayName($data['displayName']);
 			$houseUser->setRole($data['role']);
+			$houseUser->setWalletId($this->seedWallet($house->getId(), $data['userId']));
 			$houseUser->setJoinedAt(new \DateTime());
 			$houseUser = $this->houseUserMapper->insert($houseUser);
 			$users[$data['userId']] = $houseUser;
@@ -418,6 +441,7 @@ class TestDataService {
 			$houseUser->setDisplayName($data['displayName']);
 			$houseUser->setRole($data['role']);
 			$houseUser->setSchedulingPreferences($data['preferences']);
+			$houseUser->setWalletId($this->seedWallet($house->getId(), $data['userId']));
 			$houseUser->setJoinedAt(new \DateTime());
 			if (isset($data['currentStreak'])) {
 				$houseUser->setCurrentStreak($data['currentStreak']);

@@ -38,6 +38,8 @@ class StreakFreezeServiceTest extends TestCase {
 	private HouseMapper&MockObject $houseMapper;
 	private StreakFreezeService $service;
 	private \DateTime $yesterday;
+	/** Registry for the under-lock re-read (CS-PLAN-071 findForUpdate). */
+	private array $usersById = [];
 
 	protected function setUp(): void {
 		$this->houseUserMapper = $this->createMock(HouseUserMapper::class);
@@ -47,8 +49,17 @@ class StreakFreezeServiceTest extends TestCase {
 		$this->yesterday = new \DateTime(self::YESTERDAY);
 
 		$utcHouse = new House();
+		$utcHouse->setId(1);
 		$utcHouse->setTimezone('UTC');
 		$this->houseMapper->method('findOneForJobs')->willReturn($utcHouse);
+		// CS-PLAN-071 WP0: the destructive branch enters through the house
+		// row lock (findForUpdate) — a stub is enough for these unit tests.
+		$this->houseMapper->method('findForUpdate')->willReturn($utcHouse);
+		// Under-lock membership re-read resolves the same entity by id.
+		$this->usersById = [];
+		$this->houseUserMapper->method('findForUpdate')->willReturnCallback(
+			fn (int $id): HouseUser => $this->usersById[$id]
+		);
 
 		$this->service = new StreakFreezeService(
 			$this->houseUserMapper,
@@ -56,6 +67,7 @@ class StreakFreezeServiceTest extends TestCase {
 			$this->appLogger,
 			$this->houseMapper,
 			new CalendarService(),
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 		);
 	}
 
@@ -357,6 +369,7 @@ class StreakFreezeServiceTest extends TestCase {
 		$user->setId($id);
 		$user->setCurrentStreak($streak);
 		$user->setStreakFreezes($freezes);
+		$this->usersById[$id] = $user;
 		return $user;
 	}
 }

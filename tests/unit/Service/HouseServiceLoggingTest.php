@@ -79,6 +79,7 @@ class HouseServiceLoggingTest extends TestCase {
 			$completedTaskMapper,
 			$houseUserMapper,
 			$taskAssigneeMapper,
+			$this->createMock(\OCA\ChoreStrike\Service\WalletService::class),
 			$rewardConfigService,
 			$config,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($db),

@@ -82,6 +82,7 @@ class RoomTaskServiceTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->taskMapper,
 			$this->roomMapper,
+			$this->houseMapper,
 			// CS-PLAN-067 §3.1: the read cluster lives in RoomTaskReadService;
 			// the real instance shares this test's mapper/policy mocks so the
 			// delegated enrichment (stats/bulk visibility/tz) stays observable.
@@ -193,6 +194,49 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	/**
+	 * ValidateRoomTaskOwnership_TombstonedRoomTask_Yields404
+	 *
+	 * Q-70-01 (CS-PLAN-071): a tombstoned room task is gone from active
+	 * planning — validation surfaces treat it exactly like a missing id.
+	 */
+	public function testValidateRoomTaskOwnership_TombstonedRoomTask_Yields404(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setRoomId(5);
+		$roomTask->setDeletedAt(new \DateTime());
+
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Room task not found');
+
+		$this->service->validateRoomTaskOwnership(1, 1);
+	}
+
+	/**
+	 * UpdateDueDate_TombstonedRoomTask_Yields404
+	 *
+	 * Q-70-01: lifecycle mutations never land on deleted planning state.
+	 */
+	public function testUpdateDueDate_TombstonedRoomTask_Yields404(): void {
+		$roomTask = new RoomTask();
+		$roomTask->setId(1);
+		$roomTask->setTaskId(1);
+		$roomTask->setRoomId(5);
+		$roomTask->setDeletedAt(new \DateTime());
+
+		$this->stubTaskDefinition($this->createTask());
+		$this->roomTaskMapper->method('find')->willReturn($roomTask);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+		$this->roomTaskMapper->expects($this->never())->method('updateNextDue');
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Room task not found');
+
+		$this->service->updateDueDate(1, '+1 day', $this->createHouseUser());
+	}
+
+	/**
 	 * UpdateDueDate_ExistingTask_UpdatesDueDate
 	 */
 	public function testUpdateDueDate_ExistingTask_UpdatesDueDate(): void {
@@ -202,6 +246,7 @@ class RoomTaskServiceTest extends TestCase {
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
 		$roomTask->setTaskId(1);
+		$roomTask->setRoomId(5);
 		$roomTask->setNextDue($newDue);
 
 		$this->stubTaskDefinition($this->createTask());
@@ -210,6 +255,16 @@ class RoomTaskServiceTest extends TestCase {
 			->method('find')
 			->with($roomTaskId)
 			->willReturn($roomTask);
+
+		// CS-PLAN-071: the owning house resolves via room → floor → house.
+		$utcRoom = new \OCA\ChoreStrike\Db\Room();
+		$utcRoom->setId(5);
+		$utcRoom->setFloorId(9);
+		$utcFloor = new \OCA\ChoreStrike\Db\Floor();
+		$utcFloor->setId(9);
+		$utcFloor->setHouseId(1);
+		$this->roomMapper->method('find')->with(5)->willReturn($utcRoom);
+		$this->floorMapper->method('find')->with(9)->willReturn($utcFloor);
 
 		$this->roomTaskMapper
 			->expects($this->once())
@@ -322,11 +377,12 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * DeleteRoomTask_ExistingTask_CascadesDependentsInOneTransaction
+	 * DeleteRoomTask_ExistingTask_TombstonesAndCleansPlanningState
 	 *
-	 * CS-PLAN-037 (D1/D2): single-task deletion is orphan-free — the
-	 * room task's dependents (checklist progress, assignees,
-	 * completions) are removed with it via the shared cascade helper.
+	 * CS-PLAN-071 WP0 (Q-70-01): single-task deletion TOMBSTONES the row
+	 * (deleted_at + deleted_token + is_active off) and deletes only the
+	 * active-planning state via the shared cascade helper — the
+	 * completed_tasks evidence is retained and nothing is hard-deleted.
 	 */
 	public function testDeleteRoomTask_ExistingTask_CascadesDependentsInOneTransaction(): void {
 		$roomTaskId = 1;
@@ -334,12 +390,21 @@ class RoomTaskServiceTest extends TestCase {
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
 		$roomTask->setTaskId(1);
+		$roomTask->setRoomId(5);
 
 		$this->stubTaskDefinition($this->createTask());
-		// The visibility gate and the deletion both resolve the room task.
+		$this->stubOwningHouseChain(5, 9, 1);
+
+		// The visibility gate and the tombstone re-read resolve the room task.
 		$this->roomTaskMapper
 			->expects($this->exactly(2))
 			->method('find')
+			->with($roomTaskId)
+			->willReturn($roomTask);
+
+		// Under the locks the row is re-acquired for the tombstone write.
+		$this->roomTaskMapper
+			->method('lockForUpdate')
 			->with($roomTaskId)
 			->willReturn($roomTask);
 
@@ -347,19 +412,42 @@ class RoomTaskServiceTest extends TestCase {
 
 		$this->roomService
 			->expects($this->once())
-			->method('deleteRoomTaskDependents')
+			->method('deleteRoomTaskPlanningState')
 			->with([$roomTaskId]);
 
 		$this->roomTaskMapper
 			->expects($this->once())
-			->method('delete')
-			->with($roomTask);
+			->method('update')
+			->with($this->callback(static function (RoomTask $rt): bool {
+				return $rt->getDeletedAt() !== null
+					&& $rt->getDeletedToken() === $rt->getId()
+					&& $rt->getIsActive() === false;
+			}));
+
+		// No hard delete anywhere (evidence retained, Q-70-01).
+		$this->roomTaskMapper->expects($this->never())->method('delete');
 
 		$this->db->expects($this->once())->method('beginTransaction');
 		$this->db->expects($this->once())->method('commit');
 		$this->db->expects($this->never())->method('rollBack');
 
 		$this->service->deleteRoomTask($roomTaskId, $this->createHouseUser('deleter', 'owner'));
+	}
+
+	/**
+	 * Stub the room → floor → house chain the house-first writers resolve
+	 * (CS-PLAN-071): the shared RoomTaskReadService reads the same mocks.
+	 */
+	private function stubOwningHouseChain(int $roomId, int $floorId, int $houseId): void {
+		$room = new Room();
+		$room->setId($roomId);
+		$room->setFloorId($floorId);
+		$this->roomMapper->method('find')->with($roomId)->willReturn($room);
+
+		$floor = new Floor();
+		$floor->setId($floorId);
+		$floor->setHouseId($houseId);
+		$this->floorMapper->method('find')->with($floorId)->willReturn($floor);
 	}
 
 	/**
@@ -380,7 +468,8 @@ class RoomTaskServiceTest extends TestCase {
 		$this->authorization->method('assertCanManageTasks')
 			->willThrowException(new ForbiddenException('Children may view and complete tasks, but not manage them'));
 
-		$this->roomService->expects($this->never())->method('deleteRoomTaskDependents');
+		$this->roomService->expects($this->never())->method('deleteRoomTaskPlanningState');
+		$this->roomTaskMapper->expects($this->never())->method('update');
 		$this->roomTaskMapper->expects($this->never())->method('delete');
 
 		$this->expectException(ForbiddenException::class);
@@ -389,7 +478,7 @@ class RoomTaskServiceTest extends TestCase {
 	}
 
 	/**
-	 * DeleteRoomTask_DependentFailure_RollsBackAndReThrows
+	 * DeleteRoomTask_PlanningStateFailure_RollsBackAndReThrows
 	 */
 	public function testDeleteRoomTask_DependentFailure_RollsBackAndReThrows(): void {
 		$roomTaskId = 1;
@@ -397,20 +486,67 @@ class RoomTaskServiceTest extends TestCase {
 		$roomTask = new RoomTask();
 		$roomTask->setId($roomTaskId);
 		$roomTask->setTaskId(1);
+		$roomTask->setRoomId(5);
 
 		$this->stubTaskDefinition($this->createTask());
+		$this->stubOwningHouseChain(5, 9, 1);
 		$this->roomTaskMapper->method('find')->willReturn($roomTask);
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
-		$this->roomService->method('deleteRoomTaskDependents')
+		$this->roomService->method('deleteRoomTaskPlanningState')
 			->willThrowException(new \RuntimeException('db down'));
 
 		$this->db->expects($this->once())->method('beginTransaction');
 		$this->db->expects($this->once())->method('rollBack');
 		$this->db->expects($this->never())->method('commit');
-		$this->roomTaskMapper->expects($this->never())->method('delete');
+		$this->roomTaskMapper->expects($this->never())->method('update');
 
 		$this->expectException(\RuntimeException::class);
 		$this->expectExceptionMessage('db down');
+
+		$this->service->deleteRoomTask($roomTaskId, $this->createHouseUser('deleter', 'owner'));
+	}
+
+	/**
+	 * DeleteRoomTask_TombstonedBehindPreRead_Yields404ZeroWrites
+	 *
+	 * CS-PLAN-071 review fix (TOCTOU): a concurrent delete winner makes
+	 * the second delete a clean 404 under the locks — the original
+	 * tombstone evidence (deleted_at/deleted_token) is never re-stamped.
+	 */
+	public function testDeleteRoomTask_TombstonedBehindPreRead_Yields404ZeroWrites(): void {
+		$roomTaskId = 1;
+
+		$liveRoomTask = new RoomTask();
+		$liveRoomTask->setId($roomTaskId);
+		$liveRoomTask->setTaskId(1);
+		$liveRoomTask->setRoomId(5);
+
+		$tombstonedRoomTask = new RoomTask();
+		$tombstonedRoomTask->setId($roomTaskId);
+		$tombstonedRoomTask->setTaskId(1);
+		$tombstonedRoomTask->setRoomId(5);
+		$tombstonedRoomTask->setDeletedAt(new \DateTime('2026-09-18T10:00:00Z'));
+		$tombstonedRoomTask->setDeletedToken($roomTaskId);
+
+		$this->stubTaskDefinition($this->createTask());
+		$this->stubOwningHouseChain(5, 9, 1);
+		$this->roomTaskMapper->method('find')->willReturn($liveRoomTask);
+		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn([]);
+
+		// The authoritative gate is the FRESH row under the locks.
+		$this->roomTaskMapper
+			->method('lockForUpdate')
+			->with($roomTaskId)
+			->willReturn($tombstonedRoomTask);
+
+		$this->roomService->expects($this->never())->method('deleteRoomTaskPlanningState');
+		$this->roomTaskMapper->expects($this->never())->method('update');
+		$this->roomTaskMapper->expects($this->never())->method('delete');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Room task not found');
 
 		$this->service->deleteRoomTask($roomTaskId, $this->createHouseUser('deleter', 'owner'));
 	}

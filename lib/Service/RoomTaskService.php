@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
@@ -34,6 +35,7 @@ class RoomTaskService {
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
 	private RoomMapper $roomMapper;
+	private HouseMapper $houseMapper;
 	private RoomTaskReadService $readService;
 	private RoomService $roomService;
 	private TaskAssigneeMapper $taskAssigneeMapper;
@@ -50,6 +52,7 @@ class RoomTaskService {
 		RoomTaskMapper $roomTaskMapper,
 		TaskMapper $taskMapper,
 		RoomMapper $roomMapper,
+		HouseMapper $houseMapper,
 		RoomTaskReadService $readService,
 		RoomService $roomService,
 		TaskAssigneeMapper $taskAssigneeMapper,
@@ -65,6 +68,7 @@ class RoomTaskService {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
 		$this->roomMapper = $roomMapper;
+		$this->houseMapper = $houseMapper;
 		$this->readService = $readService;
 		$this->roomService = $roomService;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
@@ -94,6 +98,13 @@ class RoomTaskService {
 		try {
 			$roomTask = $this->roomTaskMapper->find($roomTaskId);
 		} catch (DoesNotExistException $e) {
+			throw new NotFoundException($this->l10n->t('Room task not found'));
+		}
+
+		// Q-70-01 (CS-PLAN-071 WP0): a tombstoned room task is gone from
+		// active planning — mutation/validation surfaces treat it exactly
+		// like a missing id (404), never as a writable target.
+		if ($roomTask->getDeletedAt() !== null) {
 			throw new NotFoundException($this->l10n->t('Room task not found'));
 		}
 
@@ -162,10 +173,10 @@ class RoomTaskService {
 	// it; setup keeps its own internal aggregate (CS-PLAN-063 D9).
 
 	/**
-	 * Replace the assignee set inside one transaction under the room-task
-	 * row lock (CS-PLAN-063 §3.4): the lock is acquired in the documented
-	 * order (house → room_task → dependents), every target membership is
-	 * revalidated under the lock, then the atomic delete-then-insert runs.
+	 * Replace the assignee set inside one transaction under the single
+	 * house-first order (CS-PLAN-071 WP0): the house row lock is acquired
+	 * first, then the room-task row lock, every target membership is
+	 * revalidated under the locks, then the atomic delete-then-insert runs.
 	 * A membership miss rolls back with zero writes (→ 400).
 	 *
 	 * @param int $roomTaskId The room task ID
@@ -185,7 +196,16 @@ class RoomTaskService {
 		bool $clearClaimMarker,
 	): array {
 		return $this->transactions->run(function () use ($roomTaskId, $uniqueIds, $houseId, $assignedBy, $clearClaimMarker) {
+			// FIRST lock of the documented order (house → room_task).
+			$this->houseMapper->findForUpdate($houseId);
 			$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
+			if ($roomTask->getDeletedAt() !== null) {
+				// Authoritative tombstone gate (Q-70-01): covers every
+				// caller (single, bulk, claim) even if a pre-check missed
+				// a just-deleted row — deleted planning state never gets
+				// assignee writes.
+				throw new NotFoundException($this->l10n->t('Room task not found'));
+			}
 
 			foreach (array_unique($uniqueIds) as $userId) {
 				if ($this->houseUserMapper->findByHouseAndUser($houseId, $userId) === null) {
@@ -301,6 +321,11 @@ class RoomTaskService {
 	 */
 	private function assertRoomTaskVisible(int $roomTaskId, HouseUser $actor): void {
 		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
+		if ($roomTask->getDeletedAt() !== null) {
+			// Tombstoned = gone from active planning (Q-70-01): 404, the
+			// same denial shape as an invisible id.
+			throw new NotFoundException($this->l10n->t('Room task not found'));
+		}
 		$task = $this->findTaskOrNotFound($roomTask->getTaskId());
 		$this->taskAccessPolicy->assertCanView($task, $actor, $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId));
 	}
@@ -322,11 +347,12 @@ class RoomTaskService {
 	/**
 	 * Update room task due date
 	 *
-	 * Writer seam (CS-PLAN-065 §3.2, ADR-012): the write runs in one
-	 * transaction under the room-task row lock — the same first-lock class
-	 * as completion/undo — so a concurrent scheduling apply (which locks
-	 * room_task after the house lock) serializes instead of interleaving
-	 * with the raw read-modify-write.
+	 * Writer seam (CS-PLAN-065 §3.2, ADR-012; CS-PLAN-071 WP0): the write
+	 * runs in one transaction under the single house-first order — the
+	 * owning house row lock (resolved via room → floor → house) first,
+	 * then the room-task row lock — so a concurrent scheduling apply,
+	 * completion or member removal serializes instead of interleaving with
+	 * the raw read-modify-write.
 	 *
 	 * CS-PLAN-067 §3.3: the entity produced INSIDE the transaction is the
 	 * authoritative response — the row is locked and re-read under the lock,
@@ -346,9 +372,16 @@ class RoomTaskService {
 			$nextDue,
 			fn (): \DateTimeZone => $this->readService->timeZoneForRoom($roomTask->getRoomId())
 		);
+		$owningHouseId = $this->readService->houseIdForRoom($roomTask->getRoomId());
 
-		return $this->transactions->run(function () use ($roomTaskId, $nextDueDate): RoomTask {
-			$this->roomTaskMapper->lockForUpdate($roomTaskId);
+		return $this->transactions->run(function () use ($roomTaskId, $nextDueDate, $owningHouseId): RoomTask {
+			$this->houseMapper->findForUpdate($owningHouseId);
+			$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
+			if ($roomTask->getDeletedAt() !== null) {
+				// Authoritative tombstone gate (Q-70-01): the due-date
+				// write may land only on live planning state.
+				throw new NotFoundException($this->l10n->t('Room task not found'));
+			}
 			$this->roomTaskMapper->updateNextDue($roomTaskId, $nextDueDate);
 			return $this->roomTaskMapper->find($roomTaskId);
 		});
@@ -376,15 +409,20 @@ class RoomTaskService {
 	}
 
 	/**
-	 * Delete room task and everything that depends on it (CS-PLAN-037, D1/D2).
+	 * Tombstone a room task (CS-PLAN-071 WP0, Q-070-01 / RF-070-16).
 	 *
-	 * Explicit, transactional cascade for a single id — before this, the
-	 * row's completions, assignees, and checklist progress were left
-	 * orphaned (no FK constraints in the schema).
+	 * Structural deletion keeps the evidence: inside one house-first
+	 * transaction the row is tombstoned (`deleted_at` set, `deleted_token
+	 * = id`, `is_active = 0`), its `task_assignees` and checklist-progress
+	 * rows are deleted (active-planning state), and its `completed_tasks`
+	 * rows are RETAINED (minimum history, existing visibility, valid earned
+	 * effects). No production path hard-deletes structural rows outside the
+	 * test-mode reset (decision D4).
 	 *
 	 * Service-level gates (CS-PLAN-061 §3.4): the acting user must be able
 	 * to see the room task's definition (404 for invisible tasks) and may
-	 * not be a child (403).
+	 * not be a child (403). Tombstone deletion stays owner/managers-only
+	 * via the same actor policy as before.
 	 *
 	 * @param int $roomTaskId The room task ID
 	 * @param HouseUser $actor The acting user's house membership
@@ -395,10 +433,22 @@ class RoomTaskService {
 		$this->assertRoomTaskVisible($roomTaskId, $actor);
 		$this->authorization->assertCanManageTasks($actor);
 		$roomTask = $this->findRoomTaskOrNotFound($roomTaskId);
+		$owningHouseId = $this->readService->houseIdForRoom($roomTask->getRoomId());
 
-		$this->transactions->run(function () use ($roomTaskId, $roomTask) {
-			$this->roomService->deleteRoomTaskDependents([$roomTaskId]);
-			$this->roomTaskMapper->delete($roomTask);
+		$this->transactions->run(function () use ($roomTaskId, $owningHouseId): void {
+			// FIRST lock of the documented order: the house row.
+			$this->houseMapper->findForUpdate($owningHouseId);
+
+			$locked = $this->roomTaskMapper->lockForUpdate($roomTaskId);
+			if ($locked->getDeletedAt() !== null) {
+				// Authoritative tombstone gate (Q-70-01): a concurrent
+				// delete winner makes this invocation a clean 404 with
+				// zero writes — the original tombstone evidence survives.
+				throw new NotFoundException($this->l10n->t('Room task not found'));
+			}
+			$this->roomService->deleteRoomTaskPlanningState([$roomTaskId]);
+			$locked->tombstone(new \DateTime());
+			$this->roomTaskMapper->update($locked);
 		});
 	}
 
@@ -728,6 +778,11 @@ class RoomTaskService {
 	 * @throws NotFoundException if the matrix denies the actor
 	 */
 	public function assertLifecycleVisibility(RoomTask $roomTask, Task $task, HouseUser $houseUser): void {
+		if ($roomTask->getDeletedAt() !== null) {
+			// Tombstoned = gone from active planning (Q-70-01): lifecycle
+			// mutations (due date, …) answer 404 like an invisible id.
+			throw new NotFoundException($this->l10n->t('Room task not found'));
+		}
 		$assigneeUserIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId());
 		$this->taskAccessPolicy->assertCanView($task, $houseUser, $assigneeUserIds);
 	}

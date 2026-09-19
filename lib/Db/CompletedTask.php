@@ -26,8 +26,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setId(int $id)
  * @method int getRoomTaskId()
  * @method void setRoomTaskId(int $roomTaskId)
- * @method int getUserId()
- * @method void setUserId(int $userId)
+ * @method int|null getUserId()
+ * @method void setUserId(?int $userId)
  * @method \DateTime getCompletedAt()
  * @method void setCompletedAt(\DateTime $completedAt)
  * @method int getCoinsEarned()
@@ -47,7 +47,13 @@ class CompletedTask extends Entity implements JsonSerializable {
 	/** @var int */
 	protected $roomTaskId;
 
-	/** @var int */
+	/**
+	 * Completer's house_user id. Nullable since CS-PLAN-071 (decision D3):
+	 * account erasure nulls the actor and retains the anonymous shared
+	 * work facts.
+	 *
+	 * @var int|null
+	 */
 	protected $userId;
 
 	/** @var \DateTime */

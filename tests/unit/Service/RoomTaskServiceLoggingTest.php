@@ -45,6 +45,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$roomTaskMapper,
 			$taskMapper,
 			$roomMapper,
+			$this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class),
 			new \OCA\ChoreStrike\Service\RoomTaskReadService(
 				$roomTaskMapper,
 				$taskMapper,

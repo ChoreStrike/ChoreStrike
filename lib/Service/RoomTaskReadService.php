@@ -75,6 +75,19 @@ class RoomTaskReadService {
 	}
 
 	/**
+	 * Resolve the owning house ID behind a room (room → floor → house).
+	 *
+	 * Lock-order primitive (CS-PLAN-071 WP0): room-task writers resolve
+	 * the aggregate's house from the row's room so the house-first
+	 * transaction locks the correct house row.
+	 */
+	public function houseIdForRoom(int $roomId): int {
+		$room = $this->roomMapper->find($roomId);
+		$floor = $this->floorMapper->find($room->getFloorId());
+		return $floor->getHouseId();
+	}
+
+	/**
 	 * Resolve the house timezone behind a room (room → floor → house).
 	 */
 	public function timeZoneForRoom(int $roomId): \DateTimeZone {

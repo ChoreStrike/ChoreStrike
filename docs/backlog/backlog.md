@@ -78,17 +78,21 @@ leaderboard remainder keeps its ownership here; no whole-item closure is implied
 **Owning**: — (unscheduled standalone fix) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-064 (Standard A, 2026-09-06)
 
-After WP5, completions/undos write room cleanliness on a locked room row
-(`room_task → room → house_user` order), but the manual adjust endpoint
-(`RoomController#updateCleanliness` → `RoomService::updateRoomCleanliness`,
-find → `updateCleanliness` → update) remains an unlocked read-modify-write:
-a concurrent manual adjust can still lose (or clobber) a completion's
-cleanliness delta. Deferred by user decision to keep the WP5 scope guard
-(completion/undo critical path only). The authz defense-in-depth half was
-closed by the CS-PLAN-058 final Full review (RF-058-06: service-side
-room→floor→house chain validation). Fix: route the manual adjust through
-`RoomMapper::lockForUpdate` inside a `TransactionExecutor` run; add a
-two-connection adjust-vs-completion race regression.
+After WP5, completions/undos write room cleanliness on a locked room row,
+but the manual adjust endpoint (`RoomController#updateCleanliness` →
+`RoomService::updateRoomCleanliness`, find → `updateCleanliness` → update)
+remained an unlocked read-modify-write: a concurrent manual adjust can still
+lose (or clobber) a completion's cleanliness delta. Deferred by user decision
+to keep the WP5 scope guard (completion/undo critical path only). The authz
+defense-in-depth half was closed by the CS-PLAN-058 final Full review
+(RF-058-06: service-side room→floor→house chain validation).
+**CS-PLAN-071 WP0 (2026-09-18): the RMW half is narrowed, not closed — the
+manual adjust now runs house-first (`house → room` locks, serialized against
+every writer), but the WP3 `room_events` journal/replay remains open, so the
+item stays for its journal+replay remainder.** Fix remainder: route the
+manual adjust through the journal with ordered replay evidence; the
+two-connection adjust-vs-completion race is already serialized by the WP0
+lock order (regression value shifts to replay ordering).
 
 **C3 dependency (2026-09-17):** CS-PLAN-070's approved isolated room correction
 requires this existing locking fix plus ordered replay evidence for manual room
@@ -378,10 +382,15 @@ Runtime findings stay in that plan, not parallel backlog entries. Existing
 add-on owners remain; notification/pause work belongs
 to the selected core and the optional catalog follows it. Chore approval/Task Pass,
 external sync, local child profiles, cosmetics and non-Snake games are outside
-this delivery slice. No implementation started or item completed by this decision.
-WP0 (write/identity foundation) is sub-planned by the active child
-[CS-PLAN-071](../plans/active/cs-plan-071-wp0-write-identity-foundation.md)
-(Standard A `PASS-WITH-FIXES`, 2026-09-18); runtime work may start there.
+this delivery slice. No item is completed by the WP0 delivery alone.
+WP0 (write/identity foundation) was sub-planned and delivered by the child
+[CS-PLAN-071](../plans/done/cs-plan-071-wp0-write-identity-foundation.md)
+(Standard A `PASS-WITH-FIXES` 2026-09-18; **final Standard B
+`PASS-WITH-FIXES` 2026-09-19, plan in `done/`**): house-first lock order,
+Version1030 commands/wallets/wallet_entries, wallet identity at every
+membership path, `CommandService`, tombstone deletion with retained
+evidence, account erasure + `UserDeletedListener`, T0 suites. The WP1+
+behavior packages remain open in the parent.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

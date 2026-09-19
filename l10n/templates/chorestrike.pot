@@ -977,6 +977,9 @@ msgstr ""
 msgid "For everyone"
 msgstr ""
 
+msgid "Former member"
+msgstr ""
+
 msgid "Freezes"
 msgstr ""
 

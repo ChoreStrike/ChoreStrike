@@ -41,6 +41,9 @@ class MinigameServiceTest extends TestCase {
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
 		$this->houseMapper->method('find')->willReturn($utcHouse);
+		// CS-PLAN-071 WP0: the score/boost writes enter through the house
+		// row lock (findForUpdate) — a stub is enough for these unit tests.
+		$this->houseMapper->method('findForUpdate')->willReturn($utcHouse);
 		$l10n = $this->createMock(IL10N::class);
 		// Identity mock: message assertions match the wrapped source text
 		// (no parameter substitution), mirroring TemplateServiceTest.

@@ -168,10 +168,13 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
   upgrade path, no backfills). Guarded by `FreshInstallMigrationSmokeTest`,
   which also asserts the folded canonical schema (unique instance index, no
   `is_private`/`assigned_to_user_id`/sync-remnant columns).
-- **Version1029** (`20260906000000`, CS-PLAN-064 WP5) is the current chain
-  head: it moved `completed_tasks` to the CS-PLAN-064 undo-effect schema —
-  the immutable completion receipt (before-state/deltas JSON) that the
-  transactional undo replays.
+- **Version1029** (`20260906000000`, CS-PLAN-064 WP5) moved `completed_tasks`
+  to the CS-PLAN-064 undo-effect schema — the immutable completion receipt
+  (before-state/deltas JSON) that the transactional undo replays.
+- **Version1030** (`20260918000000`, CS-PLAN-071 WP0) is the current chain
+  head: it creates `commands`, `wallets` and `wallet_entries` (command
+  receipts + the persistent house/account financial identity). WP3 extends
+  this migration in place with `work_shares`/`room_events`.
 - **Fresh-install hooks:** the migration chain only ever runs on a fresh
   install (`php occ migrations:migrate chorestrike` during app
   provisioning); per the pre-release policy there is NO upgrade path.
@@ -179,7 +182,7 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
   the disposable test database is recreated (`docker compose -f
   docker/compose.test.yml down -v && up -d`) instead of writing upgrade steps.
 
-### Locking and transactions (CS-PLAN-060 WP1)
+### Locking and transactions (single house-first order, CS-PLAN-070 §3.5 / CS-PLAN-071 WP0)
 
 `lib/Db/TransactionExecutor` is the **single owner** of
 `IDBConnection::beginTransaction()/commit()/rollBack()`. Services scope an
@@ -188,40 +191,107 @@ callable → commit, roll back on any Throwable); they never inject
 `IDBConnection` themselves. Mappers keep their own SQLite-tolerant lock
 primitives (`HouseMapper::findForUpdate`,
 `HouseUserMapper::findForUpdate`, `RoomTaskMapper::lockForUpdate`,
-`RoomTaskChecklistProgressMapper::findForUpdate`) — each must be called
-inside an open transaction.
+`TaskMapper::lockForUpdate`, `RoomMapper::lockForUpdate`,
+`RoomTaskChecklistProgressMapper::findForUpdate`,
+`WalletMapper::findForUpdate`) — each must be called inside an open
+transaction.
 
-**Deterministic lock order — always acquire in this order, never reverse:**
+**Deterministic lock order — frozen by CS-PLAN-070 §3.5, implemented by
+CS-PLAN-071 WP0. Every writer follows this order or a subsequence (a subset
+acquired in the same relative order); no writer may acquire the house lock
+after a child lock:**
 
 ```
-house → room_task → task/assignee/reward rows          (setup/creation family)
-room_task → room → house_user                          (completion/undo family)
+house → room tasks (by ID) → task definitions (by ID) → rooms (by ID)
+      → active membership rows (by ID) → wallets (by ID)
+      → occurrence/completion rows (by ID) → request/preference/digest rows (by ID)
 ```
 
-Example: `AuthorizationService::ensureHouseMember` locks the house row before
-counting members (first-owner bootstrap, CR-053-07);
-`HouseSetupService::applySetup` locks the house row before the first-run gate
-recheck, the assignee-membership revalidation, and the house-name write
-(atomic setup, CS-PLAN-062 §3.1–§3.3);
-`TaskCreationService::create` (CS-PLAN-063) likewise locks the house row
-first and then performs only fresh inserts (definition, room task, assignee
-rows) — the assignment side (`RoomTaskService::setAssignees` and each
-ascending-id bulk item) takes the `room_task` row lock as its first and only
-lock, revalidating the target membership under it.
+This **supersedes** the former two-family split (setup/creation
+`house → room_task → …` vs the ADR-011/012 completion-only entry order
+`room_task → room → house_user`); the ADRs carry supersession notes with
+their historical context preserved. Reads and different houses stay
+independent. Never hold a DB transaction while sending a Nextcloud
+notification (`CompletionPostCommitService` runs outside the transaction).
+Recognized transient DB lock/deadlock failures are retried inside
+`TransactionExecutor::run()` with a small bounded retry policy; authorization,
+validation and conflict failures are never retried.
 
-**Completion/undo usage (CS-PLAN-064 WP5, ADR-011):** `CompletionService` owns
-both aggregates on the order `room_task → room → house_user`. Completion locks
-the room task first (fresh entity, ADR-007 #3), then the room row
-(`RoomMapper::lockForUpdate` — concurrent same-room completions serialize
-there, so the cleanliness write cannot clobber), then the completer's
-`house_user` row (the same row the reward phase locks). Undo follows the
-identical order and locks the **completer's** `house_user` (the actor may be a
-house owner). The task definition is deliberately not locked (ratified
-deviation, ADR-011 §2 / decision D12). The families never mix: completion/undo
-never take the house row lock, so no cycle against setup/creation exists —
-proven by the two-connection race suites
-(`tests/integration/Service/CompletionConcurrencyTest.php`,
-`ConcurrentCompletionTest.php`).
+**SQLite write acquisition (CS-PLAN-071 D5):** SQLite has no row-level
+`FOR UPDATE` and no `BEGIN IMMEDIATE` expressible through
+`IDBConnection`/Doctrine. `TransactionExecutor` therefore applies a bounded
+`busy_timeout` on SQLite, and the contractually FIRST statement of every
+writer — the house-lock primitive, whose SQLite implementation is a no-op
+self-assignment `UPDATE` — acquires the database-wide write lock at
+transaction start, which is BEGIN-IMMEDIATE-equivalent at the application
+level (deferred BEGIN takes no write lock, and the first statement is a
+write; no read ever precedes the write-acquisition inside a transaction).
+The full database matrix is verified in WP9; WP0 proves the mechanism on an
+isolated disposable SQLite environment.
+
+#### WP0 writer/lock audit (2026-09-18, baseline `master` @ `1946166`)
+
+| Writer / job / reset path | Entry lock before WP0 | After WP0 |
+|---|---|---|
+| `AuthorizationService::ensureHouseMember` (first-owner bootstrap) | house | house (unchanged; now also creates the wallet) |
+| `HouseSetupService::applySetup` | house | house (unchanged; now also creates wallets) |
+| `TaskCreationService::runAggregate` | house | house (unchanged, verified) |
+| `SchedulePlanService::apply` | house → room_task asc → task asc → house_user asc | unchanged (verified subsequence) |
+| `CompletionService::complete` / `undo` | room_task → room → house_user | house → room_task → room → house_user (supersedes ADR-011/012 entry order) |
+| `RoomTaskService::setAssignees` / `bulkAssignTasks` (per item) | room_task | house → room_task |
+| `RoomTaskService::updateDueDate` | room_task | house (room-task house) → room_task |
+| `RoomTaskService::deleteRoomTask` | none (auto-commit deletes) | house → room_task (tombstone) |
+| `ChecklistService::toggleItem` (via progress mapper transaction) | progress row | house → room_task → progress row |
+| `ChecklistService` definition mutations (add/update/delete/reorder items) | none | house |
+| `HouseService::inviteMember` | none (`createOrGet` auto-commit) | house → membership → wallet |
+| `HouseService::removeHouseMember` | none | house → assignees/house_user deletes (wallet preserved) |
+| `HouseService::updateUserRole` | none | house → house_user |
+| `HouseService::updateHouse` (name/timezone) | none | house (+ `timezone_version` bump on timezone change) |
+| `HouseService::resetHouse` | none | house |
+| `FloorService::createFloor` / `updateFloorName` / `reorderFloors` | none | house |
+| `FloorService::deleteFloor` | none (transaction without locks) | house → tombstone cascade |
+| `RoomService::createRoom` / `updateRoomName` | none | house |
+| `RoomService::deleteRoom` | none (transaction without locks) | house → tombstone cascade |
+| `RoomService::updateRoomCleanliness` | none (CR-SVC-63) | house → room (journal is WP3) |
+| `MinigameService::saveScore` / boost purchase | house_user only | house → score/user writes |
+| `SchedulingService` preference writes | none | house → house_user |
+| `TaskService::updateTask` | none | house → task definition |
+| `StreakFreezeService` / `StreakRestockService` jobs | none (auto-commit updates) | house → house_user (converted; retired in WP4) |
+| `TestDataService::reset` + seeds | test-mode only | test-mode only; includes `commands`/`wallets`/`wallet_entries`; seeds create wallets |
+| `TriggerJobs` paths | delegate to the services above | inherit |
+| `GameLogicService` / `MedalService` / `TitleService` / `CompletionEffectService` | inside the completion transaction | inherit (house-first via `CompletionService`) |
+
+#### WP0 structural read-path audit (active-planning filters)
+
+Tombstoned rows (`deleted_at` set / room tasks also `is_active = 0`,
+`deleted_token = id`) must disappear from active-planning reads:
+
+- `FloorMapper::findByHouseId` / `countByHouseId` — `deleted_at IS NULL`.
+- `RoomMapper::findByHouseId` / `findByFloorId` / `findByIds` /
+  `resetByHouseId` — `deleted_at IS NULL`.
+- `RoomTaskMapper` — existing `is_active` filters already exclude tombstoned
+  room tasks; `exists()` (mount-duplicate guard) filters `deleted_token = 0`.
+- History/activity reads deliberately keep resolving names through tombstoned
+  rows: `RoomTaskMapper::findByIdsScopedToHouse` (JOIN-only, no active filter),
+  `RoomMapper::find`, `FloorMapper::find`, `RoomTaskMapper::find`.
+
+#### WP0 personal-identifier inventory (erasure surface, Q-070-02)
+
+| Table.column | Kind | Erasure handling |
+|---|---|---|
+| `house_users.nextcloud_user_id`, `.display_name` | raw UID + display name | row deleted |
+| `task_assignees.user_id` | raw UID | rows deleted |
+| `medals.user_id` | membership id | rows deleted |
+| `minigame_scores.user_id` | raw UID | rows deleted |
+| `wallets.nextcloud_user_id` | raw UID | row deleted (with `wallet_entries`) |
+| `wallet_entries.actor_house_user_id` | membership id | deleted with the wallet |
+| `commands.actor_house_user_id` | membership id | nulled (receipt retained) |
+| `completed_tasks.user_id` / `.combo_with_user_id` | membership id | nulled (anonymous shared work facts retained) |
+| `chk_progress.checked_by_user_id` | membership id | NOT WP0-scoped: dangling attribution is a pre-existing orphan pattern (same as before WP0); adopted by the WP3 completion reshape |
+
+History references internal bigint IDs only (never raw UIDs), so a recreated
+same-name account gets a fresh `house_users.id` / `wallets.id` and cannot
+rebind prior data.
 
 ## Project Structure
 

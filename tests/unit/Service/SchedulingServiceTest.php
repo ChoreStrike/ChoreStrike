@@ -10,6 +10,7 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\SchedulingService;
+use OCP\IDBConnection;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
@@ -37,6 +38,9 @@ class SchedulingServiceTest extends TestCase {
 		// Identity mock: message assertions match the wrapped source text.
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
+		// CS-PLAN-071 WP0: preference writes enter through the house row
+		// lock (findForUpdate) — a stub is enough for these unit tests.
+		$this->houseMapper->method('findForUpdate')->willReturn($utcHouse);
 		// CS-PLAN-065 (D7): the reader-less consumed-energy cluster is gone —
 		// the service no longer depends on CompletedTaskMapper at all.
 		$this->service = new SchedulingService(
@@ -44,8 +48,17 @@ class SchedulingServiceTest extends TestCase {
 			$l10n,
 			$this->houseMapper,
 			new CalendarService(),
-			$this->authorization
+			$this->authorization,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(IDBConnection::class))
 		);
+	}
+
+	/**
+	 * CS-PLAN-071 WP0: the under-lock membership re-read returns the same
+	 * prepared entity so the locked write targets it.
+	 */
+	private function stubLockedMember(HouseUser $houseUser): void {
+		$this->houseUserMapper->method('findForUpdate')->willReturn($houseUser);
 	}
 
 	/**
@@ -124,6 +137,8 @@ class SchedulingServiceTest extends TestCase {
 			->with(3, 'member-d')
 			->willReturn($houseUser);
 
+		$this->stubLockedMember($houseUser);
+
 		$this->houseUserMapper
 			->expects($this->once())
 			->method('update')
@@ -164,6 +179,8 @@ class SchedulingServiceTest extends TestCase {
 			->method('findByNextcloudUserId')
 			->with(3, 'member-e')
 			->willReturn($houseUser);
+
+		$this->stubLockedMember($houseUser);
 
 		// The response is built from the in-memory entity — no second find.
 		$this->houseUserMapper
@@ -304,6 +321,8 @@ class SchedulingServiceTest extends TestCase {
 			->with(1, 'alice')
 			->willReturn($targetUser);
 
+		$this->stubLockedMember($targetUser);
+
 		$this->houseUserMapper
 			->expects($this->once())
 			->method('update')
@@ -318,6 +337,56 @@ class SchedulingServiceTest extends TestCase {
 		$preferences = $targetUser->getSchedulingPreferences();
 		$this->assertFalse($preferences['weekdayAvailability']['monday']);
 		$this->assertSame(15, $preferences['energyBudget']['monday']);
+	}
+
+	/**
+	 * UpdateMemberAvailability_MergesOnLockedEntity_NotTheStalePreRead
+	 *
+	 * CS-PLAN-071 review fix (TOCTOU): a member self-update committed
+	 * behind the owner's pre-read is never clobbered — the update set is
+	 * validated and merged on the FRESH locked entity, so the sibling key
+	 * the stale pre-read never saw survives.
+	 */
+	public function testUpdateMemberAvailabilityByNextcloudUserId_MergesOnLockedEntity_NotStalePreRead(): void {
+		$staleUser = new HouseUser();
+		$staleUser->setId(22);
+		$staleUser->setHouseId(1);
+		$staleUser->setSchedulingPreferences([
+			'energyBudget' => ['monday' => 10],
+		]);
+
+		$lockedUser = new HouseUser();
+		$lockedUser->setId(22);
+		$lockedUser->setHouseId(1);
+		// The member's concurrent self-update added maxDailyTasks after the
+		// owner's pre-read.
+		$lockedUser->setSchedulingPreferences([
+			'energyBudget' => ['monday' => 10],
+			'maxDailyTasks' => 6,
+		]);
+
+		$this->houseUserMapper
+			->method('findByNextcloudUserId')
+			->with(1, 'alice')
+			->willReturn($staleUser);
+		$this->houseUserMapper
+			->method('findForUpdate')
+			->willReturn($lockedUser);
+
+		$this->houseUserMapper
+			->expects($this->once())
+			->method('update')
+			->with($lockedUser);
+
+		$this->service->updateMemberAvailabilityByNextcloudUserId(
+			1,
+			'alice',
+			['energyBudget' => ['monday' => 15]]
+		);
+
+		$preferences = $lockedUser->getSchedulingPreferences();
+		$this->assertSame(15, $preferences['energyBudget']['monday']);
+		$this->assertSame(6, $preferences['maxDailyTasks'], 'the locked base is merged, not the stale pre-read');
 	}
 
 	/**
@@ -337,6 +406,10 @@ class SchedulingServiceTest extends TestCase {
 			->method('findByNextcloudUserId')
 			->with(1, 'alice')
 			->willReturn($targetUser);
+
+		// CS-PLAN-071 review fix: validation runs on the FRESH locked
+		// entity inside the house-first transaction.
+		$this->stubLockedMember($targetUser);
 
 		$this->houseUserMapper
 			->expects($this->never())
@@ -368,6 +441,10 @@ class SchedulingServiceTest extends TestCase {
 			->method('findByNextcloudUserId')
 			->with(1, 'alice')
 			->willReturn($targetUser);
+
+		// CS-PLAN-071 review fix: validation runs on the FRESH locked
+		// entity inside the house-first transaction.
+		$this->stubLockedMember($targetUser);
 
 		$this->houseUserMapper
 			->expects($this->never())
@@ -439,6 +516,8 @@ class SchedulingServiceTest extends TestCase {
 			->with(1, 'kid')
 			->willReturn($targetUser);
 
+		$this->stubLockedMember($targetUser);
+
 		$this->houseUserMapper
 			->expects($this->once())
 			->method('update')
@@ -466,6 +545,8 @@ class SchedulingServiceTest extends TestCase {
 			->with($houseId, 'kid')
 			->willReturn($targetUser);
 
+		$this->stubLockedMember($targetUser);
+
 		$this->service->updateMemberAvailabilityByNextcloudUserId($houseId, 'kid', ['maxDailyTasks' => null]);
 
 		$preferences = $targetUser->getSchedulingPreferences();
@@ -490,6 +571,8 @@ class SchedulingServiceTest extends TestCase {
 			->method('findByNextcloudUserId')
 			->with($houseId, 'kid')
 			->willReturn($targetUser);
+
+		$this->stubLockedMember($targetUser);
 
 		$this->service->updateMemberAvailabilityByNextcloudUserId($houseId, 'kid', ['energyBudget' => ['monday' => 12]]);
 
@@ -516,6 +599,10 @@ class SchedulingServiceTest extends TestCase {
 			->method('findByNextcloudUserId')
 			->with($houseId, 'kid')
 			->willReturn($targetUser);
+
+		// CS-PLAN-071 review fix: validation runs on the FRESH locked
+		// entity inside the house-first transaction.
+		$this->stubLockedMember($targetUser);
 
 		$this->houseUserMapper
 			->expects($this->never())

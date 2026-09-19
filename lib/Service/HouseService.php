@@ -42,6 +42,7 @@ class HouseService {
 	private CompletedTaskMapper $completedTaskMapper;
 	private HouseUserMapper $houseUserMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
+	private WalletService $walletService;
 	private RewardConfigService $rewardConfigService;
 	private IConfig $config;
 	private TransactionExecutor $transactions;
@@ -60,6 +61,7 @@ class HouseService {
 		CompletedTaskMapper $completedTaskMapper,
 		HouseUserMapper $houseUserMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
+		WalletService $walletService,
 		RewardConfigService $rewardConfigService,
 		IConfig $config,
 		TransactionExecutor $transactions,
@@ -77,6 +79,7 @@ class HouseService {
 		$this->completedTaskMapper = $completedTaskMapper;
 		$this->houseUserMapper = $houseUserMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
+		$this->walletService = $walletService;
 		$this->rewardConfigService = $rewardConfigService;
 		$this->config = $config;
 		$this->transactions = $transactions;
@@ -100,6 +103,14 @@ class HouseService {
 	 * CS-PLAN-061). This method resolves the account and performs the
 	 * idempotent membership write.
 	 *
+	 * CS-PLAN-071 WP0: the invite runs as one house-first aggregate and
+	 * creates the member's persistent wallet inside it — the financial
+	 * identity exists from the first membership write. Re-inviting a
+	 * departed account reattaches the preserved wallet via
+	 * (house_id, nextcloud_user_id); balances stay untouched (dormant
+	 * until WP3) and the wallet never grants access: authorization remains
+	 * solely the active house_users membership.
+	 *
 	 * @param int $houseId The house ID
 	 * @param string $email Trimmed email address of the account to invite
 	 * @param string $role One of VALID_ROLES
@@ -114,12 +125,16 @@ class HouseService {
 
 		// Use the first matching user if multiple accounts share the same email.
 		$ncUser = $ncUsers[0];
-		return $this->houseUserMapper->createOrGet(
-			$houseId,
-			$ncUser->getUID(),
-			$ncUser->getDisplayName(),
-			$role
-		);
+		$uid = $ncUser->getUID();
+		$displayName = $ncUser->getDisplayName();
+
+		return $this->transactions->run(function () use ($houseId, $uid, $displayName, $role): HouseUser {
+			// FIRST lock of the documented order (house → membership → wallet).
+			$this->houseMapper->findForUpdate($houseId);
+
+			$houseUser = $this->houseUserMapper->createOrGet($houseId, $uid, $displayName, $role);
+			return $this->walletService->ensureBinding($houseId, $houseUser);
+		});
 	}
 
 	/**
@@ -154,11 +169,14 @@ class HouseService {
 	 * transactionally (CR-SVC-26).
 	 *
 	 * House membership is a house concern, so the whole removal runs as one
-	 * aggregate operation: delete the member's `task_assignees` rows (the
-	 * canonical assignee store, scoped to this house — another house's
-	 * assignments are untouched) and delete the `house_users` row.
-	 * Before the fix the controller deleted only the house_users row and
-	 * left orphaned assignee references to a former member behind.
+	 * house-first aggregate operation (CS-PLAN-071 WP0): under the house
+	 * row lock, delete the member's `task_assignees` rows (the canonical
+	 * assignee store, scoped to this house — another house's assignments
+	 * are untouched) and delete the `house_users` row. The member's WALLET
+	 * ROW IS PRESERVED — financial identity/history is separate from active
+	 * authorization (parent C4 preamble); a re-invitation reattaches it and
+	 * only account erasure removes it. Full C4e semantics (cancelling
+	 * unfulfilled reward requests) is WP7 — there are no requests yet.
 	 *
 	 * The caller (controller) is responsible for the requireHouseOwner
 	 * gate; this method guards its own invariant: the target must not be
@@ -179,7 +197,10 @@ class HouseService {
 		$ncUserId = $houseUser->getNextcloudUserId();
 		$houseId = $houseUser->getHouseId();
 
-		$this->transactions->run(function () use ($houseUser, $ncUserId, $houseId) {
+		$this->transactions->run(function () use ($houseUser, $ncUserId, $houseId): void {
+			// FIRST lock of the documented order: the house row.
+			$this->houseMapper->findForUpdate($houseId);
+
 			$this->taskAssigneeMapper->deleteByUserForHouse($ncUserId, $houseId);
 			$this->houseUserMapper->delete($houseUser);
 		});
@@ -212,19 +233,27 @@ class HouseService {
 		}
 
 		$houseUser = $this->houseUserMapper->find($houseUserId);
+		$houseId = $houseUser->getHouseId();
 
-		if ($role !== 'owner') {
-			if ($houseUser->getNextcloudUserId() === $callerUserId) {
-				throw new ForbiddenException($this->l10n->t('Cannot demote yourself'));
-			}
-			if ($houseUser->isOwner()
-				&& $this->houseUserMapper->countOwnersForHouse($houseUser->getHouseId()) <= 1) {
-				throw new ConflictException('Cannot demote the last house owner');
-			}
-		}
+		return $this->transactions->run(function () use ($houseUserId, $role, $callerUserId, $houseId): HouseUser {
+			// FIRST lock of the documented order: the house row, then the
+			// membership row — the guards below evaluate the FRESH state.
+			$this->houseMapper->findForUpdate($houseId);
+			$houseUser = $this->houseUserMapper->findForUpdate($houseUserId);
 
-		$houseUser->setRole($role);
-		return $this->houseUserMapper->update($houseUser);
+			if ($role !== 'owner') {
+				if ($houseUser->getNextcloudUserId() === $callerUserId) {
+					throw new ForbiddenException($this->l10n->t('Cannot demote yourself'));
+				}
+				if ($houseUser->isOwner()
+					&& $this->houseUserMapper->countOwnersForHouse($houseUser->getHouseId()) <= 1) {
+					throw new ConflictException('Cannot demote the last house owner');
+				}
+			}
+
+			$houseUser->setRole($role);
+			return $this->houseUserMapper->update($houseUser);
+		});
 	}
 
 	/**
@@ -273,6 +302,11 @@ class HouseService {
 	 * Update house name and/or timezone (owner-only, CS-PLAN-061 §3.4 /
 	 * ADR-006 — controller checks remain as defense in depth).
 	 *
+	 * CS-PLAN-071 WP0: the mutation runs under the house row lock and
+	 * bumps `timezone_version` on an actual timezone change (decision D7 —
+	 * the first consumer of the version counters; saved occurrence facts
+	 * keep their zone, WP1 owns the recurrence rewiring).
+	 *
 	 * @param int $houseId The house ID
 	 * @param string $name The new name
 	 * @param string|null $timezone The new IANA timezone id (null = leave unchanged)
@@ -281,13 +315,18 @@ class HouseService {
 	public function updateHouse(int $houseId, string $name, ?string $timezone = null): House {
 		$this->authorization->requireHouseOwner($houseId);
 
-		$house = $this->houseMapper->find($houseId);
-		$house->setName($name);
-		if ($timezone !== null) {
-			$house->setTimezone($timezone);
-		}
-		$house->touch();
-		return $this->houseMapper->update($house);
+		return $this->transactions->run(function () use ($houseId, $name, $timezone): House {
+			$house = $this->houseMapper->findForUpdate($houseId);
+			$house->setName($name);
+			if ($timezone !== null) {
+				if ($house->getTimezone() !== $timezone) {
+					$house->setTimezone($timezone);
+					$house->bumpTimezoneVersion();
+				}
+			}
+			$house->touch();
+			return $this->houseMapper->update($house);
+		});
 	}
 
 	/**
@@ -371,9 +410,12 @@ class HouseService {
 	 * {@see updateHouse()} — the most destructive house operation must not
 	 * depend on a single controller gate.
 	 *
-	 * All rooms reset via one house-scoped subquery UPDATE
-	 * (CS-PLAN-037, CR-SVC-60) instead of the floors → rooms double
-	 * loop (3 + N_floors + N_rooms → 3 queries).
+	 * CS-PLAN-071 WP0: the reset runs as one house-first transaction
+	 * (house row lock first). The contract is preserved: cleanliness 100,
+	 * monsters 0, `last_cleaned` null, health 100; NO work/finance
+	 * clearing — wallets and command receipts are financial identity, not
+	 * room state, and survive a production house reset. Tombstoned rooms
+	 * are not reset (they are gone from the active structure).
 	 *
 	 * @param int $houseId The house ID
 	 * @throws \OCA\ChoreStrike\Exception\ForbiddenException if the caller is not the house owner
@@ -384,12 +426,15 @@ class HouseService {
 			'service' => 'HouseService',
 			'houseId' => $houseId,
 		]);
-		$house = $this->houseMapper->find($houseId);
-		$house->setHouseHealth(100);
-		$house->touch();
-		$this->houseMapper->update($house);
 
-		$this->roomMapper->resetByHouseId($houseId);
+		$this->transactions->run(function () use ($houseId): void {
+			$house = $this->houseMapper->findForUpdate($houseId);
+			$house->setHouseHealth(100);
+			$house->touch();
+			$this->houseMapper->update($house);
+
+			$this->roomMapper->resetByHouseId($houseId);
+		});
 	}
 
 	/**

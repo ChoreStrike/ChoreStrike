@@ -335,6 +335,30 @@ tracked in the family-rhythm clarification plan.
   snackbar is a queued list: each completion gets its own entry and countdown
   (UX-015), so a second completion never destroys the first undo action.
 
+### Structural deletion and account erasure (CS-PLAN-071 WP0, implemented)
+
+Domain behavior of the WP0 substrate (mechanism detail in
+[architecture.md](../engineering/architecture.md) and
+[development.md](../engineering/development.md)):
+
+- **Deleting structure keeps the history.** Deleting a room task, a room or a
+  floor tombstones the rows (`deleted_at`, room tasks also `deleted_token` +
+  `is_active = 0`) instead of destroying them: the rows vanish from every
+  active-planning view, the `completed_tasks` evidence is retained with its
+  existing visibility, and earned effects (coins/streaks/medals) stay valid.
+  Undo of a completion on a tombstoned room task stays authorized for the
+  completer or an owner. Re-adding the same task to the same room creates a
+  fresh live link — the tombstone never blocks it.
+- **Account deletion erases the person, not the shared history.** When the
+  Nextcloud account is deleted, ChoreStrike removes every personal reference
+  (memberships, assignments, medals, minigame scores, the wallet with its
+  ledger) and nulls actor references on receipts and completions. The
+  anonymous shared work facts (when, what, room effects) remain visible in
+  the activity feed rendered as "Former member". An ordinary departure keeps
+  the wallet as dormant financial identity; a re-invitation reattaches it; a
+  recreated same-name account starts with a fresh identity and cannot claim
+  prior data.
+
 ### Approved Correction Contract C3 (2026-09-17)
 
 Target behavior, not the shipped ADR-011 restore implementation described above.

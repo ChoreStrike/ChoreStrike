@@ -38,7 +38,7 @@ class FloorMapper extends QBMapper {
 	}
 
 	/**
-	 * Get all floors for a house, ordered by sort_order
+	 * Get all live floors for a house, ordered by sort_order
 	 *
 	 * @param int $houseId The house ID
 	 * @return Floor[]
@@ -49,13 +49,16 @@ class FloorMapper extends QBMapper {
 		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('deleted_at'))
 			->orderBy('sort_order', 'ASC');
 
 		return $this->findEntities($qb);
 	}
 
 	/**
-	 * Count the floors of a house (CS-PLAN-062 §3.1).
+	 * Count the LIVE floors of a house (CS-PLAN-062 §3.1; CS-PLAN-071:
+	 * tombstoned floors no longer count — deleting the last floor re-opens
+	 * the first-run wizard).
 	 *
 	 * The in-transaction first-run gate needs an existence check that does
 	 * not materialize entities — a single prepared COUNT instead of the
@@ -68,7 +71,8 @@ class FloorMapper extends QBMapper {
 
 		$qb->select($qb->func()->count('id'))
 			->from($this->getTableName())
-			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('deleted_at'));
 
 		$result = $qb->executeQuery();
 		$count = (int)$result->fetchOne();

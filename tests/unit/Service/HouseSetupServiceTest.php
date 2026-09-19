@@ -54,6 +54,12 @@ class HouseSetupServiceTest extends TestCase {
 		$this->templateService = new TemplateService($l10n);
 		$this->injectTemplateFixtures();
 
+		// CS-PLAN-071 WP0: applySetup ensures a wallet per member inside
+		// the house-first transaction (shared WalletService helper).
+		$walletService = $this->createMock(\OCA\ChoreStrike\Service\WalletService::class);
+		$walletService->method('ensureBinding')->willReturnCallback(static fn (int $houseId, $member) => $member);
+		$this->houseUserMapper->method('findByHouseId')->willReturn([]);
+
 		$this->service = new HouseSetupService(
 			$this->floorMapper,
 			$this->houseMapper,
@@ -62,6 +68,7 @@ class HouseSetupServiceTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->taskAssigneeMapper,
 			$this->houseUserMapper,
+			$walletService,
 			$this->templateService,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
@@ -506,6 +513,12 @@ class HouseSetupServiceTest extends TestCase {
 	private function rebuildService(): void {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(fn ($t) => $t);
+
+		// CS-PLAN-071 WP0: applySetup ensures a wallet per member inside
+		// the house-first transaction (shared WalletService helper).
+		$walletService = $this->createMock(\OCA\ChoreStrike\Service\WalletService::class);
+		$walletService->method('ensureBinding')->willReturnCallback(static fn (int $houseId, $member) => $member);
+
 		$this->service = new HouseSetupService(
 			$this->floorMapper,
 			$this->houseMapper,
@@ -514,6 +527,7 @@ class HouseSetupServiceTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->taskAssigneeMapper,
 			$this->houseUserMapper,
+			$walletService,
 			$this->templateService,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,

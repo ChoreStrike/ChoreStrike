@@ -6,7 +6,6 @@ namespace OCA\ChoreStrike\Tests\Unit\Db\Mapper;
 
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgress;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
-use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCP\DB\IResult;
 use OCP\DB\QueryBuilder\IExpressionBuilder;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -30,7 +29,9 @@ class RoomTaskChecklistProgressMapperTest extends TestCase {
 		$this->db->method('getQueryBuilder')->willReturn($this->qb);
 		$this->qb->method('expr')->willReturn($this->expr);
 
-		$this->mapper = new RoomTaskChecklistProgressMapper($this->db, new TransactionExecutor($this->db));
+		// CS-PLAN-071 WP0: the mapper no longer owns a transaction —
+		// ChecklistService::toggleItem scopes it house-first.
+		$this->mapper = new RoomTaskChecklistProgressMapper($this->db);
 	}
 
 	public function testFindByRoomTaskId_ReturnsProgress(): void {

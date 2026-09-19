@@ -169,9 +169,12 @@ class RoomMapperTest extends TestCase {
 	}
 
 	/**
-	 * DeleteByFloorId_BuildsFloorScopedDeleteStatement
+	 * TombstoneByFloorId_BuildsFloorScopedTombstoneUpdate
+	 *
+	 * CS-PLAN-071 (Q-70-01): the former floor-scoped DELETE became a
+	 * tombstone UPDATE (deleted_at set, live rows only).
 	 */
-	public function testDeleteByFloorId_BuildsFloorScopedDeleteStatement(): void {
+	public function testTombstoneByFloorId_BuildsFloorScopedTombstoneStatement(): void {
 		$capturedParams = [];
 		$this->qb->method('createNamedParameter')->willReturnCallback(
 			function ($value, $type) use (&$capturedParams) {
@@ -179,16 +182,20 @@ class RoomMapperTest extends TestCase {
 				return 'param_' . count($capturedParams);
 			}
 		);
-		$this->qb->method('delete')->willReturn($this->qb);
+		$this->qb->method('update')->willReturn($this->qb);
+		$this->qb->method('set')->willReturn($this->qb);
 		$this->qb->method('where')->willReturn($this->qb);
+		// CS-PLAN-071: the tombstone targets LIVE rows only (andWhere).
+		$this->qb->method('andWhere')->willReturn($this->qb);
 		$this->qb->expects($this->once())->method('executeStatement');
 
-		$this->mapper->deleteByFloorId(7);
+		$deletedAt = new \DateTime();
+		$this->mapper->tombstoneByFloorId(7, $deletedAt);
 
-		$this->assertSame(7, $capturedParams[0]['value']);
-		$this->assertSame(IQueryBuilder::PARAM_INT, $capturedParams[0]['type']);
+		$this->assertSame($deletedAt, $capturedParams[0]['value']);
+		$this->assertSame(7, $capturedParams[1]['value']);
+		$this->assertSame(IQueryBuilder::PARAM_INT, $capturedParams[1]['type']);
 	}
-
 	/**
 	 * Room_GetCleanlinessLabel_ReturnsCorrectLabel
 	 */

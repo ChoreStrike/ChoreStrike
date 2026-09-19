@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
@@ -25,6 +26,7 @@ class FloorService {
 	private FloorMapper $floorMapper;
 	private RoomMapper $roomMapper;
 	private RoomTaskMapper $roomTaskMapper;
+	private HouseMapper $houseMapper;
 	private RoomService $roomService;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
@@ -35,6 +37,7 @@ class FloorService {
 		FloorMapper $floorMapper,
 		RoomMapper $roomMapper,
 		RoomTaskMapper $roomTaskMapper,
+		HouseMapper $houseMapper,
 		RoomService $roomService,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
@@ -44,6 +47,7 @@ class FloorService {
 		$this->floorMapper = $floorMapper;
 		$this->roomMapper = $roomMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
+		$this->houseMapper = $houseMapper;
 		$this->roomService = $roomService;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
@@ -53,6 +57,9 @@ class FloorService {
 
 	/**
 	 * Validate that a floor belongs to the specified house
+	 *
+	 * Tombstoned floors are not found for planning purposes (CS-PLAN-071
+	 * Q-70-01); history reads resolve them through their own paths.
 	 *
 	 * @param int $floorId The floor ID
 	 * @param int $houseId The house ID to validate against
@@ -65,7 +72,7 @@ class FloorService {
 			throw new NotFoundException($this->l10n->t('Floor not found'));
 		}
 
-		if ($floor->getHouseId() !== $houseId) {
+		if ($floor->getHouseId() !== $houseId || $floor->getDeletedAt() !== null) {
 			throw new NotFoundException($this->l10n->t('Floor not found'));
 		}
 	}
@@ -83,17 +90,22 @@ class FloorService {
 		// remain as defense in depth).
 		$this->authorization->requireHouseOwner($houseId);
 
-		// Auto-calculate sort order if not provided
-		if ($sortOrder === null) {
-			$existingFloors = $this->floorMapper->findByHouseId($houseId);
-			$sortOrder = count($existingFloors);
-		}
+		return $this->transactions->run(function () use ($houseId, $name, $sortOrder): Floor {
+			// FIRST lock of the documented order: the house row.
+			$this->houseMapper->findForUpdate($houseId);
 
-		return $this->floorMapper->create($houseId, $name, $sortOrder);
+			// Auto-calculate sort order if not provided
+			$sortOrder ??= count($this->floorMapper->findByHouseId($houseId));
+
+			return $this->floorMapper->create($houseId, $name, $sortOrder);
+		});
 	}
 
 	/**
 	 * Update floor name (owner-only, CS-PLAN-061 §3.4 / ADR-006).
+	 *
+	 * CS-PLAN-071 WP0: runs under the house row lock (single house-first
+	 * order).
 	 *
 	 * @param int $floorId The floor ID
 	 * @param string $name The new name
@@ -104,8 +116,25 @@ class FloorService {
 		$floor = $this->floorMapper->find($floorId);
 		$this->authorization->requireHouseOwner($floor->getHouseId());
 
-		$floor->setName($name);
-		return $this->floorMapper->update($floor);
+		// Q-70-01: tombstoned structure is immutable evidence — renames
+		// answer 404 like a missing floor.
+		if ($floor->getDeletedAt() !== null) {
+			throw new NotFoundException($this->l10n->t('Floor not found'));
+		}
+
+		return $this->transactions->run(function () use ($floorId, $name, $floor): Floor {
+			$this->houseMapper->findForUpdate($floor->getHouseId());
+			$fresh = $this->floorMapper->find($floorId);
+
+			// Authoritative tombstone gate (Q-70-01): a floor deleted
+			// behind the pre-read is immutable evidence — 404, zero writes.
+			if ($fresh->getDeletedAt() !== null) {
+				throw new NotFoundException($this->l10n->t('Floor not found'));
+			}
+
+			$fresh->setName($name);
+			return $this->floorMapper->update($fresh);
+		});
 	}
 
 	/**
@@ -123,48 +152,56 @@ class FloorService {
 		// Structure mutation → owner-only in the service (CS-PLAN-061 §3.4).
 		$this->authorization->requireHouseOwner($houseId);
 
-		$floors = $this->floorMapper->findByHouseId($houseId);
+		return $this->transactions->run(function () use ($houseId, $floorOrder): array {
+			// FIRST lock of the documented order: the house row.
+			$this->houseMapper->findForUpdate($houseId);
 
-		$floorsById = [];
-		foreach ($floors as $floor) {
-			$floorsById[$floor->getId()] = $floor;
-		}
+			$floors = $this->floorMapper->findByHouseId($houseId);
 
-		// Validate all floor IDs belong to this house
-		foreach ($floorOrder as $floorId) {
-			if (!isset($floorsById[$floorId])) {
-				throw new \InvalidArgumentException("Floor ID {$floorId} does not belong to house {$houseId}");
+			$floorsById = [];
+			foreach ($floors as $floor) {
+				$floorsById[$floor->getId()] = $floor;
 			}
-		}
 
-		$floorIdToOrder = [];
-		foreach ($floorOrder as $index => $floorId) {
-			$floorIdToOrder[$floorId] = $index;
-		}
-		$this->floorMapper->updateSortOrders($floorIdToOrder);
+			// Validate all floor IDs belong to this house
+			foreach ($floorOrder as $floorId) {
+				if (!isset($floorsById[$floorId])) {
+					throw new \InvalidArgumentException("Floor ID {$floorId} does not belong to house {$houseId}");
+				}
+			}
 
-		// Build the payload from the already-fetched entities — the only
-		// floors in the payload are the reordered ones, in the new order.
-		$updatedFloors = [];
-		foreach ($floorOrder as $index => $floorId) {
-			$floor = $floorsById[$floorId];
-			$floor->setSortOrder($index);
-			$updatedFloors[] = $floor;
-		}
+			$floorIdToOrder = [];
+			foreach ($floorOrder as $index => $floorId) {
+				$floorIdToOrder[$floorId] = $index;
+			}
+			$this->floorMapper->updateSortOrders($floorIdToOrder);
 
-		return $updatedFloors;
+			// Build the payload from the already-fetched entities — the only
+			// floors in the payload are the reordered ones, in the new order.
+			$updatedFloors = [];
+			foreach ($floorOrder as $index => $floorId) {
+				$floor = $floorsById[$floorId];
+				$floor->setSortOrder($index);
+				$updatedFloors[] = $floor;
+			}
+
+			return $updatedFloors;
+		});
 	}
 
 	/**
-	 * Delete floor and everything that depends on it (CS-PLAN-037, D1/D2).
+	 * Tombstone a floor and everything structurally beneath it
+	 * (CS-PLAN-071 WP0, Q-070-01 / RF-070-16 WP0 portion).
 	 *
-	 * The explicit cascade lives here, not in FloorMapper (architecture
-	 * fix: mappers never cross-instantiate other mappers; the old
-	 * deleteWithRooms also left orphaned dependents behind and carried a
-	 * misleading "cascade will handle this" comment — the schema has no
-	 * FK constraints). Transactional, constant query count: dependents
-	 * via RoomService::deleteRoomTaskDependents, then room tasks by room
-	 * ids, rooms by floor id, and the floor itself.
+	 * The former evidence-deleting cascade (CS-PLAN-037 D1/D2) is
+	 * superseded: inside one house-first transaction the floor is
+	 * tombstoned, its live rooms are tombstoned, their room tasks are
+	 * tombstoned (`deleted_at` + `deleted_token = id` + `is_active = 0`),
+	 * and each tombstoned room task's assignees and checklist progress are
+	 * deleted (active-planning state). **`completed_tasks` rows are
+	 * retained** — minimum history, existing visibility, valid earned
+	 * effects (decision D4). The explicit cascade lives here, not in
+	 * FloorMapper (mappers never cross-instantiate other mappers).
 	 *
 	 * @param int $floorId The floor ID
 	 */
@@ -173,22 +210,42 @@ class FloorService {
 		// Structure mutation → owner-only in the service (CS-PLAN-061 §3.4).
 		$this->authorization->requireHouseOwner($floor->getHouseId());
 
-		$roomIds = [];
-		foreach ($this->roomMapper->findByFloorId($floorId) as $room) {
-			$roomIds[] = $room->getId();
+		// Q-70-01: tombstoned structure is immutable evidence — a repeat
+		// delete answers 404 like a missing floor and never re-stamps the
+		// original deletion instant.
+		if ($floor->getDeletedAt() !== null) {
+			throw new NotFoundException($this->l10n->t('Floor not found'));
 		}
 
 		try {
-			$this->transactions->run(function () use ($floorId, $roomIds, $floor) {
-				$this->roomService->deleteRoomTaskDependents(
-					$this->roomTaskMapper->findIdsByRoomIds($roomIds)
-				);
-				$this->roomTaskMapper->deleteByRoomIds($roomIds);
-				$this->roomMapper->deleteByFloorId($floorId);
-				$this->floorMapper->delete($floor);
+			$this->transactions->run(function () use ($floorId, $floor): void {
+				// FIRST lock of the documented order: the house row.
+				$this->houseMapper->findForUpdate($floor->getHouseId());
+
+				// Authoritative tombstone gate on the FRESH locked row:
+				// a concurrent delete winner makes this invocation a clean
+				// 404 with zero writes (the original deleted_at survives).
+				$fresh = $this->floorMapper->find($floorId);
+				if ($fresh->getDeletedAt() !== null) {
+					throw new NotFoundException($this->l10n->t('Floor not found'));
+				}
+
+				$roomIds = [];
+				foreach ($this->roomMapper->findByFloorId($floorId) as $room) {
+					$roomIds[] = $room->getId();
+				}
+
+				$roomTaskIds = $this->roomTaskMapper->findIdsByRoomIds($roomIds);
+				$this->roomService->deleteRoomTaskPlanningState($roomTaskIds);
+
+				$deletedAt = new \DateTime();
+				$this->roomTaskMapper->tombstoneByRoomIds($roomIds, $deletedAt);
+				$this->roomMapper->tombstoneByFloorId($floorId, $deletedAt);
+				$fresh->setDeletedAt($deletedAt);
+				$this->floorMapper->update($fresh);
 			});
 		} catch (\Throwable $e) {
-			$this->appLogger->logException('FloorService: floor cascade rolled back', $e, [
+			$this->appLogger->logException('FloorService: floor tombstone rolled back', $e, [
 				'event' => 'floor_delete_rollback',
 				'service' => 'FloorService',
 				'floorId' => $floorId,

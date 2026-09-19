@@ -305,7 +305,12 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Check if room already has this task
+	 * Check if room already has a LIVE (non-tombstoned) link to this task.
+	 *
+	 * Tombstoned links (`deleted_token != 0`) must not block re-creating
+	 * the room/task link — the unique index
+	 * `(room_id, task_id, deleted_token)` keeps exactly one live row per
+	 * pair (CS-PLAN-071 decision D4).
 	 *
 	 * @param int $roomId The room ID
 	 * @param int $taskId The task ID
@@ -317,7 +322,8 @@ class RoomTaskMapper extends QBMapper {
 		$qb->select('id')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('task_id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)));
+			->andWhere($qb->expr()->eq('task_id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('deleted_token', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)));
 
 		$result = $qb->executeQuery();
 		return $result->fetchOne() !== false;
@@ -428,31 +434,37 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Delete all room tasks in the given rooms in one statement
-	 * (CS-PLAN-037 cascade; dependents must be cleaned up by the caller
-	 * first — the schema has no FK constraints).
+	 * Tombstone every LIVE room task of the given rooms in one statement
+	 * (structural-deletion cascade, CS-PLAN-071 Q-70-01 decision D4):
+	 * sets `deleted_at`, folds each row's own id into `deleted_token`
+	 * (keeping `uniq_rt (room_id, task_id, deleted_token)` satisfiable
+	 * for a future re-created link) and deactivates the row so every
+	 * existing active-read filter excludes it.
+	 *
+	 * Live rows only — the guard mirrors `RoomMapper::tombstoneByFloorId`:
+	 * room tasks tombstoned earlier (individual deletion) keep their
+	 * ORIGINAL `deleted_at` evidence; a room/floor cascade must never
+	 * re-stamp them. `completed_tasks` evidence is retained;
+	 * `task_assignees` and checklist progress are deleted by the calling
+	 * service.
 	 *
 	 * @param int[] $roomIds The room IDs
+	 * @param \DateTime $deletedAt The UTC tombstone instant
 	 */
-	public function deleteByRoomIds(array $roomIds): void {
+	public function tombstoneByRoomIds(array $roomIds, \DateTime $deletedAt): void {
 		$roomIds = array_values(array_map('intval', $roomIds));
 		if ($roomIds === []) {
 			return;
 		}
 
 		$qb = $this->db->getQueryBuilder();
-		$qb->delete($this->getTableName())
+		$qb->update($this->getTableName())
+			->set('deleted_at', $qb->createNamedParameter($deletedAt, IQueryBuilder::PARAM_DATE))
+			->set('deleted_token', $qb->createFunction('id'))
+			->set('is_active', $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL))
 			->where($qb->expr()->in('room_id', $qb->createNamedParameter($roomIds, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->isNull('deleted_at'))
 			->executeStatement();
-	}
-
-	/**
-	 * Delete all room tasks of a room in one statement.
-	 *
-	 * @param int $roomId The room ID
-	 */
-	public function deleteByRoomId(int $roomId): void {
-		$this->deleteByRoomIds([$roomId]);
 	}
 
 	/**

@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCP\IL10N;
 
 /**
@@ -30,6 +31,7 @@ class SchedulingService {
 	private \OCA\ChoreStrike\Db\HouseMapper $houseMapper;
 	private CalendarService $calendarService;
 	private AuthorizationService $authorization;
+	private TransactionExecutor $transactions;
 
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
@@ -37,12 +39,14 @@ class SchedulingService {
 		\OCA\ChoreStrike\Db\HouseMapper $houseMapper,
 		CalendarService $calendarService,
 		AuthorizationService $authorization,
+		TransactionExecutor $transactions,
 	) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->l10n = $l10n;
 		$this->houseMapper = $houseMapper;
 		$this->calendarService = $calendarService;
 		$this->authorization = $authorization;
+		$this->transactions = $transactions;
 	}
 
 	/**
@@ -135,10 +139,16 @@ class SchedulingService {
 			$preferences['weekdayAvailability'] = self::normalizeWeekdayKeys($weekdayAvailability);
 		}
 
-		$user->setSchedulingPreferences($preferences);
-		$this->houseUserMapper->update($user);
+		// CS-PLAN-071 WP0: preference mutations run house-first and lock
+		// the membership row before the write.
+		return $this->transactions->run(function () use ($houseId, $user, $preferences) {
+			$this->houseMapper->findForUpdate($houseId);
+			$lockedUser = $this->houseUserMapper->findForUpdate($user->getId());
+			$lockedUser->setSchedulingPreferences($preferences);
+			$this->houseUserMapper->update($lockedUser);
 
-		return $this->buildPreferencesPayload($user, $user->getSchedulingPreferences());
+			return $this->buildPreferencesPayload($lockedUser, $lockedUser->getSchedulingPreferences());
+		});
 	}
 
 	/**
@@ -236,12 +246,25 @@ class SchedulingService {
 	public function updateMemberAvailabilityByNextcloudUserId(int $houseId, string $nextcloudUserId, array $updates): void {
 		$this->authorization->requireHouseOwner($houseId);
 		$user = $this->houseUserMapper->findByNextcloudUserId($houseId, $nextcloudUserId);
-		$this->applyMemberUpdates($user, $updates);
+
+		// CS-PLAN-071 WP0: owner preference mutations run house-first and
+		// lock the membership row before the write. The updates are
+		// validated and merged on the FRESH locked entity, so a concurrent
+		// member self-update committed behind the pre-read is never
+		// clobbered by a stale base preference set.
+		$this->transactions->run(function () use ($houseId, $user, $updates): void {
+			$this->houseMapper->findForUpdate($houseId);
+			$lockedUser = $this->houseUserMapper->findForUpdate($user->getId());
+			$preferences = $this->prepareMemberUpdates($lockedUser, $updates);
+			$lockedUser->setSchedulingPreferences($preferences);
+			$this->houseUserMapper->update($lockedUser);
+		});
 	}
 
 	/**
-	 * Apply availability, energy-budget and child-limit updates to a house
-	 * user's preferences.
+	 * Validate availability, energy-budget and child-limit updates against
+	 * the current preferences and return the NEW preference set (no
+	 * persistence — the caller writes it under the locks).
 	 *
 	 * Rejects out-of-range energy/limit values instead of silently dropping
 	 * them, so the caller never receives a success response for unpersisted
@@ -251,7 +274,7 @@ class SchedulingService {
 	 * @param array $updates Availability, energy and limit updates keyed by weekday
 	 * @throws \InvalidArgumentException When an energy value is not an integer in 1-20 or the limit is not null/1-100
 	 */
-	private function applyMemberUpdates(HouseUser $user, array $updates): void {
+	private function prepareMemberUpdates(HouseUser $user, array $updates): array {
 		$preferences = $user->getSchedulingPreferences();
 
 		if (isset($updates['energyBudget'])) {
@@ -278,8 +301,7 @@ class SchedulingService {
 			}
 		}
 
-		$user->setSchedulingPreferences($preferences);
-		$this->houseUserMapper->update($user);
+		return $preferences;
 	}
 
 	/**

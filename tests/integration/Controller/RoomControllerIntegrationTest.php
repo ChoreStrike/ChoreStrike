@@ -227,7 +227,9 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 
 		self::assertSame(200, $response->getStatus());
 		self::assertTrue($response->getData()['success']);
-		self::assertFalse($this->roomExists($roomId), 'the room must be gone');
+		// CS-PLAN-071 (Q-70-01): deletion tombstones — the row survives with
+		// deleted_at set and vanishes from the active-planning reads.
+		self::assertTrue($this->roomTombstoned($roomId), 'the room must be tombstoned (deleted_at set)');
 	}
 
 	/**
@@ -245,15 +247,26 @@ class RoomControllerIntegrationTest extends IntegrationTestCase {
 		return $this->instanceHouseId;
 	}
 
+
 	private function roomExists(int $roomId): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*', 'count'))
 			->from('chorestrike_rooms')
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)));
 		$result = $qb->executeQuery();
 		$count = (int)$result->fetchOne();
 		$result->closeCursor();
 
 		return $count > 0;
+	}	private function roomTombstoned(int $roomId): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('deleted_at')
+			->from('chorestrike_rooms')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$deletedAt = $result->fetchOne();
+		$result->closeCursor();
+
+		return $deletedAt !== false && $deletedAt !== null;
 	}
 }

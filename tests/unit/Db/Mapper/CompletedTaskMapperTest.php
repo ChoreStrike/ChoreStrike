@@ -146,35 +146,37 @@ class CompletedTaskMapperTest extends TestCase {
 	}
 
 	/**
-	 * DeleteByRoomTaskIds_EmptyInput_SkipsStatement
+	 * AnonymizeActor_NullsTheActorReference (CS-PLAN-071, D3)
 	 *
-	 * CS-PLAN-037: the empty-array early return must not build an IN ().
+	 * The evidence-retaining successor of the former deleteByRoomTaskIds
+	 * cascade: erasure nulls `user_id` — the rows survive as anonymous
+	 * shared work facts (combo partner facts since the CS-PLAN-064 reshape
+	 * live in the deltas JSON, not in a column).
 	 */
-	public function testDeleteByRoomTaskIds_EmptyInput_SkipsStatement(): void {
-		$this->qb->expects($this->never())->method('delete');
-
-		$this->mapper->deleteByRoomTaskIds([]);
-	}
-
-	/**
-	 * DeleteByRoomTaskIds_BuildsInDeleteWithIntArray
-	 */
-	public function testDeleteByRoomTaskIds_BuildsInDeleteWithIntArray(): void {
-		$capturedParams = [];
+	public function testAnonymizeActor_NullsTheActorReference(): void {
+		$updates = [];
+		$setCalls = 0;
 		$this->qb->method('createNamedParameter')->willReturnCallback(
-			function ($value, $type) use (&$capturedParams) {
-				$capturedParams[] = ['value' => $value, 'type' => $type];
-				return 'param_' . count($capturedParams);
+			function ($value, $type) {
+				return 'param_' . ($value === null ? 'null' : 'v');
 			}
 		);
-		$this->qb->method('delete')->willReturn($this->qb);
+		$this->qb->method('update')->willReturn($this->qb);
+		$this->qb->method('set')->willReturnCallback(
+			function ($column, $value) use (&$updates, &$setCalls) {
+				$updates[] = [$column, $value];
+				$setCalls++;
+				return $this->qb;
+			}
+		);
 		$this->qb->method('where')->willReturn($this->qb);
-		$this->qb->expects($this->once())->method('executeStatement');
+		$this->qb->method('executeStatement')->willReturn(1);
 
-		$this->mapper->deleteByRoomTaskIds([10, 11]);
+		$this->mapper->anonymizeActor(42);
 
-		$this->assertSame([10, 11], $capturedParams[0]['value']);
-		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[0]['type']);
+		$this->assertSame(1, $setCalls);
+		$this->assertSame('user_id', $updates[0][0]);
+		$this->assertSame('param_null', $updates[0][1], 'user_id must be set to NULL');
 	}
 
 	/**

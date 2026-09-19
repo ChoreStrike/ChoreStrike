@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
@@ -16,6 +17,7 @@ use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskChecklistItem;
 use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -43,6 +45,8 @@ class ChecklistService {
 	private RoomTaskChecklistProgressMapper $progressMapper;
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
+	private HouseMapper $houseMapper;
+	private TransactionExecutor $transactions;
 	private RoomTaskService $roomTaskService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
@@ -54,6 +58,8 @@ class ChecklistService {
 		RoomTaskChecklistProgressMapper $progressMapper,
 		RoomTaskMapper $roomTaskMapper,
 		TaskMapper $taskMapper,
+		HouseMapper $houseMapper,
+		TransactionExecutor $transactions,
 		RoomTaskService $roomTaskService,
 		IL10N $l10n,
 		AppLogger $appLogger,
@@ -64,6 +70,8 @@ class ChecklistService {
 		$this->progressMapper = $progressMapper;
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
+		$this->houseMapper = $houseMapper;
+		$this->transactions = $transactions;
 		$this->roomTaskService = $roomTaskService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
@@ -159,40 +167,51 @@ class ChecklistService {
 		$this->assertTaskAccessible($taskId, $houseId, $viewer);
 		$this->assertDefinitionManager($viewer);
 
-		if ($sortOrder === null) {
-			$sortOrder = count($this->checklistItemMapper->findByTaskId($taskId));
-		}
+		return $this->transactions->run(function () use ($taskId, $label, $sortOrder, $houseId): TaskChecklistItem {
+			// FIRST lock of the documented order: the house row.
+			$this->houseMapper->findForUpdate($houseId);
 
-		$item = $this->checklistItemMapper->create($taskId, $label, $sortOrder);
-		$this->appLogger->info('Checklist item added', [
-			'service' => 'ChecklistService',
-			'action' => 'addTaskItem',
-			'taskId' => $taskId,
-			'houseId' => $houseId,
-			'itemId' => $item->getId(),
-		]);
+			$sortOrder ??= count($this->checklistItemMapper->findByTaskId($taskId));
+			$item = $this->checklistItemMapper->create($taskId, $label, $sortOrder);
 
-		return $item;
+			$this->appLogger->info('Checklist item added', [
+				'service' => 'ChecklistService',
+				'action' => 'addTaskItem',
+				'taskId' => $taskId,
+				'houseId' => $houseId,
+				'itemId' => $item->getId(),
+			]);
+
+			return $item;
+		});
 	}
 
 	/**
 	 * Relabel a checklist item; a foreign item id is rejected with 404.
-	 * Owner-only (decision D4).
+	 * Owner-only (decision D4). Runs under the house row lock (CS-PLAN-071).
 	 */
 	public function updateTaskItem(int $itemId, string $label, int $houseId, HouseUser $viewer): TaskChecklistItem {
 		$item = $this->findItemWithGuard($itemId, $houseId, $viewer);
 		$this->assertDefinitionManager($viewer);
-		return $this->checklistItemMapper->updateLabel($item->getId(), $label);
+
+		return $this->transactions->run(function () use ($itemId, $label, $houseId): TaskChecklistItem {
+			$this->houseMapper->findForUpdate($houseId);
+			return $this->checklistItemMapper->updateLabel($itemId, $label);
+		});
 	}
 
 	/**
 	 * Delete a checklist item; a foreign item id is rejected with 404.
-	 * Owner-only (decision D4).
+	 * Owner-only (decision D4). Runs under the house row lock (CS-PLAN-071).
 	 */
 	public function deleteTaskItem(int $itemId, int $houseId, HouseUser $viewer): void {
 		$item = $this->findItemWithGuard($itemId, $houseId, $viewer);
 		$this->assertDefinitionManager($viewer);
-		$this->checklistItemMapper->delete($item);
+
+		$this->transactions->run(function () use ($itemId, $houseId, $item): void {
+			$this->houseMapper->findForUpdate($houseId);
+			$this->checklistItemMapper->delete($item);
+		});
 
 		$this->appLogger->info('Checklist item deleted', [
 			'service' => 'ChecklistService',
@@ -237,7 +256,12 @@ class ChecklistService {
 
 		$this->assertTaskAccessible($taskIds[0], $houseId, $viewer);
 		$this->assertDefinitionManager($viewer);
-		$this->checklistItemMapper->updateSortOrders($sanitized);
+
+		$this->transactions->run(function () use ($sanitized, $houseId): void {
+			// FIRST lock of the documented order: the house row.
+			$this->houseMapper->findForUpdate($houseId);
+			$this->checklistItemMapper->updateSortOrders($sanitized);
+		});
 	}
 
 	/**
@@ -258,13 +282,26 @@ class ChecklistService {
 	 * Toggle a checklist item for a room task; the item must belong to
 	 * that room task's task checklist.
 	 *
+	 * CS-PLAN-071 WP0: the toggle runs in one house-first transaction —
+	 * the house row lock, then the room-task row lock, then the locked
+	 * progress row read-modify-write (the former mapper-owned transaction
+	 * acquired only the progress-row lock). Two concurrent toggles still
+	 * serialize; a concurrent completion or member removal now serializes
+	 * with the toggle instead of interleaving.
+	 *
 	 * @return array{progress: \OCA\ChoreStrike\Db\RoomTaskChecklistProgress, stats: array}
 	 */
 	public function toggleItem(int $roomTaskId, int $itemId, int $houseId, HouseUser $viewer): array {
 		$roomTask = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
 		$this->assertItemBelongsToTask($itemId, $roomTask->getTaskId());
 
-		$progress = $this->progressMapper->toggle($roomTaskId, $itemId, $viewer->getId());
+		$progress = $this->transactions->run(function () use ($roomTaskId, $itemId, $houseId, $viewer) {
+			// FIRST locks of the documented order: house → room_task.
+			$this->houseMapper->findForUpdate($houseId);
+			$this->roomTaskMapper->lockForUpdate($roomTaskId);
+
+			return $this->progressMapper->toggleLocked($roomTaskId, $itemId, $viewer->getId());
+		});
 
 		return [
 			'progress' => $progress,

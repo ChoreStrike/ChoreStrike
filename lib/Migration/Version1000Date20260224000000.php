@@ -35,6 +35,15 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('house_health', 'integer', ['notnull' => true, 'default' => 100]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
 			$table->addColumn('updated_at', 'datetime', ['notnull' => true]);
+			// CS-PLAN-071 WP0: shared house state/version columns (parent
+			// CS-PLAN-070 §3.2). state_version is bumped by plan/accounting/
+			// preference mutations (adopted WP2-WP5); timezone_version by
+			// house-timezone changes; the flags ship frozen default-false for
+			// their WP7/WP4 consumers.
+			$table->addColumn('state_version', 'bigint', ['notnull' => true, 'default' => 0]);
+			$table->addColumn('timezone_version', 'bigint', ['notnull' => true, 'default' => 0]);
+			$table->addColumn('catalog_enabled', 'boolean', ['notnull' => false, 'default' => 0]);
+			$table->addColumn('ranking_enabled', 'boolean', ['notnull' => false, 'default' => 0]);
 			$table->setPrimaryKey(['id'], 'pk_houses');
 			// Unique: one house per instance — concurrent bootstrap requests
 			// race on this constraint; the loser re-fetches the winner's row
@@ -49,6 +58,8 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('name', 'string', ['notnull' => true, 'length' => 255]);
 			$table->addColumn('sort_order', 'integer', ['notnull' => true, 'default' => 0]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
+			// CS-PLAN-071 WP0 tombstone column (Q-070-01): NULL = live row.
+			$table->addColumn('deleted_at', 'datetime', ['notnull' => false]);
 			$table->setPrimaryKey(['id'], 'pk_floors');
 			// Foreign keys removed for compatibility - see ADR
 			$table->addIndex(['house_id'], 'idx_floor_house');
@@ -65,6 +76,8 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('room_type', 'string', ['notnull' => true, 'length' => 50, 'default' => 'generic']);
 			$table->addColumn('last_cleaned', 'datetime', ['notnull' => false]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
+			// CS-PLAN-071 WP0 tombstone column (Q-070-01): NULL = live row.
+			$table->addColumn('deleted_at', 'datetime', ['notnull' => false]);
 			$table->setPrimaryKey(['id'], 'pk_rooms');
 			// Foreign keys removed for compatibility - see ADR
 			$table->addIndex(['floor_id'], 'idx_room_floor');
@@ -95,12 +108,19 @@ class Version1000Date20260224000000 extends SimpleMigrationStep {
 			$table->addColumn('last_completed', 'datetime', ['notnull' => false]);
 			$table->addColumn('is_active', 'boolean', ['notnull' => false, 'default' => 1]);
 			$table->addColumn('created_at', 'datetime', ['notnull' => true]);
+			// CS-PLAN-071 WP0 tombstone columns (Q-070-01, decision D4):
+			// deleted_at NULL + deleted_token 0 = live row; tombstoning sets
+			// deleted_at and folds the row's own id into deleted_token so the
+			// unique index keeps exactly one live (room, task) row while
+			// repeated tombstones never collide.
+			$table->addColumn('deleted_at', 'datetime', ['notnull' => false]);
+			$table->addColumn('deleted_token', 'bigint', ['notnull' => true, 'default' => 0]);
 			$table->setPrimaryKey(['id'], 'pk_room_tasks');
 			// Foreign keys removed for compatibility - see ADR
 			$table->addIndex(['room_id'], 'idx_rt_room');
 			$table->addIndex(['next_due'], 'idx_rt_due');
 			$table->addIndex(['is_active'], 'idx_rt_active');
-			$table->addUniqueIndex(['room_id', 'task_id'], 'uniq_rt');
+			$table->addUniqueIndex(['room_id', 'task_id', 'deleted_token'], 'uniq_rt');
 		}
 
 		return $schema;

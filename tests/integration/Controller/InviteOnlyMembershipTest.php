@@ -83,6 +83,9 @@ class InviteOnlyMembershipTest extends IntegrationTestCase {
 	private function ensureUserWithEmail(string $userId, string $email): void {
 		$this->actingAs($userId);
 		$user = \OC::$server->get(\OCP\IUserManager::class)->get($userId);
+		if ($user === null) {
+			$user = \OC::$server->get(\OCP\IUserManager::class)->createUser($userId, 'test-password-' . $userId);
+		}
 		$user->setEMailAddress($email);
 	}
 
@@ -136,7 +139,61 @@ class InviteOnlyMembershipTest extends IntegrationTestCase {
 		self::assertSame('io_remover', $members[0]['nextcloud_user_id']);
 	}
 
+	// ========== Wallet Identity (CS-PLAN-071) ==========
+
+	/**
+	 * RemovedMember_WalletPreservedButGrantsNoAccess_ReinviteReattaches
+	 *
+	 * CS-PLAN-071 WP0: removal keeps the wallet row (dormant financial
+	 * identity, NOT an access credential — the 403s above prove that) and
+	 * a re-invitation reattaches the SAME wallet id.
+	 */
+	public function testRemovedMember_WalletPreservedButGrantsNoAccess_ReinviteReattaches(): void {
+		$this->getController(UserController::class, 'io_wallet_owner')->current();
+		$this->ensureUserWithEmail('io_wallet_member', 'io_wallet_member@example.com');
+
+		$ownerController = $this->getController(UserController::class, 'io_wallet_owner');
+		$inviteResponse = $ownerController->invite('io_wallet_member@example.com', 'member');
+		self::assertSame(200, $inviteResponse->getStatus());
+		$houseUserId = (int)$inviteResponse->getData()['data']['id'];
+
+		$firstWalletId = $this->fetchWalletId($houseUserId);
+		self::assertNotNull($firstWalletId, 'the invite must create and bind the wallet');
+
+		// Remove (wallet stays), re-invite (wallet reattaches).
+		$this->actingAs('io_wallet_owner');
+		self::assertSame(200, $ownerController->remove($houseUserId)->getStatus());
+		self::assertSame(1, $this->countWallets((int)$firstWalletId), 'removal must preserve the wallet row');
+
+		$reinviteResponse = $ownerController->invite('io_wallet_member@example.com', 'member');
+		self::assertSame(200, $reinviteResponse->getStatus());
+		$reattached = $this->fetchWalletId((int)$reinviteResponse->getData()['data']['id']);
+		self::assertSame($firstWalletId, $reattached, 'the re-invitation must reattach the preserved wallet');
+	}
+
 	// ========== Helpers ==========
+
+	private function fetchWalletId(int $houseUserId): ?int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('wallet_id')
+			->from('chorestrike_house_users')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($houseUserId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$walletId = $result->fetchOne();
+		$result->closeCursor();
+		return $walletId === null ? null : (int)$walletId;
+	}
+
+	private function countWallets(int $walletId): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('id'))
+			->from('chorestrike_wallets')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($walletId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $count;
+	}
 
 	private function purgeInstanceHouseMemberships(): void {
 		$qb = $this->db->getQueryBuilder();

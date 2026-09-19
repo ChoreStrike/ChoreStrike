@@ -47,6 +47,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setUnlockedTitles(array $unlockedTitles)
  * @method \DateTime|null getLastFreezeDate()
  * @method void setLastFreezeDate(?\DateTime $lastFreezeDate)
+ * @method int|null getWalletId()
+ * @method void setWalletId(?int $walletId)
  */
 class HouseUser extends Entity implements JsonSerializable {
 	/** @var int */
@@ -97,6 +99,16 @@ class HouseUser extends Entity implements JsonSerializable {
 	/** @var \DateTime|null Last day the streak-freeze job processed this user (CR-SVC-03 idempotency). */
 	protected $lastFreezeDate = null;
 
+	/**
+	 * Persistent wallet binding (CS-PLAN-071 WP0). Identity only — the
+	 * wallet survives departure and is erased only with the account.
+	 * Deliberately NOT exposed through jsonSerialize (financial identity
+	 * grants no access and leaks nothing).
+	 *
+	 * @var int|null
+	 */
+	protected $walletId = null;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('houseId', 'integer');
@@ -115,6 +127,7 @@ class HouseUser extends Entity implements JsonSerializable {
 		$this->addType('selectedTitlePack', 'string');
 		$this->addType('unlockedTitles', 'json');
 		$this->addType('lastFreezeDate', 'date');
+		$this->addType('walletId', 'integer');
 	}
 
 	/**

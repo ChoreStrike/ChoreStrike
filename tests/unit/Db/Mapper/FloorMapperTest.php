@@ -51,6 +51,9 @@ class FloorMapperTest extends TestCase {
 		$this->qb->expects($this->once())
 			->method('where')
 			->willReturn($this->qb);
+		// CS-PLAN-071: the live-row filter (deleted_at IS NULL).
+		$this->qb->method('andWhere')
+			->willReturn($this->qb);
 		$this->qb->expects($this->once())
 			->method('orderBy')
 			->with('sort_order', 'ASC')
@@ -118,6 +121,9 @@ class FloorMapperTest extends TestCase {
 			->willReturn($this->qb);
 		$this->qb->expects($this->once())
 			->method('where')
+			->willReturn($this->qb);
+		// CS-PLAN-071: the live-row filter (deleted_at IS NULL).
+		$this->qb->method('andWhere')
 			->willReturn($this->qb);
 		$this->qb->expects($this->once())
 			->method('orderBy')

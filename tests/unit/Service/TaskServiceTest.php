@@ -24,6 +24,8 @@ class TaskServiceTest extends TestCase {
 	private TaskMapper $taskMapper;
 	private AuthorizationService $authorization;
 	private TaskAccessPolicy $taskAccessPolicy;
+	/** CS-PLAN-071: the under-lock task re-read (lockForUpdate) returns this. */
+	private ?Task $lockedTask = null;
 
 	protected function setUp(): void {
 		$this->taskMapper = $this->createMock(TaskMapper::class);
@@ -33,7 +35,27 @@ class TaskServiceTest extends TestCase {
 		// Identity mock: assertions below match the wrapped source text
 		// (no parameter substitution), mirroring TemplateServiceTest.
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
-		$this->service = new TaskService($this->taskMapper, $l10n, $this->authorization, $this->taskAccessPolicy);
+
+		// CS-PLAN-071 WP0: updateTask writes run house-first — the house
+		// row lock is a stub here, and the under-lock task re-read returns
+		// the test's prepared entity (stubLockedTask).
+		$houseMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class);
+		$houseMapper->method('findForUpdate')->willReturn(new \OCA\ChoreStrike\Db\House());
+		$this->taskMapper->method('lockForUpdate')->willReturnCallback(function (): Task {
+			if ($this->lockedTask === null) {
+				throw new \LogicException('call stubLockedTask() for updateTask success-path tests');
+			}
+			return $this->lockedTask;
+		});
+
+		$this->service = new TaskService($this->taskMapper, $houseMapper, $l10n, $this->authorization, $this->taskAccessPolicy, new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)));
+	}
+
+	/**
+	 * Register the entity the under-lock task re-read returns.
+	 */
+	private function stubLockedTask(Task $task): void {
+		$this->lockedTask = $task;
 	}
 
 	/**
@@ -41,6 +63,7 @@ class TaskServiceTest extends TestCase {
 	 */
 	private function createHouseUser(string $userId = 'user123', string $role = 'member'): HouseUser {
 		$houseUser = new HouseUser();
+		$houseUser->setHouseId(1);
 		$houseUser->setNextcloudUserId($userId);
 		$houseUser->setRole($role);
 		return $houseUser;
@@ -149,6 +172,8 @@ class TaskServiceTest extends TestCase {
 			->method('assertCanManageTasks')
 			->with($actor);
 
+		$this->stubLockedTask($task);
+
 		$this->taskMapper
 			->expects($this->once())
 			->method('update')
@@ -177,6 +202,7 @@ class TaskServiceTest extends TestCase {
 			->willReturn($task);
 
 		$this->stubTaskVisible();
+		$this->stubLockedTask($task);
 
 		$this->taskMapper
 			->expects($this->once())
@@ -225,6 +251,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
 		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+		$this->stubLockedTask($task);
 
 		$result = $this->service->updateTask(1, ['name' => 'Renamed'], $this->createHouseUser('task-owner'));
 
@@ -260,6 +287,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
 		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+		$this->stubLockedTask($task);
 
 		$result = $this->service->updateTask(1, ['name' => 'Renamed'], $this->createHouseUser('house-owner', 'owner'));
 
@@ -319,6 +347,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
 		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+		$this->stubLockedTask($task);
 
 		$result = $this->service->updateTask(1, ['visibilityType' => Task::VISIBILITY_ADMIN_ONLY], $this->createHouseUser('house-owner', 'owner'));
 
@@ -336,6 +365,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
 		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+		$this->stubLockedTask($task);
 
 		$result = $this->service->updateTask(1, ['name' => 'Renamed'], $this->createHouseUser('any-member'));
 
@@ -393,6 +423,7 @@ class TaskServiceTest extends TestCase {
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
 		$this->stubTaskVisible();
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+		$this->stubLockedTask($task);
 
 		$result = $this->service->updateTask(1, ['taskTier' => 'gold'], $this->createHouseUser('house-owner', 'owner'));
 
@@ -443,6 +474,7 @@ class TaskServiceTest extends TestCase {
 			->method('assertUserInHouse')
 			->with(1, 'new-owner');
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+		$this->stubLockedTask($task);
 
 		$result = $this->service->updateTask(1, ['ownerUserId' => 'new-owner'], $actor);
 

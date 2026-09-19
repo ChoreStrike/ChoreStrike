@@ -19,7 +19,6 @@ use OCP\IDBConnection;
 class RoomTaskChecklistProgressMapper extends QBMapper {
 	public function __construct(
 		IDBConnection $db,
-		private TransactionExecutor $transactions,
 	) {
 		// Table name fixed to the migration chain (CS-PLAN-037): the
 		// schema creates chorestrike_chk_progress (Version1005) — the
@@ -122,59 +121,59 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 	}
 
 	/**
-	 * Toggle checklist item status
+	 * Toggle checklist item status (locked read-modify-write).
 	 *
-	 * Mapper-owned locked read-modify-write (CS-PLAN-060 §3.6, CR-053-19):
-	 * the whole toggle runs in one TransactionExecutor transaction and the
-	 * existing row (if any) is locked before the flip, so two concurrent
-	 * toggles serialize and no update is lost. The insert path is tolerant
-	 * of the unique-constraint race: two first-toggles for the same
-	 * (room_task, item) — one re-reads the winner's row inside the
-	 * transaction and flips it.
+	 * CS-PLAN-071 WP0: the owning TRANSACTION moved to
+	 * ChecklistService::toggleItem (house-first order: house → room_task →
+	 * progress row) — this primitive participates in the caller's open
+	 * transaction and must not be called outside one. The existing row (if
+	 * any) is locked before the flip, so two concurrent toggles serialize
+	 * and no update is lost. The insert path is tolerant of the
+	 * unique-constraint race: two first-toggles for the same (room_task,
+	 * item) — one re-reads the winner's row inside the transaction and
+	 * flips it.
 	 *
 	 * @param int $roomTaskId
 	 * @param int $checklistItemId
 	 * @param int|null $userId User who checked/unchecked (null if unchecking)
 	 */
-	public function toggle(int $roomTaskId, int $checklistItemId, ?int $userId): RoomTaskChecklistProgress {
-		return $this->transactions->run(function () use ($roomTaskId, $checklistItemId, $userId) {
-			$progress = $this->findForUpdate($roomTaskId, $checklistItemId);
+	public function toggleLocked(int $roomTaskId, int $checklistItemId, ?int $userId): RoomTaskChecklistProgress {
+		$progress = $this->findForUpdate($roomTaskId, $checklistItemId);
 
-			if ($progress !== null) {
-				// Toggle the existing entry
-				$progress->setIsChecked(!$progress->getIsChecked());
-				$progress->setCheckedAt($progress->getIsChecked() ? new \DateTime() : null);
-				$progress->setCheckedByUserId($progress->getIsChecked() ? $userId : null);
+		if ($progress !== null) {
+			// Toggle the existing entry
+			$progress->setIsChecked(!$progress->getIsChecked());
+			$progress->setCheckedAt($progress->getIsChecked() ? new \DateTime() : null);
+			$progress->setCheckedByUserId($progress->getIsChecked() ? $userId : null);
 
-				return $this->update($progress);
+			return $this->update($progress);
+		}
+
+		// Create new checked entry
+		$progress = new RoomTaskChecklistProgress();
+		$progress->setRoomTaskId($roomTaskId);
+		$progress->setChecklistItemId($checklistItemId);
+		$progress->setIsChecked(true);
+		$progress->setCheckedAt(new \DateTime());
+		$progress->setCheckedByUserId($userId);
+
+		try {
+			return $this->insert($progress);
+		} catch (\OCP\DB\Exception $insertException) {
+			if ($insertException->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
+				throw $insertException;
 			}
+			// Lost the unique-constraint race against a concurrent first
+			// toggle for the same (room_task, item): that row must now
+			// exist (its transaction committed before ours could hit the
+			// constraint) — re-read and flip it.
+			$progress = $this->findByRoomTaskAndItem($roomTaskId, $checklistItemId);
+			$progress->setIsChecked(!$progress->getIsChecked());
+			$progress->setCheckedAt($progress->getIsChecked() ? new \DateTime() : null);
+			$progress->setCheckedByUserId($progress->getIsChecked() ? $userId : null);
 
-			// Create new checked entry
-			$progress = new RoomTaskChecklistProgress();
-			$progress->setRoomTaskId($roomTaskId);
-			$progress->setChecklistItemId($checklistItemId);
-			$progress->setIsChecked(true);
-			$progress->setCheckedAt(new \DateTime());
-			$progress->setCheckedByUserId($userId);
-
-			try {
-				return $this->insert($progress);
-			} catch (\OCP\DB\Exception $insertException) {
-				if ($insertException->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
-					throw $insertException;
-				}
-				// Lost the unique-constraint race against a concurrent first
-				// toggle for the same (room_task, item): that row must now
-				// exist (its transaction committed before ours could hit the
-				// constraint) — re-read and flip it.
-				$progress = $this->findByRoomTaskAndItem($roomTaskId, $checklistItemId);
-				$progress->setIsChecked(!$progress->getIsChecked());
-				$progress->setCheckedAt($progress->getIsChecked() ? new \DateTime() : null);
-				$progress->setCheckedByUserId($progress->getIsChecked() ? $userId : null);
-
-				return $this->update($progress);
-			}
-		});
+			return $this->update($progress);
+		}
 	}
 
 	/**

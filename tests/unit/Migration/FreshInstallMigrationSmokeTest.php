@@ -172,6 +172,40 @@ class FreshInstallMigrationSmokeTest extends TestCase {
 			$schema->getTable('chorestrike_room_tasks')->hasIndex('idx_room_tasks_group'),
 			'idx_room_tasks_group indexed the dropped assigned_to_group column'
 		);
+
+		// CS-PLAN-071 WP0 (Q-70-01/02, parent §3.2): tombstone columns, the
+		// re-keyed room-task uniqueness and the frozen WP0 identity/receipt
+		// tables are part of the fresh-install chain.
+		$this->assertTrue($schema->hasColumn('chorestrike_floors', 'deleted_at'), 'floors.deleted_at missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_rooms', 'deleted_at'), 'rooms.deleted_at missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_room_tasks', 'deleted_at'), 'room_tasks.deleted_at missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_room_tasks', 'deleted_token'), 'room_tasks.deleted_token missing');
+		$this->assertTrue(
+			$schema->getTable('chorestrike_room_tasks')->hasUniqueIndex('uniq_rt'),
+			'room_tasks must keep the (room, task, deleted_token) unique index'
+		);
+
+		$this->assertTrue($schema->hasColumn('chorestrike_houses', 'state_version'), 'houses.state_version missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_houses', 'timezone_version'), 'houses.timezone_version missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_houses', 'catalog_enabled'), 'houses.catalog_enabled missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_houses', 'ranking_enabled'), 'houses.ranking_enabled missing');
+		$this->assertTrue($schema->hasColumn('chorestrike_house_users', 'wallet_id'), 'house_users.wallet_id missing');
+
+		$this->assertTrue($schema->hasTable('chorestrike_commands'), 'commands receipt table missing');
+		$this->assertTrue($schema->hasTable('chorestrike_wallets'), 'wallets identity table missing');
+		$this->assertTrue($schema->hasTable('chorestrike_wallet_entries'), 'wallet_entries ledger table missing');
+		$this->assertTrue(
+			$schema->getTable('chorestrike_commands')->hasUniqueIndex('uniq_cmd_key'),
+			'commands must carry the (house, actor, uuid) unique index'
+		);
+		$this->assertTrue(
+			$schema->getTable('chorestrike_wallets')->hasUniqueIndex('uniq_wallet_house_user'),
+			'wallets must carry the (house, binding) unique index'
+		);
+		$this->assertTrue(
+			$schema->getTable('chorestrike_wallet_entries')->hasUniqueIndex('uniq_wentry_source'),
+			'wallet_entries must carry the ledger idempotency index'
+		);
 	}
 
 	/**

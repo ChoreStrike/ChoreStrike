@@ -194,6 +194,11 @@ class ActivityService {
 		$member = $membersById[$completion->getUserId()] ?? null;
 		$taskVisible = $task !== null && isset($visibleTaskIds[$task->getId()]);
 
+		// CS-PLAN-071 WP0 (Q-070-02 / decision D3): an erased (or departed)
+		// actor renders through the localized placeholder — the activity
+		// row keeps its DTO shape, the personal identity stays gone.
+		$actorDisplayName = $member?->getDisplayName() ?? $this->l10n->t('Former member');
+
 		return [
 			'id' => $completion->getId(),
 			'completedAt' => $completion->getCompletedAt()?->format('c'),
@@ -203,7 +208,7 @@ class ActivityService {
 			// record, CS-PLAN-064).
 			'coinsEarned' => $completion->getCoinsEarned(),
 			'houseUserId' => $completion->getUserId(),
-			'displayName' => $member?->getDisplayName(),
+			'displayName' => $actorDisplayName,
 			'taskId' => $task?->getId(),
 			'taskTitle' => $taskVisible ? $task->getName() : null,
 			'energyCost' => $taskVisible ? $task->getEnergyCost() : null,

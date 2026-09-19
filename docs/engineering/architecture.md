@@ -746,19 +746,22 @@ UPDATE/DELETE per row:
    - `IN (SELECT …)` is SQL-92 (portable); avoid the non-portable
      `UPDATE … JOIN`.
 
-5. **Bulk DELETE by id list** — one statement over the loop's id set.
-   Pattern: `CompletedTaskMapper::deleteByRoomTaskIds`,
+5. **Bulk statement over an id list / scope** — one UPDATE (or DELETE)
+   over the loop's id set instead of per-row statements.
+   Pattern: `RoomTaskMapper::tombstoneByRoomIds`,
+   `RoomMapper::tombstoneByFloorId` (structural deletion tombstones —
+   live rows only, Q-70-01),
    `TaskAssigneeMapper::deleteByRoomTasks`,
-   `RoomTaskChecklistProgressMapper::deleteByRoomTaskIds`,
-   `RoomTaskMapper::deleteByRoomIds`, `RoomMapper::deleteByFloorId`.
+   `RoomTaskChecklistProgressMapper::deleteByRoomTaskIds`.
    - Same empty-input early return as idiom 1; ids are `intval`-cast.
-   - **There are no FK constraints** — a delete cascade must be explicit, in
-     dependency order (progress → assignees → completions → room tasks →
-     rooms), and transactional. The shared helper is
-     `RoomService::deleteRoomTaskDependents` (used by `deleteRoom`,
-     `deleteRoomTask`, `deleteFloor`); D2 decision: the completion history
-     is deleted with its task (medals/streaks/coins are denormalized
-     snapshots and stay valid).
+   - **There are no FK constraints** — every cascade must be explicit, in
+     dependency order (progress → assignees → room tasks → rooms), and
+     transactional. Structural deletes tombstone instead of deleting:
+     the shared helper is `RoomService::deleteRoomTaskPlanningState`
+     (used by `deleteRoom`, `deleteRoomTask`, `deleteFloor`); it removes
+     active-planning state (assignees, checklist progress) while
+     `completed_tasks` evidence is RETAINED (CS-PLAN-071 Q-70-01
+     decision D4, superseding the former D2 completion-deletion claim).
 
 6. **CASE-WHEN bulk UPDATE** — per-row `SET` values differing by id become
    one statement: `SET sort_order = CASE id WHEN … THEN … ELSE
@@ -805,6 +808,48 @@ All calendar-day semantics (streaks, freezes, at-risk, due-today, energy windows
 - Frontend mirror: src/utils/dateKeys.js (dateKeyInZone, todayKeyInZone, addDaysToKey, weekdayOfKey) is the single day-key convention; the house store exposes timezone (UTC fallback while the house payload is loading). Never slice ISO strings (slice(0, 10)) or build browser-local keys for day bucketing.
 - Grep gate: no bare new \DateTime('…') day-math outside CalendarService callers; no UTC-slice or browser-local day keys in src/ (outside dateKeys.js).
 
+### Write/Identity Foundation (CS-PLAN-071 WP0)
+
+WP0 freezes the structural substrate every later family-rhythm package builds
+on; the domain behavior stays dormant until its owning package lands.
+
+- **Single house-first lock order** (full contract + audited writer inventory:
+  [development.md](development.md) "Locking and transactions"): `house →
+  room tasks → task definitions → rooms → active membership rows → wallets →
+  occurrence/completion rows → request/preference/digest rows`. Every writer
+  follows the order or a subsequence. This **supersedes** the former
+  two-family split (setup `house → room_task → …` vs the ADR-011/012
+  completion-only entry order `room_task → room → house_user`) — the ADRs
+  carry supersession notes and keep their historical context.
+- **`TransactionExecutor`** stays the only transaction owner; it adds a
+  bounded SQLite `busy_timeout` and a small bounded retry for recognized
+  transient lock/deadlock failures (never for authorization/validation/
+  conflicts). On SQLite the contractually-first house-lock statement (the
+  no-op self-assignment UPDATE) is the immediate write acquisition.
+- **Identity tables (dormant in WP0):** `commands` (receipts — replay on
+  identical payload, 409 on changed payload via `CommandService`; no
+  production endpoint adopts `commandId` before WP2/WP3), `wallets` (the
+  persistent house/account financial identity — created with membership,
+  preserved on departure, reattached on re-invitation, deleted only by
+  erasure; balances stay zero and no API exposes wallets), `wallet_entries`
+  (ledger; unique `(wallet, source-kind, source-id, revision)` idempotency
+  key, no runtime writer before WP3). `house_users.wallet_id` binds the
+  identity; it grants no access and leaks through no endpoint.
+- **Tombstone structural deletion (Q-070-01):** floors/rooms carry
+  `deleted_at`, room tasks additionally `deleted_token` (re-keyed
+  `(room, task, deleted_token)` uniqueness allows re-created links).
+  Deletion cascades tombstone; `task_assignees` + checklist progress die,
+  `completed_tasks` evidence is retained and undo stays authorized across
+  tombstones. Active-planning reads filter tombstones; history/activity
+  reads resolve names through the rows.
+- **Account erasure (Q-070-02):** `UserDeletedEvent` →
+  `AccountErasureService` deletes memberships/assignees/medals/scores and
+  the wallet with its ledger per house (house-first), nulls receipt actors
+  and completion actor references, and sweeps already-departed wallets.
+  Anonymized activity actors render via the localized "Former member"
+  placeholder; a recreated same-UID account gets fresh ids and cannot
+  rebind prior data.
+
 ### Aggregate Idiom: Scheduling Preview/Apply (CS-PLAN-065, ADR-012)
 
 `SchedulePlanService` owns the owner-only plan aggregate: a deterministic,
@@ -813,11 +858,12 @@ fingerprint (`previewVersion`, SHA-1 over canonically sorted request + row
 state + member roles/preferences + timezone + capacity rows + proposal) is
 confirmed by **apply** (`POST /scheduling/apply`).
 
-- **Lock order (refines, never inverts ADR-011):** `house → room_task
+- **Lock order (a subsequence of the single house-first order, CS-PLAN-071 —
+  supersedes the ADR-011/012 two-family split):** `house → room_task
   (ascending ids) → task definition (ascending ids) → house_user (ascending
-  ids) → assignee writes`. Creation/setup writers take the house lock first
-  and serialize; completion/undo (`room_task → room → house_user`) and all
-  other writers block on row locks apply already holds — no ordering cycle.
+  ids) → assignee writes`. All writers — including completion/undo, now
+  `house → room_task → room → house_user` — enter through the house lock and
+  serialize; no ordering cycle can form.
 - **Never apply against drifted state:** apply recomputes the identical plan
   from freshly locked rows; any fingerprint mismatch is a `409 CONFLICT`
   with zero writes. Two applies of one preview serialize into one commit and

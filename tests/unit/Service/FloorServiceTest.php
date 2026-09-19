@@ -45,10 +45,16 @@ class FloorServiceTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 
+		// CS-PLAN-071 WP0: structure mutations enter through the house row
+		// lock (findForUpdate) — a stub is enough for these unit tests.
+		$houseMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class);
+		$houseMapper->method('findForUpdate')->willReturn(new \OCA\ChoreStrike\Db\House());
+
 		$this->service = new FloorService(
 			$this->floorMapper,
 			$this->roomMapper,
 			$this->roomTaskMapper,
+			$houseMapper,
 			$this->roomService,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
 			$l10n,
@@ -131,6 +137,27 @@ class FloorServiceTest extends TestCase {
 	}
 
 	/**
+	 * UpdateFloorName_TombstonedFloor_Yields404
+	 *
+	 * Q-70-01: tombstoned structure is immutable evidence — renames
+	 * answer 404 like a missing floor.
+	 */
+	public function testUpdateFloorName_TombstonedFloor_Yields404(): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+		$floor->setDeletedAt(new \DateTime());
+
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->floorMapper->expects($this->never())->method('update');
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Floor not found');
+
+		$this->service->updateFloorName(1, 'Renamed After Death');
+	}
+
+	/**
 	 * UpdateFloorName_ValidName_ReturnsUpdatedFloor
 	 */
 	public function testUpdateFloorName_ValidName_ReturnsUpdatedFloor(): void {
@@ -146,8 +173,10 @@ class FloorServiceTest extends TestCase {
 		$updatedFloor->setId($floorId);
 		$updatedFloor->setName($newName);
 
+		// CS-PLAN-071: the pre-check resolves the house; the transaction
+		// re-reads the floor under the house row lock.
 		$this->floorMapper
-			->expects($this->once())
+			->expects($this->exactly(2))
 			->method('find')
 			->with($floorId)
 			->willReturn($floor);
@@ -266,11 +295,12 @@ class FloorServiceTest extends TestCase {
 	}
 
 	/**
-	 * DeleteFloor_WithRooms_CascadesDependentsInOneTransaction
+	 * DeleteFloor_WithRooms_TombstonesDependentsInOneTransaction
 	 *
-	 * CS-PLAN-037 (D1/D2): the floor cascade lives in the service (the
-	 * mapper no longer cross-instantiates RoomMapper) and is orphan-free:
-	 * room-task dependents first, then room tasks, rooms, and the floor.
+	 * CS-PLAN-071 WP0 (Q-70-01): the floor cascade TOMBSTONES instead of
+	 * hard-deleting — planning state via RoomService::deleteRoomTaskPlanningState,
+	 * then room tasks / rooms / floor via tombstone updates. completed_tasks
+	 * evidence is retained.
 	 */
 	public function testDeleteFloor_WithRooms_CascadesDependentsInOneTransaction(): void {
 		$floorId = 1;
@@ -289,8 +319,10 @@ class FloorServiceTest extends TestCase {
 
 		$roomTaskIds = [10, 11];
 
+		// CS-PLAN-071 review fix: the tombstone gate re-reads the floor
+		// under the house lock (pre-read + locked read).
 		$this->floorMapper
-			->expects($this->once())
+			->expects($this->exactly(2))
 			->method('find')
 			->with($floorId)
 			->willReturn($floor);
@@ -309,23 +341,28 @@ class FloorServiceTest extends TestCase {
 
 		$this->roomService
 			->expects($this->once())
-			->method('deleteRoomTaskDependents')
+			->method('deleteRoomTaskPlanningState')
 			->with($roomTaskIds);
 
 		$this->roomTaskMapper
 			->expects($this->once())
-			->method('deleteByRoomIds')
-			->with([5, 6]);
+			->method('tombstoneByRoomIds')
+			->with([5, 6], $this->isInstanceOf(\DateTime::class));
 
 		$this->roomMapper
 			->expects($this->once())
-			->method('deleteByFloorId')
-			->with($floorId);
+			->method('tombstoneByFloorId')
+			->with($floorId, $this->isInstanceOf(\DateTime::class));
 
 		$this->floorMapper
 			->expects($this->once())
-			->method('delete')
-			->with($floor);
+			->method('update')
+			->with($this->callback(static fn (Floor $f): bool => $f->getDeletedAt() !== null));
+
+		// No hard deletes anywhere in the cascade (evidence retained).
+		$this->floorMapper->expects($this->never())->method('delete');
+		$this->roomMapper->expects($this->never())->method('delete');
+		$this->roomTaskMapper->expects($this->never())->method('delete');
 
 		$this->db->expects($this->once())->method('beginTransaction');
 		$this->db->expects($this->once())->method('commit');
@@ -351,21 +388,21 @@ class FloorServiceTest extends TestCase {
 		$this->floorMapper->method('find')->willReturn($floor);
 		$this->roomMapper->method('findByFloorId')->willReturn([$room]);
 		$this->roomTaskMapper->method('findIdsByRoomIds')->willReturn([10]);
-		$this->roomTaskMapper->method('deleteByRoomIds')
+		$this->roomTaskMapper->method('tombstoneByRoomIds')
 			->willThrowException(new \RuntimeException('db down'));
 
 		$this->db->expects($this->once())->method('beginTransaction');
 		$this->db->expects($this->once())->method('rollBack');
 		$this->db->expects($this->never())->method('commit');
-		$this->roomMapper->expects($this->never())->method('deleteByFloorId');
-		$this->floorMapper->expects($this->never())->method('delete');
+		$this->roomMapper->expects($this->never())->method('tombstoneByFloorId');
+		$this->floorMapper->expects($this->never())->method('update');
 
 		// CS-PLAN-052: the rollback boundary must log the failure before
 		// rethrowing (stable event + service context keys).
 		$this->appLogger->expects($this->once())
 			->method('logException')
 			->with(
-				'FloorService: floor cascade rolled back',
+				'FloorService: floor tombstone rolled back',
 				$this->callback(fn (\Throwable $e) => $e->getMessage() === 'db down'),
 				$this->callback(function (array $context): bool {
 					return $context['event'] === 'floor_delete_rollback'
@@ -378,6 +415,100 @@ class FloorServiceTest extends TestCase {
 		$this->expectExceptionMessage('db down');
 
 		$this->service->deleteFloor($floorId);
+	}
+
+	/**
+	 * UpdateFloorName_FloorTombstonedBehindPreRead_Yields404UnderLock
+	 *
+	 * CS-PLAN-071 review fix (TOCTOU): a floor deleted behind the pre-read
+	 * is immutable evidence — the locked re-read rejects the rename with
+	 * zero writes.
+	 */
+	public function testUpdateFloorName_FloorTombstonedBehindPreRead_Yields404UnderLock(): void {
+		$liveFloor = new Floor();
+		$liveFloor->setId(1);
+		$liveFloor->setHouseId(1);
+
+		$tombstonedFloor = new Floor();
+		$tombstonedFloor->setId(1);
+		$tombstonedFloor->setHouseId(1);
+		$tombstonedFloor->setDeletedAt(new \DateTime());
+
+		$this->floorMapper
+			->expects($this->exactly(2))
+			->method('find')
+			->with(1)
+			->willReturn($liveFloor, $tombstonedFloor);
+		$this->authorization->method('requireHouseOwner');
+		$this->floorMapper->expects($this->never())->method('update');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Floor not found');
+
+		$this->service->updateFloorName(1, 'Race Rename');
+	}
+
+	/**
+	 * DeleteFloor_TombstonedFloor_Yields404BeforeTransaction
+	 *
+	 * CS-PLAN-071 review fix: a repeat delete of a tombstoned floor answers
+	 * 404 like a missing floor — the original deletion instant survives.
+	 */
+	public function testDeleteFloor_TombstonedFloor_Yields404BeforeTransaction(): void {
+		$floor = new Floor();
+		$floor->setId(1);
+		$floor->setHouseId(1);
+		$floor->setDeletedAt(new \DateTime());
+
+		$this->floorMapper->method('find')->willReturn($floor);
+		$this->authorization->method('requireHouseOwner');
+		$this->roomMapper->expects($this->never())->method('findByFloorId');
+		$this->roomMapper->expects($this->never())->method('tombstoneByFloorId');
+		$this->floorMapper->expects($this->never())->method('update');
+		$this->db->expects($this->never())->method('beginTransaction');
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Floor not found');
+
+		$this->service->deleteFloor(1);
+	}
+
+	/**
+	 * DeleteFloor_FloorTombstonedBehindPreRead_Yields404ZeroWrites
+	 *
+	 * CS-PLAN-071 review fix (TOCTOU): a concurrent delete winner makes
+	 * the second delete a clean 404 under the house lock — the original
+	 * tombstone evidence (deleted_at) is never re-stamped.
+	 */
+	public function testDeleteFloor_FloorTombstonedBehindPreRead_Yields404ZeroWrites(): void {
+		$liveFloor = new Floor();
+		$liveFloor->setId(1);
+		$liveFloor->setHouseId(1);
+
+		$tombstonedFloor = new Floor();
+		$tombstonedFloor->setId(1);
+		$tombstonedFloor->setHouseId(1);
+		$tombstonedFloor->setDeletedAt(new \DateTime('2026-09-18T10:00:00Z'));
+
+		$this->floorMapper
+			->expects($this->exactly(2))
+			->method('find')
+			->with(1)
+			->willReturn($liveFloor, $tombstonedFloor);
+		$this->authorization->method('requireHouseOwner');
+		$this->roomMapper->expects($this->never())->method('findByFloorId');
+		$this->roomTaskMapper->expects($this->never())->method('tombstoneByRoomIds');
+		$this->roomMapper->expects($this->never())->method('tombstoneByFloorId');
+		$this->floorMapper->expects($this->never())->method('update');
+		$this->db->expects($this->once())->method('rollBack');
+		$this->db->expects($this->never())->method('commit');
+
+		$this->expectException(NotFoundException::class);
+		$this->expectExceptionMessage('Floor not found');
+
+		$this->service->deleteFloor(1);
 	}
 
 	/**

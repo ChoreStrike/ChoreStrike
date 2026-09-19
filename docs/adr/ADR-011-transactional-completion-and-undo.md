@@ -102,6 +102,19 @@ that test, and undo reads only through these typed keys.
 
 ### 2. Deterministic lock order: `room_task → room → house_user`
 
+> **SUPERSEDED (CS-PLAN-071 WP0, parent CS-PLAN-070 §3.5):** the two-family
+> split (setup/creation `house → room_task → …` vs this completion-only
+> entry order `room_task → room → house_user`) is collapsed into ONE
+> house-first order — `house → room tasks → task definitions → rooms →
+> active membership rows → wallets → occurrence/completion rows →
+> request/preference/digest rows` (or a subsequence). `CompletionService`
+> now acquires the HOUSE lock first, then `room_task → room → house_user`
+> exactly as below; the relative order of the completion locks is unchanged,
+> only the house lock was prepended. This section is preserved as the
+> historical rationale; the authoritative order lives in
+> [development.md](../engineering/development.md) and
+> [architecture.md](../engineering/architecture.md).
+
 Both aggregates acquire in exactly this order, never reversing or mixing:
 
 ```

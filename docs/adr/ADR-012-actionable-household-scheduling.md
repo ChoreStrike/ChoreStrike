@@ -88,6 +88,13 @@ result. It is content-derived, order-independent and opaque to clients.
 
 ### Lock order (refines, never inverts ADR-011)
 
+> **SUPERSEDED IN PART (CS-PLAN-071 WP0):** the single house-first order now
+> covers every writer — completion/undo enter through the house lock first
+> (`house → room_task → room → house_user`), so the "two families, never
+> mixed" framing below is historical. Apply's own subsequence is unchanged
+> and remains a valid subsequence of the frozen order; see
+> [development.md](../engineering/development.md).
+
 ```
 house → room_task (ascending IDs) → task definition (ascending IDs)
       → house_user (ascending IDs) → assignee writes

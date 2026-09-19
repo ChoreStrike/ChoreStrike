@@ -29,6 +29,8 @@ class TaskServiceWhitelistTest extends TestCase {
 	private TaskMapper $taskMapper;
 	private AuthorizationService $authorization;
 	private TaskAccessPolicy $taskAccessPolicy;
+	/** CS-PLAN-071: the under-lock task re-read (lockForUpdate) returns this. */
+	private ?Task $lockedTask = null;
 
 	protected function setUp(): void {
 		$this->taskMapper = $this->createMock(TaskMapper::class);
@@ -43,7 +45,26 @@ class TaskServiceWhitelistTest extends TestCase {
 			$pattern = preg_replace('/%[0-9]+\$[ds]/', '%s', $text);
 			return $parameters === [] ? $pattern : vsprintf($pattern, array_map('strval', array_values($parameters)));
 		});
-		$this->service = new TaskService($this->taskMapper, $l10n, $this->authorization, $this->taskAccessPolicy);
+
+		// CS-PLAN-071 WP0: updateTask writes run house-first; the under-lock
+		// task re-read returns the test's prepared entity (stubLockedTask).
+		$houseMapper = $this->createMock(\OCA\ChoreStrike\Db\HouseMapper::class);
+		$houseMapper->method('findForUpdate')->willReturn(new \OCA\ChoreStrike\Db\House());
+		$this->taskMapper->method('lockForUpdate')->willReturnCallback(function (): Task {
+			if ($this->lockedTask === null) {
+				throw new \LogicException('call stubLockedTask() for updateTask success-path tests');
+			}
+			return $this->lockedTask;
+		});
+
+		$this->service = new TaskService($this->taskMapper, $houseMapper, $l10n, $this->authorization, $this->taskAccessPolicy, new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)));
+	}
+
+	/**
+	 * Register the entity the under-lock task re-read returns.
+	 */
+	private function stubLockedTask(Task $task): void {
+		$this->lockedTask = $task;
 	}
 
 	/**
@@ -51,6 +72,7 @@ class TaskServiceWhitelistTest extends TestCase {
 	 */
 	private function createHouseUser(string $userId = 'caller-user', string $role = 'member'): HouseUser {
 		$houseUser = new HouseUser();
+		$houseUser->setHouseId(1);
 		$houseUser->setNextcloudUserId($userId);
 		$houseUser->setRole($role);
 		return $houseUser;
@@ -81,6 +103,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$task = new Task();
 		$this->taskMapper->expects($this->once())->method('find')->willReturn($task);
 		$this->taskMapper->expects($this->once())->method('update')->willReturnArgument(0);
+		$this->stubLockedTask($task);
 
 		$result = $this->service->updateTask(1, ['name' => 'Shiny New Name'], $this->createHouseUser());
 
@@ -112,6 +135,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$task = new Task();
 		$this->taskMapper->method('find')->willReturn($task);
 		$this->taskMapper->method('update')->willReturnArgument(0);
+		$this->stubLockedTask($task);
 
 		$result = $this->service->updateTask(1, ['activeFrom' => '2026-01-15'], $this->createHouseUser());
 
@@ -128,6 +152,7 @@ class TaskServiceWhitelistTest extends TestCase {
 		$task = new Task();
 		$this->taskMapper->method('find')->willReturn($task);
 		$this->taskMapper->method('update')->willReturnArgument(0);
+		$this->stubLockedTask($task);
 
 		$result = $this->service->updateTask(1, [
 			'name' => 'Multi',

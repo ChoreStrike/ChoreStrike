@@ -179,6 +179,22 @@ class HouseMapper extends QBMapper {
 	}
 
 	/**
+	 * Atomically bump the house's aggregate mutation counter (CS-PLAN-071
+	 * WP0, parent §3.2: "increment relevant version on every
+	 * plan/accounting/preference mutation"). Must be called while the house
+	 * row is locked (inside the house-first transaction); the single
+	 * self-increment UPDATE is race-free under that lock.
+	 */
+	public function bumpStateVersion(int $houseId): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update($this->getTableName())
+			->set('state_version', $qb->createFunction('state_version + 1'))
+			->set('updated_at', $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+	}
+
+	/**
 	 * Atomically claim the weekly-goal-reached notification for a house+week.
 	 *
 	 * Issues a conditional UPDATE that sets `weekly_goal_notified_week` only

@@ -70,6 +70,7 @@ class RoomTaskServiceExtendedFeaturesTest extends TestCase {
 			$this->roomTaskMapper,
 			$this->taskMapper,
 			$this->roomMapper,
+			$this->houseMapper,
 			$this->readService,
 			$this->getMockBuilder(\OCA\ChoreStrike\Service\RoomService::class)
 				->disableOriginalConstructor()

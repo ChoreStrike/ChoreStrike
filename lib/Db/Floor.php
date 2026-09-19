@@ -22,6 +22,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setSortOrder(int $sortOrder)
  * @method \DateTime getCreatedAt()
  * @method void setCreatedAt(\DateTime $createdAt)
+ * @method \DateTime|null getDeletedAt()
+ * @method void setDeletedAt(?\DateTime $deletedAt)
  */
 class Floor extends Entity implements JsonSerializable {
 	/** @var int */
@@ -36,12 +38,16 @@ class Floor extends Entity implements JsonSerializable {
 	/** @var \DateTime */
 	protected $createdAt;
 
+	/** @var \DateTime|null Tombstone (Q-070-01): NULL = live row. */
+	protected $deletedAt;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('houseId', 'integer');
 		$this->addType('name', 'string');
 		$this->addType('sortOrder', 'integer');
 		$this->addType('createdAt', 'datetime');
+		$this->addType('deletedAt', 'datetime');
 	}
 
 	/**

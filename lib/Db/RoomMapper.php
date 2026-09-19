@@ -86,7 +86,9 @@ class RoomMapper extends QBMapper {
 	 *
 	 * IN-clause batch lookup returning a map id → Room. Missing ids are
 	 * tolerated and simply absent from the map (skip-on-missing semantics
-	 * for callers iterating room tasks).
+	 * for callers iterating room tasks). Tombstoned rooms are excluded —
+	 * every caller enriches active-planning rows (CS-PLAN-071 Q-70-01);
+	 * single-room reads that must resolve tombstoned rows use find().
 	 *
 	 * @param int[] $ids The room IDs
 	 * @return array<int, Room> Map of room ID → Room entity
@@ -99,7 +101,8 @@ class RoomMapper extends QBMapper {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from($this->getTableName())
-			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
+			->andWhere($qb->expr()->isNull('deleted_at'));
 
 		$map = [];
 		foreach ($this->findEntities($qb) as $room) {
@@ -110,7 +113,7 @@ class RoomMapper extends QBMapper {
 	}
 
 	/**
-	 * Get all rooms for a floor
+	 * Get all live rooms for a floor
 	 *
 	 * @param int $floorId The floor ID
 	 * @return Room[]
@@ -120,13 +123,14 @@ class RoomMapper extends QBMapper {
 
 		$qb->select('*')
 			->from($this->getTableName())
-			->where($qb->expr()->eq('floor_id', $qb->createNamedParameter($floorId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('floor_id', $qb->createNamedParameter($floorId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('deleted_at'));
 
 		return $this->findEntities($qb);
 	}
 
 	/**
-	 * Get all rooms for a house via floor relation
+	 * Get all live rooms for a house via floor relation
 	 *
 	 * @param int $houseId The house ID
 	 * @return Room[]
@@ -137,7 +141,8 @@ class RoomMapper extends QBMapper {
 		$qb->select('r.*')
 			->from($this->getTableName(), 'r')
 			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
-			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('r.deleted_at'));
 
 		return $this->findEntities($qb);
 	}
@@ -164,8 +169,8 @@ class RoomMapper extends QBMapper {
 	}
 
 	/**
-	 * Reset every room of a house to its initial state in one UPDATE
-	 * (CS-PLAN-037, CR-SVC-60).
+	 * Reset every LIVE room of a house to its initial state in one UPDATE
+	 * (CS-PLAN-037, CR-SVC-60; CS-PLAN-071: tombstoned rooms are excluded).
 	 *
 	 * `UPDATE rooms SET cleanliness = 100, monster_count = 0,
 	 * last_cleaned = NULL WHERE floor_id IN (SELECT id FROM floors WHERE
@@ -191,40 +196,26 @@ class RoomMapper extends QBMapper {
 			->set('cleanliness', $qb->createNamedParameter(100, IQueryBuilder::PARAM_INT))
 			->set('monster_count', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT))
 			->set('last_cleaned', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
-			->where($qb->expr()->in('floor_id', $qb->createFunction($floorsInHouse->getSQL())));
+			->where($qb->expr()->in('floor_id', $qb->createFunction($floorsInHouse->getSQL())))
+			->andWhere($qb->expr()->isNull('deleted_at'));
 
 		return $qb->executeStatement();
 	}
 
 	/**
-	 * Delete all rooms of a floor in one statement (CS-PLAN-037 cascade;
-	 * dependents must be cleaned up by the caller first — no FK cascade).
+	 * Tombstone all live rooms of a floor in one statement (CS-PLAN-071
+	 * Q-70-01 structural deletion; evidence rows are retained — the former
+	 * hard DELETE is gone).
 	 *
 	 * @param int $floorId The floor ID
+	 * @param \DateTime $deletedAt The UTC tombstone instant
 	 */
-	public function deleteByFloorId(int $floorId): void {
+	public function tombstoneByFloorId(int $floorId, \DateTime $deletedAt): void {
 		$qb = $this->db->getQueryBuilder();
-		$qb->delete($this->getTableName())
-			->where($qb->expr()->eq('floor_id', $qb->createNamedParameter($floorId, IQueryBuilder::PARAM_INT)))
-			->executeStatement();
-	}
-
-	/**
-	 * Update room cleanliness
-	 *
-	 * @param int $roomId The room ID
-	 * @param int $cleanliness The new cleanliness value (0-100)
-	 */
-	public function updateCleanliness(int $roomId, int $cleanliness): void {
-		$cleanliness = max(0, min(100, $cleanliness)); // Clamp between 0 and 100
-
-		$qb = $this->db->getQueryBuilder();
-
 		$qb->update($this->getTableName())
-			->set('cleanliness', $qb->createNamedParameter($cleanliness, IQueryBuilder::PARAM_INT))
-			->set('last_cleaned', $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-
-		$qb->executeStatement();
+			->set('deleted_at', $qb->createNamedParameter($deletedAt, IQueryBuilder::PARAM_DATE))
+			->where($qb->expr()->eq('floor_id', $qb->createNamedParameter($floorId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('deleted_at'))
+			->executeStatement();
 	}
 }

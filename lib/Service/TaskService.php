@@ -8,9 +8,11 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Exception\ValidationException;
@@ -64,20 +66,26 @@ class TaskService {
 	];
 
 	private TaskMapper $taskMapper;
+	private HouseMapper $houseMapper;
 	private IL10N $l10n;
 	private AuthorizationService $authorization;
 	private TaskAccessPolicy $taskAccessPolicy;
+	private TransactionExecutor $transactions;
 
 	public function __construct(
 		TaskMapper $taskMapper,
+		HouseMapper $houseMapper,
 		IL10N $l10n,
 		AuthorizationService $authorization,
 		TaskAccessPolicy $taskAccessPolicy,
+		TransactionExecutor $transactions,
 	) {
 		$this->taskMapper = $taskMapper;
+		$this->houseMapper = $houseMapper;
 		$this->l10n = $l10n;
 		$this->authorization = $authorization;
 		$this->taskAccessPolicy = $taskAccessPolicy;
+		$this->transactions = $transactions;
 	}
 
 	/**
@@ -135,6 +143,12 @@ class TaskService {
 	 * {@see AuthorizationService::assertUserInHouse} (closes the unvalidated
 	 * transfer, §3.4).
 	 *
+	 * CS-PLAN-071 WP0: the write runs in one house-first transaction — the
+	 * actor's house row lock first, then the task-definition row lock —
+	 * and applies the validated updates to the FRESH locked entity
+	 * (CR-SVC-53 pattern), so a concurrent definition edit can no longer
+	 * be clobbered.
+	 *
 	 * Callers MUST supply the acting house user; the parameter is
 	 * non-nullable so the policy can never be silently bypassed. The
 	 * production path (TaskController::update) always supplies it.
@@ -164,7 +178,8 @@ class TaskService {
 		// CR-053-04: taskTier is owner-only and value-checked outside the
 		// generic whitelist loop — a member must not be able to self-serve
 		// the gold coin multiplier. Role denial is a ForbiddenException
-		// (403); a bad value is an InvalidArgumentException (400).
+		// (403); a bad value is an InvalidArgumentException (400). The
+		// value is validated here and applied under the locks below.
 		if (array_key_exists('taskTier', $updates)) {
 			if (!$isOwner) {
 				throw new ForbiddenException($this->l10n->t('Only house owners may change the task tier'));
@@ -172,8 +187,6 @@ class TaskService {
 			if (!in_array($updates['taskTier'], self::TASK_TIERS, true)) {
 				throw new \InvalidArgumentException($this->l10n->t('Invalid task tier'));
 			}
-			$task->setTaskTier($updates['taskTier']);
-			unset($updates['taskTier']);
 		}
 
 		// Admin-only visibility is owner-only (ADR-010 matrix, RF-058-03):
@@ -205,7 +218,12 @@ class TaskService {
 
 		// Whitelist first (mass-assignment defense, unchanged semantics):
 		// an unknown or immutable key is rejected before any value check.
+		// `taskTier` is not on the generic whitelist — it was owner- and
+		// value-validated above and is applied explicitly under the locks.
 		foreach ($updates as $field => $value) {
+			if ($field === 'taskTier') {
+				continue;
+			}
 			if (!in_array($field, self::MUTABLE_FIELDS, true)) {
 				throw new \InvalidArgumentException($this->l10n->t('Unknown or immutable field: %1$s', [$field]));
 			}
@@ -221,6 +239,29 @@ class TaskService {
 			throw new ValidationException($errors[0], $errors);
 		}
 
+		// CS-PLAN-071 WP0: apply the validated updates under the locks —
+		// house row first, then the task-definition row — on the FRESH
+		// entity. taskTier is not on the generic whitelist but was
+		// owner-validated above; it is applied explicitly.
+		return $this->transactions->run(function () use ($taskId, $updates, $actor): Task {
+			$this->houseMapper->findForUpdate($actor->getHouseId());
+			$task = $this->taskMapper->lockForUpdate($taskId);
+			if (array_key_exists('taskTier', $updates)) {
+				$task->setTaskTier($updates['taskTier']);
+			}
+			$this->applyUpdates($task, array_intersect_key($updates, array_flip(self::MUTABLE_FIELDS)));
+			return $this->taskMapper->update($task);
+		});
+	}
+
+	/**
+	 * Apply the whitelisted update values to the given task entity (the
+	 * setter loop extracted so validation and the locked write can use the
+	 * same semantics).
+	 *
+	 * @param array<string, mixed> $updates
+	 */
+	private function applyUpdates(Task $task, array $updates): void {
 		foreach ($updates as $field => $value) {
 			// Task extends Nextcloud's Entity, whose accessors are magic
 			// (@method/__call), so method_exists() returns false for them and
@@ -242,8 +283,6 @@ class TaskService {
 
 			$task->$method($value);
 		}
-
-		return $this->taskMapper->update($task);
 	}
 
 	/**

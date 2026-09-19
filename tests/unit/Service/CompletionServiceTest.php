@@ -75,6 +75,11 @@ class CompletionServiceTest extends TestCase {
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
 		$this->houseMapper->method('find')->willReturn($utcHouse);
+		// CS-PLAN-071 WP0: completion/undo additionally call
+		// HouseMapper::findForUpdate as the FIRST in-transaction lock; the
+		// return value is unused, so tests that do not track lock order need
+		// no stub for it (PHPUnit keeps the FIRST stub per method, so the
+		// call-order test registers its own tracking stub).
 
 		$defaultSnapshot = [
 			'dueCount' => 0,
@@ -867,6 +872,10 @@ class CompletionServiceTest extends TestCase {
 		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
 
 		$callOrder = [];
+		$this->houseMapper->method('findForUpdate')->willReturnCallback(function () use (&$callOrder) {
+			$callOrder[] = 'lock_house';
+			return new House();
+		});
 		$this->roomTaskMapper->method('lockForUpdate')->willReturnCallback(function () use (&$callOrder, $roomTask) {
 			$callOrder[] = 'lock_room_task';
 			return $roomTask;
@@ -911,10 +920,10 @@ class CompletionServiceTest extends TestCase {
 		$result = $this->service->undo(1, $actor, 1);
 
 		self::assertSame([
-			'lock_room_task', 'lock_room', 'lock_house_user',
+			'lock_house', 'lock_room_task', 'lock_room', 'lock_house_user',
 			'restore_room_task', 'restore_room', 'restore_house_user',
 			'mark_undone',
-		], $callOrder, 'restore must follow the documented lock and write order');
+		], $callOrder, 'restore must follow the documented house-first lock and write order');
 
 		// Room task before-state restored verbatim.
 		self::assertSame('2026-09-06T00:00:00+00:00', $roomTask->getNextDue()->format('c'));
@@ -959,8 +968,9 @@ class CompletionServiceTest extends TestCase {
 	 * Undo_ConcurrentWinnerMakesThisTheNoOp
 	 *
 	 * The under-lock revertible re-check: a concurrent undo winner marks the
-	 * row undone first; this invocation rolls back zero writes and answers
-	 * the idempotent `undone: false`.
+	 * row undone first; this invocation writes nothing (the read-only
+	 * transaction commits zero writes under the run() retry contract) and
+	 * answers the idempotent `undone: false`.
 	 */
 	public function testUndo_ConcurrentWinner_MakesThisTheNoOp(): void {
 		$roomTask = $this->buildRoomTask();
@@ -978,8 +988,8 @@ class CompletionServiceTest extends TestCase {
 
 		$this->roomTaskMapper->expects($this->never())->method('update');
 		$this->completedTaskMapper->expects($this->never())->method('markUndone');
-		$this->db->expects($this->once())->method('rollBack');
-		$this->db->expects($this->never())->method('commit');
+		$this->db->expects($this->once())->method('commit');
+		$this->db->expects($this->never())->method('rollBack');
 
 		$result = $this->service->undo(1, $actor, 1);
 		self::assertFalse($result['undone']);
@@ -1037,6 +1047,35 @@ class CompletionServiceTest extends TestCase {
 		$this->roomMapper->expects($this->never())->method('update');
 		$this->houseUserMapper->expects($this->never())->method('update');
 		$this->completedTaskMapper->expects($this->never())->method('markUndone');
+
+		$this->expectException(ForbiddenException::class);
+		$this->expectExceptionMessage('The completer is no longer a member of this house');
+
+		$this->service->undo(1, $actor, 1);
+	}
+
+	/**
+	 * Undo_ErasedCompleter_CleanForbidden_NeverATypeError
+	 *
+	 * Q-70-02 (CS-PLAN-071): erasure nulls the ledger row's user_id —
+	 * the actor gate must answer the clean 403 instead of feeding null
+	 * into the int-typed mapper (TypeError 500, review finding).
+	 */
+	public function testUndo_ErasedCompleter_CleanForbidden_NeverATypeError(): void {
+		$roomTask = $this->buildRoomTask();
+		$room = $this->buildRoom();
+		$actor = $this->buildHouseUser(2, 'owner-user');
+		$actor->setRole('owner');
+		$this->stubUndoLookups($roomTask, $room, $this->buildTask(), $actor);
+
+		$ledger = $this->buildLedgerRow($this->buildBeforeState(), []);
+		$ledger->setUserId(null);
+		$this->completedTaskMapper->method('findNewestRevertibleByRoomTask')->willReturn($ledger);
+
+		// No transaction may open, and the mapper must never see a null id.
+		$this->db->expects($this->never())->method('beginTransaction');
+		$this->houseUserMapper->expects($this->never())->method('find');
+		$this->houseUserMapper->expects($this->never())->method('findForUpdate');
 
 		$this->expectException(ForbiddenException::class);
 		$this->expectExceptionMessage('The completer is no longer a member of this house');

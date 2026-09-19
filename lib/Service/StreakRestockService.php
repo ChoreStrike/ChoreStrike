@@ -8,7 +8,9 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\TransactionExecutor;
 
 /**
  * Weekly streak freeze restock pass (CS-PLAN-023).
@@ -17,12 +19,17 @@ use OCA\ChoreStrike\Db\HouseUserMapper;
  * triggerable via occ chorestrike:trigger-jobs. The restock is
  * time-independent (it sets freezes to the configured weekly value), so
  * triggering it once is sufficient — no date parameter needed.
+ *
+ * CS-PLAN-071 WP0: each restock write runs in one house-first transaction
+ * (house row lock → membership row lock) against the FRESH locked entity.
  */
 class StreakRestockService {
 	public function __construct(
 		private HouseUserMapper $houseUserMapper,
 		private RewardConfigService $configService,
 		private AppLogger $appLogger,
+		private HouseMapper $houseMapper,
+		private TransactionExecutor $transactions,
 	) {
 	}
 
@@ -51,8 +58,14 @@ class StreakRestockService {
 		foreach ($this->houseUserMapper->findAllForJobs() as $user) {
 			try {
 				$stats['processed']++;
-				$user->restockFreezes($freezesPerWeek, $cap);
-				$this->houseUserMapper->update($user);
+				$this->transactions->run(function () use ($user, $freezesPerWeek, $cap): void {
+					// FIRST lock of the documented order: the house row,
+					// then the membership row (fresh entity).
+					$this->houseMapper->findForUpdate($user->getHouseId());
+					$fresh = $this->houseUserMapper->findForUpdate($user->getId());
+					$fresh->restockFreezes($freezesPerWeek, $cap);
+					$this->houseUserMapper->update($fresh);
+				});
 			} catch (\Throwable $e) {
 				$stats['failed']++;
 				$this->appLogger->logException('StreakRestockService: per-user failure', $e, [

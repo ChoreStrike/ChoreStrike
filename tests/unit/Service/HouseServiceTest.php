@@ -74,6 +74,14 @@ class HouseServiceTest extends TestCase {
 		$this->defaultHouse = new House();
 		$this->defaultHouse->setTimezone('UTC');
 		$this->houseMapper->method('find')->willReturnCallback(fn (int $id) => $this->defaultHouse);
+		// CS-PLAN-071 WP0: house-first writers enter through findForUpdate.
+		$this->houseMapper->method('findForUpdate')->willReturnCallback(fn (int $id) => $this->defaultHouse);
+
+		// CS-PLAN-071 WP0: membership writes ensure the wallet binding via
+		// the shared WalletService — identity on update.
+		$walletService = $this->createMock(\OCA\ChoreStrike\Service\WalletService::class);
+		$walletService->method('ensureBinding')->willReturnCallback(static fn (int $houseId, $member) => $member);
+		$this->houseUserMapper->method('update')->willReturnCallback(static fn ($u) => $u);
 
 		$this->service = new HouseService(
 			$this->houseMapper,
@@ -83,6 +91,7 @@ class HouseServiceTest extends TestCase {
 			$this->completedTaskMapper,
 			$this->houseUserMapper,
 			$this->taskAssigneeMapper,
+			$walletService,
 			$this->rewardConfigService,
 			$this->config,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
@@ -182,6 +191,7 @@ class HouseServiceTest extends TestCase {
 			$this->completedTaskMapper,
 			$this->houseUserMapper,
 			$this->taskAssigneeMapper,
+			$this->createMock(\OCA\ChoreStrike\Service\WalletService::class),
 			$this->rewardConfigService,
 			$this->config,
 			new \OCA\ChoreStrike\Db\TransactionExecutor($this->db),
@@ -283,11 +293,13 @@ class HouseServiceTest extends TestCase {
 		$house->setTimezone('UTC');
 		$this->defaultHouse = $house;
 
+		// CS-PLAN-071 (D7): an actual timezone change bumps timezone_version.
 		$this->houseMapper
 			->expects($this->once())
 			->method('update')
 			->with($this->callback(function ($h) {
-				return $h->getTimezone() === 'Pacific/Auckland';
+				return $h->getTimezone() === 'Pacific/Auckland'
+					&& $h->getTimezoneVersion() === 1;
 			}))
 			->willReturn($house);
 
@@ -774,7 +786,9 @@ class HouseServiceTest extends TestCase {
 	}
 
 	/**
-	 * Build a HouseUser for the role-guard tests (BUG-SEC-002).
+	 * Build a HouseUser for the role-guard tests (BUG-SEC-002). Also stubs
+	 * the under-lock re-read (CS-PLAN-071: updateUserRole re-resolves the
+	 * membership via findForUpdate inside the house-first transaction).
 	 */
 	private function houseUserForRoleGuard(int $id, string $ncUserId, string $role): HouseUser {
 		$houseUser = new HouseUser();
@@ -782,6 +796,7 @@ class HouseServiceTest extends TestCase {
 		$houseUser->setHouseId(3);
 		$houseUser->setNextcloudUserId($ncUserId);
 		$houseUser->setRole($role);
+		$this->houseUserMapper->method('findForUpdate')->willReturn($houseUser);
 		return $houseUser;
 	}
 

@@ -32,27 +32,29 @@ use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
  *   the batched assignee fetch it performs. CONSTANT in the row count —
  *   Q(100) = Q(10) within one chunk (no N+1, D2).
  * - Empty set: exactly 1 query — the mapper fetch; NO enrichment query.
- * - updateDueDate: 8 observed statements — gate reads (room task,
- *   definition, assignees), BEGIN, FOR UPDATE, UPDATE, the locked fresh
- *   read that becomes the response, COMMIT. The former after-commit
- *   re-fetch is GONE (§3.3) — proven statement-order-wise: nothing runs
- *   after COMMIT.
- * - complete(): ≤ 27 observed statements for the whole aggregate —
- *   occurrence gates, the three locked entity reads (room_task → room →
- *   house_user, ADR-011) plus the reward phase findForUpdate, the
- *   checklist reads, the reward window fetch, transaction control, and
- *   the single ledger INSERT, plus the guarded post-commit weekly-goal
- *   cluster. Per-class rule: at most two enrichment reads, exactly one
- *   ledger insert with a complete effect record (D1).
- * - undo(): ≤ 32 observed statements — same gate/lock structure plus the
- *   effect-record restore (ledger read, checklist rewrite), transaction
- *   control and the post-commit weekly-goal read.
+ * - updateDueDate: 11 observed statements — gate reads (room task,
+ *   definition, assignees) plus the owning-house resolution for the
+ *   house-first lock (room → floor → house, CS-PLAN-071), BEGIN, the house
+ *   FOR UPDATE, the room-task FOR UPDATE, UPDATE, the locked fresh read
+ *   that becomes the response, COMMIT. The former after-commit re-fetch is
+ *   GONE (§3.3) — proven statement-order-wise: nothing runs after COMMIT.
+ * - complete(): ≤ 28 observed statements for the whole aggregate —
+ *   occurrence gates, the house-first locked entity reads (house →
+ *   room_task → room → house_user, CS-PLAN-071 — supersedes the ADR-011
+ *   entry order) plus the reward phase findForUpdate, the checklist reads,
+ *   the reward window fetch, transaction control, and the single ledger
+ *   INSERT, plus the guarded post-commit weekly-goal cluster. Per-class
+ *   rule: at most two enrichment reads, exactly one ledger insert with a
+ *   complete effect record (D1).
+ * - undo(): ≤ 33 observed statements — same house-first gate/lock structure
+ *   plus the effect-record restore (ledger read, checklist rewrite),
+ *   transaction control and the post-commit weekly-goal read.
  */
 class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	private const HOUSE_READ_BUDGET = 3;
-	private const UPDATE_DUE_DATE_BUDGET = 8;
-	private const COMPLETE_BUDGET = 27;
-	private const UNDO_BUDGET = 32;
+	private const UPDATE_DUE_DATE_BUDGET = 11;
+	private const COMPLETE_BUDGET = 28;
+	private const UNDO_BUDGET = 33;
 
 	/**
 	 * HouseWideRead_ConstantQueryCount_10vs100Rows
@@ -180,8 +182,10 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		);
 
 		// The frozen budget: gate reads (room task, definition, assignees) +
-		// BEGIN + FOR UPDATE + UPDATE + locked fresh read + COMMIT. The
-		// counter observes transaction-control statements too, hence 8.
+		// the owning-house resolution (room → floor → house, CS-PLAN-071) +
+		// BEGIN + house FOR UPDATE + room-task FOR UPDATE + UPDATE + locked
+		// fresh read + COMMIT. The counter observes transaction-control
+		// statements too, hence 11.
 		self::assertLessThanOrEqual(self::UPDATE_DUE_DATE_BUDGET, $count, implode("\n", $counter->sqlStatements()));
 
 		// The after-commit re-fetch is GONE: the transaction ends with the
@@ -201,7 +205,8 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 			'the transaction ends lock → update → fresh read; the response entity is read under the lock'
 		);
 		self::assertCount($commitIndex + 1, $statements, 'no query runs after commit — the former re-fetch is removed');
-		self::assertSame(1, $lockSelects, 'exactly one FOR UPDATE lock select');
+		// CS-PLAN-071: house lock first, then the room-task lock.
+		self::assertSame(2, $lockSelects, 'exactly two FOR UPDATE lock selects (house → room task)');
 	}
 
 	/**
@@ -250,9 +255,11 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		self::assertNotSame('{}', (string)$ledgerRows[0]['before_state'], 'before_state is a real snapshot');
 		self::assertArrayHasKey('coinsAwarded', json_decode((string)$ledgerRows[0]['deltas'], true));
 
-		// Four locked reads: room_task → room → house_user (ADR-011) plus
-		// the reward phase's findForUpdate inside the same locked section.
-		self::assertSame(4, $lockSelects);
+		// Five locked reads: house → room_task → room → house_user (the
+		// single house-first order, CS-PLAN-071 — supersedes the ADR-011
+		// entry order) plus the reward phase's findForUpdate inside the same
+		// locked section.
+		self::assertSame(5, $lockSelects);
 
 		self::assertLessThanOrEqual(self::COMPLETE_BUDGET, $count, implode("\n", $counter->sqlStatements()));
 	}
@@ -302,10 +309,11 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		self::assertCount(1, $ledgerRows);
 		self::assertNotNull($ledgerRows[0]['undone_at'], 'undo marks the row undone');
 
-		// Three locked reads: room_task → room → house_user (ADR-011); the
-		// undo path rebuilds rewards from the effect record instead of the
-		// reward phase, so no fourth lock occurs.
-		self::assertSame(3, $lockSelects);
+		// Four locked reads: house → room_task → room → house_user (the
+		// single house-first order, CS-PLAN-071); the undo path rebuilds
+		// rewards from the effect record instead of the reward phase, so no
+		// fifth lock occurs.
+		self::assertSame(4, $lockSelects);
 		self::assertLessThanOrEqual(self::UNDO_BUDGET, $count, implode("\n", $counter->sqlStatements()));
 	}
 

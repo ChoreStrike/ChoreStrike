@@ -38,6 +38,10 @@ use OCP\AppFramework\Db\Entity;
  * @method void setClaimedAt(?\DateTime $claimedAt)
  * @method \DateTime|null getIdealDueDate()
  * @method void setIdealDueDate(?\DateTime $idealDueDate)
+ * @method \DateTime|null getDeletedAt()
+ * @method void setDeletedAt(?\DateTime $deletedAt)
+ * @method int getDeletedToken()
+ * @method void setDeletedToken(int $deletedToken)
  */
 class RoomTask extends Entity implements JsonSerializable {
 	private const WEEKDAY_MAP = [
@@ -83,6 +87,12 @@ class RoomTask extends Entity implements JsonSerializable {
 	/** @var \DateTime|null */
 	protected $idealDueDate;
 
+	/** @var \DateTime|null Tombstone (Q-070-01): NULL = live row. */
+	protected $deletedAt;
+
+	/** @var int Tombstone token: 0 = live, = own id once tombstoned (D4). */
+	protected $deletedToken = 0;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomId', 'integer');
@@ -97,6 +107,21 @@ class RoomTask extends Entity implements JsonSerializable {
 		$this->addType('originalAssignee', 'string');
 		$this->addType('claimedAt', 'datetime');
 		$this->addType('idealDueDate', 'datetime');
+		$this->addType('deletedAt', 'datetime');
+		$this->addType('deletedToken', 'integer');
+	}
+
+	/**
+	 * Tombstone this room task in place (CS-PLAN-071 Q-070-01, decision
+	 * D4): sets the deleted timestamp, folds the row's own id into
+	 * `deleted_token` (keeps `uniq_rt (room_id, task_id, deleted_token)`
+	 * satisfiable for a future re-created link) and deactivates the row so
+	 * every existing active-read filter excludes it.
+	 */
+	public function tombstone(\DateTime $deletedAt): void {
+		$this->setDeletedAt($deletedAt);
+		$this->setDeletedToken($this->getId());
+		$this->setIsActive(false);
 	}
 
 	/**

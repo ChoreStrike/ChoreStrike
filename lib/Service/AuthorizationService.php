@@ -32,6 +32,7 @@ use OCP\IUserSession;
 class AuthorizationService {
 	private HouseUserMapper $houseUserMapper;
 	private HouseMapper $houseMapper;
+	private WalletService $walletService;
 	private TransactionExecutor $transactions;
 	private IUserSession $userSession;
 	private IL10N $l10n;
@@ -40,6 +41,7 @@ class AuthorizationService {
 	public function __construct(
 		HouseUserMapper $houseUserMapper,
 		HouseMapper $houseMapper,
+		WalletService $walletService,
 		TransactionExecutor $transactions,
 		IUserSession $userSession,
 		IL10N $l10n,
@@ -47,6 +49,7 @@ class AuthorizationService {
 	) {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->houseMapper = $houseMapper;
+		$this->walletService = $walletService;
 		$this->transactions = $transactions;
 		$this->userSession = $userSession;
 		$this->l10n = $l10n;
@@ -143,7 +146,12 @@ class AuthorizationService {
 			]);
 
 			$displayName = $this->userSession->getUser()?->getDisplayName() ?: $userId;
-			return $this->houseUserMapper->createOrGet($houseId, $userId, $displayName, 'owner');
+			$houseUser = $this->houseUserMapper->createOrGet($houseId, $userId, $displayName, 'owner');
+
+			// CS-PLAN-071 WP0: the first owner gets their persistent wallet
+			// inside the same house-first transaction — the financial
+			// identity exists from the first membership write.
+			return $this->walletService->ensureBinding($houseId, $houseUser);
 		});
 
 		return $houseUser;

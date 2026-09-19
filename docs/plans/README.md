@@ -14,20 +14,23 @@ docs/plans/
 
 ## Lifecycle
 
-Current active plans: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md) and its WP0 child [CS-PLAN-071: Write/Identity Foundation](active/cs-plan-071-wp0-write-identity-foundation.md).
+Current active plan: [CS-PLAN-070: Family Rhythm and Reward Clarification](active/cs-plan-070-family-rhythm-and-reward-clarification.md).
 Core product direction was approved through 24 explicit answers on 2026-09-17.
 The same day, 47 additional C1-C5 answers (6/11/9/8/13) resolved the presented
 product questions. The technical draft added on 2026-09-18 specifies persistence,
 APIs, transactions/races, exact files/tests and ten work packages (48-76 engineering
 days before contingency, plus a two-week family observation gate). Q-070-01/02 were
 resolved (tombstoned minimum-history deletion retention; account erasure) and
-Standard A passed with `PASS-WITH-FIXES` on 2026-09-18; no runtime behavior is
-implemented yet. CS-PLAN-071 executes work package WP0 (shared schema/lock/
-identity/receipt foundation, Q-070-01 tombstone deletion, Q-070-02 account-erasure
-plumbing) and passed its own Standard A with `PASS-WITH-FIXES` on 2026-09-18;
-implementation has not started.
+Standard A passed with `PASS-WITH-FIXES` on 2026-09-18. Its WP0 child
+[CS-PLAN-071: Write/Identity Foundation](done/cs-plan-071-wp0-write-identity-foundation.md)
+(shared schema/lock/identity/receipt foundation, Q-070-01 tombstone deletion,
+Q-070-02 account-erasure plumbing) is **delivered** — final Standard B
+`PASS-WITH-FIXES` 2026-09-19, plan in `done/`; WP1 (occurrence timeline) is the
+next package in the parent.
 
-Latest completed: [CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](done/cs-plan-058-core-workflow-bottom-up-masterplan.md)
+Latest completed: [CS-PLAN-071 — WP0: Write/Identity Foundation](done/cs-plan-071-wp0-write-identity-foundation.md)
+(final Standard B `PASS-WITH-FIXES` 2026-09-19), preceded by
+[CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](done/cs-plan-058-core-workflow-bottom-up-masterplan.md)
 (WP0–WP9 delivered; program final Full review `PASS-WITH-FIXES` 2026-09-14
 with the D-FR-04 delegated browser-gate pair completed the same night — two
 consecutive retry-free passes; the plan moved to `done/` 2026-09-16)

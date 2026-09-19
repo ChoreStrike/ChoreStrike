@@ -355,22 +355,20 @@ class CompletedTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Delete all completions of the given room tasks in one statement
-	 * (CS-PLAN-037 cascade, decision D2: deletions of a room task take
-	 * their completion history with it — medals/streaks/coins are
-	 * denormalized snapshots and stay valid).
+	 * Anonymize the actor reference of the completions recorded by the
+	 * given house membership (CS-PLAN-071 account erasure, decision D3):
+	 * `user_id` is nulled; the anonymous shared work facts (time, energy,
+	 * coins-earned totals, room effects — combo partner facts since the
+	 * CS-PLAN-064 reshape live in the deltas JSON) are retained. No-op for
+	 * rows already anonymous.
 	 *
-	 * @param int[] $roomTaskIds The room task IDs
+	 * @param int $houseUserId The erased membership's house-user ID
 	 */
-	public function deleteByRoomTaskIds(array $roomTaskIds): void {
-		$roomTaskIds = array_values(array_map('intval', $roomTaskIds));
-		if ($roomTaskIds === []) {
-			return;
-		}
-
+	public function anonymizeActor(int $houseUserId): void {
 		$qb = $this->db->getQueryBuilder();
-		$qb->delete($this->getTableName())
-			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($roomTaskIds, IQueryBuilder::PARAM_INT_ARRAY)))
+		$qb->update($this->getTableName())
+			->set('user_id', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($houseUserId, IQueryBuilder::PARAM_INT)))
 			->executeStatement();
 	}
 
@@ -553,6 +551,14 @@ class CompletedTaskMapper extends QBMapper {
 	/**
 	 * Shared FROM/WHERE of the two activity queries (list + count).
 	 * Half-open window [start, end) (CS-PLAN-060 §3.6).
+	 *
+	 * CS-PLAN-071 (Q-070-02, decision D3): the house scope resolves through
+	 * the room-task chain (room_task → room → floor), NOT through the
+	 * actor's membership — erased completions (user_id NULL) and
+	 * departed-member completions stay visible as anonymous shared facts;
+	 * ActivityService renders their actors via the localized placeholder.
+	 * Plain JOINs without active filters: names still resolve through
+	 * tombstoned rows (Q-70-01).
 	 */
 	private function buildActivityQuery(
 		int $houseId,
@@ -563,8 +569,10 @@ class CompletedTaskMapper extends QBMapper {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('ct.*')
 			->from($this->getTableName(), 'ct')
-			->innerJoin('ct', 'chorestrike_house_users', 'hu', $qb->expr()->eq('ct.user_id', 'hu.id'))
-			->where($qb->expr()->eq('hu.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
+			->innerJoin('ct', 'chorestrike_room_tasks', 'rt', $qb->expr()->eq('ct.room_task_id', 'rt.id'))
+			->innerJoin('rt', 'chorestrike_rooms', 'r', $qb->expr()->eq('rt.room_id', 'r.id'))
+			->innerJoin('r', 'chorestrike_floors', 'f', $qb->expr()->eq('r.floor_id', 'f.id'))
+			->where($qb->expr()->eq('f.house_id', $qb->createNamedParameter($houseId, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('ct.completed_at', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
 			->andWhere($qb->expr()->lt('ct.completed_at', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
 			->orderBy('ct.completed_at', 'DESC');

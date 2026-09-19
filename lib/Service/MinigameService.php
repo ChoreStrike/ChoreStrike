@@ -135,14 +135,6 @@ class MinigameService {
 			);
 		}
 
-		$scoreEntity = new MinigameScore();
-		$scoreEntity->setHouseId($houseId);
-		$scoreEntity->setUserId($userId);
-		$scoreEntity->setGameId($gameId);
-		$scoreEntity->setScore($score);
-		$scoreEntity->setBoostsUsed(!empty($boostsUsed) ? $boostsUsed : null);
-		$scoreEntity->setCreatedAt(new \DateTime());
-
 		// Award Coins for playing (1 Coin per 10 points). Resolving the
 		// house_user id before the transaction is fine — the row is then
 		// locked by primary key inside it.
@@ -150,23 +142,36 @@ class MinigameService {
 		$user = $coinsEarned > 0
 			? $this->houseUserMapper->findByHouseIdAndNextcloudUserId($houseId, $userId)
 			: null;
-		$awardedCoins = 0;
 
-		$this->transactions->begin();
 		try {
-			$savedScore = $this->scoreMapper->insert($scoreEntity);
+			$outcome = $this->transactions->run(function () use ($houseId, $userId, $gameId, $score, $boostsUsed, $coinsEarned, $user): array {
+				// FIRST lock of the documented order (CS-PLAN-071 WP0): the
+				// house row — the score/coin writes serialize with all other
+				// house mutations. The score entity is created per attempt
+				// so a transient-lock retry inserts a clean row.
+				$this->houseMapper->findForUpdate($houseId);
 
-			if ($user !== null) {
-				$lockedUser = $this->houseUserMapper->findForUpdate($user->getId());
-				$lockedUser->addCoins($coinsEarned);
-				$lockedUser->touch();
-				$this->houseUserMapper->update($lockedUser);
-				$awardedCoins = $coinsEarned;
-			}
+				$scoreEntity = new MinigameScore();
+				$scoreEntity->setHouseId($houseId);
+				$scoreEntity->setUserId($userId);
+				$scoreEntity->setGameId($gameId);
+				$scoreEntity->setScore($score);
+				$scoreEntity->setBoostsUsed(!empty($boostsUsed) ? $boostsUsed : null);
+				$scoreEntity->setCreatedAt(new \DateTime());
+				$savedScore = $this->scoreMapper->insert($scoreEntity);
 
-			$this->transactions->commit();
+				$awardedCoins = 0;
+				if ($user !== null) {
+					$lockedUser = $this->houseUserMapper->findForUpdate($user->getId());
+					$lockedUser->addCoins($coinsEarned);
+					$lockedUser->touch();
+					$this->houseUserMapper->update($lockedUser);
+					$awardedCoins = $coinsEarned;
+				}
+
+				return ['score' => $savedScore, 'coinsEarned' => $awardedCoins];
+			});
 		} catch (\Throwable $e) {
-			$this->transactions->rollBack();
 			$this->appLogger->logException('MinigameService: score save rolled back', $e, [
 				'event' => 'minigame_score_rollback',
 				'service' => 'MinigameService',
@@ -178,8 +183,8 @@ class MinigameService {
 		}
 
 		return [
-			'score' => $savedScore,
-			'coinsEarned' => $awardedCoins,
+			'score' => $outcome['score'],
+			'coinsEarned' => $outcome['coinsEarned'],
 		];
 	}
 
@@ -317,25 +322,28 @@ class MinigameService {
 			throw new \InvalidArgumentException($this->l10n->t('User not found in house'));
 		}
 
-		$this->transactions->begin();
 		try {
-			// Check sufficiency on the LOCKED row — the authoritative
-			// balance. No max(0, …) mask on the deduction: the locked check
-			// guarantees sufficiency and the mask would only hide bugs.
-			$lockedUser = $this->houseUserMapper->findForUpdate($user->getId());
-			if ($lockedUser->getCoins() < $cost) {
-				throw new \InvalidArgumentException(
-					$this->l10n->t('Insufficient coins. Need %1$d, have %2$d', [$cost, $lockedUser->getCoins()])
-				);
-			}
+			$lockedUser = $this->transactions->run(function () use ($houseId, $user, $cost): \OCA\ChoreStrike\Db\HouseUser {
+				// FIRST lock of the documented order (CS-PLAN-071 WP0): the
+				// house row. Then check sufficiency on the LOCKED row — the
+				// authoritative balance. No max(0, …) mask on the deduction:
+				// the locked check guarantees sufficiency and the mask would
+				// only hide bugs.
+				$this->houseMapper->findForUpdate($houseId);
+				$locked = $this->houseUserMapper->findForUpdate($user->getId());
+				if ($locked->getCoins() < $cost) {
+					throw new \InvalidArgumentException(
+						$this->l10n->t('Insufficient coins. Need %1$d, have %2$d', [$cost, $locked->getCoins()])
+					);
+				}
 
-			$lockedUser->setCoins($lockedUser->getCoins() - $cost);
-			$lockedUser->touch();
-			$this->houseUserMapper->update($lockedUser);
+				$locked->setCoins($locked->getCoins() - $cost);
+				$locked->touch();
+				$this->houseUserMapper->update($locked);
 
-			$this->transactions->commit();
+				return $locked;
+			});
 		} catch (\Throwable $e) {
-			$this->transactions->rollBack();
 			$this->appLogger->logException('MinigameService: boost purchase rolled back', $e, [
 				'event' => 'minigame_boost_purchase_rollback',
 				'service' => 'MinigameService',

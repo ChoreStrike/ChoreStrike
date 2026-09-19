@@ -1,9 +1,9 @@
 # CS-PLAN-071: WP0 — Write/Identity Foundation
 
-> **Status:** Active (implementation not started) — child of CS-PLAN-070, executes its work package WP0; Standard A `PASS-WITH-FIXES` (2026-09-18)
+> **Status:** Done — child of CS-PLAN-070, delivered its work package WP0; Standard A `PASS-WITH-FIXES` (2026-09-18); final Standard B `PASS-WITH-FIXES` (2026-09-19)
 > **Effort:** M (3-5 engineering days, bounded by CS-PLAN-070 §6 WP0)
 > **Priority:** P1
-> **Depends on:** [CS-PLAN-070](cs-plan-070-family-rhythm-and-reward-clarification.md) (active; G0 satisfied 2026-09-18 — Q-070-01/02 resolved, Standard A `PASS-WITH-FIXES`)
+> **Depends on:** [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md) (active; G0 satisfied 2026-09-18 — Q-070-01/02 resolved, Standard A `PASS-WITH-FIXES`)
 > **Related backlog items:** CONCEPT-001 (owning item via CS-PLAN-070 WP0); contributes to CS-PLAN-070 plan-owned findings RF-070-16/RF-070-17 (they stay open in the parent §9 until the WP3/WP7 portions land); CR-SVC-63 stays open (this plan adds lock-order compliance only, not replay history)
 
 ## 1. Problem Summary
@@ -441,50 +441,188 @@ WP4/WP6). `appinfo/routes.php`, `docs/api/README.md` and
 
 ## 8. Acceptance Criteria
 
-- [ ] Fresh install through the modified chain produces the frozen schema:
+- [x] Fresh install through the modified chain produces the frozen schema:
       house versions/flags, tombstone columns, `commands`/`wallets`/
       `wallet_entries` with the parent §3.2 unique constraints.
-- [ ] Every audited writer/job/reset path enters transactions in the
+      *(Version1000/1004 in-chain edits + Version1030; pinned by
+      `FreshInstallMigrationSmokeTest` (unit, recording schema) and
+      `FamilyRhythmSchemaTest` (real MariaDB incl. constraints/defaults); the
+      full `down -v` + rebuild of the Docker environment re-ran the complete
+      chain end-to-end.)*
+- [x] Every audited writer/job/reset path enters transactions in the
       house-first order (or a documented subsequence); the
       `TransactionExecutor` contract doc and `docs/engineering/development.md`
       record the single order; ADR-011/012 carry supersession notes with
       preserved historical context.
-- [ ] Command receipts: duplicate key + identical payload replays with the
+      *(Inventory table in development.md; query-budget pins
+      (`WorkflowQueryBudgetTest`) assert the house lock on completion/undo/
+      due-date; call-order pins in `CompletionServiceTest`.)*
+- [x] Command receipts: duplicate key + identical payload replays with the
       original result identity and a replay marker; duplicate key + changed
       payload is a 409; receipts commit atomically with domain facts; no
-      tokens/raw bodies stored.
-- [ ] Wallets exist per house/account, survive ordinary departure, reattach on
+      tokens/raw bodies stored. *(CommandServiceTest — replay does not
+      re-execute the aggregate, conflict 409, rollback leaves no receipt,
+      replay returns the ORIGINAL identity while current state drifts.)*
+- [x] Wallets exist per house/account, survive ordinary departure, reattach on
       re-invitation, grant no access, and are not exposed through any API;
       legacy coin behavior is provably unchanged (D1/D2).
-- [ ] Structural deletion tombstones floors/rooms/room tasks, retains
+      *(AccountErasureTest departure/reattachment pin; no wallet fields in any
+      jsonSerialize; RoleGuardApiTest/InviteOnlyMembershipTest wallet pins;
+      the full Jest+PHPUnit suites stayed green — legacy coin writers
+      untouched.)*
+- [x] Structural deletion tombstones floors/rooms/room tasks, retains
       `completed_tasks`, removes objects from all active-planning reads, keeps
       undo authorized, and no production path hard-deletes structural rows
-      outside the test-mode reset.
-- [ ] Account erasure purges every WP0-stage personal reference, retains
+      outside the test-mode reset. *(WriteBatchRegressionTest rewritten to the
+      Q-70-01 contract; FamilyRhythmSchemaTest tombstone/uniqueness pins;
+      `RoomTaskMapper::exists` ignores tombstones; CompletionService undo
+      loads through `findByIdsScopedToHouse` (unfiltered) — behavior pinned.)*
+- [x] Account erasure purges every WP0-stage personal reference, retains
       anonymous shared work facts, prevents same-UID rebinding and personal
       read leakage, and fires from the registered Nextcloud deletion event.
-- [ ] T0 (schema, concurrency incl. the isolated SQLite acquisition proof,
+      *(AccountErasureTest full matrix; `UserDeletedListener` registered in
+      `Application::register`; activity query re-scoped through the
+      room-task chain so anonymized rows stay visible — realized during
+      implementation, see implementation notes.)*
+- [x] T0 (schema, concurrency incl. the isolated SQLite acquisition proof,
       erasure, role guard, membership) passes; existing unit/integration/
       Jest/E2E suites pass with no new or unapproved skips.
-- [ ] Seed/reset inventory covers the new tables in dependency order;
-      `POST /house/reset` contract preserved.
-- [ ] Full gate green: `npm test -- --runInBand`, `npm run lint`,
+      *(unit 939 / integration 383 / Jest 1056 / E2E three pools — all green;
+      no new skips.)*
+- [x] Seed/reset inventory covers the new tables in dependency order;
+      `POST /house/reset` contract preserved. *(RESET_TABLES gained
+      `wallet_entries → wallets → commands`; TestDataServiceTest pins the
+      order; resetHouse runs house-first with its contract unchanged.)*
+- [x] Full gate green: `npm test -- --runInBand`, `npm run lint`,
       `npm run build`, `npm run l10n:check-keys`, `npm run backlog:check`,
       `npm run docs:encoding`, `git diff --check`, `composer cs:check`, Docker
       PHPUnit unit + integration `--fail-on-skipped`,
       `npm run test:e2e:gate`.
-- [ ] Durable outcomes integrated (engineering docs, ADR notes, concept docs,
+      *(All green 2026-09-18, including `stylelint` and `test:noise`; the E2E
+      gate passed all three pools on a clean `TEST_DB_PROFILE=family`
+      environment.)*
+- [x] Durable outcomes integrated (engineering docs, ADR notes, concept docs,
       l10n artifacts) — the plan is not the only lasting description.
-- [ ] Parent plan updated: WP0 marked delivered pending review; RF-070-16/17
+      *(development.md audit + single order + Version1030; architecture.md
+      WP0 foundation section; ADR-011/012 supersession notes;
+      concepts/task-model-and-sync.md tombstone/erasure section;
+      l10n en/de/pot for "Former member".)*
+- [x] Parent plan updated: WP0 marked delivered pending review; RF-070-16/17
       annotated with their WP0 portions (they close only with WP3/WP7);
       CR-SVC-63 and CONCEPT-001 reflect real state; `ACTIVE_TASKS.md` updated.
-- [ ] All implementation decisions and review questions resolved and recorded.
-- [ ] All plan-owned review findings (§9) resolved or user-rescoped.
-- [ ] Final Standard B review is `PASS` or `PASS-WITH-FIXES`.
+- [x] All implementation decisions and review questions resolved and recorded
+      *(§10 D1-D11 ratified by the Standard A review; implementation-time
+      notes below — none re-open a ratified decision).*
+- [x] All plan-owned review findings (§9) resolved or user-rescoped.
+      *(the final Standard B review recorded RF-071-01..03; all three were
+      resolved in the review round — none rescoped, none deferred.)*
+- [x] Final Standard B review is `PASS` or `PASS-WITH-FIXES`.
+      *(`PASS-WITH-FIXES`, 2026-09-19 — see the Standard B Review Outcome
+      below and
+      [CODE_REVIEW_2026-09-19.md](../../backlog/archive/CODE_REVIEW_2026-09-19.md).)*
+
+### Implementation Status (2026-09-18)
+
+Implemented on top of the Standard A baseline; all gates green (see the
+checklist above). Implementation-time notes, none re-opening a ratified
+decision:
+
+1. **D5 mechanism note:** Doctrine/`IDBConnection` cannot express
+   `BEGIN IMMEDIATE`. `TransactionExecutor` applies a bounded
+   `busy_timeout` PRAGMA on SQLite, and the contractually FIRST statement of
+   every writer — the house-lock primitive (no-op self-assignment UPDATE on
+   SQLite) — acquires the database-wide write lock at transaction start
+   (deferred BEGIN takes no lock and no read precedes the write). This is
+   BEGIN-IMMEDIATE-equivalent at the application level; the disposable-
+   SQLite proof (`HouseMutationConcurrencyTest`) pins wait-not-fail under a
+   held write lock. D5's guarantee (bounded, serialized SQLite writes) is
+   delivered; the mechanism is the platform-expressible equivalent.
+2. **`combo_with_user_id` is already gone from the live schema:** the
+   CS-PLAN-064 WP5 reshape (Version1029) moved combo facts into the `deltas`
+   JSON, so D3's "null `combo_with_user_id` where present" resolves to
+   nulling `user_id` only (`CompletedTaskMapper::anonymizeActor`); the
+   Version1004 in-chain edit keeps the column nullable for the stretch of
+   chain where it exists.
+3. **Erasure sweep shape:** `AccountErasureService` resolves memberships via
+   the jobs query (all houses) filtered by UID; the final sweep deletes any
+   wallet still bound to the UID, covering already-departed accounts (D3).
+4. **Activity reads re-scoped:** the activity list/count query now scopes the
+   house through the room-task chain instead of an INNER JOIN on the actor's
+   membership — erased (NULL actor) and departed-member completions stay
+   visible as anonymous facts and render via the "Former member" placeholder
+   (required by Q-070-02; caught by the T0 placeholder pin).
+5. **Checklist toggle transaction moved:** the mapper-owned transaction in
+   `RoomTaskChecklistProgressMapper::toggle` became `toggleLocked`
+   (participates in the caller's transaction); `ChecklistService::toggleItem`
+   scopes it house → room_task → progress row. The checklist definition
+   mutations run house-first too.
+6. **Cascade helper renamed:** `RoomService::deleteRoomTaskDependents` →
+   `deleteRoomTaskPlanningState` (it no longer touches `completed_tasks`).
+   The dead `RoomMapper::updateCleanliness` absolute setter and the removed
+   mapper delete variants (`deleteByRoomIds`/`deleteByRoomId`/
+   `deleteByFloorId`/`CompletedTaskMapper::deleteByRoomTaskIds`) are gone
+   per the parent's "remove unused absolute setters" contract.
+7. **Query budgets:** the added house lock shifts the frozen budgets
+   (`WorkflowQueryBudgetTest`): due-date 8→11 (owning-house resolution + two
+   lock selects), complete 27→28 (5 lock selects), undo 32→33 (4 lock
+   selects); statement-order pins (nothing after COMMIT) unchanged.
+8. **Unit-test seam updates** follow the two allowed categories: lock-order/
+   mocker assertions re-pinned to the house-first entry (CompletionService
+   call-order, controller/budget assertions) and constructor additions for
+   the new collaborators (WalletMapper, HouseMapper). No behavior assertion
+   was weakened; tombstone tests assert the NEW Q-70-01 contract in place of
+   the superseded hard-delete one.
+9. **Pre-Standard-B review round (2026-09-19):** a six-track review of the
+   uncommitted WP0 package found 1 critical + 6 warnings + 10 suggestions;
+   all 17 were fixed in the same round (none deferred): the erasure final
+   sweep now also deletes UID-keyed `minigame_scores` (departed-only
+   accounts), erasure is log-and-continue per house/wallet with a summary
+   (single-shot `UserDeletedEvent`), `anonymizeActor` is house-scoped and
+   membership resolution uses the new indexed
+   `HouseUserMapper::findAllByNextcloudUserId`; room-task mutation surfaces
+   (checklist toggle, assignees, due date) reject tombstoned rows at the
+   validation helpers and authoritatively under the locks, `createRoom`
+   rejects tombstoned floors, and room/floor renames reject tombstoned
+   rows; undo answers a clean 403 for an erased (NULL-actor) completer
+   instead of a TypeError 500; `CommandService` maps only unique-constraint
+   violations to 409 (transient DB failures stay retryable), validates
+   UUID/action lengths, rejects unencodable payloads (no sha256('')
+   collisions) and requires a live actor (null-actor system commands need a
+   discriminator first); the wallet create/reattach-and-bind block is
+   deduplicated into `WalletService::ensureBinding`; the last manual
+   `begin()/commit()` aggregates (complete/undo, minigame score/boost,
+   applySetup) run through `TransactionExecutor::run()` and its bounded
+   retry; `tombstoneByRoomIds` guards live rows only (no evidence
+   re-stamping) and the dead `tombstoneByIds` is gone; architecture.md
+   idiom 5 documents the surviving cascade patterns. Gates re-run green:
+   unit 951 / integration 388 (`--fail-on-skipped`) / Jest 1056 / lint /
+   build / cs:check / l10n / backlog / encoding / E2E gate.
 
 ## 9. Review Findings (plan-owned)
 
-- [ ] (none yet)
+- [x] **RF-071-01 nit** · `lib/Service/CommandService.php:84` · two `@param`
+      tags merged onto one docblock line — resolved: fixed in the final
+      Standard B review round (docblock split; `composer cs:check` green).
+- [x] **RF-071-02 nit** · `docs/concepts/task-model-and-sync.md:329` ·
+      accidental one-space list-indent drift re-nested an unchanged bullet —
+      resolved: fixed in the final Standard B review round (indent restored).
+- [x] **RF-071-03 minor** · structural rename/delete writers +
+      `SchedulingService::updateMemberAvailabilityByNextcloudUserId`
+      (TOCTOU) · tombstone/state checks ran only BEFORE the house lock; a
+      race could re-stamp a tombstoned row's original `deleted_at` (double
+      delete), rename tombstoned evidence, create a room under a
+      just-tombstoned floor, or merge member preferences from a stale
+      pre-read. Not auth-relevant (owner gates intact). User decision
+      (batched review question, 2026-09-19): fix now + unit pins, re-run the
+      E2E gate after the fix. Resolved: authoritative under-lock re-checks
+      added in `RoomService::{createRoom,updateRoomName,deleteRoom}`,
+      `FloorService::{updateFloorName,deleteFloor}` (deleteFloor also moved
+      its room-id collection under the lock), `RoomTaskService::deleteRoomTask`
+      (locked-row tombstone gate), and the member-preference merge now
+      validates/applies on the FRESH locked entity; 9 deterministic unit
+      pins added (unit suite 951 → 960), integration 388 green,
+      `cs:check` green, post-fix E2E gate re-run recorded in the Review
+      Outcome.
 
 ## 10. Plan Review Decision Register
 
@@ -551,3 +689,63 @@ for product behavior.
   [CODE_REVIEW_2026-09-18.md](../../backlog/archive/CODE_REVIEW_2026-09-18.md#cs-plan-071-standard-a-plan-activation).
 - **Transition:** `new/ → active/` with this review's scoped commit;
   CONCEPT-001 stays `In Progress` (WP0 sub-plan annotation added).
+
+### Final Standard B Review Outcome (2026-09-19)
+
+**Tier/Outcome: Standard B (code, final) — `PASS-WITH-FIXES`.**
+
+- **Scope:** the complete uncommitted WP0 package — 81 modified tracked files
+  (+2598/−876 pre-fix) plus 17 untracked files (11 `lib/`, 6 `tests/`),
+  verified against the §5 manifest (every manifest file present; the five
+  manifest `M` services that show no diff — `SchedulePlanService`,
+  `TaskCreationService`, `GameLogicService`, `MedalService`, `TitleService` —
+  are audit-confirmed already house-first/subsequence or caller-inherited,
+  recorded in the development.md writer/lock audit table). Base `master` @
+  `b6ec6b68e6e6cd58c718aa05f588abe1d18ae18b`, empty index; pre-review
+  unstaged-diff fingerprint (SHA256 of `git diff`)
+  `2fa60541027d422869891a0eac84e774bb11f102`; per-file SHA256 of all 17
+  untracked paths recorded in
+  [CODE_REVIEW_2026-09-19.md](../../backlog/archive/CODE_REVIEW_2026-09-19.md).
+  The three unrelated pre-existing `docs/plans/{new,active,onhold}/.gitkeep`
+  deletions were preserved unstaged and excluded, as in both prior reviews.
+- **Verified:** full §8 acceptance-criteria evidence chain; house-first lock
+  order and subsequence compliance across the audit table; receipt
+  replay/conflict/rollback semantics (reason-scoped 409, canonical hashing,
+  bounded result refs, live-actor contract); erasure matrix (per-house
+  failure containment, departed-only sweep, no rebinding, "Former member"
+  placeholder, undo 403 for erased completers); D1/D2 dormant-wallet
+  boundary (no API exposure, no `wallet_entries` runtime writer, legacy coin
+  writers untouched); D4 tombstone mechanics (re-keyed `uniq_rt`,
+  live-row-only bulk tombstones, evidence retention, undo across
+  tombstones); D5 SQLite acquisition mechanism note; D7 `timezone_version`
+  wiring; seed/reset dependency order; activity-query re-scoping; l10n
+  artifacts; durable-doc integration (development.md audit + single order,
+  architecture.md foundation section, ADR-011/012 supersession notes with
+  preserved history, concept tombstone/erasure section); parent-plan and
+  backlog annotations; test contracts strengthened, not weakened
+  (`WriteBatchRegressionTest` rewritten to the Q-70-01 contract with
+  sibling-house pins); no new skips anywhere.
+- **Findings:** 3 (0 block / 0 major / 1 minor / 2 nit) — RF-071-01..03 in
+  §9, all resolved in this round (two auto-fixes; RF-071-03 fixed with user
+  authorization as a validation-logic change, with 9 new deterministic unit
+  pins).
+- **Decisions (batched question, 2026-09-19):** (1) RF-071-03 → "Fix now +
+  unit pins" (recommended option selected; alternatives: record unresolved
+  in §9 blocking `done/`, or rescope to backlog). (2) E2E evidence →
+  "Re-run E2E gate after fix" (recommended option selected; the pre-fix
+  3-pool gate run had already finished PASSED and is retained as
+  supplementary evidence, but the authoritative run is the post-fix one).
+- **Gates (all green):** `git diff --check`; `npm run backlog:check` (24
+  files); `npm run docs:encoding` (722 files); `npm run l10n:check-keys`
+  (942 keys); `npm run lint`; `npm run test:noise`; `npm test -- --runInBand`
+  (100 suites / 1056 tests); `npm run build`; `composer cs:check`
+  (0 of 312); Docker clean-volume (`down -v` + `up -d --build`,
+  `TEST_DB_PROFILE=family`) PHPUnit unit **951** then **960** post-fix and
+  integration **388** (twice, pre- and post-fix) with `--fail-on-skipped`,
+  zero skips; `npm run test:e2e:gate` — pre-fix run PASSED (46 required
+  specs, 3 pools, zero skipped/failed/flaky) and post-fix re-run PASSED
+  (run evidence under gitignored `build/e2e-gate/`).
+- **Transition:** `active/ → done/` with this review's scoped commit.
+  CONCEPT-001 stays `In Progress` (WP1+ open in the parent); CR-SVC-63 stays
+  open (journal/replay remainder is WP3); RF-070-16/17 keep their WP3/WP7
+  portions open in the parent §9 with their WP0 portions delivered.

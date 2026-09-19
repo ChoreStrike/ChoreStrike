@@ -8,9 +8,9 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
-use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\Floor;
 use OCA\ChoreStrike\Db\FloorMapper;
+use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
@@ -35,8 +35,8 @@ class RoomService {
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskMapper $taskMapper;
 	private FloorMapper $floorMapper;
+	private HouseMapper $houseMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
-	private CompletedTaskMapper $completedTaskMapper;
 	private RoomTaskChecklistProgressMapper $checklistProgressMapper;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
@@ -48,8 +48,8 @@ class RoomService {
 		RoomTaskMapper $roomTaskMapper,
 		TaskMapper $taskMapper,
 		FloorMapper $floorMapper,
+		HouseMapper $houseMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
-		CompletedTaskMapper $completedTaskMapper,
 		RoomTaskChecklistProgressMapper $checklistProgressMapper,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
@@ -60,8 +60,8 @@ class RoomService {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
 		$this->floorMapper = $floorMapper;
+		$this->houseMapper = $houseMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
-		$this->completedTaskMapper = $completedTaskMapper;
 		$this->checklistProgressMapper = $checklistProgressMapper;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
@@ -71,6 +71,9 @@ class RoomService {
 
 	/**
 	 * Validate that a room belongs to the specified house
+	 *
+	 * Tombstoned rooms are not found for planning purposes (CS-PLAN-071
+	 * Q-70-01); history reads resolve them through their own paths.
 	 *
 	 * @param int $roomId The room ID
 	 * @param int $houseId The house ID to validate against
@@ -84,7 +87,7 @@ class RoomService {
 			throw new NotFoundException($this->l10n->t('Room not found'));
 		}
 
-		if ($floor->getHouseId() !== $houseId) {
+		if ($floor->getHouseId() !== $houseId || $room->getDeletedAt() !== null) {
 			throw new NotFoundException($this->l10n->t('Room not found'));
 		}
 	}
@@ -121,11 +124,32 @@ class RoomService {
 		$floor = $this->getFloor($floorId);
 		$this->authorization->requireHouseOwner($floor->getHouseId());
 
-		return $this->roomMapper->create($floorId, $name, $icon, $roomType);
+		// Q-70-01 (CS-PLAN-071 WP0): no live planning state beneath
+		// tombstoned structure — a deleted floor cannot gain rooms.
+		if ($floor->getDeletedAt() !== null) {
+			throw new NotFoundException($this->l10n->t('Floor not found'));
+		}
+
+		// CS-PLAN-071 WP0: structure mutations enter through the house row
+		// lock (single house-first order).
+		return $this->transactions->run(function () use ($floor, $floorId, $name, $icon, $roomType): Room {
+			$this->houseMapper->findForUpdate($floor->getHouseId());
+
+			// Authoritative tombstone gate (Q-70-01): a floor deleted
+			// behind the pre-read still cannot gain rooms.
+			if ($this->floorMapper->find($floorId)->getDeletedAt() !== null) {
+				throw new NotFoundException($this->l10n->t('Floor not found'));
+			}
+
+			return $this->roomMapper->create($floorId, $name, $icon, $roomType);
+		});
 	}
 
 	/**
 	 * Update room name (owner-only, CS-PLAN-061 §3.4 / ADR-006).
+	 *
+	 * CS-PLAN-071 WP0: the write runs under the house row lock (single
+	 * house-first order).
 	 *
 	 * @param int $roomId The room ID
 	 * @param string $name The new name
@@ -137,19 +161,42 @@ class RoomService {
 		$floor = $this->floorMapper->find($room->getFloorId());
 		$this->authorization->requireHouseOwner($floor->getHouseId());
 
-		$room->setName($name);
-		return $this->roomMapper->update($room);
+		// Q-70-01: tombstoned structure is immutable evidence — renames
+		// answer 404 like a missing room.
+		if ($room->getDeletedAt() !== null) {
+			throw new NotFoundException($this->l10n->t('Room not found'));
+		}
+
+		$houseId = $floor->getHouseId();
+		return $this->transactions->run(function () use ($roomId, $name, $houseId): Room {
+			$this->houseMapper->findForUpdate($houseId);
+			$fresh = $this->roomMapper->find($roomId);
+
+			// Authoritative tombstone gate (Q-70-01): a room deleted
+			// behind the pre-read is immutable evidence — 404, zero writes.
+			if ($fresh->getDeletedAt() !== null) {
+				throw new NotFoundException($this->l10n->t('Room not found'));
+			}
+
+			$fresh->setName($name);
+			return $this->roomMapper->update($fresh);
+		});
 	}
 
 	/**
-	 * Delete room and everything that depends on it (CS-PLAN-037, D1/D2).
+	 * Tombstone a room and its room tasks (CS-PLAN-071 WP0, Q-070-01 /
+	 * RF-070-16 WP0 portion).
 	 *
-	 * The schema has no FK constraints, so the cascade is explicit and
-	 * transactional (all-or-nothing): checklist progress → assignees →
-	 * completions → room tasks → room, each as one bulk statement over
-	 * the room's room-task ids (3 + N_roomTasks → constant ~7 queries).
-	 * Before this, dependent rows in completed_tasks, task_assignees,
-	 * and room_task_checklist_progress were left orphaned.
+	 * Structural deletion keeps the evidence: inside one house-first
+	 * transaction the room is tombstoned (`deleted_at` set), its room
+	 * tasks are tombstoned (`deleted_at` + `deleted_token = id` +
+	 * `is_active = 0`), and each tombstoned room task's assignees and
+	 * checklist progress are deleted (active-planning state).
+	 * **`completed_tasks` rows are retained** — minimum history, existing
+	 * visibility, valid earned effects (decision D4). History/activity
+	 * reads keep resolving names through the tombstoned rows; no
+	 * production path hard-deletes structural rows outside the test-mode
+	 * reset.
 	 *
 	 * @param int $roomId The room ID
 	 */
@@ -159,14 +206,35 @@ class RoomService {
 		// Structure mutation → owner-only in the service (CS-PLAN-061 §3.4).
 		$this->authorization->requireHouseOwner($floor->getHouseId());
 
+		// Q-70-01: tombstoned structure is immutable evidence — a repeat
+		// delete answers 404 like a missing room and never re-stamps the
+		// original deletion instant.
+		if ($room->getDeletedAt() !== null) {
+			throw new NotFoundException($this->l10n->t('Room not found'));
+		}
+
 		try {
-			$this->transactions->run(function () use ($roomId, $room) {
-				$this->deleteRoomTaskDependents($this->roomTaskMapper->findIdsByRoomId($roomId));
-				$this->roomTaskMapper->deleteByRoomId($roomId);
-				$this->roomMapper->delete($room);
+			$this->transactions->run(function () use ($roomId, $floor): void {
+				// FIRST lock of the documented order: the house row.
+				$this->houseMapper->findForUpdate($floor->getHouseId());
+
+				// Authoritative tombstone gate on the FRESH locked row:
+				// a concurrent delete winner makes this invocation a clean
+				// 404 with zero writes (the original deleted_at survives).
+				$room = $this->roomMapper->find($roomId);
+				if ($room->getDeletedAt() !== null) {
+					throw new NotFoundException($this->l10n->t('Room not found'));
+				}
+
+				$roomTaskIds = $this->roomTaskMapper->findIdsByRoomId($roomId);
+				$this->deleteRoomTaskPlanningState($roomTaskIds);
+				$deletedAt = new \DateTime();
+				$this->roomTaskMapper->tombstoneByRoomIds([$roomId], $deletedAt);
+				$room->setDeletedAt($deletedAt);
+				$this->roomMapper->update($room);
 			});
 		} catch (\Throwable $e) {
-			$this->appLogger->logException('RoomService: room delete rolled back', $e, [
+			$this->appLogger->logException('RoomService: room tombstone rolled back', $e, [
 				'event' => 'room_delete_rollback',
 				'service' => 'RoomService',
 				'roomId' => $roomId,
@@ -176,24 +244,24 @@ class RoomService {
 	}
 
 	/**
-	 * Delete all rows that depend on the given room tasks — the explicit
-	 * FK-cascade replacement shared by deleteRoom,
-	 * RoomTaskService::deleteRoomTask, and FloorService::deleteFloor
-	 * (CS-PLAN-037).
+	 * Delete the active-planning state of the given room tasks — the
+	 * assignees and checklist progress shared by the tombstone cascades of
+	 * `deleteRoom`, `RoomTaskService::deleteRoomTask`, and
+	 * `FloorService::deleteFloor` (CS-PLAN-071 WP0, Q-070-01).
 	 *
-	 * Dependency order: room_task_checklist_progress → task_assignees →
-	 * completed_tasks (D2: the completion history goes with its task;
-	 * medals/streaks/coins are denormalized snapshots and stay valid).
-	 * Lives here (not RoomTaskService) because RoomTaskService already
-	 * depends on RoomService — the dependency arrow can only point this
-	 * way. Callers wrap it in their own transaction.
+	 * **`completed_tasks` rows are never touched here** — the former
+	 * evidence-deleting cascade (CS-PLAN-037 decision D2) is superseded:
+	 * completion history is retained for tombstoned room tasks (minimum
+	 * history, Q-070-01). Lives here (not RoomTaskService) because
+	 * RoomTaskService already depends on RoomService — the dependency
+	 * arrow can only point this way. Callers wrap it in their own
+	 * house-first transaction.
 	 *
 	 * @param int[] $roomTaskIds The room task IDs (empty input is a no-op)
 	 */
-	public function deleteRoomTaskDependents(array $roomTaskIds): void {
+	public function deleteRoomTaskPlanningState(array $roomTaskIds): void {
 		$this->checklistProgressMapper->deleteByRoomTaskIds($roomTaskIds);
 		$this->taskAssigneeMapper->deleteByRoomTasks($roomTaskIds);
-		$this->completedTaskMapper->deleteByRoomTaskIds($roomTaskIds);
 	}
 
 	/**
@@ -201,8 +269,11 @@ class RoomService {
 	 *
 	 * Deliberately NOT used by the completion path anymore: completion
 	 * writes cleanliness on the locked room row inside the CompletionService
-	 * aggregate (CS-PLAN-064 WP5). This unlocked read-modify-write remains
-	 * only for the manual endpoint (CR-SVC-63 tracks its race surface).
+	 * aggregate (CS-PLAN-064 WP5). CS-PLAN-071 WP0 adds the house-first
+	 * lock order (house → room) to this manual read-modify-write;
+	 * CR-SVC-63 (event-journal replay for the manual path) stays open —
+	 * this plan only serializes the writers, the journaling is WP3's
+	 * `room_events`.
 	 *
 	 * House-scoping is validated service-side (RF-058-06): the caller
 	 * supplies the acting house id and the room→floor→house chain is
@@ -215,9 +286,15 @@ class RoomService {
 	 */
 	public function updateRoomCleanliness(int $roomId, int $houseId, int $cleanlinessChange): Room {
 		$this->validateRoomOwnership($roomId, $houseId);
-		$room = $this->roomMapper->find($roomId);
-		$room->updateCleanliness($cleanlinessChange);
-		return $this->roomMapper->update($room);
+
+		return $this->transactions->run(function () use ($roomId, $houseId, $cleanlinessChange): Room {
+			// FIRST lock of the documented order: the house row, then the
+			// room row — the manual delta serializes with completions.
+			$this->houseMapper->findForUpdate($houseId);
+			$room = $this->roomMapper->lockForUpdate($roomId);
+			$room->updateCleanliness($cleanlinessChange);
+			return $this->roomMapper->update($room);
+		});
 	}
 
 	/**
