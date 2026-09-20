@@ -10,9 +10,13 @@
 
 ## In Progress
 
-- _(none — CS-PLAN-070 WP1 is the next package to start)_
+- **CS-PLAN-072 / WP1 — occurrence timeline** (activated 2026-09-20, Standard A `PASS`): implementation not started. Q-072-01 resolved to Option A — the minimal common agreement writer, `agreements` persistence and C2 deadline/authorization/capacity checks moved into WP1 (7-10 days; WP2 reduced to 5-7). [Plan](../plans/active/cs-plan-072-wp1-occurrence-timeline.md).
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
+
+- **CS-PLAN-072 — Standard A activation** (2026-09-20): WP1 occurrence-timeline plan verified against the runtime at HEAD `9239d68` with zero findings (writer/read surfaces, §4 test files, §5 manifest paths, migration head/ADR reservations, parent §3.1-3.5/T1/§9 contracts, day-duplicate/replay-skip/1000-cap/checklist-scope spot-checks); Q-072-01 answered Option A with the 7-10-day re-estimate (WP2 → 5-7) and §10 allocations ratified as parent-derived; plan `new/ → active/`, parent WP table and tracking updated; documentation gates green. [Plan](../plans/active/cs-plan-072-wp1-occurrence-timeline.md) · [Review record](archive/CODE_REVIEW_2026-09-20.md).
+
+- **CS-PLAN-072 / WP1 draft created** (2026-09-20): post-WP0 occurrence timeline, completion/checklist and client integration, T1 coverage and manifest; Q-072-01 keeps the WP1/WP2 writer boundary open for Standard A; documentation gates passed including the untracked draft; no runtime changes, activation or commit. [Plan](../plans/active/cs-plan-072-wp1-occurrence-timeline.md).
 
 - **CS-PLAN-071 / WP0 — write/identity foundation DELIVERED** (final Standard B `PASS-WITH-FIXES` 2026-09-19; plan in `done/`): single house-first lock order across every audited writer (supersedes the ADR-011/012 entry order) with `TransactionExecutor` bounded retry + SQLite busy-timeout, Version1030 `commands`/`wallets`/`wallet_entries` + Version1000/1004 chain edits, wallet identity at every membership path (preserved on departure, reattached on re-invitation), `CommandService` replay/conflict semantics, tombstone structural deletion with retained completion evidence, `AccountErasureService` + `UserDeletedListener`, "Former member" placeholder, T0 suites; review fixed RF-071-01..03 (two nits + under-lock tombstone/state TOCTOU gates, user-authorized, 9 new unit pins); gates green — unit 960 / integration 388 zero-skip / Jest 1056 / lint / build / cs:check / l10n / backlog / encoding / noise / E2E gate (post-fix re-run). [Plan](../plans/done/cs-plan-071-wp0-write-identity-foundation.md) · [Review record](archive/CODE_REVIEW_2026-09-19.md).
 
@@ -31,8 +35,6 @@
 - **Backlog & ADR housekeeping** — consolidated ACTIVE_TASKS narrative into [`archive/2026-09.md`](archive/2026-09.md) (11 → 5 per-plan entries), repaired 35 dead tracked Markdown links (ADR-006/007 plan links and the monthly archives' retired cs-plan-017..047 links → completion records / plan-name code spans; stale `plans/active` pointer → `done/`; CODE_REVIEW_2026-09-11 owning-plan link de-linked verbatim-preserving), corrected stale CR-SVC-21/22/50 status claims in ADR-006/007, aligned ADR-004 README status, restored missing backlog.md entry separator, refreshed archive/README listing; backlog:check, docs:encoding, `git diff --check` green. (2026-09-16)
 
 - **CS-PLAN-058 — program closed:** final Full review `PASS-WITH-FIXES` (2026-09-14 evening, RF-058-01..22 fixed/rescoped, unit 941 / integration 361 / Jest 1056 non-visual gates green) + delegated D-FR-04 browser-gate pair delivered the same night (RF-058-23 test-only capped-bell-window dismiss fix with 35-stale-row proof, clean-volume recreation, `run-RX1FBW` + `run-GPxhOi` — 2 consecutive passes, 252 executions each, zero skips/retries/flakes), and the masterplan moved `active/ → done/` on 2026-09-16. RELEASE-002 program prerequisite met (its independent blockers remain). [Plan](../plans/done/cs-plan-058-core-workflow-bottom-up-masterplan.md) · [Review record](archive/CODE_REVIEW_2026-09-14.md).
-
-- **CS-PLAN-068 / WP9 — final Standard B `PASS-WITH-FIXES` (2026-09-14):** D8/D9/D10 approved; all findings resolved, clean install, 920 unit / 361 integration (zero skips) / 1054 Jest tests, 940 localization keys and two 252-execution browser passes green; plan moved to `done/`, owning items archived. [Plan](../plans/done/cs-plan-068-wp9-deterministic-coverage-release-closure.md) · [Review record](archive/CODE_REVIEW_2026-09-14.md).
 
 > One-line entries only. Older completed work lives in the tracked
 > [`archive/`](archive/).

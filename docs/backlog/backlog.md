@@ -390,7 +390,14 @@ WP0 (write/identity foundation) was sub-planned and delivered by the child
 Version1030 commands/wallets/wallet_entries, wallet identity at every
 membership path, `CommandService`, tombstone deletion with retained
 evidence, account erasure + `UserDeletedListener`, T0 suites. The WP1+
-behavior packages remain open in the parent.
+behavior packages remain open in the parent. WP1 is active as
+[CS-PLAN-072](../plans/active/cs-plan-072-wp1-occurrence-timeline.md)
+(Standard A `PASS` 2026-09-20): occurrence timeline, explicit
+completion/checklist identity, current-client integration and — per Q-072-01
+Option A, answered in that review — the minimal common agreement writer with
+`agreements` persistence and necessary C2 deadline/authorization/capacity
+checks (WP1 revised to 7-10 days, WP2 reduced to 5-7). Implementation has not
+started; CONCEPT-001 remains open.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

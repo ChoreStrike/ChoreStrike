@@ -25,8 +25,13 @@ Standard A passed with `PASS-WITH-FIXES` on 2026-09-18. Its WP0 child
 [CS-PLAN-071: Write/Identity Foundation](done/cs-plan-071-wp0-write-identity-foundation.md)
 (shared schema/lock/identity/receipt foundation, Q-070-01 tombstone deletion,
 Q-070-02 account-erasure plumbing) is **delivered** — final Standard B
-`PASS-WITH-FIXES` 2026-09-19, plan in `done/`; WP1 (occurrence timeline) is the
-next package in the parent.
+`PASS-WITH-FIXES` 2026-09-19, plan in `done/`. The next package is active:
+[CS-PLAN-072: WP1 - Occurrence Timeline](active/cs-plan-072-wp1-occurrence-timeline.md)
+(Standard A `PASS` 2026-09-20; implementation not started). Its review resolved
+the shared WP1/WP2 agreement-writer boundary through Q-072-01 Option A — the
+minimal common agreement writer, `agreements` persistence and necessary C2
+deadline/authorization/capacity checks moved into WP1 (7-10 days), WP2 reduced
+to 5-7.
 
 Latest completed: [CS-PLAN-071 — WP0: Write/Identity Foundation](done/cs-plan-071-wp0-write-identity-foundation.md)
 (final Standard B `PASS-WITH-FIXES` 2026-09-19), preceded by
