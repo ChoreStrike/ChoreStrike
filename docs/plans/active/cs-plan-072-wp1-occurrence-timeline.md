@@ -1,6 +1,14 @@
 # CS-PLAN-072: WP1 - Occurrence Timeline
 
-> **Status:** Active; child of CS-PLAN-070, delivering WP1 — Standard A `PASS` (2026-09-20), implementation not started
+> **Status:** Active; child of CS-PLAN-070, delivering WP1 — Standard A `PASS` (2026-09-20); implementation
+DELIVERED 2026-09-20, all gates green (Docker unit 976/2900 + integration 395/1782 zero-skip, Jest 1064,
+lint/build/cs:check/l10n/backlog/docs:encoding/diff-check/test:noise, E2E gate PASSED all three pools); interim
+Standard B review 2026-09-21 `NEEDS-FOLLOW-UP` — 3 critical findings fixed in-round; resolving round 2026-09-22
+fixed all 12 remaining findings RF-072-WP1-06..17 with regression tests (round gates: Docker unit 963/2890 +
+integration 403/1831 zero-skip, Jest 1069, full gate set incl. E2E gate PASSED all three pools — see §9
+resolving round); final Standard B review 2026-09-22 `NEEDS-FOLLOW-UP` — all 12 fixes verified in code,
+full gate set rerun green (incl. E2E gate PASSED, 47 required specs); one new plan-owned finding
+RF-072-WP1-18 (OccurrenceService file size, user-routed plan-owned) blocks the `active/ → done/` move
 > **Effort:** L — 7-10 engineering days (revised 2026-09-20 from the parent's 5-8 allowance by Q-072-01 Option A; WP2 reduced to 5-7 accordingly)
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-071 / WP0](../done/cs-plan-071-wp0-write-identity-foundation.md), delivered with final Standard B `PASS-WITH-FIXES` on 2026-09-19
@@ -310,24 +318,291 @@ implementations/tests only with replacement coverage; no blanket suite retiremen
 ## 8. Acceptance Criteria
 
 - [x] Standard A resolves the writer boundary, records decisions and activates the plan (2026-09-20: Q-072-01 Option A, estimate 7-10 days, WP2 5-7).
-- [ ] One recurrence authority covers all fixed/interval/lifetime cases and preserves immutable historical generation inputs across edits and cron gaps.
-- [ ] Read-only projection, agreed virtual identity and materialized identity select the same occurrence without GET writes or automatic new obligations.
-- [ ] Saved zones, half-open windows, planned-day start and Monday week survive edits; early/late work does not move fixed anchors.
-- [ ] Completion replay/races fulfill exactly one shown target; no person/day duplicate restriction blocks distinct legitimate occurrences.
-- [ ] Checklist and timeline undo affect only the target occurrence, preserving newer progress/completions and explicit agreements.
-- [ ] Every relevant writer and current client caller uses the occurrence contract; no second recurrence engine or cache-write bypass remains.
-- [ ] Fresh install, seed/reset, tombstone retention, private access and account erasure include the new schema and snapshots.
-- [ ] All section 4 tests and gates pass without missing, red or newly/unapproved skipped required cases.
-- [ ] Parent RF-070-02/RF-070-04 evidence reflects only verified WP1 scope; broader CONCEPT-001 and later-package findings remain open.
-- [ ] Durable behavior is integrated into concepts, ADR-013, engineering/API/testing docs with later-package limitations explicit.
-- [ ] All section 9 findings and section 10 questions are resolved; final Standard B is `PASS` or `PASS-WITH-FIXES`; tracking updated.
+- [x] One recurrence authority covers all fixed/interval/lifetime cases and preserves immutable historical generation inputs across edits and cron gaps (`RecurrenceCalculator` + `OccurrenceService`, `schedule_revs`/`occurrences`; `RecurrenceCalculatorTest`, `OccurrenceTimelineTest`).
+- [x] Read-only projection, agreed virtual identity and materialized identity select the same occurrence without GET writes or automatic new obligations (`selectionFor`/`agreedOccurrencesFor*`; `OccurrenceTimelineTest`, GET-write-free pins).
+- [x] Saved zones, half-open windows, planned-day start and Monday week survive edits; early/late work does not move fixed anchors (`OccurrenceTimelineTest` T1-C zone change, interval work-date anchoring).
+- [x] Completion replay/races fulfill exactly one shown target; no person/day duplicate restriction blocks distinct legitimate occurrences (receipt contract via `CommandService`; `OccurrenceTimelineTest`, `CompletionConcurrencyTest`, `ConcurrentCompletionTest`, `FamilyIntegrationTest`, `family-rhythm.spec.ts`).
+- [x] Checklist and timeline undo affect only the target occurrence, preserving newer progress/completions and explicit agreements (occurrence-scoped `chk_progress`; `CompletionUndoStateEqualityTest`, `ChecklistToggleConcurrencyTest`, `OccurrenceTimelineTest`).
+- [x] Every relevant writer and current client caller uses the occurrence contract; no second recurrence engine or cache-write bypass remains (Q-072-01 Option A agreement writers: `updateDueDate`/`setAssignees`/`bulkAssignTasks`/planner `apply`; stores send receipts).
+- [x] Fresh install, seed/reset, tombstone retention, private access and account erasure include the new schema and snapshots (Version1031 + Version1005/1029; `AccountErasureService` sweeps `occ_members`/`agreements`; `FamilyRhythmSchemaTest`, `WriteBatchRegressionTest`).
+- [x] All section 4 tests and gates pass without missing, red or newly/unapproved skipped required cases (Docker unit 976/2900 + integration 395/1782 `--fail-on-skipped` zero-skip; Jest 1064; lint/build/cs:check/l10n 956/backlog/docs:encoding/diff-check/test:noise green; E2E gate PASSED — all three pools zero skip/fail/flaky).
+- [x] Parent RF-070-02/RF-070-04 evidence reflects only verified WP1 scope; broader CONCEPT-001 and later-package findings remain open (parent findings annotated with the delivered WP1 portion only).
+- [x] Durable behavior is integrated into concepts, ADR-013, engineering/API/testing docs with later-package limitations explicit (ADR-013 + ADR-009/011/012 annotations, task-model concept, API README, architecture/development/testing, release-test-plan).
+- [ ] All section 9 findings and section 10 questions are resolved; final Standard B is `PASS` or `PASS-WITH-FIXES`; tracking updated. (2026-09-22: final Standard B `NEEDS-FOLLOW-UP` — RF-072-WP1-06..17 verified fixed; RF-072-WP1-18 open.)
 
 ## 9. Review Findings (Plan-Owned)
 
-The 2026-09-20 Standard A review verified the full technical inventory against
-the runtime at HEAD `9239d68` and raised no findings. Record newly discovered
+The 2026-09-20 Standard A review verified the full technical inventory against the
+runtime at HEAD `9239d68` and raised no findings. Record newly discovered
 in-scope findings here, not as duplicate backlog items. Parent findings retain
 their parent IDs and are not closed by a plan or specification test table.
+
+### Implementation round (2026-09-20)
+
+- [x] **RF-072-WP1-01 (fixed now):** `OccurrenceService::deriveAgreedEntries`
+  fabricated a defensive virtual interval pending for a row-less revision even
+  when the OLD revision's unfulfilled pending survived — which is exactly the
+  state a participant amendment leaves (`reviseUnderLock` appends a new interval
+  revision but `ensureIntervalPendingUnderLock` correctly declines to duplicate
+  the survivor). The batched agreed derivation then double-counted the survivor,
+  so the calendar/range read showed the task twice on the applied day (caught by
+  the `scheduling-apply-flow` exit journey). Fixed: the virtual pending is only
+  derived when NO open occurrence row survives anywhere for the room task.
+  Regression: `OccurrenceTimelineTest::testParticipantAmendment_DoesNotDuplicateIntervalPending`.
+- **Manifest note (no finding):** the E2E occurrence-receipt helper shipped as a
+  new dedicated fixture `tests/e2e/fixtures/completion-api.ts`
+  (`resolveOccurrenceReceipt`/`completeRoomTaskViaApi`/`postCompletionWithReceipt`/
+  `placeholderReceipt`) rather than editing the section-5-listed
+  `{database-fixtures,occ-runner,test-house}.ts`, which did not need a WP1 seam.
+  The direct-API completion callers (`admin-only-tasks`, `insights-flow`,
+  `overdue-task-claiming`, `release-notifications`, `release-task-lifecycle`,
+  `teamwork-rewards`) and the due-today probe fixtures (`core-functionality`,
+  `task-completion-full-flow`) were migrated to the receipt contract; the
+  required-scenario manifest, gate runner and serial-pool config were updated
+  together with the new `family-rhythm.spec.ts`.
+
+### Interim Standard B review round (2026-09-21)
+
+Six-track review (security/performance/business-logic/deploy-safety/duplication/
+dead-code) of the complete uncommitted WP1 package on `master` @ `937cf29`.
+Outcome `NEEDS-FOLLOW-UP`: three critical findings fixed in-round with
+regression tests; the remaining findings stay open and block the `done/` move.
+All findings are plan-owned (no backlog items).
+
+- [x] **RF-072-WP1-02 (fixed now):** keep-anchor edits on FIXED rules (energy,
+  flexDays, visibility, voluntary, house-zone — anything with
+  `cadenceShapeUnchanged`) created the new revision with the ORIGINAL anchor and
+  the predecessor's frontier, but `deriveAgreedEntries`, `reconcileUnderLock`
+  and `resolveAgreedKeyUnderLock` enumerated every revision from its anchor with
+  no cross-revision dedup — the entire agreed history (including fulfilled
+  planned days) re-derived as unfulfilled completable virtual twins under the
+  new revision key (double coins/streak for one planned day; tasks shown twice
+  in daily/calendar reads). The interval branch had the RF-072-WP1-01 guard; the
+  fixed branch had none. Fixed: fixed revisions enumerate only dates beyond the
+  predecessor's frozen frontier (`fixedLowerBoundKey()` +
+  `ScheduleRevisionMapper::findPredecessor()`, bound applied in the derivation,
+  both reconcile paths and the virtual-key resolver). Regression:
+  `OccurrenceTimelineTest::testKeepAnchorEdit_DoesNotDuplicateAgreedOccurrences`.
+- [x] **RF-072-WP1-03 (fixed now):** catch-up coverage in
+  `applyCompletionUnderLock` compared window INSTANTS (`miss.windowEnd <
+  target.windowStart`, strict) — with default flex=0 windows adjacent days share
+  the boundary instant, so completing today's open target never covered
+  yesterday's miss; the stale catch-up card stayed completable as 'late' for
+  extra coins (§3.3 "current work covers older catch-up cards" violated). Fixed:
+  planned-date comparison. Regression:
+  `OccurrenceTimelineTest::testCurrentCompletion_CoversAdjacentMiss_ForDefaultFlexWindows`.
+- [x] **RF-072-WP1-04 (fixed now):** account erasure only nulled
+  `agreements.actor_house_user_id`; the `old_state`/`new_state` member snapshots
+  (written by `amendParticipantsUnderLock` from `buildDefaultMembers`) kept the
+  erased account's plain Nextcloud `userId` strings — re-identifiable data
+  surviving erasure (§3.4 "only non-reidentifiable shared timeline facts"
+  violated; `schedule_revs.default_members` was already scrubbed, agreements
+  were not). Fixed: `AgreementMapper::anonymizeMemberSnapshots()` strips the
+  `userId` of the erased wallet (numeric wallet fact retained), called from
+  `eraseMembership`. Regression:
+  `AccountErasureTest::testErasure_ScrubsUserIdsFromAgreementMemberSnapshots`.
+- [x] **RF-072-WP1-05 (fixed now):** `reconcileThroughUnderLock` used
+  `$materialized +=` without initialization — PHP 8.2 undefined-variable warning
+  on every fixed-rule edit preamble. Fixed in the RF-072-WP1-02 edit (direct
+  assignment).
+- [x] **RF-072-WP1-06 (fixed 2026-09-22):** undo after a revision edit leaves a stale
+  interval successor: `releaseCompletionUnderLock` deletes open successors
+  anchored on the undone completion only within the CURRENT revision
+  (`scheduleRevId === current`); an edit between completion and undo leaves two
+  open interval pendings (§3.2 rule 2 "exactly one next pending" violated). Fix
+  direction: match `sourceCompletionId` + open across all revisions of the room
+  task; test complete → amend → undo.
+- [x] **RF-072-WP1-07 (fixed 2026-09-22):** `src/store/roomTasks.js`
+  `completeRoomTask` regenerates `commandId` per invocation — an
+  uncertain-response retry sends a NEW command on the fulfilled target and gets
+  409 instead of the original receipt (§3.4 "retain the same command UUID across
+  uncertain-response retries" violated; the replay path is unreachable from the
+  primary client). Fix direction: cache the pending commandId keyed by
+  (roomTaskId, occurrenceId, expectedVersion) until a definitive response.
+- [x] **RF-072-WP1-08 (fixed 2026-09-22):** unbounded history reconstruction under
+  the house lock: `reconcileUnderLock` enumerates anchor→horizon and
+  materializes the entire missed gap in ONE transaction (only bound:
+  `MAX_SLOTS` 36525); the declared `OccurrenceMapper::MAX_GENERATE_OCCURRENCES`
+  cap is never enforced and `JOB_BATCH_SIZE` batches only the task cursor (§7
+  "large historical reconciliation holds the house lock too long" unmitigated).
+  Fix direction: per-pass materialization budget; the frontier converges over
+  subsequent runs.
+- [x] **RF-072-WP1-09 (fixed 2026-09-22):** steady-state job write amplification:
+  `updateNextDueProjectionUnderLock` loads the FULL occurrence history
+  (`findByRoomTask`, unbounded) and unconditionally UPDATEs `room_tasks` per
+  active task per 5-minute run even when `next_due`/`ideal_due_date` did not
+  change. Fix direction: skip no-op updates; query only unfulfilled/uncovered
+  scheduled rows (`idx_occ_task_window`).
+- [x] **RF-072-WP1-10 (fixed 2026-09-22):** per-request cost grows with schedule age:
+  `selectionsForHouseTasks` derives with a null window (every fixed revision
+  enumerated from its ANCHOR; `findByHouseId` loads the house's entire
+  occurrence history), and `getOverdueTaskRows`/`getDueTodayTaskRows` run the
+  whole house-wide derivation TWICE per request (filter pass +
+  `withOccurrenceBlocks`). Fix direction: bounded selection window or an
+  open-occurrence query; thread one selection map through the row endpoints.
+- [x] **RF-072-WP1-11 (fixed 2026-09-22):** the C2h whole-day child-capacity guard is
+  implemented twice with conflicting semantics:
+  `RoomTaskService::assertChildCapacityForDate` counts by `next_due` date
+  equality (misses second same-day occurrences — now explicitly legal — and
+  agreed occurrences whose `next_due` differs), while
+  `OccurrenceService::assertChildCapacityForParticipants` counts
+  occurrence-member snapshots INCLUDING fulfilled rows (overcharges load and can
+  reject legitimate amendments); both run N+1 queries under the house lock. Fix
+  direction: one shared occurrence-based counter (unfulfilled/uncovered,
+  open-or-future windows) using the existing batch queries.
+- [x] **RF-072-WP1-12 (fixed 2026-09-22):** a second recurrence engine survives on a
+  live write path: `SchedulePlanService::baselineCapacity()` still enumerates
+  via the legacy `RoomTask::projectOccurrences()` (fortnightly parity anchored
+  on the moving `next_due` ISO week, different monthly/flex semantics) while
+  `apply()` writes through the agreement writer — the acceptance criterion "no
+  second recurrence engine remains" is not yet met. Fix direction: build
+  capacity from `agreedOccurrencesForHouseTasks()` + `projectionsForTask()`,
+  then retire the legacy engine (`projectOccurrences`/`markCompleted`/
+  `calculateNext*Due`/`findNextWeekday`).
+- [x] **RF-072-WP1-13 (fixed 2026-09-22):** malformed `occurrenceId` on the checklist
+  progress/toggle endpoints throws `InvalidArgumentException` into the generic
+  handler — 500 + error log instead of 400 (`RoomTaskController::complete`
+  maps the same exception correctly). Fix direction: validate with
+  `Occurrence::parsePublicKey` at the controller boundary.
+- [x] **RF-072-WP1-14 (fixed 2026-09-22):** the voluntary selection fallback omits
+  the `coveredByCompletionId` exclusion (both scheduled loops have it) and
+  `OccurrenceMapper::findLatestMissedByRoomTask` does not filter `kind` —
+  covered voluntary rows stay recordable and a scheduled completion can cover a
+  voluntary miss. Fix direction: add both filters.
+- [x] **RF-072-WP1-15 (fixed 2026-09-22):** `CompletionService::selectionBlock()`
+  duplicates `OccurrenceService::occurrenceBlock()` with divergent `workDate`
+  semantics ('late' → today vs planned date) and missing/extra fields
+  (`kind`/`energy`/`fulfilled`/`covered` vs `savedZoneDiffers`); both outputs
+  land in the same frontend cache slot via `_replaceOccurrenceInState`, so
+  field meaning flips with the last touching endpoint. Fix direction: one
+  builder; `selectionBlock` delegates.
+- [x] **RF-072-WP1-16 (fixed 2026-09-22):** dead-code bundle left by the cutover
+  (zero production callers, verified by repo-wide greps):
+  `RoomTask::markCompleted()` + orphaned `calculateNext*Due`/`findNextWeekday`
+  chain, `OccurrenceService::reviseForTask()` and the `reviseForZoneChange()`
+  wrapper, `OccurrenceMapper::{findOpenByRoomTask, countFulfilledByRoomTask,
+  deleteByRoomTaskIds, deleteByHouseId}`,
+  `OccurrenceMemberMapper::{findByOccurrenceIds, deleteByHouseId}`,
+  `AgreementMapper::findByOccurrence`, `ScheduleRevisionMapper::{find,
+  deleteByRoomTaskIds, deleteByHouseId}`. Fix direction: delete, or wire the
+  intended seams (batch queries can serve RF-072-WP1-08/11); §5 permits
+  archiving the legacy recurrence engine once RF-072-WP1-12 lands.
+- [x] **RF-072-WP1-17 (fixed 2026-09-22):** redundant prefix indexes on the
+  hottest tables: `idx_srev_task` and `idx_agr_occ` (Version1031) and
+  `chk_prog_occ_idx` (Version1005) are leftmost prefixes of their unique
+  indexes — write amplification on every job/completion write with no read
+  gain. Fix direction: drop in place (fresh installs only).
+
+### Resolving round (2026-09-22)
+
+All twelve open findings (RF-072-WP1-06..17) resolved in one round; every fix
+carries a regression test or structural verification as noted.
+
+- **RF-072-WP1-06:** `releaseCompletionUnderLock` now matches
+  `sourceCompletionId` + open across ALL revisions of the room task.
+  Regression: `OccurrenceTimelineTest::testUndoAfterParticipantAmendment_ReleasesCrossRevisionSuccessor`.
+- **RF-072-WP1-07:** the store caches pending command UUIDs keyed by
+  `<roomTaskId>:<occurrenceId>:<expectedVersion>`; entries clear on definitive
+  responses (success / 4xx) and survive uncertain ones (no status, 5xx);
+  `reset()` discards them. Regression: five new cases in
+  `tests/unit/store/roomTasks.spec.js` (reuse-on-retry, keep-on-5xx, clear-on-
+  success, clear-on-409, reset).
+- **RF-072-WP1-08:** job passes materialize at most
+  `OccurrenceService::JOB_MATERIALIZE_BUDGET` (250) entries per pass and advance
+  the frontier only through what the pass reconciled; both job and edit-preamble
+  reconciliation enumerate from `dayAfter(frontier)` (rows ≤ frontier exist by
+  the same-transaction invariant); the edit preamble enforces
+  `MAX_GENERATE_OCCURRENCES` and fails atomically with an explicit 409 message
+  (new l10n string). Regression:
+  `OccurrenceTimelineTest::testReconciliationBudget_ConvergesOverPasses`.
+- **RF-072-WP1-09:** `updateNextDueProjectionUnderLock` follows ONE indexed
+  query (`OccurrenceMapper::findFirstOpenScheduledByRoomTask`) and skips the
+  UPDATE when the computed projection equals the stored one. The frozen query
+  pin in `WorkflowQueryBudgetTest` was updated to the new single-row SELECT.
+  Regression: `OccurrenceTimelineTest::testNextDueProjection_TracksEarliestOpenOccurrence`.
+- **RF-072-WP1-10:** the selection path is rebuilt on batched indexed reads
+  (`findOpenByRoomTasks` + `findByRoomTasksPlannedBetween`), the current
+  revision's virtual candidates are enumerated only within
+  `SELECTION_LOOKBACK_DAYS` (31) and resolved against the in-window rows (no
+  fulfilled-day resurrection), `agreedOccurrencesForHouseTasks` loads only the
+  window rows plus the open backlog when windowed, `selectionFor` is the same
+  bounded builder for the write-side canonical check, and the row endpoints
+  thread ONE selection map (`overdueSelectionMap`; due-today enriches the
+  visible subset only).
+- **RF-072-WP1-11:** ONE shared counter `OccurrenceService::
+  openOccurrenceDayLoadByWallet()` (unfulfilled, uncovered, open-or-future
+  window, per member wallet, batched) feeds both the participant-amendment gate
+  (rewritten: "added" children are those absent from the current revision's
+  default snapshot) and `RoomTaskService::assertChildCapacityForDate`
+  (occurrence-based instead of `next_due` equality). Regression:
+  `OccurrenceTimelineTest::testDateAmendment_ChildCapacity_CountsOpenOccurrencesOnTargetDay`.
+- **RF-072-WP1-12:** `SchedulePlanService::baselineCapacity()` builds planned
+  load from `agreedOccurrencesForHouseTasks()` + `projectionsForTask()`
+  (fulfilled occurrences excluded — their effort enters via the completion
+  ledger); the legacy engine (`projectOccurrences`/`markCompleted`/
+  `calculateNext*Due`/`findNextWeekday`/`projectWeeklyWeekdays`) is deleted.
+  Unit coverage: `SchedulePlanServiceTest` wires the occurrence-authority
+  stubs; the retired engine's tests were removed with replacement coverage
+  documented (`RecurrenceCalculatorTest`, `OccurrenceTimelineTest`).
+- **RF-072-WP1-13:** `ChecklistController` validates a supplied `occurrenceId`
+  with `Occurrence::parsePublicKey` on both endpoints → clean 400. Regression:
+  three new cases in `tests/unit/Controller/ChecklistControllerTest.php`.
+- **RF-072-WP1-14:** the voluntary fallback requires `completionId === null &&
+  coveredByCompletionId === null`, and `findLatestMissedByRoomTask` filters
+  `kind = 'scheduled'`. Regression:
+  `OccurrenceTimelineTest::testVoluntaryOccurrence_IsNoCatchUpMiss_AndNeverCovered`.
+- **RF-072-WP1-15:** `selectionBlock()` delegates to
+  `OccurrenceService::occurrenceBlock()` and only adds `savedZoneDiffers`; the
+  divergent `workDate` semantics are gone (the frontend never consumed
+  `workDate`; verified by repo grep).
+- **RF-072-WP1-16:** deleted `RoomTask::markCompleted` +
+  `calculateNextStaticDue`/`calculateNextDynamicDue`/`findNextWeekday`/
+  `projectOccurrences`/`projectWeeklyWeekdays` (+ their constants),
+  `OccurrenceService::reviseForTask` and `reviseForZoneChange`,
+  `OccurrenceMapper::{findOpenByRoomTask, countFulfilledByRoomTask,
+  deleteByRoomTaskIds, deleteByHouseId}`,
+  `OccurrenceMemberMapper::deleteByHouseId`, `AgreementMapper::findByOccurrence`,
+  `ScheduleRevisionMapper::{find, deleteByRoomTaskIds, deleteByHouseId}`.
+  `OccurrenceMemberMapper::findByOccurrenceIds` is now WIRED by the RF-072-WP1-11
+  batch counter. Retired-engine tests removed with replacement coverage noted.
+- **RF-072-WP1-17:** dropped `idx_srev_task` + `idx_agr_occ` (Version1031) and
+  `chk_prog_occ_idx` (Version1005) in place (fresh installs only).
+
+**Out-of-round discovery (fixed now, no finding id):** the family seed gave the
+child profiles weekend-only `weekdayAvailability`, so every child My-Day
+scenario (`family-core-ux` D4 cases, `core-household-journey` kid phases) only
+passed on Saturdays/Sundays — the last green E2E gate ran on a Sunday and the
+latent date-dependence surfaced on this Tuesday run. The seed now makes teen
+and kid available all week (the same deterministic choice mom already had, with
+an explanatory comment); the availability matrix itself stays covered by
+`availability-settings-flow` and the unit pins.
+
+**Round gates (2026-09-22):** Docker unit 963/2890 + integration 403/1831
+`--fail-on-skipped` zero-skip (baseline 398 + 5 new regression tests); Jest
+1069 (+5); lint/build/cs:check 0-of-327/l10n 957/backlog/docs:encoding/
+diff-check/test:noise green; E2E gate PASSED all three pools zero skip/fail/
+flaky. The `WorkflowQueryBudgetTest` projection pin was updated to the new
+indexed projection query (RF-072-WP1-09).
+
+### Final Standard B review round (2026-09-22)
+
+The final Standard B review verified all twelve resolving-round fixes in the
+code with their regression tests (see the Review Outcome below) and reran the
+complete gate set green. One new finding was raised; the user routed it
+plan-owned (batched question, 2026-09-22), so it blocks the `done/` move and
+must be resolved in a next round of this plan.
+
+- [ ] **RF-072-WP1-18 (open):** `lib/Service/OccurrenceService.php` is 1934
+  lines — far beyond the project's ~300-lines/file guideline (project-rules
+  §1 Architecture/KISS) and still growing through the resolving round
+  (selection derivation, reconciliation/materialization, completion/undo seam,
+  capacity counting and DTO building now share one class). Not a defect: the
+  interim six-track review passed on it and existing services already exceed
+  the guideline (`RoomTaskService` 921). Fix direction: behavior-neutral split
+  into cohesive collaborators (e.g. selection/read derivation vs
+  reconciliation/materialization vs completion seam) in a next round of this
+  plan, gates green, no API change. User decision 2026-09-22: plan-owned
+  finding (not an observation, not a backlog rescope).
 
 ## 10. Activation Decisions
 
@@ -376,6 +651,111 @@ product decision is claimed from these allocations.
 - **Transition**: `new/ → active/` (2026-09-20); `docs/plans/README.md`,
   `docs/README.md`, CONCEPT-001 narrative, `ACTIVE_TASKS.md` and parent WP
   table updated; review record `docs/backlog/archive/CODE_REVIEW_2026-09-20.md`.
+
+## Review Outcome — Standard B interim (2026-09-21)
+
+- **Scope**: the complete uncommitted WP1 package (99 tracked files + 19 new
+  files, +3078/−1284 at capture) reviewed via `/review` against this plan;
+  six-track agent fan-out (security, performance, business logic, deploy
+  safety, duplication, dead code); every reported finding re-verified by the
+  main agent against the code.
+- **Tier / outcome**: Standard B (interim) — `NEEDS-FOLLOW-UP`. 16 findings
+  (3 critical, 12 warning, 1 suggestion), all plan-owned (§9 round
+  RF-072-WP1-02..17; no backlog items). Four fixed in-round with three new
+  regression tests; twelve remain open and block the final Standard B pass and
+  the `done/` move. Plan stays in `active/`.
+- **Base state**: `master` @ `937cf29`; the entire package is uncommitted user
+  work (index empty; changes unstaged/untracked). No automatic commit was
+  made — a scoped review commit was not separable from the uncommitted
+  implementation package.
+- **Fixes (this round)**: fixed-revision enumeration bound beyond the
+  predecessor frontier (`OccurrenceService::fixedLowerBoundKey` +
+  `ScheduleRevisionMapper::findPredecessor`, applied in
+  `deriveAgreedEntries`/`reconcileUnderLock`/`reconcileThroughUnderLock`/
+  `resolveAgreedKeyUnderLock`); planned-date catch-up coverage in
+  `applyCompletionUnderLock`; `AgreementMapper::anonymizeMemberSnapshots` +
+  erasure call in `AccountErasureService::eraseMembership`; `$materialized`
+  initialization. New tests:
+  `testKeepAnchorEdit_DoesNotDuplicateAgreedOccurrences`,
+  `testCurrentCompletion_CoversAdjacentMiss_ForDefaultFlexWindows`,
+  `testErasure_ScrubsUserIdsFromAgreementMemberSnapshots`.
+- **Gates (this round)**: Docker PHPUnit unit **976 tests / 2900 assertions
+  green**; integration **398 tests / 1802 assertions green**
+  (`--fail-on-skipped`, zero skips; baseline 395 + 3 new);
+  `composer cs:check` clean (0 of 327 fixable); `php -l` clean on every changed
+  file. No frontend files were touched in this fix round — Jest/lint/build/E2E
+  are unaffected; the full package gate set reruns at the final Standard B.
+- **Decision recorded**: user selected "Fix criticals first" — warnings and
+  the suggestion (RF-072-WP1-06..17) are deferred to the next round of this
+  plan, not rescoped to the backlog.
+- **Transition**: none (interim review with open findings).
+
+## Review Outcome — Standard B final (2026-09-22)
+
+- **Scope**: the complete uncommitted WP1 package (102 tracked modified files +
+  20 untracked new files) reviewed as the final Standard B against this plan's
+  full manifest, acceptance criteria, required-test evidence, durable-doc
+  integration and implementation history.
+- **Tier / outcome**: Standard B (final) — `NEEDS-FOLLOW-UP`. All twelve
+  resolving-round fixes (RF-072-WP1-06..17) verified in code with their
+  regression tests; one new plan-owned finding RF-072-WP1-18
+  (`OccurrenceService` file size, user-routed plan-owned) remains open and
+  blocks the `active/ → done/` move. No fixes applied in this review round.
+- **Base state**: `master` @ `937cf29`, branch `master`, index empty at
+  capture. Scope fingerprint (SHA256): unstaged binary diff
+  `09148DB9F8D5B1CCDFD7DDE26394FC5DB02C5D1250CD52690D3679340C386C4E`,
+  staged diff EMPTY, untracked manifest (20 sorted paths + per-file content
+  hashes) `2245615D4231209A414C5DD08ADF6DC8DDFD532B8E800E252041126B5124B98C`.
+  The three pre-existing unrelated `.gitkeep` deletions stayed excluded.
+- **Verification**: RF-06 cross-revision successor release
+  (`releaseCompletionUnderLock` matches `sourceCompletionId` + open +
+  uncovered across all revisions); RF-07 `pendingCommands` cache keyed
+  `<roomTaskId>:<occurrenceId>:<expectedVersion>` with keep-on-uncertain /
+  clear-on-definitive semantics + 5 spec cases; RF-08 `JOB_MATERIALIZE_BUDGET`
+  250, `dayAfter(frontier)` lower bound, enforced `MAX_GENERATE_OCCURRENCES`
+  with localized 409 (l10n EN/DE/POT present); RF-09
+  `findFirstOpenScheduledByRoomTask` + no-op-skip in
+  `updateNextDueProjectionUnderLock`, `WorkflowQueryBudgetTest` pin updated;
+  RF-10 `SELECTION_LOOKBACK_DAYS` 31 + batched `findOpenByRoomTasks`/
+  `findByRoomTasksPlannedBetween` + threaded selection maps; RF-11 ONE shared
+  `openOccurrenceDayLoadByWallet` counter feeding both the amendment gate and
+  `RoomTaskService::assertChildCapacityForDate`; RF-12 `baselineCapacity` from
+  `agreedOccurrencesForHouseTasks` + `projectionsForTask`, legacy engine
+  (`projectOccurrences`/`markCompleted`/`calculateNext*Due`/`findNextWeekday`/
+  `projectWeeklyWeekdays`) deleted repo-wide (comment reference only); RF-13
+  `validateOccurrenceKey` via `Occurrence::parsePublicKey` on both checklist
+  endpoints + 3 test cases; RF-14 voluntary fallback requires
+  completion+coverage null and `findLatestMissedByRoomTask` filters
+  `kind = scheduled`; RF-15 `selectionBlock` delegates to `occurrenceBlock`;
+  RF-16 dead-code bundle deleted (only intentionally-wired
+  `findByOccurrenceIds`/`deleteByHouseId` survivors); RF-17 `idx_srev_task`/
+  `idx_agr_occ`/`chk_prog_occ_idx` absent from migrations. All five new
+  `OccurrenceTimelineTest` regressions present. `TimelineJob` registered in
+  `appinfo/info.xml` (5-minute interval, no awards/notifications);
+  `family-rhythm.spec.ts` pinned in `required-scenarios.json`. Durable docs
+  integrated (ADR-013 new; ADR-009/011/012 amended; concept/API/architecture/
+  development/testing/release-test-plan updated); parent RF-070-02/04
+  annotated WP1-portion-only. Acceptance criteria all verified except the
+  final-review criterion (RF-072-WP1-18 open).
+- **Gates (this review)**: Docker PHPUnit unit **963 tests / 2890 assertions
+  OK** and integration **403 tests / 1832 assertions OK**
+  (`--fail-on-skipped`, zero skips, `family` profile); Jest **1069/1069**;
+  `npm run lint` clean; `npm run build` OK; `test:noise` clean;
+  `composer cs:check` 0 of 327; `l10n:check-keys` 957 keys exact coverage;
+  `backlog:check` 25 files green; `docs:encoding` 742 files green;
+  `git diff --check` clean; **E2E gate PASSED** (`run-Fwt2M5`, 47 required
+  specs, all three pools sequential, zero skipped/failed/flaky) — rerun by
+  user decision.
+- **Decisions recorded** (batched question, 2026-09-22): (1) rerun the E2E
+  gate in the final review rather than accept the resolving round's evidence;
+  (2) route the `OccurrenceService` file-size guideline breach as a
+  plan-owned finding (RF-072-WP1-18), not an observation or backlog rescope.
+- **Fixes**: none applied this round.
+- **Transition**: none — `NEEDS-FOLLOW-UP` with an open plan-owned finding;
+  the plan stays in `docs/plans/active/`. Evidence-only scoped commit (plan
+  Review Outcome/Findings, review records, ACTIVE_TASKS); the implementation
+  package stays uncommitted pending the finding's resolution and a passing
+  final review.
 
 ## Drafting Evidence
 

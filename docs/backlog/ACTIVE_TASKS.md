@@ -10,7 +10,7 @@
 
 ## In Progress
 
-- **CS-PLAN-072 / WP1 — occurrence timeline** (activated 2026-09-20, Standard A `PASS`): implementation not started. Q-072-01 resolved to Option A — the minimal common agreement writer, `agreements` persistence and C2 deadline/authorization/capacity checks moved into WP1 (7-10 days; WP2 reduced to 5-7). [Plan](../plans/active/cs-plan-072-wp1-occurrence-timeline.md).
+- **CS-PLAN-072 / WP1 — occurrence timeline — final Standard B `NEEDS-FOLLOW-UP`** (2026-09-22): the final review verified all 12 resolving-round fixes RF-072-WP1-06..17 in code with their regression tests and reran the complete gate set green (Docker unit 963/2890 + integration 403/1832 zero-skip, Jest 1069, lint/build/cs:check 0-of-327/l10n 957/backlog/encoding/diff-check/test:noise, E2E gate PASSED `run-Fwt2M5` — 47 required specs, three pools, zero skip/fail/flaky). One new plan-owned finding (user-routed): RF-072-WP1-18 — `OccurrenceService.php` at 1934 lines vs the ~300-line guideline; behavior-neutral split deferred to a next round of the plan; blocks the `active/ → done/` move. Evidence-only commit; the implementation package stays uncommitted. Remaining: resolve RF-072-WP1-18 + passing final review; WP2/WP3/WP4 and CONCEPT-001 stay open. [Plan](../plans/active/cs-plan-072-wp1-occurrence-timeline.md) · [Review record](archive/CODE_REVIEW_2026-09-22.md) · [Interim record](archive/CODE_REVIEW_2026-09-21.md).
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 
