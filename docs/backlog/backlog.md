@@ -103,8 +103,8 @@ No duplicate item, implementation or closure is implied by the product decision.
 ---
 
 ### [P3] CR-SVC-64 — Midnight-crossing schedule apply answers 400 instead of 409 stale-preview
-**Status**: Backlog · **Effort**: XS · **Layer**: backend · **Journey stage**: scheduling
-**Owning**: — · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Status**: In Progress — owned by the [CS-PLAN-073](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md) preview/apply cutover (activated 2026-09-23) · **Effort**: XS · **Layer**: backend · **Journey stage**: scheduling
+**Owning**: CS-PLAN-073 (WP2) · **Depends on**: — · **Blocks**: — · **Folded-in**: —
 **Source**: Review of CS-PLAN-058 (final Full review, 2026-09-14; RF-058-17)
 
 When a preview is generated just before house-local midnight and applied just
@@ -114,6 +114,11 @@ stale-preview `409 CONFLICT` — the fingerprint revalidation would reject the
 same request one code later. UX nit at the day boundary; fix: validate the
 fingerprint/staleness ordering before the startDate window check, or map a
 midnight-crossed startDate to the stale-preview conflict.
+
+**WP2 (2026-09-23):** [CS-PLAN-073](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md)
+assigns the fix and deterministic injected-clock regression to its preview/apply
+cutover; activated via Standard A `PASS-WITH-FIXES` (2026-09-23). Still open —
+close/archive only after the write-free midnight-409 proof passes.
 
 ---
 
@@ -270,8 +275,8 @@ unchanged. Priority reflects its selected role in the reliable core, not activat
 ---
 
 ### [P1] FEAT-UX-025 — Vacation / house-pause mode
-**Status**: Planned (core policy approved; implementation not started) · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
-**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
+**Status**: In Progress — backend pause/agreement/capacity slice via [CS-PLAN-073](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md) (activated 2026-09-23); full pause UI, rhythm and quiet-digest integration remain WP6/WP4/WP5 · **Effort**: M · **Layer**: backend+frontend · **Journey stage**: vacation mode
+**Owning**: CS-PLAN-073 (backend slice) · **Depends on**: — · **Blocks**: — · **Folded-in**: CONCEPT-001
 **Source**: Review of docs/concepts/ui-use-cases.md (2026-08-21)
 
 CS-PLAN-070 D4 (2026-09-17) selects dated neutral member/house pauses instead of
@@ -279,8 +284,15 @@ freezes. Adults manage their own pauses, children request owner approval; owners
 manage household pauses and traceable retrospective illness. No fake completions
 or reminders during pauses. Recurring weekday availability is not this feature.
 
+**WP2 (2026-09-23):** [CS-PLAN-073](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md)
+specifies the backend pause/agreement/capacity slice and T2/T3 evidence, reusing
+delivered WP1; activated via Standard A `PASS-WITH-FIXES` (2026-09-23) with
+Q-073-01/02/03 resolved (helper-only pause, frozen cross-zone capacity/pause
+comparison, departure/rejoin). Full pause UI, new rhythm and quiet-digest
+integration remain WP6/WP4/WP5; activation does not close the whole item.
+
 - [x] Core pause model, role boundaries and durable concept description approved.
-- [ ] Specify pause/date/urgent-work interaction and history/denominator amendments (C1/C2).
+- [x] Specify pause/date/urgent-work interaction and history/denominator amendments (C1/C2). (C2d–g/i/j approved 2026-09-17; operationalized by CS-PLAN-073 §3.4 and the §10 resolutions, 2026-09-23.)
 - [ ] Implement persistence, authorization, UI/job integration and required tests after plan activation.
 
 ---
@@ -401,6 +413,13 @@ and — per Q-072-01 Option A — the minimal common agreement writer with
 `agreements` persistence and the necessary C2
 deadline/authorization/capacity checks; ADR-013 recorded. The WP2+
 behavior packages remain open in the parent; CONCEPT-001 remains open.
+WP2 is sub-planned and activated as [CS-PLAN-073](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md)
+(Standard A `PASS-WITH-FIXES` 2026-09-23; Q-073-01/02/03 resolved with the
+recommended options, including the frozen cross-zone capacity/pause comparison):
+agreements, exact planned shares, whole-day capacity, pauses, catch-up/restart
+and midnight-stale 409, with concrete test/file ownership and explicit
+WP3/WP4/WP5/WP6 handoffs. Implementation has not started; activation alone
+closes no backlog item.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).

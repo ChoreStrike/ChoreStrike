@@ -184,3 +184,174 @@ tracked links were updated. CONCEPT-001 and the parent remain open
 (WP2-WP9); no owning backlog item is completed by this delivery alone.
 The full implementation package is committed with this review's scoped
 commit; the three unrelated `.gitkeep` deletions remain unstaged.
+
+---
+
+# Code Review: CS-PLAN-073 Standard A (Plan Activation)
+
+**Review Date**: 2026-09-23
+**Reviewer**: Main agent (Kilo, skills: review, plan-management, git-workflow)
+**Tier**: Standard A (plan) — pre-activation review of the WP2 agreements/capacity/pauses child plan of CS-PLAN-070
+**Scope**: `docs/plans/new/cs-plan-073-wp2-agreements-capacity-pauses.md` (419 lines, untracked) plus its documentation-round package (8 dirty tracked doc files)
+**Base Commit**: `master` @ `296888fe53fa487a52d56ef1d3a8491e9e923c8e`
+**Owning plan**: CS-PLAN-073 (child of active CS-PLAN-070); findings routed per project-rules §4
+
+## Scope And Capture
+
+- Branch `master`, HEAD `296888f`, index empty at capture; the drafting round
+  (plan + parent/README/backlog/tracking updates) was uncommitted by design.
+- Scope fingerprint (SHA256) at capture: unstaged binary diff
+  `58429563e1d67f16e36cd6ea335e892079d9590bb239aa577dea1fee02c648c7`; staged
+  diff EMPTY (`e3b0c442…b855`, 0 bytes); untracked manifest = one path
+  (`docs/plans/new/cs-plan-073-wp2-agreements-capacity-pauses.md`), content
+  hash `a6284d0ac1261f46d28862a22461876c71febe196897b515c505aa5ce313fca4`.
+- Candidate validation: the file carries the Nextcloud Files On-Demand reparse
+  tag `0x9000601A` (RecallOnDataAccess placeholder, `LinkType` empty) like
+  every file in this sync folder, including the active parent plan — a regular
+  hydrated file, **not** a symlink. It was the single `*.md` candidate in
+  `new/`; the `active/` destination did not exist.
+- The three pre-existing unrelated `.gitkeep` deletions
+  (`docs/plans/{active,new,onhold}/`) stayed excluded from the review package
+  and the commit, per the plan's §5 and the CS-PLAN-070/072 precedent.
+
+## Review Verification
+
+- **Template/structure:** sections 1-9 complete plus the §10 activation
+  decisions and a dated Draft Validation record; header fields present;
+  acceptance criteria include gates, findings, tracking, durable docs and the
+  final-review requirement.
+- **Baseline citations (all exact at `296888f`):**
+  `OccurrenceAgreementService.php:86-147` (`amendOccurrenceDateUnderLock`),
+  `:161-216` (`amendParticipantsUnderLock` — revises every open unfulfilled
+  instance, confirming the plan's single-occurrence-handover warning),
+  `:331-352` (`openOccurrenceDayLoadByWallet`);
+  `SchedulePlanService.php:628-706` (`baselineCapacity` adds full
+  `tasks.energy_cost` per assignee and buckets completions via the mutable
+  join) and `:1068` (`fingerprint`); `CompletedTaskMapper.php:166-184`
+  (`findEnergyUsageBetweenByHouse` joins `chorestrike_tasks.energy_cost`;
+  `CompletedTask` has no frozen-energy column but already carries
+  `workDate`/`workZone`/`scheduleRevId`/`occurrenceOrdinal` from WP1);
+  `Agreement.php:45-61/85-88` (seven kind constants incl. `KIND_PAUSE`,
+  `pauseRef`, `consent`); `OccurrenceMember.php:53-76` (dispositions, roles,
+  `obligated`, `sharePct`); `OccurrenceSelectionService.php:319-334`
+  (`occurrenceBlock` with `workDate` = `plannedDate`) and `:478-489`
+  (token material without pause/effective-agreement inputs);
+  `src/store/scheduling.js:376-417` (`applyPlan` sends `previewVersion`,
+  retains the draft on 409 → `stale`, no `commandId`).
+- **Manifest/tests:** every `modified:`/`M` path exists (62 runtime/test/doc
+  paths checked) and every `new:`/`N` path is absent (8 runtime + 8 test
+  files); the E2E `M` reclassification of `family-rhythm.spec.ts` matches the
+  delivered state.
+- **Parent fidelity:** C2a-k → §3.3/§3.4 rules (planned-date pause inclusion,
+  pending-request neutrality, no automatic redistribution, next-day
+  shortening, completion-relative restart, fixed anchors); C3c precision →
+  §3.1 (exact 100%, 34/33/33 in stable WP0 wallet order, ≤100 participants,
+  integer hundredths `E * P`); §3.2 persistence contract → the `pauses`
+  column set, `occ_members`/`agreements`/`occurrences` extensions and the
+  suspended-100%-snapshot rule; §3.4 API contract → identical routes
+  (`/occurrences/{id}/amend|catch-up|restart`, `/pauses` + approve/reject/
+  recognize-illness/PUT), error classes and public-key addressing; §3.5 →
+  house-first lock order, sorted-ID subsequences, receipt replay semantics,
+  no notification inside transactions; T2/T3 ownership → C2.2-14 fully owned
+  (C2.1 explicitly WP3), the suspended-50/50 pin, property cases, injected
+  clocks and two-connection barriers, gate list incl. `test:noise` and the
+  runner/config/required-scenarios trio.
+- **Runtime/environment:** `Version1031Date20260918000000` is the migration
+  chain head and its docblock pre-authorizes the in-place `pauses` extension;
+  no occurrence/pause routes exist yet (new controllers conflict-free);
+  `CommandService` + `RoomTaskController` UUID validation + `roomTasks.js`
+  `pendingCommands` retention establish the retry-identity pattern the plan
+  reuses; preview bounds match `MAX_BATCH_SIZE=100`/`WINDOW_DAYS=7`; ADR-013
+  delivered, ADR-014/015 reserved by the parent (no new ADR number needed);
+  both concept anchors exist; backlog references open (CONCEPT-001 In
+  Progress, FEAT-UX-025, CR-SVC-64, TECH-TEST-003).
+- **Ownership/overlap:** the only active plan is the parent program plan; the
+  child's §2 WP-boundary table keeps WP3 actual allocation, WP4 goals, WP5
+  digest, WP6 pause UI and WP9 evidence explicitly out of scope. No
+  workaround stacking is pre-baked (compat fallbacks, silent redistribution
+  and suppression are prohibited in-plan).
+- **Engineering validation (§10 closing paragraph):** WP2/WP3 T3 split sound
+  (occurrence-join frozen effort now; WP3 cuts the same input over to its
+  work-share revision in one cutover, no compat fallback); minimum client
+  scope sound (existing control seams only; `PauseSettings`/
+  `ParticipationDialog` remain WP6); privacy-filtered impact DTOs match the
+  parent's viewer-filtered aggregate rule (no task IDs/names/snapshots for
+  invisible commitments); four-service graph acyclic (`PauseProjectionService`
+  as lower evaluator breaks the potential `OccurrenceService → PauseService →
+  OccurrenceService` DI cycle; `OccurrenceAgreementService` remains the single
+  under-lock occurrence writer); 5-7-day allowance holds under all three
+  resolved options (each bounded; the plan's re-estimate trigger remains).
+
+## Findings And Resolutions
+
+1. **nit (fixed in-round):** §4 test-group label `T2-B / C2.4-7` did not cover
+   its included C2.8 assertions (ten occurrences minus two suspensions → eight
+   eligible facts; suspended 50/50 with zero live planned capacity) → label
+   corrected to `C2.4-8`. Documentation-precision fix; no behavior impact.
+   T3-A keeps `C2.8-10` (parent T3 alignment; over-coverage is safe).
+
+No other findings (0 block / 0 major / 0 minor open). §9 of the plan stays
+empty; parent RF-070-03/04/10/11 portions remain plan-owned per §9's
+no-duplication rule.
+
+## Decisions
+
+Batched question (Kilo `question` tool, 2026-09-23) — all three answered with
+the recommended option; recorded in the plan's §10 Resolutions:
+
+1. **Q-073-01 helper-only pause** — keep the responsible person's obligation,
+   release only the optional helper's commitment; changed remaining shares
+   require a capacity-fitting agreement; infeasible remainders show
+   non-executable rather than silently raising a share. (Alternative rejected:
+   whole-occurrence neutral suspension, which would let an optional helper's
+   absence cancel an obligation.)
+2. **Q-073-02 capacity across saved zones** — candidate work day's saved-zone
+   half-open UTC interval tests completed instants and outstanding work
+   appointments; historical date/week labels retained; pause inclusion is a
+   civil-date label comparison; the pause's saved zone governs its next-day
+   boundary. The exact appointment-intersection mapping, label-retention rule
+   and a Berlin→New York test vector are frozen in §10 Resolutions.
+   (Alternative rejected: label-only comparison, which splits the same real
+   work day after a zone change.)
+3. **Q-073-03 personal pauses after departure/rejoin** — preserve neutral
+   history, cancel pending personal requests, stop future personal-pause
+   effects at departure; rejoin requires a new pause under current roles;
+   house-wide pauses apply to current members; wallet retention / no same-UID
+   rebinding unchanged. (Alternative rejected: retaining the remaining
+   acknowledged range across rejoin, reviving a prior membership's exception.)
+
+## Tests and Validation
+
+Documentation-only round — runtime suites unchanged and not required.
+Gates run for this review (after finalization edits): `npm run backlog:check`,
+`npm run docs:encoding`, `git diff --check`, plus a standalone trailing-
+whitespace check of the (untracked at capture) plan file. The plan's §4 lists
+the full implementation gate set for the coming rounds; nothing is claimed
+passing from this review.
+
+## Documentation and Backlog Changes
+
+- Plan: header status/effort updated, §8 first criterion checked, §9
+  review-state note, §10 Resolutions (incl. the frozen Q-073-02 mapping),
+  `## Review Outcome` appended; moved `new/ → active/`.
+- Parent CS-PLAN-070: status line and WP2 table row (child activated,
+  dependency and estimate cells confirmed).
+- `docs/README.md`, `docs/plans/README.md`: pointers `new/ → active/` with the
+  activation outcome.
+- `backlog.md`: CR-SVC-64 → In Progress (Owning CS-PLAN-073); FEAT-UX-025 →
+  In Progress (backend slice; the C1/C2 specification checkbox checked with
+  its evidence); CONCEPT-001 narrative updated (activation closes nothing).
+- `ACTIVE_TASKS.md`: In Progress entry for the activated plan; activation
+  one-liner added; the 2026-09-16 housekeeping entry rolled to
+  `archive/2026-09.md` (~10-entry cap); draft-entry link repaired.
+- This review record appended.
+
+## Outcome
+
+`PASS-WITH-FIXES` — one nit fixed in-round, all §10 questions resolved, no
+open findings. The plan moved `new/ → active/`; the scoped activation commit
+includes the full documentation-round package (CS-PLAN-070 Standard A
+precedent) and excludes the three unrelated pre-existing `.gitkeep`
+deletions, which remain unstaged. FEAT-UX-025 (backend slice) and CR-SVC-64
+are In Progress; CONCEPT-001 and the parent stay open (WP3-WP9).
+Implementation has not started.

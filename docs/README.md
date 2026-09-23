@@ -44,7 +44,7 @@ Hosted here (this directory) so GitHub/Forgejo auto-detect them; linked from the
 ## Product and Concept Context
 
 - [`concepts/product-vision.md`](concepts/product-vision.md) — product intent and positioning
-- [Family rhythm and reward clarification](plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md) - active program; WP0 delivered, [WP1 occurrence timeline](plans/done/cs-plan-072-wp1-occurrence-timeline.md) delivered (final Standard B `PASS-WITH-FIXES` 2026-09-23, plan in `done/`); WP2 not yet sub-planned
+- [Family rhythm and reward clarification](plans/active/cs-plan-070-family-rhythm-and-reward-clarification.md) - active program; WP0 delivered, [WP1 occurrence timeline](plans/done/cs-plan-072-wp1-occurrence-timeline.md) delivered (final Standard B `PASS-WITH-FIXES` 2026-09-23, plan in `done/`); [WP2 agreements/capacity/pauses](plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md) active (Standard A `PASS-WITH-FIXES` 2026-09-23, Q-073-01/02/03 resolved; implementation not started)
 - [`concepts/design.md`](concepts/design.md) — foundational concept & UX design document
 - [`concepts/ui-use-cases.md`](concepts/ui-use-cases.md) — use-case/workflow inventory of required GUI elements & actions (with endpoint + status mapping)
 - [`concepts/gamification-and-rewards.md`](concepts/gamification-and-rewards.md) — reward model and motivation design
