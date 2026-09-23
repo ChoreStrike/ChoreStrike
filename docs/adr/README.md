@@ -70,6 +70,7 @@ Example: `ADR-001-use-vue3-for-frontend.md`
 10. [ADR-010: Invite-Only House Membership and the Unified Task-Visibility Matrix](ADR-010-invite-only-membership-visibility-matrix.md) - **Accepted** (2026-09-03)
 11. [ADR-011: Transactional Completion and Full Undo (Effect Record)](ADR-011-transactional-completion-and-undo.md) - **Accepted** (2026-09-06)
 12. [ADR-012: Actionable Household Scheduling — Preview/Apply Aggregate](ADR-012-actionable-household-scheduling.md) - **Accepted** (2026-09-10)
+13. [ADR-013: Occurrence Agreements and Corrections (Durable Recurrence Timeline)](ADR-013-occurrence-agreements-and-corrections.md) - **Accepted** (2026-09-20)
 
 ---
 

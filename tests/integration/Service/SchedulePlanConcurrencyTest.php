@@ -210,7 +210,7 @@ class SchedulePlanConcurrencyTest extends IntegrationTestCase {
 		}
 
 		self::assertSame(
-			$this->todayKey,
+			date('Y-m-d', strtotime('+1 day')),
 			substr((string)$this->fetchRoomTask($roomTaskId)['next_due'], 0, 10),
 			'the holder\'s committed due date must survive (no stale overwrite)'
 		);
@@ -288,9 +288,12 @@ $result->closeCursor();
 file_put_contents($signalFile, 'locked');
 usleep(2000000);
 
+// CS-PLAN-072 WP1: the timeline projection normalizes next_due to the
+// house-local day start, so the concurrent edit must move the DAY to
+// drift the planner fingerprint (a same-day rewrite is a value no-op).
 $db->executeStatement(
     'UPDATE *PREFIX*chorestrike_room_tasks SET next_due = :due WHERE id = :id',
-    ['due' => date('Y-m-d') . ' 00:00:00', 'id' => $roomTaskId],
+    ['due' => date('Y-m-d', strtotime('+1 day')) . ' 00:00:00', 'id' => $roomTaskId],
     ['due' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'id' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
 );
 $db->commit();

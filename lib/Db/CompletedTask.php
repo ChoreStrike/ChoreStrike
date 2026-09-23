@@ -42,8 +42,32 @@ use OCP\AppFramework\Db\Entity;
  * @method void setDeltas(array $deltas)
  * @method \DateTime|null getUndoneAt()
  * @method void setUndoneAt(?\DateTime $undoneAt)
+ * @method int|null getScheduleRevId()
+ * @method void setScheduleRevId(?int $scheduleRevId)
+ * @method int|null getOccurrenceOrdinal()
+ * @method void setOccurrenceOrdinal(?int $occurrenceOrdinal)
+ * @method \DateTime|null getWorkDate()
+ * @method void setWorkDate(?\DateTime $workDate)
+ * @method string|null getWorkZone()
+ * @method void setWorkZone(?string $workZone)
+ * @method string|null getCompletionClass()
+ * @method void setCompletionClass(?string $completionClass)
  */
 class CompletedTask extends Entity implements JsonSerializable {
+	/** Completion classified inside its agreed window (CS-PLAN-072 WP1). */
+	public const CLASS_AGREED = 'agreed';
+
+	/** Late catch-up work fulfilling the most recent missed occurrence. */
+	public const CLASS_LATE = 'late';
+
+	/** Voluntary actionable work (no planned-day obligation). */
+	public const CLASS_VOLUNTARY = 'voluntary';
+
+	public const COMPLETION_CLASSES = [
+		self::CLASS_AGREED,
+		self::CLASS_LATE,
+		self::CLASS_VOLUNTARY,
+	];
 	/** @var int */
 	protected $roomTaskId;
 
@@ -77,6 +101,26 @@ class CompletedTask extends Entity implements JsonSerializable {
 	/** @var \DateTime|null NULL = revertible occurrence. */
 	protected $undoneAt;
 
+	/**
+	 * Frozen timeline evidence (CS-PLAN-072 WP1): the public occurrence
+	 * key parts this completion fulfilled.
+	 *
+	 * @var int|null
+	 */
+	protected $scheduleRevId;
+
+	/** @var int|null */
+	protected $occurrenceOrdinal;
+
+	/** @var \DateTime|null Server-owned local work date basis. */
+	protected $workDate;
+
+	/** @var string|null Saved zone of the work date. */
+	protected $workZone;
+
+	/** @var string|null self::CLASS_* */
+	protected $completionClass;
+
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomTaskId', 'integer');
@@ -88,6 +132,11 @@ class CompletedTask extends Entity implements JsonSerializable {
 		$this->addType('beforeState', 'json');
 		$this->addType('deltas', 'json');
 		$this->addType('undoneAt', 'datetime');
+		$this->addType('scheduleRevId', 'integer');
+		$this->addType('occurrenceOrdinal', 'integer');
+		$this->addType('workDate', 'date');
+		$this->addType('workZone', 'string');
+		$this->addType('completionClass', 'string');
 	}
 
 	/**
@@ -103,6 +152,11 @@ class CompletedTask extends Entity implements JsonSerializable {
 			'wasCombo' => $this->wasCombo,
 			'occurrenceDue' => $this->occurrenceDue?->format('c'),
 			'undoneAt' => $this->undoneAt?->format('c'),
+			'occurrenceId' => $this->scheduleRevId !== null && $this->occurrenceOrdinal !== null
+				? $this->scheduleRevId . ':' . $this->occurrenceOrdinal
+				: null,
+			'workDate' => $this->workDate?->format('Y-m-d'),
+			'completionClass' => $this->completionClass,
 		];
 	}
 

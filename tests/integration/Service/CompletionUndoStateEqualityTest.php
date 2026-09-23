@@ -13,7 +13,6 @@ use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
@@ -91,8 +90,9 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	 * Complete_InPermutation_ThenUndo_RestoresExactPersistedState
 	 *
 	 * The WP5 exit gate: every persisted domain row is byte-identical after
-	 * the undo (checked checklist rows reset by the completion are restored,
-	 * and the ledger carries exactly the completed occurrence, marked undone).
+	 * the undo (the occurrence-scoped checklist evidence survives both legs
+	 * untouched, and the ledger carries exactly the completed occurrence,
+	 * marked undone).
 	 *
 	 * @dataProvider recurrencePermutations
 	 * @param array<string, mixed> $taskColumns
@@ -105,22 +105,18 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 
 		$before = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
 
-		$completionService->complete($ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
+		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['roomTaskId'];
 
 		$afterCompletion = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
 
 		// Sanity: the completion actually mutated the domain rows (the
-		// recurrence advance happened; for `once` the row deactivated) and
-		// the occurrence-scoped checklist reset ran (decision D6).
+		// recurrence advance happened; for `once` the row deactivated).
+		// CS-PLAN-072 WP1 occurrence-scoped checklist: the fulfilled
+		// occurrence KEEPS its checked evidence — completion no longer
+		// resets progress; the next occurrence derives fresh state.
 		self::assertNotSame($before['roomTask'], $afterCompletion['roomTask'], 'completion must advance the recurrence state');
-		if ($before['progress'] !== []) {
-			foreach ($afterCompletion['progress'] as $row) {
-				self::assertSame(0, (int)$row['is_checked'], 'completion must reset occurrence-scoped checklist progress');
-				self::assertNull($row['checked_by_user_id']);
-				self::assertNull($row['checked_at']);
-			}
-		}
+		self::assertSame($before['progress'], $afterCompletion['progress'], 'completion must not touch the fulfilled occurrence\'s checklist evidence');
 		$ledger = $this->ledgerRows($ids['roomTaskId']);
 		self::assertCount(1, $ledger);
 		self::assertNull($ledger[0]['undone_at'], 'a fresh completion is revertible');
@@ -153,15 +149,12 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 	 * undoing someone else's completion (D3 actor gate on the real DB).
 	 */
 	public function testTakeoverCompletion_UndoRestoresClaimFields_AndExactState(): void {
-		$ids = $this->seedPermutationFixture([]);
-
 		// Overdue: the recorded claim precondition for a non-assignee.
-		$yesterday = (new \DateTime('-1 day'))->format('Y-m-d H:i:s');
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_room_tasks')
-			->set('next_due', $qb->createNamedParameter($yesterday))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($ids['roomTaskId'], IQueryBuilder::PARAM_INT)))
-			->executeStatement();
+		// CS-PLAN-072 WP1: the anchor is seeded BEFORE the schedule exists —
+		// a raw next_due move afterwards would diverge from the timeline
+		// (the undo re-derives the projection from the occurrences).
+		$yesterday = (new \DateTime('-1 day'))->format('Y-m-d 00:00:00');
+		$ids = $this->seedPermutationFixture([], $yesterday);
 
 		$completionService = \OC::$server->get(CompletionService::class);
 		$owner = $this->houseUser('ueq_owner', $ids['houseId']);
@@ -169,7 +162,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		$before = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
 		self::assertSame(0, (int)$before['roomTask']['was_claimed']);
 
-		$completionService->complete($ids['houseId'], 'ueq_helper', $ids['roomTaskId']);
+		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_helper', $ids['roomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['roomTaskId'];
 
 		$afterCompletion = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
@@ -206,7 +199,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		$before = $this->snapshotDomainState($ids['houseId'], $ids['roomId'], $ids['roomTaskId']);
 
 		// 1st occurrence.
-		$completionService->complete($ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
+		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 		self::assertCount(1, $this->revertibleLedgerRows($ids['roomTaskId']));
 
 		$completionService->undo($ids['houseId'], $actor, $ids['roomTaskId']);
@@ -215,7 +208,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 
 		// 2nd occurrence on the SAME day — the D11 duplicate-guard proof:
 		// the undone 1st row must not trigger the day-duplicate 403.
-		$completionService->complete($ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
+		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 
 		$ledger = $this->ledgerRows($ids['roomTaskId']);
 		self::assertCount(2, $ledger, 'the re-completion writes its own fresh ledger row');
@@ -259,7 +252,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		// Occurrence 1 (energy 60 → contribution 60 ≥ threshold 50): unlocks
 		// the home_helpers.helper tier. The unlock is effect-record-visible
 		// in the ledger deltas (it is not part of the API reward payload).
-		$completionService->complete($ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
+		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $ids['roomTaskId']);
 		$firstDeltas = json_decode(
 			(string)$this->ledgerRows($ids['roomTaskId'])[0]['deltas'],
 			true,
@@ -273,7 +266,7 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		);
 
 		// Occurrence 2: no new unlock.
-		$completionService->complete($ids['houseId'], 'ueq_owner', $roomTaskB);
+		$this->completeOccurrence($completionService, $ids['houseId'], 'ueq_owner', $roomTaskB);
 		$secondDeltas = json_decode(
 			(string)$this->ledgerRows($roomTaskB)[0]['deltas'],
 			true,
@@ -305,13 +298,17 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 
 	/**
 	 * Seed house/floor/room/task/room-task/checklist; the task definition is
-	 * updated with the permutation columns. The owner owns an assigned,
-	 * CHECKED checklist row; a second member exists for the takeover test.
+	 * updated with the permutation columns BEFORE the assignment so the
+	 * initial schedule revision freezes the permuted inputs. The owner owns
+	 * an assigned, CHECKED checklist row keyed to the first occurrence of
+	 * the initial revision (CS-PLAN-072 WP1 occurrence scoping); a second
+	 * member exists for the takeover test. `$nextDue` seeds the schedule
+	 * anchor (the timeline normalizes the row projection to it).
 	 *
 	 * @param array<string, mixed> $taskColumns
 	 * @return array{houseId: int, floorId: int, roomId: int, taskId: int, roomTaskId: int}
 	 */
-	private function seedPermutationFixture(array $taskColumns): array {
+	private function seedPermutationFixture(array $taskColumns, ?string $nextDue = null): array {
 		$houseId = $this->createHouse('ueq_owner', 'UEQ House');
 		$this->addHouseMember($houseId, 'ueq_helper', 'Helper', 'member');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
@@ -328,11 +325,16 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 				->executeStatement();
 		}
 
-		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'ueq_owner');
+		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, 'ueq_owner', $nextDue);
 		$this->progressRoomTaskIds[] = $roomTaskId;
 
-		// One checklist item with a CHECKED progress row owned by the owner —
-		// the occurrence-scoped reset/restore subject (decision D6).
+		// One checklist item with a CHECKED progress row owned by the owner,
+		// keyed to the FIRST occurrence of the initial revision — the
+		// occurrence-scoped evidence subject (CS-PLAN-072 WP1: a fulfilled
+		// occurrence keeps its checklist state; nothing is reset/restored).
+		$scheduleRevId = \OC::$server->get(\OCA\ChoreStrike\Db\ScheduleRevisionMapper::class)
+			->findCurrentByRoomTask($roomTaskId)
+			->getId();
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('chorestrike_chk_items')
 			->values([
@@ -349,6 +351,9 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 		$qb->insert('chorestrike_chk_progress')
 			->values([
 				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
+				'schedule_rev_id' => $qb->createNamedParameter($scheduleRevId, IQueryBuilder::PARAM_INT),
+				'ordinal' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+				'revision' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
 				'checklist_item_id' => $qb->createNamedParameter($checklistItemId, IQueryBuilder::PARAM_INT),
 				'is_checked' => $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL),
 				'checked_at' => $qb->createNamedParameter('2026-09-08 10:00:00'),
@@ -382,7 +387,6 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 			$s->get(HouseUserMapper::class),
 			$s->get(TaskAssigneeMapper::class),
 			$s->get(CompletedTaskMapper::class),
-			$s->get(RoomTaskChecklistProgressMapper::class),
 			$s->get(\OCA\ChoreStrike\Service\CompletionEffectService::class),
 			$s->get(\OCA\ChoreStrike\Service\CompletionPostCommitService::class),
 			new GameLogicService(
@@ -393,6 +397,8 @@ class CompletionUndoStateEqualityTest extends IntegrationTestCase {
 			),
 			$s->get(CalendarService::class),
 			$s->get(TaskAccessPolicy::class),
+			$s->get(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			$s->get(\OCA\ChoreStrike\Service\CommandService::class),
 			$s->get(\OCP\L10N\IFactory::class)->get('chorestrike'),
 			$s->get(AppLogger::class),
 		);

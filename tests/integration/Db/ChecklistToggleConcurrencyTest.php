@@ -66,7 +66,7 @@ class ChecklistToggleConcurrencyTest extends IntegrationTestCase {
 		file_put_contents($helperScript, $this->buildToggleHolderScript());
 
 		$process = proc_open(
-			[PHP_BINARY, $helperScript, (string)$this->roomTaskId, (string)$this->checklistItemId, $signalFile],
+			[PHP_BINARY, $helperScript, (string)$this->roomTaskId, (string)$this->checklistItemId, $signalFile, ...$this->fixtureOccurrenceKeyArgs()],
 			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
 			$pipes
 		);
@@ -81,16 +81,20 @@ class ChecklistToggleConcurrencyTest extends IntegrationTestCase {
 				usleep(50000);
 			}
 
-			// T2: the insert blocks on uniq_prog_item until T1 commits, then
-			// the unique violation is handled by re-reading and flipping.
-			// CS-PLAN-071: the mapper primitive participates in a caller-owned
-			// transaction (ChecklistService scopes it house-first in
-			// production; this race test only needs the row-level semantics).
+			// T2: the insert blocks on uniq_prog_occ_item until T1 commits,
+			// then the unique violation is handled by re-reading and
+			// flipping.
+			// CS-PLAN-071: the mapper primitive participates in a
+			// caller-owned transaction (ChecklistService scopes it
+			// house-first in production; this race test only needs the
+			// row-level semantics). CS-PLAN-072 WP1: the toggle is keyed by
+			// the occurrence public identity.
 			$mapper = \OC::$server->get(RoomTaskChecklistProgressMapper::class);
 			$tx = \OC::$server->get(\OCA\ChoreStrike\Db\TransactionExecutor::class);
+			[$revId, $ordinal] = $this->fixtureOccurrenceKey();
 			$tx->begin();
 			try {
-				$progress = $mapper->toggleLocked($this->roomTaskId, $this->checklistItemId, 77);
+				$progress = $mapper->toggleLocked($this->roomTaskId, $revId, $ordinal, $this->checklistItemId, 77);
 				$tx->commit();
 			} catch (\Throwable $e) {
 				$tx->rollBack();
@@ -140,6 +144,8 @@ require '/var/www/html/lib/base.php';
 $roomTaskId = (int)$argv[1];
 $checklistItemId = (int)$argv[2];
 $signalFile = $argv[3];
+$revId = (int)$argv[4];
+$ordinal = (int)$argv[5];
 
 $mapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper::class);
 $tx = \OC::$server->get(\OCA\ChoreStrike\Db\TransactionExecutor::class);
@@ -148,7 +154,7 @@ try {
     // CS-PLAN-071: the toggle primitive participates in a caller-owned
     // transaction (hold uncommitted to create the race).
     $tx->begin();
-    $mapper->toggleLocked($roomTaskId, $checklistItemId, 55);
+    $mapper->toggleLocked($roomTaskId, $revId, $ordinal, $checklistItemId, 55);
     file_put_contents($signalFile, 'locked');
     usleep(2000000);
     $tx->commit();
@@ -181,5 +187,25 @@ PHP;
 			]);
 		$qb->executeStatement();
 		$this->checklistItemId = (int)$this->db->lastInsertId('chorestrike_chk_items');
+	}
+
+	/**
+	 * The fixture's occurrence key parts (CS-PLAN-072 WP1): the schedule
+	 * revision id and ordinal of the task's agreed occurrence.
+	 *
+	 * @return array{0: int, 1: int}
+	 */
+	private function fixtureOccurrenceKey(): array {
+		$values = $this->fixtureOccurrenceKeyArgs();
+		return [(int)$values[0], (int)$values[1]];
+	}
+
+	/**
+	 * @return array{0: string, 1: string}
+	 */
+	private function fixtureOccurrenceKeyArgs(): array {
+		$revision = \OC::$server->get(\OCA\ChoreStrike\Db\ScheduleRevisionMapper::class)
+			->findCurrentByRoomTask($this->roomTaskId);
+		return [(string)$revision->getId(), '1'];
 	}
 }

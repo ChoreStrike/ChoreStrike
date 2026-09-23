@@ -1,4 +1,4 @@
-﻿# ChoreStrike Development Roadmap
+# ChoreStrike Development Roadmap
 
 ## Current Capability Snapshot (2026-09, CS-PLAN-058/068 truth slice)
 

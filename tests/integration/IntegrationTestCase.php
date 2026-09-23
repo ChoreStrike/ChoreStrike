@@ -201,15 +201,20 @@ abstract class IntegrationTestCase extends TestCase {
 	 * table (CS-PLAN-060 WP1, D2) — the legacy assigned_to_user_id column no
 	 * longer exists.
 	 *
+	 * CS-PLAN-072 WP1: the raw row insert is followed by the immutable
+	 * initial schedule (revision 1 + agreed occurrences) through the
+	 * common OccurrenceService generator — the timeline is the only
+	 * recurrence authority, so completions against fixture rows work.
+	 *
 	 * @return int The room task ID
 	 */
-	protected function assignTaskToRoom(int $taskId, int $roomId, ?string $assignedToUserId = null): int {
+	protected function assignTaskToRoom(int $taskId, int $roomId, ?string $assignedToUserId = null, ?string $nextDue = null): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('chorestrike_room_tasks')
 			->values([
 				'room_id' => $qb->createNamedParameter($roomId),
 				'task_id' => $qb->createNamedParameter($taskId),
-				'next_due' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
+				'next_due' => $qb->createNamedParameter($nextDue ?? date('Y-m-d H:i:s')),
 				'is_active' => $qb->createNamedParameter(1),
 				'was_claimed' => $qb->createNamedParameter(0),
 				'created_at' => $qb->createNamedParameter(date('Y-m-d H:i:s')),
@@ -230,7 +235,105 @@ abstract class IntegrationTestCase extends TestCase {
 			$qb->executeStatement();
 		}
 
+		$this->initializeScheduleForFixture($roomId, $roomTaskId, $taskId, $assignedToUserId);
+
 		return $roomTaskId;
+	}
+
+	/**
+	 * Materialize the immutable initial schedule for a fixture room task
+	 * (CS-PLAN-072 WP1) through the production generator. The schedule
+	 * anchors on the seeded next_due (the fixture's chosen first date).
+	 */
+	protected function initializeScheduleForFixture(int $roomId, int $roomTaskId, int $taskId, ?string $assignedToUserId): void {
+		$houseId = $this->houseIdForRoomId($roomId);
+		$readService = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class);
+		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
+		$taskMapper = \OC::$server->get(\OCA\ChoreStrike\Db\TaskMapper::class);
+		$roomTaskMapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
+
+		$roomTask = $roomTaskMapper->find($roomTaskId);
+		$occurrenceService->initializeSchedule(
+			$houseId,
+			$roomTask,
+			$taskMapper->find($taskId),
+			$readService->timeZoneForHouse($houseId)->getName(),
+			$roomTask->getNextDue(),
+			$assignedToUserId !== null ? [$assignedToUserId] : [],
+			new \DateTime(),
+		);
+	}
+
+	/**
+	 * Resolve the owning house id of a room (room → floor → house).
+	 */
+	protected function houseIdForRoomId(int $roomId): int {
+		return \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskReadService::class)->houseIdForRoom($roomId);
+	}
+
+	/**
+	 * Build the occurrence receipt for completing a fixture room task's
+	 * CURRENT canonical target (CS-PLAN-072 WP1): resolves the selection
+	 * (public key, version, token) write-free and generates a fresh
+	 * command UUID.
+	 *
+	 * @return array{0: string, 1: string, 2: int, 3: string} [commandId, occurrenceId, expectedVersion, selectionToken]
+	 */
+	protected function completionReceiptFor(int $roomTaskId): array {
+		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
+		$roomTaskMapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
+		$selection = $occurrenceService->selectionFor($roomTaskMapper->find($roomTaskId), new \DateTime());
+		if ($selection === null) {
+			throw new \RuntimeException('No completable occurrence target for room task ' . $roomTaskId);
+		}
+		return [
+			sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
+			$selection['occurrence']->toPublicKey(),
+			$selection['occurrence']->getVersion(),
+			$occurrenceService->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification']),
+		];
+	}
+
+	/**
+	 * Complete a fixture room task's current canonical occurrence target
+	 * through the full receipt contract (CS-PLAN-072 WP1).
+	 */
+	protected function completeOccurrence(\OCA\ChoreStrike\Service\CompletionService $service, int $houseId, string $userId, int $roomTaskId): array {
+		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($roomTaskId);
+		return $service->complete($houseId, $userId, $roomTaskId, $commandId, $occurrenceId, $expectedVersion, $selectionToken);
+	}
+
+	/**
+	 * Complete through a REAL controller (CS-PLAN-072 WP1): injects the
+	 * occurrence receipt into the controller's request params and calls
+	 * the endpoint action.
+	 */
+	protected function completeViaController(object $controller, int $roomTaskId): object {
+		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($roomTaskId);
+		$this->injectRequestParams($controller, [
+			'commandId' => $commandId,
+			'occurrenceId' => $occurrenceId,
+			'expectedVersion' => $expectedVersion,
+			'selectionToken' => $selectionToken,
+		]);
+		return $controller->complete($roomTaskId);
+	}
+
+	/**
+	 * Swap a controller's request for a param-carrying stub (reflection on
+	 * the AppFramework base's protected $request).
+	 */
+	protected function injectRequestParams(object $controller, array $params): void {
+		$mock = $this->getMockBuilder(\OCP\IRequest::class)->getMock();
+		$mock->method('getParams')->willReturn($params);
+		$mock->method('getParam')->willReturnCallback(
+			static fn (string $key, $default = null) => $params[$key] ?? $default
+		);
+
+		$ref = new \ReflectionClass(\OCP\AppFramework\Controller::class);
+		$prop = $ref->getProperty('request');
+		$prop->setAccessible(true);
+		$prop->setValue($controller, $mock);
 	}
 
 	/**
@@ -267,6 +370,7 @@ abstract class IntegrationTestCase extends TestCase {
 	 * Remove all records created during the test.
 	 */
 	private function cleanupCreatedRecords(): void {
+		$this->deleteTimelineByRoomTaskIds($this->createdRoomTaskIds);
 		$this->deleteAssigneesByRoomTaskIds($this->createdRoomTaskIds);
 		$this->deleteByIds('chorestrike_room_tasks', $this->createdRoomTaskIds);
 		$this->deleteByIds('chorestrike_tasks', $this->createdTaskIds);
@@ -282,6 +386,44 @@ abstract class IntegrationTestCase extends TestCase {
 		$this->createdFloorIds = [];
 		$this->createdHouseUserIds = [];
 		$this->createdHouseIds = [];
+	}
+
+	/**
+	 * Remove the timeline rows of fixture room tasks (CS-PLAN-072 WP1):
+	 * agreements → occ_members → occurrences → schedule_revs.
+	 *
+	 * @param array<int> $ids
+	 */
+	private function deleteTimelineByRoomTaskIds(array $ids): void {
+		if (empty($ids)) {
+			return;
+		}
+		$intArray = \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY;
+		$qb = $this->db->getQueryBuilder();
+
+		$occIds = array_map(
+			static fn (array $row): int => (int)$row['id'],
+			$qb->select('id')->from('chorestrike_occurrences')
+				->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($ids, $intArray)))
+				->executeQuery()->fetchAll()
+		);
+
+		if ($occIds !== []) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete('chorestrike_agreements')
+				->where($qb->expr()->in('occurrence_id', $qb->createNamedParameter($occIds, $intArray)))
+				->executeStatement();
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete('chorestrike_occ_members')
+				->where($qb->expr()->in('occurrence_id', $qb->createNamedParameter($occIds, $intArray)))
+				->executeStatement();
+			$this->deleteByIds('chorestrike_occurrences', $occIds);
+		}
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('chorestrike_schedule_revs')
+			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($ids, $intArray)))
+			->executeStatement();
 	}
 
 	/**

@@ -33,6 +33,12 @@
     "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > a superseded slow read never overwrites the newer rendered state",
     "workflow-state-reconciliation.spec.ts > Workflow state reconciliation (CS-PLAN-066) > rapid parallel navigation ends in the reconciled state — no stale overwrite"
   ],
+  "family-rhythm.spec.ts": [
+    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a UI completion carries the full occurrence receipt",
+    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a new command on a fulfilled occurrence conflicts 409, never credits another target",
+    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > a stale receipt after a due-date move conflicts 409",
+    "family-rhythm.spec.ts > Family rhythm — occurrence timeline (WP1) > replaying the same command returns the original identity without a second effect"
+  ],
   "today-view.spec.ts": [
     "today-view.spec.ts > Release: Today view > shows seeded due-today rows and completes one with row state change",
     "today-view.spec.ts > Release: Today view > the mine filter hides other members tasks, everyone shows them",

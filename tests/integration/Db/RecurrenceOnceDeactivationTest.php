@@ -44,7 +44,7 @@ class RecurrenceOnceDeactivationTest extends IntegrationTestCase {
 
 		$this->actingAs('once_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
-		$result = $completionService->complete($houseId, 'once_owner', $roomTaskId);
+		$result = $this->completeOccurrence($completionService, $houseId, 'once_owner', $roomTaskId);
 
 		/** @var RoomTask $completed */
 		$completed = $result['roomTask'];
@@ -65,7 +65,7 @@ class RecurrenceOnceDeactivationTest extends IntegrationTestCase {
 
 		$this->actingAs('rec_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
-		$result = $completionService->complete($houseId, 'rec_owner', $roomTaskId);
+		$result = $this->completeOccurrence($completionService, $houseId, 'rec_owner', $roomTaskId);
 
 		/** @var RoomTask $completed */
 		$completed = $result['roomTask'];

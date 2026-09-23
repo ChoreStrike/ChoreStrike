@@ -21,6 +21,7 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { completeRoomTaskViaApi, postCompletionWithReceipt, placeholderReceipt } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
 
 test.describe('Overdue Task Claiming', () => {
@@ -130,9 +131,7 @@ test.describe('Overdue Task Claiming', () => {
 		try {
 			const overdueTaskId = await createOverdueProbe(page, `Takeover ${Date.now()}`, { assignees: ['dad'] })
 
-			const completeResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${overdueTaskId}/complete`,
-			)
+			const completeResponse = await completeRoomTaskViaApi(page, overdueTaskId)
 
 			expect(completeResponse.status()).toBe(200)
 			const body = await completeResponse.json()
@@ -155,9 +154,7 @@ test.describe('Overdue Task Claiming', () => {
 
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
-			const completeResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${probeId}/complete`,
-			)
+			const completeResponse = await completeRoomTaskViaApi(page, probeId)
 
 			expect(completeResponse.status()).toBe(200)
 			const body = await completeResponse.json()
@@ -181,9 +178,10 @@ test.describe('Overdue Task Claiming', () => {
 
 		const { context, page } = await createUserContext(browser, 'teen')
 		try {
-			const completeResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${probeId}/complete`,
-			)
+			// CS-PLAN-072 WP1: the completion is a receipt contract, so the
+			// non-viewer posts a format-valid receipt — the visibility gate
+			// (assertCanView) fires before the occurrence is resolved.
+			const completeResponse = await postCompletionWithReceipt(page, probeId, placeholderReceipt())
 
 			// A private task is invisible to non-assignees: per the ADR-010
 			// 403/404 standard the takeover path answers 404 (no existence

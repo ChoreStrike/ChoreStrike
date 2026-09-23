@@ -60,6 +60,8 @@ const REQUIRED_SPECS = [
 	{ file: 'insights-flow.spec.ts', project: 'chromium-serial-db', scenarios: ['overcapacity warning appears when a day exceeds its capacity'], minTests: 3 },
 	{ file: 'family-core-ux.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 5 },
 	{ file: 'workflow-state-reconciliation.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
+	// CS-PLAN-072 WP1: the occurrence-timeline client-contract slice.
+	{ file: 'family-rhythm.spec.ts', project: 'chromium-serial-db', scenarios: ['a ui completion carries the full occurrence receipt'], minTests: 4 },
 	{ file: 'today-view.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },
 	{ file: 'members-owner.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 3 },
 	{ file: 'room-management.spec.ts', project: 'chromium-serial-db', scenarios: [], minTests: 1 },

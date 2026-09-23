@@ -15,6 +15,13 @@ use OCP\Migration\SimpleMigrationStep;
 
 /**
  * Add sub-checklist tables for tasks
+ *
+ * CS-PLAN-072 WP1: checklist progress is keyed by occurrence/item — the
+ * unique key is `(schedule_rev_id, ordinal, checklist_item_id)` over the
+ * public occurrence identity, replacing the room-task/item key. Each row
+ * carries a progress revision so stale mutations conflict (409) instead of
+ * overwriting a later occurrence's progress. `room_task_id` stays as a
+ * denormalized cleanup/stats column.
  */
 class Version1005Date20260228160000 extends SimpleMigrationStep {
 	/**
@@ -75,6 +82,24 @@ class Version1005Date20260228160000 extends SimpleMigrationStep {
 				'unsigned' => true,
 			]);
 
+			// Occurrence identity (CS-PLAN-072 WP1): the schedule revision
+			// and ordinal of the public `<scheduleRevisionId>:<ordinal>` key.
+			$table->addColumn('schedule_rev_id', 'bigint', [
+				'notnull' => true,
+				'default' => 0,
+			]);
+
+			$table->addColumn('ordinal', 'bigint', [
+				'notnull' => true,
+				'default' => 0,
+			]);
+
+			// Progress revision for stale-mutation detection (409).
+			$table->addColumn('revision', 'bigint', [
+				'notnull' => true,
+				'default' => 0,
+			]);
+
 			$table->addColumn('checklist_item_id', 'bigint', [
 				'notnull' => true,
 				'unsigned' => true,
@@ -98,9 +123,11 @@ class Version1005Date20260228160000 extends SimpleMigrationStep {
 
 			$table->setPrimaryKey(['id'], 'pk_chk_prog');
 			$table->addUniqueIndex(
-				['room_task_id', 'checklist_item_id'],
-				'uniq_prog_item'
+				['schedule_rev_id', 'ordinal', 'checklist_item_id'],
+				'uniq_prog_occ_item'
 			);
+			// RF-072-WP1-17: no separate occurrence index — the leftmost
+			// prefix of uniq_prog_occ_item already serves those lookups.
 			$table->addIndex(['room_task_id'], 'chk_prog_task_idx');
 		}
 

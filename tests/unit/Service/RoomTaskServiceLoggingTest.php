@@ -55,6 +55,7 @@ class RoomTaskServiceLoggingTest extends TestCase {
 				$taskAssigneeMapper,
 				$this->createMock(TaskAccessPolicy::class),
 				new \OCA\ChoreStrike\Service\CalendarService(),
+				$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
 				$this->createIdentityL10n()
 			),
 			$roomService,
@@ -66,7 +67,8 @@ class RoomTaskServiceLoggingTest extends TestCase {
 			$appLogger,
 			$this->createMock(TaskAccessPolicy::class),
 			$this->createMock(AuthorizationService::class),
-			new \OCA\ChoreStrike\Service\CalendarService()
+			new \OCA\ChoreStrike\Service\CalendarService(),
+			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class)
 		);
 	}
 

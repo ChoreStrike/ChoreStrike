@@ -221,16 +221,26 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 	 * the reactivate endpoint's job is now the undo aggregate's.
 	 */
 	public function testUndo_OnceTask_ByAssigneeChild_RestoresIsActive(): void {
-		$this->setRecurrenceOnce($this->privateTaskId);
-		$this->completeAs('lcv_assignee', $this->privateRoomTaskId);
-		self::assertSame(0, $this->fetchIsActive($this->privateRoomTaskId), 'the once completion deactivates the row');
+		// CS-PLAN-072 WP1: 'once' must be part of the INITIAL schedule
+		// inputs — converting a live recurring schedule closes+appends a
+		// revision while the already-agreed old occurrences stay completable
+		// (parent §3.3 rule 2), so the lifecycle fixture seeds the
+		// definition BEFORE the mount.
+		$onceTaskId = $this->createTask($this->houseId, 'Once Lifecycle', 'Assignee once', 3, 5);
+		$this->setTaskVisibility($onceTaskId, Task::VISIBILITY_PRIVATE, 'lcv_creator');
+		$this->setRecurrenceOnce($onceTaskId);
+		$onceRoomId = $this->createRoom($this->houseId, $this->floorId, 'Once Room');
+		$onceRoomTaskId = $this->assignTaskToRoom($onceTaskId, $onceRoomId, 'lcv_assignee');
+
+		$this->completeAs('lcv_assignee', $onceRoomTaskId);
+		self::assertSame(0, $this->fetchIsActive($onceRoomTaskId), 'the once completion deactivates the row');
 
 		$controller = $this->getController(RoomTaskController::class, 'lcv_assignee');
-		$response = $controller->undo($this->privateRoomTaskId);
+		$response = $controller->undo($onceRoomTaskId);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertTrue($response->getData()['data']['undone']);
-		self::assertSame(1, $this->fetchIsActive($this->privateRoomTaskId));
+		self::assertSame(1, $this->fetchIsActive($onceRoomTaskId));
 	}
 
 	// ========== Helpers ==========
@@ -260,11 +270,17 @@ class TaskLifecycleVisibilityApiTest extends IntegrationTestCase {
 
 	/**
 	 * Complete a room task through the real aggregate (CS-PLAN-064) so the
-	 * undo surface operates on a genuine effect record.
+	 * undo surface operates on a genuine effect record. CS-PLAN-072 WP1:
+	 * the completion carries the occurrence receipt of the current
+	 * canonical target.
 	 */
 	private function completeAs(string $userId, int $roomTaskId): void {
-		\OC::$server->get(CompletionService::class)
-			->complete($this->houseId, $userId, $roomTaskId);
+		$this->completeOccurrence(
+			\OC::$server->get(CompletionService::class),
+			$this->houseId,
+			$userId,
+			$roomTaskId
+		);
 	}
 
 	private function setRecurrenceOnce(int $taskId): void {

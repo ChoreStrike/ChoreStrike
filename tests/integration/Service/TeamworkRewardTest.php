@@ -46,7 +46,7 @@ class TeamworkRewardTest extends IntegrationTestCase {
 		$this->actingAs('team_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $completionService->complete($this->houseId, 'team_owner', $roomTaskId);
+		$result = $this->completeOccurrence($completionService, $this->houseId, 'team_owner', $roomTaskId);
 
 		self::assertSame(0, $result['rewards']['teamworkBonus']);
 	}
@@ -61,7 +61,7 @@ class TeamworkRewardTest extends IntegrationTestCase {
 		$this->actingAs('team_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $completionService->complete($this->houseId, 'team_owner', $roomTaskId);
+		$result = $this->completeOccurrence($completionService, $this->houseId, 'team_owner', $roomTaskId);
 
 		self::assertGreaterThan(0, $result['rewards']['teamworkBonus']);
 	}
@@ -78,7 +78,7 @@ class TeamworkRewardTest extends IntegrationTestCase {
 		$before = $houseUserMapper->findByNextcloudUserId($this->houseId, 'team_owner');
 		$coinsBefore = $before->getCoins();
 
-		$result = $completionService->complete($this->houseId, 'team_owner', $roomTaskId);
+		$result = $this->completeOccurrence($completionService, $this->houseId, 'team_owner', $roomTaskId);
 
 		$after = $houseUserMapper->findByNextcloudUserId($this->houseId, 'team_owner');
 		$totalEarned = $after->getCoins() - $coinsBefore;
@@ -99,7 +99,7 @@ class TeamworkRewardTest extends IntegrationTestCase {
 		$this->actingAs('team_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $completionService->complete($this->houseId, 'team_owner', $roomTaskId);
+		$result = $this->completeOccurrence($completionService, $this->houseId, 'team_owner', $roomTaskId);
 
 		self::assertGreaterThan(0, $result['rewards']['teamworkBonus']);
 	}

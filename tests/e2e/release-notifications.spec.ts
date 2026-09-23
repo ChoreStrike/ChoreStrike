@@ -41,6 +41,7 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { completeRoomTaskViaApi } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
 
 interface RoomTaskJson {
@@ -150,10 +151,7 @@ test.describe('Release: Notifications — weekly goal', () => {
 			// header) so only THIS completion's dispatch can satisfy the check.
 			await dismissWeeklyGoalNotifications(page)
 
-			const completeResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${target.id}/complete`,
-				{ headers: { Accept: 'application/json' } },
-			)
+			const completeResponse = await completeRoomTaskViaApi(page, target.id)
 			expect(completeResponse.status()).toBe(200)
 			const body = await completeResponse.json()
 			expect(body.success).toBe(true)

@@ -30,6 +30,7 @@ class TriggerJobsTest extends TestCase {
 	private TaskDueReminderService&MockObject $taskDueReminderService;
 	private StreakFreezeService&MockObject $freezeService;
 	private StreakRestockService&MockObject $restockService;
+	private \OCA\ChoreStrike\Service\OccurrenceService&MockObject $occurrenceService;
 	private ITimeFactory&MockObject $timeFactory;
 	private TriggerJobs $command;
 	private OutputInterface&MockObject $output;
@@ -42,6 +43,7 @@ class TriggerJobsTest extends TestCase {
 		$this->taskDueReminderService = $this->createMock(TaskDueReminderService::class);
 		$this->freezeService = $this->createMock(StreakFreezeService::class);
 		$this->restockService = $this->createMock(StreakRestockService::class);
+		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
 		$this->timeFactory = $this->createMock(ITimeFactory::class);
 
 		$this->command = new TriggerJobs(
@@ -50,6 +52,7 @@ class TriggerJobsTest extends TestCase {
 			$this->taskDueReminderService,
 			$this->freezeService,
 			$this->restockService,
+			$this->occurrenceService,
 			$this->timeFactory,
 		);
 
@@ -78,6 +81,7 @@ class TriggerJobsTest extends TestCase {
 			$this->taskDueReminderService,
 			$this->freezeService,
 			$this->restockService,
+			$this->occurrenceService,
 			$this->timeFactory,
 		);
 
@@ -93,6 +97,30 @@ class TriggerJobsTest extends TestCase {
 
 		$this->assertSame(TriggerJobs::FAILURE, $exitCode);
 		$this->assertStringContainsString('test mode', implode("\n", $this->outputLines));
+	}
+
+	/**
+	 * Execute_DispatchesTimelineOnly
+	 *
+	 * CS-PLAN-072 WP1: the deterministic timeline trigger delegates to the
+	 * SAME generator pass the five-minute TimelineJob runs, with the
+	 * --as-of clock substitution (here: the default clock's today).
+	 */
+	public function testExecute_DispatchesTimelineOnly(): void {
+		$this->atRiskService->expects($this->never())->method('process');
+		$this->freezeService->expects($this->never())->method('process');
+		$this->restockService->expects($this->never())->method('process');
+		$this->occurrenceService->expects($this->once())->method('reconcileHouseForJobs')
+			->with($this->callback(static fn (\DateTimeInterface $now): bool => $now->format('Y-m-d') === '2026-08-04'))
+			->willReturn(['houses' => 1, 'tasks' => 3, 'materialized' => 2]);
+
+		$exitCode = $this->command->run(
+			$this->makeInput('timeline'),
+			$this->output
+		);
+
+		$this->assertSame(TriggerJobs::SUCCESS, $exitCode);
+		$this->assertStringContainsString('houses=1', implode("\n", $this->outputLines));
 	}
 
 	/**
@@ -142,6 +170,8 @@ class TriggerJobsTest extends TestCase {
 		$this->atRiskService->expects($this->never())->method('process');
 		$this->freezeService->expects($this->once())->method('process')
 			->willReturn(['processed' => 0, 'frozen' => 0, 'reset' => 0, 'skippedUnavailable' => 0, 'errors' => 0]);
+		$this->occurrenceService->method('reconcileHouseForJobs')
+			->willReturn(['houses' => 1, 'tasks' => 0, 'materialized' => 0]);
 		$this->restockService->expects($this->never())->method('process');
 
 		$exitCode = $this->command->run(
@@ -227,6 +257,8 @@ class TriggerJobsTest extends TestCase {
 				return $yesterday->format('Y-m-d') === '2026-08-03';
 			}))
 			->willReturn(['processed' => 0, 'frozen' => 0, 'reset' => 0, 'skippedUnavailable' => 0, 'errors' => 0]);
+		$this->occurrenceService->method('reconcileHouseForJobs')
+			->willReturn(['houses' => 1, 'tasks' => 0, 'materialized' => 0]);
 
 		$this->command->run(
 			$this->makeInput('all'),
@@ -257,6 +289,8 @@ class TriggerJobsTest extends TestCase {
 				return $yesterday->format('Y-m-d') === '2026-08-09';
 			}))
 			->willReturn(['processed' => 0, 'frozen' => 0, 'reset' => 0, 'skippedUnavailable' => 0, 'errors' => 0]);
+		$this->occurrenceService->method('reconcileHouseForJobs')
+			->willReturn(['houses' => 1, 'tasks' => 0, 'materialized' => 0]);
 
 		$exitCode = $this->command->run(
 			$this->makeInput('all', ['as-of' => '2026-08-10']),
@@ -290,6 +324,8 @@ class TriggerJobsTest extends TestCase {
 	public function testExecute_UserOptionLogsNoticeAndRunsFullPass(): void {
 		$this->freezeService->expects($this->once())->method('process')
 			->willReturn(['processed' => 0, 'frozen' => 0, 'reset' => 0, 'skippedUnavailable' => 0, 'errors' => 0]);
+		$this->occurrenceService->method('reconcileHouseForJobs')
+			->willReturn(['houses' => 1, 'tasks' => 0, 'materialized' => 0]);
 
 		$exitCode = $this->command->run(
 			$this->makeInput('streak-freeze', ['user' => 'mom']),

@@ -16,6 +16,12 @@ use OCP\AppFramework\Db\Entity;
  * @method void setId(int $id)
  * @method int getRoomTaskId()
  * @method void setRoomTaskId(int $roomTaskId)
+ * @method int getScheduleRevId()
+ * @method void setScheduleRevId(int $scheduleRevId)
+ * @method int getOrdinal()
+ * @method void setOrdinal(int $ordinal)
+ * @method int getRevision()
+ * @method void setRevision(int $revision)
  * @method int getChecklistItemId()
  * @method void setChecklistItemId(int $checklistItemId)
  * @method bool getIsChecked()
@@ -28,6 +34,21 @@ use OCP\AppFramework\Db\Entity;
 class RoomTaskChecklistProgress extends Entity implements JsonSerializable {
 	/** @var int */
 	protected $roomTaskId;
+
+	/**
+	 * Occurrence identity (CS-PLAN-072 WP1): the public
+	 * `<scheduleRevisionId>:<ordinal>` key parts whose progress this row
+	 * holds — progress is occurrence-scoped, never room-task-wide.
+	 *
+	 * @var int
+	 */
+	protected $scheduleRevId = 0;
+
+	/** @var int */
+	protected $ordinal = 0;
+
+	/** @var int Progress revision for stale-mutation detection. */
+	protected $revision = 0;
 
 	/** @var int */
 	protected $checklistItemId;
@@ -44,10 +65,20 @@ class RoomTaskChecklistProgress extends Entity implements JsonSerializable {
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('roomTaskId', 'integer');
+		$this->addType('scheduleRevId', 'integer');
+		$this->addType('ordinal', 'integer');
+		$this->addType('revision', 'integer');
 		$this->addType('checklistItemId', 'integer');
 		$this->addType('isChecked', 'boolean');
 		$this->addType('checkedAt', 'datetime');
 		$this->addType('checkedByUserId', 'integer');
+	}
+
+	/**
+	 * The occurrence public key this row belongs to.
+	 */
+	public function occurrenceKey(): string {
+		return $this->scheduleRevId . ':' . $this->ordinal;
 	}
 
 	/**
@@ -57,11 +88,12 @@ class RoomTaskChecklistProgress extends Entity implements JsonSerializable {
 		return [
 			'id' => $this->id,
 			'roomTaskId' => $this->roomTaskId,
+			'occurrenceId' => $this->occurrenceKey(),
+			'revision' => $this->revision,
 			'checklistItemId' => $this->checklistItemId,
 			'isChecked' => $this->isChecked,
 			'checkedAt' => $this->checkedAt?->format('c'),
 			'checkedByUserId' => $this->checkedByUserId,
 		];
 	}
-
 }

@@ -32,29 +32,34 @@ use OCA\ChoreStrike\Tests\Integration\Support\QueryCounter;
  *   the batched assignee fetch it performs. CONSTANT in the row count —
  *   Q(100) = Q(10) within one chunk (no N+1, D2).
  * - Empty set: exactly 1 query — the mapper fetch; NO enrichment query.
- * - updateDueDate: 11 observed statements — gate reads (room task,
+ * - updateDueDate: 19 observed statements — gate reads (room task,
  *   definition, assignees) plus the owning-house resolution for the
  *   house-first lock (room → floor → house, CS-PLAN-071), BEGIN, the house
- *   FOR UPDATE, the room-task FOR UPDATE, UPDATE, the locked fresh read
- *   that becomes the response, COMMIT. The former after-commit re-fetch is
- *   GONE (§3.3) — proven statement-order-wise: nothing runs after COMMIT.
- * - complete(): ≤ 28 observed statements for the whole aggregate —
- *   occurrence gates, the house-first locked entity reads (house →
- *   room_task → room → house_user, CS-PLAN-071 — supersedes the ADR-011
- *   entry order) plus the reward phase findForUpdate, the checklist reads,
- *   the reward window fetch, transaction control, and the single ledger
- *   INSERT, plus the guarded post-commit weekly-goal cluster. Per-class
- *   rule: at most two enrichment reads, exactly one ledger insert with a
- *   complete effect record (D1).
- * - undo(): ≤ 33 observed statements — same house-first gate/lock structure
- *   plus the effect-record restore (ledger read, checklist rewrite),
+ *   FOR UPDATE, the room-task FOR UPDATE, the AGREEMENT-writer tail
+ *   (CS-PLAN-072 WP1: timeline read, occurrence amendment, agreement
+ *   evidence insert, projection update), COMMIT and exactly ONE
+ *   authoritative after-commit re-read that becomes the response.
+ * - complete(): ≤ 45 observed statements for the whole aggregate —
+ *   the receipt resolution (timeline reads + selection), the command
+ *   receipt read/insert, occurrence gates, the house-first locked entity
+ *   reads (house → room_task → room → house_user, CS-PLAN-071 —
+ *   supersedes the ADR-011 entry order) plus the reward phase
+ *   findForUpdate, the checklist reads, the reward window fetch,
+ *   transaction control, the single ledger INSERT, the timeline effects
+ *   (fulfill, catch-up cover, successor anchor, projection) and the
+ *   guarded post-commit weekly-goal cluster + response selection block.
+ *   Per-class rule: at most two enrichment reads, exactly one ledger
+ *   insert with a complete effect record (D1).
+ * - undo(): ≤ 36 observed statements — same house-first gate/lock structure
+ *   plus the effect-record restore (ledger read), the timeline release
+ *   (occurrence reopen, successor deletion, projection re-derivation),
  *   transaction control and the post-commit weekly-goal read.
  */
 class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	private const HOUSE_READ_BUDGET = 3;
-	private const UPDATE_DUE_DATE_BUDGET = 11;
-	private const COMPLETE_BUDGET = 28;
-	private const UNDO_BUDGET = 33;
+	private const UPDATE_DUE_DATE_BUDGET = 19;
+	private const COMPLETE_BUDGET = 45;
+	private const UNDO_BUDGET = 36;
 
 	/**
 	 * HouseWideRead_ConstantQueryCount_10vs100Rows
@@ -138,12 +143,14 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * UpdateDueDate_WritesUnderLock_NoPostCommitRefetch
+	 * UpdateDueDate_WritesUnderLock_SingleAuthoritativeReread
 	 *
-	 * CS-PLAN-067 §3.3: the response entity is produced INSIDE the
-	 * transaction (locked fresh read); the after-commit re-fetch is gone.
+	 * CS-PLAN-067 §3.3 + CS-PLAN-072 WP1: the due-date edit writes under
+	 * the house-first lock through the agreement writer (occurrence
+	 * amendment + evidence + projection); the response is ONE authoritative
+	 * after-commit re-read of the persisted row — no other query follows.
 	 */
-	public function testUpdateDueDate_WritesUnderLock_NoPostCommitRefetch(): void {
+	public function testUpdateDueDate_WritesUnderLock_SingleAuthoritativeReread(): void {
 		$ownerId = 'wqb_due_owner';
 		$this->actingAs($ownerId);
 		$houseId = $this->createHouse($ownerId, 'WQB Due');
@@ -167,7 +174,9 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		}
 
 		// Response state equality: the returned entity carries the new date.
-		$expectedDue = (new \DateTime('+3 days'))->format('Y-m-d H:i:s');
+		// CS-PLAN-072 WP1: next_due is the derived projection of the amended
+		// occurrence — the house-local day start, not the parsed instant.
+		$expectedDue = (new \DateTime('+3 days'))->format('Y-m-d') . ' 00:00:00';
 		self::assertSame(
 			$expectedDue,
 			$response->getNextDue()?->format('Y-m-d H:i:s'),
@@ -183,28 +192,31 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 
 		// The frozen budget: gate reads (room task, definition, assignees) +
 		// the owning-house resolution (room → floor → house, CS-PLAN-071) +
-		// BEGIN + house FOR UPDATE + room-task FOR UPDATE + UPDATE + locked
-		// fresh read + COMMIT. The counter observes transaction-control
-		// statements too, hence 11.
+		// BEGIN + house FOR UPDATE + room-task FOR UPDATE + the agreement
+		// writer (timeline read, occurrence amendment, agreement evidence,
+		// projection refresh) + COMMIT + the single authoritative re-read.
+		// The counter observes transaction-control statements too, hence 19.
 		self::assertLessThanOrEqual(self::UPDATE_DUE_DATE_BUDGET, $count, implode("\n", $counter->sqlStatements()));
 
-		// The after-commit re-fetch is GONE: the transaction ends with the
-		// lock read, the UPDATE and the fresh locked read that becomes the
-		// response — and NOTHING follows COMMIT.
+		// CS-PLAN-072 WP1: the transaction ends with the occurrence reload
+		// and the derived-projection update; exactly ONE authoritative
+		// re-read follows COMMIT (the response entity) — nothing else.
+		// RF-072-WP1-09: the projection refresh follows ONE indexed row
+		// query (the earliest open scheduled occurrence), not a full
+		// occurrence-history load.
 		$statements = $counter->sqlStatements();
 		$commitIndex = array_search('"COMMIT"', $statements, true);
 		self::assertNotFalse($commitIndex, 'the transaction committed');
-		$transactionTail = array_slice($statements, $commitIndex - 3, 3);
+		$transactionTail = array_slice($statements, $commitIndex - 2, 2);
 		self::assertSame(
 			[
-				'SELECT * FROM oc_chorestrike_room_tasks WHERE id = :id FOR UPDATE',
-				'UPDATE `oc_chorestrike_room_tasks` SET `next_due` = :dcValue1 WHERE `id` = :dcValue2',
-				'SELECT * FROM `oc_chorestrike_room_tasks` WHERE `id` = :dcValue1',
+				'SELECT * FROM `oc_chorestrike_occurrences` WHERE (`room_task_id` = :dcValue1) AND (`completion_id` IS NULL) AND (`covered_by_completion_id` IS NULL) AND (`kind` = :dcValue2) ORDER BY `day_start` ASC, `schedule_rev_id` ASC, `ordinal` ASC LIMIT 1',
+				'UPDATE `oc_chorestrike_room_tasks` SET `next_due` = :dcValue1, `ideal_due_date` = :dcValue2 WHERE `id` = :dcValue3',
 			],
 			$transactionTail,
-			'the transaction ends lock → update → fresh read; the response entity is read under the lock'
+			'the transaction ends with the timeline reload and the projection update'
 		);
-		self::assertCount($commitIndex + 1, $statements, 'no query runs after commit — the former re-fetch is removed');
+		self::assertCount($commitIndex + 2, $statements, 'exactly one authoritative re-read runs after commit');
 		// CS-PLAN-071: house lock first, then the room-task lock.
 		self::assertSame(2, $lockSelects, 'exactly two FOR UPDATE lock selects (house → room task)');
 	}
@@ -237,7 +249,7 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		$counter = QueryCounter::attach($this->db);
 		try {
 			$counter->mark();
-			$result = $completion->complete($houseId, $ownerId, $roomTaskId);
+			$result = $this->completeOccurrence($completion, $houseId, $ownerId, $roomTaskId);
 			$count = $counter->count();
 			$lockSelects = $counter->countLockSelects();
 		} finally {
@@ -279,7 +291,7 @@ class WorkflowQueryBudgetTest extends IntegrationTestCase {
 		$this->pinWeeklyGoalClaimAsDone($houseId);
 
 		$completion = \OC::$server->get(CompletionService::class);
-		$completion->complete($houseId, $ownerId, $roomTaskId);
+		$this->completeOccurrence($completion, $houseId, $ownerId, $roomTaskId);
 
 		$actor = \OC::$server->get(HouseUserMapper::class)->findByNextcloudUserId($houseId, $ownerId);
 		$coinsAfterCompletion = $actor->getCoins();

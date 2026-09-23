@@ -21,6 +21,8 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { completeRoomTaskViaApi } from './fixtures/completion-api'
+import { houseDateOffset } from './fixtures/house-clock.js'
 import type { Page } from '@playwright/test'
 
 test.describe('Teamwork Rewards', () => {
@@ -42,6 +44,9 @@ test.describe('Teamwork Rewards', () => {
 			data: {
 				roomId,
 				assigneeUserIds: assignees,
+				// CS-PLAN-072 WP1: due TODAY (the creation default is tomorrow)
+				// so the occurrence window is open and the target is completable.
+				nextDue: houseDateOffset(0, 'UTC'),
 				task: {
 					name,
 					energyCost: 2,
@@ -86,9 +91,7 @@ test.describe('Teamwork Rewards', () => {
 			expect(assignResponse.status()).toBe(200)
 			expect(await assignResponse.json()).toEqual({ success: true, data: ['mom', 'dad'] })
 
-			const completeResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`,
-			)
+			const completeResponse = await completeRoomTaskViaApi(page, roomTaskId)
 
 			expect(completeResponse.status()).toBe(200)
 			const body = await completeResponse.json()
@@ -105,9 +108,7 @@ test.describe('Teamwork Rewards', () => {
 		try {
 			const roomTaskId = await createProbeTask(page, `Solo Task ${Date.now()}`, ['mom'])
 
-			const completeResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`,
-			)
+			const completeResponse = await completeRoomTaskViaApi(page, roomTaskId)
 
 			expect(completeResponse.status()).toBe(200)
 			const body = await completeResponse.json()

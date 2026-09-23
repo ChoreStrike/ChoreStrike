@@ -1,4 +1,4 @@
-﻿# ADR-003: Task Scope System (Beyond Rooms)
+# ADR-003: Task Scope System (Beyond Rooms)
 
 **Status**: Accepted (historical) — see the scope annotation below
 **Date**: 2026-02-24

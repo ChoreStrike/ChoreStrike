@@ -83,7 +83,9 @@ class TestDataServiceTest extends TestCase {
 			$this->taskMapper,
 			$this->roomTaskMapper,
 			$this->taskAssigneeMapper,
-			$this->walletMapper
+			$this->walletMapper,
+			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			new \OCA\ChoreStrike\Service\CalendarService()
 		);
 	}
 

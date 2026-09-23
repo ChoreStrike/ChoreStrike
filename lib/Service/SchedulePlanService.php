@@ -70,6 +70,7 @@ class SchedulePlanService {
 	private HouseUserMapper $houseUserMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private CompletedTaskMapper $completedTaskMapper;
+	private OccurrenceService $occurrenceService;
 	private TransactionExecutor $transactions;
 	private CalendarService $calendarService;
 	private TaskAccessPolicy $taskAccessPolicy;
@@ -83,6 +84,7 @@ class SchedulePlanService {
 		HouseUserMapper $houseUserMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
 		CompletedTaskMapper $completedTaskMapper,
+		OccurrenceService $occurrenceService,
 		TransactionExecutor $transactions,
 		CalendarService $calendarService,
 		TaskAccessPolicy $taskAccessPolicy,
@@ -95,6 +97,7 @@ class SchedulePlanService {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
+		$this->occurrenceService = $occurrenceService;
 		$this->transactions = $transactions;
 		$this->calendarService = $calendarService;
 		$this->taskAccessPolicy = $taskAccessPolicy;
@@ -217,26 +220,50 @@ class SchedulePlanService {
 			);
 
 			if ($changedIds !== []) {
-				// Persist due dates first (ascending), then the assignee
-				// replacements — the documented assignee-writes tail.
-				$tz = $this->timeZoneOf($houseId);
+				// CS-PLAN-072 WP1 (Q-072-01): the planner persists through
+				// the common agreement writers — due dates amend the target
+				// occurrence (identity retained, deadline/C2h checks
+				// enforced, agreement evidence recorded), assignees become
+				// the revision's default participant snapshot plus amended
+				// occurrence members. No path writes planning state outside
+				// an agreement anymore.
+				$now = new \DateTime();
+				$house = $this->houseMapper->find($houseId);
 				sort($changedIds);
 				foreach ($changedIds as $roomTaskId) {
 					$change = $this->findRowById($plan['response']['changes'], $roomTaskId);
 					$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
-					// House-local day label → its true UTC midnight instant
-					// (RF-058-01): tagging the label at 00:00 UTC would land
-					// one local day early for houses west of UTC.
-					$roomTask->setNextDue($this->calendarService->dayStartInstant($change['proposed']['dueDate'], $tz));
-					// idealDueDate stays the recurrence's own ideal; the
-					// scheduled move lives within its legal window (ADR-012).
-					$this->roomTaskMapper->update($roomTask);
+					if ($change['before']['dueDate'] !== $change['proposed']['dueDate']) {
+						$this->occurrenceService->amendOccurrenceDateUnderLock(
+							$roomTask,
+							(int)$freshActor->getId(),
+							null,
+							$change['proposed']['dueDate'],
+							$now
+						);
+					}
 				}
 				foreach ($changedIds as $roomTaskId) {
 					$change = $this->findRowById($plan['response']['changes'], $roomTaskId);
+					$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
 					$this->taskAssigneeMapper->deleteByRoomTask($roomTaskId);
 					foreach ($change['proposed']['assignees'] as $assigneeUserId) {
 						$this->taskAssigneeMapper->addAssignee($roomTaskId, $assigneeUserId, $freshActor->getNextcloudUserId());
+					}
+					try {
+						$task = $this->taskMapper->find($roomTask->getTaskId());
+						$this->occurrenceService->amendParticipantsUnderLock(
+							$houseId,
+							$roomTask,
+							$task,
+							$house,
+							(int)$freshActor->getId(),
+							$change['proposed']['assignees'],
+							$now
+						);
+					} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
+						// Orphaned definition — the join-table write above
+						// remains the authority for this tombstone-bound row.
 					}
 				}
 			}
@@ -587,10 +614,14 @@ class SchedulePlanService {
 	}
 
 	/**
-	 * Baseline per-member/day planned effort and task counts: projected
-	 * occurrences of every active house task in the window (full effort per
-	 * assignee, D6; unassigned work tracked at house level) plus non-undone
-	 * completion effort.
+	 * Baseline per-member/day planned effort and task counts: AGREED
+	 * unfulfilled occurrences and frontier projections of every active
+	 * house task in the window — the SAME occurrence enumeration the
+	 * calendar/execution reads consume (RF-072-WP1-12: no second
+	 * recurrence engine beside the agreement writer) — plus non-undone
+	 * completion effort (decision D11). Fulfilled occurrences are not
+	 * counted as planned load; their effort enters through the completion
+	 * ledger below.
 	 *
 	 * @return array{0: array<string, array<string, int>>, 1: array<string, array<string, int>>}
 	 */
@@ -598,8 +629,9 @@ class SchedulePlanService {
 		$tz = $this->calendarService->getTimeZone($house);
 		$windowSet = array_fill_keys($window, true);
 		$fromBound = (new \DateTime($window[0] . ' 00:00:00', $tz))->setTimezone(new \DateTimeZone('UTC'));
-		$toDay = $this->dayKeyOffset($window[0], self::WINDOW_DAYS - 1);
-		$toBound = (new \DateTime($toDay . ' 23:59:59', $tz))->setTimezone(new \DateTimeZone('UTC'));
+		$fromKey = $window[0];
+		$toKey = $this->dayKeyOffset($window[0], self::WINDOW_DAYS - 1);
+		$toBound = (new \DateTime($toKey . ' 23:59:59', $tz))->setTimezone(new \DateTimeZone('UTC'));
 
 		$planned = [];
 		$counts = [];
@@ -612,30 +644,37 @@ class SchedulePlanService {
 		))));
 		$baseAssignees = $this->taskAssigneeMapper->findUserIdsByRoomTasks($baseIds);
 
+		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $baseRows, $fromKey, $toKey);
 		foreach ($baseRows as $row) {
 			$task = $baseTasks[$row->getTaskId()] ?? null;
 			if ($task === null) {
 				continue;
 			}
 			$energy = (int)$task->getEnergyCost();
-			$occurrences = $row->projectOccurrences(
-				$fromBound,
-				$toBound,
-				$task->getFrequencyType(),
-				$task->getFrequencyValue(),
-				$task->getRecurrenceMode(),
-				$task->getSchedulingMode(),
-				$task->getFixedScheduleDays(),
-				$task->getActiveUntil(),
-				$tz,
-			);
-			foreach ($occurrences as $occurrence) {
-				$dayKey = $this->calendarService->dayKey($occurrence, $tz);
-				if (!isset($windowSet[$dayKey])) {
+			$assignees = self::sortedStrings($baseAssignees[$row->getId()] ?? []);
+			if ($assignees === []) {
+				continue;
+			}
+
+			$dayKeys = [];
+			foreach ($agreedByTask[$row->getId()] ?? [] as $entry) {
+				$occurrence = $entry['occurrence'];
+				if ($occurrence->getCompletionId() !== null || $occurrence->getCoveredByCompletionId() !== null) {
 					continue;
 				}
-				$assignees = self::sortedStrings($baseAssignees[$row->getId()] ?? []);
-				if ($assignees === []) {
+				if ($occurrence->getKind() !== \OCA\ChoreStrike\Db\Occurrence::KIND_SCHEDULED) {
+					continue;
+				}
+				$dayKeys[] = $occurrence->getPlannedDate()->format('Y-m-d');
+			}
+			// Write-free projections beyond the frontier (same source the
+			// calendar range read uses).
+			foreach ($this->occurrenceService->projectionsForTask($row, $fromKey, $toKey) as $projection) {
+				$dayKeys[] = $projection['date'];
+			}
+
+			foreach (array_unique($dayKeys) as $dayKey) {
+				if (!isset($windowSet[$dayKey])) {
 					continue;
 				}
 				foreach ($assignees as $userId) {

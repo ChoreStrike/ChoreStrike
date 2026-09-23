@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Command;
 
+use OCA\ChoreStrike\Service\OccurrenceService;
 use OCA\ChoreStrike\Service\StreakAtRiskService;
 use OCA\ChoreStrike\Service\StreakFreezeService;
 use OCA\ChoreStrike\Service\StreakRestockService;
@@ -34,6 +35,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  *   php occ chorestrike:trigger-jobs streak-freeze --as-of=2026-08-05
  *   php occ chorestrike:trigger-jobs daily-notification
  *   php occ chorestrike:trigger-jobs streak-restock
+ *   php occ chorestrike:trigger-jobs timeline --as-of=2026-09-21
  *   php occ chorestrike:trigger-jobs all
  *
  * Guarded by TestDataService::isTestMode() like TestDataSeed — refuses to
@@ -46,7 +48,7 @@ class TriggerJobs extends Command {
 	 * which the freeze pass can reset (deterministic resolution of the
 	 * 06:00 ordering race documented in appinfo/info.xml).
 	 */
-	public const TYPES = ['daily-notification', 'streak-freeze', 'streak-restock', 'all'];
+	public const TYPES = ['daily-notification', 'streak-freeze', 'streak-restock', 'timeline', 'all'];
 
 	public function __construct(
 		private TestDataService $testDataService,
@@ -54,6 +56,7 @@ class TriggerJobs extends Command {
 		private TaskDueReminderService $taskDueReminderService,
 		private StreakFreezeService $freezeService,
 		private StreakRestockService $restockService,
+		private OccurrenceService $occurrenceService,
 		private ITimeFactory $time,
 	) {
 		parent::__construct();
@@ -119,6 +122,12 @@ class TriggerJobs extends Command {
 		}
 		if ($type === 'streak-restock' || $type === 'all') {
 			$results['streak-restock'] = $this->restockService->process();
+		}
+		if ($type === 'timeline' || $type === 'all') {
+			// Deterministic timeline trigger (CS-PLAN-072 WP1): the same
+			// generator pass the five-minute TimelineJob runs, with the
+			// --as-of clock substitution.
+			$results['timeline'] = $this->occurrenceService->reconcileHouseForJobs($today);
 		}
 
 		foreach ($results as $name => $stats) {

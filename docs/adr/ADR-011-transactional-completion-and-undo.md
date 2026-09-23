@@ -16,6 +16,20 @@
 > distinguishes the target from this history. Its exact schema/lock/API design
 > awaits review and implementation; this note does not claim those changes ship.
 
+> **Occurrence-timeline amendment (2026-09-20, CS-PLAN-072 WP1 / ADR-013):**
+> completion and undo now run on the durable occurrence timeline. Completion is
+> a closed-set receipt command (`commandId`, `occurrenceId`, `expectedVersion`,
+> `selectionToken`) that fulfills exactly the shown occurrence; the person/day
+> duplicate guard is removed (occurrence validity replaces it) and a replayed
+> `commandId` returns the original identity with `replay: true` and no repeated
+> post-commit effects. Undo marks the ledger row undone, then releases the
+> occurrence (reopen + successor deletion + reactivation via open obligation).
+> The effect-record restore **no longer** writes `next_due`, `ideal_due_date`,
+> `last_completed`, `is_active` or the checklist - the timeline re-derives those
+> projections, so undo can no longer re-introduce stale recurrence state over
+> newer facts. The room/house_user reward restore and the D1 effect record are
+> unchanged.
+
 The masterplan mandates that "completion and undo become exact, idempotent state
 transitions" (CS-PLAN-058 §3/WP5). Before WP5 the live tree could not satisfy
 this:

@@ -16,6 +16,24 @@ import { useUserStore } from './user.js'
 import { useMinigameStore } from './minigame.js'
 import { useTitlesStore } from './titles.js'
 
+/**
+ * Generate a client idempotency UUID (CS-PLAN-072 WP1): one fresh UUID
+ * per logical completion command. Crypto RNG when available, otherwise a
+ * RFC 4122 v4 fallback.
+ * @return {string} Canonical lowercase UUID.
+ */
+function generateCommandId() {
+	const webCrypto = globalThis.crypto
+	if (webCrypto && typeof webCrypto.randomUUID === 'function') {
+		return webCrypto.randomUUID()
+	}
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+		const random = Math.random() * 16 | 0
+		const value = char === 'x' ? random : (random & 0x3 | 0x8)
+		return value.toString(16)
+	})
+}
+
 export const useRoomTasksStore = defineStore('roomTasks', {
 	state: () => ({
 		roomTasks: [],
@@ -62,6 +80,13 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		// §3.3): a finishing request may only clear the shared loading state
 		// when it is the LAST in-flight one.
 		pendingReads: 0,
+		// CS-PLAN-072 WP1 (RF-072-WP1-07): pending completion commands keyed
+		// by `<roomTaskId>:<occurrenceId>:<expectedVersion>` → commandId.
+		// An uncertain-response retry (network failure, 5xx) reuses the SAME
+		// command UUID so the server replays the original receipt instead of
+		// conflicting on a new command against the fulfilled target. The
+		// entry clears on a definitive response (success or 4xx).
+		pendingCommands: {},
 	}),
 
 	getters: {
@@ -386,14 +411,16 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 		},
 
 		/**
-		 * Complete room task — the one transactional aggregate request
-		 * (CS-PLAN-064 WP5). The effect record (before-state + deltas) is
-		 * written server-side; the response reconciles every owning store
-		 * BEFORE any celebration event is emitted (decision D10), so event
-		 * consumers never observe stale caches. Derived projections are
-		 * refreshed through the coordinated D3 owner afterwards — a refresh
-		 * failure leaves the committed completion successful, marks the
-		 * affected projections stale and offers a refresh-only retry.
+		 * Complete the SHOWN occurrence of a room task (CS-PLAN-072 WP1):
+		 * one transactional aggregate carrying the occurrence receipt
+		 * contract — `commandId` (fresh client UUID per logical command),
+		 * `occurrenceId`, `expectedVersion` and `selectionToken` resolved
+		 * from the cached row's occurrence block. The server owns work
+		 * time and target effort; a 409 means the shown target moved on —
+		 * derived projections are refreshed so the next attempt uses the
+		 * current target. The response reconciles every owning store
+		 * BEFORE any celebration event is emitted (decision D10), and
+		 * replays (`replay: true`) reconcile without repeating effects.
 		 * @param {number} roomTaskId Room task identifier to complete.
 		 * @return {Promise<object>} The completion aggregate
 		 */
@@ -402,59 +429,133 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.error = null
 
 			try {
-				const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/complete`)
-
-				this.reconcileCompletionPayload(roomTaskId, data)
-
-				const rewards = data.rewards
-				emit('chorestrike:task-completed', {
-					roomTaskId,
-					coins: rewards?.coins,
-					isCombo: rewards?.isCombo,
-					currentStreak: rewards?.currentStreak,
-					streakFreezeUsed: rewards?.streakFreezeUsed,
-					streakFreezesRemaining: rewards?.streakFreezesRemaining,
-					comboBonusFreeze: rewards?.comboBonusFreeze,
-					contributionScore: rewards?.contributionScore,
-				})
-
-				if (rewards?.streakFreezeUsed) {
-					emit('chorestrike:streak-freeze-used', {
-						remaining: rewards.streakFreezesRemaining,
-					})
+				const target = this._completionTargetFor(roomTaskId)
+				if (!target) {
+					const error = new Error('The task changed since it was displayed. Reload and try again.')
+					error.code = 'STALE_TARGET'
+					throw error
 				}
 
-				// CS-PLAN-066 §3.4: the computed unlock reaches the existing
-				// event exactly once per successful completion response —
-				// after the titles store was invalidated so consumers never
-				// read a stale unlock set, and independent of any post-commit
-				// notification failure server-side (rewards.newTitle is
-				// explicit and nullable). A failed titles re-sync is a stale
-				// optional read, never a completion failure (D3): the event
-				// still fires, the titles store reconciles on its next fetch.
-				if (rewards?.newTitle) {
-					try {
-						await useTitlesStore().invalidate()
-					} catch (titlesError) {
-						logger.warn('Titles re-sync after unlock failed; store stays stale until next fetch', titlesError, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
+				// RF-072-WP1-07: one logical command per shown target — a
+				// retry of the same (roomTaskId, occurrenceId, expectedVersion)
+				// reuses the pending command UUID so an uncertain first
+				// response replays the original receipt instead of 409ing on
+				// a new command against the now-fulfilled target.
+				const commandKey = `${roomTaskId}:${target.occurrenceId}:${target.expectedVersion}`
+				let commandId = this.pendingCommands[commandKey]
+				if (!commandId) {
+					commandId = generateCommandId()
+					this.pendingCommands[commandKey] = commandId
+				}
+
+				try {
+					const data = await api.post(`/api/v1/room-tasks/${roomTaskId}/complete`, {
+						commandId,
+						occurrenceId: target.occurrenceId,
+						expectedVersion: target.expectedVersion,
+						selectionToken: target.selectionToken,
+					})
+
+					delete this.pendingCommands[commandKey]
+
+					this.reconcileCompletionPayload(roomTaskId, data)
+
+					const rewards = data.rewards
+					emit('chorestrike:task-completed', {
+						roomTaskId,
+						coins: rewards?.coins,
+						isCombo: rewards?.isCombo,
+						currentStreak: rewards?.currentStreak,
+						streakFreezeUsed: rewards?.streakFreezeUsed,
+						streakFreezesRemaining: rewards?.streakFreezesRemaining,
+						comboBonusFreeze: rewards?.comboBonusFreeze,
+						contributionScore: rewards?.contributionScore,
+					})
+
+					if (rewards?.streakFreezeUsed) {
+						emit('chorestrike:streak-freeze-used', {
+							remaining: rewards.streakFreezesRemaining,
+						})
 					}
-					emit('chorestrike:title-unlocked', {
-						pack: rewards.newTitle.pack,
-						labelKey: rewards.newTitle.labelKey,
-						tierIndex: rewards.newTitle.tierIndex,
-					})
+
+					// CS-PLAN-066 §3.4: the computed unlock reaches the existing
+					// event exactly once per successful completion response —
+					// after the titles store was invalidated so consumers never
+					// read a stale unlock set, and independent of any post-commit
+					// notification failure server-side (rewards.newTitle is
+					// explicit and nullable). A failed titles re-sync is a stale
+					// optional read, never a completion failure (D3): the event
+					// still fires, the titles store reconciles on its next fetch.
+					if (rewards?.newTitle) {
+						try {
+							await useTitlesStore().invalidate()
+						} catch (titlesError) {
+							logger.warn('Titles re-sync after unlock failed; store stays stale until next fetch', titlesError, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
+						}
+						emit('chorestrike:title-unlocked', {
+							pack: rewards.newTitle.pack,
+							labelKey: rewards.newTitle.labelKey,
+							tierIndex: rewards.newTitle.tierIndex,
+						})
+					}
+
+					this.refreshDerivedProjections()
+
+					return data
+				} catch (error) {
+					// Definitive responses (any real HTTP status < 500) close the
+					// command: the target moved on (409) or the request was
+					// rejected, so the next attempt carries fresh inputs and a
+					// NEW command UUID. An UNCERTAIN failure — no response at all
+					// or a 5xx, where the server may still have committed —
+					// KEEPS the pending UUID so the retry replays the original
+					// receipt (RF-072-WP1-07).
+					if (error?.status === undefined || error?.status >= 500) {
+						logger.warn('Completion command stays pending for retry', error, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId, commandKey })
+					} else {
+						delete this.pendingCommands[commandKey]
+					}
+					throw error
 				}
-
-				this.refreshDerivedProjections()
-
-				return data
 			} catch (error) {
 				this.error = error.message
 				logger.error('Failed to complete room task', error, { store: 'roomTasks', action: 'completeRoomTask', roomTaskId })
+				// A 409 (stale selection/version/target) means the shown
+				// target is gone: refresh the derived projections so the
+				// next attempt carries the current target.
+				if (error?.status === 409) {
+					this.refreshDerivedProjections()
+				}
 				throw error
 			} finally {
 				this._endRead()
 			}
+		},
+
+		/**
+		 * Resolve the shown completion target of a room task from any
+		 * cached slice (CS-PLAN-072 WP1): the row's `occurrence` block
+		 * carrying the public occurrence key, expected version and
+		 * selection token. Returns null when no occurrence target is
+		 * cached (stale UI state — caller surfaces a reload hint).
+		 * @param {number} roomTaskId Room task identifier.
+		 * @return {?object} `{ occurrenceId, expectedVersion, selectionToken }`
+		 */
+		_completionTargetFor(roomTaskId) {
+			const sources = [
+				this.dailyTasks,
+				this.dueTodayTasks,
+				this.overdueTasks,
+				this.roomTasks,
+			]
+			for (const slice of sources) {
+				const row = slice.find(item => (item.roomTask?.id ?? item.id) === roomTaskId)
+				const occurrence = row?.occurrence ?? row?.roomTask?.occurrence
+				if (occurrence?.occurrenceId && occurrence?.selectionToken) {
+					return occurrence
+				}
+			}
+			return null
 		},
 
 		/**
@@ -537,6 +638,14 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 				useRoomsStore().reconcileRoom(data.room)
 			}
 
+			// CS-PLAN-072 WP1: the fresh selection target rides along the
+			// completion/undo response — update every cached row's
+			// occurrence block so an immediate follow-up attempt carries
+			// the CURRENT target instead of the fulfilled one.
+			if ('occurrence' in data) {
+				this._replaceOccurrenceInState(roomTaskId, data.occurrence)
+			}
+
 			const rewards = data.rewards
 			if (rewards) {
 				if (rewards.weeklyGoal) {
@@ -589,6 +698,33 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 					this[slice][sliceIndex] = {
 						...this[slice][sliceIndex],
 						roomTask,
+					}
+				}
+			}
+		},
+
+		/**
+		 * Replace the occurrence block of a room task in every cached
+		 * slice (CS-PLAN-072 WP1): completion/undo responses carry the
+		 * fresh canonical target; flat roomTask rows carry their block
+		 * inside the roomTask entity.
+		 * @param {number} roomTaskId Room task identifier.
+		 * @param {?object} occurrence Fresh occurrence block (nullable).
+		 */
+		_replaceOccurrenceInState(roomTaskId, occurrence) {
+			const index = this.roomTasks.findIndex(rt => rt.id === roomTaskId)
+			if (index >= 0) {
+				this.roomTasks[index] = {
+					...this.roomTasks[index],
+					occurrence: occurrence ?? null,
+				}
+			}
+			for (const slice of ['dailyTasks', 'dueTodayTasks', 'overdueTasks']) {
+				const sliceIndex = this[slice].findIndex(item => item.roomTask?.id === roomTaskId)
+				if (sliceIndex >= 0) {
+					this[slice][sliceIndex] = {
+						...this[slice][sliceIndex],
+						occurrence: occurrence ?? null,
 					}
 				}
 			}
@@ -918,6 +1054,7 @@ export const useRoomTasksStore = defineStore('roomTasks', {
 			this.houseStale = false
 			this.refreshFailed = false
 			this.countsRefreshing = false
+			this.pendingCommands = {}
 			this.roomRequestSeqs = {}
 			// Invalidate in-flight reads so a stale response cannot land
 			// after the reset (house/user change).

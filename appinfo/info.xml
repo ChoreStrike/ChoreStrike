@@ -70,11 +70,18 @@ Complete tasks, build streaks and keep your home tidy together. Perfect for fami
         into StreakFreezeJob or have StreakFreezeJob persist a
         `last_streak_before_reset` column that DailyNotificationJob reads
         so the reminder fires regardless of order.
+
+        TimelineJob (CS-PLAN-072 WP1) runs at a five-minute cadence on the
+        injected clock and advances the occurrence agreement frontier —
+        never awards, credits or notifications. Late cron runs reconcile
+        missed history from the immutable rule inputs; a stopped cron never
+        forces a write on GET.
     -->
     <backgroundjobs>
         <job>OCA\ChoreStrike\BackgroundJob\DailyNotificationJob</job>
         <job>OCA\ChoreStrike\BackgroundJob\StreakFreezeJob</job>
         <job>OCA\ChoreStrike\BackgroundJob\StreakRestockJob</job>
+        <job>OCA\ChoreStrike\BackgroundJob\TimelineJob</job>
     </backgroundjobs>
 
     <!--

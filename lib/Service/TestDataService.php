@@ -67,11 +67,19 @@ class TestDataService {
 	 * path allowed to clear the financial identity and receipt tables
 	 * (production structural deletion tombstones and preserves evidence).
 	 *
+	 * CS-PLAN-072 WP1: the timeline tables clear before their
+	 * `room_tasks`/`completed_tasks` referents (`agreements` →
+	 * `occ_members` → `occurrences` → `schedule_revs`).
+	 *
 	 * @var list<string>
 	 */
 	private const RESET_TABLES = [
 		'chorestrike_task_assignees',
 		'chorestrike_chk_progress',
+		'chorestrike_agreements',
+		'chorestrike_occ_members',
+		'chorestrike_occurrences',
+		'chorestrike_schedule_revs',
 		'chorestrike_completed_tasks',
 		'chorestrike_room_tasks',
 		'chorestrike_chk_items',
@@ -97,6 +105,8 @@ class TestDataService {
 	private RoomTaskMapper $roomTaskMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private WalletMapper $walletMapper;
+	private OccurrenceService $occurrenceService;
+	private CalendarService $calendarService;
 
 	// CR-SVC-40 / CS-PLAN-060 WP1, decision D6 documented exemption: this
 	// service is NON-PRODUCTION test tooling (every entry point is guarded by
@@ -115,6 +125,8 @@ class TestDataService {
 		RoomTaskMapper $roomTaskMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
 		WalletMapper $walletMapper,
+		OccurrenceService $occurrenceService,
+		CalendarService $calendarService,
 	) {
 		$this->db = $db;
 		$this->config = $config;
@@ -126,6 +138,8 @@ class TestDataService {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->walletMapper = $walletMapper;
+		$this->occurrenceService = $occurrenceService;
+		$this->calendarService = $calendarService;
 	}
 
 	/**
@@ -413,12 +427,18 @@ class TestDataService {
 				'maxDailyTasks' => 4,
 			]],
 			['userId' => 'teen', 'displayName' => 'Teen', 'role' => 'child', 'preferences' => [
-				'weekdayAvailability' => ['monday' => false, 'tuesday' => false, 'wednesday' => false, 'thursday' => false, 'friday' => false, 'saturday' => true, 'sunday' => true],
+				// Available every day like the adults: the child My Day specs
+				// (family-core-ux, core-household-journey) must pass on ANY
+				// run weekday — a weekend-only grid would empty the child's
+				// filtered daily list Mon–Fri and make the suite date-
+				// dependent. The availability matrix itself is exercised by
+				// availability-settings-flow and the unit pins.
+				'weekdayAvailability' => ['monday' => true, 'tuesday' => true, 'wednesday' => true, 'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true],
 				'preferredTasks' => ['bedroom', 'bathroom'],
 				'maxDailyTasks' => 3,
 			]],
 			['userId' => 'kid', 'displayName' => 'Kid', 'role' => 'child', 'preferences' => [
-				'weekdayAvailability' => ['monday' => false, 'tuesday' => false, 'wednesday' => false, 'thursday' => false, 'friday' => false, 'saturday' => true, 'sunday' => true],
+				'weekdayAvailability' => ['monday' => true, 'tuesday' => true, 'wednesday' => true, 'thursday' => true, 'friday' => true, 'saturday' => true, 'sunday' => true],
 				'preferredTasks' => ['toys', 'pets'],
 				'maxDailyTasks' => 2,
 			]],
@@ -526,6 +546,17 @@ class TestDataService {
 			if ($data['assignedTo'] !== null) {
 				$this->taskAssigneeMapper->addAssignee($roomTask->getId(), $data['assignedTo']);
 			}
+			// CS-PLAN-072 WP1: every seed creation path routes through the
+			// common timeline (immutable initial schedule per room task).
+			$this->occurrenceService->initializeSchedule(
+				$house->getId(),
+				$roomTask,
+				$tasks[$data['task']],
+				$this->calendarService->getTimeZone($house)->getName(),
+				$data['due'],
+				$data['assignedTo'] !== null ? [$data['assignedTo']] : [],
+				new \DateTime(),
+			);
 			$roomTasks[] = $roomTask;
 			// Canonical assignee key for seed consumers (E2E specs); the
 			// plain entity payload carries no assignee information.

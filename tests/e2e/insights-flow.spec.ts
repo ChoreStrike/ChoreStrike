@@ -20,6 +20,7 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { completeRoomTaskViaApi } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
 
 import { houseDateOffset } from './fixtures/house-clock.js'
@@ -70,10 +71,7 @@ test.describe('Release: Insights Flow', () => {
 		try {
 			const roomTask = await pickActiveRoomTask(mom.page)
 			expect(roomTask).not.toBeNull()
-			const complete = await mom.page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${roomTask!.id}/complete`,
-				{ headers: { Accept: 'application/json' } },
-			)
+			const complete = await completeRoomTaskViaApi(mom.page, roomTask!.id)
 			expect(complete.status()).toBe(200)
 		} finally {
 			await mom.context.close()

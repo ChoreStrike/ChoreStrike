@@ -1,4 +1,4 @@
-﻿# Test Environment Setup
+# Test Environment Setup
 
 This guide explains how to set up a Docker-based test environment for ChoreStrike that includes all Nextcloud dependencies required for PHPUnit tests.
 
@@ -388,6 +388,7 @@ npx playwright test tests/e2e/ --project=chromium --headed
 | `snake-game.spec.ts` | Minigame (Snake arcade) coverage |
 | `scheduling.spec.ts`, `flex-window-scheduling.spec.ts`, `availability-settings-flow.spec.ts` | Smart Scheduling UI — availability grid, energy budget, capacity calendar, owner-plan preview gating (revived by CS-PLAN-016; plan preview/apply contract by CS-PLAN-065) |
 | `scheduling-apply-flow.spec.ts` | Owner plan exit journey (CS-PLAN-065): preview → adjust → apply over real seeded tasks, applied-assignment verification in My Day + calendar, stale-preview 409, unplaced overdue zero-flex row, retired taskCount contract rejection |
+| `family-rhythm.spec.ts` | Occurrence-timeline client contract (CS-PLAN-072 WP1, ADR-013): a UI completion carries the full receipt (`commandId`/`occurrenceId`/`expectedVersion`/`selectionToken`), a new command on a fulfilled occurrence is a 409 (never credits another target), a replayed `commandId` returns the original identity, and a stale receipt after a due-date move is a 409. Runs in `chromium-serial-db` (seed-mutating). The deep enumeration/revision/catch-up math stays owned by the service-level `OccurrenceTimelineTest` |
 | `self-availability-member.spec.ts` | Non-owner scheduling surface: "My Availability" self-service toggles, hidden owner grid, persist/reload round-trip (CS-PLAN-032; runs in default `chromium` as `admin`, ignored by firefox/webkit) |
 
 > **Archived (CS-PLAN-015, 2026-07-26):** `phase-3-user-management.spec.ts`
@@ -887,9 +888,16 @@ doctrine/deprecations is inert unless explicitly enabled) and `detach()` in a
 |---|---|---|
 | House-wide instance read | 3 | house-scoped fetch + batched task definitions + batched assignees; CONSTANT in row count (Q(100) = Q(10)) |
 | Empty house read | 1 | mapper fetch only — no enrichment |
-| `updateDueDate` | 8 | 3 gate reads + BEGIN + FOR UPDATE + UPDATE + locked fresh read + COMMIT; statement-order proof that nothing runs after COMMIT |
-| `complete()` | 27 | gates + ADR-011 locks (room_task → room → house_user) + reward-phase `findForUpdate` + checklist + single ledger INSERT + post-commit weekly-goal cluster |
-| `undo()` | 32 | same structure + effect-record restore; 3 locks |
+| `updateDueDate` | 19 | 3 gate reads + owning-house resolution (room → floor → house, CS-PLAN-071) + BEGIN + house/room-task FOR UPDATE + the CS-PLAN-072 WP1 agreement-writer tail (timeline read, occurrence amendment, `agreements` evidence INSERT, derived-projection UPDATE) + COMMIT + exactly ONE authoritative after-commit re-read |
+| `complete()` | 45 | receipt resolution (timeline reads + selection) + command receipt read/INSERT + occurrence gates + ADR-011/071 house-first locks (house → room_task → room → house_user) + reward-phase `findForUpdate` + checklist + reward window + single ledger INSERT with frozen occurrence evidence + timeline effects (fulfill, catch-up cover, successor anchor, projection) + post-commit weekly-goal cluster + response selection block |
+| `undo()` | 36 | same house-first gate/lock structure + effect-record restore (ledger read) + the CS-PLAN-072 WP1 timeline release (occurrence reopen, successor deletion, projection re-derivation) + transaction control + post-commit weekly-goal read |
+
+> **CS-PLAN-072 WP1 note:** the occurrence timeline (ADR-013) moved recurrence
+> authority off the mutable `next_due` column, so `updateDueDate` now writes
+> through the agreement writer and `complete()`/`undo()` resolve/release durable
+> occurrences. The budgets grew accordingly and were re-measured on the canonical
+> Docker stack; `updateDueDate`'s former "nothing runs after COMMIT" proof became
+> "exactly one authoritative re-read after COMMIT" (the response entity).
 
 **Rules:** every budget test also asserts exact result IDs or state (a lower
 count must never be bought with wrong data); budgets are re-measured on the

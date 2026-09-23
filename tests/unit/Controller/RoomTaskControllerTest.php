@@ -188,13 +188,16 @@ class RoomTaskControllerTest extends TestCase {
 	/**
 	 * Test POST /room-tasks/{id}/complete completes successfully.
 	 *
-	 * The controller resolves the actor via requireCurrentUserId() and
-	 * delegates to the CompletionService aggregate (CS-PLAN-064, D2),
-	 * returning the {roomTask, room, task, rewards} payload.
+	 * The controller resolves the actor via requireCurrentUserId(),
+	 * validates the occurrence receipt (closed input set, CS-PLAN-072 WP1)
+	 * and delegates to the CompletionService aggregate (CS-PLAN-064, D2),
+	 * returning the {roomTask, room, task, rewards, occurrence, replay}
+	 * payload.
 	 */
 	public function testComplete_CompletesSuccessfully(): void {
 		$house = new House();
 		$house->setId(1);
+		$house->setTimezone('UTC');
 
 		$this->houseService->method('getInstanceId')->willReturn('instance-123');
 		$this->houseService->method('getOrCreateHouse')->willReturn($house);
@@ -203,6 +206,15 @@ class RoomTaskControllerTest extends TestCase {
 		$this->authService->expects($this->once())
 			->method('requireCurrentUserId')
 			->willReturn('user1');
+		// The receipt rides the request params (route/framework keys are
+		// filtered by the controller).
+		$this->request->method('getParams')->willReturn([
+			'commandId' => '11111111-2222-4333-8444-555555555555',
+			'occurrenceId' => '1:1',
+			'expectedVersion' => 0,
+			'selectionToken' => 'token',
+			'id' => 1,
+		]);
 
 		$roomTask = new RoomTask();
 		$roomTask->setId(1);
@@ -211,12 +223,23 @@ class RoomTaskControllerTest extends TestCase {
 
 		$this->completionService->expects($this->once())
 			->method('complete')
-			->with(1, 'user1', 1)
+			->with(
+				1,
+				'user1',
+				1,
+				'11111111-2222-4333-8444-555555555555',
+				'1:1',
+				0,
+				'token'
+			)
 			->willReturn([
 				'roomTask' => $roomTask,
 				'room' => $room,
 				'task' => $task,
 				'rewards' => [],
+				'completionId' => 5,
+				'occurrence' => null,
+				'replay' => false,
 			]);
 
 		$response = $this->controller->complete(1);
@@ -226,6 +249,58 @@ class RoomTaskControllerTest extends TestCase {
 
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
+	}
+
+	/**
+	 * Test POST /room-tasks/{id}/complete without a receipt answers 400
+	 * (closed input set, CS-PLAN-072 WP1) — never a silently degraded
+	 * completion.
+	 */
+	public function testComplete_MissingReceiptAnswers400(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+
+		$this->completionService->expects($this->never())->method('complete');
+
+		$response = $this->controller->complete(1);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * Unknown receipt fields (future WP3 participants) are REJECTED with
+	 * 400, never silently ignored (parent §3.4).
+	 */
+	public function testComplete_UnknownReceiptFieldAnswers400(): void {
+		$house = new House();
+		$house->setId(1);
+
+		$this->houseService->method('getInstanceId')->willReturn('instance-123');
+		$this->houseService->method('getOrCreateHouse')->willReturn($house);
+		$this->authService->method('assertHouseMember');
+		$this->roomTaskService->method('validateRoomTaskOwnership');
+		$this->request->method('getParams')->willReturn([
+			'commandId' => '11111111-2222-4333-8444-555555555555',
+			'occurrenceId' => '1:1',
+			'expectedVersion' => 0,
+			'selectionToken' => 'token',
+			'participants' => [['userId' => 'mom', 'share' => 50]],
+		]);
+
+		$this->completionService->expects($this->never())->method('complete');
+
+		$response = $this->controller->complete(1);
+
+		$this->assertInstanceOf(JSONResponse::class, $response);
+		$this->assertEquals(400, $response->getStatus());
+		$this->assertStringContainsString('Unknown field', $response->getData()['error']['message']);
 	}
 
 	/**

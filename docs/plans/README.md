@@ -25,16 +25,22 @@ Standard A passed with `PASS-WITH-FIXES` on 2026-09-18. Its WP0 child
 [CS-PLAN-071: Write/Identity Foundation](done/cs-plan-071-wp0-write-identity-foundation.md)
 (shared schema/lock/identity/receipt foundation, Q-070-01 tombstone deletion,
 Q-070-02 account-erasure plumbing) is **delivered** — final Standard B
-`PASS-WITH-FIXES` 2026-09-19, plan in `done/`. The next package is active:
-[CS-PLAN-072: WP1 - Occurrence Timeline](active/cs-plan-072-wp1-occurrence-timeline.md)
-(Standard A `PASS` 2026-09-20; implementation not started). Its review resolved
-the shared WP1/WP2 agreement-writer boundary through Q-072-01 Option A — the
-minimal common agreement writer, `agreements` persistence and necessary C2
-deadline/authorization/capacity checks moved into WP1 (7-10 days), WP2 reduced
-to 5-7.
+`PASS-WITH-FIXES` 2026-09-19, plan in `done/`. Its WP1 child
+[CS-PLAN-072: WP1 - Occurrence Timeline](done/cs-plan-072-wp1-occurrence-timeline.md)
+(Standard A `PASS` 2026-09-20 with the Q-072-01 Option A agreement-writer
+slice moved into WP1; immutable rule revisions, stable occurrence keys,
+saved windows/time basis, deterministic target selection, write-free
+projections, `TimelineJob`, completion receipts via `CommandService`,
+occurrence-scoped checklist/undo, `agreements` persistence with the C2
+deadline/authorization/capacity checks, minimal client transport, ADR-013)
+is **delivered** — final Standard B `PASS-WITH-FIXES` 2026-09-23, plan in
+`done/`. The next behavior package (WP2 agreements/capacity/pauses,
+reduced to 5-7 days by Q-072-01) is not yet sub-planned.
 
-Latest completed: [CS-PLAN-071 — WP0: Write/Identity Foundation](done/cs-plan-071-wp0-write-identity-foundation.md)
-(final Standard B `PASS-WITH-FIXES` 2026-09-19), preceded by
+Latest completed: [CS-PLAN-072 — WP1: Occurrence Timeline](done/cs-plan-072-wp1-occurrence-timeline.md)
+(final Standard B `PASS-WITH-FIXES` 2026-09-23), preceded by
+[CS-PLAN-071 — WP0: Write/Identity Foundation](done/cs-plan-071-wp0-write-identity-foundation.md)
+(final Standard B `PASS-WITH-FIXES` 2026-09-19) and
 [CS-PLAN-058 — Core Workflow (Bottom-Up) Masterplan](done/cs-plan-058-core-workflow-bottom-up-masterplan.md)
 (WP0–WP9 delivered; program final Full review `PASS-WITH-FIXES` 2026-09-14
 with the D-FR-04 delegated browser-gate pair completed the same night — two

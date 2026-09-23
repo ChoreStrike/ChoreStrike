@@ -515,7 +515,18 @@ GET route has no frontend consumer — list rows already carry their canonical
 The one idempotent undo aggregate (replaces the pruned split
 `PUT /tasks/{id}/uncomplete` + `POST /room-tasks/{id}/reactivate` chain,
 decision D5). Restores the newest revertible completion of this room task
-exactly from its recorded effect (see [ADR-011](../adr/ADR-011-transactional-completion-and-undo.md)).
+from its recorded effect (see [ADR-011](../adr/ADR-011-transactional-completion-and-undo.md)).
+
+> **Occurrence-timeline seam (CS-PLAN-072 WP1,
+> [ADR-013](../adr/ADR-013-occurrence-agreements-and-corrections.md)):** the
+> ledger row is marked undone **before** the occurrence is released so
+> `last_completed` re-derives correctly; the release reopens the fulfilled
+> occurrence (version bump), deletes the completion-anchored successor, and
+> reactivates a once/bounded row via its open obligation. The effect restore no
+> longer writes `next_due`, `ideal_due_date`, `last_completed`, `is_active` or
+> the checklist - the timeline re-derives those projections - so undo cannot
+> re-introduce stale recurrence state over newer facts. The room/house_user
+> reward restore is unchanged.
 
 **Response (reverted):**
 ```json
@@ -580,27 +591,62 @@ Remove task from room.
 > flows; the `RouteMatrixTest` contract test guards route↔controller drift.
 
 #### POST /room-tasks/{id}/complete
-Complete the current room-task occurrence — one transactional aggregate
-(CS-PLAN-064 WP5, [ADR-011](../adr/ADR-011-transactional-completion-and-undo.md)).
-The completion timestamp is resolved server-side; the request has no body. The
-transaction writes ONE immutable ledger effect record (`occurrence_due` +
-`before_state` + `deltas`) that `POST …/undo` later restores exactly.
-Occurrence gates run before any write: inactive occurrence → `409 CONFLICT`
-("Task is not active"), same-user day duplicate (non-undone rows only) →
-`403 FORBIDDEN`, visibility → `404`/`403` per the standard above. Post-commit
-effects (weekly-goal read, notification dispatches) are failure-isolated: the
-endpoint still answers `200` with `rewards.degraded = true` and
-`rewards.weeklyGoal = null` — a committed completion is never an ambiguous
-failure.
+Complete the **shown occurrence** of a room task — one transactional aggregate
+(CS-PLAN-064 WP5, [ADR-011](../adr/ADR-011-transactional-completion-and-undo.md);
+occurrence receipt contract CS-PLAN-072 WP1,
+[ADR-013](../adr/ADR-013-occurrence-agreements-and-corrections.md)). The work
+timestamp is resolved server-side. The request body is a **closed set** receipt
+naming the exact target the client was shown; unknown fields are a `400`:
+
+```json
+{
+  "commandId": "6f1e2a4c-9b7d-4e01-8a2f-3c5d6e7f8090",
+  "occurrenceId": "41:3",
+  "expectedVersion": 0,
+  "selectionToken": "9a8b7c6d5e4f3a2b1c0d"
+}
+```
+
+- `commandId` — a fresh client RFC 4122 v4 UUID, one per logical completion
+  command; replaying it returns the original identity (`replay: true`) with no
+  repeated post-commit effects.
+- `occurrenceId` — the shown target's public `<scheduleRevisionId>:<ordinal>`
+  key (from the row's `occurrence` block on any read endpoint).
+- `expectedVersion` / `selectionToken` — the optimistic-concurrency version and
+  the server-computed selection hash echoed back.
+
+The transaction writes ONE immutable ledger effect record (frozen occurrence
+evidence + `before_state` + `deltas`) that `POST …/undo` later releases. Gates
+run before any write: inactive room task → `409 CONFLICT` ("Task is not
+active"), visibility → `404`/`403` per the standard above. The receipt is
+re-resolved under the house-first lock: a fulfilled target → `409` ("This
+occurrence is already completed"), a stale version/token/target → `409` ("The
+task changed since it was displayed…"). The former same-user **day-duplicate
+`403` is removed** — occurrence validity replaces it, so two legitimate
+occurrences on one day are permitted while two completions of one target are
+not. Post-commit effects (weekly-goal read, notification dispatches) are
+failure-isolated: the endpoint still answers `200` with `rewards.degraded =
+true` and `rewards.weeklyGoal = null` — a committed completion is never an
+ambiguous failure.
 
 **Response:**
 ```json
 {
   "success": true,
   "data": {
-    "roomTask": { "id": 12, "nextDue": "2026-02-25T15:30:00Z", "isActive": true },
+    "roomTask": { "id": 12, "nextDue": "2026-02-25T00:00:00Z", "isActive": true },
     "room": { "id": 3, "cleanliness": 85 },
     "task": { "id": 7, "energyCost": 3, "priority": 2 },
+    "completionId": 88,
+    "replay": false,
+    "occurrence": {
+      "occurrenceId": "41:4",
+      "expectedVersion": 0,
+      "selectionToken": "1f2e3d4c5b6a7988",
+      "classification": "agreed",
+      "plannedDate": "2026-02-25",
+      "fulfilled": false
+    },
     "rewards": {
       "cleanlinessChange": 30,
       "energyCost": 3,
@@ -623,6 +669,10 @@ failure.
 }
 ```
 
+> `occurrence` is the **fresh** selection block riding back so an immediate
+> follow-up aims at the current target, never the fulfilled one; it is `null`
+> when no next window is open yet. `completionId` + `replay` identify the
+> ledger row and whether this was an idempotent replay of `commandId`.
 > `totalCoins`, `totalContribution`, and `longestStreak` are the completer's
 > authoritative post-completion balances (decision D10) so the owning client
 > stores reconcile from this one response without arithmetic; `degraded: true`

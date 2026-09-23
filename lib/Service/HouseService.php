@@ -44,6 +44,7 @@ class HouseService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private WalletService $walletService;
 	private RewardConfigService $rewardConfigService;
+	private OccurrenceService $occurrenceService;
 	private IConfig $config;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
@@ -63,6 +64,7 @@ class HouseService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		WalletService $walletService,
 		RewardConfigService $rewardConfigService,
+		OccurrenceService $occurrenceService,
 		IConfig $config,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
@@ -81,6 +83,7 @@ class HouseService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->walletService = $walletService;
 		$this->rewardConfigService = $rewardConfigService;
+		$this->occurrenceService = $occurrenceService;
 		$this->config = $config;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
@@ -322,6 +325,11 @@ class HouseService {
 				if ($house->getTimezone() !== $timezone) {
 					$house->setTimezone($timezone);
 					$house->bumpTimezoneVersion();
+					// CS-PLAN-072 WP1 (C5k): the zone change propagates to
+					// every schedule of the house INSIDE the same house-first
+					// transaction — saved occurrences keep their zone and
+					// deadlines; only new agreements resolve in the new zone.
+					$this->occurrenceService->reviseForZoneChangeUnderLock($houseId, $timezone, new \DateTime());
 				}
 			}
 			$house->touch();

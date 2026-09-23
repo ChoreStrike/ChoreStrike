@@ -10,6 +10,7 @@ namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
+use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
@@ -67,25 +68,34 @@ class TaskService {
 
 	private TaskMapper $taskMapper;
 	private HouseMapper $houseMapper;
+	private RoomTaskMapper $roomTaskMapper;
 	private IL10N $l10n;
 	private AuthorizationService $authorization;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private TransactionExecutor $transactions;
+	private OccurrenceService $occurrenceService;
+	private CalendarService $calendarService;
 
 	public function __construct(
 		TaskMapper $taskMapper,
 		HouseMapper $houseMapper,
+		RoomTaskMapper $roomTaskMapper,
 		IL10N $l10n,
 		AuthorizationService $authorization,
 		TaskAccessPolicy $taskAccessPolicy,
 		TransactionExecutor $transactions,
+		OccurrenceService $occurrenceService,
+		CalendarService $calendarService,
 	) {
 		$this->taskMapper = $taskMapper;
 		$this->houseMapper = $houseMapper;
+		$this->roomTaskMapper = $roomTaskMapper;
 		$this->l10n = $l10n;
 		$this->authorization = $authorization;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->transactions = $transactions;
+		$this->occurrenceService = $occurrenceService;
+		$this->calendarService = $calendarService;
 	}
 
 	/**
@@ -243,15 +253,69 @@ class TaskService {
 		// house row first, then the task-definition row — on the FRESH
 		// entity. taskTier is not on the generic whitelist but was
 		// owner-validated above; it is applied explicitly.
+		//
+		// CS-PLAN-072 WP1: when a rule-relevant definition input changed,
+		// every mounted room task's schedule is revised in the SAME
+		// house-first transaction (reconcile elapsed old agreements, close
+		// the old revision, append the new one) — definition edits never
+		// become a second authority beside the occurrence rows, and agreed
+		// history keeps its identity, zone and deadlines.
 		return $this->transactions->run(function () use ($taskId, $updates, $actor): Task {
 			$this->houseMapper->findForUpdate($actor->getHouseId());
 			$task = $this->taskMapper->lockForUpdate($taskId);
+			$before = clone $task;
 			if (array_key_exists('taskTier', $updates)) {
 				$task->setTaskTier($updates['taskTier']);
 			}
 			$this->applyUpdates($task, array_intersect_key($updates, array_flip(self::MUTABLE_FIELDS)));
-			return $this->taskMapper->update($task);
+			$updated = $this->taskMapper->update($task);
+
+			if ($this->ruleRelevantInputsChanged($before, $updated)) {
+				$mounted = $this->roomTaskMapper->findByTaskIdScopedToHouse($taskId, (int)$actor->getHouseId());
+				if ($mounted !== []) {
+					$house = $this->houseMapper->find((int)$actor->getHouseId());
+					$timezoneId = $this->calendarService->getTimeZone($house)->getName();
+					foreach ($mounted as $roomTask) {
+						$lockedRoomTask = $this->roomTaskMapper->lockForUpdate($roomTask->getId());
+						if ($lockedRoomTask->getDeletedAt() !== null) {
+							continue;
+						}
+						$this->occurrenceService->reviseUnderLock(
+							(int)$actor->getHouseId(),
+							$lockedRoomTask,
+							$updated,
+							$timezoneId,
+							null,
+							new \DateTime(),
+						);
+					}
+				}
+			}
+
+			return $updated;
 		});
+	}
+
+	/**
+	 * Whether any rule-relevant generation input of the definition changed
+	 * (CS-PLAN-072 WP1 §3.2 rule 4): energy, cadence, lifetime, active
+	 * bounds, window days, voluntary/public classification. Purely
+	 * descriptive edits (name, description, priority, tips) never force a
+	 * revision.
+	 */
+	private function ruleRelevantInputsChanged(Task $before, Task $after): bool {
+		return $before->getEnergyCost() !== $after->getEnergyCost()
+			|| $before->getFrequencyType() !== $after->getFrequencyType()
+			|| $before->getFrequencyValue() !== $after->getFrequencyValue()
+			|| $before->getRecurrenceMode() !== $after->getRecurrenceMode()
+			|| $before->getSchedulingMode() !== $after->getSchedulingMode()
+			|| $before->getFixedScheduleTime()?->format('H:i') !== $after->getFixedScheduleTime()?->format('H:i')
+			|| $before->getFixedScheduleDays() !== $after->getFixedScheduleDays()
+			|| $before->getActiveFrom()?->format('Y-m-d') !== $after->getActiveFrom()?->format('Y-m-d')
+			|| $before->getActiveUntil()?->format('Y-m-d') !== $after->getActiveUntil()?->format('Y-m-d')
+			|| $before->getFlexDays() !== $after->getFlexDays()
+			|| $before->getIsVoluntary() !== $after->getIsVoluntary()
+			|| $before->getVisibilityType() !== $after->getVisibilityType();
 	}
 
 	/**

@@ -136,60 +136,32 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Get overdue tasks for a specific house (joins through rooms → floors).
+	 * Indexed cursor batch of live room-task ids for the timeline job
+	 * (CS-PLAN-072 WP1): ascending ids strictly after $cursorId, live rows
+	 * only (active, not tombstoned), scoped to the house. A batch advances
+	 * only the frontier it actually reconciled, so interrupted passes
+	 * converge; the ascending-id cursor also bounds each batch's lock
+	 * footprint.
 	 *
-	 * @param int $houseId The house ID
-	 * @param int|null $roomId Optional room ID to filter by
-	 * @return RoomTask[]
+	 * @return int[]
 	 */
-	public function findOverdueByHouse(int $houseId, ?int $roomId = null): array {
+	public function findActiveIdBatchAfter(int $houseId, int $cursorId, int $limit): array {
 		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('rt.*')
+		$qb->select('rt.id')
 			->from($this->getTableName(), 'rt');
+		// House scope first (applyHouseScope owns the WHERE clause —
+		// caller-specific ANDs must follow it).
 		$this->applyHouseScope($qb, 'rt', $houseId);
-		$qb->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter(new \DateTime(), IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
+		$qb->andWhere($qb->expr()->gt('rt.id', $qb->createNamedParameter($cursorId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+			->andWhere($qb->expr()->isNull('rt.deleted_at'))
+			->orderBy('rt.id', 'ASC')
+			->setMaxResults(max(1, $limit));
 
-		if ($roomId !== null) {
-			$qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-		}
-
-		$qb->orderBy('rt.next_due', 'ASC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
-	 * Get tasks due today for a specific house (joins through rooms → floors).
-	 *
-	 * CS-PLAN-057: the "today" window is supplied as explicit `[start, end)`
-	 * bounds (house-TZ day, CalendarService::dayBounds) instead of being
-	 * derived at server-TZ midnight.
-	 *
-	 * @param int $houseId The house ID
-	 * @param \DateTimeInterface $start Inclusive day start (house-TZ midnight instant)
-	 * @param \DateTimeInterface $end Exclusive next-day start
-	 * @param int|null $roomId Optional room ID to filter by
-	 * @return RoomTask[]
-	 */
-	public function findDueTodayByHouse(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end, ?int $roomId = null): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('rt.*')
-			->from($this->getTableName(), 'rt');
-		$this->applyHouseScope($qb, 'rt', $houseId);
-		$qb->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-
-		if ($roomId !== null) {
-			$qb->andWhere($qb->expr()->eq('rt.room_id', $qb->createNamedParameter($roomId, IQueryBuilder::PARAM_INT)));
-		}
-
-		$qb->orderBy('rt.next_due', 'ASC');
-
-		return $this->findEntities($qb);
+		return array_map(
+			static fn (array $row): int => (int)$row['id'],
+			$qb->executeQuery()->fetchAll()
+		);
 	}
 
 	/**
@@ -289,22 +261,6 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Update next due date
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param \DateTime $nextDue The new due date
-	 */
-	public function updateNextDue(int $roomTaskId, \DateTime $nextDue): void {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->update($this->getTableName())
-			->set('next_due', $qb->createNamedParameter($nextDue, IQueryBuilder::PARAM_DATE))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-
-		$qb->executeStatement();
-	}
-
-	/**
 	 * Check if room already has a LIVE (non-tombstoned) link to this task.
 	 *
 	 * Tombstoned links (`deleted_token != 0`) must not block re-creating
@@ -330,53 +286,16 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
-	 * Find daily tasks for a house
-	 *
-	 * Matches tasks whose next_due falls on the given calendar day via a
-	 * [start, end) range comparison — NOT `DATE(rt.next_due) = :day`, which
-	 * the query builder escapes as a quoted column name and 500s on every
-	 * engine (BUG-API-DAILY-001). Range pattern mirrors
-	 * CompletedTaskMapper::countByUserOnDate().
-	 *
-	 * CS-PLAN-057: the day window is supplied as explicit `[start, end)`
-	 * bounds (house-TZ day, CalendarService::dayBounds).
-	 *
-	 * @param int $houseId The house ID
-	 * @param \DateTimeInterface $start Inclusive day start
-	 * @param \DateTimeInterface $end Exclusive next-day start
-	 * @return RoomTask[]
-	 */
-	public function findDailyTasks(int $houseId, \DateTimeInterface $start, \DateTimeInterface $end): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select('rt.*')
-			->from($this->getTableName(), 'rt');
-		$this->applyHouseScope($qb, 'rt', $houseId);
-		$qb->andWhere($qb->expr()->gte('rt.next_due', $qb->createNamedParameter($start, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->lt('rt.next_due', $qb->createNamedParameter($end, IQueryBuilder::PARAM_DATE)))
-			->andWhere($qb->expr()->eq('rt.is_active', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
-			->orderBy('rt.next_due', 'ASC')
-			// CS-PLAN-065 §3.3: the deterministic daily-read order is
-			// `nextDue, createdAt, id` — the id closes the tie so two rows
-			// created in the same second keep a stable relative order across
-			// engines (the child-limit slicing depends on it).
-			->addOrderBy('rt.created_at', 'ASC')
-			->addOrderBy('rt.id', 'ASC');
-
-		return $this->findEntities($qb);
-	}
-
-	/**
 	 * Find active room tasks whose next_due falls on a calendar day — across
 	 * ALL houses (FEAT-NOTIFY-001).
 	 *
 	 * Job-only query (D4): background jobs are instance-global (like
 	 * findAllForJobs()), so this method deliberately has NO house scope.
-	 * Do not reuse it for house-facing API endpoints — use the house-scoped
-	 * variants (findDailyTasks, findDueTodayByHouse) instead.
+	 * Do not reuse it for house-facing API endpoints (the occurrence
+	 * authority drives those reads since CS-PLAN-072 WP1).
 	 *
-	 * Same [start, end) range-comparison pattern as findDailyTasks (never
-	 * DATE(next_due) = :day — see BUG-API-DAILY-001).
+	 * Same [start, end) range-comparison pattern as the legacy daily reads
+	 * (never DATE(next_due) = :day — see BUG-API-DAILY-001).
 	 *
 	 * @param \DateTimeInterface $start Inclusive day start
 	 * @param \DateTimeInterface $end Exclusive next-day start
@@ -496,6 +415,24 @@ class RoomTaskMapper extends QBMapper {
 	}
 
 	/**
+	 * Every room task mounting the task definition inside one house
+	 * (CS-PLAN-072 WP1: definition edits revise every mounted schedule).
+	 * Tombstoned rows are excluded — their schedules are closed.
+	 *
+	 * @return RoomTask[]
+	 */
+	public function findByTaskIdScopedToHouse(int $taskId, int $houseId): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('rt.*')
+			->from($this->getTableName(), 'rt');
+		$this->applyHouseScope($qb, 'rt', $houseId);
+		$qb->andWhere($qb->expr()->eq('rt.task_id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('rt.deleted_at'));
+
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * Apply the house-scope JOIN chain to a room_tasks query.
 	 *
 	 * chorestrike_room_tasks has no denormalized house_id column, so every
@@ -519,10 +456,11 @@ class RoomTaskMapper extends QBMapper {
 	/**
 	 * Find active room tasks whose next_due is on or before a bound, for a house.
 	 *
-	 * The recurrence-projection base set for the calendar range endpoint:
-	 * returns every active task that could recur into a future window
-	 * (next_due <= end), so projectOccurrences() can expand each into its
-	 * in-window occurrences. Reuses applyHouseScope for house isolation.
+	 * The base set for the calendar range endpoint and the planner's
+	 * capacity accounting: every active task that could recur into a
+	 * future window (next_due <= end) — the occurrence authority expands
+	 * each into its in-window agreed occurrences and projections.
+	 * Reuses applyHouseScope for house isolation.
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTimeInterface $end Inclusive upper bound for next_due

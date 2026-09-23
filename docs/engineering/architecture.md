@@ -195,18 +195,18 @@ generic message. All Pinia stores import `api` instead of calling
 ### Example: Completing a Task
 
 1. **User clicks "Complete" button** → `TaskList.vue`
-2. **Component dispatches store action** → `useRoomTasksStore.completeRoomTask(roomTaskId)`
-3. **API request** → `POST /apps/chorestrike/api/v1/room-tasks/{id}/complete`
-4. **Controller** → `RoomTaskController::complete()`
-5. **Service logic** → `CompletionService::complete()` (transaction aggregate, CS-PLAN-064/067) → `GameLogicService::handleTaskCompletion()` (reward phase) → post-commit effects via `CompletionPostCommitService`
+2. **Component dispatches store action** → `useRoomTasksStore.completeRoomTask(roomTaskId)`; the store resolves the shown occurrence receipt (`commandId` UUID + the cached row's `occurrence` block) and posts it (CS-PLAN-072 WP1)
+3. **API request** → `POST /apps/chorestrike/api/v1/room-tasks/{id}/complete` with the closed-set receipt body
+4. **Controller** → `RoomTaskController::complete()` (validates the receipt closed set)
+5. **Service logic** → `CompletionService::complete()` (transaction aggregate, CS-PLAN-064/067) resolves the target under the house-first lock via `OccurrenceService::resolveForCompletionUnderLock` (version + canonical-selection + `selectionToken` check), applies the timeline effects (`applyCompletionUnderLock`: fulfill, cover the latest older miss, anchor the interval successor, re-derive the `next_due` projection) → `GameLogicService::handleTaskCompletion()` (reward phase) → post-commit effects via `CompletionPostCommitService`. `OccurrenceService` (ADR-013) is the single recurrence authority; `next_due`/`ideal_due_date`/`last_completed` are derived projections. Internally the authority is a facade over cohesive collaborators (RF-072-WP1-18): `OccurrenceRowFactory` (row drafts/windows), `OccurrenceReconcileService` (frontier/materialization/job), `OccurrenceSelectionService` (write-free selection derivation/DTO block), `OccurrenceRevisionService` (revision lifecycle), `OccurrenceCompletionService` (completion/undo seam) and `OccurrenceAgreementService` (C2 amendments/capacity).
    - Calculate coins (energy × base rate × tier × personal × early multiplier; ×2 on combo)
    - Check for combos (`checkForCombo`) and combo bonus freeze
    - Update room cleanliness
-   - Write the single ledger row with the complete effect record (medals are NOT awarded here — they stay read-triggered via `MedalService::checkAndAwardMedals`)
+   - Write the single ledger row with the complete effect record + frozen occurrence evidence (medals are NOT awarded here — they stay read-triggered via `MedalService::checkAndAwardMedals`)
    - Consume a streak freeze if the streak would otherwise reset
 6. **Database update** → Multiple mappers (atomic within the transaction)
-7. **Response** → Updated task, coins, streak-freeze/medal/title events, game state
-8. **Store update** → Reactive state changes + celebration events emitted
+7. **Response** → Updated task, the fresh selection `occurrence` block, `completionId`/`replay`, coins, streak-freeze/medal/title events, game state
+8. **Store update** → Reactive state changes + celebration events emitted; a `409` triggers `refreshDerivedProjections()` instead of a blind retry
 9. **UI updates** → Confetti/SFX (`useCelebration`), room cleanliness updates
 
 ## Database Schema
@@ -934,7 +934,9 @@ with its cohesive responsibility and disposition. Counts are
 **non-blank lines** (code, comments, docblocks, templates and scoped CSS
 excluding empty lines; blank lines are formatting, not size); measured
 2026-09-13 at `master` post-WP8, re-measured 2026-09-14 after the
-CS-PLAN-058 final-review fixes. WP8 already reduced its named hotspots
+CS-PLAN-058 final-review fixes and 2026-09-22 after the CS-PLAN-072 WP1
+occurrence-timeline package incl. the RF-072-WP1-18 collaborator split.
+WP8 already reduced its named hotspots
 (`TaskList.vue` ~1,160 → 357, `GameLogicService` 517 → 349,
 `RoomTaskService` 833 → 643, `CompletionService` 772 → 546 via extracted
 collaborators).
@@ -947,28 +949,37 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 
 | File | Lines | Cohesive responsibility | Disposition |
 |------|-------|--------------------------|-------------|
-| `Controller/RoomTaskController.php` | 868 | Room-task route surface (selector modes, lifecycle, stats, range); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
+| `Controller/RoomTaskController.php` | 951 | Room-task route surface (selector modes, lifecycle, stats, range, WP1 occurrence/receipt seam); thin validate→service→serialize methods only | **named** (CS-PLAN-067 §3.5: assessed per-method, independently of service orchestration) |
 | `Controller/SchedulingController.php` | 456 | Scheduling route surface (preferences, preview, apply); thin methods | accepted (endpoint breadth, no logic depth) |
 | `Controller/UserController.php` | 428 | Member/profile route surface; thin methods (persistence delegated to HouseService, RF-058-04) | accepted (endpoint breadth) |
 | `Controller/MinigameController.php` | 343 | Minigame route surface; thin methods | accepted (endpoint breadth) |
 | `Controller/RoomController.php` | 309 | Room route surface; thin methods | accepted (endpoint breadth) |
-| `Service/SchedulePlanService.php` | 1034 | WP6 preview/apply aggregate: fingerprint revalidation, capacity check, lock order, member-day writes | **named** (CS-PLAN-067 §3.5: cohesive fingerprint/capacity aggregate; budgets only, no optimizer rewrite) |
-| `Service/CompletionService.php` | 546 | Completion/undo aggregate owner: transaction boundary, lock order, occurrence/actor gates (effects/post-commit extracted to collaborators) | accepted (D2: the visible ordered aggregate with a specific documented size exception; further splitting would hide the transaction) |
-| `Service/RoomTaskService.php` | 672 | Room-task mutations, bulk-assign partial-success semantics, room stats, calendar-range projection | **remainder** (CR-SVC-15: range/stats projection extraction candidate) |
-| `Service/RoomTaskReadService.php` | 463 | Batched read/enrichment cluster (house/room/scope/daily/due/claimable + timezone); WP8 product | accepted (read-surface breadth, one owner per D1) |
+| `Controller/ChecklistController.php` | 307 | Checklist route surface incl. the WP1 occurrence-identity progress/toggle endpoints; thin methods | accepted (endpoint breadth) |
+| `Service/SchedulePlanService.php` | 1071 | WP6 preview/apply aggregate: fingerprint revalidation, capacity check, lock order, member-day writes (WP1: capacity from the occurrence authority) | **named** (CS-PLAN-067 §3.5: cohesive fingerprint/capacity aggregate; budgets only, no optimizer rewrite) |
+| `Service/CompletionService.php` | 730 | Completion/undo aggregate owner: transaction boundary, lock order, occurrence/actor gates, WP1 command-receipt seam (effects/post-commit extracted to collaborators) | accepted (D2: the visible ordered aggregate with a specific documented size exception; further splitting would hide the transaction) |
+| `Service/RoomTaskService.php` | 846 | Room-task mutations, bulk-assign partial-success semantics, room stats, calendar-range projection (WP1: agreement-writer seam) | **remainder** (CR-SVC-15: range/stats projection extraction candidate) |
+| `Service/RoomTaskReadService.php` | 619 | Batched read/enrichment cluster (house/room/scope/daily/due/claimable + timezone); WP8 product; WP1 occurrence-block enrichment | accepted (read-surface breadth, one owner per D1) |
 | `Service/GameLogicService.php` | 349 | Completion-reward orchestration (coins/combo/streak/freezes/teamwork/titles); medal cluster extracted to `MedalService` | accepted (cohesive reward cluster) |
-| `Service/TaskCreationService.php` | 438 | WP4 atomic creation aggregate (custom/mount/template, one transaction) | accepted (transaction aggregate) |
-| `Service/HouseSetupService.php` | 439 | WP3 first-run setup transaction aggregate (first-run gate, structure, invites) | accepted (transaction aggregate) |
-| `Service/TaskService.php` | 438 | Task-definition CRUD + validation set | **remainder** (CR-SVC-15: `createTask` 24 positional params → param object) |
-| `Service/HouseService.php` | 453 | House aggregate: membership (invite/scoped lookups, RF-058-04), weekly-goal progress, house stats | accepted (cohesive aggregate) |
-| `Service/MinigameService.php` | 361 | Minigame domain logic (boosts, scores, energy spend) | accepted (cohesive domain) |
+| `Service/TaskCreationService.php` | 453 | WP4 atomic creation aggregate (custom/mount/template, one transaction; WP1: initial schedule revision) | accepted (transaction aggregate) |
+| `Service/HouseSetupService.php` | 490 | WP3 first-run setup transaction aggregate (first-run gate, structure, invites; WP1: schedule initialization) | accepted (transaction aggregate) |
+| `Service/TaskService.php` | 538 | Task-definition CRUD + validation set (WP1: definition edits revise schedules) | **remainder** (CR-SVC-15: `createTask` 24 positional params → param object) |
+| `Service/HouseService.php` | 501 | House aggregate: membership (invite/scoped lookups, RF-058-04), weekly-goal progress, house stats, WP1 zone-change revision pass | accepted (cohesive aggregate) |
+| `Service/MinigameService.php` | 369 | Minigame domain logic (boosts, scores, energy spend) | accepted (cohesive domain) |
+| `Service/ChecklistService.php` | 415 | Checklist domain: occurrence-scoped progress derivation, toggles, reset/restore seam (WP1) | accepted (cohesive checklist domain) |
+| `Service/SchedulingService.php` | 304 | Scheduling preferences/availability domain surface | accepted (cohesive domain) |
 | `Service/NotificationService.php` | 308 | Notifier dispatch cases per notification subject | accepted (dispatch-table breadth) |
 | `Service/TemplateService.php` | 311 | Task catalog templates + level presets | accepted (catalog surface) |
 | `Service/RewardConfigService.php` | 476 | Static reward configuration registry | **named** (CS-PLAN-067 §3.5 / CS-PLAN-049: static data table — not split to meet a physical target) |
-| `Service/TestDataService.php` | 512 | Test-only seeding tooling (documented exemption, WP1 D6) | accepted (test tooling, explicitly classified) |
-| `Db/RoomTask.php` | 684 | Central entity: domain accessors, status computation, JSON serialization | accepted (entity surface; data-driven) |
-| `Db/RoomTaskMapper.php` | 540 | SQL primitives for the central instance table (house/room/scope/daily/locks) | accepted (SQL primitive collection) |
-| `Db/CompletedTaskMapper.php` | 527 | Ledger SQL: stats aggregates, occurrence lookups, weekly windows | accepted (SQL primitive collection) |
+| `Service/TestDataService.php` | 566 | Test-only seeding tooling (documented exemption, WP1 D6; CS-PLAN-072 WP1 seed paths) | accepted (test tooling, explicitly classified) |
+| `Service/OccurrenceService.php` | 365 | Single-recurrence-authority facade: stable public seam, constants and transaction convention over the six collaborators below (CS-PLAN-072 WP1, RF-072-WP1-18 split) | accepted (delegation-only facade — the one authority every consumer talks to) |
+| `Service/OccurrenceSelectionService.php` | 465 | Write-free selection/read derivation, occurrence DTO block, selection token, projections | accepted (cohesive collaborator of the occurrence authority) |
+| `Service/OccurrenceReconcileService.php` | 425 | Frontier, reconciliation, materialization, interval pending, end-of-life, `next_due` projection, timeline-job pass | accepted (cohesive collaborator of the occurrence authority) |
+| `Service/OccurrenceRevisionService.php` | 385 | Rule inputs, revision-1 creation, edit/zone/tombstone revision lifecycle | accepted (cohesive collaborator of the occurrence authority) |
+| `Service/OccurrenceCompletionService.php` | 337 | Completion resolution (key/version/token), timeline effects, undo seam | accepted (cohesive collaborator of the occurrence authority) |
+| `Service/OccurrenceAgreementService.php` | 330 | C2 date/participant amendments + the shared whole-day child-capacity counter | accepted (cohesive collaborator of the occurrence authority) |
+| `Db/RoomTask.php` | 357 | Central entity: domain accessors, status computation, JSON serialization (legacy recurrence engine removed by CS-PLAN-072 WP1, RF-072-WP1-12/16) | accepted (entity surface; data-driven) |
+| `Db/RoomTaskMapper.php` | 503 | SQL primitives for the central instance table (house/room/scope/daily/locks) | accepted (SQL primitive collection) |
+| `Db/CompletedTaskMapper.php` | 536 | Ledger SQL: stats aggregates, occurrence lookups, weekly windows | accepted (SQL primitive collection) |
 
 #### Frontend (`src/`)
 
@@ -978,7 +989,7 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `components/Setup/SetupWizard.vue` | 816 | WP3 setup journey step machine | accepted (cohesive step machine; step extraction only with a reviewed UI contract) |
 | `views/RoomDetail.vue` | 786 | Room composition root (stats, scoped list, dialogs) — rows carried by shared TaskList units | accepted (composition root) |
 | `views/TodayView.vue` | 601 | My Day surface (WP7 exit: instructions, execution rows, undo) | accepted (composition root) |
-| `components/Tasks/TaskEditForm.vue` | 855 | Unified create/edit form contract (UX-001): field validation surface | accepted (one form contract; field breadth) |
+| `components/Tasks/TaskEditForm.vue` | 891 | Unified create/edit form contract (UX-001): field validation surface | accepted (one form contract; field breadth) |
 | `components/Tasks/TaskChecklist.vue` | 521 | Checklist surface: lazy discovery, toggles, sub-tasks | accepted (cohesive checklist domain) |
 | `components/Tasks/TaskListItem.vue` | 420 | WP8 row unit: status/content/controls/a11y incl. scoped CSS | accepted (row surface) |
 | `components/Tasks/TaskList.vue` | 357 | WP8 orchestrator: sorting, bulk selection, expansion (was ~1,160) | accepted (orchestrator, extracted units carry the rest) |
@@ -1001,9 +1012,9 @@ would damage cohesion), **named** (exception ratified in CS-PLAN-067 §3.5),
 | `views/TaskManager.vue` | 530 | Task manager composition root (filters, stats bar, modals) | accepted (composition root) |
 | `views/Dashboard.vue` | 327 | Dashboard composition | accepted (composition root) |
 | `views/CalendarView.vue` | 301 | Calendar composition | accepted (composition root) |
-| `store/roomTasks.js` | 837 | Canonical instance store: projections, generations, reconciliation (CS-PLAN-066 D3 one-owner rule) | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
+| `store/roomTasks.js` | 967 | Canonical instance store: projections, generations, reconciliation (CS-PLAN-066 D3 one-owner rule); WP1 receipt contract + pending-command cache | accepted (D3: splitting would duplicate cache/reconciliation ownership) |
 | `store/scheduling.js` | 467 | Scheduling state: preferences, capacity/overcapacity getters | accepted (cohesive store) |
-| `store/minigame.js` | 379 | Minigame state | accepted (cohesive store) |
+| `store/minigame.js` | 381 | Minigame state | accepted (cohesive store) |
 | `store/rooms.js` | 335 | Floor/room state | accepted (cohesive store) |
 | `store/user.js` | 311 | Member/role state | accepted (cohesive store) |
 | `utils/icons.js` | 571 | Static icon registry | accepted (static data table — not split to meet a physical target) |

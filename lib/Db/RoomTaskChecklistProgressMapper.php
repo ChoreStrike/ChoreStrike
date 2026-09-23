@@ -24,6 +24,11 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 		// schema creates chorestrike_chk_progress (Version1005) — the
 		// previously referenced chorestrike_room_task_checklist_progress
 		// never existed, so every real-DB call 500'd.
+		//
+		// CS-PLAN-072 WP1: progress is keyed by the occurrence public key
+		// (schedule_rev_id, ordinal) + item; each row carries a progress
+		// revision so stale mutations conflict (409) instead of leaking
+		// into a later occurrence.
 		parent::__construct($db, 'chorestrike_chk_progress', RoomTaskChecklistProgress::class);
 	}
 
@@ -43,7 +48,7 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 	}
 
 	/**
-	 * Get all progress entries for a room task
+	 * All progress rows of a room task (any occurrence)
 	 *
 	 * @param int $roomTaskId
 	 * @return RoomTaskChecklistProgress[]
@@ -59,32 +64,47 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 	}
 
 	/**
-	 * Get progress for specific checklist item in a room task
+	 * Progress rows of one occurrence (its public key parts).
 	 *
-	 * @param int $roomTaskId
-	 * @param int $checklistItemId
-	 * @throws DoesNotExistException
+	 * @return RoomTaskChecklistProgress[]
 	 */
-	public function findByRoomTaskAndItem(int $roomTaskId, int $checklistItemId): RoomTaskChecklistProgress {
+	public function findByOccurrence(int $roomTaskId, int $scheduleRevId, int $ordinal): array {
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('schedule_rev_id', $qb->createNamedParameter($scheduleRevId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('ordinal', $qb->createNamedParameter($ordinal, IQueryBuilder::PARAM_INT)));
+
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Get progress for a specific item of one occurrence
+	 *
+	 * @throws DoesNotExistException
+	 */
+	public function findByOccurrenceAndItem(int $roomTaskId, int $scheduleRevId, int $ordinal, int $checklistItemId): RoomTaskChecklistProgress {
+		$qb = $this->db->getQueryBuilder();
+
+		$qb->select('*')
+			->from($this->getTableName())
+			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('schedule_rev_id', $qb->createNamedParameter($scheduleRevId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('ordinal', $qb->createNamedParameter($ordinal, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('checklist_item_id', $qb->createNamedParameter($checklistItemId, IQueryBuilder::PARAM_INT)));
 
 		return $this->findEntity($qb);
 	}
 
 	/**
-	 * Find a progress row by (room task, item) and acquire an exclusive row
-	 * lock (SQLite-tolerant, ADR-007 pattern). Returns null when the row
-	 * does not exist. Must be called inside an open transaction.
-	 *
-	 * @param int $roomTaskId
-	 * @param int $checklistItemId
+	 * Find a progress row by occurrence key + item and acquire an
+	 * exclusive row lock (SQLite-tolerant, ADR-007 pattern). Returns null
+	 * when the row does not exist. Must be called inside an open
+	 * transaction.
 	 */
-	public function findForUpdate(int $roomTaskId, int $checklistItemId): ?RoomTaskChecklistProgress {
+	public function findForUpdate(int $roomTaskId, int $scheduleRevId, int $ordinal, int $checklistItemId): ?RoomTaskChecklistProgress {
 		if ($this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE) {
 			// No FOR UPDATE on SQLite: a no-op self-assignment UPDATE
 			// (writes is_checked's own current value) takes the database-wide
@@ -93,22 +113,35 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 			$qb->update($this->getTableName())
 				->set('is_checked', $qb->createFunction('is_checked'))
 				->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
+				->andWhere($qb->expr()->eq('schedule_rev_id', $qb->createNamedParameter($scheduleRevId, IQueryBuilder::PARAM_INT)))
+				->andWhere($qb->expr()->eq('ordinal', $qb->createNamedParameter($ordinal, IQueryBuilder::PARAM_INT)))
 				->andWhere($qb->expr()->eq('checklist_item_id', $qb->createNamedParameter($checklistItemId, IQueryBuilder::PARAM_INT)));
 			$qb->executeStatement();
 
 			try {
-				return $this->findByRoomTaskAndItem($roomTaskId, $checklistItemId);
+				return $this->findByOccurrenceAndItem($roomTaskId, $scheduleRevId, $ordinal, $checklistItemId);
 			} catch (DoesNotExistException $e) {
 				return null;
 			}
 		}
 
 		$sql = 'SELECT * FROM *PREFIX*' . $this->getTableName()
-			. ' WHERE room_task_id = :roomTaskId AND checklist_item_id = :itemId FOR UPDATE';
+			. ' WHERE room_task_id = :roomTaskId AND schedule_rev_id = :revId AND ordinal = :ordinal'
+			. ' AND checklist_item_id = :itemId FOR UPDATE';
 		$result = $this->db->executeQuery(
 			$sql,
-			['roomTaskId' => $roomTaskId, 'itemId' => $checklistItemId],
-			['roomTaskId' => IQueryBuilder::PARAM_INT, 'itemId' => IQueryBuilder::PARAM_INT]
+			[
+				'roomTaskId' => $roomTaskId,
+				'revId' => $scheduleRevId,
+				'ordinal' => $ordinal,
+				'itemId' => $checklistItemId,
+			],
+			[
+				'roomTaskId' => IQueryBuilder::PARAM_INT,
+				'revId' => IQueryBuilder::PARAM_INT,
+				'ordinal' => IQueryBuilder::PARAM_INT,
+				'itemId' => IQueryBuilder::PARAM_INT,
+			]
 		);
 		$row = $result->fetch();
 		$result->closeCursor();
@@ -121,30 +154,20 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 	}
 
 	/**
-	 * Toggle checklist item status (locked read-modify-write).
-	 *
-	 * CS-PLAN-071 WP0: the owning TRANSACTION moved to
-	 * ChecklistService::toggleItem (house-first order: house → room_task →
-	 * progress row) — this primitive participates in the caller's open
-	 * transaction and must not be called outside one. The existing row (if
-	 * any) is locked before the flip, so two concurrent toggles serialize
-	 * and no update is lost. The insert path is tolerant of the
-	 * unique-constraint race: two first-toggles for the same (room_task,
-	 * item) — one re-reads the winner's row inside the transaction and
-	 * flips it.
-	 *
-	 * @param int $roomTaskId
-	 * @param int $checklistItemId
-	 * @param int|null $userId User who checked/unchecked (null if unchecking)
+	 * Toggle one item of one occurrence (locked read-modify-write) and
+	 * advance the row's progress revision. CS-PLAN-072 WP1: the owning
+	 * transaction is the caller's house-first aggregate; progress never
+	 * crosses occurrence boundaries. The insert path is tolerant of the
+	 * unique-constraint race (re-read the winner's row and flip it).
 	 */
-	public function toggleLocked(int $roomTaskId, int $checklistItemId, ?int $userId): RoomTaskChecklistProgress {
-		$progress = $this->findForUpdate($roomTaskId, $checklistItemId);
+	public function toggleLocked(int $roomTaskId, int $scheduleRevId, int $ordinal, int $checklistItemId, ?int $userId): RoomTaskChecklistProgress {
+		$progress = $this->findForUpdate($roomTaskId, $scheduleRevId, $ordinal, $checklistItemId);
 
 		if ($progress !== null) {
-			// Toggle the existing entry
 			$progress->setIsChecked(!$progress->getIsChecked());
 			$progress->setCheckedAt($progress->getIsChecked() ? new \DateTime() : null);
 			$progress->setCheckedByUserId($progress->getIsChecked() ? $userId : null);
+			$progress->setRevision($progress->getRevision() + 1);
 
 			return $this->update($progress);
 		}
@@ -152,10 +175,13 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 		// Create new checked entry
 		$progress = new RoomTaskChecklistProgress();
 		$progress->setRoomTaskId($roomTaskId);
+		$progress->setScheduleRevId($scheduleRevId);
+		$progress->setOrdinal($ordinal);
 		$progress->setChecklistItemId($checklistItemId);
 		$progress->setIsChecked(true);
 		$progress->setCheckedAt(new \DateTime());
 		$progress->setCheckedByUserId($userId);
+		$progress->setRevision(1);
 
 		try {
 			return $this->insert($progress);
@@ -164,119 +190,42 @@ class RoomTaskChecklistProgressMapper extends QBMapper {
 				throw $insertException;
 			}
 			// Lost the unique-constraint race against a concurrent first
-			// toggle for the same (room_task, item): that row must now
-			// exist (its transaction committed before ours could hit the
-			// constraint) — re-read and flip it.
-			$progress = $this->findByRoomTaskAndItem($roomTaskId, $checklistItemId);
+			// toggle for the same occurrence item: that row must now exist
+			// — re-read and flip it.
+			$progress = $this->findByOccurrenceAndItem($roomTaskId, $scheduleRevId, $ordinal, $checklistItemId);
 			$progress->setIsChecked(!$progress->getIsChecked());
 			$progress->setCheckedAt($progress->getIsChecked() ? new \DateTime() : null);
 			$progress->setCheckedByUserId($progress->getIsChecked() ? $userId : null);
+			$progress->setRevision($progress->getRevision() + 1);
 
 			return $this->update($progress);
 		}
 	}
 
 	/**
-	 * Get progress statistics for a room task
+	 * Progress statistics for one occurrence
 	 *
-	 * @param int $roomTaskId
 	 * @return array
 	 */
-	public function getProgressStats(int $roomTaskId): array {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select($qb->func()->count('*'))
-			->from($this->getTableName())
-			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('is_checked', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
-
-		$result = $qb->executeQuery();
-		$checkedCount = (int)$result->fetchOne();
-
-		$total = $this->countByRoomTaskId($roomTaskId);
+	public function getOccurrenceProgressStats(int $roomTaskId, int $scheduleRevId, int $ordinal, int $itemCount): array {
+		$checkedCount = 0;
+		foreach ($this->findByOccurrence($roomTaskId, $scheduleRevId, $ordinal) as $row) {
+			if ($row->getIsChecked()) {
+				$checkedCount++;
+			}
+		}
 
 		return [
-			'total' => $total,
-			'checked' => $checkedCount,
-			'unchecked' => $total - $checkedCount,
-			'percentage' => $total > 0 ? round(($checkedCount / $total) * 100, 1) : 0,
+			'total' => $itemCount,
+			'checked' => min($checkedCount, $itemCount),
+			'unchecked' => max(0, $itemCount - $checkedCount),
+			'percentage' => $itemCount > 0 ? round((min($checkedCount, $itemCount) / $itemCount) * 100, 1) : 0,
 		];
 	}
 
 	/**
-	 * Count progress entries for a room task
-	 *
-	 * @param int $roomTaskId
-	 */
-	public function countByRoomTaskId(int $roomTaskId): int {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->select($qb->func()->count('*'))
-			->from($this->getTableName())
-			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)));
-
-		$result = $qb->executeQuery();
-		return (int)$result->fetchOne();
-	}
-
-	/**
-	 * Reset all progress for a room task (when task is reset/reopened)
-	 *
-	 * @param int $roomTaskId
-	 */
-	public function resetProgress(int $roomTaskId): void {
-		$qb = $this->db->getQueryBuilder();
-
-		$qb->update($this->getTableName())
-			->set('is_checked', $qb->createNamedParameter(false, IQueryBuilder::PARAM_BOOL))
-			->set('checked_at', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
-			->set('checked_by_user_id', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
-			->where($qb->expr()->eq('room_task_id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
-			->executeStatement();
-	}
-
-	/**
-	 * Restore snapshotted progress rows after an undo (CS-PLAN-064 WP5).
-	 *
-	 * Re-inserts the recorded (checklistItemId, userId, checked, checkedAt)
-	 * rows captured before the completion reset. Rows are plain re-inserts
-	 * inside the caller's transaction — the undo aggregate holds the room
-	 * task lock, so no concurrent toggle can interleave.
-	 *
-	 * @param int $roomTaskId The room task ID
-	 * @param array<int, array{checklistItemId: int, userId: int|null, checked: bool, checkedAt?: string|null}> $rows
-	 */
-	public function restoreProgress(int $roomTaskId, array $rows): void {
-		foreach ($rows as $row) {
-			$progress = new RoomTaskChecklistProgress();
-			$progress->setRoomTaskId($roomTaskId);
-			$progress->setChecklistItemId((int)$row['checklistItemId']);
-			$progress->setIsChecked((bool)($row['checked'] ?? false));
-			$checkedAt = $row['checkedAt'] ?? null;
-			$progress->setCheckedAt($checkedAt !== null && $checkedAt !== '' ? new \DateTime($checkedAt) : null);
-			$progress->setCheckedByUserId($row['userId'] ?? null);
-
-			try {
-				$this->insert($progress);
-			} catch (\OCP\DB\Exception $e) {
-				if ($e->getReason() !== \OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
-					throw $e;
-				}
-				// Row re-created between the aggregate's delete and this
-				// insert (defensive; impossible under the room-task lock):
-				// the row exists, keep the snapshotted state authoritative.
-				$existing = $this->findByRoomTaskAndItem($roomTaskId, (int)$row['checklistItemId']);
-				$existing->setIsChecked((bool)($row['checked'] ?? false));
-				$existing->setCheckedAt($checkedAt !== null && $checkedAt !== '' ? new \DateTime($checkedAt) : null);
-				$existing->setCheckedByUserId($row['userId'] ?? null);
-				$this->update($existing);
-			}
-		}
-	}
-
-	/**
 	 * Delete all progress entries of the given room tasks in one statement
-	 * (CS-PLAN-037 cascade; plural sibling of deleteByRoomTaskId).
+	 * (tombstone/test cleanup cascade).
 	 *
 	 * @param int[] $roomTaskIds The room task IDs
 	 */

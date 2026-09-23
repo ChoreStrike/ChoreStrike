@@ -343,6 +343,23 @@ class RoomTaskService {
 > (`lib/Service/SchedulingService.php`); the owner plan preview/apply
 > aggregate is `SchedulePlanService` (`lib/Service/SchedulePlanService.php`,
 > CS-PLAN-065 / ADR-012).
+>
+> **CS-PLAN-072 WP1 / ADR-013:** recurrence authority is the durable
+> occurrence timeline owned by `OccurrenceService`
+> (`lib/Service/OccurrenceService.php`) — a facade over the
+> `lib/Service/Occurrence{RowFactory,ReconcileService,SelectionService,RevisionService,CompletionService,AgreementService}.php`
+> collaborator split (RF-072-WP1-18; behavior-neutral, one public seam);
+> `room_tasks.next_due` /
+> `ideal_due_date` / `last_completed` are **derived projections**, never the
+> source of truth. Every due-date/participant mutation must go through the
+> common agreement writers (`amendOccurrenceDateUnderLock` /
+> `amendParticipantsUnderLock`) — `updateDueDate`, `setAssignees`,
+> `replaceAssigneesUnderLock`, `SchedulePlanService::apply` and the house
+> timezone edit all do — so the occurrence is amended (identity retained,
+> `agreements` evidence recorded, version bumped) instead of a raw projection
+> write diverging from the timeline. Completion is a closed-set receipt command
+> (`commandId`/`occurrenceId`/`expectedVersion`/`selectionToken`) resolved under
+> the house-first lock; a raw `next_due` write is a defect.
 
 ### JavaScript/Vue
 

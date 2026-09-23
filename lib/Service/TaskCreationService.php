@@ -70,6 +70,7 @@ class TaskCreationService {
 	private TaskAccessPolicy $taskAccessPolicy;
 	private AuthorizationService $authorization;
 	private CalendarService $calendarService;
+	private OccurrenceService $occurrenceService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 
@@ -86,6 +87,7 @@ class TaskCreationService {
 		TaskAccessPolicy $taskAccessPolicy,
 		AuthorizationService $authorization,
 		CalendarService $calendarService,
+		OccurrenceService $occurrenceService,
 		IL10N $l10n,
 		AppLogger $appLogger,
 	) {
@@ -101,6 +103,7 @@ class TaskCreationService {
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->authorization = $authorization;
 		$this->calendarService = $calendarService;
+		$this->occurrenceService = $occurrenceService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
@@ -403,6 +406,19 @@ class TaskCreationService {
 				foreach ($assigneeUserIds as $userId) {
 					$this->taskAssigneeMapper->addAssignee($roomTask->getId(), $userId, $actor->getNextcloudUserId());
 				}
+
+				// CS-PLAN-072 WP1: the immutable initial schedule — revision 1
+				// plus its agreed occurrences materialize in the SAME aggregate
+				// (the timeline is the only recurrence authority).
+				$this->occurrenceService->initializeScheduleUnderLock(
+					$houseId,
+					$roomTask,
+					$task,
+					$this->calendarService->getTimeZone($this->houseMapper->find($houseId))->getName(),
+					$roomTask->getNextDue(),
+					$assigneeUserIds,
+					new \DateTime(),
+				);
 
 				return [$task, $roomTask];
 			}

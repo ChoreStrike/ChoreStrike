@@ -73,8 +73,8 @@ class ConcurrentCompletionTest extends IntegrationTestCase {
 		$this->actingAs('seq_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
 
-		$first = $completionService->complete($houseId, 'seq_owner', $roomTaskA);
-		$second = $completionService->complete($houseId, 'seq_owner', $roomTaskB);
+		$first = $this->completeOccurrence($completionService, $houseId, 'seq_owner', $roomTaskA);
+		$second = $this->completeOccurrence($completionService, $houseId, 'seq_owner', $roomTaskB);
 
 		$user = $mapper->findByNextcloudUserId($houseId, 'seq_owner');
 		self::assertSame(
@@ -280,7 +280,7 @@ PHP;
 			// entity must reflect T1's committed advance instead.
 			$this->actingAs('rt_helper');
 			$completionService = \OC::$server->get(CompletionService::class);
-			$completionService->complete($houseId, 'rt_helper', $roomTaskId);
+			$this->completeOccurrence($completionService, $houseId, 'rt_helper', $roomTaskId);
 
 			$row = $this->fetchRoomTaskRow($roomTaskId);
 			self::assertSame(
@@ -380,7 +380,7 @@ PHP;
 			// Both completions now race; whoever takes the room lock second
 			// must build on the first one's committed cleanliness.
 			$completionService = \OC::$server->get(CompletionService::class);
-			$parentResult = $completionService->complete($houseId, 'cc_member', $roomTaskB);
+			$parentResult = $this->completeOccurrence($completionService, $houseId, 'cc_member', $roomTaskB);
 
 			$this->waitForFile($doneFile, 'the helper completion did not finish in time');
 			$helperResult = json_decode((string)file_get_contents($doneFile), true, 512, JSON_THROW_ON_ERROR);
@@ -497,7 +497,24 @@ while (!file_exists($goFile)) {
 
 try {
     $service = \OC::$server->get(\OCA\ChoreStrike\Service\CompletionService::class);
-    $result = $service->complete($houseId, $userId, $roomTaskId);
+    // CS-PLAN-072 WP1: the occurrence receipt of the current canonical
+    // target (public key, version, selection token) plus a fresh command
+    // UUID per helper run.
+    $occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
+    $roomTaskMapper = \OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class);
+    $selection = $occurrenceService->selectionFor($roomTaskMapper->find($roomTaskId), new DateTime());
+    if ($selection === null) {
+        throw new RuntimeException('no completable occurrence for room task ' . $roomTaskId);
+    }
+    $result = $service->complete(
+        $houseId,
+        $userId,
+        $roomTaskId,
+        sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
+        $selection['occurrence']->toPublicKey(),
+        $selection['occurrence']->getVersion(),
+        $occurrenceService->selectionToken($selection['occurrence'], $selection['revision'], $selection['classification'])
+    );
     file_put_contents($doneFile, json_encode([
         'cleanlinessChange' => $result['rewards']['cleanlinessChange'],
     ]));

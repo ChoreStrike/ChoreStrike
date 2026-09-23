@@ -38,6 +38,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 	private HouseMapper|MockObject $houseMapper;
 	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
+	private \OCA\ChoreStrike\Service\OccurrenceService|MockObject $occurrenceService;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -46,6 +47,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
+		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
 		// CS-PLAN-057: day windows resolve the house timezone (UTC here, so
 		// the [start, end) bounds match the injected date's UTC calendar day).
 		$utcHouse = new House();
@@ -57,6 +59,18 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$this->taskAccessPolicy->method('filterVisibleRoomTasks')
 			->willReturnCallback(static fn (array $roomTasks): array => $roomTasks);
 
+		// CS-PLAN-072 WP1: daily reads derive from the occurrence
+		// authority — the derivation mock answers with one agreed entry per
+		// room task unless a test narrows it.
+		$this->occurrenceService->method('agreedOccurrencesForHouseTasks')
+			->willReturnCallback(static function (int $houseId, array $roomTasks, ?string $fromKey, ?string $toKey): array {
+				$result = [];
+				foreach ($roomTasks as $roomTask) {
+					$result[$roomTask->getId()] = [['occurrence' => null, 'revision' => null]];
+				}
+				return $result;
+			});
+
 		$this->service = new RoomTaskReadService(
 			$this->roomTaskMapper,
 			$this->taskMapper,
@@ -66,6 +80,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->taskAccessPolicy,
 			new CalendarService(),
+			$this->occurrenceService,
 			$this->createIdentityL10n()
 		);
 	}
@@ -84,8 +99,8 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$roomTask->method('getId')->willReturn(1);
 
 		$this->roomTaskMapper->expects($this->once())
-			->method('findDailyTasks')
-			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
+			->method('findByHouse')
+			->with($houseId, true)
 			->willReturn([$roomTask]);
 
 		$result = $this->service->getDailyTasks($houseId, $date);
@@ -126,8 +141,8 @@ class RoomTaskServiceDailyTest extends TestCase {
 
 		// Mock daily tasks
 		$this->roomTaskMapper->expects($this->once())
-			->method('findDailyTasks')
-			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
+			->method('findByHouse')
+			->with($houseId, true)
 			->willReturn([$roomTask1, $roomTask2]);
 
 		$this->taskMapper->expects($this->any())
@@ -170,8 +185,8 @@ class RoomTaskServiceDailyTest extends TestCase {
 
 		// Mock daily tasks
 		$this->roomTaskMapper->expects($this->once())
-			->method('findDailyTasks')
-			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
+			->method('findByHouse')
+			->with($houseId, true)
 			->willReturn([$roomTask1]);
 
 		// Real HouseUser entity (child with weekend-only availability)
@@ -222,8 +237,8 @@ class RoomTaskServiceDailyTest extends TestCase {
 
 		// Mock daily tasks
 		$this->roomTaskMapper->expects($this->once())
-			->method('findDailyTasks')
-			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
+			->method('findByHouse')
+			->with($houseId, true)
 			->willReturn($roomTasks);
 
 		$this->taskMapper->expects($this->any())
@@ -283,8 +298,8 @@ class RoomTaskServiceDailyTest extends TestCase {
 
 		// Mock daily tasks
 		$this->roomTaskMapper->expects($this->once())
-			->method('findDailyTasks')
-			->with($houseId, $this->isInstanceOf(\DateTimeInterface::class), $this->isInstanceOf(\DateTimeInterface::class))
+			->method('findByHouse')
+			->with($houseId, true)
 			->willReturn([$roomTask1, $roomTask2]);
 
 		$this->taskMapper->expects($this->any())
@@ -348,7 +363,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$room->setName('Kitchen');
 
 		$this->roomTaskMapper->expects($this->once())
-			->method('findDailyTasks')
+			->method('findByHouse')
 			->willReturn($roomTasks);
 
 		$this->taskMapper->expects($this->any())
@@ -409,7 +424,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$room->setName('Kitchen');
 
 		$this->roomTaskMapper->expects($this->once())
-			->method('findDailyTasks')
+			->method('findByHouse')
 			->willReturn([$roomTask1]);
 
 		$this->taskMapper->expects($this->any())
@@ -472,7 +487,7 @@ class RoomTaskServiceDailyTest extends TestCase {
 		$room->setName('Kitchen');
 
 		$this->roomTaskMapper->expects($this->once())
-			->method('findDailyTasks')
+			->method('findByHouse')
 			->willReturn($roomTasks);
 
 		$this->taskMapper->expects($this->any())

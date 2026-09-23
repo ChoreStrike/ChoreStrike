@@ -252,6 +252,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 			$s->get(HouseUserMapper::class),
 			$sabotaged,
 			$s->get(CompletedTaskMapper::class),
+			$s->get(\OCA\ChoreStrike\Service\OccurrenceService::class),
 			$s->get(TransactionExecutor::class),
 			$s->get(CalendarService::class),
 			$s->get(TaskAccessPolicy::class),
@@ -297,11 +298,12 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 	private function previewWithMemberBudgetAt(string $startKey): array {
 		$f = $this->familyHouse();
 		$roomTaskId = $f['makeTask']('Dishes', 2);
-		$qb = $this->db->getQueryBuilder();
-		$qb->update('chorestrike_room_tasks')
-			->set('next_due', $qb->createNamedParameter($startKey . ' 00:00:00'))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT)))
-			->executeStatement();
+		// CS-PLAN-072 WP1: the due-date move goes through the agreement
+		// writer — a raw next_due update would diverge from the occurrence
+		// timeline (the legal-slot anchor and the projection are derived
+		// from the agreed occurrence, not the raw column).
+		\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class)
+			->updateDueDate($roomTaskId, $startKey, $this->ownerActor($f['houseId']));
 		$preview = $this->service->preview($f['houseId'], $this->ownerActor($f['houseId']), $startKey, [$roomTaskId], []);
 		self::assertCount(1, $preview['changes']);
 		return ['houseId' => $f['houseId'], 'roomTaskId' => $roomTaskId, 'preview' => $preview];
@@ -331,10 +333,14 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 
 	public function testApply_StaleDateInput_RejectsWithoutWrites(): void {
 		$f = $this->previewWithMemberBudget();
-		\OC::$server->get(RoomTaskMapper::class)->updateNextDue(
-			$f['roomTaskId'],
-			(new \DateTime($this->todayKey))->modify('-1 day')
-		);
+		// Simulate a concurrent date move with a raw row update (the
+		// planner fingerprint reads the projection; the agreement writer
+		// itself is covered by the occurrence timeline suites).
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_room_tasks')
+			->set('next_due', $qb->createNamedParameter((new \DateTime($this->todayKey))->modify('-1 day')->format('Y-m-d H:i:s')))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($f['roomTaskId'], IQueryBuilder::PARAM_INT)))
+			->executeStatement();
 
 		$this->assertStaleApplyConflictsWithoutWrites($f['houseId'], $f['roomTaskId'], $f['preview']);
 	}
@@ -445,7 +451,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		$f = $this->previewWithMemberBudget();
 		// A completion of the SELECTED task changes its row and the
 		// capacity-source rows (ledger).
-		$this->completionService->complete($f['houseId'], 'dad', $f['roomTaskId']);
+		$this->completeOccurrence($this->completionService, $f['houseId'], 'dad', $f['roomTaskId']);
 		$this->cleanupLedgerRoomTaskIds[] = $f['roomTaskId'];
 
 		$this->assertStaleApplyConflictsWithoutWrites($f['houseId'], $f['roomTaskId'], $f['preview']);
@@ -499,7 +505,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		$roomTaskId = $makeTask('Dishes', 2);
 
 		$preview = $this->service->preview($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], []);
-		$this->completionService->complete($houseId, 'dad', $roomTaskId);
+		$this->completeOccurrence($this->completionService, $houseId, 'dad', $roomTaskId);
 		$this->cleanupLedgerRoomTaskIds[] = $roomTaskId;
 		$this->completionService->undo($houseId, $this->ownerActor($houseId), $roomTaskId);
 
@@ -514,7 +520,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 		$this->service->apply($houseId, $this->ownerActor($houseId), $this->todayKey, [$roomTaskId], [], $preview['previewVersion']);
 		$appliedDue = $this->roomTaskRow($roomTaskId)['next_due'];
 
-		$this->completionService->complete($houseId, 'dad', $roomTaskId);
+		$this->completeOccurrence($this->completionService, $houseId, 'dad', $roomTaskId);
 		$this->cleanupLedgerRoomTaskIds[] = $roomTaskId;
 		$afterComplete = $this->roomTaskRow($roomTaskId)['next_due'];
 		self::assertNotSame($appliedDue, $afterComplete, 'the completion must advance the recurrence');
@@ -541,7 +547,7 @@ class SchedulePlanAggregateTest extends IntegrationTestCase {
 
 		// 1. Complete: the ledger records the pre-completion state, the row
 		// is assigned to the completer and the recurrence advances.
-		$this->completionService->complete($houseId, 'dad', $roomTaskId);
+		$this->completeOccurrence($this->completionService, $houseId, 'dad', $roomTaskId);
 		$this->cleanupLedgerRoomTaskIds[] = $roomTaskId;
 		$afterComplete = $this->roomTaskRow($roomTaskId)['next_due'];
 

@@ -45,6 +45,7 @@ class SchedulePlanServiceTest extends TestCase {
 	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
 	private CompletedTaskMapper|MockObject $completedTaskMapper;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
+	private \OCA\ChoreStrike\Service\OccurrenceService|MockObject $occurrenceService;
 	private SchedulePlanService $service;
 	private string $todayKey;
 	private HouseUser $owner;
@@ -60,6 +61,7 @@ class SchedulePlanServiceTest extends TestCase {
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->completedTaskMapper = $this->createMock(CompletedTaskMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
+		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
 		$this->taskAccessPolicy->method('canView')->willReturnCallback(fn (): bool => $this->allowView);
 
 		$utcHouse = new House();
@@ -77,6 +79,7 @@ class SchedulePlanServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->taskAssigneeMapper,
 			$this->completedTaskMapper,
+			$this->occurrenceService,
 			new TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
 			new CalendarService(),
 			$this->taskAccessPolicy,
@@ -153,6 +156,7 @@ class SchedulePlanServiceTest extends TestCase {
 	 * @param array<string, HouseUser> $members
 	 * @param array<int, string[]> $assigneesByRoomTask
 	 * @param array<int, RoomTask> $baseRows
+	 * @param array<int, list<string>> $agreedLoadByTask Room task id => planned day keys of its agreed unfulfilled occurrences (RF-072-WP1-12: the capacity baseline enumerates the occurrence authority, not the legacy engine)
 	 */
 	private function wire(
 		array $rowsById,
@@ -160,6 +164,7 @@ class SchedulePlanServiceTest extends TestCase {
 		array $members,
 		array $assigneesByRoomTask = [],
 		array $baseRows = [],
+		array $agreedLoadByTask = [],
 	): void {
 		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturnCallback(
 			fn (array $ids): array => array_values(array_intersect_key($rowsById + $baseRows, array_flip(array_map('intval', $ids))))
@@ -179,6 +184,31 @@ class SchedulePlanServiceTest extends TestCase {
 		);
 		$this->completedTaskMapper->method('findEnergyUsageBetweenByHouse')->willReturn([]);
 		$this->completedTaskMapper->method('findUndoStateByRoomTasks')->willReturn([]);
+		$this->occurrenceService->method('agreedOccurrencesForHouseTasks')->willReturnCallback(
+			function (int $houseId, array $rows, ?string $fromKey, ?string $toKey) use ($agreedLoadByTask): array {
+				$result = [];
+				foreach ($rows as $row) {
+					$entries = [];
+					foreach ($agreedLoadByTask[$row->getId()] ?? [] as $index => $dayKey) {
+						if ($fromKey !== null && ($dayKey < $fromKey || $dayKey > $toKey)) {
+							continue;
+						}
+						$occurrence = new \OCA\ChoreStrike\Db\Occurrence();
+						$occurrence->setId($row->getId() * 100 + $index);
+						$occurrence->setRoomTaskId($row->getId());
+						$occurrence->setScheduleRevId($row->getId());
+						$occurrence->setOrdinal($index + 1);
+						$occurrence->setPlannedDate(new \DateTime($dayKey . ' 00:00:00', new \DateTimeZone('UTC')));
+						$revision = new \OCA\ChoreStrike\Db\ScheduleRevision();
+						$revision->setId($row->getId());
+						$entries[] = ['occurrence' => $occurrence, 'revision' => $revision];
+					}
+					$result[$row->getId()] = $entries;
+				}
+				return $result;
+			}
+		);
+		$this->occurrenceService->method('projectionsForTask')->willReturn([]);
 	}
 
 	private function dayOffset(int $days): string {
@@ -194,12 +224,15 @@ class SchedulePlanServiceTest extends TestCase {
 		$task = $this->definition(10, ['flexDays' => 0]);
 		$this->wire([5 => $row], [10 => $task], ['dad' => $this->owner]);
 
-		// No write primitive of any owning mapper may fire during a preview.
+		// No write primitive of any owning mapper may fire during a preview
+		// (CS-PLAN-072 WP1: apply persists exclusively through the
+		// agreement writers).
 		$this->roomTaskMapper->expects($this->never())->method('update');
-		$this->roomTaskMapper->expects($this->never())->method('updateNextDue');
 		$this->roomTaskMapper->expects($this->never())->method('insert');
 		$this->taskAssigneeMapper->expects($this->never())->method('addAssignee');
 		$this->taskAssigneeMapper->expects($this->never())->method('deleteByRoomTask');
+		$this->occurrenceService->expects($this->never())->method('amendOccurrenceDateUnderLock');
+		$this->occurrenceService->expects($this->never())->method('amendParticipantsUnderLock');
 
 		$this->service->preview(7, $this->owner, $this->todayKey, [5], []);
 	}
@@ -506,12 +539,13 @@ class SchedulePlanServiceTest extends TestCase {
 	public function testPreview_ChildLimit_BlocksPlacement(): void {
 		$kid = $this->member('kid', 2, 'child', ['monday' => 10, 'tuesday' => 10, 'wednesday' => 10, 'thursday' => 10, 'friday' => 10, 'saturday' => 10, 'sunday' => 10], ['maxDailyTasks' => 1]);
 		// Unassigned row due today: its zero-flex legal slot is today, where
-		// the child's single slot is already consumed by the blocker.
+		// the child's single slot is already consumed by the blocker's
+		// agreed occurrence (occurrence-authority baseline, RF-072-WP1-12).
 		$row = $this->roomTask(5, 10, $this->todayKey);
 		$task = $this->definition(10, ['flexDays' => 0, 'energyCost' => 1]);
 		$blocker = $this->roomTask(6, 11, $this->todayKey);
 		$blockerTask = $this->definition(11, ['energyCost' => 1, 'flexDays' => 0]);
-		$this->wire([5 => $row, 6 => $blocker], [10 => $task, 11 => $blockerTask], ['kid' => $kid], [6 => ['kid']]);
+		$this->wire([5 => $row, 6 => $blocker], [10 => $task, 11 => $blockerTask], ['kid' => $kid], [6 => ['kid']], [], [6 => [$this->todayKey]]);
 
 		$plan = $this->service->preview(7, $this->owner, $this->todayKey, [5], []);
 
@@ -523,7 +557,7 @@ class SchedulePlanServiceTest extends TestCase {
 		$tight = $this->member('dad', 1, 'owner', ['monday' => 4, 'tuesday' => 4, 'wednesday' => 4, 'thursday' => 4, 'friday' => 4, 'saturday' => 4, 'sunday' => 4]);
 		$row = $this->roomTask(5, 10, $this->todayKey);
 		$task = $this->definition(10, ['energyCost' => 5]);
-		$this->wire([5 => $row], [10 => $task], ['dad' => $tight], [5 => ['dad']]);
+		$this->wire([5 => $row], [10 => $task], ['dad' => $tight], [5 => ['dad']], [], [5 => [$this->todayKey]]);
 
 		$plan = $this->service->preview(7, $tight, $this->todayKey, [5], []);
 
@@ -539,7 +573,7 @@ class SchedulePlanServiceTest extends TestCase {
 		$mom = $this->member('mom', 2, 'member', ['monday' => 4, 'tuesday' => 4, 'wednesday' => 4, 'thursday' => 4, 'friday' => 4, 'saturday' => 4, 'sunday' => 4]);
 		$row = $this->roomTask(5, 10, $this->todayKey);
 		$task = $this->definition(10, ['energyCost' => 5]);
-		$this->wire([5 => $row], [10 => $task], ['dad' => $dad, 'mom' => $mom], [5 => ['dad', 'mom']]);
+		$this->wire([5 => $row], [10 => $task], ['dad' => $dad, 'mom' => $mom], [5 => ['dad', 'mom']], [], [5 => [$this->todayKey]]);
 
 		$plan = $this->service->preview(7, $this->owner, $this->todayKey, [5], []);
 
@@ -613,9 +647,10 @@ class SchedulePlanServiceTest extends TestCase {
 		$row = $this->roomTask(5, 10, $this->todayKey);
 		$row->setIdealDueDate(new \DateTime($this->todayKey . ' 00:00:00', new \DateTimeZone('UTC')));
 		// A ONCE task only occupies its own day — a recurring daily task
-		// would legitimately book every day of the window.
+		// would legitimately book every day of the window. The agreed
+		// occurrence sits on today (occurrence-authority baseline).
 		$task = $this->definition(10, ['energyCost' => 3, 'flexDays' => 1, 'recurrenceMode' => Task::RECURRENCE_ONCE]);
-		$this->wire([5 => $row], [10 => $task], ['dad' => $dad], [5 => ['dad']]);
+		$this->wire([5 => $row], [10 => $task], ['dad' => $dad], [5 => ['dad']], [], [5 => [$this->todayKey]]);
 
 		// Explicit date override within the flex window: the current
 		// occurrence is replaced, not added again.

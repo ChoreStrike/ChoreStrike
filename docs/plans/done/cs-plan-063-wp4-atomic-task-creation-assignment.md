@@ -1,4 +1,4 @@
-﻿# CS-PLAN-063: WP4 — Atomic Task Creation and Canonical Assignment
+# CS-PLAN-063: WP4 — Atomic Task Creation and Canonical Assignment
 
 > **Status:** Done (implementation 2026-09-05; final Standard B `PASS-WITH-FIXES` 2026-09-06 — moved to `done/`)
 > **Effort:** L

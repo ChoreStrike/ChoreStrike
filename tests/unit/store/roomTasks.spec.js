@@ -69,6 +69,15 @@ const undoFixture = (completerUserId, roomTaskId = 7) => ({
 	undone: true,
 })
 
+// CS-PLAN-072 WP1: the shown occurrence block a cached row must carry for
+// completeRoomTask to resolve a receipt target.
+const occurrenceFixture = (overrides = {}) => ({
+	occurrenceId: '5:1',
+	expectedVersion: 0,
+	selectionToken: 'sel-token',
+	...overrides,
+})
+
 describe('RoomTasks Store', () => {
 	let store
 
@@ -329,12 +338,135 @@ describe('RoomTasks Store', () => {
 
 		describe('completeRoomTask', () => {
 			it('completes task', async () => {
-				store.roomTasks = [{ id: 1, isActive: true }]
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
 				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: false } })
 
 				const result = await store.completeRoomTask(1, 'user1')
 
 				expect(result.roomTask.isActive).toBe(false)
+			})
+
+			it('sends the occurrence receipt with a fresh commandId (CS-PLAN-072 WP1)', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture({ occurrenceId: '9:3', expectedVersion: 2, selectionToken: 'tok-abc' }) }]
+				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: false } })
+
+				await store.completeRoomTask(1)
+
+				const [url, body] = api.post.mock.calls[0]
+				expect(url).toBe('/api/v1/room-tasks/1/complete')
+				expect(body.occurrenceId).toBe('9:3')
+				expect(body.expectedVersion).toBe(2)
+				expect(body.selectionToken).toBe('tok-abc')
+				expect(body.commandId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+			})
+
+			it('generates a NEW commandId per logical completion command', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				// The real aggregate always returns a fresh selection block,
+				// so the cached row keeps a resolvable target between calls.
+				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: true }, occurrence: occurrenceFixture() })
+
+				await store.completeRoomTask(1)
+				await store.completeRoomTask(1)
+
+				const first = api.post.mock.calls[0][1].commandId
+				const second = api.post.mock.calls[1][1].commandId
+				expect(first).not.toBe(second)
+			})
+
+			it('reuses the SAME commandId when an uncertain-response retry hits the same target (RF-072-WP1-07)', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				// First attempt: network failure with NO status — the server may
+				// still have committed, the response is uncertain.
+				api.post.mockRejectedValueOnce(new Error('network unreachable'))
+				api.post.mockResolvedValueOnce({ roomTask: { id: 1, isActive: false } })
+
+				await store.completeRoomTask(1).then(() => null, () => null)
+				await store.completeRoomTask(1)
+
+				expect(api.post).toHaveBeenCalledTimes(2)
+				expect(api.post.mock.calls[1][1].commandId).toBe(api.post.mock.calls[0][1].commandId)
+			})
+
+			it('keeps the pending commandId on a 5xx response and replays it on retry', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				const serverError = new Error('internal error')
+				serverError.status = 503
+				api.post.mockRejectedValueOnce(serverError)
+				api.post.mockResolvedValueOnce({ roomTask: { id: 1, isActive: false } })
+
+				await store.completeRoomTask(1).then(() => null, () => null)
+				await store.completeRoomTask(1)
+
+				expect(api.post.mock.calls[1][1].commandId).toBe(api.post.mock.calls[0][1].commandId)
+			})
+
+			it('clears the pending commandId after a definitive success', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: true }, occurrence: occurrenceFixture() })
+
+				await store.completeRoomTask(1)
+				expect(store.pendingCommands).toEqual({})
+
+				// The retry of a DIFFERENT logical command gets a fresh UUID.
+				const first = api.post.mock.calls[0][1].commandId
+				await store.completeRoomTask(1)
+				expect(api.post.mock.calls[1][1].commandId).not.toBe(first)
+			})
+
+			it('clears the pending commandId on a definitive 409 so the next attempt carries a new command', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				const conflict = new Error('conflict')
+				conflict.status = 409
+				api.post.mockRejectedValue(conflict)
+				jest.spyOn(store, 'refreshDerivedProjections').mockResolvedValue(undefined)
+
+				await store.completeRoomTask(1).then(() => null, () => null)
+				expect(store.pendingCommands).toEqual({})
+			})
+
+			it('reset() discards pending commands', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				api.post.mockRejectedValue(new Error('offline'))
+
+				await store.completeRoomTask(1).then(() => null, () => null)
+				expect(Object.keys(store.pendingCommands)).toHaveLength(1)
+
+				store.reset()
+				expect(store.pendingCommands).toEqual({})
+			})
+
+			it('throws STALE_TARGET without a request when no occurrence block is cached', async () => {
+				store.roomTasks = [{ id: 1, isActive: true }]
+				api.post.mockClear()
+
+				await expect(store.completeRoomTask(1)).rejects.toMatchObject({ code: 'STALE_TARGET' })
+				expect(api.post).not.toHaveBeenCalled()
+			})
+
+			it('refreshes derived projections on a 409 stale-target conflict', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				const conflict = new Error('The task changed since it was displayed. Reload and try again.')
+				conflict.status = 409
+				api.post.mockRejectedValue(conflict)
+				const refreshSpy = jest.spyOn(store, 'refreshDerivedProjections').mockResolvedValue(undefined)
+
+				await expect(store.completeRoomTask(1)).rejects.toBe(conflict)
+				expect(refreshSpy).toHaveBeenCalled()
+			})
+
+			it('stores the fresh occurrence block from the completion response', async () => {
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
+				store.dailyTasks = [{ roomTask: { id: 1, isActive: true }, task: { id: 5 }, room: null, occurrence: occurrenceFixture() }]
+				api.post.mockResolvedValue({
+					roomTask: { id: 1, isActive: true },
+					occurrence: occurrenceFixture({ occurrenceId: '5:2', expectedVersion: 0, selectionToken: 'next-tok' }),
+				})
+
+				await store.completeRoomTask(1)
+
+				expect(store.roomTasks[0].occurrence.occurrenceId).toBe('5:2')
+				expect(store.dailyTasks[0].occurrence.selectionToken).toBe('next-tok')
 			})
 
 			it('reconciles every owning store BEFORE emitting task-completed (D10)', async () => {
@@ -343,7 +475,7 @@ describe('RoomTasks Store', () => {
 				const userStore = useUserStore()
 				const minigameStore = useMinigameStore()
 
-				store.roomTasks = [{ id: 1, roomId: 10, isActive: true, assignees: ['mom'] }]
+				store.roomTasks = [{ id: 1, roomId: 10, isActive: true, assignees: ['mom'], occurrence: occurrenceFixture() }]
 				roomsStore.rooms = [{ id: 10, cleanliness: 70 }]
 				userStore.currentUser = { nextcloudUserId: 'mom', coins: 10, contributionScore: 40, currentStreak: 1, longestStreak: 4, streakFreezes: 1 }
 				minigameStore.currentCoins = 10
@@ -380,7 +512,7 @@ describe('RoomTasks Store', () => {
 				const minigameStore = useMinigameStore()
 				userStore.currentUser = { nextcloudUserId: 'mom', coins: 10 }
 				minigameStore.currentCoins = 10
-				store.roomTasks = [{ id: 1, assignees: ['mom'] }]
+				store.roomTasks = [{ id: 1, assignees: ['mom'], occurrence: occurrenceFixture() }]
 				store.dailyTasks = [{ roomTask: { id: 1, isActive: true }, task: { id: 5 }, room: null }]
 				api.post.mockResolvedValue(completionFixture())
 
@@ -403,7 +535,7 @@ describe('RoomTasks Store', () => {
 
 		it('does not touch the removed scheduling energy counter (D7)', async () => {
 			const schedulingStore = useSchedulingStore()
-			store.roomTasks = [{ id: 1, isActive: true }]
+			store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
 			api.post.mockResolvedValue({
 				roomTask: { id: 1, isActive: false },
 				rewards: { energyCost: 3 },
@@ -421,7 +553,7 @@ describe('RoomTasks Store', () => {
 				const { useGameStore } = await import('../../../src/store/game.js')
 				const gameStore = useGameStore()
 
-				store.roomTasks = [{ id: 1, isActive: true }]
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
 				api.post.mockResolvedValue({
 					roomTask: { id: 1, isActive: false },
 					rewards: {
@@ -909,7 +1041,7 @@ describe('RoomTasks Store', () => {
 					eventOrder.push('invalidate')
 				})
 
-				store.roomTasks = [{ id: 1, isActive: true }]
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
 				api.post.mockResolvedValue({
 					roomTask: { id: 1, isActive: false },
 					rewards: { coins: 5, newTitle: { pack: 'sparkling', labelKey: 'titles.sparkling.bronze', tierIndex: 0 } },
@@ -935,7 +1067,7 @@ describe('RoomTasks Store', () => {
 				titlesStore.lastHouseUserId = 5
 				jest.spyOn(titlesStore, 'invalidate').mockRejectedValue(new Error('offline'))
 
-				store.roomTasks = [{ id: 1, isActive: true }]
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
 				api.post.mockResolvedValue({
 					roomTask: { id: 1, isActive: false },
 					rewards: { coins: 5, newTitle: { pack: 'p', labelKey: 'k', tierIndex: 1 } },
@@ -947,7 +1079,7 @@ describe('RoomTasks Store', () => {
 
 			it('a null newTitle emits no unlock event', async () => {
 				const { emit } = await import('@nextcloud/event-bus')
-				store.roomTasks = [{ id: 1, isActive: true }]
+				store.roomTasks = [{ id: 1, isActive: true, occurrence: occurrenceFixture() }]
 				api.post.mockResolvedValue({
 					roomTask: { id: 1, isActive: false },
 					rewards: { coins: 5, newTitle: null },
@@ -964,7 +1096,7 @@ describe('RoomTasks Store', () => {
 			it('the returned definition merges into the definitions store by its separate ID', async () => {
 				const tasksStore = useTasksStore()
 				tasksStore.tasks = [{ id: 5, name: 'Old name' }]
-				store.roomTasks = [{ id: 1, taskId: 5, isActive: true }]
+				store.roomTasks = [{ id: 1, taskId: 5, isActive: true, occurrence: occurrenceFixture() }]
 				api.post.mockResolvedValue(completionFixture())
 
 				await store.completeRoomTask(1)
@@ -988,7 +1120,7 @@ describe('RoomTasks Store', () => {
 			})
 
 			it('a refresh failure keeps the committed action, marks projections stale, and offers a refresh-only retry', async () => {
-				store.roomTasks = [{ id: 1, isActive: true, assignees: ['mom'] }]
+				store.roomTasks = [{ id: 1, isActive: true, assignees: ['mom'], occurrence: occurrenceFixture() }]
 				store.dueTodayLoaded = true
 				store.overdueLoaded = true
 				api.post.mockResolvedValue({ roomTask: { id: 1, isActive: false }, rewards: { coins: 5 } })

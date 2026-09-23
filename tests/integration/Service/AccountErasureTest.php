@@ -314,6 +314,77 @@ class AccountErasureTest extends IntegrationTestCase {
 	}
 
 	/**
+	 * Erasure_ScrubsUserIdsFromAgreementMemberSnapshots (CS-PLAN-072 WP1,
+	 * RF-072-WP1-04): agreement evidence rows survive as anonymous facts,
+	 * but the member snapshots inside old_state/new_state must lose the
+	 * erased account's userId binding — exactly like the schedule_revs
+	 * rule-default snapshots.
+	 */
+	public function testErasure_ScrubsUserIdsFromAgreementMemberSnapshots(): void {
+		$f = $this->seedHouseWithTarget();
+
+		// The agreement writer records member snapshots carrying plain
+		// Nextcloud userIds (participant amendment on the pending target).
+		$actor = $this->houseUserFor($f['houseId'], 'ae_owner');
+		\OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class)
+			->setAssignees($f['roomTaskId'], ['ae_target', 'ae_owner'], $f['houseId'], $actor);
+
+		$statesBefore = $this->fetchAgreementStates($f['roomTaskId']);
+		self::assertNotSame([], $statesBefore, 'the participant amendment recorded agreement evidence');
+		$sawTargetBinding = false;
+		foreach ($statesBefore as $state) {
+			foreach ($state['members'] ?? [] as $member) {
+				if (($member['userId'] ?? null) === 'ae_target') {
+					$sawTargetBinding = true;
+				}
+			}
+		}
+		self::assertTrue($sawTargetBinding, 'the pre-erasure snapshot binds the target userId');
+
+		$erasureService = \OC::$server->get(AccountErasureService::class);
+		$erasureService->eraseAccount('ae_target');
+
+		$scrubbedWalletFact = false;
+		foreach ($this->fetchAgreementStates($f['roomTaskId']) as $state) {
+			foreach ($state['members'] ?? [] as $member) {
+				self::assertNotSame('ae_target', $member['userId'] ?? null, 'the erased userId must not survive in agreement evidence');
+				if ((int)($member['walletId'] ?? 0) === $f['walletId']) {
+					self::assertNull($member['userId'] ?? null, 'the account binding is stripped, the wallet fact stays');
+					$scrubbedWalletFact = true;
+				}
+			}
+		}
+		self::assertTrue($scrubbedWalletFact, "the erased wallet's member snapshot survived as an anonymous fact");
+	}
+
+	/**
+	 * Decoded old_state/new_state member snapshots of a room task's
+	 * agreement evidence rows.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	private function fetchAgreementStates(int $roomTaskId): array {
+		$result = $this->db->executeQuery(
+			'SELECT old_state, new_state FROM *PREFIX*chorestrike_agreements'
+			. ' WHERE occurrence_id IN (SELECT id FROM *PREFIX*chorestrike_occurrences WHERE room_task_id = ?)',
+			[$roomTaskId]
+		);
+		$rows = $result->fetchAll();
+		$result->closeCursor();
+
+		$states = [];
+		foreach ($rows as $row) {
+			foreach (['old_state', 'new_state'] as $column) {
+				$decoded = json_decode((string)$row[$column], true);
+				if (is_array($decoded)) {
+					$states[] = $decoded;
+				}
+			}
+		}
+		return $states;
+	}
+
+	/**
 	 * DepartedAccount_WalletPreserved_ReinvitationReattaches_ErasureSweepsIt
 	 */
 	public function testDepartedAccount_WalletPreserved_ReinvitationReattaches_ErasureSweepsIt(): void {

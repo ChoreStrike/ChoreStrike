@@ -18,6 +18,7 @@ use OCA\ChoreStrike\Db\TaskChecklistItem;
 use OCA\ChoreStrike\Db\TaskChecklistItemMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -48,6 +49,7 @@ class ChecklistService {
 	private HouseMapper $houseMapper;
 	private TransactionExecutor $transactions;
 	private RoomTaskService $roomTaskService;
+	private OccurrenceService $occurrenceService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 	private AuthorizationService $authorization;
@@ -61,6 +63,7 @@ class ChecklistService {
 		HouseMapper $houseMapper,
 		TransactionExecutor $transactions,
 		RoomTaskService $roomTaskService,
+		OccurrenceService $occurrenceService,
 		IL10N $l10n,
 		AppLogger $appLogger,
 		AuthorizationService $authorization,
@@ -73,6 +76,7 @@ class ChecklistService {
 		$this->houseMapper = $houseMapper;
 		$this->transactions = $transactions;
 		$this->roomTaskService = $roomTaskService;
+		$this->occurrenceService = $occurrenceService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 		$this->authorization = $authorization;
@@ -265,48 +269,155 @@ class ChecklistService {
 	}
 
 	/**
-	 * Get checklist progress entries and stats for a room task.
+	 * Get checklist progress entries and stats for one OCCURRENCE of a
+	 * room task (CS-PLAN-072 WP1). A GET causes no DB writes: a virtual
+	 * agreed key derives its (still empty) progress write-free; the
+	 * canonical selection target is used when no occurrence key is given.
+	 * Each row carries its occurrence id and progress revision.
 	 *
-	 * @return array{items: array, stats: array}
+	 * @param string|null $occurrenceKey Public `<scheduleRevisionId>:<ordinal>` key (null = canonical selection)
+	 * @return array{items: array, stats: array, occurrence: ?array}
 	 */
-	public function getRoomTaskProgress(int $roomTaskId, int $houseId, HouseUser $viewer): array {
-		$this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
+	public function getRoomTaskProgress(int $roomTaskId, ?string $occurrenceKey, int $houseId, HouseUser $viewer): array {
+		$roomTask = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
+		$itemCount = count($this->checklistItemMapper->findByTaskId($roomTask->getTaskId()));
+
+		$target = $this->resolveProgressTarget($roomTask, $houseId, $occurrenceKey);
+		if ($target === null) {
+			return ['items' => [], 'stats' => $this->emptyStats($itemCount), 'occurrence' => null];
+		}
+
+		$occurrence = $target['occurrence'];
+		$rows = $this->progressMapper->findByOccurrence(
+			$roomTaskId,
+			$occurrence->getScheduleRevId(),
+			$occurrence->getOrdinal()
+		);
 
 		return [
-			'items' => $this->progressMapper->findByRoomTaskId($roomTaskId),
-			'stats' => $this->progressMapper->getProgressStats($roomTaskId),
+			'items' => $rows,
+			'stats' => $this->progressMapper->getOccurrenceProgressStats(
+				$roomTaskId,
+				$occurrence->getScheduleRevId(),
+				$occurrence->getOrdinal(),
+				$itemCount
+			),
+			'occurrence' => [
+				'occurrenceId' => $occurrence->toPublicKey(),
+				'plannedDate' => $occurrence->getPlannedDate()?->format('Y-m-d'),
+			],
 		];
 	}
 
 	/**
-	 * Toggle a checklist item for a room task; the item must belong to
-	 * that room task's task checklist.
+	 * Toggle a checklist item of one OCCURRENCE; the item must belong to
+	 * that room task's task checklist. Virtual agreed progress
+	 * materializes through the same resolver (a mutation may write; a
+	 * stale progress revision conflicts with 409 instead of leaking into
+	 * a later occurrence).
 	 *
 	 * CS-PLAN-071 WP0: the toggle runs in one house-first transaction —
 	 * the house row lock, then the room-task row lock, then the locked
-	 * progress row read-modify-write (the former mapper-owned transaction
-	 * acquired only the progress-row lock). Two concurrent toggles still
+	 * progress row read-modify-write. Two concurrent toggles still
 	 * serialize; a concurrent completion or member removal now serializes
 	 * with the toggle instead of interleaving.
 	 *
-	 * @return array{progress: \OCA\ChoreStrike\Db\RoomTaskChecklistProgress, stats: array}
+	 * @param string|null $occurrenceKey Public occurrence key (null = canonical selection)
+	 * @param int|null $expectedRevision Stale-mutation guard (409 when the row moved on)
+	 * @return array{progress: \OCA\ChoreStrike\Db\RoomTaskChecklistProgress, stats: array, occurrence: array}
 	 */
-	public function toggleItem(int $roomTaskId, int $itemId, int $houseId, HouseUser $viewer): array {
+	public function toggleItem(int $roomTaskId, ?string $occurrenceKey, int $itemId, ?int $expectedRevision, int $houseId, HouseUser $viewer): array {
 		$roomTask = $this->assertRoomTaskAccessible($roomTaskId, $houseId, $viewer);
 		$this->assertItemBelongsToTask($itemId, $roomTask->getTaskId());
+		$itemCount = count($this->checklistItemMapper->findByTaskId($roomTask->getTaskId()));
 
-		$progress = $this->transactions->run(function () use ($roomTaskId, $itemId, $houseId, $viewer) {
+		$result = $this->transactions->run(function () use ($roomTask, $occurrenceKey, $itemId, $expectedRevision, $houseId, $viewer, $itemCount) {
 			// FIRST locks of the documented order: house → room_task.
 			$this->houseMapper->findForUpdate($houseId);
-			$this->roomTaskMapper->lockForUpdate($roomTaskId);
+			$this->roomTaskMapper->lockForUpdate($roomTask->getId());
 
-			return $this->progressMapper->toggleLocked($roomTaskId, $itemId, $viewer->getId());
+			// Resolve the agreed occurrence. Progress rows key on the
+			// public occurrence identity, so a virtual agreed target needs
+			// no materialization here — the row key IS the occurrence key.
+			$target = $this->resolveProgressTarget($roomTask, $houseId, $occurrenceKey);
+			if ($target === null) {
+				throw new NotFoundException($this->l10n->t('Room task not found'));
+			}
+			$occurrence = $target['occurrence'];
+
+			if ($expectedRevision !== null) {
+				$maxRevision = 0;
+				foreach ($this->progressMapper->findByOccurrence(
+					$roomTask->getId(),
+					$occurrence->getScheduleRevId(),
+					$occurrence->getOrdinal()
+				) as $row) {
+					$maxRevision = max($maxRevision, $row->getRevision());
+				}
+				if ($maxRevision !== $expectedRevision) {
+					throw new ConflictException(
+						$this->l10n->t('The checklist changed since it was displayed. Reload and try again.')
+					);
+				}
+			}
+
+			$progress = $this->progressMapper->toggleLocked(
+				$roomTask->getId(),
+				$occurrence->getScheduleRevId(),
+				$occurrence->getOrdinal(),
+				$itemId,
+				$viewer->getId()
+			);
+
+			return [
+				'progress' => $progress,
+				'stats' => $this->progressMapper->getOccurrenceProgressStats(
+					$roomTask->getId(),
+					$occurrence->getScheduleRevId(),
+					$occurrence->getOrdinal(),
+					$itemCount
+				),
+				'occurrence' => [
+					'occurrenceId' => $occurrence->toPublicKey(),
+					'plannedDate' => $occurrence->getPlannedDate()?->format('Y-m-d'),
+				],
+			];
 		});
 
-		return [
-			'progress' => $progress,
-			'stats' => $this->progressMapper->getProgressStats($roomTaskId),
-		];
+		return $result;
+	}
+
+	/**
+	 * Resolve the progress target occurrence: the given public key when
+	 * provided, otherwise the canonical selection. Purely read-side —
+	 * no materialization (progress rows key on the public occurrence
+	 * identity, not on an occurrences.id surrogate).
+	 *
+	 * @return array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision}|null
+	 */
+	private function resolveProgressTarget(RoomTask $roomTask, int $houseId, ?string $occurrenceKey) {
+		$now = new \DateTime();
+		if ($occurrenceKey !== null && $occurrenceKey !== '') {
+			try {
+				return $this->occurrenceService->resolveAgreedKeyUnderLock(
+					$houseId,
+					$roomTask,
+					$occurrenceKey,
+					$now,
+					false
+				);
+			} catch (ConflictException $e) {
+				return null;
+			}
+		}
+		return $this->occurrenceService->selectionFor($roomTask, $now);
+	}
+
+	/**
+	 * @return array<string, int|float>
+	 */
+	private function emptyStats(int $itemCount): array {
+		return ['total' => $itemCount, 'checked' => 0, 'unchecked' => $itemCount, 'percentage' => 0];
 	}
 
 	/**

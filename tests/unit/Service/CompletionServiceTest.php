@@ -10,12 +10,14 @@ use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgress;
 use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
@@ -24,10 +26,12 @@ use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\CalendarService;
+use OCA\ChoreStrike\Service\CommandService;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCA\ChoreStrike\Service\GameLogicService;
 use OCA\ChoreStrike\Service\HouseService;
 use OCA\ChoreStrike\Service\NotificationService;
+use OCA\ChoreStrike\Service\OccurrenceService;
 use OCA\ChoreStrike\Service\TaskAccessPolicy;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IDBConnection;
@@ -35,9 +39,12 @@ use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for CompletionService (CS-PLAN-064 WP5): occurrence gates,
- * before-state/deltas snapshot discipline, teamwork fold, post-commit
- * degradation, and the idempotent undo aggregate.
+ * Unit tests for CompletionService (CS-PLAN-064 WP5; CS-PLAN-072 WP1
+ * occurrence receipt contract): occurrence gates, before-state/deltas
+ * snapshot discipline, teamwork fold, post-commit degradation, command
+ * replay and the idempotent undo aggregate. Occurrence-resolution and
+ * timeline effects delegate to a mocked OccurrenceService (real behavior
+ * is covered by the Docker integration suites).
  */
 class CompletionServiceTest extends TestCase {
 	private CompletionService $service;
@@ -55,6 +62,8 @@ class CompletionServiceTest extends TestCase {
 	private IDBConnection $db;
 	private AppLogger $appLogger;
 	private TaskAccessPolicy $taskAccessPolicy;
+	private OccurrenceService $occurrenceService;
+	private CommandService $commandService;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -71,6 +80,23 @@ class CompletionServiceTest extends TestCase {
 		$this->db = $this->createMock(IDBConnection::class);
 		$this->appLogger = $this->createMock(AppLogger::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
+		$this->occurrenceService = $this->createMock(OccurrenceService::class);
+		$this->commandService = $this->createMock(CommandService::class);
+
+		// CS-PLAN-072 WP1: the command wrapper runs the aggregate callback
+		// in a REAL TransactionExecutor over the mocked connection — the
+		// transaction begin/commit/rollback discipline stays observable
+		// (replay semantics are covered by the integration suites).
+		$this->commandService->method('runCommand')->willReturnCallback(
+			function (int $houseId, int $actorHouseUserId, string $uuid, string $action, array $payload, callable $fn): array {
+				$result = (new \OCA\ChoreStrike\Db\TransactionExecutor($this->db))->run($fn);
+				return [
+					'result' => $result,
+					'receipt' => null,
+					'replay' => false,
+				];
+			}
+		);
 
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
@@ -101,7 +127,6 @@ class CompletionServiceTest extends TestCase {
 			$this->houseUserMapper,
 			$this->taskAssigneeMapper,
 			$this->completedTaskMapper,
-			$this->checklistProgressMapper,
 			// CS-PLAN-067 §3.2: the extracted participants run REAL against
 			// the same mocks, so the degrade/snapshot contracts stay
 			// observable end-to-end.
@@ -121,6 +146,8 @@ class CompletionServiceTest extends TestCase {
 			$this->gameLogicService,
 			new CalendarService(),
 			$this->taskAccessPolicy,
+			$this->occurrenceService,
+			$this->commandService,
 			$this->createIdentityL10n(),
 			$this->appLogger
 		);
@@ -130,6 +157,22 @@ class CompletionServiceTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text) => $text);
 		return $l10n;
+	}
+
+	/**
+	 * complete() through the full occurrence receipt contract with a
+	 * well-formed default target (CS-PLAN-072 WP1).
+	 */
+	private function completeWithReceipt(int $houseId, string $userId, int $roomTaskId, string $occurrenceId = '1:1', int $expectedVersion = 0, string $selectionToken = 'token'): array {
+		return $this->service->complete(
+			$houseId,
+			$userId,
+			$roomTaskId,
+			'11111111-2222-4333-8444-555555555555',
+			$occurrenceId,
+			$expectedVersion,
+			$selectionToken
+		);
 	}
 
 	// ------------------------------------------------------------------
@@ -174,6 +217,43 @@ class CompletionServiceTest extends TestCase {
 	}
 
 	/**
+	 * The resolved completion target (CS-PLAN-072 WP1): an occurrence row
+	 * with a full saved window plus its revision.
+	 */
+	private function buildResolvedOccurrence(string $plannedDate = 'today'): array {
+		$planned = new \DateTime($plannedDate);
+		$planned->setTime(0, 0);
+		$windowStart = (clone $planned);
+		$windowEnd = (clone $planned)->modify('+1 day');
+
+		$occurrence = new Occurrence();
+		$occurrence->setId(9);
+		$occurrence->setHouseId(1);
+		$occurrence->setRoomTaskId(1);
+		$occurrence->setScheduleRevId(1);
+		$occurrence->setOrdinal(1);
+		$occurrence->setPlannedDate($planned);
+		$occurrence->setWeekStart((clone $planned)->modify('monday this week'));
+		$occurrence->setTimezone('UTC');
+		$occurrence->setDayStart(clone $planned);
+		$occurrence->setWindowStart($windowStart);
+		$occurrence->setWindowEnd($windowEnd);
+		$occurrence->setEnergy(3);
+		$occurrence->setIsPublic(true);
+		$occurrence->setVersion(0);
+
+		$revision = new ScheduleRevision();
+		$revision->setId(1);
+		$revision->setRoomTaskId(1);
+		$revision->setRevision(1);
+		$revision->setTimezone('UTC');
+		$revision->setAnchorDate(clone $planned);
+		$revision->setAgreedThrough((clone $planned)->modify('+7 days'));
+
+		return ['occurrence' => $occurrence, 'revision' => $revision, 'classification' => 'agreed'];
+	}
+
+	/**
 	 * Stub every pre-transaction and in-transaction lookup for the happy
 	 * completion path. Overridable collaborators are passed in explicitly —
 	 * a PHPUnit mock keeps its FIRST stub per method, so overrides must be
@@ -185,9 +265,9 @@ class CompletionServiceTest extends TestCase {
 		Task $task,
 		HouseUser $houseUser,
 		array $assigneeUserIds = [],
-		int $todayCount = 0,
 		array $progressRows = [],
 		?\Closure $gameResult = null,
+		?array $resolvedOccurrence = null,
 	): void {
 		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([$roomTask]);
 		$this->taskMapper->method('find')->willReturn($task);
@@ -197,9 +277,24 @@ class CompletionServiceTest extends TestCase {
 		$this->roomMapper->method('lockForUpdate')->willReturn($room);
 		$this->houseUserMapper->method('findForUpdate')->willReturn($houseUser);
 		$this->taskAssigneeMapper->method('findUserIdsByRoomTask')->willReturn($assigneeUserIds);
-		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn($todayCount);
 		$this->checklistProgressMapper->method('findByRoomTaskId')->willReturn($progressRows);
 		$this->roomMapper->method('update')->willReturn($room);
+
+		// The insert primitive returns the persisted row (id assigned by
+		// the database in production, by the stub here) — tests that pin
+		// rollback behavior override this expectation.
+		$this->completedTaskMapper->method('insert')->willReturnCallback(
+			static function (CompletedTask $row): CompletedTask {
+				$row->setId($row->getId() ?? 1);
+				return $row;
+			}
+		);
+
+		// CS-PLAN-072 WP1: the occurrence resolver returns the shown target;
+		// timeline effects are observable through the mock's call recording.
+		$this->occurrenceService->method('resolveForCompletionUnderLock')
+			->willReturn($resolvedOccurrence ?? $this->buildResolvedOccurrence());
+
 		$this->gameLogicService->method('handleTaskCompletion')->willReturnCallback(
 			$gameResult ?? function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
 				$row->setCoinsEarned(50);
@@ -231,7 +326,7 @@ class CompletionServiceTest extends TestCase {
 	 * Complete_InactiveOccurrence_ConflictBeforeAnyMutation
 	 *
 	 * An inactive room task answers 409 BEFORE any mapper mutation call —
-	 * no recurrence update, no checklist reset, no reward, no ledger row.
+	 * no timeline effect, no reward, no ledger row.
 	 */
 	public function testComplete_InactiveOccurrence_ConflictBeforeAnyMutation(): void {
 		$roomTask = $this->buildRoomTask(1, false);
@@ -240,7 +335,7 @@ class CompletionServiceTest extends TestCase {
 		$this->roomTaskMapper->expects($this->never())->method('update');
 		$this->roomMapper->expects($this->never())->method('update');
 		$this->houseUserMapper->expects($this->never())->method('update');
-		$this->checklistProgressMapper->expects($this->never())->method('resetProgress');
+		$this->occurrenceService->expects($this->never())->method('applyCompletionUnderLock');
 		$this->completedTaskMapper->expects($this->never())->method('insert');
 		$this->db->expects($this->once())->method('rollBack');
 		$this->db->expects($this->never())->method('commit');
@@ -248,23 +343,7 @@ class CompletionServiceTest extends TestCase {
 		$this->expectException(ConflictException::class);
 		$this->expectExceptionMessage('Task is not active');
 
-		$this->service->complete(1, 'user123', 1);
-	}
-
-	/**
-	 * Complete_DuplicateOccurrenceToday_Forbidden
-	 */
-	public function testComplete_DuplicateOccurrenceToday_Forbidden(): void {
-		$roomTask = $this->buildRoomTask();
-		$this->stubCompleteLookups($roomTask, $this->buildRoom(), $this->buildTask(), $this->buildHouseUser(), [], 1);
-
-		$this->roomTaskMapper->expects($this->never())->method('update');
-		$this->completedTaskMapper->expects($this->never())->method('insert');
-
-		$this->expectException(ForbiddenException::class);
-		$this->expectExceptionMessage('You already completed this task today');
-
-		$this->service->complete(1, 'user123', 1);
+		$this->completeWithReceipt(1, 'user123', 1);
 	}
 
 	/**
@@ -282,7 +361,7 @@ class CompletionServiceTest extends TestCase {
 		$this->expectException(ForbiddenException::class);
 		$this->expectExceptionMessage('Only house members can complete tasks');
 
-		$this->service->complete(1, 'stranger', 1);
+		$this->completeWithReceipt(1, 'stranger', 1);
 	}
 
 	/**
@@ -292,7 +371,7 @@ class CompletionServiceTest extends TestCase {
 		$this->roomTaskMapper->method('findByIdsScopedToHouse')->willReturn([]);
 
 		$this->expectException(NotFoundException::class);
-		$this->service->complete(1, 'user123', 99);
+		$this->completeWithReceipt(1, 'user123', 99);
 	}
 
 	/**
@@ -307,7 +386,7 @@ class CompletionServiceTest extends TestCase {
 		$this->roomTaskMapper->expects($this->never())->method('update');
 
 		$this->expectException(NotFoundException::class);
-		$this->service->complete(1, 'user123', 1);
+		$this->completeWithReceipt(1, 'user123', 1);
 	}
 
 	// ------------------------------------------------------------------
@@ -315,12 +394,13 @@ class CompletionServiceTest extends TestCase {
 	// ------------------------------------------------------------------
 
 	/**
-	 * Complete_HappyPath_InsertsLedgerRowWithBeforeStateOccurrenceDueAndDeltas
+	 * Complete_HappyPath_InsertsLedgerRowWithBeforeStateOccurrenceEvidenceAndDeltas
 	 *
 	 * The before_state is captured from PRE-mutation values; the ledger
-	 * insert carries occurrence_due (house-local day of the completed
-	 * occurrence) and the full delta record; checklist resetProgress runs
-	 * inside the transaction (first-caller pin, decision D6).
+	 * insert carries the occurrence's planned day (occurrence_due), the
+	 * frozen timeline evidence (public key parts, work date/zone,
+	 * classification) and the full delta record. The timeline effect runs
+	 * inside the command transaction (applyCompletionUnderLock).
 	 */
 	public function testComplete_HappyPath_InsertsLedgerRowWithBeforeStateOccurrenceDueAndDeltas(): void {
 		$roomTask = $this->buildRoomTask();
@@ -330,6 +410,8 @@ class CompletionServiceTest extends TestCase {
 
 		$progressRow = new RoomTaskChecklistProgress();
 		$progressRow->setRoomTaskId(1);
+		$progressRow->setScheduleRevId(1);
+		$progressRow->setOrdinal(1);
 		$progressRow->setChecklistItemId(7);
 		$progressRow->setIsChecked(true);
 		$progressRow->setCheckedAt(new \DateTime('2026-09-06T10:00:00'));
@@ -345,7 +427,6 @@ class CompletionServiceTest extends TestCase {
 			$task,
 			$houseUser,
 			[],
-			0,
 			[$progressRow],
 			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
 				// The teamwork input threads the canonical assignee set (D9).
@@ -374,18 +455,30 @@ class CompletionServiceTest extends TestCase {
 		$this->completedTaskMapper->expects($this->once())
 			->method('insert')
 			->willReturnCallback(function (CompletedTask $row) use (&$inserted) {
+				$row->setId(1);
 				$inserted = $row;
 				return $row;
 			});
 
-		// First caller pin (decision D6): the reset runs inside the
-		// completion transaction.
-		$this->checklistProgressMapper->expects($this->once())->method('resetProgress')->with(1);
+		// The timeline effect runs exactly once, inside the transaction,
+		// carrying the ledger row id and the server-derived work date.
+		$this->occurrenceService->expects($this->once())
+			->method('applyCompletionUnderLock')
+			->with(
+				1,
+				$this->isInstanceOf(Occurrence::class),
+				$this->isInstanceOf(ScheduleRevision::class),
+				$this->callback(static fn (RoomTask $rt): bool => $rt->getId() === 1),
+				1,
+				$this->callback(static fn (string $workDate): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $workDate) === 1),
+				'agreed',
+				$this->isInstanceOf(\DateTime::class)
+			);
 
 		$this->db->expects($this->once())->method('beginTransaction');
 		$this->db->expects($this->once())->method('commit');
 
-		$result = $this->service->complete(1, 'user123', 1);
+		$result = $this->completeWithReceipt(1, 'user123', 1);
 
 		self::assertNotNull($inserted, 'one ledger row must be inserted');
 		$before = $inserted->getBeforeState();
@@ -398,6 +491,7 @@ class CompletionServiceTest extends TestCase {
 		self::assertSame(
 			[[
 				'checklistItemId' => 7,
+				'occurrenceId' => '1:1',
 				'userId' => 3,
 				'checked' => true,
 				'checkedAt' => (new \DateTime('2026-09-06T10:00:00'))->format('c'),
@@ -408,8 +502,14 @@ class CompletionServiceTest extends TestCase {
 		self::assertSame(
 			(new \DateTime($nextDueBefore))->format('Y-m-d'),
 			$inserted->getOccurrenceDue()->format('Y-m-d'),
-			'occurrence_due is the house-local day of the completed occurrence (pre-advance nextDue)'
+			'occurrence_due is the planned local day of the completed occurrence'
 		);
+		// Frozen timeline evidence (WP1): public key parts + work basis.
+		self::assertSame(1, $inserted->getScheduleRevId());
+		self::assertSame(1, $inserted->getOccurrenceOrdinal());
+		self::assertNotNull($inserted->getWorkDate());
+		self::assertSame('UTC', $inserted->getWorkZone());
+		self::assertSame('agreed', $inserted->getCompletionClass());
 		self::assertNull($inserted->getUndoneAt(), 'a fresh completion is revertible');
 
 		$deltas = $inserted->getDeltas();
@@ -432,6 +532,9 @@ class CompletionServiceTest extends TestCase {
 		// CS-PLAN-066 §3.4: newTitle is explicit and nullable — a null
 		// unlock still rides the response shape.
 		self::assertNull($result['rewards']['newTitle']);
+		// Receipt surface (WP1): the completion identity and replay flag.
+		self::assertSame(1, $result['completionId']);
+		self::assertFalse($result['replay']);
 	}
 
 	/**
@@ -455,7 +558,6 @@ class CompletionServiceTest extends TestCase {
 			$task,
 			$houseUser,
 			[],
-			0,
 			[],
 			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
 				$row->setCoinsEarned(50);
@@ -486,7 +588,7 @@ class CompletionServiceTest extends TestCase {
 		$this->db->method('beginTransaction');
 		$this->db->method('commit');
 
-		$result = $this->service->complete(1, 'user123', 1);
+		$result = $this->completeWithReceipt(1, 'user123', 1);
 
 		self::assertSame(
 			['pack' => 'sparkling', 'labelKey' => 'titles.sparkling.bronze', 'tierIndex' => 0],
@@ -524,7 +626,6 @@ class CompletionServiceTest extends TestCase {
 			$task,
 			$houseUser,
 			[],
-			0,
 			[],
 			function ($rt, $userId, $t, $tz, $assignees, ?CompletedTask $row) {
 				return [
@@ -542,7 +643,7 @@ class CompletionServiceTest extends TestCase {
 				return $row;
 			});
 
-		$this->service->complete(1, 'user123', 1);
+		$this->completeWithReceipt(1, 'user123', 1);
 
 		self::assertEqualsCanonicalizing(
 			['roomTask', 'room', 'houseUser', 'checklist'],
@@ -592,7 +693,7 @@ class CompletionServiceTest extends TestCase {
 		$this->expectException(\RuntimeException::class);
 		$this->expectExceptionMessage('db down');
 
-		$this->service->complete(1, 'user123', 1);
+		$this->completeWithReceipt(1, 'user123', 1);
 	}
 
 	// ------------------------------------------------------------------
@@ -626,7 +727,7 @@ class CompletionServiceTest extends TestCase {
 				})
 			);
 
-		$result = $this->service->complete(1, 'user123', 1);
+		$result = $this->completeWithReceipt(1, 'user123', 1);
 
 		self::assertTrue($result['rewards']['degraded']);
 		self::assertNull($result['rewards']['weeklyGoal']);
@@ -651,7 +752,6 @@ class CompletionServiceTest extends TestCase {
 			$task,
 			$houseUser,
 			['alice', 'bob'],
-			0,
 			[],
 			function (RoomTask $rt, int $userId, Task $t, $tz, array $assignees, ?CompletedTask $row) {
 				self::assertSame(['alice', 'bob'], $assignees, 'the canonical assignee set threads the teamwork input');
@@ -668,7 +768,7 @@ class CompletionServiceTest extends TestCase {
 
 		$this->houseUserMapper->expects($this->never())->method('update');
 
-		$result = $this->service->complete(1, 'user123', 1);
+		$result = $this->completeWithReceipt(1, 'user123', 1);
 		self::assertSame(2, $result['rewards']['teamworkBonus']);
 		self::assertSame(52, $result['rewards']['totalCoins']);
 	}
@@ -901,16 +1001,10 @@ class CompletionServiceTest extends TestCase {
 			$callOrder[] = 'restore_house_user';
 			return $u;
 		});
-		$this->checklistProgressMapper->expects($this->once())->method('deleteByRoomTaskId')->with(1);
-		$this->checklistProgressMapper->expects($this->once())->method('restoreProgress')
-			->with(1, $this->callback(function (array $rows) {
-				return $rows === [[
-					'checklistItemId' => 5,
-					'userId' => 2,
-					'checked' => true,
-					'checkedAt' => (new \DateTime('2026-09-05T09:00:00'))->format('c'),
-				]];
-			}));
+		// CS-PLAN-072 WP1: occurrence-scoped checklist progress is NEVER
+		// rewritten by an undo — the old room-task-wide reset/restore is
+		// gone (the timeline re-derives recurrence state instead).
+		$this->checklistProgressMapper->expects($this->never())->method('deleteByRoomTaskId');
 		$this->completedTaskMapper->expects($this->once())->method('markUndone')->willReturnCallback(function () use (&$callOrder) {
 			$callOrder[] = 'mark_undone';
 		});
@@ -925,10 +1019,11 @@ class CompletionServiceTest extends TestCase {
 			'mark_undone',
 		], $callOrder, 'restore must follow the documented house-first lock and write order');
 
-		// Room task before-state restored verbatim.
-		self::assertSame('2026-09-06T00:00:00+00:00', $roomTask->getNextDue()->format('c'));
+		// CS-PLAN-072 WP1: the recurrence projection fields (nextDue,
+		// lastCompleted, isActive) are re-derived by the timeline, not
+		// restored from the snapshot — the room task keeps its current
+		// projection; only claim markers restore verbatim.
 		self::assertTrue($roomTask->getIsActive());
-		self::assertNull($roomTask->getLastCompleted());
 		self::assertFalse($roomTask->getWasClaimed());
 
 		// Cleanliness restored to the pre-completion value.
@@ -1156,9 +1251,9 @@ class CompletionServiceTest extends TestCase {
 				];
 			}
 		);
-		// The mapper's D11 filter is what keeps the undone row out of the
-		// duplicate guard — the count reads 0 for the second completion.
-		$this->completedTaskMapper->method('countByRoomTaskAndUserOnDate')->willReturn(0);
+		// CS-PLAN-072 WP1: occurrence validity replaces the per-person/day
+		// duplicate guard — the re-completion resolves the (re-opened)
+		// target through the occurrence receipt contract.
 
 		// The revertible lookup: the first completion's row once inserted,
 		// NULL after the undo marked it (the re-complete then starts clean).
@@ -1177,9 +1272,9 @@ class CompletionServiceTest extends TestCase {
 				$undoneRowIds[] = $id;
 			});
 
-		$first = $this->service->complete(1, 'user123', 1);
+		$first = $this->completeWithReceipt(1, 'user123', 1);
 		$undone = $this->service->undo(1, $houseUser, 1);
-		$second = $this->service->complete(1, 'user123', 1);
+		$second = $this->completeWithReceipt(1, 'user123', 1);
 
 		self::assertTrue($undone['undone']);
 		self::assertCount(2, $insertedRows, 'the re-completion must write its own fresh ledger row');

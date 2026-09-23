@@ -43,6 +43,7 @@ class RoomTaskReadService {
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private TaskAccessPolicy $taskAccessPolicy;
 	private CalendarService $calendarService;
+	private OccurrenceService $occurrenceService;
 	private IL10N $l10n;
 
 	public function __construct(
@@ -54,6 +55,7 @@ class RoomTaskReadService {
 		TaskAssigneeMapper $taskAssigneeMapper,
 		TaskAccessPolicy $taskAccessPolicy,
 		CalendarService $calendarService,
+		OccurrenceService $occurrenceService,
 		IL10N $l10n,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
@@ -64,7 +66,67 @@ class RoomTaskReadService {
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->calendarService = $calendarService;
+		$this->occurrenceService = $occurrenceService;
 		$this->l10n = $l10n;
+	}
+
+	/**
+	 * Occurrence DTO block enrichment (CS-PLAN-072 WP1): attaches the
+	 * canonical completion target (`occurrenceId`, `expectedVersion`,
+	 * `selectionToken`, classification, saved window/zone) to execution
+	 * rows — batched over the house, write-free. Tasks without a target
+	 * (all fulfilled) keep `occurrence: null`.
+	 *
+	 * @param list<array<string, mixed>> $rows Rows carrying `roomTask`
+	 * @param int $houseId House scope for the batched derivation
+	 * @return list<array<string, mixed>> Rows with an `occurrence` key
+	 */
+	public function withOccurrenceBlocks(array $rows, int $houseId): array {
+		$roomTasks = [];
+		foreach ($rows as $row) {
+			if (isset($row['roomTask']) && $row['roomTask'] instanceof RoomTask) {
+				$roomTasks[] = $row['roomTask'];
+			}
+		}
+		if ($roomTasks === []) {
+			return $rows;
+		}
+
+		$selections = $this->occurrenceSelectionsForHouse($houseId, $roomTasks);
+		foreach ($rows as &$row) {
+			$roomTask = $row['roomTask'] ?? null;
+			if ($roomTask instanceof RoomTask) {
+				$selection = $selections[$roomTask->getId()] ?? null;
+				$row['occurrence'] = $selection !== null
+					? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'])
+					: null;
+			}
+		}
+		unset($row);
+		return $rows;
+	}
+
+	/**
+	 * Batched canonical selection map for a house's room tasks (thin
+	 * delegate over the occurrence authority, write-free).
+	 *
+	 * @param RoomTask[] $roomTasks
+	 * @return array<int, array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision, classification: string}|null>
+	 */
+	public function occurrenceSelectionsForHouse(int $houseId, array $roomTasks): array {
+		if ($roomTasks === []) {
+			return [];
+		}
+		return $this->occurrenceService->selectionsForHouseTasks($houseId, $roomTasks, new \DateTime());
+	}
+
+	/**
+	 * The occurrence DTO block for a selection entry (thin delegate).
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function occurrenceBlockFor(\OCA\ChoreStrike\Db\Occurrence $occurrence, \OCA\ChoreStrike\Db\ScheduleRevision $revision, string $classification): array {
+		return $this->occurrenceService->occurrenceBlock($occurrence, $revision, $classification);
 	}
 
 	/**
@@ -292,25 +354,57 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * Get overdue tasks for a house, filtered to the viewer's visibility.
+	 * Occurrence-authority overdue set (CS-PLAN-072 WP1): every active
+	 * room task whose canonical selection is a MISSED occurrence (window
+	 * ended, unfulfilled, uncovered) — exactly one catch-up card per
+	 * chore; completing current work later covers the card instead of
+	 * fulfilling the historical miss.
 	 *
 	 * @return RoomTask[]
 	 */
 	public function getOverdueTasks(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		$roomTasks = $this->roomTaskMapper->findOverdueByHouse($houseId, $roomId);
-		return $this->visibleRoomTasks($roomTasks, $viewer);
+		return $this->overdueSelectionMap($houseId, $viewer, $roomId)['tasks'];
 	}
 
 	/**
-	 * Get tasks due today for a house, filtered to the viewer's visibility.
+	 * RF-072-WP1-10: ONE bounded selection derivation shared by the
+	 * overdue filter pass and the row enrichment — the rows endpoint never
+	 * re-runs the whole-house selection.
+	 *
+	 * @return array{tasks: RoomTask[], selections: array<int, array{occurrence: \OCA\ChoreStrike\Db\Occurrence, revision: \OCA\ChoreStrike\Db\ScheduleRevision, classification: string}|null>}
+	 */
+	private function overdueSelectionMap(int $houseId, HouseUser $viewer, ?int $roomId): array {
+		$now = new \DateTime();
+		$candidates = array_values(array_filter(
+			$this->roomTaskMapper->findByHouse($houseId, true),
+			fn (RoomTask $roomTask): bool => $roomId === null || $roomTask->getRoomId() === $roomId
+		));
+		$selections = $this->occurrenceService->selectionsForHouseTasks($houseId, $candidates, $now);
+
+		$result = [];
+		foreach ($candidates as $roomTask) {
+			$selection = $selections[$roomTask->getId()] ?? null;
+			if ($selection !== null && $selection['classification'] === 'late') {
+				$result[] = $roomTask;
+			}
+		}
+		return ['tasks' => $this->visibleRoomTasks($result, $viewer), 'selections' => $selections];
+	}
+
+	/**
+	 * Occurrence-authority due-today set: viewer-visible active tasks with
+	 * an AGREED occurrence planned on the current house-local day.
 	 *
 	 * @return RoomTask[]
 	 */
 	public function getDueTodayTasks(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		$tz = $this->timeZoneForHouse($houseId);
-		[$start, $end] = $this->calendarService->dayBounds(new \DateTime(), $tz);
-		$roomTasks = $this->roomTaskMapper->findDueTodayByHouse($houseId, $start, $end, $roomId);
-		return $this->visibleRoomTasks($roomTasks, $viewer);
+		$result = [];
+		foreach ($this->getDailyTasks($houseId, new \DateTime()) as $roomTask) {
+			if ($roomId === null || $roomTask->getRoomId() === $roomId) {
+				$result[] = $roomTask;
+			}
+		}
+		return $this->visibleRoomTasks($result, $viewer);
 	}
 
 	/**
@@ -318,22 +412,59 @@ class RoomTaskReadService {
 	 * the same viewer-visible set as {@see getDueTodayTasks()}, assembled
 	 * into the canonical `{roomTask, task, room}` row shape the enriched
 	 * daily endpoint returns — one contract for every execution row consumer.
+	 * RF-072-WP1-10: the enrichment selection runs over the (small) visible
+	 * due set only, never over the whole house again.
 	 *
 	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
 	 */
 	public function getDueTodayTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		return $this->rowsForVisibleRoomTasks($this->getDueTodayTasks($houseId, $viewer, $roomId));
+		$now = new \DateTime();
+		$dayKey = $this->calendarService->dayKey($now, $this->timeZoneForHouse($houseId));
+		$candidates = $this->roomTaskMapper->findByHouse($houseId, true);
+		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $candidates, $dayKey, $dayKey);
+
+		$dueTasks = [];
+		foreach ($candidates as $roomTask) {
+			if (($agreedByTask[$roomTask->getId()] ?? []) !== []
+				&& ($roomId === null || $roomTask->getRoomId() === $roomId)) {
+				$dueTasks[] = $roomTask;
+			}
+		}
+		$visible = $this->visibleRoomTasks($dueTasks, $viewer);
+
+		$rows = $this->rowsForVisibleRoomTasks($visible);
+		$selections = $this->occurrenceService->selectionsForHouseTasks($houseId, $visible, $now);
+		foreach ($rows as $index => $row) {
+			$roomTask = $row['roomTask'];
+			$selection = $selections[$roomTask->getId()] ?? null;
+			$rows[$index]['occurrence'] = $selection !== null
+				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'])
+				: null;
+		}
+		return $rows;
 	}
 
 	/**
 	 * Overdue execution rows with task/room details (CS-PLAN-066 §3.1 D1):
 	 * the same viewer-visible set as {@see getOverdueTasks()}, assembled
-	 * into the canonical `{roomTask, task, room}` row shape.
+	 * into the canonical `{roomTask, task, room}` row shape. Each row
+	 * carries its occurrence block — the catch-up card (CS-PLAN-072 WP1).
+	 * RF-072-WP1-10: the filter pass and the enrichment share ONE
+	 * selection map.
 	 *
 	 * @return array<int, array{roomTask: RoomTask, task: Task, room: Room}>
 	 */
 	public function getOverdueTaskRows(int $houseId, HouseUser $viewer, ?int $roomId = null): array {
-		return $this->rowsForVisibleRoomTasks($this->getOverdueTasks($houseId, $viewer, $roomId));
+		$map = $this->overdueSelectionMap($houseId, $viewer, $roomId);
+		$rows = $this->rowsForVisibleRoomTasks($map['tasks']);
+		foreach ($rows as $index => $row) {
+			$roomTask = $row['roomTask'];
+			$selection = $map['selections'][$roomTask->getId()] ?? null;
+			$rows[$index]['occurrence'] = $selection !== null
+				? $this->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'])
+				: null;
+		}
+		return $rows;
 	}
 
 	/**
@@ -348,14 +479,14 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * Get overdue tasks that can be claimed (overdue + assigned to at least
-	 * one member via the canonical join table), filtered to the viewer's
-	 * visibility.
+	 * Occurrence-authority claimable set: overdue (a missed, uncovered
+	 * occurrence exists) + assigned to at least one member via the
+	 * canonical join table, filtered to the viewer's visibility.
 	 *
 	 * @return RoomTask[]
 	 */
 	public function getClaimableOverdueTasks(int $houseId, HouseUser $viewer): array {
-		$overdueTasks = $this->roomTaskMapper->findOverdueByHouse($houseId);
+		$overdueTasks = $this->getOverdueTasks($houseId, $viewer);
 		if ($overdueTasks === []) {
 			return [];
 		}
@@ -374,15 +505,27 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * Get a house's tasks due on the given calendar day (house-local window,
-	 * CS-PLAN-057).
+	 * Occurrence-authority daily set (CS-PLAN-072 WP1): every ACTIVE room
+	 * task of the house with an AGREED occurrence planned on the given
+	 * house-local day — materialized rows plus virtual keys the frontier
+	 * already covers (a stopped cron never changes the answer, and reads
+	 * cause no DB writes; virtual and persisted representations share the
+	 * same public `<scheduleRevisionId>:<ordinal>` key).
 	 *
-	 * @return RoomTask[]
+	 * @return RoomTask[] Deterministic `next_due, created_at, id` order
 	 */
 	public function getDailyTasks(int $houseId, \DateTime $date): array {
-		$tz = $this->timeZoneForHouse($houseId);
-		[$start, $end] = $this->calendarService->dayBounds($date, $tz);
-		return $this->roomTaskMapper->findDailyTasks($houseId, $start, $end);
+		$dayKey = $this->calendarService->dayKey($date, $this->timeZoneForHouse($houseId));
+		$candidates = $this->roomTaskMapper->findByHouse($houseId, true);
+		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $candidates, $dayKey, $dayKey);
+
+		$result = [];
+		foreach ($candidates as $roomTask) {
+			if (($agreedByTask[$roomTask->getId()] ?? []) !== []) {
+				$result[] = $roomTask;
+			}
+		}
+		return $result;
 	}
 
 	/**
@@ -420,8 +563,12 @@ class RoomTaskReadService {
 		\DateTime $date,
 	): array {
 		// Daily tasks, already filtered through the visibility matrix and in
-		// the deterministic `nextDue, createdAt, id` order.
-		$allTasks = $this->getDailyTasksWithDetails($houseId, $date, $viewer);
+		// the deterministic `nextDue, createdAt, id` order — each row
+		// enriched with the canonical occurrence target (WP1).
+		$allTasks = $this->withOccurrenceBlocks(
+			$this->getDailyTasksWithDetails($houseId, $date, $viewer),
+			$houseId
+		);
 
 		// Non-child users see all (visible) tasks.
 		if (!$viewer->isChild()) {
@@ -490,9 +637,10 @@ class RoomTaskReadService {
 	}
 
 	/**
-	 * Get a room task with full details (execution surface extras).
+	 * Get a room task with full details (execution surface extras) —
+	 * including the canonical occurrence target block (CS-PLAN-072 WP1).
 	 *
-	 * @return array{roomTask: RoomTask, task: Task, room: Room, status: string, isOverdue: bool, isDueToday: bool, daysUntilDue: int}
+	 * @return array{roomTask: RoomTask, task: Task, room: Room, status: string, isOverdue: bool, isDueToday: bool, daysUntilDue: int, occurrence: ?array}
 	 * @throws NotFoundException if the room task, its definition or room is gone
 	 */
 	public function getRoomTaskWithDetails(int $roomTaskId): array {
@@ -515,6 +663,8 @@ class RoomTaskReadService {
 		}
 
 		$tz = $this->timeZoneForRoomEntity($room);
+		$houseId = $this->houseIdForRoom($room->getId());
+		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime());
 
 		return [
 			'roomTask' => $roomTask,
@@ -524,6 +674,9 @@ class RoomTaskReadService {
 			'isOverdue' => $roomTask->isOverdue(),
 			'isDueToday' => $roomTask->isDueToday($tz),
 			'daysUntilDue' => $roomTask->getDaysUntilDue($tz),
+			'occurrence' => $selection !== null
+				? $this->occurrenceService->occurrenceBlock($selection['occurrence'], $selection['revision'], $selection['classification'])
+				: null,
 		];
 	}
 }

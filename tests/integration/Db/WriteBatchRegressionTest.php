@@ -145,10 +145,17 @@ class WriteBatchRegressionTest extends IntegrationTestCase {
 	}
 
 	private function insertChecklistProgress(int $roomTaskId, int $checklistItemId): void {
+		// CS-PLAN-072 WP1: progress rows key on the occurrence identity —
+		// resolve the room task's current revision and first ordinal.
+		$revision = \OC::$server->get(\OCA\ChoreStrike\Db\ScheduleRevisionMapper::class)
+			->findCurrentByRoomTask($roomTaskId);
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('chorestrike_chk_progress')
 			->values([
 				'room_task_id' => $qb->createNamedParameter($roomTaskId, IQueryBuilder::PARAM_INT),
+				'schedule_rev_id' => $qb->createNamedParameter($revision->getId(), IQueryBuilder::PARAM_INT),
+				'ordinal' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+				'revision' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
 				'checklist_item_id' => $qb->createNamedParameter($checklistItemId, IQueryBuilder::PARAM_INT),
 				'is_checked' => $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL),
 			]);

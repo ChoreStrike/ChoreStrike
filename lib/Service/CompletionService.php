@@ -14,11 +14,12 @@ use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
+use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Db\Room;
 use OCA\ChoreStrike\Db\RoomMapper;
 use OCA\ChoreStrike\Db\RoomTask;
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
+use OCA\ChoreStrike\Db\ScheduleRevision;
 use OCA\ChoreStrike\Db\Task;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
@@ -57,9 +58,12 @@ use OCP\IL10N;
  * (the same row GameLogicService locks for the reward write). Undo follows
  * the identical order, locking the COMPLETER's house_user (the actor may
  * differ). The task definition is deliberately not locked (stable read-only
- * input; ratified deviation, decision D12). Occurrence gates (inactive →
- * 409, day-duplicate → 403, visibility → 404/403) run before any reward,
- * cleanliness, checklist, or recurrence write. Post-commit effects run
+ * input; ratified deviation, decision D12). Occurrence gates (inactive → 409,
+ * stale selection/version/target → 409, visibility → 404/403) run before any
+ * reward, cleanliness, or timeline write; occurrence validity replaces the
+ * former per-person/day duplicate guard (CS-PLAN-072 WP1: two legitimate
+ * occurrences on one day are permitted, two completions of one target are
+ * not). Post-commit effects run
  * inside a log-and-degrade boundary (decision D7): a committed completion
  * always answers success, never an ambiguous API failure.
  */
@@ -72,12 +76,13 @@ class CompletionService {
 	private HouseUserMapper $houseUserMapper;
 	private TaskAssigneeMapper $taskAssigneeMapper;
 	private CompletedTaskMapper $completedTaskMapper;
-	private RoomTaskChecklistProgressMapper $checklistProgressMapper;
 	private CompletionEffectService $effectService;
 	private CompletionPostCommitService $postCommitService;
 	private GameLogicService $gameLogicService;
 	private CalendarService $calendarService;
 	private TaskAccessPolicy $taskAccessPolicy;
+	private OccurrenceService $occurrenceService;
+	private CommandService $commandService;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
 
@@ -90,12 +95,13 @@ class CompletionService {
 		HouseUserMapper $houseUserMapper,
 		TaskAssigneeMapper $taskAssigneeMapper,
 		CompletedTaskMapper $completedTaskMapper,
-		RoomTaskChecklistProgressMapper $checklistProgressMapper,
 		CompletionEffectService $effectService,
 		CompletionPostCommitService $postCommitService,
 		GameLogicService $gameLogicService,
 		CalendarService $calendarService,
 		TaskAccessPolicy $taskAccessPolicy,
+		OccurrenceService $occurrenceService,
+		CommandService $commandService,
 		IL10N $l10n,
 		AppLogger $appLogger,
 	) {
@@ -107,29 +113,65 @@ class CompletionService {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->taskAssigneeMapper = $taskAssigneeMapper;
 		$this->completedTaskMapper = $completedTaskMapper;
-		$this->checklistProgressMapper = $checklistProgressMapper;
 		$this->effectService = $effectService;
 		$this->postCommitService = $postCommitService;
 		$this->gameLogicService = $gameLogicService;
 		$this->calendarService = $calendarService;
 		$this->taskAccessPolicy = $taskAccessPolicy;
+		$this->occurrenceService = $occurrenceService;
+		$this->commandService = $commandService;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
 	}
 
 	/**
-	 * Complete a room task as one transactional aggregate with a full
-	 * effect record (CS-PLAN-064 WP5).
+	 * Complete one SHOWN occurrence as one transactional aggregate with a
+	 * command receipt (CS-PLAN-064 WP5; CS-PLAN-072 WP1 occurrence
+	 * contract; parent CS-PLAN-070 T1).
+	 *
+	 * The client sends the shown target's public occurrence key, its
+	 * version and the server-computed selection token; the server owns
+	 * work time and target effort. The aggregate resolves a virtual
+	 * agreed key through the same generator (materializing at version 0),
+	 * rechecks membership/visibility/tombstones under the WP0 house-first
+	 * lock, inserts the completion once and fulfills exactly that
+	 * occurrence. Occurrence validity replaces the per-person/day
+	 * duplicate guard: two legitimate occurrences on one day are
+	 * permitted, two completions of one target are not.
+	 *
+	 * Replay semantics (command receipt): the same (commandId, payload)
+	 * returns the original completion identity plus freshly read,
+	 * authorized projections — authorization runs on the receipt-hit path
+	 * too — with a `replay` marker and WITHOUT repeating post-commit
+	 * notifications/celebration. A changed payload or a new command on a
+	 * fulfilled target conflicts (409).
 	 *
 	 * @param int $houseId The caller's house ID (scopes the room task)
 	 * @param string $userId The Nextcloud user ID completing the task
 	 * @param int $roomTaskId The room task ID
-	 * @return array{roomTask: RoomTask, room: Room, task: Task, rewards: array<string, mixed>}
+	 * @param string $commandId Client-supplied idempotency UUID
+	 * @param string $occurrenceId The shown target's public occurrence key
+	 * @param int $expectedVersion The shown target's occurrence version
+	 * @param string $selectionToken The shown target's selection token
+	 * @return array{roomTask: RoomTask, room: Room, task: Task, rewards: array<string, mixed>, completionId: ?int, occurrence: ?array, replay: bool}
 	 * @throws NotFoundException unknown/invisible room task (404 anti-enumeration)
-	 * @throws ForbiddenException non-member, day-duplicate
-	 * @throws ConflictException inactive occurrence (409, decision D4)
+	 * @throws ForbiddenException non-member
+	 * @throws ConflictException stale selection/version, fulfilled target, inactive task (409)
 	 */
-	public function complete(int $houseId, string $userId, int $roomTaskId): array {
+	public function complete(
+		int $houseId,
+		string $userId,
+		int $roomTaskId,
+		string $commandId,
+		string $occurrenceId,
+		int $expectedVersion,
+		string $selectionToken,
+	): array {
+		// Input validation before any side effect (parent §3.4): the
+		// public key is canonically parsed here so a malformed occurrenceId
+		// is a clean 400, never a 409 or a 500.
+		Occurrence::parsePublicKey($occurrenceId);
+
 		// Pre-transaction resolution (existing behavior). The house-scoped
 		// fetch is both the resolution and the ownership check: a room task
 		// of another house is absent → clean 404.
@@ -141,7 +183,6 @@ class CompletionService {
 		// CS-PLAN-057: resolve the house timezone once per request pass and
 		// thread it explicitly into every day-boundary decision below.
 		$timeZone = $this->calendarService->getTimeZone($house);
-		[$dayStart, $dayEnd] = $this->calendarService->dayBounds(new \DateTime(), $timeZone);
 
 		// CR-SVC-10: early membership mapping to the clean 403 (the
 		// in-transaction re-check below stays the authoritative gate).
@@ -150,160 +191,22 @@ class CompletionService {
 			throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
 		}
 
-		// Captured inside the transaction if a takeover happens, dispatched
-		// after commit so rollbacks never leave a stale notification.
-
 		try {
-			$outcome = $this->transactions->run(function () use ($houseId, $userId, $roomTaskId, $task, $timeZone, $dayStart, $dayEnd): array {
-				// FIRST lock of the documented order (CS-PLAN-071 WP0): the
-				// house row — one serialization point for all house mutations.
-				$this->houseMapper->findForUpdate($houseId);
-
-				// CR-SVC-53: replace the pre-lock entity with the freshly locked
-				// one.
-				$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
-
-				// CR-SVC-10: re-resolve membership under the lock — a member
-				// removed between the pre-transaction fetch and this point must
-				// yield a clean 403, not a dereference of a stale entity.
-				$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
-				if ($houseUser === null) {
-					throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
+			$command = $this->commandService->runCommand(
+				$houseId,
+				(int)$houseUser->getId(),
+				$commandId,
+				'room_task.complete',
+				[
+					'roomTaskId' => $roomTaskId,
+					'occurrenceId' => $occurrenceId,
+					'expectedVersion' => $expectedVersion,
+					'selectionToken' => $selectionToken,
+				],
+				function () use ($houseId, $userId, $roomTaskId, $timeZone, $occurrenceId, $expectedVersion, $selectionToken): array {
+					return $this->completeAggregate($houseId, $userId, $roomTaskId, $timeZone, $occurrenceId, $expectedVersion, $selectionToken);
 				}
-
-				// Canonical assignee set (CS-PLAN-060 WP1, D2) — visibility
-				// matrix (ADR-010, 404 anti-enumeration) and teamwork input (D9).
-				$assigneeUserIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
-				$this->taskAccessPolicy->assertCanView($task, $houseUser, $assigneeUserIds);
-
-				// Occurrence gate 1 (decision D4): an inactive room task must
-				// never be completed or earn rewards — 409 before any mutation.
-				if (!$roomTask->getIsActive()) {
-					throw new ConflictException($this->l10n->t('Task is not active'));
-				}
-
-				// Occurrence gate 2: per-user house-local day duplicate
-				// (counted over non-undone rows only, decision D11) → 403.
-				$todayCount = $this->completedTaskMapper->countByRoomTaskAndUserOnDate(
-					$roomTaskId,
-					$houseUser->getId(),
-					$dayStart,
-					$dayEnd
-				);
-				if ($todayCount > 0) {
-					throw new ForbiddenException($this->l10n->t('You already completed this task today'));
-				}
-
-				// NEXT lock: the room row. Two concurrent completions of
-				// different tasks in the same room serialize here, so the
-				// cleanliness read-modify-write can no longer clobber a
-				// concurrent winner's delta.
-				$room = $this->roomMapper->lockForUpdate($roomTask->getRoomId());
-
-				// FINAL lock: the completer's reward row (same row the reward
-				// phase locks — the snapshot below must read locked state).
-				$completer = $this->lockCompleterOrForbidden(
-					$houseUser->getId(),
-					$this->l10n->t('Only house members can complete tasks')
-				);
-
-				// The ledger row is created per attempt inside the
-				// transaction so a transient-lock retry re-runs a clean
-				// aggregate (the executor's bounded retry contract).
-				$ledgerRow = new CompletedTask();
-
-				// Snapshot the authoritative before-state BEFORE any mutation
-				// (decision D1 — the exact undo inverse).
-				$beforeState = $this->effectService->snapshot($roomTask, $room, $completer);
-				$ledgerRow->setBeforeState($beforeState);
-				$ledgerRow->setOccurrenceDue($this->occurrenceDay($roomTask, $timeZone));
-
-				// Overdue-takeover: only record a takeover when a NON-assignee
-				// picks up an overdue task (decided on the fresh locked entity,
-				// CR-SVC-53). Dispatch is deferred post-commit.
-				$takeoverNotification = null;
-				$takeoverClaimed = false;
-				if ($roomTask->isOverdue() && !in_array($userId, $assigneeUserIds, true)) {
-					$originalAssignee = $assigneeUserIds[0] ?? null;
-					if ($originalAssignee !== null && $originalAssignee !== '') {
-						$roomTask->markClaimed($originalAssignee, $userId);
-						$takeoverClaimed = true;
-						$takeoverNotification = [
-							'recipient' => $originalAssignee,
-							'taskName' => $task->getName(),
-							'claimerUserId' => $userId,
-							'claimerDisplayName' => $houseUser->getDisplayName(),
-							'roomTaskId' => $roomTaskId,
-						];
-					}
-				}
-
-				// Recurrence advance (unchanged entity logic).
-				$preferences = $completer->getSchedulingPreferences();
-				$roomTask->markCompleted(
-					new \DateTime(),
-					$task->getFrequencyType(),
-					$task->getFrequencyValue(),
-					$task->getRecurrenceMode(),
-					$task->getSchedulingMode(),
-					$task->getActiveUntil(),
-					$task->getFixedScheduleTime(),
-					$task->getFixedScheduleDays(),
-					$task->getFlexDays(),
-					$preferences['weekdayAvailability'] ?? [],
-					$preferences['energyBudget'] ?? [],
-					$timeZone
-				);
-				$this->roomTaskMapper->update($roomTask);
-
-				// Occurrence-scoped checklist reset (decision D6): checked items
-				// must not leak into the next occurrence — first caller of
-				// resetProgress, inside the same transaction.
-				$this->checklistProgressMapper->resetProgress($roomTaskId);
-
-				// Cleanliness on the LOCKED room row (RMW seam closed).
-				$cleanlinessChange = $task->getEnergyCost() * 10; // 10% per energy point
-				$room->updateCleanliness($cleanlinessChange);
-				$room = $this->roomMapper->update($room);
-
-				// Reward phase (frozen formulas). The teamwork bonus is folded
-				// into the single locked house-user write (decision D9); the
-				// caller-owned ledger row is filled but NOT inserted here.
-				$gameResult = $this->gameLogicService->handleTaskCompletion(
-					$roomTask,
-					$completer->getId(),
-					$task,
-					$timeZone,
-					$assigneeUserIds,
-					$ledgerRow
-				);
-
-				// Complete the delta record with everything the reward phase
-				// produced, then insert ONE ledger row carrying before-state and
-				// deltas (decision D1).
-				$ledgerRow->setDeltas([
-					'coinsAwarded' => ($gameResult['coins'] ?? 0) + ($gameResult['teamworkBonus'] ?? 0),
-					'coins' => $gameResult['coins'] ?? 0,
-					'teamworkBonus' => $gameResult['teamworkBonus'] ?? 0,
-					'contributionAwarded' => $gameResult['contributionScore'] ?? 0,
-					'streakBefore' => $beforeState['houseUser']['currentStreak'],
-					'streakAfter' => $gameResult['currentStreak'] ?? 0,
-					'freezeUsed' => (bool)($gameResult['streakFreezeUsed'] ?? false),
-					'freezeAwarded' => (bool)($gameResult['comboBonusFreeze'] ?? false),
-					'titlesAdded' => $gameResult['titlesAdded'] ?? [],
-					'cleanlinessChange' => $cleanlinessChange,
-					'takeoverClaimed' => $takeoverClaimed,
-				]);
-				$this->completedTaskMapper->insert($ledgerRow);
-
-				return [
-					'roomTask' => $roomTask,
-					'room' => $room,
-					'gameResult' => $gameResult,
-					'cleanlinessChange' => $cleanlinessChange,
-					'takeoverNotification' => $takeoverNotification,
-				];
-			});
+			);
 		} catch (\Throwable $e) {
 			$this->appLogger->logException('CompletionService: task completion rolled back', $e, [
 				'event' => 'completion_rollback',
@@ -315,6 +218,37 @@ class CompletionService {
 			]);
 			throw $e;
 		}
+
+		if ($command['replay']) {
+			// Authorization runs on the receipt-hit path as well: membership
+			// and visibility are rechecked NOW, against fresh rows, before
+			// any projection is returned. The original completion identity
+			// comes back with fresh projections and a replay marker; no
+			// post-commit notification or celebration repeats.
+			$freshRoomTask = $this->findRoomTaskScoped($roomTaskId, $houseId);
+			$freshHouseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
+			if ($freshHouseUser === null) {
+				throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
+			}
+			$this->taskAccessPolicy->assertCanView(
+				$this->findTaskOrNotFound($freshRoomTask->getTaskId()),
+				$freshHouseUser,
+				$this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId)
+			);
+
+			return [
+				'roomTask' => $freshRoomTask,
+				'room' => $this->findRoomOrNotFound($freshRoomTask->getRoomId()),
+				'task' => $task,
+				'rewards' => [],
+				'completionId' => (int)($command['result']['completionId'] ?? 0) ?: null,
+				'occurrence' => $this->selectionBlock($freshRoomTask, $house),
+				'replay' => true,
+			];
+		}
+
+		$outcome = $command['result']['aggregate'];
+		$completionRowId = (int)($command['result']['completionId'] ?? 0);
 
 		$roomTask = $outcome['roomTask'];
 		$room = $outcome['room'];
@@ -370,6 +304,178 @@ class CompletionService {
 			'room' => $room,
 			'task' => $task,
 			'rewards' => $rewards,
+			'completionId' => $completionRowId ?: null,
+			'occurrence' => $this->selectionBlock($roomTask, $house),
+			'replay' => false,
+		];
+	}
+
+	/**
+	 * The first-execution aggregate inside the command transaction. The
+	 * house lock is already held (CommandService::runCommand); this body
+	 * follows the documented order room_task → occurrence → room →
+	 * house_user and returns the result identity.
+	 *
+	 * @return array{completionId: int, aggregate: array<string, mixed>}
+	 */
+	private function completeAggregate(int $houseId, string $userId, int $roomTaskId, \DateTimeZone $timeZone, string $occurrenceId, int $expectedVersion, string $selectionToken): array {
+		// CR-SVC-53: replace the pre-lock entity with the freshly locked
+		// one.
+		$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
+
+		// CR-SVC-10: re-resolve membership under the lock — a member
+		// removed between the pre-transaction fetch and this point must
+		// yield a clean 403, not a dereference of a stale entity.
+		$houseUser = $this->houseUserMapper->findByHouseAndUser($houseId, $userId);
+		if ($houseUser === null) {
+			throw new ForbiddenException($this->l10n->t('Only house members can complete tasks'));
+		}
+
+		// Canonical assignee set (CS-PLAN-060 WP1, D2) — visibility
+		// matrix (ADR-010, 404 anti-enumeration) and teamwork input (D9).
+		$assigneeUserIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTaskId);
+		$task = $this->findTaskOrNotFound($roomTask->getTaskId());
+		$this->taskAccessPolicy->assertCanView($task, $houseUser, $assigneeUserIds);
+
+		// Occurrence gate 1 (decision D4): an inactive room task must
+		// never be completed or earn rewards — 409 before any mutation.
+		if (!$roomTask->getIsActive()) {
+			throw new ConflictException($this->l10n->t('Task is not active'));
+		}
+
+		$now = new \DateTime();
+
+		// Occurrence gate 2 (WP1): resolve the SHOWN target — a virtual
+		// agreed key materializes at version 0 through the same generator,
+		// then version/token/selection are verified. Stale state is a 409;
+		// a fulfilled target is a 409; the server never silently credits
+		// another occurrence.
+		$resolved = $this->occurrenceService->resolveForCompletionUnderLock(
+			$houseId,
+			$roomTask,
+			$occurrenceId,
+			$expectedVersion,
+			$selectionToken,
+			$now
+		);
+		/** @var Occurrence $occurrence */
+		$occurrence = $resolved['occurrence'];
+		/** @var ScheduleRevision $revision */
+		$revision = $resolved['revision'];
+		$classification = $resolved['classification'];
+
+		// NEXT lock: the room row. Two concurrent completions of
+		// different tasks in the same room serialize here, so the
+		// cleanliness read-modify-write can no longer clobber a
+		// concurrent winner's delta.
+		$room = $this->roomMapper->lockForUpdate($roomTask->getRoomId());
+
+		// FINAL lock: the completer's reward row (same row the reward
+		// phase locks — the snapshot below must read locked state).
+		$completer = $this->lockCompleterOrForbidden(
+			$houseUser->getId(),
+			$this->l10n->t('Only house members can complete tasks')
+		);
+
+		// The ledger row is created per attempt inside the
+		// transaction so a transient-lock retry re-runs a clean
+		// aggregate (the executor's bounded retry contract).
+		$ledgerRow = new CompletedTask();
+
+		// Snapshot the authoritative before-state BEFORE any mutation
+		// (decision D1 — the exact undo inverse).
+		$beforeState = $this->effectService->snapshot($roomTask, $room, $completer);
+		$ledgerRow->setBeforeState($beforeState);
+		$ledgerRow->setOccurrenceDue(\DateTime::createFromInterface($occurrence->getPlannedDate()));
+
+		// Frozen timeline evidence (WP1): public key parts, the server-
+		// owned work time basis and the completion classification.
+		$savedZone = new \DateTimeZone($occurrence->getTimezone());
+		$workDateKey = $this->calendarService->dayKey($now, $savedZone);
+		$ledgerRow->setScheduleRevId($occurrence->getScheduleRevId());
+		$ledgerRow->setOccurrenceOrdinal($occurrence->getOrdinal());
+		$ledgerRow->setWorkDate(\DateTime::createFromFormat('!Y-m-d', $workDateKey));
+		$ledgerRow->setWorkZone($occurrence->getTimezone());
+		$ledgerRow->setCompletionClass($classification);
+
+		// Overdue-takeover: only record a takeover when a NON-assignee
+		// picks up an overdue task (decided on the fresh locked entity,
+		// CR-SVC-53). Dispatch is deferred post-commit.
+		$takeoverNotification = null;
+		$takeoverClaimed = false;
+		if ($roomTask->isOverdue() && !in_array($userId, $assigneeUserIds, true)) {
+			$originalAssignee = $assigneeUserIds[0] ?? null;
+			if ($originalAssignee !== null && $originalAssignee !== '') {
+				$roomTask->markClaimed($originalAssignee, $userId);
+				$takeoverClaimed = true;
+				$takeoverNotification = [
+					'recipient' => $originalAssignee,
+					'taskName' => $task->getName(),
+					'claimerUserId' => $userId,
+					'claimerDisplayName' => $houseUser->getDisplayName(),
+					'roomTaskId' => $roomTaskId,
+				];
+			}
+		}
+
+		// Cleanliness on the LOCKED room row (RMW seam closed).
+		$cleanlinessChange = $task->getEnergyCost() * 10; // 10% per energy point
+		$room->updateCleanliness($cleanlinessChange);
+		$room = $this->roomMapper->update($room);
+
+		// Reward phase (frozen formulas). The teamwork bonus is folded
+		// into the single locked house-user write (decision D9); the
+		// caller-owned ledger row is filled but NOT inserted here.
+		$gameResult = $this->gameLogicService->handleTaskCompletion(
+			$roomTask,
+			$completer->getId(),
+			$task,
+			$timeZone,
+			$assigneeUserIds,
+			$ledgerRow
+		);
+
+		// Complete the delta record with everything the reward phase
+		// produced, then insert ONE ledger row carrying before-state and
+		// deltas (decision D1).
+		$ledgerRow->setDeltas([
+			'coinsAwarded' => ($gameResult['coins'] ?? 0) + ($gameResult['teamworkBonus'] ?? 0),
+			'coins' => $gameResult['coins'] ?? 0,
+			'teamworkBonus' => $gameResult['teamworkBonus'] ?? 0,
+			'contributionAwarded' => $gameResult['contributionScore'] ?? 0,
+			'streakBefore' => $beforeState['houseUser']['currentStreak'],
+			'streakAfter' => $gameResult['currentStreak'] ?? 0,
+			'freezeUsed' => (bool)($gameResult['streakFreezeUsed'] ?? false),
+			'freezeAwarded' => (bool)($gameResult['comboBonusFreeze'] ?? false),
+			'titlesAdded' => $gameResult['titlesAdded'] ?? [],
+			'cleanlinessChange' => $cleanlinessChange,
+			'takeoverClaimed' => $takeoverClaimed,
+		]);
+		$inserted = $this->completedTaskMapper->insert($ledgerRow);
+
+		// Timeline effects (WP1): fulfill exactly this occurrence, cover
+		// the older catch-up miss, anchor the interval successor in the
+		// saved local basis and refresh the derived next_due projection.
+		$this->occurrenceService->applyCompletionUnderLock(
+			$houseId,
+			$occurrence,
+			$revision,
+			$roomTask,
+			(int)$inserted->getId(),
+			$workDateKey,
+			$classification,
+			$now
+		);
+
+		return [
+			'completionId' => (int)$inserted->getId(),
+			'aggregate' => [
+				'roomTask' => $this->roomTaskMapper->find($roomTaskId),
+				'room' => $room,
+				'gameResult' => $gameResult,
+				'cleanlinessChange' => $cleanlinessChange,
+				'takeoverNotification' => $takeoverNotification,
+			],
 		];
 	}
 
@@ -474,16 +580,36 @@ class CompletionService {
 					$this->l10n->t('The completer is no longer a member of this house')
 				);
 
-				// Restore, never recalculate (masterplan D2): assign every
-				// recorded before-state value — including the LIFO title
-				// removal, the checklist rewrite and the entity persistence.
+				// Monetary/room/claim restores (snapshot-authoritative until
+				// the WP3 cutover; recurrence projection fields and
+				// checklist progress are no longer restored from the
+				// snapshot — the timeline re-derives them).
 				$this->effectService->restore($lockedRoomTask, $lockedRoom, $completer, $current->getBeforeState(), $current->getDeltas());
 
+				// Mark undone BEFORE the timeline release so the
+				// re-derivation (lastCompleted, pending successor) reads
+				// the remaining VALID history — the undone row is not a
+				// completion anywhere (D11).
 				$this->completedTaskMapper->markUndone($current->getId(), new \DateTime());
+
+				// Timeline seam (CS-PLAN-072 WP1): resolve the RECORDED
+				// occurrence, release it, restore catch-up coverage and
+				// re-derive open interval successors anchored on this
+				// completion — later valid work always survives.
+				$occurrence = $this->occurrenceService->occurrenceOfCompletion($current);
+				if ($occurrence !== null) {
+					$this->occurrenceService->releaseCompletionUnderLock(
+						$houseId,
+						$occurrence,
+						$this->roomTaskMapper->find($roomTaskId),
+						$current,
+						new \DateTime()
+					);
+				}
 
 				return [
 					'noop' => false,
-					'roomTask' => $lockedRoomTask,
+					'roomTask' => $this->roomTaskMapper->find($roomTaskId),
 					'room' => $lockedRoom,
 					'current' => $current,
 					'completer' => $completer,
@@ -517,6 +643,7 @@ class CompletionService {
 				'task' => $task,
 				'rewards' => null,
 				'undone' => false,
+				'occurrence' => $this->selectionBlock($roomTask, $this->houseMapper->find($houseId)),
 			];
 		}
 
@@ -545,6 +672,7 @@ class CompletionService {
 			'task' => $task,
 			'rewards' => $rewards,
 			'undone' => $undone,
+			'occurrence' => $this->selectionBlock($roomTask, $this->houseMapper->find($houseId)),
 		];
 	}
 
@@ -604,18 +732,25 @@ class CompletionService {
 	}
 
 	/**
-	 * The house-local calendar day of the completed occurrence (ADR-009
-	 * semantics): the room task's nextDue BEFORE the recurrence advance.
+	 * Fresh, write-free selection block of a room task's next completion
+	 * target (WP1 DTO enrichment). RF-072-WP1-15: ONE builder —
+	 * {@see OccurrenceService::occurrenceBlock()} produces the block the
+	 * completion endpoint, the enriched row reads and this selection block
+	 * all emit into the same frontend cache slot; this wrapper only adds
+	 * the house-relative saved-zone flag.
 	 */
-	private function occurrenceDay(RoomTask $roomTask, \DateTimeZone $timeZone): ?\DateTime {
-		$nextDue = $roomTask->getNextDue();
-		if ($nextDue === null) {
+	private function selectionBlock(RoomTask $roomTask, House $house): ?array {
+		$selection = $this->occurrenceService->selectionFor($roomTask, new \DateTime());
+		if ($selection === null) {
 			return null;
 		}
-
-		return \DateTime::createFromInterface($nextDue)
-			->setTimezone($timeZone)
-			->setTime(0, 0, 0);
+		return $this->occurrenceService->occurrenceBlock(
+			$selection['occurrence'],
+			$selection['revision'],
+			$selection['classification']
+		) + [
+			'savedZoneDiffers' => $selection['occurrence']->getTimezone() !== $this->calendarService->getTimeZone($house)->getName(),
+		];
 	}
 
 	/**

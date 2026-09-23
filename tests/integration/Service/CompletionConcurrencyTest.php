@@ -13,13 +13,11 @@ use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\RoomMapper;
-use OCA\ChoreStrike\Db\RoomTaskChecklistProgressMapper;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Exception\ConflictException;
-use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\AppLogger;
 use OCA\ChoreStrike\Service\CalendarService;
 use OCA\ChoreStrike\Service\CompletionService;
@@ -40,8 +38,9 @@ use OCP\IDBConnection;
  *     state under the old unlocked read-modify-write.
  *  2. Retry-after-post-commit-failure: a sabotaged weekly-goal read must
  *     not turn the committed completion into an ambiguous failure (D7);
- *     the retried completion hits the day-duplicate 403 with no second
- *     ledger row.
+ *     the retried command receipt is the idempotent replay and a new
+ *     command on the fulfilled occurrence conflicts — never a second
+ *     ledger row (CS-PLAN-072 WP1 replaces the day-duplicate 403).
  *  3. Concurrent undo: the loser of the under-lock revertible re-check is
  *     the idempotent zero-write no-op (D3).
  *  4. Inactive occurrence: 409 with zero writes (D4).
@@ -122,7 +121,7 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			// T2: completes task A — blocks at the room lock until T1 commits
 			// B's +30, then must add A's delta on the committed 80.
 			$completionService = \OC::$server->get(CompletionService::class);
-			$result = $completionService->complete($houseId, 'cct_owner', $roomTaskA);
+			$result = $this->completeOccurrence($completionService, $houseId, 'cct_owner', $roomTaskA);
 
 			$row = $this->fetchRow('chorestrike_rooms', 'id', $roomId);
 			self::assertSame(
@@ -143,14 +142,17 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * PostCommitWeeklyGoalFailure_CommittedStillSucceeds_AndRetryIsDayDuplicate
+	 * PostCommitWeeklyGoalFailure_CommittedStillSucceeds_AndRetryIsReplay
 	 *
 	 * Decision D7 on the real DB: the sabotaged weekly-goal read must not
 	 * throw past the post-commit boundary — the committed completion answers
-	 * success with `rewards.degraded = true`; the retry then hits the
-	 * day-duplicate 403 with NO second ledger row.
+	 * success with `rewards.degraded = true`. CS-PLAN-072 WP1: the retry of
+	 * the SAME command receipt is the idempotent replay (original completion
+	 * identity, no repeated post-commit effects), and a NEW command on the
+	 * fulfilled occurrence conflicts 409 — neither writes a second ledger
+	 * row (occurrence validity replaces the day-duplicate 403).
 	 */
-	public function testPostCommitWeeklyGoalFailure_CommittedStillSucceeds_AndRetryIsDayDuplicate(): void {
+	public function testPostCommitWeeklyGoalFailure_CommittedStillSucceeds_AndRetryIsReplay(): void {
 		$houseId = $this->createHouse('cct_retry_owner', 'Retry House');
 		$floorId = $this->createFloor($houseId, 'Ground Floor', 1);
 		$roomId = $this->createRoom($houseId, $floorId, 'Kitchen');
@@ -161,20 +163,35 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		$completionService = $this->sabotagedWeeklyGoalCompletionService();
 
 		// First completion: commits fine, the post-commit read degrades.
-		$result = $completionService->complete($houseId, 'cct_retry_owner', $roomTaskId);
+		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($roomTaskId);
+		$result = $completionService->complete($houseId, 'cct_retry_owner', $roomTaskId, $commandId, $occurrenceId, $expectedVersion, $selectionToken);
 		self::assertTrue($result['rewards']['degraded'], 'the failed post-commit effect must flag the payload degraded');
 		self::assertNull($result['rewards']['weeklyGoal']);
 		self::assertCount(1, $this->ledgerRows($roomTaskId));
 
-		// Retry on the same day: day-duplicate 403, no second ledger row.
+		// Retry of the SAME receipt: idempotent replay — the original
+		// completion identity, no second ledger row, no repeated post-commit.
+		$retry = $completionService->complete($houseId, 'cct_retry_owner', $roomTaskId, $commandId, $occurrenceId, $expectedVersion, $selectionToken);
+		self::assertTrue($retry['replay'], 'the same commandId must answer the receipt replay');
+		self::assertSame($result['completionId'], $retry['completionId'], 'the replay returns the original completion identity');
+
+		// A NEW command on the fulfilled target: 409, still no second row.
 		try {
-			$completionService->complete($houseId, 'cct_retry_owner', $roomTaskId);
-			self::fail('the retried completion must hit the day-duplicate 403');
-		} catch (ForbiddenException $e) {
-			self::assertSame('You already completed this task today', $e->getMessage());
+			$completionService->complete(
+				$houseId,
+				'cct_retry_owner',
+				$roomTaskId,
+				sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
+				$occurrenceId,
+				$expectedVersion,
+				$selectionToken
+			);
+			self::fail('a new command on the fulfilled occurrence must conflict');
+		} catch (ConflictException $e) {
+			self::assertSame('This occurrence is already completed', $e->getMessage());
 		}
 
-		self::assertCount(1, $this->ledgerRows($roomTaskId), 'the failed retry must not write a second ledger row');
+		self::assertCount(1, $this->ledgerRows($roomTaskId), 'neither retry may write a second ledger row');
 	}
 
 	/**
@@ -201,7 +218,7 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		$actor = \OC::$server->get(HouseUserMapper::class)
 			->findByNextcloudUserId($houseId, 'cct_undo_owner');
 
-		$completionService->complete($houseId, 'cct_undo_owner', $roomTaskId);
+		$this->completeOccurrence($completionService, $houseId, 'cct_undo_owner', $roomTaskId);
 
 		$roomAfterCompletion = (int)$this->fetchRow('chorestrike_rooms', 'id', $roomId)['cleanliness'];
 		$userAfterCompletion = \OC::$server->get(HouseUserMapper::class)
@@ -288,7 +305,7 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 		$completionService = \OC::$server->get(CompletionService::class);
 
 		try {
-			$completionService->complete($houseId, 'cct_inactive_owner', $roomTaskId);
+			$this->completeOccurrence($completionService, $houseId, 'cct_inactive_owner', $roomTaskId);
 			self::fail('an inactive occurrence must be rejected with 409');
 		} catch (ConflictException $e) {
 			self::assertSame('Task is not active', $e->getMessage());
@@ -326,7 +343,6 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			$s->get(HouseUserMapper::class),
 			$s->get(TaskAssigneeMapper::class),
 			$s->get(CompletedTaskMapper::class),
-			$s->get(RoomTaskChecklistProgressMapper::class),
 			$s->get(\OCA\ChoreStrike\Service\CompletionEffectService::class),
 			// CS-PLAN-067 §3.2: the sabotaged HouseService is threaded into
 			// the post-commit participant — the D7 degrade boundary subject.
@@ -340,6 +356,8 @@ class CompletionConcurrencyTest extends IntegrationTestCase {
 			$s->get(\OCA\ChoreStrike\Service\GameLogicService::class),
 			$s->get(CalendarService::class),
 			$s->get(TaskAccessPolicy::class),
+			$s->get(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			$s->get(\OCA\ChoreStrike\Service\CommandService::class),
 			$s->get(\OCP\L10N\IFactory::class)->get('chorestrike'),
 			$s->get(AppLogger::class),
 		);

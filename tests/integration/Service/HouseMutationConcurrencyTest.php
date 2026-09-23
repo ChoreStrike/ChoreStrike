@@ -90,7 +90,7 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 			// the membership removal, then the under-lock re-read denies.
 			$completionService = \OC::$server->get(CompletionService::class);
 			try {
-				$completionService->complete($houseId, 'hmc_completer', $roomTaskId);
+				$this->completeOccurrence($completionService, $houseId, 'hmc_completer', $roomTaskId);
 				self::fail('a completion whose membership vanished behind the house lock must be denied');
 			} catch (ForbiddenException $e) {
 				self::assertStringContainsString('member', $e->getMessage());
@@ -120,14 +120,16 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * CompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsDayDuplicate403
+	 * CompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsOccurrenceConflict409
 	 *
-	 * T1 holds the house lock and commits the winner's completion for the
-	 * SAME room task + user + day; T2's completion (already past its
-	 * pre-transaction probe) must hit the day-duplicate 403 and write no
-	 * second ledger row.
+	 * T1 holds the house lock and commits the winner's completion of the
+	 * SAME occurrence target; T2's completion (already past its
+	 * pre-transaction probe, carrying the pre-commit receipt) must hit the
+	 * under-lock occurrence re-check → 409 (CS-PLAN-072 WP1: occurrence
+	 * validity replaces the day-duplicate 403) and write no second ledger
+	 * row.
 	 */
-	public function testCompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsDayDuplicate403(): void {
+	public function testCompleteVsComplete_BehindHouseLock_CommittedWinnerYieldsOccurrenceConflict409(): void {
 		if ($this->db->getDatabaseProvider() !== IDBConnection::PLATFORM_MYSQL) {
 			self::markTestSkipped('The two-connection race scenario requires MySQL/MariaDB (the Docker test DB).');
 		}
@@ -141,12 +143,22 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 		$this->cleanupRoomTaskIds[] = $roomTaskId;
 		$completerHouseUserId = $this->findHouseUserId($houseId, 'hmc_dup_completer');
 
+		// T2's receipt is resolved BEFORE the winner commits — the shown
+		// target both racers aim at.
+		$occurrenceService = \OC::$server->get(\OCA\ChoreStrike\Service\OccurrenceService::class);
+		$selection = $occurrenceService->selectionFor(
+			\OC::$server->get(\OCA\ChoreStrike\Db\RoomTaskMapper::class)->find($roomTaskId),
+			new \DateTime()
+		);
+		self::assertNotNull($selection, 'the fixture must expose a completable occurrence');
+		$target = $selection['occurrence'];
+
 		$signalFile = sys_get_temp_dir() . '/cs-hmc-dup-locked-' . uniqid();
 		$helperScript = sys_get_temp_dir() . '/cs-hmc-dup-winner-' . uniqid() . '.php';
 		file_put_contents($helperScript, $this->buildDuplicateWinnerHolderScript());
 
 		$process = proc_open(
-			[PHP_BINARY, $helperScript, (string)$roomTaskId, (string)$completerHouseUserId, $signalFile],
+			[PHP_BINARY, $helperScript, (string)$roomTaskId, (string)$completerHouseUserId, (string)$target->getId(), $signalFile],
 			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
 			$pipes
 		);
@@ -161,15 +173,23 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 				usleep(50000);
 			}
 
-			// T2: the day-duplicate probe passed pre-transaction, the
-			// completion blocks at the house lock, and the under-lock
-			// re-check finds T1's committed occurrence → 403.
+			// T2: the receipt probe passed pre-transaction, the completion
+			// blocks at the house lock, and the under-lock re-check finds
+			// T1's committed fulfillment of the SAME target → 409.
 			$completionService = \OC::$server->get(CompletionService::class);
 			try {
-				$completionService->complete($houseId, 'hmc_dup_completer', $roomTaskId);
-				self::fail('a second same-day occurrence must be rejected with 403');
-			} catch (ForbiddenException $e) {
-				self::assertStringContainsString('already completed this task today', $e->getMessage());
+				$completionService->complete(
+					$houseId,
+					'hmc_dup_completer',
+					$roomTaskId,
+					sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand()),
+					$target->toPublicKey(),
+					$target->getVersion(),
+					$occurrenceService->selectionToken($target, $selection['revision'], $selection['classification'])
+				);
+				self::fail('a second completion of the same occurrence must be rejected with 409');
+			} catch (ConflictException $e) {
+				self::assertSame('This occurrence is already completed', $e->getMessage());
 			}
 		} finally {
 			$this->terminateHelper($process, $pipes);
@@ -227,7 +247,7 @@ class HouseMutationConcurrencyTest extends IntegrationTestCase {
 
 			$completionService = \OC::$server->get(CompletionService::class);
 			try {
-				$completionService->complete($houseId, 'hmc_tomb_owner', $roomTaskId);
+				$this->completeOccurrence($completionService, $houseId, 'hmc_tomb_owner', $roomTaskId);
 				self::fail('a completion of a room task tombstoned behind the house lock must answer 409');
 			} catch (ConflictException $e) {
 				self::assertSame('Task is not active', $e->getMessage());
@@ -556,7 +576,8 @@ require '/var/www/html/lib/base.php';
 
 $roomTaskId = (int)$argv[1];
 $houseUserId = (int)$argv[2];
-$signalFile = $argv[3];
+$occurrenceId = (int)$argv[3];
+$signalFile = $argv[4];
 
 $db = \OC::$server->get(\OCP\IDBConnection::class);
 
@@ -575,6 +596,15 @@ $db->executeStatement(
     'INSERT INTO *PREFIX*chorestrike_completed_tasks (room_task_id, user_id, completed_at, coins_earned, was_combo, before_state, deltas) VALUES (:rtid, :uid, NOW(), 5, 0, :before, :deltas)',
     ['rtid' => $roomTaskId, 'uid' => $houseUserId, 'before' => '{}', 'deltas' => '{}'],
     ['rtid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'uid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'before' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR, 'deltas' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR]
+);
+// CS-PLAN-072 WP1: the winner FULFILLS the shared occurrence target — the
+// loser's under-lock re-check reads this committed fulfillment (occurrence
+// validity replaces the day-duplicate guard).
+$ledgerId = (int)$db->lastInsertId('*PREFIX*chorestrike_completed_tasks');
+$db->executeStatement(
+    'UPDATE *PREFIX*chorestrike_occurrences SET completion_id = :cid, version = version + 1 WHERE id = :oid',
+    ['cid' => $ledgerId, 'oid' => $occurrenceId],
+    ['cid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT, 'oid' => \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT]
 );
 $db->commit();
 PHP;

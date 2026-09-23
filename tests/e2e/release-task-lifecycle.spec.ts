@@ -28,6 +28,7 @@
 
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
+import { completeRoomTaskViaApi } from './fixtures/completion-api'
 import type { Page } from '@playwright/test'
 
 interface RoomTaskJson {
@@ -122,10 +123,7 @@ test.describe('Release: Task Lifecycle', () => {
 			const target = await pickActiveRoomTask(page)
 			expect(target, 'family seed must provide an active occurrence').not.toBeNull()
 
-			const completeResponse = await page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${target.id}/complete`,
-				{ headers: { Accept: 'application/json' } },
-			)
+			const completeResponse = await completeRoomTaskViaApi(page, target.id)
 			expect(completeResponse.status()).toBe(200)
 			const completed = (await completeResponse.json()).data
 			expect(completed.roomTask).toBeTruthy()

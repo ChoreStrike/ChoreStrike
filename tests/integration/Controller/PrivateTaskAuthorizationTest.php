@@ -147,11 +147,22 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 	}
 
 	public function testOverdueReadHidesPrivateTasksFromNonViewers(): void {
-		// Make the private room tasks overdue.
+		// Make the private room tasks overdue (CS-PLAN-072 WP1: a miss is
+		// an expired occurrence window, not a stale next_due projection).
+		$missedIds = [$this->privateRoomTaskId, $this->assigneeRoomTaskId];
 		$qb = $this->db->getQueryBuilder();
 		$qb->update('chorestrike_room_tasks')
 			->set('next_due', $qb->createNamedParameter('2020-01-01 00:00:00'))
-			->where($qb->expr()->in('id', $qb->createNamedParameter([$this->privateRoomTaskId, $this->assigneeRoomTaskId], \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
+			->where($qb->expr()->in('id', $qb->createNamedParameter($missedIds, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
+		$qb->executeStatement();
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('chorestrike_occurrences')
+			->set('planned_date', $qb->createNamedParameter('2020-01-01'))
+			->set('day_start', $qb->createNamedParameter('2020-01-01 00:00:00'))
+			->set('window_start', $qb->createNamedParameter('2020-01-01 00:00:00'))
+			->set('window_end', $qb->createNamedParameter('2020-01-02 00:00:00'))
+			->where($qb->expr()->in('room_task_id', $qb->createNamedParameter($missedIds, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
 		$qb->executeStatement();
 
 		// The child is not creator/assignee: neither private room task leaks.
@@ -231,8 +242,8 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		// private task's name is redacted (D9: rows stay house-scoped).
 		$this->actingAs('priv_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
-		$completionService->complete($this->houseId, 'priv_owner', $this->privateRoomTaskId);
-		$completionService->complete($this->houseId, 'priv_child', $this->publicRoomTaskId);
+		$this->completeOccurrence($completionService, $this->houseId, 'priv_owner', $this->privateRoomTaskId);
+		$this->completeOccurrence($completionService, $this->houseId, 'priv_child', $this->publicRoomTaskId);
 
 		$service = \OC::$server->get(\OCA\ChoreStrike\Service\RoomTaskService::class);
 		$houseUserMapper = \OC::$server->get(HouseUserMapper::class);
@@ -286,7 +297,7 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		$this->actingAs('priv_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $completionService->complete($this->houseId, 'priv_owner', $this->privateRoomTaskId);
+		$result = $this->completeOccurrence($completionService, $this->houseId, 'priv_owner', $this->privateRoomTaskId);
 
 		self::assertArrayHasKey('rewards', $result);
 		self::assertArrayHasKey('coins', $result['rewards']);
@@ -300,7 +311,7 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Task not found');
-		$completionService->complete($this->houseId, 'priv_child', $this->privateRoomTaskId);
+		$this->completeOccurrence($completionService, $this->houseId, 'priv_child', $this->privateRoomTaskId);
 	}
 
 	public function testAssigneeCanCompleteSomeoneElsesPrivateRoomTask(): void {
@@ -309,7 +320,7 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		$this->actingAs('priv_member');
 		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $completionService->complete($this->houseId, 'priv_member', $this->assigneeRoomTaskId);
+		$result = $this->completeOccurrence($completionService, $this->houseId, 'priv_member', $this->assigneeRoomTaskId);
 
 		self::assertArrayHasKey('rewards', $result);
 	}
@@ -320,7 +331,7 @@ class PrivateTaskAuthorizationTest extends IntegrationTestCase {
 		$this->actingAs('priv_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $completionService->complete($this->houseId, 'priv_owner', $this->assigneeRoomTaskId);
+		$result = $this->completeOccurrence($completionService, $this->houseId, 'priv_owner', $this->assigneeRoomTaskId);
 
 		self::assertArrayHasKey('rewards', $result);
 	}

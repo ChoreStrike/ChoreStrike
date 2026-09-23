@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Db\Occurrence;
 use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
@@ -170,7 +171,7 @@ class RoomTaskController extends Controller {
 
 			return new JSONResponse([
 				'success' => true,
-				'data' => $this->serializeFlatRoomTasks($roomTasks, $this->timeZoneOf($house)),
+				'data' => $this->serializeFlatRoomTasks($roomTasks, $this->timeZoneOf($house), (int)$house->getId()),
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -192,18 +193,26 @@ class RoomTaskController extends Controller {
 	 * Serialize room tasks into the flat list shape (CS-PLAN-067 D1): the
 	 * existing `RoomTask::jsonSerialize(timezone)` fields plus a canonical
 	 * `assignees` user-ID array — one batched assignee read for the whole
-	 * set, never a per-row lookup.
+	 * set, never a per-row lookup. Each row also carries its canonical
+	 * occurrence target block (CS-PLAN-072 WP1) from ONE batched
+	 * derivation.
 	 *
 	 * @param \OCA\ChoreStrike\Db\RoomTask[] $roomTasks
 	 * @param \DateTimeZone $tz House timezone for day-boundary serialization
+	 * @param int $houseId House scope for the batched occurrence derivation
 	 * @return array<int, array<string, mixed>>
 	 */
-	private function serializeFlatRoomTasks(array $roomTasks, \DateTimeZone $tz): array {
+	private function serializeFlatRoomTasks(array $roomTasks, \DateTimeZone $tz, int $houseId): array {
 		$assigneesByTask = $this->roomTaskReadService->assigneesByRoomTasks($roomTasks);
+		$selections = $this->roomTaskReadService->occurrenceSelectionsForHouse($houseId, $roomTasks);
 
-		return array_map(static function ($roomTask) use ($assigneesByTask, $tz) {
+		return array_map(function ($roomTask) use ($assigneesByTask, $tz, $selections) {
 			$data = $roomTask->jsonSerialize($tz);
 			$data['assignees'] = $assigneesByTask[$roomTask->getId()] ?? [];
+			$selection = $selections[$roomTask->getId()] ?? null;
+			$data['occurrence'] = $selection !== null
+				? $this->roomTaskReadService->occurrenceBlockFor($selection['occurrence'], $selection['revision'], $selection['classification'])
+				: null;
 			return $data;
 		}, $roomTasks);
 	}
@@ -455,10 +464,18 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
-	 * Complete room task
+	 * Complete one shown occurrence of a room task (CS-PLAN-064 D2 calls
+	 * the CompletionService aggregate directly; CS-PLAN-072 WP1 adds the
+	 * occurrence receipt contract).
 	 *
-	 * Calls the CompletionService aggregate directly (CS-PLAN-064, decision
-	 * D2 — the RoomTaskService::completeTask passthrough is gone).
+	 * The body carries the shown target identity: `commandId` (client
+	 * idempotency UUID), `occurrenceId` (public
+	 * `<scheduleRevisionId>:<ordinal>` key), `expectedVersion` and
+	 * `selectionToken`. Input validation is a CLOSED SET — unknown fields
+	 * (e.g. share participants, WP3) are rejected with 400, never
+	 * silently ignored. The server owns work time and target effort;
+	 * replays of the same command return the original completion
+	 * identity without repeating effects.
 	 *
 	 * @NoAdminRequired
 	 */
@@ -469,24 +486,48 @@ class RoomTaskController extends Controller {
 			$this->authService->assertHouseMember($house->getId());
 			$this->roomTaskService->validateRoomTaskOwnership($id, $house->getId());
 
-			$currentUserId = $this->authService->requireCurrentUserId();
-			$result = $this->completionService->complete($house->getId(), $currentUserId, $id);
+			// The receipt fields come from the request body; framework
+			// keys (route param `id`, `_route`) are filtered before the
+			// closed-set validation.
+			$payload = $this->request->getParams();
+			unset($payload['id'], $payload['_route']);
+			$receipt = $this->validateCompletionReceipt($payload);
+			if ($receipt instanceof JSONResponse) {
+				return $receipt;
+			}
 
-			return new JSONResponse([
-				'success' => true,
-				'data' => [
-					'roomTask' => $result['roomTask']->jsonSerialize($this->timeZoneOf($house)),
-					'room' => $result['room']->jsonSerialize(),
-					'task' => $result['task']->jsonSerialize(),
-					'rewards' => $result['rewards']
-				]
-			]);
+			$currentUserId = $this->authService->requireCurrentUserId();
+			$result = $this->completionService->complete(
+				$house->getId(),
+				$currentUserId,
+				$id,
+				$receipt['commandId'],
+				$receipt['occurrenceId'],
+				$receipt['expectedVersion'],
+				$receipt['selectionToken'],
+			);
+
+			$data = [
+				'roomTask' => $result['roomTask']->jsonSerialize($this->timeZoneOf($house)),
+				'room' => $result['room']->jsonSerialize(),
+				'task' => $result['task']->jsonSerialize(),
+				'rewards' => $result['rewards'],
+				'completionId' => $result['completionId'],
+				'occurrence' => $result['occurrence'],
+				'replay' => $result['replay'],
+			];
+			return new JSONResponse(['success' => true, 'data' => $data]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
 		} catch (ConflictException $e) {
 			return ControllerErrorFormatter::conflictResponse($e);
+		} catch (\InvalidArgumentException $e) {
+			return new JSONResponse([
+				'success' => false,
+				'error' => ['code' => 'VALIDATION_ERROR', 'message' => ControllerErrorFormatter::safeMessage($e)]
+			], 400);
 		} catch (\Exception $e) {
 			$this->logControllerException('complete', $e, ['roomTaskId' => $id]);
 			return new JSONResponse([
@@ -500,12 +541,64 @@ class RoomTaskController extends Controller {
 	}
 
 	/**
+	 * Validate the completion receipt payload (closed set, parent §3.4).
+	 * Returns the validated fields or a ready-to-return 400 response.
+	 *
+	 * @param array $payload
+	 * @return array{commandId: string, occurrenceId: string, expectedVersion: int, selectionToken: string}|JSONResponse
+	 */
+	private function validateCompletionReceipt(array $payload): array|JSONResponse {
+		$badRequest = static fn (string $message): JSONResponse => new JSONResponse([
+			'success' => false,
+			'error' => ['code' => 'VALIDATION_ERROR', 'message' => $message],
+		], 400);
+
+		$allowed = ['commandId', 'occurrenceId', 'expectedVersion', 'selectionToken'];
+		foreach ($payload as $key => $value) {
+			if (!in_array($key, $allowed, true)) {
+				return $badRequest($this->l->t('Unknown field: %1$s', [$key]));
+			}
+		}
+
+		$commandId = $payload['commandId'] ?? null;
+		$occurrenceId = $payload['occurrenceId'] ?? null;
+		$expectedVersion = $payload['expectedVersion'] ?? null;
+		$selectionToken = $payload['selectionToken'] ?? null;
+
+		if (!is_string($commandId) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $commandId)) {
+			return $badRequest($this->l->t('A valid commandId (UUID) is required'));
+		}
+		if (!is_string($occurrenceId) || $occurrenceId === '') {
+			return $badRequest($this->l->t('An occurrenceId is required'));
+		}
+		try {
+			Occurrence::parsePublicKey($occurrenceId);
+		} catch (\InvalidArgumentException $e) {
+			return $badRequest($e->getMessage());
+		}
+		if (!is_numeric($expectedVersion) || (int)$expectedVersion < 0 || (string)(int)$expectedVersion !== (string)$expectedVersion) {
+			return $badRequest($this->l->t('A valid expectedVersion is required'));
+		}
+		if (!is_string($selectionToken) || $selectionToken === '') {
+			return $badRequest($this->l->t('A selectionToken is required'));
+		}
+
+		return [
+			'commandId' => strtolower($commandId),
+			'occurrenceId' => $occurrenceId,
+			'expectedVersion' => (int)$expectedVersion,
+			'selectionToken' => $selectionToken,
+		];
+	}
+
+	/**
 	 * Undo the newest revertible completion of a room task (CS-PLAN-064 WP5).
 	 *
-	 * One idempotent aggregate: restores recurrence, ledger marking,
-	 * rewards/streak/freezes/titles, cleanliness, and checklist progress
-	 * from the recorded effect. Nothing revertible → 200 with
-	 * `undone: false` (zero writes).
+	 * One idempotent aggregate: restores ledger marking,
+	 * rewards/streak/freezes/titles, cleanliness and claim markers
+	 * from the recorded effect, and re-derives the recorded occurrence's
+	 * timeline state (later valid work survives). Nothing revertible →
+	 * 200 with `undone: false` (zero writes).
 	 *
 	 * @NoAdminRequired
 	 */
@@ -524,6 +617,7 @@ class RoomTaskController extends Controller {
 				'task' => $result['task']->jsonSerialize(),
 				'rewards' => $result['rewards'],
 				'undone' => $result['undone'],
+				'occurrence' => $result['occurrence'] ?? null,
 			];
 
 			return new JSONResponse([
@@ -642,7 +736,7 @@ class RoomTaskController extends Controller {
 			// persisted, never the requested set.
 			return new JSONResponse([
 				'success' => true,
-				'data' => $this->serializeFlatRoomTasks($assignedTasks, $tz),
+				'data' => $this->serializeFlatRoomTasks($assignedTasks, $tz, (int)$house->getId()),
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
@@ -736,8 +830,9 @@ class RoomTaskController extends Controller {
 
 	/**
 	 * Serialize `{roomTask, task, room}` service rows into the canonical
-	 * enriched execution-row shape `{roomTask, task, room, assignees}`
-	 * (CS-PLAN-066 D1). One batched assignee read for the whole set — the
+	 * enriched execution-row shape `{roomTask, task, room, assignees,
+	 * occurrence}` (CS-PLAN-066 D1; CS-PLAN-072 WP1 adds the occurrence
+	 * target block). One batched assignee read for the whole set — the
 	 * arrays are unique, deterministically ordered Nextcloud user IDs.
 	 *
 	 * @param array<int, array{roomTask: \OCA\ChoreStrike\Db\RoomTask, task: \OCA\ChoreStrike\Db\Task, room: \OCA\ChoreStrike\Db\Room}> $rows
@@ -754,6 +849,7 @@ class RoomTaskController extends Controller {
 				'task' => $row['task']->jsonSerialize(),
 				'room' => $row['room']->jsonSerialize(),
 				'assignees' => $assigneesByTask[$row['roomTask']->getId()] ?? [],
+				'occurrence' => $row['occurrence'] ?? null,
 			];
 		}, $rows);
 	}
@@ -916,6 +1012,7 @@ class RoomTaskController extends Controller {
 					'task' => $item['task']->jsonSerialize(),
 					'room' => $item['room']->jsonSerialize(),
 					'assignees' => $item['assignees'],
+					'occurrence' => $item['occurrence'] ?? null,
 				], $filteredTasks)
 			]);
 		} catch (ForbiddenException $e) {

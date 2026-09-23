@@ -262,8 +262,8 @@ class ChecklistControllerTest extends TestCase {
 
 		$this->checklistService->expects($this->once())
 			->method('getRoomTaskProgress')
-			->with(10, 1, $this->identicalTo($this->viewer))
-			->willReturn(['items' => [], 'stats' => ['total' => 0]]);
+			->with(10, null, 1, $this->identicalTo($this->viewer))
+			->willReturn(['items' => [], 'stats' => ['total' => 0], 'occurrence' => ['occurrenceId' => '2:1']]);
 
 		$response = $this->controller->getRoomTaskProgress(10);
 
@@ -271,6 +271,7 @@ class ChecklistControllerTest extends TestCase {
 		$data = $response->getData();
 		$this->assertTrue($data['success']);
 		$this->assertSame(['total' => 0], $data['data']['stats']);
+		$this->assertSame('2:1', $data['data']['occurrence']['occurrenceId']);
 	}
 
 	/**
@@ -280,6 +281,8 @@ class ChecklistControllerTest extends TestCase {
 		$progress = new RoomTaskChecklistProgress();
 		$progress->setId(50);
 		$progress->setRoomTaskId(10);
+		$progress->setScheduleRevId(2);
+		$progress->setOrdinal(1);
 		$progress->setChecklistItemId(3);
 		$progress->setIsChecked(true);
 
@@ -287,8 +290,8 @@ class ChecklistControllerTest extends TestCase {
 
 		$this->checklistService->expects($this->once())
 			->method('toggleItem')
-			->with(10, 3, 1, $this->identicalTo($this->viewer))
-			->willReturn(['progress' => $progress, 'stats' => ['completed' => 1, 'total' => 2]]);
+			->with(10, null, 3, null, 1, $this->identicalTo($this->viewer))
+			->willReturn(['progress' => $progress, 'stats' => ['completed' => 1, 'total' => 2], 'occurrence' => ['occurrenceId' => '2:1']]);
 
 		$response = $this->controller->toggleItem(10, 3);
 
@@ -319,4 +322,65 @@ class ChecklistControllerTest extends TestCase {
 		$this->assertSame('RESOURCE_NOT_FOUND', $data['error']['code']);
 	}
 
+	/**
+	 * RF-072-WP1-13: a malformed occurrenceId on the progress endpoint is
+	 * a clean 400 at the controller boundary — never an
+	 * InvalidArgumentException escaping into the generic 500 handler
+	 * (the completion route applies the same parse contract).
+	 */
+	public function testGetRoomTaskProgress_MalformedOccurrenceId_Returns400(): void {
+		$this->expectHouseMembershipContext();
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key) => $key === 'occurrenceId' ? 'not-a-key' : null
+		);
+
+		$this->checklistService->expects($this->never())->method('getRoomTaskProgress');
+
+		$response = $this->controller->getRoomTaskProgress(10);
+
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * RF-072-WP1-13: a malformed occurrenceId on the toggle endpoint is a
+	 * 400, not a 500 — and performs no write.
+	 */
+	public function testToggleItem_MalformedOccurrenceId_Returns400(): void {
+		$this->expectHouseMembershipContext();
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key) => $key === 'occurrenceId' ? '12:00x' : null
+		);
+
+		$this->checklistService->expects($this->never())->method('toggleItem');
+
+		$response = $this->controller->toggleItem(10, 3);
+
+		$this->assertSame(400, $response->getStatus());
+		$this->assertSame('VALIDATION_ERROR', $response->getData()['error']['code']);
+	}
+
+	/**
+	 * RF-072-WP1-13: a WELL-FORMED occurrenceId passes the boundary
+	 * validation and reaches the service unchanged.
+	 */
+	public function testToggleItem_WellFormedOccurrenceId_Delegates(): void {
+		$this->expectHouseMembershipContext();
+		$this->request->method('getParam')->willReturnCallback(
+			static fn (string $key) => $key === 'occurrenceId' ? '12:3' : null
+		);
+
+		$progress = new RoomTaskChecklistProgress();
+		$progress->setId(51);
+		$progress->setIsChecked(true);
+		$this->checklistService->expects($this->once())
+			->method('toggleItem')
+			->with(10, '12:3', 3, null, 1, $this->identicalTo($this->viewer))
+			->willReturn(['progress' => $progress, 'stats' => ['completed' => 1, 'total' => 2], 'occurrence' => ['occurrenceId' => '12:3']]);
+
+		$response = $this->controller->toggleItem(10, 3);
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertTrue($response->getData()['success']);
+	}
 }

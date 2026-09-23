@@ -40,6 +40,7 @@ class RoomTaskReadServiceTest extends TestCase {
 	private HouseMapper|MockObject $houseMapper;
 	private TaskAssigneeMapper|MockObject $taskAssigneeMapper;
 	private TaskAccessPolicy|MockObject $taskAccessPolicy;
+	private \OCA\ChoreStrike\Service\OccurrenceService|MockObject $occurrenceService;
 
 	protected function setUp(): void {
 		$this->roomTaskMapper = $this->createMock(RoomTaskMapper::class);
@@ -49,6 +50,7 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->houseMapper = $this->createMock(HouseMapper::class);
 		$this->taskAssigneeMapper = $this->createMock(TaskAssigneeMapper::class);
 		$this->taskAccessPolicy = $this->createMock(TaskAccessPolicy::class);
+		$this->occurrenceService = $this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class);
 
 		$utcHouse = new House();
 		$utcHouse->setTimezone('UTC');
@@ -63,6 +65,7 @@ class RoomTaskReadServiceTest extends TestCase {
 			$this->taskAssigneeMapper,
 			$this->taskAccessPolicy,
 			new CalendarService(),
+			$this->occurrenceService,
 			$this->createIdentityL10n()
 		);
 	}
@@ -270,7 +273,9 @@ class RoomTaskReadServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetOverdueTasks_ReturnsOverdueTasks
+	 * GetOverdueTasks_ReturnsOverdueTasks — occurrence-authority edition
+	 * (CS-PLAN-072 WP1): a task is overdue when its canonical selection is
+	 * a MISSED occurrence (the catch-up card), not when next_due < now.
 	 */
 	public function testGetOverdueTasks_ReturnsOverdueTasks(): void {
 		$houseId = 1;
@@ -279,13 +284,17 @@ class RoomTaskReadServiceTest extends TestCase {
 		$roomTask = new RoomTask();
 		$roomTask->setId(1);
 		$roomTask->setTaskId(1);
+		$roomTask->setRoomId($roomId);
 		$roomTask->setNextDue(new \DateTime('-1 day'));
 
 		$this->roomTaskMapper
 			->expects($this->once())
-			->method('findOverdueByHouse')
-			->with($houseId, $roomId)
+			->method('findByHouse')
+			->with($houseId, true)
 			->willReturn([$roomTask]);
+
+		$this->occurrenceService->method('selectionsForHouseTasks')
+			->willReturnCallback(static fn (int $houseId, array $tasks, \DateTime $now): array => [1 => ['occurrence' => null, 'revision' => null, 'classification' => 'late']]);
 
 		$this->taskMapper->method('findByIds')->willReturn([]);
 		$this->stubPolicyPassthrough();
@@ -296,7 +305,9 @@ class RoomTaskReadServiceTest extends TestCase {
 	}
 
 	/**
-	 * GetDueTodayTasks_ReturnsDueTodayTasks
+	 * GetDueTodayTasks_ReturnsDueTodayTasks — occurrence-authority edition:
+	 * a task is due today when an AGREED occurrence is planned on the
+	 * current house-local day.
 	 */
 	public function testGetDueTodayTasks_ReturnsDueTodayTasks(): void {
 		$houseId = 1;
@@ -305,18 +316,17 @@ class RoomTaskReadServiceTest extends TestCase {
 		$roomTask = new RoomTask();
 		$roomTask->setId(1);
 		$roomTask->setTaskId(1);
+		$roomTask->setRoomId($roomId);
 		$roomTask->setNextDue(new \DateTime());
 
 		$this->roomTaskMapper
 			->expects($this->once())
-			->method('findDueTodayByHouse')
-			->with(
-				$houseId,
-				$this->isInstanceOf(\DateTimeInterface::class),
-				$this->isInstanceOf(\DateTimeInterface::class),
-				$roomId
-			)
+			->method('findByHouse')
+			->with($houseId, true)
 			->willReturn([$roomTask]);
+
+		$this->occurrenceService->method('agreedOccurrencesForHouseTasks')
+			->willReturnCallback(static fn (int $houseId, array $tasks, ?string $fromKey, ?string $toKey): array => [1 => [['occurrence' => null, 'revision' => null]]]);
 
 		$this->taskMapper->method('findByIds')->willReturn([]);
 		$this->stubPolicyPassthrough();
@@ -396,7 +406,7 @@ class RoomTaskReadServiceTest extends TestCase {
 			->willReturn($task);
 
 		$this->roomMapper
-			->expects($this->once())
+			->expects($this->atMost(2))
 			->method('find')
 			->with(1)
 			->willReturn($room);
@@ -407,6 +417,9 @@ class RoomTaskReadServiceTest extends TestCase {
 		$this->assertSame($task, $result['task']);
 		$this->assertSame($room, $result['room']);
 		$this->assertEquals('due_soon', $result['status']);
+		// CS-PLAN-072 WP1: the detail row carries the canonical occurrence
+		// target block (null when no target is completable).
+		$this->assertArrayHasKey('occurrence', $result);
 	}
 
 	/**

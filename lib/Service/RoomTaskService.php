@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\ChoreStrike\Service;
 
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
+use OCA\ChoreStrike\Db\House;
 use OCA\ChoreStrike\Db\HouseMapper;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
@@ -20,6 +21,7 @@ use OCA\ChoreStrike\Db\TaskAssignee;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TaskMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -29,7 +31,9 @@ use OCP\IL10N;
  * mutations and the room-scoped aggregates (stats, calendar range). The
  * batched READ/enrichment cluster lives in {@see RoomTaskReadService}
  * (CS-PLAN-067 §3.1); this service delegates to it instead of duplicating
- * the assembly.
+ * the assembly. Since CS-PLAN-072 WP1 the due-date/assignee writers route
+ * through the occurrence agreement writer ({@see OccurrenceService}) —
+ * no path writes `next_due` or participants outside an agreement.
  */
 class RoomTaskService {
 	private RoomTaskMapper $roomTaskMapper;
@@ -47,6 +51,7 @@ class RoomTaskService {
 	private TaskAccessPolicy $taskAccessPolicy;
 	private AuthorizationService $authorization;
 	private CalendarService $calendarService;
+	private OccurrenceService $occurrenceService;
 
 	public function __construct(
 		RoomTaskMapper $roomTaskMapper,
@@ -64,6 +69,7 @@ class RoomTaskService {
 		TaskAccessPolicy $taskAccessPolicy,
 		AuthorizationService $authorization,
 		CalendarService $calendarService,
+		OccurrenceService $occurrenceService,
 	) {
 		$this->roomTaskMapper = $roomTaskMapper;
 		$this->taskMapper = $taskMapper;
@@ -80,6 +86,7 @@ class RoomTaskService {
 		$this->taskAccessPolicy = $taskAccessPolicy;
 		$this->authorization = $authorization;
 		$this->calendarService = $calendarService;
+		$this->occurrenceService = $occurrenceService;
 	}
 
 	/**
@@ -223,8 +230,54 @@ class RoomTaskService {
 				$this->roomTaskMapper->update($roomTask);
 			}
 
+			// CS-PLAN-072 WP1 (Q-072-01): participant writes route through
+			// the common agreement writer — the new snapshot becomes the
+			// revision default (close + append), affected future unfulfilled
+			// occurrences get new occ_members plus agreement evidence rows,
+			// and the C2h child day limit is enforced before any write.
+			// Orphaned definitions (no task row) keep the join-table write
+			// as their only authority.
+			$definition = $roomTask->getTaskId() !== null
+				? $this->findTaskOrNull((int)$roomTask->getTaskId())
+				: null;
+			if ($definition instanceof Task) {
+				$this->occurrenceService->amendParticipantsUnderLock(
+					$houseId,
+					$roomTask,
+					$definition,
+					$this->houseMapper->find($houseId) ?? new House(),
+					$this->actorHouseUserIdFor($assignedBy, $houseId),
+					$uniqueIds,
+					new \DateTime(),
+				);
+			}
+
 			return $this->taskAssigneeMapper->findByRoomTask($roomTaskId);
 		});
+	}
+
+	/**
+	 * Resolve the acting membership id for agreement evidence rows (null
+	 * for system/test writers — evidence facts never require an actor).
+	 */
+	private function actorHouseUserIdFor(?string $assignedBy, int $houseId): ?int {
+		if ($assignedBy === null || $assignedBy === '') {
+			return null;
+		}
+		$member = $this->houseUserMapper->findByHouseAndUser($houseId, $assignedBy);
+		return $member?->getId();
+	}
+
+	/**
+	 * Task definition lookup tolerant of orphaned room tasks (mocked and
+	 * deleted definitions): returns null instead of throwing.
+	 */
+	private function findTaskOrNull(int $taskId): ?Task {
+		try {
+			return $this->taskMapper->find($taskId);
+		} catch (\OCP\AppFramework\Db\DoesNotExistException $e) {
+			return null;
+		}
 	}
 
 	/**
@@ -373,18 +426,77 @@ class RoomTaskService {
 			fn (): \DateTimeZone => $this->readService->timeZoneForRoom($roomTask->getRoomId())
 		);
 		$owningHouseId = $this->readService->houseIdForRoom($roomTask->getRoomId());
+		$house = $this->houseMapper->find($owningHouseId);
+		$newDateKey = $this->calendarService->dayKey($nextDueDate, $this->calendarService->getTimeZone($house));
 
-		return $this->transactions->run(function () use ($roomTaskId, $nextDueDate, $owningHouseId): RoomTask {
+		// CS-PLAN-072 WP1 (Q-072-01): due-date edits are AGREED amendments
+		// through the common writer — the target keeps its occurrence
+		// identity; only unfulfilled occurrences before their old deadline
+		// may move; the agreement evidence row records old/new state; the
+		// C2h child day limit is checked for the new date before any write.
+		$this->transactions->run(function () use ($roomTaskId, $owningHouseId, $houseUser, $newDateKey, $house): void {
 			$this->houseMapper->findForUpdate($owningHouseId);
 			$roomTask = $this->roomTaskMapper->lockForUpdate($roomTaskId);
 			if ($roomTask->getDeletedAt() !== null) {
-				// Authoritative tombstone gate (Q-70-01): the due-date
-				// write may land only on live planning state.
+				// Authoritative tombstone gate (Q-70-01): the amendment
+				// may land only on live planning state.
 				throw new NotFoundException($this->l10n->t('Room task not found'));
 			}
-			$this->roomTaskMapper->updateNextDue($roomTaskId, $nextDueDate);
-			return $this->roomTaskMapper->find($roomTaskId);
+			$this->assertChildCapacityForDate($owningHouseId, $roomTask, $house, $newDateKey);
+			$this->occurrenceService->amendOccurrenceDateUnderLock(
+				$roomTask,
+				$houseUser->getId(),
+				null,
+				$newDateKey,
+				new \DateTime(),
+			);
 		});
+
+		// Authoritative persisted row (CS-PLAN-067 §3.3): the response is
+		// the re-read row, not the caller's stale entity.
+		return $this->roomTaskMapper->find($roomTaskId);
+	}
+
+	/**
+	 * C2h whole-day child limit for a date amendment: no child ASSIGNED to
+	 * this task may exceed its maxDailyTasks on the new date (counting the
+	 * other agreed occurrences planned that day). Unlimited children never
+	 * gate here. RF-072-WP1-11: counts through the ONE shared occurrence-
+	 * based counter (open, unfulfilled/uncovered occurrences with
+	 * open-or-future windows per member wallet — batched, never
+	 * `next_due`-equality, which missed same-day occurrences and
+	 * disagreed with the participant-amendment guard).
+	 */
+	private function assertChildCapacityForDate(int $houseId, RoomTask $roomTask, House $house, string $newDateKey): void {
+		$assigneeIds = $this->taskAssigneeMapper->findUserIdsByRoomTask($roomTask->getId());
+		if ($assigneeIds === []) {
+			return;
+		}
+		$membersByUserId = [];
+		foreach ($this->houseUserMapper->findByHouseId($houseId) as $candidate) {
+			$membersByUserId[$candidate->getNextcloudUserId()] = $candidate;
+		}
+
+		$otherTaskIds = [];
+		foreach ($this->roomTaskMapper->findByHouse($houseId, true) as $otherTask) {
+			if ($otherTask->getId() !== $roomTask->getId()) {
+				$otherTaskIds[] = $otherTask->getId();
+			}
+		}
+		$dayLoad = $this->occurrenceService->openOccurrenceDayLoadByWallet($otherTaskIds, new \DateTime());
+
+		foreach ($assigneeIds as $userId) {
+			$member = $membersByUserId[$userId] ?? null;
+			if ($member === null || $member->getRole() !== 'child' || $member->getWalletId() === null) {
+				continue;
+			}
+			$preferences = $member->getSchedulingPreferences();
+			$maxDaily = $preferences['maxDailyTasks'] ?? null;
+			$walletLoad = $dayLoad[(int)$member->getWalletId()][$newDateKey] ?? 0;
+			if (is_int($maxDaily) && $maxDaily > 0 && $walletLoad + 1 > $maxDaily) {
+				throw new ConflictException($this->l10n->t('Moving this task would exceed a daily task limit'));
+			}
+		}
 	}
 
 	/**
@@ -449,6 +561,11 @@ class RoomTaskService {
 			$this->roomService->deleteRoomTaskPlanningState([$roomTaskId]);
 			$locked->tombstone(new \DateTime());
 			$this->roomTaskMapper->update($locked);
+
+			// CS-PLAN-072 WP1: structural deletion stops scheduling — the
+			// live revision closes; occurrence/completion evidence stays
+			// (minimum history retention, parent §3.3 rule 1).
+			$this->occurrenceService->stopSchedulingUnderLock($roomTaskId, new \DateTime());
 		});
 	}
 
@@ -612,43 +729,41 @@ class RoomTaskService {
 	/**
 	 * Get scheduled and completed tasks for a house within a date range.
 	 *
-	 * Batch-fetches task and room entities by unique-ID sets to avoid N+1
-	 * queries over a multi-day range. Returns enriched scheduled items with
-	 * flex window bounds and projected completion rows.
-	 *
-	 * Recurrence projection (D2): each recurring task is expanded into every
-	 * occurrence it would have within [from, to] via RoomTask::projectOccurrences,
-	 * reusing the same recurrence rules as task completion so the calendar and
-	 * the scheduler never disagree. The base set is every active task due on or
-	 * before `to` (findActiveDueUpToByHouse); tasks that produce no in-window
-	 * occurrence are omitted. Occurrence dates are returned as a compact
-	 * `occurrences` list of Y-m-d strings; the top-level `flexWindow` stays
-	 * anchored on the stored nextDue for response-shape stability.
+	 * Occurrence-authority projection (CS-PLAN-072 WP1; supersedes the
+	 * whole-room-task projectOccurrences engine): the calendar is built
+	 * from AGREED occurrences (materialized rows plus virtual keys the
+	 * frontier covers — write-free) plus write-free FUTURE PROJECTIONS
+	 * beyond the frontier. Agreed entries carry their public
+	 * `<scheduleRevisionId>:<ordinal>` key, version and 'agreed'
+	 * classification; projections carry 'projection' and are never
+	 * completable obligations. The compact `occurrences` Y-m-d list stays
+	 * for response-shape stability.
 	 *
 	 * @param int $houseId The house ID
 	 * @param \DateTime $from Inclusive range start
 	 * @param \DateTime $to Inclusive range end
 	 * @param HouseUser $viewer The acting user's house membership
-	 * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, flexWindow: array, occurrences: array<int, string>}>, completed: array<int, array>}
+	 * @return array{scheduled: array<int, array{roomTask: array, task: array, room: array, flexWindow: array, occurrences: array<int, string>, occurrenceDetails: array<int, array{date: string, occurrenceId: ?string, classification: string, version: ?int, fulfilled: ?bool}>}>, completed: array<int, array>}
 	 */
 	public function getRangeTasks(int $houseId, \DateTime $from, \DateTime $to, HouseUser $viewer): array {
 		// CS-PLAN-057: reinterpret the controller's Y-m-d keys as house-local
 		// calendar bounds (UTC-normalized instants for the SQL comparison).
 		// CS-PLAN-060 §3.6: the completion window is half-open [start, end)
 		// — the end bound is the NEXT day's 00:00:00 (exclusive), matching
-		// the window-query convention. The projection base-set bound keeps
-		// its inclusive end-of-day semantics.
+		// the window-query convention.
 		$tz = $this->readService->timeZoneForHouse($houseId);
-		$fromBound = (new \DateTime($from->format('Y-m-d') . ' 00:00:00', $tz))
+		$fromKey = $from->format('Y-m-d');
+		$toKey = $to->format('Y-m-d');
+		$fromBound = (new \DateTime($fromKey . ' 00:00:00', $tz))
 			->setTimezone(new \DateTimeZone('UTC'));
-		$toBoundInclusive = (new \DateTime($to->format('Y-m-d') . ' 23:59:59', $tz))
-			->setTimezone(new \DateTimeZone('UTC'));
-		$toBoundExclusive = (new \DateTime($to->format('Y-m-d') . ' 00:00:00', $tz))
+		$toBoundExclusive = (new \DateTime($toKey . ' 00:00:00', $tz))
 			->modify('+1 day')
 			->setTimezone(new \DateTimeZone('UTC'));
 
-		// Base set: every active task that could recur into the window (nextDue <= to).
-		$roomTasks = $this->roomTaskMapper->findActiveDueUpToByHouse($houseId, $toBoundInclusive);
+		// Base set: every active task of the house (the occurrence
+		// authority decides which recur into the window — tombstoned and
+		// inactive rows cannot agree on anything).
+		$roomTasks = $this->roomTaskMapper->findByHouse($houseId, true);
 		$completions = $this->completedTaskMapper->findCompletionsBetweenByHouse($houseId, $fromBound, $toBoundExclusive);
 		$completions = $this->redactInvisibleCompletionRows($completions, $viewer);
 
@@ -667,6 +782,9 @@ class RoomTaskService {
 		// serialized into the response.
 		$roomTasks = $this->taskAccessPolicy->filterVisibleRoomTasks($roomTasks, $tasksById, $viewer);
 
+		// One batched agreed derivation for the whole window.
+		$agreedByTask = $this->occurrenceService->agreedOccurrencesForHouseTasks($houseId, $roomTasks, $fromKey, $toKey);
+
 		$scheduled = [];
 		foreach ($roomTasks as $rt) {
 			$task = $tasksById[$rt->getTaskId()] ?? null;
@@ -676,20 +794,33 @@ class RoomTaskService {
 				continue;
 			}
 
-			$occurrenceDates = $rt->projectOccurrences(
-				$fromBound,
-				$toBoundInclusive,
-				$task->getFrequencyType(),
-				$task->getFrequencyValue(),
-				$task->getRecurrenceMode(),
-				$task->getSchedulingMode(),
-				$task->getFixedScheduleDays(),
-				$task->getActiveUntil(),
-				$tz,
-			);
+			$details = [];
+			foreach ($agreedByTask[$rt->getId()] ?? [] as $entry) {
+				$occurrence = $entry['occurrence'];
+				$details[] = [
+					'date' => $occurrence->getPlannedDate()->format('Y-m-d'),
+					'occurrenceId' => $occurrence->toPublicKey(),
+					'classification' => 'agreed',
+					'version' => $occurrence->getVersion(),
+					'fulfilled' => $occurrence->getCompletionId() !== null,
+				];
+			}
+
+			// Write-free future projections beyond the frontier.
+			foreach ($this->occurrenceService->projectionsForTask($rt, $fromKey, $toKey) as $projection) {
+				$details[] = [
+					'date' => $projection['date'],
+					'occurrenceId' => null,
+					'classification' => 'projection',
+					'version' => null,
+					'fulfilled' => null,
+				];
+			}
+
+			usort($details, static fn (array $a, array $b): int => $a['date'] <=> $b['date']);
 
 			// Skip tasks that produce no occurrence inside the window.
-			if (empty($occurrenceDates)) {
+			if ($details === []) {
 				continue;
 			}
 
@@ -707,9 +838,10 @@ class RoomTaskService {
 				// House-local Y-m-d day keys (CS-PLAN-057) — the calendar
 				// bucketing convention shared with the frontend.
 				'occurrences' => array_map(
-					fn (\DateTime $date) => \DateTime::createFromInterface($date)->setTimezone($tz)->format('Y-m-d'),
-					$occurrenceDates,
+					static fn (array $detail): string => $detail['date'],
+					$details
 				),
+				'occurrenceDetails' => $details,
 			];
 		}
 

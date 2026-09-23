@@ -85,7 +85,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	public function testUserCannotCompleteTaskFromDifferentHouse(): void {
 		$controller = $this->getController(RoomTaskController::class, 'ta_member');
 
-		$response = $controller->complete($this->foreignRoomTaskId);
+		$response = $this->completeViaController($controller, $this->foreignRoomTaskId);
 
 		self::assertSame(404, $response->getStatus());
 		$data = $response->getData();
@@ -155,7 +155,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	public function testOwnerCanCompleteAnyTaskInTheirHouse(): void {
 		$controller = $this->getController(RoomTaskController::class, 'ta_owner');
 
-		$response = $controller->complete($this->roomTaskId);
+		$response = $this->completeViaController($controller, $this->roomTaskId);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertTrue($response->getData()['success']);
@@ -165,7 +165,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 	public function testUserCanCompleteTaskAssignedToThem(): void {
 		$controller = $this->getController(RoomTaskController::class, 'ta_member');
 
-		$response = $controller->complete($this->roomTaskId);
+		$response = $this->completeViaController($controller, $this->roomTaskId);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertSame(1, $this->countCompletions($this->roomTaskId));
@@ -176,7 +176,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 		// the household-collaboration contract.
 		$controller = $this->getController(RoomTaskController::class, 'ta_other_member');
 
-		$response = $controller->complete($this->roomTaskId);
+		$response = $this->completeViaController($controller, $this->roomTaskId);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertSame(1, $this->countCompletions($this->roomTaskId));
@@ -192,7 +192,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 		$roomTaskService->setAssignees($this->roomTaskId, ['ta_child'], $this->houseId, $owner);
 
 		$controller = $this->getController(RoomTaskController::class, 'ta_child');
-		$response = $controller->complete($this->roomTaskId);
+		$response = $this->completeViaController($controller, $this->roomTaskId);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertSame(1, $this->countCompletions($this->roomTaskId));
@@ -252,7 +252,7 @@ class TaskAuthorizationTest extends IntegrationTestCase {
 
 	public function testOwnerCanDeleteCompletedTask(): void {
 		$controller = $this->getController(RoomTaskController::class, 'ta_member');
-		$response = $controller->complete($this->roomTaskId);
+		$response = $this->completeViaController($controller, $this->roomTaskId);
 		self::assertSame(200, $response->getStatus());
 
 		$ownerController = $this->getController(RoomTaskController::class, 'ta_owner');

@@ -48,7 +48,17 @@ class TaskServiceTest extends TestCase {
 			return $this->lockedTask;
 		});
 
-		$this->service = new TaskService($this->taskMapper, $houseMapper, $l10n, $this->authorization, $this->taskAccessPolicy, new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)));
+		$this->service = new TaskService(
+			$this->taskMapper,
+			$houseMapper,
+			$this->createMock(\OCA\ChoreStrike\Db\RoomTaskMapper::class),
+			$l10n,
+			$this->authorization,
+			$this->taskAccessPolicy,
+			new \OCA\ChoreStrike\Db\TransactionExecutor($this->createMock(\OCP\IDBConnection::class)),
+			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			new \OCA\ChoreStrike\Service\CalendarService(),
+		);
 	}
 
 	/**

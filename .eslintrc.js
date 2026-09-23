@@ -16,7 +16,10 @@ module.exports = {
 			// dismissal (CS-PLAN-042).
 			files: ['src/**/*.js', 'src/**/*.vue'],
 			rules: {
-				'n/no-unsupported-features/node-builtins': ['error', { ignores: ['localStorage'] }],
+				// `crypto` (Web Crypto API, used for the completion command
+				// idempotency UUID, CS-PLAN-072 WP1) joins `localStorage` as a
+				// standard browser global the Node builtin rule must ignore.
+				'n/no-unsupported-features/node-builtins': ['error', { ignores: ['localStorage', 'crypto'] }],
 			},
 		},
 		{

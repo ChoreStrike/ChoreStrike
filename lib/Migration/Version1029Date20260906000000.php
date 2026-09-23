@@ -28,6 +28,12 @@ use OCP\Migration\SimpleMigrationStep;
  *    `is_team_completion`, `participant_count`, `team_spark_bonus`,
  *    `was_claimed_completion`, `claim_bonus_sparks`,
  *    `days_overdue_when_claimed`.
+ *  - CS-PLAN-072 WP1: completion occurrence references and frozen timeline
+ *    evidence — `schedule_rev_id` + `occurrence_ordinal` (the public
+ *    occurrence key parts), `work_date`/`work_zone` (the server-owned work
+ *    time basis) and `completion_class` ('agreed'|'late'|'voluntary').
+ *    Monetary/room `before_state` fields stay until the WP3 cutover; their
+ *    recurrence/checklist portion is no longer whole-room-task authority.
  */
 class Version1029Date20260906000000 extends SimpleMigrationStep {
 	/**
@@ -60,6 +66,35 @@ class Version1029Date20260906000000 extends SimpleMigrationStep {
 			if (!$table->hasColumn('undone_at')) {
 				$table->addColumn('undone_at', 'datetime', [
 					'notnull' => false,
+				]);
+			}
+
+			// CS-PLAN-072 WP1: frozen timeline evidence.
+			if (!$table->hasColumn('schedule_rev_id')) {
+				$table->addColumn('schedule_rev_id', 'bigint', [
+					'notnull' => false,
+				]);
+			}
+			if (!$table->hasColumn('occurrence_ordinal')) {
+				$table->addColumn('occurrence_ordinal', 'bigint', [
+					'notnull' => false,
+				]);
+			}
+			if (!$table->hasColumn('work_date')) {
+				$table->addColumn('work_date', 'date', [
+					'notnull' => false,
+				]);
+			}
+			if (!$table->hasColumn('work_zone')) {
+				$table->addColumn('work_zone', 'string', [
+					'notnull' => false,
+					'length' => 64,
+				]);
+			}
+			if (!$table->hasColumn('completion_class')) {
+				$table->addColumn('completion_class', 'string', [
+					'notnull' => false,
+					'length' => 16,
 				]);
 			}
 

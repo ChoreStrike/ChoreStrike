@@ -7,7 +7,6 @@ namespace OCA\ChoreStrike\Tests\Integration;
 use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Exception\ConflictException;
-use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Service\CompletionService;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
@@ -62,7 +61,7 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 		$ids = $this->familyHouseFixture();
 		$before = $this->memberRow($ids['houseId'], 'fam_parent');
 
-		$result = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		$result = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
 
 		$rewards = $result['rewards'];
@@ -91,11 +90,11 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 	public function testParentDailyRoutine(): void {
 		$ids = $this->familyHouseFixture();
 
-		$first = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		$first = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
-		$second = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['secondRoomTaskId']);
+		$second = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['secondRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['secondRoomTaskId'];
-		$third = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['thirdRoomTaskId']);
+		$third = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['thirdRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['thirdRoomTaskId'];
 
 		self::assertFalse($first['rewards']['isCombo']);
@@ -126,7 +125,7 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 		$ids = $this->familyHouseFixture();
 
 		$before = $this->memberRow($ids['houseId'], 'fam_teen');
-		$result = $this->completionService->complete($ids['houseId'], 'fam_teen', $ids['teenRoomTaskId']);
+		$result = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_teen', $ids['teenRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['teenRoomTaskId'];
 
 		self::assertSame(3, $result['rewards']['contributionScore']);
@@ -154,7 +153,7 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 			->where($qb->expr()->eq('id', $qb->createNamedParameter((int)$this->memberRow($ids['houseId'], 'fam_parent')['id'], IQueryBuilder::PARAM_INT)))
 			->executeStatement();
 
-		$result = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		$result = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
 
 		self::assertSame(4, $result['rewards']['currentStreak']);
@@ -169,37 +168,51 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 	/**
 	 * ConcurrentTaskCompletion_SecondOccurrenceIsRejected_NoDoubleReward
 	 *
-	 * In-process occurrence-gate proof: the same room task cannot be
-	 * completed twice on one day (403 day-duplicate) and a deactivated
-	 * one-time occurrence cannot be completed again (409). The real
-	 * two-connection races keep their dedicated, engine-guarded owners
-	 * (CompletionConcurrencyTest, ConcurrentCompletionTest) — this scenario
-	 * links them instead of duplicating the lock choreography.
+	 * In-process occurrence-gate proof (CS-PLAN-072 WP1: occurrence
+	 * validity replaces the day-duplicate guard): the same SHOWN target
+	 * cannot be completed twice — the replay of the same command returns
+	 * the original identity, while a NEW command on the fulfilled target
+	 * conflicts — and a deactivated one-time occurrence answers 409. The
+	 * real two-connection races keep their dedicated, engine-guarded
+	 * owners (CompletionConcurrencyTest, ConcurrentCompletionTest) — this
+	 * scenario links them instead of duplicating the lock choreography.
 	 */
 	public function testConcurrentTaskCompletion(): void {
 		$ids = $this->familyHouseFixture();
 
-		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		[$commandId, $occurrenceId, $expectedVersion, $selectionToken] = $this->completionReceiptFor($ids['dailyRoomTaskId']);
+		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId'], $commandId, $occurrenceId, $expectedVersion, $selectionToken);
 		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
 
+		// Replaying the SAME command is the idempotent receipt hit: the
+		// original completion identity, no second reward.
+		$replay = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId'], $commandId, $occurrenceId, $expectedVersion, $selectionToken);
+		self::assertTrue($replay['replay']);
+
+		// A NEW command on the fulfilled target conflicts.
 		try {
-			$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
-			self::fail('a same-day second completion must be rejected');
-		} catch (ForbiddenException $e) {
-			self::assertSame('You already completed this task today', $e->getMessage());
+			$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId'], self::uuid(), $occurrenceId, $expectedVersion, $selectionToken);
+			self::fail('a second completion of the same target must be rejected');
+		} catch (ConflictException $e) {
+			self::assertSame('This occurrence is already completed', $e->getMessage());
 		}
 
 		// The one-time occurrence is inactive after its completion → 409.
-		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId']);
+		[$onceCommand, $onceOccurrence, $onceVersion, $onceToken] = $this->completionReceiptFor($ids['onceRoomTaskId']);
+		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId'], $onceCommand, $onceOccurrence, $onceVersion, $onceToken);
 		$this->ledgerRoomTaskIds[] = $ids['onceRoomTaskId'];
 		try {
-			$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId']);
+			$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId'], self::uuid(), $onceOccurrence, $onceVersion, $onceToken);
 			self::fail('a deactivated occurrence must be rejected');
 		} catch (ConflictException $e) {
 			self::assertSame('Task is not active', $e->getMessage());
 		}
 
 		self::assertCount(2, $this->ledgerRows('revertible'), 'exactly the two fresh completions are revertible');
+	}
+
+	private static function uuid(): string {
+		return sprintf('%08x-%04x-4%03x-8%03x-%012x', mt_rand(), mt_rand(0, 0xffff), mt_rand(0, 0xfff), mt_rand(0, 0xfff), mt_rand());
 	}
 
 	/**
@@ -213,7 +226,7 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 		$ids = $this->familyHouseFixture();
 		$before = $this->roomTaskRow($ids['weeklyRoomTaskId']);
 
-		$result = $this->completionService->complete($ids['houseId'], 'fam_parent', $ids['weeklyRoomTaskId']);
+		$result = $this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['weeklyRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['weeklyRoomTaskId'];
 
 		$after = $this->roomTaskRow($ids['weeklyRoomTaskId']);
@@ -235,7 +248,7 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 	public function testOneTimeTaskDeactivation(): void {
 		$ids = $this->familyHouseFixture();
 
-		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['onceRoomTaskId']);
+		$this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['onceRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['onceRoomTaskId'];
 
 		$row = $this->roomTaskRow($ids['onceRoomTaskId']);
@@ -258,7 +271,7 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 	public function testRoomCleanlinessImpact(): void {
 		$ids = $this->familyHouseFixture();
 
-		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
+		$this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['dailyRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['dailyRoomTaskId'];
 		self::assertSame(70, (int)$this->roomRow($ids['roomId'])['cleanliness'], '50 + 2 energy × 10% = 70');
 		self::assertMatchesRegularExpression(
@@ -268,11 +281,11 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 
 		// Exact second step and the saturation cap: +30 reaches 100 and the
 		// final +20 delta must stay at the cap.
-		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['secondRoomTaskId']);
+		$this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['secondRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['secondRoomTaskId'];
 		self::assertSame(100, (int)$this->roomRow($ids['roomId'])['cleanliness'], '70 + 3 energy × 10% = 100');
 
-		$this->completionService->complete($ids['houseId'], 'fam_parent', $ids['thirdRoomTaskId']);
+		$this->completeOccurrence($this->completionService, $ids['houseId'], 'fam_parent', $ids['thirdRoomTaskId']);
 		$this->ledgerRoomTaskIds[] = $ids['thirdRoomTaskId'];
 		self::assertSame(100, (int)$this->roomRow($ids['roomId'])['cleanliness']);
 	}
@@ -320,13 +333,15 @@ class FamilyIntegrationTest extends IntegrationTestCase {
 	}
 
 	private function assignOnceTaskToRoom(int $taskId, int $roomId, string $assignee): int {
-		$roomTaskId = $this->assignTaskToRoom($taskId, $roomId, $assignee);
+		// CS-PLAN-072 WP1: the schedule freezes the task's generation
+		// inputs at assignment time — a 'once' lifetime must be set BEFORE
+		// the initial schedule materializes.
 		$qb = $this->db->getQueryBuilder();
 		$qb->update('chorestrike_tasks')
 			->set('recurrence_mode', $qb->createNamedParameter('once'))
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($taskId, IQueryBuilder::PARAM_INT)))
 			->executeStatement();
-		return $roomTaskId;
+		return $this->assignTaskToRoom($taskId, $roomId, $assignee);
 	}
 
 	private function setRoomCleanliness(int $roomId, int $cleanliness): void {

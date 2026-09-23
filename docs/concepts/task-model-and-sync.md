@@ -15,7 +15,9 @@ Each task includes:
 - description (optional)
 - room/floor/house scope metadata; every executable instance belongs to a room
 - recurrence settings
-- definition start date; occurrence due dates live on `RoomTask`
+- definition start date; agreed occurrence due dates live on the durable
+  occurrence timeline, with `RoomTask.next_due` as a derived projection
+  (CS-PLAN-072 WP1 / ADR-013)
 - priority
 - energy cost (1-5)
 - reminder settings (**planned — never implemented**: the column-less
@@ -84,9 +86,11 @@ agreed obligations or a guaranteed maximum catch-up workload.
   daily/monthly advancement also starts from completion, so a preserved calendar
   anchor is not a general implemented guarantee. The two intended modes need
   explicit examples, not interchangeable "automatic planning" labels.
-- Completion advances the next occurrence immediately in
-  `RoomTask::markCompleted`; a one-time task becomes inactive. This is not an
-  open scheduler-job decision.
+- Completion fulfills the shown occurrence on the durable timeline
+  (CS-PLAN-072 WP1 / ADR-013); the next occurrence and the `next_due`
+  projection are re-derived from the timeline, and a `once` task deactivates
+  when its single occurrence is fulfilled. This is not an open scheduler-job
+  decision.
 - The owner planner previews and applies a seven-day proposal over existing
   tasks with availability, energy and child-limit checks; the override/shared-task
   limitations are documented in [balancing](energy-and-balancing.md). It does not
@@ -125,8 +129,20 @@ and non-punitive recovery. Approved target rules below do not change the current
 
 ### Approved Timeline Contract C1 (2026-09-17)
 
-Target behavior only; the current recurrence and completion implementation is
-unchanged. Six explicit C1 decisions supplement the approved core rules.
+> **Delivery status (2026-09-20, CS-PLAN-072 WP1):** C1 is **implemented** and
+> is now the single recurrence authority - see
+> [ADR-013](../adr/ADR-013-occurrence-agreements-and-corrections.md). Durable
+> `schedule_revs`/`occurrences` rows carry the immutable generation inputs, the
+> calendar-date enumeration (monthly clamp, fortnightly Monday anchor,
+> query-independent ordinals), the canonical selection (earliest open window ->
+> latest uncovered miss -> voluntary), coverage-not-fulfillment catch-up, and
+> the completion receipt contract. `room_tasks.next_due`/`ideal_due_date`/
+> `last_completed` are derived projections. The C2 date/participant **agreement
+> writers** shipped with WP1 (Q-072-01 Option A); C2 pause/restart and the C5
+> bounded digest delivery remain pending later packages. The six C1 decisions
+> below are the delivered behavior.
+
+Six explicit C1 decisions supplement the approved core rules.
 
 - Fixed monthly recurrence clamps a missing day to that month's last day without
   changing the original anchor: January 31 -> February 28/29 -> March 31. Apply

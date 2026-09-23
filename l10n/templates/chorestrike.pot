@@ -47,6 +47,15 @@ msgstr ""
 msgid "A plan may contain at most %1$s tasks"
 msgstr ""
 
+msgid "A selectionToken is required"
+msgstr ""
+
+msgid "A valid commandId (UUID) is required"
+msgstr ""
+
+msgid "A valid expectedVersion is required"
+msgstr ""
+
 msgid "Active"
 msgstr ""
 
@@ -125,6 +134,9 @@ msgstr ""
 msgid "Already as planned"
 msgstr ""
 
+msgid "An occurrenceId is required"
+msgstr ""
+
 msgid "Apartment"
 msgstr ""
 
@@ -174,6 +186,12 @@ msgid "Assigned members"
 msgstr ""
 
 msgid "Assignee is not a member of this house: %1$s"
+msgstr ""
+
+msgid "Assignees must be house members"
+msgstr ""
+
+msgid "Assigning this member would exceed their daily task limit"
 msgstr ""
 
 msgid "At least one floor is required"
@@ -1388,6 +1406,9 @@ msgstr ""
 msgid "Moves"
 msgstr ""
 
+msgid "Moving this task would exceed a daily task limit"
+msgstr ""
+
 msgid "My Availability"
 msgstr ""
 
@@ -1488,6 +1509,9 @@ msgid "No tasks yet"
 msgstr ""
 
 msgid "No title yet — pick a track to get started!"
+msgstr ""
+
+msgid "No unfulfilled occurrence can be amended"
 msgstr ""
 
 msgid "None"
@@ -2168,7 +2192,13 @@ msgstr ""
 msgid "Terrible"
 msgstr ""
 
+msgid "The amendment deadline has passed"
+msgstr ""
+
 msgid "The assigned people change."
+msgstr ""
+
+msgid "The checklist changed since it was displayed. Reload and try again."
 msgstr ""
 
 msgid "The completer is no longer a member of this house"
@@ -2213,6 +2243,15 @@ msgstr ""
 msgid "The schedule preview is no longer current. Generate a new preview."
 msgstr ""
 
+msgid "The selected occurrence is no longer valid"
+msgstr ""
+
+msgid "The task changed since it was displayed. Reload and try again."
+msgstr ""
+
+msgid "The task has too many unreconciled occurrences to be edited safely. Run the timeline job first."
+msgstr ""
+
 msgid "They will lose access to all house tasks and progress."
 msgstr ""
 
@@ -2223,6 +2262,9 @@ msgid "This Week's Medals"
 msgstr ""
 
 msgid "This house has already been set up."
+msgstr ""
+
+msgid "This occurrence is already completed"
 msgstr ""
 
 msgid "This preview is no longer current. Check your selection and prepare the plan again."
@@ -2325,6 +2367,9 @@ msgid "Unknown Task"
 msgstr ""
 
 msgid "Unknown boost: %1$s"
+msgstr ""
+
+msgid "Unknown field: %1$s"
 msgstr ""
 
 msgid "Unknown game"
@@ -2510,9 +2555,6 @@ msgstr ""
 msgid "You"
 msgstr ""
 
-msgid "You already completed this task today"
-msgstr ""
-
 msgid "You appear to be offline"
 msgstr ""
 
@@ -2613,6 +2655,9 @@ msgid "e.g., Vacuum living room"
 msgstr ""
 
 msgid "energy"
+msgstr ""
+
+msgid "expectedRevision must be a non-negative integer"
 msgstr ""
 
 msgid "floors"

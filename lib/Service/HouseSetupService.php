@@ -57,6 +57,8 @@ class HouseSetupService {
 	private HouseUserMapper $houseUserMapper;
 	private WalletService $walletService;
 	private TemplateService $templateService;
+	private OccurrenceService $occurrenceService;
+	private CalendarService $calendarService;
 	private TransactionExecutor $transactions;
 	private IL10N $l10n;
 	private AppLogger $appLogger;
@@ -72,6 +74,8 @@ class HouseSetupService {
 		HouseUserMapper $houseUserMapper,
 		WalletService $walletService,
 		TemplateService $templateService,
+		OccurrenceService $occurrenceService,
+		CalendarService $calendarService,
 		TransactionExecutor $transactions,
 		IL10N $l10n,
 		AppLogger $appLogger,
@@ -86,6 +90,8 @@ class HouseSetupService {
 		$this->houseUserMapper = $houseUserMapper;
 		$this->walletService = $walletService;
 		$this->templateService = $templateService;
+		$this->occurrenceService = $occurrenceService;
+		$this->calendarService = $calendarService;
 		$this->transactions = $transactions;
 		$this->l10n = $l10n;
 		$this->appLogger = $appLogger;
@@ -158,10 +164,13 @@ class HouseSetupService {
 			}
 
 			$createdTasks = [];
+			$taskEntities = [];
 			$skipped = [];
 			$taskCount = 0;
 			$roomTaskCount = 0;
 			$roomCount = 0;
+			$timezoneId = $this->calendarService->getTimeZone($house)->getName();
+			$now = new \DateTime();
 
 			foreach ($floors as $floorIndex => $floor) {
 				$floorEntity = $this->floorMapper->create($houseId, $floor['name'], $floorIndex);
@@ -219,6 +228,7 @@ class HouseSetupService {
 							);
 							$taskId = $task->getId();
 							$createdTasks[$template['id']] = $taskId;
+							$taskEntities[$taskId] = $task;
 							$taskCount++;
 						}
 
@@ -227,12 +237,26 @@ class HouseSetupService {
 							$taskId,
 							$nextDue
 						);
+						$assigneeUserIds = [];
 						if (!empty($room['assigneeUserId'])) {
 							$this->taskAssigneeMapper->addAssignee(
 								$roomTask->getId(),
 								$room['assigneeUserId']
 							);
+							$assigneeUserIds[] = (string)$room['assigneeUserId'];
 						}
+						// CS-PLAN-072 WP1: setup inserts room tasks directly,
+						// so the immutable initial schedule is materialized
+						// here, in the same aggregate transaction.
+						$this->occurrenceService->initializeScheduleUnderLock(
+							$houseId,
+							$roomTask,
+							$taskEntities[$taskId],
+							$timezoneId,
+							$nextDue,
+							$assigneeUserIds,
+							$now,
+						);
 						$roomTaskCount++;
 					}
 				}

@@ -16,6 +16,14 @@
 > records that target; exact versioning and implementation await review. The
 > original limitation below is not permission to rewrite the newly agreed history.
 
+> **Occurrence-timeline amendment (2026-09-20, CS-PLAN-072 WP1 / ADR-013):**
+> a house timezone edit now appends an immutable schedule revision
+> (`OccurrenceService::reviseForZoneChangeUnderLock`). Already-saved occurrences
+> keep their stored zone, `day_start` and half-open window deadlines; only
+> agreements generated after the change resolve in the new zone. This delivers
+> the preserved historical/agreed time base the C5 target requires for the
+> timeline portion (bounded digest delivery remains a later package).
+
 Every calendar-day semantic in ChoreStrike — streak days, freeze coverage,
 at-risk detection, due-today windows, energy windows, medal/leaderboard
 weeks, and the duplicate-completion guard — bucketed days at **server-TZ

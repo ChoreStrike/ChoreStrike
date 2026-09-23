@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Service;
 
+use OCA\ChoreStrike\Db\AgreementMapper;
 use OCA\ChoreStrike\Db\CommandReceiptMapper;
 use OCA\ChoreStrike\Db\CompletedTaskMapper;
 use OCA\ChoreStrike\Db\HouseMapper;
@@ -15,6 +16,8 @@ use OCA\ChoreStrike\Db\HouseUser;
 use OCA\ChoreStrike\Db\HouseUserMapper;
 use OCA\ChoreStrike\Db\MedalMapper;
 use OCA\ChoreStrike\Db\MinigameScoreMapper;
+use OCA\ChoreStrike\Db\OccurrenceMemberMapper;
+use OCA\ChoreStrike\Db\ScheduleRevisionMapper;
 use OCA\ChoreStrike\Db\TaskAssigneeMapper;
 use OCA\ChoreStrike\Db\TransactionExecutor;
 use OCA\ChoreStrike\Db\WalletEntryMapper;
@@ -35,6 +38,11 @@ use OCA\ChoreStrike\Db\WalletMapper;
  *  - null `completed_tasks.user_id` / `combo_with_user_id` (the anonymous
  *    shared work facts — time, energy, coins-earned totals, room effects —
  *    are retained),
+ *  - CS-PLAN-072 WP1: delete the account's `occ_members` links (the
+ *    occurrences themselves stay as shared facts), null the account
+ *    binding inside `schedule_revs` default-member snapshots (the numeric
+ *    wallet fact is non-reidentifiable) and null the actor on
+ *    `agreements` evidence rows,
  *  - delete the `house_users` row (scheduling preferences die with it).
  *
  * Ordinary departure NEVER runs this path (decision D3): removal keeps the
@@ -63,6 +71,9 @@ class AccountErasureService {
 		private WalletEntryMapper $walletEntryMapper,
 		private CommandReceiptMapper $commandReceiptMapper,
 		private CompletedTaskMapper $completedTaskMapper,
+		private OccurrenceMemberMapper $occMemberMapper,
+		private ScheduleRevisionMapper $scheduleRevisionMapper,
+		private AgreementMapper $agreementMapper,
 		private TransactionExecutor $transactions,
 		private AppLogger $appLogger,
 	) {
@@ -168,10 +179,21 @@ class AccountErasureService {
 			if ($wallet !== null) {
 				$this->walletEntryMapper->deleteByWalletIds([$wallet->getId()]);
 				$this->walletMapper->delete($wallet);
+
+				// CS-PLAN-072 WP1 (T0): purge the account's occurrence
+				// member links; the shared occurrence facts stay (only the
+				// person's links go), and rule-default snapshots keep the
+				// numeric wallet fact while losing the account binding.
+				$this->occMemberMapper->deleteByWalletId((int)$wallet->getId());
+				$this->scheduleRevisionMapper->anonymizeDefaultMembers($houseId, (int)$wallet->getId());
+				$this->agreementMapper->anonymizeMemberSnapshots($houseId, (int)$wallet->getId());
 			}
 
 			// The receipts survive as anonymous facts.
 			$this->commandReceiptMapper->anonymizeActor($houseId, $houseUserId);
+
+			// Timeline agreement evidence survives, the actor does not.
+			$this->agreementMapper->anonymizeActor($houseUserId);
 
 			// Retain the anonymous shared work facts, lose the actor.
 			$this->completedTaskMapper->anonymizeActor($houseUserId);

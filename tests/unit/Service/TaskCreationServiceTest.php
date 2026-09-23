@@ -89,10 +89,13 @@ class TaskCreationServiceTest extends TestCase {
 		$this->taskService = new TaskService(
 			$this->taskMapper,
 			$taskServiceHouseMapper,
+			$this->createMock(RoomTaskMapper::class),
 			$l10n,
 			$this->authorization,
 			$this->taskAccessPolicy,
 			new TransactionExecutor($this->createMock(IDBConnection::class)),
+			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
+			new CalendarService(),
 		);
 
 		// The REAL TemplateService loads the file-based catalog.
@@ -111,6 +114,7 @@ class TaskCreationServiceTest extends TestCase {
 			$this->taskAccessPolicy,
 			$this->authorization,
 			new CalendarService(),
+			$this->createMock(\OCA\ChoreStrike\Service\OccurrenceService::class),
 			$l10n,
 			$this->createMock(AppLogger::class),
 		);

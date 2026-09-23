@@ -172,7 +172,7 @@ Route surface: `task#*`, `room_task#*`, `checklist#*`.
 | Complete task | Mark a room-task complete | Status changes, coins awarded, celebration fires | `task-completion` |
 | Undo completion | Use the snackbar undo action after completion | Task state, recurrence, completion ledger, rewards/streak, and cleanliness are restored atomically by the one undo aggregate (CS-PLAN-064 / ADR-011); a second completion keeps the first entry's undo (UX-015 queue) | `release-task-lifecycle`, `task-completion`, `task-completion-full-flow`, `today-view` |
 | Reschedule task | Change the due date | Due date updates | `release-task-lifecycle` |
-| Recurrence | Complete a recurring (daily/weekly/monthly) task | A new instance is generated per frequency | partial `today-view` (daily recurrence: completion shifts the next due out of today; weekly/monthly still manual) |
+| Recurrence | Complete a recurring (daily/weekly/monthly) task | A new instance is generated per frequency | `family-rhythm` (occurrence receipt/replay/409 contract, CS-PLAN-072 WP1 / ADR-013); partial `today-view` (daily recurrence: completion shifts the next due out of today; weekly/monthly still manual) |
 | Assignees | Assign / unassign members; multi-assign | Assignee set persists; multi-assign works | `task-manager` |
 | Reactivate on undo | Undo a completion that deactivated a one-time room-task | The undo aggregate restores the recorded `isActive` before-state (no separate reactivate step; `release-task-lifecycle` posts the once-restoration via the undo response) | `release-task-lifecycle`, `task-completion-full-flow` |
 | Checklist items | Add / toggle / reorder / delete checklist items on a task | Progress tracked; room-task checklist progress updates | `task-checklist-and-features` |
@@ -188,7 +188,7 @@ Route surface: `/calendar` view, `room_task#range/dueToday/dueWithinDays`.
 |---|---|---|---|
 | Calendar renders | Open **Calendar** in nav | Week/rolling-30-day grid renders with member/task rows | `calendar` |
 | Week navigation | Move to next/previous week | Range label and grid update | `calendar` |
-| Recurring occurrences | View a recurring task across weeks | Future occurrences projected server-side | `calendar` |
+| Recurring occurrences | View a recurring task across weeks | Future occurrences projected server-side from the durable timeline (CS-PLAN-072 WP1 / ADR-013): fixed cadence enumerates calendar dates, interval rules own one pending anchored on the real completion work date | `calendar` |
 | Daily list | Open the daily task list | Today's due tasks shown per member | `today-view` |
 
 ---

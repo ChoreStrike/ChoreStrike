@@ -126,6 +126,10 @@ test.describe('Core App Functionality', () => {
 				},
 				body: JSON.stringify({
 					roomId,
+					// CS-PLAN-072 WP1: due TODAY (the creation default is
+					// tomorrow) so the occurrence window is open and the UI
+					// completion resolves a shown target.
+					nextDue: new Date().toISOString().slice(0, 10),
 					task: { name, energyCost: 1, frequencyType: 'daily', frequencyValue: 1 },
 				}),
 			})

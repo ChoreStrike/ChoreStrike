@@ -18,6 +18,7 @@
 import { test, expect } from './fixtures/database-fixtures'
 import { createUserContext } from './fixtures/auth-contexts'
 import { createVisibilityFixture } from './fixtures/visibility-fixtures'
+import { postCompletionWithReceipt, placeholderReceipt } from './fixtures/completion-api'
 
 test.describe('Admin-Only Tasks', () => {
 	test.use({ databaseProfile: 'family' })
@@ -123,14 +124,13 @@ test.describe('Admin-Only Tasks', () => {
 
 			expect(roomTaskId).toBeTruthy()
 
-			const completeResponse = await teen.page.request.post(
-				`/apps/chorestrike/api/v1/room-tasks/${roomTaskId}/complete`,
-				{ headers: { Accept: 'application/json' } },
-			)
+			const completeResponse = await postCompletionWithReceipt(teen.page, roomTaskId, placeholderReceipt())
 
 			// ADR-010 decision D3: an invisible task "does not exist" for the
 			// non-owner — 404 anti-enumeration, never a 403 that would
-			// confirm the room-task id exists.
+			// confirm the room-task id exists. CS-PLAN-072 WP1: the receipt
+			// is format-valid; the visibility gate fires before the
+			// occurrence is resolved.
 			expect(completeResponse.status()).toBe(404)
 		} finally {
 			await mom.context.close()

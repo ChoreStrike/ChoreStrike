@@ -1,14 +1,8 @@
 # CS-PLAN-072: WP1 - Occurrence Timeline
 
-> **Status:** Active; child of CS-PLAN-070, delivering WP1 — Standard A `PASS` (2026-09-20); implementation
-DELIVERED 2026-09-20, all gates green (Docker unit 976/2900 + integration 395/1782 zero-skip, Jest 1064,
-lint/build/cs:check/l10n/backlog/docs:encoding/diff-check/test:noise, E2E gate PASSED all three pools); interim
-Standard B review 2026-09-21 `NEEDS-FOLLOW-UP` — 3 critical findings fixed in-round; resolving round 2026-09-22
-fixed all 12 remaining findings RF-072-WP1-06..17 with regression tests (round gates: Docker unit 963/2890 +
-integration 403/1831 zero-skip, Jest 1069, full gate set incl. E2E gate PASSED all three pools — see §9
-resolving round); final Standard B review 2026-09-22 `NEEDS-FOLLOW-UP` — all 12 fixes verified in code,
-full gate set rerun green (incl. E2E gate PASSED, 47 required specs); one new plan-owned finding
-RF-072-WP1-18 (OccurrenceService file size, user-routed plan-owned) blocks the `active/ → done/` move
+> **Status:** Done — child of CS-PLAN-070, delivered WP1 (implementation DELIVERED 2026-09-20; RF-06..17
+resolving round + RF-18 behavior-neutral collaborator split 2026-09-22; final Standard B round 2
+`PASS-WITH-FIXES` 2026-09-23 — moved to `done/`; full history in the Review Outcome sections and §9)
 > **Effort:** L — 7-10 engineering days (revised 2026-09-20 from the parent's 5-8 allowance by Q-072-01 Option A; WP2 reduced to 5-7 accordingly)
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-071 / WP0](../done/cs-plan-071-wp0-write-identity-foundation.md), delivered with final Standard B `PASS-WITH-FIXES` on 2026-09-19
@@ -283,6 +277,16 @@ reserved by the parent: recheck availability, document the delivered timeline
 portion and explicitly leave WP2/WP3 additions pending. Archive obsolete recurrence
 implementations/tests only with replacement coverage; no blanket suite retirement.
 
+**Manifest note (RF-072-WP1-18 resolving round, 2026-09-22):** the behavior-neutral
+split added six new implementation files —
+`lib/Service/{OccurrenceRowFactory,OccurrenceReconcileService,OccurrenceSelectionService,OccurrenceRevisionService,OccurrenceCompletionService,OccurrenceAgreementService}.php`
+— beside the now-facade `OccurrenceService.php` (public API, constants and
+transaction convention unchanged), and `RecurrenceCalculator` gained the shared
+pure day-key helpers (`offsetDays` public, `dayAfter`/`dayBefore`/`dayKeyToDate`).
+No §5-listed file changed its contract; the one direct-construction test
+(`RoomTaskServiceExtendedFeaturesTest`) was rewired to build the collaborators
+from the same mocked mappers.
+
 ## 6. Implementation Order
 
 1. Standard A delivered 2026-09-20 (`PASS`): section 10 resolved via Q-072-01
@@ -328,7 +332,7 @@ implementations/tests only with replacement coverage; no blanket suite retiremen
 - [x] All section 4 tests and gates pass without missing, red or newly/unapproved skipped required cases (Docker unit 976/2900 + integration 395/1782 `--fail-on-skipped` zero-skip; Jest 1064; lint/build/cs:check/l10n 956/backlog/docs:encoding/diff-check/test:noise green; E2E gate PASSED — all three pools zero skip/fail/flaky).
 - [x] Parent RF-070-02/RF-070-04 evidence reflects only verified WP1 scope; broader CONCEPT-001 and later-package findings remain open (parent findings annotated with the delivered WP1 portion only).
 - [x] Durable behavior is integrated into concepts, ADR-013, engineering/API/testing docs with later-package limitations explicit (ADR-013 + ADR-009/011/012 annotations, task-model concept, API README, architecture/development/testing, release-test-plan).
-- [ ] All section 9 findings and section 10 questions are resolved; final Standard B is `PASS` or `PASS-WITH-FIXES`; tracking updated. (2026-09-22: final Standard B `NEEDS-FOLLOW-UP` — RF-072-WP1-06..17 verified fixed; RF-072-WP1-18 open.)
+- [x] All section 9 findings and section 10 questions are resolved; final Standard B is `PASS` or `PASS-WITH-FIXES`; tracking updated. (2026-09-23: final Standard B round 2 `PASS-WITH-FIXES` — the RF-072-WP1-18 split verified behavior-neutral in code, RF-072-WP1-19 (§4-named `OccurrenceServiceTest` T1-B pins missing) fixed in-round, the recurring integration first-run-after-reset flake routed out-of-scope to TECH-TEST-003; full gate set rerun green incl. E2E gate `run-cRpU8q`; tracking updated with the `active/ → done/` move.)
 
 ## 9. Review Findings (Plan-Owned)
 
@@ -592,7 +596,7 @@ complete gate set green. One new finding was raised; the user routed it
 plan-owned (batched question, 2026-09-22), so it blocks the `done/` move and
 must be resolved in a next round of this plan.
 
-- [ ] **RF-072-WP1-18 (open):** `lib/Service/OccurrenceService.php` is 1934
+- [x] **RF-072-WP1-18 (fixed 2026-09-22):** `lib/Service/OccurrenceService.php` is 1934
   lines — far beyond the project's ~300-lines/file guideline (project-rules
   §1 Architecture/KISS) and still growing through the resolving round
   (selection derivation, reconciliation/materialization, completion/undo seam,
@@ -603,6 +607,103 @@ must be resolved in a next round of this plan.
   reconciliation/materialization vs completion seam) in a next round of this
   plan, gates green, no API change. User decision 2026-09-22: plan-owned
   finding (not an observation, not a backlog rescope).
+
+### RF-072-WP1-18 resolving round (2026-09-22)
+
+Behavior-neutral split of the 1934-line `OccurrenceService` into a stable
+facade plus six cohesive collaborators; every method body moved verbatim,
+no query order, message, constant or public signature changed.
+
+- **Split:** `OccurrenceService` (facade, 408 lines) keeps the public API
+  (29 methods), the four public constants (re-exported aliases) and the
+  transaction convention, delegating to:
+  `OccurrenceRowFactory` (81 lines; row drafts + saved-zone windows,
+  virtual twins, pure — no DB), `OccurrenceReconcileService` (456 lines;
+  frontier, reconciliation, materialization, interval pending,
+  end-of-life, `next_due` projection, job pass; owns
+  `HORIZON_DAYS`/`JOB_BATCH_SIZE`/`JOB_MATERIALIZE_BUDGET`),
+  `OccurrenceSelectionService` (496 lines; write-free selection/read
+  derivation, DTO block, selection token, projections; owns
+  `SELECTION_LOOKBACK_DAYS`), `OccurrenceRevisionService` (420 lines;
+  rule inputs, revision 1 creation, edit/zone/tombstone revision
+  lifecycle), `OccurrenceCompletionService` (366 lines;
+  resolve/apply/release completion seam) and
+  `OccurrenceAgreementService` (353 lines; C2 date/participant
+  amendments + the shared child-capacity counter). Layering is acyclic:
+  RowFactory → ReconcileService → {Selection, Revision}Service →
+  {Completion, Agreement}Service; `RecurrenceCalculator` (283 lines)
+  additionally hosts the shared pure day-key helpers (`offsetDays` now
+  public, `dayAfter`/`dayBefore`/`dayKeyToDate` new) instead of four
+  private duplicates.
+- **Neutrality proofs:** all consumer seams unchanged (controllers,
+  `CompletionService`, `RoomTaskService`, stores, job, seed); PHPUnit mocks
+  unaffected (constructor-bypassing); the single direct-construction test
+  (`RoomTaskServiceExtendedFeaturesTest`) rewired to build the real
+  collaborators from the same mocked mappers; the job-failure log context
+  `service` key now names the actual source
+  (`OccurrenceReconcileService`); the unused `$houseId` parameter of the
+  internal `attachMembersUnderLock` was dropped. No l10n string, route,
+  DTO or SQL-sequence change (the `WorkflowQueryBudgetTest` projection pin
+  passed unchanged).
+- **Round gates (2026-09-22):** Docker unit 963/2890 and integration
+  403/1832 `--fail-on-skipped` zero-skip (`family` profile) — identical to
+  the pre-split baseline (one first-run-after-volume-reset warm-up flake
+  in a controller-validation path unrelated to the split; two subsequent
+  full runs green); Jest 1069/1069 `--runInBand`; `npm run lint`,
+  `npm run build`, `npm run test:noise`, `l10n:check-keys` (957 keys),
+  `composer cs:check` (0 of 333), `backlog:check`, `docs:encoding`,
+  `git diff --check` green; **E2E gate PASSED** (`run-q6rUyU`, 47
+  required specs, all three pools sequential, zero
+  skipped/failed/flaky) on a clean family volume after two
+  timeout-flaked attempts on the degraded 3-hour test volume (all
+  attempt failures were 10–30 s locator/API/load-state timeouts with the
+  spec passing in isolation; the disposable-volume reset prescribed by
+  the docker skill resolved them). `php -l` clean on every changed file.
+
+### Final Standard B review round 2 (2026-09-22/23)
+
+The final Standard B review (round 2) verified the RF-18 collaborator split
+in code — facade delegation for the full public API and the four re-exported
+constants, acyclic layering (RowFactory → ReconcileService → {Selection,
+Revision}Service → {Completion, Agreement}Service), consumer seams unchanged
+(every production consumer injects the facade; the collaborators are
+referenced only by the facade and the rewired
+`RoomTaskServiceExtendedFeaturesTest`), the shared pure day-key helpers
+hosted once in `RecurrenceCalculator` with no private duplicates repo-wide,
+the job-failure log `service` key naming `OccurrenceReconcileService`, and
+the dropped unused `attachMembersUnderLock` `$houseId` parameter — and reran
+the complete gate set green. Outcome `PASS-WITH-FIXES`; the plan moves to
+`done/`.
+
+- [x] **RF-072-WP1-19 (fixed in-round, 2026-09-23):** the §4 T1-B row names
+  `tests/unit/Service/OccurrenceServiceTest.php` as a required new suite,
+  but the file was never delivered and the canonical-selection tie-break
+  assertions (earliest deadline → planned date → identity; latest-miss
+  catch-up classification) had no explicit unit pin — the completion gate
+  ("no required test missing") was not met on the letter of §4. Fixed
+  in-round (test-only, safe): the named file now exists with 8 pins through
+  the facade (smallest-window-end / planned-date / canonical-identity
+  tie-breaks, fulfilled/covered/voluntary skipping, latest-miss `late`
+  catch-up, covered-miss exclusion, open-voluntary recordability,
+  future-window never selected); unit suite 963 → 971 green.
+- **Flake routing (no plan finding):** the first integration run after a
+  disposable-volume reset failed ONE controller-validation test
+  (`ChecklistApiTest::testDeleteTaskItem_Member_Returns403`, shared instance
+  house `DoesNotExistException` during fixture schedule initialization) —
+  the same first-run-after-reset class the RF-18 resolving round noted. Two
+  consecutive full reruns on the clean volume were green (403 tests / 1831
+  assertions each). The root cause is the shared-house lifecycle in the
+  integration harness (cross-cutting test infrastructure; production
+  behavior correct), so it was routed OUT of plan scope per Finding Routing
+  step 4 to `TECH-TEST-003` in `backlog.md`.
+- **Doc fix (in-round, no finding id):** the Size Guideline Exception
+  Inventory (`docs/engineering/architecture.md`) had not received entries
+  for the six new >300-non-blank-line collaborator/facade files as its
+  maintenance rule requires ("in the same change"), and WP1-grown rows
+  carried stale counts. The whole table was re-measured (non-blank lines,
+  2026-09-22) and updated, including pre-existing WP0-era drift on
+  unchanged files (`MinigameService`, `TaskEditForm.vue`, `minigame.js`)
+  and the previously unlisted `SchedulingService`.
 
 ## 10. Activation Decisions
 
@@ -756,6 +857,86 @@ product decision is claimed from these allocations.
   Review Outcome/Findings, review records, ACTIVE_TASKS); the implementation
   package stays uncommitted pending the finding's resolution and a passing
   final review.
+
+## Review Outcome — Standard B final round 2 (2026-09-23)
+
+- **Scope**: the complete uncommitted WP1 package (at capture: 99 tracked
+  modified files + 1 package deletion `RoomTaskMapperDailyTest.php`,
+  +3600/−2072 tracked, plus 25 untracked new files; the 3 pre-existing
+  unrelated `.gitkeep` deletions excluded) as the final Standard B round 2
+  against this plan's full manifest, acceptance criteria, required-test
+  evidence, durable-doc integration and implementation history; delta focus:
+  the RF-072-WP1-18 resolving-round collaborator split.
+- **Tier / outcome**: Standard B (final) — `PASS-WITH-FIXES`. The split is
+  verified behavior-neutral in code; RF-072-WP1-19 (§4-named
+  `OccurrenceServiceTest.php` never delivered; selection tie-breaks without
+  an explicit unit pin) fixed in-round; one safe doc fix (Size Guideline
+  Exception Inventory completed/re-measured per its maintenance rule); the
+  recurring integration first-run-after-reset flake routed out of plan
+  scope to `TECH-TEST-003`. All §9 findings resolved, all acceptance
+  criteria met; the `active/ → done/` move was performed.
+- **Base state**: `master` @ `e844f31`, branch `master`, index empty at
+  capture (2026-09-22). Scope fingerprint (SHA256): unstaged binary diff
+  `0785E494A14109292BAE23040074DE1E951BE19179275C5E0D634F86D5325B93`,
+  staged diff EMPTY, untracked manifest (25 sorted paths + per-file content
+  hashes) `E158005422B07CF51CD4B652AC715C4FD73E22503C7C6284E9F332C7F4749444`.
+- **Verification**: facade keeps the full public API (28 delegating methods
+  + 4 re-exported constants) and the transaction convention; collaborator
+  line counts match the resolving-round note (408/81/456/496/420/366/353 +
+  calculator 283); layering acyclic; previously verified RF-01..17 seams
+  re-spot-checked (RF-11 shared `openOccurrenceDayLoadByWallet` counter
+  feeding `RoomTaskService::assertChildCapacityForDate`, RF-13
+  `validateOccurrenceKey` on both checklist endpoints, RF-14
+  scheduled-kind miss filter, RF-15 `selectionBlock` → `occurrenceBlock`
+  delegation + `savedZoneDiffers` only, RF-08 budget/`dayAfter(frontier)`
+  bounds + localized 409 in EN/DE/POT); `TimelineJob` registered in
+  `appinfo/info.xml`; durable docs reflect the split (architecture.md
+  completion-path + facade description, development.md, ADR-013 code map);
+  parent RF-070-02/04 annotations unchanged (WP1-portion-only).
+- **Fixes (this round)**: (1) RF-072-WP1-19 — delivered the §4-named
+  `tests/unit/Service/OccurrenceServiceTest.php` (8 T1-B
+  selection/tie-break pins through the facade; deterministic injected
+  instant). (2) `docs/engineering/architecture.md` Size Guideline Exception
+  Inventory: new entries for the six Occurrence facade/collaborator files
+  (330-465 non-blank) + `ChecklistController` (307) + `ChecklistService`
+  (415) + `SchedulingService` (304, pre-existing omission); all rows
+  re-measured 2026-09-22 (WP1-grown: `RoomTaskController` 951,
+  `CompletionService` 730, `RoomTaskService` 846, `RoomTaskReadService`
+  619, `SchedulePlanService` 1071, `TaskService` 538, `HouseService` 501,
+  `HouseSetupService` 490, `TaskCreationService` 453, `TestDataService`
+  566, `CompletedTaskMapper` 536, `roomTasks.js` 967; shrunk: `RoomTask`
+  357, `RoomTaskMapper` 503; WP0-era drift corrected: `MinigameService`
+  369, `TaskEditForm.vue` 891, `minigame.js` 381).
+- **Gates (this review)**: Docker PHPUnit unit **971 tests / 2908
+  assertions OK** (963 baseline + 8 new pins) and integration **403 tests /
+  1831 assertions OK** — two consecutive green runs, `--fail-on-skipped`,
+  zero skips, `family` profile, clean volume; Jest **1069/1069** (100
+  suites); `npm run lint` clean; `npm run build` compiled successfully;
+  `npm run test:noise` clean; `composer cs:check` 0 of 334;
+  `npm run l10n:check-keys` 957 keys exact coverage; `npm run
+  backlog:check` green; `npm run docs:encoding` 744 files green;
+  `git diff --check` clean; **E2E gate PASSED** (`run-cRpU8q`, 47 required
+  specs, all three pools sequential, zero skipped/failed/flaky) — rerun by
+  user decision.
+- **Environment note**: Docker Desktop's engine crashed once mid-review
+  (daemon pipe lost; containers exited 255; the restart's entrypoint hit an
+  install conflict against the persisted DB). Diagnosed per the docker-dev
+  skill; a full disposable recycle (`down -v` + `up -d`, family profile)
+  restored a clean state and all backend/E2E evidence above is
+  post-recycle. The pre-crash first-run-after-reset integration flake is
+  tracked as `TECH-TEST-003`.
+- **Decisions recorded** (batched question, 2026-09-22): rerun the E2E gate
+  in this final review rather than accept the resolving round's same-day
+  `run-q6rUyU` evidence — consistent with the previous final review's
+  decision; the review produced its own authoritative evidence
+  (`run-cRpU8q`).
+- **Transition**: `active/ → done/` (2026-09-23); `docs/plans/README.md`,
+  `docs/README.md`, parent CS-PLAN-070 (header + WP table), the CONCEPT-001
+  narrative, `ACTIVE_TASKS.md` (consolidated per-plan one-liner; the two
+  older 072 entries rolled to `archive/2026-09.md`) and the tracked links
+  updated; review record `docs/backlog/archive/CODE_REVIEW_2026-09-23.md`.
+  CONCEPT-001 and the parent remain open (WP2-WP9); no owning backlog item
+  is completed by this delivery alone.
 
 ## Drafting Evidence
 

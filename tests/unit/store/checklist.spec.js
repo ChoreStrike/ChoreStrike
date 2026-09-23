@@ -34,6 +34,7 @@ describe('checklist store', () => {
 		it('starts with empty items and progress', () => {
 			expect(store.items).toEqual({})
 			expect(store.progress).toEqual({})
+			expect(store.progressMeta).toEqual({})
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
 		})
@@ -93,6 +94,18 @@ describe('checklist store', () => {
 			expect(store.progress[10]).toEqual(rows)
 		})
 
+		it('fetchRoomTaskProgress caches the occurrence identity + max revision (CS-PLAN-072 WP1)', async () => {
+			const rows = [
+				{ id: 1, checklistItemId: 5, isChecked: false, revision: 3 },
+				{ id: 2, checklistItemId: 6, isChecked: true, revision: 1 },
+			]
+			api.get.mockResolvedValue({ items: rows, stats: {}, occurrence: { occurrenceId: '7:2' } })
+
+			await store.fetchRoomTaskProgress(10)
+
+			expect(store.progressMeta[10]).toEqual({ occurrenceId: '7:2', revision: 3 })
+		})
+
 		it('addItem posts the label contract and appends the item', async () => {
 			const created = { id: 9, taskId: 5, label: 'Dust shelf', sortOrder: 0 }
 			api.post.mockResolvedValue(created)
@@ -136,8 +149,31 @@ describe('checklist store', () => {
 
 			await store.toggleItem(10, 5)
 
-			expect(api.post).toHaveBeenCalledWith('/api/v1/checklists/toggle/10/5')
+			expect(api.post).toHaveBeenCalledWith('/api/v1/checklists/toggle/10/5', { occurrenceId: null, expectedRevision: null })
 			expect(store.progress[10]).toEqual([row])
+		})
+
+		it('toggleItem sends the cached occurrence identity + expectedRevision (CS-PLAN-072 WP1)', async () => {
+			const row = { id: 3, roomTaskId: 10, checklistItemId: 5, isChecked: true, revision: 4 }
+			api.post.mockResolvedValue({ progress: row, stats: {}, occurrence: { occurrenceId: '7:2' } })
+			store.progress = { 10: [{ id: 3, roomTaskId: 10, checklistItemId: 5, isChecked: false, revision: 3 }] }
+			store.progressMeta = { 10: { occurrenceId: '7:2', revision: 3 } }
+
+			await store.toggleItem(10, 5)
+
+			expect(api.post).toHaveBeenCalledWith('/api/v1/checklists/toggle/10/5', { occurrenceId: '7:2', expectedRevision: 3 })
+			// The response refreshes the cached meta from the upserted rows.
+			expect(store.progressMeta[10]).toEqual({ occurrenceId: '7:2', revision: 4 })
+		})
+
+		it('toggleItem refetches the occurrence progress on a 409 stale revision', async () => {
+			const stale = new Error('stale')
+			stale.status = 409
+			api.post.mockRejectedValue(stale)
+			const refetchSpy = jest.spyOn(store, 'fetchRoomTaskProgress').mockResolvedValue([])
+
+			await expect(store.toggleItem(10, 5)).rejects.toBe(stale)
+			expect(refetchSpy).toHaveBeenCalledWith(10)
 		})
 
 		it('toggleItem appends a row that did not exist yet', async () => {
@@ -169,6 +205,7 @@ describe('checklist store', () => {
 		it('reset clears all state', () => {
 			store.items = { 5: [{ id: 1 }] }
 			store.progress = { 10: [{ id: 1 }] }
+			store.progressMeta = { 10: { occurrenceId: '7:2', revision: 3 } }
 			store.loading = true
 			store.error = 'something'
 
@@ -176,6 +213,7 @@ describe('checklist store', () => {
 
 			expect(store.items).toEqual({})
 			expect(store.progress).toEqual({})
+			expect(store.progressMeta).toEqual({})
 			expect(store.loading).toBe(false)
 			expect(store.error).toBeNull()
 		})

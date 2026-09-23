@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace OCA\ChoreStrike\Controller;
 
+use OCA\ChoreStrike\Db\Occurrence;
+use OCA\ChoreStrike\Exception\ConflictException;
 use OCA\ChoreStrike\Exception\ForbiddenException;
 use OCA\ChoreStrike\Exception\NotFoundException;
 use OCA\ChoreStrike\Service\AppLogger;
@@ -213,21 +215,36 @@ class ChecklistController extends Controller {
 	}
 
 	/**
-	 * Get checklist progress for a room task
+	 * Get checklist progress for one occurrence of a room task
+	 * (CS-PLAN-072 WP1). `occurrenceId` is the public
+	 * `<scheduleRevisionId>:<ordinal>` key; without it the canonical
+	 * selection target is used. The response carries each row's
+	 * occurrence identity and progress revision plus the resolved target.
 	 *
 	 * @NoAdminRequired
 	 */
 	public function getRoomTaskProgress(int $roomTaskId): JSONResponse {
 		try {
 			$houseUser = $this->requireViewer();
+			$occurrenceKey = $this->request->getParam('occurrenceId');
+			$validationError = $this->validateOccurrenceKey($occurrenceKey);
+			if ($validationError !== null) {
+				return $validationError;
+			}
 
-			$result = $this->checklistService->getRoomTaskProgress($roomTaskId, $this->houseId, $houseUser);
+			$result = $this->checklistService->getRoomTaskProgress(
+				$roomTaskId,
+				is_string($occurrenceKey) && $occurrenceKey !== '' ? $occurrenceKey : null,
+				$this->houseId,
+				$houseUser
+			);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => [
 					'items' => array_map(fn ($p) => $p->jsonSerialize(), $result['items']),
-					'stats' => $result['stats']
+					'stats' => $result['stats'],
+					'occurrence' => $result['occurrence']
 				]
 			]);
 		} catch (NotFoundException $e) {
@@ -241,31 +258,74 @@ class ChecklistController extends Controller {
 	}
 
 	/**
-	 * Toggle checklist item status for a room task
+	 * Toggle a checklist item of one occurrence of a room task
+	 * (CS-PLAN-072 WP1): `occurrenceId` targets the occurrence (default:
+	 * canonical selection), `expectedRevision` is the stale-mutation
+	 * guard — a moved-on progress state answers 409 instead of leaking
+	 * into the occurrence's checklist.
 	 *
 	 * @NoAdminRequired
 	 */
 	public function toggleItem(int $roomTaskId, int $itemId): JSONResponse {
 		try {
 			$houseUser = $this->requireViewer();
+			$occurrenceKey = $this->request->getParam('occurrenceId');
+			$validationError = $this->validateOccurrenceKey($occurrenceKey);
+			if ($validationError !== null) {
+				return $validationError;
+			}
+			$expectedRevision = $this->request->getParam('expectedRevision');
+			if ($expectedRevision !== null && (!is_numeric($expectedRevision) || (int)$expectedRevision < 0)) {
+				return ControllerErrorFormatter::validation(new \InvalidArgumentException(
+					$this->l->t('expectedRevision must be a non-negative integer')
+				));
+			}
 
-			$result = $this->checklistService->toggleItem($roomTaskId, $itemId, $this->houseId, $houseUser);
+			$result = $this->checklistService->toggleItem(
+				$roomTaskId,
+				is_string($occurrenceKey) && $occurrenceKey !== '' ? $occurrenceKey : null,
+				$itemId,
+				$expectedRevision !== null ? (int)$expectedRevision : null,
+				$this->houseId,
+				$houseUser
+			);
 
 			return new JSONResponse([
 				'success' => true,
 				'data' => [
 					'progress' => $result['progress']->jsonSerialize(),
-					'stats' => $result['stats']
+					'stats' => $result['stats'],
+					'occurrence' => $result['occurrence']
 				]
 			]);
 		} catch (NotFoundException $e) {
 			return ControllerErrorFormatter::notFoundResponse($e);
 		} catch (ForbiddenException $e) {
 			return ControllerErrorFormatter::forbiddenResponse($e);
+		} catch (ConflictException $e) {
+			return ControllerErrorFormatter::conflictResponse($e);
 		} catch (\Exception $e) {
 			$this->logControllerException('checklist', $e);
 			return ControllerErrorFormatter::serverErrorResponse($e, 'TOGGLE_CHECKLIST_ITEM_ERROR');
 		}
+	}
+
+	/**
+	 * Validate a supplied occurrence key at the controller boundary
+	 * (RF-072-WP1-13): a malformed public key is a clean 400, never an
+	 * exception escaping into the generic 500 handler — the completion
+	 * route applies the same contract.
+	 */
+	private function validateOccurrenceKey(mixed $occurrenceKey): ?JSONResponse {
+		if (!is_string($occurrenceKey) || $occurrenceKey === '') {
+			return null;
+		}
+		try {
+			Occurrence::parsePublicKey($occurrenceKey);
+		} catch (\InvalidArgumentException $e) {
+			return ControllerErrorFormatter::validation($e);
+		}
+		return null;
 	}
 
 	/**

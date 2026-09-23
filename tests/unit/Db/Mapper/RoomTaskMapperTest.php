@@ -6,7 +6,6 @@ namespace OCA\ChoreStrike\Tests\Unit\Db\Mapper;
 
 use OCA\ChoreStrike\Db\RoomTask;
 use OCA\ChoreStrike\Db\RoomTaskMapper;
-use OCA\ChoreStrike\Db\Task;
 use OCP\DB\IResult;
 use OCP\DB\QueryBuilder\IExpressionBuilder;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -80,41 +79,6 @@ class RoomTaskMapperTest extends TestCase {
 		$this->assertCount(1, $results);
 		$this->assertInstanceOf(RoomTask::class, $results[0]);
 		$this->assertTrue($results[0]->getIsActive());
-	}
-
-	/**
-	 * FindOverdueByHouse_WithHouseId_ScopesQueryByHouse
-	 *
-	 * Verifies the house-scoped overdue query delegates to the house JOIN
-	 * chain and returns entities. Cross-house isolation is verified by the
-	 * integration suite on a real DB (AuthorizationIntegrationTest).
-	 */
-	public function testFindOverdueByHouse_WithHouseId_ScopesQueryByHouse(): void {
-		$houseId = 1;
-		$roomId = 2;
-
-		$this->qb->expects($this->once())->method('select')->willReturn($this->qb);
-		$this->qb->expects($this->once())->method('from')->willReturn($this->qb);
-		$this->qb->expects($this->exactly(2))->method('innerJoin')->willReturn($this->qb);
-		$this->qb->expects($this->any())->method('where')->willReturn($this->qb);
-		$this->qb->expects($this->any())->method('andWhere')->willReturn($this->qb);
-		$this->qb->expects($this->any())->method('orderBy')->willReturn($this->qb);
-
-		$mockResult = $this->createMock(IResult::class);
-		$mockResult->method('fetch')
-			->willReturnOnConsecutiveCalls([
-				'id' => 1,
-				'room_id' => $roomId,
-				'task_id' => 5,
-				'is_active' => true,
-				'next_due' => '2026-02-20 10:00:00',
-			], false);
-
-		$this->qb->expects($this->once())->method('executeQuery')->willReturn($mockResult);
-
-		$results = $this->mapper->findOverdueByHouse($houseId, $roomId);
-
-		$this->assertCount(1, $results);
 	}
 
 	/**
@@ -348,36 +312,5 @@ class RoomTaskMapperTest extends TestCase {
 		$this->assertSame(9, $capturedParams[0]['value']);
 		$this->assertSame([1, 2, 3], $capturedParams[1]['value']);
 		$this->assertSame(IQueryBuilder::PARAM_INT_ARRAY, $capturedParams[1]['type']);
-	}
-
-	/**
-	 * MarkCompleted_WithOnceRecurrence_DeactivatesTask
-	 */
-	public function testMarkCompleted_WithOnceRecurrence_DeactivatesTask(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setIsActive(true);
-		$roomTask->setNextDue(new \DateTime('2026-02-24 12:00:00'));
-
-		$completedAt = new \DateTime('2026-02-24 15:00:00');
-		$roomTask->markCompleted($completedAt, 'weekly', 1, Task::RECURRENCE_ONCE);
-
-		$this->assertFalse($roomTask->getIsActive());
-		$this->assertSame($completedAt->format('c'), $roomTask->getNextDue()->format('c'));
-	}
-
-	/**
-	 * MarkCompleted_WithRecurringPastActiveUntil_DeactivatesTask
-	 */
-	public function testMarkCompleted_WithRecurringPastActiveUntil_DeactivatesTask(): void {
-		$roomTask = new RoomTask();
-		$roomTask->setIsActive(true);
-		$roomTask->setNextDue(new \DateTime('2026-02-24 12:00:00'));
-
-		$completedAt = new \DateTime('2026-02-24 15:00:00');
-		$activeUntil = new \DateTime('2026-02-25 00:00:00');
-		$roomTask->markCompleted($completedAt, 'weekly', 1, 'recurring', 'dynamic', $activeUntil);
-
-		$this->assertFalse($roomTask->getIsActive());
-		$this->assertSame($activeUntil->format('c'), $roomTask->getNextDue()->format('c'));
 	}
 }

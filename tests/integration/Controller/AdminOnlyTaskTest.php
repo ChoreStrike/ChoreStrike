@@ -95,7 +95,7 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 		$this->actingAs('admin_owner');
 		$completionService = \OC::$server->get(CompletionService::class);
 
-		$result = $completionService->complete($this->houseId, 'admin_owner', $this->adminOnlyRoomTaskId);
+		$result = $this->completeOccurrence($completionService, $this->houseId, 'admin_owner', $this->adminOnlyRoomTaskId);
 
 		self::assertArrayHasKey('rewards', $result);
 		self::assertGreaterThan(0, $result['rewards']['coins']);
@@ -107,7 +107,7 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Task not found');
-		$completionService->complete($this->houseId, 'admin_member', $this->adminOnlyRoomTaskId);
+		$this->completeOccurrence($completionService, $this->houseId, 'admin_member', $this->adminOnlyRoomTaskId);
 	}
 
 	public function testChildCannotCompleteAdminOnlyTask(): void {
@@ -116,7 +116,7 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 
 		$this->expectException(NotFoundException::class);
 		$this->expectExceptionMessage('Task not found');
-		$completionService->complete($this->houseId, 'admin_child', $this->adminOnlyRoomTaskId);
+		$this->completeOccurrence($completionService, $this->houseId, 'admin_child', $this->adminOnlyRoomTaskId);
 	}
 
 	// ========== Admin-Only Tasks Grant Rewards ==========
@@ -129,7 +129,7 @@ class AdminOnlyTaskTest extends IntegrationTestCase {
 		$before = $houseUserMapper->findByNextcloudUserId($this->houseId, 'admin_owner');
 		$coinsBefore = $before->getCoins();
 
-		$result = $completionService->complete($this->houseId, 'admin_owner', $this->adminOnlyRoomTaskId);
+		$result = $this->completeOccurrence($completionService, $this->houseId, 'admin_owner', $this->adminOnlyRoomTaskId);
 
 		$after = $houseUserMapper->findByNextcloudUserId($this->houseId, 'admin_owner');
 		self::assertGreaterThan($coinsBefore, $after->getCoins());

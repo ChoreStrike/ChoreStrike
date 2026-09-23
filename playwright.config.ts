@@ -72,6 +72,10 @@ const SEED_DEPENDENT_SPECS = [
 	// assert derived projections that any parallel reseed would corrupt.
 	/[/\\]family-core-ux\.spec\.ts$/,
 	/[/\\]workflow-state-reconciliation\.spec\.ts$/,
+	// CS-PLAN-072 WP1: the occurrence-timeline slice creates probe tasks and
+	// completes/fulfills them through the real receipt contract — it asserts
+	// per-target ledger/selection state a parallel reseed would corrupt.
+	/[/\\]family-rhythm\.spec\.ts$/,
 ]
 
 // Owner-scoped scheduling specs run as `dad` (an owner) — admin is only a

@@ -6,6 +6,16 @@
 
 ## Context
 
+> **Occurrence-timeline amendment (2026-09-20, CS-PLAN-072 WP1 / ADR-013):**
+> the preview/apply contract and its content fingerprint are unchanged, but
+> `apply` no longer writes `next_due` directly. Due-date moves go through
+> `OccurrenceService::amendOccurrenceDateUnderLock` and assignee changes through
+> `amendParticipantsUnderLock` (the common agreement writers), so a confirmed
+> plan amends the target occurrence - identity retained, C2 child day-limit and
+> amendment-deadline enforced, `agreements` evidence recorded - instead of
+> mutating a projection outside an agreement. The planner fingerprint still reads
+> the derived projection, so stale-input rejection is unchanged.
+
 The scheduling surface could not produce an owner-confirmed plan over real
 room tasks. The `POST /scheduling/suggestions` endpoint accepted only a
 `taskCount` and returned weekday aggregates (counts and energy totals) — no

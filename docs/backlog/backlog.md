@@ -389,15 +389,18 @@ WP0 (write/identity foundation) was sub-planned and delivered by the child
 `PASS-WITH-FIXES` 2026-09-19, plan in `done/`**): house-first lock order,
 Version1030 commands/wallets/wallet_entries, wallet identity at every
 membership path, `CommandService`, tombstone deletion with retained
-evidence, account erasure + `UserDeletedListener`, T0 suites. The WP1+
-behavior packages remain open in the parent. WP1 is active as
-[CS-PLAN-072](../plans/active/cs-plan-072-wp1-occurrence-timeline.md)
-(Standard A `PASS` 2026-09-20): occurrence timeline, explicit
-completion/checklist identity, current-client integration and — per Q-072-01
-Option A, answered in that review — the minimal common agreement writer with
-`agreements` persistence and necessary C2 deadline/authorization/capacity
-checks (WP1 revised to 7-10 days, WP2 reduced to 5-7). Implementation has not
-started; CONCEPT-001 remains open.
+evidence, account erasure + `UserDeletedListener`, T0 suites. WP1
+(occurrence timeline) was sub-planned and delivered by the child
+[CS-PLAN-072](../plans/done/cs-plan-072-wp1-occurrence-timeline.md)
+(Standard A `PASS` 2026-09-20; **final Standard B `PASS-WITH-FIXES`
+2026-09-23, plan in `done/`**): immutable rule revisions, stable occurrence
+keys, saved windows/time basis, deterministic target selection, write-free
+projections, `TimelineJob`, completion identity via `CommandService`
+receipts, occurrence-scoped checklist/undo, current-client integration
+and — per Q-072-01 Option A — the minimal common agreement writer with
+`agreements` persistence and the necessary C2
+deadline/authorization/capacity checks; ADR-013 recorded. The WP2+
+behavior packages remain open in the parent; CONCEPT-001 remains open.
 
 - [x] Core D1-D11 choices recorded through 24 explicit answers (2026-09-17).
 - [x] Six C1 and eleven C2 choices recorded with future acceptance scenarios (2026-09-17).
@@ -423,6 +426,36 @@ discovery-level exclusion and add a regression proving only the canonical mocks
 are indexed; do not delete the user's worktree, suppress the warnings or skip
 tests. The synthetic failure logs from `browserGate.spec.js` are expected test
 output and are not this warning.
+
+---
+
+### [P3] TECH-TEST-003 — Integration-suite first-run-after-reset flake: shared instance house missing during ChecklistApiTest fixtures
+**Status**: Backlog · **Effort**: M · **Layer**: tooling · **Journey stage**: testing
+**Owning**: unassigned · **Depends on**: — · **Blocks**: — · **Folded-in**: —
+**Source**: Review of CS-PLAN-072 WP1 final Standard B (2026-09-23; the same class of flake was noted in the RF-072-WP1-18 resolving round, 2026-09-22)
+
+The Docker integration suite intermittently fails ONE
+controller-validation test on the first run after a disposable-volume
+reset — observed twice, both times
+`ChecklistApiTest::testDeleteTaskItem_Member_Returns403` with
+`DoesNotExistException` on the shared instance house during
+`IntegrationTestCase::initializeScheduleForFixture` →
+`RoomTaskReadService::timeZoneForHouse`. Immediate reruns on the same
+volume are green (two consecutive full runs 403 tests / 1831 assertions,
+2026-09-23). `ChecklistApiTest::setUp` resolves the shared house through
+the process-memoized `HouseService` DI singleton (`getOrCreateHouse`);
+investigation start: a preceding structural-deletion/tombstone test
+removing the shared house row on a fresh volume combined with the
+memoized resolution, first surfaced by the CS-PLAN-072 WP1 fixture seam
+(schedule initialization per created room task) being the first reader of
+the house row. Production behavior is correct — the house lookup SHOULD
+fail for a deleted house; the defect is the shared-house lifecycle in the
+integration harness. Root-cause and fix the harness (per-test house
+isolation or a non-memoized house resolution in fixtures) instead of
+relying on the rerun protocol; do not weaken the WP1 fixture seam.
+Deferral reason: intermittent, harness-only, needs dedicated root-cause
+effort; the two-green-rerun protocol keeps gate evidence trustworthy in
+the meantime.
 
 ---
 
