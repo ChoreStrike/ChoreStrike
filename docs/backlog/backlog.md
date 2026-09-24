@@ -120,6 +120,13 @@ assigns the fix and deterministic injected-clock regression to its preview/apply
 cutover; activated via Standard A `PASS-WITH-FIXES` (2026-09-23). Still open —
 close/archive only after the write-free midnight-409 proof passes.
 
+**WP2 review (2026-09-24):** the mechanism is implemented in the (still
+uncommitted) WP2 increment — preview fingerprint v2 includes the evaluation
+local day and apply compares the fingerprint BEFORE the relative-date
+rejection, so a midnight-crossed preview yields a write-free 409. The required
+injected-clock proof test is outstanding (plan §9 RF-073-WP2-11); the item
+stays In Progress until it passes in the fix round.
+
 ---
 
 ### [P4] CR-SEC-05 — Caller-gates-owner contract on removeHouseMember/updateUserRole

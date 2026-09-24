@@ -10,7 +10,7 @@
 
 ## In Progress
 
-- **CS-PLAN-073 / WP2 — agreements, capacity and pauses** (activated 2026-09-23, Standard A `PASS-WITH-FIXES`; Q-073-01/02/03 resolved with the recommended options incl. the frozen cross-zone comparison): implementation not yet started — next step is §6.2 (fresh schema/entities + T0 extension, pause/consent erasure/reset, frozen participant/capacity DTOs). WP3-WP9, CONCEPT-001 and the parent stay open. [Plan](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md)
+- **CS-PLAN-073 / WP2 — agreements, capacity and pauses** (implementation delivered 2026-09-23; final Standard B attempt 2026-09-24 = `NEEDS-FOLLOW-UP`; fix round is the next step): review fixed 7 defects in-round incl. 3 block-level (pause/amend endpoints dead on arrival via `scope`/`roomTaskId` closed-shape forwarding; apply receipt exceeded the 8 KiB refs bound on larger batches), opened RF-073-WP2-01..18 (7 major logic: amend target re-selection, handover release not persisted, pause provenance union, catch-up appointment loss, virtual-suspension command boundary, planner consent attestation, helper capacity checks; plus required test/E2E/durable-doc gaps). All gates green except the deferred `test:e2e:gate` (user decision). Implementation stays uncommitted; evidence-only review commit. Plan remains `active/`. [Plan](../plans/active/cs-plan-073-wp2-agreements-capacity-pauses.md) · [Review record](archive/CODE_REVIEW_2026-09-24.md)
 
 ## Recently Completed (rolling — last ~2 weeks / max 10)
 

@@ -1,11 +1,31 @@
 # CS-PLAN-073: WP2 - Agreements, Capacity and Pauses
 
-> **Status:** Active; child of CS-PLAN-070; Standard A `PASS-WITH-FIXES` (2026-09-23), Q-073-01/02/03 resolved with the recommended options; implementation not started
+> **Status:** Active; child of CS-PLAN-070; Standard A `PASS-WITH-FIXES` (2026-09-23), Q-073-01/02/03 resolved with the recommended options; implementation delivered 2026-09-23 (sections 3.1-3.6 core, tests and minimal client); final Standard B attempt 2026-09-24 = `NEEDS-FOLLOW-UP` — 7 major logic findings + required test/E2E/durable-doc gaps open in §9 (RF-073-WP2-01..18), fix round pending before the `done/` move
 > **Effort:** L - 5-7 engineering days, the parent's post-Q-072-01 WP2 allowance; confirmed against the resolved section 10 decisions at Standard A (2026-09-23) - all three options are bounded, the allowance holds
 > **Priority:** P1
 > **Depends on:** [CS-PLAN-072 / WP1](../done/cs-plan-072-wp1-occurrence-timeline.md), delivered with final Standard B `PASS-WITH-FIXES` on 2026-09-23; [CS-PLAN-071 / WP0](../done/cs-plan-071-wp0-write-identity-foundation.md) delivered
 > **Related backlog items:** CONCEPT-001 via [CS-PLAN-070](../active/cs-plan-070-family-rhythm-and-reward-clarification.md); FEAT-UX-025 backend slice; CR-SVC-64
 > **Runtime baseline:** `master` at `296888f`, inspected 2026-09-23
+
+## Implementation Record (2026-09-23)
+
+Delivered in this round (working tree, uncommitted):
+
+- **Schema** (§3.1): `Version1031Date20260918000000` extended in place with `chorestrike_pauses` (revisioned lifecycle: stable `pause_group_id`, unique `(pause_group_id, revision)`, house/date/subject indexes, bounded reason codes, saved zone, retrospective-illness marker) and the occurrence columns `suspension_state` / `suspension_evidence` / `restart_of_id`. No upgrade path (project-rules §1).
+- **Projection** (§3.1): new lower evaluator `PauseProjectionService` — frozen Q-073-02 day-interval mapping (rules 1-4 as pure helpers), Q-073-01 suspension decision (sole/joint/partial/helper), union revision coverage, departure-aware excusal, batched write-free `stampSuspensionOnEntries`.
+- **Capacity** (§3.2): `DailyCapacityService` evaluates every member/day from frozen completion effort (joined via `CompletedTaskMapper` by revision/ordinal, work-date bucketed by instant) plus exact planned shares (occurrence members + frontier projections, occurrence-identity dedupe, suspended plans consume nothing); `SchedulePlanService` baseline cutover with minor-unit accounting, per-task replacement attribution, fingerprint v2 (evaluation day + pause fingerprint + saved zones) and CR-SVC-64 write-free midnight 409 (fingerprint-first, `enforceToday` split).
+- **Agreements** (§3.3): `AgreementService` command coordinator (owner-recorded `occurrence.amend|catch-up|restart`, authorize-before-replay, explicit `consent` attestation, closed payload shapes); `OccurrenceAgreementService` writers extended: consent rides evidence rows, single-occurrence participant amendment (future defaults untouched), catch-up work-appointment writer (planned date/window/miss retained), linked restart (`restart_of_id`, open-restart uniqueness, frontier advance); suspended occurrences are no date-amendment targets.
+- **Pauses** (§3.4): `PauseService` (request/acknowledge/household/approve-reject/retrospective-illness/next-day shortening as `CommandService` commands), idempotent neutral-suspension effect application with KIND_PAUSE evidence, departure cancellation hook in `HouseService::removeHouseMember` (Q-073-03), `TimelineJob` convergence pass, erasure extension in `AccountErasureService`.
+- **API** (§3.5): `POST /occurrences/{id}/amend|catch-up|restart` (`{id}` = public occurrence key), `GET|POST /pauses`, `POST /pauses/recognize-illness`, `POST /pauses/{id}/approve|reject`, `PUT /pauses/{id}`; scheduling apply carries `commandId` (validated after the owner gate — 403 never 400 for unauthorized actors); route pin 70 → 79.
+- **Selection/tokens** (§3.5): blocks/tokens fingerprint suspension state, agreed work appointment and the house pause fingerprint (one batched fingerprint query per read; materialized + virtual rows converge); the completion re-validation stamps the resolved row before comparing (frontier deliberately excluded — materialization self-conflict).
+- **Client** (§3.6): `scheduling.js` mints a per-preview plan `commandId`, retains it across 409 retries (draft discipline) and sends it with apply; exact-share labels ride the preview `changes[].shares`/`proposed.shares` and the minor-unit capacity fields (`completedEnergyMinor`/`plannedEnergyMinor`/`remainingEnergyMinor`/`overloaded`/`paused` beside the historical whole-number view).
+- **l10n**: EN/DE/POT regenerated through the canonical tooling; German copy written for all 32 new backend strings.
+
+Tests added/updated: `PauseProjectionServiceTest` (frozen rules), `PauseServiceTest` (role gates, decision revision, next-day boundary), `AgreementServiceTest` (authorization/validation matrix), `PauseControllerTest`, `OccurrenceControllerTest`, `PauseAgreementTest` (DB lifecycle), WP2 schema surface in `FamilyRhythmSchemaTest`, erasure/constructor updates across the unit/integration suites, `WorkflowQueryBudgetTest` measured budgets (COMPLETE 45→58, UNDO 36→40 with justification), route pin, `scheduling.spec.js`/`SchedulePlanner.spec.js` commandId contracts, E2E forged-apply helper.
+
+Gates at delivery: PHPUnit unit 1023 OK, PHPUnit integration (Docker, fresh `down -v` chain incl. updated migration) 412 OK, Jest 1070 OK, ESLint clean, php-cs-fixer clean, webpack production build OK, `l10n:check-keys` 989 keys exact.
+
+**Superseded by the Standard B review (2026-09-24, `NEEDS-FOLLOW-UP`):** the record above documents the delivered increment; the review found 3 block-level defects in it (two dead-on-arrival endpoint payload bugs, one receipt-size apply failure), fixed them in-round (SF-1..SF-7), and opened RF-073-WP2-01..18 in §9. The fix round owns their resolution.
 
 ## 1. Problem Summary
 
@@ -390,6 +410,143 @@ coverage as its new data is introduced. Do not duplicate those findings into new
 backlog entries. New in-scope findings from implementation rounds belong here;
 out-of-scope items follow the canonical routing rules.
 
+### Standard B implementation review (2026-09-24) — all entries OPEN, blocking `done/`
+
+Fixed in-round (safe fixes, verified by the full gate rerun; they remain
+uncommitted together with the implementation package per the NEEDS-FOLLOW-UP
+commit rule):
+
+- [x] SF-1 · block→fixed · `PauseController::create` forwarded the `scope`
+  selector into the service's closed-shape validation — every `POST /pauses`
+  answered 400 (endpoint dead on arrival). The controller now consumes and
+  unsets the selector; `PauseControllerTest` pins the shape.
+- [x] SF-2 · block→fixed · `OccurrenceController::run` forwarded `roomTaskId`
+  into the closed-shape validation — every amend/catch-up/restart answered 400
+  (endpoints dead on arrival). Extracted + unset in `run()`; closures take the
+  explicit id; `OccurrenceControllerTest` pins the shape.
+- [x] SF-3 · block→fixed · `applyAggregate` stored full `roomTasks` response
+  bodies in the receipt refs — `CommandService`'s 8 KiB bound rejects larger
+  batches (the plan allows 100 rows), failing apply AFTER its writes. Refs are
+  compact again; fresh and replay answers both rebuild the authorized rows
+  post-commit.
+- [x] SF-4 · minor→fixed · `authoritativeRoomTasks` used an undefined `$tz` —
+  derived `status`/`daysUntilDue` rendered in the server zone plus a PHP
+  warning. Resolves the house timezone now.
+- [x] SF-5 · minor→fixed · `recognizeIllness` receipt payload omitted
+  `subjectUserId` — a reused UUID with a different subject replayed the
+  original instead of conflicting. Included in the payload hash.
+- [x] SF-6 · minor→fixed · `PauseService::listForViewer` ran N+1 queries
+  (`findByGroup` + `findByHouseId` per row). Single pass: latest-per-group from
+  the ordered revision list + one wallet map.
+- [x] SF-7 · nit→fixed · second class `AgreementCommandContext` inside
+  `AgreementService.php` broke PSR-4 one-class-per-file autoloading. Moved to
+  `lib/Service/AgreementCommandContext.php`.
+
+Open findings (resolution required in the fix round; every entry blocks the
+`done/` move):
+
+- [ ] RF-073-WP2-01 · major · `AgreementService::amend` +
+  `OccurrenceAgreementService::amendOccurrenceDateUnderLock` · the date path
+  re-selects its OWN target (earliest unfulfilled by `windowEnd`) instead of
+  moving the occurrence resolved from the client's key — with an older miss
+  beside an open window a different occurrence than the validated one is
+  amended, and `resultRefs` reports a stale `expectedVersion` after the date
+  write. Needs an explicit-target date-amendment writer variant keyed to the
+  resolved occurrence.
+- [ ] RF-073-WP2-02 · major · `AgreementService::buildParticipantRows` +
+  `amendOccurrenceMembersUnderLock` · handover does not persist the neutral
+  release: `released` is always `[]` and `replaceForOccurrence` DELETES the
+  former responsible member rows. Plan §3.1 requires persisted release
+  (disposition `released` + evidence) rather than deletion.
+- [ ] RF-073-WP2-03 · major · `PauseProjectionService::excusedWalletsOn` ·
+  overlapping recognized pauses overwrite provenance per wallet (last wins) —
+  a wallet covered by both a personal and a house pause (or two personal
+  groups) keeps only one provenance entry. Violates the frozen §3.4 union rule
+  ("all applicable provenance retained"); needs a provenance LIST per wallet
+  and union evidence in `deriveSuspension`.
+- [ ] RF-073-WP2-04 · major · `OccurrenceAgreementService::setWorkAppointmentUnderLock`
+  + `OccurrenceMemberMapper::replaceForOccurrence/addMember` · a catch-up with
+  `participants` loses the work appointment: the replace inserts rows without
+  `workDate`/`workZone` (the preceding per-member update loop is overwritten).
+  The appointment must ride the replaced rows.
+- [ ] RF-073-WP2-05 · major · `AgreementService::resolveTarget` /
+  `restartAggregate` / `PauseService::applyPauseEffectsUnderLock` · the
+  virtual→materialized command boundary skips suspension: `resolveAgreedKeyUnderLock`
+  materializes rows with `suspension_state='none'` and no projection stamp, so
+  `restart` rejects a legitimately suspended virtual predecessor (409 "Only a
+  paused occurrence…") while `amend` can move a derived-suspended target (no
+  suspension check at all). Commands must stamp/derive the effective state of
+  the resolved row (and persist effects on write), matching the read paths.
+- [ ] RF-073-WP2-06 · major · `SchedulePlanService::applyAggregate` +
+  `src/store/scheduling.js` · planner apply carries/records no consent
+  attestation: the apply payload has no consent field and the planner's
+  `amendParticipantsUnderLock`/`amendOccurrenceDateUnderLock` calls record
+  `consent: null`. Plan §3.5 requires explicit targets/shares/consent on the
+  apply command and §3.3.2 an explicit attestation evidence row.
+- [ ] RF-073-WP2-07 · major · `AgreementService::assertRowsDayCapacity` /
+  `assertRevisionDayCapacity` · helper commitments are skipped
+  (`!obligated → continue`) — plan §3.2 requires availability/pause/budget
+  checks for EVERY affected participant, including concretely agreed helper
+  commitments.
+- [ ] RF-073-WP2-08 · evidence · `tests/unit/Service/DailyCapacityServiceTest.php`
+  (N, §4 T3-A/T3-B rows) missing — the evaluator is only exercised indirectly
+  through `SchedulePlanServiceTest` wiring; exact-share vectors (energy 1-5,
+  groups 1-100, custom partitions, invalid totals/duplicates/overflow,
+  dedupe, early work, frozen energy across definition edits, hidden
+  commitments) have no direct suite.
+- [ ] RF-073-WP2-09 · evidence · `tests/integration/Service/PauseAgreementConcurrencyTest.php`
+  (N, §4 "Real races / rollback" row) missing — no two-connection proofs for
+  plan-vs-pause, complete-vs-acknowledgment/shortening, duplicate restart,
+  concurrent pause revisions/replayed receipts, injected failure after
+  pause/evidence insertion.
+- [ ] RF-073-WP2-10 · evidence · required (M) extensions missing:
+  `OccurrenceTimelineTest` (T2-A/B/C scenarios), `RoleGuardApiTest` (new
+  amend/catch-up/restart + pauses route matrix, private-task visibility),
+  `AccountErasureTest` (pause subject/requester/decider erasure, consent
+  scrub, same-UID non-rebinding), `HouseMemberRemovalIntegrationTest`
+  (Q-073-03 departure cancellation + effect stop), `CompletionServiceTest`
+  (T3-B over-limit completion, frozen energy, undo preserves neutral evidence).
+- [ ] RF-073-WP2-11 · evidence · CR-SVC-64 proof missing: no test that a valid
+  preview crossing local midnight yields a write-free 409 on apply (the
+  mechanism exists — fingerprint v2 `evaluationDay` — but §4 requires the
+  pinned proof before the backlog item may close).
+- [ ] RF-073-WP2-12 · evidence · browser layer missing: client contract specs
+  (`roomTasks`, `apiContract`, the §4 component list) not updated for the new
+  DTO fields; `required-scenarios.json`/`run-e2e-gate.js`/`playwright.config.ts`
+  untouched; no pause/neutral/overload/shares/consent E2E scenarios;
+  `npm run test:e2e:gate` not run in either round. USER DECISION 2026-09-24:
+  the gate run is deferred to the fix round (after scenarios exist).
+- [ ] RF-073-WP2-13 · client · minimum client surface incomplete beyond
+  `commandId`: exact-share preview labels, consent attestation for the owner
+  amendment/apply controls, and neutral/overload clarification labels are not
+  rendered (`SchedulePlanner.vue` and the §5 component manifest are untouched).
+- [ ] RF-073-WP2-14 · docs · durable integration missing: ADR-012 (apply is a
+  CommandService command, fingerprint v2, CR-SVC-64 ordering),
+  `docs/engineering/{architecture,testing}.md`,
+  `docs/concepts/{task-model-and-sync,energy-and-balancing,ui-use-cases}.md`,
+  `docs/testing/release-test-plan.md` — required by §3.6 before the `done/`
+  move (knowledge-integration rule).
+- [ ] RF-073-WP2-15 · minor · `CompletedTaskMapper::findEnergyUsageBetweenByHouse`
+  uses LEFT JOIN + COALESCE onto mutable `tasks.energy_cost` — a missing
+  occurrence link silently falls back to definition energy instead of
+  enforcing the frozen-energy invariant (§3.2 joins the SAVED occurrence).
+- [ ] RF-073-WP2-16 · minor perf · `DailyCapacityService` runs the full
+  `collect()` twice per preview (`evaluateDays` + `plannedBaseline`) plus a
+  third pauses read for the fingerprint; `assertCommitmentsFit` re-collects
+  per call inside commands. Batch/memoize per evaluation.
+- [ ] RF-073-WP2-17 · minor · ~300-line guideline exceeded without recorded
+  size exceptions: `PauseService` (656), `AgreementService` (~590),
+  `OccurrenceSelectionService` (551), `OccurrenceAgreementService` (499),
+  `DailyCapacityService` (424), `SchedulePlanService` (1131). Split or record
+  the measured exceptions per the WP1 inventory pattern.
+- [ ] RF-073-WP2-18 · nit · `amendKind` labels ANY participant change
+  including a `responsible` role as `handover` (even without a responsibility
+  transfer); `requireWallet` maps a foreign/unknown illness subject to 409
+  instead of the §3.5 404 class; `shorten` accepts pending (requested) pauses
+  although the §3.4 table scopes shortening to acknowledged ones;
+  `applyPauseEffectsUnderLock` records only the first evidence entry in
+  `agreements.pause_ref` (the evidence JSON keeps all).
+
 ## 10. Activation Decisions
 
 Approved parent C2/C3/C5 rules are not reopened. These remaining boundaries need
@@ -544,3 +701,58 @@ drafting task. No runtime implementation, activation or commit has occurred.
   `ACTIVE_TASKS.md`, monthly archive roll) and excludes the three unrelated
   `.gitkeep` deletions. FEAT-UX-025 (backend slice) and CR-SVC-64 set
   In Progress; CONCEPT-001 and the parent stay open (WP3-WP9).
+
+---
+
+**Tier/Outcome: Standard B (code, final attempt) — `NEEDS-FOLLOW-UP` (2026-09-24).**
+
+- **Scope:** the complete WP2 implementation increment in the working tree at
+  capture — 52 modified + 14 untracked files (backend services/entities/
+  migration/controllers/routes, client store, l10n artifacts, unit/
+  integration/Jest/E2E-spec test updates, ADR-013 + api README + plan
+  Implementation Record + ACTIVE_TASKS). Base `master` @
+  `fedf2122d4438c3a89f683cd5a87bd126f397d8a`, index empty; unstaged-diff sha1
+  `6b1817d9d5f4f0f322d2a0b510c28bab2612a2ae`; reviewed-scope fingerprint
+  (SHA256 over unstaged diff + sorted untracked content hashes)
+  `ea36afdfb9764e3c5b6c67a2f2c2bdf66bcef0d43af92413d2f32da1b99ed846`. The
+  three pre-existing unrelated `.gitkeep` deletions stayed excluded per
+  section 5 and prior precedent. Owning plan: this file (explicit path).
+- **Verification performed:** full shared checklist (architecture, authz,
+  security, KISS/duplication, workarounds, logging, i18n, validation, docs)
+  across every changed file; §5 manifest and §4 test-matrix coverage audit;
+  §8 acceptance-criteria evidence check; WP1 handoff/implementation history
+  considered. Authorization verified on all new routes (`@NoAdminRequired`
+  only; membership/owner gates; 404 anti-enumeration on invisible/foreign
+  targets; parameterized SQL throughout; no secrets logged; erasure scrub of
+  consent/pause actor references). No exploitable unremediated security
+  detail — nothing routed to `/private/`.
+- **Findings:** 3 block + 4 minor + 1 nit FIXED in-round (SF-1..SF-7 in §9,
+  including two dead-on-arrival endpoint bugs — `scope`/`roomTaskId`
+  forwarding into closed-shape validation 400'd every new pause/amend
+  request — and the receipt-size-bound apply failure on larger batches);
+  7 major + 4 minor/nit OPEN (RF-073-WP2-01..07, 15..18) plus 7
+  evidence/docs gaps OPEN (RF-073-WP2-08..14). All routed plan-owned into §9
+  (scope-first; nothing out-of-scope, no new backlog items). Every §8
+  acceptance criterion except Standard A remains unproven.
+- **Decisions (batched question tool, answered 2026-09-24):** (1) the
+  `test:e2e:gate` run and the new required browser scenarios are DEFERRED to
+  the fix round (recommended option) — running the gate now would only
+  re-verify unchanged legacy flows; (2) the review ENDS with the
+  evidence-only commit and a separate dedicated fix round resolves
+  RF-01..18 + missing tests/docs before a final Standard B re-review
+  (recommended option).
+- **Gates (rerun after the safe fixes):** PHPUnit unit 1023 OK; PHPUnit
+  integration (Docker, fresh `down -v` chain with the updated Version1031
+  migration, `--fail-on-skipped`) 412 OK zero skips; Jest 1070 OK;
+  ESLint clean; `php-cs-fixer --dry-run` 0 of 349; webpack production build
+  OK; `l10n:check-keys` 989 keys exact EN/DE/POT; `docs:encoding` 771 files
+  clean; `test:noise` clean; `backlog:check` green; `git diff --check` clean.
+  NOT run: `npm run test:e2e:gate` (deferred by decision above; recorded as
+  RF-073-WP2-12).
+- **Transition:** NONE — the plan stays in `active/`. Per the
+  NEEDS-FOLLOW-UP commit rule this review commits ONLY its evidence package
+  (plan §9 + this Review Outcome, the review record
+  [CODE_REVIEW_2026-09-24.md](../../backlog/archive/CODE_REVIEW_2026-09-24.md),
+  `ACTIVE_TASKS.md`, the CR-SVC-64 backlog note); the implementation files —
+  including the verified safe fixes — remain uncommitted in the working tree
+  and are committed by the fix round together with its resolutions.
